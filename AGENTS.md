@@ -6,6 +6,24 @@
 
 ---
 
+## Implementation Progress Tracking
+
+Implementation progress **MUST** be tracked in `IMPLEMENTATION_PROGRESS.md`.
+This document is the durable hand-off reference between coding agents.
+
+**Rules:**
+
+- Review `IMPLEMENTATION_PROGRESS.md` before starting implementation work.
+- Update `IMPLEMENTATION_PROGRESS.md` whenever a task changes project status,
+  phase status, completed checklist items, blockers, open decisions, or the
+  recommended next step.
+- Commit progress updates in the same granular commit as the implementation or
+  documentation change that caused the status change.
+- Do not treat `SYSTEM_SPEC.md` as a progress tracker; it is the architecture
+  and requirements source of truth.
+
+---
+
 ## Git Commit Policy
 
 Every completed task **MUST** be tracked in a descriptive, granular git commit.
@@ -32,4 +50,3 @@ circumstances - no exceptions.
 
 **Verification:** After each task, run `git log --oneline -3` to confirm the
 commit was recorded before moving to the next task.
-

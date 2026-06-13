@@ -1,0 +1,107 @@
+{
+  "schema_version": "0.1.0",
+  "standards_edition": "2026b",
+  "source_manifest_sha256": "9959bee76fd293c7eda3fc81ce2ced7528612faa1b2df28cccd01504a83f54b0",
+  "entries": [
+    {
+      "uid": "1.2.840.10008.1.2",
+      "keyword": "ImplicitVRLittleEndian",
+      "name": "Implicit VR Little Endian: Default Transfer Syntax for DICOM",
+      "profiles": ["smoke", "core"],
+      "status": "available",
+      "read_dataset": true,
+      "decode_pixel": true,
+      "write_dataset": true,
+      "encode_pixel": true,
+      "feature_flags": [],
+      "external_libraries": [],
+      "determinism": "byte_stable",
+      "notes": "Native uncompressed pixel data; required for Phase 1 smoke/core planning.",
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_uid ImplicitVRLittleEndian",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        }
+      ]
+    },
+    {
+      "uid": "1.2.840.10008.1.2.1",
+      "keyword": "ExplicitVRLittleEndian",
+      "name": "Explicit VR Little Endian",
+      "profiles": ["smoke", "core"],
+      "status": "available",
+      "read_dataset": true,
+      "decode_pixel": true,
+      "write_dataset": true,
+      "encode_pixel": true,
+      "feature_flags": [],
+      "external_libraries": [],
+      "determinism": "byte_stable",
+      "notes": "Native uncompressed pixel data; required default for Phase 1 smoke/core planning and Part 10 File Meta Information.",
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_uid ExplicitVRLittleEndian",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        }
+      ]
+    },
+    {
+      "uid": "1.2.840.10008.1.2.2",
+      "keyword": "ExplicitVRBigEndian",
+      "name": "Explicit VR Big Endian",
+      "profiles": ["legacy"],
+      "status": "pending_verification",
+      "read_dataset": true,
+      "decode_pixel": true,
+      "write_dataset": false,
+      "encode_pixel": false,
+      "feature_flags": [],
+      "external_libraries": [],
+      "determinism": "byte_stable",
+      "notes": "Retired transfer syntax. Legacy generation remains unavailable until writer behavior is explicitly verified.",
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_uid ExplicitVRBigEndian",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        }
+      ]
+    },
+    {
+      "uid": "1.2.840.10008.1.2.1.99",
+      "keyword": "DeflatedExplicitVRLittleEndian",
+      "name": "Deflated Explicit VR Little Endian",
+      "profiles": ["extended"],
+      "status": "feature_gated",
+      "read_dataset": false,
+      "decode_pixel": true,
+      "write_dataset": false,
+      "encode_pixel": true,
+      "feature_flags": ["deflate"],
+      "external_libraries": [],
+      "determinism": "semantic_stable",
+      "notes": "Dataset deflate is distinct from encapsulated deflated image frame compression and is deferred until feature verification.",
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_uid DeflatedExplicitVRLittleEndian",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        }
+      ]
+    }
+  ]
+}

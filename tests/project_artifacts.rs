@@ -75,6 +75,37 @@ fn registry_contains_initial_smoke_and_core_cases() {
     }
 }
 
+#[test]
+fn transfer_syntax_matrix_records_required_capability_fields() {
+    let matrix = read_json("transfer-syntax/capability-matrix.json");
+    let entries = matrix
+        .get("entries")
+        .and_then(Value::as_array)
+        .expect("transfer syntax matrix must contain entries");
+
+    for uid in ["1.2.840.10008.1.2", "1.2.840.10008.1.2.1"] {
+        let entry = entries
+            .iter()
+            .find(|entry| entry.get("uid").and_then(Value::as_str) == Some(uid))
+            .unwrap_or_else(|| panic!("transfer syntax matrix must contain {uid}"));
+
+        for field in [
+            "read_dataset",
+            "decode_pixel",
+            "write_dataset",
+            "encode_pixel",
+            "feature_flags",
+            "external_libraries",
+            "determinism",
+        ] {
+            assert!(
+                entry.get(field).is_some(),
+                "transfer syntax {uid} must record {field}"
+            );
+        }
+    }
+}
+
 fn read_json(path: &str) -> Value {
     let contents =
         fs::read_to_string(path).unwrap_or_else(|err| panic!("failed to read {path}: {err}"));

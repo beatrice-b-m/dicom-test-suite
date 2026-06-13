@@ -3,7 +3,7 @@
 **Last updated:** 2026-06-13  
 **Source specification:** `SYSTEM_SPEC.md` version 0.2.0  
 **Current phase:** Phase 0.5 standards and case registry foundation, incomplete  
-**Current implementation status:** Phase 0 repository initialization is complete; standards baseline lock, schemas, taxonomy/profile rules, and initial smoke/core registry are committed
+**Current implementation status:** Phase 0 repository initialization is complete; standards baseline lock, schemas, taxonomy/profile rules, initial smoke/core registry, and transfer syntax capability matrix are committed
 
 This document is the durable hand-off log for coding agents implementing
 `dicom-test-suite`. Keep `SYSTEM_SPEC.md` as the source of product and
@@ -42,6 +42,7 @@ Observed at creation of this progress file:
 | `schemas/` | present | Manifest, case registry, coverage report, and viewer report schemas have initial structured coverage. |
 | `cases/taxonomy.md` | present | Documents normalized case ID format, path segments, descriptor conventions, profile definitions, and inclusion rules. |
 | `cases/registry.json` | present | Seeds planned smoke/core cases with SOP Class and transfer syntax evidence from `dicom-standard-kb` MCP lookups. |
+| `transfer-syntax/capability-matrix.json` | present | Records initial read/decode/write/encode, feature, external library, and determinism capabilities for baseline native transfer syntaxes. |
 | `standards/source-notes/` | missing | Needed for standards gaps not covered by `dicom-standard-kb`. |
 | `src/` or `crates/` | present | Minimal `src/lib.rs` and `src/main.rs` exist; generator implementation has not started. |
 | `tests/` | present | Includes schema artifact integration tests; generator behavior tests have not started. |
@@ -72,7 +73,7 @@ Observed at creation of this progress file:
 | Phase | Status | Summary |
 |---|---|---|
 | Phase 0: Repository initialization | complete | Scope docs, generated-artifact protections, Rust skeleton, toolchain, dependency pins, and initial schema placeholders are committed. |
-| Phase 0.5: Standards and case registry foundation | in progress | Standards base edition, schemas, taxonomy/profile rules, and initial smoke/core registry are in place; capability matrix, KB repository/DB pin, source artifact hashes, deterministic policy, and standards workflow remain. |
+| Phase 0.5: Standards and case registry foundation | in progress | Standards base edition, schemas, taxonomy/profile rules, initial smoke/core registry, and transfer syntax matrix are in place; KB repository/DB pin, source artifact hashes, deterministic policy, and standards workflow remain. |
 | Phase 1: Generator core | not started | CLI, UID generation, manifest writing, Part 10 writing, and file validation pending. |
 | Phase 2: Native pixel matrix | not started | Pixel generators and photometric validators pending. |
 | Phase 3: Classic radiology IODs | not started | CT/MR/CR/US/DX/MG builders pending. |
@@ -112,7 +113,7 @@ and initial schema placeholders.
 - [x] Add normalized case ID taxonomy to committed project artifacts.
 - [x] Add explicit profile definitions and inclusion rules.
 - [x] Add initial `cases/registry.json` with planned smoke/core cases.
-- [ ] Add transfer syntax capability matrix.
+- [x] Add transfer syntax capability matrix.
 - [ ] Add deterministic build policy.
 - [ ] Add `dicom-standard-kb` integration instructions.
 - [ ] Add standards gap/patch workflow documentation.
@@ -151,7 +152,7 @@ These case IDs come from `SYSTEM_SPEC.md` section 21 and should seed
 | Standards baseline | decided 2026-06-13 | Use DICOM 2026b base edition only and exclude post-base final text until `standards.lock.json` is deliberately updated. |
 | `dicom-standard-kb` pin | partially decided 2026-06-13 | The available MCP is pinned to generated 2026b reference data with source manifest SHA-256 `9959bee76fd293c7eda3fc81ce2ced7528612faa1b2df28cccd01504a83f54b0`; repository commit and local DB SHA-256 remain pending until exposed or independently verified. |
 | Case registry storage shape | decided 2026-06-13 | Use `cases/registry.json` with `case_registry_schema_version` and a `cases` array conforming to `schemas/case-registry.schema.json`. |
-| Transfer syntax capability matrix format | open | Must report read, decode, write, encode, features, external libraries, and determinism. |
+| Transfer syntax capability matrix format | decided 2026-06-13 | Use `transfer-syntax/capability-matrix.json` entries with `read_dataset`, `decode_pixel`, `write_dataset`, `encode_pixel`, `feature_flags`, `external_libraries`, and `determinism` fields. |
 
 ## Current Blockers
 
@@ -162,16 +163,17 @@ registry/schema/policy artifacts are still placeholders or missing.
 
 ## Recommended Next Commit
 
-Add the transfer syntax capability matrix:
+Add the deterministic build policy:
 
-1. Add a committed artifact describing supported transfer syntax read, decode,
-   write, encode, feature, external library, and determinism capabilities.
-2. Seed at least Explicit VR Little Endian and Implicit VR Little Endian for
-   Phase 1 smoke/core planning.
-3. Add focused tests that parse the matrix and check required fields.
-4. Update this progress file with matrix status and the next recommended
+1. Add a committed policy artifact documenting deterministic generation inputs,
+   UID derivation inputs, timestamp rules, hash expectations, feature flags,
+   generated artifact handling, and byte-stable versus semantic-stable
+   verification.
+2. Keep it aligned with `SYSTEM_SPEC.md` sections 4.1 and 13.
+3. Add focused tests that check the policy names required determinism levels.
+4. Update this progress file with policy status and the next recommended
    Phase 0.5 task.
-5. Commit as `docs(transfer-syntax): add capability matrix`.
+5. Commit as `docs(determinism): add build policy`.
 
 ## Handoff Notes
 

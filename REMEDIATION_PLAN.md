@@ -103,10 +103,9 @@ Exit criteria:
 
 ## Phase R4: Close Reproducibility and CI Guard Gaps
 
-**Status:** in progress as of 2026-06-13. Core/extended byte-stability tests
-and `all` profile union/schema/skipped-case coverage are implemented; generated
-payload tracking guards are implemented; registry/schema consistency checks
-remain.
+**Status:** complete as of 2026-06-13. Core/extended byte-stability tests,
+`all` profile union/schema/skipped-case coverage, generated-payload tracking
+guards, and registry/schema consistency checks are implemented.
 
 **Findings addressed:** test and CI gaps remain.
 
@@ -117,9 +116,9 @@ Tasks:
 - Add a test or script that fails when generated DICOM-like payloads are tracked or staged. Complete.
 - Add generated manifest schema validation to smoke, core, extended, and all generation tests. Complete for focused schema-conformance checks in generation CLI tests.
 - Add registry/schema consistency tests:
-  - every implemented registry case has a generator recipe;
-  - every generator recipe has a registry case;
-  - every planned initial-priority case from `SYSTEM_SPEC.md` section 21 is represented in the registry or explicitly deferred in progress notes.
+  - every implemented registry case has a generator recipe. Complete.
+  - every generator recipe has a registry case. Complete.
+  - every planned initial-priority case from `SYSTEM_SPEC.md` section 21 is represented in the registry or explicitly deferred in progress notes. Complete.
 
 Exit criteria:
 

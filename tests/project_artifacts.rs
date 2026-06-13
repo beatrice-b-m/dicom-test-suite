@@ -1,3 +1,4 @@
+use std::collections::BTreeSet;
 use std::fs;
 use std::process::Command;
 
@@ -117,6 +118,73 @@ fn registry_contains_initial_smoke_and_core_cases() {
                 .and_then(Value::as_array)
                 .is_some_and(|evidence| !evidence.is_empty()),
             "{case_id} must include standards evidence"
+        );
+    }
+}
+
+#[test]
+fn implemented_registry_cases_match_generator_recipes() {
+    let registry = read_json("cases/registry.json");
+    let cases = registry_cases(&registry);
+    let generator_case_ids = generator_recipe_case_ids();
+    let implemented_registry_case_ids = cases
+        .iter()
+        .filter(|case| case.get("status").and_then(Value::as_str) == Some("implemented"))
+        .map(|case| {
+            case.get("case_id")
+                .and_then(Value::as_str)
+                .expect("registry case_id should be a string")
+                .to_string()
+        })
+        .collect::<BTreeSet<_>>();
+
+    let missing_recipes = implemented_registry_case_ids
+        .difference(&generator_case_ids)
+        .cloned()
+        .collect::<Vec<_>>();
+    assert!(
+        missing_recipes.is_empty(),
+        "implemented registry cases must have generator recipes: {missing_recipes:?}"
+    );
+
+    let orphan_recipes = generator_case_ids
+        .difference(&implemented_registry_case_ids)
+        .cloned()
+        .collect::<Vec<_>>();
+    assert!(
+        orphan_recipes.is_empty(),
+        "generator recipes must have implemented registry cases: {orphan_recipes:?}"
+    );
+}
+
+#[test]
+fn initial_priority_cases_are_represented_in_registry() {
+    let registry = read_json("cases/registry.json");
+    let cases = registry_cases(&registry);
+    for case_id in [
+        "classic/sc/mono2_u8_explicit_le",
+        "classic/sc/mono1_u8_explicit_le",
+        "classic/sc/rgb_planar0_explicit_le",
+        "classic/ct/mono2_i16_rescale_12bit_explicit_le",
+        "classic/mg/for_presentation_mono1_u16_12bit_explicit_le",
+        "classic/mg/for_processing_mono2_u16_12bit_implicit_le",
+        "classic/cr/overlay_modality_voi_explicit_le",
+        "classic/mr/multislice_oblique_explicit_le",
+        "enhanced/ct/multiframe_shared_perframe_explicit_le",
+        "derived/seg/binary_multiframe_explicit_le",
+        "vl/photo/rgb_planar0_explicit_le",
+        "vl/photo/palette_color_explicit_le",
+    ] {
+        let case = cases
+            .iter()
+            .find(|case| case.get("case_id").and_then(Value::as_str) == Some(case_id))
+            .unwrap_or_else(|| panic!("initial priority case {case_id} must be in registry"));
+        assert!(
+            matches!(
+                case.get("status").and_then(Value::as_str),
+                Some("implemented" | "planned" | "skipped" | "blocked" | "deprecated")
+            ),
+            "initial priority case {case_id} must have an explicit registry status"
         );
     }
 }
@@ -257,6 +325,44 @@ fn read_json(path: &str) -> Value {
     let contents =
         fs::read_to_string(path).unwrap_or_else(|err| panic!("failed to read {path}: {err}"));
     serde_json::from_str(&contents).unwrap_or_else(|err| panic!("failed to parse {path}: {err}"))
+}
+
+fn registry_cases(registry: &Value) -> Vec<&Value> {
+    registry
+        .get("cases")
+        .and_then(Value::as_array)
+        .expect("registry cases should be an array")
+        .iter()
+        .collect()
+}
+
+fn generator_recipe_case_ids() -> BTreeSet<String> {
+    let source = fs::read_to_string("src/generator.rs").expect("generator source must be readable");
+    let mut case_ids = BTreeSet::new();
+    let mut remaining = source.as_str();
+    while let Some(start) = remaining.find("case_id: \"") {
+        remaining = &remaining[start + "case_id: \"".len()..];
+        let Some(end) = remaining.find('"') else {
+            break;
+        };
+        let case_id = &remaining[..end];
+        if is_suite_case_id(case_id) {
+            case_ids.insert(case_id.to_string());
+        }
+        remaining = &remaining[end + 1..];
+    }
+    assert!(
+        !case_ids.is_empty(),
+        "generator source should declare recipe case IDs"
+    );
+    case_ids
+}
+
+fn is_suite_case_id(case_id: &str) -> bool {
+    matches!(
+        case_id.split('/').next(),
+        Some("classic" | "enhanced" | "derived" | "vl")
+    )
 }
 
 fn git_paths(args: &[&str]) -> Vec<String> {

@@ -591,6 +591,7 @@ fn validate_manifest_file(
         "dataset_sop_instance_uid",
         expected_sop_instance,
     );
+    validate_standard_baseline_elements(failures, relative_path, manifest_path, file, &obj)?;
 
     validate_str_element(
         failures,
@@ -1271,6 +1272,168 @@ fn validate_frames(
             failures.push(format!("{relative_path}: frames: {err}"));
             Ok(expected)
         }
+    }
+}
+
+fn validate_standard_baseline_elements(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    manifest_path: &Path,
+    file: &Value,
+    obj: &OpenedObject,
+) -> Result<(), ValidateError> {
+    validate_type2_element(
+        failures,
+        relative_path,
+        obj,
+        tags::PATIENT_NAME,
+        "patient_name_type2",
+    );
+    validate_type2_element(
+        failures,
+        relative_path,
+        obj,
+        tags::PATIENT_ID,
+        "patient_id_type2",
+    );
+    validate_type2_element(
+        failures,
+        relative_path,
+        obj,
+        tags::PATIENT_BIRTH_DATE,
+        "patient_birth_date_type2",
+    );
+    validate_type2_element(
+        failures,
+        relative_path,
+        obj,
+        tags::PATIENT_SEX,
+        "patient_sex_type2",
+    );
+
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::STUDY_INSTANCE_UID,
+        "study_instance_uid_type1",
+        manifest_str(
+            manifest_path,
+            file,
+            "/uids/study_instance_uid",
+            "uids study_instance_uid must be a string",
+        )?,
+    );
+    validate_type2_element(
+        failures,
+        relative_path,
+        obj,
+        tags::STUDY_DATE,
+        "study_date_type2",
+    );
+    validate_type2_element(
+        failures,
+        relative_path,
+        obj,
+        tags::STUDY_TIME,
+        "study_time_type2",
+    );
+    validate_type2_element(
+        failures,
+        relative_path,
+        obj,
+        tags::REFERRING_PHYSICIAN_NAME,
+        "referring_physician_name_type2",
+    );
+    validate_type2_element(
+        failures,
+        relative_path,
+        obj,
+        tags::STUDY_ID,
+        "study_id_type2",
+    );
+    validate_type2_element(
+        failures,
+        relative_path,
+        obj,
+        tags::ACCESSION_NUMBER,
+        "accession_number_type2",
+    );
+
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::MODALITY,
+        "modality_type1",
+        manifest_str(
+            manifest_path,
+            file,
+            "/dicom/modality",
+            "dicom modality must be a string",
+        )?,
+    );
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::SERIES_INSTANCE_UID,
+        "series_instance_uid_type1",
+        manifest_str(
+            manifest_path,
+            file,
+            "/uids/series_instance_uid",
+            "uids series_instance_uid must be a string",
+        )?,
+    );
+    validate_type2_element(
+        failures,
+        relative_path,
+        obj,
+        tags::SERIES_NUMBER,
+        "series_number_type2",
+    );
+    validate_type2_element(
+        failures,
+        relative_path,
+        obj,
+        tags::INSTANCE_NUMBER,
+        "instance_number_type2",
+    );
+
+    Ok(())
+}
+
+fn validate_type2_element(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    obj: &OpenedObject,
+    tag: dicom_core::Tag,
+    name: &str,
+) {
+    if let Err(err) = element_str_for_validate(obj, tag) {
+        failures.push(format!("{relative_path}: {name}: {err}"));
+    }
+}
+
+fn validate_type1_str_element(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    obj: &OpenedObject,
+    tag: dicom_core::Tag,
+    name: &str,
+    expected: &str,
+) {
+    match element_str_for_validate(obj, tag) {
+        Ok(actual) => {
+            if actual.is_empty() {
+                failures.push(format!(
+                    "{relative_path}: {name}: Type 1 element must not be empty"
+                ));
+            }
+            validate_equal(failures, relative_path, name, actual, expected);
+        }
+        Err(err) => failures.push(format!("{relative_path}: {name}: {err}")),
     }
 }
 

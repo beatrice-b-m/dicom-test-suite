@@ -201,6 +201,36 @@ fn validate_command_reports_inconsistent_high_bit() {
     fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
 }
 
+#[test]
+fn validate_command_reports_missing_standard_type2_attribute() {
+    let out_dir = unique_temp_dir("validate-missing-type2");
+    generate_smoke(&out_dir);
+    let dcm_path = out_dir.join("classic/sc/mono2_u8_explicit_le/instance.dcm");
+    mutate_dicom(&dcm_path, |bytes| {
+        let offset =
+            find_tag(bytes, 0x0010, 0x0010).expect("generated DICOM should contain Patient's Name");
+        bytes[offset] = 0x11;
+        bytes[offset + 1] = 0x00;
+    });
+
+    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args([
+            "validate",
+            out_dir.to_str().expect("temp path should be valid UTF-8"),
+        ])
+        .output()
+        .expect("validate command must run");
+
+    assert!(
+        !output.status.success(),
+        "validate should fail when a standard Type 2 attribute is absent"
+    );
+    let stdout = String::from_utf8(output.stdout).expect("validate stdout must be UTF-8");
+    assert!(stdout.contains("patient_name_type2"));
+
+    fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
+}
+
 fn generate_smoke(out_dir: &Path) {
     let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
         .args([

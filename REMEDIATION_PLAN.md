@@ -70,7 +70,8 @@ Exit criteria:
 
 **Status:** in progress as of 2026-06-13. Raw Part 10 byte-level validation,
 parsed cross-field image invariants, and generated manifest schema-conformance
-checks are implemented; additional negative mutations and broader
+checks are implemented; baseline Type 1/Type 2 standards-derived checks are
+implemented; additional negative mutations and broader family-specific
 standards-derived checks remain.
 
 **Findings addressed:** validation is not yet the full Part 10 / standards-derived contract.
@@ -90,8 +91,8 @@ Tasks:
 - Add manifest JSON Schema validation to generation tests. Complete for
   required-field and additional-property schema contracts in smoke/core/extended
   generation tests.
-- Add targeted negative validator tests by mutating temporary generated files, without committing invalid DICOM fixtures. In progress: non-zero preamble, missing File Meta Information Version, unexpected group `0002`, and inconsistent High Bit are covered.
-- Expand standards-derived recipe validation incrementally for each implemented IOD family, starting with Type 1 and Type 2 attributes already in current recipes.
+- Add targeted negative validator tests by mutating temporary generated files, without committing invalid DICOM fixtures. In progress: non-zero preamble, missing File Meta Information Version, unexpected group `0002`, inconsistent High Bit, and a missing Type 2 Patient's Name attribute are covered.
+- Expand standards-derived recipe validation incrementally for each implemented IOD family, starting with Type 1 and Type 2 attributes already in current recipes. In progress: baseline Patient, General Study, General Series, and General Image Type 1/Type 2 checks are covered for generated-root validation.
 
 Exit criteria:
 

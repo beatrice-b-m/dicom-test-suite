@@ -4,7 +4,7 @@
 **Source specification:** `SYSTEM_SPEC.md` version 0.2.0  
 **Current phase:** remediation planning before Phase 5 feature expansion
 
-**Current implementation status:** Phase 0, Phase 0.5, Phase 1, Phase 2, Phase 3, and Phase 4 are functionally implemented, and Remediation R1 and R2 are complete. Remediation R3 has raw Part 10 byte-level validation, parsed cross-field image invariant validation, and generated manifest schema-conformance checks implemented. Remaining remediation before clean Phase 5 expansion: validation needs additional standards-derived checks, standards lock pinning is partial, and reproducibility/CI guard coverage needs expansion
+**Current implementation status:** Phase 0, Phase 0.5, Phase 1, Phase 2, Phase 3, and Phase 4 are functionally implemented, and Remediation R1 and R2 are complete. Remediation R3 has raw Part 10 byte-level validation, parsed cross-field image invariant validation, generated manifest schema-conformance checks, and baseline standards-derived Type 1/Type 2 module validation implemented. Remaining remediation before clean Phase 5 expansion: validation needs broader family-specific standards-derived checks, standards lock pinning is partial, and reproducibility/CI guard coverage needs expansion
 
 This document is the durable hand-off log for coding agents implementing
 `dicom-test-suite`. Keep `SYSTEM_SPEC.md` as the source of product and
@@ -84,7 +84,7 @@ Observed at creation of this progress file:
 | Phase 2: Native pixel matrix | complete | Core native monochrome 16-bit unsigned/signed MONOCHROME2 OW Pixel Data, RGB planar configuration 1, PALETTE COLOR, YBR_FULL, YBR_FULL_422, odd-dimension, rectangular, tiny-image, pixel-padding, and broadened native pixel validators are implemented. |
 | Phase 3: Classic radiology IODs | complete | CT Image Storage signed 12-bit rescale/window, MG For Presentation/For Processing 12-bit, CR overlay/Modality LUT/VOI LUT, MR multi-slice oblique geometry, DX display shutter, US Image Storage, and stable multi-file series generation are implemented. |
 | Phase 4: Enhanced multi-frame | complete | Enhanced CT and Enhanced MR Image Storage cases with Shared and Per-Frame Functional Groups and Multi-frame Dimension metadata are implemented; MR Echo, Temporal Position, phase/velocity-encoding variation, and a two-member Enhanced CT concatenation case are covered. |
-| Remediation before Phase 5 | in progress | R1 registry authority and R2 required CLI contracts are complete; R3 raw Part 10 byte validation, parsed cross-field image invariant checks, and manifest schema-conformance checks are implemented; additional validation hardening, reproducibility/CI guard expansion, and standards lock pinning remain before adding new Phase 5 recipes. |
+| Remediation before Phase 5 | in progress | R1 registry authority and R2 required CLI contracts are complete; R3 raw Part 10 byte validation, parsed cross-field image invariant checks, manifest schema-conformance checks, and baseline standards-derived Type 1/Type 2 checks are implemented; additional validation hardening, reproducibility/CI guard expansion, and standards lock pinning remain before adding new Phase 5 recipes. |
 | Phase 5: Derived, presentation, and non-image objects | not started | SEG, presentation states, SR, KOS, RWVM, RT, and encapsulated documents pending. |
 | Phase 6: Transfer syntax expansion | not started | Transfer syntax abstraction and compressed cases pending. |
 | Phase 7: Pathology, video, and large object profiles | not started | VL, WSI, video, and stress cases pending. |
@@ -567,12 +567,20 @@ These case IDs come from `SYSTEM_SPEC.md` section 21 and should seed
   `schemas/manifest.schema.json` and verify generated manifests satisfy the
   committed schema's top-level and nested required-field contracts plus
   disallowed additional properties for the primary manifest sections.
+- 2026-06-13: Remediation R3 added baseline standards-derived validation for
+  generated-root checks. Based on 2026b `dicom-standard-kb` module lookups for
+  Patient, General Study, General Series, and General Image, validation now
+  requires the generated Type 2 Patient/Study/Series/Image identity attributes
+  to be present, compares Type 1 Study Instance UID, Series Instance UID, and
+  Modality to the manifest, and includes a CLI mutation test for a missing
+  Patient's Name Type 2 attribute.
 
 ## Current Blockers
 
 The 2026-06-13 baseline review found remediation items that should be resolved
 before Phase 5 feature expansion: validation still needs additional
-standards-derived checks, and reproducibility/CI guard coverage is incomplete.
+family-specific standards-derived checks, and reproducibility/CI guard coverage
+is incomplete.
 The local `dicom-standard-kb` repository commit/DB SHA-256 and official source
 artifact hashes also remain unverified.
 
@@ -580,8 +588,8 @@ artifact hashes also remain unverified.
 
 Execute `REMEDIATION_PLAN.md` before starting new Phase 5 feature work:
 
-1. Continue Remediation R3 by expanding standards-derived recipe validation for
-   implemented IOD families.
+1. Continue Remediation R3 by expanding family-specific standards-derived recipe
+   validation for implemented IOD families.
 2. Continue the remaining reproducibility, CI guard, and standards-lock cleanup
    phases described in the remediation plan.
 3. Resume Phase 5 with `feat(seg): add binary segmentation case` only after the

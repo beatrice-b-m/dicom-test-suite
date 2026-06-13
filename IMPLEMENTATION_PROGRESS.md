@@ -3,7 +3,7 @@
 **Last updated:** 2026-06-13  
 **Source specification:** `SYSTEM_SPEC.md` version 0.2.0  
 **Current phase:** Phase 0 repository initialization, incomplete  
-**Current implementation status:** planning documents only; no Rust workspace has been created yet
+**Current implementation status:** generated-artifact ignore policy is in place; no Rust workspace has been created yet
 
 This document is the durable hand-off log for coding agents implementing
 `dicom-test-suite`. Keep `SYSTEM_SPEC.md` as the source of product and
@@ -35,7 +35,7 @@ Observed at creation of this progress file:
 | `SYSTEM_SPEC.md` | present | Version 0.2.0 planning baseline. |
 | `AGENTS.md` | present | Requires descriptive granular commits for completed work. |
 | `IMPLEMENTATION_PROGRESS.md` | present after this task | Hand-off ledger for implementation state. |
-| `.gitignore` | missing | Must be added before generated output work begins. |
+| `.gitignore` | present | Covers generated DICOM outputs, reports, sidecars, caches, generated standards artifacts, and SQLite KB files. |
 | `Cargo.toml` / Rust workspace | missing | Initial layout still undecided. |
 | `rust-toolchain.toml` | missing | Toolchain must be pinned deliberately. |
 | `standards.lock.json` | missing | Required before recipe implementation. |
@@ -86,7 +86,7 @@ Observed at creation of this progress file:
 
 - [x] Add `README.md`.
 - [x] Add `SYSTEM_SPEC.md`.
-- [ ] Add `.gitignore` rules for generated DICOM outputs, generated reports,
+- [x] Add `.gitignore` rules for generated DICOM outputs, generated reports,
   caches, standards artifacts, and generated KB databases.
 - [ ] Choose initial Rust edition and workspace layout.
 - [ ] Add `Cargo.toml` and `Cargo.lock`.
@@ -160,17 +160,15 @@ and Phase 0.5.
 
 ## Recommended Next Commit
 
-Implement Phase 0 generated-artifact protections:
+Create the initial Rust workspace skeleton:
 
-1. Add `.gitignore` entries for generated DICOM outputs, generated reports,
-   caches, generated standards artifacts, and SQLite KB files.
-2. Add a small CI or test placeholder only if the project skeleton exists;
-   otherwise keep the commit scoped to ignore policy.
-3. Update this progress file to mark the `.gitignore` Phase 0 item complete.
-4. Commit as `chore(repo): ignore generated artifacts`.
-
-After that, create the Rust skeleton and schema placeholders in separate
-granular commits.
+1. Choose the initial Rust edition and single-crate workspace layout.
+2. Add `Cargo.toml`, `Cargo.lock`, and `rust-toolchain.toml`.
+3. Keep dependencies minimal until DICOM-rs versions are verified in a focused
+   dependency pinning slice.
+4. Add a basic compile/test target if useful for verifying the skeleton.
+5. Update this progress file with the selected edition/layout and next task.
+6. Commit as `chore(repo): initialize rust workspace`.
 
 ## Handoff Notes
 

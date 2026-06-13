@@ -1,8 +1,23 @@
 .DS_Store
+
+# Rust build outputs
 /target/
+
+# Generated suite outputs and reports
 /generated/
 /out/
 /reports/
 *.dcm
 *.dicom
 *.ima
+*.part10
+*.validation.json
+*.expected.json
+*.coverage.json
+
+# Local caches and generated standards knowledge bases
+/.cache/
+/standards/cache/
+/standards/generated/
+*.sqlite
+*.sqlite3

@@ -1,0 +1,365 @@
+{
+  "case_registry_schema_version": "0.1.0",
+  "cases": [
+    {
+      "case_id": "classic/sc/mono2_u8_explicit_le",
+      "status": "planned",
+      "profiles": ["smoke"],
+      "recipe_id": "sc_mono2_u8",
+      "recipe_version": "0.1.0",
+      "iod_name": "Secondary Capture Image",
+      "sop_class_name": "Secondary Capture Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.7",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "byte_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_sop_class SecondaryCaptureImageStorage",
+          "covered": true,
+          "part": "PS3.4",
+          "anchor": "table_B.5-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_uid ExplicitVRLittleEndian",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        }
+      ]
+    },
+    {
+      "case_id": "classic/sc/mono1_u8_explicit_le",
+      "status": "planned",
+      "profiles": ["smoke"],
+      "recipe_id": "sc_mono1_u8",
+      "recipe_version": "0.1.0",
+      "iod_name": "Secondary Capture Image",
+      "sop_class_name": "Secondary Capture Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.7",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "byte_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_sop_class SecondaryCaptureImageStorage",
+          "covered": true,
+          "part": "PS3.4",
+          "anchor": "table_B.5-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_uid ExplicitVRLittleEndian",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        }
+      ]
+    },
+    {
+      "case_id": "classic/sc/rgb_planar0_explicit_le",
+      "status": "planned",
+      "profiles": ["smoke"],
+      "recipe_id": "sc_rgb_planar0",
+      "recipe_version": "0.1.0",
+      "iod_name": "Secondary Capture Image",
+      "sop_class_name": "Secondary Capture Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.7",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "byte_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_sop_class SecondaryCaptureImageStorage",
+          "covered": true,
+          "part": "PS3.4",
+          "anchor": "table_B.5-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_uid ExplicitVRLittleEndian",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        }
+      ]
+    },
+    {
+      "case_id": "classic/ct/mono2_i16_rescale_12bit_explicit_le",
+      "status": "planned",
+      "profiles": ["core"],
+      "recipe_id": "ct_mono2_i16_rescale",
+      "recipe_version": "0.1.0",
+      "iod_name": "CT Image",
+      "sop_class_name": "CT Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.2",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "byte_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_sop_class CTImageStorage",
+          "covered": true,
+          "part": "PS3.4",
+          "anchor": "table_B.5-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_uid ExplicitVRLittleEndian",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        }
+      ]
+    },
+    {
+      "case_id": "classic/mg/for_presentation_mono1_u16_12bit_explicit_le",
+      "status": "planned",
+      "profiles": ["core"],
+      "recipe_id": "mg_for_presentation_mono1_u16",
+      "recipe_version": "0.1.0",
+      "iod_name": "Digital Mammography X-Ray Image",
+      "sop_class_name": "Digital Mammography X-Ray Image Storage - For Presentation",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.1.2",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "byte_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_sop_class DigitalMammographyXRayImageStorageForPresentation",
+          "covered": true,
+          "part": "PS3.4",
+          "anchor": "table_B.5-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_uid ExplicitVRLittleEndian",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        }
+      ]
+    },
+    {
+      "case_id": "classic/mg/for_processing_mono2_u16_12bit_implicit_le",
+      "status": "planned",
+      "profiles": ["core"],
+      "recipe_id": "mg_for_processing_mono2_u16",
+      "recipe_version": "0.1.0",
+      "iod_name": "Digital Mammography X-Ray Image",
+      "sop_class_name": "Digital Mammography X-Ray Image Storage - For Processing",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.1.2.1",
+      "transfer_syntax_uid": "1.2.840.10008.1.2",
+      "determinism": "byte_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_sop_class DigitalMammographyXRayImageStorageForProcessing",
+          "covered": true,
+          "part": "PS3.4",
+          "anchor": "table_B.5-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_uid ImplicitVRLittleEndian",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        }
+      ]
+    },
+    {
+      "case_id": "classic/cr/overlay_modality_voi_explicit_le",
+      "status": "planned",
+      "profiles": ["core"],
+      "recipe_id": "cr_overlay_modality_voi",
+      "recipe_version": "0.1.0",
+      "iod_name": "Computed Radiography Image",
+      "sop_class_name": "Computed Radiography Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.1",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "byte_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_sop_class ComputedRadiographyImageStorage",
+          "covered": true,
+          "part": "PS3.4",
+          "anchor": "table_B.5-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_uid ExplicitVRLittleEndian",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        }
+      ]
+    },
+    {
+      "case_id": "classic/mr/multislice_oblique_explicit_le",
+      "status": "planned",
+      "profiles": ["core"],
+      "recipe_id": "mr_multislice_oblique",
+      "recipe_version": "0.1.0",
+      "iod_name": "MR Image",
+      "sop_class_name": "MR Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.4",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "byte_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_sop_class MRImageStorage",
+          "covered": true,
+          "part": "PS3.4",
+          "anchor": "table_B.5-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_uid ExplicitVRLittleEndian",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        }
+      ]
+    },
+    {
+      "case_id": "vl/photo/rgb_planar0_explicit_le",
+      "status": "planned",
+      "profiles": ["core"],
+      "recipe_id": "vl_photo_rgb_planar0",
+      "recipe_version": "0.1.0",
+      "iod_name": "VL Photographic Image",
+      "sop_class_name": "VL Photographic Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.77.1.4",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "byte_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_sop_class VLPhotographicImageStorage",
+          "covered": true,
+          "part": "PS3.4",
+          "anchor": "table_B.5-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_uid ExplicitVRLittleEndian",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        }
+      ]
+    },
+    {
+      "case_id": "vl/photo/palette_color_explicit_le",
+      "status": "planned",
+      "profiles": ["core"],
+      "recipe_id": "vl_photo_palette_color",
+      "recipe_version": "0.1.0",
+      "iod_name": "VL Photographic Image",
+      "sop_class_name": "VL Photographic Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.77.1.4",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "byte_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_sop_class VLPhotographicImageStorage",
+          "covered": true,
+          "part": "PS3.4",
+          "anchor": "table_B.5-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_uid ExplicitVRLittleEndian",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        }
+      ]
+    }
+  ]
+}

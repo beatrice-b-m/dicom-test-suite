@@ -1582,6 +1582,98 @@
       ]
     },
     {
+      "case_id": "classic/us/mono2_u8_explicit_le",
+      "status": "implemented",
+      "profiles": ["core"],
+      "recipe_id": "us_mono2_u8",
+      "recipe_version": "0.1.0",
+      "iod_name": "Ultrasound Image",
+      "sop_class_name": "Ultrasound Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.6.1",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "byte_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_sop_class Ultrasound Image Storage",
+          "covered": true,
+          "part": "PS3.4",
+          "anchor": "table_B.5-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_uid ExplicitVRLittleEndian",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_iod Ultrasound Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.6-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_modules_for_iod Ultrasound Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.6-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module US Image --expand-macros",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-18"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "resolve_attribute_context PhotometricInterpretation --iod Ultrasound Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-18"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "resolve_attribute_context BitsAllocated --iod Ultrasound Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-18"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_data_element UltrasoundColorDataPresent",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_data_element LossyImageCompression",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
+        }
+      ]
+    },
+    {
       "case_id": "vl/photo/rgb_planar0_explicit_le",
       "status": "planned",
       "profiles": ["core"],

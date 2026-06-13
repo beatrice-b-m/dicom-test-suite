@@ -11,7 +11,8 @@ use crate::{
     sha256_hex,
     validation::{
         CrImageExpectations, CtImageExpectations, DxImageExpectations, MgImageExpectations,
-        MrImageExpectations, Part10Expectations, PixelDataLengthFormula, validate_part10_file,
+        MrImageExpectations, Part10Expectations, PixelDataLengthFormula, UsImageExpectations,
+        validate_part10_file,
     },
 };
 
@@ -19,6 +20,7 @@ const PIXEL_RECIPE_VERSION: &str = "0.1.0";
 const CLASSIC_CT_RECIPE_VERSION: &str = "0.1.0";
 const CLASSIC_MG_RECIPE_VERSION: &str = "0.1.0";
 const CLASSIC_DX_RECIPE_VERSION: &str = "0.1.0";
+const CLASSIC_US_RECIPE_VERSION: &str = "0.1.0";
 const CLASSIC_CR_RECIPE_VERSION: &str = "0.1.0";
 const CLASSIC_MR_RECIPE_VERSION: &str = "0.1.0";
 const MONO_PIXELS: [u8; 4] = [0, 85, 170, 255];
@@ -546,6 +548,33 @@ const CLASSIC_DX_RECIPES: &[ClassicDxRecipe] = &[ClassicDxRecipe {
 }];
 
 #[derive(Debug, Clone, Copy)]
+struct ClassicUsRecipe {
+    case_id: &'static str,
+    recipe_id: &'static str,
+    rows: u16,
+    columns: u16,
+    pixel_bytes: &'static [u8],
+    pixel_values: &'static [i32],
+    pixel_min: i32,
+    pixel_max: i32,
+    lossy_image_compression: &'static str,
+    ultrasound_color_data_present: u16,
+}
+
+const CLASSIC_US_RECIPES: &[ClassicUsRecipe] = &[ClassicUsRecipe {
+    case_id: "classic/us/mono2_u8_explicit_le",
+    recipe_id: "us_mono2_u8",
+    rows: 2,
+    columns: 2,
+    pixel_bytes: &MONO_PIXELS,
+    pixel_values: &[0, 85, 170, 255],
+    pixel_min: 0,
+    pixel_max: 255,
+    lossy_image_compression: "00",
+    ultrasound_color_data_present: 0,
+}];
+
+#[derive(Debug, Clone, Copy)]
 struct ClassicCrRecipe {
     case_id: &'static str,
     recipe_id: &'static str,
@@ -715,6 +744,21 @@ pub(crate) fn write_supported_cases(
             continue;
         }
         generated_files.push(write_classic_dx_case(
+            run,
+            case,
+            *recipe,
+            standards_lock_sha256,
+        )?);
+    }
+    for recipe in CLASSIC_US_RECIPES {
+        let Some(case) = registry_case(registry, recipe.case_id)? else {
+            continue;
+        };
+        let profiles = string_array(case.get("profiles"))?;
+        if !case_matches_profile(&profiles, &run.profile, run.include_stress) {
+            continue;
+        }
+        generated_files.push(write_classic_us_case(
             run,
             case,
             *recipe,
@@ -946,6 +990,7 @@ fn write_pixel_case(
             ct_image: None,
             mg_image: None,
             dx_image: None,
+            us_image: None,
             cr_image: None,
             mr_image: None,
         },
@@ -1446,6 +1491,7 @@ fn write_classic_ct_case(
             }),
             mg_image: None,
             dx_image: None,
+            us_image: None,
             cr_image: None,
             mr_image: None,
         },
@@ -1926,6 +1972,7 @@ fn write_classic_mg_case(
                 acquisition_context_items: 0,
             }),
             dx_image: None,
+            us_image: None,
             cr_image: None,
             mr_image: None,
         },
@@ -2470,6 +2517,7 @@ fn write_classic_dx_case(
                 shutter_lower_horizontal_edge: recipe.shutter_lower_horizontal_edge,
                 shutter_presentation_value: recipe.shutter_presentation_value,
             }),
+            us_image: None,
             cr_image: None,
             mr_image: None,
         },
@@ -2687,6 +2735,362 @@ fn classic_dx_manifest_entry(
     })
 }
 
+fn write_classic_us_case(
+    run: &PreparedGenerationRun,
+    case: &Value,
+    recipe: ClassicUsRecipe,
+    standards_lock_sha256: &str,
+) -> Result<GeneratedFile, GenerateError> {
+    let study_instance_uid = deterministic_classic_us_uid(
+        standards_lock_sha256,
+        recipe,
+        run.seed,
+        UidRole::StudyInstance,
+    );
+    let series_instance_uid = deterministic_classic_us_uid(
+        standards_lock_sha256,
+        recipe,
+        run.seed,
+        UidRole::SeriesInstance,
+    );
+    let sop_instance_uid = deterministic_classic_us_uid(
+        standards_lock_sha256,
+        recipe,
+        run.seed,
+        UidRole::SopInstance,
+    );
+    let implementation_class_uid = deterministic_implementation_uid(standards_lock_sha256);
+
+    let relative_path = format!("{}/instance.dcm", recipe.case_id);
+    let path = run.out_dir.join(&relative_path);
+    let case_dir = path.parent().ok_or_else(|| GenerateError::MetadataShape {
+        path: PathBuf::from(&relative_path),
+        message: "generated DICOM path must have a parent directory",
+    })?;
+    fs::create_dir_all(case_dir).map_err(|source| GenerateError::CreateCaseOutputDir {
+        path: case_dir.to_path_buf(),
+        source,
+    })?;
+
+    let mut obj = InMemDicomObject::new_empty();
+    put_str(
+        &mut obj,
+        tags::SOP_CLASS_UID,
+        VR::UI,
+        uids::ULTRASOUND_IMAGE_STORAGE,
+    );
+    put_str(&mut obj, tags::SOP_INSTANCE_UID, VR::UI, &sop_instance_uid);
+    put_str(&mut obj, tags::SYNTHETIC_DATA, VR::CS, "YES");
+
+    put_str(
+        &mut obj,
+        tags::PATIENT_NAME,
+        VR::PN,
+        "DTS^Synthetic^Patient001",
+    );
+    put_str(&mut obj, tags::PATIENT_ID, VR::LO, "DTS-PATIENT-001");
+    put_str(&mut obj, tags::PATIENT_BIRTH_DATE, VR::DA, "19700101");
+    put_str(&mut obj, tags::PATIENT_SEX, VR::CS, "O");
+
+    put_str(
+        &mut obj,
+        tags::STUDY_INSTANCE_UID,
+        VR::UI,
+        &study_instance_uid,
+    );
+    put_str(&mut obj, tags::STUDY_DATE, VR::DA, "20260101");
+    put_str(&mut obj, tags::STUDY_TIME, VR::TM, "000000");
+    put_str(&mut obj, tags::REFERRING_PHYSICIAN_NAME, VR::PN, "");
+    put_str(&mut obj, tags::STUDY_ID, VR::SH, "DTS-US");
+    put_str(&mut obj, tags::ACCESSION_NUMBER, VR::SH, "");
+
+    put_str(&mut obj, tags::MODALITY, VR::CS, "US");
+    put_str(
+        &mut obj,
+        tags::SERIES_INSTANCE_UID,
+        VR::UI,
+        &series_instance_uid,
+    );
+    put_str(&mut obj, tags::SERIES_NUMBER, VR::IS, "1");
+
+    put_str(&mut obj, tags::MANUFACTURER, VR::LO, "dicom-test-suite");
+    put_str(
+        &mut obj,
+        tags::MANUFACTURER_MODEL_NAME,
+        VR::LO,
+        recipe.recipe_id,
+    );
+    put_str(
+        &mut obj,
+        tags::SOFTWARE_VERSIONS,
+        VR::LO,
+        crate::PACKAGE_VERSION,
+    );
+
+    put_str(&mut obj, tags::ACQUISITION_NUMBER, VR::IS, "1");
+    put_str(&mut obj, tags::ACQUISITION_DATE, VR::DA, "20260101");
+    put_str(&mut obj, tags::ACQUISITION_TIME, VR::TM, "000000");
+
+    put_str(&mut obj, tags::IMAGE_TYPE, VR::CS, "ORIGINAL\\PRIMARY");
+    put_str(&mut obj, tags::INSTANCE_NUMBER, VR::IS, "1");
+    put_str(&mut obj, tags::PATIENT_ORIENTATION, VR::CS, "");
+    put_str(&mut obj, tags::CONTENT_DATE, VR::DA, "20260101");
+    put_str(&mut obj, tags::CONTENT_TIME, VR::TM, "000000");
+
+    put_u16(&mut obj, tags::SAMPLES_PER_PIXEL, VR::US, 1);
+    put_str(
+        &mut obj,
+        tags::PHOTOMETRIC_INTERPRETATION,
+        VR::CS,
+        "MONOCHROME2",
+    );
+    put_u16(&mut obj, tags::ROWS, VR::US, recipe.rows);
+    put_u16(&mut obj, tags::COLUMNS, VR::US, recipe.columns);
+    put_u16(&mut obj, tags::BITS_ALLOCATED, VR::US, 8);
+    put_u16(&mut obj, tags::BITS_STORED, VR::US, 8);
+    put_u16(&mut obj, tags::HIGH_BIT, VR::US, 7);
+    put_u16(&mut obj, tags::PIXEL_REPRESENTATION, VR::US, 0);
+    put_str(
+        &mut obj,
+        tags::LOSSY_IMAGE_COMPRESSION,
+        VR::CS,
+        recipe.lossy_image_compression,
+    );
+    put_u16(
+        &mut obj,
+        tags::ULTRASOUND_COLOR_DATA_PRESENT,
+        VR::US,
+        recipe.ultrasound_color_data_present,
+    );
+
+    obj.put(DataElement::new(
+        tags::PIXEL_DATA,
+        VR::OB,
+        PrimitiveValue::from(recipe.pixel_bytes),
+    ));
+
+    let file_obj = obj
+        .with_meta(
+            FileMetaTableBuilder::new()
+                .transfer_syntax(uids::EXPLICIT_VR_LITTLE_ENDIAN)
+                .implementation_class_uid(&implementation_class_uid)
+                .implementation_version_name("DICOMTS010"),
+        )
+        .map_err(|err| GenerateError::WriteDicomFile {
+            path: path.clone(),
+            message: err.to_string(),
+        })?;
+
+    file_obj
+        .write_to_file(&path)
+        .map_err(|err| GenerateError::WriteDicomFile {
+            path: path.clone(),
+            message: err.to_string(),
+        })?;
+
+    let validated = validate_part10_file(
+        &path,
+        &Part10Expectations {
+            sop_class_uid: uids::ULTRASOUND_IMAGE_STORAGE,
+            sop_instance_uid: &sop_instance_uid,
+            transfer_syntax_uid: uids::EXPLICIT_VR_LITTLE_ENDIAN,
+            implementation_class_uid: &implementation_class_uid,
+            synthetic_data: "YES",
+            rows: recipe.rows,
+            columns: recipe.columns,
+            samples_per_pixel: 1,
+            photometric_interpretation: "MONOCHROME2",
+            bits_allocated: 8,
+            bits_stored: 8,
+            high_bit: 7,
+            pixel_representation: 0,
+            planar_configuration: None,
+            pixel_data_vr: VR::OB,
+            pixel_data_length_formula: PixelDataLengthFormula::ContiguousSamples,
+            palette: None,
+            padding: None,
+            ct_image: None,
+            mg_image: None,
+            dx_image: None,
+            us_image: Some(UsImageExpectations {
+                modality: "US",
+                image_type: "ORIGINAL\\PRIMARY",
+                lossy_image_compression: recipe.lossy_image_compression,
+                ultrasound_color_data_present: recipe.ultrasound_color_data_present,
+            }),
+            cr_image: None,
+            mr_image: None,
+        },
+    )?;
+
+    Ok(GeneratedFile {
+        case_id: recipe.case_id.to_string(),
+        manifest_entry: classic_us_manifest_entry(
+            case,
+            recipe,
+            &relative_path,
+            &study_instance_uid,
+            &series_instance_uid,
+            &sop_instance_uid,
+            &implementation_class_uid,
+            &validated.bytes,
+            validated.validation,
+        ),
+    })
+}
+
+#[allow(clippy::too_many_arguments)]
+fn classic_us_manifest_entry(
+    case: &Value,
+    recipe: ClassicUsRecipe,
+    relative_path: &str,
+    study_instance_uid: &str,
+    series_instance_uid: &str,
+    sop_instance_uid: &str,
+    implementation_class_uid: &str,
+    bytes: &[u8],
+    validation: Value,
+) -> Value {
+    let mut standards_evidence = case
+        .get("standards_evidence")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    standards_evidence.extend([
+        serde_json::json!({
+            "source": "dicom-standard-kb",
+            "edition": "2026b",
+            "query": "lookup_iod Ultrasound Image",
+            "covered": true,
+            "part": "PS3.3",
+            "anchor": "table_A.6-1"
+        }),
+        serde_json::json!({
+            "source": "dicom-standard-kb",
+            "edition": "2026b",
+            "query": "list_modules_for_iod Ultrasound Image",
+            "covered": true,
+            "part": "PS3.3",
+            "anchor": "table_A.6-1"
+        }),
+        serde_json::json!({
+            "source": "dicom-standard-kb",
+            "edition": "2026b",
+            "query": "list_attributes_for_module US Image --expand-macros",
+            "covered": true,
+            "part": "PS3.3",
+            "anchor": "table_C.8-18"
+        }),
+        serde_json::json!({
+            "source": "dicom-standard-kb",
+            "edition": "2026b",
+            "query": "resolve_attribute_context PhotometricInterpretation --iod Ultrasound Image",
+            "covered": true,
+            "part": "PS3.3",
+            "anchor": "table_C.8-18"
+        }),
+        serde_json::json!({
+            "source": "dicom-standard-kb",
+            "edition": "2026b",
+            "query": "resolve_attribute_context BitsAllocated --iod Ultrasound Image",
+            "covered": true,
+            "part": "PS3.3",
+            "anchor": "table_C.8-18"
+        }),
+        serde_json::json!({
+            "source": "dicom-standard-kb",
+            "edition": "2026b",
+            "query": "lookup_data_element UltrasoundColorDataPresent",
+            "covered": true,
+            "part": "PS3.6",
+            "anchor": "table_6-1"
+        }),
+        serde_json::json!({
+            "source": "dicom-standard-kb",
+            "edition": "2026b",
+            "query": "lookup_data_element LossyImageCompression",
+            "covered": true,
+            "part": "PS3.6",
+            "anchor": "table_6-1"
+        }),
+    ]);
+
+    serde_json::json!({
+        "case_id": recipe.case_id,
+        "profile_membership": ["core"],
+        "path": relative_path,
+        "sha256": sha256_hex(bytes),
+        "size_bytes": bytes.len(),
+        "determinism": "byte_stable",
+        "recipe": {
+            "recipe_id": recipe.recipe_id,
+            "recipe_version": CLASSIC_US_RECIPE_VERSION,
+            "recipe_parameters": {
+                "rows": recipe.rows,
+                "columns": recipe.columns,
+                "samples_per_pixel": 1,
+                "photometric_interpretation": "MONOCHROME2",
+                "bits_allocated": 8,
+                "bits_stored": 8,
+                "high_bit": 7,
+                "pixel_representation": 0,
+                "pixel_values": recipe.pixel_values,
+                "lossy_image_compression": recipe.lossy_image_compression,
+                "ultrasound_color_data_present": recipe.ultrasound_color_data_present
+            }
+        },
+        "dicom": {
+            "sop_class_uid": uids::ULTRASOUND_IMAGE_STORAGE,
+            "sop_class_name": "Ultrasound Image Storage",
+            "iod_name": "Ultrasound Image",
+            "modality": "US",
+            "transfer_syntax_uid": uids::EXPLICIT_VR_LITTLE_ENDIAN,
+            "transfer_syntax_name": "Explicit VR Little Endian"
+        },
+        "uids": {
+            "study_instance_uid": study_instance_uid,
+            "series_instance_uid": series_instance_uid,
+            "sop_instance_uid": sop_instance_uid,
+            "frame_of_reference_uid": Value::Null,
+            "implementation_class_uid": implementation_class_uid
+        },
+        "image": {
+            "rows": recipe.rows,
+            "columns": recipe.columns,
+            "frames": 1,
+            "samples_per_pixel": 1,
+            "photometric_interpretation": "MONOCHROME2",
+            "bits_allocated": 8,
+            "bits_stored": 8,
+            "high_bit": 7,
+            "pixel_representation": 0,
+            "planar_configuration": Value::Null
+        },
+        "pixel_data": {
+            "vr": "OB",
+            "native_or_encapsulated": "native",
+            "value_length": recipe.pixel_bytes.len(),
+            "frame_count": 1,
+            "frame_hashes": [sha256_hex(recipe.pixel_bytes)]
+        },
+        "expected_capabilities": ["open_file", "read_metadata", "render_native_pixels"],
+        "expected_semantics": {
+            "synthetic_data": "YES",
+            "image_type": "ORIGINAL\\PRIMARY",
+            "pixel_min": recipe.pixel_min,
+            "pixel_max": recipe.pixel_max,
+            "lossy_image_compression": recipe.lossy_image_compression,
+            "ultrasound_color_data_present": recipe.ultrasound_color_data_present
+        },
+        "expected_visual_checks": {
+            "pattern": "2x2_ultrasound_mono2_gradient"
+        },
+        "validation": validation,
+        "known_stressors": ["ultrasound_image_storage", "single_frame_us", "mono2_u8_pixels"],
+        "standards_evidence": standards_evidence
+    })
+}
+
 fn write_classic_cr_case(
     run: &PreparedGenerationRun,
     case: &Value,
@@ -2900,6 +3304,7 @@ fn write_classic_cr_case(
             ct_image: None,
             mg_image: None,
             dx_image: None,
+            us_image: None,
             cr_image: Some(CrImageExpectations {
                 modality: "CR",
                 image_type: "ORIGINAL\\PRIMARY",
@@ -3337,6 +3742,7 @@ fn write_classic_mr_case(
                 ct_image: None,
                 mg_image: None,
                 dx_image: None,
+                us_image: None,
                 cr_image: None,
                 mr_image: Some(MrImageExpectations {
                     modality: "MR",
@@ -3646,6 +4052,24 @@ fn deterministic_classic_dx_uid(
         standards_lock_sha256,
         case_id: recipe.case_id,
         recipe_version: CLASSIC_DX_RECIPE_VERSION,
+        run_seed,
+        file_index: 0,
+        frame_index: None,
+        referenced_object_index: None,
+        role,
+    })
+}
+
+fn deterministic_classic_us_uid(
+    standards_lock_sha256: &str,
+    recipe: ClassicUsRecipe,
+    run_seed: u64,
+    role: UidRole,
+) -> String {
+    deterministic_uid(&DeterministicUidInput {
+        standards_lock_sha256,
+        case_id: recipe.case_id,
+        recipe_version: CLASSIC_US_RECIPE_VERSION,
         run_seed,
         file_index: 0,
         frame_index: None,

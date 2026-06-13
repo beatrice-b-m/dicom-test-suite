@@ -76,6 +76,7 @@ fn registry_contains_initial_smoke_and_core_cases() {
             "classic/dx/display_shutter_mono2_u16_explicit_le",
             "implemented",
         ),
+        ("classic/us/mono2_u8_explicit_le", "implemented"),
         ("vl/photo/rgb_planar0_explicit_le", "planned"),
         ("vl/photo/palette_color_explicit_le", "planned"),
     ] {

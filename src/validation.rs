@@ -33,6 +33,7 @@ pub(crate) struct Part10Expectations<'a> {
     pub ct_image: Option<CtImageExpectations<'a>>,
     pub mg_image: Option<MgImageExpectations<'a>>,
     pub dx_image: Option<DxImageExpectations<'a>>,
+    pub us_image: Option<UsImageExpectations<'a>>,
     pub cr_image: Option<CrImageExpectations<'a>>,
     pub mr_image: Option<MrImageExpectations<'a>>,
 }
@@ -134,6 +135,14 @@ pub(crate) struct DxImageExpectations<'a> {
     pub shutter_upper_horizontal_edge: &'a str,
     pub shutter_lower_horizontal_edge: &'a str,
     pub shutter_presentation_value: u16,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct UsImageExpectations<'a> {
+    pub modality: &'a str,
+    pub image_type: &'a str,
+    pub lossy_image_compression: &'a str,
+    pub ultrasound_color_data_present: u16,
 }
 
 #[derive(Debug, Clone)]
@@ -430,6 +439,9 @@ pub(crate) fn validate_part10_file(
     }
     if let Some(dx_image) = &expected.dx_image {
         validate_dx_image(path, &obj, &mut internal, dx_image)?;
+    }
+    if let Some(us_image) = &expected.us_image {
+        validate_us_image(path, &obj, &mut internal, us_image)?;
     }
     if let Some(cr_image) = &expected.cr_image {
         validate_cr_image(path, &obj, &mut internal, cr_image)?;
@@ -1105,6 +1117,43 @@ fn validate_dx_image(
     Ok(())
 }
 
+fn validate_us_image(
+    path: &Path,
+    obj: &OpenedObject,
+    results: &mut Vec<Value>,
+    expected: &UsImageExpectations<'_>,
+) -> Result<(), GenerateError> {
+    for (name, tag, expected_value) in [
+        ("us_modality", tags::MODALITY, expected.modality),
+        ("us_image_type", tags::IMAGE_TYPE, expected.image_type),
+        (
+            "us_lossy_image_compression",
+            tags::LOSSY_IMAGE_COMPRESSION,
+            expected.lossy_image_compression,
+        ),
+    ] {
+        check_equal(
+            results,
+            name,
+            "Ultrasound attribute matches the recipe.",
+            "Ultrasound attribute does not match the recipe.",
+            element_str(path, obj, tag)?.as_str(),
+            expected_value,
+        );
+    }
+
+    check_equal(
+        results,
+        "us_ultrasound_color_data_present",
+        "Ultrasound Color Data Present matches the recipe.",
+        "Ultrasound Color Data Present does not match the recipe.",
+        element_u16(path, obj, tags::ULTRASOUND_COLOR_DATA_PRESENT)?,
+        expected.ultrasound_color_data_present,
+    );
+
+    Ok(())
+}
+
 fn validate_cr_image(
     path: &Path,
     obj: &OpenedObject,
@@ -1487,6 +1536,7 @@ fn standard_sop_class_validation_name(sop_class_uid: &str) -> &'static str {
         uids::DIGITAL_X_RAY_IMAGE_STORAGE_FOR_PRESENTATION => {
             "digital_x_ray_for_presentation_sop_class"
         }
+        uids::ULTRASOUND_IMAGE_STORAGE => "ultrasound_image_sop_class",
         uids::DIGITAL_MAMMOGRAPHY_X_RAY_IMAGE_STORAGE_FOR_PRESENTATION => {
             "digital_mammography_for_presentation_sop_class"
         }
@@ -1509,6 +1559,9 @@ fn standard_sop_class_validation_message(sop_class_uid: &str) -> &'static str {
         uids::MR_IMAGE_STORAGE => "SOP Class UID matches MR Image Storage in the 2026b reference.",
         uids::DIGITAL_X_RAY_IMAGE_STORAGE_FOR_PRESENTATION => {
             "SOP Class UID matches Digital X-Ray Image Storage - For Presentation in the 2026b reference."
+        }
+        uids::ULTRASOUND_IMAGE_STORAGE => {
+            "SOP Class UID matches Ultrasound Image Storage in the 2026b reference."
         }
         uids::DIGITAL_MAMMOGRAPHY_X_RAY_IMAGE_STORAGE_FOR_PRESENTATION => {
             "SOP Class UID matches Digital Mammography X-Ray Image Storage - For Presentation in the 2026b reference."

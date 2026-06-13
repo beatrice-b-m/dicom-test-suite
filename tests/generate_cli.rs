@@ -249,7 +249,7 @@ fn generate_command_writes_core_u16_native_pixel_case() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\tcore"));
-    assert!(stdout.contains("files_written\t18"));
+    assert!(stdout.contains("files_written\t19"));
 
     let manifest_path = out_dir.join("manifest.json");
     let manifest: Value = serde_json::from_str(
@@ -265,7 +265,7 @@ fn generate_command_writes_core_u16_native_pixel_case() {
             .pointer("/files")
             .and_then(Value::as_array)
             .map(Vec::len),
-        Some(18)
+        Some(19)
     );
     let u16_file = file_entry_by_case_id(&manifest, "classic/sc/mono2_u16_explicit_le");
     assert_eq!(
@@ -768,6 +768,51 @@ fn generate_command_writes_core_u16_native_pixel_case() {
             .contains(&"digital_x_ray_for_presentation_sop_class"),
         "DX manifest should record standards validation for Digital X-Ray Image Storage"
     );
+    let us_file = file_entry_by_case_id(&manifest, "classic/us/mono2_u8_explicit_le");
+    assert_eq!(
+        us_file
+            .pointer("/dicom/sop_class_uid")
+            .and_then(Value::as_str),
+        Some(uids::ULTRASOUND_IMAGE_STORAGE)
+    );
+    assert_eq!(
+        us_file.pointer("/dicom/modality").and_then(Value::as_str),
+        Some("US")
+    );
+    assert_eq!(
+        us_file
+            .pointer("/image/photometric_interpretation")
+            .and_then(Value::as_str),
+        Some("MONOCHROME2")
+    );
+    assert_eq!(
+        us_file
+            .pointer("/pixel_data/value_length")
+            .and_then(Value::as_u64),
+        Some(4)
+    );
+    assert_eq!(
+        us_file
+            .pointer("/recipe/recipe_parameters/lossy_image_compression")
+            .and_then(Value::as_str),
+        Some("00")
+    );
+    assert_eq!(
+        us_file
+            .pointer("/recipe/recipe_parameters/ultrasound_color_data_present")
+            .and_then(Value::as_u64),
+        Some(0)
+    );
+    assert!(
+        validation_result_names(us_file.pointer("/validation/internal"))
+            .contains(&"us_ultrasound_color_data_present"),
+        "US manifest should record Ultrasound Color Data Present validation"
+    );
+    assert!(
+        validation_result_names(us_file.pointer("/validation/standards"))
+            .contains(&"ultrasound_image_sop_class"),
+        "US manifest should record standards validation for Ultrasound Image Storage"
+    );
     let mr_files = file_entries_by_case_id(&manifest, "classic/mr/multislice_oblique_explicit_le");
     assert_eq!(
         mr_files.len(),
@@ -837,6 +882,7 @@ fn generate_command_writes_core_u16_native_pixel_case() {
                             | Some("classic/mg/for_processing_mono2_u16_12bit_implicit_le")
                             | Some("classic/cr/overlay_modality_voi_explicit_le")
                             | Some("classic/dx/display_shutter_mono2_u16_explicit_le")
+                            | Some("classic/us/mono2_u8_explicit_le")
                             | Some("classic/mr/multislice_oblique_explicit_le")
                     )
                 })
@@ -1334,6 +1380,43 @@ fn generate_command_writes_core_u16_native_pixel_case() {
             .value()
             .to_int::<u16>()
             .expect("Shutter Presentation Value should be numeric"),
+        0
+    );
+    let us_path = out_dir.join("classic/us/mono2_u8_explicit_le/instance.dcm");
+    let us = open_file(&us_path).expect("US generated DICOM file should parse");
+    assert_eq!(
+        us.element(tags::SOP_CLASS_UID)
+            .expect("US file should contain SOP Class UID")
+            .value()
+            .to_str()
+            .expect("SOP Class UID should be text")
+            .trim_end_matches('\0'),
+        uids::ULTRASOUND_IMAGE_STORAGE
+    );
+    assert_eq!(
+        us.element(tags::MODALITY)
+            .expect("US file should contain Modality")
+            .value()
+            .to_str()
+            .expect("Modality should be text")
+            .trim(),
+        "US"
+    );
+    assert_eq!(
+        us.element(tags::LOSSY_IMAGE_COMPRESSION)
+            .expect("US file should contain Lossy Image Compression")
+            .value()
+            .to_str()
+            .expect("Lossy Image Compression should be text")
+            .trim(),
+        "00"
+    );
+    assert_eq!(
+        us.element(tags::ULTRASOUND_COLOR_DATA_PRESENT)
+            .expect("US file should contain Ultrasound Color Data Present")
+            .value()
+            .to_int::<u16>()
+            .expect("Ultrasound Color Data Present should be numeric"),
         0
     );
     let mr_slice_paths = [

@@ -68,6 +68,10 @@ const ENHANCED_MR_TEMPORAL_U16_PIXELS: [u8; 16] = [
     0, 0, 0x19, 0, 0x32, 0, 0x4b, 0, 0x96, 0, 0xaf, 0, 0xc8, 0, 0xe1, 0,
 ];
 const ENHANCED_MR_TEMPORAL_U16_VALUES: [i32; 8] = [0, 25, 50, 75, 150, 175, 200, 225];
+const ENHANCED_MR_PHASE_U16_PIXELS: [u8; 16] = [
+    0, 0, 0x28, 0, 0x50, 0, 0x78, 0, 0xa0, 0, 0xc8, 0, 0xf0, 0, 0x18, 1,
+];
+const ENHANCED_MR_PHASE_U16_VALUES: [i32; 8] = [0, 40, 80, 120, 160, 200, 240, 280];
 const MG_U16_12BIT_PIXELS: [u8; 8] = [0x00, 0x00, 0x55, 0x05, 0xaa, 0x0a, 0xff, 0x0f];
 const MG_U16_12BIT_VALUES: [i32; 4] = [0, 1365, 2730, 4095];
 const DX_U16_12BIT_PIXELS: [u8; 8] = [0x00, 0x00, 0x00, 0x04, 0x00, 0x08, 0xff, 0x0f];
@@ -538,12 +542,17 @@ struct EnhancedMrRecipe {
     gradient_echo_train_length: u16,
     effective_echo_times: Option<&'static [f64]>,
     temporal_position_time_offsets: Option<&'static [f64]>,
+    velocity_encoding_directions: Option<&'static [[f64; 3]]>,
+    velocity_encoding_minimum_value: Option<f64>,
+    velocity_encoding_maximum_value: Option<f64>,
 }
 
 const ENHANCED_MR_IMAGE_POSITIONS: &[&str] = &["0\\0\\0", "0\\0\\4"];
 const ENHANCED_MR_EFFECTIVE_ECHO_TIMES: &[f64] = &[12.5, 24.5];
 const ENHANCED_MR_TEMPORAL_IMAGE_POSITIONS: &[&str] = &["0\\0\\0", "0\\0\\0"];
 const ENHANCED_MR_TEMPORAL_POSITION_TIME_OFFSETS: &[f64] = &[0.0, 1.5];
+const ENHANCED_MR_PHASE_IMAGE_POSITIONS: &[&str] = &["0\\0\\0", "0\\0\\0"];
+const ENHANCED_MR_VELOCITY_ENCODING_DIRECTIONS: &[[f64; 3]] = &[[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]];
 
 const ENHANCED_MR_RECIPES: &[EnhancedMrRecipe] = &[
     EnhancedMrRecipe {
@@ -575,6 +584,9 @@ const ENHANCED_MR_RECIPES: &[EnhancedMrRecipe] = &[
         gradient_echo_train_length: 0,
         effective_echo_times: Some(ENHANCED_MR_EFFECTIVE_ECHO_TIMES),
         temporal_position_time_offsets: None,
+        velocity_encoding_directions: None,
+        velocity_encoding_minimum_value: None,
+        velocity_encoding_maximum_value: None,
     },
     EnhancedMrRecipe {
         case_id: "enhanced/mr/multiframe_temporal_position_explicit_le",
@@ -605,6 +617,42 @@ const ENHANCED_MR_RECIPES: &[EnhancedMrRecipe] = &[
         gradient_echo_train_length: 0,
         effective_echo_times: None,
         temporal_position_time_offsets: Some(ENHANCED_MR_TEMPORAL_POSITION_TIME_OFFSETS),
+        velocity_encoding_directions: None,
+        velocity_encoding_minimum_value: None,
+        velocity_encoding_maximum_value: None,
+    },
+    EnhancedMrRecipe {
+        case_id: "enhanced/mr/multiframe_phase_velocity_encoding_explicit_le",
+        recipe_id: "enhanced_mr_multiframe_phase_velocity_encoding",
+        rows: 2,
+        columns: 2,
+        frames: 2,
+        pixel_bytes: &ENHANCED_MR_PHASE_U16_PIXELS,
+        pixel_values: &ENHANCED_MR_PHASE_U16_VALUES,
+        pixel_min: 0,
+        pixel_max: 280,
+        pixel_spacing: "1.000\\1.000",
+        image_orientation_patient: "1\\0\\0\\0\\1\\0",
+        image_position_patient: ENHANCED_MR_PHASE_IMAGE_POSITIONS,
+        slice_thickness: "4",
+        spacing_between_slices: "4",
+        frame_type: "DERIVED\\PRIMARY\\DYNAMIC\\NONE",
+        pixel_presentation: "MONOCHROME",
+        volumetric_properties: "VOLUME",
+        volume_based_calculation_technique: "NONE",
+        rescale_intercept: "0",
+        rescale_slope: "1",
+        rescale_type: "US",
+        repetition_time: "1500",
+        flip_angle: "90",
+        echo_train_length: "1",
+        rf_echo_train_length: 1,
+        gradient_echo_train_length: 0,
+        effective_echo_times: None,
+        temporal_position_time_offsets: None,
+        velocity_encoding_directions: Some(ENHANCED_MR_VELOCITY_ENCODING_DIRECTIONS),
+        velocity_encoding_minimum_value: Some(-150.0),
+        velocity_encoding_maximum_value: Some(150.0),
     },
 ];
 
@@ -2697,6 +2745,9 @@ fn write_enhanced_mr_case(
                 gradient_echo_train_length: recipe.gradient_echo_train_length,
                 effective_echo_times: recipe.effective_echo_times,
                 temporal_position_time_offsets: recipe.temporal_position_time_offsets,
+                velocity_encoding_directions: recipe.velocity_encoding_directions,
+                velocity_encoding_minimum_value: recipe.velocity_encoding_minimum_value,
+                velocity_encoding_maximum_value: recipe.velocity_encoding_maximum_value,
             }),
             mg_image: None,
             dx_image: None,
@@ -2735,6 +2786,12 @@ fn put_enhanced_mr_dimension_sequences(
                 tags::TEMPORAL_POSITION_TIME_OFFSET,
                 tags::TEMPORAL_POSITION_SEQUENCE,
                 "TemporalPositionTimeOffset",
+            )
+        } else if recipe.velocity_encoding_directions.is_some() {
+            (
+                tags::VELOCITY_ENCODING_DIRECTION,
+                tags::MR_VELOCITY_ENCODING_SEQUENCE,
+                "VelocityEncodingDirection",
             )
         } else {
             (
@@ -2934,6 +2991,73 @@ fn put_enhanced_mr_functional_groups(obj: &mut InMemDicomObject, recipe: Enhance
                 },
             )
             .collect::<Vec<_>>()
+    } else if let Some(velocity_encoding_directions) = recipe.velocity_encoding_directions {
+        let velocity_encoding_minimum_value = recipe
+            .velocity_encoding_minimum_value
+            .expect("Enhanced MR velocity encoding recipes must define a minimum value");
+        let velocity_encoding_maximum_value = recipe
+            .velocity_encoding_maximum_value
+            .expect("Enhanced MR velocity encoding recipes must define a maximum value");
+        recipe
+            .image_position_patient
+            .iter()
+            .zip(velocity_encoding_directions.iter())
+            .enumerate()
+            .map(
+                |(index, (image_position_patient, velocity_encoding_direction))| {
+                    InMemDicomObject::from_element_iter([
+                        DataElement::new(
+                            tags::FRAME_CONTENT_SEQUENCE,
+                            VR::SQ,
+                            DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+                                DataElement::new(
+                                    tags::DIMENSION_INDEX_VALUES,
+                                    VR::UL,
+                                    PrimitiveValue::from((index + 1) as u32),
+                                ),
+                                DataElement::new(
+                                    tags::FRAME_ACQUISITION_NUMBER,
+                                    VR::US,
+                                    PrimitiveValue::from((index + 1) as u16),
+                                ),
+                            ])]),
+                        ),
+                        DataElement::new(
+                            tags::PLANE_POSITION_SEQUENCE,
+                            VR::SQ,
+                            DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+                                DataElement::new(
+                                    tags::IMAGE_POSITION_PATIENT,
+                                    VR::DS,
+                                    *image_position_patient,
+                                ),
+                            ])]),
+                        ),
+                        DataElement::new(
+                            tags::MR_VELOCITY_ENCODING_SEQUENCE,
+                            VR::SQ,
+                            DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+                                DataElement::new(
+                                    tags::VELOCITY_ENCODING_DIRECTION,
+                                    VR::FD,
+                                    PrimitiveValue::from(*velocity_encoding_direction),
+                                ),
+                                DataElement::new(
+                                    tags::VELOCITY_ENCODING_MINIMUM_VALUE,
+                                    VR::FD,
+                                    PrimitiveValue::from(velocity_encoding_minimum_value),
+                                ),
+                                DataElement::new(
+                                    tags::VELOCITY_ENCODING_MAXIMUM_VALUE,
+                                    VR::FD,
+                                    PrimitiveValue::from(velocity_encoding_maximum_value),
+                                ),
+                            ])]),
+                        ),
+                    ])
+                },
+            )
+            .collect::<Vec<_>>()
     } else {
         let effective_echo_times = recipe.effective_echo_times.expect(
             "Enhanced MR recipes without Temporal Position offsets must define Effective Echo Times",
@@ -3029,6 +3153,15 @@ fn enhanced_mr_manifest_entry(
             "two_frame_enhanced_mr_temporal_gradient_stack",
             "per_frame_temporal_position",
         )
+    } else if let Some(velocity_encoding_directions) = recipe.velocity_encoding_directions {
+        (
+            "VelocityEncodingDirection",
+            "MRVelocityEncodingSequence",
+            "velocity_encoding_direction",
+            serde_json::json!(velocity_encoding_directions),
+            "two_frame_enhanced_mr_phase_velocity_encoding_stack",
+            "per_frame_mr_velocity_encoding",
+        )
     } else {
         (
             "EffectiveEchoTime",
@@ -3047,6 +3180,12 @@ fn enhanced_mr_manifest_entry(
         "image_position_patient": recipe.image_position_patient
     });
     per_frame_functional_groups[per_frame_dimension_name] = per_frame_dimension_values.clone();
+    if recipe.velocity_encoding_directions.is_some() {
+        per_frame_functional_groups["velocity_encoding_minimum_value"] =
+            serde_json::json!(recipe.velocity_encoding_minimum_value);
+        per_frame_functional_groups["velocity_encoding_maximum_value"] =
+            serde_json::json!(recipe.velocity_encoding_maximum_value);
+    }
     let mut expected_semantics = serde_json::json!({
         "synthetic_data": "YES",
         "pixel_min": recipe.pixel_min,
@@ -3056,6 +3195,12 @@ fn enhanced_mr_manifest_entry(
         "dimension_index_values": [1, 2]
     });
     expected_semantics[per_frame_dimension_name] = per_frame_dimension_values;
+    if recipe.velocity_encoding_directions.is_some() {
+        expected_semantics["velocity_encoding_minimum_value"] =
+            serde_json::json!(recipe.velocity_encoding_minimum_value);
+        expected_semantics["velocity_encoding_maximum_value"] =
+            serde_json::json!(recipe.velocity_encoding_maximum_value);
+    }
     let known_stressors = [
         "enhanced_mr_image_storage",
         "native_multiframe_pixel_data",

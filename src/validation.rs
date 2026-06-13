@@ -130,6 +130,9 @@ pub(crate) struct EnhancedMrImageExpectations<'a> {
     pub gradient_echo_train_length: u16,
     pub effective_echo_times: Option<&'a [f64]>,
     pub temporal_position_time_offsets: Option<&'a [f64]>,
+    pub velocity_encoding_directions: Option<&'a [[f64; 3]]>,
+    pub velocity_encoding_minimum_value: Option<f64>,
+    pub velocity_encoding_maximum_value: Option<f64>,
 }
 
 #[derive(Debug, Clone)]
@@ -1433,6 +1436,54 @@ fn validate_enhanced_mr_image(
                 temporal_position_time_offsets[index],
             );
         }
+        if let Some(velocity_encoding_directions) = expected.velocity_encoding_directions {
+            check_equal(
+                results,
+                "enhanced_mr_velocity_encoding_direction",
+                "Per-frame MR Velocity Encoding Direction matches the recipe.",
+                "Per-frame MR Velocity Encoding Direction does not match the recipe.",
+                nested_sequence_item_f64_values(
+                    path,
+                    frame,
+                    tags::MR_VELOCITY_ENCODING_SEQUENCE,
+                    0,
+                    tags::VELOCITY_ENCODING_DIRECTION,
+                )?,
+                velocity_encoding_directions[index].to_vec(),
+            );
+            check_equal(
+                results,
+                "enhanced_mr_velocity_encoding_minimum_value",
+                "Per-frame MR Velocity Encoding Minimum Value matches the recipe.",
+                "Per-frame MR Velocity Encoding Minimum Value does not match the recipe.",
+                nested_sequence_item_f64(
+                    path,
+                    frame,
+                    tags::MR_VELOCITY_ENCODING_SEQUENCE,
+                    0,
+                    tags::VELOCITY_ENCODING_MINIMUM_VALUE,
+                )?,
+                expected
+                    .velocity_encoding_minimum_value
+                    .expect("velocity encoding expectations must define a minimum value"),
+            );
+            check_equal(
+                results,
+                "enhanced_mr_velocity_encoding_maximum_value",
+                "Per-frame MR Velocity Encoding Maximum Value matches the recipe.",
+                "Per-frame MR Velocity Encoding Maximum Value does not match the recipe.",
+                nested_sequence_item_f64(
+                    path,
+                    frame,
+                    tags::MR_VELOCITY_ENCODING_SEQUENCE,
+                    0,
+                    tags::VELOCITY_ENCODING_MAXIMUM_VALUE,
+                )?,
+                expected
+                    .velocity_encoding_maximum_value
+                    .expect("velocity encoding expectations must define a maximum value"),
+            );
+        }
         check_equal(
             results,
             "enhanced_mr_dimension_index_values",
@@ -2318,6 +2369,21 @@ fn nested_sequence_item_f64(
         .map_err(|err| validation_error(path, err))?
         .value()
         .to_float64()
+        .map_err(|err| validation_error(path, err))
+}
+
+fn nested_sequence_item_f64_values(
+    path: &Path,
+    obj: &DatasetObject,
+    sequence_tag: Tag,
+    index: usize,
+    tag: Tag,
+) -> Result<Vec<f64>, GenerateError> {
+    let item = item_sequence_item(path, obj, sequence_tag, index)?;
+    item.element(tag)
+        .map_err(|err| validation_error(path, err))?
+        .value()
+        .to_multi_float64()
         .map_err(|err| validation_error(path, err))
 }
 

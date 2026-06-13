@@ -178,4 +178,10 @@ fn list_cases_command_shows_extended_case_status_and_evidence() {
         ),
         "list-cases must include implemented Enhanced MR temporal extended cases with standards evidence"
     );
+    assert!(
+        stdout.contains(
+            "enhanced/mr/multiframe_phase_velocity_encoding_explicit_le\timplemented\textended\t1.2.840.10008.5.1.4.1.1.4.1\t1.2.840.10008.1.2.1\t27/27 covered"
+        ),
+        "list-cases must include implemented Enhanced MR phase extended cases with standards evidence"
+    );
 }

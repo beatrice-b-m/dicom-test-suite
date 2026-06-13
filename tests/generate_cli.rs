@@ -1555,7 +1555,7 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\textended"));
-    assert!(stdout.contains("files_written\t3"));
+    assert!(stdout.contains("files_written\t4"));
 
     let manifest_path = out_dir.join("manifest.json");
     let manifest: Value = serde_json::from_str(
@@ -1567,7 +1567,7 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
             .pointer("/files")
             .and_then(Value::as_array)
             .map(Vec::len),
-        Some(3)
+        Some(4)
     );
     let enhanced_ct_file = file_entry_by_case_id(
         &manifest,
@@ -1688,6 +1688,35 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
         validation_result_names(enhanced_mr_temporal_file.pointer("/validation/internal"))
             .contains(&"enhanced_mr_temporal_position_time_offset"),
         "Enhanced MR temporal manifest should record Temporal Position validation"
+    );
+    let enhanced_mr_phase_file = file_entry_by_case_id(
+        &manifest,
+        "enhanced/mr/multiframe_phase_velocity_encoding_explicit_le",
+    );
+    assert_eq!(
+        enhanced_mr_phase_file
+            .pointer("/dicom/sop_class_uid")
+            .and_then(Value::as_str),
+        Some(uids::ENHANCED_MR_IMAGE_STORAGE)
+    );
+    assert_eq!(
+        enhanced_mr_phase_file
+            .pointer("/recipe/recipe_parameters/dimension_index/dimension_index_pointer")
+            .and_then(Value::as_str),
+        Some("VelocityEncodingDirection")
+    );
+    assert_eq!(
+        enhanced_mr_phase_file
+            .pointer(
+                "/recipe/recipe_parameters/per_frame_functional_groups/velocity_encoding_direction/1/1"
+            )
+            .and_then(Value::as_f64),
+        Some(1.0)
+    );
+    assert!(
+        validation_result_names(enhanced_mr_phase_file.pointer("/validation/internal"))
+            .contains(&"enhanced_mr_velocity_encoding_direction"),
+        "Enhanced MR phase manifest should record velocity encoding validation"
     );
     assert!(
         manifest
@@ -1822,6 +1851,40 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
             .to_float64()
             .expect("Temporal Position Time Offset should be FD"),
         1.5
+    );
+
+    let enhanced_mr_phase_path =
+        out_dir.join("enhanced/mr/multiframe_phase_velocity_encoding_explicit_le/instance.dcm");
+    let enhanced_mr_phase =
+        open_file(&enhanced_mr_phase_path).expect("Enhanced MR phase DICOM file should parse");
+    let phase_per_frame_items = enhanced_mr_phase
+        .element(tags::PER_FRAME_FUNCTIONAL_GROUPS_SEQUENCE)
+        .expect("Enhanced MR phase file should contain Per-Frame Functional Groups Sequence")
+        .items()
+        .expect("Per-Frame Functional Groups should be a sequence");
+    assert_eq!(phase_per_frame_items.len(), 2);
+    let second_velocity_encoding_item = phase_per_frame_items[1]
+        .element(tags::MR_VELOCITY_ENCODING_SEQUENCE)
+        .expect("second frame should contain MR Velocity Encoding Sequence")
+        .items()
+        .expect("MR Velocity Encoding should be a sequence");
+    assert_eq!(
+        second_velocity_encoding_item[0]
+            .element(tags::VELOCITY_ENCODING_DIRECTION)
+            .expect("MR Velocity Encoding should contain Velocity Encoding Direction")
+            .value()
+            .to_multi_float64()
+            .expect("Velocity Encoding Direction should be FD VM 3"),
+        vec![0.0, 1.0, 0.0]
+    );
+    assert_eq!(
+        second_velocity_encoding_item[0]
+            .element(tags::VELOCITY_ENCODING_MAXIMUM_VALUE)
+            .expect("MR Velocity Encoding should contain Velocity Encoding Maximum Value")
+            .value()
+            .to_float64()
+            .expect("Velocity Encoding Maximum Value should be FD"),
+        150.0
     );
 
     fs::remove_dir_all(out_dir).expect("temporary output root should be removable");

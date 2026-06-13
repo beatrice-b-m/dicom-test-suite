@@ -4,7 +4,7 @@
 **Source specification:** `SYSTEM_SPEC.md` version 0.2.0  
 **Current phase:** Phase 4 enhanced multi-frame, in progress
 
-**Current implementation status:** Phase 0, Phase 0.5, Phase 1, Phase 2, and Phase 3 are complete; Phase 4 now includes standards-backed two-frame Enhanced CT and Enhanced MR Image Storage cases using Shared and Per-Frame Functional Groups, Multi-frame Dimension metadata, per-frame MR Echo, and per-frame Temporal Position metadata
+**Current implementation status:** Phase 0, Phase 0.5, Phase 1, Phase 2, and Phase 3 are complete; Phase 4 now includes standards-backed two-frame Enhanced CT and Enhanced MR Image Storage cases using Shared and Per-Frame Functional Groups, Multi-frame Dimension metadata, per-frame MR Echo, per-frame Temporal Position, and per-frame MR Velocity Encoding metadata
 
 This document is the durable hand-off log for coding agents implementing
 `dicom-test-suite`. Keep `SYSTEM_SPEC.md` as the source of product and
@@ -82,7 +82,7 @@ Observed at creation of this progress file:
 | Phase 1: Generator core | complete | `generate --profile smoke` writes all three initial Secondary Capture smoke Part 10 files with manifest hashes, file meta UIDs, pixel metadata, validation results, and byte-stable output across two identical runs. |
 | Phase 2: Native pixel matrix | complete | Core native monochrome 16-bit unsigned/signed MONOCHROME2 OW Pixel Data, RGB planar configuration 1, PALETTE COLOR, YBR_FULL, YBR_FULL_422, odd-dimension, rectangular, tiny-image, pixel-padding, and broadened native pixel validators are implemented. |
 | Phase 3: Classic radiology IODs | complete | CT Image Storage signed 12-bit rescale/window, MG For Presentation/For Processing 12-bit, CR overlay/Modality LUT/VOI LUT, MR multi-slice oblique geometry, DX display shutter, US Image Storage, and stable multi-file series generation are implemented. |
-| Phase 4: Enhanced multi-frame | in progress | First Enhanced CT and Enhanced MR Image Storage cases with Shared and Per-Frame Functional Groups and Multi-frame Dimension metadata are implemented; MR Echo and Temporal Position variation are covered; phase and concatenation cases remain pending. |
+| Phase 4: Enhanced multi-frame | in progress | First Enhanced CT and Enhanced MR Image Storage cases with Shared and Per-Frame Functional Groups and Multi-frame Dimension metadata are implemented; MR Echo, Temporal Position, and phase/velocity-encoding variation are covered; concatenation cases remain pending. |
 | Phase 5: Derived, presentation, and non-image objects | not started | SEG, presentation states, SR, KOS, RWVM, RT, and encapsulated documents pending. |
 | Phase 6: Transfer syntax expansion | not started | Transfer syntax abstraction and compressed cases pending. |
 | Phase 7: Pathology, video, and large object profiles | not started | VL, WSI, video, and stress cases pending. |
@@ -185,12 +185,12 @@ multi-file series requirements.
 - [x] Add Enhanced MR builder.
 - [x] Add frame-varying echo case.
 - [x] Add frame-varying temporal position case.
-- [ ] Add frame-varying phase case.
+- [x] Add frame-varying phase case.
 - [ ] Add concatenation cases for extended profile.
 
 Phase 4 is in progress. The extended profile contains first valid multi-frame
-CT and MR cases, but the phase is not complete until phase variation and
-concatenation coverage are implemented.
+CT and MR cases, but the phase is not complete until concatenation coverage is
+implemented.
 
 ## Initial Priority Case Queue
 
@@ -222,6 +222,7 @@ These case IDs come from `SYSTEM_SPEC.md` section 21 and should seed
 | `enhanced/ct/multiframe_shared_perframe_explicit_le` | `extended` | implemented |
 | `enhanced/mr/multiframe_echo_perframe_explicit_le` | `extended` | implemented |
 | `enhanced/mr/multiframe_temporal_position_explicit_le` | `extended` | implemented |
+| `enhanced/mr/multiframe_phase_velocity_encoding_explicit_le` | `extended` | implemented |
 | `derived/seg/binary_multiframe_explicit_le` | `extended` | planned |
 | `vl/photo/rgb_planar0_explicit_le` | `core` | planned |
 | `vl/photo/palette_color_explicit_le` | `core` | planned |
@@ -443,6 +444,19 @@ These case IDs come from `SYSTEM_SPEC.md` section 21 and should seed
   addition to the existing Enhanced MR shared functional group checks. The
   registry records 2026b `dicom-standard-kb` evidence for Temporal Position
   Macro attributes and the PS3.6 Temporal Position data elements.
+- 2026-06-13: `enhanced/mr/multiframe_phase_velocity_encoding_explicit_le`
+  adds frame-varying phase-contrast-oriented velocity encoding coverage to
+  Enhanced MR Image Storage using Explicit VR Little Endian and native 16-bit
+  unsigned MONOCHROME2 Pixel Data. The generated file keeps the object
+  `DERIVED` to avoid expanding the first phase slice into a full ORIGINAL/MIXED
+  MR Pulse Sequence build, indexes the Multi-frame Dimension by Velocity
+  Encoding Direction, and places MR Velocity Encoding Sequence in Per-Frame
+  Functional Groups with different direction vectors for each frame. Validation
+  now checks per-frame Velocity Encoding Direction plus minimum and maximum
+  velocity values. The registry records 2026b `dicom-standard-kb` evidence for
+  the MR Velocity Encoding macro, velocity direction semantics, PS3.6 velocity
+  encoding data elements, and Phase Contrast references from the MR Pulse
+  Sequence module.
 
 ## Current Blockers
 
@@ -455,13 +469,14 @@ been verified.
 
 Continue Phase 4 enhanced multi-frame coverage:
 
-1. Query the 2026b `dicom-standard-kb` for MR phase-related attributes and any
-   Enhanced MR functional group requirements or defined terms needed to encode
-   frame-varying phase metadata.
-2. Add the next frame-varying extended case for phase metadata, building on the
-   existing Enhanced MR multi-frame functional group validators.
+1. Query the 2026b `dicom-standard-kb` for Concatenation UID, In-concatenation
+   Number, In-concatenation Total Number, Concatenation Frame Offset Number, and
+   Dimension Organization requirements for Enhanced CT or Enhanced MR.
+2. Add the first extended-profile concatenation case as two small Part 10 files
+   representing one logical multi-frame object split across concatenation
+   members.
 3. Add focused manifest/readback tests and commit with a scoped message such as
-   `feat(enhanced-mr): add phase variation case`.
+   `feat(enhanced-ct): add concatenation case`.
 
 ## Handoff Notes
 

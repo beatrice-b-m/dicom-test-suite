@@ -95,8 +95,8 @@ pub(crate) struct MgImageExpectations<'a> {
     pub lossy_image_compression: &'a str,
     pub burned_in_annotation: &'a str,
     pub breast_implant_present: &'a str,
-    pub window_center: &'a str,
-    pub window_width: &'a str,
+    pub window_center: Option<&'a str>,
+    pub window_width: Option<&'a str>,
     pub anatomic_region_code_value: &'a str,
     pub view_code_value: &'a str,
     pub acquisition_context_items: usize,
@@ -362,9 +362,9 @@ pub(crate) fn validate_part10_file(
                     "message": standard_sop_class_validation_message(expected.sop_class_uid)
                 },
                 {
-                    "name": "explicit_vr_little_endian_transfer_syntax",
+                    "name": standard_transfer_syntax_validation_name(expected.transfer_syntax_uid),
                     "status": "passed",
-                    "message": "Transfer Syntax UID matches Explicit VR Little Endian in the 2026b reference."
+                    "message": standard_transfer_syntax_validation_message(expected.transfer_syntax_uid)
                 },
                 {
                     "name": "synthetic_data_attribute",
@@ -734,12 +734,6 @@ fn validate_mg_image(
             tags::BREAST_IMPLANT_PRESENT,
             expected.breast_implant_present,
         ),
-        (
-            "mg_window_center",
-            tags::WINDOW_CENTER,
-            expected.window_center,
-        ),
-        ("mg_window_width", tags::WINDOW_WIDTH, expected.window_width),
     ] {
         check_equal(
             results,
@@ -750,6 +744,7 @@ fn validate_mg_image(
             expected_value,
         );
     }
+    validate_optional_mg_window(path, obj, results, expected)?;
     check_equal(
         results,
         "mg_pixel_intensity_relationship_sign",
@@ -783,6 +778,60 @@ fn validate_mg_image(
         sequence_item_count(path, obj, tags::ACQUISITION_CONTEXT_SEQUENCE)?,
         expected.acquisition_context_items,
     );
+
+    Ok(())
+}
+
+fn validate_optional_mg_window(
+    path: &Path,
+    obj: &OpenedObject,
+    results: &mut Vec<Value>,
+    expected: &MgImageExpectations<'_>,
+) -> Result<(), GenerateError> {
+    match (expected.window_center, expected.window_width) {
+        (Some(window_center), Some(window_width)) => {
+            for (name, tag, expected_value) in [
+                ("mg_window_center", tags::WINDOW_CENTER, window_center),
+                ("mg_window_width", tags::WINDOW_WIDTH, window_width),
+            ] {
+                check_equal(
+                    results,
+                    name,
+                    "Mammography window attribute matches the recipe.",
+                    "Mammography window attribute does not match the recipe.",
+                    element_str(path, obj, tag)?.as_str(),
+                    expected_value,
+                );
+            }
+        }
+        (None, None) => {
+            for (name, tag) in [
+                ("mg_window_center_absent", tags::WINDOW_CENTER),
+                ("mg_window_width_absent", tags::WINDOW_WIDTH),
+            ] {
+                let present = obj
+                    .element_opt(tag)
+                    .map_err(|err| validation_error(path, err))?
+                    .is_some();
+                check(
+                    results,
+                    !present,
+                    name,
+                    "Mammography window attribute is absent for FOR PROCESSING.",
+                    "Mammography window attribute is present for FOR PROCESSING.",
+                );
+            }
+        }
+        _ => {
+            check(
+                results,
+                false,
+                "mg_window_pair_consistency",
+                "Window Center and Window Width are both present or both absent.",
+                "Window Center and Window Width are not paired consistently.",
+            );
+        }
+    }
 
     Ok(())
 }
@@ -831,6 +880,9 @@ fn standard_sop_class_validation_name(sop_class_uid: &str) -> &'static str {
         uids::DIGITAL_MAMMOGRAPHY_X_RAY_IMAGE_STORAGE_FOR_PRESENTATION => {
             "digital_mammography_for_presentation_sop_class"
         }
+        uids::DIGITAL_MAMMOGRAPHY_X_RAY_IMAGE_STORAGE_FOR_PROCESSING => {
+            "digital_mammography_for_processing_sop_class"
+        }
         _ => "sop_class_uid",
     }
 }
@@ -844,7 +896,30 @@ fn standard_sop_class_validation_message(sop_class_uid: &str) -> &'static str {
         uids::DIGITAL_MAMMOGRAPHY_X_RAY_IMAGE_STORAGE_FOR_PRESENTATION => {
             "SOP Class UID matches Digital Mammography X-Ray Image Storage - For Presentation in the 2026b reference."
         }
+        uids::DIGITAL_MAMMOGRAPHY_X_RAY_IMAGE_STORAGE_FOR_PROCESSING => {
+            "SOP Class UID matches Digital Mammography X-Ray Image Storage - For Processing in the 2026b reference."
+        }
         _ => "SOP Class UID matches the recipe.",
+    }
+}
+
+fn standard_transfer_syntax_validation_name(transfer_syntax_uid: &str) -> &'static str {
+    match transfer_syntax_uid {
+        uids::EXPLICIT_VR_LITTLE_ENDIAN => "explicit_vr_little_endian_transfer_syntax",
+        uids::IMPLICIT_VR_LITTLE_ENDIAN => "implicit_vr_little_endian_transfer_syntax",
+        _ => "transfer_syntax_uid",
+    }
+}
+
+fn standard_transfer_syntax_validation_message(transfer_syntax_uid: &str) -> &'static str {
+    match transfer_syntax_uid {
+        uids::EXPLICIT_VR_LITTLE_ENDIAN => {
+            "Transfer Syntax UID matches Explicit VR Little Endian in the 2026b reference."
+        }
+        uids::IMPLICIT_VR_LITTLE_ENDIAN => {
+            "Transfer Syntax UID matches Implicit VR Little Endian in the 2026b reference."
+        }
+        _ => "Transfer Syntax UID matches the recipe.",
     }
 }
 

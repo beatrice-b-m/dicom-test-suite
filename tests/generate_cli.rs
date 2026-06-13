@@ -249,7 +249,7 @@ fn generate_command_writes_core_u16_native_pixel_case() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\tcore"));
-    assert!(stdout.contains("files_written\t12"));
+    assert!(stdout.contains("files_written\t13"));
 
     let manifest_path = out_dir.join("manifest.json");
     let manifest: Value = serde_json::from_str(
@@ -265,7 +265,7 @@ fn generate_command_writes_core_u16_native_pixel_case() {
             .pointer("/files")
             .and_then(Value::as_array)
             .map(Vec::len),
-        Some(12)
+        Some(13)
     );
     let u16_file = file_entry_by_case_id(&manifest, "classic/sc/mono2_u16_explicit_le");
     assert_eq!(
@@ -618,6 +618,59 @@ fn generate_command_writes_core_u16_native_pixel_case() {
             .contains(&"digital_mammography_for_presentation_sop_class"),
         "MG manifest should record standards validation for mammography SOP Class"
     );
+    let mg_processing_file = file_entry_by_case_id(
+        &manifest,
+        "classic/mg/for_processing_mono2_u16_12bit_implicit_le",
+    );
+    assert_eq!(
+        mg_processing_file
+            .pointer("/dicom/sop_class_uid")
+            .and_then(Value::as_str),
+        Some(uids::DIGITAL_MAMMOGRAPHY_X_RAY_IMAGE_STORAGE_FOR_PROCESSING)
+    );
+    assert_eq!(
+        mg_processing_file
+            .pointer("/dicom/transfer_syntax_uid")
+            .and_then(Value::as_str),
+        Some(uids::IMPLICIT_VR_LITTLE_ENDIAN)
+    );
+    assert_eq!(
+        mg_processing_file
+            .pointer("/image/photometric_interpretation")
+            .and_then(Value::as_str),
+        Some("MONOCHROME2")
+    );
+    assert_eq!(
+        mg_processing_file
+            .pointer("/recipe/recipe_parameters/presentation_intent_type")
+            .and_then(Value::as_str),
+        Some("FOR PROCESSING")
+    );
+    assert_eq!(
+        mg_processing_file
+            .pointer("/recipe/recipe_parameters/presentation_lut_shape")
+            .and_then(Value::as_str),
+        Some("IDENTITY")
+    );
+    assert_eq!(
+        mg_processing_file.pointer("/recipe/recipe_parameters/window/center"),
+        Some(&Value::Null)
+    );
+    assert!(
+        validation_result_names(mg_processing_file.pointer("/validation/internal"))
+            .contains(&"mg_window_center_absent"),
+        "MG For Processing manifest should record absent Window Center validation"
+    );
+    assert!(
+        validation_result_names(mg_processing_file.pointer("/validation/standards"))
+            .contains(&"digital_mammography_for_processing_sop_class"),
+        "MG For Processing manifest should record standards validation for its SOP Class"
+    );
+    assert!(
+        validation_result_names(mg_processing_file.pointer("/validation/standards"))
+            .contains(&"implicit_vr_little_endian_transfer_syntax"),
+        "MG For Processing manifest should record standards validation for Implicit VR LE"
+    );
     assert!(
         manifest
             .pointer("/skipped_cases")
@@ -628,6 +681,7 @@ fn generate_command_writes_core_u16_native_pixel_case() {
                         case.get("case_id").and_then(Value::as_str),
                         Some("classic/ct/mono2_i16_rescale_12bit_explicit_le")
                             | Some("classic/mg/for_presentation_mono1_u16_12bit_explicit_le")
+                            | Some("classic/mg/for_processing_mono2_u16_12bit_implicit_le")
                     )
                 })
             }),
@@ -907,6 +961,71 @@ fn generate_command_writes_core_u16_native_pixel_case() {
             .expect("View Code Sequence should contain items")
             .len(),
         1
+    );
+    let mg_processing_path =
+        out_dir.join("classic/mg/for_processing_mono2_u16_12bit_implicit_le/instance.dcm");
+    let mg_processing = open_file(&mg_processing_path)
+        .expect("MG For Processing generated DICOM file should parse");
+    assert_eq!(
+        mg_processing
+            .meta()
+            .transfer_syntax()
+            .trim_end_matches('\0'),
+        uids::IMPLICIT_VR_LITTLE_ENDIAN
+    );
+    assert_eq!(
+        mg_processing
+            .element(tags::SOP_CLASS_UID)
+            .expect("dataset should contain SOP Class UID")
+            .value()
+            .to_str()
+            .expect("SOP Class UID should be text")
+            .trim_end_matches('\0'),
+        uids::DIGITAL_MAMMOGRAPHY_X_RAY_IMAGE_STORAGE_FOR_PROCESSING
+    );
+    assert_eq!(
+        mg_processing
+            .element(tags::PRESENTATION_INTENT_TYPE)
+            .expect("dataset should contain Presentation Intent Type")
+            .value()
+            .to_str()
+            .expect("Presentation Intent Type should be text")
+            .trim(),
+        "FOR PROCESSING"
+    );
+    assert_eq!(
+        mg_processing
+            .element(tags::PHOTOMETRIC_INTERPRETATION)
+            .expect("dataset should contain Photometric Interpretation")
+            .value()
+            .to_str()
+            .expect("Photometric Interpretation should be text")
+            .trim(),
+        "MONOCHROME2"
+    );
+    assert_eq!(
+        mg_processing
+            .element(tags::PRESENTATION_LUT_SHAPE)
+            .expect("dataset should contain Presentation LUT Shape")
+            .value()
+            .to_str()
+            .expect("Presentation LUT Shape should be text")
+            .trim(),
+        "IDENTITY"
+    );
+    assert!(
+        mg_processing
+            .element_opt(tags::WINDOW_CENTER)
+            .expect("Window Center lookup should succeed")
+            .is_none(),
+        "MG For Processing should omit Window Center"
+    );
+    assert!(
+        mg_processing
+            .element_opt(tags::WINDOW_WIDTH)
+            .expect("Window Width lookup should succeed")
+            .is_none(),
+        "MG For Processing should omit Window Width"
     );
 
     fs::remove_dir_all(out_dir).expect("temporary output root should be removable");

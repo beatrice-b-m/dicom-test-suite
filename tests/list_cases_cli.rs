@@ -56,6 +56,12 @@ fn list_cases_command_shows_core_case_status_and_evidence() {
     );
     assert!(
         stdout.contains(
+            "classic/mg/for_processing_mono2_u16_12bit_implicit_le\timplemented\tcore\t1.2.840.10008.5.1.4.1.1.1.2.1\t1.2.840.10008.1.2\t15/15 covered"
+        ),
+        "list-cases must include implemented MG For Processing core cases with standards evidence"
+    );
+    assert!(
+        stdout.contains(
             "classic/sc/mono2_u16_explicit_le\timplemented\tcore\t1.2.840.10008.5.1.4.1.1.7\t1.2.840.10008.1.2.1\t6/6 covered"
         ),
         "list-cases must include implemented core native pixel cases"

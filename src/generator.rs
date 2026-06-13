@@ -429,6 +429,13 @@ const CLASSIC_CT_RECIPES: &[ClassicCtRecipe] = &[ClassicCtRecipe {
 struct ClassicMgRecipe {
     case_id: &'static str,
     recipe_id: &'static str,
+    sop_class_uid: &'static str,
+    sop_class_name: &'static str,
+    transfer_syntax_uid: &'static str,
+    transfer_syntax_name: &'static str,
+    presentation_intent_type: &'static str,
+    photometric_interpretation: &'static str,
+    presentation_lut_shape: &'static str,
     rows: u16,
     columns: u16,
     pixel_bytes: &'static [u8],
@@ -436,23 +443,52 @@ struct ClassicMgRecipe {
     pixel_min: i32,
     pixel_max: i32,
     imager_pixel_spacing: &'static str,
-    window_center: &'static str,
-    window_width: &'static str,
+    window_center: Option<&'static str>,
+    window_width: Option<&'static str>,
 }
 
-const CLASSIC_MG_RECIPES: &[ClassicMgRecipe] = &[ClassicMgRecipe {
-    case_id: "classic/mg/for_presentation_mono1_u16_12bit_explicit_le",
-    recipe_id: "mg_for_presentation_mono1_u16",
-    rows: 2,
-    columns: 2,
-    pixel_bytes: &MG_U16_12BIT_PIXELS,
-    pixel_values: &MG_U16_12BIT_VALUES,
-    pixel_min: 0,
-    pixel_max: 4095,
-    imager_pixel_spacing: "0.070\\0.070",
-    window_center: "2048",
-    window_width: "4096",
-}];
+const CLASSIC_MG_RECIPES: &[ClassicMgRecipe] = &[
+    ClassicMgRecipe {
+        case_id: "classic/mg/for_presentation_mono1_u16_12bit_explicit_le",
+        recipe_id: "mg_for_presentation_mono1_u16",
+        sop_class_uid: uids::DIGITAL_MAMMOGRAPHY_X_RAY_IMAGE_STORAGE_FOR_PRESENTATION,
+        sop_class_name: "Digital Mammography X-Ray Image Storage - For Presentation",
+        transfer_syntax_uid: uids::EXPLICIT_VR_LITTLE_ENDIAN,
+        transfer_syntax_name: "Explicit VR Little Endian",
+        presentation_intent_type: "FOR PRESENTATION",
+        photometric_interpretation: "MONOCHROME1",
+        presentation_lut_shape: "INVERSE",
+        rows: 2,
+        columns: 2,
+        pixel_bytes: &MG_U16_12BIT_PIXELS,
+        pixel_values: &MG_U16_12BIT_VALUES,
+        pixel_min: 0,
+        pixel_max: 4095,
+        imager_pixel_spacing: "0.070\\0.070",
+        window_center: Some("2048"),
+        window_width: Some("4096"),
+    },
+    ClassicMgRecipe {
+        case_id: "classic/mg/for_processing_mono2_u16_12bit_implicit_le",
+        recipe_id: "mg_for_processing_mono2_u16",
+        sop_class_uid: uids::DIGITAL_MAMMOGRAPHY_X_RAY_IMAGE_STORAGE_FOR_PROCESSING,
+        sop_class_name: "Digital Mammography X-Ray Image Storage - For Processing",
+        transfer_syntax_uid: uids::IMPLICIT_VR_LITTLE_ENDIAN,
+        transfer_syntax_name: "Implicit VR Little Endian",
+        presentation_intent_type: "FOR PROCESSING",
+        photometric_interpretation: "MONOCHROME2",
+        presentation_lut_shape: "IDENTITY",
+        rows: 2,
+        columns: 2,
+        pixel_bytes: &MG_U16_12BIT_PIXELS,
+        pixel_values: &MG_U16_12BIT_VALUES,
+        pixel_min: 0,
+        pixel_max: 4095,
+        imager_pixel_spacing: "0.070\\0.070",
+        window_center: None,
+        window_width: None,
+    },
+];
 
 #[derive(Debug, Clone)]
 pub(crate) struct GeneratedFile {
@@ -1446,12 +1482,7 @@ fn write_classic_mg_case(
     })?;
 
     let mut obj = InMemDicomObject::new_empty();
-    put_str(
-        &mut obj,
-        tags::SOP_CLASS_UID,
-        VR::UI,
-        uids::DIGITAL_MAMMOGRAPHY_X_RAY_IMAGE_STORAGE_FOR_PRESENTATION,
-    );
+    put_str(&mut obj, tags::SOP_CLASS_UID, VR::UI, recipe.sop_class_uid);
     put_str(&mut obj, tags::SOP_INSTANCE_UID, VR::UI, &sop_instance_uid);
     put_str(&mut obj, tags::SYNTHETIC_DATA, VR::CS, "YES");
 
@@ -1482,7 +1513,7 @@ fn write_classic_mg_case(
         &mut obj,
         tags::PRESENTATION_INTENT_TYPE,
         VR::CS,
-        "FOR PRESENTATION",
+        recipe.presentation_intent_type,
     );
     put_str(
         &mut obj,
@@ -1523,7 +1554,7 @@ fn write_classic_mg_case(
         &mut obj,
         tags::PHOTOMETRIC_INTERPRETATION,
         VR::CS,
-        "MONOCHROME1",
+        recipe.photometric_interpretation,
     );
     put_u16(&mut obj, tags::ROWS, VR::US, recipe.rows);
     put_u16(&mut obj, tags::COLUMNS, VR::US, recipe.columns);
@@ -1542,11 +1573,18 @@ fn write_classic_mg_case(
     put_str(&mut obj, tags::RESCALE_INTERCEPT, VR::DS, "0");
     put_str(&mut obj, tags::RESCALE_SLOPE, VR::DS, "1");
     put_str(&mut obj, tags::RESCALE_TYPE, VR::LO, "US");
-    put_str(&mut obj, tags::PRESENTATION_LUT_SHAPE, VR::CS, "INVERSE");
+    put_str(
+        &mut obj,
+        tags::PRESENTATION_LUT_SHAPE,
+        VR::CS,
+        recipe.presentation_lut_shape,
+    );
     put_str(&mut obj, tags::LOSSY_IMAGE_COMPRESSION, VR::CS, "00");
     put_str(&mut obj, tags::BURNED_IN_ANNOTATION, VR::CS, "NO");
-    put_str(&mut obj, tags::WINDOW_CENTER, VR::DS, recipe.window_center);
-    put_str(&mut obj, tags::WINDOW_WIDTH, VR::DS, recipe.window_width);
+    if let (Some(window_center), Some(window_width)) = (recipe.window_center, recipe.window_width) {
+        put_str(&mut obj, tags::WINDOW_CENTER, VR::DS, window_center);
+        put_str(&mut obj, tags::WINDOW_WIDTH, VR::DS, window_width);
+    }
 
     put_str(
         &mut obj,
@@ -1606,7 +1644,7 @@ fn write_classic_mg_case(
     let file_obj = obj
         .with_meta(
             FileMetaTableBuilder::new()
-                .transfer_syntax(uids::EXPLICIT_VR_LITTLE_ENDIAN)
+                .transfer_syntax(recipe.transfer_syntax_uid)
                 .implementation_class_uid(&implementation_class_uid)
                 .implementation_version_name("DICOMTS010"),
         )
@@ -1625,15 +1663,15 @@ fn write_classic_mg_case(
     let validated = validate_part10_file(
         &path,
         &Part10Expectations {
-            sop_class_uid: uids::DIGITAL_MAMMOGRAPHY_X_RAY_IMAGE_STORAGE_FOR_PRESENTATION,
+            sop_class_uid: recipe.sop_class_uid,
             sop_instance_uid: &sop_instance_uid,
-            transfer_syntax_uid: uids::EXPLICIT_VR_LITTLE_ENDIAN,
+            transfer_syntax_uid: recipe.transfer_syntax_uid,
             implementation_class_uid: &implementation_class_uid,
             synthetic_data: "YES",
             rows: recipe.rows,
             columns: recipe.columns,
             samples_per_pixel: 1,
-            photometric_interpretation: "MONOCHROME1",
+            photometric_interpretation: recipe.photometric_interpretation,
             bits_allocated: 16,
             bits_stored: 12,
             high_bit: 11,
@@ -1646,7 +1684,7 @@ fn write_classic_mg_case(
             ct_image: None,
             mg_image: Some(MgImageExpectations {
                 modality: "MG",
-                presentation_intent_type: "FOR PRESENTATION",
+                presentation_intent_type: recipe.presentation_intent_type,
                 image_type: "ORIGINAL\\PRIMARY",
                 image_laterality: "L",
                 view_position: "MLO",
@@ -1662,7 +1700,7 @@ fn write_classic_mg_case(
                 rescale_intercept: "0",
                 rescale_slope: "1",
                 rescale_type: "US",
-                presentation_lut_shape: "INVERSE",
+                presentation_lut_shape: recipe.presentation_lut_shape,
                 lossy_image_compression: "00",
                 burned_in_annotation: "NO",
                 breast_implant_present: "NO",
@@ -1807,6 +1845,46 @@ fn classic_mg_manifest_entry(
         }),
     ]);
 
+    let window_manifest = serde_json::json!({
+        "center": recipe.window_center,
+        "width": recipe.window_width
+    });
+    let expected_capabilities = if recipe.window_center.is_some() {
+        serde_json::json!([
+            "open_file",
+            "read_metadata",
+            "render_native_pixels",
+            "apply_window"
+        ])
+    } else {
+        serde_json::json!(["open_file", "read_metadata", "render_native_pixels"])
+    };
+    let photometric_semantics = if recipe.photometric_interpretation == "MONOCHROME1" {
+        "MONOCHROME1 with Presentation LUT Shape INVERSE maps stored values to P-Values for presentation"
+    } else {
+        "MONOCHROME2 with Presentation LUT Shape IDENTITY preserves increasing stored values for processing"
+    };
+    let visual_pattern = if recipe.photometric_interpretation == "MONOCHROME1" {
+        "2x2_mammography_mono1_12bit_gradient"
+    } else {
+        "2x2_mammography_mono2_12bit_processing_gradient"
+    };
+    let known_stressors = if recipe.presentation_intent_type == "FOR PROCESSING" {
+        serde_json::json!([
+            "digital_mammography_for_processing",
+            "implicit_vr_little_endian",
+            "mono2_processing_pixels",
+            "unsigned_12_bit_pixels"
+        ])
+    } else {
+        serde_json::json!([
+            "digital_mammography_for_presentation",
+            "mono1_inversion",
+            "unsigned_12_bit_pixels",
+            "presentation_lut_inverse"
+        ])
+    };
+
     serde_json::json!({
         "case_id": recipe.case_id,
         "profile_membership": ["core"],
@@ -1821,30 +1899,27 @@ fn classic_mg_manifest_entry(
                 "rows": recipe.rows,
                 "columns": recipe.columns,
                 "samples_per_pixel": 1,
-                "photometric_interpretation": "MONOCHROME1",
+                "photometric_interpretation": recipe.photometric_interpretation,
                 "bits_allocated": 16,
                 "bits_stored": 12,
                 "high_bit": 11,
                 "pixel_representation": 0,
                 "pixel_values": recipe.pixel_values,
-                "presentation_intent_type": "FOR PRESENTATION",
+                "presentation_intent_type": recipe.presentation_intent_type,
                 "image_laterality": "L",
                 "view_position": "MLO",
                 "imager_pixel_spacing": recipe.imager_pixel_spacing,
-                "presentation_lut_shape": "INVERSE",
-                "window": {
-                    "center": recipe.window_center,
-                    "width": recipe.window_width
-                }
+                "presentation_lut_shape": recipe.presentation_lut_shape,
+                "window": window_manifest
             }
         },
         "dicom": {
-            "sop_class_uid": uids::DIGITAL_MAMMOGRAPHY_X_RAY_IMAGE_STORAGE_FOR_PRESENTATION,
-            "sop_class_name": "Digital Mammography X-Ray Image Storage - For Presentation",
+            "sop_class_uid": recipe.sop_class_uid,
+            "sop_class_name": recipe.sop_class_name,
             "iod_name": "Digital Mammography X-Ray Image",
             "modality": "MG",
-            "transfer_syntax_uid": uids::EXPLICIT_VR_LITTLE_ENDIAN,
-            "transfer_syntax_name": "Explicit VR Little Endian"
+            "transfer_syntax_uid": recipe.transfer_syntax_uid,
+            "transfer_syntax_name": recipe.transfer_syntax_name
         },
         "uids": {
             "study_instance_uid": study_instance_uid,
@@ -1858,7 +1933,7 @@ fn classic_mg_manifest_entry(
             "columns": recipe.columns,
             "frames": 1,
             "samples_per_pixel": 1,
-            "photometric_interpretation": "MONOCHROME1",
+            "photometric_interpretation": recipe.photometric_interpretation,
             "bits_allocated": 16,
             "bits_stored": 12,
             "high_bit": 11,
@@ -1872,23 +1947,20 @@ fn classic_mg_manifest_entry(
             "frame_count": 1,
             "frame_hashes": [sha256_hex(recipe.pixel_bytes)]
         },
-        "expected_capabilities": ["open_file", "read_metadata", "render_native_pixels", "apply_window"],
+        "expected_capabilities": expected_capabilities,
         "expected_semantics": {
             "synthetic_data": "YES",
-            "presentation_intent_type": "FOR PRESENTATION",
+            "presentation_intent_type": recipe.presentation_intent_type,
             "pixel_min": recipe.pixel_min,
             "pixel_max": recipe.pixel_max,
-            "photometric_semantics": "MONOCHROME1 with Presentation LUT Shape INVERSE maps stored values to P-Values for presentation",
-            "window": {
-                "center": recipe.window_center,
-                "width": recipe.window_width
-            }
+            "photometric_semantics": photometric_semantics,
+            "window": window_manifest
         },
         "expected_visual_checks": {
-            "pattern": "2x2_mammography_mono1_12bit_gradient"
+            "pattern": visual_pattern
         },
         "validation": validation,
-        "known_stressors": ["digital_mammography_for_presentation", "mono1_inversion", "unsigned_12_bit_pixels", "presentation_lut_inverse"],
+        "known_stressors": known_stressors,
         "standards_evidence": standards_evidence
     })
 }

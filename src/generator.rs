@@ -15,6 +15,7 @@ use crate::{
 const PIXEL_RECIPE_VERSION: &str = "0.1.0";
 const MONO_PIXELS: [u8; 4] = [0, 85, 170, 255];
 const RGB_PLANAR0_PIXELS: [u8; 12] = [255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 255, 255];
+const RGB_PLANAR1_PIXELS: [u8; 12] = [255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255];
 const MONO_U16_PIXELS: [u8; 8] = [0, 0, 0x55, 0x55, 0xaa, 0xaa, 0xff, 0xff];
 const MONO_U16_VALUES: [i32; 4] = [0, 21845, 43690, 65535];
 const MONO_I16_PIXELS: [u8; 8] = [0x00, 0x80, 0x55, 0xd5, 0xaa, 0x2a, 0xff, 0x7f];
@@ -74,6 +75,24 @@ const PIXEL_RECIPES: &[PixelRecipe] = &[
         pixel_max: 255,
         visual_pattern: "2x2_rgb_red_green_blue_white",
         semantic_note: "RGB samples are interleaved color-by-pixel",
+    },
+    PixelRecipe {
+        case_id: "classic/sc/rgb_planar1_explicit_le",
+        recipe_id: "sc_rgb_planar1",
+        photometric_interpretation: "RGB",
+        samples_per_pixel: 3,
+        planar_configuration: Some(1),
+        bits_allocated: 8,
+        bits_stored: 8,
+        high_bit: 7,
+        pixel_representation: 0,
+        pixel_vr: VR::OB,
+        pixel_bytes: &RGB_PLANAR1_PIXELS,
+        pixel_values: &[255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255],
+        pixel_min: 0,
+        pixel_max: 255,
+        visual_pattern: "2x2_rgb_planar1_red_green_blue_white",
+        semantic_note: "RGB samples are stored contiguously by color plane",
     },
     PixelRecipe {
         case_id: "classic/sc/mono2_u16_explicit_le",

@@ -663,6 +663,12 @@ mod tests {
             ),
             "list-cases output must show implemented signed core native pixel status"
         );
+        assert!(
+            output.contains(
+                "classic/sc/rgb_planar1_explicit_le\timplemented\tcore\t1.2.840.10008.5.1.4.1.1.7\t1.2.840.10008.1.2.1\t5/5 covered"
+            ),
+            "list-cases output must show implemented RGB planar1 core status"
+        );
     }
 
     #[test]

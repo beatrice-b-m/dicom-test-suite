@@ -244,7 +244,7 @@ fn generate_command_writes_core_u16_native_pixel_case() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\tcore"));
-    assert!(stdout.contains("files_written\t2"));
+    assert!(stdout.contains("files_written\t3"));
 
     let manifest_path = out_dir.join("manifest.json");
     let manifest: Value = serde_json::from_str(
@@ -260,7 +260,7 @@ fn generate_command_writes_core_u16_native_pixel_case() {
             .pointer("/files")
             .and_then(Value::as_array)
             .map(Vec::len),
-        Some(2)
+        Some(3)
     );
     let u16_file = file_entry_by_case_id(&manifest, "classic/sc/mono2_u16_explicit_le");
     assert_eq!(
@@ -318,6 +318,31 @@ fn generate_command_writes_core_u16_native_pixel_case() {
         i16_file.pointer("/pixel_data/vr").and_then(Value::as_str),
         Some("OW")
     );
+    let rgb_planar1_file = file_entry_by_case_id(&manifest, "classic/sc/rgb_planar1_explicit_le");
+    assert_eq!(
+        rgb_planar1_file
+            .pointer("/image/photometric_interpretation")
+            .and_then(Value::as_str),
+        Some("RGB")
+    );
+    assert_eq!(
+        rgb_planar1_file
+            .pointer("/image/samples_per_pixel")
+            .and_then(Value::as_u64),
+        Some(3)
+    );
+    assert_eq!(
+        rgb_planar1_file
+            .pointer("/image/planar_configuration")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        rgb_planar1_file
+            .pointer("/pixel_data/value_length")
+            .and_then(Value::as_u64),
+        Some(12)
+    );
     assert!(
         validation_results_named(&manifest, "/files/0/validation/internal")
             .contains(&"pixel_data_vr"),
@@ -366,6 +391,17 @@ fn generate_command_writes_core_u16_native_pixel_case() {
             .value()
             .to_int::<u16>()
             .expect("Pixel Representation should be numeric"),
+        1
+    );
+    let planar1_path = out_dir.join("classic/sc/rgb_planar1_explicit_le/instance.dcm");
+    let planar1 = open_file(&planar1_path).expect("RGB planar1 generated DICOM file should parse");
+    assert_eq!(
+        planar1
+            .element(tags::PLANAR_CONFIGURATION)
+            .expect("dataset should contain Planar Configuration")
+            .value()
+            .to_int::<u16>()
+            .expect("Planar Configuration should be numeric"),
         1
     );
 

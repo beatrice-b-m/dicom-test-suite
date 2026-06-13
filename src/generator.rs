@@ -20,6 +20,12 @@ const MONO_U16_PIXELS: [u8; 8] = [0, 0, 0x55, 0x55, 0xaa, 0xaa, 0xff, 0xff];
 const MONO_U16_VALUES: [i32; 4] = [0, 21845, 43690, 65535];
 const MONO_I16_PIXELS: [u8; 8] = [0x00, 0x80, 0x55, 0xd5, 0xaa, 0x2a, 0xff, 0x7f];
 const MONO_I16_VALUES: [i32; 4] = [-32768, -10923, 10922, 32767];
+const MONO_U16_ODD_3X3_PIXELS: [u8; 18] = [0, 0, 1, 0, 2, 0, 3, 0, 4, 0, 5, 0, 6, 0, 7, 0, 8, 0];
+const MONO_U16_ODD_3X3_VALUES: [i32; 9] = [0, 1, 2, 3, 4, 5, 6, 7, 8];
+const MONO_U16_RECT_2X3_PIXELS: [u8; 12] = [0, 0, 1, 0, 2, 0, 3, 0, 4, 0, 5, 0];
+const MONO_U16_RECT_2X3_VALUES: [i32; 6] = [0, 1, 2, 3, 4, 5];
+const MONO_U16_TINY_1X1_PIXELS: [u8; 2] = [0xff, 0xff];
+const MONO_U16_TINY_1X1_VALUES: [i32; 1] = [65535];
 const YBR_FULL_PLANAR0_PIXELS: [u8; 12] = [76, 85, 255, 150, 44, 21, 29, 255, 107, 255, 128, 128];
 const YBR_FULL_422_PIXELS: [u8; 8] = [76, 150, 65, 138, 29, 255, 192, 118];
 const PALETTE_COLOR_PIXELS: [u8; 4] = [0, 1, 2, 3];
@@ -39,6 +45,8 @@ const PIXEL_RECIPES: &[PixelRecipe] = &[
     PixelRecipe {
         case_id: "classic/sc/mono2_u8_explicit_le",
         recipe_id: "sc_mono2_u8",
+        rows: 2,
+        columns: 2,
         photometric_interpretation: "MONOCHROME2",
         samples_per_pixel: 1,
         planar_configuration: None,
@@ -58,6 +66,8 @@ const PIXEL_RECIPES: &[PixelRecipe] = &[
     PixelRecipe {
         case_id: "classic/sc/mono1_u8_explicit_le",
         recipe_id: "sc_mono1_u8",
+        rows: 2,
+        columns: 2,
         photometric_interpretation: "MONOCHROME1",
         samples_per_pixel: 1,
         planar_configuration: None,
@@ -77,6 +87,8 @@ const PIXEL_RECIPES: &[PixelRecipe] = &[
     PixelRecipe {
         case_id: "classic/sc/rgb_planar0_explicit_le",
         recipe_id: "sc_rgb_planar0",
+        rows: 2,
+        columns: 2,
         photometric_interpretation: "RGB",
         samples_per_pixel: 3,
         planar_configuration: Some(0),
@@ -96,6 +108,8 @@ const PIXEL_RECIPES: &[PixelRecipe] = &[
     PixelRecipe {
         case_id: "classic/sc/rgb_planar1_explicit_le",
         recipe_id: "sc_rgb_planar1",
+        rows: 2,
+        columns: 2,
         photometric_interpretation: "RGB",
         samples_per_pixel: 3,
         planar_configuration: Some(1),
@@ -115,6 +129,8 @@ const PIXEL_RECIPES: &[PixelRecipe] = &[
     PixelRecipe {
         case_id: "classic/sc/palette_color_u8_explicit_le",
         recipe_id: "sc_palette_color_u8",
+        rows: 2,
+        columns: 2,
         photometric_interpretation: "PALETTE COLOR",
         samples_per_pixel: 1,
         planar_configuration: None,
@@ -134,6 +150,8 @@ const PIXEL_RECIPES: &[PixelRecipe] = &[
     PixelRecipe {
         case_id: "classic/sc/ybr_full_planar0_explicit_le",
         recipe_id: "sc_ybr_full_planar0",
+        rows: 2,
+        columns: 2,
         photometric_interpretation: "YBR_FULL",
         samples_per_pixel: 3,
         planar_configuration: Some(0),
@@ -153,6 +171,8 @@ const PIXEL_RECIPES: &[PixelRecipe] = &[
     PixelRecipe {
         case_id: "classic/sc/ybr_full_422_explicit_le",
         recipe_id: "sc_ybr_full_422",
+        rows: 2,
+        columns: 2,
         photometric_interpretation: "YBR_FULL_422",
         samples_per_pixel: 3,
         planar_configuration: Some(0),
@@ -172,6 +192,8 @@ const PIXEL_RECIPES: &[PixelRecipe] = &[
     PixelRecipe {
         case_id: "classic/sc/mono2_u16_explicit_le",
         recipe_id: "sc_mono2_u16",
+        rows: 2,
+        columns: 2,
         photometric_interpretation: "MONOCHROME2",
         samples_per_pixel: 1,
         planar_configuration: None,
@@ -191,6 +213,8 @@ const PIXEL_RECIPES: &[PixelRecipe] = &[
     PixelRecipe {
         case_id: "classic/sc/mono2_i16_explicit_le",
         recipe_id: "sc_mono2_i16",
+        rows: 2,
+        columns: 2,
         photometric_interpretation: "MONOCHROME2",
         samples_per_pixel: 1,
         planar_configuration: None,
@@ -207,12 +231,77 @@ const PIXEL_RECIPES: &[PixelRecipe] = &[
         semantic_note: "16-bit signed MONOCHROME2 samples use 2's complement representation",
         palette: None,
     },
+    PixelRecipe {
+        case_id: "classic/sc/mono2_u16_odd_3x3_explicit_le",
+        recipe_id: "sc_mono2_u16_odd_3x3",
+        rows: 3,
+        columns: 3,
+        photometric_interpretation: "MONOCHROME2",
+        samples_per_pixel: 1,
+        planar_configuration: None,
+        bits_allocated: 16,
+        bits_stored: 16,
+        high_bit: 15,
+        pixel_representation: 0,
+        pixel_vr: VR::OW,
+        pixel_bytes: &MONO_U16_ODD_3X3_PIXELS,
+        pixel_values: &MONO_U16_ODD_3X3_VALUES,
+        pixel_min: 0,
+        pixel_max: 8,
+        visual_pattern: "3x3_monochrome_u16_odd_gradient",
+        semantic_note: "odd rows and columns use unsigned 16-bit MONOCHROME2 samples",
+        palette: None,
+    },
+    PixelRecipe {
+        case_id: "classic/sc/mono2_u16_rect_2x3_explicit_le",
+        recipe_id: "sc_mono2_u16_rect_2x3",
+        rows: 2,
+        columns: 3,
+        photometric_interpretation: "MONOCHROME2",
+        samples_per_pixel: 1,
+        planar_configuration: None,
+        bits_allocated: 16,
+        bits_stored: 16,
+        high_bit: 15,
+        pixel_representation: 0,
+        pixel_vr: VR::OW,
+        pixel_bytes: &MONO_U16_RECT_2X3_PIXELS,
+        pixel_values: &MONO_U16_RECT_2X3_VALUES,
+        pixel_min: 0,
+        pixel_max: 5,
+        visual_pattern: "2x3_monochrome_u16_rect_gradient",
+        semantic_note: "rectangular native Pixel Data uses Rows and Columns from the recipe",
+        palette: None,
+    },
+    PixelRecipe {
+        case_id: "classic/sc/mono2_u16_tiny_1x1_explicit_le",
+        recipe_id: "sc_mono2_u16_tiny_1x1",
+        rows: 1,
+        columns: 1,
+        photometric_interpretation: "MONOCHROME2",
+        samples_per_pixel: 1,
+        planar_configuration: None,
+        bits_allocated: 16,
+        bits_stored: 16,
+        high_bit: 15,
+        pixel_representation: 0,
+        pixel_vr: VR::OW,
+        pixel_bytes: &MONO_U16_TINY_1X1_PIXELS,
+        pixel_values: &MONO_U16_TINY_1X1_VALUES,
+        pixel_min: 65535,
+        pixel_max: 65535,
+        visual_pattern: "1x1_monochrome_u16_tiny_maximum",
+        semantic_note: "very small native Pixel Data uses a single unsigned 16-bit sample",
+        palette: None,
+    },
 ];
 
 #[derive(Debug, Clone, Copy)]
 struct PixelRecipe {
     case_id: &'static str,
     recipe_id: &'static str,
+    rows: u16,
+    columns: u16,
     photometric_interpretation: &'static str,
     samples_per_pixel: u16,
     planar_configuration: Option<u16>,
@@ -376,8 +465,8 @@ fn write_pixel_case(
             planar_configuration,
         );
     }
-    put_u16(&mut obj, tags::ROWS, VR::US, 2);
-    put_u16(&mut obj, tags::COLUMNS, VR::US, 2);
+    put_u16(&mut obj, tags::ROWS, VR::US, recipe.rows);
+    put_u16(&mut obj, tags::COLUMNS, VR::US, recipe.columns);
     put_u16(
         &mut obj,
         tags::BITS_ALLOCATED,
@@ -428,8 +517,8 @@ fn write_pixel_case(
             transfer_syntax_uid: uids::EXPLICIT_VR_LITTLE_ENDIAN,
             implementation_class_uid: &implementation_class_uid,
             synthetic_data: "YES",
-            rows: 2,
-            columns: 2,
+            rows: recipe.rows,
+            columns: recipe.columns,
             samples_per_pixel: recipe.samples_per_pixel,
             photometric_interpretation: recipe.photometric_interpretation,
             bits_allocated: recipe.bits_allocated,
@@ -611,8 +700,8 @@ fn pixel_manifest_entry(
             "recipe_id": recipe.recipe_id,
             "recipe_version": PIXEL_RECIPE_VERSION,
             "recipe_parameters": {
-                "rows": 2,
-                "columns": 2,
+                "rows": recipe.rows,
+                "columns": recipe.columns,
                 "samples_per_pixel": recipe.samples_per_pixel,
                 "photometric_interpretation": recipe.photometric_interpretation,
                 "bits_allocated": recipe.bits_allocated,
@@ -638,8 +727,8 @@ fn pixel_manifest_entry(
             "implementation_class_uid": implementation_class_uid
         },
         "image": {
-            "rows": 2,
-            "columns": 2,
+            "rows": recipe.rows,
+            "columns": recipe.columns,
             "frames": 1,
             "samples_per_pixel": recipe.samples_per_pixel,
             "photometric_interpretation": recipe.photometric_interpretation,

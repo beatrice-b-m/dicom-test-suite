@@ -687,6 +687,24 @@ mod tests {
             ),
             "list-cases output must show implemented YBR_FULL_422 core status"
         );
+        assert!(
+            output.contains(
+                "classic/sc/mono2_u16_odd_3x3_explicit_le\timplemented\tcore\t1.2.840.10008.5.1.4.1.1.7\t1.2.840.10008.1.2.1\t5/5 covered"
+            ),
+            "list-cases output must show implemented odd-dimension core status"
+        );
+        assert!(
+            output.contains(
+                "classic/sc/mono2_u16_rect_2x3_explicit_le\timplemented\tcore\t1.2.840.10008.5.1.4.1.1.7\t1.2.840.10008.1.2.1\t5/5 covered"
+            ),
+            "list-cases output must show implemented rectangular core status"
+        );
+        assert!(
+            output.contains(
+                "classic/sc/mono2_u16_tiny_1x1_explicit_le\timplemented\tcore\t1.2.840.10008.5.1.4.1.1.7\t1.2.840.10008.1.2.1\t5/5 covered"
+            ),
+            "list-cases output must show implemented tiny-image core status"
+        );
     }
 
     #[test]

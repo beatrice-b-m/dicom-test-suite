@@ -244,7 +244,7 @@ fn generate_command_writes_core_u16_native_pixel_case() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\tcore"));
-    assert!(stdout.contains("files_written\t6"));
+    assert!(stdout.contains("files_written\t9"));
 
     let manifest_path = out_dir.join("manifest.json");
     let manifest: Value = serde_json::from_str(
@@ -260,7 +260,7 @@ fn generate_command_writes_core_u16_native_pixel_case() {
             .pointer("/files")
             .and_then(Value::as_array)
             .map(Vec::len),
-        Some(6)
+        Some(9)
     );
     let u16_file = file_entry_by_case_id(&manifest, "classic/sc/mono2_u16_explicit_le");
     assert_eq!(
@@ -427,6 +427,51 @@ fn generate_command_writes_core_u16_native_pixel_case() {
             .contains(&"native_ybr_full_422_pixel_data_length"),
         "YBR_FULL_422 manifest should record the special native byte-length validation"
     );
+    let odd_file = file_entry_by_case_id(&manifest, "classic/sc/mono2_u16_odd_3x3_explicit_le");
+    assert_eq!(
+        odd_file.pointer("/image/rows").and_then(Value::as_u64),
+        Some(3)
+    );
+    assert_eq!(
+        odd_file.pointer("/image/columns").and_then(Value::as_u64),
+        Some(3)
+    );
+    assert_eq!(
+        odd_file
+            .pointer("/pixel_data/value_length")
+            .and_then(Value::as_u64),
+        Some(18)
+    );
+    let rect_file = file_entry_by_case_id(&manifest, "classic/sc/mono2_u16_rect_2x3_explicit_le");
+    assert_eq!(
+        rect_file.pointer("/image/rows").and_then(Value::as_u64),
+        Some(2)
+    );
+    assert_eq!(
+        rect_file.pointer("/image/columns").and_then(Value::as_u64),
+        Some(3)
+    );
+    assert_eq!(
+        rect_file
+            .pointer("/pixel_data/value_length")
+            .and_then(Value::as_u64),
+        Some(12)
+    );
+    let tiny_file = file_entry_by_case_id(&manifest, "classic/sc/mono2_u16_tiny_1x1_explicit_le");
+    assert_eq!(
+        tiny_file.pointer("/image/rows").and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        tiny_file.pointer("/image/columns").and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        tiny_file
+            .pointer("/pixel_data/value_length")
+            .and_then(Value::as_u64),
+        Some(2)
+    );
     assert!(
         validation_results_named(&manifest, "/files/0/validation/internal")
             .contains(&"pixel_data_vr"),
@@ -551,6 +596,35 @@ fn generate_command_writes_core_u16_native_pixel_case() {
             .expect("Pixel Data should be byte-backed")
             .len(),
         8
+    );
+    let odd_path = out_dir.join("classic/sc/mono2_u16_odd_3x3_explicit_le/instance.dcm");
+    let odd = open_file(&odd_path).expect("odd-dimension generated DICOM file should parse");
+    assert_eq!(
+        odd.element(tags::ROWS)
+            .expect("dataset should contain Rows")
+            .value()
+            .to_int::<u16>()
+            .expect("Rows should be numeric"),
+        3
+    );
+    assert_eq!(
+        odd.element(tags::COLUMNS)
+            .expect("dataset should contain Columns")
+            .value()
+            .to_int::<u16>()
+            .expect("Columns should be numeric"),
+        3
+    );
+    let tiny_path = out_dir.join("classic/sc/mono2_u16_tiny_1x1_explicit_le/instance.dcm");
+    let tiny = open_file(&tiny_path).expect("tiny generated DICOM file should parse");
+    assert_eq!(
+        tiny.element(tags::PIXEL_DATA)
+            .expect("dataset should contain Pixel Data")
+            .value()
+            .to_bytes()
+            .expect("Pixel Data should be byte-backed")
+            .len(),
+        2
     );
 
     fs::remove_dir_all(out_dir).expect("temporary output root should be removable");

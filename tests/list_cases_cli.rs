@@ -84,4 +84,22 @@ fn list_cases_command_shows_core_case_status_and_evidence() {
         ),
         "list-cases must include implemented YBR_FULL_422 core cases"
     );
+    assert!(
+        stdout.contains(
+            "classic/sc/mono2_u16_odd_3x3_explicit_le\timplemented\tcore\t1.2.840.10008.5.1.4.1.1.7\t1.2.840.10008.1.2.1\t5/5 covered"
+        ),
+        "list-cases must include implemented odd-dimension core cases"
+    );
+    assert!(
+        stdout.contains(
+            "classic/sc/mono2_u16_rect_2x3_explicit_le\timplemented\tcore\t1.2.840.10008.5.1.4.1.1.7\t1.2.840.10008.1.2.1\t5/5 covered"
+        ),
+        "list-cases must include implemented rectangular core cases"
+    );
+    assert!(
+        stdout.contains(
+            "classic/sc/mono2_u16_tiny_1x1_explicit_le\timplemented\tcore\t1.2.840.10008.5.1.4.1.1.7\t1.2.840.10008.1.2.1\t5/5 covered"
+        ),
+        "list-cases must include implemented tiny-image core cases"
+    );
 }

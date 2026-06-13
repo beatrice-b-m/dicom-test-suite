@@ -3,11 +3,560 @@
   "$id": "https://dicom-test-suite.local/schemas/manifest.schema.json",
   "title": "DICOM Test Suite Run Manifest",
   "type": "object",
-  "required": ["manifest_schema_version"],
+  "required": [
+    "manifest_schema_version",
+    "generated_at",
+    "generator",
+    "standards",
+    "dependencies",
+    "run",
+    "files",
+    "skipped_cases"
+  ],
   "properties": {
     "manifest_schema_version": {
-      "type": "string"
+      "const": "0.1.0"
+    },
+    "generated_at": {
+      "type": "string",
+      "description": "Deterministic run timestamp in DICOM DT-compatible UTC form."
+    },
+    "generator": {
+      "$ref": "#/$defs/generator"
+    },
+    "standards": {
+      "$ref": "#/$defs/standards"
+    },
+    "dependencies": {
+      "$ref": "#/$defs/dependencies"
+    },
+    "run": {
+      "$ref": "#/$defs/run"
+    },
+    "files": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/file"
+      }
+    },
+    "skipped_cases": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/skipped_case"
+      }
     }
   },
-  "additionalProperties": true
+  "additionalProperties": false,
+  "$defs": {
+    "profile": {
+      "enum": [
+        "smoke",
+        "core",
+        "extended",
+        "legacy",
+        "stress",
+        "all",
+        "negative",
+        "fuzz"
+      ]
+    },
+    "determinism": {
+      "enum": ["byte_stable", "semantic_stable", "unstable"]
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "string_map": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "generator": {
+      "type": "object",
+      "required": [
+        "name",
+        "version",
+        "rustc_version",
+        "target_triple",
+        "cargo_lock_sha256",
+        "feature_flags"
+      ],
+      "properties": {
+        "name": {
+          "const": "dicom-test-suite"
+        },
+        "version": {
+          "type": "string"
+        },
+        "git_sha": {
+          "type": ["string", "null"]
+        },
+        "rustc_version": {
+          "type": "string"
+        },
+        "target_triple": {
+          "type": "string"
+        },
+        "cargo_lock_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "feature_flags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "standards": {
+      "type": "object",
+      "required": [
+        "dicom_base_edition",
+        "include_final_text_after_base",
+        "standards_lock_sha256",
+        "dicom_standard_kb"
+      ],
+      "properties": {
+        "dicom_base_edition": {
+          "const": "2026b"
+        },
+        "include_final_text_after_base": {
+          "type": "boolean"
+        },
+        "standards_lock_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "dicom_standard_kb": {
+          "type": "object",
+          "required": ["db_edition"],
+          "properties": {
+            "commit": {
+              "type": ["string", "null"]
+            },
+            "db_edition": {
+              "const": "2026b"
+            },
+            "db_sha256": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/sha256"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "source_manifest_sha256": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/sha256"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "dependencies": {
+      "type": "object",
+      "required": ["dicom_rs_versions", "codec_versions"],
+      "properties": {
+        "dicom_rs_versions": {
+          "$ref": "#/$defs/string_map"
+        },
+        "codec_versions": {
+          "$ref": "#/$defs/string_map"
+        }
+      },
+      "additionalProperties": false
+    },
+    "run": {
+      "type": "object",
+      "required": ["profile", "seed", "include_stress"],
+      "properties": {
+        "profile": {
+          "$ref": "#/$defs/profile"
+        },
+        "seed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "include_stress": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "file": {
+      "type": "object",
+      "required": [
+        "case_id",
+        "profile_membership",
+        "path",
+        "sha256",
+        "size_bytes",
+        "determinism",
+        "recipe",
+        "dicom",
+        "uids",
+        "image",
+        "pixel_data",
+        "expected_capabilities",
+        "expected_semantics",
+        "expected_visual_checks",
+        "validation",
+        "known_stressors",
+        "standards_evidence"
+      ],
+      "properties": {
+        "case_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9_-]*(/[a-z0-9][a-z0-9_-]*)+$"
+        },
+        "profile_membership": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/profile"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "path": {
+          "type": "string"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "determinism": {
+          "$ref": "#/$defs/determinism"
+        },
+        "recipe": {
+          "$ref": "#/$defs/recipe"
+        },
+        "dicom": {
+          "$ref": "#/$defs/dicom"
+        },
+        "uids": {
+          "$ref": "#/$defs/uids"
+        },
+        "image": {
+          "$ref": "#/$defs/image"
+        },
+        "pixel_data": {
+          "$ref": "#/$defs/pixel_data"
+        },
+        "expected_capabilities": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "expected_semantics": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "expected_visual_checks": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "validation": {
+          "$ref": "#/$defs/validation"
+        },
+        "known_stressors": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "standards_evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/standards_evidence"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "recipe": {
+      "type": "object",
+      "required": ["recipe_id", "recipe_version", "recipe_parameters"],
+      "properties": {
+        "recipe_id": {
+          "type": "string"
+        },
+        "recipe_version": {
+          "type": "string"
+        },
+        "recipe_parameters": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "dicom": {
+      "type": "object",
+      "required": [
+        "sop_class_uid",
+        "sop_class_name",
+        "iod_name",
+        "modality",
+        "transfer_syntax_uid",
+        "transfer_syntax_name"
+      ],
+      "properties": {
+        "sop_class_uid": {
+          "type": "string"
+        },
+        "sop_class_name": {
+          "type": "string"
+        },
+        "iod_name": {
+          "type": "string"
+        },
+        "modality": {
+          "type": "string"
+        },
+        "transfer_syntax_uid": {
+          "type": "string"
+        },
+        "transfer_syntax_name": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "uids": {
+      "type": "object",
+      "required": [
+        "study_instance_uid",
+        "series_instance_uid",
+        "sop_instance_uid",
+        "frame_of_reference_uid",
+        "implementation_class_uid"
+      ],
+      "properties": {
+        "study_instance_uid": {
+          "type": "string"
+        },
+        "series_instance_uid": {
+          "type": "string"
+        },
+        "sop_instance_uid": {
+          "type": "string"
+        },
+        "frame_of_reference_uid": {
+          "type": ["string", "null"]
+        },
+        "implementation_class_uid": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "image": {
+      "type": "object",
+      "required": [
+        "rows",
+        "columns",
+        "frames",
+        "samples_per_pixel",
+        "photometric_interpretation",
+        "bits_allocated",
+        "bits_stored",
+        "high_bit",
+        "pixel_representation",
+        "planar_configuration"
+      ],
+      "properties": {
+        "rows": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "columns": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "frames": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "samples_per_pixel": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "photometric_interpretation": {
+          "type": "string"
+        },
+        "bits_allocated": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "bits_stored": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "high_bit": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "pixel_representation": {
+          "enum": [0, 1]
+        },
+        "planar_configuration": {
+          "type": ["integer", "null"],
+          "enum": [0, 1, null]
+        }
+      },
+      "additionalProperties": false
+    },
+    "pixel_data": {
+      "type": "object",
+      "required": [
+        "vr",
+        "native_or_encapsulated",
+        "value_length",
+        "frame_count",
+        "frame_hashes"
+      ],
+      "properties": {
+        "vr": {
+          "enum": ["OB", "OW", "OF", "OD", "OL", "OV", "UN"]
+        },
+        "native_or_encapsulated": {
+          "enum": ["native", "encapsulated", "absent"]
+        },
+        "value_length": {
+          "type": ["integer", "null"],
+          "minimum": 0
+        },
+        "frame_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "frame_hashes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/sha256"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "validation": {
+      "type": "object",
+      "required": ["status", "internal", "standards", "external"],
+      "properties": {
+        "status": {
+          "enum": ["passed", "failed", "skipped", "unavailable"]
+        },
+        "internal": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/validation_result"
+          }
+        },
+        "standards": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/validation_result"
+          }
+        },
+        "external": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/validation_result"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "validation_result": {
+      "type": "object",
+      "required": ["name", "status"],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "status": {
+          "enum": ["passed", "failed", "skipped", "unavailable"]
+        },
+        "message": {
+          "type": ["string", "null"]
+        }
+      },
+      "additionalProperties": true
+    },
+    "standards_evidence": {
+      "type": "object",
+      "required": ["source"],
+      "properties": {
+        "source": {
+          "type": "string"
+        },
+        "edition": {
+          "type": "string"
+        },
+        "query": {
+          "type": "string"
+        },
+        "covered": {
+          "type": "boolean"
+        },
+        "part": {
+          "type": "string"
+        },
+        "anchor": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "skipped_case": {
+      "type": "object",
+      "required": ["case_id", "status", "reason_code", "message"],
+      "properties": {
+        "case_id": {
+          "type": "string"
+        },
+        "status": {
+          "enum": ["skipped", "blocked", "unavailable"]
+        },
+        "reason_code": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "recheck_phase": {
+          "type": ["string", "null"]
+        },
+        "standards_evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/standards_evidence"
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  }
 }

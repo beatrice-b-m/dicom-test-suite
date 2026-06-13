@@ -3,7 +3,7 @@
 **Last updated:** 2026-06-13  
 **Source specification:** `SYSTEM_SPEC.md` version 0.2.0  
 **Current phase:** Phase 0.5 standards and case registry foundation, incomplete  
-**Current implementation status:** Phase 0 repository initialization is complete; standards baseline lock is committed for DICOM 2026b base edition only
+**Current implementation status:** Phase 0 repository initialization is complete; standards baseline lock and initial structured manifest schema are committed
 
 This document is the durable hand-off log for coding agents implementing
 `dicom-test-suite`. Keep `SYSTEM_SPEC.md` as the source of product and
@@ -39,11 +39,11 @@ Observed at creation of this progress file:
 | `Cargo.toml` / Rust workspace | present | Single package named `dicom-test-suite`, using Rust 2024 edition; pins minimal DICOM-rs crates for Phase 1 object and transfer syntax work. |
 | `rust-toolchain.toml` | present | Pins Rust 1.85.0 with `rustfmt` and `clippy`, matching an installed local toolchain. |
 | `standards.lock.json` | present | Locks to DICOM 2026b base edition only using the pinned `dicom-standard-kb` MCP source manifest; local DB and source artifact hashes remain pending. |
-| `schemas/` | present | Initial valid JSON Schema placeholders exist for manifest, case registry, coverage report, and viewer report. |
+| `schemas/` | present | Manifest schema has initial structured coverage of run metadata, standards, dependencies, files, skipped cases, validation, and hashes; other schemas remain placeholders. |
 | `cases/registry.json` | missing | Case registry must become authoritative for planned and implemented cases. |
 | `standards/source-notes/` | missing | Needed for standards gaps not covered by `dicom-standard-kb`. |
 | `src/` or `crates/` | present | Minimal `src/lib.rs` and `src/main.rs` exist; generator implementation has not started. |
-| `tests/` | missing | No standalone integration tests exist yet; current verification is via unit tests. |
+| `tests/` | present | Includes schema artifact integration tests; generator behavior tests have not started. |
 
 ## Non-Negotiable Implementation Constraints
 
@@ -71,7 +71,7 @@ Observed at creation of this progress file:
 | Phase | Status | Summary |
 |---|---|---|
 | Phase 0: Repository initialization | complete | Scope docs, generated-artifact protections, Rust skeleton, toolchain, dependency pins, and initial schema placeholders are committed. |
-| Phase 0.5: Standards and case registry foundation | in progress | Standards base edition is locked; case registry, profile definitions, capability matrix, schema expansion, KB repository/DB pin, source artifact hashes, and standards workflow remain. |
+| Phase 0.5: Standards and case registry foundation | in progress | Standards base edition and manifest schema are in place; case registry, remaining schema expansion, profile definitions, capability matrix, KB repository/DB pin, source artifact hashes, and standards workflow remain. |
 | Phase 1: Generator core | not started | CLI, UID generation, manifest writing, Part 10 writing, and file validation pending. |
 | Phase 2: Native pixel matrix | not started | Pixel generators and photometric validators pending. |
 | Phase 3: Classic radiology IODs | not started | CT/MR/CR/US/DX/MG builders pending. |
@@ -104,7 +104,7 @@ and initial schema placeholders.
 - [x] Decide explicitly whether the lock targets only the base DICOM edition or
   the base edition plus final-text supplements/correction items as of a fixed
   date.
-- [ ] Add `schemas/manifest.schema.json`.
+- [x] Add `schemas/manifest.schema.json`.
 - [ ] Add `schemas/case-registry.schema.json`.
 - [ ] Add `schemas/coverage-report.schema.json`.
 - [ ] Add `schemas/viewer-report.schema.json`.
@@ -161,18 +161,18 @@ registry/schema/policy artifacts are still placeholders or missing.
 
 ## Recommended Next Commit
 
-Expand the manifest schema:
+Expand the case registry schema:
 
-1. Replace the placeholder `schemas/manifest.schema.json` with the initial
-   structured schema for generator metadata, standards lock metadata,
-   generated files, skipped cases, validation results, profiles, and hashes.
-2. Keep the schema aligned with `SYSTEM_SPEC.md` section 13 while leaving
-   recipe-specific detail for later slices.
-3. Add focused schema validation tests or fixture checks if local tooling is
-   available.
+1. Replace the placeholder `schemas/case-registry.schema.json` with the initial
+   structured schema for case IDs, statuses, profile membership, recipe
+   metadata, SOP/transfer syntax fields, determinism, requirements,
+   skip/block details, and standards evidence.
+2. Keep it aligned with `SYSTEM_SPEC.md` section 6.2 and the planned
+   `cases/registry.json` shape.
+3. Extend schema artifact tests for the case registry contract.
 4. Update this progress file with completed schema scope and the next
    recommended Phase 0.5 task.
-5. Commit as `feat(schemas): define manifest schema`.
+5. Commit as `feat(schemas): define case registry schema`.
 
 ## Handoff Notes
 

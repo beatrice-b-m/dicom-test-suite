@@ -16,7 +16,9 @@ const PIXEL_RECIPE_VERSION: &str = "0.1.0";
 const MONO_PIXELS: [u8; 4] = [0, 85, 170, 255];
 const RGB_PLANAR0_PIXELS: [u8; 12] = [255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 255, 255];
 const MONO_U16_PIXELS: [u8; 8] = [0, 0, 0x55, 0x55, 0xaa, 0xaa, 0xff, 0xff];
-const MONO_U16_VALUES: [u32; 4] = [0, 21845, 43690, 65535];
+const MONO_U16_VALUES: [i32; 4] = [0, 21845, 43690, 65535];
+const MONO_I16_PIXELS: [u8; 8] = [0x00, 0x80, 0x55, 0xd5, 0xaa, 0x2a, 0xff, 0x7f];
+const MONO_I16_VALUES: [i32; 4] = [-32768, -10923, 10922, 32767];
 
 const PIXEL_RECIPES: &[PixelRecipe] = &[
     PixelRecipe {
@@ -91,6 +93,24 @@ const PIXEL_RECIPES: &[PixelRecipe] = &[
         visual_pattern: "2x2_monochrome_u16_gradient",
         semantic_note: "16-bit unsigned MONOCHROME2 samples span the full stored range",
     },
+    PixelRecipe {
+        case_id: "classic/sc/mono2_i16_explicit_le",
+        recipe_id: "sc_mono2_i16",
+        photometric_interpretation: "MONOCHROME2",
+        samples_per_pixel: 1,
+        planar_configuration: None,
+        bits_allocated: 16,
+        bits_stored: 16,
+        high_bit: 15,
+        pixel_representation: 1,
+        pixel_vr: VR::OW,
+        pixel_bytes: &MONO_I16_PIXELS,
+        pixel_values: &MONO_I16_VALUES,
+        pixel_min: -32768,
+        pixel_max: 32767,
+        visual_pattern: "2x2_monochrome_i16_gradient",
+        semantic_note: "16-bit signed MONOCHROME2 samples use 2's complement representation",
+    },
 ];
 
 #[derive(Debug, Clone, Copy)]
@@ -106,9 +126,9 @@ struct PixelRecipe {
     pixel_representation: u16,
     pixel_vr: VR,
     pixel_bytes: &'static [u8],
-    pixel_values: &'static [u32],
-    pixel_min: u32,
-    pixel_max: u32,
+    pixel_values: &'static [i32],
+    pixel_min: i32,
+    pixel_max: i32,
     visual_pattern: &'static str,
     semantic_note: &'static str,
 }

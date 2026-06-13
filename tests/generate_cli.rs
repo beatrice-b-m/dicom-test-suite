@@ -244,7 +244,7 @@ fn generate_command_writes_core_u16_native_pixel_case() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\tcore"));
-    assert!(stdout.contains("files_written\t1"));
+    assert!(stdout.contains("files_written\t2"));
 
     let manifest_path = out_dir.join("manifest.json");
     let manifest: Value = serde_json::from_str(
@@ -260,47 +260,63 @@ fn generate_command_writes_core_u16_native_pixel_case() {
             .pointer("/files")
             .and_then(Value::as_array)
             .map(Vec::len),
-        Some(1)
+        Some(2)
     );
+    let u16_file = file_entry_by_case_id(&manifest, "classic/sc/mono2_u16_explicit_le");
     assert_eq!(
-        manifest.pointer("/files/0/case_id").and_then(Value::as_str),
-        Some("classic/sc/mono2_u16_explicit_le")
-    );
-    assert_eq!(
-        manifest
-            .pointer("/files/0/pixel_data/vr")
-            .and_then(Value::as_str),
+        u16_file.pointer("/pixel_data/vr").and_then(Value::as_str),
         Some("OW")
     );
     assert_eq!(
-        manifest
-            .pointer("/files/0/pixel_data/value_length")
+        u16_file
+            .pointer("/pixel_data/value_length")
             .and_then(Value::as_u64),
         Some(8)
     );
     assert_eq!(
-        manifest
-            .pointer("/files/0/image/bits_allocated")
+        u16_file
+            .pointer("/image/bits_allocated")
             .and_then(Value::as_u64),
         Some(16)
     );
     assert_eq!(
-        manifest
-            .pointer("/files/0/image/bits_stored")
+        u16_file
+            .pointer("/image/bits_stored")
             .and_then(Value::as_u64),
         Some(16)
     );
     assert_eq!(
-        manifest
-            .pointer("/files/0/image/high_bit")
-            .and_then(Value::as_u64),
+        u16_file.pointer("/image/high_bit").and_then(Value::as_u64),
         Some(15)
     );
     assert_eq!(
-        manifest
-            .pointer("/files/0/expected_semantics/pixel_max")
+        u16_file
+            .pointer("/expected_semantics/pixel_max")
             .and_then(Value::as_u64),
         Some(65535)
+    );
+    let i16_file = file_entry_by_case_id(&manifest, "classic/sc/mono2_i16_explicit_le");
+    assert_eq!(
+        i16_file
+            .pointer("/image/pixel_representation")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        i16_file
+            .pointer("/expected_semantics/pixel_min")
+            .and_then(Value::as_i64),
+        Some(-32768)
+    );
+    assert_eq!(
+        i16_file
+            .pointer("/expected_semantics/pixel_max")
+            .and_then(Value::as_i64),
+        Some(32767)
+    );
+    assert_eq!(
+        i16_file.pointer("/pixel_data/vr").and_then(Value::as_str),
+        Some("OW")
     );
     assert!(
         validation_results_named(&manifest, "/files/0/validation/internal")
@@ -340,6 +356,17 @@ fn generate_command_writes_core_u16_native_pixel_case() {
             .to_int::<u16>()
             .expect("Bits Allocated should be numeric"),
         16
+    );
+    let signed_path = out_dir.join("classic/sc/mono2_i16_explicit_le/instance.dcm");
+    let signed = open_file(&signed_path).expect("signed generated DICOM file should parse");
+    assert_eq!(
+        signed
+            .element(tags::PIXEL_REPRESENTATION)
+            .expect("dataset should contain Pixel Representation")
+            .value()
+            .to_int::<u16>()
+            .expect("Pixel Representation should be numeric"),
+        1
     );
 
     fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
@@ -389,4 +416,14 @@ fn validation_results_named<'a>(manifest: &'a Value, pointer: &str) -> Vec<&'a s
                 .expect("validation result should have a name")
         })
         .collect()
+}
+
+fn file_entry_by_case_id<'a>(manifest: &'a Value, case_id: &str) -> &'a Value {
+    manifest
+        .pointer("/files")
+        .and_then(Value::as_array)
+        .expect("manifest files should be an array")
+        .iter()
+        .find(|file| file.get("case_id").and_then(Value::as_str) == Some(case_id))
+        .unwrap_or_else(|| panic!("manifest should contain {case_id}"))
 }

@@ -4,7 +4,7 @@
 **Source specification:** `SYSTEM_SPEC.md` version 0.2.0  
 **Current phase:** Phase 2 native pixel matrix, in progress
 
-**Current implementation status:** Phase 0, Phase 0.5, and Phase 1 are complete; Phase 2 has unsigned and signed 16-bit core Secondary Capture native pixel cases plus RGB planar configuration 1, PALETTE COLOR, and YBR_FULL coverage
+**Current implementation status:** Phase 0, Phase 0.5, and Phase 1 are complete; Phase 2 has unsigned and signed 16-bit core Secondary Capture native pixel cases plus RGB planar configuration 1, PALETTE COLOR, YBR_FULL, and YBR_FULL_422 coverage
 
 This document is the durable hand-off log for coding agents implementing
 `dicom-test-suite`. Keep `SYSTEM_SPEC.md` as the source of product and
@@ -80,7 +80,7 @@ Observed at creation of this progress file:
 | Phase 0: Repository initialization | complete | Scope docs, generated-artifact protections, Rust skeleton, toolchain, dependency pins, and initial schema placeholders are committed. |
 | Phase 0.5: Standards and case registry foundation | complete | Standards base edition, schemas, taxonomy/profile rules, initial smoke/core registry, transfer syntax matrix, deterministic policy, standards workflows, and `list-cases` are in place. |
 | Phase 1: Generator core | complete | `generate --profile smoke` writes all three initial Secondary Capture smoke Part 10 files with manifest hashes, file meta UIDs, pixel metadata, validation results, and byte-stable output across two identical runs. |
-| Phase 2: Native pixel matrix | in progress | Core native monochrome 16-bit unsigned/signed MONOCHROME2 OW Pixel Data, RGB planar configuration 1, PALETTE COLOR, and YBR_FULL cases are implemented; YBR_FULL_422, odd dimensions, rectangular images, tiny images, and pixel padding remain. |
+| Phase 2: Native pixel matrix | in progress | Core native monochrome 16-bit unsigned/signed MONOCHROME2 OW Pixel Data, RGB planar configuration 1, PALETTE COLOR, YBR_FULL, and YBR_FULL_422 cases are implemented; odd dimensions, rectangular images, tiny images, and pixel padding remain. |
 | Phase 3: Classic radiology IODs | not started | CT/MR/CR/US/DX/MG builders pending. |
 | Phase 4: Enhanced multi-frame | not started | Enhanced CT/MR and functional groups pending. |
 | Phase 5: Derived, presentation, and non-image objects | not started | SEG, presentation states, SR, KOS, RWVM, RT, and encapsulated documents pending. |
@@ -151,7 +151,7 @@ identical runs.
 - [x] Add RGB planar configuration 1 case.
 - [x] Add PALETTE COLOR case with palette LUT descriptors and data.
 - [x] Add native YBR_FULL case.
-- [ ] Add native YBR_FULL_422 case with special byte-length validation.
+- [x] Add native YBR_FULL_422 case with special byte-length validation.
 - [ ] Add odd-dimension, rectangular, very small image, and pixel padding cases.
 - [ ] Broaden pixel byte-length and photometric validators for Phase 2 cases.
 
@@ -174,6 +174,7 @@ These case IDs come from `SYSTEM_SPEC.md` section 21 and should seed
 | `classic/sc/rgb_planar1_explicit_le` | `core` | implemented |
 | `classic/sc/palette_color_u8_explicit_le` | `core` | implemented |
 | `classic/sc/ybr_full_planar0_explicit_le` | `core` | implemented |
+| `classic/sc/ybr_full_422_explicit_le` | `core` | implemented |
 | `classic/ct/mono2_i16_rescale_12bit_explicit_le` | `core` | planned |
 | `classic/mg/for_presentation_mono1_u16_12bit_explicit_le` | `core` | planned |
 | `classic/mg/for_processing_mono2_u16_12bit_implicit_le` | `core` | planned |
@@ -248,25 +249,33 @@ These case IDs come from `SYSTEM_SPEC.md` section 21 and should seed
   existing red/green/blue/white pattern, and existing validation confirms
   photometric interpretation, Planar Configuration, Pixel Data VR, and native
   byte length.
+- 2026-06-13: `classic/sc/ybr_full_422_explicit_le` adds native 8-bit
+  YBR_FULL_422 OB Pixel Data coverage with Samples per Pixel 3 and required
+  Planar Configuration 0. Validation now has a dedicated
+  `native_ybr_full_422_pixel_data_length` result using the Phase 2 formula
+  `rows * columns * frames * 2 * bytes_per_sample`, derived from the 2026b
+  horizontal chroma downsampling semantics.
 
 ## Current Blockers
 
 No implementation blocker has been proven yet. The immediate limitations are
 that the local `dicom-standard-kb` repository commit/DB SHA-256 and official
 source artifact hashes have not yet been verified. Phase 2 can continue with
-YBR_FULL_422 coverage.
+odd-dimension, rectangular, tiny-image, and pixel-padding coverage.
 
 ## Recommended Next Commit
 
-Add native YBR_FULL_422 pixel coverage:
+Add native geometry and padding pixel coverage:
 
-1. Query the 2026b `dicom-standard-kb` for YBR_FULL_422 Photometric
-   Interpretation, Planar Configuration, and native byte-length constraints.
-2. Add `classic/sc/ybr_full_422_explicit_le` as a core registry case with
-   standards evidence.
-3. Extend generator and validation/test coverage for native 8-bit YBR_FULL_422
-   Pixel Data and its special byte-length formula.
-4. Commit as `feat(pixels): add ybr full 422 core case`.
+1. Query the 2026b `dicom-standard-kb` for Rows, Columns, Pixel Aspect Ratio,
+   Pixel Spacing, Pixel Padding Value, and Pixel Padding Range Limit attributes.
+2. Add focused core Secondary Capture cases for odd dimensions, rectangular
+   dimensions, very small images, and pixel padding.
+3. Generalize recipe geometry away from the current fixed 2x2 defaults and
+   extend validation/test coverage for the new dimensions and padding
+   attributes.
+4. Commit as one or more granular `feat(pixels): ...` commits, split by
+   geometry versus padding if both changes are non-trivial.
 
 ## Handoff Notes
 

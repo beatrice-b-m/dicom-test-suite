@@ -244,7 +244,7 @@ fn generate_command_writes_core_u16_native_pixel_case() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\tcore"));
-    assert!(stdout.contains("files_written\t5"));
+    assert!(stdout.contains("files_written\t6"));
 
     let manifest_path = out_dir.join("manifest.json");
     let manifest: Value = serde_json::from_str(
@@ -260,7 +260,7 @@ fn generate_command_writes_core_u16_native_pixel_case() {
             .pointer("/files")
             .and_then(Value::as_array)
             .map(Vec::len),
-        Some(5)
+        Some(6)
     );
     let u16_file = file_entry_by_case_id(&manifest, "classic/sc/mono2_u16_explicit_le");
     assert_eq!(
@@ -397,6 +397,36 @@ fn generate_command_writes_core_u16_native_pixel_case() {
             .and_then(Value::as_u64),
         Some(12)
     );
+    let ybr_422_file = file_entry_by_case_id(&manifest, "classic/sc/ybr_full_422_explicit_le");
+    assert_eq!(
+        ybr_422_file
+            .pointer("/image/photometric_interpretation")
+            .and_then(Value::as_str),
+        Some("YBR_FULL_422")
+    );
+    assert_eq!(
+        ybr_422_file
+            .pointer("/image/samples_per_pixel")
+            .and_then(Value::as_u64),
+        Some(3)
+    );
+    assert_eq!(
+        ybr_422_file
+            .pointer("/image/planar_configuration")
+            .and_then(Value::as_u64),
+        Some(0)
+    );
+    assert_eq!(
+        ybr_422_file
+            .pointer("/pixel_data/value_length")
+            .and_then(Value::as_u64),
+        Some(8)
+    );
+    assert!(
+        validation_result_names(ybr_422_file.pointer("/validation/internal"))
+            .contains(&"native_ybr_full_422_pixel_data_length"),
+        "YBR_FULL_422 manifest should record the special native byte-length validation"
+    );
     assert!(
         validation_results_named(&manifest, "/files/0/validation/internal")
             .contains(&"pixel_data_vr"),
@@ -500,6 +530,28 @@ fn generate_command_writes_core_u16_native_pixel_case() {
             .expect("Planar Configuration should be numeric"),
         0
     );
+    let ybr_422_path = out_dir.join("classic/sc/ybr_full_422_explicit_le/instance.dcm");
+    let ybr_422 = open_file(&ybr_422_path).expect("YBR_FULL_422 generated DICOM file should parse");
+    assert_eq!(
+        ybr_422
+            .element(tags::PHOTOMETRIC_INTERPRETATION)
+            .expect("dataset should contain Photometric Interpretation")
+            .value()
+            .to_str()
+            .expect("Photometric Interpretation should be text")
+            .trim(),
+        "YBR_FULL_422"
+    );
+    assert_eq!(
+        ybr_422
+            .element(tags::PIXEL_DATA)
+            .expect("dataset should contain Pixel Data")
+            .value()
+            .to_bytes()
+            .expect("Pixel Data should be byte-backed")
+            .len(),
+        8
+    );
 
     fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
 }
@@ -535,8 +587,11 @@ fn unique_temp_dir(name: &str) -> PathBuf {
 }
 
 fn validation_results_named<'a>(manifest: &'a Value, pointer: &str) -> Vec<&'a str> {
-    manifest
-        .pointer(pointer)
+    validation_result_names(manifest.pointer(pointer))
+}
+
+fn validation_result_names<'a>(value: Option<&'a Value>) -> Vec<&'a str> {
+    value
         .and_then(Value::as_array)
         .expect("validation result array should exist")
         .iter()

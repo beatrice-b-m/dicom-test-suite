@@ -28,7 +28,14 @@ pub(crate) struct Part10Expectations<'a> {
     pub planar_configuration: Option<u16>,
     pub pixel_data_vr: VR,
     pub pixel_data_length: usize,
+    pub pixel_data_length_formula: PixelDataLengthFormula,
     pub palette: Option<PaletteExpectations>,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub(crate) enum PixelDataLengthFormula {
+    ContiguousSamples,
+    YbrFull422,
 }
 
 #[derive(Debug, Clone)]
@@ -240,13 +247,15 @@ pub(crate) fn validate_part10_file(
         .value()
         .to_bytes()
         .map_err(|err| validation_error(path, err))?;
+    let (pixel_length_name, pixel_length_message, expected_pixel_data_length) =
+        expected_pixel_data_length(expected);
     check_equal(
         &mut internal,
-        "native_pixel_data_length",
-        "Native Pixel Data length matches the uncompressed frame size.",
+        pixel_length_name,
+        pixel_length_message,
         "Native Pixel Data length does not match the uncompressed frame size.",
         pixel_bytes.len(),
-        expected.pixel_data_length,
+        expected_pixel_data_length,
     );
     if let Some(palette) = &expected.palette {
         validate_palette(path, &obj, &mut internal, palette)?;
@@ -302,6 +311,26 @@ fn element_u16(path: &Path, obj: &OpenedObject, tag: Tag) -> Result<u16, Generat
         .value()
         .to_int::<u16>()
         .map_err(|err| validation_error(path, err))
+}
+
+fn expected_pixel_data_length(
+    expected: &Part10Expectations<'_>,
+) -> (&'static str, &'static str, usize) {
+    match expected.pixel_data_length_formula {
+        PixelDataLengthFormula::ContiguousSamples => (
+            "native_pixel_data_length",
+            "Native Pixel Data length matches the uncompressed frame size.",
+            expected.pixel_data_length,
+        ),
+        PixelDataLengthFormula::YbrFull422 => (
+            "native_ybr_full_422_pixel_data_length",
+            "Native YBR_FULL_422 Pixel Data length matches rows * columns * frames * 2 * bytes per sample.",
+            usize::from(expected.rows)
+                * usize::from(expected.columns)
+                * usize::from(expected.bits_allocated).div_ceil(8)
+                * 2,
+        ),
+    }
 }
 
 fn validate_palette(

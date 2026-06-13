@@ -9,7 +9,7 @@ use serde_json::Value;
 use crate::{
     DeterministicUidInput, GenerateError, PreparedGenerationRun, UidRole, deterministic_uid,
     sha256_hex,
-    validation::{Part10Expectations, validate_part10_file},
+    validation::{Part10Expectations, PixelDataLengthFormula, validate_part10_file},
 };
 
 const PIXEL_RECIPE_VERSION: &str = "0.1.0";
@@ -21,6 +21,7 @@ const MONO_U16_VALUES: [i32; 4] = [0, 21845, 43690, 65535];
 const MONO_I16_PIXELS: [u8; 8] = [0x00, 0x80, 0x55, 0xd5, 0xaa, 0x2a, 0xff, 0x7f];
 const MONO_I16_VALUES: [i32; 4] = [-32768, -10923, 10922, 32767];
 const YBR_FULL_PLANAR0_PIXELS: [u8; 12] = [76, 85, 255, 150, 44, 21, 29, 255, 107, 255, 128, 128];
+const YBR_FULL_422_PIXELS: [u8; 8] = [76, 150, 65, 138, 29, 255, 192, 118];
 const PALETTE_COLOR_PIXELS: [u8; 4] = [0, 1, 2, 3];
 const PALETTE_COLOR_VALUES: [i32; 4] = [0, 1, 2, 3];
 const PALETTE_DESCRIPTOR: [u16; 3] = [4, 0, 16];
@@ -147,6 +148,25 @@ const PIXEL_RECIPES: &[PixelRecipe] = &[
         pixel_max: 255,
         visual_pattern: "2x2_ybr_full_red_green_blue_white",
         semantic_note: "YBR_FULL samples are interleaved color-by-pixel",
+        palette: None,
+    },
+    PixelRecipe {
+        case_id: "classic/sc/ybr_full_422_explicit_le",
+        recipe_id: "sc_ybr_full_422",
+        photometric_interpretation: "YBR_FULL_422",
+        samples_per_pixel: 3,
+        planar_configuration: Some(0),
+        bits_allocated: 8,
+        bits_stored: 8,
+        high_bit: 7,
+        pixel_representation: 0,
+        pixel_vr: VR::OB,
+        pixel_bytes: &YBR_FULL_422_PIXELS,
+        pixel_values: &[76, 150, 65, 138, 29, 255, 192, 118],
+        pixel_min: 29,
+        pixel_max: 255,
+        visual_pattern: "2x2_ybr_full_422_red_green_blue_white",
+        semantic_note: "YBR_FULL_422 stores horizontally downsampled chroma with Planar Configuration 0",
         palette: None,
     },
     PixelRecipe {
@@ -419,6 +439,7 @@ fn write_pixel_case(
             planar_configuration: recipe.planar_configuration,
             pixel_data_vr: recipe.pixel_vr,
             pixel_data_length: recipe.pixel_bytes.len(),
+            pixel_data_length_formula: pixel_data_length_formula(recipe),
             palette: recipe.palette.map(|palette| palette.into()),
         },
     )?;
@@ -688,6 +709,13 @@ fn pixel_vr_name(vr: VR) -> &'static str {
         VR::OB => "OB",
         VR::OW => "OW",
         _ => "UN",
+    }
+}
+
+fn pixel_data_length_formula(recipe: PixelRecipe) -> PixelDataLengthFormula {
+    match recipe.photometric_interpretation {
+        "YBR_FULL_422" => PixelDataLengthFormula::YbrFull422,
+        _ => PixelDataLengthFormula::ContiguousSamples,
     }
 }
 

@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dicom-test-suite.local/schemas/viewer-report.schema.json",
+  "title": "DICOM Test Suite Viewer Compatibility Report",
+  "type": "object",
+  "required": ["viewer_report_schema_version"],
+  "properties": {
+    "viewer_report_schema_version": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": true
+}

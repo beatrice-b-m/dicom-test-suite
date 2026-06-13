@@ -2,8 +2,8 @@
 
 **Last updated:** 2026-06-13  
 **Source specification:** `SYSTEM_SPEC.md` version 0.2.0  
-**Current phase:** Phase 0 repository initialization, incomplete  
-**Current implementation status:** initial Rust 2024 single-crate workspace skeleton is in place with minimal DICOM-rs dependencies pinned
+**Current phase:** Phase 0.5 standards and case registry foundation, incomplete  
+**Current implementation status:** Phase 0 repository initialization is complete; initial schema placeholders are in place and Phase 0.5 standards/case registry work is next
 
 This document is the durable hand-off log for coding agents implementing
 `dicom-test-suite`. Keep `SYSTEM_SPEC.md` as the source of product and
@@ -39,11 +39,11 @@ Observed at creation of this progress file:
 | `Cargo.toml` / Rust workspace | present | Single package named `dicom-test-suite`, using Rust 2024 edition; pins minimal DICOM-rs crates for Phase 1 object and transfer syntax work. |
 | `rust-toolchain.toml` | present | Pins Rust 1.85.0 with `rustfmt` and `clippy`, matching an installed local toolchain. |
 | `standards.lock.json` | missing | Required before recipe implementation. |
-| `schemas/` | missing | Manifest, case registry, coverage, and viewer report schemas are not created yet. |
+| `schemas/` | present | Initial valid JSON Schema placeholders exist for manifest, case registry, coverage report, and viewer report. |
 | `cases/registry.json` | missing | Case registry must become authoritative for planned and implemented cases. |
 | `standards/source-notes/` | missing | Needed for standards gaps not covered by `dicom-standard-kb`. |
-| `src/` or `crates/` | missing | No generator implementation exists yet. |
-| `tests/` | missing | No automated verification exists yet. |
+| `src/` or `crates/` | present | Minimal `src/lib.rs` and `src/main.rs` exist; generator implementation has not started. |
+| `tests/` | missing | No standalone integration tests exist yet; current verification is via unit tests. |
 
 ## Non-Negotiable Implementation Constraints
 
@@ -70,8 +70,8 @@ Observed at creation of this progress file:
 
 | Phase | Status | Summary |
 |---|---|---|
-| Phase 0: Repository initialization | in progress | README and system spec exist; workspace, ignore rules, toolchain, schemas, and dependency pins remain. |
-| Phase 0.5: Standards and case registry foundation | not started | Required before real recipe work. |
+| Phase 0: Repository initialization | complete | Scope docs, generated-artifact protections, Rust skeleton, toolchain, dependency pins, and initial schema placeholders are committed. |
+| Phase 0.5: Standards and case registry foundation | in progress | Standards lock, case registry, profile definitions, capability matrix, and standards workflow remain. |
 | Phase 1: Generator core | not started | CLI, UID generation, manifest writing, Part 10 writing, and file validation pending. |
 | Phase 2: Native pixel matrix | not started | Pixel generators and photometric validators pending. |
 | Phase 3: Classic radiology IODs | not started | CT/MR/CR/US/DX/MG builders pending. |
@@ -92,7 +92,7 @@ Observed at creation of this progress file:
 - [x] Add `Cargo.toml` and `Cargo.lock`.
 - [x] Add `rust-toolchain.toml`.
 - [x] Verify and pin the DICOM-rs crate family.
-- [ ] Add initial `schemas/` directory.
+- [x] Add initial `schemas/` directory.
 
 Phase 0 is complete only when the repository has clear scope, output policy,
 implementation plan, a Rust project skeleton, generated-artifact protections,
@@ -160,17 +160,15 @@ and Phase 0.5.
 
 ## Recommended Next Commit
 
-Add the initial schemas directory:
+Start Phase 0.5 standards baseline work:
 
-1. Create committed placeholders for `schemas/manifest.schema.json`,
-   `schemas/case-registry.schema.json`, `schemas/coverage-report.schema.json`,
-   and `schemas/viewer-report.schema.json`.
-2. Keep schema contents minimal but valid so later Phase 0.5 slices can expand
-   each schema independently.
-3. Run focused JSON validation if tooling is available, plus `cargo test` to
-   keep the Rust skeleton green.
-4. Update this progress file and reassess Phase 0 completion.
-5. Commit as `chore(schemas): add initial schema placeholders`.
+1. Add `standards.lock.json` with the DICOM 2026b base-edition baseline and an
+   explicit final-text inclusion policy.
+2. Record that `dicom-standard-kb` repository/DB pin fields are pending until a
+   local KB artifact is available or verified.
+3. Update this progress file to mark the standards-lock checklist item and
+   standards baseline decision.
+4. Commit as `docs(standards): add standards baseline lock`.
 
 ## Handoff Notes
 

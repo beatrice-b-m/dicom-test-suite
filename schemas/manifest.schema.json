@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dicom-test-suite.local/schemas/manifest.schema.json",
+  "title": "DICOM Test Suite Run Manifest",
+  "type": "object",
+  "required": ["manifest_schema_version"],
+  "properties": {
+    "manifest_schema_version": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": true
+}

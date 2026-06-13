@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dicom-test-suite.local/schemas/case-registry.schema.json",
+  "title": "DICOM Test Suite Case Registry",
+  "type": "object",
+  "required": ["case_registry_schema_version", "cases"],
+  "properties": {
+    "case_registry_schema_version": {
+      "type": "string"
+    },
+    "cases": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    }
+  },
+  "additionalProperties": true
+}

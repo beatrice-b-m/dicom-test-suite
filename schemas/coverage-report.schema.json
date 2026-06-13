@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dicom-test-suite.local/schemas/coverage-report.schema.json",
+  "title": "DICOM Test Suite Coverage Report",
+  "type": "object",
+  "required": ["coverage_report_schema_version"],
+  "properties": {
+    "coverage_report_schema_version": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": true
+}

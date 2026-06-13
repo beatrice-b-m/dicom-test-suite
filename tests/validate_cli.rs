@@ -32,6 +32,31 @@ fn validate_command_accepts_generated_smoke_root() {
 }
 
 #[test]
+fn validate_command_accepts_generated_extended_root() {
+    let out_dir = unique_temp_dir("validate-extended");
+    generate_profile(&out_dir, "extended");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args([
+            "validate",
+            out_dir.to_str().expect("temp path should be valid UTF-8"),
+        ])
+        .output()
+        .expect("validate command must run");
+
+    assert!(
+        output.status.success(),
+        "validate should accept generated extended output: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("validate stdout must be UTF-8");
+    assert!(stdout.contains("files_checked\t6"));
+    assert!(stdout.contains("validation_failures\t0"));
+
+    fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
+}
+
+#[test]
 fn validate_command_rejects_missing_manifest() {
     let out_dir = unique_temp_dir("validate-missing-manifest");
     fs::create_dir_all(&out_dir).expect("temporary output root should be created");
@@ -438,6 +463,66 @@ fn validate_command_reports_missing_mr_scanning_sequence() {
     );
     let stdout = String::from_utf8(output.stdout).expect("validate stdout must be UTF-8");
     assert!(stdout.contains("mr_scanning_sequence_type1"));
+
+    fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
+}
+
+#[test]
+fn validate_command_reports_missing_enhanced_ct_shared_functional_groups() {
+    let out_dir = unique_temp_dir("validate-missing-enhanced-ct-shared-fg");
+    generate_profile(&out_dir, "extended");
+    let dcm_path = out_dir.join("enhanced/ct/multiframe_shared_perframe_explicit_le/instance.dcm");
+    mutate_dicom(&dcm_path, |bytes| {
+        let offset = find_tag(bytes, 0x5200, 0x9229)
+            .expect("generated Enhanced CT should contain Shared Functional Groups Sequence");
+        bytes[offset] = 0x01;
+        bytes[offset + 1] = 0x52;
+    });
+
+    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args([
+            "validate",
+            out_dir.to_str().expect("temp path should be valid UTF-8"),
+        ])
+        .output()
+        .expect("validate command must run");
+
+    assert!(
+        !output.status.success(),
+        "validate should fail when Enhanced CT Shared Functional Groups Sequence is absent"
+    );
+    let stdout = String::from_utf8(output.stdout).expect("validate stdout must be UTF-8");
+    assert!(stdout.contains("enhanced_ct_shared_functional_groups_sequence_type1"));
+
+    fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
+}
+
+#[test]
+fn validate_command_reports_missing_enhanced_mr_dimension_organization() {
+    let out_dir = unique_temp_dir("validate-missing-enhanced-mr-dimension-organization");
+    generate_profile(&out_dir, "extended");
+    let dcm_path = out_dir.join("enhanced/mr/multiframe_echo_perframe_explicit_le/instance.dcm");
+    mutate_dicom(&dcm_path, |bytes| {
+        let offset = find_tag(bytes, 0x0020, 0x9221)
+            .expect("generated Enhanced MR should contain Dimension Organization Sequence");
+        bytes[offset + 2] = 0x23;
+        bytes[offset + 3] = 0x92;
+    });
+
+    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args([
+            "validate",
+            out_dir.to_str().expect("temp path should be valid UTF-8"),
+        ])
+        .output()
+        .expect("validate command must run");
+
+    assert!(
+        !output.status.success(),
+        "validate should fail when Enhanced MR Dimension Organization Sequence is absent"
+    );
+    let stdout = String::from_utf8(output.stdout).expect("validate stdout must be UTF-8");
+    assert!(stdout.contains("enhanced_mr_dimension_organization_sequence_type1"));
 
     fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
 }

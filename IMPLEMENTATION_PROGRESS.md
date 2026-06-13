@@ -2,9 +2,9 @@
 
 **Last updated:** 2026-06-13  
 **Source specification:** `SYSTEM_SPEC.md` version 0.2.0  
-**Current phase:** remediation planning before Phase 5 feature expansion
+**Current phase:** ready for Phase 5 feature expansion
 
-**Current implementation status:** Phase 0, Phase 0.5, Phase 1, Phase 2, Phase 3, and Phase 4 are functionally implemented, and Remediation R1, R2, R4, and R5 are complete. Remediation R3 has raw Part 10 byte-level validation, parsed cross-field image invariant validation, generated manifest schema-conformance checks, baseline standards-derived Type 1/Type 2 module validation, and family-specific standards-derived validation for SC, classic CT, MG, DX, US, CR, and classic MR implemented. Remaining remediation before clean Phase 5 expansion: validation needs enhanced multi-frame family-specific standards-derived checks.
+**Current implementation status:** Phase 0, Phase 0.5, Phase 1, Phase 2, Phase 3, and Phase 4 are functionally implemented, and Remediation R1, R2, R3, R4, and R5 are complete. Phase 5 derived, presentation, and non-image object work is eligible to begin next.
 
 This document is the durable hand-off log for coding agents implementing
 `dicom-test-suite`. Keep `SYSTEM_SPEC.md` as the source of product and
@@ -84,7 +84,7 @@ Observed at creation of this progress file:
 | Phase 2: Native pixel matrix | complete | Core native monochrome 16-bit unsigned/signed MONOCHROME2 OW Pixel Data, RGB planar configuration 1, PALETTE COLOR, YBR_FULL, YBR_FULL_422, odd-dimension, rectangular, tiny-image, pixel-padding, and broadened native pixel validators are implemented. |
 | Phase 3: Classic radiology IODs | complete | CT Image Storage signed 12-bit rescale/window, MG For Presentation/For Processing 12-bit, CR overlay/Modality LUT/VOI LUT, MR multi-slice oblique geometry, DX display shutter, US Image Storage, and stable multi-file series generation are implemented. |
 | Phase 4: Enhanced multi-frame | complete | Enhanced CT and Enhanced MR Image Storage cases with Shared and Per-Frame Functional Groups and Multi-frame Dimension metadata are implemented; MR Echo, Temporal Position, phase/velocity-encoding variation, and a two-member Enhanced CT concatenation case are covered. |
-| Remediation before Phase 5 | in progress | R1 registry authority, R2 required CLI contracts, R4 reproducibility/CI guards, and R5 standards lock pinning policy are complete; R3 raw Part 10 byte validation, parsed cross-field image invariant checks, manifest schema-conformance checks, baseline standards-derived Type 1/Type 2 checks, and SC/classic CT/MG/DX/US/CR/MR family-specific checks are implemented; enhanced multi-frame validation hardening remains before adding new Phase 5 recipes. |
+| Remediation before Phase 5 | complete | R1 registry authority, R2 required CLI contracts, R3 validation hardening, R4 reproducibility/CI guards, and R5 standards lock pinning policy are complete. R3 now covers raw Part 10 byte validation, parsed cross-field image invariant checks, manifest schema-conformance checks, baseline standards-derived Type 1/Type 2 checks, classic family-specific checks, and Enhanced CT/MR multi-frame standards-derived checks. |
 | Phase 5: Derived, presentation, and non-image objects | not started | SEG, presentation states, SR, KOS, RWVM, RT, and encapsulated documents pending. |
 | Phase 6: Transfer syntax expansion | not started | Transfer syntax abstraction and compressed cases pending. |
 | Phase 7: Pathology, video, and large object profiles | not started | VL, WSI, video, and stress cases pending. |
@@ -593,6 +593,16 @@ These case IDs come from `SYSTEM_SPEC.md` section 21 and should seed
   MR acquisition, Frame of Reference, and image-plane attributes. CLI mutation
   tests cover missing MG Positioner Type, DX Presentation LUT Shape, US Image
   Type, CR Body Part Examined, and MR Scanning Sequence.
+- 2026-06-13: Remediation R3 completed by adding Enhanced CT and Enhanced MR
+  standards-derived generated-root validation. Based on 2026b
+  `dicom-standard-kb` lookups for Enhanced CT Image, Enhanced MR Image,
+  Multi-frame Functional Groups, Multi-frame Dimension, CT Series, MR Series,
+  and MR Pulse Sequence, validation now checks enhanced Image Type/common image
+  description Type 1 attributes, Frame of Reference identity, Shared and
+  Per-Frame Functional Groups sequence counts, Dimension Organization, and
+  Dimension Index. Validation CLI tests now accept a generated extended root
+  and cover missing Enhanced CT Shared Functional Groups Sequence and missing
+  Enhanced MR Dimension Organization Sequence.
 - 2026-06-13: Remediation R4 started by expanding reproducibility and union
   profile coverage. Two-run byte-stability tests now cover `core` and
   `extended` in addition to `smoke`, and `generate --profile all` has a CLI
@@ -617,19 +627,13 @@ These case IDs come from `SYSTEM_SPEC.md` section 21 and should seed
 
 ## Current Blockers
 
-The 2026-06-13 baseline review found remediation items that should be resolved
-before Phase 5 feature expansion: validation still needs enhanced multi-frame
-family-specific standards-derived checks.
+None currently recorded for starting Phase 5.
 
 ## Recommended Next Commit
 
-Execute `REMEDIATION_PLAN.md` before starting new Phase 5 feature work:
-
-1. Continue Remediation R3 by expanding family-specific standards-derived recipe
-   validation for Enhanced CT and Enhanced MR multi-frame coverage.
-2. Re-evaluate Phase 5 readiness once R3 validation hardening is complete.
-3. Resume Phase 5 with `feat(seg): add binary segmentation case` only after the
-   remediation exit criteria are satisfied.
+Resume Phase 5 with `feat(seg): add binary segmentation case`, using
+`dicom-standard-kb` lookups before adding the SEG IOD builder and registry
+status changes.
 
 ## Handoff Notes
 

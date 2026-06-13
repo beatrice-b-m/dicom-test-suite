@@ -1451,6 +1451,20 @@ fn validate_family_standard_elements(
         "MR Image" => {
             validate_mr_image_standard_elements(failures, relative_path, manifest_path, file, obj)?
         }
+        "Enhanced CT Image" => validate_enhanced_ct_image_standard_elements(
+            failures,
+            relative_path,
+            manifest_path,
+            file,
+            obj,
+        )?,
+        "Enhanced MR Image" => validate_enhanced_mr_image_standard_elements(
+            failures,
+            relative_path,
+            manifest_path,
+            file,
+            obj,
+        )?,
         _ => {}
     }
 
@@ -1962,6 +1976,153 @@ fn validate_mr_image_standard_elements(
     Ok(())
 }
 
+fn validate_enhanced_ct_image_standard_elements(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    manifest_path: &Path,
+    file: &Value,
+    obj: &OpenedObject,
+) -> Result<(), ValidateError> {
+    validate_enhanced_ct_mr_common_standard_elements(
+        failures,
+        relative_path,
+        manifest_path,
+        file,
+        obj,
+        "enhanced_ct",
+    )?;
+
+    Ok(())
+}
+
+fn validate_enhanced_mr_image_standard_elements(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    manifest_path: &Path,
+    file: &Value,
+    obj: &OpenedObject,
+) -> Result<(), ValidateError> {
+    validate_enhanced_ct_mr_common_standard_elements(
+        failures,
+        relative_path,
+        manifest_path,
+        file,
+        obj,
+        "enhanced_mr",
+    )?;
+
+    Ok(())
+}
+
+fn validate_enhanced_ct_mr_common_standard_elements(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    manifest_path: &Path,
+    file: &Value,
+    obj: &OpenedObject,
+    prefix: &str,
+) -> Result<(), ValidateError> {
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::IMAGE_TYPE,
+        &format!("{prefix}_image_type_type1"),
+        manifest_str(
+            manifest_path,
+            file,
+            "/recipe/recipe_parameters/frame_type",
+            "expected frame_type must be a string",
+        )?,
+    );
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::PIXEL_PRESENTATION,
+        &format!("{prefix}_pixel_presentation_type1"),
+        "MONOCHROME",
+    );
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::VOLUMETRIC_PROPERTIES,
+        &format!("{prefix}_volumetric_properties_type1"),
+        "VOLUME",
+    );
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::VOLUME_BASED_CALCULATION_TECHNIQUE,
+        &format!("{prefix}_volume_based_calculation_technique_type1"),
+        "NONE",
+    );
+
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::FRAME_OF_REFERENCE_UID,
+        "frame_of_reference_uid_type1",
+        manifest_str(
+            manifest_path,
+            file,
+            "/uids/frame_of_reference_uid",
+            "uids frame_of_reference_uid must be a string",
+        )?,
+    );
+    validate_type2_element(
+        failures,
+        relative_path,
+        obj,
+        tags::POSITION_REFERENCE_INDICATOR,
+        "position_reference_indicator_type2",
+    );
+
+    validate_sequence_len(
+        failures,
+        relative_path,
+        obj,
+        tags::SHARED_FUNCTIONAL_GROUPS_SEQUENCE,
+        &format!("{prefix}_shared_functional_groups_sequence_type1"),
+        1,
+    );
+    validate_sequence_len(
+        failures,
+        relative_path,
+        obj,
+        tags::PER_FRAME_FUNCTIONAL_GROUPS_SEQUENCE,
+        &format!("{prefix}_per_frame_functional_groups_sequence_type1c"),
+        usize::try_from(manifest_u64(
+            manifest_path,
+            file,
+            "/expected_semantics/per_frame_functional_groups_sequence_items",
+            "expected per-frame functional groups count must be an integer",
+        )?)
+        .expect("manifest per-frame count must fit usize"),
+    );
+    validate_sequence_len(
+        failures,
+        relative_path,
+        obj,
+        tags::DIMENSION_ORGANIZATION_SEQUENCE,
+        &format!("{prefix}_dimension_organization_sequence_type1"),
+        1,
+    );
+    validate_sequence_len(
+        failures,
+        relative_path,
+        obj,
+        tags::DIMENSION_INDEX_SEQUENCE,
+        &format!("{prefix}_dimension_index_sequence_type1c"),
+        1,
+    );
+
+    Ok(())
+}
+
 fn validate_type2_element(
     failures: &mut Vec<String>,
     relative_path: &str,
@@ -1971,6 +2132,25 @@ fn validate_type2_element(
 ) {
     if let Err(err) = element_str_for_validate(obj, tag) {
         failures.push(format!("{relative_path}: {name}: {err}"));
+    }
+}
+
+fn validate_sequence_len(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    obj: &OpenedObject,
+    tag: dicom_core::Tag,
+    name: &str,
+    expected: usize,
+) {
+    match obj.element(tag) {
+        Ok(element) => match element.items() {
+            Some(items) => validate_equal(failures, relative_path, name, items.len(), expected),
+            None => failures.push(format!(
+                "{relative_path}: {name}: element is not a sequence"
+            )),
+        },
+        Err(err) => failures.push(format!("{relative_path}: {name}: {err}")),
     }
 }
 

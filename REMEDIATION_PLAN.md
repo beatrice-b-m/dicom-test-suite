@@ -68,12 +68,11 @@ Exit criteria:
 
 ## Phase R3: Harden Part 10 and Internal Validation
 
-**Status:** in progress as of 2026-06-13. Raw Part 10 byte-level validation,
-parsed cross-field image invariants, and generated manifest schema-conformance
-checks are implemented; baseline Type 1/Type 2 standards-derived checks are
-implemented; initial Secondary Capture and classic CT family-specific checks
-are implemented; additional negative mutations and broader family-specific
-standards-derived checks remain.
+**Status:** complete as of 2026-06-13. Raw Part 10 byte-level validation,
+parsed cross-field image invariants, generated manifest schema-conformance
+checks, baseline Type 1/Type 2 standards-derived checks, classic image
+family-specific checks, and Enhanced CT/MR multi-frame standards-derived checks
+are implemented.
 
 **Findings addressed:** validation is not yet the full Part 10 / standards-derived contract.
 
@@ -92,8 +91,8 @@ Tasks:
 - Add manifest JSON Schema validation to generation tests. Complete for
   required-field and additional-property schema contracts in smoke/core/extended
   generation tests.
-- Add targeted negative validator tests by mutating temporary generated files, without committing invalid DICOM fixtures. In progress: non-zero preamble, missing File Meta Information Version, unexpected group `0002`, inconsistent High Bit, missing Type 2 Patient's Name, missing SC Conversion Type, missing CT Image Type, missing MG Positioner Type, missing DX Presentation LUT Shape, missing US Image Type, missing CR Body Part Examined, and missing MR Scanning Sequence are covered.
-- Expand standards-derived recipe validation incrementally for each implemented IOD family, starting with Type 1 and Type 2 attributes already in current recipes. In progress: baseline Patient, General Study, General Series, and General Image Type 1/Type 2 checks plus SC Equipment, classic CT, MG, DX, US, CR, classic MR, Image Plane, and Frame of Reference checks are covered for generated-root validation; Enhanced CT/MR family-specific checks remain.
+- Add targeted negative validator tests by mutating temporary generated files, without committing invalid DICOM fixtures. Complete: non-zero preamble, missing File Meta Information Version, unexpected group `0002`, inconsistent High Bit, missing Type 2 Patient's Name, missing SC Conversion Type, missing CT Image Type, missing MG Positioner Type, missing DX Presentation LUT Shape, missing US Image Type, missing CR Body Part Examined, missing MR Scanning Sequence, missing Enhanced CT Shared Functional Groups Sequence, and missing Enhanced MR Dimension Organization Sequence are covered.
+- Expand standards-derived recipe validation incrementally for each implemented IOD family, starting with Type 1 and Type 2 attributes already in current recipes. Complete: baseline Patient, General Study, General Series, and General Image Type 1/Type 2 checks plus SC Equipment, classic CT, MG, DX, US, CR, classic MR, Enhanced CT/MR, Multi-frame Functional Groups, Multi-frame Dimension, Image Plane, and Frame of Reference checks are covered for generated-root validation.
 
 Exit criteria:
 

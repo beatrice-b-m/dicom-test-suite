@@ -1532,6 +1532,156 @@ fn generate_command_writes_core_u16_native_pixel_case() {
 }
 
 #[test]
+fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
+    let out_dir = unique_temp_dir("generate-extended-command");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args([
+            "generate",
+            "--profile",
+            "extended",
+            "--out",
+            out_dir.to_str().expect("temp path should be valid UTF-8"),
+            "--seed",
+            "7",
+        ])
+        .output()
+        .expect("generate command must run");
+
+    assert!(
+        output.status.success(),
+        "generate should exit successfully: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
+    assert!(stdout.contains("profile\textended"));
+    assert!(stdout.contains("files_written\t1"));
+
+    let manifest_path = out_dir.join("manifest.json");
+    let manifest: Value = serde_json::from_str(
+        &fs::read_to_string(&manifest_path).expect("manifest should be readable"),
+    )
+    .expect("manifest should parse");
+    assert_eq!(
+        manifest
+            .pointer("/files")
+            .and_then(Value::as_array)
+            .map(Vec::len),
+        Some(1)
+    );
+    let enhanced_ct_file = file_entry_by_case_id(
+        &manifest,
+        "enhanced/ct/multiframe_shared_perframe_explicit_le",
+    );
+    assert_eq!(
+        enhanced_ct_file
+            .pointer("/dicom/sop_class_uid")
+            .and_then(Value::as_str),
+        Some(uids::ENHANCED_CT_IMAGE_STORAGE)
+    );
+    assert_eq!(
+        enhanced_ct_file
+            .pointer("/image/frames")
+            .and_then(Value::as_u64),
+        Some(2)
+    );
+    assert_eq!(
+        enhanced_ct_file
+            .pointer("/pixel_data/value_length")
+            .and_then(Value::as_u64),
+        Some(16)
+    );
+    assert_eq!(
+        enhanced_ct_file
+            .pointer(
+                "/recipe/recipe_parameters/shared_functional_groups/pixel_measures/pixel_spacing"
+            )
+            .and_then(Value::as_str),
+        Some("0.75\\0.75")
+    );
+    assert_eq!(
+        enhanced_ct_file
+            .pointer("/recipe/recipe_parameters/per_frame_functional_groups/image_position_patient")
+            .and_then(Value::as_array)
+            .map(Vec::len),
+        Some(2)
+    );
+    assert!(
+        validation_result_names(enhanced_ct_file.pointer("/validation/internal"))
+            .contains(&"enhanced_ct_per_frame_functional_groups_sequence_items"),
+        "Enhanced CT manifest should record Per-Frame Functional Groups validation"
+    );
+    assert!(
+        validation_result_names(enhanced_ct_file.pointer("/validation/standards"))
+            .contains(&"enhanced_ct_image_sop_class"),
+        "Enhanced CT manifest should record standards validation for Enhanced CT Image Storage"
+    );
+    assert!(
+        manifest
+            .pointer("/skipped_cases")
+            .and_then(Value::as_array)
+            .is_some_and(Vec::is_empty),
+        "implemented extended cases should not be reported as skipped"
+    );
+
+    let enhanced_ct_path =
+        out_dir.join("enhanced/ct/multiframe_shared_perframe_explicit_le/instance.dcm");
+    let enhanced_ct = open_file(&enhanced_ct_path).expect("Enhanced CT DICOM file should parse");
+    assert_eq!(
+        enhanced_ct
+            .element(tags::SOP_CLASS_UID)
+            .expect("Enhanced CT file should contain SOP Class UID")
+            .value()
+            .to_str()
+            .expect("SOP Class UID should be text")
+            .trim_end_matches('\0'),
+        uids::ENHANCED_CT_IMAGE_STORAGE
+    );
+    assert_eq!(
+        enhanced_ct
+            .element(tags::NUMBER_OF_FRAMES)
+            .expect("Enhanced CT file should contain Number of Frames")
+            .value()
+            .to_str()
+            .expect("Number of Frames should be text")
+            .trim(),
+        "2"
+    );
+    assert_eq!(
+        enhanced_ct
+            .element(tags::SHARED_FUNCTIONAL_GROUPS_SEQUENCE)
+            .expect("Enhanced CT file should contain Shared Functional Groups Sequence")
+            .items()
+            .expect("Shared Functional Groups should be a sequence")
+            .len(),
+        1
+    );
+    let per_frame_items = enhanced_ct
+        .element(tags::PER_FRAME_FUNCTIONAL_GROUPS_SEQUENCE)
+        .expect("Enhanced CT file should contain Per-Frame Functional Groups Sequence")
+        .items()
+        .expect("Per-Frame Functional Groups should be a sequence");
+    assert_eq!(per_frame_items.len(), 2);
+    let second_position_item = per_frame_items[1]
+        .element(tags::PLANE_POSITION_SEQUENCE)
+        .expect("second frame should contain Plane Position Sequence")
+        .items()
+        .expect("Plane Position should be a sequence");
+    assert_eq!(
+        second_position_item[0]
+            .element(tags::IMAGE_POSITION_PATIENT)
+            .expect("Plane Position should contain Image Position Patient")
+            .value()
+            .to_str()
+            .expect("Image Position Patient should be text")
+            .trim(),
+        "0\\0\\2.5"
+    );
+
+    fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
+}
+
+#[test]
 fn generate_command_requires_output_path() {
     let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
         .args(["generate", "--profile", "smoke"])

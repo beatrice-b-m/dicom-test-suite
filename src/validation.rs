@@ -9,6 +9,7 @@ use serde_json::Value;
 use crate::GenerateError;
 
 type OpenedObject = FileDicomObject<InMemDicomObject<StandardDataDictionary>>;
+type DatasetObject = InMemDicomObject<StandardDataDictionary>;
 
 #[derive(Debug, Clone)]
 pub(crate) struct Part10Expectations<'a> {
@@ -19,6 +20,7 @@ pub(crate) struct Part10Expectations<'a> {
     pub synthetic_data: &'a str,
     pub rows: u16,
     pub columns: u16,
+    pub frames: u16,
     pub samples_per_pixel: u16,
     pub photometric_interpretation: &'a str,
     pub bits_allocated: u16,
@@ -31,6 +33,7 @@ pub(crate) struct Part10Expectations<'a> {
     pub palette: Option<PaletteExpectations>,
     pub padding: Option<PixelPaddingExpectations>,
     pub ct_image: Option<CtImageExpectations<'a>>,
+    pub enhanced_ct_image: Option<EnhancedCtImageExpectations<'a>>,
     pub mg_image: Option<MgImageExpectations<'a>>,
     pub dx_image: Option<DxImageExpectations<'a>>,
     pub us_image: Option<UsImageExpectations<'a>>,
@@ -74,6 +77,29 @@ pub(crate) struct CtImageExpectations<'a> {
     pub rescale_type: &'a str,
     pub window_center: &'a str,
     pub window_width: &'a str,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct EnhancedCtImageExpectations<'a> {
+    pub modality: &'a str,
+    pub frame_of_reference_uid: &'a str,
+    pub image_type: &'a str,
+    pub number_of_frames: u16,
+    pub shared_functional_groups: usize,
+    pub per_frame_functional_groups: usize,
+    pub dimension_organization_uid: &'a str,
+    pub dimension_index_count: usize,
+    pub pixel_spacing: &'a str,
+    pub image_orientation_patient: &'a str,
+    pub image_position_patient: &'a [&'a str],
+    pub frame_type: &'a str,
+    pub pixel_presentation: &'a str,
+    pub volumetric_properties: &'a str,
+    pub volume_based_calculation_technique: &'a str,
+    pub rescale_intercept: &'a str,
+    pub rescale_slope: &'a str,
+    pub rescale_type: &'a str,
+    pub irradiation_event_uid: &'a str,
 }
 
 #[derive(Debug, Clone)]
@@ -434,6 +460,9 @@ pub(crate) fn validate_part10_file(
     if let Some(ct_image) = &expected.ct_image {
         validate_ct_image(path, &obj, &mut internal, ct_image)?;
     }
+    if let Some(enhanced_ct_image) = &expected.enhanced_ct_image {
+        validate_enhanced_ct_image(path, &obj, &mut internal, enhanced_ct_image)?;
+    }
     if let Some(mg_image) = &expected.mg_image {
         validate_mg_image(path, &obj, &mut internal, mg_image)?;
     }
@@ -520,13 +549,18 @@ fn expected_pixel_data_length(
             "Native Pixel Data length matches rows * columns * frames * samples per pixel * bytes per sample.",
             usize::from(expected.rows)
                 * usize::from(expected.columns)
+                * usize::from(expected.frames)
                 * usize::from(expected.samples_per_pixel)
                 * bytes_per_sample,
         ),
         PixelDataLengthFormula::YbrFull422 => (
             "native_ybr_full_422_pixel_data_length",
             "Native YBR_FULL_422 Pixel Data length matches rows * columns * frames * 2 * bytes per sample.",
-            usize::from(expected.rows) * usize::from(expected.columns) * bytes_per_sample * 2,
+            usize::from(expected.rows)
+                * usize::from(expected.columns)
+                * usize::from(expected.frames)
+                * bytes_per_sample
+                * 2,
         ),
     }
 }
@@ -769,6 +803,259 @@ fn validate_ct_image(
             "CT Image attribute does not match the recipe.",
             element_str(path, obj, tag)?.as_str(),
             expected_value,
+        );
+    }
+
+    Ok(())
+}
+
+fn validate_enhanced_ct_image(
+    path: &Path,
+    obj: &OpenedObject,
+    results: &mut Vec<Value>,
+    expected: &EnhancedCtImageExpectations<'_>,
+) -> Result<(), GenerateError> {
+    for (name, tag, expected_value) in [
+        ("enhanced_ct_modality", tags::MODALITY, expected.modality),
+        (
+            "enhanced_ct_frame_of_reference_uid",
+            tags::FRAME_OF_REFERENCE_UID,
+            expected.frame_of_reference_uid,
+        ),
+        (
+            "enhanced_ct_image_type",
+            tags::IMAGE_TYPE,
+            expected.image_type,
+        ),
+        (
+            "enhanced_ct_pixel_presentation",
+            tags::PIXEL_PRESENTATION,
+            expected.pixel_presentation,
+        ),
+        (
+            "enhanced_ct_volumetric_properties",
+            tags::VOLUMETRIC_PROPERTIES,
+            expected.volumetric_properties,
+        ),
+        (
+            "enhanced_ct_volume_based_calculation_technique",
+            tags::VOLUME_BASED_CALCULATION_TECHNIQUE,
+            expected.volume_based_calculation_technique,
+        ),
+    ] {
+        check_equal(
+            results,
+            name,
+            "Enhanced CT top-level attribute matches the recipe.",
+            "Enhanced CT top-level attribute does not match the recipe.",
+            element_str(path, obj, tag)?.as_str(),
+            expected_value,
+        );
+    }
+
+    let expected_number_of_frames = expected.number_of_frames.to_string();
+    check_equal(
+        results,
+        "enhanced_ct_number_of_frames",
+        "Number of Frames matches the recipe.",
+        "Number of Frames does not match the recipe.",
+        element_str(path, obj, tags::NUMBER_OF_FRAMES)?.as_str(),
+        expected_number_of_frames.as_str(),
+    );
+    check_equal(
+        results,
+        "enhanced_ct_shared_functional_groups_sequence_items",
+        "Shared Functional Groups Sequence has one item.",
+        "Shared Functional Groups Sequence item count does not match the recipe.",
+        sequence_item_count(path, obj, tags::SHARED_FUNCTIONAL_GROUPS_SEQUENCE)?,
+        expected.shared_functional_groups,
+    );
+    check_equal(
+        results,
+        "enhanced_ct_per_frame_functional_groups_sequence_items",
+        "Per-Frame Functional Groups Sequence has one item per frame.",
+        "Per-Frame Functional Groups Sequence item count does not match Number of Frames.",
+        sequence_item_count(path, obj, tags::PER_FRAME_FUNCTIONAL_GROUPS_SEQUENCE)?,
+        expected.per_frame_functional_groups,
+    );
+    check_equal(
+        results,
+        "enhanced_ct_dimension_organization_sequence_items",
+        "Dimension Organization Sequence has one item.",
+        "Dimension Organization Sequence item count does not match the recipe.",
+        sequence_item_count(path, obj, tags::DIMENSION_ORGANIZATION_SEQUENCE)?,
+        1,
+    );
+    check_equal(
+        results,
+        "enhanced_ct_dimension_index_sequence_items",
+        "Dimension Index Sequence item count matches the recipe.",
+        "Dimension Index Sequence item count does not match the recipe.",
+        sequence_item_count(path, obj, tags::DIMENSION_INDEX_SEQUENCE)?,
+        expected.dimension_index_count,
+    );
+    check_equal(
+        results,
+        "enhanced_ct_dimension_organization_uid",
+        "Dimension Organization UID matches between the recipe and Dimension Organization Sequence.",
+        "Dimension Organization UID does not match the recipe.",
+        top_level_sequence_item_str(
+            path,
+            obj,
+            tags::DIMENSION_ORGANIZATION_SEQUENCE,
+            0,
+            tags::DIMENSION_ORGANIZATION_UID,
+        )?
+        .as_str(),
+        expected.dimension_organization_uid,
+    );
+
+    let shared = top_level_sequence_item(path, obj, tags::SHARED_FUNCTIONAL_GROUPS_SEQUENCE, 0)?;
+    check_equal(
+        results,
+        "enhanced_ct_pixel_measures_sequence_items",
+        "Pixel Measures Sequence has one shared item.",
+        "Pixel Measures Sequence item count does not match the recipe.",
+        item_sequence_item_count(path, shared, tags::PIXEL_MEASURES_SEQUENCE)?,
+        1,
+    );
+    check_equal(
+        results,
+        "enhanced_ct_pixel_spacing",
+        "Shared Pixel Measures Pixel Spacing matches the recipe.",
+        "Shared Pixel Measures Pixel Spacing does not match the recipe.",
+        nested_sequence_item_str(
+            path,
+            shared,
+            tags::PIXEL_MEASURES_SEQUENCE,
+            0,
+            tags::PIXEL_SPACING,
+        )?
+        .as_str(),
+        expected.pixel_spacing,
+    );
+    check_equal(
+        results,
+        "enhanced_ct_image_orientation_patient",
+        "Shared Plane Orientation Image Orientation Patient matches the recipe.",
+        "Shared Plane Orientation Image Orientation Patient does not match the recipe.",
+        nested_sequence_item_str(
+            path,
+            shared,
+            tags::PLANE_ORIENTATION_SEQUENCE,
+            0,
+            tags::IMAGE_ORIENTATION_PATIENT,
+        )?
+        .as_str(),
+        expected.image_orientation_patient,
+    );
+    check_equal(
+        results,
+        "enhanced_ct_frame_type",
+        "Shared CT Image Frame Type matches the recipe.",
+        "Shared CT Image Frame Type does not match the recipe.",
+        nested_sequence_item_str(
+            path,
+            shared,
+            tags::CT_IMAGE_FRAME_TYPE_SEQUENCE,
+            0,
+            tags::FRAME_TYPE,
+        )?
+        .as_str(),
+        expected.frame_type,
+    );
+    check_equal(
+        results,
+        "enhanced_ct_rescale_intercept",
+        "Shared CT Pixel Value Transformation rescale intercept matches the recipe.",
+        "Shared CT Pixel Value Transformation rescale intercept does not match the recipe.",
+        nested_sequence_item_str(
+            path,
+            shared,
+            tags::PIXEL_VALUE_TRANSFORMATION_SEQUENCE,
+            0,
+            tags::RESCALE_INTERCEPT,
+        )?
+        .as_str(),
+        expected.rescale_intercept,
+    );
+    check_equal(
+        results,
+        "enhanced_ct_rescale_slope",
+        "Shared CT Pixel Value Transformation rescale slope matches the recipe.",
+        "Shared CT Pixel Value Transformation rescale slope does not match the recipe.",
+        nested_sequence_item_str(
+            path,
+            shared,
+            tags::PIXEL_VALUE_TRANSFORMATION_SEQUENCE,
+            0,
+            tags::RESCALE_SLOPE,
+        )?
+        .as_str(),
+        expected.rescale_slope,
+    );
+    check_equal(
+        results,
+        "enhanced_ct_rescale_type",
+        "Shared CT Pixel Value Transformation rescale type matches the recipe.",
+        "Shared CT Pixel Value Transformation rescale type does not match the recipe.",
+        nested_sequence_item_str(
+            path,
+            shared,
+            tags::PIXEL_VALUE_TRANSFORMATION_SEQUENCE,
+            0,
+            tags::RESCALE_TYPE,
+        )?
+        .as_str(),
+        expected.rescale_type,
+    );
+    check_equal(
+        results,
+        "enhanced_ct_irradiation_event_uid",
+        "Shared Irradiation Event UID matches the recipe.",
+        "Shared Irradiation Event UID does not match the recipe.",
+        nested_sequence_item_str(
+            path,
+            shared,
+            tags::IRRADIATION_EVENT_IDENTIFICATION_SEQUENCE,
+            0,
+            tags::IRRADIATION_EVENT_UID,
+        )?
+        .as_str(),
+        expected.irradiation_event_uid,
+    );
+
+    for (index, expected_position) in expected.image_position_patient.iter().enumerate() {
+        let frame =
+            top_level_sequence_item(path, obj, tags::PER_FRAME_FUNCTIONAL_GROUPS_SEQUENCE, index)?;
+        check_equal(
+            results,
+            "enhanced_ct_per_frame_image_position_patient",
+            "Per-frame Plane Position Image Position Patient matches the recipe.",
+            "Per-frame Plane Position Image Position Patient does not match the recipe.",
+            nested_sequence_item_str(
+                path,
+                frame,
+                tags::PLANE_POSITION_SEQUENCE,
+                0,
+                tags::IMAGE_POSITION_PATIENT,
+            )?
+            .as_str(),
+            *expected_position,
+        );
+        check_equal(
+            results,
+            "enhanced_ct_dimension_index_values",
+            "Per-frame Dimension Index Values are one-based and monotonic.",
+            "Per-frame Dimension Index Values do not match the recipe.",
+            nested_sequence_item_u32(
+                path,
+                frame,
+                tags::FRAME_CONTENT_SEQUENCE,
+                0,
+                tags::DIMENSION_INDEX_VALUES,
+            )?,
+            (index + 1) as u32,
         );
     }
 
@@ -1514,6 +1801,116 @@ fn first_sequence_code_value(
     Ok(value.trim_matches('\0').trim().to_string())
 }
 
+fn top_level_sequence_item<'a>(
+    path: &Path,
+    obj: &'a OpenedObject,
+    tag: Tag,
+    index: usize,
+) -> Result<&'a DatasetObject, GenerateError> {
+    let element = obj
+        .element(tag)
+        .map_err(|err| validation_error(path, err))?;
+    let items = element
+        .items()
+        .ok_or_else(|| GenerateError::ValidateDicomFile {
+            path: path.to_path_buf(),
+            message: format!("attribute {} is not a sequence", tag),
+        })?;
+    items
+        .get(index)
+        .ok_or_else(|| GenerateError::ValidateDicomFile {
+            path: path.to_path_buf(),
+            message: format!("sequence {} has no item at index {}", tag, index),
+        })
+}
+
+fn top_level_sequence_item_str(
+    path: &Path,
+    obj: &OpenedObject,
+    sequence_tag: Tag,
+    index: usize,
+    tag: Tag,
+) -> Result<String, GenerateError> {
+    let item = top_level_sequence_item(path, obj, sequence_tag, index)?;
+    item_str(path, item, tag)
+}
+
+fn item_sequence_item<'a>(
+    path: &Path,
+    obj: &'a DatasetObject,
+    tag: Tag,
+    index: usize,
+) -> Result<&'a DatasetObject, GenerateError> {
+    let element = obj
+        .element(tag)
+        .map_err(|err| validation_error(path, err))?;
+    let items = element
+        .items()
+        .ok_or_else(|| GenerateError::ValidateDicomFile {
+            path: path.to_path_buf(),
+            message: format!("attribute {} is not a sequence", tag),
+        })?;
+    items
+        .get(index)
+        .ok_or_else(|| GenerateError::ValidateDicomFile {
+            path: path.to_path_buf(),
+            message: format!("sequence {} has no item at index {}", tag, index),
+        })
+}
+
+fn item_sequence_item_count(
+    path: &Path,
+    obj: &DatasetObject,
+    tag: Tag,
+) -> Result<usize, GenerateError> {
+    let element = obj
+        .element(tag)
+        .map_err(|err| validation_error(path, err))?;
+    element
+        .items()
+        .map(|items| items.len())
+        .ok_or_else(|| GenerateError::ValidateDicomFile {
+            path: path.to_path_buf(),
+            message: format!("attribute {} is not a sequence", tag),
+        })
+}
+
+fn nested_sequence_item_str(
+    path: &Path,
+    obj: &DatasetObject,
+    sequence_tag: Tag,
+    index: usize,
+    tag: Tag,
+) -> Result<String, GenerateError> {
+    let item = item_sequence_item(path, obj, sequence_tag, index)?;
+    item_str(path, item, tag)
+}
+
+fn nested_sequence_item_u32(
+    path: &Path,
+    obj: &DatasetObject,
+    sequence_tag: Tag,
+    index: usize,
+    tag: Tag,
+) -> Result<u32, GenerateError> {
+    let item = item_sequence_item(path, obj, sequence_tag, index)?;
+    item.element(tag)
+        .map_err(|err| validation_error(path, err))?
+        .value()
+        .to_int::<u32>()
+        .map_err(|err| validation_error(path, err))
+}
+
+fn item_str(path: &Path, obj: &DatasetObject, tag: Tag) -> Result<String, GenerateError> {
+    let value = obj
+        .element(tag)
+        .map_err(|err| validation_error(path, err))?
+        .value()
+        .to_str()
+        .map_err(|err| validation_error(path, err))?;
+    Ok(value.trim_matches('\0').trim().to_string())
+}
+
 fn sequence_item_count(path: &Path, obj: &OpenedObject, tag: Tag) -> Result<usize, GenerateError> {
     let element = obj
         .element(tag)
@@ -1531,6 +1928,7 @@ fn standard_sop_class_validation_name(sop_class_uid: &str) -> &'static str {
     match sop_class_uid {
         uids::SECONDARY_CAPTURE_IMAGE_STORAGE => "secondary_capture_sop_class",
         uids::CT_IMAGE_STORAGE => "ct_image_sop_class",
+        uids::ENHANCED_CT_IMAGE_STORAGE => "enhanced_ct_image_sop_class",
         uids::COMPUTED_RADIOGRAPHY_IMAGE_STORAGE => "computed_radiography_image_sop_class",
         uids::MR_IMAGE_STORAGE => "mr_image_sop_class",
         uids::DIGITAL_X_RAY_IMAGE_STORAGE_FOR_PRESENTATION => {
@@ -1553,6 +1951,9 @@ fn standard_sop_class_validation_message(sop_class_uid: &str) -> &'static str {
             "SOP Class UID matches Secondary Capture Image Storage in the 2026b reference."
         }
         uids::CT_IMAGE_STORAGE => "SOP Class UID matches CT Image Storage in the 2026b reference.",
+        uids::ENHANCED_CT_IMAGE_STORAGE => {
+            "SOP Class UID matches Enhanced CT Image Storage in the 2026b reference."
+        }
         uids::COMPUTED_RADIOGRAPHY_IMAGE_STORAGE => {
             "SOP Class UID matches Computed Radiography Image Storage in the 2026b reference."
         }

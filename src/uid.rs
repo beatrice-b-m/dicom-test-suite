@@ -8,6 +8,8 @@ pub enum UidRole {
     SeriesInstance,
     SopInstance,
     FrameOfReference,
+    DimensionOrganization,
+    IrradiationEvent,
     ImplementationClass,
     DerivedReference,
 }
@@ -19,6 +21,8 @@ impl UidRole {
             Self::SeriesInstance => "series_instance_uid",
             Self::SopInstance => "sop_instance_uid",
             Self::FrameOfReference => "frame_of_reference_uid",
+            Self::DimensionOrganization => "dimension_organization_uid",
+            Self::IrradiationEvent => "irradiation_event_uid",
             Self::ImplementationClass => "implementation_class_uid",
             Self::DerivedReference => "derived_reference_sop_instance_uid",
         }
@@ -126,6 +130,8 @@ mod tests {
             UidRole::SeriesInstance,
             UidRole::SopInstance,
             UidRole::FrameOfReference,
+            UidRole::DimensionOrganization,
+            UidRole::IrradiationEvent,
             UidRole::ImplementationClass,
             UidRole::DerivedReference,
         ] {

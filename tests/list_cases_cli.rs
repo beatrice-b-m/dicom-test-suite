@@ -145,3 +145,25 @@ fn list_cases_command_shows_core_case_status_and_evidence() {
         "list-cases must include implemented pixel-padding core cases"
     );
 }
+
+#[test]
+fn list_cases_command_shows_extended_case_status_and_evidence() {
+    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args(["list-cases", "--profile", "extended"])
+        .output()
+        .expect("list-cases command must run");
+
+    assert!(
+        output.status.success(),
+        "list-cases should exit successfully: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8(output.stdout).expect("list-cases stdout must be utf-8");
+    assert!(
+        stdout.contains(
+            "enhanced/ct/multiframe_shared_perframe_explicit_le\timplemented\textended\t1.2.840.10008.5.1.4.1.1.2.1\t1.2.840.10008.1.2.1\t16/16 covered"
+        ),
+        "list-cases must include implemented Enhanced CT extended cases with standards evidence"
+    );
+}

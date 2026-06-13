@@ -750,6 +750,19 @@ mod tests {
     }
 
     #[test]
+    fn list_cases_shows_committed_extended_case_status_and_evidence() {
+        let output = list_cases_from_registry_path("cases/registry.json", Some("extended"))
+            .expect("extended case registry should list");
+
+        assert!(
+            output.contains(
+                "enhanced/ct/multiframe_shared_perframe_explicit_le\timplemented\textended\t1.2.840.10008.5.1.4.1.1.2.1\t1.2.840.10008.1.2.1\t16/16 covered"
+            ),
+            "list-cases output must show implemented Enhanced CT extended status"
+        );
+    }
+
+    #[test]
     fn prepare_generation_run_creates_output_root_and_manifest_path() {
         let out_dir = unique_temp_dir("prepare_generation_run");
         let prepared = prepare_generation_run(GenerateOptions {

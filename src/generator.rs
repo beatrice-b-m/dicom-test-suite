@@ -10,14 +10,15 @@ use crate::{
     DeterministicUidInput, GenerateError, PreparedGenerationRun, UidRole, deterministic_uid,
     sha256_hex,
     validation::{
-        CrImageExpectations, CtImageExpectations, DxImageExpectations, MgImageExpectations,
-        MrImageExpectations, Part10Expectations, PixelDataLengthFormula, UsImageExpectations,
-        validate_part10_file,
+        CrImageExpectations, CtImageExpectations, DxImageExpectations, EnhancedCtImageExpectations,
+        MgImageExpectations, MrImageExpectations, Part10Expectations, PixelDataLengthFormula,
+        UsImageExpectations, validate_part10_file,
     },
 };
 
 const PIXEL_RECIPE_VERSION: &str = "0.1.0";
 const CLASSIC_CT_RECIPE_VERSION: &str = "0.1.0";
+const ENHANCED_CT_RECIPE_VERSION: &str = "0.1.0";
 const CLASSIC_MG_RECIPE_VERSION: &str = "0.1.0";
 const CLASSIC_DX_RECIPE_VERSION: &str = "0.1.0";
 const CLASSIC_US_RECIPE_VERSION: &str = "0.1.0";
@@ -54,6 +55,10 @@ const PALETTE_COLOR_LUT: PaletteRecipe = PaletteRecipe {
 };
 const CT_I16_12BIT_PIXELS: [u8; 8] = [0x00, 0x0c, 0x00, 0x00, 0x00, 0x04, 0xff, 0x07];
 const CT_I16_12BIT_VALUES: [i32; 4] = [-1024, 0, 1024, 2047];
+const ENHANCED_CT_U16_PIXELS: [u8; 16] = [
+    0, 0, 0x64, 0, 0xc8, 0, 0x2c, 1, 0x90, 1, 0xf4, 1, 0x58, 2, 0xbc, 2,
+];
+const ENHANCED_CT_U16_VALUES: [i32; 8] = [0, 100, 200, 300, 400, 500, 600, 700];
 const MG_U16_12BIT_PIXELS: [u8; 8] = [0x00, 0x00, 0x55, 0x05, 0xaa, 0x0a, 0xff, 0x0f];
 const MG_U16_12BIT_VALUES: [i32; 4] = [0, 1365, 2730, 4095];
 const DX_U16_12BIT_PIXELS: [u8; 8] = [0x00, 0x00, 0x00, 0x04, 0x00, 0x08, 0xff, 0x0f];
@@ -444,6 +449,57 @@ const CLASSIC_CT_RECIPES: &[ClassicCtRecipe] = &[ClassicCtRecipe {
 }];
 
 #[derive(Debug, Clone, Copy)]
+struct EnhancedCtRecipe {
+    case_id: &'static str,
+    recipe_id: &'static str,
+    rows: u16,
+    columns: u16,
+    frames: u16,
+    pixel_bytes: &'static [u8],
+    pixel_values: &'static [i32],
+    pixel_min: i32,
+    pixel_max: i32,
+    pixel_spacing: &'static str,
+    image_orientation_patient: &'static str,
+    image_position_patient: &'static [&'static str],
+    slice_thickness: &'static str,
+    spacing_between_slices: &'static str,
+    frame_type: &'static str,
+    pixel_presentation: &'static str,
+    volumetric_properties: &'static str,
+    volume_based_calculation_technique: &'static str,
+    rescale_intercept: &'static str,
+    rescale_slope: &'static str,
+    rescale_type: &'static str,
+}
+
+const ENHANCED_CT_IMAGE_POSITIONS: &[&str] = &["0\\0\\0", "0\\0\\2.5"];
+
+const ENHANCED_CT_RECIPES: &[EnhancedCtRecipe] = &[EnhancedCtRecipe {
+    case_id: "enhanced/ct/multiframe_shared_perframe_explicit_le",
+    recipe_id: "enhanced_ct_multiframe_shared_perframe",
+    rows: 2,
+    columns: 2,
+    frames: 2,
+    pixel_bytes: &ENHANCED_CT_U16_PIXELS,
+    pixel_values: &ENHANCED_CT_U16_VALUES,
+    pixel_min: 0,
+    pixel_max: 700,
+    pixel_spacing: "0.75\\0.75",
+    image_orientation_patient: "1\\0\\0\\0\\1\\0",
+    image_position_patient: ENHANCED_CT_IMAGE_POSITIONS,
+    slice_thickness: "2.5",
+    spacing_between_slices: "2.5",
+    frame_type: "DERIVED\\PRIMARY\\AXIAL\\NONE",
+    pixel_presentation: "MONOCHROME",
+    volumetric_properties: "VOLUME",
+    volume_based_calculation_technique: "NONE",
+    rescale_intercept: "-1024",
+    rescale_slope: "1",
+    rescale_type: "HU",
+}];
+
+#[derive(Debug, Clone, Copy)]
 struct ClassicMgRecipe {
     case_id: &'static str,
     recipe_id: &'static str,
@@ -720,6 +776,21 @@ pub(crate) fn write_supported_cases(
             standards_lock_sha256,
         )?);
     }
+    for recipe in ENHANCED_CT_RECIPES {
+        let Some(case) = registry_case(registry, recipe.case_id)? else {
+            continue;
+        };
+        let profiles = string_array(case.get("profiles"))?;
+        if !case_matches_profile(&profiles, &run.profile, run.include_stress) {
+            continue;
+        }
+        generated_files.push(write_enhanced_ct_case(
+            run,
+            case,
+            *recipe,
+            standards_lock_sha256,
+        )?);
+    }
     for recipe in CLASSIC_MG_RECIPES {
         let Some(case) = registry_case(registry, recipe.case_id)? else {
             continue;
@@ -976,6 +1047,7 @@ fn write_pixel_case(
             synthetic_data: "YES",
             rows: recipe.rows,
             columns: recipe.columns,
+            frames: 1,
             samples_per_pixel: recipe.samples_per_pixel,
             photometric_interpretation: recipe.photometric_interpretation,
             bits_allocated: recipe.bits_allocated,
@@ -988,6 +1060,7 @@ fn write_pixel_case(
             palette: recipe.palette.map(|palette| palette.into()),
             padding: recipe.padding.map(|padding| padding.into()),
             ct_image: None,
+            enhanced_ct_image: None,
             mg_image: None,
             dx_image: None,
             us_image: None,
@@ -1462,6 +1535,7 @@ fn write_classic_ct_case(
             synthetic_data: "YES",
             rows: recipe.rows,
             columns: recipe.columns,
+            frames: 1,
             samples_per_pixel: 1,
             photometric_interpretation: "MONOCHROME2",
             bits_allocated: 16,
@@ -1489,6 +1563,7 @@ fn write_classic_ct_case(
                 window_center: recipe.window_center,
                 window_width: recipe.window_width,
             }),
+            enhanced_ct_image: None,
             mg_image: None,
             dx_image: None,
             us_image: None,
@@ -1701,6 +1776,562 @@ fn classic_ct_manifest_entry(
         },
         "validation": validation,
         "known_stressors": ["ct_image_storage", "signed_12_bit_pixels", "modality_rescale", "window_center_width"],
+        "standards_evidence": standards_evidence
+    })
+}
+
+fn write_enhanced_ct_case(
+    run: &PreparedGenerationRun,
+    case: &Value,
+    recipe: EnhancedCtRecipe,
+    standards_lock_sha256: &str,
+) -> Result<GeneratedFile, GenerateError> {
+    let study_instance_uid = deterministic_enhanced_ct_uid(
+        standards_lock_sha256,
+        recipe,
+        run.seed,
+        UidRole::StudyInstance,
+    );
+    let series_instance_uid = deterministic_enhanced_ct_uid(
+        standards_lock_sha256,
+        recipe,
+        run.seed,
+        UidRole::SeriesInstance,
+    );
+    let sop_instance_uid = deterministic_enhanced_ct_uid(
+        standards_lock_sha256,
+        recipe,
+        run.seed,
+        UidRole::SopInstance,
+    );
+    let frame_of_reference_uid = deterministic_enhanced_ct_uid(
+        standards_lock_sha256,
+        recipe,
+        run.seed,
+        UidRole::FrameOfReference,
+    );
+    let dimension_organization_uid = deterministic_enhanced_ct_uid(
+        standards_lock_sha256,
+        recipe,
+        run.seed,
+        UidRole::DimensionOrganization,
+    );
+    let irradiation_event_uid = deterministic_enhanced_ct_uid(
+        standards_lock_sha256,
+        recipe,
+        run.seed,
+        UidRole::IrradiationEvent,
+    );
+    let implementation_class_uid = deterministic_implementation_uid(standards_lock_sha256);
+
+    let relative_path = format!("{}/instance.dcm", recipe.case_id);
+    let path = run.out_dir.join(&relative_path);
+    let case_dir = path.parent().ok_or_else(|| GenerateError::MetadataShape {
+        path: PathBuf::from(&relative_path),
+        message: "generated DICOM path must have a parent directory",
+    })?;
+    fs::create_dir_all(case_dir).map_err(|source| GenerateError::CreateCaseOutputDir {
+        path: case_dir.to_path_buf(),
+        source,
+    })?;
+
+    let mut obj = InMemDicomObject::new_empty();
+    put_str(
+        &mut obj,
+        tags::SOP_CLASS_UID,
+        VR::UI,
+        uids::ENHANCED_CT_IMAGE_STORAGE,
+    );
+    put_str(&mut obj, tags::SOP_INSTANCE_UID, VR::UI, &sop_instance_uid);
+    put_str(&mut obj, tags::SYNTHETIC_DATA, VR::CS, "YES");
+
+    put_str(
+        &mut obj,
+        tags::PATIENT_NAME,
+        VR::PN,
+        "DTS^Synthetic^Patient001",
+    );
+    put_str(&mut obj, tags::PATIENT_ID, VR::LO, "DTS-PATIENT-001");
+    put_str(&mut obj, tags::PATIENT_BIRTH_DATE, VR::DA, "19700101");
+    put_str(&mut obj, tags::PATIENT_SEX, VR::CS, "O");
+
+    put_str(
+        &mut obj,
+        tags::STUDY_INSTANCE_UID,
+        VR::UI,
+        &study_instance_uid,
+    );
+    put_str(&mut obj, tags::STUDY_DATE, VR::DA, "20260101");
+    put_str(&mut obj, tags::STUDY_TIME, VR::TM, "000000");
+    put_str(&mut obj, tags::REFERRING_PHYSICIAN_NAME, VR::PN, "");
+    put_str(&mut obj, tags::STUDY_ID, VR::SH, "DTS-ECT");
+    put_str(&mut obj, tags::ACCESSION_NUMBER, VR::SH, "");
+
+    put_str(&mut obj, tags::MODALITY, VR::CS, "CT");
+    put_str(
+        &mut obj,
+        tags::SERIES_INSTANCE_UID,
+        VR::UI,
+        &series_instance_uid,
+    );
+    put_str(&mut obj, tags::SERIES_NUMBER, VR::IS, "1");
+    put_str(
+        &mut obj,
+        tags::FRAME_OF_REFERENCE_UID,
+        VR::UI,
+        &frame_of_reference_uid,
+    );
+    put_str(&mut obj, tags::POSITION_REFERENCE_INDICATOR, VR::LO, "");
+
+    put_str(&mut obj, tags::MANUFACTURER, VR::LO, "dicom-test-suite");
+    put_str(
+        &mut obj,
+        tags::MANUFACTURER_MODEL_NAME,
+        VR::LO,
+        recipe.recipe_id,
+    );
+    put_str(&mut obj, tags::DEVICE_SERIAL_NUMBER, VR::LO, "DTS-ECT-0001");
+    put_str(
+        &mut obj,
+        tags::SOFTWARE_VERSIONS,
+        VR::LO,
+        crate::PACKAGE_VERSION,
+    );
+
+    put_str(&mut obj, tags::IMAGE_TYPE, VR::CS, recipe.frame_type);
+    put_str(&mut obj, tags::INSTANCE_NUMBER, VR::IS, "1");
+    put_str(&mut obj, tags::CONTENT_DATE, VR::DA, "20260101");
+    put_str(&mut obj, tags::CONTENT_TIME, VR::TM, "000000");
+    put_empty_sequence(&mut obj, tags::ACQUISITION_CONTEXT_SEQUENCE);
+    put_str(
+        &mut obj,
+        tags::PIXEL_PRESENTATION,
+        VR::CS,
+        recipe.pixel_presentation,
+    );
+    put_str(
+        &mut obj,
+        tags::VOLUMETRIC_PROPERTIES,
+        VR::CS,
+        recipe.volumetric_properties,
+    );
+    put_str(
+        &mut obj,
+        tags::VOLUME_BASED_CALCULATION_TECHNIQUE,
+        VR::CS,
+        recipe.volume_based_calculation_technique,
+    );
+
+    put_u16(&mut obj, tags::SAMPLES_PER_PIXEL, VR::US, 1);
+    put_str(
+        &mut obj,
+        tags::PHOTOMETRIC_INTERPRETATION,
+        VR::CS,
+        "MONOCHROME2",
+    );
+    put_u16(&mut obj, tags::ROWS, VR::US, recipe.rows);
+    put_u16(&mut obj, tags::COLUMNS, VR::US, recipe.columns);
+    put_u16(&mut obj, tags::BITS_ALLOCATED, VR::US, 16);
+    put_u16(&mut obj, tags::BITS_STORED, VR::US, 16);
+    put_u16(&mut obj, tags::HIGH_BIT, VR::US, 15);
+    put_u16(&mut obj, tags::PIXEL_REPRESENTATION, VR::US, 0);
+    put_str(
+        &mut obj,
+        tags::NUMBER_OF_FRAMES,
+        VR::IS,
+        &recipe.frames.to_string(),
+    );
+
+    put_enhanced_ct_dimension_sequences(&mut obj, &dimension_organization_uid);
+    put_enhanced_ct_functional_groups(&mut obj, recipe, &irradiation_event_uid);
+
+    obj.put(DataElement::new(
+        tags::PIXEL_DATA,
+        VR::OW,
+        PrimitiveValue::from(recipe.pixel_bytes),
+    ));
+
+    let file_obj = obj
+        .with_meta(
+            FileMetaTableBuilder::new()
+                .transfer_syntax(uids::EXPLICIT_VR_LITTLE_ENDIAN)
+                .implementation_class_uid(&implementation_class_uid)
+                .implementation_version_name("DICOMTS010"),
+        )
+        .map_err(|err| GenerateError::WriteDicomFile {
+            path: path.clone(),
+            message: err.to_string(),
+        })?;
+
+    file_obj
+        .write_to_file(&path)
+        .map_err(|err| GenerateError::WriteDicomFile {
+            path: path.clone(),
+            message: err.to_string(),
+        })?;
+
+    let validated = validate_part10_file(
+        &path,
+        &Part10Expectations {
+            sop_class_uid: uids::ENHANCED_CT_IMAGE_STORAGE,
+            sop_instance_uid: &sop_instance_uid,
+            transfer_syntax_uid: uids::EXPLICIT_VR_LITTLE_ENDIAN,
+            implementation_class_uid: &implementation_class_uid,
+            synthetic_data: "YES",
+            rows: recipe.rows,
+            columns: recipe.columns,
+            frames: recipe.frames,
+            samples_per_pixel: 1,
+            photometric_interpretation: "MONOCHROME2",
+            bits_allocated: 16,
+            bits_stored: 16,
+            high_bit: 15,
+            pixel_representation: 0,
+            planar_configuration: None,
+            pixel_data_vr: VR::OW,
+            pixel_data_length_formula: PixelDataLengthFormula::ContiguousSamples,
+            palette: None,
+            padding: None,
+            ct_image: None,
+            enhanced_ct_image: Some(EnhancedCtImageExpectations {
+                modality: "CT",
+                frame_of_reference_uid: &frame_of_reference_uid,
+                image_type: recipe.frame_type,
+                number_of_frames: recipe.frames,
+                shared_functional_groups: 1,
+                per_frame_functional_groups: recipe.frames as usize,
+                dimension_organization_uid: &dimension_organization_uid,
+                dimension_index_count: 1,
+                pixel_spacing: recipe.pixel_spacing,
+                image_orientation_patient: recipe.image_orientation_patient,
+                image_position_patient: recipe.image_position_patient,
+                frame_type: recipe.frame_type,
+                pixel_presentation: recipe.pixel_presentation,
+                volumetric_properties: recipe.volumetric_properties,
+                volume_based_calculation_technique: recipe.volume_based_calculation_technique,
+                rescale_intercept: recipe.rescale_intercept,
+                rescale_slope: recipe.rescale_slope,
+                rescale_type: recipe.rescale_type,
+                irradiation_event_uid: &irradiation_event_uid,
+            }),
+            mg_image: None,
+            dx_image: None,
+            us_image: None,
+            cr_image: None,
+            mr_image: None,
+        },
+    )?;
+
+    Ok(GeneratedFile {
+        case_id: recipe.case_id.to_string(),
+        manifest_entry: enhanced_ct_manifest_entry(
+            case,
+            recipe,
+            &relative_path,
+            &study_instance_uid,
+            &series_instance_uid,
+            &sop_instance_uid,
+            &frame_of_reference_uid,
+            &dimension_organization_uid,
+            &irradiation_event_uid,
+            &implementation_class_uid,
+            &validated.bytes,
+            validated.validation,
+        ),
+    })
+}
+
+fn put_enhanced_ct_dimension_sequences(
+    obj: &mut InMemDicomObject,
+    dimension_organization_uid: &str,
+) {
+    obj.put(DataElement::new(
+        tags::DIMENSION_ORGANIZATION_SEQUENCE,
+        VR::SQ,
+        DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+            DataElement::new(
+                tags::DIMENSION_ORGANIZATION_UID,
+                VR::UI,
+                dimension_organization_uid,
+            ),
+        ])]),
+    ));
+    obj.put(DataElement::new(
+        tags::DIMENSION_INDEX_SEQUENCE,
+        VR::SQ,
+        DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+            DataElement::new(
+                tags::DIMENSION_INDEX_POINTER,
+                VR::AT,
+                PrimitiveValue::Tags(vec![tags::IMAGE_POSITION_PATIENT].into()),
+            ),
+            DataElement::new(
+                tags::FUNCTIONAL_GROUP_POINTER,
+                VR::AT,
+                PrimitiveValue::Tags(vec![tags::PLANE_POSITION_SEQUENCE].into()),
+            ),
+            DataElement::new(
+                tags::DIMENSION_ORGANIZATION_UID,
+                VR::UI,
+                dimension_organization_uid,
+            ),
+            DataElement::new(tags::DIMENSION_DESCRIPTION_LABEL, VR::LO, "SlicePosition"),
+        ])]),
+    ));
+}
+
+fn put_enhanced_ct_functional_groups(
+    obj: &mut InMemDicomObject,
+    recipe: EnhancedCtRecipe,
+    irradiation_event_uid: &str,
+) {
+    obj.put(DataElement::new(
+        tags::SHARED_FUNCTIONAL_GROUPS_SEQUENCE,
+        VR::SQ,
+        DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+            DataElement::new(
+                tags::PIXEL_MEASURES_SEQUENCE,
+                VR::SQ,
+                DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+                    DataElement::new(tags::PIXEL_SPACING, VR::DS, recipe.pixel_spacing),
+                    DataElement::new(tags::SLICE_THICKNESS, VR::DS, recipe.slice_thickness),
+                    DataElement::new(
+                        tags::SPACING_BETWEEN_SLICES,
+                        VR::DS,
+                        recipe.spacing_between_slices,
+                    ),
+                ])]),
+            ),
+            DataElement::new(
+                tags::PLANE_ORIENTATION_SEQUENCE,
+                VR::SQ,
+                DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+                    DataElement::new(
+                        tags::IMAGE_ORIENTATION_PATIENT,
+                        VR::DS,
+                        recipe.image_orientation_patient,
+                    ),
+                ])]),
+            ),
+            DataElement::new(
+                tags::FRAME_ANATOMY_SEQUENCE,
+                VR::SQ,
+                DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+                    DataElement::new(tags::FRAME_LATERALITY, VR::CS, "U"),
+                    DataElement::new(
+                        tags::ANATOMIC_REGION_SEQUENCE,
+                        VR::SQ,
+                        DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+                            DataElement::new(tags::CODE_VALUE, VR::SH, "T-D3000"),
+                            DataElement::new(tags::CODING_SCHEME_DESIGNATOR, VR::SH, "SRT"),
+                            DataElement::new(tags::CODE_MEANING, VR::LO, "Chest"),
+                        ])]),
+                    ),
+                ])]),
+            ),
+            DataElement::new(
+                tags::IRRADIATION_EVENT_IDENTIFICATION_SEQUENCE,
+                VR::SQ,
+                DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+                    DataElement::new(tags::IRRADIATION_EVENT_UID, VR::UI, irradiation_event_uid),
+                ])]),
+            ),
+            DataElement::new(
+                tags::CT_IMAGE_FRAME_TYPE_SEQUENCE,
+                VR::SQ,
+                DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+                    DataElement::new(tags::FRAME_TYPE, VR::CS, recipe.frame_type),
+                    DataElement::new(tags::PIXEL_PRESENTATION, VR::CS, recipe.pixel_presentation),
+                    DataElement::new(
+                        tags::VOLUMETRIC_PROPERTIES,
+                        VR::CS,
+                        recipe.volumetric_properties,
+                    ),
+                    DataElement::new(
+                        tags::VOLUME_BASED_CALCULATION_TECHNIQUE,
+                        VR::CS,
+                        recipe.volume_based_calculation_technique,
+                    ),
+                ])]),
+            ),
+            DataElement::new(
+                tags::PIXEL_VALUE_TRANSFORMATION_SEQUENCE,
+                VR::SQ,
+                DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+                    DataElement::new(tags::RESCALE_INTERCEPT, VR::DS, recipe.rescale_intercept),
+                    DataElement::new(tags::RESCALE_SLOPE, VR::DS, recipe.rescale_slope),
+                    DataElement::new(tags::RESCALE_TYPE, VR::LO, recipe.rescale_type),
+                ])]),
+            ),
+        ])]),
+    ));
+
+    let per_frame_items = recipe
+        .image_position_patient
+        .iter()
+        .enumerate()
+        .map(|(index, image_position_patient)| {
+            InMemDicomObject::from_element_iter([
+                DataElement::new(
+                    tags::FRAME_CONTENT_SEQUENCE,
+                    VR::SQ,
+                    DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+                        DataElement::new(
+                            tags::DIMENSION_INDEX_VALUES,
+                            VR::UL,
+                            PrimitiveValue::from((index + 1) as u32),
+                        ),
+                        DataElement::new(
+                            tags::FRAME_ACQUISITION_NUMBER,
+                            VR::US,
+                            PrimitiveValue::from((index + 1) as u16),
+                        ),
+                    ])]),
+                ),
+                DataElement::new(
+                    tags::PLANE_POSITION_SEQUENCE,
+                    VR::SQ,
+                    DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+                        DataElement::new(
+                            tags::IMAGE_POSITION_PATIENT,
+                            VR::DS,
+                            *image_position_patient,
+                        ),
+                    ])]),
+                ),
+            ])
+        })
+        .collect::<Vec<_>>();
+    obj.put(DataElement::new(
+        tags::PER_FRAME_FUNCTIONAL_GROUPS_SEQUENCE,
+        VR::SQ,
+        DataSetSequence::from(per_frame_items),
+    ));
+}
+
+#[allow(clippy::too_many_arguments)]
+fn enhanced_ct_manifest_entry(
+    case: &Value,
+    recipe: EnhancedCtRecipe,
+    relative_path: &str,
+    study_instance_uid: &str,
+    series_instance_uid: &str,
+    sop_instance_uid: &str,
+    frame_of_reference_uid: &str,
+    dimension_organization_uid: &str,
+    irradiation_event_uid: &str,
+    implementation_class_uid: &str,
+    bytes: &[u8],
+    validation: Value,
+) -> Value {
+    let standards_evidence = case
+        .get("standards_evidence")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    serde_json::json!({
+        "case_id": recipe.case_id,
+        "profile_membership": ["extended"],
+        "path": relative_path,
+        "sha256": sha256_hex(bytes),
+        "size_bytes": bytes.len(),
+        "determinism": "byte_stable",
+        "recipe": {
+            "recipe_id": recipe.recipe_id,
+            "recipe_version": ENHANCED_CT_RECIPE_VERSION,
+            "recipe_parameters": {
+                "rows": recipe.rows,
+                "columns": recipe.columns,
+                "frames": recipe.frames,
+                "samples_per_pixel": 1,
+                "photometric_interpretation": "MONOCHROME2",
+                "bits_allocated": 16,
+                "bits_stored": 16,
+                "high_bit": 15,
+                "pixel_representation": 0,
+                "pixel_values": recipe.pixel_values,
+                "frame_type": recipe.frame_type,
+                "dimension_index": {
+                    "dimension_organization_uid": dimension_organization_uid,
+                    "dimension_index_pointer": "ImagePositionPatient",
+                    "functional_group_pointer": "PlanePositionSequence"
+                },
+                "shared_functional_groups": {
+                    "pixel_measures": {
+                        "pixel_spacing": recipe.pixel_spacing,
+                        "slice_thickness": recipe.slice_thickness,
+                        "spacing_between_slices": recipe.spacing_between_slices
+                    },
+                    "plane_orientation_patient": recipe.image_orientation_patient,
+                    "frame_anatomy": {
+                        "frame_laterality": "U",
+                        "anatomic_region_code_value": "T-D3000"
+                    },
+                    "irradiation_event_uid": irradiation_event_uid,
+                    "ct_pixel_value_transformation": {
+                        "intercept": recipe.rescale_intercept,
+                        "slope": recipe.rescale_slope,
+                        "type": recipe.rescale_type
+                    }
+                },
+                "per_frame_functional_groups": {
+                    "image_position_patient": recipe.image_position_patient
+                }
+            }
+        },
+        "dicom": {
+            "sop_class_uid": uids::ENHANCED_CT_IMAGE_STORAGE,
+            "sop_class_name": "Enhanced CT Image Storage",
+            "iod_name": "Enhanced CT Image",
+            "modality": "CT",
+            "transfer_syntax_uid": uids::EXPLICIT_VR_LITTLE_ENDIAN,
+            "transfer_syntax_name": "Explicit VR Little Endian"
+        },
+        "uids": {
+            "study_instance_uid": study_instance_uid,
+            "series_instance_uid": series_instance_uid,
+            "sop_instance_uid": sop_instance_uid,
+            "frame_of_reference_uid": frame_of_reference_uid,
+            "dimension_organization_uid": dimension_organization_uid,
+            "irradiation_event_uid": irradiation_event_uid,
+            "implementation_class_uid": implementation_class_uid
+        },
+        "image": {
+            "rows": recipe.rows,
+            "columns": recipe.columns,
+            "frames": recipe.frames,
+            "samples_per_pixel": 1,
+            "photometric_interpretation": "MONOCHROME2",
+            "bits_allocated": 16,
+            "bits_stored": 16,
+            "high_bit": 15,
+            "pixel_representation": 0,
+            "planar_configuration": Value::Null
+        },
+        "pixel_data": {
+            "vr": "OW",
+            "native_or_encapsulated": "native",
+            "value_length": recipe.pixel_bytes.len(),
+            "frame_count": recipe.frames,
+            "frame_hashes": [
+                sha256_hex(&recipe.pixel_bytes[0..8]),
+                sha256_hex(&recipe.pixel_bytes[8..16])
+            ]
+        },
+        "expected_capabilities": ["open_file", "read_metadata", "render_native_pixels", "parse_multiframe_functional_groups"],
+        "expected_semantics": {
+            "synthetic_data": "YES",
+            "pixel_min": recipe.pixel_min,
+            "pixel_max": recipe.pixel_max,
+            "shared_functional_groups_sequence_items": 1,
+            "per_frame_functional_groups_sequence_items": recipe.frames,
+            "dimension_index_values": [1, 2]
+        },
+        "expected_visual_checks": {
+            "pattern": "two_frame_enhanced_ct_unsigned_gradient_stack"
+        },
+        "validation": validation,
+        "known_stressors": ["enhanced_ct_image_storage", "native_multiframe_pixel_data", "shared_functional_groups_sequence", "per_frame_functional_groups_sequence", "multi_frame_dimension"],
         "standards_evidence": standards_evidence
     })
 }
@@ -1931,6 +2562,7 @@ fn write_classic_mg_case(
             synthetic_data: "YES",
             rows: recipe.rows,
             columns: recipe.columns,
+            frames: 1,
             samples_per_pixel: 1,
             photometric_interpretation: recipe.photometric_interpretation,
             bits_allocated: 16,
@@ -1943,6 +2575,7 @@ fn write_classic_mg_case(
             palette: None,
             padding: None,
             ct_image: None,
+            enhanced_ct_image: None,
             mg_image: Some(MgImageExpectations {
                 modality: "MG",
                 presentation_intent_type: recipe.presentation_intent_type,
@@ -2475,6 +3108,7 @@ fn write_classic_dx_case(
             synthetic_data: "YES",
             rows: recipe.rows,
             columns: recipe.columns,
+            frames: 1,
             samples_per_pixel: 1,
             photometric_interpretation: "MONOCHROME2",
             bits_allocated: 16,
@@ -2487,6 +3121,7 @@ fn write_classic_dx_case(
             palette: None,
             padding: None,
             ct_image: None,
+            enhanced_ct_image: None,
             mg_image: None,
             dx_image: Some(DxImageExpectations {
                 modality: "DX",
@@ -2898,6 +3533,7 @@ fn write_classic_us_case(
             synthetic_data: "YES",
             rows: recipe.rows,
             columns: recipe.columns,
+            frames: 1,
             samples_per_pixel: 1,
             photometric_interpretation: "MONOCHROME2",
             bits_allocated: 8,
@@ -2910,6 +3546,7 @@ fn write_classic_us_case(
             palette: None,
             padding: None,
             ct_image: None,
+            enhanced_ct_image: None,
             mg_image: None,
             dx_image: None,
             us_image: Some(UsImageExpectations {
@@ -3290,6 +3927,7 @@ fn write_classic_cr_case(
             synthetic_data: "YES",
             rows: recipe.rows,
             columns: recipe.columns,
+            frames: 1,
             samples_per_pixel: 1,
             photometric_interpretation: "MONOCHROME2",
             bits_allocated: 8,
@@ -3302,6 +3940,7 @@ fn write_classic_cr_case(
             palette: None,
             padding: None,
             ct_image: None,
+            enhanced_ct_image: None,
             mg_image: None,
             dx_image: None,
             us_image: None,
@@ -3728,6 +4367,7 @@ fn write_classic_mr_case(
                 synthetic_data: "YES",
                 rows: recipe.rows,
                 columns: recipe.columns,
+                frames: 1,
                 samples_per_pixel: 1,
                 photometric_interpretation: "MONOCHROME2",
                 bits_allocated: 16,
@@ -3740,6 +4380,7 @@ fn write_classic_mr_case(
                 palette: None,
                 padding: None,
                 ct_image: None,
+                enhanced_ct_image: None,
                 mg_image: None,
                 dx_image: None,
                 us_image: None,
@@ -4016,6 +4657,24 @@ fn deterministic_classic_ct_uid(
         standards_lock_sha256,
         case_id: recipe.case_id,
         recipe_version: CLASSIC_CT_RECIPE_VERSION,
+        run_seed,
+        file_index: 0,
+        frame_index: None,
+        referenced_object_index: None,
+        role,
+    })
+}
+
+fn deterministic_enhanced_ct_uid(
+    standards_lock_sha256: &str,
+    recipe: EnhancedCtRecipe,
+    run_seed: u64,
+    role: UidRole,
+) -> String {
+    deterministic_uid(&DeterministicUidInput {
+        standards_lock_sha256,
+        case_id: recipe.case_id,
+        recipe_version: ENHANCED_CT_RECIPE_VERSION,
         run_seed,
         file_index: 0,
         frame_index: None,

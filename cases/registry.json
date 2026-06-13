@@ -1674,6 +1674,154 @@
       ]
     },
     {
+      "case_id": "enhanced/ct/multiframe_shared_perframe_explicit_le",
+      "status": "implemented",
+      "profiles": ["extended"],
+      "recipe_id": "enhanced_ct_multiframe_shared_perframe",
+      "recipe_version": "0.1.0",
+      "iod_name": "Enhanced CT Image",
+      "sop_class_name": "Enhanced CT Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.2.1",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "byte_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_sop_class Enhanced CT Image Storage",
+          "covered": true,
+          "part": "PS3.4",
+          "anchor": "table_B.5-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_uid ExplicitVRLittleEndian",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_iod Enhanced CT Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.38-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_modules_for_iod Enhanced CT Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.38-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "retrieve_standard_text PS3.3 table_A.38-2",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.38-2"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module Multi-frame Functional Groups --expand-macros",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.7.6.16-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module Multi-frame Dimension --expand-macros",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.7.6.17-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module Enhanced CT Image --expand-macros",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-114"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "retrieve_standard_text PS3.3 table_C.7.6.16-2",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.7.6.16-2"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "retrieve_standard_text PS3.3 table_C.7.6.16-3",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.7.6.16-3"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "retrieve_standard_text PS3.3 sect_C.7.6.16.2.3",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.7.6.16-4"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "retrieve_standard_text PS3.3 sect_C.7.6.16.2.4",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.7.6.16-5"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "retrieve_standard_text PS3.3 sect_C.7.6.16.2.8",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.7.6.16-9"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "retrieve_standard_text PS3.3 sect_C.7.6.16.2.18",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.7.6.16-19"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "search_standard_text CT Image Frame Type Sequence",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-117"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "search_standard_text Pixel Value Transformation Sequence",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "sect_C.8.15.3.10"
+        }
+      ]
+    },
+    {
       "case_id": "vl/photo/rgb_planar0_explicit_le",
       "status": "planned",
       "profiles": ["core"],

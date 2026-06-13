@@ -1434,6 +1434,154 @@
       ]
     },
     {
+      "case_id": "classic/dx/display_shutter_mono2_u16_explicit_le",
+      "status": "implemented",
+      "profiles": ["core"],
+      "recipe_id": "dx_display_shutter_mono2_u16",
+      "recipe_version": "0.1.0",
+      "iod_name": "Digital X-Ray Image",
+      "sop_class_name": "Digital X-Ray Image Storage - For Presentation",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.1.1",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "byte_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_sop_class Digital X-Ray Image Storage - For Presentation",
+          "covered": true,
+          "part": "PS3.4",
+          "anchor": "table_B.5-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_uid ExplicitVRLittleEndian",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_iod Digital X-Ray Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.26-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_modules_for_iod Digital X-Ray Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.26-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module DX Series --expand-macros",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-68"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module DX Anatomy Imaged --expand-macros",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-69"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module DX Image --expand-macros",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-70"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module DX Detector --expand-macros",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-71"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module Display Shutter --expand-macros",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.7-17"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_data_element PresentationIntentType",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_data_element ShutterShape",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_data_element ShutterLeftVerticalEdge",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_data_element ShutterRightVerticalEdge",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_data_element ShutterUpperHorizontalEdge",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_data_element ShutterLowerHorizontalEdge",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_data_element ShutterPresentationValue",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
+        }
+      ]
+    },
+    {
       "case_id": "vl/photo/rgb_planar0_explicit_le",
       "status": "planned",
       "profiles": ["core"],

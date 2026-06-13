@@ -249,7 +249,7 @@ fn generate_command_writes_core_u16_native_pixel_case() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\tcore"));
-    assert!(stdout.contains("files_written\t17"));
+    assert!(stdout.contains("files_written\t18"));
 
     let manifest_path = out_dir.join("manifest.json");
     let manifest: Value = serde_json::from_str(
@@ -265,7 +265,7 @@ fn generate_command_writes_core_u16_native_pixel_case() {
             .pointer("/files")
             .and_then(Value::as_array)
             .map(Vec::len),
-        Some(17)
+        Some(18)
     );
     let u16_file = file_entry_by_case_id(&manifest, "classic/sc/mono2_u16_explicit_le");
     assert_eq!(
@@ -721,6 +721,53 @@ fn generate_command_writes_core_u16_native_pixel_case() {
             .contains(&"computed_radiography_image_sop_class"),
         "CR manifest should record standards validation for Computed Radiography Image Storage"
     );
+    let dx_file = file_entry_by_case_id(
+        &manifest,
+        "classic/dx/display_shutter_mono2_u16_explicit_le",
+    );
+    assert_eq!(
+        dx_file
+            .pointer("/dicom/sop_class_uid")
+            .and_then(Value::as_str),
+        Some(uids::DIGITAL_X_RAY_IMAGE_STORAGE_FOR_PRESENTATION)
+    );
+    assert_eq!(
+        dx_file.pointer("/dicom/modality").and_then(Value::as_str),
+        Some("DX")
+    );
+    assert_eq!(
+        dx_file
+            .pointer("/recipe/recipe_parameters/presentation_intent_type")
+            .and_then(Value::as_str),
+        Some("FOR PRESENTATION")
+    );
+    assert_eq!(
+        dx_file
+            .pointer("/recipe/recipe_parameters/display_shutter/shape")
+            .and_then(Value::as_str),
+        Some("RECTANGULAR")
+    );
+    assert_eq!(
+        dx_file
+            .pointer("/recipe/recipe_parameters/display_shutter/presentation_value")
+            .and_then(Value::as_u64),
+        Some(0)
+    );
+    assert!(
+        validation_result_names(dx_file.pointer("/validation/internal"))
+            .contains(&"dx_shutter_shape"),
+        "DX manifest should record Shutter Shape validation"
+    );
+    assert!(
+        validation_result_names(dx_file.pointer("/validation/internal"))
+            .contains(&"dx_shutter_presentation_value"),
+        "DX manifest should record Shutter Presentation Value validation"
+    );
+    assert!(
+        validation_result_names(dx_file.pointer("/validation/standards"))
+            .contains(&"digital_x_ray_for_presentation_sop_class"),
+        "DX manifest should record standards validation for Digital X-Ray Image Storage"
+    );
     let mr_files = file_entries_by_case_id(&manifest, "classic/mr/multislice_oblique_explicit_le");
     assert_eq!(
         mr_files.len(),
@@ -789,11 +836,12 @@ fn generate_command_writes_core_u16_native_pixel_case() {
                             | Some("classic/mg/for_presentation_mono1_u16_12bit_explicit_le")
                             | Some("classic/mg/for_processing_mono2_u16_12bit_implicit_le")
                             | Some("classic/cr/overlay_modality_voi_explicit_le")
+                            | Some("classic/dx/display_shutter_mono2_u16_explicit_le")
                             | Some("classic/mr/multislice_oblique_explicit_le")
                     )
                 })
             }),
-        "implemented CT and MG cases should not be reported as skipped"
+        "implemented classic radiology cases should not be reported as skipped"
     );
 
     let dcm_path = out_dir.join("classic/sc/mono2_u16_explicit_le/instance.dcm");
@@ -1205,6 +1253,88 @@ fn generate_command_writes_core_u16_native_pixel_case() {
             .expect("VOI LUT Data should be byte-backed")
             .len(),
         8
+    );
+    let dx_path = out_dir.join("classic/dx/display_shutter_mono2_u16_explicit_le/instance.dcm");
+    let dx = open_file(&dx_path).expect("DX generated DICOM file should parse");
+    assert_eq!(
+        dx.element(tags::SOP_CLASS_UID)
+            .expect("DX file should contain SOP Class UID")
+            .value()
+            .to_str()
+            .expect("SOP Class UID should be text")
+            .trim_end_matches('\0'),
+        uids::DIGITAL_X_RAY_IMAGE_STORAGE_FOR_PRESENTATION
+    );
+    assert_eq!(
+        dx.element(tags::MODALITY)
+            .expect("DX file should contain Modality")
+            .value()
+            .to_str()
+            .expect("Modality should be text")
+            .trim(),
+        "DX"
+    );
+    assert_eq!(
+        dx.element(tags::PRESENTATION_INTENT_TYPE)
+            .expect("DX file should contain Presentation Intent Type")
+            .value()
+            .to_str()
+            .expect("Presentation Intent Type should be text")
+            .trim(),
+        "FOR PRESENTATION"
+    );
+    assert_eq!(
+        dx.element(tags::SHUTTER_SHAPE)
+            .expect("DX file should contain Shutter Shape")
+            .value()
+            .to_str()
+            .expect("Shutter Shape should be text")
+            .trim(),
+        "RECTANGULAR"
+    );
+    assert_eq!(
+        dx.element(tags::SHUTTER_LEFT_VERTICAL_EDGE)
+            .expect("DX file should contain Shutter Left Vertical Edge")
+            .value()
+            .to_str()
+            .expect("Shutter edge should be text")
+            .trim(),
+        "1"
+    );
+    assert_eq!(
+        dx.element(tags::SHUTTER_RIGHT_VERTICAL_EDGE)
+            .expect("DX file should contain Shutter Right Vertical Edge")
+            .value()
+            .to_str()
+            .expect("Shutter edge should be text")
+            .trim(),
+        "2"
+    );
+    assert_eq!(
+        dx.element(tags::SHUTTER_UPPER_HORIZONTAL_EDGE)
+            .expect("DX file should contain Shutter Upper Horizontal Edge")
+            .value()
+            .to_str()
+            .expect("Shutter edge should be text")
+            .trim(),
+        "1"
+    );
+    assert_eq!(
+        dx.element(tags::SHUTTER_LOWER_HORIZONTAL_EDGE)
+            .expect("DX file should contain Shutter Lower Horizontal Edge")
+            .value()
+            .to_str()
+            .expect("Shutter edge should be text")
+            .trim(),
+        "2"
+    );
+    assert_eq!(
+        dx.element(tags::SHUTTER_PRESENTATION_VALUE)
+            .expect("DX file should contain Shutter Presentation Value")
+            .value()
+            .to_int::<u16>()
+            .expect("Shutter Presentation Value should be numeric"),
+        0
     );
     let mr_slice_paths = [
         out_dir.join("classic/mr/multislice_oblique_explicit_le/slice-001.dcm"),

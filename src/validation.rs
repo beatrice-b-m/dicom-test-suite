@@ -32,6 +32,7 @@ pub(crate) struct Part10Expectations<'a> {
     pub padding: Option<PixelPaddingExpectations>,
     pub ct_image: Option<CtImageExpectations<'a>>,
     pub mg_image: Option<MgImageExpectations<'a>>,
+    pub dx_image: Option<DxImageExpectations<'a>>,
     pub cr_image: Option<CrImageExpectations<'a>>,
     pub mr_image: Option<MrImageExpectations<'a>>,
 }
@@ -102,6 +103,37 @@ pub(crate) struct MgImageExpectations<'a> {
     pub anatomic_region_code_value: &'a str,
     pub view_code_value: &'a str,
     pub acquisition_context_items: usize,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct DxImageExpectations<'a> {
+    pub modality: &'a str,
+    pub presentation_intent_type: &'a str,
+    pub image_type: &'a str,
+    pub image_laterality: &'a str,
+    pub body_part_examined: &'a str,
+    pub imager_pixel_spacing: &'a str,
+    pub detector_type: &'a str,
+    pub detector_configuration: &'a str,
+    pub detector_id: &'a str,
+    pub pixel_intensity_relationship: &'a str,
+    pub pixel_intensity_relationship_sign: i16,
+    pub rescale_intercept: &'a str,
+    pub rescale_slope: &'a str,
+    pub rescale_type: &'a str,
+    pub presentation_lut_shape: &'a str,
+    pub lossy_image_compression: &'a str,
+    pub burned_in_annotation: &'a str,
+    pub window_center: &'a str,
+    pub window_width: &'a str,
+    pub anatomic_region_code_value: &'a str,
+    pub acquisition_context_items: usize,
+    pub shutter_shape: &'a str,
+    pub shutter_left_vertical_edge: &'a str,
+    pub shutter_right_vertical_edge: &'a str,
+    pub shutter_upper_horizontal_edge: &'a str,
+    pub shutter_lower_horizontal_edge: &'a str,
+    pub shutter_presentation_value: u16,
 }
 
 #[derive(Debug, Clone)]
@@ -395,6 +427,9 @@ pub(crate) fn validate_part10_file(
     }
     if let Some(mg_image) = &expected.mg_image {
         validate_mg_image(path, &obj, &mut internal, mg_image)?;
+    }
+    if let Some(dx_image) = &expected.dx_image {
+        validate_dx_image(path, &obj, &mut internal, dx_image)?;
     }
     if let Some(cr_image) = &expected.cr_image {
         validate_cr_image(path, &obj, &mut internal, cr_image)?;
@@ -921,6 +956,155 @@ fn validate_optional_mg_window(
     Ok(())
 }
 
+fn validate_dx_image(
+    path: &Path,
+    obj: &OpenedObject,
+    results: &mut Vec<Value>,
+    expected: &DxImageExpectations<'_>,
+) -> Result<(), GenerateError> {
+    for (name, tag, expected_value) in [
+        ("dx_modality", tags::MODALITY, expected.modality),
+        (
+            "dx_presentation_intent_type",
+            tags::PRESENTATION_INTENT_TYPE,
+            expected.presentation_intent_type,
+        ),
+        ("dx_image_type", tags::IMAGE_TYPE, expected.image_type),
+        (
+            "dx_image_laterality",
+            tags::IMAGE_LATERALITY,
+            expected.image_laterality,
+        ),
+        (
+            "dx_body_part_examined",
+            tags::BODY_PART_EXAMINED,
+            expected.body_part_examined,
+        ),
+        (
+            "dx_imager_pixel_spacing",
+            tags::IMAGER_PIXEL_SPACING,
+            expected.imager_pixel_spacing,
+        ),
+        (
+            "dx_detector_type",
+            tags::DETECTOR_TYPE,
+            expected.detector_type,
+        ),
+        (
+            "dx_detector_configuration",
+            tags::DETECTOR_CONFIGURATION,
+            expected.detector_configuration,
+        ),
+        ("dx_detector_id", tags::DETECTOR_ID, expected.detector_id),
+        (
+            "dx_pixel_intensity_relationship",
+            tags::PIXEL_INTENSITY_RELATIONSHIP,
+            expected.pixel_intensity_relationship,
+        ),
+        (
+            "dx_rescale_intercept",
+            tags::RESCALE_INTERCEPT,
+            expected.rescale_intercept,
+        ),
+        (
+            "dx_rescale_slope",
+            tags::RESCALE_SLOPE,
+            expected.rescale_slope,
+        ),
+        ("dx_rescale_type", tags::RESCALE_TYPE, expected.rescale_type),
+        (
+            "dx_presentation_lut_shape",
+            tags::PRESENTATION_LUT_SHAPE,
+            expected.presentation_lut_shape,
+        ),
+        (
+            "dx_lossy_image_compression",
+            tags::LOSSY_IMAGE_COMPRESSION,
+            expected.lossy_image_compression,
+        ),
+        (
+            "dx_burned_in_annotation",
+            tags::BURNED_IN_ANNOTATION,
+            expected.burned_in_annotation,
+        ),
+        (
+            "dx_window_center",
+            tags::WINDOW_CENTER,
+            expected.window_center,
+        ),
+        ("dx_window_width", tags::WINDOW_WIDTH, expected.window_width),
+        (
+            "dx_shutter_shape",
+            tags::SHUTTER_SHAPE,
+            expected.shutter_shape,
+        ),
+        (
+            "dx_shutter_left_vertical_edge",
+            tags::SHUTTER_LEFT_VERTICAL_EDGE,
+            expected.shutter_left_vertical_edge,
+        ),
+        (
+            "dx_shutter_right_vertical_edge",
+            tags::SHUTTER_RIGHT_VERTICAL_EDGE,
+            expected.shutter_right_vertical_edge,
+        ),
+        (
+            "dx_shutter_upper_horizontal_edge",
+            tags::SHUTTER_UPPER_HORIZONTAL_EDGE,
+            expected.shutter_upper_horizontal_edge,
+        ),
+        (
+            "dx_shutter_lower_horizontal_edge",
+            tags::SHUTTER_LOWER_HORIZONTAL_EDGE,
+            expected.shutter_lower_horizontal_edge,
+        ),
+    ] {
+        check_equal(
+            results,
+            name,
+            "Digital X-Ray attribute matches the recipe.",
+            "Digital X-Ray attribute does not match the recipe.",
+            element_str(path, obj, tag)?.as_str(),
+            expected_value,
+        );
+    }
+
+    check_equal(
+        results,
+        "dx_pixel_intensity_relationship_sign",
+        "Pixel Intensity Relationship Sign matches the recipe.",
+        "Pixel Intensity Relationship Sign does not match the recipe.",
+        element_i16(path, obj, tags::PIXEL_INTENSITY_RELATIONSHIP_SIGN)?,
+        expected.pixel_intensity_relationship_sign,
+    );
+    check_equal(
+        results,
+        "dx_anatomic_region_sequence",
+        "Anatomic Region Sequence contains the expected code.",
+        "Anatomic Region Sequence does not contain the expected code.",
+        first_sequence_code_value(path, obj, tags::ANATOMIC_REGION_SEQUENCE)?.as_str(),
+        expected.anatomic_region_code_value,
+    );
+    check_equal(
+        results,
+        "dx_acquisition_context_sequence",
+        "Acquisition Context Sequence has the expected item count.",
+        "Acquisition Context Sequence does not have the expected item count.",
+        sequence_item_count(path, obj, tags::ACQUISITION_CONTEXT_SEQUENCE)?,
+        expected.acquisition_context_items,
+    );
+    check_equal(
+        results,
+        "dx_shutter_presentation_value",
+        "Shutter Presentation Value matches the recipe.",
+        "Shutter Presentation Value does not match the recipe.",
+        element_u16(path, obj, tags::SHUTTER_PRESENTATION_VALUE)?,
+        expected.shutter_presentation_value,
+    );
+
+    Ok(())
+}
+
 fn validate_cr_image(
     path: &Path,
     obj: &OpenedObject,
@@ -1300,6 +1484,9 @@ fn standard_sop_class_validation_name(sop_class_uid: &str) -> &'static str {
         uids::CT_IMAGE_STORAGE => "ct_image_sop_class",
         uids::COMPUTED_RADIOGRAPHY_IMAGE_STORAGE => "computed_radiography_image_sop_class",
         uids::MR_IMAGE_STORAGE => "mr_image_sop_class",
+        uids::DIGITAL_X_RAY_IMAGE_STORAGE_FOR_PRESENTATION => {
+            "digital_x_ray_for_presentation_sop_class"
+        }
         uids::DIGITAL_MAMMOGRAPHY_X_RAY_IMAGE_STORAGE_FOR_PRESENTATION => {
             "digital_mammography_for_presentation_sop_class"
         }
@@ -1320,6 +1507,9 @@ fn standard_sop_class_validation_message(sop_class_uid: &str) -> &'static str {
             "SOP Class UID matches Computed Radiography Image Storage in the 2026b reference."
         }
         uids::MR_IMAGE_STORAGE => "SOP Class UID matches MR Image Storage in the 2026b reference.",
+        uids::DIGITAL_X_RAY_IMAGE_STORAGE_FOR_PRESENTATION => {
+            "SOP Class UID matches Digital X-Ray Image Storage - For Presentation in the 2026b reference."
+        }
         uids::DIGITAL_MAMMOGRAPHY_X_RAY_IMAGE_STORAGE_FOR_PRESENTATION => {
             "SOP Class UID matches Digital Mammography X-Ray Image Storage - For Presentation in the 2026b reference."
         }

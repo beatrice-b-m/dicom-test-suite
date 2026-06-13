@@ -4,7 +4,7 @@
 **Source specification:** `SYSTEM_SPEC.md` version 0.2.0  
 **Current phase:** Phase 3 classic radiology IODs, in progress
 
-**Current implementation status:** Phase 0, Phase 0.5, Phase 1, and Phase 2 are complete; Phase 3 has CT Image Storage signed rescale coverage, Digital Mammography For Presentation/For Processing 12-bit coverage, CR overlay/Modality LUT/VOI LUT coverage, and MR multi-slice oblique geometry coverage
+**Current implementation status:** Phase 0, Phase 0.5, Phase 1, and Phase 2 are complete; Phase 3 has CT Image Storage signed rescale coverage, Digital Mammography For Presentation/For Processing 12-bit coverage, CR overlay/Modality LUT/VOI LUT coverage, MR multi-slice oblique geometry coverage, and Digital X-Ray display shutter coverage
 
 This document is the durable hand-off log for coding agents implementing
 `dicom-test-suite`. Keep `SYSTEM_SPEC.md` as the source of product and
@@ -43,14 +43,14 @@ Observed at creation of this progress file:
 | `standards.lock.json` | present | Locks to DICOM 2026b base edition only using the pinned `dicom-standard-kb` MCP source manifest; local DB and source artifact hashes remain pending. |
 | `schemas/` | present | Manifest, case registry, coverage report, and viewer report schemas have initial structured coverage. |
 | `cases/taxonomy.md` | present | Documents normalized case ID format, path segments, descriptor conventions, profile definitions, and inclusion rules. |
-| `cases/registry.json` | present | Tracks implemented smoke/core SC cases, the first implemented CT Image Storage case, both first Digital Mammography For Presentation and For Processing cases, the first CR overlay/LUT case, and the first MR oblique multi-slice case with standards evidence from `dicom-standard-kb` MCP lookups. |
+| `cases/registry.json` | present | Tracks implemented smoke/core SC cases, the first implemented CT Image Storage case, both first Digital Mammography For Presentation and For Processing cases, the first CR overlay/LUT case, the first MR oblique multi-slice case, and the first DX display shutter case with standards evidence from `dicom-standard-kb` MCP lookups. |
 | `transfer-syntax/capability-matrix.json` | present | Records initial read/decode/write/encode, feature, external library, and determinism capabilities for baseline native transfer syntaxes. |
 | `docs/deterministic-build-policy.md` | present | Documents determinism levels, reproducibility inputs, UID derivation, metadata controls, hashes, and two-run verification. |
 | `standards/kb-integration.md` | present | Documents the pinned 2026b `dicom-standard-kb` MCP query workflow, evidence fields, and fallback path. |
 | `standards/gap-workflow.md` | present | Documents standards gap handling, local source notes, blocked/skipped registry actions, and KB patch criteria. |
 | `standards/source-notes/` | present | Contains a README/template plus `uid-2-25.md` for the PS3.5 UID root gap not covered by `dicom-standard-kb`. |
-| `src/` or `crates/` | present | Single-package implementation now includes `list-cases`, `generate`, deterministic UID, run manifest, SC pixel writers, CT signed rescale writer, MG For Presentation/For Processing writers, CR overlay/LUT writer, MR multi-slice writer, and Part 10 validation paths. |
-| `tests/` | present | Includes schema artifact, `list-cases` CLI, `generate` CLI, UID, manifest, Part 10 readback, CT rescale readback, MG presentation/processing readback, CR overlay/LUT readback, MR multi-slice readback, and smoke reproducibility tests. |
+| `src/` or `crates/` | present | Single-package implementation now includes `list-cases`, `generate`, deterministic UID, run manifest, SC pixel writers, CT signed rescale writer, MG For Presentation/For Processing writers, CR overlay/LUT writer, MR multi-slice writer, DX display shutter writer, and Part 10 validation paths. |
+| `tests/` | present | Includes schema artifact, `list-cases` CLI, `generate` CLI, UID, manifest, Part 10 readback, CT rescale readback, MG presentation/processing readback, CR overlay/LUT readback, MR multi-slice readback, DX display shutter readback, and smoke reproducibility tests. |
 
 ## Non-Negotiable Implementation Constraints
 
@@ -81,7 +81,7 @@ Observed at creation of this progress file:
 | Phase 0.5: Standards and case registry foundation | complete | Standards base edition, schemas, taxonomy/profile rules, initial smoke/core registry, transfer syntax matrix, deterministic policy, standards workflows, and `list-cases` are in place. |
 | Phase 1: Generator core | complete | `generate --profile smoke` writes all three initial Secondary Capture smoke Part 10 files with manifest hashes, file meta UIDs, pixel metadata, validation results, and byte-stable output across two identical runs. |
 | Phase 2: Native pixel matrix | complete | Core native monochrome 16-bit unsigned/signed MONOCHROME2 OW Pixel Data, RGB planar configuration 1, PALETTE COLOR, YBR_FULL, YBR_FULL_422, odd-dimension, rectangular, tiny-image, pixel-padding, and broadened native pixel validators are implemented. |
-| Phase 3: Classic radiology IODs | in progress | CT Image Storage signed 12-bit rescale/window, MG For Presentation/For Processing 12-bit, CR overlay/Modality LUT/VOI LUT, and MR multi-slice oblique geometry cases implemented; US/DX and remaining classic radiology stressors pending. |
+| Phase 3: Classic radiology IODs | in progress | CT Image Storage signed 12-bit rescale/window, MG For Presentation/For Processing 12-bit, CR overlay/Modality LUT/VOI LUT, MR multi-slice oblique geometry, and DX display shutter cases implemented; US and remaining classic radiology stressors pending. |
 | Phase 4: Enhanced multi-frame | not started | Enhanced CT/MR and functional groups pending. |
 | Phase 5: Derived, presentation, and non-image objects | not started | SEG, presentation states, SR, KOS, RWVM, RT, and encapsulated documents pending. |
 | Phase 6: Transfer syntax expansion | not started | Transfer syntax abstraction and compressed cases pending. |
@@ -166,15 +166,16 @@ YBR_FULL_422 uses the required special native byte-length validator.
 - [x] Add mammography For Processing MONOCHROME2 12-bit case.
 - [x] Add CR overlay, Modality LUT, and VOI LUT coverage.
 - [x] Add MR multi-slice oblique geometry sorting coverage.
-- [ ] Add US, DX, and remaining classic single-frame IOD builders.
+- [x] Add first DX projection X-Ray display shutter coverage.
+- [ ] Add US and remaining classic single-frame IOD builders.
 - [x] Add multi-file series generation with stable Study/Series/Frame of
   Reference UIDs.
 
 Phase 3 remains in progress. The core profile now includes one standards-backed
 CT Image Storage case, MG For Presentation and For Processing cases, and a CR
-overlay/LUT case plus a three-instance MR oblique series, but the phase exit
-criteria still require US/DX coverage and additional projection X-Ray/shutter
-coverage.
+overlay/LUT case plus a three-instance MR oblique series and a DX display
+shutter case, but the phase exit criteria still require US coverage and
+remaining classic radiology stressors.
 
 ## Initial Priority Case Queue
 
@@ -201,6 +202,7 @@ These case IDs come from `SYSTEM_SPEC.md` section 21 and should seed
 | `classic/mg/for_processing_mono2_u16_12bit_implicit_le` | `core` | implemented |
 | `classic/cr/overlay_modality_voi_explicit_le` | `core` | implemented |
 | `classic/mr/multislice_oblique_explicit_le` | `core` | implemented |
+| `classic/dx/display_shutter_mono2_u16_explicit_le` | `core` | implemented |
 | `enhanced/ct/multiframe_shared_perframe_explicit_le` | `extended` | planned |
 | `derived/seg/binary_multiframe_explicit_le` | `extended` | planned |
 | `vl/photo/rgb_planar0_explicit_le` | `core` | planned |
@@ -355,6 +357,21 @@ These case IDs come from `SYSTEM_SPEC.md` section 21 and should seed
   records 2026b `dicom-standard-kb` evidence for MR Image Storage, the MR Image
   IOD/modules, MR Image, Image Plane, Frame of Reference, and key MR acquisition
   data elements.
+- 2026-06-13: `classic/dx/display_shutter_mono2_u16_explicit_le` adds Digital
+  X-Ray Image Storage - For Presentation coverage using Explicit VR Little
+  Endian and a tiny unsigned 12-bit MONOCHROME2 native OW Pixel Data pattern.
+  The generated file sets Presentation Intent Type `FOR PRESENTATION`, Modality
+  `DX`, Image Laterality `U`, DX Image rescale/window attributes, Presentation
+  LUT Shape `IDENTITY`, no lossy compression, no burned-in annotation, Imager
+  Pixel Spacing, detector metadata, Anatomic Region Sequence, an empty
+  Acquisition Context Sequence, and a rectangular Display Shutter with a
+  monochrome Shutter Presentation Value. Validation now supports optional
+  Digital X-Ray checks for DX scalar attributes, code-sequence contents,
+  Acquisition Context item count, and Display Shutter shape/edge/value
+  metadata. The registry records 2026b `dicom-standard-kb` evidence for Digital
+  X-Ray Image Storage, the Digital X-Ray Image IOD/modules, DX Series/Anatomy
+  Imaged/Image/Detector modules, Display Shutter, Presentation Intent Type, and
+  shutter data elements.
 
 ## Current Blockers
 
@@ -365,18 +382,16 @@ additional classic radiology IOD cases.
 
 ## Recommended Next Commit
 
-Continue Phase 3 with the first remaining projection X-Ray/US classic case:
+Continue Phase 3 with the first remaining US classic case:
 
 1. Query the 2026b `dicom-standard-kb` for the next target SOP Class and IOD.
-   A conservative next slice is a small DX Image Storage case with Display
-   Shutter metadata, since Phase 3 still calls out projection X-Ray/shutter
-   coverage and no DX/US registry entry is implemented yet.
+   A conservative next slice is a small US Image Storage case using native
+   single-frame pixels and only the required US Image/Region metadata.
 2. Add or refine the registry entry and standards evidence for the selected
-   `classic/dx/...` or `classic/us/...` case.
+   `classic/us/...` case.
 3. Implement one tiny byte-stable Part 10 case using existing generator and
    validation patterns, keeping the case focused on the selected IOD/stressor.
-4. Commit with a scoped message such as `feat(dx): add display shutter core
-   case` or `feat(us): add ultrasound core case`.
+4. Commit with a scoped message such as `feat(us): add ultrasound core case`.
 
 ## Handoff Notes
 

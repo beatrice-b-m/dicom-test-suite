@@ -677,6 +677,12 @@ mod tests {
         );
         assert!(
             output.contains(
+                "classic/dx/display_shutter_mono2_u16_explicit_le\timplemented\tcore\t1.2.840.10008.5.1.4.1.1.1.1\t1.2.840.10008.1.2.1\t16/16 covered"
+            ),
+            "list-cases output must show implemented DX display shutter core status"
+        );
+        assert!(
+            output.contains(
                 "classic/sc/mono2_u16_explicit_le\timplemented\tcore\t1.2.840.10008.5.1.4.1.1.7\t1.2.840.10008.1.2.1\t6/6 covered"
             ),
             "list-cases output must show implemented core native pixel status"

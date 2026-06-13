@@ -375,18 +375,25 @@ These case IDs come from `SYSTEM_SPEC.md` section 21 and should seed
 
 ## Current Blockers
 
-No implementation blocker has been proven yet. The immediate limitations are
-that the local `dicom-standard-kb` repository commit/DB SHA-256 and official
-source artifact hashes have not yet been verified. Phase 3 can continue with
-additional classic radiology IOD cases.
+- 2026-06-13: US Image Storage implementation is blocked on standards evidence
+  lookup availability. The next required `dicom-standard-kb` query
+  `lookup_sop_class Ultrasound Image Storage` was rejected by the tool layer
+  because the session hit a usage-limit block, and a second attempt was rejected
+  as repeating the blocked outcome. Do not add a US IOD builder, registry entry,
+  or module assumptions until the KB lookup can run again or the user explicitly
+  approves an official-DICOM-source fallback for this blocked lookup.
+
+The remaining immediate limitations are that the local `dicom-standard-kb`
+repository commit/DB SHA-256 and official source artifact hashes have not yet
+been verified.
 
 ## Recommended Next Commit
 
 Continue Phase 3 with the first remaining US classic case:
 
-1. Query the 2026b `dicom-standard-kb` for the next target SOP Class and IOD.
-   A conservative next slice is a small US Image Storage case using native
-   single-frame pixels and only the required US Image/Region metadata.
+1. Retry the 2026b `dicom-standard-kb` lookup for US Image Storage after the
+   usage-limit block clears, or proceed only if the user explicitly approves an
+   official-DICOM-source fallback for the blocked lookup.
 2. Add or refine the registry entry and standards evidence for the selected
    `classic/us/...` case.
 3. Implement one tiny byte-stable Part 10 case using existing generator and

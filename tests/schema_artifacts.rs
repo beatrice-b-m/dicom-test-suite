@@ -162,6 +162,34 @@ fn coverage_report_schema_requires_the_specified_matrix_fields() {
     }
 }
 
+#[test]
+fn viewer_report_schema_requires_viewer_compatibility_result_fields() {
+    let schema = read_json("schemas/viewer-report.schema.json");
+    let required = schema
+        .pointer("/$defs/result/required")
+        .and_then(Value::as_array)
+        .expect("viewer report schema must define required result fields");
+
+    for field in [
+        "case_id",
+        "path",
+        "status",
+        "file_open",
+        "object_recognition",
+        "metadata",
+        "pixel_rendering",
+        "timing",
+        "errors",
+        "warnings",
+        "artifacts",
+    ] {
+        assert!(
+            required.iter().any(|value| value.as_str() == Some(field)),
+            "viewer report schema must require {field}"
+        );
+    }
+}
+
 fn read_json(path: impl AsRef<Path>) -> Value {
     let path = path.as_ref();
     let contents =

@@ -3,7 +3,7 @@
 **Last updated:** 2026-06-13  
 **Source specification:** `SYSTEM_SPEC.md` version 0.2.0  
 **Current phase:** Phase 0.5 standards and case registry foundation, incomplete  
-**Current implementation status:** Phase 0 repository initialization is complete; standards baseline lock plus manifest, case registry, and coverage report schemas are committed
+**Current implementation status:** Phase 0 repository initialization is complete; standards baseline lock and all initial schemas are committed
 
 This document is the durable hand-off log for coding agents implementing
 `dicom-test-suite`. Keep `SYSTEM_SPEC.md` as the source of product and
@@ -39,7 +39,7 @@ Observed at creation of this progress file:
 | `Cargo.toml` / Rust workspace | present | Single package named `dicom-test-suite`, using Rust 2024 edition; pins minimal DICOM-rs crates for Phase 1 object and transfer syntax work. |
 | `rust-toolchain.toml` | present | Pins Rust 1.85.0 with `rustfmt` and `clippy`, matching an installed local toolchain. |
 | `standards.lock.json` | present | Locks to DICOM 2026b base edition only using the pinned `dicom-standard-kb` MCP source manifest; local DB and source artifact hashes remain pending. |
-| `schemas/` | present | Manifest, case registry, and coverage report schemas have initial structured coverage; viewer report schema remains a placeholder. |
+| `schemas/` | present | Manifest, case registry, coverage report, and viewer report schemas have initial structured coverage. |
 | `cases/registry.json` | missing | Case registry must become authoritative for planned and implemented cases. |
 | `standards/source-notes/` | missing | Needed for standards gaps not covered by `dicom-standard-kb`. |
 | `src/` or `crates/` | present | Minimal `src/lib.rs` and `src/main.rs` exist; generator implementation has not started. |
@@ -71,7 +71,7 @@ Observed at creation of this progress file:
 | Phase | Status | Summary |
 |---|---|---|
 | Phase 0: Repository initialization | complete | Scope docs, generated-artifact protections, Rust skeleton, toolchain, dependency pins, and initial schema placeholders are committed. |
-| Phase 0.5: Standards and case registry foundation | in progress | Standards base edition plus manifest/case-registry/coverage schemas are in place; case registry data, viewer report schema, profile definitions, capability matrix, KB repository/DB pin, source artifact hashes, and standards workflow remain. |
+| Phase 0.5: Standards and case registry foundation | in progress | Standards base edition and all initial schemas are in place; case registry data, profile definitions, capability matrix, KB repository/DB pin, source artifact hashes, and standards workflow remain. |
 | Phase 1: Generator core | not started | CLI, UID generation, manifest writing, Part 10 writing, and file validation pending. |
 | Phase 2: Native pixel matrix | not started | Pixel generators and photometric validators pending. |
 | Phase 3: Classic radiology IODs | not started | CT/MR/CR/US/DX/MG builders pending. |
@@ -107,7 +107,7 @@ and initial schema placeholders.
 - [x] Add `schemas/manifest.schema.json`.
 - [x] Add `schemas/case-registry.schema.json`.
 - [x] Add `schemas/coverage-report.schema.json`.
-- [ ] Add `schemas/viewer-report.schema.json`.
+- [x] Add `schemas/viewer-report.schema.json`.
 - [ ] Add normalized case ID taxonomy to committed project artifacts.
 - [ ] Add explicit profile definitions and inclusion rules.
 - [ ] Add initial `cases/registry.json` with planned smoke/core cases.
@@ -161,17 +161,15 @@ registry/schema/policy artifacts are still placeholders or missing.
 
 ## Recommended Next Commit
 
-Expand the viewer report schema:
+Add normalized case ID taxonomy and profile definitions:
 
-1. Replace the placeholder `schemas/viewer-report.schema.json` with the initial
-   structured schema for optional viewer compatibility results: file open,
-   object recognition, metadata extraction, pixel rendering, timing,
-   errors/warnings, screenshots/artifacts, and per-case status.
-2. Keep it viewer-agnostic and aligned with `SYSTEM_SPEC.md` section 18.
-3. Extend schema artifact tests for the viewer report contract.
-4. Update this progress file with completed schema scope and the next
-   recommended Phase 0.5 task.
-5. Commit as `feat(schemas): define viewer report schema`.
+1. Add a committed project artifact documenting normalized case ID path
+   segments, allowed profile names, profile inclusion rules, and stress/negative
+   exclusion rules.
+2. Keep the taxonomy aligned with `SYSTEM_SPEC.md` sections 4.5 and 6.1.
+3. Update this progress file to mark taxonomy/profile rules complete or record
+   any remaining split.
+4. Commit as `docs(cases): define case taxonomy and profiles`.
 
 ## Handoff Notes
 

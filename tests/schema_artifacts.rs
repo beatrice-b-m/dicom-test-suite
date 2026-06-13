@@ -120,6 +120,48 @@ fn case_registry_schema_requires_the_specified_case_fields() {
     }
 }
 
+#[test]
+fn coverage_report_schema_requires_the_specified_matrix_fields() {
+    let schema = read_json("schemas/coverage-report.schema.json");
+    let required = schema
+        .pointer("/$defs/coverage_row/required")
+        .and_then(Value::as_array)
+        .expect("coverage report schema must define required coverage row fields");
+
+    for field in [
+        "case_id",
+        "profile",
+        "status",
+        "iod",
+        "sop_class_uid",
+        "transfer_syntax",
+        "photometric",
+        "bits",
+        "frames",
+        "geometry",
+        "derived_refs",
+        "validation_status",
+        "determinism",
+    ] {
+        assert!(
+            required.iter().any(|value| value.as_str() == Some(field)),
+            "coverage report schema must require {field}"
+        );
+    }
+
+    let counts = schema
+        .pointer("/$defs/counts/required")
+        .and_then(Value::as_array)
+        .expect("coverage report schema must define count fields");
+
+    for field in ["generated", "skipped", "blocked", "planned", "deprecated"] {
+        assert!(
+            counts.iter().any(|value| value.as_str() == Some(field)),
+            "coverage report schema must count {field} cases"
+        );
+    }
+}
+
 fn read_json(path: impl AsRef<Path>) -> Value {
     let path = path.as_ref();
     let contents =

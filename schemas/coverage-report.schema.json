@@ -3,11 +3,249 @@
   "$id": "https://dicom-test-suite.local/schemas/coverage-report.schema.json",
   "title": "DICOM Test Suite Coverage Report",
   "type": "object",
-  "required": ["coverage_report_schema_version"],
+  "required": [
+    "coverage_report_schema_version",
+    "generated_at",
+    "standards_lock_sha256",
+    "counts",
+    "coverage_matrix"
+  ],
   "properties": {
     "coverage_report_schema_version": {
+      "const": "0.1.0"
+    },
+    "generated_at": {
       "type": "string"
+    },
+    "standards_lock_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "counts": {
+      "$ref": "#/$defs/counts"
+    },
+    "coverage_matrix": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/coverage_row"
+      }
+    },
+    "grouped_coverage": {
+      "type": "object",
+      "properties": {
+        "profiles": {
+          "$ref": "#/$defs/count_map"
+        },
+        "iods": {
+          "$ref": "#/$defs/count_map"
+        },
+        "sop_classes": {
+          "$ref": "#/$defs/count_map"
+        },
+        "transfer_syntaxes": {
+          "$ref": "#/$defs/count_map"
+        },
+        "photometric_interpretations": {
+          "$ref": "#/$defs/count_map"
+        },
+        "bit_depths": {
+          "$ref": "#/$defs/count_map"
+        },
+        "object_types": {
+          "$ref": "#/$defs/count_map"
+        }
+      },
+      "additionalProperties": false
+    },
+    "gaps": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/gap"
+      }
     }
   },
-  "additionalProperties": true
+  "additionalProperties": false,
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "profile": {
+      "enum": [
+        "smoke",
+        "core",
+        "extended",
+        "legacy",
+        "stress",
+        "all",
+        "negative",
+        "fuzz"
+      ]
+    },
+    "case_status": {
+      "enum": [
+        "planned",
+        "implemented",
+        "generated",
+        "skipped",
+        "blocked",
+        "deprecated",
+        "unavailable"
+      ]
+    },
+    "validation_status": {
+      "enum": ["passed", "failed", "skipped", "unavailable", "not_run"]
+    },
+    "determinism": {
+      "enum": ["byte_stable", "semantic_stable", "unstable"]
+    },
+    "counts": {
+      "type": "object",
+      "required": ["generated", "skipped", "blocked", "planned", "deprecated"],
+      "properties": {
+        "generated": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "skipped": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "blocked": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "planned": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "deprecated": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "count_map": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 0
+      }
+    },
+    "coverage_row": {
+      "type": "object",
+      "required": [
+        "case_id",
+        "profile",
+        "status",
+        "iod",
+        "sop_class_uid",
+        "transfer_syntax",
+        "photometric",
+        "bits",
+        "frames",
+        "geometry",
+        "derived_refs",
+        "validation_status",
+        "determinism"
+      ],
+      "properties": {
+        "case_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9_-]*(/[a-z0-9][a-z0-9_-]*)+$"
+        },
+        "profile": {
+          "$ref": "#/$defs/profile"
+        },
+        "status": {
+          "$ref": "#/$defs/case_status"
+        },
+        "iod": {
+          "type": "string"
+        },
+        "sop_class_uid": {
+          "type": "string"
+        },
+        "transfer_syntax": {
+          "type": "string"
+        },
+        "photometric": {
+          "type": ["string", "null"]
+        },
+        "bits": {
+          "type": ["integer", "null"],
+          "minimum": 0
+        },
+        "frames": {
+          "type": ["integer", "null"],
+          "minimum": 0
+        },
+        "geometry": {
+          "type": "object",
+          "properties": {
+            "rows": {
+              "type": ["integer", "null"],
+              "minimum": 1
+            },
+            "columns": {
+              "type": ["integer", "null"],
+              "minimum": 1
+            },
+            "spacing": {
+              "type": ["array", "null"],
+              "items": {
+                "type": "number"
+              }
+            },
+            "orientation": {
+              "type": ["string", "null"]
+            }
+          },
+          "additionalProperties": true
+        },
+        "derived_refs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "validation_status": {
+          "$ref": "#/$defs/validation_status"
+        },
+        "determinism": {
+          "$ref": "#/$defs/determinism"
+        },
+        "object_type": {
+          "type": ["string", "null"]
+        },
+        "known_stressors": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "gap": {
+      "type": "object",
+      "required": ["axis", "value", "reason"],
+      "properties": {
+        "axis": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "recommended_case_id": {
+          "type": ["string", "null"]
+        }
+      },
+      "additionalProperties": false
+    }
+  }
 }

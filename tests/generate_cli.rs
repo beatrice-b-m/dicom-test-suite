@@ -1555,7 +1555,7 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\textended"));
-    assert!(stdout.contains("files_written\t1"));
+    assert!(stdout.contains("files_written\t2"));
 
     let manifest_path = out_dir.join("manifest.json");
     let manifest: Value = serde_json::from_str(
@@ -1567,7 +1567,7 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
             .pointer("/files")
             .and_then(Value::as_array)
             .map(Vec::len),
-        Some(1)
+        Some(2)
     );
     let enhanced_ct_file = file_entry_by_case_id(
         &manifest,
@@ -1615,6 +1615,44 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
         validation_result_names(enhanced_ct_file.pointer("/validation/standards"))
             .contains(&"enhanced_ct_image_sop_class"),
         "Enhanced CT manifest should record standards validation for Enhanced CT Image Storage"
+    );
+    let enhanced_mr_file = file_entry_by_case_id(
+        &manifest,
+        "enhanced/mr/multiframe_echo_perframe_explicit_le",
+    );
+    assert_eq!(
+        enhanced_mr_file
+            .pointer("/dicom/sop_class_uid")
+            .and_then(Value::as_str),
+        Some(uids::ENHANCED_MR_IMAGE_STORAGE)
+    );
+    assert_eq!(
+        enhanced_mr_file
+            .pointer("/image/frames")
+            .and_then(Value::as_u64),
+        Some(2)
+    );
+    assert_eq!(
+        enhanced_mr_file
+            .pointer("/pixel_data/value_length")
+            .and_then(Value::as_u64),
+        Some(16)
+    );
+    assert_eq!(
+        enhanced_mr_file
+            .pointer("/recipe/recipe_parameters/per_frame_functional_groups/effective_echo_time/1")
+            .and_then(Value::as_f64),
+        Some(24.5)
+    );
+    assert!(
+        validation_result_names(enhanced_mr_file.pointer("/validation/internal"))
+            .contains(&"enhanced_mr_per_frame_effective_echo_time"),
+        "Enhanced MR manifest should record per-frame MR Echo validation"
+    );
+    assert!(
+        validation_result_names(enhanced_mr_file.pointer("/validation/standards"))
+            .contains(&"enhanced_mr_image_sop_class"),
+        "Enhanced MR manifest should record standards validation for Enhanced MR Image Storage"
     );
     assert!(
         manifest
@@ -1676,6 +1714,40 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
             .expect("Image Position Patient should be text")
             .trim(),
         "0\\0\\2.5"
+    );
+
+    let enhanced_mr_path =
+        out_dir.join("enhanced/mr/multiframe_echo_perframe_explicit_le/instance.dcm");
+    let enhanced_mr = open_file(&enhanced_mr_path).expect("Enhanced MR DICOM file should parse");
+    assert_eq!(
+        enhanced_mr
+            .element(tags::SOP_CLASS_UID)
+            .expect("Enhanced MR file should contain SOP Class UID")
+            .value()
+            .to_str()
+            .expect("SOP Class UID should be text")
+            .trim_end_matches('\0'),
+        uids::ENHANCED_MR_IMAGE_STORAGE
+    );
+    let mr_per_frame_items = enhanced_mr
+        .element(tags::PER_FRAME_FUNCTIONAL_GROUPS_SEQUENCE)
+        .expect("Enhanced MR file should contain Per-Frame Functional Groups Sequence")
+        .items()
+        .expect("Per-Frame Functional Groups should be a sequence");
+    assert_eq!(mr_per_frame_items.len(), 2);
+    let second_echo_item = mr_per_frame_items[1]
+        .element(tags::MR_ECHO_SEQUENCE)
+        .expect("second frame should contain MR Echo Sequence")
+        .items()
+        .expect("MR Echo should be a sequence");
+    assert_eq!(
+        second_echo_item[0]
+            .element(tags::EFFECTIVE_ECHO_TIME)
+            .expect("MR Echo should contain Effective Echo Time")
+            .value()
+            .to_float64()
+            .expect("Effective Echo Time should be FD"),
+        24.5
     );
 
     fs::remove_dir_all(out_dir).expect("temporary output root should be removable");

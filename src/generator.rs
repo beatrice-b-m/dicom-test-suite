@@ -11,14 +11,15 @@ use crate::{
     sha256_hex,
     validation::{
         CrImageExpectations, CtImageExpectations, DxImageExpectations, EnhancedCtImageExpectations,
-        MgImageExpectations, MrImageExpectations, Part10Expectations, PixelDataLengthFormula,
-        UsImageExpectations, validate_part10_file,
+        EnhancedMrImageExpectations, MgImageExpectations, MrImageExpectations, Part10Expectations,
+        PixelDataLengthFormula, UsImageExpectations, validate_part10_file,
     },
 };
 
 const PIXEL_RECIPE_VERSION: &str = "0.1.0";
 const CLASSIC_CT_RECIPE_VERSION: &str = "0.1.0";
 const ENHANCED_CT_RECIPE_VERSION: &str = "0.1.0";
+const ENHANCED_MR_RECIPE_VERSION: &str = "0.1.0";
 const CLASSIC_MG_RECIPE_VERSION: &str = "0.1.0";
 const CLASSIC_DX_RECIPE_VERSION: &str = "0.1.0";
 const CLASSIC_US_RECIPE_VERSION: &str = "0.1.0";
@@ -59,6 +60,10 @@ const ENHANCED_CT_U16_PIXELS: [u8; 16] = [
     0, 0, 0x64, 0, 0xc8, 0, 0x2c, 1, 0x90, 1, 0xf4, 1, 0x58, 2, 0xbc, 2,
 ];
 const ENHANCED_CT_U16_VALUES: [i32; 8] = [0, 100, 200, 300, 400, 500, 600, 700];
+const ENHANCED_MR_U16_PIXELS: [u8; 16] = [
+    0, 0, 0x32, 0, 0x64, 0, 0x96, 0, 0xc8, 0, 0xfa, 0, 0x2c, 1, 0x5e, 1,
+];
+const ENHANCED_MR_U16_VALUES: [i32; 8] = [0, 50, 100, 150, 200, 250, 300, 350];
 const MG_U16_12BIT_PIXELS: [u8; 8] = [0x00, 0x00, 0x55, 0x05, 0xaa, 0x0a, 0xff, 0x0f];
 const MG_U16_12BIT_VALUES: [i32; 4] = [0, 1365, 2730, 4095];
 const DX_U16_12BIT_PIXELS: [u8; 8] = [0x00, 0x00, 0x00, 0x04, 0x00, 0x08, 0xff, 0x0f];
@@ -500,6 +505,70 @@ const ENHANCED_CT_RECIPES: &[EnhancedCtRecipe] = &[EnhancedCtRecipe {
 }];
 
 #[derive(Debug, Clone, Copy)]
+struct EnhancedMrRecipe {
+    case_id: &'static str,
+    recipe_id: &'static str,
+    rows: u16,
+    columns: u16,
+    frames: u16,
+    pixel_bytes: &'static [u8],
+    pixel_values: &'static [i32],
+    pixel_min: i32,
+    pixel_max: i32,
+    pixel_spacing: &'static str,
+    image_orientation_patient: &'static str,
+    image_position_patient: &'static [&'static str],
+    slice_thickness: &'static str,
+    spacing_between_slices: &'static str,
+    frame_type: &'static str,
+    pixel_presentation: &'static str,
+    volumetric_properties: &'static str,
+    volume_based_calculation_technique: &'static str,
+    rescale_intercept: &'static str,
+    rescale_slope: &'static str,
+    rescale_type: &'static str,
+    repetition_time: &'static str,
+    flip_angle: &'static str,
+    echo_train_length: &'static str,
+    rf_echo_train_length: u16,
+    gradient_echo_train_length: u16,
+    effective_echo_times: &'static [f64],
+}
+
+const ENHANCED_MR_IMAGE_POSITIONS: &[&str] = &["0\\0\\0", "0\\0\\4"];
+const ENHANCED_MR_EFFECTIVE_ECHO_TIMES: &[f64] = &[12.5, 24.5];
+
+const ENHANCED_MR_RECIPES: &[EnhancedMrRecipe] = &[EnhancedMrRecipe {
+    case_id: "enhanced/mr/multiframe_echo_perframe_explicit_le",
+    recipe_id: "enhanced_mr_multiframe_echo_perframe",
+    rows: 2,
+    columns: 2,
+    frames: 2,
+    pixel_bytes: &ENHANCED_MR_U16_PIXELS,
+    pixel_values: &ENHANCED_MR_U16_VALUES,
+    pixel_min: 0,
+    pixel_max: 350,
+    pixel_spacing: "1.000\\1.000",
+    image_orientation_patient: "1\\0\\0\\0\\1\\0",
+    image_position_patient: ENHANCED_MR_IMAGE_POSITIONS,
+    slice_thickness: "4",
+    spacing_between_slices: "4",
+    frame_type: "DERIVED\\PRIMARY\\STATIC\\NONE",
+    pixel_presentation: "MONOCHROME",
+    volumetric_properties: "VOLUME",
+    volume_based_calculation_technique: "NONE",
+    rescale_intercept: "0",
+    rescale_slope: "1",
+    rescale_type: "US",
+    repetition_time: "2000",
+    flip_angle: "90",
+    echo_train_length: "1",
+    rf_echo_train_length: 1,
+    gradient_echo_train_length: 0,
+    effective_echo_times: ENHANCED_MR_EFFECTIVE_ECHO_TIMES,
+}];
+
+#[derive(Debug, Clone, Copy)]
 struct ClassicMgRecipe {
     case_id: &'static str,
     recipe_id: &'static str,
@@ -791,6 +860,21 @@ pub(crate) fn write_supported_cases(
             standards_lock_sha256,
         )?);
     }
+    for recipe in ENHANCED_MR_RECIPES {
+        let Some(case) = registry_case(registry, recipe.case_id)? else {
+            continue;
+        };
+        let profiles = string_array(case.get("profiles"))?;
+        if !case_matches_profile(&profiles, &run.profile, run.include_stress) {
+            continue;
+        }
+        generated_files.push(write_enhanced_mr_case(
+            run,
+            case,
+            *recipe,
+            standards_lock_sha256,
+        )?);
+    }
     for recipe in CLASSIC_MG_RECIPES {
         let Some(case) = registry_case(registry, recipe.case_id)? else {
             continue;
@@ -1061,6 +1145,7 @@ fn write_pixel_case(
             padding: recipe.padding.map(|padding| padding.into()),
             ct_image: None,
             enhanced_ct_image: None,
+            enhanced_mr_image: None,
             mg_image: None,
             dx_image: None,
             us_image: None,
@@ -1564,6 +1649,7 @@ fn write_classic_ct_case(
                 window_width: recipe.window_width,
             }),
             enhanced_ct_image: None,
+            enhanced_mr_image: None,
             mg_image: None,
             dx_image: None,
             us_image: None,
@@ -2014,6 +2100,7 @@ fn write_enhanced_ct_case(
                 rescale_type: recipe.rescale_type,
                 irradiation_event_uid: &irradiation_event_uid,
             }),
+            enhanced_mr_image: None,
             mg_image: None,
             dx_image: None,
             us_image: None,
@@ -2336,6 +2423,591 @@ fn enhanced_ct_manifest_entry(
     })
 }
 
+fn write_enhanced_mr_case(
+    run: &PreparedGenerationRun,
+    case: &Value,
+    recipe: EnhancedMrRecipe,
+    standards_lock_sha256: &str,
+) -> Result<GeneratedFile, GenerateError> {
+    let study_instance_uid = deterministic_enhanced_mr_uid(
+        standards_lock_sha256,
+        recipe,
+        run.seed,
+        UidRole::StudyInstance,
+    );
+    let series_instance_uid = deterministic_enhanced_mr_uid(
+        standards_lock_sha256,
+        recipe,
+        run.seed,
+        UidRole::SeriesInstance,
+    );
+    let sop_instance_uid = deterministic_enhanced_mr_uid(
+        standards_lock_sha256,
+        recipe,
+        run.seed,
+        UidRole::SopInstance,
+    );
+    let frame_of_reference_uid = deterministic_enhanced_mr_uid(
+        standards_lock_sha256,
+        recipe,
+        run.seed,
+        UidRole::FrameOfReference,
+    );
+    let dimension_organization_uid = deterministic_enhanced_mr_uid(
+        standards_lock_sha256,
+        recipe,
+        run.seed,
+        UidRole::DimensionOrganization,
+    );
+    let implementation_class_uid = deterministic_implementation_uid(standards_lock_sha256);
+
+    let relative_path = format!("{}/instance.dcm", recipe.case_id);
+    let path = run.out_dir.join(&relative_path);
+    let case_dir = path.parent().ok_or_else(|| GenerateError::MetadataShape {
+        path: PathBuf::from(&relative_path),
+        message: "generated DICOM path must have a parent directory",
+    })?;
+    fs::create_dir_all(case_dir).map_err(|source| GenerateError::CreateCaseOutputDir {
+        path: case_dir.to_path_buf(),
+        source,
+    })?;
+
+    let mut obj = InMemDicomObject::new_empty();
+    put_str(
+        &mut obj,
+        tags::SOP_CLASS_UID,
+        VR::UI,
+        uids::ENHANCED_MR_IMAGE_STORAGE,
+    );
+    put_str(&mut obj, tags::SOP_INSTANCE_UID, VR::UI, &sop_instance_uid);
+    put_str(&mut obj, tags::SYNTHETIC_DATA, VR::CS, "YES");
+
+    put_str(
+        &mut obj,
+        tags::PATIENT_NAME,
+        VR::PN,
+        "DTS^Synthetic^Patient001",
+    );
+    put_str(&mut obj, tags::PATIENT_ID, VR::LO, "DTS-PATIENT-001");
+    put_str(&mut obj, tags::PATIENT_BIRTH_DATE, VR::DA, "19700101");
+    put_str(&mut obj, tags::PATIENT_SEX, VR::CS, "O");
+
+    put_str(
+        &mut obj,
+        tags::STUDY_INSTANCE_UID,
+        VR::UI,
+        &study_instance_uid,
+    );
+    put_str(&mut obj, tags::STUDY_DATE, VR::DA, "20260101");
+    put_str(&mut obj, tags::STUDY_TIME, VR::TM, "000000");
+    put_str(&mut obj, tags::REFERRING_PHYSICIAN_NAME, VR::PN, "");
+    put_str(&mut obj, tags::STUDY_ID, VR::SH, "DTS-EMR");
+    put_str(&mut obj, tags::ACCESSION_NUMBER, VR::SH, "");
+
+    put_str(&mut obj, tags::MODALITY, VR::CS, "MR");
+    put_str(
+        &mut obj,
+        tags::SERIES_INSTANCE_UID,
+        VR::UI,
+        &series_instance_uid,
+    );
+    put_str(&mut obj, tags::SERIES_NUMBER, VR::IS, "1");
+    put_str(
+        &mut obj,
+        tags::FRAME_OF_REFERENCE_UID,
+        VR::UI,
+        &frame_of_reference_uid,
+    );
+    put_str(&mut obj, tags::POSITION_REFERENCE_INDICATOR, VR::LO, "");
+
+    put_str(&mut obj, tags::MANUFACTURER, VR::LO, "dicom-test-suite");
+    put_str(
+        &mut obj,
+        tags::MANUFACTURER_MODEL_NAME,
+        VR::LO,
+        recipe.recipe_id,
+    );
+    put_str(&mut obj, tags::DEVICE_SERIAL_NUMBER, VR::LO, "DTS-EMR-0001");
+    put_str(
+        &mut obj,
+        tags::SOFTWARE_VERSIONS,
+        VR::LO,
+        crate::PACKAGE_VERSION,
+    );
+
+    put_str(&mut obj, tags::IMAGE_TYPE, VR::CS, recipe.frame_type);
+    put_str(&mut obj, tags::INSTANCE_NUMBER, VR::IS, "1");
+    put_str(&mut obj, tags::CONTENT_DATE, VR::DA, "20260101");
+    put_str(&mut obj, tags::CONTENT_TIME, VR::TM, "000000");
+    put_empty_sequence(&mut obj, tags::ACQUISITION_CONTEXT_SEQUENCE);
+    put_str(
+        &mut obj,
+        tags::PIXEL_PRESENTATION,
+        VR::CS,
+        recipe.pixel_presentation,
+    );
+    put_str(
+        &mut obj,
+        tags::VOLUMETRIC_PROPERTIES,
+        VR::CS,
+        recipe.volumetric_properties,
+    );
+    put_str(
+        &mut obj,
+        tags::VOLUME_BASED_CALCULATION_TECHNIQUE,
+        VR::CS,
+        recipe.volume_based_calculation_technique,
+    );
+
+    put_u16(&mut obj, tags::SAMPLES_PER_PIXEL, VR::US, 1);
+    put_str(
+        &mut obj,
+        tags::PHOTOMETRIC_INTERPRETATION,
+        VR::CS,
+        "MONOCHROME2",
+    );
+    put_u16(&mut obj, tags::ROWS, VR::US, recipe.rows);
+    put_u16(&mut obj, tags::COLUMNS, VR::US, recipe.columns);
+    put_u16(&mut obj, tags::BITS_ALLOCATED, VR::US, 16);
+    put_u16(&mut obj, tags::BITS_STORED, VR::US, 16);
+    put_u16(&mut obj, tags::HIGH_BIT, VR::US, 15);
+    put_u16(&mut obj, tags::PIXEL_REPRESENTATION, VR::US, 0);
+    put_str(
+        &mut obj,
+        tags::NUMBER_OF_FRAMES,
+        VR::IS,
+        &recipe.frames.to_string(),
+    );
+
+    put_enhanced_mr_dimension_sequences(&mut obj, &dimension_organization_uid);
+    put_enhanced_mr_functional_groups(&mut obj, recipe);
+
+    obj.put(DataElement::new(
+        tags::PIXEL_DATA,
+        VR::OW,
+        PrimitiveValue::from(recipe.pixel_bytes),
+    ));
+
+    let file_obj = obj
+        .with_meta(
+            FileMetaTableBuilder::new()
+                .transfer_syntax(uids::EXPLICIT_VR_LITTLE_ENDIAN)
+                .implementation_class_uid(&implementation_class_uid)
+                .implementation_version_name("DICOMTS010"),
+        )
+        .map_err(|err| GenerateError::WriteDicomFile {
+            path: path.clone(),
+            message: err.to_string(),
+        })?;
+
+    file_obj
+        .write_to_file(&path)
+        .map_err(|err| GenerateError::WriteDicomFile {
+            path: path.clone(),
+            message: err.to_string(),
+        })?;
+
+    let validated = validate_part10_file(
+        &path,
+        &Part10Expectations {
+            sop_class_uid: uids::ENHANCED_MR_IMAGE_STORAGE,
+            sop_instance_uid: &sop_instance_uid,
+            transfer_syntax_uid: uids::EXPLICIT_VR_LITTLE_ENDIAN,
+            implementation_class_uid: &implementation_class_uid,
+            synthetic_data: "YES",
+            rows: recipe.rows,
+            columns: recipe.columns,
+            frames: recipe.frames,
+            samples_per_pixel: 1,
+            photometric_interpretation: "MONOCHROME2",
+            bits_allocated: 16,
+            bits_stored: 16,
+            high_bit: 15,
+            pixel_representation: 0,
+            planar_configuration: None,
+            pixel_data_vr: VR::OW,
+            pixel_data_length_formula: PixelDataLengthFormula::ContiguousSamples,
+            palette: None,
+            padding: None,
+            ct_image: None,
+            enhanced_ct_image: None,
+            enhanced_mr_image: Some(EnhancedMrImageExpectations {
+                modality: "MR",
+                frame_of_reference_uid: &frame_of_reference_uid,
+                image_type: recipe.frame_type,
+                number_of_frames: recipe.frames,
+                shared_functional_groups: 1,
+                per_frame_functional_groups: recipe.frames as usize,
+                dimension_organization_uid: &dimension_organization_uid,
+                dimension_index_count: 1,
+                pixel_spacing: recipe.pixel_spacing,
+                image_orientation_patient: recipe.image_orientation_patient,
+                image_position_patient: recipe.image_position_patient,
+                frame_type: recipe.frame_type,
+                pixel_presentation: recipe.pixel_presentation,
+                volumetric_properties: recipe.volumetric_properties,
+                volume_based_calculation_technique: recipe.volume_based_calculation_technique,
+                rescale_intercept: recipe.rescale_intercept,
+                rescale_slope: recipe.rescale_slope,
+                rescale_type: recipe.rescale_type,
+                repetition_time: recipe.repetition_time,
+                flip_angle: recipe.flip_angle,
+                echo_train_length: recipe.echo_train_length,
+                rf_echo_train_length: recipe.rf_echo_train_length,
+                gradient_echo_train_length: recipe.gradient_echo_train_length,
+                effective_echo_times: recipe.effective_echo_times,
+            }),
+            mg_image: None,
+            dx_image: None,
+            us_image: None,
+            cr_image: None,
+            mr_image: None,
+        },
+    )?;
+
+    Ok(GeneratedFile {
+        case_id: recipe.case_id.to_string(),
+        manifest_entry: enhanced_mr_manifest_entry(
+            case,
+            recipe,
+            &relative_path,
+            &study_instance_uid,
+            &series_instance_uid,
+            &sop_instance_uid,
+            &frame_of_reference_uid,
+            &dimension_organization_uid,
+            &implementation_class_uid,
+            &validated.bytes,
+            validated.validation,
+        ),
+    })
+}
+
+fn put_enhanced_mr_dimension_sequences(
+    obj: &mut InMemDicomObject,
+    dimension_organization_uid: &str,
+) {
+    obj.put(DataElement::new(
+        tags::DIMENSION_ORGANIZATION_SEQUENCE,
+        VR::SQ,
+        DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+            DataElement::new(
+                tags::DIMENSION_ORGANIZATION_UID,
+                VR::UI,
+                dimension_organization_uid,
+            ),
+        ])]),
+    ));
+    obj.put(DataElement::new(
+        tags::DIMENSION_INDEX_SEQUENCE,
+        VR::SQ,
+        DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+            DataElement::new(
+                tags::DIMENSION_INDEX_POINTER,
+                VR::AT,
+                PrimitiveValue::Tags(vec![tags::EFFECTIVE_ECHO_TIME].into()),
+            ),
+            DataElement::new(
+                tags::FUNCTIONAL_GROUP_POINTER,
+                VR::AT,
+                PrimitiveValue::Tags(vec![tags::MR_ECHO_SEQUENCE].into()),
+            ),
+            DataElement::new(
+                tags::DIMENSION_ORGANIZATION_UID,
+                VR::UI,
+                dimension_organization_uid,
+            ),
+            DataElement::new(
+                tags::DIMENSION_DESCRIPTION_LABEL,
+                VR::LO,
+                "EffectiveEchoTime",
+            ),
+        ])]),
+    ));
+}
+
+fn put_enhanced_mr_functional_groups(obj: &mut InMemDicomObject, recipe: EnhancedMrRecipe) {
+    obj.put(DataElement::new(
+        tags::SHARED_FUNCTIONAL_GROUPS_SEQUENCE,
+        VR::SQ,
+        DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+            DataElement::new(
+                tags::PIXEL_MEASURES_SEQUENCE,
+                VR::SQ,
+                DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+                    DataElement::new(tags::PIXEL_SPACING, VR::DS, recipe.pixel_spacing),
+                    DataElement::new(tags::SLICE_THICKNESS, VR::DS, recipe.slice_thickness),
+                    DataElement::new(
+                        tags::SPACING_BETWEEN_SLICES,
+                        VR::DS,
+                        recipe.spacing_between_slices,
+                    ),
+                ])]),
+            ),
+            DataElement::new(
+                tags::PLANE_ORIENTATION_SEQUENCE,
+                VR::SQ,
+                DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+                    DataElement::new(
+                        tags::IMAGE_ORIENTATION_PATIENT,
+                        VR::DS,
+                        recipe.image_orientation_patient,
+                    ),
+                ])]),
+            ),
+            DataElement::new(
+                tags::FRAME_ANATOMY_SEQUENCE,
+                VR::SQ,
+                DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+                    DataElement::new(tags::FRAME_LATERALITY, VR::CS, "U"),
+                    DataElement::new(
+                        tags::ANATOMIC_REGION_SEQUENCE,
+                        VR::SQ,
+                        DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+                            DataElement::new(tags::CODE_VALUE, VR::SH, "T-D1100"),
+                            DataElement::new(tags::CODING_SCHEME_DESIGNATOR, VR::SH, "SRT"),
+                            DataElement::new(tags::CODE_MEANING, VR::LO, "Head"),
+                        ])]),
+                    ),
+                ])]),
+            ),
+            DataElement::new(
+                tags::MR_IMAGE_FRAME_TYPE_SEQUENCE,
+                VR::SQ,
+                DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+                    DataElement::new(tags::FRAME_TYPE, VR::CS, recipe.frame_type),
+                    DataElement::new(tags::PIXEL_PRESENTATION, VR::CS, recipe.pixel_presentation),
+                    DataElement::new(
+                        tags::VOLUMETRIC_PROPERTIES,
+                        VR::CS,
+                        recipe.volumetric_properties,
+                    ),
+                    DataElement::new(
+                        tags::VOLUME_BASED_CALCULATION_TECHNIQUE,
+                        VR::CS,
+                        recipe.volume_based_calculation_technique,
+                    ),
+                ])]),
+            ),
+            DataElement::new(
+                tags::PIXEL_VALUE_TRANSFORMATION_SEQUENCE,
+                VR::SQ,
+                DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+                    DataElement::new(tags::RESCALE_INTERCEPT, VR::DS, recipe.rescale_intercept),
+                    DataElement::new(tags::RESCALE_SLOPE, VR::DS, recipe.rescale_slope),
+                    DataElement::new(tags::RESCALE_TYPE, VR::LO, recipe.rescale_type),
+                ])]),
+            ),
+            DataElement::new(
+                tags::MR_TIMING_AND_RELATED_PARAMETERS_SEQUENCE,
+                VR::SQ,
+                DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+                    DataElement::new(tags::REPETITION_TIME, VR::DS, recipe.repetition_time),
+                    DataElement::new(tags::FLIP_ANGLE, VR::DS, recipe.flip_angle),
+                    DataElement::new(tags::ECHO_TRAIN_LENGTH, VR::IS, recipe.echo_train_length),
+                    DataElement::new(
+                        tags::RF_ECHO_TRAIN_LENGTH,
+                        VR::US,
+                        PrimitiveValue::from(recipe.rf_echo_train_length),
+                    ),
+                    DataElement::new(
+                        tags::GRADIENT_ECHO_TRAIN_LENGTH,
+                        VR::US,
+                        PrimitiveValue::from(recipe.gradient_echo_train_length),
+                    ),
+                ])]),
+            ),
+        ])]),
+    ));
+
+    let per_frame_items = recipe
+        .image_position_patient
+        .iter()
+        .zip(recipe.effective_echo_times.iter())
+        .enumerate()
+        .map(|(index, (image_position_patient, effective_echo_time))| {
+            InMemDicomObject::from_element_iter([
+                DataElement::new(
+                    tags::FRAME_CONTENT_SEQUENCE,
+                    VR::SQ,
+                    DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+                        DataElement::new(
+                            tags::DIMENSION_INDEX_VALUES,
+                            VR::UL,
+                            PrimitiveValue::from((index + 1) as u32),
+                        ),
+                        DataElement::new(
+                            tags::FRAME_ACQUISITION_NUMBER,
+                            VR::US,
+                            PrimitiveValue::from((index + 1) as u16),
+                        ),
+                    ])]),
+                ),
+                DataElement::new(
+                    tags::PLANE_POSITION_SEQUENCE,
+                    VR::SQ,
+                    DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+                        DataElement::new(
+                            tags::IMAGE_POSITION_PATIENT,
+                            VR::DS,
+                            *image_position_patient,
+                        ),
+                    ])]),
+                ),
+                DataElement::new(
+                    tags::MR_ECHO_SEQUENCE,
+                    VR::SQ,
+                    DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+                        DataElement::new(
+                            tags::EFFECTIVE_ECHO_TIME,
+                            VR::FD,
+                            PrimitiveValue::from(*effective_echo_time),
+                        ),
+                    ])]),
+                ),
+            ])
+        })
+        .collect::<Vec<_>>();
+    obj.put(DataElement::new(
+        tags::PER_FRAME_FUNCTIONAL_GROUPS_SEQUENCE,
+        VR::SQ,
+        DataSetSequence::from(per_frame_items),
+    ));
+}
+
+#[allow(clippy::too_many_arguments)]
+fn enhanced_mr_manifest_entry(
+    case: &Value,
+    recipe: EnhancedMrRecipe,
+    relative_path: &str,
+    study_instance_uid: &str,
+    series_instance_uid: &str,
+    sop_instance_uid: &str,
+    frame_of_reference_uid: &str,
+    dimension_organization_uid: &str,
+    implementation_class_uid: &str,
+    bytes: &[u8],
+    validation: Value,
+) -> Value {
+    let standards_evidence = case
+        .get("standards_evidence")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    serde_json::json!({
+        "case_id": recipe.case_id,
+        "profile_membership": ["extended"],
+        "path": relative_path,
+        "sha256": sha256_hex(bytes),
+        "size_bytes": bytes.len(),
+        "determinism": "byte_stable",
+        "recipe": {
+            "recipe_id": recipe.recipe_id,
+            "recipe_version": ENHANCED_MR_RECIPE_VERSION,
+            "recipe_parameters": {
+                "rows": recipe.rows,
+                "columns": recipe.columns,
+                "frames": recipe.frames,
+                "samples_per_pixel": 1,
+                "photometric_interpretation": "MONOCHROME2",
+                "bits_allocated": 16,
+                "bits_stored": 16,
+                "high_bit": 15,
+                "pixel_representation": 0,
+                "pixel_values": recipe.pixel_values,
+                "frame_type": recipe.frame_type,
+                "dimension_index": {
+                    "dimension_organization_uid": dimension_organization_uid,
+                    "dimension_index_pointer": "EffectiveEchoTime",
+                    "functional_group_pointer": "MREchoSequence"
+                },
+                "shared_functional_groups": {
+                    "pixel_measures": {
+                        "pixel_spacing": recipe.pixel_spacing,
+                        "slice_thickness": recipe.slice_thickness,
+                        "spacing_between_slices": recipe.spacing_between_slices
+                    },
+                    "plane_orientation_patient": recipe.image_orientation_patient,
+                    "frame_anatomy": {
+                        "frame_laterality": "U",
+                        "anatomic_region_code_value": "T-D1100"
+                    },
+                    "mr_timing": {
+                        "repetition_time": recipe.repetition_time,
+                        "flip_angle": recipe.flip_angle,
+                        "echo_train_length": recipe.echo_train_length,
+                        "rf_echo_train_length": recipe.rf_echo_train_length,
+                        "gradient_echo_train_length": recipe.gradient_echo_train_length
+                    },
+                    "pixel_value_transformation": {
+                        "intercept": recipe.rescale_intercept,
+                        "slope": recipe.rescale_slope,
+                        "type": recipe.rescale_type
+                    }
+                },
+                "per_frame_functional_groups": {
+                    "image_position_patient": recipe.image_position_patient,
+                    "effective_echo_time": recipe.effective_echo_times
+                }
+            }
+        },
+        "dicom": {
+            "sop_class_uid": uids::ENHANCED_MR_IMAGE_STORAGE,
+            "sop_class_name": "Enhanced MR Image Storage",
+            "iod_name": "Enhanced MR Image",
+            "modality": "MR",
+            "transfer_syntax_uid": uids::EXPLICIT_VR_LITTLE_ENDIAN,
+            "transfer_syntax_name": "Explicit VR Little Endian"
+        },
+        "uids": {
+            "study_instance_uid": study_instance_uid,
+            "series_instance_uid": series_instance_uid,
+            "sop_instance_uid": sop_instance_uid,
+            "frame_of_reference_uid": frame_of_reference_uid,
+            "dimension_organization_uid": dimension_organization_uid,
+            "implementation_class_uid": implementation_class_uid
+        },
+        "image": {
+            "rows": recipe.rows,
+            "columns": recipe.columns,
+            "frames": recipe.frames,
+            "samples_per_pixel": 1,
+            "photometric_interpretation": "MONOCHROME2",
+            "bits_allocated": 16,
+            "bits_stored": 16,
+            "high_bit": 15,
+            "pixel_representation": 0,
+            "planar_configuration": Value::Null
+        },
+        "pixel_data": {
+            "vr": "OW",
+            "native_or_encapsulated": "native",
+            "value_length": recipe.pixel_bytes.len(),
+            "frame_count": recipe.frames,
+            "frame_hashes": [
+                sha256_hex(&recipe.pixel_bytes[0..8]),
+                sha256_hex(&recipe.pixel_bytes[8..16])
+            ]
+        },
+        "expected_capabilities": ["open_file", "read_metadata", "render_native_pixels", "parse_multiframe_functional_groups"],
+        "expected_semantics": {
+            "synthetic_data": "YES",
+            "pixel_min": recipe.pixel_min,
+            "pixel_max": recipe.pixel_max,
+            "shared_functional_groups_sequence_items": 1,
+            "per_frame_functional_groups_sequence_items": recipe.frames,
+            "dimension_index_values": [1, 2],
+            "effective_echo_time": recipe.effective_echo_times
+        },
+        "expected_visual_checks": {
+            "pattern": "two_frame_enhanced_mr_echo_gradient_stack"
+        },
+        "validation": validation,
+        "known_stressors": ["enhanced_mr_image_storage", "native_multiframe_pixel_data", "shared_functional_groups_sequence", "per_frame_functional_groups_sequence", "per_frame_mr_echo", "multi_frame_dimension"],
+        "standards_evidence": standards_evidence
+    })
+}
+
 fn write_classic_mg_case(
     run: &PreparedGenerationRun,
     case: &Value,
@@ -2576,6 +3248,7 @@ fn write_classic_mg_case(
             padding: None,
             ct_image: None,
             enhanced_ct_image: None,
+            enhanced_mr_image: None,
             mg_image: Some(MgImageExpectations {
                 modality: "MG",
                 presentation_intent_type: recipe.presentation_intent_type,
@@ -3122,6 +3795,7 @@ fn write_classic_dx_case(
             padding: None,
             ct_image: None,
             enhanced_ct_image: None,
+            enhanced_mr_image: None,
             mg_image: None,
             dx_image: Some(DxImageExpectations {
                 modality: "DX",
@@ -3547,6 +4221,7 @@ fn write_classic_us_case(
             padding: None,
             ct_image: None,
             enhanced_ct_image: None,
+            enhanced_mr_image: None,
             mg_image: None,
             dx_image: None,
             us_image: Some(UsImageExpectations {
@@ -3941,6 +4616,7 @@ fn write_classic_cr_case(
             padding: None,
             ct_image: None,
             enhanced_ct_image: None,
+            enhanced_mr_image: None,
             mg_image: None,
             dx_image: None,
             us_image: None,
@@ -4381,6 +5057,7 @@ fn write_classic_mr_case(
                 padding: None,
                 ct_image: None,
                 enhanced_ct_image: None,
+                enhanced_mr_image: None,
                 mg_image: None,
                 dx_image: None,
                 us_image: None,
@@ -4675,6 +5352,24 @@ fn deterministic_enhanced_ct_uid(
         standards_lock_sha256,
         case_id: recipe.case_id,
         recipe_version: ENHANCED_CT_RECIPE_VERSION,
+        run_seed,
+        file_index: 0,
+        frame_index: None,
+        referenced_object_index: None,
+        role,
+    })
+}
+
+fn deterministic_enhanced_mr_uid(
+    standards_lock_sha256: &str,
+    recipe: EnhancedMrRecipe,
+    run_seed: u64,
+    role: UidRole,
+) -> String {
+    deterministic_uid(&DeterministicUidInput {
+        standards_lock_sha256,
+        case_id: recipe.case_id,
+        recipe_version: ENHANCED_MR_RECIPE_VERSION,
         run_seed,
         file_index: 0,
         frame_index: None,

@@ -81,6 +81,10 @@ fn registry_contains_initial_smoke_and_core_cases() {
             "enhanced/ct/multiframe_shared_perframe_explicit_le",
             "implemented",
         ),
+        (
+            "enhanced/mr/multiframe_echo_perframe_explicit_le",
+            "implemented",
+        ),
         ("vl/photo/rgb_planar0_explicit_le", "planned"),
         ("vl/photo/palette_color_explicit_le", "planned"),
     ] {

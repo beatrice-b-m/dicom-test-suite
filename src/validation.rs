@@ -34,6 +34,7 @@ pub(crate) struct Part10Expectations<'a> {
     pub padding: Option<PixelPaddingExpectations>,
     pub ct_image: Option<CtImageExpectations<'a>>,
     pub enhanced_ct_image: Option<EnhancedCtImageExpectations<'a>>,
+    pub enhanced_mr_image: Option<EnhancedMrImageExpectations<'a>>,
     pub mg_image: Option<MgImageExpectations<'a>>,
     pub dx_image: Option<DxImageExpectations<'a>>,
     pub us_image: Option<UsImageExpectations<'a>>,
@@ -100,6 +101,34 @@ pub(crate) struct EnhancedCtImageExpectations<'a> {
     pub rescale_slope: &'a str,
     pub rescale_type: &'a str,
     pub irradiation_event_uid: &'a str,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct EnhancedMrImageExpectations<'a> {
+    pub modality: &'a str,
+    pub frame_of_reference_uid: &'a str,
+    pub image_type: &'a str,
+    pub number_of_frames: u16,
+    pub shared_functional_groups: usize,
+    pub per_frame_functional_groups: usize,
+    pub dimension_organization_uid: &'a str,
+    pub dimension_index_count: usize,
+    pub pixel_spacing: &'a str,
+    pub image_orientation_patient: &'a str,
+    pub image_position_patient: &'a [&'a str],
+    pub frame_type: &'a str,
+    pub pixel_presentation: &'a str,
+    pub volumetric_properties: &'a str,
+    pub volume_based_calculation_technique: &'a str,
+    pub rescale_intercept: &'a str,
+    pub rescale_slope: &'a str,
+    pub rescale_type: &'a str,
+    pub repetition_time: &'a str,
+    pub flip_angle: &'a str,
+    pub echo_train_length: &'a str,
+    pub rf_echo_train_length: u16,
+    pub gradient_echo_train_length: u16,
+    pub effective_echo_times: &'a [f64],
 }
 
 #[derive(Debug, Clone)]
@@ -462,6 +491,9 @@ pub(crate) fn validate_part10_file(
     }
     if let Some(enhanced_ct_image) = &expected.enhanced_ct_image {
         validate_enhanced_ct_image(path, &obj, &mut internal, enhanced_ct_image)?;
+    }
+    if let Some(enhanced_mr_image) = &expected.enhanced_mr_image {
+        validate_enhanced_mr_image(path, &obj, &mut internal, enhanced_mr_image)?;
     }
     if let Some(mg_image) = &expected.mg_image {
         validate_mg_image(path, &obj, &mut internal, mg_image)?;
@@ -1046,6 +1078,331 @@ fn validate_enhanced_ct_image(
         check_equal(
             results,
             "enhanced_ct_dimension_index_values",
+            "Per-frame Dimension Index Values are one-based and monotonic.",
+            "Per-frame Dimension Index Values do not match the recipe.",
+            nested_sequence_item_u32(
+                path,
+                frame,
+                tags::FRAME_CONTENT_SEQUENCE,
+                0,
+                tags::DIMENSION_INDEX_VALUES,
+            )?,
+            (index + 1) as u32,
+        );
+    }
+
+    Ok(())
+}
+
+fn validate_enhanced_mr_image(
+    path: &Path,
+    obj: &OpenedObject,
+    results: &mut Vec<Value>,
+    expected: &EnhancedMrImageExpectations<'_>,
+) -> Result<(), GenerateError> {
+    for (name, tag, expected_value) in [
+        ("enhanced_mr_modality", tags::MODALITY, expected.modality),
+        (
+            "enhanced_mr_frame_of_reference_uid",
+            tags::FRAME_OF_REFERENCE_UID,
+            expected.frame_of_reference_uid,
+        ),
+        (
+            "enhanced_mr_image_type",
+            tags::IMAGE_TYPE,
+            expected.image_type,
+        ),
+        (
+            "enhanced_mr_pixel_presentation",
+            tags::PIXEL_PRESENTATION,
+            expected.pixel_presentation,
+        ),
+        (
+            "enhanced_mr_volumetric_properties",
+            tags::VOLUMETRIC_PROPERTIES,
+            expected.volumetric_properties,
+        ),
+        (
+            "enhanced_mr_volume_based_calculation_technique",
+            tags::VOLUME_BASED_CALCULATION_TECHNIQUE,
+            expected.volume_based_calculation_technique,
+        ),
+    ] {
+        check_equal(
+            results,
+            name,
+            "Enhanced MR top-level attribute matches the recipe.",
+            "Enhanced MR top-level attribute does not match the recipe.",
+            element_str(path, obj, tag)?.as_str(),
+            expected_value,
+        );
+    }
+
+    let expected_number_of_frames = expected.number_of_frames.to_string();
+    check_equal(
+        results,
+        "enhanced_mr_number_of_frames",
+        "Number of Frames matches the recipe.",
+        "Number of Frames does not match the recipe.",
+        element_str(path, obj, tags::NUMBER_OF_FRAMES)?.as_str(),
+        expected_number_of_frames.as_str(),
+    );
+    check_equal(
+        results,
+        "enhanced_mr_shared_functional_groups_sequence_items",
+        "Shared Functional Groups Sequence has one item.",
+        "Shared Functional Groups Sequence item count does not match the recipe.",
+        sequence_item_count(path, obj, tags::SHARED_FUNCTIONAL_GROUPS_SEQUENCE)?,
+        expected.shared_functional_groups,
+    );
+    check_equal(
+        results,
+        "enhanced_mr_per_frame_functional_groups_sequence_items",
+        "Per-Frame Functional Groups Sequence has one item per frame.",
+        "Per-Frame Functional Groups Sequence item count does not match Number of Frames.",
+        sequence_item_count(path, obj, tags::PER_FRAME_FUNCTIONAL_GROUPS_SEQUENCE)?,
+        expected.per_frame_functional_groups,
+    );
+    check_equal(
+        results,
+        "enhanced_mr_dimension_organization_sequence_items",
+        "Dimension Organization Sequence has one item.",
+        "Dimension Organization Sequence item count does not match the recipe.",
+        sequence_item_count(path, obj, tags::DIMENSION_ORGANIZATION_SEQUENCE)?,
+        1,
+    );
+    check_equal(
+        results,
+        "enhanced_mr_dimension_index_sequence_items",
+        "Dimension Index Sequence item count matches the recipe.",
+        "Dimension Index Sequence item count does not match the recipe.",
+        sequence_item_count(path, obj, tags::DIMENSION_INDEX_SEQUENCE)?,
+        expected.dimension_index_count,
+    );
+    check_equal(
+        results,
+        "enhanced_mr_dimension_organization_uid",
+        "Dimension Organization UID matches between the recipe and Dimension Organization Sequence.",
+        "Dimension Organization UID does not match the recipe.",
+        top_level_sequence_item_str(
+            path,
+            obj,
+            tags::DIMENSION_ORGANIZATION_SEQUENCE,
+            0,
+            tags::DIMENSION_ORGANIZATION_UID,
+        )?
+        .as_str(),
+        expected.dimension_organization_uid,
+    );
+
+    let shared = top_level_sequence_item(path, obj, tags::SHARED_FUNCTIONAL_GROUPS_SEQUENCE, 0)?;
+    check_equal(
+        results,
+        "enhanced_mr_pixel_measures_sequence_items",
+        "Pixel Measures Sequence has one shared item.",
+        "Pixel Measures Sequence item count does not match the recipe.",
+        item_sequence_item_count(path, shared, tags::PIXEL_MEASURES_SEQUENCE)?,
+        1,
+    );
+    check_equal(
+        results,
+        "enhanced_mr_pixel_spacing",
+        "Shared Pixel Measures Pixel Spacing matches the recipe.",
+        "Shared Pixel Measures Pixel Spacing does not match the recipe.",
+        nested_sequence_item_str(
+            path,
+            shared,
+            tags::PIXEL_MEASURES_SEQUENCE,
+            0,
+            tags::PIXEL_SPACING,
+        )?
+        .as_str(),
+        expected.pixel_spacing,
+    );
+    check_equal(
+        results,
+        "enhanced_mr_image_orientation_patient",
+        "Shared Plane Orientation Image Orientation Patient matches the recipe.",
+        "Shared Plane Orientation Image Orientation Patient does not match the recipe.",
+        nested_sequence_item_str(
+            path,
+            shared,
+            tags::PLANE_ORIENTATION_SEQUENCE,
+            0,
+            tags::IMAGE_ORIENTATION_PATIENT,
+        )?
+        .as_str(),
+        expected.image_orientation_patient,
+    );
+    check_equal(
+        results,
+        "enhanced_mr_frame_type",
+        "Shared MR Image Frame Type matches the recipe.",
+        "Shared MR Image Frame Type does not match the recipe.",
+        nested_sequence_item_str(
+            path,
+            shared,
+            tags::MR_IMAGE_FRAME_TYPE_SEQUENCE,
+            0,
+            tags::FRAME_TYPE,
+        )?
+        .as_str(),
+        expected.frame_type,
+    );
+    check_equal(
+        results,
+        "enhanced_mr_rescale_intercept",
+        "Shared Pixel Value Transformation rescale intercept matches the recipe.",
+        "Shared Pixel Value Transformation rescale intercept does not match the recipe.",
+        nested_sequence_item_str(
+            path,
+            shared,
+            tags::PIXEL_VALUE_TRANSFORMATION_SEQUENCE,
+            0,
+            tags::RESCALE_INTERCEPT,
+        )?
+        .as_str(),
+        expected.rescale_intercept,
+    );
+    check_equal(
+        results,
+        "enhanced_mr_rescale_slope",
+        "Shared Pixel Value Transformation rescale slope matches the recipe.",
+        "Shared Pixel Value Transformation rescale slope does not match the recipe.",
+        nested_sequence_item_str(
+            path,
+            shared,
+            tags::PIXEL_VALUE_TRANSFORMATION_SEQUENCE,
+            0,
+            tags::RESCALE_SLOPE,
+        )?
+        .as_str(),
+        expected.rescale_slope,
+    );
+    check_equal(
+        results,
+        "enhanced_mr_rescale_type",
+        "Shared Pixel Value Transformation rescale type matches the recipe.",
+        "Shared Pixel Value Transformation rescale type does not match the recipe.",
+        nested_sequence_item_str(
+            path,
+            shared,
+            tags::PIXEL_VALUE_TRANSFORMATION_SEQUENCE,
+            0,
+            tags::RESCALE_TYPE,
+        )?
+        .as_str(),
+        expected.rescale_type,
+    );
+    check_equal(
+        results,
+        "enhanced_mr_repetition_time",
+        "Shared MR Timing Repetition Time matches the recipe.",
+        "Shared MR Timing Repetition Time does not match the recipe.",
+        nested_sequence_item_str(
+            path,
+            shared,
+            tags::MR_TIMING_AND_RELATED_PARAMETERS_SEQUENCE,
+            0,
+            tags::REPETITION_TIME,
+        )?
+        .as_str(),
+        expected.repetition_time,
+    );
+    check_equal(
+        results,
+        "enhanced_mr_flip_angle",
+        "Shared MR Timing Flip Angle matches the recipe.",
+        "Shared MR Timing Flip Angle does not match the recipe.",
+        nested_sequence_item_str(
+            path,
+            shared,
+            tags::MR_TIMING_AND_RELATED_PARAMETERS_SEQUENCE,
+            0,
+            tags::FLIP_ANGLE,
+        )?
+        .as_str(),
+        expected.flip_angle,
+    );
+    check_equal(
+        results,
+        "enhanced_mr_echo_train_length",
+        "Shared MR Timing Echo Train Length matches the recipe.",
+        "Shared MR Timing Echo Train Length does not match the recipe.",
+        nested_sequence_item_str(
+            path,
+            shared,
+            tags::MR_TIMING_AND_RELATED_PARAMETERS_SEQUENCE,
+            0,
+            tags::ECHO_TRAIN_LENGTH,
+        )?
+        .as_str(),
+        expected.echo_train_length,
+    );
+    check_equal(
+        results,
+        "enhanced_mr_rf_echo_train_length",
+        "Shared MR Timing RF Echo Train Length matches the recipe.",
+        "Shared MR Timing RF Echo Train Length does not match the recipe.",
+        nested_sequence_item_u16(
+            path,
+            shared,
+            tags::MR_TIMING_AND_RELATED_PARAMETERS_SEQUENCE,
+            0,
+            tags::RF_ECHO_TRAIN_LENGTH,
+        )?,
+        expected.rf_echo_train_length,
+    );
+    check_equal(
+        results,
+        "enhanced_mr_gradient_echo_train_length",
+        "Shared MR Timing Gradient Echo Train Length matches the recipe.",
+        "Shared MR Timing Gradient Echo Train Length does not match the recipe.",
+        nested_sequence_item_u16(
+            path,
+            shared,
+            tags::MR_TIMING_AND_RELATED_PARAMETERS_SEQUENCE,
+            0,
+            tags::GRADIENT_ECHO_TRAIN_LENGTH,
+        )?,
+        expected.gradient_echo_train_length,
+    );
+
+    for (index, expected_position) in expected.image_position_patient.iter().enumerate() {
+        let frame =
+            top_level_sequence_item(path, obj, tags::PER_FRAME_FUNCTIONAL_GROUPS_SEQUENCE, index)?;
+        check_equal(
+            results,
+            "enhanced_mr_per_frame_image_position_patient",
+            "Per-frame Plane Position Image Position Patient matches the recipe.",
+            "Per-frame Plane Position Image Position Patient does not match the recipe.",
+            nested_sequence_item_str(
+                path,
+                frame,
+                tags::PLANE_POSITION_SEQUENCE,
+                0,
+                tags::IMAGE_POSITION_PATIENT,
+            )?
+            .as_str(),
+            *expected_position,
+        );
+        check_equal(
+            results,
+            "enhanced_mr_per_frame_effective_echo_time",
+            "Per-frame MR Echo Effective Echo Time matches the recipe.",
+            "Per-frame MR Echo Effective Echo Time does not match the recipe.",
+            nested_sequence_item_f64(
+                path,
+                frame,
+                tags::MR_ECHO_SEQUENCE,
+                0,
+                tags::EFFECTIVE_ECHO_TIME,
+            )?,
+            expected.effective_echo_times[index],
+        );
+        check_equal(
+            results,
+            "enhanced_mr_dimension_index_values",
             "Per-frame Dimension Index Values are one-based and monotonic.",
             "Per-frame Dimension Index Values do not match the recipe.",
             nested_sequence_item_u32(
@@ -1901,6 +2258,36 @@ fn nested_sequence_item_u32(
         .map_err(|err| validation_error(path, err))
 }
 
+fn nested_sequence_item_u16(
+    path: &Path,
+    obj: &DatasetObject,
+    sequence_tag: Tag,
+    index: usize,
+    tag: Tag,
+) -> Result<u16, GenerateError> {
+    let item = item_sequence_item(path, obj, sequence_tag, index)?;
+    item.element(tag)
+        .map_err(|err| validation_error(path, err))?
+        .value()
+        .to_int::<u16>()
+        .map_err(|err| validation_error(path, err))
+}
+
+fn nested_sequence_item_f64(
+    path: &Path,
+    obj: &DatasetObject,
+    sequence_tag: Tag,
+    index: usize,
+    tag: Tag,
+) -> Result<f64, GenerateError> {
+    let item = item_sequence_item(path, obj, sequence_tag, index)?;
+    item.element(tag)
+        .map_err(|err| validation_error(path, err))?
+        .value()
+        .to_float64()
+        .map_err(|err| validation_error(path, err))
+}
+
 fn item_str(path: &Path, obj: &DatasetObject, tag: Tag) -> Result<String, GenerateError> {
     let value = obj
         .element(tag)
@@ -1931,6 +2318,7 @@ fn standard_sop_class_validation_name(sop_class_uid: &str) -> &'static str {
         uids::ENHANCED_CT_IMAGE_STORAGE => "enhanced_ct_image_sop_class",
         uids::COMPUTED_RADIOGRAPHY_IMAGE_STORAGE => "computed_radiography_image_sop_class",
         uids::MR_IMAGE_STORAGE => "mr_image_sop_class",
+        uids::ENHANCED_MR_IMAGE_STORAGE => "enhanced_mr_image_sop_class",
         uids::DIGITAL_X_RAY_IMAGE_STORAGE_FOR_PRESENTATION => {
             "digital_x_ray_for_presentation_sop_class"
         }
@@ -1958,6 +2346,9 @@ fn standard_sop_class_validation_message(sop_class_uid: &str) -> &'static str {
             "SOP Class UID matches Computed Radiography Image Storage in the 2026b reference."
         }
         uids::MR_IMAGE_STORAGE => "SOP Class UID matches MR Image Storage in the 2026b reference.",
+        uids::ENHANCED_MR_IMAGE_STORAGE => {
+            "SOP Class UID matches Enhanced MR Image Storage in the 2026b reference."
+        }
         uids::DIGITAL_X_RAY_IMAGE_STORAGE_FOR_PRESENTATION => {
             "SOP Class UID matches Digital X-Ray Image Storage - For Presentation in the 2026b reference."
         }

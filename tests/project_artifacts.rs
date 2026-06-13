@@ -106,6 +106,28 @@ fn transfer_syntax_matrix_records_required_capability_fields() {
     }
 }
 
+#[test]
+fn deterministic_policy_documents_all_determinism_levels() {
+    let policy = fs::read_to_string("docs/deterministic-build-policy.md")
+        .expect("deterministic build policy must be readable");
+
+    for level in ["byte_stable", "semantic_stable", "unstable"] {
+        assert!(
+            policy.contains(&format!("`{level}`")),
+            "deterministic policy must document {level}"
+        );
+    }
+
+    assert!(
+        policy.contains("2.25.<decimal uuid>"),
+        "deterministic policy must document UID derivation format"
+    );
+    assert!(
+        policy.contains("two-run smoke reproducibility check"),
+        "deterministic policy must document the smoke reproducibility check"
+    );
+}
+
 fn read_json(path: &str) -> Value {
     let contents =
         fs::read_to_string(path).unwrap_or_else(|err| panic!("failed to read {path}: {err}"));

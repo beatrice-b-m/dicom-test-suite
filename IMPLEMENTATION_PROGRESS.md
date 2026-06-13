@@ -3,7 +3,7 @@
 **Last updated:** 2026-06-13  
 **Source specification:** `SYSTEM_SPEC.md` version 0.2.0  
 **Current phase:** Phase 0.5 standards and case registry foundation, incomplete  
-**Current implementation status:** Phase 0 repository initialization is complete; standards baseline lock, schemas, taxonomy/profile rules, initial smoke/core registry, and transfer syntax capability matrix are committed
+**Current implementation status:** Phase 0 repository initialization is complete; standards baseline lock, schemas, taxonomy/profile rules, initial smoke/core registry, transfer syntax matrix, and deterministic build policy are committed
 
 This document is the durable hand-off log for coding agents implementing
 `dicom-test-suite`. Keep `SYSTEM_SPEC.md` as the source of product and
@@ -43,6 +43,7 @@ Observed at creation of this progress file:
 | `cases/taxonomy.md` | present | Documents normalized case ID format, path segments, descriptor conventions, profile definitions, and inclusion rules. |
 | `cases/registry.json` | present | Seeds planned smoke/core cases with SOP Class and transfer syntax evidence from `dicom-standard-kb` MCP lookups. |
 | `transfer-syntax/capability-matrix.json` | present | Records initial read/decode/write/encode, feature, external library, and determinism capabilities for baseline native transfer syntaxes. |
+| `docs/deterministic-build-policy.md` | present | Documents determinism levels, reproducibility inputs, UID derivation, metadata controls, hashes, and two-run verification. |
 | `standards/source-notes/` | missing | Needed for standards gaps not covered by `dicom-standard-kb`. |
 | `src/` or `crates/` | present | Minimal `src/lib.rs` and `src/main.rs` exist; generator implementation has not started. |
 | `tests/` | present | Includes schema artifact integration tests; generator behavior tests have not started. |
@@ -73,7 +74,7 @@ Observed at creation of this progress file:
 | Phase | Status | Summary |
 |---|---|---|
 | Phase 0: Repository initialization | complete | Scope docs, generated-artifact protections, Rust skeleton, toolchain, dependency pins, and initial schema placeholders are committed. |
-| Phase 0.5: Standards and case registry foundation | in progress | Standards base edition, schemas, taxonomy/profile rules, initial smoke/core registry, and transfer syntax matrix are in place; KB repository/DB pin, source artifact hashes, deterministic policy, and standards workflow remain. |
+| Phase 0.5: Standards and case registry foundation | in progress | Standards base edition, schemas, taxonomy/profile rules, initial smoke/core registry, transfer syntax matrix, and deterministic policy are in place; KB repository/DB pin, source artifact hashes, and standards workflow remain. |
 | Phase 1: Generator core | not started | CLI, UID generation, manifest writing, Part 10 writing, and file validation pending. |
 | Phase 2: Native pixel matrix | not started | Pixel generators and photometric validators pending. |
 | Phase 3: Classic radiology IODs | not started | CT/MR/CR/US/DX/MG builders pending. |
@@ -114,7 +115,7 @@ and initial schema placeholders.
 - [x] Add explicit profile definitions and inclusion rules.
 - [x] Add initial `cases/registry.json` with planned smoke/core cases.
 - [x] Add transfer syntax capability matrix.
-- [ ] Add deterministic build policy.
+- [x] Add deterministic build policy.
 - [ ] Add `dicom-standard-kb` integration instructions.
 - [ ] Add standards gap/patch workflow documentation.
 
@@ -163,17 +164,17 @@ registry/schema/policy artifacts are still placeholders or missing.
 
 ## Recommended Next Commit
 
-Add the deterministic build policy:
+Add `dicom-standard-kb` integration instructions:
 
-1. Add a committed policy artifact documenting deterministic generation inputs,
-   UID derivation inputs, timestamp rules, hash expectations, feature flags,
-   generated artifact handling, and byte-stable versus semantic-stable
-   verification.
-2. Keep it aligned with `SYSTEM_SPEC.md` sections 4.1 and 13.
-3. Add focused tests that check the policy names required determinism levels.
-4. Update this progress file with policy status and the next recommended
-   Phase 0.5 task.
-5. Commit as `docs(determinism): add build policy`.
+1. Add a committed standards workflow document describing when and how to query
+   the pinned 2026b `dicom-standard-kb` MCP for UIDs, SOP Classes, IODs,
+   modules, attributes, terms, and standard text.
+2. Document the project fallback path for official source artifacts when the KB
+   is not sufficient.
+3. Add focused tests that check the workflow mentions the MCP and 2026b lock.
+4. Update this progress file with standards workflow status and the next
+   recommended Phase 0.5 task.
+5. Commit as `docs(standards): add kb integration workflow`.
 
 ## Handoff Notes
 

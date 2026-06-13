@@ -889,6 +889,47 @@ fn generate_command_writes_core_u16_native_pixel_case() {
             }),
         "implemented classic radiology cases should not be reported as skipped"
     );
+    let skipped_cases = manifest
+        .pointer("/skipped_cases")
+        .and_then(Value::as_array)
+        .expect("manifest should contain skipped cases");
+    assert_eq!(
+        skipped_cases.len(),
+        2,
+        "core generation should report the two planned VL cases as unavailable"
+    );
+    let planned_vl_rgb = skipped_case_by_id(&manifest, "vl/photo/rgb_planar0_explicit_le");
+    assert_eq!(
+        planned_vl_rgb.get("status").and_then(Value::as_str),
+        Some("unavailable")
+    );
+    assert_eq!(
+        planned_vl_rgb.get("reason_code").and_then(Value::as_str),
+        Some("case_planned")
+    );
+    assert_eq!(
+        planned_vl_rgb.get("recheck_phase").and_then(Value::as_str),
+        Some("phase-7")
+    );
+    assert!(
+        !planned_vl_rgb
+            .get("message")
+            .and_then(Value::as_str)
+            .expect("planned skipped row should have a message")
+            .contains("Phase 1"),
+        "planned cases should no longer use the old hard-coded Phase 1 skip text"
+    );
+    let planned_vl_palette = skipped_case_by_id(&manifest, "vl/photo/palette_color_explicit_le");
+    assert_eq!(
+        planned_vl_palette.get("status").and_then(Value::as_str),
+        Some("unavailable")
+    );
+    assert_eq!(
+        planned_vl_palette
+            .get("reason_code")
+            .and_then(Value::as_str),
+        Some("case_planned")
+    );
 
     let dcm_path = out_dir.join("classic/sc/mono2_u16_explicit_le/instance.dcm");
     let obj = open_file(&dcm_path).expect("generated DICOM file should parse");
@@ -2108,4 +2149,14 @@ fn file_entries_by_case_id<'a>(manifest: &'a Value, case_id: &str) -> Vec<&'a Va
         .iter()
         .filter(|file| file.get("case_id").and_then(Value::as_str) == Some(case_id))
         .collect()
+}
+
+fn skipped_case_by_id<'a>(manifest: &'a Value, case_id: &str) -> &'a Value {
+    manifest
+        .pointer("/skipped_cases")
+        .and_then(Value::as_array)
+        .expect("manifest skipped cases should be an array")
+        .iter()
+        .find(|case| case.get("case_id").and_then(Value::as_str) == Some(case_id))
+        .unwrap_or_else(|| panic!("manifest skipped cases should contain {case_id}"))
 }

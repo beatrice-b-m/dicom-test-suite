@@ -997,8 +997,7 @@ pub(crate) fn write_supported_cases(
         let Some(case) = registry_case(registry, recipe.case_id)? else {
             continue;
         };
-        let profiles = string_array(case.get("profiles"))?;
-        if !case_matches_profile(&profiles, &run.profile, run.include_stress) {
+        if !should_generate_case(case, run)? {
             continue;
         }
         generated_files.push(write_pixel_case(run, case, *recipe, standards_lock_sha256)?);
@@ -1007,8 +1006,7 @@ pub(crate) fn write_supported_cases(
         let Some(case) = registry_case(registry, recipe.case_id)? else {
             continue;
         };
-        let profiles = string_array(case.get("profiles"))?;
-        if !case_matches_profile(&profiles, &run.profile, run.include_stress) {
+        if !should_generate_case(case, run)? {
             continue;
         }
         generated_files.push(write_classic_ct_case(
@@ -1022,8 +1020,7 @@ pub(crate) fn write_supported_cases(
         let Some(case) = registry_case(registry, recipe.case_id)? else {
             continue;
         };
-        let profiles = string_array(case.get("profiles"))?;
-        if !case_matches_profile(&profiles, &run.profile, run.include_stress) {
+        if !should_generate_case(case, run)? {
             continue;
         }
         generated_files.push(write_enhanced_ct_case(
@@ -1037,8 +1034,7 @@ pub(crate) fn write_supported_cases(
         let Some(case) = registry_case(registry, recipe.base.case_id)? else {
             continue;
         };
-        let profiles = string_array(case.get("profiles"))?;
-        if !case_matches_profile(&profiles, &run.profile, run.include_stress) {
+        if !should_generate_case(case, run)? {
             continue;
         }
         generated_files.extend(write_enhanced_ct_concatenation_case(
@@ -1052,8 +1048,7 @@ pub(crate) fn write_supported_cases(
         let Some(case) = registry_case(registry, recipe.case_id)? else {
             continue;
         };
-        let profiles = string_array(case.get("profiles"))?;
-        if !case_matches_profile(&profiles, &run.profile, run.include_stress) {
+        if !should_generate_case(case, run)? {
             continue;
         }
         generated_files.push(write_enhanced_mr_case(
@@ -1067,8 +1062,7 @@ pub(crate) fn write_supported_cases(
         let Some(case) = registry_case(registry, recipe.case_id)? else {
             continue;
         };
-        let profiles = string_array(case.get("profiles"))?;
-        if !case_matches_profile(&profiles, &run.profile, run.include_stress) {
+        if !should_generate_case(case, run)? {
             continue;
         }
         generated_files.push(write_classic_mg_case(
@@ -1082,8 +1076,7 @@ pub(crate) fn write_supported_cases(
         let Some(case) = registry_case(registry, recipe.case_id)? else {
             continue;
         };
-        let profiles = string_array(case.get("profiles"))?;
-        if !case_matches_profile(&profiles, &run.profile, run.include_stress) {
+        if !should_generate_case(case, run)? {
             continue;
         }
         generated_files.push(write_classic_dx_case(
@@ -1097,8 +1090,7 @@ pub(crate) fn write_supported_cases(
         let Some(case) = registry_case(registry, recipe.case_id)? else {
             continue;
         };
-        let profiles = string_array(case.get("profiles"))?;
-        if !case_matches_profile(&profiles, &run.profile, run.include_stress) {
+        if !should_generate_case(case, run)? {
             continue;
         }
         generated_files.push(write_classic_us_case(
@@ -1112,8 +1104,7 @@ pub(crate) fn write_supported_cases(
         let Some(case) = registry_case(registry, recipe.case_id)? else {
             continue;
         };
-        let profiles = string_array(case.get("profiles"))?;
-        if !case_matches_profile(&profiles, &run.profile, run.include_stress) {
+        if !should_generate_case(case, run)? {
             continue;
         }
         generated_files.push(write_classic_cr_case(
@@ -1127,8 +1118,7 @@ pub(crate) fn write_supported_cases(
         let Some(case) = registry_case(registry, recipe.case_id)? else {
             continue;
         };
-        let profiles = string_array(case.get("profiles"))?;
-        if !case_matches_profile(&profiles, &run.profile, run.include_stress) {
+        if !should_generate_case(case, run)? {
             continue;
         }
         generated_files.extend(write_classic_mr_case(
@@ -6446,6 +6436,23 @@ fn registry_case<'a>(
     Ok(cases
         .iter()
         .find(|case| case.get("case_id").and_then(Value::as_str) == Some(case_id)))
+}
+
+fn should_generate_case(case: &Value, run: &PreparedGenerationRun) -> Result<bool, GenerateError> {
+    let profiles = string_array(case.get("profiles"))?;
+    if !case_matches_profile(&profiles, &run.profile, run.include_stress) {
+        return Ok(false);
+    }
+
+    let status =
+        case.get("status")
+            .and_then(Value::as_str)
+            .ok_or(GenerateError::MetadataShape {
+                path: PathBuf::from("cases/registry.json"),
+                message: "case status must be a string",
+            })?;
+
+    Ok(status == "implemented")
 }
 
 fn string_array(value: Option<&Value>) -> Result<Vec<String>, GenerateError> {

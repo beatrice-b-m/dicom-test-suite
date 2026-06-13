@@ -347,17 +347,88 @@ fn skipped_cases_for_run(
             continue;
         }
 
-        skipped.push(serde_json::json!({
-            "case_id": case_id,
-            "status": "unavailable",
-            "reason_code": "generator_not_implemented",
-            "message": "This planned case does not have a Phase 1 generator recipe yet.",
-            "recheck_phase": "phase-1",
-            "standards_evidence": case.get("standards_evidence").cloned().unwrap_or_else(|| serde_json::json!([]))
-        }));
+        let status = required_str(case, "status").map_err(|_| GenerateError::MetadataShape {
+            path: PathBuf::from("cases/registry.json"),
+            message: "case status must be a string",
+        })?;
+
+        match status {
+            "implemented" => skipped.push(serde_json::json!({
+                "case_id": case_id,
+                "status": "unavailable",
+                "reason_code": "generator_not_implemented",
+                "message": "This implemented registry case does not have a generator recipe.",
+                "recheck_phase": "remediation-r1",
+                "standards_evidence": case.get("standards_evidence").cloned().unwrap_or_else(|| serde_json::json!([]))
+            })),
+            "planned" => skipped.push(serde_json::json!({
+                "case_id": case_id,
+                "status": "unavailable",
+                "reason_code": "case_planned",
+                "message": "This planned registry case does not have an implemented generator recipe yet.",
+                "recheck_phase": planned_recheck_phase(case_id),
+                "standards_evidence": case.get("standards_evidence").cloned().unwrap_or_else(|| serde_json::json!([]))
+            })),
+            "skipped" | "blocked" => skipped.push(skipped_case_from_registry(case_id, status, case)?),
+            "deprecated" => {}
+            _ => {
+                return Err(GenerateError::MetadataShape {
+                    path: PathBuf::from("cases/registry.json"),
+                    message: "case status must be planned, implemented, skipped, blocked, or deprecated",
+                });
+            }
+        }
     }
 
     Ok(skipped)
+}
+
+fn skipped_case_from_registry(
+    case_id: &str,
+    status: &str,
+    case: &Value,
+) -> Result<Value, GenerateError> {
+    let skip = case
+        .get("skip")
+        .and_then(Value::as_object)
+        .ok_or(GenerateError::MetadataShape {
+            path: PathBuf::from("cases/registry.json"),
+            message: "skipped or blocked cases must include a skip object",
+        })?;
+    let reason_code =
+        skip.get("reason_code")
+            .and_then(Value::as_str)
+            .ok_or(GenerateError::MetadataShape {
+                path: PathBuf::from("cases/registry.json"),
+                message: "skip reason_code must be a string",
+            })?;
+    let message =
+        skip.get("message")
+            .and_then(Value::as_str)
+            .ok_or(GenerateError::MetadataShape {
+                path: PathBuf::from("cases/registry.json"),
+                message: "skip message must be a string",
+            })?;
+    let recheck_phase = skip.get("recheck_phase").cloned().unwrap_or(Value::Null);
+
+    Ok(serde_json::json!({
+        "case_id": case_id,
+        "status": status,
+        "reason_code": reason_code,
+        "message": message,
+        "recheck_phase": recheck_phase,
+        "standards_evidence": case.get("standards_evidence").cloned().unwrap_or_else(|| serde_json::json!([]))
+    }))
+}
+
+fn planned_recheck_phase(case_id: &str) -> &'static str {
+    if case_id.starts_with("derived/") {
+        "phase-5"
+    } else if case_id.starts_with("vl/") {
+        "phase-7"
+    } else {
+        "phase-5"
+    }
 }
 
 fn case_matches_profile(profiles: &[String], requested: &str, include_stress: bool) -> bool {
@@ -909,6 +980,194 @@ mod tests {
     }
 
     #[test]
+    fn skipped_cases_use_registry_status_and_skip_metadata() {
+        let run = PreparedGenerationRun {
+            profile: "core".to_string(),
+            out_dir: unique_temp_dir("skipped_status_metadata"),
+            manifest_path: unique_temp_dir("skipped_status_metadata").join("manifest.json"),
+            seed: 1,
+            include_stress: false,
+        };
+        let registry = serde_json::json!({
+            "cases": [
+                {
+                    "case_id": "classic/sc/generated_explicit_le",
+                    "status": "implemented",
+                    "profiles": ["core"],
+                    "skip": null,
+                    "standards_evidence": []
+                },
+                {
+                    "case_id": "classic/sc/missing_recipe_explicit_le",
+                    "status": "implemented",
+                    "profiles": ["core"],
+                    "skip": null,
+                    "standards_evidence": [{"source": "dicom-standard-kb", "covered": true}]
+                },
+                {
+                    "case_id": "vl/photo/rgb_planar0_explicit_le",
+                    "status": "planned",
+                    "profiles": ["core"],
+                    "skip": null,
+                    "standards_evidence": [{"source": "dicom-standard-kb", "covered": true}]
+                },
+                {
+                    "case_id": "classic/sc/skipped_explicit_le",
+                    "status": "skipped",
+                    "profiles": ["core"],
+                    "skip": {
+                        "reason_code": "codec_unavailable",
+                        "message": "Required codec is not available in this build.",
+                        "recheck_phase": "phase-6"
+                    },
+                    "standards_evidence": [{"source": "local-source-note", "covered": false}]
+                },
+                {
+                    "case_id": "classic/sc/blocked_explicit_le",
+                    "status": "blocked",
+                    "profiles": ["core"],
+                    "skip": {
+                        "reason_code": "standards_gap",
+                        "message": "Standards evidence is not complete enough to generate.",
+                        "recheck_phase": "remediation-r5"
+                    },
+                    "standards_evidence": [{"source": "local-source-note", "covered": false}]
+                },
+                {
+                    "case_id": "classic/sc/deprecated_explicit_le",
+                    "status": "deprecated",
+                    "profiles": ["core"],
+                    "skip": null,
+                    "standards_evidence": []
+                }
+            ]
+        });
+        let generated_case_ids = vec!["classic/sc/generated_explicit_le".to_string()];
+
+        let skipped = skipped_cases_for_run(&registry, &run, &generated_case_ids)
+            .expect("registry statuses should build skipped rows");
+
+        assert_eq!(
+            skipped.len(),
+            4,
+            "implemented missing recipe, planned, skipped, and blocked cases should be reported"
+        );
+        assert!(
+            skipped
+                .iter()
+                .all(|case| case.get("case_id").and_then(Value::as_str)
+                    != Some("classic/sc/deprecated_explicit_le"))
+        );
+
+        let implemented_missing =
+            skipped_case_by_id(&skipped, "classic/sc/missing_recipe_explicit_le");
+        assert_eq!(
+            implemented_missing.get("status").and_then(Value::as_str),
+            Some("unavailable")
+        );
+        assert_eq!(
+            implemented_missing
+                .get("reason_code")
+                .and_then(Value::as_str),
+            Some("generator_not_implemented")
+        );
+
+        let planned = skipped_case_by_id(&skipped, "vl/photo/rgb_planar0_explicit_le");
+        assert_eq!(
+            planned.get("status").and_then(Value::as_str),
+            Some("unavailable")
+        );
+        assert_eq!(
+            planned.get("reason_code").and_then(Value::as_str),
+            Some("case_planned")
+        );
+        assert_eq!(
+            planned.get("recheck_phase").and_then(Value::as_str),
+            Some("phase-7")
+        );
+        assert!(
+            !planned
+                .get("message")
+                .and_then(Value::as_str)
+                .expect("planned row should have a message")
+                .contains("Phase 1"),
+            "planned unavailable text should not use the old hard-coded Phase 1 message"
+        );
+
+        let skipped_row = skipped_case_by_id(&skipped, "classic/sc/skipped_explicit_le");
+        assert_eq!(
+            skipped_row.get("status").and_then(Value::as_str),
+            Some("skipped")
+        );
+        assert_eq!(
+            skipped_row.get("reason_code").and_then(Value::as_str),
+            Some("codec_unavailable")
+        );
+        assert_eq!(
+            skipped_row.get("recheck_phase").and_then(Value::as_str),
+            Some("phase-6")
+        );
+
+        let blocked = skipped_case_by_id(&skipped, "classic/sc/blocked_explicit_le");
+        assert_eq!(
+            blocked.get("status").and_then(Value::as_str),
+            Some("blocked")
+        );
+        assert_eq!(
+            blocked.get("reason_code").and_then(Value::as_str),
+            Some("standards_gap")
+        );
+    }
+
+    #[test]
+    fn blocked_registry_status_prevents_recipe_generation() {
+        let out_dir = unique_temp_dir("blocked_registry_status");
+        fs::create_dir_all(&out_dir).expect("temporary output root should be created");
+        let run = PreparedGenerationRun {
+            profile: "smoke".to_string(),
+            manifest_path: out_dir.join("manifest.json"),
+            out_dir: out_dir.clone(),
+            seed: 1,
+            include_stress: false,
+        };
+        let registry = serde_json::json!({
+            "cases": [
+                {
+                    "case_id": "classic/sc/mono2_u8_explicit_le",
+                    "status": "blocked",
+                    "profiles": ["smoke"],
+                    "skip": {
+                        "reason_code": "standards_gap",
+                        "message": "Temporarily blocked for regression coverage.",
+                        "recheck_phase": "remediation-r1"
+                    },
+                    "standards_evidence": []
+                }
+            ]
+        });
+
+        let generated = crate::generator::write_supported_cases(
+            &run,
+            &registry,
+            "0000000000000000000000000000000000000000000000000000000000000000",
+        )
+        .expect("blocked registry case should not fail generation");
+
+        assert!(
+            generated.is_empty(),
+            "blocked registry status must prevent matching recipes from writing files"
+        );
+        assert!(
+            !out_dir
+                .join("classic/sc/mono2_u8_explicit_le/instance.dcm")
+                .exists(),
+            "blocked recipe output should not be created"
+        );
+
+        fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
+    }
+
+    #[test]
     fn sha256_hex_matches_known_digest() {
         assert_eq!(
             sha256_hex(b"abc"),
@@ -925,5 +1184,12 @@ mod tests {
             "dicom-test-suite-{name}-{}-{nonce}",
             std::process::id()
         ))
+    }
+
+    fn skipped_case_by_id<'a>(skipped: &'a [Value], case_id: &str) -> &'a Value {
+        skipped
+            .iter()
+            .find(|case| case.get("case_id").and_then(Value::as_str) == Some(case_id))
+            .expect("skipped case should be present")
     }
 }

@@ -1831,8 +1831,48 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
         manifest
             .pointer("/skipped_cases")
             .and_then(Value::as_array)
-            .is_some_and(Vec::is_empty),
+            .is_some_and(|cases| {
+                cases.iter().all(|case| {
+                    !matches!(
+                        case.get("case_id").and_then(Value::as_str),
+                        Some("enhanced/ct/multiframe_shared_perframe_explicit_le")
+                            | Some("enhanced/ct/concatenation_two_part_explicit_le")
+                            | Some("enhanced/mr/multiframe_echo_perframe_explicit_le")
+                            | Some("enhanced/mr/multiframe_temporal_position_explicit_le")
+                            | Some("enhanced/mr/multiframe_phase_velocity_encoding_explicit_le")
+                    )
+                })
+            }),
         "implemented extended cases should not be reported as skipped"
+    );
+    let skipped_cases = manifest
+        .pointer("/skipped_cases")
+        .and_then(Value::as_array)
+        .expect("manifest should contain skipped cases");
+    assert_eq!(
+        skipped_cases.len(),
+        1,
+        "extended generation should report the planned SEG case as unavailable"
+    );
+    let planned_seg = skipped_case_by_id(&manifest, "derived/seg/binary_multiframe_explicit_le");
+    assert_eq!(
+        planned_seg.get("status").and_then(Value::as_str),
+        Some("unavailable")
+    );
+    assert_eq!(
+        planned_seg.get("reason_code").and_then(Value::as_str),
+        Some("case_planned")
+    );
+    assert_eq!(
+        planned_seg.get("recheck_phase").and_then(Value::as_str),
+        Some("phase-5")
+    );
+    assert_eq!(
+        planned_seg
+            .get("standards_evidence")
+            .and_then(Value::as_array)
+            .map(Vec::len),
+        Some(8)
     );
 
     let enhanced_ct_path =

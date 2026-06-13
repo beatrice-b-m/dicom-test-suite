@@ -2574,6 +2574,90 @@
       ]
     },
     {
+      "case_id": "derived/seg/binary_multiframe_explicit_le",
+      "status": "planned",
+      "profiles": ["extended"],
+      "recipe_id": "seg_binary_multiframe",
+      "recipe_version": "0.1.0",
+      "iod_name": "Segmentation",
+      "sop_class_name": "Segmentation Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.66.4",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "byte_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_sop_class Segmentation Storage",
+          "covered": true,
+          "part": "PS3.4",
+          "anchor": "table_B.5-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_uid SegmentationStorage",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_uid ExplicitVRLittleEndian",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_iod Segmentation",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.51-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_modules_for_iod Segmentation",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.51-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_data_element SegmentationType",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_data_element SegmentSequence",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "search_standard_text Segmentation Type BINARY",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "sect_C.8.20.2.3.1"
+        }
+      ]
+    },
+    {
       "case_id": "vl/photo/rgb_planar0_explicit_le",
       "status": "planned",
       "profiles": ["core"],

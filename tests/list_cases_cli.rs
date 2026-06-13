@@ -190,4 +190,10 @@ fn list_cases_command_shows_extended_case_status_and_evidence() {
         ),
         "list-cases must include implemented Enhanced MR phase extended cases with standards evidence"
     );
+    assert!(
+        stdout.contains(
+            "derived/seg/binary_multiframe_explicit_le\tplanned\textended\t1.2.840.10008.5.1.4.1.1.66.4\t1.2.840.10008.1.2.1\t8/8 covered"
+        ),
+        "list-cases must include the planned SEG extended case with standards evidence"
+    );
 }

@@ -4,7 +4,7 @@
 **Source specification:** `SYSTEM_SPEC.md` version 0.2.0  
 **Current phase:** remediation planning before Phase 5 feature expansion
 
-**Current implementation status:** Phase 0, Phase 0.5, Phase 1, Phase 2, Phase 3, and Phase 4 are functionally implemented, but the 2026-06-13 baseline review identified remediation work required before clean Phase 5 expansion: registry status now controls generation and skipped-case reporting, while the planned SEG case must still be restored to the registry, expected CLI commands remain incomplete, validation needs stricter Part 10 checks, standards lock pinning is partial, and reproducibility/schema/CI guard coverage needs expansion
+**Current implementation status:** Phase 0, Phase 0.5, Phase 1, Phase 2, Phase 3, and Phase 4 are functionally implemented, but the 2026-06-13 baseline review identified remediation work required before clean Phase 5 expansion: registry status now controls generation and skipped-case reporting, the planned SEG case is restored to the registry, expected CLI commands remain incomplete, validation needs stricter Part 10 checks, standards lock pinning is partial, and reproducibility/schema/CI guard coverage needs expansion
 
 This document is the durable hand-off log for coding agents implementing
 `dicom-test-suite`. Keep `SYSTEM_SPEC.md` as the source of product and
@@ -43,7 +43,7 @@ Observed at creation of this progress file:
 | `standards.lock.json` | present | Locks to DICOM 2026b base edition only using the pinned `dicom-standard-kb` MCP source manifest; local DB and source artifact hashes remain pending. |
 | `schemas/` | present | Manifest, case registry, coverage report, and viewer report schemas have initial structured coverage. |
 | `cases/taxonomy.md` | present | Documents normalized case ID format, path segments, descriptor conventions, profile definitions, and inclusion rules. |
-| `cases/registry.json` | present | Tracks implemented smoke/core SC cases, classic radiology CT/MG/CR/MR/DX/US cases, plus Enhanced CT, Enhanced CT concatenation, and Enhanced MR extended cases with standards evidence from `dicom-standard-kb` MCP lookups. |
+| `cases/registry.json` | present | Tracks implemented smoke/core SC cases, classic radiology CT/MG/CR/MR/DX/US cases, Enhanced CT, Enhanced CT concatenation, Enhanced MR extended cases, planned SEG, and planned VL cases with standards evidence from `dicom-standard-kb` MCP lookups. |
 | `transfer-syntax/capability-matrix.json` | present | Records initial read/decode/write/encode, feature, external library, and determinism capabilities for baseline native transfer syntaxes. |
 | `docs/deterministic-build-policy.md` | present | Documents determinism levels, reproducibility inputs, UID derivation, metadata controls, hashes, and two-run verification. |
 | `standards/kb-integration.md` | present | Documents the pinned 2026b `dicom-standard-kb` MCP query workflow, evidence fields, and fallback path. |
@@ -485,29 +485,34 @@ These case IDs come from `SYSTEM_SPEC.md` section 21 and should seed
   skipped-case accounting. Regression tests cover implemented, planned,
   skipped, blocked, and deprecated status behavior, plus `generate --profile
   core` reporting the two planned VL cases as unavailable for Phase 7.
+- 2026-06-13: Remediation R1 restored the planned
+  `derived/seg/binary_multiframe_explicit_le` registry entry in the `extended`
+  profile. The entry is standards-backed by 2026b `dicom-standard-kb` lookups
+  for Segmentation Storage, Explicit VR Little Endian, the Segmentation IOD and
+  module table, Segmentation Type, Segment Sequence, and BINARY segmentation
+  standard text. `list-cases --profile extended` now shows the planned SEG row,
+  and `generate --profile extended` reports it as an unavailable planned case
+  with `recheck_phase` `phase-5`.
 
 ## Current Blockers
 
 The 2026-06-13 baseline review found remediation items that should be resolved
-before Phase 5 feature expansion: the planned SEG priority case is missing from
-`cases/registry.json`, registry/recipe standards evidence deduplication is still
-pending, `list-cases --status`, `validate`, `report`, and `standards` CLI
-commands are not implemented, validation does not yet enforce every required
-Part 10 invariant, and reproducibility/schema/CI guard coverage is incomplete.
-The local `dicom-standard-kb` repository commit/DB SHA-256 and official source
-artifact hashes also remain unverified.
+before Phase 5 feature expansion: registry/recipe standards evidence
+deduplication is still pending, `list-cases --status`, `validate`, `report`,
+and `standards` CLI commands are not implemented, validation does not yet
+enforce every required Part 10 invariant, and reproducibility/schema/CI guard
+coverage is incomplete. The local `dicom-standard-kb` repository commit/DB
+SHA-256 and official source artifact hashes also remain unverified.
 
 ## Recommended Next Commit
 
 Execute `REMEDIATION_PLAN.md` before starting new Phase 5 feature work:
 
-1. Add the missing planned `derived/seg/binary_multiframe_explicit_le` registry
-   entry.
-2. Deduplicate generated file `standards_evidence` where registry and recipe
+1. Deduplicate generated file `standards_evidence` where registry and recipe
    evidence overlap, then mark R1 complete if its exit criteria are satisfied.
-3. Complete the expected CLI, validation, reproducibility, CI guard, and
+2. Complete the expected CLI, validation, reproducibility, CI guard, and
    standards-lock cleanup phases described in the remediation plan.
-4. Resume Phase 5 with `feat(seg): add binary segmentation case` only after the
+3. Resume Phase 5 with `feat(seg): add binary segmentation case` only after the
    remediation exit criteria are satisfied.
 
 ## Handoff Notes

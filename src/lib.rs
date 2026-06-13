@@ -855,6 +855,12 @@ mod tests {
             ),
             "list-cases output must show implemented Enhanced MR phase extended status"
         );
+        assert!(
+            output.contains(
+                "derived/seg/binary_multiframe_explicit_le\tplanned\textended\t1.2.840.10008.5.1.4.1.1.66.4\t1.2.840.10008.1.2.1\t8/8 covered"
+            ),
+            "list-cases output must show planned SEG extended status"
+        );
     }
 
     #[test]

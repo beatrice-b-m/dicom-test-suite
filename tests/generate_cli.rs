@@ -2,10 +2,12 @@ use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
 
+use dicom_dictionary_std::{tags, uids};
+use dicom_object::open_file;
 use serde_json::Value;
 
 #[test]
-fn generate_command_writes_initial_manifest() {
+fn generate_command_writes_first_smoke_part10_file_and_manifest() {
     let out_dir = unique_temp_dir("generate-command");
 
     let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
@@ -37,7 +39,7 @@ fn generate_command_writes_initial_manifest() {
     assert!(stdout.contains("include_stress\tfalse"));
     assert!(stdout.contains(&format!("out\t{}", out_dir.display())));
     assert!(stdout.contains(&format!("manifest\t{}", manifest_path.display())));
-    assert!(stdout.contains("files_written\t0"));
+    assert!(stdout.contains("files_written\t1"));
     assert!(stdout.contains("manifest_written\ttrue"));
 
     let manifest: Value = serde_json::from_str(
@@ -57,20 +59,107 @@ fn generate_command_writes_initial_manifest() {
             .pointer("/files")
             .and_then(Value::as_array)
             .map(Vec::len),
-        Some(0)
+        Some(1)
+    );
+    let file_entry = manifest
+        .pointer("/files/0")
+        .and_then(Value::as_object)
+        .expect("manifest should describe the generated file");
+    assert_eq!(
+        file_entry.get("case_id").and_then(Value::as_str),
+        Some("classic/sc/mono2_u8_explicit_le")
+    );
+    assert_eq!(
+        file_entry.get("path").and_then(Value::as_str),
+        Some("classic/sc/mono2_u8_explicit_le/instance.dcm")
+    );
+    assert_eq!(
+        manifest
+            .pointer("/files/0/dicom/sop_class_uid")
+            .and_then(Value::as_str),
+        Some(uids::SECONDARY_CAPTURE_IMAGE_STORAGE)
+    );
+    assert_eq!(
+        manifest
+            .pointer("/files/0/dicom/transfer_syntax_uid")
+            .and_then(Value::as_str),
+        Some(uids::EXPLICIT_VR_LITTLE_ENDIAN)
+    );
+    assert_eq!(
+        manifest
+            .pointer("/files/0/expected_semantics/synthetic_data")
+            .and_then(Value::as_str),
+        Some("YES")
+    );
+    assert_eq!(
+        manifest
+            .pointer("/files/0/image/photometric_interpretation")
+            .and_then(Value::as_str),
+        Some("MONOCHROME2")
+    );
+
+    let dcm_path = out_dir.join("classic/sc/mono2_u8_explicit_le/instance.dcm");
+    let dcm_bytes = fs::read(&dcm_path).expect("generated DICOM file should be readable");
+    assert_eq!(&dcm_bytes[128..132], b"DICM", "file must be Part 10");
+    assert_eq!(
+        file_entry.get("size_bytes").and_then(Value::as_u64),
+        Some(dcm_bytes.len() as u64)
+    );
+    assert_eq!(
+        file_entry.get("sha256").and_then(Value::as_str),
+        Some(dicom_test_suite::sha256_hex(&dcm_bytes).as_str())
+    );
+
+    let obj = open_file(&dcm_path).expect("generated DICOM file should parse");
+    let sop_class_uid = obj
+        .element(tags::SOP_CLASS_UID)
+        .expect("dataset should contain SOP Class UID")
+        .value()
+        .to_str()
+        .expect("SOP Class UID should be text");
+    let sop_instance_uid = obj
+        .element(tags::SOP_INSTANCE_UID)
+        .expect("dataset should contain SOP Instance UID")
+        .value()
+        .to_str()
+        .expect("SOP Instance UID should be text");
+    let synthetic_data = obj
+        .element(tags::SYNTHETIC_DATA)
+        .expect("dataset should contain Synthetic Data")
+        .value()
+        .to_str()
+        .expect("Synthetic Data should be text");
+    assert_eq!(
+        sop_class_uid.trim_end_matches('\0'),
+        obj.meta()
+            .media_storage_sop_class_uid()
+            .trim_end_matches('\0')
+    );
+    assert_eq!(
+        sop_instance_uid.trim_end_matches('\0'),
+        obj.meta()
+            .media_storage_sop_instance_uid()
+            .trim_end_matches('\0')
+    );
+    assert_eq!(synthetic_data.trim(), "YES");
+    assert_eq!(
+        manifest
+            .pointer("/files/0/uids/sop_instance_uid")
+            .and_then(Value::as_str),
+        Some(sop_instance_uid.trim_end_matches('\0'))
     );
     assert!(
         manifest
             .pointer("/skipped_cases")
             .and_then(Value::as_array)
             .is_some_and(|cases| {
-                cases.iter().any(|case| {
-                    case.get("case_id").and_then(Value::as_str)
-                        == Some("classic/sc/mono2_u8_explicit_le")
-                        && case.get("status").and_then(Value::as_str) == Some("unavailable")
-                })
+                cases.len() == 2
+                    && cases.iter().all(|case| {
+                        case.get("case_id").and_then(Value::as_str)
+                            != Some("classic/sc/mono2_u8_explicit_le")
+                    })
             }),
-        "manifest should record planned smoke cases as unavailable"
+        "manifest should skip only unimplemented smoke cases"
     );
 
     fs::remove_dir_all(out_dir).expect("temporary output root should be removable");

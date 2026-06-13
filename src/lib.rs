@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 
 use serde_json::Value;
 
+mod generator;
 pub mod uid;
 pub use uid::{DeterministicUidInput, UidRole, deterministic_uid};
 
@@ -38,6 +39,12 @@ pub struct PreparedGenerationRun {
     pub include_stress: bool,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GenerationSummary {
+    pub files_written: usize,
+    pub manifest_written: bool,
+}
+
 #[derive(Debug)]
 pub enum GenerateError {
     InvalidProfile(String),
@@ -62,6 +69,18 @@ pub enum GenerateError {
         source: serde_json::Error,
     },
     WriteManifest {
+        path: PathBuf,
+        source: std::io::Error,
+    },
+    CreateCaseOutputDir {
+        path: PathBuf,
+        source: std::io::Error,
+    },
+    WriteDicomFile {
+        path: PathBuf,
+        message: String,
+    },
+    ReadGeneratedFile {
         path: PathBuf,
         source: std::io::Error,
     },
@@ -109,6 +128,27 @@ impl fmt::Display for GenerateError {
             Self::WriteManifest { path, source } => {
                 write!(f, "failed to write manifest {}: {source}", path.display())
             }
+            Self::CreateCaseOutputDir { path, source } => {
+                write!(
+                    f,
+                    "failed to create case output directory {}: {source}",
+                    path.display()
+                )
+            }
+            Self::WriteDicomFile { path, message } => {
+                write!(
+                    f,
+                    "failed to write DICOM file {}: {message}",
+                    path.display()
+                )
+            }
+            Self::ReadGeneratedFile { path, source } => {
+                write!(
+                    f,
+                    "failed to read generated file {}: {source}",
+                    path.display()
+                )
+            }
         }
     }
 }
@@ -123,6 +163,9 @@ impl Error for GenerateError {
             Self::MetadataShape { .. } => None,
             Self::SerializeManifest { source, .. } => Some(source),
             Self::WriteManifest { source, .. } => Some(source),
+            Self::CreateCaseOutputDir { source, .. } => Some(source),
+            Self::WriteDicomFile { .. } => None,
+            Self::ReadGeneratedFile { source, .. } => Some(source),
         }
     }
 }
@@ -148,16 +191,34 @@ pub fn prepare_generation_run(
     })
 }
 
-pub fn write_initial_manifest(run: &PreparedGenerationRun) -> Result<(), GenerateError> {
+pub fn write_generation_run(
+    run: &PreparedGenerationRun,
+) -> Result<GenerationSummary, GenerateError> {
     let standards_lock_path = Path::new("standards.lock.json");
     let cargo_lock_path = Path::new("Cargo.lock");
     let registry_path = Path::new("cases/registry.json");
 
     let standards_lock = read_json_metadata(standards_lock_path)?;
+    let standards_lock_bytes = read_bytes_metadata(standards_lock_path)?;
     let cargo_lock = read_bytes_metadata(cargo_lock_path)?;
     let registry = read_json_metadata(registry_path)?;
 
-    let manifest = build_initial_manifest(run, &standards_lock, &cargo_lock, &registry)?;
+    let generated_files =
+        generator::write_supported_cases(run, &registry, &sha256_hex(&standards_lock_bytes))?;
+    let files_written = generated_files.len();
+    let generated_case_ids: Vec<String> = generated_files
+        .iter()
+        .map(|file| file.case_id.clone())
+        .collect();
+    let manifest = build_generation_manifest(
+        run,
+        &standards_lock,
+        &standards_lock_bytes,
+        &cargo_lock,
+        &registry,
+        generated_files,
+        &generated_case_ids,
+    )?;
     let mut contents = serde_json::to_string_pretty(&manifest).map_err(|source| {
         GenerateError::SerializeManifest {
             path: run.manifest_path.clone(),
@@ -169,21 +230,32 @@ pub fn write_initial_manifest(run: &PreparedGenerationRun) -> Result<(), Generat
     fs::write(&run.manifest_path, contents).map_err(|source| GenerateError::WriteManifest {
         path: run.manifest_path.clone(),
         source,
+    })?;
+
+    Ok(GenerationSummary {
+        files_written,
+        manifest_written: true,
     })
 }
 
-fn build_initial_manifest(
+fn build_generation_manifest(
     run: &PreparedGenerationRun,
     standards_lock: &Value,
+    standards_lock_bytes: &[u8],
     cargo_lock: &[u8],
     registry: &Value,
+    generated_files: Vec<generator::GeneratedFile>,
+    generated_case_ids: &[String],
 ) -> Result<Value, GenerateError> {
-    let standards_lock_bytes = read_bytes_metadata("standards.lock.json")?;
-    let skipped_cases = skipped_cases_for_run(registry, run)?;
+    let skipped_cases = skipped_cases_for_run(registry, run, generated_case_ids)?;
     let dicom_standard_kb = standards_lock
         .get("dicom_standard_kb")
         .cloned()
         .unwrap_or(Value::Null);
+    let file_entries: Vec<Value> = generated_files
+        .into_iter()
+        .map(|file| file.manifest_entry)
+        .collect();
 
     Ok(serde_json::json!({
         "manifest_schema_version": "0.1.0",
@@ -222,7 +294,7 @@ fn build_initial_manifest(
             "seed": run.seed,
             "include_stress": run.include_stress
         },
-        "files": [],
+        "files": file_entries,
         "skipped_cases": skipped_cases
     }))
 }
@@ -230,6 +302,7 @@ fn build_initial_manifest(
 fn skipped_cases_for_run(
     registry: &Value,
     run: &PreparedGenerationRun,
+    generated_case_ids: &[String],
 ) -> Result<Vec<Value>, GenerateError> {
     let cases =
         registry
@@ -250,15 +323,22 @@ fn skipped_cases_for_run(
         if !case_matches_profile(&profiles, &run.profile, run.include_stress) {
             continue;
         }
+        let case_id = required_str(case, "case_id").map_err(|_| GenerateError::MetadataShape {
+            path: PathBuf::from("cases/registry.json"),
+            message: "case_id must be a string",
+        })?;
+        if generated_case_ids
+            .iter()
+            .any(|generated_case_id| generated_case_id == case_id)
+        {
+            continue;
+        }
 
         skipped.push(serde_json::json!({
-            "case_id": required_str(case, "case_id").map_err(|_| GenerateError::MetadataShape {
-                path: PathBuf::from("cases/registry.json"),
-                message: "case_id must be a string",
-            })?,
+            "case_id": case_id,
             "status": "unavailable",
             "reason_code": "generator_not_implemented",
-            "message": "The Phase 1 manifest skeleton records planned cases before DICOM instance writing is implemented.",
+            "message": "This planned case does not have a Phase 1 generator recipe yet.",
             "recheck_phase": "phase-1",
             "standards_evidence": case.get("standards_evidence").cloned().unwrap_or_else(|| serde_json::json!([]))
         }));
@@ -601,8 +681,8 @@ mod tests {
     }
 
     #[test]
-    fn write_initial_manifest_records_empty_smoke_run_metadata() {
-        let out_dir = unique_temp_dir("write_initial_manifest");
+    fn write_generation_run_records_first_smoke_file_metadata() {
+        let out_dir = unique_temp_dir("write_generation_run");
         let prepared = prepare_generation_run(GenerateOptions {
             profile: "smoke".to_string(),
             out_dir: out_dir.clone(),
@@ -611,7 +691,10 @@ mod tests {
         })
         .expect("generation run should prepare");
 
-        write_initial_manifest(&prepared).expect("manifest should write");
+        let summary = write_generation_run(&prepared).expect("manifest should write");
+
+        assert_eq!(summary.files_written, 1);
+        assert!(summary.manifest_written);
 
         let manifest: Value = serde_json::from_str(
             &fs::read_to_string(&prepared.manifest_path).expect("manifest should be readable"),
@@ -637,20 +720,33 @@ mod tests {
                 .pointer("/files")
                 .and_then(Value::as_array)
                 .map(Vec::len),
-            Some(0)
+            Some(1)
+        );
+        assert_eq!(
+            manifest.pointer("/files/0/case_id").and_then(Value::as_str),
+            Some("classic/sc/mono2_u8_explicit_le")
+        );
+        assert_eq!(
+            manifest.pointer("/files/0/path").and_then(Value::as_str),
+            Some("classic/sc/mono2_u8_explicit_le/instance.dcm")
+        );
+        assert_eq!(
+            manifest
+                .pointer("/files/0/dicom/sop_class_uid")
+                .and_then(Value::as_str),
+            Some(uids::SECONDARY_CAPTURE_IMAGE_STORAGE)
         );
         assert!(
             manifest
                 .pointer("/skipped_cases")
                 .and_then(Value::as_array)
                 .is_some_and(|cases| {
-                    cases.iter().any(|case| {
+                    cases.iter().all(|case| {
                         case.get("case_id").and_then(Value::as_str)
-                            == Some("classic/sc/mono2_u8_explicit_le")
-                            && case.get("status").and_then(Value::as_str) == Some("unavailable")
-                    })
+                            != Some("classic/sc/mono2_u8_explicit_le")
+                    }) && cases.len() == 2
                 }),
-            "manifest should record planned smoke cases as unavailable before DICOM writing"
+            "manifest should skip only smoke cases that do not have generator recipes yet"
         );
 
         fs::remove_dir_all(out_dir).expect("temporary output root should be removable");

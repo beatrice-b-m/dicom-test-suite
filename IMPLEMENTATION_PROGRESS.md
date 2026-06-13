@@ -3,7 +3,7 @@
 **Last updated:** 2026-06-13  
 **Source specification:** `SYSTEM_SPEC.md` version 0.2.0  
 **Current phase:** Phase 1 generator core, in progress  
-**Current implementation status:** Phase 0 and Phase 0.5 are complete; Phase 1 has the initial `generate` command skeleton, empty run manifest writing, and deterministic `2.25.<decimal uuid>` UID generation
+**Current implementation status:** Phase 0 and Phase 0.5 are complete; Phase 1 has the initial `generate` command skeleton, manifest writing, deterministic `2.25.<decimal uuid>` UID generation, and the first Secondary Capture smoke Part 10 file
 
 This document is the durable hand-off log for coding agents implementing
 `dicom-test-suite`. Keep `SYSTEM_SPEC.md` as the source of product and
@@ -48,8 +48,8 @@ Observed at creation of this progress file:
 | `standards/kb-integration.md` | present | Documents the pinned 2026b `dicom-standard-kb` MCP query workflow, evidence fields, and fallback path. |
 | `standards/gap-workflow.md` | present | Documents standards gap handling, local source notes, blocked/skipped registry actions, and KB patch criteria. |
 | `standards/source-notes/` | present | Contains a README/template plus `uid-2-25.md` for the PS3.5 UID root gap not covered by `dicom-standard-kb`. |
-| `src/` or `crates/` | present | Minimal `src/lib.rs` and `src/main.rs` exist with initial `list-cases` and `generate` CLI paths; DICOM writing has not started. |
-| `tests/` | present | Includes schema artifact, `list-cases` CLI, and `generate` skeleton tests; DICOM generation tests have not started. |
+| `src/` or `crates/` | present | Single-package implementation now includes initial `list-cases`, `generate`, deterministic UID, run manifest, and first smoke Part 10 writer paths. |
+| `tests/` | present | Includes schema artifact, `list-cases` CLI, `generate` CLI, UID, manifest, and first Part 10 readback tests. |
 
 ## Non-Negotiable Implementation Constraints
 
@@ -78,7 +78,7 @@ Observed at creation of this progress file:
 |---|---|---|
 | Phase 0: Repository initialization | complete | Scope docs, generated-artifact protections, Rust skeleton, toolchain, dependency pins, and initial schema placeholders are committed. |
 | Phase 0.5: Standards and case registry foundation | complete | Standards base edition, schemas, taxonomy/profile rules, initial smoke/core registry, transfer syntax matrix, deterministic policy, standards workflows, and `list-cases` are in place. |
-| Phase 1: Generator core | in progress | Initial `generate` CLI argument model, output-root creation, empty-run manifest writing, and deterministic UID generation are implemented; Part 10 writing and file validation remain. |
+| Phase 1: Generator core | in progress | Initial `generate` CLI argument model, output-root creation, manifest writing, deterministic UID generation, and first smoke Secondary Capture Part 10 writing are implemented; broader file validation and reproducibility checks remain. |
 | Phase 2: Native pixel matrix | not started | Pixel generators and photometric validators pending. |
 | Phase 3: Classic radiology IODs | not started | CT/MR/CR/US/DX/MG builders pending. |
 | Phase 4: Enhanced multi-frame | not started | Enhanced CT/MR and functional groups pending. |
@@ -134,7 +134,7 @@ structured status and planned Phase 1/2 cases have standards evidence through
   writing DICOM instances.
 - [x] Implement deterministic UID generation.
 - [x] Implement manifest writing for empty generation runs.
-- [ ] Implement Part 10 file writing for the initial smoke cases.
+- [ ] Implement Part 10 file writing for the initial smoke cases. First case `classic/sc/mono2_u8_explicit_le` is implemented; remaining smoke cases are still unavailable.
 - [ ] Add file-level validation for generated Part 10 output.
 - [ ] Add two-run reproducibility checks for `smoke`.
 
@@ -149,7 +149,7 @@ These case IDs come from `SYSTEM_SPEC.md` section 21 and should seed
 
 | Case ID | Profile | Implementation status |
 |---|---|---|
-| `classic/sc/mono2_u8_explicit_le` | `smoke` | planned |
+| `classic/sc/mono2_u8_explicit_le` | `smoke` | implemented for Phase 1 first Part 10 smoke output |
 | `classic/sc/mono1_u8_explicit_le` | `smoke` | planned |
 | `classic/sc/rgb_planar0_explicit_le` | `smoke` | planned |
 | `classic/ct/mono2_i16_rescale_12bit_explicit_le` | `core` | planned |
@@ -175,6 +175,16 @@ These case IDs come from `SYSTEM_SPEC.md` section 21 and should seed
 | Transfer syntax capability matrix format | decided 2026-06-13 | Use `transfer-syntax/capability-matrix.json` entries with `read_dataset`, `decode_pixel`, `write_dataset`, `encode_pixel`, `feature_flags`, `external_libraries`, and `determinism` fields. |
 | UID namespace and algorithm | decided 2026-06-13 | Use project namespace UUID `4f5b3b66-8b91-4f3d-a6a1-6d9a7fc6d4d8`, SHA-256 seed material, RFC 4122 version/variant bits, and DICOM `2.25.<decimal uuid>` output. The 2026b KB did not expose PS3.5 UID text, so `standards/source-notes/uid-2-25.md` records the local source note. |
 
+## Implementation Notes
+
+- 2026-06-13: `generate --profile smoke` now writes
+  `classic/sc/mono2_u8_explicit_le/instance.dcm`, a tiny deterministic
+  Secondary Capture Image Storage Part 10 file using Explicit VR Little Endian.
+  The manifest records file hash, byte size, deterministic Study/Series/SOP
+  Instance UIDs, Implementation Class UID, native OB Pixel Data metadata,
+  `Synthetic Data (0008,001C) = YES`, and 2026b standards evidence from the
+  pinned `dicom-standard-kb` MCP.
+
 ## Current Blockers
 
 No implementation blocker has been proven yet. The immediate limitations are
@@ -184,17 +194,17 @@ smoke Part 10 writing and file validation.
 
 ## Recommended Next Commit
 
-Add initial smoke Part 10 writing:
+Add file-level validation for the first smoke Part 10 output:
 
-1. Implement the smallest valid Secondary Capture Part 10 writer for the first
-   smoke case, using Explicit VR Little Endian.
-2. Use deterministic UIDs, synthetic metadata, and `Synthetic Data (0008,001C)`
-   set to `YES`.
-3. Write the generated `.dcm` under the case ID path in the output root and add
-   a corresponding manifest file entry.
-4. Add tests for DICM prefix, file meta/dataset UID consistency, and manifest
-   file entry metadata.
-5. Commit as `feat(generator): write first smoke part10 case`.
+1. Promote the current readback assertions into a reusable internal validation
+   step that verifies Part 10 preamble, File Meta Information, SOP Class/Instance
+   UID consistency, transfer syntax, required pixel metadata, and pixel value
+   length.
+2. Record validation result details in the manifest instead of the current
+   writer-success placeholder.
+3. Keep `classic/sc/mono2_u8_explicit_le` byte-stable and leave the two
+   remaining smoke cases unavailable until their recipes are implemented.
+4. Commit as `feat(validation): validate first smoke part10 file`.
 
 ## Handoff Notes
 

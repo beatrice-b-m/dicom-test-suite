@@ -647,7 +647,7 @@ mod tests {
 
         assert!(
             output.contains(
-                "classic/ct/mono2_i16_rescale_12bit_explicit_le\tplanned\tcore\t1.2.840.10008.5.1.4.1.1.2\t1.2.840.10008.1.2.1\t2/2 covered"
+                "classic/ct/mono2_i16_rescale_12bit_explicit_le\timplemented\tcore\t1.2.840.10008.5.1.4.1.1.2\t1.2.840.10008.1.2.1\t11/11 covered"
             ),
             "list-cases output must show core status and standards evidence coverage"
         );

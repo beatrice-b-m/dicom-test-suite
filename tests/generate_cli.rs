@@ -249,7 +249,7 @@ fn generate_command_writes_core_u16_native_pixel_case() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\tcore"));
-    assert!(stdout.contains("files_written\t10"));
+    assert!(stdout.contains("files_written\t11"));
 
     let manifest_path = out_dir.join("manifest.json");
     let manifest: Value = serde_json::from_str(
@@ -265,7 +265,7 @@ fn generate_command_writes_core_u16_native_pixel_case() {
             .pointer("/files")
             .and_then(Value::as_array)
             .map(Vec::len),
-        Some(10)
+        Some(11)
     );
     let u16_file = file_entry_by_case_id(&manifest, "classic/sc/mono2_u16_explicit_le");
     assert_eq!(
@@ -516,17 +516,66 @@ fn generate_command_writes_core_u16_native_pixel_case() {
             .contains(&"photometric_planar_configuration_presence"),
         "manifest should record photometric planar configuration validation"
     );
+    let ct_file =
+        file_entry_by_case_id(&manifest, "classic/ct/mono2_i16_rescale_12bit_explicit_le");
+    assert_eq!(
+        ct_file
+            .pointer("/dicom/sop_class_uid")
+            .and_then(Value::as_str),
+        Some(uids::CT_IMAGE_STORAGE)
+    );
+    assert_eq!(
+        ct_file.pointer("/dicom/modality").and_then(Value::as_str),
+        Some("CT")
+    );
+    assert_eq!(
+        ct_file
+            .pointer("/image/bits_stored")
+            .and_then(Value::as_u64),
+        Some(12)
+    );
+    assert_eq!(
+        ct_file.pointer("/image/high_bit").and_then(Value::as_u64),
+        Some(11)
+    );
+    assert_eq!(
+        ct_file
+            .pointer("/recipe/recipe_parameters/rescale/intercept")
+            .and_then(Value::as_str),
+        Some("-1024")
+    );
+    assert_eq!(
+        ct_file
+            .pointer("/recipe/recipe_parameters/window/width")
+            .and_then(Value::as_str),
+        Some("400")
+    );
+    assert!(
+        validation_result_names(ct_file.pointer("/validation/internal"))
+            .contains(&"ct_rescale_intercept"),
+        "CT manifest should record Rescale Intercept validation"
+    );
+    assert!(
+        validation_result_names(ct_file.pointer("/validation/internal"))
+            .contains(&"ct_window_width"),
+        "CT manifest should record Window Width validation"
+    );
+    assert!(
+        validation_result_names(ct_file.pointer("/validation/standards"))
+            .contains(&"ct_image_sop_class"),
+        "CT manifest should record standards validation for CT Image Storage"
+    );
     assert!(
         manifest
             .pointer("/skipped_cases")
             .and_then(Value::as_array)
             .is_some_and(|cases| {
-                cases.iter().any(|case| {
+                cases.iter().all(|case| {
                     case.get("case_id").and_then(Value::as_str)
-                        == Some("classic/ct/mono2_i16_rescale_12bit_explicit_le")
+                        != Some("classic/ct/mono2_i16_rescale_12bit_explicit_le")
                 })
             }),
-        "manifest should still report planned core cases without generators"
+        "implemented CT case should not be reported as skipped"
     );
 
     let dcm_path = out_dir.join("classic/sc/mono2_u16_explicit_le/instance.dcm");
@@ -680,6 +729,64 @@ fn generate_command_writes_core_u16_native_pixel_case() {
             .to_int::<u16>()
             .expect("Pixel Padding Range Limit should be numeric"),
         0
+    );
+    let ct_path = out_dir.join("classic/ct/mono2_i16_rescale_12bit_explicit_le/instance.dcm");
+    let ct = open_file(&ct_path).expect("CT generated DICOM file should parse");
+    assert_eq!(
+        ct.element(tags::SOP_CLASS_UID)
+            .expect("dataset should contain SOP Class UID")
+            .value()
+            .to_str()
+            .expect("SOP Class UID should be text")
+            .trim_end_matches('\0'),
+        uids::CT_IMAGE_STORAGE
+    );
+    assert_eq!(
+        ct.element(tags::MODALITY)
+            .expect("dataset should contain Modality")
+            .value()
+            .to_str()
+            .expect("Modality should be text")
+            .trim(),
+        "CT"
+    );
+    assert_eq!(
+        ct.element(tags::BITS_STORED)
+            .expect("dataset should contain Bits Stored")
+            .value()
+            .to_int::<u16>()
+            .expect("Bits Stored should be numeric"),
+        12
+    );
+    assert_eq!(
+        ct.element(tags::RESCALE_INTERCEPT)
+            .expect("dataset should contain Rescale Intercept")
+            .value()
+            .to_str()
+            .expect("Rescale Intercept should be text")
+            .trim(),
+        "-1024"
+    );
+    assert_eq!(
+        ct.element(tags::WINDOW_CENTER)
+            .expect("dataset should contain Window Center")
+            .value()
+            .to_str()
+            .expect("Window Center should be text")
+            .trim(),
+        "40"
+    );
+    assert_eq!(
+        ct.element(tags::FRAME_OF_REFERENCE_UID)
+            .expect("dataset should contain Frame of Reference UID")
+            .value()
+            .to_str()
+            .expect("Frame of Reference UID should be text")
+            .trim_end_matches('\0'),
+        ct_file
+            .pointer("/uids/frame_of_reference_uid")
+            .and_then(Value::as_str)
+            .expect("manifest should record CT Frame of Reference UID")
     );
 
     fs::remove_dir_all(out_dir).expect("temporary output root should be removable");

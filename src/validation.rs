@@ -2,7 +2,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use dicom_core::{Tag, VR};
-use dicom_dictionary_std::{StandardDataDictionary, tags};
+use dicom_dictionary_std::{StandardDataDictionary, tags, uids};
 use dicom_object::{FileDicomObject, InMemDicomObject, open_file};
 use serde_json::Value;
 
@@ -30,6 +30,7 @@ pub(crate) struct Part10Expectations<'a> {
     pub pixel_data_length_formula: PixelDataLengthFormula,
     pub palette: Option<PaletteExpectations>,
     pub padding: Option<PixelPaddingExpectations>,
+    pub ct_image: Option<CtImageExpectations<'a>>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -50,6 +51,24 @@ pub(crate) struct PaletteExpectations {
 pub(crate) struct PixelPaddingExpectations {
     pub value: u16,
     pub range_limit: Option<u16>,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct CtImageExpectations<'a> {
+    pub modality: &'a str,
+    pub frame_of_reference_uid: &'a str,
+    pub image_type: &'a str,
+    pub pixel_spacing: &'a str,
+    pub image_orientation_patient: &'a str,
+    pub image_position_patient: &'a str,
+    pub slice_thickness: &'a str,
+    pub kvp: &'a str,
+    pub acquisition_number: &'a str,
+    pub rescale_intercept: &'a str,
+    pub rescale_slope: &'a str,
+    pub rescale_type: &'a str,
+    pub window_center: &'a str,
+    pub window_width: &'a str,
 }
 
 #[derive(Debug, Clone)]
@@ -291,6 +310,9 @@ pub(crate) fn validate_part10_file(
     if let Some(padding) = &expected.padding {
         validate_pixel_padding(path, &obj, &mut internal, padding)?;
     }
+    if let Some(ct_image) = &expected.ct_image {
+        validate_ct_image(path, &obj, &mut internal, ct_image)?;
+    }
 
     fail_if_any_failed(path, &internal)?;
 
@@ -301,9 +323,9 @@ pub(crate) fn validate_part10_file(
             "internal": internal,
             "standards": [
                 {
-                    "name": "secondary_capture_sop_class",
+                    "name": standard_sop_class_validation_name(expected.sop_class_uid),
                     "status": "passed",
-                    "message": "SOP Class UID matches Secondary Capture Image Storage in the 2026b reference."
+                    "message": standard_sop_class_validation_message(expected.sop_class_uid)
                 },
                 {
                     "name": "explicit_vr_little_endian_transfer_syntax",
@@ -318,7 +340,7 @@ pub(crate) fn validate_part10_file(
                 {
                     "name": "image_pixel_description",
                     "status": "passed",
-                    "message": "Image Pixel attributes match the native 8-bit recipe."
+                    "message": "Image Pixel attributes match the native pixel recipe."
                 }
             ],
             "external": []
@@ -506,6 +528,95 @@ fn validate_pixel_padding(
         );
     }
     Ok(())
+}
+
+fn validate_ct_image(
+    path: &Path,
+    obj: &OpenedObject,
+    results: &mut Vec<Value>,
+    expected: &CtImageExpectations<'_>,
+) -> Result<(), GenerateError> {
+    for (name, tag, expected_value) in [
+        ("ct_modality", tags::MODALITY, expected.modality),
+        (
+            "ct_frame_of_reference_uid",
+            tags::FRAME_OF_REFERENCE_UID,
+            expected.frame_of_reference_uid,
+        ),
+        ("ct_image_type", tags::IMAGE_TYPE, expected.image_type),
+        (
+            "ct_pixel_spacing",
+            tags::PIXEL_SPACING,
+            expected.pixel_spacing,
+        ),
+        (
+            "ct_image_orientation_patient",
+            tags::IMAGE_ORIENTATION_PATIENT,
+            expected.image_orientation_patient,
+        ),
+        (
+            "ct_image_position_patient",
+            tags::IMAGE_POSITION_PATIENT,
+            expected.image_position_patient,
+        ),
+        (
+            "ct_slice_thickness",
+            tags::SLICE_THICKNESS,
+            expected.slice_thickness,
+        ),
+        ("ct_kvp", tags::KVP, expected.kvp),
+        (
+            "ct_acquisition_number",
+            tags::ACQUISITION_NUMBER,
+            expected.acquisition_number,
+        ),
+        (
+            "ct_rescale_intercept",
+            tags::RESCALE_INTERCEPT,
+            expected.rescale_intercept,
+        ),
+        (
+            "ct_rescale_slope",
+            tags::RESCALE_SLOPE,
+            expected.rescale_slope,
+        ),
+        ("ct_rescale_type", tags::RESCALE_TYPE, expected.rescale_type),
+        (
+            "ct_window_center",
+            tags::WINDOW_CENTER,
+            expected.window_center,
+        ),
+        ("ct_window_width", tags::WINDOW_WIDTH, expected.window_width),
+    ] {
+        check_equal(
+            results,
+            name,
+            "CT Image attribute matches the recipe.",
+            "CT Image attribute does not match the recipe.",
+            element_str(path, obj, tag)?.as_str(),
+            expected_value,
+        );
+    }
+
+    Ok(())
+}
+
+fn standard_sop_class_validation_name(sop_class_uid: &str) -> &'static str {
+    match sop_class_uid {
+        uids::SECONDARY_CAPTURE_IMAGE_STORAGE => "secondary_capture_sop_class",
+        uids::CT_IMAGE_STORAGE => "ct_image_sop_class",
+        _ => "sop_class_uid",
+    }
+}
+
+fn standard_sop_class_validation_message(sop_class_uid: &str) -> &'static str {
+    match sop_class_uid {
+        uids::SECONDARY_CAPTURE_IMAGE_STORAGE => {
+            "SOP Class UID matches Secondary Capture Image Storage in the 2026b reference."
+        }
+        uids::CT_IMAGE_STORAGE => "SOP Class UID matches CT Image Storage in the 2026b reference.",
+        _ => "SOP Class UID matches the recipe.",
+    }
 }
 
 fn check(

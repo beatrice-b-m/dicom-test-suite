@@ -2,9 +2,9 @@
 
 **Last updated:** 2026-06-13  
 **Source specification:** `SYSTEM_SPEC.md` version 0.2.0  
-**Current phase:** Phase 3 classic radiology IODs, not started
+**Current phase:** Phase 3 classic radiology IODs, in progress
 
-**Current implementation status:** Phase 0, Phase 0.5, Phase 1, and Phase 2 are complete; Phase 3 has not started
+**Current implementation status:** Phase 0, Phase 0.5, Phase 1, and Phase 2 are complete; Phase 3 has started with CT Image Storage signed rescale coverage
 
 This document is the durable hand-off log for coding agents implementing
 `dicom-test-suite`. Keep `SYSTEM_SPEC.md` as the source of product and
@@ -43,14 +43,14 @@ Observed at creation of this progress file:
 | `standards.lock.json` | present | Locks to DICOM 2026b base edition only using the pinned `dicom-standard-kb` MCP source manifest; local DB and source artifact hashes remain pending. |
 | `schemas/` | present | Manifest, case registry, coverage report, and viewer report schemas have initial structured coverage. |
 | `cases/taxonomy.md` | present | Documents normalized case ID format, path segments, descriptor conventions, profile definitions, and inclusion rules. |
-| `cases/registry.json` | present | Seeds planned smoke/core cases with SOP Class and transfer syntax evidence from `dicom-standard-kb` MCP lookups. |
+| `cases/registry.json` | present | Tracks implemented smoke/core SC cases and the first implemented CT Image Storage case with SOP Class, IOD/module, rescale, and window evidence from `dicom-standard-kb` MCP lookups. |
 | `transfer-syntax/capability-matrix.json` | present | Records initial read/decode/write/encode, feature, external library, and determinism capabilities for baseline native transfer syntaxes. |
 | `docs/deterministic-build-policy.md` | present | Documents determinism levels, reproducibility inputs, UID derivation, metadata controls, hashes, and two-run verification. |
 | `standards/kb-integration.md` | present | Documents the pinned 2026b `dicom-standard-kb` MCP query workflow, evidence fields, and fallback path. |
 | `standards/gap-workflow.md` | present | Documents standards gap handling, local source notes, blocked/skipped registry actions, and KB patch criteria. |
 | `standards/source-notes/` | present | Contains a README/template plus `uid-2-25.md` for the PS3.5 UID root gap not covered by `dicom-standard-kb`. |
-| `src/` or `crates/` | present | Single-package implementation now includes initial `list-cases`, `generate`, deterministic UID, run manifest, and smoke Part 10 writer paths. |
-| `tests/` | present | Includes schema artifact, `list-cases` CLI, `generate` CLI, UID, manifest, Part 10 readback, and smoke reproducibility tests. |
+| `src/` or `crates/` | present | Single-package implementation now includes `list-cases`, `generate`, deterministic UID, run manifest, SC pixel writers, CT signed rescale writer, and Part 10 validation paths. |
+| `tests/` | present | Includes schema artifact, `list-cases` CLI, `generate` CLI, UID, manifest, Part 10 readback, CT rescale readback, and smoke reproducibility tests. |
 
 ## Non-Negotiable Implementation Constraints
 
@@ -81,7 +81,7 @@ Observed at creation of this progress file:
 | Phase 0.5: Standards and case registry foundation | complete | Standards base edition, schemas, taxonomy/profile rules, initial smoke/core registry, transfer syntax matrix, deterministic policy, standards workflows, and `list-cases` are in place. |
 | Phase 1: Generator core | complete | `generate --profile smoke` writes all three initial Secondary Capture smoke Part 10 files with manifest hashes, file meta UIDs, pixel metadata, validation results, and byte-stable output across two identical runs. |
 | Phase 2: Native pixel matrix | complete | Core native monochrome 16-bit unsigned/signed MONOCHROME2 OW Pixel Data, RGB planar configuration 1, PALETTE COLOR, YBR_FULL, YBR_FULL_422, odd-dimension, rectangular, tiny-image, pixel-padding, and broadened native pixel validators are implemented. |
-| Phase 3: Classic radiology IODs | not started | CT/MR/CR/US/DX/MG builders pending. |
+| Phase 3: Classic radiology IODs | in progress | First CT Image Storage signed 12-bit rescale/window case implemented; MR/CR/US/DX/MG and remaining classic radiology stressors pending. |
 | Phase 4: Enhanced multi-frame | not started | Enhanced CT/MR and functional groups pending. |
 | Phase 5: Derived, presentation, and non-image objects | not started | SEG, presentation states, SR, KOS, RWVM, RT, and encapsulated documents pending. |
 | Phase 6: Transfer syntax expansion | not started | Transfer syntax abstraction and compressed cases pending. |
@@ -159,6 +159,22 @@ Phase 2 is complete: smoke and core profiles cover the key Image Pixel
 combinations targeted for this phase with computed byte-length validation, and
 YBR_FULL_422 uses the required special native byte-length validator.
 
+## Phase 3 Checklist
+
+- [x] Add first CT Image Storage signed 12-bit MONOCHROME2 rescale/window case.
+- [ ] Add mammography For Presentation and For Processing cases, including
+  MONOCHROME1 12-bit data.
+- [ ] Add CR overlay, Modality LUT, and VOI LUT coverage.
+- [ ] Add MR multi-slice oblique geometry sorting coverage.
+- [ ] Add US, DX, and remaining classic single-frame IOD builders.
+- [ ] Add multi-file series generation with stable Study/Series/Frame of
+  Reference UIDs.
+
+Phase 3 remains in progress. The core profile now includes one standards-backed
+CT Image Storage case, but the phase exit criteria still require mammography,
+projection X-Ray/CR/MR/US coverage, overlays/LUTs/shutters, and multi-file
+series generation.
+
 ## Initial Priority Case Queue
 
 These case IDs come from `SYSTEM_SPEC.md` section 21 and should seed
@@ -179,7 +195,7 @@ These case IDs come from `SYSTEM_SPEC.md` section 21 and should seed
 | `classic/sc/mono2_u16_rect_2x3_explicit_le` | `core` | implemented |
 | `classic/sc/mono2_u16_tiny_1x1_explicit_le` | `core` | implemented |
 | `classic/sc/mono2_u16_padding_explicit_le` | `core` | implemented |
-| `classic/ct/mono2_i16_rescale_12bit_explicit_le` | `core` | planned |
+| `classic/ct/mono2_i16_rescale_12bit_explicit_le` | `core` | implemented |
 | `classic/mg/for_presentation_mono1_u16_12bit_explicit_le` | `core` | planned |
 | `classic/mg/for_processing_mono2_u16_12bit_implicit_le` | `core` | planned |
 | `classic/cr/overlay_modality_voi_explicit_le` | `core` | planned |
@@ -276,26 +292,38 @@ These case IDs come from `SYSTEM_SPEC.md` section 21 and should seed
   records Bits Stored/Bits Allocated, High Bit, photometric Samples per Pixel,
   Planar Configuration presence, and YBR_FULL_422 Planar Configuration
   invariants.
+- 2026-06-13: Phase 3 has started with
+  `classic/ct/mono2_i16_rescale_12bit_explicit_le`, a 2x2 CT Image Storage Part
+  10 case using Explicit VR Little Endian, signed 12-bit MONOCHROME2 native OW
+  Pixel Data, deterministic Study/Series/SOP/Frame of Reference UIDs, Image
+  Plane geometry, CT Image identifying attributes, HU rescale slope/intercept,
+  and window center/width. Internal validation now supports optional CT Image
+  checks for Modality, Frame of Reference UID, Image Type, Image Plane geometry,
+  KVP, Acquisition Number, Rescale Intercept/Slope/Type, and Window
+  Center/Width. The registry records 2026b `dicom-standard-kb` evidence for CT
+  Image Storage, the CT Image IOD/modules, CT Image/Image Plane/Frame of
+  Reference attributes, rescale attributes, and VOI window attributes.
 
 ## Current Blockers
 
 No implementation blocker has been proven yet. The immediate limitations are
 that the local `dicom-standard-kb` repository commit/DB SHA-256 and official
-source artifact hashes have not yet been verified. Phase 3 can begin with
-classic CT Image Storage coverage.
+source artifact hashes have not yet been verified. Phase 3 can continue with
+additional classic radiology IOD cases.
 
 ## Recommended Next Commit
 
-Start Phase 3 classic CT coverage:
+Continue Phase 3 with mammography For Presentation coverage:
 
-1. Query the 2026b `dicom-standard-kb` for CT Image Storage, CT Image IOD
-   modules, CT Image pixel constraints, Rescale Intercept/Slope, and required
-   CT identifying attributes.
-2. Add or refine `classic/ct/mono2_i16_rescale_12bit_explicit_le` registry
-   evidence before implementing the generator.
-3. Implement the first CT-like signed 12-bit MONOCHROME2 rescale case with
-   focused Part 10 validation.
-4. Commit as `feat(ct): add signed rescale core case`.
+1. Query the 2026b `dicom-standard-kb` for Digital Mammography X-Ray Image
+   Storage - For Presentation, its IOD modules, Presentation Intent Type,
+   MONOCHROME1 photometric constraints, 12-bit pixel metadata, mammography view
+   and laterality attributes, and any required DX/MG detector attributes.
+2. Expand or refine
+   `classic/mg/for_presentation_mono1_u16_12bit_explicit_le` registry evidence.
+3. Implement a tiny byte-stable MONOCHROME1 12-bit mammography-style case with
+   focused Part 10 and mammography attribute validation.
+4. Commit as `feat(mg): add for-presentation mammography core case`.
 
 ## Handoff Notes
 

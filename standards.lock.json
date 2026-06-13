@@ -1,0 +1,78 @@
+{
+  "schema_version": "0.1.0",
+  "dicom_base_edition": "2026b",
+  "include_final_text_after_base": false,
+  "final_text_policy": "Base DICOM 2026b reference only; post-base final text supplements and correction items are excluded unless this lock is deliberately updated.",
+  "verified_at": "2026-06-13",
+  "official_source_policy": "PDF authoritative; HTML/CHTML/DocBook/TargetDB convenience",
+  "dicom_standard_kb": {
+    "repository": "https://github.com/beatrice-b-m/dicom-standard-kb",
+    "commit": null,
+    "db_edition": "2026b",
+    "db_sha256": null,
+    "source_manifest_sha256": "9959bee76fd293c7eda3fc81ce2ced7528612faa1b2df28cccd01504a83f54b0",
+    "parser_surface": ["PS3.3", "PS3.4", "PS3.6"],
+    "pin_status": "MCP server is pinned to a generated 2026b reference; repository commit and local DB SHA-256 are pending until exposed or verified."
+  },
+  "source_artifacts": [
+    {
+      "part": "PS3.3",
+      "format": "docbook_xml",
+      "sha256": null,
+      "status": "not_downloaded"
+    },
+    {
+      "part": "PS3.4",
+      "format": "docbook_xml",
+      "sha256": null,
+      "status": "not_downloaded"
+    },
+    {
+      "part": "PS3.5",
+      "format": "pdf",
+      "sha256": null,
+      "status": "not_downloaded"
+    },
+    {
+      "part": "PS3.6",
+      "format": "docbook_xml",
+      "sha256": null,
+      "status": "not_downloaded"
+    },
+    {
+      "part": "PS3.10",
+      "format": "pdf",
+      "sha256": null,
+      "status": "not_downloaded"
+    }
+  ],
+  "verification_queries": [
+    {
+      "source": "dicom-standard-kb",
+      "edition": "2026b",
+      "query": "lookup_uid ExplicitVRLittleEndian",
+      "result": "1.2.840.10008.1.2.1",
+      "official_url": "https://dicom.nema.org/medical/dicom/2026b/output/chtml/part06/table_A-1.html"
+    },
+    {
+      "source": "dicom-standard-kb",
+      "edition": "2026b",
+      "query": "lookup_uid CTImageStorage",
+      "result": "1.2.840.10008.5.1.4.1.1.2",
+      "official_url": "https://dicom.nema.org/medical/dicom/2026b/output/chtml/part06/table_A-1.html"
+    },
+    {
+      "source": "dicom-standard-kb",
+      "edition": "2026b",
+      "query": "lookup_data_element SyntheticData",
+      "result": "(0008,001C) CS VM 1",
+      "official_url": "https://dicom.nema.org/medical/dicom/2026b/output/chtml/part06/table_6-1.html"
+    }
+  ],
+  "notes": [
+    "Use the dicom-standard-kb MCP as the primary machine-queryable 2026b reference.",
+    "Use official source artifacts for areas not covered by dicom-standard-kb.",
+    "Patch dicom-standard-kb for repeatable lookup gaps that affect recipe generation.",
+    "Do not commit downloaded official source artifacts or generated KB databases."
+  ]
+}

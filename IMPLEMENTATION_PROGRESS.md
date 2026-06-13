@@ -3,7 +3,7 @@
 **Last updated:** 2026-06-13  
 **Source specification:** `SYSTEM_SPEC.md` version 0.2.0  
 **Current phase:** Phase 0.5 standards and case registry foundation, incomplete  
-**Current implementation status:** Phase 0 repository initialization is complete; initial schema placeholders are in place and Phase 0.5 standards/case registry work is next
+**Current implementation status:** Phase 0 repository initialization is complete; standards baseline lock is committed for DICOM 2026b base edition only
 
 This document is the durable hand-off log for coding agents implementing
 `dicom-test-suite`. Keep `SYSTEM_SPEC.md` as the source of product and
@@ -38,7 +38,7 @@ Observed at creation of this progress file:
 | `.gitignore` | present | Covers generated DICOM outputs, reports, sidecars, caches, generated standards artifacts, and SQLite KB files. |
 | `Cargo.toml` / Rust workspace | present | Single package named `dicom-test-suite`, using Rust 2024 edition; pins minimal DICOM-rs crates for Phase 1 object and transfer syntax work. |
 | `rust-toolchain.toml` | present | Pins Rust 1.85.0 with `rustfmt` and `clippy`, matching an installed local toolchain. |
-| `standards.lock.json` | missing | Required before recipe implementation. |
+| `standards.lock.json` | present | Locks to DICOM 2026b base edition only using the pinned `dicom-standard-kb` MCP source manifest; local DB and source artifact hashes remain pending. |
 | `schemas/` | present | Initial valid JSON Schema placeholders exist for manifest, case registry, coverage report, and viewer report. |
 | `cases/registry.json` | missing | Case registry must become authoritative for planned and implemented cases. |
 | `standards/source-notes/` | missing | Needed for standards gaps not covered by `dicom-standard-kb`. |
@@ -71,7 +71,7 @@ Observed at creation of this progress file:
 | Phase | Status | Summary |
 |---|---|---|
 | Phase 0: Repository initialization | complete | Scope docs, generated-artifact protections, Rust skeleton, toolchain, dependency pins, and initial schema placeholders are committed. |
-| Phase 0.5: Standards and case registry foundation | in progress | Standards lock, case registry, profile definitions, capability matrix, and standards workflow remain. |
+| Phase 0.5: Standards and case registry foundation | in progress | Standards base edition is locked; case registry, profile definitions, capability matrix, schema expansion, KB repository/DB pin, source artifact hashes, and standards workflow remain. |
 | Phase 1: Generator core | not started | CLI, UID generation, manifest writing, Part 10 writing, and file validation pending. |
 | Phase 2: Native pixel matrix | not started | Pixel generators and photometric validators pending. |
 | Phase 3: Classic radiology IODs | not started | CT/MR/CR/US/DX/MG builders pending. |
@@ -100,8 +100,8 @@ and initial schema placeholders.
 
 ## Phase 0.5 Checklist
 
-- [ ] Add `standards.lock.json`.
-- [ ] Decide explicitly whether the lock targets only the base DICOM edition or
+- [x] Add `standards.lock.json`.
+- [x] Decide explicitly whether the lock targets only the base DICOM edition or
   the base edition plus final-text supplements/correction items as of a fixed
   date.
 - [ ] Add `schemas/manifest.schema.json`.
@@ -147,28 +147,32 @@ These case IDs come from `SYSTEM_SPEC.md` section 21 and should seed
 | Rust workspace layout | decided 2026-06-13 | Start as a single package named `dicom-test-suite`; keep module boundaries compatible with later spec crates. |
 | Rust edition and toolchain | decided 2026-06-13 | Use Rust 2024 edition and pin toolchain `1.85.0`, the installed local stable toolchain sufficient for edition 2024. |
 | DICOM-rs versions | decided 2026-06-13 | Crates.io verification found `dicom` 0.9.1, `dicom-object` 0.9.1, `dicom-core` 0.9.1, `dicom-transfer-syntax-registry` 0.9.1, and `dicom-dictionary-std` 0.9.0; pin minimal direct dependencies exactly and leave optional pixel/UL codecs disabled. |
-| Standards baseline | open | Recommended baseline is DICOM 2026b, but final-text inclusion policy must be explicit. |
-| `dicom-standard-kb` pin | open | `standards.lock.json` needs repository commit and DB metadata when available. |
+| Standards baseline | decided 2026-06-13 | Use DICOM 2026b base edition only and exclude post-base final text until `standards.lock.json` is deliberately updated. |
+| `dicom-standard-kb` pin | partially decided 2026-06-13 | The available MCP is pinned to generated 2026b reference data with source manifest SHA-256 `9959bee76fd293c7eda3fc81ce2ced7528612faa1b2df28cccd01504a83f54b0`; repository commit and local DB SHA-256 remain pending until exposed or independently verified. |
 | Case registry storage shape | open | Use the required fields in `SYSTEM_SPEC.md` section 6.2. |
 | Transfer syntax capability matrix format | open | Must report read, decode, write, encode, features, external libraries, and determinism. |
 
 ## Current Blockers
 
-No implementation blocker has been proven yet. The immediate limitation is that
-the repository does not yet contain the foundational files required by Phase 0
-and Phase 0.5.
+No implementation blocker has been proven yet. The immediate limitations are
+that the local `dicom-standard-kb` repository commit/DB SHA-256 and official
+source artifact hashes have not yet been verified, and the Phase 0.5
+registry/schema/policy artifacts are still placeholders or missing.
 
 ## Recommended Next Commit
 
-Start Phase 0.5 standards baseline work:
+Expand the manifest schema:
 
-1. Add `standards.lock.json` with the DICOM 2026b base-edition baseline and an
-   explicit final-text inclusion policy.
-2. Record that `dicom-standard-kb` repository/DB pin fields are pending until a
-   local KB artifact is available or verified.
-3. Update this progress file to mark the standards-lock checklist item and
-   standards baseline decision.
-4. Commit as `docs(standards): add standards baseline lock`.
+1. Replace the placeholder `schemas/manifest.schema.json` with the initial
+   structured schema for generator metadata, standards lock metadata,
+   generated files, skipped cases, validation results, profiles, and hashes.
+2. Keep the schema aligned with `SYSTEM_SPEC.md` section 13 while leaving
+   recipe-specific detail for later slices.
+3. Add focused schema validation tests or fixture checks if local tooling is
+   available.
+4. Update this progress file with completed schema scope and the next
+   recommended Phase 0.5 task.
+5. Commit as `feat(schemas): define manifest schema`.
 
 ## Handoff Notes
 

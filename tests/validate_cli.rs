@@ -291,6 +291,157 @@ fn validate_command_reports_missing_ct_image_type() {
     fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
 }
 
+#[test]
+fn validate_command_reports_missing_mg_positioner_type() {
+    let out_dir = unique_temp_dir("validate-missing-mg-positioner-type");
+    generate_profile(&out_dir, "core");
+    let dcm_path =
+        out_dir.join("classic/mg/for_presentation_mono1_u16_12bit_explicit_le/instance.dcm");
+    mutate_dicom(&dcm_path, |bytes| {
+        let offset =
+            find_tag(bytes, 0x0018, 0x1508).expect("generated MG should contain Positioner Type");
+        bytes[offset] = 0x19;
+        bytes[offset + 1] = 0x00;
+    });
+
+    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args([
+            "validate",
+            out_dir.to_str().expect("temp path should be valid UTF-8"),
+        ])
+        .output()
+        .expect("validate command must run");
+
+    assert!(
+        !output.status.success(),
+        "validate should fail when MG Positioner Type is absent"
+    );
+    let stdout = String::from_utf8(output.stdout).expect("validate stdout must be UTF-8");
+    assert!(stdout.contains("mg_positioner_type_type1"));
+
+    fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
+}
+
+#[test]
+fn validate_command_reports_missing_dx_presentation_lut_shape() {
+    let out_dir = unique_temp_dir("validate-missing-dx-presentation-lut-shape");
+    generate_profile(&out_dir, "core");
+    let dcm_path = out_dir.join("classic/dx/display_shutter_mono2_u16_explicit_le/instance.dcm");
+    mutate_dicom(&dcm_path, |bytes| {
+        let offset = find_tag(bytes, 0x2050, 0x0020)
+            .expect("generated DX should contain Presentation LUT Shape");
+        bytes[offset] = 0x51;
+        bytes[offset + 1] = 0x20;
+    });
+
+    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args([
+            "validate",
+            out_dir.to_str().expect("temp path should be valid UTF-8"),
+        ])
+        .output()
+        .expect("validate command must run");
+
+    assert!(
+        !output.status.success(),
+        "validate should fail when DX Presentation LUT Shape is absent"
+    );
+    let stdout = String::from_utf8(output.stdout).expect("validate stdout must be UTF-8");
+    assert!(stdout.contains("dx_presentation_lut_shape_type1"));
+
+    fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
+}
+
+#[test]
+fn validate_command_reports_missing_us_image_type() {
+    let out_dir = unique_temp_dir("validate-missing-us-image-type");
+    generate_profile(&out_dir, "core");
+    let dcm_path = out_dir.join("classic/us/mono2_u8_explicit_le/instance.dcm");
+    mutate_dicom(&dcm_path, |bytes| {
+        let offset =
+            find_tag(bytes, 0x0008, 0x0008).expect("generated US should contain Image Type");
+        bytes[offset] = 0x09;
+        bytes[offset + 1] = 0x00;
+    });
+
+    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args([
+            "validate",
+            out_dir.to_str().expect("temp path should be valid UTF-8"),
+        ])
+        .output()
+        .expect("validate command must run");
+
+    assert!(
+        !output.status.success(),
+        "validate should fail when US Image Type is absent"
+    );
+    let stdout = String::from_utf8(output.stdout).expect("validate stdout must be UTF-8");
+    assert!(stdout.contains("us_image_type_type2"));
+
+    fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
+}
+
+#[test]
+fn validate_command_reports_missing_cr_body_part_examined() {
+    let out_dir = unique_temp_dir("validate-missing-cr-body-part-examined");
+    generate_profile(&out_dir, "core");
+    let dcm_path = out_dir.join("classic/cr/overlay_modality_voi_explicit_le/instance.dcm");
+    mutate_dicom(&dcm_path, |bytes| {
+        let offset = find_tag(bytes, 0x0018, 0x0015)
+            .expect("generated CR should contain Body Part Examined");
+        bytes[offset] = 0x19;
+        bytes[offset + 1] = 0x00;
+    });
+
+    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args([
+            "validate",
+            out_dir.to_str().expect("temp path should be valid UTF-8"),
+        ])
+        .output()
+        .expect("validate command must run");
+
+    assert!(
+        !output.status.success(),
+        "validate should fail when CR Body Part Examined is absent"
+    );
+    let stdout = String::from_utf8(output.stdout).expect("validate stdout must be UTF-8");
+    assert!(stdout.contains("cr_body_part_examined_type2"));
+
+    fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
+}
+
+#[test]
+fn validate_command_reports_missing_mr_scanning_sequence() {
+    let out_dir = unique_temp_dir("validate-missing-mr-scanning-sequence");
+    generate_profile(&out_dir, "core");
+    let dcm_path = out_dir.join("classic/mr/multislice_oblique_explicit_le/slice-001.dcm");
+    mutate_dicom(&dcm_path, |bytes| {
+        let offset =
+            find_tag(bytes, 0x0018, 0x0020).expect("generated MR should contain Scanning Sequence");
+        bytes[offset] = 0x19;
+        bytes[offset + 1] = 0x00;
+    });
+
+    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args([
+            "validate",
+            out_dir.to_str().expect("temp path should be valid UTF-8"),
+        ])
+        .output()
+        .expect("validate command must run");
+
+    assert!(
+        !output.status.success(),
+        "validate should fail when MR Scanning Sequence is absent"
+    );
+    let stdout = String::from_utf8(output.stdout).expect("validate stdout must be UTF-8");
+    assert!(stdout.contains("mr_scanning_sequence_type1"));
+
+    fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
+}
+
 fn generate_smoke(out_dir: &Path) {
     generate_profile(out_dir, "smoke");
 }

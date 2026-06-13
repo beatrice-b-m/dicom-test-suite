@@ -92,8 +92,8 @@ Tasks:
 - Add manifest JSON Schema validation to generation tests. Complete for
   required-field and additional-property schema contracts in smoke/core/extended
   generation tests.
-- Add targeted negative validator tests by mutating temporary generated files, without committing invalid DICOM fixtures. In progress: non-zero preamble, missing File Meta Information Version, unexpected group `0002`, inconsistent High Bit, missing Type 2 Patient's Name, missing SC Conversion Type, and missing CT Image Type are covered.
-- Expand standards-derived recipe validation incrementally for each implemented IOD family, starting with Type 1 and Type 2 attributes already in current recipes. In progress: baseline Patient, General Study, General Series, and General Image Type 1/Type 2 checks plus initial SC Equipment, CT Image, Image Plane, and Frame of Reference checks are covered for generated-root validation.
+- Add targeted negative validator tests by mutating temporary generated files, without committing invalid DICOM fixtures. In progress: non-zero preamble, missing File Meta Information Version, unexpected group `0002`, inconsistent High Bit, missing Type 2 Patient's Name, missing SC Conversion Type, missing CT Image Type, missing MG Positioner Type, missing DX Presentation LUT Shape, missing US Image Type, missing CR Body Part Examined, and missing MR Scanning Sequence are covered.
+- Expand standards-derived recipe validation incrementally for each implemented IOD family, starting with Type 1 and Type 2 attributes already in current recipes. In progress: baseline Patient, General Study, General Series, and General Image Type 1/Type 2 checks plus SC Equipment, classic CT, MG, DX, US, CR, classic MR, Image Plane, and Frame of Reference checks are covered for generated-root validation; Enhanced CT/MR family-specific checks remain.
 
 Exit criteria:
 

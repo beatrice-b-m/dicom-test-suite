@@ -1428,6 +1428,29 @@ fn validate_family_standard_elements(
         "CT Image" => {
             validate_ct_image_standard_elements(failures, relative_path, manifest_path, file, obj)?
         }
+        "Digital Mammography X-Ray Image" => validate_mammography_image_standard_elements(
+            failures,
+            relative_path,
+            manifest_path,
+            file,
+            obj,
+        )?,
+        "Digital X-Ray Image" => {
+            validate_dx_image_standard_elements(failures, relative_path, manifest_path, file, obj)?
+        }
+        "Ultrasound Image" => validate_ultrasound_image_standard_elements(
+            failures,
+            relative_path,
+            manifest_path,
+            file,
+            obj,
+        )?,
+        "Computed Radiography Image" => {
+            validate_computed_radiography_standard_elements(failures, relative_path, obj)
+        }
+        "MR Image" => {
+            validate_mr_image_standard_elements(failures, relative_path, manifest_path, file, obj)?
+        }
         _ => {}
     }
 
@@ -1524,6 +1547,349 @@ fn validate_ct_image_standard_elements(
         obj,
         tags::ACQUISITION_NUMBER,
         "ct_acquisition_number_type2",
+    );
+
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::FRAME_OF_REFERENCE_UID,
+        "frame_of_reference_uid_type1",
+        manifest_str(
+            manifest_path,
+            file,
+            "/uids/frame_of_reference_uid",
+            "uids frame_of_reference_uid must be a string",
+        )?,
+    );
+    validate_type2_element(
+        failures,
+        relative_path,
+        obj,
+        tags::POSITION_REFERENCE_INDICATOR,
+        "position_reference_indicator_type2",
+    );
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::PIXEL_SPACING,
+        "pixel_spacing_type1",
+        manifest_str(
+            manifest_path,
+            file,
+            "/recipe/recipe_parameters/geometry/pixel_spacing",
+            "expected pixel_spacing must be a string",
+        )?,
+    );
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::IMAGE_ORIENTATION_PATIENT,
+        "image_orientation_patient_type1",
+        manifest_str(
+            manifest_path,
+            file,
+            "/recipe/recipe_parameters/geometry/image_orientation_patient",
+            "expected image_orientation_patient must be a string",
+        )?,
+    );
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::IMAGE_POSITION_PATIENT,
+        "image_position_patient_type1",
+        manifest_str(
+            manifest_path,
+            file,
+            "/recipe/recipe_parameters/geometry/image_position_patient",
+            "expected image_position_patient must be a string",
+        )?,
+    );
+    validate_type2_element(
+        failures,
+        relative_path,
+        obj,
+        tags::SLICE_THICKNESS,
+        "slice_thickness_type2",
+    );
+
+    Ok(())
+}
+
+fn validate_mammography_image_standard_elements(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    manifest_path: &Path,
+    file: &Value,
+    obj: &OpenedObject,
+) -> Result<(), ValidateError> {
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::IMAGE_TYPE,
+        "mg_image_type_type1",
+        "ORIGINAL\\PRIMARY",
+    );
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::POSITIONER_TYPE,
+        "mg_positioner_type_type1",
+        "MAMMOGRAPHIC",
+    );
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::IMAGE_LATERALITY,
+        "mg_image_laterality_type1",
+        manifest_str(
+            manifest_path,
+            file,
+            "/recipe/recipe_parameters/image_laterality",
+            "expected image_laterality must be a string",
+        )?,
+    );
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::ORGAN_EXPOSED,
+        "mg_organ_exposed_type1",
+        "BREAST",
+    );
+
+    validate_dx_family_standard_elements(failures, relative_path, manifest_path, file, obj)?;
+
+    Ok(())
+}
+
+fn validate_dx_image_standard_elements(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    manifest_path: &Path,
+    file: &Value,
+    obj: &OpenedObject,
+) -> Result<(), ValidateError> {
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::IMAGE_TYPE,
+        "dx_image_type_type1",
+        "ORIGINAL\\PRIMARY",
+    );
+    validate_dx_family_standard_elements(failures, relative_path, manifest_path, file, obj)
+}
+
+fn validate_dx_family_standard_elements(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    manifest_path: &Path,
+    file: &Value,
+    obj: &OpenedObject,
+) -> Result<(), ValidateError> {
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::PIXEL_INTENSITY_RELATIONSHIP,
+        "dx_pixel_intensity_relationship_type1",
+        "LIN",
+    );
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::RESCALE_INTERCEPT,
+        "dx_rescale_intercept_type1",
+        "0",
+    );
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::RESCALE_SLOPE,
+        "dx_rescale_slope_type1",
+        "1",
+    );
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::RESCALE_TYPE,
+        "dx_rescale_type_type1",
+        "US",
+    );
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::PRESENTATION_LUT_SHAPE,
+        "dx_presentation_lut_shape_type1",
+        manifest_str(
+            manifest_path,
+            file,
+            "/recipe/recipe_parameters/presentation_lut_shape",
+            "expected presentation_lut_shape must be a string",
+        )?,
+    );
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::LOSSY_IMAGE_COMPRESSION,
+        "dx_lossy_image_compression_type1",
+        "00",
+    );
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::BURNED_IN_ANNOTATION,
+        "dx_burned_in_annotation_type1",
+        "NO",
+    );
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::IMAGER_PIXEL_SPACING,
+        "dx_imager_pixel_spacing_type1",
+        manifest_str(
+            manifest_path,
+            file,
+            "/recipe/recipe_parameters/imager_pixel_spacing",
+            "expected imager_pixel_spacing must be a string",
+        )?,
+    );
+
+    Ok(())
+}
+
+fn validate_ultrasound_image_standard_elements(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    manifest_path: &Path,
+    file: &Value,
+    obj: &OpenedObject,
+) -> Result<(), ValidateError> {
+    validate_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::IMAGE_TYPE,
+        "us_image_type_type2",
+        manifest_str(
+            manifest_path,
+            file,
+            "/expected_semantics/image_type",
+            "expected image_type must be a string",
+        )?,
+    );
+
+    Ok(())
+}
+
+fn validate_computed_radiography_standard_elements(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    obj: &OpenedObject,
+) {
+    validate_type2_element(
+        failures,
+        relative_path,
+        obj,
+        tags::BODY_PART_EXAMINED,
+        "cr_body_part_examined_type2",
+    );
+    validate_type2_element(
+        failures,
+        relative_path,
+        obj,
+        tags::VIEW_POSITION,
+        "cr_view_position_type2",
+    );
+}
+
+fn validate_mr_image_standard_elements(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    manifest_path: &Path,
+    file: &Value,
+    obj: &OpenedObject,
+) -> Result<(), ValidateError> {
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::IMAGE_TYPE,
+        "mr_image_type_type1",
+        manifest_str(
+            manifest_path,
+            file,
+            "/expected_semantics/image_type",
+            "expected image_type must be a string",
+        )?,
+    );
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::SCANNING_SEQUENCE,
+        "mr_scanning_sequence_type1",
+        manifest_str(
+            manifest_path,
+            file,
+            "/recipe/recipe_parameters/mr/scanning_sequence",
+            "expected scanning_sequence must be a string",
+        )?,
+    );
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::SEQUENCE_VARIANT,
+        "mr_sequence_variant_type1",
+        manifest_str(
+            manifest_path,
+            file,
+            "/recipe/recipe_parameters/mr/sequence_variant",
+            "expected sequence_variant must be a string",
+        )?,
+    );
+    validate_type2_element(
+        failures,
+        relative_path,
+        obj,
+        tags::SCAN_OPTIONS,
+        "mr_scan_options_type2",
+    );
+    validate_type2_element(
+        failures,
+        relative_path,
+        obj,
+        tags::MR_ACQUISITION_TYPE,
+        "mr_acquisition_type_type2",
+    );
+    validate_type2_element(
+        failures,
+        relative_path,
+        obj,
+        tags::ECHO_TIME,
+        "mr_echo_time_type2",
+    );
+    validate_type2_element(
+        failures,
+        relative_path,
+        obj,
+        tags::ECHO_TRAIN_LENGTH,
+        "mr_echo_train_length_type2",
     );
 
     validate_type1_str_element(

@@ -5,6 +5,9 @@ use std::path::{Path, PathBuf};
 
 use serde_json::Value;
 
+pub mod uid;
+pub use uid::{DeterministicUidInput, UidRole, deterministic_uid};
+
 pub const PACKAGE_NAME: &str = env!("CARGO_PKG_NAME");
 pub const PACKAGE_VERSION: &str = env!("CARGO_PKG_VERSION");
 pub const RUSTC_VERSION: &str = env!("DICOM_TEST_SUITE_RUSTC_VERSION");

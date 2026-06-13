@@ -9,6 +9,7 @@ use serde_json::Value;
 use crate::{
     DeterministicUidInput, GenerateError, PreparedGenerationRun, UidRole, deterministic_uid,
     sha256_hex,
+    validation::{Part10Expectations, validate_part10_file},
 };
 
 const FIRST_SMOKE_CASE_ID: &str = "classic/sc/mono2_u8_explicit_le";
@@ -157,10 +158,25 @@ fn write_first_smoke_case(
             message: err.to_string(),
         })?;
 
-    let bytes = fs::read(&path).map_err(|source| GenerateError::ReadGeneratedFile {
-        path: path.clone(),
-        source,
-    })?;
+    let validated = validate_part10_file(
+        &path,
+        &Part10Expectations {
+            sop_class_uid: uids::SECONDARY_CAPTURE_IMAGE_STORAGE,
+            sop_instance_uid: &sop_instance_uid,
+            transfer_syntax_uid: uids::EXPLICIT_VR_LITTLE_ENDIAN,
+            implementation_class_uid: &implementation_class_uid,
+            synthetic_data: "YES",
+            rows: 2,
+            columns: 2,
+            samples_per_pixel: 1,
+            photometric_interpretation: "MONOCHROME2",
+            bits_allocated: 8,
+            bits_stored: 8,
+            high_bit: 7,
+            pixel_representation: 0,
+            pixel_data_length: FIRST_SMOKE_PIXEL_BYTES.len(),
+        },
+    )?;
 
     Ok(GeneratedFile {
         case_id: FIRST_SMOKE_CASE_ID.to_string(),
@@ -170,7 +186,8 @@ fn write_first_smoke_case(
             &series_instance_uid,
             &sop_instance_uid,
             &implementation_class_uid,
-            &bytes,
+            &validated.bytes,
+            validated.validation,
         ),
     })
 }
@@ -182,6 +199,7 @@ fn first_smoke_manifest_entry(
     sop_instance_uid: &str,
     implementation_class_uid: &str,
     bytes: &[u8],
+    validation: Value,
 ) -> Value {
     let mut standards_evidence = case
         .get("standards_evidence")
@@ -281,18 +299,7 @@ fn first_smoke_manifest_entry(
             "top_left": 0,
             "bottom_right": 255
         },
-        "validation": {
-            "status": "passed",
-            "internal": [
-                {
-                    "name": "part10_writer",
-                    "status": "passed",
-                    "message": "DICOM-rs wrote a Part 10 file with File Meta Information and DICM prefix."
-                }
-            ],
-            "standards": [],
-            "external": []
-        },
+        "validation": validation,
         "known_stressors": ["minimal_secondary_capture", "native_ob_pixel_data"],
         "standards_evidence": standards_evidence
     })

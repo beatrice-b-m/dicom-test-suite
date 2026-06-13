@@ -97,6 +97,32 @@ fn generate_command_writes_first_smoke_part10_file_and_manifest() {
             .and_then(Value::as_str),
         Some("MONOCHROME2")
     );
+    assert_eq!(
+        manifest
+            .pointer("/files/0/validation/status")
+            .and_then(Value::as_str),
+        Some("passed")
+    );
+    assert!(
+        validation_results_named(&manifest, "/files/0/validation/internal")
+            .contains(&"part10_preamble"),
+        "manifest should record Part 10 preamble validation"
+    );
+    assert!(
+        validation_results_named(&manifest, "/files/0/validation/internal")
+            .contains(&"sop_instance_uid_consistency"),
+        "manifest should record SOP Instance UID consistency validation"
+    );
+    assert!(
+        validation_results_named(&manifest, "/files/0/validation/internal")
+            .contains(&"native_pixel_data_length"),
+        "manifest should record native Pixel Data length validation"
+    );
+    assert!(
+        validation_results_named(&manifest, "/files/0/validation/standards")
+            .contains(&"synthetic_data_attribute"),
+        "manifest should record standards validation for Synthetic Data"
+    );
 
     let dcm_path = out_dir.join("classic/sc/mono2_u8_explicit_le/instance.dcm");
     let dcm_bytes = fs::read(&dcm_path).expect("generated DICOM file should be readable");
@@ -193,4 +219,20 @@ fn unique_temp_dir(name: &str) -> PathBuf {
         "dicom-test-suite-{name}-{}-{nonce}",
         std::process::id()
     ))
+}
+
+fn validation_results_named<'a>(manifest: &'a Value, pointer: &str) -> Vec<&'a str> {
+    manifest
+        .pointer(pointer)
+        .and_then(Value::as_array)
+        .expect("validation result array should exist")
+        .iter()
+        .map(|result| {
+            assert_eq!(result.get("status").and_then(Value::as_str), Some("passed"));
+            result
+                .get("name")
+                .and_then(Value::as_str)
+                .expect("validation result should have a name")
+        })
+        .collect()
 }

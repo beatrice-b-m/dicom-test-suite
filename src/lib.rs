@@ -7,6 +7,7 @@ use serde_json::Value;
 
 mod generator;
 pub mod uid;
+mod validation;
 pub use uid::{DeterministicUidInput, UidRole, deterministic_uid};
 
 pub const PACKAGE_NAME: &str = env!("CARGO_PKG_NAME");
@@ -84,6 +85,10 @@ pub enum GenerateError {
         path: PathBuf,
         source: std::io::Error,
     },
+    ValidateDicomFile {
+        path: PathBuf,
+        message: String,
+    },
 }
 
 impl fmt::Display for GenerateError {
@@ -149,6 +154,13 @@ impl fmt::Display for GenerateError {
                     path.display()
                 )
             }
+            Self::ValidateDicomFile { path, message } => {
+                write!(
+                    f,
+                    "generated DICOM file {} failed validation: {message}",
+                    path.display()
+                )
+            }
         }
     }
 }
@@ -166,6 +178,7 @@ impl Error for GenerateError {
             Self::CreateCaseOutputDir { source, .. } => Some(source),
             Self::WriteDicomFile { .. } => None,
             Self::ReadGeneratedFile { source, .. } => Some(source),
+            Self::ValidateDicomFile { .. } => None,
         }
     }
 }

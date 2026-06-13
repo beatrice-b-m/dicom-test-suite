@@ -28,6 +28,15 @@ pub(crate) struct Part10Expectations<'a> {
     pub planar_configuration: Option<u16>,
     pub pixel_data_vr: VR,
     pub pixel_data_length: usize,
+    pub palette: Option<PaletteExpectations>,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct PaletteExpectations {
+    pub descriptor: [u16; 3],
+    pub red_data_length: usize,
+    pub green_data_length: usize,
+    pub blue_data_length: usize,
 }
 
 #[derive(Debug, Clone)]
@@ -239,6 +248,9 @@ pub(crate) fn validate_part10_file(
         pixel_bytes.len(),
         expected.pixel_data_length,
     );
+    if let Some(palette) = &expected.palette {
+        validate_palette(path, &obj, &mut internal, palette)?;
+    }
 
     fail_if_any_failed(path, &internal)?;
 
@@ -289,6 +301,84 @@ fn element_u16(path: &Path, obj: &OpenedObject, tag: Tag) -> Result<u16, Generat
         .map_err(|err| validation_error(path, err))?
         .value()
         .to_int::<u16>()
+        .map_err(|err| validation_error(path, err))
+}
+
+fn validate_palette(
+    path: &Path,
+    obj: &OpenedObject,
+    results: &mut Vec<Value>,
+    expected: &PaletteExpectations,
+) -> Result<(), GenerateError> {
+    for (name, tag) in [
+        (
+            "red_palette_lut_descriptor",
+            tags::RED_PALETTE_COLOR_LOOKUP_TABLE_DESCRIPTOR,
+        ),
+        (
+            "green_palette_lut_descriptor",
+            tags::GREEN_PALETTE_COLOR_LOOKUP_TABLE_DESCRIPTOR,
+        ),
+        (
+            "blue_palette_lut_descriptor",
+            tags::BLUE_PALETTE_COLOR_LOOKUP_TABLE_DESCRIPTOR,
+        ),
+    ] {
+        check_equal(
+            results,
+            name,
+            "Palette Color Lookup Table Descriptor matches the recipe.",
+            "Palette Color Lookup Table Descriptor does not match the recipe.",
+            element_u16_values(path, obj, tag)?,
+            expected.descriptor.to_vec(),
+        );
+    }
+    for (name, tag, expected_length) in [
+        (
+            "red_palette_lut_data",
+            tags::RED_PALETTE_COLOR_LOOKUP_TABLE_DATA,
+            expected.red_data_length,
+        ),
+        (
+            "green_palette_lut_data",
+            tags::GREEN_PALETTE_COLOR_LOOKUP_TABLE_DATA,
+            expected.green_data_length,
+        ),
+        (
+            "blue_palette_lut_data",
+            tags::BLUE_PALETTE_COLOR_LOOKUP_TABLE_DATA,
+            expected.blue_data_length,
+        ),
+    ] {
+        let element = obj
+            .element(tag)
+            .map_err(|err| validation_error(path, err))?;
+        let value_length = element
+            .value()
+            .to_bytes()
+            .map(|bytes| bytes.len())
+            .map_err(|err| validation_error(path, err))?;
+        check_equal(
+            results,
+            name,
+            "Palette Color Lookup Table Data VR and length match the recipe.",
+            "Palette Color Lookup Table Data VR or length does not match the recipe.",
+            (element.vr(), value_length),
+            (VR::OW, expected_length),
+        );
+    }
+    Ok(())
+}
+
+fn element_u16_values(
+    path: &Path,
+    obj: &OpenedObject,
+    tag: Tag,
+) -> Result<Vec<u16>, GenerateError> {
+    obj.element(tag)
+        .map_err(|err| validation_error(path, err))?
+        .value()
+        .to_multi_int::<u16>()
         .map_err(|err| validation_error(path, err))
 }
 

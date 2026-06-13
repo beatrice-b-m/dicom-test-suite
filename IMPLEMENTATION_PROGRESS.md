@@ -4,7 +4,7 @@
 **Source specification:** `SYSTEM_SPEC.md` version 0.2.0  
 **Current phase:** Phase 2 native pixel matrix, in progress
 
-**Current implementation status:** Phase 0, Phase 0.5, and Phase 1 are complete; Phase 2 has unsigned and signed 16-bit core Secondary Capture native pixel cases plus RGB planar configuration 1 coverage
+**Current implementation status:** Phase 0, Phase 0.5, and Phase 1 are complete; Phase 2 has unsigned and signed 16-bit core Secondary Capture native pixel cases plus RGB planar configuration 1 and PALETTE COLOR coverage
 
 This document is the durable hand-off log for coding agents implementing
 `dicom-test-suite`. Keep `SYSTEM_SPEC.md` as the source of product and
@@ -80,7 +80,7 @@ Observed at creation of this progress file:
 | Phase 0: Repository initialization | complete | Scope docs, generated-artifact protections, Rust skeleton, toolchain, dependency pins, and initial schema placeholders are committed. |
 | Phase 0.5: Standards and case registry foundation | complete | Standards base edition, schemas, taxonomy/profile rules, initial smoke/core registry, transfer syntax matrix, deterministic policy, standards workflows, and `list-cases` are in place. |
 | Phase 1: Generator core | complete | `generate --profile smoke` writes all three initial Secondary Capture smoke Part 10 files with manifest hashes, file meta UIDs, pixel metadata, validation results, and byte-stable output across two identical runs. |
-| Phase 2: Native pixel matrix | in progress | Core native monochrome 16-bit unsigned/signed MONOCHROME2 OW Pixel Data and RGB planar configuration 1 cases are implemented; palette color, YBR, odd dimensions, rectangular images, tiny images, and pixel padding remain. |
+| Phase 2: Native pixel matrix | in progress | Core native monochrome 16-bit unsigned/signed MONOCHROME2 OW Pixel Data, RGB planar configuration 1, and PALETTE COLOR cases are implemented; YBR, odd dimensions, rectangular images, tiny images, and pixel padding remain. |
 | Phase 3: Classic radiology IODs | not started | CT/MR/CR/US/DX/MG builders pending. |
 | Phase 4: Enhanced multi-frame | not started | Enhanced CT/MR and functional groups pending. |
 | Phase 5: Derived, presentation, and non-image objects | not started | SEG, presentation states, SR, KOS, RWVM, RT, and encapsulated documents pending. |
@@ -149,7 +149,7 @@ identical runs.
 - [x] Add first core native unsigned 16-bit monochrome pixel case.
 - [x] Add signed 16-bit monochrome pixel case.
 - [x] Add RGB planar configuration 1 case.
-- [ ] Add PALETTE COLOR case with palette LUT descriptors and data.
+- [x] Add PALETTE COLOR case with palette LUT descriptors and data.
 - [ ] Add native YBR_FULL case.
 - [ ] Add native YBR_FULL_422 case with special byte-length validation.
 - [ ] Add odd-dimension, rectangular, very small image, and pixel padding cases.
@@ -172,6 +172,7 @@ These case IDs come from `SYSTEM_SPEC.md` section 21 and should seed
 | `classic/sc/mono2_u16_explicit_le` | `core` | implemented |
 | `classic/sc/mono2_i16_explicit_le` | `core` | implemented |
 | `classic/sc/rgb_planar1_explicit_le` | `core` | implemented |
+| `classic/sc/palette_color_u8_explicit_le` | `core` | implemented |
 | `classic/ct/mono2_i16_rescale_12bit_explicit_le` | `core` | planned |
 | `classic/mg/for_presentation_mono1_u16_12bit_explicit_le` | `core` | planned |
 | `classic/mg/for_processing_mono2_u16_12bit_implicit_le` | `core` | planned |
@@ -235,25 +236,30 @@ These case IDs come from `SYSTEM_SPEC.md` section 21 and should seed
   Data coverage with Planar Configuration 1. The generated pixel bytes use
   color-by-plane ordering, and validation confirms Planar Configuration and
   native Pixel Data length.
+- 2026-06-13: `classic/sc/palette_color_u8_explicit_le` adds PALETTE COLOR
+  native OB Pixel Data coverage. The case uses single-sample 8-bit pixel
+  indices, absent Planar Configuration, 16-bit Red/Green/Blue Palette Color
+  Lookup Table Descriptors `[4, 0, 16]`, and OW LUT Data validated for VR and
+  value length.
 
 ## Current Blockers
 
 No implementation blocker has been proven yet. The immediate limitations are
 that the local `dicom-standard-kb` repository commit/DB SHA-256 and official
 source artifact hashes have not yet been verified. Phase 2 can continue with
-PALETTE COLOR coverage.
+YBR_FULL coverage.
 
 ## Recommended Next Commit
 
-Add PALETTE COLOR native pixel coverage:
+Add native YBR_FULL pixel coverage:
 
-1. Query the 2026b `dicom-standard-kb` for PALETTE COLOR Photometric
-   Interpretation and palette LUT Descriptor/Data attributes.
-2. Add `classic/sc/palette_color_u8_explicit_le` as a core registry case with
+1. Query the 2026b `dicom-standard-kb` for YBR_FULL Photometric Interpretation
+   and Planar Configuration constraints.
+2. Add `classic/sc/ybr_full_planar0_explicit_le` as a core registry case with
    standards evidence.
-3. Extend the generator and validation/test coverage for palette descriptors,
-   palette LUT data, and native indexed Pixel Data.
-4. Commit as `feat(pixels): add palette color core case`.
+3. Extend generator and validation/test coverage for native 8-bit YBR_FULL
+   Pixel Data and Planar Configuration 0.
+4. Commit as `feat(pixels): add ybr full core case`.
 
 ## Handoff Notes
 

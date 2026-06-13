@@ -20,6 +20,18 @@ const MONO_U16_PIXELS: [u8; 8] = [0, 0, 0x55, 0x55, 0xaa, 0xaa, 0xff, 0xff];
 const MONO_U16_VALUES: [i32; 4] = [0, 21845, 43690, 65535];
 const MONO_I16_PIXELS: [u8; 8] = [0x00, 0x80, 0x55, 0xd5, 0xaa, 0x2a, 0xff, 0x7f];
 const MONO_I16_VALUES: [i32; 4] = [-32768, -10923, 10922, 32767];
+const PALETTE_COLOR_PIXELS: [u8; 4] = [0, 1, 2, 3];
+const PALETTE_COLOR_VALUES: [i32; 4] = [0, 1, 2, 3];
+const PALETTE_DESCRIPTOR: [u16; 3] = [4, 0, 16];
+const PALETTE_RED_DATA: [u8; 8] = [0xff, 0xff, 0, 0, 0, 0, 0xff, 0xff];
+const PALETTE_GREEN_DATA: [u8; 8] = [0, 0, 0xff, 0xff, 0, 0, 0xff, 0xff];
+const PALETTE_BLUE_DATA: [u8; 8] = [0, 0, 0, 0, 0xff, 0xff, 0xff, 0xff];
+const PALETTE_COLOR_LUT: PaletteRecipe = PaletteRecipe {
+    descriptor: PALETTE_DESCRIPTOR,
+    red_data: &PALETTE_RED_DATA,
+    green_data: &PALETTE_GREEN_DATA,
+    blue_data: &PALETTE_BLUE_DATA,
+};
 
 const PIXEL_RECIPES: &[PixelRecipe] = &[
     PixelRecipe {
@@ -39,6 +51,7 @@ const PIXEL_RECIPES: &[PixelRecipe] = &[
         pixel_max: 255,
         visual_pattern: "2x2_monochrome_gradient",
         semantic_note: "minimum sample value displays as black",
+        palette: None,
     },
     PixelRecipe {
         case_id: "classic/sc/mono1_u8_explicit_le",
@@ -57,6 +70,7 @@ const PIXEL_RECIPES: &[PixelRecipe] = &[
         pixel_max: 255,
         visual_pattern: "2x2_inverse_monochrome_gradient",
         semantic_note: "minimum sample value displays as white",
+        palette: None,
     },
     PixelRecipe {
         case_id: "classic/sc/rgb_planar0_explicit_le",
@@ -75,6 +89,7 @@ const PIXEL_RECIPES: &[PixelRecipe] = &[
         pixel_max: 255,
         visual_pattern: "2x2_rgb_red_green_blue_white",
         semantic_note: "RGB samples are interleaved color-by-pixel",
+        palette: None,
     },
     PixelRecipe {
         case_id: "classic/sc/rgb_planar1_explicit_le",
@@ -93,6 +108,26 @@ const PIXEL_RECIPES: &[PixelRecipe] = &[
         pixel_max: 255,
         visual_pattern: "2x2_rgb_planar1_red_green_blue_white",
         semantic_note: "RGB samples are stored contiguously by color plane",
+        palette: None,
+    },
+    PixelRecipe {
+        case_id: "classic/sc/palette_color_u8_explicit_le",
+        recipe_id: "sc_palette_color_u8",
+        photometric_interpretation: "PALETTE COLOR",
+        samples_per_pixel: 1,
+        planar_configuration: None,
+        bits_allocated: 8,
+        bits_stored: 8,
+        high_bit: 7,
+        pixel_representation: 0,
+        pixel_vr: VR::OB,
+        pixel_bytes: &PALETTE_COLOR_PIXELS,
+        pixel_values: &PALETTE_COLOR_VALUES,
+        pixel_min: 0,
+        pixel_max: 3,
+        visual_pattern: "2x2_palette_red_green_blue_white",
+        semantic_note: "stored pixel values index 16-bit RGB palette lookup tables",
+        palette: Some(PALETTE_COLOR_LUT),
     },
     PixelRecipe {
         case_id: "classic/sc/mono2_u16_explicit_le",
@@ -111,6 +146,7 @@ const PIXEL_RECIPES: &[PixelRecipe] = &[
         pixel_max: 65535,
         visual_pattern: "2x2_monochrome_u16_gradient",
         semantic_note: "16-bit unsigned MONOCHROME2 samples span the full stored range",
+        palette: None,
     },
     PixelRecipe {
         case_id: "classic/sc/mono2_i16_explicit_le",
@@ -129,6 +165,7 @@ const PIXEL_RECIPES: &[PixelRecipe] = &[
         pixel_max: 32767,
         visual_pattern: "2x2_monochrome_i16_gradient",
         semantic_note: "16-bit signed MONOCHROME2 samples use 2's complement representation",
+        palette: None,
     },
 ];
 
@@ -150,6 +187,15 @@ struct PixelRecipe {
     pixel_max: i32,
     visual_pattern: &'static str,
     semantic_note: &'static str,
+    palette: Option<PaletteRecipe>,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct PaletteRecipe {
+    descriptor: [u16; 3],
+    red_data: &'static [u8],
+    green_data: &'static [u8],
+    blue_data: &'static [u8],
 }
 
 #[derive(Debug, Clone)]
@@ -306,6 +352,9 @@ fn write_pixel_case(
         VR::US,
         recipe.pixel_representation,
     );
+    if let Some(palette) = recipe.palette {
+        put_palette(&mut obj, palette);
+    }
     obj.put(DataElement::new(
         tags::PIXEL_DATA,
         recipe.pixel_vr,
@@ -350,6 +399,7 @@ fn write_pixel_case(
             planar_configuration: recipe.planar_configuration,
             pixel_data_vr: recipe.pixel_vr,
             pixel_data_length: recipe.pixel_bytes.len(),
+            palette: recipe.palette.map(|palette| palette.into()),
         },
     )?;
 
@@ -439,6 +489,75 @@ fn pixel_manifest_entry(
             }),
         ]);
     }
+    if recipe.palette.is_some() {
+        standards_evidence.extend([
+            serde_json::json!({
+                "source": "dicom-standard-kb",
+                "edition": "2026b",
+                "query": "retrieve_standard_text sect_C.7.6.3.1.5",
+                "covered": true,
+                "part": "PS3.3",
+                "anchor": "sect_C.7.6.3.1.5"
+            }),
+            serde_json::json!({
+                "source": "dicom-standard-kb",
+                "edition": "2026b",
+                "query": "lookup_data_element RedPaletteColorLookupTableDescriptor",
+                "covered": true,
+                "part": "PS3.6",
+                "anchor": "table_6-1"
+            }),
+            serde_json::json!({
+                "source": "dicom-standard-kb",
+                "edition": "2026b",
+                "query": "lookup_data_element GreenPaletteColorLookupTableDescriptor",
+                "covered": true,
+                "part": "PS3.6",
+                "anchor": "table_6-1"
+            }),
+            serde_json::json!({
+                "source": "dicom-standard-kb",
+                "edition": "2026b",
+                "query": "lookup_data_element BluePaletteColorLookupTableDescriptor",
+                "covered": true,
+                "part": "PS3.6",
+                "anchor": "table_6-1"
+            }),
+            serde_json::json!({
+                "source": "dicom-standard-kb",
+                "edition": "2026b",
+                "query": "lookup_data_element RedPaletteColorLookupTableData",
+                "covered": true,
+                "part": "PS3.6",
+                "anchor": "table_6-1"
+            }),
+            serde_json::json!({
+                "source": "dicom-standard-kb",
+                "edition": "2026b",
+                "query": "lookup_data_element GreenPaletteColorLookupTableData",
+                "covered": true,
+                "part": "PS3.6",
+                "anchor": "table_6-1"
+            }),
+            serde_json::json!({
+                "source": "dicom-standard-kb",
+                "edition": "2026b",
+                "query": "lookup_data_element BluePaletteColorLookupTableData",
+                "covered": true,
+                "part": "PS3.6",
+                "anchor": "table_6-1"
+            }),
+        ]);
+    }
+
+    let palette_manifest = recipe.palette.map(|palette| {
+        serde_json::json!({
+            "descriptor": palette.descriptor,
+            "red_data_value_length": palette.red_data.len(),
+            "green_data_value_length": palette.green_data.len(),
+            "blue_data_value_length": palette.blue_data.len()
+        })
+    });
 
     serde_json::json!({
         "case_id": recipe.case_id,
@@ -458,7 +577,8 @@ fn pixel_manifest_entry(
                 "bits_allocated": recipe.bits_allocated,
                 "bits_stored": recipe.bits_stored,
                 "planar_configuration": recipe.planar_configuration,
-                "pixel_values": recipe.pixel_values
+                "pixel_values": recipe.pixel_values,
+                "palette": palette_manifest
             }
         },
         "dicom": {
@@ -557,6 +677,46 @@ fn put_str(obj: &mut InMemDicomObject, tag: dicom_core::Tag, vr: VR, value: &str
 
 fn put_u16(obj: &mut InMemDicomObject, tag: dicom_core::Tag, vr: VR, value: u16) {
     obj.put(DataElement::new(tag, vr, PrimitiveValue::from(value)));
+}
+
+fn put_palette(obj: &mut InMemDicomObject, palette: PaletteRecipe) {
+    for tag in [
+        tags::RED_PALETTE_COLOR_LOOKUP_TABLE_DESCRIPTOR,
+        tags::GREEN_PALETTE_COLOR_LOOKUP_TABLE_DESCRIPTOR,
+        tags::BLUE_PALETTE_COLOR_LOOKUP_TABLE_DESCRIPTOR,
+    ] {
+        obj.put(DataElement::new(
+            tag,
+            VR::US,
+            PrimitiveValue::from(palette.descriptor),
+        ));
+    }
+    obj.put(DataElement::new(
+        tags::RED_PALETTE_COLOR_LOOKUP_TABLE_DATA,
+        VR::OW,
+        PrimitiveValue::from(palette.red_data),
+    ));
+    obj.put(DataElement::new(
+        tags::GREEN_PALETTE_COLOR_LOOKUP_TABLE_DATA,
+        VR::OW,
+        PrimitiveValue::from(palette.green_data),
+    ));
+    obj.put(DataElement::new(
+        tags::BLUE_PALETTE_COLOR_LOOKUP_TABLE_DATA,
+        VR::OW,
+        PrimitiveValue::from(palette.blue_data),
+    ));
+}
+
+impl From<PaletteRecipe> for crate::validation::PaletteExpectations {
+    fn from(palette: PaletteRecipe) -> Self {
+        Self {
+            descriptor: palette.descriptor,
+            red_data_length: palette.red_data.len(),
+            green_data_length: palette.green_data.len(),
+            blue_data_length: palette.blue_data.len(),
+        }
+    }
 }
 
 fn registry_case<'a>(

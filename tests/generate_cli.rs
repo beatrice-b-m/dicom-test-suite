@@ -244,7 +244,7 @@ fn generate_command_writes_core_u16_native_pixel_case() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\tcore"));
-    assert!(stdout.contains("files_written\t3"));
+    assert!(stdout.contains("files_written\t4"));
 
     let manifest_path = out_dir.join("manifest.json");
     let manifest: Value = serde_json::from_str(
@@ -260,7 +260,7 @@ fn generate_command_writes_core_u16_native_pixel_case() {
             .pointer("/files")
             .and_then(Value::as_array)
             .map(Vec::len),
-        Some(3)
+        Some(4)
     );
     let u16_file = file_entry_by_case_id(&manifest, "classic/sc/mono2_u16_explicit_le");
     assert_eq!(
@@ -343,6 +343,35 @@ fn generate_command_writes_core_u16_native_pixel_case() {
             .and_then(Value::as_u64),
         Some(12)
     );
+    let palette_file = file_entry_by_case_id(&manifest, "classic/sc/palette_color_u8_explicit_le");
+    assert_eq!(
+        palette_file
+            .pointer("/image/photometric_interpretation")
+            .and_then(Value::as_str),
+        Some("PALETTE COLOR")
+    );
+    assert_eq!(
+        palette_file
+            .pointer("/image/samples_per_pixel")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        palette_file
+            .pointer("/image/planar_configuration")
+            .and_then(Value::as_u64),
+        None
+    );
+    assert_eq!(
+        palette_file
+            .pointer("/pixel_data/value_length")
+            .and_then(Value::as_u64),
+        Some(4)
+    );
+    assert_eq!(
+        palette_file.pointer("/recipe/recipe_parameters/palette/descriptor"),
+        Some(&serde_json::json!([4, 0, 16]))
+    );
     assert!(
         validation_results_named(&manifest, "/files/0/validation/internal")
             .contains(&"pixel_data_vr"),
@@ -403,6 +432,29 @@ fn generate_command_writes_core_u16_native_pixel_case() {
             .to_int::<u16>()
             .expect("Planar Configuration should be numeric"),
         1
+    );
+    let palette_path = out_dir.join("classic/sc/palette_color_u8_explicit_le/instance.dcm");
+    let palette = open_file(&palette_path).expect("palette generated DICOM file should parse");
+    assert_eq!(
+        palette
+            .element(tags::RED_PALETTE_COLOR_LOOKUP_TABLE_DESCRIPTOR)
+            .expect("dataset should contain Red Palette Color Lookup Table Descriptor")
+            .value()
+            .to_multi_int::<u16>()
+            .expect("Red Palette Color Lookup Table Descriptor should be numeric"),
+        vec![4, 0, 16]
+    );
+    let red_palette_data = palette
+        .element(tags::RED_PALETTE_COLOR_LOOKUP_TABLE_DATA)
+        .expect("dataset should contain Red Palette Color Lookup Table Data");
+    assert_eq!(red_palette_data.vr(), dicom_core::VR::OW);
+    assert_eq!(
+        red_palette_data
+            .value()
+            .to_bytes()
+            .expect("Red Palette Color Lookup Table Data should be byte-backed")
+            .len(),
+        8
     );
 
     fs::remove_dir_all(out_dir).expect("temporary output root should be removable");

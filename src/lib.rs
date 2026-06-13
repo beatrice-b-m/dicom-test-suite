@@ -669,6 +669,12 @@ mod tests {
             ),
             "list-cases output must show implemented RGB planar1 core status"
         );
+        assert!(
+            output.contains(
+                "classic/sc/palette_color_u8_explicit_le\timplemented\tcore\t1.2.840.10008.5.1.4.1.1.7\t1.2.840.10008.1.2.1\t10/10 covered"
+            ),
+            "list-cases output must show implemented PALETTE COLOR core status"
+        );
     }
 
     #[test]

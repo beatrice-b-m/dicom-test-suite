@@ -227,6 +227,41 @@ fn run() -> Result<(), String> {
                     );
                     Ok(())
                 }
+                "gaps" => {
+                    let mut registry_path = String::from("cases/registry.json");
+                    let mut profile = None;
+                    while let Some(arg) = args.next() {
+                        match arg.as_str() {
+                            "--profile" => {
+                                profile = Some(
+                                    args.next()
+                                        .ok_or_else(|| "--profile requires a value".to_string())?,
+                                );
+                            }
+                            "--registry" => {
+                                registry_path = args
+                                    .next()
+                                    .ok_or_else(|| "--registry requires a path".to_string())?;
+                            }
+                            "--help" | "-h" => {
+                                print_standards_gaps_usage();
+                                return Ok(());
+                            }
+                            unknown => {
+                                return Err(format!("unknown standards gaps argument: {unknown}"));
+                            }
+                        }
+                    }
+                    let profile =
+                        profile.ok_or_else(|| "standards gaps requires --profile".to_string())?;
+                    let output = dicom_test_suite::standards_gaps_from_registry_path(
+                        &registry_path,
+                        &profile,
+                    )
+                    .map_err(|err| err.to_string())?;
+                    print!("{output}");
+                    Ok(())
+                }
                 "--help" | "-h" => {
                     print_standards_usage();
                     Ok(())
@@ -254,6 +289,7 @@ fn print_usage() {
     println!("  dicom-test-suite validate GENERATED_ROOT");
     println!("  dicom-test-suite report GENERATED_ROOT --format json|markdown");
     println!("  dicom-test-suite standards check-lock [--lock PATH]");
+    println!("  dicom-test-suite standards gaps --profile PROFILE [--registry PATH]");
 }
 
 fn print_generate_usage() {
@@ -277,11 +313,17 @@ fn print_report_usage() {
 }
 
 fn print_standards_usage() {
-    println!("usage: dicom-test-suite standards check-lock [--lock PATH]");
+    println!("usage:");
+    println!("  dicom-test-suite standards check-lock [--lock PATH]");
+    println!("  dicom-test-suite standards gaps --profile PROFILE [--registry PATH]");
 }
 
 fn print_standards_check_lock_usage() {
     println!("usage: dicom-test-suite standards check-lock [--lock PATH]");
+}
+
+fn print_standards_gaps_usage() {
+    println!("usage: dicom-test-suite standards gaps --profile PROFILE [--registry PATH]");
 }
 
 fn parse_seed(seed: String) -> Result<u64, String> {

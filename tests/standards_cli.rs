@@ -2,6 +2,8 @@ use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
 
+use serde_json::json;
+
 #[test]
 fn standards_check_lock_accepts_committed_lock_with_documented_warnings() {
     let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
@@ -52,6 +54,121 @@ fn standards_check_lock_rejects_malformed_lock() {
     assert!(stderr.contains("/schema_version must be a string"));
 
     fs::remove_file(lock_path).expect("temporary lock should be removable");
+}
+
+#[test]
+fn standards_gaps_reports_registry_evidence_gaps_for_profile() {
+    let registry_path = unique_temp_file("standards-gaps-registry.json");
+    fs::write(
+        &registry_path,
+        serde_json::to_string_pretty(&json!({
+            "case_registry_schema_version": "0.1.0",
+            "cases": [
+                {
+                    "case_id": "classic/sc/no_evidence_explicit_le",
+                    "status": "implemented",
+                    "profiles": ["core"],
+                    "skip": null,
+                    "standards_evidence": []
+                },
+                {
+                    "case_id": "classic/sc/blocked_explicit_le",
+                    "status": "blocked",
+                    "profiles": ["core"],
+                    "skip": {
+                        "reason_code": "standards_gap",
+                        "message": "waiting on standards evidence"
+                    },
+                    "standards_evidence": [
+                        {
+                            "source": "dicom-standard-kb",
+                            "edition": "2026b",
+                            "query": "lookup_uid ExplicitVRLittleEndian",
+                            "covered": true
+                        }
+                    ]
+                },
+                {
+                    "case_id": "classic/sc/source_note_explicit_le",
+                    "status": "implemented",
+                    "profiles": ["core"],
+                    "skip": null,
+                    "standards_evidence": [
+                        {
+                            "source": "local-source-note",
+                            "query": "PS3.5 UID root",
+                            "covered": false
+                        }
+                    ]
+                },
+                {
+                    "case_id": "classic/sc/extended_only_explicit_le",
+                    "status": "implemented",
+                    "profiles": ["extended"],
+                    "skip": null,
+                    "standards_evidence": []
+                }
+            ]
+        }))
+        .expect("temporary registry should serialize"),
+    )
+    .expect("temporary registry should be writable");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args([
+            "standards",
+            "gaps",
+            "--profile",
+            "core",
+            "--registry",
+            registry_path
+                .to_str()
+                .expect("temp path should be valid UTF-8"),
+        ])
+        .output()
+        .expect("standards gaps command must run");
+
+    assert!(
+        output.status.success(),
+        "standards gaps should accept registry: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("standards gaps stdout should be UTF-8");
+    assert!(stdout.starts_with("case_id\tstatus\tprofiles\tgap_kind\treason\n"));
+    assert!(stdout.contains(
+        "classic/sc/no_evidence_explicit_le\timplemented\tcore\tmissing_standards_evidence"
+    ));
+    assert!(
+        stdout.contains("classic/sc/blocked_explicit_le\tblocked\tcore\tblocked\tstandards_gap")
+    );
+    assert!(stdout.contains(
+        "classic/sc/source_note_explicit_le\timplemented\tcore\tincomplete_standards_evidence"
+    ));
+    assert!(stdout.contains(
+        "classic/sc/source_note_explicit_le\timplemented\tcore\tuncovered_standards_evidence"
+    ));
+    assert!(
+        stdout
+            .contains("classic/sc/source_note_explicit_le\timplemented\tcore\tsource_note_backed")
+    );
+    assert!(!stdout.contains("classic/sc/extended_only_explicit_le"));
+
+    fs::remove_file(registry_path).expect("temporary registry should be removable");
+}
+
+#[test]
+fn standards_gaps_requires_profile() {
+    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args(["standards", "gaps"])
+        .output()
+        .expect("standards gaps command must run");
+
+    assert!(
+        !output.status.success(),
+        "standards gaps should require a profile"
+    );
+    let stderr = String::from_utf8(output.stderr).expect("standards gaps stderr should be UTF-8");
+    assert!(stderr.contains("standards gaps requires --profile"));
 }
 
 fn unique_temp_file(name: &str) -> PathBuf {

@@ -1948,6 +1948,7 @@ pub enum CaseRegistryError {
         path: String,
         source: serde_json::Error,
     },
+    InvalidProfile(String),
     InvalidStatus(String),
     Shape(&'static str),
 }
@@ -1961,6 +1962,11 @@ impl fmt::Display for CaseRegistryError {
             Self::Parse { path, source } => {
                 write!(f, "failed to parse case registry {path}: {source}")
             }
+            Self::InvalidProfile(profile) => write!(
+                f,
+                "unsupported profile {profile}; expected one of {}",
+                SUPPORTED_PROFILES.join(", ")
+            ),
             Self::InvalidStatus(status) => write!(
                 f,
                 "unsupported case status {status}; expected one of {}",
@@ -1976,6 +1982,7 @@ impl Error for CaseRegistryError {
         match self {
             Self::Read { source, .. } => Some(source),
             Self::Parse { source, .. } => Some(source),
+            Self::InvalidProfile(_) => None,
             Self::InvalidStatus(_) => None,
             Self::Shape(_) => None,
         }
@@ -2000,6 +2007,31 @@ pub fn list_cases_from_registry_path(
         })?;
 
     list_cases_from_registry_value(&registry, profile_filter, status_filter)
+}
+
+pub fn standards_gaps_from_registry_path(
+    registry_path: impl AsRef<Path>,
+    profile_filter: &str,
+) -> Result<String, CaseRegistryError> {
+    if !SUPPORTED_PROFILES.contains(&profile_filter) {
+        return Err(CaseRegistryError::InvalidProfile(
+            profile_filter.to_string(),
+        ));
+    }
+
+    let registry_path = registry_path.as_ref();
+    let path_display = registry_path.display().to_string();
+    let contents = fs::read_to_string(registry_path).map_err(|source| CaseRegistryError::Read {
+        path: path_display.clone(),
+        source,
+    })?;
+    let registry: Value =
+        serde_json::from_str(&contents).map_err(|source| CaseRegistryError::Parse {
+            path: path_display,
+            source,
+        })?;
+
+    standards_gaps_from_registry_value(&registry, profile_filter)
 }
 
 pub fn list_cases_from_registry_value(
@@ -2056,6 +2088,111 @@ pub fn list_cases_from_registry_value(
     }
 
     Ok(output)
+}
+
+fn standards_gaps_from_registry_value(
+    registry: &Value,
+    profile_filter: &str,
+) -> Result<String, CaseRegistryError> {
+    let cases = registry
+        .get("cases")
+        .and_then(Value::as_array)
+        .ok_or(CaseRegistryError::Shape("missing cases array"))?;
+
+    let mut output = String::from("case_id\tstatus\tprofiles\tgap_kind\treason\n");
+    for case in cases {
+        let profiles = string_array(case.get("profiles"))?;
+        if !case_matches_profile(&profiles, profile_filter, true) {
+            continue;
+        }
+        let case_id = required_str(case, "case_id")?;
+        let status = required_str(case, "status")?;
+        for gap in standards_gaps_for_case(case, status)? {
+            output.push_str(&format!(
+                "{case_id}\t{status}\t{}\t{}\t{}\n",
+                profiles.join(","),
+                gap.kind,
+                gap.reason
+            ));
+        }
+    }
+
+    Ok(output)
+}
+
+struct StandardsGap {
+    kind: String,
+    reason: String,
+}
+
+fn standards_gaps_for_case(
+    case: &Value,
+    status: &str,
+) -> Result<Vec<StandardsGap>, CaseRegistryError> {
+    let mut gaps = Vec::new();
+    if status == "blocked" || status == "skipped" {
+        let reason = case
+            .get("skip")
+            .and_then(Value::as_object)
+            .and_then(|skip| skip.get("reason_code"))
+            .and_then(Value::as_str)
+            .unwrap_or("status_requires_skip_metadata")
+            .to_string();
+        gaps.push(StandardsGap {
+            kind: status.to_string(),
+            reason,
+        });
+    }
+
+    let evidence = case
+        .get("standards_evidence")
+        .and_then(Value::as_array)
+        .ok_or(CaseRegistryError::Shape("missing standards_evidence array"))?;
+    if evidence.is_empty() {
+        gaps.push(StandardsGap {
+            kind: "missing_standards_evidence".to_string(),
+            reason: "case has no standards evidence entries".to_string(),
+        });
+        return Ok(gaps);
+    }
+
+    let covered_count = evidence
+        .iter()
+        .filter(|entry| entry.get("covered").and_then(Value::as_bool) == Some(true))
+        .count();
+    if covered_count == 0 {
+        gaps.push(StandardsGap {
+            kind: "incomplete_standards_evidence".to_string(),
+            reason: "case has no covered standards evidence entries".to_string(),
+        });
+    }
+
+    for entry in evidence {
+        let source = entry.get("source").and_then(Value::as_str).unwrap_or("");
+        let query = entry.get("query").and_then(Value::as_str).unwrap_or("");
+        if entry.get("covered").and_then(Value::as_bool) != Some(true) {
+            gaps.push(StandardsGap {
+                kind: "uncovered_standards_evidence".to_string(),
+                reason: format!("{} is not covered", evidence_label(source, query)),
+            });
+        }
+        if source.contains("source-note") || source.contains("local-source") {
+            gaps.push(StandardsGap {
+                kind: "source_note_backed".to_string(),
+                reason: evidence_label(source, query),
+            });
+        }
+    }
+
+    Ok(gaps)
+}
+
+fn evidence_label(source: &str, query: &str) -> String {
+    if query.is_empty() {
+        source.to_string()
+    } else {
+        format!("{source}:{query}")
+    }
 }
 
 fn required_str<'a>(value: &'a Value, field: &'static str) -> Result<&'a str, CaseRegistryError> {

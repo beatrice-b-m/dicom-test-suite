@@ -57,6 +57,7 @@ fn registry_contains_initial_smoke_and_core_cases() {
         ("classic/sc/mono2_u16_odd_3x3_explicit_le", "implemented"),
         ("classic/sc/mono2_u16_rect_2x3_explicit_le", "implemented"),
         ("classic/sc/mono2_u16_tiny_1x1_explicit_le", "implemented"),
+        ("classic/sc/mono2_u16_padding_explicit_le", "implemented"),
         ("classic/ct/mono2_i16_rescale_12bit_explicit_le", "planned"),
         (
             "classic/mg/for_presentation_mono1_u16_12bit_explicit_le",

@@ -738,6 +738,82 @@
       ]
     },
     {
+      "case_id": "classic/sc/mono2_u16_padding_explicit_le",
+      "status": "implemented",
+      "profiles": ["core"],
+      "recipe_id": "sc_mono2_u16_padding",
+      "recipe_version": "0.1.0",
+      "iod_name": "Secondary Capture Image",
+      "sop_class_name": "Secondary Capture Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.7",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "byte_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_sop_class SecondaryCaptureImageStorage",
+          "covered": true,
+          "part": "PS3.4",
+          "anchor": "table_B.5-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_uid ExplicitVRLittleEndian",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "search_standard_text Image Pixel Description Macro",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.7-11c"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_data_element PixelPaddingValue",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_data_element PixelPaddingRangeLimit",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "retrieve_standard_text sect_C.7.5.1.1.2",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "sect_C.7.5.1.1.2"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "search_standard_text Pixel Padding Value shall be less than Pixel Padding Range Limit unsigned",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "sect_C.7.5.1.1.2"
+        }
+      ]
+    },
+    {
       "case_id": "classic/ct/mono2_i16_rescale_12bit_explicit_le",
       "status": "planned",
       "profiles": ["core"],

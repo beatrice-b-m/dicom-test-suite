@@ -244,7 +244,7 @@ fn generate_command_writes_core_u16_native_pixel_case() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\tcore"));
-    assert!(stdout.contains("files_written\t9"));
+    assert!(stdout.contains("files_written\t10"));
 
     let manifest_path = out_dir.join("manifest.json");
     let manifest: Value = serde_json::from_str(
@@ -260,7 +260,7 @@ fn generate_command_writes_core_u16_native_pixel_case() {
             .pointer("/files")
             .and_then(Value::as_array)
             .map(Vec::len),
-        Some(9)
+        Some(10)
     );
     let u16_file = file_entry_by_case_id(&manifest, "classic/sc/mono2_u16_explicit_le");
     assert_eq!(
@@ -472,6 +472,25 @@ fn generate_command_writes_core_u16_native_pixel_case() {
             .and_then(Value::as_u64),
         Some(2)
     );
+    let padding_file = file_entry_by_case_id(&manifest, "classic/sc/mono2_u16_padding_explicit_le");
+    assert_eq!(
+        padding_file.pointer("/recipe/recipe_parameters/pixel_padding/value"),
+        Some(&serde_json::json!(0))
+    );
+    assert_eq!(
+        padding_file.pointer("/recipe/recipe_parameters/pixel_padding/range_limit"),
+        Some(&serde_json::json!(0))
+    );
+    assert!(
+        validation_result_names(padding_file.pointer("/validation/internal"))
+            .contains(&"pixel_padding_value"),
+        "padding manifest should record Pixel Padding Value validation"
+    );
+    assert!(
+        validation_result_names(padding_file.pointer("/validation/internal"))
+            .contains(&"pixel_padding_range_limit"),
+        "padding manifest should record Pixel Padding Range Limit validation"
+    );
     assert!(
         validation_results_named(&manifest, "/files/0/validation/internal")
             .contains(&"pixel_data_vr"),
@@ -625,6 +644,27 @@ fn generate_command_writes_core_u16_native_pixel_case() {
             .expect("Pixel Data should be byte-backed")
             .len(),
         2
+    );
+    let padding_path = out_dir.join("classic/sc/mono2_u16_padding_explicit_le/instance.dcm");
+    let padding =
+        open_file(&padding_path).expect("pixel-padding generated DICOM file should parse");
+    assert_eq!(
+        padding
+            .element(tags::PIXEL_PADDING_VALUE)
+            .expect("dataset should contain Pixel Padding Value")
+            .value()
+            .to_int::<u16>()
+            .expect("Pixel Padding Value should be numeric"),
+        0
+    );
+    assert_eq!(
+        padding
+            .element(tags::PIXEL_PADDING_RANGE_LIMIT)
+            .expect("dataset should contain Pixel Padding Range Limit")
+            .value()
+            .to_int::<u16>()
+            .expect("Pixel Padding Range Limit should be numeric"),
+        0
     );
 
     fs::remove_dir_all(out_dir).expect("temporary output root should be removable");

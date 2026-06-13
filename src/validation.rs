@@ -30,6 +30,7 @@ pub(crate) struct Part10Expectations<'a> {
     pub pixel_data_length: usize,
     pub pixel_data_length_formula: PixelDataLengthFormula,
     pub palette: Option<PaletteExpectations>,
+    pub padding: Option<PixelPaddingExpectations>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -44,6 +45,12 @@ pub(crate) struct PaletteExpectations {
     pub red_data_length: usize,
     pub green_data_length: usize,
     pub blue_data_length: usize,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct PixelPaddingExpectations {
+    pub value: u16,
+    pub range_limit: Option<u16>,
 }
 
 #[derive(Debug, Clone)]
@@ -260,6 +267,9 @@ pub(crate) fn validate_part10_file(
     if let Some(palette) = &expected.palette {
         validate_palette(path, &obj, &mut internal, palette)?;
     }
+    if let Some(padding) = &expected.padding {
+        validate_pixel_padding(path, &obj, &mut internal, padding)?;
+    }
 
     fail_if_any_failed(path, &internal)?;
 
@@ -409,6 +419,33 @@ fn element_u16_values(
         .value()
         .to_multi_int::<u16>()
         .map_err(|err| validation_error(path, err))
+}
+
+fn validate_pixel_padding(
+    path: &Path,
+    obj: &OpenedObject,
+    results: &mut Vec<Value>,
+    expected: &PixelPaddingExpectations,
+) -> Result<(), GenerateError> {
+    check_equal(
+        results,
+        "pixel_padding_value",
+        "Pixel Padding Value matches the recipe.",
+        "Pixel Padding Value does not match the recipe.",
+        element_u16(path, obj, tags::PIXEL_PADDING_VALUE)?,
+        expected.value,
+    );
+    if let Some(expected_range_limit) = expected.range_limit {
+        check_equal(
+            results,
+            "pixel_padding_range_limit",
+            "Pixel Padding Range Limit matches the recipe.",
+            "Pixel Padding Range Limit does not match the recipe.",
+            element_u16(path, obj, tags::PIXEL_PADDING_RANGE_LIMIT)?,
+            expected_range_limit,
+        );
+    }
+    Ok(())
 }
 
 fn check(

@@ -26,6 +26,8 @@ const MONO_U16_RECT_2X3_PIXELS: [u8; 12] = [0, 0, 1, 0, 2, 0, 3, 0, 4, 0, 5, 0];
 const MONO_U16_RECT_2X3_VALUES: [i32; 6] = [0, 1, 2, 3, 4, 5];
 const MONO_U16_TINY_1X1_PIXELS: [u8; 2] = [0xff, 0xff];
 const MONO_U16_TINY_1X1_VALUES: [i32; 1] = [65535];
+const MONO_U16_PADDING_PIXELS: [u8; 8] = [0, 0, 0xe8, 0x03, 0xd0, 0x07, 0xb8, 0x0b];
+const MONO_U16_PADDING_VALUES: [i32; 4] = [0, 1000, 2000, 3000];
 const YBR_FULL_PLANAR0_PIXELS: [u8; 12] = [76, 85, 255, 150, 44, 21, 29, 255, 107, 255, 128, 128];
 const YBR_FULL_422_PIXELS: [u8; 8] = [76, 150, 65, 138, 29, 255, 192, 118];
 const PALETTE_COLOR_PIXELS: [u8; 4] = [0, 1, 2, 3];
@@ -62,6 +64,7 @@ const PIXEL_RECIPES: &[PixelRecipe] = &[
         visual_pattern: "2x2_monochrome_gradient",
         semantic_note: "minimum sample value displays as black",
         palette: None,
+        padding: None,
     },
     PixelRecipe {
         case_id: "classic/sc/mono1_u8_explicit_le",
@@ -83,6 +86,7 @@ const PIXEL_RECIPES: &[PixelRecipe] = &[
         visual_pattern: "2x2_inverse_monochrome_gradient",
         semantic_note: "minimum sample value displays as white",
         palette: None,
+        padding: None,
     },
     PixelRecipe {
         case_id: "classic/sc/rgb_planar0_explicit_le",
@@ -104,6 +108,7 @@ const PIXEL_RECIPES: &[PixelRecipe] = &[
         visual_pattern: "2x2_rgb_red_green_blue_white",
         semantic_note: "RGB samples are interleaved color-by-pixel",
         palette: None,
+        padding: None,
     },
     PixelRecipe {
         case_id: "classic/sc/rgb_planar1_explicit_le",
@@ -125,6 +130,7 @@ const PIXEL_RECIPES: &[PixelRecipe] = &[
         visual_pattern: "2x2_rgb_planar1_red_green_blue_white",
         semantic_note: "RGB samples are stored contiguously by color plane",
         palette: None,
+        padding: None,
     },
     PixelRecipe {
         case_id: "classic/sc/palette_color_u8_explicit_le",
@@ -146,6 +152,7 @@ const PIXEL_RECIPES: &[PixelRecipe] = &[
         visual_pattern: "2x2_palette_red_green_blue_white",
         semantic_note: "stored pixel values index 16-bit RGB palette lookup tables",
         palette: Some(PALETTE_COLOR_LUT),
+        padding: None,
     },
     PixelRecipe {
         case_id: "classic/sc/ybr_full_planar0_explicit_le",
@@ -167,6 +174,7 @@ const PIXEL_RECIPES: &[PixelRecipe] = &[
         visual_pattern: "2x2_ybr_full_red_green_blue_white",
         semantic_note: "YBR_FULL samples are interleaved color-by-pixel",
         palette: None,
+        padding: None,
     },
     PixelRecipe {
         case_id: "classic/sc/ybr_full_422_explicit_le",
@@ -188,6 +196,7 @@ const PIXEL_RECIPES: &[PixelRecipe] = &[
         visual_pattern: "2x2_ybr_full_422_red_green_blue_white",
         semantic_note: "YBR_FULL_422 stores horizontally downsampled chroma with Planar Configuration 0",
         palette: None,
+        padding: None,
     },
     PixelRecipe {
         case_id: "classic/sc/mono2_u16_explicit_le",
@@ -209,6 +218,7 @@ const PIXEL_RECIPES: &[PixelRecipe] = &[
         visual_pattern: "2x2_monochrome_u16_gradient",
         semantic_note: "16-bit unsigned MONOCHROME2 samples span the full stored range",
         palette: None,
+        padding: None,
     },
     PixelRecipe {
         case_id: "classic/sc/mono2_i16_explicit_le",
@@ -230,6 +240,7 @@ const PIXEL_RECIPES: &[PixelRecipe] = &[
         visual_pattern: "2x2_monochrome_i16_gradient",
         semantic_note: "16-bit signed MONOCHROME2 samples use 2's complement representation",
         palette: None,
+        padding: None,
     },
     PixelRecipe {
         case_id: "classic/sc/mono2_u16_odd_3x3_explicit_le",
@@ -251,6 +262,7 @@ const PIXEL_RECIPES: &[PixelRecipe] = &[
         visual_pattern: "3x3_monochrome_u16_odd_gradient",
         semantic_note: "odd rows and columns use unsigned 16-bit MONOCHROME2 samples",
         palette: None,
+        padding: None,
     },
     PixelRecipe {
         case_id: "classic/sc/mono2_u16_rect_2x3_explicit_le",
@@ -272,6 +284,7 @@ const PIXEL_RECIPES: &[PixelRecipe] = &[
         visual_pattern: "2x3_monochrome_u16_rect_gradient",
         semantic_note: "rectangular native Pixel Data uses Rows and Columns from the recipe",
         palette: None,
+        padding: None,
     },
     PixelRecipe {
         case_id: "classic/sc/mono2_u16_tiny_1x1_explicit_le",
@@ -293,6 +306,32 @@ const PIXEL_RECIPES: &[PixelRecipe] = &[
         visual_pattern: "1x1_monochrome_u16_tiny_maximum",
         semantic_note: "very small native Pixel Data uses a single unsigned 16-bit sample",
         palette: None,
+        padding: None,
+    },
+    PixelRecipe {
+        case_id: "classic/sc/mono2_u16_padding_explicit_le",
+        recipe_id: "sc_mono2_u16_padding",
+        rows: 2,
+        columns: 2,
+        photometric_interpretation: "MONOCHROME2",
+        samples_per_pixel: 1,
+        planar_configuration: None,
+        bits_allocated: 16,
+        bits_stored: 16,
+        high_bit: 15,
+        pixel_representation: 0,
+        pixel_vr: VR::OW,
+        pixel_bytes: &MONO_U16_PADDING_PIXELS,
+        pixel_values: &MONO_U16_PADDING_VALUES,
+        pixel_min: 0,
+        pixel_max: 3000,
+        visual_pattern: "2x2_monochrome_u16_with_padding_value",
+        semantic_note: "Pixel Padding Value 0 identifies a padded unsigned MONOCHROME2 sample",
+        palette: None,
+        padding: Some(PixelPaddingRecipe {
+            value: 0,
+            range_limit: Some(0),
+        }),
     },
 ];
 
@@ -317,6 +356,7 @@ struct PixelRecipe {
     visual_pattern: &'static str,
     semantic_note: &'static str,
     palette: Option<PaletteRecipe>,
+    padding: Option<PixelPaddingRecipe>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -325,6 +365,12 @@ struct PaletteRecipe {
     red_data: &'static [u8],
     green_data: &'static [u8],
     blue_data: &'static [u8],
+}
+
+#[derive(Debug, Clone, Copy)]
+struct PixelPaddingRecipe {
+    value: u16,
+    range_limit: Option<u16>,
 }
 
 #[derive(Debug, Clone)]
@@ -484,6 +530,17 @@ fn write_pixel_case(
     if let Some(palette) = recipe.palette {
         put_palette(&mut obj, palette);
     }
+    if let Some(padding) = recipe.padding {
+        put_u16(&mut obj, tags::PIXEL_PADDING_VALUE, VR::US, padding.value);
+        if let Some(range_limit) = padding.range_limit {
+            put_u16(
+                &mut obj,
+                tags::PIXEL_PADDING_RANGE_LIMIT,
+                VR::US,
+                range_limit,
+            );
+        }
+    }
     obj.put(DataElement::new(
         tags::PIXEL_DATA,
         recipe.pixel_vr,
@@ -530,6 +587,7 @@ fn write_pixel_case(
             pixel_data_length: recipe.pixel_bytes.len(),
             pixel_data_length_formula: pixel_data_length_formula(recipe),
             palette: recipe.palette.map(|palette| palette.into()),
+            padding: recipe.padding.map(|padding| padding.into()),
         },
     )?;
 
@@ -679,6 +737,34 @@ fn pixel_manifest_entry(
             }),
         ]);
     }
+    if recipe.padding.is_some() {
+        standards_evidence.extend([
+            serde_json::json!({
+                "source": "dicom-standard-kb",
+                "edition": "2026b",
+                "query": "lookup_data_element PixelPaddingValue",
+                "covered": true,
+                "part": "PS3.6",
+                "anchor": "table_6-1"
+            }),
+            serde_json::json!({
+                "source": "dicom-standard-kb",
+                "edition": "2026b",
+                "query": "lookup_data_element PixelPaddingRangeLimit",
+                "covered": true,
+                "part": "PS3.6",
+                "anchor": "table_6-1"
+            }),
+            serde_json::json!({
+                "source": "dicom-standard-kb",
+                "edition": "2026b",
+                "query": "retrieve_standard_text sect_C.7.5.1.1.2",
+                "covered": true,
+                "part": "PS3.3",
+                "anchor": "sect_C.7.5.1.1.2"
+            }),
+        ]);
+    }
 
     let palette_manifest = recipe.palette.map(|palette| {
         serde_json::json!({
@@ -686,6 +772,12 @@ fn pixel_manifest_entry(
             "red_data_value_length": palette.red_data.len(),
             "green_data_value_length": palette.green_data.len(),
             "blue_data_value_length": palette.blue_data.len()
+        })
+    });
+    let padding_manifest = recipe.padding.map(|padding| {
+        serde_json::json!({
+            "value": padding.value,
+            "range_limit": padding.range_limit
         })
     });
 
@@ -708,7 +800,8 @@ fn pixel_manifest_entry(
                 "bits_stored": recipe.bits_stored,
                 "planar_configuration": recipe.planar_configuration,
                 "pixel_values": recipe.pixel_values,
-                "palette": palette_manifest
+                "palette": palette_manifest,
+                "pixel_padding": padding_manifest
             }
         },
         "dicom": {
@@ -751,6 +844,7 @@ fn pixel_manifest_entry(
             "conversion_type": "SYN",
             "pixel_min": recipe.pixel_min,
             "pixel_max": recipe.pixel_max,
+            "pixel_padding": padding_manifest,
             "photometric_semantics": recipe.semantic_note
         },
         "expected_visual_checks": {
@@ -852,6 +946,15 @@ impl From<PaletteRecipe> for crate::validation::PaletteExpectations {
             red_data_length: palette.red_data.len(),
             green_data_length: palette.green_data.len(),
             blue_data_length: palette.blue_data.len(),
+        }
+    }
+}
+
+impl From<PixelPaddingRecipe> for crate::validation::PixelPaddingExpectations {
+    fn from(padding: PixelPaddingRecipe) -> Self {
+        Self {
+            value: padding.value,
+            range_limit: padding.range_limit,
         }
     }
 }

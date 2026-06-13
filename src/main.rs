@@ -122,6 +122,33 @@ fn run() -> Result<(), String> {
             print!("{output}");
             Ok(())
         }
+        "validate" => {
+            let root = args
+                .next()
+                .ok_or_else(|| "validate requires a generated root path".to_string())?;
+            if root == "--help" || root == "-h" {
+                print_validate_usage();
+                return Ok(());
+            }
+            if let Some(extra) = args.next() {
+                return Err(format!("unknown validate argument: {extra}"));
+            }
+
+            let summary =
+                dicom_test_suite::validate_generated_root(&root).map_err(|err| err.to_string())?;
+            println!("generated_root\t{root}");
+            println!("manifest\t{}", summary.manifest_path.display());
+            println!("files_checked\t{}", summary.files_checked);
+            println!("validation_failures\t{}", summary.failures.len());
+            for failure in &summary.failures {
+                println!("failure\t{failure}");
+            }
+            if summary.failures.is_empty() {
+                Ok(())
+            } else {
+                Err("validation failed".to_string())
+            }
+        }
         "--help" | "-h" => {
             print_usage();
             Ok(())
@@ -139,6 +166,7 @@ fn print_usage() {
     println!(
         "  dicom-test-suite list-cases [--profile PROFILE] [--status STATUS] [--registry PATH]"
     );
+    println!("  dicom-test-suite validate GENERATED_ROOT");
 }
 
 fn print_generate_usage() {
@@ -151,6 +179,10 @@ fn print_list_cases_usage() {
     println!(
         "usage: dicom-test-suite list-cases [--profile PROFILE] [--status STATUS] [--registry PATH]"
     );
+}
+
+fn print_validate_usage() {
+    println!("usage: dicom-test-suite validate GENERATED_ROOT");
 }
 
 fn parse_seed(seed: String) -> Result<u64, String> {

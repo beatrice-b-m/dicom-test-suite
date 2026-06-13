@@ -3,12 +3,17 @@ use std::fmt;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use dicom_core::VR;
+use dicom_dictionary_std::{StandardDataDictionary, tags};
+use dicom_object::{FileDicomObject, InMemDicomObject, open_file};
 use serde_json::Value;
 
 mod generator;
 pub mod uid;
 mod validation;
 pub use uid::{DeterministicUidInput, UidRole, deterministic_uid};
+
+type OpenedObject = FileDicomObject<InMemDicomObject<StandardDataDictionary>>;
 
 pub const PACKAGE_NAME: &str = env!("CARGO_PKG_NAME");
 pub const PACKAGE_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -46,6 +51,13 @@ pub struct PreparedGenerationRun {
 pub struct GenerationSummary {
     pub files_written: usize,
     pub manifest_written: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ValidationSummary {
+    pub manifest_path: PathBuf,
+    pub files_checked: usize,
+    pub failures: Vec<String>,
 }
 
 #[derive(Debug)]
@@ -185,6 +197,48 @@ impl Error for GenerateError {
     }
 }
 
+#[derive(Debug)]
+pub enum ValidateError {
+    ReadManifest {
+        path: PathBuf,
+        source: std::io::Error,
+    },
+    ParseManifest {
+        path: PathBuf,
+        source: serde_json::Error,
+    },
+    ManifestShape {
+        path: PathBuf,
+        message: &'static str,
+    },
+}
+
+impl fmt::Display for ValidateError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::ReadManifest { path, source } => {
+                write!(f, "failed to read manifest {}: {source}", path.display())
+            }
+            Self::ParseManifest { path, source } => {
+                write!(f, "failed to parse manifest {}: {source}", path.display())
+            }
+            Self::ManifestShape { path, message } => {
+                write!(f, "invalid manifest shape in {}: {message}", path.display())
+            }
+        }
+    }
+}
+
+impl Error for ValidateError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        match self {
+            Self::ReadManifest { source, .. } => Some(source),
+            Self::ParseManifest { source, .. } => Some(source),
+            Self::ManifestShape { .. } => None,
+        }
+    }
+}
+
 pub fn prepare_generation_run(
     options: GenerateOptions,
 ) -> Result<PreparedGenerationRun, GenerateError> {
@@ -251,6 +305,501 @@ pub fn write_generation_run(
         files_written,
         manifest_written: true,
     })
+}
+
+pub fn validate_generated_root(
+    root_dir: impl AsRef<Path>,
+) -> Result<ValidationSummary, ValidateError> {
+    let root_dir = root_dir.as_ref();
+    let manifest_path = root_dir.join("manifest.json");
+    let manifest_contents =
+        fs::read_to_string(&manifest_path).map_err(|source| ValidateError::ReadManifest {
+            path: manifest_path.clone(),
+            source,
+        })?;
+    let manifest: Value = serde_json::from_str(&manifest_contents).map_err(|source| {
+        ValidateError::ParseManifest {
+            path: manifest_path.clone(),
+            source,
+        }
+    })?;
+    let files =
+        manifest
+            .get("files")
+            .and_then(Value::as_array)
+            .ok_or(ValidateError::ManifestShape {
+                path: manifest_path.clone(),
+                message: "missing files array",
+            })?;
+
+    let mut failures = Vec::new();
+    for file in files {
+        validate_manifest_file(root_dir, &manifest_path, file, &mut failures)?;
+    }
+
+    Ok(ValidationSummary {
+        manifest_path,
+        files_checked: files.len(),
+        failures,
+    })
+}
+
+fn validate_manifest_file(
+    root_dir: &Path,
+    manifest_path: &Path,
+    file: &Value,
+    failures: &mut Vec<String>,
+) -> Result<(), ValidateError> {
+    let relative_path = manifest_str(manifest_path, file, "/path", "file path must be a string")?;
+    let path = root_dir.join(relative_path);
+    let bytes = match fs::read(&path) {
+        Ok(bytes) => bytes,
+        Err(err) => {
+            failures.push(format!("{relative_path}: read_file: {err}"));
+            return Ok(());
+        }
+    };
+
+    validate_equal(
+        failures,
+        relative_path,
+        "size_bytes",
+        bytes.len() as u64,
+        manifest_u64(
+            manifest_path,
+            file,
+            "/size_bytes",
+            "size_bytes must be an integer",
+        )?,
+    );
+    validate_equal(
+        failures,
+        relative_path,
+        "sha256",
+        sha256_hex(&bytes),
+        manifest_str(manifest_path, file, "/sha256", "sha256 must be a string")?,
+    );
+
+    let obj = match open_file(&path) {
+        Ok(obj) => obj,
+        Err(err) => {
+            failures.push(format!("{relative_path}: open_file: {err}"));
+            return Ok(());
+        }
+    };
+
+    let expected_sop_class = manifest_str(
+        manifest_path,
+        file,
+        "/dicom/sop_class_uid",
+        "dicom sop_class_uid must be a string",
+    )?;
+    let expected_sop_instance = manifest_str(
+        manifest_path,
+        file,
+        "/uids/sop_instance_uid",
+        "uids sop_instance_uid must be a string",
+    )?;
+    let expected_transfer_syntax = manifest_str(
+        manifest_path,
+        file,
+        "/dicom/transfer_syntax_uid",
+        "dicom transfer_syntax_uid must be a string",
+    )?;
+    let expected_implementation_class_uid = manifest_str(
+        manifest_path,
+        file,
+        "/uids/implementation_class_uid",
+        "uids implementation_class_uid must be a string",
+    )?;
+    validate_equal(
+        failures,
+        relative_path,
+        "file_meta_transfer_syntax",
+        trim_uid(obj.meta().transfer_syntax()),
+        expected_transfer_syntax,
+    );
+    validate_equal(
+        failures,
+        relative_path,
+        "media_storage_sop_class_uid",
+        trim_uid(obj.meta().media_storage_sop_class_uid()),
+        expected_sop_class,
+    );
+    validate_equal(
+        failures,
+        relative_path,
+        "media_storage_sop_instance_uid",
+        trim_uid(obj.meta().media_storage_sop_instance_uid()),
+        expected_sop_instance,
+    );
+    validate_equal(
+        failures,
+        relative_path,
+        "implementation_class_uid",
+        trim_uid(obj.meta().implementation_class_uid()),
+        expected_implementation_class_uid,
+    );
+    validate_str_element(
+        failures,
+        relative_path,
+        &obj,
+        tags::SOP_CLASS_UID,
+        "dataset_sop_class_uid",
+        expected_sop_class,
+    );
+    validate_str_element(
+        failures,
+        relative_path,
+        &obj,
+        tags::SOP_INSTANCE_UID,
+        "dataset_sop_instance_uid",
+        expected_sop_instance,
+    );
+
+    validate_str_element(
+        failures,
+        relative_path,
+        &obj,
+        tags::SYNTHETIC_DATA,
+        "synthetic_data",
+        manifest_str(
+            manifest_path,
+            file,
+            "/expected_semantics/synthetic_data",
+            "expected synthetic_data must be a string",
+        )?,
+    );
+
+    let rows = validate_u16_from_manifest_and_dataset(
+        failures,
+        relative_path,
+        manifest_path,
+        file,
+        &obj,
+        "/image/rows",
+        tags::ROWS,
+        "rows",
+    )?;
+    let columns = validate_u16_from_manifest_and_dataset(
+        failures,
+        relative_path,
+        manifest_path,
+        file,
+        &obj,
+        "/image/columns",
+        tags::COLUMNS,
+        "columns",
+    )?;
+    let samples_per_pixel = validate_u16_from_manifest_and_dataset(
+        failures,
+        relative_path,
+        manifest_path,
+        file,
+        &obj,
+        "/image/samples_per_pixel",
+        tags::SAMPLES_PER_PIXEL,
+        "samples_per_pixel",
+    )?;
+    let bits_allocated = validate_u16_from_manifest_and_dataset(
+        failures,
+        relative_path,
+        manifest_path,
+        file,
+        &obj,
+        "/image/bits_allocated",
+        tags::BITS_ALLOCATED,
+        "bits_allocated",
+    )?;
+    let bits_stored = validate_u16_from_manifest_and_dataset(
+        failures,
+        relative_path,
+        manifest_path,
+        file,
+        &obj,
+        "/image/bits_stored",
+        tags::BITS_STORED,
+        "bits_stored",
+    )?;
+    let high_bit = validate_u16_from_manifest_and_dataset(
+        failures,
+        relative_path,
+        manifest_path,
+        file,
+        &obj,
+        "/image/high_bit",
+        tags::HIGH_BIT,
+        "high_bit",
+    )?;
+    validate_u16_from_manifest_and_dataset(
+        failures,
+        relative_path,
+        manifest_path,
+        file,
+        &obj,
+        "/image/pixel_representation",
+        tags::PIXEL_REPRESENTATION,
+        "pixel_representation",
+    )?;
+    validate_str_element(
+        failures,
+        relative_path,
+        &obj,
+        tags::PHOTOMETRIC_INTERPRETATION,
+        "photometric_interpretation",
+        manifest_str(
+            manifest_path,
+            file,
+            "/image/photometric_interpretation",
+            "photometric_interpretation must be a string",
+        )?,
+    );
+    match file.pointer("/image/planar_configuration") {
+        Some(Value::Null) => {
+            if let Ok(Some(_)) = obj.element_opt(tags::PLANAR_CONFIGURATION) {
+                failures.push(format!(
+                    "{relative_path}: planar_configuration_absent: expected absent"
+                ));
+            }
+        }
+        Some(_) => {
+            validate_u16_from_manifest_and_dataset(
+                failures,
+                relative_path,
+                manifest_path,
+                file,
+                &obj,
+                "/image/planar_configuration",
+                tags::PLANAR_CONFIGURATION,
+                "planar_configuration",
+            )?;
+        }
+        None => {
+            return Err(ValidateError::ManifestShape {
+                path: manifest_path.to_path_buf(),
+                message: "image planar_configuration is missing",
+            });
+        }
+    }
+
+    if bits_stored > bits_allocated {
+        failures.push(format!(
+            "{relative_path}: bits_stored_within_bits_allocated: {bits_stored} > {bits_allocated}"
+        ));
+    }
+    if high_bit + 1 != bits_stored {
+        failures.push(format!(
+            "{relative_path}: high_bit_consistency: {high_bit} does not equal bits_stored - 1"
+        ));
+    }
+
+    let frames = validate_frames(failures, relative_path, manifest_path, file, &obj)?;
+    let pixel_element = match obj.element(tags::PIXEL_DATA) {
+        Ok(element) => element,
+        Err(err) => {
+            failures.push(format!("{relative_path}: pixel_data: {err}"));
+            return Ok(());
+        }
+    };
+    validate_equal(
+        failures,
+        relative_path,
+        "pixel_data_vr",
+        vr_name(pixel_element.vr()),
+        manifest_str(
+            manifest_path,
+            file,
+            "/pixel_data/vr",
+            "pixel_data vr must be a string",
+        )?,
+    );
+    let pixel_bytes = match pixel_element.value().to_bytes() {
+        Ok(bytes) => bytes,
+        Err(err) => {
+            failures.push(format!("{relative_path}: pixel_data_bytes: {err}"));
+            return Ok(());
+        }
+    };
+    let expected_value_length = manifest_u64(
+        manifest_path,
+        file,
+        "/pixel_data/value_length",
+        "pixel_data value_length must be an integer",
+    )? as usize;
+    validate_equal(
+        failures,
+        relative_path,
+        "pixel_data_manifest_length",
+        pixel_bytes.len(),
+        expected_value_length,
+    );
+    let photometric = manifest_str(
+        manifest_path,
+        file,
+        "/image/photometric_interpretation",
+        "photometric_interpretation must be a string",
+    )?;
+    let bytes_per_sample = usize::from(bits_allocated).div_ceil(8);
+    let expected_native_length = if photometric == "YBR_FULL_422" {
+        usize::from(rows) * usize::from(columns) * usize::from(frames) * 2 * bytes_per_sample
+    } else {
+        usize::from(rows)
+            * usize::from(columns)
+            * usize::from(frames)
+            * usize::from(samples_per_pixel)
+            * bytes_per_sample
+    };
+    validate_equal(
+        failures,
+        relative_path,
+        "native_pixel_data_length",
+        pixel_bytes.len(),
+        expected_native_length,
+    );
+
+    Ok(())
+}
+
+fn manifest_str<'a>(
+    manifest_path: &Path,
+    value: &'a Value,
+    pointer: &str,
+    message: &'static str,
+) -> Result<&'a str, ValidateError> {
+    value
+        .pointer(pointer)
+        .and_then(Value::as_str)
+        .ok_or(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message,
+        })
+}
+
+fn manifest_u64(
+    manifest_path: &Path,
+    value: &Value,
+    pointer: &str,
+    message: &'static str,
+) -> Result<u64, ValidateError> {
+    value
+        .pointer(pointer)
+        .and_then(Value::as_u64)
+        .ok_or(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message,
+        })
+}
+
+fn validate_u16_from_manifest_and_dataset(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    manifest_path: &Path,
+    file: &Value,
+    obj: &OpenedObject,
+    manifest_pointer: &str,
+    tag: dicom_core::Tag,
+    name: &str,
+) -> Result<u16, ValidateError> {
+    let expected = manifest_u64(
+        manifest_path,
+        file,
+        manifest_pointer,
+        "image field must be an integer",
+    )? as u16;
+    match element_u16_for_validate(obj, tag) {
+        Ok(actual) => validate_equal(failures, relative_path, name, actual, expected),
+        Err(err) => failures.push(format!("{relative_path}: {name}: {err}")),
+    }
+    Ok(expected)
+}
+
+fn validate_frames(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    manifest_path: &Path,
+    file: &Value,
+    obj: &OpenedObject,
+) -> Result<u16, ValidateError> {
+    let expected = manifest_u64(
+        manifest_path,
+        file,
+        "/image/frames",
+        "frames must be an integer",
+    )? as u16;
+    match obj.element_opt(tags::NUMBER_OF_FRAMES) {
+        Ok(Some(element)) => match element.value().to_int::<u16>() {
+            Ok(actual) => validate_equal(failures, relative_path, "frames", actual, expected),
+            Err(err) => failures.push(format!("{relative_path}: frames: {err}")),
+        },
+        Ok(None) if expected == 1 => {}
+        Ok(None) => failures.push(format!(
+            "{relative_path}: frames: Number of Frames is missing for {expected} frames"
+        )),
+        Err(err) => failures.push(format!("{relative_path}: frames: {err}")),
+    }
+    Ok(expected)
+}
+
+fn validate_str_element(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    obj: &OpenedObject,
+    tag: dicom_core::Tag,
+    name: &str,
+    expected: &str,
+) {
+    match element_str_for_validate(obj, tag) {
+        Ok(actual) => validate_equal(failures, relative_path, name, actual, expected),
+        Err(err) => failures.push(format!("{relative_path}: {name}: {err}")),
+    }
+}
+
+fn element_str_for_validate(obj: &OpenedObject, tag: dicom_core::Tag) -> Result<String, String> {
+    obj.element(tag)
+        .map_err(|err| err.to_string())?
+        .value()
+        .to_str()
+        .map_err(|err| err.to_string())
+        .map(|value| value.trim_matches('\0').trim().to_string())
+}
+
+fn element_u16_for_validate(obj: &OpenedObject, tag: dicom_core::Tag) -> Result<u16, String> {
+    obj.element(tag)
+        .map_err(|err| err.to_string())?
+        .value()
+        .to_int::<u16>()
+        .map_err(|err| err.to_string())
+}
+
+fn validate_equal<A: fmt::Display, E: fmt::Display>(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    name: &str,
+    actual: A,
+    expected: E,
+) {
+    if actual.to_string() != expected.to_string() {
+        failures.push(format!(
+            "{relative_path}: {name}: expected {expected}, got {actual}"
+        ));
+    }
+}
+
+fn vr_name(vr: VR) -> &'static str {
+    match vr {
+        VR::OB => "OB",
+        VR::OW => "OW",
+        VR::OF => "OF",
+        VR::OD => "OD",
+        VR::OL => "OL",
+        VR::OV => "OV",
+        VR::UN => "UN",
+        _ => "other",
+    }
+}
+
+fn trim_uid(uid: &str) -> String {
+    uid.trim_matches('\0').trim().to_string()
 }
 
 fn build_generation_manifest(

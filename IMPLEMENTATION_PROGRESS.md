@@ -4,7 +4,7 @@
 **Source specification:** `SYSTEM_SPEC.md` version 0.2.0  
 **Current phase:** remediation planning before Phase 5 feature expansion
 
-**Current implementation status:** Phase 0, Phase 0.5, Phase 1, Phase 2, Phase 3, and Phase 4 are functionally implemented, and Remediation R1 is complete. Remediation R2 has `list-cases --status`, `validate <generated-root>`, `report <generated-root> --format json|markdown`, `standards check-lock`, and `standards gaps --profile <profile>` implemented. Remaining remediation before clean Phase 5 expansion: `standards verify-kb` remains incomplete, validation needs stricter Part 10 checks, standards lock pinning is partial, and reproducibility/schema/CI guard coverage needs expansion
+**Current implementation status:** Phase 0, Phase 0.5, Phase 1, Phase 2, Phase 3, and Phase 4 are functionally implemented, and Remediation R1 and R2 are complete. R2 CLI contracts now cover `list-cases --status`, `validate <generated-root>`, `report <generated-root> --format json|markdown`, `standards check-lock`, `standards gaps --profile <profile>`, and `standards verify-kb --edition 2026b` with a documented unavailable status for standalone MCP verification. Remaining remediation before clean Phase 5 expansion: validation needs stricter Part 10 checks, standards lock pinning is partial, and reproducibility/schema/CI guard coverage needs expansion
 
 This document is the durable hand-off log for coding agents implementing
 `dicom-test-suite`. Keep `SYSTEM_SPEC.md` as the source of product and
@@ -84,7 +84,7 @@ Observed at creation of this progress file:
 | Phase 2: Native pixel matrix | complete | Core native monochrome 16-bit unsigned/signed MONOCHROME2 OW Pixel Data, RGB planar configuration 1, PALETTE COLOR, YBR_FULL, YBR_FULL_422, odd-dimension, rectangular, tiny-image, pixel-padding, and broadened native pixel validators are implemented. |
 | Phase 3: Classic radiology IODs | complete | CT Image Storage signed 12-bit rescale/window, MG For Presentation/For Processing 12-bit, CR overlay/Modality LUT/VOI LUT, MR multi-slice oblique geometry, DX display shutter, US Image Storage, and stable multi-file series generation are implemented. |
 | Phase 4: Enhanced multi-frame | complete | Enhanced CT and Enhanced MR Image Storage cases with Shared and Per-Frame Functional Groups and Multi-frame Dimension metadata are implemented; MR Echo, Temporal Position, phase/velocity-encoding variation, and a two-member Enhanced CT concatenation case are covered. |
-| Remediation before Phase 5 | in progress | R1 registry authority is complete and R2 list-case status filtering, generated-root validation, JSON/Markdown coverage reporting, standards lock checking, and standards gap reporting are implemented; remaining R2 CLI contracts and later remediation tasks in `REMEDIATION_PLAN.md` remain before adding new Phase 5 recipes. |
+| Remediation before Phase 5 | in progress | R1 registry authority and R2 required CLI contracts are complete; validation hardening, reproducibility/CI guard expansion, and standards lock pinning remain before adding new Phase 5 recipes. |
 | Phase 5: Derived, presentation, and non-image objects | not started | SEG, presentation states, SR, KOS, RWVM, RT, and encapsulated documents pending. |
 | Phase 6: Transfer syntax expansion | not started | Transfer syntax abstraction and compressed cases pending. |
 | Phase 7: Pathology, video, and large object profiles | not started | VL, WSI, video, and stress cases pending. |
@@ -540,24 +540,30 @@ These case IDs come from `SYSTEM_SPEC.md` section 21 and should seed
   standards gaps as TSV rows. It supports `--registry` for alternate registries
   and tests cover gap classification, profile filtering, and missing profile
   arguments.
+- 2026-06-13: Remediation R2 completed with
+  `standards verify-kb --edition 2026b`. Because the standalone binary cannot
+  access the Codex `dicom-standard-kb` MCP server, repository checkout metadata,
+  or local KB database hash at runtime, the command returns a clear
+  `status\tunavailable` result with a recommended MCP verification path. The
+  limitation is documented in `standards/kb-integration.md`, and CLI tests cover
+  the unavailable status plus unsupported edition rejection.
 
 ## Current Blockers
 
 The 2026-06-13 baseline review found remediation items that should be resolved
-before Phase 5 feature expansion: `standards verify-kb` is not implemented,
-validation does not yet enforce every required Part 10 invariant, and
-reproducibility/schema/CI guard coverage is incomplete. The local
-`dicom-standard-kb` repository commit/DB SHA-256 and official source artifact
-hashes also remain unverified.
+before Phase 5 feature expansion: validation does not yet enforce every
+required Part 10 invariant, and reproducibility/schema/CI guard coverage is
+incomplete. The local `dicom-standard-kb` repository commit/DB SHA-256 and
+official source artifact hashes also remain unverified.
 
 ## Recommended Next Commit
 
 Execute `REMEDIATION_PLAN.md` before starting new Phase 5 feature work:
 
-1. Continue Remediation R2 by implementing `standards verify-kb --edition
-   2026b` as a clear available/unavailable standards KB verification command.
-2. Continue the remaining CLI, validation, reproducibility, CI guard, and
-   standards-lock cleanup phases described in the remediation plan.
+1. Continue Remediation R3 by hardening Part 10 and internal validation
+   invariants.
+2. Continue the remaining reproducibility, CI guard, and standards-lock cleanup
+   phases described in the remediation plan.
 3. Resume Phase 5 with `feat(seg): add binary segmentation case` only after the
    remediation exit criteria are satisfied.
 

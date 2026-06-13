@@ -42,10 +42,11 @@ Exit criteria:
 
 ## Phase R2: Complete Required CLI Contracts
 
-**Status:** in progress as of 2026-06-13. `list-cases --status`,
-`validate <generated-root>`, and `report <generated-root> --format
-json|markdown` are implemented and covered by CLI tests. `standards check-lock`
-and `standards gaps` are implemented; `standards verify-kb` remains open.
+**Status:** complete as of 2026-06-13. Required CLI contracts are implemented
+or intentionally unavailable with a documented status: `list-cases --status`,
+`validate <generated-root>`, `report <generated-root> --format json|markdown`,
+`standards check-lock`, `standards gaps`, and `standards verify-kb --edition
+2026b`.
 
 **Findings addressed:** expected CLI surface is incomplete.
 
@@ -57,7 +58,7 @@ Tasks:
 - Implement `report <generated-root> --format markdown` with the same coverage counts and gaps in human-readable form. Complete.
 - Implement `standards check-lock` to validate `standards.lock.json` shape, pin completeness, and current policy fields. Complete.
 - Implement `standards gaps --profile <profile>` to list registry entries whose evidence is incomplete, blocked, or source-note-backed. Complete.
-- Implement `standards verify-kb --edition 2026b` if the local MCP/CLI surface can support it; otherwise return a clear unavailable status and document the blocker.
+- Implement `standards verify-kb --edition 2026b` if the local MCP/CLI surface can support it; otherwise return a clear unavailable status and document the blocker. Complete with documented unavailable status.
 
 Exit criteria:
 

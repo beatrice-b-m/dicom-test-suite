@@ -99,3 +99,12 @@ For each new case or builder:
 The generator may encode implementation constraints from DICOM-rs and feature
 flags, but conformance decisions must come from the standards evidence path
 above.
+
+## CLI Verification Status
+
+`dicom-test-suite standards verify-kb --edition 2026b` intentionally reports
+`status\tunavailable` in the standalone binary. The binary does not have direct
+runtime access to the Codex `dicom-standard-kb` MCP server, repository checkout
+metadata, or local KB database hash. Use the configured MCP tools during agent
+workflows for standards lookups, and update `standards.lock.json` when the KB
+commit and DB SHA-256 become exposed or independently verifiable.

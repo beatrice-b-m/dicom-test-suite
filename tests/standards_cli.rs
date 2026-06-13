@@ -171,6 +171,39 @@ fn standards_gaps_requires_profile() {
     assert!(stderr.contains("standards gaps requires --profile"));
 }
 
+#[test]
+fn standards_verify_kb_reports_unavailable_without_runtime_mcp() {
+    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args(["standards", "verify-kb", "--edition", "2026b"])
+        .output()
+        .expect("standards verify-kb command must run");
+
+    assert!(
+        output.status.success(),
+        "verify-kb should return an intentional unavailable status: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("verify-kb stdout should be UTF-8");
+    assert!(stdout.contains("status\tunavailable"));
+    assert!(stdout.contains("edition\t2026b"));
+    assert!(stdout.contains("standalone CLI cannot access the dicom-standard-kb MCP server"));
+}
+
+#[test]
+fn standards_verify_kb_rejects_unsupported_edition() {
+    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args(["standards", "verify-kb", "--edition", "2025d"])
+        .output()
+        .expect("standards verify-kb command must run");
+
+    assert!(
+        !output.status.success(),
+        "verify-kb should reject unsupported editions"
+    );
+    let stderr = String::from_utf8(output.stderr).expect("verify-kb stderr should be UTF-8");
+    assert!(stderr.contains("unsupported standards edition 2025d"));
+}
+
 fn unique_temp_file(name: &str) -> PathBuf {
     let nonce = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)

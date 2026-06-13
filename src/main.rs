@@ -262,6 +262,44 @@ fn run() -> Result<(), String> {
                     print!("{output}");
                     Ok(())
                 }
+                "verify-kb" => {
+                    let mut edition = None;
+                    while let Some(arg) = args.next() {
+                        match arg.as_str() {
+                            "--edition" => {
+                                edition = Some(
+                                    args.next()
+                                        .ok_or_else(|| "--edition requires a value".to_string())?,
+                                );
+                            }
+                            "--help" | "-h" => {
+                                print_standards_verify_kb_usage();
+                                return Ok(());
+                            }
+                            unknown => {
+                                return Err(format!(
+                                    "unknown standards verify-kb argument: {unknown}"
+                                ));
+                            }
+                        }
+                    }
+                    let edition = edition
+                        .ok_or_else(|| "standards verify-kb requires --edition".to_string())?;
+                    if edition != "2026b" {
+                        return Err(format!(
+                            "unsupported standards edition {edition}; expected 2026b"
+                        ));
+                    }
+                    println!("status\tunavailable");
+                    println!("edition\t{edition}");
+                    println!(
+                        "reason\tstandalone CLI cannot access the dicom-standard-kb MCP server or local KB database metadata"
+                    );
+                    println!(
+                        "recommended_action\tverify through the configured dicom-standard-kb MCP tools and update standards.lock.json when commit and DB hash metadata are exposed"
+                    );
+                    Ok(())
+                }
                 "--help" | "-h" => {
                     print_standards_usage();
                     Ok(())
@@ -290,6 +328,7 @@ fn print_usage() {
     println!("  dicom-test-suite report GENERATED_ROOT --format json|markdown");
     println!("  dicom-test-suite standards check-lock [--lock PATH]");
     println!("  dicom-test-suite standards gaps --profile PROFILE [--registry PATH]");
+    println!("  dicom-test-suite standards verify-kb --edition 2026b");
 }
 
 fn print_generate_usage() {
@@ -316,6 +355,7 @@ fn print_standards_usage() {
     println!("usage:");
     println!("  dicom-test-suite standards check-lock [--lock PATH]");
     println!("  dicom-test-suite standards gaps --profile PROFILE [--registry PATH]");
+    println!("  dicom-test-suite standards verify-kb --edition 2026b");
 }
 
 fn print_standards_check_lock_usage() {
@@ -324,6 +364,10 @@ fn print_standards_check_lock_usage() {
 
 fn print_standards_gaps_usage() {
     println!("usage: dicom-test-suite standards gaps --profile PROFILE [--registry PATH]");
+}
+
+fn print_standards_verify_kb_usage() {
+    println!("usage: dicom-test-suite standards verify-kb --edition 2026b");
 }
 
 fn parse_seed(seed: String) -> Result<u64, String> {

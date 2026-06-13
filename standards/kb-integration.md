@@ -108,3 +108,17 @@ runtime access to the Codex `dicom-standard-kb` MCP server, repository checkout
 metadata, or local KB database hash. Use the configured MCP tools during agent
 workflows for standards lookups, and update `standards.lock.json` when the KB
 commit and DB SHA-256 become exposed or independently verifiable.
+
+## Standards Lock Null Pins
+
+Every null reproducibility field in `standards.lock.json` must be paired with
+an explicit non-fatal unavailable status and reason. For the 2026-06-13 lock,
+the MCP exposes query traces and the 2026b `source_manifest_sha256`, but not the
+`dicom-standard-kb` repository checkout commit, generated local database path,
+or database SHA-256. Those two KB fields therefore use field-specific
+`*_status: "unavailable"` and `*_unavailable_reason` entries.
+
+Official DICOM source artifacts are not downloaded into this repository, so
+their hashes are recorded as `null` with `status: "unavailable_not_downloaded"`
+and an `unavailable_reason`. Downloaded official source artifacts and generated
+KB databases must remain outside git.

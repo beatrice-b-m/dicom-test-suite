@@ -2153,7 +2153,8 @@ pub fn check_standards_lock_path(
         path,
         &kb_value,
         "/commit",
-        pin_status,
+        "/commit_status",
+        "/commit_unavailable_reason",
         "dicom_standard_kb.commit",
         &mut warnings,
     )?;
@@ -2161,10 +2162,16 @@ pub fn check_standards_lock_path(
         path,
         &kb_value,
         "/db_sha256",
-        pin_status,
+        "/db_sha256_status",
+        "/db_sha256_unavailable_reason",
         "dicom_standard_kb.db_sha256",
         &mut warnings,
     )?;
+    if !pin_status.is_empty() {
+        // Retained as human-readable summary, but field-specific statuses above
+        // are the validation contract for nullable reproducibility pins.
+        require_non_empty_standards_str(path, &kb_value, "/pin_status")?;
+    }
 
     let source_artifacts = lock
         .get("source_artifacts")
@@ -2324,19 +2331,24 @@ fn require_documented_nullable_pin(
     path: &Path,
     value: &Value,
     pointer: &str,
-    pin_status: &str,
+    status_pointer: &str,
+    reason_pointer: &str,
     field: &str,
     warnings: &mut Vec<String>,
 ) -> Result<(), StandardsError> {
     match value.pointer(pointer) {
         Some(Value::Null) => {
-            if pin_status.is_empty() {
+            let status = required_standards_str(path, value, status_pointer)?;
+            if status != "unavailable" {
                 return Err(standards_shape(
                     path,
-                    format!("{field} is null and dicom_standard_kb.pin_status is empty"),
+                    format!(
+                        "{field} is null but {status_pointer} is {status}, expected unavailable"
+                    ),
                 ));
             }
-            warnings.push(format!("{field} unavailable: {pin_status}"));
+            let reason = required_standards_str(path, value, reason_pointer)?;
+            warnings.push(format!("{field} unavailable: {reason}"));
             Ok(())
         }
         Some(Value::String(text)) if pointer.ends_with("sha256") || field.ends_with("sha256") => {
@@ -2360,9 +2372,20 @@ fn validate_source_artifact(
     let format = required_standards_str(path, artifact, "/format")?;
     let status = required_standards_str(path, artifact, "/status")?;
     match artifact.get("sha256") {
-        Some(Value::Null) => warnings.push(format!(
-            "source_artifact.{part}.{format} sha256 unavailable: {status}"
-        )),
+        Some(Value::Null) => {
+            if !status.starts_with("unavailable_") {
+                return Err(standards_shape(
+                    path,
+                    format!(
+                        "source_artifact.{part}.{format}.sha256 is null but status is {status}"
+                    ),
+                ));
+            }
+            let reason = required_standards_str(path, artifact, "/unavailable_reason")?;
+            warnings.push(format!(
+                "source_artifact.{part}.{format} sha256 unavailable: {reason}"
+            ));
+        }
         Some(Value::String(sha256)) => require_sha256(
             path,
             &format!("source_artifact.{part}.{format}.sha256"),

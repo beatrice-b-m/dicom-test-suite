@@ -8,42 +8,51 @@
   "dicom_standard_kb": {
     "repository": "https://github.com/beatrice-b-m/dicom-standard-kb",
     "commit": null,
+    "commit_status": "unavailable",
+    "commit_unavailable_reason": "The Codex MCP query surface exposes 2026b query traces and source_manifest_sha256 but does not expose the dicom-standard-kb repository checkout commit.",
     "db_edition": "2026b",
     "db_sha256": null,
+    "db_sha256_status": "unavailable",
+    "db_sha256_unavailable_reason": "The Codex MCP query surface exposes the generated 2026b source_manifest_sha256 but does not expose the local generated KB database path or SHA-256.",
     "source_manifest_sha256": "9959bee76fd293c7eda3fc81ce2ced7528612faa1b2df28cccd01504a83f54b0",
     "parser_surface": ["PS3.3", "PS3.4", "PS3.6"],
-    "pin_status": "MCP server is pinned to a generated 2026b reference; repository commit and local DB SHA-256 are pending until exposed or verified."
+    "pin_status": "MCP server is pinned to a generated 2026b reference by source_manifest_sha256; repository commit and local DB SHA-256 are documented unavailable until exposed or independently verified."
   },
   "source_artifacts": [
     {
       "part": "PS3.3",
       "format": "docbook_xml",
       "sha256": null,
-      "status": "not_downloaded"
+      "status": "unavailable_not_downloaded",
+      "unavailable_reason": "Official source artifacts have not been downloaded in this repository and must not be committed."
     },
     {
       "part": "PS3.4",
       "format": "docbook_xml",
       "sha256": null,
-      "status": "not_downloaded"
+      "status": "unavailable_not_downloaded",
+      "unavailable_reason": "Official source artifacts have not been downloaded in this repository and must not be committed."
     },
     {
       "part": "PS3.5",
       "format": "pdf",
       "sha256": null,
-      "status": "not_downloaded"
+      "status": "unavailable_not_downloaded",
+      "unavailable_reason": "Official source artifacts have not been downloaded in this repository and must not be committed."
     },
     {
       "part": "PS3.6",
       "format": "docbook_xml",
       "sha256": null,
-      "status": "not_downloaded"
+      "status": "unavailable_not_downloaded",
+      "unavailable_reason": "Official source artifacts have not been downloaded in this repository and must not be committed."
     },
     {
       "part": "PS3.10",
       "format": "pdf",
       "sha256": null,
-      "status": "not_downloaded"
+      "status": "unavailable_not_downloaded",
+      "unavailable_reason": "Official source artifacts have not been downloaded in this repository and must not be committed."
     }
   ],
   "verification_queries": [

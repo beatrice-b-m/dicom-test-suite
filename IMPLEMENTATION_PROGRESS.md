@@ -4,7 +4,7 @@
 **Source specification:** `SYSTEM_SPEC.md` version 0.2.0  
 **Current phase:** remediation planning before Phase 5 feature expansion
 
-**Current implementation status:** Phase 0, Phase 0.5, Phase 1, Phase 2, Phase 3, and Phase 4 are functionally implemented, and Remediation R1, R2, and R4 are complete. Remediation R3 has raw Part 10 byte-level validation, parsed cross-field image invariant validation, generated manifest schema-conformance checks, baseline standards-derived Type 1/Type 2 module validation, and initial SC/CT family-specific standards-derived validation implemented. Remaining remediation before clean Phase 5 expansion: validation needs broader family-specific standards-derived checks and standards lock pinning is partial
+**Current implementation status:** Phase 0, Phase 0.5, Phase 1, Phase 2, Phase 3, and Phase 4 are functionally implemented, and Remediation R1, R2, R4, and R5 are complete. Remediation R3 has raw Part 10 byte-level validation, parsed cross-field image invariant validation, generated manifest schema-conformance checks, baseline standards-derived Type 1/Type 2 module validation, and initial SC/CT family-specific standards-derived validation implemented. Remaining remediation before clean Phase 5 expansion: validation needs broader family-specific standards-derived checks
 
 This document is the durable hand-off log for coding agents implementing
 `dicom-test-suite`. Keep `SYSTEM_SPEC.md` as the source of product and
@@ -40,7 +40,7 @@ Observed at creation of this progress file:
 | `Cargo.toml` / Rust workspace | present | Single package named `dicom-test-suite`, using Rust 2024 edition; pins minimal DICOM-rs crates for Phase 1 object and transfer syntax work. |
 | `build.rs` | present | Captures Rust compiler version and target triple for generated manifest metadata. |
 | `rust-toolchain.toml` | present | Pins Rust 1.85.0 with `rustfmt` and `clippy`, matching an installed local toolchain. |
-| `standards.lock.json` | present | Locks to DICOM 2026b base edition only using the pinned `dicom-standard-kb` MCP source manifest; local DB and source artifact hashes remain pending. |
+| `standards.lock.json` | present | Locks to DICOM 2026b base edition only using the pinned `dicom-standard-kb` MCP source manifest; unavailable KB commit, local DB hash, and official source artifact hashes are documented with explicit non-fatal statuses. |
 | `schemas/` | present | Manifest, case registry, coverage report, and viewer report schemas have initial structured coverage. |
 | `cases/taxonomy.md` | present | Documents normalized case ID format, path segments, descriptor conventions, profile definitions, and inclusion rules. |
 | `cases/registry.json` | present | Tracks implemented smoke/core SC cases, classic radiology CT/MG/CR/MR/DX/US cases, Enhanced CT, Enhanced CT concatenation, Enhanced MR extended cases, planned SEG, and planned VL cases with standards evidence from `dicom-standard-kb` MCP lookups. |
@@ -84,7 +84,7 @@ Observed at creation of this progress file:
 | Phase 2: Native pixel matrix | complete | Core native monochrome 16-bit unsigned/signed MONOCHROME2 OW Pixel Data, RGB planar configuration 1, PALETTE COLOR, YBR_FULL, YBR_FULL_422, odd-dimension, rectangular, tiny-image, pixel-padding, and broadened native pixel validators are implemented. |
 | Phase 3: Classic radiology IODs | complete | CT Image Storage signed 12-bit rescale/window, MG For Presentation/For Processing 12-bit, CR overlay/Modality LUT/VOI LUT, MR multi-slice oblique geometry, DX display shutter, US Image Storage, and stable multi-file series generation are implemented. |
 | Phase 4: Enhanced multi-frame | complete | Enhanced CT and Enhanced MR Image Storage cases with Shared and Per-Frame Functional Groups and Multi-frame Dimension metadata are implemented; MR Echo, Temporal Position, phase/velocity-encoding variation, and a two-member Enhanced CT concatenation case are covered. |
-| Remediation before Phase 5 | in progress | R1 registry authority, R2 required CLI contracts, and R4 reproducibility/CI guards are complete; R3 raw Part 10 byte validation, parsed cross-field image invariant checks, manifest schema-conformance checks, baseline standards-derived Type 1/Type 2 checks, and initial SC/CT family-specific checks are implemented; additional validation hardening and standards lock pinning remain before adding new Phase 5 recipes. |
+| Remediation before Phase 5 | in progress | R1 registry authority, R2 required CLI contracts, R4 reproducibility/CI guards, and R5 standards lock pinning policy are complete; R3 raw Part 10 byte validation, parsed cross-field image invariant checks, manifest schema-conformance checks, baseline standards-derived Type 1/Type 2 checks, and initial SC/CT family-specific checks are implemented; additional validation hardening remains before adding new Phase 5 recipes. |
 | Phase 5: Derived, presentation, and non-image objects | not started | SEG, presentation states, SR, KOS, RWVM, RT, and encapsulated documents pending. |
 | Phase 6: Transfer syntax expansion | not started | Transfer syntax abstraction and compressed cases pending. |
 | Phase 7: Pathology, video, and large object profiles | not started | VL, WSI, video, and stress cases pending. |
@@ -238,7 +238,7 @@ These case IDs come from `SYSTEM_SPEC.md` section 21 and should seed
 | Rust edition and toolchain | decided 2026-06-13 | Use Rust 2024 edition and pin toolchain `1.85.0`, the installed local stable toolchain sufficient for edition 2024. |
 | DICOM-rs versions | decided 2026-06-13 | Crates.io verification found `dicom` 0.9.1, `dicom-object` 0.9.1, `dicom-core` 0.9.1, `dicom-transfer-syntax-registry` 0.9.1, and `dicom-dictionary-std` 0.9.0; pin minimal direct dependencies exactly and leave optional pixel/UL codecs disabled. |
 | Standards baseline | decided 2026-06-13 | Use DICOM 2026b base edition only and exclude post-base final text until `standards.lock.json` is deliberately updated. |
-| `dicom-standard-kb` pin | partially decided 2026-06-13 | The available MCP is pinned to generated 2026b reference data with source manifest SHA-256 `9959bee76fd293c7eda3fc81ce2ced7528612faa1b2df28cccd01504a83f54b0`; repository commit and local DB SHA-256 remain pending until exposed or independently verified. |
+| `dicom-standard-kb` pin | decided with documented unavailable fields 2026-06-13 | The available MCP is pinned to generated 2026b reference data with source manifest SHA-256 `9959bee76fd293c7eda3fc81ce2ced7528612faa1b2df28cccd01504a83f54b0`; repository commit and local DB SHA-256 are field-specific non-fatal unavailable pins until exposed or independently verified. |
 | Case registry storage shape | decided 2026-06-13 | Use `cases/registry.json` with `case_registry_schema_version` and a `cases` array conforming to `schemas/case-registry.schema.json`. |
 | Transfer syntax capability matrix format | decided 2026-06-13 | Use `transfer-syntax/capability-matrix.json` entries with `read_dataset`, `decode_pixel`, `write_dataset`, `encode_pixel`, `feature_flags`, `external_libraries`, and `determinism` fields. |
 | UID namespace and algorithm | decided 2026-06-13 | Use project namespace UUID `4f5b3b66-8b91-4f3d-a6a1-6d9a7fc6d4d8`, SHA-256 seed material, RFC 4122 version/variant bits, and DICOM `2.25.<decimal uuid>` output. The 2026b KB did not expose PS3.5 UID text, so `standards/source-notes/uid-2-25.md` records the local source note. |
@@ -596,15 +596,19 @@ These case IDs come from `SYSTEM_SPEC.md` section 21 and should seed
   case has no generator recipe, when a generator recipe lacks an implemented
   registry row, or when an initial priority case from `SYSTEM_SPEC.md` section
   21 is missing from the registry.
+- 2026-06-13: Remediation R5 completed with documented-unavailable standards
+  lock pins. `standards.lock.json` now records field-specific non-fatal
+  unavailable statuses and reasons for the `dicom-standard-kb` repository
+  commit, generated local KB database SHA-256, and official source artifact
+  hashes; `standards check-lock` rejects nullable KB pins that lack those
+  field-specific statuses. `standards/kb-integration.md` documents the null-pin
+  policy.
 
 ## Current Blockers
 
 The 2026-06-13 baseline review found remediation items that should be resolved
 before Phase 5 feature expansion: validation still needs additional
-family-specific standards-derived checks. Standards lock pinning remains
-partial.
-The local `dicom-standard-kb` repository commit/DB SHA-256 and official source
-artifact hashes also remain unverified.
+family-specific standards-derived checks.
 
 ## Recommended Next Commit
 
@@ -612,7 +616,7 @@ Execute `REMEDIATION_PLAN.md` before starting new Phase 5 feature work:
 
 1. Continue Remediation R3 by expanding family-specific standards-derived recipe
    validation beyond the current SC and classic CT coverage.
-2. Continue standards-lock cleanup as described in the remediation plan.
+2. Re-evaluate Phase 5 readiness once R3 validation hardening is complete.
 3. Resume Phase 5 with `feat(seg): add binary segmentation case` only after the
    remediation exit criteria are satisfied.
 

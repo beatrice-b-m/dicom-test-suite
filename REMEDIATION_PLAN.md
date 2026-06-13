@@ -127,15 +127,20 @@ Exit criteria:
 
 ## Phase R5: Resolve Standards Lock Pinning
 
+**Status:** complete as of 2026-06-13. The committed lock has concrete
+`source_manifest_sha256` pinning plus explicit non-fatal unavailable statuses
+and reasons for the KB repository commit, local KB DB SHA-256, and official
+source artifact hashes.
+
 **Findings addressed:** standards lock is still partially unpinned.
 
 Tasks:
 
-- Determine whether `dicom-standard-kb` can expose the repository commit and local DB SHA-256 through MCP or CLI.
-- Fill `dicom_standard_kb.commit` and `dicom_standard_kb.db_sha256` when verifiable.
-- Record official source artifact hashes only if those artifacts are acquired through an approved local workflow and kept out of git.
-- If a hash cannot be obtained without redistributing or caching prohibited artifacts, document the precise blocker in `standards.lock.json`, `IMPLEMENTATION_PROGRESS.md`, and `standards/kb-integration.md`.
-- Make `standards check-lock` distinguish between fatal missing lock data and documented unavailable lock data.
+- Determine whether `dicom-standard-kb` can expose the repository commit and local DB SHA-256 through MCP or CLI. Complete: the current Codex MCP query surface exposes query traces and `source_manifest_sha256`, but not the repository checkout commit or generated local DB SHA-256.
+- Fill `dicom_standard_kb.commit` and `dicom_standard_kb.db_sha256` when verifiable. Complete with documented non-fatal unavailable statuses until those values are exposed or independently verified.
+- Record official source artifact hashes only if those artifacts are acquired through an approved local workflow and kept out of git. Complete with documented `unavailable_not_downloaded` statuses because official source artifacts are not downloaded into this repository.
+- If a hash cannot be obtained without redistributing or caching prohibited artifacts, document the precise blocker in `standards.lock.json`, `IMPLEMENTATION_PROGRESS.md`, and `standards/kb-integration.md`. Complete.
+- Make `standards check-lock` distinguish between fatal missing lock data and documented unavailable lock data. Complete.
 
 Exit criteria:
 

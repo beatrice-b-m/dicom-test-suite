@@ -2,7 +2,7 @@ use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
 
-use serde_json::json;
+use serde_json::{Value, json};
 
 #[test]
 fn standards_check_lock_accepts_committed_lock_with_documented_warnings() {
@@ -52,6 +52,43 @@ fn standards_check_lock_rejects_malformed_lock() {
     let stderr = String::from_utf8(output.stderr).expect("check-lock stderr should be UTF-8");
     assert!(stderr.contains("invalid standards lock metadata"));
     assert!(stderr.contains("/schema_version must be a string"));
+
+    fs::remove_file(lock_path).expect("temporary lock should be removable");
+}
+
+#[test]
+fn standards_check_lock_rejects_undocumented_nullable_pin() {
+    let lock_path = unique_temp_file("undocumented-null-standards-lock.json");
+    let mut lock: Value = serde_json::from_str(
+        &fs::read_to_string("standards.lock.json").expect("committed lock should be readable"),
+    )
+    .expect("committed lock should parse");
+    lock.pointer_mut("/dicom_standard_kb")
+        .and_then(Value::as_object_mut)
+        .expect("committed lock should contain dicom_standard_kb")
+        .remove("commit_status");
+    fs::write(
+        &lock_path,
+        serde_json::to_string_pretty(&lock).expect("temporary lock should serialize"),
+    )
+    .expect("temporary lock should be writable");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args([
+            "standards",
+            "check-lock",
+            "--lock",
+            lock_path.to_str().expect("temp path should be valid UTF-8"),
+        ])
+        .output()
+        .expect("standards check-lock command must run");
+
+    assert!(
+        !output.status.success(),
+        "check-lock should reject a null pin without field-specific status"
+    );
+    let stderr = String::from_utf8(output.stderr).expect("check-lock stderr should be UTF-8");
+    assert!(stderr.contains("/commit_status must be a string"));
 
     fs::remove_file(lock_path).expect("temporary lock should be removable");
 }

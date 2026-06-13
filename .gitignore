@@ -1,2 +1,8 @@
 .DS_Store
-
+/target/
+/generated/
+/out/
+/reports/
+*.dcm
+*.dicom
+*.ima

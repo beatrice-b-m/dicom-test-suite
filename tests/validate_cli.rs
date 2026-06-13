@@ -84,6 +84,62 @@ fn validate_command_reports_corrupted_generated_file() {
     fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
 }
 
+#[test]
+fn validate_command_reports_nonzero_part10_preamble() {
+    let out_dir = unique_temp_dir("validate-nonzero-preamble");
+    generate_smoke(&out_dir);
+    let dcm_path = out_dir.join("classic/sc/mono2_u8_explicit_le/instance.dcm");
+    mutate_dicom(&dcm_path, |bytes| {
+        bytes[0] = 1;
+    });
+
+    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args([
+            "validate",
+            out_dir.to_str().expect("temp path should be valid UTF-8"),
+        ])
+        .output()
+        .expect("validate command must run");
+
+    assert!(
+        !output.status.success(),
+        "validate should fail when the normal Part 10 preamble is non-zero"
+    );
+    let stdout = String::from_utf8(output.stdout).expect("validate stdout must be UTF-8");
+    assert!(stdout.contains("part10_zero_preamble"));
+
+    fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
+}
+
+#[test]
+fn validate_command_reports_missing_file_meta_information_version() {
+    let out_dir = unique_temp_dir("validate-missing-file-meta-version");
+    generate_smoke(&out_dir);
+    let dcm_path = out_dir.join("classic/sc/mono2_u8_explicit_le/instance.dcm");
+    mutate_dicom(&dcm_path, |bytes| {
+        let offset = find_tag(bytes, 0x0002, 0x0001)
+            .expect("generated DICOM should contain File Meta Information Version");
+        bytes[offset] = 0x03;
+    });
+
+    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args([
+            "validate",
+            out_dir.to_str().expect("temp path should be valid UTF-8"),
+        ])
+        .output()
+        .expect("validate command must run");
+
+    assert!(
+        !output.status.success(),
+        "validate should fail when File Meta Information Version is missing"
+    );
+    let stdout = String::from_utf8(output.stdout).expect("validate stdout must be UTF-8");
+    assert!(stdout.contains("file_meta_information_version"));
+
+    fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
+}
+
 fn generate_smoke(out_dir: &Path) {
     let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
         .args([
@@ -103,6 +159,20 @@ fn generate_smoke(out_dir: &Path) {
         "generate should exit successfully: {}",
         String::from_utf8_lossy(&output.stderr)
     );
+}
+
+fn mutate_dicom(path: &Path, mutate: impl FnOnce(&mut Vec<u8>)) {
+    let mut bytes = fs::read(path).expect("generated DICOM should be readable");
+    mutate(&mut bytes);
+    fs::write(path, bytes).expect("generated DICOM should be writable");
+}
+
+fn find_tag(bytes: &[u8], group: u16, element: u16) -> Option<usize> {
+    let group = group.to_le_bytes();
+    let element = element.to_le_bytes();
+    bytes
+        .windows(4)
+        .position(|window| window == [group[0], group[1], element[0], element[1]])
 }
 
 fn unique_temp_dir(name: &str) -> PathBuf {

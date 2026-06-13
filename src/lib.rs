@@ -20,6 +20,7 @@ pub const PACKAGE_NAME: &str = env!("CARGO_PKG_NAME");
 pub const PACKAGE_VERSION: &str = env!("CARGO_PKG_VERSION");
 pub const RUSTC_VERSION: &str = env!("DICOM_TEST_SUITE_RUSTC_VERSION");
 pub const TARGET_TRIPLE: &str = env!("DICOM_TEST_SUITE_TARGET");
+pub(crate) const IMPLEMENTATION_VERSION_NAME: &str = "DICOMTS010";
 
 pub fn version_banner() -> String {
     format!("{PACKAGE_NAME} {PACKAGE_VERSION}")
@@ -503,14 +504,6 @@ fn validate_manifest_file(
         manifest_str(manifest_path, file, "/sha256", "sha256 must be a string")?,
     );
 
-    let obj = match open_file(&path) {
-        Ok(obj) => obj,
-        Err(err) => {
-            failures.push(format!("{relative_path}: open_file: {err}"));
-            return Ok(());
-        }
-    };
-
     let expected_sop_class = manifest_str(
         manifest_path,
         file,
@@ -535,6 +528,25 @@ fn validate_manifest_file(
         "/uids/implementation_class_uid",
         "uids implementation_class_uid must be a string",
     )?;
+
+    validate_raw_part10_file(
+        failures,
+        relative_path,
+        &bytes,
+        expected_sop_class,
+        expected_sop_instance,
+        expected_transfer_syntax,
+        expected_implementation_class_uid,
+    );
+
+    let obj = match open_file(&path) {
+        Ok(obj) => obj,
+        Err(err) => {
+            failures.push(format!("{relative_path}: open_file: {err}"));
+            return Ok(());
+        }
+    };
+
     validate_equal(
         failures,
         relative_path,
@@ -781,6 +793,368 @@ fn validate_manifest_file(
     );
 
     Ok(())
+}
+
+#[derive(Debug)]
+struct RawFileMetaElement {
+    tag: (u16, u16),
+    vr: String,
+    value_offset: usize,
+    value_length: usize,
+    next_offset: usize,
+}
+
+fn validate_raw_part10_file(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    bytes: &[u8],
+    expected_sop_class: &str,
+    expected_sop_instance: &str,
+    expected_transfer_syntax: &str,
+    expected_implementation_class_uid: &str,
+) {
+    if bytes.len() < 132 {
+        failures.push(format!(
+            "{relative_path}: part10_preamble: file is shorter than the 132-byte Part 10 prefix"
+        ));
+        return;
+    }
+    if bytes[..128].iter().any(|byte| *byte != 0) {
+        failures.push(format!(
+            "{relative_path}: part10_zero_preamble: expected 128 zero preamble bytes"
+        ));
+    }
+    if &bytes[128..132] != b"DICM" {
+        failures.push(format!(
+            "{relative_path}: part10_dicm_prefix: expected DICM marker at byte offset 128"
+        ));
+        return;
+    }
+
+    let (file_meta, dataset_start) = parse_file_meta_elements(failures, relative_path, bytes);
+    let Some(file_meta) = file_meta else {
+        return;
+    };
+
+    validate_required_file_meta_element(
+        failures,
+        relative_path,
+        &file_meta,
+        (0x0002, 0x0000),
+        "UL",
+        "file_meta_group_length",
+    );
+    validate_required_file_meta_element(
+        failures,
+        relative_path,
+        &file_meta,
+        (0x0002, 0x0001),
+        "OB",
+        "file_meta_information_version",
+    );
+    validate_required_file_meta_element(
+        failures,
+        relative_path,
+        &file_meta,
+        (0x0002, 0x0002),
+        "UI",
+        "media_storage_sop_class_uid_raw",
+    );
+    validate_required_file_meta_element(
+        failures,
+        relative_path,
+        &file_meta,
+        (0x0002, 0x0003),
+        "UI",
+        "media_storage_sop_instance_uid_raw",
+    );
+    validate_required_file_meta_element(
+        failures,
+        relative_path,
+        &file_meta,
+        (0x0002, 0x0010),
+        "UI",
+        "file_meta_transfer_syntax_raw",
+    );
+    validate_required_file_meta_element(
+        failures,
+        relative_path,
+        &file_meta,
+        (0x0002, 0x0012),
+        "UI",
+        "implementation_class_uid_raw",
+    );
+
+    if let Some(group_length) = raw_file_meta_element(&file_meta, (0x0002, 0x0000)) {
+        if group_length.value_length == 4 {
+            let declared = read_u32_le(bytes, group_length.value_offset);
+            let actual = dataset_start.saturating_sub(group_length.next_offset) as u32;
+            validate_equal(
+                failures,
+                relative_path,
+                "file_meta_group_length_value",
+                actual,
+                declared,
+            );
+        }
+    }
+    if let Some(version) = raw_file_meta_element(&file_meta, (0x0002, 0x0001)) {
+        let value = raw_value(bytes, version);
+        if value != [0, 1] {
+            failures.push(format!(
+                "{relative_path}: file_meta_information_version_value: expected 00 01"
+            ));
+        }
+    }
+    validate_raw_ui(
+        failures,
+        relative_path,
+        bytes,
+        &file_meta,
+        (0x0002, 0x0002),
+        "media_storage_sop_class_uid_raw_value",
+        expected_sop_class,
+    );
+    validate_raw_ui(
+        failures,
+        relative_path,
+        bytes,
+        &file_meta,
+        (0x0002, 0x0003),
+        "media_storage_sop_instance_uid_raw_value",
+        expected_sop_instance,
+    );
+    validate_raw_ui(
+        failures,
+        relative_path,
+        bytes,
+        &file_meta,
+        (0x0002, 0x0010),
+        "file_meta_transfer_syntax_raw_value",
+        expected_transfer_syntax,
+    );
+    validate_raw_ui(
+        failures,
+        relative_path,
+        bytes,
+        &file_meta,
+        (0x0002, 0x0012),
+        "implementation_class_uid_raw_value",
+        expected_implementation_class_uid,
+    );
+    if let Some(version_name) = raw_file_meta_element(&file_meta, (0x0002, 0x0013)) {
+        validate_equal(
+            failures,
+            relative_path,
+            "implementation_version_name",
+            raw_text(bytes, version_name),
+            IMPLEMENTATION_VERSION_NAME,
+        );
+    }
+    if dataset_start + 2 <= bytes.len() {
+        validate_equal(
+            failures,
+            relative_path,
+            "file_meta_dataset_boundary",
+            format!("{:04X}", read_u16_le(bytes, dataset_start)),
+            "0008",
+        );
+    }
+    if contains_dataset_group_0002(bytes, dataset_start, expected_transfer_syntax) {
+        failures.push(format!(
+            "{relative_path}: file_meta_group_boundary: dataset contains group 0002 elements after File Meta Information"
+        ));
+    }
+}
+
+fn parse_file_meta_elements(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    bytes: &[u8],
+) -> (Option<Vec<RawFileMetaElement>>, usize) {
+    let mut offset = 132;
+    let mut elements = Vec::new();
+    loop {
+        if offset + 4 > bytes.len() {
+            failures.push(format!(
+                "{relative_path}: file_meta_group_boundary: file ended before dataset"
+            ));
+            return (None, offset);
+        }
+        let group = read_u16_le(bytes, offset);
+        if group != 0x0002 {
+            return (Some(elements), offset);
+        }
+        let Some(element) = parse_explicit_vr_element(bytes, offset) else {
+            failures.push(format!(
+                "{relative_path}: file_meta_explicit_vr_little_endian: malformed File Meta element at byte offset {offset}"
+            ));
+            return (None, offset);
+        };
+        if !is_uppercase_vr(&element.vr) {
+            failures.push(format!(
+                "{relative_path}: file_meta_explicit_vr_little_endian: invalid VR {} at byte offset {offset}",
+                element.vr
+            ));
+            return (None, offset);
+        }
+        offset = element.next_offset;
+        elements.push(element);
+    }
+}
+
+fn validate_required_file_meta_element(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    file_meta: &[RawFileMetaElement],
+    tag: (u16, u16),
+    expected_vr: &str,
+    name: &str,
+) {
+    match raw_file_meta_element(file_meta, tag) {
+        Some(element) => {
+            validate_equal(
+                failures,
+                relative_path,
+                name,
+                element.vr.as_str(),
+                expected_vr,
+            );
+        }
+        None => failures.push(format!(
+            "{relative_path}: {name}: required File Meta element ({:04X},{:04X}) is missing",
+            tag.0, tag.1
+        )),
+    }
+}
+
+fn validate_raw_ui(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    bytes: &[u8],
+    file_meta: &[RawFileMetaElement],
+    tag: (u16, u16),
+    name: &str,
+    expected: &str,
+) {
+    if let Some(element) = raw_file_meta_element(file_meta, tag) {
+        validate_equal(
+            failures,
+            relative_path,
+            name,
+            raw_text(bytes, element),
+            expected,
+        );
+    }
+}
+
+fn raw_file_meta_element(
+    file_meta: &[RawFileMetaElement],
+    tag: (u16, u16),
+) -> Option<&RawFileMetaElement> {
+    file_meta.iter().find(|element| element.tag == tag)
+}
+
+fn raw_value<'a>(bytes: &'a [u8], element: &RawFileMetaElement) -> &'a [u8] {
+    &bytes[element.value_offset..element.value_offset + element.value_length]
+}
+
+fn raw_text(bytes: &[u8], element: &RawFileMetaElement) -> String {
+    String::from_utf8_lossy(raw_value(bytes, element))
+        .trim_matches('\0')
+        .trim()
+        .to_string()
+}
+
+fn contains_dataset_group_0002(bytes: &[u8], mut offset: usize, transfer_syntax_uid: &str) -> bool {
+    let explicit_vr = transfer_syntax_uid != dicom_dictionary_std::uids::IMPLICIT_VR_LITTLE_ENDIAN;
+    while offset + 8 <= bytes.len() {
+        let group = read_u16_le(bytes, offset);
+        if group == 0x0002 {
+            return true;
+        }
+        let Some((value_length, next_offset)) =
+            parse_dataset_element_header(bytes, offset, explicit_vr)
+        else {
+            return false;
+        };
+        if value_length == 0xFFFF_FFFF {
+            return false;
+        }
+        offset = next_offset.saturating_add(value_length as usize);
+    }
+    false
+}
+
+fn parse_dataset_element_header(
+    bytes: &[u8],
+    offset: usize,
+    explicit_vr: bool,
+) -> Option<(u32, usize)> {
+    if explicit_vr {
+        parse_explicit_vr_element(bytes, offset).map(|element| {
+            (
+                element.value_length.try_into().unwrap_or(u32::MAX),
+                element.value_offset,
+            )
+        })
+    } else {
+        if offset + 8 > bytes.len() {
+            return None;
+        }
+        Some((read_u32_le(bytes, offset + 4), offset + 8))
+    }
+}
+
+fn parse_explicit_vr_element(bytes: &[u8], offset: usize) -> Option<RawFileMetaElement> {
+    if offset + 8 > bytes.len() {
+        return None;
+    }
+    let group = read_u16_le(bytes, offset);
+    let element = read_u16_le(bytes, offset + 2);
+    let vr = std::str::from_utf8(&bytes[offset + 4..offset + 6])
+        .ok()?
+        .to_string();
+    let long_vr = matches!(
+        vr.as_str(),
+        "OB" | "OD" | "OF" | "OL" | "OV" | "OW" | "SQ" | "UC" | "UR" | "UT" | "UN"
+    );
+    let (value_length, value_offset) = if long_vr {
+        if offset + 12 > bytes.len() || bytes[offset + 6] != 0 || bytes[offset + 7] != 0 {
+            return None;
+        }
+        (read_u32_le(bytes, offset + 8) as usize, offset + 12)
+    } else {
+        (usize::from(read_u16_le(bytes, offset + 6)), offset + 8)
+    };
+    let next_offset = value_offset.checked_add(value_length)?;
+    if next_offset > bytes.len() {
+        return None;
+    }
+    Some(RawFileMetaElement {
+        tag: (group, element),
+        vr,
+        value_offset,
+        value_length,
+        next_offset,
+    })
+}
+
+fn is_uppercase_vr(vr: &str) -> bool {
+    vr.len() == 2 && vr.bytes().all(|byte| byte.is_ascii_uppercase())
+}
+
+fn read_u16_le(bytes: &[u8], offset: usize) -> u16 {
+    u16::from_le_bytes([bytes[offset], bytes[offset + 1]])
+}
+
+fn read_u32_le(bytes: &[u8], offset: usize) -> u32 {
+    u32::from_le_bytes([
+        bytes[offset],
+        bytes[offset + 1],
+        bytes[offset + 2],
+        bytes[offset + 3],
+    ])
 }
 
 fn manifest_str<'a>(

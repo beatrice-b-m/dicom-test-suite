@@ -1286,7 +1286,7 @@ fn write_pixel_case(
             FileMetaTableBuilder::new()
                 .transfer_syntax(uids::EXPLICIT_VR_LITTLE_ENDIAN)
                 .implementation_class_uid(&implementation_class_uid)
-                .implementation_version_name("DICOMTS010"),
+                .implementation_version_name(crate::IMPLEMENTATION_VERSION_NAME),
         )
         .map_err(|err| GenerateError::WriteDicomFile {
             path: path.clone(),
@@ -1771,7 +1771,7 @@ fn write_classic_ct_case(
             FileMetaTableBuilder::new()
                 .transfer_syntax(uids::EXPLICIT_VR_LITTLE_ENDIAN)
                 .implementation_class_uid(&implementation_class_uid)
-                .implementation_version_name("DICOMTS010"),
+                .implementation_version_name(crate::IMPLEMENTATION_VERSION_NAME),
         )
         .map_err(|err| GenerateError::WriteDicomFile {
             path: path.clone(),
@@ -2219,7 +2219,7 @@ fn write_enhanced_ct_case(
             FileMetaTableBuilder::new()
                 .transfer_syntax(uids::EXPLICIT_VR_LITTLE_ENDIAN)
                 .implementation_class_uid(&implementation_class_uid)
-                .implementation_version_name("DICOMTS010"),
+                .implementation_version_name(crate::IMPLEMENTATION_VERSION_NAME),
         )
         .map_err(|err| GenerateError::WriteDicomFile {
             path: path.clone(),
@@ -2543,7 +2543,7 @@ fn write_enhanced_ct_concatenation_case(
                 FileMetaTableBuilder::new()
                     .transfer_syntax(uids::EXPLICIT_VR_LITTLE_ENDIAN)
                     .implementation_class_uid(&implementation_class_uid)
-                    .implementation_version_name("DICOMTS010"),
+                    .implementation_version_name(crate::IMPLEMENTATION_VERSION_NAME),
             )
             .map_err(|err| GenerateError::WriteDicomFile {
                 path: path.clone(),
@@ -3152,7 +3152,7 @@ fn write_enhanced_mr_case(
             FileMetaTableBuilder::new()
                 .transfer_syntax(uids::EXPLICIT_VR_LITTLE_ENDIAN)
                 .implementation_class_uid(&implementation_class_uid)
-                .implementation_version_name("DICOMTS010"),
+                .implementation_version_name(crate::IMPLEMENTATION_VERSION_NAME),
         )
         .map_err(|err| GenerateError::WriteDicomFile {
             path: path.clone(),
@@ -3981,7 +3981,7 @@ fn write_classic_mg_case(
             FileMetaTableBuilder::new()
                 .transfer_syntax(recipe.transfer_syntax_uid)
                 .implementation_class_uid(&implementation_class_uid)
-                .implementation_version_name("DICOMTS010"),
+                .implementation_version_name(crate::IMPLEMENTATION_VERSION_NAME),
         )
         .map_err(|err| GenerateError::WriteDicomFile {
             path: path.clone(),
@@ -4524,7 +4524,7 @@ fn write_classic_dx_case(
             FileMetaTableBuilder::new()
                 .transfer_syntax(uids::EXPLICIT_VR_LITTLE_ENDIAN)
                 .implementation_class_uid(&implementation_class_uid)
-                .implementation_version_name("DICOMTS010"),
+                .implementation_version_name(crate::IMPLEMENTATION_VERSION_NAME),
         )
         .map_err(|err| GenerateError::WriteDicomFile {
             path: path.clone(),
@@ -4946,7 +4946,7 @@ fn write_classic_us_case(
             FileMetaTableBuilder::new()
                 .transfer_syntax(uids::EXPLICIT_VR_LITTLE_ENDIAN)
                 .implementation_class_uid(&implementation_class_uid)
-                .implementation_version_name("DICOMTS010"),
+                .implementation_version_name(crate::IMPLEMENTATION_VERSION_NAME),
         )
         .map_err(|err| GenerateError::WriteDicomFile {
             path: path.clone(),
@@ -5337,7 +5337,7 @@ fn write_classic_cr_case(
             FileMetaTableBuilder::new()
                 .transfer_syntax(uids::EXPLICIT_VR_LITTLE_ENDIAN)
                 .implementation_class_uid(&implementation_class_uid)
-                .implementation_version_name("DICOMTS010"),
+                .implementation_version_name(crate::IMPLEMENTATION_VERSION_NAME),
         )
         .map_err(|err| GenerateError::WriteDicomFile {
             path: path.clone(),
@@ -5774,7 +5774,7 @@ fn write_classic_mr_case(
                 FileMetaTableBuilder::new()
                     .transfer_syntax(uids::EXPLICIT_VR_LITTLE_ENDIAN)
                     .implementation_class_uid(&implementation_class_uid)
-                    .implementation_version_name("DICOMTS010"),
+                    .implementation_version_name(crate::IMPLEMENTATION_VERSION_NAME),
             )
             .map_err(|err| GenerateError::WriteDicomFile {
                 path: path.clone(),

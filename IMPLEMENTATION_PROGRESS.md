@@ -2,9 +2,9 @@
 
 **Last updated:** 2026-06-13  
 **Source specification:** `SYSTEM_SPEC.md` version 0.2.0  
-**Current phase:** Phase 5 derived, presentation, and non-image objects, not started
+**Current phase:** remediation planning before Phase 5 feature expansion
 
-**Current implementation status:** Phase 0, Phase 0.5, Phase 1, Phase 2, Phase 3, and Phase 4 are complete; Phase 4 includes standards-backed Enhanced CT and Enhanced MR Image Storage cases using Shared and Per-Frame Functional Groups, Multi-frame Dimension metadata, per-frame MR Echo, per-frame Temporal Position, per-frame MR Velocity Encoding metadata, and a two-member Enhanced CT concatenation case
+**Current implementation status:** Phase 0, Phase 0.5, Phase 1, Phase 2, Phase 3, and Phase 4 are functionally implemented, but the 2026-06-13 baseline review identified remediation work required before clean Phase 5 expansion: registry status must control generation, the planned SEG case must be restored to the registry, expected CLI commands remain incomplete, validation needs stricter Part 10 checks, standards lock pinning is partial, and reproducibility/schema/CI guard coverage needs expansion
 
 This document is the durable hand-off log for coding agents implementing
 `dicom-test-suite`. Keep `SYSTEM_SPEC.md` as the source of product and
@@ -49,6 +49,7 @@ Observed at creation of this progress file:
 | `standards/kb-integration.md` | present | Documents the pinned 2026b `dicom-standard-kb` MCP query workflow, evidence fields, and fallback path. |
 | `standards/gap-workflow.md` | present | Documents standards gap handling, local source notes, blocked/skipped registry actions, and KB patch criteria. |
 | `standards/source-notes/` | present | Contains a README/template plus `uid-2-25.md` for the PS3.5 UID root gap not covered by `dicom-standard-kb`. |
+| `REMEDIATION_PLAN.md` | present | Defines the phased cleanup path for registry authority, missing planned cases, CLI completion, validation hardening, reproducibility/CI guard gaps, and standards lock pinning before Phase 5 feature work resumes. |
 | `src/` or `crates/` | present | Single-package implementation now includes `list-cases`, `generate`, deterministic UID, run manifest, SC pixel writers, CT signed rescale writer, MG For Presentation/For Processing writers, CR overlay/LUT writer, MR multi-slice writer, DX display shutter writer, US single-frame writer, Enhanced CT and Enhanced MR multi-frame writers, Enhanced CT concatenation output, and Part 10 validation paths. |
 | `tests/` | present | Includes schema artifact, `list-cases` CLI, `generate` CLI, UID, manifest, Part 10 readback, CT rescale readback, MG presentation/processing readback, CR overlay/LUT readback, MR multi-slice readback, DX display shutter readback, US readback, Enhanced CT and Enhanced MR multi-frame readback, Enhanced CT concatenation readback, and smoke reproducibility tests. |
 
@@ -83,6 +84,7 @@ Observed at creation of this progress file:
 | Phase 2: Native pixel matrix | complete | Core native monochrome 16-bit unsigned/signed MONOCHROME2 OW Pixel Data, RGB planar configuration 1, PALETTE COLOR, YBR_FULL, YBR_FULL_422, odd-dimension, rectangular, tiny-image, pixel-padding, and broadened native pixel validators are implemented. |
 | Phase 3: Classic radiology IODs | complete | CT Image Storage signed 12-bit rescale/window, MG For Presentation/For Processing 12-bit, CR overlay/Modality LUT/VOI LUT, MR multi-slice oblique geometry, DX display shutter, US Image Storage, and stable multi-file series generation are implemented. |
 | Phase 4: Enhanced multi-frame | complete | Enhanced CT and Enhanced MR Image Storage cases with Shared and Per-Frame Functional Groups and Multi-frame Dimension metadata are implemented; MR Echo, Temporal Position, phase/velocity-encoding variation, and a two-member Enhanced CT concatenation case are covered. |
+| Remediation before Phase 5 | planned | `REMEDIATION_PLAN.md` should be executed before adding new Phase 5 recipes. |
 | Phase 5: Derived, presentation, and non-image objects | not started | SEG, presentation states, SR, KOS, RWVM, RT, and encapsulated documents pending. |
 | Phase 6: Transfer syntax expansion | not started | Transfer syntax abstraction and compressed cases pending. |
 | Phase 7: Pathology, video, and large object profiles | not started | VL, WSI, video, and stress cases pending. |
@@ -477,22 +479,27 @@ These case IDs come from `SYSTEM_SPEC.md` section 21 and should seed
 
 ## Current Blockers
 
-No implementation blocker has been proven yet. The remaining immediate
-limitations are that the local `dicom-standard-kb`
-repository commit/DB SHA-256 and official source artifact hashes have not yet
-been verified.
+The 2026-06-13 baseline review found remediation items that should be resolved
+before Phase 5 feature expansion: generation does not yet honor registry
+`status`, the planned SEG priority case is missing from `cases/registry.json`,
+`list-cases --status`, `validate`, `report`, and `standards` CLI commands are
+not implemented, validation does not yet enforce every required Part 10
+invariant, and reproducibility/schema/CI guard coverage is incomplete. The local
+`dicom-standard-kb` repository commit/DB SHA-256 and official source artifact
+hashes also remain unverified.
 
 ## Recommended Next Commit
 
-Start Phase 5 derived, presentation, and non-image coverage:
+Execute `REMEDIATION_PLAN.md` before starting new Phase 5 feature work:
 
-1. Query the 2026b `dicom-standard-kb` for Segmentation Storage, Segmentation
-   Image IOD modules, BINARY segmentation type requirements, Derivation Image
-   and Source Image reference requirements, and Segment Sequence attributes.
-2. Add the first `derived/seg/binary_multiframe_explicit_le` extended-profile
-   case with references to generated source images from the same run.
-3. Add focused manifest/readback tests and commit with a scoped message such as
-   `feat(seg): add binary segmentation case`.
+1. Make `cases/registry.json` authoritative for generation by honoring case
+   `status` and structured `skip` metadata for skipped/blocked cases.
+2. Add the missing planned `derived/seg/binary_multiframe_explicit_le` registry
+   entry.
+3. Complete the expected CLI, validation, reproducibility, CI guard, and
+   standards-lock cleanup phases described in the remediation plan.
+4. Resume Phase 5 with `feat(seg): add binary segmentation case` only after the
+   remediation exit criteria are satisfied.
 
 ## Handoff Notes
 

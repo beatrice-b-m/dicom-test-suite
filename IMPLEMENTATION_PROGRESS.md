@@ -4,7 +4,7 @@
 **Source specification:** `SYSTEM_SPEC.md` version 0.2.0  
 **Current phase:** Phase 4 enhanced multi-frame, in progress
 
-**Current implementation status:** Phase 0, Phase 0.5, Phase 1, Phase 2, and Phase 3 are complete; Phase 4 now includes standards-backed two-frame Enhanced CT and Enhanced MR Image Storage cases using Shared and Per-Frame Functional Groups plus Multi-frame Dimension metadata
+**Current implementation status:** Phase 0, Phase 0.5, Phase 1, Phase 2, and Phase 3 are complete; Phase 4 now includes standards-backed two-frame Enhanced CT and Enhanced MR Image Storage cases using Shared and Per-Frame Functional Groups, Multi-frame Dimension metadata, per-frame MR Echo, and per-frame Temporal Position metadata
 
 This document is the durable hand-off log for coding agents implementing
 `dicom-test-suite`. Keep `SYSTEM_SPEC.md` as the source of product and
@@ -43,14 +43,14 @@ Observed at creation of this progress file:
 | `standards.lock.json` | present | Locks to DICOM 2026b base edition only using the pinned `dicom-standard-kb` MCP source manifest; local DB and source artifact hashes remain pending. |
 | `schemas/` | present | Manifest, case registry, coverage report, and viewer report schemas have initial structured coverage. |
 | `cases/taxonomy.md` | present | Documents normalized case ID format, path segments, descriptor conventions, profile definitions, and inclusion rules. |
-| `cases/registry.json` | present | Tracks implemented smoke/core SC cases, classic radiology CT/MG/CR/MR/DX/US cases, and the first Enhanced CT Image Storage extended case with standards evidence from `dicom-standard-kb` MCP lookups. |
+| `cases/registry.json` | present | Tracks implemented smoke/core SC cases, classic radiology CT/MG/CR/MR/DX/US cases, plus Enhanced CT and Enhanced MR extended cases with standards evidence from `dicom-standard-kb` MCP lookups. |
 | `transfer-syntax/capability-matrix.json` | present | Records initial read/decode/write/encode, feature, external library, and determinism capabilities for baseline native transfer syntaxes. |
 | `docs/deterministic-build-policy.md` | present | Documents determinism levels, reproducibility inputs, UID derivation, metadata controls, hashes, and two-run verification. |
 | `standards/kb-integration.md` | present | Documents the pinned 2026b `dicom-standard-kb` MCP query workflow, evidence fields, and fallback path. |
 | `standards/gap-workflow.md` | present | Documents standards gap handling, local source notes, blocked/skipped registry actions, and KB patch criteria. |
 | `standards/source-notes/` | present | Contains a README/template plus `uid-2-25.md` for the PS3.5 UID root gap not covered by `dicom-standard-kb`. |
-| `src/` or `crates/` | present | Single-package implementation now includes `list-cases`, `generate`, deterministic UID, run manifest, SC pixel writers, CT signed rescale writer, MG For Presentation/For Processing writers, CR overlay/LUT writer, MR multi-slice writer, DX display shutter writer, US single-frame writer, Enhanced CT multi-frame writer, and Part 10 validation paths. |
-| `tests/` | present | Includes schema artifact, `list-cases` CLI, `generate` CLI, UID, manifest, Part 10 readback, CT rescale readback, MG presentation/processing readback, CR overlay/LUT readback, MR multi-slice readback, DX display shutter readback, US readback, Enhanced CT multi-frame readback, and smoke reproducibility tests. |
+| `src/` or `crates/` | present | Single-package implementation now includes `list-cases`, `generate`, deterministic UID, run manifest, SC pixel writers, CT signed rescale writer, MG For Presentation/For Processing writers, CR overlay/LUT writer, MR multi-slice writer, DX display shutter writer, US single-frame writer, Enhanced CT and Enhanced MR multi-frame writers, and Part 10 validation paths. |
+| `tests/` | present | Includes schema artifact, `list-cases` CLI, `generate` CLI, UID, manifest, Part 10 readback, CT rescale readback, MG presentation/processing readback, CR overlay/LUT readback, MR multi-slice readback, DX display shutter readback, US readback, Enhanced CT and Enhanced MR multi-frame readback, and smoke reproducibility tests. |
 
 ## Non-Negotiable Implementation Constraints
 
@@ -82,7 +82,7 @@ Observed at creation of this progress file:
 | Phase 1: Generator core | complete | `generate --profile smoke` writes all three initial Secondary Capture smoke Part 10 files with manifest hashes, file meta UIDs, pixel metadata, validation results, and byte-stable output across two identical runs. |
 | Phase 2: Native pixel matrix | complete | Core native monochrome 16-bit unsigned/signed MONOCHROME2 OW Pixel Data, RGB planar configuration 1, PALETTE COLOR, YBR_FULL, YBR_FULL_422, odd-dimension, rectangular, tiny-image, pixel-padding, and broadened native pixel validators are implemented. |
 | Phase 3: Classic radiology IODs | complete | CT Image Storage signed 12-bit rescale/window, MG For Presentation/For Processing 12-bit, CR overlay/Modality LUT/VOI LUT, MR multi-slice oblique geometry, DX display shutter, US Image Storage, and stable multi-file series generation are implemented. |
-| Phase 4: Enhanced multi-frame | in progress | First Enhanced CT and Enhanced MR Image Storage cases with Shared and Per-Frame Functional Groups and Multi-frame Dimension metadata are implemented; additional temporal/phase and concatenation cases remain pending. |
+| Phase 4: Enhanced multi-frame | in progress | First Enhanced CT and Enhanced MR Image Storage cases with Shared and Per-Frame Functional Groups and Multi-frame Dimension metadata are implemented; MR Echo and Temporal Position variation are covered; phase and concatenation cases remain pending. |
 | Phase 5: Derived, presentation, and non-image objects | not started | SEG, presentation states, SR, KOS, RWVM, RT, and encapsulated documents pending. |
 | Phase 6: Transfer syntax expansion | not started | Transfer syntax abstraction and compressed cases pending. |
 | Phase 7: Pathology, video, and large object profiles | not started | VL, WSI, video, and stress cases pending. |
@@ -183,12 +183,14 @@ multi-file series requirements.
   Per-Frame Functional Groups.
 - [x] Add Multi-frame Dimension metadata for the first Enhanced CT case.
 - [x] Add Enhanced MR builder.
-- [ ] Add frame-varying temporal position, echo, and phase cases.
+- [x] Add frame-varying echo case.
+- [x] Add frame-varying temporal position case.
+- [ ] Add frame-varying phase case.
 - [ ] Add concatenation cases for extended profile.
 
 Phase 4 is in progress. The extended profile contains first valid multi-frame
-CT and MR cases, but the phase is not complete until temporal/phase variation
-and concatenation coverage are implemented.
+CT and MR cases, but the phase is not complete until phase variation and
+concatenation coverage are implemented.
 
 ## Initial Priority Case Queue
 
@@ -219,6 +221,7 @@ These case IDs come from `SYSTEM_SPEC.md` section 21 and should seed
 | `classic/us/mono2_u8_explicit_le` | `core` | implemented |
 | `enhanced/ct/multiframe_shared_perframe_explicit_le` | `extended` | implemented |
 | `enhanced/mr/multiframe_echo_perframe_explicit_le` | `extended` | implemented |
+| `enhanced/mr/multiframe_temporal_position_explicit_le` | `extended` | implemented |
 | `derived/seg/binary_multiframe_explicit_le` | `extended` | planned |
 | `vl/photo/rgb_planar0_explicit_le` | `core` | planned |
 | `vl/photo/palette_color_explicit_le` | `core` | planned |
@@ -429,6 +432,17 @@ These case IDs come from `SYSTEM_SPEC.md` section 21 and should seed
   IOD/modules, Multi-frame Functional Groups, Multi-frame Dimension, and the MR
   Image Frame Type, common Image Flavor, MR Timing, MR Echo, and Volume Based
   Calculation Technique terms.
+- 2026-06-13: `enhanced/mr/multiframe_temporal_position_explicit_le` adds
+  frame-varying Temporal Position coverage to Enhanced MR Image Storage using
+  Explicit VR Little Endian and native 16-bit unsigned MONOCHROME2 Pixel Data.
+  The generated file uses the common `DYNAMIC` Image Flavor, repeats the same
+  Plane Position across two frames, indexes the Multi-frame Dimension by
+  Temporal Position Time Offset, and places Temporal Position Sequence plus
+  Temporal Position Index in Per-Frame Functional Groups. Validation now checks
+  per-frame Temporal Position Index and Temporal Position Time Offset in
+  addition to the existing Enhanced MR shared functional group checks. The
+  registry records 2026b `dicom-standard-kb` evidence for Temporal Position
+  Macro attributes and the PS3.6 Temporal Position data elements.
 
 ## Current Blockers
 
@@ -441,13 +455,13 @@ been verified.
 
 Continue Phase 4 enhanced multi-frame coverage:
 
-1. Query the 2026b `dicom-standard-kb` for Temporal Position and related
-   Enhanced MR/Enhanced CT functional group requirements.
-2. Add the next frame-varying extended case for temporal position or phase
-   metadata, building on the existing multi-frame CT/MR functional group
-   validators.
+1. Query the 2026b `dicom-standard-kb` for MR phase-related attributes and any
+   Enhanced MR functional group requirements or defined terms needed to encode
+   frame-varying phase metadata.
+2. Add the next frame-varying extended case for phase metadata, building on the
+   existing Enhanced MR multi-frame functional group validators.
 3. Add focused manifest/readback tests and commit with a scoped message such as
-   `feat(enhanced-mr): add temporal position case`.
+   `feat(enhanced-mr): add phase variation case`.
 
 ## Handoff Notes
 

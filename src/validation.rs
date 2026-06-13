@@ -128,7 +128,8 @@ pub(crate) struct EnhancedMrImageExpectations<'a> {
     pub echo_train_length: &'a str,
     pub rf_echo_train_length: u16,
     pub gradient_echo_train_length: u16,
-    pub effective_echo_times: &'a [f64],
+    pub effective_echo_times: Option<&'a [f64]>,
+    pub temporal_position_time_offsets: Option<&'a [f64]>,
 }
 
 #[derive(Debug, Clone)]
@@ -1386,20 +1387,52 @@ fn validate_enhanced_mr_image(
             .as_str(),
             *expected_position,
         );
-        check_equal(
-            results,
-            "enhanced_mr_per_frame_effective_echo_time",
-            "Per-frame MR Echo Effective Echo Time matches the recipe.",
-            "Per-frame MR Echo Effective Echo Time does not match the recipe.",
-            nested_sequence_item_f64(
-                path,
-                frame,
-                tags::MR_ECHO_SEQUENCE,
-                0,
-                tags::EFFECTIVE_ECHO_TIME,
-            )?,
-            expected.effective_echo_times[index],
-        );
+        if let Some(effective_echo_times) = expected.effective_echo_times {
+            check_equal(
+                results,
+                "enhanced_mr_per_frame_effective_echo_time",
+                "Per-frame MR Echo Effective Echo Time matches the recipe.",
+                "Per-frame MR Echo Effective Echo Time does not match the recipe.",
+                nested_sequence_item_f64(
+                    path,
+                    frame,
+                    tags::MR_ECHO_SEQUENCE,
+                    0,
+                    tags::EFFECTIVE_ECHO_TIME,
+                )?,
+                effective_echo_times[index],
+            );
+        }
+        if let Some(temporal_position_time_offsets) = expected.temporal_position_time_offsets {
+            check_equal(
+                results,
+                "enhanced_mr_temporal_position_index",
+                "Per-frame Temporal Position Index is one-based and monotonic.",
+                "Per-frame Temporal Position Index does not match the recipe.",
+                nested_sequence_item_u32(
+                    path,
+                    frame,
+                    tags::FRAME_CONTENT_SEQUENCE,
+                    0,
+                    tags::TEMPORAL_POSITION_INDEX,
+                )?,
+                (index + 1) as u32,
+            );
+            check_equal(
+                results,
+                "enhanced_mr_temporal_position_time_offset",
+                "Per-frame Temporal Position Time Offset matches the recipe.",
+                "Per-frame Temporal Position Time Offset does not match the recipe.",
+                nested_sequence_item_f64(
+                    path,
+                    frame,
+                    tags::TEMPORAL_POSITION_SEQUENCE,
+                    0,
+                    tags::TEMPORAL_POSITION_TIME_OFFSET,
+                )?,
+                temporal_position_time_offsets[index],
+            );
+        }
         check_equal(
             results,
             "enhanced_mr_dimension_index_values",

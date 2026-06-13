@@ -64,6 +64,10 @@ const ENHANCED_MR_U16_PIXELS: [u8; 16] = [
     0, 0, 0x32, 0, 0x64, 0, 0x96, 0, 0xc8, 0, 0xfa, 0, 0x2c, 1, 0x5e, 1,
 ];
 const ENHANCED_MR_U16_VALUES: [i32; 8] = [0, 50, 100, 150, 200, 250, 300, 350];
+const ENHANCED_MR_TEMPORAL_U16_PIXELS: [u8; 16] = [
+    0, 0, 0x19, 0, 0x32, 0, 0x4b, 0, 0x96, 0, 0xaf, 0, 0xc8, 0, 0xe1, 0,
+];
+const ENHANCED_MR_TEMPORAL_U16_VALUES: [i32; 8] = [0, 25, 50, 75, 150, 175, 200, 225];
 const MG_U16_12BIT_PIXELS: [u8; 8] = [0x00, 0x00, 0x55, 0x05, 0xaa, 0x0a, 0xff, 0x0f];
 const MG_U16_12BIT_VALUES: [i32; 4] = [0, 1365, 2730, 4095];
 const DX_U16_12BIT_PIXELS: [u8; 8] = [0x00, 0x00, 0x00, 0x04, 0x00, 0x08, 0xff, 0x0f];
@@ -532,41 +536,77 @@ struct EnhancedMrRecipe {
     echo_train_length: &'static str,
     rf_echo_train_length: u16,
     gradient_echo_train_length: u16,
-    effective_echo_times: &'static [f64],
+    effective_echo_times: Option<&'static [f64]>,
+    temporal_position_time_offsets: Option<&'static [f64]>,
 }
 
 const ENHANCED_MR_IMAGE_POSITIONS: &[&str] = &["0\\0\\0", "0\\0\\4"];
 const ENHANCED_MR_EFFECTIVE_ECHO_TIMES: &[f64] = &[12.5, 24.5];
+const ENHANCED_MR_TEMPORAL_IMAGE_POSITIONS: &[&str] = &["0\\0\\0", "0\\0\\0"];
+const ENHANCED_MR_TEMPORAL_POSITION_TIME_OFFSETS: &[f64] = &[0.0, 1.5];
 
-const ENHANCED_MR_RECIPES: &[EnhancedMrRecipe] = &[EnhancedMrRecipe {
-    case_id: "enhanced/mr/multiframe_echo_perframe_explicit_le",
-    recipe_id: "enhanced_mr_multiframe_echo_perframe",
-    rows: 2,
-    columns: 2,
-    frames: 2,
-    pixel_bytes: &ENHANCED_MR_U16_PIXELS,
-    pixel_values: &ENHANCED_MR_U16_VALUES,
-    pixel_min: 0,
-    pixel_max: 350,
-    pixel_spacing: "1.000\\1.000",
-    image_orientation_patient: "1\\0\\0\\0\\1\\0",
-    image_position_patient: ENHANCED_MR_IMAGE_POSITIONS,
-    slice_thickness: "4",
-    spacing_between_slices: "4",
-    frame_type: "DERIVED\\PRIMARY\\STATIC\\NONE",
-    pixel_presentation: "MONOCHROME",
-    volumetric_properties: "VOLUME",
-    volume_based_calculation_technique: "NONE",
-    rescale_intercept: "0",
-    rescale_slope: "1",
-    rescale_type: "US",
-    repetition_time: "2000",
-    flip_angle: "90",
-    echo_train_length: "1",
-    rf_echo_train_length: 1,
-    gradient_echo_train_length: 0,
-    effective_echo_times: ENHANCED_MR_EFFECTIVE_ECHO_TIMES,
-}];
+const ENHANCED_MR_RECIPES: &[EnhancedMrRecipe] = &[
+    EnhancedMrRecipe {
+        case_id: "enhanced/mr/multiframe_echo_perframe_explicit_le",
+        recipe_id: "enhanced_mr_multiframe_echo_perframe",
+        rows: 2,
+        columns: 2,
+        frames: 2,
+        pixel_bytes: &ENHANCED_MR_U16_PIXELS,
+        pixel_values: &ENHANCED_MR_U16_VALUES,
+        pixel_min: 0,
+        pixel_max: 350,
+        pixel_spacing: "1.000\\1.000",
+        image_orientation_patient: "1\\0\\0\\0\\1\\0",
+        image_position_patient: ENHANCED_MR_IMAGE_POSITIONS,
+        slice_thickness: "4",
+        spacing_between_slices: "4",
+        frame_type: "DERIVED\\PRIMARY\\STATIC\\NONE",
+        pixel_presentation: "MONOCHROME",
+        volumetric_properties: "VOLUME",
+        volume_based_calculation_technique: "NONE",
+        rescale_intercept: "0",
+        rescale_slope: "1",
+        rescale_type: "US",
+        repetition_time: "2000",
+        flip_angle: "90",
+        echo_train_length: "1",
+        rf_echo_train_length: 1,
+        gradient_echo_train_length: 0,
+        effective_echo_times: Some(ENHANCED_MR_EFFECTIVE_ECHO_TIMES),
+        temporal_position_time_offsets: None,
+    },
+    EnhancedMrRecipe {
+        case_id: "enhanced/mr/multiframe_temporal_position_explicit_le",
+        recipe_id: "enhanced_mr_multiframe_temporal_position",
+        rows: 2,
+        columns: 2,
+        frames: 2,
+        pixel_bytes: &ENHANCED_MR_TEMPORAL_U16_PIXELS,
+        pixel_values: &ENHANCED_MR_TEMPORAL_U16_VALUES,
+        pixel_min: 0,
+        pixel_max: 225,
+        pixel_spacing: "1.000\\1.000",
+        image_orientation_patient: "1\\0\\0\\0\\1\\0",
+        image_position_patient: ENHANCED_MR_TEMPORAL_IMAGE_POSITIONS,
+        slice_thickness: "4",
+        spacing_between_slices: "4",
+        frame_type: "DERIVED\\PRIMARY\\DYNAMIC\\NONE",
+        pixel_presentation: "MONOCHROME",
+        volumetric_properties: "VOLUME",
+        volume_based_calculation_technique: "NONE",
+        rescale_intercept: "0",
+        rescale_slope: "1",
+        rescale_type: "US",
+        repetition_time: "1500",
+        flip_angle: "90",
+        echo_train_length: "1",
+        rf_echo_train_length: 1,
+        gradient_echo_train_length: 0,
+        effective_echo_times: None,
+        temporal_position_time_offsets: Some(ENHANCED_MR_TEMPORAL_POSITION_TIME_OFFSETS),
+    },
+];
 
 #[derive(Debug, Clone, Copy)]
 struct ClassicMgRecipe {
@@ -2579,7 +2619,7 @@ fn write_enhanced_mr_case(
         &recipe.frames.to_string(),
     );
 
-    put_enhanced_mr_dimension_sequences(&mut obj, &dimension_organization_uid);
+    put_enhanced_mr_dimension_sequences(&mut obj, recipe, &dimension_organization_uid);
     put_enhanced_mr_functional_groups(&mut obj, recipe);
 
     obj.put(DataElement::new(
@@ -2656,6 +2696,7 @@ fn write_enhanced_mr_case(
                 rf_echo_train_length: recipe.rf_echo_train_length,
                 gradient_echo_train_length: recipe.gradient_echo_train_length,
                 effective_echo_times: recipe.effective_echo_times,
+                temporal_position_time_offsets: recipe.temporal_position_time_offsets,
             }),
             mg_image: None,
             dx_image: None,
@@ -2685,8 +2726,23 @@ fn write_enhanced_mr_case(
 
 fn put_enhanced_mr_dimension_sequences(
     obj: &mut InMemDicomObject,
+    recipe: EnhancedMrRecipe,
     dimension_organization_uid: &str,
 ) {
+    let (dimension_index_pointer, functional_group_pointer, dimension_description_label) =
+        if recipe.temporal_position_time_offsets.is_some() {
+            (
+                tags::TEMPORAL_POSITION_TIME_OFFSET,
+                tags::TEMPORAL_POSITION_SEQUENCE,
+                "TemporalPositionTimeOffset",
+            )
+        } else {
+            (
+                tags::EFFECTIVE_ECHO_TIME,
+                tags::MR_ECHO_SEQUENCE,
+                "EffectiveEchoTime",
+            )
+        };
     obj.put(DataElement::new(
         tags::DIMENSION_ORGANIZATION_SEQUENCE,
         VR::SQ,
@@ -2705,12 +2761,12 @@ fn put_enhanced_mr_dimension_sequences(
             DataElement::new(
                 tags::DIMENSION_INDEX_POINTER,
                 VR::AT,
-                PrimitiveValue::Tags(vec![tags::EFFECTIVE_ECHO_TIME].into()),
+                PrimitiveValue::Tags(vec![dimension_index_pointer].into()),
             ),
             DataElement::new(
                 tags::FUNCTIONAL_GROUP_POINTER,
                 VR::AT,
-                PrimitiveValue::Tags(vec![tags::MR_ECHO_SEQUENCE].into()),
+                PrimitiveValue::Tags(vec![functional_group_pointer].into()),
             ),
             DataElement::new(
                 tags::DIMENSION_ORGANIZATION_UID,
@@ -2720,7 +2776,7 @@ fn put_enhanced_mr_dimension_sequences(
             DataElement::new(
                 tags::DIMENSION_DESCRIPTION_LABEL,
                 VR::LO,
-                "EffectiveEchoTime",
+                dimension_description_label,
             ),
         ])]),
     ));
@@ -2820,54 +2876,117 @@ fn put_enhanced_mr_functional_groups(obj: &mut InMemDicomObject, recipe: Enhance
         ])]),
     ));
 
-    let per_frame_items = recipe
-        .image_position_patient
-        .iter()
-        .zip(recipe.effective_echo_times.iter())
-        .enumerate()
-        .map(|(index, (image_position_patient, effective_echo_time))| {
-            InMemDicomObject::from_element_iter([
-                DataElement::new(
-                    tags::FRAME_CONTENT_SEQUENCE,
-                    VR::SQ,
-                    DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+    let per_frame_items = if let Some(temporal_position_time_offsets) =
+        recipe.temporal_position_time_offsets
+    {
+        recipe
+            .image_position_patient
+            .iter()
+            .zip(temporal_position_time_offsets.iter())
+            .enumerate()
+            .map(
+                |(index, (image_position_patient, temporal_position_time_offset))| {
+                    InMemDicomObject::from_element_iter([
                         DataElement::new(
-                            tags::DIMENSION_INDEX_VALUES,
-                            VR::UL,
-                            PrimitiveValue::from((index + 1) as u32),
+                            tags::FRAME_CONTENT_SEQUENCE,
+                            VR::SQ,
+                            DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+                                DataElement::new(
+                                    tags::DIMENSION_INDEX_VALUES,
+                                    VR::UL,
+                                    PrimitiveValue::from((index + 1) as u32),
+                                ),
+                                DataElement::new(
+                                    tags::TEMPORAL_POSITION_INDEX,
+                                    VR::UL,
+                                    PrimitiveValue::from((index + 1) as u32),
+                                ),
+                                DataElement::new(
+                                    tags::FRAME_ACQUISITION_NUMBER,
+                                    VR::US,
+                                    PrimitiveValue::from((index + 1) as u16),
+                                ),
+                            ])]),
                         ),
                         DataElement::new(
-                            tags::FRAME_ACQUISITION_NUMBER,
-                            VR::US,
-                            PrimitiveValue::from((index + 1) as u16),
+                            tags::PLANE_POSITION_SEQUENCE,
+                            VR::SQ,
+                            DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+                                DataElement::new(
+                                    tags::IMAGE_POSITION_PATIENT,
+                                    VR::DS,
+                                    *image_position_patient,
+                                ),
+                            ])]),
                         ),
-                    ])]),
-                ),
-                DataElement::new(
-                    tags::PLANE_POSITION_SEQUENCE,
-                    VR::SQ,
-                    DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
                         DataElement::new(
-                            tags::IMAGE_POSITION_PATIENT,
-                            VR::DS,
-                            *image_position_patient,
+                            tags::TEMPORAL_POSITION_SEQUENCE,
+                            VR::SQ,
+                            DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+                                DataElement::new(
+                                    tags::TEMPORAL_POSITION_TIME_OFFSET,
+                                    VR::FD,
+                                    PrimitiveValue::from(*temporal_position_time_offset),
+                                ),
+                            ])]),
                         ),
-                    ])]),
-                ),
-                DataElement::new(
-                    tags::MR_ECHO_SEQUENCE,
-                    VR::SQ,
-                    DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
-                        DataElement::new(
-                            tags::EFFECTIVE_ECHO_TIME,
-                            VR::FD,
-                            PrimitiveValue::from(*effective_echo_time),
-                        ),
-                    ])]),
-                ),
-            ])
-        })
-        .collect::<Vec<_>>();
+                    ])
+                },
+            )
+            .collect::<Vec<_>>()
+    } else {
+        let effective_echo_times = recipe.effective_echo_times.expect(
+            "Enhanced MR recipes without Temporal Position offsets must define Effective Echo Times",
+        );
+        recipe
+            .image_position_patient
+            .iter()
+            .zip(effective_echo_times.iter())
+            .enumerate()
+            .map(|(index, (image_position_patient, effective_echo_time))| {
+                InMemDicomObject::from_element_iter([
+                    DataElement::new(
+                        tags::FRAME_CONTENT_SEQUENCE,
+                        VR::SQ,
+                        DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+                            DataElement::new(
+                                tags::DIMENSION_INDEX_VALUES,
+                                VR::UL,
+                                PrimitiveValue::from((index + 1) as u32),
+                            ),
+                            DataElement::new(
+                                tags::FRAME_ACQUISITION_NUMBER,
+                                VR::US,
+                                PrimitiveValue::from((index + 1) as u16),
+                            ),
+                        ])]),
+                    ),
+                    DataElement::new(
+                        tags::PLANE_POSITION_SEQUENCE,
+                        VR::SQ,
+                        DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+                            DataElement::new(
+                                tags::IMAGE_POSITION_PATIENT,
+                                VR::DS,
+                                *image_position_patient,
+                            ),
+                        ])]),
+                    ),
+                    DataElement::new(
+                        tags::MR_ECHO_SEQUENCE,
+                        VR::SQ,
+                        DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+                            DataElement::new(
+                                tags::EFFECTIVE_ECHO_TIME,
+                                VR::FD,
+                                PrimitiveValue::from(*effective_echo_time),
+                            ),
+                        ])]),
+                    ),
+                ])
+            })
+            .collect::<Vec<_>>()
+    };
     obj.put(DataElement::new(
         tags::PER_FRAME_FUNCTIONAL_GROUPS_SEQUENCE,
         VR::SQ,
@@ -2894,6 +3013,57 @@ fn enhanced_mr_manifest_entry(
         .and_then(Value::as_array)
         .cloned()
         .unwrap_or_default();
+    let (
+        dimension_index_pointer,
+        functional_group_pointer,
+        per_frame_dimension_name,
+        per_frame_dimension_values,
+        visual_pattern,
+        dimension_stressor,
+    ) = if let Some(temporal_position_time_offsets) = recipe.temporal_position_time_offsets {
+        (
+            "TemporalPositionTimeOffset",
+            "TemporalPositionSequence",
+            "temporal_position_time_offset",
+            serde_json::json!(temporal_position_time_offsets),
+            "two_frame_enhanced_mr_temporal_gradient_stack",
+            "per_frame_temporal_position",
+        )
+    } else {
+        (
+            "EffectiveEchoTime",
+            "MREchoSequence",
+            "effective_echo_time",
+            serde_json::json!(
+                recipe
+                    .effective_echo_times
+                    .expect("Enhanced MR echo case must define Effective Echo Times")
+            ),
+            "two_frame_enhanced_mr_echo_gradient_stack",
+            "per_frame_mr_echo",
+        )
+    };
+    let mut per_frame_functional_groups = serde_json::json!({
+        "image_position_patient": recipe.image_position_patient
+    });
+    per_frame_functional_groups[per_frame_dimension_name] = per_frame_dimension_values.clone();
+    let mut expected_semantics = serde_json::json!({
+        "synthetic_data": "YES",
+        "pixel_min": recipe.pixel_min,
+        "pixel_max": recipe.pixel_max,
+        "shared_functional_groups_sequence_items": 1,
+        "per_frame_functional_groups_sequence_items": recipe.frames,
+        "dimension_index_values": [1, 2]
+    });
+    expected_semantics[per_frame_dimension_name] = per_frame_dimension_values;
+    let known_stressors = [
+        "enhanced_mr_image_storage",
+        "native_multiframe_pixel_data",
+        "shared_functional_groups_sequence",
+        "per_frame_functional_groups_sequence",
+        dimension_stressor,
+        "multi_frame_dimension",
+    ];
     serde_json::json!({
         "case_id": recipe.case_id,
         "profile_membership": ["extended"],
@@ -2918,8 +3088,8 @@ fn enhanced_mr_manifest_entry(
                 "frame_type": recipe.frame_type,
                 "dimension_index": {
                     "dimension_organization_uid": dimension_organization_uid,
-                    "dimension_index_pointer": "EffectiveEchoTime",
-                    "functional_group_pointer": "MREchoSequence"
+                    "dimension_index_pointer": dimension_index_pointer,
+                    "functional_group_pointer": functional_group_pointer
                 },
                 "shared_functional_groups": {
                     "pixel_measures": {
@@ -2945,10 +3115,7 @@ fn enhanced_mr_manifest_entry(
                         "type": recipe.rescale_type
                     }
                 },
-                "per_frame_functional_groups": {
-                    "image_position_patient": recipe.image_position_patient,
-                    "effective_echo_time": recipe.effective_echo_times
-                }
+                "per_frame_functional_groups": per_frame_functional_groups
             }
         },
         "dicom": {
@@ -2990,20 +3157,12 @@ fn enhanced_mr_manifest_entry(
             ]
         },
         "expected_capabilities": ["open_file", "read_metadata", "render_native_pixels", "parse_multiframe_functional_groups"],
-        "expected_semantics": {
-            "synthetic_data": "YES",
-            "pixel_min": recipe.pixel_min,
-            "pixel_max": recipe.pixel_max,
-            "shared_functional_groups_sequence_items": 1,
-            "per_frame_functional_groups_sequence_items": recipe.frames,
-            "dimension_index_values": [1, 2],
-            "effective_echo_time": recipe.effective_echo_times
-        },
+        "expected_semantics": expected_semantics,
         "expected_visual_checks": {
-            "pattern": "two_frame_enhanced_mr_echo_gradient_stack"
+            "pattern": visual_pattern
         },
         "validation": validation,
-        "known_stressors": ["enhanced_mr_image_storage", "native_multiframe_pixel_data", "shared_functional_groups_sequence", "per_frame_functional_groups_sequence", "per_frame_mr_echo", "multi_frame_dimension"],
+        "known_stressors": known_stressors,
         "standards_evidence": standards_evidence
     })
 }

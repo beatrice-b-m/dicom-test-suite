@@ -1555,7 +1555,7 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\textended"));
-    assert!(stdout.contains("files_written\t2"));
+    assert!(stdout.contains("files_written\t3"));
 
     let manifest_path = out_dir.join("manifest.json");
     let manifest: Value = serde_json::from_str(
@@ -1567,7 +1567,7 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
             .pointer("/files")
             .and_then(Value::as_array)
             .map(Vec::len),
-        Some(2)
+        Some(3)
     );
     let enhanced_ct_file = file_entry_by_case_id(
         &manifest,
@@ -1653,6 +1653,41 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
         validation_result_names(enhanced_mr_file.pointer("/validation/standards"))
             .contains(&"enhanced_mr_image_sop_class"),
         "Enhanced MR manifest should record standards validation for Enhanced MR Image Storage"
+    );
+    let enhanced_mr_temporal_file = file_entry_by_case_id(
+        &manifest,
+        "enhanced/mr/multiframe_temporal_position_explicit_le",
+    );
+    assert_eq!(
+        enhanced_mr_temporal_file
+            .pointer("/dicom/sop_class_uid")
+            .and_then(Value::as_str),
+        Some(uids::ENHANCED_MR_IMAGE_STORAGE)
+    );
+    assert_eq!(
+        enhanced_mr_temporal_file
+            .pointer("/image/frames")
+            .and_then(Value::as_u64),
+        Some(2)
+    );
+    assert_eq!(
+        enhanced_mr_temporal_file
+            .pointer("/recipe/recipe_parameters/frame_type")
+            .and_then(Value::as_str),
+        Some("DERIVED\\PRIMARY\\DYNAMIC\\NONE")
+    );
+    assert_eq!(
+        enhanced_mr_temporal_file
+            .pointer(
+                "/recipe/recipe_parameters/per_frame_functional_groups/temporal_position_time_offset/1"
+            )
+            .and_then(Value::as_f64),
+        Some(1.5)
+    );
+    assert!(
+        validation_result_names(enhanced_mr_temporal_file.pointer("/validation/internal"))
+            .contains(&"enhanced_mr_temporal_position_time_offset"),
+        "Enhanced MR temporal manifest should record Temporal Position validation"
     );
     assert!(
         manifest
@@ -1748,6 +1783,45 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
             .to_float64()
             .expect("Effective Echo Time should be FD"),
         24.5
+    );
+
+    let enhanced_mr_temporal_path =
+        out_dir.join("enhanced/mr/multiframe_temporal_position_explicit_le/instance.dcm");
+    let enhanced_mr_temporal = open_file(&enhanced_mr_temporal_path)
+        .expect("Enhanced MR temporal DICOM file should parse");
+    let temporal_per_frame_items = enhanced_mr_temporal
+        .element(tags::PER_FRAME_FUNCTIONAL_GROUPS_SEQUENCE)
+        .expect("Enhanced MR temporal file should contain Per-Frame Functional Groups Sequence")
+        .items()
+        .expect("Per-Frame Functional Groups should be a sequence");
+    assert_eq!(temporal_per_frame_items.len(), 2);
+    let second_temporal_frame_content = temporal_per_frame_items[1]
+        .element(tags::FRAME_CONTENT_SEQUENCE)
+        .expect("second temporal frame should contain Frame Content Sequence")
+        .items()
+        .expect("Frame Content should be a sequence");
+    assert_eq!(
+        second_temporal_frame_content[0]
+            .element(tags::TEMPORAL_POSITION_INDEX)
+            .expect("Frame Content should contain Temporal Position Index")
+            .value()
+            .to_int::<u32>()
+            .expect("Temporal Position Index should be UL"),
+        2
+    );
+    let second_temporal_position_item = temporal_per_frame_items[1]
+        .element(tags::TEMPORAL_POSITION_SEQUENCE)
+        .expect("second frame should contain Temporal Position Sequence")
+        .items()
+        .expect("Temporal Position should be a sequence");
+    assert_eq!(
+        second_temporal_position_item[0]
+            .element(tags::TEMPORAL_POSITION_TIME_OFFSET)
+            .expect("Temporal Position should contain Temporal Position Time Offset")
+            .value()
+            .to_float64()
+            .expect("Temporal Position Time Offset should be FD"),
+        1.5
     );
 
     fs::remove_dir_all(out_dir).expect("temporary output root should be removable");

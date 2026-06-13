@@ -766,6 +766,12 @@ mod tests {
             ),
             "list-cases output must show implemented Enhanced MR extended status"
         );
+        assert!(
+            output.contains(
+                "enhanced/mr/multiframe_temporal_position_explicit_le\timplemented\textended\t1.2.840.10008.5.1.4.1.1.4.1\t1.2.840.10008.1.2.1\t23/23 covered"
+            ),
+            "list-cases output must show implemented Enhanced MR temporal extended status"
+        );
     }
 
     #[test]

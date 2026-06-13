@@ -584,7 +584,6 @@ fn write_pixel_case(
             pixel_representation: recipe.pixel_representation,
             planar_configuration: recipe.planar_configuration,
             pixel_data_vr: recipe.pixel_vr,
-            pixel_data_length: recipe.pixel_bytes.len(),
             pixel_data_length_formula: pixel_data_length_formula(recipe),
             palette: recipe.palette.map(|palette| palette.into()),
             padding: recipe.padding.map(|padding| padding.into()),

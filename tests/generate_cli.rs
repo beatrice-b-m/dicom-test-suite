@@ -154,6 +154,11 @@ fn generate_command_writes_smoke_part10_files_and_manifest() {
         "manifest should record native Pixel Data length validation"
     );
     assert!(
+        validation_results_named(&manifest, "/files/0/validation/internal")
+            .contains(&"photometric_samples_per_pixel"),
+        "manifest should record photometric sample-shape validation"
+    );
+    assert!(
         validation_results_named(&manifest, "/files/0/validation/standards")
             .contains(&"synthetic_data_attribute"),
         "manifest should record standards validation for Synthetic Data"
@@ -500,6 +505,16 @@ fn generate_command_writes_core_u16_native_pixel_case() {
         validation_results_named(&manifest, "/files/0/validation/internal")
             .contains(&"native_pixel_data_length"),
         "manifest should record native Pixel Data length validation"
+    );
+    assert!(
+        validation_results_named(&manifest, "/files/0/validation/internal")
+            .contains(&"bits_stored_within_bits_allocated"),
+        "manifest should record Bits Stored invariant validation"
+    );
+    assert!(
+        validation_results_named(&manifest, "/files/0/validation/internal")
+            .contains(&"photometric_planar_configuration_presence"),
+        "manifest should record photometric planar configuration validation"
     );
     assert!(
         manifest

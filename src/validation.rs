@@ -27,7 +27,6 @@ pub(crate) struct Part10Expectations<'a> {
     pub pixel_representation: u16,
     pub planar_configuration: Option<u16>,
     pub pixel_data_vr: VR,
-    pub pixel_data_length: usize,
     pub pixel_data_length_formula: PixelDataLengthFormula,
     pub palette: Option<PaletteExpectations>,
     pub padding: Option<PixelPaddingExpectations>,
@@ -189,6 +188,13 @@ pub(crate) fn validate_part10_file(
         element_u16(path, &obj, tags::BITS_ALLOCATED)?,
         expected.bits_allocated,
     );
+    check(
+        &mut internal,
+        expected.bits_allocated == 1 || expected.bits_allocated % 8 == 0,
+        "bits_allocated_native_shape",
+        "Bits Allocated is 1 or a multiple of 8 for native Pixel Data.",
+        "Bits Allocated is not valid for native Pixel Data.",
+    );
     check_equal(
         &mut internal,
         "bits_stored",
@@ -197,6 +203,13 @@ pub(crate) fn validate_part10_file(
         element_u16(path, &obj, tags::BITS_STORED)?,
         expected.bits_stored,
     );
+    check(
+        &mut internal,
+        expected.bits_stored <= expected.bits_allocated,
+        "bits_stored_within_bits_allocated",
+        "Bits Stored is less than or equal to Bits Allocated.",
+        "Bits Stored exceeds Bits Allocated.",
+    );
     check_equal(
         &mut internal,
         "high_bit",
@@ -204,6 +217,13 @@ pub(crate) fn validate_part10_file(
         "High Bit does not match the recipe.",
         element_u16(path, &obj, tags::HIGH_BIT)?,
         expected.high_bit,
+    );
+    check(
+        &mut internal,
+        expected.high_bit + 1 == expected.bits_stored,
+        "high_bit_consistency",
+        "High Bit equals Bits Stored - 1.",
+        "High Bit does not equal Bits Stored - 1.",
     );
     check_equal(
         &mut internal,
@@ -238,6 +258,7 @@ pub(crate) fn validate_part10_file(
             );
         }
     }
+    validate_photometric_shape(expected, &mut internal);
 
     let pixel_element = obj
         .element(tags::PIXEL_DATA)
@@ -326,20 +347,59 @@ fn element_u16(path: &Path, obj: &OpenedObject, tag: Tag) -> Result<u16, Generat
 fn expected_pixel_data_length(
     expected: &Part10Expectations<'_>,
 ) -> (&'static str, &'static str, usize) {
+    let bytes_per_sample = usize::from(expected.bits_allocated).div_ceil(8);
     match expected.pixel_data_length_formula {
         PixelDataLengthFormula::ContiguousSamples => (
             "native_pixel_data_length",
-            "Native Pixel Data length matches the uncompressed frame size.",
-            expected.pixel_data_length,
+            "Native Pixel Data length matches rows * columns * frames * samples per pixel * bytes per sample.",
+            usize::from(expected.rows)
+                * usize::from(expected.columns)
+                * usize::from(expected.samples_per_pixel)
+                * bytes_per_sample,
         ),
         PixelDataLengthFormula::YbrFull422 => (
             "native_ybr_full_422_pixel_data_length",
             "Native YBR_FULL_422 Pixel Data length matches rows * columns * frames * 2 * bytes per sample.",
-            usize::from(expected.rows)
-                * usize::from(expected.columns)
-                * usize::from(expected.bits_allocated).div_ceil(8)
-                * 2,
+            usize::from(expected.rows) * usize::from(expected.columns) * bytes_per_sample * 2,
         ),
+    }
+}
+
+fn validate_photometric_shape(expected: &Part10Expectations<'_>, results: &mut Vec<Value>) {
+    let samples_per_pixel_valid = match expected.photometric_interpretation {
+        "MONOCHROME1" | "MONOCHROME2" | "PALETTE COLOR" => expected.samples_per_pixel == 1,
+        "RGB" | "YBR_FULL" | "YBR_FULL_422" => expected.samples_per_pixel == 3,
+        _ => true,
+    };
+    check(
+        results,
+        samples_per_pixel_valid,
+        "photometric_samples_per_pixel",
+        "Samples per Pixel is consistent with Photometric Interpretation.",
+        "Samples per Pixel is not consistent with Photometric Interpretation.",
+    );
+
+    let planar_configuration_valid = if expected.samples_per_pixel > 1 {
+        expected.planar_configuration.is_some()
+    } else {
+        expected.planar_configuration.is_none()
+    };
+    check(
+        results,
+        planar_configuration_valid,
+        "photometric_planar_configuration_presence",
+        "Planar Configuration presence is consistent with Samples per Pixel.",
+        "Planar Configuration presence is not consistent with Samples per Pixel.",
+    );
+
+    if expected.photometric_interpretation == "YBR_FULL_422" {
+        check(
+            results,
+            expected.planar_configuration == Some(0),
+            "ybr_full_422_planar_configuration",
+            "YBR_FULL_422 uses Planar Configuration 0.",
+            "YBR_FULL_422 does not use Planar Configuration 0.",
+        );
     }
 }
 

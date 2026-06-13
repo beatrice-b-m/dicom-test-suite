@@ -2,9 +2,9 @@
 
 **Last updated:** 2026-06-13  
 **Source specification:** `SYSTEM_SPEC.md` version 0.2.0  
-**Current phase:** Phase 2 native pixel matrix, in progress
+**Current phase:** Phase 3 classic radiology IODs, not started
 
-**Current implementation status:** Phase 0, Phase 0.5, and Phase 1 are complete; Phase 2 has unsigned and signed 16-bit core Secondary Capture native pixel cases plus RGB planar configuration 1, PALETTE COLOR, YBR_FULL, YBR_FULL_422, geometry, and pixel-padding coverage
+**Current implementation status:** Phase 0, Phase 0.5, Phase 1, and Phase 2 are complete; Phase 3 has not started
 
 This document is the durable hand-off log for coding agents implementing
 `dicom-test-suite`. Keep `SYSTEM_SPEC.md` as the source of product and
@@ -80,7 +80,7 @@ Observed at creation of this progress file:
 | Phase 0: Repository initialization | complete | Scope docs, generated-artifact protections, Rust skeleton, toolchain, dependency pins, and initial schema placeholders are committed. |
 | Phase 0.5: Standards and case registry foundation | complete | Standards base edition, schemas, taxonomy/profile rules, initial smoke/core registry, transfer syntax matrix, deterministic policy, standards workflows, and `list-cases` are in place. |
 | Phase 1: Generator core | complete | `generate --profile smoke` writes all three initial Secondary Capture smoke Part 10 files with manifest hashes, file meta UIDs, pixel metadata, validation results, and byte-stable output across two identical runs. |
-| Phase 2: Native pixel matrix | in progress | Core native monochrome 16-bit unsigned/signed MONOCHROME2 OW Pixel Data, RGB planar configuration 1, PALETTE COLOR, YBR_FULL, YBR_FULL_422, odd-dimension, rectangular, tiny-image, and pixel-padding cases are implemented; final validator hardening remains. |
+| Phase 2: Native pixel matrix | complete | Core native monochrome 16-bit unsigned/signed MONOCHROME2 OW Pixel Data, RGB planar configuration 1, PALETTE COLOR, YBR_FULL, YBR_FULL_422, odd-dimension, rectangular, tiny-image, pixel-padding, and broadened native pixel validators are implemented. |
 | Phase 3: Classic radiology IODs | not started | CT/MR/CR/US/DX/MG builders pending. |
 | Phase 4: Enhanced multi-frame | not started | Enhanced CT/MR and functional groups pending. |
 | Phase 5: Derived, presentation, and non-image objects | not started | SEG, presentation states, SR, KOS, RWVM, RT, and encapsulated documents pending. |
@@ -153,11 +153,11 @@ identical runs.
 - [x] Add native YBR_FULL case.
 - [x] Add native YBR_FULL_422 case with special byte-length validation.
 - [x] Add odd-dimension, rectangular, very small image, and pixel padding cases.
-- [ ] Broaden pixel byte-length and photometric validators for Phase 2 cases.
+- [x] Broaden pixel byte-length and photometric validators for Phase 2 cases.
 
-Phase 2 is complete only when smoke and core profiles cover key Image Pixel
-combinations with byte-length validation, and YBR_FULL_422 uses the required
-special native byte-length validator.
+Phase 2 is complete: smoke and core profiles cover the key Image Pixel
+combinations targeted for this phase with computed byte-length validation, and
+YBR_FULL_422 uses the required special native byte-length validator.
 
 ## Initial Priority Case Queue
 
@@ -270,26 +270,32 @@ These case IDs come from `SYSTEM_SPEC.md` section 21 and should seed
   generated samples include the padding value `0`, and validation confirms both
   padding attributes against the 2026b US/SS data elements and MONOCHROME2
   value/range ordering rule.
+- 2026-06-13: Phase 2 validator hardening computes native Pixel Data byte
+  length from Rows, Columns, Samples per Pixel, Bits Allocated, and the selected
+  formula instead of trusting the recipe byte slice length. Validation also
+  records Bits Stored/Bits Allocated, High Bit, photometric Samples per Pixel,
+  Planar Configuration presence, and YBR_FULL_422 Planar Configuration
+  invariants.
 
 ## Current Blockers
 
 No implementation blocker has been proven yet. The immediate limitations are
 that the local `dicom-standard-kb` repository commit/DB SHA-256 and official
-source artifact hashes have not yet been verified. Phase 2 can continue with
-final Phase 2 validator hardening.
+source artifact hashes have not yet been verified. Phase 3 can begin with
+classic CT Image Storage coverage.
 
 ## Recommended Next Commit
 
-Broaden Phase 2 pixel validators:
+Start Phase 3 classic CT coverage:
 
-1. Compute expected native Pixel Data byte length from Rows, Columns, Samples
-   per Pixel, Bits Allocated, and the selected length formula instead of using
-   only the recipe byte slice length.
-2. Add validator assertions for core Phase 2 photometric/pixel metadata
-   invariants that are not yet independently computed.
-3. Mark Phase 2 complete only after these validators pass for all smoke/core
-   generated cases.
-4. Commit as `test(validation): broaden phase two pixel validators`.
+1. Query the 2026b `dicom-standard-kb` for CT Image Storage, CT Image IOD
+   modules, CT Image pixel constraints, Rescale Intercept/Slope, and required
+   CT identifying attributes.
+2. Add or refine `classic/ct/mono2_i16_rescale_12bit_explicit_le` registry
+   evidence before implementing the generator.
+3. Implement the first CT-like signed 12-bit MONOCHROME2 rescale case with
+   focused Part 10 validation.
+4. Commit as `feat(ct): add signed rescale core case`.
 
 ## Handoff Notes
 

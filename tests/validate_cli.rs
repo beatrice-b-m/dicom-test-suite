@@ -231,12 +231,76 @@ fn validate_command_reports_missing_standard_type2_attribute() {
     fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
 }
 
+#[test]
+fn validate_command_reports_missing_sc_conversion_type() {
+    let out_dir = unique_temp_dir("validate-missing-sc-conversion-type");
+    generate_smoke(&out_dir);
+    let dcm_path = out_dir.join("classic/sc/mono2_u8_explicit_le/instance.dcm");
+    mutate_dicom(&dcm_path, |bytes| {
+        let offset = find_tag(bytes, 0x0008, 0x0064)
+            .expect("generated DICOM should contain Conversion Type");
+        bytes[offset] = 0x09;
+        bytes[offset + 1] = 0x00;
+    });
+
+    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args([
+            "validate",
+            out_dir.to_str().expect("temp path should be valid UTF-8"),
+        ])
+        .output()
+        .expect("validate command must run");
+
+    assert!(
+        !output.status.success(),
+        "validate should fail when SC Conversion Type is absent"
+    );
+    let stdout = String::from_utf8(output.stdout).expect("validate stdout must be UTF-8");
+    assert!(stdout.contains("sc_conversion_type_type1"));
+
+    fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
+}
+
+#[test]
+fn validate_command_reports_missing_ct_image_type() {
+    let out_dir = unique_temp_dir("validate-missing-ct-image-type");
+    generate_profile(&out_dir, "core");
+    let dcm_path = out_dir.join("classic/ct/mono2_i16_rescale_12bit_explicit_le/instance.dcm");
+    mutate_dicom(&dcm_path, |bytes| {
+        let offset =
+            find_tag(bytes, 0x0008, 0x0008).expect("generated CT should contain Image Type");
+        bytes[offset] = 0x09;
+        bytes[offset + 1] = 0x00;
+    });
+
+    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args([
+            "validate",
+            out_dir.to_str().expect("temp path should be valid UTF-8"),
+        ])
+        .output()
+        .expect("validate command must run");
+
+    assert!(
+        !output.status.success(),
+        "validate should fail when CT Image Type is absent"
+    );
+    let stdout = String::from_utf8(output.stdout).expect("validate stdout must be UTF-8");
+    assert!(stdout.contains("ct_image_type_type1"));
+
+    fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
+}
+
 fn generate_smoke(out_dir: &Path) {
+    generate_profile(out_dir, "smoke");
+}
+
+fn generate_profile(out_dir: &Path, profile: &str) {
     let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
         .args([
             "generate",
             "--profile",
-            "smoke",
+            profile,
             "--out",
             out_dir.to_str().expect("temp path should be valid UTF-8"),
             "--seed",
@@ -247,7 +311,7 @@ fn generate_smoke(out_dir: &Path) {
 
     assert!(
         output.status.success(),
-        "generate should exit successfully: {}",
+        "generate {profile} should exit successfully: {}",
         String::from_utf8_lossy(&output.stderr)
     );
 }

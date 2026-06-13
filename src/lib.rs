@@ -592,6 +592,7 @@ fn validate_manifest_file(
         expected_sop_instance,
     );
     validate_standard_baseline_elements(failures, relative_path, manifest_path, file, &obj)?;
+    validate_family_standard_elements(failures, relative_path, manifest_path, file, &obj)?;
 
     validate_str_element(
         failures,
@@ -1399,6 +1400,197 @@ fn validate_standard_baseline_elements(
         obj,
         tags::INSTANCE_NUMBER,
         "instance_number_type2",
+    );
+
+    Ok(())
+}
+
+fn validate_family_standard_elements(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    manifest_path: &Path,
+    file: &Value,
+    obj: &OpenedObject,
+) -> Result<(), ValidateError> {
+    match manifest_str(
+        manifest_path,
+        file,
+        "/dicom/iod_name",
+        "dicom iod_name must be a string",
+    )? {
+        "Secondary Capture Image" => validate_secondary_capture_standard_elements(
+            failures,
+            relative_path,
+            manifest_path,
+            file,
+            obj,
+        )?,
+        "CT Image" => {
+            validate_ct_image_standard_elements(failures, relative_path, manifest_path, file, obj)?
+        }
+        _ => {}
+    }
+
+    Ok(())
+}
+
+fn validate_secondary_capture_standard_elements(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    manifest_path: &Path,
+    file: &Value,
+    obj: &OpenedObject,
+) -> Result<(), ValidateError> {
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::CONVERSION_TYPE,
+        "sc_conversion_type_type1",
+        manifest_str(
+            manifest_path,
+            file,
+            "/expected_semantics/conversion_type",
+            "expected conversion_type must be a string",
+        )?,
+    );
+
+    Ok(())
+}
+
+fn validate_ct_image_standard_elements(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    manifest_path: &Path,
+    file: &Value,
+    obj: &OpenedObject,
+) -> Result<(), ValidateError> {
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::IMAGE_TYPE,
+        "ct_image_type_type1",
+        manifest_str(
+            manifest_path,
+            file,
+            "/expected_semantics/image_type",
+            "expected image_type must be a string",
+        )?,
+    );
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::RESCALE_INTERCEPT,
+        "ct_rescale_intercept_type1",
+        manifest_str(
+            manifest_path,
+            file,
+            "/expected_semantics/rescale/intercept",
+            "expected rescale intercept must be a string",
+        )?,
+    );
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::RESCALE_SLOPE,
+        "ct_rescale_slope_type1",
+        manifest_str(
+            manifest_path,
+            file,
+            "/expected_semantics/rescale/slope",
+            "expected rescale slope must be a string",
+        )?,
+    );
+    validate_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::RESCALE_TYPE,
+        "ct_rescale_type_present_type1c",
+        manifest_str(
+            manifest_path,
+            file,
+            "/expected_semantics/rescale/type",
+            "expected rescale type must be a string",
+        )?,
+    );
+    validate_type2_element(failures, relative_path, obj, tags::KVP, "ct_kvp_type2");
+    validate_type2_element(
+        failures,
+        relative_path,
+        obj,
+        tags::ACQUISITION_NUMBER,
+        "ct_acquisition_number_type2",
+    );
+
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::FRAME_OF_REFERENCE_UID,
+        "frame_of_reference_uid_type1",
+        manifest_str(
+            manifest_path,
+            file,
+            "/uids/frame_of_reference_uid",
+            "uids frame_of_reference_uid must be a string",
+        )?,
+    );
+    validate_type2_element(
+        failures,
+        relative_path,
+        obj,
+        tags::POSITION_REFERENCE_INDICATOR,
+        "position_reference_indicator_type2",
+    );
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::PIXEL_SPACING,
+        "pixel_spacing_type1",
+        manifest_str(
+            manifest_path,
+            file,
+            "/recipe/recipe_parameters/geometry/pixel_spacing",
+            "expected pixel_spacing must be a string",
+        )?,
+    );
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::IMAGE_ORIENTATION_PATIENT,
+        "image_orientation_patient_type1",
+        manifest_str(
+            manifest_path,
+            file,
+            "/recipe/recipe_parameters/geometry/image_orientation_patient",
+            "expected image_orientation_patient must be a string",
+        )?,
+    );
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::IMAGE_POSITION_PATIENT,
+        "image_position_patient_type1",
+        manifest_str(
+            manifest_path,
+            file,
+            "/recipe/recipe_parameters/geometry/image_position_patient",
+            "expected image_position_patient must be a string",
+        )?,
+    );
+    validate_type2_element(
+        failures,
+        relative_path,
+        obj,
+        tags::SLICE_THICKNESS,
+        "slice_thickness_type2",
     );
 
     Ok(())

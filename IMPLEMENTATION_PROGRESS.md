@@ -3,7 +3,7 @@
 **Last updated:** 2026-06-13  
 **Source specification:** `SYSTEM_SPEC.md` version 0.2.0  
 **Current phase:** Phase 0 repository initialization, incomplete  
-**Current implementation status:** generated-artifact ignore policy is in place; no Rust workspace has been created yet
+**Current implementation status:** initial Rust 2024 single-crate workspace skeleton is in place without external dependencies
 
 This document is the durable hand-off log for coding agents implementing
 `dicom-test-suite`. Keep `SYSTEM_SPEC.md` as the source of product and
@@ -36,8 +36,8 @@ Observed at creation of this progress file:
 | `AGENTS.md` | present | Requires descriptive granular commits for completed work. |
 | `IMPLEMENTATION_PROGRESS.md` | present after this task | Hand-off ledger for implementation state. |
 | `.gitignore` | present | Covers generated DICOM outputs, reports, sidecars, caches, generated standards artifacts, and SQLite KB files. |
-| `Cargo.toml` / Rust workspace | missing | Initial layout still undecided. |
-| `rust-toolchain.toml` | missing | Toolchain must be pinned deliberately. |
+| `Cargo.toml` / Rust workspace | present | Single package named `dicom-test-suite`, using Rust 2024 edition; module boundaries can evolve into spec crates later. |
+| `rust-toolchain.toml` | present | Pins Rust 1.85.0 with `rustfmt` and `clippy`, matching an installed local toolchain. |
 | `standards.lock.json` | missing | Required before recipe implementation. |
 | `schemas/` | missing | Manifest, case registry, coverage, and viewer report schemas are not created yet. |
 | `cases/registry.json` | missing | Case registry must become authoritative for planned and implemented cases. |
@@ -88,9 +88,9 @@ Observed at creation of this progress file:
 - [x] Add `SYSTEM_SPEC.md`.
 - [x] Add `.gitignore` rules for generated DICOM outputs, generated reports,
   caches, standards artifacts, and generated KB databases.
-- [ ] Choose initial Rust edition and workspace layout.
-- [ ] Add `Cargo.toml` and `Cargo.lock`.
-- [ ] Add `rust-toolchain.toml`.
+- [x] Choose initial Rust edition and workspace layout.
+- [x] Add `Cargo.toml` and `Cargo.lock`.
+- [x] Add `rust-toolchain.toml`.
 - [ ] Verify and pin the DICOM-rs crate family.
 - [ ] Add initial `schemas/` directory.
 
@@ -144,8 +144,8 @@ These case IDs come from `SYSTEM_SPEC.md` section 21 and should seed
 
 | Decision | Status | Notes |
 |---|---|---|
-| Rust workspace layout | open | Spec allows initial single-crate development if module boundaries match future crates. |
-| Rust edition and toolchain | open | Pin with `rust-toolchain.toml` before implementation. |
+| Rust workspace layout | decided 2026-06-13 | Start as a single package named `dicom-test-suite`; keep module boundaries compatible with later spec crates. |
+| Rust edition and toolchain | decided 2026-06-13 | Use Rust 2024 edition and pin toolchain `1.85.0`, the installed local stable toolchain sufficient for edition 2024. |
 | DICOM-rs versions | open | Spec notes `dicom` and `dicom-object` 0.9.1 as current on 2026-06-13; reverify before pinning. |
 | Standards baseline | open | Recommended baseline is DICOM 2026b, but final-text inclusion policy must be explicit. |
 | `dicom-standard-kb` pin | open | `standards.lock.json` needs repository commit and DB metadata when available. |
@@ -160,15 +160,16 @@ and Phase 0.5.
 
 ## Recommended Next Commit
 
-Create the initial Rust workspace skeleton:
+Verify and pin the DICOM-rs crate family:
 
-1. Choose the initial Rust edition and single-crate workspace layout.
-2. Add `Cargo.toml`, `Cargo.lock`, and `rust-toolchain.toml`.
-3. Keep dependencies minimal until DICOM-rs versions are verified in a focused
-   dependency pinning slice.
-4. Add a basic compile/test target if useful for verifying the skeleton.
-5. Update this progress file with the selected edition/layout and next task.
-6. Commit as `chore(repo): initialize rust workspace`.
+1. Recheck the currently available compatible DICOM-rs crate versions before
+   adding dependencies.
+2. Add the minimal DICOM-rs dependency set needed for Phase 1 Part 10 writing
+   and validation.
+3. Regenerate `Cargo.lock`.
+4. Run `cargo test`.
+5. Update this progress file with the pinned versions and next task.
+6. Commit as `chore(deps): pin dicom-rs dependencies`.
 
 ## Handoff Notes
 

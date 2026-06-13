@@ -1,0 +1,9 @@
+[package]
+name = "dicom-test-suite"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+description = "Synthetic DICOM corpus generator for viewer compatibility testing"
+license = "MIT OR Apache-2.0"
+
+[dependencies]

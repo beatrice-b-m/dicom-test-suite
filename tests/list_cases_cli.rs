@@ -68,6 +68,12 @@ fn list_cases_command_shows_core_case_status_and_evidence() {
     );
     assert!(
         stdout.contains(
+            "classic/mr/multislice_oblique_explicit_le\timplemented\tcore\t1.2.840.10008.5.1.4.1.1.4\t1.2.840.10008.1.2.1\t11/11 covered"
+        ),
+        "list-cases must include implemented MR multi-slice core cases with standards evidence"
+    );
+    assert!(
+        stdout.contains(
             "classic/sc/mono2_u16_explicit_le\timplemented\tcore\t1.2.840.10008.5.1.4.1.1.7\t1.2.840.10008.1.2.1\t6/6 covered"
         ),
         "list-cases must include implemented core native pixel cases"

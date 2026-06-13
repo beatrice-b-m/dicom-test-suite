@@ -1327,7 +1327,7 @@
     },
     {
       "case_id": "classic/mr/multislice_oblique_explicit_le",
-      "status": "planned",
+      "status": "implemented",
       "profiles": ["core"],
       "recipe_id": "mr_multislice_oblique",
       "recipe_version": "0.1.0",
@@ -1358,6 +1358,78 @@
           "covered": true,
           "part": "PS3.6",
           "anchor": "table_A-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_iod MR Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.4-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_modules_for_iod MR Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.4-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module MR Image --expand-macros",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-4"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module Image Plane --expand-macros",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.7-10"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module Frame of Reference --expand-macros",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.7-6"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_data_element ScanningSequence",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_data_element SequenceVariant",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_data_element MRAcquisitionType",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_data_element SpacingBetweenSlices",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
         }
       ]
     },

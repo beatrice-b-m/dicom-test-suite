@@ -249,7 +249,7 @@ fn generate_command_writes_core_u16_native_pixel_case() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\tcore"));
-    assert!(stdout.contains("files_written\t14"));
+    assert!(stdout.contains("files_written\t17"));
 
     let manifest_path = out_dir.join("manifest.json");
     let manifest: Value = serde_json::from_str(
@@ -265,7 +265,7 @@ fn generate_command_writes_core_u16_native_pixel_case() {
             .pointer("/files")
             .and_then(Value::as_array)
             .map(Vec::len),
-        Some(14)
+        Some(17)
     );
     let u16_file = file_entry_by_case_id(&manifest, "classic/sc/mono2_u16_explicit_le");
     assert_eq!(
@@ -721,6 +721,62 @@ fn generate_command_writes_core_u16_native_pixel_case() {
             .contains(&"computed_radiography_image_sop_class"),
         "CR manifest should record standards validation for Computed Radiography Image Storage"
     );
+    let mr_files = file_entries_by_case_id(&manifest, "classic/mr/multislice_oblique_explicit_le");
+    assert_eq!(
+        mr_files.len(),
+        3,
+        "MR case should generate a three-instance series"
+    );
+    assert!(
+        mr_files.iter().all(|file| {
+            file.pointer("/dicom/sop_class_uid").and_then(Value::as_str)
+                == Some(uids::MR_IMAGE_STORAGE)
+        }),
+        "all MR files should use MR Image Storage"
+    );
+    assert!(
+        mr_files.iter().all(|file| {
+            file.pointer("/uids/study_instance_uid")
+                == mr_files[0].pointer("/uids/study_instance_uid")
+                && file.pointer("/uids/series_instance_uid")
+                    == mr_files[0].pointer("/uids/series_instance_uid")
+                && file.pointer("/uids/frame_of_reference_uid")
+                    == mr_files[0].pointer("/uids/frame_of_reference_uid")
+        }),
+        "MR files should share Study, Series, and Frame of Reference UIDs"
+    );
+    assert_eq!(
+        mr_files
+            .iter()
+            .map(|file| {
+                file.pointer("/recipe/recipe_parameters/geometry/slice_order_index")
+                    .and_then(Value::as_u64)
+                    .expect("MR file should record slice order index")
+            })
+            .collect::<Vec<_>>(),
+        vec![1, 2, 3]
+    );
+    assert_eq!(
+        mr_files
+            .iter()
+            .map(|file| {
+                file.pointer("/recipe/recipe_parameters/geometry/position_along_normal")
+                    .and_then(Value::as_f64)
+                    .expect("MR file should record position along normal")
+            })
+            .collect::<Vec<_>>(),
+        vec![0.0, 5.0, 10.0]
+    );
+    assert!(
+        validation_result_names(mr_files[0].pointer("/validation/internal"))
+            .contains(&"mr_position_along_normal"),
+        "MR manifest should record computed geometry sorting validation"
+    );
+    assert!(
+        validation_result_names(mr_files[0].pointer("/validation/standards"))
+            .contains(&"mr_image_sop_class"),
+        "MR manifest should record standards validation for MR Image Storage"
+    );
     assert!(
         manifest
             .pointer("/skipped_cases")
@@ -733,6 +789,7 @@ fn generate_command_writes_core_u16_native_pixel_case() {
                             | Some("classic/mg/for_presentation_mono1_u16_12bit_explicit_le")
                             | Some("classic/mg/for_processing_mono2_u16_12bit_implicit_le")
                             | Some("classic/cr/overlay_modality_voi_explicit_le")
+                            | Some("classic/mr/multislice_oblique_explicit_le")
                     )
                 })
             }),
@@ -1149,6 +1206,114 @@ fn generate_command_writes_core_u16_native_pixel_case() {
             .len(),
         8
     );
+    let mr_slice_paths = [
+        out_dir.join("classic/mr/multislice_oblique_explicit_le/slice-001.dcm"),
+        out_dir.join("classic/mr/multislice_oblique_explicit_le/slice-002.dcm"),
+        out_dir.join("classic/mr/multislice_oblique_explicit_le/slice-003.dcm"),
+    ];
+    let mr_slices = mr_slice_paths
+        .iter()
+        .map(|path| open_file(path).expect("MR generated DICOM file should parse"))
+        .collect::<Vec<_>>();
+    let mr_study_uid = mr_slices[0]
+        .element(tags::STUDY_INSTANCE_UID)
+        .expect("MR file should contain Study Instance UID")
+        .value()
+        .to_str()
+        .expect("Study Instance UID should be text")
+        .trim_end_matches('\0')
+        .to_string();
+    let mr_series_uid = mr_slices[0]
+        .element(tags::SERIES_INSTANCE_UID)
+        .expect("MR file should contain Series Instance UID")
+        .value()
+        .to_str()
+        .expect("Series Instance UID should be text")
+        .trim_end_matches('\0')
+        .to_string();
+    let mr_frame_uid = mr_slices[0]
+        .element(tags::FRAME_OF_REFERENCE_UID)
+        .expect("MR file should contain Frame of Reference UID")
+        .value()
+        .to_str()
+        .expect("Frame of Reference UID should be text")
+        .trim_end_matches('\0')
+        .to_string();
+    let mut mr_positions = Vec::new();
+    for (index, mr) in mr_slices.iter().enumerate() {
+        assert_eq!(
+            mr.element(tags::SOP_CLASS_UID)
+                .expect("MR file should contain SOP Class UID")
+                .value()
+                .to_str()
+                .expect("SOP Class UID should be text")
+                .trim_end_matches('\0'),
+            uids::MR_IMAGE_STORAGE
+        );
+        assert_eq!(
+            mr.element(tags::STUDY_INSTANCE_UID)
+                .expect("MR file should contain Study Instance UID")
+                .value()
+                .to_str()
+                .expect("Study Instance UID should be text")
+                .trim_end_matches('\0'),
+            mr_study_uid
+        );
+        assert_eq!(
+            mr.element(tags::SERIES_INSTANCE_UID)
+                .expect("MR file should contain Series Instance UID")
+                .value()
+                .to_str()
+                .expect("Series Instance UID should be text")
+                .trim_end_matches('\0'),
+            mr_series_uid
+        );
+        assert_eq!(
+            mr.element(tags::FRAME_OF_REFERENCE_UID)
+                .expect("MR file should contain Frame of Reference UID")
+                .value()
+                .to_str()
+                .expect("Frame of Reference UID should be text")
+                .trim_end_matches('\0'),
+            mr_frame_uid
+        );
+        assert_eq!(
+            mr.element(tags::INSTANCE_NUMBER)
+                .expect("MR file should contain Instance Number")
+                .value()
+                .to_str()
+                .expect("Instance Number should be text")
+                .trim(),
+            (index + 1).to_string()
+        );
+        assert_eq!(
+            mr.element(tags::IMAGE_ORIENTATION_PATIENT)
+                .expect("MR file should contain Image Orientation Patient")
+                .value()
+                .to_str()
+                .expect("Image Orientation Patient should be text")
+                .trim(),
+            "0.70710678\\0.70710678\\0\\0\\0\\1"
+        );
+        mr_positions.push(
+            mr.element(tags::IMAGE_POSITION_PATIENT)
+                .expect("MR file should contain Image Position Patient")
+                .value()
+                .to_str()
+                .expect("Image Position Patient should be text")
+                .trim()
+                .to_string(),
+        );
+    }
+    assert_eq!(
+        mr_positions,
+        vec![
+            "0\\0\\0".to_string(),
+            "3.535534\\-3.535534\\0".to_string(),
+            "7.071068\\-7.071068\\0".to_string()
+        ],
+        "MR slices should advance along the oblique slice normal"
+    );
 
     fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
 }
@@ -1210,4 +1375,14 @@ fn file_entry_by_case_id<'a>(manifest: &'a Value, case_id: &str) -> &'a Value {
         .iter()
         .find(|file| file.get("case_id").and_then(Value::as_str) == Some(case_id))
         .unwrap_or_else(|| panic!("manifest should contain {case_id}"))
+}
+
+fn file_entries_by_case_id<'a>(manifest: &'a Value, case_id: &str) -> Vec<&'a Value> {
+    manifest
+        .pointer("/files")
+        .and_then(Value::as_array)
+        .expect("manifest files should be an array")
+        .iter()
+        .filter(|file| file.get("case_id").and_then(Value::as_str) == Some(case_id))
+        .collect()
 }

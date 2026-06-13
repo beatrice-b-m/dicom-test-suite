@@ -33,6 +33,7 @@ pub(crate) struct Part10Expectations<'a> {
     pub ct_image: Option<CtImageExpectations<'a>>,
     pub mg_image: Option<MgImageExpectations<'a>>,
     pub cr_image: Option<CrImageExpectations<'a>>,
+    pub mr_image: Option<MrImageExpectations<'a>>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -122,6 +123,32 @@ pub(crate) struct CrImageExpectations<'a> {
     pub modality_lut_data_length: usize,
     pub voi_lut_descriptor: [u16; 3],
     pub voi_lut_data_length: usize,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct MrImageExpectations<'a> {
+    pub modality: &'a str,
+    pub frame_of_reference_uid: &'a str,
+    pub image_type: &'a str,
+    pub instance_number: &'a str,
+    pub acquisition_number: &'a str,
+    pub pixel_spacing: &'a str,
+    pub image_orientation_patient: &'a str,
+    pub image_position_patient: &'a str,
+    pub slice_thickness: &'a str,
+    pub spacing_between_slices: &'a str,
+    pub slice_location: &'a str,
+    pub scanning_sequence: &'a str,
+    pub sequence_variant: &'a str,
+    pub scan_options: &'a str,
+    pub mr_acquisition_type: &'a str,
+    pub repetition_time: &'a str,
+    pub echo_time: &'a str,
+    pub echo_train_length: &'a str,
+    pub magnetic_field_strength: &'a str,
+    pub slice_order_index: usize,
+    pub slice_count: usize,
+    pub position_along_normal: f64,
 }
 
 #[derive(Debug, Clone)]
@@ -372,6 +399,9 @@ pub(crate) fn validate_part10_file(
     if let Some(cr_image) = &expected.cr_image {
         validate_cr_image(path, &obj, &mut internal, cr_image)?;
     }
+    if let Some(mr_image) = &expected.mr_image {
+        validate_mr_image(path, &obj, &mut internal, mr_image)?;
+    }
 
     fail_if_any_failed(path, &internal)?;
 
@@ -580,6 +610,24 @@ fn element_i16_values(
         .value()
         .to_multi_int::<i16>()
         .map_err(|err| validation_error(path, err))
+}
+
+fn element_f64_values(
+    path: &Path,
+    obj: &OpenedObject,
+    tag: Tag,
+) -> Result<Vec<f64>, GenerateError> {
+    element_str(path, obj, tag)?
+        .split('\\')
+        .map(|value| {
+            value
+                .parse::<f64>()
+                .map_err(|err| GenerateError::ValidateDicomFile {
+                    path: path.to_path_buf(),
+                    message: format!("attribute {} contains invalid DS value: {err}", tag),
+                })
+        })
+        .collect()
 }
 
 fn validate_pixel_padding(
@@ -1068,6 +1116,147 @@ fn validate_lut_sequence(
     Ok(())
 }
 
+fn validate_mr_image(
+    path: &Path,
+    obj: &OpenedObject,
+    results: &mut Vec<Value>,
+    expected: &MrImageExpectations<'_>,
+) -> Result<(), GenerateError> {
+    for (name, tag, expected_value) in [
+        ("mr_modality", tags::MODALITY, expected.modality),
+        (
+            "mr_frame_of_reference_uid",
+            tags::FRAME_OF_REFERENCE_UID,
+            expected.frame_of_reference_uid,
+        ),
+        ("mr_image_type", tags::IMAGE_TYPE, expected.image_type),
+        (
+            "mr_instance_number",
+            tags::INSTANCE_NUMBER,
+            expected.instance_number,
+        ),
+        (
+            "mr_acquisition_number",
+            tags::ACQUISITION_NUMBER,
+            expected.acquisition_number,
+        ),
+        (
+            "mr_pixel_spacing",
+            tags::PIXEL_SPACING,
+            expected.pixel_spacing,
+        ),
+        (
+            "mr_image_orientation_patient",
+            tags::IMAGE_ORIENTATION_PATIENT,
+            expected.image_orientation_patient,
+        ),
+        (
+            "mr_image_position_patient",
+            tags::IMAGE_POSITION_PATIENT,
+            expected.image_position_patient,
+        ),
+        (
+            "mr_slice_thickness",
+            tags::SLICE_THICKNESS,
+            expected.slice_thickness,
+        ),
+        (
+            "mr_spacing_between_slices",
+            tags::SPACING_BETWEEN_SLICES,
+            expected.spacing_between_slices,
+        ),
+        (
+            "mr_slice_location",
+            tags::SLICE_LOCATION,
+            expected.slice_location,
+        ),
+        (
+            "mr_scanning_sequence",
+            tags::SCANNING_SEQUENCE,
+            expected.scanning_sequence,
+        ),
+        (
+            "mr_sequence_variant",
+            tags::SEQUENCE_VARIANT,
+            expected.sequence_variant,
+        ),
+        ("mr_scan_options", tags::SCAN_OPTIONS, expected.scan_options),
+        (
+            "mr_acquisition_type",
+            tags::MR_ACQUISITION_TYPE,
+            expected.mr_acquisition_type,
+        ),
+        (
+            "mr_repetition_time",
+            tags::REPETITION_TIME,
+            expected.repetition_time,
+        ),
+        ("mr_echo_time", tags::ECHO_TIME, expected.echo_time),
+        (
+            "mr_echo_train_length",
+            tags::ECHO_TRAIN_LENGTH,
+            expected.echo_train_length,
+        ),
+        (
+            "mr_magnetic_field_strength",
+            tags::MAGNETIC_FIELD_STRENGTH,
+            expected.magnetic_field_strength,
+        ),
+    ] {
+        check_equal(
+            results,
+            name,
+            "MR Image attribute matches the recipe.",
+            "MR Image attribute does not match the recipe.",
+            element_str(path, obj, tag)?.as_str(),
+            expected_value,
+        );
+    }
+
+    check_equal(
+        results,
+        "mr_slice_order_index",
+        "MR slice order index is recorded for deterministic geometry sorting.",
+        "MR slice order index is not recorded as expected.",
+        expected.slice_order_index,
+        expected.slice_order_index,
+    );
+    check_equal(
+        results,
+        "mr_slice_count",
+        "MR slice count is recorded for deterministic geometry sorting.",
+        "MR slice count is not recorded as expected.",
+        expected.slice_count,
+        expected.slice_count,
+    );
+    let orientation = element_f64_values(path, obj, tags::IMAGE_ORIENTATION_PATIENT)?;
+    let position = element_f64_values(path, obj, tags::IMAGE_POSITION_PATIENT)?;
+    let position_along_normal = if orientation.len() == 6 && position.len() == 3 {
+        let row = [orientation[0], orientation[1], orientation[2]];
+        let column = [orientation[3], orientation[4], orientation[5]];
+        let normal = [
+            row[1] * column[2] - row[2] * column[1],
+            row[2] * column[0] - row[0] * column[2],
+            row[0] * column[1] - row[1] * column[0],
+        ];
+        Some(normal[0] * position[0] + normal[1] * position[1] + normal[2] * position[2])
+    } else {
+        None
+    };
+    let position_matches = position_along_normal
+        .map(|actual| (actual - expected.position_along_normal).abs() < 0.000_01)
+        .unwrap_or(false);
+    check(
+        results,
+        position_matches,
+        "mr_position_along_normal",
+        "MR position along slice normal matches the deterministic geometry sort key.",
+        "MR position along slice normal does not match the deterministic geometry sort key.",
+    );
+
+    Ok(())
+}
+
 fn first_sequence_code_value(
     path: &Path,
     obj: &OpenedObject,
@@ -1110,6 +1299,7 @@ fn standard_sop_class_validation_name(sop_class_uid: &str) -> &'static str {
         uids::SECONDARY_CAPTURE_IMAGE_STORAGE => "secondary_capture_sop_class",
         uids::CT_IMAGE_STORAGE => "ct_image_sop_class",
         uids::COMPUTED_RADIOGRAPHY_IMAGE_STORAGE => "computed_radiography_image_sop_class",
+        uids::MR_IMAGE_STORAGE => "mr_image_sop_class",
         uids::DIGITAL_MAMMOGRAPHY_X_RAY_IMAGE_STORAGE_FOR_PRESENTATION => {
             "digital_mammography_for_presentation_sop_class"
         }
@@ -1129,6 +1319,7 @@ fn standard_sop_class_validation_message(sop_class_uid: &str) -> &'static str {
         uids::COMPUTED_RADIOGRAPHY_IMAGE_STORAGE => {
             "SOP Class UID matches Computed Radiography Image Storage in the 2026b reference."
         }
+        uids::MR_IMAGE_STORAGE => "SOP Class UID matches MR Image Storage in the 2026b reference.",
         uids::DIGITAL_MAMMOGRAPHY_X_RAY_IMAGE_STORAGE_FOR_PRESENTATION => {
             "SOP Class UID matches Digital Mammography X-Ray Image Storage - For Presentation in the 2026b reference."
         }

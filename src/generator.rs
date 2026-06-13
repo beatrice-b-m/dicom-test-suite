@@ -10,8 +10,8 @@ use crate::{
     DeterministicUidInput, GenerateError, PreparedGenerationRun, UidRole, deterministic_uid,
     sha256_hex,
     validation::{
-        CrImageExpectations, CtImageExpectations, MgImageExpectations, Part10Expectations,
-        PixelDataLengthFormula, validate_part10_file,
+        CrImageExpectations, CtImageExpectations, MgImageExpectations, MrImageExpectations,
+        Part10Expectations, PixelDataLengthFormula, validate_part10_file,
     },
 };
 
@@ -19,6 +19,7 @@ const PIXEL_RECIPE_VERSION: &str = "0.1.0";
 const CLASSIC_CT_RECIPE_VERSION: &str = "0.1.0";
 const CLASSIC_MG_RECIPE_VERSION: &str = "0.1.0";
 const CLASSIC_CR_RECIPE_VERSION: &str = "0.1.0";
+const CLASSIC_MR_RECIPE_VERSION: &str = "0.1.0";
 const MONO_PIXELS: [u8; 4] = [0, 85, 170, 255];
 const RGB_PLANAR0_PIXELS: [u8; 12] = [255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 255, 255];
 const RGB_PLANAR1_PIXELS: [u8; 12] = [255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255];
@@ -57,6 +58,12 @@ const CR_U8_VALUES: [i32; 4] = [0, 1, 2, 3];
 const CR_OVERLAY_PIXELS: [u8; 2] = [0x09, 0x00];
 const CR_MODALITY_LUT_DATA: [u8; 8] = [0, 0, 0, 4, 0, 8, 0xff, 0x0f];
 const CR_VOI_LUT_DATA: [u8; 8] = [0, 0, 0x55, 0x55, 0xaa, 0xaa, 0xff, 0xff];
+const MR_SLICE_1_PIXELS: [u8; 8] = [0, 0, 1, 0, 2, 0, 3, 0];
+const MR_SLICE_2_PIXELS: [u8; 8] = [10, 0, 11, 0, 12, 0, 13, 0];
+const MR_SLICE_3_PIXELS: [u8; 8] = [20, 0, 21, 0, 22, 0, 23, 0];
+const MR_SLICE_1_VALUES: [i32; 4] = [0, 1, 2, 3];
+const MR_SLICE_2_VALUES: [i32; 4] = [10, 11, 12, 13];
+const MR_SLICE_3_VALUES: [i32; 4] = [20, 21, 22, 23];
 
 const PIXEL_RECIPES: &[PixelRecipe] = &[
     PixelRecipe {
@@ -535,6 +542,76 @@ const CLASSIC_CR_RECIPES: &[ClassicCrRecipe] = &[ClassicCrRecipe {
     view_position: "PA",
 }];
 
+#[derive(Debug, Clone, Copy)]
+struct ClassicMrRecipe {
+    case_id: &'static str,
+    recipe_id: &'static str,
+    rows: u16,
+    columns: u16,
+    pixel_spacing: &'static str,
+    image_orientation_patient: &'static str,
+    slice_thickness: &'static str,
+    spacing_between_slices: &'static str,
+    slices: &'static [ClassicMrSliceRecipe],
+}
+
+#[derive(Debug, Clone, Copy)]
+struct ClassicMrSliceRecipe {
+    instance_number: &'static str,
+    image_position_patient: &'static str,
+    slice_location: &'static str,
+    position_along_normal: f64,
+    pixel_bytes: &'static [u8],
+    pixel_values: &'static [i32],
+    pixel_min: i32,
+    pixel_max: i32,
+}
+
+const CLASSIC_MR_SLICES: &[ClassicMrSliceRecipe] = &[
+    ClassicMrSliceRecipe {
+        instance_number: "1",
+        image_position_patient: "0\\0\\0",
+        slice_location: "0",
+        position_along_normal: 0.0,
+        pixel_bytes: &MR_SLICE_1_PIXELS,
+        pixel_values: &MR_SLICE_1_VALUES,
+        pixel_min: 0,
+        pixel_max: 3,
+    },
+    ClassicMrSliceRecipe {
+        instance_number: "2",
+        image_position_patient: "3.535534\\-3.535534\\0",
+        slice_location: "5",
+        position_along_normal: 5.0,
+        pixel_bytes: &MR_SLICE_2_PIXELS,
+        pixel_values: &MR_SLICE_2_VALUES,
+        pixel_min: 10,
+        pixel_max: 13,
+    },
+    ClassicMrSliceRecipe {
+        instance_number: "3",
+        image_position_patient: "7.071068\\-7.071068\\0",
+        slice_location: "10",
+        position_along_normal: 10.0,
+        pixel_bytes: &MR_SLICE_3_PIXELS,
+        pixel_values: &MR_SLICE_3_VALUES,
+        pixel_min: 20,
+        pixel_max: 23,
+    },
+];
+
+const CLASSIC_MR_RECIPES: &[ClassicMrRecipe] = &[ClassicMrRecipe {
+    case_id: "classic/mr/multislice_oblique_explicit_le",
+    recipe_id: "mr_multislice_oblique",
+    rows: 2,
+    columns: 2,
+    pixel_spacing: "1.000\\1.000",
+    image_orientation_patient: "0.70710678\\0.70710678\\0\\0\\0\\1",
+    slice_thickness: "5",
+    spacing_between_slices: "5",
+    slices: CLASSIC_MR_SLICES,
+}];
+
 #[derive(Debug, Clone)]
 pub(crate) struct GeneratedFile {
     pub case_id: String,
@@ -596,6 +673,21 @@ pub(crate) fn write_supported_cases(
             continue;
         }
         generated_files.push(write_classic_cr_case(
+            run,
+            case,
+            *recipe,
+            standards_lock_sha256,
+        )?);
+    }
+    for recipe in CLASSIC_MR_RECIPES {
+        let Some(case) = registry_case(registry, recipe.case_id)? else {
+            continue;
+        };
+        let profiles = string_array(case.get("profiles"))?;
+        if !case_matches_profile(&profiles, &run.profile, run.include_stress) {
+            continue;
+        }
+        generated_files.extend(write_classic_mr_case(
             run,
             case,
             *recipe,
@@ -797,6 +889,7 @@ fn write_pixel_case(
             ct_image: None,
             mg_image: None,
             cr_image: None,
+            mr_image: None,
         },
     )?;
 
@@ -1295,6 +1388,7 @@ fn write_classic_ct_case(
             }),
             mg_image: None,
             cr_image: None,
+            mr_image: None,
         },
     )?;
 
@@ -1773,6 +1867,7 @@ fn write_classic_mg_case(
                 acquisition_context_items: 0,
             }),
             cr_image: None,
+            mr_image: None,
         },
     )?;
 
@@ -2259,6 +2354,7 @@ fn write_classic_cr_case(
                 voi_lut_descriptor: recipe.voi_lut_descriptor,
                 voi_lut_data_length: recipe.voi_lut_data.len(),
             }),
+            mr_image: None,
         },
     )?;
 
@@ -2447,6 +2543,479 @@ fn classic_cr_manifest_entry(
     })
 }
 
+fn write_classic_mr_case(
+    run: &PreparedGenerationRun,
+    case: &Value,
+    recipe: ClassicMrRecipe,
+    standards_lock_sha256: &str,
+) -> Result<Vec<GeneratedFile>, GenerateError> {
+    let study_instance_uid = deterministic_classic_mr_uid(
+        standards_lock_sha256,
+        recipe,
+        run.seed,
+        UidRole::StudyInstance,
+        0,
+    );
+    let series_instance_uid = deterministic_classic_mr_uid(
+        standards_lock_sha256,
+        recipe,
+        run.seed,
+        UidRole::SeriesInstance,
+        0,
+    );
+    let frame_of_reference_uid = deterministic_classic_mr_uid(
+        standards_lock_sha256,
+        recipe,
+        run.seed,
+        UidRole::FrameOfReference,
+        0,
+    );
+    let implementation_class_uid = deterministic_implementation_uid(standards_lock_sha256);
+
+    let mut generated_files = Vec::with_capacity(recipe.slices.len());
+    for (slice_index, slice) in recipe.slices.iter().enumerate() {
+        let sop_instance_uid = deterministic_classic_mr_uid(
+            standards_lock_sha256,
+            recipe,
+            run.seed,
+            UidRole::SopInstance,
+            u32::try_from(slice_index).expect("MR slice index must fit in u32"),
+        );
+        let relative_path = format!(
+            "{}/slice-{:03}.dcm",
+            recipe.case_id,
+            slice_index.saturating_add(1)
+        );
+        let path = run.out_dir.join(&relative_path);
+        let case_dir = path.parent().ok_or_else(|| GenerateError::MetadataShape {
+            path: PathBuf::from(&relative_path),
+            message: "generated DICOM path must have a parent directory",
+        })?;
+        fs::create_dir_all(case_dir).map_err(|source| GenerateError::CreateCaseOutputDir {
+            path: case_dir.to_path_buf(),
+            source,
+        })?;
+
+        let mut obj = InMemDicomObject::new_empty();
+        put_str(
+            &mut obj,
+            tags::SOP_CLASS_UID,
+            VR::UI,
+            uids::MR_IMAGE_STORAGE,
+        );
+        put_str(&mut obj, tags::SOP_INSTANCE_UID, VR::UI, &sop_instance_uid);
+        put_str(&mut obj, tags::SYNTHETIC_DATA, VR::CS, "YES");
+
+        put_str(
+            &mut obj,
+            tags::PATIENT_NAME,
+            VR::PN,
+            "DTS^Synthetic^Patient001",
+        );
+        put_str(&mut obj, tags::PATIENT_ID, VR::LO, "DTS-PATIENT-001");
+        put_str(&mut obj, tags::PATIENT_BIRTH_DATE, VR::DA, "19700101");
+        put_str(&mut obj, tags::PATIENT_SEX, VR::CS, "O");
+
+        put_str(
+            &mut obj,
+            tags::STUDY_INSTANCE_UID,
+            VR::UI,
+            &study_instance_uid,
+        );
+        put_str(&mut obj, tags::STUDY_DATE, VR::DA, "20260101");
+        put_str(&mut obj, tags::STUDY_TIME, VR::TM, "000000");
+        put_str(&mut obj, tags::REFERRING_PHYSICIAN_NAME, VR::PN, "");
+        put_str(&mut obj, tags::STUDY_ID, VR::SH, "DTS-MR");
+        put_str(&mut obj, tags::ACCESSION_NUMBER, VR::SH, "");
+
+        put_str(&mut obj, tags::MODALITY, VR::CS, "MR");
+        put_str(
+            &mut obj,
+            tags::SERIES_INSTANCE_UID,
+            VR::UI,
+            &series_instance_uid,
+        );
+        put_str(&mut obj, tags::SERIES_NUMBER, VR::IS, "1");
+        put_str(
+            &mut obj,
+            tags::FRAME_OF_REFERENCE_UID,
+            VR::UI,
+            &frame_of_reference_uid,
+        );
+        put_str(&mut obj, tags::POSITION_REFERENCE_INDICATOR, VR::LO, "");
+
+        put_str(&mut obj, tags::MANUFACTURER, VR::LO, "dicom-test-suite");
+        put_str(
+            &mut obj,
+            tags::MANUFACTURER_MODEL_NAME,
+            VR::LO,
+            recipe.recipe_id,
+        );
+        put_str(
+            &mut obj,
+            tags::SOFTWARE_VERSIONS,
+            VR::LO,
+            crate::PACKAGE_VERSION,
+        );
+
+        put_str(&mut obj, tags::ACQUISITION_NUMBER, VR::IS, "1");
+        put_str(&mut obj, tags::ACQUISITION_DATE, VR::DA, "20260101");
+        put_str(&mut obj, tags::ACQUISITION_TIME, VR::TM, "000000");
+
+        put_str(&mut obj, tags::IMAGE_TYPE, VR::CS, "ORIGINAL\\PRIMARY");
+        put_str(
+            &mut obj,
+            tags::INSTANCE_NUMBER,
+            VR::IS,
+            slice.instance_number,
+        );
+        put_str(&mut obj, tags::PATIENT_ORIENTATION, VR::CS, "");
+        put_str(&mut obj, tags::CONTENT_DATE, VR::DA, "20260101");
+        put_str(&mut obj, tags::CONTENT_TIME, VR::TM, "000000");
+
+        put_str(&mut obj, tags::PIXEL_SPACING, VR::DS, recipe.pixel_spacing);
+        put_str(
+            &mut obj,
+            tags::IMAGE_ORIENTATION_PATIENT,
+            VR::DS,
+            recipe.image_orientation_patient,
+        );
+        put_str(
+            &mut obj,
+            tags::IMAGE_POSITION_PATIENT,
+            VR::DS,
+            slice.image_position_patient,
+        );
+        put_str(
+            &mut obj,
+            tags::SLICE_THICKNESS,
+            VR::DS,
+            recipe.slice_thickness,
+        );
+        put_str(
+            &mut obj,
+            tags::SPACING_BETWEEN_SLICES,
+            VR::DS,
+            recipe.spacing_between_slices,
+        );
+        put_str(&mut obj, tags::SLICE_LOCATION, VR::DS, slice.slice_location);
+
+        put_u16(&mut obj, tags::SAMPLES_PER_PIXEL, VR::US, 1);
+        put_str(
+            &mut obj,
+            tags::PHOTOMETRIC_INTERPRETATION,
+            VR::CS,
+            "MONOCHROME2",
+        );
+        put_u16(&mut obj, tags::ROWS, VR::US, recipe.rows);
+        put_u16(&mut obj, tags::COLUMNS, VR::US, recipe.columns);
+        put_u16(&mut obj, tags::BITS_ALLOCATED, VR::US, 16);
+        put_u16(&mut obj, tags::BITS_STORED, VR::US, 16);
+        put_u16(&mut obj, tags::HIGH_BIT, VR::US, 15);
+        put_u16(&mut obj, tags::PIXEL_REPRESENTATION, VR::US, 0);
+
+        put_str(&mut obj, tags::SCANNING_SEQUENCE, VR::CS, "SE");
+        put_str(&mut obj, tags::SEQUENCE_VARIANT, VR::CS, "NONE");
+        put_str(&mut obj, tags::SCAN_OPTIONS, VR::CS, "");
+        put_str(&mut obj, tags::MR_ACQUISITION_TYPE, VR::CS, "2D");
+        put_str(&mut obj, tags::REPETITION_TIME, VR::DS, "500");
+        put_str(&mut obj, tags::ECHO_TIME, VR::DS, "20");
+        put_str(&mut obj, tags::ECHO_TRAIN_LENGTH, VR::IS, "1");
+        put_str(&mut obj, tags::MAGNETIC_FIELD_STRENGTH, VR::DS, "1.5");
+
+        obj.put(DataElement::new(
+            tags::PIXEL_DATA,
+            VR::OW,
+            PrimitiveValue::from(slice.pixel_bytes),
+        ));
+
+        let file_obj = obj
+            .with_meta(
+                FileMetaTableBuilder::new()
+                    .transfer_syntax(uids::EXPLICIT_VR_LITTLE_ENDIAN)
+                    .implementation_class_uid(&implementation_class_uid)
+                    .implementation_version_name("DICOMTS010"),
+            )
+            .map_err(|err| GenerateError::WriteDicomFile {
+                path: path.clone(),
+                message: err.to_string(),
+            })?;
+
+        file_obj
+            .write_to_file(&path)
+            .map_err(|err| GenerateError::WriteDicomFile {
+                path: path.clone(),
+                message: err.to_string(),
+            })?;
+
+        let validated = validate_part10_file(
+            &path,
+            &Part10Expectations {
+                sop_class_uid: uids::MR_IMAGE_STORAGE,
+                sop_instance_uid: &sop_instance_uid,
+                transfer_syntax_uid: uids::EXPLICIT_VR_LITTLE_ENDIAN,
+                implementation_class_uid: &implementation_class_uid,
+                synthetic_data: "YES",
+                rows: recipe.rows,
+                columns: recipe.columns,
+                samples_per_pixel: 1,
+                photometric_interpretation: "MONOCHROME2",
+                bits_allocated: 16,
+                bits_stored: 16,
+                high_bit: 15,
+                pixel_representation: 0,
+                planar_configuration: None,
+                pixel_data_vr: VR::OW,
+                pixel_data_length_formula: PixelDataLengthFormula::ContiguousSamples,
+                palette: None,
+                padding: None,
+                ct_image: None,
+                mg_image: None,
+                cr_image: None,
+                mr_image: Some(MrImageExpectations {
+                    modality: "MR",
+                    frame_of_reference_uid: &frame_of_reference_uid,
+                    image_type: "ORIGINAL\\PRIMARY",
+                    instance_number: slice.instance_number,
+                    acquisition_number: "1",
+                    pixel_spacing: recipe.pixel_spacing,
+                    image_orientation_patient: recipe.image_orientation_patient,
+                    image_position_patient: slice.image_position_patient,
+                    slice_thickness: recipe.slice_thickness,
+                    spacing_between_slices: recipe.spacing_between_slices,
+                    slice_location: slice.slice_location,
+                    scanning_sequence: "SE",
+                    sequence_variant: "NONE",
+                    scan_options: "",
+                    mr_acquisition_type: "2D",
+                    repetition_time: "500",
+                    echo_time: "20",
+                    echo_train_length: "1",
+                    magnetic_field_strength: "1.5",
+                    slice_order_index: slice_index + 1,
+                    slice_count: recipe.slices.len(),
+                    position_along_normal: slice.position_along_normal,
+                }),
+            },
+        )?;
+
+        generated_files.push(GeneratedFile {
+            case_id: recipe.case_id.to_string(),
+            manifest_entry: classic_mr_manifest_entry(
+                case,
+                recipe,
+                *slice,
+                &relative_path,
+                &study_instance_uid,
+                &series_instance_uid,
+                &sop_instance_uid,
+                &frame_of_reference_uid,
+                &implementation_class_uid,
+                &validated.bytes,
+                validated.validation,
+                slice_index,
+            ),
+        });
+    }
+
+    Ok(generated_files)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn classic_mr_manifest_entry(
+    case: &Value,
+    recipe: ClassicMrRecipe,
+    slice: ClassicMrSliceRecipe,
+    relative_path: &str,
+    study_instance_uid: &str,
+    series_instance_uid: &str,
+    sop_instance_uid: &str,
+    frame_of_reference_uid: &str,
+    implementation_class_uid: &str,
+    bytes: &[u8],
+    validation: Value,
+    slice_index: usize,
+) -> Value {
+    let mut standards_evidence = case
+        .get("standards_evidence")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    standards_evidence.extend([
+        serde_json::json!({
+            "source": "dicom-standard-kb",
+            "edition": "2026b",
+            "query": "lookup_iod MR Image",
+            "covered": true,
+            "part": "PS3.3",
+            "anchor": "table_A.4-1"
+        }),
+        serde_json::json!({
+            "source": "dicom-standard-kb",
+            "edition": "2026b",
+            "query": "list_modules_for_iod MR Image",
+            "covered": true,
+            "part": "PS3.3",
+            "anchor": "table_A.4-1"
+        }),
+        serde_json::json!({
+            "source": "dicom-standard-kb",
+            "edition": "2026b",
+            "query": "list_attributes_for_module MR Image --expand-macros",
+            "covered": true,
+            "part": "PS3.3",
+            "anchor": "table_C.8-4"
+        }),
+        serde_json::json!({
+            "source": "dicom-standard-kb",
+            "edition": "2026b",
+            "query": "list_attributes_for_module Image Plane --expand-macros",
+            "covered": true,
+            "part": "PS3.3",
+            "anchor": "table_C.7-10"
+        }),
+        serde_json::json!({
+            "source": "dicom-standard-kb",
+            "edition": "2026b",
+            "query": "list_attributes_for_module Frame of Reference --expand-macros",
+            "covered": true,
+            "part": "PS3.3",
+            "anchor": "table_C.7-6"
+        }),
+        serde_json::json!({
+            "source": "dicom-standard-kb",
+            "edition": "2026b",
+            "query": "lookup_data_element ScanningSequence",
+            "covered": true,
+            "part": "PS3.6",
+            "anchor": "table_6-1"
+        }),
+        serde_json::json!({
+            "source": "dicom-standard-kb",
+            "edition": "2026b",
+            "query": "lookup_data_element SequenceVariant",
+            "covered": true,
+            "part": "PS3.6",
+            "anchor": "table_6-1"
+        }),
+        serde_json::json!({
+            "source": "dicom-standard-kb",
+            "edition": "2026b",
+            "query": "lookup_data_element MRAcquisitionType",
+            "covered": true,
+            "part": "PS3.6",
+            "anchor": "table_6-1"
+        }),
+        serde_json::json!({
+            "source": "dicom-standard-kb",
+            "edition": "2026b",
+            "query": "lookup_data_element SpacingBetweenSlices",
+            "covered": true,
+            "part": "PS3.6",
+            "anchor": "table_6-1"
+        }),
+    ]);
+
+    serde_json::json!({
+        "case_id": recipe.case_id,
+        "profile_membership": ["core"],
+        "path": relative_path,
+        "sha256": sha256_hex(bytes),
+        "size_bytes": bytes.len(),
+        "determinism": "byte_stable",
+        "recipe": {
+            "recipe_id": recipe.recipe_id,
+            "recipe_version": CLASSIC_MR_RECIPE_VERSION,
+            "recipe_parameters": {
+                "rows": recipe.rows,
+                "columns": recipe.columns,
+                "samples_per_pixel": 1,
+                "photometric_interpretation": "MONOCHROME2",
+                "bits_allocated": 16,
+                "bits_stored": 16,
+                "high_bit": 15,
+                "pixel_representation": 0,
+                "pixel_values": slice.pixel_values,
+                "geometry": {
+                    "pixel_spacing": recipe.pixel_spacing,
+                    "image_orientation_patient": recipe.image_orientation_patient,
+                    "image_position_patient": slice.image_position_patient,
+                    "slice_thickness": recipe.slice_thickness,
+                    "spacing_between_slices": recipe.spacing_between_slices,
+                    "slice_location": slice.slice_location,
+                    "position_along_normal": slice.position_along_normal,
+                    "slice_order_index": slice_index + 1,
+                    "slice_count": recipe.slices.len()
+                },
+                "mr": {
+                    "scanning_sequence": "SE",
+                    "sequence_variant": "NONE",
+                    "scan_options": "",
+                    "mr_acquisition_type": "2D",
+                    "repetition_time": "500",
+                    "echo_time": "20",
+                    "echo_train_length": "1",
+                    "magnetic_field_strength": "1.5"
+                }
+            }
+        },
+        "dicom": {
+            "sop_class_uid": uids::MR_IMAGE_STORAGE,
+            "sop_class_name": "MR Image Storage",
+            "iod_name": "MR Image",
+            "modality": "MR",
+            "transfer_syntax_uid": uids::EXPLICIT_VR_LITTLE_ENDIAN,
+            "transfer_syntax_name": "Explicit VR Little Endian"
+        },
+        "uids": {
+            "study_instance_uid": study_instance_uid,
+            "series_instance_uid": series_instance_uid,
+            "sop_instance_uid": sop_instance_uid,
+            "frame_of_reference_uid": frame_of_reference_uid,
+            "implementation_class_uid": implementation_class_uid
+        },
+        "image": {
+            "rows": recipe.rows,
+            "columns": recipe.columns,
+            "frames": 1,
+            "samples_per_pixel": 1,
+            "photometric_interpretation": "MONOCHROME2",
+            "bits_allocated": 16,
+            "bits_stored": 16,
+            "high_bit": 15,
+            "pixel_representation": 0,
+            "planar_configuration": Value::Null
+        },
+        "pixel_data": {
+            "vr": "OW",
+            "native_or_encapsulated": "native",
+            "value_length": slice.pixel_bytes.len(),
+            "frame_count": 1,
+            "frame_hashes": [sha256_hex(slice.pixel_bytes)]
+        },
+        "expected_capabilities": ["open_file", "read_metadata", "render_native_pixels", "sort_series_by_geometry"],
+        "expected_semantics": {
+            "synthetic_data": "YES",
+            "image_type": "ORIGINAL\\PRIMARY",
+            "pixel_min": slice.pixel_min,
+            "pixel_max": slice.pixel_max,
+            "series_instance_count": recipe.slices.len(),
+            "shared_study_series_frame_of_reference": true,
+            "geometry_sort_key": {
+                "image_orientation_patient": recipe.image_orientation_patient,
+                "position_along_normal": slice.position_along_normal,
+                "slice_order_index": slice_index + 1
+            }
+        },
+        "expected_visual_checks": {
+            "pattern": "3_slice_oblique_mr_gradient_stack"
+        },
+        "validation": validation,
+        "known_stressors": ["mr_image_storage", "multi_instance_series", "oblique_image_orientation_patient", "geometry_slice_sorting"],
+        "standards_evidence": standards_evidence
+    })
+}
+
 fn deterministic_case_uid(
     standards_lock_sha256: &str,
     recipe: PixelRecipe,
@@ -2513,6 +3082,25 @@ fn deterministic_classic_cr_uid(
         recipe_version: CLASSIC_CR_RECIPE_VERSION,
         run_seed,
         file_index: 0,
+        frame_index: None,
+        referenced_object_index: None,
+        role,
+    })
+}
+
+fn deterministic_classic_mr_uid(
+    standards_lock_sha256: &str,
+    recipe: ClassicMrRecipe,
+    run_seed: u64,
+    role: UidRole,
+    file_index: u32,
+) -> String {
+    deterministic_uid(&DeterministicUidInput {
+        standards_lock_sha256,
+        case_id: recipe.case_id,
+        recipe_version: CLASSIC_MR_RECIPE_VERSION,
+        run_seed,
+        file_index,
         frame_index: None,
         referenced_object_index: None,
         role,

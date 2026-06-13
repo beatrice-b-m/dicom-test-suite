@@ -71,7 +71,7 @@ fn registry_contains_initial_smoke_and_core_cases() {
             "implemented",
         ),
         ("classic/cr/overlay_modality_voi_explicit_le", "implemented"),
-        ("classic/mr/multislice_oblique_explicit_le", "planned"),
+        ("classic/mr/multislice_oblique_explicit_le", "implemented"),
         ("vl/photo/rgb_planar0_explicit_le", "planned"),
         ("vl/photo/palette_color_explicit_le", "planned"),
     ] {

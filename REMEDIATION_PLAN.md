@@ -68,9 +68,10 @@ Exit criteria:
 
 ## Phase R3: Harden Part 10 and Internal Validation
 
-**Status:** in progress as of 2026-06-13. Raw Part 10 byte-level validation is
-implemented for `validate <generated-root>`; manifest schema validation,
-additional negative mutations, and broader standards-derived checks remain.
+**Status:** in progress as of 2026-06-13. Raw Part 10 byte-level validation and
+parsed cross-field image invariants are implemented for
+`validate <generated-root>`; manifest schema validation, additional negative
+mutations, and broader standards-derived checks remain.
 
 **Findings addressed:** validation is not yet the full Part 10 / standards-derived contract.
 
@@ -85,9 +86,9 @@ Tasks:
   - File Meta Information is encoded as Explicit VR Little Endian.
   - File Meta group ends before dataset group `0008` and no group `0002` elements appear later in the dataset.
 - Validate Implementation Version Name `(0002,0013)` when present and keep it deterministic. Complete for generated-root validation.
-- Rework cross-field invariants so they compare actual parsed file values, not only recipe expectation values. At minimum cover `Bits Stored <= Bits Allocated`, `High Bit == Bits Stored - 1`, and native Pixel Data byte length from parsed rows/columns/frames/samples/bits.
+- Rework cross-field invariants so they compare actual parsed file values, not only recipe expectation values. At minimum cover `Bits Stored <= Bits Allocated`, `High Bit == Bits Stored - 1`, and native Pixel Data byte length from parsed rows/columns/frames/samples/bits. Complete for generated-root validation.
 - Add manifest JSON Schema validation to generation tests.
-- Add targeted negative validator tests by mutating temporary generated files, without committing invalid DICOM fixtures.
+- Add targeted negative validator tests by mutating temporary generated files, without committing invalid DICOM fixtures. In progress: non-zero preamble, missing File Meta Information Version, unexpected group `0002`, and inconsistent High Bit are covered.
 - Expand standards-derived recipe validation incrementally for each implemented IOD family, starting with Type 1 and Type 2 attributes already in current recipes.
 
 Exit criteria:

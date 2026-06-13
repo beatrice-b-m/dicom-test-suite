@@ -140,6 +140,67 @@ fn validate_command_reports_missing_file_meta_information_version() {
     fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
 }
 
+#[test]
+fn validate_command_reports_dataset_group_0002_after_file_meta() {
+    let out_dir = unique_temp_dir("validate-dataset-group-0002");
+    generate_smoke(&out_dir);
+    let dcm_path = out_dir.join("classic/sc/mono2_u8_explicit_le/instance.dcm");
+    mutate_dicom(&dcm_path, |bytes| {
+        let offset = find_tag(bytes, 0x0008, 0x0016)
+            .expect("generated DICOM should start dataset with SOP Class UID");
+        bytes[offset] = 0x02;
+        bytes[offset + 1] = 0x00;
+    });
+
+    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args([
+            "validate",
+            out_dir.to_str().expect("temp path should be valid UTF-8"),
+        ])
+        .output()
+        .expect("validate command must run");
+
+    assert!(
+        !output.status.success(),
+        "validate should fail when a group 0002 element appears in the dataset"
+    );
+    let stdout = String::from_utf8(output.stdout).expect("validate stdout must be UTF-8");
+    assert!(stdout.contains("file_meta_allowed_element"));
+
+    fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
+}
+
+#[test]
+fn validate_command_reports_inconsistent_high_bit() {
+    let out_dir = unique_temp_dir("validate-high-bit");
+    generate_smoke(&out_dir);
+    let dcm_path = out_dir.join("classic/sc/mono2_u8_explicit_le/instance.dcm");
+    mutate_dicom(&dcm_path, |bytes| {
+        let offset =
+            find_tag(bytes, 0x0028, 0x0102).expect("generated DICOM should contain High Bit");
+        let value_offset = offset + 8;
+        bytes[value_offset] = 8;
+        bytes[value_offset + 1] = 0;
+    });
+
+    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args([
+            "validate",
+            out_dir.to_str().expect("temp path should be valid UTF-8"),
+        ])
+        .output()
+        .expect("validate command must run");
+
+    assert!(
+        !output.status.success(),
+        "validate should fail when High Bit does not equal Bits Stored - 1"
+    );
+    let stdout = String::from_utf8(output.stdout).expect("validate stdout must be UTF-8");
+    assert!(stdout.contains("high_bit_consistency"));
+
+    fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
+}
+
 fn generate_smoke(out_dir: &Path) {
     let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
         .args([

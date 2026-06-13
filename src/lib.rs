@@ -951,6 +951,14 @@ fn validate_raw_part10_file(
             IMPLEMENTATION_VERSION_NAME,
         );
     }
+    for element in &file_meta {
+        if !is_allowed_file_meta_tag(element.tag) {
+            failures.push(format!(
+                "{relative_path}: file_meta_allowed_element: unexpected File Meta element ({:04X},{:04X})",
+                element.tag.0, element.tag.1
+            ));
+        }
+    }
     if dataset_start + 2 <= bytes.len() {
         validate_equal(
             failures,
@@ -1053,6 +1061,19 @@ fn raw_file_meta_element(
     tag: (u16, u16),
 ) -> Option<&RawFileMetaElement> {
     file_meta.iter().find(|element| element.tag == tag)
+}
+
+fn is_allowed_file_meta_tag(tag: (u16, u16)) -> bool {
+    matches!(
+        tag,
+        (0x0002, 0x0000)
+            | (0x0002, 0x0001)
+            | (0x0002, 0x0002)
+            | (0x0002, 0x0003)
+            | (0x0002, 0x0010)
+            | (0x0002, 0x0012)
+            | (0x0002, 0x0013)
+    )
 }
 
 fn raw_value<'a>(bytes: &'a [u8], element: &RawFileMetaElement) -> &'a [u8] {
@@ -1204,10 +1225,15 @@ fn validate_u16_from_manifest_and_dataset(
         "image field must be an integer",
     )? as u16;
     match element_u16_for_validate(obj, tag) {
-        Ok(actual) => validate_equal(failures, relative_path, name, actual, expected),
-        Err(err) => failures.push(format!("{relative_path}: {name}: {err}")),
+        Ok(actual) => {
+            validate_equal(failures, relative_path, name, actual, expected);
+            Ok(actual)
+        }
+        Err(err) => {
+            failures.push(format!("{relative_path}: {name}: {err}"));
+            Ok(expected)
+        }
     }
-    Ok(expected)
 }
 
 fn validate_frames(
@@ -1225,16 +1251,27 @@ fn validate_frames(
     )? as u16;
     match obj.element_opt(tags::NUMBER_OF_FRAMES) {
         Ok(Some(element)) => match element.value().to_int::<u16>() {
-            Ok(actual) => validate_equal(failures, relative_path, "frames", actual, expected),
-            Err(err) => failures.push(format!("{relative_path}: frames: {err}")),
+            Ok(actual) => {
+                validate_equal(failures, relative_path, "frames", actual, expected);
+                Ok(actual)
+            }
+            Err(err) => {
+                failures.push(format!("{relative_path}: frames: {err}"));
+                Ok(expected)
+            }
         },
-        Ok(None) if expected == 1 => {}
-        Ok(None) => failures.push(format!(
-            "{relative_path}: frames: Number of Frames is missing for {expected} frames"
-        )),
-        Err(err) => failures.push(format!("{relative_path}: frames: {err}")),
+        Ok(None) if expected == 1 => Ok(1),
+        Ok(None) => {
+            failures.push(format!(
+                "{relative_path}: frames: Number of Frames is missing for {expected} frames"
+            ));
+            Ok(expected)
+        }
+        Err(err) => {
+            failures.push(format!("{relative_path}: frames: {err}"));
+            Ok(expected)
+        }
     }
-    Ok(expected)
 }
 
 fn validate_str_element(

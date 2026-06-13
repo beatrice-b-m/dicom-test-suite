@@ -249,7 +249,7 @@ fn generate_command_writes_core_u16_native_pixel_case() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\tcore"));
-    assert!(stdout.contains("files_written\t13"));
+    assert!(stdout.contains("files_written\t14"));
 
     let manifest_path = out_dir.join("manifest.json");
     let manifest: Value = serde_json::from_str(
@@ -265,7 +265,7 @@ fn generate_command_writes_core_u16_native_pixel_case() {
             .pointer("/files")
             .and_then(Value::as_array)
             .map(Vec::len),
-        Some(13)
+        Some(14)
     );
     let u16_file = file_entry_by_case_id(&manifest, "classic/sc/mono2_u16_explicit_le");
     assert_eq!(
@@ -671,6 +671,56 @@ fn generate_command_writes_core_u16_native_pixel_case() {
             .contains(&"implicit_vr_little_endian_transfer_syntax"),
         "MG For Processing manifest should record standards validation for Implicit VR LE"
     );
+    let cr_file = file_entry_by_case_id(&manifest, "classic/cr/overlay_modality_voi_explicit_le");
+    assert_eq!(
+        cr_file
+            .pointer("/dicom/sop_class_uid")
+            .and_then(Value::as_str),
+        Some(uids::COMPUTED_RADIOGRAPHY_IMAGE_STORAGE)
+    );
+    assert_eq!(
+        cr_file.pointer("/dicom/modality").and_then(Value::as_str),
+        Some("CR")
+    );
+    assert_eq!(
+        cr_file
+            .pointer("/recipe/recipe_parameters/overlay/value_length")
+            .and_then(Value::as_u64),
+        Some(2)
+    );
+    assert_eq!(
+        cr_file
+            .pointer("/recipe/recipe_parameters/modality_lut/descriptor")
+            .and_then(Value::as_array)
+            .map(Vec::len),
+        Some(3)
+    );
+    assert_eq!(
+        cr_file
+            .pointer("/recipe/recipe_parameters/voi_lut/data_value_length")
+            .and_then(Value::as_u64),
+        Some(8)
+    );
+    assert!(
+        validation_result_names(cr_file.pointer("/validation/internal"))
+            .contains(&"cr_overlay_data"),
+        "CR manifest should record Overlay Data validation"
+    );
+    assert!(
+        validation_result_names(cr_file.pointer("/validation/internal"))
+            .contains(&"cr_modality_lut_descriptor"),
+        "CR manifest should record Modality LUT validation"
+    );
+    assert!(
+        validation_result_names(cr_file.pointer("/validation/internal"))
+            .contains(&"cr_voi_lut_descriptor"),
+        "CR manifest should record VOI LUT validation"
+    );
+    assert!(
+        validation_result_names(cr_file.pointer("/validation/standards"))
+            .contains(&"computed_radiography_image_sop_class"),
+        "CR manifest should record standards validation for Computed Radiography Image Storage"
+    );
     assert!(
         manifest
             .pointer("/skipped_cases")
@@ -682,6 +732,7 @@ fn generate_command_writes_core_u16_native_pixel_case() {
                         Some("classic/ct/mono2_i16_rescale_12bit_explicit_le")
                             | Some("classic/mg/for_presentation_mono1_u16_12bit_explicit_le")
                             | Some("classic/mg/for_processing_mono2_u16_12bit_implicit_le")
+                            | Some("classic/cr/overlay_modality_voi_explicit_le")
                     )
                 })
             }),
@@ -1026,6 +1077,77 @@ fn generate_command_writes_core_u16_native_pixel_case() {
             .expect("Window Width lookup should succeed")
             .is_none(),
         "MG For Processing should omit Window Width"
+    );
+    let cr_path = out_dir.join("classic/cr/overlay_modality_voi_explicit_le/instance.dcm");
+    let cr = open_file(&cr_path).expect("CR generated DICOM file should parse");
+    assert_eq!(
+        cr.element(tags::SOP_CLASS_UID)
+            .expect("dataset should contain SOP Class UID")
+            .value()
+            .to_str()
+            .expect("SOP Class UID should be text")
+            .trim_end_matches('\0'),
+        uids::COMPUTED_RADIOGRAPHY_IMAGE_STORAGE
+    );
+    assert_eq!(
+        cr.element(tags::OVERLAY_ROWS.inner())
+            .expect("dataset should contain Overlay Rows")
+            .value()
+            .to_int::<u16>()
+            .expect("Overlay Rows should be numeric"),
+        2
+    );
+    assert_eq!(
+        cr.element(tags::OVERLAY_DATA.inner())
+            .expect("dataset should contain Overlay Data")
+            .value()
+            .to_bytes()
+            .expect("Overlay Data should be byte-backed")
+            .as_ref(),
+        &[0x09, 0x00]
+    );
+    let modality_lut = cr
+        .element(tags::MODALITY_LUT_SEQUENCE)
+        .expect("dataset should contain Modality LUT Sequence")
+        .items()
+        .expect("Modality LUT Sequence should contain items")
+        .first()
+        .expect("Modality LUT Sequence should contain one item");
+    assert_eq!(
+        modality_lut
+            .element(tags::LUT_DESCRIPTOR)
+            .expect("Modality LUT item should contain LUT Descriptor")
+            .value()
+            .to_multi_int::<u16>()
+            .expect("LUT Descriptor should be numeric"),
+        vec![4, 0, 16]
+    );
+    assert_eq!(
+        modality_lut
+            .element(tags::MODALITY_LUT_TYPE)
+            .expect("Modality LUT item should contain Modality LUT Type")
+            .value()
+            .to_str()
+            .expect("Modality LUT Type should be text")
+            .trim(),
+        "US"
+    );
+    let voi_lut = cr
+        .element(tags::VOILUT_SEQUENCE)
+        .expect("dataset should contain VOI LUT Sequence")
+        .items()
+        .expect("VOI LUT Sequence should contain items")
+        .first()
+        .expect("VOI LUT Sequence should contain one item");
+    assert_eq!(
+        voi_lut
+            .element(tags::LUT_DATA)
+            .expect("VOI LUT item should contain LUT Data")
+            .value()
+            .to_bytes()
+            .expect("VOI LUT Data should be byte-backed")
+            .len(),
+        8
     );
 
     fs::remove_dir_all(out_dir).expect("temporary output root should be removable");

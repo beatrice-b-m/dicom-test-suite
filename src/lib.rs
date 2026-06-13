@@ -665,6 +665,12 @@ mod tests {
         );
         assert!(
             output.contains(
+                "classic/cr/overlay_modality_voi_explicit_le\timplemented\tcore\t1.2.840.10008.5.1.4.1.1.1\t1.2.840.10008.1.2.1\t14/14 covered"
+            ),
+            "list-cases output must show implemented CR overlay/LUT core status"
+        );
+        assert!(
+            output.contains(
                 "classic/sc/mono2_u16_explicit_le\timplemented\tcore\t1.2.840.10008.5.1.4.1.1.7\t1.2.840.10008.1.2.1\t6/6 covered"
             ),
             "list-cases output must show implemented core native pixel status"

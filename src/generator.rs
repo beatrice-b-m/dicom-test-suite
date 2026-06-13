@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::PathBuf;
 
-use dicom_core::{DataElement, PrimitiveValue, VR, value::DataSetSequence};
+use dicom_core::{DataElement, PrimitiveValue, Tag, VR, value::DataSetSequence};
 use dicom_dictionary_std::{tags, uids};
 use dicom_object::{FileMetaTableBuilder, InMemDicomObject};
 use serde_json::Value;
@@ -10,14 +10,15 @@ use crate::{
     DeterministicUidInput, GenerateError, PreparedGenerationRun, UidRole, deterministic_uid,
     sha256_hex,
     validation::{
-        CtImageExpectations, MgImageExpectations, Part10Expectations, PixelDataLengthFormula,
-        validate_part10_file,
+        CrImageExpectations, CtImageExpectations, MgImageExpectations, Part10Expectations,
+        PixelDataLengthFormula, validate_part10_file,
     },
 };
 
 const PIXEL_RECIPE_VERSION: &str = "0.1.0";
 const CLASSIC_CT_RECIPE_VERSION: &str = "0.1.0";
 const CLASSIC_MG_RECIPE_VERSION: &str = "0.1.0";
+const CLASSIC_CR_RECIPE_VERSION: &str = "0.1.0";
 const MONO_PIXELS: [u8; 4] = [0, 85, 170, 255];
 const RGB_PLANAR0_PIXELS: [u8; 12] = [255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 255, 255];
 const RGB_PLANAR1_PIXELS: [u8; 12] = [255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255];
@@ -51,6 +52,11 @@ const CT_I16_12BIT_PIXELS: [u8; 8] = [0x00, 0x0c, 0x00, 0x00, 0x00, 0x04, 0xff, 
 const CT_I16_12BIT_VALUES: [i32; 4] = [-1024, 0, 1024, 2047];
 const MG_U16_12BIT_PIXELS: [u8; 8] = [0x00, 0x00, 0x55, 0x05, 0xaa, 0x0a, 0xff, 0x0f];
 const MG_U16_12BIT_VALUES: [i32; 4] = [0, 1365, 2730, 4095];
+const CR_U8_PIXELS: [u8; 4] = [0, 1, 2, 3];
+const CR_U8_VALUES: [i32; 4] = [0, 1, 2, 3];
+const CR_OVERLAY_PIXELS: [u8; 2] = [0x09, 0x00];
+const CR_MODALITY_LUT_DATA: [u8; 8] = [0, 0, 0, 4, 0, 8, 0xff, 0x0f];
+const CR_VOI_LUT_DATA: [u8; 8] = [0, 0, 0x55, 0x55, 0xaa, 0xaa, 0xff, 0xff];
 
 const PIXEL_RECIPES: &[PixelRecipe] = &[
     PixelRecipe {
@@ -490,6 +496,45 @@ const CLASSIC_MG_RECIPES: &[ClassicMgRecipe] = &[
     },
 ];
 
+#[derive(Debug, Clone, Copy)]
+struct ClassicCrRecipe {
+    case_id: &'static str,
+    recipe_id: &'static str,
+    rows: u16,
+    columns: u16,
+    pixel_bytes: &'static [u8],
+    pixel_values: &'static [i32],
+    pixel_min: i32,
+    pixel_max: i32,
+    overlay_bytes: &'static [u8],
+    modality_lut_descriptor: [u16; 3],
+    modality_lut_data: &'static [u8],
+    modality_lut_type: &'static str,
+    voi_lut_descriptor: [u16; 3],
+    voi_lut_data: &'static [u8],
+    body_part_examined: &'static str,
+    view_position: &'static str,
+}
+
+const CLASSIC_CR_RECIPES: &[ClassicCrRecipe] = &[ClassicCrRecipe {
+    case_id: "classic/cr/overlay_modality_voi_explicit_le",
+    recipe_id: "cr_overlay_modality_voi",
+    rows: 2,
+    columns: 2,
+    pixel_bytes: &CR_U8_PIXELS,
+    pixel_values: &CR_U8_VALUES,
+    pixel_min: 0,
+    pixel_max: 3,
+    overlay_bytes: &CR_OVERLAY_PIXELS,
+    modality_lut_descriptor: [4, 0, 16],
+    modality_lut_data: &CR_MODALITY_LUT_DATA,
+    modality_lut_type: "US",
+    voi_lut_descriptor: [4, 0, 16],
+    voi_lut_data: &CR_VOI_LUT_DATA,
+    body_part_examined: "CHEST",
+    view_position: "PA",
+}];
+
 #[derive(Debug, Clone)]
 pub(crate) struct GeneratedFile {
     pub case_id: String,
@@ -536,6 +581,21 @@ pub(crate) fn write_supported_cases(
             continue;
         }
         generated_files.push(write_classic_mg_case(
+            run,
+            case,
+            *recipe,
+            standards_lock_sha256,
+        )?);
+    }
+    for recipe in CLASSIC_CR_RECIPES {
+        let Some(case) = registry_case(registry, recipe.case_id)? else {
+            continue;
+        };
+        let profiles = string_array(case.get("profiles"))?;
+        if !case_matches_profile(&profiles, &run.profile, run.include_stress) {
+            continue;
+        }
+        generated_files.push(write_classic_cr_case(
             run,
             case,
             *recipe,
@@ -736,6 +796,7 @@ fn write_pixel_case(
             padding: recipe.padding.map(|padding| padding.into()),
             ct_image: None,
             mg_image: None,
+            cr_image: None,
         },
     )?;
 
@@ -1233,6 +1294,7 @@ fn write_classic_ct_case(
                 window_width: recipe.window_width,
             }),
             mg_image: None,
+            cr_image: None,
         },
     )?;
 
@@ -1710,6 +1772,7 @@ fn write_classic_mg_case(
                 view_code_value: "399162004",
                 acquisition_context_items: 0,
             }),
+            cr_image: None,
         },
     )?;
 
@@ -1965,6 +2028,425 @@ fn classic_mg_manifest_entry(
     })
 }
 
+fn write_classic_cr_case(
+    run: &PreparedGenerationRun,
+    case: &Value,
+    recipe: ClassicCrRecipe,
+    standards_lock_sha256: &str,
+) -> Result<GeneratedFile, GenerateError> {
+    let study_instance_uid = deterministic_classic_cr_uid(
+        standards_lock_sha256,
+        recipe,
+        run.seed,
+        UidRole::StudyInstance,
+    );
+    let series_instance_uid = deterministic_classic_cr_uid(
+        standards_lock_sha256,
+        recipe,
+        run.seed,
+        UidRole::SeriesInstance,
+    );
+    let sop_instance_uid = deterministic_classic_cr_uid(
+        standards_lock_sha256,
+        recipe,
+        run.seed,
+        UidRole::SopInstance,
+    );
+    let implementation_class_uid = deterministic_implementation_uid(standards_lock_sha256);
+
+    let relative_path = format!("{}/instance.dcm", recipe.case_id);
+    let path = run.out_dir.join(&relative_path);
+    let case_dir = path.parent().ok_or_else(|| GenerateError::MetadataShape {
+        path: PathBuf::from(&relative_path),
+        message: "generated DICOM path must have a parent directory",
+    })?;
+    fs::create_dir_all(case_dir).map_err(|source| GenerateError::CreateCaseOutputDir {
+        path: case_dir.to_path_buf(),
+        source,
+    })?;
+
+    let overlay_rows = tags::OVERLAY_ROWS.inner();
+    let overlay_columns = tags::OVERLAY_COLUMNS.inner();
+    let overlay_type = tags::OVERLAY_TYPE.inner();
+    let overlay_origin = tags::OVERLAY_ORIGIN.inner();
+    let overlay_bits_allocated = tags::OVERLAY_BITS_ALLOCATED.inner();
+    let overlay_bit_position = tags::OVERLAY_BIT_POSITION.inner();
+    let overlay_data = tags::OVERLAY_DATA.inner();
+
+    let mut obj = InMemDicomObject::new_empty();
+    put_str(
+        &mut obj,
+        tags::SOP_CLASS_UID,
+        VR::UI,
+        uids::COMPUTED_RADIOGRAPHY_IMAGE_STORAGE,
+    );
+    put_str(&mut obj, tags::SOP_INSTANCE_UID, VR::UI, &sop_instance_uid);
+    put_str(&mut obj, tags::SYNTHETIC_DATA, VR::CS, "YES");
+
+    put_str(
+        &mut obj,
+        tags::PATIENT_NAME,
+        VR::PN,
+        "DTS^Synthetic^Patient001",
+    );
+    put_str(&mut obj, tags::PATIENT_ID, VR::LO, "DTS-PATIENT-001");
+    put_str(&mut obj, tags::PATIENT_BIRTH_DATE, VR::DA, "19700101");
+    put_str(&mut obj, tags::PATIENT_SEX, VR::CS, "O");
+
+    put_str(
+        &mut obj,
+        tags::STUDY_INSTANCE_UID,
+        VR::UI,
+        &study_instance_uid,
+    );
+    put_str(&mut obj, tags::STUDY_DATE, VR::DA, "20260101");
+    put_str(&mut obj, tags::STUDY_TIME, VR::TM, "000000");
+    put_str(&mut obj, tags::REFERRING_PHYSICIAN_NAME, VR::PN, "");
+    put_str(&mut obj, tags::STUDY_ID, VR::SH, "DTS-CR");
+    put_str(&mut obj, tags::ACCESSION_NUMBER, VR::SH, "");
+
+    put_str(&mut obj, tags::MODALITY, VR::CS, "CR");
+    put_str(
+        &mut obj,
+        tags::SERIES_INSTANCE_UID,
+        VR::UI,
+        &series_instance_uid,
+    );
+    put_str(&mut obj, tags::SERIES_NUMBER, VR::IS, "1");
+    put_str(
+        &mut obj,
+        tags::BODY_PART_EXAMINED,
+        VR::CS,
+        recipe.body_part_examined,
+    );
+    put_str(&mut obj, tags::VIEW_POSITION, VR::CS, recipe.view_position);
+
+    put_str(&mut obj, tags::MANUFACTURER, VR::LO, "dicom-test-suite");
+    put_str(
+        &mut obj,
+        tags::MANUFACTURER_MODEL_NAME,
+        VR::LO,
+        recipe.recipe_id,
+    );
+    put_str(
+        &mut obj,
+        tags::SOFTWARE_VERSIONS,
+        VR::LO,
+        crate::PACKAGE_VERSION,
+    );
+
+    put_str(&mut obj, tags::ACQUISITION_NUMBER, VR::IS, "1");
+    put_str(&mut obj, tags::ACQUISITION_DATE, VR::DA, "20260101");
+    put_str(&mut obj, tags::ACQUISITION_TIME, VR::TM, "000000");
+
+    put_str(&mut obj, tags::IMAGE_TYPE, VR::CS, "ORIGINAL\\PRIMARY");
+    put_str(&mut obj, tags::INSTANCE_NUMBER, VR::IS, "1");
+    put_str(&mut obj, tags::PATIENT_ORIENTATION, VR::CS, "");
+    put_str(&mut obj, tags::CONTENT_DATE, VR::DA, "20260101");
+    put_str(&mut obj, tags::CONTENT_TIME, VR::TM, "000000");
+
+    put_u16(&mut obj, tags::SAMPLES_PER_PIXEL, VR::US, 1);
+    put_str(
+        &mut obj,
+        tags::PHOTOMETRIC_INTERPRETATION,
+        VR::CS,
+        "MONOCHROME2",
+    );
+    put_u16(&mut obj, tags::ROWS, VR::US, recipe.rows);
+    put_u16(&mut obj, tags::COLUMNS, VR::US, recipe.columns);
+    put_u16(&mut obj, tags::BITS_ALLOCATED, VR::US, 8);
+    put_u16(&mut obj, tags::BITS_STORED, VR::US, 8);
+    put_u16(&mut obj, tags::HIGH_BIT, VR::US, 7);
+    put_u16(&mut obj, tags::PIXEL_REPRESENTATION, VR::US, 0);
+
+    put_lut_sequence(
+        &mut obj,
+        tags::MODALITY_LUT_SEQUENCE,
+        recipe.modality_lut_descriptor,
+        "Synthetic CR modality LUT",
+        Some(recipe.modality_lut_type),
+        recipe.modality_lut_data,
+    );
+    put_lut_sequence(
+        &mut obj,
+        tags::VOILUT_SEQUENCE,
+        recipe.voi_lut_descriptor,
+        "Synthetic CR VOI LUT",
+        None,
+        recipe.voi_lut_data,
+    );
+
+    put_u16(&mut obj, overlay_rows, VR::US, recipe.rows);
+    put_u16(&mut obj, overlay_columns, VR::US, recipe.columns);
+    put_str(&mut obj, overlay_type, VR::CS, "G");
+    obj.put(DataElement::new(
+        overlay_origin,
+        VR::SS,
+        PrimitiveValue::from([1_i16, 1_i16]),
+    ));
+    put_u16(&mut obj, overlay_bits_allocated, VR::US, 1);
+    put_u16(&mut obj, overlay_bit_position, VR::US, 0);
+    obj.put(DataElement::new(
+        overlay_data,
+        VR::OW,
+        PrimitiveValue::from(recipe.overlay_bytes),
+    ));
+
+    obj.put(DataElement::new(
+        tags::PIXEL_DATA,
+        VR::OB,
+        PrimitiveValue::from(recipe.pixel_bytes),
+    ));
+
+    let file_obj = obj
+        .with_meta(
+            FileMetaTableBuilder::new()
+                .transfer_syntax(uids::EXPLICIT_VR_LITTLE_ENDIAN)
+                .implementation_class_uid(&implementation_class_uid)
+                .implementation_version_name("DICOMTS010"),
+        )
+        .map_err(|err| GenerateError::WriteDicomFile {
+            path: path.clone(),
+            message: err.to_string(),
+        })?;
+
+    file_obj
+        .write_to_file(&path)
+        .map_err(|err| GenerateError::WriteDicomFile {
+            path: path.clone(),
+            message: err.to_string(),
+        })?;
+
+    let validated = validate_part10_file(
+        &path,
+        &Part10Expectations {
+            sop_class_uid: uids::COMPUTED_RADIOGRAPHY_IMAGE_STORAGE,
+            sop_instance_uid: &sop_instance_uid,
+            transfer_syntax_uid: uids::EXPLICIT_VR_LITTLE_ENDIAN,
+            implementation_class_uid: &implementation_class_uid,
+            synthetic_data: "YES",
+            rows: recipe.rows,
+            columns: recipe.columns,
+            samples_per_pixel: 1,
+            photometric_interpretation: "MONOCHROME2",
+            bits_allocated: 8,
+            bits_stored: 8,
+            high_bit: 7,
+            pixel_representation: 0,
+            planar_configuration: None,
+            pixel_data_vr: VR::OB,
+            pixel_data_length_formula: PixelDataLengthFormula::ContiguousSamples,
+            palette: None,
+            padding: None,
+            ct_image: None,
+            mg_image: None,
+            cr_image: Some(CrImageExpectations {
+                modality: "CR",
+                image_type: "ORIGINAL\\PRIMARY",
+                body_part_examined: recipe.body_part_examined,
+                view_position: recipe.view_position,
+                acquisition_number: "1",
+                overlay_rows: recipe.rows,
+                overlay_columns: recipe.columns,
+                overlay_type: "G",
+                overlay_origin: vec![1, 1],
+                overlay_bits_allocated: 1,
+                overlay_bit_position: 0,
+                overlay_data_length: recipe.overlay_bytes.len(),
+                modality_lut_descriptor: recipe.modality_lut_descriptor,
+                modality_lut_type: recipe.modality_lut_type,
+                modality_lut_data_length: recipe.modality_lut_data.len(),
+                voi_lut_descriptor: recipe.voi_lut_descriptor,
+                voi_lut_data_length: recipe.voi_lut_data.len(),
+            }),
+        },
+    )?;
+
+    Ok(GeneratedFile {
+        case_id: recipe.case_id.to_string(),
+        manifest_entry: classic_cr_manifest_entry(
+            case,
+            recipe,
+            &relative_path,
+            &study_instance_uid,
+            &series_instance_uid,
+            &sop_instance_uid,
+            &implementation_class_uid,
+            &validated.bytes,
+            validated.validation,
+        ),
+    })
+}
+
+#[allow(clippy::too_many_arguments)]
+fn classic_cr_manifest_entry(
+    case: &Value,
+    recipe: ClassicCrRecipe,
+    relative_path: &str,
+    study_instance_uid: &str,
+    series_instance_uid: &str,
+    sop_instance_uid: &str,
+    implementation_class_uid: &str,
+    bytes: &[u8],
+    validation: Value,
+) -> Value {
+    let mut standards_evidence = case
+        .get("standards_evidence")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    standards_evidence.extend([
+        serde_json::json!({
+            "source": "dicom-standard-kb",
+            "edition": "2026b",
+            "query": "lookup_iod Computed Radiography Image",
+            "covered": true,
+            "part": "PS3.3",
+            "anchor": "table_A.2-1"
+        }),
+        serde_json::json!({
+            "source": "dicom-standard-kb",
+            "edition": "2026b",
+            "query": "list_modules_for_iod Computed Radiography Image",
+            "covered": true,
+            "part": "PS3.3",
+            "anchor": "table_A.2-1"
+        }),
+        serde_json::json!({
+            "source": "dicom-standard-kb",
+            "edition": "2026b",
+            "query": "list_attributes_for_module CR Series --expand-macros",
+            "covered": true,
+            "part": "PS3.3",
+            "anchor": "table_C.8-1"
+        }),
+        serde_json::json!({
+            "source": "dicom-standard-kb",
+            "edition": "2026b",
+            "query": "list_attributes_for_module CR Image --expand-macros",
+            "covered": true,
+            "part": "PS3.3",
+            "anchor": "table_C.8-2"
+        }),
+        serde_json::json!({
+            "source": "dicom-standard-kb",
+            "edition": "2026b",
+            "query": "list_attributes_for_module Overlay Plane --expand-macros",
+            "covered": true,
+            "part": "PS3.3",
+            "anchor": "table_C.9-2"
+        }),
+        serde_json::json!({
+            "source": "dicom-standard-kb",
+            "edition": "2026b",
+            "query": "list_attributes_for_module Modality LUT --expand-macros",
+            "covered": true,
+            "part": "PS3.3",
+            "anchor": "table_C.11-1"
+        }),
+        serde_json::json!({
+            "source": "dicom-standard-kb",
+            "edition": "2026b",
+            "query": "list_attributes_for_module VOI LUT --expand-macros",
+            "covered": true,
+            "part": "PS3.3",
+            "anchor": "table_C.11-2"
+        }),
+    ]);
+
+    serde_json::json!({
+        "case_id": recipe.case_id,
+        "profile_membership": ["core"],
+        "path": relative_path,
+        "sha256": sha256_hex(bytes),
+        "size_bytes": bytes.len(),
+        "determinism": "byte_stable",
+        "recipe": {
+            "recipe_id": recipe.recipe_id,
+            "recipe_version": CLASSIC_CR_RECIPE_VERSION,
+            "recipe_parameters": {
+                "rows": recipe.rows,
+                "columns": recipe.columns,
+                "samples_per_pixel": 1,
+                "photometric_interpretation": "MONOCHROME2",
+                "bits_allocated": 8,
+                "bits_stored": 8,
+                "high_bit": 7,
+                "pixel_representation": 0,
+                "pixel_values": recipe.pixel_values,
+                "overlay": {
+                    "rows": recipe.rows,
+                    "columns": recipe.columns,
+                    "type": "G",
+                    "origin": [1, 1],
+                    "bits_allocated": 1,
+                    "bit_position": 0,
+                    "value_length": recipe.overlay_bytes.len()
+                },
+                "modality_lut": {
+                    "descriptor": recipe.modality_lut_descriptor,
+                    "type": recipe.modality_lut_type,
+                    "data_value_length": recipe.modality_lut_data.len()
+                },
+                "voi_lut": {
+                    "descriptor": recipe.voi_lut_descriptor,
+                    "data_value_length": recipe.voi_lut_data.len()
+                }
+            }
+        },
+        "dicom": {
+            "sop_class_uid": uids::COMPUTED_RADIOGRAPHY_IMAGE_STORAGE,
+            "sop_class_name": "Computed Radiography Image Storage",
+            "iod_name": "Computed Radiography Image",
+            "modality": "CR",
+            "transfer_syntax_uid": uids::EXPLICIT_VR_LITTLE_ENDIAN,
+            "transfer_syntax_name": "Explicit VR Little Endian"
+        },
+        "uids": {
+            "study_instance_uid": study_instance_uid,
+            "series_instance_uid": series_instance_uid,
+            "sop_instance_uid": sop_instance_uid,
+            "frame_of_reference_uid": Value::Null,
+            "implementation_class_uid": implementation_class_uid
+        },
+        "image": {
+            "rows": recipe.rows,
+            "columns": recipe.columns,
+            "frames": 1,
+            "samples_per_pixel": 1,
+            "photometric_interpretation": "MONOCHROME2",
+            "bits_allocated": 8,
+            "bits_stored": 8,
+            "high_bit": 7,
+            "pixel_representation": 0,
+            "planar_configuration": Value::Null
+        },
+        "pixel_data": {
+            "vr": "OB",
+            "native_or_encapsulated": "native",
+            "value_length": recipe.pixel_bytes.len(),
+            "frame_count": 1,
+            "frame_hashes": [sha256_hex(recipe.pixel_bytes)]
+        },
+        "expected_capabilities": ["open_file", "read_metadata", "render_native_pixels", "read_overlay_plane", "apply_modality_lut", "apply_voi_lut"],
+        "expected_semantics": {
+            "synthetic_data": "YES",
+            "image_type": "ORIGINAL\\PRIMARY",
+            "pixel_min": recipe.pixel_min,
+            "pixel_max": recipe.pixel_max,
+            "overlay_pattern": "2x2_diagonal_overlay",
+            "modality_lut": "stored values 0..3 map through a four-entry 16-bit Modality LUT",
+            "voi_lut": "post-modality values can be windowed through a four-entry 16-bit VOI LUT"
+        },
+        "expected_visual_checks": {
+            "pattern": "2x2_cr_overlay_lut_gradient"
+        },
+        "validation": validation,
+        "known_stressors": ["computed_radiography_image_storage", "overlay_plane", "modality_lut_sequence", "voi_lut_sequence"],
+        "standards_evidence": standards_evidence
+    })
+}
+
 fn deterministic_case_uid(
     standards_lock_sha256: &str,
     recipe: PixelRecipe,
@@ -2011,6 +2493,24 @@ fn deterministic_classic_mg_uid(
         standards_lock_sha256,
         case_id: recipe.case_id,
         recipe_version: CLASSIC_MG_RECIPE_VERSION,
+        run_seed,
+        file_index: 0,
+        frame_index: None,
+        referenced_object_index: None,
+        role,
+    })
+}
+
+fn deterministic_classic_cr_uid(
+    standards_lock_sha256: &str,
+    recipe: ClassicCrRecipe,
+    run_seed: u64,
+    role: UidRole,
+) -> String {
+    deterministic_uid(&DeterministicUidInput {
+        standards_lock_sha256,
+        case_id: recipe.case_id,
+        recipe_version: CLASSIC_CR_RECIPE_VERSION,
         run_seed,
         file_index: 0,
         frame_index: None,
@@ -2078,6 +2578,38 @@ fn put_code_sequence(
             DataElement::new(tags::CODING_SCHEME_DESIGNATOR, VR::SH, coding_scheme),
             DataElement::new(tags::CODE_MEANING, VR::LO, code_meaning),
         ])]),
+    ));
+}
+
+fn put_lut_sequence(
+    obj: &mut InMemDicomObject,
+    sequence_tag: Tag,
+    descriptor: [u16; 3],
+    explanation: &str,
+    modality_lut_type: Option<&str>,
+    data: &[u8],
+) {
+    let mut elements = vec![
+        DataElement::new(
+            tags::LUT_DESCRIPTOR,
+            VR::US,
+            PrimitiveValue::from(descriptor),
+        ),
+        DataElement::new(tags::LUT_EXPLANATION, VR::LO, explanation),
+        DataElement::new(tags::LUT_DATA, VR::OW, PrimitiveValue::from(data)),
+    ];
+    if let Some(modality_lut_type) = modality_lut_type {
+        elements.push(DataElement::new(
+            tags::MODALITY_LUT_TYPE,
+            VR::LO,
+            modality_lut_type,
+        ));
+    }
+
+    obj.put(DataElement::new(
+        sequence_tag,
+        VR::SQ,
+        DataSetSequence::from(vec![InMemDicomObject::from_element_iter(elements)]),
     ));
 }
 

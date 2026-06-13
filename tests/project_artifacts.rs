@@ -70,7 +70,7 @@ fn registry_contains_initial_smoke_and_core_cases() {
             "classic/mg/for_processing_mono2_u16_12bit_implicit_le",
             "implemented",
         ),
-        ("classic/cr/overlay_modality_voi_explicit_le", "planned"),
+        ("classic/cr/overlay_modality_voi_explicit_le", "implemented"),
         ("classic/mr/multislice_oblique_explicit_le", "planned"),
         ("vl/photo/rgb_planar0_explicit_le", "planned"),
         ("vl/photo/palette_color_explicit_le", "planned"),

@@ -1195,7 +1195,7 @@
     },
     {
       "case_id": "classic/cr/overlay_modality_voi_explicit_le",
-      "status": "planned",
+      "status": "implemented",
       "profiles": ["core"],
       "recipe_id": "cr_overlay_modality_voi",
       "recipe_version": "0.1.0",
@@ -1226,6 +1226,102 @@
           "covered": true,
           "part": "PS3.6",
           "anchor": "table_A-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_iod Computed Radiography Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.2-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_modules_for_iod Computed Radiography Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.2-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module CR Series --expand-macros",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module CR Image --expand-macros",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-2"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module Overlay Plane --expand-macros",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.9-2"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module Modality LUT --expand-macros",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.11-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module VOI LUT --expand-macros",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.11-2"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_data_element OverlayRows",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_data_element OverlayData",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_data_element ModalityLUTSequence",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_data_element VOILUTSequence",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_data_element LUTDescriptor",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
         }
       ]
     },

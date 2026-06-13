@@ -32,6 +32,7 @@ pub(crate) struct Part10Expectations<'a> {
     pub padding: Option<PixelPaddingExpectations>,
     pub ct_image: Option<CtImageExpectations<'a>>,
     pub mg_image: Option<MgImageExpectations<'a>>,
+    pub cr_image: Option<CrImageExpectations<'a>>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -100,6 +101,27 @@ pub(crate) struct MgImageExpectations<'a> {
     pub anatomic_region_code_value: &'a str,
     pub view_code_value: &'a str,
     pub acquisition_context_items: usize,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct CrImageExpectations<'a> {
+    pub modality: &'a str,
+    pub image_type: &'a str,
+    pub body_part_examined: &'a str,
+    pub view_position: &'a str,
+    pub acquisition_number: &'a str,
+    pub overlay_rows: u16,
+    pub overlay_columns: u16,
+    pub overlay_type: &'a str,
+    pub overlay_origin: Vec<i16>,
+    pub overlay_bits_allocated: u16,
+    pub overlay_bit_position: u16,
+    pub overlay_data_length: usize,
+    pub modality_lut_descriptor: [u16; 3],
+    pub modality_lut_type: &'a str,
+    pub modality_lut_data_length: usize,
+    pub voi_lut_descriptor: [u16; 3],
+    pub voi_lut_data_length: usize,
 }
 
 #[derive(Debug, Clone)]
@@ -347,6 +369,9 @@ pub(crate) fn validate_part10_file(
     if let Some(mg_image) = &expected.mg_image {
         validate_mg_image(path, &obj, &mut internal, mg_image)?;
     }
+    if let Some(cr_image) = &expected.cr_image {
+        validate_cr_image(path, &obj, &mut internal, cr_image)?;
+    }
 
     fail_if_any_failed(path, &internal)?;
 
@@ -542,6 +567,18 @@ fn element_u16_values(
         .map_err(|err| validation_error(path, err))?
         .value()
         .to_multi_int::<u16>()
+        .map_err(|err| validation_error(path, err))
+}
+
+fn element_i16_values(
+    path: &Path,
+    obj: &OpenedObject,
+    tag: Tag,
+) -> Result<Vec<i16>, GenerateError> {
+    obj.element(tag)
+        .map_err(|err| validation_error(path, err))?
+        .value()
+        .to_multi_int::<i16>()
         .map_err(|err| validation_error(path, err))
 }
 
@@ -836,6 +873,201 @@ fn validate_optional_mg_window(
     Ok(())
 }
 
+fn validate_cr_image(
+    path: &Path,
+    obj: &OpenedObject,
+    results: &mut Vec<Value>,
+    expected: &CrImageExpectations<'_>,
+) -> Result<(), GenerateError> {
+    for (name, tag, expected_value) in [
+        ("cr_modality", tags::MODALITY, expected.modality),
+        ("cr_image_type", tags::IMAGE_TYPE, expected.image_type),
+        (
+            "cr_body_part_examined",
+            tags::BODY_PART_EXAMINED,
+            expected.body_part_examined,
+        ),
+        (
+            "cr_view_position",
+            tags::VIEW_POSITION,
+            expected.view_position,
+        ),
+        (
+            "cr_acquisition_number",
+            tags::ACQUISITION_NUMBER,
+            expected.acquisition_number,
+        ),
+        (
+            "cr_overlay_type",
+            tags::OVERLAY_TYPE.inner(),
+            expected.overlay_type,
+        ),
+    ] {
+        check_equal(
+            results,
+            name,
+            "Computed Radiography attribute matches the recipe.",
+            "Computed Radiography attribute does not match the recipe.",
+            element_str(path, obj, tag)?.as_str(),
+            expected_value,
+        );
+    }
+    for (name, tag, expected_value) in [
+        (
+            "cr_overlay_rows",
+            tags::OVERLAY_ROWS.inner(),
+            expected.overlay_rows,
+        ),
+        (
+            "cr_overlay_columns",
+            tags::OVERLAY_COLUMNS.inner(),
+            expected.overlay_columns,
+        ),
+        (
+            "cr_overlay_bits_allocated",
+            tags::OVERLAY_BITS_ALLOCATED.inner(),
+            expected.overlay_bits_allocated,
+        ),
+        (
+            "cr_overlay_bit_position",
+            tags::OVERLAY_BIT_POSITION.inner(),
+            expected.overlay_bit_position,
+        ),
+    ] {
+        check_equal(
+            results,
+            name,
+            "Computed Radiography overlay numeric attribute matches the recipe.",
+            "Computed Radiography overlay numeric attribute does not match the recipe.",
+            element_u16(path, obj, tag)?,
+            expected_value,
+        );
+    }
+    check_equal(
+        results,
+        "cr_overlay_origin",
+        "Computed Radiography overlay origin matches the recipe.",
+        "Computed Radiography overlay origin does not match the recipe.",
+        element_i16_values(path, obj, tags::OVERLAY_ORIGIN.inner())?,
+        expected.overlay_origin.clone(),
+    );
+    let overlay_data = obj
+        .element(tags::OVERLAY_DATA.inner())
+        .map_err(|err| validation_error(path, err))?;
+    let overlay_data_length = overlay_data
+        .value()
+        .to_bytes()
+        .map(|bytes| bytes.len())
+        .map_err(|err| validation_error(path, err))?;
+    check_equal(
+        results,
+        "cr_overlay_data",
+        "Computed Radiography overlay data VR and length match the recipe.",
+        "Computed Radiography overlay data VR or length does not match the recipe.",
+        (overlay_data.vr(), overlay_data_length),
+        (VR::OW, expected.overlay_data_length),
+    );
+
+    validate_lut_sequence(
+        path,
+        obj,
+        results,
+        tags::MODALITY_LUT_SEQUENCE,
+        "cr_modality_lut",
+        expected.modality_lut_descriptor,
+        Some(expected.modality_lut_type),
+        expected.modality_lut_data_length,
+    )?;
+    validate_lut_sequence(
+        path,
+        obj,
+        results,
+        tags::VOILUT_SEQUENCE,
+        "cr_voi_lut",
+        expected.voi_lut_descriptor,
+        None,
+        expected.voi_lut_data_length,
+    )?;
+
+    Ok(())
+}
+
+fn validate_lut_sequence(
+    path: &Path,
+    obj: &OpenedObject,
+    results: &mut Vec<Value>,
+    tag: Tag,
+    name_prefix: &str,
+    expected_descriptor: [u16; 3],
+    expected_modality_lut_type: Option<&str>,
+    expected_data_length: usize,
+) -> Result<(), GenerateError> {
+    let element = obj
+        .element(tag)
+        .map_err(|err| validation_error(path, err))?;
+    let item = element
+        .items()
+        .and_then(|items| items.first())
+        .ok_or_else(|| GenerateError::ValidateDicomFile {
+            path: path.to_path_buf(),
+            message: format!("sequence {} has no first item", tag),
+        })?;
+    check_equal(
+        results,
+        &format!("{name_prefix}_item_count"),
+        "LUT Sequence has one item.",
+        "LUT Sequence does not have one item.",
+        sequence_item_count(path, obj, tag)?,
+        1,
+    );
+    check_equal(
+        results,
+        &format!("{name_prefix}_descriptor"),
+        "LUT Descriptor matches the recipe.",
+        "LUT Descriptor does not match the recipe.",
+        item.element(tags::LUT_DESCRIPTOR)
+            .map_err(|err| validation_error(path, err))?
+            .value()
+            .to_multi_int::<u16>()
+            .map_err(|err| validation_error(path, err))?,
+        expected_descriptor.to_vec(),
+    );
+    let lut_data = item
+        .element(tags::LUT_DATA)
+        .map_err(|err| validation_error(path, err))?;
+    let lut_data_length = lut_data
+        .value()
+        .to_bytes()
+        .map(|bytes| bytes.len())
+        .map_err(|err| validation_error(path, err))?;
+    check_equal(
+        results,
+        &format!("{name_prefix}_data"),
+        "LUT Data VR and length match the recipe.",
+        "LUT Data VR or length does not match the recipe.",
+        (lut_data.vr(), lut_data_length),
+        (VR::OW, expected_data_length),
+    );
+    if let Some(expected_modality_lut_type) = expected_modality_lut_type {
+        let value = item
+            .element(tags::MODALITY_LUT_TYPE)
+            .map_err(|err| validation_error(path, err))?
+            .value()
+            .to_str()
+            .map_err(|err| validation_error(path, err))?;
+        check_equal(
+            results,
+            &format!("{name_prefix}_type"),
+            "Modality LUT Type matches the recipe.",
+            "Modality LUT Type does not match the recipe.",
+            value.trim_matches('\0').trim(),
+            expected_modality_lut_type,
+        );
+    }
+
+    Ok(())
+}
+
 fn first_sequence_code_value(
     path: &Path,
     obj: &OpenedObject,
@@ -877,6 +1109,7 @@ fn standard_sop_class_validation_name(sop_class_uid: &str) -> &'static str {
     match sop_class_uid {
         uids::SECONDARY_CAPTURE_IMAGE_STORAGE => "secondary_capture_sop_class",
         uids::CT_IMAGE_STORAGE => "ct_image_sop_class",
+        uids::COMPUTED_RADIOGRAPHY_IMAGE_STORAGE => "computed_radiography_image_sop_class",
         uids::DIGITAL_MAMMOGRAPHY_X_RAY_IMAGE_STORAGE_FOR_PRESENTATION => {
             "digital_mammography_for_presentation_sop_class"
         }
@@ -893,6 +1126,9 @@ fn standard_sop_class_validation_message(sop_class_uid: &str) -> &'static str {
             "SOP Class UID matches Secondary Capture Image Storage in the 2026b reference."
         }
         uids::CT_IMAGE_STORAGE => "SOP Class UID matches CT Image Storage in the 2026b reference.",
+        uids::COMPUTED_RADIOGRAPHY_IMAGE_STORAGE => {
+            "SOP Class UID matches Computed Radiography Image Storage in the 2026b reference."
+        }
         uids::DIGITAL_MAMMOGRAPHY_X_RAY_IMAGE_STORAGE_FOR_PRESENTATION => {
             "SOP Class UID matches Digital Mammography X-Ray Image Storage - For Presentation in the 2026b reference."
         }

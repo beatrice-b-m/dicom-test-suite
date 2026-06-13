@@ -4,7 +4,7 @@
 **Source specification:** `SYSTEM_SPEC.md` version 0.2.0  
 **Current phase:** remediation planning before Phase 5 feature expansion
 
-**Current implementation status:** Phase 0, Phase 0.5, Phase 1, Phase 2, Phase 3, and Phase 4 are functionally implemented, and Remediation R1 is complete. Remaining remediation before clean Phase 5 expansion: expected CLI commands remain incomplete, validation needs stricter Part 10 checks, standards lock pinning is partial, and reproducibility/schema/CI guard coverage needs expansion
+**Current implementation status:** Phase 0, Phase 0.5, Phase 1, Phase 2, Phase 3, and Phase 4 are functionally implemented, and Remediation R1 is complete. Remediation R2 has started with `list-cases --status` implemented. Remaining remediation before clean Phase 5 expansion: `validate`, `report`, and `standards` CLI commands remain incomplete, validation needs stricter Part 10 checks, standards lock pinning is partial, and reproducibility/schema/CI guard coverage needs expansion
 
 This document is the durable hand-off log for coding agents implementing
 `dicom-test-suite`. Keep `SYSTEM_SPEC.md` as the source of product and
@@ -84,7 +84,7 @@ Observed at creation of this progress file:
 | Phase 2: Native pixel matrix | complete | Core native monochrome 16-bit unsigned/signed MONOCHROME2 OW Pixel Data, RGB planar configuration 1, PALETTE COLOR, YBR_FULL, YBR_FULL_422, odd-dimension, rectangular, tiny-image, pixel-padding, and broadened native pixel validators are implemented. |
 | Phase 3: Classic radiology IODs | complete | CT Image Storage signed 12-bit rescale/window, MG For Presentation/For Processing 12-bit, CR overlay/Modality LUT/VOI LUT, MR multi-slice oblique geometry, DX display shutter, US Image Storage, and stable multi-file series generation are implemented. |
 | Phase 4: Enhanced multi-frame | complete | Enhanced CT and Enhanced MR Image Storage cases with Shared and Per-Frame Functional Groups and Multi-frame Dimension metadata are implemented; MR Echo, Temporal Position, phase/velocity-encoding variation, and a two-member Enhanced CT concatenation case are covered. |
-| Remediation before Phase 5 | in progress | R1 registry authority is complete; R2 CLI contracts and later remediation tasks in `REMEDIATION_PLAN.md` remain before adding new Phase 5 recipes. |
+| Remediation before Phase 5 | in progress | R1 registry authority is complete and R2 list-case status filtering is implemented; remaining R2 CLI contracts and later remediation tasks in `REMEDIATION_PLAN.md` remain before adding new Phase 5 recipes. |
 | Phase 5: Derived, presentation, and non-image objects | not started | SEG, presentation states, SR, KOS, RWVM, RT, and encapsulated documents pending. |
 | Phase 6: Transfer syntax expansion | not started | Transfer syntax abstraction and compressed cases pending. |
 | Phase 7: Pathology, video, and large object profiles | not started | VL, WSI, video, and stress cases pending. |
@@ -500,23 +500,29 @@ These case IDs come from `SYSTEM_SPEC.md` section 21 and should seed
   avoiding duplicated citations. Focused tests cover the deduplication helper,
   smoke/core/extended generation, planned VL skipped rows, planned SEG skipped
   rows, blocked status prevention, and all registry statuses.
+- 2026-06-13: Remediation R2 started with `list-cases --status <status>`.
+  The command now supports `planned`, `implemented`, `skipped`, `blocked`, and
+  `deprecated` filters, can combine `--status` with `--profile`, and returns a
+  clear non-zero error for unsupported statuses. Library and CLI tests cover
+  combined extended/planned filtering and unknown status rejection.
 
 ## Current Blockers
 
 The 2026-06-13 baseline review found remediation items that should be resolved
-before Phase 5 feature expansion: `list-cases --status`, `validate`, `report`,
-and `standards` CLI commands are not implemented, validation does not yet
-enforce every required Part 10 invariant, and reproducibility/schema/CI guard
-coverage is incomplete. The local `dicom-standard-kb` repository commit/DB
-SHA-256 and official source artifact hashes also remain unverified.
+before Phase 5 feature expansion: `validate`, `report`, and `standards` CLI
+commands are not implemented, validation does not yet enforce every required
+Part 10 invariant, and reproducibility/schema/CI guard coverage is incomplete.
+The local `dicom-standard-kb` repository commit/DB SHA-256 and official source
+artifact hashes also remain unverified.
 
 ## Recommended Next Commit
 
 Execute `REMEDIATION_PLAN.md` before starting new Phase 5 feature work:
 
-1. Start Remediation R2 by adding `list-cases --status <status>` and allowing
-   it to combine with `--profile`.
-2. Continue the expected CLI, validation, reproducibility, CI guard, and
+1. Continue Remediation R2 by implementing `validate <generated-root>` as a
+   first-class command that reads `manifest.json`, reopens generated files, and
+   reports validation failures with non-zero exit status.
+2. Continue the remaining CLI, validation, reproducibility, CI guard, and
    standards-lock cleanup phases described in the remediation plan.
 3. Resume Phase 5 with `feat(seg): add binary segmentation case` only after the
    remediation exit criteria are satisfied.

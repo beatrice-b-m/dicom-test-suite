@@ -82,6 +82,7 @@ fn run() -> Result<(), String> {
         "list-cases" => {
             let mut registry_path = String::from("cases/registry.json");
             let mut profile_filter = None;
+            let mut status_filter = None;
 
             while let Some(arg) = args.next() {
                 match arg.as_str() {
@@ -94,6 +95,12 @@ fn run() -> Result<(), String> {
                         profile_filter = Some(
                             args.next()
                                 .ok_or_else(|| "--profile requires a value".to_string())?,
+                        );
+                    }
+                    "--status" => {
+                        status_filter = Some(
+                            args.next()
+                                .ok_or_else(|| "--status requires a value".to_string())?,
                         );
                     }
                     "--help" | "-h" => {
@@ -109,6 +116,7 @@ fn run() -> Result<(), String> {
             let output = dicom_test_suite::list_cases_from_registry_path(
                 registry_path,
                 profile_filter.as_deref(),
+                status_filter.as_deref(),
             )
             .map_err(|err| err.to_string())?;
             print!("{output}");
@@ -128,7 +136,9 @@ fn print_usage() {
     println!(
         "  dicom-test-suite generate --profile PROFILE --out PATH [--seed SEED] [--include-stress]"
     );
-    println!("  dicom-test-suite list-cases [--profile PROFILE] [--registry PATH]");
+    println!(
+        "  dicom-test-suite list-cases [--profile PROFILE] [--status STATUS] [--registry PATH]"
+    );
 }
 
 fn print_generate_usage() {
@@ -138,7 +148,9 @@ fn print_generate_usage() {
 }
 
 fn print_list_cases_usage() {
-    println!("usage: dicom-test-suite list-cases [--profile PROFILE] [--registry PATH]");
+    println!(
+        "usage: dicom-test-suite list-cases [--profile PROFILE] [--status STATUS] [--registry PATH]"
+    );
 }
 
 fn parse_seed(seed: String) -> Result<u64, String> {

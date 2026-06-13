@@ -22,6 +22,8 @@ pub fn version_banner() -> String {
 pub const SUPPORTED_PROFILES: &[&str] = &[
     "smoke", "core", "extended", "legacy", "stress", "all", "negative", "fuzz",
 ];
+pub const SUPPORTED_CASE_STATUSES: &[&str] =
+    &["planned", "implemented", "skipped", "blocked", "deprecated"];
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GenerateOptions {
@@ -562,6 +564,7 @@ pub enum CaseRegistryError {
         path: String,
         source: serde_json::Error,
     },
+    InvalidStatus(String),
     Shape(&'static str),
 }
 
@@ -574,6 +577,11 @@ impl fmt::Display for CaseRegistryError {
             Self::Parse { path, source } => {
                 write!(f, "failed to parse case registry {path}: {source}")
             }
+            Self::InvalidStatus(status) => write!(
+                f,
+                "unsupported case status {status}; expected one of {}",
+                SUPPORTED_CASE_STATUSES.join(", ")
+            ),
             Self::Shape(message) => write!(f, "invalid case registry shape: {message}"),
         }
     }
@@ -584,6 +592,7 @@ impl Error for CaseRegistryError {
         match self {
             Self::Read { source, .. } => Some(source),
             Self::Parse { source, .. } => Some(source),
+            Self::InvalidStatus(_) => None,
             Self::Shape(_) => None,
         }
     }
@@ -592,6 +601,7 @@ impl Error for CaseRegistryError {
 pub fn list_cases_from_registry_path(
     registry_path: impl AsRef<Path>,
     profile_filter: Option<&str>,
+    status_filter: Option<&str>,
 ) -> Result<String, CaseRegistryError> {
     let registry_path = registry_path.as_ref();
     let path_display = registry_path.display().to_string();
@@ -605,13 +615,20 @@ pub fn list_cases_from_registry_path(
             source,
         })?;
 
-    list_cases_from_registry_value(&registry, profile_filter)
+    list_cases_from_registry_value(&registry, profile_filter, status_filter)
 }
 
 pub fn list_cases_from_registry_value(
     registry: &Value,
     profile_filter: Option<&str>,
+    status_filter: Option<&str>,
 ) -> Result<String, CaseRegistryError> {
+    if let Some(status_filter) = status_filter {
+        if !SUPPORTED_CASE_STATUSES.contains(&status_filter) {
+            return Err(CaseRegistryError::InvalidStatus(status_filter.to_string()));
+        }
+    }
+
     let cases = registry
         .get("cases")
         .and_then(Value::as_array)
@@ -631,6 +648,11 @@ pub fn list_cases_from_registry_value(
 
         let case_id = required_str(case, "case_id")?;
         let status = required_str(case, "status")?;
+        if let Some(status_filter) = status_filter {
+            if status != status_filter {
+                continue;
+            }
+        }
         let sop_class_uid = required_str(case, "sop_class_uid")?;
         let transfer_syntax_uid = required_str(case, "transfer_syntax_uid")?;
         let evidence = case
@@ -700,7 +722,7 @@ mod tests {
 
     #[test]
     fn list_cases_shows_committed_smoke_case_status_and_evidence() {
-        let output = list_cases_from_registry_path("cases/registry.json", Some("smoke"))
+        let output = list_cases_from_registry_path("cases/registry.json", Some("smoke"), None)
             .expect("smoke case registry should list");
 
         assert!(
@@ -713,7 +735,7 @@ mod tests {
 
     #[test]
     fn list_cases_shows_committed_core_case_status_and_evidence() {
-        let output = list_cases_from_registry_path("cases/registry.json", Some("core"))
+        let output = list_cases_from_registry_path("cases/registry.json", Some("core"), None)
             .expect("core case registry should list");
 
         assert!(
@@ -822,7 +844,7 @@ mod tests {
 
     #[test]
     fn list_cases_shows_committed_extended_case_status_and_evidence() {
-        let output = list_cases_from_registry_path("cases/registry.json", Some("extended"))
+        let output = list_cases_from_registry_path("cases/registry.json", Some("extended"), None)
             .expect("extended case registry should list");
 
         assert!(
@@ -860,6 +882,39 @@ mod tests {
                 "derived/seg/binary_multiframe_explicit_le\tplanned\textended\t1.2.840.10008.5.1.4.1.1.66.4\t1.2.840.10008.1.2.1\t8/8 covered"
             ),
             "list-cases output must show planned SEG extended status"
+        );
+    }
+
+    #[test]
+    fn list_cases_filters_by_profile_and_status() {
+        let output =
+            list_cases_from_registry_path("cases/registry.json", Some("extended"), Some("planned"))
+                .expect("extended planned cases should list");
+
+        assert!(
+            output.contains(
+                "derived/seg/binary_multiframe_explicit_le\tplanned\textended\t1.2.840.10008.5.1.4.1.1.66.4\t1.2.840.10008.1.2.1\t8/8 covered"
+            ),
+            "status filter should include planned SEG in extended"
+        );
+        assert!(
+            !output.contains("enhanced/ct/multiframe_shared_perframe_explicit_le"),
+            "status filter should exclude implemented extended cases"
+        );
+        assert!(
+            !output.contains("vl/photo/rgb_planar0_explicit_le"),
+            "profile filter should still exclude planned core VL cases"
+        );
+    }
+
+    #[test]
+    fn list_cases_rejects_unknown_status_filter() {
+        let err = list_cases_from_registry_path("cases/registry.json", None, Some("unknown"))
+            .expect_err("unknown status should fail");
+
+        assert!(
+            err.to_string().contains("unsupported case status unknown"),
+            "error should name the unsupported status"
         );
     }
 

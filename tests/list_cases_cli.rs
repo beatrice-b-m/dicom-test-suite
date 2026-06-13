@@ -197,3 +197,52 @@ fn list_cases_command_shows_extended_case_status_and_evidence() {
         "list-cases must include the planned SEG extended case with standards evidence"
     );
 }
+
+#[test]
+fn list_cases_command_filters_by_status_and_profile() {
+    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args(["list-cases", "--profile", "extended", "--status", "planned"])
+        .output()
+        .expect("list-cases command must run");
+
+    assert!(
+        output.status.success(),
+        "list-cases should exit successfully: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8(output.stdout).expect("list-cases stdout must be utf-8");
+    assert!(
+        stdout.contains(
+            "derived/seg/binary_multiframe_explicit_le\tplanned\textended\t1.2.840.10008.5.1.4.1.1.66.4\t1.2.840.10008.1.2.1\t8/8 covered"
+        ),
+        "status filter must include planned SEG in extended"
+    );
+    assert!(
+        !stdout.contains("enhanced/ct/multiframe_shared_perframe_explicit_le"),
+        "status filter must exclude implemented extended cases"
+    );
+    assert!(
+        !stdout.contains("vl/photo/rgb_planar0_explicit_le"),
+        "profile filter must exclude planned core cases"
+    );
+}
+
+#[test]
+fn list_cases_command_rejects_unknown_status() {
+    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args(["list-cases", "--status", "unknown"])
+        .output()
+        .expect("list-cases command must run");
+
+    assert!(
+        !output.status.success(),
+        "list-cases should reject unsupported status filters"
+    );
+
+    let stderr = String::from_utf8(output.stderr).expect("list-cases stderr must be utf-8");
+    assert!(
+        stderr.contains("unsupported case status unknown"),
+        "error should explain the unsupported status"
+    );
+}

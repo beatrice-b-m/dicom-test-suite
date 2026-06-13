@@ -46,6 +46,7 @@ fn generate_command_writes_smoke_part10_files_and_manifest() {
         &fs::read_to_string(&manifest_path).expect("manifest should be readable"),
     )
     .expect("manifest should parse");
+    assert_manifest_matches_committed_schema(&manifest);
     assert_eq!(
         manifest.pointer("/run/profile").and_then(Value::as_str),
         Some("smoke")
@@ -256,6 +257,7 @@ fn generate_command_writes_core_u16_native_pixel_case() {
         &fs::read_to_string(&manifest_path).expect("manifest should be readable"),
     )
     .expect("manifest should parse");
+    assert_manifest_matches_committed_schema(&manifest);
     assert_eq!(
         manifest.pointer("/run/profile").and_then(Value::as_str),
         Some("core")
@@ -1603,6 +1605,7 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
         &fs::read_to_string(&manifest_path).expect("manifest should be readable"),
     )
     .expect("manifest should parse");
+    assert_manifest_matches_committed_schema(&manifest);
     assert_eq!(
         manifest
             .pointer("/files")
@@ -2199,4 +2202,181 @@ fn skipped_case_by_id<'a>(manifest: &'a Value, case_id: &str) -> &'a Value {
         .iter()
         .find(|case| case.get("case_id").and_then(Value::as_str) == Some(case_id))
         .unwrap_or_else(|| panic!("manifest skipped cases should contain {case_id}"))
+}
+
+fn assert_manifest_matches_committed_schema(manifest: &Value) {
+    let schema = read_json("schemas/manifest.schema.json");
+    assert_required_fields(manifest, &schema, "/required", "manifest");
+    assert_allowed_properties(manifest, &schema, "/properties", "manifest");
+    assert_eq!(
+        manifest
+            .get("manifest_schema_version")
+            .and_then(Value::as_str),
+        schema
+            .pointer("/properties/manifest_schema_version/const")
+            .and_then(Value::as_str),
+        "manifest schema version must match committed schema"
+    );
+
+    assert_required_fields(
+        manifest
+            .get("generator")
+            .expect("manifest generator should exist"),
+        &schema,
+        "/$defs/generator/required",
+        "generator",
+    );
+    assert_allowed_properties(
+        manifest
+            .get("generator")
+            .expect("manifest generator should exist"),
+        &schema,
+        "/$defs/generator/properties",
+        "generator",
+    );
+    assert_required_fields(
+        manifest
+            .get("standards")
+            .expect("manifest standards should exist"),
+        &schema,
+        "/$defs/standards/required",
+        "standards",
+    );
+    assert_required_fields(
+        manifest
+            .get("dependencies")
+            .expect("manifest dependencies should exist"),
+        &schema,
+        "/$defs/dependencies/required",
+        "dependencies",
+    );
+    assert_required_fields(
+        manifest.get("run").expect("manifest run should exist"),
+        &schema,
+        "/$defs/run/required",
+        "run",
+    );
+    assert_allowed_properties(
+        manifest.get("run").expect("manifest run should exist"),
+        &schema,
+        "/$defs/run/properties",
+        "run",
+    );
+
+    for (index, file) in manifest
+        .get("files")
+        .and_then(Value::as_array)
+        .expect("manifest files should be an array")
+        .iter()
+        .enumerate()
+    {
+        assert_required_fields(
+            file,
+            &schema,
+            "/$defs/file/required",
+            &format!("files[{index}]"),
+        );
+        assert_allowed_properties(
+            file,
+            &schema,
+            "/$defs/file/properties",
+            &format!("files[{index}]"),
+        );
+        assert_required_fields(
+            file.get("recipe").expect("file recipe should exist"),
+            &schema,
+            "/$defs/recipe/required",
+            &format!("files[{index}].recipe"),
+        );
+        assert_required_fields(
+            file.get("dicom").expect("file dicom should exist"),
+            &schema,
+            "/$defs/dicom/required",
+            &format!("files[{index}].dicom"),
+        );
+        assert_required_fields(
+            file.get("uids").expect("file uids should exist"),
+            &schema,
+            "/$defs/uids/required",
+            &format!("files[{index}].uids"),
+        );
+        assert_required_fields(
+            file.get("image").expect("file image should exist"),
+            &schema,
+            "/$defs/image/required",
+            &format!("files[{index}].image"),
+        );
+        assert_required_fields(
+            file.get("pixel_data")
+                .expect("file pixel_data should exist"),
+            &schema,
+            "/$defs/pixel_data/required",
+            &format!("files[{index}].pixel_data"),
+        );
+        assert_required_fields(
+            file.get("validation")
+                .expect("file validation should exist"),
+            &schema,
+            "/$defs/validation/required",
+            &format!("files[{index}].validation"),
+        );
+    }
+
+    for (index, skipped) in manifest
+        .get("skipped_cases")
+        .and_then(Value::as_array)
+        .expect("manifest skipped_cases should be an array")
+        .iter()
+        .enumerate()
+    {
+        assert_required_fields(
+            skipped,
+            &schema,
+            "/$defs/skipped_case/required",
+            &format!("skipped_cases[{index}]"),
+        );
+        assert_allowed_properties(
+            skipped,
+            &schema,
+            "/$defs/skipped_case/properties",
+            &format!("skipped_cases[{index}]"),
+        );
+    }
+}
+
+fn assert_required_fields(value: &Value, schema: &Value, pointer: &str, label: &str) {
+    let object = value
+        .as_object()
+        .unwrap_or_else(|| panic!("{label} should be an object"));
+    for required in schema
+        .pointer(pointer)
+        .and_then(Value::as_array)
+        .unwrap_or_else(|| panic!("schema {pointer} should be an array"))
+    {
+        let field = required
+            .as_str()
+            .unwrap_or_else(|| panic!("schema {pointer} entries should be strings"));
+        assert!(object.contains_key(field), "{label} should contain {field}");
+    }
+}
+
+fn assert_allowed_properties(value: &Value, schema: &Value, pointer: &str, label: &str) {
+    let object = value
+        .as_object()
+        .unwrap_or_else(|| panic!("{label} should be an object"));
+    let allowed = schema
+        .pointer(pointer)
+        .and_then(Value::as_object)
+        .unwrap_or_else(|| panic!("schema {pointer} should be an object"));
+    for field in object.keys() {
+        assert!(
+            allowed.contains_key(field),
+            "{label} has property {field} not allowed by schema"
+        );
+    }
+}
+
+fn read_json(path: &str) -> Value {
+    let contents = fs::read_to_string(path).unwrap_or_else(|err| panic!("{path} readable: {err}"));
+    serde_json::from_str(&contents).unwrap_or_else(|err| panic!("{path} should parse: {err}"))
 }

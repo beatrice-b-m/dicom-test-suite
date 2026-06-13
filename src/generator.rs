@@ -10,7 +10,8 @@ use crate::{
     DeterministicUidInput, GenerateError, PreparedGenerationRun, UidRole, deterministic_uid,
     sha256_hex,
     validation::{
-        CrImageExpectations, CtImageExpectations, DxImageExpectations, EnhancedCtImageExpectations,
+        CrImageExpectations, CtImageExpectations, DxImageExpectations,
+        EnhancedCtConcatenationExpectations, EnhancedCtImageExpectations,
         EnhancedMrImageExpectations, MgImageExpectations, MrImageExpectations, Part10Expectations,
         PixelDataLengthFormula, UsImageExpectations, validate_part10_file,
     },
@@ -486,7 +487,42 @@ struct EnhancedCtRecipe {
     rescale_type: &'static str,
 }
 
+#[derive(Debug, Clone, Copy)]
+struct EnhancedCtConcatenationPart {
+    file_name: &'static str,
+    in_concatenation_number: u16,
+    concatenation_frame_offset_number: u32,
+    image_position_patient: &'static [&'static str],
+    dimension_index_values: &'static [u32],
+    pixel_bytes: &'static [u8],
+    pixel_values: &'static [i32],
+}
+
+#[derive(Debug, Clone, Copy)]
+struct EnhancedCtConcatenationRecipe {
+    base: EnhancedCtRecipe,
+    parts: &'static [EnhancedCtConcatenationPart],
+}
+
+#[derive(Debug, Clone, Copy)]
+struct EnhancedCtConcatenationManifest<'a> {
+    concatenation_uid: &'a str,
+    in_concatenation_number: u16,
+    in_concatenation_total_number: u16,
+    concatenation_frame_offset_number: u32,
+    sop_instance_uid_of_concatenation_source: &'a str,
+}
+
 const ENHANCED_CT_IMAGE_POSITIONS: &[&str] = &["0\\0\\0", "0\\0\\2.5"];
+const ENHANCED_CT_DIMENSION_INDEX_VALUES: &[u32] = &[1, 2];
+const ENHANCED_CT_CONCAT_PART_1_IMAGE_POSITIONS: &[&str] = &["0\\0\\0"];
+const ENHANCED_CT_CONCAT_PART_2_IMAGE_POSITIONS: &[&str] = &["0\\0\\2.5"];
+const ENHANCED_CT_CONCAT_PART_1_DIMENSION_INDEX_VALUES: &[u32] = &[1];
+const ENHANCED_CT_CONCAT_PART_2_DIMENSION_INDEX_VALUES: &[u32] = &[2];
+const ENHANCED_CT_CONCAT_PART_1_PIXELS: [u8; 8] = [0x00, 0x00, 0x64, 0x00, 0xc8, 0x00, 0x2c, 0x01];
+const ENHANCED_CT_CONCAT_PART_2_PIXELS: [u8; 8] = [0x90, 0x01, 0xf4, 0x01, 0x58, 0x02, 0xbc, 0x02];
+const ENHANCED_CT_CONCAT_PART_1_VALUES: [i32; 4] = [0, 100, 200, 300];
+const ENHANCED_CT_CONCAT_PART_2_VALUES: [i32; 4] = [400, 500, 600, 700];
 
 const ENHANCED_CT_RECIPES: &[EnhancedCtRecipe] = &[EnhancedCtRecipe {
     case_id: "enhanced/ct/multiframe_shared_perframe_explicit_le",
@@ -511,6 +547,55 @@ const ENHANCED_CT_RECIPES: &[EnhancedCtRecipe] = &[EnhancedCtRecipe {
     rescale_slope: "1",
     rescale_type: "HU",
 }];
+
+const ENHANCED_CT_CONCATENATION_PARTS: &[EnhancedCtConcatenationPart] = &[
+    EnhancedCtConcatenationPart {
+        file_name: "part-001.dcm",
+        in_concatenation_number: 1,
+        concatenation_frame_offset_number: 0,
+        image_position_patient: ENHANCED_CT_CONCAT_PART_1_IMAGE_POSITIONS,
+        dimension_index_values: ENHANCED_CT_CONCAT_PART_1_DIMENSION_INDEX_VALUES,
+        pixel_bytes: &ENHANCED_CT_CONCAT_PART_1_PIXELS,
+        pixel_values: &ENHANCED_CT_CONCAT_PART_1_VALUES,
+    },
+    EnhancedCtConcatenationPart {
+        file_name: "part-002.dcm",
+        in_concatenation_number: 2,
+        concatenation_frame_offset_number: 1,
+        image_position_patient: ENHANCED_CT_CONCAT_PART_2_IMAGE_POSITIONS,
+        dimension_index_values: ENHANCED_CT_CONCAT_PART_2_DIMENSION_INDEX_VALUES,
+        pixel_bytes: &ENHANCED_CT_CONCAT_PART_2_PIXELS,
+        pixel_values: &ENHANCED_CT_CONCAT_PART_2_VALUES,
+    },
+];
+
+const ENHANCED_CT_CONCATENATION_RECIPES: &[EnhancedCtConcatenationRecipe] =
+    &[EnhancedCtConcatenationRecipe {
+        base: EnhancedCtRecipe {
+            case_id: "enhanced/ct/concatenation_two_part_explicit_le",
+            recipe_id: "enhanced_ct_concatenation_two_part",
+            rows: 2,
+            columns: 2,
+            frames: 2,
+            pixel_bytes: &ENHANCED_CT_U16_PIXELS,
+            pixel_values: &ENHANCED_CT_U16_VALUES,
+            pixel_min: 0,
+            pixel_max: 700,
+            pixel_spacing: "0.75\\0.75",
+            image_orientation_patient: "1\\0\\0\\0\\1\\0",
+            image_position_patient: ENHANCED_CT_IMAGE_POSITIONS,
+            slice_thickness: "2.5",
+            spacing_between_slices: "2.5",
+            frame_type: "DERIVED\\PRIMARY\\AXIAL\\NONE",
+            pixel_presentation: "MONOCHROME",
+            volumetric_properties: "VOLUME",
+            volume_based_calculation_technique: "NONE",
+            rescale_intercept: "-1024",
+            rescale_slope: "1",
+            rescale_type: "HU",
+        },
+        parts: ENHANCED_CT_CONCATENATION_PARTS,
+    }];
 
 #[derive(Debug, Clone, Copy)]
 struct EnhancedMrRecipe {
@@ -942,6 +1027,21 @@ pub(crate) fn write_supported_cases(
             continue;
         }
         generated_files.push(write_enhanced_ct_case(
+            run,
+            case,
+            *recipe,
+            standards_lock_sha256,
+        )?);
+    }
+    for recipe in ENHANCED_CT_CONCATENATION_RECIPES {
+        let Some(case) = registry_case(registry, recipe.base.case_id)? else {
+            continue;
+        };
+        let profiles = string_array(case.get("profiles"))?;
+        if !case_matches_profile(&profiles, &run.profile, run.include_stress) {
+            continue;
+        }
+        generated_files.extend(write_enhanced_ct_concatenation_case(
             run,
             case,
             *recipe,
@@ -2117,7 +2217,13 @@ fn write_enhanced_ct_case(
     );
 
     put_enhanced_ct_dimension_sequences(&mut obj, &dimension_organization_uid);
-    put_enhanced_ct_functional_groups(&mut obj, recipe, &irradiation_event_uid);
+    put_enhanced_ct_functional_groups(
+        &mut obj,
+        recipe,
+        &irradiation_event_uid,
+        recipe.image_position_patient,
+        ENHANCED_CT_DIMENSION_INDEX_VALUES,
+    );
 
     obj.put(DataElement::new(
         tags::PIXEL_DATA,
@@ -2179,6 +2285,7 @@ fn write_enhanced_ct_case(
                 pixel_spacing: recipe.pixel_spacing,
                 image_orientation_patient: recipe.image_orientation_patient,
                 image_position_patient: recipe.image_position_patient,
+                dimension_index_values: ENHANCED_CT_DIMENSION_INDEX_VALUES,
                 frame_type: recipe.frame_type,
                 pixel_presentation: recipe.pixel_presentation,
                 volumetric_properties: recipe.volumetric_properties,
@@ -2187,6 +2294,7 @@ fn write_enhanced_ct_case(
                 rescale_slope: recipe.rescale_slope,
                 rescale_type: recipe.rescale_type,
                 irradiation_event_uid: &irradiation_event_uid,
+                concatenation: None,
             }),
             enhanced_mr_image: None,
             mg_image: None,
@@ -2203,6 +2311,11 @@ fn write_enhanced_ct_case(
             case,
             recipe,
             &relative_path,
+            recipe.frames,
+            recipe.pixel_bytes,
+            recipe.pixel_values,
+            recipe.image_position_patient,
+            ENHANCED_CT_DIMENSION_INDEX_VALUES,
             &study_instance_uid,
             &series_instance_uid,
             &sop_instance_uid,
@@ -2210,10 +2323,352 @@ fn write_enhanced_ct_case(
             &dimension_organization_uid,
             &irradiation_event_uid,
             &implementation_class_uid,
+            None,
             &validated.bytes,
             validated.validation,
         ),
     })
+}
+
+fn write_enhanced_ct_concatenation_case(
+    run: &PreparedGenerationRun,
+    case: &Value,
+    recipe: EnhancedCtConcatenationRecipe,
+    standards_lock_sha256: &str,
+) -> Result<Vec<GeneratedFile>, GenerateError> {
+    let base = recipe.base;
+    let study_instance_uid = deterministic_enhanced_ct_uid(
+        standards_lock_sha256,
+        base,
+        run.seed,
+        UidRole::StudyInstance,
+    );
+    let series_instance_uid = deterministic_enhanced_ct_uid(
+        standards_lock_sha256,
+        base,
+        run.seed,
+        UidRole::SeriesInstance,
+    );
+    let frame_of_reference_uid = deterministic_enhanced_ct_uid(
+        standards_lock_sha256,
+        base,
+        run.seed,
+        UidRole::FrameOfReference,
+    );
+    let dimension_organization_uid = deterministic_enhanced_ct_uid(
+        standards_lock_sha256,
+        base,
+        run.seed,
+        UidRole::DimensionOrganization,
+    );
+    let irradiation_event_uid = deterministic_enhanced_ct_uid(
+        standards_lock_sha256,
+        base,
+        run.seed,
+        UidRole::IrradiationEvent,
+    );
+    let concatenation_uid = deterministic_enhanced_ct_uid(
+        standards_lock_sha256,
+        base,
+        run.seed,
+        UidRole::Concatenation,
+    );
+    let sop_instance_uid_of_concatenation_source = deterministic_enhanced_ct_uid(
+        standards_lock_sha256,
+        base,
+        run.seed,
+        UidRole::ConcatenationSource,
+    );
+    let implementation_class_uid = deterministic_implementation_uid(standards_lock_sha256);
+
+    let mut generated_files = Vec::with_capacity(recipe.parts.len());
+    for part in recipe.parts {
+        let file_index = u32::from(part.in_concatenation_number - 1);
+        let sop_instance_uid = deterministic_enhanced_ct_indexed_uid(
+            standards_lock_sha256,
+            base,
+            run.seed,
+            UidRole::SopInstance,
+            file_index,
+        );
+        let relative_path = format!("{}/{}", base.case_id, part.file_name);
+        let path = run.out_dir.join(&relative_path);
+        let case_dir = path.parent().ok_or_else(|| GenerateError::MetadataShape {
+            path: PathBuf::from(&relative_path),
+            message: "generated DICOM path must have a parent directory",
+        })?;
+        fs::create_dir_all(case_dir).map_err(|source| GenerateError::CreateCaseOutputDir {
+            path: case_dir.to_path_buf(),
+            source,
+        })?;
+
+        let mut obj = InMemDicomObject::new_empty();
+        put_str(
+            &mut obj,
+            tags::SOP_CLASS_UID,
+            VR::UI,
+            uids::ENHANCED_CT_IMAGE_STORAGE,
+        );
+        put_str(&mut obj, tags::SOP_INSTANCE_UID, VR::UI, &sop_instance_uid);
+        put_str(&mut obj, tags::SYNTHETIC_DATA, VR::CS, "YES");
+
+        put_str(
+            &mut obj,
+            tags::PATIENT_NAME,
+            VR::PN,
+            "DTS^Synthetic^Patient001",
+        );
+        put_str(&mut obj, tags::PATIENT_ID, VR::LO, "DTS-PATIENT-001");
+        put_str(&mut obj, tags::PATIENT_BIRTH_DATE, VR::DA, "19700101");
+        put_str(&mut obj, tags::PATIENT_SEX, VR::CS, "O");
+
+        put_str(
+            &mut obj,
+            tags::STUDY_INSTANCE_UID,
+            VR::UI,
+            &study_instance_uid,
+        );
+        put_str(&mut obj, tags::STUDY_DATE, VR::DA, "20260101");
+        put_str(&mut obj, tags::STUDY_TIME, VR::TM, "000000");
+        put_str(&mut obj, tags::REFERRING_PHYSICIAN_NAME, VR::PN, "");
+        put_str(&mut obj, tags::STUDY_ID, VR::SH, "DTS-ECT");
+        put_str(&mut obj, tags::ACCESSION_NUMBER, VR::SH, "");
+
+        put_str(&mut obj, tags::MODALITY, VR::CS, "CT");
+        put_str(
+            &mut obj,
+            tags::SERIES_INSTANCE_UID,
+            VR::UI,
+            &series_instance_uid,
+        );
+        put_str(&mut obj, tags::SERIES_NUMBER, VR::IS, "1");
+        put_str(
+            &mut obj,
+            tags::FRAME_OF_REFERENCE_UID,
+            VR::UI,
+            &frame_of_reference_uid,
+        );
+        put_str(&mut obj, tags::POSITION_REFERENCE_INDICATOR, VR::LO, "");
+
+        put_str(&mut obj, tags::MANUFACTURER, VR::LO, "dicom-test-suite");
+        put_str(
+            &mut obj,
+            tags::MANUFACTURER_MODEL_NAME,
+            VR::LO,
+            base.recipe_id,
+        );
+        put_str(&mut obj, tags::DEVICE_SERIAL_NUMBER, VR::LO, "DTS-ECT-0001");
+        put_str(
+            &mut obj,
+            tags::SOFTWARE_VERSIONS,
+            VR::LO,
+            crate::PACKAGE_VERSION,
+        );
+
+        let part_frames = part.image_position_patient.len() as u16;
+        put_str(&mut obj, tags::IMAGE_TYPE, VR::CS, base.frame_type);
+        put_str(&mut obj, tags::INSTANCE_NUMBER, VR::IS, "1");
+        put_str(&mut obj, tags::CONTENT_DATE, VR::DA, "20260101");
+        put_str(&mut obj, tags::CONTENT_TIME, VR::TM, "000000");
+        put_str(
+            &mut obj,
+            tags::CONCATENATION_UID,
+            VR::UI,
+            &concatenation_uid,
+        );
+        put_u16(
+            &mut obj,
+            tags::IN_CONCATENATION_NUMBER,
+            VR::US,
+            part.in_concatenation_number,
+        );
+        put_u16(
+            &mut obj,
+            tags::IN_CONCATENATION_TOTAL_NUMBER,
+            VR::US,
+            recipe.parts.len() as u16,
+        );
+        put_u32(
+            &mut obj,
+            tags::CONCATENATION_FRAME_OFFSET_NUMBER,
+            VR::UL,
+            part.concatenation_frame_offset_number,
+        );
+        put_str(
+            &mut obj,
+            tags::SOP_INSTANCE_UID_OF_CONCATENATION_SOURCE,
+            VR::UI,
+            &sop_instance_uid_of_concatenation_source,
+        );
+        put_empty_sequence(&mut obj, tags::ACQUISITION_CONTEXT_SEQUENCE);
+        put_str(
+            &mut obj,
+            tags::PIXEL_PRESENTATION,
+            VR::CS,
+            base.pixel_presentation,
+        );
+        put_str(
+            &mut obj,
+            tags::VOLUMETRIC_PROPERTIES,
+            VR::CS,
+            base.volumetric_properties,
+        );
+        put_str(
+            &mut obj,
+            tags::VOLUME_BASED_CALCULATION_TECHNIQUE,
+            VR::CS,
+            base.volume_based_calculation_technique,
+        );
+
+        put_u16(&mut obj, tags::SAMPLES_PER_PIXEL, VR::US, 1);
+        put_str(
+            &mut obj,
+            tags::PHOTOMETRIC_INTERPRETATION,
+            VR::CS,
+            "MONOCHROME2",
+        );
+        put_u16(&mut obj, tags::ROWS, VR::US, base.rows);
+        put_u16(&mut obj, tags::COLUMNS, VR::US, base.columns);
+        put_u16(&mut obj, tags::BITS_ALLOCATED, VR::US, 16);
+        put_u16(&mut obj, tags::BITS_STORED, VR::US, 16);
+        put_u16(&mut obj, tags::HIGH_BIT, VR::US, 15);
+        put_u16(&mut obj, tags::PIXEL_REPRESENTATION, VR::US, 0);
+        put_str(
+            &mut obj,
+            tags::NUMBER_OF_FRAMES,
+            VR::IS,
+            &part_frames.to_string(),
+        );
+
+        put_enhanced_ct_dimension_sequences(&mut obj, &dimension_organization_uid);
+        put_enhanced_ct_functional_groups(
+            &mut obj,
+            base,
+            &irradiation_event_uid,
+            part.image_position_patient,
+            part.dimension_index_values,
+        );
+
+        obj.put(DataElement::new(
+            tags::PIXEL_DATA,
+            VR::OW,
+            PrimitiveValue::from(part.pixel_bytes),
+        ));
+
+        let file_obj = obj
+            .with_meta(
+                FileMetaTableBuilder::new()
+                    .transfer_syntax(uids::EXPLICIT_VR_LITTLE_ENDIAN)
+                    .implementation_class_uid(&implementation_class_uid)
+                    .implementation_version_name("DICOMTS010"),
+            )
+            .map_err(|err| GenerateError::WriteDicomFile {
+                path: path.clone(),
+                message: err.to_string(),
+            })?;
+
+        file_obj
+            .write_to_file(&path)
+            .map_err(|err| GenerateError::WriteDicomFile {
+                path: path.clone(),
+                message: err.to_string(),
+            })?;
+
+        let concatenation = EnhancedCtConcatenationManifest {
+            concatenation_uid: &concatenation_uid,
+            in_concatenation_number: part.in_concatenation_number,
+            in_concatenation_total_number: recipe.parts.len() as u16,
+            concatenation_frame_offset_number: part.concatenation_frame_offset_number,
+            sop_instance_uid_of_concatenation_source: &sop_instance_uid_of_concatenation_source,
+        };
+        let validated = validate_part10_file(
+            &path,
+            &Part10Expectations {
+                sop_class_uid: uids::ENHANCED_CT_IMAGE_STORAGE,
+                sop_instance_uid: &sop_instance_uid,
+                transfer_syntax_uid: uids::EXPLICIT_VR_LITTLE_ENDIAN,
+                implementation_class_uid: &implementation_class_uid,
+                synthetic_data: "YES",
+                rows: base.rows,
+                columns: base.columns,
+                frames: part_frames,
+                samples_per_pixel: 1,
+                photometric_interpretation: "MONOCHROME2",
+                bits_allocated: 16,
+                bits_stored: 16,
+                high_bit: 15,
+                pixel_representation: 0,
+                planar_configuration: None,
+                pixel_data_vr: VR::OW,
+                pixel_data_length_formula: PixelDataLengthFormula::ContiguousSamples,
+                palette: None,
+                padding: None,
+                ct_image: None,
+                enhanced_ct_image: Some(EnhancedCtImageExpectations {
+                    modality: "CT",
+                    frame_of_reference_uid: &frame_of_reference_uid,
+                    image_type: base.frame_type,
+                    number_of_frames: part_frames,
+                    shared_functional_groups: 1,
+                    per_frame_functional_groups: part_frames as usize,
+                    dimension_organization_uid: &dimension_organization_uid,
+                    dimension_index_count: 1,
+                    pixel_spacing: base.pixel_spacing,
+                    image_orientation_patient: base.image_orientation_patient,
+                    image_position_patient: part.image_position_patient,
+                    dimension_index_values: part.dimension_index_values,
+                    frame_type: base.frame_type,
+                    pixel_presentation: base.pixel_presentation,
+                    volumetric_properties: base.volumetric_properties,
+                    volume_based_calculation_technique: base.volume_based_calculation_technique,
+                    rescale_intercept: base.rescale_intercept,
+                    rescale_slope: base.rescale_slope,
+                    rescale_type: base.rescale_type,
+                    irradiation_event_uid: &irradiation_event_uid,
+                    concatenation: Some(EnhancedCtConcatenationExpectations {
+                        concatenation_uid: &concatenation_uid,
+                        in_concatenation_number: part.in_concatenation_number,
+                        in_concatenation_total_number: recipe.parts.len() as u16,
+                        concatenation_frame_offset_number: part.concatenation_frame_offset_number,
+                        sop_instance_uid_of_concatenation_source:
+                            &sop_instance_uid_of_concatenation_source,
+                    }),
+                }),
+                enhanced_mr_image: None,
+                mg_image: None,
+                dx_image: None,
+                us_image: None,
+                cr_image: None,
+                mr_image: None,
+            },
+        )?;
+
+        generated_files.push(GeneratedFile {
+            case_id: base.case_id.to_string(),
+            manifest_entry: enhanced_ct_manifest_entry(
+                case,
+                base,
+                &relative_path,
+                part_frames,
+                part.pixel_bytes,
+                part.pixel_values,
+                part.image_position_patient,
+                part.dimension_index_values,
+                &study_instance_uid,
+                &series_instance_uid,
+                &sop_instance_uid,
+                &frame_of_reference_uid,
+                &dimension_organization_uid,
+                &irradiation_event_uid,
+                &implementation_class_uid,
+                Some(concatenation),
+                &validated.bytes,
+                validated.validation,
+            ),
+        });
+    }
+
+    Ok(generated_files)
 }
 
 fn put_enhanced_ct_dimension_sequences(
@@ -2259,6 +2714,8 @@ fn put_enhanced_ct_functional_groups(
     obj: &mut InMemDicomObject,
     recipe: EnhancedCtRecipe,
     irradiation_event_uid: &str,
+    image_position_patient: &[&str],
+    dimension_index_values: &[u32],
 ) {
     obj.put(DataElement::new(
         tags::SHARED_FUNCTIONAL_GROUPS_SEQUENCE,
@@ -2341,11 +2798,11 @@ fn put_enhanced_ct_functional_groups(
         ])]),
     ));
 
-    let per_frame_items = recipe
-        .image_position_patient
+    let per_frame_items = image_position_patient
         .iter()
         .enumerate()
         .map(|(index, image_position_patient)| {
+            let dimension_index_value = dimension_index_values[index];
             InMemDicomObject::from_element_iter([
                 DataElement::new(
                     tags::FRAME_CONTENT_SEQUENCE,
@@ -2354,7 +2811,7 @@ fn put_enhanced_ct_functional_groups(
                         DataElement::new(
                             tags::DIMENSION_INDEX_VALUES,
                             VR::UL,
-                            PrimitiveValue::from((index + 1) as u32),
+                            PrimitiveValue::from(dimension_index_value),
                         ),
                         DataElement::new(
                             tags::FRAME_ACQUISITION_NUMBER,
@@ -2389,6 +2846,11 @@ fn enhanced_ct_manifest_entry(
     case: &Value,
     recipe: EnhancedCtRecipe,
     relative_path: &str,
+    frames: u16,
+    pixel_bytes: &[u8],
+    pixel_values: &[i32],
+    image_position_patient: &[&str],
+    dimension_index_values: &[u32],
     study_instance_uid: &str,
     series_instance_uid: &str,
     sop_instance_uid: &str,
@@ -2396,6 +2858,7 @@ fn enhanced_ct_manifest_entry(
     dimension_organization_uid: &str,
     irradiation_event_uid: &str,
     implementation_class_uid: &str,
+    concatenation: Option<EnhancedCtConcatenationManifest<'_>>,
     bytes: &[u8],
     validation: Value,
 ) -> Value {
@@ -2404,6 +2867,32 @@ fn enhanced_ct_manifest_entry(
         .and_then(Value::as_array)
         .cloned()
         .unwrap_or_default();
+    let frame_byte_len = usize::from(recipe.rows) * usize::from(recipe.columns) * 2;
+    let frame_hashes = pixel_bytes
+        .chunks(frame_byte_len)
+        .map(sha256_hex)
+        .collect::<Vec<_>>();
+    let concatenation_value = concatenation
+        .map(|concatenation| {
+            serde_json::json!({
+                "concatenation_uid": concatenation.concatenation_uid,
+                "in_concatenation_number": concatenation.in_concatenation_number,
+                "in_concatenation_total_number": concatenation.in_concatenation_total_number,
+                "concatenation_frame_offset_number": concatenation.concatenation_frame_offset_number,
+                "sop_instance_uid_of_concatenation_source": concatenation.sop_instance_uid_of_concatenation_source
+            })
+        })
+        .unwrap_or(Value::Null);
+    let mut known_stressors = vec![
+        "enhanced_ct_image_storage",
+        "native_multiframe_pixel_data",
+        "shared_functional_groups_sequence",
+        "per_frame_functional_groups_sequence",
+        "multi_frame_dimension",
+    ];
+    if !concatenation_value.is_null() {
+        known_stressors.push("concatenation");
+    }
     serde_json::json!({
         "case_id": recipe.case_id,
         "profile_membership": ["extended"],
@@ -2417,14 +2906,14 @@ fn enhanced_ct_manifest_entry(
             "recipe_parameters": {
                 "rows": recipe.rows,
                 "columns": recipe.columns,
-                "frames": recipe.frames,
+                "frames": frames,
                 "samples_per_pixel": 1,
                 "photometric_interpretation": "MONOCHROME2",
                 "bits_allocated": 16,
                 "bits_stored": 16,
                 "high_bit": 15,
                 "pixel_representation": 0,
-                "pixel_values": recipe.pixel_values,
+                "pixel_values": pixel_values,
                 "frame_type": recipe.frame_type,
                 "dimension_index": {
                     "dimension_organization_uid": dimension_organization_uid,
@@ -2450,8 +2939,9 @@ fn enhanced_ct_manifest_entry(
                     }
                 },
                 "per_frame_functional_groups": {
-                    "image_position_patient": recipe.image_position_patient
-                }
+                    "image_position_patient": image_position_patient
+                },
+                "concatenation": concatenation_value
             }
         },
         "dicom": {
@@ -2474,7 +2964,7 @@ fn enhanced_ct_manifest_entry(
         "image": {
             "rows": recipe.rows,
             "columns": recipe.columns,
-            "frames": recipe.frames,
+            "frames": frames,
             "samples_per_pixel": 1,
             "photometric_interpretation": "MONOCHROME2",
             "bits_allocated": 16,
@@ -2486,12 +2976,9 @@ fn enhanced_ct_manifest_entry(
         "pixel_data": {
             "vr": "OW",
             "native_or_encapsulated": "native",
-            "value_length": recipe.pixel_bytes.len(),
-            "frame_count": recipe.frames,
-            "frame_hashes": [
-                sha256_hex(&recipe.pixel_bytes[0..8]),
-                sha256_hex(&recipe.pixel_bytes[8..16])
-            ]
+            "value_length": pixel_bytes.len(),
+            "frame_count": frames,
+            "frame_hashes": frame_hashes
         },
         "expected_capabilities": ["open_file", "read_metadata", "render_native_pixels", "parse_multiframe_functional_groups"],
         "expected_semantics": {
@@ -2499,14 +2986,19 @@ fn enhanced_ct_manifest_entry(
             "pixel_min": recipe.pixel_min,
             "pixel_max": recipe.pixel_max,
             "shared_functional_groups_sequence_items": 1,
-            "per_frame_functional_groups_sequence_items": recipe.frames,
-            "dimension_index_values": [1, 2]
+            "per_frame_functional_groups_sequence_items": frames,
+            "dimension_index_values": dimension_index_values,
+            "concatenation": concatenation_value
         },
         "expected_visual_checks": {
-            "pattern": "two_frame_enhanced_ct_unsigned_gradient_stack"
+            "pattern": if concatenation_value.is_null() {
+                "two_frame_enhanced_ct_unsigned_gradient_stack"
+            } else {
+                "single_member_enhanced_ct_concatenation_gradient"
+            }
         },
         "validation": validation,
-        "known_stressors": ["enhanced_ct_image_storage", "native_multiframe_pixel_data", "shared_functional_groups_sequence", "per_frame_functional_groups_sequence", "multi_frame_dimension"],
+        "known_stressors": known_stressors,
         "standards_evidence": standards_evidence
     })
 }
@@ -5664,6 +6156,25 @@ fn deterministic_enhanced_ct_uid(
     })
 }
 
+fn deterministic_enhanced_ct_indexed_uid(
+    standards_lock_sha256: &str,
+    recipe: EnhancedCtRecipe,
+    run_seed: u64,
+    role: UidRole,
+    file_index: u32,
+) -> String {
+    deterministic_uid(&DeterministicUidInput {
+        standards_lock_sha256,
+        case_id: recipe.case_id,
+        recipe_version: ENHANCED_CT_RECIPE_VERSION,
+        run_seed,
+        file_index,
+        frame_index: None,
+        referenced_object_index: None,
+        role,
+    })
+}
+
 fn deterministic_enhanced_mr_uid(
     standards_lock_sha256: &str,
     recipe: EnhancedMrRecipe,
@@ -5806,6 +6317,10 @@ fn put_str(obj: &mut InMemDicomObject, tag: dicom_core::Tag, vr: VR, value: &str
 }
 
 fn put_u16(obj: &mut InMemDicomObject, tag: dicom_core::Tag, vr: VR, value: u16) {
+    obj.put(DataElement::new(tag, vr, PrimitiveValue::from(value)));
+}
+
+fn put_u32(obj: &mut InMemDicomObject, tag: dicom_core::Tag, vr: VR, value: u32) {
     obj.put(DataElement::new(tag, vr, PrimitiveValue::from(value)));
 }
 

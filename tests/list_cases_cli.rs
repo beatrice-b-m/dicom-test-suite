@@ -168,6 +168,12 @@ fn list_cases_command_shows_extended_case_status_and_evidence() {
     );
     assert!(
         stdout.contains(
+            "enhanced/ct/concatenation_two_part_explicit_le\timplemented\textended\t1.2.840.10008.5.1.4.1.1.2.1\t1.2.840.10008.1.2.1\t14/14 covered"
+        ),
+        "list-cases must include implemented Enhanced CT concatenation cases with standards evidence"
+    );
+    assert!(
+        stdout.contains(
             "enhanced/mr/multiframe_echo_perframe_explicit_le\timplemented\textended\t1.2.840.10008.5.1.4.1.1.4.1\t1.2.840.10008.1.2.1\t20/20 covered"
         ),
         "list-cases must include implemented Enhanced MR extended cases with standards evidence"

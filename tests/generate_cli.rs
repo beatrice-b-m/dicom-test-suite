@@ -1555,7 +1555,7 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\textended"));
-    assert!(stdout.contains("files_written\t4"));
+    assert!(stdout.contains("files_written\t6"));
 
     let manifest_path = out_dir.join("manifest.json");
     let manifest: Value = serde_json::from_str(
@@ -1567,7 +1567,7 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
             .pointer("/files")
             .and_then(Value::as_array)
             .map(Vec::len),
-        Some(4)
+        Some(6)
     );
     let enhanced_ct_file = file_entry_by_case_id(
         &manifest,
@@ -1615,6 +1615,74 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
         validation_result_names(enhanced_ct_file.pointer("/validation/standards"))
             .contains(&"enhanced_ct_image_sop_class"),
         "Enhanced CT manifest should record standards validation for Enhanced CT Image Storage"
+    );
+    let enhanced_ct_concat_files =
+        file_entries_by_case_id(&manifest, "enhanced/ct/concatenation_two_part_explicit_le");
+    assert_eq!(enhanced_ct_concat_files.len(), 2);
+    assert_eq!(
+        enhanced_ct_concat_files[0]
+            .pointer("/path")
+            .and_then(Value::as_str),
+        Some("enhanced/ct/concatenation_two_part_explicit_le/part-001.dcm")
+    );
+    assert_eq!(
+        enhanced_ct_concat_files[1]
+            .pointer("/path")
+            .and_then(Value::as_str),
+        Some("enhanced/ct/concatenation_two_part_explicit_le/part-002.dcm")
+    );
+    assert_eq!(
+        enhanced_ct_concat_files[0]
+            .pointer("/image/frames")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        enhanced_ct_concat_files[1]
+            .pointer("/expected_semantics/dimension_index_values/0")
+            .and_then(Value::as_u64),
+        Some(2)
+    );
+    assert_eq!(
+        enhanced_ct_concat_files[0]
+            .pointer("/expected_semantics/concatenation/in_concatenation_number")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        enhanced_ct_concat_files[1]
+            .pointer("/expected_semantics/concatenation/concatenation_frame_offset_number")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        enhanced_ct_concat_files[0]
+            .pointer("/expected_semantics/concatenation/concatenation_uid")
+            .and_then(Value::as_str),
+        enhanced_ct_concat_files[1]
+            .pointer("/expected_semantics/concatenation/concatenation_uid")
+            .and_then(Value::as_str)
+    );
+    assert_eq!(
+        enhanced_ct_concat_files[0]
+            .pointer("/expected_semantics/concatenation/sop_instance_uid_of_concatenation_source")
+            .and_then(Value::as_str),
+        enhanced_ct_concat_files[1]
+            .pointer("/expected_semantics/concatenation/sop_instance_uid_of_concatenation_source")
+            .and_then(Value::as_str)
+    );
+    assert_ne!(
+        enhanced_ct_concat_files[0]
+            .pointer("/uids/sop_instance_uid")
+            .and_then(Value::as_str),
+        enhanced_ct_concat_files[1]
+            .pointer("/uids/sop_instance_uid")
+            .and_then(Value::as_str)
+    );
+    assert!(
+        validation_result_names(enhanced_ct_concat_files[1].pointer("/validation/internal"))
+            .contains(&"enhanced_ct_concatenation_frame_offset_number"),
+        "Enhanced CT concatenation manifest should record Concatenation Frame Offset validation"
     );
     let enhanced_mr_file = file_entry_by_case_id(
         &manifest,
@@ -1778,6 +1846,89 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
             .expect("Image Position Patient should be text")
             .trim(),
         "0\\0\\2.5"
+    );
+
+    let enhanced_ct_concat_part_1_path =
+        out_dir.join("enhanced/ct/concatenation_two_part_explicit_le/part-001.dcm");
+    let enhanced_ct_concat_part_2_path =
+        out_dir.join("enhanced/ct/concatenation_two_part_explicit_le/part-002.dcm");
+    let enhanced_ct_concat_part_1 =
+        open_file(&enhanced_ct_concat_part_1_path).expect("first concatenation part should parse");
+    let enhanced_ct_concat_part_2 =
+        open_file(&enhanced_ct_concat_part_2_path).expect("second concatenation part should parse");
+    let concatenation_uid = enhanced_ct_concat_part_1
+        .element(tags::CONCATENATION_UID)
+        .expect("first part should contain Concatenation UID")
+        .value()
+        .to_str()
+        .expect("Concatenation UID should be text")
+        .trim_end_matches('\0')
+        .to_string();
+    assert_eq!(
+        enhanced_ct_concat_part_2
+            .element(tags::CONCATENATION_UID)
+            .expect("second part should contain Concatenation UID")
+            .value()
+            .to_str()
+            .expect("Concatenation UID should be text")
+            .trim_end_matches('\0'),
+        concatenation_uid
+    );
+    assert_eq!(
+        enhanced_ct_concat_part_1
+            .element(tags::IN_CONCATENATION_NUMBER)
+            .expect("first part should contain In-concatenation Number")
+            .value()
+            .to_int::<u16>()
+            .expect("In-concatenation Number should be US"),
+        1
+    );
+    assert_eq!(
+        enhanced_ct_concat_part_2
+            .element(tags::IN_CONCATENATION_NUMBER)
+            .expect("second part should contain In-concatenation Number")
+            .value()
+            .to_int::<u16>()
+            .expect("In-concatenation Number should be US"),
+        2
+    );
+    assert_eq!(
+        enhanced_ct_concat_part_1
+            .element(tags::CONCATENATION_FRAME_OFFSET_NUMBER)
+            .expect("first part should contain Concatenation Frame Offset Number")
+            .value()
+            .to_int::<u32>()
+            .expect("Concatenation Frame Offset Number should be UL"),
+        0
+    );
+    assert_eq!(
+        enhanced_ct_concat_part_2
+            .element(tags::CONCATENATION_FRAME_OFFSET_NUMBER)
+            .expect("second part should contain Concatenation Frame Offset Number")
+            .value()
+            .to_int::<u32>()
+            .expect("Concatenation Frame Offset Number should be UL"),
+        1
+    );
+    let second_concat_per_frame_items = enhanced_ct_concat_part_2
+        .element(tags::PER_FRAME_FUNCTIONAL_GROUPS_SEQUENCE)
+        .expect("second part should contain Per-Frame Functional Groups Sequence")
+        .items()
+        .expect("Per-Frame Functional Groups should be a sequence");
+    assert_eq!(second_concat_per_frame_items.len(), 1);
+    let second_concat_frame_content = second_concat_per_frame_items[0]
+        .element(tags::FRAME_CONTENT_SEQUENCE)
+        .expect("second part frame should contain Frame Content Sequence")
+        .items()
+        .expect("Frame Content should be a sequence");
+    assert_eq!(
+        second_concat_frame_content[0]
+            .element(tags::DIMENSION_INDEX_VALUES)
+            .expect("second part frame should contain Dimension Index Values")
+            .value()
+            .to_int::<u32>()
+            .expect("Dimension Index Values should be UL"),
+        2
     );
 
     let enhanced_mr_path =

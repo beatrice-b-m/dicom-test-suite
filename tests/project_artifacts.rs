@@ -82,6 +82,10 @@ fn registry_contains_initial_smoke_and_core_cases() {
             "implemented",
         ),
         (
+            "enhanced/ct/concatenation_two_part_explicit_le",
+            "implemented",
+        ),
+        (
             "enhanced/mr/multiframe_echo_perframe_explicit_le",
             "implemented",
         ),

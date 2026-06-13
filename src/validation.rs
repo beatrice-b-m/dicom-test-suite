@@ -93,6 +93,7 @@ pub(crate) struct EnhancedCtImageExpectations<'a> {
     pub pixel_spacing: &'a str,
     pub image_orientation_patient: &'a str,
     pub image_position_patient: &'a [&'a str],
+    pub dimension_index_values: &'a [u32],
     pub frame_type: &'a str,
     pub pixel_presentation: &'a str,
     pub volumetric_properties: &'a str,
@@ -101,6 +102,16 @@ pub(crate) struct EnhancedCtImageExpectations<'a> {
     pub rescale_slope: &'a str,
     pub rescale_type: &'a str,
     pub irradiation_event_uid: &'a str,
+    pub concatenation: Option<EnhancedCtConcatenationExpectations<'a>>,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct EnhancedCtConcatenationExpectations<'a> {
+    pub concatenation_uid: &'a str,
+    pub in_concatenation_number: u16,
+    pub in_concatenation_total_number: u16,
+    pub concatenation_frame_offset_number: u32,
+    pub sop_instance_uid_of_concatenation_source: &'a str,
 }
 
 #[derive(Debug, Clone)]
@@ -567,6 +578,14 @@ fn element_u16(path: &Path, obj: &OpenedObject, tag: Tag) -> Result<u16, Generat
         .map_err(|err| validation_error(path, err))
 }
 
+fn element_u32(path: &Path, obj: &OpenedObject, tag: Tag) -> Result<u32, GenerateError> {
+    obj.element(tag)
+        .map_err(|err| validation_error(path, err))?
+        .value()
+        .to_int::<u32>()
+        .map_err(|err| validation_error(path, err))
+}
+
 fn element_i16(path: &Path, obj: &OpenedObject, tag: Tag) -> Result<i16, GenerateError> {
     obj.element(tag)
         .map_err(|err| validation_error(path, err))?
@@ -946,6 +965,49 @@ fn validate_enhanced_ct_image(
         expected.dimension_organization_uid,
     );
 
+    if let Some(concatenation) = &expected.concatenation {
+        check_equal(
+            results,
+            "enhanced_ct_concatenation_uid",
+            "Concatenation UID matches the recipe.",
+            "Concatenation UID does not match the recipe.",
+            element_str(path, obj, tags::CONCATENATION_UID)?.as_str(),
+            concatenation.concatenation_uid,
+        );
+        check_equal(
+            results,
+            "enhanced_ct_in_concatenation_number",
+            "In-concatenation Number matches the recipe.",
+            "In-concatenation Number does not match the recipe.",
+            element_u16(path, obj, tags::IN_CONCATENATION_NUMBER)?,
+            concatenation.in_concatenation_number,
+        );
+        check_equal(
+            results,
+            "enhanced_ct_in_concatenation_total_number",
+            "In-concatenation Total Number matches the recipe.",
+            "In-concatenation Total Number does not match the recipe.",
+            element_u16(path, obj, tags::IN_CONCATENATION_TOTAL_NUMBER)?,
+            concatenation.in_concatenation_total_number,
+        );
+        check_equal(
+            results,
+            "enhanced_ct_concatenation_frame_offset_number",
+            "Concatenation Frame Offset Number matches the recipe.",
+            "Concatenation Frame Offset Number does not match the recipe.",
+            element_u32(path, obj, tags::CONCATENATION_FRAME_OFFSET_NUMBER)?,
+            concatenation.concatenation_frame_offset_number,
+        );
+        check_equal(
+            results,
+            "enhanced_ct_sop_instance_uid_of_concatenation_source",
+            "SOP Instance UID of Concatenation Source matches the recipe.",
+            "SOP Instance UID of Concatenation Source does not match the recipe.",
+            element_str(path, obj, tags::SOP_INSTANCE_UID_OF_CONCATENATION_SOURCE)?.as_str(),
+            concatenation.sop_instance_uid_of_concatenation_source,
+        );
+    }
+
     let shared = top_level_sequence_item(path, obj, tags::SHARED_FUNCTIONAL_GROUPS_SEQUENCE, 0)?;
     check_equal(
         results,
@@ -1064,6 +1126,13 @@ fn validate_enhanced_ct_image(
     for (index, expected_position) in expected.image_position_patient.iter().enumerate() {
         let frame =
             top_level_sequence_item(path, obj, tags::PER_FRAME_FUNCTIONAL_GROUPS_SEQUENCE, index)?;
+        let expected_dimension_index_value = expected
+            .dimension_index_values
+            .get(index)
+            .ok_or_else(|| GenerateError::MetadataShape {
+                path: path.to_path_buf(),
+                message: "missing expected Enhanced CT dimension index value",
+            })?;
         check_equal(
             results,
             "enhanced_ct_per_frame_image_position_patient",
@@ -1091,7 +1160,7 @@ fn validate_enhanced_ct_image(
                 0,
                 tags::DIMENSION_INDEX_VALUES,
             )?,
-            (index + 1) as u32,
+            *expected_dimension_index_value,
         );
     }
 

@@ -762,6 +762,12 @@ mod tests {
         );
         assert!(
             output.contains(
+                "enhanced/ct/concatenation_two_part_explicit_le\timplemented\textended\t1.2.840.10008.5.1.4.1.1.2.1\t1.2.840.10008.1.2.1\t14/14 covered"
+            ),
+            "list-cases output must show implemented Enhanced CT concatenation extended status"
+        );
+        assert!(
+            output.contains(
                 "enhanced/mr/multiframe_echo_perframe_explicit_le\timplemented\textended\t1.2.840.10008.5.1.4.1.1.4.1\t1.2.840.10008.1.2.1\t20/20 covered"
             ),
             "list-cases output must show implemented Enhanced MR extended status"

@@ -10,6 +10,8 @@ pub enum UidRole {
     FrameOfReference,
     DimensionOrganization,
     IrradiationEvent,
+    Concatenation,
+    ConcatenationSource,
     ImplementationClass,
     DerivedReference,
 }
@@ -23,6 +25,8 @@ impl UidRole {
             Self::FrameOfReference => "frame_of_reference_uid",
             Self::DimensionOrganization => "dimension_organization_uid",
             Self::IrradiationEvent => "irradiation_event_uid",
+            Self::Concatenation => "concatenation_uid",
+            Self::ConcatenationSource => "sop_instance_uid_of_concatenation_source",
             Self::ImplementationClass => "implementation_class_uid",
             Self::DerivedReference => "derived_reference_sop_instance_uid",
         }
@@ -132,6 +136,8 @@ mod tests {
             UidRole::FrameOfReference,
             UidRole::DimensionOrganization,
             UidRole::IrradiationEvent,
+            UidRole::Concatenation,
+            UidRole::ConcatenationSource,
             UidRole::ImplementationClass,
             UidRole::DerivedReference,
         ] {

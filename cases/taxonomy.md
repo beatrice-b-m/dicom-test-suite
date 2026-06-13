@@ -64,6 +64,7 @@ classic/mg/for_processing_mono2_u16_12bit_implicit_le
 classic/cr/overlay_modality_voi_explicit_le
 classic/mr/multislice_oblique_explicit_le
 enhanced/ct/multiframe_shared_perframe_explicit_le
+enhanced/ct/concatenation_two_part_explicit_le
 derived/seg/binary_multiframe_explicit_le
 vl/photo/rgb_planar0_explicit_le
 vl/photo/palette_color_explicit_le

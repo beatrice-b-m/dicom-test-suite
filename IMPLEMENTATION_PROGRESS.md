@@ -3,7 +3,7 @@
 **Last updated:** 2026-06-13  
 **Source specification:** `SYSTEM_SPEC.md` version 0.2.0  
 **Current phase:** Phase 1 generator core, in progress  
-**Current implementation status:** Phase 0 and Phase 0.5 are complete; Phase 1 has the initial `generate` command skeleton for argument parsing, output-root creation, and manifest path reporting
+**Current implementation status:** Phase 0 and Phase 0.5 are complete; Phase 1 has the initial `generate` command skeleton and writes an empty run manifest with deterministic metadata and unavailable planned cases
 
 This document is the durable hand-off log for coding agents implementing
 `dicom-test-suite`. Keep `SYSTEM_SPEC.md` as the source of product and
@@ -37,6 +37,7 @@ Observed at creation of this progress file:
 | `IMPLEMENTATION_PROGRESS.md` | present after this task | Hand-off ledger for implementation state. |
 | `.gitignore` | present | Covers generated DICOM outputs, reports, sidecars, caches, generated standards artifacts, and SQLite KB files. |
 | `Cargo.toml` / Rust workspace | present | Single package named `dicom-test-suite`, using Rust 2024 edition; pins minimal DICOM-rs crates for Phase 1 object and transfer syntax work. |
+| `build.rs` | present | Captures Rust compiler version and target triple for generated manifest metadata. |
 | `rust-toolchain.toml` | present | Pins Rust 1.85.0 with `rustfmt` and `clippy`, matching an installed local toolchain. |
 | `standards.lock.json` | present | Locks to DICOM 2026b base edition only using the pinned `dicom-standard-kb` MCP source manifest; local DB and source artifact hashes remain pending. |
 | `schemas/` | present | Manifest, case registry, coverage report, and viewer report schemas have initial structured coverage. |
@@ -77,7 +78,7 @@ Observed at creation of this progress file:
 |---|---|---|
 | Phase 0: Repository initialization | complete | Scope docs, generated-artifact protections, Rust skeleton, toolchain, dependency pins, and initial schema placeholders are committed. |
 | Phase 0.5: Standards and case registry foundation | complete | Standards base edition, schemas, taxonomy/profile rules, initial smoke/core registry, transfer syntax matrix, deterministic policy, standards workflows, and `list-cases` are in place. |
-| Phase 1: Generator core | in progress | Initial `generate` CLI argument model, output-root creation, and manifest path reporting are implemented; UID generation, manifest writing, Part 10 writing, and file validation remain. |
+| Phase 1: Generator core | in progress | Initial `generate` CLI argument model, output-root creation, and empty-run manifest writing are implemented; UID generation, Part 10 writing, and file validation remain. |
 | Phase 2: Native pixel matrix | not started | Pixel generators and photometric validators pending. |
 | Phase 3: Classic radiology IODs | not started | CT/MR/CR/US/DX/MG builders pending. |
 | Phase 4: Enhanced multi-frame | not started | Enhanced CT/MR and functional groups pending. |
@@ -132,7 +133,7 @@ structured status and planned Phase 1/2 cases have standards evidence through
 - [x] Define deterministic output-root setup and manifest path handling without
   writing DICOM instances.
 - [ ] Implement deterministic UID generation.
-- [ ] Implement manifest writing for generation runs.
+- [x] Implement manifest writing for empty generation runs.
 - [ ] Implement Part 10 file writing for the initial smoke cases.
 - [ ] Add file-level validation for generated Part 10 output.
 - [ ] Add two-run reproducibility checks for `smoke`.
@@ -178,20 +179,21 @@ These case IDs come from `SYSTEM_SPEC.md` section 21 and should seed
 No implementation blocker has been proven yet. The immediate limitations are
 that the local `dicom-standard-kb` repository commit/DB SHA-256 and official
 source artifact hashes have not yet been verified. Phase 1 can continue with
-manifest writing and deterministic UID generation.
+deterministic UID generation and smoke Part 10 writing.
 
 ## Recommended Next Commit
 
-Add initial manifest writing for empty generation runs:
+Add deterministic UID generation:
 
-1. Add deterministic manifest metadata construction for the current `generate`
-   skeleton.
-2. Write `manifest.json` with no generated files and planned-but-not-generated
-   cases represented as skipped or unavailable.
-3. Include standards lock metadata, generator metadata, dependency versions,
-   profile, seed, and include-stress state.
-4. Keep generated files ignored and do not commit generation output.
-5. Commit as `feat(manifest): write initial run manifest`.
+1. Add a deterministic `2.25.<decimal uuid>` UID generator with stable inputs
+   for project namespace, case ID, recipe version, run seed, and UID role.
+2. Cover Study, Series, SOP Instance, Frame of Reference, Implementation Class,
+   and derived-reference UID roles.
+3. Add unit tests for stability, uniqueness across roles/cases, decimal format,
+   and maximum DICOM UID length.
+4. Use the UID generator in manifest construction only after DICOM file writing
+   introduces file entries.
+5. Commit as `feat(uid): add deterministic uid generator`.
 
 ## Handoff Notes
 

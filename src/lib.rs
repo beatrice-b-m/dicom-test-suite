@@ -7,6 +7,8 @@ use serde_json::Value;
 
 pub const PACKAGE_NAME: &str = env!("CARGO_PKG_NAME");
 pub const PACKAGE_VERSION: &str = env!("CARGO_PKG_VERSION");
+pub const RUSTC_VERSION: &str = env!("DICOM_TEST_SUITE_RUSTC_VERSION");
+pub const TARGET_TRIPLE: &str = env!("DICOM_TEST_SUITE_TARGET");
 
 pub fn version_banner() -> String {
     format!("{PACKAGE_NAME} {PACKAGE_VERSION}")
@@ -40,6 +42,26 @@ pub enum GenerateError {
         path: PathBuf,
         source: std::io::Error,
     },
+    ReadMetadata {
+        path: PathBuf,
+        source: std::io::Error,
+    },
+    ParseMetadata {
+        path: PathBuf,
+        source: serde_json::Error,
+    },
+    MetadataShape {
+        path: PathBuf,
+        message: &'static str,
+    },
+    SerializeManifest {
+        path: PathBuf,
+        source: serde_json::Error,
+    },
+    WriteManifest {
+        path: PathBuf,
+        source: std::io::Error,
+    },
 }
 
 impl fmt::Display for GenerateError {
@@ -57,6 +79,33 @@ impl fmt::Display for GenerateError {
                     path.display()
                 )
             }
+            Self::ReadMetadata { path, source } => {
+                write!(
+                    f,
+                    "failed to read metadata file {}: {source}",
+                    path.display()
+                )
+            }
+            Self::ParseMetadata { path, source } => {
+                write!(
+                    f,
+                    "failed to parse metadata file {}: {source}",
+                    path.display()
+                )
+            }
+            Self::MetadataShape { path, message } => {
+                write!(f, "invalid metadata shape in {}: {message}", path.display())
+            }
+            Self::SerializeManifest { path, source } => {
+                write!(
+                    f,
+                    "failed to serialize manifest {}: {source}",
+                    path.display()
+                )
+            }
+            Self::WriteManifest { path, source } => {
+                write!(f, "failed to write manifest {}: {source}", path.display())
+            }
         }
     }
 }
@@ -66,6 +115,11 @@ impl Error for GenerateError {
         match self {
             Self::InvalidProfile(_) => None,
             Self::CreateOutputDir { source, .. } => Some(source),
+            Self::ReadMetadata { source, .. } => Some(source),
+            Self::ParseMetadata { source, .. } => Some(source),
+            Self::MetadataShape { .. } => None,
+            Self::SerializeManifest { source, .. } => Some(source),
+            Self::WriteManifest { source, .. } => Some(source),
         }
     }
 }
@@ -89,6 +143,246 @@ pub fn prepare_generation_run(
         seed: options.seed,
         include_stress: options.include_stress,
     })
+}
+
+pub fn write_initial_manifest(run: &PreparedGenerationRun) -> Result<(), GenerateError> {
+    let standards_lock_path = Path::new("standards.lock.json");
+    let cargo_lock_path = Path::new("Cargo.lock");
+    let registry_path = Path::new("cases/registry.json");
+
+    let standards_lock = read_json_metadata(standards_lock_path)?;
+    let cargo_lock = read_bytes_metadata(cargo_lock_path)?;
+    let registry = read_json_metadata(registry_path)?;
+
+    let manifest = build_initial_manifest(run, &standards_lock, &cargo_lock, &registry)?;
+    let mut contents = serde_json::to_string_pretty(&manifest).map_err(|source| {
+        GenerateError::SerializeManifest {
+            path: run.manifest_path.clone(),
+            source,
+        }
+    })?;
+    contents.push('\n');
+
+    fs::write(&run.manifest_path, contents).map_err(|source| GenerateError::WriteManifest {
+        path: run.manifest_path.clone(),
+        source,
+    })
+}
+
+fn build_initial_manifest(
+    run: &PreparedGenerationRun,
+    standards_lock: &Value,
+    cargo_lock: &[u8],
+    registry: &Value,
+) -> Result<Value, GenerateError> {
+    let standards_lock_bytes = read_bytes_metadata("standards.lock.json")?;
+    let skipped_cases = skipped_cases_for_run(registry, run)?;
+    let dicom_standard_kb = standards_lock
+        .get("dicom_standard_kb")
+        .cloned()
+        .unwrap_or(Value::Null);
+
+    Ok(serde_json::json!({
+        "manifest_schema_version": "0.1.0",
+        "generated_at": "19700101000000.000000+0000",
+        "generator": {
+            "name": PACKAGE_NAME,
+            "version": PACKAGE_VERSION,
+            "git_sha": Value::Null,
+            "rustc_version": RUSTC_VERSION,
+            "target_triple": TARGET_TRIPLE,
+            "cargo_lock_sha256": sha256_hex(cargo_lock),
+            "feature_flags": []
+        },
+        "standards": {
+            "dicom_base_edition": standards_lock.get("dicom_base_edition").and_then(Value::as_str).unwrap_or("2026b"),
+            "include_final_text_after_base": standards_lock.get("include_final_text_after_base").and_then(Value::as_bool).unwrap_or(false),
+            "standards_lock_sha256": sha256_hex(&standards_lock_bytes),
+            "dicom_standard_kb": {
+                "commit": dicom_standard_kb.get("commit").cloned().unwrap_or(Value::Null),
+                "db_edition": dicom_standard_kb.get("db_edition").and_then(Value::as_str).unwrap_or("2026b"),
+                "db_sha256": dicom_standard_kb.get("db_sha256").cloned().unwrap_or(Value::Null),
+                "source_manifest_sha256": dicom_standard_kb.get("source_manifest_sha256").cloned().unwrap_or(Value::Null)
+            }
+        },
+        "dependencies": {
+            "dicom_rs_versions": {
+                "dicom-core": "0.9.1",
+                "dicom-dictionary-std": "0.9.0",
+                "dicom-object": "0.9.1",
+                "dicom-transfer-syntax-registry": "0.9.1"
+            },
+            "codec_versions": {}
+        },
+        "run": {
+            "profile": run.profile,
+            "seed": run.seed,
+            "include_stress": run.include_stress
+        },
+        "files": [],
+        "skipped_cases": skipped_cases
+    }))
+}
+
+fn skipped_cases_for_run(
+    registry: &Value,
+    run: &PreparedGenerationRun,
+) -> Result<Vec<Value>, GenerateError> {
+    let cases =
+        registry
+            .get("cases")
+            .and_then(Value::as_array)
+            .ok_or(GenerateError::MetadataShape {
+                path: PathBuf::from("cases/registry.json"),
+                message: "missing cases array",
+            })?;
+
+    let mut skipped = Vec::new();
+    for case in cases {
+        let profiles =
+            string_array(case.get("profiles")).map_err(|_| GenerateError::MetadataShape {
+                path: PathBuf::from("cases/registry.json"),
+                message: "case profiles must be a string array",
+            })?;
+        if !case_matches_profile(&profiles, &run.profile, run.include_stress) {
+            continue;
+        }
+
+        skipped.push(serde_json::json!({
+            "case_id": required_str(case, "case_id").map_err(|_| GenerateError::MetadataShape {
+                path: PathBuf::from("cases/registry.json"),
+                message: "case_id must be a string",
+            })?,
+            "status": "unavailable",
+            "reason_code": "generator_not_implemented",
+            "message": "The Phase 1 manifest skeleton records planned cases before DICOM instance writing is implemented.",
+            "recheck_phase": "phase-1",
+            "standards_evidence": case.get("standards_evidence").cloned().unwrap_or_else(|| serde_json::json!([]))
+        }));
+    }
+
+    Ok(skipped)
+}
+
+fn case_matches_profile(profiles: &[String], requested: &str, include_stress: bool) -> bool {
+    match requested {
+        "all" => profiles.iter().any(|profile| {
+            matches!(profile.as_str(), "smoke" | "core" | "extended" | "legacy")
+                || (include_stress && profile == "stress")
+        }),
+        profile => profiles.iter().any(|case_profile| case_profile == profile),
+    }
+}
+
+fn read_json_metadata(path: impl AsRef<Path>) -> Result<Value, GenerateError> {
+    let path = path.as_ref();
+    let contents = fs::read_to_string(path).map_err(|source| GenerateError::ReadMetadata {
+        path: path.to_path_buf(),
+        source,
+    })?;
+    serde_json::from_str(&contents).map_err(|source| GenerateError::ParseMetadata {
+        path: path.to_path_buf(),
+        source,
+    })
+}
+
+fn read_bytes_metadata(path: impl AsRef<Path>) -> Result<Vec<u8>, GenerateError> {
+    let path = path.as_ref();
+    fs::read(path).map_err(|source| GenerateError::ReadMetadata {
+        path: path.to_path_buf(),
+        source,
+    })
+}
+
+pub fn sha256_hex(bytes: &[u8]) -> String {
+    const H0: [u32; 8] = [
+        0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab,
+        0x5be0cd19,
+    ];
+    const K: [u32; 64] = [
+        0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4,
+        0xab1c5ed5, 0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe,
+        0x9bdc06a7, 0xc19bf174, 0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f,
+        0x4a7484aa, 0x5cb0a9dc, 0x76f988da, 0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7,
+        0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967, 0x27b70a85, 0x2e1b2138, 0x4d2c6dfc,
+        0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85, 0xa2bfe8a1, 0xa81a664b,
+        0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070, 0x19a4c116,
+        0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
+        0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7,
+        0xc67178f2,
+    ];
+
+    let mut data = bytes.to_vec();
+    let bit_len = (data.len() as u64) * 8;
+    data.push(0x80);
+    while data.len() % 64 != 56 {
+        data.push(0);
+    }
+    data.extend_from_slice(&bit_len.to_be_bytes());
+
+    let mut h = H0;
+    for chunk in data.chunks(64) {
+        let mut w = [0u32; 64];
+        for (i, word) in w.iter_mut().take(16).enumerate() {
+            let start = i * 4;
+            *word = u32::from_be_bytes([
+                chunk[start],
+                chunk[start + 1],
+                chunk[start + 2],
+                chunk[start + 3],
+            ]);
+        }
+        for i in 16..64 {
+            let s0 = w[i - 15].rotate_right(7) ^ w[i - 15].rotate_right(18) ^ (w[i - 15] >> 3);
+            let s1 = w[i - 2].rotate_right(17) ^ w[i - 2].rotate_right(19) ^ (w[i - 2] >> 10);
+            w[i] = w[i - 16]
+                .wrapping_add(s0)
+                .wrapping_add(w[i - 7])
+                .wrapping_add(s1);
+        }
+
+        let mut a = h[0];
+        let mut b = h[1];
+        let mut c = h[2];
+        let mut d = h[3];
+        let mut e = h[4];
+        let mut f = h[5];
+        let mut g = h[6];
+        let mut hh = h[7];
+
+        for i in 0..64 {
+            let s1 = e.rotate_right(6) ^ e.rotate_right(11) ^ e.rotate_right(25);
+            let ch = (e & f) ^ ((!e) & g);
+            let temp1 = hh
+                .wrapping_add(s1)
+                .wrapping_add(ch)
+                .wrapping_add(K[i])
+                .wrapping_add(w[i]);
+            let s0 = a.rotate_right(2) ^ a.rotate_right(13) ^ a.rotate_right(22);
+            let maj = (a & b) ^ (a & c) ^ (b & c);
+            let temp2 = s0.wrapping_add(maj);
+
+            hh = g;
+            g = f;
+            f = e;
+            e = d.wrapping_add(temp1);
+            d = c;
+            c = b;
+            b = a;
+            a = temp1.wrapping_add(temp2);
+        }
+
+        h[0] = h[0].wrapping_add(a);
+        h[1] = h[1].wrapping_add(b);
+        h[2] = h[2].wrapping_add(c);
+        h[3] = h[3].wrapping_add(d);
+        h[4] = h[4].wrapping_add(e);
+        h[5] = h[5].wrapping_add(f);
+        h[6] = h[6].wrapping_add(g);
+        h[7] = h[7].wrapping_add(hh);
+    }
+
+    h.iter().map(|word| format!("{word:08x}")).collect()
 }
 
 #[derive(Debug)]
@@ -281,7 +575,7 @@ mod tests {
         assert_eq!(prepared.manifest_path, out_dir.join("manifest.json"));
         assert!(
             !prepared.manifest_path.exists(),
-            "the first skeleton must not write a manifest before manifest content exists"
+            "preparing a run must not write a manifest before manifest construction"
         );
 
         fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
@@ -300,6 +594,70 @@ mod tests {
         assert!(
             err.to_string().contains("unsupported profile unknown"),
             "error should name the rejected profile"
+        );
+    }
+
+    #[test]
+    fn write_initial_manifest_records_empty_smoke_run_metadata() {
+        let out_dir = unique_temp_dir("write_initial_manifest");
+        let prepared = prepare_generation_run(GenerateOptions {
+            profile: "smoke".to_string(),
+            out_dir: out_dir.clone(),
+            seed: 7,
+            include_stress: false,
+        })
+        .expect("generation run should prepare");
+
+        write_initial_manifest(&prepared).expect("manifest should write");
+
+        let manifest: Value = serde_json::from_str(
+            &fs::read_to_string(&prepared.manifest_path).expect("manifest should be readable"),
+        )
+        .expect("manifest should parse");
+
+        assert_eq!(
+            manifest
+                .get("manifest_schema_version")
+                .and_then(Value::as_str),
+            Some("0.1.0")
+        );
+        assert_eq!(
+            manifest.pointer("/run/profile").and_then(Value::as_str),
+            Some("smoke")
+        );
+        assert_eq!(
+            manifest.pointer("/run/seed").and_then(Value::as_u64),
+            Some(7)
+        );
+        assert_eq!(
+            manifest
+                .pointer("/files")
+                .and_then(Value::as_array)
+                .map(Vec::len),
+            Some(0)
+        );
+        assert!(
+            manifest
+                .pointer("/skipped_cases")
+                .and_then(Value::as_array)
+                .is_some_and(|cases| {
+                    cases.iter().any(|case| {
+                        case.get("case_id").and_then(Value::as_str)
+                            == Some("classic/sc/mono2_u8_explicit_le")
+                            && case.get("status").and_then(Value::as_str) == Some("unavailable")
+                    })
+                }),
+            "manifest should record planned smoke cases as unavailable before DICOM writing"
+        );
+
+        fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
+    }
+
+    #[test]
+    fn sha256_hex_matches_known_digest() {
+        assert_eq!(
+            sha256_hex(b"abc"),
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
         );
     }
 

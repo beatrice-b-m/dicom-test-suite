@@ -67,6 +67,7 @@ fn run() -> Result<(), String> {
                     include_stress,
                 })
                 .map_err(|err| err.to_string())?;
+            dicom_test_suite::write_initial_manifest(&prepared).map_err(|err| err.to_string())?;
 
             println!("profile\t{}", prepared.profile);
             println!("seed\t{}", prepared.seed);
@@ -74,6 +75,7 @@ fn run() -> Result<(), String> {
             println!("out\t{}", prepared.out_dir.display());
             println!("manifest\t{}", prepared.manifest_path.display());
             println!("files_written\t0");
+            println!("manifest_written\ttrue");
             Ok(())
         }
         "list-cases" => {

@@ -150,6 +150,45 @@ fn kb_integration_workflow_documents_2026b_reference_policy() {
     }
 }
 
+#[test]
+fn standards_gap_workflow_documents_source_note_and_registry_policy() {
+    let workflow = fs::read_to_string("standards/gap-workflow.md")
+        .expect("standards gap workflow must be readable");
+    let source_notes_readme = fs::read_to_string("standards/source-notes/README.md")
+        .expect("source notes README must be readable");
+
+    for required_text in [
+        "2026b",
+        "dicom-standard-kb",
+        "standards/source-notes/",
+        "KB patch",
+        "blocked",
+        "skipped",
+        "cases/registry.json",
+        "Do not fill a gap from memory",
+    ] {
+        assert!(
+            workflow.contains(required_text),
+            "standards gap workflow must mention {required_text}"
+        );
+    }
+
+    for required_text in [
+        "Note Template",
+        "Affected Project Surface",
+        "Required Decision",
+        "KB Query",
+        "Official Source Evidence",
+        "Project Action",
+        "Should become KB patch",
+    ] {
+        assert!(
+            source_notes_readme.contains(required_text),
+            "source notes README must mention {required_text}"
+        );
+    }
+}
+
 fn read_json(path: &str) -> Value {
     let contents =
         fs::read_to_string(path).unwrap_or_else(|err| panic!("failed to read {path}: {err}"));

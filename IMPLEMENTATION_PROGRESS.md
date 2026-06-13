@@ -3,7 +3,7 @@
 **Last updated:** 2026-06-13  
 **Source specification:** `SYSTEM_SPEC.md` version 0.2.0  
 **Current phase:** Phase 1 generator core, in progress  
-**Current implementation status:** Phase 0 and Phase 0.5 are complete; Phase 1 has the initial `generate` command skeleton, manifest writing, deterministic `2.25.<decimal uuid>` UID generation, the first Secondary Capture smoke Part 10 file, and reusable file-level validation for that output
+**Current implementation status:** Phase 0 and Phase 0.5 are complete; Phase 1 has the initial `generate` command skeleton, manifest writing, deterministic `2.25.<decimal uuid>` UID generation, the first Secondary Capture smoke Part 10 file, reusable file-level validation for that output, and two-run reproducibility coverage
 
 This document is the durable hand-off log for coding agents implementing
 `dicom-test-suite`. Keep `SYSTEM_SPEC.md` as the source of product and
@@ -78,7 +78,7 @@ Observed at creation of this progress file:
 |---|---|---|
 | Phase 0: Repository initialization | complete | Scope docs, generated-artifact protections, Rust skeleton, toolchain, dependency pins, and initial schema placeholders are committed. |
 | Phase 0.5: Standards and case registry foundation | complete | Standards base edition, schemas, taxonomy/profile rules, initial smoke/core registry, transfer syntax matrix, deterministic policy, standards workflows, and `list-cases` are in place. |
-| Phase 1: Generator core | in progress | Initial `generate` CLI argument model, output-root creation, manifest writing, deterministic UID generation, first smoke Secondary Capture Part 10 writing, and reusable file-level validation are implemented; reproducibility checks and remaining smoke recipes remain. |
+| Phase 1: Generator core | in progress | Initial `generate` CLI argument model, output-root creation, manifest writing, deterministic UID generation, first smoke Secondary Capture Part 10 writing, reusable file-level validation, and two-run reproducibility coverage are implemented; remaining smoke recipes remain. |
 | Phase 2: Native pixel matrix | not started | Pixel generators and photometric validators pending. |
 | Phase 3: Classic radiology IODs | not started | CT/MR/CR/US/DX/MG builders pending. |
 | Phase 4: Enhanced multi-frame | not started | Enhanced CT/MR and functional groups pending. |
@@ -136,7 +136,7 @@ structured status and planned Phase 1/2 cases have standards evidence through
 - [x] Implement manifest writing for empty generation runs.
 - [ ] Implement Part 10 file writing for the initial smoke cases. First case `classic/sc/mono2_u8_explicit_le` is implemented; remaining smoke cases are still unavailable.
 - [x] Add file-level validation for generated Part 10 output.
-- [ ] Add two-run reproducibility checks for `smoke`.
+- [x] Add two-run reproducibility checks for `smoke`.
 
 Phase 1 is complete only when `generate --profile smoke` writes a small
 deterministic corpus of valid Part 10 files plus a valid manifest with hashes,
@@ -189,25 +189,30 @@ These case IDs come from `SYSTEM_SPEC.md` section 21 and should seed
   File Meta transfer syntax, File Meta/dataset SOP UID consistency,
   Implementation Class UID, `Synthetic Data`, required Image Pixel metadata, and
   native Pixel Data length. The manifest records these named validation results.
+- 2026-06-13: The smoke generator has an integration reproducibility test that
+  runs with the same seed into two separate output roots and compares DICOM
+  bytes, manifest file metadata, skipped-case metadata, file hashes, and UID
+  metadata.
 
 ## Current Blockers
 
 No implementation blocker has been proven yet. The immediate limitations are
 that the local `dicom-standard-kb` repository commit/DB SHA-256 and official
 source artifact hashes have not yet been verified. Phase 1 can continue with
-smoke Part 10 writing and file validation.
+the remaining smoke Secondary Capture Part 10 recipes.
 
 ## Recommended Next Commit
 
-Add two-run reproducibility checks for the current smoke output:
+Add the remaining smoke Secondary Capture Part 10 recipes:
 
-1. Add a test that runs `generate --profile smoke --seed 7` twice into separate
-   output roots and compares generated DICOM bytes, file hashes, UID values, and
-   manifest `files` metadata.
-2. Keep skipped-case metadata deterministic across output roots.
-3. Record the reproducibility result in the test suite or manifest only if it
-   belongs to generated run metadata rather than transient test output.
-4. Commit as `test(generator): verify smoke reproducibility`.
+1. Query the 2026b `dicom-standard-kb` for any additional Image Pixel or
+   photometric interpretation evidence needed for `MONOCHROME1` and RGB Planar
+   Configuration 0 Secondary Capture files.
+2. Extend the generator to write `classic/sc/mono1_u8_explicit_le` and
+   `classic/sc/rgb_planar0_explicit_le` with deterministic UIDs, validation
+   results, and manifest entries.
+3. Keep the two-run reproducibility test covering all generated smoke files.
+4. Commit as `feat(generator): write remaining smoke sc cases`.
 
 ## Handoff Notes
 

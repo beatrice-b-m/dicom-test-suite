@@ -414,6 +414,74 @@
       ]
     },
     {
+      "case_id": "classic/sc/ybr_full_planar0_explicit_le",
+      "status": "implemented",
+      "profiles": ["core"],
+      "recipe_id": "sc_ybr_full_planar0",
+      "recipe_version": "0.1.0",
+      "iod_name": "Secondary Capture Image",
+      "sop_class_name": "Secondary Capture Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.7",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "byte_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_sop_class SecondaryCaptureImageStorage",
+          "covered": true,
+          "part": "PS3.4",
+          "anchor": "table_B.5-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_uid ExplicitVRLittleEndian",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "retrieve_standard_text sect_C.7.6.3.1.2",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "sect_C.7.6.3.1.2"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_data_element SamplesPerPixel",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_data_element PlanarConfiguration",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "retrieve_standard_text sect_C.7.6.3.1.3",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "sect_C.7.6.3.1.3"
+        }
+      ]
+    },
+    {
       "case_id": "classic/ct/mono2_i16_rescale_12bit_explicit_le",
       "status": "planned",
       "profiles": ["core"],

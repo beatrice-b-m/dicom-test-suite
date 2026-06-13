@@ -244,7 +244,7 @@ fn generate_command_writes_core_u16_native_pixel_case() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\tcore"));
-    assert!(stdout.contains("files_written\t4"));
+    assert!(stdout.contains("files_written\t5"));
 
     let manifest_path = out_dir.join("manifest.json");
     let manifest: Value = serde_json::from_str(
@@ -260,7 +260,7 @@ fn generate_command_writes_core_u16_native_pixel_case() {
             .pointer("/files")
             .and_then(Value::as_array)
             .map(Vec::len),
-        Some(4)
+        Some(5)
     );
     let u16_file = file_entry_by_case_id(&manifest, "classic/sc/mono2_u16_explicit_le");
     assert_eq!(
@@ -372,6 +372,31 @@ fn generate_command_writes_core_u16_native_pixel_case() {
         palette_file.pointer("/recipe/recipe_parameters/palette/descriptor"),
         Some(&serde_json::json!([4, 0, 16]))
     );
+    let ybr_file = file_entry_by_case_id(&manifest, "classic/sc/ybr_full_planar0_explicit_le");
+    assert_eq!(
+        ybr_file
+            .pointer("/image/photometric_interpretation")
+            .and_then(Value::as_str),
+        Some("YBR_FULL")
+    );
+    assert_eq!(
+        ybr_file
+            .pointer("/image/samples_per_pixel")
+            .and_then(Value::as_u64),
+        Some(3)
+    );
+    assert_eq!(
+        ybr_file
+            .pointer("/image/planar_configuration")
+            .and_then(Value::as_u64),
+        Some(0)
+    );
+    assert_eq!(
+        ybr_file
+            .pointer("/pixel_data/value_length")
+            .and_then(Value::as_u64),
+        Some(12)
+    );
     assert!(
         validation_results_named(&manifest, "/files/0/validation/internal")
             .contains(&"pixel_data_vr"),
@@ -455,6 +480,25 @@ fn generate_command_writes_core_u16_native_pixel_case() {
             .expect("Red Palette Color Lookup Table Data should be byte-backed")
             .len(),
         8
+    );
+    let ybr_path = out_dir.join("classic/sc/ybr_full_planar0_explicit_le/instance.dcm");
+    let ybr = open_file(&ybr_path).expect("YBR_FULL generated DICOM file should parse");
+    assert_eq!(
+        ybr.element(tags::PHOTOMETRIC_INTERPRETATION)
+            .expect("dataset should contain Photometric Interpretation")
+            .value()
+            .to_str()
+            .expect("Photometric Interpretation should be text")
+            .trim(),
+        "YBR_FULL"
+    );
+    assert_eq!(
+        ybr.element(tags::PLANAR_CONFIGURATION)
+            .expect("dataset should contain Planar Configuration")
+            .value()
+            .to_int::<u16>()
+            .expect("Planar Configuration should be numeric"),
+        0
     );
 
     fs::remove_dir_all(out_dir).expect("temporary output root should be removable");

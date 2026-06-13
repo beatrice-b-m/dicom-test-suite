@@ -20,6 +20,7 @@ const MONO_U16_PIXELS: [u8; 8] = [0, 0, 0x55, 0x55, 0xaa, 0xaa, 0xff, 0xff];
 const MONO_U16_VALUES: [i32; 4] = [0, 21845, 43690, 65535];
 const MONO_I16_PIXELS: [u8; 8] = [0x00, 0x80, 0x55, 0xd5, 0xaa, 0x2a, 0xff, 0x7f];
 const MONO_I16_VALUES: [i32; 4] = [-32768, -10923, 10922, 32767];
+const YBR_FULL_PLANAR0_PIXELS: [u8; 12] = [76, 85, 255, 150, 44, 21, 29, 255, 107, 255, 128, 128];
 const PALETTE_COLOR_PIXELS: [u8; 4] = [0, 1, 2, 3];
 const PALETTE_COLOR_VALUES: [i32; 4] = [0, 1, 2, 3];
 const PALETTE_DESCRIPTOR: [u16; 3] = [4, 0, 16];
@@ -128,6 +129,25 @@ const PIXEL_RECIPES: &[PixelRecipe] = &[
         visual_pattern: "2x2_palette_red_green_blue_white",
         semantic_note: "stored pixel values index 16-bit RGB palette lookup tables",
         palette: Some(PALETTE_COLOR_LUT),
+    },
+    PixelRecipe {
+        case_id: "classic/sc/ybr_full_planar0_explicit_le",
+        recipe_id: "sc_ybr_full_planar0",
+        photometric_interpretation: "YBR_FULL",
+        samples_per_pixel: 3,
+        planar_configuration: Some(0),
+        bits_allocated: 8,
+        bits_stored: 8,
+        high_bit: 7,
+        pixel_representation: 0,
+        pixel_vr: VR::OB,
+        pixel_bytes: &YBR_FULL_PLANAR0_PIXELS,
+        pixel_values: &[76, 85, 255, 150, 44, 21, 29, 255, 107, 255, 128, 128],
+        pixel_min: 21,
+        pixel_max: 255,
+        visual_pattern: "2x2_ybr_full_red_green_blue_white",
+        semantic_note: "YBR_FULL samples are interleaved color-by-pixel",
+        palette: None,
     },
     PixelRecipe {
         case_id: "classic/sc/mono2_u16_explicit_le",

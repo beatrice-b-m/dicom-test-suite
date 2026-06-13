@@ -72,4 +72,10 @@ fn list_cases_command_shows_core_case_status_and_evidence() {
         ),
         "list-cases must include implemented PALETTE COLOR core cases"
     );
+    assert!(
+        stdout.contains(
+            "classic/sc/ybr_full_planar0_explicit_le\timplemented\tcore\t1.2.840.10008.5.1.4.1.1.7\t1.2.840.10008.1.2.1\t6/6 covered"
+        ),
+        "list-cases must include implemented YBR_FULL core cases"
+    );
 }

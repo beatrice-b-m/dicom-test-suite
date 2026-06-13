@@ -2,9 +2,9 @@
 
 **Last updated:** 2026-06-13  
 **Source specification:** `SYSTEM_SPEC.md` version 0.2.0  
-**Current phase:** Phase 2 native pixel matrix, not started
+**Current phase:** Phase 2 native pixel matrix, in progress
 
-**Current implementation status:** Phase 0, Phase 0.5, and Phase 1 are complete; `generate --profile smoke` writes the three initial Secondary Capture Part 10 smoke files with deterministic UIDs, manifest hashes, pixel metadata, validation results, and two-run reproducibility coverage
+**Current implementation status:** Phase 0, Phase 0.5, and Phase 1 are complete; Phase 2 has started with the first core native pixel matrix case, `classic/sc/mono2_u16_explicit_le`
 
 This document is the durable hand-off log for coding agents implementing
 `dicom-test-suite`. Keep `SYSTEM_SPEC.md` as the source of product and
@@ -80,7 +80,7 @@ Observed at creation of this progress file:
 | Phase 0: Repository initialization | complete | Scope docs, generated-artifact protections, Rust skeleton, toolchain, dependency pins, and initial schema placeholders are committed. |
 | Phase 0.5: Standards and case registry foundation | complete | Standards base edition, schemas, taxonomy/profile rules, initial smoke/core registry, transfer syntax matrix, deterministic policy, standards workflows, and `list-cases` are in place. |
 | Phase 1: Generator core | complete | `generate --profile smoke` writes all three initial Secondary Capture smoke Part 10 files with manifest hashes, file meta UIDs, pixel metadata, validation results, and byte-stable output across two identical runs. |
-| Phase 2: Native pixel matrix | not started | Pixel generators and photometric validators pending. |
+| Phase 2: Native pixel matrix | in progress | First core native pixel matrix case is implemented with 16-bit unsigned MONOCHROME2 OW Pixel Data; signed 16-bit, RGB planar1, palette color, YBR, odd dimensions, rectangular images, tiny images, and pixel padding remain. |
 | Phase 3: Classic radiology IODs | not started | CT/MR/CR/US/DX/MG builders pending. |
 | Phase 4: Enhanced multi-frame | not started | Enhanced CT/MR and functional groups pending. |
 | Phase 5: Derived, presentation, and non-image objects | not started | SEG, presentation states, SR, KOS, RWVM, RT, and encapsulated documents pending. |
@@ -144,6 +144,21 @@ Secondary Capture Part 10 files plus a valid manifest with hashes, file meta
 UIDs, pixel metadata, validation results, and byte-stable output across two
 identical runs.
 
+## Phase 2 Checklist
+
+- [x] Add first core native unsigned 16-bit monochrome pixel case.
+- [ ] Add signed 16-bit monochrome pixel case.
+- [ ] Add RGB planar configuration 1 case.
+- [ ] Add PALETTE COLOR case with palette LUT descriptors and data.
+- [ ] Add native YBR_FULL case.
+- [ ] Add native YBR_FULL_422 case with special byte-length validation.
+- [ ] Add odd-dimension, rectangular, very small image, and pixel padding cases.
+- [ ] Broaden pixel byte-length and photometric validators for Phase 2 cases.
+
+Phase 2 is complete only when smoke and core profiles cover key Image Pixel
+combinations with byte-length validation, and YBR_FULL_422 uses the required
+special native byte-length validator.
+
 ## Initial Priority Case Queue
 
 These case IDs come from `SYSTEM_SPEC.md` section 21 and should seed
@@ -154,6 +169,7 @@ These case IDs come from `SYSTEM_SPEC.md` section 21 and should seed
 | `classic/sc/mono2_u8_explicit_le` | `smoke` | implemented |
 | `classic/sc/mono1_u8_explicit_le` | `smoke` | implemented |
 | `classic/sc/rgb_planar0_explicit_le` | `smoke` | implemented |
+| `classic/sc/mono2_u16_explicit_le` | `core` | implemented |
 | `classic/ct/mono2_i16_rescale_12bit_explicit_le` | `core` | planned |
 | `classic/mg/for_presentation_mono1_u16_12bit_explicit_le` | `core` | planned |
 | `classic/mg/for_processing_mono2_u16_12bit_implicit_le` | `core` | planned |
@@ -201,25 +217,33 @@ These case IDs come from `SYSTEM_SPEC.md` section 21 and should seed
   and Planar Configuration 0, backed by 2026b `dicom-standard-kb` evidence for
   Photometric Interpretation and Planar Configuration. The smoke registry cases
   now report `implemented`.
+- 2026-06-13: Phase 2 has started with `classic/sc/mono2_u16_explicit_le`, a
+  core Secondary Capture 2x2 MONOCHROME2 unsigned 16-bit native Pixel Data
+  case. The manifest records OW Pixel Data, 16-bit image metadata, value length
+  8, pixel max 65535, and validation of Pixel Data VR and byte length. The case
+  registry includes 2026b evidence for Secondary Capture, Explicit VR Little
+  Endian, the Image Pixel Description Macro, Bits Stored, High Bit, and Pixel
+  Representation.
 
 ## Current Blockers
 
 No implementation blocker has been proven yet. The immediate limitations are
 that the local `dicom-standard-kb` repository commit/DB SHA-256 and official
-source artifact hashes have not yet been verified. Phase 2 can start with native
-pixel matrix expansion.
+source artifact hashes have not yet been verified. Phase 2 can continue with
+signed native monochrome pixel coverage.
 
 ## Recommended Next Commit
 
-Start Phase 2 native pixel matrix work:
+Add the next native monochrome pixel case:
 
 1. Query the 2026b `dicom-standard-kb` for Image Pixel attributes and
-   photometric rules needed for the first core native pixel case.
-2. Add or extend registry entries for Phase 2 native pixel combinations if the
-   existing queue is insufficient.
-3. Implement the first core native pixel recipe with byte-length validation and
-   manifest metadata.
-4. Commit as `feat(pixels): add first native pixel core case`.
+   signed Pixel Representation semantics needed for an `i16` Secondary Capture
+   case.
+2. Add `classic/sc/mono2_i16_explicit_le` as a core registry case with standards
+   evidence.
+3. Extend the native pixel recipe table and validation/test coverage for signed
+   16-bit OW Pixel Data.
+4. Commit as `feat(pixels): add signed native monochrome case`.
 
 ## Handoff Notes
 

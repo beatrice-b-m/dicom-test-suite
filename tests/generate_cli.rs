@@ -221,6 +221,131 @@ fn generate_command_writes_smoke_part10_files_and_manifest() {
 }
 
 #[test]
+fn generate_command_writes_core_u16_native_pixel_case() {
+    let out_dir = unique_temp_dir("generate-core-command");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args([
+            "generate",
+            "--profile",
+            "core",
+            "--out",
+            out_dir.to_str().expect("temp path should be valid UTF-8"),
+            "--seed",
+            "7",
+        ])
+        .output()
+        .expect("generate command must run");
+
+    assert!(
+        output.status.success(),
+        "generate should exit successfully: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
+    assert!(stdout.contains("profile\tcore"));
+    assert!(stdout.contains("files_written\t1"));
+
+    let manifest_path = out_dir.join("manifest.json");
+    let manifest: Value = serde_json::from_str(
+        &fs::read_to_string(&manifest_path).expect("manifest should be readable"),
+    )
+    .expect("manifest should parse");
+    assert_eq!(
+        manifest.pointer("/run/profile").and_then(Value::as_str),
+        Some("core")
+    );
+    assert_eq!(
+        manifest
+            .pointer("/files")
+            .and_then(Value::as_array)
+            .map(Vec::len),
+        Some(1)
+    );
+    assert_eq!(
+        manifest.pointer("/files/0/case_id").and_then(Value::as_str),
+        Some("classic/sc/mono2_u16_explicit_le")
+    );
+    assert_eq!(
+        manifest
+            .pointer("/files/0/pixel_data/vr")
+            .and_then(Value::as_str),
+        Some("OW")
+    );
+    assert_eq!(
+        manifest
+            .pointer("/files/0/pixel_data/value_length")
+            .and_then(Value::as_u64),
+        Some(8)
+    );
+    assert_eq!(
+        manifest
+            .pointer("/files/0/image/bits_allocated")
+            .and_then(Value::as_u64),
+        Some(16)
+    );
+    assert_eq!(
+        manifest
+            .pointer("/files/0/image/bits_stored")
+            .and_then(Value::as_u64),
+        Some(16)
+    );
+    assert_eq!(
+        manifest
+            .pointer("/files/0/image/high_bit")
+            .and_then(Value::as_u64),
+        Some(15)
+    );
+    assert_eq!(
+        manifest
+            .pointer("/files/0/expected_semantics/pixel_max")
+            .and_then(Value::as_u64),
+        Some(65535)
+    );
+    assert!(
+        validation_results_named(&manifest, "/files/0/validation/internal")
+            .contains(&"pixel_data_vr"),
+        "manifest should record Pixel Data VR validation"
+    );
+    assert!(
+        validation_results_named(&manifest, "/files/0/validation/internal")
+            .contains(&"native_pixel_data_length"),
+        "manifest should record native Pixel Data length validation"
+    );
+    assert!(
+        manifest
+            .pointer("/skipped_cases")
+            .and_then(Value::as_array)
+            .is_some_and(|cases| {
+                cases.iter().any(|case| {
+                    case.get("case_id").and_then(Value::as_str)
+                        == Some("classic/ct/mono2_i16_rescale_12bit_explicit_le")
+                })
+            }),
+        "manifest should still report planned core cases without generators"
+    );
+
+    let dcm_path = out_dir.join("classic/sc/mono2_u16_explicit_le/instance.dcm");
+    let obj = open_file(&dcm_path).expect("generated DICOM file should parse");
+    assert_eq!(
+        obj.element(tags::PIXEL_DATA)
+            .expect("dataset should contain Pixel Data")
+            .vr(),
+        dicom_core::VR::OW
+    );
+    assert_eq!(
+        obj.element(tags::BITS_ALLOCATED)
+            .expect("dataset should contain Bits Allocated")
+            .value()
+            .to_int::<u16>()
+            .expect("Bits Allocated should be numeric"),
+        16
+    );
+
+    fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
+}
+
+#[test]
 fn generate_command_requires_output_path() {
     let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
         .args(["generate", "--profile", "smoke"])

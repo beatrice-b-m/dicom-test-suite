@@ -1,8 +1,7 @@
-use std::borrow::Cow;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use dicom_core::Tag;
+use dicom_core::{Tag, VR};
 use dicom_dictionary_std::{StandardDataDictionary, tags};
 use dicom_object::{FileDicomObject, InMemDicomObject, open_file};
 use serde_json::Value;
@@ -27,6 +26,7 @@ pub(crate) struct Part10Expectations<'a> {
     pub high_bit: u16,
     pub pixel_representation: u16,
     pub planar_configuration: Option<u16>,
+    pub pixel_data_vr: VR,
     pub pixel_data_length: usize,
 }
 
@@ -216,7 +216,21 @@ pub(crate) fn validate_part10_file(
         }
     }
 
-    let pixel_bytes = element_bytes(path, &obj, tags::PIXEL_DATA)?;
+    let pixel_element = obj
+        .element(tags::PIXEL_DATA)
+        .map_err(|err| validation_error(path, err))?;
+    check_equal(
+        &mut internal,
+        "pixel_data_vr",
+        "Pixel Data VR matches the recipe.",
+        "Pixel Data VR does not match the recipe.",
+        pixel_element.vr(),
+        expected.pixel_data_vr,
+    );
+    let pixel_bytes = pixel_element
+        .value()
+        .to_bytes()
+        .map_err(|err| validation_error(path, err))?;
     check_equal(
         &mut internal,
         "native_pixel_data_length",
@@ -275,18 +289,6 @@ fn element_u16(path: &Path, obj: &OpenedObject, tag: Tag) -> Result<u16, Generat
         .map_err(|err| validation_error(path, err))?
         .value()
         .to_int::<u16>()
-        .map_err(|err| validation_error(path, err))
-}
-
-fn element_bytes<'a>(
-    path: &Path,
-    obj: &'a OpenedObject,
-    tag: Tag,
-) -> Result<Cow<'a, [u8]>, GenerateError> {
-    obj.element(tag)
-        .map_err(|err| validation_error(path, err))?
-        .value()
-        .to_bytes()
         .map_err(|err| validation_error(path, err))
 }
 

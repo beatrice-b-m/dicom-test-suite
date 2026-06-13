@@ -1,0 +1,100 @@
+# Case Taxonomy and Profiles
+
+This document defines the committed naming and profile rules used by
+`cases/registry.json`, generated manifests, coverage reports, and future
+`list-cases` output.
+
+## Case ID Format
+
+Case IDs are stable, human-readable, path-safe identifiers:
+
+```text
+<domain>/<iod_family>/<descriptor>
+```
+
+Use lowercase ASCII letters, digits, underscores, and hyphens. Do not use
+spaces, uppercase letters, file extensions, viewer names, generated file hashes,
+or transient implementation details.
+
+The path order is canonical. Do not invert segments such as `ct/classic/...`
+when the normalized form is `classic/ct/...`.
+
+## Domains
+
+- `classic`: classic single-frame image IODs and related legacy single-frame
+  image behavior.
+- `enhanced`: enhanced multi-frame image IODs.
+- `derived`: derived image, segmentation, presentation state, structured
+  report, key object, and related reference objects.
+- `vl`: visible light, photographic, endoscopic, microscopic, and whole-slide
+  imaging objects.
+- `non-image`: waveform, radiotherapy, encapsulated document, and other
+  non-image objects.
+
+## IOD Family Segments
+
+Use the shortest unambiguous lowercase segment for the IOD family or object
+family. Initial segments include:
+
+- `sc`, `ct`, `mr`, `cr`, `mg`, `dx`, `us`
+- `seg`, `presentation-state`, `sr`, `rwvm`
+- `photo`, `endoscopic`, `microscopic`, `wsi`
+- `rt`, `waveform`, `encapsulated-document`
+
+## Descriptor Conventions
+
+Descriptors should name the compatibility axis under test rather than the
+implementation strategy. Prefer ordered tokens for:
+
+1. image/object variant;
+2. photometric interpretation or color organization;
+3. sample type and bit depth;
+4. notable semantic behavior;
+5. transfer syntax.
+
+Examples:
+
+```text
+classic/sc/mono2_u8_explicit_le
+classic/sc/mono1_u8_explicit_le
+classic/sc/rgb_planar0_explicit_le
+classic/ct/mono2_i16_rescale_12bit_explicit_le
+classic/mg/for_presentation_mono1_u16_12bit_explicit_le
+classic/mg/for_processing_mono2_u16_12bit_implicit_le
+classic/cr/overlay_modality_voi_explicit_le
+classic/mr/multislice_oblique_explicit_le
+enhanced/ct/multiframe_shared_perframe_explicit_le
+derived/seg/binary_multiframe_explicit_le
+vl/photo/rgb_planar0_explicit_le
+vl/photo/palette_color_explicit_le
+```
+
+## Profiles
+
+Profile membership is explicit in `cases/registry.json`; do not infer it only
+from the case ID.
+
+- `smoke`: fastest sanity set; only small, byte-stable files; no optional
+  external codecs required.
+- `core`: common valid viewer-relevant cases; local-friendly size and runtime.
+- `extended`: broader valid coverage, including enhanced multi-frame and
+  derived objects.
+- `legacy`: valid retired or uncommon behavior, excluded from `core`.
+- `stress`: valid but large, slow, or expensive cases; explicit opt-in only.
+- `all`: includes `smoke`, `core`, `extended`, and `legacy`; excludes `stress`
+  unless `--include-stress` is passed.
+- `negative`: future invalid or malformed files; never included in `all`.
+- `fuzz`: future mutation/fuzz robustness cases; never included in `all`.
+
+## Inclusion Rules
+
+- A case may belong to multiple profiles.
+- `smoke` cases must be byte-stable, small, and free of optional external codec
+  requirements.
+- `core` excludes large WSI/video/stress cases and intentionally invalid data.
+- `legacy` is opt-in by profile or through `all`; it is not part of `core`.
+- `stress` is excluded from `all` unless an explicit stress flag is enabled.
+- `negative` and `fuzz` are never included in `all` and are not conformance
+  profiles.
+- Viewer-specific behavior must not influence profile membership; it belongs in
+  optional viewer reports.

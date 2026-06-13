@@ -3,7 +3,7 @@
 **Last updated:** 2026-06-13  
 **Source specification:** `SYSTEM_SPEC.md` version 0.2.0  
 **Current phase:** Phase 0.5 standards and case registry foundation, incomplete  
-**Current implementation status:** Phase 0 repository initialization is complete; standards baseline lock and all initial schemas are committed
+**Current implementation status:** Phase 0 repository initialization is complete; standards baseline lock, all initial schemas, case taxonomy, and profile rules are committed
 
 This document is the durable hand-off log for coding agents implementing
 `dicom-test-suite`. Keep `SYSTEM_SPEC.md` as the source of product and
@@ -40,6 +40,7 @@ Observed at creation of this progress file:
 | `rust-toolchain.toml` | present | Pins Rust 1.85.0 with `rustfmt` and `clippy`, matching an installed local toolchain. |
 | `standards.lock.json` | present | Locks to DICOM 2026b base edition only using the pinned `dicom-standard-kb` MCP source manifest; local DB and source artifact hashes remain pending. |
 | `schemas/` | present | Manifest, case registry, coverage report, and viewer report schemas have initial structured coverage. |
+| `cases/taxonomy.md` | present | Documents normalized case ID format, path segments, descriptor conventions, profile definitions, and inclusion rules. |
 | `cases/registry.json` | missing | Case registry must become authoritative for planned and implemented cases. |
 | `standards/source-notes/` | missing | Needed for standards gaps not covered by `dicom-standard-kb`. |
 | `src/` or `crates/` | present | Minimal `src/lib.rs` and `src/main.rs` exist; generator implementation has not started. |
@@ -71,7 +72,7 @@ Observed at creation of this progress file:
 | Phase | Status | Summary |
 |---|---|---|
 | Phase 0: Repository initialization | complete | Scope docs, generated-artifact protections, Rust skeleton, toolchain, dependency pins, and initial schema placeholders are committed. |
-| Phase 0.5: Standards and case registry foundation | in progress | Standards base edition and all initial schemas are in place; case registry data, profile definitions, capability matrix, KB repository/DB pin, source artifact hashes, and standards workflow remain. |
+| Phase 0.5: Standards and case registry foundation | in progress | Standards base edition, schemas, taxonomy, and profile rules are in place; case registry data, capability matrix, KB repository/DB pin, source artifact hashes, and standards workflow remain. |
 | Phase 1: Generator core | not started | CLI, UID generation, manifest writing, Part 10 writing, and file validation pending. |
 | Phase 2: Native pixel matrix | not started | Pixel generators and photometric validators pending. |
 | Phase 3: Classic radiology IODs | not started | CT/MR/CR/US/DX/MG builders pending. |
@@ -108,8 +109,8 @@ and initial schema placeholders.
 - [x] Add `schemas/case-registry.schema.json`.
 - [x] Add `schemas/coverage-report.schema.json`.
 - [x] Add `schemas/viewer-report.schema.json`.
-- [ ] Add normalized case ID taxonomy to committed project artifacts.
-- [ ] Add explicit profile definitions and inclusion rules.
+- [x] Add normalized case ID taxonomy to committed project artifacts.
+- [x] Add explicit profile definitions and inclusion rules.
 - [ ] Add initial `cases/registry.json` with planned smoke/core cases.
 - [ ] Add transfer syntax capability matrix.
 - [ ] Add deterministic build policy.
@@ -161,15 +162,18 @@ registry/schema/policy artifacts are still placeholders or missing.
 
 ## Recommended Next Commit
 
-Add normalized case ID taxonomy and profile definitions:
+Add the initial case registry:
 
-1. Add a committed project artifact documenting normalized case ID path
-   segments, allowed profile names, profile inclusion rules, and stress/negative
-   exclusion rules.
-2. Keep the taxonomy aligned with `SYSTEM_SPEC.md` sections 4.5 and 6.1.
-3. Update this progress file to mark taxonomy/profile rules complete or record
-   any remaining split.
-4. Commit as `docs(cases): define case taxonomy and profiles`.
+1. Create `cases/registry.json` using `schemas/case-registry.schema.json`.
+2. Seed it with the planned smoke/core cases from the initial priority queue.
+3. Use `dicom-standard-kb` MCP lookups for SOP Class and transfer syntax
+   evidence where available; use structured planned/skipped metadata where
+   evidence is still pending.
+4. Add or extend tests that parse the registry and check the required planned
+   cases are present.
+5. Update this progress file with registry status and the next recommended
+   Phase 0.5 task.
+6. Commit as `feat(cases): add initial case registry`.
 
 ## Handoff Notes
 

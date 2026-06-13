@@ -1,7 +1,7 @@
 use std::error::Error;
 use std::fmt;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use serde_json::Value;
 
@@ -10,6 +10,85 @@ pub const PACKAGE_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 pub fn version_banner() -> String {
     format!("{PACKAGE_NAME} {PACKAGE_VERSION}")
+}
+
+pub const SUPPORTED_PROFILES: &[&str] = &[
+    "smoke", "core", "extended", "legacy", "stress", "all", "negative", "fuzz",
+];
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GenerateOptions {
+    pub profile: String,
+    pub out_dir: PathBuf,
+    pub seed: u64,
+    pub include_stress: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PreparedGenerationRun {
+    pub profile: String,
+    pub out_dir: PathBuf,
+    pub manifest_path: PathBuf,
+    pub seed: u64,
+    pub include_stress: bool,
+}
+
+#[derive(Debug)]
+pub enum GenerateError {
+    InvalidProfile(String),
+    CreateOutputDir {
+        path: PathBuf,
+        source: std::io::Error,
+    },
+}
+
+impl fmt::Display for GenerateError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::InvalidProfile(profile) => write!(
+                f,
+                "unsupported profile {profile}; expected one of {}",
+                SUPPORTED_PROFILES.join(", ")
+            ),
+            Self::CreateOutputDir { path, source } => {
+                write!(
+                    f,
+                    "failed to create output directory {}: {source}",
+                    path.display()
+                )
+            }
+        }
+    }
+}
+
+impl Error for GenerateError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        match self {
+            Self::InvalidProfile(_) => None,
+            Self::CreateOutputDir { source, .. } => Some(source),
+        }
+    }
+}
+
+pub fn prepare_generation_run(
+    options: GenerateOptions,
+) -> Result<PreparedGenerationRun, GenerateError> {
+    if !SUPPORTED_PROFILES.contains(&options.profile.as_str()) {
+        return Err(GenerateError::InvalidProfile(options.profile));
+    }
+
+    fs::create_dir_all(&options.out_dir).map_err(|source| GenerateError::CreateOutputDir {
+        path: options.out_dir.clone(),
+        source,
+    })?;
+
+    Ok(PreparedGenerationRun {
+        manifest_path: options.out_dir.join("manifest.json"),
+        profile: options.profile,
+        out_dir: options.out_dir,
+        seed: options.seed,
+        include_stress: options.include_stress,
+    })
 }
 
 #[derive(Debug)]
@@ -182,5 +261,56 @@ mod tests {
             ),
             "list-cases output must show core status and standards evidence coverage"
         );
+    }
+
+    #[test]
+    fn prepare_generation_run_creates_output_root_and_manifest_path() {
+        let out_dir = unique_temp_dir("prepare_generation_run");
+        let prepared = prepare_generation_run(GenerateOptions {
+            profile: "smoke".to_string(),
+            out_dir: out_dir.clone(),
+            seed: 1,
+            include_stress: false,
+        })
+        .expect("generation run should prepare");
+
+        assert!(out_dir.is_dir(), "prepare must create the output root");
+        assert_eq!(prepared.profile, "smoke");
+        assert_eq!(prepared.seed, 1);
+        assert!(!prepared.include_stress);
+        assert_eq!(prepared.manifest_path, out_dir.join("manifest.json"));
+        assert!(
+            !prepared.manifest_path.exists(),
+            "the first skeleton must not write a manifest before manifest content exists"
+        );
+
+        fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
+    }
+
+    #[test]
+    fn prepare_generation_run_rejects_unknown_profile() {
+        let err = prepare_generation_run(GenerateOptions {
+            profile: "unknown".to_string(),
+            out_dir: unique_temp_dir("reject_unknown_profile"),
+            seed: 1,
+            include_stress: false,
+        })
+        .expect_err("unknown profile should be rejected");
+
+        assert!(
+            err.to_string().contains("unsupported profile unknown"),
+            "error should name the rejected profile"
+        );
+    }
+
+    fn unique_temp_dir(name: &str) -> PathBuf {
+        let nonce = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("system clock should be after epoch")
+            .as_nanos();
+        std::env::temp_dir().join(format!(
+            "dicom-test-suite-{name}-{}-{nonce}",
+            std::process::id()
+        ))
     }
 }

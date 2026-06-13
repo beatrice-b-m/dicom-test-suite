@@ -2,8 +2,8 @@
 
 **Last updated:** 2026-06-13  
 **Source specification:** `SYSTEM_SPEC.md` version 0.2.0  
-**Current phase:** Phase 1 generator core, not started  
-**Current implementation status:** Phase 0 and Phase 0.5 are complete; standards baseline lock, schemas, taxonomy/profile rules, initial smoke/core registry, transfer syntax matrix, deterministic build policy, standards workflows, and the initial `list-cases` command are committed
+**Current phase:** Phase 1 generator core, in progress  
+**Current implementation status:** Phase 0 and Phase 0.5 are complete; Phase 1 has the initial `generate` command skeleton for argument parsing, output-root creation, and manifest path reporting
 
 This document is the durable hand-off log for coding agents implementing
 `dicom-test-suite`. Keep `SYSTEM_SPEC.md` as the source of product and
@@ -47,8 +47,8 @@ Observed at creation of this progress file:
 | `standards/kb-integration.md` | present | Documents the pinned 2026b `dicom-standard-kb` MCP query workflow, evidence fields, and fallback path. |
 | `standards/gap-workflow.md` | present | Documents standards gap handling, local source notes, blocked/skipped registry actions, and KB patch criteria. |
 | `standards/source-notes/` | present | Contains a README/template for narrow standards notes not covered by `dicom-standard-kb`. |
-| `src/` or `crates/` | present | Minimal `src/lib.rs` and `src/main.rs` exist with the initial `list-cases` CLI; generator implementation has not started. |
-| `tests/` | present | Includes schema artifact and `list-cases` CLI tests; generator behavior tests have not started. |
+| `src/` or `crates/` | present | Minimal `src/lib.rs` and `src/main.rs` exist with initial `list-cases` and `generate` CLI paths; DICOM writing has not started. |
+| `tests/` | present | Includes schema artifact, `list-cases` CLI, and `generate` skeleton tests; DICOM generation tests have not started. |
 
 ## Non-Negotiable Implementation Constraints
 
@@ -77,7 +77,7 @@ Observed at creation of this progress file:
 |---|---|---|
 | Phase 0: Repository initialization | complete | Scope docs, generated-artifact protections, Rust skeleton, toolchain, dependency pins, and initial schema placeholders are committed. |
 | Phase 0.5: Standards and case registry foundation | complete | Standards base edition, schemas, taxonomy/profile rules, initial smoke/core registry, transfer syntax matrix, deterministic policy, standards workflows, and `list-cases` are in place. |
-| Phase 1: Generator core | not started | CLI, UID generation, manifest writing, Part 10 writing, and file validation pending. |
+| Phase 1: Generator core | in progress | Initial `generate` CLI argument model, output-root creation, and manifest path reporting are implemented; UID generation, manifest writing, Part 10 writing, and file validation remain. |
 | Phase 2: Native pixel matrix | not started | Pixel generators and photometric validators pending. |
 | Phase 3: Classic radiology IODs | not started | CT/MR/CR/US/DX/MG builders pending. |
 | Phase 4: Enhanced multi-frame | not started | Enhanced CT/MR and functional groups pending. |
@@ -126,6 +126,21 @@ Phase 0.5 is complete: `list-cases` can show planned smoke/core cases with
 structured status and planned Phase 1/2 cases have standards evidence through
 `dicom-standard-kb` or local source notes.
 
+## Phase 1 Checklist
+
+- [x] Add first `generate` command skeleton and argument model.
+- [x] Define deterministic output-root setup and manifest path handling without
+  writing DICOM instances.
+- [ ] Implement deterministic UID generation.
+- [ ] Implement manifest writing for generation runs.
+- [ ] Implement Part 10 file writing for the initial smoke cases.
+- [ ] Add file-level validation for generated Part 10 output.
+- [ ] Add two-run reproducibility checks for `smoke`.
+
+Phase 1 is complete only when `generate --profile smoke` writes a small
+deterministic corpus of valid Part 10 files plus a valid manifest with hashes,
+file meta UIDs, pixel metadata, and validation results.
+
 ## Initial Priority Case Queue
 
 These case IDs come from `SYSTEM_SPEC.md` section 21 and should seed
@@ -162,19 +177,21 @@ These case IDs come from `SYSTEM_SPEC.md` section 21 and should seed
 
 No implementation blocker has been proven yet. The immediate limitations are
 that the local `dicom-standard-kb` repository commit/DB SHA-256 and official
-source artifact hashes have not yet been verified. Phase 1 generator work has
-not started.
+source artifact hashes have not yet been verified. Phase 1 can continue with
+manifest writing and deterministic UID generation.
 
 ## Recommended Next Commit
 
-Start Phase 1 generator core:
+Add initial manifest writing for empty generation runs:
 
-1. Add the first generator command skeleton and argument model.
-2. Define deterministic output-root setup and manifest path handling without
-   writing DICOM instances yet.
-3. Add focused tests for command parsing and output directory behavior.
+1. Add deterministic manifest metadata construction for the current `generate`
+   skeleton.
+2. Write `manifest.json` with no generated files and planned-but-not-generated
+   cases represented as skipped or unavailable.
+3. Include standards lock metadata, generator metadata, dependency versions,
+   profile, seed, and include-stress state.
 4. Keep generated files ignored and do not commit generation output.
-5. Commit as `feat(cli): add generate command skeleton`.
+5. Commit as `feat(manifest): write initial run manifest`.
 
 ## Handoff Notes
 

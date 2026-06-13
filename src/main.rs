@@ -18,6 +18,64 @@ fn run() -> Result<(), String> {
     };
 
     match command.as_str() {
+        "generate" => {
+            let mut profile = None;
+            let mut out_dir = None;
+            let mut seed = 1;
+            let mut include_stress = false;
+
+            while let Some(arg) = args.next() {
+                match arg.as_str() {
+                    "--profile" => {
+                        profile = Some(
+                            args.next()
+                                .ok_or_else(|| "--profile requires a value".to_string())?,
+                        );
+                    }
+                    "--out" => {
+                        out_dir = Some(
+                            args.next()
+                                .ok_or_else(|| "--out requires a path".to_string())?,
+                        );
+                    }
+                    "--seed" => {
+                        seed = parse_seed(
+                            args.next()
+                                .ok_or_else(|| "--seed requires a value".to_string())?,
+                        )?;
+                    }
+                    "--include-stress" => {
+                        include_stress = true;
+                    }
+                    "--help" | "-h" => {
+                        print_generate_usage();
+                        return Ok(());
+                    }
+                    unknown => {
+                        return Err(format!("unknown generate argument: {unknown}"));
+                    }
+                }
+            }
+
+            let profile = profile.ok_or_else(|| "generate requires --profile".to_string())?;
+            let out_dir = out_dir.ok_or_else(|| "generate requires --out".to_string())?;
+            let prepared =
+                dicom_test_suite::prepare_generation_run(dicom_test_suite::GenerateOptions {
+                    profile,
+                    out_dir: out_dir.into(),
+                    seed,
+                    include_stress,
+                })
+                .map_err(|err| err.to_string())?;
+
+            println!("profile\t{}", prepared.profile);
+            println!("seed\t{}", prepared.seed);
+            println!("include_stress\t{}", prepared.include_stress);
+            println!("out\t{}", prepared.out_dir.display());
+            println!("manifest\t{}", prepared.manifest_path.display());
+            println!("files_written\t0");
+            Ok(())
+        }
         "list-cases" => {
             let mut registry_path = String::from("cases/registry.json");
             let mut profile_filter = None;
@@ -64,9 +122,23 @@ fn run() -> Result<(), String> {
 fn print_usage() {
     println!("{}", dicom_test_suite::version_banner());
     println!("usage:");
+    println!(
+        "  dicom-test-suite generate --profile PROFILE --out PATH [--seed SEED] [--include-stress]"
+    );
     println!("  dicom-test-suite list-cases [--profile PROFILE] [--registry PATH]");
+}
+
+fn print_generate_usage() {
+    println!(
+        "usage: dicom-test-suite generate --profile PROFILE --out PATH [--seed SEED] [--include-stress]"
+    );
 }
 
 fn print_list_cases_usage() {
     println!("usage: dicom-test-suite list-cases [--profile PROFILE] [--registry PATH]");
+}
+
+fn parse_seed(seed: String) -> Result<u64, String> {
+    seed.parse()
+        .map_err(|_| format!("--seed must be a non-negative integer: {seed}"))
 }

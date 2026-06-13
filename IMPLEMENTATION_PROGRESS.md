@@ -3,7 +3,7 @@
 **Last updated:** 2026-06-13  
 **Source specification:** `SYSTEM_SPEC.md` version 0.2.0  
 **Current phase:** Phase 0 repository initialization, incomplete  
-**Current implementation status:** initial Rust 2024 single-crate workspace skeleton is in place without external dependencies
+**Current implementation status:** initial Rust 2024 single-crate workspace skeleton is in place with minimal DICOM-rs dependencies pinned
 
 This document is the durable hand-off log for coding agents implementing
 `dicom-test-suite`. Keep `SYSTEM_SPEC.md` as the source of product and
@@ -36,7 +36,7 @@ Observed at creation of this progress file:
 | `AGENTS.md` | present | Requires descriptive granular commits for completed work. |
 | `IMPLEMENTATION_PROGRESS.md` | present after this task | Hand-off ledger for implementation state. |
 | `.gitignore` | present | Covers generated DICOM outputs, reports, sidecars, caches, generated standards artifacts, and SQLite KB files. |
-| `Cargo.toml` / Rust workspace | present | Single package named `dicom-test-suite`, using Rust 2024 edition; module boundaries can evolve into spec crates later. |
+| `Cargo.toml` / Rust workspace | present | Single package named `dicom-test-suite`, using Rust 2024 edition; pins minimal DICOM-rs crates for Phase 1 object and transfer syntax work. |
 | `rust-toolchain.toml` | present | Pins Rust 1.85.0 with `rustfmt` and `clippy`, matching an installed local toolchain. |
 | `standards.lock.json` | missing | Required before recipe implementation. |
 | `schemas/` | missing | Manifest, case registry, coverage, and viewer report schemas are not created yet. |
@@ -91,7 +91,7 @@ Observed at creation of this progress file:
 - [x] Choose initial Rust edition and workspace layout.
 - [x] Add `Cargo.toml` and `Cargo.lock`.
 - [x] Add `rust-toolchain.toml`.
-- [ ] Verify and pin the DICOM-rs crate family.
+- [x] Verify and pin the DICOM-rs crate family.
 - [ ] Add initial `schemas/` directory.
 
 Phase 0 is complete only when the repository has clear scope, output policy,
@@ -146,7 +146,7 @@ These case IDs come from `SYSTEM_SPEC.md` section 21 and should seed
 |---|---|---|
 | Rust workspace layout | decided 2026-06-13 | Start as a single package named `dicom-test-suite`; keep module boundaries compatible with later spec crates. |
 | Rust edition and toolchain | decided 2026-06-13 | Use Rust 2024 edition and pin toolchain `1.85.0`, the installed local stable toolchain sufficient for edition 2024. |
-| DICOM-rs versions | open | Spec notes `dicom` and `dicom-object` 0.9.1 as current on 2026-06-13; reverify before pinning. |
+| DICOM-rs versions | decided 2026-06-13 | Crates.io verification found `dicom` 0.9.1, `dicom-object` 0.9.1, `dicom-core` 0.9.1, `dicom-transfer-syntax-registry` 0.9.1, and `dicom-dictionary-std` 0.9.0; pin minimal direct dependencies exactly and leave optional pixel/UL codecs disabled. |
 | Standards baseline | open | Recommended baseline is DICOM 2026b, but final-text inclusion policy must be explicit. |
 | `dicom-standard-kb` pin | open | `standards.lock.json` needs repository commit and DB metadata when available. |
 | Case registry storage shape | open | Use the required fields in `SYSTEM_SPEC.md` section 6.2. |
@@ -160,16 +160,17 @@ and Phase 0.5.
 
 ## Recommended Next Commit
 
-Verify and pin the DICOM-rs crate family:
+Add the initial schemas directory:
 
-1. Recheck the currently available compatible DICOM-rs crate versions before
-   adding dependencies.
-2. Add the minimal DICOM-rs dependency set needed for Phase 1 Part 10 writing
-   and validation.
-3. Regenerate `Cargo.lock`.
-4. Run `cargo test`.
-5. Update this progress file with the pinned versions and next task.
-6. Commit as `chore(deps): pin dicom-rs dependencies`.
+1. Create committed placeholders for `schemas/manifest.schema.json`,
+   `schemas/case-registry.schema.json`, `schemas/coverage-report.schema.json`,
+   and `schemas/viewer-report.schema.json`.
+2. Keep schema contents minimal but valid so later Phase 0.5 slices can expand
+   each schema independently.
+3. Run focused JSON validation if tooling is available, plus `cargo test` to
+   keep the Rust skeleton green.
+4. Update this progress file and reassess Phase 0 completion.
+5. Commit as `chore(schemas): add initial schema placeholders`.
 
 ## Handoff Notes
 

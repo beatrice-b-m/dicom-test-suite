@@ -62,6 +62,36 @@ pub struct ValidationSummary {
 }
 
 #[derive(Debug)]
+pub struct StandardsLockSummary {
+    pub path: PathBuf,
+    pub schema_version: String,
+    pub dicom_base_edition: String,
+    pub include_final_text_after_base: bool,
+    pub kb_repository: String,
+    pub kb_db_edition: String,
+    pub kb_source_manifest_sha256: String,
+    pub source_artifacts: usize,
+    pub verification_queries: usize,
+    pub warnings: Vec<String>,
+}
+
+#[derive(Debug)]
+pub enum StandardsError {
+    ReadMetadata {
+        path: PathBuf,
+        source: std::io::Error,
+    },
+    ParseMetadata {
+        path: PathBuf,
+        source: serde_json::Error,
+    },
+    MetadataShape {
+        path: PathBuf,
+        message: String,
+    },
+}
+
+#[derive(Debug)]
 pub enum ReportError {
     ReadMetadata {
         path: PathBuf,
@@ -285,6 +315,44 @@ impl fmt::Display for ReportError {
 }
 
 impl Error for ReportError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        match self {
+            Self::ReadMetadata { source, .. } => Some(source),
+            Self::ParseMetadata { source, .. } => Some(source),
+            Self::MetadataShape { .. } => None,
+        }
+    }
+}
+
+impl fmt::Display for StandardsError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::ReadMetadata { path, source } => {
+                write!(
+                    f,
+                    "failed to read standards lock metadata {}: {source}",
+                    path.display()
+                )
+            }
+            Self::ParseMetadata { path, source } => {
+                write!(
+                    f,
+                    "failed to parse standards lock metadata {}: {source}",
+                    path.display()
+                )
+            }
+            Self::MetadataShape { path, message } => {
+                write!(
+                    f,
+                    "invalid standards lock metadata in {}: {message}",
+                    path.display()
+                )
+            }
+        }
+    }
+}
+
+impl Error for StandardsError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match self {
             Self::ReadMetadata { source, .. } => Some(source),
@@ -1250,6 +1318,323 @@ fn markdown_number(value: Option<&Value>) -> String {
     value
         .and_then(Value::as_u64)
         .map_or_else(String::new, |number| number.to_string())
+}
+
+pub fn check_standards_lock_path(
+    path: impl AsRef<Path>,
+) -> Result<StandardsLockSummary, StandardsError> {
+    let path = path.as_ref();
+    let lock = read_standards_json(path)?;
+
+    let schema_version = required_standards_str(path, &lock, "/schema_version")?;
+    require_standards_value(path, "schema_version", &schema_version, "0.1.0")?;
+    let dicom_base_edition = required_standards_str(path, &lock, "/dicom_base_edition")?;
+    require_standards_value(path, "dicom_base_edition", &dicom_base_edition, "2026b")?;
+    let include_final_text_after_base =
+        required_standards_bool(path, &lock, "/include_final_text_after_base")?;
+    if include_final_text_after_base {
+        return Err(standards_shape(
+            path,
+            "include_final_text_after_base must be false for the current 2026b base policy",
+        ));
+    }
+    require_non_empty_standards_str(path, &lock, "/final_text_policy")?;
+    require_non_empty_standards_str(path, &lock, "/verified_at")?;
+    require_non_empty_standards_str(path, &lock, "/official_source_policy")?;
+
+    let kb = lock
+        .get("dicom_standard_kb")
+        .and_then(Value::as_object)
+        .ok_or_else(|| standards_shape(path, "missing dicom_standard_kb object"))?;
+    let kb_value = Value::Object(kb.clone());
+    let kb_repository = required_standards_str(path, &kb_value, "/repository")?;
+    let kb_db_edition = required_standards_str(path, &kb_value, "/db_edition")?;
+    require_standards_value(
+        path,
+        "dicom_standard_kb.db_edition",
+        &kb_db_edition,
+        "2026b",
+    )?;
+    let kb_source_manifest_sha256 =
+        required_standards_str(path, &kb_value, "/source_manifest_sha256")?;
+    require_sha256(
+        path,
+        "dicom_standard_kb.source_manifest_sha256",
+        &kb_source_manifest_sha256,
+    )?;
+    let parser_surface = kb
+        .get("parser_surface")
+        .and_then(Value::as_array)
+        .ok_or_else(|| standards_shape(path, "missing dicom_standard_kb.parser_surface array"))?;
+    for required_part in ["PS3.3", "PS3.4", "PS3.6"] {
+        if !parser_surface
+            .iter()
+            .any(|part| part.as_str() == Some(required_part))
+        {
+            return Err(standards_shape(
+                path,
+                format!("dicom_standard_kb.parser_surface must include {required_part}"),
+            ));
+        }
+    }
+    let pin_status = kb
+        .get("pin_status")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .trim();
+    let mut warnings = Vec::new();
+    require_documented_nullable_pin(
+        path,
+        &kb_value,
+        "/commit",
+        pin_status,
+        "dicom_standard_kb.commit",
+        &mut warnings,
+    )?;
+    require_documented_nullable_pin(
+        path,
+        &kb_value,
+        "/db_sha256",
+        pin_status,
+        "dicom_standard_kb.db_sha256",
+        &mut warnings,
+    )?;
+
+    let source_artifacts = lock
+        .get("source_artifacts")
+        .and_then(Value::as_array)
+        .ok_or_else(|| standards_shape(path, "missing source_artifacts array"))?;
+    if source_artifacts.is_empty() {
+        return Err(standards_shape(path, "source_artifacts must not be empty"));
+    }
+    for artifact in source_artifacts {
+        validate_source_artifact(path, artifact, &mut warnings)?;
+    }
+
+    let verification_queries = lock
+        .get("verification_queries")
+        .and_then(Value::as_array)
+        .ok_or_else(|| standards_shape(path, "missing verification_queries array"))?;
+    if verification_queries.is_empty() {
+        return Err(standards_shape(
+            path,
+            "verification_queries must not be empty",
+        ));
+    }
+    for query in verification_queries {
+        validate_verification_query(path, query)?;
+    }
+
+    let notes = lock
+        .get("notes")
+        .and_then(Value::as_array)
+        .ok_or_else(|| standards_shape(path, "missing notes array"))?;
+    if notes.is_empty() || !notes.iter().all(|note| note.as_str().is_some()) {
+        return Err(standards_shape(
+            path,
+            "notes must contain at least one string entry",
+        ));
+    }
+
+    Ok(StandardsLockSummary {
+        path: path.to_path_buf(),
+        schema_version,
+        dicom_base_edition,
+        include_final_text_after_base,
+        kb_repository,
+        kb_db_edition,
+        kb_source_manifest_sha256,
+        source_artifacts: source_artifacts.len(),
+        verification_queries: verification_queries.len(),
+        warnings,
+    })
+}
+
+pub fn format_standards_lock_summary(summary: &StandardsLockSummary) -> String {
+    let mut output = String::new();
+    output.push_str("status\tok\n");
+    output.push_str(&format!("path\t{}\n", summary.path.display()));
+    output.push_str(&format!("schema_version\t{}\n", summary.schema_version));
+    output.push_str(&format!(
+        "dicom_base_edition\t{}\n",
+        summary.dicom_base_edition
+    ));
+    output.push_str(&format!(
+        "include_final_text_after_base\t{}\n",
+        summary.include_final_text_after_base
+    ));
+    output.push_str(&format!("kb_repository\t{}\n", summary.kb_repository));
+    output.push_str(&format!("kb_db_edition\t{}\n", summary.kb_db_edition));
+    output.push_str(&format!(
+        "kb_source_manifest_sha256\t{}\n",
+        summary.kb_source_manifest_sha256
+    ));
+    output.push_str(&format!("source_artifacts\t{}\n", summary.source_artifacts));
+    output.push_str(&format!(
+        "verification_queries\t{}\n",
+        summary.verification_queries
+    ));
+    output.push_str(&format!("warnings\t{}\n", summary.warnings.len()));
+    for warning in &summary.warnings {
+        output.push_str(&format!("warning\t{warning}\n"));
+    }
+    output
+}
+
+fn read_standards_json(path: &Path) -> Result<Value, StandardsError> {
+    let contents = fs::read_to_string(path).map_err(|source| StandardsError::ReadMetadata {
+        path: path.to_path_buf(),
+        source,
+    })?;
+    serde_json::from_str(&contents).map_err(|source| StandardsError::ParseMetadata {
+        path: path.to_path_buf(),
+        source,
+    })
+}
+
+fn required_standards_str(
+    path: &Path,
+    value: &Value,
+    pointer: &str,
+) -> Result<String, StandardsError> {
+    let string = value
+        .pointer(pointer)
+        .and_then(Value::as_str)
+        .ok_or_else(|| standards_shape(path, format!("{pointer} must be a string")))?;
+    if string.trim().is_empty() {
+        return Err(standards_shape(
+            path,
+            format!("{pointer} must not be empty"),
+        ));
+    }
+    Ok(string.to_string())
+}
+
+fn require_non_empty_standards_str(
+    path: &Path,
+    value: &Value,
+    pointer: &str,
+) -> Result<(), StandardsError> {
+    required_standards_str(path, value, pointer).map(|_| ())
+}
+
+fn required_standards_bool(
+    path: &Path,
+    value: &Value,
+    pointer: &str,
+) -> Result<bool, StandardsError> {
+    value
+        .pointer(pointer)
+        .and_then(Value::as_bool)
+        .ok_or_else(|| standards_shape(path, format!("{pointer} must be a boolean")))
+}
+
+fn require_standards_value(
+    path: &Path,
+    field: &str,
+    actual: &str,
+    expected: &str,
+) -> Result<(), StandardsError> {
+    if actual != expected {
+        return Err(standards_shape(
+            path,
+            format!("{field} must be {expected}, got {actual}"),
+        ));
+    }
+    Ok(())
+}
+
+fn require_sha256(path: &Path, field: &str, value: &str) -> Result<(), StandardsError> {
+    if value.len() != 64 || !value.chars().all(|ch| ch.is_ascii_hexdigit()) {
+        return Err(standards_shape(
+            path,
+            format!("{field} must be a 64-character SHA-256 hex digest"),
+        ));
+    }
+    Ok(())
+}
+
+fn require_documented_nullable_pin(
+    path: &Path,
+    value: &Value,
+    pointer: &str,
+    pin_status: &str,
+    field: &str,
+    warnings: &mut Vec<String>,
+) -> Result<(), StandardsError> {
+    match value.pointer(pointer) {
+        Some(Value::Null) => {
+            if pin_status.is_empty() {
+                return Err(standards_shape(
+                    path,
+                    format!("{field} is null and dicom_standard_kb.pin_status is empty"),
+                ));
+            }
+            warnings.push(format!("{field} unavailable: {pin_status}"));
+            Ok(())
+        }
+        Some(Value::String(text)) if pointer.ends_with("sha256") || field.ends_with("sha256") => {
+            require_sha256(path, field, text)
+        }
+        Some(Value::String(text)) if !text.trim().is_empty() => Ok(()),
+        Some(_) => Err(standards_shape(
+            path,
+            format!("{field} must be a string or null"),
+        )),
+        None => Err(standards_shape(path, format!("{field} is missing"))),
+    }
+}
+
+fn validate_source_artifact(
+    path: &Path,
+    artifact: &Value,
+    warnings: &mut Vec<String>,
+) -> Result<(), StandardsError> {
+    let part = required_standards_str(path, artifact, "/part")?;
+    let format = required_standards_str(path, artifact, "/format")?;
+    let status = required_standards_str(path, artifact, "/status")?;
+    match artifact.get("sha256") {
+        Some(Value::Null) => warnings.push(format!(
+            "source_artifact.{part}.{format} sha256 unavailable: {status}"
+        )),
+        Some(Value::String(sha256)) => require_sha256(
+            path,
+            &format!("source_artifact.{part}.{format}.sha256"),
+            sha256,
+        )?,
+        Some(_) => {
+            return Err(standards_shape(
+                path,
+                format!("source_artifact.{part}.{format}.sha256 must be a string or null"),
+            ));
+        }
+        None => {
+            return Err(standards_shape(
+                path,
+                format!("source_artifact.{part}.{format}.sha256 is missing"),
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn validate_verification_query(path: &Path, query: &Value) -> Result<(), StandardsError> {
+    for field in ["source", "edition", "query", "result", "official_url"] {
+        require_non_empty_standards_str(path, query, &format!("/{field}"))?;
+    }
+    require_standards_value(
+        path,
+        "verification_queries[].edition",
+        &required_standards_str(path, query, "/edition")?,
+        "2026b",
+    )
+}
+
+fn standards_shape(path: &Path, message: impl Into<String>) -> StandardsError {
+    StandardsError::MetadataShape {
+        path: path.to_path_buf(),
+        message: message.into(),
+    }
 }
 
 fn build_generation_manifest(

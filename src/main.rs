@@ -194,6 +194,46 @@ fn run() -> Result<(), String> {
                 other => Err(format!("unsupported report format: {other}")),
             }
         }
+        "standards" => {
+            let subcommand = args
+                .next()
+                .ok_or_else(|| "standards requires a subcommand".to_string())?;
+            match subcommand.as_str() {
+                "check-lock" => {
+                    let mut lock_path = String::from("standards.lock.json");
+                    while let Some(arg) = args.next() {
+                        match arg.as_str() {
+                            "--lock" => {
+                                lock_path = args
+                                    .next()
+                                    .ok_or_else(|| "--lock requires a path".to_string())?;
+                            }
+                            "--help" | "-h" => {
+                                print_standards_check_lock_usage();
+                                return Ok(());
+                            }
+                            unknown => {
+                                return Err(format!(
+                                    "unknown standards check-lock argument: {unknown}"
+                                ));
+                            }
+                        }
+                    }
+                    let summary = dicom_test_suite::check_standards_lock_path(&lock_path)
+                        .map_err(|err| err.to_string())?;
+                    print!(
+                        "{}",
+                        dicom_test_suite::format_standards_lock_summary(&summary)
+                    );
+                    Ok(())
+                }
+                "--help" | "-h" => {
+                    print_standards_usage();
+                    Ok(())
+                }
+                unknown => Err(format!("unknown standards subcommand: {unknown}")),
+            }
+        }
         "--help" | "-h" => {
             print_usage();
             Ok(())
@@ -213,6 +253,7 @@ fn print_usage() {
     );
     println!("  dicom-test-suite validate GENERATED_ROOT");
     println!("  dicom-test-suite report GENERATED_ROOT --format json|markdown");
+    println!("  dicom-test-suite standards check-lock [--lock PATH]");
 }
 
 fn print_generate_usage() {
@@ -233,6 +274,14 @@ fn print_validate_usage() {
 
 fn print_report_usage() {
     println!("usage: dicom-test-suite report GENERATED_ROOT --format json|markdown");
+}
+
+fn print_standards_usage() {
+    println!("usage: dicom-test-suite standards check-lock [--lock PATH]");
+}
+
+fn print_standards_check_lock_usage() {
+    println!("usage: dicom-test-suite standards check-lock [--lock PATH]");
 }
 
 fn parse_seed(seed: String) -> Result<u64, String> {

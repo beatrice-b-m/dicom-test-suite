@@ -3,6 +3,7 @@
 **Last updated:** 2026-06-13  
 **Source specification:** `SYSTEM_SPEC.md` version 0.2.0  
 **Current phase:** Phase 2 native pixel matrix, not started
+
 **Current implementation status:** Phase 0, Phase 0.5, and Phase 1 are complete; `generate --profile smoke` writes the three initial Secondary Capture Part 10 smoke files with deterministic UIDs, manifest hashes, pixel metadata, validation results, and two-run reproducibility coverage
 
 This document is the durable hand-off log for coding agents implementing
@@ -48,8 +49,8 @@ Observed at creation of this progress file:
 | `standards/kb-integration.md` | present | Documents the pinned 2026b `dicom-standard-kb` MCP query workflow, evidence fields, and fallback path. |
 | `standards/gap-workflow.md` | present | Documents standards gap handling, local source notes, blocked/skipped registry actions, and KB patch criteria. |
 | `standards/source-notes/` | present | Contains a README/template plus `uid-2-25.md` for the PS3.5 UID root gap not covered by `dicom-standard-kb`. |
-| `src/` or `crates/` | present | Single-package implementation now includes initial `list-cases`, `generate`, deterministic UID, run manifest, and first smoke Part 10 writer paths. |
-| `tests/` | present | Includes schema artifact, `list-cases` CLI, `generate` CLI, UID, manifest, and first Part 10 readback tests. |
+| `src/` or `crates/` | present | Single-package implementation now includes initial `list-cases`, `generate`, deterministic UID, run manifest, and smoke Part 10 writer paths. |
+| `tests/` | present | Includes schema artifact, `list-cases` CLI, `generate` CLI, UID, manifest, Part 10 readback, and smoke reproducibility tests. |
 
 ## Non-Negotiable Implementation Constraints
 

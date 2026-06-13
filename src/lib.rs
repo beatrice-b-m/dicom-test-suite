@@ -935,6 +935,111 @@ pub fn build_coverage_report(root_dir: impl AsRef<Path>) -> Result<Value, Report
     }))
 }
 
+pub fn render_coverage_report_markdown(report: &Value) -> String {
+    let mut output = String::new();
+    output.push_str("# DICOM Test Suite Coverage Report\n\n");
+    output.push_str(&format!(
+        "- Generated at: {}\n",
+        markdown_cell(report.get("generated_at").and_then(Value::as_str))
+    ));
+    output.push_str(&format!(
+        "- Standards lock SHA-256: {}\n",
+        markdown_cell(report.get("standards_lock_sha256").and_then(Value::as_str))
+    ));
+
+    output.push_str("\n## Counts\n\n");
+    output.push_str("| Status | Count |\n");
+    output.push_str("|---|---:|\n");
+    for status in ["generated", "planned", "skipped", "blocked", "deprecated"] {
+        output.push_str(&format!(
+            "| {} | {} |\n",
+            status,
+            report
+                .pointer(&format!("/counts/{status}"))
+                .and_then(Value::as_u64)
+                .unwrap_or(0)
+        ));
+    }
+
+    output.push_str("\n## Grouped Coverage\n\n");
+    append_count_map_section(
+        &mut output,
+        report,
+        "Profiles",
+        "/grouped_coverage/profiles",
+    );
+    append_count_map_section(&mut output, report, "IODs", "/grouped_coverage/iods");
+    append_count_map_section(
+        &mut output,
+        report,
+        "Transfer Syntaxes",
+        "/grouped_coverage/transfer_syntaxes",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "Photometric Interpretations",
+        "/grouped_coverage/photometric_interpretations",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "Bit Depths",
+        "/grouped_coverage/bit_depths",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "Object Types",
+        "/grouped_coverage/object_types",
+    );
+
+    output.push_str("## Gaps\n\n");
+    let gaps = report
+        .get("gaps")
+        .and_then(Value::as_array)
+        .map(Vec::as_slice)
+        .unwrap_or(&[]);
+    if gaps.is_empty() {
+        output.push_str("No gaps reported.\n\n");
+    } else {
+        output.push_str("| Axis | Value | Reason | Recommended case |\n");
+        output.push_str("|---|---|---|---|\n");
+        for gap in gaps {
+            output.push_str(&format!(
+                "| {} | {} | {} | {} |\n",
+                markdown_cell(gap.get("axis").and_then(Value::as_str)),
+                markdown_cell(gap.get("value").and_then(Value::as_str)),
+                markdown_cell(gap.get("reason").and_then(Value::as_str)),
+                markdown_cell(gap.get("recommended_case_id").and_then(Value::as_str))
+            ));
+        }
+        output.push('\n');
+    }
+
+    output.push_str("## Coverage Matrix\n\n");
+    output.push_str("| Case ID | Status | Profile | IOD | Transfer Syntax | Photometric | Bits | Frames | Validation |\n");
+    output.push_str("|---|---|---|---|---|---|---:|---:|---|\n");
+    if let Some(rows) = report.get("coverage_matrix").and_then(Value::as_array) {
+        for row in rows {
+            output.push_str(&format!(
+                "| {} | {} | {} | {} | {} | {} | {} | {} | {} |\n",
+                markdown_cell(row.get("case_id").and_then(Value::as_str)),
+                markdown_cell(row.get("status").and_then(Value::as_str)),
+                markdown_cell(row.get("profile").and_then(Value::as_str)),
+                markdown_cell(row.get("iod").and_then(Value::as_str)),
+                markdown_cell(row.get("transfer_syntax").and_then(Value::as_str)),
+                markdown_cell(row.get("photometric").and_then(Value::as_str)),
+                markdown_number(row.get("bits")),
+                markdown_number(row.get("frames")),
+                markdown_cell(row.get("validation_status").and_then(Value::as_str))
+            ));
+        }
+    }
+
+    output
+}
+
 fn read_report_json(path: &Path) -> Result<Value, ReportError> {
     let contents = fs::read_to_string(path).map_err(|source| ReportError::ReadMetadata {
         path: path.to_path_buf(),
@@ -1116,6 +1221,35 @@ fn increment_map(map: &mut BTreeMap<String, usize>, key: Option<&str>) {
     if let Some(key) = key {
         *map.entry(key.to_string()).or_default() += 1;
     }
+}
+
+fn append_count_map_section(output: &mut String, report: &Value, title: &str, pointer: &str) {
+    output.push_str(&format!("### {title}\n\n"));
+    output.push_str("| Value | Count |\n");
+    output.push_str("|---|---:|\n");
+    if let Some(map) = report.pointer(pointer).and_then(Value::as_object) {
+        for (value, count) in map {
+            output.push_str(&format!(
+                "| {} | {} |\n",
+                markdown_cell(Some(value.as_str())),
+                count.as_u64().unwrap_or(0)
+            ));
+        }
+    }
+    output.push('\n');
+}
+
+fn markdown_cell(value: Option<&str>) -> String {
+    value
+        .unwrap_or("")
+        .replace('|', "\\|")
+        .replace(['\r', '\n'], " ")
+}
+
+fn markdown_number(value: Option<&Value>) -> String {
+    value
+        .and_then(Value::as_u64)
+        .map_or_else(String::new, |number| number.to_string())
 }
 
 fn build_generation_manifest(

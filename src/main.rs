@@ -182,6 +182,15 @@ fn run() -> Result<(), String> {
                     );
                     Ok(())
                 }
+                "markdown" => {
+                    let report = dicom_test_suite::build_coverage_report(&root)
+                        .map_err(|err| err.to_string())?;
+                    print!(
+                        "{}",
+                        dicom_test_suite::render_coverage_report_markdown(&report)
+                    );
+                    Ok(())
+                }
                 other => Err(format!("unsupported report format: {other}")),
             }
         }
@@ -203,7 +212,7 @@ fn print_usage() {
         "  dicom-test-suite list-cases [--profile PROFILE] [--status STATUS] [--registry PATH]"
     );
     println!("  dicom-test-suite validate GENERATED_ROOT");
-    println!("  dicom-test-suite report GENERATED_ROOT --format json");
+    println!("  dicom-test-suite report GENERATED_ROOT --format json|markdown");
 }
 
 fn print_generate_usage() {
@@ -223,7 +232,7 @@ fn print_validate_usage() {
 }
 
 fn print_report_usage() {
-    println!("usage: dicom-test-suite report GENERATED_ROOT --format json");
+    println!("usage: dicom-test-suite report GENERATED_ROOT --format json|markdown");
 }
 
 fn parse_seed(seed: String) -> Result<u64, String> {

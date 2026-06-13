@@ -2,8 +2,8 @@
 
 **Last updated:** 2026-06-13  
 **Source specification:** `SYSTEM_SPEC.md` version 0.2.0  
-**Current phase:** Phase 1 generator core, in progress  
-**Current implementation status:** Phase 0 and Phase 0.5 are complete; Phase 1 has the initial `generate` command skeleton, manifest writing, deterministic `2.25.<decimal uuid>` UID generation, the first Secondary Capture smoke Part 10 file, reusable file-level validation for that output, and two-run reproducibility coverage
+**Current phase:** Phase 2 native pixel matrix, not started
+**Current implementation status:** Phase 0, Phase 0.5, and Phase 1 are complete; `generate --profile smoke` writes the three initial Secondary Capture Part 10 smoke files with deterministic UIDs, manifest hashes, pixel metadata, validation results, and two-run reproducibility coverage
 
 This document is the durable hand-off log for coding agents implementing
 `dicom-test-suite`. Keep `SYSTEM_SPEC.md` as the source of product and
@@ -78,7 +78,7 @@ Observed at creation of this progress file:
 |---|---|---|
 | Phase 0: Repository initialization | complete | Scope docs, generated-artifact protections, Rust skeleton, toolchain, dependency pins, and initial schema placeholders are committed. |
 | Phase 0.5: Standards and case registry foundation | complete | Standards base edition, schemas, taxonomy/profile rules, initial smoke/core registry, transfer syntax matrix, deterministic policy, standards workflows, and `list-cases` are in place. |
-| Phase 1: Generator core | in progress | Initial `generate` CLI argument model, output-root creation, manifest writing, deterministic UID generation, first smoke Secondary Capture Part 10 writing, reusable file-level validation, and two-run reproducibility coverage are implemented; remaining smoke recipes remain. |
+| Phase 1: Generator core | complete | `generate --profile smoke` writes all three initial Secondary Capture smoke Part 10 files with manifest hashes, file meta UIDs, pixel metadata, validation results, and byte-stable output across two identical runs. |
 | Phase 2: Native pixel matrix | not started | Pixel generators and photometric validators pending. |
 | Phase 3: Classic radiology IODs | not started | CT/MR/CR/US/DX/MG builders pending. |
 | Phase 4: Enhanced multi-frame | not started | Enhanced CT/MR and functional groups pending. |
@@ -134,13 +134,14 @@ structured status and planned Phase 1/2 cases have standards evidence through
   writing DICOM instances.
 - [x] Implement deterministic UID generation.
 - [x] Implement manifest writing for empty generation runs.
-- [ ] Implement Part 10 file writing for the initial smoke cases. First case `classic/sc/mono2_u8_explicit_le` is implemented; remaining smoke cases are still unavailable.
+- [x] Implement Part 10 file writing for the initial smoke cases.
 - [x] Add file-level validation for generated Part 10 output.
 - [x] Add two-run reproducibility checks for `smoke`.
 
-Phase 1 is complete only when `generate --profile smoke` writes a small
-deterministic corpus of valid Part 10 files plus a valid manifest with hashes,
-file meta UIDs, pixel metadata, and validation results.
+Phase 1 is complete: `generate --profile smoke` writes the three required
+Secondary Capture Part 10 files plus a valid manifest with hashes, file meta
+UIDs, pixel metadata, validation results, and byte-stable output across two
+identical runs.
 
 ## Initial Priority Case Queue
 
@@ -149,9 +150,9 @@ These case IDs come from `SYSTEM_SPEC.md` section 21 and should seed
 
 | Case ID | Profile | Implementation status |
 |---|---|---|
-| `classic/sc/mono2_u8_explicit_le` | `smoke` | implemented for Phase 1 first Part 10 smoke output |
-| `classic/sc/mono1_u8_explicit_le` | `smoke` | planned |
-| `classic/sc/rgb_planar0_explicit_le` | `smoke` | planned |
+| `classic/sc/mono2_u8_explicit_le` | `smoke` | implemented |
+| `classic/sc/mono1_u8_explicit_le` | `smoke` | implemented |
+| `classic/sc/rgb_planar0_explicit_le` | `smoke` | implemented |
 | `classic/ct/mono2_i16_rescale_12bit_explicit_le` | `core` | planned |
 | `classic/mg/for_presentation_mono1_u16_12bit_explicit_le` | `core` | planned |
 | `classic/mg/for_processing_mono2_u16_12bit_implicit_le` | `core` | planned |
@@ -193,26 +194,31 @@ These case IDs come from `SYSTEM_SPEC.md` section 21 and should seed
   runs with the same seed into two separate output roots and compares DICOM
   bytes, manifest file metadata, skipped-case metadata, file hashes, and UID
   metadata.
+- 2026-06-13: The remaining Phase 1 smoke recipes are implemented:
+  `classic/sc/mono1_u8_explicit_le` and
+  `classic/sc/rgb_planar0_explicit_le`. The RGB case uses Samples per Pixel 3
+  and Planar Configuration 0, backed by 2026b `dicom-standard-kb` evidence for
+  Photometric Interpretation and Planar Configuration. The smoke registry cases
+  now report `implemented`.
 
 ## Current Blockers
 
 No implementation blocker has been proven yet. The immediate limitations are
 that the local `dicom-standard-kb` repository commit/DB SHA-256 and official
-source artifact hashes have not yet been verified. Phase 1 can continue with
-the remaining smoke Secondary Capture Part 10 recipes.
+source artifact hashes have not yet been verified. Phase 2 can start with native
+pixel matrix expansion.
 
 ## Recommended Next Commit
 
-Add the remaining smoke Secondary Capture Part 10 recipes:
+Start Phase 2 native pixel matrix work:
 
-1. Query the 2026b `dicom-standard-kb` for any additional Image Pixel or
-   photometric interpretation evidence needed for `MONOCHROME1` and RGB Planar
-   Configuration 0 Secondary Capture files.
-2. Extend the generator to write `classic/sc/mono1_u8_explicit_le` and
-   `classic/sc/rgb_planar0_explicit_le` with deterministic UIDs, validation
-   results, and manifest entries.
-3. Keep the two-run reproducibility test covering all generated smoke files.
-4. Commit as `feat(generator): write remaining smoke sc cases`.
+1. Query the 2026b `dicom-standard-kb` for Image Pixel attributes and
+   photometric rules needed for the first core native pixel case.
+2. Add or extend registry entries for Phase 2 native pixel combinations if the
+   existing queue is insufficient.
+3. Implement the first core native pixel recipe with byte-length validation and
+   manifest metadata.
+4. Commit as `feat(pixels): add first native pixel core case`.
 
 ## Handoff Notes
 

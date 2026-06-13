@@ -12,11 +12,54 @@ use crate::{
     validation::{Part10Expectations, validate_part10_file},
 };
 
-const FIRST_SMOKE_CASE_ID: &str = "classic/sc/mono2_u8_explicit_le";
-const FIRST_SMOKE_RECIPE_ID: &str = "sc_mono2_u8";
-const FIRST_SMOKE_RECIPE_VERSION: &str = "0.1.0";
-const FIRST_SMOKE_RELATIVE_PATH: &str = "classic/sc/mono2_u8_explicit_le/instance.dcm";
-const FIRST_SMOKE_PIXEL_BYTES: [u8; 4] = [0, 85, 170, 255];
+const SMOKE_RECIPE_VERSION: &str = "0.1.0";
+const MONO_PIXELS: [u8; 4] = [0, 85, 170, 255];
+const RGB_PLANAR0_PIXELS: [u8; 12] = [255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 255, 255];
+
+const SMOKE_RECIPES: &[SmokeRecipe] = &[
+    SmokeRecipe {
+        case_id: "classic/sc/mono2_u8_explicit_le",
+        recipe_id: "sc_mono2_u8",
+        photometric_interpretation: "MONOCHROME2",
+        samples_per_pixel: 1,
+        planar_configuration: None,
+        pixel_bytes: &MONO_PIXELS,
+        visual_pattern: "2x2_monochrome_gradient",
+        semantic_note: "minimum sample value displays as black",
+    },
+    SmokeRecipe {
+        case_id: "classic/sc/mono1_u8_explicit_le",
+        recipe_id: "sc_mono1_u8",
+        photometric_interpretation: "MONOCHROME1",
+        samples_per_pixel: 1,
+        planar_configuration: None,
+        pixel_bytes: &MONO_PIXELS,
+        visual_pattern: "2x2_inverse_monochrome_gradient",
+        semantic_note: "minimum sample value displays as white",
+    },
+    SmokeRecipe {
+        case_id: "classic/sc/rgb_planar0_explicit_le",
+        recipe_id: "sc_rgb_planar0",
+        photometric_interpretation: "RGB",
+        samples_per_pixel: 3,
+        planar_configuration: Some(0),
+        pixel_bytes: &RGB_PLANAR0_PIXELS,
+        visual_pattern: "2x2_rgb_red_green_blue_white",
+        semantic_note: "RGB samples are interleaved color-by-pixel",
+    },
+];
+
+#[derive(Debug, Clone, Copy)]
+struct SmokeRecipe {
+    case_id: &'static str,
+    recipe_id: &'static str,
+    photometric_interpretation: &'static str,
+    samples_per_pixel: u16,
+    planar_configuration: Option<u16>,
+    pixel_bytes: &'static [u8],
+    visual_pattern: &'static str,
+    semantic_note: &'static str,
+}
 
 #[derive(Debug, Clone)]
 pub(crate) struct GeneratedFile {
@@ -29,34 +72,50 @@ pub(crate) fn write_supported_cases(
     registry: &Value,
     standards_lock_sha256: &str,
 ) -> Result<Vec<GeneratedFile>, GenerateError> {
-    let Some(case) = registry_case(registry, FIRST_SMOKE_CASE_ID)? else {
-        return Ok(Vec::new());
-    };
-    let profiles = string_array(case.get("profiles"))?;
-    if !case_matches_profile(&profiles, &run.profile, run.include_stress) {
-        return Ok(Vec::new());
+    let mut generated_files = Vec::new();
+    for recipe in SMOKE_RECIPES {
+        let Some(case) = registry_case(registry, recipe.case_id)? else {
+            continue;
+        };
+        let profiles = string_array(case.get("profiles"))?;
+        if !case_matches_profile(&profiles, &run.profile, run.include_stress) {
+            continue;
+        }
+        generated_files.push(write_smoke_case(run, case, *recipe, standards_lock_sha256)?);
     }
-
-    write_first_smoke_case(run, case, standards_lock_sha256).map(|file| vec![file])
+    Ok(generated_files)
 }
 
-fn write_first_smoke_case(
+fn write_smoke_case(
     run: &PreparedGenerationRun,
     case: &Value,
+    recipe: SmokeRecipe,
     standards_lock_sha256: &str,
 ) -> Result<GeneratedFile, GenerateError> {
-    let study_instance_uid =
-        deterministic_case_uid(standards_lock_sha256, run.seed, UidRole::StudyInstance);
-    let series_instance_uid =
-        deterministic_case_uid(standards_lock_sha256, run.seed, UidRole::SeriesInstance);
-    let sop_instance_uid =
-        deterministic_case_uid(standards_lock_sha256, run.seed, UidRole::SopInstance);
-    let implementation_class_uid =
-        deterministic_case_uid(standards_lock_sha256, 0, UidRole::ImplementationClass);
+    let study_instance_uid = deterministic_case_uid(
+        standards_lock_sha256,
+        recipe,
+        run.seed,
+        UidRole::StudyInstance,
+    );
+    let series_instance_uid = deterministic_case_uid(
+        standards_lock_sha256,
+        recipe,
+        run.seed,
+        UidRole::SeriesInstance,
+    );
+    let sop_instance_uid = deterministic_case_uid(
+        standards_lock_sha256,
+        recipe,
+        run.seed,
+        UidRole::SopInstance,
+    );
+    let implementation_class_uid = deterministic_implementation_uid(standards_lock_sha256);
 
-    let path = run.out_dir.join(FIRST_SMOKE_RELATIVE_PATH);
+    let relative_path = format!("{}/instance.dcm", recipe.case_id);
+    let path = run.out_dir.join(&relative_path);
     let case_dir = path.parent().ok_or_else(|| GenerateError::MetadataShape {
-        path: PathBuf::from(FIRST_SMOKE_RELATIVE_PATH),
+        path: PathBuf::from(&relative_path),
         message: "generated DICOM path must have a parent directory",
     })?;
     fs::create_dir_all(case_dir).map_err(|source| GenerateError::CreateCaseOutputDir {
@@ -106,7 +165,7 @@ fn write_first_smoke_case(
         &mut obj,
         tags::MANUFACTURER_MODEL_NAME,
         VR::LO,
-        FIRST_SMOKE_RECIPE_ID,
+        recipe.recipe_id,
     );
     put_str(
         &mut obj,
@@ -120,13 +179,26 @@ fn write_first_smoke_case(
     put_str(&mut obj, tags::CONTENT_DATE, VR::DA, "20260101");
     put_str(&mut obj, tags::CONTENT_TIME, VR::TM, "000000");
 
-    put_u16(&mut obj, tags::SAMPLES_PER_PIXEL, VR::US, 1);
+    put_u16(
+        &mut obj,
+        tags::SAMPLES_PER_PIXEL,
+        VR::US,
+        recipe.samples_per_pixel,
+    );
     put_str(
         &mut obj,
         tags::PHOTOMETRIC_INTERPRETATION,
         VR::CS,
-        "MONOCHROME2",
+        recipe.photometric_interpretation,
     );
+    if let Some(planar_configuration) = recipe.planar_configuration {
+        put_u16(
+            &mut obj,
+            tags::PLANAR_CONFIGURATION,
+            VR::US,
+            planar_configuration,
+        );
+    }
     put_u16(&mut obj, tags::ROWS, VR::US, 2);
     put_u16(&mut obj, tags::COLUMNS, VR::US, 2);
     put_u16(&mut obj, tags::BITS_ALLOCATED, VR::US, 8);
@@ -136,7 +208,7 @@ fn write_first_smoke_case(
     obj.put(DataElement::new(
         tags::PIXEL_DATA,
         VR::OB,
-        PrimitiveValue::from(FIRST_SMOKE_PIXEL_BYTES.as_slice()),
+        PrimitiveValue::from(recipe.pixel_bytes),
     ));
 
     let file_obj = obj
@@ -168,20 +240,23 @@ fn write_first_smoke_case(
             synthetic_data: "YES",
             rows: 2,
             columns: 2,
-            samples_per_pixel: 1,
-            photometric_interpretation: "MONOCHROME2",
+            samples_per_pixel: recipe.samples_per_pixel,
+            photometric_interpretation: recipe.photometric_interpretation,
             bits_allocated: 8,
             bits_stored: 8,
             high_bit: 7,
             pixel_representation: 0,
-            pixel_data_length: FIRST_SMOKE_PIXEL_BYTES.len(),
+            planar_configuration: recipe.planar_configuration,
+            pixel_data_length: recipe.pixel_bytes.len(),
         },
     )?;
 
     Ok(GeneratedFile {
-        case_id: FIRST_SMOKE_CASE_ID.to_string(),
-        manifest_entry: first_smoke_manifest_entry(
+        case_id: recipe.case_id.to_string(),
+        manifest_entry: smoke_manifest_entry(
             case,
+            recipe,
+            &relative_path,
             &study_instance_uid,
             &series_instance_uid,
             &sop_instance_uid,
@@ -192,8 +267,10 @@ fn write_first_smoke_case(
     })
 }
 
-fn first_smoke_manifest_entry(
+fn smoke_manifest_entry(
     case: &Value,
+    recipe: SmokeRecipe,
+    relative_path: &str,
     study_instance_uid: &str,
     series_instance_uid: &str,
     sop_instance_uid: &str,
@@ -231,26 +308,55 @@ fn first_smoke_manifest_entry(
             "part": "PS3.3",
             "anchor": "table_C.7-11c"
         }),
+        serde_json::json!({
+            "source": "dicom-standard-kb",
+            "edition": "2026b",
+            "query": "retrieve_standard_text sect_C.7.6.3.1.2",
+            "covered": true,
+            "part": "PS3.3",
+            "anchor": "sect_C.7.6.3.1.2"
+        }),
     ]);
+    if recipe.planar_configuration.is_some() {
+        standards_evidence.extend([
+            serde_json::json!({
+                "source": "dicom-standard-kb",
+                "edition": "2026b",
+                "query": "lookup_data_element PlanarConfiguration",
+                "covered": true,
+                "part": "PS3.6",
+                "anchor": "table_6-1"
+            }),
+            serde_json::json!({
+                "source": "dicom-standard-kb",
+                "edition": "2026b",
+                "query": "retrieve_standard_text sect_C.7.6.3.1.3",
+                "covered": true,
+                "part": "PS3.3",
+                "anchor": "sect_C.7.6.3.1.3"
+            }),
+        ]);
+    }
 
     serde_json::json!({
-        "case_id": FIRST_SMOKE_CASE_ID,
+        "case_id": recipe.case_id,
         "profile_membership": ["smoke"],
-        "path": FIRST_SMOKE_RELATIVE_PATH,
+        "path": relative_path,
         "sha256": sha256_hex(bytes),
         "size_bytes": bytes.len(),
         "determinism": "byte_stable",
         "recipe": {
-            "recipe_id": FIRST_SMOKE_RECIPE_ID,
-            "recipe_version": FIRST_SMOKE_RECIPE_VERSION,
+            "recipe_id": recipe.recipe_id,
+            "recipe_version": SMOKE_RECIPE_VERSION,
             "recipe_parameters": {
                 "rows": 2,
                 "columns": 2,
-                "samples_per_pixel": 1,
-                "photometric_interpretation": "MONOCHROME2",
+                "samples_per_pixel": recipe.samples_per_pixel,
+                "photometric_interpretation": recipe.photometric_interpretation,
                 "bits_allocated": 8,
                 "bits_stored": 8,
-                "pixel_values": [0, 85, 170, 255]
+                "planar_configuration": recipe.planar_configuration,
+                "pixel_values": recipe.pixel_bytes
             }
         },
         "dicom": {
@@ -272,32 +378,31 @@ fn first_smoke_manifest_entry(
             "rows": 2,
             "columns": 2,
             "frames": 1,
-            "samples_per_pixel": 1,
-            "photometric_interpretation": "MONOCHROME2",
+            "samples_per_pixel": recipe.samples_per_pixel,
+            "photometric_interpretation": recipe.photometric_interpretation,
             "bits_allocated": 8,
             "bits_stored": 8,
             "high_bit": 7,
             "pixel_representation": 0,
-            "planar_configuration": Value::Null
+            "planar_configuration": recipe.planar_configuration
         },
         "pixel_data": {
             "vr": "OB",
             "native_or_encapsulated": "native",
-            "value_length": FIRST_SMOKE_PIXEL_BYTES.len(),
+            "value_length": recipe.pixel_bytes.len(),
             "frame_count": 1,
-            "frame_hashes": [sha256_hex(&FIRST_SMOKE_PIXEL_BYTES)]
+            "frame_hashes": [sha256_hex(recipe.pixel_bytes)]
         },
         "expected_capabilities": ["open_file", "read_metadata", "render_native_pixels"],
         "expected_semantics": {
             "synthetic_data": "YES",
             "conversion_type": "SYN",
             "pixel_min": 0,
-            "pixel_max": 255
+            "pixel_max": 255,
+            "photometric_semantics": recipe.semantic_note
         },
         "expected_visual_checks": {
-            "pattern": "2x2_monochrome_gradient",
-            "top_left": 0,
-            "bottom_right": 255
+            "pattern": recipe.visual_pattern
         },
         "validation": validation,
         "known_stressors": ["minimal_secondary_capture", "native_ob_pixel_data"],
@@ -305,16 +410,34 @@ fn first_smoke_manifest_entry(
     })
 }
 
-fn deterministic_case_uid(standards_lock_sha256: &str, run_seed: u64, role: UidRole) -> String {
+fn deterministic_case_uid(
+    standards_lock_sha256: &str,
+    recipe: SmokeRecipe,
+    run_seed: u64,
+    role: UidRole,
+) -> String {
     deterministic_uid(&DeterministicUidInput {
         standards_lock_sha256,
-        case_id: FIRST_SMOKE_CASE_ID,
-        recipe_version: FIRST_SMOKE_RECIPE_VERSION,
+        case_id: recipe.case_id,
+        recipe_version: SMOKE_RECIPE_VERSION,
         run_seed,
         file_index: 0,
         frame_index: None,
         referenced_object_index: None,
         role,
+    })
+}
+
+fn deterministic_implementation_uid(standards_lock_sha256: &str) -> String {
+    deterministic_uid(&DeterministicUidInput {
+        standards_lock_sha256,
+        case_id: "dicom-test-suite/implementation",
+        recipe_version: crate::PACKAGE_VERSION,
+        run_seed: 0,
+        file_index: 0,
+        frame_index: None,
+        referenced_object_index: None,
+        role: UidRole::ImplementationClass,
     })
 }
 

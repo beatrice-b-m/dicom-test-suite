@@ -44,17 +44,23 @@ fn registry_contains_initial_smoke_and_core_cases() {
         .and_then(Value::as_array)
         .expect("registry must contain cases");
 
-    for case_id in [
-        "classic/sc/mono2_u8_explicit_le",
-        "classic/sc/mono1_u8_explicit_le",
-        "classic/sc/rgb_planar0_explicit_le",
-        "classic/ct/mono2_i16_rescale_12bit_explicit_le",
-        "classic/mg/for_presentation_mono1_u16_12bit_explicit_le",
-        "classic/mg/for_processing_mono2_u16_12bit_implicit_le",
-        "classic/cr/overlay_modality_voi_explicit_le",
-        "classic/mr/multislice_oblique_explicit_le",
-        "vl/photo/rgb_planar0_explicit_le",
-        "vl/photo/palette_color_explicit_le",
+    for (case_id, expected_status) in [
+        ("classic/sc/mono2_u8_explicit_le", "implemented"),
+        ("classic/sc/mono1_u8_explicit_le", "implemented"),
+        ("classic/sc/rgb_planar0_explicit_le", "implemented"),
+        ("classic/ct/mono2_i16_rescale_12bit_explicit_le", "planned"),
+        (
+            "classic/mg/for_presentation_mono1_u16_12bit_explicit_le",
+            "planned",
+        ),
+        (
+            "classic/mg/for_processing_mono2_u16_12bit_implicit_le",
+            "planned",
+        ),
+        ("classic/cr/overlay_modality_voi_explicit_le", "planned"),
+        ("classic/mr/multislice_oblique_explicit_le", "planned"),
+        ("vl/photo/rgb_planar0_explicit_le", "planned"),
+        ("vl/photo/palette_color_explicit_le", "planned"),
     ] {
         let case = cases
             .iter()
@@ -63,8 +69,8 @@ fn registry_contains_initial_smoke_and_core_cases() {
 
         assert_eq!(
             case.get("status").and_then(Value::as_str),
-            Some("planned"),
-            "{case_id} must start as planned"
+            Some(expected_status),
+            "{case_id} must have the expected implementation status"
         );
         assert!(
             case.get("standards_evidence")

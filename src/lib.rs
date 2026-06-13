@@ -634,7 +634,7 @@ mod tests {
 
         assert!(
             output.contains(
-                "classic/sc/mono2_u8_explicit_le\tplanned\tsmoke\t1.2.840.10008.5.1.4.1.1.7\t1.2.840.10008.1.2.1\t2/2 covered"
+                "classic/sc/mono2_u8_explicit_le\timplemented\tsmoke\t1.2.840.10008.5.1.4.1.1.7\t1.2.840.10008.1.2.1\t2/2 covered"
             ),
             "list-cases output must show smoke status and standards evidence coverage"
         );
@@ -694,7 +694,7 @@ mod tests {
     }
 
     #[test]
-    fn write_generation_run_records_first_smoke_file_metadata() {
+    fn write_generation_run_records_smoke_file_metadata() {
         let out_dir = unique_temp_dir("write_generation_run");
         let prepared = prepare_generation_run(GenerateOptions {
             profile: "smoke".to_string(),
@@ -706,7 +706,7 @@ mod tests {
 
         let summary = write_generation_run(&prepared).expect("manifest should write");
 
-        assert_eq!(summary.files_written, 1);
+        assert_eq!(summary.files_written, 3);
         assert!(summary.manifest_written);
 
         let manifest: Value = serde_json::from_str(
@@ -733,15 +733,30 @@ mod tests {
                 .pointer("/files")
                 .and_then(Value::as_array)
                 .map(Vec::len),
-            Some(1)
+            Some(3)
+        );
+        let generated_case_ids: Vec<&str> = manifest
+            .pointer("/files")
+            .and_then(Value::as_array)
+            .expect("manifest files should be an array")
+            .iter()
+            .map(|file| {
+                file.get("case_id")
+                    .and_then(Value::as_str)
+                    .expect("file should have case_id")
+            })
+            .collect();
+        assert_eq!(
+            generated_case_ids,
+            vec![
+                "classic/sc/mono2_u8_explicit_le",
+                "classic/sc/mono1_u8_explicit_le",
+                "classic/sc/rgb_planar0_explicit_le"
+            ]
         );
         assert_eq!(
-            manifest.pointer("/files/0/case_id").and_then(Value::as_str),
-            Some("classic/sc/mono2_u8_explicit_le")
-        );
-        assert_eq!(
-            manifest.pointer("/files/0/path").and_then(Value::as_str),
-            Some("classic/sc/mono2_u8_explicit_le/instance.dcm")
+            manifest.pointer("/files/2/path").and_then(Value::as_str),
+            Some("classic/sc/rgb_planar0_explicit_le/instance.dcm")
         );
         assert_eq!(
             manifest
@@ -753,13 +768,8 @@ mod tests {
             manifest
                 .pointer("/skipped_cases")
                 .and_then(Value::as_array)
-                .is_some_and(|cases| {
-                    cases.iter().all(|case| {
-                        case.get("case_id").and_then(Value::as_str)
-                            != Some("classic/sc/mono2_u8_explicit_le")
-                    }) && cases.len() == 2
-                }),
-            "manifest should skip only smoke cases that do not have generator recipes yet"
+                .is_some_and(Vec::is_empty),
+            "manifest should not skip smoke cases once all smoke recipes are generated"
         );
 
         fs::remove_dir_all(out_dir).expect("temporary output root should be removable");

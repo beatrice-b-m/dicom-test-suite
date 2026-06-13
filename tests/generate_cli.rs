@@ -7,7 +7,7 @@ use dicom_object::open_file;
 use serde_json::Value;
 
 #[test]
-fn generate_command_writes_first_smoke_part10_file_and_manifest() {
+fn generate_command_writes_smoke_part10_files_and_manifest() {
     let out_dir = unique_temp_dir("generate-command");
 
     let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
@@ -39,7 +39,7 @@ fn generate_command_writes_first_smoke_part10_file_and_manifest() {
     assert!(stdout.contains("include_stress\tfalse"));
     assert!(stdout.contains(&format!("out\t{}", out_dir.display())));
     assert!(stdout.contains(&format!("manifest\t{}", manifest_path.display())));
-    assert!(stdout.contains("files_written\t1"));
+    assert!(stdout.contains("files_written\t3"));
     assert!(stdout.contains("manifest_written\ttrue"));
 
     let manifest: Value = serde_json::from_str(
@@ -59,12 +59,15 @@ fn generate_command_writes_first_smoke_part10_file_and_manifest() {
             .pointer("/files")
             .and_then(Value::as_array)
             .map(Vec::len),
-        Some(1)
+        Some(3)
     );
-    let file_entry = manifest
-        .pointer("/files/0")
-        .and_then(Value::as_object)
-        .expect("manifest should describe the generated file");
+    let files = manifest
+        .pointer("/files")
+        .and_then(Value::as_array)
+        .expect("manifest should describe generated files");
+    let file_entry = files[0]
+        .as_object()
+        .expect("manifest should describe the first generated file");
     assert_eq!(
         file_entry.get("case_id").and_then(Value::as_str),
         Some("classic/sc/mono2_u8_explicit_le")
@@ -96,6 +99,38 @@ fn generate_command_writes_first_smoke_part10_file_and_manifest() {
             .pointer("/files/0/image/photometric_interpretation")
             .and_then(Value::as_str),
         Some("MONOCHROME2")
+    );
+    assert_eq!(
+        files[1].get("case_id").and_then(Value::as_str),
+        Some("classic/sc/mono1_u8_explicit_le")
+    );
+    assert_eq!(
+        files[1]
+            .pointer("/image/photometric_interpretation")
+            .and_then(Value::as_str),
+        Some("MONOCHROME1")
+    );
+    assert_eq!(
+        files[2].get("case_id").and_then(Value::as_str),
+        Some("classic/sc/rgb_planar0_explicit_le")
+    );
+    assert_eq!(
+        files[2]
+            .pointer("/image/photometric_interpretation")
+            .and_then(Value::as_str),
+        Some("RGB")
+    );
+    assert_eq!(
+        files[2]
+            .pointer("/image/samples_per_pixel")
+            .and_then(Value::as_u64),
+        Some(3)
+    );
+    assert_eq!(
+        files[2]
+            .pointer("/image/planar_configuration")
+            .and_then(Value::as_u64),
+        Some(0)
     );
     assert_eq!(
         manifest
@@ -178,14 +213,8 @@ fn generate_command_writes_first_smoke_part10_file_and_manifest() {
         manifest
             .pointer("/skipped_cases")
             .and_then(Value::as_array)
-            .is_some_and(|cases| {
-                cases.len() == 2
-                    && cases.iter().all(|case| {
-                        case.get("case_id").and_then(Value::as_str)
-                            != Some("classic/sc/mono2_u8_explicit_le")
-                    })
-            }),
-        "manifest should skip only unimplemented smoke cases"
+            .is_some_and(Vec::is_empty),
+        "manifest should not skip smoke cases once all smoke recipes are generated"
     );
 
     fs::remove_dir_all(out_dir).expect("temporary output root should be removable");

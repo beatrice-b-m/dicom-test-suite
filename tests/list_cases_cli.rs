@@ -22,9 +22,9 @@ fn list_cases_command_shows_smoke_case_status_and_evidence() {
     );
     assert!(
         stdout.contains(
-            "classic/sc/mono2_u8_explicit_le\tplanned\tsmoke\t1.2.840.10008.5.1.4.1.1.7\t1.2.840.10008.1.2.1\t2/2 covered"
+            "classic/sc/mono2_u8_explicit_le\timplemented\tsmoke\t1.2.840.10008.5.1.4.1.1.7\t1.2.840.10008.1.2.1\t2/2 covered"
         ),
-        "list-cases must include planned smoke cases with standards evidence"
+        "list-cases must include implemented smoke cases with standards evidence"
     );
 }
 

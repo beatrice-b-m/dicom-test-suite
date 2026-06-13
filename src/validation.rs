@@ -26,6 +26,7 @@ pub(crate) struct Part10Expectations<'a> {
     pub bits_stored: u16,
     pub high_bit: u16,
     pub pixel_representation: u16,
+    pub planar_configuration: Option<u16>,
     pub pixel_data_length: usize,
 }
 
@@ -189,6 +190,31 @@ pub(crate) fn validate_part10_file(
         element_u16(path, &obj, tags::PIXEL_REPRESENTATION)?,
         expected.pixel_representation,
     );
+    match expected.planar_configuration {
+        Some(expected_planar_configuration) => {
+            check_equal(
+                &mut internal,
+                "planar_configuration",
+                "Planar Configuration matches the recipe.",
+                "Planar Configuration does not match the recipe.",
+                element_u16(path, &obj, tags::PLANAR_CONFIGURATION)?,
+                expected_planar_configuration,
+            );
+        }
+        None => {
+            let planar_configuration_present = obj
+                .element_opt(tags::PLANAR_CONFIGURATION)
+                .map_err(|err| validation_error(path, err))?
+                .is_some();
+            check(
+                &mut internal,
+                !planar_configuration_present,
+                "planar_configuration_absent",
+                "Planar Configuration is absent for single-sample pixel data.",
+                "Planar Configuration is present for single-sample pixel data.",
+            );
+        }
+    }
 
     let pixel_bytes = element_bytes(path, &obj, tags::PIXEL_DATA)?;
     check_equal(
@@ -226,7 +252,7 @@ pub(crate) fn validate_part10_file(
                 {
                     "name": "image_pixel_description",
                     "status": "passed",
-                    "message": "Image Pixel attributes match the native MONOCHROME2 8-bit recipe."
+                    "message": "Image Pixel attributes match the native 8-bit recipe."
                 }
             ],
             "external": []

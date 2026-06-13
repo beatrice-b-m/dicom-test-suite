@@ -128,6 +128,28 @@ fn deterministic_policy_documents_all_determinism_levels() {
     );
 }
 
+#[test]
+fn kb_integration_workflow_documents_2026b_reference_policy() {
+    let workflow = fs::read_to_string("standards/kb-integration.md")
+        .expect("standards KB integration workflow must be readable");
+
+    for required_text in [
+        "dicom-standard-kb",
+        "standards.lock.json",
+        "2026b",
+        "dicom_lookup_uid",
+        "dicom_lookup_sop_class",
+        "source_manifest_sha256",
+        "9959bee76fd293c7eda3fc81ce2ced7528612faa1b2df28cccd01504a83f54b0",
+        "Do not commit official",
+    ] {
+        assert!(
+            workflow.contains(required_text),
+            "KB integration workflow must mention {required_text}"
+        );
+    }
+}
+
 fn read_json(path: &str) -> Value {
     let contents =
         fs::read_to_string(path).unwrap_or_else(|err| panic!("failed to read {path}: {err}"));

@@ -1,4 +1,5 @@
 use std::fs;
+use std::process::Command;
 
 use serde_json::Value;
 
@@ -121,6 +122,24 @@ fn registry_contains_initial_smoke_and_core_cases() {
 }
 
 #[test]
+fn generated_payload_artifacts_are_not_tracked_or_staged() {
+    let mut offenders = generated_payload_paths(git_paths(&["ls-files"]));
+    offenders.extend(generated_payload_paths(git_paths(&[
+        "diff",
+        "--cached",
+        "--name-only",
+        "--diff-filter=ACMRT",
+    ])));
+    offenders.sort();
+    offenders.dedup();
+
+    assert!(
+        offenders.is_empty(),
+        "generated payload artifacts must not be tracked or staged: {offenders:?}"
+    );
+}
+
+#[test]
 fn transfer_syntax_matrix_records_required_capability_fields() {
     let matrix = read_json("transfer-syntax/capability-matrix.json");
     let entries = matrix
@@ -238,4 +257,42 @@ fn read_json(path: &str) -> Value {
     let contents =
         fs::read_to_string(path).unwrap_or_else(|err| panic!("failed to read {path}: {err}"));
     serde_json::from_str(&contents).unwrap_or_else(|err| panic!("failed to parse {path}: {err}"))
+}
+
+fn git_paths(args: &[&str]) -> Vec<String> {
+    let output = Command::new("git")
+        .args(args)
+        .output()
+        .expect("git command must run");
+    assert!(
+        output.status.success(),
+        "git {} should succeed: {}",
+        args.join(" "),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    String::from_utf8(output.stdout)
+        .expect("git output should be UTF-8")
+        .lines()
+        .map(str::to_string)
+        .collect()
+}
+
+fn generated_payload_paths(paths: Vec<String>) -> Vec<String> {
+    paths
+        .into_iter()
+        .filter(|path| is_generated_payload_path(path))
+        .collect()
+}
+
+fn is_generated_payload_path(path: &str) -> bool {
+    let lower = path.to_ascii_lowercase();
+    lower.ends_with(".dcm")
+        || lower.ends_with(".dicom")
+        || lower.ends_with(".ima")
+        || lower.ends_with(".part10")
+        || lower.ends_with("/manifest.json")
+        || lower == "manifest.json"
+        || lower.ends_with(".validation.json")
+        || lower.ends_with(".expected.json")
+        || lower.ends_with(".coverage.json")
 }

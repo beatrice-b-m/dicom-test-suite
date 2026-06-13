@@ -105,7 +105,8 @@ Exit criteria:
 
 **Status:** in progress as of 2026-06-13. Core/extended byte-stability tests
 and `all` profile union/schema/skipped-case coverage are implemented; generated
-payload tracking guards and registry/schema consistency checks remain.
+payload tracking guards are implemented; registry/schema consistency checks
+remain.
 
 **Findings addressed:** test and CI gaps remain.
 
@@ -113,7 +114,7 @@ Tasks:
 
 - Add two-run byte-stability tests for `core` and `extended` while all cases remain `byte_stable`. Complete.
 - Add an `all` profile smoke test that verifies union behavior and skipped-case accounting without comparing full large outputs. Complete.
-- Add a test or script that fails when generated DICOM-like payloads are tracked or staged.
+- Add a test or script that fails when generated DICOM-like payloads are tracked or staged. Complete.
 - Add generated manifest schema validation to smoke, core, extended, and all generation tests. Complete for focused schema-conformance checks in generation CLI tests.
 - Add registry/schema consistency tests:
   - every implemented registry case has a generator recipe;

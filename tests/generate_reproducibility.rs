@@ -6,11 +6,25 @@ use serde_json::Value;
 
 #[test]
 fn smoke_generation_is_byte_stable_across_two_output_roots() {
-    let first_out = unique_temp_dir("generate-reproducibility-a");
-    let second_out = unique_temp_dir("generate-reproducibility-b");
+    assert_profile_is_byte_stable("smoke");
+}
 
-    let first_manifest = run_smoke_generate(&first_out);
-    let second_manifest = run_smoke_generate(&second_out);
+#[test]
+fn core_generation_is_byte_stable_across_two_output_roots() {
+    assert_profile_is_byte_stable("core");
+}
+
+#[test]
+fn extended_generation_is_byte_stable_across_two_output_roots() {
+    assert_profile_is_byte_stable("extended");
+}
+
+fn assert_profile_is_byte_stable(profile: &str) {
+    let first_out = unique_temp_dir(&format!("generate-{profile}-reproducibility-a"));
+    let second_out = unique_temp_dir(&format!("generate-{profile}-reproducibility-b"));
+
+    let first_manifest = run_generate(&first_out, profile);
+    let second_manifest = run_generate(&second_out, profile);
 
     for path in generated_paths(&first_manifest) {
         let first_dcm =
@@ -56,12 +70,12 @@ fn smoke_generation_is_byte_stable_across_two_output_roots() {
     fs::remove_dir_all(second_out).expect("second temporary output root should be removable");
 }
 
-fn run_smoke_generate(out_dir: &Path) -> Value {
+fn run_generate(out_dir: &Path, profile: &str) -> Value {
     let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
         .args([
             "generate",
             "--profile",
-            "smoke",
+            profile,
             "--out",
             out_dir.to_str().expect("temp path should be valid UTF-8"),
             "--seed",
@@ -72,7 +86,7 @@ fn run_smoke_generate(out_dir: &Path) -> Value {
 
     assert!(
         output.status.success(),
-        "generate should exit successfully: {}",
+        "generate {profile} should exit successfully: {}",
         String::from_utf8_lossy(&output.stderr)
     );
 

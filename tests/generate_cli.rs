@@ -2126,6 +2126,106 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
 }
 
 #[test]
+fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
+    let out_dir = unique_temp_dir("generate-all-command");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args([
+            "generate",
+            "--profile",
+            "all",
+            "--out",
+            out_dir.to_str().expect("temp path should be valid UTF-8"),
+            "--seed",
+            "7",
+        ])
+        .output()
+        .expect("generate command must run");
+
+    assert!(
+        output.status.success(),
+        "generate should exit successfully: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
+    assert!(stdout.contains("profile\tall"));
+    assert!(stdout.contains("files_written\t28"));
+
+    let manifest_path = out_dir.join("manifest.json");
+    let manifest: Value = serde_json::from_str(
+        &fs::read_to_string(&manifest_path).expect("manifest should be readable"),
+    )
+    .expect("manifest should parse");
+    assert_manifest_matches_committed_schema(&manifest);
+    assert_eq!(
+        manifest.pointer("/run/profile").and_then(Value::as_str),
+        Some("all")
+    );
+    assert_eq!(
+        manifest
+            .pointer("/files")
+            .and_then(Value::as_array)
+            .map(Vec::len),
+        Some(28)
+    );
+
+    file_entry_by_case_id(&manifest, "classic/sc/mono2_u8_explicit_le");
+    file_entry_by_case_id(&manifest, "classic/ct/mono2_i16_rescale_12bit_explicit_le");
+    file_entry_by_case_id(
+        &manifest,
+        "enhanced/ct/multiframe_shared_perframe_explicit_le",
+    );
+    assert_eq!(
+        file_entries_by_case_id(&manifest, "classic/mr/multislice_oblique_explicit_le").len(),
+        3,
+        "all profile should include every file in the multi-instance MR case"
+    );
+    assert_eq!(
+        file_entries_by_case_id(&manifest, "enhanced/ct/concatenation_two_part_explicit_le").len(),
+        2,
+        "all profile should include both Enhanced CT concatenation members"
+    );
+
+    let skipped_cases = manifest
+        .pointer("/skipped_cases")
+        .and_then(Value::as_array)
+        .expect("manifest should contain skipped cases");
+    assert_eq!(
+        skipped_cases.len(),
+        3,
+        "all generation should report the planned SEG and VL cases as unavailable"
+    );
+    for case_id in [
+        "derived/seg/binary_multiframe_explicit_le",
+        "vl/photo/rgb_planar0_explicit_le",
+        "vl/photo/palette_color_explicit_le",
+    ] {
+        let skipped = skipped_case_by_id(&manifest, case_id);
+        assert_eq!(
+            skipped.get("status").and_then(Value::as_str),
+            Some("unavailable")
+        );
+        assert_eq!(
+            skipped.get("reason_code").and_then(Value::as_str),
+            Some("case_planned")
+        );
+    }
+    assert!(
+        skipped_cases.iter().all(|case| {
+            !matches!(
+                case.get("case_id").and_then(Value::as_str),
+                Some("classic/sc/mono2_u8_explicit_le")
+                    | Some("classic/ct/mono2_i16_rescale_12bit_explicit_le")
+                    | Some("enhanced/ct/multiframe_shared_perframe_explicit_le")
+            )
+        }),
+        "all generation should not report implemented union cases as skipped"
+    );
+
+    fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
+}
+
+#[test]
 fn generate_command_requires_output_path() {
     let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
         .args(["generate", "--profile", "smoke"])

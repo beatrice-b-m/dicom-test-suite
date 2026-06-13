@@ -1,3 +1,4 @@
+use std::collections::BTreeSet;
 use std::fs;
 use std::path::PathBuf;
 
@@ -1359,11 +1360,7 @@ fn pixel_manifest_entry(
     bytes: &[u8],
     validation: Value,
 ) -> Value {
-    let mut standards_evidence = case
-        .get("standards_evidence")
-        .and_then(Value::as_array)
-        .cloned()
-        .unwrap_or_default();
+    let mut standards_evidence = standards_evidence_from_case(case);
     standards_evidence.extend([
         serde_json::json!({
             "source": "dicom-standard-kb",
@@ -1593,7 +1590,7 @@ fn pixel_manifest_entry(
         },
         "validation": validation,
         "known_stressors": ["minimal_secondary_capture", "native_ob_pixel_data"],
-        "standards_evidence": standards_evidence
+        "standards_evidence": deduplicated_standards_evidence(standards_evidence)
     })
 }
 
@@ -1866,11 +1863,7 @@ fn classic_ct_manifest_entry(
     bytes: &[u8],
     validation: Value,
 ) -> Value {
-    let mut standards_evidence = case
-        .get("standards_evidence")
-        .and_then(Value::as_array)
-        .cloned()
-        .unwrap_or_default();
+    let mut standards_evidence = standards_evidence_from_case(case);
     standards_evidence.extend([
         serde_json::json!({
             "source": "dicom-standard-kb",
@@ -2040,7 +2033,7 @@ fn classic_ct_manifest_entry(
         },
         "validation": validation,
         "known_stressors": ["ct_image_storage", "signed_12_bit_pixels", "modality_rescale", "window_center_width"],
-        "standards_evidence": standards_evidence
+        "standards_evidence": deduplicated_standards_evidence(standards_evidence)
     })
 }
 
@@ -2852,11 +2845,7 @@ fn enhanced_ct_manifest_entry(
     bytes: &[u8],
     validation: Value,
 ) -> Value {
-    let standards_evidence = case
-        .get("standards_evidence")
-        .and_then(Value::as_array)
-        .cloned()
-        .unwrap_or_default();
+    let standards_evidence = standards_evidence_from_case(case);
     let frame_byte_len = usize::from(recipe.rows) * usize::from(recipe.columns) * 2;
     let frame_hashes = pixel_bytes
         .chunks(frame_byte_len)
@@ -2989,7 +2978,7 @@ fn enhanced_ct_manifest_entry(
         },
         "validation": validation,
         "known_stressors": known_stressors,
-        "standards_evidence": standards_evidence
+        "standards_evidence": deduplicated_standards_evidence(standards_evidence)
     })
 }
 
@@ -3614,11 +3603,7 @@ fn enhanced_mr_manifest_entry(
     bytes: &[u8],
     validation: Value,
 ) -> Value {
-    let standards_evidence = case
-        .get("standards_evidence")
-        .and_then(Value::as_array)
-        .cloned()
-        .unwrap_or_default();
+    let standards_evidence = standards_evidence_from_case(case);
     let (
         dimension_index_pointer,
         functional_group_pointer,
@@ -3790,7 +3775,7 @@ fn enhanced_mr_manifest_entry(
         },
         "validation": validation,
         "known_stressors": known_stressors,
-        "standards_evidence": standards_evidence
+        "standards_evidence": deduplicated_standards_evidence(standards_evidence)
     })
 }
 
@@ -4098,11 +4083,7 @@ fn classic_mg_manifest_entry(
     bytes: &[u8],
     validation: Value,
 ) -> Value {
-    let mut standards_evidence = case
-        .get("standards_evidence")
-        .and_then(Value::as_array)
-        .cloned()
-        .unwrap_or_default();
+    let mut standards_evidence = standards_evidence_from_case(case);
     standards_evidence.extend([
         serde_json::json!({
             "source": "dicom-standard-kb",
@@ -4318,7 +4299,7 @@ fn classic_mg_manifest_entry(
         },
         "validation": validation,
         "known_stressors": known_stressors,
-        "standards_evidence": standards_evidence
+        "standards_evidence": deduplicated_standards_evidence(standards_evidence)
     })
 }
 
@@ -4646,11 +4627,7 @@ fn classic_dx_manifest_entry(
     bytes: &[u8],
     validation: Value,
 ) -> Value {
-    let mut standards_evidence = case
-        .get("standards_evidence")
-        .and_then(Value::as_array)
-        .cloned()
-        .unwrap_or_default();
+    let mut standards_evidence = standards_evidence_from_case(case);
     standards_evidence.extend([
         serde_json::json!({
             "source": "dicom-standard-kb",
@@ -4826,7 +4803,7 @@ fn classic_dx_manifest_entry(
         },
         "validation": validation,
         "known_stressors": ["digital_x_ray_for_presentation", "display_shutter", "unsigned_12_bit_pixels", "voi_window"],
-        "standards_evidence": standards_evidence
+        "standards_evidence": deduplicated_standards_evidence(standards_evidence)
     })
 }
 
@@ -5049,11 +5026,7 @@ fn classic_us_manifest_entry(
     bytes: &[u8],
     validation: Value,
 ) -> Value {
-    let mut standards_evidence = case
-        .get("standards_evidence")
-        .and_then(Value::as_array)
-        .cloned()
-        .unwrap_or_default();
+    let mut standards_evidence = standards_evidence_from_case(case);
     standards_evidence.extend([
         serde_json::json!({
             "source": "dicom-standard-kb",
@@ -5185,7 +5158,7 @@ fn classic_us_manifest_entry(
         },
         "validation": validation,
         "known_stressors": ["ultrasound_image_storage", "single_frame_us", "mono2_u8_pixels"],
-        "standards_evidence": standards_evidence
+        "standards_evidence": deduplicated_standards_evidence(standards_evidence)
     })
 }
 
@@ -5457,11 +5430,7 @@ fn classic_cr_manifest_entry(
     bytes: &[u8],
     validation: Value,
 ) -> Value {
-    let mut standards_evidence = case
-        .get("standards_evidence")
-        .and_then(Value::as_array)
-        .cloned()
-        .unwrap_or_default();
+    let mut standards_evidence = standards_evidence_from_case(case);
     standards_evidence.extend([
         serde_json::json!({
             "source": "dicom-standard-kb",
@@ -5610,7 +5579,7 @@ fn classic_cr_manifest_entry(
         },
         "validation": validation,
         "known_stressors": ["computed_radiography_image_storage", "overlay_plane", "modality_lut_sequence", "voi_lut_sequence"],
-        "standards_evidence": standards_evidence
+        "standards_evidence": deduplicated_standards_evidence(standards_evidence)
     })
 }
 
@@ -5912,11 +5881,7 @@ fn classic_mr_manifest_entry(
     validation: Value,
     slice_index: usize,
 ) -> Value {
-    let mut standards_evidence = case
-        .get("standards_evidence")
-        .and_then(Value::as_array)
-        .cloned()
-        .unwrap_or_default();
+    let mut standards_evidence = standards_evidence_from_case(case);
     standards_evidence.extend([
         serde_json::json!({
             "source": "dicom-standard-kb",
@@ -6088,7 +6053,7 @@ fn classic_mr_manifest_entry(
         },
         "validation": validation,
         "known_stressors": ["mr_image_storage", "multi_instance_series", "oblique_image_orientation_patient", "geometry_slice_sorting"],
-        "standards_evidence": standards_evidence
+        "standards_evidence": deduplicated_standards_evidence(standards_evidence)
     })
 }
 
@@ -6455,6 +6420,43 @@ fn should_generate_case(case: &Value, run: &PreparedGenerationRun) -> Result<boo
     Ok(status == "implemented")
 }
 
+fn standards_evidence_from_case(case: &Value) -> Vec<Value> {
+    case.get("standards_evidence")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default()
+}
+
+fn deduplicated_standards_evidence(evidence: Vec<Value>) -> Vec<Value> {
+    let mut seen = BTreeSet::new();
+    let mut deduplicated = Vec::new();
+
+    for entry in evidence {
+        if seen.insert(standards_evidence_key(&entry)) {
+            deduplicated.push(entry);
+        }
+    }
+
+    deduplicated
+}
+
+fn standards_evidence_key(entry: &Value) -> String {
+    let source = entry.get("source").and_then(Value::as_str).unwrap_or("");
+    let edition = entry.get("edition").and_then(Value::as_str).unwrap_or("");
+    if let Some(query) = entry.get("query").and_then(Value::as_str) {
+        return format!("query|{source}|{edition}|{query}");
+    }
+
+    let part = entry.get("part").and_then(Value::as_str).unwrap_or("");
+    let anchor = entry.get("anchor").and_then(Value::as_str).unwrap_or("");
+    let reason = entry.get("reason").and_then(Value::as_str).unwrap_or("");
+    if !part.is_empty() || !anchor.is_empty() || !reason.is_empty() {
+        return format!("anchor|{source}|{edition}|{part}|{anchor}|{reason}");
+    }
+
+    serde_json::to_string(entry).unwrap_or_else(|_| format!("{entry:?}"))
+}
+
 fn string_array(value: Option<&Value>) -> Result<Vec<String>, GenerateError> {
     let values = value
         .and_then(Value::as_array)
@@ -6483,5 +6485,52 @@ fn case_matches_profile(profiles: &[String], requested: &str, include_stress: bo
                 || (include_stress && profile == "stress")
         }),
         profile => profiles.iter().any(|case_profile| case_profile == profile),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn standards_evidence_deduplication_keeps_first_matching_query() {
+        let evidence = vec![
+            serde_json::json!({
+                "source": "dicom-standard-kb",
+                "edition": "2026b",
+                "query": "lookup_uid ExplicitVRLittleEndian",
+                "part": "PS3.6",
+                "anchor": "table_A-1",
+                "origin": "registry"
+            }),
+            serde_json::json!({
+                "source": "dicom-standard-kb",
+                "edition": "2026b",
+                "query": "lookup_uid ExplicitVRLittleEndian",
+                "part": "PS3.6",
+                "anchor": "table_A-1",
+                "origin": "recipe"
+            }),
+            serde_json::json!({
+                "source": "dicom-standard-kb",
+                "edition": "2026b",
+                "query": "lookup_data_element SyntheticData",
+                "part": "PS3.6",
+                "anchor": "table_6-1"
+            }),
+        ];
+
+        let deduplicated = deduplicated_standards_evidence(evidence);
+
+        assert_eq!(deduplicated.len(), 2);
+        assert_eq!(
+            deduplicated[0].get("origin").and_then(Value::as_str),
+            Some("registry"),
+            "registry evidence should win when a recipe repeats the same query"
+        );
+        assert_eq!(
+            deduplicated[1].get("query").and_then(Value::as_str),
+            Some("lookup_data_element SyntheticData")
+        );
     }
 }

@@ -16,6 +16,11 @@ This plan is ordered so coding agents can resolve foundational contract issues b
 
 ## Phase R1: Restore Registry Authority
 
+**Status:** complete as of 2026-06-13. Registry status now gates generation,
+planned/skipped/blocked/deprecated cases have tested manifest/listing behavior,
+the planned SEG case is restored, and generated file standards evidence is
+deduplicated.
+
 **Findings addressed:** generation does not honor registry status; planned SEG case absent from registry; skipped-case reporting is generic.
 
 Tasks:

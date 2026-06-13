@@ -78,6 +78,48 @@ fn manifest_schema_requires_the_specified_top_level_sections() {
     );
 }
 
+#[test]
+fn case_registry_schema_requires_the_specified_case_fields() {
+    let schema = read_json("schemas/case-registry.schema.json");
+    let required = schema
+        .pointer("/$defs/case/required")
+        .and_then(Value::as_array)
+        .expect("case registry schema must define required case fields");
+
+    for field in [
+        "case_id",
+        "status",
+        "profiles",
+        "recipe_id",
+        "recipe_version",
+        "iod_name",
+        "sop_class_name",
+        "sop_class_uid",
+        "transfer_syntax_uid",
+        "determinism",
+        "requirements",
+        "skip",
+        "standards_evidence",
+    ] {
+        assert!(
+            required.iter().any(|value| value.as_str() == Some(field)),
+            "case registry schema must require {field}"
+        );
+    }
+
+    let statuses = schema
+        .pointer("/$defs/status/enum")
+        .and_then(Value::as_array)
+        .expect("case registry schema must enumerate case statuses");
+
+    for status in ["planned", "implemented", "skipped", "blocked", "deprecated"] {
+        assert!(
+            statuses.iter().any(|value| value.as_str() == Some(status)),
+            "case registry schema must allow {status}"
+        );
+    }
+}
+
 fn read_json(path: impl AsRef<Path>) -> Value {
     let path = path.as_ref();
     let contents =

@@ -149,6 +149,42 @@ fn run() -> Result<(), String> {
                 Err("validation failed".to_string())
             }
         }
+        "report" => {
+            let root = args
+                .next()
+                .ok_or_else(|| "report requires a generated root path".to_string())?;
+            if root == "--help" || root == "-h" {
+                print_report_usage();
+                return Ok(());
+            }
+            let mut format = None;
+            while let Some(arg) = args.next() {
+                match arg.as_str() {
+                    "--format" => {
+                        format = Some(
+                            args.next()
+                                .ok_or_else(|| "--format requires a value".to_string())?,
+                        );
+                    }
+                    unknown => {
+                        return Err(format!("unknown report argument: {unknown}"));
+                    }
+                }
+            }
+            let format = format.ok_or_else(|| "report requires --format".to_string())?;
+            match format.as_str() {
+                "json" => {
+                    let report = dicom_test_suite::build_coverage_report(&root)
+                        .map_err(|err| err.to_string())?;
+                    println!(
+                        "{}",
+                        serde_json::to_string_pretty(&report).map_err(|err| err.to_string())?
+                    );
+                    Ok(())
+                }
+                other => Err(format!("unsupported report format: {other}")),
+            }
+        }
         "--help" | "-h" => {
             print_usage();
             Ok(())
@@ -167,6 +203,7 @@ fn print_usage() {
         "  dicom-test-suite list-cases [--profile PROFILE] [--status STATUS] [--registry PATH]"
     );
     println!("  dicom-test-suite validate GENERATED_ROOT");
+    println!("  dicom-test-suite report GENERATED_ROOT --format json");
 }
 
 fn print_generate_usage() {
@@ -183,6 +220,10 @@ fn print_list_cases_usage() {
 
 fn print_validate_usage() {
     println!("usage: dicom-test-suite validate GENERATED_ROOT");
+}
+
+fn print_report_usage() {
+    println!("usage: dicom-test-suite report GENERATED_ROOT --format json");
 }
 
 fn parse_seed(seed: String) -> Result<u64, String> {

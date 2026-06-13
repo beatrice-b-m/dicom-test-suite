@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::error::Error;
 use std::fmt;
 use std::fs;
@@ -58,6 +59,22 @@ pub struct ValidationSummary {
     pub manifest_path: PathBuf,
     pub files_checked: usize,
     pub failures: Vec<String>,
+}
+
+#[derive(Debug)]
+pub enum ReportError {
+    ReadMetadata {
+        path: PathBuf,
+        source: std::io::Error,
+    },
+    ParseMetadata {
+        path: PathBuf,
+        source: serde_json::Error,
+    },
+    MetadataShape {
+        path: PathBuf,
+        message: &'static str,
+    },
 }
 
 #[derive(Debug)]
@@ -235,6 +252,44 @@ impl Error for ValidateError {
             Self::ReadManifest { source, .. } => Some(source),
             Self::ParseManifest { source, .. } => Some(source),
             Self::ManifestShape { .. } => None,
+        }
+    }
+}
+
+impl fmt::Display for ReportError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::ReadMetadata { path, source } => {
+                write!(
+                    f,
+                    "failed to read report metadata {}: {source}",
+                    path.display()
+                )
+            }
+            Self::ParseMetadata { path, source } => {
+                write!(
+                    f,
+                    "failed to parse report metadata {}: {source}",
+                    path.display()
+                )
+            }
+            Self::MetadataShape { path, message } => {
+                write!(
+                    f,
+                    "invalid report metadata in {}: {message}",
+                    path.display()
+                )
+            }
+        }
+    }
+}
+
+impl Error for ReportError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        match self {
+            Self::ReadMetadata { source, .. } => Some(source),
+            Self::ParseMetadata { source, .. } => Some(source),
+            Self::MetadataShape { .. } => None,
         }
     }
 }
@@ -800,6 +855,267 @@ fn vr_name(vr: VR) -> &'static str {
 
 fn trim_uid(uid: &str) -> String {
     uid.trim_matches('\0').trim().to_string()
+}
+
+pub fn build_coverage_report(root_dir: impl AsRef<Path>) -> Result<Value, ReportError> {
+    let root_dir = root_dir.as_ref();
+    let manifest_path = root_dir.join("manifest.json");
+    let manifest = read_report_json(&manifest_path)?;
+    let registry_path = Path::new("cases/registry.json");
+    let registry = read_report_json(registry_path)?;
+    let files =
+        manifest
+            .get("files")
+            .and_then(Value::as_array)
+            .ok_or(ReportError::MetadataShape {
+                path: manifest_path.clone(),
+                message: "missing files array",
+            })?;
+    let skipped_cases = manifest
+        .get("skipped_cases")
+        .and_then(Value::as_array)
+        .ok_or(ReportError::MetadataShape {
+            path: manifest_path.clone(),
+            message: "missing skipped_cases array",
+        })?;
+    let run_profile = report_str(
+        &manifest_path,
+        &manifest,
+        "/run/profile",
+        "run profile must be a string",
+    )?;
+
+    let mut rows = Vec::new();
+    let mut counts = CoverageCounts::default();
+    let mut grouped = GroupedCoverage::default();
+    for file in files {
+        let row = generated_coverage_row(&manifest_path, file, run_profile)?;
+        counts.generated += 1;
+        grouped.record(&row);
+        rows.push(row);
+    }
+    for skipped in skipped_cases {
+        let row = skipped_coverage_row(&manifest_path, &registry, skipped, run_profile)?;
+        match row.get("status").and_then(Value::as_str).unwrap_or("") {
+            "planned" => counts.planned += 1,
+            "blocked" => counts.blocked += 1,
+            "deprecated" => counts.deprecated += 1,
+            _ => counts.skipped += 1,
+        }
+        grouped.record(&row);
+        rows.push(row);
+    }
+
+    let gaps = skipped_cases
+        .iter()
+        .map(|case| {
+            serde_json::json!({
+                "axis": "case",
+                "value": case.get("case_id").and_then(Value::as_str).unwrap_or(""),
+                "reason": case.get("message").and_then(Value::as_str).unwrap_or("not generated"),
+                "recommended_case_id": case.get("case_id").and_then(Value::as_str).unwrap_or("")
+            })
+        })
+        .collect::<Vec<_>>();
+
+    Ok(serde_json::json!({
+        "coverage_report_schema_version": "0.1.0",
+        "generated_at": manifest.get("generated_at").and_then(Value::as_str).unwrap_or("19700101000000.000000+0000"),
+        "standards_lock_sha256": manifest.pointer("/standards/standards_lock_sha256").and_then(Value::as_str).unwrap_or("0000000000000000000000000000000000000000000000000000000000000000"),
+        "counts": {
+            "generated": counts.generated,
+            "skipped": counts.skipped,
+            "blocked": counts.blocked,
+            "planned": counts.planned,
+            "deprecated": counts.deprecated
+        },
+        "coverage_matrix": rows,
+        "grouped_coverage": grouped.to_json(),
+        "gaps": gaps
+    }))
+}
+
+fn read_report_json(path: &Path) -> Result<Value, ReportError> {
+    let contents = fs::read_to_string(path).map_err(|source| ReportError::ReadMetadata {
+        path: path.to_path_buf(),
+        source,
+    })?;
+    serde_json::from_str(&contents).map_err(|source| ReportError::ParseMetadata {
+        path: path.to_path_buf(),
+        source,
+    })
+}
+
+fn generated_coverage_row(
+    manifest_path: &Path,
+    file: &Value,
+    run_profile: &str,
+) -> Result<Value, ReportError> {
+    Ok(serde_json::json!({
+        "case_id": report_str(manifest_path, file, "/case_id", "file case_id must be a string")?,
+        "profile": run_profile,
+        "status": "generated",
+        "iod": report_str(manifest_path, file, "/dicom/iod_name", "dicom iod_name must be a string")?,
+        "sop_class_uid": report_str(manifest_path, file, "/dicom/sop_class_uid", "dicom sop_class_uid must be a string")?,
+        "transfer_syntax": report_str(manifest_path, file, "/dicom/transfer_syntax_uid", "dicom transfer_syntax_uid must be a string")?,
+        "photometric": file.pointer("/image/photometric_interpretation").and_then(Value::as_str),
+        "bits": file.pointer("/image/bits_stored").and_then(Value::as_u64),
+        "frames": file.pointer("/image/frames").and_then(Value::as_u64),
+        "geometry": {
+            "rows": file.pointer("/image/rows").and_then(Value::as_u64),
+            "columns": file.pointer("/image/columns").and_then(Value::as_u64),
+            "spacing": Value::Null,
+            "orientation": Value::Null
+        },
+        "derived_refs": [],
+        "validation_status": file.pointer("/validation/status").and_then(Value::as_str).unwrap_or("not_run"),
+        "determinism": report_str(manifest_path, file, "/determinism", "determinism must be a string")?,
+        "object_type": file.get("case_id").and_then(Value::as_str).and_then(|case_id| case_id.split('/').next()),
+        "known_stressors": file.get("known_stressors").cloned().unwrap_or_else(|| serde_json::json!([]))
+    }))
+}
+
+fn skipped_coverage_row(
+    manifest_path: &Path,
+    registry: &Value,
+    skipped: &Value,
+    run_profile: &str,
+) -> Result<Value, ReportError> {
+    let case_id = report_str(
+        manifest_path,
+        skipped,
+        "/case_id",
+        "skipped case_id must be a string",
+    )?;
+    let registry_case =
+        registry_case_for_report(registry, case_id).ok_or(ReportError::MetadataShape {
+            path: PathBuf::from("cases/registry.json"),
+            message: "skipped case is missing from registry",
+        })?;
+    let status = match skipped.get("status").and_then(Value::as_str) {
+        Some("blocked") => "blocked",
+        Some("skipped") => "skipped",
+        Some("unavailable")
+            if skipped.get("reason_code").and_then(Value::as_str) == Some("case_planned") =>
+        {
+            "planned"
+        }
+        Some("unavailable") => "unavailable",
+        _ => "skipped",
+    };
+
+    Ok(serde_json::json!({
+        "case_id": case_id,
+        "profile": run_profile,
+        "status": status,
+        "iod": registry_case.get("iod_name").and_then(Value::as_str).unwrap_or(""),
+        "sop_class_uid": registry_case.get("sop_class_uid").and_then(Value::as_str).unwrap_or(""),
+        "transfer_syntax": registry_case.get("transfer_syntax_uid").and_then(Value::as_str).unwrap_or(""),
+        "photometric": Value::Null,
+        "bits": Value::Null,
+        "frames": Value::Null,
+        "geometry": {
+            "rows": Value::Null,
+            "columns": Value::Null,
+            "spacing": Value::Null,
+            "orientation": Value::Null
+        },
+        "derived_refs": [],
+        "validation_status": "unavailable",
+        "determinism": registry_case.get("determinism").and_then(Value::as_str).unwrap_or("byte_stable"),
+        "object_type": case_id.split('/').next(),
+        "known_stressors": []
+    }))
+}
+
+fn registry_case_for_report<'a>(registry: &'a Value, case_id: &str) -> Option<&'a Value> {
+    registry
+        .get("cases")
+        .and_then(Value::as_array)?
+        .iter()
+        .find(|case| case.get("case_id").and_then(Value::as_str) == Some(case_id))
+}
+
+fn report_str<'a>(
+    path: &Path,
+    value: &'a Value,
+    pointer: &str,
+    message: &'static str,
+) -> Result<&'a str, ReportError> {
+    value
+        .pointer(pointer)
+        .and_then(Value::as_str)
+        .ok_or(ReportError::MetadataShape {
+            path: path.to_path_buf(),
+            message,
+        })
+}
+
+#[derive(Default)]
+struct CoverageCounts {
+    generated: usize,
+    skipped: usize,
+    blocked: usize,
+    planned: usize,
+    deprecated: usize,
+}
+
+#[derive(Default)]
+struct GroupedCoverage {
+    profiles: BTreeMap<String, usize>,
+    iods: BTreeMap<String, usize>,
+    sop_classes: BTreeMap<String, usize>,
+    transfer_syntaxes: BTreeMap<String, usize>,
+    photometric_interpretations: BTreeMap<String, usize>,
+    bit_depths: BTreeMap<String, usize>,
+    object_types: BTreeMap<String, usize>,
+}
+
+impl GroupedCoverage {
+    fn record(&mut self, row: &Value) {
+        increment_map(
+            &mut self.profiles,
+            row.get("profile").and_then(Value::as_str),
+        );
+        increment_map(&mut self.iods, row.get("iod").and_then(Value::as_str));
+        increment_map(
+            &mut self.sop_classes,
+            row.get("sop_class_uid").and_then(Value::as_str),
+        );
+        increment_map(
+            &mut self.transfer_syntaxes,
+            row.get("transfer_syntax").and_then(Value::as_str),
+        );
+        increment_map(
+            &mut self.photometric_interpretations,
+            row.get("photometric").and_then(Value::as_str),
+        );
+        if let Some(bits) = row.get("bits").and_then(Value::as_u64) {
+            *self.bit_depths.entry(bits.to_string()).or_default() += 1;
+        }
+        increment_map(
+            &mut self.object_types,
+            row.get("object_type").and_then(Value::as_str),
+        );
+    }
+
+    fn to_json(&self) -> Value {
+        serde_json::json!({
+            "profiles": self.profiles,
+            "iods": self.iods,
+            "sop_classes": self.sop_classes,
+            "transfer_syntaxes": self.transfer_syntaxes,
+            "photometric_interpretations": self.photometric_interpretations,
+            "bit_depths": self.bit_depths,
+            "object_types": self.object_types
+        })
+    }
+}
+
+fn increment_map(map: &mut BTreeMap<String, usize>, key: Option<&str>) {
+    if let Some(key) = key {
+        *map.entry(key.to_string()).or_default() += 1;
+    }
 }
 
 fn build_generation_manifest(

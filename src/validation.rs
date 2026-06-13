@@ -31,6 +31,7 @@ pub(crate) struct Part10Expectations<'a> {
     pub palette: Option<PaletteExpectations>,
     pub padding: Option<PixelPaddingExpectations>,
     pub ct_image: Option<CtImageExpectations<'a>>,
+    pub mg_image: Option<MgImageExpectations<'a>>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -69,6 +70,36 @@ pub(crate) struct CtImageExpectations<'a> {
     pub rescale_type: &'a str,
     pub window_center: &'a str,
     pub window_width: &'a str,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct MgImageExpectations<'a> {
+    pub modality: &'a str,
+    pub presentation_intent_type: &'a str,
+    pub image_type: &'a str,
+    pub image_laterality: &'a str,
+    pub view_position: &'a str,
+    pub body_part_examined: &'a str,
+    pub organ_exposed: &'a str,
+    pub positioner_type: &'a str,
+    pub imager_pixel_spacing: &'a str,
+    pub detector_type: &'a str,
+    pub detector_configuration: &'a str,
+    pub detector_id: &'a str,
+    pub pixel_intensity_relationship: &'a str,
+    pub pixel_intensity_relationship_sign: i16,
+    pub rescale_intercept: &'a str,
+    pub rescale_slope: &'a str,
+    pub rescale_type: &'a str,
+    pub presentation_lut_shape: &'a str,
+    pub lossy_image_compression: &'a str,
+    pub burned_in_annotation: &'a str,
+    pub breast_implant_present: &'a str,
+    pub window_center: &'a str,
+    pub window_width: &'a str,
+    pub anatomic_region_code_value: &'a str,
+    pub view_code_value: &'a str,
+    pub acquisition_context_items: usize,
 }
 
 #[derive(Debug, Clone)]
@@ -313,6 +344,9 @@ pub(crate) fn validate_part10_file(
     if let Some(ct_image) = &expected.ct_image {
         validate_ct_image(path, &obj, &mut internal, ct_image)?;
     }
+    if let Some(mg_image) = &expected.mg_image {
+        validate_mg_image(path, &obj, &mut internal, mg_image)?;
+    }
 
     fail_if_any_failed(path, &internal)?;
 
@@ -363,6 +397,14 @@ fn element_u16(path: &Path, obj: &OpenedObject, tag: Tag) -> Result<u16, Generat
         .map_err(|err| validation_error(path, err))?
         .value()
         .to_int::<u16>()
+        .map_err(|err| validation_error(path, err))
+}
+
+fn element_i16(path: &Path, obj: &OpenedObject, tag: Tag) -> Result<i16, GenerateError> {
+    obj.element(tag)
+        .map_err(|err| validation_error(path, err))?
+        .value()
+        .to_int::<i16>()
         .map_err(|err| validation_error(path, err))
 }
 
@@ -601,10 +643,194 @@ fn validate_ct_image(
     Ok(())
 }
 
+fn validate_mg_image(
+    path: &Path,
+    obj: &OpenedObject,
+    results: &mut Vec<Value>,
+    expected: &MgImageExpectations<'_>,
+) -> Result<(), GenerateError> {
+    for (name, tag, expected_value) in [
+        ("mg_modality", tags::MODALITY, expected.modality),
+        (
+            "mg_presentation_intent_type",
+            tags::PRESENTATION_INTENT_TYPE,
+            expected.presentation_intent_type,
+        ),
+        ("mg_image_type", tags::IMAGE_TYPE, expected.image_type),
+        (
+            "mg_image_laterality",
+            tags::IMAGE_LATERALITY,
+            expected.image_laterality,
+        ),
+        (
+            "mg_view_position",
+            tags::VIEW_POSITION,
+            expected.view_position,
+        ),
+        (
+            "mg_body_part_examined",
+            tags::BODY_PART_EXAMINED,
+            expected.body_part_examined,
+        ),
+        (
+            "mg_organ_exposed",
+            tags::ORGAN_EXPOSED,
+            expected.organ_exposed,
+        ),
+        (
+            "mg_positioner_type",
+            tags::POSITIONER_TYPE,
+            expected.positioner_type,
+        ),
+        (
+            "mg_imager_pixel_spacing",
+            tags::IMAGER_PIXEL_SPACING,
+            expected.imager_pixel_spacing,
+        ),
+        (
+            "mg_detector_type",
+            tags::DETECTOR_TYPE,
+            expected.detector_type,
+        ),
+        (
+            "mg_detector_configuration",
+            tags::DETECTOR_CONFIGURATION,
+            expected.detector_configuration,
+        ),
+        ("mg_detector_id", tags::DETECTOR_ID, expected.detector_id),
+        (
+            "mg_pixel_intensity_relationship",
+            tags::PIXEL_INTENSITY_RELATIONSHIP,
+            expected.pixel_intensity_relationship,
+        ),
+        (
+            "mg_rescale_intercept",
+            tags::RESCALE_INTERCEPT,
+            expected.rescale_intercept,
+        ),
+        (
+            "mg_rescale_slope",
+            tags::RESCALE_SLOPE,
+            expected.rescale_slope,
+        ),
+        ("mg_rescale_type", tags::RESCALE_TYPE, expected.rescale_type),
+        (
+            "mg_presentation_lut_shape",
+            tags::PRESENTATION_LUT_SHAPE,
+            expected.presentation_lut_shape,
+        ),
+        (
+            "mg_lossy_image_compression",
+            tags::LOSSY_IMAGE_COMPRESSION,
+            expected.lossy_image_compression,
+        ),
+        (
+            "mg_burned_in_annotation",
+            tags::BURNED_IN_ANNOTATION,
+            expected.burned_in_annotation,
+        ),
+        (
+            "mg_breast_implant_present",
+            tags::BREAST_IMPLANT_PRESENT,
+            expected.breast_implant_present,
+        ),
+        (
+            "mg_window_center",
+            tags::WINDOW_CENTER,
+            expected.window_center,
+        ),
+        ("mg_window_width", tags::WINDOW_WIDTH, expected.window_width),
+    ] {
+        check_equal(
+            results,
+            name,
+            "Mammography attribute matches the recipe.",
+            "Mammography attribute does not match the recipe.",
+            element_str(path, obj, tag)?.as_str(),
+            expected_value,
+        );
+    }
+    check_equal(
+        results,
+        "mg_pixel_intensity_relationship_sign",
+        "Pixel Intensity Relationship Sign matches the recipe.",
+        "Pixel Intensity Relationship Sign does not match the recipe.",
+        element_i16(path, obj, tags::PIXEL_INTENSITY_RELATIONSHIP_SIGN)?,
+        expected.pixel_intensity_relationship_sign,
+    );
+
+    check_equal(
+        results,
+        "mg_anatomic_region_sequence",
+        "Anatomic Region Sequence contains the expected code.",
+        "Anatomic Region Sequence does not contain the expected code.",
+        first_sequence_code_value(path, obj, tags::ANATOMIC_REGION_SEQUENCE)?.as_str(),
+        expected.anatomic_region_code_value,
+    );
+    check_equal(
+        results,
+        "mg_view_code_sequence",
+        "View Code Sequence contains the expected code.",
+        "View Code Sequence does not contain the expected code.",
+        first_sequence_code_value(path, obj, tags::VIEW_CODE_SEQUENCE)?.as_str(),
+        expected.view_code_value,
+    );
+    check_equal(
+        results,
+        "mg_acquisition_context_sequence",
+        "Acquisition Context Sequence has the expected item count.",
+        "Acquisition Context Sequence does not have the expected item count.",
+        sequence_item_count(path, obj, tags::ACQUISITION_CONTEXT_SEQUENCE)?,
+        expected.acquisition_context_items,
+    );
+
+    Ok(())
+}
+
+fn first_sequence_code_value(
+    path: &Path,
+    obj: &OpenedObject,
+    tag: Tag,
+) -> Result<String, GenerateError> {
+    let element = obj
+        .element(tag)
+        .map_err(|err| validation_error(path, err))?;
+    let item = element
+        .items()
+        .and_then(|items| items.first())
+        .ok_or_else(|| GenerateError::ValidateDicomFile {
+            path: path.to_path_buf(),
+            message: format!("sequence {} has no first item", tag),
+        })?;
+    let value = item
+        .element(tags::CODE_VALUE)
+        .map_err(|err| validation_error(path, err))?
+        .value()
+        .to_str()
+        .map_err(|err| validation_error(path, err))?;
+    Ok(value.trim_matches('\0').trim().to_string())
+}
+
+fn sequence_item_count(path: &Path, obj: &OpenedObject, tag: Tag) -> Result<usize, GenerateError> {
+    let element = obj
+        .element(tag)
+        .map_err(|err| validation_error(path, err))?;
+    element
+        .items()
+        .map(|items| items.len())
+        .ok_or_else(|| GenerateError::ValidateDicomFile {
+            path: path.to_path_buf(),
+            message: format!("attribute {} is not a sequence", tag),
+        })
+}
+
 fn standard_sop_class_validation_name(sop_class_uid: &str) -> &'static str {
     match sop_class_uid {
         uids::SECONDARY_CAPTURE_IMAGE_STORAGE => "secondary_capture_sop_class",
         uids::CT_IMAGE_STORAGE => "ct_image_sop_class",
+        uids::DIGITAL_MAMMOGRAPHY_X_RAY_IMAGE_STORAGE_FOR_PRESENTATION => {
+            "digital_mammography_for_presentation_sop_class"
+        }
         _ => "sop_class_uid",
     }
 }
@@ -615,6 +841,9 @@ fn standard_sop_class_validation_message(sop_class_uid: &str) -> &'static str {
             "SOP Class UID matches Secondary Capture Image Storage in the 2026b reference."
         }
         uids::CT_IMAGE_STORAGE => "SOP Class UID matches CT Image Storage in the 2026b reference.",
+        uids::DIGITAL_MAMMOGRAPHY_X_RAY_IMAGE_STORAGE_FOR_PRESENTATION => {
+            "SOP Class UID matches Digital Mammography X-Ray Image Storage - For Presentation in the 2026b reference."
+        }
         _ => "SOP Class UID matches the recipe.",
     }
 }

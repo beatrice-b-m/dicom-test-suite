@@ -64,7 +64,7 @@ fn registry_contains_initial_smoke_and_core_cases() {
         ),
         (
             "classic/mg/for_presentation_mono1_u16_12bit_explicit_le",
-            "planned",
+            "implemented",
         ),
         (
             "classic/mg/for_processing_mono2_u16_12bit_implicit_le",

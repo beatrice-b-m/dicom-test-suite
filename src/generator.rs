@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::PathBuf;
 
-use dicom_core::{DataElement, PrimitiveValue, VR};
+use dicom_core::{DataElement, PrimitiveValue, VR, value::DataSetSequence};
 use dicom_dictionary_std::{tags, uids};
 use dicom_object::{FileMetaTableBuilder, InMemDicomObject};
 use serde_json::Value;
@@ -10,12 +10,14 @@ use crate::{
     DeterministicUidInput, GenerateError, PreparedGenerationRun, UidRole, deterministic_uid,
     sha256_hex,
     validation::{
-        CtImageExpectations, Part10Expectations, PixelDataLengthFormula, validate_part10_file,
+        CtImageExpectations, MgImageExpectations, Part10Expectations, PixelDataLengthFormula,
+        validate_part10_file,
     },
 };
 
 const PIXEL_RECIPE_VERSION: &str = "0.1.0";
 const CLASSIC_CT_RECIPE_VERSION: &str = "0.1.0";
+const CLASSIC_MG_RECIPE_VERSION: &str = "0.1.0";
 const MONO_PIXELS: [u8; 4] = [0, 85, 170, 255];
 const RGB_PLANAR0_PIXELS: [u8; 12] = [255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 255, 255];
 const RGB_PLANAR1_PIXELS: [u8; 12] = [255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255];
@@ -47,6 +49,8 @@ const PALETTE_COLOR_LUT: PaletteRecipe = PaletteRecipe {
 };
 const CT_I16_12BIT_PIXELS: [u8; 8] = [0x00, 0x0c, 0x00, 0x00, 0x00, 0x04, 0xff, 0x07];
 const CT_I16_12BIT_VALUES: [i32; 4] = [-1024, 0, 1024, 2047];
+const MG_U16_12BIT_PIXELS: [u8; 8] = [0x00, 0x00, 0x55, 0x05, 0xaa, 0x0a, 0xff, 0x0f];
+const MG_U16_12BIT_VALUES: [i32; 4] = [0, 1365, 2730, 4095];
 
 const PIXEL_RECIPES: &[PixelRecipe] = &[
     PixelRecipe {
@@ -421,6 +425,35 @@ const CLASSIC_CT_RECIPES: &[ClassicCtRecipe] = &[ClassicCtRecipe {
     kvp: "120",
 }];
 
+#[derive(Debug, Clone, Copy)]
+struct ClassicMgRecipe {
+    case_id: &'static str,
+    recipe_id: &'static str,
+    rows: u16,
+    columns: u16,
+    pixel_bytes: &'static [u8],
+    pixel_values: &'static [i32],
+    pixel_min: i32,
+    pixel_max: i32,
+    imager_pixel_spacing: &'static str,
+    window_center: &'static str,
+    window_width: &'static str,
+}
+
+const CLASSIC_MG_RECIPES: &[ClassicMgRecipe] = &[ClassicMgRecipe {
+    case_id: "classic/mg/for_presentation_mono1_u16_12bit_explicit_le",
+    recipe_id: "mg_for_presentation_mono1_u16",
+    rows: 2,
+    columns: 2,
+    pixel_bytes: &MG_U16_12BIT_PIXELS,
+    pixel_values: &MG_U16_12BIT_VALUES,
+    pixel_min: 0,
+    pixel_max: 4095,
+    imager_pixel_spacing: "0.070\\0.070",
+    window_center: "2048",
+    window_width: "4096",
+}];
+
 #[derive(Debug, Clone)]
 pub(crate) struct GeneratedFile {
     pub case_id: String,
@@ -452,6 +485,21 @@ pub(crate) fn write_supported_cases(
             continue;
         }
         generated_files.push(write_classic_ct_case(
+            run,
+            case,
+            *recipe,
+            standards_lock_sha256,
+        )?);
+    }
+    for recipe in CLASSIC_MG_RECIPES {
+        let Some(case) = registry_case(registry, recipe.case_id)? else {
+            continue;
+        };
+        let profiles = string_array(case.get("profiles"))?;
+        if !case_matches_profile(&profiles, &run.profile, run.include_stress) {
+            continue;
+        }
+        generated_files.push(write_classic_mg_case(
             run,
             case,
             *recipe,
@@ -651,6 +699,7 @@ fn write_pixel_case(
             palette: recipe.palette.map(|palette| palette.into()),
             padding: recipe.padding.map(|padding| padding.into()),
             ct_image: None,
+            mg_image: None,
         },
     )?;
 
@@ -1147,6 +1196,7 @@ fn write_classic_ct_case(
                 window_center: recipe.window_center,
                 window_width: recipe.window_width,
             }),
+            mg_image: None,
         },
     )?;
 
@@ -1358,6 +1408,491 @@ fn classic_ct_manifest_entry(
     })
 }
 
+fn write_classic_mg_case(
+    run: &PreparedGenerationRun,
+    case: &Value,
+    recipe: ClassicMgRecipe,
+    standards_lock_sha256: &str,
+) -> Result<GeneratedFile, GenerateError> {
+    let study_instance_uid = deterministic_classic_mg_uid(
+        standards_lock_sha256,
+        recipe,
+        run.seed,
+        UidRole::StudyInstance,
+    );
+    let series_instance_uid = deterministic_classic_mg_uid(
+        standards_lock_sha256,
+        recipe,
+        run.seed,
+        UidRole::SeriesInstance,
+    );
+    let sop_instance_uid = deterministic_classic_mg_uid(
+        standards_lock_sha256,
+        recipe,
+        run.seed,
+        UidRole::SopInstance,
+    );
+    let implementation_class_uid = deterministic_implementation_uid(standards_lock_sha256);
+
+    let relative_path = format!("{}/instance.dcm", recipe.case_id);
+    let path = run.out_dir.join(&relative_path);
+    let case_dir = path.parent().ok_or_else(|| GenerateError::MetadataShape {
+        path: PathBuf::from(&relative_path),
+        message: "generated DICOM path must have a parent directory",
+    })?;
+    fs::create_dir_all(case_dir).map_err(|source| GenerateError::CreateCaseOutputDir {
+        path: case_dir.to_path_buf(),
+        source,
+    })?;
+
+    let mut obj = InMemDicomObject::new_empty();
+    put_str(
+        &mut obj,
+        tags::SOP_CLASS_UID,
+        VR::UI,
+        uids::DIGITAL_MAMMOGRAPHY_X_RAY_IMAGE_STORAGE_FOR_PRESENTATION,
+    );
+    put_str(&mut obj, tags::SOP_INSTANCE_UID, VR::UI, &sop_instance_uid);
+    put_str(&mut obj, tags::SYNTHETIC_DATA, VR::CS, "YES");
+
+    put_str(
+        &mut obj,
+        tags::PATIENT_NAME,
+        VR::PN,
+        "DTS^Synthetic^Patient001",
+    );
+    put_str(&mut obj, tags::PATIENT_ID, VR::LO, "DTS-PATIENT-001");
+    put_str(&mut obj, tags::PATIENT_BIRTH_DATE, VR::DA, "19700101");
+    put_str(&mut obj, tags::PATIENT_SEX, VR::CS, "O");
+
+    put_str(
+        &mut obj,
+        tags::STUDY_INSTANCE_UID,
+        VR::UI,
+        &study_instance_uid,
+    );
+    put_str(&mut obj, tags::STUDY_DATE, VR::DA, "20260101");
+    put_str(&mut obj, tags::STUDY_TIME, VR::TM, "000000");
+    put_str(&mut obj, tags::REFERRING_PHYSICIAN_NAME, VR::PN, "");
+    put_str(&mut obj, tags::STUDY_ID, VR::SH, "DTS-MG");
+    put_str(&mut obj, tags::ACCESSION_NUMBER, VR::SH, "");
+
+    put_str(&mut obj, tags::MODALITY, VR::CS, "MG");
+    put_str(
+        &mut obj,
+        tags::PRESENTATION_INTENT_TYPE,
+        VR::CS,
+        "FOR PRESENTATION",
+    );
+    put_str(
+        &mut obj,
+        tags::SERIES_INSTANCE_UID,
+        VR::UI,
+        &series_instance_uid,
+    );
+    put_str(&mut obj, tags::SERIES_NUMBER, VR::IS, "1");
+
+    put_str(&mut obj, tags::MANUFACTURER, VR::LO, "dicom-test-suite");
+    put_str(
+        &mut obj,
+        tags::MANUFACTURER_MODEL_NAME,
+        VR::LO,
+        recipe.recipe_id,
+    );
+    put_str(
+        &mut obj,
+        tags::SOFTWARE_VERSIONS,
+        VR::LO,
+        crate::PACKAGE_VERSION,
+    );
+
+    put_str(&mut obj, tags::ACQUISITION_NUMBER, VR::IS, "1");
+    put_str(&mut obj, tags::ACQUISITION_DATE, VR::DA, "20260101");
+    put_str(&mut obj, tags::ACQUISITION_TIME, VR::TM, "000000");
+
+    put_str(&mut obj, tags::IMAGE_TYPE, VR::CS, "ORIGINAL\\PRIMARY");
+    put_str(&mut obj, tags::INSTANCE_NUMBER, VR::IS, "1");
+    put_str(&mut obj, tags::PATIENT_ORIENTATION, VR::CS, "A\\FR");
+    put_str(&mut obj, tags::CONTENT_DATE, VR::DA, "20260101");
+    put_str(&mut obj, tags::CONTENT_TIME, VR::TM, "000000");
+    put_str(&mut obj, tags::BODY_PART_EXAMINED, VR::CS, "BREAST");
+    put_str(&mut obj, tags::IMAGE_LATERALITY, VR::CS, "L");
+
+    put_u16(&mut obj, tags::SAMPLES_PER_PIXEL, VR::US, 1);
+    put_str(
+        &mut obj,
+        tags::PHOTOMETRIC_INTERPRETATION,
+        VR::CS,
+        "MONOCHROME1",
+    );
+    put_u16(&mut obj, tags::ROWS, VR::US, recipe.rows);
+    put_u16(&mut obj, tags::COLUMNS, VR::US, recipe.columns);
+    put_u16(&mut obj, tags::BITS_ALLOCATED, VR::US, 16);
+    put_u16(&mut obj, tags::BITS_STORED, VR::US, 12);
+    put_u16(&mut obj, tags::HIGH_BIT, VR::US, 11);
+    put_u16(&mut obj, tags::PIXEL_REPRESENTATION, VR::US, 0);
+
+    put_str(&mut obj, tags::PIXEL_INTENSITY_RELATIONSHIP, VR::CS, "LIN");
+    put_i16(
+        &mut obj,
+        tags::PIXEL_INTENSITY_RELATIONSHIP_SIGN,
+        VR::SS,
+        -1,
+    );
+    put_str(&mut obj, tags::RESCALE_INTERCEPT, VR::DS, "0");
+    put_str(&mut obj, tags::RESCALE_SLOPE, VR::DS, "1");
+    put_str(&mut obj, tags::RESCALE_TYPE, VR::LO, "US");
+    put_str(&mut obj, tags::PRESENTATION_LUT_SHAPE, VR::CS, "INVERSE");
+    put_str(&mut obj, tags::LOSSY_IMAGE_COMPRESSION, VR::CS, "00");
+    put_str(&mut obj, tags::BURNED_IN_ANNOTATION, VR::CS, "NO");
+    put_str(&mut obj, tags::WINDOW_CENTER, VR::DS, recipe.window_center);
+    put_str(&mut obj, tags::WINDOW_WIDTH, VR::DS, recipe.window_width);
+
+    put_str(
+        &mut obj,
+        tags::IMAGER_PIXEL_SPACING,
+        VR::DS,
+        recipe.imager_pixel_spacing,
+    );
+    put_str(&mut obj, tags::DETECTOR_TYPE, VR::CS, "DIRECT");
+    put_str(&mut obj, tags::DETECTOR_CONFIGURATION, VR::CS, "AREA");
+    put_str(
+        &mut obj,
+        tags::DETECTOR_DESCRIPTION,
+        VR::LT,
+        "synthetic detector",
+    );
+    put_str(&mut obj, tags::DETECTOR_ID, VR::SH, "DTS-MG-DET");
+    put_str(
+        &mut obj,
+        tags::DETECTOR_ELEMENT_SPACING,
+        VR::DS,
+        recipe.imager_pixel_spacing,
+    );
+    put_str(&mut obj, tags::FIELD_OF_VIEW_SHAPE, VR::CS, "RECTANGLE");
+    put_str(
+        &mut obj,
+        tags::FIELD_OF_VIEW_DIMENSIONS,
+        VR::DS,
+        "0.14\\0.14",
+    );
+
+    put_str(&mut obj, tags::POSITIONER_TYPE, VR::CS, "MAMMOGRAPHIC");
+    put_str(&mut obj, tags::VIEW_POSITION, VR::CS, "MLO");
+    put_str(&mut obj, tags::ORGAN_EXPOSED, VR::CS, "BREAST");
+    put_str(&mut obj, tags::BREAST_IMPLANT_PRESENT, VR::CS, "NO");
+    put_code_sequence(
+        &mut obj,
+        tags::ANATOMIC_REGION_SEQUENCE,
+        "76752008",
+        "SCT",
+        "Breast structure",
+    );
+    put_code_sequence(
+        &mut obj,
+        tags::VIEW_CODE_SEQUENCE,
+        "399162004",
+        "SCT",
+        "Mediolateral oblique projection",
+    );
+    put_empty_sequence(&mut obj, tags::ACQUISITION_CONTEXT_SEQUENCE);
+
+    obj.put(DataElement::new(
+        tags::PIXEL_DATA,
+        VR::OW,
+        PrimitiveValue::from(recipe.pixel_bytes),
+    ));
+
+    let file_obj = obj
+        .with_meta(
+            FileMetaTableBuilder::new()
+                .transfer_syntax(uids::EXPLICIT_VR_LITTLE_ENDIAN)
+                .implementation_class_uid(&implementation_class_uid)
+                .implementation_version_name("DICOMTS010"),
+        )
+        .map_err(|err| GenerateError::WriteDicomFile {
+            path: path.clone(),
+            message: err.to_string(),
+        })?;
+
+    file_obj
+        .write_to_file(&path)
+        .map_err(|err| GenerateError::WriteDicomFile {
+            path: path.clone(),
+            message: err.to_string(),
+        })?;
+
+    let validated = validate_part10_file(
+        &path,
+        &Part10Expectations {
+            sop_class_uid: uids::DIGITAL_MAMMOGRAPHY_X_RAY_IMAGE_STORAGE_FOR_PRESENTATION,
+            sop_instance_uid: &sop_instance_uid,
+            transfer_syntax_uid: uids::EXPLICIT_VR_LITTLE_ENDIAN,
+            implementation_class_uid: &implementation_class_uid,
+            synthetic_data: "YES",
+            rows: recipe.rows,
+            columns: recipe.columns,
+            samples_per_pixel: 1,
+            photometric_interpretation: "MONOCHROME1",
+            bits_allocated: 16,
+            bits_stored: 12,
+            high_bit: 11,
+            pixel_representation: 0,
+            planar_configuration: None,
+            pixel_data_vr: VR::OW,
+            pixel_data_length_formula: PixelDataLengthFormula::ContiguousSamples,
+            palette: None,
+            padding: None,
+            ct_image: None,
+            mg_image: Some(MgImageExpectations {
+                modality: "MG",
+                presentation_intent_type: "FOR PRESENTATION",
+                image_type: "ORIGINAL\\PRIMARY",
+                image_laterality: "L",
+                view_position: "MLO",
+                body_part_examined: "BREAST",
+                organ_exposed: "BREAST",
+                positioner_type: "MAMMOGRAPHIC",
+                imager_pixel_spacing: recipe.imager_pixel_spacing,
+                detector_type: "DIRECT",
+                detector_configuration: "AREA",
+                detector_id: "DTS-MG-DET",
+                pixel_intensity_relationship: "LIN",
+                pixel_intensity_relationship_sign: -1,
+                rescale_intercept: "0",
+                rescale_slope: "1",
+                rescale_type: "US",
+                presentation_lut_shape: "INVERSE",
+                lossy_image_compression: "00",
+                burned_in_annotation: "NO",
+                breast_implant_present: "NO",
+                window_center: recipe.window_center,
+                window_width: recipe.window_width,
+                anatomic_region_code_value: "76752008",
+                view_code_value: "399162004",
+                acquisition_context_items: 0,
+            }),
+        },
+    )?;
+
+    Ok(GeneratedFile {
+        case_id: recipe.case_id.to_string(),
+        manifest_entry: classic_mg_manifest_entry(
+            case,
+            recipe,
+            &relative_path,
+            &study_instance_uid,
+            &series_instance_uid,
+            &sop_instance_uid,
+            &implementation_class_uid,
+            &validated.bytes,
+            validated.validation,
+        ),
+    })
+}
+
+#[allow(clippy::too_many_arguments)]
+fn classic_mg_manifest_entry(
+    case: &Value,
+    recipe: ClassicMgRecipe,
+    relative_path: &str,
+    study_instance_uid: &str,
+    series_instance_uid: &str,
+    sop_instance_uid: &str,
+    implementation_class_uid: &str,
+    bytes: &[u8],
+    validation: Value,
+) -> Value {
+    let mut standards_evidence = case
+        .get("standards_evidence")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    standards_evidence.extend([
+        serde_json::json!({
+            "source": "dicom-standard-kb",
+            "edition": "2026b",
+            "query": "lookup_iod Digital Mammography X-Ray Image",
+            "covered": true,
+            "part": "PS3.3",
+            "anchor": "table_A.27-1"
+        }),
+        serde_json::json!({
+            "source": "dicom-standard-kb",
+            "edition": "2026b",
+            "query": "list_modules_for_iod Digital Mammography X-Ray Image",
+            "covered": true,
+            "part": "PS3.3",
+            "anchor": "table_A.27-1"
+        }),
+        serde_json::json!({
+            "source": "dicom-standard-kb",
+            "edition": "2026b",
+            "query": "list_attributes_for_module DX Series",
+            "covered": true,
+            "part": "PS3.3",
+            "anchor": "table_C.8-68"
+        }),
+        serde_json::json!({
+            "source": "dicom-standard-kb",
+            "edition": "2026b",
+            "query": "list_attributes_for_module DX Image",
+            "covered": true,
+            "part": "PS3.3",
+            "anchor": "table_C.8-70"
+        }),
+        serde_json::json!({
+            "source": "dicom-standard-kb",
+            "edition": "2026b",
+            "query": "list_attributes_for_module DX Detector --expand-macros",
+            "covered": true,
+            "part": "PS3.3",
+            "anchor": "table_C.8-71"
+        }),
+        serde_json::json!({
+            "source": "dicom-standard-kb",
+            "edition": "2026b",
+            "query": "list_attributes_for_module DX Anatomy Imaged",
+            "covered": true,
+            "part": "PS3.3",
+            "anchor": "table_C.8-69"
+        }),
+        serde_json::json!({
+            "source": "dicom-standard-kb",
+            "edition": "2026b",
+            "query": "list_attributes_for_module Mammography Series",
+            "covered": true,
+            "part": "PS3.3",
+            "anchor": "table_C.8-73"
+        }),
+        serde_json::json!({
+            "source": "dicom-standard-kb",
+            "edition": "2026b",
+            "query": "list_attributes_for_module Mammography Image",
+            "covered": true,
+            "part": "PS3.3",
+            "anchor": "table_C.8-74"
+        }),
+        serde_json::json!({
+            "source": "dicom-standard-kb",
+            "edition": "2026b",
+            "query": "list_attributes_for_module Acquisition Context",
+            "covered": true,
+            "part": "PS3.3",
+            "anchor": "table_C.7.6.14-1"
+        }),
+        serde_json::json!({
+            "source": "dicom-standard-kb",
+            "edition": "2026b",
+            "query": "lookup_data_element PresentationIntentType",
+            "covered": true,
+            "part": "PS3.6",
+            "anchor": "table_6-1"
+        }),
+        serde_json::json!({
+            "source": "dicom-standard-kb",
+            "edition": "2026b",
+            "query": "lookup_data_element ImagerPixelSpacing",
+            "covered": true,
+            "part": "PS3.6",
+            "anchor": "table_6-1"
+        }),
+        serde_json::json!({
+            "source": "dicom-standard-kb",
+            "edition": "2026b",
+            "query": "lookup_data_element PresentationLUTShape",
+            "covered": true,
+            "part": "PS3.6",
+            "anchor": "table_6-1"
+        }),
+    ]);
+
+    serde_json::json!({
+        "case_id": recipe.case_id,
+        "profile_membership": ["core"],
+        "path": relative_path,
+        "sha256": sha256_hex(bytes),
+        "size_bytes": bytes.len(),
+        "determinism": "byte_stable",
+        "recipe": {
+            "recipe_id": recipe.recipe_id,
+            "recipe_version": CLASSIC_MG_RECIPE_VERSION,
+            "recipe_parameters": {
+                "rows": recipe.rows,
+                "columns": recipe.columns,
+                "samples_per_pixel": 1,
+                "photometric_interpretation": "MONOCHROME1",
+                "bits_allocated": 16,
+                "bits_stored": 12,
+                "high_bit": 11,
+                "pixel_representation": 0,
+                "pixel_values": recipe.pixel_values,
+                "presentation_intent_type": "FOR PRESENTATION",
+                "image_laterality": "L",
+                "view_position": "MLO",
+                "imager_pixel_spacing": recipe.imager_pixel_spacing,
+                "presentation_lut_shape": "INVERSE",
+                "window": {
+                    "center": recipe.window_center,
+                    "width": recipe.window_width
+                }
+            }
+        },
+        "dicom": {
+            "sop_class_uid": uids::DIGITAL_MAMMOGRAPHY_X_RAY_IMAGE_STORAGE_FOR_PRESENTATION,
+            "sop_class_name": "Digital Mammography X-Ray Image Storage - For Presentation",
+            "iod_name": "Digital Mammography X-Ray Image",
+            "modality": "MG",
+            "transfer_syntax_uid": uids::EXPLICIT_VR_LITTLE_ENDIAN,
+            "transfer_syntax_name": "Explicit VR Little Endian"
+        },
+        "uids": {
+            "study_instance_uid": study_instance_uid,
+            "series_instance_uid": series_instance_uid,
+            "sop_instance_uid": sop_instance_uid,
+            "frame_of_reference_uid": Value::Null,
+            "implementation_class_uid": implementation_class_uid
+        },
+        "image": {
+            "rows": recipe.rows,
+            "columns": recipe.columns,
+            "frames": 1,
+            "samples_per_pixel": 1,
+            "photometric_interpretation": "MONOCHROME1",
+            "bits_allocated": 16,
+            "bits_stored": 12,
+            "high_bit": 11,
+            "pixel_representation": 0,
+            "planar_configuration": Value::Null
+        },
+        "pixel_data": {
+            "vr": "OW",
+            "native_or_encapsulated": "native",
+            "value_length": recipe.pixel_bytes.len(),
+            "frame_count": 1,
+            "frame_hashes": [sha256_hex(recipe.pixel_bytes)]
+        },
+        "expected_capabilities": ["open_file", "read_metadata", "render_native_pixels", "apply_window"],
+        "expected_semantics": {
+            "synthetic_data": "YES",
+            "presentation_intent_type": "FOR PRESENTATION",
+            "pixel_min": recipe.pixel_min,
+            "pixel_max": recipe.pixel_max,
+            "photometric_semantics": "MONOCHROME1 with Presentation LUT Shape INVERSE maps stored values to P-Values for presentation",
+            "window": {
+                "center": recipe.window_center,
+                "width": recipe.window_width
+            }
+        },
+        "expected_visual_checks": {
+            "pattern": "2x2_mammography_mono1_12bit_gradient"
+        },
+        "validation": validation,
+        "known_stressors": ["digital_mammography_for_presentation", "mono1_inversion", "unsigned_12_bit_pixels", "presentation_lut_inverse"],
+        "standards_evidence": standards_evidence
+    })
+}
+
 fn deterministic_case_uid(
     standards_lock_sha256: &str,
     recipe: PixelRecipe,
@@ -1386,6 +1921,24 @@ fn deterministic_classic_ct_uid(
         standards_lock_sha256,
         case_id: recipe.case_id,
         recipe_version: CLASSIC_CT_RECIPE_VERSION,
+        run_seed,
+        file_index: 0,
+        frame_index: None,
+        referenced_object_index: None,
+        role,
+    })
+}
+
+fn deterministic_classic_mg_uid(
+    standards_lock_sha256: &str,
+    recipe: ClassicMgRecipe,
+    run_seed: u64,
+    role: UidRole,
+) -> String {
+    deterministic_uid(&DeterministicUidInput {
+        standards_lock_sha256,
+        case_id: recipe.case_id,
+        recipe_version: CLASSIC_MG_RECIPE_VERSION,
         run_seed,
         file_index: 0,
         frame_index: None,
@@ -1428,6 +1981,32 @@ fn put_str(obj: &mut InMemDicomObject, tag: dicom_core::Tag, vr: VR, value: &str
 
 fn put_u16(obj: &mut InMemDicomObject, tag: dicom_core::Tag, vr: VR, value: u16) {
     obj.put(DataElement::new(tag, vr, PrimitiveValue::from(value)));
+}
+
+fn put_i16(obj: &mut InMemDicomObject, tag: dicom_core::Tag, vr: VR, value: i16) {
+    obj.put(DataElement::new(tag, vr, PrimitiveValue::from(value)));
+}
+
+fn put_empty_sequence(obj: &mut InMemDicomObject, tag: dicom_core::Tag) {
+    obj.put(DataElement::new(tag, VR::SQ, DataSetSequence::empty()));
+}
+
+fn put_code_sequence(
+    obj: &mut InMemDicomObject,
+    tag: dicom_core::Tag,
+    code_value: &str,
+    coding_scheme: &str,
+    code_meaning: &str,
+) {
+    obj.put(DataElement::new(
+        tag,
+        VR::SQ,
+        DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+            DataElement::new(tags::CODE_VALUE, VR::SH, code_value),
+            DataElement::new(tags::CODING_SCHEME_DESIGNATOR, VR::SH, coding_scheme),
+            DataElement::new(tags::CODE_MEANING, VR::LO, code_meaning),
+        ])]),
+    ));
 }
 
 fn put_palette(obj: &mut InMemDicomObject, palette: PaletteRecipe) {

@@ -249,7 +249,7 @@ fn generate_command_writes_core_u16_native_pixel_case() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\tcore"));
-    assert!(stdout.contains("files_written\t11"));
+    assert!(stdout.contains("files_written\t12"));
 
     let manifest_path = out_dir.join("manifest.json");
     let manifest: Value = serde_json::from_str(
@@ -265,7 +265,7 @@ fn generate_command_writes_core_u16_native_pixel_case() {
             .pointer("/files")
             .and_then(Value::as_array)
             .map(Vec::len),
-        Some(11)
+        Some(12)
     );
     let u16_file = file_entry_by_case_id(&manifest, "classic/sc/mono2_u16_explicit_le");
     assert_eq!(
@@ -565,17 +565,73 @@ fn generate_command_writes_core_u16_native_pixel_case() {
             .contains(&"ct_image_sop_class"),
         "CT manifest should record standards validation for CT Image Storage"
     );
+    let mg_file = file_entry_by_case_id(
+        &manifest,
+        "classic/mg/for_presentation_mono1_u16_12bit_explicit_le",
+    );
+    assert_eq!(
+        mg_file
+            .pointer("/dicom/sop_class_uid")
+            .and_then(Value::as_str),
+        Some(uids::DIGITAL_MAMMOGRAPHY_X_RAY_IMAGE_STORAGE_FOR_PRESENTATION)
+    );
+    assert_eq!(
+        mg_file.pointer("/dicom/modality").and_then(Value::as_str),
+        Some("MG")
+    );
+    assert_eq!(
+        mg_file
+            .pointer("/image/photometric_interpretation")
+            .and_then(Value::as_str),
+        Some("MONOCHROME1")
+    );
+    assert_eq!(
+        mg_file
+            .pointer("/image/bits_stored")
+            .and_then(Value::as_u64),
+        Some(12)
+    );
+    assert_eq!(
+        mg_file
+            .pointer("/recipe/recipe_parameters/presentation_intent_type")
+            .and_then(Value::as_str),
+        Some("FOR PRESENTATION")
+    );
+    assert_eq!(
+        mg_file
+            .pointer("/recipe/recipe_parameters/presentation_lut_shape")
+            .and_then(Value::as_str),
+        Some("INVERSE")
+    );
+    assert!(
+        validation_result_names(mg_file.pointer("/validation/internal"))
+            .contains(&"mg_presentation_intent_type"),
+        "MG manifest should record Presentation Intent Type validation"
+    );
+    assert!(
+        validation_result_names(mg_file.pointer("/validation/internal"))
+            .contains(&"mg_view_code_sequence"),
+        "MG manifest should record View Code Sequence validation"
+    );
+    assert!(
+        validation_result_names(mg_file.pointer("/validation/standards"))
+            .contains(&"digital_mammography_for_presentation_sop_class"),
+        "MG manifest should record standards validation for mammography SOP Class"
+    );
     assert!(
         manifest
             .pointer("/skipped_cases")
             .and_then(Value::as_array)
             .is_some_and(|cases| {
                 cases.iter().all(|case| {
-                    case.get("case_id").and_then(Value::as_str)
-                        != Some("classic/ct/mono2_i16_rescale_12bit_explicit_le")
+                    !matches!(
+                        case.get("case_id").and_then(Value::as_str),
+                        Some("classic/ct/mono2_i16_rescale_12bit_explicit_le")
+                            | Some("classic/mg/for_presentation_mono1_u16_12bit_explicit_le")
+                    )
                 })
             }),
-        "implemented CT case should not be reported as skipped"
+        "implemented CT and MG cases should not be reported as skipped"
     );
 
     let dcm_path = out_dir.join("classic/sc/mono2_u16_explicit_le/instance.dcm");
@@ -787,6 +843,70 @@ fn generate_command_writes_core_u16_native_pixel_case() {
             .pointer("/uids/frame_of_reference_uid")
             .and_then(Value::as_str)
             .expect("manifest should record CT Frame of Reference UID")
+    );
+    let mg_path =
+        out_dir.join("classic/mg/for_presentation_mono1_u16_12bit_explicit_le/instance.dcm");
+    let mg = open_file(&mg_path).expect("MG generated DICOM file should parse");
+    assert_eq!(
+        mg.element(tags::SOP_CLASS_UID)
+            .expect("dataset should contain SOP Class UID")
+            .value()
+            .to_str()
+            .expect("SOP Class UID should be text")
+            .trim_end_matches('\0'),
+        uids::DIGITAL_MAMMOGRAPHY_X_RAY_IMAGE_STORAGE_FOR_PRESENTATION
+    );
+    assert_eq!(
+        mg.element(tags::PRESENTATION_INTENT_TYPE)
+            .expect("dataset should contain Presentation Intent Type")
+            .value()
+            .to_str()
+            .expect("Presentation Intent Type should be text")
+            .trim(),
+        "FOR PRESENTATION"
+    );
+    assert_eq!(
+        mg.element(tags::PHOTOMETRIC_INTERPRETATION)
+            .expect("dataset should contain Photometric Interpretation")
+            .value()
+            .to_str()
+            .expect("Photometric Interpretation should be text")
+            .trim(),
+        "MONOCHROME1"
+    );
+    assert_eq!(
+        mg.element(tags::PRESENTATION_LUT_SHAPE)
+            .expect("dataset should contain Presentation LUT Shape")
+            .value()
+            .to_str()
+            .expect("Presentation LUT Shape should be text")
+            .trim(),
+        "INVERSE"
+    );
+    assert_eq!(
+        mg.element(tags::PIXEL_INTENSITY_RELATIONSHIP_SIGN)
+            .expect("dataset should contain Pixel Intensity Relationship Sign")
+            .value()
+            .to_int::<i16>()
+            .expect("Pixel Intensity Relationship Sign should be numeric"),
+        -1
+    );
+    assert_eq!(
+        mg.element(tags::IMAGER_PIXEL_SPACING)
+            .expect("dataset should contain Imager Pixel Spacing")
+            .value()
+            .to_str()
+            .expect("Imager Pixel Spacing should be text")
+            .trim(),
+        "0.070\\0.070"
+    );
+    assert_eq!(
+        mg.element(tags::VIEW_CODE_SEQUENCE)
+            .expect("dataset should contain View Code Sequence")
+            .items()
+            .expect("View Code Sequence should contain items")
+            .len(),
+        1
     );
 
     fs::remove_dir_all(out_dir).expect("temporary output root should be removable");

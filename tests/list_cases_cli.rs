@@ -1,0 +1,51 @@
+use std::process::Command;
+
+#[test]
+fn list_cases_command_shows_smoke_case_status_and_evidence() {
+    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args(["list-cases", "--profile", "smoke"])
+        .output()
+        .expect("list-cases command must run");
+
+    assert!(
+        output.status.success(),
+        "list-cases should exit successfully: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8(output.stdout).expect("list-cases stdout must be utf-8");
+    assert!(
+        stdout.contains(
+            "case_id\tstatus\tprofiles\tsop_class_uid\ttransfer_syntax_uid\tstandards_evidence"
+        ),
+        "list-cases must print structured columns"
+    );
+    assert!(
+        stdout.contains(
+            "classic/sc/mono2_u8_explicit_le\tplanned\tsmoke\t1.2.840.10008.5.1.4.1.1.7\t1.2.840.10008.1.2.1\t2/2 covered"
+        ),
+        "list-cases must include planned smoke cases with standards evidence"
+    );
+}
+
+#[test]
+fn list_cases_command_shows_core_case_status_and_evidence() {
+    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args(["list-cases", "--profile", "core"])
+        .output()
+        .expect("list-cases command must run");
+
+    assert!(
+        output.status.success(),
+        "list-cases should exit successfully: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8(output.stdout).expect("list-cases stdout must be utf-8");
+    assert!(
+        stdout.contains(
+            "classic/ct/mono2_i16_rescale_12bit_explicit_le\tplanned\tcore\t1.2.840.10008.5.1.4.1.1.2\t1.2.840.10008.1.2.1\t2/2 covered"
+        ),
+        "list-cases must include planned core cases with standards evidence"
+    );
+}

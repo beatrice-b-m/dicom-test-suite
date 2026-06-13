@@ -2,8 +2,8 @@
 
 **Last updated:** 2026-06-13  
 **Source specification:** `SYSTEM_SPEC.md` version 0.2.0  
-**Current phase:** Phase 0.5 standards and case registry foundation, incomplete  
-**Current implementation status:** Phase 0 repository initialization is complete; standards baseline lock, schemas, taxonomy/profile rules, initial smoke/core registry, transfer syntax matrix, deterministic build policy, KB integration workflow, and standards gap workflow are committed
+**Current phase:** Phase 1 generator core, not started  
+**Current implementation status:** Phase 0 and Phase 0.5 are complete; standards baseline lock, schemas, taxonomy/profile rules, initial smoke/core registry, transfer syntax matrix, deterministic build policy, standards workflows, and the initial `list-cases` command are committed
 
 This document is the durable hand-off log for coding agents implementing
 `dicom-test-suite`. Keep `SYSTEM_SPEC.md` as the source of product and
@@ -31,7 +31,7 @@ Observed at creation of this progress file:
 
 | Artifact | Status | Notes |
 |---|---|---|
-| `README.md` | present | Contains project purpose and planned commands. |
+| `README.md` | present | Contains project purpose and planned commands, including `list-cases`. |
 | `SYSTEM_SPEC.md` | present | Version 0.2.0 planning baseline. |
 | `AGENTS.md` | present | Requires descriptive granular commits for completed work. |
 | `IMPLEMENTATION_PROGRESS.md` | present after this task | Hand-off ledger for implementation state. |
@@ -47,8 +47,8 @@ Observed at creation of this progress file:
 | `standards/kb-integration.md` | present | Documents the pinned 2026b `dicom-standard-kb` MCP query workflow, evidence fields, and fallback path. |
 | `standards/gap-workflow.md` | present | Documents standards gap handling, local source notes, blocked/skipped registry actions, and KB patch criteria. |
 | `standards/source-notes/` | present | Contains a README/template for narrow standards notes not covered by `dicom-standard-kb`. |
-| `src/` or `crates/` | present | Minimal `src/lib.rs` and `src/main.rs` exist; generator implementation has not started. |
-| `tests/` | present | Includes schema artifact integration tests; generator behavior tests have not started. |
+| `src/` or `crates/` | present | Minimal `src/lib.rs` and `src/main.rs` exist with the initial `list-cases` CLI; generator implementation has not started. |
+| `tests/` | present | Includes schema artifact and `list-cases` CLI tests; generator behavior tests have not started. |
 
 ## Non-Negotiable Implementation Constraints
 
@@ -76,7 +76,7 @@ Observed at creation of this progress file:
 | Phase | Status | Summary |
 |---|---|---|
 | Phase 0: Repository initialization | complete | Scope docs, generated-artifact protections, Rust skeleton, toolchain, dependency pins, and initial schema placeholders are committed. |
-| Phase 0.5: Standards and case registry foundation | in progress | Standards base edition, schemas, taxonomy/profile rules, initial smoke/core registry, transfer syntax matrix, deterministic policy, KB integration workflow, and standards gap workflow are in place; `list-cases` remains for the phase exit criterion. |
+| Phase 0.5: Standards and case registry foundation | complete | Standards base edition, schemas, taxonomy/profile rules, initial smoke/core registry, transfer syntax matrix, deterministic policy, standards workflows, and `list-cases` are in place. |
 | Phase 1: Generator core | not started | CLI, UID generation, manifest writing, Part 10 writing, and file validation pending. |
 | Phase 2: Native pixel matrix | not started | Pixel generators and photometric validators pending. |
 | Phase 3: Classic radiology IODs | not started | CT/MR/CR/US/DX/MG builders pending. |
@@ -120,10 +120,11 @@ and initial schema placeholders.
 - [x] Add deterministic build policy.
 - [x] Add `dicom-standard-kb` integration instructions.
 - [x] Add standards gap/patch workflow documentation.
+- [x] Add initial `list-cases` command for the Phase 0.5 exit criterion.
 
-Phase 0.5 is complete only when `list-cases` can show all planned smoke/core
-cases with structured status and planned Phase 1/2 cases have standards
-evidence through `dicom-standard-kb` or local source notes.
+Phase 0.5 is complete: `list-cases` can show planned smoke/core cases with
+structured status and planned Phase 1/2 cases have standards evidence through
+`dicom-standard-kb` or local source notes.
 
 ## Initial Priority Case Queue
 
@@ -161,20 +162,19 @@ These case IDs come from `SYSTEM_SPEC.md` section 21 and should seed
 
 No implementation blocker has been proven yet. The immediate limitations are
 that the local `dicom-standard-kb` repository commit/DB SHA-256 and official
-source artifact hashes have not yet been verified. The remaining Phase 0.5 exit
-work is a `list-cases` command that can show planned smoke/core cases with
-structured status and standards evidence.
+source artifact hashes have not yet been verified. Phase 1 generator work has
+not started.
 
 ## Recommended Next Commit
 
-Add the initial `list-cases` command:
+Start Phase 1 generator core:
 
-1. Add a minimal CLI path that reads `cases/registry.json`.
-2. Support `list-cases` output with case ID, status, profiles, SOP Class UID,
-   transfer syntax UID, and standards evidence coverage.
-3. Add focused tests for smoke/core registry visibility.
-4. Update this progress file with Phase 0.5 exit status.
-5. Commit as `feat(cli): add list-cases command`.
+1. Add the first generator command skeleton and argument model.
+2. Define deterministic output-root setup and manifest path handling without
+   writing DICOM instances yet.
+3. Add focused tests for command parsing and output directory behavior.
+4. Keep generated files ignored and do not commit generation output.
+5. Commit as `feat(cli): add generate command skeleton`.
 
 ## Handoff Notes
 

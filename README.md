@@ -9,6 +9,8 @@ Generated DICOM files are intentionally not committed. The repository should con
 ## Planned Commands
 
 ```sh
+cargo run -- list-cases
+cargo run -- list-cases --profile smoke
 cargo run -- generate --profile smoke --out generated/smoke
 cargo run -- generate --profile core --out generated/core
 cargo run -- validate generated/core

@@ -1854,8 +1854,8 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
         .expect("manifest should contain skipped cases");
     assert_eq!(
         skipped_cases.len(),
-        1,
-        "extended generation should report the planned SEG case as unavailable"
+        11,
+        "extended generation should report the planned Phase 5 cases as unavailable"
     );
     let planned_seg = skipped_case_by_id(&manifest, "derived/seg/binary_multiframe_explicit_le");
     assert_eq!(
@@ -1877,6 +1877,35 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
             .map(Vec::len),
         Some(8)
     );
+    for case_id in [
+        "derived/seg/fractional_probability_multiframe_explicit_le",
+        "derived/seg/labelmap_multiframe_explicit_le",
+        "derived/presentation-state/grayscale_softcopy_ct_window_explicit_le",
+        "derived/rwvm/linear_ct_mapping_explicit_le",
+        "derived/sr/basic_text_observation_explicit_le",
+        "derived/sr/comprehensive_measurement_explicit_le",
+        "derived/sr/key_object_selection_explicit_le",
+        "non-image/rt/structure_set_single_roi_explicit_le",
+        "non-image/rt/dose_grid_u16_explicit_le",
+        "non-image/encapsulated-document/pdf_minimal_explicit_le",
+    ] {
+        let skipped = skipped_case_by_id(&manifest, case_id);
+        assert_eq!(
+            skipped.get("status").and_then(Value::as_str),
+            Some("unavailable"),
+            "{case_id} should be reported as planned unavailable"
+        );
+        assert_eq!(
+            skipped.get("reason_code").and_then(Value::as_str),
+            Some("case_planned"),
+            "{case_id} should use the planned-case reason"
+        );
+        assert_eq!(
+            skipped.get("recheck_phase").and_then(Value::as_str),
+            Some("phase-5"),
+            "{case_id} should remain tied to Phase 5 recheck metadata"
+        );
+    }
 
     let enhanced_ct_path =
         out_dir.join("enhanced/ct/multiframe_shared_perframe_explicit_le/instance.dcm");
@@ -2192,11 +2221,21 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
         .expect("manifest should contain skipped cases");
     assert_eq!(
         skipped_cases.len(),
-        3,
-        "all generation should report the planned SEG and VL cases as unavailable"
+        13,
+        "all generation should report the planned Phase 5 and VL cases as unavailable"
     );
     for case_id in [
         "derived/seg/binary_multiframe_explicit_le",
+        "derived/seg/fractional_probability_multiframe_explicit_le",
+        "derived/seg/labelmap_multiframe_explicit_le",
+        "derived/presentation-state/grayscale_softcopy_ct_window_explicit_le",
+        "derived/rwvm/linear_ct_mapping_explicit_le",
+        "derived/sr/basic_text_observation_explicit_le",
+        "derived/sr/comprehensive_measurement_explicit_le",
+        "derived/sr/key_object_selection_explicit_le",
+        "non-image/rt/structure_set_single_roi_explicit_le",
+        "non-image/rt/dose_grid_u16_explicit_le",
+        "non-image/encapsulated-document/pdf_minimal_explicit_le",
         "vl/photo/rgb_planar0_explicit_le",
         "vl/photo/palette_color_explicit_le",
     ] {

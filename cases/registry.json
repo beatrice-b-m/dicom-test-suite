@@ -2658,6 +2658,622 @@
       ]
     },
     {
+      "case_id": "derived/seg/fractional_probability_multiframe_explicit_le",
+      "status": "planned",
+      "profiles": ["extended"],
+      "recipe_id": "seg_fractional_probability_multiframe",
+      "recipe_version": "0.1.0",
+      "iod_name": "Segmentation",
+      "sop_class_name": "Segmentation Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.66.4",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "byte_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_sop_class Segmentation Storage",
+          "covered": true,
+          "part": "PS3.4",
+          "anchor": "table_B.5-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_uid ExplicitVRLittleEndian",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_iod Segmentation",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.51-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_modules_for_iod Segmentation",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.51-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_data_element SegmentationType",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_data_element SegmentationFractionalType",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_data_element MaximumFractionalValue",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "search_standard_text Segmentation Type FRACTIONAL PROBABILITY",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "sect_C.8.20.2.3.1"
+        }
+      ]
+    },
+    {
+      "case_id": "derived/seg/labelmap_multiframe_explicit_le",
+      "status": "planned",
+      "profiles": ["extended"],
+      "recipe_id": "seg_labelmap_multiframe",
+      "recipe_version": "0.1.0",
+      "iod_name": "Segmentation",
+      "sop_class_name": "Label Map Segmentation Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.66.7",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "byte_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_sop_class Label Map Segmentation Storage",
+          "covered": true,
+          "part": "PS3.4",
+          "anchor": "table_B.5-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_uid ExplicitVRLittleEndian",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_iod Segmentation",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.51-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_modules_for_iod Segmentation",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.51-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_data_element SegmentationType",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "search_standard_text Segmentation Type LABELMAP",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "sect_C.8.20.2.3.1"
+        }
+      ]
+    },
+    {
+      "case_id": "derived/presentation-state/grayscale_softcopy_ct_window_explicit_le",
+      "status": "planned",
+      "profiles": ["extended"],
+      "recipe_id": "gsps_grayscale_softcopy_ct_window",
+      "recipe_version": "0.1.0",
+      "iod_name": "Grayscale Softcopy Presentation State",
+      "sop_class_name": "Grayscale Softcopy Presentation State Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.11.1",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "byte_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_sop_class Grayscale Softcopy Presentation State Storage",
+          "covered": true,
+          "part": "PS3.4",
+          "anchor": "table_B.5-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_uid ExplicitVRLittleEndian",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_iod Grayscale Softcopy Presentation State",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.33.1-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_modules_for_iod Grayscale Softcopy Presentation State",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.33.1-1"
+        }
+      ]
+    },
+    {
+      "case_id": "derived/rwvm/linear_ct_mapping_explicit_le",
+      "status": "planned",
+      "profiles": ["extended"],
+      "recipe_id": "rwvm_linear_ct_mapping",
+      "recipe_version": "0.1.0",
+      "iod_name": "Real World Value Mapping",
+      "sop_class_name": "Real World Value Mapping Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.67",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "byte_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_sop_class Real World Value Mapping Storage",
+          "covered": true,
+          "part": "PS3.4",
+          "anchor": "table_B.5-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_uid ExplicitVRLittleEndian",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_iod Real World Value Mapping",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.46-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_modules_for_iod Real World Value Mapping",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.46-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_data_element RealWorldValueMappingSequence",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
+        }
+      ]
+    },
+    {
+      "case_id": "derived/sr/basic_text_observation_explicit_le",
+      "status": "planned",
+      "profiles": ["extended"],
+      "recipe_id": "sr_basic_text_observation",
+      "recipe_version": "0.1.0",
+      "iod_name": "Basic Text SR",
+      "sop_class_name": "Basic Text SR Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.88.11",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "byte_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_sop_class Basic Text SR Storage",
+          "covered": true,
+          "part": "PS3.4",
+          "anchor": "table_B.5-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_uid ExplicitVRLittleEndian",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_iod Basic Text SR",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.35.1-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_modules_for_iod Basic Text SR",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.35.1-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_data_element ContentSequence",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
+        }
+      ]
+    },
+    {
+      "case_id": "derived/sr/comprehensive_measurement_explicit_le",
+      "status": "planned",
+      "profiles": ["extended"],
+      "recipe_id": "sr_comprehensive_measurement",
+      "recipe_version": "0.1.0",
+      "iod_name": "Comprehensive SR",
+      "sop_class_name": "Comprehensive SR Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.88.33",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "byte_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_sop_class Comprehensive SR Storage",
+          "covered": true,
+          "part": "PS3.4",
+          "anchor": "table_B.5-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_uid ExplicitVRLittleEndian",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_iod Comprehensive SR",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.35.3-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_modules_for_iod Comprehensive SR",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.35.3-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_data_element ValueType",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
+        }
+      ]
+    },
+    {
+      "case_id": "derived/sr/key_object_selection_explicit_le",
+      "status": "planned",
+      "profiles": ["extended"],
+      "recipe_id": "sr_key_object_selection",
+      "recipe_version": "0.1.0",
+      "iod_name": "Key Object Selection Document",
+      "sop_class_name": "Key Object Selection Document Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.88.59",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "byte_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_sop_class Key Object Selection Document Storage",
+          "covered": true,
+          "part": "PS3.4",
+          "anchor": "table_B.5-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_uid ExplicitVRLittleEndian",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_iod Key Object Selection Document",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.35.4-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_modules_for_iod Key Object Selection Document",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.35.4-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_data_element CurrentRequestedProcedureEvidenceSequence",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
+        }
+      ]
+    },
+    {
+      "case_id": "non-image/rt/structure_set_single_roi_explicit_le",
+      "status": "planned",
+      "profiles": ["extended"],
+      "recipe_id": "rt_structure_set_single_roi",
+      "recipe_version": "0.1.0",
+      "iod_name": "RT Structure Set",
+      "sop_class_name": "RT Structure Set Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.481.3",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "byte_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_sop_class RT Structure Set Storage",
+          "covered": true,
+          "part": "PS3.4",
+          "anchor": "table_B.5-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_uid ExplicitVRLittleEndian",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_iod RT Structure Set",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.19.3-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_modules_for_iod RT Structure Set",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.19.3-1"
+        }
+      ]
+    },
+    {
+      "case_id": "non-image/rt/dose_grid_u16_explicit_le",
+      "status": "planned",
+      "profiles": ["extended"],
+      "recipe_id": "rt_dose_grid_u16",
+      "recipe_version": "0.1.0",
+      "iod_name": "RT Dose",
+      "sop_class_name": "RT Dose Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.481.2",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "byte_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_sop_class RT Dose Storage",
+          "covered": true,
+          "part": "PS3.4",
+          "anchor": "table_B.5-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_uid ExplicitVRLittleEndian",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_iod RT Dose",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.18.3-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_modules_for_iod RT Dose",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.18.3-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_data_element DoseGridScaling",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
+        }
+      ]
+    },
+    {
+      "case_id": "non-image/encapsulated-document/pdf_minimal_explicit_le",
+      "status": "planned",
+      "profiles": ["extended"],
+      "recipe_id": "encapsulated_pdf_minimal",
+      "recipe_version": "0.1.0",
+      "iod_name": "Encapsulated PDF",
+      "sop_class_name": "Encapsulated PDF Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.104.1",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "byte_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_sop_class Encapsulated PDF Storage",
+          "covered": true,
+          "part": "PS3.4",
+          "anchor": "table_B.5-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_uid ExplicitVRLittleEndian",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_iod Encapsulated PDF",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.45.1-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_modules_for_iod Encapsulated PDF",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.45.1-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_data_element EncapsulatedDocument",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
+        }
+      ]
+    },
+    {
       "case_id": "vl/photo/rgb_planar0_explicit_le",
       "status": "planned",
       "profiles": ["core"],

@@ -3739,6 +3739,12 @@ mod tests {
             ),
             "list-cases output must show planned SEG extended status"
         );
+        assert!(
+            output.contains(
+                "non-image/encapsulated-document/pdf_minimal_explicit_le\tplanned\textended\t1.2.840.10008.5.1.4.1.1.104.1\t1.2.840.10008.1.2.1\t5/5 covered"
+            ),
+            "list-cases output must show planned Encapsulated PDF extended status"
+        );
     }
 
     #[test]
@@ -3752,6 +3758,12 @@ mod tests {
                 "derived/seg/binary_multiframe_explicit_le\tplanned\textended\t1.2.840.10008.5.1.4.1.1.66.4\t1.2.840.10008.1.2.1\t8/8 covered"
             ),
             "status filter should include planned SEG in extended"
+        );
+        assert!(
+            output.contains(
+                "derived/sr/key_object_selection_explicit_le\tplanned\textended\t1.2.840.10008.5.1.4.1.1.88.59\t1.2.840.10008.1.2.1\t5/5 covered"
+            ),
+            "status filter should include planned Phase 5 SR cases in extended"
         );
         assert!(
             !output.contains("enhanced/ct/multiframe_shared_perframe_explicit_le"),

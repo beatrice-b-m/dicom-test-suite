@@ -100,6 +100,31 @@ fn registry_contains_initial_smoke_and_core_cases() {
             "implemented",
         ),
         ("derived/seg/binary_multiframe_explicit_le", "planned"),
+        (
+            "derived/seg/fractional_probability_multiframe_explicit_le",
+            "planned",
+        ),
+        ("derived/seg/labelmap_multiframe_explicit_le", "planned"),
+        (
+            "derived/presentation-state/grayscale_softcopy_ct_window_explicit_le",
+            "planned",
+        ),
+        ("derived/rwvm/linear_ct_mapping_explicit_le", "planned"),
+        ("derived/sr/basic_text_observation_explicit_le", "planned"),
+        (
+            "derived/sr/comprehensive_measurement_explicit_le",
+            "planned",
+        ),
+        ("derived/sr/key_object_selection_explicit_le", "planned"),
+        (
+            "non-image/rt/structure_set_single_roi_explicit_le",
+            "planned",
+        ),
+        ("non-image/rt/dose_grid_u16_explicit_le", "planned"),
+        (
+            "non-image/encapsulated-document/pdf_minimal_explicit_le",
+            "planned",
+        ),
         ("vl/photo/rgb_planar0_explicit_le", "planned"),
         ("vl/photo/palette_color_explicit_le", "planned"),
     ] {

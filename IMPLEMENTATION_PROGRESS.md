@@ -2,9 +2,9 @@
 
 **Last updated:** 2026-06-14  
 **Source specification:** `SYSTEM_SPEC.md` version 0.2.0  
-**Current phase:** Phase 5 planning complete; ready for Phase 5.0 foundation
+**Current phase:** Phase 5.0 foundation in progress
 
-**Current implementation status:** Phase 0, Phase 0.5, Phase 1, Phase 2, Phase 3, Phase 4, and the pre-Phase-5 hardening pass are functionally complete. `IMPLEMENTATION_PLAN.md` now defines the concrete Phase 5 implementation sequence; no Phase 5 generator code has been started yet.
+**Current implementation status:** Phase 0, Phase 0.5, Phase 1, Phase 2, Phase 3, Phase 4, and the pre-Phase-5 hardening pass are functionally complete. `IMPLEMENTATION_PLAN.md` now defines the concrete Phase 5 implementation sequence. Phase 5.0 has started by seeding the full planned Phase 5 target queue in `cases/registry.json`; no Phase 5 generator recipe has been flipped to `implemented` yet.
 
 This document is the durable hand-off log for coding agents implementing
 `dicom-test-suite`. Keep `SYSTEM_SPEC.md` as the source of product and
@@ -85,7 +85,7 @@ Observed at creation of this progress file:
 | Phase 3: Classic radiology IODs | complete | CT Image Storage signed 12-bit rescale/window, MG For Presentation/For Processing 12-bit, CR overlay/Modality LUT/VOI LUT, MR multi-slice oblique geometry, DX display shutter, US Image Storage, and stable multi-file series generation are implemented. |
 | Phase 4: Enhanced multi-frame | complete | Enhanced CT and Enhanced MR Image Storage cases with Shared and Per-Frame Functional Groups and Multi-frame Dimension metadata are implemented; MR Echo, Temporal Position, phase/velocity-encoding variation, and a two-member Enhanced CT concatenation case are covered. |
 | Pre-Phase-5 hardening | complete | Registry authority, required CLI contracts, validation hardening, reproducibility/CI guards, and standards lock pinning policy are complete. Validation now covers raw Part 10 byte checks, parsed cross-field image invariants, manifest schema-conformance checks, baseline standards-derived Type 1/Type 2 checks, classic family-specific checks, and Enhanced CT/MR multi-frame standards-derived checks. |
-| Phase 5: Derived, presentation, and non-image objects | planned; not started | Concrete plan is in `IMPLEMENTATION_PLAN.md`. Foundation work must make manifests, validation, reports, and same-run references object-aware before broad non-image recipe work. |
+| Phase 5: Derived, presentation, and non-image objects | foundation in progress | Full planned target queue is now in `cases/registry.json`. Remaining foundation work must make manifests, validation, reports, and same-run references object-aware before broad non-image recipe work. |
 | Phase 6: Transfer syntax expansion | not started | Transfer syntax abstraction and compressed cases pending. |
 | Phase 7: Pathology, video, and large object profiles | not started | VL, WSI, video, and stress cases pending. |
 | Phase 8: Reporting and viewer integration | not started | Coverage reports, optional viewer runner, and compatibility schema pending. |
@@ -197,7 +197,7 @@ Enhanced CT concatenation case for logical multi-frame object splitting.
 ## Phase 5 Checklist
 
 - [x] Prepare concrete Phase 5 implementation plan in `IMPLEMENTATION_PLAN.md`.
-- [ ] Add planned registry rows and standards evidence for all Phase 5 target
+- [x] Add planned registry rows and standards evidence for all Phase 5 target
       cases.
 - [ ] Refactor manifest schema, generated-root validation, and coverage reports
       to represent non-image objects and derived references.
@@ -664,6 +664,43 @@ These case IDs come from `SYSTEM_SPEC.md` section 21 and should seed
   Comprehensive SR Storage, Key Object Selection Document Storage, Real World
   Value Mapping Storage, RT Dose Storage, RT Structure Set Storage, and
   Encapsulated PDF Storage.
+- 2026-06-14: Phase 5.0 started by adding planned registry rows for the full
+  Phase 5 target queue: FRACTIONAL SEG, LABELMAP SEG, GSPS, RWVM, Basic Text
+  SR, Comprehensive SR, KOS, RT Structure Set, RT Dose, and Encapsulated PDF.
+  Existing BINARY SEG remains planned, so the extended profile now reports 11
+  Phase 5 planned cases. The new rows use Explicit VR Little Endian,
+  byte-stable determinism, no external codec requirements, and 2026b
+  `dicom-standard-kb` evidence for each SOP Class, IOD/module table, and
+  selected implementation-driving data elements. Tests were updated so
+  `list-cases`, generated manifest skip accounting, and registry artifact
+  guards treat the full Phase 5 queue as durable state.
+
+## Verification Results
+
+- 2026-06-14 Phase 5 registry queue slice:
+  - `jq empty cases/registry.json` passed.
+  - `git diff --check` passed.
+  - `cargo fmt -- --check` passed.
+  - `cargo test list_cases` passed.
+  - `cargo test registry_contains_initial_smoke_and_core_cases` passed.
+  - `cargo test generate_command_writes_extended_enhanced_ct_multiframe_case`
+    passed.
+  - `cargo test generate_command_writes_all_profile_union_and_skips_planned_cases`
+    passed.
+  - `cargo test` passed.
+  - `cargo run -- list-cases --profile extended --status planned` passed and
+    listed 11 planned Phase 5 rows.
+  - `cargo run -- standards gaps --profile extended` passed with no standards
+    evidence gaps.
+  - `cargo run -- generate --profile extended --out /tmp/dts-phase5-registry --seed 1`
+    passed, writing 6 existing extended files and recording 11 planned Phase 5
+    unavailable cases.
+  - `cargo run -- validate /tmp/dts-phase5-registry` passed with 6 files
+    checked and 0 validation failures.
+  - `cargo run -- report /tmp/dts-phase5-registry --format json` passed with
+    counts `generated=6`, `planned=11`, `skipped=0`, `blocked=0`.
+  - `cargo run -- standards check-lock` passed with the existing documented
+    unavailable-pin warnings.
 
 ## Current Blockers
 
@@ -671,10 +708,12 @@ None currently recorded for starting Phase 5.
 
 ## Recommended Next Commit
 
-Start Phase 5.0 with `feat(manifest): add object-aware references`, covering
-manifest schema, generated-root validation, coverage reporting, same-run
-reference infrastructure, and planned registry rows for the Phase 5 target
-queue before flipping any Phase 5 case to `implemented`.
+Continue Phase 5.0 with `feat(manifest): allow non-image references`, covering
+the manifest schema changes for nullable/absent `image` and `pixel_data` on
+non-image objects plus the generated-file `references` array. Keep generation
+behavior unchanged except for schema-compatible manifest shape; same-run source
+object map, reference validation, and coverage report population can follow as
+separate slices if needed.
 
 ## Handoff Notes
 

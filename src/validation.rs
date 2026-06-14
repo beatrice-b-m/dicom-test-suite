@@ -114,6 +114,42 @@ pub(crate) struct BasicTextSrExpectations<'a> {
     pub observation_text: &'a str,
 }
 
+#[derive(Debug, Clone)]
+pub(crate) struct ComprehensiveSrExpectations<'a> {
+    pub sop_class_uid: &'a str,
+    pub sop_instance_uid: &'a str,
+    pub transfer_syntax_uid: &'a str,
+    pub implementation_class_uid: &'a str,
+    pub synthetic_data: &'a str,
+    pub modality: &'a str,
+    pub completion_flag: &'a str,
+    pub verification_flag: &'a str,
+    pub referenced_study_instance_uid: &'a str,
+    pub referenced_series_instance_uid: &'a str,
+    pub referenced_sop_class_uid: &'a str,
+    pub referenced_sop_instance_uid: &'a str,
+    pub root_value_type: &'a str,
+    pub root_continuity_of_content: &'a str,
+    pub title_code_value: &'a str,
+    pub title_coding_scheme_designator: &'a str,
+    pub title_code_meaning: &'a str,
+    pub measurement_relationship_type: &'a str,
+    pub measurement_value_type: &'a str,
+    pub measurement_code_value: &'a str,
+    pub measurement_coding_scheme_designator: &'a str,
+    pub measurement_code_meaning: &'a str,
+    pub numeric_value: &'a str,
+    pub unit_code_value: &'a str,
+    pub unit_coding_scheme_designator: &'a str,
+    pub unit_code_meaning: &'a str,
+    pub image_relationship_type: &'a str,
+    pub image_value_type: &'a str,
+    pub image_code_value: &'a str,
+    pub image_coding_scheme_designator: &'a str,
+    pub image_code_meaning: &'a str,
+    pub referenced_frame_numbers: &'a [u16],
+}
+
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum PixelDataLengthFormula {
     ContiguousSamples,
@@ -1466,6 +1502,402 @@ pub(crate) fn validate_basic_text_sr_file(
                     "name": "basic_text_sr_modules",
                     "status": "passed",
                     "message": "Basic Text SR document flags, evidence, and content tree match the recipe."
+                }
+            ],
+            "external": []
+        }),
+    })
+}
+
+pub(crate) fn validate_comprehensive_sr_file(
+    path: &Path,
+    expected: &ComprehensiveSrExpectations<'_>,
+) -> Result<ValidatedPart10, GenerateError> {
+    let bytes = fs::read(path).map_err(|source| GenerateError::ReadGeneratedFile {
+        path: path.to_path_buf(),
+        source,
+    })?;
+    let obj = open_file(path).map_err(|err| GenerateError::ValidateDicomFile {
+        path: path.to_path_buf(),
+        message: err.to_string(),
+    })?;
+
+    let mut internal = Vec::new();
+    check(
+        &mut internal,
+        bytes.len() >= 132 && &bytes[128..132] == b"DICM",
+        "part10_preamble",
+        "File has a 128-byte preamble followed by the DICM marker.",
+        "File is missing the Part 10 DICM marker at byte offset 128.",
+    );
+    check_equal(
+        &mut internal,
+        "file_meta_transfer_syntax",
+        "File Meta Information Transfer Syntax UID matches the recipe.",
+        "File Meta Information Transfer Syntax UID does not match the recipe.",
+        trim_uid(obj.meta().transfer_syntax()).as_str(),
+        expected.transfer_syntax_uid,
+    );
+
+    let dataset_sop_class = element_str(path, &obj, tags::SOP_CLASS_UID)?;
+    check_equal(
+        &mut internal,
+        "sop_class_uid_consistency",
+        "Dataset SOP Class UID, File Meta SOP Class UID, and recipe SOP Class UID match.",
+        "SOP Class UID differs between dataset, File Meta Information, or recipe.",
+        dataset_sop_class.as_str(),
+        expected.sop_class_uid,
+    );
+    check_equal(
+        &mut internal,
+        "media_storage_sop_class_uid",
+        "File Meta SOP Class UID matches the dataset SOP Class UID.",
+        "File Meta SOP Class UID does not match the dataset SOP Class UID.",
+        trim_uid(obj.meta().media_storage_sop_class_uid()).as_str(),
+        dataset_sop_class.as_str(),
+    );
+    let dataset_sop_instance = element_str(path, &obj, tags::SOP_INSTANCE_UID)?;
+    check_equal(
+        &mut internal,
+        "sop_instance_uid_consistency",
+        "Dataset SOP Instance UID, File Meta SOP Instance UID, and manifest UID match.",
+        "SOP Instance UID differs between dataset, File Meta Information, or manifest.",
+        dataset_sop_instance.as_str(),
+        expected.sop_instance_uid,
+    );
+    check_equal(
+        &mut internal,
+        "media_storage_sop_instance_uid",
+        "File Meta SOP Instance UID matches the dataset SOP Instance UID.",
+        "File Meta SOP Instance UID does not match the dataset SOP Instance UID.",
+        trim_uid(obj.meta().media_storage_sop_instance_uid()).as_str(),
+        dataset_sop_instance.as_str(),
+    );
+    check_equal(
+        &mut internal,
+        "implementation_class_uid",
+        "File Meta Implementation Class UID matches the deterministic generator UID.",
+        "File Meta Implementation Class UID does not match the deterministic generator UID.",
+        trim_uid(obj.meta().implementation_class_uid()).as_str(),
+        expected.implementation_class_uid,
+    );
+    check_equal(
+        &mut internal,
+        "synthetic_data",
+        "Synthetic Data is present and set to YES.",
+        "Synthetic Data is missing or not set to YES.",
+        element_str(path, &obj, tags::SYNTHETIC_DATA)?.as_str(),
+        expected.synthetic_data,
+    );
+    check_equal(
+        &mut internal,
+        "sr_modality",
+        "SR Document Series Modality is SR.",
+        "SR Document Series Modality does not match the recipe.",
+        element_str(path, &obj, tags::MODALITY)?.as_str(),
+        expected.modality,
+    );
+    check_equal(
+        &mut internal,
+        "sr_completion_flag",
+        "SR Completion Flag matches the recipe.",
+        "SR Completion Flag does not match the recipe.",
+        element_str(path, &obj, tags::COMPLETION_FLAG)?.as_str(),
+        expected.completion_flag,
+    );
+    check_equal(
+        &mut internal,
+        "sr_verification_flag",
+        "SR Verification Flag matches the recipe.",
+        "SR Verification Flag does not match the recipe.",
+        element_str(path, &obj, tags::VERIFICATION_FLAG)?.as_str(),
+        expected.verification_flag,
+    );
+
+    let evidence = top_level_sequence_item(
+        path,
+        &obj,
+        tags::CURRENT_REQUESTED_PROCEDURE_EVIDENCE_SEQUENCE,
+        0,
+    )?;
+    check_equal(
+        &mut internal,
+        "sr_evidence_study_instance_uid",
+        "SR evidence references the source Study Instance UID.",
+        "SR evidence Study Instance UID does not match the source.",
+        item_str(path, evidence, tags::STUDY_INSTANCE_UID)?.as_str(),
+        expected.referenced_study_instance_uid,
+    );
+    let evidence_series = item_sequence_item(path, evidence, tags::REFERENCED_SERIES_SEQUENCE, 0)?;
+    check_equal(
+        &mut internal,
+        "sr_evidence_series_instance_uid",
+        "SR evidence references the source Series Instance UID.",
+        "SR evidence Series Instance UID does not match the source.",
+        item_str(path, evidence_series, tags::SERIES_INSTANCE_UID)?.as_str(),
+        expected.referenced_series_instance_uid,
+    );
+    let evidence_sop = item_sequence_item(path, evidence_series, tags::REFERENCED_SOP_SEQUENCE, 0)?;
+    check_equal(
+        &mut internal,
+        "sr_evidence_sop_class_uid",
+        "SR evidence SOP Class UID matches the source image.",
+        "SR evidence SOP Class UID does not match the source image.",
+        item_str(path, evidence_sop, TAG_REFERENCED_SOP_CLASS_UID)?.as_str(),
+        expected.referenced_sop_class_uid,
+    );
+    check_equal(
+        &mut internal,
+        "sr_evidence_sop_instance_uid",
+        "SR evidence SOP Instance UID matches the source image.",
+        "SR evidence SOP Instance UID does not match the source image.",
+        item_str(path, evidence_sop, TAG_REFERENCED_SOP_INSTANCE_UID)?.as_str(),
+        expected.referenced_sop_instance_uid,
+    );
+
+    check_equal(
+        &mut internal,
+        "sr_root_value_type",
+        "SR root content item Value Type is CONTAINER.",
+        "SR root content item Value Type does not match the recipe.",
+        element_str(path, &obj, tags::VALUE_TYPE)?.as_str(),
+        expected.root_value_type,
+    );
+    check_equal(
+        &mut internal,
+        "sr_root_continuity_of_content",
+        "SR root Continuity of Content matches the recipe.",
+        "SR root Continuity of Content does not match the recipe.",
+        element_str(path, &obj, tags::CONTINUITY_OF_CONTENT)?.as_str(),
+        expected.root_continuity_of_content,
+    );
+    let title = top_level_sequence_item(path, &obj, tags::CONCEPT_NAME_CODE_SEQUENCE, 0)?;
+    check_equal(
+        &mut internal,
+        "sr_title_code_value",
+        "SR title Code Value matches the recipe.",
+        "SR title Code Value does not match the recipe.",
+        item_str(path, title, tags::CODE_VALUE)?.as_str(),
+        expected.title_code_value,
+    );
+    check_equal(
+        &mut internal,
+        "sr_title_coding_scheme",
+        "SR title Coding Scheme Designator matches the recipe.",
+        "SR title Coding Scheme Designator does not match the recipe.",
+        item_str(path, title, tags::CODING_SCHEME_DESIGNATOR)?.as_str(),
+        expected.title_coding_scheme_designator,
+    );
+    check_equal(
+        &mut internal,
+        "sr_title_code_meaning",
+        "SR title Code Meaning matches the recipe.",
+        "SR title Code Meaning does not match the recipe.",
+        item_str(path, title, tags::CODE_MEANING)?.as_str(),
+        expected.title_code_meaning,
+    );
+    check_equal(
+        &mut internal,
+        "sr_content_sequence_items",
+        "SR root Content Sequence contains the measurement and image reference items.",
+        "SR root Content Sequence item count does not match the recipe.",
+        sequence_item_count(path, &obj, tags::CONTENT_SEQUENCE)?,
+        2,
+    );
+
+    let measurement = top_level_sequence_item(path, &obj, tags::CONTENT_SEQUENCE, 0)?;
+    check_equal(
+        &mut internal,
+        "sr_measurement_relationship_type",
+        "SR measurement Relationship Type matches the recipe.",
+        "SR measurement Relationship Type does not match the recipe.",
+        item_str(path, measurement, tags::RELATIONSHIP_TYPE)?.as_str(),
+        expected.measurement_relationship_type,
+    );
+    check_equal(
+        &mut internal,
+        "sr_measurement_value_type",
+        "SR measurement Value Type is NUM.",
+        "SR measurement Value Type does not match the recipe.",
+        item_str(path, measurement, tags::VALUE_TYPE)?.as_str(),
+        expected.measurement_value_type,
+    );
+    let measurement_code =
+        item_sequence_item(path, measurement, tags::CONCEPT_NAME_CODE_SEQUENCE, 0)?;
+    check_equal(
+        &mut internal,
+        "sr_measurement_code_value",
+        "SR measurement Code Value matches the recipe.",
+        "SR measurement Code Value does not match the recipe.",
+        item_str(path, measurement_code, tags::CODE_VALUE)?.as_str(),
+        expected.measurement_code_value,
+    );
+    check_equal(
+        &mut internal,
+        "sr_measurement_coding_scheme",
+        "SR measurement Coding Scheme Designator matches the recipe.",
+        "SR measurement Coding Scheme Designator does not match the recipe.",
+        item_str(path, measurement_code, tags::CODING_SCHEME_DESIGNATOR)?.as_str(),
+        expected.measurement_coding_scheme_designator,
+    );
+    check_equal(
+        &mut internal,
+        "sr_measurement_code_meaning",
+        "SR measurement Code Meaning matches the recipe.",
+        "SR measurement Code Meaning does not match the recipe.",
+        item_str(path, measurement_code, tags::CODE_MEANING)?.as_str(),
+        expected.measurement_code_meaning,
+    );
+    let measured_value = item_sequence_item(path, measurement, tags::MEASURED_VALUE_SEQUENCE, 0)?;
+    check_equal(
+        &mut internal,
+        "sr_measurement_numeric_value",
+        "SR measurement Numeric Value matches the recipe.",
+        "SR measurement Numeric Value does not match the recipe.",
+        item_str(path, measured_value, tags::NUMERIC_VALUE)?.as_str(),
+        expected.numeric_value,
+    );
+    let units = item_sequence_item(
+        path,
+        measured_value,
+        tags::MEASUREMENT_UNITS_CODE_SEQUENCE,
+        0,
+    )?;
+    check_equal(
+        &mut internal,
+        "sr_measurement_unit_code_value",
+        "SR measurement unit Code Value matches the recipe.",
+        "SR measurement unit Code Value does not match the recipe.",
+        item_str(path, units, tags::CODE_VALUE)?.as_str(),
+        expected.unit_code_value,
+    );
+    check_equal(
+        &mut internal,
+        "sr_measurement_unit_coding_scheme",
+        "SR measurement unit Coding Scheme Designator matches the recipe.",
+        "SR measurement unit Coding Scheme Designator does not match the recipe.",
+        item_str(path, units, tags::CODING_SCHEME_DESIGNATOR)?.as_str(),
+        expected.unit_coding_scheme_designator,
+    );
+    check_equal(
+        &mut internal,
+        "sr_measurement_unit_code_meaning",
+        "SR measurement unit Code Meaning matches the recipe.",
+        "SR measurement unit Code Meaning does not match the recipe.",
+        item_str(path, units, tags::CODE_MEANING)?.as_str(),
+        expected.unit_code_meaning,
+    );
+
+    let image = top_level_sequence_item(path, &obj, tags::CONTENT_SEQUENCE, 1)?;
+    check_equal(
+        &mut internal,
+        "sr_image_relationship_type",
+        "SR image reference Relationship Type matches the recipe.",
+        "SR image reference Relationship Type does not match the recipe.",
+        item_str(path, image, tags::RELATIONSHIP_TYPE)?.as_str(),
+        expected.image_relationship_type,
+    );
+    check_equal(
+        &mut internal,
+        "sr_image_value_type",
+        "SR image reference Value Type is IMAGE.",
+        "SR image reference Value Type does not match the recipe.",
+        item_str(path, image, tags::VALUE_TYPE)?.as_str(),
+        expected.image_value_type,
+    );
+    let image_code = item_sequence_item(path, image, tags::CONCEPT_NAME_CODE_SEQUENCE, 0)?;
+    check_equal(
+        &mut internal,
+        "sr_image_code_value",
+        "SR image reference Code Value matches the recipe.",
+        "SR image reference Code Value does not match the recipe.",
+        item_str(path, image_code, tags::CODE_VALUE)?.as_str(),
+        expected.image_code_value,
+    );
+    check_equal(
+        &mut internal,
+        "sr_image_coding_scheme",
+        "SR image reference Coding Scheme Designator matches the recipe.",
+        "SR image reference Coding Scheme Designator does not match the recipe.",
+        item_str(path, image_code, tags::CODING_SCHEME_DESIGNATOR)?.as_str(),
+        expected.image_coding_scheme_designator,
+    );
+    check_equal(
+        &mut internal,
+        "sr_image_code_meaning",
+        "SR image reference Code Meaning matches the recipe.",
+        "SR image reference Code Meaning does not match the recipe.",
+        item_str(path, image_code, tags::CODE_MEANING)?.as_str(),
+        expected.image_code_meaning,
+    );
+    let image_sop = item_sequence_item(path, image, tags::REFERENCED_SOP_SEQUENCE, 0)?;
+    check_equal(
+        &mut internal,
+        "sr_image_sop_class_uid",
+        "SR image reference SOP Class UID matches the source image.",
+        "SR image reference SOP Class UID does not match the source image.",
+        item_str(path, image_sop, TAG_REFERENCED_SOP_CLASS_UID)?.as_str(),
+        expected.referenced_sop_class_uid,
+    );
+    check_equal(
+        &mut internal,
+        "sr_image_sop_instance_uid",
+        "SR image reference SOP Instance UID matches the source image.",
+        "SR image reference SOP Instance UID does not match the source image.",
+        item_str(path, image_sop, TAG_REFERENCED_SOP_INSTANCE_UID)?.as_str(),
+        expected.referenced_sop_instance_uid,
+    );
+    let expected_frame_numbers = expected
+        .referenced_frame_numbers
+        .iter()
+        .map(u16::to_string)
+        .collect::<Vec<_>>()
+        .join("\\");
+    check_equal(
+        &mut internal,
+        "sr_image_referenced_frame_numbers",
+        "SR image reference frame numbers match the recipe.",
+        "SR image reference frame numbers do not match the recipe.",
+        item_str(path, image_sop, TAG_REFERENCED_FRAME_NUMBER)?.as_str(),
+        expected_frame_numbers.as_str(),
+    );
+    check(
+        &mut internal,
+        obj.element_opt(tags::PIXEL_DATA)
+            .map_err(|err| validation_error(path, err))?
+            .is_none(),
+        "sr_pixel_data_absent",
+        "Comprehensive SR contains no Pixel Data.",
+        "Comprehensive SR unexpectedly contains Pixel Data.",
+    );
+
+    fail_if_any_failed(path, &internal)?;
+
+    Ok(ValidatedPart10 {
+        bytes,
+        validation: serde_json::json!({
+            "status": "passed",
+            "internal": internal,
+            "standards": [
+                {
+                    "name": standard_sop_class_validation_name(expected.sop_class_uid),
+                    "status": "passed",
+                    "message": standard_sop_class_validation_message(expected.sop_class_uid)
+                },
+                {
+                    "name": standard_transfer_syntax_validation_name(expected.transfer_syntax_uid),
+                    "status": "passed",
+                    "message": standard_transfer_syntax_validation_message(expected.transfer_syntax_uid)
+                },
+                {
+                    "name": "synthetic_data_attribute",
+                    "status": "passed",
+                    "message": "Synthetic Data (0008,001C) is present with value YES."
+                },
+                {
+                    "name": "comprehensive_sr_modules",
+                    "status": "passed",
+                    "message": "Comprehensive SR document flags, evidence, numeric measurement, and image reference match the recipe."
                 }
             ],
             "external": []
@@ -3661,6 +4093,7 @@ fn standard_sop_class_validation_name(sop_class_uid: &str) -> &'static str {
         "1.2.840.10008.5.1.4.1.1.11.1" => "grayscale_softcopy_presentation_state_sop_class",
         "1.2.840.10008.5.1.4.1.1.67" => "real_world_value_mapping_sop_class",
         uids::BASIC_TEXT_SR_STORAGE => "basic_text_sr_sop_class",
+        uids::COMPREHENSIVE_SR_STORAGE => "comprehensive_sr_sop_class",
         _ => "sop_class_uid",
     }
 }
@@ -3701,6 +4134,9 @@ fn standard_sop_class_validation_message(sop_class_uid: &str) -> &'static str {
         }
         uids::BASIC_TEXT_SR_STORAGE => {
             "SOP Class UID matches Basic Text SR Storage in the 2026b reference."
+        }
+        uids::COMPREHENSIVE_SR_STORAGE => {
+            "SOP Class UID matches Comprehensive SR Storage in the 2026b reference."
         }
         _ => "SOP Class UID matches the recipe.",
     }

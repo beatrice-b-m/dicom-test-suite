@@ -12,6 +12,7 @@ const LABEL_MAP_SEGMENTATION_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.66.7";
 const GRAYSCALE_SOFTCOPY_PRESENTATION_STATE_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.11.1";
 const REAL_WORLD_VALUE_MAPPING_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.67";
 const BASIC_TEXT_SR_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.88.11";
+const COMPREHENSIVE_SR_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.88.33";
 const TAG_SEGMENTATION_TYPE: Tag = Tag(0x0062, 0x0001);
 const TAG_SEGMENT_SEQUENCE: Tag = Tag(0x0062, 0x0002);
 const TAG_MAXIMUM_FRACTIONAL_VALUE: Tag = Tag(0x0062, 0x000E);
@@ -1621,7 +1622,7 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\textended"));
-    assert!(stdout.contains("files_written\t12"));
+    assert!(stdout.contains("files_written\t13"));
 
     let manifest_path = out_dir.join("manifest.json");
     let manifest: Value = serde_json::from_str(
@@ -1634,7 +1635,7 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
             .pointer("/files")
             .and_then(Value::as_array)
             .map(Vec::len),
-        Some(12)
+        Some(13)
     );
     let enhanced_ct_file = file_entry_by_case_id(
         &manifest,
@@ -2165,17 +2166,84 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
             .contains(&"sr_observation_text"),
         "Basic Text SR manifest should record text content validation"
     );
+    let comprehensive_sr_file = file_entry_by_case_id(
+        &manifest,
+        "derived/sr/comprehensive_measurement_explicit_le",
+    );
+    assert_eq!(
+        comprehensive_sr_file
+            .pointer("/dicom/sop_class_uid")
+            .and_then(Value::as_str),
+        Some(COMPREHENSIVE_SR_STORAGE_UID)
+    );
+    assert_eq!(
+        comprehensive_sr_file
+            .pointer("/dicom/modality")
+            .and_then(Value::as_str),
+        Some("SR")
+    );
+    assert!(
+        comprehensive_sr_file
+            .pointer("/image")
+            .is_some_and(Value::is_null),
+        "Comprehensive SR manifest should explicitly omit image metadata"
+    );
+    assert!(
+        comprehensive_sr_file
+            .pointer("/pixel_data")
+            .is_some_and(Value::is_null),
+        "Comprehensive SR manifest should explicitly omit Pixel Data metadata"
+    );
+    assert_eq!(
+        comprehensive_sr_file
+            .pointer("/references/0/source_case_id")
+            .and_then(Value::as_str),
+        Some("enhanced/ct/multiframe_shared_perframe_explicit_le")
+    );
+    assert_eq!(
+        comprehensive_sr_file
+            .pointer("/recipe/recipe_parameters/measurement/value_type")
+            .and_then(Value::as_str),
+        Some("NUM")
+    );
+    assert_eq!(
+        comprehensive_sr_file
+            .pointer("/recipe/recipe_parameters/measurement/numeric_value")
+            .and_then(Value::as_str),
+        Some("12.5")
+    );
+    assert_eq!(
+        comprehensive_sr_file
+            .pointer("/recipe/recipe_parameters/measurement/units/code_value")
+            .and_then(Value::as_str),
+        Some("mm")
+    );
+    assert_eq!(
+        comprehensive_sr_file
+            .pointer("/recipe/recipe_parameters/image_reference/value_type")
+            .and_then(Value::as_str),
+        Some("IMAGE")
+    );
+    assert!(
+        validation_result_names(comprehensive_sr_file.pointer("/validation/internal"))
+            .contains(&"sr_measurement_numeric_value"),
+        "Comprehensive SR manifest should record numeric measurement validation"
+    );
+    assert!(
+        validation_result_names(comprehensive_sr_file.pointer("/validation/internal"))
+            .contains(&"sr_image_sop_instance_uid"),
+        "Comprehensive SR manifest should record image reference validation"
+    );
     let skipped_cases = manifest
         .pointer("/skipped_cases")
         .and_then(Value::as_array)
         .expect("manifest should contain skipped cases");
     assert_eq!(
         skipped_cases.len(),
-        5,
+        4,
         "extended generation should report the remaining planned Phase 5 cases as unavailable"
     );
     for case_id in [
-        "derived/sr/comprehensive_measurement_explicit_le",
         "derived/sr/key_object_selection_explicit_le",
         "non-image/rt/structure_set_single_roi_explicit_le",
         "non-image/rt/dose_grid_u16_explicit_le",
@@ -2833,6 +2901,120 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
         "Synthetic Basic Text SR observation for Enhanced CT source images."
     );
 
+    let comprehensive_sr_path =
+        out_dir.join("derived/sr/comprehensive_measurement_explicit_le/instance.dcm");
+    let comprehensive_sr =
+        open_file(&comprehensive_sr_path).expect("Comprehensive SR DICOM file should parse");
+    assert_eq!(
+        comprehensive_sr
+            .element(tags::SOP_CLASS_UID)
+            .expect("Comprehensive SR file should contain SOP Class UID")
+            .value()
+            .to_str()
+            .expect("SOP Class UID should be text")
+            .trim_end_matches('\0'),
+        COMPREHENSIVE_SR_STORAGE_UID
+    );
+    assert!(
+        comprehensive_sr
+            .element_opt(tags::PIXEL_DATA)
+            .expect("Comprehensive SR Pixel Data lookup should not fail")
+            .is_none(),
+        "Comprehensive SR must not contain Pixel Data"
+    );
+    let comprehensive_content = comprehensive_sr
+        .element(tags::CONTENT_SEQUENCE)
+        .expect("Comprehensive SR should contain Content Sequence")
+        .items()
+        .expect("Content Sequence should be SQ");
+    assert_eq!(
+        comprehensive_content.len(),
+        2,
+        "Comprehensive SR should contain measurement and image-reference items"
+    );
+    let measurement = &comprehensive_content[0];
+    assert_eq!(
+        measurement
+            .element(tags::VALUE_TYPE)
+            .expect("SR measurement should contain Value Type")
+            .value()
+            .to_str()
+            .expect("Value Type should be text")
+            .trim(),
+        "NUM"
+    );
+    let measured_value = measurement
+        .element(tags::MEASURED_VALUE_SEQUENCE)
+        .expect("SR measurement should contain Measured Value Sequence")
+        .items()
+        .expect("Measured Value Sequence should be SQ")
+        .first()
+        .expect("Measured Value Sequence should contain one item");
+    assert_eq!(
+        measured_value
+            .element(tags::NUMERIC_VALUE)
+            .expect("Measured Value should contain Numeric Value")
+            .value()
+            .to_str()
+            .expect("Numeric Value should be text")
+            .trim(),
+        "12.5"
+    );
+    let units = measured_value
+        .element(tags::MEASUREMENT_UNITS_CODE_SEQUENCE)
+        .expect("Measured Value should contain Measurement Units Code Sequence")
+        .items()
+        .expect("Measurement Units Code Sequence should be SQ")
+        .first()
+        .expect("Measurement Units Code Sequence should contain one item");
+    assert_eq!(
+        units
+            .element(tags::CODE_VALUE)
+            .expect("Units should contain Code Value")
+            .value()
+            .to_str()
+            .expect("Code Value should be text")
+            .trim(),
+        "mm"
+    );
+    let image_reference = &comprehensive_content[1];
+    assert_eq!(
+        image_reference
+            .element(tags::VALUE_TYPE)
+            .expect("SR image reference should contain Value Type")
+            .value()
+            .to_str()
+            .expect("Value Type should be text")
+            .trim(),
+        "IMAGE"
+    );
+    let image_sop = image_reference
+        .element(tags::REFERENCED_SOP_SEQUENCE)
+        .expect("SR image reference should contain Referenced SOP Sequence")
+        .items()
+        .expect("Referenced SOP Sequence should be SQ")
+        .first()
+        .expect("Referenced SOP Sequence should contain one item");
+    assert_eq!(
+        image_sop
+            .element(TAG_REFERENCED_SOP_CLASS_UID)
+            .expect("SR image reference should contain source SOP Class")
+            .value()
+            .to_str()
+            .expect("Referenced SOP Class UID should be text")
+            .trim_end_matches('\0'),
+        uids::ENHANCED_CT_IMAGE_STORAGE
+    );
+    assert_eq!(
+        image_sop
+            .element(TAG_REFERENCED_FRAME_NUMBER)
+            .expect("SR image reference should contain frame numbers")
+            .value()
+            .to_multi_int::<i32>()
+            .expect("Referenced Frame Number should be multi-value IS"),
+        vec![1, 2]
+    );
+
     let enhanced_ct_concat_part_1_path =
         out_dir.join("enhanced/ct/concatenation_two_part_explicit_le/part-001.dcm");
     let enhanced_ct_concat_part_2_path =
@@ -3050,7 +3232,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\tall"));
-    assert!(stdout.contains("files_written\t34"));
+    assert!(stdout.contains("files_written\t35"));
 
     let manifest_path = out_dir.join("manifest.json");
     let manifest: Value = serde_json::from_str(
@@ -3067,7 +3249,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
             .pointer("/files")
             .and_then(Value::as_array)
             .map(Vec::len),
-        Some(34)
+        Some(35)
     );
 
     file_entry_by_case_id(&manifest, "classic/sc/mono2_u8_explicit_le");
@@ -3093,11 +3275,10 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
         .expect("manifest should contain skipped cases");
     assert_eq!(
         skipped_cases.len(),
-        7,
+        6,
         "all generation should report the remaining planned Phase 5 and VL cases as unavailable"
     );
     for case_id in [
-        "derived/sr/comprehensive_measurement_explicit_le",
         "derived/sr/key_object_selection_explicit_le",
         "non-image/rt/structure_set_single_roi_explicit_le",
         "non-image/rt/dose_grid_u16_explicit_le",

@@ -1693,7 +1693,7 @@ fn validate_family_standard_elements(
             file,
             obj,
         )?,
-        "Basic Text SR" => validate_basic_text_sr_standard_elements(
+        "Basic Text SR" | "Comprehensive SR" => validate_structured_report_standard_elements(
             failures,
             relative_path,
             manifest_path,
@@ -2604,7 +2604,7 @@ fn validate_segmentation_standard_elements(
     Ok(())
 }
 
-fn validate_basic_text_sr_standard_elements(
+fn validate_structured_report_standard_elements(
     failures: &mut Vec<String>,
     relative_path: &str,
     manifest_path: &Path,
@@ -2692,6 +2692,12 @@ fn validate_basic_text_sr_standard_elements(
         "sr_current_requested_procedure_evidence_sequence_type1",
         1,
     );
+    let structured_report = file
+        .pointer("/expected_semantics/structured_report")
+        .ok_or(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "SR expected structured_report semantics must be an object",
+        })?;
     validate_sequence_len(
         failures,
         relative_path,
@@ -2782,42 +2788,222 @@ fn validate_basic_text_sr_standard_elements(
         ));
         return Ok(());
     };
-    match item_str_for_validate(observation, tags::RELATIONSHIP_TYPE) {
-        Ok(actual) => validate_equal(
+
+    if structured_report.get("observation_text").is_some() {
+        match item_str_for_validate(observation, tags::RELATIONSHIP_TYPE) {
+            Ok(actual) => validate_equal(
+                failures,
+                relative_path,
+                "sr_observation_relationship_type",
+                actual,
+                "CONTAINS",
+            ),
+            Err(err) => failures.push(format!(
+                "{relative_path}: sr_observation_relationship_type: {err}"
+            )),
+        }
+        match item_str_for_validate(observation, tags::VALUE_TYPE) {
+            Ok(actual) => validate_equal(
+                failures,
+                relative_path,
+                "sr_observation_value_type",
+                actual,
+                "TEXT",
+            ),
+            Err(err) => failures.push(format!("{relative_path}: sr_observation_value_type: {err}")),
+        }
+        match item_str_for_validate(observation, tags::TEXT_VALUE) {
+            Ok(actual) => validate_equal(
+                failures,
+                relative_path,
+                "sr_observation_text",
+                actual,
+                manifest_str(
+                    manifest_path,
+                    file,
+                    "/expected_semantics/structured_report/observation_text",
+                    "SR observation text must be a string",
+                )?,
+            ),
+            Err(err) => failures.push(format!("{relative_path}: sr_observation_text: {err}")),
+        }
+    } else if structured_report.get("measurement").is_some() {
+        validate_comprehensive_sr_content_items(
             failures,
             relative_path,
-            "sr_observation_relationship_type",
-            actual,
-            "CONTAINS",
-        ),
-        Err(err) => failures.push(format!(
-            "{relative_path}: sr_observation_relationship_type: {err}"
-        )),
+            manifest_path,
+            file,
+            observation,
+            obj,
+            source_sop_class_uid,
+            source_sop_instance_uid,
+        )?;
+    } else {
+        failures.push(format!(
+            "{relative_path}: sr_content_semantics: unsupported SR manifest content shape"
+        ));
     }
-    match item_str_for_validate(observation, tags::VALUE_TYPE) {
+
+    Ok(())
+}
+
+fn validate_comprehensive_sr_content_items(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    manifest_path: &Path,
+    file: &Value,
+    measurement: &DatasetObject,
+    obj: &OpenedObject,
+    source_sop_class_uid: &str,
+    source_sop_instance_uid: &str,
+) -> Result<(), ValidateError> {
+    match item_str_for_validate(measurement, tags::RELATIONSHIP_TYPE) {
         Ok(actual) => validate_equal(
             failures,
             relative_path,
-            "sr_observation_value_type",
-            actual,
-            "TEXT",
-        ),
-        Err(err) => failures.push(format!("{relative_path}: sr_observation_value_type: {err}")),
-    }
-    match item_str_for_validate(observation, tags::TEXT_VALUE) {
-        Ok(actual) => validate_equal(
-            failures,
-            relative_path,
-            "sr_observation_text",
+            "sr_measurement_relationship_type",
             actual,
             manifest_str(
                 manifest_path,
                 file,
-                "/expected_semantics/structured_report/observation_text",
-                "SR observation text must be a string",
+                "/expected_semantics/structured_report/measurement/relationship_type",
+                "SR measurement relationship type must be a string",
             )?,
         ),
-        Err(err) => failures.push(format!("{relative_path}: sr_observation_text: {err}")),
+        Err(err) => failures.push(format!(
+            "{relative_path}: sr_measurement_relationship_type: {err}"
+        )),
+    }
+    match item_str_for_validate(measurement, tags::VALUE_TYPE) {
+        Ok(actual) => validate_equal(
+            failures,
+            relative_path,
+            "sr_measurement_value_type",
+            actual,
+            manifest_str(
+                manifest_path,
+                file,
+                "/expected_semantics/structured_report/measurement/value_type",
+                "SR measurement value type must be a string",
+            )?,
+        ),
+        Err(err) => failures.push(format!("{relative_path}: sr_measurement_value_type: {err}")),
+    }
+    let Ok(measured_value) =
+        item_sequence_item_for_validate(measurement, tags::MEASURED_VALUE_SEQUENCE, 0)
+    else {
+        failures.push(format!(
+            "{relative_path}: sr_measured_value_sequence: missing item"
+        ));
+        return Ok(());
+    };
+    match item_str_for_validate(measured_value, tags::NUMERIC_VALUE) {
+        Ok(actual) => validate_equal(
+            failures,
+            relative_path,
+            "sr_measurement_numeric_value",
+            actual,
+            manifest_str(
+                manifest_path,
+                file,
+                "/expected_semantics/structured_report/measurement/numeric_value",
+                "SR measurement numeric value must be a string",
+            )?,
+        ),
+        Err(err) => failures.push(format!(
+            "{relative_path}: sr_measurement_numeric_value: {err}"
+        )),
+    }
+    let Ok(units) =
+        item_sequence_item_for_validate(measured_value, tags::MEASUREMENT_UNITS_CODE_SEQUENCE, 0)
+    else {
+        failures.push(format!(
+            "{relative_path}: sr_measurement_units_code_sequence: missing item"
+        ));
+        return Ok(());
+    };
+    match item_str_for_validate(units, tags::CODE_VALUE) {
+        Ok(actual) => validate_equal(
+            failures,
+            relative_path,
+            "sr_measurement_unit_code_value",
+            actual,
+            manifest_str(
+                manifest_path,
+                file,
+                "/expected_semantics/structured_report/measurement/units/code_value",
+                "SR measurement unit code value must be a string",
+            )?,
+        ),
+        Err(err) => failures.push(format!(
+            "{relative_path}: sr_measurement_unit_code_value: {err}"
+        )),
+    }
+
+    let Ok(image) = top_level_sequence_item_for_validate(obj, tags::CONTENT_SEQUENCE, 1) else {
+        failures.push(format!(
+            "{relative_path}: sr_content_sequence: missing image reference item"
+        ));
+        return Ok(());
+    };
+    match item_str_for_validate(image, tags::RELATIONSHIP_TYPE) {
+        Ok(actual) => validate_equal(
+            failures,
+            relative_path,
+            "sr_image_relationship_type",
+            actual,
+            manifest_str(
+                manifest_path,
+                file,
+                "/expected_semantics/structured_report/image_reference/relationship_type",
+                "SR image relationship type must be a string",
+            )?,
+        ),
+        Err(err) => failures.push(format!(
+            "{relative_path}: sr_image_relationship_type: {err}"
+        )),
+    }
+    match item_str_for_validate(image, tags::VALUE_TYPE) {
+        Ok(actual) => validate_equal(
+            failures,
+            relative_path,
+            "sr_image_value_type",
+            actual,
+            manifest_str(
+                manifest_path,
+                file,
+                "/expected_semantics/structured_report/image_reference/value_type",
+                "SR image value type must be a string",
+            )?,
+        ),
+        Err(err) => failures.push(format!("{relative_path}: sr_image_value_type: {err}")),
+    }
+    let Ok(image_sop) = item_sequence_item_for_validate(image, tags::REFERENCED_SOP_SEQUENCE, 0)
+    else {
+        failures.push(format!(
+            "{relative_path}: sr_image_referenced_sop_sequence: missing item"
+        ));
+        return Ok(());
+    };
+    match item_str_for_validate(image_sop, dicom_core::Tag(0x0008, 0x1150)) {
+        Ok(actual) => validate_equal(
+            failures,
+            relative_path,
+            "sr_image_sop_class_uid",
+            actual,
+            source_sop_class_uid,
+        ),
+        Err(err) => failures.push(format!("{relative_path}: sr_image_sop_class_uid: {err}")),
+    }
+    match item_str_for_validate(image_sop, dicom_core::Tag(0x0008, 0x1155)) {
+        Ok(actual) => validate_equal(
+            failures,
+            relative_path,
+            "sr_image_sop_instance_uid",
+            actual,
+            source_sop_instance_uid,
+        ),
+        Err(err) => failures.push(format!("{relative_path}: sr_image_sop_instance_uid: {err}")),
     }
 
     Ok(())
@@ -4583,6 +4769,10 @@ mod tests {
         assert!(
             !output.contains("derived/sr/basic_text_observation_explicit_le"),
             "planned status filter should not include implemented Basic Text SR"
+        );
+        assert!(
+            !output.contains("derived/sr/comprehensive_measurement_explicit_le"),
+            "planned status filter should not include implemented Comprehensive SR"
         );
         assert!(
             output.contains(

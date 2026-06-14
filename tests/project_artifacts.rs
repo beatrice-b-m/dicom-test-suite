@@ -116,7 +116,7 @@ fn registry_contains_initial_smoke_and_core_cases() {
         ),
         (
             "derived/sr/comprehensive_measurement_explicit_le",
-            "planned",
+            "implemented",
         ),
         ("derived/sr/key_object_selection_explicit_le", "planned"),
         (

@@ -3023,7 +3023,7 @@
     },
     {
       "case_id": "derived/sr/comprehensive_measurement_explicit_le",
-      "status": "planned",
+      "status": "implemented",
       "profiles": ["extended"],
       "recipe_id": "sr_comprehensive_measurement",
       "recipe_version": "0.1.0",

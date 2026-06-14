@@ -2,9 +2,9 @@
 
 **Last updated:** 2026-06-14  
 **Source specification:** `SYSTEM_SPEC.md` version 0.2.0  
-**Current phase:** ready for Phase 5 feature expansion
+**Current phase:** Phase 5 planning complete; ready for Phase 5.0 foundation
 
-**Current implementation status:** Phase 0, Phase 0.5, Phase 1, Phase 2, Phase 3, Phase 4, and the pre-Phase-5 hardening pass are functionally complete. Phase 5 derived, presentation, and non-image object work is eligible to begin next.
+**Current implementation status:** Phase 0, Phase 0.5, Phase 1, Phase 2, Phase 3, Phase 4, and the pre-Phase-5 hardening pass are functionally complete. `IMPLEMENTATION_PLAN.md` now defines the concrete Phase 5 implementation sequence; no Phase 5 generator code has been started yet.
 
 This document is the durable hand-off log for coding agents implementing
 `dicom-test-suite`. Keep `SYSTEM_SPEC.md` as the source of product and
@@ -36,6 +36,7 @@ Observed at creation of this progress file:
 | `SYSTEM_SPEC.md` | present | Version 0.2.0 planning baseline. |
 | `AGENTS.md` | present | Requires descriptive granular commits for completed work. |
 | `IMPLEMENTATION_PROGRESS.md` | present after this task | Hand-off ledger for implementation state. |
+| `IMPLEMENTATION_PLAN.md` | present | Phase 5 implementation plan with foundation, SEG, GSPS/RWVM, SR/KOS, RT, Encapsulated PDF, verification, and commit-boundary guidance. |
 | `.gitignore` | present | Covers generated DICOM outputs, reports, sidecars, caches, generated standards artifacts, and SQLite KB files. |
 | `Cargo.toml` / Rust workspace | present | Single package named `dicom-test-suite`, using Rust 2024 edition; pins minimal DICOM-rs crates for Phase 1 object and transfer syntax work. |
 | `build.rs` | present | Captures Rust compiler version and target triple for generated manifest metadata. |
@@ -84,7 +85,7 @@ Observed at creation of this progress file:
 | Phase 3: Classic radiology IODs | complete | CT Image Storage signed 12-bit rescale/window, MG For Presentation/For Processing 12-bit, CR overlay/Modality LUT/VOI LUT, MR multi-slice oblique geometry, DX display shutter, US Image Storage, and stable multi-file series generation are implemented. |
 | Phase 4: Enhanced multi-frame | complete | Enhanced CT and Enhanced MR Image Storage cases with Shared and Per-Frame Functional Groups and Multi-frame Dimension metadata are implemented; MR Echo, Temporal Position, phase/velocity-encoding variation, and a two-member Enhanced CT concatenation case are covered. |
 | Pre-Phase-5 hardening | complete | Registry authority, required CLI contracts, validation hardening, reproducibility/CI guards, and standards lock pinning policy are complete. Validation now covers raw Part 10 byte checks, parsed cross-field image invariants, manifest schema-conformance checks, baseline standards-derived Type 1/Type 2 checks, classic family-specific checks, and Enhanced CT/MR multi-frame standards-derived checks. |
-| Phase 5: Derived, presentation, and non-image objects | not started | SEG, presentation states, SR, KOS, RWVM, RT, and encapsulated documents pending. |
+| Phase 5: Derived, presentation, and non-image objects | planned; not started | Concrete plan is in `IMPLEMENTATION_PLAN.md`. Foundation work must make manifests, validation, reports, and same-run references object-aware before broad non-image recipe work. |
 | Phase 6: Transfer syntax expansion | not started | Transfer syntax abstraction and compressed cases pending. |
 | Phase 7: Pathology, video, and large object profiles | not started | VL, WSI, video, and stress cases pending. |
 | Phase 8: Reporting and viewer integration | not started | Coverage reports, optional viewer runner, and compatibility schema pending. |
@@ -192,6 +193,33 @@ multi-file series requirements.
 Phase 4 is complete. The extended profile contains valid multi-frame CT/MR
 cases, reports expected frame counts and geometry, and includes a two-member
 Enhanced CT concatenation case for logical multi-frame object splitting.
+
+## Phase 5 Checklist
+
+- [x] Prepare concrete Phase 5 implementation plan in `IMPLEMENTATION_PLAN.md`.
+- [ ] Add planned registry rows and standards evidence for all Phase 5 target
+      cases.
+- [ ] Refactor manifest schema, generated-root validation, and coverage reports
+      to represent non-image objects and derived references.
+- [ ] Add same-run source object map and reference-resolution validation.
+- [ ] Implement BINARY Segmentation Storage case.
+- [ ] Implement FRACTIONAL Segmentation Storage case.
+- [ ] Implement LABELMAP Segmentation using Label Map Segmentation Storage.
+- [ ] Implement Grayscale Softcopy Presentation State case.
+- [ ] Implement Real World Value Mapping case.
+- [ ] Implement Basic Text SR case.
+- [ ] Implement Comprehensive SR case.
+- [ ] Implement Key Object Selection case.
+- [ ] Implement RT Structure Set detection case.
+- [ ] Implement RT Dose detection case.
+- [ ] Implement Encapsulated PDF detection case.
+- [ ] Run Phase 5 completion verification across generation, validation,
+      reporting, reproducibility, standards gaps, and artifact guards.
+
+Phase 5 is complete only when the extended/all profiles include all planned
+Phase 5 target cases, generated derived objects resolve references to source
+objects generated in the same run, and viewers can use the corpus to test
+graceful handling of common derived and non-image SOP Classes.
 
 ## Initial Priority Case Queue
 
@@ -626,6 +654,16 @@ These case IDs come from `SYSTEM_SPEC.md` section 21 and should seed
 - 2026-06-14: The resolved `REMEDIATION_PLAN.md` task list was removed from
   active project documentation. `IMPLEMENTATION_PROGRESS.md` remains the
   durable implementation ledger and now points future work directly at Phase 5.
+- 2026-06-14: `IMPLEMENTATION_PLAN.md` was added as the concrete Phase 5 plan.
+  Codebase review found that the current manifest schema and generated-root
+  validator are image-first, so Phase 5.0 must add object-aware manifest,
+  validation, reporting, and same-run reference infrastructure before broad
+  non-image recipes. 2026b `dicom-standard-kb` MCP checks confirmed Phase 5 SOP
+  Class UIDs for Segmentation Storage, Label Map Segmentation Storage,
+  Grayscale Softcopy Presentation State Storage, Basic Text SR Storage,
+  Comprehensive SR Storage, Key Object Selection Document Storage, Real World
+  Value Mapping Storage, RT Dose Storage, RT Structure Set Storage, and
+  Encapsulated PDF Storage.
 
 ## Current Blockers
 
@@ -633,9 +671,10 @@ None currently recorded for starting Phase 5.
 
 ## Recommended Next Commit
 
-Resume Phase 5 with `feat(seg): add binary segmentation case`, using
-`dicom-standard-kb` lookups before adding the SEG IOD builder and registry
-status changes.
+Start Phase 5.0 with `feat(manifest): add object-aware references`, covering
+manifest schema, generated-root validation, coverage reporting, same-run
+reference infrastructure, and planned registry rows for the Phase 5 target
+queue before flipping any Phase 5 case to `implemented`.
 
 ## Handoff Notes
 

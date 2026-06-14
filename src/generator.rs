@@ -52,6 +52,33 @@ const KEY_OBJECT_SELECTION_DOCUMENT_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1
 const RT_STRUCTURE_SET_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.481.3";
 const RT_DOSE_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.481.2";
 const ENCAPSULATED_PDF_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.104.1";
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct TransferSyntaxSpec {
+    capability_keyword: &'static str,
+    capability_name: &'static str,
+    uid: &'static str,
+    name: &'static str,
+}
+
+const IMPLICIT_VR_LITTLE_ENDIAN: TransferSyntaxSpec = TransferSyntaxSpec {
+    capability_keyword: "ImplicitVRLittleEndian",
+    capability_name: "Implicit VR Little Endian: Default Transfer Syntax for DICOM",
+    uid: uids::IMPLICIT_VR_LITTLE_ENDIAN,
+    name: "Implicit VR Little Endian",
+};
+const EXPLICIT_VR_LITTLE_ENDIAN: TransferSyntaxSpec = TransferSyntaxSpec {
+    capability_keyword: "ExplicitVRLittleEndian",
+    capability_name: "Explicit VR Little Endian",
+    uid: uids::EXPLICIT_VR_LITTLE_ENDIAN,
+    name: "Explicit VR Little Endian",
+};
+#[allow(dead_code)]
+const EXPLICIT_VR_BIG_ENDIAN: TransferSyntaxSpec = TransferSyntaxSpec {
+    capability_keyword: "ExplicitVRBigEndian",
+    capability_name: "Explicit VR Big Endian",
+    uid: "1.2.840.10008.1.2.2",
+    name: "Explicit VR Big Endian",
+};
 const SEGMENTATION_SOURCE_CASE_ID: &str = "enhanced/ct/multiframe_shared_perframe_explicit_le";
 const GSPS_SOURCE_CASE_ID: &str = "enhanced/ct/multiframe_shared_perframe_explicit_le";
 const RWVM_SOURCE_CASE_ID: &str = "enhanced/ct/multiframe_shared_perframe_explicit_le";
@@ -1254,8 +1281,7 @@ struct ClassicMgRecipe {
     recipe_id: &'static str,
     sop_class_uid: &'static str,
     sop_class_name: &'static str,
-    transfer_syntax_uid: &'static str,
-    transfer_syntax_name: &'static str,
+    transfer_syntax: TransferSyntaxSpec,
     presentation_intent_type: &'static str,
     photometric_interpretation: &'static str,
     presentation_lut_shape: &'static str,
@@ -1276,8 +1302,7 @@ const CLASSIC_MG_RECIPES: &[ClassicMgRecipe] = &[
         recipe_id: "mg_for_presentation_mono1_u16",
         sop_class_uid: uids::DIGITAL_MAMMOGRAPHY_X_RAY_IMAGE_STORAGE_FOR_PRESENTATION,
         sop_class_name: "Digital Mammography X-Ray Image Storage - For Presentation",
-        transfer_syntax_uid: uids::EXPLICIT_VR_LITTLE_ENDIAN,
-        transfer_syntax_name: "Explicit VR Little Endian",
+        transfer_syntax: EXPLICIT_VR_LITTLE_ENDIAN,
         presentation_intent_type: "FOR PRESENTATION",
         photometric_interpretation: "MONOCHROME1",
         presentation_lut_shape: "INVERSE",
@@ -1296,8 +1321,7 @@ const CLASSIC_MG_RECIPES: &[ClassicMgRecipe] = &[
         recipe_id: "mg_for_processing_mono2_u16",
         sop_class_uid: uids::DIGITAL_MAMMOGRAPHY_X_RAY_IMAGE_STORAGE_FOR_PROCESSING,
         sop_class_name: "Digital Mammography X-Ray Image Storage - For Processing",
-        transfer_syntax_uid: uids::IMPLICIT_VR_LITTLE_ENDIAN,
-        transfer_syntax_name: "Implicit VR Little Endian",
+        transfer_syntax: IMPLICIT_VR_LITTLE_ENDIAN,
         presentation_intent_type: "FOR PROCESSING",
         photometric_interpretation: "MONOCHROME2",
         presentation_lut_shape: "IDENTITY",
@@ -2205,7 +2229,7 @@ fn write_pixel_case(
     let file_obj = obj
         .with_meta(
             FileMetaTableBuilder::new()
-                .transfer_syntax(uids::EXPLICIT_VR_LITTLE_ENDIAN)
+                .transfer_syntax(EXPLICIT_VR_LITTLE_ENDIAN.uid)
                 .implementation_class_uid(&implementation_class_uid)
                 .implementation_version_name(crate::IMPLEMENTATION_VERSION_NAME),
         )
@@ -2226,7 +2250,7 @@ fn write_pixel_case(
         &Part10Expectations {
             sop_class_uid: uids::SECONDARY_CAPTURE_IMAGE_STORAGE,
             sop_instance_uid: &sop_instance_uid,
-            transfer_syntax_uid: uids::EXPLICIT_VR_LITTLE_ENDIAN,
+            transfer_syntax_uid: EXPLICIT_VR_LITTLE_ENDIAN.uid,
             implementation_class_uid: &implementation_class_uid,
             synthetic_data: "YES",
             rows: recipe.rows,
@@ -2469,8 +2493,8 @@ fn pixel_manifest_entry(
             "sop_class_name": "Secondary Capture Image Storage",
             "iod_name": "Secondary Capture Image",
             "modality": "OT",
-            "transfer_syntax_uid": uids::EXPLICIT_VR_LITTLE_ENDIAN,
-            "transfer_syntax_name": "Explicit VR Little Endian"
+            "transfer_syntax_uid": EXPLICIT_VR_LITTLE_ENDIAN.uid,
+            "transfer_syntax_name": EXPLICIT_VR_LITTLE_ENDIAN.name
         },
         "uids": {
             "study_instance_uid": study_instance_uid,
@@ -2691,7 +2715,7 @@ fn write_classic_ct_case(
     let file_obj = obj
         .with_meta(
             FileMetaTableBuilder::new()
-                .transfer_syntax(uids::EXPLICIT_VR_LITTLE_ENDIAN)
+                .transfer_syntax(EXPLICIT_VR_LITTLE_ENDIAN.uid)
                 .implementation_class_uid(&implementation_class_uid)
                 .implementation_version_name(crate::IMPLEMENTATION_VERSION_NAME),
         )
@@ -2712,7 +2736,7 @@ fn write_classic_ct_case(
         &Part10Expectations {
             sop_class_uid: uids::CT_IMAGE_STORAGE,
             sop_instance_uid: &sop_instance_uid,
-            transfer_syntax_uid: uids::EXPLICIT_VR_LITTLE_ENDIAN,
+            transfer_syntax_uid: EXPLICIT_VR_LITTLE_ENDIAN.uid,
             implementation_class_uid: &implementation_class_uid,
             synthetic_data: "YES",
             rows: recipe.rows,
@@ -2904,8 +2928,8 @@ fn classic_ct_manifest_entry(
             "sop_class_name": "CT Image Storage",
             "iod_name": "CT Image",
             "modality": "CT",
-            "transfer_syntax_uid": uids::EXPLICIT_VR_LITTLE_ENDIAN,
-            "transfer_syntax_name": "Explicit VR Little Endian"
+            "transfer_syntax_uid": EXPLICIT_VR_LITTLE_ENDIAN.uid,
+            "transfer_syntax_name": EXPLICIT_VR_LITTLE_ENDIAN.name
         },
         "uids": {
             "study_instance_uid": study_instance_uid,
@@ -3140,7 +3164,7 @@ fn write_enhanced_ct_case(
     let file_obj = obj
         .with_meta(
             FileMetaTableBuilder::new()
-                .transfer_syntax(uids::EXPLICIT_VR_LITTLE_ENDIAN)
+                .transfer_syntax(EXPLICIT_VR_LITTLE_ENDIAN.uid)
                 .implementation_class_uid(&implementation_class_uid)
                 .implementation_version_name(crate::IMPLEMENTATION_VERSION_NAME),
         )
@@ -3161,7 +3185,7 @@ fn write_enhanced_ct_case(
         &Part10Expectations {
             sop_class_uid: uids::ENHANCED_CT_IMAGE_STORAGE,
             sop_instance_uid: &sop_instance_uid,
-            transfer_syntax_uid: uids::EXPLICIT_VR_LITTLE_ENDIAN,
+            transfer_syntax_uid: EXPLICIT_VR_LITTLE_ENDIAN.uid,
             implementation_class_uid: &implementation_class_uid,
             synthetic_data: "YES",
             rows: recipe.rows,
@@ -3414,7 +3438,7 @@ fn write_segmentation_case(
     let file_obj = obj
         .with_meta(
             FileMetaTableBuilder::new()
-                .transfer_syntax(uids::EXPLICIT_VR_LITTLE_ENDIAN)
+                .transfer_syntax(EXPLICIT_VR_LITTLE_ENDIAN.uid)
                 .implementation_class_uid(&implementation_class_uid)
                 .implementation_version_name(crate::IMPLEMENTATION_VERSION_NAME),
         )
@@ -3435,7 +3459,7 @@ fn write_segmentation_case(
         &Part10Expectations {
             sop_class_uid: recipe.sop_class_uid,
             sop_instance_uid: &sop_instance_uid,
-            transfer_syntax_uid: uids::EXPLICIT_VR_LITTLE_ENDIAN,
+            transfer_syntax_uid: EXPLICIT_VR_LITTLE_ENDIAN.uid,
             implementation_class_uid: &implementation_class_uid,
             synthetic_data: "YES",
             rows: recipe.rows,
@@ -3626,7 +3650,7 @@ fn write_presentation_state_case(
     let file_obj = obj
         .with_meta(
             FileMetaTableBuilder::new()
-                .transfer_syntax(uids::EXPLICIT_VR_LITTLE_ENDIAN)
+                .transfer_syntax(EXPLICIT_VR_LITTLE_ENDIAN.uid)
                 .implementation_class_uid(&implementation_class_uid)
                 .implementation_version_name(crate::IMPLEMENTATION_VERSION_NAME),
         )
@@ -3647,7 +3671,7 @@ fn write_presentation_state_case(
         &PresentationStateExpectations {
             sop_class_uid: GRAYSCALE_SOFTCOPY_PRESENTATION_STATE_STORAGE_UID,
             sop_instance_uid: &sop_instance_uid,
-            transfer_syntax_uid: uids::EXPLICIT_VR_LITTLE_ENDIAN,
+            transfer_syntax_uid: EXPLICIT_VR_LITTLE_ENDIAN.uid,
             implementation_class_uid: &implementation_class_uid,
             synthetic_data: "YES",
             modality: "PR",
@@ -3792,7 +3816,7 @@ fn write_real_world_value_mapping_case(
     let file_obj = obj
         .with_meta(
             FileMetaTableBuilder::new()
-                .transfer_syntax(uids::EXPLICIT_VR_LITTLE_ENDIAN)
+                .transfer_syntax(EXPLICIT_VR_LITTLE_ENDIAN.uid)
                 .implementation_class_uid(&implementation_class_uid)
                 .implementation_version_name(crate::IMPLEMENTATION_VERSION_NAME),
         )
@@ -3813,7 +3837,7 @@ fn write_real_world_value_mapping_case(
         &RealWorldValueMappingExpectations {
             sop_class_uid: REAL_WORLD_VALUE_MAPPING_STORAGE_UID,
             sop_instance_uid: &sop_instance_uid,
-            transfer_syntax_uid: uids::EXPLICIT_VR_LITTLE_ENDIAN,
+            transfer_syntax_uid: EXPLICIT_VR_LITTLE_ENDIAN.uid,
             implementation_class_uid: &implementation_class_uid,
             synthetic_data: "YES",
             modality: "RWV",
@@ -3960,7 +3984,7 @@ fn write_basic_text_sr_case(
     let file_obj = obj
         .with_meta(
             FileMetaTableBuilder::new()
-                .transfer_syntax(uids::EXPLICIT_VR_LITTLE_ENDIAN)
+                .transfer_syntax(EXPLICIT_VR_LITTLE_ENDIAN.uid)
                 .implementation_class_uid(&implementation_class_uid)
                 .implementation_version_name(crate::IMPLEMENTATION_VERSION_NAME),
         )
@@ -3981,7 +4005,7 @@ fn write_basic_text_sr_case(
         &BasicTextSrExpectations {
             sop_class_uid: BASIC_TEXT_SR_STORAGE_UID,
             sop_instance_uid: &sop_instance_uid,
-            transfer_syntax_uid: uids::EXPLICIT_VR_LITTLE_ENDIAN,
+            transfer_syntax_uid: EXPLICIT_VR_LITTLE_ENDIAN.uid,
             implementation_class_uid: &implementation_class_uid,
             synthetic_data: "YES",
             modality: "SR",
@@ -4132,7 +4156,7 @@ fn write_comprehensive_sr_case(
     let file_obj = obj
         .with_meta(
             FileMetaTableBuilder::new()
-                .transfer_syntax(uids::EXPLICIT_VR_LITTLE_ENDIAN)
+                .transfer_syntax(EXPLICIT_VR_LITTLE_ENDIAN.uid)
                 .implementation_class_uid(&implementation_class_uid)
                 .implementation_version_name(crate::IMPLEMENTATION_VERSION_NAME),
         )
@@ -4153,7 +4177,7 @@ fn write_comprehensive_sr_case(
         &crate::validation::ComprehensiveSrExpectations {
             sop_class_uid: COMPREHENSIVE_SR_STORAGE_UID,
             sop_instance_uid: &sop_instance_uid,
-            transfer_syntax_uid: uids::EXPLICIT_VR_LITTLE_ENDIAN,
+            transfer_syntax_uid: EXPLICIT_VR_LITTLE_ENDIAN.uid,
             implementation_class_uid: &implementation_class_uid,
             synthetic_data: "YES",
             modality: "SR",
@@ -4314,7 +4338,7 @@ fn write_key_object_selection_case(
     let file_obj = obj
         .with_meta(
             FileMetaTableBuilder::new()
-                .transfer_syntax(uids::EXPLICIT_VR_LITTLE_ENDIAN)
+                .transfer_syntax(EXPLICIT_VR_LITTLE_ENDIAN.uid)
                 .implementation_class_uid(&implementation_class_uid)
                 .implementation_version_name(crate::IMPLEMENTATION_VERSION_NAME),
         )
@@ -4352,7 +4376,7 @@ fn write_key_object_selection_case(
         &crate::validation::KeyObjectSelectionExpectations {
             sop_class_uid: KEY_OBJECT_SELECTION_DOCUMENT_STORAGE_UID,
             sop_instance_uid: &sop_instance_uid,
-            transfer_syntax_uid: uids::EXPLICIT_VR_LITTLE_ENDIAN,
+            transfer_syntax_uid: EXPLICIT_VR_LITTLE_ENDIAN.uid,
             implementation_class_uid: &implementation_class_uid,
             synthetic_data: "YES",
             modality: "KO",
@@ -4526,7 +4550,7 @@ fn write_rt_structure_set_case(
     let file_obj = obj
         .with_meta(
             FileMetaTableBuilder::new()
-                .transfer_syntax(uids::EXPLICIT_VR_LITTLE_ENDIAN)
+                .transfer_syntax(EXPLICIT_VR_LITTLE_ENDIAN.uid)
                 .implementation_class_uid(&implementation_class_uid)
                 .implementation_version_name(crate::IMPLEMENTATION_VERSION_NAME),
         )
@@ -4547,7 +4571,7 @@ fn write_rt_structure_set_case(
         &RtStructureSetExpectations {
             sop_class_uid: RT_STRUCTURE_SET_STORAGE_UID,
             sop_instance_uid: &sop_instance_uid,
-            transfer_syntax_uid: uids::EXPLICIT_VR_LITTLE_ENDIAN,
+            transfer_syntax_uid: EXPLICIT_VR_LITTLE_ENDIAN.uid,
             implementation_class_uid: &implementation_class_uid,
             synthetic_data: "YES",
             modality: "RTSTRUCT",
@@ -4773,7 +4797,7 @@ fn write_rt_dose_case(
     let file_obj = obj
         .with_meta(
             FileMetaTableBuilder::new()
-                .transfer_syntax(uids::EXPLICIT_VR_LITTLE_ENDIAN)
+                .transfer_syntax(EXPLICIT_VR_LITTLE_ENDIAN.uid)
                 .implementation_class_uid(&implementation_class_uid)
                 .implementation_version_name(crate::IMPLEMENTATION_VERSION_NAME),
         )
@@ -4794,7 +4818,7 @@ fn write_rt_dose_case(
         &RtDoseExpectations {
             sop_class_uid: RT_DOSE_STORAGE_UID,
             sop_instance_uid: &sop_instance_uid,
-            transfer_syntax_uid: uids::EXPLICIT_VR_LITTLE_ENDIAN,
+            transfer_syntax_uid: EXPLICIT_VR_LITTLE_ENDIAN.uid,
             implementation_class_uid: &implementation_class_uid,
             synthetic_data: "YES",
             modality: "RTDOSE",
@@ -4989,7 +5013,7 @@ fn write_encapsulated_pdf_case(
     let file_obj = obj
         .with_meta(
             FileMetaTableBuilder::new()
-                .transfer_syntax(uids::EXPLICIT_VR_LITTLE_ENDIAN)
+                .transfer_syntax(EXPLICIT_VR_LITTLE_ENDIAN.uid)
                 .implementation_class_uid(&implementation_class_uid)
                 .implementation_version_name(crate::IMPLEMENTATION_VERSION_NAME),
         )
@@ -5010,7 +5034,7 @@ fn write_encapsulated_pdf_case(
         &EncapsulatedPdfExpectations {
             sop_class_uid: ENCAPSULATED_PDF_STORAGE_UID,
             sop_instance_uid: &sop_instance_uid,
-            transfer_syntax_uid: uids::EXPLICIT_VR_LITTLE_ENDIAN,
+            transfer_syntax_uid: EXPLICIT_VR_LITTLE_ENDIAN.uid,
             implementation_class_uid: &implementation_class_uid,
             synthetic_data: "YES",
             modality: "DOC",
@@ -5271,7 +5295,7 @@ fn write_enhanced_ct_concatenation_case(
         let file_obj = obj
             .with_meta(
                 FileMetaTableBuilder::new()
-                    .transfer_syntax(uids::EXPLICIT_VR_LITTLE_ENDIAN)
+                    .transfer_syntax(EXPLICIT_VR_LITTLE_ENDIAN.uid)
                     .implementation_class_uid(&implementation_class_uid)
                     .implementation_version_name(crate::IMPLEMENTATION_VERSION_NAME),
             )
@@ -5299,7 +5323,7 @@ fn write_enhanced_ct_concatenation_case(
             &Part10Expectations {
                 sop_class_uid: uids::ENHANCED_CT_IMAGE_STORAGE,
                 sop_instance_uid: &sop_instance_uid,
-                transfer_syntax_uid: uids::EXPLICIT_VR_LITTLE_ENDIAN,
+                transfer_syntax_uid: EXPLICIT_VR_LITTLE_ENDIAN.uid,
                 implementation_class_uid: &implementation_class_uid,
                 synthetic_data: "YES",
                 rows: base.rows,
@@ -6568,8 +6592,8 @@ fn segmentation_manifest_entry(
             "sop_class_name": recipe.sop_class_name,
             "iod_name": "Segmentation",
             "modality": "SEG",
-            "transfer_syntax_uid": uids::EXPLICIT_VR_LITTLE_ENDIAN,
-            "transfer_syntax_name": "Explicit VR Little Endian"
+            "transfer_syntax_uid": EXPLICIT_VR_LITTLE_ENDIAN.uid,
+            "transfer_syntax_name": EXPLICIT_VR_LITTLE_ENDIAN.name
         },
         "uids": {
             "study_instance_uid": study_instance_uid,
@@ -6671,8 +6695,8 @@ fn presentation_state_manifest_entry(
             "sop_class_name": "Grayscale Softcopy Presentation State Storage",
             "iod_name": "Grayscale Softcopy Presentation State",
             "modality": "PR",
-            "transfer_syntax_uid": uids::EXPLICIT_VR_LITTLE_ENDIAN,
-            "transfer_syntax_name": "Explicit VR Little Endian"
+            "transfer_syntax_uid": EXPLICIT_VR_LITTLE_ENDIAN.uid,
+            "transfer_syntax_name": EXPLICIT_VR_LITTLE_ENDIAN.name
         },
         "uids": {
             "study_instance_uid": study_instance_uid,
@@ -6755,8 +6779,8 @@ fn real_world_value_mapping_manifest_entry(
             "sop_class_name": "Real World Value Mapping Storage",
             "iod_name": "Real World Value Mapping",
             "modality": "RWV",
-            "transfer_syntax_uid": uids::EXPLICIT_VR_LITTLE_ENDIAN,
-            "transfer_syntax_name": "Explicit VR Little Endian"
+            "transfer_syntax_uid": EXPLICIT_VR_LITTLE_ENDIAN.uid,
+            "transfer_syntax_name": EXPLICIT_VR_LITTLE_ENDIAN.name
         },
         "uids": {
             "study_instance_uid": study_instance_uid,
@@ -6856,8 +6880,8 @@ fn basic_text_sr_manifest_entry(
             "sop_class_name": "Basic Text SR Storage",
             "iod_name": "Basic Text SR",
             "modality": "SR",
-            "transfer_syntax_uid": uids::EXPLICIT_VR_LITTLE_ENDIAN,
-            "transfer_syntax_name": "Explicit VR Little Endian"
+            "transfer_syntax_uid": EXPLICIT_VR_LITTLE_ENDIAN.uid,
+            "transfer_syntax_name": EXPLICIT_VR_LITTLE_ENDIAN.name
         },
         "uids": {
             "study_instance_uid": study_instance_uid,
@@ -6956,8 +6980,8 @@ fn comprehensive_sr_manifest_entry(
             "sop_class_name": "Comprehensive SR Storage",
             "iod_name": "Comprehensive SR",
             "modality": "SR",
-            "transfer_syntax_uid": uids::EXPLICIT_VR_LITTLE_ENDIAN,
-            "transfer_syntax_name": "Explicit VR Little Endian"
+            "transfer_syntax_uid": EXPLICIT_VR_LITTLE_ENDIAN.uid,
+            "transfer_syntax_name": EXPLICIT_VR_LITTLE_ENDIAN.name
         },
         "uids": {
             "study_instance_uid": study_instance_uid,
@@ -7085,8 +7109,8 @@ fn key_object_selection_manifest_entry(
             "sop_class_name": "Key Object Selection Document Storage",
             "iod_name": "Key Object Selection Document",
             "modality": "KO",
-            "transfer_syntax_uid": uids::EXPLICIT_VR_LITTLE_ENDIAN,
-            "transfer_syntax_name": "Explicit VR Little Endian"
+            "transfer_syntax_uid": EXPLICIT_VR_LITTLE_ENDIAN.uid,
+            "transfer_syntax_name": EXPLICIT_VR_LITTLE_ENDIAN.name
         },
         "uids": {
             "study_instance_uid": study_instance_uid,
@@ -7198,8 +7222,8 @@ fn rt_structure_set_manifest_entry(
             "sop_class_name": "RT Structure Set Storage",
             "iod_name": "RT Structure Set",
             "modality": "RTSTRUCT",
-            "transfer_syntax_uid": uids::EXPLICIT_VR_LITTLE_ENDIAN,
-            "transfer_syntax_name": "Explicit VR Little Endian"
+            "transfer_syntax_uid": EXPLICIT_VR_LITTLE_ENDIAN.uid,
+            "transfer_syntax_name": EXPLICIT_VR_LITTLE_ENDIAN.name
         },
         "uids": {
             "study_instance_uid": study_instance_uid,
@@ -7297,8 +7321,8 @@ fn rt_dose_manifest_entry(
             "sop_class_name": "RT Dose Storage",
             "iod_name": "RT Dose",
             "modality": "RTDOSE",
-            "transfer_syntax_uid": uids::EXPLICIT_VR_LITTLE_ENDIAN,
-            "transfer_syntax_name": "Explicit VR Little Endian"
+            "transfer_syntax_uid": EXPLICIT_VR_LITTLE_ENDIAN.uid,
+            "transfer_syntax_name": EXPLICIT_VR_LITTLE_ENDIAN.name
         },
         "uids": {
             "study_instance_uid": study_instance_uid,
@@ -7393,8 +7417,8 @@ fn encapsulated_pdf_manifest_entry(
             "sop_class_name": "Encapsulated PDF Storage",
             "iod_name": "Encapsulated PDF",
             "modality": "DOC",
-            "transfer_syntax_uid": uids::EXPLICIT_VR_LITTLE_ENDIAN,
-            "transfer_syntax_name": "Explicit VR Little Endian"
+            "transfer_syntax_uid": EXPLICIT_VR_LITTLE_ENDIAN.uid,
+            "transfer_syntax_name": EXPLICIT_VR_LITTLE_ENDIAN.name
         },
         "uids": {
             "study_instance_uid": study_instance_uid,
@@ -7531,8 +7555,8 @@ fn enhanced_ct_manifest_entry(
             "sop_class_name": "Enhanced CT Image Storage",
             "iod_name": "Enhanced CT Image",
             "modality": "CT",
-            "transfer_syntax_uid": uids::EXPLICIT_VR_LITTLE_ENDIAN,
-            "transfer_syntax_name": "Explicit VR Little Endian"
+            "transfer_syntax_uid": EXPLICIT_VR_LITTLE_ENDIAN.uid,
+            "transfer_syntax_name": EXPLICIT_VR_LITTLE_ENDIAN.name
         },
         "uids": {
             "study_instance_uid": study_instance_uid,
@@ -7753,7 +7777,7 @@ fn write_enhanced_mr_case(
     let file_obj = obj
         .with_meta(
             FileMetaTableBuilder::new()
-                .transfer_syntax(uids::EXPLICIT_VR_LITTLE_ENDIAN)
+                .transfer_syntax(EXPLICIT_VR_LITTLE_ENDIAN.uid)
                 .implementation_class_uid(&implementation_class_uid)
                 .implementation_version_name(crate::IMPLEMENTATION_VERSION_NAME),
         )
@@ -7774,7 +7798,7 @@ fn write_enhanced_mr_case(
         &Part10Expectations {
             sop_class_uid: uids::ENHANCED_MR_IMAGE_STORAGE,
             sop_instance_uid: &sop_instance_uid,
-            transfer_syntax_uid: uids::EXPLICIT_VR_LITTLE_ENDIAN,
+            transfer_syntax_uid: EXPLICIT_VR_LITTLE_ENDIAN.uid,
             implementation_class_uid: &implementation_class_uid,
             synthetic_data: "YES",
             rows: recipe.rows,
@@ -8339,8 +8363,8 @@ fn enhanced_mr_manifest_entry(
             "sop_class_name": "Enhanced MR Image Storage",
             "iod_name": "Enhanced MR Image",
             "modality": "MR",
-            "transfer_syntax_uid": uids::EXPLICIT_VR_LITTLE_ENDIAN,
-            "transfer_syntax_name": "Explicit VR Little Endian"
+            "transfer_syntax_uid": EXPLICIT_VR_LITTLE_ENDIAN.uid,
+            "transfer_syntax_name": EXPLICIT_VR_LITTLE_ENDIAN.name
         },
         "uids": {
             "study_instance_uid": study_instance_uid,
@@ -8583,7 +8607,7 @@ fn write_classic_mg_case(
     let file_obj = obj
         .with_meta(
             FileMetaTableBuilder::new()
-                .transfer_syntax(recipe.transfer_syntax_uid)
+                .transfer_syntax(recipe.transfer_syntax.uid)
                 .implementation_class_uid(&implementation_class_uid)
                 .implementation_version_name(crate::IMPLEMENTATION_VERSION_NAME),
         )
@@ -8604,7 +8628,7 @@ fn write_classic_mg_case(
         &Part10Expectations {
             sop_class_uid: recipe.sop_class_uid,
             sop_instance_uid: &sop_instance_uid,
-            transfer_syntax_uid: recipe.transfer_syntax_uid,
+            transfer_syntax_uid: recipe.transfer_syntax.uid,
             implementation_class_uid: &implementation_class_uid,
             synthetic_data: "YES",
             rows: recipe.rows,
@@ -8861,8 +8885,8 @@ fn classic_mg_manifest_entry(
             "sop_class_name": recipe.sop_class_name,
             "iod_name": "Digital Mammography X-Ray Image",
             "modality": "MG",
-            "transfer_syntax_uid": recipe.transfer_syntax_uid,
-            "transfer_syntax_name": recipe.transfer_syntax_name
+            "transfer_syntax_uid": recipe.transfer_syntax.uid,
+            "transfer_syntax_name": recipe.transfer_syntax.name
         },
         "uids": {
             "study_instance_uid": study_instance_uid,
@@ -9127,7 +9151,7 @@ fn write_classic_dx_case(
     let file_obj = obj
         .with_meta(
             FileMetaTableBuilder::new()
-                .transfer_syntax(uids::EXPLICIT_VR_LITTLE_ENDIAN)
+                .transfer_syntax(EXPLICIT_VR_LITTLE_ENDIAN.uid)
                 .implementation_class_uid(&implementation_class_uid)
                 .implementation_version_name(crate::IMPLEMENTATION_VERSION_NAME),
         )
@@ -9148,7 +9172,7 @@ fn write_classic_dx_case(
         &Part10Expectations {
             sop_class_uid: uids::DIGITAL_X_RAY_IMAGE_STORAGE_FOR_PRESENTATION,
             sop_instance_uid: &sop_instance_uid,
-            transfer_syntax_uid: uids::EXPLICIT_VR_LITTLE_ENDIAN,
+            transfer_syntax_uid: EXPLICIT_VR_LITTLE_ENDIAN.uid,
             implementation_class_uid: &implementation_class_uid,
             synthetic_data: "YES",
             rows: recipe.rows,
@@ -9360,8 +9384,8 @@ fn classic_dx_manifest_entry(
             "sop_class_name": "Digital X-Ray Image Storage - For Presentation",
             "iod_name": "Digital X-Ray Image",
             "modality": "DX",
-            "transfer_syntax_uid": uids::EXPLICIT_VR_LITTLE_ENDIAN,
-            "transfer_syntax_name": "Explicit VR Little Endian"
+            "transfer_syntax_uid": EXPLICIT_VR_LITTLE_ENDIAN.uid,
+            "transfer_syntax_name": EXPLICIT_VR_LITTLE_ENDIAN.name
         },
         "uids": {
             "study_instance_uid": study_instance_uid,
@@ -9550,7 +9574,7 @@ fn write_classic_us_case(
     let file_obj = obj
         .with_meta(
             FileMetaTableBuilder::new()
-                .transfer_syntax(uids::EXPLICIT_VR_LITTLE_ENDIAN)
+                .transfer_syntax(EXPLICIT_VR_LITTLE_ENDIAN.uid)
                 .implementation_class_uid(&implementation_class_uid)
                 .implementation_version_name(crate::IMPLEMENTATION_VERSION_NAME),
         )
@@ -9571,7 +9595,7 @@ fn write_classic_us_case(
         &Part10Expectations {
             sop_class_uid: uids::ULTRASOUND_IMAGE_STORAGE,
             sop_instance_uid: &sop_instance_uid,
-            transfer_syntax_uid: uids::EXPLICIT_VR_LITTLE_ENDIAN,
+            transfer_syntax_uid: EXPLICIT_VR_LITTLE_ENDIAN.uid,
             implementation_class_uid: &implementation_class_uid,
             synthetic_data: "YES",
             rows: recipe.rows,
@@ -9722,8 +9746,8 @@ fn classic_us_manifest_entry(
             "sop_class_name": "Ultrasound Image Storage",
             "iod_name": "Ultrasound Image",
             "modality": "US",
-            "transfer_syntax_uid": uids::EXPLICIT_VR_LITTLE_ENDIAN,
-            "transfer_syntax_name": "Explicit VR Little Endian"
+            "transfer_syntax_uid": EXPLICIT_VR_LITTLE_ENDIAN.uid,
+            "transfer_syntax_name": EXPLICIT_VR_LITTLE_ENDIAN.name
         },
         "uids": {
             "study_instance_uid": study_instance_uid,
@@ -9942,7 +9966,7 @@ fn write_classic_cr_case(
     let file_obj = obj
         .with_meta(
             FileMetaTableBuilder::new()
-                .transfer_syntax(uids::EXPLICIT_VR_LITTLE_ENDIAN)
+                .transfer_syntax(EXPLICIT_VR_LITTLE_ENDIAN.uid)
                 .implementation_class_uid(&implementation_class_uid)
                 .implementation_version_name(crate::IMPLEMENTATION_VERSION_NAME),
         )
@@ -9963,7 +9987,7 @@ fn write_classic_cr_case(
         &Part10Expectations {
             sop_class_uid: uids::COMPUTED_RADIOGRAPHY_IMAGE_STORAGE,
             sop_instance_uid: &sop_instance_uid,
-            transfer_syntax_uid: uids::EXPLICIT_VR_LITTLE_ENDIAN,
+            transfer_syntax_uid: EXPLICIT_VR_LITTLE_ENDIAN.uid,
             implementation_class_uid: &implementation_class_uid,
             synthetic_data: "YES",
             rows: recipe.rows,
@@ -10143,8 +10167,8 @@ fn classic_cr_manifest_entry(
             "sop_class_name": "Computed Radiography Image Storage",
             "iod_name": "Computed Radiography Image",
             "modality": "CR",
-            "transfer_syntax_uid": uids::EXPLICIT_VR_LITTLE_ENDIAN,
-            "transfer_syntax_name": "Explicit VR Little Endian"
+            "transfer_syntax_uid": EXPLICIT_VR_LITTLE_ENDIAN.uid,
+            "transfer_syntax_name": EXPLICIT_VR_LITTLE_ENDIAN.name
         },
         "uids": {
             "study_instance_uid": study_instance_uid,
@@ -10380,7 +10404,7 @@ fn write_classic_mr_case(
         let file_obj = obj
             .with_meta(
                 FileMetaTableBuilder::new()
-                    .transfer_syntax(uids::EXPLICIT_VR_LITTLE_ENDIAN)
+                    .transfer_syntax(EXPLICIT_VR_LITTLE_ENDIAN.uid)
                     .implementation_class_uid(&implementation_class_uid)
                     .implementation_version_name(crate::IMPLEMENTATION_VERSION_NAME),
             )
@@ -10401,7 +10425,7 @@ fn write_classic_mr_case(
             &Part10Expectations {
                 sop_class_uid: uids::MR_IMAGE_STORAGE,
                 sop_instance_uid: &sop_instance_uid,
-                transfer_syntax_uid: uids::EXPLICIT_VR_LITTLE_ENDIAN,
+                transfer_syntax_uid: EXPLICIT_VR_LITTLE_ENDIAN.uid,
                 implementation_class_uid: &implementation_class_uid,
                 synthetic_data: "YES",
                 rows: recipe.rows,
@@ -10614,8 +10638,8 @@ fn classic_mr_manifest_entry(
             "sop_class_name": "MR Image Storage",
             "iod_name": "MR Image",
             "modality": "MR",
-            "transfer_syntax_uid": uids::EXPLICIT_VR_LITTLE_ENDIAN,
-            "transfer_syntax_name": "Explicit VR Little Endian"
+            "transfer_syntax_uid": EXPLICIT_VR_LITTLE_ENDIAN.uid,
+            "transfer_syntax_name": EXPLICIT_VR_LITTLE_ENDIAN.name
         },
         "uids": {
             "study_instance_uid": study_instance_uid,
@@ -11262,6 +11286,49 @@ fn case_matches_profile(profiles: &[String], requested: &str, include_stress: bo
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn transfer_syntax_specs_are_backed_by_capability_matrix() {
+        let matrix: Value =
+            serde_json::from_str(include_str!("../transfer-syntax/capability-matrix.json"))
+                .expect("transfer syntax capability matrix should parse");
+        let entries = matrix
+            .get("entries")
+            .and_then(Value::as_array)
+            .expect("transfer syntax capability matrix should contain entries");
+
+        for spec in [
+            IMPLICIT_VR_LITTLE_ENDIAN,
+            EXPLICIT_VR_LITTLE_ENDIAN,
+            EXPLICIT_VR_BIG_ENDIAN,
+        ] {
+            let entry = entries
+                .iter()
+                .find(|entry| {
+                    entry.get("keyword").and_then(Value::as_str) == Some(spec.capability_keyword)
+                })
+                .unwrap_or_else(|| {
+                    panic!(
+                        "transfer syntax capability matrix should contain {}",
+                        spec.capability_keyword
+                    )
+                });
+
+            assert_eq!(entry.get("uid").and_then(Value::as_str), Some(spec.uid));
+            assert_eq!(
+                entry.get("name").and_then(Value::as_str),
+                Some(spec.capability_name)
+            );
+            assert_eq!(
+                entry.get("status").and_then(Value::as_str),
+                Some("available")
+            );
+            assert_eq!(
+                entry.get("write_dataset").and_then(Value::as_bool),
+                Some(true)
+            );
+        }
+    }
 
     #[test]
     fn generated_source_registry_extracts_identity_for_manifest_references() {

@@ -2,9 +2,9 @@
 
 **Last updated:** 2026-06-14  
 **Source specification:** `SYSTEM_SPEC.md` version 0.2.0  
-**Current phase:** Phase 5.1 binary segmentation complete; Phase 5.2 fractional and labelmap segmentation next
+**Current phase:** Phase 5.2 fractional segmentation complete; labelmap segmentation next
 
-**Current implementation status:** Phase 0, Phase 0.5, Phase 1, Phase 2, Phase 3, Phase 4, the pre-Phase-5 hardening pass, Phase 5.0 foundation, and Phase 5.1 BINARY Segmentation Storage are functionally complete. `IMPLEMENTATION_PLAN.md` defines the concrete Phase 5 implementation sequence. Phase 5.1 added the first Phase 5 generator recipe: `derived/seg/binary_multiframe_explicit_le`, a tiny BINARY Segmentation Storage object derived from the already-generated Enhanced CT source. The extended profile now writes 7 files and reports 10 remaining planned Phase 5 cases.
+**Current implementation status:** Phase 0, Phase 0.5, Phase 1, Phase 2, Phase 3, Phase 4, the pre-Phase-5 hardening pass, Phase 5.0 foundation, Phase 5.1 BINARY Segmentation Storage, and the Phase 5.2 FRACTIONAL Segmentation Storage slice are functionally complete. `IMPLEMENTATION_PLAN.md` defines the concrete Phase 5 implementation sequence. Phase 5.2 now includes `derived/seg/fractional_probability_multiframe_explicit_le`, a tiny FRACTIONAL Segmentation Storage object derived from the already-generated Enhanced CT source with `Segmentation Fractional Type` `PROBABILITY` and `Maximum Fractional Value` 255. The extended profile now writes 8 files and reports 9 remaining planned Phase 5 cases.
 
 This document is the durable hand-off log for coding agents implementing
 `dicom-test-suite`. Keep `SYSTEM_SPEC.md` as the source of product and
@@ -85,7 +85,7 @@ Observed at creation of this progress file:
 | Phase 3: Classic radiology IODs | complete | CT Image Storage signed 12-bit rescale/window, MG For Presentation/For Processing 12-bit, CR overlay/Modality LUT/VOI LUT, MR multi-slice oblique geometry, DX display shutter, US Image Storage, and stable multi-file series generation are implemented. |
 | Phase 4: Enhanced multi-frame | complete | Enhanced CT and Enhanced MR Image Storage cases with Shared and Per-Frame Functional Groups and Multi-frame Dimension metadata are implemented; MR Echo, Temporal Position, phase/velocity-encoding variation, and a two-member Enhanced CT concatenation case are covered. |
 | Pre-Phase-5 hardening | complete | Registry authority, required CLI contracts, validation hardening, reproducibility/CI guards, and standards lock pinning policy are complete. Validation now covers raw Part 10 byte checks, parsed cross-field image invariants, manifest schema-conformance checks, baseline standards-derived Type 1/Type 2 checks, classic family-specific checks, and Enhanced CT/MR multi-frame standards-derived checks. |
-| Phase 5: Derived, presentation, and non-image objects | binary SEG complete; fractional/labelmap SEG next | Full planned target queue is now in `cases/registry.json`. Manifest entries support nullable/absent image metadata plus a generated-file `references` array, coverage reports project manifest reference source case IDs into `derived_refs`, generated-root validation resolves same-run references while skipping image/pixel checks for non-image rows, and generation maintains an ordered source object registry for derived recipes. The first BINARY Segmentation Storage object is implemented and validated. The next implementation slice is FRACTIONAL Segmentation Storage. |
+| Phase 5: Derived, presentation, and non-image objects | binary and fractional SEG complete; labelmap SEG next | Full planned target queue is now in `cases/registry.json`. Manifest entries support nullable/absent image metadata plus a generated-file `references` array, coverage reports project manifest reference source case IDs into `derived_refs`, generated-root validation resolves same-run references while skipping image/pixel checks for non-image rows, and generation maintains an ordered source object registry for derived recipes. BINARY and FRACTIONAL Segmentation Storage objects are implemented and validated. The next implementation slice is LABELMAP Segmentation Storage. |
 | Phase 6: Transfer syntax expansion | not started | Transfer syntax abstraction and compressed cases pending. |
 | Phase 7: Pathology, video, and large object profiles | not started | VL, WSI, video, and stress cases pending. |
 | Phase 8: Reporting and viewer integration | not started | Coverage reports, optional viewer runner, and compatibility schema pending. |
@@ -207,7 +207,7 @@ Enhanced CT concatenation case for logical multi-frame object splitting.
       registry and exposes already-generated source instances to later recipe
       code.
 - [x] Implement BINARY Segmentation Storage case.
-- [ ] Implement FRACTIONAL Segmentation Storage case.
+- [x] Implement FRACTIONAL Segmentation Storage case.
 - [ ] Implement LABELMAP Segmentation using Label Map Segmentation Storage.
 - [ ] Implement Grayscale Softcopy Presentation State case.
 - [ ] Implement Real World Value Mapping case.
@@ -257,7 +257,8 @@ These case IDs come from `SYSTEM_SPEC.md` section 21 and should seed
 | `enhanced/mr/multiframe_echo_perframe_explicit_le` | `extended` | implemented |
 | `enhanced/mr/multiframe_temporal_position_explicit_le` | `extended` | implemented |
 | `enhanced/mr/multiframe_phase_velocity_encoding_explicit_le` | `extended` | implemented |
-| `derived/seg/binary_multiframe_explicit_le` | `extended` | planned |
+| `derived/seg/binary_multiframe_explicit_le` | `extended` | implemented |
+| `derived/seg/fractional_probability_multiframe_explicit_le` | `extended` | implemented |
 | `vl/photo/rgb_planar0_explicit_le` | `core` | planned |
 | `vl/photo/palette_color_explicit_le` | `core` | planned |
 
@@ -721,8 +722,50 @@ These case IDs come from `SYSTEM_SPEC.md` section 21 and should seed
   Reference back to the source image. The manifest records a `source_image`
   reference with frame numbers `[1, 2]`, reports bit depth 1 in coverage, and
   `cases/registry.json` now marks this case `implemented`.
+- 2026-06-14: Phase 5.2 FRACTIONAL Segmentation Storage is implemented for
+  `derived/seg/fractional_probability_multiframe_explicit_le`. The SEG writer
+  now parameterizes bit depth, pixel length formula, pixel value ranges, and
+  fractional Type 1C attributes across SEG variants. The new fractional case
+  writes two 2x2 8-bit probability frames with `Segmentation Type`
+  `FRACTIONAL`, `Segmentation Fractional Type` `PROBABILITY`, `Maximum
+  Fractional Value` 255, per-frame Derivation Image references to the generated
+  Enhanced CT source frames, and a Common Instance Reference to the source
+  image. Internal generation validation and generated-root validation both
+  check the fractional subtype and maximum fractional value. The manifest and
+  coverage report show the fractional SEG as a derived/reference object with
+  bit depth 8, and `cases/registry.json` now marks this case `implemented`.
 
 ## Verification Results
+
+- 2026-06-14 Phase 5.2 FRACTIONAL Segmentation Storage slice:
+  - `dicom-standard-kb` MCP lookups rechecked Segmentation Storage,
+    Segmentation IOD, Segmentation Type, Segmentation Fractional Type, Maximum
+    Fractional Value, Segmentation IOD modules, and PS3.3 source text for
+    `FRACTIONAL`/`PROBABILITY`. Parsed term lookup for the fractional terms
+    remains unavailable, matching the known plan limitation, but source-text
+    search returned PS3.3 `sect_C.8.20.2.3.2` and `table_C.8.20-2`.
+  - `cargo fmt -- --check` initially failed on rustfmt wrapping in
+    `src/generator.rs`; `cargo fmt` was run, and the repeated
+    `cargo fmt -- --check` passed.
+  - `cargo test --test generate_cli --test validate_cli --test list_cases_cli --test project_artifacts`
+    passed.
+  - `cargo test --test project_artifacts --test list_cases_cli` passed again
+    after correcting the fractional source-text evidence anchor to
+    `sect_C.8.20.2.3.2`.
+  - `cargo test` passed.
+  - `cargo run -- standards check-lock` passed with the existing documented
+    unavailable-pin warnings.
+  - `cargo run -- list-cases --profile extended --status planned` passed and
+    listed 9 remaining planned Phase 5 rows, with LABELMAP SEG first.
+  - `cargo run -- generate --profile extended --out /tmp/dts-fractional-seg --seed 1`
+    passed, writing 8 files.
+  - `cargo run -- validate /tmp/dts-fractional-seg` passed with 8 files
+    checked and 0 validation failures.
+  - `cargo run -- report /tmp/dts-fractional-seg --format json` passed with
+    counts `generated=8`, `planned=9`, `skipped=0`, `blocked=0`; the
+    fractional SEG row reports
+    `derived_refs=["enhanced/ct/multiframe_shared_perframe_explicit_le"]` and
+    bit depth 8.
 
 - 2026-06-14 Phase 5.1 BINARY Segmentation Storage slice:
   - `cargo test --test generate_cli -- --nocapture` initially failed on stale
@@ -847,21 +890,21 @@ None currently recorded for continuing Phase 5.2.
 
 ## Recommended Next Commit
 
-Start Phase 5.2 with the FRACTIONAL Segmentation Storage case
-`derived/seg/fractional_probability_multiframe_explicit_le`. Recheck the
-Segmentation Type `FRACTIONAL`, Segmentation Fractional Type `PROBABILITY`, and
-Maximum Fractional Value requirements with `dicom-standard-kb` or a local source
-note before extending the SEG writer. Keep the slice limited to FRACTIONAL SEG
-unless LABELMAP support is required by shared writer structure; flip the
-registry row to `implemented` only with the working writer, validation, tests,
-and progress update.
+Continue Phase 5.2 with the LABELMAP Segmentation case
+`derived/seg/labelmap_multiframe_explicit_le`. Recheck Label Map Segmentation
+Storage, Segmentation Type `LABELMAP`, and any LABELMAP-specific image/pixel
+requirements with `dicom-standard-kb` or a local source note before extending
+the SEG writer. Keep the slice limited to LABELMAP SEG; flip the registry row
+to `implemented` only with the working writer, validation, tests, and progress
+update.
 
 ## Commit-Ready Summary
 
-The current slice implements `derived/seg/binary_multiframe_explicit_le`,
-adds SEG-specific generator and generated-root validation, flips the binary SEG
-registry row to `implemented`, updates focused tests and this progress tracker,
-and leaves Phase 5.2 FRACTIONAL/LABELMAP SEG as the next work.
+The current slice implements
+`derived/seg/fractional_probability_multiframe_explicit_le`, parameterizes the
+SEG writer and validation for BINARY versus FRACTIONAL pixel semantics, flips
+the fractional SEG registry row to `implemented`, updates focused tests and this
+progress tracker, and leaves LABELMAP SEG as the next work.
 
 ## Handoff Notes
 

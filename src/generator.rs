@@ -68,6 +68,8 @@ const ENHANCED_CT_U16_PIXELS: [u8; 16] = [
 const ENHANCED_CT_U16_VALUES: [i32; 8] = [0, 100, 200, 300, 400, 500, 600, 700];
 const SEG_BINARY_PIXELS: [u8; 2] = [0b0000_1001, 0b0000_0110];
 const SEG_BINARY_VALUES: [i32; 8] = [1, 0, 0, 1, 0, 1, 1, 0];
+const SEG_FRACTIONAL_PROBABILITY_PIXELS: [u8; 8] = [0, 64, 128, 255, 255, 128, 64, 0];
+const SEG_FRACTIONAL_PROBABILITY_VALUES: [i32; 8] = [0, 64, 128, 255, 255, 128, 64, 0];
 const SEG_REFERENCED_FRAMES: [u16; 2] = [1, 2];
 const TAG_IMAGE_TYPE: Tag = Tag(0x0008, 0x0008);
 const TAG_REFERENCED_SERIES_SEQUENCE: Tag = Tag(0x0008, 0x1115);
@@ -91,7 +93,9 @@ const TAG_SEGMENT_ALGORITHM_NAME: Tag = Tag(0x0062, 0x0009);
 const TAG_SEGMENT_IDENTIFICATION_SEQUENCE: Tag = Tag(0x0062, 0x000A);
 const TAG_REFERENCED_SEGMENT_NUMBER: Tag = Tag(0x0062, 0x000B);
 const TAG_RECOMMENDED_DISPLAY_CIELAB_VALUE: Tag = Tag(0x0062, 0x000D);
+const TAG_MAXIMUM_FRACTIONAL_VALUE: Tag = Tag(0x0062, 0x000E);
 const TAG_SEGMENTED_PROPERTY_TYPE_CODE_SEQUENCE: Tag = Tag(0x0062, 0x000F);
+const TAG_SEGMENTATION_FRACTIONAL_TYPE: Tag = Tag(0x0062, 0x0010);
 const ENHANCED_MR_U16_PIXELS: [u8; 16] = [
     0, 0, 0x32, 0, 0x64, 0, 0x96, 0, 0xc8, 0, 0xfa, 0, 0x2c, 1, 0x5e, 1,
 ];
@@ -636,26 +640,71 @@ struct SegmentationRecipe {
     rows: u16,
     columns: u16,
     frames: u16,
+    bits_allocated: u16,
+    bits_stored: u16,
+    high_bit: u16,
+    pixel_data_length_formula: PixelDataLengthFormula,
     pixel_bytes: &'static [u8],
     pixel_values: &'static [i32],
+    pixel_min: i32,
+    pixel_max: i32,
     referenced_frame_numbers: &'static [u16],
     segmentation_type: &'static str,
+    segmentation_fractional_type: Option<&'static str>,
+    maximum_fractional_value: Option<u16>,
     segment_label: &'static str,
+    visual_pattern: &'static str,
+    stressors: &'static [&'static str],
 }
 
-const SEGMENTATION_RECIPES: &[SegmentationRecipe] = &[SegmentationRecipe {
-    case_id: "derived/seg/binary_multiframe_explicit_le",
-    recipe_id: "seg_binary_multiframe",
-    source_case_id: SEGMENTATION_SOURCE_CASE_ID,
-    rows: 2,
-    columns: 2,
-    frames: 2,
-    pixel_bytes: &SEG_BINARY_PIXELS,
-    pixel_values: &SEG_BINARY_VALUES,
-    referenced_frame_numbers: &SEG_REFERENCED_FRAMES,
-    segmentation_type: "BINARY",
-    segment_label: "DTS_SYNTHETIC_REGION",
-}];
+const SEGMENTATION_RECIPES: &[SegmentationRecipe] = &[
+    SegmentationRecipe {
+        case_id: "derived/seg/binary_multiframe_explicit_le",
+        recipe_id: "seg_binary_multiframe",
+        source_case_id: SEGMENTATION_SOURCE_CASE_ID,
+        rows: 2,
+        columns: 2,
+        frames: 2,
+        bits_allocated: 1,
+        bits_stored: 1,
+        high_bit: 0,
+        pixel_data_length_formula: PixelDataLengthFormula::BitPackedFrames,
+        pixel_bytes: &SEG_BINARY_PIXELS,
+        pixel_values: &SEG_BINARY_VALUES,
+        pixel_min: 0,
+        pixel_max: 1,
+        referenced_frame_numbers: &SEG_REFERENCED_FRAMES,
+        segmentation_type: "BINARY",
+        segmentation_fractional_type: None,
+        maximum_fractional_value: None,
+        segment_label: "DTS_SYNTHETIC_REGION",
+        visual_pattern: "two_frame_binary_segmentation_mask",
+        stressors: &["binary_bit_packed_pixel_data"],
+    },
+    SegmentationRecipe {
+        case_id: "derived/seg/fractional_probability_multiframe_explicit_le",
+        recipe_id: "seg_fractional_probability_multiframe",
+        source_case_id: SEGMENTATION_SOURCE_CASE_ID,
+        rows: 2,
+        columns: 2,
+        frames: 2,
+        bits_allocated: 8,
+        bits_stored: 8,
+        high_bit: 7,
+        pixel_data_length_formula: PixelDataLengthFormula::ContiguousSamples,
+        pixel_bytes: &SEG_FRACTIONAL_PROBABILITY_PIXELS,
+        pixel_values: &SEG_FRACTIONAL_PROBABILITY_VALUES,
+        pixel_min: 0,
+        pixel_max: 255,
+        referenced_frame_numbers: &SEG_REFERENCED_FRAMES,
+        segmentation_type: "FRACTIONAL",
+        segmentation_fractional_type: Some("PROBABILITY"),
+        maximum_fractional_value: Some(255),
+        segment_label: "DTS_SYNTHETIC_PROBABILITY",
+        visual_pattern: "two_frame_fractional_probability_segmentation",
+        stressors: &["fractional_probability_pixel_data"],
+    },
+];
 
 #[derive(Debug, Clone, Copy)]
 struct EnhancedMrRecipe {
@@ -2715,7 +2764,7 @@ fn write_segmentation_case(
         &mut obj,
         TAG_CONTENT_DESCRIPTION,
         VR::LO,
-        "Synthetic binary segmentation",
+        "Synthetic segmentation",
     );
 
     put_u16(&mut obj, tags::SAMPLES_PER_PIXEL, VR::US, 1);
@@ -2727,9 +2776,14 @@ fn write_segmentation_case(
     );
     put_u16(&mut obj, tags::ROWS, VR::US, recipe.rows);
     put_u16(&mut obj, tags::COLUMNS, VR::US, recipe.columns);
-    put_u16(&mut obj, tags::BITS_ALLOCATED, VR::US, 1);
-    put_u16(&mut obj, tags::BITS_STORED, VR::US, 1);
-    put_u16(&mut obj, tags::HIGH_BIT, VR::US, 0);
+    put_u16(
+        &mut obj,
+        tags::BITS_ALLOCATED,
+        VR::US,
+        recipe.bits_allocated,
+    );
+    put_u16(&mut obj, tags::BITS_STORED, VR::US, recipe.bits_stored);
+    put_u16(&mut obj, tags::HIGH_BIT, VR::US, recipe.high_bit);
     put_u16(&mut obj, tags::PIXEL_REPRESENTATION, VR::US, 0);
     put_str(
         &mut obj,
@@ -2744,6 +2798,22 @@ fn write_segmentation_case(
         VR::CS,
         recipe.segmentation_type,
     );
+    if let Some(segmentation_fractional_type) = recipe.segmentation_fractional_type {
+        put_str(
+            &mut obj,
+            TAG_SEGMENTATION_FRACTIONAL_TYPE,
+            VR::CS,
+            segmentation_fractional_type,
+        );
+    }
+    if let Some(maximum_fractional_value) = recipe.maximum_fractional_value {
+        put_u16(
+            &mut obj,
+            TAG_MAXIMUM_FRACTIONAL_VALUE,
+            VR::US,
+            maximum_fractional_value,
+        );
+    }
     put_segmentation_segment_sequence(&mut obj, recipe);
     put_segmentation_dimension_sequences(&mut obj, &dimension_organization_uid);
     put_segmentation_functional_groups(&mut obj, recipe, source);
@@ -2787,13 +2857,13 @@ fn write_segmentation_case(
             frames: recipe.frames,
             samples_per_pixel: 1,
             photometric_interpretation: "MONOCHROME2",
-            bits_allocated: 1,
-            bits_stored: 1,
-            high_bit: 0,
+            bits_allocated: recipe.bits_allocated,
+            bits_stored: recipe.bits_stored,
+            high_bit: recipe.high_bit,
             pixel_representation: 0,
             planar_configuration: None,
             pixel_data_vr: VR::OB,
-            pixel_data_length_formula: PixelDataLengthFormula::BitPackedFrames,
+            pixel_data_length_formula: recipe.pixel_data_length_formula,
             palette: None,
             padding: None,
             ct_image: None,
@@ -2809,6 +2879,8 @@ fn write_segmentation_case(
                 frame_of_reference_uid,
                 image_type: "DERIVED\\PRIMARY",
                 segmentation_type: recipe.segmentation_type,
+                segmentation_fractional_type: recipe.segmentation_fractional_type,
+                maximum_fractional_value: recipe.maximum_fractional_value,
                 segment_sequence_items: 1,
                 shared_functional_groups: 1,
                 per_frame_functional_groups: recipe.frames as usize,
@@ -3591,11 +3663,32 @@ fn segmentation_manifest_entry(
     validation: Value,
 ) -> Value {
     let standards_evidence = standards_evidence_from_case(case);
-    let frame_byte_len = (usize::from(recipe.rows) * usize::from(recipe.columns)).div_ceil(8);
+    let frame_byte_len = match recipe.pixel_data_length_formula {
+        PixelDataLengthFormula::BitPackedFrames => {
+            (usize::from(recipe.rows) * usize::from(recipe.columns)).div_ceil(8)
+        }
+        PixelDataLengthFormula::ContiguousSamples => {
+            usize::from(recipe.rows)
+                * usize::from(recipe.columns)
+                * usize::from(recipe.bits_allocated)
+                / 8
+        }
+        PixelDataLengthFormula::YbrFull422 => {
+            unreachable!("segmentation recipes do not use YBR_FULL_422")
+        }
+    };
     let frame_hashes = recipe
         .pixel_bytes
         .chunks(frame_byte_len)
         .map(sha256_hex)
+        .collect::<Vec<_>>();
+    let known_stressors = std::iter::once("segmentation_storage")
+        .chain(recipe.stressors.iter().copied())
+        .chain([
+            "derived_source_reference",
+            "multi_frame_functional_groups",
+            "multi_frame_dimension",
+        ])
         .collect::<Vec<_>>();
     serde_json::json!({
         "case_id": recipe.case_id,
@@ -3614,12 +3707,14 @@ fn segmentation_manifest_entry(
                 "frames": recipe.frames,
                 "samples_per_pixel": 1,
                 "photometric_interpretation": "MONOCHROME2",
-                "bits_allocated": 1,
-                "bits_stored": 1,
-                "high_bit": 0,
+                "bits_allocated": recipe.bits_allocated,
+                "bits_stored": recipe.bits_stored,
+                "high_bit": recipe.high_bit,
                 "pixel_representation": 0,
                 "pixel_values": recipe.pixel_values,
                 "segmentation_type": recipe.segmentation_type,
+                "segmentation_fractional_type": recipe.segmentation_fractional_type,
+                "maximum_fractional_value": recipe.maximum_fractional_value,
                 "segment_count": 1,
                 "segment_label": recipe.segment_label,
                 "referenced_frame_numbers": recipe.referenced_frame_numbers,
@@ -3652,9 +3747,9 @@ fn segmentation_manifest_entry(
             "frames": recipe.frames,
             "samples_per_pixel": 1,
             "photometric_interpretation": "MONOCHROME2",
-            "bits_allocated": 1,
-            "bits_stored": 1,
-            "high_bit": 0,
+            "bits_allocated": recipe.bits_allocated,
+            "bits_stored": recipe.bits_stored,
+            "high_bit": recipe.high_bit,
             "pixel_representation": 0,
             "planar_configuration": Value::Null
         },
@@ -3674,9 +3769,11 @@ fn segmentation_manifest_entry(
         "expected_capabilities": ["open_file", "read_metadata", "show_unsupported_but_recognized", "parse_segmentation"],
         "expected_semantics": {
             "synthetic_data": "YES",
-            "pixel_min": 0,
-            "pixel_max": 1,
+            "pixel_min": recipe.pixel_min,
+            "pixel_max": recipe.pixel_max,
             "segmentation_type": recipe.segmentation_type,
+            "segmentation_fractional_type": recipe.segmentation_fractional_type,
+            "maximum_fractional_value": recipe.maximum_fractional_value,
             "segment_sequence_items": 1,
             "shared_functional_groups_sequence_items": 1,
             "per_frame_functional_groups_sequence_items": recipe.frames,
@@ -3685,16 +3782,10 @@ fn segmentation_manifest_entry(
             "referenced_frame_numbers": recipe.referenced_frame_numbers
         },
         "expected_visual_checks": {
-            "pattern": "two_frame_binary_segmentation_mask"
+            "pattern": recipe.visual_pattern
         },
         "validation": validation,
-        "known_stressors": [
-            "segmentation_storage",
-            "binary_bit_packed_pixel_data",
-            "derived_source_reference",
-            "multi_frame_functional_groups",
-            "multi_frame_dimension"
-        ],
+        "known_stressors": known_stressors,
         "standards_evidence": deduplicated_standards_evidence(standards_evidence)
     })
 }

@@ -270,6 +270,8 @@ pub(crate) struct SegmentationExpectations<'a> {
     pub frame_of_reference_uid: &'a str,
     pub image_type: &'a str,
     pub segmentation_type: &'a str,
+    pub segmentation_fractional_type: Option<&'a str>,
+    pub maximum_fractional_value: Option<u16>,
     pub segment_sequence_items: usize,
     pub shared_functional_groups: usize,
     pub per_frame_functional_groups: usize,
@@ -286,6 +288,8 @@ const TAG_SEGMENT_NUMBER: Tag = Tag(0x0062, 0x0004);
 const TAG_SEGMENT_ALGORITHM_TYPE: Tag = Tag(0x0062, 0x0008);
 const TAG_SEGMENT_IDENTIFICATION_SEQUENCE: Tag = Tag(0x0062, 0x000A);
 const TAG_REFERENCED_SEGMENT_NUMBER: Tag = Tag(0x0062, 0x000B);
+const TAG_MAXIMUM_FRACTIONAL_VALUE: Tag = Tag(0x0062, 0x000E);
+const TAG_SEGMENTATION_FRACTIONAL_TYPE: Tag = Tag(0x0062, 0x0010);
 const TAG_REFERENCED_SERIES_SEQUENCE: Tag = Tag(0x0008, 0x1115);
 const TAG_REFERENCED_INSTANCE_SEQUENCE: Tag = Tag(0x0008, 0x114A);
 const TAG_REFERENCED_SOP_CLASS_UID: Tag = Tag(0x0008, 0x1150);
@@ -1278,6 +1282,26 @@ fn validate_segmentation(
         .as_str(),
         "AUTOMATIC",
     );
+    if let Some(segmentation_fractional_type) = expected.segmentation_fractional_type {
+        check_equal(
+            results,
+            "segmentation_fractional_type",
+            "Segmentation Fractional Type matches the deterministic recipe.",
+            "Segmentation Fractional Type does not match the recipe.",
+            element_str(path, obj, TAG_SEGMENTATION_FRACTIONAL_TYPE)?.as_str(),
+            segmentation_fractional_type,
+        );
+    }
+    if let Some(maximum_fractional_value) = expected.maximum_fractional_value {
+        check_equal(
+            results,
+            "segmentation_maximum_fractional_value",
+            "Maximum Fractional Value matches the deterministic recipe.",
+            "Maximum Fractional Value does not match the recipe.",
+            element_u16(path, obj, TAG_MAXIMUM_FRACTIONAL_VALUE)?,
+            maximum_fractional_value,
+        );
+    }
 
     check_equal(
         results,

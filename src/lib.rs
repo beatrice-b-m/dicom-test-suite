@@ -77,6 +77,8 @@ const TAG_SEGMENTATION_TYPE: dicom_core::Tag = dicom_core::Tag(0x0062, 0x0001);
 const TAG_SEGMENT_SEQUENCE: dicom_core::Tag = dicom_core::Tag(0x0062, 0x0002);
 const TAG_SEGMENT_IDENTIFICATION_SEQUENCE: dicom_core::Tag = dicom_core::Tag(0x0062, 0x000A);
 const TAG_REFERENCED_SEGMENT_NUMBER: dicom_core::Tag = dicom_core::Tag(0x0062, 0x000B);
+const TAG_MAXIMUM_FRACTIONAL_VALUE: dicom_core::Tag = dicom_core::Tag(0x0062, 0x000E);
+const TAG_SEGMENTATION_FRACTIONAL_TYPE: dicom_core::Tag = dicom_core::Tag(0x0062, 0x0010);
 const TAG_REFERENCED_SOP_CLASS_UID: dicom_core::Tag = dicom_core::Tag(0x0008, 0x1150);
 const TAG_REFERENCED_SOP_INSTANCE_UID: dicom_core::Tag = dicom_core::Tag(0x0008, 0x1155);
 const TAG_SOURCE_IMAGE_SEQUENCE: dicom_core::Tag = dicom_core::Tag(0x0008, 0x2112);
@@ -2386,6 +2388,41 @@ fn validate_segmentation_standard_elements(
             "segmentation type must be a string",
         )?,
     );
+    let segmentation_type = manifest_str(
+        manifest_path,
+        file,
+        "/recipe/recipe_parameters/segmentation_type",
+        "segmentation type must be a string",
+    )?;
+    if segmentation_type == "FRACTIONAL" {
+        validate_type1_str_element(
+            failures,
+            relative_path,
+            obj,
+            TAG_SEGMENTATION_FRACTIONAL_TYPE,
+            "segmentation_fractional_type_type1c",
+            manifest_str(
+                manifest_path,
+                file,
+                "/recipe/recipe_parameters/segmentation_fractional_type",
+                "fractional segmentation type must be a string",
+            )?,
+        );
+        validate_type1_u16_element(
+            failures,
+            relative_path,
+            obj,
+            TAG_MAXIMUM_FRACTIONAL_VALUE,
+            "segmentation_maximum_fractional_value_type1c",
+            u16::try_from(manifest_u64(
+                manifest_path,
+                file,
+                "/recipe/recipe_parameters/maximum_fractional_value",
+                "maximum fractional value must be an integer",
+            )?)
+            .expect("manifest maximum fractional value must fit u16"),
+        );
+    }
     validate_sequence_len(
         failures,
         relative_path,
@@ -2604,6 +2641,20 @@ fn validate_type1_str_element(
             }
             validate_equal(failures, relative_path, name, actual, expected);
         }
+        Err(err) => failures.push(format!("{relative_path}: {name}: {err}")),
+    }
+}
+
+fn validate_type1_u16_element(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    obj: &OpenedObject,
+    tag: dicom_core::Tag,
+    name: &str,
+    expected: u16,
+) {
+    match element_u16_for_validate(obj, tag) {
+        Ok(actual) => validate_equal(failures, relative_path, name, actual, expected),
         Err(err) => failures.push(format!("{relative_path}: {name}: {err}")),
     }
 }
@@ -4263,6 +4314,12 @@ mod tests {
         );
         assert!(
             output.contains(
+                "derived/seg/fractional_probability_multiframe_explicit_le\timplemented\textended\t1.2.840.10008.5.1.4.1.1.66.4\t1.2.840.10008.1.2.1\t8/8 covered"
+            ),
+            "list-cases output must show implemented fractional SEG extended status"
+        );
+        assert!(
+            output.contains(
                 "non-image/encapsulated-document/pdf_minimal_explicit_le\tplanned\textended\t1.2.840.10008.5.1.4.1.1.104.1\t1.2.840.10008.1.2.1\t5/5 covered"
             ),
             "list-cases output must show planned Encapsulated PDF extended status"
@@ -4278,6 +4335,10 @@ mod tests {
         assert!(
             !output.contains("derived/seg/binary_multiframe_explicit_le"),
             "planned status filter should not include implemented SEG"
+        );
+        assert!(
+            !output.contains("derived/seg/fractional_probability_multiframe_explicit_le"),
+            "planned status filter should not include implemented fractional SEG"
         );
         assert!(
             output.contains(

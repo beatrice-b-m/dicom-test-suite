@@ -2659,7 +2659,7 @@
     },
     {
       "case_id": "derived/seg/fractional_probability_multiframe_explicit_le",
-      "status": "planned",
+      "status": "implemented",
       "profiles": ["extended"],
       "recipe_id": "seg_fractional_probability_multiframe",
       "recipe_version": "0.1.0",
@@ -2737,7 +2737,7 @@
           "query": "search_standard_text Segmentation Type FRACTIONAL PROBABILITY",
           "covered": true,
           "part": "PS3.3",
-          "anchor": "sect_C.8.20.2.3.1"
+          "anchor": "sect_C.8.20.2.3.2"
         }
       ]
     },

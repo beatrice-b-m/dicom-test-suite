@@ -2,9 +2,9 @@
 
 **Last updated:** 2026-06-14  
 **Source specification:** `SYSTEM_SPEC.md` version 0.2.0  
-**Current phase:** Phase 5.5 RT Dose complete; Encapsulated PDF next
+**Current phase:** Phase 5 complete; Phase 6 transfer syntax expansion next
 
-**Current implementation status:** Phase 0, Phase 0.5, Phase 1, Phase 2, Phase 3, Phase 4, the pre-Phase-5 hardening pass, Phase 5.0 foundation, Phase 5.1 BINARY Segmentation Storage, Phase 5.2 BINARY/FRACTIONAL/LABELMAP segmentation coverage, Phase 5.3 Presentation State/RWVM, Phase 5.4 SR/KOS, and Phase 5.5 RT Structure Set/RT Dose slices are functionally complete. `IMPLEMENTATION_PLAN.md` defines the concrete Phase 5 implementation sequence. Phase 5.5 now includes `non-image/rt/structure_set_single_roi_explicit_le` and `non-image/rt/dose_grid_u16_explicit_le`. The RT Dose object is a grid-based Explicit VR Little Endian RT Dose Storage instance with modality `RTDOSE`, two native unsigned 16-bit dose frames, Dose Grid Scaling, Grid Frame Offset Vector, source image and RT Structure Set references, and Synthetic Data set to `YES`. The extended profile now writes 16 files and reports 1 remaining planned Phase 5 case.
+**Current implementation status:** Phase 0, Phase 0.5, Phase 1, Phase 2, Phase 3, Phase 4, the pre-Phase-5 hardening pass, Phase 5.0 foundation, Phase 5.1 BINARY Segmentation Storage, Phase 5.2 BINARY/FRACTIONAL/LABELMAP segmentation coverage, Phase 5.3 Presentation State/RWVM, Phase 5.4 SR/KOS, Phase 5.5 RT Structure Set/RT Dose, and Phase 5.6 Encapsulated PDF slices are functionally complete. `IMPLEMENTATION_PLAN.md` defines the concrete Phase 5 implementation sequence, and all planned Phase 5 target cases are now implemented. Phase 5.6 adds `non-image/encapsulated-document/pdf_minimal_explicit_le`, an Explicit VR Little Endian Encapsulated PDF Storage object with modality `DOC`, a deterministic minimal PDF payload, MIME Type `application/pdf`, Document Title, Encapsulated Document Length, Synthetic Data set to `YES`, and no source references. The extended profile now writes 17 files and reports 0 remaining planned Phase 5 cases.
 
 This document is the durable hand-off log for coding agents implementing
 `dicom-test-suite`. Keep `SYSTEM_SPEC.md` as the source of product and
@@ -44,14 +44,14 @@ Observed at creation of this progress file:
 | `standards.lock.json` | present | Locks to DICOM 2026b base edition only using the pinned `dicom-standard-kb` MCP source manifest; unavailable KB commit, local DB hash, and official source artifact hashes are documented with explicit non-fatal statuses. |
 | `schemas/` | present | Manifest, case registry, coverage report, and viewer report schemas have initial structured coverage. |
 | `cases/taxonomy.md` | present | Documents normalized case ID format, path segments, descriptor conventions, profile definitions, and inclusion rules. |
-| `cases/registry.json` | present | Tracks implemented smoke/core SC cases, classic radiology CT/MG/CR/MR/DX/US cases, Enhanced CT, Enhanced CT concatenation, Enhanced MR extended cases, planned SEG, and planned VL cases with standards evidence from `dicom-standard-kb` MCP lookups. |
+| `cases/registry.json` | present | Tracks implemented smoke/core SC cases, classic radiology CT/MG/CR/MR/DX/US cases, Enhanced CT, Enhanced CT concatenation, Enhanced MR extended cases, implemented Phase 5 derived/non-image cases, and planned VL cases with standards evidence from `dicom-standard-kb` MCP lookups. |
 | `transfer-syntax/capability-matrix.json` | present | Records initial read/decode/write/encode, feature, external library, and determinism capabilities for baseline native transfer syntaxes. |
 | `docs/deterministic-build-policy.md` | present | Documents determinism levels, reproducibility inputs, UID derivation, metadata controls, hashes, and two-run verification. |
 | `standards/kb-integration.md` | present | Documents the pinned 2026b `dicom-standard-kb` MCP query workflow, evidence fields, and fallback path. |
 | `standards/gap-workflow.md` | present | Documents standards gap handling, local source notes, blocked/skipped registry actions, and KB patch criteria. |
 | `standards/source-notes/` | present | Contains a README/template plus `uid-2-25.md` for the PS3.5 UID root gap not covered by `dicom-standard-kb`. |
-| `src/` or `crates/` | present | Single-package implementation now includes `list-cases`, `generate`, deterministic UID, run manifest, SC pixel writers, CT signed rescale writer, MG For Presentation/For Processing writers, CR overlay/LUT writer, MR multi-slice writer, DX display shutter writer, US single-frame writer, Enhanced CT and Enhanced MR multi-frame writers, Enhanced CT concatenation output, and Part 10 validation paths. |
-| `tests/` | present | Includes schema artifact, `list-cases` CLI, `generate` CLI, UID, manifest, Part 10 readback, CT rescale readback, MG presentation/processing readback, CR overlay/LUT readback, MR multi-slice readback, DX display shutter readback, US readback, Enhanced CT and Enhanced MR multi-frame readback, Enhanced CT concatenation readback, and smoke reproducibility tests. |
+| `src/` or `crates/` | present | Single-package implementation now includes `list-cases`, `generate`, deterministic UID, run manifest, SC pixel writers, CT signed rescale writer, MG For Presentation/For Processing writers, CR overlay/LUT writer, MR multi-slice writer, DX display shutter writer, US single-frame writer, Enhanced CT and Enhanced MR multi-frame writers, Enhanced CT concatenation output, Phase 5 derived/non-image object writers, and Part 10/generated-root validation paths. |
+| `tests/` | present | Includes schema artifact, `list-cases` CLI, `generate` CLI, UID, manifest, Part 10 readback, CT rescale readback, MG presentation/processing readback, CR overlay/LUT readback, MR multi-slice readback, DX display shutter readback, US readback, Enhanced CT and Enhanced MR multi-frame readback, Enhanced CT concatenation readback, Phase 5 object readback/mutation tests, and smoke/core/extended reproducibility tests. |
 
 ## Non-Negotiable Implementation Constraints
 
@@ -85,7 +85,7 @@ Observed at creation of this progress file:
 | Phase 3: Classic radiology IODs | complete | CT Image Storage signed 12-bit rescale/window, MG For Presentation/For Processing 12-bit, CR overlay/Modality LUT/VOI LUT, MR multi-slice oblique geometry, DX display shutter, US Image Storage, and stable multi-file series generation are implemented. |
 | Phase 4: Enhanced multi-frame | complete | Enhanced CT and Enhanced MR Image Storage cases with Shared and Per-Frame Functional Groups and Multi-frame Dimension metadata are implemented; MR Echo, Temporal Position, phase/velocity-encoding variation, and a two-member Enhanced CT concatenation case are covered. |
 | Pre-Phase-5 hardening | complete | Registry authority, required CLI contracts, validation hardening, reproducibility/CI guards, and standards lock pinning policy are complete. Validation now covers raw Part 10 byte checks, parsed cross-field image invariants, manifest schema-conformance checks, baseline standards-derived Type 1/Type 2 checks, classic family-specific checks, and Enhanced CT/MR multi-frame standards-derived checks. |
-| Phase 5: Derived, presentation, and non-image objects | Phase 5.5 RT Dose complete; Encapsulated PDF next | Full planned target queue is now in `cases/registry.json`. Manifest entries support nullable/absent image metadata plus a generated-file `references` array, coverage reports project manifest reference source case IDs into `derived_refs`, generated-root validation resolves same-run references while skipping image/pixel checks for non-image rows, and generation maintains an ordered source object registry for derived recipes. BINARY, FRACTIONAL, LABELMAP Segmentation, Grayscale Softcopy Presentation State, Real World Value Mapping, Basic Text SR, Comprehensive SR, Key Object Selection, RT Structure Set, and RT Dose objects are implemented and validated. The next implementation slice is Encapsulated PDF. |
+| Phase 5: Derived, presentation, and non-image objects | complete | Full planned target queue is now in `cases/registry.json`. Manifest entries support nullable/absent image metadata plus a generated-file `references` array, coverage reports project manifest reference source case IDs into `derived_refs`, generated-root validation resolves same-run references while skipping image/pixel checks for non-image rows, and generation maintains an ordered source object registry for derived recipes. BINARY, FRACTIONAL, LABELMAP Segmentation, Grayscale Softcopy Presentation State, Real World Value Mapping, Basic Text SR, Comprehensive SR, Key Object Selection, RT Structure Set, RT Dose, and Encapsulated PDF objects are implemented and validated. Extended generation reports zero Phase 5 planned cases. |
 | Phase 6: Transfer syntax expansion | not started | Transfer syntax abstraction and compressed cases pending. |
 | Phase 7: Pathology, video, and large object profiles | not started | VL, WSI, video, and stress cases pending. |
 | Phase 8: Reporting and viewer integration | not started | Coverage reports, optional viewer runner, and compatibility schema pending. |
@@ -216,14 +216,14 @@ Enhanced CT concatenation case for logical multi-frame object splitting.
 - [x] Implement Key Object Selection case.
 - [x] Implement RT Structure Set detection case.
 - [x] Implement RT Dose detection case.
-- [ ] Implement Encapsulated PDF detection case.
-- [ ] Run Phase 5 completion verification across generation, validation,
+- [x] Implement Encapsulated PDF detection case.
+- [x] Run Phase 5 completion verification across generation, validation,
       reporting, reproducibility, standards gaps, and artifact guards.
 
-Phase 5 is complete only when the extended/all profiles include all planned
-Phase 5 target cases, generated derived objects resolve references to source
-objects generated in the same run, and viewers can use the corpus to test
-graceful handling of common derived and non-image SOP Classes.
+Phase 5 is complete. The extended/all profiles include all planned Phase 5
+target cases, generated derived objects resolve references to source objects
+generated in the same run, and viewers can use the corpus to test graceful
+handling of common derived and non-image SOP Classes.
 
 ## Initial Priority Case Queue
 
@@ -874,8 +874,51 @@ These case IDs come from `SYSTEM_SPEC.md` section 21 and should seed
   bits `16`, frames `2`, photometric interpretation `MONOCHROME2`, and
   `derived_refs=["enhanced/ct/multiframe_shared_perframe_explicit_le",
   "non-image/rt/structure_set_single_roi_explicit_le"]`.
+- 2026-06-14: Phase 5.6 Encapsulated PDF is implemented for
+  `non-image/encapsulated-document/pdf_minimal_explicit_le`. The recipe writes
+  a non-image Explicit VR Little Endian Encapsulated PDF Storage object with a
+  deterministic minimal ASCII PDF payload, Encapsulated Document Length,
+  Document Title `DTS Minimal Synthetic PDF`, MIME Type `application/pdf`,
+  Encapsulated Document Series Modality `DOC`, SC Equipment Conversion Type
+  `SYN`, Burned In Annotation `NO`, Recognizable Visual Features `NO`,
+  Synthetic Data set to `YES`, null image and pixel manifest metadata, and no
+  source references. Generation-time validation and generated-root validation
+  now check the Encapsulated PDF SOP Class, document-series and SC Equipment
+  attributes, Encapsulated Document Module Type 1/2 fields, payload SHA-256,
+  original unpadded document length, DICOM OB padding, MIME type, and absence
+  of Pixel Data. `cases/registry.json` marks the case `implemented`, and the
+  extended profile reports zero planned Phase 5 cases.
 
 ## Verification Results
+
+- 2026-06-14 Phase 5.6 Encapsulated PDF slice:
+  - `dicom-standard-kb` MCP lookups rechecked Encapsulated PDF Storage, the
+    Encapsulated PDF IOD, IOD modules, Encapsulated Document Series,
+    Encapsulated Document, SOP Common, Encapsulated Document, MIME Type of
+    Encapsulated Document, Document Title, and Modality data elements. Parsed
+    defined/enumerated term lookup for Encapsulated Document Series Modality,
+    Burned In Annotation, and Recognizable Visual Features was unavailable, but
+    the module rows and standard text excerpt returned the required attribute
+    shape and YES/NO value evidence used by the implementation.
+  - `cargo test --test generate_cli --test validate_cli --test list_cases_cli --test project_artifacts`
+    passed.
+  - `cargo fmt -- --check` passed.
+  - `cargo test` passed.
+  - `cargo run -- standards check-lock` passed with the existing documented
+    unavailable-pin warnings.
+  - `cargo run -- generate --profile extended --out /tmp/dts-phase5-pdf --seed 1`
+    passed, writing 17 files.
+  - `cargo run -- validate /tmp/dts-phase5-pdf` passed with 17 files checked
+    and 0 validation failures.
+  - `cargo run -- report /tmp/dts-phase5-pdf --format json` passed with counts
+    `generated=17`, `planned=0`, `skipped=0`, `blocked=0`; the Encapsulated
+    PDF row reports SOP Class UID `1.2.840.10008.5.1.4.1.1.104.1`, IOD
+    `Encapsulated PDF`, object type `non-image`, null photometric/bits/frames,
+    empty `derived_refs`, and validation status `passed`.
+  - `cargo run -- report /tmp/dts-phase5-pdf --format markdown` passed with
+    counts `generated=17`, `planned=0`, `skipped=0`, `blocked=0`.
+  - `cargo run -- standards gaps --profile extended` passed and reported only
+    the TSV header, confirming no extended-profile standards gaps.
 
 - 2026-06-14 Phase 5.5 RT Dose slice:
   - `dicom-standard-kb` MCP lookups rechecked RT Dose Storage, the RT Dose
@@ -1305,25 +1348,25 @@ These case IDs come from `SYSTEM_SPEC.md` section 21 and should seed
 
 ## Current Blockers
 
-None currently recorded for continuing Phase 5.6.
+None currently recorded for starting Phase 6.
 
 ## Recommended Next Commit
 
-Continue Phase 5.6 with
-`non-image/encapsulated-document/pdf_minimal_explicit_le`. Recheck Encapsulated
-PDF Storage, the Encapsulated PDF IOD and modules, SOP Common requirements,
-Encapsulated Document Module attributes, MIME Type of Encapsulated Document,
-Document Title, and Encapsulated Document byte requirements with
-`dicom-standard-kb` before adding the writer. Keep the commit limited to the
-Encapsulated PDF writer/validation/tests/registry status/progress unless a
-small shared encapsulated-document helper is required.
+Prepare the Phase 6 transfer syntax expansion plan before adding compressed
+recipes. Reconcile `SYSTEM_SPEC.md` transfer-syntax requirements with current
+DICOM-rs codec support and `transfer-syntax/capability-matrix.json`, then
+choose the smallest native/compressed transfer-syntax abstraction slice that
+keeps existing Phase 1-5 generation, validation, reporting, and
+reproducibility checks passing.
 
 ## Commit-Ready Summary
 
-The current slice implements `non-image/rt/dose_grid_u16_explicit_le`, adds a
-grid-based RT Dose writer and validation path, flips the RT Dose registry row to
-`implemented`, updates focused tests and this progress tracker, and leaves
-`non-image/encapsulated-document/pdf_minimal_explicit_le` as the next work.
+The current slice implements
+`non-image/encapsulated-document/pdf_minimal_explicit_le`, adds an Encapsulated
+PDF writer and validation paths, flips the registry row to `implemented`, adds
+focused generate/list/validate/artifact tests, updates this progress tracker,
+and marks Phase 5 complete. The next work is Phase 6 transfer syntax expansion
+planning or the first transfer-syntax abstraction slice.
 
 ## Handoff Notes
 

@@ -3255,7 +3255,7 @@
     },
     {
       "case_id": "non-image/encapsulated-document/pdf_minimal_explicit_le",
-      "status": "planned",
+      "status": "implemented",
       "profiles": ["extended"],
       "recipe_id": "encapsulated_pdf_minimal",
       "recipe_version": "0.1.0",
@@ -3307,6 +3307,22 @@
           "source": "dicom-standard-kb",
           "edition": "2026b",
           "query": "lookup_data_element EncapsulatedDocument",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_data_element MIMETypeOfEncapsulatedDocument",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_data_element DocumentTitle",
           "covered": true,
           "part": "PS3.6",
           "anchor": "table_6-1"

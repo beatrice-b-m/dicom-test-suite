@@ -1714,6 +1714,13 @@ fn validate_family_standard_elements(
         "RT Dose" => {
             validate_rt_dose_standard_elements(failures, relative_path, manifest_path, file, obj)?
         }
+        "Encapsulated PDF" => validate_encapsulated_pdf_standard_elements(
+            failures,
+            relative_path,
+            manifest_path,
+            file,
+            obj,
+        )?,
         _ => {}
     }
 
@@ -3852,6 +3859,220 @@ fn validate_rt_dose_standard_elements(
     Ok(())
 }
 
+fn validate_encapsulated_pdf_standard_elements(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    manifest_path: &Path,
+    file: &Value,
+    obj: &OpenedObject,
+) -> Result<(), ValidateError> {
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::SOP_CLASS_UID,
+        "encapsulated_pdf_sop_class",
+        manifest_str(
+            manifest_path,
+            file,
+            "/dicom/sop_class_uid",
+            "Encapsulated PDF SOP Class UID must be a string",
+        )?,
+    );
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::MODALITY,
+        "encapsulated_document_modality_type1",
+        "DOC",
+    );
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::CONVERSION_TYPE,
+        "encapsulated_pdf_conversion_type",
+        manifest_str(
+            manifest_path,
+            file,
+            "/expected_semantics/conversion_type",
+            "Encapsulated PDF conversion_type must be a string",
+        )?,
+    );
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::INSTANCE_NUMBER,
+        "encapsulated_document_instance_number_type1",
+        "1",
+    );
+    validate_type2_element(
+        failures,
+        relative_path,
+        obj,
+        tags::CONTENT_DATE,
+        "encapsulated_document_content_date_type2",
+    );
+    validate_type2_element(
+        failures,
+        relative_path,
+        obj,
+        tags::CONTENT_TIME,
+        "encapsulated_document_content_time_type2",
+    );
+    validate_type2_element(
+        failures,
+        relative_path,
+        obj,
+        tags::ACQUISITION_DATE_TIME,
+        "encapsulated_document_acquisition_datetime_type2",
+    );
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::BURNED_IN_ANNOTATION,
+        "encapsulated_document_burned_in_annotation_type1",
+        manifest_str(
+            manifest_path,
+            file,
+            "/expected_semantics/encapsulated_document/burned_in_annotation",
+            "Encapsulated PDF Burned In Annotation must be a string",
+        )?,
+    );
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::RECOGNIZABLE_VISUAL_FEATURES,
+        "encapsulated_document_recognizable_visual_features",
+        manifest_str(
+            manifest_path,
+            file,
+            "/expected_semantics/encapsulated_document/recognizable_visual_features",
+            "Encapsulated PDF Recognizable Visual Features must be a string",
+        )?,
+    );
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::DOCUMENT_TITLE,
+        "encapsulated_document_title_type2",
+        manifest_str(
+            manifest_path,
+            file,
+            "/expected_semantics/encapsulated_document/document_title",
+            "Encapsulated PDF Document Title must be a string",
+        )?,
+    );
+    validate_sequence_len(
+        failures,
+        relative_path,
+        obj,
+        tags::CONCEPT_NAME_CODE_SEQUENCE,
+        "encapsulated_document_concept_name_code_sequence_type2",
+        0,
+    );
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::MIME_TYPE_OF_ENCAPSULATED_DOCUMENT,
+        "encapsulated_document_mime_type_type1",
+        manifest_str(
+            manifest_path,
+            file,
+            "/expected_semantics/encapsulated_document/mime_type",
+            "Encapsulated PDF MIME Type must be a string",
+        )?,
+    );
+
+    let expected_length = manifest_u64(
+        manifest_path,
+        file,
+        "/expected_semantics/encapsulated_document/document_length",
+        "Encapsulated PDF document_length must be an integer",
+    )? as usize;
+    match element_u32_for_validate(obj, tags::ENCAPSULATED_DOCUMENT_LENGTH) {
+        Ok(actual) => validate_equal(
+            failures,
+            relative_path,
+            "encapsulated_document_length",
+            actual,
+            expected_length as u32,
+        ),
+        Err(err) => failures.push(format!(
+            "{relative_path}: encapsulated_document_length: {err}"
+        )),
+    }
+
+    let expected_hash = manifest_str(
+        manifest_path,
+        file,
+        "/expected_semantics/encapsulated_document/document_sha256",
+        "Encapsulated PDF document_sha256 must be a string",
+    )?;
+    match obj.element(tags::ENCAPSULATED_DOCUMENT) {
+        Ok(element) => {
+            validate_equal(
+                failures,
+                relative_path,
+                "encapsulated_document_vr",
+                format!("{:?}", element.vr()),
+                "OB",
+            );
+            match element.value().to_bytes() {
+                Ok(bytes) => {
+                    let value = bytes.as_ref();
+                    if value.len() < expected_length {
+                        failures.push(format!(
+                            "{relative_path}: encapsulated_document_payload: value shorter than manifest document_length"
+                        ));
+                    } else {
+                        validate_equal(
+                            failures,
+                            relative_path,
+                            "encapsulated_document_sha256",
+                            sha256_hex(&value[..expected_length]),
+                            expected_hash,
+                        );
+                        if !value[..expected_length].starts_with(b"%PDF-") {
+                            failures.push(format!(
+                                "{relative_path}: encapsulated_document_pdf_header: payload does not start with %PDF-"
+                            ));
+                        }
+                        if value.len() > expected_length + 1
+                            || value[expected_length..].iter().any(|byte| *byte != 0)
+                        {
+                            failures.push(format!(
+                                "{relative_path}: encapsulated_document_padding: unexpected bytes after original PDF payload"
+                            ));
+                        }
+                    }
+                }
+                Err(err) => failures.push(format!(
+                    "{relative_path}: encapsulated_document_payload: {err}"
+                )),
+            }
+        }
+        Err(err) => failures.push(format!(
+            "{relative_path}: encapsulated_document_type1: {err}"
+        )),
+    }
+
+    match obj.element(tags::PIXEL_DATA) {
+        Ok(_) => failures.push(format!(
+            "{relative_path}: encapsulated_pdf_pixel_data_absent: unexpected Pixel Data"
+        )),
+        Err(_) => {}
+    }
+
+    Ok(())
+}
+
 fn validate_rt_referenced_sop(
     failures: &mut Vec<String>,
     relative_path: &str,
@@ -4025,6 +4246,14 @@ fn element_u16_for_validate(obj: &OpenedObject, tag: dicom_core::Tag) -> Result<
         .map_err(|err| err.to_string())?
         .value()
         .to_int::<u16>()
+        .map_err(|err| err.to_string())
+}
+
+fn element_u32_for_validate(obj: &OpenedObject, tag: dicom_core::Tag) -> Result<u32, String> {
+    obj.element(tag)
+        .map_err(|err| err.to_string())?
+        .value()
+        .to_int::<u32>()
         .map_err(|err| err.to_string())
 }
 
@@ -5629,9 +5858,9 @@ mod tests {
         );
         assert!(
             output.contains(
-                "non-image/encapsulated-document/pdf_minimal_explicit_le\tplanned\textended\t1.2.840.10008.5.1.4.1.1.104.1\t1.2.840.10008.1.2.1\t5/5 covered"
+                "non-image/encapsulated-document/pdf_minimal_explicit_le\timplemented\textended\t1.2.840.10008.5.1.4.1.1.104.1\t1.2.840.10008.1.2.1\t7/7 covered"
             ),
-            "list-cases output must show planned Encapsulated PDF extended status"
+            "list-cases output must show implemented Encapsulated PDF extended status"
         );
     }
 
@@ -5664,6 +5893,10 @@ mod tests {
         assert!(
             !output.contains("derived/sr/key_object_selection_explicit_le"),
             "planned status filter should not include implemented KOS"
+        );
+        assert!(
+            !output.contains("non-image/encapsulated-document/pdf_minimal_explicit_le"),
+            "planned status filter should not include implemented Encapsulated PDF"
         );
         assert!(
             !output.contains("enhanced/ct/multiframe_shared_perframe_explicit_le"),

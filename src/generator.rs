@@ -12,14 +12,15 @@ use crate::{
     sha256_hex,
     validation::{
         BasicTextSrExpectations, CrImageExpectations, CtImageExpectations, DxImageExpectations,
-        EnhancedCtConcatenationExpectations, EnhancedCtImageExpectations,
-        EnhancedMrImageExpectations, MgImageExpectations, MrImageExpectations, Part10Expectations,
-        PixelDataLengthFormula, PresentationStateExpectations, RealWorldValueMappingExpectations,
-        RtDoseExpectations, RtStructureSetExpectations, SegmentationExpectations,
-        UsImageExpectations, validate_basic_text_sr_file, validate_comprehensive_sr_file,
-        validate_key_object_selection_file, validate_part10_file, validate_presentation_state_file,
-        validate_real_world_value_mapping_file, validate_rt_dose_file,
-        validate_rt_structure_set_file,
+        EncapsulatedPdfExpectations, EnhancedCtConcatenationExpectations,
+        EnhancedCtImageExpectations, EnhancedMrImageExpectations, MgImageExpectations,
+        MrImageExpectations, Part10Expectations, PixelDataLengthFormula,
+        PresentationStateExpectations, RealWorldValueMappingExpectations, RtDoseExpectations,
+        RtStructureSetExpectations, SegmentationExpectations, UsImageExpectations,
+        validate_basic_text_sr_file, validate_comprehensive_sr_file,
+        validate_encapsulated_pdf_file, validate_key_object_selection_file, validate_part10_file,
+        validate_presentation_state_file, validate_real_world_value_mapping_file,
+        validate_rt_dose_file, validate_rt_structure_set_file,
     },
 };
 
@@ -40,6 +41,7 @@ const COMPREHENSIVE_SR_RECIPE_VERSION: &str = "0.1.0";
 const KEY_OBJECT_SELECTION_RECIPE_VERSION: &str = "0.1.0";
 const RT_STRUCTURE_SET_RECIPE_VERSION: &str = "0.1.0";
 const RT_DOSE_RECIPE_VERSION: &str = "0.1.0";
+const ENCAPSULATED_PDF_RECIPE_VERSION: &str = "0.1.0";
 const SEGMENTATION_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.66.4";
 const LABEL_MAP_SEGMENTATION_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.66.7";
 const GRAYSCALE_SOFTCOPY_PRESENTATION_STATE_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.11.1";
@@ -49,6 +51,7 @@ const COMPREHENSIVE_SR_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.88.33";
 const KEY_OBJECT_SELECTION_DOCUMENT_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.88.59";
 const RT_STRUCTURE_SET_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.481.3";
 const RT_DOSE_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.481.2";
+const ENCAPSULATED_PDF_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.104.1";
 const SEGMENTATION_SOURCE_CASE_ID: &str = "enhanced/ct/multiframe_shared_perframe_explicit_le";
 const GSPS_SOURCE_CASE_ID: &str = "enhanced/ct/multiframe_shared_perframe_explicit_le";
 const RWVM_SOURCE_CASE_ID: &str = "enhanced/ct/multiframe_shared_perframe_explicit_le";
@@ -105,6 +108,7 @@ const SEG_LABELMAP_VALUES: [i32; 8] = [0, 1, 0, 1, 1, 0, 1, 0];
 const RT_DOSE_GRID_PIXELS: [u8; 16] = [
     0x00, 0x00, 0x64, 0x00, 0xc8, 0x00, 0x2c, 0x01, 0x90, 0x01, 0xf4, 0x01, 0x58, 0x02, 0xbc, 0x02,
 ];
+const MINIMAL_PDF_BYTES: &[u8] = b"%PDF-1.4\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 72 72] >>\nendobj\nxref\n0 4\n0000000000 65535 f \n0000000009 00000 n \n0000000058 00000 n \n0000000115 00000 n \ntrailer\n<< /Size 4 /Root 1 0 R >>\nstartxref\n184\n%%EOF\n";
 const SEG_REFERENCED_FRAMES: [u16; 2] = [1, 2];
 const SR_REFERENCED_FRAMES: [u16; 2] = [1, 2];
 const KEY_OBJECT_SELECTION_IMAGE_REFERENCED_FRAMES: [u16; 2] = [1, 2];
@@ -1080,6 +1084,27 @@ const RT_DOSE_RECIPES: &[RtDoseRecipe] = &[RtDoseRecipe {
 }];
 
 #[derive(Debug, Clone, Copy)]
+struct EncapsulatedPdfRecipe {
+    case_id: &'static str,
+    recipe_id: &'static str,
+    document_title: &'static str,
+    mime_type: &'static str,
+    document_bytes: &'static [u8],
+    burned_in_annotation: &'static str,
+    recognizable_visual_features: &'static str,
+}
+
+const ENCAPSULATED_PDF_RECIPES: &[EncapsulatedPdfRecipe] = &[EncapsulatedPdfRecipe {
+    case_id: "non-image/encapsulated-document/pdf_minimal_explicit_le",
+    recipe_id: "encapsulated_pdf_minimal",
+    document_title: "DTS Minimal Synthetic PDF",
+    mime_type: "application/pdf",
+    document_bytes: MINIMAL_PDF_BYTES,
+    burned_in_annotation: "NO",
+    recognizable_visual_features: "NO",
+}];
+
+#[derive(Debug, Clone, Copy)]
 struct EnhancedMrRecipe {
     case_id: &'static str,
     recipe_id: &'static str,
@@ -1896,6 +1921,20 @@ pub(crate) fn write_supported_cases(
             *recipe,
             &image_source,
             &structure_set_source,
+            standards_lock_sha256,
+        )?)?;
+    }
+    for recipe in ENCAPSULATED_PDF_RECIPES {
+        let Some(case) = registry_case(registry, recipe.case_id)? else {
+            continue;
+        };
+        if !should_generate_case(case, run)? {
+            continue;
+        }
+        context.record_one(write_encapsulated_pdf_case(
+            run,
+            case,
+            *recipe,
             standards_lock_sha256,
         )?)?;
     }
@@ -4801,6 +4840,209 @@ fn write_rt_dose_case(
     })
 }
 
+fn write_encapsulated_pdf_case(
+    run: &PreparedGenerationRun,
+    case: &Value,
+    recipe: EncapsulatedPdfRecipe,
+    standards_lock_sha256: &str,
+) -> Result<GeneratedFile, GenerateError> {
+    let study_instance_uid = deterministic_encapsulated_pdf_uid(
+        standards_lock_sha256,
+        recipe,
+        run.seed,
+        UidRole::StudyInstance,
+    );
+    let series_instance_uid = deterministic_encapsulated_pdf_uid(
+        standards_lock_sha256,
+        recipe,
+        run.seed,
+        UidRole::SeriesInstance,
+    );
+    let sop_instance_uid = deterministic_encapsulated_pdf_uid(
+        standards_lock_sha256,
+        recipe,
+        run.seed,
+        UidRole::SopInstance,
+    );
+    let implementation_class_uid = deterministic_implementation_uid(standards_lock_sha256);
+
+    let relative_path = format!("{}/instance.dcm", recipe.case_id);
+    let path = run.out_dir.join(&relative_path);
+    let case_dir = path.parent().ok_or_else(|| GenerateError::MetadataShape {
+        path: PathBuf::from(&relative_path),
+        message: "generated DICOM path must have a parent directory",
+    })?;
+    fs::create_dir_all(case_dir).map_err(|source| GenerateError::CreateCaseOutputDir {
+        path: case_dir.to_path_buf(),
+        source,
+    })?;
+
+    let mut obj = InMemDicomObject::new_empty();
+    put_str(
+        &mut obj,
+        tags::SOP_CLASS_UID,
+        VR::UI,
+        ENCAPSULATED_PDF_STORAGE_UID,
+    );
+    put_str(&mut obj, tags::SOP_INSTANCE_UID, VR::UI, &sop_instance_uid);
+    put_str(&mut obj, tags::SYNTHETIC_DATA, VR::CS, "YES");
+
+    put_str(
+        &mut obj,
+        tags::PATIENT_NAME,
+        VR::PN,
+        "DTS^Synthetic^Patient001",
+    );
+    put_str(&mut obj, tags::PATIENT_ID, VR::LO, "DTS-PATIENT-001");
+    put_str(&mut obj, tags::PATIENT_BIRTH_DATE, VR::DA, "19700101");
+    put_str(&mut obj, tags::PATIENT_SEX, VR::CS, "O");
+
+    put_str(
+        &mut obj,
+        tags::STUDY_INSTANCE_UID,
+        VR::UI,
+        &study_instance_uid,
+    );
+    put_str(&mut obj, tags::STUDY_DATE, VR::DA, "20260101");
+    put_str(&mut obj, tags::STUDY_TIME, VR::TM, "000000");
+    put_str(&mut obj, tags::REFERRING_PHYSICIAN_NAME, VR::PN, "");
+    put_str(&mut obj, tags::STUDY_ID, VR::SH, "DTS-PDF");
+    put_str(&mut obj, tags::ACCESSION_NUMBER, VR::SH, "");
+
+    put_str(&mut obj, tags::MODALITY, VR::CS, "DOC");
+    put_str(
+        &mut obj,
+        tags::SERIES_INSTANCE_UID,
+        VR::UI,
+        &series_instance_uid,
+    );
+    put_str(&mut obj, tags::SERIES_NUMBER, VR::IS, "81");
+    put_str(
+        &mut obj,
+        tags::SERIES_DESCRIPTION,
+        VR::LO,
+        "DTS minimal synthetic PDF",
+    );
+
+    put_str(&mut obj, tags::MANUFACTURER, VR::LO, "dicom-test-suite");
+    put_str(
+        &mut obj,
+        tags::MANUFACTURER_MODEL_NAME,
+        VR::LO,
+        recipe.recipe_id,
+    );
+    put_str(&mut obj, tags::DEVICE_SERIAL_NUMBER, VR::LO, "DTS-PDF-0001");
+    put_str(
+        &mut obj,
+        tags::SOFTWARE_VERSIONS,
+        VR::LO,
+        crate::PACKAGE_VERSION,
+    );
+    put_str(&mut obj, tags::CONVERSION_TYPE, VR::CS, "SYN");
+
+    put_str(&mut obj, tags::INSTANCE_NUMBER, VR::IS, "1");
+    put_str(&mut obj, tags::CONTENT_DATE, VR::DA, "20260101");
+    put_str(&mut obj, tags::CONTENT_TIME, VR::TM, "000000");
+    put_str(
+        &mut obj,
+        tags::ACQUISITION_DATE_TIME,
+        VR::DT,
+        "20260101000000",
+    );
+    put_str(
+        &mut obj,
+        tags::BURNED_IN_ANNOTATION,
+        VR::CS,
+        recipe.burned_in_annotation,
+    );
+    put_str(
+        &mut obj,
+        tags::RECOGNIZABLE_VISUAL_FEATURES,
+        VR::CS,
+        recipe.recognizable_visual_features,
+    );
+    put_str(
+        &mut obj,
+        tags::DOCUMENT_TITLE,
+        VR::ST,
+        recipe.document_title,
+    );
+    put_empty_sequence(&mut obj, tags::CONCEPT_NAME_CODE_SEQUENCE);
+    put_str(
+        &mut obj,
+        tags::MIME_TYPE_OF_ENCAPSULATED_DOCUMENT,
+        VR::LO,
+        recipe.mime_type,
+    );
+    put_u32(
+        &mut obj,
+        tags::ENCAPSULATED_DOCUMENT_LENGTH,
+        VR::UL,
+        recipe.document_bytes.len() as u32,
+    );
+    obj.put(DataElement::new(
+        tags::ENCAPSULATED_DOCUMENT,
+        VR::OB,
+        PrimitiveValue::from(recipe.document_bytes),
+    ));
+
+    let file_obj = obj
+        .with_meta(
+            FileMetaTableBuilder::new()
+                .transfer_syntax(uids::EXPLICIT_VR_LITTLE_ENDIAN)
+                .implementation_class_uid(&implementation_class_uid)
+                .implementation_version_name(crate::IMPLEMENTATION_VERSION_NAME),
+        )
+        .map_err(|err| GenerateError::WriteDicomFile {
+            path: path.clone(),
+            message: err.to_string(),
+        })?;
+
+    file_obj
+        .write_to_file(&path)
+        .map_err(|err| GenerateError::WriteDicomFile {
+            path: path.clone(),
+            message: err.to_string(),
+        })?;
+
+    let validated = validate_encapsulated_pdf_file(
+        &path,
+        &EncapsulatedPdfExpectations {
+            sop_class_uid: ENCAPSULATED_PDF_STORAGE_UID,
+            sop_instance_uid: &sop_instance_uid,
+            transfer_syntax_uid: uids::EXPLICIT_VR_LITTLE_ENDIAN,
+            implementation_class_uid: &implementation_class_uid,
+            synthetic_data: "YES",
+            modality: "DOC",
+            conversion_type: "SYN",
+            instance_number: "1",
+            content_date: "20260101",
+            content_time: "000000",
+            acquisition_datetime: "20260101000000",
+            burned_in_annotation: recipe.burned_in_annotation,
+            recognizable_visual_features: recipe.recognizable_visual_features,
+            document_title: recipe.document_title,
+            mime_type: recipe.mime_type,
+            document_bytes: recipe.document_bytes,
+        },
+    )?;
+
+    Ok(GeneratedFile {
+        case_id: recipe.case_id.to_string(),
+        manifest_entry: encapsulated_pdf_manifest_entry(
+            case,
+            recipe,
+            &relative_path,
+            &study_instance_uid,
+            &series_instance_uid,
+            &sop_instance_uid,
+            &implementation_class_uid,
+            &validated.bytes,
+            validated.validation,
+        ),
+    })
+}
+
 fn write_enhanced_ct_concatenation_case(
     run: &PreparedGenerationRun,
     case: &Value,
@@ -7110,6 +7352,77 @@ fn rt_dose_manifest_entry(
         },
         "validation": validation,
         "known_stressors": ["rt_dose_storage", "grid_based_dose", "dose_grid_scaling", "derived_source_reference", "native_ow_pixel_data"],
+        "standards_evidence": deduplicated_standards_evidence(standards_evidence)
+    })
+}
+
+#[allow(clippy::too_many_arguments)]
+fn encapsulated_pdf_manifest_entry(
+    case: &Value,
+    recipe: EncapsulatedPdfRecipe,
+    relative_path: &str,
+    study_instance_uid: &str,
+    series_instance_uid: &str,
+    sop_instance_uid: &str,
+    implementation_class_uid: &str,
+    bytes: &[u8],
+    validation: Value,
+) -> Value {
+    let standards_evidence = standards_evidence_from_case(case);
+    serde_json::json!({
+        "case_id": recipe.case_id,
+        "profile_membership": ["extended"],
+        "path": relative_path,
+        "sha256": sha256_hex(bytes),
+        "size_bytes": bytes.len(),
+        "determinism": "byte_stable",
+        "recipe": {
+            "recipe_id": recipe.recipe_id,
+            "recipe_version": ENCAPSULATED_PDF_RECIPE_VERSION,
+            "recipe_parameters": {
+                "document_title": recipe.document_title,
+                "mime_type": recipe.mime_type,
+                "document_length": recipe.document_bytes.len(),
+                "document_sha256": sha256_hex(recipe.document_bytes),
+                "burned_in_annotation": recipe.burned_in_annotation,
+                "recognizable_visual_features": recipe.recognizable_visual_features
+            }
+        },
+        "dicom": {
+            "sop_class_uid": ENCAPSULATED_PDF_STORAGE_UID,
+            "sop_class_name": "Encapsulated PDF Storage",
+            "iod_name": "Encapsulated PDF",
+            "modality": "DOC",
+            "transfer_syntax_uid": uids::EXPLICIT_VR_LITTLE_ENDIAN,
+            "transfer_syntax_name": "Explicit VR Little Endian"
+        },
+        "uids": {
+            "study_instance_uid": study_instance_uid,
+            "series_instance_uid": series_instance_uid,
+            "sop_instance_uid": sop_instance_uid,
+            "implementation_class_uid": implementation_class_uid
+        },
+        "image": Value::Null,
+        "pixel_data": Value::Null,
+        "references": [],
+        "expected_capabilities": ["open_file", "read_metadata", "show_unsupported_but_recognized", "extract_encapsulated_document"],
+        "expected_semantics": {
+            "synthetic_data": "YES",
+            "conversion_type": "SYN",
+            "encapsulated_document": {
+                "document_title": recipe.document_title,
+                "mime_type": recipe.mime_type,
+                "document_length": recipe.document_bytes.len(),
+                "document_sha256": sha256_hex(recipe.document_bytes),
+                "burned_in_annotation": recipe.burned_in_annotation,
+                "recognizable_visual_features": recipe.recognizable_visual_features
+            }
+        },
+        "expected_visual_checks": {
+            "pattern": "minimal_single_page_pdf_document"
+        },
+        "validation": validation,
+        "known_stressors": ["encapsulated_pdf_storage", "encapsulated_document_ob", "non_image_object", "document_extraction"],
         "standards_evidence": deduplicated_standards_evidence(standards_evidence)
     })
 }
@@ -10547,6 +10860,24 @@ fn deterministic_rt_dose_uid(
         file_index: 0,
         frame_index: None,
         referenced_object_index: Some(0),
+        role,
+    })
+}
+
+fn deterministic_encapsulated_pdf_uid(
+    standards_lock_sha256: &str,
+    recipe: EncapsulatedPdfRecipe,
+    run_seed: u64,
+    role: UidRole,
+) -> String {
+    deterministic_uid(&DeterministicUidInput {
+        standards_lock_sha256,
+        case_id: recipe.case_id,
+        recipe_version: ENCAPSULATED_PDF_RECIPE_VERSION,
+        run_seed,
+        file_index: 0,
+        frame_index: None,
+        referenced_object_index: None,
         role,
     })
 }

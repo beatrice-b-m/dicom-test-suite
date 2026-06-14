@@ -239,6 +239,26 @@ pub(crate) struct RtDoseExpectations<'a> {
     pub referenced_structure_set_sop_instance_uid: &'a str,
 }
 
+#[derive(Debug, Clone)]
+pub(crate) struct EncapsulatedPdfExpectations<'a> {
+    pub sop_class_uid: &'a str,
+    pub sop_instance_uid: &'a str,
+    pub transfer_syntax_uid: &'a str,
+    pub implementation_class_uid: &'a str,
+    pub synthetic_data: &'a str,
+    pub modality: &'a str,
+    pub conversion_type: &'a str,
+    pub instance_number: &'a str,
+    pub content_date: &'a str,
+    pub content_time: &'a str,
+    pub acquisition_datetime: &'a str,
+    pub burned_in_annotation: &'a str,
+    pub recognizable_visual_features: &'a str,
+    pub document_title: &'a str,
+    pub mime_type: &'a str,
+    pub document_bytes: &'a [u8],
+}
+
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum PixelDataLengthFormula {
     ContiguousSamples,
@@ -3014,6 +3034,264 @@ pub(crate) fn validate_rt_dose_file(
     })
 }
 
+pub(crate) fn validate_encapsulated_pdf_file(
+    path: &Path,
+    expected: &EncapsulatedPdfExpectations<'_>,
+) -> Result<ValidatedPart10, GenerateError> {
+    let bytes = fs::read(path).map_err(|source| GenerateError::ReadGeneratedFile {
+        path: path.to_path_buf(),
+        source,
+    })?;
+    let obj = open_file(path).map_err(|err| GenerateError::ValidateDicomFile {
+        path: path.to_path_buf(),
+        message: err.to_string(),
+    })?;
+
+    let mut internal = Vec::new();
+    check(
+        &mut internal,
+        bytes.len() >= 132 && &bytes[128..132] == b"DICM",
+        "part10_preamble",
+        "File has a 128-byte preamble followed by the DICM marker.",
+        "File is missing the Part 10 DICM marker at byte offset 128.",
+    );
+    check_equal(
+        &mut internal,
+        "file_meta_transfer_syntax",
+        "File Meta Information Transfer Syntax UID matches the recipe.",
+        "File Meta Information Transfer Syntax UID does not match the recipe.",
+        trim_uid(obj.meta().transfer_syntax()).as_str(),
+        expected.transfer_syntax_uid,
+    );
+
+    let dataset_sop_class = element_str(path, &obj, tags::SOP_CLASS_UID)?;
+    check_equal(
+        &mut internal,
+        "sop_class_uid_consistency",
+        "Dataset SOP Class UID, File Meta SOP Class UID, and recipe SOP Class UID match.",
+        "SOP Class UID differs between dataset, File Meta Information, or recipe.",
+        dataset_sop_class.as_str(),
+        expected.sop_class_uid,
+    );
+    check_equal(
+        &mut internal,
+        "media_storage_sop_class_uid",
+        "File Meta SOP Class UID matches the dataset SOP Class UID.",
+        "File Meta SOP Class UID does not match the dataset SOP Class UID.",
+        trim_uid(obj.meta().media_storage_sop_class_uid()).as_str(),
+        dataset_sop_class.as_str(),
+    );
+    let dataset_sop_instance = element_str(path, &obj, tags::SOP_INSTANCE_UID)?;
+    check_equal(
+        &mut internal,
+        "sop_instance_uid_consistency",
+        "Dataset SOP Instance UID, File Meta SOP Instance UID, and manifest UID match.",
+        "SOP Instance UID differs between dataset, File Meta Information, or manifest.",
+        dataset_sop_instance.as_str(),
+        expected.sop_instance_uid,
+    );
+    check_equal(
+        &mut internal,
+        "media_storage_sop_instance_uid",
+        "File Meta SOP Instance UID matches the dataset SOP Instance UID.",
+        "File Meta SOP Instance UID does not match the dataset SOP Instance UID.",
+        trim_uid(obj.meta().media_storage_sop_instance_uid()).as_str(),
+        dataset_sop_instance.as_str(),
+    );
+    check_equal(
+        &mut internal,
+        "implementation_class_uid",
+        "File Meta Implementation Class UID matches the deterministic generator UID.",
+        "File Meta Implementation Class UID does not match the deterministic generator UID.",
+        trim_uid(obj.meta().implementation_class_uid()).as_str(),
+        expected.implementation_class_uid,
+    );
+    check_equal(
+        &mut internal,
+        "synthetic_data",
+        "Synthetic Data is present and set to YES.",
+        "Synthetic Data is missing or not set to YES.",
+        element_str(path, &obj, tags::SYNTHETIC_DATA)?.as_str(),
+        expected.synthetic_data,
+    );
+    check_equal(
+        &mut internal,
+        "encapsulated_pdf_modality",
+        "Encapsulated Document Series Modality matches the recipe.",
+        "Encapsulated Document Series Modality does not match the recipe.",
+        element_str(path, &obj, tags::MODALITY)?.as_str(),
+        expected.modality,
+    );
+    check_equal(
+        &mut internal,
+        "encapsulated_pdf_conversion_type",
+        "SC Equipment Conversion Type matches the recipe.",
+        "SC Equipment Conversion Type does not match the recipe.",
+        element_str(path, &obj, tags::CONVERSION_TYPE)?.as_str(),
+        expected.conversion_type,
+    );
+    check_equal(
+        &mut internal,
+        "encapsulated_pdf_instance_number",
+        "Instance Number matches the document recipe.",
+        "Instance Number does not match the document recipe.",
+        element_str(path, &obj, tags::INSTANCE_NUMBER)?.as_str(),
+        expected.instance_number,
+    );
+    check_equal(
+        &mut internal,
+        "encapsulated_pdf_content_date",
+        "Content Date Type 2 attribute is present and deterministic.",
+        "Content Date does not match the recipe.",
+        element_str(path, &obj, tags::CONTENT_DATE)?.as_str(),
+        expected.content_date,
+    );
+    check_equal(
+        &mut internal,
+        "encapsulated_pdf_content_time",
+        "Content Time Type 2 attribute is present and deterministic.",
+        "Content Time does not match the recipe.",
+        element_str(path, &obj, tags::CONTENT_TIME)?.as_str(),
+        expected.content_time,
+    );
+    check_equal(
+        &mut internal,
+        "encapsulated_pdf_acquisition_datetime",
+        "Acquisition DateTime Type 2 attribute is present and deterministic.",
+        "Acquisition DateTime does not match the recipe.",
+        element_str(path, &obj, tags::ACQUISITION_DATE_TIME)?.as_str(),
+        expected.acquisition_datetime,
+    );
+    check_equal(
+        &mut internal,
+        "encapsulated_pdf_burned_in_annotation",
+        "Burned In Annotation is NO for the synthetic de-identified PDF.",
+        "Burned In Annotation does not match the recipe.",
+        element_str(path, &obj, tags::BURNED_IN_ANNOTATION)?.as_str(),
+        expected.burned_in_annotation,
+    );
+    check_equal(
+        &mut internal,
+        "encapsulated_pdf_recognizable_visual_features",
+        "Recognizable Visual Features is NO for the synthetic PDF.",
+        "Recognizable Visual Features does not match the recipe.",
+        element_str(path, &obj, tags::RECOGNIZABLE_VISUAL_FEATURES)?.as_str(),
+        expected.recognizable_visual_features,
+    );
+    check_equal(
+        &mut internal,
+        "encapsulated_pdf_document_title",
+        "Document Title Type 2 attribute is present.",
+        "Document Title does not match the recipe.",
+        element_str(path, &obj, tags::DOCUMENT_TITLE)?.as_str(),
+        expected.document_title,
+    );
+    let concept_name_sequence = obj
+        .element(tags::CONCEPT_NAME_CODE_SEQUENCE)
+        .map_err(|err| validation_error(path, err))?;
+    check(
+        &mut internal,
+        concept_name_sequence
+            .items()
+            .is_some_and(|items| items.is_empty()),
+        "encapsulated_pdf_concept_name_code_sequence",
+        "Concept Name Code Sequence Type 2 attribute is present with zero items.",
+        "Concept Name Code Sequence is missing or not an empty sequence.",
+    );
+    check_equal(
+        &mut internal,
+        "encapsulated_pdf_mime_type",
+        "MIME Type of Encapsulated Document is application/pdf.",
+        "MIME Type of Encapsulated Document does not match the recipe.",
+        element_str(path, &obj, tags::MIME_TYPE_OF_ENCAPSULATED_DOCUMENT)?.as_str(),
+        expected.mime_type,
+    );
+    check_equal(
+        &mut internal,
+        "encapsulated_pdf_document_length",
+        "Encapsulated Document Length records the original unpadded PDF length.",
+        "Encapsulated Document Length does not match the PDF payload length.",
+        element_u32(path, &obj, tags::ENCAPSULATED_DOCUMENT_LENGTH)?,
+        expected.document_bytes.len() as u32,
+    );
+
+    let document_element = obj
+        .element(tags::ENCAPSULATED_DOCUMENT)
+        .map_err(|err| validation_error(path, err))?;
+    check_equal(
+        &mut internal,
+        "encapsulated_pdf_document_vr",
+        "Encapsulated Document VR is OB.",
+        "Encapsulated Document VR does not match the standard data element.",
+        document_element.vr(),
+        VR::OB,
+    );
+    let document_bytes = document_element
+        .value()
+        .to_bytes()
+        .map_err(|err| validation_error(path, err))?;
+    let document_value = document_bytes.as_ref();
+    let has_expected_payload = document_value.starts_with(expected.document_bytes)
+        && matches!(
+            document_value
+                .len()
+                .checked_sub(expected.document_bytes.len()),
+            Some(0) | Some(1)
+        )
+        && document_value[expected.document_bytes.len()..]
+            .iter()
+            .all(|byte| *byte == 0);
+    check(
+        &mut internal,
+        has_expected_payload,
+        "encapsulated_pdf_document_payload",
+        "Encapsulated Document contains the deterministic PDF payload.",
+        "Encapsulated Document payload does not match the recipe.",
+    );
+    check(
+        &mut internal,
+        obj.element_opt(tags::PIXEL_DATA)
+            .map_err(|err| validation_error(path, err))?
+            .is_none(),
+        "encapsulated_pdf_pixel_data_absent",
+        "Encapsulated PDF contains no Pixel Data.",
+        "Encapsulated PDF unexpectedly contains Pixel Data.",
+    );
+
+    fail_if_any_failed(path, &internal)?;
+
+    Ok(ValidatedPart10 {
+        bytes,
+        validation: serde_json::json!({
+            "status": "passed",
+            "internal": internal,
+            "standards": [
+                {
+                    "name": standard_sop_class_validation_name(expected.sop_class_uid),
+                    "status": "passed",
+                    "message": standard_sop_class_validation_message(expected.sop_class_uid)
+                },
+                {
+                    "name": standard_transfer_syntax_validation_name(expected.transfer_syntax_uid),
+                    "status": "passed",
+                    "message": standard_transfer_syntax_validation_message(expected.transfer_syntax_uid)
+                },
+                {
+                    "name": "synthetic_data_attribute",
+                    "status": "passed",
+                    "message": "Synthetic Data (0008,001C) is present with value YES."
+                },
+                {
+                    "name": "encapsulated_pdf_modules",
+                    "status": "passed",
+                    "message": "Encapsulated Document Series, SC Equipment, Encapsulated Document, and SOP Common attributes match the recipe."
+                }
+            ],
+            "external": []
+        }),
+    })
+}
+
 fn element_str(path: &Path, obj: &OpenedObject, tag: Tag) -> Result<String, GenerateError> {
     let value = obj
         .element(tag)
@@ -5221,6 +5499,7 @@ fn standard_sop_class_validation_name(sop_class_uid: &str) -> &'static str {
         uids::KEY_OBJECT_SELECTION_DOCUMENT_STORAGE => "key_object_selection_document_sop_class",
         uids::RT_STRUCTURE_SET_STORAGE => "rt_structure_set_sop_class",
         uids::RT_DOSE_STORAGE => "rt_dose_sop_class",
+        uids::ENCAPSULATED_PDF_STORAGE => "encapsulated_pdf_sop_class",
         _ => "sop_class_uid",
     }
 }
@@ -5272,6 +5551,9 @@ fn standard_sop_class_validation_message(sop_class_uid: &str) -> &'static str {
             "SOP Class UID matches RT Structure Set Storage in the 2026b reference."
         }
         uids::RT_DOSE_STORAGE => "SOP Class UID matches RT Dose Storage in the 2026b reference.",
+        uids::ENCAPSULATED_PDF_STORAGE => {
+            "SOP Class UID matches Encapsulated PDF Storage in the 2026b reference."
+        }
         _ => "SOP Class UID matches the recipe.",
     }
 }

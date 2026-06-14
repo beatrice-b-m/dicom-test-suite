@@ -126,7 +126,7 @@ fn registry_contains_initial_smoke_and_core_cases() {
         ("non-image/rt/dose_grid_u16_explicit_le", "implemented"),
         (
             "non-image/encapsulated-document/pdf_minimal_explicit_le",
-            "planned",
+            "implemented",
         ),
         ("vl/photo/rgb_planar0_explicit_le", "planned"),
         ("vl/photo/palette_color_explicit_le", "planned"),

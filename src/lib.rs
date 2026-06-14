@@ -2436,6 +2436,7 @@ fn generated_coverage_row(
     file: &Value,
     run_profile: &str,
 ) -> Result<Value, ReportError> {
+    let derived_refs = manifest_reference_case_ids(manifest_path, file)?;
     Ok(serde_json::json!({
         "case_id": report_str(manifest_path, file, "/case_id", "file case_id must be a string")?,
         "profile": run_profile,
@@ -2452,12 +2453,42 @@ fn generated_coverage_row(
             "spacing": Value::Null,
             "orientation": Value::Null
         },
-        "derived_refs": [],
+        "derived_refs": derived_refs,
         "validation_status": file.pointer("/validation/status").and_then(Value::as_str).unwrap_or("not_run"),
         "determinism": report_str(manifest_path, file, "/determinism", "determinism must be a string")?,
         "object_type": file.get("case_id").and_then(Value::as_str).and_then(|case_id| case_id.split('/').next()),
         "known_stressors": file.get("known_stressors").cloned().unwrap_or_else(|| serde_json::json!([]))
     }))
+}
+
+fn manifest_reference_case_ids(
+    manifest_path: &Path,
+    file: &Value,
+) -> Result<Vec<String>, ReportError> {
+    let references = match file.get("references") {
+        Some(Value::Array(references)) => references,
+        Some(_) => {
+            return Err(ReportError::MetadataShape {
+                path: manifest_path.to_path_buf(),
+                message: "file references must be an array",
+            });
+        }
+        None => return Ok(Vec::new()),
+    };
+
+    references
+        .iter()
+        .map(|reference| {
+            reference
+                .get("source_case_id")
+                .and_then(Value::as_str)
+                .map(str::to_string)
+                .ok_or_else(|| ReportError::MetadataShape {
+                    path: manifest_path.to_path_buf(),
+                    message: "file reference source_case_id must be a string",
+                })
+        })
+        .collect()
 }
 
 fn skipped_coverage_row(
@@ -2988,7 +3019,7 @@ fn build_generation_manifest(
         .unwrap_or(Value::Null);
     let file_entries: Vec<Value> = generated_files
         .into_iter()
-        .map(|file| file.manifest_entry)
+        .map(|file| file_manifest_entry_with_reference_defaults(file.manifest_entry))
         .collect();
 
     Ok(serde_json::json!({
@@ -3031,6 +3062,15 @@ fn build_generation_manifest(
         "files": file_entries,
         "skipped_cases": skipped_cases
     }))
+}
+
+fn file_manifest_entry_with_reference_defaults(mut file: Value) -> Value {
+    if let Some(object) = file.as_object_mut() {
+        object
+            .entry("references")
+            .or_insert_with(|| serde_json::json!([]));
+    }
+    file
 }
 
 fn skipped_cases_for_run(

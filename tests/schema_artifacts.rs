@@ -79,6 +79,58 @@ fn manifest_schema_requires_the_specified_top_level_sections() {
 }
 
 #[test]
+fn manifest_schema_allows_non_image_files_and_requires_references() {
+    let schema = read_json("schemas/manifest.schema.json");
+    let file_required = schema
+        .pointer("/$defs/file/required")
+        .and_then(Value::as_array)
+        .expect("manifest schema must define required file fields");
+
+    assert!(
+        file_required
+            .iter()
+            .any(|value| value.as_str() == Some("references")),
+        "manifest file entries must include references"
+    );
+    for optional_field in ["image", "pixel_data"] {
+        assert!(
+            !file_required
+                .iter()
+                .any(|value| value.as_str() == Some(optional_field)),
+            "manifest file entries must allow {optional_field} to be absent for non-image objects"
+        );
+        assert!(
+            schema
+                .pointer(&format!("/$defs/file/properties/{optional_field}/anyOf"))
+                .and_then(Value::as_array)
+                .is_some_and(|variants| variants
+                    .iter()
+                    .any(|variant| variant.get("type").and_then(Value::as_str) == Some("null"))),
+            "manifest file entries must allow {optional_field} to be null"
+        );
+    }
+
+    let reference_required = schema
+        .pointer("/$defs/reference/required")
+        .and_then(Value::as_array)
+        .expect("manifest schema must define required reference fields");
+    for field in [
+        "relationship",
+        "source_case_id",
+        "source_path",
+        "sop_class_uid",
+        "sop_instance_uid",
+    ] {
+        assert!(
+            reference_required
+                .iter()
+                .any(|value| value.as_str() == Some(field)),
+            "manifest references must require {field}"
+        );
+    }
+}
+
+#[test]
 fn case_registry_schema_requires_the_specified_case_fields() {
     let schema = read_json("schemas/case-registry.schema.json");
     let required = schema

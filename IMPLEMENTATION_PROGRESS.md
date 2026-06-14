@@ -4,7 +4,7 @@
 **Source specification:** `SYSTEM_SPEC.md` version 0.2.0  
 **Current phase:** Phase 5.0 foundation in progress
 
-**Current implementation status:** Phase 0, Phase 0.5, Phase 1, Phase 2, Phase 3, Phase 4, and the pre-Phase-5 hardening pass are functionally complete. `IMPLEMENTATION_PLAN.md` now defines the concrete Phase 5 implementation sequence. Phase 5.0 has started by seeding the full planned Phase 5 target queue in `cases/registry.json`; no Phase 5 generator recipe has been flipped to `implemented` yet.
+**Current implementation status:** Phase 0, Phase 0.5, Phase 1, Phase 2, Phase 3, Phase 4, and the pre-Phase-5 hardening pass are functionally complete. `IMPLEMENTATION_PLAN.md` now defines the concrete Phase 5 implementation sequence. Phase 5.0 has started by seeding the full planned Phase 5 target queue in `cases/registry.json` and by adding the manifest/report data shape for non-image objects and manifest references. No Phase 5 generator recipe has been flipped to `implemented` yet.
 
 This document is the durable hand-off log for coding agents implementing
 `dicom-test-suite`. Keep `SYSTEM_SPEC.md` as the source of product and
@@ -85,7 +85,7 @@ Observed at creation of this progress file:
 | Phase 3: Classic radiology IODs | complete | CT Image Storage signed 12-bit rescale/window, MG For Presentation/For Processing 12-bit, CR overlay/Modality LUT/VOI LUT, MR multi-slice oblique geometry, DX display shutter, US Image Storage, and stable multi-file series generation are implemented. |
 | Phase 4: Enhanced multi-frame | complete | Enhanced CT and Enhanced MR Image Storage cases with Shared and Per-Frame Functional Groups and Multi-frame Dimension metadata are implemented; MR Echo, Temporal Position, phase/velocity-encoding variation, and a two-member Enhanced CT concatenation case are covered. |
 | Pre-Phase-5 hardening | complete | Registry authority, required CLI contracts, validation hardening, reproducibility/CI guards, and standards lock pinning policy are complete. Validation now covers raw Part 10 byte checks, parsed cross-field image invariants, manifest schema-conformance checks, baseline standards-derived Type 1/Type 2 checks, classic family-specific checks, and Enhanced CT/MR multi-frame standards-derived checks. |
-| Phase 5: Derived, presentation, and non-image objects | foundation in progress | Full planned target queue is now in `cases/registry.json`. Remaining foundation work must make manifests, validation, reports, and same-run references object-aware before broad non-image recipe work. |
+| Phase 5: Derived, presentation, and non-image objects | foundation in progress | Full planned target queue is now in `cases/registry.json`. Manifest entries now support nullable/absent image metadata plus a generated-file `references` array, and coverage reports project manifest reference source case IDs into `derived_refs`. Remaining foundation work must add same-run source object maps and generated-root reference/object-aware validation before broad non-image recipe work. |
 | Phase 6: Transfer syntax expansion | not started | Transfer syntax abstraction and compressed cases pending. |
 | Phase 7: Pathology, video, and large object profiles | not started | VL, WSI, video, and stress cases pending. |
 | Phase 8: Reporting and viewer integration | not started | Coverage reports, optional viewer runner, and compatibility schema pending. |
@@ -200,7 +200,9 @@ Enhanced CT concatenation case for logical multi-frame object splitting.
 - [x] Add planned registry rows and standards evidence for all Phase 5 target
       cases.
 - [ ] Refactor manifest schema, generated-root validation, and coverage reports
-      to represent non-image objects and derived references.
+      to represent non-image objects and derived references. Manifest schema
+      and coverage-report projection are partially complete; generated-root
+      validation remains image-first for generated files.
 - [ ] Add same-run source object map and reference-resolution validation.
 - [ ] Implement BINARY Segmentation Storage case.
 - [ ] Implement FRACTIONAL Segmentation Storage case.
@@ -674,8 +676,40 @@ These case IDs come from `SYSTEM_SPEC.md` section 21 and should seed
   selected implementation-driving data elements. Tests were updated so
   `list-cases`, generated manifest skip accounting, and registry artifact
   guards treat the full Phase 5 queue as durable state.
+- 2026-06-14: Phase 5.0 manifest/report foundation continued by updating
+  `schemas/manifest.schema.json` so file entries require a `references` array
+  while `image` and `pixel_data` may be absent or explicitly `null` for
+  non-image objects. Manifest assembly now supplies `references: []` for all
+  existing generated image cases, preserving current generation behavior while
+  establishing the schema contract future derived recipes will populate.
+  Coverage reports now project manifest reference `source_case_id` values into
+  generated rows' `derived_refs`; a synthetic non-image report test confirms
+  reports keep photometric, bits, frames, and geometry empty instead of
+  inventing image metadata. Generated-root validation is still image-first and
+  must be made object-aware before flipping any non-image recipe to
+  `implemented`.
 
 ## Verification Results
+
+- 2026-06-14 Phase 5 manifest/report reference foundation slice:
+  - `cargo fmt -- --check` initially failed on formatting in
+    `tests/schema_artifacts.rs`; `cargo fmt` was run, and the repeated
+    `cargo fmt -- --check` passed.
+  - `cargo test --test schema_artifacts --test report_cli` passed.
+  - `cargo test` passed.
+  - `cargo run -- standards check-lock` passed with the existing documented
+    unavailable-pin warnings.
+  - `cargo run -- generate --profile extended --out /tmp/dts-slice --seed 1`
+    passed, writing 6 existing extended files and recording 11 planned Phase 5
+    unavailable cases.
+  - `cargo run -- validate /tmp/dts-slice` passed with 6 files checked and 0
+    validation failures.
+  - `cargo run -- report /tmp/dts-slice --format json` passed with counts
+    `generated=6`, `planned=11`, `skipped=0`, `blocked=0`.
+  - `cargo run -- report /tmp/dts-slice --format markdown` passed with the
+    expected extended coverage matrix and planned Phase 5 gaps.
+  - `cargo run -- standards gaps --profile extended` passed with no standards
+    evidence gaps.
 
 - 2026-06-14 Phase 5 registry queue slice:
   - `jq empty cases/registry.json` passed.
@@ -708,12 +742,18 @@ None currently recorded for starting Phase 5.
 
 ## Recommended Next Commit
 
-Continue Phase 5.0 with `feat(manifest): allow non-image references`, covering
-the manifest schema changes for nullable/absent `image` and `pixel_data` on
-non-image objects plus the generated-file `references` array. Keep generation
-behavior unchanged except for schema-compatible manifest shape; same-run source
-object map, reference validation, and coverage report population can follow as
-separate slices if needed.
+Continue Phase 5.0 with same-run source object/reference validation
+infrastructure. The next slice should build a source object map from generated
+manifest entries, validate manifest `references` against files generated in the
+same run, and keep validation object-aware so future non-image rows can omit
+image and Pixel Data fields without weakening current image checks.
+
+## Commit-Ready Summary
+
+The current slice updates the manifest schema, generation manifest assembly,
+coverage report projection, schema tests, report tests, and this progress
+tracker only. It does not implement any Phase 5 recipe or change registry case
+statuses.
 
 ## Handoff Notes
 

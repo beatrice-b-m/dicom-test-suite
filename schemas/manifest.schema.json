@@ -208,8 +208,7 @@
         "recipe",
         "dicom",
         "uids",
-        "image",
-        "pixel_data",
+        "references",
         "expected_capabilities",
         "expected_semantics",
         "expected_visual_checks",
@@ -253,10 +252,30 @@
           "$ref": "#/$defs/uids"
         },
         "image": {
-          "$ref": "#/$defs/image"
+          "anyOf": [
+            {
+              "$ref": "#/$defs/image"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "pixel_data": {
-          "$ref": "#/$defs/pixel_data"
+          "anyOf": [
+            {
+              "$ref": "#/$defs/pixel_data"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "references": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/reference"
+          }
         },
         "expected_capabilities": {
           "type": "array",
@@ -288,6 +307,46 @@
           "items": {
             "$ref": "#/$defs/standards_evidence"
           }
+        }
+      },
+      "additionalProperties": false
+    },
+    "reference": {
+      "type": "object",
+      "required": [
+        "relationship",
+        "source_case_id",
+        "source_path",
+        "sop_class_uid",
+        "sop_instance_uid"
+      ],
+      "properties": {
+        "relationship": {
+          "type": "string"
+        },
+        "source_case_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9_-]*(/[a-z0-9][a-z0-9_-]*)+$"
+        },
+        "source_path": {
+          "type": "string"
+        },
+        "sop_class_uid": {
+          "type": "string"
+        },
+        "sop_instance_uid": {
+          "type": "string"
+        },
+        "series_instance_uid": {
+          "type": ["string", "null"]
+        },
+        "frame_numbers": {
+          "type": ["array", "null"],
+          "items": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "uniqueItems": true
         }
       },
       "additionalProperties": false

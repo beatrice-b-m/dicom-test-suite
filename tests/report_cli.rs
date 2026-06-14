@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use serde_json::Value;
+use serde_json::json;
 
 #[test]
 fn report_command_writes_json_coverage_for_core_root() {
@@ -99,6 +100,84 @@ fn report_command_writes_markdown_coverage_for_core_root() {
         stdout.contains("| classic/ct/mono2_i16_rescale_12bit_explicit_le | generated | core |")
     );
     assert!(stdout.contains("| vl/photo/palette_color_explicit_le | planned | core |"));
+
+    fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
+}
+
+#[test]
+fn report_projects_manifest_references_for_non_image_rows() {
+    let out_dir = unique_temp_dir("report-non-image-references");
+    fs::create_dir_all(&out_dir).expect("temporary output root should be created");
+    let manifest = json!({
+        "generated_at": "19700101000000.000000+0000",
+        "standards": {
+            "standards_lock_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+        },
+        "run": {
+            "profile": "extended"
+        },
+        "files": [
+            {
+                "case_id": "derived/rwvm/linear_ct_mapping_explicit_le",
+                "dicom": {
+                    "iod_name": "Real World Value Mapping",
+                    "sop_class_uid": "1.2.840.10008.5.1.4.1.1.67",
+                    "transfer_syntax_uid": "1.2.840.10008.1.2.1"
+                },
+                "image": null,
+                "pixel_data": null,
+                "references": [
+                    {
+                        "relationship": "source_image",
+                        "source_case_id": "enhanced/ct/multiframe_shared_perframe_explicit_le",
+                        "source_path": "enhanced/ct/multiframe_shared_perframe_explicit_le/instance.dcm",
+                        "sop_class_uid": "1.2.840.10008.5.1.4.1.1.2.1",
+                        "sop_instance_uid": "2.25.1",
+                        "series_instance_uid": "2.25.2",
+                        "frame_numbers": [1, 2]
+                    }
+                ],
+                "validation": {
+                    "status": "passed"
+                },
+                "determinism": "byte_stable",
+                "known_stressors": ["real_world_value_mapping"]
+            }
+        ],
+        "skipped_cases": []
+    });
+    fs::write(
+        out_dir.join("manifest.json"),
+        serde_json::to_string_pretty(&manifest).expect("manifest should serialize"),
+    )
+    .expect("manifest should be writable");
+
+    let report = dicom_test_suite::build_coverage_report(&out_dir)
+        .expect("report should accept non-image manifest rows");
+    let row = coverage_row(&report, "derived/rwvm/linear_ct_mapping_explicit_le");
+    assert_eq!(
+        row.get("photometric"),
+        Some(&Value::Null),
+        "non-image rows should not invent image metadata"
+    );
+    assert_eq!(
+        row.pointer("/geometry/rows"),
+        Some(&Value::Null),
+        "non-image rows should keep geometry empty"
+    );
+    assert_eq!(
+        row.get("derived_refs")
+            .and_then(Value::as_array)
+            .and_then(|refs| refs.first())
+            .and_then(Value::as_str),
+        Some("enhanced/ct/multiframe_shared_perframe_explicit_le")
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/object_types/derived")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
 
     fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
 }

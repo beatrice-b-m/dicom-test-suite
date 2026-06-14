@@ -4,7 +4,7 @@
 **Source specification:** `SYSTEM_SPEC.md` version 0.2.0  
 **Current phase:** Phase 6 transfer syntax expansion started
 
-**Current implementation status:** Phase 0, Phase 0.5, Phase 1, Phase 2, Phase 3, Phase 4, the pre-Phase-5 hardening pass, Phase 5.0 foundation, Phase 5.1 BINARY Segmentation Storage, Phase 5.2 BINARY/FRACTIONAL/LABELMAP segmentation coverage, Phase 5.3 Presentation State/RWVM, Phase 5.4 SR/KOS, Phase 5.5 RT Structure Set/RT Dose, and Phase 5.6 Encapsulated PDF slices are functionally complete. Phase 6.0 native transfer syntax foundation is functionally complete: transfer syntax capability planning, native writer verification, the generator-side transfer syntax abstraction, and the first retired Explicit VR Big Endian legacy Secondary Capture case are implemented and verified. `IMPLEMENTATION_PLAN.md` now includes the remaining Phase 6.1 Deflated Explicit VR Little Endian feature-gating and Phase 6.2 encapsulated Pixel Data foundation increments.
+**Current implementation status:** Phase 0, Phase 0.5, Phase 1, Phase 2, Phase 3, Phase 4, the pre-Phase-5 hardening pass, Phase 5.0 foundation, Phase 5.1 BINARY Segmentation Storage, Phase 5.2 BINARY/FRACTIONAL/LABELMAP segmentation coverage, Phase 5.3 Presentation State/RWVM, Phase 5.4 SR/KOS, Phase 5.5 RT Structure Set/RT Dose, and Phase 5.6 Encapsulated PDF slices are functionally complete. Phase 6.0 native transfer syntax foundation is functionally complete: transfer syntax capability planning, native writer verification, the generator-side transfer syntax abstraction, and the first retired Explicit VR Big Endian legacy Secondary Capture case are implemented and verified. Phase 6.1 Deflated Explicit VR Little Endian feature-gating is in place: the `deflate` Cargo feature enables DICOM-rs deflate support, the planned deflated SC registry row is standards-backed and feature-gated, and generation/reporting expose it as planned/unavailable until write/read/reproducibility behavior is verified. `IMPLEMENTATION_PLAN.md` now includes the remaining Phase 6.1 deflated dataset verification/implementation work and Phase 6.2 encapsulated Pixel Data foundation increments.
 
 This document is the durable hand-off log for coding agents implementing
 `dicom-test-suite`. Keep `SYSTEM_SPEC.md` as the source of product and
@@ -38,13 +38,13 @@ Observed at creation of this progress file:
 | `IMPLEMENTATION_PROGRESS.md` | present after this task | Hand-off ledger for implementation state. |
 | `IMPLEMENTATION_PLAN.md` | present | Phase 6 implementation plan with native transfer syntax foundation, deflated dataset feature-gating, encapsulated Pixel Data foundation, and retained Phase 5 history. |
 | `.gitignore` | present | Covers generated DICOM outputs, reports, sidecars, caches, generated standards artifacts, and SQLite KB files. |
-| `Cargo.toml` / Rust workspace | present | Single package named `dicom-test-suite`, using Rust 2024 edition; pins minimal DICOM-rs crates for Phase 1 object and transfer syntax work. |
+| `Cargo.toml` / Rust workspace | present | Single package named `dicom-test-suite`, using Rust 2024 edition; pins minimal DICOM-rs crates and now exposes a project `deflate` feature wired to `dicom-object/deflate` and `dicom-transfer-syntax-registry/deflate`. |
 | `build.rs` | present | Captures Rust compiler version and target triple for generated manifest metadata. |
 | `rust-toolchain.toml` | present | Pins Rust 1.85.0 with `rustfmt` and `clippy`, matching an installed local toolchain. |
 | `standards.lock.json` | present | Locks to DICOM 2026b base edition only using the pinned `dicom-standard-kb` MCP source manifest; unavailable KB commit, local DB hash, and official source artifact hashes are documented with explicit non-fatal statuses. |
 | `schemas/` | present | Manifest, case registry, coverage report, and viewer report schemas have initial structured coverage. |
 | `cases/taxonomy.md` | present | Documents normalized case ID format, path segments, descriptor conventions, profile definitions, and inclusion rules. |
-| `cases/registry.json` | present | Tracks implemented smoke/core SC cases, classic radiology CT/MG/CR/MR/DX/US cases, Enhanced CT, Enhanced CT concatenation, Enhanced MR extended cases, implemented Phase 5 derived/non-image cases, and planned VL cases with standards evidence from `dicom-standard-kb` MCP lookups. |
+| `cases/registry.json` | present | Tracks implemented smoke/core SC cases, classic radiology CT/MG/CR/MR/DX/US cases, Enhanced CT, Enhanced CT concatenation, Enhanced MR extended cases, implemented Phase 5 derived/non-image cases, the planned feature-gated Deflated Explicit VR Little Endian SC case, and planned VL cases with standards evidence from `dicom-standard-kb` MCP lookups. |
 | `transfer-syntax/capability-matrix.json` | present | Records read/decode/write/encode, feature, external library, and determinism capabilities for baseline native transfer syntaxes and deflated dataset gating; Explicit VR Big Endian is now verified available for DICOM-rs 0.9.1 dataset writing. |
 | `docs/deterministic-build-policy.md` | present | Documents determinism levels, reproducibility inputs, UID derivation, metadata controls, hashes, and two-run verification. |
 | `standards/kb-integration.md` | present | Documents the pinned 2026b `dicom-standard-kb` MCP query workflow, evidence fields, and fallback path. |
@@ -86,7 +86,7 @@ Observed at creation of this progress file:
 | Phase 4: Enhanced multi-frame | complete | Enhanced CT and Enhanced MR Image Storage cases with Shared and Per-Frame Functional Groups and Multi-frame Dimension metadata are implemented; MR Echo, Temporal Position, phase/velocity-encoding variation, and a two-member Enhanced CT concatenation case are covered. |
 | Pre-Phase-5 hardening | complete | Registry authority, required CLI contracts, validation hardening, reproducibility/CI guards, and standards lock pinning policy are complete. Validation now covers raw Part 10 byte checks, parsed cross-field image invariants, manifest schema-conformance checks, baseline standards-derived Type 1/Type 2 checks, classic family-specific checks, and Enhanced CT/MR multi-frame standards-derived checks. |
 | Phase 5: Derived, presentation, and non-image objects | complete | Full planned target queue is now in `cases/registry.json`. Manifest entries support nullable/absent image metadata plus a generated-file `references` array, coverage reports project manifest reference source case IDs into `derived_refs`, generated-root validation resolves same-run references while skipping image/pixel checks for non-image rows, and generation maintains an ordered source object registry for derived recipes. BINARY, FRACTIONAL, LABELMAP Segmentation, Grayscale Softcopy Presentation State, Real World Value Mapping, Basic Text SR, Comprehensive SR, Key Object Selection, RT Structure Set, RT Dose, and Encapsulated PDF objects are implemented and validated. Extended generation reports zero Phase 5 planned cases. |
-| Phase 6: Transfer syntax expansion | started | Phase 6 plan is in place, native DICOM-rs writer support is verified in the capability matrix, generator writes now use matrix-backed named transfer syntax specs, and the first legacy Big Endian Secondary Capture recipe is implemented. Deflated dataset feature-gating remains next. |
+| Phase 6: Transfer syntax expansion | started | Phase 6 plan is in place, native DICOM-rs writer support is verified in the capability matrix, generator writes now use matrix-backed named transfer syntax specs, the first legacy Big Endian Secondary Capture recipe is implemented, and the Deflated Explicit VR Little Endian Cargo/registry/reporting gate is in place. Deflated dataset write/read verification remains next. |
 | Phase 7: Pathology, video, and large object profiles | not started | VL, WSI, video, and stress cases pending. |
 | Phase 8: Reporting and viewer integration | not started | Coverage reports, optional viewer runner, and compatibility schema pending. |
 | Phase 9: Negative and fuzz profiles | not started | Invalid/malformed cases intentionally deferred. |
@@ -238,15 +238,16 @@ handling of common derived and non-image SOP Classes.
       the pinned DICOM-rs registry.
 - [x] Add transfer syntax abstraction in generation.
 - [x] Add first legacy Explicit VR Big Endian case.
-- [ ] Add Deflated Explicit VR Little Endian feature gate.
+- [x] Add Deflated Explicit VR Little Endian feature gate.
 - [ ] Add encapsulated Pixel Data manifest and validator foundation.
 - [ ] Add feature-gated compressed cases according to verified capability
       matrix support.
 
 Phase 6 is started. Phase 6.0 native transfer syntax foundation is complete:
 planning/capability verification, the generator transfer syntax abstraction,
-and the first generated Big Endian legacy recipe are implemented. Deflated
-Explicit VR Little Endian feature-gating remains pending.
+and the first generated Big Endian legacy recipe are implemented. Phase 6.1
+feature-gating is in place for Deflated Explicit VR Little Endian; the actual
+deflated dataset writer/readback/reproducibility slice remains pending.
 
 ## Initial Priority Case Queue
 
@@ -947,8 +948,65 @@ These case IDs come from `SYSTEM_SPEC.md` section 21 and should seed
   as Explicit VR Little Endian. Focused readback tests prove the File Meta
   byte encoding remains Explicit VR Little Endian while the dataset uses
   Explicit VR Big Endian.
+- 2026-06-14: Phase 6.1 Deflated Explicit VR Little Endian feature-gating is
+  in place without flipping any generated deflated dataset case to
+  `implemented`. `Cargo.toml` now exposes a project `deflate` feature wired to
+  `dicom-object/deflate` and `dicom-transfer-syntax-registry/deflate`, with
+  the resulting `flate2` dependency chain locked in `Cargo.lock`.
+  `cases/registry.json` now includes
+  `classic/sc/mono2_u8_deflated_explicit_le` as a planned `extended` Secondary
+  Capture Image case using transfer syntax `1.2.840.10008.1.2.1.99`,
+  determinism `semantic_stable`, and `requirements.features=["deflate"]`.
+  Generation now records active project feature flags in the manifest and
+  reports planned cases with feature requirements as
+  `feature_gated_case_planned` unavailable rows; coverage reports count those
+  rows as `planned` and include the deflated transfer syntax in grouped
+  coverage. `dicom-standard-kb` MCP lookups rechecked Secondary Capture Image
+  Storage and Deflated Explicit VR Little Endian against the 2026b reference
+  before adding the registry row.
 
 ## Verification Results
+
+- 2026-06-14 Phase 6.1 Deflated Explicit VR Little Endian feature-gate slice:
+  - `dicom-standard-kb` MCP lookups rechecked Deflated Explicit VR Little
+    Endian `1.2.840.10008.1.2.1.99` against PS3.6 Table A-1 and Secondary
+    Capture Image Storage against PS3.4 Table B.5-1 before adding the planned
+    registry row.
+  - `cargo test deflated_transfer_syntax_is_feature_gated_in_cargo_and_registry`
+    passed.
+  - `cargo test report_counts_feature_gated_planned_cases_as_planned` passed.
+  - `cargo test skipped_cases_use_registry_status_and_skip_metadata` passed.
+  - `cargo fmt -- --check` passed after applying `cargo fmt` to the new Rust
+    code.
+  - `cargo test generate_command_writes_extended_enhanced_ct_multiframe_case`
+    passed.
+  - `cargo test generate_command_writes_all_profile_union_and_skips_planned_cases`
+    passed.
+  - `cargo test list_cases_command_filters_by_status_and_profile` passed.
+  - `cargo test list_cases_filters_by_profile_and_status` passed.
+  - `cargo test` passed with 89 tests.
+  - `cargo test --features deflate` passed with 89 tests, confirming the new
+    feature gate compiles and runs against the pinned DICOM-rs deflate feature
+    set.
+  - `cargo run -- standards check-lock` passed with the existing documented
+    unavailable-pin warnings.
+  - `cargo run -- list-cases --profile extended --status planned` passed and
+    listed only `classic/sc/mono2_u8_deflated_explicit_le` as planned with
+    `2/2` standards evidence covered.
+  - `cargo run -- generate --profile extended --out /tmp/dts-phase6-deflate-slice --seed 1`
+    passed, writing 17 generated files and recording the planned deflated case
+    as feature-gated unavailable.
+  - `cargo run -- validate /tmp/dts-phase6-deflate-slice` passed with 17 files
+    checked and 0 validation failures.
+  - `cargo run -- report /tmp/dts-phase6-deflate-slice --format json` passed
+    with counts `generated=17`, `planned=1`, `skipped=0`, `blocked=0`; the
+    planned row reports transfer syntax `1.2.840.10008.1.2.1.99` and
+    validation status `unavailable`.
+  - `cargo run -- report /tmp/dts-phase6-deflate-slice --format markdown`
+    passed with the same counts and a gap row naming the missing active
+    `deflate` feature and pending write/read/reproducibility verification.
+  - `cargo run -- standards gaps --profile extended` passed and reported only
+    the TSV header, confirming no standards evidence gaps.
 
 - 2026-06-14 Phase 6.0 legacy Explicit VR Big Endian Secondary Capture slice:
   - `dicom-standard-kb` MCP lookups rechecked Secondary Capture Image Storage,
@@ -1475,21 +1533,25 @@ None currently recorded.
 
 ## Recommended Next Commit
 
-Start Phase 6.1 by adding the Deflated Explicit VR Little Endian Cargo feature
-gate and capability/registry unavailable reporting path. Do not flip a
-deflated dataset recipe to `implemented` until DICOM-rs deflate write/read
-behavior, generated-root validation, and reproducibility are verified with the
-feature enabled.
+Continue Phase 6.1 by verifying DICOM-rs Deflated Explicit VR Little Endian
+write/read behavior under `--features deflate`. If DICOM-rs writes and reads a
+tiny dataset deterministically, implement the planned
+`classic/sc/mono2_u8_deflated_explicit_le` extended case with generated-root
+validation and reproducibility checks in the same commit. If write/read support
+or reproducibility is insufficient, keep the registry row planned/unavailable
+and record the concrete blocker here.
 
 ## Commit-Ready Summary
 
-The current slice adds the first Phase 6.0 legacy Explicit VR Big Endian
-Secondary Capture case. `classic/sc/mono2_u8_explicit_be` is implemented in
-the registry and generator, uses the transfer syntax abstraction, remains
-legacy-only, is excluded from `all`, and has focused list/generate/readback
-tests. Generated-root raw Part 10 validation now handles Explicit VR Big
-Endian dataset headers while preserving Explicit VR Little Endian File Meta
-parsing.
+The current slice adds Phase 6.1 Deflated Explicit VR Little Endian
+feature-gating without generating deflated DICOM files. `Cargo.toml` exposes
+the `deflate` feature and `Cargo.lock` pins the resulting `flate2` dependency
+chain. `cases/registry.json` includes planned
+`classic/sc/mono2_u8_deflated_explicit_le` with `requirements.features`
+`["deflate"]` and standards evidence. Generation reports feature-required
+planned cases as `feature_gated_case_planned` unavailable rows, manifests
+record active project features, and coverage reports count the row as planned
+with transfer syntax `1.2.840.10008.1.2.1.99`.
 
 ## Handoff Notes
 

@@ -2456,8 +2456,32 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
         .expect("manifest should contain skipped cases");
     assert_eq!(
         skipped_cases.len(),
-        0,
-        "extended generation should have no remaining planned Phase 5 cases"
+        1,
+        "extended generation should report only the planned feature-gated deflated case"
+    );
+    let planned_deflated =
+        skipped_case_by_id(&manifest, "classic/sc/mono2_u8_deflated_explicit_le");
+    assert_eq!(
+        planned_deflated.get("status").and_then(Value::as_str),
+        Some("unavailable")
+    );
+    assert_eq!(
+        planned_deflated.get("reason_code").and_then(Value::as_str),
+        Some("feature_gated_case_planned")
+    );
+    assert_eq!(
+        planned_deflated
+            .get("recheck_phase")
+            .and_then(Value::as_str),
+        Some("phase-6")
+    );
+    assert!(
+        planned_deflated
+            .get("message")
+            .and_then(Value::as_str)
+            .expect("feature-gated deflated row should have a message")
+            .contains("Cargo feature(s) deflate"),
+        "feature-gated deflated unavailable row should name the required feature"
     );
 
     let enhanced_ct_path =
@@ -3836,8 +3860,8 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
         .expect("manifest should contain skipped cases");
     assert_eq!(
         skipped_cases.len(),
-        2,
-        "all generation should report the remaining planned VL cases as unavailable"
+        3,
+        "all generation should report the planned VL and deflated cases as unavailable"
     );
     for case_id in [
         "vl/photo/rgb_planar0_explicit_le",
@@ -3853,6 +3877,15 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
             Some("case_planned")
         );
     }
+    let deflated = skipped_case_by_id(&manifest, "classic/sc/mono2_u8_deflated_explicit_le");
+    assert_eq!(
+        deflated.get("status").and_then(Value::as_str),
+        Some("unavailable")
+    );
+    assert_eq!(
+        deflated.get("reason_code").and_then(Value::as_str),
+        Some("feature_gated_case_planned")
+    );
     assert!(
         skipped_cases.iter().all(|case| {
             !matches!(

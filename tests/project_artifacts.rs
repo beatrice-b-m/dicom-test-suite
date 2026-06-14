@@ -129,6 +129,7 @@ fn registry_contains_initial_smoke_and_core_cases() {
             "non-image/encapsulated-document/pdf_minimal_explicit_le",
             "implemented",
         ),
+        ("classic/sc/mono2_u8_deflated_explicit_le", "planned"),
         ("vl/photo/rgb_planar0_explicit_le", "planned"),
         ("vl/photo/palette_color_explicit_le", "planned"),
     ] {
@@ -248,6 +249,7 @@ fn transfer_syntax_matrix_records_required_capability_fields() {
         "1.2.840.10008.1.2",
         "1.2.840.10008.1.2.1",
         "1.2.840.10008.1.2.2",
+        "1.2.840.10008.1.2.1.99",
     ] {
         let entry = entries
             .iter()
@@ -269,6 +271,45 @@ fn transfer_syntax_matrix_records_required_capability_fields() {
             );
         }
     }
+}
+
+#[test]
+fn deflated_transfer_syntax_is_feature_gated_in_cargo_and_registry() {
+    let cargo_toml = fs::read_to_string("Cargo.toml").expect("Cargo.toml must be readable");
+    assert!(
+        cargo_toml.contains("deflate = ["),
+        "Cargo.toml must expose the project deflate feature"
+    );
+    assert!(
+        cargo_toml.contains("\"dicom-object/deflate\"")
+            && cargo_toml.contains("\"dicom-transfer-syntax-registry/deflate\""),
+        "project deflate feature must enable matching DICOM-rs deflate features"
+    );
+
+    let registry = read_json("cases/registry.json");
+    let cases = registry_cases(&registry);
+    let case = cases
+        .iter()
+        .find(|case| {
+            case.get("case_id").and_then(Value::as_str)
+                == Some("classic/sc/mono2_u8_deflated_explicit_le")
+        })
+        .expect("registry must contain the planned deflated SC case");
+
+    assert_eq!(case.get("status").and_then(Value::as_str), Some("planned"));
+    assert_eq!(
+        case.get("transfer_syntax_uid").and_then(Value::as_str),
+        Some("1.2.840.10008.1.2.1.99")
+    );
+    assert_eq!(
+        case.pointer("/requirements/features/0")
+            .and_then(Value::as_str),
+        Some("deflate")
+    );
+    assert_eq!(
+        case.get("determinism").and_then(Value::as_str),
+        Some("semantic_stable")
+    );
 }
 
 #[test]

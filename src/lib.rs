@@ -32,6 +32,10 @@ pub const SUPPORTED_PROFILES: &[&str] = &[
 ];
 pub const SUPPORTED_CASE_STATUSES: &[&str] =
     &["planned", "implemented", "skipped", "blocked", "deprecated"];
+const ACTIVE_FEATURE_FLAGS: &[&str] = &[
+    #[cfg(feature = "deflate")]
+    "deflate",
+];
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GenerateOptions {
@@ -4628,7 +4632,10 @@ fn skipped_coverage_row(
         Some("blocked") => "blocked",
         Some("skipped") => "skipped",
         Some("unavailable")
-            if skipped.get("reason_code").and_then(Value::as_str) == Some("case_planned") =>
+            if matches!(
+                skipped.get("reason_code").and_then(Value::as_str),
+                Some("case_planned" | "feature_gated_case_planned")
+            ) =>
         {
             "planned"
         }
@@ -5148,7 +5155,7 @@ fn build_generation_manifest(
             "rustc_version": RUSTC_VERSION,
             "target_triple": TARGET_TRIPLE,
             "cargo_lock_sha256": sha256_hex(cargo_lock),
-            "feature_flags": []
+            "feature_flags": ACTIVE_FEATURE_FLAGS
         },
         "standards": {
             "dicom_base_edition": standards_lock.get("dicom_base_edition").and_then(Value::as_str).unwrap_or("2026b"),
@@ -5238,14 +5245,7 @@ fn skipped_cases_for_run(
                 "recheck_phase": "remediation-r1",
                 "standards_evidence": case.get("standards_evidence").cloned().unwrap_or_else(|| serde_json::json!([]))
             })),
-            "planned" => skipped.push(serde_json::json!({
-                "case_id": case_id,
-                "status": "unavailable",
-                "reason_code": "case_planned",
-                "message": "This planned registry case does not have an implemented generator recipe yet.",
-                "recheck_phase": planned_recheck_phase(case_id),
-                "standards_evidence": case.get("standards_evidence").cloned().unwrap_or_else(|| serde_json::json!([]))
-            })),
+            "planned" => skipped.push(planned_skipped_case_from_registry(case_id, case)?),
             "skipped" | "blocked" => skipped.push(skipped_case_from_registry(case_id, status, case)?),
             "deprecated" => {}
             _ => {
@@ -5258,6 +5258,51 @@ fn skipped_cases_for_run(
     }
 
     Ok(skipped)
+}
+
+fn planned_skipped_case_from_registry(case_id: &str, case: &Value) -> Result<Value, GenerateError> {
+    let required_features = string_array(case.pointer("/requirements/features")).map_err(|_| {
+        GenerateError::MetadataShape {
+            path: PathBuf::from("cases/registry.json"),
+            message: "case requirements.features must be a string array",
+        }
+    })?;
+    let standards_evidence = case
+        .get("standards_evidence")
+        .cloned()
+        .unwrap_or_else(|| serde_json::json!([]));
+
+    if required_features.is_empty() {
+        return Ok(serde_json::json!({
+            "case_id": case_id,
+            "status": "unavailable",
+            "reason_code": "case_planned",
+            "message": "This planned registry case does not have an implemented generator recipe yet.",
+            "recheck_phase": planned_recheck_phase(case_id),
+            "standards_evidence": standards_evidence
+        }));
+    }
+
+    let missing_features = required_features
+        .iter()
+        .filter(|feature| !ACTIVE_FEATURE_FLAGS.contains(&feature.as_str()))
+        .cloned()
+        .collect::<Vec<_>>();
+    let features = required_features.join(", ");
+    let missing = if missing_features.is_empty() {
+        "no required features are missing in this build".to_string()
+    } else {
+        format!("missing active feature(s): {}", missing_features.join(", "))
+    };
+
+    Ok(serde_json::json!({
+        "case_id": case_id,
+        "status": "unavailable",
+        "reason_code": "feature_gated_case_planned",
+        "message": format!("This planned registry case requires Cargo feature(s) {features}; {missing}; deflated dataset generation remains unavailable until write/read validation and reproducibility are implemented."),
+        "recheck_phase": planned_recheck_phase(case_id),
+        "standards_evidence": standards_evidence
+    }))
 }
 
 fn skipped_case_from_registry(
@@ -5299,7 +5344,9 @@ fn skipped_case_from_registry(
 }
 
 fn planned_recheck_phase(case_id: &str) -> &'static str {
-    if case_id.starts_with("derived/") {
+    if case_id.contains("deflated") {
+        "phase-6"
+    } else if case_id.starts_with("derived/") {
         "phase-5"
     } else if case_id.starts_with("vl/") {
         "phase-7"
@@ -5913,6 +5960,12 @@ mod tests {
             ),
             "list-cases output must show implemented Encapsulated PDF extended status"
         );
+        assert!(
+            output.contains(
+                "classic/sc/mono2_u8_deflated_explicit_le\tplanned\textended\t1.2.840.10008.5.1.4.1.1.7\t1.2.840.10008.1.2.1.99\t2/2 covered"
+            ),
+            "list-cases output must show planned deflated transfer syntax status"
+        );
     }
 
     #[test]
@@ -5956,6 +6009,12 @@ mod tests {
         assert!(
             !output.contains("vl/photo/rgb_planar0_explicit_le"),
             "profile filter should still exclude planned core VL cases"
+        );
+        assert!(
+            output.contains(
+                "classic/sc/mono2_u8_deflated_explicit_le\tplanned\textended\t1.2.840.10008.5.1.4.1.1.7\t1.2.840.10008.1.2.1.99\t2/2 covered"
+            ),
+            "planned status filter should include feature-gated deflated cases"
         );
     }
 
@@ -6121,6 +6180,23 @@ mod tests {
                     "case_id": "vl/photo/rgb_planar0_explicit_le",
                     "status": "planned",
                     "profiles": ["core"],
+                    "requirements": {
+                        "features": [],
+                        "external_codecs": [],
+                        "external_validators": []
+                    },
+                    "skip": null,
+                    "standards_evidence": [{"source": "dicom-standard-kb", "covered": true}]
+                },
+                {
+                    "case_id": "classic/sc/mono2_u8_deflated_explicit_le",
+                    "status": "planned",
+                    "profiles": ["core"],
+                    "requirements": {
+                        "features": ["deflate"],
+                        "external_codecs": [],
+                        "external_validators": []
+                    },
                     "skip": null,
                     "standards_evidence": [{"source": "dicom-standard-kb", "covered": true}]
                 },
@@ -6162,8 +6238,8 @@ mod tests {
 
         assert_eq!(
             skipped.len(),
-            4,
-            "implemented missing recipe, planned, skipped, and blocked cases should be reported"
+            5,
+            "implemented missing recipe, planned, feature-gated planned, skipped, and blocked cases should be reported"
         );
         assert!(
             skipped
@@ -6205,6 +6281,29 @@ mod tests {
                 .expect("planned row should have a message")
                 .contains("Phase 1"),
             "planned unavailable text should not use the old hard-coded Phase 1 message"
+        );
+
+        let feature_gated =
+            skipped_case_by_id(&skipped, "classic/sc/mono2_u8_deflated_explicit_le");
+        assert_eq!(
+            feature_gated.get("status").and_then(Value::as_str),
+            Some("unavailable")
+        );
+        assert_eq!(
+            feature_gated.get("reason_code").and_then(Value::as_str),
+            Some("feature_gated_case_planned")
+        );
+        assert_eq!(
+            feature_gated.get("recheck_phase").and_then(Value::as_str),
+            Some("phase-6")
+        );
+        assert!(
+            feature_gated
+                .get("message")
+                .and_then(Value::as_str)
+                .expect("feature-gated planned row should have a message")
+                .contains("Cargo feature(s) deflate"),
+            "feature-gated planned rows should name required Cargo features"
         );
 
         let skipped_row = skipped_case_by_id(&skipped, "classic/sc/skipped_explicit_le");

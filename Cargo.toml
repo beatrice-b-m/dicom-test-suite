@@ -6,6 +6,13 @@ rust-version = "1.85"
 description = "Synthetic DICOM corpus generator for viewer compatibility testing"
 license = "MIT OR Apache-2.0"
 
+[features]
+default = []
+deflate = [
+    "dicom-object/deflate",
+    "dicom-transfer-syntax-registry/deflate",
+]
+
 [dependencies]
 dicom-core = "=0.9.1"
 dicom-dictionary-std = { version = "=0.9.0", default-features = false }

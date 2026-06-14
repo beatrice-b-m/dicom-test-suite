@@ -245,17 +245,11 @@ fn transfer_syntax_matrix_records_required_capability_fields() {
         .and_then(Value::as_array)
         .expect("transfer syntax matrix must contain entries");
 
-    for uid in [
-        "1.2.840.10008.1.2",
-        "1.2.840.10008.1.2.1",
-        "1.2.840.10008.1.2.2",
-        "1.2.840.10008.1.2.1.99",
-    ] {
-        let entry = entries
-            .iter()
-            .find(|entry| entry.get("uid").and_then(Value::as_str) == Some(uid))
-            .unwrap_or_else(|| panic!("transfer syntax matrix must contain {uid}"));
-
+    for entry in entries {
+        let uid = entry
+            .get("uid")
+            .and_then(Value::as_str)
+            .expect("transfer syntax matrix entry must contain uid");
         for field in [
             "read_dataset",
             "decode_pixel",
@@ -359,6 +353,100 @@ fn transfer_syntax_matrix_matches_dicom_rs_native_writer_support() {
         assert!(
             transfer_syntax.is_codec_free(),
             "{uid} should not require a pixel codec"
+        );
+    }
+}
+
+#[test]
+fn compressed_transfer_syntax_matrix_matches_current_dicom_rs_stubs() {
+    let matrix = read_json("transfer-syntax/capability-matrix.json");
+    let entries = matrix
+        .get("entries")
+        .and_then(Value::as_array)
+        .expect("transfer syntax matrix must contain entries");
+
+    for (uid, keyword, feature) in [
+        (
+            "1.2.840.10008.1.2.4.50",
+            "JPEGBaseline8Bit",
+            "dicom-transfer-syntax-registry/jpeg",
+        ),
+        (
+            "1.2.840.10008.1.2.4.80",
+            "JPEGLSLossless",
+            "dicom-transfer-syntax-registry/charls",
+        ),
+        (
+            "1.2.840.10008.1.2.4.90",
+            "JPEG2000Lossless",
+            "dicom-transfer-syntax-registry/openjp2",
+        ),
+        (
+            "1.2.840.10008.1.2.4.110",
+            "JPEGXLLossless",
+            "dicom-transfer-syntax-registry/jpegxl",
+        ),
+        (
+            "1.2.840.10008.1.2.4.201",
+            "HTJ2KLossless",
+            "dicom-transfer-syntax-registry/openjp2",
+        ),
+        (
+            "1.2.840.10008.1.2.5",
+            "RLELossless",
+            "dicom-transfer-syntax-registry/rle",
+        ),
+    ] {
+        let entry = entries
+            .iter()
+            .find(|entry| entry.get("uid").and_then(Value::as_str) == Some(uid))
+            .unwrap_or_else(|| panic!("transfer syntax matrix must contain {uid}"));
+        let transfer_syntax = TransferSyntaxRegistry
+            .get(uid)
+            .unwrap_or_else(|| panic!("DICOM-rs registry must expose {uid}"));
+
+        assert_eq!(
+            entry.get("keyword").and_then(Value::as_str),
+            Some(keyword),
+            "{uid} keyword should match PS3.6 evidence"
+        );
+        assert_eq!(
+            entry.get("status").and_then(Value::as_str),
+            Some("unavailable"),
+            "{uid} should remain unavailable until compressed generation is verified"
+        );
+        assert_eq!(
+            entry.get("read_dataset").and_then(Value::as_bool),
+            Some(transfer_syntax.can_decode_dataset()),
+            "{uid} read_dataset should match DICOM-rs registry"
+        );
+        assert_eq!(
+            entry.get("write_dataset").and_then(Value::as_bool),
+            Some(transfer_syntax.encoder().is_some()),
+            "{uid} write_dataset should match DICOM-rs registry"
+        );
+        assert_eq!(
+            entry.get("decode_pixel").and_then(Value::as_bool),
+            Some(transfer_syntax.pixel_data_reader().is_some()),
+            "{uid} decode_pixel should match the current DICOM-rs feature set"
+        );
+        assert_eq!(
+            entry.get("encode_pixel").and_then(Value::as_bool),
+            Some(transfer_syntax.pixel_data_writer().is_some()),
+            "{uid} encode_pixel should match the current DICOM-rs feature set"
+        );
+        assert!(
+            transfer_syntax.is_encapsulated_pixel_data(),
+            "{uid} should use encapsulated Pixel Data"
+        );
+        assert!(
+            entry
+                .get("feature_flags")
+                .and_then(Value::as_array)
+                .is_some_and(|features| features
+                    .iter()
+                    .any(|value| value.as_str() == Some(feature))),
+            "{uid} should record the DICOM-rs feature gate {feature}"
         );
     }
 }

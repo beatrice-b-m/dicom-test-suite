@@ -4,7 +4,7 @@
 **Source specification:** `SYSTEM_SPEC.md` version 0.2.0  
 **Current phase:** Phase 6 transfer syntax expansion started
 
-**Current implementation status:** Phase 0, Phase 0.5, Phase 1, Phase 2, Phase 3, Phase 4, the pre-Phase-5 hardening pass, Phase 5.0 foundation, Phase 5.1 BINARY Segmentation Storage, Phase 5.2 BINARY/FRACTIONAL/LABELMAP segmentation coverage, Phase 5.3 Presentation State/RWVM, Phase 5.4 SR/KOS, Phase 5.5 RT Structure Set/RT Dose, and Phase 5.6 Encapsulated PDF slices are functionally complete. Phase 6.0 native transfer syntax foundation is functionally complete: transfer syntax capability planning, native writer verification, the generator-side transfer syntax abstraction, and the first retired Explicit VR Big Endian legacy Secondary Capture case are implemented and verified. Phase 6.1 Deflated Explicit VR Little Endian is functionally complete: the `deflate` Cargo feature enables DICOM-rs deflate support, the deflated SC registry row is standards-backed and implemented, no-feature generation reports it as feature-gated unavailable, and feature-enabled generation/validation/reporting/reproducibility pass. Phase 6.2 encapsulated Pixel Data foundation has started: the manifest schema and generated-root validator now model and reject invalid encapsulated offset-table layout metadata before any compressed image recipe is enabled.
+**Current implementation status:** Phase 0, Phase 0.5, Phase 1, Phase 2, Phase 3, Phase 4, the pre-Phase-5 hardening pass, Phase 5.0 foundation, Phase 5.1 BINARY Segmentation Storage, Phase 5.2 BINARY/FRACTIONAL/LABELMAP segmentation coverage, Phase 5.3 Presentation State/RWVM, Phase 5.4 SR/KOS, Phase 5.5 RT Structure Set/RT Dose, and Phase 5.6 Encapsulated PDF slices are functionally complete. Phase 6.0 native transfer syntax foundation is functionally complete: transfer syntax capability planning, native writer verification, the generator-side transfer syntax abstraction, and the first retired Explicit VR Big Endian legacy Secondary Capture case are implemented and verified. Phase 6.1 Deflated Explicit VR Little Endian is functionally complete: the `deflate` Cargo feature enables DICOM-rs deflate support, the deflated SC registry row is standards-backed and implemented, no-feature generation reports it as feature-gated unavailable, and feature-enabled generation/validation/reporting/reproducibility pass. Phase 6.2 encapsulated Pixel Data foundation has started: the manifest schema and generated-root validator now model and reject invalid encapsulated offset-table layout metadata before any compressed image recipe is enabled, and the transfer syntax capability matrix now records explicit unavailable status for the first JPEG Baseline, JPEG-LS, JPEG 2000, JPEG XL, HTJ2K, and RLE candidate families under the pinned DICOM-rs 0.9.1 feature set.
 
 This document is the durable hand-off log for coding agents implementing
 `dicom-test-suite`. Keep `SYSTEM_SPEC.md` as the source of product and
@@ -86,7 +86,7 @@ Observed at creation of this progress file:
 | Phase 4: Enhanced multi-frame | complete | Enhanced CT and Enhanced MR Image Storage cases with Shared and Per-Frame Functional Groups and Multi-frame Dimension metadata are implemented; MR Echo, Temporal Position, phase/velocity-encoding variation, and a two-member Enhanced CT concatenation case are covered. |
 | Pre-Phase-5 hardening | complete | Registry authority, required CLI contracts, validation hardening, reproducibility/CI guards, and standards lock pinning policy are complete. Validation now covers raw Part 10 byte checks, parsed cross-field image invariants, manifest schema-conformance checks, baseline standards-derived Type 1/Type 2 checks, classic family-specific checks, and Enhanced CT/MR multi-frame standards-derived checks. |
 | Phase 5: Derived, presentation, and non-image objects | complete | Full planned target queue is now in `cases/registry.json`. Manifest entries support nullable/absent image metadata plus a generated-file `references` array, coverage reports project manifest reference source case IDs into `derived_refs`, generated-root validation resolves same-run references while skipping image/pixel checks for non-image rows, and generation maintains an ordered source object registry for derived recipes. BINARY, FRACTIONAL, LABELMAP Segmentation, Grayscale Softcopy Presentation State, Real World Value Mapping, Basic Text SR, Comprehensive SR, Key Object Selection, RT Structure Set, RT Dose, and Encapsulated PDF objects are implemented and validated. Extended generation reports zero Phase 5 planned cases. |
-| Phase 6: Transfer syntax expansion | started | Phase 6 plan is in place, native DICOM-rs writer support is verified in the capability matrix, generator writes now use matrix-backed named transfer syntax specs, the first legacy Big Endian Secondary Capture recipe is implemented, the Deflated Explicit VR Little Endian Cargo/registry/reporting gate is in place, and encapsulated Pixel Data manifest/validator metadata is started. Compressed pixel transfer syntax recipes remain unavailable until matrix-backed encoder support is verified. |
+| Phase 6: Transfer syntax expansion | started | Phase 6 plan is in place, native DICOM-rs writer support is verified in the capability matrix, generator writes now use matrix-backed named transfer syntax specs, the first legacy Big Endian Secondary Capture recipe is implemented, the Deflated Explicit VR Little Endian Cargo/registry/reporting gate is in place, and encapsulated Pixel Data manifest/validator metadata is started. The matrix now explicitly marks the initial compressed pixel candidate families unavailable in the current build until project feature gates, encoder behavior, validation, and reproducibility are verified. |
 | Phase 7: Pathology, video, and large object profiles | not started | VL, WSI, video, and stress cases pending. |
 | Phase 8: Reporting and viewer integration | not started | Coverage reports, optional viewer runner, and compatibility schema pending. |
 | Phase 9: Negative and fuzz profiles | not started | Invalid/malformed cases intentionally deferred. |
@@ -255,7 +255,10 @@ encapsulated Pixel Data foundation now has manifest fields for Basic Offset
 Table state, fragments per frame, Extended Offset Table state, Extended Offset
 Table Lengths state, and compressed frame hashes, plus generated-root
 validation for the valid/invalid offset-table combinations listed in
-`SYSTEM_SPEC.md` section 9.4.
+`SYSTEM_SPEC.md` section 9.4. The transfer syntax capability matrix now records
+explicit unavailable rows for JPEG Baseline 8-bit, JPEG-LS Lossless, JPEG 2000
+Lossless, JPEG XL Lossless, HTJ2K Lossless, and RLE Lossless with PS3.6
+evidence and DICOM-rs optional feature notes.
 
 ## Initial Priority Case Queue
 
@@ -983,8 +986,48 @@ These case IDs come from `SYSTEM_SPEC.md` section 21 and should seed
   treats the first bytes after File Meta Information as compressed payload for
   Deflated Explicit VR Little Endian instead of requiring the first dataset
   bytes to decode as a normal tag.
+- 2026-06-14: Phase 6.2 compressed transfer syntax capability reconciliation
+  recorded explicit unavailable matrix rows for JPEG Baseline 8-bit
+  `1.2.840.10008.1.2.4.50`, JPEG-LS Lossless
+  `1.2.840.10008.1.2.4.80`, JPEG 2000 Lossless
+  `1.2.840.10008.1.2.4.90`, JPEG XL Lossless
+  `1.2.840.10008.1.2.4.110`, HTJ2K Lossless
+  `1.2.840.10008.1.2.4.201`, and RLE Lossless
+  `1.2.840.10008.1.2.5`. Each row records the 2026b PS3.6 UID evidence,
+  current DICOM-rs optional feature gate, current no-feature pixel
+  decode/encode unavailability, and the reason generation must remain disabled
+  until encoder behavior, encapsulated Pixel Data validation, and
+  reproducibility are verified. A project artifact test now checks these rows
+  against the pinned DICOM-rs registry surface.
 
 ## Verification Results
+
+- 2026-06-14 Phase 6.2 compressed transfer syntax capability matrix slice:
+  - `dicom-standard-kb` MCP lookups rechecked `JPEGBaseline8Bit`,
+    `JPEGLSLossless`, `JPEG2000Lossless`, `JPEGXLLossless`,
+    `HTJ2KLossless`, and `RLELossless` against PS3.6 Table A-1 before adding
+    matrix UID/keyword rows.
+  - `cargo fmt -- --check` passed.
+  - `cargo test --test project_artifacts --no-run` passed, compiling the
+    updated artifact test binary.
+  - `node -e "..."` JSON matrix check passed, confirming the six compressed
+    rows exist, are `status: unavailable`, and have disabled pixel
+    decode/encode flags in the committed matrix.
+  - Required Rust test execution could not complete in this run because local
+    Rust test binaries and project CLI binaries hung immediately after launch,
+    before producing test or CLI output. Commands observed hanging and then
+    cleaned up: `cargo test --test project_artifacts
+    compressed_transfer_syntax_matrix_matches_current_dicom_rs_stubs --
+    --exact`, `cargo test --test project_artifacts
+    transfer_syntax_matrix_matches_dicom_rs_native_writer_support -- --exact`,
+    `target/debug/deps/project_artifacts-0758d65478d822d2 --list`,
+    `cargo test --test schema_artifacts
+    committed_schema_files_are_parseable_json_schema_documents -- --exact`,
+    `cargo run -- list-cases --profile extended`, and
+    `cargo run -- standards check-lock`.
+  - Escalated process inspection/cleanup was used only to identify and kill
+    the stuck verification processes after sandboxed `ps`/`pkill`/`killall`
+    were unavailable.
 
 - 2026-06-14 Phase 6.1 Deflated Explicit VR Little Endian implementation slice:
   - `dicom-standard-kb` MCP lookups rechecked Deflated Explicit VR Little
@@ -1649,26 +1692,30 @@ These case IDs come from `SYSTEM_SPEC.md` section 21 and should seed
 
 ## Current Blockers
 
-None currently recorded.
+No product blockers are currently recorded. Local Rust test and CLI process
+execution hung in the 2026-06-14 Phase 6.2 compressed transfer syntax matrix
+slice after binaries launched; this is recorded as a verification environment
+limitation rather than a code blocker because `cargo test --no-run` and
+non-Rust matrix checks completed.
 
 ## Recommended Next Commit
 
-Continue Phase 6.2 by reconciling compressed pixel transfer syntax capability
-matrix rows for the first candidate syntax family. Only add planned or
-feature-gated compressed image registry rows after documenting concrete local
-encoder support or an explicit unavailable status; do not flip any compressed
-image recipe to `implemented` until generation, validation, reports, and
-reproducibility can be verified.
+Continue Phase 6.2 by adding planned or skipped compressed image registry rows
+for the matrix-backed unavailable transfer syntax families, with profile
+membership, requirements, skip/recheck metadata, and report/generation tests
+that preserve unavailable status. Do not flip any compressed image recipe to
+`implemented` until the project exposes a verified encoder path and generation,
+validation, reports, and reproducibility can be run successfully.
 
 ## Commit-Ready Summary
 
-The current slice implements the Phase 6.2 encapsulated Pixel Data manifest and
-validator foundation. The manifest schema can now represent Basic Offset Table,
-fragment, Extended Offset Table, Extended Offset Table Lengths, and compressed
-frame-hash metadata for future compressed image cases. Generated-root
-validation now rejects the invalid offset-table combinations from
-`SYSTEM_SPEC.md` section 9.4 using manifest mutation fixtures, while existing
-native generated files continue to use the prior compact `pixel_data` shape.
+The current slice reconciles the Phase 6.2 compressed transfer syntax
+capability matrix for the first candidate families. JPEG Baseline 8-bit,
+JPEG-LS Lossless, JPEG 2000 Lossless, JPEG XL Lossless, HTJ2K Lossless, and
+RLE Lossless are now explicit matrix entries with 2026b PS3.6 evidence,
+DICOM-rs 0.9.1 feature-gate notes, current unavailable pixel decode/encode
+state, and a guard test comparing those claims with the pinned registry
+surface. No compressed image recipe or generated profile behavior was enabled.
 
 ## Handoff Notes
 

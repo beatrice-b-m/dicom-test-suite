@@ -2,9 +2,9 @@
 
 **Last updated:** 2026-06-14  
 **Source specification:** `SYSTEM_SPEC.md` version 0.2.0  
-**Current phase:** Phase 5.0 foundation in progress
+**Current phase:** Phase 5.0 foundation complete; Phase 5.1 binary segmentation next
 
-**Current implementation status:** Phase 0, Phase 0.5, Phase 1, Phase 2, Phase 3, Phase 4, and the pre-Phase-5 hardening pass are functionally complete. `IMPLEMENTATION_PLAN.md` now defines the concrete Phase 5 implementation sequence. Phase 5.0 has started by seeding the full planned Phase 5 target queue in `cases/registry.json`, adding the manifest/report data shape for non-image objects and manifest references, and making generated-root validation object-aware with same-run reference resolution. No Phase 5 generator recipe has been flipped to `implemented` yet.
+**Current implementation status:** Phase 0, Phase 0.5, Phase 1, Phase 2, Phase 3, Phase 4, the pre-Phase-5 hardening pass, and Phase 5.0 foundation are functionally complete. `IMPLEMENTATION_PLAN.md` defines the concrete Phase 5 implementation sequence. Phase 5.0 seeded the full planned Phase 5 target queue in `cases/registry.json`, added the manifest/report data shape for non-image objects and manifest references, made generated-root validation object-aware with same-run reference resolution, and added generation-time source object plumbing so later derived writers can reference already-generated source instances. No Phase 5 generator recipe has been flipped to `implemented` yet.
 
 This document is the durable hand-off log for coding agents implementing
 `dicom-test-suite`. Keep `SYSTEM_SPEC.md` as the source of product and
@@ -85,7 +85,7 @@ Observed at creation of this progress file:
 | Phase 3: Classic radiology IODs | complete | CT Image Storage signed 12-bit rescale/window, MG For Presentation/For Processing 12-bit, CR overlay/Modality LUT/VOI LUT, MR multi-slice oblique geometry, DX display shutter, US Image Storage, and stable multi-file series generation are implemented. |
 | Phase 4: Enhanced multi-frame | complete | Enhanced CT and Enhanced MR Image Storage cases with Shared and Per-Frame Functional Groups and Multi-frame Dimension metadata are implemented; MR Echo, Temporal Position, phase/velocity-encoding variation, and a two-member Enhanced CT concatenation case are covered. |
 | Pre-Phase-5 hardening | complete | Registry authority, required CLI contracts, validation hardening, reproducibility/CI guards, and standards lock pinning policy are complete. Validation now covers raw Part 10 byte checks, parsed cross-field image invariants, manifest schema-conformance checks, baseline standards-derived Type 1/Type 2 checks, classic family-specific checks, and Enhanced CT/MR multi-frame standards-derived checks. |
-| Phase 5: Derived, presentation, and non-image objects | foundation in progress | Full planned target queue is now in `cases/registry.json`. Manifest entries support nullable/absent image metadata plus a generated-file `references` array, coverage reports project manifest reference source case IDs into `derived_refs`, and generated-root validation now resolves same-run references while skipping image/pixel checks for non-image rows. Remaining foundation work must add generation-time same-run source object plumbing before broad non-image recipe work. |
+| Phase 5: Derived, presentation, and non-image objects | foundation complete; binary SEG next | Full planned target queue is now in `cases/registry.json`. Manifest entries support nullable/absent image metadata plus a generated-file `references` array, coverage reports project manifest reference source case IDs into `derived_refs`, generated-root validation resolves same-run references while skipping image/pixel checks for non-image rows, and generation maintains an ordered source object registry for later derived recipes. The next implementation slice is the first BINARY Segmentation Storage writer and validator. |
 | Phase 6: Transfer syntax expansion | not started | Transfer syntax abstraction and compressed cases pending. |
 | Phase 7: Pathology, video, and large object profiles | not started | VL, WSI, video, and stress cases pending. |
 | Phase 8: Reporting and viewer integration | not started | Coverage reports, optional viewer runner, and compatibility schema pending. |
@@ -201,10 +201,11 @@ Enhanced CT concatenation case for logical multi-frame object splitting.
       cases.
 - [x] Refactor manifest schema, generated-root validation, and coverage reports
       to represent non-image objects and derived references.
-- [ ] Add generation-time same-run source object map for derived recipes.
-      Generated-root reference-resolution validation is complete; generator
-      recipe plumbing still needs to expose already-generated source instances
-      to later derived recipes.
+- [x] Add generation-time same-run source object map for derived recipes.
+      Generated-root reference-resolution validation is complete; generation
+      now records each written manifest entry into an ordered source object
+      registry and exposes already-generated source instances to later recipe
+      code.
 - [ ] Implement BINARY Segmentation Storage case.
 - [ ] Implement FRACTIONAL Segmentation Storage case.
 - [ ] Implement LABELMAP Segmentation using Label Map Segmentation Storage.
@@ -701,8 +702,36 @@ These case IDs come from `SYSTEM_SPEC.md` section 21 and should seed
   non-image object rows, and partial image/pixel metadata is rejected. CLI
   regression tests cover a resolved same-run reference and a mismatched
   referenced SOP Instance UID.
+- 2026-06-14: Phase 5.0 foundation is complete. Generation now uses an
+  internal `GenerationContext` with an ordered same-run source object registry.
+  Each generated manifest entry is registered by source path and case ID after
+  it is written, capturing SOP Class UID, SOP Instance UID, Series Instance UID
+  when present, and frame count when present. The registry exposes helpers for
+  future derived writers to build manifest `references` entries from only
+  already-generated source instances. No Phase 5 recipe status was changed.
 
 ## Verification Results
+
+- 2026-06-14 Phase 5 generation-time source registry slice:
+  - `cargo fmt -- --check` initially failed on rustfmt wrapping in
+    `src/generator.rs`; `cargo fmt` was run, and the repeated
+    `cargo fmt -- --check` passed.
+  - `cargo test generated_source_registry` passed.
+  - `cargo test generation_context` passed.
+  - `cargo test` passed with 80 tests plus doc tests.
+  - `cargo run -- standards check-lock` passed with the existing documented
+    unavailable-pin warnings.
+  - `cargo run -- generate --profile extended --out /tmp/dts-slice-source-registry --seed 1`
+    passed, writing 6 existing extended files and recording 11 planned Phase 5
+    unavailable cases.
+  - `cargo run -- validate /tmp/dts-slice-source-registry` passed with 6 files
+    checked and 0 validation failures.
+  - `cargo run -- report /tmp/dts-slice-source-registry --format json` passed
+    with counts `generated=6`, `planned=11`, `skipped=0`, `blocked=0`.
+  - `cargo run -- report /tmp/dts-slice-source-registry --format markdown`
+    passed with the expected extended coverage matrix and planned Phase 5 gaps.
+  - `cargo run -- standards gaps --profile extended` passed with no standards
+    evidence gaps.
 
 - 2026-06-14 Phase 5 object-aware validation and same-run reference validation
   slice:
@@ -778,17 +807,20 @@ None currently recorded for starting Phase 5.
 
 ## Recommended Next Commit
 
-Continue Phase 5.0 with generation-time same-run source object plumbing. The
-next slice should have generation maintain an ordered source object registry
-from generated manifest entries and expose already-generated source instances
-to later derived recipes, without flipping any Phase 5 recipe to `implemented`
-until the first derived writer can use that plumbing.
+Start Phase 5.1 with the first BINARY Segmentation Storage slice for
+`derived/seg/binary_multiframe_explicit_le`. Recheck the SEG standards evidence
+for Segmentation Type `BINARY` with `dicom-standard-kb` or a local source note,
+then implement the smallest Explicit VR Little Endian SEG writer that references
+the already-generated
+`enhanced/ct/multiframe_shared_perframe_explicit_le` source through the
+generation source registry. Flip the registry case to `implemented` only in the
+same commit as the working writer, SEG validation, tests, and progress update.
 
 ## Commit-Ready Summary
 
-The current slice updates generated-root validation, validation CLI tests, and
-this progress tracker only. It does not implement any Phase 5 recipe or change
-registry case statuses.
+The current slice updates generation internals, focused generator unit tests,
+and this progress tracker only. It completes Phase 5.0 source plumbing without
+implementing any Phase 5 recipe or changing registry case statuses.
 
 ## Handoff Notes
 

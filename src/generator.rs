@@ -1,4 +1,4 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::PathBuf;
 
@@ -988,12 +988,183 @@ pub(crate) struct GeneratedFile {
     pub manifest_entry: Value,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct GeneratedSourceObject {
+    pub source_case_id: String,
+    pub source_path: String,
+    pub sop_class_uid: String,
+    pub sop_instance_uid: String,
+    pub series_instance_uid: Option<String>,
+    pub frame_count: Option<u64>,
+}
+
+impl GeneratedSourceObject {
+    fn from_generated_file(file: &GeneratedFile) -> Result<Self, GenerateError> {
+        let source_path = generated_manifest_str(
+            &file.manifest_entry,
+            "/path",
+            "generated file manifest path must be a string",
+        )?;
+        let source_case_id = generated_manifest_str(
+            &file.manifest_entry,
+            "/case_id",
+            "generated file manifest case_id must be a string",
+        )?;
+        if source_case_id != file.case_id {
+            return Err(GenerateError::MetadataShape {
+                path: PathBuf::from(source_path),
+                message: "generated file case_id must match manifest case_id",
+            });
+        }
+        let sop_class_uid = generated_manifest_str(
+            &file.manifest_entry,
+            "/dicom/sop_class_uid",
+            "generated file manifest dicom sop_class_uid must be a string",
+        )?;
+        let sop_instance_uid = generated_manifest_str(
+            &file.manifest_entry,
+            "/uids/sop_instance_uid",
+            "generated file manifest uids sop_instance_uid must be a string",
+        )?;
+        let series_instance_uid = file
+            .manifest_entry
+            .pointer("/uids/series_instance_uid")
+            .and_then(Value::as_str)
+            .map(ToOwned::to_owned);
+        let frame_count = file
+            .manifest_entry
+            .pointer("/image/frames")
+            .and_then(Value::as_u64);
+
+        Ok(Self {
+            source_case_id: source_case_id.to_string(),
+            source_path: source_path.to_string(),
+            sop_class_uid: sop_class_uid.to_string(),
+            sop_instance_uid: sop_instance_uid.to_string(),
+            series_instance_uid,
+            frame_count,
+        })
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn to_manifest_reference(
+        &self,
+        relationship: &str,
+        frame_numbers: Option<Vec<u64>>,
+    ) -> Value {
+        let mut reference = serde_json::json!({
+            "relationship": relationship,
+            "source_case_id": self.source_case_id.as_str(),
+            "source_path": self.source_path.as_str(),
+            "sop_class_uid": self.sop_class_uid.as_str(),
+            "sop_instance_uid": self.sop_instance_uid.as_str()
+        });
+        if let Some(object) = reference.as_object_mut() {
+            if let Some(series_instance_uid) = &self.series_instance_uid {
+                object.insert(
+                    "series_instance_uid".to_string(),
+                    Value::String(series_instance_uid.clone()),
+                );
+            }
+            if let Some(frame_numbers) = frame_numbers {
+                object.insert(
+                    "frame_numbers".to_string(),
+                    serde_json::json!(frame_numbers),
+                );
+            }
+        }
+        reference
+    }
+}
+
+#[derive(Debug, Default)]
+struct GeneratedSourceRegistry {
+    objects: Vec<GeneratedSourceObject>,
+    by_path: BTreeMap<String, usize>,
+    by_case_id: BTreeMap<String, Vec<usize>>,
+}
+
+impl GeneratedSourceRegistry {
+    fn register(&mut self, file: &GeneratedFile) -> Result<(), GenerateError> {
+        let source = GeneratedSourceObject::from_generated_file(file)?;
+        if self.by_path.contains_key(&source.source_path) {
+            return Err(GenerateError::MetadataShape {
+                path: PathBuf::from(&source.source_path),
+                message: "generated source object path must be unique",
+            });
+        }
+
+        let index = self.objects.len();
+        self.by_path.insert(source.source_path.clone(), index);
+        self.by_case_id
+            .entry(source.source_case_id.clone())
+            .or_default()
+            .push(index);
+        self.objects.push(source);
+        Ok(())
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn by_path(&self, source_path: &str) -> Option<&GeneratedSourceObject> {
+        self.by_path
+            .get(source_path)
+            .map(|index| &self.objects[*index])
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn sources_for_case(
+        &self,
+        case_id: &str,
+    ) -> impl Iterator<Item = &GeneratedSourceObject> {
+        self.by_case_id
+            .get(case_id)
+            .into_iter()
+            .flat_map(|indexes| indexes.iter())
+            .map(|index| &self.objects[*index])
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn first_for_case(&self, case_id: &str) -> Option<&GeneratedSourceObject> {
+        self.sources_for_case(case_id).next()
+    }
+}
+
+#[derive(Debug, Default)]
+struct GenerationContext {
+    generated_files: Vec<GeneratedFile>,
+    source_registry: GeneratedSourceRegistry,
+}
+
+impl GenerationContext {
+    fn record_one(&mut self, file: GeneratedFile) -> Result<(), GenerateError> {
+        self.source_registry.register(&file)?;
+        self.generated_files.push(file);
+        Ok(())
+    }
+
+    fn record_many(&mut self, files: Vec<GeneratedFile>) -> Result<(), GenerateError> {
+        for file in files {
+            self.record_one(file)?;
+        }
+        Ok(())
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn source_registry(&self) -> &GeneratedSourceRegistry {
+        &self.source_registry
+    }
+
+    fn into_generated_files(self) -> Vec<GeneratedFile> {
+        self.generated_files
+    }
+}
+
 pub(crate) fn write_supported_cases(
     run: &PreparedGenerationRun,
     registry: &Value,
     standards_lock_sha256: &str,
 ) -> Result<Vec<GeneratedFile>, GenerateError> {
-    let mut generated_files = Vec::new();
+    let mut context = GenerationContext::default();
     for recipe in PIXEL_RECIPES {
         let Some(case) = registry_case(registry, recipe.case_id)? else {
             continue;
@@ -1001,7 +1172,7 @@ pub(crate) fn write_supported_cases(
         if !should_generate_case(case, run)? {
             continue;
         }
-        generated_files.push(write_pixel_case(run, case, *recipe, standards_lock_sha256)?);
+        context.record_one(write_pixel_case(run, case, *recipe, standards_lock_sha256)?)?;
     }
     for recipe in CLASSIC_CT_RECIPES {
         let Some(case) = registry_case(registry, recipe.case_id)? else {
@@ -1010,12 +1181,12 @@ pub(crate) fn write_supported_cases(
         if !should_generate_case(case, run)? {
             continue;
         }
-        generated_files.push(write_classic_ct_case(
+        context.record_one(write_classic_ct_case(
             run,
             case,
             *recipe,
             standards_lock_sha256,
-        )?);
+        )?)?;
     }
     for recipe in ENHANCED_CT_RECIPES {
         let Some(case) = registry_case(registry, recipe.case_id)? else {
@@ -1024,12 +1195,12 @@ pub(crate) fn write_supported_cases(
         if !should_generate_case(case, run)? {
             continue;
         }
-        generated_files.push(write_enhanced_ct_case(
+        context.record_one(write_enhanced_ct_case(
             run,
             case,
             *recipe,
             standards_lock_sha256,
-        )?);
+        )?)?;
     }
     for recipe in ENHANCED_CT_CONCATENATION_RECIPES {
         let Some(case) = registry_case(registry, recipe.base.case_id)? else {
@@ -1038,12 +1209,12 @@ pub(crate) fn write_supported_cases(
         if !should_generate_case(case, run)? {
             continue;
         }
-        generated_files.extend(write_enhanced_ct_concatenation_case(
+        context.record_many(write_enhanced_ct_concatenation_case(
             run,
             case,
             *recipe,
             standards_lock_sha256,
-        )?);
+        )?)?;
     }
     for recipe in ENHANCED_MR_RECIPES {
         let Some(case) = registry_case(registry, recipe.case_id)? else {
@@ -1052,12 +1223,12 @@ pub(crate) fn write_supported_cases(
         if !should_generate_case(case, run)? {
             continue;
         }
-        generated_files.push(write_enhanced_mr_case(
+        context.record_one(write_enhanced_mr_case(
             run,
             case,
             *recipe,
             standards_lock_sha256,
-        )?);
+        )?)?;
     }
     for recipe in CLASSIC_MG_RECIPES {
         let Some(case) = registry_case(registry, recipe.case_id)? else {
@@ -1066,12 +1237,12 @@ pub(crate) fn write_supported_cases(
         if !should_generate_case(case, run)? {
             continue;
         }
-        generated_files.push(write_classic_mg_case(
+        context.record_one(write_classic_mg_case(
             run,
             case,
             *recipe,
             standards_lock_sha256,
-        )?);
+        )?)?;
     }
     for recipe in CLASSIC_DX_RECIPES {
         let Some(case) = registry_case(registry, recipe.case_id)? else {
@@ -1080,12 +1251,12 @@ pub(crate) fn write_supported_cases(
         if !should_generate_case(case, run)? {
             continue;
         }
-        generated_files.push(write_classic_dx_case(
+        context.record_one(write_classic_dx_case(
             run,
             case,
             *recipe,
             standards_lock_sha256,
-        )?);
+        )?)?;
     }
     for recipe in CLASSIC_US_RECIPES {
         let Some(case) = registry_case(registry, recipe.case_id)? else {
@@ -1094,12 +1265,12 @@ pub(crate) fn write_supported_cases(
         if !should_generate_case(case, run)? {
             continue;
         }
-        generated_files.push(write_classic_us_case(
+        context.record_one(write_classic_us_case(
             run,
             case,
             *recipe,
             standards_lock_sha256,
-        )?);
+        )?)?;
     }
     for recipe in CLASSIC_CR_RECIPES {
         let Some(case) = registry_case(registry, recipe.case_id)? else {
@@ -1108,12 +1279,12 @@ pub(crate) fn write_supported_cases(
         if !should_generate_case(case, run)? {
             continue;
         }
-        generated_files.push(write_classic_cr_case(
+        context.record_one(write_classic_cr_case(
             run,
             case,
             *recipe,
             standards_lock_sha256,
-        )?);
+        )?)?;
     }
     for recipe in CLASSIC_MR_RECIPES {
         let Some(case) = registry_case(registry, recipe.case_id)? else {
@@ -1122,14 +1293,28 @@ pub(crate) fn write_supported_cases(
         if !should_generate_case(case, run)? {
             continue;
         }
-        generated_files.extend(write_classic_mr_case(
+        context.record_many(write_classic_mr_case(
             run,
             case,
             *recipe,
             standards_lock_sha256,
-        )?);
+        )?)?;
     }
-    Ok(generated_files)
+    Ok(context.into_generated_files())
+}
+
+fn generated_manifest_str<'a>(
+    entry: &'a Value,
+    pointer: &str,
+    message: &'static str,
+) -> Result<&'a str, GenerateError> {
+    entry
+        .pointer(pointer)
+        .and_then(Value::as_str)
+        .ok_or_else(|| GenerateError::MetadataShape {
+            path: PathBuf::from("generated manifest entry"),
+            message,
+        })
 }
 
 fn write_pixel_case(
@@ -6493,6 +6678,125 @@ mod tests {
     use super::*;
 
     #[test]
+    fn generated_source_registry_extracts_identity_for_manifest_references() {
+        let file = generated_source_fixture(
+            "enhanced/ct/multiframe_shared_perframe_explicit_le",
+            "enhanced/ct/multiframe_shared_perframe_explicit_le/instance.dcm",
+            "1.2.840.10008.5.1.4.1.1.2.1",
+            "2.25.100",
+            Some("2.25.200"),
+            Some(2),
+        );
+        let mut registry = GeneratedSourceRegistry::default();
+
+        registry
+            .register(&file)
+            .expect("generated source object should register from manifest identity");
+
+        let source = registry
+            .first_for_case("enhanced/ct/multiframe_shared_perframe_explicit_le")
+            .expect("registered source should be visible by case ID");
+        assert_eq!(
+            registry.by_path("enhanced/ct/multiframe_shared_perframe_explicit_le/instance.dcm"),
+            Some(source)
+        );
+        assert_eq!(source.source_case_id, file.case_id);
+        assert_eq!(source.frame_count, Some(2));
+
+        let reference = source.to_manifest_reference("source_image", Some(vec![1, 2]));
+        assert_eq!(
+            reference.get("relationship").and_then(Value::as_str),
+            Some("source_image")
+        );
+        assert_eq!(
+            reference.get("source_case_id").and_then(Value::as_str),
+            Some("enhanced/ct/multiframe_shared_perframe_explicit_le")
+        );
+        assert_eq!(
+            reference.get("source_path").and_then(Value::as_str),
+            Some("enhanced/ct/multiframe_shared_perframe_explicit_le/instance.dcm")
+        );
+        assert_eq!(
+            reference.get("sop_instance_uid").and_then(Value::as_str),
+            Some("2.25.100")
+        );
+        assert_eq!(
+            reference.get("series_instance_uid").and_then(Value::as_str),
+            Some("2.25.200")
+        );
+        assert_eq!(
+            reference
+                .get("frame_numbers")
+                .and_then(Value::as_array)
+                .map(Vec::len),
+            Some(2)
+        );
+    }
+
+    #[test]
+    fn generation_context_exposes_only_already_recorded_sources() {
+        let mut context = GenerationContext::default();
+        let source_case_id = "enhanced/ct/multiframe_shared_perframe_explicit_le";
+        let later_case_id = "derived/seg/binary_multiframe_explicit_le";
+
+        assert!(
+            context
+                .source_registry()
+                .first_for_case(source_case_id)
+                .is_none(),
+            "no source should be visible before its writer records output"
+        );
+
+        context
+            .record_one(generated_source_fixture(
+                source_case_id,
+                "enhanced/ct/multiframe_shared_perframe_explicit_le/instance.dcm",
+                "1.2.840.10008.5.1.4.1.1.2.1",
+                "2.25.100",
+                Some("2.25.200"),
+                Some(2),
+            ))
+            .expect("source image should record");
+
+        assert!(
+            context
+                .source_registry()
+                .first_for_case(source_case_id)
+                .is_some(),
+            "later derived writers must be able to see prior generated sources"
+        );
+        assert!(
+            context
+                .source_registry()
+                .first_for_case(later_case_id)
+                .is_none(),
+            "future cases must not be visible before their own writers run"
+        );
+
+        context
+            .record_one(generated_source_fixture(
+                later_case_id,
+                "derived/seg/binary_multiframe_explicit_le/instance.dcm",
+                "1.2.840.10008.5.1.4.1.1.66.4",
+                "2.25.300",
+                Some("2.25.400"),
+                Some(2),
+            ))
+            .expect("derived object should record after source image");
+
+        let source_paths: Vec<&str> = context
+            .source_registry()
+            .sources_for_case(source_case_id)
+            .map(|source| source.source_path.as_str())
+            .collect();
+        assert_eq!(
+            source_paths,
+            vec!["enhanced/ct/multiframe_shared_perframe_explicit_le/instance.dcm"]
+        );
+        assert_eq!(context.into_generated_files().len(), 2);
+    }
+
+    #[test]
     fn standards_evidence_deduplication_keeps_first_matching_query() {
         let evidence = vec![
             serde_json::json!({
@@ -6532,5 +6836,48 @@ mod tests {
             deduplicated[1].get("query").and_then(Value::as_str),
             Some("lookup_data_element SyntheticData")
         );
+    }
+
+    fn generated_source_fixture(
+        case_id: &str,
+        path: &str,
+        sop_class_uid: &str,
+        sop_instance_uid: &str,
+        series_instance_uid: Option<&str>,
+        frames: Option<u64>,
+    ) -> GeneratedFile {
+        let mut manifest_entry = serde_json::json!({
+            "path": path,
+            "case_id": case_id,
+            "dicom": {
+                "sop_class_uid": sop_class_uid
+            },
+            "uids": {
+                "sop_instance_uid": sop_instance_uid
+            },
+            "image": Value::Null
+        });
+
+        if let Some(series_instance_uid) = series_instance_uid {
+            manifest_entry
+                .pointer_mut("/uids")
+                .and_then(Value::as_object_mut)
+                .expect("fixture uids object should exist")
+                .insert(
+                    "series_instance_uid".to_string(),
+                    Value::String(series_instance_uid.to_string()),
+                );
+        }
+        if let Some(frames) = frames {
+            manifest_entry
+                .as_object_mut()
+                .expect("fixture manifest object should exist")
+                .insert("image".to_string(), serde_json::json!({ "frames": frames }));
+        }
+
+        GeneratedFile {
+            case_id: case_id.to_string(),
+            manifest_entry,
+        }
     }
 }

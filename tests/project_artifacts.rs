@@ -2,6 +2,7 @@ use std::collections::BTreeSet;
 use std::fs;
 use std::process::Command;
 
+use dicom_transfer_syntax_registry::{TransferSyntaxIndex, TransferSyntaxRegistry};
 use serde_json::Value;
 
 #[test]
@@ -243,7 +244,11 @@ fn transfer_syntax_matrix_records_required_capability_fields() {
         .and_then(Value::as_array)
         .expect("transfer syntax matrix must contain entries");
 
-    for uid in ["1.2.840.10008.1.2", "1.2.840.10008.1.2.1"] {
+    for uid in [
+        "1.2.840.10008.1.2",
+        "1.2.840.10008.1.2.1",
+        "1.2.840.10008.1.2.2",
+    ] {
         let entry = entries
             .iter()
             .find(|entry| entry.get("uid").and_then(Value::as_str) == Some(uid))
@@ -263,6 +268,54 @@ fn transfer_syntax_matrix_records_required_capability_fields() {
                 "transfer syntax {uid} must record {field}"
             );
         }
+    }
+}
+
+#[test]
+fn transfer_syntax_matrix_matches_dicom_rs_native_writer_support() {
+    let matrix = read_json("transfer-syntax/capability-matrix.json");
+    let entries = matrix
+        .get("entries")
+        .and_then(Value::as_array)
+        .expect("transfer syntax matrix must contain entries");
+
+    for uid in [
+        "1.2.840.10008.1.2",
+        "1.2.840.10008.1.2.1",
+        "1.2.840.10008.1.2.2",
+    ] {
+        let entry = entries
+            .iter()
+            .find(|entry| entry.get("uid").and_then(Value::as_str) == Some(uid))
+            .unwrap_or_else(|| panic!("transfer syntax matrix must contain {uid}"));
+        let transfer_syntax = TransferSyntaxRegistry
+            .get(uid)
+            .unwrap_or_else(|| panic!("DICOM-rs registry must expose {uid}"));
+
+        assert_eq!(
+            entry.get("status").and_then(Value::as_str),
+            Some("available"),
+            "{uid} should be available in the matrix"
+        );
+        assert_eq!(
+            entry.get("read_dataset").and_then(Value::as_bool),
+            Some(transfer_syntax.can_decode_dataset()),
+            "{uid} read_dataset should match DICOM-rs registry"
+        );
+        assert_eq!(
+            entry.get("write_dataset").and_then(Value::as_bool),
+            Some(transfer_syntax.encoder().is_some()),
+            "{uid} write_dataset should match DICOM-rs registry"
+        );
+        assert_eq!(
+            entry.get("encode_pixel").and_then(Value::as_bool),
+            Some(!transfer_syntax.is_encapsulated_pixel_data()),
+            "{uid} encode_pixel should reflect native uncompressed pixels"
+        );
+        assert!(
+            transfer_syntax.is_codec_free(),
+            "{uid} should not require a pixel codec"
+        );
     }
 }
 

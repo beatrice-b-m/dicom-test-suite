@@ -2,34 +2,126 @@
 
 **Last updated:** 2026-06-14  
 **Source specification:** `SYSTEM_SPEC.md` version 0.2.0  
-**Scope:** Phase 5, derived, presentation, and non-image objects  
-**Status:** planning baseline; implementation not started
+**Scope:** Phase 6, transfer syntax expansion
+**Status:** Phase 5 complete; Phase 6 foundation started
 
-This document translates Phase 5 from `SYSTEM_SPEC.md` into concrete,
-reviewable implementation increments. `SYSTEM_SPEC.md` remains the requirements
-source of truth. `IMPLEMENTATION_PROGRESS.md` remains the durable status ledger.
+This document translates the next implementation phases from `SYSTEM_SPEC.md`
+into concrete, reviewable implementation increments. `SYSTEM_SPEC.md` remains
+the requirements source of truth. `IMPLEMENTATION_PROGRESS.md` remains the
+durable status ledger.
 
 ## Current Codebase Findings
 
 - Generation is currently a single-package Rust implementation centered on
   `src/generator.rs`, with recipe arrays wired through `write_supported_cases`.
-  Existing Phase 1-4 recipes are image-first and validate through
-  `Part10Expectations`.
-- `schemas/manifest.schema.json` currently requires every generated file to
-  include `image` and `pixel_data`. That works for image and SEG-like objects,
-  but it does not fit SR, KOS, RWVM, RT Structure Set, or Encapsulated PDF.
-- `validate <generated-root>` currently validates image and native Pixel Data
-  fields unconditionally for each manifest file. Phase 5 needs object-aware
-  validation before non-image recipes can be added safely.
-- Coverage reporting already allows nullable photometric/bits/frames fields and
-  an `object_type` grouping, but generated rows always derive these from
-  `/image`. Reports need to surface derived references rather than always
-  emitting an empty `derived_refs` array.
-- The UID helper already has a `DerivedReference` role, but there is no shared
-  source-object registry or manifest reference graph for cross-object cases.
-- `cases/registry.json` currently contains only one planned Phase 5 case,
-  `derived/seg/binary_multiframe_explicit_le`. Additional Phase 5 rows need to
-  be added with standards evidence before their recipes are implemented.
+  Phase 1-5 recipes now include image, derived image, presentation, SR, RT, and
+  encapsulated-document objects.
+- `schemas/manifest.schema.json` supports nullable or absent image and
+  `pixel_data` entries for non-image objects plus generated-file `references`
+  arrays for same-run derived objects.
+- `validate <generated-root>` performs generic Part 10 checks, object-family
+  checks, optional image/pixel checks, and same-run reference resolution.
+- Coverage reporting populates `derived_refs` from manifest references and
+  preserves null photometric/bits/frames fields for non-image rows.
+- Generation maintains an ordered source-object registry so derived recipes can
+  reference only objects already generated in the same run.
+- `cases/registry.json` marks all planned Phase 5 target rows implemented. The
+  remaining planned rows are Phase 7 VL cases.
+
+## Phase 6 Codebase Findings
+
+- `dicom-transfer-syntax-registry` 0.9.1 is pinned with default features
+  disabled in this crate. The current dependency graph includes the base
+  DICOM-rs data-set encoders, but no optional compressed pixel codec crates.
+- DICOM-rs 0.9.1 exposes built-in data-set read/write support for Implicit VR
+  Little Endian, Explicit VR Little Endian, and retired Explicit VR Big
+  Endian. The project capability matrix now records those three native
+  syntaxes as `available`.
+- Deflated Explicit VR Little Endian is present as a DICOM-rs transfer syntax,
+  but this crate does not enable the `deflate` feature, so it remains
+  feature-gated until a deliberate dependency-feature slice verifies dataset
+  deflate generation, validation, and reproducibility.
+- JPEG Baseline, JPEG-LS, JPEG XL, RLE, JPEG 2000, and HTJ2K transfer syntaxes
+  are known to the DICOM-rs registry, but their write support depends on
+  optional features and/or external codec adapters. Do not add generated cases
+  for them until the capability matrix entry, feature flag, encoder behavior,
+  encapsulated Pixel Data layout, and validation strategy are verified.
+
+## Phase 6.0: Native Transfer Syntax Foundation
+
+Goal: establish transfer-syntax capability truth in project artifacts and add
+the first native legacy transfer syntax without disturbing Phase 1-5 profiles.
+
+Tasks:
+
+- Keep `transfer-syntax/capability-matrix.json` aligned with the pinned
+  DICOM-rs registry for native uncompressed transfer syntaxes.
+- Add tests that compare matrix availability for Implicit VR Little Endian,
+  Explicit VR Little Endian, and Explicit VR Big Endian against DICOM-rs
+  data-set encoder availability.
+- Add a small transfer-syntax abstraction in generation so recipes select a
+  named transfer syntax capability instead of passing raw UID/name pairs at
+  every Part 10 write site.
+- Add a `legacy` Explicit VR Big Endian Secondary Capture case after the writer
+  abstraction is in place. Keep it out of `smoke`, `core`, `extended`, and
+  `all` unless profile inclusion rules are explicitly updated.
+- Extend generated-root validation messages for Explicit VR Big Endian and add
+  a readback/mutation test proving File Meta remains Explicit VR Little Endian
+  while the dataset uses Explicit VR Big Endian.
+
+Exit criteria:
+
+- `list-cases --profile legacy` shows the Big Endian case as implemented.
+- `generate --profile legacy`, `validate`, JSON report, Markdown report, and
+  two-run reproducibility pass for the Big Endian case.
+- Existing `smoke`, `core`, `extended`, and `all` behavior remains unchanged.
+
+## Phase 6.1: Deflated Dataset Feature Gate
+
+Goal: introduce Deflated Explicit VR Little Endian only behind an explicit
+project feature and only after DICOM-rs deflate support is verified locally.
+
+Tasks:
+
+- Add a `deflate` Cargo feature that enables the matching
+  `dicom-transfer-syntax-registry` feature.
+- Update the capability matrix and registry rows so Deflated Explicit VR Little
+  Endian cases are generated only when the feature is enabled and are reported
+  as unavailable otherwise.
+- Add a tiny extended-profile deflated dataset case if DICOM-rs writes and
+  reads it deterministically with the selected feature set.
+- Add validation that distinguishes dataset deflate from encapsulated deflated
+  image frame compression.
+
+Exit criteria:
+
+- Without the feature, deflated cases are reported unavailable with a clear
+  feature-gated reason.
+- With the feature, generation, validation, report, and reproducibility checks
+  pass for the deflated dataset case.
+
+## Phase 6.2: Encapsulated Pixel Data Foundation
+
+Goal: prepare compressed image-frame recipes without adding unsupported codecs.
+
+Tasks:
+
+- Add manifest fields for encapsulated Pixel Data layout where needed: Basic
+  Offset Table presence/population, fragment count per frame, Extended Offset
+  Table presence, Extended Offset Table Lengths, and compressed frame hashes.
+- Add validators for the valid and invalid offset-table combinations listed in
+  `SYSTEM_SPEC.md` section 9.4.
+- Add planned or feature-gated registry rows for JPEG Baseline 8-bit, JPEG-LS,
+  JPEG XL, RLE, JPEG 2000, and HTJ2K only after their matrix entries document
+  concrete local encoder support or an unavailable status.
+
+Exit criteria:
+
+- Encapsulated Pixel Data validators can be tested with synthetic manifest or
+  mutation fixtures before any compressed image recipe is flipped to
+  `implemented`.
+- Reports identify compressed cases as generated, feature-gated unavailable, or
+  blocked according to matrix-backed capability state.
 
 ## Standards Baseline Checked
 

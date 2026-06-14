@@ -4,7 +4,7 @@
 **Source specification:** `SYSTEM_SPEC.md` version 0.2.0  
 **Current phase:** Phase 6 transfer syntax expansion started
 
-**Current implementation status:** Phase 0, Phase 0.5, Phase 1, Phase 2, Phase 3, Phase 4, the pre-Phase-5 hardening pass, Phase 5.0 foundation, Phase 5.1 BINARY Segmentation Storage, Phase 5.2 BINARY/FRACTIONAL/LABELMAP segmentation coverage, Phase 5.3 Presentation State/RWVM, Phase 5.4 SR/KOS, Phase 5.5 RT Structure Set/RT Dose, and Phase 5.6 Encapsulated PDF slices are functionally complete. Phase 6.0 native transfer syntax foundation is functionally complete: transfer syntax capability planning, native writer verification, the generator-side transfer syntax abstraction, and the first retired Explicit VR Big Endian legacy Secondary Capture case are implemented and verified. Phase 6.1 Deflated Explicit VR Little Endian is functionally complete: the `deflate` Cargo feature enables DICOM-rs deflate support, the deflated SC registry row is standards-backed and implemented, no-feature generation reports it as feature-gated unavailable, and feature-enabled generation/validation/reporting/reproducibility pass. Phase 6.2 encapsulated Pixel Data foundation has started: the manifest schema and generated-root validator now model and reject invalid encapsulated offset-table layout metadata before any compressed image recipe is enabled, and the transfer syntax capability matrix now records explicit unavailable status for the first JPEG Baseline, JPEG-LS, JPEG 2000, JPEG XL, HTJ2K, and RLE candidate families under the pinned DICOM-rs 0.9.1 feature set.
+**Current implementation status:** Phase 0, Phase 0.5, Phase 1, Phase 2, Phase 3, Phase 4, the pre-Phase-5 hardening pass, Phase 5.0 foundation, Phase 5.1 BINARY Segmentation Storage, Phase 5.2 BINARY/FRACTIONAL/LABELMAP segmentation coverage, Phase 5.3 Presentation State/RWVM, Phase 5.4 SR/KOS, Phase 5.5 RT Structure Set/RT Dose, and Phase 5.6 Encapsulated PDF slices are functionally complete. Phase 6.0 native transfer syntax foundation is functionally complete: transfer syntax capability planning, native writer verification, the generator-side transfer syntax abstraction, and the first retired Explicit VR Big Endian legacy Secondary Capture case are implemented and verified. Phase 6.1 Deflated Explicit VR Little Endian is functionally complete: the `deflate` Cargo feature enables DICOM-rs deflate support, the deflated SC registry row is standards-backed and implemented, no-feature generation reports it as feature-gated unavailable, and feature-enabled generation/validation/reporting/reproducibility pass. Phase 6.2 encapsulated Pixel Data foundation has started: the manifest schema and generated-root validator now model and reject invalid encapsulated offset-table layout metadata before any compressed image recipe is enabled, the transfer syntax capability matrix records explicit unavailable status for the first JPEG Baseline, JPEG-LS, JPEG 2000, JPEG XL, HTJ2K, and RLE candidate families under the pinned DICOM-rs 0.9.1 feature set, and `cases/registry.json` now carries skipped extended-profile placeholder rows for those six compressed Secondary Capture candidates.
 
 This document is the durable hand-off log for coding agents implementing
 `dicom-test-suite`. Keep `SYSTEM_SPEC.md` as the source of product and
@@ -241,6 +241,8 @@ handling of common derived and non-image SOP Classes.
 - [x] Add Deflated Explicit VR Little Endian feature gate.
 - [x] Implement feature-gated Deflated Explicit VR Little Endian dataset case.
 - [x] Add encapsulated Pixel Data manifest and validator foundation.
+- [x] Add skipped compressed image registry rows for matrix-backed unavailable
+      transfer syntax families.
 - [ ] Add feature-gated compressed cases according to verified capability
       matrix support.
 
@@ -255,10 +257,11 @@ encapsulated Pixel Data foundation now has manifest fields for Basic Offset
 Table state, fragments per frame, Extended Offset Table state, Extended Offset
 Table Lengths state, and compressed frame hashes, plus generated-root
 validation for the valid/invalid offset-table combinations listed in
-`SYSTEM_SPEC.md` section 9.4. The transfer syntax capability matrix now records
-explicit unavailable rows for JPEG Baseline 8-bit, JPEG-LS Lossless, JPEG 2000
-Lossless, JPEG XL Lossless, HTJ2K Lossless, and RLE Lossless with PS3.6
-evidence and DICOM-rs optional feature notes.
+`SYSTEM_SPEC.md` section 9.4. The transfer syntax capability matrix and case
+registry now record explicit unavailable/skipped rows for JPEG Baseline 8-bit,
+JPEG-LS Lossless, JPEG 2000 Lossless, JPEG XL Lossless, HTJ2K Lossless, and
+RLE Lossless with PS3.4/PS3.6 evidence, Phase 6 recheck metadata, and
+DICOM-rs optional feature notes.
 
 ## Initial Priority Case Queue
 
@@ -999,8 +1002,47 @@ These case IDs come from `SYSTEM_SPEC.md` section 21 and should seed
   until encoder behavior, encapsulated Pixel Data validation, and
   reproducibility are verified. A project artifact test now checks these rows
   against the pinned DICOM-rs registry surface.
+- 2026-06-14: Phase 6.2 compressed image registry placeholders are recorded in
+  `cases/registry.json`. The extended profile now includes skipped Secondary
+  Capture candidate rows for JPEG Baseline 8-bit, JPEG-LS Lossless, JPEG 2000
+  Lossless, JPEG XL Lossless, HTJ2K Lossless, and RLE Lossless transfer
+  syntaxes. Each row is standards-backed by 2026b `dicom-standard-kb` evidence
+  for Secondary Capture Image Storage plus the transfer syntax UID, carries
+  codec/feature requirements from the capability matrix, uses
+  `skip.reason_code = codec_unavailable`, and has `skip.recheck_phase =
+  phase-6`. Generation and reporting now expose these rows as unavailable
+  skipped cases without enabling any compressed Pixel Data recipe.
 
 ## Verification Results
+
+- 2026-06-14 Phase 6.2 compressed image registry placeholder slice:
+  - `dicom-standard-kb` MCP lookups rechecked Secondary Capture Image Storage
+    against PS3.4 Table B.5-1 and `JPEGBaseline8Bit`, `JPEGLSLossless`,
+    `JPEG2000Lossless`, `JPEGXLLossless`, `HTJ2KLossless`, and `RLELossless`
+    against PS3.6 Table A-1 before adding skipped registry rows.
+  - `cargo fmt -- --check` initially failed on rustfmt wrapping in
+    `tests/generate_cli.rs`; `cargo fmt` was run, and the repeated
+    `cargo fmt -- --check` passed.
+  - `cargo test --test project_artifacts --test list_cases_cli --test generate_cli --no-run`
+    passed, compiling the updated focused test binaries.
+  - `cargo test --no-run` passed, compiling all unit and integration test
+    binaries without executing them.
+  - `node -e "JSON.parse(...)"` passed for `cases/registry.json` and
+    `transfer-syntax/capability-matrix.json`.
+  - `node -e "..."` compressed registry/matrix check passed, confirming the
+    six compressed rows exist, are `status: skipped`, use
+    `codec_unavailable`/`phase-6`, and point to unavailable matrix rows with
+    disabled pixel encoding.
+  - `git diff --check` passed.
+  - Required Rust test execution could not complete because focused test
+    binaries hung immediately after launch, before producing test output.
+    Commands observed hanging and then cleaned up:
+    `cargo test --test project_artifacts compressed_transfer_syntax_registry_rows_remain_skipped_until_verified -- --exact`,
+    `cargo test --test list_cases_cli list_cases_command_shows_skipped_compressed_transfer_syntax_rows -- --exact`,
+    and `cargo test --test generate_cli generate_command_writes_extended_enhanced_ct_multiframe_case -- --exact`.
+  - Escalated process inspection and cleanup were used only to identify and
+    kill those stuck verification processes after sandboxed `ps` failed with
+    `operation not permitted`.
 
 - 2026-06-14 Phase 6.2 compressed transfer syntax capability matrix slice:
   - `dicom-standard-kb` MCP lookups rechecked `JPEGBaseline8Bit`,
@@ -1694,28 +1736,29 @@ These case IDs come from `SYSTEM_SPEC.md` section 21 and should seed
 
 No product blockers are currently recorded. Local Rust test and CLI process
 execution hung in the 2026-06-14 Phase 6.2 compressed transfer syntax matrix
-slice after binaries launched; this is recorded as a verification environment
-limitation rather than a code blocker because `cargo test --no-run` and
-non-Rust matrix checks completed.
+slice and again in the compressed image registry placeholder slice after
+binaries launched; this is recorded as a verification environment limitation
+rather than a code blocker because focused `cargo test --no-run` compilation
+and non-Rust JSON/matrix checks completed.
 
 ## Recommended Next Commit
 
-Continue Phase 6.2 by adding planned or skipped compressed image registry rows
-for the matrix-backed unavailable transfer syntax families, with profile
-membership, requirements, skip/recheck metadata, and report/generation tests
-that preserve unavailable status. Do not flip any compressed image recipe to
-`implemented` until the project exposes a verified encoder path and generation,
-validation, reports, and reproducibility can be run successfully.
+Continue Phase 6.2 by selecting one compressed transfer syntax family for a
+deliberate project feature/encoder verification slice, or first investigate
+the local Rust test/CLI execution hang if verification cannot run in the next
+environment. Do not flip any compressed image recipe to `implemented` until
+the project exposes a verified encoder path and generation, validation,
+reports, and reproducibility can be run successfully.
 
 ## Commit-Ready Summary
 
-The current slice reconciles the Phase 6.2 compressed transfer syntax
-capability matrix for the first candidate families. JPEG Baseline 8-bit,
-JPEG-LS Lossless, JPEG 2000 Lossless, JPEG XL Lossless, HTJ2K Lossless, and
-RLE Lossless are now explicit matrix entries with 2026b PS3.6 evidence,
-DICOM-rs 0.9.1 feature-gate notes, current unavailable pixel decode/encode
-state, and a guard test comparing those claims with the pinned registry
-surface. No compressed image recipe or generated profile behavior was enabled.
+The current slice adds skipped extended-profile registry placeholders for the
+six matrix-backed compressed Secondary Capture candidates: JPEG Baseline
+8-bit, JPEG-LS Lossless, JPEG 2000 Lossless, JPEG XL Lossless, HTJ2K
+Lossless, and RLE Lossless. Each row carries PS3.4/PS3.6 evidence,
+requirements copied from the capability matrix, and Phase 6
+`codec_unavailable` skip metadata. No compressed image recipe or generated
+Pixel Data behavior was enabled.
 
 ## Handoff Notes
 

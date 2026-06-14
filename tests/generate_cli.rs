@@ -2455,11 +2455,34 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
         .pointer("/skipped_cases")
         .and_then(Value::as_array)
         .expect("manifest should contain skipped cases");
-    if cfg!(feature = "deflate") {
-        assert!(
-            skipped_cases.is_empty(),
-            "feature-enabled extended generation should not skip the deflated case"
+    assert_eq!(
+        skipped_cases.len(),
+        if cfg!(feature = "deflate") { 6 } else { 7 },
+        "extended generation should report only unavailable compressed transfer syntax rows plus the no-feature deflated row"
+    );
+    for case_id in [
+        "classic/sc/rgb_planar0_jpeg_baseline_8bit",
+        "classic/sc/mono2_u8_jpeg_ls_lossless",
+        "classic/sc/mono2_u16_jpeg2000_lossless",
+        "classic/sc/rgb_planar0_jpegxl_lossless",
+        "classic/sc/mono2_u16_htj2k_lossless",
+        "classic/sc/mono2_u8_rle_lossless",
+    ] {
+        let skipped = skipped_case_by_id(&manifest, case_id);
+        assert_eq!(
+            skipped.get("status").and_then(Value::as_str),
+            Some("skipped")
         );
+        assert_eq!(
+            skipped.get("reason_code").and_then(Value::as_str),
+            Some("codec_unavailable")
+        );
+        assert_eq!(
+            skipped.get("recheck_phase").and_then(Value::as_str),
+            Some("phase-6")
+        );
+    }
+    if cfg!(feature = "deflate") {
         let deflated_file =
             file_entry_by_case_id(&manifest, "classic/sc/mono2_u8_deflated_explicit_le");
         assert_eq!(
@@ -2474,11 +2497,6 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
             "deflated manifest should record the named transfer syntax validation"
         );
     } else {
-        assert_eq!(
-            skipped_cases.len(),
-            1,
-            "no-feature extended generation should report only the feature-gated deflated case"
-        );
         let deflated = skipped_case_by_id(&manifest, "classic/sc/mono2_u8_deflated_explicit_le");
         assert_eq!(
             deflated.get("status").and_then(Value::as_str),
@@ -3879,7 +3897,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
         .expect("manifest should contain skipped cases");
     assert_eq!(
         skipped_cases.len(),
-        if cfg!(feature = "deflate") { 2 } else { 3 },
+        if cfg!(feature = "deflate") { 8 } else { 9 },
         "all generation should report unavailable cases according to active features"
     );
     for case_id in [
@@ -3894,6 +3912,24 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
         assert_eq!(
             skipped.get("reason_code").and_then(Value::as_str),
             Some("case_planned")
+        );
+    }
+    for case_id in [
+        "classic/sc/rgb_planar0_jpeg_baseline_8bit",
+        "classic/sc/mono2_u8_jpeg_ls_lossless",
+        "classic/sc/mono2_u16_jpeg2000_lossless",
+        "classic/sc/rgb_planar0_jpegxl_lossless",
+        "classic/sc/mono2_u16_htj2k_lossless",
+        "classic/sc/mono2_u8_rle_lossless",
+    ] {
+        let skipped = skipped_case_by_id(&manifest, case_id);
+        assert_eq!(
+            skipped.get("status").and_then(Value::as_str),
+            Some("skipped")
+        );
+        assert_eq!(
+            skipped.get("reason_code").and_then(Value::as_str),
+            Some("codec_unavailable")
         );
     }
     if cfg!(feature = "deflate") {

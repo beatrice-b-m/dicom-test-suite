@@ -452,6 +452,100 @@ fn compressed_transfer_syntax_matrix_matches_current_dicom_rs_stubs() {
 }
 
 #[test]
+fn compressed_transfer_syntax_registry_rows_remain_skipped_until_verified() {
+    let matrix = read_json("transfer-syntax/capability-matrix.json");
+    let matrix_entries = matrix
+        .get("entries")
+        .and_then(Value::as_array)
+        .expect("transfer syntax matrix must contain entries");
+    let registry = read_json("cases/registry.json");
+    let cases = registry_cases(&registry);
+
+    for (case_id, uid, keyword) in [
+        (
+            "classic/sc/rgb_planar0_jpeg_baseline_8bit",
+            "1.2.840.10008.1.2.4.50",
+            "JPEGBaseline8Bit",
+        ),
+        (
+            "classic/sc/mono2_u8_jpeg_ls_lossless",
+            "1.2.840.10008.1.2.4.80",
+            "JPEGLSLossless",
+        ),
+        (
+            "classic/sc/mono2_u16_jpeg2000_lossless",
+            "1.2.840.10008.1.2.4.90",
+            "JPEG2000Lossless",
+        ),
+        (
+            "classic/sc/rgb_planar0_jpegxl_lossless",
+            "1.2.840.10008.1.2.4.110",
+            "JPEGXLLossless",
+        ),
+        (
+            "classic/sc/mono2_u16_htj2k_lossless",
+            "1.2.840.10008.1.2.4.201",
+            "HTJ2KLossless",
+        ),
+        (
+            "classic/sc/mono2_u8_rle_lossless",
+            "1.2.840.10008.1.2.5",
+            "RLELossless",
+        ),
+    ] {
+        let matrix_entry = matrix_entries
+            .iter()
+            .find(|entry| entry.get("uid").and_then(Value::as_str) == Some(uid))
+            .unwrap_or_else(|| panic!("transfer syntax matrix must contain {uid}"));
+        assert_eq!(
+            matrix_entry.get("keyword").and_then(Value::as_str),
+            Some(keyword)
+        );
+        assert_eq!(
+            matrix_entry.get("status").and_then(Value::as_str),
+            Some("unavailable"),
+            "{case_id} must not be implemented until matrix support is available"
+        );
+
+        let case = cases
+            .iter()
+            .find(|case| case.get("case_id").and_then(Value::as_str) == Some(case_id))
+            .unwrap_or_else(|| panic!("registry must contain {case_id}"));
+        assert_eq!(case.get("status").and_then(Value::as_str), Some("skipped"));
+        assert_eq!(
+            case.get("transfer_syntax_uid").and_then(Value::as_str),
+            Some(uid)
+        );
+        assert_eq!(
+            case.pointer("/skip/reason_code").and_then(Value::as_str),
+            Some("codec_unavailable")
+        );
+        assert_eq!(
+            case.pointer("/skip/recheck_phase").and_then(Value::as_str),
+            Some("phase-6")
+        );
+        assert_eq!(
+            case.get("determinism").and_then(Value::as_str),
+            Some("semantic_stable")
+        );
+        assert!(
+            case.get("standards_evidence")
+                .and_then(Value::as_array)
+                .is_some_and(|evidence| evidence.iter().any(|entry| {
+                    entry.get("query").and_then(Value::as_str)
+                        == Some("lookup_sop_class Secondary Capture Image Storage")
+                }) && evidence.iter().any(|entry| {
+                    entry
+                        .get("query")
+                        .and_then(Value::as_str)
+                        .is_some_and(|query| query == format!("lookup_uid {keyword}"))
+                })),
+            "{case_id} must carry SC SOP Class and transfer syntax evidence"
+        );
+    }
+}
+
+#[test]
 fn deterministic_policy_documents_all_determinism_levels() {
     let policy = fs::read_to_string("docs/deterministic-build-policy.md")
         .expect("deterministic build policy must be readable");

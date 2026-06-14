@@ -3438,6 +3438,252 @@
       ]
     },
     {
+      "case_id": "classic/sc/rgb_planar0_jpeg_baseline_8bit",
+      "status": "skipped",
+      "profiles": ["extended"],
+      "recipe_id": "sc_rgb_planar0_jpeg_baseline_8bit",
+      "recipe_version": "0.1.0",
+      "iod_name": "Secondary Capture Image",
+      "sop_class_name": "Secondary Capture Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.7",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.4.50",
+      "determinism": "semantic_stable",
+      "requirements": {
+        "features": ["dicom-transfer-syntax-registry/jpeg"],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": {
+        "reason_code": "codec_unavailable",
+        "message": "JPEG Baseline image generation is unavailable until a project feature, encoder behavior, encapsulated Pixel Data validation, and reproducibility strategy are verified.",
+        "recheck_phase": "phase-6"
+      },
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_sop_class Secondary Capture Image Storage",
+          "covered": true,
+          "part": "PS3.4",
+          "anchor": "table_B.5-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_uid JPEGBaseline8Bit",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        }
+      ]
+    },
+    {
+      "case_id": "classic/sc/mono2_u8_jpeg_ls_lossless",
+      "status": "skipped",
+      "profiles": ["extended"],
+      "recipe_id": "sc_mono2_u8_jpeg_ls_lossless",
+      "recipe_version": "0.1.0",
+      "iod_name": "Secondary Capture Image",
+      "sop_class_name": "Secondary Capture Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.7",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.4.80",
+      "determinism": "semantic_stable",
+      "requirements": {
+        "features": ["dicom-transfer-syntax-registry/charls"],
+        "external_codecs": ["CharLS"],
+        "external_validators": []
+      },
+      "skip": {
+        "reason_code": "codec_unavailable",
+        "message": "JPEG-LS Lossless image generation is unavailable until a project feature, CharLS encoder behavior, encapsulated Pixel Data validation, and reproducibility strategy are verified.",
+        "recheck_phase": "phase-6"
+      },
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_sop_class Secondary Capture Image Storage",
+          "covered": true,
+          "part": "PS3.4",
+          "anchor": "table_B.5-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_uid JPEGLSLossless",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        }
+      ]
+    },
+    {
+      "case_id": "classic/sc/mono2_u16_jpeg2000_lossless",
+      "status": "skipped",
+      "profiles": ["extended"],
+      "recipe_id": "sc_mono2_u16_jpeg2000_lossless",
+      "recipe_version": "0.1.0",
+      "iod_name": "Secondary Capture Image",
+      "sop_class_name": "Secondary Capture Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.7",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.4.90",
+      "determinism": "semantic_stable",
+      "requirements": {
+        "features": [
+          "dicom-transfer-syntax-registry/openjp2",
+          "dicom-transfer-syntax-registry/openjpeg-sys"
+        ],
+        "external_codecs": ["OpenJPEG"],
+        "external_validators": []
+      },
+      "skip": {
+        "reason_code": "codec_unavailable",
+        "message": "JPEG 2000 Lossless image generation is unavailable until an encoder strategy, encapsulated Pixel Data validation, and reproducibility strategy are verified.",
+        "recheck_phase": "phase-6"
+      },
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_sop_class Secondary Capture Image Storage",
+          "covered": true,
+          "part": "PS3.4",
+          "anchor": "table_B.5-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_uid JPEG2000Lossless",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        }
+      ]
+    },
+    {
+      "case_id": "classic/sc/rgb_planar0_jpegxl_lossless",
+      "status": "skipped",
+      "profiles": ["extended"],
+      "recipe_id": "sc_rgb_planar0_jpegxl_lossless",
+      "recipe_version": "0.1.0",
+      "iod_name": "Secondary Capture Image",
+      "sop_class_name": "Secondary Capture Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.7",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.4.110",
+      "determinism": "semantic_stable",
+      "requirements": {
+        "features": ["dicom-transfer-syntax-registry/jpegxl"],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": {
+        "reason_code": "codec_unavailable",
+        "message": "JPEG XL Lossless image generation is unavailable until a project feature, encoder behavior, encapsulated Pixel Data validation, and reproducibility strategy are verified.",
+        "recheck_phase": "phase-6"
+      },
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_sop_class Secondary Capture Image Storage",
+          "covered": true,
+          "part": "PS3.4",
+          "anchor": "table_B.5-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_uid JPEGXLLossless",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        }
+      ]
+    },
+    {
+      "case_id": "classic/sc/mono2_u16_htj2k_lossless",
+      "status": "skipped",
+      "profiles": ["extended"],
+      "recipe_id": "sc_mono2_u16_htj2k_lossless",
+      "recipe_version": "0.1.0",
+      "iod_name": "Secondary Capture Image",
+      "sop_class_name": "Secondary Capture Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.7",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.4.201",
+      "determinism": "semantic_stable",
+      "requirements": {
+        "features": [
+          "dicom-transfer-syntax-registry/openjp2",
+          "dicom-transfer-syntax-registry/openjpeg-sys"
+        ],
+        "external_codecs": ["OpenJPEG"],
+        "external_validators": []
+      },
+      "skip": {
+        "reason_code": "codec_unavailable",
+        "message": "HTJ2K Lossless image generation is unavailable until an encoder strategy, encapsulated Pixel Data validation, and reproducibility strategy are verified.",
+        "recheck_phase": "phase-6"
+      },
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_sop_class Secondary Capture Image Storage",
+          "covered": true,
+          "part": "PS3.4",
+          "anchor": "table_B.5-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_uid HTJ2KLossless",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        }
+      ]
+    },
+    {
+      "case_id": "classic/sc/mono2_u8_rle_lossless",
+      "status": "skipped",
+      "profiles": ["extended"],
+      "recipe_id": "sc_mono2_u8_rle_lossless",
+      "recipe_version": "0.1.0",
+      "iod_name": "Secondary Capture Image",
+      "sop_class_name": "Secondary Capture Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.7",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.5",
+      "determinism": "semantic_stable",
+      "requirements": {
+        "features": ["dicom-transfer-syntax-registry/rle"],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": {
+        "reason_code": "codec_unavailable",
+        "message": "RLE Lossless image generation is unavailable until an encoder strategy, encapsulated Pixel Data validation, and reproducibility strategy are verified.",
+        "recheck_phase": "phase-6"
+      },
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_sop_class Secondary Capture Image Storage",
+          "covered": true,
+          "part": "PS3.4",
+          "anchor": "table_B.5-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_uid RLELossless",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        }
+      ]
+    },
+    {
       "case_id": "vl/photo/palette_color_explicit_le",
       "status": "planned",
       "profiles": ["core"],

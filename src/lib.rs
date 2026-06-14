@@ -973,13 +973,113 @@ fn validate_manifest_image_pixel_data(
             "pixel_data vr must be a string",
         )?,
     );
-    let pixel_bytes = match pixel_element.value().to_bytes() {
-        Ok(bytes) => bytes,
-        Err(err) => {
-            failures.push(format!("{relative_path}: pixel_data_bytes: {err}"));
-            return Ok(());
+    let native_or_encapsulated = manifest_str(
+        manifest_path,
+        file,
+        "/pixel_data/native_or_encapsulated",
+        "pixel_data native_or_encapsulated must be a string",
+    )?;
+    let frame_count = manifest_u64(
+        manifest_path,
+        file,
+        "/pixel_data/frame_count",
+        "pixel_data frame_count must be an integer",
+    )?;
+    validate_equal(
+        failures,
+        relative_path,
+        "pixel_data_frame_count",
+        frame_count,
+        u64::from(frames),
+    );
+    let frame_hashes = manifest_array(
+        manifest_path,
+        file,
+        "/pixel_data/frame_hashes",
+        "pixel_data frame_hashes must be an array",
+    )?;
+    validate_equal(
+        failures,
+        relative_path,
+        "pixel_data_frame_hash_count",
+        frame_hashes.len(),
+        usize::try_from(frame_count).unwrap_or(usize::MAX),
+    );
+
+    match native_or_encapsulated {
+        "native" => {
+            let pixel_bytes = match pixel_element.value().to_bytes() {
+                Ok(bytes) => bytes,
+                Err(err) => {
+                    failures.push(format!("{relative_path}: pixel_data_bytes: {err}"));
+                    return Ok(());
+                }
+            };
+            validate_native_pixel_data_manifest(
+                failures,
+                relative_path,
+                manifest_path,
+                file,
+                pixel_bytes.as_ref(),
+                rows,
+                columns,
+                frames,
+                samples_per_pixel,
+                bits_allocated,
+            )?;
         }
-    };
+        "encapsulated" => validate_encapsulated_pixel_data_manifest(
+            failures,
+            relative_path,
+            manifest_path,
+            file,
+        )?,
+        "absent" => failures.push(format!(
+            "{relative_path}: pixel_data_absent_manifest: image objects must not use native_or_encapsulated absent"
+        )),
+        other => failures.push(format!(
+            "{relative_path}: pixel_data_native_or_encapsulated: unsupported value {other}"
+        )),
+    }
+
+    Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
+fn validate_native_pixel_data_manifest(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    manifest_path: &Path,
+    file: &Value,
+    pixel_bytes: &[u8],
+    rows: u16,
+    columns: u16,
+    frames: u16,
+    samples_per_pixel: u16,
+    bits_allocated: u16,
+) -> Result<(), ValidateError> {
+    if let Some(encapsulated) = file
+        .pointer("/pixel_data/encapsulated_pixel_data")
+        .filter(|value| !value.is_null())
+    {
+        if manifest_bool(
+            manifest_path,
+            encapsulated,
+            "/extended_offset_table/present",
+            "extended_offset_table present must be a boolean",
+        )
+        .unwrap_or(false)
+        {
+            failures.push(format!(
+                "{relative_path}: extended_offset_table_native_pixel_data: Extended Offset Table is not valid for native Pixel Data"
+            ));
+        } else {
+            failures.push(format!(
+                "{relative_path}: encapsulated_pixel_data_native_pixel_data: native Pixel Data must not carry encapsulated layout metadata"
+            ));
+        }
+    }
+
     let expected_value_length = manifest_u64(
         manifest_path,
         file,
@@ -1022,6 +1122,238 @@ fn validate_manifest_image_pixel_data(
     );
 
     Ok(())
+}
+
+fn validate_encapsulated_pixel_data_manifest(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    manifest_path: &Path,
+    file: &Value,
+) -> Result<(), ValidateError> {
+    let transfer_syntax = manifest_str(
+        manifest_path,
+        file,
+        "/dicom/transfer_syntax_uid",
+        "dicom transfer_syntax_uid must be a string",
+    )?;
+    if is_native_or_dataset_deflated_transfer_syntax(transfer_syntax) {
+        failures.push(format!(
+            "{relative_path}: encapsulated_pixel_data_transfer_syntax: transfer syntax {transfer_syntax} does not encode encapsulated image frames"
+        ));
+    }
+
+    if !file
+        .pointer("/pixel_data/value_length")
+        .is_some_and(Value::is_null)
+    {
+        failures.push(format!(
+            "{relative_path}: encapsulated_pixel_data_value_length: encapsulated Pixel Data should use an undefined value length recorded as null"
+        ));
+    }
+
+    let frame_count = manifest_u64(
+        manifest_path,
+        file,
+        "/pixel_data/frame_count",
+        "pixel_data frame_count must be an integer",
+    )?;
+    let layout = file.pointer("/pixel_data/encapsulated_pixel_data").ok_or(
+        ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "encapsulated pixel_data requires encapsulated_pixel_data metadata",
+        },
+    )?;
+    if layout.is_null() {
+        failures.push(format!(
+            "{relative_path}: encapsulated_pixel_data_layout: encapsulated Pixel Data layout metadata is required"
+        ));
+        return Ok(());
+    }
+
+    let basic_offset_table_present = manifest_bool(
+        manifest_path,
+        layout,
+        "/basic_offset_table/present",
+        "basic_offset_table present must be a boolean",
+    )?;
+    if !basic_offset_table_present {
+        failures.push(format!(
+            "{relative_path}: basic_offset_table_present: encapsulated Pixel Data requires a Basic Offset Table item"
+        ));
+    }
+    let basic_offset_table_populated = manifest_bool(
+        manifest_path,
+        layout,
+        "/basic_offset_table/populated",
+        "basic_offset_table populated must be a boolean",
+    )?;
+    let basic_offset_count = manifest_u64(
+        manifest_path,
+        layout,
+        "/basic_offset_table/offset_count",
+        "basic_offset_table offset_count must be an integer",
+    )?;
+    let fragments_per_frame = manifest_array(
+        manifest_path,
+        layout,
+        "/fragments_per_frame",
+        "fragments_per_frame must be an array",
+    )?;
+    validate_equal(
+        failures,
+        relative_path,
+        "encapsulated_fragments_frame_count",
+        fragments_per_frame.len(),
+        usize::try_from(frame_count).unwrap_or(usize::MAX),
+    );
+    let mut all_single_fragment = true;
+    let mut all_multiple_fragments = true;
+    for fragment_count in fragments_per_frame {
+        let Some(fragment_count) = fragment_count.as_u64() else {
+            return Err(ValidateError::ManifestShape {
+                path: manifest_path.to_path_buf(),
+                message: "fragments_per_frame items must be integers",
+            });
+        };
+        if fragment_count == 0 {
+            failures.push(format!(
+                "{relative_path}: encapsulated_fragment_count: every frame must have at least one fragment"
+            ));
+        }
+        all_single_fragment &= fragment_count == 1;
+        all_multiple_fragments &= fragment_count > 1;
+    }
+
+    let compressed_frame_hashes = manifest_array(
+        manifest_path,
+        layout,
+        "/compressed_frame_hashes",
+        "compressed_frame_hashes must be an array",
+    )?;
+    validate_equal(
+        failures,
+        relative_path,
+        "compressed_frame_hash_count",
+        compressed_frame_hashes.len(),
+        usize::try_from(frame_count).unwrap_or(usize::MAX),
+    );
+
+    let extended_offset_table_present = manifest_bool(
+        manifest_path,
+        layout,
+        "/extended_offset_table/present",
+        "extended_offset_table present must be a boolean",
+    )?;
+    let extended_lengths_present = manifest_bool(
+        manifest_path,
+        layout,
+        "/extended_offset_table/lengths_present",
+        "extended_offset_table lengths_present must be a boolean",
+    )?;
+    let extended_offset_count = manifest_u64(
+        manifest_path,
+        layout,
+        "/extended_offset_table/offset_count",
+        "extended_offset_table offset_count must be an integer",
+    )?;
+    let extended_length_count = manifest_u64(
+        manifest_path,
+        layout,
+        "/extended_offset_table/length_count",
+        "extended_offset_table length_count must be an integer",
+    )?;
+
+    if basic_offset_table_populated {
+        validate_equal(
+            failures,
+            relative_path,
+            "basic_offset_table_offset_count",
+            basic_offset_count,
+            frame_count,
+        );
+    } else {
+        validate_equal(
+            failures,
+            relative_path,
+            "basic_offset_table_empty",
+            basic_offset_count,
+            0,
+        );
+    }
+
+    if extended_offset_table_present {
+        if basic_offset_table_populated {
+            failures.push(format!(
+                "{relative_path}: extended_offset_table_with_populated_basic_offset_table: Extended Offset Table requires an empty Basic Offset Table"
+            ));
+        }
+        if !all_single_fragment {
+            failures.push(format!(
+                "{relative_path}: extended_offset_table_multiple_fragments: Extended Offset Table requires one fragment per frame"
+            ));
+        }
+        if extended_offset_count == 0 {
+            failures.push(format!(
+                "{relative_path}: extended_offset_table_empty: Extended Offset Table must contain one offset per frame"
+            ));
+        }
+        validate_equal(
+            failures,
+            relative_path,
+            "extended_offset_table_offset_count",
+            extended_offset_count,
+            frame_count,
+        );
+        if !extended_lengths_present {
+            failures.push(format!(
+                "{relative_path}: extended_offset_table_without_lengths: Extended Offset Table requires Extended Offset Table Lengths"
+            ));
+        }
+        validate_equal(
+            failures,
+            relative_path,
+            "extended_offset_table_length_count",
+            extended_length_count,
+            frame_count,
+        );
+    } else {
+        validate_equal(
+            failures,
+            relative_path,
+            "extended_offset_table_absent_offsets",
+            extended_offset_count,
+            0,
+        );
+        validate_equal(
+            failures,
+            relative_path,
+            "extended_offset_table_lengths_absent",
+            extended_length_count,
+            0,
+        );
+        if extended_lengths_present {
+            failures.push(format!(
+                "{relative_path}: extended_offset_table_lengths_without_table: Extended Offset Table Lengths require Extended Offset Table"
+            ));
+        }
+        if !basic_offset_table_populated && !all_multiple_fragments {
+            failures.push(format!(
+                "{relative_path}: empty_basic_offset_table_without_extended_offsets: empty Basic Offset Table without Extended Offset Table is reserved for multiple-fragment frames"
+            ));
+        }
+    }
+
+    Ok(())
+}
+
+fn is_native_or_dataset_deflated_transfer_syntax(transfer_syntax: &str) -> bool {
+    matches!(
+        transfer_syntax,
+        "1.2.840.10008.1.2"
+            | "1.2.840.10008.1.2.1"
+            | "1.2.840.10008.1.2.1.99"
+            | "1.2.840.10008.1.2.2"
+    )
 }
 
 #[derive(Debug)]
@@ -1476,6 +1808,36 @@ fn manifest_u64(
     value
         .pointer(pointer)
         .and_then(Value::as_u64)
+        .ok_or(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message,
+        })
+}
+
+fn manifest_bool(
+    manifest_path: &Path,
+    value: &Value,
+    pointer: &str,
+    message: &'static str,
+) -> Result<bool, ValidateError> {
+    value
+        .pointer(pointer)
+        .and_then(Value::as_bool)
+        .ok_or(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message,
+        })
+}
+
+fn manifest_array<'a>(
+    manifest_path: &Path,
+    value: &'a Value,
+    pointer: &str,
+    message: &'static str,
+) -> Result<&'a Vec<Value>, ValidateError> {
+    value
+        .pointer(pointer)
+        .and_then(Value::as_array)
         .ok_or(ValidateError::ManifestShape {
             path: manifest_path.to_path_buf(),
             message,

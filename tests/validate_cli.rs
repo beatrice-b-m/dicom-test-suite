@@ -110,6 +110,103 @@ fn validate_command_reports_unresolved_reference_identity() {
 }
 
 #[test]
+fn validate_command_reports_extended_offset_table_for_native_pixel_data() {
+    let out_dir = unique_temp_dir("validate-native-extended-offset-table");
+    generate_smoke(&out_dir);
+    mutate_first_file_pixel_data(&out_dir, |pixel_data| {
+        pixel_data.insert(
+            "encapsulated_pixel_data".to_string(),
+            json!({
+                "basic_offset_table": {
+                    "present": true,
+                    "populated": false,
+                    "offset_count": 0
+                },
+                "fragments_per_frame": [1],
+                "extended_offset_table": {
+                    "present": true,
+                    "lengths_present": true,
+                    "offset_count": 1,
+                    "length_count": 1
+                },
+                "compressed_frame_hashes": [
+                    "0000000000000000000000000000000000000000000000000000000000000000"
+                ]
+            }),
+        );
+    });
+
+    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args([
+            "validate",
+            out_dir.to_str().expect("temp path should be valid UTF-8"),
+        ])
+        .output()
+        .expect("validate command must run");
+
+    assert!(
+        !output.status.success(),
+        "validate should reject Extended Offset Table metadata for native Pixel Data"
+    );
+    let stdout = String::from_utf8(output.stdout).expect("validate stdout must be UTF-8");
+    assert!(stdout.contains("extended_offset_table_native_pixel_data"));
+
+    fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
+}
+
+#[test]
+fn validate_command_reports_invalid_encapsulated_offset_table_combination() {
+    let out_dir = unique_temp_dir("validate-invalid-encapsulated-offsets");
+    generate_smoke(&out_dir);
+    mutate_first_file_pixel_data(&out_dir, |pixel_data| {
+        pixel_data.insert(
+            "native_or_encapsulated".to_string(),
+            Value::String("encapsulated".to_string()),
+        );
+        pixel_data.insert("value_length".to_string(), Value::Null);
+        pixel_data.insert(
+            "encapsulated_pixel_data".to_string(),
+            json!({
+                "basic_offset_table": {
+                    "present": true,
+                    "populated": true,
+                    "offset_count": 1
+                },
+                "fragments_per_frame": [2],
+                "extended_offset_table": {
+                    "present": true,
+                    "lengths_present": false,
+                    "offset_count": 0,
+                    "length_count": 0
+                },
+                "compressed_frame_hashes": [
+                    "0000000000000000000000000000000000000000000000000000000000000000"
+                ]
+            }),
+        );
+    });
+
+    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args([
+            "validate",
+            out_dir.to_str().expect("temp path should be valid UTF-8"),
+        ])
+        .output()
+        .expect("validate command must run");
+
+    assert!(
+        !output.status.success(),
+        "validate should reject invalid encapsulated Pixel Data offset-table combinations"
+    );
+    let stdout = String::from_utf8(output.stdout).expect("validate stdout must be UTF-8");
+    assert!(stdout.contains("extended_offset_table_with_populated_basic_offset_table"));
+    assert!(stdout.contains("extended_offset_table_multiple_fragments"));
+    assert!(stdout.contains("extended_offset_table_without_lengths"));
+
+    fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
+}
+
+#[test]
 fn validate_command_rejects_missing_manifest() {
     let out_dir = unique_temp_dir("validate-missing-manifest");
     fs::create_dir_all(&out_dir).expect("temporary output root should be created");
@@ -778,6 +875,32 @@ fn append_reference_fixture(out_dir: &Path, corrupt_reference: bool) {
     );
     files.push(derived);
 
+    fs::write(
+        &manifest_path,
+        serde_json::to_string_pretty(&manifest).expect("manifest should serialize"),
+    )
+    .expect("manifest should be writable");
+}
+
+fn mutate_first_file_pixel_data(
+    out_dir: &Path,
+    mutate: impl FnOnce(&mut serde_json::Map<String, Value>),
+) {
+    let manifest_path = out_dir.join("manifest.json");
+    let mut manifest: Value = serde_json::from_str(
+        &fs::read_to_string(&manifest_path).expect("manifest should be readable"),
+    )
+    .expect("manifest should parse");
+    let files = manifest
+        .get_mut("files")
+        .and_then(Value::as_array_mut)
+        .expect("manifest files should be an array");
+    let pixel_data = files
+        .first_mut()
+        .and_then(|file| file.get_mut("pixel_data"))
+        .and_then(Value::as_object_mut)
+        .expect("first generated file should have pixel_data metadata");
+    mutate(pixel_data);
     fs::write(
         &manifest_path,
         serde_json::to_string_pretty(&manifest).expect("manifest should serialize"),

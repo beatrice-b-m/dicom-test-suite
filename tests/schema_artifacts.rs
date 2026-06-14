@@ -141,6 +141,43 @@ fn manifest_schema_allows_non_image_files_and_requires_references() {
 }
 
 #[test]
+fn manifest_schema_defines_encapsulated_pixel_data_layout_metadata() {
+    let schema = read_json("schemas/manifest.schema.json");
+
+    assert!(
+        schema
+            .pointer("/$defs/pixel_data/allOf")
+            .and_then(Value::as_array)
+            .is_some_and(|rules| !rules.is_empty()),
+        "encapsulated pixel_data entries must require layout metadata"
+    );
+
+    let required = schema
+        .pointer("/$defs/encapsulated_pixel_data/required")
+        .and_then(Value::as_array)
+        .expect("manifest schema must define encapsulated Pixel Data fields");
+    for field in [
+        "basic_offset_table",
+        "fragments_per_frame",
+        "extended_offset_table",
+        "compressed_frame_hashes",
+    ] {
+        assert!(
+            required.iter().any(|value| value.as_str() == Some(field)),
+            "encapsulated Pixel Data metadata must require {field}"
+        );
+    }
+
+    assert_eq!(
+        schema
+            .pointer("/$defs/encapsulated_pixel_data/properties/basic_offset_table/properties/present/const")
+            .and_then(Value::as_bool),
+        Some(true),
+        "encapsulated Pixel Data always starts with a Basic Offset Table item"
+    );
+}
+
+#[test]
 fn case_registry_schema_requires_the_specified_case_fields() {
     let schema = read_json("schemas/case-registry.schema.json");
     let required = schema

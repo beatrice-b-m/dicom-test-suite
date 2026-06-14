@@ -4,7 +4,7 @@
 **Source specification:** `SYSTEM_SPEC.md` version 0.2.0  
 **Current phase:** Phase 6 transfer syntax expansion started
 
-**Current implementation status:** Phase 0, Phase 0.5, Phase 1, Phase 2, Phase 3, Phase 4, the pre-Phase-5 hardening pass, Phase 5.0 foundation, Phase 5.1 BINARY Segmentation Storage, Phase 5.2 BINARY/FRACTIONAL/LABELMAP segmentation coverage, Phase 5.3 Presentation State/RWVM, Phase 5.4 SR/KOS, Phase 5.5 RT Structure Set/RT Dose, and Phase 5.6 Encapsulated PDF slices are functionally complete. Phase 6.0 native transfer syntax foundation is functionally complete: transfer syntax capability planning, native writer verification, the generator-side transfer syntax abstraction, and the first retired Explicit VR Big Endian legacy Secondary Capture case are implemented and verified. Phase 6.1 Deflated Explicit VR Little Endian is functionally complete: the `deflate` Cargo feature enables DICOM-rs deflate support, the deflated SC registry row is standards-backed and implemented, no-feature generation reports it as feature-gated unavailable, and feature-enabled generation/validation/reporting/reproducibility pass. `IMPLEMENTATION_PLAN.md` now points next to Phase 6.2 encapsulated Pixel Data foundation increments.
+**Current implementation status:** Phase 0, Phase 0.5, Phase 1, Phase 2, Phase 3, Phase 4, the pre-Phase-5 hardening pass, Phase 5.0 foundation, Phase 5.1 BINARY Segmentation Storage, Phase 5.2 BINARY/FRACTIONAL/LABELMAP segmentation coverage, Phase 5.3 Presentation State/RWVM, Phase 5.4 SR/KOS, Phase 5.5 RT Structure Set/RT Dose, and Phase 5.6 Encapsulated PDF slices are functionally complete. Phase 6.0 native transfer syntax foundation is functionally complete: transfer syntax capability planning, native writer verification, the generator-side transfer syntax abstraction, and the first retired Explicit VR Big Endian legacy Secondary Capture case are implemented and verified. Phase 6.1 Deflated Explicit VR Little Endian is functionally complete: the `deflate` Cargo feature enables DICOM-rs deflate support, the deflated SC registry row is standards-backed and implemented, no-feature generation reports it as feature-gated unavailable, and feature-enabled generation/validation/reporting/reproducibility pass. Phase 6.2 encapsulated Pixel Data foundation has started: the manifest schema and generated-root validator now model and reject invalid encapsulated offset-table layout metadata before any compressed image recipe is enabled.
 
 This document is the durable hand-off log for coding agents implementing
 `dicom-test-suite`. Keep `SYSTEM_SPEC.md` as the source of product and
@@ -86,7 +86,7 @@ Observed at creation of this progress file:
 | Phase 4: Enhanced multi-frame | complete | Enhanced CT and Enhanced MR Image Storage cases with Shared and Per-Frame Functional Groups and Multi-frame Dimension metadata are implemented; MR Echo, Temporal Position, phase/velocity-encoding variation, and a two-member Enhanced CT concatenation case are covered. |
 | Pre-Phase-5 hardening | complete | Registry authority, required CLI contracts, validation hardening, reproducibility/CI guards, and standards lock pinning policy are complete. Validation now covers raw Part 10 byte checks, parsed cross-field image invariants, manifest schema-conformance checks, baseline standards-derived Type 1/Type 2 checks, classic family-specific checks, and Enhanced CT/MR multi-frame standards-derived checks. |
 | Phase 5: Derived, presentation, and non-image objects | complete | Full planned target queue is now in `cases/registry.json`. Manifest entries support nullable/absent image metadata plus a generated-file `references` array, coverage reports project manifest reference source case IDs into `derived_refs`, generated-root validation resolves same-run references while skipping image/pixel checks for non-image rows, and generation maintains an ordered source object registry for derived recipes. BINARY, FRACTIONAL, LABELMAP Segmentation, Grayscale Softcopy Presentation State, Real World Value Mapping, Basic Text SR, Comprehensive SR, Key Object Selection, RT Structure Set, RT Dose, and Encapsulated PDF objects are implemented and validated. Extended generation reports zero Phase 5 planned cases. |
-| Phase 6: Transfer syntax expansion | started | Phase 6 plan is in place, native DICOM-rs writer support is verified in the capability matrix, generator writes now use matrix-backed named transfer syntax specs, the first legacy Big Endian Secondary Capture recipe is implemented, and the Deflated Explicit VR Little Endian Cargo/registry/reporting gate is in place. Deflated dataset write/read verification remains next. |
+| Phase 6: Transfer syntax expansion | started | Phase 6 plan is in place, native DICOM-rs writer support is verified in the capability matrix, generator writes now use matrix-backed named transfer syntax specs, the first legacy Big Endian Secondary Capture recipe is implemented, the Deflated Explicit VR Little Endian Cargo/registry/reporting gate is in place, and encapsulated Pixel Data manifest/validator metadata is started. Compressed pixel transfer syntax recipes remain unavailable until matrix-backed encoder support is verified. |
 | Phase 7: Pathology, video, and large object profiles | not started | VL, WSI, video, and stress cases pending. |
 | Phase 8: Reporting and viewer integration | not started | Coverage reports, optional viewer runner, and compatibility schema pending. |
 | Phase 9: Negative and fuzz profiles | not started | Invalid/malformed cases intentionally deferred. |
@@ -240,7 +240,7 @@ handling of common derived and non-image SOP Classes.
 - [x] Add first legacy Explicit VR Big Endian case.
 - [x] Add Deflated Explicit VR Little Endian feature gate.
 - [x] Implement feature-gated Deflated Explicit VR Little Endian dataset case.
-- [ ] Add encapsulated Pixel Data manifest and validator foundation.
+- [x] Add encapsulated Pixel Data manifest and validator foundation.
 - [ ] Add feature-gated compressed cases according to verified capability
       matrix support.
 
@@ -250,7 +250,12 @@ and the first generated Big Endian legacy recipe are implemented. Phase 6.1
 Deflated Explicit VR Little Endian is complete under the explicit `deflate`
 feature gate; no-feature builds report the implemented case as unavailable
 with a feature prerequisite, and feature-enabled builds generate, validate,
-report, and reproduce the tiny deflated Secondary Capture dataset.
+report, and reproduce the tiny deflated Secondary Capture dataset. Phase 6.2
+encapsulated Pixel Data foundation now has manifest fields for Basic Offset
+Table state, fragments per frame, Extended Offset Table state, Extended Offset
+Table Lengths state, and compressed frame hashes, plus generated-root
+validation for the valid/invalid offset-table combinations listed in
+`SYSTEM_SPEC.md` section 9.4.
 
 ## Initial Priority Case Queue
 
@@ -1600,29 +1605,70 @@ These case IDs come from `SYSTEM_SPEC.md` section 21 and should seed
   - `cargo run -- standards check-lock` passed with the existing documented
     unavailable-pin warnings.
 
+- 2026-06-14 Phase 6.2 encapsulated Pixel Data manifest/validator foundation
+  slice:
+  - Added `pixel_data.encapsulated_pixel_data` manifest schema metadata for
+    Basic Offset Table presence/population, fragments per frame, Extended
+    Offset Table presence, Extended Offset Table Lengths presence/counts, and
+    compressed frame hashes. Encapsulated pixel data entries now require this
+    layout metadata.
+  - Added generated-root manifest validation for the valid combinations in
+    `SYSTEM_SPEC.md` section 9.4: empty Basic Offset Table + one fragment per
+    frame + Extended Offset Table + Extended Offset Table Lengths; populated
+    Basic Offset Table + one or more fragments per frame + no Extended Offset
+    Table; and empty Basic Offset Table + multiple fragments per frame + no
+    Extended Offset Table.
+  - Added validation failures for invalid combinations: Extended Offset Table
+    with populated Basic Offset Table, Extended Offset Table with multiple
+    fragments per frame, empty Extended Offset Table, Extended Offset Table
+    without Lengths, Extended Offset Table Lengths without Extended Offset
+    Table, and Extended Offset Table metadata on native Pixel Data.
+  - Checked standards evidence before coding with `dicom-standard-kb` MCP:
+    `search_standard_text "Extended Offset Table Lengths Basic Offset Table
+    encapsulated Pixel Data" --part PS3.3`, `lookup_data_element
+    ExtendedOffsetTable`, and `lookup_data_element ExtendedOffsetTableLengths`
+    against the 2026b KB.
+  - `cargo fmt -- --check` initially failed on rustfmt wrapping in
+    `src/lib.rs`; `cargo fmt` was run, and the repeated
+    `cargo fmt -- --check` passed.
+  - `cargo test --no-run` passed and compiled all unit and integration test
+    binaries.
+  - `cargo check` passed.
+  - Required execution checks could not complete in this run because local Rust
+    test/CLI binaries hung immediately after process launch, before producing
+    test or CLI output. Commands observed hanging:
+    `cargo test --test schema_artifacts manifest_schema_defines_encapsulated_pixel_data_layout_metadata -- --exact`,
+    `cargo test --test validate_cli encapsulated_offset -- --nocapture`,
+    `target/debug/deps/schema_artifacts-da9cfb8ad1878a8f --list`,
+    `cargo test --lib`, `cargo run -- version`, and
+    `target/debug/dicom-test-suite`.
+  - The sandbox could not inspect or kill the lingering binaries:
+    `ps -axo pid,ppid,stat,command | rg 'cargo test|schema_artifacts|validate_cli|dicom-test-suite|target/debug/deps'`
+    failed with `operation not permitted`, and `pkill -f target/debug/deps`
+    failed with `Cannot get process list`.
+
 ## Current Blockers
 
 None currently recorded.
 
 ## Recommended Next Commit
 
-Start Phase 6.2 with the encapsulated Pixel Data manifest and validator
-foundation. Add manifest fields and schema coverage for Basic Offset Table
-presence/population, fragments per frame, Extended Offset Table presence,
-Extended Offset Table Lengths, and compressed frame hashes using synthetic
-manifest or mutation fixtures before flipping any compressed image transfer
-syntax recipe to `implemented`.
+Continue Phase 6.2 by reconciling compressed pixel transfer syntax capability
+matrix rows for the first candidate syntax family. Only add planned or
+feature-gated compressed image registry rows after documenting concrete local
+encoder support or an explicit unavailable status; do not flip any compressed
+image recipe to `implemented` until generation, validation, reports, and
+reproducibility can be verified.
 
 ## Commit-Ready Summary
 
-The current slice implements the Phase 6.1 Deflated Explicit VR Little Endian
-Secondary Capture case. `classic/sc/mono2_u8_deflated_explicit_le` is now an
-implemented `extended` registry row with `requirements.features=["deflate"]`
-and byte-stable determinism. Feature-enabled generation writes and validates
-the tiny deflated dataset; no-feature generation reports it as
-`feature_gated_case_unavailable`. Raw generated-root Part 10 validation now
-allows compressed deflated dataset bytes after File Meta Information while
-preserving group `0002` mutation checks for uncompressed datasets.
+The current slice implements the Phase 6.2 encapsulated Pixel Data manifest and
+validator foundation. The manifest schema can now represent Basic Offset Table,
+fragment, Extended Offset Table, Extended Offset Table Lengths, and compressed
+frame-hash metadata for future compressed image cases. Generated-root
+validation now rejects the invalid offset-table combinations from
+`SYSTEM_SPEC.md` section 9.4 using manifest mutation fixtures, while existing
+native generated files continue to use the prior compact `pixel_data` shape.
 
 ## Handoff Notes
 

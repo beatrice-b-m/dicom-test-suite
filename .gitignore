@@ -3,6 +3,9 @@
 # Rust build outputs
 /target/
 
+# Local helper scripts
+/scripts/
+
 # Generated suite outputs and reports
 /generated/
 /out/

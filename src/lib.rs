@@ -1185,11 +1185,15 @@ fn validate_raw_part10_file(
         }
     }
     if dataset_start + 2 <= bytes.len() {
+        let big_endian_dataset = expected_transfer_syntax == "1.2.840.10008.1.2.2";
         validate_equal(
             failures,
             relative_path,
             "file_meta_dataset_boundary",
-            format!("{:04X}", read_u16_le(bytes, dataset_start)),
+            format!(
+                "{:04X}",
+                read_dataset_u16(bytes, dataset_start, big_endian_dataset)
+            ),
             "0008",
         );
     }
@@ -1314,13 +1318,14 @@ fn raw_text(bytes: &[u8], element: &RawFileMetaElement) -> String {
 
 fn contains_dataset_group_0002(bytes: &[u8], mut offset: usize, transfer_syntax_uid: &str) -> bool {
     let explicit_vr = transfer_syntax_uid != dicom_dictionary_std::uids::IMPLICIT_VR_LITTLE_ENDIAN;
+    let big_endian = transfer_syntax_uid == "1.2.840.10008.1.2.2";
     while offset + 8 <= bytes.len() {
-        let group = read_u16_le(bytes, offset);
+        let group = read_dataset_u16(bytes, offset, big_endian);
         if group == 0x0002 {
             return true;
         }
         let Some((value_length, next_offset)) =
-            parse_dataset_element_header(bytes, offset, explicit_vr)
+            parse_dataset_element_header(bytes, offset, explicit_vr, big_endian)
         else {
             return false;
         };
@@ -1336,19 +1341,65 @@ fn parse_dataset_element_header(
     bytes: &[u8],
     offset: usize,
     explicit_vr: bool,
+    big_endian: bool,
 ) -> Option<(u32, usize)> {
     if explicit_vr {
-        parse_explicit_vr_element(bytes, offset).map(|element| {
-            (
-                element.value_length.try_into().unwrap_or(u32::MAX),
-                element.value_offset,
-            )
-        })
+        parse_explicit_vr_dataset_element(bytes, offset, big_endian)
     } else {
         if offset + 8 > bytes.len() {
             return None;
         }
         Some((read_u32_le(bytes, offset + 4), offset + 8))
+    }
+}
+
+fn parse_explicit_vr_dataset_element(
+    bytes: &[u8],
+    offset: usize,
+    big_endian: bool,
+) -> Option<(u32, usize)> {
+    if offset + 8 > bytes.len() {
+        return None;
+    }
+    let vr = &bytes[offset + 4..offset + 6];
+    if !vr.iter().all(u8::is_ascii_uppercase) {
+        return None;
+    }
+    let long_vr = matches!(
+        vr,
+        b"OB" | b"OD" | b"OF" | b"OL" | b"OV" | b"OW" | b"SQ" | b"UC" | b"UR" | b"UT" | b"UN"
+    );
+    if long_vr {
+        if offset + 12 > bytes.len() {
+            return None;
+        }
+        Some((read_dataset_u32(bytes, offset + 8, big_endian), offset + 12))
+    } else {
+        Some((
+            read_dataset_u16(bytes, offset + 6, big_endian).into(),
+            offset + 8,
+        ))
+    }
+}
+
+fn read_dataset_u16(bytes: &[u8], offset: usize, big_endian: bool) -> u16 {
+    if big_endian {
+        u16::from_be_bytes([bytes[offset], bytes[offset + 1]])
+    } else {
+        read_u16_le(bytes, offset)
+    }
+}
+
+fn read_dataset_u32(bytes: &[u8], offset: usize, big_endian: bool) -> u32 {
+    if big_endian {
+        u32::from_be_bytes([
+            bytes[offset],
+            bytes[offset + 1],
+            bytes[offset + 2],
+            bytes[offset + 3],
+        ])
+    } else {
+        read_u32_le(bytes, offset)
     }
 }
 
@@ -5260,7 +5311,7 @@ fn planned_recheck_phase(case_id: &str) -> &'static str {
 fn case_matches_profile(profiles: &[String], requested: &str, include_stress: bool) -> bool {
     match requested {
         "all" => profiles.iter().any(|profile| {
-            matches!(profile.as_str(), "smoke" | "core" | "extended" | "legacy")
+            matches!(profile.as_str(), "smoke" | "core" | "extended")
                 || (include_stress && profile == "stress")
         }),
         profile => profiles.iter().any(|case_profile| case_profile == profile),

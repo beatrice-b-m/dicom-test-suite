@@ -82,8 +82,8 @@ from the case ID.
   derived objects.
 - `legacy`: valid retired or uncommon behavior, excluded from `core`.
 - `stress`: valid but large, slow, or expensive cases; explicit opt-in only.
-- `all`: includes `smoke`, `core`, `extended`, and `legacy`; excludes `stress`
-  unless `--include-stress` is passed.
+- `all`: includes `smoke`, `core`, and `extended`; excludes `legacy` and
+  excludes `stress` unless `--include-stress` is passed.
 - `negative`: future invalid or malformed files; never included in `all`.
 - `fuzz`: future mutation/fuzz robustness cases; never included in `all`.
 
@@ -93,7 +93,7 @@ from the case ID.
 - `smoke` cases must be byte-stable, small, and free of optional external codec
   requirements.
 - `core` excludes large WSI/video/stress cases and intentionally invalid data.
-- `legacy` is opt-in by profile or through `all`; it is not part of `core`.
+- `legacy` is opt-in by profile; it is not part of `core` or `all`.
 - `stress` is excluded from `all` unless an explicit stress flag is enabled.
 - `negative` and `fuzz` are never included in `all` and are not conformance
   profiles.

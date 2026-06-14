@@ -147,6 +147,28 @@ fn list_cases_command_shows_core_case_status_and_evidence() {
 }
 
 #[test]
+fn list_cases_command_shows_legacy_big_endian_case_status_and_evidence() {
+    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args(["list-cases", "--profile", "legacy"])
+        .output()
+        .expect("list-cases command must run");
+
+    assert!(
+        output.status.success(),
+        "list-cases should exit successfully: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8(output.stdout).expect("list-cases stdout must be utf-8");
+    assert!(
+        stdout.contains(
+            "classic/sc/mono2_u8_explicit_be\timplemented\tlegacy\t1.2.840.10008.5.1.4.1.1.7\t1.2.840.10008.1.2.2\t2/2 covered"
+        ),
+        "list-cases must include implemented legacy Explicit VR Big Endian cases"
+    );
+}
+
+#[test]
 fn list_cases_command_shows_extended_case_status_and_evidence() {
     let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
         .args(["list-cases", "--profile", "extended"])

@@ -72,7 +72,6 @@ const EXPLICIT_VR_LITTLE_ENDIAN: TransferSyntaxSpec = TransferSyntaxSpec {
     uid: uids::EXPLICIT_VR_LITTLE_ENDIAN,
     name: "Explicit VR Little Endian",
 };
-#[allow(dead_code)]
 const EXPLICIT_VR_BIG_ENDIAN: TransferSyntaxSpec = TransferSyntaxSpec {
     capability_keyword: "ExplicitVRBigEndian",
     capability_name: "Explicit VR Big Endian",
@@ -219,6 +218,7 @@ const PIXEL_RECIPES: &[PixelRecipe] = &[
         high_bit: 7,
         pixel_representation: 0,
         pixel_vr: VR::OB,
+        transfer_syntax: EXPLICIT_VR_LITTLE_ENDIAN,
         pixel_bytes: &MONO_PIXELS,
         pixel_values: &[0, 85, 170, 255],
         pixel_min: 0,
@@ -241,6 +241,7 @@ const PIXEL_RECIPES: &[PixelRecipe] = &[
         high_bit: 7,
         pixel_representation: 0,
         pixel_vr: VR::OB,
+        transfer_syntax: EXPLICIT_VR_LITTLE_ENDIAN,
         pixel_bytes: &MONO_PIXELS,
         pixel_values: &[0, 85, 170, 255],
         pixel_min: 0,
@@ -263,12 +264,36 @@ const PIXEL_RECIPES: &[PixelRecipe] = &[
         high_bit: 7,
         pixel_representation: 0,
         pixel_vr: VR::OB,
+        transfer_syntax: EXPLICIT_VR_LITTLE_ENDIAN,
         pixel_bytes: &RGB_PLANAR0_PIXELS,
         pixel_values: &[255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 255, 255],
         pixel_min: 0,
         pixel_max: 255,
         visual_pattern: "2x2_rgb_red_green_blue_white",
         semantic_note: "RGB samples are interleaved color-by-pixel",
+        palette: None,
+        padding: None,
+    },
+    PixelRecipe {
+        case_id: "classic/sc/mono2_u8_explicit_be",
+        recipe_id: "sc_mono2_u8_explicit_be",
+        rows: 2,
+        columns: 2,
+        photometric_interpretation: "MONOCHROME2",
+        samples_per_pixel: 1,
+        planar_configuration: None,
+        bits_allocated: 8,
+        bits_stored: 8,
+        high_bit: 7,
+        pixel_representation: 0,
+        pixel_vr: VR::OB,
+        transfer_syntax: EXPLICIT_VR_BIG_ENDIAN,
+        pixel_bytes: &MONO_PIXELS,
+        pixel_values: &[0, 85, 170, 255],
+        pixel_min: 0,
+        pixel_max: 255,
+        visual_pattern: "2x2_monochrome_gradient",
+        semantic_note: "minimum sample value displays as black with retired Explicit VR Big Endian dataset encoding",
         palette: None,
         padding: None,
     },
@@ -285,6 +310,7 @@ const PIXEL_RECIPES: &[PixelRecipe] = &[
         high_bit: 7,
         pixel_representation: 0,
         pixel_vr: VR::OB,
+        transfer_syntax: EXPLICIT_VR_LITTLE_ENDIAN,
         pixel_bytes: &RGB_PLANAR1_PIXELS,
         pixel_values: &[255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255],
         pixel_min: 0,
@@ -307,6 +333,7 @@ const PIXEL_RECIPES: &[PixelRecipe] = &[
         high_bit: 7,
         pixel_representation: 0,
         pixel_vr: VR::OB,
+        transfer_syntax: EXPLICIT_VR_LITTLE_ENDIAN,
         pixel_bytes: &PALETTE_COLOR_PIXELS,
         pixel_values: &PALETTE_COLOR_VALUES,
         pixel_min: 0,
@@ -329,6 +356,7 @@ const PIXEL_RECIPES: &[PixelRecipe] = &[
         high_bit: 7,
         pixel_representation: 0,
         pixel_vr: VR::OB,
+        transfer_syntax: EXPLICIT_VR_LITTLE_ENDIAN,
         pixel_bytes: &YBR_FULL_PLANAR0_PIXELS,
         pixel_values: &[76, 85, 255, 150, 44, 21, 29, 255, 107, 255, 128, 128],
         pixel_min: 21,
@@ -351,6 +379,7 @@ const PIXEL_RECIPES: &[PixelRecipe] = &[
         high_bit: 7,
         pixel_representation: 0,
         pixel_vr: VR::OB,
+        transfer_syntax: EXPLICIT_VR_LITTLE_ENDIAN,
         pixel_bytes: &YBR_FULL_422_PIXELS,
         pixel_values: &[76, 150, 65, 138, 29, 255, 192, 118],
         pixel_min: 29,
@@ -373,6 +402,7 @@ const PIXEL_RECIPES: &[PixelRecipe] = &[
         high_bit: 15,
         pixel_representation: 0,
         pixel_vr: VR::OW,
+        transfer_syntax: EXPLICIT_VR_LITTLE_ENDIAN,
         pixel_bytes: &MONO_U16_PIXELS,
         pixel_values: &MONO_U16_VALUES,
         pixel_min: 0,
@@ -395,6 +425,7 @@ const PIXEL_RECIPES: &[PixelRecipe] = &[
         high_bit: 15,
         pixel_representation: 1,
         pixel_vr: VR::OW,
+        transfer_syntax: EXPLICIT_VR_LITTLE_ENDIAN,
         pixel_bytes: &MONO_I16_PIXELS,
         pixel_values: &MONO_I16_VALUES,
         pixel_min: -32768,
@@ -417,6 +448,7 @@ const PIXEL_RECIPES: &[PixelRecipe] = &[
         high_bit: 15,
         pixel_representation: 0,
         pixel_vr: VR::OW,
+        transfer_syntax: EXPLICIT_VR_LITTLE_ENDIAN,
         pixel_bytes: &MONO_U16_ODD_3X3_PIXELS,
         pixel_values: &MONO_U16_ODD_3X3_VALUES,
         pixel_min: 0,
@@ -439,6 +471,7 @@ const PIXEL_RECIPES: &[PixelRecipe] = &[
         high_bit: 15,
         pixel_representation: 0,
         pixel_vr: VR::OW,
+        transfer_syntax: EXPLICIT_VR_LITTLE_ENDIAN,
         pixel_bytes: &MONO_U16_RECT_2X3_PIXELS,
         pixel_values: &MONO_U16_RECT_2X3_VALUES,
         pixel_min: 0,
@@ -461,6 +494,7 @@ const PIXEL_RECIPES: &[PixelRecipe] = &[
         high_bit: 15,
         pixel_representation: 0,
         pixel_vr: VR::OW,
+        transfer_syntax: EXPLICIT_VR_LITTLE_ENDIAN,
         pixel_bytes: &MONO_U16_TINY_1X1_PIXELS,
         pixel_values: &MONO_U16_TINY_1X1_VALUES,
         pixel_min: 65535,
@@ -483,6 +517,7 @@ const PIXEL_RECIPES: &[PixelRecipe] = &[
         high_bit: 15,
         pixel_representation: 0,
         pixel_vr: VR::OW,
+        transfer_syntax: EXPLICIT_VR_LITTLE_ENDIAN,
         pixel_bytes: &MONO_U16_PADDING_PIXELS,
         pixel_values: &MONO_U16_PADDING_VALUES,
         pixel_min: 0,
@@ -511,6 +546,7 @@ struct PixelRecipe {
     high_bit: u16,
     pixel_representation: u16,
     pixel_vr: VR,
+    transfer_syntax: TransferSyntaxSpec,
     pixel_bytes: &'static [u8],
     pixel_values: &'static [i32],
     pixel_min: i32,
@@ -2229,7 +2265,7 @@ fn write_pixel_case(
     let file_obj = obj
         .with_meta(
             FileMetaTableBuilder::new()
-                .transfer_syntax(EXPLICIT_VR_LITTLE_ENDIAN.uid)
+                .transfer_syntax(recipe.transfer_syntax.uid)
                 .implementation_class_uid(&implementation_class_uid)
                 .implementation_version_name(crate::IMPLEMENTATION_VERSION_NAME),
         )
@@ -2250,7 +2286,7 @@ fn write_pixel_case(
         &Part10Expectations {
             sop_class_uid: uids::SECONDARY_CAPTURE_IMAGE_STORAGE,
             sop_instance_uid: &sop_instance_uid,
-            transfer_syntax_uid: EXPLICIT_VR_LITTLE_ENDIAN.uid,
+            transfer_syntax_uid: recipe.transfer_syntax.uid,
             implementation_class_uid: &implementation_class_uid,
             synthetic_data: "YES",
             rows: recipe.rows,
@@ -2467,7 +2503,7 @@ fn pixel_manifest_entry(
 
     serde_json::json!({
         "case_id": recipe.case_id,
-        "profile_membership": ["smoke"],
+        "profile_membership": pixel_profile_membership(recipe),
         "path": relative_path,
         "sha256": sha256_hex(bytes),
         "size_bytes": bytes.len(),
@@ -2493,8 +2529,8 @@ fn pixel_manifest_entry(
             "sop_class_name": "Secondary Capture Image Storage",
             "iod_name": "Secondary Capture Image",
             "modality": "OT",
-            "transfer_syntax_uid": EXPLICIT_VR_LITTLE_ENDIAN.uid,
-            "transfer_syntax_name": EXPLICIT_VR_LITTLE_ENDIAN.name
+            "transfer_syntax_uid": recipe.transfer_syntax.uid,
+            "transfer_syntax_name": recipe.transfer_syntax.name
         },
         "uids": {
             "study_instance_uid": study_instance_uid,
@@ -2535,9 +2571,28 @@ fn pixel_manifest_entry(
             "pattern": recipe.visual_pattern
         },
         "validation": validation,
-        "known_stressors": ["minimal_secondary_capture", "native_ob_pixel_data"],
+        "known_stressors": pixel_known_stressors(recipe),
         "standards_evidence": deduplicated_standards_evidence(standards_evidence)
     })
+}
+
+fn pixel_known_stressors(recipe: PixelRecipe) -> Vec<&'static str> {
+    let mut stressors = vec!["minimal_secondary_capture", "native_ob_pixel_data"];
+    if recipe.transfer_syntax == EXPLICIT_VR_BIG_ENDIAN {
+        stressors.push("retired_transfer_syntax");
+        stressors.push("explicit_vr_big_endian_dataset");
+    }
+    stressors
+}
+
+fn pixel_profile_membership(recipe: PixelRecipe) -> &'static [&'static str] {
+    match recipe.case_id {
+        "classic/sc/mono2_u8_explicit_le"
+        | "classic/sc/mono1_u8_explicit_le"
+        | "classic/sc/rgb_planar0_explicit_le" => &["smoke"],
+        "classic/sc/mono2_u8_explicit_be" => &["legacy"],
+        _ => &["core"],
+    }
 }
 
 fn write_classic_ct_case(
@@ -11276,7 +11331,7 @@ fn string_array(value: Option<&Value>) -> Result<Vec<String>, GenerateError> {
 fn case_matches_profile(profiles: &[String], requested: &str, include_stress: bool) -> bool {
     match requested {
         "all" => profiles.iter().any(|profile| {
-            matches!(profile.as_str(), "smoke" | "core" | "extended" | "legacy")
+            matches!(profile.as_str(), "smoke" | "core" | "extended")
                 || (include_stress && profile == "stress")
         }),
         profile => profiles.iter().any(|case_profile| case_profile == profile),

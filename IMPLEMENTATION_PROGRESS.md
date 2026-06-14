@@ -4,7 +4,7 @@
 **Source specification:** `SYSTEM_SPEC.md` version 0.2.0  
 **Current phase:** Phase 6 transfer syntax expansion started
 
-**Current implementation status:** Phase 0, Phase 0.5, Phase 1, Phase 2, Phase 3, Phase 4, the pre-Phase-5 hardening pass, Phase 5.0 foundation, Phase 5.1 BINARY Segmentation Storage, Phase 5.2 BINARY/FRACTIONAL/LABELMAP segmentation coverage, Phase 5.3 Presentation State/RWVM, Phase 5.4 SR/KOS, Phase 5.5 RT Structure Set/RT Dose, and Phase 5.6 Encapsulated PDF slices are functionally complete. Phase 6 has started with transfer syntax capability planning, native writer verification, and a generator-side transfer syntax abstraction. `IMPLEMENTATION_PLAN.md` now includes Phase 6.0 native transfer syntax foundation, Phase 6.1 Deflated Explicit VR Little Endian feature-gating, and Phase 6.2 encapsulated Pixel Data foundation increments. `transfer-syntax/capability-matrix.json` records local DICOM-rs 0.9.1 verification and marks retired Explicit VR Big Endian as dataset read/write available for the future `legacy` profile; no Big Endian recipe has been added yet.
+**Current implementation status:** Phase 0, Phase 0.5, Phase 1, Phase 2, Phase 3, Phase 4, the pre-Phase-5 hardening pass, Phase 5.0 foundation, Phase 5.1 BINARY Segmentation Storage, Phase 5.2 BINARY/FRACTIONAL/LABELMAP segmentation coverage, Phase 5.3 Presentation State/RWVM, Phase 5.4 SR/KOS, Phase 5.5 RT Structure Set/RT Dose, and Phase 5.6 Encapsulated PDF slices are functionally complete. Phase 6.0 native transfer syntax foundation is functionally complete: transfer syntax capability planning, native writer verification, the generator-side transfer syntax abstraction, and the first retired Explicit VR Big Endian legacy Secondary Capture case are implemented and verified. `IMPLEMENTATION_PLAN.md` now includes the remaining Phase 6.1 Deflated Explicit VR Little Endian feature-gating and Phase 6.2 encapsulated Pixel Data foundation increments.
 
 This document is the durable hand-off log for coding agents implementing
 `dicom-test-suite`. Keep `SYSTEM_SPEC.md` as the source of product and
@@ -86,7 +86,7 @@ Observed at creation of this progress file:
 | Phase 4: Enhanced multi-frame | complete | Enhanced CT and Enhanced MR Image Storage cases with Shared and Per-Frame Functional Groups and Multi-frame Dimension metadata are implemented; MR Echo, Temporal Position, phase/velocity-encoding variation, and a two-member Enhanced CT concatenation case are covered. |
 | Pre-Phase-5 hardening | complete | Registry authority, required CLI contracts, validation hardening, reproducibility/CI guards, and standards lock pinning policy are complete. Validation now covers raw Part 10 byte checks, parsed cross-field image invariants, manifest schema-conformance checks, baseline standards-derived Type 1/Type 2 checks, classic family-specific checks, and Enhanced CT/MR multi-frame standards-derived checks. |
 | Phase 5: Derived, presentation, and non-image objects | complete | Full planned target queue is now in `cases/registry.json`. Manifest entries support nullable/absent image metadata plus a generated-file `references` array, coverage reports project manifest reference source case IDs into `derived_refs`, generated-root validation resolves same-run references while skipping image/pixel checks for non-image rows, and generation maintains an ordered source object registry for derived recipes. BINARY, FRACTIONAL, LABELMAP Segmentation, Grayscale Softcopy Presentation State, Real World Value Mapping, Basic Text SR, Comprehensive SR, Key Object Selection, RT Structure Set, RT Dose, and Encapsulated PDF objects are implemented and validated. Extended generation reports zero Phase 5 planned cases. |
-| Phase 6: Transfer syntax expansion | started | Phase 6 plan is in place, native DICOM-rs writer support is verified in the capability matrix, and generator writes now use matrix-backed named transfer syntax specs; the first legacy Big Endian recipe remains pending. |
+| Phase 6: Transfer syntax expansion | started | Phase 6 plan is in place, native DICOM-rs writer support is verified in the capability matrix, generator writes now use matrix-backed named transfer syntax specs, and the first legacy Big Endian Secondary Capture recipe is implemented. Deflated dataset feature-gating remains next. |
 | Phase 7: Pathology, video, and large object profiles | not started | VL, WSI, video, and stress cases pending. |
 | Phase 8: Reporting and viewer integration | not started | Coverage reports, optional viewer runner, and compatibility schema pending. |
 | Phase 9: Negative and fuzz profiles | not started | Invalid/malformed cases intentionally deferred. |
@@ -237,15 +237,16 @@ handling of common derived and non-image SOP Classes.
 - [x] Add a guard test comparing native transfer syntax matrix claims against
       the pinned DICOM-rs registry.
 - [x] Add transfer syntax abstraction in generation.
-- [ ] Add first legacy Explicit VR Big Endian case.
+- [x] Add first legacy Explicit VR Big Endian case.
 - [ ] Add Deflated Explicit VR Little Endian feature gate.
 - [ ] Add encapsulated Pixel Data manifest and validator foundation.
 - [ ] Add feature-gated compressed cases according to verified capability
       matrix support.
 
-Phase 6 is started. Planning/capability verification and the generator
-transfer syntax abstraction are complete; the first generated Big Endian
-legacy recipe remains pending.
+Phase 6 is started. Phase 6.0 native transfer syntax foundation is complete:
+planning/capability verification, the generator transfer syntax abstraction,
+and the first generated Big Endian legacy recipe are implemented. Deflated
+Explicit VR Little Endian feature-gating remains pending.
 
 ## Initial Priority Case Queue
 
@@ -297,6 +298,7 @@ These case IDs come from `SYSTEM_SPEC.md` section 21 and should seed
 | Case registry storage shape | decided 2026-06-13 | Use `cases/registry.json` with `case_registry_schema_version` and a `cases` array conforming to `schemas/case-registry.schema.json`. |
 | Transfer syntax capability matrix format | decided 2026-06-13 | Use `transfer-syntax/capability-matrix.json` entries with `read_dataset`, `decode_pixel`, `write_dataset`, `encode_pixel`, `feature_flags`, `external_libraries`, and `determinism` fields. |
 | UID namespace and algorithm | decided 2026-06-13 | Use project namespace UUID `4f5b3b66-8b91-4f3d-a6a1-6d9a7fc6d4d8`, SHA-256 seed material, RFC 4122 version/variant bits, and DICOM `2.25.<decimal uuid>` output. The 2026b KB did not expose PS3.5 UID text, so `standards/source-notes/uid-2-25.md` records the local source note. |
+| Legacy profile inclusion | decided 2026-06-14 | Treat `legacy` as opt-in by explicit profile selection and exclude it from `all` for Phase 6 transfer syntax expansion. This preserves existing `all` corpus behavior while adding retired transfer syntax coverage under `legacy`. |
 
 ## Implementation Notes
 
@@ -933,8 +935,46 @@ These case IDs come from `SYSTEM_SPEC.md` section 21 and should seed
   and dataset-write support. The staged Explicit VR Big Endian spec is present
   for the next `legacy` recipe slice, but no generated case behavior or
   registry status changed in this slice.
+- 2026-06-14: Phase 6.0 legacy Explicit VR Big Endian Secondary Capture is
+  implemented for `classic/sc/mono2_u8_explicit_be`. The recipe reuses the
+  tiny 2x2 MONOCHROME2 8-bit Secondary Capture pixel pattern with retired
+  Explicit VR Big Endian dataset encoding, records legacy-only profile
+  membership, labels the retired transfer syntax stressor in the manifest, and
+  keeps the case out of `smoke`, `core`, `extended`, and `all` by making
+  `legacy` explicitly opt-in. Generated-root raw Part 10 validation now reads
+  Explicit VR Big Endian dataset element headers when scanning the dataset
+  boundary and group `0002` exclusion while still parsing File Meta Information
+  as Explicit VR Little Endian. Focused readback tests prove the File Meta
+  byte encoding remains Explicit VR Little Endian while the dataset uses
+  Explicit VR Big Endian.
 
 ## Verification Results
+
+- 2026-06-14 Phase 6.0 legacy Explicit VR Big Endian Secondary Capture slice:
+  - `dicom-standard-kb` MCP lookups rechecked Secondary Capture Image Storage,
+    the Secondary Capture Image IOD, and Explicit VR Big Endian
+    `1.2.840.10008.1.2.2` against the 2026b reference. Explicit VR Big Endian
+    was reported as a retired Transfer Syntax in PS3.6 Table A-1.
+  - `cargo test --test list_cases_cli --test generate_cli --test project_artifacts --test validate_cli`
+    passed with 46 focused tests.
+  - `cargo run -- list-cases --profile legacy` passed and listed
+    `classic/sc/mono2_u8_explicit_be` as implemented with `2/2` evidence
+    covered.
+  - `cargo run -- generate --profile legacy --out /private/tmp/dts-slice-legacy --seed 1`
+    passed, writing 1 file.
+  - `cargo run -- validate /private/tmp/dts-slice-legacy` passed with 1 file
+    checked and 0 validation failures.
+  - `cargo run -- report /private/tmp/dts-slice-legacy --format json` passed
+    with counts `generated=1`, `planned=0`, `skipped=0`, `blocked=0`.
+  - `cargo run -- report /private/tmp/dts-slice-legacy --format markdown`
+    passed and reported the generated legacy case with no gaps.
+  - `cargo run -- generate --profile legacy --out /private/tmp/dts-slice-legacy-a --seed 1`
+    and `cargo run -- generate --profile legacy --out /private/tmp/dts-slice-legacy-b --seed 1`
+    passed, each writing 1 file.
+  - `diff -r /private/tmp/dts-slice-legacy-a /private/tmp/dts-slice-legacy-b`
+    passed with no differences.
+  - `cargo fmt -- --check` passed.
+  - `cargo test` passed with 87 tests.
 
 - 2026-06-14 Phase 6.0 generator transfer syntax abstraction slice:
   - `dicom-standard-kb` MCP lookups rechecked Implicit VR Little Endian,
@@ -1435,20 +1475,21 @@ None currently recorded.
 
 ## Recommended Next Commit
 
-Add the first Phase 6.0 `legacy` Explicit VR Big Endian Secondary Capture case
-using the new generator transfer syntax abstraction. Keep it out of `smoke`,
-`core`, `extended`, and `all` unless profile inclusion rules are deliberately
-updated in the same slice.
+Start Phase 6.1 by adding the Deflated Explicit VR Little Endian Cargo feature
+gate and capability/registry unavailable reporting path. Do not flip a
+deflated dataset recipe to `implemented` until DICOM-rs deflate write/read
+behavior, generated-root validation, and reproducibility are verified with the
+feature enabled.
 
 ## Commit-Ready Summary
 
-The current slice adds the Phase 6.0 generator transfer syntax abstraction:
-native transfer syntaxes are represented by matrix-backed named specs, the
-existing mammography recipe selects a spec instead of raw UID/name fields, Part
-10 write sites and manifest DICOM metadata use the shared specs, and a focused
-unit test verifies the generator specs against
-`transfer-syntax/capability-matrix.json`. No case registry row or Big Endian
-recipe was added in this slice.
+The current slice adds the first Phase 6.0 legacy Explicit VR Big Endian
+Secondary Capture case. `classic/sc/mono2_u8_explicit_be` is implemented in
+the registry and generator, uses the transfer syntax abstraction, remains
+legacy-only, is excluded from `all`, and has focused list/generate/readback
+tests. Generated-root raw Part 10 validation now handles Explicit VR Big
+Endian dataset headers while preserving Explicit VR Little Endian File Meta
+parsing.
 
 ## Handoff Notes
 

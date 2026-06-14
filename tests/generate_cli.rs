@@ -3869,6 +3869,121 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
 }
 
 #[test]
+fn generate_command_writes_legacy_explicit_big_endian_secondary_capture_case() {
+    let out_dir = unique_temp_dir("generate-legacy-big-endian-command");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args([
+            "generate",
+            "--profile",
+            "legacy",
+            "--out",
+            out_dir.to_str().expect("temp path should be valid UTF-8"),
+            "--seed",
+            "7",
+        ])
+        .output()
+        .expect("generate command must run");
+
+    assert!(
+        output.status.success(),
+        "generate should exit successfully: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
+    assert!(stdout.contains("profile\tlegacy"));
+    assert!(stdout.contains("files_written\t1"));
+
+    let manifest_path = out_dir.join("manifest.json");
+    let manifest: Value = serde_json::from_str(
+        &fs::read_to_string(&manifest_path).expect("manifest should be readable"),
+    )
+    .expect("manifest should parse");
+    assert_manifest_matches_committed_schema(&manifest);
+
+    let file_entry = file_entry_by_case_id(&manifest, "classic/sc/mono2_u8_explicit_be");
+    assert_eq!(
+        file_entry
+            .pointer("/profile_membership/0")
+            .and_then(Value::as_str),
+        Some("legacy")
+    );
+    assert_eq!(
+        file_entry
+            .pointer("/dicom/transfer_syntax_uid")
+            .and_then(Value::as_str),
+        Some("1.2.840.10008.1.2.2")
+    );
+    assert_eq!(
+        file_entry
+            .pointer("/dicom/transfer_syntax_name")
+            .and_then(Value::as_str),
+        Some("Explicit VR Big Endian")
+    );
+    assert!(
+        file_entry
+            .pointer("/known_stressors")
+            .and_then(Value::as_array)
+            .is_some_and(|stressors| stressors
+                .iter()
+                .any(|stress| { stress.as_str() == Some("explicit_vr_big_endian_dataset") })),
+        "manifest should label the retired Big Endian dataset stressor"
+    );
+    assert!(
+        validation_results_named(&manifest, "/files/0/validation/standards")
+            .contains(&"explicit_vr_big_endian_transfer_syntax"),
+        "manifest should record standards validation for Explicit VR Big Endian"
+    );
+    assert!(
+        manifest
+            .pointer("/skipped_cases")
+            .and_then(Value::as_array)
+            .is_some_and(Vec::is_empty),
+        "legacy generation should not skip the implemented Big Endian case"
+    );
+
+    let dcm_path = out_dir.join("classic/sc/mono2_u8_explicit_be/instance.dcm");
+    let dcm_bytes = fs::read(&dcm_path).expect("generated DICOM file should be readable");
+    assert_eq!(&dcm_bytes[128..132], b"DICM", "file must be Part 10");
+    assert_eq!(
+        &dcm_bytes[132..140],
+        &[0x02, 0x00, 0x00, 0x00, b'U', b'L', 0x04, 0x00],
+        "File Meta Information must remain encoded as Explicit VR Little Endian"
+    );
+    assert!(
+        dcm_bytes
+            .windows(6)
+            .any(|window| window == [0x00, 0x08, 0x00, 0x16, b'U', b'I']),
+        "dataset SOP Class UID tag should be encoded as Explicit VR Big Endian"
+    );
+
+    let obj = open_file(&dcm_path).expect("generated Big Endian DICOM file should parse");
+    assert_eq!(
+        obj.meta().transfer_syntax().trim_end_matches('\0'),
+        "1.2.840.10008.1.2.2"
+    );
+    assert_eq!(
+        obj.element(tags::SOP_CLASS_UID)
+            .expect("dataset should contain SOP Class UID")
+            .value()
+            .to_str()
+            .expect("SOP Class UID should be text")
+            .trim_end_matches('\0'),
+        uids::SECONDARY_CAPTURE_IMAGE_STORAGE
+    );
+    assert_eq!(
+        obj.element(tags::ROWS)
+            .expect("dataset should contain Rows")
+            .value()
+            .to_int::<u16>()
+            .expect("Rows should be a u16"),
+        2
+    );
+
+    fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
+}
+
+#[test]
 fn generate_command_requires_output_path() {
     let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
         .args(["generate", "--profile", "smoke"])

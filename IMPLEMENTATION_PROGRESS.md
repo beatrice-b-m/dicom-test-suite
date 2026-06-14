@@ -1732,33 +1732,60 @@ These case IDs come from `SYSTEM_SPEC.md` section 21 and should seed
     failed with `operation not permitted`, and `pkill -f target/debug/deps`
     failed with `Cannot get process list`.
 
+- 2026-06-14 Phase 6.2 Rust execution hang investigation slice:
+  - Selected the tracker-recommended verification investigation before enabling
+    any compressed image recipe, because required Rust test/CLI execution still
+    could not be trusted.
+  - `git status --short` showed no worktree changes before the slice, aside
+    from the recurring macOS `DARWIN_USER_TEMP_DIR` warning emitted by git.
+  - `cargo test --test schema_artifacts manifest_schema_defines_encapsulated_pixel_data_layout_metadata -- --exact`
+    compiled and launched `target/debug/deps/schema_artifacts-da9cfb8ad1878a8f`
+    but hung before test output; the lingering test binary was terminated with
+    escalated `pkill -f target/debug/deps/schema_artifacts-da9cfb8ad1878a8f`.
+  - `ps -axo pid,ppid,stat,command | rg 'schema_artifacts|cargo test'`
+    failed under the sandbox with `operation not permitted`.
+  - `perl -e 'alarm shift; exec @ARGV' 5 target/debug/dicom-test-suite --help`
+    hung until the alarm fired with no output.
+  - The same bounded `target/debug/dicom-test-suite --help` command also hung
+    outside the sandbox under escalation, so the issue is not limited to the
+    workspace filesystem sandbox.
+  - `rustc --version` passed and reported `rustc 1.85.0 (4d91de4e4
+    2025-02-17)`.
+  - `file target/debug/dicom-test-suite target/debug/deps/schema_artifacts-da9cfb8ad1878a8f`
+    passed and identified both binaries as Mach-O 64-bit arm64 executables.
+  - `cargo test --no-run` passed, confirming the crate and all test binaries
+    compile even though executing local Rust binaries hangs.
+  - `otool -L target/debug/dicom-test-suite` also hung after the same macOS
+    temp-dir warning; the lingering diagnostic was terminated with escalated
+    `pkill -f 'otool -L target/debug/dicom-test-suite'`.
+  - `git diff --check` passed for the tracker-only blocker update.
+
 ## Current Blockers
 
-No product blockers are currently recorded. Local Rust test and CLI process
-execution hung in the 2026-06-14 Phase 6.2 compressed transfer syntax matrix
-slice and again in the compressed image registry placeholder slice after
-binaries launched; this is recorded as a verification environment limitation
-rather than a code blocker because focused `cargo test --no-run` compilation
-and non-Rust JSON/matrix checks completed.
+Verification is blocked by local Rust executable startup hangs. The issue has
+now reproduced across a focused test binary and the project CLI both inside and
+outside the sandbox, while `cargo test --no-run` still compiles all test
+binaries. Because Phase 6 compressed transfer syntax work requires generation,
+validation, reporting, reproducibility, and focused Rust tests, do not enable a
+compressed image recipe until this execution blocker is resolved or a working
+verification environment is available.
 
 ## Recommended Next Commit
 
-Continue Phase 6.2 by selecting one compressed transfer syntax family for a
-deliberate project feature/encoder verification slice, or first investigate
-the local Rust test/CLI execution hang if verification cannot run in the next
-environment. Do not flip any compressed image recipe to `implemented` until
-the project exposes a verified encoder path and generation, validation,
-reports, and reproducibility can be run successfully.
+Resolve the local Rust executable startup hang or move to an environment where
+`target/debug/dicom-test-suite --help`, focused Rust tests, generation,
+validation, reporting, and reproducibility checks can execute. After that,
+continue Phase 6.2 by selecting one compressed transfer syntax family for a
+deliberate project feature/encoder verification slice. Do not flip any
+compressed image recipe to `implemented` until the project exposes a verified
+encoder path and generation, validation, reports, and reproducibility can be
+run successfully.
 
 ## Commit-Ready Summary
 
-The current slice adds skipped extended-profile registry placeholders for the
-six matrix-backed compressed Secondary Capture candidates: JPEG Baseline
-8-bit, JPEG-LS Lossless, JPEG 2000 Lossless, JPEG XL Lossless, HTJ2K
-Lossless, and RLE Lossless. Each row carries PS3.4/PS3.6 evidence,
-requirements copied from the capability matrix, and Phase 6
-`codec_unavailable` skip metadata. No compressed image recipe or generated
-Pixel Data behavior was enabled.
+The current slice records a concrete verification blocker for Phase 6.2: local
+Rust executables compile but hang immediately after launch. No compressed image
+recipe or generated Pixel Data behavior was enabled.
 
 ## Handoff Notes
 

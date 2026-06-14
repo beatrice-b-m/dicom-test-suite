@@ -14,8 +14,9 @@ use crate::{
         CrImageExpectations, CtImageExpectations, DxImageExpectations,
         EnhancedCtConcatenationExpectations, EnhancedCtImageExpectations,
         EnhancedMrImageExpectations, MgImageExpectations, MrImageExpectations, Part10Expectations,
-        PixelDataLengthFormula, PresentationStateExpectations, SegmentationExpectations,
-        UsImageExpectations, validate_part10_file, validate_presentation_state_file,
+        PixelDataLengthFormula, PresentationStateExpectations, RealWorldValueMappingExpectations,
+        SegmentationExpectations, UsImageExpectations, validate_part10_file,
+        validate_presentation_state_file, validate_real_world_value_mapping_file,
     },
 };
 
@@ -30,11 +31,14 @@ const CLASSIC_CR_RECIPE_VERSION: &str = "0.1.0";
 const CLASSIC_MR_RECIPE_VERSION: &str = "0.1.0";
 const SEGMENTATION_RECIPE_VERSION: &str = "0.1.0";
 const GSPS_RECIPE_VERSION: &str = "0.1.0";
+const RWVM_RECIPE_VERSION: &str = "0.1.0";
 const SEGMENTATION_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.66.4";
 const LABEL_MAP_SEGMENTATION_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.66.7";
 const GRAYSCALE_SOFTCOPY_PRESENTATION_STATE_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.11.1";
+const REAL_WORLD_VALUE_MAPPING_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.67";
 const SEGMENTATION_SOURCE_CASE_ID: &str = "enhanced/ct/multiframe_shared_perframe_explicit_le";
 const GSPS_SOURCE_CASE_ID: &str = "enhanced/ct/multiframe_shared_perframe_explicit_le";
+const RWVM_SOURCE_CASE_ID: &str = "enhanced/ct/multiframe_shared_perframe_explicit_le";
 const MONO_PIXELS: [u8; 4] = [0, 85, 170, 255];
 const RGB_PLANAR0_PIXELS: [u8; 12] = [255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 255, 255];
 const RGB_PLANAR1_PIXELS: [u8; 12] = [255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255];
@@ -789,6 +793,42 @@ const PRESENTATION_STATE_RECIPES: &[PresentationStateRecipe] = &[PresentationSta
 }];
 
 #[derive(Debug, Clone, Copy)]
+struct RealWorldValueMappingRecipe {
+    case_id: &'static str,
+    recipe_id: &'static str,
+    source_case_id: &'static str,
+    content_label: &'static str,
+    content_description: &'static str,
+    lut_label: &'static str,
+    first_value_mapped: u16,
+    last_value_mapped: u16,
+    intercept: f64,
+    slope: f64,
+    unit_code_value: &'static str,
+    unit_coding_scheme_designator: &'static str,
+    unit_code_meaning: &'static str,
+    referenced_frame_numbers: &'static [u16],
+}
+
+const REAL_WORLD_VALUE_MAPPING_RECIPES: &[RealWorldValueMappingRecipe] =
+    &[RealWorldValueMappingRecipe {
+        case_id: "derived/rwvm/linear_ct_mapping_explicit_le",
+        recipe_id: "rwvm_linear_ct_mapping",
+        source_case_id: RWVM_SOURCE_CASE_ID,
+        content_label: "DTSRWVM",
+        content_description: "Synthetic CT linear real world value mapping",
+        lut_label: "DTS_HU",
+        first_value_mapped: 0,
+        last_value_mapped: 700,
+        intercept: -1024.0,
+        slope: 1.0,
+        unit_code_value: "HU",
+        unit_coding_scheme_designator: "UCUM",
+        unit_code_meaning: "Hounsfield unit",
+        referenced_frame_numbers: &SEG_REFERENCED_FRAMES,
+    }];
+
+#[derive(Debug, Clone, Copy)]
 struct EnhancedMrRecipe {
     case_id: &'static str,
     recipe_id: &'static str,
@@ -1445,6 +1485,29 @@ pub(crate) fn write_supported_cases(
                 message: "presentation state source object must be generated before the derived recipe",
             })?;
         context.record_one(write_presentation_state_case(
+            run,
+            case,
+            *recipe,
+            &source,
+            standards_lock_sha256,
+        )?)?;
+    }
+    for recipe in REAL_WORLD_VALUE_MAPPING_RECIPES {
+        let Some(case) = registry_case(registry, recipe.case_id)? else {
+            continue;
+        };
+        if !should_generate_case(case, run)? {
+            continue;
+        }
+        let source = context
+            .source_registry()
+            .first_for_case(recipe.source_case_id)
+            .cloned()
+            .ok_or_else(|| GenerateError::MetadataShape {
+                path: PathBuf::from(recipe.case_id),
+                message: "RWVM source object must be generated before the derived recipe",
+            })?;
+        context.record_one(write_real_world_value_mapping_case(
             run,
             case,
             *recipe,
@@ -3196,6 +3259,174 @@ fn write_presentation_state_case(
     })
 }
 
+fn write_real_world_value_mapping_case(
+    run: &PreparedGenerationRun,
+    case: &Value,
+    recipe: RealWorldValueMappingRecipe,
+    source: &GeneratedSourceObject,
+    standards_lock_sha256: &str,
+) -> Result<GeneratedFile, GenerateError> {
+    let series_instance_uid = deterministic_real_world_value_mapping_uid(
+        standards_lock_sha256,
+        recipe,
+        run.seed,
+        UidRole::SeriesInstance,
+    );
+    let sop_instance_uid = deterministic_real_world_value_mapping_uid(
+        standards_lock_sha256,
+        recipe,
+        run.seed,
+        UidRole::SopInstance,
+    );
+    let implementation_class_uid = deterministic_implementation_uid(standards_lock_sha256);
+
+    let relative_path = format!("{}/instance.dcm", recipe.case_id);
+    let path = run.out_dir.join(&relative_path);
+    let case_dir = path.parent().ok_or_else(|| GenerateError::MetadataShape {
+        path: PathBuf::from(&relative_path),
+        message: "generated DICOM path must have a parent directory",
+    })?;
+    fs::create_dir_all(case_dir).map_err(|source| GenerateError::CreateCaseOutputDir {
+        path: case_dir.to_path_buf(),
+        source,
+    })?;
+
+    let mut obj = InMemDicomObject::new_empty();
+    put_str(
+        &mut obj,
+        tags::SOP_CLASS_UID,
+        VR::UI,
+        REAL_WORLD_VALUE_MAPPING_STORAGE_UID,
+    );
+    put_str(&mut obj, tags::SOP_INSTANCE_UID, VR::UI, &sop_instance_uid);
+    put_str(&mut obj, tags::SYNTHETIC_DATA, VR::CS, "YES");
+
+    put_str(
+        &mut obj,
+        tags::PATIENT_NAME,
+        VR::PN,
+        "DTS^Synthetic^Patient001",
+    );
+    put_str(&mut obj, tags::PATIENT_ID, VR::LO, "DTS-PATIENT-001");
+    put_str(&mut obj, tags::PATIENT_BIRTH_DATE, VR::DA, "19700101");
+    put_str(&mut obj, tags::PATIENT_SEX, VR::CS, "O");
+
+    put_str(
+        &mut obj,
+        tags::STUDY_INSTANCE_UID,
+        VR::UI,
+        &source.study_instance_uid,
+    );
+    put_str(&mut obj, tags::STUDY_DATE, VR::DA, "20260101");
+    put_str(&mut obj, tags::STUDY_TIME, VR::TM, "000000");
+    put_str(&mut obj, tags::REFERRING_PHYSICIAN_NAME, VR::PN, "");
+    put_str(&mut obj, tags::STUDY_ID, VR::SH, "DTS-RWVM");
+    put_str(&mut obj, tags::ACCESSION_NUMBER, VR::SH, "");
+
+    put_str(&mut obj, tags::MODALITY, VR::CS, "RWV");
+    put_str(
+        &mut obj,
+        tags::SERIES_INSTANCE_UID,
+        VR::UI,
+        &series_instance_uid,
+    );
+    put_str(&mut obj, tags::SERIES_NUMBER, VR::IS, "62");
+
+    put_str(&mut obj, tags::MANUFACTURER, VR::LO, "dicom-test-suite");
+    put_str(
+        &mut obj,
+        tags::MANUFACTURER_MODEL_NAME,
+        VR::LO,
+        recipe.recipe_id,
+    );
+    put_str(
+        &mut obj,
+        tags::DEVICE_SERIAL_NUMBER,
+        VR::LO,
+        "DTS-RWVM-0001",
+    );
+    put_str(
+        &mut obj,
+        tags::SOFTWARE_VERSIONS,
+        VR::LO,
+        crate::PACKAGE_VERSION,
+    );
+
+    put_str(&mut obj, tags::INSTANCE_NUMBER, VR::IS, "1");
+    put_str(&mut obj, tags::CONTENT_DATE, VR::DA, "20260101");
+    put_str(&mut obj, tags::CONTENT_TIME, VR::TM, "000000");
+    put_str(&mut obj, TAG_CONTENT_LABEL, VR::CS, recipe.content_label);
+    put_str(
+        &mut obj,
+        TAG_CONTENT_DESCRIPTION,
+        VR::LO,
+        recipe.content_description,
+    );
+
+    put_real_world_value_mapping_sequence(&mut obj, recipe, source);
+    put_common_instance_reference(&mut obj, source);
+
+    let file_obj = obj
+        .with_meta(
+            FileMetaTableBuilder::new()
+                .transfer_syntax(uids::EXPLICIT_VR_LITTLE_ENDIAN)
+                .implementation_class_uid(&implementation_class_uid)
+                .implementation_version_name(crate::IMPLEMENTATION_VERSION_NAME),
+        )
+        .map_err(|err| GenerateError::WriteDicomFile {
+            path: path.clone(),
+            message: err.to_string(),
+        })?;
+
+    file_obj
+        .write_to_file(&path)
+        .map_err(|err| GenerateError::WriteDicomFile {
+            path: path.clone(),
+            message: err.to_string(),
+        })?;
+
+    let validated = validate_real_world_value_mapping_file(
+        &path,
+        &RealWorldValueMappingExpectations {
+            sop_class_uid: REAL_WORLD_VALUE_MAPPING_STORAGE_UID,
+            sop_instance_uid: &sop_instance_uid,
+            transfer_syntax_uid: uids::EXPLICIT_VR_LITTLE_ENDIAN,
+            implementation_class_uid: &implementation_class_uid,
+            synthetic_data: "YES",
+            modality: "RWV",
+            content_label: recipe.content_label,
+            referenced_series_instance_uid: source.series_instance_uid.as_deref().unwrap_or(""),
+            referenced_sop_class_uid: &source.sop_class_uid,
+            referenced_sop_instance_uid: &source.sop_instance_uid,
+            referenced_frame_numbers: recipe.referenced_frame_numbers,
+            lut_label: recipe.lut_label,
+            first_value_mapped: recipe.first_value_mapped,
+            last_value_mapped: recipe.last_value_mapped,
+            intercept: recipe.intercept,
+            slope: recipe.slope,
+            unit_code_value: recipe.unit_code_value,
+            unit_coding_scheme_designator: recipe.unit_coding_scheme_designator,
+            unit_code_meaning: recipe.unit_code_meaning,
+        },
+    )?;
+
+    Ok(GeneratedFile {
+        case_id: recipe.case_id.to_string(),
+        manifest_entry: real_world_value_mapping_manifest_entry(
+            case,
+            recipe,
+            source,
+            &relative_path,
+            &source.study_instance_uid,
+            &series_instance_uid,
+            &sop_instance_uid,
+            &implementation_class_uid,
+            &validated.bytes,
+            validated.validation,
+        ),
+    })
+}
+
 fn write_enhanced_ct_concatenation_case(
     run: &PreparedGenerationRun,
     case: &Value,
@@ -3931,6 +4162,79 @@ fn put_common_instance_reference(obj: &mut InMemDicomObject, source: &GeneratedS
     ));
 }
 
+fn put_real_world_value_mapping_sequence(
+    obj: &mut InMemDicomObject,
+    recipe: RealWorldValueMappingRecipe,
+    source: &GeneratedSourceObject,
+) {
+    obj.put(DataElement::new(
+        tags::REAL_WORLD_VALUE_MAPPING_SEQUENCE,
+        VR::SQ,
+        DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+            DataElement::new(tags::LUT_LABEL, VR::SH, recipe.lut_label),
+            DataElement::new(
+                tags::REAL_WORLD_VALUE_FIRST_VALUE_MAPPED,
+                VR::US,
+                PrimitiveValue::from(recipe.first_value_mapped),
+            ),
+            DataElement::new(
+                tags::REAL_WORLD_VALUE_LAST_VALUE_MAPPED,
+                VR::US,
+                PrimitiveValue::from(recipe.last_value_mapped),
+            ),
+            DataElement::new(
+                tags::REAL_WORLD_VALUE_INTERCEPT,
+                VR::FD,
+                PrimitiveValue::from(recipe.intercept),
+            ),
+            DataElement::new(
+                tags::REAL_WORLD_VALUE_SLOPE,
+                VR::FD,
+                PrimitiveValue::from(recipe.slope),
+            ),
+            DataElement::new(
+                tags::MEASUREMENT_UNITS_CODE_SEQUENCE,
+                VR::SQ,
+                DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+                    DataElement::new(tags::CODE_VALUE, VR::SH, recipe.unit_code_value),
+                    DataElement::new(
+                        tags::CODING_SCHEME_DESIGNATOR,
+                        VR::SH,
+                        recipe.unit_coding_scheme_designator,
+                    ),
+                    DataElement::new(tags::CODE_MEANING, VR::LO, recipe.unit_code_meaning),
+                ])]),
+            ),
+            DataElement::new(
+                TAG_REFERENCED_IMAGE_SEQUENCE,
+                VR::SQ,
+                DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+                    DataElement::new(
+                        TAG_REFERENCED_SOP_CLASS_UID,
+                        VR::UI,
+                        source.sop_class_uid.as_str(),
+                    ),
+                    DataElement::new(
+                        TAG_REFERENCED_SOP_INSTANCE_UID,
+                        VR::UI,
+                        source.sop_instance_uid.as_str(),
+                    ),
+                    DataElement::new(
+                        TAG_REFERENCED_FRAME_NUMBER,
+                        VR::IS,
+                        recipe
+                            .referenced_frame_numbers
+                            .iter()
+                            .map(u16::to_string)
+                            .collect::<Vec<_>>()
+                            .join("\\"),
+                    ),
+                ])]),
+            ),
+        ])]),
+    ));
+}
+
 fn put_presentation_state_relationship(
     obj: &mut InMemDicomObject,
     source: &GeneratedSourceObject,
@@ -4230,6 +4534,103 @@ fn presentation_state_manifest_entry(
         },
         "validation": validation,
         "known_stressors": ["grayscale_softcopy_presentation_state", "derived_source_reference", "softcopy_voi_window", "displayed_area"],
+        "standards_evidence": deduplicated_standards_evidence(standards_evidence)
+    })
+}
+
+#[allow(clippy::too_many_arguments)]
+fn real_world_value_mapping_manifest_entry(
+    case: &Value,
+    recipe: RealWorldValueMappingRecipe,
+    source: &GeneratedSourceObject,
+    relative_path: &str,
+    study_instance_uid: &str,
+    series_instance_uid: &str,
+    sop_instance_uid: &str,
+    implementation_class_uid: &str,
+    bytes: &[u8],
+    validation: Value,
+) -> Value {
+    let standards_evidence = standards_evidence_from_case(case);
+    serde_json::json!({
+        "case_id": recipe.case_id,
+        "profile_membership": ["extended"],
+        "path": relative_path,
+        "sha256": sha256_hex(bytes),
+        "size_bytes": bytes.len(),
+        "determinism": "byte_stable",
+        "recipe": {
+            "recipe_id": recipe.recipe_id,
+            "recipe_version": RWVM_RECIPE_VERSION,
+            "recipe_parameters": {
+                "source_case_id": recipe.source_case_id,
+                "content_label": recipe.content_label,
+                "content_description": recipe.content_description,
+                "lut_label": recipe.lut_label,
+                "first_value_mapped": recipe.first_value_mapped,
+                "last_value_mapped": recipe.last_value_mapped,
+                "intercept": recipe.intercept,
+                "slope": recipe.slope,
+                "measurement_units": {
+                    "code_value": recipe.unit_code_value,
+                    "coding_scheme_designator": recipe.unit_coding_scheme_designator,
+                    "code_meaning": recipe.unit_code_meaning
+                },
+                "referenced_frame_numbers": recipe.referenced_frame_numbers
+            }
+        },
+        "dicom": {
+            "sop_class_uid": REAL_WORLD_VALUE_MAPPING_STORAGE_UID,
+            "sop_class_name": "Real World Value Mapping Storage",
+            "iod_name": "Real World Value Mapping",
+            "modality": "RWV",
+            "transfer_syntax_uid": uids::EXPLICIT_VR_LITTLE_ENDIAN,
+            "transfer_syntax_name": "Explicit VR Little Endian"
+        },
+        "uids": {
+            "study_instance_uid": study_instance_uid,
+            "series_instance_uid": series_instance_uid,
+            "sop_instance_uid": sop_instance_uid,
+            "implementation_class_uid": implementation_class_uid
+        },
+        "image": Value::Null,
+        "pixel_data": Value::Null,
+        "references": [
+            source.to_manifest_reference(
+                "source_image",
+                Some(
+                    recipe
+                        .referenced_frame_numbers
+                        .iter()
+                        .map(|frame| u64::from(*frame))
+                        .collect::<Vec<_>>()
+                )
+            )
+        ],
+        "expected_capabilities": ["open_file", "read_metadata", "show_unsupported_but_recognized", "read_real_world_value_mapping"],
+        "expected_semantics": {
+            "synthetic_data": "YES",
+            "source_case_id": source.source_case_id,
+            "source_sop_instance_uid": source.sop_instance_uid,
+            "real_world_value_mapping": {
+                "lut_label": recipe.lut_label,
+                "first_value_mapped": recipe.first_value_mapped,
+                "last_value_mapped": recipe.last_value_mapped,
+                "intercept": recipe.intercept,
+                "slope": recipe.slope,
+                "units": {
+                    "code_value": recipe.unit_code_value,
+                    "coding_scheme_designator": recipe.unit_coding_scheme_designator,
+                    "code_meaning": recipe.unit_code_meaning
+                },
+                "referenced_frame_numbers": recipe.referenced_frame_numbers
+            }
+        },
+        "expected_visual_checks": {
+            "pattern": "source_ct_linear_hu_mapping_metadata"
+        },
+        "validation": validation,
+        "known_stressors": ["real_world_value_mapping_storage", "derived_source_reference", "linear_real_world_value_mapping", "measurement_units_code_sequence"],
         "standards_evidence": deduplicated_standards_evidence(standards_evidence)
     })
 }
@@ -7555,6 +7956,24 @@ fn deterministic_presentation_state_uid(
         standards_lock_sha256,
         case_id: recipe.case_id,
         recipe_version: GSPS_RECIPE_VERSION,
+        run_seed,
+        file_index: 0,
+        frame_index: None,
+        referenced_object_index: Some(0),
+        role,
+    })
+}
+
+fn deterministic_real_world_value_mapping_uid(
+    standards_lock_sha256: &str,
+    recipe: RealWorldValueMappingRecipe,
+    run_seed: u64,
+    role: UidRole,
+) -> String {
+    deterministic_uid(&DeterministicUidInput {
+        standards_lock_sha256,
+        case_id: recipe.case_id,
+        recipe_version: RWVM_RECIPE_VERSION,
         run_seed,
         file_index: 0,
         frame_index: None,

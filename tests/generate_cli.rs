@@ -10,6 +10,7 @@ use serde_json::Value;
 const SEGMENTATION_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.66.4";
 const LABEL_MAP_SEGMENTATION_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.66.7";
 const GRAYSCALE_SOFTCOPY_PRESENTATION_STATE_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.11.1";
+const REAL_WORLD_VALUE_MAPPING_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.67";
 const TAG_SEGMENTATION_TYPE: Tag = Tag(0x0062, 0x0001);
 const TAG_SEGMENT_SEQUENCE: Tag = Tag(0x0062, 0x0002);
 const TAG_MAXIMUM_FRACTIONAL_VALUE: Tag = Tag(0x0062, 0x000E);
@@ -18,6 +19,7 @@ const TAG_REFERENCED_SERIES_SEQUENCE: Tag = Tag(0x0008, 0x1115);
 const TAG_REFERENCED_IMAGE_SEQUENCE: Tag = Tag(0x0008, 0x1140);
 const TAG_REFERENCED_SOP_CLASS_UID: Tag = Tag(0x0008, 0x1150);
 const TAG_REFERENCED_SOP_INSTANCE_UID: Tag = Tag(0x0008, 0x1155);
+const TAG_REFERENCED_FRAME_NUMBER: Tag = Tag(0x0008, 0x1160);
 const TAG_DISPLAYED_AREA_TOP_LEFT_HAND_CORNER: Tag = Tag(0x0070, 0x0052);
 const TAG_DISPLAYED_AREA_BOTTOM_RIGHT_HAND_CORNER: Tag = Tag(0x0070, 0x0053);
 const TAG_DISPLAYED_AREA_SELECTION_SEQUENCE: Tag = Tag(0x0070, 0x005A);
@@ -1618,7 +1620,7 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\textended"));
-    assert!(stdout.contains("files_written\t10"));
+    assert!(stdout.contains("files_written\t11"));
 
     let manifest_path = out_dir.join("manifest.json");
     let manifest: Value = serde_json::from_str(
@@ -1631,7 +1633,7 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
             .pointer("/files")
             .and_then(Value::as_array)
             .map(Vec::len),
-        Some(10)
+        Some(11)
     );
     let enhanced_ct_file = file_entry_by_case_id(
         &manifest,
@@ -2050,17 +2052,68 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
             .contains(&"presentation_state_lut_shape"),
         "GSPS manifest should record Presentation LUT Shape validation"
     );
+    let rwvm_file = file_entry_by_case_id(&manifest, "derived/rwvm/linear_ct_mapping_explicit_le");
+    assert_eq!(
+        rwvm_file
+            .pointer("/dicom/sop_class_uid")
+            .and_then(Value::as_str),
+        Some(REAL_WORLD_VALUE_MAPPING_STORAGE_UID)
+    );
+    assert_eq!(
+        rwvm_file.pointer("/dicom/modality").and_then(Value::as_str),
+        Some("RWV")
+    );
+    assert!(
+        rwvm_file.pointer("/image").is_some_and(Value::is_null),
+        "RWVM manifest should explicitly omit image metadata"
+    );
+    assert!(
+        rwvm_file.pointer("/pixel_data").is_some_and(Value::is_null),
+        "RWVM manifest should explicitly omit Pixel Data metadata"
+    );
+    assert_eq!(
+        rwvm_file
+            .pointer("/references/0/source_case_id")
+            .and_then(Value::as_str),
+        Some("enhanced/ct/multiframe_shared_perframe_explicit_le")
+    );
+    assert_eq!(
+        rwvm_file
+            .pointer("/recipe/recipe_parameters/lut_label")
+            .and_then(Value::as_str),
+        Some("DTS_HU")
+    );
+    assert_eq!(
+        rwvm_file
+            .pointer("/recipe/recipe_parameters/intercept")
+            .and_then(Value::as_f64),
+        Some(-1024.0)
+    );
+    assert_eq!(
+        rwvm_file
+            .pointer("/recipe/recipe_parameters/slope")
+            .and_then(Value::as_f64),
+        Some(1.0)
+    );
+    assert!(
+        validation_result_names(rwvm_file.pointer("/validation/internal"))
+            .contains(&"rwvm_referenced_sop_instance_uid"),
+        "RWVM manifest should record source-reference validation"
+    );
+    assert!(
+        validation_result_names(rwvm_file.pointer("/validation/internal")).contains(&"rwvm_slope"),
+        "RWVM manifest should record linear mapping validation"
+    );
     let skipped_cases = manifest
         .pointer("/skipped_cases")
         .and_then(Value::as_array)
         .expect("manifest should contain skipped cases");
     assert_eq!(
         skipped_cases.len(),
-        7,
+        6,
         "extended generation should report the remaining planned Phase 5 cases as unavailable"
     );
     for case_id in [
-        "derived/rwvm/linear_ct_mapping_explicit_le",
         "derived/sr/basic_text_observation_explicit_le",
         "derived/sr/comprehensive_measurement_explicit_le",
         "derived/sr/key_object_selection_explicit_le",
@@ -2425,6 +2478,160 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
         "IDENTITY"
     );
 
+    let rwvm_path = out_dir.join("derived/rwvm/linear_ct_mapping_explicit_le/instance.dcm");
+    let rwvm = open_file(&rwvm_path).expect("RWVM DICOM file should parse");
+    assert_eq!(
+        rwvm.element(tags::SOP_CLASS_UID)
+            .expect("RWVM file should contain SOP Class UID")
+            .value()
+            .to_str()
+            .expect("SOP Class UID should be text")
+            .trim_end_matches('\0'),
+        REAL_WORLD_VALUE_MAPPING_STORAGE_UID
+    );
+    assert_eq!(
+        rwvm.element(tags::MODALITY)
+            .expect("RWVM file should contain Modality")
+            .value()
+            .to_str()
+            .expect("Modality should be text")
+            .trim(),
+        "RWV"
+    );
+    assert!(
+        rwvm.element_opt(tags::PIXEL_DATA)
+            .expect("RWVM Pixel Data lookup should not fail")
+            .is_none(),
+        "RWVM must not contain Pixel Data"
+    );
+    let mapping = rwvm
+        .element(tags::REAL_WORLD_VALUE_MAPPING_SEQUENCE)
+        .expect("RWVM should contain Real World Value Mapping Sequence")
+        .items()
+        .expect("Real World Value Mapping Sequence should be SQ")
+        .first()
+        .expect("Real World Value Mapping Sequence should contain one item");
+    assert_eq!(
+        mapping
+            .element(tags::LUT_LABEL)
+            .expect("RWVM should contain LUT Label")
+            .value()
+            .to_str()
+            .expect("LUT Label should be text")
+            .trim(),
+        "DTS_HU"
+    );
+    assert_eq!(
+        mapping
+            .element(tags::REAL_WORLD_VALUE_FIRST_VALUE_MAPPED)
+            .expect("RWVM should contain first mapped value")
+            .value()
+            .to_int::<u16>()
+            .expect("first mapped value should be US"),
+        0
+    );
+    assert_eq!(
+        mapping
+            .element(tags::REAL_WORLD_VALUE_LAST_VALUE_MAPPED)
+            .expect("RWVM should contain last mapped value")
+            .value()
+            .to_int::<u16>()
+            .expect("last mapped value should be US"),
+        700
+    );
+    assert_eq!(
+        mapping
+            .element(tags::REAL_WORLD_VALUE_INTERCEPT)
+            .expect("RWVM should contain intercept")
+            .value()
+            .to_float64()
+            .expect("intercept should be FD"),
+        -1024.0
+    );
+    assert_eq!(
+        mapping
+            .element(tags::REAL_WORLD_VALUE_SLOPE)
+            .expect("RWVM should contain slope")
+            .value()
+            .to_float64()
+            .expect("slope should be FD"),
+        1.0
+    );
+    let units = mapping
+        .element(tags::MEASUREMENT_UNITS_CODE_SEQUENCE)
+        .expect("RWVM should contain Measurement Units Code Sequence")
+        .items()
+        .expect("Measurement Units Code Sequence should be SQ")
+        .first()
+        .expect("Measurement Units Code Sequence should contain one item");
+    assert_eq!(
+        units
+            .element(tags::CODE_VALUE)
+            .expect("RWVM units should contain Code Value")
+            .value()
+            .to_str()
+            .expect("Code Value should be text")
+            .trim(),
+        "HU"
+    );
+    assert_eq!(
+        units
+            .element(tags::CODING_SCHEME_DESIGNATOR)
+            .expect("RWVM units should contain Coding Scheme Designator")
+            .value()
+            .to_str()
+            .expect("Coding Scheme Designator should be text")
+            .trim(),
+        "UCUM"
+    );
+    assert_eq!(
+        units
+            .element(tags::CODE_MEANING)
+            .expect("RWVM units should contain Code Meaning")
+            .value()
+            .to_str()
+            .expect("Code Meaning should be text")
+            .trim(),
+        "Hounsfield unit"
+    );
+    let rwvm_referenced_image = mapping
+        .element(TAG_REFERENCED_IMAGE_SEQUENCE)
+        .expect("RWVM should contain Referenced Image Sequence")
+        .items()
+        .expect("Referenced Image Sequence should be SQ")
+        .first()
+        .expect("Referenced Image Sequence should contain one item");
+    assert_eq!(
+        rwvm_referenced_image
+            .element(TAG_REFERENCED_SOP_CLASS_UID)
+            .expect("RWVM should reference a source SOP Class")
+            .value()
+            .to_str()
+            .expect("Referenced SOP Class UID should be text")
+            .trim_end_matches('\0'),
+        uids::ENHANCED_CT_IMAGE_STORAGE
+    );
+    assert!(
+        !rwvm_referenced_image
+            .element(TAG_REFERENCED_SOP_INSTANCE_UID)
+            .expect("RWVM should reference a source SOP Instance")
+            .value()
+            .to_str()
+            .expect("Referenced SOP Instance UID should be text")
+            .trim_end_matches('\0')
+            .is_empty(),
+        "RWVM source SOP Instance UID reference should not be empty"
+    );
+    assert_eq!(
+        rwvm_referenced_image
+            .element(TAG_REFERENCED_FRAME_NUMBER)
+            .expect("RWVM should reference source frame numbers")
+            .value()
+            .to_multi_int::<i32>()
+            .expect("Referenced Frame Number should be multi-value IS"),
+        vec![1, 2]
+    );
+
     let enhanced_ct_concat_part_1_path =
         out_dir.join("enhanced/ct/concatenation_two_part_explicit_le/part-001.dcm");
     let enhanced_ct_concat_part_2_path =
@@ -2642,7 +2849,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\tall"));
-    assert!(stdout.contains("files_written\t32"));
+    assert!(stdout.contains("files_written\t33"));
 
     let manifest_path = out_dir.join("manifest.json");
     let manifest: Value = serde_json::from_str(
@@ -2659,7 +2866,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
             .pointer("/files")
             .and_then(Value::as_array)
             .map(Vec::len),
-        Some(32)
+        Some(33)
     );
 
     file_entry_by_case_id(&manifest, "classic/sc/mono2_u8_explicit_le");
@@ -2685,11 +2892,10 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
         .expect("manifest should contain skipped cases");
     assert_eq!(
         skipped_cases.len(),
-        9,
+        8,
         "all generation should report the remaining planned Phase 5 and VL cases as unavailable"
     );
     for case_id in [
-        "derived/rwvm/linear_ct_mapping_explicit_le",
         "derived/sr/basic_text_observation_explicit_le",
         "derived/sr/comprehensive_measurement_explicit_le",
         "derived/sr/key_object_selection_explicit_le",

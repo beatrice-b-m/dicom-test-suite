@@ -64,6 +64,29 @@ pub(crate) struct PresentationStateExpectations<'a> {
     pub presentation_lut_shape: &'a str,
 }
 
+#[derive(Debug, Clone)]
+pub(crate) struct RealWorldValueMappingExpectations<'a> {
+    pub sop_class_uid: &'a str,
+    pub sop_instance_uid: &'a str,
+    pub transfer_syntax_uid: &'a str,
+    pub implementation_class_uid: &'a str,
+    pub synthetic_data: &'a str,
+    pub modality: &'a str,
+    pub content_label: &'a str,
+    pub referenced_series_instance_uid: &'a str,
+    pub referenced_sop_class_uid: &'a str,
+    pub referenced_sop_instance_uid: &'a str,
+    pub referenced_frame_numbers: &'a [u16],
+    pub lut_label: &'a str,
+    pub first_value_mapped: u16,
+    pub last_value_mapped: u16,
+    pub intercept: f64,
+    pub slope: f64,
+    pub unit_code_value: &'a str,
+    pub unit_coding_scheme_designator: &'a str,
+    pub unit_code_meaning: &'a str,
+}
+
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum PixelDataLengthFormula {
     ContiguousSamples,
@@ -859,6 +882,272 @@ pub(crate) fn validate_presentation_state_file(
                     "name": "grayscale_softcopy_presentation_state_modules",
                     "status": "passed",
                     "message": "GSPS relationship, displayed area, softcopy VOI, and presentation LUT attributes match the recipe."
+                }
+            ],
+            "external": []
+        }),
+    })
+}
+
+pub(crate) fn validate_real_world_value_mapping_file(
+    path: &Path,
+    expected: &RealWorldValueMappingExpectations<'_>,
+) -> Result<ValidatedPart10, GenerateError> {
+    let bytes = fs::read(path).map_err(|source| GenerateError::ReadGeneratedFile {
+        path: path.to_path_buf(),
+        source,
+    })?;
+    let obj = open_file(path).map_err(|err| GenerateError::ValidateDicomFile {
+        path: path.to_path_buf(),
+        message: err.to_string(),
+    })?;
+
+    let mut internal = Vec::new();
+    check(
+        &mut internal,
+        bytes.len() >= 132 && &bytes[128..132] == b"DICM",
+        "part10_preamble",
+        "File has a 128-byte preamble followed by the DICM marker.",
+        "File is missing the Part 10 DICM marker at byte offset 128.",
+    );
+    check_equal(
+        &mut internal,
+        "file_meta_transfer_syntax",
+        "File Meta Information Transfer Syntax UID matches the recipe.",
+        "File Meta Information Transfer Syntax UID does not match the recipe.",
+        trim_uid(obj.meta().transfer_syntax()).as_str(),
+        expected.transfer_syntax_uid,
+    );
+
+    let dataset_sop_class = element_str(path, &obj, tags::SOP_CLASS_UID)?;
+    check_equal(
+        &mut internal,
+        "sop_class_uid_consistency",
+        "Dataset SOP Class UID, File Meta SOP Class UID, and recipe SOP Class UID match.",
+        "SOP Class UID differs between dataset, File Meta Information, or recipe.",
+        dataset_sop_class.as_str(),
+        expected.sop_class_uid,
+    );
+    check_equal(
+        &mut internal,
+        "media_storage_sop_class_uid",
+        "File Meta SOP Class UID matches the dataset SOP Class UID.",
+        "File Meta SOP Class UID does not match the dataset SOP Class UID.",
+        trim_uid(obj.meta().media_storage_sop_class_uid()).as_str(),
+        dataset_sop_class.as_str(),
+    );
+    let dataset_sop_instance = element_str(path, &obj, tags::SOP_INSTANCE_UID)?;
+    check_equal(
+        &mut internal,
+        "sop_instance_uid_consistency",
+        "Dataset SOP Instance UID, File Meta SOP Instance UID, and manifest UID match.",
+        "SOP Instance UID differs between dataset, File Meta Information, or manifest.",
+        dataset_sop_instance.as_str(),
+        expected.sop_instance_uid,
+    );
+    check_equal(
+        &mut internal,
+        "media_storage_sop_instance_uid",
+        "File Meta SOP Instance UID matches the dataset SOP Instance UID.",
+        "File Meta SOP Instance UID does not match the dataset SOP Instance UID.",
+        trim_uid(obj.meta().media_storage_sop_instance_uid()).as_str(),
+        dataset_sop_instance.as_str(),
+    );
+    check_equal(
+        &mut internal,
+        "implementation_class_uid",
+        "File Meta Implementation Class UID matches the deterministic generator UID.",
+        "File Meta Implementation Class UID does not match the deterministic generator UID.",
+        trim_uid(obj.meta().implementation_class_uid()).as_str(),
+        expected.implementation_class_uid,
+    );
+    check_equal(
+        &mut internal,
+        "synthetic_data",
+        "Synthetic Data is present and set to YES.",
+        "Synthetic Data is missing or not set to YES.",
+        element_str(path, &obj, tags::SYNTHETIC_DATA)?.as_str(),
+        expected.synthetic_data,
+    );
+    check_equal(
+        &mut internal,
+        "rwvm_modality",
+        "Real World Value Mapping Series Modality is RWV.",
+        "Real World Value Mapping Series Modality does not match the recipe.",
+        element_str(path, &obj, tags::MODALITY)?.as_str(),
+        expected.modality,
+    );
+    check_equal(
+        &mut internal,
+        "rwvm_content_label",
+        "Content Label matches the RWVM recipe.",
+        "Content Label does not match the RWVM recipe.",
+        element_str(path, &obj, TAG_CONTENT_LABEL)?.as_str(),
+        expected.content_label,
+    );
+
+    let mapping = top_level_sequence_item(path, &obj, tags::REAL_WORLD_VALUE_MAPPING_SEQUENCE, 0)?;
+    check_equal(
+        &mut internal,
+        "rwvm_lut_label",
+        "RWVM LUT Label matches the recipe.",
+        "RWVM LUT Label does not match the recipe.",
+        item_str(path, mapping, tags::LUT_LABEL)?.as_str(),
+        expected.lut_label,
+    );
+    check_equal(
+        &mut internal,
+        "rwvm_first_value_mapped",
+        "RWVM first mapped stored value matches the recipe.",
+        "RWVM first mapped stored value does not match the recipe.",
+        item_u16(path, mapping, tags::REAL_WORLD_VALUE_FIRST_VALUE_MAPPED)?,
+        expected.first_value_mapped,
+    );
+    check_equal(
+        &mut internal,
+        "rwvm_last_value_mapped",
+        "RWVM last mapped stored value matches the recipe.",
+        "RWVM last mapped stored value does not match the recipe.",
+        item_u16(path, mapping, tags::REAL_WORLD_VALUE_LAST_VALUE_MAPPED)?,
+        expected.last_value_mapped,
+    );
+    check_equal(
+        &mut internal,
+        "rwvm_intercept",
+        "RWVM intercept matches the recipe.",
+        "RWVM intercept does not match the recipe.",
+        item_f64(path, mapping, tags::REAL_WORLD_VALUE_INTERCEPT)?,
+        expected.intercept,
+    );
+    check_equal(
+        &mut internal,
+        "rwvm_slope",
+        "RWVM slope matches the recipe.",
+        "RWVM slope does not match the recipe.",
+        item_f64(path, mapping, tags::REAL_WORLD_VALUE_SLOPE)?,
+        expected.slope,
+    );
+
+    let units = item_sequence_item(path, mapping, tags::MEASUREMENT_UNITS_CODE_SEQUENCE, 0)?;
+    check_equal(
+        &mut internal,
+        "rwvm_measurement_units_code_value",
+        "RWVM units Code Value matches the recipe.",
+        "RWVM units Code Value does not match the recipe.",
+        item_str(path, units, tags::CODE_VALUE)?.as_str(),
+        expected.unit_code_value,
+    );
+    check_equal(
+        &mut internal,
+        "rwvm_measurement_units_coding_scheme",
+        "RWVM units Coding Scheme Designator matches the recipe.",
+        "RWVM units Coding Scheme Designator does not match the recipe.",
+        item_str(path, units, tags::CODING_SCHEME_DESIGNATOR)?.as_str(),
+        expected.unit_coding_scheme_designator,
+    );
+    check_equal(
+        &mut internal,
+        "rwvm_measurement_units_code_meaning",
+        "RWVM units Code Meaning matches the recipe.",
+        "RWVM units Code Meaning does not match the recipe.",
+        item_str(path, units, tags::CODE_MEANING)?.as_str(),
+        expected.unit_code_meaning,
+    );
+
+    let referenced_image = item_sequence_item(path, mapping, TAG_REFERENCED_IMAGE_SEQUENCE, 0)?;
+    check_equal(
+        &mut internal,
+        "rwvm_referenced_sop_class_uid",
+        "RWVM reference SOP Class UID matches the source image.",
+        "RWVM reference SOP Class UID does not match the source image.",
+        item_str(path, referenced_image, TAG_REFERENCED_SOP_CLASS_UID)?.as_str(),
+        expected.referenced_sop_class_uid,
+    );
+    check_equal(
+        &mut internal,
+        "rwvm_referenced_sop_instance_uid",
+        "RWVM reference SOP Instance UID matches the source image.",
+        "RWVM reference SOP Instance UID does not match the source image.",
+        item_str(path, referenced_image, TAG_REFERENCED_SOP_INSTANCE_UID)?.as_str(),
+        expected.referenced_sop_instance_uid,
+    );
+    check_equal(
+        &mut internal,
+        "rwvm_referenced_frame_numbers",
+        "RWVM referenced frame numbers match the recipe.",
+        "RWVM referenced frame numbers do not match the recipe.",
+        item_i32_values(path, referenced_image, TAG_REFERENCED_FRAME_NUMBER)?,
+        expected
+            .referenced_frame_numbers
+            .iter()
+            .map(|frame| i32::from(*frame))
+            .collect::<Vec<_>>(),
+    );
+
+    let referenced_series = top_level_sequence_item(path, &obj, TAG_REFERENCED_SERIES_SEQUENCE, 0)?;
+    check_equal(
+        &mut internal,
+        "rwvm_referenced_series_uid",
+        "Common Instance Reference points to the source Series Instance UID.",
+        "Common Instance Reference Series Instance UID does not match the source.",
+        item_str(path, referenced_series, tags::SERIES_INSTANCE_UID)?.as_str(),
+        expected.referenced_series_instance_uid,
+    );
+    let referenced_instance =
+        item_sequence_item(path, referenced_series, TAG_REFERENCED_INSTANCE_SEQUENCE, 0)?;
+    check_equal(
+        &mut internal,
+        "rwvm_common_reference_sop_class_uid",
+        "Common Instance Reference SOP Class UID matches the source image.",
+        "Common Instance Reference SOP Class UID does not match the source image.",
+        item_str(path, referenced_instance, TAG_REFERENCED_SOP_CLASS_UID)?.as_str(),
+        expected.referenced_sop_class_uid,
+    );
+    check_equal(
+        &mut internal,
+        "rwvm_common_reference_sop_instance_uid",
+        "Common Instance Reference SOP Instance UID matches the source image.",
+        "Common Instance Reference SOP Instance UID does not match the source image.",
+        item_str(path, referenced_instance, TAG_REFERENCED_SOP_INSTANCE_UID)?.as_str(),
+        expected.referenced_sop_instance_uid,
+    );
+    check(
+        &mut internal,
+        obj.element_opt(tags::PIXEL_DATA)
+            .map_err(|err| validation_error(path, err))?
+            .is_none(),
+        "rwvm_pixel_data_absent",
+        "Real World Value Mapping contains no Pixel Data.",
+        "Real World Value Mapping unexpectedly contains Pixel Data.",
+    );
+
+    fail_if_any_failed(path, &internal)?;
+
+    Ok(ValidatedPart10 {
+        bytes,
+        validation: serde_json::json!({
+            "status": "passed",
+            "internal": internal,
+            "standards": [
+                {
+                    "name": standard_sop_class_validation_name(expected.sop_class_uid),
+                    "status": "passed",
+                    "message": standard_sop_class_validation_message(expected.sop_class_uid)
+                },
+                {
+                    "name": standard_transfer_syntax_validation_name(expected.transfer_syntax_uid),
+                    "status": "passed",
+                    "message": standard_transfer_syntax_validation_message(expected.transfer_syntax_uid)
+                },
+                {
+                    "name": "synthetic_data_attribute",
+                    "status": "passed",
+                    "message": "Synthetic Data (0008,001C) is present with value YES."
+                },
+                {
+                    "name": "real_world_value_mapping_modules",
+                    "status": "passed",
+                    "message": "RWVM mapping sequence, units, and references match the recipe."
                 }
             ],
             "external": []
@@ -3004,6 +3293,14 @@ fn item_u16(path: &Path, obj: &DatasetObject, tag: Tag) -> Result<u16, GenerateE
         .map_err(|err| validation_error(path, err))
 }
 
+fn item_f64(path: &Path, obj: &DatasetObject, tag: Tag) -> Result<f64, GenerateError> {
+    obj.element(tag)
+        .map_err(|err| validation_error(path, err))?
+        .value()
+        .to_float64()
+        .map_err(|err| validation_error(path, err))
+}
+
 fn item_i32_values(path: &Path, obj: &DatasetObject, tag: Tag) -> Result<Vec<i32>, GenerateError> {
     obj.element(tag)
         .map_err(|err| validation_error(path, err))?
@@ -3044,6 +3341,7 @@ fn standard_sop_class_validation_name(sop_class_uid: &str) -> &'static str {
             "digital_mammography_for_processing_sop_class"
         }
         "1.2.840.10008.5.1.4.1.1.11.1" => "grayscale_softcopy_presentation_state_sop_class",
+        "1.2.840.10008.5.1.4.1.1.67" => "real_world_value_mapping_sop_class",
         _ => "sop_class_uid",
     }
 }
@@ -3078,6 +3376,9 @@ fn standard_sop_class_validation_message(sop_class_uid: &str) -> &'static str {
         }
         "1.2.840.10008.5.1.4.1.1.11.1" => {
             "SOP Class UID matches Grayscale Softcopy Presentation State Storage in the 2026b reference."
+        }
+        "1.2.840.10008.5.1.4.1.1.67" => {
+            "SOP Class UID matches Real World Value Mapping Storage in the 2026b reference."
         }
         _ => "SOP Class UID matches the recipe.",
     }

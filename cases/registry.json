@@ -2903,7 +2903,7 @@
     },
     {
       "case_id": "derived/rwvm/linear_ct_mapping_explicit_le",
-      "status": "planned",
+      "status": "implemented",
       "profiles": ["extended"],
       "recipe_id": "rwvm_linear_ct_mapping",
       "recipe_version": "0.1.0",

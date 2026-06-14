@@ -6,19 +6,19 @@
 
 ---
 
-## Implementation Progress Tracking
+## Current Plan Tracking
 
-Implementation progress **MUST** be tracked in `IMPLEMENTATION_PROGRESS.md`.
-This document is the durable hand-off reference between coding agents.
+Current project direction **MUST** be tracked in `CURRENT_PLAN.md`.
+This document is the durable hand-off reference between coding agents for the
+active major goal.
 
 **Rules:**
 
-- Review `IMPLEMENTATION_PROGRESS.md` before starting implementation work.
-- Update `IMPLEMENTATION_PROGRESS.md` whenever a task changes project status,
-  phase status, completed checklist items, blockers, open decisions, or the
-  recommended next step.
-- Commit progress updates in the same granular commit as the implementation or
-  documentation change that caused the status change.
+- Review `CURRENT_PLAN.md` before starting implementation work.
+- Update `CURRENT_PLAN.md` whenever a task changes the active goal, phase
+  status, blockers, open decisions, research targets, or recommended next step.
+- Commit plan updates in the same granular commit as the implementation,
+  research, or documentation change that caused the status change.
 - Do not treat `SYSTEM_SPEC.md` as a progress tracker; it is the architecture
   and requirements source of truth.
 

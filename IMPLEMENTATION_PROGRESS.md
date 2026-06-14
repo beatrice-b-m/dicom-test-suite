@@ -2,9 +2,9 @@
 
 **Last updated:** 2026-06-14  
 **Source specification:** `SYSTEM_SPEC.md` version 0.2.0  
-**Current phase:** Phase 5.4 SR/KOS complete; RT Structure Set next
+**Current phase:** Phase 5.5 RT Structure Set complete; RT Dose next
 
-**Current implementation status:** Phase 0, Phase 0.5, Phase 1, Phase 2, Phase 3, Phase 4, the pre-Phase-5 hardening pass, Phase 5.0 foundation, Phase 5.1 BINARY Segmentation Storage, Phase 5.2 BINARY/FRACTIONAL/LABELMAP segmentation coverage, Phase 5.3 Presentation State/RWVM, and the Basic Text SR, Comprehensive SR, and Key Object Selection Phase 5.4 slices are functionally complete. `IMPLEMENTATION_PLAN.md` defines the concrete Phase 5 implementation sequence. Phase 5.4 now includes `derived/sr/basic_text_observation_explicit_le`, `derived/sr/comprehensive_measurement_explicit_le`, and `derived/sr/key_object_selection_explicit_le`. KOS is a non-image Key Object Selection Document object with modality `KO`, Current Requested Procedure Evidence references to the generated Enhanced CT source and BINARY SEG object, and two IMAGE content items. The extended profile now writes 14 files and reports 3 remaining planned Phase 5 cases.
+**Current implementation status:** Phase 0, Phase 0.5, Phase 1, Phase 2, Phase 3, Phase 4, the pre-Phase-5 hardening pass, Phase 5.0 foundation, Phase 5.1 BINARY Segmentation Storage, Phase 5.2 BINARY/FRACTIONAL/LABELMAP segmentation coverage, Phase 5.3 Presentation State/RWVM, Phase 5.4 SR/KOS, and the Phase 5.5 RT Structure Set slice are functionally complete. `IMPLEMENTATION_PLAN.md` defines the concrete Phase 5 implementation sequence. Phase 5.5 now includes `non-image/rt/structure_set_single_roi_explicit_le`, a non-image RT Structure Set Storage object with modality `RTSTRUCT`, one manual closed planar ROI, ROI Contour and RT ROI Observations sequences, Common Instance Reference and RT referenced frame-of-reference paths to the generated Enhanced CT source, and no Pixel Data. The extended profile now writes 15 files and reports 2 remaining planned Phase 5 cases.
 
 This document is the durable hand-off log for coding agents implementing
 `dicom-test-suite`. Keep `SYSTEM_SPEC.md` as the source of product and
@@ -85,7 +85,7 @@ Observed at creation of this progress file:
 | Phase 3: Classic radiology IODs | complete | CT Image Storage signed 12-bit rescale/window, MG For Presentation/For Processing 12-bit, CR overlay/Modality LUT/VOI LUT, MR multi-slice oblique geometry, DX display shutter, US Image Storage, and stable multi-file series generation are implemented. |
 | Phase 4: Enhanced multi-frame | complete | Enhanced CT and Enhanced MR Image Storage cases with Shared and Per-Frame Functional Groups and Multi-frame Dimension metadata are implemented; MR Echo, Temporal Position, phase/velocity-encoding variation, and a two-member Enhanced CT concatenation case are covered. |
 | Pre-Phase-5 hardening | complete | Registry authority, required CLI contracts, validation hardening, reproducibility/CI guards, and standards lock pinning policy are complete. Validation now covers raw Part 10 byte checks, parsed cross-field image invariants, manifest schema-conformance checks, baseline standards-derived Type 1/Type 2 checks, classic family-specific checks, and Enhanced CT/MR multi-frame standards-derived checks. |
-| Phase 5: Derived, presentation, and non-image objects | Phase 5.4 SR/KOS complete; RT Structure Set next | Full planned target queue is now in `cases/registry.json`. Manifest entries support nullable/absent image metadata plus a generated-file `references` array, coverage reports project manifest reference source case IDs into `derived_refs`, generated-root validation resolves same-run references while skipping image/pixel checks for non-image rows, and generation maintains an ordered source object registry for derived recipes. BINARY, FRACTIONAL, LABELMAP Segmentation, Grayscale Softcopy Presentation State, Real World Value Mapping, Basic Text SR, Comprehensive SR, and Key Object Selection objects are implemented and validated. The next implementation slice is RT Structure Set. |
+| Phase 5: Derived, presentation, and non-image objects | Phase 5.5 RT Structure Set complete; RT Dose next | Full planned target queue is now in `cases/registry.json`. Manifest entries support nullable/absent image metadata plus a generated-file `references` array, coverage reports project manifest reference source case IDs into `derived_refs`, generated-root validation resolves same-run references while skipping image/pixel checks for non-image rows, and generation maintains an ordered source object registry for derived recipes. BINARY, FRACTIONAL, LABELMAP Segmentation, Grayscale Softcopy Presentation State, Real World Value Mapping, Basic Text SR, Comprehensive SR, Key Object Selection, and RT Structure Set objects are implemented and validated. The next implementation slice is RT Dose. |
 | Phase 6: Transfer syntax expansion | not started | Transfer syntax abstraction and compressed cases pending. |
 | Phase 7: Pathology, video, and large object profiles | not started | VL, WSI, video, and stress cases pending. |
 | Phase 8: Reporting and viewer integration | not started | Coverage reports, optional viewer runner, and compatibility schema pending. |
@@ -214,7 +214,7 @@ Enhanced CT concatenation case for logical multi-frame object splitting.
 - [x] Implement Basic Text SR case.
 - [x] Implement Comprehensive SR case.
 - [x] Implement Key Object Selection case.
-- [ ] Implement RT Structure Set detection case.
+- [x] Implement RT Structure Set detection case.
 - [ ] Implement RT Dose detection case.
 - [ ] Implement Encapsulated PDF detection case.
 - [ ] Run Phase 5 completion verification across generation, validation,
@@ -835,8 +835,63 @@ These case IDs come from `SYSTEM_SPEC.md` section 21 and should seed
   as a derived non-image object with null photometric/bits/frames metadata and
   `derived_refs=["enhanced/ct/multiframe_shared_perframe_explicit_le",
   "derived/seg/binary_multiframe_explicit_le"]`.
+- 2026-06-14: Phase 5.5 RT Structure Set is implemented for
+  `non-image/rt/structure_set_single_roi_explicit_le`. The RT Structure Set
+  recipe writes a non-image Explicit VR Little Endian RT Structure Set Storage
+  object after the generated Enhanced CT source, shares the source Study
+  Instance UID and Frame of Reference UID, uses its own deterministic RTSTRUCT
+  Series and SOP Instance UIDs, sets Synthetic Data to `YES`, and records a
+  same-run `source_image` manifest reference to frames `[1, 2]` of the source
+  Enhanced CT object. The dataset includes RT Series Modality `RTSTRUCT`,
+  Structure Set Label/Date/Time, Referenced Frame of Reference Sequence with RT
+  Referenced Study/Series and Contour Image references, one Structure Set ROI
+  Sequence item with ROI Generation Algorithm `MANUAL`, one ROI Contour
+  Sequence item with a `CLOSED_PLANAR` contour, one RT ROI Observations
+  Sequence item with interpreted type `ORGAN`, Common Instance Reference, and
+  no Pixel Data. Generation-time validation and generated-root validation now
+  check the RTSTRUCT module shape, ROI/contour/observation consistency, source
+  references, and absence of Pixel Data. Coverage reports show the RT Structure
+  Set row as a non-image reference object with null photometric/bits/frames
+  metadata and
+  `derived_refs=["enhanced/ct/multiframe_shared_perframe_explicit_le"]`.
 
 ## Verification Results
+
+- 2026-06-14 Phase 5.5 RT Structure Set slice:
+  - `dicom-standard-kb` MCP lookups rechecked RT Structure Set Storage, the RT
+    Structure Set IOD, IOD modules, RT Series, Structure Set, ROI Contour, RT
+    ROI Observations, Frame of Reference, and Contour Data. Parsed
+    defined/enumerated term lookup for ROI Generation Algorithm, Contour
+    Geometric Type, and RT ROI Interpreted Type was unavailable, but the module
+    rows returned the needed terms `MANUAL`, `CLOSED_PLANAR`, and `ORGAN`.
+  - Initial `cargo fmt -- --check` failed on formatting in `src/generator.rs`,
+    `src/lib.rs`, and `src/validation.rs`; `cargo fmt` was run and the
+    repeated `cargo fmt -- --check` passed.
+  - Initial focused
+    `cargo test --test generate_cli --test validate_cli --test list_cases_cli --test project_artifacts`
+    failed to compile because one RT validation sequence-count path treated an
+    `Option` as a `Result`; the sequence handling was corrected.
+  - Repeated focused
+    `cargo test --test generate_cli --test validate_cli --test list_cases_cli --test project_artifacts`
+    passed.
+  - `cargo test` passed.
+  - `cargo run -- standards check-lock` passed with the existing documented
+    unavailable-pin warnings.
+  - `cargo run -- generate --profile extended --out /tmp/dts-rtstruct-slice --seed 1`
+    passed, writing 15 files.
+  - `cargo run -- validate /tmp/dts-rtstruct-slice` passed with 15 files
+    checked and 0 validation failures.
+  - `cargo run -- report /tmp/dts-rtstruct-slice --format json` passed with
+    counts `generated=15`, `planned=2`, `skipped=0`, `blocked=0`; the RT
+    Structure Set row reports
+    `derived_refs=["enhanced/ct/multiframe_shared_perframe_explicit_le"]`, SOP
+    Class UID `1.2.840.10008.5.1.4.1.1.481.3`, null
+    photometric/bits/frames fields, object type `non-image`, and validation
+    status `passed`.
+  - `cargo run -- report /tmp/dts-rtstruct-slice --format markdown` passed with
+    the expected generated RT Structure Set row and 2 remaining Phase 5 gaps.
+  - `cargo run -- standards gaps --profile extended` passed with no standards
+    evidence gaps.
 
 - 2026-06-14 Phase 5.4 Key Object Selection slice:
   - `dicom-standard-kb` MCP lookups rechecked Key Object Selection Document
@@ -1194,21 +1249,21 @@ None currently recorded for continuing Phase 5.5.
 
 ## Recommended Next Commit
 
-Start Phase 5.5 with `non-image/rt/structure_set_single_roi_explicit_le`.
-Recheck RT Structure Set Storage, the RT Structure Set IOD and modules, RT
-Series, Structure Set, ROI Contour, RT ROI Observations, Frame of Reference,
-and same-run references to the generated Enhanced CT source with
-`dicom-standard-kb` before adding the writer. Keep the commit limited to RT
-Structure Set writer/validation/tests/registry status/progress unless a small
-shared RT reference helper is required.
+Continue Phase 5.5 with `non-image/rt/dose_grid_u16_explicit_le`. Recheck RT
+Dose Storage, the RT Dose IOD and modules, RT Dose Module attributes, grid dose
+pixel requirements, Frame of Reference/Image Plane requirements, and references
+to the generated RT Structure Set or Enhanced CT source with
+`dicom-standard-kb` before adding the writer. Keep the commit limited to RT Dose
+writer/validation/tests/registry status/progress unless a small shared RT
+reference helper is required.
 
 ## Commit-Ready Summary
 
-The current slice implements `derived/sr/key_object_selection_explicit_le`,
-adds a non-image Key Object Selection Document writer and validation path,
-flips the KOS registry row to `implemented`, updates focused tests and this
-progress tracker, and leaves `non-image/rt/structure_set_single_roi_explicit_le`
-as the next work.
+The current slice implements `non-image/rt/structure_set_single_roi_explicit_le`,
+adds a non-image RT Structure Set writer and validation path, flips the RT
+Structure Set registry row to `implemented`, updates focused tests and this
+progress tracker, and leaves `non-image/rt/dose_grid_u16_explicit_le` as the
+next work.
 
 ## Handoff Notes
 

@@ -1702,6 +1702,13 @@ fn validate_family_standard_elements(
                 obj,
             )?
         }
+        "RT Structure Set" => validate_rt_structure_set_standard_elements(
+            failures,
+            relative_path,
+            manifest_path,
+            file,
+            obj,
+        )?,
         _ => {}
     }
 
@@ -3161,6 +3168,445 @@ fn validate_key_object_selection_content_items(
     }
 
     Ok(())
+}
+
+fn validate_rt_structure_set_standard_elements(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    manifest_path: &Path,
+    file: &Value,
+    obj: &OpenedObject,
+) -> Result<(), ValidateError> {
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::SOP_CLASS_UID,
+        "rt_structure_set_sop_class",
+        manifest_str(
+            manifest_path,
+            file,
+            "/dicom/sop_class_uid",
+            "RT Structure Set SOP Class UID must be a string",
+        )?,
+    );
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::MODALITY,
+        "rt_structure_set_modality_type1",
+        "RTSTRUCT",
+    );
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::FRAME_OF_REFERENCE_UID,
+        "rt_structure_set_frame_of_reference_uid",
+        manifest_str(
+            manifest_path,
+            file,
+            "/uids/frame_of_reference_uid",
+            "RT Structure Set Frame of Reference UID must be a string",
+        )?,
+    );
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::STRUCTURE_SET_LABEL,
+        "rt_structure_set_label_type1",
+        manifest_str(
+            manifest_path,
+            file,
+            "/expected_semantics/rt_structure_set/structure_set_label",
+            "RT Structure Set label must be a string",
+        )?,
+    );
+    validate_sequence_len(
+        failures,
+        relative_path,
+        obj,
+        tags::REFERENCED_FRAME_OF_REFERENCE_SEQUENCE,
+        "rt_referenced_frame_of_reference_sequence",
+        1,
+    );
+    validate_sequence_len(
+        failures,
+        relative_path,
+        obj,
+        tags::STRUCTURE_SET_ROI_SEQUENCE,
+        "rt_structure_set_roi_sequence_type3",
+        usize::try_from(manifest_u64(
+            manifest_path,
+            file,
+            "/expected_semantics/rt_structure_set/structure_set_roi_items",
+            "RT Structure Set ROI item count must be an integer",
+        )?)
+        .expect("manifest RT Structure Set ROI item count must fit usize"),
+    );
+    validate_sequence_len(
+        failures,
+        relative_path,
+        obj,
+        tags::ROI_CONTOUR_SEQUENCE,
+        "rt_roi_contour_sequence_type3",
+        usize::try_from(manifest_u64(
+            manifest_path,
+            file,
+            "/expected_semantics/rt_structure_set/roi_contour_items",
+            "RT ROI Contour item count must be an integer",
+        )?)
+        .expect("manifest RT ROI Contour item count must fit usize"),
+    );
+    validate_sequence_len(
+        failures,
+        relative_path,
+        obj,
+        tags::RTROI_OBSERVATIONS_SEQUENCE,
+        "rt_roi_observations_sequence_type3",
+        usize::try_from(manifest_u64(
+            manifest_path,
+            file,
+            "/expected_semantics/rt_structure_set/rt_roi_observation_items",
+            "RT ROI Observation item count must be an integer",
+        )?)
+        .expect("manifest RT ROI Observation item count must fit usize"),
+    );
+
+    let references =
+        file.get("references")
+            .and_then(Value::as_array)
+            .ok_or(ValidateError::ManifestShape {
+                path: manifest_path.to_path_buf(),
+                message: "RT Structure Set references must be an array",
+            })?;
+    let source_reference = references.first().ok_or(ValidateError::ManifestShape {
+        path: manifest_path.to_path_buf(),
+        message: "RT Structure Set must have a source image reference",
+    })?;
+    let source_sop_class_uid = source_reference
+        .get("sop_class_uid")
+        .and_then(Value::as_str)
+        .ok_or(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "RT Structure Set source reference sop_class_uid must be a string",
+        })?;
+    let source_sop_instance_uid = source_reference
+        .get("sop_instance_uid")
+        .and_then(Value::as_str)
+        .ok_or(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "RT Structure Set source reference sop_instance_uid must be a string",
+        })?;
+    let source_series_instance_uid = source_reference
+        .get("series_instance_uid")
+        .and_then(Value::as_str)
+        .ok_or(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "RT Structure Set source reference series_instance_uid must be a string",
+        })?;
+    let expected_frame_of_reference_uid = manifest_str(
+        manifest_path,
+        file,
+        "/uids/frame_of_reference_uid",
+        "RT Structure Set Frame of Reference UID must be a string",
+    )?;
+    let expected_roi_number = manifest_u64(
+        manifest_path,
+        file,
+        "/expected_semantics/rt_structure_set/roi_number",
+        "RT ROI Number must be an integer",
+    )?
+    .to_string();
+
+    let Ok(referenced_for) =
+        top_level_sequence_item_for_validate(obj, tags::REFERENCED_FRAME_OF_REFERENCE_SEQUENCE, 0)
+    else {
+        failures.push(format!(
+            "{relative_path}: rt_referenced_frame_of_reference_sequence: missing item"
+        ));
+        return Ok(());
+    };
+    match item_str_for_validate(referenced_for, tags::FRAME_OF_REFERENCE_UID) {
+        Ok(actual) => validate_equal(
+            failures,
+            relative_path,
+            "rt_referenced_frame_of_reference_uid",
+            actual,
+            expected_frame_of_reference_uid,
+        ),
+        Err(err) => failures.push(format!(
+            "{relative_path}: rt_referenced_frame_of_reference_uid: {err}"
+        )),
+    }
+    let Ok(referenced_study) =
+        item_sequence_item_for_validate(referenced_for, tags::RT_REFERENCED_STUDY_SEQUENCE, 0)
+    else {
+        failures.push(format!(
+            "{relative_path}: rt_referenced_study_sequence: missing item"
+        ));
+        return Ok(());
+    };
+    let Ok(referenced_series) =
+        item_sequence_item_for_validate(referenced_study, tags::RT_REFERENCED_SERIES_SEQUENCE, 0)
+    else {
+        failures.push(format!(
+            "{relative_path}: rt_referenced_series_sequence: missing item"
+        ));
+        return Ok(());
+    };
+    match item_str_for_validate(referenced_series, tags::SERIES_INSTANCE_UID) {
+        Ok(actual) => validate_equal(
+            failures,
+            relative_path,
+            "rt_referenced_series_uid",
+            actual,
+            source_series_instance_uid,
+        ),
+        Err(err) => failures.push(format!("{relative_path}: rt_referenced_series_uid: {err}")),
+    }
+    let Ok(referenced_contour_image) =
+        item_sequence_item_for_validate(referenced_series, tags::CONTOUR_IMAGE_SEQUENCE, 0)
+    else {
+        failures.push(format!(
+            "{relative_path}: rt_referenced_contour_image_sequence: missing item"
+        ));
+        return Ok(());
+    };
+    validate_rt_referenced_sop(
+        failures,
+        relative_path,
+        "rt_referenced_contour_image",
+        referenced_contour_image,
+        source_sop_class_uid,
+        source_sop_instance_uid,
+    );
+
+    let Ok(roi) = top_level_sequence_item_for_validate(obj, tags::STRUCTURE_SET_ROI_SEQUENCE, 0)
+    else {
+        failures.push(format!(
+            "{relative_path}: rt_structure_set_roi_sequence: missing item"
+        ));
+        return Ok(());
+    };
+    match item_str_for_validate(roi, tags::ROI_NUMBER) {
+        Ok(actual) => validate_equal(
+            failures,
+            relative_path,
+            "rt_structure_set_roi_number",
+            actual,
+            expected_roi_number.as_str(),
+        ),
+        Err(err) => failures.push(format!(
+            "{relative_path}: rt_structure_set_roi_number: {err}"
+        )),
+    }
+    match item_str_for_validate(roi, tags::REFERENCED_FRAME_OF_REFERENCE_UID) {
+        Ok(actual) => validate_equal(
+            failures,
+            relative_path,
+            "rt_structure_set_roi_frame_of_reference_uid",
+            actual,
+            expected_frame_of_reference_uid,
+        ),
+        Err(err) => failures.push(format!(
+            "{relative_path}: rt_structure_set_roi_frame_of_reference_uid: {err}"
+        )),
+    }
+    match item_str_for_validate(roi, tags::ROI_NAME) {
+        Ok(actual) => validate_equal(
+            failures,
+            relative_path,
+            "rt_structure_set_roi_name",
+            actual,
+            manifest_str(
+                manifest_path,
+                file,
+                "/expected_semantics/rt_structure_set/roi_name",
+                "RT ROI Name must be a string",
+            )?,
+        ),
+        Err(err) => failures.push(format!("{relative_path}: rt_structure_set_roi_name: {err}")),
+    }
+    match item_str_for_validate(roi, tags::ROI_GENERATION_ALGORITHM) {
+        Ok(actual) => validate_equal(
+            failures,
+            relative_path,
+            "rt_structure_set_roi_generation_algorithm",
+            actual,
+            manifest_str(
+                manifest_path,
+                file,
+                "/expected_semantics/rt_structure_set/roi_generation_algorithm",
+                "RT ROI Generation Algorithm must be a string",
+            )?,
+        ),
+        Err(err) => failures.push(format!(
+            "{relative_path}: rt_structure_set_roi_generation_algorithm: {err}"
+        )),
+    }
+
+    let Ok(roi_contour) = top_level_sequence_item_for_validate(obj, tags::ROI_CONTOUR_SEQUENCE, 0)
+    else {
+        failures.push(format!(
+            "{relative_path}: rt_roi_contour_sequence: missing item"
+        ));
+        return Ok(());
+    };
+    match item_str_for_validate(roi_contour, tags::REFERENCED_ROI_NUMBER) {
+        Ok(actual) => validate_equal(
+            failures,
+            relative_path,
+            "rt_roi_contour_referenced_roi_number",
+            actual,
+            expected_roi_number.as_str(),
+        ),
+        Err(err) => failures.push(format!(
+            "{relative_path}: rt_roi_contour_referenced_roi_number: {err}"
+        )),
+    }
+    let Ok(contour) = item_sequence_item_for_validate(roi_contour, tags::CONTOUR_SEQUENCE, 0)
+    else {
+        failures.push(format!(
+            "{relative_path}: rt_contour_sequence: missing item"
+        ));
+        return Ok(());
+    };
+    match item_str_for_validate(contour, tags::CONTOUR_GEOMETRIC_TYPE) {
+        Ok(actual) => validate_equal(
+            failures,
+            relative_path,
+            "rt_contour_geometric_type",
+            actual,
+            manifest_str(
+                manifest_path,
+                file,
+                "/expected_semantics/rt_structure_set/contour_geometric_type",
+                "RT Contour Geometric Type must be a string",
+            )?,
+        ),
+        Err(err) => failures.push(format!("{relative_path}: rt_contour_geometric_type: {err}")),
+    }
+    match item_str_for_validate(contour, tags::NUMBER_OF_CONTOUR_POINTS) {
+        Ok(actual) => validate_equal(
+            failures,
+            relative_path,
+            "rt_number_of_contour_points",
+            actual,
+            manifest_u64(
+                manifest_path,
+                file,
+                "/expected_semantics/rt_structure_set/contour_points",
+                "RT Contour Points must be an integer",
+            )?
+            .to_string()
+            .as_str(),
+        ),
+        Err(err) => failures.push(format!(
+            "{relative_path}: rt_number_of_contour_points: {err}"
+        )),
+    }
+    match item_str_for_validate(contour, tags::CONTOUR_DATA) {
+        Ok(actual) => validate_equal(
+            failures,
+            relative_path,
+            "rt_contour_data",
+            actual,
+            manifest_str(
+                manifest_path,
+                file,
+                "/expected_semantics/rt_structure_set/contour_data",
+                "RT Contour Data must be a string",
+            )?,
+        ),
+        Err(err) => failures.push(format!("{relative_path}: rt_contour_data: {err}")),
+    }
+    let Ok(contour_image) =
+        item_sequence_item_for_validate(contour, tags::CONTOUR_IMAGE_SEQUENCE, 0)
+    else {
+        failures.push(format!(
+            "{relative_path}: rt_contour_image_sequence: missing item"
+        ));
+        return Ok(());
+    };
+    validate_rt_referenced_sop(
+        failures,
+        relative_path,
+        "rt_contour_image",
+        contour_image,
+        source_sop_class_uid,
+        source_sop_instance_uid,
+    );
+
+    let Ok(observation) =
+        top_level_sequence_item_for_validate(obj, tags::RTROI_OBSERVATIONS_SEQUENCE, 0)
+    else {
+        failures.push(format!(
+            "{relative_path}: rt_roi_observations_sequence: missing item"
+        ));
+        return Ok(());
+    };
+    match item_str_for_validate(observation, tags::REFERENCED_ROI_NUMBER) {
+        Ok(actual) => validate_equal(
+            failures,
+            relative_path,
+            "rt_roi_observation_referenced_roi_number",
+            actual,
+            expected_roi_number.as_str(),
+        ),
+        Err(err) => failures.push(format!(
+            "{relative_path}: rt_roi_observation_referenced_roi_number: {err}"
+        )),
+    }
+    match item_str_for_validate(observation, tags::RTROI_INTERPRETED_TYPE) {
+        Ok(actual) => validate_equal(
+            failures,
+            relative_path,
+            "rt_roi_interpreted_type",
+            actual,
+            manifest_str(
+                manifest_path,
+                file,
+                "/expected_semantics/rt_structure_set/roi_interpreted_type",
+                "RT ROI Interpreted Type must be a string",
+            )?,
+        ),
+        Err(err) => failures.push(format!("{relative_path}: rt_roi_interpreted_type: {err}")),
+    }
+
+    Ok(())
+}
+
+fn validate_rt_referenced_sop(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    prefix: &str,
+    item: &DatasetObject,
+    expected_sop_class_uid: &str,
+    expected_sop_instance_uid: &str,
+) {
+    match item_str_for_validate(item, TAG_REFERENCED_SOP_CLASS_UID) {
+        Ok(actual) => validate_equal(
+            failures,
+            relative_path,
+            &format!("{prefix}_sop_class_uid"),
+            actual,
+            expected_sop_class_uid,
+        ),
+        Err(err) => failures.push(format!("{relative_path}: {prefix}_sop_class_uid: {err}")),
+    }
+    match item_str_for_validate(item, TAG_REFERENCED_SOP_INSTANCE_UID) {
+        Ok(actual) => validate_equal(
+            failures,
+            relative_path,
+            &format!("{prefix}_sop_instance_uid"),
+            actual,
+            expected_sop_instance_uid,
+        ),
+        Err(err) => failures.push(format!("{relative_path}: {prefix}_sop_instance_uid: {err}")),
+    }
 }
 
 fn validate_type2_element(

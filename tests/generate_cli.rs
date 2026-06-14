@@ -14,6 +14,7 @@ const REAL_WORLD_VALUE_MAPPING_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.67";
 const BASIC_TEXT_SR_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.88.11";
 const COMPREHENSIVE_SR_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.88.33";
 const KEY_OBJECT_SELECTION_DOCUMENT_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.88.59";
+const RT_STRUCTURE_SET_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.481.3";
 const TAG_SEGMENTATION_TYPE: Tag = Tag(0x0062, 0x0001);
 const TAG_SEGMENT_SEQUENCE: Tag = Tag(0x0062, 0x0002);
 const TAG_MAXIMUM_FRACTIONAL_VALUE: Tag = Tag(0x0062, 0x000E);
@@ -1623,7 +1624,7 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\textended"));
-    assert!(stdout.contains("files_written\t14"));
+    assert!(stdout.contains("files_written\t15"));
 
     let manifest_path = out_dir.join("manifest.json");
     let manifest: Value = serde_json::from_str(
@@ -1636,7 +1637,7 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
             .pointer("/files")
             .and_then(Value::as_array)
             .map(Vec::len),
-        Some(14)
+        Some(15)
     );
     let enhanced_ct_file = file_entry_by_case_id(
         &manifest,
@@ -2286,17 +2287,61 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
             .contains(&"kos_image_sop_instance_uid"),
         "KOS manifest should record key object reference validation"
     );
+    let rt_structure_set_file = file_entry_by_case_id(
+        &manifest,
+        "non-image/rt/structure_set_single_roi_explicit_le",
+    );
+    assert_eq!(
+        rt_structure_set_file
+            .pointer("/dicom/sop_class_uid")
+            .and_then(Value::as_str),
+        Some(RT_STRUCTURE_SET_STORAGE_UID)
+    );
+    assert_eq!(
+        rt_structure_set_file
+            .pointer("/dicom/modality")
+            .and_then(Value::as_str),
+        Some("RTSTRUCT")
+    );
+    assert!(
+        rt_structure_set_file
+            .pointer("/image")
+            .is_some_and(Value::is_null),
+        "RT Structure Set manifest should explicitly omit image metadata"
+    );
+    assert!(
+        rt_structure_set_file
+            .pointer("/pixel_data")
+            .is_some_and(Value::is_null),
+        "RT Structure Set manifest should explicitly omit Pixel Data metadata"
+    );
+    assert_eq!(
+        rt_structure_set_file
+            .pointer("/references/0/source_case_id")
+            .and_then(Value::as_str),
+        Some("enhanced/ct/multiframe_shared_perframe_explicit_le")
+    );
+    assert_eq!(
+        rt_structure_set_file
+            .pointer("/expected_semantics/rt_structure_set/contour_geometric_type")
+            .and_then(Value::as_str),
+        Some("CLOSED_PLANAR")
+    );
+    assert!(
+        validation_result_names(rt_structure_set_file.pointer("/validation/internal"))
+            .contains(&"rt_contour_image_sop_instance_uid"),
+        "RT Structure Set manifest should record contour image reference validation"
+    );
     let skipped_cases = manifest
         .pointer("/skipped_cases")
         .and_then(Value::as_array)
         .expect("manifest should contain skipped cases");
     assert_eq!(
         skipped_cases.len(),
-        3,
+        2,
         "extended generation should report the remaining planned Phase 5 cases as unavailable"
     );
     for case_id in [
-        "non-image/rt/structure_set_single_roi_explicit_le",
         "non-image/rt/dose_grid_u16_explicit_le",
         "non-image/encapsulated-document/pdf_minimal_explicit_le",
     ] {
@@ -3173,6 +3218,113 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
         SEGMENTATION_STORAGE_UID
     );
 
+    let rt_structure_set_path =
+        out_dir.join("non-image/rt/structure_set_single_roi_explicit_le/instance.dcm");
+    let rt_structure_set =
+        open_file(&rt_structure_set_path).expect("RT Structure Set DICOM file should parse");
+    assert_eq!(
+        rt_structure_set
+            .element(tags::SOP_CLASS_UID)
+            .expect("RT Structure Set file should contain SOP Class UID")
+            .value()
+            .to_str()
+            .expect("SOP Class UID should be text")
+            .trim_end_matches('\0'),
+        RT_STRUCTURE_SET_STORAGE_UID
+    );
+    assert_eq!(
+        rt_structure_set
+            .element(tags::MODALITY)
+            .expect("RT Structure Set should contain Modality")
+            .value()
+            .to_str()
+            .expect("Modality should be text")
+            .trim(),
+        "RTSTRUCT"
+    );
+    assert!(
+        rt_structure_set
+            .element_opt(tags::PIXEL_DATA)
+            .expect("RT Structure Set Pixel Data lookup should not fail")
+            .is_none(),
+        "RT Structure Set must not contain Pixel Data"
+    );
+    let structure_set_roi = rt_structure_set
+        .element(tags::STRUCTURE_SET_ROI_SEQUENCE)
+        .expect("RT Structure Set should contain Structure Set ROI Sequence")
+        .items()
+        .expect("Structure Set ROI Sequence should be SQ")
+        .first()
+        .expect("Structure Set ROI Sequence should contain one item");
+    assert_eq!(
+        structure_set_roi
+            .element(tags::ROI_NAME)
+            .expect("Structure Set ROI item should contain ROI Name")
+            .value()
+            .to_str()
+            .expect("ROI Name should be text")
+            .trim(),
+        "DTS_SYNTHETIC_ROI"
+    );
+    let roi_contour = rt_structure_set
+        .element(tags::ROI_CONTOUR_SEQUENCE)
+        .expect("RT Structure Set should contain ROI Contour Sequence")
+        .items()
+        .expect("ROI Contour Sequence should be SQ")
+        .first()
+        .expect("ROI Contour Sequence should contain one item");
+    let contour = roi_contour
+        .element(tags::CONTOUR_SEQUENCE)
+        .expect("ROI Contour should contain Contour Sequence")
+        .items()
+        .expect("Contour Sequence should be SQ")
+        .first()
+        .expect("Contour Sequence should contain one item");
+    assert_eq!(
+        contour
+            .element(tags::CONTOUR_GEOMETRIC_TYPE)
+            .expect("Contour should contain Contour Geometric Type")
+            .value()
+            .to_str()
+            .expect("Contour Geometric Type should be text")
+            .trim(),
+        "CLOSED_PLANAR"
+    );
+    let contour_image = contour
+        .element(tags::CONTOUR_IMAGE_SEQUENCE)
+        .expect("Contour should contain Contour Image Sequence")
+        .items()
+        .expect("Contour Image Sequence should be SQ")
+        .first()
+        .expect("Contour Image Sequence should contain one item");
+    assert_eq!(
+        contour_image
+            .element(TAG_REFERENCED_SOP_CLASS_UID)
+            .expect("Contour Image should reference source SOP Class")
+            .value()
+            .to_str()
+            .expect("Referenced SOP Class UID should be text")
+            .trim_end_matches('\0'),
+        uids::ENHANCED_CT_IMAGE_STORAGE
+    );
+    let rt_observation = rt_structure_set
+        .element(tags::RTROI_OBSERVATIONS_SEQUENCE)
+        .expect("RT Structure Set should contain RT ROI Observations Sequence")
+        .items()
+        .expect("RT ROI Observations Sequence should be SQ")
+        .first()
+        .expect("RT ROI Observations Sequence should contain one item");
+    assert_eq!(
+        rt_observation
+            .element(tags::RTROI_INTERPRETED_TYPE)
+            .expect("RT ROI Observation should contain interpreted type")
+            .value()
+            .to_str()
+            .expect("RT ROI Interpreted Type should be text")
+            .trim(),
+        "ORGAN"
+    );
+
     let enhanced_ct_concat_part_1_path =
         out_dir.join("enhanced/ct/concatenation_two_part_explicit_le/part-001.dcm");
     let enhanced_ct_concat_part_2_path =
@@ -3390,7 +3542,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\tall"));
-    assert!(stdout.contains("files_written\t36"));
+    assert!(stdout.contains("files_written\t37"));
 
     let manifest_path = out_dir.join("manifest.json");
     let manifest: Value = serde_json::from_str(
@@ -3407,7 +3559,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
             .pointer("/files")
             .and_then(Value::as_array)
             .map(Vec::len),
-        Some(36)
+        Some(37)
     );
 
     file_entry_by_case_id(&manifest, "classic/sc/mono2_u8_explicit_le");
@@ -3433,11 +3585,10 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
         .expect("manifest should contain skipped cases");
     assert_eq!(
         skipped_cases.len(),
-        5,
+        4,
         "all generation should report the remaining planned Phase 5 and VL cases as unavailable"
     );
     for case_id in [
-        "non-image/rt/structure_set_single_roi_explicit_le",
         "non-image/rt/dose_grid_u16_explicit_le",
         "non-image/encapsulated-document/pdf_minimal_explicit_le",
         "vl/photo/rgb_planar0_explicit_le",

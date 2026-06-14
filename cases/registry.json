@@ -3143,7 +3143,7 @@
     },
     {
       "case_id": "non-image/rt/structure_set_single_roi_explicit_le",
-      "status": "planned",
+      "status": "implemented",
       "profiles": ["extended"],
       "recipe_id": "rt_structure_set_single_roi",
       "recipe_version": "0.1.0",

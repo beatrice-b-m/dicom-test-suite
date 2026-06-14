@@ -52,7 +52,7 @@ fn validate_command_accepts_generated_extended_root() {
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8(output.stdout).expect("validate stdout must be UTF-8");
-    assert!(stdout.contains("files_checked\t14"));
+    assert!(stdout.contains("files_checked\t15"));
     assert!(stdout.contains("validation_failures\t0"));
 
     fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
@@ -575,6 +575,36 @@ fn validate_command_reports_missing_enhanced_mr_dimension_organization() {
     );
     let stdout = String::from_utf8(output.stdout).expect("validate stdout must be UTF-8");
     assert!(stdout.contains("enhanced_mr_dimension_organization_sequence_type1"));
+
+    fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
+}
+
+#[test]
+fn validate_command_reports_missing_rt_structure_set_roi_sequence() {
+    let out_dir = unique_temp_dir("validate-missing-rt-structure-set-roi");
+    generate_profile(&out_dir, "extended");
+    let dcm_path = out_dir.join("non-image/rt/structure_set_single_roi_explicit_le/instance.dcm");
+    mutate_dicom(&dcm_path, |bytes| {
+        let offset = find_tag(bytes, 0x3006, 0x0020)
+            .expect("generated RT Structure Set should contain Structure Set ROI Sequence");
+        bytes[offset] = 0x07;
+        bytes[offset + 1] = 0x30;
+    });
+
+    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args([
+            "validate",
+            out_dir.to_str().expect("temp path should be valid UTF-8"),
+        ])
+        .output()
+        .expect("validate command must run");
+
+    assert!(
+        !output.status.success(),
+        "validate should fail when RT Structure Set ROI Sequence is absent"
+    );
+    let stdout = String::from_utf8(output.stdout).expect("validate stdout must be UTF-8");
+    assert!(stdout.contains("rt_structure_set_roi_sequence_type3"));
 
     fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
 }

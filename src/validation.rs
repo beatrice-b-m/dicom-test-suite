@@ -182,6 +182,33 @@ pub(crate) struct KeyObjectSelectionExpectations<'a> {
     pub key_objects: &'a [KeyObjectReferenceExpectations<'a>],
 }
 
+#[derive(Debug, Clone)]
+pub(crate) struct RtStructureSetExpectations<'a> {
+    pub sop_class_uid: &'a str,
+    pub sop_instance_uid: &'a str,
+    pub transfer_syntax_uid: &'a str,
+    pub implementation_class_uid: &'a str,
+    pub synthetic_data: &'a str,
+    pub modality: &'a str,
+    pub frame_of_reference_uid: &'a str,
+    pub structure_set_label: &'a str,
+    pub structure_set_roi_items: usize,
+    pub roi_number: u16,
+    pub roi_name: &'a str,
+    pub roi_generation_algorithm: &'a str,
+    pub roi_contour_items: usize,
+    pub contour_items: usize,
+    pub contour_geometric_type: &'a str,
+    pub contour_points: u16,
+    pub contour_data: &'a str,
+    pub rt_roi_observation_items: usize,
+    pub roi_interpreted_type: &'a str,
+    pub roi_interpreter: &'a str,
+    pub referenced_series_instance_uid: &'a str,
+    pub referenced_sop_class_uid: &'a str,
+    pub referenced_sop_instance_uid: &'a str,
+}
+
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum PixelDataLengthFormula {
     ContiguousSamples,
@@ -2259,6 +2286,348 @@ pub(crate) fn validate_key_object_selection_file(
                     "name": "key_object_selection_document_modules",
                     "status": "passed",
                     "message": "KOS document flags, evidence, and IMAGE content items match the recipe."
+                }
+            ],
+            "external": []
+        }),
+    })
+}
+
+pub(crate) fn validate_rt_structure_set_file(
+    path: &Path,
+    expected: &RtStructureSetExpectations<'_>,
+) -> Result<ValidatedPart10, GenerateError> {
+    let bytes = fs::read(path).map_err(|source| GenerateError::ReadGeneratedFile {
+        path: path.to_path_buf(),
+        source,
+    })?;
+    let obj = open_file(path).map_err(|err| GenerateError::ValidateDicomFile {
+        path: path.to_path_buf(),
+        message: err.to_string(),
+    })?;
+
+    let mut internal = Vec::new();
+    check(
+        &mut internal,
+        bytes.len() >= 132 && &bytes[128..132] == b"DICM",
+        "part10_preamble",
+        "File has a 128-byte preamble followed by the DICM marker.",
+        "File is missing the Part 10 DICM marker at byte offset 128.",
+    );
+    check_equal(
+        &mut internal,
+        "file_meta_transfer_syntax",
+        "File Meta Information Transfer Syntax UID matches the recipe.",
+        "File Meta Information Transfer Syntax UID does not match the recipe.",
+        trim_uid(obj.meta().transfer_syntax()).as_str(),
+        expected.transfer_syntax_uid,
+    );
+
+    let dataset_sop_class = element_str(path, &obj, tags::SOP_CLASS_UID)?;
+    check_equal(
+        &mut internal,
+        "sop_class_uid_consistency",
+        "Dataset SOP Class UID, File Meta SOP Class UID, and recipe SOP Class UID match.",
+        "SOP Class UID differs between dataset, File Meta Information, or recipe.",
+        dataset_sop_class.as_str(),
+        expected.sop_class_uid,
+    );
+    check_equal(
+        &mut internal,
+        "media_storage_sop_class_uid",
+        "File Meta SOP Class UID matches the dataset SOP Class UID.",
+        "File Meta SOP Class UID does not match the dataset SOP Class UID.",
+        trim_uid(obj.meta().media_storage_sop_class_uid()).as_str(),
+        dataset_sop_class.as_str(),
+    );
+    let dataset_sop_instance = element_str(path, &obj, tags::SOP_INSTANCE_UID)?;
+    check_equal(
+        &mut internal,
+        "sop_instance_uid_consistency",
+        "Dataset SOP Instance UID, File Meta SOP Instance UID, and manifest UID match.",
+        "SOP Instance UID differs between dataset, File Meta Information, or manifest.",
+        dataset_sop_instance.as_str(),
+        expected.sop_instance_uid,
+    );
+    check_equal(
+        &mut internal,
+        "media_storage_sop_instance_uid",
+        "File Meta SOP Instance UID matches the dataset SOP Instance UID.",
+        "File Meta SOP Instance UID does not match the dataset SOP Instance UID.",
+        trim_uid(obj.meta().media_storage_sop_instance_uid()).as_str(),
+        dataset_sop_instance.as_str(),
+    );
+    check_equal(
+        &mut internal,
+        "implementation_class_uid",
+        "File Meta Implementation Class UID matches the deterministic generator UID.",
+        "File Meta Implementation Class UID does not match the deterministic generator UID.",
+        trim_uid(obj.meta().implementation_class_uid()).as_str(),
+        expected.implementation_class_uid,
+    );
+    check_equal(
+        &mut internal,
+        "synthetic_data",
+        "Synthetic Data is present and set to YES.",
+        "Synthetic Data is missing or not set to YES.",
+        element_str(path, &obj, tags::SYNTHETIC_DATA)?.as_str(),
+        expected.synthetic_data,
+    );
+    check_equal(
+        &mut internal,
+        "rt_structure_set_modality",
+        "RT Series Modality is RTSTRUCT.",
+        "RT Series Modality does not match the recipe.",
+        element_str(path, &obj, tags::MODALITY)?.as_str(),
+        expected.modality,
+    );
+    check_equal(
+        &mut internal,
+        "rt_structure_set_frame_of_reference_uid",
+        "RT Structure Set Frame of Reference UID matches the source image.",
+        "RT Structure Set Frame of Reference UID does not match the source image.",
+        element_str(path, &obj, tags::FRAME_OF_REFERENCE_UID)?.as_str(),
+        expected.frame_of_reference_uid,
+    );
+    check_equal(
+        &mut internal,
+        "rt_structure_set_label",
+        "Structure Set Label matches the recipe.",
+        "Structure Set Label does not match the recipe.",
+        element_str(path, &obj, tags::STRUCTURE_SET_LABEL)?.as_str(),
+        expected.structure_set_label,
+    );
+    check_equal(
+        &mut internal,
+        "rt_structure_set_roi_sequence_items",
+        "Structure Set ROI Sequence item count matches the recipe.",
+        "Structure Set ROI Sequence item count does not match the recipe.",
+        sequence_item_count(path, &obj, tags::STRUCTURE_SET_ROI_SEQUENCE)?,
+        expected.structure_set_roi_items,
+    );
+
+    let referenced_for =
+        top_level_sequence_item(path, &obj, tags::REFERENCED_FRAME_OF_REFERENCE_SEQUENCE, 0)?;
+    check_equal(
+        &mut internal,
+        "rt_referenced_frame_of_reference_uid",
+        "Referenced Frame of Reference UID matches the source image.",
+        "Referenced Frame of Reference UID does not match the source image.",
+        item_str(path, referenced_for, tags::FRAME_OF_REFERENCE_UID)?.as_str(),
+        expected.frame_of_reference_uid,
+    );
+    let referenced_study =
+        item_sequence_item(path, referenced_for, tags::RT_REFERENCED_STUDY_SEQUENCE, 0)?;
+    let referenced_series = item_sequence_item(
+        path,
+        referenced_study,
+        tags::RT_REFERENCED_SERIES_SEQUENCE,
+        0,
+    )?;
+    check_equal(
+        &mut internal,
+        "rt_referenced_series_uid",
+        "RT Referenced Series Sequence points to the source Series Instance UID.",
+        "RT Referenced Series Sequence does not point to the source Series.",
+        item_str(path, referenced_series, tags::SERIES_INSTANCE_UID)?.as_str(),
+        expected.referenced_series_instance_uid,
+    );
+    let referenced_contour_image =
+        item_sequence_item(path, referenced_series, tags::CONTOUR_IMAGE_SEQUENCE, 0)?;
+    check_equal(
+        &mut internal,
+        "rt_referenced_contour_image_sop_class_uid",
+        "RT referenced contour image SOP Class UID matches the source image.",
+        "RT referenced contour image SOP Class UID does not match the source image.",
+        item_str(path, referenced_contour_image, TAG_REFERENCED_SOP_CLASS_UID)?.as_str(),
+        expected.referenced_sop_class_uid,
+    );
+    check_equal(
+        &mut internal,
+        "rt_referenced_contour_image_sop_instance_uid",
+        "RT referenced contour image SOP Instance UID matches the source image.",
+        "RT referenced contour image SOP Instance UID does not match the source image.",
+        item_str(
+            path,
+            referenced_contour_image,
+            TAG_REFERENCED_SOP_INSTANCE_UID,
+        )?
+        .as_str(),
+        expected.referenced_sop_instance_uid,
+    );
+
+    let roi = top_level_sequence_item(path, &obj, tags::STRUCTURE_SET_ROI_SEQUENCE, 0)?;
+    check_equal(
+        &mut internal,
+        "rt_structure_set_roi_number",
+        "Structure Set ROI Number matches the recipe.",
+        "Structure Set ROI Number does not match the recipe.",
+        item_str(path, roi, tags::ROI_NUMBER)?.as_str(),
+        expected.roi_number.to_string().as_str(),
+    );
+    check_equal(
+        &mut internal,
+        "rt_structure_set_roi_name",
+        "Structure Set ROI Name matches the recipe.",
+        "Structure Set ROI Name does not match the recipe.",
+        item_str(path, roi, tags::ROI_NAME)?.as_str(),
+        expected.roi_name,
+    );
+    check_equal(
+        &mut internal,
+        "rt_structure_set_roi_generation_algorithm",
+        "ROI Generation Algorithm matches the recipe.",
+        "ROI Generation Algorithm does not match the recipe.",
+        item_str(path, roi, tags::ROI_GENERATION_ALGORITHM)?.as_str(),
+        expected.roi_generation_algorithm,
+    );
+
+    check_equal(
+        &mut internal,
+        "rt_roi_contour_sequence_items",
+        "ROI Contour Sequence item count matches the recipe.",
+        "ROI Contour Sequence item count does not match the recipe.",
+        sequence_item_count(path, &obj, tags::ROI_CONTOUR_SEQUENCE)?,
+        expected.roi_contour_items,
+    );
+    let roi_contour = top_level_sequence_item(path, &obj, tags::ROI_CONTOUR_SEQUENCE, 0)?;
+    check_equal(
+        &mut internal,
+        "rt_roi_contour_referenced_roi_number",
+        "ROI Contour references the Structure Set ROI Number.",
+        "ROI Contour does not reference the Structure Set ROI Number.",
+        item_str(path, roi_contour, tags::REFERENCED_ROI_NUMBER)?.as_str(),
+        expected.roi_number.to_string().as_str(),
+    );
+    let contour = item_sequence_item(path, roi_contour, tags::CONTOUR_SEQUENCE, 0)?;
+    check_equal(
+        &mut internal,
+        "rt_contour_sequence_items",
+        "Contour Sequence item count matches the recipe.",
+        "Contour Sequence item count does not match the recipe.",
+        roi_contour
+            .element(tags::CONTOUR_SEQUENCE)
+            .map_err(|err| validation_error(path, err))?
+            .items()
+            .ok_or_else(|| GenerateError::ValidateDicomFile {
+                path: path.to_path_buf(),
+                message: "Contour Sequence is not encoded as a sequence".to_string(),
+            })?
+            .len(),
+        expected.contour_items,
+    );
+    check_equal(
+        &mut internal,
+        "rt_contour_geometric_type",
+        "Contour Geometric Type matches the recipe.",
+        "Contour Geometric Type does not match the recipe.",
+        item_str(path, contour, tags::CONTOUR_GEOMETRIC_TYPE)?.as_str(),
+        expected.contour_geometric_type,
+    );
+    check_equal(
+        &mut internal,
+        "rt_number_of_contour_points",
+        "Number of Contour Points matches the recipe.",
+        "Number of Contour Points does not match the recipe.",
+        item_str(path, contour, tags::NUMBER_OF_CONTOUR_POINTS)?.as_str(),
+        expected.contour_points.to_string().as_str(),
+    );
+    check_equal(
+        &mut internal,
+        "rt_contour_data",
+        "Contour Data matches the recipe.",
+        "Contour Data does not match the recipe.",
+        item_str(path, contour, tags::CONTOUR_DATA)?.as_str(),
+        expected.contour_data,
+    );
+    let contour_image = item_sequence_item(path, contour, tags::CONTOUR_IMAGE_SEQUENCE, 0)?;
+    check_equal(
+        &mut internal,
+        "rt_contour_image_sop_class_uid",
+        "Contour Image Sequence SOP Class UID matches the source image.",
+        "Contour Image Sequence SOP Class UID does not match the source image.",
+        item_str(path, contour_image, TAG_REFERENCED_SOP_CLASS_UID)?.as_str(),
+        expected.referenced_sop_class_uid,
+    );
+    check_equal(
+        &mut internal,
+        "rt_contour_image_sop_instance_uid",
+        "Contour Image Sequence SOP Instance UID matches the source image.",
+        "Contour Image Sequence SOP Instance UID does not match the source image.",
+        item_str(path, contour_image, TAG_REFERENCED_SOP_INSTANCE_UID)?.as_str(),
+        expected.referenced_sop_instance_uid,
+    );
+
+    check_equal(
+        &mut internal,
+        "rt_roi_observations_sequence_items",
+        "RT ROI Observations Sequence item count matches the recipe.",
+        "RT ROI Observations Sequence item count does not match the recipe.",
+        sequence_item_count(path, &obj, tags::RTROI_OBSERVATIONS_SEQUENCE)?,
+        expected.rt_roi_observation_items,
+    );
+    let observation = top_level_sequence_item(path, &obj, tags::RTROI_OBSERVATIONS_SEQUENCE, 0)?;
+    check_equal(
+        &mut internal,
+        "rt_roi_observation_referenced_roi_number",
+        "RT ROI Observation references the Structure Set ROI Number.",
+        "RT ROI Observation does not reference the Structure Set ROI Number.",
+        item_str(path, observation, tags::REFERENCED_ROI_NUMBER)?.as_str(),
+        expected.roi_number.to_string().as_str(),
+    );
+    check_equal(
+        &mut internal,
+        "rt_roi_interpreted_type",
+        "RT ROI Interpreted Type matches the recipe.",
+        "RT ROI Interpreted Type does not match the recipe.",
+        item_str(path, observation, tags::RTROI_INTERPRETED_TYPE)?.as_str(),
+        expected.roi_interpreted_type,
+    );
+    check_equal(
+        &mut internal,
+        "rt_roi_interpreter",
+        "RT ROI Interpreter Type 2 attribute is present.",
+        "RT ROI Interpreter does not match the recipe.",
+        item_str(path, observation, tags::ROI_INTERPRETER)?.as_str(),
+        expected.roi_interpreter,
+    );
+    check(
+        &mut internal,
+        obj.element_opt(tags::PIXEL_DATA)
+            .map_err(|err| validation_error(path, err))?
+            .is_none(),
+        "rt_structure_set_pixel_data_absent",
+        "RT Structure Set contains no Pixel Data.",
+        "RT Structure Set unexpectedly contains Pixel Data.",
+    );
+
+    fail_if_any_failed(path, &internal)?;
+
+    Ok(ValidatedPart10 {
+        bytes,
+        validation: serde_json::json!({
+            "status": "passed",
+            "internal": internal,
+            "standards": [
+                {
+                    "name": standard_sop_class_validation_name(expected.sop_class_uid),
+                    "status": "passed",
+                    "message": standard_sop_class_validation_message(expected.sop_class_uid)
+                },
+                {
+                    "name": standard_transfer_syntax_validation_name(expected.transfer_syntax_uid),
+                    "status": "passed",
+                    "message": standard_transfer_syntax_validation_message(expected.transfer_syntax_uid)
+                },
+                {
+                    "name": "synthetic_data_attribute",
+                    "status": "passed",
+                    "message": "Synthetic Data (0008,001C) is present with value YES."
+                },
+                {
+                    "name": "rt_structure_set_modules",
+                    "status": "passed",
+                    "message": "RT Series, Structure Set, ROI Contour, RT ROI Observations, and source references match the recipe."
                 }
             ],
             "external": []
@@ -4455,6 +4824,8 @@ fn standard_sop_class_validation_name(sop_class_uid: &str) -> &'static str {
         "1.2.840.10008.5.1.4.1.1.67" => "real_world_value_mapping_sop_class",
         uids::BASIC_TEXT_SR_STORAGE => "basic_text_sr_sop_class",
         uids::COMPREHENSIVE_SR_STORAGE => "comprehensive_sr_sop_class",
+        uids::KEY_OBJECT_SELECTION_DOCUMENT_STORAGE => "key_object_selection_document_sop_class",
+        uids::RT_STRUCTURE_SET_STORAGE => "rt_structure_set_sop_class",
         _ => "sop_class_uid",
     }
 }
@@ -4501,6 +4872,9 @@ fn standard_sop_class_validation_message(sop_class_uid: &str) -> &'static str {
         }
         uids::KEY_OBJECT_SELECTION_DOCUMENT_STORAGE => {
             "SOP Class UID matches Key Object Selection Document Storage in the 2026b reference."
+        }
+        uids::RT_STRUCTURE_SET_STORAGE => {
+            "SOP Class UID matches RT Structure Set Storage in the 2026b reference."
         }
         _ => "SOP Class UID matches the recipe.",
     }

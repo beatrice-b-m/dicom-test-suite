@@ -121,7 +121,7 @@ fn registry_contains_initial_smoke_and_core_cases() {
         ("derived/sr/key_object_selection_explicit_le", "implemented"),
         (
             "non-image/rt/structure_set_single_roi_explicit_le",
-            "planned",
+            "implemented",
         ),
         ("non-image/rt/dose_grid_u16_explicit_le", "planned"),
         (
@@ -389,7 +389,7 @@ fn generator_recipe_case_ids() -> BTreeSet<String> {
 fn is_suite_case_id(case_id: &str) -> bool {
     matches!(
         case_id.split('/').next(),
-        Some("classic" | "enhanced" | "derived" | "vl")
+        Some("classic" | "enhanced" | "derived" | "non-image" | "vl")
     )
 }
 

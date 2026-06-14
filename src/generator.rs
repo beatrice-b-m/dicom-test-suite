@@ -15,9 +15,10 @@ use crate::{
         EnhancedCtConcatenationExpectations, EnhancedCtImageExpectations,
         EnhancedMrImageExpectations, MgImageExpectations, MrImageExpectations, Part10Expectations,
         PixelDataLengthFormula, PresentationStateExpectations, RealWorldValueMappingExpectations,
-        SegmentationExpectations, UsImageExpectations, validate_basic_text_sr_file,
-        validate_comprehensive_sr_file, validate_key_object_selection_file, validate_part10_file,
-        validate_presentation_state_file, validate_real_world_value_mapping_file,
+        RtStructureSetExpectations, SegmentationExpectations, UsImageExpectations,
+        validate_basic_text_sr_file, validate_comprehensive_sr_file,
+        validate_key_object_selection_file, validate_part10_file, validate_presentation_state_file,
+        validate_real_world_value_mapping_file, validate_rt_structure_set_file,
     },
 };
 
@@ -36,6 +37,7 @@ const RWVM_RECIPE_VERSION: &str = "0.1.0";
 const BASIC_TEXT_SR_RECIPE_VERSION: &str = "0.1.0";
 const COMPREHENSIVE_SR_RECIPE_VERSION: &str = "0.1.0";
 const KEY_OBJECT_SELECTION_RECIPE_VERSION: &str = "0.1.0";
+const RT_STRUCTURE_SET_RECIPE_VERSION: &str = "0.1.0";
 const SEGMENTATION_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.66.4";
 const LABEL_MAP_SEGMENTATION_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.66.7";
 const GRAYSCALE_SOFTCOPY_PRESENTATION_STATE_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.11.1";
@@ -43,6 +45,7 @@ const REAL_WORLD_VALUE_MAPPING_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.67";
 const BASIC_TEXT_SR_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.88.11";
 const COMPREHENSIVE_SR_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.88.33";
 const KEY_OBJECT_SELECTION_DOCUMENT_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.88.59";
+const RT_STRUCTURE_SET_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.481.3";
 const SEGMENTATION_SOURCE_CASE_ID: &str = "enhanced/ct/multiframe_shared_perframe_explicit_le";
 const GSPS_SOURCE_CASE_ID: &str = "enhanced/ct/multiframe_shared_perframe_explicit_le";
 const RWVM_SOURCE_CASE_ID: &str = "enhanced/ct/multiframe_shared_perframe_explicit_le";
@@ -51,6 +54,7 @@ const COMPREHENSIVE_SR_SOURCE_CASE_ID: &str = "enhanced/ct/multiframe_shared_per
 const KEY_OBJECT_SELECTION_IMAGE_SOURCE_CASE_ID: &str =
     "enhanced/ct/multiframe_shared_perframe_explicit_le";
 const KEY_OBJECT_SELECTION_SEG_SOURCE_CASE_ID: &str = "derived/seg/binary_multiframe_explicit_le";
+const RT_STRUCTURE_SET_SOURCE_CASE_ID: &str = "enhanced/ct/multiframe_shared_perframe_explicit_le";
 const MONO_PIXELS: [u8; 4] = [0, 85, 170, 255];
 const RGB_PLANAR0_PIXELS: [u8; 12] = [255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 255, 255];
 const RGB_PLANAR1_PIXELS: [u8; 12] = [255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255];
@@ -980,6 +984,45 @@ const KEY_OBJECT_SELECTION_RECIPES: &[KeyObjectSelectionRecipe] = &[KeyObjectSel
 }];
 
 #[derive(Debug, Clone, Copy)]
+struct RtStructureSetRecipe {
+    case_id: &'static str,
+    recipe_id: &'static str,
+    source_case_id: &'static str,
+    structure_set_label: &'static str,
+    structure_set_name: &'static str,
+    roi_number: u16,
+    roi_name: &'static str,
+    roi_generation_algorithm: &'static str,
+    roi_generation_description: &'static str,
+    roi_display_color: [i32; 3],
+    contour_number: u16,
+    contour_geometric_type: &'static str,
+    contour_points: u16,
+    contour_data: &'static str,
+    roi_interpreted_type: &'static str,
+    roi_interpreter: &'static str,
+}
+
+const RT_STRUCTURE_SET_RECIPES: &[RtStructureSetRecipe] = &[RtStructureSetRecipe {
+    case_id: "non-image/rt/structure_set_single_roi_explicit_le",
+    recipe_id: "rt_structure_set_single_roi",
+    source_case_id: RT_STRUCTURE_SET_SOURCE_CASE_ID,
+    structure_set_label: "DTS_RTSTRUCT",
+    structure_set_name: "DTS synthetic single ROI",
+    roi_number: 1,
+    roi_name: "DTS_SYNTHETIC_ROI",
+    roi_generation_algorithm: "MANUAL",
+    roi_generation_description: "Synthetic closed planar contour for viewer detection.",
+    roi_display_color: [255, 64, 64],
+    contour_number: 1,
+    contour_geometric_type: "CLOSED_PLANAR",
+    contour_points: 4,
+    contour_data: "0\\0\\0\\1.5\\0\\0\\1.5\\1.5\\0\\0\\1.5\\0",
+    roi_interpreted_type: "ORGAN",
+    roi_interpreter: "",
+}];
+
+#[derive(Debug, Clone, Copy)]
 struct EnhancedMrRecipe {
     case_id: &'static str,
     recipe_id: &'static str,
@@ -1741,6 +1784,29 @@ pub(crate) fn write_supported_cases(
             *recipe,
             &image_source,
             &seg_source,
+            standards_lock_sha256,
+        )?)?;
+    }
+    for recipe in RT_STRUCTURE_SET_RECIPES {
+        let Some(case) = registry_case(registry, recipe.case_id)? else {
+            continue;
+        };
+        if !should_generate_case(case, run)? {
+            continue;
+        }
+        let source = context
+            .source_registry()
+            .first_for_case(recipe.source_case_id)
+            .cloned()
+            .ok_or_else(|| GenerateError::MetadataShape {
+                path: PathBuf::from(recipe.case_id),
+                message: "RT Structure Set source object must be generated before the derived recipe",
+            })?;
+        context.record_one(write_rt_structure_set_case(
+            run,
+            case,
+            *recipe,
+            &source,
             standards_lock_sha256,
         )?)?;
     }
@@ -4197,6 +4263,204 @@ fn write_key_object_selection_case(
     })
 }
 
+fn write_rt_structure_set_case(
+    run: &PreparedGenerationRun,
+    case: &Value,
+    recipe: RtStructureSetRecipe,
+    source: &GeneratedSourceObject,
+    standards_lock_sha256: &str,
+) -> Result<GeneratedFile, GenerateError> {
+    let series_instance_uid = deterministic_rt_structure_set_uid(
+        standards_lock_sha256,
+        recipe,
+        run.seed,
+        UidRole::SeriesInstance,
+    );
+    let sop_instance_uid = deterministic_rt_structure_set_uid(
+        standards_lock_sha256,
+        recipe,
+        run.seed,
+        UidRole::SopInstance,
+    );
+    let implementation_class_uid = deterministic_implementation_uid(standards_lock_sha256);
+    let frame_of_reference_uid =
+        source
+            .frame_of_reference_uid
+            .as_deref()
+            .ok_or_else(|| GenerateError::MetadataShape {
+                path: PathBuf::from(recipe.case_id),
+                message: "RT Structure Set source object must expose a Frame of Reference UID",
+            })?;
+
+    let relative_path = format!("{}/instance.dcm", recipe.case_id);
+    let path = run.out_dir.join(&relative_path);
+    let case_dir = path.parent().ok_or_else(|| GenerateError::MetadataShape {
+        path: PathBuf::from(&relative_path),
+        message: "generated DICOM path must have a parent directory",
+    })?;
+    fs::create_dir_all(case_dir).map_err(|source| GenerateError::CreateCaseOutputDir {
+        path: case_dir.to_path_buf(),
+        source,
+    })?;
+
+    let mut obj = InMemDicomObject::new_empty();
+    put_str(
+        &mut obj,
+        tags::SOP_CLASS_UID,
+        VR::UI,
+        RT_STRUCTURE_SET_STORAGE_UID,
+    );
+    put_str(&mut obj, tags::SOP_INSTANCE_UID, VR::UI, &sop_instance_uid);
+    put_str(&mut obj, tags::SYNTHETIC_DATA, VR::CS, "YES");
+
+    put_str(
+        &mut obj,
+        tags::PATIENT_NAME,
+        VR::PN,
+        "DTS^Synthetic^Patient001",
+    );
+    put_str(&mut obj, tags::PATIENT_ID, VR::LO, "DTS-PATIENT-001");
+    put_str(&mut obj, tags::PATIENT_BIRTH_DATE, VR::DA, "19700101");
+    put_str(&mut obj, tags::PATIENT_SEX, VR::CS, "O");
+
+    put_str(
+        &mut obj,
+        tags::STUDY_INSTANCE_UID,
+        VR::UI,
+        &source.study_instance_uid,
+    );
+    put_str(&mut obj, tags::STUDY_DATE, VR::DA, "20260101");
+    put_str(&mut obj, tags::STUDY_TIME, VR::TM, "000000");
+    put_str(&mut obj, tags::REFERRING_PHYSICIAN_NAME, VR::PN, "");
+    put_str(&mut obj, tags::STUDY_ID, VR::SH, "DTS-RTSTRUCT");
+    put_str(&mut obj, tags::ACCESSION_NUMBER, VR::SH, "");
+
+    put_str(&mut obj, tags::MODALITY, VR::CS, "RTSTRUCT");
+    put_str(
+        &mut obj,
+        tags::SERIES_INSTANCE_UID,
+        VR::UI,
+        &series_instance_uid,
+    );
+    put_str(&mut obj, tags::SERIES_NUMBER, VR::IS, "70");
+    put_str(&mut obj, tags::OPERATORS_NAME, VR::PN, "");
+
+    put_str(
+        &mut obj,
+        tags::FRAME_OF_REFERENCE_UID,
+        VR::UI,
+        frame_of_reference_uid,
+    );
+    put_str(&mut obj, tags::POSITION_REFERENCE_INDICATOR, VR::LO, "");
+
+    put_str(&mut obj, tags::MANUFACTURER, VR::LO, "dicom-test-suite");
+    put_str(
+        &mut obj,
+        tags::MANUFACTURER_MODEL_NAME,
+        VR::LO,
+        recipe.recipe_id,
+    );
+    put_str(
+        &mut obj,
+        tags::DEVICE_SERIAL_NUMBER,
+        VR::LO,
+        "DTS-RTSTRUCT-0001",
+    );
+    put_str(
+        &mut obj,
+        tags::SOFTWARE_VERSIONS,
+        VR::LO,
+        crate::PACKAGE_VERSION,
+    );
+
+    put_str(&mut obj, tags::INSTANCE_NUMBER, VR::IS, "1");
+    put_str(
+        &mut obj,
+        tags::STRUCTURE_SET_LABEL,
+        VR::SH,
+        recipe.structure_set_label,
+    );
+    put_str(
+        &mut obj,
+        tags::STRUCTURE_SET_NAME,
+        VR::LO,
+        recipe.structure_set_name,
+    );
+    put_str(&mut obj, tags::STRUCTURE_SET_DATE, VR::DA, "20260101");
+    put_str(&mut obj, tags::STRUCTURE_SET_TIME, VR::TM, "000000");
+
+    put_rt_structure_set_references(&mut obj, recipe, source, frame_of_reference_uid);
+    put_rt_structure_set_roi_sequence(&mut obj, recipe, frame_of_reference_uid);
+    put_rt_roi_contour_sequence(&mut obj, recipe, source);
+    put_rt_roi_observations_sequence(&mut obj, recipe);
+    put_common_instance_reference(&mut obj, source);
+
+    let file_obj = obj
+        .with_meta(
+            FileMetaTableBuilder::new()
+                .transfer_syntax(uids::EXPLICIT_VR_LITTLE_ENDIAN)
+                .implementation_class_uid(&implementation_class_uid)
+                .implementation_version_name(crate::IMPLEMENTATION_VERSION_NAME),
+        )
+        .map_err(|err| GenerateError::WriteDicomFile {
+            path: path.clone(),
+            message: err.to_string(),
+        })?;
+
+    file_obj
+        .write_to_file(&path)
+        .map_err(|err| GenerateError::WriteDicomFile {
+            path: path.clone(),
+            message: err.to_string(),
+        })?;
+
+    let validated = validate_rt_structure_set_file(
+        &path,
+        &RtStructureSetExpectations {
+            sop_class_uid: RT_STRUCTURE_SET_STORAGE_UID,
+            sop_instance_uid: &sop_instance_uid,
+            transfer_syntax_uid: uids::EXPLICIT_VR_LITTLE_ENDIAN,
+            implementation_class_uid: &implementation_class_uid,
+            synthetic_data: "YES",
+            modality: "RTSTRUCT",
+            frame_of_reference_uid,
+            structure_set_label: recipe.structure_set_label,
+            structure_set_roi_items: 1,
+            roi_number: recipe.roi_number,
+            roi_name: recipe.roi_name,
+            roi_generation_algorithm: recipe.roi_generation_algorithm,
+            roi_contour_items: 1,
+            contour_items: 1,
+            contour_geometric_type: recipe.contour_geometric_type,
+            contour_points: recipe.contour_points,
+            contour_data: recipe.contour_data,
+            rt_roi_observation_items: 1,
+            roi_interpreted_type: recipe.roi_interpreted_type,
+            roi_interpreter: recipe.roi_interpreter,
+            referenced_series_instance_uid: source.series_instance_uid.as_deref().unwrap_or(""),
+            referenced_sop_class_uid: &source.sop_class_uid,
+            referenced_sop_instance_uid: &source.sop_instance_uid,
+        },
+    )?;
+
+    Ok(GeneratedFile {
+        case_id: recipe.case_id.to_string(),
+        manifest_entry: rt_structure_set_manifest_entry(
+            case,
+            recipe,
+            source,
+            &relative_path,
+            &source.study_instance_uid,
+            &series_instance_uid,
+            &sop_instance_uid,
+            frame_of_reference_uid,
+            &implementation_class_uid,
+            &validated.bytes,
+            validated.validation,
+        ),
+    })
+}
+
 fn write_enhanced_ct_concatenation_case(
     run: &PreparedGenerationRun,
     case: &Value,
@@ -4928,6 +5192,175 @@ fn put_common_instance_reference(obj: &mut InMemDicomObject, source: &GeneratedS
                     ),
                 ])]),
             ),
+        ])]),
+    ));
+}
+
+fn put_rt_structure_set_references(
+    obj: &mut InMemDicomObject,
+    _recipe: RtStructureSetRecipe,
+    source: &GeneratedSourceObject,
+    frame_of_reference_uid: &str,
+) {
+    obj.put(DataElement::new(
+        tags::REFERENCED_FRAME_OF_REFERENCE_SEQUENCE,
+        VR::SQ,
+        DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+            DataElement::new(tags::FRAME_OF_REFERENCE_UID, VR::UI, frame_of_reference_uid),
+            DataElement::new(
+                tags::RT_REFERENCED_STUDY_SEQUENCE,
+                VR::SQ,
+                DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+                    DataElement::new(
+                        tags::RT_REFERENCED_SERIES_SEQUENCE,
+                        VR::SQ,
+                        DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+                            DataElement::new(
+                                tags::SERIES_INSTANCE_UID,
+                                VR::UI,
+                                source.series_instance_uid.as_deref().unwrap_or(""),
+                            ),
+                            DataElement::new(
+                                tags::CONTOUR_IMAGE_SEQUENCE,
+                                VR::SQ,
+                                DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+                                    DataElement::new(
+                                        TAG_REFERENCED_SOP_CLASS_UID,
+                                        VR::UI,
+                                        source.sop_class_uid.as_str(),
+                                    ),
+                                    DataElement::new(
+                                        TAG_REFERENCED_SOP_INSTANCE_UID,
+                                        VR::UI,
+                                        source.sop_instance_uid.as_str(),
+                                    ),
+                                ])]),
+                            ),
+                        ])]),
+                    ),
+                ])]),
+            ),
+        ])]),
+    ));
+}
+
+fn put_rt_structure_set_roi_sequence(
+    obj: &mut InMemDicomObject,
+    recipe: RtStructureSetRecipe,
+    frame_of_reference_uid: &str,
+) {
+    obj.put(DataElement::new(
+        tags::STRUCTURE_SET_ROI_SEQUENCE,
+        VR::SQ,
+        DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+            DataElement::new(tags::ROI_NUMBER, VR::IS, recipe.roi_number.to_string()),
+            DataElement::new(
+                tags::REFERENCED_FRAME_OF_REFERENCE_UID,
+                VR::UI,
+                frame_of_reference_uid,
+            ),
+            DataElement::new(tags::ROI_NAME, VR::LO, recipe.roi_name),
+            DataElement::new(
+                tags::ROI_GENERATION_ALGORITHM,
+                VR::CS,
+                recipe.roi_generation_algorithm,
+            ),
+            DataElement::new(
+                tags::ROI_GENERATION_DESCRIPTION,
+                VR::LO,
+                recipe.roi_generation_description,
+            ),
+        ])]),
+    ));
+}
+
+fn put_rt_roi_contour_sequence(
+    obj: &mut InMemDicomObject,
+    recipe: RtStructureSetRecipe,
+    source: &GeneratedSourceObject,
+) {
+    obj.put(DataElement::new(
+        tags::ROI_CONTOUR_SEQUENCE,
+        VR::SQ,
+        DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+            DataElement::new(
+                tags::REFERENCED_ROI_NUMBER,
+                VR::IS,
+                recipe.roi_number.to_string(),
+            ),
+            DataElement::new(
+                tags::ROI_DISPLAY_COLOR,
+                VR::IS,
+                format!(
+                    "{}\\{}\\{}",
+                    recipe.roi_display_color[0],
+                    recipe.roi_display_color[1],
+                    recipe.roi_display_color[2]
+                ),
+            ),
+            DataElement::new(
+                tags::CONTOUR_SEQUENCE,
+                VR::SQ,
+                DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+                    DataElement::new(
+                        tags::CONTOUR_NUMBER,
+                        VR::IS,
+                        recipe.contour_number.to_string(),
+                    ),
+                    DataElement::new(
+                        tags::CONTOUR_IMAGE_SEQUENCE,
+                        VR::SQ,
+                        DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+                            DataElement::new(
+                                TAG_REFERENCED_SOP_CLASS_UID,
+                                VR::UI,
+                                source.sop_class_uid.as_str(),
+                            ),
+                            DataElement::new(
+                                TAG_REFERENCED_SOP_INSTANCE_UID,
+                                VR::UI,
+                                source.sop_instance_uid.as_str(),
+                            ),
+                        ])]),
+                    ),
+                    DataElement::new(
+                        tags::CONTOUR_GEOMETRIC_TYPE,
+                        VR::CS,
+                        recipe.contour_geometric_type,
+                    ),
+                    DataElement::new(
+                        tags::NUMBER_OF_CONTOUR_POINTS,
+                        VR::IS,
+                        recipe.contour_points.to_string(),
+                    ),
+                    DataElement::new(tags::CONTOUR_DATA, VR::DS, recipe.contour_data),
+                ])]),
+            ),
+        ])]),
+    ));
+}
+
+fn put_rt_roi_observations_sequence(obj: &mut InMemDicomObject, recipe: RtStructureSetRecipe) {
+    obj.put(DataElement::new(
+        tags::RTROI_OBSERVATIONS_SEQUENCE,
+        VR::SQ,
+        DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+            DataElement::new(
+                tags::OBSERVATION_NUMBER,
+                VR::IS,
+                recipe.roi_number.to_string(),
+            ),
+            DataElement::new(
+                tags::REFERENCED_ROI_NUMBER,
+                VR::IS,
+                recipe.roi_number.to_string(),
+            ),
+            DataElement::new(
+                tags::RTROI_INTERPRETED_TYPE,
+                VR::CS,
+                recipe.roi_interpreted_type,
+            ),
+            DataElement::new(tags::ROI_INTERPRETER, VR::PN, recipe.roi_interpreter),
         ])]),
     ));
 }
@@ -6094,6 +6527,96 @@ fn key_object_selection_manifest_entry(
         },
         "validation": validation,
         "known_stressors": ["key_object_selection_document_storage", "derived_source_reference", "sr_document_content", "multiple_evidence_references"],
+        "standards_evidence": deduplicated_standards_evidence(standards_evidence)
+    })
+}
+
+#[allow(clippy::too_many_arguments)]
+fn rt_structure_set_manifest_entry(
+    case: &Value,
+    recipe: RtStructureSetRecipe,
+    source: &GeneratedSourceObject,
+    relative_path: &str,
+    study_instance_uid: &str,
+    series_instance_uid: &str,
+    sop_instance_uid: &str,
+    frame_of_reference_uid: &str,
+    implementation_class_uid: &str,
+    bytes: &[u8],
+    validation: Value,
+) -> Value {
+    let standards_evidence = standards_evidence_from_case(case);
+    serde_json::json!({
+        "case_id": recipe.case_id,
+        "profile_membership": ["extended"],
+        "path": relative_path,
+        "sha256": sha256_hex(bytes),
+        "size_bytes": bytes.len(),
+        "determinism": "byte_stable",
+        "recipe": {
+            "recipe_id": recipe.recipe_id,
+            "recipe_version": RT_STRUCTURE_SET_RECIPE_VERSION,
+            "recipe_parameters": {
+                "source_case_id": recipe.source_case_id,
+                "structure_set_label": recipe.structure_set_label,
+                "structure_set_name": recipe.structure_set_name,
+                "roi_number": recipe.roi_number,
+                "roi_name": recipe.roi_name,
+                "roi_generation_algorithm": recipe.roi_generation_algorithm,
+                "roi_generation_description": recipe.roi_generation_description,
+                "roi_display_color": recipe.roi_display_color,
+                "contour_number": recipe.contour_number,
+                "contour_geometric_type": recipe.contour_geometric_type,
+                "contour_points": recipe.contour_points,
+                "contour_data": recipe.contour_data,
+                "roi_interpreted_type": recipe.roi_interpreted_type
+            }
+        },
+        "dicom": {
+            "sop_class_uid": RT_STRUCTURE_SET_STORAGE_UID,
+            "sop_class_name": "RT Structure Set Storage",
+            "iod_name": "RT Structure Set",
+            "modality": "RTSTRUCT",
+            "transfer_syntax_uid": uids::EXPLICIT_VR_LITTLE_ENDIAN,
+            "transfer_syntax_name": "Explicit VR Little Endian"
+        },
+        "uids": {
+            "study_instance_uid": study_instance_uid,
+            "series_instance_uid": series_instance_uid,
+            "sop_instance_uid": sop_instance_uid,
+            "frame_of_reference_uid": frame_of_reference_uid,
+            "implementation_class_uid": implementation_class_uid
+        },
+        "image": Value::Null,
+        "pixel_data": Value::Null,
+        "references": [
+            source.to_manifest_reference("source_image", Some(vec![1, 2]))
+        ],
+        "expected_capabilities": ["open_file", "read_metadata", "show_unsupported_but_recognized", "read_rt_structure_set"],
+        "expected_semantics": {
+            "synthetic_data": "YES",
+            "source_case_id": source.source_case_id,
+            "source_sop_instance_uid": source.sop_instance_uid,
+            "rt_structure_set": {
+                "structure_set_label": recipe.structure_set_label,
+                "structure_set_roi_items": 1,
+                "roi_number": recipe.roi_number,
+                "roi_name": recipe.roi_name,
+                "roi_generation_algorithm": recipe.roi_generation_algorithm,
+                "roi_contour_items": 1,
+                "contour_items": 1,
+                "contour_geometric_type": recipe.contour_geometric_type,
+                "contour_points": recipe.contour_points,
+                "contour_data": recipe.contour_data,
+                "rt_roi_observation_items": 1,
+                "roi_interpreted_type": recipe.roi_interpreted_type
+            }
+        },
+        "expected_visual_checks": {
+            "pattern": "single_closed_planar_roi_on_source_ct"
+        },
+        "validation": validation,
+        "known_stressors": ["rt_structure_set_storage", "derived_source_reference", "closed_planar_roi_contour", "rt_roi_observations"],
         "standards_evidence": deduplicated_standards_evidence(standards_evidence)
     })
 }
@@ -9491,6 +10014,24 @@ fn deterministic_key_object_selection_uid(
         standards_lock_sha256,
         case_id: recipe.case_id,
         recipe_version: KEY_OBJECT_SELECTION_RECIPE_VERSION,
+        run_seed,
+        file_index: 0,
+        frame_index: None,
+        referenced_object_index: Some(0),
+        role,
+    })
+}
+
+fn deterministic_rt_structure_set_uid(
+    standards_lock_sha256: &str,
+    recipe: RtStructureSetRecipe,
+    run_seed: u64,
+    role: UidRole,
+) -> String {
+    deterministic_uid(&DeterministicUidInput {
+        standards_lock_sha256,
+        case_id: recipe.case_id,
+        recipe_version: RT_STRUCTURE_SET_RECIPE_VERSION,
         run_seed,
         file_index: 0,
         frame_index: None,

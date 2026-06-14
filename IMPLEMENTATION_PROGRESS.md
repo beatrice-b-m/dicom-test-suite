@@ -4,7 +4,7 @@
 **Source specification:** `SYSTEM_SPEC.md` version 0.2.0  
 **Current phase:** Phase 5.0 foundation in progress
 
-**Current implementation status:** Phase 0, Phase 0.5, Phase 1, Phase 2, Phase 3, Phase 4, and the pre-Phase-5 hardening pass are functionally complete. `IMPLEMENTATION_PLAN.md` now defines the concrete Phase 5 implementation sequence. Phase 5.0 has started by seeding the full planned Phase 5 target queue in `cases/registry.json` and by adding the manifest/report data shape for non-image objects and manifest references. No Phase 5 generator recipe has been flipped to `implemented` yet.
+**Current implementation status:** Phase 0, Phase 0.5, Phase 1, Phase 2, Phase 3, Phase 4, and the pre-Phase-5 hardening pass are functionally complete. `IMPLEMENTATION_PLAN.md` now defines the concrete Phase 5 implementation sequence. Phase 5.0 has started by seeding the full planned Phase 5 target queue in `cases/registry.json`, adding the manifest/report data shape for non-image objects and manifest references, and making generated-root validation object-aware with same-run reference resolution. No Phase 5 generator recipe has been flipped to `implemented` yet.
 
 This document is the durable hand-off log for coding agents implementing
 `dicom-test-suite`. Keep `SYSTEM_SPEC.md` as the source of product and
@@ -85,7 +85,7 @@ Observed at creation of this progress file:
 | Phase 3: Classic radiology IODs | complete | CT Image Storage signed 12-bit rescale/window, MG For Presentation/For Processing 12-bit, CR overlay/Modality LUT/VOI LUT, MR multi-slice oblique geometry, DX display shutter, US Image Storage, and stable multi-file series generation are implemented. |
 | Phase 4: Enhanced multi-frame | complete | Enhanced CT and Enhanced MR Image Storage cases with Shared and Per-Frame Functional Groups and Multi-frame Dimension metadata are implemented; MR Echo, Temporal Position, phase/velocity-encoding variation, and a two-member Enhanced CT concatenation case are covered. |
 | Pre-Phase-5 hardening | complete | Registry authority, required CLI contracts, validation hardening, reproducibility/CI guards, and standards lock pinning policy are complete. Validation now covers raw Part 10 byte checks, parsed cross-field image invariants, manifest schema-conformance checks, baseline standards-derived Type 1/Type 2 checks, classic family-specific checks, and Enhanced CT/MR multi-frame standards-derived checks. |
-| Phase 5: Derived, presentation, and non-image objects | foundation in progress | Full planned target queue is now in `cases/registry.json`. Manifest entries now support nullable/absent image metadata plus a generated-file `references` array, and coverage reports project manifest reference source case IDs into `derived_refs`. Remaining foundation work must add same-run source object maps and generated-root reference/object-aware validation before broad non-image recipe work. |
+| Phase 5: Derived, presentation, and non-image objects | foundation in progress | Full planned target queue is now in `cases/registry.json`. Manifest entries support nullable/absent image metadata plus a generated-file `references` array, coverage reports project manifest reference source case IDs into `derived_refs`, and generated-root validation now resolves same-run references while skipping image/pixel checks for non-image rows. Remaining foundation work must add generation-time same-run source object plumbing before broad non-image recipe work. |
 | Phase 6: Transfer syntax expansion | not started | Transfer syntax abstraction and compressed cases pending. |
 | Phase 7: Pathology, video, and large object profiles | not started | VL, WSI, video, and stress cases pending. |
 | Phase 8: Reporting and viewer integration | not started | Coverage reports, optional viewer runner, and compatibility schema pending. |
@@ -199,11 +199,12 @@ Enhanced CT concatenation case for logical multi-frame object splitting.
 - [x] Prepare concrete Phase 5 implementation plan in `IMPLEMENTATION_PLAN.md`.
 - [x] Add planned registry rows and standards evidence for all Phase 5 target
       cases.
-- [ ] Refactor manifest schema, generated-root validation, and coverage reports
-      to represent non-image objects and derived references. Manifest schema
-      and coverage-report projection are partially complete; generated-root
-      validation remains image-first for generated files.
-- [ ] Add same-run source object map and reference-resolution validation.
+- [x] Refactor manifest schema, generated-root validation, and coverage reports
+      to represent non-image objects and derived references.
+- [ ] Add generation-time same-run source object map for derived recipes.
+      Generated-root reference-resolution validation is complete; generator
+      recipe plumbing still needs to expose already-generated source instances
+      to later derived recipes.
 - [ ] Implement BINARY Segmentation Storage case.
 - [ ] Implement FRACTIONAL Segmentation Storage case.
 - [ ] Implement LABELMAP Segmentation using Label Map Segmentation Storage.
@@ -688,8 +689,43 @@ These case IDs come from `SYSTEM_SPEC.md` section 21 and should seed
   inventing image metadata. Generated-root validation is still image-first and
   must be made object-aware before flipping any non-image recipe to
   `implemented`.
+- 2026-06-14: Phase 5.0 generated-root validation is now object-aware and
+  reference-aware. `validate <generated-root>` builds a same-run source object
+  map from manifest file entries, checks each manifest `references` row against
+  generated source path, source case ID, SOP Class UID, SOP Instance UID,
+  optional Series Instance UID, and optional frame numbers, and reports
+  mismatches as validation failures. The existing Part 10, baseline identity,
+  family-specific, and Synthetic Data checks still run for every file. Image
+  and Pixel Data validation now runs only when both `image` and `pixel_data`
+  manifest objects are present; rows with both absent or `null` are accepted as
+  non-image object rows, and partial image/pixel metadata is rejected. CLI
+  regression tests cover a resolved same-run reference and a mismatched
+  referenced SOP Instance UID.
 
 ## Verification Results
+
+- 2026-06-14 Phase 5 object-aware validation and same-run reference validation
+  slice:
+  - `cargo fmt -- --check` initially failed on rustfmt wrapping in
+    `src/lib.rs`; `cargo fmt` was run, and the repeated
+    `cargo fmt -- --check` passed.
+  - `cargo test --test validate_cli reference` passed with 2 focused reference
+    validation tests.
+  - `cargo test --test validate_cli` passed with 20 validation CLI tests.
+  - `cargo test` passed.
+  - `cargo run -- standards check-lock` passed with the existing documented
+    unavailable-pin warnings.
+  - `cargo run -- generate --profile extended --out /tmp/dts-slice --seed 1`
+    passed, writing 6 existing extended files and recording 11 planned Phase 5
+    unavailable cases.
+  - `cargo run -- validate /tmp/dts-slice` passed with 6 files checked and 0
+    validation failures.
+  - `cargo run -- report /tmp/dts-slice --format json` passed with counts
+    `generated=6`, `planned=11`, `skipped=0`, `blocked=0`.
+  - `cargo run -- report /tmp/dts-slice --format markdown` passed with the
+    expected extended coverage matrix and planned Phase 5 gaps.
+  - `cargo run -- standards gaps --profile extended` passed with no standards
+    evidence gaps.
 
 - 2026-06-14 Phase 5 manifest/report reference foundation slice:
   - `cargo fmt -- --check` initially failed on formatting in
@@ -742,18 +778,17 @@ None currently recorded for starting Phase 5.
 
 ## Recommended Next Commit
 
-Continue Phase 5.0 with same-run source object/reference validation
-infrastructure. The next slice should build a source object map from generated
-manifest entries, validate manifest `references` against files generated in the
-same run, and keep validation object-aware so future non-image rows can omit
-image and Pixel Data fields without weakening current image checks.
+Continue Phase 5.0 with generation-time same-run source object plumbing. The
+next slice should have generation maintain an ordered source object registry
+from generated manifest entries and expose already-generated source instances
+to later derived recipes, without flipping any Phase 5 recipe to `implemented`
+until the first derived writer can use that plumbing.
 
 ## Commit-Ready Summary
 
-The current slice updates the manifest schema, generation manifest assembly,
-coverage report projection, schema tests, report tests, and this progress
-tracker only. It does not implement any Phase 5 recipe or change registry case
-statuses.
+The current slice updates generated-root validation, validation CLI tests, and
+this progress tracker only. It does not implement any Phase 5 recipe or change
+registry case statuses.
 
 ## Handoff Notes
 

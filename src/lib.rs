@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::error::Error;
 use std::fmt;
 use std::fs;
@@ -60,6 +60,15 @@ pub struct ValidationSummary {
     pub manifest_path: PathBuf,
     pub files_checked: usize,
     pub failures: Vec<String>,
+}
+
+#[derive(Debug, Clone)]
+struct ManifestSourceObject {
+    case_id: String,
+    sop_class_uid: String,
+    sop_instance_uid: String,
+    series_instance_uid: Option<String>,
+    frames: Option<u64>,
 }
 
 #[derive(Debug)]
@@ -455,9 +464,11 @@ pub fn validate_generated_root(
                 path: manifest_path.clone(),
                 message: "missing files array",
             })?;
+    let source_objects = build_manifest_source_object_map(&manifest_path, files)?;
 
     let mut failures = Vec::new();
     for file in files {
+        validate_manifest_references(&manifest_path, file, &source_objects, &mut failures)?;
         validate_manifest_file(root_dir, &manifest_path, file, &mut failures)?;
     }
 
@@ -466,6 +477,179 @@ pub fn validate_generated_root(
         files_checked: files.len(),
         failures,
     })
+}
+
+fn build_manifest_source_object_map(
+    manifest_path: &Path,
+    files: &[Value],
+) -> Result<HashMap<String, ManifestSourceObject>, ValidateError> {
+    let mut source_objects = HashMap::new();
+    for file in files {
+        let path = manifest_str(manifest_path, file, "/path", "file path must be a string")?;
+        let case_id = manifest_str(manifest_path, file, "/case_id", "case_id must be a string")?;
+        let sop_class_uid = manifest_str(
+            manifest_path,
+            file,
+            "/dicom/sop_class_uid",
+            "dicom sop_class_uid must be a string",
+        )?;
+        let sop_instance_uid = manifest_str(
+            manifest_path,
+            file,
+            "/uids/sop_instance_uid",
+            "uids sop_instance_uid must be a string",
+        )?;
+        let series_instance_uid = file
+            .pointer("/uids/series_instance_uid")
+            .and_then(Value::as_str)
+            .map(ToOwned::to_owned);
+        let frames = file.pointer("/image/frames").and_then(Value::as_u64);
+
+        source_objects.insert(
+            path.to_string(),
+            ManifestSourceObject {
+                case_id: case_id.to_string(),
+                sop_class_uid: sop_class_uid.to_string(),
+                sop_instance_uid: sop_instance_uid.to_string(),
+                series_instance_uid,
+                frames,
+            },
+        );
+    }
+    Ok(source_objects)
+}
+
+fn validate_manifest_references(
+    manifest_path: &Path,
+    file: &Value,
+    source_objects: &HashMap<String, ManifestSourceObject>,
+    failures: &mut Vec<String>,
+) -> Result<(), ValidateError> {
+    let relative_path = manifest_str(manifest_path, file, "/path", "file path must be a string")?;
+    let references = match file.get("references") {
+        Some(Value::Array(references)) => references,
+        Some(_) => {
+            return Err(ValidateError::ManifestShape {
+                path: manifest_path.to_path_buf(),
+                message: "file references must be an array",
+            });
+        }
+        None => {
+            return Err(ValidateError::ManifestShape {
+                path: manifest_path.to_path_buf(),
+                message: "file references are missing",
+            });
+        }
+    };
+
+    for reference in references {
+        let source_path = manifest_str(
+            manifest_path,
+            reference,
+            "/source_path",
+            "reference source_path must be a string",
+        )?;
+        let source_case_id = manifest_str(
+            manifest_path,
+            reference,
+            "/source_case_id",
+            "reference source_case_id must be a string",
+        )?;
+        let Some(source) = source_objects.get(source_path) else {
+            failures.push(format!(
+                "{relative_path}: reference_source_path: {source_path} is not generated in this run"
+            ));
+            continue;
+        };
+
+        validate_equal(
+            failures,
+            relative_path,
+            "reference_source_case_id",
+            source_case_id,
+            source.case_id.as_str(),
+        );
+        validate_equal(
+            failures,
+            relative_path,
+            "reference_sop_class_uid",
+            manifest_str(
+                manifest_path,
+                reference,
+                "/sop_class_uid",
+                "reference sop_class_uid must be a string",
+            )?,
+            source.sop_class_uid.as_str(),
+        );
+        validate_equal(
+            failures,
+            relative_path,
+            "reference_sop_instance_uid",
+            manifest_str(
+                manifest_path,
+                reference,
+                "/sop_instance_uid",
+                "reference sop_instance_uid must be a string",
+            )?,
+            source.sop_instance_uid.as_str(),
+        );
+
+        if let Some(expected_series) = reference
+            .get("series_instance_uid")
+            .filter(|value| !value.is_null())
+        {
+            let expected_series = expected_series
+                .as_str()
+                .ok_or(ValidateError::ManifestShape {
+                    path: manifest_path.to_path_buf(),
+                    message: "reference series_instance_uid must be a string or null",
+                })?;
+            match source.series_instance_uid.as_deref() {
+                Some(actual_series) => validate_equal(
+                    failures,
+                    relative_path,
+                    "reference_series_instance_uid",
+                    expected_series,
+                    actual_series,
+                ),
+                None => failures.push(format!(
+                    "{relative_path}: reference_series_instance_uid: source has no Series Instance UID"
+                )),
+            }
+        }
+
+        if let Some(frame_numbers) = reference
+            .get("frame_numbers")
+            .filter(|value| !value.is_null())
+        {
+            let frame_numbers = frame_numbers
+                .as_array()
+                .ok_or(ValidateError::ManifestShape {
+                    path: manifest_path.to_path_buf(),
+                    message: "reference frame_numbers must be an array or null",
+                })?;
+            for frame_number in frame_numbers {
+                let frame_number = frame_number.as_u64().ok_or(ValidateError::ManifestShape {
+                    path: manifest_path.to_path_buf(),
+                    message: "reference frame_numbers items must be integers",
+                })?;
+                if frame_number == 0 {
+                    failures.push(format!(
+                        "{relative_path}: reference_frame_number: frame numbers are 1-based"
+                    ));
+                }
+                if let Some(frames) = source.frames {
+                    if frame_number > frames {
+                        failures.push(format!(
+                            "{relative_path}: reference_frame_number: frame {frame_number} exceeds source frame count {frames}"
+                        ));
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(())
 }
 
 fn validate_manifest_file(
@@ -608,6 +792,27 @@ fn validate_manifest_file(
         )?,
     );
 
+    match (file.get("image"), file.get("pixel_data")) {
+        (Some(Value::Object(_)), Some(Value::Object(_))) => {
+            validate_manifest_image_pixel_data(failures, relative_path, manifest_path, file, &obj)
+        }
+        (None | Some(Value::Null), None | Some(Value::Null)) => Ok(()),
+        _ => {
+            failures.push(format!(
+                "{relative_path}: image_pixel_metadata_pair: image and pixel_data must both be present for image objects or both absent/null for non-image objects"
+            ));
+            Ok(())
+        }
+    }
+}
+
+fn validate_manifest_image_pixel_data(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    manifest_path: &Path,
+    file: &Value,
+    obj: &OpenedObject,
+) -> Result<(), ValidateError> {
     let rows = validate_u16_from_manifest_and_dataset(
         failures,
         relative_path,

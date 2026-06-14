@@ -2,6 +2,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+use serde_json::{Value, json};
+
 #[test]
 fn validate_command_accepts_generated_smoke_root() {
     let out_dir = unique_temp_dir("validate-smoke");
@@ -52,6 +54,56 @@ fn validate_command_accepts_generated_extended_root() {
     let stdout = String::from_utf8(output.stdout).expect("validate stdout must be UTF-8");
     assert!(stdout.contains("files_checked\t6"));
     assert!(stdout.contains("validation_failures\t0"));
+
+    fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
+}
+
+#[test]
+fn validate_command_accepts_references_to_same_run_sources() {
+    let out_dir = unique_temp_dir("validate-reference-source");
+    generate_smoke(&out_dir);
+    append_reference_fixture(&out_dir, false);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args([
+            "validate",
+            out_dir.to_str().expect("temp path should be valid UTF-8"),
+        ])
+        .output()
+        .expect("validate command must run");
+
+    assert!(
+        output.status.success(),
+        "validate should accept resolved same-run references: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("validate stdout must be UTF-8");
+    assert!(stdout.contains("files_checked\t4"));
+    assert!(stdout.contains("validation_failures\t0"));
+
+    fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
+}
+
+#[test]
+fn validate_command_reports_unresolved_reference_identity() {
+    let out_dir = unique_temp_dir("validate-bad-reference");
+    generate_smoke(&out_dir);
+    append_reference_fixture(&out_dir, true);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args([
+            "validate",
+            out_dir.to_str().expect("temp path should be valid UTF-8"),
+        ])
+        .output()
+        .expect("validate command must run");
+
+    assert!(
+        !output.status.success(),
+        "validate should reject references whose manifest identity does not match the source"
+    );
+    let stdout = String::from_utf8(output.stdout).expect("validate stdout must be UTF-8");
+    assert!(stdout.contains("reference_sop_instance_uid"));
 
     fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
 }
@@ -550,6 +602,95 @@ fn generate_profile(out_dir: &Path, profile: &str) {
         "generate {profile} should exit successfully: {}",
         String::from_utf8_lossy(&output.stderr)
     );
+}
+
+fn append_reference_fixture(out_dir: &Path, corrupt_reference: bool) {
+    let manifest_path = out_dir.join("manifest.json");
+    let mut manifest: Value = serde_json::from_str(
+        &fs::read_to_string(&manifest_path).expect("manifest should be readable"),
+    )
+    .expect("manifest should parse");
+    let files = manifest
+        .get_mut("files")
+        .and_then(Value::as_array_mut)
+        .expect("manifest files should be an array");
+    let source = files
+        .first()
+        .cloned()
+        .expect("smoke manifest should contain a source file");
+    let source_path = source
+        .get("path")
+        .and_then(Value::as_str)
+        .expect("source path should be a string")
+        .to_string();
+    let source_case_id = source
+        .get("case_id")
+        .and_then(Value::as_str)
+        .expect("source case_id should be a string")
+        .to_string();
+    let source_sop_class_uid = source
+        .pointer("/dicom/sop_class_uid")
+        .and_then(Value::as_str)
+        .expect("source SOP Class UID should be a string")
+        .to_string();
+    let source_sop_instance_uid = source
+        .pointer("/uids/sop_instance_uid")
+        .and_then(Value::as_str)
+        .expect("source SOP Instance UID should be a string")
+        .to_string();
+    let source_series_instance_uid = source
+        .pointer("/uids/series_instance_uid")
+        .and_then(Value::as_str)
+        .expect("source Series Instance UID should be a string")
+        .to_string();
+
+    let derived_path = "derived/test/non_image_reference_explicit_le/instance.dcm";
+    let derived_file_path = out_dir.join(derived_path);
+    fs::create_dir_all(
+        derived_file_path
+            .parent()
+            .expect("derived file should have a parent directory"),
+    )
+    .expect("derived fixture directory should be creatable");
+    fs::copy(out_dir.join(&source_path), &derived_file_path)
+        .expect("derived fixture DICOM should be copied from the generated source");
+
+    let mut derived = source;
+    let derived_object = derived
+        .as_object_mut()
+        .expect("manifest file entries should be objects");
+    derived_object.insert(
+        "case_id".to_string(),
+        Value::String("derived/test/non_image_reference_explicit_le".to_string()),
+    );
+    derived_object.insert("path".to_string(), Value::String(derived_path.to_string()));
+    derived_object.insert("image".to_string(), Value::Null);
+    derived_object.insert("pixel_data".to_string(), Value::Null);
+    derived_object.insert(
+        "references".to_string(),
+        json!([
+            {
+                "relationship": "source_image",
+                "source_case_id": source_case_id,
+                "source_path": source_path,
+                "sop_class_uid": source_sop_class_uid,
+                "sop_instance_uid": if corrupt_reference {
+                    "2.25.999999999"
+                } else {
+                    source_sop_instance_uid.as_str()
+                },
+                "series_instance_uid": source_series_instance_uid,
+                "frame_numbers": [1]
+            }
+        ]),
+    );
+    files.push(derived);
+
+    fs::write(
+        &manifest_path,
+        serde_json::to_string_pretty(&manifest).expect("manifest should serialize"),
+    )
+    .expect("manifest should be writable");
 }
 
 fn mutate_dicom(path: &Path, mutate: impl FnOnce(&mut Vec<u8>)) {

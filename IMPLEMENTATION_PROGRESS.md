@@ -1774,8 +1774,8 @@ These case IDs come from `SYSTEM_SPEC.md` section 21 and should seed
   - Post-restart `target/debug/dicom-test-suite --help` printed usage normally,
     a minimal C probe reached `main`, and the previously hanging test binaries
     executed through Cargo.
-  - `cargo test` passed with 99 tests plus doc tests.
-  - `cargo test --features deflate` passed with 99 tests plus doc tests.
+  - `cargo test` passed with 89 tests plus doc tests.
+  - `cargo test --features deflate` passed with 89 tests plus doc tests.
   - `cargo fmt -- --check` passed.
   - `cargo run -- standards check-lock` passed with the existing documented
     unavailable-pin warnings.

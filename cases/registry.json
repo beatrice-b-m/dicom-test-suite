@@ -3195,7 +3195,7 @@
     },
     {
       "case_id": "non-image/rt/dose_grid_u16_explicit_le",
-      "status": "planned",
+      "status": "implemented",
       "profiles": ["extended"],
       "recipe_id": "rt_dose_grid_u16",
       "recipe_version": "0.1.0",

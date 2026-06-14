@@ -2,9 +2,9 @@
 
 **Last updated:** 2026-06-14  
 **Source specification:** `SYSTEM_SPEC.md` version 0.2.0  
-**Current phase:** Phase 5.5 RT Structure Set complete; RT Dose next
+**Current phase:** Phase 5.5 RT Dose complete; Encapsulated PDF next
 
-**Current implementation status:** Phase 0, Phase 0.5, Phase 1, Phase 2, Phase 3, Phase 4, the pre-Phase-5 hardening pass, Phase 5.0 foundation, Phase 5.1 BINARY Segmentation Storage, Phase 5.2 BINARY/FRACTIONAL/LABELMAP segmentation coverage, Phase 5.3 Presentation State/RWVM, Phase 5.4 SR/KOS, and the Phase 5.5 RT Structure Set slice are functionally complete. `IMPLEMENTATION_PLAN.md` defines the concrete Phase 5 implementation sequence. Phase 5.5 now includes `non-image/rt/structure_set_single_roi_explicit_le`, a non-image RT Structure Set Storage object with modality `RTSTRUCT`, one manual closed planar ROI, ROI Contour and RT ROI Observations sequences, Common Instance Reference and RT referenced frame-of-reference paths to the generated Enhanced CT source, and no Pixel Data. The extended profile now writes 15 files and reports 2 remaining planned Phase 5 cases.
+**Current implementation status:** Phase 0, Phase 0.5, Phase 1, Phase 2, Phase 3, Phase 4, the pre-Phase-5 hardening pass, Phase 5.0 foundation, Phase 5.1 BINARY Segmentation Storage, Phase 5.2 BINARY/FRACTIONAL/LABELMAP segmentation coverage, Phase 5.3 Presentation State/RWVM, Phase 5.4 SR/KOS, and Phase 5.5 RT Structure Set/RT Dose slices are functionally complete. `IMPLEMENTATION_PLAN.md` defines the concrete Phase 5 implementation sequence. Phase 5.5 now includes `non-image/rt/structure_set_single_roi_explicit_le` and `non-image/rt/dose_grid_u16_explicit_le`. The RT Dose object is a grid-based Explicit VR Little Endian RT Dose Storage instance with modality `RTDOSE`, two native unsigned 16-bit dose frames, Dose Grid Scaling, Grid Frame Offset Vector, source image and RT Structure Set references, and Synthetic Data set to `YES`. The extended profile now writes 16 files and reports 1 remaining planned Phase 5 case.
 
 This document is the durable hand-off log for coding agents implementing
 `dicom-test-suite`. Keep `SYSTEM_SPEC.md` as the source of product and
@@ -85,7 +85,7 @@ Observed at creation of this progress file:
 | Phase 3: Classic radiology IODs | complete | CT Image Storage signed 12-bit rescale/window, MG For Presentation/For Processing 12-bit, CR overlay/Modality LUT/VOI LUT, MR multi-slice oblique geometry, DX display shutter, US Image Storage, and stable multi-file series generation are implemented. |
 | Phase 4: Enhanced multi-frame | complete | Enhanced CT and Enhanced MR Image Storage cases with Shared and Per-Frame Functional Groups and Multi-frame Dimension metadata are implemented; MR Echo, Temporal Position, phase/velocity-encoding variation, and a two-member Enhanced CT concatenation case are covered. |
 | Pre-Phase-5 hardening | complete | Registry authority, required CLI contracts, validation hardening, reproducibility/CI guards, and standards lock pinning policy are complete. Validation now covers raw Part 10 byte checks, parsed cross-field image invariants, manifest schema-conformance checks, baseline standards-derived Type 1/Type 2 checks, classic family-specific checks, and Enhanced CT/MR multi-frame standards-derived checks. |
-| Phase 5: Derived, presentation, and non-image objects | Phase 5.5 RT Structure Set complete; RT Dose next | Full planned target queue is now in `cases/registry.json`. Manifest entries support nullable/absent image metadata plus a generated-file `references` array, coverage reports project manifest reference source case IDs into `derived_refs`, generated-root validation resolves same-run references while skipping image/pixel checks for non-image rows, and generation maintains an ordered source object registry for derived recipes. BINARY, FRACTIONAL, LABELMAP Segmentation, Grayscale Softcopy Presentation State, Real World Value Mapping, Basic Text SR, Comprehensive SR, Key Object Selection, and RT Structure Set objects are implemented and validated. The next implementation slice is RT Dose. |
+| Phase 5: Derived, presentation, and non-image objects | Phase 5.5 RT Dose complete; Encapsulated PDF next | Full planned target queue is now in `cases/registry.json`. Manifest entries support nullable/absent image metadata plus a generated-file `references` array, coverage reports project manifest reference source case IDs into `derived_refs`, generated-root validation resolves same-run references while skipping image/pixel checks for non-image rows, and generation maintains an ordered source object registry for derived recipes. BINARY, FRACTIONAL, LABELMAP Segmentation, Grayscale Softcopy Presentation State, Real World Value Mapping, Basic Text SR, Comprehensive SR, Key Object Selection, RT Structure Set, and RT Dose objects are implemented and validated. The next implementation slice is Encapsulated PDF. |
 | Phase 6: Transfer syntax expansion | not started | Transfer syntax abstraction and compressed cases pending. |
 | Phase 7: Pathology, video, and large object profiles | not started | VL, WSI, video, and stress cases pending. |
 | Phase 8: Reporting and viewer integration | not started | Coverage reports, optional viewer runner, and compatibility schema pending. |
@@ -215,7 +215,7 @@ Enhanced CT concatenation case for logical multi-frame object splitting.
 - [x] Implement Comprehensive SR case.
 - [x] Implement Key Object Selection case.
 - [x] Implement RT Structure Set detection case.
-- [ ] Implement RT Dose detection case.
+- [x] Implement RT Dose detection case.
 - [ ] Implement Encapsulated PDF detection case.
 - [ ] Run Phase 5 completion verification across generation, validation,
       reporting, reproducibility, standards gaps, and artifact guards.
@@ -854,8 +854,68 @@ These case IDs come from `SYSTEM_SPEC.md` section 21 and should seed
   Set row as a non-image reference object with null photometric/bits/frames
   metadata and
   `derived_refs=["enhanced/ct/multiframe_shared_perframe_explicit_le"]`.
+- 2026-06-14: Phase 5.5 RT Dose is implemented for
+  `non-image/rt/dose_grid_u16_explicit_le`. The RT Dose recipe writes a
+  grid-based Explicit VR Little Endian RT Dose Storage object after the
+  generated Enhanced CT source and RT Structure Set source, shares the source
+  Study Instance UID and Frame of Reference UID, uses its own deterministic
+  RTDOSE Series and SOP Instance UIDs, sets Synthetic Data to `YES`, and
+  records same-run manifest references to both source objects. The dataset
+  includes RT Series Modality `RTDOSE`, Image Plane/Image Pixel/Multi-frame
+  attributes for a tiny 2-frame 2x2 unsigned 16-bit dose grid, Frame Increment
+  Pointer to Grid Frame Offset Vector, Dose Units `GY`, Dose Type `PHYSICAL`,
+  Dose Summation Type `RECORD`, Dose Grid Scaling `0.001`, Referenced Image
+  Sequence to the generated Enhanced CT source, Referenced Structure Set
+  Sequence to the generated RT Structure Set, Common Instance Reference, and
+  native OW Pixel Data. Generation-time validation and generated-root
+  validation now check RT Dose scalar attributes, grid geometry, Pixel Data
+  length, Dose Grid Scaling, frame offset metadata, and source references.
+  Coverage reports show the RT Dose row as a non-image reference object with
+  bits `16`, frames `2`, photometric interpretation `MONOCHROME2`, and
+  `derived_refs=["enhanced/ct/multiframe_shared_perframe_explicit_le",
+  "non-image/rt/structure_set_single_roi_explicit_le"]`.
 
 ## Verification Results
+
+- 2026-06-14 Phase 5.5 RT Dose slice:
+  - `dicom-standard-kb` MCP lookups rechecked RT Dose Storage, the RT Dose
+    IOD, RT Dose IOD modules, the RT Dose Module attributes, Dose Grid Scaling,
+    and parsed defined-term availability for Dose Units, Dose Type, and Dose
+    Summation Type. Parsed term lookup for those RT Dose terms was unavailable,
+    but the RT Dose Module row and standard text excerpt returned the needed
+    values `GY`, `PHYSICAL`, and dose-grid requirements; `RECORD` was selected
+    to avoid an RT Plan dependency in this detection case.
+  - Initial focused
+    `cargo test --test generate_cli --test validate_cli --test list_cases_cli --test project_artifacts`
+    failed to compile because `TAG_REFERENCED_STRUCTURE_SET_SEQUENCE` was not
+    defined in `src/validation.rs` and the RT Dose manifest used a nonexistent
+    `frame_hashes` helper; both were corrected.
+  - Repeated focused
+    `cargo test --test generate_cli --test validate_cli --test list_cases_cli --test project_artifacts`
+    failed because the extended validation test still expected 15 checked
+    files; the test was updated for 16 checked files. The same iteration
+    exposed an accidental removal of `EnhancedCtRecipe::pixel_values` while
+    removing unused RT Dose pixel values; the Enhanced CT field was restored and
+    the RT Dose unused field was removed.
+  - Repeated focused
+    `cargo test --test generate_cli --test validate_cli --test list_cases_cli --test project_artifacts`
+    passed.
+  - `cargo fmt -- --check` passed.
+  - `cargo test` passed.
+  - `cargo run -- standards check-lock` passed with the existing documented
+    unavailable-pin warnings.
+  - `cargo run -- generate --profile extended --out /tmp/dts-rt-dose-slice --seed 1`
+    passed, writing 16 files.
+  - `cargo run -- validate /tmp/dts-rt-dose-slice` passed with 16 files checked
+    and 0 validation failures.
+  - `cargo run -- report /tmp/dts-rt-dose-slice --format json` passed with
+    counts `generated=16`, `planned=1`, `skipped=0`, `blocked=0`; the RT Dose
+    row reports
+    `derived_refs=["enhanced/ct/multiframe_shared_perframe_explicit_le",
+    "non-image/rt/structure_set_single_roi_explicit_le"]`, SOP Class UID
+    `1.2.840.10008.5.1.4.1.1.481.2`, bits `16`, frames `2`, photometric
+    interpretation `MONOCHROME2`, object type `non-image`, and validation
+    status `passed`.
 
 - 2026-06-14 Phase 5.5 RT Structure Set slice:
   - `dicom-standard-kb` MCP lookups rechecked RT Structure Set Storage, the RT
@@ -1245,25 +1305,25 @@ These case IDs come from `SYSTEM_SPEC.md` section 21 and should seed
 
 ## Current Blockers
 
-None currently recorded for continuing Phase 5.5.
+None currently recorded for continuing Phase 5.6.
 
 ## Recommended Next Commit
 
-Continue Phase 5.5 with `non-image/rt/dose_grid_u16_explicit_le`. Recheck RT
-Dose Storage, the RT Dose IOD and modules, RT Dose Module attributes, grid dose
-pixel requirements, Frame of Reference/Image Plane requirements, and references
-to the generated RT Structure Set or Enhanced CT source with
-`dicom-standard-kb` before adding the writer. Keep the commit limited to RT Dose
-writer/validation/tests/registry status/progress unless a small shared RT
-reference helper is required.
+Continue Phase 5.6 with
+`non-image/encapsulated-document/pdf_minimal_explicit_le`. Recheck Encapsulated
+PDF Storage, the Encapsulated PDF IOD and modules, SOP Common requirements,
+Encapsulated Document Module attributes, MIME Type of Encapsulated Document,
+Document Title, and Encapsulated Document byte requirements with
+`dicom-standard-kb` before adding the writer. Keep the commit limited to the
+Encapsulated PDF writer/validation/tests/registry status/progress unless a
+small shared encapsulated-document helper is required.
 
 ## Commit-Ready Summary
 
-The current slice implements `non-image/rt/structure_set_single_roi_explicit_le`,
-adds a non-image RT Structure Set writer and validation path, flips the RT
-Structure Set registry row to `implemented`, updates focused tests and this
-progress tracker, and leaves `non-image/rt/dose_grid_u16_explicit_le` as the
-next work.
+The current slice implements `non-image/rt/dose_grid_u16_explicit_le`, adds a
+grid-based RT Dose writer and validation path, flips the RT Dose registry row to
+`implemented`, updates focused tests and this progress tracker, and leaves
+`non-image/encapsulated-document/pdf_minimal_explicit_le` as the next work.
 
 ## Handoff Notes
 

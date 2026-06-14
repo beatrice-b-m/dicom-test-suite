@@ -209,6 +209,36 @@ pub(crate) struct RtStructureSetExpectations<'a> {
     pub referenced_sop_instance_uid: &'a str,
 }
 
+#[derive(Debug, Clone)]
+pub(crate) struct RtDoseExpectations<'a> {
+    pub sop_class_uid: &'a str,
+    pub sop_instance_uid: &'a str,
+    pub transfer_syntax_uid: &'a str,
+    pub implementation_class_uid: &'a str,
+    pub synthetic_data: &'a str,
+    pub modality: &'a str,
+    pub frame_of_reference_uid: &'a str,
+    pub rows: u16,
+    pub columns: u16,
+    pub frames: u16,
+    pub pixel_bytes_len: usize,
+    pub pixel_vr: VR,
+    pub pixel_spacing: &'a str,
+    pub image_orientation_patient: &'a str,
+    pub image_position_patient: &'a str,
+    pub slice_thickness: &'a str,
+    pub frame_increment_pointer: Tag,
+    pub grid_frame_offset_vector: &'a str,
+    pub dose_units: &'a str,
+    pub dose_type: &'a str,
+    pub dose_summation_type: &'a str,
+    pub dose_grid_scaling: &'a str,
+    pub referenced_image_sop_class_uid: &'a str,
+    pub referenced_image_sop_instance_uid: &'a str,
+    pub referenced_structure_set_sop_class_uid: &'a str,
+    pub referenced_structure_set_sop_instance_uid: &'a str,
+}
+
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum PixelDataLengthFormula {
     ContiguousSamples,
@@ -464,6 +494,7 @@ const TAG_REFERENCED_FRAME_NUMBER: Tag = Tag(0x0008, 0x1160);
 const TAG_REFERENCED_IMAGE_SEQUENCE: Tag = Tag(0x0008, 0x1140);
 const TAG_SOURCE_IMAGE_SEQUENCE: Tag = Tag(0x0008, 0x2112);
 const TAG_DERIVATION_IMAGE_SEQUENCE: Tag = Tag(0x0008, 0x9124);
+const TAG_REFERENCED_STRUCTURE_SET_SEQUENCE: Tag = Tag(0x300C, 0x0060);
 const TAG_DISPLAYED_AREA_TOP_LEFT_HAND_CORNER: Tag = Tag(0x0070, 0x0052);
 const TAG_DISPLAYED_AREA_BOTTOM_RIGHT_HAND_CORNER: Tag = Tag(0x0070, 0x0053);
 const TAG_DISPLAYED_AREA_SELECTION_SEQUENCE: Tag = Tag(0x0070, 0x005A);
@@ -2635,6 +2666,354 @@ pub(crate) fn validate_rt_structure_set_file(
     })
 }
 
+pub(crate) fn validate_rt_dose_file(
+    path: &Path,
+    expected: &RtDoseExpectations<'_>,
+) -> Result<ValidatedPart10, GenerateError> {
+    let bytes = fs::read(path).map_err(|source| GenerateError::ReadGeneratedFile {
+        path: path.to_path_buf(),
+        source,
+    })?;
+    let obj = open_file(path).map_err(|err| GenerateError::ValidateDicomFile {
+        path: path.to_path_buf(),
+        message: err.to_string(),
+    })?;
+
+    let mut internal = Vec::new();
+    check(
+        &mut internal,
+        bytes.len() >= 132 && &bytes[128..132] == b"DICM",
+        "part10_preamble",
+        "File has a 128-byte preamble followed by the DICM marker.",
+        "File is missing the Part 10 DICM marker at byte offset 128.",
+    );
+    check_equal(
+        &mut internal,
+        "file_meta_transfer_syntax",
+        "File Meta Information Transfer Syntax UID matches the recipe.",
+        "File Meta Information Transfer Syntax UID does not match the recipe.",
+        trim_uid(obj.meta().transfer_syntax()).as_str(),
+        expected.transfer_syntax_uid,
+    );
+
+    let dataset_sop_class = element_str(path, &obj, tags::SOP_CLASS_UID)?;
+    check_equal(
+        &mut internal,
+        "sop_class_uid_consistency",
+        "Dataset SOP Class UID, File Meta SOP Class UID, and recipe SOP Class UID match.",
+        "SOP Class UID differs between dataset, File Meta Information, or recipe.",
+        dataset_sop_class.as_str(),
+        expected.sop_class_uid,
+    );
+    check_equal(
+        &mut internal,
+        "media_storage_sop_class_uid",
+        "File Meta SOP Class UID matches the dataset SOP Class UID.",
+        "File Meta SOP Class UID does not match the dataset SOP Class UID.",
+        trim_uid(obj.meta().media_storage_sop_class_uid()).as_str(),
+        dataset_sop_class.as_str(),
+    );
+    let dataset_sop_instance = element_str(path, &obj, tags::SOP_INSTANCE_UID)?;
+    check_equal(
+        &mut internal,
+        "sop_instance_uid_consistency",
+        "Dataset SOP Instance UID, File Meta SOP Instance UID, and manifest UID match.",
+        "SOP Instance UID differs between dataset, File Meta Information, or manifest.",
+        dataset_sop_instance.as_str(),
+        expected.sop_instance_uid,
+    );
+    check_equal(
+        &mut internal,
+        "media_storage_sop_instance_uid",
+        "File Meta SOP Instance UID matches the dataset SOP Instance UID.",
+        "File Meta SOP Instance UID does not match the dataset SOP Instance UID.",
+        trim_uid(obj.meta().media_storage_sop_instance_uid()).as_str(),
+        dataset_sop_instance.as_str(),
+    );
+    check_equal(
+        &mut internal,
+        "implementation_class_uid",
+        "File Meta Implementation Class UID matches the deterministic generator UID.",
+        "File Meta Implementation Class UID does not match the deterministic generator UID.",
+        trim_uid(obj.meta().implementation_class_uid()).as_str(),
+        expected.implementation_class_uid,
+    );
+    check_equal(
+        &mut internal,
+        "synthetic_data",
+        "Synthetic Data is present and set to YES.",
+        "Synthetic Data is missing or not set to YES.",
+        element_str(path, &obj, tags::SYNTHETIC_DATA)?.as_str(),
+        expected.synthetic_data,
+    );
+    check_equal(
+        &mut internal,
+        "rt_dose_modality",
+        "RT Series Modality is RTDOSE.",
+        "RT Series Modality does not match the recipe.",
+        element_str(path, &obj, tags::MODALITY)?.as_str(),
+        expected.modality,
+    );
+    check_equal(
+        &mut internal,
+        "rt_dose_frame_of_reference_uid",
+        "RT Dose Frame of Reference UID matches the source image.",
+        "RT Dose Frame of Reference UID does not match the source image.",
+        element_str(path, &obj, tags::FRAME_OF_REFERENCE_UID)?.as_str(),
+        expected.frame_of_reference_uid,
+    );
+    check_equal(
+        &mut internal,
+        "rt_dose_rows",
+        "Rows matches the dose grid recipe.",
+        "Rows does not match the dose grid recipe.",
+        element_u16(path, &obj, tags::ROWS)?,
+        expected.rows,
+    );
+    check_equal(
+        &mut internal,
+        "rt_dose_columns",
+        "Columns matches the dose grid recipe.",
+        "Columns does not match the dose grid recipe.",
+        element_u16(path, &obj, tags::COLUMNS)?,
+        expected.columns,
+    );
+    check_equal(
+        &mut internal,
+        "rt_dose_number_of_frames",
+        "Number of Frames matches the dose grid recipe.",
+        "Number of Frames does not match the dose grid recipe.",
+        element_str(path, &obj, tags::NUMBER_OF_FRAMES)?.as_str(),
+        expected.frames.to_string().as_str(),
+    );
+    check_equal(
+        &mut internal,
+        "rt_dose_samples_per_pixel",
+        "Samples per Pixel is one for the dose grid.",
+        "Samples per Pixel does not match the dose grid recipe.",
+        element_u16(path, &obj, tags::SAMPLES_PER_PIXEL)?,
+        1,
+    );
+    check_equal(
+        &mut internal,
+        "rt_dose_photometric_interpretation",
+        "Photometric Interpretation is MONOCHROME2 for the dose grid.",
+        "Photometric Interpretation does not match the dose grid recipe.",
+        element_str(path, &obj, tags::PHOTOMETRIC_INTERPRETATION)?.as_str(),
+        "MONOCHROME2",
+    );
+    check_equal(
+        &mut internal,
+        "rt_dose_bits_allocated",
+        "Bits Allocated is 16 for the dose grid.",
+        "Bits Allocated does not match the dose grid recipe.",
+        element_u16(path, &obj, tags::BITS_ALLOCATED)?,
+        16,
+    );
+    check_equal(
+        &mut internal,
+        "rt_dose_bits_stored",
+        "Bits Stored is 16 for the dose grid.",
+        "Bits Stored does not match the dose grid recipe.",
+        element_u16(path, &obj, tags::BITS_STORED)?,
+        16,
+    );
+    check_equal(
+        &mut internal,
+        "rt_dose_high_bit",
+        "High Bit is 15 for the dose grid.",
+        "High Bit does not match the dose grid recipe.",
+        element_u16(path, &obj, tags::HIGH_BIT)?,
+        15,
+    );
+    check_equal(
+        &mut internal,
+        "rt_dose_pixel_representation",
+        "Pixel Representation is unsigned for the dose grid.",
+        "Pixel Representation does not match the dose grid recipe.",
+        element_u16(path, &obj, tags::PIXEL_REPRESENTATION)?,
+        0,
+    );
+    check_equal(
+        &mut internal,
+        "rt_dose_pixel_spacing",
+        "Pixel Spacing matches the dose grid recipe.",
+        "Pixel Spacing does not match the dose grid recipe.",
+        element_str(path, &obj, tags::PIXEL_SPACING)?.as_str(),
+        expected.pixel_spacing,
+    );
+    check_equal(
+        &mut internal,
+        "rt_dose_image_orientation_patient",
+        "Image Orientation Patient matches the dose grid recipe.",
+        "Image Orientation Patient does not match the dose grid recipe.",
+        element_str(path, &obj, tags::IMAGE_ORIENTATION_PATIENT)?.as_str(),
+        expected.image_orientation_patient,
+    );
+    check_equal(
+        &mut internal,
+        "rt_dose_image_position_patient",
+        "Image Position Patient matches the dose grid recipe.",
+        "Image Position Patient does not match the dose grid recipe.",
+        element_str(path, &obj, tags::IMAGE_POSITION_PATIENT)?.as_str(),
+        expected.image_position_patient,
+    );
+    check_equal(
+        &mut internal,
+        "rt_dose_slice_thickness",
+        "Slice Thickness matches the dose grid recipe.",
+        "Slice Thickness does not match the dose grid recipe.",
+        element_str(path, &obj, tags::SLICE_THICKNESS)?.as_str(),
+        expected.slice_thickness,
+    );
+    check_equal(
+        &mut internal,
+        "rt_dose_frame_increment_pointer",
+        "Frame Increment Pointer points to Grid Frame Offset Vector.",
+        "Frame Increment Pointer does not point to Grid Frame Offset Vector.",
+        element_tag(path, &obj, tags::FRAME_INCREMENT_POINTER)?,
+        expected.frame_increment_pointer,
+    );
+    check_equal(
+        &mut internal,
+        "rt_dose_grid_frame_offset_vector",
+        "Grid Frame Offset Vector matches the dose grid recipe.",
+        "Grid Frame Offset Vector does not match the dose grid recipe.",
+        element_str(path, &obj, tags::GRID_FRAME_OFFSET_VECTOR)?.as_str(),
+        expected.grid_frame_offset_vector,
+    );
+    check_equal(
+        &mut internal,
+        "rt_dose_units",
+        "Dose Units matches the recipe.",
+        "Dose Units does not match the recipe.",
+        element_str(path, &obj, tags::DOSE_UNITS)?.as_str(),
+        expected.dose_units,
+    );
+    check_equal(
+        &mut internal,
+        "rt_dose_type",
+        "Dose Type matches the recipe.",
+        "Dose Type does not match the recipe.",
+        element_str(path, &obj, tags::DOSE_TYPE)?.as_str(),
+        expected.dose_type,
+    );
+    check_equal(
+        &mut internal,
+        "rt_dose_summation_type",
+        "Dose Summation Type matches the recipe.",
+        "Dose Summation Type does not match the recipe.",
+        element_str(path, &obj, tags::DOSE_SUMMATION_TYPE)?.as_str(),
+        expected.dose_summation_type,
+    );
+    check_equal(
+        &mut internal,
+        "rt_dose_grid_scaling",
+        "Dose Grid Scaling matches the recipe.",
+        "Dose Grid Scaling does not match the recipe.",
+        element_str(path, &obj, tags::DOSE_GRID_SCALING)?.as_str(),
+        expected.dose_grid_scaling,
+    );
+
+    let pixel_element = obj
+        .element(tags::PIXEL_DATA)
+        .map_err(|err| validation_error(path, err))?;
+    check_equal(
+        &mut internal,
+        "rt_dose_pixel_data_vr",
+        "Pixel Data VR is OW for the 16-bit dose grid.",
+        "Pixel Data VR does not match the dose grid recipe.",
+        pixel_element.vr(),
+        expected.pixel_vr,
+    );
+    let pixel_bytes = pixel_element
+        .value()
+        .to_bytes()
+        .map_err(|err| validation_error(path, err))?;
+    check_equal(
+        &mut internal,
+        "rt_dose_pixel_data_length",
+        "Pixel Data length matches Rows * Columns * Frames * two bytes.",
+        "Pixel Data length does not match the dose grid shape.",
+        pixel_bytes.len(),
+        expected.pixel_bytes_len,
+    );
+
+    let referenced_image = top_level_sequence_item(path, &obj, TAG_REFERENCED_IMAGE_SEQUENCE, 0)?;
+    check_equal(
+        &mut internal,
+        "rt_dose_referenced_image_sop_class_uid",
+        "Referenced Image Sequence SOP Class UID matches the source image.",
+        "Referenced Image Sequence SOP Class UID does not match the source image.",
+        item_str(path, referenced_image, TAG_REFERENCED_SOP_CLASS_UID)?.as_str(),
+        expected.referenced_image_sop_class_uid,
+    );
+    check_equal(
+        &mut internal,
+        "rt_dose_referenced_image_sop_instance_uid",
+        "Referenced Image Sequence SOP Instance UID matches the source image.",
+        "Referenced Image Sequence SOP Instance UID does not match the source image.",
+        item_str(path, referenced_image, TAG_REFERENCED_SOP_INSTANCE_UID)?.as_str(),
+        expected.referenced_image_sop_instance_uid,
+    );
+    let referenced_structure_set =
+        top_level_sequence_item(path, &obj, TAG_REFERENCED_STRUCTURE_SET_SEQUENCE, 0)?;
+    check_equal(
+        &mut internal,
+        "rt_dose_referenced_structure_set_sop_class_uid",
+        "Referenced Structure Set Sequence SOP Class UID matches the RT Structure Set.",
+        "Referenced Structure Set Sequence SOP Class UID does not match the RT Structure Set.",
+        item_str(path, referenced_structure_set, TAG_REFERENCED_SOP_CLASS_UID)?.as_str(),
+        expected.referenced_structure_set_sop_class_uid,
+    );
+    check_equal(
+        &mut internal,
+        "rt_dose_referenced_structure_set_sop_instance_uid",
+        "Referenced Structure Set Sequence SOP Instance UID matches the RT Structure Set.",
+        "Referenced Structure Set Sequence SOP Instance UID does not match the RT Structure Set.",
+        item_str(
+            path,
+            referenced_structure_set,
+            TAG_REFERENCED_SOP_INSTANCE_UID,
+        )?
+        .as_str(),
+        expected.referenced_structure_set_sop_instance_uid,
+    );
+
+    fail_if_any_failed(path, &internal)?;
+
+    Ok(ValidatedPart10 {
+        bytes,
+        validation: serde_json::json!({
+            "status": "passed",
+            "internal": internal,
+            "standards": [
+                {
+                    "name": standard_sop_class_validation_name(expected.sop_class_uid),
+                    "status": "passed",
+                    "message": standard_sop_class_validation_message(expected.sop_class_uid)
+                },
+                {
+                    "name": standard_transfer_syntax_validation_name(expected.transfer_syntax_uid),
+                    "status": "passed",
+                    "message": standard_transfer_syntax_validation_message(expected.transfer_syntax_uid)
+                },
+                {
+                    "name": "synthetic_data_attribute",
+                    "status": "passed",
+                    "message": "Synthetic Data (0008,001C) is present with value YES."
+                },
+                {
+                    "name": "rt_dose_modules",
+                    "status": "passed",
+                    "message": "RT Series, grid-based Image Pixel, Multi-frame, RT Dose, and source references match the recipe."
+                }
+            ],
+            "external": []
+        }),
+    })
+}
+
 fn element_str(path: &Path, obj: &OpenedObject, tag: Tag) -> Result<String, GenerateError> {
     let value = obj
         .element(tag)
@@ -2651,6 +3030,21 @@ fn element_u16(path: &Path, obj: &OpenedObject, tag: Tag) -> Result<u16, Generat
         .value()
         .to_int::<u16>()
         .map_err(|err| validation_error(path, err))
+}
+
+fn element_tag(path: &Path, obj: &OpenedObject, tag: Tag) -> Result<Tag, GenerateError> {
+    let tags = obj
+        .element(tag)
+        .map_err(|err| validation_error(path, err))?
+        .value()
+        .tags()
+        .map_err(|err| validation_error(path, err))?;
+    tags.first()
+        .copied()
+        .ok_or_else(|| GenerateError::ValidateDicomFile {
+            path: path.to_path_buf(),
+            message: format!("{tag:?} is empty"),
+        })
 }
 
 fn element_u32(path: &Path, obj: &OpenedObject, tag: Tag) -> Result<u32, GenerateError> {
@@ -4826,6 +5220,7 @@ fn standard_sop_class_validation_name(sop_class_uid: &str) -> &'static str {
         uids::COMPREHENSIVE_SR_STORAGE => "comprehensive_sr_sop_class",
         uids::KEY_OBJECT_SELECTION_DOCUMENT_STORAGE => "key_object_selection_document_sop_class",
         uids::RT_STRUCTURE_SET_STORAGE => "rt_structure_set_sop_class",
+        uids::RT_DOSE_STORAGE => "rt_dose_sop_class",
         _ => "sop_class_uid",
     }
 }
@@ -4876,6 +5271,7 @@ fn standard_sop_class_validation_message(sop_class_uid: &str) -> &'static str {
         uids::RT_STRUCTURE_SET_STORAGE => {
             "SOP Class UID matches RT Structure Set Storage in the 2026b reference."
         }
+        uids::RT_DOSE_STORAGE => "SOP Class UID matches RT Dose Storage in the 2026b reference.",
         _ => "SOP Class UID matches the recipe.",
     }
 }

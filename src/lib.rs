@@ -80,8 +80,10 @@ const TAG_MAXIMUM_FRACTIONAL_VALUE: dicom_core::Tag = dicom_core::Tag(0x0062, 0x
 const TAG_SEGMENTATION_FRACTIONAL_TYPE: dicom_core::Tag = dicom_core::Tag(0x0062, 0x0010);
 const TAG_REFERENCED_SOP_CLASS_UID: dicom_core::Tag = dicom_core::Tag(0x0008, 0x1150);
 const TAG_REFERENCED_SOP_INSTANCE_UID: dicom_core::Tag = dicom_core::Tag(0x0008, 0x1155);
+const TAG_REFERENCED_IMAGE_SEQUENCE: dicom_core::Tag = dicom_core::Tag(0x0008, 0x1140);
 const TAG_SOURCE_IMAGE_SEQUENCE: dicom_core::Tag = dicom_core::Tag(0x0008, 0x2112);
 const TAG_DERIVATION_IMAGE_SEQUENCE: dicom_core::Tag = dicom_core::Tag(0x0008, 0x9124);
+const TAG_REFERENCED_STRUCTURE_SET_SEQUENCE: dicom_core::Tag = dicom_core::Tag(0x300C, 0x0060);
 
 #[derive(Debug)]
 pub struct StandardsLockSummary {
@@ -1709,6 +1711,9 @@ fn validate_family_standard_elements(
             file,
             obj,
         )?,
+        "RT Dose" => {
+            validate_rt_dose_standard_elements(failures, relative_path, manifest_path, file, obj)?
+        }
         _ => {}
     }
 
@@ -3579,6 +3584,274 @@ fn validate_rt_structure_set_standard_elements(
     Ok(())
 }
 
+fn validate_rt_dose_standard_elements(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    manifest_path: &Path,
+    file: &Value,
+    obj: &OpenedObject,
+) -> Result<(), ValidateError> {
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::SOP_CLASS_UID,
+        "rt_dose_sop_class",
+        manifest_str(
+            manifest_path,
+            file,
+            "/dicom/sop_class_uid",
+            "RT Dose SOP Class UID must be a string",
+        )?,
+    );
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::MODALITY,
+        "rt_dose_modality_type1",
+        "RTDOSE",
+    );
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::FRAME_OF_REFERENCE_UID,
+        "rt_dose_frame_of_reference_uid",
+        manifest_str(
+            manifest_path,
+            file,
+            "/uids/frame_of_reference_uid",
+            "RT Dose Frame of Reference UID must be a string",
+        )?,
+    );
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::NUMBER_OF_FRAMES,
+        "rt_dose_number_of_frames",
+        manifest_u64(
+            manifest_path,
+            file,
+            "/image/frames",
+            "RT Dose image frame count must be an integer",
+        )?
+        .to_string()
+        .as_str(),
+    );
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::PIXEL_SPACING,
+        "rt_dose_pixel_spacing",
+        manifest_str(
+            manifest_path,
+            file,
+            "/recipe/recipe_parameters/pixel_spacing",
+            "RT Dose Pixel Spacing must be a string",
+        )?,
+    );
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::IMAGE_ORIENTATION_PATIENT,
+        "rt_dose_image_orientation_patient",
+        manifest_str(
+            manifest_path,
+            file,
+            "/recipe/recipe_parameters/image_orientation_patient",
+            "RT Dose Image Orientation Patient must be a string",
+        )?,
+    );
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::IMAGE_POSITION_PATIENT,
+        "rt_dose_image_position_patient",
+        manifest_str(
+            manifest_path,
+            file,
+            "/recipe/recipe_parameters/image_position_patient",
+            "RT Dose Image Position Patient must be a string",
+        )?,
+    );
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::SLICE_THICKNESS,
+        "rt_dose_slice_thickness",
+        manifest_str(
+            manifest_path,
+            file,
+            "/recipe/recipe_parameters/slice_thickness",
+            "RT Dose Slice Thickness must be a string",
+        )?,
+    );
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::GRID_FRAME_OFFSET_VECTOR,
+        "rt_dose_grid_frame_offset_vector",
+        manifest_str(
+            manifest_path,
+            file,
+            "/expected_semantics/rt_dose/grid_frame_offset_vector",
+            "RT Dose Grid Frame Offset Vector must be a string",
+        )?,
+    );
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::DOSE_UNITS,
+        "rt_dose_units_type1",
+        manifest_str(
+            manifest_path,
+            file,
+            "/expected_semantics/rt_dose/dose_units",
+            "RT Dose Units must be a string",
+        )?,
+    );
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::DOSE_TYPE,
+        "rt_dose_type_type1",
+        manifest_str(
+            manifest_path,
+            file,
+            "/expected_semantics/rt_dose/dose_type",
+            "RT Dose Type must be a string",
+        )?,
+    );
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::DOSE_SUMMATION_TYPE,
+        "rt_dose_summation_type_type1",
+        manifest_str(
+            manifest_path,
+            file,
+            "/expected_semantics/rt_dose/dose_summation_type",
+            "RT Dose Summation Type must be a string",
+        )?,
+    );
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::DOSE_GRID_SCALING,
+        "rt_dose_grid_scaling_type1c",
+        manifest_str(
+            manifest_path,
+            file,
+            "/expected_semantics/rt_dose/dose_grid_scaling",
+            "RT Dose Grid Scaling must be a string",
+        )?,
+    );
+
+    match element_tag_for_validate(obj, tags::FRAME_INCREMENT_POINTER) {
+        Ok(actual) => validate_equal(
+            failures,
+            relative_path,
+            "rt_dose_frame_increment_pointer",
+            format!("{actual:?}"),
+            format!("{:?}", tags::GRID_FRAME_OFFSET_VECTOR),
+        ),
+        Err(err) => failures.push(format!(
+            "{relative_path}: rt_dose_frame_increment_pointer: {err}"
+        )),
+    }
+
+    let references =
+        file.get("references")
+            .and_then(Value::as_array)
+            .ok_or(ValidateError::ManifestShape {
+                path: manifest_path.to_path_buf(),
+                message: "RT Dose references must be an array",
+            })?;
+    let image_reference = references.first().ok_or(ValidateError::ManifestShape {
+        path: manifest_path.to_path_buf(),
+        message: "RT Dose must have a source image reference",
+    })?;
+    let structure_set_reference = references.get(1).ok_or(ValidateError::ManifestShape {
+        path: manifest_path.to_path_buf(),
+        message: "RT Dose must have a source structure set reference",
+    })?;
+    let image_sop_class_uid = image_reference
+        .get("sop_class_uid")
+        .and_then(Value::as_str)
+        .ok_or(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "RT Dose image reference sop_class_uid must be a string",
+        })?;
+    let image_sop_instance_uid = image_reference
+        .get("sop_instance_uid")
+        .and_then(Value::as_str)
+        .ok_or(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "RT Dose image reference sop_instance_uid must be a string",
+        })?;
+    let structure_set_sop_class_uid = structure_set_reference
+        .get("sop_class_uid")
+        .and_then(Value::as_str)
+        .ok_or(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "RT Dose structure set reference sop_class_uid must be a string",
+        })?;
+    let structure_set_sop_instance_uid = structure_set_reference
+        .get("sop_instance_uid")
+        .and_then(Value::as_str)
+        .ok_or(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "RT Dose structure set reference sop_instance_uid must be a string",
+        })?;
+
+    let Ok(referenced_image) =
+        top_level_sequence_item_for_validate(obj, TAG_REFERENCED_IMAGE_SEQUENCE, 0)
+    else {
+        failures.push(format!(
+            "{relative_path}: rt_dose_referenced_image_sequence: missing item"
+        ));
+        return Ok(());
+    };
+    validate_rt_referenced_sop(
+        failures,
+        relative_path,
+        "rt_dose_referenced_image",
+        referenced_image,
+        image_sop_class_uid,
+        image_sop_instance_uid,
+    );
+
+    let Ok(referenced_structure_set) =
+        top_level_sequence_item_for_validate(obj, TAG_REFERENCED_STRUCTURE_SET_SEQUENCE, 0)
+    else {
+        failures.push(format!(
+            "{relative_path}: rt_dose_referenced_structure_set_sequence: missing item"
+        ));
+        return Ok(());
+    };
+    validate_rt_referenced_sop(
+        failures,
+        relative_path,
+        "rt_dose_referenced_structure_set",
+        referenced_structure_set,
+        structure_set_sop_class_uid,
+        structure_set_sop_instance_uid,
+    );
+
+    Ok(())
+}
+
 fn validate_rt_referenced_sop(
     failures: &mut Vec<String>,
     relative_path: &str,
@@ -3753,6 +4026,20 @@ fn element_u16_for_validate(obj: &OpenedObject, tag: dicom_core::Tag) -> Result<
         .value()
         .to_int::<u16>()
         .map_err(|err| err.to_string())
+}
+
+fn element_tag_for_validate(
+    obj: &OpenedObject,
+    tag: dicom_core::Tag,
+) -> Result<dicom_core::Tag, String> {
+    obj.element(tag)
+        .map_err(|err| err.to_string())?
+        .value()
+        .tags()
+        .map_err(|err| err.to_string())?
+        .first()
+        .copied()
+        .ok_or_else(|| "element is empty".to_string())
 }
 
 fn validate_equal<A: fmt::Display, E: fmt::Display>(

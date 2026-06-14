@@ -15,10 +15,11 @@ use crate::{
         EnhancedCtConcatenationExpectations, EnhancedCtImageExpectations,
         EnhancedMrImageExpectations, MgImageExpectations, MrImageExpectations, Part10Expectations,
         PixelDataLengthFormula, PresentationStateExpectations, RealWorldValueMappingExpectations,
-        RtStructureSetExpectations, SegmentationExpectations, UsImageExpectations,
-        validate_basic_text_sr_file, validate_comprehensive_sr_file,
+        RtDoseExpectations, RtStructureSetExpectations, SegmentationExpectations,
+        UsImageExpectations, validate_basic_text_sr_file, validate_comprehensive_sr_file,
         validate_key_object_selection_file, validate_part10_file, validate_presentation_state_file,
-        validate_real_world_value_mapping_file, validate_rt_structure_set_file,
+        validate_real_world_value_mapping_file, validate_rt_dose_file,
+        validate_rt_structure_set_file,
     },
 };
 
@@ -38,6 +39,7 @@ const BASIC_TEXT_SR_RECIPE_VERSION: &str = "0.1.0";
 const COMPREHENSIVE_SR_RECIPE_VERSION: &str = "0.1.0";
 const KEY_OBJECT_SELECTION_RECIPE_VERSION: &str = "0.1.0";
 const RT_STRUCTURE_SET_RECIPE_VERSION: &str = "0.1.0";
+const RT_DOSE_RECIPE_VERSION: &str = "0.1.0";
 const SEGMENTATION_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.66.4";
 const LABEL_MAP_SEGMENTATION_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.66.7";
 const GRAYSCALE_SOFTCOPY_PRESENTATION_STATE_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.11.1";
@@ -46,6 +48,7 @@ const BASIC_TEXT_SR_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.88.11";
 const COMPREHENSIVE_SR_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.88.33";
 const KEY_OBJECT_SELECTION_DOCUMENT_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.88.59";
 const RT_STRUCTURE_SET_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.481.3";
+const RT_DOSE_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.481.2";
 const SEGMENTATION_SOURCE_CASE_ID: &str = "enhanced/ct/multiframe_shared_perframe_explicit_le";
 const GSPS_SOURCE_CASE_ID: &str = "enhanced/ct/multiframe_shared_perframe_explicit_le";
 const RWVM_SOURCE_CASE_ID: &str = "enhanced/ct/multiframe_shared_perframe_explicit_le";
@@ -55,6 +58,9 @@ const KEY_OBJECT_SELECTION_IMAGE_SOURCE_CASE_ID: &str =
     "enhanced/ct/multiframe_shared_perframe_explicit_le";
 const KEY_OBJECT_SELECTION_SEG_SOURCE_CASE_ID: &str = "derived/seg/binary_multiframe_explicit_le";
 const RT_STRUCTURE_SET_SOURCE_CASE_ID: &str = "enhanced/ct/multiframe_shared_perframe_explicit_le";
+const RT_DOSE_IMAGE_SOURCE_CASE_ID: &str = "enhanced/ct/multiframe_shared_perframe_explicit_le";
+const RT_DOSE_STRUCTURE_SET_SOURCE_CASE_ID: &str =
+    "non-image/rt/structure_set_single_roi_explicit_le";
 const MONO_PIXELS: [u8; 4] = [0, 85, 170, 255];
 const RGB_PLANAR0_PIXELS: [u8; 12] = [255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 255, 255];
 const RGB_PLANAR1_PIXELS: [u8; 12] = [255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255];
@@ -96,6 +102,9 @@ const SEG_FRACTIONAL_PROBABILITY_PIXELS: [u8; 8] = [0, 64, 128, 255, 255, 128, 6
 const SEG_FRACTIONAL_PROBABILITY_VALUES: [i32; 8] = [0, 64, 128, 255, 255, 128, 64, 0];
 const SEG_LABELMAP_PIXELS: [u8; 8] = [0, 1, 0, 1, 1, 0, 1, 0];
 const SEG_LABELMAP_VALUES: [i32; 8] = [0, 1, 0, 1, 1, 0, 1, 0];
+const RT_DOSE_GRID_PIXELS: [u8; 16] = [
+    0x00, 0x00, 0x64, 0x00, 0xc8, 0x00, 0x2c, 0x01, 0x90, 0x01, 0xf4, 0x01, 0x58, 0x02, 0xbc, 0x02,
+];
 const SEG_REFERENCED_FRAMES: [u16; 2] = [1, 2];
 const SR_REFERENCED_FRAMES: [u16; 2] = [1, 2];
 const KEY_OBJECT_SELECTION_IMAGE_REFERENCED_FRAMES: [u16; 2] = [1, 2];
@@ -122,6 +131,7 @@ const TAG_SOFTCOPY_VOI_LUT_SEQUENCE: Tag = Tag(0x0028, 0x3110);
 const TAG_WINDOW_EXPLANATION: Tag = Tag(0x0028, 0x1055);
 const TAG_PRESENTATION_LUT_SHAPE: Tag = Tag(0x2050, 0x0020);
 const TAG_REFERENCED_IMAGE_SEQUENCE: Tag = Tag(0x0008, 0x1140);
+const TAG_REFERENCED_STRUCTURE_SET_SEQUENCE: Tag = Tag(0x300C, 0x0060);
 const TAG_PURPOSE_OF_REFERENCE_CODE_SEQUENCE: Tag = Tag(0x0040, 0xA170);
 const TAG_SEGMENTATION_TYPE: Tag = Tag(0x0062, 0x0001);
 const TAG_SEGMENT_SEQUENCE: Tag = Tag(0x0062, 0x0002);
@@ -1023,6 +1033,53 @@ const RT_STRUCTURE_SET_RECIPES: &[RtStructureSetRecipe] = &[RtStructureSetRecipe
 }];
 
 #[derive(Debug, Clone, Copy)]
+struct RtDoseRecipe {
+    case_id: &'static str,
+    recipe_id: &'static str,
+    image_source_case_id: &'static str,
+    structure_set_source_case_id: &'static str,
+    rows: u16,
+    columns: u16,
+    frames: u16,
+    pixel_bytes: &'static [u8],
+    pixel_min: i32,
+    pixel_max: i32,
+    pixel_spacing: &'static str,
+    image_orientation_patient: &'static str,
+    image_position_patient: &'static str,
+    slice_thickness: &'static str,
+    frame_increment_pointer: Tag,
+    grid_frame_offset_vector: &'static str,
+    dose_units: &'static str,
+    dose_type: &'static str,
+    dose_summation_type: &'static str,
+    dose_grid_scaling: &'static str,
+}
+
+const RT_DOSE_RECIPES: &[RtDoseRecipe] = &[RtDoseRecipe {
+    case_id: "non-image/rt/dose_grid_u16_explicit_le",
+    recipe_id: "rt_dose_grid_u16",
+    image_source_case_id: RT_DOSE_IMAGE_SOURCE_CASE_ID,
+    structure_set_source_case_id: RT_DOSE_STRUCTURE_SET_SOURCE_CASE_ID,
+    rows: 2,
+    columns: 2,
+    frames: 2,
+    pixel_bytes: &RT_DOSE_GRID_PIXELS,
+    pixel_min: 0,
+    pixel_max: 700,
+    pixel_spacing: "1\\1",
+    image_orientation_patient: "1\\0\\0\\0\\1\\0",
+    image_position_patient: "0\\0\\0",
+    slice_thickness: "2.5",
+    frame_increment_pointer: tags::GRID_FRAME_OFFSET_VECTOR,
+    grid_frame_offset_vector: "0\\2.5",
+    dose_units: "GY",
+    dose_type: "PHYSICAL",
+    dose_summation_type: "RECORD",
+    dose_grid_scaling: "0.001",
+}];
+
+#[derive(Debug, Clone, Copy)]
 struct EnhancedMrRecipe {
     case_id: &'static str,
     recipe_id: &'static str,
@@ -1807,6 +1864,38 @@ pub(crate) fn write_supported_cases(
             case,
             *recipe,
             &source,
+            standards_lock_sha256,
+        )?)?;
+    }
+    for recipe in RT_DOSE_RECIPES {
+        let Some(case) = registry_case(registry, recipe.case_id)? else {
+            continue;
+        };
+        if !should_generate_case(case, run)? {
+            continue;
+        }
+        let image_source = context
+            .source_registry()
+            .first_for_case(recipe.image_source_case_id)
+            .cloned()
+            .ok_or_else(|| GenerateError::MetadataShape {
+                path: PathBuf::from(recipe.case_id),
+                message: "RT Dose image source object must be generated before the derived recipe",
+            })?;
+        let structure_set_source = context
+            .source_registry()
+            .first_for_case(recipe.structure_set_source_case_id)
+            .cloned()
+            .ok_or_else(|| GenerateError::MetadataShape {
+                path: PathBuf::from(recipe.case_id),
+                message: "RT Dose Structure Set source object must be generated before the derived recipe",
+            })?;
+        context.record_one(write_rt_dose_case(
+            run,
+            case,
+            *recipe,
+            &image_source,
+            &structure_set_source,
             standards_lock_sha256,
         )?)?;
     }
@@ -4461,6 +4550,257 @@ fn write_rt_structure_set_case(
     })
 }
 
+fn write_rt_dose_case(
+    run: &PreparedGenerationRun,
+    case: &Value,
+    recipe: RtDoseRecipe,
+    image_source: &GeneratedSourceObject,
+    structure_set_source: &GeneratedSourceObject,
+    standards_lock_sha256: &str,
+) -> Result<GeneratedFile, GenerateError> {
+    let series_instance_uid = deterministic_rt_dose_uid(
+        standards_lock_sha256,
+        recipe,
+        run.seed,
+        UidRole::SeriesInstance,
+    );
+    let sop_instance_uid = deterministic_rt_dose_uid(
+        standards_lock_sha256,
+        recipe,
+        run.seed,
+        UidRole::SopInstance,
+    );
+    let implementation_class_uid = deterministic_implementation_uid(standards_lock_sha256);
+    let frame_of_reference_uid =
+        image_source
+            .frame_of_reference_uid
+            .as_deref()
+            .ok_or_else(|| GenerateError::MetadataShape {
+                path: PathBuf::from(recipe.case_id),
+                message: "RT Dose image source object must expose a Frame of Reference UID",
+            })?;
+
+    let relative_path = format!("{}/instance.dcm", recipe.case_id);
+    let path = run.out_dir.join(&relative_path);
+    let case_dir = path.parent().ok_or_else(|| GenerateError::MetadataShape {
+        path: PathBuf::from(&relative_path),
+        message: "generated DICOM path must have a parent directory",
+    })?;
+    fs::create_dir_all(case_dir).map_err(|source| GenerateError::CreateCaseOutputDir {
+        path: case_dir.to_path_buf(),
+        source,
+    })?;
+
+    let mut obj = InMemDicomObject::new_empty();
+    put_str(&mut obj, tags::SOP_CLASS_UID, VR::UI, RT_DOSE_STORAGE_UID);
+    put_str(&mut obj, tags::SOP_INSTANCE_UID, VR::UI, &sop_instance_uid);
+    put_str(&mut obj, tags::SYNTHETIC_DATA, VR::CS, "YES");
+
+    put_str(
+        &mut obj,
+        tags::PATIENT_NAME,
+        VR::PN,
+        "DTS^Synthetic^Patient001",
+    );
+    put_str(&mut obj, tags::PATIENT_ID, VR::LO, "DTS-PATIENT-001");
+    put_str(&mut obj, tags::PATIENT_BIRTH_DATE, VR::DA, "19700101");
+    put_str(&mut obj, tags::PATIENT_SEX, VR::CS, "O");
+
+    put_str(
+        &mut obj,
+        tags::STUDY_INSTANCE_UID,
+        VR::UI,
+        &image_source.study_instance_uid,
+    );
+    put_str(&mut obj, tags::STUDY_DATE, VR::DA, "20260101");
+    put_str(&mut obj, tags::STUDY_TIME, VR::TM, "000000");
+    put_str(&mut obj, tags::REFERRING_PHYSICIAN_NAME, VR::PN, "");
+    put_str(&mut obj, tags::STUDY_ID, VR::SH, "DTS-RTDOSE");
+    put_str(&mut obj, tags::ACCESSION_NUMBER, VR::SH, "");
+
+    put_str(&mut obj, tags::MODALITY, VR::CS, "RTDOSE");
+    put_str(
+        &mut obj,
+        tags::SERIES_INSTANCE_UID,
+        VR::UI,
+        &series_instance_uid,
+    );
+    put_str(&mut obj, tags::SERIES_NUMBER, VR::IS, "71");
+    put_str(&mut obj, tags::OPERATORS_NAME, VR::PN, "");
+
+    put_str(
+        &mut obj,
+        tags::FRAME_OF_REFERENCE_UID,
+        VR::UI,
+        frame_of_reference_uid,
+    );
+    put_str(&mut obj, tags::POSITION_REFERENCE_INDICATOR, VR::LO, "");
+
+    put_str(&mut obj, tags::MANUFACTURER, VR::LO, "dicom-test-suite");
+    put_str(
+        &mut obj,
+        tags::MANUFACTURER_MODEL_NAME,
+        VR::LO,
+        recipe.recipe_id,
+    );
+    put_str(
+        &mut obj,
+        tags::DEVICE_SERIAL_NUMBER,
+        VR::LO,
+        "DTS-RTDOSE-0001",
+    );
+    put_str(
+        &mut obj,
+        tags::SOFTWARE_VERSIONS,
+        VR::LO,
+        crate::PACKAGE_VERSION,
+    );
+
+    put_str(&mut obj, TAG_IMAGE_TYPE, VR::CS, "DERIVED\\PRIMARY\\DOSE");
+    put_str(&mut obj, tags::INSTANCE_NUMBER, VR::IS, "1");
+    put_str(&mut obj, tags::CONTENT_DATE, VR::DA, "20260101");
+    put_str(&mut obj, tags::CONTENT_TIME, VR::TM, "000000");
+    put_u16(&mut obj, tags::SAMPLES_PER_PIXEL, VR::US, 1);
+    put_str(
+        &mut obj,
+        tags::PHOTOMETRIC_INTERPRETATION,
+        VR::CS,
+        "MONOCHROME2",
+    );
+    put_u16(&mut obj, tags::ROWS, VR::US, recipe.rows);
+    put_u16(&mut obj, tags::COLUMNS, VR::US, recipe.columns);
+    put_str(
+        &mut obj,
+        tags::NUMBER_OF_FRAMES,
+        VR::IS,
+        &recipe.frames.to_string(),
+    );
+    obj.put(DataElement::new(
+        tags::FRAME_INCREMENT_POINTER,
+        VR::AT,
+        PrimitiveValue::Tags(vec![recipe.frame_increment_pointer].into()),
+    ));
+    put_str(&mut obj, tags::PIXEL_SPACING, VR::DS, recipe.pixel_spacing);
+    put_str(
+        &mut obj,
+        tags::IMAGE_ORIENTATION_PATIENT,
+        VR::DS,
+        recipe.image_orientation_patient,
+    );
+    put_str(
+        &mut obj,
+        tags::IMAGE_POSITION_PATIENT,
+        VR::DS,
+        recipe.image_position_patient,
+    );
+    put_str(
+        &mut obj,
+        tags::SLICE_THICKNESS,
+        VR::DS,
+        recipe.slice_thickness,
+    );
+    put_u16(&mut obj, tags::BITS_ALLOCATED, VR::US, 16);
+    put_u16(&mut obj, tags::BITS_STORED, VR::US, 16);
+    put_u16(&mut obj, tags::HIGH_BIT, VR::US, 15);
+    put_u16(&mut obj, tags::PIXEL_REPRESENTATION, VR::US, 0);
+    put_str(&mut obj, tags::DOSE_UNITS, VR::CS, recipe.dose_units);
+    put_str(&mut obj, tags::DOSE_TYPE, VR::CS, recipe.dose_type);
+    put_str(
+        &mut obj,
+        tags::DOSE_SUMMATION_TYPE,
+        VR::CS,
+        recipe.dose_summation_type,
+    );
+    put_str(
+        &mut obj,
+        tags::GRID_FRAME_OFFSET_VECTOR,
+        VR::DS,
+        recipe.grid_frame_offset_vector,
+    );
+    put_str(
+        &mut obj,
+        tags::DOSE_GRID_SCALING,
+        VR::DS,
+        recipe.dose_grid_scaling,
+    );
+    put_rt_dose_references(&mut obj, image_source, structure_set_source);
+    put_common_instance_reference(&mut obj, image_source);
+    obj.put(DataElement::new(
+        tags::PIXEL_DATA,
+        VR::OW,
+        PrimitiveValue::from(recipe.pixel_bytes),
+    ));
+
+    let file_obj = obj
+        .with_meta(
+            FileMetaTableBuilder::new()
+                .transfer_syntax(uids::EXPLICIT_VR_LITTLE_ENDIAN)
+                .implementation_class_uid(&implementation_class_uid)
+                .implementation_version_name(crate::IMPLEMENTATION_VERSION_NAME),
+        )
+        .map_err(|err| GenerateError::WriteDicomFile {
+            path: path.clone(),
+            message: err.to_string(),
+        })?;
+
+    file_obj
+        .write_to_file(&path)
+        .map_err(|err| GenerateError::WriteDicomFile {
+            path: path.clone(),
+            message: err.to_string(),
+        })?;
+
+    let validated = validate_rt_dose_file(
+        &path,
+        &RtDoseExpectations {
+            sop_class_uid: RT_DOSE_STORAGE_UID,
+            sop_instance_uid: &sop_instance_uid,
+            transfer_syntax_uid: uids::EXPLICIT_VR_LITTLE_ENDIAN,
+            implementation_class_uid: &implementation_class_uid,
+            synthetic_data: "YES",
+            modality: "RTDOSE",
+            frame_of_reference_uid,
+            rows: recipe.rows,
+            columns: recipe.columns,
+            frames: recipe.frames,
+            pixel_bytes_len: recipe.pixel_bytes.len(),
+            pixel_vr: VR::OW,
+            pixel_spacing: recipe.pixel_spacing,
+            image_orientation_patient: recipe.image_orientation_patient,
+            image_position_patient: recipe.image_position_patient,
+            slice_thickness: recipe.slice_thickness,
+            frame_increment_pointer: recipe.frame_increment_pointer,
+            grid_frame_offset_vector: recipe.grid_frame_offset_vector,
+            dose_units: recipe.dose_units,
+            dose_type: recipe.dose_type,
+            dose_summation_type: recipe.dose_summation_type,
+            dose_grid_scaling: recipe.dose_grid_scaling,
+            referenced_image_sop_class_uid: &image_source.sop_class_uid,
+            referenced_image_sop_instance_uid: &image_source.sop_instance_uid,
+            referenced_structure_set_sop_class_uid: &structure_set_source.sop_class_uid,
+            referenced_structure_set_sop_instance_uid: &structure_set_source.sop_instance_uid,
+        },
+    )?;
+
+    Ok(GeneratedFile {
+        case_id: recipe.case_id.to_string(),
+        manifest_entry: rt_dose_manifest_entry(
+            case,
+            recipe,
+            image_source,
+            structure_set_source,
+            &relative_path,
+            &image_source.study_instance_uid,
+            &series_instance_uid,
+            &sop_instance_uid,
+            frame_of_reference_uid,
+            &implementation_class_uid,
+            &validated.bytes,
+            validated.validation,
+        ),
+    })
+}
+
 fn write_enhanced_ct_concatenation_case(
     run: &PreparedGenerationRun,
     case: &Value,
@@ -5361,6 +5701,45 @@ fn put_rt_roi_observations_sequence(obj: &mut InMemDicomObject, recipe: RtStruct
                 recipe.roi_interpreted_type,
             ),
             DataElement::new(tags::ROI_INTERPRETER, VR::PN, recipe.roi_interpreter),
+        ])]),
+    ));
+}
+
+fn put_rt_dose_references(
+    obj: &mut InMemDicomObject,
+    image_source: &GeneratedSourceObject,
+    structure_set_source: &GeneratedSourceObject,
+) {
+    obj.put(DataElement::new(
+        TAG_REFERENCED_IMAGE_SEQUENCE,
+        VR::SQ,
+        DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+            DataElement::new(
+                TAG_REFERENCED_SOP_CLASS_UID,
+                VR::UI,
+                image_source.sop_class_uid.as_str(),
+            ),
+            DataElement::new(
+                TAG_REFERENCED_SOP_INSTANCE_UID,
+                VR::UI,
+                image_source.sop_instance_uid.as_str(),
+            ),
+        ])]),
+    ));
+    obj.put(DataElement::new(
+        TAG_REFERENCED_STRUCTURE_SET_SEQUENCE,
+        VR::SQ,
+        DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+            DataElement::new(
+                TAG_REFERENCED_SOP_CLASS_UID,
+                VR::UI,
+                structure_set_source.sop_class_uid.as_str(),
+            ),
+            DataElement::new(
+                TAG_REFERENCED_SOP_INSTANCE_UID,
+                VR::UI,
+                structure_set_source.sop_instance_uid.as_str(),
+            ),
         ])]),
     ));
 }
@@ -6617,6 +6996,120 @@ fn rt_structure_set_manifest_entry(
         },
         "validation": validation,
         "known_stressors": ["rt_structure_set_storage", "derived_source_reference", "closed_planar_roi_contour", "rt_roi_observations"],
+        "standards_evidence": deduplicated_standards_evidence(standards_evidence)
+    })
+}
+
+#[allow(clippy::too_many_arguments)]
+fn rt_dose_manifest_entry(
+    case: &Value,
+    recipe: RtDoseRecipe,
+    image_source: &GeneratedSourceObject,
+    structure_set_source: &GeneratedSourceObject,
+    relative_path: &str,
+    study_instance_uid: &str,
+    series_instance_uid: &str,
+    sop_instance_uid: &str,
+    frame_of_reference_uid: &str,
+    implementation_class_uid: &str,
+    bytes: &[u8],
+    validation: Value,
+) -> Value {
+    let standards_evidence = standards_evidence_from_case(case);
+    let frame_byte_len = usize::from(recipe.rows) * usize::from(recipe.columns) * 2;
+    let frame_hashes = recipe
+        .pixel_bytes
+        .chunks(frame_byte_len)
+        .map(sha256_hex)
+        .collect::<Vec<_>>();
+    serde_json::json!({
+        "case_id": recipe.case_id,
+        "profile_membership": ["extended"],
+        "path": relative_path,
+        "sha256": sha256_hex(bytes),
+        "size_bytes": bytes.len(),
+        "determinism": "byte_stable",
+        "recipe": {
+            "recipe_id": recipe.recipe_id,
+            "recipe_version": RT_DOSE_RECIPE_VERSION,
+            "recipe_parameters": {
+                "image_source_case_id": recipe.image_source_case_id,
+                "structure_set_source_case_id": recipe.structure_set_source_case_id,
+                "rows": recipe.rows,
+                "columns": recipe.columns,
+                "frames": recipe.frames,
+                "pixel_spacing": recipe.pixel_spacing,
+                "image_orientation_patient": recipe.image_orientation_patient,
+                "image_position_patient": recipe.image_position_patient,
+                "slice_thickness": recipe.slice_thickness,
+                "frame_increment_pointer": "(3004,000C)",
+                "grid_frame_offset_vector": recipe.grid_frame_offset_vector,
+                "dose_units": recipe.dose_units,
+                "dose_type": recipe.dose_type,
+                "dose_summation_type": recipe.dose_summation_type,
+                "dose_grid_scaling": recipe.dose_grid_scaling
+            }
+        },
+        "dicom": {
+            "sop_class_uid": RT_DOSE_STORAGE_UID,
+            "sop_class_name": "RT Dose Storage",
+            "iod_name": "RT Dose",
+            "modality": "RTDOSE",
+            "transfer_syntax_uid": uids::EXPLICIT_VR_LITTLE_ENDIAN,
+            "transfer_syntax_name": "Explicit VR Little Endian"
+        },
+        "uids": {
+            "study_instance_uid": study_instance_uid,
+            "series_instance_uid": series_instance_uid,
+            "sop_instance_uid": sop_instance_uid,
+            "frame_of_reference_uid": frame_of_reference_uid,
+            "implementation_class_uid": implementation_class_uid
+        },
+        "image": {
+            "rows": recipe.rows,
+            "columns": recipe.columns,
+            "frames": recipe.frames,
+            "samples_per_pixel": 1,
+            "photometric_interpretation": "MONOCHROME2",
+            "bits_allocated": 16,
+            "bits_stored": 16,
+            "high_bit": 15,
+            "pixel_representation": 0,
+            "planar_configuration": Value::Null
+        },
+        "pixel_data": {
+            "vr": "OW",
+            "native_or_encapsulated": "native",
+            "value_length": recipe.pixel_bytes.len(),
+            "frame_count": recipe.frames,
+            "frame_hashes": frame_hashes
+        },
+        "references": [
+            image_source.to_manifest_reference("source_image", Some(vec![1, 2])),
+            structure_set_source.to_manifest_reference("source_structure_set", None)
+        ],
+        "expected_capabilities": ["open_file", "read_metadata", "show_unsupported_but_recognized", "read_rt_dose_grid"],
+        "expected_semantics": {
+            "synthetic_data": "YES",
+            "pixel_min": recipe.pixel_min,
+            "pixel_max": recipe.pixel_max,
+            "source_case_id": image_source.source_case_id,
+            "source_sop_instance_uid": image_source.sop_instance_uid,
+            "rt_dose": {
+                "dose_units": recipe.dose_units,
+                "dose_type": recipe.dose_type,
+                "dose_summation_type": recipe.dose_summation_type,
+                "dose_grid_scaling": recipe.dose_grid_scaling,
+                "grid_frame_offset_vector": recipe.grid_frame_offset_vector,
+                "referenced_image_sop_instance_uid": image_source.sop_instance_uid,
+                "referenced_structure_set_sop_instance_uid": structure_set_source.sop_instance_uid
+            }
+        },
+        "expected_visual_checks": {
+            "pattern": "tiny_two_frame_rt_dose_grid"
+        },
+        "validation": validation,
+        "known_stressors": ["rt_dose_storage", "grid_based_dose", "dose_grid_scaling", "derived_source_reference", "native_ow_pixel_data"],
         "standards_evidence": deduplicated_standards_evidence(standards_evidence)
     })
 }
@@ -10032,6 +10525,24 @@ fn deterministic_rt_structure_set_uid(
         standards_lock_sha256,
         case_id: recipe.case_id,
         recipe_version: RT_STRUCTURE_SET_RECIPE_VERSION,
+        run_seed,
+        file_index: 0,
+        frame_index: None,
+        referenced_object_index: Some(0),
+        role,
+    })
+}
+
+fn deterministic_rt_dose_uid(
+    standards_lock_sha256: &str,
+    recipe: RtDoseRecipe,
+    run_seed: u64,
+    role: UidRole,
+) -> String {
+    deterministic_uid(&DeterministicUidInput {
+        standards_lock_sha256,
+        case_id: recipe.case_id,
+        recipe_version: RT_DOSE_RECIPE_VERSION,
         run_seed,
         file_index: 0,
         frame_index: None,

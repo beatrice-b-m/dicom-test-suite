@@ -123,7 +123,7 @@ fn registry_contains_initial_smoke_and_core_cases() {
             "non-image/rt/structure_set_single_roi_explicit_le",
             "implemented",
         ),
-        ("non-image/rt/dose_grid_u16_explicit_le", "planned"),
+        ("non-image/rt/dose_grid_u16_explicit_le", "implemented"),
         (
             "non-image/encapsulated-document/pdf_minimal_explicit_le",
             "planned",

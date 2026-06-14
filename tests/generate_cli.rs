@@ -15,6 +15,7 @@ const BASIC_TEXT_SR_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.88.11";
 const COMPREHENSIVE_SR_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.88.33";
 const KEY_OBJECT_SELECTION_DOCUMENT_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.88.59";
 const RT_STRUCTURE_SET_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.481.3";
+const RT_DOSE_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.481.2";
 const TAG_SEGMENTATION_TYPE: Tag = Tag(0x0062, 0x0001);
 const TAG_SEGMENT_SEQUENCE: Tag = Tag(0x0062, 0x0002);
 const TAG_MAXIMUM_FRACTIONAL_VALUE: Tag = Tag(0x0062, 0x000E);
@@ -24,6 +25,7 @@ const TAG_REFERENCED_IMAGE_SEQUENCE: Tag = Tag(0x0008, 0x1140);
 const TAG_REFERENCED_SOP_CLASS_UID: Tag = Tag(0x0008, 0x1150);
 const TAG_REFERENCED_SOP_INSTANCE_UID: Tag = Tag(0x0008, 0x1155);
 const TAG_REFERENCED_FRAME_NUMBER: Tag = Tag(0x0008, 0x1160);
+const TAG_REFERENCED_STRUCTURE_SET_SEQUENCE: Tag = Tag(0x300C, 0x0060);
 const TAG_DISPLAYED_AREA_TOP_LEFT_HAND_CORNER: Tag = Tag(0x0070, 0x0052);
 const TAG_DISPLAYED_AREA_BOTTOM_RIGHT_HAND_CORNER: Tag = Tag(0x0070, 0x0053);
 const TAG_DISPLAYED_AREA_SELECTION_SEQUENCE: Tag = Tag(0x0070, 0x005A);
@@ -1624,7 +1626,7 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\textended"));
-    assert!(stdout.contains("files_written\t15"));
+    assert!(stdout.contains("files_written\t16"));
 
     let manifest_path = out_dir.join("manifest.json");
     let manifest: Value = serde_json::from_str(
@@ -1637,7 +1639,7 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
             .pointer("/files")
             .and_then(Value::as_array)
             .map(Vec::len),
-        Some(15)
+        Some(16)
     );
     let enhanced_ct_file = file_entry_by_case_id(
         &manifest,
@@ -2332,19 +2334,72 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
             .contains(&"rt_contour_image_sop_instance_uid"),
         "RT Structure Set manifest should record contour image reference validation"
     );
+    let rt_dose_file = file_entry_by_case_id(&manifest, "non-image/rt/dose_grid_u16_explicit_le");
+    assert_eq!(
+        rt_dose_file
+            .pointer("/dicom/sop_class_uid")
+            .and_then(Value::as_str),
+        Some(RT_DOSE_STORAGE_UID)
+    );
+    assert_eq!(
+        rt_dose_file
+            .pointer("/dicom/modality")
+            .and_then(Value::as_str),
+        Some("RTDOSE")
+    );
+    assert_eq!(
+        rt_dose_file
+            .pointer("/image/frames")
+            .and_then(Value::as_u64),
+        Some(2)
+    );
+    assert_eq!(
+        rt_dose_file
+            .pointer("/pixel_data/value_length")
+            .and_then(Value::as_u64),
+        Some(16)
+    );
+    assert_eq!(
+        rt_dose_file
+            .pointer("/references")
+            .and_then(Value::as_array)
+            .map(Vec::len),
+        Some(2),
+        "RT Dose manifest should reference the source CT and RT Structure Set"
+    );
+    assert_eq!(
+        rt_dose_file
+            .pointer("/references/0/source_case_id")
+            .and_then(Value::as_str),
+        Some("enhanced/ct/multiframe_shared_perframe_explicit_le")
+    );
+    assert_eq!(
+        rt_dose_file
+            .pointer("/references/1/source_case_id")
+            .and_then(Value::as_str),
+        Some("non-image/rt/structure_set_single_roi_explicit_le")
+    );
+    assert_eq!(
+        rt_dose_file
+            .pointer("/expected_semantics/rt_dose/dose_grid_scaling")
+            .and_then(Value::as_str),
+        Some("0.001")
+    );
+    assert!(
+        validation_result_names(rt_dose_file.pointer("/validation/internal"))
+            .contains(&"rt_dose_referenced_structure_set_sop_instance_uid"),
+        "RT Dose manifest should record structure set reference validation"
+    );
     let skipped_cases = manifest
         .pointer("/skipped_cases")
         .and_then(Value::as_array)
         .expect("manifest should contain skipped cases");
     assert_eq!(
         skipped_cases.len(),
-        2,
+        1,
         "extended generation should report the remaining planned Phase 5 cases as unavailable"
     );
-    for case_id in [
-        "non-image/rt/dose_grid_u16_explicit_le",
-        "non-image/encapsulated-document/pdf_minimal_explicit_le",
-    ] {
+    for case_id in ["non-image/encapsulated-document/pdf_minimal_explicit_le"] {
         let skipped = skipped_case_by_id(&manifest, case_id);
         assert_eq!(
             skipped.get("status").and_then(Value::as_str),
@@ -3325,6 +3380,105 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
         "ORGAN"
     );
 
+    let rt_dose_path = out_dir.join("non-image/rt/dose_grid_u16_explicit_le/instance.dcm");
+    let rt_dose = open_file(&rt_dose_path).expect("RT Dose DICOM file should parse");
+    assert_eq!(
+        rt_dose
+            .element(tags::SOP_CLASS_UID)
+            .expect("RT Dose file should contain SOP Class UID")
+            .value()
+            .to_str()
+            .expect("SOP Class UID should be text")
+            .trim_end_matches('\0'),
+        RT_DOSE_STORAGE_UID
+    );
+    assert_eq!(
+        rt_dose
+            .element(tags::MODALITY)
+            .expect("RT Dose should contain Modality")
+            .value()
+            .to_str()
+            .expect("Modality should be text")
+            .trim(),
+        "RTDOSE"
+    );
+    assert_eq!(
+        rt_dose
+            .element(tags::DOSE_UNITS)
+            .expect("RT Dose should contain Dose Units")
+            .value()
+            .to_str()
+            .expect("Dose Units should be text")
+            .trim(),
+        "GY"
+    );
+    assert_eq!(
+        rt_dose
+            .element(tags::DOSE_TYPE)
+            .expect("RT Dose should contain Dose Type")
+            .value()
+            .to_str()
+            .expect("Dose Type should be text")
+            .trim(),
+        "PHYSICAL"
+    );
+    assert_eq!(
+        rt_dose
+            .element(tags::DOSE_SUMMATION_TYPE)
+            .expect("RT Dose should contain Dose Summation Type")
+            .value()
+            .to_str()
+            .expect("Dose Summation Type should be text")
+            .trim(),
+        "RECORD"
+    );
+    assert_eq!(
+        rt_dose
+            .element(tags::DOSE_GRID_SCALING)
+            .expect("RT Dose should contain Dose Grid Scaling")
+            .value()
+            .to_str()
+            .expect("Dose Grid Scaling should be text")
+            .trim(),
+        "0.001"
+    );
+    assert_eq!(
+        rt_dose
+            .element(tags::FRAME_INCREMENT_POINTER)
+            .expect("RT Dose should contain Frame Increment Pointer")
+            .value()
+            .tags()
+            .expect("Frame Increment Pointer should be AT"),
+        &[tags::GRID_FRAME_OFFSET_VECTOR]
+    );
+    assert_eq!(
+        rt_dose
+            .element(tags::PIXEL_DATA)
+            .expect("RT Dose should contain Pixel Data")
+            .value()
+            .to_bytes()
+            .expect("RT Dose Pixel Data should be bytes")
+            .len(),
+        16
+    );
+    let referenced_structure_set = rt_dose
+        .element(TAG_REFERENCED_STRUCTURE_SET_SEQUENCE)
+        .expect("RT Dose should contain Referenced Structure Set Sequence")
+        .items()
+        .expect("Referenced Structure Set Sequence should be SQ")
+        .first()
+        .expect("Referenced Structure Set Sequence should contain one item");
+    assert_eq!(
+        referenced_structure_set
+            .element(TAG_REFERENCED_SOP_CLASS_UID)
+            .expect("RT Dose should reference RT Structure Set SOP Class")
+            .value()
+            .to_str()
+            .expect("Referenced SOP Class UID should be text")
+            .trim_end_matches('\0'),
+        RT_STRUCTURE_SET_STORAGE_UID
+    );
+
     let enhanced_ct_concat_part_1_path =
         out_dir.join("enhanced/ct/concatenation_two_part_explicit_le/part-001.dcm");
     let enhanced_ct_concat_part_2_path =
@@ -3542,7 +3696,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\tall"));
-    assert!(stdout.contains("files_written\t37"));
+    assert!(stdout.contains("files_written\t38"));
 
     let manifest_path = out_dir.join("manifest.json");
     let manifest: Value = serde_json::from_str(
@@ -3559,7 +3713,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
             .pointer("/files")
             .and_then(Value::as_array)
             .map(Vec::len),
-        Some(37)
+        Some(38)
     );
 
     file_entry_by_case_id(&manifest, "classic/sc/mono2_u8_explicit_le");
@@ -3585,11 +3739,10 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
         .expect("manifest should contain skipped cases");
     assert_eq!(
         skipped_cases.len(),
-        4,
+        3,
         "all generation should report the remaining planned Phase 5 and VL cases as unavailable"
     );
     for case_id in [
-        "non-image/rt/dose_grid_u16_explicit_le",
         "non-image/encapsulated-document/pdf_minimal_explicit_le",
         "vl/photo/rgb_planar0_explicit_le",
         "vl/photo/palette_color_explicit_le",

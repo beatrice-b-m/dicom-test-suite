@@ -129,7 +129,7 @@ fn registry_contains_initial_smoke_and_core_cases() {
             "non-image/encapsulated-document/pdf_minimal_explicit_le",
             "implemented",
         ),
-        ("classic/sc/mono2_u8_deflated_explicit_le", "planned"),
+        ("classic/sc/mono2_u8_deflated_explicit_le", "implemented"),
         ("vl/photo/rgb_planar0_explicit_le", "planned"),
         ("vl/photo/palette_color_explicit_le", "planned"),
     ] {
@@ -294,9 +294,12 @@ fn deflated_transfer_syntax_is_feature_gated_in_cargo_and_registry() {
             case.get("case_id").and_then(Value::as_str)
                 == Some("classic/sc/mono2_u8_deflated_explicit_le")
         })
-        .expect("registry must contain the planned deflated SC case");
+        .expect("registry must contain the implemented deflated SC case");
 
-    assert_eq!(case.get("status").and_then(Value::as_str), Some("planned"));
+    assert_eq!(
+        case.get("status").and_then(Value::as_str),
+        Some("implemented")
+    );
     assert_eq!(
         case.get("transfer_syntax_uid").and_then(Value::as_str),
         Some("1.2.840.10008.1.2.1.99")
@@ -308,7 +311,7 @@ fn deflated_transfer_syntax_is_feature_gated_in_cargo_and_registry() {
     );
     assert_eq!(
         case.get("determinism").and_then(Value::as_str),
-        Some("semantic_stable")
+        Some("byte_stable")
     );
 }
 

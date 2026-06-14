@@ -147,7 +147,7 @@
     },
     {
       "case_id": "classic/sc/mono2_u8_deflated_explicit_le",
-      "status": "planned",
+      "status": "implemented",
       "profiles": ["extended"],
       "recipe_id": "sc_mono2_u8_deflated_explicit_le",
       "recipe_version": "0.1.0",
@@ -155,7 +155,7 @@
       "sop_class_name": "Secondary Capture Image Storage",
       "sop_class_uid": "1.2.840.10008.5.1.4.1.1.7",
       "transfer_syntax_uid": "1.2.840.10008.1.2.1.99",
-      "determinism": "semantic_stable",
+      "determinism": "byte_stable",
       "requirements": {
         "features": ["deflate"],
         "external_codecs": [],

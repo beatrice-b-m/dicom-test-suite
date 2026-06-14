@@ -86,14 +86,14 @@
       "name": "Deflated Explicit VR Little Endian",
       "profiles": ["extended"],
       "status": "feature_gated",
-      "read_dataset": false,
+      "read_dataset": true,
       "decode_pixel": true,
-      "write_dataset": false,
+      "write_dataset": true,
       "encode_pixel": true,
       "feature_flags": ["deflate"],
       "external_libraries": [],
-      "determinism": "semantic_stable",
-      "notes": "Dataset deflate is distinct from encapsulated deflated image frame compression and is deferred until feature verification.",
+      "determinism": "byte_stable",
+      "notes": "Dataset deflate is distinct from encapsulated deflated image frame compression. DICOM-rs 0.9.1 provides dataset read/write support when this crate is built with the project `deflate` feature.",
       "standards_evidence": [
         {
           "source": "dicom-standard-kb",

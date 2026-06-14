@@ -233,6 +233,55 @@ fn report_counts_feature_gated_planned_cases_as_planned() {
 }
 
 #[test]
+fn report_counts_feature_gated_implemented_cases_as_unavailable() {
+    let out_dir = unique_temp_dir("report-feature-gated-implemented");
+    fs::create_dir_all(&out_dir).expect("temporary output root should be created");
+    let manifest = json!({
+        "generated_at": "19700101000000.000000+0000",
+        "standards": {
+            "standards_lock_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+        },
+        "run": {
+            "profile": "extended"
+        },
+        "files": [],
+        "skipped_cases": [
+            {
+                "case_id": "classic/sc/mono2_u8_deflated_explicit_le",
+                "status": "unavailable",
+                "reason_code": "feature_gated_case_unavailable",
+                "message": "This implemented registry case requires Cargo feature(s) deflate.",
+                "recheck_phase": "phase-6",
+                "standards_evidence": []
+            }
+        ]
+    });
+    fs::write(
+        out_dir.join("manifest.json"),
+        serde_json::to_string_pretty(&manifest).expect("manifest should serialize"),
+    )
+    .expect("manifest should be writable");
+
+    let report = dicom_test_suite::build_coverage_report(&out_dir)
+        .expect("report should accept feature-gated unavailable rows");
+    assert_eq!(
+        report.pointer("/counts/planned").and_then(Value::as_u64),
+        Some(0)
+    );
+    assert_eq!(
+        report.pointer("/counts/skipped").and_then(Value::as_u64),
+        Some(1)
+    );
+    let row = coverage_row(&report, "classic/sc/mono2_u8_deflated_explicit_le");
+    assert_eq!(
+        row.get("status").and_then(Value::as_str),
+        Some("unavailable")
+    );
+
+    fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
+}
+
+#[test]
 fn report_command_rejects_missing_manifest() {
     let out_dir = unique_temp_dir("report-missing-manifest");
     fs::create_dir_all(&out_dir).expect("temporary output root should be created");

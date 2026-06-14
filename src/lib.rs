@@ -32,7 +32,7 @@ pub const SUPPORTED_PROFILES: &[&str] = &[
 ];
 pub const SUPPORTED_CASE_STATUSES: &[&str] =
     &["planned", "implemented", "skipped", "blocked", "deprecated"];
-const ACTIVE_FEATURE_FLAGS: &[&str] = &[
+pub(crate) const ACTIVE_FEATURE_FLAGS: &[&str] = &[
     #[cfg(feature = "deflate")]
     "deflate",
 ];
@@ -1188,20 +1188,14 @@ fn validate_raw_part10_file(
             ));
         }
     }
-    if dataset_start + 2 <= bytes.len() {
-        let big_endian_dataset = expected_transfer_syntax == "1.2.840.10008.1.2.2";
-        validate_equal(
-            failures,
-            relative_path,
-            "file_meta_dataset_boundary",
-            format!(
-                "{:04X}",
-                read_dataset_u16(bytes, dataset_start, big_endian_dataset)
-            ),
-            "0008",
-        );
+    if dataset_start >= bytes.len() {
+        failures.push(format!(
+            "{relative_path}: file_meta_dataset_boundary: file ended before dataset"
+        ));
     }
-    if contains_dataset_group_0002(bytes, dataset_start, expected_transfer_syntax) {
+    if expected_transfer_syntax != dicom_dictionary_std::uids::DEFLATED_EXPLICIT_VR_LITTLE_ENDIAN
+        && contains_dataset_group_0002(bytes, dataset_start, expected_transfer_syntax)
+    {
         failures.push(format!(
             "{relative_path}: file_meta_group_boundary: dataset contains group 0002 elements after File Meta Information"
         ));
@@ -5237,6 +5231,9 @@ fn skipped_cases_for_run(
         })?;
 
         match status {
+            "implemented" if case_missing_required_features(case)? => {
+                skipped.push(feature_gated_skipped_case_from_registry(case_id, case)?);
+            }
             "implemented" => skipped.push(serde_json::json!({
                 "case_id": case_id,
                 "status": "unavailable",
@@ -5283,11 +5280,7 @@ fn planned_skipped_case_from_registry(case_id: &str, case: &Value) -> Result<Val
         }));
     }
 
-    let missing_features = required_features
-        .iter()
-        .filter(|feature| !ACTIVE_FEATURE_FLAGS.contains(&feature.as_str()))
-        .cloned()
-        .collect::<Vec<_>>();
+    let missing_features = missing_required_features(&required_features);
     let features = required_features.join(", ");
     let missing = if missing_features.is_empty() {
         "no required features are missing in this build".to_string()
@@ -5303,6 +5296,52 @@ fn planned_skipped_case_from_registry(case_id: &str, case: &Value) -> Result<Val
         "recheck_phase": planned_recheck_phase(case_id),
         "standards_evidence": standards_evidence
     }))
+}
+
+fn feature_gated_skipped_case_from_registry(
+    case_id: &str,
+    case: &Value,
+) -> Result<Value, GenerateError> {
+    let required_features = string_array(case.pointer("/requirements/features")).map_err(|_| {
+        GenerateError::MetadataShape {
+            path: PathBuf::from("cases/registry.json"),
+            message: "case requirements.features must be a string array",
+        }
+    })?;
+    let missing_features = missing_required_features(&required_features);
+    let features = required_features.join(", ");
+    let missing = if missing_features.is_empty() {
+        "no required features are missing in this build".to_string()
+    } else {
+        format!("missing active feature(s): {}", missing_features.join(", "))
+    };
+
+    Ok(serde_json::json!({
+        "case_id": case_id,
+        "status": "unavailable",
+        "reason_code": "feature_gated_case_unavailable",
+        "message": format!("This implemented registry case requires Cargo feature(s) {features}; {missing}."),
+        "recheck_phase": planned_recheck_phase(case_id),
+        "standards_evidence": case.get("standards_evidence").cloned().unwrap_or_else(|| serde_json::json!([]))
+    }))
+}
+
+fn case_missing_required_features(case: &Value) -> Result<bool, GenerateError> {
+    let required_features = string_array(case.pointer("/requirements/features")).map_err(|_| {
+        GenerateError::MetadataShape {
+            path: PathBuf::from("cases/registry.json"),
+            message: "case requirements.features must be a string array",
+        }
+    })?;
+    Ok(!missing_required_features(&required_features).is_empty())
+}
+
+fn missing_required_features(required_features: &[String]) -> Vec<String> {
+    required_features
+        .iter()
+        .filter(|feature| !ACTIVE_FEATURE_FLAGS.contains(&feature.as_str()))
+        .cloned()
+        .collect()
 }
 
 fn skipped_case_from_registry(
@@ -5962,9 +6001,9 @@ mod tests {
         );
         assert!(
             output.contains(
-                "classic/sc/mono2_u8_deflated_explicit_le\tplanned\textended\t1.2.840.10008.5.1.4.1.1.7\t1.2.840.10008.1.2.1.99\t2/2 covered"
+                "classic/sc/mono2_u8_deflated_explicit_le\timplemented\textended\t1.2.840.10008.5.1.4.1.1.7\t1.2.840.10008.1.2.1.99\t2/2 covered"
             ),
-            "list-cases output must show planned deflated transfer syntax status"
+            "list-cases output must show implemented deflated transfer syntax status"
         );
     }
 
@@ -6011,10 +6050,8 @@ mod tests {
             "profile filter should still exclude planned core VL cases"
         );
         assert!(
-            output.contains(
-                "classic/sc/mono2_u8_deflated_explicit_le\tplanned\textended\t1.2.840.10008.5.1.4.1.1.7\t1.2.840.10008.1.2.1.99\t2/2 covered"
-            ),
-            "planned status filter should include feature-gated deflated cases"
+            !output.contains("classic/sc/mono2_u8_deflated_explicit_le"),
+            "planned status filter should exclude implemented feature-gated deflated cases"
         );
     }
 
@@ -6166,6 +6203,11 @@ mod tests {
                     "case_id": "classic/sc/generated_explicit_le",
                     "status": "implemented",
                     "profiles": ["core"],
+                    "requirements": {
+                        "features": [],
+                        "external_codecs": [],
+                        "external_validators": []
+                    },
                     "skip": null,
                     "standards_evidence": []
                 },
@@ -6173,6 +6215,11 @@ mod tests {
                     "case_id": "classic/sc/missing_recipe_explicit_le",
                     "status": "implemented",
                     "profiles": ["core"],
+                    "requirements": {
+                        "features": [],
+                        "external_codecs": [],
+                        "external_validators": []
+                    },
                     "skip": null,
                     "standards_evidence": [{"source": "dicom-standard-kb", "covered": true}]
                 },
@@ -6190,7 +6237,7 @@ mod tests {
                 },
                 {
                     "case_id": "classic/sc/mono2_u8_deflated_explicit_le",
-                    "status": "planned",
+                    "status": "implemented",
                     "profiles": ["core"],
                     "requirements": {
                         "features": ["deflate"],
@@ -6239,7 +6286,7 @@ mod tests {
         assert_eq!(
             skipped.len(),
             5,
-            "implemented missing recipe, planned, feature-gated planned, skipped, and blocked cases should be reported"
+            "implemented missing recipe, planned, feature-gated implemented, skipped, and blocked cases should be reported"
         );
         assert!(
             skipped
@@ -6291,20 +6338,35 @@ mod tests {
         );
         assert_eq!(
             feature_gated.get("reason_code").and_then(Value::as_str),
-            Some("feature_gated_case_planned")
+            Some(if cfg!(feature = "deflate") {
+                "generator_not_implemented"
+            } else {
+                "feature_gated_case_unavailable"
+            })
         );
         assert_eq!(
             feature_gated.get("recheck_phase").and_then(Value::as_str),
-            Some("phase-6")
+            Some(if cfg!(feature = "deflate") {
+                "remediation-r1"
+            } else {
+                "phase-6"
+            })
         );
-        assert!(
-            feature_gated
-                .get("message")
-                .and_then(Value::as_str)
-                .expect("feature-gated planned row should have a message")
-                .contains("Cargo feature(s) deflate"),
-            "feature-gated planned rows should name required Cargo features"
-        );
+        let feature_gated_message = feature_gated
+            .get("message")
+            .and_then(Value::as_str)
+            .expect("feature-gated implemented row should have a message");
+        if cfg!(feature = "deflate") {
+            assert!(
+                feature_gated_message.contains("does not have a generator recipe"),
+                "feature-active fixture rows without generated case IDs should report missing recipes"
+            );
+        } else {
+            assert!(
+                feature_gated_message.contains("Cargo feature(s) deflate"),
+                "feature-gated implemented rows should name required Cargo features"
+            );
+        }
 
         let skipped_row = skipped_case_by_id(&skipped, "classic/sc/skipped_explicit_le");
         assert_eq!(

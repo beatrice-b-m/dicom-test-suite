@@ -1627,7 +1627,8 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\textended"));
-    assert!(stdout.contains("files_written\t17"));
+    let expected_extended_files = if cfg!(feature = "deflate") { 18 } else { 17 };
+    assert!(stdout.contains(&format!("files_written\t{expected_extended_files}")));
 
     let manifest_path = out_dir.join("manifest.json");
     let manifest: Value = serde_json::from_str(
@@ -1640,7 +1641,7 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
             .pointer("/files")
             .and_then(Value::as_array)
             .map(Vec::len),
-        Some(17)
+        Some(expected_extended_files)
     );
     let enhanced_ct_file = file_entry_by_case_id(
         &manifest,
@@ -2454,35 +2455,52 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
         .pointer("/skipped_cases")
         .and_then(Value::as_array)
         .expect("manifest should contain skipped cases");
-    assert_eq!(
-        skipped_cases.len(),
-        1,
-        "extended generation should report only the planned feature-gated deflated case"
-    );
-    let planned_deflated =
-        skipped_case_by_id(&manifest, "classic/sc/mono2_u8_deflated_explicit_le");
-    assert_eq!(
-        planned_deflated.get("status").and_then(Value::as_str),
-        Some("unavailable")
-    );
-    assert_eq!(
-        planned_deflated.get("reason_code").and_then(Value::as_str),
-        Some("feature_gated_case_planned")
-    );
-    assert_eq!(
-        planned_deflated
-            .get("recheck_phase")
-            .and_then(Value::as_str),
-        Some("phase-6")
-    );
-    assert!(
-        planned_deflated
-            .get("message")
-            .and_then(Value::as_str)
-            .expect("feature-gated deflated row should have a message")
-            .contains("Cargo feature(s) deflate"),
-        "feature-gated deflated unavailable row should name the required feature"
-    );
+    if cfg!(feature = "deflate") {
+        assert!(
+            skipped_cases.is_empty(),
+            "feature-enabled extended generation should not skip the deflated case"
+        );
+        let deflated_file =
+            file_entry_by_case_id(&manifest, "classic/sc/mono2_u8_deflated_explicit_le");
+        assert_eq!(
+            deflated_file
+                .pointer("/dicom/transfer_syntax_uid")
+                .and_then(Value::as_str),
+            Some("1.2.840.10008.1.2.1.99")
+        );
+        assert!(
+            validation_result_names(deflated_file.pointer("/validation/standards"))
+                .contains(&"deflated_explicit_vr_little_endian_transfer_syntax"),
+            "deflated manifest should record the named transfer syntax validation"
+        );
+    } else {
+        assert_eq!(
+            skipped_cases.len(),
+            1,
+            "no-feature extended generation should report only the feature-gated deflated case"
+        );
+        let deflated = skipped_case_by_id(&manifest, "classic/sc/mono2_u8_deflated_explicit_le");
+        assert_eq!(
+            deflated.get("status").and_then(Value::as_str),
+            Some("unavailable")
+        );
+        assert_eq!(
+            deflated.get("reason_code").and_then(Value::as_str),
+            Some("feature_gated_case_unavailable")
+        );
+        assert_eq!(
+            deflated.get("recheck_phase").and_then(Value::as_str),
+            Some("phase-6")
+        );
+        assert!(
+            deflated
+                .get("message")
+                .and_then(Value::as_str)
+                .expect("feature-gated deflated row should have a message")
+                .contains("Cargo feature(s) deflate"),
+            "feature-gated deflated unavailable row should name the required feature"
+        );
+    }
 
     let enhanced_ct_path =
         out_dir.join("enhanced/ct/multiframe_shared_perframe_explicit_le/instance.dcm");
@@ -3817,7 +3835,8 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\tall"));
-    assert!(stdout.contains("files_written\t39"));
+    let expected_all_files = if cfg!(feature = "deflate") { 40 } else { 39 };
+    assert!(stdout.contains(&format!("files_written\t{expected_all_files}")));
 
     let manifest_path = out_dir.join("manifest.json");
     let manifest: Value = serde_json::from_str(
@@ -3834,7 +3853,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
             .pointer("/files")
             .and_then(Value::as_array)
             .map(Vec::len),
-        Some(39)
+        Some(expected_all_files)
     );
 
     file_entry_by_case_id(&manifest, "classic/sc/mono2_u8_explicit_le");
@@ -3860,8 +3879,8 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
         .expect("manifest should contain skipped cases");
     assert_eq!(
         skipped_cases.len(),
-        3,
-        "all generation should report the planned VL and deflated cases as unavailable"
+        if cfg!(feature = "deflate") { 2 } else { 3 },
+        "all generation should report unavailable cases according to active features"
     );
     for case_id in [
         "vl/photo/rgb_planar0_explicit_le",
@@ -3877,15 +3896,19 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
             Some("case_planned")
         );
     }
-    let deflated = skipped_case_by_id(&manifest, "classic/sc/mono2_u8_deflated_explicit_le");
-    assert_eq!(
-        deflated.get("status").and_then(Value::as_str),
-        Some("unavailable")
-    );
-    assert_eq!(
-        deflated.get("reason_code").and_then(Value::as_str),
-        Some("feature_gated_case_planned")
-    );
+    if cfg!(feature = "deflate") {
+        file_entry_by_case_id(&manifest, "classic/sc/mono2_u8_deflated_explicit_le");
+    } else {
+        let deflated = skipped_case_by_id(&manifest, "classic/sc/mono2_u8_deflated_explicit_le");
+        assert_eq!(
+            deflated.get("status").and_then(Value::as_str),
+            Some("unavailable")
+        );
+        assert_eq!(
+            deflated.get("reason_code").and_then(Value::as_str),
+            Some("feature_gated_case_unavailable")
+        );
+    }
     assert!(
         skipped_cases.iter().all(|case| {
             !matches!(

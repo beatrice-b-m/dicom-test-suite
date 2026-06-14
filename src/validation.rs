@@ -5562,6 +5562,9 @@ fn standard_transfer_syntax_validation_name(transfer_syntax_uid: &str) -> &'stat
     match transfer_syntax_uid {
         uids::EXPLICIT_VR_LITTLE_ENDIAN => "explicit_vr_little_endian_transfer_syntax",
         uids::IMPLICIT_VR_LITTLE_ENDIAN => "implicit_vr_little_endian_transfer_syntax",
+        uids::DEFLATED_EXPLICIT_VR_LITTLE_ENDIAN => {
+            "deflated_explicit_vr_little_endian_transfer_syntax"
+        }
         "1.2.840.10008.1.2.2" => "explicit_vr_big_endian_transfer_syntax",
         _ => "transfer_syntax_uid",
     }
@@ -5574,6 +5577,9 @@ fn standard_transfer_syntax_validation_message(transfer_syntax_uid: &str) -> &'s
         }
         uids::IMPLICIT_VR_LITTLE_ENDIAN => {
             "Transfer Syntax UID matches Implicit VR Little Endian in the 2026b reference."
+        }
+        uids::DEFLATED_EXPLICIT_VR_LITTLE_ENDIAN => {
+            "Transfer Syntax UID matches Deflated Explicit VR Little Endian in the 2026b reference."
         }
         "1.2.840.10008.1.2.2" => {
             "Transfer Syntax UID matches retired Explicit VR Big Endian in the 2026b reference."

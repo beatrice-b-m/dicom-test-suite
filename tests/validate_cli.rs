@@ -52,7 +52,8 @@ fn validate_command_accepts_generated_extended_root() {
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8(output.stdout).expect("validate stdout must be UTF-8");
-    assert!(stdout.contains("files_checked\t17"));
+    let expected_files = if cfg!(feature = "deflate") { 18 } else { 17 };
+    assert!(stdout.contains(&format!("files_checked\t{expected_files}")));
     assert!(stdout.contains("validation_failures\t0"));
 
     fs::remove_dir_all(out_dir).expect("temporary output root should be removable");

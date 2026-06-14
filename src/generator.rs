@@ -78,6 +78,12 @@ const EXPLICIT_VR_BIG_ENDIAN: TransferSyntaxSpec = TransferSyntaxSpec {
     uid: "1.2.840.10008.1.2.2",
     name: "Explicit VR Big Endian",
 };
+const DEFLATED_EXPLICIT_VR_LITTLE_ENDIAN: TransferSyntaxSpec = TransferSyntaxSpec {
+    capability_keyword: "DeflatedExplicitVRLittleEndian",
+    capability_name: "Deflated Explicit VR Little Endian",
+    uid: uids::DEFLATED_EXPLICIT_VR_LITTLE_ENDIAN,
+    name: "Deflated Explicit VR Little Endian",
+};
 const SEGMENTATION_SOURCE_CASE_ID: &str = "enhanced/ct/multiframe_shared_perframe_explicit_le";
 const GSPS_SOURCE_CASE_ID: &str = "enhanced/ct/multiframe_shared_perframe_explicit_le";
 const RWVM_SOURCE_CASE_ID: &str = "enhanced/ct/multiframe_shared_perframe_explicit_le";
@@ -294,6 +300,29 @@ const PIXEL_RECIPES: &[PixelRecipe] = &[
         pixel_max: 255,
         visual_pattern: "2x2_monochrome_gradient",
         semantic_note: "minimum sample value displays as black with retired Explicit VR Big Endian dataset encoding",
+        palette: None,
+        padding: None,
+    },
+    PixelRecipe {
+        case_id: "classic/sc/mono2_u8_deflated_explicit_le",
+        recipe_id: "sc_mono2_u8_deflated_explicit_le",
+        rows: 2,
+        columns: 2,
+        photometric_interpretation: "MONOCHROME2",
+        samples_per_pixel: 1,
+        planar_configuration: None,
+        bits_allocated: 8,
+        bits_stored: 8,
+        high_bit: 7,
+        pixel_representation: 0,
+        pixel_vr: VR::OB,
+        transfer_syntax: DEFLATED_EXPLICIT_VR_LITTLE_ENDIAN,
+        pixel_bytes: &MONO_PIXELS,
+        pixel_values: &[0, 85, 170, 255],
+        pixel_min: 0,
+        pixel_max: 255,
+        visual_pattern: "2x2_monochrome_gradient",
+        semantic_note: "minimum sample value displays as black with deflated Explicit VR Little Endian dataset encoding",
         palette: None,
         padding: None,
     },
@@ -2582,6 +2611,9 @@ fn pixel_known_stressors(recipe: PixelRecipe) -> Vec<&'static str> {
         stressors.push("retired_transfer_syntax");
         stressors.push("explicit_vr_big_endian_dataset");
     }
+    if recipe.transfer_syntax == DEFLATED_EXPLICIT_VR_LITTLE_ENDIAN {
+        stressors.push("deflated_dataset_transfer_syntax");
+    }
     stressors
 }
 
@@ -2591,6 +2623,7 @@ fn pixel_profile_membership(recipe: PixelRecipe) -> &'static [&'static str] {
         | "classic/sc/mono1_u8_explicit_le"
         | "classic/sc/rgb_planar0_explicit_le" => &["smoke"],
         "classic/sc/mono2_u8_explicit_be" => &["legacy"],
+        "classic/sc/mono2_u8_deflated_explicit_le" => &["extended"],
         _ => &["core"],
     }
 }
@@ -11267,7 +11300,14 @@ fn should_generate_case(case: &Value, run: &PreparedGenerationRun) -> Result<boo
                 message: "case status must be a string",
             })?;
 
-    Ok(status == "implemented")
+    if status != "implemented" {
+        return Ok(false);
+    }
+
+    let required_features = string_array(case.pointer("/requirements/features"))?;
+    Ok(required_features
+        .iter()
+        .all(|feature| crate::ACTIVE_FEATURE_FLAGS.contains(&feature.as_str())))
 }
 
 fn standards_evidence_from_case(case: &Value) -> Vec<Value> {
@@ -11356,6 +11396,7 @@ mod tests {
             IMPLICIT_VR_LITTLE_ENDIAN,
             EXPLICIT_VR_LITTLE_ENDIAN,
             EXPLICIT_VR_BIG_ENDIAN,
+            DEFLATED_EXPLICIT_VR_LITTLE_ENDIAN,
         ] {
             let entry = entries
                 .iter()
@@ -11374,10 +11415,21 @@ mod tests {
                 entry.get("name").and_then(Value::as_str),
                 Some(spec.capability_name)
             );
-            assert_eq!(
-                entry.get("status").and_then(Value::as_str),
-                Some("available")
-            );
+            let feature_flags = entry
+                .get("feature_flags")
+                .and_then(Value::as_array)
+                .expect("transfer syntax matrix entry should contain feature_flags");
+            if feature_flags.is_empty() {
+                assert_eq!(
+                    entry.get("status").and_then(Value::as_str),
+                    Some("available")
+                );
+            } else {
+                assert_eq!(
+                    entry.get("status").and_then(Value::as_str),
+                    Some("feature_gated")
+                );
+            }
             assert_eq!(
                 entry.get("write_dataset").and_then(Value::as_bool),
                 Some(true)

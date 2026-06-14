@@ -99,7 +99,7 @@ fn registry_contains_initial_smoke_and_core_cases() {
             "enhanced/mr/multiframe_phase_velocity_encoding_explicit_le",
             "implemented",
         ),
-        ("derived/seg/binary_multiframe_explicit_le", "planned"),
+        ("derived/seg/binary_multiframe_explicit_le", "implemented"),
         (
             "derived/seg/fractional_probability_multiframe_explicit_le",
             "planned",

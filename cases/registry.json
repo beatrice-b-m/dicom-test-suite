@@ -2575,7 +2575,7 @@
     },
     {
       "case_id": "derived/seg/binary_multiframe_explicit_le",
-      "status": "planned",
+      "status": "implemented",
       "profiles": ["extended"],
       "recipe_id": "seg_binary_multiframe",
       "recipe_version": "0.1.0",

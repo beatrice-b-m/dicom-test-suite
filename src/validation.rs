@@ -40,12 +40,14 @@ pub(crate) struct Part10Expectations<'a> {
     pub us_image: Option<UsImageExpectations<'a>>,
     pub cr_image: Option<CrImageExpectations<'a>>,
     pub mr_image: Option<MrImageExpectations<'a>>,
+    pub segmentation: Option<SegmentationExpectations<'a>>,
 }
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum PixelDataLengthFormula {
     ContiguousSamples,
     YbrFull422,
+    BitPackedFrames,
 }
 
 #[derive(Debug, Clone)]
@@ -261,6 +263,36 @@ pub(crate) struct MrImageExpectations<'a> {
     pub slice_count: usize,
     pub position_along_normal: f64,
 }
+
+#[derive(Debug, Clone)]
+pub(crate) struct SegmentationExpectations<'a> {
+    pub modality: &'a str,
+    pub frame_of_reference_uid: &'a str,
+    pub image_type: &'a str,
+    pub segmentation_type: &'a str,
+    pub segment_sequence_items: usize,
+    pub shared_functional_groups: usize,
+    pub per_frame_functional_groups: usize,
+    pub dimension_organization_uid: &'a str,
+    pub dimension_index_count: usize,
+    pub referenced_sop_class_uid: &'a str,
+    pub referenced_sop_instance_uid: &'a str,
+    pub referenced_frame_numbers: &'a [u16],
+}
+
+const TAG_SEGMENTATION_TYPE: Tag = Tag(0x0062, 0x0001);
+const TAG_SEGMENT_SEQUENCE: Tag = Tag(0x0062, 0x0002);
+const TAG_SEGMENT_NUMBER: Tag = Tag(0x0062, 0x0004);
+const TAG_SEGMENT_ALGORITHM_TYPE: Tag = Tag(0x0062, 0x0008);
+const TAG_SEGMENT_IDENTIFICATION_SEQUENCE: Tag = Tag(0x0062, 0x000A);
+const TAG_REFERENCED_SEGMENT_NUMBER: Tag = Tag(0x0062, 0x000B);
+const TAG_REFERENCED_SERIES_SEQUENCE: Tag = Tag(0x0008, 0x1115);
+const TAG_REFERENCED_INSTANCE_SEQUENCE: Tag = Tag(0x0008, 0x114A);
+const TAG_REFERENCED_SOP_CLASS_UID: Tag = Tag(0x0008, 0x1150);
+const TAG_REFERENCED_SOP_INSTANCE_UID: Tag = Tag(0x0008, 0x1155);
+const TAG_REFERENCED_FRAME_NUMBER: Tag = Tag(0x0008, 0x1160);
+const TAG_SOURCE_IMAGE_SEQUENCE: Tag = Tag(0x0008, 0x2112);
+const TAG_DERIVATION_IMAGE_SEQUENCE: Tag = Tag(0x0008, 0x9124);
 
 #[derive(Debug, Clone)]
 pub(crate) struct ValidatedPart10 {
@@ -525,6 +557,9 @@ pub(crate) fn validate_part10_file(
     if let Some(mr_image) = &expected.mr_image {
         validate_mr_image(path, &obj, &mut internal, mr_image)?;
     }
+    if let Some(segmentation) = &expected.segmentation {
+        validate_segmentation(path, &obj, &mut internal, segmentation)?;
+    }
 
     fail_if_any_failed(path, &internal)?;
 
@@ -617,6 +652,17 @@ fn expected_pixel_data_length(
                 * bytes_per_sample
                 * 2,
         ),
+        PixelDataLengthFormula::BitPackedFrames => {
+            let frame_bits = usize::from(expected.rows)
+                * usize::from(expected.columns)
+                * usize::from(expected.samples_per_pixel);
+            let value_length = usize::from(expected.frames) * frame_bits.div_ceil(8);
+            (
+                "native_bit_packed_pixel_data_length",
+                "Native one-bit Pixel Data length matches byte-packed frames.",
+                value_length + (value_length % 2),
+            )
+        }
     }
 }
 
@@ -1161,6 +1207,188 @@ fn validate_enhanced_ct_image(
                 tags::DIMENSION_INDEX_VALUES,
             )?,
             *expected_dimension_index_value,
+        );
+    }
+
+    Ok(())
+}
+
+fn validate_segmentation(
+    path: &Path,
+    obj: &OpenedObject,
+    results: &mut Vec<Value>,
+    expected: &SegmentationExpectations<'_>,
+) -> Result<(), GenerateError> {
+    for (name, tag, expected_value) in [
+        ("segmentation_modality", tags::MODALITY, expected.modality),
+        (
+            "segmentation_frame_of_reference_uid",
+            tags::FRAME_OF_REFERENCE_UID,
+            expected.frame_of_reference_uid,
+        ),
+        (
+            "segmentation_image_type",
+            tags::IMAGE_TYPE,
+            expected.image_type,
+        ),
+        (
+            "segmentation_type",
+            TAG_SEGMENTATION_TYPE,
+            expected.segmentation_type,
+        ),
+    ] {
+        check_equal(
+            results,
+            name,
+            "Segmentation top-level attribute matches the recipe.",
+            "Segmentation top-level attribute does not match the recipe.",
+            element_str(path, obj, tag)?.as_str(),
+            expected_value,
+        );
+    }
+
+    check_equal(
+        results,
+        "segmentation_segment_sequence_items",
+        "Segment Sequence has the expected segment descriptions.",
+        "Segment Sequence item count does not match the recipe.",
+        sequence_item_count(path, obj, TAG_SEGMENT_SEQUENCE)?,
+        expected.segment_sequence_items,
+    );
+    check_equal(
+        results,
+        "segmentation_segment_number",
+        "Segment Number is one-based.",
+        "Segment Number does not match the recipe.",
+        top_level_sequence_item_u16(path, obj, TAG_SEGMENT_SEQUENCE, 0, TAG_SEGMENT_NUMBER)?,
+        1,
+    );
+    check_equal(
+        results,
+        "segmentation_algorithm_type",
+        "Segment Algorithm Type matches the deterministic recipe.",
+        "Segment Algorithm Type does not match the recipe.",
+        top_level_sequence_item_str(
+            path,
+            obj,
+            TAG_SEGMENT_SEQUENCE,
+            0,
+            TAG_SEGMENT_ALGORITHM_TYPE,
+        )?
+        .as_str(),
+        "AUTOMATIC",
+    );
+
+    check_equal(
+        results,
+        "segmentation_shared_functional_groups_sequence_items",
+        "Shared Functional Groups Sequence has one item.",
+        "Shared Functional Groups Sequence item count does not match the recipe.",
+        sequence_item_count(path, obj, tags::SHARED_FUNCTIONAL_GROUPS_SEQUENCE)?,
+        expected.shared_functional_groups,
+    );
+    check_equal(
+        results,
+        "segmentation_per_frame_functional_groups_sequence_items",
+        "Per-Frame Functional Groups Sequence has one item per segmentation frame.",
+        "Per-Frame Functional Groups Sequence item count does not match Number of Frames.",
+        sequence_item_count(path, obj, tags::PER_FRAME_FUNCTIONAL_GROUPS_SEQUENCE)?,
+        expected.per_frame_functional_groups,
+    );
+    check_equal(
+        results,
+        "segmentation_dimension_organization_sequence_items",
+        "Dimension Organization Sequence has one item.",
+        "Dimension Organization Sequence item count does not match the recipe.",
+        sequence_item_count(path, obj, tags::DIMENSION_ORGANIZATION_SEQUENCE)?,
+        1,
+    );
+    check_equal(
+        results,
+        "segmentation_dimension_index_sequence_items",
+        "Dimension Index Sequence item count matches the recipe.",
+        "Dimension Index Sequence item count does not match the recipe.",
+        sequence_item_count(path, obj, tags::DIMENSION_INDEX_SEQUENCE)?,
+        expected.dimension_index_count,
+    );
+    check_equal(
+        results,
+        "segmentation_dimension_organization_uid",
+        "Dimension Organization UID matches between the recipe and Dimension Organization Sequence.",
+        "Dimension Organization UID does not match the recipe.",
+        top_level_sequence_item_str(
+            path,
+            obj,
+            tags::DIMENSION_ORGANIZATION_SEQUENCE,
+            0,
+            tags::DIMENSION_ORGANIZATION_UID,
+        )?
+        .as_str(),
+        expected.dimension_organization_uid,
+    );
+
+    let referenced_series = top_level_sequence_item(path, obj, TAG_REFERENCED_SERIES_SEQUENCE, 0)?;
+    let referenced_instance =
+        item_sequence_item(path, referenced_series, TAG_REFERENCED_INSTANCE_SEQUENCE, 0)?;
+    check_equal(
+        results,
+        "segmentation_common_instance_reference_sop_class_uid",
+        "Common Instance Reference SOP Class UID matches the source image.",
+        "Common Instance Reference SOP Class UID does not match the source image.",
+        item_str(path, referenced_instance, TAG_REFERENCED_SOP_CLASS_UID)?.as_str(),
+        expected.referenced_sop_class_uid,
+    );
+    check_equal(
+        results,
+        "segmentation_common_instance_reference_sop_instance_uid",
+        "Common Instance Reference SOP Instance UID matches the source image.",
+        "Common Instance Reference SOP Instance UID does not match the source image.",
+        item_str(path, referenced_instance, TAG_REFERENCED_SOP_INSTANCE_UID)?.as_str(),
+        expected.referenced_sop_instance_uid,
+    );
+
+    for (index, expected_frame_number) in expected.referenced_frame_numbers.iter().enumerate() {
+        let frame =
+            top_level_sequence_item(path, obj, tags::PER_FRAME_FUNCTIONAL_GROUPS_SEQUENCE, index)?;
+        check_equal(
+            results,
+            "segmentation_referenced_segment_number",
+            "Per-frame Segment Identification references segment 1.",
+            "Per-frame Segment Identification does not reference segment 1.",
+            nested_sequence_item_u16(
+                path,
+                frame,
+                TAG_SEGMENT_IDENTIFICATION_SEQUENCE,
+                0,
+                TAG_REFERENCED_SEGMENT_NUMBER,
+            )?,
+            1,
+        );
+        let derivation = item_sequence_item(path, frame, TAG_DERIVATION_IMAGE_SEQUENCE, 0)?;
+        let source = item_sequence_item(path, derivation, TAG_SOURCE_IMAGE_SEQUENCE, 0)?;
+        check_equal(
+            results,
+            "segmentation_source_image_sop_class_uid",
+            "Derivation Image source SOP Class UID matches the source image.",
+            "Derivation Image source SOP Class UID does not match the source image.",
+            item_str(path, source, TAG_REFERENCED_SOP_CLASS_UID)?.as_str(),
+            expected.referenced_sop_class_uid,
+        );
+        check_equal(
+            results,
+            "segmentation_source_image_sop_instance_uid",
+            "Derivation Image source SOP Instance UID matches the source image.",
+            "Derivation Image source SOP Instance UID does not match the source image.",
+            item_str(path, source, TAG_REFERENCED_SOP_INSTANCE_UID)?.as_str(),
+            expected.referenced_sop_instance_uid,
+        );
+        check_equal(
+            results,
+            "segmentation_source_image_frame_number",
+            "Derivation Image source frame number matches the segmentation frame.",
+            "Derivation Image source frame number does not match the recipe.",
+            item_u16(path, source, TAG_REFERENCED_FRAME_NUMBER)?,
+            *expected_frame_number,
         );
     }
 
@@ -2345,6 +2573,17 @@ fn top_level_sequence_item_str(
     item_str(path, item, tag)
 }
 
+fn top_level_sequence_item_u16(
+    path: &Path,
+    obj: &OpenedObject,
+    sequence_tag: Tag,
+    index: usize,
+    tag: Tag,
+) -> Result<u16, GenerateError> {
+    let item = top_level_sequence_item(path, obj, sequence_tag, index)?;
+    item_u16(path, item, tag)
+}
+
 fn item_sequence_item<'a>(
     path: &Path,
     obj: &'a DatasetObject,
@@ -2464,6 +2703,14 @@ fn item_str(path: &Path, obj: &DatasetObject, tag: Tag) -> Result<String, Genera
         .to_str()
         .map_err(|err| validation_error(path, err))?;
     Ok(value.trim_matches('\0').trim().to_string())
+}
+
+fn item_u16(path: &Path, obj: &DatasetObject, tag: Tag) -> Result<u16, GenerateError> {
+    obj.element(tag)
+        .map_err(|err| validation_error(path, err))?
+        .value()
+        .to_int::<u16>()
+        .map_err(|err| validation_error(path, err))
 }
 
 fn sequence_item_count(path: &Path, obj: &OpenedObject, tag: Tag) -> Result<usize, GenerateError> {

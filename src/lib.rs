@@ -15,6 +15,7 @@ mod validation;
 pub use uid::{DeterministicUidInput, UidRole, deterministic_uid};
 
 type OpenedObject = FileDicomObject<InMemDicomObject<StandardDataDictionary>>;
+type DatasetObject = InMemDicomObject<StandardDataDictionary>;
 
 pub const PACKAGE_NAME: &str = env!("CARGO_PKG_NAME");
 pub const PACKAGE_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -70,6 +71,16 @@ struct ManifestSourceObject {
     series_instance_uid: Option<String>,
     frames: Option<u64>,
 }
+
+const SEGMENTATION_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.66.4";
+const TAG_SEGMENTATION_TYPE: dicom_core::Tag = dicom_core::Tag(0x0062, 0x0001);
+const TAG_SEGMENT_SEQUENCE: dicom_core::Tag = dicom_core::Tag(0x0062, 0x0002);
+const TAG_SEGMENT_IDENTIFICATION_SEQUENCE: dicom_core::Tag = dicom_core::Tag(0x0062, 0x000A);
+const TAG_REFERENCED_SEGMENT_NUMBER: dicom_core::Tag = dicom_core::Tag(0x0062, 0x000B);
+const TAG_REFERENCED_SOP_CLASS_UID: dicom_core::Tag = dicom_core::Tag(0x0008, 0x1150);
+const TAG_REFERENCED_SOP_INSTANCE_UID: dicom_core::Tag = dicom_core::Tag(0x0008, 0x1155);
+const TAG_SOURCE_IMAGE_SEQUENCE: dicom_core::Tag = dicom_core::Tag(0x0008, 0x2112);
+const TAG_DERIVATION_IMAGE_SEQUENCE: dicom_core::Tag = dicom_core::Tag(0x0008, 0x9124);
 
 #[derive(Debug)]
 pub struct StandardsLockSummary {
@@ -982,7 +993,11 @@ fn validate_manifest_image_pixel_data(
         "photometric_interpretation must be a string",
     )?;
     let bytes_per_sample = usize::from(bits_allocated).div_ceil(8);
-    let expected_native_length = if photometric == "YBR_FULL_422" {
+    let expected_native_length = if bits_allocated == 1 {
+        let frame_bits = usize::from(rows) * usize::from(columns) * usize::from(samples_per_pixel);
+        let value_length = usize::from(frames) * frame_bits.div_ceil(8);
+        value_length + (value_length % 2)
+    } else if photometric == "YBR_FULL_422" {
         usize::from(rows) * usize::from(columns) * usize::from(frames) * 2 * bytes_per_sample
     } else {
         usize::from(rows)
@@ -1670,6 +1685,13 @@ fn validate_family_standard_elements(
             file,
             obj,
         )?,
+        "Segmentation" => validate_segmentation_standard_elements(
+            failures,
+            relative_path,
+            manifest_path,
+            file,
+            obj,
+        )?,
         _ => {}
     }
 
@@ -2328,6 +2350,212 @@ fn validate_enhanced_ct_mr_common_standard_elements(
     Ok(())
 }
 
+fn validate_segmentation_standard_elements(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    manifest_path: &Path,
+    file: &Value,
+    obj: &OpenedObject,
+) -> Result<(), ValidateError> {
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::SOP_CLASS_UID,
+        "segmentation_storage_sop_class",
+        SEGMENTATION_STORAGE_UID,
+    );
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::MODALITY,
+        "segmentation_modality_type1",
+        "SEG",
+    );
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        TAG_SEGMENTATION_TYPE,
+        "segmentation_type_type1",
+        manifest_str(
+            manifest_path,
+            file,
+            "/recipe/recipe_parameters/segmentation_type",
+            "segmentation type must be a string",
+        )?,
+    );
+    validate_sequence_len(
+        failures,
+        relative_path,
+        obj,
+        TAG_SEGMENT_SEQUENCE,
+        "segmentation_segment_sequence_type1",
+        usize::try_from(manifest_u64(
+            manifest_path,
+            file,
+            "/expected_semantics/segment_sequence_items",
+            "expected segment sequence item count must be an integer",
+        )?)
+        .expect("manifest segment sequence count must fit usize"),
+    );
+    validate_sequence_len(
+        failures,
+        relative_path,
+        obj,
+        tags::SHARED_FUNCTIONAL_GROUPS_SEQUENCE,
+        "segmentation_shared_functional_groups_sequence_type1",
+        1,
+    );
+    validate_sequence_len(
+        failures,
+        relative_path,
+        obj,
+        tags::PER_FRAME_FUNCTIONAL_GROUPS_SEQUENCE,
+        "segmentation_per_frame_functional_groups_sequence_type1c",
+        usize::try_from(manifest_u64(
+            manifest_path,
+            file,
+            "/expected_semantics/per_frame_functional_groups_sequence_items",
+            "expected per-frame functional groups count must be an integer",
+        )?)
+        .expect("manifest per-frame count must fit usize"),
+    );
+    validate_sequence_len(
+        failures,
+        relative_path,
+        obj,
+        tags::DIMENSION_ORGANIZATION_SEQUENCE,
+        "segmentation_dimension_organization_sequence_type1",
+        1,
+    );
+    validate_sequence_len(
+        failures,
+        relative_path,
+        obj,
+        tags::DIMENSION_INDEX_SEQUENCE,
+        "segmentation_dimension_index_sequence_type1c",
+        1,
+    );
+
+    let frame_numbers = file
+        .pointer("/recipe/recipe_parameters/referenced_frame_numbers")
+        .and_then(Value::as_array)
+        .ok_or(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "referenced_frame_numbers must be an array",
+        })?;
+    let source_sop_instance_uid = manifest_str(
+        manifest_path,
+        file,
+        "/expected_semantics/source_sop_instance_uid",
+        "source_sop_instance_uid must be a string",
+    )?;
+    let references =
+        file.get("references")
+            .and_then(Value::as_array)
+            .ok_or(ValidateError::ManifestShape {
+                path: manifest_path.to_path_buf(),
+                message: "segmentation references must be an array",
+            })?;
+    let source_sop_class_uid = references
+        .first()
+        .and_then(|reference| reference.get("sop_class_uid"))
+        .and_then(Value::as_str)
+        .ok_or(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "segmentation source reference sop_class_uid must be a string",
+        })?;
+
+    for (index, frame_number) in frame_numbers.iter().enumerate() {
+        let expected_frame = frame_number.as_u64().ok_or(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "referenced_frame_numbers must contain integers",
+        })?;
+        let Ok(frame) = top_level_sequence_item_for_validate(
+            obj,
+            tags::PER_FRAME_FUNCTIONAL_GROUPS_SEQUENCE,
+            index,
+        ) else {
+            failures.push(format!(
+                "{relative_path}: segmentation_per_frame_functional_group_item: missing item {index}"
+            ));
+            continue;
+        };
+        match nested_sequence_item_u16_for_validate(
+            frame,
+            TAG_SEGMENT_IDENTIFICATION_SEQUENCE,
+            0,
+            TAG_REFERENCED_SEGMENT_NUMBER,
+        ) {
+            Ok(segment_number) => validate_equal(
+                failures,
+                relative_path,
+                "segmentation_referenced_segment_number",
+                segment_number,
+                1,
+            ),
+            Err(err) => failures.push(format!(
+                "{relative_path}: segmentation_referenced_segment_number: {err}"
+            )),
+        }
+        let Ok(derivation) =
+            item_sequence_item_for_validate(frame, TAG_DERIVATION_IMAGE_SEQUENCE, 0)
+        else {
+            failures.push(format!(
+                "{relative_path}: segmentation_derivation_image_sequence: missing item"
+            ));
+            continue;
+        };
+        let Ok(source) = item_sequence_item_for_validate(derivation, TAG_SOURCE_IMAGE_SEQUENCE, 0)
+        else {
+            failures.push(format!(
+                "{relative_path}: segmentation_source_image_sequence: missing item"
+            ));
+            continue;
+        };
+        match item_str_for_validate(source, TAG_REFERENCED_SOP_CLASS_UID) {
+            Ok(actual) => validate_equal(
+                failures,
+                relative_path,
+                "segmentation_source_image_sop_class_uid",
+                actual,
+                source_sop_class_uid,
+            ),
+            Err(err) => failures.push(format!(
+                "{relative_path}: segmentation_source_image_sop_class_uid: {err}"
+            )),
+        }
+        match item_str_for_validate(source, TAG_REFERENCED_SOP_INSTANCE_UID) {
+            Ok(actual) => validate_equal(
+                failures,
+                relative_path,
+                "segmentation_source_image_sop_instance_uid",
+                actual,
+                source_sop_instance_uid,
+            ),
+            Err(err) => failures.push(format!(
+                "{relative_path}: segmentation_source_image_sop_instance_uid: {err}"
+            )),
+        }
+        match item_str_for_validate(source, dicom_core::Tag(0x0008, 0x1160)) {
+            Ok(actual) => validate_equal(
+                failures,
+                relative_path,
+                "segmentation_source_image_frame_number",
+                actual,
+                expected_frame,
+            ),
+            Err(err) => failures.push(format!(
+                "{relative_path}: segmentation_source_image_frame_number: {err}"
+            )),
+        }
+    }
+
+    Ok(())
+}
+
 fn validate_type2_element(
     failures: &mut Vec<String>,
     relative_path: &str,
@@ -2392,6 +2620,55 @@ fn validate_str_element(
         Ok(actual) => validate_equal(failures, relative_path, name, actual, expected),
         Err(err) => failures.push(format!("{relative_path}: {name}: {err}")),
     }
+}
+
+fn top_level_sequence_item_for_validate(
+    obj: &OpenedObject,
+    tag: dicom_core::Tag,
+    index: usize,
+) -> Result<&DatasetObject, String> {
+    obj.element(tag)
+        .map_err(|err| err.to_string())?
+        .items()
+        .ok_or_else(|| format!("attribute {tag} is not a sequence"))?
+        .get(index)
+        .ok_or_else(|| format!("sequence {tag} has no item at index {index}"))
+}
+
+fn item_sequence_item_for_validate(
+    obj: &DatasetObject,
+    tag: dicom_core::Tag,
+    index: usize,
+) -> Result<&DatasetObject, String> {
+    obj.element(tag)
+        .map_err(|err| err.to_string())?
+        .items()
+        .ok_or_else(|| format!("attribute {tag} is not a sequence"))?
+        .get(index)
+        .ok_or_else(|| format!("sequence {tag} has no item at index {index}"))
+}
+
+fn nested_sequence_item_u16_for_validate(
+    obj: &DatasetObject,
+    sequence_tag: dicom_core::Tag,
+    index: usize,
+    tag: dicom_core::Tag,
+) -> Result<u16, String> {
+    let item = item_sequence_item_for_validate(obj, sequence_tag, index)?;
+    item.element(tag)
+        .map_err(|err| err.to_string())?
+        .value()
+        .to_int::<u16>()
+        .map_err(|err| err.to_string())
+}
+
+fn item_str_for_validate(obj: &DatasetObject, tag: dicom_core::Tag) -> Result<String, String> {
+    obj.element(tag)
+        .map_err(|err| err.to_string())?
+        .value()
+        .to_str()
+        .map_err(|err| err.to_string())
+        .map(|value| value.trim_matches('\0').trim().to_string())
 }
 
 fn element_str_for_validate(obj: &OpenedObject, tag: dicom_core::Tag) -> Result<String, String> {
@@ -3980,9 +4257,9 @@ mod tests {
         );
         assert!(
             output.contains(
-                "derived/seg/binary_multiframe_explicit_le\tplanned\textended\t1.2.840.10008.5.1.4.1.1.66.4\t1.2.840.10008.1.2.1\t8/8 covered"
+                "derived/seg/binary_multiframe_explicit_le\timplemented\textended\t1.2.840.10008.5.1.4.1.1.66.4\t1.2.840.10008.1.2.1\t8/8 covered"
             ),
-            "list-cases output must show planned SEG extended status"
+            "list-cases output must show implemented SEG extended status"
         );
         assert!(
             output.contains(
@@ -3999,10 +4276,8 @@ mod tests {
                 .expect("extended planned cases should list");
 
         assert!(
-            output.contains(
-                "derived/seg/binary_multiframe_explicit_le\tplanned\textended\t1.2.840.10008.5.1.4.1.1.66.4\t1.2.840.10008.1.2.1\t8/8 covered"
-            ),
-            "status filter should include planned SEG in extended"
+            !output.contains("derived/seg/binary_multiframe_explicit_le"),
+            "planned status filter should not include implemented SEG"
         );
         assert!(
             output.contains(

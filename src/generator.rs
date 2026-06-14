@@ -14,7 +14,8 @@ use crate::{
         CrImageExpectations, CtImageExpectations, DxImageExpectations,
         EnhancedCtConcatenationExpectations, EnhancedCtImageExpectations,
         EnhancedMrImageExpectations, MgImageExpectations, MrImageExpectations, Part10Expectations,
-        PixelDataLengthFormula, UsImageExpectations, validate_part10_file,
+        PixelDataLengthFormula, SegmentationExpectations, UsImageExpectations,
+        validate_part10_file,
     },
 };
 
@@ -27,6 +28,9 @@ const CLASSIC_DX_RECIPE_VERSION: &str = "0.1.0";
 const CLASSIC_US_RECIPE_VERSION: &str = "0.1.0";
 const CLASSIC_CR_RECIPE_VERSION: &str = "0.1.0";
 const CLASSIC_MR_RECIPE_VERSION: &str = "0.1.0";
+const SEGMENTATION_RECIPE_VERSION: &str = "0.1.0";
+const SEGMENTATION_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.66.4";
+const SEGMENTATION_SOURCE_CASE_ID: &str = "enhanced/ct/multiframe_shared_perframe_explicit_le";
 const MONO_PIXELS: [u8; 4] = [0, 85, 170, 255];
 const RGB_PLANAR0_PIXELS: [u8; 12] = [255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 255, 255];
 const RGB_PLANAR1_PIXELS: [u8; 12] = [255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255];
@@ -62,6 +66,32 @@ const ENHANCED_CT_U16_PIXELS: [u8; 16] = [
     0, 0, 0x64, 0, 0xc8, 0, 0x2c, 1, 0x90, 1, 0xf4, 1, 0x58, 2, 0xbc, 2,
 ];
 const ENHANCED_CT_U16_VALUES: [i32; 8] = [0, 100, 200, 300, 400, 500, 600, 700];
+const SEG_BINARY_PIXELS: [u8; 2] = [0b0000_1001, 0b0000_0110];
+const SEG_BINARY_VALUES: [i32; 8] = [1, 0, 0, 1, 0, 1, 1, 0];
+const SEG_REFERENCED_FRAMES: [u16; 2] = [1, 2];
+const TAG_IMAGE_TYPE: Tag = Tag(0x0008, 0x0008);
+const TAG_REFERENCED_SERIES_SEQUENCE: Tag = Tag(0x0008, 0x1115);
+const TAG_REFERENCED_INSTANCE_SEQUENCE: Tag = Tag(0x0008, 0x114A);
+const TAG_REFERENCED_SOP_CLASS_UID: Tag = Tag(0x0008, 0x1150);
+const TAG_REFERENCED_SOP_INSTANCE_UID: Tag = Tag(0x0008, 0x1155);
+const TAG_REFERENCED_FRAME_NUMBER: Tag = Tag(0x0008, 0x1160);
+const TAG_SOURCE_IMAGE_SEQUENCE: Tag = Tag(0x0008, 0x2112);
+const TAG_DERIVATION_CODE_SEQUENCE: Tag = Tag(0x0008, 0x9215);
+const TAG_DERIVATION_IMAGE_SEQUENCE: Tag = Tag(0x0008, 0x9124);
+const TAG_CONTENT_LABEL: Tag = Tag(0x0070, 0x0080);
+const TAG_CONTENT_DESCRIPTION: Tag = Tag(0x0070, 0x0081);
+const TAG_PURPOSE_OF_REFERENCE_CODE_SEQUENCE: Tag = Tag(0x0040, 0xA170);
+const TAG_SEGMENTATION_TYPE: Tag = Tag(0x0062, 0x0001);
+const TAG_SEGMENT_SEQUENCE: Tag = Tag(0x0062, 0x0002);
+const TAG_SEGMENTED_PROPERTY_CATEGORY_CODE_SEQUENCE: Tag = Tag(0x0062, 0x0003);
+const TAG_SEGMENT_NUMBER: Tag = Tag(0x0062, 0x0004);
+const TAG_SEGMENT_LABEL: Tag = Tag(0x0062, 0x0005);
+const TAG_SEGMENT_ALGORITHM_TYPE: Tag = Tag(0x0062, 0x0008);
+const TAG_SEGMENT_ALGORITHM_NAME: Tag = Tag(0x0062, 0x0009);
+const TAG_SEGMENT_IDENTIFICATION_SEQUENCE: Tag = Tag(0x0062, 0x000A);
+const TAG_REFERENCED_SEGMENT_NUMBER: Tag = Tag(0x0062, 0x000B);
+const TAG_RECOMMENDED_DISPLAY_CIELAB_VALUE: Tag = Tag(0x0062, 0x000D);
+const TAG_SEGMENTED_PROPERTY_TYPE_CODE_SEQUENCE: Tag = Tag(0x0062, 0x000F);
 const ENHANCED_MR_U16_PIXELS: [u8; 16] = [
     0, 0, 0x32, 0, 0x64, 0, 0x96, 0, 0xc8, 0, 0xfa, 0, 0x2c, 1, 0x5e, 1,
 ];
@@ -599,6 +629,35 @@ const ENHANCED_CT_CONCATENATION_RECIPES: &[EnhancedCtConcatenationRecipe] =
     }];
 
 #[derive(Debug, Clone, Copy)]
+struct SegmentationRecipe {
+    case_id: &'static str,
+    recipe_id: &'static str,
+    source_case_id: &'static str,
+    rows: u16,
+    columns: u16,
+    frames: u16,
+    pixel_bytes: &'static [u8],
+    pixel_values: &'static [i32],
+    referenced_frame_numbers: &'static [u16],
+    segmentation_type: &'static str,
+    segment_label: &'static str,
+}
+
+const SEGMENTATION_RECIPES: &[SegmentationRecipe] = &[SegmentationRecipe {
+    case_id: "derived/seg/binary_multiframe_explicit_le",
+    recipe_id: "seg_binary_multiframe",
+    source_case_id: SEGMENTATION_SOURCE_CASE_ID,
+    rows: 2,
+    columns: 2,
+    frames: 2,
+    pixel_bytes: &SEG_BINARY_PIXELS,
+    pixel_values: &SEG_BINARY_VALUES,
+    referenced_frame_numbers: &SEG_REFERENCED_FRAMES,
+    segmentation_type: "BINARY",
+    segment_label: "DTS_SYNTHETIC_REGION",
+}];
+
+#[derive(Debug, Clone, Copy)]
 struct EnhancedMrRecipe {
     case_id: &'static str,
     recipe_id: &'static str,
@@ -992,9 +1051,11 @@ pub(crate) struct GeneratedFile {
 pub(crate) struct GeneratedSourceObject {
     pub source_case_id: String,
     pub source_path: String,
+    pub study_instance_uid: String,
     pub sop_class_uid: String,
     pub sop_instance_uid: String,
     pub series_instance_uid: Option<String>,
+    pub frame_of_reference_uid: Option<String>,
     pub frame_count: Option<u64>,
 }
 
@@ -1021,6 +1082,11 @@ impl GeneratedSourceObject {
             "/dicom/sop_class_uid",
             "generated file manifest dicom sop_class_uid must be a string",
         )?;
+        let study_instance_uid = generated_manifest_str(
+            &file.manifest_entry,
+            "/uids/study_instance_uid",
+            "generated file manifest uids study_instance_uid must be a string",
+        )?;
         let sop_instance_uid = generated_manifest_str(
             &file.manifest_entry,
             "/uids/sop_instance_uid",
@@ -1031,6 +1097,11 @@ impl GeneratedSourceObject {
             .pointer("/uids/series_instance_uid")
             .and_then(Value::as_str)
             .map(ToOwned::to_owned);
+        let frame_of_reference_uid = file
+            .manifest_entry
+            .pointer("/uids/frame_of_reference_uid")
+            .and_then(Value::as_str)
+            .map(ToOwned::to_owned);
         let frame_count = file
             .manifest_entry
             .pointer("/image/frames")
@@ -1039,9 +1110,11 @@ impl GeneratedSourceObject {
         Ok(Self {
             source_case_id: source_case_id.to_string(),
             source_path: source_path.to_string(),
+            study_instance_uid: study_instance_uid.to_string(),
             sop_class_uid: sop_class_uid.to_string(),
             sop_instance_uid: sop_instance_uid.to_string(),
             series_instance_uid,
+            frame_of_reference_uid,
             frame_count,
         })
     }
@@ -1199,6 +1272,29 @@ pub(crate) fn write_supported_cases(
             run,
             case,
             *recipe,
+            standards_lock_sha256,
+        )?)?;
+    }
+    for recipe in SEGMENTATION_RECIPES {
+        let Some(case) = registry_case(registry, recipe.case_id)? else {
+            continue;
+        };
+        if !should_generate_case(case, run)? {
+            continue;
+        }
+        let source = context
+            .source_registry()
+            .first_for_case(recipe.source_case_id)
+            .cloned()
+            .ok_or_else(|| GenerateError::MetadataShape {
+                path: PathBuf::from(recipe.case_id),
+                message: "segmentation source object must be generated before the derived recipe",
+            })?;
+        context.record_one(write_segmentation_case(
+            run,
+            case,
+            *recipe,
+            &source,
             standards_lock_sha256,
         )?)?;
     }
@@ -1515,6 +1611,7 @@ fn write_pixel_case(
             us_image: None,
             cr_image: None,
             mr_image: None,
+            segmentation: None,
         },
     )?;
 
@@ -2015,6 +2112,7 @@ fn write_classic_ct_case(
             us_image: None,
             cr_image: None,
             mr_image: None,
+            segmentation: None,
         },
     )?;
 
@@ -2470,6 +2568,7 @@ fn write_enhanced_ct_case(
             us_image: None,
             cr_image: None,
             mr_image: None,
+            segmentation: None,
         },
     )?;
 
@@ -2492,6 +2591,249 @@ fn write_enhanced_ct_case(
             &irradiation_event_uid,
             &implementation_class_uid,
             None,
+            &validated.bytes,
+            validated.validation,
+        ),
+    })
+}
+
+fn write_segmentation_case(
+    run: &PreparedGenerationRun,
+    case: &Value,
+    recipe: SegmentationRecipe,
+    source: &GeneratedSourceObject,
+    standards_lock_sha256: &str,
+) -> Result<GeneratedFile, GenerateError> {
+    let series_instance_uid = deterministic_segmentation_uid(
+        standards_lock_sha256,
+        recipe,
+        run.seed,
+        UidRole::SeriesInstance,
+    );
+    let sop_instance_uid = deterministic_segmentation_uid(
+        standards_lock_sha256,
+        recipe,
+        run.seed,
+        UidRole::SopInstance,
+    );
+    let dimension_organization_uid = deterministic_segmentation_uid(
+        standards_lock_sha256,
+        recipe,
+        run.seed,
+        UidRole::DimensionOrganization,
+    );
+    let implementation_class_uid = deterministic_implementation_uid(standards_lock_sha256);
+    let frame_of_reference_uid =
+        source
+            .frame_of_reference_uid
+            .as_deref()
+            .ok_or_else(|| GenerateError::MetadataShape {
+                path: PathBuf::from(recipe.case_id),
+                message: "segmentation source object must include a Frame of Reference UID",
+            })?;
+
+    let relative_path = format!("{}/instance.dcm", recipe.case_id);
+    let path = run.out_dir.join(&relative_path);
+    let case_dir = path.parent().ok_or_else(|| GenerateError::MetadataShape {
+        path: PathBuf::from(&relative_path),
+        message: "generated DICOM path must have a parent directory",
+    })?;
+    fs::create_dir_all(case_dir).map_err(|source| GenerateError::CreateCaseOutputDir {
+        path: case_dir.to_path_buf(),
+        source,
+    })?;
+
+    let mut obj = InMemDicomObject::new_empty();
+    put_str(
+        &mut obj,
+        tags::SOP_CLASS_UID,
+        VR::UI,
+        SEGMENTATION_STORAGE_UID,
+    );
+    put_str(&mut obj, tags::SOP_INSTANCE_UID, VR::UI, &sop_instance_uid);
+    put_str(&mut obj, tags::SYNTHETIC_DATA, VR::CS, "YES");
+
+    put_str(
+        &mut obj,
+        tags::PATIENT_NAME,
+        VR::PN,
+        "DTS^Synthetic^Patient001",
+    );
+    put_str(&mut obj, tags::PATIENT_ID, VR::LO, "DTS-PATIENT-001");
+    put_str(&mut obj, tags::PATIENT_BIRTH_DATE, VR::DA, "19700101");
+    put_str(&mut obj, tags::PATIENT_SEX, VR::CS, "O");
+
+    put_str(
+        &mut obj,
+        tags::STUDY_INSTANCE_UID,
+        VR::UI,
+        &source.study_instance_uid,
+    );
+    put_str(&mut obj, tags::STUDY_DATE, VR::DA, "20260101");
+    put_str(&mut obj, tags::STUDY_TIME, VR::TM, "000000");
+    put_str(&mut obj, tags::REFERRING_PHYSICIAN_NAME, VR::PN, "");
+    put_str(&mut obj, tags::STUDY_ID, VR::SH, "DTS-SEG");
+    put_str(&mut obj, tags::ACCESSION_NUMBER, VR::SH, "");
+
+    put_str(&mut obj, tags::MODALITY, VR::CS, "SEG");
+    put_str(
+        &mut obj,
+        tags::SERIES_INSTANCE_UID,
+        VR::UI,
+        &series_instance_uid,
+    );
+    put_str(&mut obj, tags::SERIES_NUMBER, VR::IS, "51");
+    put_str(
+        &mut obj,
+        tags::FRAME_OF_REFERENCE_UID,
+        VR::UI,
+        frame_of_reference_uid,
+    );
+    put_str(&mut obj, tags::POSITION_REFERENCE_INDICATOR, VR::LO, "");
+
+    put_str(&mut obj, tags::MANUFACTURER, VR::LO, "dicom-test-suite");
+    put_str(
+        &mut obj,
+        tags::MANUFACTURER_MODEL_NAME,
+        VR::LO,
+        recipe.recipe_id,
+    );
+    put_str(&mut obj, tags::DEVICE_SERIAL_NUMBER, VR::LO, "DTS-SEG-0001");
+    put_str(
+        &mut obj,
+        tags::SOFTWARE_VERSIONS,
+        VR::LO,
+        crate::PACKAGE_VERSION,
+    );
+
+    put_str(&mut obj, TAG_IMAGE_TYPE, VR::CS, "DERIVED\\PRIMARY");
+    put_str(&mut obj, tags::INSTANCE_NUMBER, VR::IS, "1");
+    put_str(&mut obj, tags::CONTENT_DATE, VR::DA, "20260101");
+    put_str(&mut obj, tags::CONTENT_TIME, VR::TM, "000000");
+    put_str(&mut obj, TAG_CONTENT_LABEL, VR::CS, "DTSSEG");
+    put_str(
+        &mut obj,
+        TAG_CONTENT_DESCRIPTION,
+        VR::LO,
+        "Synthetic binary segmentation",
+    );
+
+    put_u16(&mut obj, tags::SAMPLES_PER_PIXEL, VR::US, 1);
+    put_str(
+        &mut obj,
+        tags::PHOTOMETRIC_INTERPRETATION,
+        VR::CS,
+        "MONOCHROME2",
+    );
+    put_u16(&mut obj, tags::ROWS, VR::US, recipe.rows);
+    put_u16(&mut obj, tags::COLUMNS, VR::US, recipe.columns);
+    put_u16(&mut obj, tags::BITS_ALLOCATED, VR::US, 1);
+    put_u16(&mut obj, tags::BITS_STORED, VR::US, 1);
+    put_u16(&mut obj, tags::HIGH_BIT, VR::US, 0);
+    put_u16(&mut obj, tags::PIXEL_REPRESENTATION, VR::US, 0);
+    put_str(
+        &mut obj,
+        tags::NUMBER_OF_FRAMES,
+        VR::IS,
+        &recipe.frames.to_string(),
+    );
+
+    put_str(
+        &mut obj,
+        TAG_SEGMENTATION_TYPE,
+        VR::CS,
+        recipe.segmentation_type,
+    );
+    put_segmentation_segment_sequence(&mut obj, recipe);
+    put_segmentation_dimension_sequences(&mut obj, &dimension_organization_uid);
+    put_segmentation_functional_groups(&mut obj, recipe, source);
+    put_common_instance_reference(&mut obj, source);
+
+    obj.put(DataElement::new(
+        tags::PIXEL_DATA,
+        VR::OB,
+        PrimitiveValue::from(recipe.pixel_bytes),
+    ));
+
+    let file_obj = obj
+        .with_meta(
+            FileMetaTableBuilder::new()
+                .transfer_syntax(uids::EXPLICIT_VR_LITTLE_ENDIAN)
+                .implementation_class_uid(&implementation_class_uid)
+                .implementation_version_name(crate::IMPLEMENTATION_VERSION_NAME),
+        )
+        .map_err(|err| GenerateError::WriteDicomFile {
+            path: path.clone(),
+            message: err.to_string(),
+        })?;
+
+    file_obj
+        .write_to_file(&path)
+        .map_err(|err| GenerateError::WriteDicomFile {
+            path: path.clone(),
+            message: err.to_string(),
+        })?;
+
+    let validated = validate_part10_file(
+        &path,
+        &Part10Expectations {
+            sop_class_uid: SEGMENTATION_STORAGE_UID,
+            sop_instance_uid: &sop_instance_uid,
+            transfer_syntax_uid: uids::EXPLICIT_VR_LITTLE_ENDIAN,
+            implementation_class_uid: &implementation_class_uid,
+            synthetic_data: "YES",
+            rows: recipe.rows,
+            columns: recipe.columns,
+            frames: recipe.frames,
+            samples_per_pixel: 1,
+            photometric_interpretation: "MONOCHROME2",
+            bits_allocated: 1,
+            bits_stored: 1,
+            high_bit: 0,
+            pixel_representation: 0,
+            planar_configuration: None,
+            pixel_data_vr: VR::OB,
+            pixel_data_length_formula: PixelDataLengthFormula::BitPackedFrames,
+            palette: None,
+            padding: None,
+            ct_image: None,
+            enhanced_ct_image: None,
+            enhanced_mr_image: None,
+            mg_image: None,
+            dx_image: None,
+            us_image: None,
+            cr_image: None,
+            mr_image: None,
+            segmentation: Some(SegmentationExpectations {
+                modality: "SEG",
+                frame_of_reference_uid,
+                image_type: "DERIVED\\PRIMARY",
+                segmentation_type: recipe.segmentation_type,
+                segment_sequence_items: 1,
+                shared_functional_groups: 1,
+                per_frame_functional_groups: recipe.frames as usize,
+                dimension_organization_uid: &dimension_organization_uid,
+                dimension_index_count: 1,
+                referenced_sop_class_uid: &source.sop_class_uid,
+                referenced_sop_instance_uid: &source.sop_instance_uid,
+                referenced_frame_numbers: recipe.referenced_frame_numbers,
+            }),
+        },
+    )?;
+
+    Ok(GeneratedFile {
+        case_id: recipe.case_id.to_string(),
+        manifest_entry: segmentation_manifest_entry(
+            case,
+            recipe,
+            source,
+            &relative_path,
+            &source.study_instance_uid,
+            &series_instance_uid,
+            &sop_instance_uid,
+            frame_of_reference_uid,
+            &dimension_organization_uid,
+            &implementation_class_uid,
             &validated.bytes,
             validated.validation,
         ),
@@ -2808,6 +3150,7 @@ fn write_enhanced_ct_concatenation_case(
                 us_image: None,
                 cr_image: None,
                 mr_image: None,
+                segmentation: None,
             },
         )?;
 
@@ -3007,6 +3350,353 @@ fn put_enhanced_ct_functional_groups(
         VR::SQ,
         DataSetSequence::from(per_frame_items),
     ));
+}
+
+fn put_segmentation_segment_sequence(obj: &mut InMemDicomObject, recipe: SegmentationRecipe) {
+    obj.put(DataElement::new(
+        TAG_SEGMENT_SEQUENCE,
+        VR::SQ,
+        DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+            DataElement::new(TAG_SEGMENT_NUMBER, VR::US, PrimitiveValue::from(1_u16)),
+            DataElement::new(TAG_SEGMENT_LABEL, VR::LO, recipe.segment_label),
+            DataElement::new(
+                TAG_SEGMENTED_PROPERTY_CATEGORY_CODE_SEQUENCE,
+                VR::SQ,
+                DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+                    DataElement::new(tags::CODE_VALUE, VR::SH, "T-D0050"),
+                    DataElement::new(tags::CODING_SCHEME_DESIGNATOR, VR::SH, "SRT"),
+                    DataElement::new(tags::CODE_MEANING, VR::LO, "Tissue"),
+                ])]),
+            ),
+            DataElement::new(
+                TAG_SEGMENTED_PROPERTY_TYPE_CODE_SEQUENCE,
+                VR::SQ,
+                DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+                    DataElement::new(tags::CODE_VALUE, VR::SH, "113343"),
+                    DataElement::new(tags::CODING_SCHEME_DESIGNATOR, VR::SH, "DCM"),
+                    DataElement::new(tags::CODE_MEANING, VR::LO, "Organ"),
+                ])]),
+            ),
+            DataElement::new(TAG_SEGMENT_ALGORITHM_TYPE, VR::CS, "AUTOMATIC"),
+            DataElement::new(TAG_SEGMENT_ALGORITHM_NAME, VR::LO, "dicom-test-suite"),
+            DataElement::new(
+                TAG_RECOMMENDED_DISPLAY_CIELAB_VALUE,
+                VR::US,
+                PrimitiveValue::from([32768_u16, 49152, 32768]),
+            ),
+        ])]),
+    ));
+}
+
+fn put_segmentation_dimension_sequences(
+    obj: &mut InMemDicomObject,
+    dimension_organization_uid: &str,
+) {
+    obj.put(DataElement::new(
+        tags::DIMENSION_ORGANIZATION_SEQUENCE,
+        VR::SQ,
+        DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+            DataElement::new(
+                tags::DIMENSION_ORGANIZATION_UID,
+                VR::UI,
+                dimension_organization_uid,
+            ),
+        ])]),
+    ));
+    obj.put(DataElement::new(
+        tags::DIMENSION_INDEX_SEQUENCE,
+        VR::SQ,
+        DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+            DataElement::new(
+                tags::DIMENSION_INDEX_POINTER,
+                VR::AT,
+                PrimitiveValue::Tags(vec![TAG_REFERENCED_SEGMENT_NUMBER].into()),
+            ),
+            DataElement::new(
+                tags::FUNCTIONAL_GROUP_POINTER,
+                VR::AT,
+                PrimitiveValue::Tags(vec![TAG_SEGMENT_IDENTIFICATION_SEQUENCE].into()),
+            ),
+            DataElement::new(
+                tags::DIMENSION_ORGANIZATION_UID,
+                VR::UI,
+                dimension_organization_uid,
+            ),
+            DataElement::new(tags::DIMENSION_DESCRIPTION_LABEL, VR::LO, "SegmentNumber"),
+        ])]),
+    ));
+}
+
+fn put_segmentation_functional_groups(
+    obj: &mut InMemDicomObject,
+    recipe: SegmentationRecipe,
+    source: &GeneratedSourceObject,
+) {
+    obj.put(DataElement::new(
+        tags::SHARED_FUNCTIONAL_GROUPS_SEQUENCE,
+        VR::SQ,
+        DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+            DataElement::new(
+                tags::PIXEL_MEASURES_SEQUENCE,
+                VR::SQ,
+                DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+                    DataElement::new(tags::PIXEL_SPACING, VR::DS, "0.75\\0.75"),
+                    DataElement::new(tags::SLICE_THICKNESS, VR::DS, "2.5"),
+                ])]),
+            ),
+        ])]),
+    ));
+
+    let per_frame_items = recipe
+        .referenced_frame_numbers
+        .iter()
+        .enumerate()
+        .map(|(index, frame_number)| {
+            InMemDicomObject::from_element_iter([
+                DataElement::new(
+                    tags::FRAME_CONTENT_SEQUENCE,
+                    VR::SQ,
+                    DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+                        DataElement::new(
+                            tags::DIMENSION_INDEX_VALUES,
+                            VR::UL,
+                            PrimitiveValue::from(1_u32),
+                        ),
+                    ])]),
+                ),
+                DataElement::new(
+                    TAG_SEGMENT_IDENTIFICATION_SEQUENCE,
+                    VR::SQ,
+                    DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+                        DataElement::new(
+                            TAG_REFERENCED_SEGMENT_NUMBER,
+                            VR::US,
+                            PrimitiveValue::from(1_u16),
+                        ),
+                    ])]),
+                ),
+                DataElement::new(
+                    TAG_DERIVATION_IMAGE_SEQUENCE,
+                    VR::SQ,
+                    DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+                        DataElement::new(
+                            TAG_SOURCE_IMAGE_SEQUENCE,
+                            VR::SQ,
+                            DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+                                DataElement::new(
+                                    TAG_REFERENCED_SOP_CLASS_UID,
+                                    VR::UI,
+                                    source.sop_class_uid.as_str(),
+                                ),
+                                DataElement::new(
+                                    TAG_REFERENCED_SOP_INSTANCE_UID,
+                                    VR::UI,
+                                    source.sop_instance_uid.as_str(),
+                                ),
+                                DataElement::new(
+                                    TAG_REFERENCED_FRAME_NUMBER,
+                                    VR::IS,
+                                    frame_number.to_string(),
+                                ),
+                                DataElement::new(
+                                    TAG_PURPOSE_OF_REFERENCE_CODE_SEQUENCE,
+                                    VR::SQ,
+                                    DataSetSequence::from(vec![
+                                        InMemDicomObject::from_element_iter([
+                                            DataElement::new(tags::CODE_VALUE, VR::SH, "121322"),
+                                            DataElement::new(
+                                                tags::CODING_SCHEME_DESIGNATOR,
+                                                VR::SH,
+                                                "DCM",
+                                            ),
+                                            DataElement::new(
+                                                tags::CODE_MEANING,
+                                                VR::LO,
+                                                "Source image for image processing operation",
+                                            ),
+                                        ]),
+                                    ]),
+                                ),
+                            ])]),
+                        ),
+                        DataElement::new(
+                            TAG_DERIVATION_CODE_SEQUENCE,
+                            VR::SQ,
+                            DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+                                DataElement::new(tags::CODE_VALUE, VR::SH, "113076"),
+                                DataElement::new(tags::CODING_SCHEME_DESIGNATOR, VR::SH, "DCM"),
+                                DataElement::new(tags::CODE_MEANING, VR::LO, "Segmentation"),
+                            ])]),
+                        ),
+                    ])]),
+                ),
+                DataElement::new(
+                    tags::FRAME_ACQUISITION_NUMBER,
+                    VR::US,
+                    PrimitiveValue::from((index + 1) as u16),
+                ),
+            ])
+        })
+        .collect::<Vec<_>>();
+    obj.put(DataElement::new(
+        tags::PER_FRAME_FUNCTIONAL_GROUPS_SEQUENCE,
+        VR::SQ,
+        DataSetSequence::from(per_frame_items),
+    ));
+}
+
+fn put_common_instance_reference(obj: &mut InMemDicomObject, source: &GeneratedSourceObject) {
+    obj.put(DataElement::new(
+        TAG_REFERENCED_SERIES_SEQUENCE,
+        VR::SQ,
+        DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+            DataElement::new(
+                tags::SERIES_INSTANCE_UID,
+                VR::UI,
+                source.series_instance_uid.as_deref().unwrap_or(""),
+            ),
+            DataElement::new(
+                TAG_REFERENCED_INSTANCE_SEQUENCE,
+                VR::SQ,
+                DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+                    DataElement::new(
+                        TAG_REFERENCED_SOP_CLASS_UID,
+                        VR::UI,
+                        source.sop_class_uid.as_str(),
+                    ),
+                    DataElement::new(
+                        TAG_REFERENCED_SOP_INSTANCE_UID,
+                        VR::UI,
+                        source.sop_instance_uid.as_str(),
+                    ),
+                ])]),
+            ),
+        ])]),
+    ));
+}
+
+#[allow(clippy::too_many_arguments)]
+fn segmentation_manifest_entry(
+    case: &Value,
+    recipe: SegmentationRecipe,
+    source: &GeneratedSourceObject,
+    relative_path: &str,
+    study_instance_uid: &str,
+    series_instance_uid: &str,
+    sop_instance_uid: &str,
+    frame_of_reference_uid: &str,
+    dimension_organization_uid: &str,
+    implementation_class_uid: &str,
+    bytes: &[u8],
+    validation: Value,
+) -> Value {
+    let standards_evidence = standards_evidence_from_case(case);
+    let frame_byte_len = (usize::from(recipe.rows) * usize::from(recipe.columns)).div_ceil(8);
+    let frame_hashes = recipe
+        .pixel_bytes
+        .chunks(frame_byte_len)
+        .map(sha256_hex)
+        .collect::<Vec<_>>();
+    serde_json::json!({
+        "case_id": recipe.case_id,
+        "profile_membership": ["extended"],
+        "path": relative_path,
+        "sha256": sha256_hex(bytes),
+        "size_bytes": bytes.len(),
+        "determinism": "byte_stable",
+        "recipe": {
+            "recipe_id": recipe.recipe_id,
+            "recipe_version": SEGMENTATION_RECIPE_VERSION,
+            "recipe_parameters": {
+                "source_case_id": recipe.source_case_id,
+                "rows": recipe.rows,
+                "columns": recipe.columns,
+                "frames": recipe.frames,
+                "samples_per_pixel": 1,
+                "photometric_interpretation": "MONOCHROME2",
+                "bits_allocated": 1,
+                "bits_stored": 1,
+                "high_bit": 0,
+                "pixel_representation": 0,
+                "pixel_values": recipe.pixel_values,
+                "segmentation_type": recipe.segmentation_type,
+                "segment_count": 1,
+                "segment_label": recipe.segment_label,
+                "referenced_frame_numbers": recipe.referenced_frame_numbers,
+                "dimension_index": {
+                    "dimension_organization_uid": dimension_organization_uid,
+                    "dimension_index_pointer": "ReferencedSegmentNumber",
+                    "functional_group_pointer": "SegmentIdentificationSequence"
+                }
+            }
+        },
+        "dicom": {
+            "sop_class_uid": SEGMENTATION_STORAGE_UID,
+            "sop_class_name": "Segmentation Storage",
+            "iod_name": "Segmentation",
+            "modality": "SEG",
+            "transfer_syntax_uid": uids::EXPLICIT_VR_LITTLE_ENDIAN,
+            "transfer_syntax_name": "Explicit VR Little Endian"
+        },
+        "uids": {
+            "study_instance_uid": study_instance_uid,
+            "series_instance_uid": series_instance_uid,
+            "sop_instance_uid": sop_instance_uid,
+            "frame_of_reference_uid": frame_of_reference_uid,
+            "dimension_organization_uid": dimension_organization_uid,
+            "implementation_class_uid": implementation_class_uid
+        },
+        "image": {
+            "rows": recipe.rows,
+            "columns": recipe.columns,
+            "frames": recipe.frames,
+            "samples_per_pixel": 1,
+            "photometric_interpretation": "MONOCHROME2",
+            "bits_allocated": 1,
+            "bits_stored": 1,
+            "high_bit": 0,
+            "pixel_representation": 0,
+            "planar_configuration": Value::Null
+        },
+        "pixel_data": {
+            "vr": "OB",
+            "native_or_encapsulated": "native",
+            "value_length": recipe.pixel_bytes.len(),
+            "frame_count": recipe.frames,
+            "frame_hashes": frame_hashes
+        },
+        "references": [
+            source.to_manifest_reference(
+                "source_image",
+                Some(recipe.referenced_frame_numbers.iter().map(|frame| u64::from(*frame)).collect())
+            )
+        ],
+        "expected_capabilities": ["open_file", "read_metadata", "show_unsupported_but_recognized", "parse_segmentation"],
+        "expected_semantics": {
+            "synthetic_data": "YES",
+            "pixel_min": 0,
+            "pixel_max": 1,
+            "segmentation_type": recipe.segmentation_type,
+            "segment_sequence_items": 1,
+            "shared_functional_groups_sequence_items": 1,
+            "per_frame_functional_groups_sequence_items": recipe.frames,
+            "source_case_id": source.source_case_id,
+            "source_sop_instance_uid": source.sop_instance_uid,
+            "referenced_frame_numbers": recipe.referenced_frame_numbers
+        },
+        "expected_visual_checks": {
+            "pattern": "two_frame_binary_segmentation_mask"
+        },
+        "validation": validation,
+        "known_stressors": [
+            "segmentation_storage",
+            "binary_bit_packed_pixel_data",
+            "derived_source_reference",
+            "multi_frame_functional_groups",
+            "multi_frame_dimension"
+        ],
+        "standards_evidence": deduplicated_standards_evidence(standards_evidence)
+    })
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -3410,6 +4100,7 @@ fn write_enhanced_mr_case(
             us_image: None,
             cr_image: None,
             mr_image: None,
+            segmentation: None,
         },
     )?;
 
@@ -4237,6 +4928,7 @@ fn write_classic_mg_case(
             us_image: None,
             cr_image: None,
             mr_image: None,
+            segmentation: None,
         },
     )?;
 
@@ -4781,6 +5473,7 @@ fn write_classic_dx_case(
             us_image: None,
             cr_image: None,
             mr_image: None,
+            segmentation: None,
         },
     )?;
 
@@ -5180,6 +5873,7 @@ fn write_classic_us_case(
             }),
             cr_image: None,
             mr_image: None,
+            segmentation: None,
         },
     )?;
 
@@ -5584,6 +6278,7 @@ fn write_classic_cr_case(
                 voi_lut_data_length: recipe.voi_lut_data.len(),
             }),
             mr_image: None,
+            segmentation: None,
         },
     )?;
 
@@ -6026,6 +6721,7 @@ fn write_classic_mr_case(
                     slice_count: recipe.slices.len(),
                     position_along_normal: slice.position_along_normal,
                 }),
+                segmentation: None,
             },
         )?;
 
@@ -6292,6 +6988,24 @@ fn deterministic_enhanced_ct_uid(
         file_index: 0,
         frame_index: None,
         referenced_object_index: None,
+        role,
+    })
+}
+
+fn deterministic_segmentation_uid(
+    standards_lock_sha256: &str,
+    recipe: SegmentationRecipe,
+    run_seed: u64,
+    role: UidRole,
+) -> String {
+    deterministic_uid(&DeterministicUidInput {
+        standards_lock_sha256,
+        case_id: recipe.case_id,
+        recipe_version: SEGMENTATION_RECIPE_VERSION,
+        run_seed,
+        file_index: 0,
+        frame_index: None,
+        referenced_object_index: Some(0),
         role,
     })
 }
@@ -6853,6 +7567,7 @@ mod tests {
                 "sop_class_uid": sop_class_uid
             },
             "uids": {
+                "study_instance_uid": "2.25.50",
                 "sop_instance_uid": sop_instance_uid
             },
             "image": Value::Null

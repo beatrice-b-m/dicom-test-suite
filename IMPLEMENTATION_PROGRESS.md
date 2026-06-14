@@ -2,9 +2,9 @@
 
 **Last updated:** 2026-06-14  
 **Source specification:** `SYSTEM_SPEC.md` version 0.2.0  
-**Current phase:** Phase 5.0 foundation complete; Phase 5.1 binary segmentation next
+**Current phase:** Phase 5.1 binary segmentation complete; Phase 5.2 fractional and labelmap segmentation next
 
-**Current implementation status:** Phase 0, Phase 0.5, Phase 1, Phase 2, Phase 3, Phase 4, the pre-Phase-5 hardening pass, and Phase 5.0 foundation are functionally complete. `IMPLEMENTATION_PLAN.md` defines the concrete Phase 5 implementation sequence. Phase 5.0 seeded the full planned Phase 5 target queue in `cases/registry.json`, added the manifest/report data shape for non-image objects and manifest references, made generated-root validation object-aware with same-run reference resolution, and added generation-time source object plumbing so later derived writers can reference already-generated source instances. No Phase 5 generator recipe has been flipped to `implemented` yet.
+**Current implementation status:** Phase 0, Phase 0.5, Phase 1, Phase 2, Phase 3, Phase 4, the pre-Phase-5 hardening pass, Phase 5.0 foundation, and Phase 5.1 BINARY Segmentation Storage are functionally complete. `IMPLEMENTATION_PLAN.md` defines the concrete Phase 5 implementation sequence. Phase 5.1 added the first Phase 5 generator recipe: `derived/seg/binary_multiframe_explicit_le`, a tiny BINARY Segmentation Storage object derived from the already-generated Enhanced CT source. The extended profile now writes 7 files and reports 10 remaining planned Phase 5 cases.
 
 This document is the durable hand-off log for coding agents implementing
 `dicom-test-suite`. Keep `SYSTEM_SPEC.md` as the source of product and
@@ -85,7 +85,7 @@ Observed at creation of this progress file:
 | Phase 3: Classic radiology IODs | complete | CT Image Storage signed 12-bit rescale/window, MG For Presentation/For Processing 12-bit, CR overlay/Modality LUT/VOI LUT, MR multi-slice oblique geometry, DX display shutter, US Image Storage, and stable multi-file series generation are implemented. |
 | Phase 4: Enhanced multi-frame | complete | Enhanced CT and Enhanced MR Image Storage cases with Shared and Per-Frame Functional Groups and Multi-frame Dimension metadata are implemented; MR Echo, Temporal Position, phase/velocity-encoding variation, and a two-member Enhanced CT concatenation case are covered. |
 | Pre-Phase-5 hardening | complete | Registry authority, required CLI contracts, validation hardening, reproducibility/CI guards, and standards lock pinning policy are complete. Validation now covers raw Part 10 byte checks, parsed cross-field image invariants, manifest schema-conformance checks, baseline standards-derived Type 1/Type 2 checks, classic family-specific checks, and Enhanced CT/MR multi-frame standards-derived checks. |
-| Phase 5: Derived, presentation, and non-image objects | foundation complete; binary SEG next | Full planned target queue is now in `cases/registry.json`. Manifest entries support nullable/absent image metadata plus a generated-file `references` array, coverage reports project manifest reference source case IDs into `derived_refs`, generated-root validation resolves same-run references while skipping image/pixel checks for non-image rows, and generation maintains an ordered source object registry for later derived recipes. The next implementation slice is the first BINARY Segmentation Storage writer and validator. |
+| Phase 5: Derived, presentation, and non-image objects | binary SEG complete; fractional/labelmap SEG next | Full planned target queue is now in `cases/registry.json`. Manifest entries support nullable/absent image metadata plus a generated-file `references` array, coverage reports project manifest reference source case IDs into `derived_refs`, generated-root validation resolves same-run references while skipping image/pixel checks for non-image rows, and generation maintains an ordered source object registry for derived recipes. The first BINARY Segmentation Storage object is implemented and validated. The next implementation slice is FRACTIONAL Segmentation Storage. |
 | Phase 6: Transfer syntax expansion | not started | Transfer syntax abstraction and compressed cases pending. |
 | Phase 7: Pathology, video, and large object profiles | not started | VL, WSI, video, and stress cases pending. |
 | Phase 8: Reporting and viewer integration | not started | Coverage reports, optional viewer runner, and compatibility schema pending. |
@@ -206,7 +206,7 @@ Enhanced CT concatenation case for logical multi-frame object splitting.
       now records each written manifest entry into an ordered source object
       registry and exposes already-generated source instances to later recipe
       code.
-- [ ] Implement BINARY Segmentation Storage case.
+- [x] Implement BINARY Segmentation Storage case.
 - [ ] Implement FRACTIONAL Segmentation Storage case.
 - [ ] Implement LABELMAP Segmentation using Label Map Segmentation Storage.
 - [ ] Implement Grayscale Softcopy Presentation State case.
@@ -709,8 +709,48 @@ These case IDs come from `SYSTEM_SPEC.md` section 21 and should seed
   when present, and frame count when present. The registry exposes helpers for
   future derived writers to build manifest `references` entries from only
   already-generated source instances. No Phase 5 recipe status was changed.
+- 2026-06-14: Phase 5.1 BINARY Segmentation Storage is implemented.
+  `derived/seg/binary_multiframe_explicit_le` now writes a tiny two-frame
+  Explicit VR Little Endian Segmentation Storage object after the
+  `enhanced/ct/multiframe_shared_perframe_explicit_le` source is generated.
+  The SEG object shares the source Study Instance UID and Frame of Reference
+  UID, uses its own deterministic SEG Series/SOP/Dimension Organization UIDs,
+  sets `Synthetic Data (0008,001C)` to `YES`, encodes one BINARY segment with
+  one-bit native OB Pixel Data, records Segment Sequence and per-frame Segment
+  Identification/Derivation Image references, and includes Common Instance
+  Reference back to the source image. The manifest records a `source_image`
+  reference with frame numbers `[1, 2]`, reports bit depth 1 in coverage, and
+  `cases/registry.json` now marks this case `implemented`.
 
 ## Verification Results
+
+- 2026-06-14 Phase 5.1 BINARY Segmentation Storage slice:
+  - `cargo test --test generate_cli -- --nocapture` initially failed on stale
+    extended/all generated-file counts and planned SEG assertions; tests were
+    updated, and the repeated command passed.
+  - `cargo test --test list_cases_cli -- --nocapture` passed.
+  - `cargo test --test project_artifacts -- --nocapture` passed.
+  - `cargo test --test validate_cli -- --nocapture` initially failed on the
+    stale extended `files_checked` count; the test was updated, and the
+    repeated command passed.
+  - `cargo test --test report_cli -- --nocapture` passed.
+  - `cargo test` initially failed on stale generator source-registry fixture
+    metadata and in-library list-cases planned SEG assertions; tests were
+    updated, and the repeated `cargo test` passed.
+  - `cargo fmt -- --check` passed.
+  - `cargo run -- standards check-lock` passed with the existing documented
+    unavailable-pin warnings.
+  - `cargo run -- generate --profile extended --out /tmp/dts-slice-binary-seg --seed 1`
+    passed, writing 7 files.
+  - `cargo run -- validate /tmp/dts-slice-binary-seg` passed with 7 files
+    checked and 0 validation failures.
+  - `cargo run -- report /tmp/dts-slice-binary-seg --format json` passed with
+    counts `generated=7`, `planned=10`, `skipped=0`, `blocked=0`; the SEG row
+    reports `derived_refs=["enhanced/ct/multiframe_shared_perframe_explicit_le"]`.
+  - `cargo run -- report /tmp/dts-slice-binary-seg --format markdown` passed
+    with the expected generated SEG row and 10 remaining Phase 5 gaps.
+  - `cargo run -- standards gaps --profile extended` passed with no standards
+    evidence gaps.
 
 - 2026-06-14 Phase 5 generation-time source registry slice:
   - `cargo fmt -- --check` initially failed on rustfmt wrapping in
@@ -803,24 +843,25 @@ These case IDs come from `SYSTEM_SPEC.md` section 21 and should seed
 
 ## Current Blockers
 
-None currently recorded for starting Phase 5.
+None currently recorded for continuing Phase 5.2.
 
 ## Recommended Next Commit
 
-Start Phase 5.1 with the first BINARY Segmentation Storage slice for
-`derived/seg/binary_multiframe_explicit_le`. Recheck the SEG standards evidence
-for Segmentation Type `BINARY` with `dicom-standard-kb` or a local source note,
-then implement the smallest Explicit VR Little Endian SEG writer that references
-the already-generated
-`enhanced/ct/multiframe_shared_perframe_explicit_le` source through the
-generation source registry. Flip the registry case to `implemented` only in the
-same commit as the working writer, SEG validation, tests, and progress update.
+Start Phase 5.2 with the FRACTIONAL Segmentation Storage case
+`derived/seg/fractional_probability_multiframe_explicit_le`. Recheck the
+Segmentation Type `FRACTIONAL`, Segmentation Fractional Type `PROBABILITY`, and
+Maximum Fractional Value requirements with `dicom-standard-kb` or a local source
+note before extending the SEG writer. Keep the slice limited to FRACTIONAL SEG
+unless LABELMAP support is required by shared writer structure; flip the
+registry row to `implemented` only with the working writer, validation, tests,
+and progress update.
 
 ## Commit-Ready Summary
 
-The current slice updates generation internals, focused generator unit tests,
-and this progress tracker only. It completes Phase 5.0 source plumbing without
-implementing any Phase 5 recipe or changing registry case statuses.
+The current slice implements `derived/seg/binary_multiframe_explicit_le`,
+adds SEG-specific generator and generated-root validation, flips the binary SEG
+registry row to `implemented`, updates focused tests and this progress tracker,
+and leaves Phase 5.2 FRACTIONAL/LABELMAP SEG as the next work.
 
 ## Handoff Notes
 

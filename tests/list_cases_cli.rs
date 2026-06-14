@@ -210,6 +210,12 @@ fn list_cases_command_shows_extended_case_status_and_evidence() {
     );
     assert!(
         stdout.contains(
+            "derived/presentation-state/grayscale_softcopy_ct_window_explicit_le\timplemented\textended\t1.2.840.10008.5.1.4.1.1.11.1\t1.2.840.10008.1.2.1\t8/8 covered"
+        ),
+        "list-cases must include the implemented GSPS extended case with standards evidence"
+    );
+    assert!(
+        stdout.contains(
             "non-image/encapsulated-document/pdf_minimal_explicit_le\tplanned\textended\t1.2.840.10008.5.1.4.1.1.104.1\t1.2.840.10008.1.2.1\t5/5 covered"
         ),
         "list-cases must include the planned Encapsulated PDF Phase 5 case with standards evidence"
@@ -241,6 +247,10 @@ fn list_cases_command_filters_by_status_and_profile() {
     assert!(
         !stdout.contains("derived/seg/labelmap_multiframe_explicit_le"),
         "planned status filter must not include implemented LABELMAP SEG"
+    );
+    assert!(
+        !stdout.contains("derived/presentation-state/grayscale_softcopy_ct_window_explicit_le"),
+        "planned status filter must not include implemented GSPS"
     );
     assert!(
         stdout.contains(

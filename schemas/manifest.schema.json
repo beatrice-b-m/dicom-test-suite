@@ -406,7 +406,6 @@
         "study_instance_uid",
         "series_instance_uid",
         "sop_instance_uid",
-        "frame_of_reference_uid",
         "implementation_class_uid"
       ],
       "properties": {

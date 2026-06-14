@@ -2819,7 +2819,7 @@
     },
     {
       "case_id": "derived/presentation-state/grayscale_softcopy_ct_window_explicit_le",
-      "status": "planned",
+      "status": "implemented",
       "profiles": ["extended"],
       "recipe_id": "gsps_grayscale_softcopy_ct_window",
       "recipe_version": "0.1.0",
@@ -2866,6 +2866,38 @@
           "covered": true,
           "part": "PS3.3",
           "anchor": "table_A.33.1-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module Presentation State Relationship --expand-macros",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.11.11-1b"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module Displayed Area",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.10-4"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module Softcopy VOI LUT",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.11.8-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module Softcopy Presentation LUT",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.11.6-1"
         }
       ]
     },

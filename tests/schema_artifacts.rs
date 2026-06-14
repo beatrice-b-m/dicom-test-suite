@@ -109,6 +109,16 @@ fn manifest_schema_allows_non_image_files_and_requires_references() {
             "manifest file entries must allow {optional_field} to be null"
         );
     }
+    let uid_required = schema
+        .pointer("/$defs/uids/required")
+        .and_then(Value::as_array)
+        .expect("manifest schema must define required UID fields");
+    assert!(
+        !uid_required
+            .iter()
+            .any(|value| value.as_str() == Some("frame_of_reference_uid")),
+        "manifest UID blocks must allow non-image objects without Frame of Reference UID"
+    );
 
     let reference_required = schema
         .pointer("/$defs/reference/required")

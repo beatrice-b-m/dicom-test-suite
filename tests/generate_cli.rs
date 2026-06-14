@@ -9,10 +9,22 @@ use serde_json::Value;
 
 const SEGMENTATION_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.66.4";
 const LABEL_MAP_SEGMENTATION_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.66.7";
+const GRAYSCALE_SOFTCOPY_PRESENTATION_STATE_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.11.1";
 const TAG_SEGMENTATION_TYPE: Tag = Tag(0x0062, 0x0001);
 const TAG_SEGMENT_SEQUENCE: Tag = Tag(0x0062, 0x0002);
 const TAG_MAXIMUM_FRACTIONAL_VALUE: Tag = Tag(0x0062, 0x000E);
 const TAG_SEGMENTATION_FRACTIONAL_TYPE: Tag = Tag(0x0062, 0x0010);
+const TAG_REFERENCED_SERIES_SEQUENCE: Tag = Tag(0x0008, 0x1115);
+const TAG_REFERENCED_IMAGE_SEQUENCE: Tag = Tag(0x0008, 0x1140);
+const TAG_REFERENCED_SOP_CLASS_UID: Tag = Tag(0x0008, 0x1150);
+const TAG_REFERENCED_SOP_INSTANCE_UID: Tag = Tag(0x0008, 0x1155);
+const TAG_DISPLAYED_AREA_TOP_LEFT_HAND_CORNER: Tag = Tag(0x0070, 0x0052);
+const TAG_DISPLAYED_AREA_BOTTOM_RIGHT_HAND_CORNER: Tag = Tag(0x0070, 0x0053);
+const TAG_DISPLAYED_AREA_SELECTION_SEQUENCE: Tag = Tag(0x0070, 0x005A);
+const TAG_PRESENTATION_SIZE_MODE: Tag = Tag(0x0070, 0x0100);
+const TAG_PRESENTATION_PIXEL_ASPECT_RATIO: Tag = Tag(0x0070, 0x0102);
+const TAG_SOFTCOPY_VOI_LUT_SEQUENCE: Tag = Tag(0x0028, 0x3110);
+const TAG_PRESENTATION_LUT_SHAPE: Tag = Tag(0x2050, 0x0020);
 
 #[test]
 fn generate_command_writes_smoke_part10_files_and_manifest() {
@@ -1606,7 +1618,7 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\textended"));
-    assert!(stdout.contains("files_written\t9"));
+    assert!(stdout.contains("files_written\t10"));
 
     let manifest_path = out_dir.join("manifest.json");
     let manifest: Value = serde_json::from_str(
@@ -1619,7 +1631,7 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
             .pointer("/files")
             .and_then(Value::as_array)
             .map(Vec::len),
-        Some(9)
+        Some(10)
     );
     let enhanced_ct_file = file_entry_by_case_id(
         &manifest,
@@ -1982,17 +1994,72 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
             .contains(&"segmentation_type"),
         "LABELMAP SEG manifest should record Segmentation Type validation"
     );
+    let presentation_state_file = file_entry_by_case_id(
+        &manifest,
+        "derived/presentation-state/grayscale_softcopy_ct_window_explicit_le",
+    );
+    assert_eq!(
+        presentation_state_file
+            .pointer("/dicom/sop_class_uid")
+            .and_then(Value::as_str),
+        Some(GRAYSCALE_SOFTCOPY_PRESENTATION_STATE_STORAGE_UID)
+    );
+    assert_eq!(
+        presentation_state_file
+            .pointer("/dicom/modality")
+            .and_then(Value::as_str),
+        Some("PR")
+    );
+    assert!(
+        presentation_state_file
+            .pointer("/image")
+            .is_some_and(Value::is_null),
+        "GSPS manifest should explicitly omit image metadata"
+    );
+    assert!(
+        presentation_state_file
+            .pointer("/pixel_data")
+            .is_some_and(Value::is_null),
+        "GSPS manifest should explicitly omit Pixel Data metadata"
+    );
+    assert_eq!(
+        presentation_state_file
+            .pointer("/references/0/source_case_id")
+            .and_then(Value::as_str),
+        Some("enhanced/ct/multiframe_shared_perframe_explicit_le")
+    );
+    assert_eq!(
+        presentation_state_file
+            .pointer("/recipe/recipe_parameters/window_center")
+            .and_then(Value::as_str),
+        Some("350")
+    );
+    assert_eq!(
+        presentation_state_file
+            .pointer("/recipe/recipe_parameters/window_width")
+            .and_then(Value::as_str),
+        Some("1400")
+    );
+    assert!(
+        validation_result_names(presentation_state_file.pointer("/validation/internal"))
+            .contains(&"presentation_state_referenced_sop_instance_uid"),
+        "GSPS manifest should record source-reference validation"
+    );
+    assert!(
+        validation_result_names(presentation_state_file.pointer("/validation/internal"))
+            .contains(&"presentation_state_lut_shape"),
+        "GSPS manifest should record Presentation LUT Shape validation"
+    );
     let skipped_cases = manifest
         .pointer("/skipped_cases")
         .and_then(Value::as_array)
         .expect("manifest should contain skipped cases");
     assert_eq!(
         skipped_cases.len(),
-        8,
+        7,
         "extended generation should report the remaining planned Phase 5 cases as unavailable"
     );
     for case_id in [
-        "derived/presentation-state/grayscale_softcopy_ct_window_explicit_le",
         "derived/rwvm/linear_ct_mapping_explicit_le",
         "derived/sr/basic_text_observation_explicit_le",
         "derived/sr/comprehensive_measurement_explicit_le",
@@ -2208,6 +2275,154 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
             .expect("Pixel Data should be byte-backed")
             .len(),
         8
+    );
+
+    let presentation_state_path = out_dir
+        .join("derived/presentation-state/grayscale_softcopy_ct_window_explicit_le/instance.dcm");
+    let presentation_state =
+        open_file(&presentation_state_path).expect("GSPS DICOM file should parse");
+    assert_eq!(
+        presentation_state
+            .element(tags::SOP_CLASS_UID)
+            .expect("GSPS file should contain SOP Class UID")
+            .value()
+            .to_str()
+            .expect("SOP Class UID should be text")
+            .trim_end_matches('\0'),
+        GRAYSCALE_SOFTCOPY_PRESENTATION_STATE_STORAGE_UID
+    );
+    assert_eq!(
+        presentation_state
+            .element(tags::MODALITY)
+            .expect("GSPS file should contain Modality")
+            .value()
+            .to_str()
+            .expect("Modality should be text")
+            .trim(),
+        "PR"
+    );
+    assert!(
+        presentation_state
+            .element_opt(tags::PIXEL_DATA)
+            .expect("GSPS Pixel Data lookup should not fail")
+            .is_none(),
+        "GSPS must not contain Pixel Data"
+    );
+    let referenced_series = presentation_state
+        .element(TAG_REFERENCED_SERIES_SEQUENCE)
+        .expect("GSPS should contain Referenced Series Sequence")
+        .items()
+        .expect("Referenced Series Sequence should be SQ")
+        .first()
+        .expect("Referenced Series Sequence should contain one item");
+    let referenced_image = referenced_series
+        .element(TAG_REFERENCED_IMAGE_SEQUENCE)
+        .expect("GSPS referenced series should contain Referenced Image Sequence")
+        .items()
+        .expect("Referenced Image Sequence should be SQ")
+        .first()
+        .expect("Referenced Image Sequence should contain one item");
+    assert_eq!(
+        referenced_image
+            .element(TAG_REFERENCED_SOP_CLASS_UID)
+            .expect("GSPS should reference a source SOP Class")
+            .value()
+            .to_str()
+            .expect("Referenced SOP Class UID should be text")
+            .trim_end_matches('\0'),
+        uids::ENHANCED_CT_IMAGE_STORAGE
+    );
+    assert!(
+        !referenced_image
+            .element(TAG_REFERENCED_SOP_INSTANCE_UID)
+            .expect("GSPS should reference a source SOP Instance")
+            .value()
+            .to_str()
+            .expect("Referenced SOP Instance UID should be text")
+            .trim_end_matches('\0')
+            .is_empty(),
+        "GSPS source SOP Instance UID reference should not be empty"
+    );
+    let displayed_area = presentation_state
+        .element(TAG_DISPLAYED_AREA_SELECTION_SEQUENCE)
+        .expect("GSPS should contain Displayed Area Selection Sequence")
+        .items()
+        .expect("Displayed Area Selection Sequence should be SQ")
+        .first()
+        .expect("Displayed Area Selection Sequence should contain one item");
+    assert_eq!(
+        displayed_area
+            .element(TAG_DISPLAYED_AREA_TOP_LEFT_HAND_CORNER)
+            .expect("GSPS should contain displayed area TLHC")
+            .value()
+            .to_multi_int::<i32>()
+            .expect("displayed area TLHC should be numeric"),
+        vec![1, 1]
+    );
+    assert_eq!(
+        displayed_area
+            .element(TAG_DISPLAYED_AREA_BOTTOM_RIGHT_HAND_CORNER)
+            .expect("GSPS should contain displayed area BRHC")
+            .value()
+            .to_multi_int::<i32>()
+            .expect("displayed area BRHC should be numeric"),
+        vec![2, 2]
+    );
+    assert_eq!(
+        displayed_area
+            .element(TAG_PRESENTATION_SIZE_MODE)
+            .expect("GSPS should contain Presentation Size Mode")
+            .value()
+            .to_str()
+            .expect("Presentation Size Mode should be text")
+            .trim(),
+        "SCALE TO FIT"
+    );
+    assert_eq!(
+        displayed_area
+            .element(TAG_PRESENTATION_PIXEL_ASPECT_RATIO)
+            .expect("GSPS should contain Presentation Pixel Aspect Ratio")
+            .value()
+            .to_multi_int::<i32>()
+            .expect("Presentation Pixel Aspect Ratio should be numeric"),
+        vec![1, 1]
+    );
+    let voi_lut = presentation_state
+        .element(TAG_SOFTCOPY_VOI_LUT_SEQUENCE)
+        .expect("GSPS should contain Softcopy VOI LUT Sequence")
+        .items()
+        .expect("Softcopy VOI LUT Sequence should be SQ")
+        .first()
+        .expect("Softcopy VOI LUT Sequence should contain one item");
+    assert_eq!(
+        voi_lut
+            .element(tags::WINDOW_CENTER)
+            .expect("GSPS should contain Window Center")
+            .value()
+            .to_str()
+            .expect("Window Center should be text")
+            .trim(),
+        "350"
+    );
+    assert_eq!(
+        voi_lut
+            .element(tags::WINDOW_WIDTH)
+            .expect("GSPS should contain Window Width")
+            .value()
+            .to_str()
+            .expect("Window Width should be text")
+            .trim(),
+        "1400"
+    );
+    assert_eq!(
+        presentation_state
+            .element(TAG_PRESENTATION_LUT_SHAPE)
+            .expect("GSPS should contain Presentation LUT Shape")
+            .value()
+            .to_str()
+            .expect("Presentation LUT Shape should be text")
+            .trim(),
+        "IDENTITY"
     );
 
     let enhanced_ct_concat_part_1_path =
@@ -2427,7 +2642,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\tall"));
-    assert!(stdout.contains("files_written\t31"));
+    assert!(stdout.contains("files_written\t32"));
 
     let manifest_path = out_dir.join("manifest.json");
     let manifest: Value = serde_json::from_str(
@@ -2444,7 +2659,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
             .pointer("/files")
             .and_then(Value::as_array)
             .map(Vec::len),
-        Some(31)
+        Some(32)
     );
 
     file_entry_by_case_id(&manifest, "classic/sc/mono2_u8_explicit_le");
@@ -2470,11 +2685,10 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
         .expect("manifest should contain skipped cases");
     assert_eq!(
         skipped_cases.len(),
-        10,
+        9,
         "all generation should report the remaining planned Phase 5 and VL cases as unavailable"
     );
     for case_id in [
-        "derived/presentation-state/grayscale_softcopy_ct_window_explicit_le",
         "derived/rwvm/linear_ct_mapping_explicit_le",
         "derived/sr/basic_text_observation_explicit_le",
         "derived/sr/comprehensive_measurement_explicit_le",
@@ -2685,19 +2899,22 @@ fn assert_manifest_matches_committed_schema(manifest: &Value) {
             "/$defs/uids/required",
             &format!("files[{index}].uids"),
         );
-        assert_required_fields(
-            file.get("image").expect("file image should exist"),
-            &schema,
-            "/$defs/image/required",
-            &format!("files[{index}].image"),
-        );
-        assert_required_fields(
-            file.get("pixel_data")
-                .expect("file pixel_data should exist"),
-            &schema,
-            "/$defs/pixel_data/required",
-            &format!("files[{index}].pixel_data"),
-        );
+        if let Some(image) = file.get("image").filter(|value| value.is_object()) {
+            assert_required_fields(
+                image,
+                &schema,
+                "/$defs/image/required",
+                &format!("files[{index}].image"),
+            );
+        }
+        if let Some(pixel_data) = file.get("pixel_data").filter(|value| value.is_object()) {
+            assert_required_fields(
+                pixel_data,
+                &schema,
+                "/$defs/pixel_data/required",
+                &format!("files[{index}].pixel_data"),
+            );
+        }
         assert_required_fields(
             file.get("validation")
                 .expect("file validation should exist"),

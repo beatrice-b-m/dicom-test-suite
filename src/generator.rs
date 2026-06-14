@@ -14,8 +14,8 @@ use crate::{
         CrImageExpectations, CtImageExpectations, DxImageExpectations,
         EnhancedCtConcatenationExpectations, EnhancedCtImageExpectations,
         EnhancedMrImageExpectations, MgImageExpectations, MrImageExpectations, Part10Expectations,
-        PixelDataLengthFormula, SegmentationExpectations, UsImageExpectations,
-        validate_part10_file,
+        PixelDataLengthFormula, PresentationStateExpectations, SegmentationExpectations,
+        UsImageExpectations, validate_part10_file, validate_presentation_state_file,
     },
 };
 
@@ -29,9 +29,12 @@ const CLASSIC_US_RECIPE_VERSION: &str = "0.1.0";
 const CLASSIC_CR_RECIPE_VERSION: &str = "0.1.0";
 const CLASSIC_MR_RECIPE_VERSION: &str = "0.1.0";
 const SEGMENTATION_RECIPE_VERSION: &str = "0.1.0";
+const GSPS_RECIPE_VERSION: &str = "0.1.0";
 const SEGMENTATION_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.66.4";
 const LABEL_MAP_SEGMENTATION_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.66.7";
+const GRAYSCALE_SOFTCOPY_PRESENTATION_STATE_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.11.1";
 const SEGMENTATION_SOURCE_CASE_ID: &str = "enhanced/ct/multiframe_shared_perframe_explicit_le";
+const GSPS_SOURCE_CASE_ID: &str = "enhanced/ct/multiframe_shared_perframe_explicit_le";
 const MONO_PIXELS: [u8; 4] = [0, 85, 170, 255];
 const RGB_PLANAR0_PIXELS: [u8; 12] = [255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 255, 255];
 const RGB_PLANAR1_PIXELS: [u8; 12] = [255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255];
@@ -85,6 +88,18 @@ const TAG_DERIVATION_CODE_SEQUENCE: Tag = Tag(0x0008, 0x9215);
 const TAG_DERIVATION_IMAGE_SEQUENCE: Tag = Tag(0x0008, 0x9124);
 const TAG_CONTENT_LABEL: Tag = Tag(0x0070, 0x0080);
 const TAG_CONTENT_DESCRIPTION: Tag = Tag(0x0070, 0x0081);
+const TAG_PRESENTATION_CREATION_DATE: Tag = Tag(0x0070, 0x0082);
+const TAG_PRESENTATION_CREATION_TIME: Tag = Tag(0x0070, 0x0083);
+const TAG_CONTENT_CREATOR_NAME: Tag = Tag(0x0070, 0x0084);
+const TAG_DISPLAYED_AREA_TOP_LEFT_HAND_CORNER: Tag = Tag(0x0070, 0x0052);
+const TAG_DISPLAYED_AREA_BOTTOM_RIGHT_HAND_CORNER: Tag = Tag(0x0070, 0x0053);
+const TAG_DISPLAYED_AREA_SELECTION_SEQUENCE: Tag = Tag(0x0070, 0x005A);
+const TAG_PRESENTATION_SIZE_MODE: Tag = Tag(0x0070, 0x0100);
+const TAG_PRESENTATION_PIXEL_ASPECT_RATIO: Tag = Tag(0x0070, 0x0102);
+const TAG_SOFTCOPY_VOI_LUT_SEQUENCE: Tag = Tag(0x0028, 0x3110);
+const TAG_WINDOW_EXPLANATION: Tag = Tag(0x0028, 0x1055);
+const TAG_PRESENTATION_LUT_SHAPE: Tag = Tag(0x2050, 0x0020);
+const TAG_REFERENCED_IMAGE_SEQUENCE: Tag = Tag(0x0008, 0x1140);
 const TAG_PURPOSE_OF_REFERENCE_CODE_SEQUENCE: Tag = Tag(0x0040, 0xA170);
 const TAG_SEGMENTATION_TYPE: Tag = Tag(0x0062, 0x0001);
 const TAG_SEGMENT_SEQUENCE: Tag = Tag(0x0062, 0x0002);
@@ -741,6 +756,39 @@ const SEGMENTATION_RECIPES: &[SegmentationRecipe] = &[
 ];
 
 #[derive(Debug, Clone, Copy)]
+struct PresentationStateRecipe {
+    case_id: &'static str,
+    recipe_id: &'static str,
+    source_case_id: &'static str,
+    content_label: &'static str,
+    content_description: &'static str,
+    displayed_area_top_left: [i32; 2],
+    displayed_area_bottom_right: [i32; 2],
+    presentation_size_mode: &'static str,
+    presentation_pixel_aspect_ratio: [i32; 2],
+    window_center: &'static str,
+    window_width: &'static str,
+    window_explanation: &'static str,
+    presentation_lut_shape: &'static str,
+}
+
+const PRESENTATION_STATE_RECIPES: &[PresentationStateRecipe] = &[PresentationStateRecipe {
+    case_id: "derived/presentation-state/grayscale_softcopy_ct_window_explicit_le",
+    recipe_id: "gsps_grayscale_softcopy_ct_window",
+    source_case_id: GSPS_SOURCE_CASE_ID,
+    content_label: "DTSGSPS",
+    content_description: "Synthetic CT window presentation state",
+    displayed_area_top_left: [1, 1],
+    displayed_area_bottom_right: [2, 2],
+    presentation_size_mode: "SCALE TO FIT",
+    presentation_pixel_aspect_ratio: [1, 1],
+    window_center: "350",
+    window_width: "1400",
+    window_explanation: "DTS CT softcopy window",
+    presentation_lut_shape: "IDENTITY",
+}];
+
+#[derive(Debug, Clone, Copy)]
 struct EnhancedMrRecipe {
     case_id: &'static str,
     recipe_id: &'static str,
@@ -1374,6 +1422,29 @@ pub(crate) fn write_supported_cases(
                 message: "segmentation source object must be generated before the derived recipe",
             })?;
         context.record_one(write_segmentation_case(
+            run,
+            case,
+            *recipe,
+            &source,
+            standards_lock_sha256,
+        )?)?;
+    }
+    for recipe in PRESENTATION_STATE_RECIPES {
+        let Some(case) = registry_case(registry, recipe.case_id)? else {
+            continue;
+        };
+        if !should_generate_case(case, run)? {
+            continue;
+        }
+        let source = context
+            .source_registry()
+            .first_for_case(recipe.source_case_id)
+            .cloned()
+            .ok_or_else(|| GenerateError::MetadataShape {
+                path: PathBuf::from(recipe.case_id),
+                message: "presentation state source object must be generated before the derived recipe",
+            })?;
+        context.record_one(write_presentation_state_case(
             run,
             case,
             *recipe,
@@ -2941,6 +3012,190 @@ fn write_segmentation_case(
     })
 }
 
+fn write_presentation_state_case(
+    run: &PreparedGenerationRun,
+    case: &Value,
+    recipe: PresentationStateRecipe,
+    source: &GeneratedSourceObject,
+    standards_lock_sha256: &str,
+) -> Result<GeneratedFile, GenerateError> {
+    let series_instance_uid = deterministic_presentation_state_uid(
+        standards_lock_sha256,
+        recipe,
+        run.seed,
+        UidRole::SeriesInstance,
+    );
+    let sop_instance_uid = deterministic_presentation_state_uid(
+        standards_lock_sha256,
+        recipe,
+        run.seed,
+        UidRole::SopInstance,
+    );
+    let implementation_class_uid = deterministic_implementation_uid(standards_lock_sha256);
+    let source_series_instance_uid =
+        source
+            .series_instance_uid
+            .as_deref()
+            .ok_or_else(|| GenerateError::MetadataShape {
+                path: PathBuf::from(recipe.case_id),
+                message: "presentation state source object must include a Series Instance UID",
+            })?;
+
+    let relative_path = format!("{}/instance.dcm", recipe.case_id);
+    let path = run.out_dir.join(&relative_path);
+    let case_dir = path.parent().ok_or_else(|| GenerateError::MetadataShape {
+        path: PathBuf::from(&relative_path),
+        message: "generated DICOM path must have a parent directory",
+    })?;
+    fs::create_dir_all(case_dir).map_err(|source| GenerateError::CreateCaseOutputDir {
+        path: case_dir.to_path_buf(),
+        source,
+    })?;
+
+    let mut obj = InMemDicomObject::new_empty();
+    put_str(
+        &mut obj,
+        tags::SOP_CLASS_UID,
+        VR::UI,
+        GRAYSCALE_SOFTCOPY_PRESENTATION_STATE_STORAGE_UID,
+    );
+    put_str(&mut obj, tags::SOP_INSTANCE_UID, VR::UI, &sop_instance_uid);
+    put_str(&mut obj, tags::SYNTHETIC_DATA, VR::CS, "YES");
+
+    put_str(
+        &mut obj,
+        tags::PATIENT_NAME,
+        VR::PN,
+        "DTS^Synthetic^Patient001",
+    );
+    put_str(&mut obj, tags::PATIENT_ID, VR::LO, "DTS-PATIENT-001");
+    put_str(&mut obj, tags::PATIENT_BIRTH_DATE, VR::DA, "19700101");
+    put_str(&mut obj, tags::PATIENT_SEX, VR::CS, "O");
+
+    put_str(
+        &mut obj,
+        tags::STUDY_INSTANCE_UID,
+        VR::UI,
+        &source.study_instance_uid,
+    );
+    put_str(&mut obj, tags::STUDY_DATE, VR::DA, "20260101");
+    put_str(&mut obj, tags::STUDY_TIME, VR::TM, "000000");
+    put_str(&mut obj, tags::REFERRING_PHYSICIAN_NAME, VR::PN, "");
+    put_str(&mut obj, tags::STUDY_ID, VR::SH, "DTS-GSPS");
+    put_str(&mut obj, tags::ACCESSION_NUMBER, VR::SH, "");
+
+    put_str(&mut obj, tags::MODALITY, VR::CS, "PR");
+    put_str(
+        &mut obj,
+        tags::SERIES_INSTANCE_UID,
+        VR::UI,
+        &series_instance_uid,
+    );
+    put_str(&mut obj, tags::SERIES_NUMBER, VR::IS, "61");
+
+    put_str(&mut obj, tags::MANUFACTURER, VR::LO, "dicom-test-suite");
+    put_str(
+        &mut obj,
+        tags::MANUFACTURER_MODEL_NAME,
+        VR::LO,
+        recipe.recipe_id,
+    );
+    put_str(
+        &mut obj,
+        tags::DEVICE_SERIAL_NUMBER,
+        VR::LO,
+        "DTS-GSPS-0001",
+    );
+    put_str(
+        &mut obj,
+        tags::SOFTWARE_VERSIONS,
+        VR::LO,
+        crate::PACKAGE_VERSION,
+    );
+
+    put_str(&mut obj, tags::INSTANCE_NUMBER, VR::IS, "1");
+    put_str(&mut obj, tags::CONTENT_DATE, VR::DA, "20260101");
+    put_str(&mut obj, tags::CONTENT_TIME, VR::TM, "000000");
+    put_str(&mut obj, TAG_PRESENTATION_CREATION_DATE, VR::DA, "20260101");
+    put_str(&mut obj, TAG_PRESENTATION_CREATION_TIME, VR::TM, "000000");
+    put_str(&mut obj, TAG_CONTENT_LABEL, VR::CS, recipe.content_label);
+    put_str(
+        &mut obj,
+        TAG_CONTENT_DESCRIPTION,
+        VR::LO,
+        recipe.content_description,
+    );
+    put_str(&mut obj, TAG_CONTENT_CREATOR_NAME, VR::PN, "DTS^Generator");
+
+    put_presentation_state_relationship(&mut obj, source, source_series_instance_uid);
+    put_displayed_area_selection(&mut obj, recipe);
+    put_softcopy_voi_lut(&mut obj, recipe);
+    put_str(
+        &mut obj,
+        TAG_PRESENTATION_LUT_SHAPE,
+        VR::CS,
+        recipe.presentation_lut_shape,
+    );
+
+    let file_obj = obj
+        .with_meta(
+            FileMetaTableBuilder::new()
+                .transfer_syntax(uids::EXPLICIT_VR_LITTLE_ENDIAN)
+                .implementation_class_uid(&implementation_class_uid)
+                .implementation_version_name(crate::IMPLEMENTATION_VERSION_NAME),
+        )
+        .map_err(|err| GenerateError::WriteDicomFile {
+            path: path.clone(),
+            message: err.to_string(),
+        })?;
+
+    file_obj
+        .write_to_file(&path)
+        .map_err(|err| GenerateError::WriteDicomFile {
+            path: path.clone(),
+            message: err.to_string(),
+        })?;
+
+    let validated = validate_presentation_state_file(
+        &path,
+        &PresentationStateExpectations {
+            sop_class_uid: GRAYSCALE_SOFTCOPY_PRESENTATION_STATE_STORAGE_UID,
+            sop_instance_uid: &sop_instance_uid,
+            transfer_syntax_uid: uids::EXPLICIT_VR_LITTLE_ENDIAN,
+            implementation_class_uid: &implementation_class_uid,
+            synthetic_data: "YES",
+            modality: "PR",
+            presentation_label: recipe.content_label,
+            referenced_series_instance_uid: source_series_instance_uid,
+            referenced_sop_class_uid: &source.sop_class_uid,
+            referenced_sop_instance_uid: &source.sop_instance_uid,
+            displayed_area_top_left: recipe.displayed_area_top_left.to_vec(),
+            displayed_area_bottom_right: recipe.displayed_area_bottom_right.to_vec(),
+            presentation_size_mode: recipe.presentation_size_mode,
+            presentation_pixel_aspect_ratio: recipe.presentation_pixel_aspect_ratio.to_vec(),
+            window_center: recipe.window_center,
+            window_width: recipe.window_width,
+            presentation_lut_shape: recipe.presentation_lut_shape,
+        },
+    )?;
+
+    Ok(GeneratedFile {
+        case_id: recipe.case_id.to_string(),
+        manifest_entry: presentation_state_manifest_entry(
+            case,
+            recipe,
+            source,
+            &relative_path,
+            &source.study_instance_uid,
+            &series_instance_uid,
+            &sop_instance_uid,
+            &implementation_class_uid,
+            &validated.bytes,
+            validated.validation,
+        ),
+    })
+}
+
 fn write_enhanced_ct_concatenation_case(
     run: &PreparedGenerationRun,
     case: &Value,
@@ -3676,6 +3931,85 @@ fn put_common_instance_reference(obj: &mut InMemDicomObject, source: &GeneratedS
     ));
 }
 
+fn put_presentation_state_relationship(
+    obj: &mut InMemDicomObject,
+    source: &GeneratedSourceObject,
+    source_series_instance_uid: &str,
+) {
+    obj.put(DataElement::new(
+        TAG_REFERENCED_SERIES_SEQUENCE,
+        VR::SQ,
+        DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+            DataElement::new(
+                tags::SERIES_INSTANCE_UID,
+                VR::UI,
+                source_series_instance_uid,
+            ),
+            DataElement::new(
+                TAG_REFERENCED_IMAGE_SEQUENCE,
+                VR::SQ,
+                DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+                    DataElement::new(
+                        TAG_REFERENCED_SOP_CLASS_UID,
+                        VR::UI,
+                        source.sop_class_uid.as_str(),
+                    ),
+                    DataElement::new(
+                        TAG_REFERENCED_SOP_INSTANCE_UID,
+                        VR::UI,
+                        source.sop_instance_uid.as_str(),
+                    ),
+                ])]),
+            ),
+        ])]),
+    ));
+}
+
+fn put_displayed_area_selection(obj: &mut InMemDicomObject, recipe: PresentationStateRecipe) {
+    obj.put(DataElement::new(
+        TAG_DISPLAYED_AREA_SELECTION_SEQUENCE,
+        VR::SQ,
+        DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+            DataElement::new(
+                TAG_DISPLAYED_AREA_TOP_LEFT_HAND_CORNER,
+                VR::SL,
+                PrimitiveValue::from(recipe.displayed_area_top_left),
+            ),
+            DataElement::new(
+                TAG_DISPLAYED_AREA_BOTTOM_RIGHT_HAND_CORNER,
+                VR::SL,
+                PrimitiveValue::from(recipe.displayed_area_bottom_right),
+            ),
+            DataElement::new(
+                TAG_PRESENTATION_SIZE_MODE,
+                VR::CS,
+                recipe.presentation_size_mode,
+            ),
+            DataElement::new(
+                TAG_PRESENTATION_PIXEL_ASPECT_RATIO,
+                VR::IS,
+                format!(
+                    "{}\\{}",
+                    recipe.presentation_pixel_aspect_ratio[0],
+                    recipe.presentation_pixel_aspect_ratio[1]
+                ),
+            ),
+        ])]),
+    ));
+}
+
+fn put_softcopy_voi_lut(obj: &mut InMemDicomObject, recipe: PresentationStateRecipe) {
+    obj.put(DataElement::new(
+        TAG_SOFTCOPY_VOI_LUT_SEQUENCE,
+        VR::SQ,
+        DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+            DataElement::new(tags::WINDOW_CENTER, VR::DS, recipe.window_center),
+            DataElement::new(tags::WINDOW_WIDTH, VR::DS, recipe.window_width),
+            DataElement::new(TAG_WINDOW_EXPLANATION, VR::LO, recipe.window_explanation),
+        ])]),
+    ));
+}
+
 #[allow(clippy::too_many_arguments)]
 fn segmentation_manifest_entry(
     case: &Value,
@@ -3815,6 +4149,87 @@ fn segmentation_manifest_entry(
         },
         "validation": validation,
         "known_stressors": known_stressors,
+        "standards_evidence": deduplicated_standards_evidence(standards_evidence)
+    })
+}
+
+#[allow(clippy::too_many_arguments)]
+fn presentation_state_manifest_entry(
+    case: &Value,
+    recipe: PresentationStateRecipe,
+    source: &GeneratedSourceObject,
+    relative_path: &str,
+    study_instance_uid: &str,
+    series_instance_uid: &str,
+    sop_instance_uid: &str,
+    implementation_class_uid: &str,
+    bytes: &[u8],
+    validation: Value,
+) -> Value {
+    let standards_evidence = standards_evidence_from_case(case);
+    serde_json::json!({
+        "case_id": recipe.case_id,
+        "profile_membership": ["extended"],
+        "path": relative_path,
+        "sha256": sha256_hex(bytes),
+        "size_bytes": bytes.len(),
+        "determinism": "byte_stable",
+        "recipe": {
+            "recipe_id": recipe.recipe_id,
+            "recipe_version": GSPS_RECIPE_VERSION,
+            "recipe_parameters": {
+                "source_case_id": recipe.source_case_id,
+                "content_label": recipe.content_label,
+                "content_description": recipe.content_description,
+                "displayed_area_top_left": recipe.displayed_area_top_left,
+                "displayed_area_bottom_right": recipe.displayed_area_bottom_right,
+                "presentation_size_mode": recipe.presentation_size_mode,
+                "presentation_pixel_aspect_ratio": recipe.presentation_pixel_aspect_ratio,
+                "window_center": recipe.window_center,
+                "window_width": recipe.window_width,
+                "window_explanation": recipe.window_explanation,
+                "presentation_lut_shape": recipe.presentation_lut_shape
+            }
+        },
+        "dicom": {
+            "sop_class_uid": GRAYSCALE_SOFTCOPY_PRESENTATION_STATE_STORAGE_UID,
+            "sop_class_name": "Grayscale Softcopy Presentation State Storage",
+            "iod_name": "Grayscale Softcopy Presentation State",
+            "modality": "PR",
+            "transfer_syntax_uid": uids::EXPLICIT_VR_LITTLE_ENDIAN,
+            "transfer_syntax_name": "Explicit VR Little Endian"
+        },
+        "uids": {
+            "study_instance_uid": study_instance_uid,
+            "series_instance_uid": series_instance_uid,
+            "sop_instance_uid": sop_instance_uid,
+            "implementation_class_uid": implementation_class_uid
+        },
+        "image": Value::Null,
+        "pixel_data": Value::Null,
+        "references": [
+            source.to_manifest_reference("source_image", Some(vec![1, 2]))
+        ],
+        "expected_capabilities": ["open_file", "read_metadata", "show_unsupported_but_recognized", "apply_presentation_state"],
+        "expected_semantics": {
+            "synthetic_data": "YES",
+            "source_case_id": source.source_case_id,
+            "source_sop_instance_uid": source.sop_instance_uid,
+            "presentation_state": {
+                "displayed_area_top_left": recipe.displayed_area_top_left,
+                "displayed_area_bottom_right": recipe.displayed_area_bottom_right,
+                "presentation_size_mode": recipe.presentation_size_mode,
+                "presentation_pixel_aspect_ratio": recipe.presentation_pixel_aspect_ratio,
+                "window_center": recipe.window_center,
+                "window_width": recipe.window_width,
+                "presentation_lut_shape": recipe.presentation_lut_shape
+            }
+        },
+        "expected_visual_checks": {
+            "pattern": "source_ct_with_softcopy_window"
+        },
+        "validation": validation,
+        "known_stressors": ["grayscale_softcopy_presentation_state", "derived_source_reference", "softcopy_voi_window", "displayed_area"],
         "standards_evidence": deduplicated_standards_evidence(standards_evidence)
     })
 }
@@ -7122,6 +7537,24 @@ fn deterministic_segmentation_uid(
         standards_lock_sha256,
         case_id: recipe.case_id,
         recipe_version: SEGMENTATION_RECIPE_VERSION,
+        run_seed,
+        file_index: 0,
+        frame_index: None,
+        referenced_object_index: Some(0),
+        role,
+    })
+}
+
+fn deterministic_presentation_state_uid(
+    standards_lock_sha256: &str,
+    recipe: PresentationStateRecipe,
+    run_seed: u64,
+    role: UidRole,
+) -> String {
+    deterministic_uid(&DeterministicUidInput {
+        standards_lock_sha256,
+        case_id: recipe.case_id,
+        recipe_version: GSPS_RECIPE_VERSION,
         run_seed,
         file_index: 0,
         frame_index: None,

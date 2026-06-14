@@ -43,6 +43,27 @@ pub(crate) struct Part10Expectations<'a> {
     pub segmentation: Option<SegmentationExpectations<'a>>,
 }
 
+#[derive(Debug, Clone)]
+pub(crate) struct PresentationStateExpectations<'a> {
+    pub sop_class_uid: &'a str,
+    pub sop_instance_uid: &'a str,
+    pub transfer_syntax_uid: &'a str,
+    pub implementation_class_uid: &'a str,
+    pub synthetic_data: &'a str,
+    pub modality: &'a str,
+    pub presentation_label: &'a str,
+    pub referenced_series_instance_uid: &'a str,
+    pub referenced_sop_class_uid: &'a str,
+    pub referenced_sop_instance_uid: &'a str,
+    pub displayed_area_top_left: Vec<i32>,
+    pub displayed_area_bottom_right: Vec<i32>,
+    pub presentation_size_mode: &'a str,
+    pub presentation_pixel_aspect_ratio: Vec<i32>,
+    pub window_center: &'a str,
+    pub window_width: &'a str,
+    pub presentation_lut_shape: &'a str,
+}
+
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum PixelDataLengthFormula {
     ContiguousSamples,
@@ -295,8 +316,17 @@ const TAG_REFERENCED_INSTANCE_SEQUENCE: Tag = Tag(0x0008, 0x114A);
 const TAG_REFERENCED_SOP_CLASS_UID: Tag = Tag(0x0008, 0x1150);
 const TAG_REFERENCED_SOP_INSTANCE_UID: Tag = Tag(0x0008, 0x1155);
 const TAG_REFERENCED_FRAME_NUMBER: Tag = Tag(0x0008, 0x1160);
+const TAG_REFERENCED_IMAGE_SEQUENCE: Tag = Tag(0x0008, 0x1140);
 const TAG_SOURCE_IMAGE_SEQUENCE: Tag = Tag(0x0008, 0x2112);
 const TAG_DERIVATION_IMAGE_SEQUENCE: Tag = Tag(0x0008, 0x9124);
+const TAG_DISPLAYED_AREA_TOP_LEFT_HAND_CORNER: Tag = Tag(0x0070, 0x0052);
+const TAG_DISPLAYED_AREA_BOTTOM_RIGHT_HAND_CORNER: Tag = Tag(0x0070, 0x0053);
+const TAG_DISPLAYED_AREA_SELECTION_SEQUENCE: Tag = Tag(0x0070, 0x005A);
+const TAG_CONTENT_LABEL: Tag = Tag(0x0070, 0x0080);
+const TAG_PRESENTATION_SIZE_MODE: Tag = Tag(0x0070, 0x0100);
+const TAG_PRESENTATION_PIXEL_ASPECT_RATIO: Tag = Tag(0x0070, 0x0102);
+const TAG_SOFTCOPY_VOI_LUT_SEQUENCE: Tag = Tag(0x0028, 0x3110);
+const TAG_PRESENTATION_LUT_SHAPE: Tag = Tag(0x2050, 0x0020);
 
 #[derive(Debug, Clone)]
 pub(crate) struct ValidatedPart10 {
@@ -592,6 +622,243 @@ pub(crate) fn validate_part10_file(
                     "name": "image_pixel_description",
                     "status": "passed",
                     "message": "Image Pixel attributes match the native pixel recipe."
+                }
+            ],
+            "external": []
+        }),
+    })
+}
+
+pub(crate) fn validate_presentation_state_file(
+    path: &Path,
+    expected: &PresentationStateExpectations<'_>,
+) -> Result<ValidatedPart10, GenerateError> {
+    let bytes = fs::read(path).map_err(|source| GenerateError::ReadGeneratedFile {
+        path: path.to_path_buf(),
+        source,
+    })?;
+    let obj = open_file(path).map_err(|err| GenerateError::ValidateDicomFile {
+        path: path.to_path_buf(),
+        message: err.to_string(),
+    })?;
+
+    let mut internal = Vec::new();
+    check(
+        &mut internal,
+        bytes.len() >= 132 && &bytes[128..132] == b"DICM",
+        "part10_preamble",
+        "File has a 128-byte preamble followed by the DICM marker.",
+        "File is missing the Part 10 DICM marker at byte offset 128.",
+    );
+    check_equal(
+        &mut internal,
+        "file_meta_transfer_syntax",
+        "File Meta Information Transfer Syntax UID matches the recipe.",
+        "File Meta Information Transfer Syntax UID does not match the recipe.",
+        trim_uid(obj.meta().transfer_syntax()).as_str(),
+        expected.transfer_syntax_uid,
+    );
+
+    let dataset_sop_class = element_str(path, &obj, tags::SOP_CLASS_UID)?;
+    check_equal(
+        &mut internal,
+        "sop_class_uid_consistency",
+        "Dataset SOP Class UID, File Meta SOP Class UID, and recipe SOP Class UID match.",
+        "SOP Class UID differs between dataset, File Meta Information, or recipe.",
+        dataset_sop_class.as_str(),
+        expected.sop_class_uid,
+    );
+    check_equal(
+        &mut internal,
+        "media_storage_sop_class_uid",
+        "File Meta SOP Class UID matches the dataset SOP Class UID.",
+        "File Meta SOP Class UID does not match the dataset SOP Class UID.",
+        trim_uid(obj.meta().media_storage_sop_class_uid()).as_str(),
+        dataset_sop_class.as_str(),
+    );
+    let dataset_sop_instance = element_str(path, &obj, tags::SOP_INSTANCE_UID)?;
+    check_equal(
+        &mut internal,
+        "sop_instance_uid_consistency",
+        "Dataset SOP Instance UID, File Meta SOP Instance UID, and manifest UID match.",
+        "SOP Instance UID differs between dataset, File Meta Information, or manifest.",
+        dataset_sop_instance.as_str(),
+        expected.sop_instance_uid,
+    );
+    check_equal(
+        &mut internal,
+        "media_storage_sop_instance_uid",
+        "File Meta SOP Instance UID matches the dataset SOP Instance UID.",
+        "File Meta SOP Instance UID does not match the dataset SOP Instance UID.",
+        trim_uid(obj.meta().media_storage_sop_instance_uid()).as_str(),
+        dataset_sop_instance.as_str(),
+    );
+    check_equal(
+        &mut internal,
+        "implementation_class_uid",
+        "File Meta Implementation Class UID matches the deterministic generator UID.",
+        "File Meta Implementation Class UID does not match the deterministic generator UID.",
+        trim_uid(obj.meta().implementation_class_uid()).as_str(),
+        expected.implementation_class_uid,
+    );
+    check_equal(
+        &mut internal,
+        "synthetic_data",
+        "Synthetic Data is present and set to YES.",
+        "Synthetic Data is missing or not set to YES.",
+        element_str(path, &obj, tags::SYNTHETIC_DATA)?.as_str(),
+        expected.synthetic_data,
+    );
+    check_equal(
+        &mut internal,
+        "presentation_state_modality",
+        "Presentation Series Modality is PR.",
+        "Presentation Series Modality does not match the recipe.",
+        element_str(path, &obj, tags::MODALITY)?.as_str(),
+        expected.modality,
+    );
+    check_equal(
+        &mut internal,
+        "presentation_state_content_label",
+        "Presentation State Content Label matches the recipe.",
+        "Presentation State Content Label does not match the recipe.",
+        element_str(path, &obj, TAG_CONTENT_LABEL)?.as_str(),
+        expected.presentation_label,
+    );
+
+    let referenced_series = top_level_sequence_item(path, &obj, TAG_REFERENCED_SERIES_SEQUENCE, 0)?;
+    check_equal(
+        &mut internal,
+        "presentation_state_referenced_series_uid",
+        "Presentation State references the source Series Instance UID.",
+        "Presentation State referenced Series Instance UID does not match the source.",
+        item_str(path, referenced_series, tags::SERIES_INSTANCE_UID)?.as_str(),
+        expected.referenced_series_instance_uid,
+    );
+    let referenced_image =
+        item_sequence_item(path, referenced_series, TAG_REFERENCED_IMAGE_SEQUENCE, 0)?;
+    check_equal(
+        &mut internal,
+        "presentation_state_referenced_sop_class_uid",
+        "Presentation State reference SOP Class UID matches the source image.",
+        "Presentation State reference SOP Class UID does not match the source image.",
+        item_str(path, referenced_image, TAG_REFERENCED_SOP_CLASS_UID)?.as_str(),
+        expected.referenced_sop_class_uid,
+    );
+    check_equal(
+        &mut internal,
+        "presentation_state_referenced_sop_instance_uid",
+        "Presentation State reference SOP Instance UID matches the source image.",
+        "Presentation State reference SOP Instance UID does not match the source image.",
+        item_str(path, referenced_image, TAG_REFERENCED_SOP_INSTANCE_UID)?.as_str(),
+        expected.referenced_sop_instance_uid,
+    );
+
+    let displayed_area =
+        top_level_sequence_item(path, &obj, TAG_DISPLAYED_AREA_SELECTION_SEQUENCE, 0)?;
+    check_equal(
+        &mut internal,
+        "presentation_state_displayed_area_top_left",
+        "Displayed Area top-left corner matches the recipe.",
+        "Displayed Area top-left corner does not match the recipe.",
+        item_i32_values(
+            path,
+            displayed_area,
+            TAG_DISPLAYED_AREA_TOP_LEFT_HAND_CORNER,
+        )?,
+        expected.displayed_area_top_left.clone(),
+    );
+    check_equal(
+        &mut internal,
+        "presentation_state_displayed_area_bottom_right",
+        "Displayed Area bottom-right corner matches the recipe.",
+        "Displayed Area bottom-right corner does not match the recipe.",
+        item_i32_values(
+            path,
+            displayed_area,
+            TAG_DISPLAYED_AREA_BOTTOM_RIGHT_HAND_CORNER,
+        )?,
+        expected.displayed_area_bottom_right.clone(),
+    );
+    check_equal(
+        &mut internal,
+        "presentation_state_size_mode",
+        "Presentation Size Mode matches the recipe.",
+        "Presentation Size Mode does not match the recipe.",
+        item_str(path, displayed_area, TAG_PRESENTATION_SIZE_MODE)?.as_str(),
+        expected.presentation_size_mode,
+    );
+    check_equal(
+        &mut internal,
+        "presentation_state_pixel_aspect_ratio",
+        "Presentation Pixel Aspect Ratio matches the recipe.",
+        "Presentation Pixel Aspect Ratio does not match the recipe.",
+        item_i32_values(path, displayed_area, TAG_PRESENTATION_PIXEL_ASPECT_RATIO)?,
+        expected.presentation_pixel_aspect_ratio.clone(),
+    );
+
+    let voi_lut = top_level_sequence_item(path, &obj, TAG_SOFTCOPY_VOI_LUT_SEQUENCE, 0)?;
+    check_equal(
+        &mut internal,
+        "presentation_state_window_center",
+        "Softcopy VOI Window Center matches the recipe.",
+        "Softcopy VOI Window Center does not match the recipe.",
+        item_str(path, voi_lut, tags::WINDOW_CENTER)?.as_str(),
+        expected.window_center,
+    );
+    check_equal(
+        &mut internal,
+        "presentation_state_window_width",
+        "Softcopy VOI Window Width matches the recipe.",
+        "Softcopy VOI Window Width does not match the recipe.",
+        item_str(path, voi_lut, tags::WINDOW_WIDTH)?.as_str(),
+        expected.window_width,
+    );
+    check_equal(
+        &mut internal,
+        "presentation_state_lut_shape",
+        "Presentation LUT Shape matches the recipe.",
+        "Presentation LUT Shape does not match the recipe.",
+        element_str(path, &obj, TAG_PRESENTATION_LUT_SHAPE)?.as_str(),
+        expected.presentation_lut_shape,
+    );
+    check(
+        &mut internal,
+        obj.element_opt(tags::PIXEL_DATA)
+            .map_err(|err| validation_error(path, err))?
+            .is_none(),
+        "presentation_state_pixel_data_absent",
+        "Presentation State contains no Pixel Data.",
+        "Presentation State unexpectedly contains Pixel Data.",
+    );
+
+    fail_if_any_failed(path, &internal)?;
+
+    Ok(ValidatedPart10 {
+        bytes,
+        validation: serde_json::json!({
+            "status": "passed",
+            "internal": internal,
+            "standards": [
+                {
+                    "name": standard_sop_class_validation_name(expected.sop_class_uid),
+                    "status": "passed",
+                    "message": standard_sop_class_validation_message(expected.sop_class_uid)
+                },
+                {
+                    "name": standard_transfer_syntax_validation_name(expected.transfer_syntax_uid),
+                    "status": "passed",
+                    "message": standard_transfer_syntax_validation_message(expected.transfer_syntax_uid)
+                },
+                {
+                    "name": "synthetic_data_attribute",
+                    "status": "passed",
+                    "message": "Synthetic Data (0008,001C) is present with value YES."
+                },
+                {
+                    "name": "grayscale_softcopy_presentation_state_modules",
+                    "status": "passed",
+                    "message": "GSPS relationship, displayed area, softcopy VOI, and presentation LUT attributes match the recipe."
                 }
             ],
             "external": []
@@ -2737,6 +3004,14 @@ fn item_u16(path: &Path, obj: &DatasetObject, tag: Tag) -> Result<u16, GenerateE
         .map_err(|err| validation_error(path, err))
 }
 
+fn item_i32_values(path: &Path, obj: &DatasetObject, tag: Tag) -> Result<Vec<i32>, GenerateError> {
+    obj.element(tag)
+        .map_err(|err| validation_error(path, err))?
+        .value()
+        .to_multi_int::<i32>()
+        .map_err(|err| validation_error(path, err))
+}
+
 fn sequence_item_count(path: &Path, obj: &OpenedObject, tag: Tag) -> Result<usize, GenerateError> {
     let element = obj
         .element(tag)
@@ -2768,6 +3043,7 @@ fn standard_sop_class_validation_name(sop_class_uid: &str) -> &'static str {
         uids::DIGITAL_MAMMOGRAPHY_X_RAY_IMAGE_STORAGE_FOR_PROCESSING => {
             "digital_mammography_for_processing_sop_class"
         }
+        "1.2.840.10008.5.1.4.1.1.11.1" => "grayscale_softcopy_presentation_state_sop_class",
         _ => "sop_class_uid",
     }
 }
@@ -2799,6 +3075,9 @@ fn standard_sop_class_validation_message(sop_class_uid: &str) -> &'static str {
         }
         uids::DIGITAL_MAMMOGRAPHY_X_RAY_IMAGE_STORAGE_FOR_PROCESSING => {
             "SOP Class UID matches Digital Mammography X-Ray Image Storage - For Processing in the 2026b reference."
+        }
+        "1.2.840.10008.5.1.4.1.1.11.1" => {
+            "SOP Class UID matches Grayscale Softcopy Presentation State Storage in the 2026b reference."
         }
         _ => "SOP Class UID matches the recipe.",
     }

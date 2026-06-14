@@ -2,9 +2,9 @@
 
 **Last updated:** 2026-06-14  
 **Source specification:** `SYSTEM_SPEC.md` version 0.2.0  
-**Current phase:** Phase 5.2 segmentation variants complete; Phase 5.3 presentation state/RWVM next
+**Current phase:** Phase 5.3 Grayscale Softcopy Presentation State complete; RWVM next
 
-**Current implementation status:** Phase 0, Phase 0.5, Phase 1, Phase 2, Phase 3, Phase 4, the pre-Phase-5 hardening pass, Phase 5.0 foundation, Phase 5.1 BINARY Segmentation Storage, and Phase 5.2 BINARY/FRACTIONAL/LABELMAP segmentation coverage are functionally complete. `IMPLEMENTATION_PLAN.md` defines the concrete Phase 5 implementation sequence. Phase 5.2 now includes `derived/seg/labelmap_multiframe_explicit_le`, a tiny Label Map Segmentation Storage object derived from the already-generated Enhanced CT source with `Segmentation Type` `LABELMAP` and 8-bit labelmap Pixel Data. The extended profile now writes 9 files and reports 8 remaining planned Phase 5 cases.
+**Current implementation status:** Phase 0, Phase 0.5, Phase 1, Phase 2, Phase 3, Phase 4, the pre-Phase-5 hardening pass, Phase 5.0 foundation, Phase 5.1 BINARY Segmentation Storage, Phase 5.2 BINARY/FRACTIONAL/LABELMAP segmentation coverage, and the Phase 5.3 Grayscale Softcopy Presentation State case are functionally complete. `IMPLEMENTATION_PLAN.md` defines the concrete Phase 5 implementation sequence. Phase 5.3 now includes `derived/presentation-state/grayscale_softcopy_ct_window_explicit_le`, a non-image Grayscale Softcopy Presentation State object derived from the already-generated Enhanced CT source with Presentation State Relationship, Displayed Area, Softcopy VOI window, and Presentation LUT Shape metadata. The extended profile now writes 10 files and reports 7 remaining planned Phase 5 cases.
 
 This document is the durable hand-off log for coding agents implementing
 `dicom-test-suite`. Keep `SYSTEM_SPEC.md` as the source of product and
@@ -85,7 +85,7 @@ Observed at creation of this progress file:
 | Phase 3: Classic radiology IODs | complete | CT Image Storage signed 12-bit rescale/window, MG For Presentation/For Processing 12-bit, CR overlay/Modality LUT/VOI LUT, MR multi-slice oblique geometry, DX display shutter, US Image Storage, and stable multi-file series generation are implemented. |
 | Phase 4: Enhanced multi-frame | complete | Enhanced CT and Enhanced MR Image Storage cases with Shared and Per-Frame Functional Groups and Multi-frame Dimension metadata are implemented; MR Echo, Temporal Position, phase/velocity-encoding variation, and a two-member Enhanced CT concatenation case are covered. |
 | Pre-Phase-5 hardening | complete | Registry authority, required CLI contracts, validation hardening, reproducibility/CI guards, and standards lock pinning policy are complete. Validation now covers raw Part 10 byte checks, parsed cross-field image invariants, manifest schema-conformance checks, baseline standards-derived Type 1/Type 2 checks, classic family-specific checks, and Enhanced CT/MR multi-frame standards-derived checks. |
-| Phase 5: Derived, presentation, and non-image objects | segmentation variants complete; GSPS/RWVM next | Full planned target queue is now in `cases/registry.json`. Manifest entries support nullable/absent image metadata plus a generated-file `references` array, coverage reports project manifest reference source case IDs into `derived_refs`, generated-root validation resolves same-run references while skipping image/pixel checks for non-image rows, and generation maintains an ordered source object registry for derived recipes. BINARY, FRACTIONAL, and LABELMAP Segmentation objects are implemented and validated. The next implementation slice is Phase 5.3 presentation state/RWVM work. |
+| Phase 5: Derived, presentation, and non-image objects | GSPS complete; RWVM next | Full planned target queue is now in `cases/registry.json`. Manifest entries support nullable/absent image metadata plus a generated-file `references` array, coverage reports project manifest reference source case IDs into `derived_refs`, generated-root validation resolves same-run references while skipping image/pixel checks for non-image rows, and generation maintains an ordered source object registry for derived recipes. BINARY, FRACTIONAL, LABELMAP Segmentation, and Grayscale Softcopy Presentation State objects are implemented and validated. The next implementation slice is the Real World Value Mapping case. |
 | Phase 6: Transfer syntax expansion | not started | Transfer syntax abstraction and compressed cases pending. |
 | Phase 7: Pathology, video, and large object profiles | not started | VL, WSI, video, and stress cases pending. |
 | Phase 8: Reporting and viewer integration | not started | Coverage reports, optional viewer runner, and compatibility schema pending. |
@@ -209,7 +209,7 @@ Enhanced CT concatenation case for logical multi-frame object splitting.
 - [x] Implement BINARY Segmentation Storage case.
 - [x] Implement FRACTIONAL Segmentation Storage case.
 - [x] Implement LABELMAP Segmentation using Label Map Segmentation Storage.
-- [ ] Implement Grayscale Softcopy Presentation State case.
+- [x] Implement Grayscale Softcopy Presentation State case.
 - [ ] Implement Real World Value Mapping case.
 - [ ] Implement Basic Text SR case.
 - [ ] Implement Comprehensive SR case.
@@ -748,8 +748,61 @@ These case IDs come from `SYSTEM_SPEC.md` section 21 and should seed
   The manifest and coverage report show the LABELMAP SEG as a derived/reference
   object with bit depth 8, and `cases/registry.json` now marks this case
   `implemented`.
+- 2026-06-14: Phase 5.3 Grayscale Softcopy Presentation State is implemented
+  for `derived/presentation-state/grayscale_softcopy_ct_window_explicit_le`.
+  The GSPS recipe writes a non-image Explicit VR Little Endian Presentation
+  State object after the generated Enhanced CT source, shares the source Study
+  Instance UID, uses its own deterministic PR Series and SOP Instance UIDs,
+  sets `Synthetic Data (0008,001C)` to `YES`, and records a same-run
+  `source_image` manifest reference to the Enhanced CT object. The dataset
+  includes Presentation Series Modality `PR`, Presentation State
+  Identification, Presentation State Relationship with Referenced Series/Image
+  Sequence, Displayed Area Selection covering the 2x2 source image, Softcopy
+  VOI LUT window center `350` and width `1400`, and Presentation LUT Shape
+  `IDENTITY`. The manifest schema now allows UID blocks without
+  `frame_of_reference_uid` so non-image objects are not forced to claim an
+  image-frame spatial identity. Coverage reports show the GSPS row as a
+  derived non-image object with null photometric/bits/frames metadata and
+  `derived_refs=["enhanced/ct/multiframe_shared_perframe_explicit_le"]`.
 
 ## Verification Results
+
+- 2026-06-14 Phase 5.3 Grayscale Softcopy Presentation State slice:
+  - `dicom-standard-kb` MCP lookups rechecked Grayscale Softcopy Presentation
+    State Storage, the Grayscale Softcopy Presentation State IOD, IOD modules,
+    Presentation State Relationship with expanded Image SOP Instance Reference
+    Macro, Presentation Series, Presentation State Identification, Displayed
+    Area, Softcopy VOI LUT, Softcopy Presentation LUT, Presentation State
+    Shutter, and Presentation State Mask.
+  - Initial `cargo fmt -- --check` failed on rustfmt wrapping in
+    `src/generator.rs`, `src/validation.rs`, and `tests/generate_cli.rs`;
+    `cargo fmt` was run, and repeated `cargo fmt -- --check` passed.
+  - Initial
+    `cargo test --test generate_cli --test validate_cli --test list_cases_cli --test project_artifacts --test report_cli`
+    failed on stale all-profile generated-file counts and a manifest schema
+    helper that still required `uids.frame_of_reference_uid` for every file.
+    Tests and `schemas/manifest.schema.json` were updated so non-image
+    manifest rows may omit Frame of Reference UID, and the repeated focused
+    command with `--test schema_artifacts` included passed.
+  - `cargo test --test generate_cli --test validate_cli --test list_cases_cli --test project_artifacts --test report_cli --test schema_artifacts`
+    passed.
+  - `cargo test` passed.
+  - `cargo run -- standards check-lock` passed with the existing documented
+    unavailable-pin warnings.
+  - `cargo run -- generate --profile extended --out /private/tmp/dts-gsps-slice-20260614 --seed 1`
+    passed, writing 10 files.
+  - `cargo run -- validate /private/tmp/dts-gsps-slice-20260614` passed with
+    10 files checked and 0 validation failures.
+  - `cargo run -- report /private/tmp/dts-gsps-slice-20260614 --format json`
+    passed with counts `generated=10`, `planned=7`, `skipped=0`,
+    `blocked=0`; the GSPS row reports
+    `derived_refs=["enhanced/ct/multiframe_shared_perframe_explicit_le"]`,
+    SOP Class UID `1.2.840.10008.5.1.4.1.1.11.1`, null photometric/bits/frames
+    fields, and validation status `passed`.
+  - `cargo run -- report /private/tmp/dts-gsps-slice-20260614 --format markdown`
+    passed with the expected generated GSPS row and 7 remaining Phase 5 gaps.
+  - `cargo run -- standards gaps --profile extended` passed with no standards
+    evidence gaps.
 
 - 2026-06-14 Phase 5.2 LABELMAP Segmentation Storage slice:
   - `dicom-standard-kb` MCP lookups rechecked Label Map Segmentation Storage,
@@ -940,23 +993,23 @@ None currently recorded for continuing Phase 5.3.
 
 ## Recommended Next Commit
 
-Start Phase 5.3 with the smallest presentation-state/RWVM slice. Prefer
-`derived/presentation-state/grayscale_softcopy_ct_window_explicit_le` first
-unless repo state suggests RWVM is safer. Recheck Grayscale Softcopy
-Presentation State Storage, its IOD modules, Presentation State Relationship,
-Displayed Area, Softcopy Presentation LUT, and required referenced-image
-attributes with `dicom-standard-kb` before adding the writer. Keep the commit
-limited to GSPS writer/validation/tests/registry status/progress unless RWVM is
-required by an implementation dependency.
+Continue Phase 5.3 with
+`derived/rwvm/linear_ct_mapping_explicit_le`. Recheck Real World Value Mapping
+Storage, the Real World Value Mapping IOD/modules, Real World Value Mapping
+Sequence, measurement units code sequence requirements, linear slope/intercept
+mapping attributes, and required source-reference attributes with
+`dicom-standard-kb` before adding the writer. Keep the commit limited to RWVM
+writer/validation/tests/registry status/progress unless a small shared helper
+is required for RWVM reference construction.
 
 ## Commit-Ready Summary
 
 The current slice implements
-`derived/seg/labelmap_multiframe_explicit_le`, parameterizes SEG SOP Class
-metadata so Label Map Segmentation Storage uses UID
-`1.2.840.10008.5.1.4.1.1.66.7`, flips the LABELMAP registry row to
-`implemented`, updates focused tests and this progress tracker, and leaves
-Phase 5.3 GSPS/RWVM as the next work.
+`derived/presentation-state/grayscale_softcopy_ct_window_explicit_le`, adds a
+non-image GSPS writer and validation path, relaxes manifest UID schema
+requirements so non-image rows may omit Frame of Reference UID, flips the GSPS
+registry row to `implemented`, updates focused tests and this progress tracker,
+and leaves `derived/rwvm/linear_ct_mapping_explicit_le` as the next work.
 
 ## Handoff Notes
 

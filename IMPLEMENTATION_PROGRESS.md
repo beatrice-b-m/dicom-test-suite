@@ -1,10 +1,10 @@
 # Implementation Progress
 
-**Last updated:** 2026-06-13  
+**Last updated:** 2026-06-14  
 **Source specification:** `SYSTEM_SPEC.md` version 0.2.0  
 **Current phase:** ready for Phase 5 feature expansion
 
-**Current implementation status:** Phase 0, Phase 0.5, Phase 1, Phase 2, Phase 3, and Phase 4 are functionally implemented, and Remediation R1, R2, R3, R4, and R5 are complete. Phase 5 derived, presentation, and non-image object work is eligible to begin next.
+**Current implementation status:** Phase 0, Phase 0.5, Phase 1, Phase 2, Phase 3, Phase 4, and the pre-Phase-5 hardening pass are functionally complete. Phase 5 derived, presentation, and non-image object work is eligible to begin next.
 
 This document is the durable hand-off log for coding agents implementing
 `dicom-test-suite`. Keep `SYSTEM_SPEC.md` as the source of product and
@@ -49,7 +49,6 @@ Observed at creation of this progress file:
 | `standards/kb-integration.md` | present | Documents the pinned 2026b `dicom-standard-kb` MCP query workflow, evidence fields, and fallback path. |
 | `standards/gap-workflow.md` | present | Documents standards gap handling, local source notes, blocked/skipped registry actions, and KB patch criteria. |
 | `standards/source-notes/` | present | Contains a README/template plus `uid-2-25.md` for the PS3.5 UID root gap not covered by `dicom-standard-kb`. |
-| `REMEDIATION_PLAN.md` | present | Defines the phased cleanup path for registry authority, missing planned cases, CLI completion, validation hardening, reproducibility/CI guard gaps, and standards lock pinning before Phase 5 feature work resumes. |
 | `src/` or `crates/` | present | Single-package implementation now includes `list-cases`, `generate`, deterministic UID, run manifest, SC pixel writers, CT signed rescale writer, MG For Presentation/For Processing writers, CR overlay/LUT writer, MR multi-slice writer, DX display shutter writer, US single-frame writer, Enhanced CT and Enhanced MR multi-frame writers, Enhanced CT concatenation output, and Part 10 validation paths. |
 | `tests/` | present | Includes schema artifact, `list-cases` CLI, `generate` CLI, UID, manifest, Part 10 readback, CT rescale readback, MG presentation/processing readback, CR overlay/LUT readback, MR multi-slice readback, DX display shutter readback, US readback, Enhanced CT and Enhanced MR multi-frame readback, Enhanced CT concatenation readback, and smoke reproducibility tests. |
 
@@ -84,7 +83,7 @@ Observed at creation of this progress file:
 | Phase 2: Native pixel matrix | complete | Core native monochrome 16-bit unsigned/signed MONOCHROME2 OW Pixel Data, RGB planar configuration 1, PALETTE COLOR, YBR_FULL, YBR_FULL_422, odd-dimension, rectangular, tiny-image, pixel-padding, and broadened native pixel validators are implemented. |
 | Phase 3: Classic radiology IODs | complete | CT Image Storage signed 12-bit rescale/window, MG For Presentation/For Processing 12-bit, CR overlay/Modality LUT/VOI LUT, MR multi-slice oblique geometry, DX display shutter, US Image Storage, and stable multi-file series generation are implemented. |
 | Phase 4: Enhanced multi-frame | complete | Enhanced CT and Enhanced MR Image Storage cases with Shared and Per-Frame Functional Groups and Multi-frame Dimension metadata are implemented; MR Echo, Temporal Position, phase/velocity-encoding variation, and a two-member Enhanced CT concatenation case are covered. |
-| Remediation before Phase 5 | complete | R1 registry authority, R2 required CLI contracts, R3 validation hardening, R4 reproducibility/CI guards, and R5 standards lock pinning policy are complete. R3 now covers raw Part 10 byte validation, parsed cross-field image invariant checks, manifest schema-conformance checks, baseline standards-derived Type 1/Type 2 checks, classic family-specific checks, and Enhanced CT/MR multi-frame standards-derived checks. |
+| Pre-Phase-5 hardening | complete | Registry authority, required CLI contracts, validation hardening, reproducibility/CI guards, and standards lock pinning policy are complete. Validation now covers raw Part 10 byte checks, parsed cross-field image invariants, manifest schema-conformance checks, baseline standards-derived Type 1/Type 2 checks, classic family-specific checks, and Enhanced CT/MR multi-frame standards-derived checks. |
 | Phase 5: Derived, presentation, and non-image objects | not started | SEG, presentation states, SR, KOS, RWVM, RT, and encapsulated documents pending. |
 | Phase 6: Transfer syntax expansion | not started | Transfer syntax abstraction and compressed cases pending. |
 | Phase 7: Pathology, video, and large object profiles | not started | VL, WSI, video, and stress cases pending. |
@@ -624,6 +623,9 @@ These case IDs come from `SYSTEM_SPEC.md` section 21 and should seed
   hashes; `standards check-lock` rejects nullable KB pins that lack those
   field-specific statuses. `standards/kb-integration.md` documents the null-pin
   policy.
+- 2026-06-14: The resolved `REMEDIATION_PLAN.md` task list was removed from
+  active project documentation. `IMPLEMENTATION_PROGRESS.md` remains the
+  durable implementation ledger and now points future work directly at Phase 5.
 
 ## Current Blockers
 

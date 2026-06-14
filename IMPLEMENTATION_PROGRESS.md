@@ -2,9 +2,9 @@
 
 **Last updated:** 2026-06-14  
 **Source specification:** `SYSTEM_SPEC.md` version 0.2.0  
-**Current phase:** Phase 5.3 Presentation State and RWVM complete; SR/KOS next
+**Current phase:** Phase 5.4 Basic Text SR complete; Comprehensive SR next
 
-**Current implementation status:** Phase 0, Phase 0.5, Phase 1, Phase 2, Phase 3, Phase 4, the pre-Phase-5 hardening pass, Phase 5.0 foundation, Phase 5.1 BINARY Segmentation Storage, Phase 5.2 BINARY/FRACTIONAL/LABELMAP segmentation coverage, and Phase 5.3 Presentation State/RWVM are functionally complete. `IMPLEMENTATION_PLAN.md` defines the concrete Phase 5 implementation sequence. Phase 5.3 now includes `derived/presentation-state/grayscale_softcopy_ct_window_explicit_le`, a non-image Grayscale Softcopy Presentation State object derived from the already-generated Enhanced CT source, and `derived/rwvm/linear_ct_mapping_explicit_le`, a non-image Real World Value Mapping object with a linear HU-style mapping over the generated Enhanced CT source frames. The extended profile now writes 11 files and reports 6 remaining planned Phase 5 cases.
+**Current implementation status:** Phase 0, Phase 0.5, Phase 1, Phase 2, Phase 3, Phase 4, the pre-Phase-5 hardening pass, Phase 5.0 foundation, Phase 5.1 BINARY Segmentation Storage, Phase 5.2 BINARY/FRACTIONAL/LABELMAP segmentation coverage, Phase 5.3 Presentation State/RWVM, and the first Phase 5.4 Basic Text SR slice are functionally complete. `IMPLEMENTATION_PLAN.md` defines the concrete Phase 5 implementation sequence. Phase 5.4 now includes `derived/sr/basic_text_observation_explicit_le`, a non-image Basic Text SR object derived from the already-generated Enhanced CT source, with SR Document General flags, Current Requested Procedure Evidence, a root CONTAINER content item, and one contained TEXT observation. The extended profile now writes 12 files and reports 5 remaining planned Phase 5 cases.
 
 This document is the durable hand-off log for coding agents implementing
 `dicom-test-suite`. Keep `SYSTEM_SPEC.md` as the source of product and
@@ -85,7 +85,7 @@ Observed at creation of this progress file:
 | Phase 3: Classic radiology IODs | complete | CT Image Storage signed 12-bit rescale/window, MG For Presentation/For Processing 12-bit, CR overlay/Modality LUT/VOI LUT, MR multi-slice oblique geometry, DX display shutter, US Image Storage, and stable multi-file series generation are implemented. |
 | Phase 4: Enhanced multi-frame | complete | Enhanced CT and Enhanced MR Image Storage cases with Shared and Per-Frame Functional Groups and Multi-frame Dimension metadata are implemented; MR Echo, Temporal Position, phase/velocity-encoding variation, and a two-member Enhanced CT concatenation case are covered. |
 | Pre-Phase-5 hardening | complete | Registry authority, required CLI contracts, validation hardening, reproducibility/CI guards, and standards lock pinning policy are complete. Validation now covers raw Part 10 byte checks, parsed cross-field image invariants, manifest schema-conformance checks, baseline standards-derived Type 1/Type 2 checks, classic family-specific checks, and Enhanced CT/MR multi-frame standards-derived checks. |
-| Phase 5: Derived, presentation, and non-image objects | Phase 5.3 complete; SR/KOS next | Full planned target queue is now in `cases/registry.json`. Manifest entries support nullable/absent image metadata plus a generated-file `references` array, coverage reports project manifest reference source case IDs into `derived_refs`, generated-root validation resolves same-run references while skipping image/pixel checks for non-image rows, and generation maintains an ordered source object registry for derived recipes. BINARY, FRACTIONAL, LABELMAP Segmentation, Grayscale Softcopy Presentation State, and Real World Value Mapping objects are implemented and validated. The next implementation slice is Basic Text SR. |
+| Phase 5: Derived, presentation, and non-image objects | Phase 5.4 Basic Text SR complete; Comprehensive SR next | Full planned target queue is now in `cases/registry.json`. Manifest entries support nullable/absent image metadata plus a generated-file `references` array, coverage reports project manifest reference source case IDs into `derived_refs`, generated-root validation resolves same-run references while skipping image/pixel checks for non-image rows, and generation maintains an ordered source object registry for derived recipes. BINARY, FRACTIONAL, LABELMAP Segmentation, Grayscale Softcopy Presentation State, Real World Value Mapping, and Basic Text SR objects are implemented and validated. The next implementation slice is Comprehensive SR. |
 | Phase 6: Transfer syntax expansion | not started | Transfer syntax abstraction and compressed cases pending. |
 | Phase 7: Pathology, video, and large object profiles | not started | VL, WSI, video, and stress cases pending. |
 | Phase 8: Reporting and viewer integration | not started | Coverage reports, optional viewer runner, and compatibility schema pending. |
@@ -211,7 +211,7 @@ Enhanced CT concatenation case for logical multi-frame object splitting.
 - [x] Implement LABELMAP Segmentation using Label Map Segmentation Storage.
 - [x] Implement Grayscale Softcopy Presentation State case.
 - [x] Implement Real World Value Mapping case.
-- [ ] Implement Basic Text SR case.
+- [x] Implement Basic Text SR case.
 - [ ] Implement Comprehensive SR case.
 - [ ] Implement Key Object Selection case.
 - [ ] Implement RT Structure Set detection case.
@@ -780,8 +780,59 @@ These case IDs come from `SYSTEM_SPEC.md` section 21 and should seed
   RWVM row as a derived non-image object with null photometric/bits/frames
   metadata and
   `derived_refs=["enhanced/ct/multiframe_shared_perframe_explicit_le"]`.
+- 2026-06-14: Phase 5.4 Basic Text SR is implemented for
+  `derived/sr/basic_text_observation_explicit_le`. The Basic Text SR recipe
+  writes a non-image Explicit VR Little Endian Basic Text SR Storage object
+  after the generated Enhanced CT source, shares the source Study Instance UID,
+  uses its own deterministic SR Series and SOP Instance UIDs, sets Synthetic
+  Data to `YES`, and records a same-run `source_image` manifest reference to
+  frames `[1, 2]` of the Enhanced CT object. The dataset includes SR Document
+  Series Modality `SR`, SR Document General `Completion Flag` `COMPLETE` and
+  `Verification Flag` `UNVERIFIED`, Current Requested Procedure Evidence
+  referencing the source Study/Series/SOP Instance, and a minimal SR Document
+  Content tree with a root `CONTAINER` title and one contained `TEXT`
+  observation. Basic Text SR has dedicated generation validation and
+  generated-root validation for SR flags, evidence references, root content,
+  text content, and absence of Pixel Data. Coverage reports show the Basic Text
+  SR row as a derived non-image object with null photometric/bits/frames
+  metadata and
+  `derived_refs=["enhanced/ct/multiframe_shared_perframe_explicit_le"]`.
 
 ## Verification Results
+
+- 2026-06-14 Phase 5.4 Basic Text SR slice:
+  - `dicom-standard-kb` MCP lookups rechecked Basic Text SR Storage, the Basic
+    Text SR IOD, IOD modules, SR Document General, SR Document Content, Value
+    Type, Content Sequence, Completion Flag, Verification Flag, Concept Name
+    Code Sequence, and Text Value.
+  - Initial
+    `cargo test --test generate_cli --test list_cases_cli --test project_artifacts --test validate_cli`
+    failed because stale tests still expected the extended/all file counts and
+    skipped-case counts from before Basic Text SR was implemented; the tests
+    were updated for 12 extended files, 34 all-profile files, and 5 remaining
+    planned Phase 5 cases.
+  - Repeated
+    `cargo test --test generate_cli --test list_cases_cli --test project_artifacts --test validate_cli`
+    passed.
+  - `cargo fmt -- --check` passed.
+  - `cargo test` passed.
+  - `cargo run -- standards check-lock` passed with the existing documented
+    unavailable-pin warnings.
+  - `cargo run -- generate --profile extended --out /private/tmp/dts-basic-text-sr-verification --seed 1`
+    passed, writing 12 files.
+  - `cargo run -- validate /private/tmp/dts-basic-text-sr-verification` passed
+    with 12 files checked and 0 validation failures.
+  - `cargo run -- report /private/tmp/dts-basic-text-sr-verification --format json`
+    passed with counts `generated=12`, `planned=5`, `skipped=0`, `blocked=0`;
+    the Basic Text SR row reports
+    `derived_refs=["enhanced/ct/multiframe_shared_perframe_explicit_le"]`, SOP
+    Class UID `1.2.840.10008.5.1.4.1.1.88.11`, null photometric/bits/frames
+    fields, and validation status `passed`.
+  - `cargo run -- report /private/tmp/dts-basic-text-sr-verification --format markdown`
+    passed with the expected generated Basic Text SR row and 5 remaining Phase
+    5 gaps.
+  - `cargo run -- standards gaps --profile extended` passed with no standards
+    evidence gaps.
 
 - 2026-06-14 Phase 5.3 Real World Value Mapping slice:
   - `dicom-standard-kb` MCP lookups rechecked Real World Value Mapping Storage,
@@ -1042,21 +1093,23 @@ None currently recorded for continuing Phase 5.4.
 
 ## Recommended Next Commit
 
-Start Phase 5.4 with
-`derived/sr/basic_text_observation_explicit_le`. Recheck Basic Text SR Storage,
-the Basic Text SR IOD/modules, SR Document Series, SR Document General, SR
-Document Content, evidence/reference attributes, Completion/Verification flags,
-Value Type, Concept Name Code Sequence, and the smallest standards-valid text
-content tree with `dicom-standard-kb` before adding the writer. Keep the commit
-limited to Basic Text SR writer/validation/tests/registry status/progress unless
-a small shared SR content helper is required.
+Continue Phase 5.4 with
+`derived/sr/comprehensive_measurement_explicit_le`. Recheck Comprehensive SR
+Storage, the Comprehensive SR IOD/modules, SR Document Series, SR Document
+General, SR Document Content, evidence/reference attributes,
+Completion/Verification flags, numeric measurement content requirements, image
+reference content requirements, and required code/measurement units sequences
+with `dicom-standard-kb` before adding the writer. Keep the commit limited to
+Comprehensive SR writer/validation/tests/registry status/progress unless a
+small shared SR content helper is required.
 
 ## Commit-Ready Summary
 
-The current slice implements `derived/rwvm/linear_ct_mapping_explicit_le`, adds
-a non-image RWVM writer and validation path, flips the RWVM registry row to
-`implemented`, updates focused tests and this progress tracker, and leaves
-`derived/sr/basic_text_observation_explicit_le` as the next work.
+The current slice implements `derived/sr/basic_text_observation_explicit_le`,
+adds a non-image Basic Text SR writer and validation path, flips the Basic Text
+SR registry row to `implemented`, updates focused tests and this progress
+tracker, and leaves `derived/sr/comprehensive_measurement_explicit_le` as the
+next work.
 
 ## Handoff Notes
 

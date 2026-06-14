@@ -110,7 +110,10 @@ fn registry_contains_initial_smoke_and_core_cases() {
             "implemented",
         ),
         ("derived/rwvm/linear_ct_mapping_explicit_le", "implemented"),
-        ("derived/sr/basic_text_observation_explicit_le", "planned"),
+        (
+            "derived/sr/basic_text_observation_explicit_le",
+            "implemented",
+        ),
         (
             "derived/sr/comprehensive_measurement_explicit_le",
             "planned",

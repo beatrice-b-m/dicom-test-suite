@@ -2963,7 +2963,7 @@
     },
     {
       "case_id": "derived/sr/basic_text_observation_explicit_le",
-      "status": "planned",
+      "status": "implemented",
       "profiles": ["extended"],
       "recipe_id": "sr_basic_text_observation",
       "recipe_version": "0.1.0",

@@ -1693,6 +1693,13 @@ fn validate_family_standard_elements(
             file,
             obj,
         )?,
+        "Basic Text SR" => validate_basic_text_sr_standard_elements(
+            failures,
+            relative_path,
+            manifest_path,
+            file,
+            obj,
+        )?,
         _ => {}
     }
 
@@ -2592,6 +2599,225 @@ fn validate_segmentation_standard_elements(
                 "{relative_path}: segmentation_source_image_frame_number: {err}"
             )),
         }
+    }
+
+    Ok(())
+}
+
+fn validate_basic_text_sr_standard_elements(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    manifest_path: &Path,
+    file: &Value,
+    obj: &OpenedObject,
+) -> Result<(), ValidateError> {
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::SOP_CLASS_UID,
+        "basic_text_sr_sop_class",
+        manifest_str(
+            manifest_path,
+            file,
+            "/dicom/sop_class_uid",
+            "Basic Text SR SOP Class UID must be a string",
+        )?,
+    );
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::MODALITY,
+        "sr_modality_type1",
+        "SR",
+    );
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::COMPLETION_FLAG,
+        "sr_completion_flag_type1",
+        manifest_str(
+            manifest_path,
+            file,
+            "/expected_semantics/structured_report/completion_flag",
+            "SR completion flag must be a string",
+        )?,
+    );
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::VERIFICATION_FLAG,
+        "sr_verification_flag_type1",
+        manifest_str(
+            manifest_path,
+            file,
+            "/expected_semantics/structured_report/verification_flag",
+            "SR verification flag must be a string",
+        )?,
+    );
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::VALUE_TYPE,
+        "sr_root_value_type",
+        manifest_str(
+            manifest_path,
+            file,
+            "/expected_semantics/structured_report/root_value_type",
+            "SR root value type must be a string",
+        )?,
+    );
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::CONTINUITY_OF_CONTENT,
+        "sr_root_continuity_of_content",
+        manifest_str(
+            manifest_path,
+            file,
+            "/expected_semantics/structured_report/root_continuity_of_content",
+            "SR root continuity must be a string",
+        )?,
+    );
+    validate_sequence_len(
+        failures,
+        relative_path,
+        obj,
+        tags::CURRENT_REQUESTED_PROCEDURE_EVIDENCE_SEQUENCE,
+        "sr_current_requested_procedure_evidence_sequence_type1",
+        1,
+    );
+    validate_sequence_len(
+        failures,
+        relative_path,
+        obj,
+        tags::CONTENT_SEQUENCE,
+        "sr_content_sequence_type1c",
+        usize::try_from(manifest_u64(
+            manifest_path,
+            file,
+            "/expected_semantics/structured_report/content_sequence_items",
+            "SR content sequence item count must be an integer",
+        )?)
+        .expect("manifest SR content item count must fit usize"),
+    );
+
+    let source_sop_instance_uid = manifest_str(
+        manifest_path,
+        file,
+        "/expected_semantics/source_sop_instance_uid",
+        "source_sop_instance_uid must be a string",
+    )?;
+    let references =
+        file.get("references")
+            .and_then(Value::as_array)
+            .ok_or(ValidateError::ManifestShape {
+                path: manifest_path.to_path_buf(),
+                message: "Basic Text SR references must be an array",
+            })?;
+    let source_sop_class_uid = references
+        .first()
+        .and_then(|reference| reference.get("sop_class_uid"))
+        .and_then(Value::as_str)
+        .ok_or(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "Basic Text SR source reference sop_class_uid must be a string",
+        })?;
+
+    let Ok(evidence) = top_level_sequence_item_for_validate(
+        obj,
+        tags::CURRENT_REQUESTED_PROCEDURE_EVIDENCE_SEQUENCE,
+        0,
+    ) else {
+        failures.push(format!(
+            "{relative_path}: sr_current_requested_procedure_evidence_sequence: missing item"
+        ));
+        return Ok(());
+    };
+    let Ok(series) = item_sequence_item_for_validate(evidence, tags::REFERENCED_SERIES_SEQUENCE, 0)
+    else {
+        failures.push(format!(
+            "{relative_path}: sr_evidence_referenced_series_sequence: missing item"
+        ));
+        return Ok(());
+    };
+    let Ok(sop) = item_sequence_item_for_validate(series, tags::REFERENCED_SOP_SEQUENCE, 0) else {
+        failures.push(format!(
+            "{relative_path}: sr_evidence_referenced_sop_sequence: missing item"
+        ));
+        return Ok(());
+    };
+    match item_str_for_validate(sop, TAG_REFERENCED_SOP_CLASS_UID) {
+        Ok(actual) => validate_equal(
+            failures,
+            relative_path,
+            "sr_evidence_sop_class_uid",
+            actual,
+            source_sop_class_uid,
+        ),
+        Err(err) => failures.push(format!("{relative_path}: sr_evidence_sop_class_uid: {err}")),
+    }
+    match item_str_for_validate(sop, TAG_REFERENCED_SOP_INSTANCE_UID) {
+        Ok(actual) => validate_equal(
+            failures,
+            relative_path,
+            "sr_evidence_sop_instance_uid",
+            actual,
+            source_sop_instance_uid,
+        ),
+        Err(err) => failures.push(format!(
+            "{relative_path}: sr_evidence_sop_instance_uid: {err}"
+        )),
+    }
+
+    let Ok(observation) = top_level_sequence_item_for_validate(obj, tags::CONTENT_SEQUENCE, 0)
+    else {
+        failures.push(format!(
+            "{relative_path}: sr_content_sequence: missing observation item"
+        ));
+        return Ok(());
+    };
+    match item_str_for_validate(observation, tags::RELATIONSHIP_TYPE) {
+        Ok(actual) => validate_equal(
+            failures,
+            relative_path,
+            "sr_observation_relationship_type",
+            actual,
+            "CONTAINS",
+        ),
+        Err(err) => failures.push(format!(
+            "{relative_path}: sr_observation_relationship_type: {err}"
+        )),
+    }
+    match item_str_for_validate(observation, tags::VALUE_TYPE) {
+        Ok(actual) => validate_equal(
+            failures,
+            relative_path,
+            "sr_observation_value_type",
+            actual,
+            "TEXT",
+        ),
+        Err(err) => failures.push(format!("{relative_path}: sr_observation_value_type: {err}")),
+    }
+    match item_str_for_validate(observation, tags::TEXT_VALUE) {
+        Ok(actual) => validate_equal(
+            failures,
+            relative_path,
+            "sr_observation_text",
+            actual,
+            manifest_str(
+                manifest_path,
+                file,
+                "/expected_semantics/structured_report/observation_text",
+                "SR observation text must be a string",
+            )?,
+        ),
+        Err(err) => failures.push(format!("{relative_path}: sr_observation_text: {err}")),
     }
 
     Ok(())
@@ -4353,6 +4579,10 @@ mod tests {
         assert!(
             !output.contains("derived/seg/labelmap_multiframe_explicit_le"),
             "planned status filter should not include implemented LABELMAP SEG"
+        );
+        assert!(
+            !output.contains("derived/sr/basic_text_observation_explicit_le"),
+            "planned status filter should not include implemented Basic Text SR"
         );
         assert!(
             output.contains(

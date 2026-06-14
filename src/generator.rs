@@ -30,6 +30,7 @@ const CLASSIC_CR_RECIPE_VERSION: &str = "0.1.0";
 const CLASSIC_MR_RECIPE_VERSION: &str = "0.1.0";
 const SEGMENTATION_RECIPE_VERSION: &str = "0.1.0";
 const SEGMENTATION_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.66.4";
+const LABEL_MAP_SEGMENTATION_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.66.7";
 const SEGMENTATION_SOURCE_CASE_ID: &str = "enhanced/ct/multiframe_shared_perframe_explicit_le";
 const MONO_PIXELS: [u8; 4] = [0, 85, 170, 255];
 const RGB_PLANAR0_PIXELS: [u8; 12] = [255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 255, 255];
@@ -70,6 +71,8 @@ const SEG_BINARY_PIXELS: [u8; 2] = [0b0000_1001, 0b0000_0110];
 const SEG_BINARY_VALUES: [i32; 8] = [1, 0, 0, 1, 0, 1, 1, 0];
 const SEG_FRACTIONAL_PROBABILITY_PIXELS: [u8; 8] = [0, 64, 128, 255, 255, 128, 64, 0];
 const SEG_FRACTIONAL_PROBABILITY_VALUES: [i32; 8] = [0, 64, 128, 255, 255, 128, 64, 0];
+const SEG_LABELMAP_PIXELS: [u8; 8] = [0, 1, 0, 1, 1, 0, 1, 0];
+const SEG_LABELMAP_VALUES: [i32; 8] = [0, 1, 0, 1, 1, 0, 1, 0];
 const SEG_REFERENCED_FRAMES: [u16; 2] = [1, 2];
 const TAG_IMAGE_TYPE: Tag = Tag(0x0008, 0x0008);
 const TAG_REFERENCED_SERIES_SEQUENCE: Tag = Tag(0x0008, 0x1115);
@@ -637,6 +640,8 @@ struct SegmentationRecipe {
     case_id: &'static str,
     recipe_id: &'static str,
     source_case_id: &'static str,
+    sop_class_uid: &'static str,
+    sop_class_name: &'static str,
     rows: u16,
     columns: u16,
     frames: u16,
@@ -662,6 +667,8 @@ const SEGMENTATION_RECIPES: &[SegmentationRecipe] = &[
         case_id: "derived/seg/binary_multiframe_explicit_le",
         recipe_id: "seg_binary_multiframe",
         source_case_id: SEGMENTATION_SOURCE_CASE_ID,
+        sop_class_uid: SEGMENTATION_STORAGE_UID,
+        sop_class_name: "Segmentation Storage",
         rows: 2,
         columns: 2,
         frames: 2,
@@ -685,6 +692,8 @@ const SEGMENTATION_RECIPES: &[SegmentationRecipe] = &[
         case_id: "derived/seg/fractional_probability_multiframe_explicit_le",
         recipe_id: "seg_fractional_probability_multiframe",
         source_case_id: SEGMENTATION_SOURCE_CASE_ID,
+        sop_class_uid: SEGMENTATION_STORAGE_UID,
+        sop_class_name: "Segmentation Storage",
         rows: 2,
         columns: 2,
         frames: 2,
@@ -703,6 +712,31 @@ const SEGMENTATION_RECIPES: &[SegmentationRecipe] = &[
         segment_label: "DTS_SYNTHETIC_PROBABILITY",
         visual_pattern: "two_frame_fractional_probability_segmentation",
         stressors: &["fractional_probability_pixel_data"],
+    },
+    SegmentationRecipe {
+        case_id: "derived/seg/labelmap_multiframe_explicit_le",
+        recipe_id: "seg_labelmap_multiframe",
+        source_case_id: SEGMENTATION_SOURCE_CASE_ID,
+        sop_class_uid: LABEL_MAP_SEGMENTATION_STORAGE_UID,
+        sop_class_name: "Label Map Segmentation Storage",
+        rows: 2,
+        columns: 2,
+        frames: 2,
+        bits_allocated: 8,
+        bits_stored: 8,
+        high_bit: 7,
+        pixel_data_length_formula: PixelDataLengthFormula::ContiguousSamples,
+        pixel_bytes: &SEG_LABELMAP_PIXELS,
+        pixel_values: &SEG_LABELMAP_VALUES,
+        pixel_min: 0,
+        pixel_max: 1,
+        referenced_frame_numbers: &SEG_REFERENCED_FRAMES,
+        segmentation_type: "LABELMAP",
+        segmentation_fractional_type: None,
+        maximum_fractional_value: None,
+        segment_label: "DTS_SYNTHETIC_LABELMAP",
+        visual_pattern: "two_frame_labelmap_segmentation",
+        stressors: &["labelmap_pixel_data", "label_map_segmentation_storage"],
     },
 ];
 
@@ -2693,12 +2727,7 @@ fn write_segmentation_case(
     })?;
 
     let mut obj = InMemDicomObject::new_empty();
-    put_str(
-        &mut obj,
-        tags::SOP_CLASS_UID,
-        VR::UI,
-        SEGMENTATION_STORAGE_UID,
-    );
+    put_str(&mut obj, tags::SOP_CLASS_UID, VR::UI, recipe.sop_class_uid);
     put_str(&mut obj, tags::SOP_INSTANCE_UID, VR::UI, &sop_instance_uid);
     put_str(&mut obj, tags::SYNTHETIC_DATA, VR::CS, "YES");
 
@@ -2847,7 +2876,7 @@ fn write_segmentation_case(
     let validated = validate_part10_file(
         &path,
         &Part10Expectations {
-            sop_class_uid: SEGMENTATION_STORAGE_UID,
+            sop_class_uid: recipe.sop_class_uid,
             sop_instance_uid: &sop_instance_uid,
             transfer_syntax_uid: uids::EXPLICIT_VR_LITTLE_ENDIAN,
             implementation_class_uid: &implementation_class_uid,
@@ -3726,8 +3755,8 @@ fn segmentation_manifest_entry(
             }
         },
         "dicom": {
-            "sop_class_uid": SEGMENTATION_STORAGE_UID,
-            "sop_class_name": "Segmentation Storage",
+            "sop_class_uid": recipe.sop_class_uid,
+            "sop_class_name": recipe.sop_class_name,
             "iod_name": "Segmentation",
             "modality": "SEG",
             "transfer_syntax_uid": uids::EXPLICIT_VR_LITTLE_ENDIAN,

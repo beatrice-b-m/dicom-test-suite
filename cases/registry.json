@@ -2743,7 +2743,7 @@
     },
     {
       "case_id": "derived/seg/labelmap_multiframe_explicit_le",
-      "status": "planned",
+      "status": "implemented",
       "profiles": ["extended"],
       "recipe_id": "seg_labelmap_multiframe",
       "recipe_version": "0.1.0",
@@ -2766,6 +2766,14 @@
           "covered": true,
           "part": "PS3.4",
           "anchor": "table_B.5-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_uid LabelMapSegmentationStorage",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
         },
         {
           "source": "dicom-standard-kb",
@@ -2805,7 +2813,7 @@
           "query": "search_standard_text Segmentation Type LABELMAP",
           "covered": true,
           "part": "PS3.3",
-          "anchor": "sect_C.8.20.2.3.1"
+          "anchor": "sect_C.8.20.2.3.3"
         }
       ]
     },

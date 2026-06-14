@@ -104,7 +104,7 @@ fn registry_contains_initial_smoke_and_core_cases() {
             "derived/seg/fractional_probability_multiframe_explicit_le",
             "implemented",
         ),
-        ("derived/seg/labelmap_multiframe_explicit_le", "planned"),
+        ("derived/seg/labelmap_multiframe_explicit_le", "implemented"),
         (
             "derived/presentation-state/grayscale_softcopy_ct_window_explicit_le",
             "planned",

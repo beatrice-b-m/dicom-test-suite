@@ -8,6 +8,7 @@ use dicom_object::open_file;
 use serde_json::Value;
 
 const SEGMENTATION_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.66.4";
+const LABEL_MAP_SEGMENTATION_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.66.7";
 const TAG_SEGMENTATION_TYPE: Tag = Tag(0x0062, 0x0001);
 const TAG_SEGMENT_SEQUENCE: Tag = Tag(0x0062, 0x0002);
 const TAG_MAXIMUM_FRACTIONAL_VALUE: Tag = Tag(0x0062, 0x000E);
@@ -1605,7 +1606,7 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\textended"));
-    assert!(stdout.contains("files_written\t8"));
+    assert!(stdout.contains("files_written\t9"));
 
     let manifest_path = out_dir.join("manifest.json");
     let manifest: Value = serde_json::from_str(
@@ -1618,7 +1619,7 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
             .pointer("/files")
             .and_then(Value::as_array)
             .map(Vec::len),
-        Some(8)
+        Some(9)
     );
     let enhanced_ct_file = file_entry_by_case_id(
         &manifest,
@@ -1944,17 +1945,53 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
             .contains(&"segmentation_fractional_type"),
         "fractional SEG manifest should record fractional type validation"
     );
+    let labelmap_segmentation_file =
+        file_entry_by_case_id(&manifest, "derived/seg/labelmap_multiframe_explicit_le");
+    assert_eq!(
+        labelmap_segmentation_file
+            .pointer("/dicom/sop_class_uid")
+            .and_then(Value::as_str),
+        Some(LABEL_MAP_SEGMENTATION_STORAGE_UID)
+    );
+    assert_eq!(
+        labelmap_segmentation_file
+            .pointer("/dicom/sop_class_name")
+            .and_then(Value::as_str),
+        Some("Label Map Segmentation Storage")
+    );
+    assert_eq!(
+        labelmap_segmentation_file
+            .pointer("/recipe/recipe_parameters/segmentation_type")
+            .and_then(Value::as_str),
+        Some("LABELMAP")
+    );
+    assert_eq!(
+        labelmap_segmentation_file
+            .pointer("/image/bits_allocated")
+            .and_then(Value::as_u64),
+        Some(8)
+    );
+    assert_eq!(
+        labelmap_segmentation_file
+            .pointer("/pixel_data/value_length")
+            .and_then(Value::as_u64),
+        Some(8)
+    );
+    assert!(
+        validation_result_names(labelmap_segmentation_file.pointer("/validation/internal"))
+            .contains(&"segmentation_type"),
+        "LABELMAP SEG manifest should record Segmentation Type validation"
+    );
     let skipped_cases = manifest
         .pointer("/skipped_cases")
         .and_then(Value::as_array)
         .expect("manifest should contain skipped cases");
     assert_eq!(
         skipped_cases.len(),
-        9,
+        8,
         "extended generation should report the remaining planned Phase 5 cases as unavailable"
     );
     for case_id in [
-        "derived/seg/labelmap_multiframe_explicit_le",
         "derived/presentation-state/grayscale_softcopy_ct_window_explicit_le",
         "derived/rwvm/linear_ct_mapping_explicit_le",
         "derived/sr/basic_text_observation_explicit_le",
@@ -2123,6 +2160,49 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
         fractional_segmentation
             .element(tags::PIXEL_DATA)
             .expect("fractional SEG file should contain Pixel Data")
+            .value()
+            .to_bytes()
+            .expect("Pixel Data should be byte-backed")
+            .len(),
+        8
+    );
+    let labelmap_segmentation_path =
+        out_dir.join("derived/seg/labelmap_multiframe_explicit_le/instance.dcm");
+    let labelmap_segmentation =
+        open_file(&labelmap_segmentation_path).expect("LABELMAP SEG DICOM file should parse");
+    assert_eq!(
+        labelmap_segmentation
+            .element(tags::SOP_CLASS_UID)
+            .expect("LABELMAP SEG file should contain SOP Class UID")
+            .value()
+            .to_str()
+            .expect("SOP Class UID should be text")
+            .trim_end_matches('\0'),
+        LABEL_MAP_SEGMENTATION_STORAGE_UID
+    );
+    assert_eq!(
+        labelmap_segmentation
+            .element(TAG_SEGMENTATION_TYPE)
+            .expect("LABELMAP SEG file should contain Segmentation Type")
+            .value()
+            .to_str()
+            .expect("Segmentation Type should be text")
+            .trim(),
+        "LABELMAP"
+    );
+    assert_eq!(
+        labelmap_segmentation
+            .element(tags::BITS_ALLOCATED)
+            .expect("LABELMAP SEG file should contain Bits Allocated")
+            .value()
+            .to_int::<u16>()
+            .expect("Bits Allocated should be u16"),
+        8
+    );
+    assert_eq!(
+        labelmap_segmentation
+            .element(tags::PIXEL_DATA)
+            .expect("LABELMAP SEG file should contain Pixel Data")
             .value()
             .to_bytes()
             .expect("Pixel Data should be byte-backed")
@@ -2347,7 +2427,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\tall"));
-    assert!(stdout.contains("files_written\t30"));
+    assert!(stdout.contains("files_written\t31"));
 
     let manifest_path = out_dir.join("manifest.json");
     let manifest: Value = serde_json::from_str(
@@ -2364,7 +2444,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
             .pointer("/files")
             .and_then(Value::as_array)
             .map(Vec::len),
-        Some(30)
+        Some(31)
     );
 
     file_entry_by_case_id(&manifest, "classic/sc/mono2_u8_explicit_le");
@@ -2390,11 +2470,10 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
         .expect("manifest should contain skipped cases");
     assert_eq!(
         skipped_cases.len(),
-        11,
+        10,
         "all generation should report the remaining planned Phase 5 and VL cases as unavailable"
     );
     for case_id in [
-        "derived/seg/labelmap_multiframe_explicit_le",
         "derived/presentation-state/grayscale_softcopy_ct_window_explicit_le",
         "derived/rwvm/linear_ct_mapping_explicit_le",
         "derived/sr/basic_text_observation_explicit_le",

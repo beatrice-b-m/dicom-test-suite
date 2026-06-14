@@ -72,7 +72,6 @@ struct ManifestSourceObject {
     frames: Option<u64>,
 }
 
-const SEGMENTATION_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.66.4";
 const TAG_SEGMENTATION_TYPE: dicom_core::Tag = dicom_core::Tag(0x0062, 0x0001);
 const TAG_SEGMENT_SEQUENCE: dicom_core::Tag = dicom_core::Tag(0x0062, 0x0002);
 const TAG_SEGMENT_IDENTIFICATION_SEQUENCE: dicom_core::Tag = dicom_core::Tag(0x0062, 0x000A);
@@ -2365,7 +2364,12 @@ fn validate_segmentation_standard_elements(
         obj,
         tags::SOP_CLASS_UID,
         "segmentation_storage_sop_class",
-        SEGMENTATION_STORAGE_UID,
+        manifest_str(
+            manifest_path,
+            file,
+            "/dicom/sop_class_uid",
+            "segmentation SOP Class UID must be a string",
+        )?,
     );
     validate_type1_str_element(
         failures,
@@ -4320,6 +4324,12 @@ mod tests {
         );
         assert!(
             output.contains(
+                "derived/seg/labelmap_multiframe_explicit_le\timplemented\textended\t1.2.840.10008.5.1.4.1.1.66.7\t1.2.840.10008.1.2.1\t7/7 covered"
+            ),
+            "list-cases output must show implemented LABELMAP SEG extended status"
+        );
+        assert!(
+            output.contains(
                 "non-image/encapsulated-document/pdf_minimal_explicit_le\tplanned\textended\t1.2.840.10008.5.1.4.1.1.104.1\t1.2.840.10008.1.2.1\t5/5 covered"
             ),
             "list-cases output must show planned Encapsulated PDF extended status"
@@ -4339,6 +4349,10 @@ mod tests {
         assert!(
             !output.contains("derived/seg/fractional_probability_multiframe_explicit_le"),
             "planned status filter should not include implemented fractional SEG"
+        );
+        assert!(
+            !output.contains("derived/seg/labelmap_multiframe_explicit_le"),
+            "planned status filter should not include implemented LABELMAP SEG"
         );
         assert!(
             output.contains(

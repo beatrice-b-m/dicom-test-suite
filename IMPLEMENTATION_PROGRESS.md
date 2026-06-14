@@ -1760,32 +1760,66 @@ These case IDs come from `SYSTEM_SPEC.md` section 21 and should seed
     `pkill -f 'otool -L target/debug/dicom-test-suite'`.
   - `git diff --check` passed for the tracker-only blocker update.
 
+- 2026-06-14 Phase 6.2 Rust executable startup hang resolution:
+  - Reproduced the hang with `target/debug/dicom-test-suite --help` and with
+    freshly built minimal Rust and C executables, proving the failure was not
+    caused by project startup code or the Rust test harness.
+  - `spctl -a -vvvv` reported Code Signing assessment rejection/internal
+    errors for local build outputs, and local Mach-O inspection tools also
+    stalled, pointing to macOS assessment/debug service state rather than a
+    repository defect.
+  - User restarted the root-owned `syspolicyd` and `taskgated` processes with
+    `kill -TERM 491 29146`; launchd restarted `syspolicyd`, and local
+    executable startup recovered immediately.
+  - Post-restart `target/debug/dicom-test-suite --help` printed usage normally,
+    a minimal C probe reached `main`, and the previously hanging test binaries
+    executed through Cargo.
+  - `cargo test` passed with 99 tests plus doc tests.
+  - `cargo test --features deflate` passed with 99 tests plus doc tests.
+  - `cargo fmt -- --check` passed.
+  - `cargo run -- standards check-lock` passed with the existing documented
+    unavailable-pin warnings.
+  - `cargo run -- list-cases --profile extended --status skipped` passed and
+    listed the six compressed transfer syntax placeholders as skipped.
+  - `cargo run -- generate --profile extended --out
+    /private/tmp/dts-hang-resolution-nofeature-20260614 --seed 1` passed,
+    writing 17 files and reporting the feature-gated deflated row unavailable.
+  - `cargo run -- validate /private/tmp/dts-hang-resolution-nofeature-20260614`
+    passed with 17 files checked and 0 validation failures.
+  - JSON and Markdown reports for
+    `/private/tmp/dts-hang-resolution-nofeature-20260614` passed with counts
+    `generated=17`, `planned=0`, `skipped=7`, `blocked=0`.
+  - `cargo run --features deflate -- generate --profile extended --out
+    /private/tmp/dts-hang-resolution-deflate-20260614 --seed 1` passed,
+    writing 18 files including the deflated dataset case.
+  - `cargo run --features deflate -- validate
+    /private/tmp/dts-hang-resolution-deflate-20260614` passed with 18 files
+    checked and 0 validation failures.
+  - Feature-enabled JSON and Markdown reports for
+    `/private/tmp/dts-hang-resolution-deflate-20260614` passed with counts
+    `generated=18`, `planned=0`, `skipped=6`, `blocked=0`.
+  - `cargo run -- standards gaps --profile extended` passed and reported only
+    the six expected `codec_unavailable` skipped compressed transfer syntax
+    rows.
+
 ## Current Blockers
 
-Verification is blocked by local Rust executable startup hangs. The issue has
-now reproduced across a focused test binary and the project CLI both inside and
-outside the sandbox, while `cargo test --no-run` still compiles all test
-binaries. Because Phase 6 compressed transfer syntax work requires generation,
-validation, reporting, reproducibility, and focused Rust tests, do not enable a
-compressed image recipe until this execution blocker is resolved or a working
-verification environment is available.
+No active implementation blocker is recorded. The prior local Rust executable
+startup hang was resolved by restarting macOS `syspolicyd` and `taskgated`;
+full no-feature and `deflate` feature test suites now execute successfully.
 
 ## Recommended Next Commit
 
-Resolve the local Rust executable startup hang or move to an environment where
-`target/debug/dicom-test-suite --help`, focused Rust tests, generation,
-validation, reporting, and reproducibility checks can execute. After that,
-continue Phase 6.2 by selecting one compressed transfer syntax family for a
+Continue Phase 6.2 by selecting one compressed transfer syntax family for a
 deliberate project feature/encoder verification slice. Do not flip any
 compressed image recipe to `implemented` until the project exposes a verified
-encoder path and generation, validation, reports, and reproducibility can be
-run successfully.
+encoder path and generation, validation, reports, and reproducibility all pass.
 
 ## Commit-Ready Summary
 
-The current slice records a concrete verification blocker for Phase 6.2: local
-Rust executables compile but hang immediately after launch. No compressed image
-recipe or generated Pixel Data behavior was enabled.
+The current slice resolves the local executable startup blocker and records the
+successful no-feature and `deflate` feature verification runs. No compressed
+image recipe or generated Pixel Data behavior was enabled.
 
 ## Handoff Notes
 

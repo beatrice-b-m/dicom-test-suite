@@ -118,7 +118,7 @@ fn registry_contains_initial_smoke_and_core_cases() {
             "derived/sr/comprehensive_measurement_explicit_le",
             "implemented",
         ),
-        ("derived/sr/key_object_selection_explicit_le", "planned"),
+        ("derived/sr/key_object_selection_explicit_le", "implemented"),
         (
             "non-image/rt/structure_set_single_roi_explicit_le",
             "planned",

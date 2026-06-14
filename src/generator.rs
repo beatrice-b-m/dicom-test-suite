@@ -16,8 +16,8 @@ use crate::{
         EnhancedMrImageExpectations, MgImageExpectations, MrImageExpectations, Part10Expectations,
         PixelDataLengthFormula, PresentationStateExpectations, RealWorldValueMappingExpectations,
         SegmentationExpectations, UsImageExpectations, validate_basic_text_sr_file,
-        validate_comprehensive_sr_file, validate_part10_file, validate_presentation_state_file,
-        validate_real_world_value_mapping_file,
+        validate_comprehensive_sr_file, validate_key_object_selection_file, validate_part10_file,
+        validate_presentation_state_file, validate_real_world_value_mapping_file,
     },
 };
 
@@ -35,17 +35,22 @@ const GSPS_RECIPE_VERSION: &str = "0.1.0";
 const RWVM_RECIPE_VERSION: &str = "0.1.0";
 const BASIC_TEXT_SR_RECIPE_VERSION: &str = "0.1.0";
 const COMPREHENSIVE_SR_RECIPE_VERSION: &str = "0.1.0";
+const KEY_OBJECT_SELECTION_RECIPE_VERSION: &str = "0.1.0";
 const SEGMENTATION_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.66.4";
 const LABEL_MAP_SEGMENTATION_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.66.7";
 const GRAYSCALE_SOFTCOPY_PRESENTATION_STATE_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.11.1";
 const REAL_WORLD_VALUE_MAPPING_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.67";
 const BASIC_TEXT_SR_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.88.11";
 const COMPREHENSIVE_SR_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.88.33";
+const KEY_OBJECT_SELECTION_DOCUMENT_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.88.59";
 const SEGMENTATION_SOURCE_CASE_ID: &str = "enhanced/ct/multiframe_shared_perframe_explicit_le";
 const GSPS_SOURCE_CASE_ID: &str = "enhanced/ct/multiframe_shared_perframe_explicit_le";
 const RWVM_SOURCE_CASE_ID: &str = "enhanced/ct/multiframe_shared_perframe_explicit_le";
 const BASIC_TEXT_SR_SOURCE_CASE_ID: &str = "enhanced/ct/multiframe_shared_perframe_explicit_le";
 const COMPREHENSIVE_SR_SOURCE_CASE_ID: &str = "enhanced/ct/multiframe_shared_perframe_explicit_le";
+const KEY_OBJECT_SELECTION_IMAGE_SOURCE_CASE_ID: &str =
+    "enhanced/ct/multiframe_shared_perframe_explicit_le";
+const KEY_OBJECT_SELECTION_SEG_SOURCE_CASE_ID: &str = "derived/seg/binary_multiframe_explicit_le";
 const MONO_PIXELS: [u8; 4] = [0, 85, 170, 255];
 const RGB_PLANAR0_PIXELS: [u8; 12] = [255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 255, 255];
 const RGB_PLANAR1_PIXELS: [u8; 12] = [255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255];
@@ -89,6 +94,7 @@ const SEG_LABELMAP_PIXELS: [u8; 8] = [0, 1, 0, 1, 1, 0, 1, 0];
 const SEG_LABELMAP_VALUES: [i32; 8] = [0, 1, 0, 1, 1, 0, 1, 0];
 const SEG_REFERENCED_FRAMES: [u16; 2] = [1, 2];
 const SR_REFERENCED_FRAMES: [u16; 2] = [1, 2];
+const KEY_OBJECT_SELECTION_IMAGE_REFERENCED_FRAMES: [u16; 2] = [1, 2];
 const TAG_IMAGE_TYPE: Tag = Tag(0x0008, 0x0008);
 const TAG_REFERENCED_SERIES_SEQUENCE: Tag = Tag(0x0008, 0x1115);
 const TAG_REFERENCED_INSTANCE_SEQUENCE: Tag = Tag(0x0008, 0x114A);
@@ -933,6 +939,47 @@ const COMPREHENSIVE_SR_RECIPES: &[ComprehensiveSrRecipe] = &[ComprehensiveSrReci
 }];
 
 #[derive(Debug, Clone, Copy)]
+struct KeyObjectSelectionRecipe {
+    case_id: &'static str,
+    recipe_id: &'static str,
+    image_source_case_id: &'static str,
+    seg_source_case_id: &'static str,
+    completion_flag: &'static str,
+    verification_flag: &'static str,
+    root_value_type: &'static str,
+    root_continuity_of_content: &'static str,
+    title_code_value: &'static str,
+    title_coding_scheme_designator: &'static str,
+    title_code_meaning: &'static str,
+    relationship_type: &'static str,
+    image_value_type: &'static str,
+    image_code_value: &'static str,
+    image_coding_scheme_designator: &'static str,
+    image_code_meaning: &'static str,
+    image_referenced_frame_numbers: &'static [u16],
+}
+
+const KEY_OBJECT_SELECTION_RECIPES: &[KeyObjectSelectionRecipe] = &[KeyObjectSelectionRecipe {
+    case_id: "derived/sr/key_object_selection_explicit_le",
+    recipe_id: "sr_key_object_selection",
+    image_source_case_id: KEY_OBJECT_SELECTION_IMAGE_SOURCE_CASE_ID,
+    seg_source_case_id: KEY_OBJECT_SELECTION_SEG_SOURCE_CASE_ID,
+    completion_flag: "COMPLETE",
+    verification_flag: "UNVERIFIED",
+    root_value_type: "CONTAINER",
+    root_continuity_of_content: "SEPARATE",
+    title_code_value: "113000",
+    title_coding_scheme_designator: "DCM",
+    title_code_meaning: "Of Interest",
+    relationship_type: "CONTAINS",
+    image_value_type: "IMAGE",
+    image_code_value: "121112",
+    image_coding_scheme_designator: "DCM",
+    image_code_meaning: "Source image for key object selection",
+    image_referenced_frame_numbers: &KEY_OBJECT_SELECTION_IMAGE_REFERENCED_FRAMES,
+}];
+
+#[derive(Debug, Clone, Copy)]
 struct EnhancedMrRecipe {
     case_id: &'static str,
     recipe_id: &'static str,
@@ -1662,6 +1709,38 @@ pub(crate) fn write_supported_cases(
             case,
             *recipe,
             &source,
+            standards_lock_sha256,
+        )?)?;
+    }
+    for recipe in KEY_OBJECT_SELECTION_RECIPES {
+        let Some(case) = registry_case(registry, recipe.case_id)? else {
+            continue;
+        };
+        if !should_generate_case(case, run)? {
+            continue;
+        }
+        let image_source = context
+            .source_registry()
+            .first_for_case(recipe.image_source_case_id)
+            .cloned()
+            .ok_or_else(|| GenerateError::MetadataShape {
+                path: PathBuf::from(recipe.case_id),
+                message: "KOS image source object must be generated before the derived recipe",
+            })?;
+        let seg_source = context
+            .source_registry()
+            .first_for_case(recipe.seg_source_case_id)
+            .cloned()
+            .ok_or_else(|| GenerateError::MetadataShape {
+                path: PathBuf::from(recipe.case_id),
+                message: "KOS SEG source object must be generated before the derived recipe",
+            })?;
+        context.record_one(write_key_object_selection_case(
+            run,
+            case,
+            *recipe,
+            &image_source,
+            &seg_source,
             standards_lock_sha256,
         )?)?;
     }
@@ -3930,6 +4009,194 @@ fn write_comprehensive_sr_case(
     })
 }
 
+fn write_key_object_selection_case(
+    run: &PreparedGenerationRun,
+    case: &Value,
+    recipe: KeyObjectSelectionRecipe,
+    image_source: &GeneratedSourceObject,
+    seg_source: &GeneratedSourceObject,
+    standards_lock_sha256: &str,
+) -> Result<GeneratedFile, GenerateError> {
+    let series_instance_uid = deterministic_key_object_selection_uid(
+        standards_lock_sha256,
+        recipe,
+        run.seed,
+        UidRole::SeriesInstance,
+    );
+    let sop_instance_uid = deterministic_key_object_selection_uid(
+        standards_lock_sha256,
+        recipe,
+        run.seed,
+        UidRole::SopInstance,
+    );
+    let implementation_class_uid = deterministic_implementation_uid(standards_lock_sha256);
+
+    let relative_path = format!("{}/instance.dcm", recipe.case_id);
+    let path = run.out_dir.join(&relative_path);
+    let case_dir = path.parent().ok_or_else(|| GenerateError::MetadataShape {
+        path: PathBuf::from(&relative_path),
+        message: "generated DICOM path must have a parent directory",
+    })?;
+    fs::create_dir_all(case_dir).map_err(|source| GenerateError::CreateCaseOutputDir {
+        path: case_dir.to_path_buf(),
+        source,
+    })?;
+
+    let mut obj = InMemDicomObject::new_empty();
+    put_str(
+        &mut obj,
+        tags::SOP_CLASS_UID,
+        VR::UI,
+        KEY_OBJECT_SELECTION_DOCUMENT_STORAGE_UID,
+    );
+    put_str(&mut obj, tags::SOP_INSTANCE_UID, VR::UI, &sop_instance_uid);
+    put_str(&mut obj, tags::SYNTHETIC_DATA, VR::CS, "YES");
+
+    put_str(
+        &mut obj,
+        tags::PATIENT_NAME,
+        VR::PN,
+        "DTS^Synthetic^Patient001",
+    );
+    put_str(&mut obj, tags::PATIENT_ID, VR::LO, "DTS-PATIENT-001");
+    put_str(&mut obj, tags::PATIENT_BIRTH_DATE, VR::DA, "19700101");
+    put_str(&mut obj, tags::PATIENT_SEX, VR::CS, "O");
+
+    put_str(
+        &mut obj,
+        tags::STUDY_INSTANCE_UID,
+        VR::UI,
+        &image_source.study_instance_uid,
+    );
+    put_str(&mut obj, tags::STUDY_DATE, VR::DA, "20260101");
+    put_str(&mut obj, tags::STUDY_TIME, VR::TM, "000000");
+    put_str(&mut obj, tags::REFERRING_PHYSICIAN_NAME, VR::PN, "");
+    put_str(&mut obj, tags::STUDY_ID, VR::SH, "DTS-KOS");
+    put_str(&mut obj, tags::ACCESSION_NUMBER, VR::SH, "");
+
+    put_str(&mut obj, tags::MODALITY, VR::CS, "KO");
+    put_str(
+        &mut obj,
+        tags::SERIES_INSTANCE_UID,
+        VR::UI,
+        &series_instance_uid,
+    );
+    put_str(&mut obj, tags::SERIES_NUMBER, VR::IS, "65");
+
+    put_str(&mut obj, tags::MANUFACTURER, VR::LO, "dicom-test-suite");
+    put_str(
+        &mut obj,
+        tags::MANUFACTURER_MODEL_NAME,
+        VR::LO,
+        recipe.recipe_id,
+    );
+    put_str(&mut obj, tags::DEVICE_SERIAL_NUMBER, VR::LO, "DTS-KOS-0001");
+    put_str(
+        &mut obj,
+        tags::SOFTWARE_VERSIONS,
+        VR::LO,
+        crate::PACKAGE_VERSION,
+    );
+
+    put_str(&mut obj, tags::INSTANCE_NUMBER, VR::IS, "1");
+    put_str(&mut obj, tags::CONTENT_DATE, VR::DA, "20260101");
+    put_str(&mut obj, tags::CONTENT_TIME, VR::TM, "000000");
+    put_str(
+        &mut obj,
+        tags::COMPLETION_FLAG,
+        VR::CS,
+        recipe.completion_flag,
+    );
+    put_str(
+        &mut obj,
+        tags::VERIFICATION_FLAG,
+        VR::CS,
+        recipe.verification_flag,
+    );
+
+    put_current_requested_procedure_evidence_many(&mut obj, &[image_source, seg_source]);
+    put_key_object_selection_content_tree(&mut obj, recipe, image_source, seg_source);
+
+    let file_obj = obj
+        .with_meta(
+            FileMetaTableBuilder::new()
+                .transfer_syntax(uids::EXPLICIT_VR_LITTLE_ENDIAN)
+                .implementation_class_uid(&implementation_class_uid)
+                .implementation_version_name(crate::IMPLEMENTATION_VERSION_NAME),
+        )
+        .map_err(|err| GenerateError::WriteDicomFile {
+            path: path.clone(),
+            message: err.to_string(),
+        })?;
+
+    file_obj
+        .write_to_file(&path)
+        .map_err(|err| GenerateError::WriteDicomFile {
+            path: path.clone(),
+            message: err.to_string(),
+        })?;
+
+    let key_objects = [
+        crate::validation::KeyObjectReferenceExpectations {
+            referenced_series_instance_uid: image_source
+                .series_instance_uid
+                .as_deref()
+                .unwrap_or(""),
+            referenced_sop_class_uid: &image_source.sop_class_uid,
+            referenced_sop_instance_uid: &image_source.sop_instance_uid,
+            referenced_frame_numbers: Some(recipe.image_referenced_frame_numbers),
+        },
+        crate::validation::KeyObjectReferenceExpectations {
+            referenced_series_instance_uid: seg_source.series_instance_uid.as_deref().unwrap_or(""),
+            referenced_sop_class_uid: &seg_source.sop_class_uid,
+            referenced_sop_instance_uid: &seg_source.sop_instance_uid,
+            referenced_frame_numbers: None,
+        },
+    ];
+    let validated = validate_key_object_selection_file(
+        &path,
+        &crate::validation::KeyObjectSelectionExpectations {
+            sop_class_uid: KEY_OBJECT_SELECTION_DOCUMENT_STORAGE_UID,
+            sop_instance_uid: &sop_instance_uid,
+            transfer_syntax_uid: uids::EXPLICIT_VR_LITTLE_ENDIAN,
+            implementation_class_uid: &implementation_class_uid,
+            synthetic_data: "YES",
+            modality: "KO",
+            completion_flag: recipe.completion_flag,
+            verification_flag: recipe.verification_flag,
+            referenced_study_instance_uid: &image_source.study_instance_uid,
+            root_value_type: recipe.root_value_type,
+            root_continuity_of_content: recipe.root_continuity_of_content,
+            title_code_value: recipe.title_code_value,
+            title_coding_scheme_designator: recipe.title_coding_scheme_designator,
+            title_code_meaning: recipe.title_code_meaning,
+            relationship_type: recipe.relationship_type,
+            image_value_type: recipe.image_value_type,
+            image_code_value: recipe.image_code_value,
+            image_coding_scheme_designator: recipe.image_coding_scheme_designator,
+            image_code_meaning: recipe.image_code_meaning,
+            key_objects: &key_objects,
+        },
+    )?;
+
+    Ok(GeneratedFile {
+        case_id: recipe.case_id.to_string(),
+        manifest_entry: key_object_selection_manifest_entry(
+            case,
+            recipe,
+            image_source,
+            seg_source,
+            &relative_path,
+            &image_source.study_instance_uid,
+            &series_instance_uid,
+            &sop_instance_uid,
+            &implementation_class_uid,
+            &validated.bytes,
+            validated.validation,
+        ),
+    })
+}
+
 fn write_enhanced_ct_concatenation_case(
     run: &PreparedGenerationRun,
     case: &Value,
@@ -4782,6 +5049,56 @@ fn put_current_requested_procedure_evidence(
     ));
 }
 
+fn put_current_requested_procedure_evidence_many(
+    obj: &mut InMemDicomObject,
+    sources: &[&GeneratedSourceObject],
+) {
+    let study_instance_uid = sources
+        .first()
+        .map(|source| source.study_instance_uid.as_str())
+        .unwrap_or("");
+    let series_items = sources
+        .iter()
+        .map(|source| {
+            InMemDicomObject::from_element_iter([
+                DataElement::new(
+                    tags::SERIES_INSTANCE_UID,
+                    VR::UI,
+                    source.series_instance_uid.as_deref().unwrap_or(""),
+                ),
+                DataElement::new(
+                    tags::REFERENCED_SOP_SEQUENCE,
+                    VR::SQ,
+                    DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+                        DataElement::new(
+                            TAG_REFERENCED_SOP_CLASS_UID,
+                            VR::UI,
+                            source.sop_class_uid.as_str(),
+                        ),
+                        DataElement::new(
+                            TAG_REFERENCED_SOP_INSTANCE_UID,
+                            VR::UI,
+                            source.sop_instance_uid.as_str(),
+                        ),
+                    ])]),
+                ),
+            ])
+        })
+        .collect::<Vec<_>>();
+    obj.put(DataElement::new(
+        tags::CURRENT_REQUESTED_PROCEDURE_EVIDENCE_SEQUENCE,
+        VR::SQ,
+        DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+            DataElement::new(tags::STUDY_INSTANCE_UID, VR::UI, study_instance_uid),
+            DataElement::new(
+                tags::REFERENCED_SERIES_SEQUENCE,
+                VR::SQ,
+                DataSetSequence::from(series_items),
+            ),
+        ])]),
+    ));
+}
+
 fn put_basic_text_sr_content_tree(obj: &mut InMemDicomObject, recipe: BasicTextSrRecipe) {
     put_str(obj, tags::VALUE_TYPE, VR::CS, recipe.root_value_type);
     put_code_sequence(
@@ -4946,6 +5263,93 @@ fn put_comprehensive_sr_content_tree(
             ]),
         ]),
     ));
+}
+
+fn put_key_object_selection_content_tree(
+    obj: &mut InMemDicomObject,
+    recipe: KeyObjectSelectionRecipe,
+    image_source: &GeneratedSourceObject,
+    seg_source: &GeneratedSourceObject,
+) {
+    put_str(obj, tags::VALUE_TYPE, VR::CS, recipe.root_value_type);
+    put_code_sequence(
+        obj,
+        tags::CONCEPT_NAME_CODE_SEQUENCE,
+        recipe.title_code_value,
+        recipe.title_coding_scheme_designator,
+        recipe.title_code_meaning,
+    );
+    put_str(
+        obj,
+        tags::CONTINUITY_OF_CONTENT,
+        VR::CS,
+        recipe.root_continuity_of_content,
+    );
+    obj.put(DataElement::new(
+        tags::CONTENT_SEQUENCE,
+        VR::SQ,
+        DataSetSequence::from(vec![
+            key_object_selection_image_item(
+                recipe,
+                image_source,
+                Some(recipe.image_referenced_frame_numbers),
+            ),
+            key_object_selection_image_item(recipe, seg_source, None),
+        ]),
+    ));
+}
+
+fn key_object_selection_image_item(
+    recipe: KeyObjectSelectionRecipe,
+    source: &GeneratedSourceObject,
+    referenced_frame_numbers: Option<&[u16]>,
+) -> InMemDicomObject {
+    let mut referenced_sop = InMemDicomObject::from_element_iter([
+        DataElement::new(
+            TAG_REFERENCED_SOP_CLASS_UID,
+            VR::UI,
+            source.sop_class_uid.as_str(),
+        ),
+        DataElement::new(
+            TAG_REFERENCED_SOP_INSTANCE_UID,
+            VR::UI,
+            source.sop_instance_uid.as_str(),
+        ),
+    ]);
+    if let Some(frame_numbers) = referenced_frame_numbers {
+        referenced_sop.put(DataElement::new(
+            TAG_REFERENCED_FRAME_NUMBER,
+            VR::IS,
+            frame_numbers
+                .iter()
+                .map(u16::to_string)
+                .collect::<Vec<_>>()
+                .join("\\"),
+        ));
+    }
+
+    InMemDicomObject::from_element_iter([
+        DataElement::new(tags::RELATIONSHIP_TYPE, VR::CS, recipe.relationship_type),
+        DataElement::new(tags::VALUE_TYPE, VR::CS, recipe.image_value_type),
+        DataElement::new(
+            tags::CONCEPT_NAME_CODE_SEQUENCE,
+            VR::SQ,
+            DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+                DataElement::new(tags::CODE_VALUE, VR::SH, recipe.image_code_value),
+                DataElement::new(
+                    tags::CODING_SCHEME_DESIGNATOR,
+                    VR::SH,
+                    recipe.image_coding_scheme_designator,
+                ),
+                DataElement::new(tags::CODE_MEANING, VR::LO, recipe.image_code_meaning),
+            ])]),
+        ),
+        DataElement::new(
+            tags::REFERENCED_SOP_SEQUENCE,
+            VR::SQ,
+            DataSetSequence::from(vec![referenced_sop]),
+        ),
+    ])
 }
 
 fn put_presentation_state_relationship(
@@ -5560,6 +5964,136 @@ fn comprehensive_sr_manifest_entry(
         },
         "validation": validation,
         "known_stressors": ["comprehensive_sr_storage", "derived_source_reference", "sr_document_content", "num_content_item", "image_content_item"],
+        "standards_evidence": deduplicated_standards_evidence(standards_evidence)
+    })
+}
+
+#[allow(clippy::too_many_arguments)]
+fn key_object_selection_manifest_entry(
+    case: &Value,
+    recipe: KeyObjectSelectionRecipe,
+    image_source: &GeneratedSourceObject,
+    seg_source: &GeneratedSourceObject,
+    relative_path: &str,
+    study_instance_uid: &str,
+    series_instance_uid: &str,
+    sop_instance_uid: &str,
+    implementation_class_uid: &str,
+    bytes: &[u8],
+    validation: Value,
+) -> Value {
+    let standards_evidence = standards_evidence_from_case(case);
+    serde_json::json!({
+        "case_id": recipe.case_id,
+        "profile_membership": ["extended"],
+        "path": relative_path,
+        "sha256": sha256_hex(bytes),
+        "size_bytes": bytes.len(),
+        "determinism": "byte_stable",
+        "recipe": {
+            "recipe_id": recipe.recipe_id,
+            "recipe_version": KEY_OBJECT_SELECTION_RECIPE_VERSION,
+            "recipe_parameters": {
+                "image_source_case_id": recipe.image_source_case_id,
+                "seg_source_case_id": recipe.seg_source_case_id,
+                "completion_flag": recipe.completion_flag,
+                "verification_flag": recipe.verification_flag,
+                "root_value_type": recipe.root_value_type,
+                "root_continuity_of_content": recipe.root_continuity_of_content,
+                "document_title": {
+                    "code_value": recipe.title_code_value,
+                    "coding_scheme_designator": recipe.title_coding_scheme_designator,
+                    "code_meaning": recipe.title_code_meaning
+                },
+                "key_object_items": [
+                    {
+                        "relationship_type": recipe.relationship_type,
+                        "value_type": recipe.image_value_type,
+                        "code_value": recipe.image_code_value,
+                        "coding_scheme_designator": recipe.image_coding_scheme_designator,
+                        "code_meaning": recipe.image_code_meaning,
+                        "source_case_id": image_source.source_case_id,
+                        "referenced_frame_numbers": recipe.image_referenced_frame_numbers
+                    },
+                    {
+                        "relationship_type": recipe.relationship_type,
+                        "value_type": recipe.image_value_type,
+                        "code_value": recipe.image_code_value,
+                        "coding_scheme_designator": recipe.image_coding_scheme_designator,
+                        "code_meaning": recipe.image_code_meaning,
+                        "source_case_id": seg_source.source_case_id
+                    }
+                ]
+            }
+        },
+        "dicom": {
+            "sop_class_uid": KEY_OBJECT_SELECTION_DOCUMENT_STORAGE_UID,
+            "sop_class_name": "Key Object Selection Document Storage",
+            "iod_name": "Key Object Selection Document",
+            "modality": "KO",
+            "transfer_syntax_uid": uids::EXPLICIT_VR_LITTLE_ENDIAN,
+            "transfer_syntax_name": "Explicit VR Little Endian"
+        },
+        "uids": {
+            "study_instance_uid": study_instance_uid,
+            "series_instance_uid": series_instance_uid,
+            "sop_instance_uid": sop_instance_uid,
+            "implementation_class_uid": implementation_class_uid
+        },
+        "image": Value::Null,
+        "pixel_data": Value::Null,
+        "references": [
+            image_source.to_manifest_reference(
+                "source_image",
+                Some(
+                    recipe
+                        .image_referenced_frame_numbers
+                        .iter()
+                        .map(|frame| u64::from(*frame))
+                        .collect::<Vec<_>>()
+                )
+            ),
+            seg_source.to_manifest_reference("key_object_segmentation", None)
+        ],
+        "expected_capabilities": ["open_file", "read_metadata", "show_unsupported_but_recognized", "read_structured_report", "read_key_object_selection"],
+        "expected_semantics": {
+            "synthetic_data": "YES",
+            "source_case_id": image_source.source_case_id,
+            "source_sop_instance_uid": image_source.sop_instance_uid,
+            "structured_report": {
+                "completion_flag": recipe.completion_flag,
+                "verification_flag": recipe.verification_flag,
+                "root_value_type": recipe.root_value_type,
+                "root_continuity_of_content": recipe.root_continuity_of_content,
+                "content_sequence_items": 2,
+                "key_objects": [
+                    {
+                        "relationship_type": recipe.relationship_type,
+                        "value_type": recipe.image_value_type,
+                        "code_value": recipe.image_code_value,
+                        "coding_scheme_designator": recipe.image_coding_scheme_designator,
+                        "code_meaning": recipe.image_code_meaning,
+                        "source_case_id": image_source.source_case_id,
+                        "sop_instance_uid": image_source.sop_instance_uid,
+                        "referenced_frame_numbers": recipe.image_referenced_frame_numbers
+                    },
+                    {
+                        "relationship_type": recipe.relationship_type,
+                        "value_type": recipe.image_value_type,
+                        "code_value": recipe.image_code_value,
+                        "coding_scheme_designator": recipe.image_coding_scheme_designator,
+                        "code_meaning": recipe.image_code_meaning,
+                        "source_case_id": seg_source.source_case_id,
+                        "sop_instance_uid": seg_source.sop_instance_uid
+                    }
+                ]
+            }
+        },
+        "expected_visual_checks": {
+            "pattern": "source_ct_and_seg_key_object_selection"
+        },
+        "validation": validation,
+        "known_stressors": ["key_object_selection_document_storage", "derived_source_reference", "sr_document_content", "multiple_evidence_references"],
         "standards_evidence": deduplicated_standards_evidence(standards_evidence)
     })
 }
@@ -8939,6 +9473,24 @@ fn deterministic_comprehensive_sr_uid(
         standards_lock_sha256,
         case_id: recipe.case_id,
         recipe_version: COMPREHENSIVE_SR_RECIPE_VERSION,
+        run_seed,
+        file_index: 0,
+        frame_index: None,
+        referenced_object_index: Some(0),
+        role,
+    })
+}
+
+fn deterministic_key_object_selection_uid(
+    standards_lock_sha256: &str,
+    recipe: KeyObjectSelectionRecipe,
+    run_seed: u64,
+    role: UidRole,
+) -> String {
+    deterministic_uid(&DeterministicUidInput {
+        standards_lock_sha256,
+        case_id: recipe.case_id,
+        recipe_version: KEY_OBJECT_SELECTION_RECIPE_VERSION,
         run_seed,
         file_index: 0,
         frame_index: None,

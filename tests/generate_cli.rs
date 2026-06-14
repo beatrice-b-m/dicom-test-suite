@@ -13,6 +13,7 @@ const GRAYSCALE_SOFTCOPY_PRESENTATION_STATE_STORAGE_UID: &str = "1.2.840.10008.5
 const REAL_WORLD_VALUE_MAPPING_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.67";
 const BASIC_TEXT_SR_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.88.11";
 const COMPREHENSIVE_SR_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.88.33";
+const KEY_OBJECT_SELECTION_DOCUMENT_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.88.59";
 const TAG_SEGMENTATION_TYPE: Tag = Tag(0x0062, 0x0001);
 const TAG_SEGMENT_SEQUENCE: Tag = Tag(0x0062, 0x0002);
 const TAG_MAXIMUM_FRACTIONAL_VALUE: Tag = Tag(0x0062, 0x000E);
@@ -1622,7 +1623,7 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\textended"));
-    assert!(stdout.contains("files_written\t13"));
+    assert!(stdout.contains("files_written\t14"));
 
     let manifest_path = out_dir.join("manifest.json");
     let manifest: Value = serde_json::from_str(
@@ -1635,7 +1636,7 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
             .pointer("/files")
             .and_then(Value::as_array)
             .map(Vec::len),
-        Some(13)
+        Some(14)
     );
     let enhanced_ct_file = file_entry_by_case_id(
         &manifest,
@@ -2234,17 +2235,67 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
             .contains(&"sr_image_sop_instance_uid"),
         "Comprehensive SR manifest should record image reference validation"
     );
+    let kos_file = file_entry_by_case_id(&manifest, "derived/sr/key_object_selection_explicit_le");
+    assert_eq!(
+        kos_file
+            .pointer("/dicom/sop_class_uid")
+            .and_then(Value::as_str),
+        Some(KEY_OBJECT_SELECTION_DOCUMENT_STORAGE_UID)
+    );
+    assert_eq!(
+        kos_file.pointer("/dicom/modality").and_then(Value::as_str),
+        Some("KO")
+    );
+    assert!(
+        kos_file.pointer("/image").is_some_and(Value::is_null),
+        "KOS manifest should explicitly omit image metadata"
+    );
+    assert!(
+        kos_file.pointer("/pixel_data").is_some_and(Value::is_null),
+        "KOS manifest should explicitly omit Pixel Data metadata"
+    );
+    assert_eq!(
+        kos_file
+            .pointer("/references")
+            .and_then(Value::as_array)
+            .map(Vec::len),
+        Some(2),
+        "KOS manifest should reference the source CT and binary SEG objects"
+    );
+    assert_eq!(
+        kos_file
+            .pointer("/references/0/source_case_id")
+            .and_then(Value::as_str),
+        Some("enhanced/ct/multiframe_shared_perframe_explicit_le")
+    );
+    assert_eq!(
+        kos_file
+            .pointer("/references/1/source_case_id")
+            .and_then(Value::as_str),
+        Some("derived/seg/binary_multiframe_explicit_le")
+    );
+    assert_eq!(
+        kos_file
+            .pointer("/recipe/recipe_parameters/key_object_items")
+            .and_then(Value::as_array)
+            .map(Vec::len),
+        Some(2)
+    );
+    assert!(
+        validation_result_names(kos_file.pointer("/validation/internal"))
+            .contains(&"kos_image_sop_instance_uid"),
+        "KOS manifest should record key object reference validation"
+    );
     let skipped_cases = manifest
         .pointer("/skipped_cases")
         .and_then(Value::as_array)
         .expect("manifest should contain skipped cases");
     assert_eq!(
         skipped_cases.len(),
-        4,
+        3,
         "extended generation should report the remaining planned Phase 5 cases as unavailable"
     );
     for case_id in [
-        "derived/sr/key_object_selection_explicit_le",
         "non-image/rt/structure_set_single_roi_explicit_le",
         "non-image/rt/dose_grid_u16_explicit_le",
         "non-image/encapsulated-document/pdf_minimal_explicit_le",
@@ -3015,6 +3066,113 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
         vec![1, 2]
     );
 
+    let kos_path = out_dir.join("derived/sr/key_object_selection_explicit_le/instance.dcm");
+    let kos = open_file(&kos_path).expect("KOS DICOM file should parse");
+    assert_eq!(
+        kos.element(tags::SOP_CLASS_UID)
+            .expect("KOS file should contain SOP Class UID")
+            .value()
+            .to_str()
+            .expect("SOP Class UID should be text")
+            .trim_end_matches('\0'),
+        KEY_OBJECT_SELECTION_DOCUMENT_STORAGE_UID
+    );
+    assert_eq!(
+        kos.element(tags::MODALITY)
+            .expect("KOS file should contain Modality")
+            .value()
+            .to_str()
+            .expect("Modality should be text")
+            .trim(),
+        "KO"
+    );
+    assert!(
+        kos.element_opt(tags::PIXEL_DATA)
+            .expect("KOS Pixel Data lookup should not fail")
+            .is_none(),
+        "KOS must not contain Pixel Data"
+    );
+    let kos_evidence = kos
+        .element(tags::CURRENT_REQUESTED_PROCEDURE_EVIDENCE_SEQUENCE)
+        .expect("KOS should contain evidence sequence")
+        .items()
+        .expect("KOS evidence sequence should be SQ")
+        .first()
+        .expect("KOS evidence sequence should contain one study item");
+    let kos_evidence_series = kos_evidence
+        .element(tags::REFERENCED_SERIES_SEQUENCE)
+        .expect("KOS evidence should contain Referenced Series Sequence")
+        .items()
+        .expect("Referenced Series Sequence should be SQ");
+    assert_eq!(
+        kos_evidence_series.len(),
+        2,
+        "KOS evidence should reference the source CT and SEG series"
+    );
+    let kos_content = kos
+        .element(tags::CONTENT_SEQUENCE)
+        .expect("KOS should contain Content Sequence")
+        .items()
+        .expect("Content Sequence should be SQ");
+    assert_eq!(
+        kos_content.len(),
+        2,
+        "KOS should contain two IMAGE key object items"
+    );
+    assert_eq!(
+        kos_content[0]
+            .element(tags::VALUE_TYPE)
+            .expect("first KOS item should contain Value Type")
+            .value()
+            .to_str()
+            .expect("Value Type should be text")
+            .trim(),
+        "IMAGE"
+    );
+    let first_kos_sop = kos_content[0]
+        .element(tags::REFERENCED_SOP_SEQUENCE)
+        .expect("first KOS item should contain Referenced SOP Sequence")
+        .items()
+        .expect("Referenced SOP Sequence should be SQ")
+        .first()
+        .expect("Referenced SOP Sequence should contain one item");
+    assert_eq!(
+        first_kos_sop
+            .element(TAG_REFERENCED_SOP_CLASS_UID)
+            .expect("first KOS item should reference source SOP Class")
+            .value()
+            .to_str()
+            .expect("Referenced SOP Class UID should be text")
+            .trim_end_matches('\0'),
+        uids::ENHANCED_CT_IMAGE_STORAGE
+    );
+    assert_eq!(
+        first_kos_sop
+            .element(TAG_REFERENCED_FRAME_NUMBER)
+            .expect("first KOS item should reference source frames")
+            .value()
+            .to_multi_int::<i32>()
+            .expect("Referenced Frame Number should be multi-value IS"),
+        vec![1, 2]
+    );
+    let second_kos_sop = kos_content[1]
+        .element(tags::REFERENCED_SOP_SEQUENCE)
+        .expect("second KOS item should contain Referenced SOP Sequence")
+        .items()
+        .expect("Referenced SOP Sequence should be SQ")
+        .first()
+        .expect("Referenced SOP Sequence should contain one item");
+    assert_eq!(
+        second_kos_sop
+            .element(TAG_REFERENCED_SOP_CLASS_UID)
+            .expect("second KOS item should reference SEG SOP Class")
+            .value()
+            .to_str()
+            .expect("Referenced SOP Class UID should be text")
+            .trim_end_matches('\0'),
+        SEGMENTATION_STORAGE_UID
+    );
+
     let enhanced_ct_concat_part_1_path =
         out_dir.join("enhanced/ct/concatenation_two_part_explicit_le/part-001.dcm");
     let enhanced_ct_concat_part_2_path =
@@ -3232,7 +3390,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\tall"));
-    assert!(stdout.contains("files_written\t35"));
+    assert!(stdout.contains("files_written\t36"));
 
     let manifest_path = out_dir.join("manifest.json");
     let manifest: Value = serde_json::from_str(
@@ -3249,7 +3407,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
             .pointer("/files")
             .and_then(Value::as_array)
             .map(Vec::len),
-        Some(35)
+        Some(36)
     );
 
     file_entry_by_case_id(&manifest, "classic/sc/mono2_u8_explicit_le");
@@ -3275,11 +3433,10 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
         .expect("manifest should contain skipped cases");
     assert_eq!(
         skipped_cases.len(),
-        6,
+        5,
         "all generation should report the remaining planned Phase 5 and VL cases as unavailable"
     );
     for case_id in [
-        "derived/sr/key_object_selection_explicit_le",
         "non-image/rt/structure_set_single_roi_explicit_le",
         "non-image/rt/dose_grid_u16_explicit_le",
         "non-image/encapsulated-document/pdf_minimal_explicit_le",

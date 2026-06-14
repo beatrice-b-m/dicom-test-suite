@@ -150,6 +150,38 @@ pub(crate) struct ComprehensiveSrExpectations<'a> {
     pub referenced_frame_numbers: &'a [u16],
 }
 
+#[derive(Debug, Clone)]
+pub(crate) struct KeyObjectReferenceExpectations<'a> {
+    pub referenced_series_instance_uid: &'a str,
+    pub referenced_sop_class_uid: &'a str,
+    pub referenced_sop_instance_uid: &'a str,
+    pub referenced_frame_numbers: Option<&'a [u16]>,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct KeyObjectSelectionExpectations<'a> {
+    pub sop_class_uid: &'a str,
+    pub sop_instance_uid: &'a str,
+    pub transfer_syntax_uid: &'a str,
+    pub implementation_class_uid: &'a str,
+    pub synthetic_data: &'a str,
+    pub modality: &'a str,
+    pub completion_flag: &'a str,
+    pub verification_flag: &'a str,
+    pub referenced_study_instance_uid: &'a str,
+    pub root_value_type: &'a str,
+    pub root_continuity_of_content: &'a str,
+    pub title_code_value: &'a str,
+    pub title_coding_scheme_designator: &'a str,
+    pub title_code_meaning: &'a str,
+    pub relationship_type: &'a str,
+    pub image_value_type: &'a str,
+    pub image_code_value: &'a str,
+    pub image_coding_scheme_designator: &'a str,
+    pub image_code_meaning: &'a str,
+    pub key_objects: &'a [KeyObjectReferenceExpectations<'a>],
+}
+
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum PixelDataLengthFormula {
     ContiguousSamples,
@@ -1898,6 +1930,335 @@ pub(crate) fn validate_comprehensive_sr_file(
                     "name": "comprehensive_sr_modules",
                     "status": "passed",
                     "message": "Comprehensive SR document flags, evidence, numeric measurement, and image reference match the recipe."
+                }
+            ],
+            "external": []
+        }),
+    })
+}
+
+pub(crate) fn validate_key_object_selection_file(
+    path: &Path,
+    expected: &KeyObjectSelectionExpectations<'_>,
+) -> Result<ValidatedPart10, GenerateError> {
+    let bytes = fs::read(path).map_err(|source| GenerateError::ReadGeneratedFile {
+        path: path.to_path_buf(),
+        source,
+    })?;
+    let obj = open_file(path).map_err(|err| GenerateError::ValidateDicomFile {
+        path: path.to_path_buf(),
+        message: err.to_string(),
+    })?;
+
+    let mut internal = Vec::new();
+    check(
+        &mut internal,
+        bytes.len() >= 132 && &bytes[128..132] == b"DICM",
+        "part10_preamble",
+        "File has a 128-byte preamble followed by the DICM marker.",
+        "File is missing the Part 10 DICM marker at byte offset 128.",
+    );
+    check_equal(
+        &mut internal,
+        "file_meta_transfer_syntax",
+        "File Meta Information Transfer Syntax UID matches the recipe.",
+        "File Meta Information Transfer Syntax UID does not match the recipe.",
+        trim_uid(obj.meta().transfer_syntax()).as_str(),
+        expected.transfer_syntax_uid,
+    );
+
+    let dataset_sop_class = element_str(path, &obj, tags::SOP_CLASS_UID)?;
+    check_equal(
+        &mut internal,
+        "sop_class_uid_consistency",
+        "Dataset SOP Class UID, File Meta SOP Class UID, and recipe SOP Class UID match.",
+        "SOP Class UID differs between dataset, File Meta Information, or recipe.",
+        dataset_sop_class.as_str(),
+        expected.sop_class_uid,
+    );
+    check_equal(
+        &mut internal,
+        "media_storage_sop_class_uid",
+        "File Meta SOP Class UID matches the dataset SOP Class UID.",
+        "File Meta SOP Class UID does not match the dataset SOP Class UID.",
+        trim_uid(obj.meta().media_storage_sop_class_uid()).as_str(),
+        dataset_sop_class.as_str(),
+    );
+    let dataset_sop_instance = element_str(path, &obj, tags::SOP_INSTANCE_UID)?;
+    check_equal(
+        &mut internal,
+        "sop_instance_uid_consistency",
+        "Dataset SOP Instance UID, File Meta SOP Instance UID, and manifest UID match.",
+        "SOP Instance UID differs between dataset, File Meta Information, or manifest.",
+        dataset_sop_instance.as_str(),
+        expected.sop_instance_uid,
+    );
+    check_equal(
+        &mut internal,
+        "media_storage_sop_instance_uid",
+        "File Meta SOP Instance UID matches the dataset SOP Instance UID.",
+        "File Meta SOP Instance UID does not match the dataset SOP Instance UID.",
+        trim_uid(obj.meta().media_storage_sop_instance_uid()).as_str(),
+        dataset_sop_instance.as_str(),
+    );
+    check_equal(
+        &mut internal,
+        "implementation_class_uid",
+        "File Meta Implementation Class UID matches the deterministic generator UID.",
+        "File Meta Implementation Class UID does not match the deterministic generator UID.",
+        trim_uid(obj.meta().implementation_class_uid()).as_str(),
+        expected.implementation_class_uid,
+    );
+    check_equal(
+        &mut internal,
+        "synthetic_data",
+        "Synthetic Data is present and set to YES.",
+        "Synthetic Data is missing or not set to YES.",
+        element_str(path, &obj, tags::SYNTHETIC_DATA)?.as_str(),
+        expected.synthetic_data,
+    );
+    check_equal(
+        &mut internal,
+        "kos_modality",
+        "Key Object Document Series Modality is KO.",
+        "Key Object Document Series Modality does not match the recipe.",
+        element_str(path, &obj, tags::MODALITY)?.as_str(),
+        expected.modality,
+    );
+    check_equal(
+        &mut internal,
+        "sr_completion_flag",
+        "SR Completion Flag matches the recipe.",
+        "SR Completion Flag does not match the recipe.",
+        element_str(path, &obj, tags::COMPLETION_FLAG)?.as_str(),
+        expected.completion_flag,
+    );
+    check_equal(
+        &mut internal,
+        "sr_verification_flag",
+        "SR Verification Flag matches the recipe.",
+        "SR Verification Flag does not match the recipe.",
+        element_str(path, &obj, tags::VERIFICATION_FLAG)?.as_str(),
+        expected.verification_flag,
+    );
+
+    let evidence = top_level_sequence_item(
+        path,
+        &obj,
+        tags::CURRENT_REQUESTED_PROCEDURE_EVIDENCE_SEQUENCE,
+        0,
+    )?;
+    check_equal(
+        &mut internal,
+        "sr_evidence_study_instance_uid",
+        "KOS evidence references the source Study Instance UID.",
+        "KOS evidence Study Instance UID does not match the source.",
+        item_str(path, evidence, tags::STUDY_INSTANCE_UID)?.as_str(),
+        expected.referenced_study_instance_uid,
+    );
+    check_equal(
+        &mut internal,
+        "kos_evidence_series_items",
+        "KOS evidence records every source series.",
+        "KOS evidence source series count does not match the recipe.",
+        item_sequence_item_count(path, evidence, tags::REFERENCED_SERIES_SEQUENCE)?,
+        expected.key_objects.len(),
+    );
+    for (index, key_object) in expected.key_objects.iter().enumerate() {
+        let evidence_series =
+            item_sequence_item(path, evidence, tags::REFERENCED_SERIES_SEQUENCE, index)?;
+        check_equal(
+            &mut internal,
+            "kos_evidence_series_instance_uid",
+            "KOS evidence Series Instance UID matches a source object.",
+            "KOS evidence Series Instance UID does not match the source.",
+            item_str(path, evidence_series, tags::SERIES_INSTANCE_UID)?.as_str(),
+            key_object.referenced_series_instance_uid,
+        );
+        let evidence_sop =
+            item_sequence_item(path, evidence_series, tags::REFERENCED_SOP_SEQUENCE, 0)?;
+        check_equal(
+            &mut internal,
+            "kos_evidence_sop_class_uid",
+            "KOS evidence SOP Class UID matches a source object.",
+            "KOS evidence SOP Class UID does not match the source.",
+            item_str(path, evidence_sop, TAG_REFERENCED_SOP_CLASS_UID)?.as_str(),
+            key_object.referenced_sop_class_uid,
+        );
+        check_equal(
+            &mut internal,
+            "kos_evidence_sop_instance_uid",
+            "KOS evidence SOP Instance UID matches a source object.",
+            "KOS evidence SOP Instance UID does not match the source.",
+            item_str(path, evidence_sop, TAG_REFERENCED_SOP_INSTANCE_UID)?.as_str(),
+            key_object.referenced_sop_instance_uid,
+        );
+    }
+
+    check_equal(
+        &mut internal,
+        "sr_root_value_type",
+        "KOS root content item Value Type is CONTAINER.",
+        "KOS root content item Value Type does not match the recipe.",
+        element_str(path, &obj, tags::VALUE_TYPE)?.as_str(),
+        expected.root_value_type,
+    );
+    check_equal(
+        &mut internal,
+        "sr_root_continuity_of_content",
+        "KOS root Continuity of Content matches the recipe.",
+        "KOS root Continuity of Content does not match the recipe.",
+        element_str(path, &obj, tags::CONTINUITY_OF_CONTENT)?.as_str(),
+        expected.root_continuity_of_content,
+    );
+    let title = top_level_sequence_item(path, &obj, tags::CONCEPT_NAME_CODE_SEQUENCE, 0)?;
+    check_equal(
+        &mut internal,
+        "sr_title_code_value",
+        "KOS title Code Value matches the recipe.",
+        "KOS title Code Value does not match the recipe.",
+        item_str(path, title, tags::CODE_VALUE)?.as_str(),
+        expected.title_code_value,
+    );
+    check_equal(
+        &mut internal,
+        "sr_title_coding_scheme",
+        "KOS title Coding Scheme Designator matches the recipe.",
+        "KOS title Coding Scheme Designator does not match the recipe.",
+        item_str(path, title, tags::CODING_SCHEME_DESIGNATOR)?.as_str(),
+        expected.title_coding_scheme_designator,
+    );
+    check_equal(
+        &mut internal,
+        "sr_title_code_meaning",
+        "KOS title Code Meaning matches the recipe.",
+        "KOS title Code Meaning does not match the recipe.",
+        item_str(path, title, tags::CODE_MEANING)?.as_str(),
+        expected.title_code_meaning,
+    );
+    check_equal(
+        &mut internal,
+        "kos_content_sequence_items",
+        "KOS Content Sequence contains every key object item.",
+        "KOS Content Sequence item count does not match the recipe.",
+        sequence_item_count(path, &obj, tags::CONTENT_SEQUENCE)?,
+        expected.key_objects.len(),
+    );
+
+    for (index, key_object) in expected.key_objects.iter().enumerate() {
+        let content_item = top_level_sequence_item(path, &obj, tags::CONTENT_SEQUENCE, index)?;
+        check_equal(
+            &mut internal,
+            "kos_image_relationship_type",
+            "KOS IMAGE item Relationship Type matches the recipe.",
+            "KOS IMAGE item Relationship Type does not match the recipe.",
+            item_str(path, content_item, tags::RELATIONSHIP_TYPE)?.as_str(),
+            expected.relationship_type,
+        );
+        check_equal(
+            &mut internal,
+            "kos_image_value_type",
+            "KOS IMAGE item Value Type is IMAGE.",
+            "KOS IMAGE item Value Type does not match the recipe.",
+            item_str(path, content_item, tags::VALUE_TYPE)?.as_str(),
+            expected.image_value_type,
+        );
+        let image_code =
+            item_sequence_item(path, content_item, tags::CONCEPT_NAME_CODE_SEQUENCE, 0)?;
+        check_equal(
+            &mut internal,
+            "kos_image_code_value",
+            "KOS IMAGE item Code Value matches the recipe.",
+            "KOS IMAGE item Code Value does not match the recipe.",
+            item_str(path, image_code, tags::CODE_VALUE)?.as_str(),
+            expected.image_code_value,
+        );
+        check_equal(
+            &mut internal,
+            "kos_image_coding_scheme",
+            "KOS IMAGE item Coding Scheme Designator matches the recipe.",
+            "KOS IMAGE item Coding Scheme Designator does not match the recipe.",
+            item_str(path, image_code, tags::CODING_SCHEME_DESIGNATOR)?.as_str(),
+            expected.image_coding_scheme_designator,
+        );
+        check_equal(
+            &mut internal,
+            "kos_image_code_meaning",
+            "KOS IMAGE item Code Meaning matches the recipe.",
+            "KOS IMAGE item Code Meaning does not match the recipe.",
+            item_str(path, image_code, tags::CODE_MEANING)?.as_str(),
+            expected.image_code_meaning,
+        );
+        let image_sop = item_sequence_item(path, content_item, tags::REFERENCED_SOP_SEQUENCE, 0)?;
+        check_equal(
+            &mut internal,
+            "kos_image_sop_class_uid",
+            "KOS IMAGE item SOP Class UID matches the source object.",
+            "KOS IMAGE item SOP Class UID does not match the source object.",
+            item_str(path, image_sop, TAG_REFERENCED_SOP_CLASS_UID)?.as_str(),
+            key_object.referenced_sop_class_uid,
+        );
+        check_equal(
+            &mut internal,
+            "kos_image_sop_instance_uid",
+            "KOS IMAGE item SOP Instance UID matches the source object.",
+            "KOS IMAGE item SOP Instance UID does not match the source object.",
+            item_str(path, image_sop, TAG_REFERENCED_SOP_INSTANCE_UID)?.as_str(),
+            key_object.referenced_sop_instance_uid,
+        );
+        if let Some(frame_numbers) = key_object.referenced_frame_numbers {
+            let expected_frame_numbers = frame_numbers
+                .iter()
+                .map(u16::to_string)
+                .collect::<Vec<_>>()
+                .join("\\");
+            check_equal(
+                &mut internal,
+                "kos_image_referenced_frame_numbers",
+                "KOS IMAGE item frame numbers match the recipe.",
+                "KOS IMAGE item frame numbers do not match the recipe.",
+                item_str(path, image_sop, TAG_REFERENCED_FRAME_NUMBER)?.as_str(),
+                expected_frame_numbers.as_str(),
+            );
+        }
+    }
+    check(
+        &mut internal,
+        obj.element_opt(tags::PIXEL_DATA)
+            .map_err(|err| validation_error(path, err))?
+            .is_none(),
+        "sr_pixel_data_absent",
+        "KOS contains no Pixel Data.",
+        "KOS unexpectedly contains Pixel Data.",
+    );
+
+    fail_if_any_failed(path, &internal)?;
+
+    Ok(ValidatedPart10 {
+        bytes,
+        validation: serde_json::json!({
+            "status": "passed",
+            "internal": internal,
+            "standards": [
+                {
+                    "name": standard_sop_class_validation_name(expected.sop_class_uid),
+                    "status": "passed",
+                    "message": standard_sop_class_validation_message(expected.sop_class_uid)
+                },
+                {
+                    "name": standard_transfer_syntax_validation_name(expected.transfer_syntax_uid),
+                    "status": "passed",
+                    "message": standard_transfer_syntax_validation_message(expected.transfer_syntax_uid)
+                },
+                {
+                    "name": "synthetic_data_attribute",
+                    "status": "passed",
+                    "message": "Synthetic Data (0008,001C) is present with value YES."
+                },
+                {
+                    "name": "key_object_selection_document_modules",
+                    "status": "passed",
+                    "message": "KOS document flags, evidence, and IMAGE content items match the recipe."
                 }
             ],
             "external": []
@@ -4137,6 +4498,9 @@ fn standard_sop_class_validation_message(sop_class_uid: &str) -> &'static str {
         }
         uids::COMPREHENSIVE_SR_STORAGE => {
             "SOP Class UID matches Comprehensive SR Storage in the 2026b reference."
+        }
+        uids::KEY_OBJECT_SELECTION_DOCUMENT_STORAGE => {
+            "SOP Class UID matches Key Object Selection Document Storage in the 2026b reference."
         }
         _ => "SOP Class UID matches the recipe.",
     }

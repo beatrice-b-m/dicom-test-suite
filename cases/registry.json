@@ -3083,7 +3083,7 @@
     },
     {
       "case_id": "derived/sr/key_object_selection_explicit_le",
-      "status": "planned",
+      "status": "implemented",
       "profiles": ["extended"],
       "recipe_id": "sr_key_object_selection",
       "recipe_version": "0.1.0",

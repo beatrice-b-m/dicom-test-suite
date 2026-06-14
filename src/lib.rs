@@ -1693,13 +1693,15 @@ fn validate_family_standard_elements(
             file,
             obj,
         )?,
-        "Basic Text SR" | "Comprehensive SR" => validate_structured_report_standard_elements(
-            failures,
-            relative_path,
-            manifest_path,
-            file,
-            obj,
-        )?,
+        "Basic Text SR" | "Comprehensive SR" | "Key Object Selection Document" => {
+            validate_structured_report_standard_elements(
+                failures,
+                relative_path,
+                manifest_path,
+                file,
+                obj,
+            )?
+        }
         _ => {}
     }
 
@@ -2616,12 +2618,12 @@ fn validate_structured_report_standard_elements(
         relative_path,
         obj,
         tags::SOP_CLASS_UID,
-        "basic_text_sr_sop_class",
+        "sr_sop_class",
         manifest_str(
             manifest_path,
             file,
             "/dicom/sop_class_uid",
-            "Basic Text SR SOP Class UID must be a string",
+            "SR SOP Class UID must be a string",
         )?,
     );
     validate_type1_str_element(
@@ -2630,7 +2632,12 @@ fn validate_structured_report_standard_elements(
         obj,
         tags::MODALITY,
         "sr_modality_type1",
-        "SR",
+        manifest_str(
+            manifest_path,
+            file,
+            "/dicom/modality",
+            "SR modality must be a string",
+        )?,
     );
     validate_type1_str_element(
         failures,
@@ -2724,7 +2731,7 @@ fn validate_structured_report_standard_elements(
             .and_then(Value::as_array)
             .ok_or(ValidateError::ManifestShape {
                 path: manifest_path.to_path_buf(),
-                message: "Basic Text SR references must be an array",
+                message: "SR references must be an array",
             })?;
     let source_sop_class_uid = references
         .first()
@@ -2732,7 +2739,7 @@ fn validate_structured_report_standard_elements(
         .and_then(Value::as_str)
         .ok_or(ValidateError::ManifestShape {
             path: manifest_path.to_path_buf(),
-            message: "Basic Text SR source reference sop_class_uid must be a string",
+            message: "SR source reference sop_class_uid must be a string",
         })?;
 
     let Ok(evidence) = top_level_sequence_item_for_validate(
@@ -2837,6 +2844,14 @@ fn validate_structured_report_standard_elements(
             obj,
             source_sop_class_uid,
             source_sop_instance_uid,
+        )?;
+    } else if structured_report.get("key_objects").is_some() {
+        validate_key_object_selection_content_items(
+            failures,
+            relative_path,
+            manifest_path,
+            file,
+            obj,
         )?;
     } else {
         failures.push(format!(
@@ -3004,6 +3019,145 @@ fn validate_comprehensive_sr_content_items(
             source_sop_instance_uid,
         ),
         Err(err) => failures.push(format!("{relative_path}: sr_image_sop_instance_uid: {err}")),
+    }
+
+    Ok(())
+}
+
+fn validate_key_object_selection_content_items(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    manifest_path: &Path,
+    file: &Value,
+    obj: &OpenedObject,
+) -> Result<(), ValidateError> {
+    let references =
+        file.get("references")
+            .and_then(Value::as_array)
+            .ok_or(ValidateError::ManifestShape {
+                path: manifest_path.to_path_buf(),
+                message: "KOS references must be an array",
+            })?;
+    let key_objects = file
+        .pointer("/expected_semantics/structured_report/key_objects")
+        .and_then(Value::as_array)
+        .ok_or(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "KOS key object semantics must be an array",
+        })?;
+
+    for (index, key_object) in key_objects.iter().enumerate() {
+        let Ok(content_item) =
+            top_level_sequence_item_for_validate(obj, tags::CONTENT_SEQUENCE, index)
+        else {
+            failures.push(format!(
+                "{relative_path}: kos_content_sequence: missing key object item {index}"
+            ));
+            continue;
+        };
+        match item_str_for_validate(content_item, tags::RELATIONSHIP_TYPE) {
+            Ok(actual) => validate_equal(
+                failures,
+                relative_path,
+                "kos_image_relationship_type",
+                actual,
+                key_object
+                    .get("relationship_type")
+                    .and_then(Value::as_str)
+                    .ok_or(ValidateError::ManifestShape {
+                        path: manifest_path.to_path_buf(),
+                        message: "KOS key object relationship_type must be a string",
+                    })?,
+            ),
+            Err(err) => failures.push(format!(
+                "{relative_path}: kos_image_relationship_type: {err}"
+            )),
+        }
+        match item_str_for_validate(content_item, tags::VALUE_TYPE) {
+            Ok(actual) => validate_equal(
+                failures,
+                relative_path,
+                "kos_image_value_type",
+                actual,
+                key_object.get("value_type").and_then(Value::as_str).ok_or(
+                    ValidateError::ManifestShape {
+                        path: manifest_path.to_path_buf(),
+                        message: "KOS key object value_type must be a string",
+                    },
+                )?,
+            ),
+            Err(err) => failures.push(format!("{relative_path}: kos_image_value_type: {err}")),
+        }
+
+        let Ok(sop) =
+            item_sequence_item_for_validate(content_item, tags::REFERENCED_SOP_SEQUENCE, 0)
+        else {
+            failures.push(format!(
+                "{relative_path}: kos_referenced_sop_sequence: missing item {index}"
+            ));
+            continue;
+        };
+        let reference = references.get(index).ok_or(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "KOS references must align with key object items",
+        })?;
+        let expected_sop_class_uid = reference
+            .get("sop_class_uid")
+            .and_then(Value::as_str)
+            .ok_or(ValidateError::ManifestShape {
+                path: manifest_path.to_path_buf(),
+                message: "KOS reference sop_class_uid must be a string",
+            })?;
+        let expected_sop_instance_uid = reference
+            .get("sop_instance_uid")
+            .and_then(Value::as_str)
+            .ok_or(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "KOS reference sop_instance_uid must be a string",
+        })?;
+
+        match item_str_for_validate(sop, dicom_core::Tag(0x0008, 0x1150)) {
+            Ok(actual) => validate_equal(
+                failures,
+                relative_path,
+                "kos_image_sop_class_uid",
+                actual,
+                expected_sop_class_uid,
+            ),
+            Err(err) => failures.push(format!("{relative_path}: kos_image_sop_class_uid: {err}")),
+        }
+        match item_str_for_validate(sop, dicom_core::Tag(0x0008, 0x1155)) {
+            Ok(actual) => validate_equal(
+                failures,
+                relative_path,
+                "kos_image_sop_instance_uid",
+                actual,
+                expected_sop_instance_uid,
+            ),
+            Err(err) => failures.push(format!(
+                "{relative_path}: kos_image_sop_instance_uid: {err}"
+            )),
+        }
+
+        if let Some(expected_frames) = reference.get("frame_numbers").and_then(Value::as_array) {
+            let expected = expected_frames
+                .iter()
+                .map(|value| value.as_u64().unwrap_or_default().to_string())
+                .collect::<Vec<_>>()
+                .join("\\");
+            match item_str_for_validate(sop, dicom_core::Tag(0x0008, 0x1160)) {
+                Ok(actual) => validate_equal(
+                    failures,
+                    relative_path,
+                    "kos_image_referenced_frame_numbers",
+                    actual,
+                    expected.as_str(),
+                ),
+                Err(err) => failures.push(format!(
+                    "{relative_path}: kos_image_referenced_frame_numbers: {err}"
+                )),
+            }
+        }
     }
 
     Ok(())
@@ -4775,10 +4929,8 @@ mod tests {
             "planned status filter should not include implemented Comprehensive SR"
         );
         assert!(
-            output.contains(
-                "derived/sr/key_object_selection_explicit_le\tplanned\textended\t1.2.840.10008.5.1.4.1.1.88.59\t1.2.840.10008.1.2.1\t5/5 covered"
-            ),
-            "status filter should include planned Phase 5 SR cases in extended"
+            !output.contains("derived/sr/key_object_selection_explicit_le"),
+            "planned status filter should not include implemented KOS"
         );
         assert!(
             !output.contains("enhanced/ct/multiframe_shared_perframe_explicit_le"),

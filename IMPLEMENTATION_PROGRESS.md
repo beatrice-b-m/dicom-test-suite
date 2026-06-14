@@ -2,9 +2,9 @@
 
 **Last updated:** 2026-06-14  
 **Source specification:** `SYSTEM_SPEC.md` version 0.2.0  
-**Current phase:** Phase 5.4 Comprehensive SR complete; Key Object Selection next
+**Current phase:** Phase 5.4 SR/KOS complete; RT Structure Set next
 
-**Current implementation status:** Phase 0, Phase 0.5, Phase 1, Phase 2, Phase 3, Phase 4, the pre-Phase-5 hardening pass, Phase 5.0 foundation, Phase 5.1 BINARY Segmentation Storage, Phase 5.2 BINARY/FRACTIONAL/LABELMAP segmentation coverage, Phase 5.3 Presentation State/RWVM, and the Basic Text SR and Comprehensive SR Phase 5.4 slices are functionally complete. `IMPLEMENTATION_PLAN.md` defines the concrete Phase 5 implementation sequence. Phase 5.4 now includes `derived/sr/basic_text_observation_explicit_le` and `derived/sr/comprehensive_measurement_explicit_le`, both non-image SR objects derived from the already-generated Enhanced CT source. Comprehensive SR adds a root CONTAINER with a NUM measurement, UCUM millimeter measurement units, and an IMAGE content item referencing source frames `[1, 2]`. The extended profile now writes 13 files and reports 4 remaining planned Phase 5 cases.
+**Current implementation status:** Phase 0, Phase 0.5, Phase 1, Phase 2, Phase 3, Phase 4, the pre-Phase-5 hardening pass, Phase 5.0 foundation, Phase 5.1 BINARY Segmentation Storage, Phase 5.2 BINARY/FRACTIONAL/LABELMAP segmentation coverage, Phase 5.3 Presentation State/RWVM, and the Basic Text SR, Comprehensive SR, and Key Object Selection Phase 5.4 slices are functionally complete. `IMPLEMENTATION_PLAN.md` defines the concrete Phase 5 implementation sequence. Phase 5.4 now includes `derived/sr/basic_text_observation_explicit_le`, `derived/sr/comprehensive_measurement_explicit_le`, and `derived/sr/key_object_selection_explicit_le`. KOS is a non-image Key Object Selection Document object with modality `KO`, Current Requested Procedure Evidence references to the generated Enhanced CT source and BINARY SEG object, and two IMAGE content items. The extended profile now writes 14 files and reports 3 remaining planned Phase 5 cases.
 
 This document is the durable hand-off log for coding agents implementing
 `dicom-test-suite`. Keep `SYSTEM_SPEC.md` as the source of product and
@@ -85,7 +85,7 @@ Observed at creation of this progress file:
 | Phase 3: Classic radiology IODs | complete | CT Image Storage signed 12-bit rescale/window, MG For Presentation/For Processing 12-bit, CR overlay/Modality LUT/VOI LUT, MR multi-slice oblique geometry, DX display shutter, US Image Storage, and stable multi-file series generation are implemented. |
 | Phase 4: Enhanced multi-frame | complete | Enhanced CT and Enhanced MR Image Storage cases with Shared and Per-Frame Functional Groups and Multi-frame Dimension metadata are implemented; MR Echo, Temporal Position, phase/velocity-encoding variation, and a two-member Enhanced CT concatenation case are covered. |
 | Pre-Phase-5 hardening | complete | Registry authority, required CLI contracts, validation hardening, reproducibility/CI guards, and standards lock pinning policy are complete. Validation now covers raw Part 10 byte checks, parsed cross-field image invariants, manifest schema-conformance checks, baseline standards-derived Type 1/Type 2 checks, classic family-specific checks, and Enhanced CT/MR multi-frame standards-derived checks. |
-| Phase 5: Derived, presentation, and non-image objects | Phase 5.4 Comprehensive SR complete; Key Object Selection next | Full planned target queue is now in `cases/registry.json`. Manifest entries support nullable/absent image metadata plus a generated-file `references` array, coverage reports project manifest reference source case IDs into `derived_refs`, generated-root validation resolves same-run references while skipping image/pixel checks for non-image rows, and generation maintains an ordered source object registry for derived recipes. BINARY, FRACTIONAL, LABELMAP Segmentation, Grayscale Softcopy Presentation State, Real World Value Mapping, Basic Text SR, and Comprehensive SR objects are implemented and validated. The next implementation slice is Key Object Selection. |
+| Phase 5: Derived, presentation, and non-image objects | Phase 5.4 SR/KOS complete; RT Structure Set next | Full planned target queue is now in `cases/registry.json`. Manifest entries support nullable/absent image metadata plus a generated-file `references` array, coverage reports project manifest reference source case IDs into `derived_refs`, generated-root validation resolves same-run references while skipping image/pixel checks for non-image rows, and generation maintains an ordered source object registry for derived recipes. BINARY, FRACTIONAL, LABELMAP Segmentation, Grayscale Softcopy Presentation State, Real World Value Mapping, Basic Text SR, Comprehensive SR, and Key Object Selection objects are implemented and validated. The next implementation slice is RT Structure Set. |
 | Phase 6: Transfer syntax expansion | not started | Transfer syntax abstraction and compressed cases pending. |
 | Phase 7: Pathology, video, and large object profiles | not started | VL, WSI, video, and stress cases pending. |
 | Phase 8: Reporting and viewer integration | not started | Coverage reports, optional viewer runner, and compatibility schema pending. |
@@ -213,7 +213,7 @@ Enhanced CT concatenation case for logical multi-frame object splitting.
 - [x] Implement Real World Value Mapping case.
 - [x] Implement Basic Text SR case.
 - [x] Implement Comprehensive SR case.
-- [ ] Implement Key Object Selection case.
+- [x] Implement Key Object Selection case.
 - [ ] Implement RT Structure Set detection case.
 - [ ] Implement RT Dose detection case.
 - [ ] Implement Encapsulated PDF detection case.
@@ -816,8 +816,60 @@ These case IDs come from `SYSTEM_SPEC.md` section 21 and should seed
   Comprehensive SR row as a derived non-image object with null
   photometric/bits/frames metadata and
   `derived_refs=["enhanced/ct/multiframe_shared_perframe_explicit_le"]`.
+- 2026-06-14: Phase 5.4 Key Object Selection is implemented for
+  `derived/sr/key_object_selection_explicit_le`. The KOS recipe writes a
+  non-image Explicit VR Little Endian Key Object Selection Document Storage
+  object after the generated Enhanced CT source and BINARY SEG source, shares
+  the source Study Instance UID, uses its own deterministic KO Series and SOP
+  Instance UIDs, sets Synthetic Data to `YES`, and records two same-run
+  manifest references: `source_image` to Enhanced CT frames `[1, 2]` and
+  `key_object_segmentation` to the generated BINARY SEG object. The dataset
+  includes Key Object Document Series Modality `KO`, SR Document General
+  `Completion Flag` `COMPLETE` and `Verification Flag` `UNVERIFIED`, Current
+  Requested Procedure Evidence with both source series/SOP references, and an
+  SR Document Content tree with a root `CONTAINER` title `Of Interest` and two
+  contained `IMAGE` content items. Generated-root validation now treats Key
+  Object Selection Document as an SR-family non-image object, compares modality
+  from the manifest instead of assuming `SR`, and validates KOS key object
+  content items against manifest references. Coverage reports show the KOS row
+  as a derived non-image object with null photometric/bits/frames metadata and
+  `derived_refs=["enhanced/ct/multiframe_shared_perframe_explicit_le",
+  "derived/seg/binary_multiframe_explicit_le"]`.
 
 ## Verification Results
+
+- 2026-06-14 Phase 5.4 Key Object Selection slice:
+  - `dicom-standard-kb` MCP lookups rechecked Key Object Selection Document
+    Storage, the Key Object Selection Document IOD, IOD modules, Current
+    Requested Procedure Evidence Sequence, Content Sequence, and Completion
+    Flag.
+  - Initial `cargo fmt -- --check` failed on rustfmt wrapping in
+    `src/generator.rs`, `src/lib.rs`, `src/validation.rs`,
+    `tests/generate_cli.rs`, and `tests/project_artifacts.rs`; `cargo fmt` was
+    run, and the repeated `cargo fmt -- --check` passed.
+  - Initial `cargo test` failed on stale extended/all generated-file counts in
+    `tests/generate_cli.rs`; tests were updated for 14 extended files, 36
+    all-profile files, and 3 remaining planned Phase 5 cases.
+  - Repeated `cargo test` failed on stale extended validation count in
+    `tests/validate_cli.rs`; the test was updated for 14 checked extended
+    files.
+  - Repeated `cargo test` passed.
+  - `cargo run -- standards check-lock` passed with the existing documented
+    unavailable-pin warnings.
+  - `cargo run -- generate --profile extended --out /tmp/dts-kos-slice --seed 1`
+    passed, writing 14 files.
+  - `cargo run -- validate /tmp/dts-kos-slice` passed with 14 files checked and
+    0 validation failures.
+  - `cargo run -- report /tmp/dts-kos-slice --format json` passed with counts
+    `generated=14`, `planned=3`, `skipped=0`, `blocked=0`; the KOS row reports
+    `derived_refs=["enhanced/ct/multiframe_shared_perframe_explicit_le",
+    "derived/seg/binary_multiframe_explicit_le"]`, SOP Class UID
+    `1.2.840.10008.5.1.4.1.1.88.59`, null photometric/bits/frames fields, and
+    validation status `passed`.
+  - `cargo run -- report /tmp/dts-kos-slice --format markdown` passed with the
+    expected generated KOS row and 3 remaining Phase 5 gaps.
+  - `cargo run -- standards gaps --profile extended` passed with no standards
+    evidence gaps.
 
 - 2026-06-14 Phase 5.4 Comprehensive SR slice:
   - `dicom-standard-kb` MCP lookups rechecked Comprehensive SR Storage, the
@@ -1138,26 +1190,25 @@ These case IDs come from `SYSTEM_SPEC.md` section 21 and should seed
 
 ## Current Blockers
 
-None currently recorded for continuing Phase 5.4.
+None currently recorded for continuing Phase 5.5.
 
 ## Recommended Next Commit
 
-Continue Phase 5.4 with `derived/sr/key_object_selection_explicit_le`. Recheck
-Key Object Selection Document Storage, the Key Object Selection Document IOD
-and modules, SR Document Series, SR Document General, SR Document Content,
-Current Requested Procedure Evidence, Key Object Selection-specific title/code
-requirements, and same-run references to the generated Enhanced CT and SR/SEG
-objects with `dicom-standard-kb` before adding the writer. Keep the commit
-limited to KOS writer/validation/tests/registry status/progress unless a small
-shared SR content helper is required.
+Start Phase 5.5 with `non-image/rt/structure_set_single_roi_explicit_le`.
+Recheck RT Structure Set Storage, the RT Structure Set IOD and modules, RT
+Series, Structure Set, ROI Contour, RT ROI Observations, Frame of Reference,
+and same-run references to the generated Enhanced CT source with
+`dicom-standard-kb` before adding the writer. Keep the commit limited to RT
+Structure Set writer/validation/tests/registry status/progress unless a small
+shared RT reference helper is required.
 
 ## Commit-Ready Summary
 
-The current slice implements `derived/sr/comprehensive_measurement_explicit_le`,
-adds a non-image Comprehensive SR writer and validation path, flips the
-Comprehensive SR registry row to `implemented`, updates focused tests and this
-progress tracker, and leaves `derived/sr/key_object_selection_explicit_le` as
-the next work.
+The current slice implements `derived/sr/key_object_selection_explicit_le`,
+adds a non-image Key Object Selection Document writer and validation path,
+flips the KOS registry row to `implemented`, updates focused tests and this
+progress tracker, and leaves `non-image/rt/structure_set_single_roi_explicit_le`
+as the next work.
 
 ## Handoff Notes
 

@@ -6,7 +6,13 @@ use dicom_dictionary_std::{StandardDataDictionary, tags, uids};
 use dicom_object::{FileDicomObject, InMemDicomObject, open_file};
 use serde_json::Value;
 
-use crate::GenerateError;
+use crate::{
+    GenerateError,
+    codecs::{
+        FrameDecodeInput, FrameDecoder, NativeRleLosslessEncoder, RLE_LOSSLESS_TRANSFER_SYNTAX_UID,
+    },
+    sha256_hex,
+};
 
 type OpenedObject = FileDicomObject<InMemDicomObject<StandardDataDictionary>>;
 type DatasetObject = InMemDicomObject<StandardDataDictionary>;
@@ -30,6 +36,7 @@ pub(crate) struct Part10Expectations<'a> {
     pub planar_configuration: Option<u16>,
     pub pixel_data_vr: VR,
     pub pixel_data_length_formula: PixelDataLengthFormula,
+    pub decoded_frame_hashes: &'a [&'a str],
     pub palette: Option<PaletteExpectations>,
     pub padding: Option<PixelPaddingExpectations>,
     pub ct_image: Option<CtImageExpectations<'a>>,
@@ -769,6 +776,7 @@ pub(crate) fn validate_part10_file(
                     sequence.offset_table().len(),
                     basic_offset_table_offsets,
                 );
+                validate_rle_decoded_frame_hashes(expected, sequence.fragments(), &mut internal);
             }
             _ => check(
                 &mut internal,
@@ -3419,6 +3427,72 @@ fn expected_pixel_data_length(
             0,
         ),
     }
+}
+
+fn validate_rle_decoded_frame_hashes(
+    expected: &Part10Expectations<'_>,
+    fragments: &[Vec<u8>],
+    results: &mut Vec<Value>,
+) {
+    if expected.transfer_syntax_uid != RLE_LOSSLESS_TRANSFER_SYNTAX_UID {
+        return;
+    }
+    if expected.decoded_frame_hashes.is_empty() {
+        check(
+            results,
+            false,
+            "rle_decoded_frame_hashes",
+            "RLE Lossless frames decode to the expected native frame hashes.",
+            "RLE Lossless validation requires expected native frame hashes.",
+        );
+        return;
+    }
+    if fragments.len() != expected.decoded_frame_hashes.len() {
+        check(
+            results,
+            false,
+            "rle_decoded_frame_hash_count",
+            "RLE Lossless decoded frame count matches expected native frame hash count.",
+            "RLE Lossless fragment count does not match expected native frame hash count.",
+        );
+        return;
+    }
+
+    let decoder = NativeRleLosslessEncoder::new();
+    let mut decoded_hashes = Vec::with_capacity(fragments.len());
+    for fragment in fragments {
+        match decoder.decode_frame(FrameDecodeInput {
+            encoded_frame: fragment,
+            rows: expected.rows,
+            columns: expected.columns,
+            samples_per_pixel: expected.samples_per_pixel,
+            bits_allocated: expected.bits_allocated,
+        }) {
+            Ok(decoded) => decoded_hashes.push(sha256_hex(&decoded.native_bytes)),
+            Err(_) => {
+                check(
+                    results,
+                    false,
+                    "rle_decode_round_trip",
+                    "RLE Lossless frames decode successfully.",
+                    "RLE Lossless frame decode failed.",
+                );
+                return;
+            }
+        }
+    }
+
+    check_equal(
+        results,
+        "rle_decoded_frame_hashes",
+        "RLE Lossless frames decode to the expected native frame hashes.",
+        "RLE Lossless decoded frame hashes do not match expected native frame hashes.",
+        decoded_hashes
+            .iter()
+            .map(String::as_str)
+            .collect::<Vec<_>>(),
+        expected.decoded_frame_hashes.to_vec(),
+    );
 }
 
 fn validate_photometric_shape(expected: &Part10Expectations<'_>, results: &mut Vec<Value>) {

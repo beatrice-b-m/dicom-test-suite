@@ -8,9 +8,9 @@
 ## Phase Status
 
 - Phase 0 - Research And Decisions: in progress for non-RLE codecs; RLE has an implement-now decision.
-- Phase 1 - Codec Integration Architecture: in progress; minimal codec API and native RLE frame encoder are present.
+- Phase 1 - Codec Integration Architecture: in progress; minimal codec API plus native RLE frame encode/decode support are present.
 - Phase 2 - Encapsulated Pixel Data Substrate: complete for the first RLE one-fragment case; Extended Offset Table and future multi-fragment generation remain later substrate expansion.
-- Phase 3 - Low-Risk Codec Enablement: in progress; first generated RLE Lossless Secondary Capture case is implemented and verified.
+- Phase 3 - Low-Risk Codec Enablement: in progress; first generated RLE Lossless Secondary Capture case is implemented and round-trip validated.
 - Phase 4 - JPEG 2000 And HTJ2K: not started.
 - Phase 5 - Legacy And Specialty Compressed Syntaxes: not started.
 - Phase 6+ - Corpus expansion and maintenance: blocked until Phase 5 scope is complete.
@@ -41,21 +41,23 @@
 - Extended Part 10 generation-time validation to validate encapsulated Pixel Data fragment sequence shape without applying native byte-length checks to compressed data.
 - Flipped only the RLE Lossless registry row and capability matrix entry to implemented/available/byte-stable; JPEG Baseline, JPEG-LS, JPEG XL, JPEG 2000, and HTJ2K remain skipped/unavailable.
 - Added focused CLI/artifact/schema tests for RLE generation, list-cases status, validation counts, and capability matrix state.
+- Added a minimal `FrameDecoder` API and native project-owned RLE Lossless decoder for DICOM RLE frame headers, PackBits-style segment payloads, and byte-plane reconstruction.
+- Added generation-time RLE round-trip validation that decodes encapsulated RLE fragments back to native frame bytes and compares decoded SHA-256 hashes to the expected native frame hashes.
+- Added CLI `validate` RLE round-trip validation that decodes generated RLE fragments and compares the decoded native frame hashes to manifest `/pixel_data/frame_hashes`.
+- Added focused tests for RLE decode behavior, generated manifest validation results, and CLI rejection of RLE decoded-frame hash mismatches.
 
 ## Blockers
 
 - No current blocker for the next implementation slice.
-- RLE decode/round-trip validation is not yet implemented; current validation proves Part 10, image metadata, fragment sequence shape, manifest encapsulation metadata, report coverage, and byte reproducibility.
 - JPEG 2000, HTJ2K, and legacy JPEG backend selection remain unresolved research items.
 - Deflated Image Frame Compression requires a standards/IOD suitability decision before any implementation.
 
 ## Open Decisions
 
-- Whether the initial codec API needs separate decode traits before JPEG/JPEG-LS/JPEG XL work begins.
 - How codec backend versions and encoder options will be represented in generated manifests once compressed cases are emitted.
 - Whether JPEG/JPEG-LS/JPEG XL project feature gates should directly expose DICOM-rs optional features or wrap them behind project-owned adapters.
 - Which independent validators should be used for JPEG 2000 and HTJ2K.
-- Whether to add a project-owned RLE decoder for decoded-frame hash validation before expanding RLE case dimensions.
+- Whether the current project-owned RLE decoder should support multi-fragment frame reassembly in generation-time validation before a multi-fragment RLE case is added.
 
 ## Verification Results
 
@@ -92,13 +94,22 @@
 - `cargo run -- generate --profile extended --out /tmp/dts-rle-repro-a-0615 --seed 1`: passed, 18 files written.
 - `cargo run -- generate --profile extended --out /tmp/dts-rle-repro-b-0615 --seed 1`: passed, 18 files written.
 - `diff -r /tmp/dts-rle-repro-a-0615 /tmp/dts-rle-repro-b-0615`: passed with no differences.
+- `cargo test codecs`: initially failed because adding `FrameDecoder::backend` made the existing backend identity test ambiguous; passed after disambiguating the test, 10 focused codec tests.
+- `cargo test --test generate_cli generate_command_writes_extended_enhanced_ct_multiframe_case`: passed after adding the RLE decoded-frame validation assertion.
+- `cargo test --test validate_cli validate_command_reports_rle_decoded_frame_hash_mismatch`: passed, proving CLI validation rejects a manifest native-frame hash that does not match decoded RLE bytes.
+- `cargo fmt -- --check`: initially reported rustfmt-only layout changes in touched Rust files; passed after running `cargo fmt`.
+- `cargo test`: passed, full suite clean.
+- `cargo run -- standards check-lock`: passed with the existing documented lock warnings.
+- `cargo run -- generate --profile extended --out /tmp/dts-rle-decode-slice-0615 --seed 1`: passed, 18 files written in the no-deflate build.
+- `cargo run -- validate /tmp/dts-rle-decode-slice-0615`: passed, 18 files checked and 0 validation failures.
+- `cargo run -- report /tmp/dts-rle-decode-slice-0615 --format json`: passed; report counted 18 generated rows and included `classic/sc/mono2_u8_rle_lossless` as generated with validation status `passed`.
 
 ## Commit-Ready Summary
 
-- Phase 3 now has the first generated compressed image file: `classic/sc/mono2_u8_rle_lossless`.
-- The case is byte-stable, uses the native project RLE backend, writes encapsulated Pixel Data with a populated Basic Offset Table, records codec/fragment metadata in the manifest, validates successfully, appears in JSON reports, and is byte-identical across two extended runs.
+- Phase 3 now has RLE round-trip validation for the first generated compressed image file: `classic/sc/mono2_u8_rle_lossless`.
+- The case is byte-stable, uses the native project RLE backend, writes encapsulated Pixel Data with a populated Basic Offset Table, records codec/fragment metadata in the manifest, decodes back to the expected native frame hash during generation and CLI validation, appears in JSON reports, and is byte-identical across two extended runs.
 - Only the RLE Lossless registry row and capability matrix entry were flipped to implemented/available; other compressed transfer syntax rows remain skipped/unavailable.
 
 ## Recommended Next Commit
 
-Add native RLE decode/round-trip validation for the generated RLE case so validation can compare decoded frame hashes against the existing native frame hashes before expanding RLE dimensions or starting another low-risk codec family.
+Add a second small RLE Lossless Secondary Capture case, preferably 16-bit MONOCHROME2, to exercise multi-segment byte-plane generation and decoded-frame hash validation before starting another low-risk codec family.

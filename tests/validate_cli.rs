@@ -207,6 +207,35 @@ fn validate_command_reports_invalid_encapsulated_offset_table_combination() {
 }
 
 #[test]
+fn validate_command_reports_rle_decoded_frame_hash_mismatch() {
+    let out_dir = unique_temp_dir("validate-rle-decoded-hash");
+    generate_profile(&out_dir, "extended");
+    mutate_case_pixel_data(&out_dir, "classic/sc/mono2_u8_rle_lossless", |pixel_data| {
+        pixel_data.insert(
+            "frame_hashes".to_string(),
+            json!(["0000000000000000000000000000000000000000000000000000000000000000"]),
+        );
+    });
+
+    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args([
+            "validate",
+            out_dir.to_str().expect("temp path should be valid UTF-8"),
+        ])
+        .output()
+        .expect("validate command must run");
+
+    assert!(
+        !output.status.success(),
+        "validate should reject RLE files whose decoded native hash does not match the manifest"
+    );
+    let stdout = String::from_utf8(output.stdout).expect("validate stdout must be UTF-8");
+    assert!(stdout.contains("rle_decoded_frame_hashes"));
+
+    fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
+}
+
+#[test]
 fn validate_command_rejects_missing_manifest() {
     let out_dir = unique_temp_dir("validate-missing-manifest");
     fs::create_dir_all(&out_dir).expect("temporary output root should be created");
@@ -900,6 +929,34 @@ fn mutate_first_file_pixel_data(
         .and_then(|file| file.get_mut("pixel_data"))
         .and_then(Value::as_object_mut)
         .expect("first generated file should have pixel_data metadata");
+    mutate(pixel_data);
+    fs::write(
+        &manifest_path,
+        serde_json::to_string_pretty(&manifest).expect("manifest should serialize"),
+    )
+    .expect("manifest should be writable");
+}
+
+fn mutate_case_pixel_data(
+    out_dir: &Path,
+    case_id: &str,
+    mutate: impl FnOnce(&mut serde_json::Map<String, Value>),
+) {
+    let manifest_path = out_dir.join("manifest.json");
+    let mut manifest: Value = serde_json::from_str(
+        &fs::read_to_string(&manifest_path).expect("manifest should be readable"),
+    )
+    .expect("manifest should parse");
+    let files = manifest
+        .get_mut("files")
+        .and_then(Value::as_array_mut)
+        .expect("manifest files should be an array");
+    let pixel_data = files
+        .iter_mut()
+        .find(|file| file.get("case_id").and_then(Value::as_str) == Some(case_id))
+        .and_then(|file| file.get_mut("pixel_data"))
+        .and_then(Value::as_object_mut)
+        .expect("case should have pixel_data metadata");
     mutate(pixel_data);
     fs::write(
         &manifest_path,

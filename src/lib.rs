@@ -9,6 +9,10 @@ use dicom_dictionary_std::{StandardDataDictionary, tags};
 use dicom_object::{FileDicomObject, InMemDicomObject, open_file};
 use serde_json::Value;
 
+use crate::codecs::{
+    FrameDecodeInput, FrameDecoder, NativeRleLosslessEncoder, RLE_LOSSLESS_TRANSFER_SYNTAX_UID,
+};
+
 pub mod codecs;
 pub mod encapsulation;
 mod generator;
@@ -1030,12 +1034,24 @@ fn validate_manifest_image_pixel_data(
                 bits_allocated,
             )?;
         }
-        "encapsulated" => validate_encapsulated_pixel_data_manifest(
-            failures,
-            relative_path,
-            manifest_path,
-            file,
-        )?,
+        "encapsulated" => {
+            let pixel_fragments = match pixel_element.value() {
+                dicom_core::value::Value::PixelSequence(sequence) => Some(sequence.fragments()),
+                _ => None,
+            };
+            validate_encapsulated_pixel_data_manifest(
+                failures,
+                relative_path,
+                manifest_path,
+                file,
+                pixel_fragments,
+                rows,
+                columns,
+                samples_per_pixel,
+                bits_allocated,
+                frame_hashes,
+            )?;
+        }
         "absent" => failures.push(format!(
             "{relative_path}: pixel_data_absent_manifest: image objects must not use native_or_encapsulated absent"
         )),
@@ -1131,6 +1147,12 @@ fn validate_encapsulated_pixel_data_manifest(
     relative_path: &str,
     manifest_path: &Path,
     file: &Value,
+    pixel_fragments: Option<&[Vec<u8>]>,
+    rows: u16,
+    columns: u16,
+    samples_per_pixel: u16,
+    bits_allocated: u16,
+    frame_hashes: &[Value],
 ) -> Result<(), ValidateError> {
     let transfer_syntax = manifest_str(
         manifest_path,
@@ -1210,6 +1232,7 @@ fn validate_encapsulated_pixel_data_manifest(
     );
     let mut all_single_fragment = true;
     let mut all_multiple_fragments = true;
+    let mut fragment_counts = Vec::with_capacity(fragments_per_frame.len());
     for fragment_count in fragments_per_frame {
         let Some(fragment_count) = fragment_count.as_u64() else {
             return Err(ValidateError::ManifestShape {
@@ -1217,6 +1240,11 @@ fn validate_encapsulated_pixel_data_manifest(
                 message: "fragments_per_frame items must be integers",
             });
         };
+        let fragment_count =
+            usize::try_from(fragment_count).map_err(|_| ValidateError::ManifestShape {
+                path: manifest_path.to_path_buf(),
+                message: "fragments_per_frame item is too large",
+            })?;
         if fragment_count == 0 {
             failures.push(format!(
                 "{relative_path}: encapsulated_fragment_count: every frame must have at least one fragment"
@@ -1224,6 +1252,7 @@ fn validate_encapsulated_pixel_data_manifest(
         }
         all_single_fragment &= fragment_count == 1;
         all_multiple_fragments &= fragment_count > 1;
+        fragment_counts.push(fragment_count);
     }
 
     let compressed_frame_hashes = manifest_array(
@@ -1239,6 +1268,19 @@ fn validate_encapsulated_pixel_data_manifest(
         compressed_frame_hashes.len(),
         usize::try_from(frame_count).unwrap_or(usize::MAX),
     );
+    validate_rle_manifest_decoded_frame_hashes(
+        failures,
+        relative_path,
+        manifest_path,
+        transfer_syntax,
+        pixel_fragments,
+        rows,
+        columns,
+        samples_per_pixel,
+        bits_allocated,
+        &fragment_counts,
+        frame_hashes,
+    )?;
 
     let extended_offset_table_present = manifest_bool(
         manifest_path,
@@ -1345,6 +1387,82 @@ fn validate_encapsulated_pixel_data_manifest(
         }
     }
 
+    Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
+fn validate_rle_manifest_decoded_frame_hashes(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    manifest_path: &Path,
+    transfer_syntax: &str,
+    pixel_fragments: Option<&[Vec<u8>]>,
+    rows: u16,
+    columns: u16,
+    samples_per_pixel: u16,
+    bits_allocated: u16,
+    fragments_per_frame: &[usize],
+    frame_hashes: &[Value],
+) -> Result<(), ValidateError> {
+    if transfer_syntax != RLE_LOSSLESS_TRANSFER_SYNTAX_UID {
+        return Ok(());
+    }
+
+    let Some(pixel_fragments) = pixel_fragments else {
+        failures.push(format!(
+            "{relative_path}: rle_pixel_sequence: Pixel Data is not an encapsulated fragment sequence"
+        ));
+        return Ok(());
+    };
+    if !fragments_per_frame.iter().all(|count| *count == 1) {
+        failures.push(format!(
+            "{relative_path}: rle_decoded_frame_hashes: RLE round-trip validation currently requires one fragment per frame"
+        ));
+        return Ok(());
+    }
+    if pixel_fragments.len() != fragments_per_frame.len() {
+        failures.push(format!(
+            "{relative_path}: rle_fragment_count: expected {} fragment(s), got {}",
+            fragments_per_frame.len(),
+            pixel_fragments.len()
+        ));
+        return Ok(());
+    }
+
+    let expected_hashes = frame_hashes
+        .iter()
+        .map(|hash| {
+            hash.as_str().ok_or_else(|| ValidateError::ManifestShape {
+                path: manifest_path.to_path_buf(),
+                message: "pixel_data frame_hashes items must be strings",
+            })
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    let decoder = NativeRleLosslessEncoder::new();
+    let mut decoded_hashes = Vec::with_capacity(pixel_fragments.len());
+    for fragment in pixel_fragments {
+        match decoder.decode_frame(FrameDecodeInput {
+            encoded_frame: fragment,
+            rows,
+            columns,
+            samples_per_pixel,
+            bits_allocated,
+        }) {
+            Ok(decoded) => decoded_hashes.push(sha256_hex(&decoded.native_bytes)),
+            Err(err) => {
+                failures.push(format!("{relative_path}: rle_decode_round_trip: {err}"));
+                return Ok(());
+            }
+        }
+    }
+
+    validate_equal(
+        failures,
+        relative_path,
+        "rle_decoded_frame_hashes",
+        decoded_hashes.join(","),
+        expected_hashes.join(","),
+    );
     Ok(())
 }
 

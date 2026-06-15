@@ -70,6 +70,26 @@ pub trait FrameEncoder {
     fn encode_frame(&self, input: FrameEncodeInput<'_>) -> Result<EncodedFrame, CodecError>;
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct FrameDecodeInput<'a> {
+    pub encoded_frame: &'a [u8],
+    pub rows: u16,
+    pub columns: u16,
+    pub samples_per_pixel: u16,
+    pub bits_allocated: u16,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DecodedFrame {
+    pub native_bytes: Vec<u8>,
+}
+
+pub trait FrameDecoder {
+    fn backend(&self) -> CodecBackendInfo;
+
+    fn decode_frame(&self, input: FrameDecodeInput<'_>) -> Result<DecodedFrame, CodecError>;
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CodecError {
     Unavailable {
@@ -257,6 +277,99 @@ impl FrameEncoder for NativeRleLosslessEncoder {
     }
 }
 
+impl FrameDecoder for NativeRleLosslessEncoder {
+    fn backend(&self) -> CodecBackendInfo {
+        <Self as FrameEncoder>::backend(self)
+    }
+
+    fn decode_frame(&self, input: FrameDecodeInput<'_>) -> Result<DecodedFrame, CodecError> {
+        let bytes_per_sample = checked_bytes_per_sample(Self::BACKEND_ID, input.bits_allocated)?;
+        let pixels = usize::from(input.rows) * usize::from(input.columns);
+        let samples_per_pixel = usize::from(input.samples_per_pixel);
+        let expected_segments =
+            samples_per_pixel
+                .checked_mul(bytes_per_sample)
+                .ok_or_else(|| {
+                    CodecError::unsupported(
+                        Self::BACKEND_ID,
+                        "sample byte segment count overflowed",
+                    )
+                })?;
+        if input.encoded_frame.len() < 64 {
+            return Err(CodecError::validation_failed(
+                Self::BACKEND_ID,
+                format!(
+                    "RLE frame header is {} bytes, expected at least 64",
+                    input.encoded_frame.len()
+                ),
+            ));
+        }
+
+        let segment_count = read_u32_le(input.encoded_frame, 0) as usize;
+        if segment_count != expected_segments {
+            return Err(CodecError::validation_failed(
+                Self::BACKEND_ID,
+                format!("RLE frame has {segment_count} segments, expected {expected_segments}"),
+            ));
+        }
+        if segment_count == 0 || segment_count > 15 {
+            return Err(CodecError::validation_failed(
+                Self::BACKEND_ID,
+                format!("RLE segment count {segment_count} is outside 1..=15"),
+            ));
+        }
+
+        let mut segment_offsets = Vec::with_capacity(segment_count);
+        for index in 0..segment_count {
+            let offset = read_u32_le(input.encoded_frame, 4 + index * 4) as usize;
+            if offset < 64 || offset > input.encoded_frame.len() {
+                return Err(CodecError::validation_failed(
+                    Self::BACKEND_ID,
+                    format!("RLE segment {index} offset {offset} is outside the frame payload"),
+                ));
+            }
+            if index > 0 && offset < segment_offsets[index - 1] {
+                return Err(CodecError::validation_failed(
+                    Self::BACKEND_ID,
+                    format!("RLE segment {index} offset {offset} is before the previous segment"),
+                ));
+            }
+            segment_offsets.push(offset);
+        }
+
+        let mut decoded_segments = Vec::with_capacity(segment_count);
+        for index in 0..segment_count {
+            let start = segment_offsets[index];
+            let end = segment_offsets
+                .get(index + 1)
+                .copied()
+                .unwrap_or(input.encoded_frame.len());
+            let segment = decode_packbits_segment(&input.encoded_frame[start..end], pixels)?;
+            decoded_segments.push(segment);
+        }
+
+        let native_len = pixels
+            .checked_mul(samples_per_pixel)
+            .and_then(|len| len.checked_mul(bytes_per_sample))
+            .ok_or_else(|| {
+                CodecError::validation_failed(Self::BACKEND_ID, "native frame length overflowed")
+            })?;
+        let mut native_bytes = vec![0u8; native_len];
+        for sample in 0..samples_per_pixel {
+            for byte_plane in 0..bytes_per_sample {
+                let segment_index = sample * bytes_per_sample + byte_plane;
+                for pixel in 0..pixels {
+                    let offset =
+                        ((pixel * samples_per_pixel + sample) * bytes_per_sample) + byte_plane;
+                    native_bytes[offset] = decoded_segments[segment_index][pixel];
+                }
+            }
+        }
+
+        Ok(DecodedFrame { native_bytes })
+    }
+}
+
 fn checked_bytes_per_sample(
     backend_id: &'static str,
     bits_allocated: u16,
@@ -318,6 +431,68 @@ fn flush_literal(encoded: &mut Vec<u8>, literal: &mut Vec<u8>) {
     literal.clear();
 }
 
+fn decode_packbits_segment(encoded: &[u8], expected_len: usize) -> Result<Vec<u8>, CodecError> {
+    let mut decoded = Vec::with_capacity(expected_len);
+    let mut index = 0usize;
+    while index < encoded.len() && decoded.len() < expected_len {
+        let header = encoded[index] as i8;
+        index += 1;
+        if header >= 0 {
+            let literal_len = usize::from(header as u8) + 1;
+            let end = index.checked_add(literal_len).ok_or_else(|| {
+                CodecError::validation_failed(
+                    NativeRleLosslessEncoder::BACKEND_ID,
+                    "RLE literal packet length overflowed",
+                )
+            })?;
+            if end > encoded.len() {
+                return Err(CodecError::validation_failed(
+                    NativeRleLosslessEncoder::BACKEND_ID,
+                    "RLE literal packet is truncated",
+                ));
+            }
+            decoded.extend_from_slice(&encoded[index..end]);
+            index = end;
+        } else if header >= -127 {
+            if index >= encoded.len() {
+                return Err(CodecError::validation_failed(
+                    NativeRleLosslessEncoder::BACKEND_ID,
+                    "RLE repeat packet is missing its sample byte",
+                ));
+            }
+            let repeat_len = usize::try_from(1i16 - i16::from(header)).map_err(|_| {
+                CodecError::validation_failed(
+                    NativeRleLosslessEncoder::BACKEND_ID,
+                    "RLE repeat packet length overflowed",
+                )
+            })?;
+            let value = encoded[index];
+            index += 1;
+            decoded.extend(std::iter::repeat_n(value, repeat_len));
+        }
+    }
+
+    if decoded.len() != expected_len {
+        return Err(CodecError::validation_failed(
+            NativeRleLosslessEncoder::BACKEND_ID,
+            format!(
+                "RLE segment decoded to {} bytes, expected {expected_len}",
+                decoded.len()
+            ),
+        ));
+    }
+    Ok(decoded)
+}
+
+fn read_u32_le(bytes: &[u8], offset: usize) -> u32 {
+    u32::from_le_bytes([
+        bytes[offset],
+        bytes[offset + 1],
+        bytes[offset + 2],
+        bytes[offset + 3],
+    ])
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -326,7 +501,7 @@ mod tests {
     fn native_rle_backend_reports_identity_and_determinism() {
         let encoder = NativeRleLosslessEncoder::new();
 
-        let backend = encoder.backend();
+        let backend = FrameEncoder::backend(&encoder);
 
         assert_eq!(backend.backend_id, "native_project_rle_encoder");
         assert_eq!(backend.backend_kind.as_str(), "native");
@@ -356,6 +531,29 @@ mod tests {
     }
 
     #[test]
+    fn native_rle_decodes_single_segment_literal_frame() {
+        let codec = NativeRleLosslessEncoder::new();
+        let encoded = [1, 0, 0, 0, 64, 0, 0, 0]
+            .iter()
+            .copied()
+            .chain([0; 56])
+            .chain([3, 0, 85, 170, 255])
+            .collect::<Vec<_>>();
+
+        let decoded = codec
+            .decode_frame(FrameDecodeInput {
+                encoded_frame: &encoded,
+                rows: 2,
+                columns: 2,
+                samples_per_pixel: 1,
+                bits_allocated: 8,
+            })
+            .expect("literal RLE frame should decode");
+
+        assert_eq!(decoded.native_bytes, vec![0, 85, 170, 255]);
+    }
+
+    #[test]
     fn native_rle_encodes_repeated_runs_deterministically() {
         let encoder = NativeRleLosslessEncoder::new();
 
@@ -370,6 +568,27 @@ mod tests {
             .expect("RLE should encode repeated 8-bit samples");
 
         assert_eq!(&encoded.bytes[64..], &[253, 7]);
+    }
+
+    #[test]
+    fn native_rle_decodes_repeated_runs() {
+        let codec = NativeRleLosslessEncoder::new();
+        let mut encoded = vec![0u8; 64];
+        encoded[0..4].copy_from_slice(&1u32.to_le_bytes());
+        encoded[4..8].copy_from_slice(&64u32.to_le_bytes());
+        encoded.extend_from_slice(&[253, 7]);
+
+        let decoded = codec
+            .decode_frame(FrameDecodeInput {
+                encoded_frame: &encoded,
+                rows: 2,
+                columns: 2,
+                samples_per_pixel: 1,
+                bits_allocated: 8,
+            })
+            .expect("repeat RLE frame should decode");
+
+        assert_eq!(decoded.native_bytes, vec![7, 7, 7, 7]);
     }
 
     #[test]
@@ -391,6 +610,32 @@ mod tests {
         assert_eq!(&encoded.bytes[8..12], &67u32.to_le_bytes());
         assert_eq!(&encoded.bytes[64..67], &[1, 0x34, 0xcd]);
         assert_eq!(&encoded.bytes[67..70], &[1, 0x12, 0xab]);
+    }
+
+    #[test]
+    fn native_rle_decodes_byte_planes_into_native_sample_order() {
+        let codec = NativeRleLosslessEncoder::new();
+        let encoded = codec
+            .encode_frame(FrameEncodeInput {
+                native_frame: &[0x34, 0x12, 0xcd, 0xab],
+                rows: 1,
+                columns: 2,
+                samples_per_pixel: 1,
+                bits_allocated: 16,
+            })
+            .expect("RLE should encode 16-bit byte planes");
+
+        let decoded = codec
+            .decode_frame(FrameDecodeInput {
+                encoded_frame: &encoded.bytes,
+                rows: 1,
+                columns: 2,
+                samples_per_pixel: 1,
+                bits_allocated: 16,
+            })
+            .expect("RLE should decode 16-bit byte planes");
+
+        assert_eq!(decoded.native_bytes, vec![0x34, 0x12, 0xcd, 0xab]);
     }
 
     #[test]
@@ -428,5 +673,28 @@ mod tests {
 
         assert!(matches!(error, CodecError::Unsupported { .. }));
         assert!(error.to_string().contains("native frame length is 3"));
+    }
+
+    #[test]
+    fn native_rle_rejects_corrupt_segment_count_on_decode() {
+        let codec = NativeRleLosslessEncoder::new();
+        let mut encoded = vec![0u8; 64];
+        encoded[0..4].copy_from_slice(&2u32.to_le_bytes());
+        encoded[4..8].copy_from_slice(&64u32.to_le_bytes());
+        encoded[8..12].copy_from_slice(&66u32.to_le_bytes());
+        encoded.extend_from_slice(&[3, 0, 1, 2, 3]);
+
+        let error = codec
+            .decode_frame(FrameDecodeInput {
+                encoded_frame: &encoded,
+                rows: 2,
+                columns: 2,
+                samples_per_pixel: 1,
+                bits_allocated: 8,
+            })
+            .expect_err("decode should reject an unexpected segment count");
+
+        assert!(matches!(error, CodecError::ValidationFailed { .. }));
+        assert!(error.to_string().contains("has 2 segments, expected 1"));
     }
 }

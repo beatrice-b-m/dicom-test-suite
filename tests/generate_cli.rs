@@ -1719,6 +1719,11 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
             .contains(&"encapsulated_fragment_count"),
         "RLE manifest should record encapsulated fragment validation"
     );
+    assert!(
+        validation_result_names(rle_file.pointer("/validation/internal"))
+            .contains(&"rle_decoded_frame_hashes"),
+        "RLE manifest should record decoded native frame hash validation"
+    );
     assert_eq!(
         enhanced_ct_file
             .pointer(

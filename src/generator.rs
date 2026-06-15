@@ -2383,6 +2383,8 @@ fn write_pixel_case(
             message: err.to_string(),
         })?;
 
+    let decoded_frame_hash = sha256_hex(recipe.pixel_bytes);
+    let decoded_frame_hashes = [decoded_frame_hash.as_str()];
     let validated = validate_part10_file(
         &path,
         &Part10Expectations {
@@ -2409,6 +2411,11 @@ fn write_pixel_case(
                     basic_offset_table_offsets: encapsulated.basic_offset_table.offsets.len(),
                 })
                 .unwrap_or_else(|| pixel_data_length_formula(recipe)),
+            decoded_frame_hashes: if compressed_pixel_data.is_some() {
+                &decoded_frame_hashes
+            } else {
+                &[]
+            },
             palette: recipe.palette.map(|palette| palette.into()),
             padding: recipe.padding.map(|padding| padding.into()),
             ct_image: None,
@@ -3016,6 +3023,7 @@ fn write_classic_ct_case(
             planar_configuration: None,
             pixel_data_vr: VR::OW,
             pixel_data_length_formula: PixelDataLengthFormula::ContiguousSamples,
+            decoded_frame_hashes: &[],
             palette: None,
             padding: None,
             ct_image: Some(CtImageExpectations {
@@ -3465,6 +3473,7 @@ fn write_enhanced_ct_case(
             planar_configuration: None,
             pixel_data_vr: VR::OW,
             pixel_data_length_formula: PixelDataLengthFormula::ContiguousSamples,
+            decoded_frame_hashes: &[],
             palette: None,
             padding: None,
             ct_image: None,
@@ -3739,6 +3748,7 @@ fn write_segmentation_case(
             planar_configuration: None,
             pixel_data_vr: VR::OB,
             pixel_data_length_formula: recipe.pixel_data_length_formula,
+            decoded_frame_hashes: &[],
             palette: None,
             padding: None,
             ct_image: None,
@@ -5603,6 +5613,7 @@ fn write_enhanced_ct_concatenation_case(
                 planar_configuration: None,
                 pixel_data_vr: VR::OW,
                 pixel_data_length_formula: PixelDataLengthFormula::ContiguousSamples,
+                decoded_frame_hashes: &[],
                 palette: None,
                 padding: None,
                 ct_image: None,
@@ -8081,6 +8092,7 @@ fn write_enhanced_mr_case(
             planar_configuration: None,
             pixel_data_vr: VR::OW,
             pixel_data_length_formula: PixelDataLengthFormula::ContiguousSamples,
+            decoded_frame_hashes: &[],
             palette: None,
             padding: None,
             ct_image: None,
@@ -8911,6 +8923,7 @@ fn write_classic_mg_case(
             planar_configuration: None,
             pixel_data_vr: VR::OW,
             pixel_data_length_formula: PixelDataLengthFormula::ContiguousSamples,
+            decoded_frame_hashes: &[],
             palette: None,
             padding: None,
             ct_image: None,
@@ -9455,6 +9468,7 @@ fn write_classic_dx_case(
             planar_configuration: None,
             pixel_data_vr: VR::OW,
             pixel_data_length_formula: PixelDataLengthFormula::ContiguousSamples,
+            decoded_frame_hashes: &[],
             palette: None,
             padding: None,
             ct_image: None,
@@ -9878,6 +9892,7 @@ fn write_classic_us_case(
             planar_configuration: None,
             pixel_data_vr: VR::OB,
             pixel_data_length_formula: PixelDataLengthFormula::ContiguousSamples,
+            decoded_frame_hashes: &[],
             palette: None,
             padding: None,
             ct_image: None,
@@ -10270,6 +10285,7 @@ fn write_classic_cr_case(
             planar_configuration: None,
             pixel_data_vr: VR::OB,
             pixel_data_length_formula: PixelDataLengthFormula::ContiguousSamples,
+            decoded_frame_hashes: &[],
             palette: None,
             padding: None,
             ct_image: None,
@@ -10708,6 +10724,7 @@ fn write_classic_mr_case(
                 planar_configuration: None,
                 pixel_data_vr: VR::OW,
                 pixel_data_length_formula: PixelDataLengthFormula::ContiguousSamples,
+                decoded_frame_hashes: &[],
                 palette: None,
                 padding: None,
                 ct_image: None,

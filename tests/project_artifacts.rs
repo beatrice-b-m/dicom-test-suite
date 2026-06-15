@@ -268,6 +268,168 @@ fn transfer_syntax_matrix_records_required_capability_fields() {
 }
 
 #[test]
+fn codec_backend_decisions_cover_phase_zero_target_families() {
+    let decisions = read_json("transfer-syntax/backend-decisions.json");
+    assert_eq!(
+        decisions.get("schema_version").and_then(Value::as_str),
+        Some("0.1.0")
+    );
+    assert_eq!(
+        decisions.get("dicom_rs_version").and_then(Value::as_str),
+        Some("0.9.1"),
+        "backend decisions must be tied to the pinned DICOM-rs version"
+    );
+
+    let families = decisions
+        .get("codec_families")
+        .and_then(Value::as_array)
+        .expect("backend decisions must contain codec_families");
+
+    for family_id in [
+        "rle_lossless",
+        "jpeg_baseline_8bit",
+        "jpeg_ls",
+        "jpeg_xl",
+        "jpeg_2000",
+        "htj2k",
+        "legacy_jpeg",
+        "deflated_image_frame",
+    ] {
+        let family = families
+            .iter()
+            .find(|family| family.get("family_id").and_then(Value::as_str) == Some(family_id))
+            .unwrap_or_else(|| panic!("backend decisions must include {family_id}"));
+
+        for field in [
+            "classification",
+            "transfer_syntax_uids",
+            "selected_backend",
+            "backend_kind",
+            "determinism",
+            "validation_strategy",
+            "blockers",
+            "evidence",
+            "next_action",
+        ] {
+            assert!(
+                family.get(field).is_some(),
+                "{family_id} must record {field}"
+            );
+        }
+        assert!(
+            family
+                .get("transfer_syntax_uids")
+                .and_then(Value::as_array)
+                .is_some_and(|uids| !uids.is_empty()),
+            "{family_id} must name at least one transfer syntax UID"
+        );
+        assert!(
+            family
+                .get("validation_strategy")
+                .and_then(Value::as_array)
+                .is_some_and(|strategy| !strategy.is_empty()),
+            "{family_id} must describe validation strategy"
+        );
+    }
+}
+
+#[test]
+fn codec_backend_decisions_keep_only_rle_as_first_implementation() {
+    let decisions = read_json("transfer-syntax/backend-decisions.json");
+    let families = decisions
+        .get("codec_families")
+        .and_then(Value::as_array)
+        .expect("backend decisions must contain codec_families");
+
+    let implement_now = families
+        .iter()
+        .filter(|family| {
+            family.get("classification").and_then(Value::as_str) == Some("implement_now")
+        })
+        .map(|family| {
+            family
+                .get("family_id")
+                .and_then(Value::as_str)
+                .expect("family_id should be a string")
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(
+        implement_now,
+        vec!["rle_lossless"],
+        "only bounded native RLE should be selected for the first implementation slice"
+    );
+
+    let rle = families
+        .iter()
+        .find(|family| family.get("family_id").and_then(Value::as_str) == Some("rle_lossless"))
+        .expect("RLE decision must exist");
+    assert_eq!(
+        rle.get("selected_backend").and_then(Value::as_str),
+        Some("native_project_rle_encoder")
+    );
+    assert_eq!(
+        rle.get("backend_kind").and_then(Value::as_str),
+        Some("native")
+    );
+    assert_eq!(
+        rle.get("determinism").and_then(Value::as_str),
+        Some("byte_stable")
+    );
+    assert_eq!(
+        rle.get("first_case_target").and_then(Value::as_str),
+        Some("classic/sc/mono2_u8_rle_lossless")
+    );
+}
+
+#[test]
+fn codec_backend_decision_uids_are_known_to_capability_matrix_or_deferred() {
+    let matrix = read_json("transfer-syntax/capability-matrix.json");
+    let matrix_uids = matrix
+        .get("entries")
+        .and_then(Value::as_array)
+        .expect("transfer syntax matrix must contain entries")
+        .iter()
+        .map(|entry| {
+            entry
+                .get("uid")
+                .and_then(Value::as_str)
+                .expect("matrix entry uid should be a string")
+                .to_string()
+        })
+        .collect::<BTreeSet<_>>();
+
+    let decisions = read_json("transfer-syntax/backend-decisions.json");
+    let families = decisions
+        .get("codec_families")
+        .and_then(Value::as_array)
+        .expect("backend decisions must contain codec_families");
+
+    for family in families {
+        let family_id = family
+            .get("family_id")
+            .and_then(Value::as_str)
+            .expect("family_id should be a string");
+        let classification = family
+            .get("classification")
+            .and_then(Value::as_str)
+            .expect("classification should be a string");
+        let uids = family
+            .get("transfer_syntax_uids")
+            .and_then(Value::as_array)
+            .expect("transfer_syntax_uids should be an array");
+
+        if classification == "implement_now" {
+            assert!(
+                uids.iter()
+                    .filter_map(Value::as_str)
+                    .any(|uid| matrix_uids.contains(uid)),
+                "{family_id} must have at least one UID represented in the capability matrix before implementation"
+            );
+        }
+    }
+}
+
+#[test]
 fn deflated_transfer_syntax_is_feature_gated_in_cargo_and_registry() {
     let cargo_toml = fs::read_to_string("Cargo.toml").expect("Cargo.toml must be readable");
     assert!(

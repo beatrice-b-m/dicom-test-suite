@@ -1,0 +1,313 @@
+{
+  "schema_version": "0.1.0",
+  "active_goal": "comprehensive compressed image codec generation support",
+  "standards_edition": "2026b",
+  "dicom_rs_version": "0.9.1",
+  "last_reviewed_at": "2026-06-15",
+  "policy_decisions": [
+    {
+      "decision_id": "codec-integration/default-backend-policy",
+      "status": "decided",
+      "recommendation": "Prefer project-owned Rust adapters or pinned DICOM-rs feature adapters for normal generation. External subprocess tools require explicit feature gating and version reporting.",
+      "rationale": "The generator must remain deterministic, portable, and reportable. Subprocess tools can be useful for codecs with no mature Rust path, but they add deployment and reproducibility risk.",
+      "next_action": "Design the Phase 1 codec trait so both in-process adapters and explicit external backends can report identity, options, feature gates, and determinism."
+    },
+    {
+      "decision_id": "codec-integration/licensing-policy",
+      "status": "decided",
+      "recommendation": "Default-supported codec backends must be permissively licensed or already compatible with the repository license. GPL or AGPL tooling is deferred to optional local experiments unless explicitly approved later.",
+      "rationale": "Generated corpus support should be usable in CI and downstream viewer projects without creating redistribution ambiguity.",
+      "next_action": "Record license evidence before moving any external backend from research_more to implement_now."
+    },
+    {
+      "decision_id": "codec-integration/first-implementation-order",
+      "status": "decided",
+      "recommendation": "Implement RLE Lossless first, then verify existing DICOM-rs feature adapters for JPEG Baseline, JPEG-LS, and JPEG XL before selecting external-heavy JPEG 2000 or HTJ2K paths.",
+      "rationale": "RLE is bounded, lossless, and suitable for proving the generator-owned encapsulated pixel data loop before adding heavyweight codec dependencies.",
+      "next_action": "Start Phase 1 with the minimal codec adapter API needed by a native RLE encoder."
+    }
+  ],
+  "codec_families": [
+    {
+      "family_id": "rle_lossless",
+      "classification": "implement_now",
+      "transfer_syntax_uids": ["1.2.840.10008.1.2.5"],
+      "selected_backend": "native_project_rle_encoder",
+      "backend_kind": "native",
+      "feature_gate": null,
+      "determinism": "byte_stable",
+      "first_case_target": "classic/sc/mono2_u8_rle_lossless",
+      "validation_strategy": [
+        "Unit-test segment ordering and byte-run packet boundaries.",
+        "Round-trip tiny generated frames through the DICOM-rs RLE decoder when the rle feature is enabled.",
+        "Validate encapsulated Pixel Data structure and decoded frame hashes in the generated manifest."
+      ],
+      "blockers": [],
+      "evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_uid RLELossless",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        },
+        {
+          "source": "local-source",
+          "path": "dicom-transfer-syntax-registry-0.9.1/src/entries.rs",
+          "finding": "Pinned DICOM-rs exposes RLE Lossless decode support behind the rle feature and no pixel-data writer."
+        }
+      ],
+      "next_action": "Add a minimal codec adapter trait and native RLE frame encoder without flipping the skipped registry row until generation, validation, reporting, and reproducibility all pass."
+    },
+    {
+      "family_id": "jpeg_baseline_8bit",
+      "classification": "research_more",
+      "transfer_syntax_uids": ["1.2.840.10008.1.2.4.50"],
+      "selected_backend": "dicom_rs_jpeg_feature_candidate",
+      "backend_kind": "dicom_rs_feature",
+      "feature_gate": "jpeg",
+      "determinism": "semantic_stable",
+      "first_case_target": "classic/sc/rgb_planar0_jpeg_baseline_8bit",
+      "validation_strategy": [
+        "Expose the DICOM-rs jpeg feature in a branch and verify PixelDataWriter behavior on an RGB Secondary Capture frame.",
+        "Compare decoded frame hashes and manifest semantics rather than raw codestream bytes.",
+        "Confirm required lossy image compression metadata before implementing a registry status change."
+      ],
+      "blockers": [
+        "Lossy encoder byte stability is unproven.",
+        "Project feature gate and independent decode validation are not implemented."
+      ],
+      "evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_uid JPEGBaseline8Bit",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        },
+        {
+          "source": "local-source",
+          "path": "dicom-transfer-syntax-registry-0.9.1/src/entries.rs",
+          "finding": "Pinned DICOM-rs can provide a JPEG Baseline pixel-data writer when built with the jpeg feature."
+        }
+      ],
+      "next_action": "Prototype the project jpeg feature gate after the RLE adapter boundary exists."
+    },
+    {
+      "family_id": "jpeg_ls",
+      "classification": "research_more",
+      "transfer_syntax_uids": [
+        "1.2.840.10008.1.2.4.80",
+        "1.2.840.10008.1.2.4.81"
+      ],
+      "selected_backend": "dicom_rs_charls_feature_candidate",
+      "backend_kind": "dicom_rs_feature",
+      "feature_gate": "charls",
+      "determinism": "semantic_stable",
+      "first_case_target": "classic/sc/mono2_u8_jpeg_ls_lossless",
+      "validation_strategy": [
+        "Verify lossless and near-lossless writer paths through the pinned CharLS-backed DICOM-rs adapter.",
+        "Require exact decoded hashes for lossless and bounded semantic expectations for near-lossless.",
+        "Record CharLS version and build mode in generated manifests."
+      ],
+      "blockers": [
+        "Project feature gate and backend version reporting are not implemented.",
+        "Near-lossless expectations and metadata policy are not finalized."
+      ],
+      "evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_uid JPEGLSLossless; lookup_uid JPEGLSNearLossless",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        },
+        {
+          "source": "local-source",
+          "path": "dicom-transfer-syntax-registry-0.9.1/src/adapters/jpegls.rs",
+          "finding": "Pinned DICOM-rs has CharLS-backed JPEG-LS pixel-data writer code behind the charls feature."
+        }
+      ],
+      "next_action": "Verify CharLS build portability and deterministic output before enabling generation."
+    },
+    {
+      "family_id": "jpeg_xl",
+      "classification": "research_more",
+      "transfer_syntax_uids": [
+        "1.2.840.10008.1.2.4.110",
+        "1.2.840.10008.1.2.4.112"
+      ],
+      "selected_backend": "dicom_rs_jpegxl_feature_candidate",
+      "backend_kind": "dicom_rs_feature",
+      "feature_gate": "jpegxl",
+      "determinism": "semantic_stable",
+      "first_case_target": "classic/sc/rgb_planar0_jpegxl_lossless",
+      "validation_strategy": [
+        "Verify lossless JPEG XL writer availability through the DICOM-rs jpegxl feature.",
+        "Require decoded frame hash validation and backend version reporting.",
+        "Classify lossy JPEG XL separately after lossless support is proven."
+      ],
+      "blockers": [
+        "Project feature gate and backend version reporting are not implemented.",
+        "Lossy JPEG XL policy is not decided."
+      ],
+      "evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_uid JPEGXLLossless; lookup_uid JPEGXL",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        },
+        {
+          "source": "local-source",
+          "path": "dicom-transfer-syntax-registry-0.9.1/src/adapters/jpegxl.rs",
+          "finding": "Pinned DICOM-rs has JPEG XL decode/encode adapter code behind optional JPEG XL features."
+        }
+      ],
+      "next_action": "Verify feature combinations and lossless round-trip behavior after the codec trait can record backend versions."
+    },
+    {
+      "family_id": "jpeg_2000",
+      "classification": "research_more",
+      "transfer_syntax_uids": [
+        "1.2.840.10008.1.2.4.90",
+        "1.2.840.10008.1.2.4.91"
+      ],
+      "selected_backend": "undecided_openjpeg_candidate",
+      "backend_kind": "undecided",
+      "feature_gate": null,
+      "determinism": "semantic_stable",
+      "first_case_target": "classic/sc/mono2_u16_jpeg2000_lossless",
+      "validation_strategy": [
+        "Prefer lossless 8-bit and 16-bit Secondary Capture round-trip before lossy cases.",
+        "Use an independent decoder or conformance check in addition to any selected encoder.",
+        "Record decoded frame hashes because byte-stable codestreams are not assumed."
+      ],
+      "blockers": [
+        "Primary encoder backend is not selected.",
+        "Pinned DICOM-rs OpenJPEG adapters are not yet proven as an encoder path for this project."
+      ],
+      "evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_uid JPEG2000Lossless; lookup_uid JPEG2000",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        },
+        {
+          "source": "local-source",
+          "path": "dicom-transfer-syntax-registry-0.9.1/src/entries.rs",
+          "finding": "Pinned DICOM-rs exposes JPEG 2000 support behind openjp2/openjpeg-sys feature flags, but this project has not selected or validated an encoder path."
+        }
+      ],
+      "next_action": "Run a focused backend spike comparing OpenJPEG integration options after RLE proves the encapsulated generation loop."
+    },
+    {
+      "family_id": "htj2k",
+      "classification": "research_more",
+      "transfer_syntax_uids": [
+        "1.2.840.10008.1.2.4.201",
+        "1.2.840.10008.1.2.4.203"
+      ],
+      "selected_backend": "undecided_openjph_candidate",
+      "backend_kind": "undecided",
+      "feature_gate": null,
+      "determinism": "semantic_stable",
+      "first_case_target": "classic/sc/mono2_u16_htj2k_lossless",
+      "validation_strategy": [
+        "Start with lossless Secondary Capture only after a backend can produce DICOM-compatible HTJ2K codestreams.",
+        "Require independent decode validation and decoded frame hashes.",
+        "Defer RPCL and lossy variants until lossless support is proven."
+      ],
+      "blockers": [
+        "Primary encoder backend is not selected.",
+        "Independent validator choice is unresolved."
+      ],
+      "evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_uid HTJ2KLossless; lookup_uid HTJ2K",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        }
+      ],
+      "next_action": "Research OpenJPH and alternative HTJ2K encoder licensing, portability, and DICOM compatibility."
+    },
+    {
+      "family_id": "legacy_jpeg",
+      "classification": "research_more",
+      "transfer_syntax_uids": [
+        "1.2.840.10008.1.2.4.51",
+        "1.2.840.10008.1.2.4.57",
+        "1.2.840.10008.1.2.4.70"
+      ],
+      "selected_backend": "undecided_legacy_jpeg_candidate",
+      "backend_kind": "undecided",
+      "feature_gate": null,
+      "determinism": "semantic_stable",
+      "first_case_target": null,
+      "validation_strategy": [
+        "Select a backend only if it can produce DICOM-compatible JPEG Extended 12-bit or JPEG Lossless codestreams.",
+        "Treat each legacy JPEG transfer syntax as a separate feature gate once a backend is proven.",
+        "Require independent decode validation before changing registry status."
+      ],
+      "blockers": [
+        "Reliable encoder backend is not identified.",
+        "Initial tiny case target is not selected."
+      ],
+      "evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_uid JPEGExtended12Bit; lookup_uid JPEGLossless; lookup_uid JPEGLosslessSV1",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        },
+        {
+          "source": "local-source",
+          "path": "dicom-transfer-syntax-registry-0.9.1/src/entries.rs",
+          "finding": "Pinned DICOM-rs JPEG feature descriptors do not advertise encoder support for JPEG Extended 12-bit or JPEG Lossless transfer syntaxes."
+        }
+      ],
+      "next_action": "Research candidate external or FFI encoders before planning any implementation."
+    },
+    {
+      "family_id": "deflated_image_frame",
+      "classification": "defer",
+      "transfer_syntax_uids": ["1.2.840.10008.1.2.8.1"],
+      "selected_backend": "none",
+      "backend_kind": "undecided",
+      "feature_gate": null,
+      "determinism": "unsupported",
+      "first_case_target": null,
+      "validation_strategy": [
+        "Resolve standards and IOD suitability before selecting a backend.",
+        "Keep distinct from Deflated Explicit VR Little Endian dataset compression."
+      ],
+      "blockers": [
+        "Standards suitability and first IOD target are unresolved."
+      ],
+      "evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_uid DeflatedImageFrameCompression",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        }
+      ],
+      "next_action": "Add a standards note only if a future phase proposes a concrete Deflated Image Frame recipe."
+    }
+  ]
+}

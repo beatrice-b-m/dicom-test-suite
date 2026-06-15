@@ -2,14 +2,14 @@
 
 **Last updated:** 2026-06-15  
 **Active goal:** comprehensive compressed image codec generation support  
-**Current phase:** Phase 1 - Codec Integration Architecture  
+**Current phase:** Phase 2 - Encapsulated Pixel Data Substrate  
 **Repo state source:** reconstructed from `SYSTEM_SPEC.md`, `CURRENT_PLAN.md`, `transfer-syntax/capability-matrix.json`, and tests because this file was missing.
 
 ## Phase Status
 
 - Phase 0 - Research And Decisions: in progress for non-RLE codecs; RLE has an implement-now decision.
-- Phase 1 - Codec Integration Architecture: in progress.
-- Phase 2 - Encapsulated Pixel Data Substrate: not started.
+- Phase 1 - Codec Integration Architecture: in progress; minimal codec API and native RLE frame encoder are present.
+- Phase 2 - Encapsulated Pixel Data Substrate: in progress.
 - Phase 3 - Low-Risk Codec Enablement: not started.
 - Phase 4 - JPEG 2000 And HTJ2K: not started.
 - Phase 5 - Legacy And Specialty Compressed Syntaxes: not started.
@@ -28,6 +28,13 @@
 - Added typed codec errors for unavailable, unsupported, encode-failed, and validation-failed outcomes.
 - Added a native project-owned RLE Lossless frame encoder that emits a DICOM RLE frame header and deterministic PackBits-style segment payloads for byte-aligned frames up to the 15-segment RLE limit.
 - Kept `classic/sc/mono2_u8_rle_lossless` skipped and kept `transfer-syntax/capability-matrix.json` unavailable for RLE until encapsulated Pixel Data generation, validation, report output, and reproducibility are proven.
+- Added `src/encapsulation.rs` with reusable encapsulated Pixel Data item stream construction.
+- Added one-fragment-per-frame encapsulation and configurable empty or populated Basic Offset Table item support.
+- Recorded Basic Offset Table offsets relative to the first fragment item while keeping internal fragment metadata offsets relative to the encoded Pixel Data value bytes.
+- Added deterministic item padding for odd compressed frame lengths and tracked compressed frame hashes.
+- Added multi-fragment frame layout support for later empty Basic Offset Table cases.
+- Added focused encapsulation tests, including wrapping a native RLE encoded frame as a single fragment.
+- Did not change any generator recipe, registry row, transfer-syntax capability, manifest schema, validation behavior, or report behavior in this substrate-only slice.
 
 ## Blockers
 
@@ -55,14 +62,18 @@
 - `cargo fmt -- --check`: initially reported rustfmt-only layout changes in the new `src/codecs.rs`; passed after running `cargo fmt`.
 - `cargo test codecs`: passed, 6 focused codec tests.
 - `cargo test`: passed, full suite clean.
+- `dicom-standard-kb` MCP `search_standard_text "Basic Offset Table encapsulated Pixel Data Item padding Extended Offset Table"` in PS3.5: passed; confirmed PS3.5 Section A.4 as the local KB anchor for encapsulated Pixel Data Basic Offset Table and trailing NULL padding behavior.
+- `cargo test encapsulation`: passed, 5 focused encapsulation tests.
+- `cargo fmt -- --check`: initially reported rustfmt-only layout changes in the new `src/encapsulation.rs`; passed after running `cargo fmt`.
+- `cargo test`: passed, full suite clean.
 
 ## Commit-Ready Summary
 
-- Phase 1 now has the first codec integration boundary and native RLE frame encoder needed for later RLE generation work.
-- The RLE encoder reports backend identity and byte-stable determinism without requiring a feature gate or external codec.
-- Unsupported frame shapes are reported as typed codec errors rather than panics or silent fallback.
+- Phase 2 now has the first reusable encapsulated Pixel Data substrate for compressed frame item layout.
+- The substrate can emit an empty or populated Basic Offset Table item, one-fragment-per-frame payloads, multi-fragment metadata, sequence delimitation, deterministic compressed frame hashes, and even-length item values with NULL padding.
+- Populated Basic Offset Table offsets are relative to the first fragment item, while fragment metadata preserves absolute item positions within the encoded Pixel Data value stream for later generator/validator use.
 - No generator recipe, registry status, capability-matrix availability, manifest output, validation behavior, or report output was changed.
 
 ## Recommended Next Commit
 
-Add the reusable encapsulated Pixel Data substrate needed for compressed frames: one-fragment-per-frame layout, empty Basic Offset Table support, item padding behavior, and focused tests using the native RLE encoded frame. Do not flip `classic/sc/mono2_u8_rle_lossless` from skipped until generation, validation, report output, and reproducibility all pass in a later slice.
+Use the native RLE encoder plus the encapsulation substrate to generate the first tiny Secondary Capture RLE file behind the existing `classic/sc/mono2_u8_rle_lossless` row. In that same slice, add manifest metadata, validation/report/reproducibility coverage, and flip the row only if generation, validation, report output, and reproducibility all pass.

@@ -10,6 +10,7 @@ use dicom_object::{FileDicomObject, InMemDicomObject, open_file};
 use serde_json::Value;
 
 pub mod codecs;
+pub mod encapsulation;
 mod generator;
 pub mod uid;
 mod validation;

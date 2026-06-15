@@ -1627,7 +1627,7 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\textended"));
-    let expected_extended_files = if cfg!(feature = "deflate") { 18 } else { 17 };
+    let expected_extended_files = if cfg!(feature = "deflate") { 19 } else { 18 };
     assert!(stdout.contains(&format!("files_written\t{expected_extended_files}")));
 
     let manifest_path = out_dir.join("manifest.json");
@@ -1664,6 +1664,60 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
             .pointer("/pixel_data/value_length")
             .and_then(Value::as_u64),
         Some(16)
+    );
+    let rle_file = file_entry_by_case_id(&manifest, "classic/sc/mono2_u8_rle_lossless");
+    assert_eq!(
+        rle_file
+            .pointer("/dicom/transfer_syntax_uid")
+            .and_then(Value::as_str),
+        Some("1.2.840.10008.1.2.5")
+    );
+    assert_eq!(
+        rle_file
+            .pointer("/pixel_data/native_or_encapsulated")
+            .and_then(Value::as_str),
+        Some("encapsulated")
+    );
+    assert!(
+        rle_file
+            .pointer("/pixel_data/value_length")
+            .is_some_and(Value::is_null),
+        "encapsulated Pixel Data should record an undefined value length"
+    );
+    assert_eq!(
+        rle_file
+            .pointer("/pixel_data/codec/backend_id")
+            .and_then(Value::as_str),
+        Some("native_project_rle_encoder")
+    );
+    assert_eq!(
+        rle_file
+            .pointer("/pixel_data/encapsulated_pixel_data/basic_offset_table/present")
+            .and_then(Value::as_bool),
+        Some(true)
+    );
+    assert_eq!(
+        rle_file
+            .pointer("/pixel_data/encapsulated_pixel_data/basic_offset_table/populated")
+            .and_then(Value::as_bool),
+        Some(true)
+    );
+    assert_eq!(
+        rle_file
+            .pointer("/pixel_data/encapsulated_pixel_data/basic_offset_table/offset_count")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        rle_file
+            .pointer("/pixel_data/encapsulated_pixel_data/fragments_per_frame/0")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert!(
+        validation_result_names(rle_file.pointer("/validation/internal"))
+            .contains(&"encapsulated_fragment_count"),
+        "RLE manifest should record encapsulated fragment validation"
     );
     assert_eq!(
         enhanced_ct_file
@@ -2457,7 +2511,7 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
         .expect("manifest should contain skipped cases");
     assert_eq!(
         skipped_cases.len(),
-        if cfg!(feature = "deflate") { 6 } else { 7 },
+        if cfg!(feature = "deflate") { 5 } else { 6 },
         "extended generation should report only unavailable compressed transfer syntax rows plus the no-feature deflated row"
     );
     for case_id in [
@@ -2466,7 +2520,6 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
         "classic/sc/mono2_u16_jpeg2000_lossless",
         "classic/sc/rgb_planar0_jpegxl_lossless",
         "classic/sc/mono2_u16_htj2k_lossless",
-        "classic/sc/mono2_u8_rle_lossless",
     ] {
         let skipped = skipped_case_by_id(&manifest, case_id);
         assert_eq!(
@@ -3853,7 +3906,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\tall"));
-    let expected_all_files = if cfg!(feature = "deflate") { 40 } else { 39 };
+    let expected_all_files = if cfg!(feature = "deflate") { 41 } else { 40 };
     assert!(stdout.contains(&format!("files_written\t{expected_all_files}")));
 
     let manifest_path = out_dir.join("manifest.json");
@@ -3875,6 +3928,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
     );
 
     file_entry_by_case_id(&manifest, "classic/sc/mono2_u8_explicit_le");
+    file_entry_by_case_id(&manifest, "classic/sc/mono2_u8_rle_lossless");
     file_entry_by_case_id(&manifest, "classic/ct/mono2_i16_rescale_12bit_explicit_le");
     file_entry_by_case_id(
         &manifest,
@@ -3897,7 +3951,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
         .expect("manifest should contain skipped cases");
     assert_eq!(
         skipped_cases.len(),
-        if cfg!(feature = "deflate") { 8 } else { 9 },
+        if cfg!(feature = "deflate") { 7 } else { 8 },
         "all generation should report unavailable cases according to active features"
     );
     for case_id in [
@@ -3920,7 +3974,6 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
         "classic/sc/mono2_u16_jpeg2000_lossless",
         "classic/sc/rgb_planar0_jpegxl_lossless",
         "classic/sc/mono2_u16_htj2k_lossless",
-        "classic/sc/mono2_u8_rle_lossless",
     ] {
         let skipped = skipped_case_by_id(&manifest, case_id);
         assert_eq!(

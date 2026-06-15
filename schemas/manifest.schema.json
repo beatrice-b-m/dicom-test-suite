@@ -513,6 +513,16 @@
             "$ref": "#/$defs/sha256"
           }
         },
+        "codec": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/codec_backend"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "encapsulated_pixel_data": {
           "anyOf": [
             {
@@ -563,6 +573,13 @@
             "offset_count": {
               "type": "integer",
               "minimum": 0
+            },
+            "offsets": {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "minimum": 0
+              }
             }
           },
           "additionalProperties": false
@@ -572,6 +589,12 @@
           "items": {
             "type": "integer",
             "minimum": 1
+          }
+        },
+        "fragments": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/encapsulated_fragment"
           }
         },
         "extended_offset_table": {
@@ -605,6 +628,70 @@
           "items": {
             "$ref": "#/$defs/sha256"
           }
+        }
+      },
+      "additionalProperties": false
+    },
+    "codec_backend": {
+      "type": "object",
+      "required": [
+        "backend_id",
+        "backend_kind",
+        "display_name",
+        "version",
+        "transfer_syntax_uid",
+        "feature_gate",
+        "determinism"
+      ],
+      "properties": {
+        "backend_id": {
+          "type": "string"
+        },
+        "backend_kind": {
+          "enum": ["native", "dicom_rs_feature", "external_command"]
+        },
+        "display_name": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "transfer_syntax_uid": {
+          "type": "string"
+        },
+        "feature_gate": {
+          "type": ["string", "null"]
+        },
+        "determinism": {
+          "$ref": "#/$defs/determinism"
+        }
+      },
+      "additionalProperties": false
+    },
+    "encapsulated_fragment": {
+      "type": "object",
+      "required": [
+        "frame_index",
+        "item_start_offset",
+        "compressed_length",
+        "padded_length"
+      ],
+      "properties": {
+        "frame_index": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "item_start_offset": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "compressed_length": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "padded_length": {
+          "type": "integer",
+          "minimum": 0
         }
       },
       "additionalProperties": false

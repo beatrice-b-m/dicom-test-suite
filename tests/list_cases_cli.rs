@@ -378,13 +378,40 @@ fn list_cases_command_shows_skipped_compressed_transfer_syntax_rows() {
         "classic/sc/mono2_u16_jpeg2000_lossless\tskipped\textended\t1.2.840.10008.5.1.4.1.1.7\t1.2.840.10008.1.2.4.90\t2/2 covered",
         "classic/sc/rgb_planar0_jpegxl_lossless\tskipped\textended\t1.2.840.10008.5.1.4.1.1.7\t1.2.840.10008.1.2.4.110\t2/2 covered",
         "classic/sc/mono2_u16_htj2k_lossless\tskipped\textended\t1.2.840.10008.5.1.4.1.1.7\t1.2.840.10008.1.2.4.201\t2/2 covered",
-        "classic/sc/mono2_u8_rle_lossless\tskipped\textended\t1.2.840.10008.5.1.4.1.1.7\t1.2.840.10008.1.2.5\t2/2 covered",
     ] {
         assert!(
             stdout.contains(expected),
             "skipped compressed transfer syntax row must be listed: {expected}"
         );
     }
+}
+
+#[test]
+fn list_cases_command_shows_rle_lossless_as_implemented() {
+    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args([
+            "list-cases",
+            "--profile",
+            "extended",
+            "--status",
+            "implemented",
+        ])
+        .output()
+        .expect("list-cases command must run");
+
+    assert!(
+        output.status.success(),
+        "list-cases should exit successfully: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8(output.stdout).expect("list-cases stdout must be utf-8");
+    assert!(
+        stdout.contains(
+            "classic/sc/mono2_u8_rle_lossless\timplemented\textended\t1.2.840.10008.5.1.4.1.1.7\t1.2.840.10008.1.2.5\t3/3 covered"
+        ),
+        "RLE Lossless row must be listed as implemented"
+    );
 }
 
 #[test]

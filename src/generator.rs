@@ -2,13 +2,21 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::PathBuf;
 
-use dicom_core::{DataElement, PrimitiveValue, Tag, VR, value::DataSetSequence};
+use dicom_core::{
+    DataElement, PrimitiveValue, Tag, VR,
+    value::{DataSetSequence, PixelFragmentSequence},
+};
 use dicom_dictionary_std::{tags, uids};
 use dicom_object::{FileMetaTableBuilder, InMemDicomObject};
 use serde_json::Value;
 
 use crate::{
-    DeterministicUidInput, GenerateError, PreparedGenerationRun, UidRole, deterministic_uid,
+    DeterministicUidInput, GenerateError, PreparedGenerationRun, UidRole,
+    codecs::{
+        FrameEncodeInput, FrameEncoder, NativeRleLosslessEncoder, RLE_LOSSLESS_TRANSFER_SYNTAX_UID,
+    },
+    deterministic_uid,
+    encapsulation::{BasicOffsetTablePolicy, EncapsulatedPixelData},
     sha256_hex,
     validation::{
         BasicTextSrExpectations, CrImageExpectations, CtImageExpectations, DxImageExpectations,
@@ -83,6 +91,12 @@ const DEFLATED_EXPLICIT_VR_LITTLE_ENDIAN: TransferSyntaxSpec = TransferSyntaxSpe
     capability_name: "Deflated Explicit VR Little Endian",
     uid: uids::DEFLATED_EXPLICIT_VR_LITTLE_ENDIAN,
     name: "Deflated Explicit VR Little Endian",
+};
+const RLE_LOSSLESS: TransferSyntaxSpec = TransferSyntaxSpec {
+    capability_keyword: "RLELossless",
+    capability_name: "RLE Lossless",
+    uid: RLE_LOSSLESS_TRANSFER_SYNTAX_UID,
+    name: "RLE Lossless",
 };
 const SEGMENTATION_SOURCE_CASE_ID: &str = "enhanced/ct/multiframe_shared_perframe_explicit_le";
 const GSPS_SOURCE_CASE_ID: &str = "enhanced/ct/multiframe_shared_perframe_explicit_le";
@@ -323,6 +337,29 @@ const PIXEL_RECIPES: &[PixelRecipe] = &[
         pixel_max: 255,
         visual_pattern: "2x2_monochrome_gradient",
         semantic_note: "minimum sample value displays as black with deflated Explicit VR Little Endian dataset encoding",
+        palette: None,
+        padding: None,
+    },
+    PixelRecipe {
+        case_id: "classic/sc/mono2_u8_rle_lossless",
+        recipe_id: "sc_mono2_u8_rle_lossless",
+        rows: 2,
+        columns: 2,
+        photometric_interpretation: "MONOCHROME2",
+        samples_per_pixel: 1,
+        planar_configuration: None,
+        bits_allocated: 8,
+        bits_stored: 8,
+        high_bit: 7,
+        pixel_representation: 0,
+        pixel_vr: VR::OB,
+        transfer_syntax: RLE_LOSSLESS,
+        pixel_bytes: &MONO_PIXELS,
+        pixel_values: &[0, 85, 170, 255],
+        pixel_min: 0,
+        pixel_max: 255,
+        visual_pattern: "2x2_monochrome_gradient",
+        semantic_note: "minimum sample value displays as black after RLE Lossless decode",
         palette: None,
         padding: None,
     },
@@ -2285,11 +2322,47 @@ fn write_pixel_case(
             );
         }
     }
-    obj.put(DataElement::new(
-        tags::PIXEL_DATA,
-        recipe.pixel_vr,
-        PrimitiveValue::from(recipe.pixel_bytes),
-    ));
+
+    let compressed_pixel_data = if recipe.transfer_syntax == RLE_LOSSLESS {
+        let rle_encoder = NativeRleLosslessEncoder::new();
+        let encoded_frame = rle_encoder
+            .encode_frame(FrameEncodeInput {
+                native_frame: recipe.pixel_bytes,
+                rows: recipe.rows,
+                columns: recipe.columns,
+                samples_per_pixel: recipe.samples_per_pixel,
+                bits_allocated: recipe.bits_allocated,
+            })
+            .map_err(|err| GenerateError::WriteDicomFile {
+                path: path.clone(),
+                message: err.to_string(),
+            })?;
+        let compressed_frames = vec![encoded_frame.bytes];
+        let encapsulated = EncapsulatedPixelData::one_fragment_per_frame(
+            &compressed_frames,
+            BasicOffsetTablePolicy::Populated,
+        )
+        .map_err(|err| GenerateError::WriteDicomFile {
+            path: path.clone(),
+            message: err.to_string(),
+        })?;
+        obj.put(DataElement::new(
+            tags::PIXEL_DATA,
+            recipe.pixel_vr,
+            PixelFragmentSequence::new(
+                encapsulated.basic_offset_table.offsets.clone(),
+                compressed_frames,
+            ),
+        ));
+        Some((rle_encoder.backend(), encapsulated))
+    } else {
+        obj.put(DataElement::new(
+            tags::PIXEL_DATA,
+            recipe.pixel_vr,
+            PrimitiveValue::from(recipe.pixel_bytes),
+        ));
+        None
+    };
 
     let file_obj = obj
         .with_meta(
@@ -2329,7 +2402,13 @@ fn write_pixel_case(
             pixel_representation: recipe.pixel_representation,
             planar_configuration: recipe.planar_configuration,
             pixel_data_vr: recipe.pixel_vr,
-            pixel_data_length_formula: pixel_data_length_formula(recipe),
+            pixel_data_length_formula: compressed_pixel_data
+                .as_ref()
+                .map(|(_, encapsulated)| PixelDataLengthFormula::Encapsulated {
+                    fragments: encapsulated.fragments.len(),
+                    basic_offset_table_offsets: encapsulated.basic_offset_table.offsets.len(),
+                })
+                .unwrap_or_else(|| pixel_data_length_formula(recipe)),
             palette: recipe.palette.map(|palette| palette.into()),
             padding: recipe.padding.map(|padding| padding.into()),
             ct_image: None,
@@ -2356,6 +2435,7 @@ fn write_pixel_case(
             &implementation_class_uid,
             &validated.bytes,
             validated.validation,
+            compressed_pixel_data.as_ref(),
         ),
     })
 }
@@ -2370,6 +2450,7 @@ fn pixel_manifest_entry(
     implementation_class_uid: &str,
     bytes: &[u8],
     validation: Value,
+    compressed_pixel_data: Option<&(crate::codecs::CodecBackendInfo, EncapsulatedPixelData)>,
 ) -> Value {
     let mut standards_evidence = standards_evidence_from_case(case);
     standards_evidence.extend([
@@ -2514,6 +2595,34 @@ fn pixel_manifest_entry(
             }),
         ]);
     }
+    if recipe.transfer_syntax == RLE_LOSSLESS {
+        standards_evidence.extend([
+            serde_json::json!({
+                "source": "dicom-standard-kb",
+                "edition": "2026b",
+                "query": "lookup_uid RLELossless",
+                "covered": true,
+                "part": "PS3.6",
+                "anchor": "table_A-1"
+            }),
+            serde_json::json!({
+                "source": "dicom-standard-kb",
+                "edition": "2026b",
+                "query": "search_standard_text RLE Lossless Transfer Syntax encapsulated Pixel Data",
+                "covered": true,
+                "part": "PS3.5",
+                "anchor": "sect_8.2.2"
+            }),
+            serde_json::json!({
+                "source": "dicom-standard-kb",
+                "edition": "2026b",
+                "query": "search_standard_text Basic Offset Table encapsulated Pixel Data Item padding Extended Offset Table",
+                "covered": true,
+                "part": "PS3.5",
+                "anchor": "sect_A.4"
+            }),
+        ]);
+    }
 
     let palette_manifest = recipe.palette.map(|palette| {
         serde_json::json!({
@@ -2529,6 +2638,59 @@ fn pixel_manifest_entry(
             "range_limit": padding.range_limit
         })
     });
+    let codec_manifest = compressed_pixel_data.map(|(backend, _)| {
+        serde_json::json!({
+            "backend_id": backend.backend_id,
+            "backend_kind": backend.backend_kind.as_str(),
+            "display_name": backend.display_name,
+            "version": backend.version,
+            "transfer_syntax_uid": backend.transfer_syntax_uid,
+            "feature_gate": backend.feature_gate,
+            "determinism": backend.determinism.as_str()
+        })
+    });
+    let pixel_data_manifest = if let Some((_, encapsulated)) = compressed_pixel_data {
+        serde_json::json!({
+            "vr": pixel_vr_name(recipe.pixel_vr),
+            "native_or_encapsulated": "encapsulated",
+            "value_length": Value::Null,
+            "frame_count": 1,
+            "frame_hashes": [sha256_hex(recipe.pixel_bytes)],
+            "codec": codec_manifest,
+            "encapsulated_pixel_data": {
+                "basic_offset_table": {
+                    "present": true,
+                    "populated": encapsulated.basic_offset_table.is_populated(),
+                    "offset_count": encapsulated.basic_offset_table.offsets.len(),
+                    "offsets": encapsulated.basic_offset_table.offsets.clone()
+                },
+                "fragments_per_frame": encapsulated.fragments_per_frame.clone(),
+                "fragments": encapsulated.fragments.iter().map(|fragment| {
+                    serde_json::json!({
+                        "frame_index": fragment.frame_index,
+                        "item_start_offset": fragment.item_start_offset,
+                        "compressed_length": fragment.compressed_length,
+                        "padded_length": fragment.padded_length
+                    })
+                }).collect::<Vec<_>>(),
+                "extended_offset_table": {
+                    "present": false,
+                    "lengths_present": false,
+                    "offset_count": 0,
+                    "length_count": 0
+                },
+                "compressed_frame_hashes": encapsulated.compressed_frame_hashes.clone()
+            }
+        })
+    } else {
+        serde_json::json!({
+            "vr": pixel_vr_name(recipe.pixel_vr),
+            "native_or_encapsulated": "native",
+            "value_length": recipe.pixel_bytes.len(),
+            "frame_count": 1,
+            "frame_hashes": [sha256_hex(recipe.pixel_bytes)]
+        })
+    };
 
     serde_json::json!({
         "case_id": recipe.case_id,
@@ -2580,14 +2742,8 @@ fn pixel_manifest_entry(
             "pixel_representation": recipe.pixel_representation,
             "planar_configuration": recipe.planar_configuration
         },
-        "pixel_data": {
-            "vr": pixel_vr_name(recipe.pixel_vr),
-            "native_or_encapsulated": "native",
-            "value_length": recipe.pixel_bytes.len(),
-            "frame_count": 1,
-            "frame_hashes": [sha256_hex(recipe.pixel_bytes)]
-        },
-        "expected_capabilities": ["open_file", "read_metadata", "render_native_pixels"],
+        "pixel_data": pixel_data_manifest,
+        "expected_capabilities": pixel_expected_capabilities(recipe),
         "expected_semantics": {
             "synthetic_data": "YES",
             "conversion_type": "SYN",
@@ -2606,7 +2762,13 @@ fn pixel_manifest_entry(
 }
 
 fn pixel_known_stressors(recipe: PixelRecipe) -> Vec<&'static str> {
-    let mut stressors = vec!["minimal_secondary_capture", "native_ob_pixel_data"];
+    let mut stressors = vec!["minimal_secondary_capture"];
+    if recipe.transfer_syntax == RLE_LOSSLESS {
+        stressors.push("encapsulated_pixel_data");
+        stressors.push("rle_lossless_transfer_syntax");
+    } else {
+        stressors.push("native_ob_pixel_data");
+    }
     if recipe.transfer_syntax == EXPLICIT_VR_BIG_ENDIAN {
         stressors.push("retired_transfer_syntax");
         stressors.push("explicit_vr_big_endian_dataset");
@@ -2623,8 +2785,23 @@ fn pixel_profile_membership(recipe: PixelRecipe) -> &'static [&'static str] {
         | "classic/sc/mono1_u8_explicit_le"
         | "classic/sc/rgb_planar0_explicit_le" => &["smoke"],
         "classic/sc/mono2_u8_explicit_be" => &["legacy"],
-        "classic/sc/mono2_u8_deflated_explicit_le" => &["extended"],
+        "classic/sc/mono2_u8_deflated_explicit_le" | "classic/sc/mono2_u8_rle_lossless" => {
+            &["extended"]
+        }
         _ => &["core"],
+    }
+}
+
+fn pixel_expected_capabilities(recipe: PixelRecipe) -> Vec<&'static str> {
+    if recipe.transfer_syntax == RLE_LOSSLESS {
+        vec![
+            "open_file",
+            "read_metadata",
+            "decode_rle_lossless_pixels",
+            "render_grayscale",
+        ]
+    } else {
+        vec!["open_file", "read_metadata", "render_native_pixels"]
     }
 }
 
@@ -6625,6 +6802,9 @@ fn segmentation_manifest_entry(
         }
         PixelDataLengthFormula::YbrFull422 => {
             unreachable!("segmentation recipes do not use YBR_FULL_422")
+        }
+        PixelDataLengthFormula::Encapsulated { .. } => {
+            unreachable!("segmentation recipes do not use encapsulated Pixel Data")
         }
     };
     let frame_hashes = recipe

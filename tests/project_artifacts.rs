@@ -553,11 +553,6 @@ fn compressed_transfer_syntax_matrix_matches_current_dicom_rs_stubs() {
             "HTJ2KLossless",
             "dicom-transfer-syntax-registry/openjp2",
         ),
-        (
-            "1.2.840.10008.1.2.5",
-            "RLELossless",
-            "dicom-transfer-syntax-registry/rle",
-        ),
     ] {
         let entry = entries
             .iter()
@@ -649,11 +644,6 @@ fn compressed_transfer_syntax_registry_rows_remain_skipped_until_verified() {
             "1.2.840.10008.1.2.4.201",
             "HTJ2KLossless",
         ),
-        (
-            "classic/sc/mono2_u8_rle_lossless",
-            "1.2.840.10008.1.2.5",
-            "RLELossless",
-        ),
     ] {
         let matrix_entry = matrix_entries
             .iter()
@@ -705,6 +695,60 @@ fn compressed_transfer_syntax_registry_rows_remain_skipped_until_verified() {
             "{case_id} must carry SC SOP Class and transfer syntax evidence"
         );
     }
+}
+
+#[test]
+fn rle_lossless_transfer_syntax_is_available_through_native_backend() {
+    let matrix = read_json("transfer-syntax/capability-matrix.json");
+    let matrix_entries = matrix
+        .get("entries")
+        .and_then(Value::as_array)
+        .expect("transfer syntax matrix must contain entries");
+    let entry = matrix_entries
+        .iter()
+        .find(|entry| entry.get("uid").and_then(Value::as_str) == Some("1.2.840.10008.1.2.5"))
+        .expect("transfer syntax matrix must contain RLE Lossless");
+    assert_eq!(
+        entry.get("keyword").and_then(Value::as_str),
+        Some("RLELossless")
+    );
+    assert_eq!(
+        entry.get("status").and_then(Value::as_str),
+        Some("available")
+    );
+    assert_eq!(
+        entry.get("encode_pixel").and_then(Value::as_bool),
+        Some(true)
+    );
+    assert_eq!(
+        entry.get("determinism").and_then(Value::as_str),
+        Some("byte_stable")
+    );
+    assert!(
+        entry
+            .get("feature_flags")
+            .and_then(Value::as_array)
+            .is_some_and(Vec::is_empty),
+        "native RLE backend should not require a Cargo codec feature"
+    );
+
+    let registry = read_json("cases/registry.json");
+    let cases = registry_cases(&registry);
+    let case = cases
+        .iter()
+        .find(|case| {
+            case.get("case_id").and_then(Value::as_str) == Some("classic/sc/mono2_u8_rle_lossless")
+        })
+        .expect("registry must contain RLE Lossless SC case");
+    assert_eq!(
+        case.get("status").and_then(Value::as_str),
+        Some("implemented")
+    );
+    assert_eq!(case.get("skip"), Some(&Value::Null));
+    assert_eq!(
+        case.get("determinism").and_then(Value::as_str),
+        Some("byte_stable")
+    );
 }
 
 #[test]

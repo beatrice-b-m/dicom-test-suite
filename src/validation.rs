@@ -264,6 +264,10 @@ pub(crate) enum PixelDataLengthFormula {
     ContiguousSamples,
     YbrFull422,
     BitPackedFrames,
+    Encapsulated {
+        fragments: usize,
+        basic_offset_table_offsets: usize,
+    },
 }
 
 #[derive(Debug, Clone)]
@@ -743,20 +747,54 @@ pub(crate) fn validate_part10_file(
         pixel_element.vr(),
         expected.pixel_data_vr,
     );
-    let pixel_bytes = pixel_element
-        .value()
-        .to_bytes()
-        .map_err(|err| validation_error(path, err))?;
-    let (pixel_length_name, pixel_length_message, expected_pixel_data_length) =
-        expected_pixel_data_length(expected);
-    check_equal(
-        &mut internal,
-        pixel_length_name,
-        pixel_length_message,
-        "Native Pixel Data length does not match the uncompressed frame size.",
-        pixel_bytes.len(),
-        expected_pixel_data_length,
-    );
+    match expected.pixel_data_length_formula {
+        PixelDataLengthFormula::Encapsulated {
+            fragments,
+            basic_offset_table_offsets,
+        } => match pixel_element.value() {
+            dicom_core::value::Value::PixelSequence(sequence) => {
+                check_equal(
+                    &mut internal,
+                    "encapsulated_fragment_count",
+                    "Encapsulated Pixel Data fragment count matches the recipe.",
+                    "Encapsulated Pixel Data fragment count does not match the recipe.",
+                    sequence.fragments().len(),
+                    fragments,
+                );
+                check_equal(
+                    &mut internal,
+                    "encapsulated_basic_offset_table_count",
+                    "Basic Offset Table offset count matches the recipe.",
+                    "Basic Offset Table offset count does not match the recipe.",
+                    sequence.offset_table().len(),
+                    basic_offset_table_offsets,
+                );
+            }
+            _ => check(
+                &mut internal,
+                false,
+                "encapsulated_pixel_sequence",
+                "Pixel Data is encoded as an encapsulated fragment sequence.",
+                "Pixel Data is not encoded as an encapsulated fragment sequence.",
+            ),
+        },
+        _ => {
+            let pixel_bytes = pixel_element
+                .value()
+                .to_bytes()
+                .map_err(|err| validation_error(path, err))?;
+            let (pixel_length_name, pixel_length_message, expected_pixel_data_length) =
+                expected_pixel_data_length(expected);
+            check_equal(
+                &mut internal,
+                pixel_length_name,
+                pixel_length_message,
+                "Native Pixel Data length does not match the uncompressed frame size.",
+                pixel_bytes.len(),
+                expected_pixel_data_length,
+            );
+        }
+    }
     if let Some(palette) = &expected.palette {
         validate_palette(path, &obj, &mut internal, palette)?;
     }
@@ -3375,6 +3413,11 @@ fn expected_pixel_data_length(
                 value_length + (value_length % 2),
             )
         }
+        PixelDataLengthFormula::Encapsulated { .. } => (
+            "encapsulated_pixel_data_length",
+            "Encapsulated Pixel Data uses an undefined value length.",
+            0,
+        ),
     }
 }
 

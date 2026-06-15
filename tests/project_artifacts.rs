@@ -583,16 +583,39 @@ fn compressed_transfer_syntax_matrix_matches_current_dicom_rs_stubs() {
             Some(transfer_syntax.encoder().is_some()),
             "{uid} write_dataset should match DICOM-rs registry"
         );
-        assert_eq!(
-            entry.get("decode_pixel").and_then(Value::as_bool),
-            Some(transfer_syntax.pixel_data_reader().is_some()),
-            "{uid} decode_pixel should match the current DICOM-rs feature set"
-        );
-        assert_eq!(
-            entry.get("encode_pixel").and_then(Value::as_bool),
-            Some(transfer_syntax.pixel_data_writer().is_some()),
-            "{uid} encode_pixel should match the current DICOM-rs feature set"
-        );
+        let runtime_can_decode_pixel = transfer_syntax.pixel_data_reader().is_some();
+        let runtime_can_encode_pixel = transfer_syntax.pixel_data_writer().is_some();
+        if cfg!(feature = "jpeg") && uid == "1.2.840.10008.1.2.4.50" {
+            assert!(
+                runtime_can_decode_pixel,
+                "JPEG Baseline should expose a runtime decoder when the jpeg feature is enabled"
+            );
+            assert!(
+                runtime_can_encode_pixel,
+                "JPEG Baseline should expose a runtime encoder when the jpeg feature is enabled"
+            );
+            assert_eq!(
+                entry.get("decode_pixel").and_then(Value::as_bool),
+                Some(false),
+                "{uid} matrix decode_pixel remains false until generation is verified"
+            );
+            assert_eq!(
+                entry.get("encode_pixel").and_then(Value::as_bool),
+                Some(false),
+                "{uid} matrix encode_pixel remains false until generation is verified"
+            );
+        } else {
+            assert_eq!(
+                entry.get("decode_pixel").and_then(Value::as_bool),
+                Some(runtime_can_decode_pixel),
+                "{uid} decode_pixel should match the current DICOM-rs feature set"
+            );
+            assert_eq!(
+                entry.get("encode_pixel").and_then(Value::as_bool),
+                Some(runtime_can_encode_pixel),
+                "{uid} encode_pixel should match the current DICOM-rs feature set"
+            );
+        }
         assert!(
             transfer_syntax.is_encapsulated_pixel_data(),
             "{uid} should use encapsulated Pixel Data"

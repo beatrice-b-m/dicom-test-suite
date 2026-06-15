@@ -496,6 +496,18 @@ fn read_u32_le(bytes: &[u8], offset: usize) -> u32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(feature = "jpeg")]
+    use std::borrow::Cow;
+
+    #[cfg(feature = "jpeg")]
+    use dicom_core::value::C;
+    #[cfg(feature = "jpeg")]
+    use dicom_encoding::{
+        Codec,
+        adapters::{EncodeOptions, PixelDataObject, PixelDataWriter, RawPixelData},
+    };
+    #[cfg(feature = "jpeg")]
+    use dicom_transfer_syntax_registry::entries::JPEG_BASELINE;
 
     #[test]
     fn native_rle_backend_reports_identity_and_determinism() {
@@ -696,5 +708,112 @@ mod tests {
 
         assert!(matches!(error, CodecError::ValidationFailed { .. }));
         assert!(error.to_string().contains("has 2 segments, expected 1"));
+    }
+
+    #[cfg(feature = "jpeg")]
+    #[test]
+    fn dicom_rs_jpeg_baseline_feature_encodes_rgb_frame() {
+        let obj = NativePixelTestObject {
+            transfer_syntax_uid: "1.2.840.10008.1.2.1",
+            rows: 2,
+            columns: 2,
+            samples_per_pixel: 3,
+            bits_allocated: 8,
+            bits_stored: 8,
+            photometric_interpretation: "RGB",
+            pixels: &[255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 255, 255],
+        };
+        let Codec::EncapsulatedPixelData(_, Some(writer)) = JPEG_BASELINE.codec() else {
+            panic!("JPEG Baseline transfer syntax must expose a pixel writer with the jpeg feature")
+        };
+
+        let mut options = EncodeOptions::default();
+        options.quality = Some(95);
+        let mut encoded = Vec::new();
+        let ops = writer
+            .encode_frame(&obj, 0, options, &mut encoded)
+            .expect("DICOM-rs JPEG Baseline writer should encode a tiny RGB frame");
+
+        assert!(
+            !ops.is_empty(),
+            "JPEG writer should return attribute updates"
+        );
+        assert!(encoded.len() > 4, "JPEG codestream should not be empty");
+        assert_eq!(
+            &encoded[..2],
+            &[0xff, 0xd8],
+            "JPEG codestream must start with SOI"
+        );
+        assert_eq!(
+            &encoded[encoded.len() - 2..],
+            &[0xff, 0xd9],
+            "JPEG codestream must end with EOI"
+        );
+    }
+
+    #[cfg(feature = "jpeg")]
+    struct NativePixelTestObject<'a> {
+        transfer_syntax_uid: &'a str,
+        rows: u16,
+        columns: u16,
+        samples_per_pixel: u16,
+        bits_allocated: u16,
+        bits_stored: u16,
+        photometric_interpretation: &'a str,
+        pixels: &'a [u8],
+    }
+
+    #[cfg(feature = "jpeg")]
+    impl PixelDataObject for NativePixelTestObject<'_> {
+        fn transfer_syntax_uid(&self) -> &str {
+            self.transfer_syntax_uid
+        }
+
+        fn rows(&self) -> Option<u16> {
+            Some(self.rows)
+        }
+
+        fn cols(&self) -> Option<u16> {
+            Some(self.columns)
+        }
+
+        fn samples_per_pixel(&self) -> Option<u16> {
+            Some(self.samples_per_pixel)
+        }
+
+        fn bits_allocated(&self) -> Option<u16> {
+            Some(self.bits_allocated)
+        }
+
+        fn bits_stored(&self) -> Option<u16> {
+            Some(self.bits_stored)
+        }
+
+        fn photometric_interpretation(&self) -> Option<&str> {
+            Some(self.photometric_interpretation)
+        }
+
+        fn number_of_frames(&self) -> Option<u32> {
+            Some(1)
+        }
+
+        fn number_of_fragments(&self) -> Option<u32> {
+            None
+        }
+
+        fn fragment(&self, fragment: usize) -> Option<Cow<'_, [u8]>> {
+            (fragment == 0).then(|| Cow::Borrowed(self.pixels))
+        }
+
+        fn offset_table(&self) -> Option<Cow<'_, [u32]>> {
+            None
+        }
+
+        fn raw_pixel_data(&self) -> Option<RawPixelData> {
+            Some(RawPixelData {
+                fragments: C::from_vec(vec![self.pixels.to_vec()]),
+                offset_table: C::new(),
+            })
+        }
     }
 }

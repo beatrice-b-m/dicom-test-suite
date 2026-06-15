@@ -8,9 +8,9 @@
 ## Phase Status
 
 - Phase 0 - Research And Decisions: in progress for non-RLE codecs; RLE has an implement-now decision.
-- Phase 1 - Codec Integration Architecture: in progress; minimal codec API plus native RLE frame encode/decode support are present.
+- Phase 1 - Codec Integration Architecture: in progress; minimal codec API plus native RLE frame encode/decode support are present; JPEG Baseline now has an explicit project Cargo feature path into the DICOM-rs optional writer.
 - Phase 2 - Encapsulated Pixel Data Substrate: complete for the first RLE one-fragment case; Extended Offset Table and future multi-fragment generation remain later substrate expansion.
-- Phase 3 - Low-Risk Codec Enablement: in progress; 8-bit and 16-bit generated RLE Lossless Secondary Capture cases are implemented and round-trip validated.
+- Phase 3 - Low-Risk Codec Enablement: in progress; 8-bit and 16-bit generated RLE Lossless Secondary Capture cases are implemented and round-trip validated; the JPEG Baseline 8-bit backend path is feature-gated and smoke-tested but not yet used for generated corpus output.
 - Phase 4 - JPEG 2000 And HTJ2K: not started.
 - Phase 5 - Legacy And Specialty Compressed Syntaxes: not started.
 - Phase 6+ - Corpus expansion and maintenance: blocked until Phase 5 scope is complete.
@@ -49,6 +49,11 @@
 - Reused the native 16-bit MONOCHROME2 Secondary Capture pixel pattern with RLE Lossless transfer syntax `1.2.840.10008.1.2.5` and encapsulated Pixel Data VR `OB`.
 - Exercised the native RLE encoder's multi-segment byte-plane path in generated corpus output, with decoded native frame hashes validated during generation and CLI validation.
 - Updated extended and all profile generation expectations, list-cases output, registry artifact checks, and extended validation counts for the additional byte-stable RLE case.
+- Added a project-level `jpeg` Cargo feature that enables the pinned DICOM-rs `dicom-transfer-syntax-registry/jpeg` adapter path.
+- Added a feature-gated JPEG Baseline smoke test that encodes a tiny 8-bit RGB native frame through DICOM-rs `JPEG_BASELINE` and verifies that the output is a non-empty JPEG codestream with SOI/EOI markers.
+- Added `dicom-encoding` as an explicit dependency so project tests can exercise DICOM-rs pixel writer traits directly instead of relying on transitive dependency access.
+- Updated compressed transfer syntax artifact tests so the committed capability matrix remains the default no-JPEG-build claim while `cargo test --features jpeg` can prove the runtime JPEG Baseline reader/writer appears under the feature.
+- Kept `classic/sc/rgb_planar0_jpeg_baseline_8bit` skipped and the JPEG Baseline capability matrix row unavailable until generated output, validation, reporting, and reproducibility are implemented and proven.
 
 ## Blockers
 
@@ -59,7 +64,7 @@
 ## Open Decisions
 
 - How codec backend versions and encoder options will be represented in generated manifests once compressed cases are emitted.
-- Whether JPEG/JPEG-LS/JPEG XL project feature gates should directly expose DICOM-rs optional features or wrap them behind project-owned adapters.
+- Whether JPEG-LS and JPEG XL project feature gates should directly expose DICOM-rs optional features or wrap them behind project-owned adapters; JPEG Baseline now has an explicit DICOM-rs feature-gated spike.
 - Which independent validators should be used for JPEG 2000 and HTJ2K.
 - Whether the current project-owned RLE decoder should support multi-fragment frame reassembly in generation-time validation before a multi-fragment RLE case is added.
 
@@ -123,13 +128,20 @@
 - `cargo run -- generate --profile extended --out /tmp/dts-rle-u16-repro-a-0615 --seed 1`: passed, 19 files written.
 - `cargo run -- generate --profile extended --out /tmp/dts-rle-u16-repro-b-0615 --seed 1`: passed, 19 files written.
 - `diff -r /tmp/dts-rle-u16-repro-a-0615 /tmp/dts-rle-u16-repro-b-0615`: passed with no differences.
+- `dicom-standard-kb` MCP `lookup_uid JPEGBaseline8Bit`: passed; confirmed UID `1.2.840.10008.1.2.4.50` as a PS3.6 Transfer Syntax.
+- `cargo test codecs`: passed, 10 focused default-build codec tests.
+- `cargo test codecs --features jpeg`: initially failed in the restricted sandbox because Cargo needed to download optional JPEG feature dependencies from `static.crates.io`; passed after rerunning with approved escalation, then passed after fixing the local test object to use DICOM-rs `RawPixelData` containers, 11 focused feature-build codec tests.
+- `cargo fmt -- --check`: initially reported rustfmt-only layout changes in `src/codecs.rs`; passed after running `cargo fmt`.
+- `cargo test`: passed, full default-build suite clean.
+- `cargo test --features jpeg`: initially failed because `tests/project_artifacts.rs` compared the default capability matrix against feature-enabled runtime JPEG adapters; passed after teaching the test that the matrix remains unavailable until generation is verified while runtime adapters are expected under `--features jpeg`.
+- `cargo run -- list-cases --profile extended`: passed; `classic/sc/rgb_planar0_jpeg_baseline_8bit` remains skipped while both RLE Lossless cases remain implemented.
 
 ## Commit-Ready Summary
 
-- Phase 3 now has generated RLE round-trip validation for both `classic/sc/mono2_u8_rle_lossless` and `classic/sc/mono2_u16_rle_lossless`.
-- The new 16-bit case is byte-stable, uses the native project RLE backend, writes encapsulated Pixel Data with a populated Basic Offset Table, records codec/fragment metadata in the manifest, decodes back to the expected native frame hash during generation and CLI validation, appears in JSON reports, and is byte-identical across two extended runs.
-- The RLE Lossless capability matrix remains implemented/available; JPEG Baseline, JPEG-LS, JPEG XL, JPEG 2000, and HTJ2K rows remain skipped/unavailable.
+- Phase 3 now has a proven project `jpeg` Cargo feature path into the pinned DICOM-rs JPEG Baseline pixel writer.
+- The feature-gated smoke test verifies that a tiny RGB Secondary Capture-style native frame can be encoded into a JPEG Baseline codestream through the DICOM-rs writer.
+- The committed capability matrix and registry still treat JPEG Baseline as unavailable/skipped until generated output, validation, report output, and reproducibility are completed.
 
 ## Recommended Next Commit
 
-Prototype the JPEG Baseline 8-bit backend path behind an explicit project feature or decision record, keeping `classic/sc/rgb_planar0_jpeg_baseline_8bit` skipped until generation, validation, reporting, and reproducibility are proven.
+Wire `classic/sc/rgb_planar0_jpeg_baseline_8bit` generation behind the `jpeg` feature using the proven DICOM-rs writer path, but keep the row skipped/unavailable unless the feature is enabled and generation-time validation plus focused CLI tests pass.

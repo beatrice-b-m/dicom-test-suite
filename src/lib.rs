@@ -9,6 +9,7 @@ use dicom_dictionary_std::{StandardDataDictionary, tags};
 use dicom_object::{FileDicomObject, InMemDicomObject, open_file};
 use serde_json::Value;
 
+pub mod codecs;
 mod generator;
 pub mod uid;
 mod validation;

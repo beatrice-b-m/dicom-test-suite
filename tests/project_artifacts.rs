@@ -130,6 +130,7 @@ fn registry_contains_initial_smoke_and_core_cases() {
             "implemented",
         ),
         ("classic/sc/mono2_u8_deflated_explicit_le", "implemented"),
+        ("classic/sc/rgb_planar0_jpeg_baseline_8bit", "implemented"),
         ("classic/sc/mono2_u16_rle_lossless", "implemented"),
         ("vl/photo/rgb_planar0_explicit_le", "planned"),
         ("vl/photo/palette_color_explicit_le", "planned"),
@@ -335,7 +336,7 @@ fn codec_backend_decisions_cover_phase_zero_target_families() {
 }
 
 #[test]
-fn codec_backend_decisions_keep_only_rle_as_first_implementation() {
+fn codec_backend_decisions_track_enabled_low_risk_codecs() {
     let decisions = read_json("transfer-syntax/backend-decisions.json");
     let families = decisions
         .get("codec_families")
@@ -356,8 +357,8 @@ fn codec_backend_decisions_keep_only_rle_as_first_implementation() {
         .collect::<Vec<_>>();
     assert_eq!(
         implement_now,
-        vec!["rle_lossless"],
-        "only bounded native RLE should be selected for the first implementation slice"
+        vec!["rle_lossless", "jpeg_baseline_8bit"],
+        "enabled Phase 3 codec families should be explicit"
     );
 
     let rle = families
@@ -379,6 +380,29 @@ fn codec_backend_decisions_keep_only_rle_as_first_implementation() {
     assert_eq!(
         rle.get("first_case_target").and_then(Value::as_str),
         Some("classic/sc/mono2_u8_rle_lossless")
+    );
+
+    let jpeg = families
+        .iter()
+        .find(|family| {
+            family.get("family_id").and_then(Value::as_str) == Some("jpeg_baseline_8bit")
+        })
+        .expect("JPEG Baseline decision must exist");
+    assert_eq!(
+        jpeg.get("selected_backend").and_then(Value::as_str),
+        Some("dicom_rs_jpeg_baseline_writer")
+    );
+    assert_eq!(
+        jpeg.get("backend_kind").and_then(Value::as_str),
+        Some("dicom_rs_feature")
+    );
+    assert_eq!(
+        jpeg.get("feature_gate").and_then(Value::as_str),
+        Some("jpeg")
+    );
+    assert_eq!(
+        jpeg.get("determinism").and_then(Value::as_str),
+        Some("semantic_stable")
     );
 }
 
@@ -530,11 +554,6 @@ fn compressed_transfer_syntax_matrix_matches_current_dicom_rs_stubs() {
 
     for (uid, keyword, feature) in [
         (
-            "1.2.840.10008.1.2.4.50",
-            "JPEGBaseline8Bit",
-            "dicom-transfer-syntax-registry/jpeg",
-        ),
-        (
             "1.2.840.10008.1.2.4.80",
             "JPEGLSLossless",
             "dicom-transfer-syntax-registry/charls",
@@ -585,37 +604,16 @@ fn compressed_transfer_syntax_matrix_matches_current_dicom_rs_stubs() {
         );
         let runtime_can_decode_pixel = transfer_syntax.pixel_data_reader().is_some();
         let runtime_can_encode_pixel = transfer_syntax.pixel_data_writer().is_some();
-        if cfg!(feature = "jpeg") && uid == "1.2.840.10008.1.2.4.50" {
-            assert!(
-                runtime_can_decode_pixel,
-                "JPEG Baseline should expose a runtime decoder when the jpeg feature is enabled"
-            );
-            assert!(
-                runtime_can_encode_pixel,
-                "JPEG Baseline should expose a runtime encoder when the jpeg feature is enabled"
-            );
-            assert_eq!(
-                entry.get("decode_pixel").and_then(Value::as_bool),
-                Some(false),
-                "{uid} matrix decode_pixel remains false until generation is verified"
-            );
-            assert_eq!(
-                entry.get("encode_pixel").and_then(Value::as_bool),
-                Some(false),
-                "{uid} matrix encode_pixel remains false until generation is verified"
-            );
-        } else {
-            assert_eq!(
-                entry.get("decode_pixel").and_then(Value::as_bool),
-                Some(runtime_can_decode_pixel),
-                "{uid} decode_pixel should match the current DICOM-rs feature set"
-            );
-            assert_eq!(
-                entry.get("encode_pixel").and_then(Value::as_bool),
-                Some(runtime_can_encode_pixel),
-                "{uid} encode_pixel should match the current DICOM-rs feature set"
-            );
-        }
+        assert_eq!(
+            entry.get("decode_pixel").and_then(Value::as_bool),
+            Some(runtime_can_decode_pixel),
+            "{uid} decode_pixel should match the current DICOM-rs feature set"
+        );
+        assert_eq!(
+            entry.get("encode_pixel").and_then(Value::as_bool),
+            Some(runtime_can_encode_pixel),
+            "{uid} encode_pixel should match the current DICOM-rs feature set"
+        );
         assert!(
             transfer_syntax.is_encapsulated_pixel_data(),
             "{uid} should use encapsulated Pixel Data"
@@ -633,6 +631,80 @@ fn compressed_transfer_syntax_matrix_matches_current_dicom_rs_stubs() {
 }
 
 #[test]
+fn jpeg_baseline_transfer_syntax_is_feature_gated_through_dicom_rs() {
+    let matrix = read_json("transfer-syntax/capability-matrix.json");
+    let entries = matrix
+        .get("entries")
+        .and_then(Value::as_array)
+        .expect("transfer syntax matrix must contain entries");
+    let entry = entries
+        .iter()
+        .find(|entry| entry.get("uid").and_then(Value::as_str) == Some("1.2.840.10008.1.2.4.50"))
+        .expect("transfer syntax matrix must contain JPEG Baseline");
+    let transfer_syntax = TransferSyntaxRegistry
+        .get("1.2.840.10008.1.2.4.50")
+        .expect("DICOM-rs registry must expose JPEG Baseline");
+
+    assert_eq!(
+        entry.get("keyword").and_then(Value::as_str),
+        Some("JPEGBaseline8Bit")
+    );
+    assert_eq!(
+        entry.get("status").and_then(Value::as_str),
+        Some("feature_gated")
+    );
+    assert_eq!(
+        entry.get("decode_pixel").and_then(Value::as_bool),
+        Some(true)
+    );
+    assert_eq!(
+        entry.get("encode_pixel").and_then(Value::as_bool),
+        Some(true)
+    );
+    assert!(
+        entry
+            .get("feature_flags")
+            .and_then(Value::as_array)
+            .is_some_and(|features| features.iter().any(|value| value.as_str() == Some("jpeg"))),
+        "JPEG Baseline should record the project jpeg feature gate"
+    );
+    if cfg!(feature = "jpeg") {
+        assert!(
+            transfer_syntax.pixel_data_reader().is_some(),
+            "JPEG feature builds should expose a runtime decoder"
+        );
+        assert!(
+            transfer_syntax.pixel_data_writer().is_some(),
+            "JPEG feature builds should expose a runtime encoder"
+        );
+    }
+
+    let registry = read_json("cases/registry.json");
+    let cases = registry_cases(&registry);
+    let case = cases
+        .iter()
+        .find(|case| {
+            case.get("case_id").and_then(Value::as_str)
+                == Some("classic/sc/rgb_planar0_jpeg_baseline_8bit")
+        })
+        .expect("registry must contain JPEG Baseline SC case");
+    assert_eq!(
+        case.get("status").and_then(Value::as_str),
+        Some("implemented")
+    );
+    assert_eq!(case.get("skip"), Some(&Value::Null));
+    assert_eq!(
+        case.pointer("/requirements/features/0")
+            .and_then(Value::as_str),
+        Some("jpeg")
+    );
+    assert_eq!(
+        case.get("determinism").and_then(Value::as_str),
+        Some("semantic_stable")
+    );
+}
+
+#[test]
 fn compressed_transfer_syntax_registry_rows_remain_skipped_until_verified() {
     let matrix = read_json("transfer-syntax/capability-matrix.json");
     let matrix_entries = matrix
@@ -643,11 +715,6 @@ fn compressed_transfer_syntax_registry_rows_remain_skipped_until_verified() {
     let cases = registry_cases(&registry);
 
     for (case_id, uid, keyword) in [
-        (
-            "classic/sc/rgb_planar0_jpeg_baseline_8bit",
-            "1.2.840.10008.1.2.4.50",
-            "JPEGBaseline8Bit",
-        ),
         (
             "classic/sc/mono2_u8_jpeg_ls_lossless",
             "1.2.840.10008.1.2.4.80",

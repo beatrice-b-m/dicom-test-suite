@@ -3439,7 +3439,7 @@
     },
     {
       "case_id": "classic/sc/rgb_planar0_jpeg_baseline_8bit",
-      "status": "skipped",
+      "status": "implemented",
       "profiles": ["extended"],
       "recipe_id": "sc_rgb_planar0_jpeg_baseline_8bit",
       "recipe_version": "0.1.0",
@@ -3449,15 +3449,11 @@
       "transfer_syntax_uid": "1.2.840.10008.1.2.4.50",
       "determinism": "semantic_stable",
       "requirements": {
-        "features": ["dicom-transfer-syntax-registry/jpeg"],
+        "features": ["jpeg"],
         "external_codecs": [],
         "external_validators": []
       },
-      "skip": {
-        "reason_code": "codec_unavailable",
-        "message": "JPEG Baseline image generation is unavailable until a project feature, encoder behavior, encapsulated Pixel Data validation, and reproducibility strategy are verified.",
-        "recheck_phase": "phase-6"
-      },
+      "skip": null,
       "standards_evidence": [
         {
           "source": "dicom-standard-kb",

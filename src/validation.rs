@@ -3467,6 +3467,8 @@ fn validate_rle_decoded_frame_hashes(
             columns: expected.columns,
             samples_per_pixel: expected.samples_per_pixel,
             bits_allocated: expected.bits_allocated,
+            bits_stored: expected.bits_stored,
+            photometric_interpretation: expected.photometric_interpretation,
         }) {
             Ok(decoded) => decoded_hashes.push(sha256_hex(&decoded.native_bytes)),
             Err(_) => {

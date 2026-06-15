@@ -62,22 +62,19 @@
     },
     {
       "family_id": "jpeg_baseline_8bit",
-      "classification": "research_more",
+      "classification": "implement_now",
       "transfer_syntax_uids": ["1.2.840.10008.1.2.4.50"],
-      "selected_backend": "dicom_rs_jpeg_feature_candidate",
+      "selected_backend": "dicom_rs_jpeg_baseline_writer",
       "backend_kind": "dicom_rs_feature",
       "feature_gate": "jpeg",
       "determinism": "semantic_stable",
       "first_case_target": "classic/sc/rgb_planar0_jpeg_baseline_8bit",
       "validation_strategy": [
-        "Expose the DICOM-rs jpeg feature in a branch and verify PixelDataWriter behavior on an RGB Secondary Capture frame.",
-        "Compare decoded frame hashes and manifest semantics rather than raw codestream bytes.",
-        "Confirm required lossy image compression metadata before implementing a registry status change."
+        "Generate a tiny RGB Secondary Capture frame through the DICOM-rs JPEG Baseline writer when the project jpeg feature is enabled.",
+        "Decode the generated codestream through the DICOM-rs JPEG Baseline reader and enforce a bounded per-sample tolerance.",
+        "Record lossy image compression metadata and semantic-stable determinism in the manifest."
       ],
-      "blockers": [
-        "Lossy encoder byte stability is unproven.",
-        "Project feature gate and independent decode validation are not implemented."
-      ],
+      "blockers": ["Lossy encoder byte stability is not assumed; generated cases remain semantic-stable."],
       "evidence": [
         {
           "source": "dicom-standard-kb",
@@ -90,10 +87,10 @@
         {
           "source": "local-source",
           "path": "dicom-transfer-syntax-registry-0.9.1/src/entries.rs",
-          "finding": "Pinned DICOM-rs can provide a JPEG Baseline pixel-data writer when built with the jpeg feature."
+          "finding": "Pinned DICOM-rs provides JPEG Baseline pixel-data reader and writer adapters when built with the jpeg feature."
         }
       ],
-      "next_action": "Prototype the project jpeg feature gate after the RLE adapter boundary exists."
+      "next_action": "Keep the first JPEG Baseline case feature-gated and expand only after generated output, validation, reports, and reproducibility remain stable."
     },
     {
       "family_id": "jpeg_ls",

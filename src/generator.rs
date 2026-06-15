@@ -13,7 +13,8 @@ use serde_json::Value;
 use crate::{
     DeterministicUidInput, GenerateError, PreparedGenerationRun, UidRole,
     codecs::{
-        FrameEncodeInput, FrameEncoder, NativeRleLosslessEncoder, RLE_LOSSLESS_TRANSFER_SYNTAX_UID,
+        FrameEncodeInput, FrameEncoder, JPEG_BASELINE_8BIT_TRANSFER_SYNTAX_UID,
+        NativeRleLosslessEncoder, RLE_LOSSLESS_TRANSFER_SYNTAX_UID,
     },
     deterministic_uid,
     encapsulation::{BasicOffsetTablePolicy, EncapsulatedPixelData},
@@ -31,6 +32,11 @@ use crate::{
         validate_rt_dose_file, validate_rt_structure_set_file,
     },
 };
+
+#[cfg(feature = "jpeg")]
+use crate::codecs::DicomRsJpegBaselineEncoder;
+#[cfg(feature = "jpeg")]
+use crate::codecs::{FrameDecodeInput, FrameDecoder};
 
 const PIXEL_RECIPE_VERSION: &str = "0.1.0";
 const CLASSIC_CT_RECIPE_VERSION: &str = "0.1.0";
@@ -97,6 +103,12 @@ const RLE_LOSSLESS: TransferSyntaxSpec = TransferSyntaxSpec {
     capability_name: "RLE Lossless",
     uid: RLE_LOSSLESS_TRANSFER_SYNTAX_UID,
     name: "RLE Lossless",
+};
+const JPEG_BASELINE_8BIT: TransferSyntaxSpec = TransferSyntaxSpec {
+    capability_keyword: "JPEGBaseline8Bit",
+    capability_name: "JPEG Baseline (Process 1): Default Transfer Syntax for Lossy JPEG 8 Bit Image Compression",
+    uid: JPEG_BASELINE_8BIT_TRANSFER_SYNTAX_UID,
+    name: "JPEG Baseline (Process 1)",
 };
 const SEGMENTATION_SOURCE_CASE_ID: &str = "enhanced/ct/multiframe_shared_perframe_explicit_le";
 const GSPS_SOURCE_CASE_ID: &str = "enhanced/ct/multiframe_shared_perframe_explicit_le";
@@ -383,6 +395,29 @@ const PIXEL_RECIPES: &[PixelRecipe] = &[
         pixel_max: 65535,
         visual_pattern: "2x2_monochrome_u16_gradient",
         semantic_note: "16-bit unsigned MONOCHROME2 samples span the full stored range after RLE Lossless decode",
+        palette: None,
+        padding: None,
+    },
+    PixelRecipe {
+        case_id: "classic/sc/rgb_planar0_jpeg_baseline_8bit",
+        recipe_id: "sc_rgb_planar0_jpeg_baseline_8bit",
+        rows: 2,
+        columns: 2,
+        photometric_interpretation: "RGB",
+        samples_per_pixel: 3,
+        planar_configuration: Some(0),
+        bits_allocated: 8,
+        bits_stored: 8,
+        high_bit: 7,
+        pixel_representation: 0,
+        pixel_vr: VR::OB,
+        transfer_syntax: JPEG_BASELINE_8BIT,
+        pixel_bytes: &RGB_PLANAR0_PIXELS,
+        pixel_values: &[255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 255, 255],
+        pixel_min: 0,
+        pixel_max: 255,
+        visual_pattern: "2x2_rgb_red_green_blue_white",
+        semantic_note: "RGB samples are interleaved color-by-pixel before JPEG Baseline lossy compression",
         palette: None,
         padding: None,
     },
@@ -2346,6 +2381,10 @@ fn write_pixel_case(
         }
     }
 
+    #[cfg(feature = "jpeg")]
+    let mut codec_internal_validation = Vec::new();
+    #[cfg(not(feature = "jpeg"))]
+    let codec_internal_validation = Vec::new();
     let compressed_pixel_data = if recipe.transfer_syntax == RLE_LOSSLESS {
         let rle_encoder = NativeRleLosslessEncoder::new();
         let encoded_frame = rle_encoder
@@ -2355,6 +2394,8 @@ fn write_pixel_case(
                 columns: recipe.columns,
                 samples_per_pixel: recipe.samples_per_pixel,
                 bits_allocated: recipe.bits_allocated,
+                bits_stored: recipe.bits_stored,
+                photometric_interpretation: recipe.photometric_interpretation,
             })
             .map_err(|err| GenerateError::WriteDicomFile {
                 path: path.clone(),
@@ -2377,7 +2418,67 @@ fn write_pixel_case(
                 compressed_frames,
             ),
         ));
-        Some((rle_encoder.backend(), encapsulated))
+        Some((FrameEncoder::backend(&rle_encoder), encapsulated))
+    } else if recipe.transfer_syntax == JPEG_BASELINE_8BIT {
+        #[cfg(feature = "jpeg")]
+        {
+            let jpeg_encoder = DicomRsJpegBaselineEncoder::new();
+            let encoded_frame = jpeg_encoder
+                .encode_frame(FrameEncodeInput {
+                    native_frame: recipe.pixel_bytes,
+                    rows: recipe.rows,
+                    columns: recipe.columns,
+                    samples_per_pixel: recipe.samples_per_pixel,
+                    bits_allocated: recipe.bits_allocated,
+                    bits_stored: recipe.bits_stored,
+                    photometric_interpretation: recipe.photometric_interpretation,
+                })
+                .map_err(|err| GenerateError::WriteDicomFile {
+                    path: path.clone(),
+                    message: err.to_string(),
+                })?;
+            codec_internal_validation.push(validate_jpeg_baseline_lossy_round_trip(
+                &path,
+                recipe,
+                &encoded_frame.bytes,
+            )?);
+            let compression_ratio = format!(
+                "{:.6}",
+                recipe.pixel_bytes.len() as f64 / encoded_frame.bytes.len() as f64
+            );
+            put_str(&mut obj, tags::LOSSY_IMAGE_COMPRESSION, VR::CS, "01");
+            put_str(
+                &mut obj,
+                tags::LOSSY_IMAGE_COMPRESSION_RATIO,
+                VR::DS,
+                &compression_ratio,
+            );
+            let compressed_frames = vec![encoded_frame.bytes];
+            let encapsulated = EncapsulatedPixelData::one_fragment_per_frame(
+                &compressed_frames,
+                BasicOffsetTablePolicy::Populated,
+            )
+            .map_err(|err| GenerateError::WriteDicomFile {
+                path: path.clone(),
+                message: err.to_string(),
+            })?;
+            obj.put(DataElement::new(
+                tags::PIXEL_DATA,
+                recipe.pixel_vr,
+                PixelFragmentSequence::new(
+                    encapsulated.basic_offset_table.offsets.clone(),
+                    compressed_frames,
+                ),
+            ));
+            Some((FrameEncoder::backend(&jpeg_encoder), encapsulated))
+        }
+        #[cfg(not(feature = "jpeg"))]
+        {
+            return Err(GenerateError::WriteDicomFile {
+                path: path.clone(),
+                message: "JPEG Baseline generation requires the jpeg Cargo feature".to_string(),
+            });
+        }
     } else {
         obj.put(DataElement::new(
             tags::PIXEL_DATA,
@@ -2408,7 +2509,7 @@ fn write_pixel_case(
 
     let decoded_frame_hash = sha256_hex(recipe.pixel_bytes);
     let decoded_frame_hashes = [decoded_frame_hash.as_str()];
-    let validated = validate_part10_file(
+    let mut validated = validate_part10_file(
         &path,
         &Part10Expectations {
             sop_class_uid: uids::SECONDARY_CAPTURE_IMAGE_STORAGE,
@@ -2452,6 +2553,9 @@ fn write_pixel_case(
             segmentation: None,
         },
     )?;
+    for result in codec_internal_validation {
+        append_internal_validation(&mut validated.validation, result);
+    }
 
     Ok(GeneratedFile {
         case_id: recipe.case_id.to_string(),
@@ -2468,6 +2572,74 @@ fn write_pixel_case(
             compressed_pixel_data.as_ref(),
         ),
     })
+}
+
+fn append_internal_validation(validation: &mut Value, result: Value) {
+    if let Some(internal) = validation
+        .get_mut("internal")
+        .and_then(serde_json::Value::as_array_mut)
+    {
+        internal.push(result);
+    }
+}
+
+#[cfg(feature = "jpeg")]
+fn validate_jpeg_baseline_lossy_round_trip(
+    path: &std::path::Path,
+    recipe: PixelRecipe,
+    encoded_frame: &[u8],
+) -> Result<Value, GenerateError> {
+    const MAX_ABS_DIFF: u8 = 10;
+
+    let decoder = DicomRsJpegBaselineEncoder::new();
+    let decoded = decoder
+        .decode_frame(FrameDecodeInput {
+            encoded_frame,
+            rows: recipe.rows,
+            columns: recipe.columns,
+            samples_per_pixel: recipe.samples_per_pixel,
+            bits_allocated: recipe.bits_allocated,
+            bits_stored: recipe.bits_stored,
+            photometric_interpretation: recipe.photometric_interpretation,
+        })
+        .map_err(|err| GenerateError::ValidateDicomFile {
+            path: path.to_path_buf(),
+            message: err.to_string(),
+        })?;
+
+    if decoded.native_bytes.len() != recipe.pixel_bytes.len() {
+        return Err(GenerateError::ValidateDicomFile {
+            path: path.to_path_buf(),
+            message: format!(
+                "JPEG Baseline decoded frame length is {}, expected {}",
+                decoded.native_bytes.len(),
+                recipe.pixel_bytes.len()
+            ),
+        });
+    }
+
+    let max_diff = recipe
+        .pixel_bytes
+        .iter()
+        .copied()
+        .zip(decoded.native_bytes.iter().copied())
+        .map(|(expected, actual)| expected.abs_diff(actual))
+        .max()
+        .unwrap_or(0);
+    if max_diff > MAX_ABS_DIFF {
+        return Err(GenerateError::ValidateDicomFile {
+            path: path.to_path_buf(),
+            message: format!(
+                "JPEG Baseline decoded frame maximum sample difference {max_diff} exceeded {MAX_ABS_DIFF}"
+            ),
+        });
+    }
+
+    Ok(serde_json::json!({
+        "name": "jpeg_baseline_decoded_frame_tolerance",
+        "status": "passed",
+        "message": format!("JPEG Baseline decoded samples are within +/-{MAX_ABS_DIFF} of the native source frame.")
+    }))
 }
 
 fn pixel_manifest_entry(
@@ -2653,6 +2825,42 @@ fn pixel_manifest_entry(
             }),
         ]);
     }
+    if recipe.transfer_syntax == JPEG_BASELINE_8BIT {
+        standards_evidence.extend([
+            serde_json::json!({
+                "source": "dicom-standard-kb",
+                "edition": "2026b",
+                "query": "lookup_uid JPEGBaseline8Bit",
+                "covered": true,
+                "part": "PS3.6",
+                "anchor": "table_A-1"
+            }),
+            serde_json::json!({
+                "source": "dicom-standard-kb",
+                "edition": "2026b",
+                "query": "lookup_data_element LossyImageCompression",
+                "covered": true,
+                "part": "PS3.6",
+                "anchor": "table_6-1"
+            }),
+            serde_json::json!({
+                "source": "dicom-standard-kb",
+                "edition": "2026b",
+                "query": "lookup_data_element LossyImageCompressionRatio",
+                "covered": true,
+                "part": "PS3.6",
+                "anchor": "table_6-1"
+            }),
+            serde_json::json!({
+                "source": "dicom-standard-kb",
+                "edition": "2026b",
+                "query": "search_standard_text Basic Offset Table encapsulated Pixel Data Item padding Extended Offset Table",
+                "covered": true,
+                "part": "PS3.5",
+                "anchor": "sect_A.4"
+            }),
+        ]);
+    }
 
     let palette_manifest = recipe.palette.map(|palette| {
         serde_json::json!({
@@ -2728,7 +2936,7 @@ fn pixel_manifest_entry(
         "path": relative_path,
         "sha256": sha256_hex(bytes),
         "size_bytes": bytes.len(),
-        "determinism": "byte_stable",
+        "determinism": pixel_determinism(recipe),
         "recipe": {
             "recipe_id": recipe.recipe_id,
             "recipe_version": PIXEL_RECIPE_VERSION,
@@ -2780,6 +2988,7 @@ fn pixel_manifest_entry(
             "pixel_min": recipe.pixel_min,
             "pixel_max": recipe.pixel_max,
             "pixel_padding": padding_manifest,
+            "lossy_image_compression": if recipe.transfer_syntax == JPEG_BASELINE_8BIT { "01" } else { "00" },
             "photometric_semantics": recipe.semantic_note
         },
         "expected_visual_checks": {
@@ -2796,6 +3005,10 @@ fn pixel_known_stressors(recipe: PixelRecipe) -> Vec<&'static str> {
     if recipe.transfer_syntax == RLE_LOSSLESS {
         stressors.push("encapsulated_pixel_data");
         stressors.push("rle_lossless_transfer_syntax");
+    } else if recipe.transfer_syntax == JPEG_BASELINE_8BIT {
+        stressors.push("encapsulated_pixel_data");
+        stressors.push("jpeg_baseline_8bit_transfer_syntax");
+        stressors.push("lossy_image_compression");
     } else {
         stressors.push("native_ob_pixel_data");
     }
@@ -2817,7 +3030,8 @@ fn pixel_profile_membership(recipe: PixelRecipe) -> &'static [&'static str] {
         "classic/sc/mono2_u8_explicit_be" => &["legacy"],
         "classic/sc/mono2_u8_deflated_explicit_le"
         | "classic/sc/mono2_u8_rle_lossless"
-        | "classic/sc/mono2_u16_rle_lossless" => &["extended"],
+        | "classic/sc/mono2_u16_rle_lossless"
+        | "classic/sc/rgb_planar0_jpeg_baseline_8bit" => &["extended"],
         _ => &["core"],
     }
 }
@@ -2830,8 +3044,23 @@ fn pixel_expected_capabilities(recipe: PixelRecipe) -> Vec<&'static str> {
             "decode_rle_lossless_pixels",
             "render_grayscale",
         ]
+    } else if recipe.transfer_syntax == JPEG_BASELINE_8BIT {
+        vec![
+            "open_file",
+            "read_metadata",
+            "decode_jpeg_baseline_pixels",
+            "render_color",
+        ]
     } else {
         vec!["open_file", "read_metadata", "render_native_pixels"]
+    }
+}
+
+fn pixel_determinism(recipe: PixelRecipe) -> &'static str {
+    if recipe.transfer_syntax == JPEG_BASELINE_8BIT {
+        "semantic_stable"
+    } else {
+        "byte_stable"
     }
 }
 
@@ -11617,6 +11846,7 @@ mod tests {
             EXPLICIT_VR_LITTLE_ENDIAN,
             EXPLICIT_VR_BIG_ENDIAN,
             DEFLATED_EXPLICIT_VR_LITTLE_ENDIAN,
+            JPEG_BASELINE_8BIT,
         ] {
             let entry = entries
                 .iter()

@@ -296,6 +296,8 @@ mod tests {
                 columns: 2,
                 samples_per_pixel: 1,
                 bits_allocated: 8,
+                bits_stored: 8,
+                photometric_interpretation: "MONOCHROME2",
             })
             .expect("RLE should encode the native frame");
 

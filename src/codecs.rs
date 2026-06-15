@@ -3,6 +3,20 @@ use std::fmt;
 
 use crate::PACKAGE_VERSION;
 
+#[cfg(feature = "jpeg")]
+use std::borrow::Cow;
+
+#[cfg(feature = "jpeg")]
+use dicom_core::value::C;
+#[cfg(feature = "jpeg")]
+use dicom_encoding::{
+    Codec,
+    adapters::{EncodeOptions, PixelDataObject, PixelDataReader, PixelDataWriter, RawPixelData},
+};
+#[cfg(feature = "jpeg")]
+use dicom_transfer_syntax_registry::entries::JPEG_BASELINE;
+
+pub const JPEG_BASELINE_8BIT_TRANSFER_SYNTAX_UID: &str = "1.2.840.10008.1.2.4.50";
 pub const RLE_LOSSLESS_TRANSFER_SYNTAX_UID: &str = "1.2.840.10008.1.2.5";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -57,6 +71,8 @@ pub struct FrameEncodeInput<'a> {
     pub columns: u16,
     pub samples_per_pixel: u16,
     pub bits_allocated: u16,
+    pub bits_stored: u16,
+    pub photometric_interpretation: &'a str,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -77,6 +93,8 @@ pub struct FrameDecodeInput<'a> {
     pub columns: u16,
     pub samples_per_pixel: u16,
     pub bits_allocated: u16,
+    pub bits_stored: u16,
+    pub photometric_interpretation: &'a str,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -178,6 +196,191 @@ impl fmt::Display for CodecError {
 }
 
 impl Error for CodecError {}
+
+#[derive(Debug, Clone, Copy, Default)]
+#[cfg(feature = "jpeg")]
+pub struct DicomRsJpegBaselineEncoder;
+
+#[cfg(feature = "jpeg")]
+impl DicomRsJpegBaselineEncoder {
+    pub const BACKEND_ID: &'static str = "dicom_rs_jpeg_baseline_writer";
+
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+#[cfg(feature = "jpeg")]
+impl FrameEncoder for DicomRsJpegBaselineEncoder {
+    fn backend(&self) -> CodecBackendInfo {
+        CodecBackendInfo {
+            backend_id: Self::BACKEND_ID,
+            backend_kind: CodecBackendKind::DicomRsFeature,
+            display_name: "DICOM-rs JPEG Baseline writer",
+            version: "dicom-transfer-syntax-registry 0.9.1",
+            transfer_syntax_uid: JPEG_BASELINE_8BIT_TRANSFER_SYNTAX_UID,
+            feature_gate: Some("jpeg"),
+            determinism: CodecDeterminism::SemanticStable,
+        }
+    }
+
+    fn encode_frame(&self, input: FrameEncodeInput<'_>) -> Result<EncodedFrame, CodecError> {
+        if input.bits_allocated != 8 || input.bits_stored != 8 {
+            return Err(CodecError::unsupported(
+                Self::BACKEND_ID,
+                "JPEG Baseline case support is limited to 8-bit source frames",
+            ));
+        }
+        if input.samples_per_pixel != 3 || input.photometric_interpretation != "RGB" {
+            return Err(CodecError::unsupported(
+                Self::BACKEND_ID,
+                "JPEG Baseline case support currently requires RGB input",
+            ));
+        }
+
+        let obj = DicomRsPixelDataObject {
+            transfer_syntax_uid: "1.2.840.10008.1.2.1",
+            rows: input.rows,
+            columns: input.columns,
+            samples_per_pixel: input.samples_per_pixel,
+            bits_allocated: input.bits_allocated,
+            bits_stored: input.bits_stored,
+            photometric_interpretation: input.photometric_interpretation,
+            fragments: vec![input.native_frame.to_vec()],
+            offset_table: Vec::new(),
+        };
+        let Codec::EncapsulatedPixelData(_, Some(writer)) = JPEG_BASELINE.codec() else {
+            return Err(CodecError::unavailable(
+                Self::BACKEND_ID,
+                "DICOM-rs JPEG Baseline writer is not available",
+            ));
+        };
+
+        let mut options = EncodeOptions::default();
+        options.quality = Some(95);
+        let mut encoded = Vec::new();
+        writer
+            .encode_frame(&obj, 0, options, &mut encoded)
+            .map_err(|err| CodecError::encode_failed(Self::BACKEND_ID, err.to_string()))?;
+
+        if encoded.len() < 4
+            || encoded[..2] != [0xff, 0xd8]
+            || encoded[encoded.len() - 2..] != [0xff, 0xd9]
+        {
+            return Err(CodecError::validation_failed(
+                Self::BACKEND_ID,
+                "JPEG codestream is missing SOI or EOI markers",
+            ));
+        }
+
+        Ok(EncodedFrame { bytes: encoded })
+    }
+}
+
+#[cfg(feature = "jpeg")]
+impl FrameDecoder for DicomRsJpegBaselineEncoder {
+    fn backend(&self) -> CodecBackendInfo {
+        <Self as FrameEncoder>::backend(self)
+    }
+
+    fn decode_frame(&self, input: FrameDecodeInput<'_>) -> Result<DecodedFrame, CodecError> {
+        let obj = DicomRsPixelDataObject {
+            transfer_syntax_uid: JPEG_BASELINE_8BIT_TRANSFER_SYNTAX_UID,
+            rows: input.rows,
+            columns: input.columns,
+            samples_per_pixel: input.samples_per_pixel,
+            bits_allocated: input.bits_allocated,
+            bits_stored: input.bits_stored,
+            photometric_interpretation: input.photometric_interpretation,
+            fragments: vec![input.encoded_frame.to_vec()],
+            offset_table: Vec::new(),
+        };
+        let Codec::EncapsulatedPixelData(Some(reader), _) = JPEG_BASELINE.codec() else {
+            return Err(CodecError::unavailable(
+                Self::BACKEND_ID,
+                "DICOM-rs JPEG Baseline reader is not available",
+            ));
+        };
+
+        let mut decoded = Vec::new();
+        reader
+            .decode_frame(&obj, 0, &mut decoded)
+            .map_err(|err| CodecError::validation_failed(Self::BACKEND_ID, err.to_string()))?;
+
+        Ok(DecodedFrame {
+            native_bytes: decoded,
+        })
+    }
+}
+
+#[cfg(feature = "jpeg")]
+struct DicomRsPixelDataObject<'a> {
+    transfer_syntax_uid: &'a str,
+    rows: u16,
+    columns: u16,
+    samples_per_pixel: u16,
+    bits_allocated: u16,
+    bits_stored: u16,
+    photometric_interpretation: &'a str,
+    fragments: Vec<Vec<u8>>,
+    offset_table: Vec<u32>,
+}
+
+#[cfg(feature = "jpeg")]
+impl PixelDataObject for DicomRsPixelDataObject<'_> {
+    fn transfer_syntax_uid(&self) -> &str {
+        self.transfer_syntax_uid
+    }
+
+    fn rows(&self) -> Option<u16> {
+        Some(self.rows)
+    }
+
+    fn cols(&self) -> Option<u16> {
+        Some(self.columns)
+    }
+
+    fn samples_per_pixel(&self) -> Option<u16> {
+        Some(self.samples_per_pixel)
+    }
+
+    fn bits_allocated(&self) -> Option<u16> {
+        Some(self.bits_allocated)
+    }
+
+    fn bits_stored(&self) -> Option<u16> {
+        Some(self.bits_stored)
+    }
+
+    fn photometric_interpretation(&self) -> Option<&str> {
+        Some(self.photometric_interpretation)
+    }
+
+    fn number_of_frames(&self) -> Option<u32> {
+        Some(u32::try_from(self.fragments.len()).unwrap_or(u32::MAX))
+    }
+
+    fn number_of_fragments(&self) -> Option<u32> {
+        Some(u32::try_from(self.fragments.len()).unwrap_or(u32::MAX))
+    }
+
+    fn fragment(&self, fragment: usize) -> Option<Cow<'_, [u8]>> {
+        self.fragments
+            .get(fragment)
+            .map(|fragment| Cow::Borrowed(fragment.as_slice()))
+    }
+
+    fn offset_table(&self) -> Option<Cow<'_, [u32]>> {
+        Some(Cow::Borrowed(&self.offset_table))
+    }
+
+    fn raw_pixel_data(&self) -> Option<RawPixelData> {
+        Some(RawPixelData {
+            fragments: C::from_vec(self.fragments.clone()),
+            offset_table: C::from_vec(self.offset_table.clone()),
+        })
+    }
+}
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NativeRleLosslessEncoder;
@@ -533,6 +736,8 @@ mod tests {
                 columns: 2,
                 samples_per_pixel: 1,
                 bits_allocated: 8,
+                bits_stored: 8,
+                photometric_interpretation: "MONOCHROME2",
             })
             .expect("RLE should encode a tiny 8-bit frame");
 
@@ -559,6 +764,8 @@ mod tests {
                 columns: 2,
                 samples_per_pixel: 1,
                 bits_allocated: 8,
+                bits_stored: 8,
+                photometric_interpretation: "MONOCHROME2",
             })
             .expect("literal RLE frame should decode");
 
@@ -576,6 +783,8 @@ mod tests {
                 columns: 2,
                 samples_per_pixel: 1,
                 bits_allocated: 8,
+                bits_stored: 8,
+                photometric_interpretation: "MONOCHROME2",
             })
             .expect("RLE should encode repeated 8-bit samples");
 
@@ -597,6 +806,8 @@ mod tests {
                 columns: 2,
                 samples_per_pixel: 1,
                 bits_allocated: 8,
+                bits_stored: 8,
+                photometric_interpretation: "MONOCHROME2",
             })
             .expect("repeat RLE frame should decode");
 
@@ -614,6 +825,8 @@ mod tests {
                 columns: 2,
                 samples_per_pixel: 1,
                 bits_allocated: 16,
+                bits_stored: 16,
+                photometric_interpretation: "MONOCHROME2",
             })
             .expect("RLE should encode 16-bit byte planes");
 
@@ -634,6 +847,8 @@ mod tests {
                 columns: 2,
                 samples_per_pixel: 1,
                 bits_allocated: 16,
+                bits_stored: 16,
+                photometric_interpretation: "MONOCHROME2",
             })
             .expect("RLE should encode 16-bit byte planes");
 
@@ -644,6 +859,8 @@ mod tests {
                 columns: 2,
                 samples_per_pixel: 1,
                 bits_allocated: 16,
+                bits_stored: 16,
+                photometric_interpretation: "MONOCHROME2",
             })
             .expect("RLE should decode 16-bit byte planes");
 
@@ -661,6 +878,8 @@ mod tests {
                 columns: 1,
                 samples_per_pixel: 16,
                 bits_allocated: 8,
+                bits_stored: 8,
+                photometric_interpretation: "MONOCHROME2",
             })
             .expect_err("RLE should reject more than 15 segments");
 
@@ -680,6 +899,8 @@ mod tests {
                 columns: 2,
                 samples_per_pixel: 1,
                 bits_allocated: 8,
+                bits_stored: 8,
+                photometric_interpretation: "MONOCHROME2",
             })
             .expect_err("RLE should reject truncated input");
 
@@ -703,6 +924,8 @@ mod tests {
                 columns: 2,
                 samples_per_pixel: 1,
                 bits_allocated: 8,
+                bits_stored: 8,
+                photometric_interpretation: "MONOCHROME2",
             })
             .expect_err("decode should reject an unexpected segment count");
 

@@ -10,8 +10,12 @@ use dicom_object::{FileDicomObject, InMemDicomObject, open_file};
 use serde_json::Value;
 
 use crate::codecs::{
-    FrameDecodeInput, FrameDecoder, NativeRleLosslessEncoder, RLE_LOSSLESS_TRANSFER_SYNTAX_UID,
+    FrameDecodeInput, FrameDecoder, JPEG_BASELINE_8BIT_TRANSFER_SYNTAX_UID,
+    NativeRleLosslessEncoder, RLE_LOSSLESS_TRANSFER_SYNTAX_UID,
 };
+
+#[cfg(feature = "jpeg")]
+use crate::codecs::DicomRsJpegBaselineEncoder;
 
 pub mod codecs;
 pub mod encapsulation;
@@ -41,6 +45,8 @@ pub const SUPPORTED_CASE_STATUSES: &[&str] =
 pub(crate) const ACTIVE_FEATURE_FLAGS: &[&str] = &[
     #[cfg(feature = "deflate")]
     "deflate",
+    #[cfg(feature = "jpeg")]
+    "jpeg",
 ];
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -907,18 +913,19 @@ fn validate_manifest_image_pixel_data(
         tags::PIXEL_REPRESENTATION,
         "pixel_representation",
     )?;
+    let photometric_interpretation = manifest_str(
+        manifest_path,
+        file,
+        "/image/photometric_interpretation",
+        "photometric_interpretation must be a string",
+    )?;
     validate_str_element(
         failures,
         relative_path,
         &obj,
         tags::PHOTOMETRIC_INTERPRETATION,
         "photometric_interpretation",
-        manifest_str(
-            manifest_path,
-            file,
-            "/image/photometric_interpretation",
-            "photometric_interpretation must be a string",
-        )?,
+        photometric_interpretation,
     );
     match file.pointer("/image/planar_configuration") {
         Some(Value::Null) => {
@@ -1049,6 +1056,8 @@ fn validate_manifest_image_pixel_data(
                 columns,
                 samples_per_pixel,
                 bits_allocated,
+                bits_stored,
+                photometric_interpretation,
                 frame_hashes,
             )?;
         }
@@ -1152,6 +1161,8 @@ fn validate_encapsulated_pixel_data_manifest(
     columns: u16,
     samples_per_pixel: u16,
     bits_allocated: u16,
+    bits_stored: u16,
+    photometric_interpretation: &str,
     frame_hashes: &[Value],
 ) -> Result<(), ValidateError> {
     let transfer_syntax = manifest_str(
@@ -1278,8 +1289,25 @@ fn validate_encapsulated_pixel_data_manifest(
         columns,
         samples_per_pixel,
         bits_allocated,
+        bits_stored,
+        photometric_interpretation,
         &fragment_counts,
         frame_hashes,
+    )?;
+    validate_jpeg_baseline_manifest_decoded_frame_tolerance(
+        failures,
+        relative_path,
+        manifest_path,
+        file,
+        transfer_syntax,
+        pixel_fragments,
+        rows,
+        columns,
+        samples_per_pixel,
+        bits_allocated,
+        bits_stored,
+        photometric_interpretation,
+        &fragment_counts,
     )?;
 
     let extended_offset_table_present = manifest_bool(
@@ -1401,6 +1429,8 @@ fn validate_rle_manifest_decoded_frame_hashes(
     columns: u16,
     samples_per_pixel: u16,
     bits_allocated: u16,
+    bits_stored: u16,
+    photometric_interpretation: &str,
     fragments_per_frame: &[usize],
     frame_hashes: &[Value],
 ) -> Result<(), ValidateError> {
@@ -1447,6 +1477,8 @@ fn validate_rle_manifest_decoded_frame_hashes(
             columns,
             samples_per_pixel,
             bits_allocated,
+            bits_stored,
+            photometric_interpretation,
         }) {
             Ok(decoded) => decoded_hashes.push(sha256_hex(&decoded.native_bytes)),
             Err(err) => {
@@ -1463,6 +1495,134 @@ fn validate_rle_manifest_decoded_frame_hashes(
         decoded_hashes.join(","),
         expected_hashes.join(","),
     );
+    Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
+fn validate_jpeg_baseline_manifest_decoded_frame_tolerance(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    manifest_path: &Path,
+    file: &Value,
+    transfer_syntax: &str,
+    pixel_fragments: Option<&[Vec<u8>]>,
+    rows: u16,
+    columns: u16,
+    samples_per_pixel: u16,
+    bits_allocated: u16,
+    bits_stored: u16,
+    photometric_interpretation: &str,
+    fragments_per_frame: &[usize],
+) -> Result<(), ValidateError> {
+    if transfer_syntax != JPEG_BASELINE_8BIT_TRANSFER_SYNTAX_UID {
+        return Ok(());
+    }
+    const MAX_ABS_DIFF: u8 = 10;
+
+    let Some(pixel_fragments) = pixel_fragments else {
+        failures.push(format!(
+            "{relative_path}: jpeg_baseline_pixel_sequence: Pixel Data is not an encapsulated fragment sequence"
+        ));
+        return Ok(());
+    };
+    if !fragments_per_frame.iter().all(|count| *count == 1) {
+        failures.push(format!(
+            "{relative_path}: jpeg_baseline_decoded_frame_tolerance: JPEG Baseline validation currently requires one fragment per frame"
+        ));
+        return Ok(());
+    }
+    if pixel_fragments.len() != fragments_per_frame.len() {
+        failures.push(format!(
+            "{relative_path}: jpeg_baseline_fragment_count: expected {} fragment(s), got {}",
+            fragments_per_frame.len(),
+            pixel_fragments.len()
+        ));
+        return Ok(());
+    }
+
+    let expected_values = manifest_array(
+        manifest_path,
+        file,
+        "/recipe/recipe_parameters/pixel_values",
+        "recipe pixel_values must be an array",
+    )?
+    .iter()
+    .map(|value| {
+        let sample = value.as_i64().ok_or_else(|| ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "recipe pixel_values items must be integers",
+        })?;
+        u8::try_from(sample).map_err(|_| ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "JPEG Baseline recipe pixel_values items must fit in u8",
+        })
+    })
+    .collect::<Result<Vec<_>, _>>()?;
+
+    #[cfg(feature = "jpeg")]
+    {
+        let decoder = DicomRsJpegBaselineEncoder::new();
+        for fragment in pixel_fragments {
+            match decoder.decode_frame(FrameDecodeInput {
+                encoded_frame: fragment,
+                rows,
+                columns,
+                samples_per_pixel,
+                bits_allocated,
+                bits_stored,
+                photometric_interpretation,
+            }) {
+                Ok(decoded) => {
+                    if decoded.native_bytes.len() != expected_values.len() {
+                        failures.push(format!(
+                            "{relative_path}: jpeg_baseline_decoded_frame_length: decoded frame has {} samples, expected {}",
+                            decoded.native_bytes.len(),
+                            expected_values.len()
+                        ));
+                        return Ok(());
+                    }
+                    let max_diff = expected_values
+                        .iter()
+                        .copied()
+                        .zip(decoded.native_bytes.iter().copied())
+                        .map(|(expected, actual)| expected.abs_diff(actual))
+                        .max()
+                        .unwrap_or(0);
+                    if max_diff > MAX_ABS_DIFF {
+                        failures.push(format!(
+                            "{relative_path}: jpeg_baseline_decoded_frame_tolerance: maximum sample difference {max_diff} exceeds {MAX_ABS_DIFF}"
+                        ));
+                        return Ok(());
+                    }
+                }
+                Err(err) => {
+                    failures.push(format!(
+                        "{relative_path}: jpeg_baseline_decode_round_trip: {err}"
+                    ));
+                    return Ok(());
+                }
+            }
+        }
+    }
+
+    #[cfg(not(feature = "jpeg"))]
+    {
+        let _ = (
+            rows,
+            columns,
+            samples_per_pixel,
+            bits_allocated,
+            bits_stored,
+            photometric_interpretation,
+            pixel_fragments,
+            expected_values,
+            MAX_ABS_DIFF,
+        );
+        failures.push(format!(
+            "{relative_path}: jpeg_baseline_decoder_unavailable: validate requires the jpeg Cargo feature"
+        ));
+    }
+
     Ok(())
 }
 

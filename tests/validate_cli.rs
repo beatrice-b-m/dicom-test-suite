@@ -52,7 +52,9 @@ fn validate_command_accepts_generated_extended_root() {
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8(output.stdout).expect("validate stdout must be UTF-8");
-    let expected_files = if cfg!(feature = "deflate") { 20 } else { 19 };
+    let expected_files = 19
+        + if cfg!(feature = "deflate") { 1 } else { 0 }
+        + if cfg!(feature = "jpeg") { 1 } else { 0 };
     assert!(stdout.contains(&format!("files_checked\t{expected_files}")));
     assert!(stdout.contains("validation_failures\t0"));
 

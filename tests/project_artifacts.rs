@@ -130,6 +130,7 @@ fn registry_contains_initial_smoke_and_core_cases() {
             "implemented",
         ),
         ("classic/sc/mono2_u8_deflated_explicit_le", "implemented"),
+        ("classic/sc/mono2_u16_rle_lossless", "implemented"),
         ("vl/photo/rgb_planar0_explicit_le", "planned"),
         ("vl/photo/palette_color_explicit_le", "planned"),
     ] {
@@ -747,6 +748,22 @@ fn rle_lossless_transfer_syntax_is_available_through_native_backend() {
     assert_eq!(case.get("skip"), Some(&Value::Null));
     assert_eq!(
         case.get("determinism").and_then(Value::as_str),
+        Some("byte_stable")
+    );
+
+    let u16_case = cases
+        .iter()
+        .find(|case| {
+            case.get("case_id").and_then(Value::as_str) == Some("classic/sc/mono2_u16_rle_lossless")
+        })
+        .expect("registry must contain 16-bit RLE Lossless SC case");
+    assert_eq!(
+        u16_case.get("status").and_then(Value::as_str),
+        Some("implemented")
+    );
+    assert_eq!(u16_case.get("skip"), Some(&Value::Null));
+    assert_eq!(
+        u16_case.get("determinism").and_then(Value::as_str),
         Some("byte_stable")
     );
 }

@@ -1627,7 +1627,7 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\textended"));
-    let expected_extended_files = if cfg!(feature = "deflate") { 19 } else { 18 };
+    let expected_extended_files = if cfg!(feature = "deflate") { 20 } else { 19 };
     assert!(stdout.contains(&format!("files_written\t{expected_extended_files}")));
 
     let manifest_path = out_dir.join("manifest.json");
@@ -1723,6 +1723,36 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
         validation_result_names(rle_file.pointer("/validation/internal"))
             .contains(&"rle_decoded_frame_hashes"),
         "RLE manifest should record decoded native frame hash validation"
+    );
+    let rle_u16_file = file_entry_by_case_id(&manifest, "classic/sc/mono2_u16_rle_lossless");
+    assert_eq!(
+        rle_u16_file
+            .pointer("/image/bits_allocated")
+            .and_then(Value::as_u64),
+        Some(16)
+    );
+    assert_eq!(
+        rle_u16_file
+            .pointer("/pixel_data/native_or_encapsulated")
+            .and_then(Value::as_str),
+        Some("encapsulated")
+    );
+    assert_eq!(
+        rle_u16_file
+            .pointer("/pixel_data/codec/backend_id")
+            .and_then(Value::as_str),
+        Some("native_project_rle_encoder")
+    );
+    assert_eq!(
+        rle_u16_file
+            .pointer("/pixel_data/encapsulated_pixel_data/fragments_per_frame/0")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert!(
+        validation_result_names(rle_u16_file.pointer("/validation/internal"))
+            .contains(&"rle_decoded_frame_hashes"),
+        "16-bit RLE manifest should record decoded native frame hash validation"
     );
     assert_eq!(
         enhanced_ct_file
@@ -3911,7 +3941,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\tall"));
-    let expected_all_files = if cfg!(feature = "deflate") { 41 } else { 40 };
+    let expected_all_files = if cfg!(feature = "deflate") { 42 } else { 41 };
     assert!(stdout.contains(&format!("files_written\t{expected_all_files}")));
 
     let manifest_path = out_dir.join("manifest.json");
@@ -3934,6 +3964,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
 
     file_entry_by_case_id(&manifest, "classic/sc/mono2_u8_explicit_le");
     file_entry_by_case_id(&manifest, "classic/sc/mono2_u8_rle_lossless");
+    file_entry_by_case_id(&manifest, "classic/sc/mono2_u16_rle_lossless");
     file_entry_by_case_id(&manifest, "classic/ct/mono2_i16_rescale_12bit_explicit_le");
     file_entry_by_case_id(
         &manifest,

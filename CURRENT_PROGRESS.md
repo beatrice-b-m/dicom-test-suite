@@ -10,7 +10,7 @@
 - Phase 0 - Research And Decisions: in progress for non-RLE codecs; RLE has an implement-now decision.
 - Phase 1 - Codec Integration Architecture: in progress; minimal codec API plus native RLE frame encode/decode support are present.
 - Phase 2 - Encapsulated Pixel Data Substrate: complete for the first RLE one-fragment case; Extended Offset Table and future multi-fragment generation remain later substrate expansion.
-- Phase 3 - Low-Risk Codec Enablement: in progress; first generated RLE Lossless Secondary Capture case is implemented and round-trip validated.
+- Phase 3 - Low-Risk Codec Enablement: in progress; 8-bit and 16-bit generated RLE Lossless Secondary Capture cases are implemented and round-trip validated.
 - Phase 4 - JPEG 2000 And HTJ2K: not started.
 - Phase 5 - Legacy And Specialty Compressed Syntaxes: not started.
 - Phase 6+ - Corpus expansion and maintenance: blocked until Phase 5 scope is complete.
@@ -45,6 +45,10 @@
 - Added generation-time RLE round-trip validation that decodes encapsulated RLE fragments back to native frame bytes and compares decoded SHA-256 hashes to the expected native frame hashes.
 - Added CLI `validate` RLE round-trip validation that decodes generated RLE fragments and compares the decoded native frame hashes to manifest `/pixel_data/frame_hashes`.
 - Added focused tests for RLE decode behavior, generated manifest validation results, and CLI rejection of RLE decoded-frame hash mismatches.
+- Added `classic/sc/mono2_u16_rle_lossless` as the second generated RLE Lossless Secondary Capture case.
+- Reused the native 16-bit MONOCHROME2 Secondary Capture pixel pattern with RLE Lossless transfer syntax `1.2.840.10008.1.2.5` and encapsulated Pixel Data VR `OB`.
+- Exercised the native RLE encoder's multi-segment byte-plane path in generated corpus output, with decoded native frame hashes validated during generation and CLI validation.
+- Updated extended and all profile generation expectations, list-cases output, registry artifact checks, and extended validation counts for the additional byte-stable RLE case.
 
 ## Blockers
 
@@ -103,13 +107,29 @@
 - `cargo run -- generate --profile extended --out /tmp/dts-rle-decode-slice-0615 --seed 1`: passed, 18 files written in the no-deflate build.
 - `cargo run -- validate /tmp/dts-rle-decode-slice-0615`: passed, 18 files checked and 0 validation failures.
 - `cargo run -- report /tmp/dts-rle-decode-slice-0615 --format json`: passed; report counted 18 generated rows and included `classic/sc/mono2_u8_rle_lossless` as generated with validation status `passed`.
+- `dicom-standard-kb` MCP `lookup_uid RLELossless`: passed; confirmed UID `1.2.840.10008.1.2.5` as a PS3.6 Transfer Syntax for the new 16-bit RLE registry row.
+- `dicom-standard-kb` MCP `lookup_sop_class "Secondary Capture Image Storage"`: passed; confirmed Secondary Capture Image Storage UID `1.2.840.10008.5.1.4.1.1.7` and linked Secondary Capture Image IOD.
+- `dicom-standard-kb` MCP `lookup_iod "Secondary Capture Image"`: passed; confirmed the Secondary Capture Image IOD reference in PS3.3 Table A.8-1.
+- `cargo test --test generate_cli generate_command_writes_extended_enhanced_ct_multiframe_case`: passed; extended manifest includes `classic/sc/mono2_u16_rle_lossless` with 16-bit image metadata, encapsulated Pixel Data, native RLE backend metadata, and decoded-frame hash validation.
+- `cargo test --test list_cases_cli list_cases_command_shows_rle_lossless_as_implemented`: passed; list-cases reports both 8-bit and 16-bit RLE Lossless rows as implemented in `extended`.
+- `cargo test --test validate_cli validate_command_accepts_generated_extended_root`: passed; extended validation accepts 19 generated files in the no-deflate build.
+- `cargo test --test project_artifacts rle_lossless_transfer_syntax_is_available_through_native_backend`: passed; registry and capability-matrix invariants remain consistent with the native RLE backend.
+- `cargo fmt -- --check`: initially reported rustfmt-only layout changes in `tests/project_artifacts.rs`; passed after running `cargo fmt`.
+- `cargo test`: passed, full suite clean.
+- `cargo run -- standards check-lock`: passed with the existing documented lock warnings.
+- `cargo run -- generate --profile extended --out /tmp/dts-rle-u16-slice-0615 --seed 1`: passed, 19 files written in the no-deflate build.
+- `cargo run -- validate /tmp/dts-rle-u16-slice-0615`: passed, 19 files checked and 0 validation failures.
+- `cargo run -- report /tmp/dts-rle-u16-slice-0615 --format json`: passed; report counted 19 generated rows and included `classic/sc/mono2_u16_rle_lossless` as generated with bit depth 16 and transfer syntax `1.2.840.10008.1.2.5`.
+- `cargo run -- generate --profile extended --out /tmp/dts-rle-u16-repro-a-0615 --seed 1`: passed, 19 files written.
+- `cargo run -- generate --profile extended --out /tmp/dts-rle-u16-repro-b-0615 --seed 1`: passed, 19 files written.
+- `diff -r /tmp/dts-rle-u16-repro-a-0615 /tmp/dts-rle-u16-repro-b-0615`: passed with no differences.
 
 ## Commit-Ready Summary
 
-- Phase 3 now has RLE round-trip validation for the first generated compressed image file: `classic/sc/mono2_u8_rle_lossless`.
-- The case is byte-stable, uses the native project RLE backend, writes encapsulated Pixel Data with a populated Basic Offset Table, records codec/fragment metadata in the manifest, decodes back to the expected native frame hash during generation and CLI validation, appears in JSON reports, and is byte-identical across two extended runs.
-- Only the RLE Lossless registry row and capability matrix entry were flipped to implemented/available; other compressed transfer syntax rows remain skipped/unavailable.
+- Phase 3 now has generated RLE round-trip validation for both `classic/sc/mono2_u8_rle_lossless` and `classic/sc/mono2_u16_rle_lossless`.
+- The new 16-bit case is byte-stable, uses the native project RLE backend, writes encapsulated Pixel Data with a populated Basic Offset Table, records codec/fragment metadata in the manifest, decodes back to the expected native frame hash during generation and CLI validation, appears in JSON reports, and is byte-identical across two extended runs.
+- The RLE Lossless capability matrix remains implemented/available; JPEG Baseline, JPEG-LS, JPEG XL, JPEG 2000, and HTJ2K rows remain skipped/unavailable.
 
 ## Recommended Next Commit
 
-Add a second small RLE Lossless Secondary Capture case, preferably 16-bit MONOCHROME2, to exercise multi-segment byte-plane generation and decoded-frame hash validation before starting another low-risk codec family.
+Prototype the JPEG Baseline 8-bit backend path behind an explicit project feature or decision record, keeping `classic/sc/rgb_planar0_jpeg_baseline_8bit` skipped until generation, validation, reporting, and reproducibility are proven.

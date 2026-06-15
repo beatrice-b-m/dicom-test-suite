@@ -3,20 +3,23 @@ use std::fmt;
 
 use crate::PACKAGE_VERSION;
 
-#[cfg(feature = "jpeg")]
+#[cfg(any(feature = "charls", feature = "jpeg"))]
 use std::borrow::Cow;
 
-#[cfg(feature = "jpeg")]
+#[cfg(any(feature = "charls", feature = "jpeg"))]
 use dicom_core::value::C;
-#[cfg(feature = "jpeg")]
+#[cfg(any(feature = "charls", feature = "jpeg"))]
 use dicom_encoding::{
     Codec,
     adapters::{EncodeOptions, PixelDataObject, PixelDataReader, PixelDataWriter, RawPixelData},
 };
 #[cfg(feature = "jpeg")]
 use dicom_transfer_syntax_registry::entries::JPEG_BASELINE;
+#[cfg(feature = "charls")]
+use dicom_transfer_syntax_registry::entries::JPEG_LS_LOSSLESS_IMAGE_COMPRESSION;
 
 pub const JPEG_BASELINE_8BIT_TRANSFER_SYNTAX_UID: &str = "1.2.840.10008.1.2.4.50";
+pub const JPEG_LS_LOSSLESS_TRANSFER_SYNTAX_UID: &str = "1.2.840.10008.1.2.4.80";
 pub const RLE_LOSSLESS_TRANSFER_SYNTAX_UID: &str = "1.2.840.10008.1.2.5";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -198,6 +201,129 @@ impl fmt::Display for CodecError {
 impl Error for CodecError {}
 
 #[derive(Debug, Clone, Copy, Default)]
+#[cfg(feature = "charls")]
+pub struct DicomRsJpegLsLosslessEncoder;
+
+#[cfg(feature = "charls")]
+impl DicomRsJpegLsLosslessEncoder {
+    pub const BACKEND_ID: &'static str = "dicom_rs_charls_jpeg_ls_lossless_writer";
+
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+#[cfg(feature = "charls")]
+impl FrameEncoder for DicomRsJpegLsLosslessEncoder {
+    fn backend(&self) -> CodecBackendInfo {
+        CodecBackendInfo {
+            backend_id: Self::BACKEND_ID,
+            backend_kind: CodecBackendKind::DicomRsFeature,
+            display_name: "DICOM-rs CharLS JPEG-LS Lossless writer",
+            version: "dicom-transfer-syntax-registry 0.9.1 + charls 0.4.2",
+            transfer_syntax_uid: JPEG_LS_LOSSLESS_TRANSFER_SYNTAX_UID,
+            feature_gate: Some("charls"),
+            determinism: CodecDeterminism::SemanticStable,
+        }
+    }
+
+    fn encode_frame(&self, input: FrameEncodeInput<'_>) -> Result<EncodedFrame, CodecError> {
+        if input.bits_allocated != 8 && input.bits_allocated != 16 {
+            return Err(CodecError::unsupported(
+                Self::BACKEND_ID,
+                "JPEG-LS Lossless case support is limited to 8-bit and 16-bit source frames",
+            ));
+        }
+        if input.bits_stored == 1 {
+            return Err(CodecError::unsupported(
+                Self::BACKEND_ID,
+                "JPEG-LS Lossless case support does not include 1-bit samples",
+            ));
+        }
+        if input.samples_per_pixel != 1 {
+            return Err(CodecError::unsupported(
+                Self::BACKEND_ID,
+                "JPEG-LS Lossless first-case support currently requires single-sample input",
+            ));
+        }
+
+        let obj = DicomRsPixelDataObject {
+            transfer_syntax_uid: "1.2.840.10008.1.2.1",
+            rows: input.rows,
+            columns: input.columns,
+            samples_per_pixel: input.samples_per_pixel,
+            bits_allocated: input.bits_allocated,
+            bits_stored: input.bits_stored,
+            photometric_interpretation: input.photometric_interpretation,
+            fragments: vec![input.native_frame.to_vec()],
+            offset_table: Vec::new(),
+        };
+        let Codec::EncapsulatedPixelData(_, Some(writer)) =
+            JPEG_LS_LOSSLESS_IMAGE_COMPRESSION.codec()
+        else {
+            return Err(CodecError::unavailable(
+                Self::BACKEND_ID,
+                "DICOM-rs JPEG-LS Lossless writer is not available",
+            ));
+        };
+
+        let mut options = EncodeOptions::default();
+        options.quality = Some(100);
+        let mut encoded = Vec::new();
+        writer
+            .encode_frame(&obj, 0, options, &mut encoded)
+            .map_err(|err| CodecError::encode_failed(Self::BACKEND_ID, err.to_string()))?;
+
+        if encoded.is_empty() {
+            return Err(CodecError::validation_failed(
+                Self::BACKEND_ID,
+                "JPEG-LS codestream is empty",
+            ));
+        }
+
+        Ok(EncodedFrame { bytes: encoded })
+    }
+}
+
+#[cfg(feature = "charls")]
+impl FrameDecoder for DicomRsJpegLsLosslessEncoder {
+    fn backend(&self) -> CodecBackendInfo {
+        <Self as FrameEncoder>::backend(self)
+    }
+
+    fn decode_frame(&self, input: FrameDecodeInput<'_>) -> Result<DecodedFrame, CodecError> {
+        let obj = DicomRsPixelDataObject {
+            transfer_syntax_uid: JPEG_LS_LOSSLESS_TRANSFER_SYNTAX_UID,
+            rows: input.rows,
+            columns: input.columns,
+            samples_per_pixel: input.samples_per_pixel,
+            bits_allocated: input.bits_allocated,
+            bits_stored: input.bits_stored,
+            photometric_interpretation: input.photometric_interpretation,
+            fragments: vec![input.encoded_frame.to_vec()],
+            offset_table: Vec::new(),
+        };
+        let Codec::EncapsulatedPixelData(Some(reader), _) =
+            JPEG_LS_LOSSLESS_IMAGE_COMPRESSION.codec()
+        else {
+            return Err(CodecError::unavailable(
+                Self::BACKEND_ID,
+                "DICOM-rs JPEG-LS Lossless reader is not available",
+            ));
+        };
+
+        let mut decoded = Vec::new();
+        reader
+            .decode_frame(&obj, 0, &mut decoded)
+            .map_err(|err| CodecError::validation_failed(Self::BACKEND_ID, err.to_string()))?;
+
+        Ok(DecodedFrame {
+            native_bytes: decoded,
+        })
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default)]
 #[cfg(feature = "jpeg")]
 pub struct DicomRsJpegBaselineEncoder;
 
@@ -313,7 +439,7 @@ impl FrameDecoder for DicomRsJpegBaselineEncoder {
     }
 }
 
-#[cfg(feature = "jpeg")]
+#[cfg(any(feature = "charls", feature = "jpeg"))]
 struct DicomRsPixelDataObject<'a> {
     transfer_syntax_uid: &'a str,
     rows: u16,
@@ -326,7 +452,7 @@ struct DicomRsPixelDataObject<'a> {
     offset_table: Vec<u32>,
 }
 
-#[cfg(feature = "jpeg")]
+#[cfg(any(feature = "charls", feature = "jpeg"))]
 impl PixelDataObject for DicomRsPixelDataObject<'_> {
     fn transfer_syntax_uid(&self) -> &str {
         self.transfer_syntax_uid
@@ -699,18 +825,20 @@ fn read_u32_le(bytes: &[u8], offset: usize) -> u32 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    #[cfg(feature = "jpeg")]
+    #[cfg(any(feature = "charls", feature = "jpeg"))]
     use std::borrow::Cow;
 
-    #[cfg(feature = "jpeg")]
+    #[cfg(any(feature = "charls", feature = "jpeg"))]
     use dicom_core::value::C;
-    #[cfg(feature = "jpeg")]
+    #[cfg(any(feature = "charls", feature = "jpeg"))]
     use dicom_encoding::{
         Codec,
         adapters::{EncodeOptions, PixelDataObject, PixelDataWriter, RawPixelData},
     };
     #[cfg(feature = "jpeg")]
     use dicom_transfer_syntax_registry::entries::JPEG_BASELINE;
+    #[cfg(feature = "charls")]
+    use dicom_transfer_syntax_registry::entries::JPEG_LS_LOSSLESS_IMAGE_COMPRESSION;
 
     #[test]
     fn native_rle_backend_reports_identity_and_determinism() {
@@ -933,6 +1061,106 @@ mod tests {
         assert!(error.to_string().contains("has 2 segments, expected 1"));
     }
 
+    #[cfg(feature = "charls")]
+    #[test]
+    fn dicom_rs_jpeg_ls_lossless_backend_reports_identity() {
+        let encoder = DicomRsJpegLsLosslessEncoder::new();
+
+        let backend = FrameEncoder::backend(&encoder);
+
+        assert_eq!(
+            backend.backend_id,
+            "dicom_rs_charls_jpeg_ls_lossless_writer"
+        );
+        assert_eq!(backend.backend_kind.as_str(), "dicom_rs_feature");
+        assert_eq!(backend.transfer_syntax_uid, "1.2.840.10008.1.2.4.80");
+        assert_eq!(backend.feature_gate, Some("charls"));
+        assert_eq!(backend.determinism.as_str(), "semantic_stable");
+    }
+
+    #[cfg(feature = "charls")]
+    #[test]
+    fn dicom_rs_jpeg_ls_lossless_feature_round_trips_mono_frame() {
+        let codec = DicomRsJpegLsLosslessEncoder::new();
+        let native = [0, 32, 64, 96, 128, 160, 192, 255];
+
+        let encoded = codec
+            .encode_frame(FrameEncodeInput {
+                native_frame: &native,
+                rows: 2,
+                columns: 4,
+                samples_per_pixel: 1,
+                bits_allocated: 8,
+                bits_stored: 8,
+                photometric_interpretation: "MONOCHROME2",
+            })
+            .expect("JPEG-LS Lossless should encode a tiny monochrome frame");
+        assert!(
+            !encoded.bytes.is_empty(),
+            "JPEG-LS codestream should not be empty"
+        );
+
+        let decoded = codec
+            .decode_frame(FrameDecodeInput {
+                encoded_frame: &encoded.bytes,
+                rows: 2,
+                columns: 4,
+                samples_per_pixel: 1,
+                bits_allocated: 8,
+                bits_stored: 8,
+                photometric_interpretation: "MONOCHROME2",
+            })
+            .expect("JPEG-LS Lossless should decode its own codestream");
+
+        assert_eq!(decoded.native_bytes, native);
+    }
+
+    #[cfg(feature = "charls")]
+    #[test]
+    fn dicom_rs_charls_feature_exposes_jpeg_ls_lossless_writer() {
+        let obj = NativePixelTestObject {
+            transfer_syntax_uid: "1.2.840.10008.1.2.1",
+            rows: 2,
+            columns: 4,
+            samples_per_pixel: 1,
+            bits_allocated: 8,
+            bits_stored: 8,
+            photometric_interpretation: "MONOCHROME2",
+            pixels: &[0, 32, 64, 96, 128, 160, 192, 255],
+        };
+        let Codec::EncapsulatedPixelData(Some(reader), Some(writer)) =
+            JPEG_LS_LOSSLESS_IMAGE_COMPRESSION.codec()
+        else {
+            panic!(
+                "JPEG-LS Lossless transfer syntax must expose reader and writer with the charls feature"
+            )
+        };
+
+        let mut options = EncodeOptions::default();
+        options.quality = Some(100);
+        let mut encoded = Vec::new();
+        writer
+            .encode_frame(&obj, 0, options, &mut encoded)
+            .expect("DICOM-rs JPEG-LS Lossless writer should encode a tiny monochrome frame");
+
+        let encoded_obj = EncodedPixelTestObject {
+            transfer_syntax_uid: "1.2.840.10008.1.2.4.80",
+            rows: 2,
+            columns: 4,
+            samples_per_pixel: 1,
+            bits_allocated: 8,
+            bits_stored: 8,
+            photometric_interpretation: "MONOCHROME2",
+            fragments: vec![encoded],
+        };
+        let mut decoded = Vec::new();
+        reader
+            .decode_frame(&encoded_obj, 0, &mut decoded)
+            .expect("DICOM-rs JPEG-LS Lossless reader should decode the generated frame");
+
+        assert_eq!(decoded, obj.pixels);
+    }
+
     #[cfg(feature = "jpeg")]
     #[test]
     fn dicom_rs_jpeg_baseline_feature_encodes_rgb_frame() {
@@ -974,7 +1202,7 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "jpeg")]
+    #[cfg(any(feature = "charls", feature = "jpeg"))]
     struct NativePixelTestObject<'a> {
         transfer_syntax_uid: &'a str,
         rows: u16,
@@ -986,7 +1214,7 @@ mod tests {
         pixels: &'a [u8],
     }
 
-    #[cfg(feature = "jpeg")]
+    #[cfg(any(feature = "charls", feature = "jpeg"))]
     impl PixelDataObject for NativePixelTestObject<'_> {
         fn transfer_syntax_uid(&self) -> &str {
             self.transfer_syntax_uid
@@ -1035,6 +1263,74 @@ mod tests {
         fn raw_pixel_data(&self) -> Option<RawPixelData> {
             Some(RawPixelData {
                 fragments: C::from_vec(vec![self.pixels.to_vec()]),
+                offset_table: C::new(),
+            })
+        }
+    }
+
+    #[cfg(feature = "charls")]
+    struct EncodedPixelTestObject<'a> {
+        transfer_syntax_uid: &'a str,
+        rows: u16,
+        columns: u16,
+        samples_per_pixel: u16,
+        bits_allocated: u16,
+        bits_stored: u16,
+        photometric_interpretation: &'a str,
+        fragments: Vec<Vec<u8>>,
+    }
+
+    #[cfg(feature = "charls")]
+    impl PixelDataObject for EncodedPixelTestObject<'_> {
+        fn transfer_syntax_uid(&self) -> &str {
+            self.transfer_syntax_uid
+        }
+
+        fn rows(&self) -> Option<u16> {
+            Some(self.rows)
+        }
+
+        fn cols(&self) -> Option<u16> {
+            Some(self.columns)
+        }
+
+        fn samples_per_pixel(&self) -> Option<u16> {
+            Some(self.samples_per_pixel)
+        }
+
+        fn bits_allocated(&self) -> Option<u16> {
+            Some(self.bits_allocated)
+        }
+
+        fn bits_stored(&self) -> Option<u16> {
+            Some(self.bits_stored)
+        }
+
+        fn photometric_interpretation(&self) -> Option<&str> {
+            Some(self.photometric_interpretation)
+        }
+
+        fn number_of_frames(&self) -> Option<u32> {
+            Some(1)
+        }
+
+        fn number_of_fragments(&self) -> Option<u32> {
+            Some(u32::try_from(self.fragments.len()).unwrap_or(u32::MAX))
+        }
+
+        fn fragment(&self, fragment: usize) -> Option<Cow<'_, [u8]>> {
+            self.fragments
+                .get(fragment)
+                .map(|fragment| Cow::Borrowed(fragment.as_slice()))
+        }
+
+        fn offset_table(&self) -> Option<Cow<'_, [u32]>> {
+            None
+        }
+
+        fn raw_pixel_data(&self) -> Option<RawPixelData> {
+            Some(RawPixelData {
+                fragments: C::from_vec(self.fragments.clone()),
                 offset_table: C::new(),
             })
         }

@@ -45,6 +45,8 @@ pub const SUPPORTED_CASE_STATUSES: &[&str] =
 pub(crate) const ACTIVE_FEATURE_FLAGS: &[&str] = &[
     #[cfg(feature = "deflate")]
     "deflate",
+    #[cfg(feature = "charls")]
+    "charls",
     #[cfg(feature = "jpeg")]
     "jpeg",
 ];

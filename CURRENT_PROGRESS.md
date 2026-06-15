@@ -7,10 +7,10 @@
 
 ## Phase Status
 
-- Phase 0 - Research And Decisions: in progress for JPEG-LS, JPEG XL, JPEG 2000, HTJ2K, legacy JPEG, and Deflated Image Frame Compression; RLE Lossless and JPEG Baseline 8-bit have implement-now decisions.
+- Phase 0 - Research And Decisions: in progress for JPEG XL, JPEG 2000, HTJ2K, legacy JPEG, and Deflated Image Frame Compression; RLE Lossless, JPEG Baseline 8-bit, and JPEG-LS Lossless have implement-now decisions.
 - Phase 1 - Codec Integration Architecture: in progress; minimal codec API plus native RLE and DICOM-rs JPEG Baseline frame encode/decode support are present.
 - Phase 2 - Encapsulated Pixel Data Substrate: complete for the first RLE one-fragment case; Extended Offset Table and future multi-fragment generation remain later substrate expansion.
-- Phase 3 - Low-Risk Codec Enablement: in progress; 8-bit and 16-bit generated RLE Lossless Secondary Capture cases are implemented and round-trip validated; the first JPEG Baseline 8-bit RGB Secondary Capture case is generated and validated when the `jpeg` feature is enabled.
+- Phase 3 - Low-Risk Codec Enablement: in progress; 8-bit and 16-bit generated RLE Lossless Secondary Capture cases are implemented and round-trip validated; the first JPEG Baseline 8-bit RGB Secondary Capture case is generated and validated when the `jpeg` feature is enabled; a project-level `charls` feature and JPEG-LS Lossless codec wrapper are added, but feature-build verification is blocked on this machine until `cmake` is installed.
 - Phase 4 - JPEG 2000 And HTJ2K: not started.
 - Phase 5 - Legacy And Specialty Compressed Syntaxes: not started.
 - Phase 6+ - Corpus expansion and maintenance: blocked until Phase 5 scope is complete.
@@ -58,17 +58,24 @@
 - Generated the JPEG Baseline case as encapsulated Pixel Data with a populated Basic Offset Table, one fragment per frame, semantic-stable determinism, and lossy compression metadata.
 - Added generation-time and CLI validation that decodes the JPEG Baseline fragment and enforces a maximum per-sample decoded difference of 10 from the native RGB source frame.
 - Flipped the JPEG Baseline registry row to implemented with required feature `jpeg` and updated the capability matrix to `feature_gated`; default builds report the case as unavailable until the feature is enabled.
+- Added a project-level `charls` Cargo feature that enables the pinned DICOM-rs `dicom-transfer-syntax-registry/charls` adapter path.
+- Added a feature-gated `DicomRsJpegLsLosslessEncoder` wrapper with backend metadata, a JPEG-LS Lossless transfer syntax UID constant, and encode/decode support through the pinned DICOM-rs CharLS adapter.
+- Added focused JPEG-LS Lossless codec tests for backend identity, tiny 8-bit MONOCHROME2 exact round-trip behavior, and direct DICOM-rs reader/writer availability under `--features charls`.
+- Updated the JPEG-LS backend decision from `research_more` to `implement_now` for the lossless first case while keeping near-lossless policy unresolved.
+- Updated the JPEG-LS registry requirement and capability matrix to use the project `charls` feature gate, while keeping `classic/sc/mono2_u8_jpeg_ls_lossless` skipped and matrix encode/decode unavailable until generated corpus integration is complete.
+- Added focused artifact tests proving the project `charls` feature gate exists and the skipped registry row remains unavailable until generation, manifest validation, report coverage, and reproducibility are implemented.
 
 ## Blockers
 
-- No current blocker for the next implementation slice.
+- Current blocker: local `charls` feature-build verification cannot complete because `cmake` is not installed. `cargo test --features charls codecs` fails while building `charls-sys v2.4.4` with `is cmake not installed?`; `command -v cmake` exits 1. Install `cmake` or provide it on `PATH`, then rerun the `charls` feature tests before adding JPEG-LS generated corpus output.
 - JPEG 2000, HTJ2K, and legacy JPEG backend selection remain unresolved research items.
 - Deflated Image Frame Compression requires a standards/IOD suitability decision before any implementation.
 
 ## Open Decisions
 
 - Whether codec backend version strings should include transitive codec crate versions in addition to the selected adapter crate version.
-- Whether JPEG-LS and JPEG XL project feature gates should directly expose DICOM-rs optional features or wrap them behind project-owned adapters.
+- JPEG-LS Lossless now uses a project `charls` feature that exposes the pinned DICOM-rs optional CharLS adapter behind a project-owned wrapper. JPEG-LS Near-Lossless policy remains open.
+- Whether JPEG XL project feature gates should directly expose DICOM-rs optional features or wrap them behind project-owned adapters.
 - Which independent validators should be used for JPEG 2000 and HTJ2K.
 - Whether the current project-owned RLE decoder should support multi-fragment frame reassembly in generation-time validation before a multi-fragment RLE case is added.
 
@@ -162,13 +169,26 @@
 - `cargo run --features jpeg -- generate --profile extended --out /tmp/dts-jpeg-repro-a-0615 --seed 1`: passed, 20 files written.
 - `cargo run --features jpeg -- generate --profile extended --out /tmp/dts-jpeg-repro-b-0615 --seed 1`: passed, 20 files written.
 - `diff -r /tmp/dts-jpeg-repro-a-0615 /tmp/dts-jpeg-repro-b-0615`: passed with no differences.
+- `dicom-standard-kb` MCP `lookup_uid JPEGLSLossless`: passed; confirmed UID `1.2.840.10008.1.2.4.80` as a PS3.6 Transfer Syntax.
+- `cargo fmt`: passed.
+- `cargo test codecs`: passed, 10 focused default-build codec tests.
+- `cargo test --test project_artifacts codec_backend_decisions_track_enabled_low_risk_codecs`: passed.
+- `cargo test --test project_artifacts jpeg_ls_lossless_transfer_syntax_has_project_charls_feature_gate`: passed.
+- `cargo test --test project_artifacts compressed_transfer_syntax_matrix_matches_current_dicom_rs_stubs`: passed.
+- `cargo test --features charls codecs`: failed in the restricted sandbox because Cargo needed to unpack optional CharLS build dependencies under the user Cargo registry; reran with approved escalation.
+- `cargo test --features charls codecs` with approved escalation: failed while compiling `charls-sys v2.4.4` because `cmake` is not installed or not on `PATH`.
+- `command -v cmake`: failed with exit code 1, confirming the missing external build prerequisite.
+- `cargo fmt -- --check`: passed.
+- `cargo test`: passed, full default-build suite clean.
+- `cargo run -- standards check-lock`: passed with the existing documented lock warnings.
+- `cargo run -- list-cases --profile extended --status skipped`: passed; `classic/sc/mono2_u8_jpeg_ls_lossless` remains skipped with 2/2 standards evidence coverage.
 
 ## Commit-Ready Summary
 
-- Phase 3 now has a generated feature-gated JPEG Baseline 8-bit RGB Secondary Capture case using the pinned DICOM-rs JPEG adapter path.
-- The JPEG case records semantic-stable codec metadata, lossy compression metadata, encapsulated Pixel Data layout, and decoded sample tolerance validation.
-- Default builds report the JPEG case as feature-gated unavailable; `--features jpeg` builds generate, validate, report, and reproduce the case successfully.
+- Phase 3 now has a project-level `charls` feature and JPEG-LS Lossless codec wrapper using the pinned DICOM-rs CharLS adapter path.
+- The JPEG-LS backend decision is `implement_now` for the first lossless case, and artifact tests keep the registry row skipped until generated corpus integration is complete.
+- Default builds pass; `--features charls` verification is blocked by missing local `cmake`, so generated JPEG-LS output must not be added until that prerequisite is installed and the feature tests pass.
 
 ## Recommended Next Commit
 
-Choose the next Phase 3 low-risk codec slice: verify either JPEG-LS Lossless via a project feature/backend decision or JPEG XL Lossless via the DICOM-rs optional adapter path before flipping any additional registry row.
+Install `cmake` or otherwise make it available on `PATH`, then rerun `cargo test --features charls codecs`. If the CharLS feature tests pass, the next Phase 3 slice is to add the feature-gated generated `classic/sc/mono2_u8_jpeg_ls_lossless` Secondary Capture case with exact decoded-frame hash validation before flipping the skipped registry row.

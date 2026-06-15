@@ -94,23 +94,23 @@
     },
     {
       "family_id": "jpeg_ls",
-      "classification": "research_more",
+      "classification": "implement_now",
       "transfer_syntax_uids": [
         "1.2.840.10008.1.2.4.80",
         "1.2.840.10008.1.2.4.81"
       ],
-      "selected_backend": "dicom_rs_charls_feature_candidate",
+      "selected_backend": "dicom_rs_charls_jpeg_ls_lossless_writer",
       "backend_kind": "dicom_rs_feature",
       "feature_gate": "charls",
       "determinism": "semantic_stable",
       "first_case_target": "classic/sc/mono2_u8_jpeg_ls_lossless",
       "validation_strategy": [
-        "Verify lossless and near-lossless writer paths through the pinned CharLS-backed DICOM-rs adapter.",
-        "Require exact decoded hashes for lossless and bounded semantic expectations for near-lossless.",
+        "Generate a tiny monochrome Secondary Capture frame through the pinned CharLS-backed DICOM-rs JPEG-LS Lossless writer when the project charls feature is enabled.",
+        "Require exact decoded hashes for JPEG-LS Lossless and bounded semantic expectations for near-lossless.",
         "Record CharLS version and build mode in generated manifests."
       ],
       "blockers": [
-        "Project feature gate and backend version reporting are not implemented.",
+        "Generated corpus integration, encapsulated Pixel Data manifest validation, report coverage, and reproducibility are not implemented.",
         "Near-lossless expectations and metadata policy are not finalized."
       ],
       "evidence": [
@@ -126,9 +126,14 @@
           "source": "local-source",
           "path": "dicom-transfer-syntax-registry-0.9.1/src/adapters/jpegls.rs",
           "finding": "Pinned DICOM-rs has CharLS-backed JPEG-LS pixel-data writer code behind the charls feature."
+        },
+        {
+          "source": "local-test",
+          "path": "src/codecs.rs",
+          "finding": "The project charls feature exposes a DICOM-rs JPEG-LS Lossless writer and reader that round-trip a tiny 8-bit MONOCHROME2 frame exactly."
         }
       ],
-      "next_action": "Verify CharLS build portability and deterministic output before enabling generation."
+      "next_action": "Add the feature-gated generated JPEG-LS Lossless Secondary Capture case with exact decoded-frame hash validation before flipping the skipped registry row."
     },
     {
       "family_id": "jpeg_xl",

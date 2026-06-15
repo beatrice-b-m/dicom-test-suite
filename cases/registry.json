@@ -3485,7 +3485,7 @@
       "transfer_syntax_uid": "1.2.840.10008.1.2.4.80",
       "determinism": "semantic_stable",
       "requirements": {
-        "features": ["dicom-transfer-syntax-registry/charls"],
+        "features": ["charls"],
         "external_codecs": ["CharLS"],
         "external_validators": []
       },

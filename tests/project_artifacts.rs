@@ -357,7 +357,7 @@ fn codec_backend_decisions_track_enabled_low_risk_codecs() {
         .collect::<Vec<_>>();
     assert_eq!(
         implement_now,
-        vec!["rle_lossless", "jpeg_baseline_8bit"],
+        vec!["rle_lossless", "jpeg_baseline_8bit", "jpeg_ls"],
         "enabled Phase 3 codec families should be explicit"
     );
 
@@ -402,6 +402,27 @@ fn codec_backend_decisions_track_enabled_low_risk_codecs() {
     );
     assert_eq!(
         jpeg.get("determinism").and_then(Value::as_str),
+        Some("semantic_stable")
+    );
+
+    let jpeg_ls = families
+        .iter()
+        .find(|family| family.get("family_id").and_then(Value::as_str) == Some("jpeg_ls"))
+        .expect("JPEG-LS decision must exist");
+    assert_eq!(
+        jpeg_ls.get("selected_backend").and_then(Value::as_str),
+        Some("dicom_rs_charls_jpeg_ls_lossless_writer")
+    );
+    assert_eq!(
+        jpeg_ls.get("backend_kind").and_then(Value::as_str),
+        Some("dicom_rs_feature")
+    );
+    assert_eq!(
+        jpeg_ls.get("feature_gate").and_then(Value::as_str),
+        Some("charls")
+    );
+    assert_eq!(
+        jpeg_ls.get("determinism").and_then(Value::as_str),
         Some("semantic_stable")
     );
 }
@@ -554,11 +575,6 @@ fn compressed_transfer_syntax_matrix_matches_current_dicom_rs_stubs() {
 
     for (uid, keyword, feature) in [
         (
-            "1.2.840.10008.1.2.4.80",
-            "JPEGLSLossless",
-            "dicom-transfer-syntax-registry/charls",
-        ),
-        (
             "1.2.840.10008.1.2.4.90",
             "JPEG2000Lossless",
             "dicom-transfer-syntax-registry/openjp2",
@@ -628,6 +644,81 @@ fn compressed_transfer_syntax_matrix_matches_current_dicom_rs_stubs() {
             "{uid} should record the DICOM-rs feature gate {feature}"
         );
     }
+}
+
+#[test]
+fn jpeg_ls_lossless_transfer_syntax_has_project_charls_feature_gate() {
+    let matrix = read_json("transfer-syntax/capability-matrix.json");
+    let entries = matrix
+        .get("entries")
+        .and_then(Value::as_array)
+        .expect("transfer syntax matrix must contain entries");
+    let entry = entries
+        .iter()
+        .find(|entry| entry.get("uid").and_then(Value::as_str) == Some("1.2.840.10008.1.2.4.80"))
+        .expect("transfer syntax matrix must contain JPEG-LS Lossless");
+    let transfer_syntax = TransferSyntaxRegistry
+        .get("1.2.840.10008.1.2.4.80")
+        .expect("DICOM-rs registry must expose JPEG-LS Lossless");
+
+    assert_eq!(
+        entry.get("keyword").and_then(Value::as_str),
+        Some("JPEGLSLossless")
+    );
+    assert_eq!(
+        entry.get("status").and_then(Value::as_str),
+        Some("unavailable"),
+        "JPEG-LS generation should remain unavailable until corpus integration is complete"
+    );
+    assert_eq!(
+        entry.get("decode_pixel").and_then(Value::as_bool),
+        Some(false),
+        "the committed matrix should not claim generated JPEG-LS decode validation yet"
+    );
+    assert_eq!(
+        entry.get("encode_pixel").and_then(Value::as_bool),
+        Some(false),
+        "the committed matrix should not claim generated JPEG-LS encode validation yet"
+    );
+    assert!(
+        entry
+            .get("feature_flags")
+            .and_then(Value::as_array)
+            .is_some_and(|features| features
+                .iter()
+                .any(|value| value.as_str() == Some("charls"))),
+        "JPEG-LS should record the project charls feature gate"
+    );
+    if cfg!(feature = "charls") {
+        assert!(
+            transfer_syntax.pixel_data_reader().is_some(),
+            "charls feature builds should expose a runtime JPEG-LS decoder"
+        );
+        assert!(
+            transfer_syntax.pixel_data_writer().is_some(),
+            "charls feature builds should expose a runtime JPEG-LS encoder"
+        );
+    }
+
+    let registry = read_json("cases/registry.json");
+    let cases = registry_cases(&registry);
+    let case = cases
+        .iter()
+        .find(|case| {
+            case.get("case_id").and_then(Value::as_str)
+                == Some("classic/sc/mono2_u8_jpeg_ls_lossless")
+        })
+        .expect("registry must contain JPEG-LS Lossless SC case");
+    assert_eq!(case.get("status").and_then(Value::as_str), Some("skipped"));
+    assert_eq!(
+        case.pointer("/requirements/features/0")
+            .and_then(Value::as_str),
+        Some("charls")
+    );
+    assert_eq!(
+        case.pointer("/skip/reason_code").and_then(Value::as_str),
+        Some("codec_unavailable")
+    );
 }
 
 #[test]

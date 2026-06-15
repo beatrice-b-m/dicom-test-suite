@@ -140,10 +140,10 @@
       "decode_pixel": false,
       "write_dataset": true,
       "encode_pixel": false,
-      "feature_flags": ["dicom-transfer-syntax-registry/charls"],
+      "feature_flags": ["charls"],
       "external_libraries": ["CharLS"],
       "determinism": "semantic_stable",
-      "notes": "DICOM-rs 0.9.1 exposes this transfer syntax as an encapsulated Pixel Data stub when the optional `charls` feature is not enabled. Do not generate JPEG-LS cases until the project exposes the feature, verifies lossless encoder behavior, validates encapsulated Pixel Data layout, and proves reproducibility.",
+      "notes": "The project `charls` Cargo feature exposes the pinned DICOM-rs CharLS JPEG-LS Lossless reader/writer for runtime verification. Generation remains unavailable until encapsulated Pixel Data layout, manifest validation, reports, and reproducibility are implemented.",
       "standards_evidence": [
         {
           "source": "dicom-standard-kb",

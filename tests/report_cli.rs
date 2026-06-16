@@ -1513,6 +1513,12 @@ fn report_summarizes_compressed_codec_coverage() {
     );
     assert_eq!(
         report
+            .pointer("/grouped_coverage/codec_feature_gates/jpeg")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
             .pointer("/grouped_coverage/known_stressors/compressed_pixel_data")
             .and_then(Value::as_u64),
         Some(1)
@@ -1542,6 +1548,8 @@ fn report_summarizes_compressed_codec_coverage() {
     assert!(markdown.contains("| OT | 2 |"));
     assert!(markdown.contains("### Codec Backends"));
     assert!(markdown.contains("| native_rle_lossless | 1 |"));
+    assert!(markdown.contains("### Codec Feature Gates"));
+    assert!(markdown.contains("| jpeg | 1 |"));
     assert!(markdown.contains("### Validation Statuses"));
     assert!(markdown.contains("| passed | 1 |"));
     assert!(markdown.contains("| unavailable | 1 |"));

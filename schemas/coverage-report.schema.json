@@ -56,6 +56,9 @@
         "codec_backend_kinds": {
           "$ref": "#/$defs/count_map"
         },
+        "codec_feature_gates": {
+          "$ref": "#/$defs/count_map"
+        },
         "determinism": {
           "$ref": "#/$defs/count_map"
         },

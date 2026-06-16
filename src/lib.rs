@@ -5920,6 +5920,12 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
     append_count_map_section(
         &mut output,
         report,
+        "Codec Feature Gates",
+        "/grouped_coverage/codec_feature_gates",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
         "Determinism",
         "/grouped_coverage/determinism",
     );
@@ -6226,6 +6232,7 @@ struct GroupedCoverage {
     codec_families: BTreeMap<String, usize>,
     codec_backends: BTreeMap<String, usize>,
     codec_backend_kinds: BTreeMap<String, usize>,
+    codec_feature_gates: BTreeMap<String, usize>,
     determinism: BTreeMap<String, usize>,
     validation_statuses: BTreeMap<String, usize>,
     unavailable_reasons: BTreeMap<String, usize>,
@@ -6267,6 +6274,10 @@ impl GroupedCoverage {
         increment_map(
             &mut self.codec_backend_kinds,
             row.get("codec_backend_kind").and_then(Value::as_str),
+        );
+        increment_map(
+            &mut self.codec_feature_gates,
+            row.get("codec_feature_gate").and_then(Value::as_str),
         );
         increment_map(
             &mut self.determinism,
@@ -6319,6 +6330,7 @@ impl GroupedCoverage {
             "codec_families": self.codec_families,
             "codec_backends": self.codec_backends,
             "codec_backend_kinds": self.codec_backend_kinds,
+            "codec_feature_gates": self.codec_feature_gates,
             "determinism": self.determinism,
             "validation_statuses": self.validation_statuses,
             "unavailable_reasons": self.unavailable_reasons,

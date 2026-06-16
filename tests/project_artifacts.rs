@@ -1180,7 +1180,7 @@ fn deflated_transfer_syntax_is_feature_gated_in_cargo_and_registry() {
 }
 
 #[test]
-fn deflated_image_frame_decision_selects_segmentation_target_without_promotion() {
+fn deflated_image_frame_decision_selects_segmentation_target_and_promotes_case() {
     let cargo_toml = fs::read_to_string("Cargo.toml").expect("Cargo.toml must be readable");
     assert!(
         cargo_toml.contains("deflate = [")
@@ -1203,18 +1203,18 @@ fn deflated_image_frame_decision_selects_segmentation_target_without_promotion()
     );
     assert_eq!(
         matrix_entry.get("status").and_then(Value::as_str),
-        Some("unavailable"),
-        "Deflated Image Frame should not be capability-promoted before generated-case validation"
+        Some("feature_gated"),
+        "Deflated Image Frame should be feature-gated after generated-case validation"
     );
     assert_eq!(
         matrix_entry.get("decode_pixel").and_then(Value::as_bool),
-        Some(false),
-        "matrix should not claim Deflated Image Frame decode validation before CLI validation exists"
+        Some(true),
+        "matrix should claim Deflated Image Frame decode validation after CLI validation exists"
     );
     assert_eq!(
         matrix_entry.get("encode_pixel").and_then(Value::as_bool),
-        Some(false),
-        "matrix should not claim Deflated Image Frame encode validation before corpus generation exists"
+        Some(true),
+        "matrix should claim Deflated Image Frame encode validation after corpus generation exists"
     );
     assert!(
         matrix_entry
@@ -1301,6 +1301,34 @@ fn deflated_image_frame_decision_selects_segmentation_target_without_promotion()
                         .is_some_and(|finding| finding.contains("one and only one fragment"))
             })),
         "Deflated Image Frame decision should cite PS3.5 fragment layout evidence"
+    );
+
+    let registry = read_json("cases/registry.json");
+    let deflated_seg_case = registry
+        .get("cases")
+        .and_then(Value::as_array)
+        .expect("registry must contain cases")
+        .iter()
+        .find(|case| {
+            case.get("case_id").and_then(Value::as_str)
+                == Some("derived/seg/binary_multiframe_deflated_image_frame")
+        })
+        .expect("registry must contain the Deflated Image Frame SEG case");
+    assert_eq!(
+        deflated_seg_case.get("status").and_then(Value::as_str),
+        Some("implemented")
+    );
+    assert_eq!(
+        deflated_seg_case
+            .get("transfer_syntax_uid")
+            .and_then(Value::as_str),
+        Some("1.2.840.10008.1.2.8.1")
+    );
+    assert_eq!(
+        deflated_seg_case
+            .pointer("/requirements/features/0")
+            .and_then(Value::as_str),
+        Some("deflate")
     );
 }
 

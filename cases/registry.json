@@ -2730,6 +2730,106 @@
       ]
     },
     {
+      "case_id": "derived/seg/binary_multiframe_deflated_image_frame",
+      "status": "implemented",
+      "profiles": ["extended"],
+      "recipe_id": "seg_binary_multiframe_deflated_image_frame",
+      "recipe_version": "0.1.0",
+      "iod_name": "Segmentation",
+      "sop_class_name": "Segmentation Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.66.4",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.8.1",
+      "determinism": "byte_stable",
+      "requirements": {
+        "features": ["deflate"],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_sop_class Segmentation Storage",
+          "covered": true,
+          "part": "PS3.4",
+          "anchor": "table_B.5-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_uid SegmentationStorage",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_uid DeflatedImageFrameCompression",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_iod Segmentation",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.51-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_modules_for_iod Segmentation",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.51-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_data_element SegmentationType",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_data_element SegmentSequence",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "search_standard_text Segmentation Type BINARY",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "sect_C.8.20.2.3.1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "retrieve_standard_text PS3.5 sect_8.2.16",
+          "covered": true,
+          "part": "PS3.5",
+          "anchor": "sect_8.2.16"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "retrieve_standard_text PS3.5 sect_A.4.13",
+          "covered": true,
+          "part": "PS3.5",
+          "anchor": "sect_A.4.13"
+        }
+      ]
+    },
+    {
       "case_id": "derived/seg/fractional_probability_multiframe_explicit_le",
       "status": "implemented",
       "profiles": ["extended"],

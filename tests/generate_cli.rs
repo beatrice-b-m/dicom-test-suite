@@ -1628,7 +1628,7 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\textended"));
     let expected_extended_files = 19
-        + if cfg!(feature = "deflate") { 1 } else { 0 }
+        + if cfg!(feature = "deflate") { 2 } else { 0 }
         + if cfg!(feature = "jpeg") { 1 } else { 0 }
         + if cfg!(feature = "charls") { 1 } else { 0 }
         + if cfg!(feature = "jpegxl") { 1 } else { 0 }
@@ -2934,7 +2934,7 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
         .expect("manifest should contain skipped cases");
     assert_eq!(
         skipped_cases.len(),
-        8 - if cfg!(feature = "deflate") { 1 } else { 0 }
+        9 - if cfg!(feature = "deflate") { 2 } else { 0 }
             - if cfg!(feature = "jpeg") { 1 } else { 0 }
             - if cfg!(feature = "charls") { 1 } else { 0 }
             - if cfg!(feature = "jpegxl") { 1 } else { 0 }
@@ -3099,6 +3099,52 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
                 .contains(&"deflated_explicit_vr_little_endian_transfer_syntax"),
             "deflated manifest should record the named transfer syntax validation"
         );
+        let deflated_seg_file = file_entry_by_case_id(
+            &manifest,
+            "derived/seg/binary_multiframe_deflated_image_frame",
+        );
+        assert_eq!(
+            deflated_seg_file
+                .pointer("/dicom/transfer_syntax_uid")
+                .and_then(Value::as_str),
+            Some("1.2.840.10008.1.2.8.1")
+        );
+        assert_eq!(
+            deflated_seg_file
+                .pointer("/pixel_data/native_or_encapsulated")
+                .and_then(Value::as_str),
+            Some("encapsulated")
+        );
+        assert_eq!(
+            deflated_seg_file
+                .pointer("/pixel_data/frame_count")
+                .and_then(Value::as_u64),
+            Some(2)
+        );
+        assert_eq!(
+            deflated_seg_file
+                .pointer("/pixel_data/codec/backend_id")
+                .and_then(Value::as_str),
+            Some("dicom_rs_deflated_image_frame_writer")
+        );
+        assert_eq!(
+            deflated_seg_file
+                .pointer("/pixel_data/codec/feature_gate")
+                .and_then(Value::as_str),
+            Some("deflate")
+        );
+        assert_eq!(
+            deflated_seg_file
+                .pointer("/pixel_data/encapsulated_pixel_data/fragments_per_frame")
+                .and_then(Value::as_array)
+                .map(|counts| counts.iter().filter_map(Value::as_u64).collect::<Vec<_>>()),
+            Some(vec![1, 1])
+        );
+        assert!(
+            validation_result_names(deflated_seg_file.pointer("/validation/internal"))
+                .contains(&"deflated_image_frame_decoded_frame_hashes"),
+            "Deflated Image Frame SEG manifest should record exact decoded frame hash validation"
+        );
     } else {
         let deflated = skipped_case_by_id(&manifest, "classic/sc/mono2_u8_deflated_explicit_le");
         assert_eq!(
@@ -3120,6 +3166,26 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
                 .expect("feature-gated deflated row should have a message")
                 .contains("Cargo feature(s) deflate"),
             "feature-gated deflated unavailable row should name the required feature"
+        );
+        let deflated_seg = skipped_case_by_id(
+            &manifest,
+            "derived/seg/binary_multiframe_deflated_image_frame",
+        );
+        assert_eq!(
+            deflated_seg.get("status").and_then(Value::as_str),
+            Some("unavailable")
+        );
+        assert_eq!(
+            deflated_seg.get("reason_code").and_then(Value::as_str),
+            Some("feature_gated_case_unavailable")
+        );
+        assert!(
+            deflated_seg
+                .get("message")
+                .and_then(Value::as_str)
+                .expect("feature-gated Deflated Image Frame row should have a message")
+                .contains("Cargo feature(s) deflate"),
+            "feature-gated Deflated Image Frame unavailable row should name the required feature"
         );
     }
 
@@ -4457,7 +4523,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\tall"));
     let expected_all_files = 41
-        + if cfg!(feature = "deflate") { 1 } else { 0 }
+        + if cfg!(feature = "deflate") { 2 } else { 0 }
         + if cfg!(feature = "jpeg") { 1 } else { 0 }
         + if cfg!(feature = "charls") { 1 } else { 0 }
         + if cfg!(feature = "jpegxl") { 1 } else { 0 }
@@ -4536,7 +4602,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
         .expect("manifest should contain skipped cases");
     assert_eq!(
         skipped_cases.len(),
-        10 - if cfg!(feature = "deflate") { 1 } else { 0 }
+        11 - if cfg!(feature = "deflate") { 2 } else { 0 }
             - if cfg!(feature = "jpeg") { 1 } else { 0 }
             - if cfg!(feature = "charls") { 1 } else { 0 }
             - if cfg!(feature = "jpegxl") { 1 } else { 0 }
@@ -4646,6 +4712,10 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
     }
     if cfg!(feature = "deflate") {
         file_entry_by_case_id(&manifest, "classic/sc/mono2_u8_deflated_explicit_le");
+        file_entry_by_case_id(
+            &manifest,
+            "derived/seg/binary_multiframe_deflated_image_frame",
+        );
     } else {
         let deflated = skipped_case_by_id(&manifest, "classic/sc/mono2_u8_deflated_explicit_le");
         assert_eq!(
@@ -4654,6 +4724,18 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
         );
         assert_eq!(
             deflated.get("reason_code").and_then(Value::as_str),
+            Some("feature_gated_case_unavailable")
+        );
+        let deflated_seg = skipped_case_by_id(
+            &manifest,
+            "derived/seg/binary_multiframe_deflated_image_frame",
+        );
+        assert_eq!(
+            deflated_seg.get("status").and_then(Value::as_str),
+            Some("unavailable")
+        );
+        assert_eq!(
+            deflated_seg.get("reason_code").and_then(Value::as_str),
             Some("feature_gated_case_unavailable")
         );
     }

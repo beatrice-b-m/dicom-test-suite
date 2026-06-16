@@ -220,6 +220,12 @@ fn list_cases_command_shows_extended_case_status_and_evidence() {
     );
     assert!(
         stdout.contains(
+            "derived/seg/binary_multiframe_deflated_image_frame\timplemented\textended\t1.2.840.10008.5.1.4.1.1.66.4\t1.2.840.10008.1.2.8.1\t10/10 covered"
+        ),
+        "list-cases must include the implemented feature-gated Deflated Image Frame SEG case with standards evidence"
+    );
+    assert!(
+        stdout.contains(
             "derived/seg/fractional_probability_multiframe_explicit_le\timplemented\textended\t1.2.840.10008.5.1.4.1.1.66.4\t1.2.840.10008.1.2.1\t8/8 covered"
         ),
         "list-cases must include the implemented fractional SEG extended case with standards evidence"
@@ -305,6 +311,10 @@ fn list_cases_command_filters_by_status_and_profile() {
         "planned status filter must not include implemented SEG"
     );
     assert!(
+        !stdout.contains("derived/seg/binary_multiframe_deflated_image_frame"),
+        "planned status filter must not include implemented Deflated Image Frame SEG"
+    );
+    assert!(
         !stdout.contains("derived/seg/fractional_probability_multiframe_explicit_le"),
         "planned status filter must not include implemented fractional SEG"
     );
@@ -384,6 +394,10 @@ fn list_cases_command_excludes_promoted_compressed_cases_from_skipped_rows() {
         !stdout.contains("classic/sc/mono2_u16_jpeg_lossless_sv1"),
         "promoted legacy JPEG SV1 row must not be listed as skipped"
     );
+    assert!(
+        !stdout.contains("derived/seg/binary_multiframe_deflated_image_frame"),
+        "promoted Deflated Image Frame SEG row must not be listed as skipped"
+    );
 }
 
 #[test]
@@ -459,6 +473,12 @@ fn list_cases_command_shows_rle_lossless_as_implemented() {
             "classic/sc/mono2_u16_jpeg_lossless_sv1\timplemented\textended\t1.2.840.10008.5.1.4.1.1.7\t1.2.840.10008.1.2.4.70\t2/2 covered"
         ),
         "JPEG Lossless SV1 row must be listed as implemented and feature-gated"
+    );
+    assert!(
+        stdout.contains(
+            "derived/seg/binary_multiframe_deflated_image_frame\timplemented\textended\t1.2.840.10008.5.1.4.1.1.66.4\t1.2.840.10008.1.2.8.1\t10/10 covered"
+        ),
+        "Deflated Image Frame SEG row must be listed as implemented and feature-gated"
     );
 }
 

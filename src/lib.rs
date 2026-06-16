@@ -10,13 +10,16 @@ use dicom_object::{FileDicomObject, InMemDicomObject, open_file};
 use serde_json::Value;
 
 use crate::codecs::{
-    FrameDecodeInput, FrameDecoder, HTJ2K_LOSSLESS_TRANSFER_SYNTAX_UID,
-    JPEG_2000_LOSSLESS_TRANSFER_SYNTAX_UID, JPEG_BASELINE_8BIT_TRANSFER_SYNTAX_UID,
-    JPEG_LOSSLESS_PROCESS_14_TRANSFER_SYNTAX_UID, JPEG_LOSSLESS_SV1_TRANSFER_SYNTAX_UID,
-    JPEG_LS_LOSSLESS_TRANSFER_SYNTAX_UID, JPEG_XL_LOSSLESS_TRANSFER_SYNTAX_UID,
-    NativeRleLosslessEncoder, RLE_LOSSLESS_TRANSFER_SYNTAX_UID,
+    DEFLATED_IMAGE_FRAME_TRANSFER_SYNTAX_UID, FrameDecodeInput, FrameDecoder,
+    HTJ2K_LOSSLESS_TRANSFER_SYNTAX_UID, JPEG_2000_LOSSLESS_TRANSFER_SYNTAX_UID,
+    JPEG_BASELINE_8BIT_TRANSFER_SYNTAX_UID, JPEG_LOSSLESS_PROCESS_14_TRANSFER_SYNTAX_UID,
+    JPEG_LOSSLESS_SV1_TRANSFER_SYNTAX_UID, JPEG_LS_LOSSLESS_TRANSFER_SYNTAX_UID,
+    JPEG_XL_LOSSLESS_TRANSFER_SYNTAX_UID, NativeRleLosslessEncoder,
+    RLE_LOSSLESS_TRANSFER_SYNTAX_UID,
 };
 
+#[cfg(feature = "deflate")]
+use crate::codecs::DicomRsDeflatedImageFrameEncoder;
 #[cfg(feature = "jpeg")]
 use crate::codecs::DicomRsJpegBaselineEncoder;
 #[cfg(feature = "charls")]
@@ -1413,6 +1416,21 @@ fn validate_encapsulated_pixel_data_manifest(
         &fragment_counts,
         frame_hashes,
     )?;
+    validate_deflated_image_frame_manifest_decoded_frame_hashes(
+        failures,
+        relative_path,
+        manifest_path,
+        transfer_syntax,
+        pixel_fragments,
+        rows,
+        columns,
+        samples_per_pixel,
+        bits_allocated,
+        bits_stored,
+        photometric_interpretation,
+        &fragment_counts,
+        frame_hashes,
+    )?;
 
     let extended_offset_table_present = manifest_bool(
         manifest_path,
@@ -2238,6 +2256,111 @@ fn validate_legacy_jpeg_lossless_manifest_decoded_frame_hashes(
         failures.push(format!(
             "{relative_path}: {}: validate requires the legacy_jpeg_dcmtk Cargo feature",
             validation.decoder_unavailable_name
+        ));
+    }
+
+    Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
+fn validate_deflated_image_frame_manifest_decoded_frame_hashes(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    manifest_path: &Path,
+    transfer_syntax: &str,
+    pixel_fragments: Option<&[Vec<u8>]>,
+    rows: u16,
+    columns: u16,
+    samples_per_pixel: u16,
+    bits_allocated: u16,
+    bits_stored: u16,
+    photometric_interpretation: &str,
+    fragments_per_frame: &[usize],
+    frame_hashes: &[Value],
+) -> Result<(), ValidateError> {
+    if transfer_syntax != DEFLATED_IMAGE_FRAME_TRANSFER_SYNTAX_UID {
+        return Ok(());
+    }
+
+    let Some(pixel_fragments) = pixel_fragments else {
+        failures.push(format!(
+            "{relative_path}: deflated_image_frame_pixel_sequence: Pixel Data is not an encapsulated fragment sequence"
+        ));
+        return Ok(());
+    };
+    if !fragments_per_frame.iter().all(|count| *count == 1) {
+        failures.push(format!(
+            "{relative_path}: deflated_image_frame_decoded_frame_hashes: Deflated Image Frame validation requires one fragment per frame"
+        ));
+        return Ok(());
+    }
+    if pixel_fragments.len() != fragments_per_frame.len() {
+        failures.push(format!(
+            "{relative_path}: deflated_image_frame_fragment_count: expected {} fragment(s), got {}",
+            fragments_per_frame.len(),
+            pixel_fragments.len()
+        ));
+        return Ok(());
+    }
+
+    let expected_hashes = frame_hashes
+        .iter()
+        .map(|hash| {
+            hash.as_str().ok_or_else(|| ValidateError::ManifestShape {
+                path: manifest_path.to_path_buf(),
+                message: "pixel_data frame_hashes items must be strings",
+            })
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+
+    #[cfg(feature = "deflate")]
+    {
+        let decoder = DicomRsDeflatedImageFrameEncoder::new();
+        let mut decoded_hashes = Vec::with_capacity(pixel_fragments.len());
+        for fragment in pixel_fragments {
+            let decoded = match decoder.decode_frame(FrameDecodeInput {
+                encoded_frame: fragment,
+                rows,
+                columns,
+                samples_per_pixel,
+                bits_allocated,
+                bits_stored,
+                photometric_interpretation,
+            }) {
+                Ok(decoded) => decoded,
+                Err(err) => {
+                    failures.push(format!(
+                        "{relative_path}: deflated_image_frame_decode_round_trip: {err}"
+                    ));
+                    return Ok(());
+                }
+            };
+            decoded_hashes.push(sha256_hex(&decoded.native_bytes));
+        }
+
+        validate_equal(
+            failures,
+            relative_path,
+            "deflated_image_frame_decoded_frame_hashes",
+            decoded_hashes.join(","),
+            expected_hashes.join(","),
+        );
+    }
+
+    #[cfg(not(feature = "deflate"))]
+    {
+        let _ = (
+            rows,
+            columns,
+            samples_per_pixel,
+            bits_allocated,
+            bits_stored,
+            photometric_interpretation,
+            pixel_fragments,
+            expected_hashes,
+        );
+        failures.push(format!(
+            "{relative_path}: deflated_image_frame_decoder_unavailable: validate requires the deflate Cargo feature"
         ));
     }
 
@@ -7278,6 +7401,12 @@ mod tests {
         );
         assert!(
             output.contains(
+                "derived/seg/binary_multiframe_deflated_image_frame\timplemented\textended\t1.2.840.10008.5.1.4.1.1.66.4\t1.2.840.10008.1.2.8.1\t10/10 covered"
+            ),
+            "list-cases output must show implemented Deflated Image Frame SEG extended status"
+        );
+        assert!(
+            output.contains(
                 "derived/seg/fractional_probability_multiframe_explicit_le\timplemented\textended\t1.2.840.10008.5.1.4.1.1.66.4\t1.2.840.10008.1.2.1\t8/8 covered"
             ),
             "list-cases output must show implemented fractional SEG extended status"
@@ -7311,6 +7440,10 @@ mod tests {
         assert!(
             !output.contains("derived/seg/binary_multiframe_explicit_le"),
             "planned status filter should not include implemented SEG"
+        );
+        assert!(
+            !output.contains("derived/seg/binary_multiframe_deflated_image_frame"),
+            "planned status filter should not include implemented Deflated Image Frame SEG"
         );
         assert!(
             !output.contains("derived/seg/fractional_probability_multiframe_explicit_le"),

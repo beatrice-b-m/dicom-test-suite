@@ -9,15 +9,17 @@ use serde_json::Value;
 use crate::{
     GenerateError,
     codecs::{
-        FrameDecodeInput, FrameDecoder, HTJ2K_LOSSLESS_TRANSFER_SYNTAX_UID,
-        JPEG_2000_LOSSLESS_TRANSFER_SYNTAX_UID, JPEG_LOSSLESS_PROCESS_14_TRANSFER_SYNTAX_UID,
-        JPEG_LOSSLESS_SV1_TRANSFER_SYNTAX_UID, JPEG_LS_LOSSLESS_TRANSFER_SYNTAX_UID,
-        JPEG_XL_LOSSLESS_TRANSFER_SYNTAX_UID, NativeRleLosslessEncoder,
-        RLE_LOSSLESS_TRANSFER_SYNTAX_UID,
+        DEFLATED_IMAGE_FRAME_TRANSFER_SYNTAX_UID, FrameDecodeInput, FrameDecoder,
+        HTJ2K_LOSSLESS_TRANSFER_SYNTAX_UID, JPEG_2000_LOSSLESS_TRANSFER_SYNTAX_UID,
+        JPEG_LOSSLESS_PROCESS_14_TRANSFER_SYNTAX_UID, JPEG_LOSSLESS_SV1_TRANSFER_SYNTAX_UID,
+        JPEG_LS_LOSSLESS_TRANSFER_SYNTAX_UID, JPEG_XL_LOSSLESS_TRANSFER_SYNTAX_UID,
+        NativeRleLosslessEncoder, RLE_LOSSLESS_TRANSFER_SYNTAX_UID,
     },
     sha256_hex,
 };
 
+#[cfg(feature = "deflate")]
+use crate::codecs::DicomRsDeflatedImageFrameEncoder;
 #[cfg(feature = "charls")]
 use crate::codecs::DicomRsJpegLsLosslessEncoder;
 #[cfg(feature = "jpegxl")]
@@ -820,6 +822,11 @@ pub(crate) fn validate_part10_file(
                 validate_legacy_jpeg_lossless_decoded_frame_hashes(
                     expected,
                     &obj,
+                    sequence.fragments(),
+                    &mut internal,
+                );
+                validate_deflated_image_frame_decoded_frame_hashes(
+                    expected,
                     sequence.fragments(),
                     &mut internal,
                 );
@@ -3966,6 +3973,89 @@ fn validate_legacy_jpeg_lossless_decoded_frame_hashes(
             validation.decoder_unavailable_name,
             validation.success_message,
             validation.decoder_unavailable_message,
+        );
+    }
+}
+
+fn validate_deflated_image_frame_decoded_frame_hashes(
+    expected: &Part10Expectations<'_>,
+    fragments: &[Vec<u8>],
+    results: &mut Vec<Value>,
+) {
+    if expected.transfer_syntax_uid != DEFLATED_IMAGE_FRAME_TRANSFER_SYNTAX_UID {
+        return;
+    }
+    if expected.decoded_frame_hashes.is_empty() {
+        check(
+            results,
+            false,
+            "deflated_image_frame_decoded_frame_hashes",
+            "Deflated Image Frame frames decode to the expected native frame hashes.",
+            "Deflated Image Frame validation requires expected native frame hashes.",
+        );
+        return;
+    }
+    if fragments.len() != expected.decoded_frame_hashes.len() {
+        check(
+            results,
+            false,
+            "deflated_image_frame_decoded_frame_hash_count",
+            "Deflated Image Frame decoded frame count matches expected native frame hash count.",
+            "Deflated Image Frame fragment count does not match expected native frame hash count.",
+        );
+        return;
+    }
+
+    #[cfg(feature = "deflate")]
+    {
+        let decoder = DicomRsDeflatedImageFrameEncoder::new();
+        let mut decoded_hashes = Vec::with_capacity(fragments.len());
+        for fragment in fragments {
+            match decoder.decode_frame(FrameDecodeInput {
+                encoded_frame: fragment,
+                rows: expected.rows,
+                columns: expected.columns,
+                samples_per_pixel: expected.samples_per_pixel,
+                bits_allocated: expected.bits_allocated,
+                bits_stored: expected.bits_stored,
+                photometric_interpretation: expected.photometric_interpretation,
+            }) {
+                Ok(decoded) => decoded_hashes.push(sha256_hex(&decoded.native_bytes)),
+                Err(_) => {
+                    check(
+                        results,
+                        false,
+                        "deflated_image_frame_decode_round_trip",
+                        "Deflated Image Frame frames decode successfully.",
+                        "Deflated Image Frame frame decode failed.",
+                    );
+                    return;
+                }
+            }
+        }
+
+        check_equal(
+            results,
+            "deflated_image_frame_decoded_frame_hashes",
+            "Deflated Image Frame frames decode to the expected native frame hashes.",
+            "Deflated Image Frame decoded frame hashes do not match expected native frame hashes.",
+            decoded_hashes
+                .iter()
+                .map(String::as_str)
+                .collect::<Vec<_>>(),
+            expected.decoded_frame_hashes.to_vec(),
+        );
+    }
+
+    #[cfg(not(feature = "deflate"))]
+    {
+        let _ = fragments;
+        check(
+            results,
+            false,
+            "deflated_image_frame_decoder_unavailable",
+            "Deflated Image Frame frames decode to the expected native frame hashes.",
+            "Deflated Image Frame validation requires the deflate Cargo feature.",
         );
     }
 }

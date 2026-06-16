@@ -5,6 +5,7 @@ use crate::PACKAGE_VERSION;
 
 #[cfg(any(
     feature = "charls",
+    feature = "deflate",
     feature = "jpeg",
     feature = "jpegxl",
     feature = "jpeg2000"
@@ -23,15 +24,22 @@ use std::{
 
 #[cfg(any(
     feature = "charls",
+    feature = "deflate",
     feature = "jpeg",
     feature = "jpegxl",
     feature = "jpeg2000"
 ))]
 use dicom_core::value::C;
-#[cfg(any(feature = "charls", feature = "jpeg", feature = "jpegxl"))]
+#[cfg(any(
+    feature = "charls",
+    feature = "deflate",
+    feature = "jpeg",
+    feature = "jpegxl"
+))]
 use dicom_encoding::adapters::{EncodeOptions, PixelDataWriter};
 #[cfg(any(
     feature = "charls",
+    feature = "deflate",
     feature = "jpeg",
     feature = "jpegxl",
     feature = "jpeg2000"
@@ -40,6 +48,8 @@ use dicom_encoding::{
     Codec,
     adapters::{PixelDataObject, PixelDataReader, RawPixelData},
 };
+#[cfg(feature = "deflate")]
+use dicom_transfer_syntax_registry::entries::DEFLATED_IMAGE_FRAME_COMPRESSION;
 #[cfg(feature = "htj2k_openjph")]
 use dicom_transfer_syntax_registry::entries::HIGH_THROUGHPUT_JPEG_2000_IMAGE_COMPRESSION_LOSSLESS_ONLY;
 #[cfg(feature = "jpeg2000")]
@@ -63,6 +73,7 @@ pub const JPEG_LOSSLESS_SV1_TRANSFER_SYNTAX_UID: &str = "1.2.840.10008.1.2.4.70"
 pub const JPEG_XL_LOSSLESS_TRANSFER_SYNTAX_UID: &str = "1.2.840.10008.1.2.4.110";
 pub const HTJ2K_LOSSLESS_TRANSFER_SYNTAX_UID: &str = "1.2.840.10008.1.2.4.201";
 pub const RLE_LOSSLESS_TRANSFER_SYNTAX_UID: &str = "1.2.840.10008.1.2.5";
+pub const DEFLATED_IMAGE_FRAME_TRANSFER_SYNTAX_UID: &str = "1.2.840.10008.1.2.8.1";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CodecBackendKind {
@@ -1147,6 +1158,7 @@ impl FrameDecoder for DicomRsJpegXlLosslessEncoder {
 
 #[cfg(any(
     feature = "charls",
+    feature = "deflate",
     feature = "jpeg",
     feature = "jpegxl",
     feature = "jpeg2000"
@@ -1165,6 +1177,7 @@ struct DicomRsPixelDataObject<'a> {
 
 #[cfg(any(
     feature = "charls",
+    feature = "deflate",
     feature = "jpeg",
     feature = "jpegxl",
     feature = "jpeg2000"
@@ -1220,6 +1233,140 @@ impl PixelDataObject for DicomRsPixelDataObject<'_> {
         Some(RawPixelData {
             fragments: C::from_vec(self.fragments.clone()),
             offset_table: C::from_vec(self.offset_table.clone()),
+        })
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+#[cfg(feature = "deflate")]
+pub struct DicomRsDeflatedImageFrameEncoder;
+
+#[cfg(feature = "deflate")]
+impl DicomRsDeflatedImageFrameEncoder {
+    pub const BACKEND_ID: &'static str = "dicom_rs_deflated_image_frame_writer";
+
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+#[cfg(feature = "deflate")]
+impl FrameEncoder for DicomRsDeflatedImageFrameEncoder {
+    fn backend(&self) -> CodecBackendInfo {
+        CodecBackendInfo {
+            backend_id: Self::BACKEND_ID,
+            backend_kind: CodecBackendKind::DicomRsFeature,
+            display_name: "DICOM-rs Deflated Image Frame writer",
+            version: "dicom-transfer-syntax-registry 0.9.1 + flate2",
+            transfer_syntax_uid: DEFLATED_IMAGE_FRAME_TRANSFER_SYNTAX_UID,
+            feature_gate: Some("deflate"),
+            determinism: CodecDeterminism::ByteStable,
+        }
+    }
+
+    fn encode_frame(&self, input: FrameEncodeInput<'_>) -> Result<EncodedFrame, CodecError> {
+        let expected_len = deflated_frame_byte_len(input)?;
+        if input.native_frame.len() != expected_len {
+            return Err(CodecError::unsupported(
+                Self::BACKEND_ID,
+                format!(
+                    "native frame length is {}, expected {expected_len}",
+                    input.native_frame.len()
+                ),
+            ));
+        }
+
+        let (adapter_rows, adapter_columns, adapter_bits_allocated, adapter_bits_stored) =
+            if input.bits_allocated == 1 {
+                (
+                    1,
+                    u16::try_from(input.native_frame.len()).map_err(|_| {
+                        CodecError::unsupported(
+                            Self::BACKEND_ID,
+                            "bit-packed frame byte length exceeds u16 columns",
+                        )
+                    })?,
+                    8,
+                    8,
+                )
+            } else {
+                (
+                    input.rows,
+                    input.columns,
+                    input.bits_allocated,
+                    input.bits_stored,
+                )
+            };
+
+        let obj = DicomRsPixelDataObject {
+            transfer_syntax_uid: DEFLATED_IMAGE_FRAME_TRANSFER_SYNTAX_UID,
+            rows: adapter_rows,
+            columns: adapter_columns,
+            samples_per_pixel: input.samples_per_pixel,
+            bits_allocated: adapter_bits_allocated,
+            bits_stored: adapter_bits_stored,
+            photometric_interpretation: input.photometric_interpretation,
+            fragments: vec![input.native_frame.to_vec()],
+            offset_table: Vec::new(),
+        };
+        let Codec::EncapsulatedPixelData(_, Some(writer)) =
+            DEFLATED_IMAGE_FRAME_COMPRESSION.codec()
+        else {
+            return Err(CodecError::unavailable(
+                Self::BACKEND_ID,
+                "DICOM-rs Deflated Image Frame writer is not available",
+            ));
+        };
+
+        let mut encoded = Vec::new();
+        writer
+            .encode_frame(&obj, 0, EncodeOptions::default(), &mut encoded)
+            .map_err(|err| CodecError::encode_failed(Self::BACKEND_ID, err.to_string()))?;
+        if encoded.is_empty() {
+            return Err(CodecError::validation_failed(
+                Self::BACKEND_ID,
+                "Deflated Image Frame encoder produced an empty fragment",
+            ));
+        }
+
+        Ok(EncodedFrame { bytes: encoded })
+    }
+}
+
+#[cfg(feature = "deflate")]
+impl FrameDecoder for DicomRsDeflatedImageFrameEncoder {
+    fn backend(&self) -> CodecBackendInfo {
+        <Self as FrameEncoder>::backend(self)
+    }
+
+    fn decode_frame(&self, input: FrameDecodeInput<'_>) -> Result<DecodedFrame, CodecError> {
+        let obj = DicomRsPixelDataObject {
+            transfer_syntax_uid: DEFLATED_IMAGE_FRAME_TRANSFER_SYNTAX_UID,
+            rows: input.rows,
+            columns: input.columns,
+            samples_per_pixel: input.samples_per_pixel,
+            bits_allocated: input.bits_allocated,
+            bits_stored: input.bits_stored,
+            photometric_interpretation: input.photometric_interpretation,
+            fragments: vec![input.encoded_frame.to_vec()],
+            offset_table: Vec::new(),
+        };
+        let Codec::EncapsulatedPixelData(Some(reader), _) =
+            DEFLATED_IMAGE_FRAME_COMPRESSION.codec()
+        else {
+            return Err(CodecError::unavailable(
+                Self::BACKEND_ID,
+                "DICOM-rs Deflated Image Frame reader is not available",
+            ));
+        };
+
+        let mut decoded = Vec::new();
+        reader
+            .decode_frame(&obj, 0, &mut decoded)
+            .map_err(|err| CodecError::validation_failed(Self::BACKEND_ID, err.to_string()))?;
+
+        Ok(DecodedFrame {
+            native_bytes: decoded,
         })
     }
 }
@@ -1654,6 +1801,39 @@ fn checked_bytes_per_sample(
     Ok(usize::from(bits_allocated / 8))
 }
 
+#[cfg(feature = "deflate")]
+fn deflated_frame_byte_len(input: FrameEncodeInput<'_>) -> Result<usize, CodecError> {
+    let samples = usize::from(input.rows)
+        .checked_mul(usize::from(input.columns))
+        .and_then(|pixels| pixels.checked_mul(usize::from(input.samples_per_pixel)))
+        .ok_or_else(|| {
+            CodecError::unsupported(
+                DicomRsDeflatedImageFrameEncoder::BACKEND_ID,
+                "frame sample count overflowed",
+            )
+        })?;
+    if input.bits_allocated == 1 {
+        if input.samples_per_pixel != 1 {
+            return Err(CodecError::unsupported(
+                DicomRsDeflatedImageFrameEncoder::BACKEND_ID,
+                "1-bit Deflated Image Frame support requires one sample per pixel",
+            ));
+        }
+        Ok(samples.div_ceil(8))
+    } else {
+        let bytes_per_sample = checked_bytes_per_sample(
+            DicomRsDeflatedImageFrameEncoder::BACKEND_ID,
+            input.bits_allocated,
+        )?;
+        samples.checked_mul(bytes_per_sample).ok_or_else(|| {
+            CodecError::unsupported(
+                DicomRsDeflatedImageFrameEncoder::BACKEND_ID,
+                "native frame length overflowed",
+            )
+        })
+    }
+}
+
 fn encode_packbits_segment(segment: &[u8]) -> Vec<u8> {
     let mut encoded = Vec::new();
     let mut literal = Vec::new();
@@ -1901,20 +2081,38 @@ fn unique_openjph_temp_dir() -> PathBuf {
 #[cfg(test)]
 mod tests {
     use super::*;
-    #[cfg(any(feature = "charls", feature = "jpeg", feature = "jpegxl"))]
+    #[cfg(any(
+        feature = "charls",
+        feature = "deflate",
+        feature = "jpeg",
+        feature = "jpegxl"
+    ))]
     use std::borrow::Cow;
 
-    #[cfg(any(feature = "charls", feature = "jpeg", feature = "jpegxl"))]
+    #[cfg(any(
+        feature = "charls",
+        feature = "deflate",
+        feature = "jpeg",
+        feature = "jpegxl"
+    ))]
     use dicom_core::value::C;
     #[cfg(any(
         feature = "charls",
+        feature = "deflate",
         feature = "jpeg",
         feature = "jpegxl",
         feature = "jpeg2000"
     ))]
     use dicom_encoding::Codec;
-    #[cfg(any(feature = "charls", feature = "jpeg", feature = "jpegxl"))]
+    #[cfg(any(
+        feature = "charls",
+        feature = "deflate",
+        feature = "jpeg",
+        feature = "jpegxl"
+    ))]
     use dicom_encoding::adapters::{EncodeOptions, PixelDataObject, PixelDataWriter, RawPixelData};
+    #[cfg(feature = "deflate")]
+    use dicom_transfer_syntax_registry::entries::DEFLATED_IMAGE_FRAME_COMPRESSION;
     #[cfg(feature = "jpeg2000")]
     use dicom_transfer_syntax_registry::entries::JPEG_2000_IMAGE_COMPRESSION_LOSSLESS_ONLY;
     #[cfg(feature = "jpeg")]
@@ -2143,6 +2341,101 @@ mod tests {
 
         assert!(matches!(error, CodecError::ValidationFailed { .. }));
         assert!(error.to_string().contains("has 2 segments, expected 1"));
+    }
+
+    #[cfg(feature = "deflate")]
+    #[test]
+    fn dicom_rs_deflated_image_frame_backend_reports_identity() {
+        let encoder = DicomRsDeflatedImageFrameEncoder::new();
+
+        let backend = FrameEncoder::backend(&encoder);
+
+        assert_eq!(backend.backend_id, "dicom_rs_deflated_image_frame_writer");
+        assert_eq!(backend.backend_kind.as_str(), "dicom_rs_feature");
+        assert_eq!(backend.transfer_syntax_uid, "1.2.840.10008.1.2.8.1");
+        assert_eq!(backend.feature_gate, Some("deflate"));
+        assert_eq!(backend.determinism.as_str(), "byte_stable");
+    }
+
+    #[cfg(feature = "deflate")]
+    #[test]
+    fn dicom_rs_deflated_image_frame_round_trips_bit_packed_seg_frame() {
+        let codec = DicomRsDeflatedImageFrameEncoder::new();
+        let native = [0b0000_1001];
+
+        let encoded = codec
+            .encode_frame(FrameEncodeInput {
+                native_frame: &native,
+                rows: 2,
+                columns: 2,
+                samples_per_pixel: 1,
+                bits_allocated: 1,
+                bits_stored: 1,
+                photometric_interpretation: "MONOCHROME2",
+            })
+            .expect("Deflated Image Frame should encode a bit-packed SEG frame");
+        assert!(
+            !encoded.bytes.is_empty(),
+            "deflated fragment should not be empty"
+        );
+
+        let decoded = codec
+            .decode_frame(FrameDecodeInput {
+                encoded_frame: &encoded.bytes,
+                rows: 2,
+                columns: 2,
+                samples_per_pixel: 1,
+                bits_allocated: 1,
+                bits_stored: 1,
+                photometric_interpretation: "MONOCHROME2",
+            })
+            .expect("Deflated Image Frame should decode the bit-packed SEG frame");
+
+        assert_eq!(decoded.native_bytes, native);
+    }
+
+    #[cfg(feature = "deflate")]
+    #[test]
+    fn dicom_rs_deflate_feature_exposes_deflated_image_frame_writer() {
+        let Codec::EncapsulatedPixelData(Some(reader), Some(writer)) =
+            DEFLATED_IMAGE_FRAME_COMPRESSION.codec()
+        else {
+            panic!(
+                "Deflated Image Frame transfer syntax must expose reader and writer with the deflate feature"
+            );
+        };
+
+        let obj = NativePixelTestObject {
+            transfer_syntax_uid: "1.2.840.10008.1.2.1",
+            rows: 1,
+            columns: 1,
+            samples_per_pixel: 1,
+            bits_allocated: 8,
+            bits_stored: 8,
+            photometric_interpretation: "MONOCHROME2",
+            pixels: &[0b0000_1001],
+        };
+        let mut encoded = Vec::new();
+        writer
+            .encode_frame(&obj, 0, EncodeOptions::default(), &mut encoded)
+            .expect("DICOM-rs Deflated Image Frame writer should encode a tiny byte frame");
+        assert!(!encoded.is_empty());
+
+        let encoded_obj = EncodedPixelTestObject {
+            transfer_syntax_uid: "1.2.840.10008.1.2.8.1",
+            rows: 1,
+            columns: 1,
+            samples_per_pixel: 1,
+            bits_allocated: 8,
+            bits_stored: 8,
+            photometric_interpretation: "MONOCHROME2",
+            fragments: vec![encoded],
+        };
+        let mut decoded = Vec::new();
+        reader
+            .decode_frame(&encoded_obj, 0, &mut decoded)
+            .expect("DICOM-rs Deflated Image Frame reader should decode its own fragment");
+        assert_eq!(decoded, vec![0b0000_1001]);
     }
 
     #[cfg(feature = "charls")]
@@ -2624,7 +2917,12 @@ mod tests {
         let _ = reader;
     }
 
-    #[cfg(any(feature = "charls", feature = "jpeg", feature = "jpegxl"))]
+    #[cfg(any(
+        feature = "charls",
+        feature = "deflate",
+        feature = "jpeg",
+        feature = "jpegxl"
+    ))]
     struct NativePixelTestObject<'a> {
         transfer_syntax_uid: &'a str,
         rows: u16,
@@ -2636,7 +2934,12 @@ mod tests {
         pixels: &'a [u8],
     }
 
-    #[cfg(any(feature = "charls", feature = "jpeg", feature = "jpegxl"))]
+    #[cfg(any(
+        feature = "charls",
+        feature = "deflate",
+        feature = "jpeg",
+        feature = "jpegxl"
+    ))]
     impl PixelDataObject for NativePixelTestObject<'_> {
         fn transfer_syntax_uid(&self) -> &str {
             self.transfer_syntax_uid
@@ -2690,7 +2993,7 @@ mod tests {
         }
     }
 
-    #[cfg(any(feature = "charls", feature = "jpegxl"))]
+    #[cfg(any(feature = "charls", feature = "deflate", feature = "jpegxl"))]
     struct EncodedPixelTestObject<'a> {
         transfer_syntax_uid: &'a str,
         rows: u16,
@@ -2702,7 +3005,7 @@ mod tests {
         fragments: Vec<Vec<u8>>,
     }
 
-    #[cfg(any(feature = "charls", feature = "jpegxl"))]
+    #[cfg(any(feature = "charls", feature = "deflate", feature = "jpegxl"))]
     impl PixelDataObject for EncodedPixelTestObject<'_> {
         fn transfer_syntax_uid(&self) -> &str {
             self.transfer_syntax_uid

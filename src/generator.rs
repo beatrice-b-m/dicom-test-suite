@@ -13,11 +13,12 @@ use serde_json::Value;
 use crate::{
     DeterministicUidInput, GenerateError, PreparedGenerationRun, UidRole,
     codecs::{
-        FrameEncodeInput, FrameEncoder, HTJ2K_LOSSLESS_TRANSFER_SYNTAX_UID,
-        JPEG_2000_LOSSLESS_TRANSFER_SYNTAX_UID, JPEG_BASELINE_8BIT_TRANSFER_SYNTAX_UID,
-        JPEG_LOSSLESS_PROCESS_14_TRANSFER_SYNTAX_UID, JPEG_LOSSLESS_SV1_TRANSFER_SYNTAX_UID,
-        JPEG_LS_LOSSLESS_TRANSFER_SYNTAX_UID, JPEG_XL_LOSSLESS_TRANSFER_SYNTAX_UID,
-        NativeRleLosslessEncoder, RLE_LOSSLESS_TRANSFER_SYNTAX_UID,
+        DEFLATED_IMAGE_FRAME_TRANSFER_SYNTAX_UID, FrameEncodeInput, FrameEncoder,
+        HTJ2K_LOSSLESS_TRANSFER_SYNTAX_UID, JPEG_2000_LOSSLESS_TRANSFER_SYNTAX_UID,
+        JPEG_BASELINE_8BIT_TRANSFER_SYNTAX_UID, JPEG_LOSSLESS_PROCESS_14_TRANSFER_SYNTAX_UID,
+        JPEG_LOSSLESS_SV1_TRANSFER_SYNTAX_UID, JPEG_LS_LOSSLESS_TRANSFER_SYNTAX_UID,
+        JPEG_XL_LOSSLESS_TRANSFER_SYNTAX_UID, NativeRleLosslessEncoder,
+        RLE_LOSSLESS_TRANSFER_SYNTAX_UID,
     },
     deterministic_uid,
     encapsulation::{BasicOffsetTablePolicy, EncapsulatedPixelData},
@@ -36,6 +37,8 @@ use crate::{
     },
 };
 
+#[cfg(feature = "deflate")]
+use crate::codecs::DicomRsDeflatedImageFrameEncoder;
 #[cfg(feature = "jpeg")]
 use crate::codecs::DicomRsJpegBaselineEncoder;
 #[cfg(feature = "charls")]
@@ -50,6 +53,7 @@ use crate::codecs::OpenJphHtj2kLosslessEncoder;
 use crate::codecs::{DcmtkDcmcjpegLosslessProcess, DcmtkDcmcjpegLosslessSv1Encoder};
 #[cfg(any(
     feature = "charls",
+    feature = "deflate",
     feature = "htj2k_openjph",
     feature = "jpeg",
     feature = "jpegxl",
@@ -174,6 +178,12 @@ const JPEG_LOSSLESS_SV1: TransferSyntaxSpec = TransferSyntaxSpec {
     capability_name: "JPEG Lossless, Non-Hierarchical, First-Order Prediction (Process 14 [Selection Value 1])",
     uid: JPEG_LOSSLESS_SV1_TRANSFER_SYNTAX_UID,
     name: "JPEG Lossless SV1",
+};
+const DEFLATED_IMAGE_FRAME: TransferSyntaxSpec = TransferSyntaxSpec {
+    capability_keyword: "DeflatedImageFrameCompression",
+    capability_name: "Deflated Image Frame Compression",
+    uid: DEFLATED_IMAGE_FRAME_TRANSFER_SYNTAX_UID,
+    name: "Deflated Image Frame Compression",
 };
 const SEGMENTATION_SOURCE_CASE_ID: &str = "enhanced/ct/multiframe_shared_perframe_explicit_le";
 const GSPS_SOURCE_CASE_ID: &str = "enhanced/ct/multiframe_shared_perframe_explicit_le";
@@ -1083,6 +1093,7 @@ struct SegmentationRecipe {
     source_case_id: &'static str,
     sop_class_uid: &'static str,
     sop_class_name: &'static str,
+    transfer_syntax: TransferSyntaxSpec,
     rows: u16,
     columns: u16,
     frames: u16,
@@ -1110,6 +1121,7 @@ const SEGMENTATION_RECIPES: &[SegmentationRecipe] = &[
         source_case_id: SEGMENTATION_SOURCE_CASE_ID,
         sop_class_uid: SEGMENTATION_STORAGE_UID,
         sop_class_name: "Segmentation Storage",
+        transfer_syntax: EXPLICIT_VR_LITTLE_ENDIAN,
         rows: 2,
         columns: 2,
         frames: 2,
@@ -1130,11 +1142,41 @@ const SEGMENTATION_RECIPES: &[SegmentationRecipe] = &[
         stressors: &["binary_bit_packed_pixel_data"],
     },
     SegmentationRecipe {
+        case_id: "derived/seg/binary_multiframe_deflated_image_frame",
+        recipe_id: "seg_binary_multiframe_deflated_image_frame",
+        source_case_id: SEGMENTATION_SOURCE_CASE_ID,
+        sop_class_uid: SEGMENTATION_STORAGE_UID,
+        sop_class_name: "Segmentation Storage",
+        transfer_syntax: DEFLATED_IMAGE_FRAME,
+        rows: 2,
+        columns: 2,
+        frames: 2,
+        bits_allocated: 1,
+        bits_stored: 1,
+        high_bit: 0,
+        pixel_data_length_formula: PixelDataLengthFormula::BitPackedFrames,
+        pixel_bytes: &SEG_BINARY_PIXELS,
+        pixel_values: &SEG_BINARY_VALUES,
+        pixel_min: 0,
+        pixel_max: 1,
+        referenced_frame_numbers: &SEG_REFERENCED_FRAMES,
+        segmentation_type: "BINARY",
+        segmentation_fractional_type: None,
+        maximum_fractional_value: None,
+        segment_label: "DTS_SYNTHETIC_REGION_DEFLATED",
+        visual_pattern: "two_frame_binary_segmentation_mask",
+        stressors: &[
+            "binary_bit_packed_pixel_data",
+            "deflated_image_frame_transfer_syntax",
+        ],
+    },
+    SegmentationRecipe {
         case_id: "derived/seg/fractional_probability_multiframe_explicit_le",
         recipe_id: "seg_fractional_probability_multiframe",
         source_case_id: SEGMENTATION_SOURCE_CASE_ID,
         sop_class_uid: SEGMENTATION_STORAGE_UID,
         sop_class_name: "Segmentation Storage",
+        transfer_syntax: EXPLICIT_VR_LITTLE_ENDIAN,
         rows: 2,
         columns: 2,
         frames: 2,
@@ -1160,6 +1202,7 @@ const SEGMENTATION_RECIPES: &[SegmentationRecipe] = &[
         source_case_id: SEGMENTATION_SOURCE_CASE_ID,
         sop_class_uid: LABEL_MAP_SEGMENTATION_STORAGE_UID,
         sop_class_name: "Label Map Segmentation Storage",
+        transfer_syntax: EXPLICIT_VR_LITTLE_ENDIAN,
         rows: 2,
         columns: 2,
         frames: 2,
@@ -3429,6 +3472,47 @@ fn legacy_jpeg_lossless_label(process: DcmtkDcmcjpegLosslessProcess) -> &'static
     }
 }
 
+#[cfg(feature = "deflate")]
+fn validate_deflated_image_frame_round_trip(
+    path: &std::path::Path,
+    recipe: SegmentationRecipe,
+    native_frame: &[u8],
+    encoded_frame: &[u8],
+) -> Result<Value, GenerateError> {
+    let decoder = DicomRsDeflatedImageFrameEncoder::new();
+    let decoded = decoder
+        .decode_frame(FrameDecodeInput {
+            encoded_frame,
+            rows: recipe.rows,
+            columns: recipe.columns,
+            samples_per_pixel: 1,
+            bits_allocated: recipe.bits_allocated,
+            bits_stored: recipe.bits_stored,
+            photometric_interpretation: "MONOCHROME2",
+        })
+        .map_err(|err| GenerateError::ValidateDicomFile {
+            path: path.to_path_buf(),
+            message: err.to_string(),
+        })?;
+
+    let decoded_hash = sha256_hex(&decoded.native_bytes);
+    let expected_hash = sha256_hex(native_frame);
+    if decoded_hash != expected_hash {
+        return Err(GenerateError::ValidateDicomFile {
+            path: path.to_path_buf(),
+            message: format!(
+                "Deflated Image Frame decoded frame hash {decoded_hash} did not match expected {expected_hash}"
+            ),
+        });
+    }
+
+    Ok(serde_json::json!({
+        "name": "deflated_image_frame_decoded_frame_hashes",
+        "status": "passed",
+        "message": "Deflated Image Frame decoded frame hash matches the native bit-packed source frame."
+    }))
+}
+
 #[cfg(feature = "legacy_jpeg_dcmtk")]
 fn encapsulated_pixel_data_from_file(
     path: &std::path::Path,
@@ -4947,16 +5031,95 @@ fn write_segmentation_case(
     put_segmentation_functional_groups(&mut obj, recipe, source);
     put_common_instance_reference(&mut obj, source);
 
-    obj.put(DataElement::new(
-        tags::PIXEL_DATA,
-        VR::OB,
-        PrimitiveValue::from(recipe.pixel_bytes),
-    ));
+    let frame_byte_len = segmentation_frame_byte_len(recipe);
+    let native_frames = recipe
+        .pixel_bytes
+        .chunks(frame_byte_len)
+        .collect::<Vec<_>>();
+    let decoded_frame_hash_values = native_frames
+        .iter()
+        .map(|frame| sha256_hex(frame))
+        .collect::<Vec<_>>();
+    let decoded_frame_hashes = decoded_frame_hash_values
+        .iter()
+        .map(String::as_str)
+        .collect::<Vec<_>>();
+    let compressed_pixel_data: Option<(
+        crate::codecs::CodecBackendInfo,
+        EncapsulatedPixelData,
+        Vec<Value>,
+    )> = if recipe.transfer_syntax == DEFLATED_IMAGE_FRAME {
+        #[cfg(feature = "deflate")]
+        {
+            let encoder = DicomRsDeflatedImageFrameEncoder::new();
+            let mut compressed_frames = Vec::with_capacity(native_frames.len());
+            let mut codec_internal_validation = Vec::new();
+            for native_frame in &native_frames {
+                let encoded_frame = encoder
+                    .encode_frame(FrameEncodeInput {
+                        native_frame,
+                        rows: recipe.rows,
+                        columns: recipe.columns,
+                        samples_per_pixel: 1,
+                        bits_allocated: recipe.bits_allocated,
+                        bits_stored: recipe.bits_stored,
+                        photometric_interpretation: "MONOCHROME2",
+                    })
+                    .map_err(|err| GenerateError::WriteDicomFile {
+                        path: path.clone(),
+                        message: err.to_string(),
+                    })?;
+                codec_internal_validation.push(validate_deflated_image_frame_round_trip(
+                    &path,
+                    recipe,
+                    native_frame,
+                    &encoded_frame.bytes,
+                )?);
+                compressed_frames.push(encoded_frame.bytes);
+            }
+            let encapsulated = EncapsulatedPixelData::one_fragment_per_frame(
+                &compressed_frames,
+                BasicOffsetTablePolicy::Populated,
+            )
+            .map_err(|err| GenerateError::WriteDicomFile {
+                path: path.clone(),
+                message: err.to_string(),
+            })?;
+            obj.put(DataElement::new(
+                tags::PIXEL_DATA,
+                VR::OB,
+                PixelFragmentSequence::new(
+                    encapsulated.basic_offset_table.offsets.clone(),
+                    compressed_frames,
+                ),
+            ));
+            Some((
+                FrameEncoder::backend(&encoder),
+                encapsulated,
+                codec_internal_validation,
+            ))
+        }
+        #[cfg(not(feature = "deflate"))]
+        {
+            return Err(GenerateError::WriteDicomFile {
+                path: path.clone(),
+                message: "Deflated Image Frame generation requires the deflate Cargo feature"
+                    .to_string(),
+            });
+        }
+    } else {
+        obj.put(DataElement::new(
+            tags::PIXEL_DATA,
+            VR::OB,
+            PrimitiveValue::from(recipe.pixel_bytes),
+        ));
+        None
+    };
 
     let file_obj = obj
         .with_meta(
             FileMetaTableBuilder::new()
-                .transfer_syntax(EXPLICIT_VR_LITTLE_ENDIAN.uid)
+                .transfer_syntax(recipe.transfer_syntax.uid)
                 .implementation_class_uid(&implementation_class_uid)
                 .implementation_version_name(crate::IMPLEMENTATION_VERSION_NAME),
         )
@@ -4972,12 +5135,12 @@ fn write_segmentation_case(
             message: err.to_string(),
         })?;
 
-    let validated = validate_part10_file(
+    let mut validated = validate_part10_file(
         &path,
         &Part10Expectations {
             sop_class_uid: recipe.sop_class_uid,
             sop_instance_uid: &sop_instance_uid,
-            transfer_syntax_uid: EXPLICIT_VR_LITTLE_ENDIAN.uid,
+            transfer_syntax_uid: recipe.transfer_syntax.uid,
             implementation_class_uid: &implementation_class_uid,
             synthetic_data: "YES",
             rows: recipe.rows,
@@ -4991,8 +5154,20 @@ fn write_segmentation_case(
             pixel_representation: 0,
             planar_configuration: None,
             pixel_data_vr: VR::OB,
-            pixel_data_length_formula: recipe.pixel_data_length_formula,
-            decoded_frame_hashes: &[],
+            pixel_data_length_formula: compressed_pixel_data
+                .as_ref()
+                .map(
+                    |(_, encapsulated, _)| PixelDataLengthFormula::Encapsulated {
+                        fragments: encapsulated.fragments.len(),
+                        basic_offset_table_offsets: encapsulated.basic_offset_table.offsets.len(),
+                    },
+                )
+                .unwrap_or(recipe.pixel_data_length_formula),
+            decoded_frame_hashes: if compressed_pixel_data.is_some() {
+                &decoded_frame_hashes
+            } else {
+                &[]
+            },
             palette: None,
             padding: None,
             ct_image: None,
@@ -5021,6 +5196,11 @@ fn write_segmentation_case(
             }),
         },
     )?;
+    if let Some((_, _, codec_internal_validation)) = &compressed_pixel_data {
+        for result in codec_internal_validation {
+            append_internal_validation(&mut validated.validation, result.clone());
+        }
+    }
 
     Ok(GeneratedFile {
         case_id: recipe.case_id.to_string(),
@@ -5037,6 +5217,9 @@ fn write_segmentation_case(
             &implementation_class_uid,
             &validated.bytes,
             validated.validation,
+            compressed_pixel_data
+                .as_ref()
+                .map(|(backend, encapsulated, _)| (*backend, encapsulated)),
         ),
     })
 }
@@ -8029,6 +8212,23 @@ fn put_softcopy_voi_lut(obj: &mut InMemDicomObject, recipe: PresentationStateRec
     ));
 }
 
+fn segmentation_frame_byte_len(recipe: SegmentationRecipe) -> usize {
+    match recipe.pixel_data_length_formula {
+        PixelDataLengthFormula::BitPackedFrames => {
+            (usize::from(recipe.rows) * usize::from(recipe.columns)).div_ceil(8)
+        }
+        PixelDataLengthFormula::ContiguousSamples => {
+            usize::from(recipe.rows)
+                * usize::from(recipe.columns)
+                * usize::from(recipe.bits_allocated)
+                / 8
+        }
+        PixelDataLengthFormula::YbrFull422 | PixelDataLengthFormula::Encapsulated { .. } => {
+            unreachable!("segmentation recipes do not use this native frame length formula")
+        }
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 fn segmentation_manifest_entry(
     case: &Value,
@@ -8043,25 +8243,10 @@ fn segmentation_manifest_entry(
     implementation_class_uid: &str,
     bytes: &[u8],
     validation: Value,
+    compressed_pixel_data: Option<(crate::codecs::CodecBackendInfo, &EncapsulatedPixelData)>,
 ) -> Value {
     let standards_evidence = standards_evidence_from_case(case);
-    let frame_byte_len = match recipe.pixel_data_length_formula {
-        PixelDataLengthFormula::BitPackedFrames => {
-            (usize::from(recipe.rows) * usize::from(recipe.columns)).div_ceil(8)
-        }
-        PixelDataLengthFormula::ContiguousSamples => {
-            usize::from(recipe.rows)
-                * usize::from(recipe.columns)
-                * usize::from(recipe.bits_allocated)
-                / 8
-        }
-        PixelDataLengthFormula::YbrFull422 => {
-            unreachable!("segmentation recipes do not use YBR_FULL_422")
-        }
-        PixelDataLengthFormula::Encapsulated { .. } => {
-            unreachable!("segmentation recipes do not use encapsulated Pixel Data")
-        }
-    };
+    let frame_byte_len = segmentation_frame_byte_len(recipe);
     let frame_hashes = recipe
         .pixel_bytes
         .chunks(frame_byte_len)
@@ -8075,6 +8260,59 @@ fn segmentation_manifest_entry(
             "multi_frame_dimension",
         ])
         .collect::<Vec<_>>();
+    let codec_manifest = compressed_pixel_data.map(|(backend, _)| {
+        serde_json::json!({
+            "backend_id": backend.backend_id,
+            "backend_kind": backend.backend_kind.as_str(),
+            "display_name": backend.display_name,
+            "version": backend.version,
+            "transfer_syntax_uid": backend.transfer_syntax_uid,
+            "feature_gate": backend.feature_gate,
+            "determinism": backend.determinism.as_str()
+        })
+    });
+    let pixel_data_manifest = if let Some((_, encapsulated)) = compressed_pixel_data {
+        serde_json::json!({
+            "vr": "OB",
+            "native_or_encapsulated": "encapsulated",
+            "value_length": Value::Null,
+            "frame_count": recipe.frames,
+            "frame_hashes": frame_hashes,
+            "codec": codec_manifest,
+            "encapsulated_pixel_data": {
+                "basic_offset_table": {
+                    "present": true,
+                    "populated": encapsulated.basic_offset_table.is_populated(),
+                    "offset_count": encapsulated.basic_offset_table.offsets.len(),
+                    "offsets": encapsulated.basic_offset_table.offsets.clone()
+                },
+                "fragments_per_frame": encapsulated.fragments_per_frame.clone(),
+                "fragments": encapsulated.fragments.iter().map(|fragment| {
+                    serde_json::json!({
+                        "frame_index": fragment.frame_index,
+                        "item_start_offset": fragment.item_start_offset,
+                        "compressed_length": fragment.compressed_length,
+                        "padded_length": fragment.padded_length
+                    })
+                }).collect::<Vec<_>>(),
+                "extended_offset_table": {
+                    "present": false,
+                    "lengths_present": false,
+                    "offset_count": 0,
+                    "length_count": 0
+                },
+                "compressed_frame_hashes": encapsulated.compressed_frame_hashes.clone()
+            }
+        })
+    } else {
+        serde_json::json!({
+            "vr": "OB",
+            "native_or_encapsulated": "native",
+            "value_length": recipe.pixel_bytes.len(),
+            "frame_count": recipe.frames,
+            "frame_hashes": frame_hashes
+        })
+    };
     serde_json::json!({
         "case_id": recipe.case_id,
         "profile_membership": ["extended"],
@@ -8115,8 +8353,8 @@ fn segmentation_manifest_entry(
             "sop_class_name": recipe.sop_class_name,
             "iod_name": "Segmentation",
             "modality": "SEG",
-            "transfer_syntax_uid": EXPLICIT_VR_LITTLE_ENDIAN.uid,
-            "transfer_syntax_name": EXPLICIT_VR_LITTLE_ENDIAN.name
+            "transfer_syntax_uid": recipe.transfer_syntax.uid,
+            "transfer_syntax_name": recipe.transfer_syntax.name
         },
         "uids": {
             "study_instance_uid": study_instance_uid,
@@ -8138,13 +8376,7 @@ fn segmentation_manifest_entry(
             "pixel_representation": 0,
             "planar_configuration": Value::Null
         },
-        "pixel_data": {
-            "vr": "OB",
-            "native_or_encapsulated": "native",
-            "value_length": recipe.pixel_bytes.len(),
-            "frame_count": recipe.frames,
-            "frame_hashes": frame_hashes
-        },
+        "pixel_data": pixel_data_manifest,
         "references": [
             source.to_manifest_reference(
                 "source_image",

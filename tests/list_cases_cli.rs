@@ -476,6 +476,12 @@ fn list_cases_command_shows_rle_lossless_as_implemented() {
     );
     assert!(
         stdout.contains(
+            "classic/sc/rgb_planar0_multiframe_rle_lossless\timplemented\textended\t1.2.840.10008.5.1.4.1.1.7\t1.2.840.10008.1.2.5\t6/6 covered"
+        ),
+        "RGB multi-frame RLE Lossless row must be listed as implemented"
+    );
+    assert!(
+        stdout.contains(
             "classic/sc/rgb_planar1_rle_lossless\timplemented\textended\t1.2.840.10008.5.1.4.1.1.7\t1.2.840.10008.1.2.5\t5/5 covered"
         ),
         "RGB planar-1 RLE Lossless row must be listed as implemented"

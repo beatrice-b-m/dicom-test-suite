@@ -203,6 +203,12 @@ const MONO_MULTIFRAME_VALUES: [i32; 8] = [0, 85, 170, 255, 255, 170, 85, 0];
 const MONO_ODD_RLE_PIXELS: [u8; 2] = [0, 255];
 const MONO_ODD_RLE_VALUES: [i32; 2] = [0, 255];
 const RGB_PLANAR0_PIXELS: [u8; 12] = [255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 255, 255];
+const RGB_PLANAR0_MULTIFRAME_PIXELS: [u8; 24] = [
+    255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 255, 255, 0, 255, 255, 255, 0, 255, 255, 255, 0, 0, 0, 0,
+];
+const RGB_PLANAR0_MULTIFRAME_VALUES: [i32; 24] = [
+    255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 255, 255, 0, 255, 255, 255, 0, 255, 255, 255, 0, 0, 0, 0,
+];
 const RGB_PLANAR1_PIXELS: [u8; 12] = [255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255];
 const MONO_U16_PIXELS: [u8; 8] = [0, 0, 0x55, 0x55, 0xaa, 0xaa, 0xff, 0xff];
 const MONO_U16_VALUES: [i32; 4] = [0, 21845, 43690, 65535];
@@ -735,6 +741,29 @@ const PIXEL_RECIPES: &[PixelRecipe] = &[
         pixel_max: 255,
         visual_pattern: "2x2_rgb_rle_lossless_red_green_blue_white",
         semantic_note: "RGB samples remain interleaved color-by-pixel after RLE Lossless decode",
+        palette: None,
+        padding: None,
+    },
+    PixelRecipe {
+        case_id: "classic/sc/rgb_planar0_multiframe_rle_lossless",
+        recipe_id: "sc_rgb_planar0_multiframe_rle_lossless",
+        rows: 2,
+        columns: 2,
+        photometric_interpretation: "RGB",
+        samples_per_pixel: 3,
+        planar_configuration: Some(0),
+        bits_allocated: 8,
+        bits_stored: 8,
+        high_bit: 7,
+        pixel_representation: 0,
+        pixel_vr: VR::OB,
+        transfer_syntax: RLE_LOSSLESS,
+        pixel_bytes: &RGB_PLANAR0_MULTIFRAME_PIXELS,
+        pixel_values: &RGB_PLANAR0_MULTIFRAME_VALUES,
+        pixel_min: 0,
+        pixel_max: 255,
+        visual_pattern: "2x2x2_rgb_planar0_rle_lossless_primary_secondary",
+        semantic_note: "two RGB planar-configuration-0 frames decode from separate RLE Lossless fragments",
         palette: None,
         padding: None,
     },
@@ -4716,6 +4745,7 @@ fn pixel_profile_membership(recipe: PixelRecipe) -> &'static [&'static str] {
         | "classic/sc/mono2_u8_odd_fragment_rle_lossless"
         | "vl/photo/rgb_planar0_rle_lossless"
         | "vl/photo/rgb_planar1_rle_lossless"
+        | "classic/sc/rgb_planar0_multiframe_rle_lossless"
         | "classic/sc/rgb_planar0_jpeg_baseline_8bit"
         | "classic/sc/mono2_u8_jpeg_ls_lossless"
         | "classic/sc/rgb_planar0_jpegxl_lossless"

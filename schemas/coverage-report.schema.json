@@ -77,6 +77,9 @@
         "bit_depths": {
           "$ref": "#/$defs/count_map"
         },
+        "bits_allocated": {
+          "$ref": "#/$defs/count_map"
+        },
         "pixel_representations": {
           "$ref": "#/$defs/count_map"
         },
@@ -200,6 +203,7 @@
         "reason_code",
         "photometric",
         "bits",
+        "bits_allocated",
         "pixel_representation",
         "samples_per_pixel",
         "planar_configuration",
@@ -253,6 +257,10 @@
           "type": ["string", "null"]
         },
         "bits": {
+          "type": ["integer", "null"],
+          "minimum": 0
+        },
+        "bits_allocated": {
           "type": ["integer", "null"],
           "minimum": 0
         },

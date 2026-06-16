@@ -1385,6 +1385,7 @@ fn report_summarizes_compressed_codec_coverage() {
                 },
                 "image": {
                     "photometric_interpretation": "RGB",
+                    "bits_allocated": 8,
                     "bits_stored": 8,
                     "pixel_representation": 0,
                     "samples_per_pixel": 3,
@@ -1463,6 +1464,10 @@ fn report_summarizes_compressed_codec_coverage() {
     assert_eq!(
         generated.get("samples_per_pixel").and_then(Value::as_u64),
         Some(3)
+    );
+    assert_eq!(
+        generated.get("bits_allocated").and_then(Value::as_u64),
+        Some(8)
     );
     assert_eq!(
         generated
@@ -1544,6 +1549,12 @@ fn report_summarizes_compressed_codec_coverage() {
     );
     assert_eq!(
         report
+            .pointer("/grouped_coverage/bits_allocated/8")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
             .pointer("/grouped_coverage/planar_configurations/0")
             .and_then(Value::as_u64),
         Some(1)
@@ -1619,6 +1630,7 @@ fn report_summarizes_compressed_codec_coverage() {
     );
     assert_eq!(unavailable.get("pixel_representation"), Some(&Value::Null));
     assert_eq!(unavailable.get("samples_per_pixel"), Some(&Value::Null));
+    assert_eq!(unavailable.get("bits_allocated"), Some(&Value::Null));
     assert_eq!(unavailable.get("planar_configuration"), Some(&Value::Null));
 
     let markdown = dicom_test_suite::render_coverage_report_markdown(&report);
@@ -1645,6 +1657,8 @@ fn report_summarizes_compressed_codec_coverage() {
     assert!(markdown.contains("| 0 | 1 |"));
     assert!(markdown.contains("### Samples Per Pixel"));
     assert!(markdown.contains("| 3 | 1 |"));
+    assert!(markdown.contains("### Bits Allocated"));
+    assert!(markdown.contains("| 8 | 1 |"));
     assert!(markdown.contains("### Planar Configurations"));
     assert!(markdown.contains("| 0 | 1 |"));
     assert!(markdown.contains("### Geometries"));

@@ -5962,6 +5962,12 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
     append_count_map_section(
         &mut output,
         report,
+        "Bits Allocated",
+        "/grouped_coverage/bits_allocated",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
         "Pixel Representations",
         "/grouped_coverage/pixel_representations",
     );
@@ -6099,6 +6105,7 @@ fn generated_coverage_row(
         "reason_code": Value::Null,
         "photometric": file.pointer("/image/photometric_interpretation").and_then(Value::as_str),
         "bits": file.pointer("/image/bits_stored").and_then(Value::as_u64),
+        "bits_allocated": file.pointer("/image/bits_allocated").and_then(Value::as_u64),
         "pixel_representation": file.pointer("/image/pixel_representation").and_then(Value::as_u64),
         "samples_per_pixel": file.pointer("/image/samples_per_pixel").and_then(Value::as_u64),
         "planar_configuration": file.pointer("/image/planar_configuration").and_then(Value::as_u64),
@@ -6199,6 +6206,7 @@ fn skipped_coverage_row(
         "reason_code": skipped.get("reason_code").and_then(Value::as_str),
         "photometric": Value::Null,
         "bits": Value::Null,
+        "bits_allocated": Value::Null,
         "pixel_representation": Value::Null,
         "samples_per_pixel": Value::Null,
         "planar_configuration": Value::Null,
@@ -6283,6 +6291,7 @@ struct GroupedCoverage {
     unavailable_reasons: BTreeMap<String, usize>,
     photometric_interpretations: BTreeMap<String, usize>,
     bit_depths: BTreeMap<String, usize>,
+    bits_allocated: BTreeMap<String, usize>,
     pixel_representations: BTreeMap<String, usize>,
     samples_per_pixel: BTreeMap<String, usize>,
     planar_configurations: BTreeMap<String, usize>,
@@ -6357,6 +6366,12 @@ impl GroupedCoverage {
         if let Some(bits) = row.get("bits").and_then(Value::as_u64) {
             *self.bit_depths.entry(bits.to_string()).or_default() += 1;
         }
+        if let Some(bits_allocated) = row.get("bits_allocated").and_then(Value::as_u64) {
+            *self
+                .bits_allocated
+                .entry(bits_allocated.to_string())
+                .or_default() += 1;
+        }
         if let Some(pixel_representation) = row.get("pixel_representation").and_then(Value::as_u64)
         {
             *self
@@ -6426,6 +6441,7 @@ impl GroupedCoverage {
             "unavailable_reasons": self.unavailable_reasons,
             "photometric_interpretations": self.photometric_interpretations,
             "bit_depths": self.bit_depths,
+            "bits_allocated": self.bits_allocated,
             "pixel_representations": self.pixel_representations,
             "samples_per_pixel": self.samples_per_pixel,
             "planar_configurations": self.planar_configurations,

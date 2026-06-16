@@ -13,7 +13,7 @@
 - Phase 3 - Low-Risk Codec Enablement: in progress; 8-bit and 16-bit generated RLE Lossless Secondary Capture cases are implemented and round-trip validated; the first JPEG Baseline 8-bit RGB Secondary Capture case is generated and validated when the `jpeg` feature is enabled; the first JPEG-LS Lossless 8-bit MONOCHROME2 Secondary Capture case is generated and exact-hash validated when the `charls` feature is enabled; the first JPEG XL Lossless 8-bit RGB Secondary Capture case is generated and exact-hash validated when the `jpegxl` feature is enabled.
 - Phase 4 - JPEG 2000 And HTJ2K: complete for first lossless generated cases; JPEG 2000 Lossless has a project `jpeg2000` feature, a project-owned OpenJPEG-rs writer wrapper, a feature-gated generated Secondary Capture case, generation-time exact decoded-frame hash validation, CLI validation, report coverage, reproducibility evidence, and feature-gated capability-matrix promotion. JPEG 2000 lossy remains deferred. HTJ2K Lossless has a project `htj2k_openjph` feature, an OpenJPH external-command wrapper that fingerprints `ojph_compress` by executable SHA-256, fixed-option PGM encode support, exact DICOM-rs HTJ2K reader decode validation, a feature-gated generated Secondary Capture case, manifest runtime identity metadata, CLI validation, report coverage, and reproducibility evidence. HTJ2K lossy/RPCL variants remain deferred.
 - Phase 5 - Legacy And Specialty Compressed Syntaxes: complete for implement-now scope; JPEG Lossless SV1 and JPEG Lossless Process 14 now have generated feature-gated Secondary Capture cases through the project `legacy_jpeg_dcmtk` DCMTK `dcmcjpeg` file-level wrapper, including manifest runtime executable identity, exact DICOM-rs decoded-frame hash validation, report coverage, and reproducibility evidence. Deflated Image Frame Compression now has a generated feature-gated binary Segmentation multi-frame case through the project `deflate` feature and pinned DICOM-rs adapter, including exact decoded-frame hash validation, report coverage, and reproducibility evidence. JPEG Extended 12-bit DCMTK encode, metadata preservation, encapsulation, and byte-identical local reproducibility are proven, but generated-case promotion is intentionally deferred until an independent 12-bit JPEG Extended validation decoder/path is selected.
-- Phase 6 - Corpus Expansion And Reporting: in progress; report-summary coverage is implemented, the first compressed corpus expansion adds an RGB RLE Lossless Secondary Capture case, the next expansion adds a two-frame MONOCHROME2 RLE Lossless Secondary Capture case, the next expansion adds an odd-length RLE fragment padding Secondary Capture case, the next expansion adds modality-specific CT Image Storage and MR Image Storage RLE Lossless cases, the next expansion adds a Computed Radiography Image Storage RLE Lossless overlay/LUT case, the next expansion adds a Digital X-Ray Image Storage For Presentation RLE Lossless display-shutter case, the next expansion adds Digital Mammography X-Ray Image Storage For Presentation and For Processing RLE Lossless 12-bit cases, the next expansion adds an Ultrasound Image Storage RLE Lossless MONOCHROME2 8-bit case, the next expansion adds VL Photographic Image Storage RGB RLE Lossless planar-configuration-0 and planar-configuration-1 cases, the next expansion adds a Secondary Capture PALETTE COLOR RLE Lossless case, the next expansions add Secondary Capture YBR_FULL RLE Lossless planar-configuration-0 and planar-configuration-1 cases, and the previous expansion adds a Secondary Capture RGB planar-configuration-1 RLE Lossless case using the native project encoder without promoting deferred lossy or JPEG Extended 12-bit work.
+- Phase 6 - Corpus Expansion And Reporting: in progress; report-summary coverage is implemented, the first compressed corpus expansion adds an RGB RLE Lossless Secondary Capture case, the next expansion adds a two-frame MONOCHROME2 RLE Lossless Secondary Capture case, the next expansion adds an odd-length RLE fragment padding Secondary Capture case, the next expansion adds modality-specific CT Image Storage and MR Image Storage RLE Lossless cases, the next expansion adds a Computed Radiography Image Storage RLE Lossless overlay/LUT case, the next expansion adds a Digital X-Ray Image Storage For Presentation RLE Lossless display-shutter case, the next expansion adds Digital Mammography X-Ray Image Storage For Presentation and For Processing RLE Lossless 12-bit cases, the next expansion adds an Ultrasound Image Storage RLE Lossless MONOCHROME2 8-bit case, the next expansion adds VL Photographic Image Storage RGB RLE Lossless planar-configuration-0 and planar-configuration-1 cases, the next expansion adds a Secondary Capture PALETTE COLOR RLE Lossless case, the next expansions add Secondary Capture YBR_FULL RLE Lossless planar-configuration-0 and planar-configuration-1 cases, the next expansion adds a Secondary Capture RGB planar-configuration-1 RLE Lossless case, and the latest expansion adds a Secondary Capture MONOCHROME1 8-bit RLE Lossless case using the native project encoder without promoting deferred lossy or JPEG Extended 12-bit work.
 
 ## Completed Work
 
@@ -276,6 +276,10 @@
 - Reused the existing 2x2 8-bit RGB planar-configuration-1 sample order while emitting VL Photographic Image Storage with RLE Lossless encapsulated Pixel Data, one populated Basic Offset Table entry, one fragment, native RLE backend metadata, and exact decoded native frame hash validation.
 - Added registry evidence for VL Photographic Image Storage, VL Photographic Image IOD/modules, VL Image planar-configuration requirements, RLE Lossless UID, and PS3.5 RLE RGB valid-value constraints.
 - Extended generation, validation, list-cases, report, artifact, and reproducibility coverage so the VL Photographic RGB planar-1 RLE case is generated by default in `extended` and `all`, increases default extended output to 35 files, increases default all output to 57 files, increases grouped RLE Lossless report coverage to 18, and remains byte-stable.
+- Added `classic/sc/mono1_u8_rle_lossless` as the next compressed Phase 6 expansion case.
+- Reused the existing 2x2 8-bit MONOCHROME1 Secondary Capture pixel semantics while switching Pixel Data to RLE Lossless encapsulation with a populated Basic Offset Table, one fragment, native RLE backend metadata, absent Planar Configuration, and exact decoded native frame hash validation.
+- Added registry evidence for Secondary Capture Image Storage, RLE Lossless UID, Secondary Capture Photometric Interpretation context, and PS3.5 RLE MONOCHROME1 valid-value constraints.
+- Extended generation, validation, list-cases, report, artifact, and reproducibility coverage so the MONOCHROME1 RLE case is generated by default in `extended` and `all`, increases default extended output to 36 files, increases default all output to 58 files, increases grouped RLE Lossless report coverage to 19, and remains byte-stable.
 
 ## Blockers
 
@@ -1101,11 +1105,34 @@
 - `cargo run -- generate --profile extended --out /tmp/dts-vl-planar1-rle-repro-a-20260616 --seed 1`: passed, 35 files written.
 - `cargo run -- generate --profile extended --out /tmp/dts-vl-planar1-rle-repro-b-20260616 --seed 1`: passed, 35 files written.
 - `diff -r /tmp/dts-vl-planar1-rle-repro-a-20260616 /tmp/dts-vl-planar1-rle-repro-b-20260616`: passed with no differences.
+- `git status --short`: passed before slice selection; working tree was clean.
+- `dicom-standard-kb` MCP `lookup_sop_class "Secondary Capture Image Storage"`: passed; confirmed Secondary Capture Image Storage UID `1.2.840.10008.5.1.4.1.1.7` and linked Secondary Capture Image IOD.
+- `dicom-standard-kb` MCP `lookup_uid RLELossless`: passed; confirmed UID `1.2.840.10008.1.2.5` as a non-retired PS3.6 Transfer Syntax.
+- `dicom-standard-kb` MCP `resolve_attribute_context PhotometricInterpretation --iod "Secondary Capture Image"`: passed; confirmed Photometric Interpretation is Type 1 in Secondary Capture Image Pixel context.
+- `dicom-standard-kb` MCP `lookup_data_element PhotometricInterpretation`: passed; confirmed tag `(0028,0004)`, VR `CS`, VM `1`.
+- `dicom-standard-kb` MCP `retrieve_standard_text PS3.5 sect_8.2.2`: passed with `max_chars: 4000`; confirmed RLE permits MONOCHROME1 with Samples per Pixel 1, absent Planar Configuration, unsigned or signed Pixel Representation, and 8-bit allocation when pixel attributes are consistent with compressed data.
+- `jq empty cases/registry.json`: passed.
+- `cargo fmt`: passed during implementation formatting.
+- `cargo test --test generate_cli generate_command_writes_extended_enhanced_ct_multiframe_case`: passed.
+- `cargo test --test validate_cli validate_command_accepts_generated_extended_root`: passed.
+- `cargo test --test list_cases_cli list_cases_command_shows_rle_lossless_as_implemented`: passed.
+- `cargo test --test project_artifacts rle_lossless_transfer_syntax_is_available_through_native_backend`: passed.
+- `cargo test --test project_artifacts registry_contains_initial_smoke_and_core_cases`: passed.
+- `cargo test --test report_cli report_command_counts_generated_rgb_rle_lossless_row`: passed.
+- `cargo fmt -- --check`: passed.
+- `cargo test`: passed, full default-build suite clean.
+- `cargo run -- standards check-lock`: passed with existing documented lock warnings.
+- `cargo run -- generate --profile extended --out /tmp/dts-mono1-rle-slice-20260616 --seed 1`: passed, 36 files written in the no-feature default build.
+- `cargo run -- validate /tmp/dts-mono1-rle-slice-20260616`: passed, 36 files checked and 0 validation failures.
+- `cargo run -- report /tmp/dts-mono1-rle-slice-20260616 --format json`: passed; report counted 36 generated rows and included `classic/sc/mono1_u8_rle_lossless` as generated with transfer syntax `1.2.840.10008.1.2.5`, validation status `passed`, native RLE codec metadata, MONOCHROME1 photometric interpretation, and grouped RLE Lossless count 19.
+- `cargo run -- generate --profile extended --out /tmp/dts-mono1-rle-repro-a-20260616 --seed 1`: passed, 36 files written.
+- `cargo run -- generate --profile extended --out /tmp/dts-mono1-rle-repro-b-20260616 --seed 1`: passed, 36 files written.
+- `diff -r /tmp/dts-mono1-rle-repro-a-20260616 /tmp/dts-mono1-rle-repro-b-20260616`: passed with no differences.
 
 ## Commit-Ready Summary
 
-- Phase 6 now includes a VL Photographic Image Storage RGB planar-configuration-1 RLE Lossless expansion case, `vl/photo/rgb_planar1_rle_lossless`.
-- The new case is default-build, byte-stable, generated through the native RLE encoder with one encapsulated fragment, preserves 8-bit RGB color-by-plane samples, validates exact decoded native frame hashes, and appears in JSON reports with RLE codec metadata.
+- Phase 6 now includes a Secondary Capture MONOCHROME1 8-bit RLE Lossless expansion case, `classic/sc/mono1_u8_rle_lossless`.
+- The new case is default-build, byte-stable, generated through the native RLE encoder with one encapsulated fragment, preserves inverse grayscale display semantics, validates exact decoded native frame hashes, and appears in JSON reports with RLE codec metadata and MONOCHROME1 photometric coverage.
 - No capability-matrix entries, generated DICOM payloads, or deferred lossy/JPEG Extended 12-bit decisions changed in this slice.
 
 ## Recommended Next Commit

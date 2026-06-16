@@ -357,8 +357,14 @@ fn codec_backend_decisions_track_enabled_low_risk_codecs() {
         .collect::<Vec<_>>();
     assert_eq!(
         implement_now,
-        vec!["rle_lossless", "jpeg_baseline_8bit", "jpeg_ls", "jpeg_xl"],
-        "enabled Phase 3 codec families should be explicit"
+        vec![
+            "rle_lossless",
+            "jpeg_baseline_8bit",
+            "jpeg_ls",
+            "jpeg_xl",
+            "jpeg_2000"
+        ],
+        "enabled compressed codec families should be explicit"
     );
 
     let rle = families
@@ -487,6 +493,45 @@ fn codec_backend_decisions_track_enabled_low_risk_codecs() {
             .and_then(Value::as_str),
         Some("defer"),
         "JPEG XL lossy policy should remain deferred after the lossless case is implemented"
+    );
+
+    let jpeg_2000 = families
+        .iter()
+        .find(|family| family.get("family_id").and_then(Value::as_str) == Some("jpeg_2000"))
+        .expect("JPEG 2000 decision must exist");
+    assert_eq!(
+        jpeg_2000.get("selected_backend").and_then(Value::as_str),
+        Some("project_jpeg2k_openjp2_lossless_adapter")
+    );
+    assert_eq!(
+        jpeg_2000.get("backend_kind").and_then(Value::as_str),
+        Some("rust_adapter")
+    );
+    assert_eq!(
+        jpeg_2000.get("feature_gate").and_then(Value::as_str),
+        Some("jpeg2000")
+    );
+    assert_eq!(
+        jpeg_2000.get("determinism").and_then(Value::as_str),
+        Some("semantic_stable")
+    );
+    assert_eq!(
+        jpeg_2000
+            .get("transfer_syntax_uids")
+            .and_then(Value::as_array)
+            .expect("JPEG 2000 transfer syntax UID list should exist")
+            .iter()
+            .filter_map(Value::as_str)
+            .collect::<Vec<_>>(),
+        vec!["1.2.840.10008.1.2.4.90"],
+        "implemented JPEG 2000 decision should be scoped to lossless first"
+    );
+    assert_eq!(
+        jpeg_2000
+            .pointer("/lossy_policy/classification")
+            .and_then(Value::as_str),
+        Some("defer"),
+        "JPEG 2000 lossy policy should stay deferred until lossy semantics are defined"
     );
 }
 
@@ -821,6 +866,99 @@ fn jpeg_xl_lossless_transfer_syntax_has_project_jpegxl_feature_gate() {
                 .and_then(Value::as_str)
                 .is_some_and(|finding| finding.contains("validates exact decoded frame hashes")))),
         "JPEG XL decision should record generated-case validation evidence"
+    );
+}
+
+#[test]
+fn jpeg_2000_lossless_backend_decision_is_selected_but_not_generated() {
+    let cargo_toml = fs::read_to_string("Cargo.toml").expect("Cargo.toml must be readable");
+    assert!(
+        !cargo_toml.contains("jpeg2000 = ["),
+        "the JPEG 2000 project feature should be added with the codec wrapper, not in the decision-only slice"
+    );
+
+    let matrix = read_json("transfer-syntax/capability-matrix.json");
+    let entries = matrix
+        .get("entries")
+        .and_then(Value::as_array)
+        .expect("transfer syntax matrix must contain entries");
+    let entry = entries
+        .iter()
+        .find(|entry| entry.get("uid").and_then(Value::as_str) == Some("1.2.840.10008.1.2.4.90"))
+        .expect("transfer syntax matrix must contain JPEG 2000 Lossless");
+    let transfer_syntax = TransferSyntaxRegistry
+        .get("1.2.840.10008.1.2.4.90")
+        .expect("DICOM-rs registry must expose JPEG 2000 Lossless");
+
+    assert_eq!(
+        entry.get("keyword").and_then(Value::as_str),
+        Some("JPEG2000Lossless")
+    );
+    assert_eq!(
+        entry.get("status").and_then(Value::as_str),
+        Some("unavailable"),
+        "JPEG 2000 generation should stay unavailable until the selected backend is proven"
+    );
+    assert_eq!(
+        entry.get("decode_pixel").and_then(Value::as_bool),
+        Some(false),
+        "the committed matrix should not claim JPEG 2000 decode validation yet"
+    );
+    assert_eq!(
+        entry.get("encode_pixel").and_then(Value::as_bool),
+        Some(false),
+        "the committed matrix should not claim JPEG 2000 encode validation yet"
+    );
+    assert!(
+        transfer_syntax.pixel_data_writer().is_none(),
+        "pinned DICOM-rs JPEG 2000 support does not provide a pixel writer"
+    );
+
+    let decisions = read_json("transfer-syntax/backend-decisions.json");
+    let families = decisions
+        .get("codec_families")
+        .and_then(Value::as_array)
+        .expect("backend decisions must contain codec_families");
+    let jpeg_2000 = families
+        .iter()
+        .find(|family| family.get("family_id").and_then(Value::as_str) == Some("jpeg_2000"))
+        .expect("JPEG 2000 backend decision must exist");
+    assert_eq!(
+        jpeg_2000.get("classification").and_then(Value::as_str),
+        Some("implement_now")
+    );
+    assert_eq!(
+        jpeg_2000.get("selected_backend").and_then(Value::as_str),
+        Some("project_jpeg2k_openjp2_lossless_adapter")
+    );
+    assert!(
+        jpeg_2000
+            .get("evidence")
+            .and_then(Value::as_array)
+            .is_some_and(|items| items.iter().any(|item| item
+                .get("finding")
+                .and_then(Value::as_str)
+                .is_some_and(|finding| finding.contains("NeverPixelAdapter")))),
+        "JPEG 2000 decision should record why a project writer wrapper is needed"
+    );
+    assert!(
+        jpeg_2000
+            .get("evidence")
+            .and_then(Value::as_array)
+            .is_some_and(|items| items.iter().any(|item| item
+                .get("finding")
+                .and_then(Value::as_str)
+                .is_some_and(
+                    |finding| finding.contains("BSD-2-Clause") && finding.contains("openjp2")
+                ))),
+        "JPEG 2000 decision should record selected backend licensing evidence"
+    );
+    assert_eq!(
+        jpeg_2000
+            .pointer("/lossy_policy/classification")
+            .and_then(Value::as_str),
+        Some("defer"),
+        "lossy JPEG 2000 should remain deferred until lossy policy is selected"
     );
 }
 

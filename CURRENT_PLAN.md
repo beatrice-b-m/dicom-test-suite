@@ -3,7 +3,7 @@
 **Last updated:** 2026-06-16
 **Active goal:** comprehensive compressed image codec generation support
 **Source specification:** `SYSTEM_SPEC.md` version 0.2.0
-**Planning status:** Phase 3 active; low-risk codec enablement in progress
+**Planning status:** Phase 3 lossless baseline complete; JPEG 2000 transition selected
 
 This document replaces the previous historical implementation plan and progress
 ledger. `SYSTEM_SPEC.md` remains the architecture and requirements source of
@@ -35,9 +35,12 @@ generation:
   with validation, reporting, and reproducibility coverage. JPEG-LS
   Near-Lossless is explicitly deferred until lossy semantics and validation
   policy are selected.
-- JPEG XL, JPEG 2000, HTJ2K, legacy JPEG, and Deflated Image Frame Compression
-  remain unavailable until their backend and standards decisions are resolved
-  and proven.
+- JPEG 2000 Lossless has a selected implement-now spike target using a
+  project-owned `jpeg2k`/`openjp2` adapter, but no project feature, generation,
+  validation, or capability-matrix promotion has been added yet.
+- JPEG XL lossy, JPEG 2000 lossy, HTJ2K, legacy JPEG, and Deflated Image Frame
+  Compression remain unavailable until their backend and standards decisions
+  are resolved and proven.
 - `dicom-rs` 0.9.1 provides the useful integration surface:
   `PixelDataReader`, `PixelDataWriter`, transfer syntax descriptors, and
   optional codec features. It does not currently provide verified writers for
@@ -309,7 +312,8 @@ Areas to solidify:
 
 ## Immediate Next Step
 
-Start JPEG XL lossless feature verification as the next Phase 3 slice. Keep any
-JPEG XL registry row unavailable until the same change proves backend
-availability, generation, decoded-frame validation, manifest/report coverage,
-and reproducibility under the selected project feature gate.
+Start the JPEG 2000 Lossless backend spike. Add the project `jpeg2000` feature
+and a focused codec test proving a tiny 16-bit MONOCHROME2 frame can be encoded
+through the selected `jpeg2k`/`openjp2` path to a DICOM-compatible raw J2K
+codestream and decoded exactly before any registry row or capability-matrix
+entry is promoted.

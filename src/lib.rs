@@ -6143,6 +6143,30 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
     append_count_map_section(
         &mut output,
         report,
+        "MR Repetition Times",
+        "/grouped_coverage/mr_repetition_times",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "MR Echo Times",
+        "/grouped_coverage/mr_echo_times",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "MR Echo Train Lengths",
+        "/grouped_coverage/mr_echo_train_lengths",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "MR Magnetic Field Strengths",
+        "/grouped_coverage/mr_magnetic_field_strengths",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
         "Modality LUT Descriptors",
         "/grouped_coverage/modality_lut_descriptors",
     );
@@ -6430,6 +6454,34 @@ fn generated_coverage_row(
     row_object.insert(
         "mr_acquisition_type".to_string(),
         file.pointer("/recipe/recipe_parameters/mr/mr_acquisition_type")
+            .and_then(Value::as_str)
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
+    row_object.insert(
+        "mr_repetition_time".to_string(),
+        file.pointer("/recipe/recipe_parameters/mr/repetition_time")
+            .and_then(Value::as_str)
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
+    row_object.insert(
+        "mr_echo_time".to_string(),
+        file.pointer("/recipe/recipe_parameters/mr/echo_time")
+            .and_then(Value::as_str)
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
+    row_object.insert(
+        "mr_echo_train_length".to_string(),
+        file.pointer("/recipe/recipe_parameters/mr/echo_train_length")
+            .and_then(Value::as_str)
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
+    row_object.insert(
+        "mr_magnetic_field_strength".to_string(),
+        file.pointer("/recipe/recipe_parameters/mr/magnetic_field_strength")
             .and_then(Value::as_str)
             .map(Value::from)
             .unwrap_or(Value::Null),
@@ -6753,6 +6805,10 @@ fn skipped_coverage_row(
     row_object.insert("mr_scanning_sequence".to_string(), Value::Null);
     row_object.insert("mr_sequence_variant".to_string(), Value::Null);
     row_object.insert("mr_acquisition_type".to_string(), Value::Null);
+    row_object.insert("mr_repetition_time".to_string(), Value::Null);
+    row_object.insert("mr_echo_time".to_string(), Value::Null);
+    row_object.insert("mr_echo_train_length".to_string(), Value::Null);
+    row_object.insert("mr_magnetic_field_strength".to_string(), Value::Null);
     row_object.insert("display_shutter_shape".to_string(), Value::Null);
     row_object.insert(
         "display_shutter_presentation_value".to_string(),
@@ -6934,6 +6990,10 @@ struct GroupedCoverage {
     mr_scanning_sequences: BTreeMap<String, usize>,
     mr_sequence_variants: BTreeMap<String, usize>,
     mr_acquisition_types: BTreeMap<String, usize>,
+    mr_repetition_times: BTreeMap<String, usize>,
+    mr_echo_times: BTreeMap<String, usize>,
+    mr_echo_train_lengths: BTreeMap<String, usize>,
+    mr_magnetic_field_strengths: BTreeMap<String, usize>,
     modality_lut_descriptors: BTreeMap<String, usize>,
     modality_lut_types: BTreeMap<String, usize>,
     modality_lut_data_value_lengths: BTreeMap<String, usize>,
@@ -7149,6 +7209,23 @@ impl GroupedCoverage {
             row.get("mr_acquisition_type").and_then(Value::as_str),
         );
         increment_map(
+            &mut self.mr_repetition_times,
+            row.get("mr_repetition_time").and_then(Value::as_str),
+        );
+        increment_map(
+            &mut self.mr_echo_times,
+            row.get("mr_echo_time").and_then(Value::as_str),
+        );
+        increment_map(
+            &mut self.mr_echo_train_lengths,
+            row.get("mr_echo_train_length").and_then(Value::as_str),
+        );
+        increment_map(
+            &mut self.mr_magnetic_field_strengths,
+            row.get("mr_magnetic_field_strength")
+                .and_then(Value::as_str),
+        );
+        increment_map(
             &mut self.modality_lut_descriptors,
             row.get("modality_lut_descriptor").and_then(Value::as_str),
         );
@@ -7333,6 +7410,26 @@ impl GroupedCoverage {
             "mr_acquisition_types".to_string(),
             serde_json::to_value(&self.mr_acquisition_types)
                 .expect("MR acquisition type count map must serialize"),
+        );
+        grouped_object.insert(
+            "mr_repetition_times".to_string(),
+            serde_json::to_value(&self.mr_repetition_times)
+                .expect("MR repetition time count map must serialize"),
+        );
+        grouped_object.insert(
+            "mr_echo_times".to_string(),
+            serde_json::to_value(&self.mr_echo_times)
+                .expect("MR echo time count map must serialize"),
+        );
+        grouped_object.insert(
+            "mr_echo_train_lengths".to_string(),
+            serde_json::to_value(&self.mr_echo_train_lengths)
+                .expect("MR echo train length count map must serialize"),
+        );
+        grouped_object.insert(
+            "mr_magnetic_field_strengths".to_string(),
+            serde_json::to_value(&self.mr_magnetic_field_strengths)
+                .expect("MR magnetic field strength count map must serialize"),
         );
         grouped_object.insert(
             "modality_lut_descriptors".to_string(),

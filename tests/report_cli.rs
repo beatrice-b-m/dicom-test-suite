@@ -133,6 +133,30 @@ fn report_command_writes_json_coverage_for_core_root() {
         Some("2D")
     );
     assert_eq!(
+        coverage_row(&report, "classic/mr/multislice_oblique_explicit_le")
+            .get("mr_repetition_time")
+            .and_then(Value::as_str),
+        Some("500")
+    );
+    assert_eq!(
+        coverage_row(&report, "classic/mr/multislice_oblique_explicit_le")
+            .get("mr_echo_time")
+            .and_then(Value::as_str),
+        Some("20")
+    );
+    assert_eq!(
+        coverage_row(&report, "classic/mr/multislice_oblique_explicit_le")
+            .get("mr_echo_train_length")
+            .and_then(Value::as_str),
+        Some("1")
+    );
+    assert_eq!(
+        coverage_row(&report, "classic/mr/multislice_oblique_explicit_le")
+            .get("mr_magnetic_field_strength")
+            .and_then(Value::as_str),
+        Some("1.5")
+    );
+    assert_eq!(
         coverage_row(&report, "classic/dx/display_shutter_mono2_u16_explicit_le")
             .get("display_shutter_shape")
             .and_then(Value::as_str),
@@ -419,6 +443,30 @@ fn report_command_writes_json_coverage_for_core_root() {
     );
     assert_eq!(
         report
+            .pointer("/grouped_coverage/mr_repetition_times/500")
+            .and_then(Value::as_u64),
+        Some(3)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/mr_echo_times/20")
+            .and_then(Value::as_u64),
+        Some(3)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/mr_echo_train_lengths/1")
+            .and_then(Value::as_u64),
+        Some(3)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/mr_magnetic_field_strengths/1.5")
+            .and_then(Value::as_u64),
+        Some(3)
+    );
+    assert_eq!(
+        report
             .pointer("/grouped_coverage/modality_lut_descriptors/4\\0\\16")
             .and_then(Value::as_u64),
         Some(1)
@@ -604,6 +652,14 @@ fn report_command_writes_markdown_coverage_for_core_root() {
     assert!(stdout.contains("| NONE | 3 |"));
     assert!(stdout.contains("### MR Acquisition Types"));
     assert!(stdout.contains("| 2D | 3 |"));
+    assert!(stdout.contains("### MR Repetition Times"));
+    assert!(stdout.contains("| 500 | 3 |"));
+    assert!(stdout.contains("### MR Echo Times"));
+    assert!(stdout.contains("| 20 | 3 |"));
+    assert!(stdout.contains("### MR Echo Train Lengths"));
+    assert!(stdout.contains("| 1 | 3 |"));
+    assert!(stdout.contains("### MR Magnetic Field Strengths"));
+    assert!(stdout.contains("| 1.5 | 3 |"));
     assert!(stdout.contains("### Modality LUT Descriptors"));
     assert!(stdout.contains("| 4\\0\\16 | 1 |"));
     assert!(stdout.contains("### Modality LUT Types"));

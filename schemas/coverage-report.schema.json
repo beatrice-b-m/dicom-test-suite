@@ -161,6 +161,18 @@
         "mr_acquisition_types": {
           "$ref": "#/$defs/count_map"
         },
+        "mr_repetition_times": {
+          "$ref": "#/$defs/count_map"
+        },
+        "mr_echo_times": {
+          "$ref": "#/$defs/count_map"
+        },
+        "mr_echo_train_lengths": {
+          "$ref": "#/$defs/count_map"
+        },
+        "mr_magnetic_field_strengths": {
+          "$ref": "#/$defs/count_map"
+        },
         "modality_lut_descriptors": {
           "$ref": "#/$defs/count_map"
         },
@@ -353,6 +365,10 @@
         "mr_scanning_sequence",
         "mr_sequence_variant",
         "mr_acquisition_type",
+        "mr_repetition_time",
+        "mr_echo_time",
+        "mr_echo_train_length",
+        "mr_magnetic_field_strength",
         "modality_lut_descriptor",
         "modality_lut_type",
         "modality_lut_data_value_length",
@@ -551,6 +567,18 @@
           "type": ["string", "null"]
         },
         "mr_acquisition_type": {
+          "type": ["string", "null"]
+        },
+        "mr_repetition_time": {
+          "type": ["string", "null"]
+        },
+        "mr_echo_time": {
+          "type": ["string", "null"]
+        },
+        "mr_echo_train_length": {
+          "type": ["string", "null"]
+        },
+        "mr_magnetic_field_strength": {
           "type": ["string", "null"]
         },
         "modality_lut_descriptor": {

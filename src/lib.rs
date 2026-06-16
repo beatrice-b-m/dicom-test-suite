@@ -6118,6 +6118,12 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
     append_count_map_section(
         &mut output,
         report,
+        "Derived Reference Targets",
+        "/grouped_coverage/derived_reference_targets",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
         "Synthetic Data",
         "/grouped_coverage/synthetic_data",
     );
@@ -6439,7 +6445,7 @@ fn generated_coverage_row(
             "spacing": Value::Null,
             "orientation": Value::Null
         },
-        "derived_refs": derived_refs,
+        "derived_refs": derived_refs.clone(),
         "derived_reference_relationships": derived_reference_relationships,
         "validation_status": file.pointer("/validation/status").and_then(Value::as_str).unwrap_or("not_run"),
         "determinism": report_str(manifest_path, file, "/determinism", "determinism must be a string")?,
@@ -6461,6 +6467,10 @@ fn generated_coverage_row(
             .and_then(Value::as_str)
             .map(Value::from)
             .unwrap_or(Value::Null),
+    );
+    row_object.insert(
+        "derived_reference_targets".to_string(),
+        serde_json::to_value(derived_refs).expect("derived reference targets must serialize"),
     );
     row_object.insert(
         "known_stressors".to_string(),
@@ -7042,6 +7052,10 @@ fn skipped_coverage_row(
         "derived_reference_relationships".to_string(),
         Value::Array(Vec::new()),
     );
+    row_object.insert(
+        "derived_reference_targets".to_string(),
+        Value::Array(Vec::new()),
+    );
     row_object.insert("kvp".to_string(), Value::Null);
     row_object.insert("mr_scanning_sequence".to_string(), Value::Null);
     row_object.insert("mr_sequence_variant".to_string(), Value::Null);
@@ -7236,6 +7250,7 @@ struct GroupedCoverage {
     object_types: BTreeMap<String, usize>,
     derived_reference_states: BTreeMap<String, usize>,
     derived_reference_relationships: BTreeMap<String, usize>,
+    derived_reference_targets: BTreeMap<String, usize>,
     synthetic_data: BTreeMap<String, usize>,
     image_types: BTreeMap<String, usize>,
     conversion_types: BTreeMap<String, usize>,
@@ -7466,6 +7481,14 @@ impl GroupedCoverage {
                 );
             }
         }
+        if let Some(targets) = row
+            .get("derived_reference_targets")
+            .and_then(Value::as_array)
+        {
+            for target in targets {
+                increment_map(&mut self.derived_reference_targets, target.as_str());
+            }
+        }
         increment_map(
             &mut self.synthetic_data,
             row.get("synthetic_data").and_then(Value::as_str),
@@ -7686,6 +7709,11 @@ impl GroupedCoverage {
             "derived_reference_relationships".to_string(),
             serde_json::to_value(&self.derived_reference_relationships)
                 .expect("derived reference relationship count map must serialize"),
+        );
+        grouped_object.insert(
+            "derived_reference_targets".to_string(),
+            serde_json::to_value(&self.derived_reference_targets)
+                .expect("derived reference target count map must serialize"),
         );
         grouped_object.insert(
             "window_widths".to_string(),

@@ -241,6 +241,8 @@ const MONO_U16_PADDING_MULTIFRAME_PIXELS: [u8; 16] = [
     0, 0, 0xe8, 0x03, 0xd0, 0x07, 0xb8, 0x0b, 0xb8, 0x0b, 0xd0, 0x07, 0xe8, 0x03, 0, 0,
 ];
 const MONO_U16_PADDING_MULTIFRAME_VALUES: [i32; 8] = [0, 1000, 2000, 3000, 3000, 2000, 1000, 0];
+const MONO_I16_PADDING_PIXELS: [u8; 8] = [0x00, 0x80, 0x18, 0xfc, 0xe8, 0x03, 0xb8, 0x0b];
+const MONO_I16_PADDING_VALUES: [i32; 4] = [-32768, -1000, 1000, 3000];
 const YBR_FULL_PLANAR0_PIXELS: [u8; 12] = [76, 85, 255, 150, 44, 21, 29, 255, 107, 255, 128, 128];
 const YBR_FULL_PLANAR0_MULTIFRAME_PIXELS: [u8; 24] = [
     76, 85, 255, 150, 44, 21, 29, 255, 107, 255, 128, 128, 179, 171, 1, 105, 212, 235, 226, 1, 149,
@@ -686,6 +688,32 @@ const PIXEL_RECIPES: &[PixelRecipe] = &[
         padding: Some(PixelPaddingRecipe {
             value: 0,
             range_limit: Some(0),
+        }),
+    },
+    PixelRecipe {
+        case_id: "classic/sc/mono2_i16_padding_rle_lossless",
+        recipe_id: "sc_mono2_i16_padding_rle_lossless",
+        rows: 2,
+        columns: 2,
+        photometric_interpretation: "MONOCHROME2",
+        samples_per_pixel: 1,
+        planar_configuration: None,
+        bits_allocated: 16,
+        bits_stored: 16,
+        high_bit: 15,
+        pixel_representation: 1,
+        pixel_vr: VR::OB,
+        transfer_syntax: RLE_LOSSLESS,
+        pixel_bytes: &MONO_I16_PADDING_PIXELS,
+        pixel_values: &MONO_I16_PADDING_VALUES,
+        pixel_min: -32768,
+        pixel_max: 3000,
+        visual_pattern: "2x2_monochrome_i16_rle_lossless_with_signed_padding_value",
+        semantic_note: "signed Pixel Padding Value -32768 identifies a padded MONOCHROME2 sample after RLE Lossless decode",
+        palette: None,
+        padding: Some(PixelPaddingRecipe {
+            value: -32768,
+            range_limit: Some(-32768),
         }),
     },
     PixelRecipe {
@@ -1625,8 +1653,8 @@ struct PaletteRecipe {
 
 #[derive(Debug, Clone, Copy)]
 struct PixelPaddingRecipe {
-    value: u16,
-    range_limit: Option<u16>,
+    value: i16,
+    range_limit: Option<i16>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -3512,13 +3540,18 @@ fn write_pixel_case(
         put_palette(&mut obj, palette);
     }
     if let Some(padding) = recipe.padding {
-        put_u16(&mut obj, tags::PIXEL_PADDING_VALUE, VR::US, padding.value);
+        put_pixel_padding(
+            &mut obj,
+            tags::PIXEL_PADDING_VALUE,
+            padding.value,
+            recipe.pixel_representation,
+        );
         if let Some(range_limit) = padding.range_limit {
-            put_u16(
+            put_pixel_padding(
                 &mut obj,
                 tags::PIXEL_PADDING_RANGE_LIMIT,
-                VR::US,
                 range_limit,
+                recipe.pixel_representation,
             );
         }
     }
@@ -5031,6 +5064,7 @@ fn pixel_profile_membership(recipe: PixelRecipe) -> &'static [&'static str] {
         | "classic/sc/mono2_u16_tiny_1x1_rle_lossless"
         | "classic/sc/mono2_u16_padding_rle_lossless"
         | "classic/sc/mono2_u16_padding_multiframe_rle_lossless"
+        | "classic/sc/mono2_i16_padding_rle_lossless"
         | "classic/sc/mono2_i16_rle_lossless"
         | "classic/sc/mono1_i16_rle_lossless"
         | "classic/sc/rgb_planar0_rle_lossless"
@@ -14916,6 +14950,24 @@ fn put_u32(obj: &mut InMemDicomObject, tag: dicom_core::Tag, vr: VR, value: u32)
 
 fn put_i16(obj: &mut InMemDicomObject, tag: dicom_core::Tag, vr: VR, value: i16) {
     obj.put(DataElement::new(tag, vr, PrimitiveValue::from(value)));
+}
+
+fn put_pixel_padding(
+    obj: &mut InMemDicomObject,
+    tag: dicom_core::Tag,
+    value: i16,
+    pixel_representation: u16,
+) {
+    if pixel_representation == 1 {
+        put_i16(obj, tag, VR::SS, value);
+    } else {
+        put_u16(
+            obj,
+            tag,
+            VR::US,
+            u16::try_from(value).expect("unsigned Pixel Padding values must be non-negative"),
+        );
+    }
 }
 
 fn put_empty_sequence(obj: &mut InMemDicomObject, tag: dicom_core::Tag) {

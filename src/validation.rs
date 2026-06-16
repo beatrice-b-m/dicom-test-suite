@@ -308,8 +308,8 @@ pub(crate) struct PaletteExpectations {
 
 #[derive(Debug, Clone)]
 pub(crate) struct PixelPaddingExpectations {
-    pub value: u16,
-    pub range_limit: Option<u16>,
+    pub value: i16,
+    pub range_limit: Option<i16>,
 }
 
 #[derive(Debug, Clone)]
@@ -4274,23 +4274,46 @@ fn validate_pixel_padding(
     results: &mut Vec<Value>,
     expected: &PixelPaddingExpectations,
 ) -> Result<(), GenerateError> {
-    check_equal(
-        results,
-        "pixel_padding_value",
-        "Pixel Padding Value matches the recipe.",
-        "Pixel Padding Value does not match the recipe.",
-        element_u16(path, obj, tags::PIXEL_PADDING_VALUE)?,
-        expected.value,
-    );
-    if let Some(expected_range_limit) = expected.range_limit {
+    let pixel_representation = element_u16(path, obj, tags::PIXEL_REPRESENTATION)?;
+    if pixel_representation == 1 {
         check_equal(
             results,
-            "pixel_padding_range_limit",
-            "Pixel Padding Range Limit matches the recipe.",
-            "Pixel Padding Range Limit does not match the recipe.",
-            element_u16(path, obj, tags::PIXEL_PADDING_RANGE_LIMIT)?,
-            expected_range_limit,
+            "pixel_padding_value",
+            "Pixel Padding Value matches the recipe.",
+            "Pixel Padding Value does not match the recipe.",
+            element_i16(path, obj, tags::PIXEL_PADDING_VALUE)?,
+            expected.value,
         );
+    } else {
+        check_equal(
+            results,
+            "pixel_padding_value",
+            "Pixel Padding Value matches the recipe.",
+            "Pixel Padding Value does not match the recipe.",
+            Some(element_u16(path, obj, tags::PIXEL_PADDING_VALUE)?),
+            u16::try_from(expected.value).ok(),
+        );
+    }
+    if let Some(expected_range_limit) = expected.range_limit {
+        if pixel_representation == 1 {
+            check_equal(
+                results,
+                "pixel_padding_range_limit",
+                "Pixel Padding Range Limit matches the recipe.",
+                "Pixel Padding Range Limit does not match the recipe.",
+                element_i16(path, obj, tags::PIXEL_PADDING_RANGE_LIMIT)?,
+                expected_range_limit,
+            );
+        } else {
+            check_equal(
+                results,
+                "pixel_padding_range_limit",
+                "Pixel Padding Range Limit matches the recipe.",
+                "Pixel Padding Range Limit does not match the recipe.",
+                Some(element_u16(path, obj, tags::PIXEL_PADDING_RANGE_LIMIT)?),
+                u16::try_from(expected_range_limit).ok(),
+            );
+        }
     }
     Ok(())
 }

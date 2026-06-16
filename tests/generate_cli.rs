@@ -4370,6 +4370,24 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
                 .and_then(Value::as_str),
             Some("01")
         );
+        assert_eq!(
+            jpeg_file
+                .pointer("/expected_semantics/lossy_image_compression_method")
+                .and_then(Value::as_str),
+            Some("ISO_10918_1")
+        );
+        let jpeg_path = out_dir.join("classic/sc/rgb_planar0_jpeg_baseline_8bit/instance.dcm");
+        let jpeg_dicom =
+            open_file(&jpeg_path).expect("JPEG Baseline generated DICOM file should parse");
+        assert_eq!(
+            jpeg_dicom
+                .element(tags::LOSSY_IMAGE_COMPRESSION_METHOD)
+                .expect("JPEG Baseline file should contain Lossy Image Compression Method")
+                .to_str()
+                .expect("Lossy Image Compression Method should be text")
+                .as_ref(),
+            "ISO_10918_1"
+        );
         assert!(
             validation_result_names(jpeg_file.pointer("/validation/internal"))
                 .contains(&"jpeg_baseline_decoded_frame_tolerance"),

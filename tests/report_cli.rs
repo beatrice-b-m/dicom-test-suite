@@ -2308,6 +2308,116 @@ fn report_counts_feature_gated_implemented_cases_as_unavailable() {
 }
 
 #[test]
+fn report_summarizes_lossy_image_compression_method() {
+    let out_dir = unique_temp_dir("report-lossy-method");
+    fs::create_dir_all(&out_dir).expect("temporary output root should be created");
+    let manifest = json!({
+        "generated_at": "19700101000000.000000+0000",
+        "standards": {
+            "standards_lock_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+        },
+        "run": {
+            "profile": "extended"
+        },
+        "files": [
+            {
+                "case_id": "classic/sc/rgb_planar0_jpeg_baseline_8bit",
+                "profile_membership": ["extended"],
+                "relative_path": "classic/sc/rgb_planar0_jpeg_baseline_8bit/instance.dcm",
+                "dicom": {
+                    "iod_name": "Secondary Capture Image",
+                    "modality": "OT",
+                    "sop_class_uid": "1.2.840.10008.5.1.4.1.1.7",
+                    "transfer_syntax_uid": "1.2.840.10008.1.2.4.50",
+                    "transfer_syntax_name": "JPEG Baseline (Process 1)"
+                },
+                "image": {
+                    "rows": 2,
+                    "columns": 2,
+                    "frames": 1,
+                    "samples_per_pixel": 3,
+                    "photometric_interpretation": "RGB",
+                    "bits_allocated": 8,
+                    "bits_stored": 8,
+                    "high_bit": 7,
+                    "pixel_representation": 0,
+                    "planar_configuration": 0
+                },
+                "pixel_data": {
+                    "vr": "OB",
+                    "native_or_encapsulated": "encapsulated",
+                    "value_length": null,
+                    "frame_count": 1,
+                    "frame_hashes": [
+                        "0000000000000000000000000000000000000000000000000000000000000000"
+                    ],
+                    "encapsulated_pixel_data": {
+                        "basic_offset_table": {
+                            "present": true,
+                            "populated": true,
+                            "offset_count": 1,
+                            "offsets": [0]
+                        },
+                        "fragments_per_frame": [1],
+                        "fragments": [],
+                        "extended_offset_table": {
+                            "present": false,
+                            "lengths_present": false,
+                            "offset_count": 0,
+                            "length_count": 0
+                        },
+                        "compressed_frame_hashes": [
+                            "1111111111111111111111111111111111111111111111111111111111111111"
+                        ]
+                    },
+                    "codec": {
+                        "backend_id": "dicom_rs_jpeg_baseline_writer",
+                        "backend_kind": "dicom-rs-adapter",
+                        "feature_gate": "jpeg"
+                    }
+                },
+                "validation": {
+                    "status": "passed"
+                },
+                "determinism": "semantic_stable",
+                "expected_semantics": {
+                    "synthetic_data": "YES",
+                    "lossy_image_compression": "01",
+                    "lossy_image_compression_method": "ISO_10918_1"
+                },
+                "known_stressors": ["lossy_image_compression"]
+            }
+        ],
+        "skipped_cases": []
+    });
+    fs::write(
+        out_dir.join("manifest.json"),
+        serde_json::to_string_pretty(&manifest).expect("manifest should serialize"),
+    )
+    .expect("manifest should be writable");
+
+    let report = dicom_test_suite::build_coverage_report(&out_dir)
+        .expect("report should summarize lossy compression method coverage");
+    let row = coverage_row(&report, "classic/sc/rgb_planar0_jpeg_baseline_8bit");
+    assert_eq!(
+        row.get("lossy_image_compression_method")
+            .and_then(Value::as_str),
+        Some("ISO_10918_1")
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/lossy_image_compression_methods/ISO_10918_1")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    let markdown = dicom_test_suite::render_coverage_report_markdown(&report);
+    assert!(markdown.contains("### Lossy Image Compression Methods"));
+    assert!(markdown.contains("| ISO_10918_1 | 1 |"));
+
+    fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
+}
+
+#[test]
 fn report_command_rejects_missing_manifest() {
     let out_dir = unique_temp_dir("report-missing-manifest");
     fs::create_dir_all(&out_dir).expect("temporary output root should be created");

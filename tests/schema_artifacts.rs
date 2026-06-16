@@ -267,6 +267,7 @@ fn coverage_report_schema_requires_the_specified_matrix_fields() {
         "object_type",
         "synthetic_data",
         "lossy_image_compression",
+        "lossy_image_compression_method",
     ] {
         assert!(
             required.iter().any(|value| value.as_str() == Some(field)),
@@ -321,6 +322,7 @@ fn coverage_report_schema_requires_the_specified_matrix_fields() {
         "derived_reference_states",
         "synthetic_data",
         "lossy_image_compression",
+        "lossy_image_compression_methods",
     ] {
         assert!(
             schema

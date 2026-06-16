@@ -134,6 +134,9 @@
         "lossy_image_compression": {
           "$ref": "#/$defs/count_map"
         },
+        "lossy_image_compression_methods": {
+          "$ref": "#/$defs/count_map"
+        },
         "known_stressors": {
           "$ref": "#/$defs/count_map"
         }
@@ -253,7 +256,8 @@
         "determinism",
         "object_type",
         "synthetic_data",
-        "lossy_image_compression"
+        "lossy_image_compression",
+        "lossy_image_compression_method"
       ],
       "properties": {
         "case_id": {
@@ -405,6 +409,9 @@
         "lossy_image_compression": {
           "type": ["string", "null"],
           "enum": ["00", "01", null]
+        },
+        "lossy_image_compression_method": {
+          "type": ["string", "null"]
         },
         "known_stressors": {
           "type": "array",

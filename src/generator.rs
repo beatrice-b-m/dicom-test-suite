@@ -4171,6 +4171,12 @@ fn write_pixel_case(
                 VR::DS,
                 &compression_ratio,
             );
+            put_str(
+                &mut obj,
+                tags::LOSSY_IMAGE_COMPRESSION_METHOD,
+                VR::CS,
+                "ISO_10918_1",
+            );
             let compressed_frames = vec![encoded_frame.bytes];
             let encapsulated = EncapsulatedPixelData::one_fragment_per_frame(
                 &compressed_frames,
@@ -5501,6 +5507,7 @@ fn pixel_manifest_entry(
             "pixel_max": recipe.pixel_max,
             "pixel_padding": padding_manifest,
             "lossy_image_compression": if recipe.transfer_syntax == JPEG_BASELINE_8BIT { "01" } else { "00" },
+            "lossy_image_compression_method": pixel_lossy_image_compression_method(recipe),
             "photometric_semantics": recipe.semantic_note
         },
         "expected_visual_checks": {
@@ -5510,6 +5517,14 @@ fn pixel_manifest_entry(
         "known_stressors": pixel_known_stressors(recipe),
         "standards_evidence": deduplicated_standards_evidence(standards_evidence)
     })
+}
+
+fn pixel_lossy_image_compression_method(recipe: PixelRecipe) -> Option<&'static str> {
+    if recipe.transfer_syntax == JPEG_BASELINE_8BIT {
+        Some("ISO_10918_1")
+    } else {
+        None
+    }
 }
 
 fn pixel_known_stressors(recipe: PixelRecipe) -> Vec<&'static str> {

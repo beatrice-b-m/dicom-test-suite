@@ -137,6 +137,9 @@
         "conversion_types": {
           "$ref": "#/$defs/count_map"
         },
+        "presentation_lut_shapes": {
+          "$ref": "#/$defs/count_map"
+        },
         "lossy_image_compression": {
           "$ref": "#/$defs/count_map"
         },
@@ -267,6 +270,7 @@
         "synthetic_data",
         "image_type",
         "conversion_type",
+        "presentation_lut_shape",
         "lossy_image_compression",
         "lossy_image_compression_ratio",
         "lossy_image_compression_method"
@@ -422,6 +426,9 @@
           "type": ["string", "null"]
         },
         "conversion_type": {
+          "type": ["string", "null"]
+        },
+        "presentation_lut_shape": {
           "type": ["string", "null"]
         },
         "lossy_image_compression": {

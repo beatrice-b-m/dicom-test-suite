@@ -79,6 +79,24 @@ fn report_command_writes_json_coverage_for_core_root() {
         Some("SYN")
     );
     assert_eq!(
+        coverage_row(
+            &report,
+            "classic/mg/for_presentation_mono1_u16_12bit_explicit_le"
+        )
+        .get("presentation_lut_shape")
+        .and_then(Value::as_str),
+        Some("INVERSE")
+    );
+    assert_eq!(
+        coverage_row(
+            &report,
+            "classic/mg/for_processing_mono2_u16_12bit_implicit_le"
+        )
+        .get("presentation_lut_shape")
+        .and_then(Value::as_str),
+        Some("IDENTITY")
+    );
+    assert_eq!(
         coverage_row(&report, "vl/photo/palette_color_explicit_le")
             .get("status")
             .and_then(Value::as_str),
@@ -151,6 +169,18 @@ fn report_command_writes_json_coverage_for_core_root() {
             .and_then(Value::as_u64),
         Some(10)
     );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/presentation_lut_shapes/IDENTITY")
+            .and_then(Value::as_u64),
+        Some(2)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/presentation_lut_shapes/INVERSE")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
 
     fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
 }
@@ -186,6 +216,9 @@ fn report_command_writes_markdown_coverage_for_core_root() {
     assert!(stdout.contains("| Implicit VR Little Endian | 1 |"));
     assert!(stdout.contains("### Image Types"));
     assert!(stdout.contains("### Conversion Types"));
+    assert!(stdout.contains("### Presentation LUT Shapes"));
+    assert!(stdout.contains("| IDENTITY | 2 |"));
+    assert!(stdout.contains("| INVERSE | 1 |"));
     assert!(stdout.contains("## Gaps"));
     assert!(
         stdout.contains("| classic/ct/mono2_i16_rescale_12bit_explicit_le | generated | core |")

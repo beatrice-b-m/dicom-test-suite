@@ -6100,6 +6100,12 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
     append_count_map_section(
         &mut output,
         report,
+        "Presentation LUT Shapes",
+        "/grouped_coverage/presentation_lut_shapes",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
         "Known Stressors",
         "/grouped_coverage/known_stressors",
     );
@@ -6180,7 +6186,7 @@ fn generated_coverage_row(
         "dicom transfer_syntax_name must be a string",
     )?;
     let codec = file.pointer("/pixel_data/codec");
-    Ok(serde_json::json!({
+    let mut row = serde_json::json!({
         "case_id": report_str(manifest_path, file, "/case_id", "file case_id must be a string")?,
         "profile": run_profile,
         "profile_membership": report_string_array(manifest_path, file, "/profile_membership", "file profile_membership must be a string array")?,
@@ -6222,11 +6228,21 @@ fn generated_coverage_row(
         "synthetic_data": file.pointer("/expected_semantics/synthetic_data").and_then(Value::as_str),
         "image_type": file.pointer("/expected_semantics/image_type").and_then(Value::as_str),
         "conversion_type": file.pointer("/expected_semantics/conversion_type").and_then(Value::as_str),
+        "presentation_lut_shape": file.pointer("/recipe/recipe_parameters/presentation_lut_shape").and_then(Value::as_str),
         "lossy_image_compression": file.pointer("/expected_semantics/lossy_image_compression").and_then(Value::as_str),
         "lossy_image_compression_ratio": file.pointer("/expected_semantics/lossy_image_compression_ratio").and_then(Value::as_str),
         "lossy_image_compression_method": file.pointer("/expected_semantics/lossy_image_compression_method").and_then(Value::as_str),
-        "known_stressors": file.get("known_stressors").cloned().unwrap_or_else(|| serde_json::json!([]))
-    }))
+    });
+    let row_object = row
+        .as_object_mut()
+        .expect("generated coverage row literal must be an object");
+    row_object.insert(
+        "known_stressors".to_string(),
+        file.get("known_stressors")
+            .cloned()
+            .unwrap_or_else(|| Value::Array(Vec::new())),
+    );
+    Ok(row)
 }
 
 fn manifest_reference_case_ids(
@@ -6337,6 +6353,7 @@ fn skipped_coverage_row(
         "synthetic_data": Value::Null,
         "image_type": Value::Null,
         "conversion_type": Value::Null,
+        "presentation_lut_shape": Value::Null,
         "lossy_image_compression": Value::Null,
         "lossy_image_compression_ratio": Value::Null,
         "lossy_image_compression_method": Value::Null,
@@ -6484,6 +6501,7 @@ struct GroupedCoverage {
     synthetic_data: BTreeMap<String, usize>,
     image_types: BTreeMap<String, usize>,
     conversion_types: BTreeMap<String, usize>,
+    presentation_lut_shapes: BTreeMap<String, usize>,
     lossy_image_compression: BTreeMap<String, usize>,
     lossy_image_compression_ratios: BTreeMap<String, usize>,
     lossy_image_compression_methods: BTreeMap<String, usize>,
@@ -6652,6 +6670,10 @@ impl GroupedCoverage {
             row.get("conversion_type").and_then(Value::as_str),
         );
         increment_map(
+            &mut self.presentation_lut_shapes,
+            row.get("presentation_lut_shape").and_then(Value::as_str),
+        );
+        increment_map(
             &mut self.lossy_image_compression,
             row.get("lossy_image_compression").and_then(Value::as_str),
         );
@@ -6709,6 +6731,7 @@ impl GroupedCoverage {
             "synthetic_data": self.synthetic_data,
             "image_types": self.image_types,
             "conversion_types": self.conversion_types,
+            "presentation_lut_shapes": self.presentation_lut_shapes,
             "lossy_image_compression": self.lossy_image_compression,
             "lossy_image_compression_ratios": self.lossy_image_compression_ratios,
             "lossy_image_compression_methods": self.lossy_image_compression_methods,

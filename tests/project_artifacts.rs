@@ -667,18 +667,18 @@ fn jpeg_ls_lossless_transfer_syntax_has_project_charls_feature_gate() {
     );
     assert_eq!(
         entry.get("status").and_then(Value::as_str),
-        Some("unavailable"),
-        "JPEG-LS generation should remain unavailable until corpus integration is complete"
+        Some("feature_gated"),
+        "JPEG-LS generation should be available when the project charls feature is enabled"
     );
     assert_eq!(
         entry.get("decode_pixel").and_then(Value::as_bool),
-        Some(false),
-        "the committed matrix should not claim generated JPEG-LS decode validation yet"
+        Some(true),
+        "the committed matrix should claim JPEG-LS decode validation behind the charls feature"
     );
     assert_eq!(
         entry.get("encode_pixel").and_then(Value::as_bool),
-        Some(false),
-        "the committed matrix should not claim generated JPEG-LS encode validation yet"
+        Some(true),
+        "the committed matrix should claim JPEG-LS encode validation behind the charls feature"
     );
     assert!(
         entry
@@ -709,15 +709,19 @@ fn jpeg_ls_lossless_transfer_syntax_has_project_charls_feature_gate() {
                 == Some("classic/sc/mono2_u8_jpeg_ls_lossless")
         })
         .expect("registry must contain JPEG-LS Lossless SC case");
-    assert_eq!(case.get("status").and_then(Value::as_str), Some("skipped"));
+    assert_eq!(
+        case.get("status").and_then(Value::as_str),
+        Some("implemented")
+    );
+    assert_eq!(case.get("skip"), Some(&Value::Null));
     assert_eq!(
         case.pointer("/requirements/features/0")
             .and_then(Value::as_str),
         Some("charls")
     );
     assert_eq!(
-        case.pointer("/skip/reason_code").and_then(Value::as_str),
-        Some("codec_unavailable")
+        case.get("determinism").and_then(Value::as_str),
+        Some("semantic_stable")
     );
 }
 
@@ -806,11 +810,6 @@ fn compressed_transfer_syntax_registry_rows_remain_skipped_until_verified() {
     let cases = registry_cases(&registry);
 
     for (case_id, uid, keyword) in [
-        (
-            "classic/sc/mono2_u8_jpeg_ls_lossless",
-            "1.2.840.10008.1.2.4.80",
-            "JPEGLSLossless",
-        ),
         (
             "classic/sc/mono2_u16_jpeg2000_lossless",
             "1.2.840.10008.1.2.4.90",

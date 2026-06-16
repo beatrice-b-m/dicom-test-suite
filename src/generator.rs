@@ -14,7 +14,8 @@ use crate::{
     DeterministicUidInput, GenerateError, PreparedGenerationRun, UidRole,
     codecs::{
         FrameEncodeInput, FrameEncoder, JPEG_BASELINE_8BIT_TRANSFER_SYNTAX_UID,
-        NativeRleLosslessEncoder, RLE_LOSSLESS_TRANSFER_SYNTAX_UID,
+        JPEG_LS_LOSSLESS_TRANSFER_SYNTAX_UID, NativeRleLosslessEncoder,
+        RLE_LOSSLESS_TRANSFER_SYNTAX_UID,
     },
     deterministic_uid,
     encapsulation::{BasicOffsetTablePolicy, EncapsulatedPixelData},
@@ -35,7 +36,9 @@ use crate::{
 
 #[cfg(feature = "jpeg")]
 use crate::codecs::DicomRsJpegBaselineEncoder;
-#[cfg(feature = "jpeg")]
+#[cfg(feature = "charls")]
+use crate::codecs::DicomRsJpegLsLosslessEncoder;
+#[cfg(any(feature = "charls", feature = "jpeg"))]
 use crate::codecs::{FrameDecodeInput, FrameDecoder};
 
 const PIXEL_RECIPE_VERSION: &str = "0.1.0";
@@ -109,6 +112,12 @@ const JPEG_BASELINE_8BIT: TransferSyntaxSpec = TransferSyntaxSpec {
     capability_name: "JPEG Baseline (Process 1): Default Transfer Syntax for Lossy JPEG 8 Bit Image Compression",
     uid: JPEG_BASELINE_8BIT_TRANSFER_SYNTAX_UID,
     name: "JPEG Baseline (Process 1)",
+};
+const JPEG_LS_LOSSLESS: TransferSyntaxSpec = TransferSyntaxSpec {
+    capability_keyword: "JPEGLSLossless",
+    capability_name: "JPEG-LS Lossless Image Compression",
+    uid: JPEG_LS_LOSSLESS_TRANSFER_SYNTAX_UID,
+    name: "JPEG-LS Lossless",
 };
 const SEGMENTATION_SOURCE_CASE_ID: &str = "enhanced/ct/multiframe_shared_perframe_explicit_le";
 const GSPS_SOURCE_CASE_ID: &str = "enhanced/ct/multiframe_shared_perframe_explicit_le";
@@ -418,6 +427,29 @@ const PIXEL_RECIPES: &[PixelRecipe] = &[
         pixel_max: 255,
         visual_pattern: "2x2_rgb_red_green_blue_white",
         semantic_note: "RGB samples are interleaved color-by-pixel before JPEG Baseline lossy compression",
+        palette: None,
+        padding: None,
+    },
+    PixelRecipe {
+        case_id: "classic/sc/mono2_u8_jpeg_ls_lossless",
+        recipe_id: "sc_mono2_u8_jpeg_ls_lossless",
+        rows: 2,
+        columns: 2,
+        photometric_interpretation: "MONOCHROME2",
+        samples_per_pixel: 1,
+        planar_configuration: None,
+        bits_allocated: 8,
+        bits_stored: 8,
+        high_bit: 7,
+        pixel_representation: 0,
+        pixel_vr: VR::OB,
+        transfer_syntax: JPEG_LS_LOSSLESS,
+        pixel_bytes: &MONO_PIXELS,
+        pixel_values: &[0, 85, 170, 255],
+        pixel_min: 0,
+        pixel_max: 255,
+        visual_pattern: "2x2_monochrome_gradient",
+        semantic_note: "minimum sample value displays as black after JPEG-LS Lossless decode",
         palette: None,
         padding: None,
     },
@@ -2381,9 +2413,9 @@ fn write_pixel_case(
         }
     }
 
-    #[cfg(feature = "jpeg")]
+    #[cfg(any(feature = "charls", feature = "jpeg"))]
     let mut codec_internal_validation = Vec::new();
-    #[cfg(not(feature = "jpeg"))]
+    #[cfg(not(any(feature = "charls", feature = "jpeg")))]
     let codec_internal_validation = Vec::new();
     let compressed_pixel_data = if recipe.transfer_syntax == RLE_LOSSLESS {
         let rle_encoder = NativeRleLosslessEncoder::new();
@@ -2477,6 +2509,56 @@ fn write_pixel_case(
             return Err(GenerateError::WriteDicomFile {
                 path: path.clone(),
                 message: "JPEG Baseline generation requires the jpeg Cargo feature".to_string(),
+            });
+        }
+    } else if recipe.transfer_syntax == JPEG_LS_LOSSLESS {
+        #[cfg(feature = "charls")]
+        {
+            let jpeg_ls_encoder = DicomRsJpegLsLosslessEncoder::new();
+            let encoded_frame = jpeg_ls_encoder
+                .encode_frame(FrameEncodeInput {
+                    native_frame: recipe.pixel_bytes,
+                    rows: recipe.rows,
+                    columns: recipe.columns,
+                    samples_per_pixel: recipe.samples_per_pixel,
+                    bits_allocated: recipe.bits_allocated,
+                    bits_stored: recipe.bits_stored,
+                    photometric_interpretation: recipe.photometric_interpretation,
+                })
+                .map_err(|err| GenerateError::WriteDicomFile {
+                    path: path.clone(),
+                    message: err.to_string(),
+                })?;
+            codec_internal_validation.push(validate_jpeg_ls_lossless_round_trip(
+                &path,
+                recipe,
+                &encoded_frame.bytes,
+            )?);
+            let compressed_frames = vec![encoded_frame.bytes];
+            let encapsulated = EncapsulatedPixelData::one_fragment_per_frame(
+                &compressed_frames,
+                BasicOffsetTablePolicy::Populated,
+            )
+            .map_err(|err| GenerateError::WriteDicomFile {
+                path: path.clone(),
+                message: err.to_string(),
+            })?;
+            obj.put(DataElement::new(
+                tags::PIXEL_DATA,
+                recipe.pixel_vr,
+                PixelFragmentSequence::new(
+                    encapsulated.basic_offset_table.offsets.clone(),
+                    compressed_frames,
+                ),
+            ));
+            Some((FrameEncoder::backend(&jpeg_ls_encoder), encapsulated))
+        }
+        #[cfg(not(feature = "charls"))]
+        {
+            return Err(GenerateError::WriteDicomFile {
+                path: path.clone(),
+                message: "JPEG-LS Lossless generation requires the charls Cargo feature"
+                    .to_string(),
             });
         }
     } else {
@@ -2639,6 +2721,46 @@ fn validate_jpeg_baseline_lossy_round_trip(
         "name": "jpeg_baseline_decoded_frame_tolerance",
         "status": "passed",
         "message": format!("JPEG Baseline decoded samples are within +/-{MAX_ABS_DIFF} of the native source frame.")
+    }))
+}
+
+#[cfg(feature = "charls")]
+fn validate_jpeg_ls_lossless_round_trip(
+    path: &std::path::Path,
+    recipe: PixelRecipe,
+    encoded_frame: &[u8],
+) -> Result<Value, GenerateError> {
+    let decoder = DicomRsJpegLsLosslessEncoder::new();
+    let decoded = decoder
+        .decode_frame(FrameDecodeInput {
+            encoded_frame,
+            rows: recipe.rows,
+            columns: recipe.columns,
+            samples_per_pixel: recipe.samples_per_pixel,
+            bits_allocated: recipe.bits_allocated,
+            bits_stored: recipe.bits_stored,
+            photometric_interpretation: recipe.photometric_interpretation,
+        })
+        .map_err(|err| GenerateError::ValidateDicomFile {
+            path: path.to_path_buf(),
+            message: err.to_string(),
+        })?;
+
+    let decoded_hash = sha256_hex(&decoded.native_bytes);
+    let expected_hash = sha256_hex(recipe.pixel_bytes);
+    if decoded_hash != expected_hash {
+        return Err(GenerateError::ValidateDicomFile {
+            path: path.to_path_buf(),
+            message: format!(
+                "JPEG-LS Lossless decoded frame hash {decoded_hash} did not match expected {expected_hash}"
+            ),
+        });
+    }
+
+    Ok(serde_json::json!({
+        "name": "jpeg_ls_lossless_decoded_frame_hashes",
+        "status": "passed",
+        "message": "JPEG-LS Lossless decoded frame hash matches the native source frame."
     }))
 }
 
@@ -2861,6 +2983,26 @@ fn pixel_manifest_entry(
             }),
         ]);
     }
+    if recipe.transfer_syntax == JPEG_LS_LOSSLESS {
+        standards_evidence.extend([
+            serde_json::json!({
+                "source": "dicom-standard-kb",
+                "edition": "2026b",
+                "query": "lookup_uid JPEGLSLossless",
+                "covered": true,
+                "part": "PS3.6",
+                "anchor": "table_A-1"
+            }),
+            serde_json::json!({
+                "source": "dicom-standard-kb",
+                "edition": "2026b",
+                "query": "search_standard_text Basic Offset Table encapsulated Pixel Data Item padding Extended Offset Table",
+                "covered": true,
+                "part": "PS3.5",
+                "anchor": "sect_A.4"
+            }),
+        ]);
+    }
 
     let palette_manifest = recipe.palette.map(|palette| {
         serde_json::json!({
@@ -3009,6 +3151,9 @@ fn pixel_known_stressors(recipe: PixelRecipe) -> Vec<&'static str> {
         stressors.push("encapsulated_pixel_data");
         stressors.push("jpeg_baseline_8bit_transfer_syntax");
         stressors.push("lossy_image_compression");
+    } else if recipe.transfer_syntax == JPEG_LS_LOSSLESS {
+        stressors.push("encapsulated_pixel_data");
+        stressors.push("jpeg_ls_lossless_transfer_syntax");
     } else {
         stressors.push("native_ob_pixel_data");
     }
@@ -3031,7 +3176,8 @@ fn pixel_profile_membership(recipe: PixelRecipe) -> &'static [&'static str] {
         "classic/sc/mono2_u8_deflated_explicit_le"
         | "classic/sc/mono2_u8_rle_lossless"
         | "classic/sc/mono2_u16_rle_lossless"
-        | "classic/sc/rgb_planar0_jpeg_baseline_8bit" => &["extended"],
+        | "classic/sc/rgb_planar0_jpeg_baseline_8bit"
+        | "classic/sc/mono2_u8_jpeg_ls_lossless" => &["extended"],
         _ => &["core"],
     }
 }
@@ -3051,13 +3197,20 @@ fn pixel_expected_capabilities(recipe: PixelRecipe) -> Vec<&'static str> {
             "decode_jpeg_baseline_pixels",
             "render_color",
         ]
+    } else if recipe.transfer_syntax == JPEG_LS_LOSSLESS {
+        vec![
+            "open_file",
+            "read_metadata",
+            "decode_jpeg_ls_lossless_pixels",
+            "render_grayscale",
+        ]
     } else {
         vec!["open_file", "read_metadata", "render_native_pixels"]
     }
 }
 
 fn pixel_determinism(recipe: PixelRecipe) -> &'static str {
-    if recipe.transfer_syntax == JPEG_BASELINE_8BIT {
+    if recipe.transfer_syntax == JPEG_BASELINE_8BIT || recipe.transfer_syntax == JPEG_LS_LOSSLESS {
         "semantic_stable"
     } else {
         "byte_stable"
@@ -11847,6 +12000,7 @@ mod tests {
             EXPLICIT_VR_BIG_ENDIAN,
             DEFLATED_EXPLICIT_VR_LITTLE_ENDIAN,
             JPEG_BASELINE_8BIT,
+            JPEG_LS_LOSSLESS,
         ] {
             let entry = entries
                 .iter()

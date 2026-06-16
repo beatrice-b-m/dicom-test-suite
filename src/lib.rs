@@ -11,11 +11,14 @@ use serde_json::Value;
 
 use crate::codecs::{
     FrameDecodeInput, FrameDecoder, JPEG_BASELINE_8BIT_TRANSFER_SYNTAX_UID,
-    NativeRleLosslessEncoder, RLE_LOSSLESS_TRANSFER_SYNTAX_UID,
+    JPEG_LS_LOSSLESS_TRANSFER_SYNTAX_UID, NativeRleLosslessEncoder,
+    RLE_LOSSLESS_TRANSFER_SYNTAX_UID,
 };
 
 #[cfg(feature = "jpeg")]
 use crate::codecs::DicomRsJpegBaselineEncoder;
+#[cfg(feature = "charls")]
+use crate::codecs::DicomRsJpegLsLosslessEncoder;
 
 pub mod codecs;
 pub mod encapsulation;
@@ -1311,6 +1314,21 @@ fn validate_encapsulated_pixel_data_manifest(
         photometric_interpretation,
         &fragment_counts,
     )?;
+    validate_jpeg_ls_lossless_manifest_decoded_frame_hashes(
+        failures,
+        relative_path,
+        manifest_path,
+        transfer_syntax,
+        pixel_fragments,
+        rows,
+        columns,
+        samples_per_pixel,
+        bits_allocated,
+        bits_stored,
+        photometric_interpretation,
+        &fragment_counts,
+        frame_hashes,
+    )?;
 
     let extended_offset_table_present = manifest_bool(
         manifest_path,
@@ -1622,6 +1640,110 @@ fn validate_jpeg_baseline_manifest_decoded_frame_tolerance(
         );
         failures.push(format!(
             "{relative_path}: jpeg_baseline_decoder_unavailable: validate requires the jpeg Cargo feature"
+        ));
+    }
+
+    Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
+fn validate_jpeg_ls_lossless_manifest_decoded_frame_hashes(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    manifest_path: &Path,
+    transfer_syntax: &str,
+    pixel_fragments: Option<&[Vec<u8>]>,
+    rows: u16,
+    columns: u16,
+    samples_per_pixel: u16,
+    bits_allocated: u16,
+    bits_stored: u16,
+    photometric_interpretation: &str,
+    fragments_per_frame: &[usize],
+    frame_hashes: &[Value],
+) -> Result<(), ValidateError> {
+    if transfer_syntax != JPEG_LS_LOSSLESS_TRANSFER_SYNTAX_UID {
+        return Ok(());
+    }
+
+    let Some(pixel_fragments) = pixel_fragments else {
+        failures.push(format!(
+            "{relative_path}: jpeg_ls_lossless_pixel_sequence: Pixel Data is not an encapsulated fragment sequence"
+        ));
+        return Ok(());
+    };
+    if !fragments_per_frame.iter().all(|count| *count == 1) {
+        failures.push(format!(
+            "{relative_path}: jpeg_ls_lossless_decoded_frame_hashes: JPEG-LS Lossless validation currently requires one fragment per frame"
+        ));
+        return Ok(());
+    }
+    if pixel_fragments.len() != fragments_per_frame.len() {
+        failures.push(format!(
+            "{relative_path}: jpeg_ls_lossless_fragment_count: expected {} fragment(s), got {}",
+            fragments_per_frame.len(),
+            pixel_fragments.len()
+        ));
+        return Ok(());
+    }
+
+    let expected_hashes = frame_hashes
+        .iter()
+        .map(|hash| {
+            hash.as_str().ok_or_else(|| ValidateError::ManifestShape {
+                path: manifest_path.to_path_buf(),
+                message: "pixel_data frame_hashes items must be strings",
+            })
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+
+    #[cfg(feature = "charls")]
+    {
+        let decoder = DicomRsJpegLsLosslessEncoder::new();
+        let mut decoded_hashes = Vec::with_capacity(pixel_fragments.len());
+        for fragment in pixel_fragments {
+            match decoder.decode_frame(FrameDecodeInput {
+                encoded_frame: fragment,
+                rows,
+                columns,
+                samples_per_pixel,
+                bits_allocated,
+                bits_stored,
+                photometric_interpretation,
+            }) {
+                Ok(decoded) => decoded_hashes.push(sha256_hex(&decoded.native_bytes)),
+                Err(err) => {
+                    failures.push(format!(
+                        "{relative_path}: jpeg_ls_lossless_decode_round_trip: {err}"
+                    ));
+                    return Ok(());
+                }
+            }
+        }
+
+        validate_equal(
+            failures,
+            relative_path,
+            "jpeg_ls_lossless_decoded_frame_hashes",
+            decoded_hashes.join(","),
+            expected_hashes.join(","),
+        );
+    }
+
+    #[cfg(not(feature = "charls"))]
+    {
+        let _ = (
+            rows,
+            columns,
+            samples_per_pixel,
+            bits_allocated,
+            bits_stored,
+            photometric_interpretation,
+            pixel_fragments,
+            expected_hashes,
+        );
+        failures.push(format!(
+            "{relative_path}: jpeg_ls_lossless_decoder_unavailable: validate requires the charls Cargo feature"
         ));
     }
 

@@ -9,10 +9,14 @@ use serde_json::Value;
 use crate::{
     GenerateError,
     codecs::{
-        FrameDecodeInput, FrameDecoder, NativeRleLosslessEncoder, RLE_LOSSLESS_TRANSFER_SYNTAX_UID,
+        FrameDecodeInput, FrameDecoder, JPEG_LS_LOSSLESS_TRANSFER_SYNTAX_UID,
+        NativeRleLosslessEncoder, RLE_LOSSLESS_TRANSFER_SYNTAX_UID,
     },
     sha256_hex,
 };
+
+#[cfg(feature = "charls")]
+use crate::codecs::DicomRsJpegLsLosslessEncoder;
 
 type OpenedObject = FileDicomObject<InMemDicomObject<StandardDataDictionary>>;
 type DatasetObject = InMemDicomObject<StandardDataDictionary>;
@@ -777,6 +781,11 @@ pub(crate) fn validate_part10_file(
                     basic_offset_table_offsets,
                 );
                 validate_rle_decoded_frame_hashes(expected, sequence.fragments(), &mut internal);
+                validate_jpeg_ls_lossless_decoded_frame_hashes(
+                    expected,
+                    sequence.fragments(),
+                    &mut internal,
+                );
             }
             _ => check(
                 &mut internal,
@@ -3495,6 +3504,89 @@ fn validate_rle_decoded_frame_hashes(
             .collect::<Vec<_>>(),
         expected.decoded_frame_hashes.to_vec(),
     );
+}
+
+fn validate_jpeg_ls_lossless_decoded_frame_hashes(
+    expected: &Part10Expectations<'_>,
+    fragments: &[Vec<u8>],
+    results: &mut Vec<Value>,
+) {
+    if expected.transfer_syntax_uid != JPEG_LS_LOSSLESS_TRANSFER_SYNTAX_UID {
+        return;
+    }
+    if expected.decoded_frame_hashes.is_empty() {
+        check(
+            results,
+            false,
+            "jpeg_ls_lossless_decoded_frame_hashes",
+            "JPEG-LS Lossless frames decode to the expected native frame hashes.",
+            "JPEG-LS Lossless validation requires expected native frame hashes.",
+        );
+        return;
+    }
+    if fragments.len() != expected.decoded_frame_hashes.len() {
+        check(
+            results,
+            false,
+            "jpeg_ls_lossless_decoded_frame_hash_count",
+            "JPEG-LS Lossless decoded frame count matches expected native frame hash count.",
+            "JPEG-LS Lossless fragment count does not match expected native frame hash count.",
+        );
+        return;
+    }
+
+    #[cfg(feature = "charls")]
+    {
+        let decoder = DicomRsJpegLsLosslessEncoder::new();
+        let mut decoded_hashes = Vec::with_capacity(fragments.len());
+        for fragment in fragments {
+            match decoder.decode_frame(FrameDecodeInput {
+                encoded_frame: fragment,
+                rows: expected.rows,
+                columns: expected.columns,
+                samples_per_pixel: expected.samples_per_pixel,
+                bits_allocated: expected.bits_allocated,
+                bits_stored: expected.bits_stored,
+                photometric_interpretation: expected.photometric_interpretation,
+            }) {
+                Ok(decoded) => decoded_hashes.push(sha256_hex(&decoded.native_bytes)),
+                Err(_) => {
+                    check(
+                        results,
+                        false,
+                        "jpeg_ls_lossless_decode_round_trip",
+                        "JPEG-LS Lossless frames decode successfully.",
+                        "JPEG-LS Lossless frame decode failed.",
+                    );
+                    return;
+                }
+            }
+        }
+
+        check_equal(
+            results,
+            "jpeg_ls_lossless_decoded_frame_hashes",
+            "JPEG-LS Lossless frames decode to the expected native frame hashes.",
+            "JPEG-LS Lossless decoded frame hashes do not match expected native frame hashes.",
+            decoded_hashes
+                .iter()
+                .map(String::as_str)
+                .collect::<Vec<_>>(),
+            expected.decoded_frame_hashes.to_vec(),
+        );
+    }
+
+    #[cfg(not(feature = "charls"))]
+    {
+        let _ = fragments;
+        check(
+            results,
+            false,
+            "jpeg_ls_lossless_decoder_unavailable",
+            "JPEG-LS Lossless frames decode to the expected native frame hashes.",
+            "JPEG-LS Lossless validation requires the charls Cargo feature.",
+        );
+    }
 }
 
 fn validate_photometric_shape(expected: &Part10Expectations<'_>, results: &mut Vec<Value>) {

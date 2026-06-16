@@ -183,7 +183,8 @@
         "geometry",
         "derived_refs",
         "validation_status",
-        "determinism"
+        "determinism",
+        "object_type"
       ],
       "properties": {
         "case_id": {

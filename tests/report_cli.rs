@@ -1436,6 +1436,10 @@ fn report_summarizes_compressed_codec_coverage() {
         Some("OT")
     );
     assert_eq!(
+        generated.get("object_type").and_then(Value::as_str),
+        Some("classic")
+    );
+    assert_eq!(
         report
             .pointer("/grouped_coverage/codec_families/RLE Lossless")
             .and_then(Value::as_u64),
@@ -1491,6 +1495,12 @@ fn report_summarizes_compressed_codec_coverage() {
     );
     assert_eq!(
         report
+            .pointer("/grouped_coverage/object_types/classic")
+            .and_then(Value::as_u64),
+        Some(2)
+    );
+    assert_eq!(
+        report
             .pointer("/grouped_coverage/modalities/OT")
             .and_then(Value::as_u64),
         Some(2)
@@ -1518,6 +1528,10 @@ fn report_summarizes_compressed_codec_coverage() {
         unavailable.get("modality").and_then(Value::as_str),
         Some("OT")
     );
+    assert_eq!(
+        unavailable.get("object_type").and_then(Value::as_str),
+        Some("classic")
+    );
 
     let markdown = dicom_test_suite::render_coverage_report_markdown(&report);
     assert!(markdown.contains("### Codec Families"));
@@ -1536,6 +1550,8 @@ fn report_summarizes_compressed_codec_coverage() {
     assert!(markdown.contains("| 1 | 1 |"));
     assert!(markdown.contains("### Geometries"));
     assert!(markdown.contains("| 2x2 | 1 |"));
+    assert!(markdown.contains("### Object Types"));
+    assert!(markdown.contains("| classic | 2 |"));
     assert!(markdown.contains("### Known Stressors"));
     assert!(markdown.contains("| compressed_pixel_data | 1 |"));
 

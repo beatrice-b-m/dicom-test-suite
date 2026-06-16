@@ -252,6 +252,7 @@ fn coverage_report_schema_requires_the_specified_matrix_fields() {
         "derived_refs",
         "validation_status",
         "determinism",
+        "object_type",
     ] {
         assert!(
             required.iter().any(|value| value.as_str() == Some(field)),
@@ -284,6 +285,7 @@ fn coverage_report_schema_requires_the_specified_matrix_fields() {
         "known_stressors",
         "frame_counts",
         "geometries",
+        "object_types",
     ] {
         assert!(
             schema

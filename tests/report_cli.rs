@@ -162,7 +162,7 @@ fn report_command_counts_generated_rgb_rle_lossless_row() {
         report
             .pointer("/grouped_coverage/codec_families/RLE Lossless")
             .and_then(Value::as_u64),
-        Some(57)
+        Some(58)
     );
     let mono1_row = coverage_row(&report, "classic/sc/mono1_u8_rle_lossless");
     assert_eq!(
@@ -323,6 +323,41 @@ fn report_command_counts_generated_rgb_rle_lossless_row() {
     );
     assert_eq!(
         signed_tiny_row
+            .pointer("/geometry/columns")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    let mono1_signed_tiny_row = coverage_row(&report, "classic/sc/mono1_i16_tiny_1x1_rle_lossless");
+    assert_eq!(
+        mono1_signed_tiny_row.get("status").and_then(Value::as_str),
+        Some("generated")
+    );
+    assert_eq!(
+        mono1_signed_tiny_row
+            .get("codec_backend_id")
+            .and_then(Value::as_str),
+        Some("native_project_rle_encoder")
+    );
+    assert_eq!(
+        mono1_signed_tiny_row
+            .get("photometric")
+            .and_then(Value::as_str),
+        Some("MONOCHROME1")
+    );
+    assert_eq!(
+        mono1_signed_tiny_row
+            .get("pixel_representation")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        mono1_signed_tiny_row
+            .pointer("/geometry/rows")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        mono1_signed_tiny_row
             .pointer("/geometry/columns")
             .and_then(Value::as_u64),
         Some(1)

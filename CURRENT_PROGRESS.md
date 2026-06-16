@@ -24,6 +24,7 @@
 - Latest Phase 6 report slice adds Enhanced CT dimension and concatenation labels to coverage reports: row-level `enhanced_ct_dimension_index_values`, `enhanced_ct_in_concatenation_number`, `enhanced_ct_in_concatenation_total_number`, and `enhanced_ct_concatenation_frame_offset_number` plus grouped counts in JSON and Markdown reports, sourced from existing Enhanced CT manifest `expected_semantics.dimension_index_values` and `expected_semantics.concatenation` metadata and DICOM elements Dimension Index Values `(0020,9157)`, In-concatenation Number `(0020,9162)`, In-concatenation Total Number `(0020,9163)`, and Concatenation Frame Offset Number `(0020,9228)`.
 - Latest Phase 6 report slice adds Segmentation content labels to coverage reports: row-level `segmentation_type`, `segmentation_fractional_type`, and `segmentation_maximum_fractional_value` plus grouped counts in JSON and Markdown reports, sourced from existing SEG manifest `recipe_parameters` metadata and DICOM elements Segmentation Type `(0062,0001)`, Segmentation Fractional Type `(0062,0010)`, and Maximum Fractional Value `(0062,000E)`.
 - Latest Phase 6 report slice adds classic CT acquisition/value-transform labels to coverage reports: row-level `ct_acquisition_number`, `ct_rescale_intercept`, `ct_rescale_slope`, and `ct_rescale_type` plus grouped counts in JSON and Markdown reports, sourced from CT manifest recipe parameters and DICOM elements Acquisition Number `(0020,0012)`, Rescale Intercept `(0028,1052)`, Rescale Slope `(0028,1053)`, and Rescale Type `(0028,1054)`.
+- Latest Phase 6 report slice adds RT Dose content labels to coverage reports: row-level `rt_dose_units`, `rt_dose_type`, `rt_dose_summation_type`, and `rt_dose_grid_scaling` plus grouped counts in JSON and Markdown reports, sourced from existing RT Dose manifest `expected_semantics.rt_dose` metadata and DICOM elements Dose Units `(3004,0002)`, Dose Type `(3004,0004)`, Dose Summation Type `(3004,000A)`, and Dose Grid Scaling `(3004,000E)`.
 
 ## Completed Work
 
@@ -2989,14 +2990,29 @@
 - `jq '{generated: .counts.generated, unavailable: .counts.skipped, ct_acquisition_numbers: .grouped_coverage.ct_acquisition_numbers, ct_rescale_intercepts: .grouped_coverage.ct_rescale_intercepts, ct_rescale_slopes: .grouped_coverage.ct_rescale_slopes, ct_rescale_types: .grouped_coverage.ct_rescale_types, ct_row: (.coverage_matrix[] | select(.case_id == "classic/ct/mono2_i16_rescale_12bit_explicit_le") | {kvp, ct_acquisition_number, ct_rescale_intercept, ct_rescale_slope, ct_rescale_type})}' /tmp/dts-ct-report-slice-0616.json`: passed; report counted 21 generated rows, emitted row-level CT values `ct_acquisition_number = 1`, `ct_rescale_intercept = -1024`, `ct_rescale_slope = 1`, and `ct_rescale_type = HU`, and grouped buckets `ct_acquisition_numbers["1"] = 1`, `ct_rescale_intercepts["-1024"] = 1`, `ct_rescale_slopes["1"] = 1`, and `ct_rescale_types["HU"] = 1`.
 - `cargo run -- report /tmp/dts-ct-report-slice-0616 --format markdown > /tmp/dts-ct-report-slice-0616.md`: passed.
 - `rg -n "CT Acquisition Numbers|CT Rescale (Intercepts|Slopes|Types)|\| (-1024|HU|1) \| 1 \|" /tmp/dts-ct-report-slice-0616.md`: passed; Markdown includes CT Acquisition Numbers, CT Rescale Intercepts, CT Rescale Slopes, and CT Rescale Types grouped coverage tables with the expected core buckets.
+- `dicom-standard-kb` MCP `lookup_data_element DoseUnits`: passed; confirmed Dose Units `(3004,0002)` has VR `CS`, VM `1`, and is not retired in PS3.6 2026b.
+- `dicom-standard-kb` MCP `lookup_data_element DoseType`: passed; confirmed Dose Type `(3004,0004)` has VR `CS`, VM `1`, and is not retired in PS3.6 2026b.
+- `dicom-standard-kb` MCP `lookup_data_element DoseSummationType`: passed; confirmed Dose Summation Type `(3004,000A)` has VR `CS`, VM `1`, and is not retired in PS3.6 2026b.
+- `dicom-standard-kb` MCP `lookup_data_element DoseGridScaling`: passed; confirmed Dose Grid Scaling `(3004,000E)` has VR `DS`, VM `1`, and is not retired in PS3.6 2026b.
+- `cargo fmt -- --check`: initially reported rustfmt-only layout changes in `tests/report_cli.rs`; passed after running `cargo fmt`.
+- `cargo test --test report_cli report_command_writes_rt_dose_content_coverage_for_extended_root`: passed, 1 focused report test.
+- `cargo test --test schema_artifacts coverage_report_schema_requires_the_specified_matrix_fields`: passed, 1 focused schema test.
+- `jq empty schemas/coverage-report.schema.json`: passed.
+- `cargo test`: passed, full default-build suite clean.
+- `cargo run -- standards check-lock`: passed with existing documented lock warnings.
+- `cargo run -- generate --profile extended --out /tmp/dts-rt-dose-report-slice-0616 --seed 1`: passed, 75 files written in the no-feature default build.
+- `cargo run -- validate /tmp/dts-rt-dose-report-slice-0616`: passed, 75 files checked and 0 validation failures.
+- `cargo run -- report /tmp/dts-rt-dose-report-slice-0616 --format json > /tmp/dts-rt-dose-report-slice-0616.json`: passed.
+- `jq '{generated: .counts.generated, unavailable: .counts.skipped, rt_dose_units: .grouped_coverage.rt_dose_units, rt_dose_types: .grouped_coverage.rt_dose_types, rt_dose_summation_types: .grouped_coverage.rt_dose_summation_types, rt_dose_grid_scalings: .grouped_coverage.rt_dose_grid_scalings, rt_dose_row: (.coverage_matrix[] | select(.case_id == "non-image/rt/dose_grid_u16_explicit_le") | {rt_dose_units, rt_dose_type, rt_dose_summation_type, rt_dose_grid_scaling})}' /tmp/dts-rt-dose-report-slice-0616.json`: passed; report counted 75 generated rows and 9 unavailable rows, emitted row-level RT Dose values `rt_dose_units = GY`, `rt_dose_type = PHYSICAL`, `rt_dose_summation_type = RECORD`, and `rt_dose_grid_scaling = 0.001`, and grouped each RT Dose bucket with count `1`.
+- `cargo run -- report /tmp/dts-rt-dose-report-slice-0616 --format markdown > /tmp/dts-rt-dose-report-slice-0616.md`: passed.
+- `rg -n "RT Dose (Units|Types|Summation Types|Grid Scalings)|\| (GY|PHYSICAL|RECORD|0\.001) \| 1 \|" /tmp/dts-rt-dose-report-slice-0616.md`: passed; Markdown includes RT Dose Units, Types, Summation Types, and Grid Scalings grouped coverage tables with the expected extended buckets.
 
 ## Commit-Ready Summary
 
-- Added row-level classic CT Acquisition Number and rescale intercept/slope/type coverage sourced from manifest recipe parameters.
-- Added grouped CT Acquisition Number, CT Rescale Intercept, CT Rescale Slope, and CT Rescale Type coverage to JSON and Markdown reports.
-- The classic CT manifest now records Acquisition Number in recipe parameters so the report can surface the already-generated and validated DICOM value.
-- The coverage-report schema and focused report/schema tests now require the new row fields and grouped count maps.
-- Core report verification shows the new fields/tables expose the existing CT KVP, Acquisition Number, and rescale semantics.
+- Added row-level RT Dose Units, Dose Type, Dose Summation Type, and Dose Grid Scaling coverage sourced from existing manifest `expected_semantics.rt_dose` metadata.
+- Added grouped RT Dose Units, Types, Summation Types, and Grid Scalings coverage to JSON and Markdown reports.
+- The coverage-report schema and focused report/schema tests now require the new RT Dose row fields and grouped count maps.
+- Extended report verification shows the new fields/tables expose the existing RT Dose values `GY`, `PHYSICAL`, `RECORD`, and `0.001`.
 - No registry rows, generated DICOM element values, capability-matrix entries, feature gates, external codec backends, deferred lossy policies, or JPEG Extended 12-bit decisions changed in this slice.
 
 ## Recommended Next Commit

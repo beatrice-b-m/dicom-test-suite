@@ -1163,6 +1163,96 @@ fn report_command_writes_segmentation_content_coverage_for_extended_root() {
 }
 
 #[test]
+fn report_command_writes_rt_dose_content_coverage_for_extended_root() {
+    let out_dir = unique_temp_dir("report-rt-dose-content-json");
+    generate_extended(&out_dir);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args([
+            "report",
+            out_dir.to_str().expect("temp path should be valid UTF-8"),
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("report command must run");
+
+    assert!(
+        output.status.success(),
+        "report should accept generated output: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let report: Value =
+        serde_json::from_slice(&output.stdout).expect("report stdout should be JSON");
+    let row = coverage_row(&report, "non-image/rt/dose_grid_u16_explicit_le");
+    assert_eq!(row.get("rt_dose_units").and_then(Value::as_str), Some("GY"));
+    assert_eq!(
+        row.get("rt_dose_type").and_then(Value::as_str),
+        Some("PHYSICAL")
+    );
+    assert_eq!(
+        row.get("rt_dose_summation_type").and_then(Value::as_str),
+        Some("RECORD")
+    );
+    assert_eq!(
+        row.get("rt_dose_grid_scaling").and_then(Value::as_str),
+        Some("0.001")
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/rt_dose_units/GY")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/rt_dose_types/PHYSICAL")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/rt_dose_summation_types/RECORD")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/rt_dose_grid_scalings/0.001")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+
+    let markdown_output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args([
+            "report",
+            out_dir.to_str().expect("temp path should be valid UTF-8"),
+            "--format",
+            "markdown",
+        ])
+        .output()
+        .expect("report markdown command must run");
+
+    assert!(
+        markdown_output.status.success(),
+        "markdown report should accept generated output: {}",
+        String::from_utf8_lossy(&markdown_output.stderr)
+    );
+    let markdown =
+        String::from_utf8(markdown_output.stdout).expect("markdown stdout should be UTF-8");
+    assert!(markdown.contains("### RT Dose Units"));
+    assert!(markdown.contains("| GY | 1 |"));
+    assert!(markdown.contains("### RT Dose Types"));
+    assert!(markdown.contains("| PHYSICAL | 1 |"));
+    assert!(markdown.contains("### RT Dose Summation Types"));
+    assert!(markdown.contains("| RECORD | 1 |"));
+    assert!(markdown.contains("### RT Dose Grid Scalings"));
+    assert!(markdown.contains("| 0.001 | 1 |"));
+
+    fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
+}
+
+#[test]
 fn report_command_writes_markdown_coverage_for_core_root() {
     let out_dir = unique_temp_dir("report-core-markdown");
     generate_core(&out_dir);

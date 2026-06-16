@@ -6323,6 +6323,30 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
     append_count_map_section(
         &mut output,
         report,
+        "RT Dose Units",
+        "/grouped_coverage/rt_dose_units",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "RT Dose Types",
+        "/grouped_coverage/rt_dose_types",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "RT Dose Summation Types",
+        "/grouped_coverage/rt_dose_summation_types",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "RT Dose Grid Scalings",
+        "/grouped_coverage/rt_dose_grid_scalings",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
         "Modality LUT Descriptors",
         "/grouped_coverage/modality_lut_descriptors",
     );
@@ -6852,6 +6876,34 @@ fn generated_coverage_row(
         "segmentation_maximum_fractional_value".to_string(),
         file.pointer("/recipe/recipe_parameters/maximum_fractional_value")
             .and_then(Value::as_u64)
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
+    row_object.insert(
+        "rt_dose_units".to_string(),
+        file.pointer("/expected_semantics/rt_dose/dose_units")
+            .and_then(Value::as_str)
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
+    row_object.insert(
+        "rt_dose_type".to_string(),
+        file.pointer("/expected_semantics/rt_dose/dose_type")
+            .and_then(Value::as_str)
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
+    row_object.insert(
+        "rt_dose_summation_type".to_string(),
+        file.pointer("/expected_semantics/rt_dose/dose_summation_type")
+            .and_then(Value::as_str)
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
+    row_object.insert(
+        "rt_dose_grid_scaling".to_string(),
+        file.pointer("/expected_semantics/rt_dose/dose_grid_scaling")
+            .and_then(Value::as_str)
             .map(Value::from)
             .unwrap_or(Value::Null),
     );
@@ -7441,6 +7493,10 @@ fn skipped_coverage_row(
         "segmentation_maximum_fractional_value".to_string(),
         Value::Null,
     );
+    row_object.insert("rt_dose_units".to_string(), Value::Null);
+    row_object.insert("rt_dose_type".to_string(), Value::Null);
+    row_object.insert("rt_dose_summation_type".to_string(), Value::Null);
+    row_object.insert("rt_dose_grid_scaling".to_string(), Value::Null);
     row_object.insert("display_shutter_shape".to_string(), Value::Null);
     row_object.insert(
         "display_shutter_presentation_value".to_string(),
@@ -7659,6 +7715,10 @@ struct GroupedCoverage {
     segmentation_types: BTreeMap<String, usize>,
     segmentation_fractional_types: BTreeMap<String, usize>,
     segmentation_maximum_fractional_values: BTreeMap<String, usize>,
+    rt_dose_units: BTreeMap<String, usize>,
+    rt_dose_types: BTreeMap<String, usize>,
+    rt_dose_summation_types: BTreeMap<String, usize>,
+    rt_dose_grid_scalings: BTreeMap<String, usize>,
     modality_lut_descriptors: BTreeMap<String, usize>,
     modality_lut_types: BTreeMap<String, usize>,
     modality_lut_data_value_lengths: BTreeMap<String, usize>,
@@ -8046,6 +8106,22 @@ impl GroupedCoverage {
                 .or_default() += 1;
         }
         increment_map(
+            &mut self.rt_dose_units,
+            row.get("rt_dose_units").and_then(Value::as_str),
+        );
+        increment_map(
+            &mut self.rt_dose_types,
+            row.get("rt_dose_type").and_then(Value::as_str),
+        );
+        increment_map(
+            &mut self.rt_dose_summation_types,
+            row.get("rt_dose_summation_type").and_then(Value::as_str),
+        );
+        increment_map(
+            &mut self.rt_dose_grid_scalings,
+            row.get("rt_dose_grid_scaling").and_then(Value::as_str),
+        );
+        increment_map(
             &mut self.modality_lut_descriptors,
             row.get("modality_lut_descriptor").and_then(Value::as_str),
         );
@@ -8380,6 +8456,26 @@ impl GroupedCoverage {
             "segmentation_maximum_fractional_values".to_string(),
             serde_json::to_value(&self.segmentation_maximum_fractional_values)
                 .expect("segmentation maximum fractional value count map must serialize"),
+        );
+        grouped_object.insert(
+            "rt_dose_units".to_string(),
+            serde_json::to_value(&self.rt_dose_units)
+                .expect("RT Dose Units count map must serialize"),
+        );
+        grouped_object.insert(
+            "rt_dose_types".to_string(),
+            serde_json::to_value(&self.rt_dose_types)
+                .expect("RT Dose Type count map must serialize"),
+        );
+        grouped_object.insert(
+            "rt_dose_summation_types".to_string(),
+            serde_json::to_value(&self.rt_dose_summation_types)
+                .expect("RT Dose Summation Type count map must serialize"),
+        );
+        grouped_object.insert(
+            "rt_dose_grid_scalings".to_string(),
+            serde_json::to_value(&self.rt_dose_grid_scalings)
+                .expect("RT Dose Grid Scaling count map must serialize"),
         );
         grouped_object.insert(
             "modality_lut_descriptors".to_string(),

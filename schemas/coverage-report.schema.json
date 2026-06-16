@@ -251,6 +251,18 @@
         "segmentation_maximum_fractional_values": {
           "$ref": "#/$defs/count_map"
         },
+        "rt_dose_units": {
+          "$ref": "#/$defs/count_map"
+        },
+        "rt_dose_types": {
+          "$ref": "#/$defs/count_map"
+        },
+        "rt_dose_summation_types": {
+          "$ref": "#/$defs/count_map"
+        },
+        "rt_dose_grid_scalings": {
+          "$ref": "#/$defs/count_map"
+        },
         "modality_lut_descriptors": {
           "$ref": "#/$defs/count_map"
         },
@@ -473,6 +485,10 @@
         "segmentation_type",
         "segmentation_fractional_type",
         "segmentation_maximum_fractional_value",
+        "rt_dose_units",
+        "rt_dose_type",
+        "rt_dose_summation_type",
+        "rt_dose_grid_scaling",
         "modality_lut_descriptor",
         "modality_lut_type",
         "modality_lut_data_value_length",
@@ -778,6 +794,18 @@
         "segmentation_maximum_fractional_value": {
           "type": ["integer", "null"],
           "minimum": 0
+        },
+        "rt_dose_units": {
+          "type": ["string", "null"]
+        },
+        "rt_dose_type": {
+          "type": ["string", "null"]
+        },
+        "rt_dose_summation_type": {
+          "type": ["string", "null"]
+        },
+        "rt_dose_grid_scaling": {
+          "type": ["string", "null"]
         },
         "modality_lut_descriptor": {
           "type": ["string", "null"]

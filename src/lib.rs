@@ -5884,6 +5884,12 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
     append_count_map_section(
         &mut output,
         report,
+        "SOP Classes",
+        "/grouped_coverage/sop_classes",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
         "Modalities",
         "/grouped_coverage/modalities",
     );

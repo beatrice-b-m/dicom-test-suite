@@ -1455,6 +1455,12 @@ fn report_summarizes_compressed_codec_coverage() {
     );
     assert_eq!(
         report
+            .pointer("/grouped_coverage/sop_classes/1.2.840.10008.5.1.4.1.1.7")
+            .and_then(Value::as_u64),
+        Some(2)
+    );
+    assert_eq!(
+        report
             .pointer("/grouped_coverage/determinism/byte_stable")
             .and_then(Value::as_u64),
         Some(1)
@@ -1486,6 +1492,8 @@ fn report_summarizes_compressed_codec_coverage() {
     let markdown = dicom_test_suite::render_coverage_report_markdown(&report);
     assert!(markdown.contains("### Codec Families"));
     assert!(markdown.contains("| RLE Lossless | 1 |"));
+    assert!(markdown.contains("### SOP Classes"));
+    assert!(markdown.contains("| 1.2.840.10008.5.1.4.1.1.7 | 2 |"));
     assert!(markdown.contains("### Modalities"));
     assert!(markdown.contains("| OT | 2 |"));
     assert!(markdown.contains("### Codec Backends"));

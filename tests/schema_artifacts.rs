@@ -270,6 +270,26 @@ fn coverage_report_schema_requires_the_specified_matrix_fields() {
             "coverage report schema must count {field} cases"
         );
     }
+
+    for grouped_field in [
+        "profiles",
+        "iods",
+        "sop_classes",
+        "modalities",
+        "transfer_syntaxes",
+        "codec_families",
+        "codec_backends",
+        "determinism",
+    ] {
+        assert!(
+            schema
+                .pointer(&format!(
+                    "/properties/grouped_coverage/properties/{grouped_field}"
+                ))
+                .is_some(),
+            "coverage report schema must define grouped {grouped_field} coverage"
+        );
+    }
 }
 
 #[test]

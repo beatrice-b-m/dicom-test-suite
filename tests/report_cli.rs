@@ -97,6 +97,26 @@ fn report_command_writes_json_coverage_for_core_root() {
         Some("IDENTITY")
     );
     assert_eq!(
+        coverage_row(&report, "classic/ct/mono2_i16_rescale_12bit_explicit_le")
+            .get("window_center")
+            .and_then(Value::as_str),
+        Some("40")
+    );
+    assert_eq!(
+        coverage_row(&report, "classic/ct/mono2_i16_rescale_12bit_explicit_le")
+            .get("window_width")
+            .and_then(Value::as_str),
+        Some("400")
+    );
+    assert_eq!(
+        coverage_row(
+            &report,
+            "classic/mg/for_processing_mono2_u16_12bit_implicit_le"
+        )
+        .get("window_center"),
+        Some(&Value::Null)
+    );
+    assert_eq!(
         coverage_row(&report, "vl/photo/palette_color_explicit_le")
             .get("status")
             .and_then(Value::as_str),
@@ -181,6 +201,30 @@ fn report_command_writes_json_coverage_for_core_root() {
             .and_then(Value::as_u64),
         Some(1)
     );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/window_centers/40")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/window_centers/2048")
+            .and_then(Value::as_u64),
+        Some(2)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/window_widths/400")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/window_widths/4096")
+            .and_then(Value::as_u64),
+        Some(2)
+    );
 
     fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
 }
@@ -219,6 +263,12 @@ fn report_command_writes_markdown_coverage_for_core_root() {
     assert!(stdout.contains("### Presentation LUT Shapes"));
     assert!(stdout.contains("| IDENTITY | 2 |"));
     assert!(stdout.contains("| INVERSE | 1 |"));
+    assert!(stdout.contains("### Window Centers"));
+    assert!(stdout.contains("| 40 | 1 |"));
+    assert!(stdout.contains("| 2048 | 2 |"));
+    assert!(stdout.contains("### Window Widths"));
+    assert!(stdout.contains("| 400 | 1 |"));
+    assert!(stdout.contains("| 4096 | 2 |"));
     assert!(stdout.contains("## Gaps"));
     assert!(
         stdout.contains("| classic/ct/mono2_i16_rescale_12bit_explicit_le | generated | core |")

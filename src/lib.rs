@@ -6106,6 +6106,18 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
     append_count_map_section(
         &mut output,
         report,
+        "Window Centers",
+        "/grouped_coverage/window_centers",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "Window Widths",
+        "/grouped_coverage/window_widths",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
         "Known Stressors",
         "/grouped_coverage/known_stressors",
     );
@@ -6242,7 +6254,37 @@ fn generated_coverage_row(
             .cloned()
             .unwrap_or_else(|| Value::Array(Vec::new())),
     );
+    row_object.insert(
+        "window_center".to_string(),
+        report_window_center(file)
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
+    row_object.insert(
+        "window_width".to_string(),
+        report_window_width(file)
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
     Ok(row)
+}
+
+fn report_window_center(file: &Value) -> Option<&str> {
+    file.pointer("/recipe/recipe_parameters/window/center")
+        .and_then(Value::as_str)
+        .or_else(|| {
+            file.pointer("/recipe/recipe_parameters/window_center")
+                .and_then(Value::as_str)
+        })
+}
+
+fn report_window_width(file: &Value) -> Option<&str> {
+    file.pointer("/recipe/recipe_parameters/window/width")
+        .and_then(Value::as_str)
+        .or_else(|| {
+            file.pointer("/recipe/recipe_parameters/window_width")
+                .and_then(Value::as_str)
+        })
 }
 
 fn manifest_reference_case_ids(
@@ -6311,7 +6353,7 @@ fn skipped_coverage_row(
         .and_then(Value::as_str)
         .unwrap_or("");
 
-    Ok(serde_json::json!({
+    let mut row = serde_json::json!({
         "case_id": case_id,
         "profile": run_profile,
         "profile_membership": report_registry_string_array(registry_case, "profiles"),
@@ -6358,7 +6400,13 @@ fn skipped_coverage_row(
         "lossy_image_compression_ratio": Value::Null,
         "lossy_image_compression_method": Value::Null,
         "known_stressors": []
-    }))
+    });
+    let row_object = row
+        .as_object_mut()
+        .expect("skipped coverage row literal must be an object");
+    row_object.insert("window_center".to_string(), Value::Null);
+    row_object.insert("window_width".to_string(), Value::Null);
+    Ok(row)
 }
 
 fn compressed_codec_family(transfer_syntax_uid: &str) -> Option<&'static str> {
@@ -6502,6 +6550,8 @@ struct GroupedCoverage {
     image_types: BTreeMap<String, usize>,
     conversion_types: BTreeMap<String, usize>,
     presentation_lut_shapes: BTreeMap<String, usize>,
+    window_centers: BTreeMap<String, usize>,
+    window_widths: BTreeMap<String, usize>,
     lossy_image_compression: BTreeMap<String, usize>,
     lossy_image_compression_ratios: BTreeMap<String, usize>,
     lossy_image_compression_methods: BTreeMap<String, usize>,
@@ -6674,6 +6724,14 @@ impl GroupedCoverage {
             row.get("presentation_lut_shape").and_then(Value::as_str),
         );
         increment_map(
+            &mut self.window_centers,
+            row.get("window_center").and_then(Value::as_str),
+        );
+        increment_map(
+            &mut self.window_widths,
+            row.get("window_width").and_then(Value::as_str),
+        );
+        increment_map(
             &mut self.lossy_image_compression,
             row.get("lossy_image_compression").and_then(Value::as_str),
         );
@@ -6695,7 +6753,7 @@ impl GroupedCoverage {
     }
 
     fn to_json(&self) -> Value {
-        serde_json::json!({
+        let mut grouped = serde_json::json!({
             "profiles": self.profiles,
             "profile_memberships": self.profile_memberships,
             "statuses": self.statuses,
@@ -6736,7 +6794,21 @@ impl GroupedCoverage {
             "lossy_image_compression_ratios": self.lossy_image_compression_ratios,
             "lossy_image_compression_methods": self.lossy_image_compression_methods,
             "known_stressors": self.known_stressors
-        })
+        });
+        let grouped_object = grouped
+            .as_object_mut()
+            .expect("grouped coverage literal must be an object");
+        grouped_object.insert(
+            "window_centers".to_string(),
+            serde_json::to_value(&self.window_centers)
+                .expect("window center count map must serialize"),
+        );
+        grouped_object.insert(
+            "window_widths".to_string(),
+            serde_json::to_value(&self.window_widths)
+                .expect("window width count map must serialize"),
+        );
+        grouped
     }
 }
 

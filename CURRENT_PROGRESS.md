@@ -520,6 +520,11 @@
 - JSON and Markdown grouped coverage now include `presentation_lut_shapes`, so reports expose `IDENTITY` and `INVERSE` display-pipeline buckets for projection-image compatibility triage.
 - Refactored generated coverage row construction to avoid crossing the `serde_json::json!` macro recursion limit as the report matrix grows.
 - Updated the coverage-report schema plus focused report/schema tests for generated core rows, grouped JSON counts, and grouped Markdown output.
+- Added report-level Window Center and Window Width coverage without changing generated DICOM semantics.
+- Coverage rows now include nullable `window_center` and `window_width`, sourced from existing generated manifest recipe parameters under either `/recipe/recipe_parameters/window/{center,width}` or presentation-state-style `/recipe/recipe_parameters/window_center` and `/recipe/recipe_parameters/window_width`; skipped/unavailable rows keep both fields null.
+- JSON and Markdown grouped coverage now include `window_centers` and `window_widths`, so reports expose CT, mammography, DX, and presentation-state VOI window buckets for compatibility triage.
+- Kept the growing report JSON builders below the `serde_json::json!` macro recursion limit by inserting the new skipped-row and grouped-map fields after the main object literals are created.
+- Updated the coverage-report schema plus focused report/schema tests for row-level window fields, grouped JSON counts, and grouped Markdown output.
 
 ## Blockers
 
@@ -2594,15 +2599,29 @@
 - `cargo run -- validate /tmp/dts-presentation-lut-report-slice-0616`: passed, 21 files checked and 0 validation failures.
 - `cargo run -- report /tmp/dts-presentation-lut-report-slice-0616 --format json`: passed; report counted 21 generated rows, emitted row-level `presentation_lut_shape`, and included `grouped_coverage.presentation_lut_shapes["IDENTITY"] = 2` and `grouped_coverage.presentation_lut_shapes["INVERSE"] = 1`.
 - `cargo run -- report /tmp/dts-presentation-lut-report-slice-0616 --format markdown`: passed; Markdown includes the new Presentation LUT Shapes grouped coverage table with `IDENTITY = 2` and `INVERSE = 1`.
+- `git status --short`: passed before slice selection; working tree was clean.
+- `dicom-standard-kb` MCP `lookup_data_element WindowCenter`: passed; confirmed Window Center `(0028,1050)` has VR `DS`, VM `1-n`, and is not retired in PS3.6 2026b.
+- `dicom-standard-kb` MCP `lookup_data_element WindowWidth`: passed; confirmed Window Width `(0028,1051)` has VR `DS`, VM `1-n`, and is not retired in PS3.6 2026b.
+- `cargo fmt`: passed during implementation formatting.
+- `jq empty schemas/coverage-report.schema.json`: passed.
+- `cargo test --test report_cli --test schema_artifacts`: initially failed when adding the new fields crossed the `serde_json::json!` macro recursion limit in skipped-row and grouped-coverage object construction; passed after moving those inserted fields outside the large JSON literals, 16 focused report/schema tests.
+- `cargo fmt -- --check`: passed.
+- `git diff --check`: passed.
+- `cargo test`: passed, full default-build suite clean.
+- `cargo run -- standards check-lock`: passed with existing documented lock warnings.
+- `cargo run -- generate --profile core --out /tmp/dts-window-report-slice-0616 --seed 1`: passed, 21 files written in the no-feature default build.
+- `cargo run -- validate /tmp/dts-window-report-slice-0616`: passed, 21 files checked and 0 validation failures.
+- `cargo run -- report /tmp/dts-window-report-slice-0616 --format json`: passed; report counted 21 generated rows, emitted row-level `window_center` and `window_width`, and included `grouped_coverage.window_centers["40"] = 1`, `grouped_coverage.window_centers["2048"] = 2`, `grouped_coverage.window_widths["400"] = 1`, and `grouped_coverage.window_widths["4096"] = 2`.
+- `cargo run -- report /tmp/dts-window-report-slice-0616 --format markdown`: passed; Markdown includes the new Window Centers and Window Widths grouped coverage tables with `40 = 1`, `2048 = 2`, `400 = 1`, and `4096 = 2`.
 
 ## Commit-Ready Summary
 
-- Added `presentation_lut_shape` to coverage rows and grouped JSON/Markdown report coverage.
-- Report rows source the value from existing generated manifest recipe parameters and keep skipped/unavailable rows null, so the report exposes display-pipeline metadata without changing generated DICOM files.
-- The coverage-report schema and focused report/schema tests now require the new row field and grouped `presentation_lut_shapes` map.
-- Default core report verification shows `IDENTITY = 2` and `INVERSE = 1` grouped Presentation LUT Shape counts.
+- Added `window_center` and `window_width` to coverage rows and grouped JSON/Markdown report coverage.
+- Report rows source values from existing generated manifest recipe parameters and keep skipped/unavailable rows null, so the report exposes VOI/window metadata without changing generated DICOM files.
+- The coverage-report schema and focused report/schema tests now require the new row fields and grouped `window_centers`/`window_widths` maps.
+- Default core report verification shows Window Center buckets `40 = 1` and `2048 = 2`, plus Window Width buckets `400 = 1` and `4096 = 2`.
 - No registry rows, generator recipes, capability-matrix entries, feature gates, external codec backends, deferred lossy policies, or JPEG Extended 12-bit decisions changed in this slice.
 
 ## Recommended Next Commit
 
-Continue Phase 6 with the next smallest corpus expansion or report refinement that reuses already implemented generator infrastructure without new backend policy work. Since all current registry rows are implemented and major image pixel/report axes are now covered, prefer another under-covered report-matrix axis that improves compatibility triage visibility, such as row/grouped patient/study/series synthetic metadata classes, acquisition/derivation labels, VOI/window metadata, or display shutter metadata, or choose the next standards-backed corpus case from `SYSTEM_SPEC.md` after checking `dicom-standard-kb` for any new IOD/SOP/module assumptions. Compressed expansion remains acceptable when it is standards-compatible and does not require a new backend decision. Do not add a VL Photographic multi-frame case without stronger standards evidence for Number of Frames in that IOD, do not add an RLE YBR_FULL_422 case unless new standards evidence supersedes PS3.5 Table 8.2.2-1, and do not promote JPEG Extended 12-bit or deferred lossy variants until their validation policies are selected.
+Continue Phase 6 with the next smallest corpus expansion or report refinement that reuses already implemented generator infrastructure without new backend policy work. Since all current registry rows are implemented and major image pixel/report axes are now covered, prefer another under-covered report-matrix axis that improves compatibility triage visibility, such as row/grouped patient/study/series synthetic metadata classes, acquisition/derivation labels, VOI LUT metadata, or display shutter metadata, or choose the next standards-backed corpus case from `SYSTEM_SPEC.md` after checking `dicom-standard-kb` for any new IOD/SOP/module assumptions. Compressed expansion remains acceptable when it is standards-compatible and does not require a new backend decision. Do not add a VL Photographic multi-frame case without stronger standards evidence for Number of Frames in that IOD, do not add an RLE YBR_FULL_422 case unless new standards evidence supersedes PS3.5 Table 8.2.2-1, and do not promote JPEG Extended 12-bit or deferred lossy variants until their validation policies are selected.

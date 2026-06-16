@@ -140,6 +140,12 @@
         "presentation_lut_shapes": {
           "$ref": "#/$defs/count_map"
         },
+        "window_centers": {
+          "$ref": "#/$defs/count_map"
+        },
+        "window_widths": {
+          "$ref": "#/$defs/count_map"
+        },
         "lossy_image_compression": {
           "$ref": "#/$defs/count_map"
         },
@@ -271,6 +277,8 @@
         "image_type",
         "conversion_type",
         "presentation_lut_shape",
+        "window_center",
+        "window_width",
         "lossy_image_compression",
         "lossy_image_compression_ratio",
         "lossy_image_compression_method"
@@ -429,6 +437,12 @@
           "type": ["string", "null"]
         },
         "presentation_lut_shape": {
+          "type": ["string", "null"]
+        },
+        "window_center": {
+          "type": ["string", "null"]
+        },
+        "window_width": {
           "type": ["string", "null"]
         },
         "lossy_image_compression": {

@@ -133,6 +133,7 @@ fn registry_contains_initial_smoke_and_core_cases() {
         ("classic/sc/rgb_planar0_jpeg_baseline_8bit", "implemented"),
         ("classic/sc/mono2_u16_rle_lossless", "implemented"),
         ("classic/sc/rgb_planar0_rle_lossless", "implemented"),
+        ("classic/sc/mono2_u8_multiframe_rle_lossless", "implemented"),
         ("vl/photo/rgb_planar0_explicit_le", "planned"),
         ("vl/photo/palette_color_explicit_le", "planned"),
     ] {
@@ -2178,6 +2179,23 @@ fn rle_lossless_transfer_syntax_is_available_through_native_backend() {
     assert_eq!(rgb_case.get("skip"), Some(&Value::Null));
     assert_eq!(
         rgb_case.get("determinism").and_then(Value::as_str),
+        Some("byte_stable")
+    );
+
+    let multiframe_case = cases
+        .iter()
+        .find(|case| {
+            case.get("case_id").and_then(Value::as_str)
+                == Some("classic/sc/mono2_u8_multiframe_rle_lossless")
+        })
+        .expect("registry must contain multi-frame RLE Lossless SC case");
+    assert_eq!(
+        multiframe_case.get("status").and_then(Value::as_str),
+        Some("implemented")
+    );
+    assert_eq!(multiframe_case.get("skip"), Some(&Value::Null));
+    assert_eq!(
+        multiframe_case.get("determinism").and_then(Value::as_str),
         Some("byte_stable")
     );
 }

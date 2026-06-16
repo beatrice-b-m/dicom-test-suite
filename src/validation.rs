@@ -668,6 +668,16 @@ pub(crate) fn validate_part10_file(
         element_u16(path, &obj, tags::COLUMNS)?,
         expected.columns,
     );
+    if expected.frames > 1 {
+        check_equal(
+            &mut internal,
+            "number_of_frames",
+            "Number of Frames matches the recipe.",
+            "Number of Frames does not match the recipe.",
+            element_str(path, &obj, tags::NUMBER_OF_FRAMES)?.as_str(),
+            expected.frames.to_string().as_str(),
+        );
+    }
     check_equal(
         &mut internal,
         "samples_per_pixel",

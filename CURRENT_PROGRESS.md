@@ -13,7 +13,7 @@
 - Phase 3 - Low-Risk Codec Enablement: in progress; 8-bit and 16-bit generated RLE Lossless Secondary Capture cases are implemented and round-trip validated; the first JPEG Baseline 8-bit RGB Secondary Capture case is generated and validated when the `jpeg` feature is enabled; the first JPEG-LS Lossless 8-bit MONOCHROME2 Secondary Capture case is generated and exact-hash validated when the `charls` feature is enabled; the first JPEG XL Lossless 8-bit RGB Secondary Capture case is generated and exact-hash validated when the `jpegxl` feature is enabled.
 - Phase 4 - JPEG 2000 And HTJ2K: complete for first lossless generated cases; JPEG 2000 Lossless has a project `jpeg2000` feature, a project-owned OpenJPEG-rs writer wrapper, a feature-gated generated Secondary Capture case, generation-time exact decoded-frame hash validation, CLI validation, report coverage, reproducibility evidence, and feature-gated capability-matrix promotion. JPEG 2000 lossy remains deferred. HTJ2K Lossless has a project `htj2k_openjph` feature, an OpenJPH external-command wrapper that fingerprints `ojph_compress` by executable SHA-256, fixed-option PGM encode support, exact DICOM-rs HTJ2K reader decode validation, a feature-gated generated Secondary Capture case, manifest runtime identity metadata, CLI validation, report coverage, and reproducibility evidence. HTJ2K lossy/RPCL variants remain deferred.
 - Phase 5 - Legacy And Specialty Compressed Syntaxes: complete for implement-now scope; JPEG Lossless SV1 and JPEG Lossless Process 14 now have generated feature-gated Secondary Capture cases through the project `legacy_jpeg_dcmtk` DCMTK `dcmcjpeg` file-level wrapper, including manifest runtime executable identity, exact DICOM-rs decoded-frame hash validation, report coverage, and reproducibility evidence. Deflated Image Frame Compression now has a generated feature-gated binary Segmentation multi-frame case through the project `deflate` feature and pinned DICOM-rs adapter, including exact decoded-frame hash validation, report coverage, and reproducibility evidence. JPEG Extended 12-bit DCMTK encode, metadata preservation, encapsulation, and byte-identical local reproducibility are proven, but generated-case promotion is intentionally deferred until an independent 12-bit JPEG Extended validation decoder/path is selected.
-- Phase 6 - Corpus Expansion And Reporting: in progress; report-summary coverage is implemented, and the first compressed corpus expansion adds an RGB RLE Lossless Secondary Capture case using the native project encoder without promoting deferred lossy or JPEG Extended 12-bit work.
+- Phase 6 - Corpus Expansion And Reporting: in progress; report-summary coverage is implemented, the first compressed corpus expansion adds an RGB RLE Lossless Secondary Capture case, and the latest expansion adds a two-frame MONOCHROME2 RLE Lossless Secondary Capture case using the native project encoder without promoting deferred lossy or JPEG Extended 12-bit work.
 
 ## Completed Work
 
@@ -206,6 +206,11 @@
 - Reused the native project RLE Lossless encoder for a 2x2 8-bit RGB Planar Configuration 0 case, exercising three RLE segments while keeping generation byte-stable and feature-independent.
 - Added registry evidence for Secondary Capture Image Storage, RLE Lossless UID, PS3.5 RLE image compression rules, Samples Per Pixel, and Planar Configuration.
 - Extended generation, validation, list-cases, report, artifact, and codec tests so the RGB RLE case is generated, decoded back to the expected native RGB frame hash, reported with RLE codec metadata, and included in default extended/all counts.
+- Added `classic/sc/mono2_u8_multiframe_rle_lossless` as a default-build two-frame RLE Lossless Secondary Capture corpus expansion.
+- Generalized pixel recipe generation to derive frame count and per-frame source slices from pixel byte length and image shape, write Number of Frames for multi-frame pixel recipes, encode one RLE fragment per frame, and record per-frame native hashes in the manifest.
+- Added generation-time and CLI validation evidence that the two-frame RLE case has a populated Basic Offset Table with two offsets, two one-fragment frames, two decoded native frame hashes, and a matching Number of Frames element.
+- Added registry evidence for Secondary Capture Image Storage, RLE Lossless UID, PS3.5 RLE image compression rules, and Number of Frames.
+- Extended generation, validation, list-cases, report, and artifact tests so the multi-frame RLE case is generated, exact-hash decoded, reported with RLE codec metadata, and included in default extended/all counts.
 
 ## Blockers
 
@@ -681,13 +686,35 @@
 - `cargo run -- generate --profile extended --out /tmp/dts-rgb-rle-repro-a-0616 --seed 1`: passed, 20 files written.
 - `cargo run -- generate --profile extended --out /tmp/dts-rgb-rle-repro-b-0616 --seed 1`: passed, 20 files written.
 - `diff -r /tmp/dts-rgb-rle-repro-a-0616 /tmp/dts-rgb-rle-repro-b-0616`: passed with no differences.
+- `git status --short`: passed before slice selection; working tree was clean.
+- `dicom-standard-kb` MCP `lookup_uid RLELossless`: passed; confirmed UID `1.2.840.10008.1.2.5` as a non-retired PS3.6 Transfer Syntax.
+- `dicom-standard-kb` MCP `lookup_sop_class "Secondary Capture Image Storage"`: passed; confirmed Secondary Capture Image Storage UID `1.2.840.10008.5.1.4.1.1.7` and linked Secondary Capture Image IOD.
+- `dicom-standard-kb` MCP `retrieve_standard_text PS3.5 sect_8.2.2`: passed; confirmed RLE is byte-oriented lossless encapsulated image compression and pixel-related attributes must be consistent with compressed data.
+- `dicom-standard-kb` MCP `lookup_data_element NumberOfFrames`: passed; confirmed Number of Frames `(0028,0008)` has VR `IS`, VM `1`, and is non-retired.
+- `cargo fmt -- --check`: initially reported rustfmt-only layout changes in `src/generator.rs`, `tests/project_artifacts.rs`, and `tests/report_cli.rs`; passed after running `cargo fmt`.
+- `cargo test --test generate_cli generate_command_writes_extended_enhanced_ct_multiframe_case`: passed, proving the extended manifest records `classic/sc/mono2_u8_multiframe_rle_lossless` with two frames, two frame hashes, two Basic Offset Table offsets, two fragment-layout entries, Number of Frames validation, and RLE decoded-frame hash validation.
+- `cargo test --test list_cases_cli list_cases_command_shows_rle_lossless_as_implemented`: passed.
+- `cargo test --test report_cli report_command_counts_generated_rgb_rle_lossless_row`: passed.
+- `cargo test --test project_artifacts rle_lossless_transfer_syntax_is_available_through_native_backend`: passed.
+- `cargo test --test validate_cli validate_command_accepts_generated_extended_root`: passed.
+- `cargo fmt -- --check`: passed.
+- `cargo test`: passed, full default-build suite clean.
+- `cargo run -- standards check-lock`: passed with existing documented lock warnings.
+- `cargo run -- generate --profile extended --out /tmp/dts-rle-multiframe-slice-0616 --seed 1`: passed, 21 files written in the no-feature default build.
+- `cargo run -- validate /tmp/dts-rle-multiframe-slice-0616`: passed, 21 files checked and 0 validation failures.
+- `cargo run -- report /tmp/dts-rle-multiframe-slice-0616 --format json > /tmp/dts-rle-multiframe-report-0616.json`: passed.
+- `jq -r '.coverage_matrix[] | select(.case_id=="classic/sc/mono2_u8_multiframe_rle_lossless") | [.case_id,.status,.transfer_syntax,.validation_status,.codec_backend_id] | @tsv' /tmp/dts-rle-multiframe-report-0616.json`: passed; printed `classic/sc/mono2_u8_multiframe_rle_lossless	generated	1.2.840.10008.1.2.5	passed	native_project_rle_encoder`.
+- `cargo run -- report /tmp/dts-rle-multiframe-slice-0616 --format markdown > /tmp/dts-rle-multiframe-report-0616.md`: passed.
+- `cargo run -- generate --profile extended --out /tmp/dts-rle-multiframe-repro-a-0616 --seed 1`: passed, 21 files written.
+- `cargo run -- generate --profile extended --out /tmp/dts-rle-multiframe-repro-b-0616 --seed 1`: passed, 21 files written.
+- `diff -r /tmp/dts-rle-multiframe-repro-a-0616 /tmp/dts-rle-multiframe-repro-b-0616`: passed with no differences.
 
 ## Commit-Ready Summary
 
-- Phase 6 now includes an RGB RLE Lossless Secondary Capture expansion case, `classic/sc/rgb_planar0_rle_lossless`.
-- The new case is default-build, byte-stable, generated through the native RLE encoder, validates exact decoded native RGB frame hashes, and appears in JSON/Markdown reports with RLE codec metadata.
+- Phase 6 now includes a two-frame MONOCHROME2 RLE Lossless Secondary Capture expansion case, `classic/sc/mono2_u8_multiframe_rle_lossless`.
+- The new case is default-build, byte-stable, generated through the native RLE encoder with one fragment per frame, validates exact decoded native frame hashes plus Number of Frames, and appears in JSON/Markdown reports with RLE codec metadata.
 - No capability-matrix entries, generated DICOM payloads, or deferred lossy/JPEG Extended 12-bit decisions changed in this slice.
 
 ## Recommended Next Commit
 
-Continue Phase 6 with the next smallest compressed corpus expansion that reuses already implemented lossless codec families, preferably a modality or multi-frame dimension with full generation, validation, report, and reproducibility coverage. Do not promote JPEG Extended 12-bit or deferred lossy variants until their validation policies are selected.
+Continue Phase 6 with the next smallest compressed corpus expansion that reuses already implemented lossless codec families, preferably a modality-specific compressed case or a feature-gated lossless codec dimension with full generation, validation, report, and reproducibility coverage. Do not promote JPEG Extended 12-bit or deferred lossy variants until their validation policies are selected.

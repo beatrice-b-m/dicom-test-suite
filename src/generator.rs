@@ -198,6 +198,8 @@ const RT_DOSE_IMAGE_SOURCE_CASE_ID: &str = "enhanced/ct/multiframe_shared_perfra
 const RT_DOSE_STRUCTURE_SET_SOURCE_CASE_ID: &str =
     "non-image/rt/structure_set_single_roi_explicit_le";
 const MONO_PIXELS: [u8; 4] = [0, 85, 170, 255];
+const MONO_MULTIFRAME_PIXELS: [u8; 8] = [0, 85, 170, 255, 255, 170, 85, 0];
+const MONO_MULTIFRAME_VALUES: [i32; 8] = [0, 85, 170, 255, 255, 170, 85, 0];
 const RGB_PLANAR0_PIXELS: [u8; 12] = [255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 255, 255];
 const RGB_PLANAR1_PIXELS: [u8; 12] = [255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255];
 const MONO_U16_PIXELS: [u8; 8] = [0, 0, 0x55, 0x55, 0xaa, 0xaa, 0xff, 0xff];
@@ -470,6 +472,29 @@ const PIXEL_RECIPES: &[PixelRecipe] = &[
         pixel_max: 65535,
         visual_pattern: "2x2_monochrome_u16_gradient",
         semantic_note: "16-bit unsigned MONOCHROME2 samples span the full stored range after RLE Lossless decode",
+        palette: None,
+        padding: None,
+    },
+    PixelRecipe {
+        case_id: "classic/sc/mono2_u8_multiframe_rle_lossless",
+        recipe_id: "sc_mono2_u8_multiframe_rle_lossless",
+        rows: 2,
+        columns: 2,
+        photometric_interpretation: "MONOCHROME2",
+        samples_per_pixel: 1,
+        planar_configuration: None,
+        bits_allocated: 8,
+        bits_stored: 8,
+        high_bit: 7,
+        pixel_representation: 0,
+        pixel_vr: VR::OB,
+        transfer_syntax: RLE_LOSSLESS,
+        pixel_bytes: &MONO_MULTIFRAME_PIXELS,
+        pixel_values: &MONO_MULTIFRAME_VALUES,
+        pixel_min: 0,
+        pixel_max: 255,
+        visual_pattern: "2x2x2_monochrome_rle_lossless_gradient_reversed",
+        semantic_note: "two MONOCHROME2 frames decode from separate RLE Lossless fragments",
         palette: None,
         padding: None,
     },
@@ -2621,6 +2646,24 @@ fn write_pixel_case(
     }
     put_u16(&mut obj, tags::ROWS, VR::US, recipe.rows);
     put_u16(&mut obj, tags::COLUMNS, VR::US, recipe.columns);
+    let frame_bytes =
+        pixel_recipe_frame_bytes(recipe).map_err(|message| GenerateError::WriteDicomFile {
+            path: path.clone(),
+            message,
+        })?;
+    let frame_count =
+        u16::try_from(frame_bytes.len()).map_err(|_| GenerateError::WriteDicomFile {
+            path: path.clone(),
+            message: "pixel recipe frame count exceeded u16".to_string(),
+        })?;
+    if frame_count > 1 {
+        put_str(
+            &mut obj,
+            tags::NUMBER_OF_FRAMES,
+            VR::IS,
+            &frame_count.to_string(),
+        );
+    }
     put_u16(
         &mut obj,
         tags::BITS_ALLOCATED,
@@ -2671,21 +2714,26 @@ fn write_pixel_case(
     #[allow(unused_mut)]
     let mut compressed_pixel_data = if recipe.transfer_syntax == RLE_LOSSLESS {
         let rle_encoder = NativeRleLosslessEncoder::new();
-        let encoded_frame = rle_encoder
-            .encode_frame(FrameEncodeInput {
-                native_frame: recipe.pixel_bytes,
-                rows: recipe.rows,
-                columns: recipe.columns,
-                samples_per_pixel: recipe.samples_per_pixel,
-                bits_allocated: recipe.bits_allocated,
-                bits_stored: recipe.bits_stored,
-                photometric_interpretation: recipe.photometric_interpretation,
+        let compressed_frames = frame_bytes
+            .iter()
+            .map(|native_frame| {
+                rle_encoder
+                    .encode_frame(FrameEncodeInput {
+                        native_frame,
+                        rows: recipe.rows,
+                        columns: recipe.columns,
+                        samples_per_pixel: recipe.samples_per_pixel,
+                        bits_allocated: recipe.bits_allocated,
+                        bits_stored: recipe.bits_stored,
+                        photometric_interpretation: recipe.photometric_interpretation,
+                    })
+                    .map(|encoded| encoded.bytes)
             })
+            .collect::<Result<Vec<_>, _>>()
             .map_err(|err| GenerateError::WriteDicomFile {
                 path: path.clone(),
                 message: err.to_string(),
             })?;
-        let compressed_frames = vec![encoded_frame.bytes];
         let encapsulated = EncapsulatedPixelData::one_fragment_per_frame(
             &compressed_frames,
             BasicOffsetTablePolicy::Populated,
@@ -3107,8 +3155,14 @@ fn write_pixel_case(
             })?;
     }
 
-    let decoded_frame_hash = sha256_hex(recipe.pixel_bytes);
-    let decoded_frame_hashes = [decoded_frame_hash.as_str()];
+    let decoded_frame_hashes = frame_bytes
+        .iter()
+        .map(|frame| sha256_hex(frame))
+        .collect::<Vec<_>>();
+    let decoded_frame_hash_refs = decoded_frame_hashes
+        .iter()
+        .map(String::as_str)
+        .collect::<Vec<_>>();
     let mut validated = validate_part10_file(
         &path,
         &Part10Expectations {
@@ -3119,7 +3173,7 @@ fn write_pixel_case(
             synthetic_data: "YES",
             rows: recipe.rows,
             columns: recipe.columns,
-            frames: 1,
+            frames: frame_count,
             samples_per_pixel: recipe.samples_per_pixel,
             photometric_interpretation: recipe.photometric_interpretation,
             bits_allocated: recipe.bits_allocated,
@@ -3138,7 +3192,7 @@ fn write_pixel_case(
                 )
                 .unwrap_or_else(|| pixel_data_length_formula(recipe)),
             decoded_frame_hashes: if compressed_pixel_data.is_some() {
-                &decoded_frame_hashes
+                &decoded_frame_hash_refs
             } else {
                 &[]
             },
@@ -3173,6 +3227,7 @@ fn write_pixel_case(
             &validated.bytes,
             validated.validation,
             compressed_pixel_data.as_ref(),
+            &decoded_frame_hash_refs,
         ),
     })
 }
@@ -3585,6 +3640,7 @@ fn pixel_manifest_entry(
         EncapsulatedPixelData,
         Option<Value>,
     )>,
+    frame_hashes: &[&str],
 ) -> Value {
     let mut standards_evidence = standards_evidence_from_case(case);
     standards_evidence.extend([
@@ -3915,8 +3971,8 @@ fn pixel_manifest_entry(
             "vr": pixel_vr_name(recipe.pixel_vr),
             "native_or_encapsulated": "encapsulated",
             "value_length": Value::Null,
-            "frame_count": 1,
-            "frame_hashes": [sha256_hex(recipe.pixel_bytes)],
+            "frame_count": frame_hashes.len(),
+            "frame_hashes": frame_hashes,
             "codec": codec_manifest,
             "encapsulated_pixel_data": {
                 "basic_offset_table": {
@@ -3948,8 +4004,8 @@ fn pixel_manifest_entry(
             "vr": pixel_vr_name(recipe.pixel_vr),
             "native_or_encapsulated": "native",
             "value_length": recipe.pixel_bytes.len(),
-            "frame_count": 1,
-            "frame_hashes": [sha256_hex(recipe.pixel_bytes)]
+            "frame_count": frame_hashes.len(),
+            "frame_hashes": frame_hashes
         })
     };
 
@@ -3995,7 +4051,7 @@ fn pixel_manifest_entry(
         "image": {
             "rows": recipe.rows,
             "columns": recipe.columns,
-            "frames": 1,
+            "frames": frame_hashes.len(),
             "samples_per_pixel": recipe.samples_per_pixel,
             "photometric_interpretation": recipe.photometric_interpretation,
             "bits_allocated": recipe.bits_allocated,
@@ -4162,6 +4218,50 @@ fn pixel_determinism(recipe: PixelRecipe) -> &'static str {
     } else {
         "byte_stable"
     }
+}
+
+fn pixel_recipe_frame_bytes(recipe: PixelRecipe) -> Result<Vec<&'static [u8]>, String> {
+    let frame_len = pixel_recipe_frame_len(recipe)?;
+    if frame_len == 0 {
+        return Err(format!(
+            "pixel recipe {} produced a zero-length frame",
+            recipe.case_id
+        ));
+    }
+    if recipe.pixel_bytes.len() % frame_len != 0 {
+        return Err(format!(
+            "pixel recipe {} has {} pixel bytes, which is not divisible by frame length {}",
+            recipe.case_id,
+            recipe.pixel_bytes.len(),
+            frame_len
+        ));
+    }
+    Ok(recipe.pixel_bytes.chunks_exact(frame_len).collect())
+}
+
+fn pixel_recipe_frame_len(recipe: PixelRecipe) -> Result<usize, String> {
+    if recipe.bits_allocated == 1 {
+        let frame_bits = usize::from(recipe.rows)
+            .checked_mul(usize::from(recipe.columns))
+            .and_then(|value| value.checked_mul(usize::from(recipe.samples_per_pixel)))
+            .ok_or_else(|| format!("pixel recipe {} frame size overflowed", recipe.case_id))?;
+        return Ok(frame_bits.div_ceil(8));
+    }
+    if recipe.photometric_interpretation == "YBR_FULL_422" {
+        let bytes_per_sample = usize::from(recipe.bits_allocated / 8);
+        return usize::from(recipe.rows)
+            .checked_mul(usize::from(recipe.columns))
+            .and_then(|value| value.checked_mul(2))
+            .and_then(|value| value.checked_mul(bytes_per_sample))
+            .ok_or_else(|| format!("pixel recipe {} frame size overflowed", recipe.case_id));
+    }
+
+    let bytes_per_sample = usize::from(recipe.bits_allocated / 8);
+    usize::from(recipe.rows)
+        .checked_mul(usize::from(recipe.columns))
+        .and_then(|value| value.checked_mul(usize::from(recipe.samples_per_pixel)))
+        .and_then(|value| value.checked_mul(bytes_per_sample))
+        .ok_or_else(|| format!("pixel recipe {} frame size overflowed", recipe.case_id))
 }
 
 fn write_classic_ct_case(

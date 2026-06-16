@@ -1627,7 +1627,7 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\textended"));
-    let expected_extended_files = 20
+    let expected_extended_files = 21
         + if cfg!(feature = "deflate") { 2 } else { 0 }
         + if cfg!(feature = "jpeg") { 1 } else { 0 }
         + if cfg!(feature = "charls") { 1 } else { 0 }
@@ -1804,6 +1804,50 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
         validation_result_names(rle_rgb_file.pointer("/validation/internal"))
             .contains(&"rle_decoded_frame_hashes"),
         "RGB RLE manifest should record decoded native frame hash validation"
+    );
+    let rle_multiframe_file =
+        file_entry_by_case_id(&manifest, "classic/sc/mono2_u8_multiframe_rle_lossless");
+    assert_eq!(
+        rle_multiframe_file
+            .pointer("/image/frames")
+            .and_then(Value::as_u64),
+        Some(2)
+    );
+    assert_eq!(
+        rle_multiframe_file
+            .pointer("/pixel_data/frame_count")
+            .and_then(Value::as_u64),
+        Some(2)
+    );
+    assert_eq!(
+        rle_multiframe_file
+            .pointer("/pixel_data/frame_hashes")
+            .and_then(Value::as_array)
+            .map(Vec::len),
+        Some(2)
+    );
+    assert_eq!(
+        rle_multiframe_file
+            .pointer("/pixel_data/encapsulated_pixel_data/basic_offset_table/offset_count")
+            .and_then(Value::as_u64),
+        Some(2)
+    );
+    assert_eq!(
+        rle_multiframe_file
+            .pointer("/pixel_data/encapsulated_pixel_data/fragments_per_frame")
+            .and_then(Value::as_array)
+            .map(Vec::len),
+        Some(2)
+    );
+    assert!(
+        validation_result_names(rle_multiframe_file.pointer("/validation/internal"))
+            .contains(&"number_of_frames"),
+        "multi-frame RLE manifest should validate Number of Frames"
+    );
+    assert!(
+        validation_result_names(rle_multiframe_file.pointer("/validation/internal"))
+            .contains(&"rle_decoded_frame_hashes"),
+        "multi-frame RLE manifest should record decoded native frame hash validation"
     );
     if cfg!(feature = "jpeg") {
         let jpeg_file =
@@ -4558,7 +4602,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\tall"));
-    let expected_all_files = 42
+    let expected_all_files = 43
         + if cfg!(feature = "deflate") { 2 } else { 0 }
         + if cfg!(feature = "jpeg") { 1 } else { 0 }
         + if cfg!(feature = "charls") { 1 } else { 0 }
@@ -4598,6 +4642,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
     file_entry_by_case_id(&manifest, "classic/sc/mono2_u8_rle_lossless");
     file_entry_by_case_id(&manifest, "classic/sc/mono2_u16_rle_lossless");
     file_entry_by_case_id(&manifest, "classic/sc/rgb_planar0_rle_lossless");
+    file_entry_by_case_id(&manifest, "classic/sc/mono2_u8_multiframe_rle_lossless");
     if cfg!(feature = "jpeg") {
         file_entry_by_case_id(&manifest, "classic/sc/rgb_planar0_jpeg_baseline_8bit");
     }

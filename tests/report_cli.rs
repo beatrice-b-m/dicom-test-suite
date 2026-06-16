@@ -820,6 +820,185 @@ fn report_command_writes_enhanced_mr_per_frame_coverage_for_extended_root() {
 }
 
 #[test]
+fn report_command_writes_enhanced_ct_concatenation_coverage_for_extended_root() {
+    let out_dir = unique_temp_dir("report-enhanced-ct-concat-json");
+    generate_extended(&out_dir);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args([
+            "report",
+            out_dir.to_str().expect("temp path should be valid UTF-8"),
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("report command must run");
+
+    assert!(
+        output.status.success(),
+        "report should accept generated output: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let report: Value =
+        serde_json::from_slice(&output.stdout).expect("report stdout should be JSON");
+    assert_eq!(
+        coverage_row(
+            &report,
+            "enhanced/ct/multiframe_shared_perframe_explicit_le"
+        )
+        .get("enhanced_ct_dimension_index_values")
+        .and_then(Value::as_str),
+        Some("1; 2")
+    );
+    assert_eq!(
+        coverage_row(
+            &report,
+            "enhanced/ct/multiframe_shared_perframe_explicit_le"
+        )
+        .get("enhanced_ct_in_concatenation_number"),
+        Some(&Value::Null)
+    );
+
+    let concat_part_1 = coverage_row_with_u64_field(
+        &report,
+        "enhanced/ct/concatenation_two_part_explicit_le",
+        "enhanced_ct_in_concatenation_number",
+        1,
+    );
+    assert_eq!(
+        concat_part_1
+            .get("enhanced_ct_dimension_index_values")
+            .and_then(Value::as_str),
+        Some("1")
+    );
+    assert_eq!(
+        concat_part_1
+            .get("enhanced_ct_in_concatenation_number")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        concat_part_1
+            .get("enhanced_ct_in_concatenation_total_number")
+            .and_then(Value::as_u64),
+        Some(2)
+    );
+    assert_eq!(
+        concat_part_1
+            .get("enhanced_ct_concatenation_frame_offset_number")
+            .and_then(Value::as_u64),
+        Some(0)
+    );
+
+    let concat_part_2 = coverage_row_with_u64_field(
+        &report,
+        "enhanced/ct/concatenation_two_part_explicit_le",
+        "enhanced_ct_in_concatenation_number",
+        2,
+    );
+    assert_eq!(
+        concat_part_2
+            .get("enhanced_ct_dimension_index_values")
+            .and_then(Value::as_str),
+        Some("2")
+    );
+    assert_eq!(
+        concat_part_2
+            .get("enhanced_ct_in_concatenation_number")
+            .and_then(Value::as_u64),
+        Some(2)
+    );
+    assert_eq!(
+        concat_part_2
+            .get("enhanced_ct_in_concatenation_total_number")
+            .and_then(Value::as_u64),
+        Some(2)
+    );
+    assert_eq!(
+        concat_part_2
+            .get("enhanced_ct_concatenation_frame_offset_number")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/enhanced_ct_dimension_index_values/1; 2")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/enhanced_ct_dimension_index_values/1")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/enhanced_ct_dimension_index_values/2")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/enhanced_ct_in_concatenation_numbers/1")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/enhanced_ct_in_concatenation_numbers/2")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/enhanced_ct_in_concatenation_total_numbers/2")
+            .and_then(Value::as_u64),
+        Some(2)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/enhanced_ct_concatenation_frame_offset_numbers/0")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/enhanced_ct_concatenation_frame_offset_numbers/1")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+
+    let markdown_output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args([
+            "report",
+            out_dir.to_str().expect("temp path should be valid UTF-8"),
+            "--format",
+            "markdown",
+        ])
+        .output()
+        .expect("report markdown command must run");
+
+    assert!(
+        markdown_output.status.success(),
+        "markdown report should accept generated output: {}",
+        String::from_utf8_lossy(&markdown_output.stderr)
+    );
+    let markdown =
+        String::from_utf8(markdown_output.stdout).expect("markdown stdout should be UTF-8");
+    assert!(markdown.contains("### Enhanced CT Dimension Index Values"));
+    assert!(markdown.contains("| 1; 2 | 1 |"));
+    assert!(markdown.contains("### Enhanced CT In-concatenation Numbers"));
+    assert!(markdown.contains("| 1 | 1 |"));
+    assert!(markdown.contains("### Enhanced CT In-concatenation Total Numbers"));
+    assert!(markdown.contains("| 2 | 2 |"));
+    assert!(markdown.contains("### Enhanced CT Concatenation Frame Offset Numbers"));
+    assert!(markdown.contains("| 0 | 1 |"));
+
+    fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
+}
+
+#[test]
 fn report_command_writes_markdown_coverage_for_core_root() {
     let out_dir = unique_temp_dir("report-core-markdown");
     generate_core(&out_dir);
@@ -3434,6 +3613,26 @@ fn coverage_row<'a>(report: &'a Value, case_id: &str) -> &'a Value {
         .iter()
         .find(|row| row.get("case_id").and_then(Value::as_str) == Some(case_id))
         .unwrap_or_else(|| panic!("coverage matrix should contain {case_id}"))
+}
+
+fn coverage_row_with_u64_field<'a>(
+    report: &'a Value,
+    case_id: &str,
+    field: &str,
+    expected: u64,
+) -> &'a Value {
+    report
+        .pointer("/coverage_matrix")
+        .and_then(Value::as_array)
+        .expect("coverage matrix should be an array")
+        .iter()
+        .find(|row| {
+            row.get("case_id").and_then(Value::as_str) == Some(case_id)
+                && row.get(field).and_then(Value::as_u64) == Some(expected)
+        })
+        .unwrap_or_else(|| {
+            panic!("coverage matrix should contain {case_id} with {field}={expected}")
+        })
 }
 
 fn unique_temp_dir(name: &str) -> PathBuf {

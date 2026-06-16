@@ -21,6 +21,7 @@
 - Latest Phase 6 report slice adds source-reference SOP Class UID labels to coverage reports: row-level `derived_reference_sop_class_uids` arrays plus grouped SOP Class UID counts in JSON and Markdown reports, sourced from existing manifest `references[*].sop_class_uid` metadata and DICOM element Referenced SOP Class UID `(0008,1150)`.
 - Latest Phase 6 report slice adds source-reference SOP Instance UID root buckets to coverage reports: row-level `derived_reference_sop_instance_uid_roots` arrays plus grouped UID-root counts in JSON and Markdown reports, sourced from existing manifest `references[*].sop_instance_uid` metadata and DICOM element Referenced SOP Instance UID `(0008,1155)`.
 - Latest Phase 6 report slice adds Enhanced MR per-frame labels to coverage reports: row-level `enhanced_mr_effective_echo_times`, `enhanced_mr_temporal_position_time_offsets`, `enhanced_mr_velocity_encoding_minimum_value`, and `enhanced_mr_velocity_encoding_maximum_value` plus grouped counts in JSON and Markdown reports, sourced from existing manifest `recipe_parameters.per_frame_functional_groups` metadata and DICOM elements Effective Echo Time `(0018,9082)`, Temporal Position Time Offset `(0020,930D)`, Velocity Encoding Minimum Value `(0018,9091)`, and Velocity Encoding Maximum Value `(0018,9217)`.
+- Latest Phase 6 report slice adds Enhanced CT dimension and concatenation labels to coverage reports: row-level `enhanced_ct_dimension_index_values`, `enhanced_ct_in_concatenation_number`, `enhanced_ct_in_concatenation_total_number`, and `enhanced_ct_concatenation_frame_offset_number` plus grouped counts in JSON and Markdown reports, sourced from existing Enhanced CT manifest `expected_semantics.dimension_index_values` and `expected_semantics.concatenation` metadata and DICOM elements Dimension Index Values `(0020,9157)`, In-concatenation Number `(0020,9162)`, In-concatenation Total Number `(0020,9163)`, and Concatenation Frame Offset Number `(0020,9228)`.
 
 ## Completed Work
 
@@ -583,6 +584,10 @@
 - JSON and Markdown grouped coverage now include `enhanced_mr_effective_echo_times`, `enhanced_mr_temporal_position_time_offsets`, `enhanced_mr_velocity_encoding_minimum_values`, and `enhanced_mr_velocity_encoding_maximum_values`, exposing the default extended Enhanced MR buckets `12.5; 24.5`, `0.0; 1.5`, `-150.0`, and `150.0`.
 - Skipped/unavailable rows keep the new Enhanced MR per-frame report fields null.
 - Updated the coverage-report schema plus focused report/schema tests for row-level Enhanced MR per-frame labels, grouped JSON counts, and grouped Markdown output.
+- Added nullable row-level Enhanced CT dimension and concatenation coverage fields sourced from existing generated manifest expected semantics.
+- JSON and Markdown grouped coverage now include `enhanced_ct_dimension_index_values`, `enhanced_ct_in_concatenation_numbers`, `enhanced_ct_in_concatenation_total_numbers`, and `enhanced_ct_concatenation_frame_offset_numbers`, exposing the default extended Enhanced CT buckets `1; 2`, `1`, `2`, concatenation numbers `1` and `2`, total `2`, and frame offsets `0` and `1`.
+- Skipped/unavailable rows and non-Enhanced-CT generated rows keep the new Enhanced CT report fields null.
+- Updated the coverage-report schema plus focused report/schema tests for row-level Enhanced CT dimension/concatenation labels, grouped JSON counts, and grouped Markdown output.
 
 ## Blockers
 
@@ -2920,15 +2925,32 @@
 - `cargo run -- validate /tmp/dts-enhanced-mr-report-slice-0616`: passed, 75 files checked and 0 validation failures.
 - `cargo run -- report /tmp/dts-enhanced-mr-report-slice-0616 --format json`: passed; report counted 75 generated rows and 9 unavailable feature-gated rows, emitted the new nullable Enhanced MR per-frame fields, and included grouped buckets `enhanced_mr_effective_echo_times["12.5; 24.5"] = 1`, `enhanced_mr_temporal_position_time_offsets["0.0; 1.5"] = 1`, `enhanced_mr_velocity_encoding_minimum_values["-150.0"] = 1`, and `enhanced_mr_velocity_encoding_maximum_values["150.0"] = 1`.
 - `cargo run -- report /tmp/dts-enhanced-mr-report-slice-0616 --format markdown`: passed; Markdown includes Enhanced MR Effective Echo Times, Enhanced MR Temporal Position Time Offsets, Enhanced MR Velocity Encoding Minimum Values, and Enhanced MR Velocity Encoding Maximum Values grouped coverage tables with the expected extended buckets.
+- `git status --short`: passed before slice selection; working tree was clean.
+- `dicom-standard-kb` MCP `lookup_data_element ConcatenationUID`: passed; confirmed Concatenation UID `(0020,9161)` has VR `UI`, VM `1`, and is not retired in PS3.6 2026b.
+- `dicom-standard-kb` MCP `lookup_data_element InConcatenationNumber`: passed; confirmed In-concatenation Number `(0020,9162)` has VR `US`, VM `1`, and is not retired in PS3.6 2026b.
+- `dicom-standard-kb` MCP `lookup_data_element InConcatenationTotalNumber`: passed; confirmed In-concatenation Total Number `(0020,9163)` has VR `US`, VM `1`, and is not retired in PS3.6 2026b.
+- `dicom-standard-kb` MCP `lookup_data_element ConcatenationFrameOffsetNumber`: passed; confirmed Concatenation Frame Offset Number `(0020,9228)` has VR `UL`, VM `1`, and is not retired in PS3.6 2026b.
+- `dicom-standard-kb` MCP `lookup_data_element DimensionIndexValues`: passed; confirmed Dimension Index Values `(0020,9157)` has VR `UL`, VM `1-n`, and is not retired in PS3.6 2026b.
+- `cargo fmt`: passed during implementation formatting.
+- `jq empty schemas/coverage-report.schema.json`: passed.
+- `cargo test --test report_cli --test schema_artifacts`: initially failed because the new test tried to distinguish Enhanced CT concatenation rows by manifest path, but coverage rows intentionally do not expose path; failed again because dimension-index extraction was not scoped to Enhanced CT and counted Enhanced MR dimension-index values; passed after matching concatenation rows by reported In-concatenation Number and restricting the new fields to Enhanced CT SOP Class rows, 18 focused report/schema tests.
+- `cargo fmt -- --check`: passed.
+- `git diff --check`: passed.
+- `cargo test`: passed, full default-build suite clean.
+- `cargo run -- standards check-lock`: passed with existing documented lock warnings.
+- `cargo run -- generate --profile extended --out /tmp/dts-enhanced-ct-concat-report-slice-0616 --seed 1`: passed, 75 files written in the no-feature default build.
+- `cargo run -- validate /tmp/dts-enhanced-ct-concat-report-slice-0616`: passed, 75 files checked and 0 validation failures.
+- `cargo run -- report /tmp/dts-enhanced-ct-concat-report-slice-0616 --format json | jq '{generated: .counts.generated, unavailable: .counts.skipped, dimension: .grouped_coverage.enhanced_ct_dimension_index_values, concat_numbers: .grouped_coverage.enhanced_ct_in_concatenation_numbers, concat_totals: .grouped_coverage.enhanced_ct_in_concatenation_total_numbers, concat_offsets: .grouped_coverage.enhanced_ct_concatenation_frame_offset_numbers}'`: passed; report counted 75 generated rows and 9 unavailable feature-gated rows, emitted grouped Enhanced CT buckets `dimension["1; 2"] = 1`, `dimension["1"] = 1`, `dimension["2"] = 1`, `concat_numbers["1"] = 1`, `concat_numbers["2"] = 1`, `concat_totals["2"] = 2`, `concat_offsets["0"] = 1`, and `concat_offsets["1"] = 1`.
+- `cargo run -- report /tmp/dts-enhanced-ct-concat-report-slice-0616 --format markdown | rg -n "Enhanced CT|\| 1; 2 \||\| 2 \| 2 \|"`: passed; Markdown includes Enhanced CT Dimension Index Values, In-concatenation Numbers, In-concatenation Total Numbers, and Concatenation Frame Offset Numbers grouped coverage tables with the expected extended buckets.
 
 ## Commit-Ready Summary
 
-- Added row-level Enhanced MR per-frame coverage sourced from existing manifest `recipe_parameters.per_frame_functional_groups` metadata.
-- Added grouped Enhanced MR Effective Echo Time, Temporal Position Time Offset, and Velocity Encoding min/max coverage to JSON and Markdown reports.
+- Added row-level Enhanced CT dimension and concatenation coverage sourced from existing manifest expected semantics metadata.
+- Added grouped Enhanced CT Dimension Index Values, In-concatenation Number, In-concatenation Total Number, and Concatenation Frame Offset Number coverage to JSON and Markdown reports.
 - The coverage-report schema and focused report/schema tests now require the new row fields and grouped count maps.
-- Extended report verification shows the new fields/tables expose the three existing Enhanced MR per-frame variants: echo, temporal position, and velocity encoding.
+- Extended report verification shows the new fields/tables expose the existing two-frame Enhanced CT and two-part Enhanced CT concatenation cases.
 - No registry rows, generated DICOM element values, capability-matrix entries, feature gates, external codec backends, deferred lossy policies, or JPEG Extended 12-bit decisions changed in this slice.
 
 ## Recommended Next Commit
 
-Continue Phase 6 with the next smallest corpus expansion or report refinement that reuses already implemented generator infrastructure without new backend policy work. Prefer another under-covered manifest-backed report-matrix axis that improves compatibility triage visibility, such as additional CT acquisition parameters beyond KVP or Enhanced CT dimension/concatenation labels; otherwise choose the next standards-backed corpus case from `SYSTEM_SPEC.md` after checking `dicom-standard-kb` for any new IOD/SOP/module assumptions. Compressed expansion remains acceptable when it is standards-compatible and does not require a new backend decision. Do not add a VL Photographic multi-frame case without stronger standards evidence for Number of Frames in that IOD, do not add an RLE YBR_FULL_422 case unless new standards evidence supersedes PS3.5 Table 8.2.2-1, and do not promote JPEG Extended 12-bit or deferred lossy variants until their validation policies are selected.
+Continue Phase 6 with the next smallest corpus expansion or report refinement that reuses already implemented generator infrastructure without new backend policy work. Prefer another under-covered manifest-backed report-matrix axis that improves compatibility triage visibility, such as additional CT acquisition parameters beyond KVP and concatenation labels, derived object content labels, or RT/SEG geometry/reference labels; otherwise choose the next standards-backed corpus case from `SYSTEM_SPEC.md` after checking `dicom-standard-kb` for any new IOD/SOP/module assumptions. Compressed expansion remains acceptable when it is standards-compatible and does not require a new backend decision. Do not add a VL Photographic multi-frame case without stronger standards evidence for Number of Frames in that IOD, do not add an RLE YBR_FULL_422 case unless new standards evidence supersedes PS3.5 Table 8.2.2-1, and do not promote JPEG Extended 12-bit or deferred lossy variants until their validation policies are selected.

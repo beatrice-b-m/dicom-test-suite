@@ -6191,6 +6191,30 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
     append_count_map_section(
         &mut output,
         report,
+        "Enhanced CT Dimension Index Values",
+        "/grouped_coverage/enhanced_ct_dimension_index_values",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "Enhanced CT In-concatenation Numbers",
+        "/grouped_coverage/enhanced_ct_in_concatenation_numbers",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "Enhanced CT In-concatenation Total Numbers",
+        "/grouped_coverage/enhanced_ct_in_concatenation_total_numbers",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "Enhanced CT Concatenation Frame Offset Numbers",
+        "/grouped_coverage/enhanced_ct_concatenation_frame_offset_numbers",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
         "MR Scanning Sequences",
         "/grouped_coverage/mr_scanning_sequences",
     );
@@ -6607,6 +6631,51 @@ fn generated_coverage_row(
         "kvp".to_string(),
         file.pointer("/recipe/recipe_parameters/kvp")
             .and_then(Value::as_str)
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
+    let is_enhanced_ct = file.pointer("/dicom/sop_class_uid").and_then(Value::as_str)
+        == Some(uids::ENHANCED_CT_IMAGE_STORAGE);
+    row_object.insert(
+        "enhanced_ct_dimension_index_values".to_string(),
+        is_enhanced_ct
+            .then(|| {
+                report_string_or_number_array(file, "/expected_semantics/dimension_index_values")
+            })
+            .flatten()
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
+    row_object.insert(
+        "enhanced_ct_in_concatenation_number".to_string(),
+        is_enhanced_ct
+            .then(|| {
+                file.pointer("/expected_semantics/concatenation/in_concatenation_number")
+                    .and_then(Value::as_u64)
+            })
+            .flatten()
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
+    row_object.insert(
+        "enhanced_ct_in_concatenation_total_number".to_string(),
+        is_enhanced_ct
+            .then(|| {
+                file.pointer("/expected_semantics/concatenation/in_concatenation_total_number")
+                    .and_then(Value::as_u64)
+            })
+            .flatten()
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
+    row_object.insert(
+        "enhanced_ct_concatenation_frame_offset_number".to_string(),
+        is_enhanced_ct
+            .then(|| {
+                file.pointer("/expected_semantics/concatenation/concatenation_frame_offset_number")
+                    .and_then(Value::as_u64)
+            })
+            .flatten()
             .map(Value::from)
             .unwrap_or(Value::Null),
     );
@@ -7235,6 +7304,22 @@ fn skipped_coverage_row(
         Value::Array(Vec::new()),
     );
     row_object.insert("kvp".to_string(), Value::Null);
+    row_object.insert(
+        "enhanced_ct_dimension_index_values".to_string(),
+        Value::Null,
+    );
+    row_object.insert(
+        "enhanced_ct_in_concatenation_number".to_string(),
+        Value::Null,
+    );
+    row_object.insert(
+        "enhanced_ct_in_concatenation_total_number".to_string(),
+        Value::Null,
+    );
+    row_object.insert(
+        "enhanced_ct_concatenation_frame_offset_number".to_string(),
+        Value::Null,
+    );
     row_object.insert("mr_scanning_sequence".to_string(), Value::Null);
     row_object.insert("mr_sequence_variant".to_string(), Value::Null);
     row_object.insert("mr_acquisition_type".to_string(), Value::Null);
@@ -7451,6 +7536,10 @@ struct GroupedCoverage {
     window_centers: BTreeMap<String, usize>,
     window_widths: BTreeMap<String, usize>,
     kvps: BTreeMap<String, usize>,
+    enhanced_ct_dimension_index_values: BTreeMap<String, usize>,
+    enhanced_ct_in_concatenation_numbers: BTreeMap<String, usize>,
+    enhanced_ct_in_concatenation_total_numbers: BTreeMap<String, usize>,
+    enhanced_ct_concatenation_frame_offset_numbers: BTreeMap<String, usize>,
     mr_scanning_sequences: BTreeMap<String, usize>,
     mr_sequence_variants: BTreeMap<String, usize>,
     mr_acquisition_types: BTreeMap<String, usize>,
@@ -7734,6 +7823,38 @@ impl GroupedCoverage {
         );
         increment_map(&mut self.kvps, row.get("kvp").and_then(Value::as_str));
         increment_map(
+            &mut self.enhanced_ct_dimension_index_values,
+            row.get("enhanced_ct_dimension_index_values")
+                .and_then(Value::as_str),
+        );
+        if let Some(value) = row
+            .get("enhanced_ct_in_concatenation_number")
+            .and_then(Value::as_u64)
+        {
+            *self
+                .enhanced_ct_in_concatenation_numbers
+                .entry(value.to_string())
+                .or_default() += 1;
+        }
+        if let Some(value) = row
+            .get("enhanced_ct_in_concatenation_total_number")
+            .and_then(Value::as_u64)
+        {
+            *self
+                .enhanced_ct_in_concatenation_total_numbers
+                .entry(value.to_string())
+                .or_default() += 1;
+        }
+        if let Some(value) = row
+            .get("enhanced_ct_concatenation_frame_offset_number")
+            .and_then(Value::as_u64)
+        {
+            *self
+                .enhanced_ct_concatenation_frame_offset_numbers
+                .entry(value.to_string())
+                .or_default() += 1;
+        }
+        increment_map(
             &mut self.mr_scanning_sequences,
             row.get("mr_scanning_sequence").and_then(Value::as_str),
         );
@@ -7972,6 +8093,26 @@ impl GroupedCoverage {
         grouped_object.insert(
             "kvps".to_string(),
             serde_json::to_value(&self.kvps).expect("KVP count map must serialize"),
+        );
+        grouped_object.insert(
+            "enhanced_ct_dimension_index_values".to_string(),
+            serde_json::to_value(&self.enhanced_ct_dimension_index_values)
+                .expect("Enhanced CT dimension index value count map must serialize"),
+        );
+        grouped_object.insert(
+            "enhanced_ct_in_concatenation_numbers".to_string(),
+            serde_json::to_value(&self.enhanced_ct_in_concatenation_numbers)
+                .expect("Enhanced CT in-concatenation number count map must serialize"),
+        );
+        grouped_object.insert(
+            "enhanced_ct_in_concatenation_total_numbers".to_string(),
+            serde_json::to_value(&self.enhanced_ct_in_concatenation_total_numbers)
+                .expect("Enhanced CT in-concatenation total number count map must serialize"),
+        );
+        grouped_object.insert(
+            "enhanced_ct_concatenation_frame_offset_numbers".to_string(),
+            serde_json::to_value(&self.enhanced_ct_concatenation_frame_offset_numbers)
+                .expect("Enhanced CT concatenation frame offset number count map must serialize"),
         );
         grouped_object.insert(
             "pixel_spacings".to_string(),

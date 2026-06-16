@@ -18,6 +18,9 @@ deflate = [
 jpeg = [
     "dicom-transfer-syntax-registry/jpeg",
 ]
+jpegxl = [
+    "dicom-transfer-syntax-registry/jpegxl",
+]
 
 [dependencies]
 dicom-core = "=0.9.1"

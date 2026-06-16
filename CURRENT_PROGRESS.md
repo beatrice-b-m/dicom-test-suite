@@ -10,7 +10,7 @@
 - Phase 0 - Research And Decisions: in progress for JPEG XL, JPEG 2000, HTJ2K, legacy JPEG, and Deflated Image Frame Compression; RLE Lossless, JPEG Baseline 8-bit, and JPEG-LS Lossless have implement-now decisions; JPEG-LS Near-Lossless is explicitly deferred.
 - Phase 1 - Codec Integration Architecture: in progress; minimal codec API plus native RLE and DICOM-rs JPEG Baseline frame encode/decode support are present.
 - Phase 2 - Encapsulated Pixel Data Substrate: complete for the first RLE one-fragment case; Extended Offset Table and future multi-fragment generation remain later substrate expansion.
-- Phase 3 - Low-Risk Codec Enablement: in progress; 8-bit and 16-bit generated RLE Lossless Secondary Capture cases are implemented and round-trip validated; the first JPEG Baseline 8-bit RGB Secondary Capture case is generated and validated when the `jpeg` feature is enabled; the first JPEG-LS Lossless 8-bit MONOCHROME2 Secondary Capture case is generated and exact-hash validated when the `charls` feature is enabled.
+- Phase 3 - Low-Risk Codec Enablement: in progress; 8-bit and 16-bit generated RLE Lossless Secondary Capture cases are implemented and round-trip validated; the first JPEG Baseline 8-bit RGB Secondary Capture case is generated and validated when the `jpeg` feature is enabled; the first JPEG-LS Lossless 8-bit MONOCHROME2 Secondary Capture case is generated and exact-hash validated when the `charls` feature is enabled; JPEG XL Lossless feature-gate verification is complete through the project `jpegxl` feature, but generated corpus integration remains pending.
 - Phase 4 - JPEG 2000 And HTJ2K: not started.
 - Phase 5 - Legacy And Specialty Compressed Syntaxes: not started.
 - Phase 6+ - Corpus expansion and maintenance: blocked until Phase 5 scope is complete.
@@ -77,11 +77,18 @@
 - Added a JPEG-LS Near-Lossless capability-matrix row with `status: unavailable`, project `charls` feature gate, CharLS external library metadata, and PS3.6 KB evidence.
 - Added artifact regression coverage proving Near-Lossless remains unavailable until error-limit, lossy Image Pixel metadata, decoded tolerance validation, and reproducibility policy are defined.
 - Updated stale `CURRENT_PLAN.md` baseline and immediate next step text so the next slice starts JPEG XL lossless feature verification rather than repeating the completed JPEG-LS Lossless generation work.
+- Added a project-level `jpegxl` Cargo feature that enables the pinned DICOM-rs `dicom-transfer-syntax-registry/jpegxl` adapter path.
+- Added a feature-gated `DicomRsJpegXlLosslessEncoder` wrapper with backend metadata, JPEG XL Lossless transfer syntax UID `1.2.840.10008.1.2.4.110`, and encode/decode support through the pinned DICOM-rs JPEG XL adapter.
+- Verified the DICOM-rs JPEG XL Lossless writer and reader round-trip a tiny 8-bit RGB frame exactly under `--features jpegxl`.
+- Recorded backend version behavior as `dicom-transfer-syntax-registry 0.9.1 + jxl-oxide 0.10.2 + zune-jpegxl 0.4.0`.
+- Updated the JPEG XL Lossless registry requirement and capability matrix to use the project `jpegxl` feature gate, while keeping `classic/sc/rgb_planar0_jpegxl_lossless` skipped and matrix encode/decode unavailable until generated corpus integration, validation, report coverage, and reproducibility are implemented.
+- Added focused artifact coverage proving the project `jpegxl` feature gate exists and JPEG XL Lossless generation remains unavailable even when runtime adapters are present.
 
 ## Blockers
 
 - No current local toolchain blocker for JPEG-LS Lossless generation or verification. `cmake` is available on `PATH`, and `cargo test --features charls` builds `charls-sys v2.4.4` successfully.
 - JPEG-LS Near-Lossless generated-case work is intentionally deferred until a first error limit, lossy compression metadata policy, decoded-frame tolerance, and reproducibility strategy are selected.
+- JPEG XL Lossless generated-case work remains pending until generation-time decoded-frame hash validation, CLI validation, manifest/report coverage, and reproducibility are added.
 - JPEG 2000, HTJ2K, and legacy JPEG backend selection remain unresolved research items.
 - Deflated Image Frame Compression requires a standards/IOD suitability decision before any implementation.
 
@@ -89,7 +96,7 @@
 
 - Whether codec backend version strings should include transitive codec crate versions in addition to the selected adapter crate version.
 - JPEG-LS Lossless now uses a project `charls` feature that exposes the pinned DICOM-rs optional CharLS adapter behind a project-owned wrapper and generated corpus case. JPEG-LS Near-Lossless is deferred until lossy semantics and validation policy are selected.
-- Whether JPEG XL project feature gates should directly expose DICOM-rs optional features or wrap them behind project-owned adapters.
+- JPEG XL Lossless now uses a project `jpegxl` feature that exposes the pinned DICOM-rs optional JPEG XL adapter behind a project-owned wrapper. Generated-case promotion remains pending.
 - Which independent validators should be used for JPEG 2000 and HTJ2K.
 - Whether the current project-owned RLE decoder should support multi-fragment frame reassembly in generation-time validation before a multi-fragment RLE case is added.
 
@@ -229,13 +236,26 @@
 - `cargo test`: passed, full default-build suite clean.
 - `cargo test --features charls --test project_artifacts`: passed, 21 CharLS feature artifact tests.
 - `cargo run -- standards check-lock`: passed with existing documented lock warnings.
+- `dicom-standard-kb` MCP `lookup_uid JPEGXLLossless`: passed; confirmed UID `1.2.840.10008.1.2.4.110` as a PS3.6 Transfer Syntax.
+- `dicom-standard-kb` MCP `lookup_uid JPEGXL`: passed; confirmed UID `1.2.840.10008.1.2.4.112` as a PS3.6 Transfer Syntax for the lossy JPEG XL family member that remains policy-deferred.
+- `cargo fmt`: passed.
+- `cargo test codecs`: passed, 10 focused default-build codec tests plus the matching filtered artifact test.
+- `cargo test --test project_artifacts jpeg_xl_lossless_feature_gate_is_verified_but_generation_stays_unavailable`: passed, 1 focused artifact test.
+- `cargo test --features jpegxl codecs`: initially failed in the restricted sandbox because Cargo needed to unpack optional `zune-jpegxl v0.4.0` under the user Cargo registry; passed after rerunning with approved escalation, 13 focused codec tests plus the matching filtered artifact test.
+- `cargo test --features jpegxl --test project_artifacts jpeg_xl_lossless_feature_gate_is_verified_but_generation_stays_unavailable`: initially failed for the same sandboxed Cargo registry unpack; passed after rerunning with approved escalation, 1 focused artifact test.
+- `cargo fmt -- --check`: passed.
+- `cargo test`: passed, full default-build suite clean.
+- `cargo run -- list-cases --profile extended --status skipped`: passed; JPEG XL Lossless remains skipped with 2/2 standards evidence coverage.
+- `cargo test --features jpegxl`: passed, full JPEG XL feature suite clean.
+- `cargo run -- standards check-lock`: passed with existing documented lock warnings.
+- `cargo run --features jpegxl -- list-cases --profile extended --status skipped`: passed; JPEG XL Lossless remains skipped with 2/2 standards evidence coverage under the feature build.
 
 ## Commit-Ready Summary
 
-- Phase 3 now has an explicit JPEG-LS Near-Lossless defer policy instead of an open decision.
-- The backend decision record scopes current JPEG-LS implementation to Lossless, records required work before Near-Lossless generation, and directs the next slice to JPEG XL lossless verification.
-- The capability matrix now represents JPEG-LS Near-Lossless as a known but unavailable project capability with PS3.6 evidence and a regression test.
+- Phase 3 now has a project `jpegxl` feature gate and a DICOM-rs JPEG XL Lossless wrapper that proves tiny 8-bit RGB exact round-trip behavior.
+- The backend decision record captures JPEG XL Lossless adapter versions and keeps generated-case promotion blocked on corpus integration, CLI validation, manifest/report coverage, and reproducibility.
+- The capability matrix and registry now use the project `jpegxl` feature gate while continuing to report `classic/sc/rgb_planar0_jpegxl_lossless` as skipped/unavailable.
 
 ## Recommended Next Commit
 
-Start JPEG XL lossless feature verification for Phase 3: add or prove the project feature gate against pinned DICOM-rs JPEG XL support, record backend identity/version behavior, and keep any generated registry row unavailable until generation, decoded-frame validation, manifest/report coverage, and reproducibility are proven.
+Implement the feature-gated generated JPEG XL Lossless Secondary Capture case for Phase 3: add generation-time decoded-frame hash validation, CLI validation, manifest/report metadata, reproducibility coverage, and only then flip `classic/sc/rgb_planar0_jpegxl_lossless` and the capability matrix from unavailable to feature-gated.

@@ -218,10 +218,10 @@
       "decode_pixel": false,
       "write_dataset": true,
       "encode_pixel": false,
-      "feature_flags": ["dicom-transfer-syntax-registry/jpegxl"],
+      "feature_flags": ["jpegxl"],
       "external_libraries": [],
       "determinism": "semantic_stable",
-      "notes": "DICOM-rs 0.9.1 exposes this transfer syntax as an encapsulated Pixel Data stub when the optional `jpegxl` feature is not enabled. Do not generate JPEG XL cases until the project exposes the feature, verifies encoder behavior, validates encapsulated Pixel Data layout, and proves reproducibility.",
+      "notes": "DICOM-rs 0.9.1 exposes JPEG XL Lossless read/write adapters through the project `jpegxl` feature, backed by jxl-oxide decode and zune-jpegxl lossless encode. Generated cases remain unavailable until generated corpus integration, decoded-frame validation, manifest/report coverage, and reproducibility are proven.",
       "standards_evidence": [
         {
           "source": "dicom-standard-kb",

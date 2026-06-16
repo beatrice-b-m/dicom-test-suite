@@ -604,11 +604,6 @@ fn compressed_transfer_syntax_matrix_matches_current_dicom_rs_stubs() {
             "dicom-transfer-syntax-registry/openjp2",
         ),
         (
-            "1.2.840.10008.1.2.4.110",
-            "JPEGXLLossless",
-            "dicom-transfer-syntax-registry/jpegxl",
-        ),
-        (
             "1.2.840.10008.1.2.4.201",
             "HTJ2KLossless",
             "dicom-transfer-syntax-registry/openjp2",
@@ -668,6 +663,112 @@ fn compressed_transfer_syntax_matrix_matches_current_dicom_rs_stubs() {
             "{uid} should record the DICOM-rs feature gate {feature}"
         );
     }
+}
+
+#[test]
+fn jpeg_xl_lossless_feature_gate_is_verified_but_generation_stays_unavailable() {
+    let cargo_toml = fs::read_to_string("Cargo.toml").expect("Cargo.toml must be readable");
+    assert!(
+        cargo_toml.contains("jpegxl = [")
+            && cargo_toml.contains("\"dicom-transfer-syntax-registry/jpegxl\""),
+        "Cargo.toml should expose a project jpegxl feature for the pinned DICOM-rs adapter"
+    );
+
+    let matrix = read_json("transfer-syntax/capability-matrix.json");
+    let entries = matrix
+        .get("entries")
+        .and_then(Value::as_array)
+        .expect("transfer syntax matrix must contain entries");
+    let entry = entries
+        .iter()
+        .find(|entry| entry.get("uid").and_then(Value::as_str) == Some("1.2.840.10008.1.2.4.110"))
+        .expect("transfer syntax matrix must contain JPEG XL Lossless");
+    let transfer_syntax = TransferSyntaxRegistry
+        .get("1.2.840.10008.1.2.4.110")
+        .expect("DICOM-rs registry must expose JPEG XL Lossless");
+
+    assert_eq!(
+        entry.get("keyword").and_then(Value::as_str),
+        Some("JPEGXLLossless")
+    );
+    assert_eq!(
+        entry.get("status").and_then(Value::as_str),
+        Some("unavailable"),
+        "JPEG XL generated cases should stay unavailable until corpus integration is verified"
+    );
+    assert_eq!(
+        entry.get("decode_pixel").and_then(Value::as_bool),
+        Some(false),
+        "the project matrix should not claim JPEG XL decode validation yet"
+    );
+    assert_eq!(
+        entry.get("encode_pixel").and_then(Value::as_bool),
+        Some(false),
+        "the project matrix should not claim JPEG XL encode validation yet"
+    );
+    assert!(
+        entry
+            .get("feature_flags")
+            .and_then(Value::as_array)
+            .is_some_and(|features| features
+                .iter()
+                .any(|value| value.as_str() == Some("jpegxl"))),
+        "JPEG XL should record the project jpegxl feature gate"
+    );
+    if cfg!(feature = "jpegxl") {
+        assert!(
+            transfer_syntax.pixel_data_reader().is_some(),
+            "jpegxl feature builds should expose a runtime JPEG XL decoder"
+        );
+        assert!(
+            transfer_syntax.pixel_data_writer().is_some(),
+            "jpegxl feature builds should expose a runtime JPEG XL Lossless encoder"
+        );
+    }
+
+    let registry = read_json("cases/registry.json");
+    let cases = registry_cases(&registry);
+    let case = cases
+        .iter()
+        .find(|case| {
+            case.get("case_id").and_then(Value::as_str)
+                == Some("classic/sc/rgb_planar0_jpegxl_lossless")
+        })
+        .expect("registry must contain JPEG XL Lossless SC case");
+    assert_eq!(case.get("status").and_then(Value::as_str), Some("skipped"));
+    assert_eq!(
+        case.pointer("/requirements/features/0")
+            .and_then(Value::as_str),
+        Some("jpegxl")
+    );
+    assert_eq!(
+        case.pointer("/skip/reason_code").and_then(Value::as_str),
+        Some("codec_unavailable")
+    );
+
+    let decisions = read_json("transfer-syntax/backend-decisions.json");
+    let jpeg_xl = decisions
+        .get("codec_families")
+        .and_then(Value::as_array)
+        .expect("backend decisions must contain codec_families")
+        .iter()
+        .find(|family| family.get("family_id").and_then(Value::as_str) == Some("jpeg_xl"))
+        .expect("JPEG XL backend decision must exist");
+    assert_eq!(
+        jpeg_xl.get("feature_gate").and_then(Value::as_str),
+        Some("jpegxl")
+    );
+    assert!(
+        jpeg_xl
+            .get("evidence")
+            .and_then(Value::as_array)
+            .is_some_and(|items| items.iter().any(|item| item
+                .get("finding")
+                .and_then(Value::as_str)
+                .is_some_and(|finding| finding.contains("jxl-oxide 0.10.2")
+                    && finding.contains("zune-jpegxl 0.4.0")))),
+        "JPEG XL decision should record backend version behavior from the local codec test"
+    );
 }
 
 #[test]

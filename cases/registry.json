@@ -3564,13 +3564,13 @@
       "transfer_syntax_uid": "1.2.840.10008.1.2.4.110",
       "determinism": "semantic_stable",
       "requirements": {
-        "features": ["dicom-transfer-syntax-registry/jpegxl"],
+        "features": ["jpegxl"],
         "external_codecs": [],
         "external_validators": []
       },
       "skip": {
         "reason_code": "codec_unavailable",
-        "message": "JPEG XL Lossless image generation is unavailable until a project feature, encoder behavior, encapsulated Pixel Data validation, and reproducibility strategy are verified.",
+        "message": "JPEG XL Lossless image generation is unavailable until generated corpus integration, decoded-frame validation, manifest/report coverage, and reproducibility are proven.",
         "recheck_phase": "phase-6"
       },
       "standards_evidence": [

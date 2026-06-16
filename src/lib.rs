@@ -52,6 +52,8 @@ pub(crate) const ACTIVE_FEATURE_FLAGS: &[&str] = &[
     "charls",
     #[cfg(feature = "jpeg")]
     "jpeg",
+    #[cfg(feature = "jpegxl")]
+    "jpegxl",
 ];
 
 #[derive(Debug, Clone, PartialEq, Eq)]

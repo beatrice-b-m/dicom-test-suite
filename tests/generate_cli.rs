@@ -1627,7 +1627,7 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\textended"));
-    let expected_extended_files = 57
+    let expected_extended_files = 58
         + if cfg!(feature = "deflate") { 2 } else { 0 }
         + if cfg!(feature = "jpeg") { 1 } else { 0 }
         + if cfg!(feature = "charls") { 1 } else { 0 }
@@ -2114,6 +2114,44 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
         validation_result_names(rle_signed_padding_file.pointer("/validation/internal"))
             .contains(&"rle_decoded_frame_hashes"),
         "signed Pixel Padding RLE manifest should record decoded native frame hash validation"
+    );
+    let rle_mono1_signed_padding_file =
+        file_entry_by_case_id(&manifest, "classic/sc/mono1_i16_padding_rle_lossless");
+    assert_eq!(
+        rle_mono1_signed_padding_file
+            .pointer("/image/photometric_interpretation")
+            .and_then(Value::as_str),
+        Some("MONOCHROME1")
+    );
+    assert_eq!(
+        rle_mono1_signed_padding_file
+            .pointer("/image/pixel_representation")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        rle_mono1_signed_padding_file.pointer("/recipe/recipe_parameters/pixel_padding/value"),
+        Some(&Value::from(-32768))
+    );
+    assert_eq!(
+        rle_mono1_signed_padding_file
+            .pointer("/recipe/recipe_parameters/pixel_padding/range_limit"),
+        Some(&Value::from(-32768))
+    );
+    assert!(
+        validation_result_names(rle_mono1_signed_padding_file.pointer("/validation/internal"))
+            .contains(&"pixel_padding_value"),
+        "MONOCHROME1 signed Pixel Padding RLE manifest should record Pixel Padding Value validation"
+    );
+    assert!(
+        validation_result_names(rle_mono1_signed_padding_file.pointer("/validation/internal"))
+            .contains(&"pixel_padding_range_limit"),
+        "MONOCHROME1 signed Pixel Padding RLE manifest should record Pixel Padding Range Limit validation"
+    );
+    assert!(
+        validation_result_names(rle_mono1_signed_padding_file.pointer("/validation/internal"))
+            .contains(&"rle_decoded_frame_hashes"),
+        "MONOCHROME1 signed Pixel Padding RLE manifest should record decoded native frame hash validation"
     );
     let rle_signed_padding_multiframe_file = file_entry_by_case_id(
         &manifest,
@@ -6190,7 +6228,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\tall"));
-    let expected_all_files = 79
+    let expected_all_files = 80
         + if cfg!(feature = "deflate") { 2 } else { 0 }
         + if cfg!(feature = "jpeg") { 1 } else { 0 }
         + if cfg!(feature = "charls") { 1 } else { 0 }
@@ -6240,6 +6278,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
         "classic/sc/mono2_u16_padding_multiframe_rle_lossless",
     );
     file_entry_by_case_id(&manifest, "classic/sc/mono2_i16_padding_rle_lossless");
+    file_entry_by_case_id(&manifest, "classic/sc/mono1_i16_padding_rle_lossless");
     file_entry_by_case_id(
         &manifest,
         "classic/sc/mono2_i16_padding_multiframe_rle_lossless",

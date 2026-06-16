@@ -5902,6 +5902,12 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
     append_count_map_section(
         &mut output,
         report,
+        "SOP Class Names",
+        "/grouped_coverage/sop_class_names",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
         "Modalities",
         "/grouped_coverage/modalities",
     );
@@ -6357,6 +6363,13 @@ fn generated_coverage_row(
         .as_object_mut()
         .expect("generated coverage row literal must be an object");
     row_object.insert(
+        "sop_class_name".to_string(),
+        file.pointer("/dicom/sop_class_name")
+            .and_then(Value::as_str)
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
+    row_object.insert(
         "known_stressors".to_string(),
         file.get("known_stressors")
             .cloned()
@@ -6708,6 +6721,14 @@ fn skipped_coverage_row(
     row_object.insert("overlay_bits_allocated".to_string(), Value::Null);
     row_object.insert("overlay_bit_position".to_string(), Value::Null);
     row_object.insert("overlay_data_value_length".to_string(), Value::Null);
+    row_object.insert(
+        "sop_class_name".to_string(),
+        registry_case
+            .get("sop_class_name")
+            .and_then(Value::as_str)
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
     row_object.insert("study_instance_uid_root".to_string(), Value::Null);
     row_object.insert("series_instance_uid_root".to_string(), Value::Null);
     row_object.insert("sop_instance_uid_root".to_string(), Value::Null);
@@ -6828,6 +6849,7 @@ struct GroupedCoverage {
     iods: BTreeMap<String, usize>,
     modalities: BTreeMap<String, usize>,
     sop_classes: BTreeMap<String, usize>,
+    sop_class_names: BTreeMap<String, usize>,
     transfer_syntaxes: BTreeMap<String, usize>,
     transfer_syntax_names: BTreeMap<String, usize>,
     codec_families: BTreeMap<String, usize>,
@@ -6907,6 +6929,10 @@ impl GroupedCoverage {
         increment_map(
             &mut self.sop_classes,
             row.get("sop_class_uid").and_then(Value::as_str),
+        );
+        increment_map(
+            &mut self.sop_class_names,
+            row.get("sop_class_name").and_then(Value::as_str),
         );
         increment_map(
             &mut self.transfer_syntaxes,
@@ -7172,6 +7198,7 @@ impl GroupedCoverage {
             "iods": self.iods,
             "modalities": self.modalities,
             "sop_classes": self.sop_classes,
+            "sop_class_names": self.sop_class_names,
             "transfer_syntaxes": self.transfer_syntaxes,
             "transfer_syntax_names": self.transfer_syntax_names,
             "codec_families": self.codec_families,

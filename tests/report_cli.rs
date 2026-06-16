@@ -255,6 +255,12 @@ fn report_command_writes_json_coverage_for_core_root() {
         Some("2.25")
     );
     assert_eq!(
+        coverage_row(&report, "classic/ct/mono2_i16_rescale_12bit_explicit_le")
+            .get("sop_class_name")
+            .and_then(Value::as_str),
+        Some("CT Image Storage")
+    );
+    assert_eq!(
         coverage_row(&report, "vl/photo/palette_color_explicit_le")
             .get("status")
             .and_then(Value::as_str),
@@ -483,6 +489,18 @@ fn report_command_writes_json_coverage_for_core_root() {
             .and_then(Value::as_u64),
         Some(21)
     );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/sop_class_names/CT Image Storage")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/sop_class_names/VL Photographic Image Storage")
+            .and_then(Value::as_u64),
+        Some(2)
+    );
 
     fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
 }
@@ -516,6 +534,9 @@ fn report_command_writes_markdown_coverage_for_core_root() {
     assert!(stdout.contains("### Transfer Syntax Names"));
     assert!(stdout.contains("| Explicit VR Little Endian | 20 |"));
     assert!(stdout.contains("| Implicit VR Little Endian | 1 |"));
+    assert!(stdout.contains("### SOP Class Names"));
+    assert!(stdout.contains("| CT Image Storage | 1 |"));
+    assert!(stdout.contains("| VL Photographic Image Storage | 2 |"));
     assert!(stdout.contains("### Image Types"));
     assert!(stdout.contains("### Conversion Types"));
     assert!(stdout.contains("### Presentation LUT Shapes"));
@@ -2585,6 +2606,8 @@ fn report_summarizes_compressed_codec_coverage() {
     assert!(markdown.contains("| RLE Lossless | 1 |"));
     assert!(markdown.contains("### SOP Classes"));
     assert!(markdown.contains("| 1.2.840.10008.5.1.4.1.1.7 | 2 |"));
+    assert!(markdown.contains("### SOP Class Names"));
+    assert!(markdown.contains("| Secondary Capture Image Storage | 1 |"));
     assert!(markdown.contains("### Modalities"));
     assert!(markdown.contains("| OT | 2 |"));
     assert!(markdown.contains("### Statuses"));

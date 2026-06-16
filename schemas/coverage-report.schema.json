@@ -50,6 +50,9 @@
         "sop_classes": {
           "$ref": "#/$defs/count_map"
         },
+        "sop_class_names": {
+          "$ref": "#/$defs/count_map"
+        },
         "transfer_syntaxes": {
           "$ref": "#/$defs/count_map"
         },
@@ -301,6 +304,7 @@
         "iod",
         "modality",
         "sop_class_uid",
+        "sop_class_name",
         "transfer_syntax",
         "transfer_syntax_name",
         "codec_family",
@@ -381,6 +385,9 @@
         },
         "sop_class_uid": {
           "type": "string"
+        },
+        "sop_class_name": {
+          "type": ["string", "null"]
         },
         "transfer_syntax": {
           "type": "string"

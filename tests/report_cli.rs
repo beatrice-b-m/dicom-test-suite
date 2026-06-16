@@ -1485,6 +1485,12 @@ fn report_summarizes_compressed_codec_coverage() {
     );
     assert_eq!(
         report
+            .pointer("/grouped_coverage/geometries/2x2")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
             .pointer("/grouped_coverage/modalities/OT")
             .and_then(Value::as_u64),
         Some(2)
@@ -1528,6 +1534,8 @@ fn report_summarizes_compressed_codec_coverage() {
     assert!(markdown.contains("### Unavailable Reasons"));
     assert!(markdown.contains("### Frame Counts"));
     assert!(markdown.contains("| 1 | 1 |"));
+    assert!(markdown.contains("### Geometries"));
+    assert!(markdown.contains("| 2x2 | 1 |"));
     assert!(markdown.contains("### Known Stressors"));
     assert!(markdown.contains("| compressed_pixel_data | 1 |"));
 

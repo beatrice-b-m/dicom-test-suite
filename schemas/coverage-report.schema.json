@@ -74,6 +74,9 @@
         "frame_counts": {
           "$ref": "#/$defs/count_map"
         },
+        "geometries": {
+          "$ref": "#/$defs/count_map"
+        },
         "object_types": {
           "$ref": "#/$defs/count_map"
         },

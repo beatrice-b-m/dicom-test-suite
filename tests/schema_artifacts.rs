@@ -283,6 +283,7 @@ fn coverage_report_schema_requires_the_specified_matrix_fields() {
         "validation_statuses",
         "known_stressors",
         "frame_counts",
+        "geometries",
     ] {
         assert!(
             schema

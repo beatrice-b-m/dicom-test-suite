@@ -5956,6 +5956,12 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
     append_count_map_section(
         &mut output,
         report,
+        "Geometries",
+        "/grouped_coverage/geometries",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
         "Object Types",
         "/grouped_coverage/object_types",
     );
@@ -6226,6 +6232,7 @@ struct GroupedCoverage {
     photometric_interpretations: BTreeMap<String, usize>,
     bit_depths: BTreeMap<String, usize>,
     frame_counts: BTreeMap<String, usize>,
+    geometries: BTreeMap<String, usize>,
     object_types: BTreeMap<String, usize>,
     known_stressors: BTreeMap<String, usize>,
 }
@@ -6288,6 +6295,9 @@ impl GroupedCoverage {
         if let Some(frames) = row.get("frames").and_then(Value::as_u64) {
             *self.frame_counts.entry(frames.to_string()).or_default() += 1;
         }
+        if let Some(geometry) = geometry_bucket(row) {
+            *self.geometries.entry(geometry).or_default() += 1;
+        }
         increment_map(
             &mut self.object_types,
             row.get("object_type").and_then(Value::as_str),
@@ -6315,10 +6325,18 @@ impl GroupedCoverage {
             "photometric_interpretations": self.photometric_interpretations,
             "bit_depths": self.bit_depths,
             "frame_counts": self.frame_counts,
+            "geometries": self.geometries,
             "object_types": self.object_types,
             "known_stressors": self.known_stressors
         })
     }
+}
+
+fn geometry_bucket(row: &Value) -> Option<String> {
+    let geometry = row.get("geometry")?;
+    let rows = geometry.get("rows").and_then(Value::as_u64)?;
+    let columns = geometry.get("columns").and_then(Value::as_u64)?;
+    Some(format!("{rows}x{columns}"))
 }
 
 fn increment_map(map: &mut BTreeMap<String, usize>, key: Option<&str>) {

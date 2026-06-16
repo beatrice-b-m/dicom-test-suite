@@ -159,6 +159,7 @@ fn registry_contains_initial_smoke_and_core_cases() {
         ("classic/sc/mono2_i16_odd_3x3_rle_lossless", "implemented"),
         ("classic/sc/mono1_i16_odd_3x3_rle_lossless", "implemented"),
         ("classic/sc/mono2_u16_rect_2x3_rle_lossless", "implemented"),
+        ("classic/sc/mono1_u16_rect_2x3_rle_lossless", "implemented"),
         (
             "classic/sc/mono2_u16_multiframe_rle_lossless",
             "implemented",
@@ -2389,6 +2390,23 @@ fn rle_lossless_transfer_syntax_is_available_through_native_backend() {
     assert_eq!(rect_case.get("skip"), Some(&Value::Null));
     assert_eq!(
         rect_case.get("determinism").and_then(Value::as_str),
+        Some("byte_stable")
+    );
+
+    let mono1_rect_case = cases
+        .iter()
+        .find(|case| {
+            case.get("case_id").and_then(Value::as_str)
+                == Some("classic/sc/mono1_u16_rect_2x3_rle_lossless")
+        })
+        .expect("registry must contain MONOCHROME1 rectangular 2x3 RLE Lossless SC case");
+    assert_eq!(
+        mono1_rect_case.get("status").and_then(Value::as_str),
+        Some("implemented")
+    );
+    assert_eq!(mono1_rect_case.get("skip"), Some(&Value::Null));
+    assert_eq!(
+        mono1_rect_case.get("determinism").and_then(Value::as_str),
         Some("byte_stable")
     );
 

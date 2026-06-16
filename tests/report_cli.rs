@@ -115,6 +115,24 @@ fn report_command_writes_json_coverage_for_core_root() {
         Some("120")
     );
     assert_eq!(
+        coverage_row(&report, "classic/mr/multislice_oblique_explicit_le")
+            .get("mr_scanning_sequence")
+            .and_then(Value::as_str),
+        Some("SE")
+    );
+    assert_eq!(
+        coverage_row(&report, "classic/mr/multislice_oblique_explicit_le")
+            .get("mr_sequence_variant")
+            .and_then(Value::as_str),
+        Some("NONE")
+    );
+    assert_eq!(
+        coverage_row(&report, "classic/mr/multislice_oblique_explicit_le")
+            .get("mr_acquisition_type")
+            .and_then(Value::as_str),
+        Some("2D")
+    );
+    assert_eq!(
         coverage_row(&report, "classic/dx/display_shutter_mono2_u16_explicit_le")
             .get("display_shutter_shape")
             .and_then(Value::as_str),
@@ -383,6 +401,24 @@ fn report_command_writes_json_coverage_for_core_root() {
     );
     assert_eq!(
         report
+            .pointer("/grouped_coverage/mr_scanning_sequences/SE")
+            .and_then(Value::as_u64),
+        Some(3)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/mr_sequence_variants/NONE")
+            .and_then(Value::as_u64),
+        Some(3)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/mr_acquisition_types/2D")
+            .and_then(Value::as_u64),
+        Some(3)
+    );
+    assert_eq!(
+        report
             .pointer("/grouped_coverage/modality_lut_descriptors/4\\0\\16")
             .and_then(Value::as_u64),
         Some(1)
@@ -562,6 +598,12 @@ fn report_command_writes_markdown_coverage_for_core_root() {
     assert!(stdout.contains("| 4096 | 2 |"));
     assert!(stdout.contains("### KVPs"));
     assert!(stdout.contains("| 120 | 1 |"));
+    assert!(stdout.contains("### MR Scanning Sequences"));
+    assert!(stdout.contains("| SE | 3 |"));
+    assert!(stdout.contains("### MR Sequence Variants"));
+    assert!(stdout.contains("| NONE | 3 |"));
+    assert!(stdout.contains("### MR Acquisition Types"));
+    assert!(stdout.contains("| 2D | 3 |"));
     assert!(stdout.contains("### Modality LUT Descriptors"));
     assert!(stdout.contains("| 4\\0\\16 | 1 |"));
     assert!(stdout.contains("### Modality LUT Types"));

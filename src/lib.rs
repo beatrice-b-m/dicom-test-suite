@@ -6125,6 +6125,24 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
     append_count_map_section(
         &mut output,
         report,
+        "MR Scanning Sequences",
+        "/grouped_coverage/mr_scanning_sequences",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "MR Sequence Variants",
+        "/grouped_coverage/mr_sequence_variants",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "MR Acquisition Types",
+        "/grouped_coverage/mr_acquisition_types",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
         "Modality LUT Descriptors",
         "/grouped_coverage/modality_lut_descriptors",
     );
@@ -6391,6 +6409,27 @@ fn generated_coverage_row(
     row_object.insert(
         "kvp".to_string(),
         file.pointer("/recipe/recipe_parameters/kvp")
+            .and_then(Value::as_str)
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
+    row_object.insert(
+        "mr_scanning_sequence".to_string(),
+        file.pointer("/recipe/recipe_parameters/mr/scanning_sequence")
+            .and_then(Value::as_str)
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
+    row_object.insert(
+        "mr_sequence_variant".to_string(),
+        file.pointer("/recipe/recipe_parameters/mr/sequence_variant")
+            .and_then(Value::as_str)
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
+    row_object.insert(
+        "mr_acquisition_type".to_string(),
+        file.pointer("/recipe/recipe_parameters/mr/mr_acquisition_type")
             .and_then(Value::as_str)
             .map(Value::from)
             .unwrap_or(Value::Null),
@@ -6711,6 +6750,9 @@ fn skipped_coverage_row(
     row_object.insert("window_center".to_string(), Value::Null);
     row_object.insert("window_width".to_string(), Value::Null);
     row_object.insert("kvp".to_string(), Value::Null);
+    row_object.insert("mr_scanning_sequence".to_string(), Value::Null);
+    row_object.insert("mr_sequence_variant".to_string(), Value::Null);
+    row_object.insert("mr_acquisition_type".to_string(), Value::Null);
     row_object.insert("display_shutter_shape".to_string(), Value::Null);
     row_object.insert(
         "display_shutter_presentation_value".to_string(),
@@ -6889,6 +6931,9 @@ struct GroupedCoverage {
     window_centers: BTreeMap<String, usize>,
     window_widths: BTreeMap<String, usize>,
     kvps: BTreeMap<String, usize>,
+    mr_scanning_sequences: BTreeMap<String, usize>,
+    mr_sequence_variants: BTreeMap<String, usize>,
+    mr_acquisition_types: BTreeMap<String, usize>,
     modality_lut_descriptors: BTreeMap<String, usize>,
     modality_lut_types: BTreeMap<String, usize>,
     modality_lut_data_value_lengths: BTreeMap<String, usize>,
@@ -7092,6 +7137,18 @@ impl GroupedCoverage {
         );
         increment_map(&mut self.kvps, row.get("kvp").and_then(Value::as_str));
         increment_map(
+            &mut self.mr_scanning_sequences,
+            row.get("mr_scanning_sequence").and_then(Value::as_str),
+        );
+        increment_map(
+            &mut self.mr_sequence_variants,
+            row.get("mr_sequence_variant").and_then(Value::as_str),
+        );
+        increment_map(
+            &mut self.mr_acquisition_types,
+            row.get("mr_acquisition_type").and_then(Value::as_str),
+        );
+        increment_map(
             &mut self.modality_lut_descriptors,
             row.get("modality_lut_descriptor").and_then(Value::as_str),
         );
@@ -7261,6 +7318,21 @@ impl GroupedCoverage {
         grouped_object.insert(
             "kvps".to_string(),
             serde_json::to_value(&self.kvps).expect("KVP count map must serialize"),
+        );
+        grouped_object.insert(
+            "mr_scanning_sequences".to_string(),
+            serde_json::to_value(&self.mr_scanning_sequences)
+                .expect("MR scanning sequence count map must serialize"),
+        );
+        grouped_object.insert(
+            "mr_sequence_variants".to_string(),
+            serde_json::to_value(&self.mr_sequence_variants)
+                .expect("MR sequence variant count map must serialize"),
+        );
+        grouped_object.insert(
+            "mr_acquisition_types".to_string(),
+            serde_json::to_value(&self.mr_acquisition_types)
+                .expect("MR acquisition type count map must serialize"),
         );
         grouped_object.insert(
             "modality_lut_descriptors".to_string(),

@@ -152,6 +152,15 @@
         "kvps": {
           "$ref": "#/$defs/count_map"
         },
+        "mr_scanning_sequences": {
+          "$ref": "#/$defs/count_map"
+        },
+        "mr_sequence_variants": {
+          "$ref": "#/$defs/count_map"
+        },
+        "mr_acquisition_types": {
+          "$ref": "#/$defs/count_map"
+        },
         "modality_lut_descriptors": {
           "$ref": "#/$defs/count_map"
         },
@@ -341,6 +350,9 @@
         "window_center",
         "window_width",
         "kvp",
+        "mr_scanning_sequence",
+        "mr_sequence_variant",
+        "mr_acquisition_type",
         "modality_lut_descriptor",
         "modality_lut_type",
         "modality_lut_data_value_length",
@@ -530,6 +542,15 @@
           "type": ["string", "null"]
         },
         "kvp": {
+          "type": ["string", "null"]
+        },
+        "mr_scanning_sequence": {
+          "type": ["string", "null"]
+        },
+        "mr_sequence_variant": {
+          "type": ["string", "null"]
+        },
+        "mr_acquisition_type": {
           "type": ["string", "null"]
         },
         "modality_lut_descriptor": {

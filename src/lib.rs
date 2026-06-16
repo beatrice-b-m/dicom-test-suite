@@ -5950,6 +5950,12 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
     append_count_map_section(
         &mut output,
         report,
+        "Frame Counts",
+        "/grouped_coverage/frame_counts",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
         "Object Types",
         "/grouped_coverage/object_types",
     );
@@ -6219,6 +6225,7 @@ struct GroupedCoverage {
     unavailable_reasons: BTreeMap<String, usize>,
     photometric_interpretations: BTreeMap<String, usize>,
     bit_depths: BTreeMap<String, usize>,
+    frame_counts: BTreeMap<String, usize>,
     object_types: BTreeMap<String, usize>,
     known_stressors: BTreeMap<String, usize>,
 }
@@ -6278,6 +6285,9 @@ impl GroupedCoverage {
         if let Some(bits) = row.get("bits").and_then(Value::as_u64) {
             *self.bit_depths.entry(bits.to_string()).or_default() += 1;
         }
+        if let Some(frames) = row.get("frames").and_then(Value::as_u64) {
+            *self.frame_counts.entry(frames.to_string()).or_default() += 1;
+        }
         increment_map(
             &mut self.object_types,
             row.get("object_type").and_then(Value::as_str),
@@ -6304,6 +6314,7 @@ impl GroupedCoverage {
             "unavailable_reasons": self.unavailable_reasons,
             "photometric_interpretations": self.photometric_interpretations,
             "bit_depths": self.bit_depths,
+            "frame_counts": self.frame_counts,
             "object_types": self.object_types,
             "known_stressors": self.known_stressors
         })

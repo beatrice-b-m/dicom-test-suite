@@ -71,6 +71,9 @@
         "bit_depths": {
           "$ref": "#/$defs/count_map"
         },
+        "frame_counts": {
+          "$ref": "#/$defs/count_map"
+        },
         "object_types": {
           "$ref": "#/$defs/count_map"
         },

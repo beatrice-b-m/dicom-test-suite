@@ -282,6 +282,7 @@ fn coverage_report_schema_requires_the_specified_matrix_fields() {
         "determinism",
         "validation_statuses",
         "known_stressors",
+        "frame_counts",
     ] {
         assert!(
             schema

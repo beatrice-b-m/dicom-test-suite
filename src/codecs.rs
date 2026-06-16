@@ -1904,18 +1904,18 @@ mod tests {
 
     #[cfg(feature = "jpeg2000")]
     #[test]
-    fn openjph_htj2k_lossless_codestream_is_reproducible_for_sampled_u16_values() {
+    fn openjph_htj2k_lossless_pgm_codestream_is_reproducible_for_u16_edges() {
         use dicom_transfer_syntax_registry::entries::HIGH_THROUGHPUT_JPEG_2000_IMAGE_COMPRESSION_LOSSLESS_ONLY;
         use std::fs;
         use std::process::Command;
         use std::time::{SystemTime, UNIX_EPOCH};
 
-        if Command::new("ojph_compress").arg("-v").output().is_err() {
+        if Command::new("ojph_compress").output().is_err() {
             eprintln!("skipping OpenJPH HTJ2K spike proof because ojph_compress is not on PATH");
             return;
         }
 
-        let samples = [1u16, 17, 1024, 4096, 8192, 16384, 24576, 32767];
+        let samples = [0u16, 1, 32767, 32768, 65535, 0x1234, 0xabcd, 2];
         let native = samples
             .iter()
             .flat_map(|sample| sample.to_le_bytes())
@@ -1928,10 +1928,11 @@ mod tests {
         let dir =
             std::env::temp_dir().join(format!("dts-openjph-htj2k-{}-{suffix}", std::process::id()));
         fs::create_dir_all(&dir).expect("temporary OpenJPH spike directory should be writable");
-        let input_path = dir.join("mono2_u16.raw");
+        let input_path = dir.join("mono2_u16.pgm");
         let first_codestream_path = dir.join("mono2_u16_htj2k_first.j2c");
         let second_codestream_path = dir.join("mono2_u16_htj2k_second.j2c");
-        fs::write(&input_path, &native).expect("temporary raw input should be writable");
+        fs::write(&input_path, pgm_u16_mono2_bytes(4, 2, &samples))
+            .expect("temporary PGM input should be writable");
 
         run_openjph_htj2k_lossless_encode(&input_path, &first_codestream_path);
         run_openjph_htj2k_lossless_encode(&input_path, &second_codestream_path);
@@ -2005,17 +2006,7 @@ mod tests {
             .arg("-reversible")
             .arg("true")
             .arg("-num_decomps")
-            .arg("0")
-            .arg("-dims")
-            .arg("{4,2}")
-            .arg("-num_comps")
             .arg("1")
-            .arg("-signed")
-            .arg("false")
-            .arg("-bit_depth")
-            .arg("16")
-            .arg("-downsamp")
-            .arg("{1,1}")
             .output()
             .expect("ojph_compress should run for the HTJ2K spike");
         assert!(
@@ -2025,6 +2016,22 @@ mod tests {
             String::from_utf8_lossy(&output.stdout),
             String::from_utf8_lossy(&output.stderr)
         );
+    }
+
+    #[cfg(feature = "jpeg2000")]
+    fn pgm_u16_mono2_bytes(columns: u16, rows: u16, samples: &[u16]) -> Vec<u8> {
+        let expected_len = usize::from(columns) * usize::from(rows);
+        assert_eq!(
+            samples.len(),
+            expected_len,
+            "PGM input sample count must match the declared dimensions"
+        );
+
+        let mut bytes = format!("P5\n{columns} {rows}\n65535\n").into_bytes();
+        for sample in samples {
+            bytes.extend_from_slice(&sample.to_be_bytes());
+        }
+        bytes
     }
 
     #[cfg(any(feature = "charls", feature = "jpeg", feature = "jpegxl"))]

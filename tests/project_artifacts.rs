@@ -659,8 +659,14 @@ fn htj2k_lossless_backend_decision_selects_openjph_external_command() {
     assert!(
         blockers
             .iter()
+            .any(|blocker| blocker.contains("version reporting")),
+        "HTJ2K should keep portable version reporting blocked before generation"
+    );
+    assert!(
+        !blockers
+            .iter()
             .any(|blocker| blocker.contains("Full unsigned 16-bit sample-domain behavior")),
-        "HTJ2K should keep full unsigned sample-domain behavior blocked before generation"
+        "HTJ2K should not keep the raw sample-domain blocker after selecting the PGM path"
     );
     assert!(
         !blockers
@@ -679,7 +685,9 @@ fn htj2k_lossless_backend_decision_selects_openjph_external_command() {
                 && item
                     .get("finding")
                     .and_then(Value::as_str)
-                    .is_some_and(|finding| finding.contains("exact native bytes"))
+                    .is_some_and(|finding| {
+                        finding.contains("zero, midrange, and high unsigned values")
+                    })
         }),
         "HTJ2K decision should record the OpenJPH encode/decode proof"
     );
@@ -699,9 +707,9 @@ fn htj2k_lossless_backend_decision_selects_openjph_external_command() {
                 && item
                     .get("finding")
                     .and_then(Value::as_str)
-                    .is_some_and(|finding| finding.contains("zero and high unsigned samples"))
+                    .is_some_and(|finding| finding.contains("PGM path with `-num_decomps 1`"))
         }),
-        "HTJ2K decision should record the remaining unsigned sample-domain failure"
+        "HTJ2K decision should record the selected PGM path for unsigned sample interpretation"
     );
     assert!(
         evidence.iter().any(|item| {
@@ -712,6 +720,14 @@ fn htj2k_lossless_backend_decision_selects_openjph_external_command() {
                     .is_some_and(|finding| finding.contains("external-command wrapper"))
         }),
         "HTJ2K decision should record why the external-command mode was selected"
+    );
+
+    assert!(
+        htj2k
+            .pointer("/integration_mode/input_path")
+            .and_then(Value::as_str)
+            .is_some_and(|path| path.contains("16-bit MONOCHROME2 PGM input")),
+        "HTJ2K should select PGM input for the first OpenJPH path"
     );
 }
 

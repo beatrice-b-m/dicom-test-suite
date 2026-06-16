@@ -281,21 +281,21 @@
         "command": "ojph_compress",
         "version_command": null,
         "version_discovery": "The local `ojph_compress` binary rejects `-v`, `-h`, and `--help`; the project wrapper still needs a portable version-discovery strategy before generation can report backend identity.",
-        "policy": "Invoke OpenJPH only through an explicit project wrapper that discovers the tool, records the executable version when available and fixed encoder options, and reports the external backend in manifests. Do not vendor OpenJPH C++ or add an FFI wrapper for the first generated case."
+        "input_path": "Use 16-bit MONOCHROME2 PGM input with big-endian sample bytes and `-num_decomps 1` for the first proof-backed OpenJPH HTJ2K Lossless path. Do not use the raw/YUV path with `-num_decomps 0`; it failed edge-domain unsigned 16-bit round-trip checks.",
+        "policy": "Invoke OpenJPH only through an explicit project wrapper that discovers the tool, records the executable version or executable fingerprint when available plus fixed encoder options, and reports the external backend in manifests. Do not vendor OpenJPH C++ or add an FFI wrapper for the first generated case."
       },
       "validation_strategy": [
-        "OpenJPH can encode a tiny 16-bit unsigned MONOCHROME2 raw frame into an HTJ2K Lossless codestream that the DICOM-rs OpenJPEG-backed HTJ2K reader decodes exactly for the sampled values.",
+        "OpenJPH can encode a tiny 16-bit unsigned MONOCHROME2 PGM frame into an HTJ2K Lossless codestream that the DICOM-rs OpenJPEG-backed HTJ2K reader decodes exactly for sampled edge-domain values including zero and high unsigned samples.",
         "Integrate OpenJPH as an explicit external command wrapper for the first generated case, not as a vendored C++ build or FFI wrapper.",
         "Use DICOM-rs OpenJPEG-backed HTJ2K decode support as the first independent reader and compare exact native frame hashes in generation and CLI validation.",
-        "Record OpenJPH version, invocation options, and platform details before adding any project feature gate.",
+        "Record OpenJPH version or executable fingerprint, invocation options, and platform details before adding any project feature gate.",
         "Defer RPCL and lossy HTJ2K variants until lossless support is proven."
       ],
       "blockers": [
         "The project OpenJPH external-command wrapper, tool discovery, version reporting, and error model are not implemented.",
         "The local `ojph_compress` binary does not expose a working `-v`, `-h`, or `--help` version command, so portable version reporting is unresolved.",
         "No mature Rust-native HTJ2K encoder dependency is pinned in this project.",
-        "Grok has HTJ2K support but is AGPL v3, so it is excluded from default generation by the project licensing policy.",
-        "Full unsigned 16-bit sample-domain behavior is not proven: the current raw `ojph_compress` command path decodes zero and high unsigned samples incorrectly through the pinned DICOM-rs HTJ2K reader."
+        "Grok has HTJ2K support but is AGPL v3, so it is excluded from default generation by the project licensing policy."
       ],
       "candidate_backends": [
         {
@@ -303,7 +303,7 @@
           "status": "selected_external_command_integration",
           "license": "BSD-2-Clause",
           "backend_kind": "external_command",
-          "rationale": "OpenJPH targets HTJ2K directly and has a permissive license that fits the default backend policy. A local external-command spike proved exact DICOM-rs decode for a tiny 16-bit unsigned MONOCHROME2 raw frame. The first project integration should preserve that proven path as a discoverable external command rather than adding vendored C++ or FFI scope."
+          "rationale": "OpenJPH targets HTJ2K directly and has a permissive license that fits the default backend policy. A local external-command spike proved exact DICOM-rs decode for a tiny 16-bit unsigned MONOCHROME2 PGM frame with edge-domain sample values. The first project integration should preserve that proven path as a discoverable external command rather than adding vendored C++ or FFI scope."
         },
         {
           "name": "Grok",
@@ -351,25 +351,25 @@
         },
         {
           "source": "local-spike",
-          "command": "ojph_compress -i mono2_u16.raw -o mono2_u16_htj2k.j2c -reversible true -num_decomps 0 -dims {4,2} -num_comps 1 -signed false -bit_depth 16 -downsamp {1,1}",
-          "finding": "OpenJPH produced a raw HTJ2K codestream with SOC/EOC markers that DICOM-rs 0.9.1 decoded through the HTJ2K Lossless transfer syntax with exact native bytes for a tiny 2x4 unsigned 16-bit MONOCHROME2 frame using nonzero values within the lower unsigned range."
+          "command": "ojph_compress -i mono2_u16.pgm -o mono2_u16_htj2k.j2c -reversible true -num_decomps 1",
+          "finding": "OpenJPH produced a raw HTJ2K codestream with SOC/EOC markers from a 16-bit MONOCHROME2 PGM input that DICOM-rs 0.9.1 decoded through the HTJ2K Lossless transfer syntax with exact native bytes for a tiny 2x4 unsigned frame including zero, midrange, and high unsigned values."
         },
         {
           "source": "local-verification",
           "path": "src/codecs.rs",
-          "finding": "Running the selected `ojph_compress` command twice for the same tiny raw lower-range unsigned 16-bit MONOCHROME2 frame produced byte-identical HTJ2K codestream hashes, so command-level byte reproducibility is proven for the sampled safe domain."
+          "finding": "Running the selected PGM-input `ojph_compress` command twice for the same tiny edge-domain unsigned 16-bit MONOCHROME2 frame produced byte-identical HTJ2K codestream hashes, so command-level byte reproducibility is proven for the sampled first-case domain."
         },
         {
           "source": "local-verification",
           "path": "src/codecs.rs",
-          "finding": "The same command path did not round-trip the broader unsigned 16-bit sample domain through the pinned DICOM-rs HTJ2K reader: zero and high unsigned samples decoded with offset or clipped values, so generation remains blocked until raw sample interpretation or another OpenJPH input path is resolved."
+          "finding": "The earlier raw/YUV input path with `-num_decomps 0` did not round-trip the broader unsigned 16-bit sample domain through the pinned DICOM-rs HTJ2K reader; the selected PGM path with `-num_decomps 1` resolves that sample interpretation issue for the first 16-bit MONOCHROME2 case."
         },
         {
           "source": "local-decision",
           "finding": "The first HTJ2K integration mode is an explicit OpenJPH external-command wrapper so the project can reuse the proven command-line path while keeping vendored C++ and FFI work out of the initial generation slice."
         }
       ],
-      "next_action": "Resolve OpenJPH raw unsigned 16-bit sample interpretation for zero and high values, or select a different OpenJPH input path, before adding the project feature gate and wrapper."
+      "next_action": "Choose a portable OpenJPH version-reporting or executable-fingerprint strategy, then implement the project external-command wrapper behind an explicit feature gate before adding generated HTJ2K cases."
     },
     {
       "family_id": "legacy_jpeg",

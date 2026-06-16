@@ -12604,6 +12604,7 @@ fn classic_mg_manifest_entry(
                 "pixel_values": recipe.pixel_values,
                 "presentation_intent_type": recipe.presentation_intent_type,
                 "image_laterality": "L",
+                "body_part_examined": "BREAST",
                 "view_position": "MLO",
                 "imager_pixel_spacing": recipe.imager_pixel_spacing,
                 "presentation_lut_shape": recipe.presentation_lut_shape,
@@ -13273,6 +13274,7 @@ fn classic_dx_manifest_entry(
                 "pixel_values": recipe.pixel_values,
                 "presentation_intent_type": "FOR PRESENTATION",
                 "image_laterality": "U",
+                "body_part_examined": "CHEST",
                 "imager_pixel_spacing": recipe.imager_pixel_spacing,
                 "presentation_lut_shape": "IDENTITY",
                 "window": {
@@ -14376,6 +14378,8 @@ fn classic_cr_manifest_entry(
                 "high_bit": 7,
                 "pixel_representation": 0,
                 "pixel_values": recipe.pixel_values,
+                "body_part_examined": recipe.body_part_examined,
+                "view_position": recipe.view_position,
                 "overlay": {
                     "rows": recipe.rows,
                     "columns": recipe.columns,

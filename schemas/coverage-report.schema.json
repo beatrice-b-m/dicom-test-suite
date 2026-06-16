@@ -152,6 +152,12 @@
         "display_shutter_presentation_values": {
           "$ref": "#/$defs/count_map"
         },
+        "body_parts_examined": {
+          "$ref": "#/$defs/count_map"
+        },
+        "view_positions": {
+          "$ref": "#/$defs/count_map"
+        },
         "lossy_image_compression": {
           "$ref": "#/$defs/count_map"
         },
@@ -287,6 +293,8 @@
         "window_width",
         "display_shutter_shape",
         "display_shutter_presentation_value",
+        "body_part_examined",
+        "view_position",
         "lossy_image_compression",
         "lossy_image_compression_ratio",
         "lossy_image_compression_method"
@@ -459,6 +467,12 @@
         "display_shutter_presentation_value": {
           "type": ["integer", "null"],
           "minimum": 0
+        },
+        "body_part_examined": {
+          "type": ["string", "null"]
+        },
+        "view_position": {
+          "type": ["string", "null"]
         },
         "lossy_image_compression": {
           "type": ["string", "null"],

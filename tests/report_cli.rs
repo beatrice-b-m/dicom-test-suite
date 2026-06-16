@@ -121,6 +121,42 @@ fn report_command_writes_json_coverage_for_core_root() {
         Some(0)
     );
     assert_eq!(
+        coverage_row(&report, "classic/cr/overlay_modality_voi_explicit_le")
+            .get("body_part_examined")
+            .and_then(Value::as_str),
+        Some("CHEST")
+    );
+    assert_eq!(
+        coverage_row(&report, "classic/cr/overlay_modality_voi_explicit_le")
+            .get("view_position")
+            .and_then(Value::as_str),
+        Some("PA")
+    );
+    assert_eq!(
+        coverage_row(&report, "classic/dx/display_shutter_mono2_u16_explicit_le")
+            .get("body_part_examined")
+            .and_then(Value::as_str),
+        Some("CHEST")
+    );
+    assert_eq!(
+        coverage_row(
+            &report,
+            "classic/mg/for_presentation_mono1_u16_12bit_explicit_le"
+        )
+        .get("body_part_examined")
+        .and_then(Value::as_str),
+        Some("BREAST")
+    );
+    assert_eq!(
+        coverage_row(
+            &report,
+            "classic/mg/for_presentation_mono1_u16_12bit_explicit_le"
+        )
+        .get("view_position")
+        .and_then(Value::as_str),
+        Some("MLO")
+    );
+    assert_eq!(
         coverage_row(
             &report,
             "classic/mg/for_processing_mono2_u16_12bit_implicit_le"
@@ -249,6 +285,30 @@ fn report_command_writes_json_coverage_for_core_root() {
             .and_then(Value::as_u64),
         Some(1)
     );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/body_parts_examined/CHEST")
+            .and_then(Value::as_u64),
+        Some(2)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/body_parts_examined/BREAST")
+            .and_then(Value::as_u64),
+        Some(2)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/view_positions/PA")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/view_positions/MLO")
+            .and_then(Value::as_u64),
+        Some(2)
+    );
 
     fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
 }
@@ -297,6 +357,12 @@ fn report_command_writes_markdown_coverage_for_core_root() {
     assert!(stdout.contains("| RECTANGULAR | 1 |"));
     assert!(stdout.contains("### Display Shutter Presentation Values"));
     assert!(stdout.contains("| 0 | 1 |"));
+    assert!(stdout.contains("### Body Parts Examined"));
+    assert!(stdout.contains("| CHEST | 2 |"));
+    assert!(stdout.contains("| BREAST | 2 |"));
+    assert!(stdout.contains("### View Positions"));
+    assert!(stdout.contains("| PA | 1 |"));
+    assert!(stdout.contains("| MLO | 2 |"));
     assert!(stdout.contains("## Gaps"));
     assert!(
         stdout.contains("| classic/ct/mono2_i16_rescale_12bit_explicit_le | generated | core |")

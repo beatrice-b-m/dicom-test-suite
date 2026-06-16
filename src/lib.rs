@@ -6130,6 +6130,18 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
     append_count_map_section(
         &mut output,
         report,
+        "Body Parts Examined",
+        "/grouped_coverage/body_parts_examined",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "View Positions",
+        "/grouped_coverage/view_positions",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
         "Known Stressors",
         "/grouped_coverage/known_stressors",
     );
@@ -6290,6 +6302,18 @@ fn generated_coverage_row(
             .map(Value::from)
             .unwrap_or(Value::Null),
     );
+    row_object.insert(
+        "body_part_examined".to_string(),
+        report_body_part_examined(file)
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
+    row_object.insert(
+        "view_position".to_string(),
+        report_view_position(file)
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
     Ok(row)
 }
 
@@ -6319,6 +6343,24 @@ fn report_display_shutter_shape(file: &Value) -> Option<&str> {
 fn report_display_shutter_presentation_value(file: &Value) -> Option<u64> {
     file.pointer("/recipe/recipe_parameters/display_shutter/presentation_value")
         .and_then(Value::as_u64)
+}
+
+fn report_body_part_examined(file: &Value) -> Option<&str> {
+    file.pointer("/recipe/recipe_parameters/body_part_examined")
+        .and_then(Value::as_str)
+        .or_else(|| {
+            file.pointer("/expected_semantics/body_part_examined")
+                .and_then(Value::as_str)
+        })
+}
+
+fn report_view_position(file: &Value) -> Option<&str> {
+    file.pointer("/recipe/recipe_parameters/view_position")
+        .and_then(Value::as_str)
+        .or_else(|| {
+            file.pointer("/expected_semantics/view_position")
+                .and_then(Value::as_str)
+        })
 }
 
 fn manifest_reference_case_ids(
@@ -6445,6 +6487,8 @@ fn skipped_coverage_row(
         "display_shutter_presentation_value".to_string(),
         Value::Null,
     );
+    row_object.insert("body_part_examined".to_string(), Value::Null);
+    row_object.insert("view_position".to_string(), Value::Null);
     Ok(row)
 }
 
@@ -6593,6 +6637,8 @@ struct GroupedCoverage {
     window_widths: BTreeMap<String, usize>,
     display_shutter_shapes: BTreeMap<String, usize>,
     display_shutter_presentation_values: BTreeMap<String, usize>,
+    body_parts_examined: BTreeMap<String, usize>,
+    view_positions: BTreeMap<String, usize>,
     lossy_image_compression: BTreeMap<String, usize>,
     lossy_image_compression_ratios: BTreeMap<String, usize>,
     lossy_image_compression_methods: BTreeMap<String, usize>,
@@ -6786,6 +6832,14 @@ impl GroupedCoverage {
                 .or_default() += 1;
         }
         increment_map(
+            &mut self.body_parts_examined,
+            row.get("body_part_examined").and_then(Value::as_str),
+        );
+        increment_map(
+            &mut self.view_positions,
+            row.get("view_position").and_then(Value::as_str),
+        );
+        increment_map(
             &mut self.lossy_image_compression,
             row.get("lossy_image_compression").and_then(Value::as_str),
         );
@@ -6871,6 +6925,16 @@ impl GroupedCoverage {
             "display_shutter_presentation_values".to_string(),
             serde_json::to_value(&self.display_shutter_presentation_values)
                 .expect("display shutter presentation value count map must serialize"),
+        );
+        grouped_object.insert(
+            "body_parts_examined".to_string(),
+            serde_json::to_value(&self.body_parts_examined)
+                .expect("body part examined count map must serialize"),
+        );
+        grouped_object.insert(
+            "view_positions".to_string(),
+            serde_json::to_value(&self.view_positions)
+                .expect("view position count map must serialize"),
         );
         grouped
     }

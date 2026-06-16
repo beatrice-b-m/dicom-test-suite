@@ -2365,6 +2365,19 @@ fn report_projects_manifest_references_for_non_image_rows() {
         Some("enhanced/ct/multiframe_shared_perframe_explicit_le")
     );
     assert_eq!(
+        row.get("derived_reference_relationships")
+            .and_then(Value::as_array)
+            .and_then(|refs| refs.first())
+            .and_then(Value::as_str),
+        Some("source_image")
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/derived_reference_relationships/source_image")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
         report
             .pointer("/grouped_coverage/object_types/derived")
             .and_then(Value::as_u64),
@@ -2474,6 +2487,7 @@ fn report_summarizes_compressed_codec_coverage() {
                 },
                 "references": [
                     {
+                        "relationship": "source_image",
                         "source_case_id": "classic/sc/mono2_u8_explicit_le"
                     }
                 ],
@@ -2751,6 +2765,20 @@ fn report_summarizes_compressed_codec_coverage() {
         Some(1)
     );
     assert_eq!(
+        generated
+            .get("derived_reference_relationships")
+            .and_then(Value::as_array)
+            .and_then(|refs| refs.first())
+            .and_then(Value::as_str),
+        Some("source_image")
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/derived_reference_relationships/source_image")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
         report
             .pointer("/grouped_coverage/synthetic_data/YES")
             .and_then(Value::as_u64),
@@ -2891,6 +2919,8 @@ fn report_summarizes_compressed_codec_coverage() {
     assert!(markdown.contains("### Derived Reference States"));
     assert!(markdown.contains("| with_source_reference | 1 |"));
     assert!(markdown.contains("| without_source_reference | 1 |"));
+    assert!(markdown.contains("### Derived Reference Relationships"));
+    assert!(markdown.contains("| source_image | 1 |"));
     assert!(markdown.contains("### Synthetic Data"));
     assert!(markdown.contains("| YES | 1 |"));
     assert!(markdown.contains("### Image Types"));

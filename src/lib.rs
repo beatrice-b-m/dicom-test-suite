@@ -6112,6 +6112,12 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
     append_count_map_section(
         &mut output,
         report,
+        "Derived Reference Relationships",
+        "/grouped_coverage/derived_reference_relationships",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
         "Synthetic Data",
         "/grouped_coverage/synthetic_data",
     );
@@ -6384,6 +6390,7 @@ fn generated_coverage_row(
     run_profile: &str,
 ) -> Result<Value, ReportError> {
     let derived_refs = manifest_reference_case_ids(manifest_path, file)?;
+    let derived_reference_relationships = manifest_reference_relationships(manifest_path, file)?;
     let transfer_syntax = report_str(
         manifest_path,
         file,
@@ -6433,6 +6440,7 @@ fn generated_coverage_row(
             "orientation": Value::Null
         },
         "derived_refs": derived_refs,
+        "derived_reference_relationships": derived_reference_relationships,
         "validation_status": file.pointer("/validation/status").and_then(Value::as_str).unwrap_or("not_run"),
         "determinism": report_str(manifest_path, file, "/determinism", "determinism must be a string")?,
         "object_type": file.get("case_id").and_then(Value::as_str).and_then(|case_id| case_id.split('/').next()),
@@ -6911,6 +6919,36 @@ fn manifest_reference_case_ids(
         .collect()
 }
 
+fn manifest_reference_relationships(
+    manifest_path: &Path,
+    file: &Value,
+) -> Result<Vec<String>, ReportError> {
+    let references = match file.get("references") {
+        Some(Value::Array(references)) => references,
+        Some(_) => {
+            return Err(ReportError::MetadataShape {
+                path: manifest_path.to_path_buf(),
+                message: "file references must be an array",
+            });
+        }
+        None => return Ok(Vec::new()),
+    };
+
+    references
+        .iter()
+        .map(|reference| {
+            reference
+                .get("relationship")
+                .and_then(Value::as_str)
+                .map(str::to_string)
+                .ok_or_else(|| ReportError::MetadataShape {
+                    path: manifest_path.to_path_buf(),
+                    message: "file reference relationship must be a string",
+                })
+        })
+        .collect()
+}
+
 fn skipped_coverage_row(
     manifest_path: &Path,
     registry: &Value,
@@ -7000,6 +7038,10 @@ fn skipped_coverage_row(
         .expect("skipped coverage row literal must be an object");
     row_object.insert("window_center".to_string(), Value::Null);
     row_object.insert("window_width".to_string(), Value::Null);
+    row_object.insert(
+        "derived_reference_relationships".to_string(),
+        Value::Array(Vec::new()),
+    );
     row_object.insert("kvp".to_string(), Value::Null);
     row_object.insert("mr_scanning_sequence".to_string(), Value::Null);
     row_object.insert("mr_sequence_variant".to_string(), Value::Null);
@@ -7193,6 +7235,7 @@ struct GroupedCoverage {
     slice_locations: BTreeMap<String, usize>,
     object_types: BTreeMap<String, usize>,
     derived_reference_states: BTreeMap<String, usize>,
+    derived_reference_relationships: BTreeMap<String, usize>,
     synthetic_data: BTreeMap<String, usize>,
     image_types: BTreeMap<String, usize>,
     conversion_types: BTreeMap<String, usize>,
@@ -7412,6 +7455,17 @@ impl GroupedCoverage {
                     }
                 });
         increment_map(&mut self.derived_reference_states, derived_reference_state);
+        if let Some(relationships) = row
+            .get("derived_reference_relationships")
+            .and_then(Value::as_array)
+        {
+            for relationship in relationships {
+                increment_map(
+                    &mut self.derived_reference_relationships,
+                    relationship.as_str(),
+                );
+            }
+        }
         increment_map(
             &mut self.synthetic_data,
             row.get("synthetic_data").and_then(Value::as_str),
@@ -7627,6 +7681,11 @@ impl GroupedCoverage {
             "window_centers".to_string(),
             serde_json::to_value(&self.window_centers)
                 .expect("window center count map must serialize"),
+        );
+        grouped_object.insert(
+            "derived_reference_relationships".to_string(),
+            serde_json::to_value(&self.derived_reference_relationships)
+                .expect("derived reference relationship count map must serialize"),
         );
         grouped_object.insert(
             "window_widths".to_string(),

@@ -152,6 +152,9 @@
         "derived_reference_states": {
           "$ref": "#/$defs/count_map"
         },
+        "derived_reference_relationships": {
+          "$ref": "#/$defs/count_map"
+        },
         "synthetic_data": {
           "$ref": "#/$defs/count_map"
         },
@@ -380,6 +383,7 @@
         "spacing_between_slices",
         "slice_location",
         "derived_refs",
+        "derived_reference_relationships",
         "validation_status",
         "determinism",
         "object_type",
@@ -574,6 +578,12 @@
           "type": ["string", "null"]
         },
         "derived_refs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "derived_reference_relationships": {
           "type": "array",
           "items": {
             "type": "string"

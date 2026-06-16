@@ -251,6 +251,36 @@
         "segmentation_maximum_fractional_values": {
           "$ref": "#/$defs/count_map"
         },
+        "rwvm_content_labels": {
+          "$ref": "#/$defs/count_map"
+        },
+        "rwvm_lut_labels": {
+          "$ref": "#/$defs/count_map"
+        },
+        "rwvm_first_values_mapped": {
+          "$ref": "#/$defs/count_map"
+        },
+        "rwvm_last_values_mapped": {
+          "$ref": "#/$defs/count_map"
+        },
+        "rwvm_intercepts": {
+          "$ref": "#/$defs/count_map"
+        },
+        "rwvm_slopes": {
+          "$ref": "#/$defs/count_map"
+        },
+        "rwvm_units_code_values": {
+          "$ref": "#/$defs/count_map"
+        },
+        "rwvm_units_coding_scheme_designators": {
+          "$ref": "#/$defs/count_map"
+        },
+        "rwvm_units_code_meanings": {
+          "$ref": "#/$defs/count_map"
+        },
+        "rwvm_referenced_frame_numbers": {
+          "$ref": "#/$defs/count_map"
+        },
         "rt_dose_units": {
           "$ref": "#/$defs/count_map"
         },
@@ -539,6 +569,16 @@
         "segmentation_type",
         "segmentation_fractional_type",
         "segmentation_maximum_fractional_value",
+        "rwvm_content_label",
+        "rwvm_lut_label",
+        "rwvm_first_value_mapped",
+        "rwvm_last_value_mapped",
+        "rwvm_intercept",
+        "rwvm_slope",
+        "rwvm_units_code_value",
+        "rwvm_units_coding_scheme_designator",
+        "rwvm_units_code_meaning",
+        "rwvm_referenced_frame_numbers",
         "rt_dose_units",
         "rt_dose_type",
         "rt_dose_summation_type",
@@ -866,6 +906,38 @@
         "segmentation_maximum_fractional_value": {
           "type": ["integer", "null"],
           "minimum": 0
+        },
+        "rwvm_content_label": {
+          "type": ["string", "null"]
+        },
+        "rwvm_lut_label": {
+          "type": ["string", "null"]
+        },
+        "rwvm_first_value_mapped": {
+          "type": ["integer", "null"],
+          "minimum": 0
+        },
+        "rwvm_last_value_mapped": {
+          "type": ["integer", "null"],
+          "minimum": 0
+        },
+        "rwvm_intercept": {
+          "type": ["string", "null"]
+        },
+        "rwvm_slope": {
+          "type": ["string", "null"]
+        },
+        "rwvm_units_code_value": {
+          "type": ["string", "null"]
+        },
+        "rwvm_units_coding_scheme_designator": {
+          "type": ["string", "null"]
+        },
+        "rwvm_units_code_meaning": {
+          "type": ["string", "null"]
+        },
+        "rwvm_referenced_frame_numbers": {
+          "type": ["string", "null"]
         },
         "rt_dose_units": {
           "type": ["string", "null"]

@@ -6323,6 +6323,66 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
     append_count_map_section(
         &mut output,
         report,
+        "RWVM Content Labels",
+        "/grouped_coverage/rwvm_content_labels",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "RWVM LUT Labels",
+        "/grouped_coverage/rwvm_lut_labels",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "RWVM First Values Mapped",
+        "/grouped_coverage/rwvm_first_values_mapped",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "RWVM Last Values Mapped",
+        "/grouped_coverage/rwvm_last_values_mapped",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "RWVM Intercepts",
+        "/grouped_coverage/rwvm_intercepts",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "RWVM Slopes",
+        "/grouped_coverage/rwvm_slopes",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "RWVM Units Code Values",
+        "/grouped_coverage/rwvm_units_code_values",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "RWVM Units Coding Scheme Designators",
+        "/grouped_coverage/rwvm_units_coding_scheme_designators",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "RWVM Units Code Meanings",
+        "/grouped_coverage/rwvm_units_code_meanings",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "RWVM Referenced Frame Numbers",
+        "/grouped_coverage/rwvm_referenced_frame_numbers",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
         "RT Dose Units",
         "/grouped_coverage/rt_dose_units",
     );
@@ -6986,6 +7046,81 @@ fn generated_coverage_row(
             .and_then(Value::as_u64)
             .map(Value::from)
             .unwrap_or(Value::Null),
+    );
+    let rwvm = file.pointer("/expected_semantics/real_world_value_mapping");
+    row_object.insert(
+        "rwvm_content_label".to_string(),
+        rwvm.and_then(|_| {
+            file.pointer("/recipe/recipe_parameters/content_label")
+                .and_then(Value::as_str)
+        })
+        .map(Value::from)
+        .unwrap_or(Value::Null),
+    );
+    row_object.insert(
+        "rwvm_lut_label".to_string(),
+        file.pointer("/expected_semantics/real_world_value_mapping/lut_label")
+            .and_then(Value::as_str)
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
+    row_object.insert(
+        "rwvm_first_value_mapped".to_string(),
+        file.pointer("/expected_semantics/real_world_value_mapping/first_value_mapped")
+            .and_then(Value::as_u64)
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
+    row_object.insert(
+        "rwvm_last_value_mapped".to_string(),
+        file.pointer("/expected_semantics/real_world_value_mapping/last_value_mapped")
+            .and_then(Value::as_u64)
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
+    row_object.insert(
+        "rwvm_intercept".to_string(),
+        file.pointer("/expected_semantics/real_world_value_mapping/intercept")
+            .and_then(report_scalar_label)
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
+    row_object.insert(
+        "rwvm_slope".to_string(),
+        file.pointer("/expected_semantics/real_world_value_mapping/slope")
+            .and_then(report_scalar_label)
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
+    row_object.insert(
+        "rwvm_units_code_value".to_string(),
+        file.pointer("/expected_semantics/real_world_value_mapping/units/code_value")
+            .and_then(Value::as_str)
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
+    row_object.insert(
+        "rwvm_units_coding_scheme_designator".to_string(),
+        file.pointer("/expected_semantics/real_world_value_mapping/units/coding_scheme_designator")
+            .and_then(Value::as_str)
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
+    row_object.insert(
+        "rwvm_units_code_meaning".to_string(),
+        file.pointer("/expected_semantics/real_world_value_mapping/units/code_meaning")
+            .and_then(Value::as_str)
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
+    row_object.insert(
+        "rwvm_referenced_frame_numbers".to_string(),
+        report_string_or_number_array(
+            file,
+            "/expected_semantics/real_world_value_mapping/referenced_frame_numbers",
+        )
+        .map(Value::from)
+        .unwrap_or(Value::Null),
     );
     row_object.insert(
         "rt_dose_units".to_string(),
@@ -7727,6 +7862,19 @@ fn skipped_coverage_row(
         "segmentation_maximum_fractional_value".to_string(),
         Value::Null,
     );
+    row_object.insert("rwvm_content_label".to_string(), Value::Null);
+    row_object.insert("rwvm_lut_label".to_string(), Value::Null);
+    row_object.insert("rwvm_first_value_mapped".to_string(), Value::Null);
+    row_object.insert("rwvm_last_value_mapped".to_string(), Value::Null);
+    row_object.insert("rwvm_intercept".to_string(), Value::Null);
+    row_object.insert("rwvm_slope".to_string(), Value::Null);
+    row_object.insert("rwvm_units_code_value".to_string(), Value::Null);
+    row_object.insert(
+        "rwvm_units_coding_scheme_designator".to_string(),
+        Value::Null,
+    );
+    row_object.insert("rwvm_units_code_meaning".to_string(), Value::Null);
+    row_object.insert("rwvm_referenced_frame_numbers".to_string(), Value::Null);
     row_object.insert("rt_dose_units".to_string(), Value::Null);
     row_object.insert("rt_dose_type".to_string(), Value::Null);
     row_object.insert("rt_dose_summation_type".to_string(), Value::Null);
@@ -7973,6 +8121,16 @@ struct GroupedCoverage {
     segmentation_types: BTreeMap<String, usize>,
     segmentation_fractional_types: BTreeMap<String, usize>,
     segmentation_maximum_fractional_values: BTreeMap<String, usize>,
+    rwvm_content_labels: BTreeMap<String, usize>,
+    rwvm_lut_labels: BTreeMap<String, usize>,
+    rwvm_first_values_mapped: BTreeMap<String, usize>,
+    rwvm_last_values_mapped: BTreeMap<String, usize>,
+    rwvm_intercepts: BTreeMap<String, usize>,
+    rwvm_slopes: BTreeMap<String, usize>,
+    rwvm_units_code_values: BTreeMap<String, usize>,
+    rwvm_units_coding_scheme_designators: BTreeMap<String, usize>,
+    rwvm_units_code_meanings: BTreeMap<String, usize>,
+    rwvm_referenced_frame_numbers: BTreeMap<String, usize>,
     rt_dose_units: BTreeMap<String, usize>,
     rt_dose_types: BTreeMap<String, usize>,
     rt_dose_summation_types: BTreeMap<String, usize>,
@@ -8381,6 +8539,52 @@ impl GroupedCoverage {
                 .entry(value.to_string())
                 .or_default() += 1;
         }
+        increment_map(
+            &mut self.rwvm_content_labels,
+            row.get("rwvm_content_label").and_then(Value::as_str),
+        );
+        increment_map(
+            &mut self.rwvm_lut_labels,
+            row.get("rwvm_lut_label").and_then(Value::as_str),
+        );
+        if let Some(value) = row.get("rwvm_first_value_mapped").and_then(Value::as_u64) {
+            *self
+                .rwvm_first_values_mapped
+                .entry(value.to_string())
+                .or_default() += 1;
+        }
+        if let Some(value) = row.get("rwvm_last_value_mapped").and_then(Value::as_u64) {
+            *self
+                .rwvm_last_values_mapped
+                .entry(value.to_string())
+                .or_default() += 1;
+        }
+        increment_map(
+            &mut self.rwvm_intercepts,
+            row.get("rwvm_intercept").and_then(Value::as_str),
+        );
+        increment_map(
+            &mut self.rwvm_slopes,
+            row.get("rwvm_slope").and_then(Value::as_str),
+        );
+        increment_map(
+            &mut self.rwvm_units_code_values,
+            row.get("rwvm_units_code_value").and_then(Value::as_str),
+        );
+        increment_map(
+            &mut self.rwvm_units_coding_scheme_designators,
+            row.get("rwvm_units_coding_scheme_designator")
+                .and_then(Value::as_str),
+        );
+        increment_map(
+            &mut self.rwvm_units_code_meanings,
+            row.get("rwvm_units_code_meaning").and_then(Value::as_str),
+        );
+        increment_map(
+            &mut self.rwvm_referenced_frame_numbers,
+            row.get("rwvm_referenced_frame_numbers")
+                .and_then(Value::as_str),
+        );
         increment_map(
             &mut self.rt_dose_units,
             row.get("rt_dose_units").and_then(Value::as_str),
@@ -8817,6 +9021,55 @@ impl GroupedCoverage {
             "segmentation_maximum_fractional_values".to_string(),
             serde_json::to_value(&self.segmentation_maximum_fractional_values)
                 .expect("segmentation maximum fractional value count map must serialize"),
+        );
+        grouped_object.insert(
+            "rwvm_content_labels".to_string(),
+            serde_json::to_value(&self.rwvm_content_labels)
+                .expect("RWVM Content Label count map must serialize"),
+        );
+        grouped_object.insert(
+            "rwvm_lut_labels".to_string(),
+            serde_json::to_value(&self.rwvm_lut_labels)
+                .expect("RWVM LUT Label count map must serialize"),
+        );
+        grouped_object.insert(
+            "rwvm_first_values_mapped".to_string(),
+            serde_json::to_value(&self.rwvm_first_values_mapped)
+                .expect("RWVM first value mapped count map must serialize"),
+        );
+        grouped_object.insert(
+            "rwvm_last_values_mapped".to_string(),
+            serde_json::to_value(&self.rwvm_last_values_mapped)
+                .expect("RWVM last value mapped count map must serialize"),
+        );
+        grouped_object.insert(
+            "rwvm_intercepts".to_string(),
+            serde_json::to_value(&self.rwvm_intercepts)
+                .expect("RWVM intercept count map must serialize"),
+        );
+        grouped_object.insert(
+            "rwvm_slopes".to_string(),
+            serde_json::to_value(&self.rwvm_slopes).expect("RWVM slope count map must serialize"),
+        );
+        grouped_object.insert(
+            "rwvm_units_code_values".to_string(),
+            serde_json::to_value(&self.rwvm_units_code_values)
+                .expect("RWVM units Code Value count map must serialize"),
+        );
+        grouped_object.insert(
+            "rwvm_units_coding_scheme_designators".to_string(),
+            serde_json::to_value(&self.rwvm_units_coding_scheme_designators)
+                .expect("RWVM units Coding Scheme Designator count map must serialize"),
+        );
+        grouped_object.insert(
+            "rwvm_units_code_meanings".to_string(),
+            serde_json::to_value(&self.rwvm_units_code_meanings)
+                .expect("RWVM units Code Meaning count map must serialize"),
+        );
+        grouped_object.insert(
+            "rwvm_referenced_frame_numbers".to_string(),
+            serde_json::to_value(&self.rwvm_referenced_frame_numbers)
+                .expect("RWVM referenced frame number count map must serialize"),
         );
         grouped_object.insert(
             "rt_dose_units".to_string(),

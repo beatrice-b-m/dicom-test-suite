@@ -1485,6 +1485,176 @@ fn report_command_writes_encapsulated_document_content_coverage_for_extended_roo
 }
 
 #[test]
+fn report_command_writes_rwvm_content_coverage_for_extended_root() {
+    let out_dir = unique_temp_dir("report-rwvm-content-json");
+    generate_extended(&out_dir);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args([
+            "report",
+            out_dir.to_str().expect("temp path should be valid UTF-8"),
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("report command must run");
+
+    assert!(
+        output.status.success(),
+        "report should accept generated output: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let report: Value =
+        serde_json::from_slice(&output.stdout).expect("report stdout should be JSON");
+    let row = coverage_row(&report, "derived/rwvm/linear_ct_mapping_explicit_le");
+    assert_eq!(
+        row.get("rwvm_content_label").and_then(Value::as_str),
+        Some("DTSRWVM")
+    );
+    assert_eq!(
+        row.get("rwvm_lut_label").and_then(Value::as_str),
+        Some("DTS_HU")
+    );
+    assert_eq!(
+        row.get("rwvm_first_value_mapped").and_then(Value::as_u64),
+        Some(0)
+    );
+    assert_eq!(
+        row.get("rwvm_last_value_mapped").and_then(Value::as_u64),
+        Some(700)
+    );
+    assert_eq!(
+        row.get("rwvm_intercept").and_then(Value::as_str),
+        Some("-1024.0")
+    );
+    assert_eq!(row.get("rwvm_slope").and_then(Value::as_str), Some("1.0"));
+    assert_eq!(
+        row.get("rwvm_units_code_value").and_then(Value::as_str),
+        Some("HU")
+    );
+    assert_eq!(
+        row.get("rwvm_units_coding_scheme_designator")
+            .and_then(Value::as_str),
+        Some("UCUM")
+    );
+    assert_eq!(
+        row.get("rwvm_units_code_meaning").and_then(Value::as_str),
+        Some("Hounsfield unit")
+    );
+    assert_eq!(
+        row.get("rwvm_referenced_frame_numbers")
+            .and_then(Value::as_str),
+        Some("1; 2")
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/rwvm_content_labels/DTSRWVM")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert!(
+        report
+            .pointer("/grouped_coverage/rwvm_content_labels/DTSGSPS")
+            .is_none(),
+        "RWVM content labels must not include GSPS content labels"
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/rwvm_lut_labels/DTS_HU")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/rwvm_first_values_mapped/0")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/rwvm_last_values_mapped/700")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/rwvm_intercepts/-1024.0")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/rwvm_slopes/1.0")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/rwvm_units_code_values/HU")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/rwvm_units_coding_scheme_designators/UCUM")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/rwvm_units_code_meanings/Hounsfield unit")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/rwvm_referenced_frame_numbers/1; 2")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+
+    let markdown_output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args([
+            "report",
+            out_dir.to_str().expect("temp path should be valid UTF-8"),
+            "--format",
+            "markdown",
+        ])
+        .output()
+        .expect("report markdown command must run");
+
+    assert!(
+        markdown_output.status.success(),
+        "markdown report should accept generated output: {}",
+        String::from_utf8_lossy(&markdown_output.stderr)
+    );
+    let markdown =
+        String::from_utf8(markdown_output.stdout).expect("markdown stdout should be UTF-8");
+    assert!(markdown.contains("### RWVM Content Labels"));
+    assert!(markdown.contains("| DTSRWVM | 1 |"));
+    assert!(markdown.contains("### RWVM LUT Labels"));
+    assert!(markdown.contains("| DTS_HU | 1 |"));
+    assert!(markdown.contains("### RWVM First Values Mapped"));
+    assert!(markdown.contains("| 0 | 1 |"));
+    assert!(markdown.contains("### RWVM Last Values Mapped"));
+    assert!(markdown.contains("| 700 | 1 |"));
+    assert!(markdown.contains("### RWVM Intercepts"));
+    assert!(markdown.contains("| -1024.0 | 1 |"));
+    assert!(markdown.contains("### RWVM Slopes"));
+    assert!(markdown.contains("| 1.0 | 1 |"));
+    assert!(markdown.contains("### RWVM Units Code Values"));
+    assert!(markdown.contains("| HU | 1 |"));
+    assert!(markdown.contains("### RWVM Units Coding Scheme Designators"));
+    assert!(markdown.contains("| UCUM | 1 |"));
+    assert!(markdown.contains("### RWVM Units Code Meanings"));
+    assert!(markdown.contains("| Hounsfield unit | 1 |"));
+    assert!(markdown.contains("### RWVM Referenced Frame Numbers"));
+    assert!(markdown.contains("| 1; 2 | 1 |"));
+
+    fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
+}
+
+#[test]
 fn report_command_writes_structured_report_content_coverage_for_extended_root() {
     let out_dir = unique_temp_dir("report-structured-report-content-json");
     generate_extended(&out_dir);

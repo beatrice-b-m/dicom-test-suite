@@ -86,6 +86,12 @@ fn report_command_writes_json_coverage_for_core_root() {
         Some(1)
     );
     assert_eq!(
+        coverage_row(&report, "vl/photo/palette_color_explicit_le")
+            .get("transfer_syntax_name")
+            .and_then(Value::as_str),
+        Some("Explicit VR Little Endian")
+    );
+    assert_eq!(
         report
             .pointer("/grouped_coverage/profiles/core")
             .and_then(Value::as_u64),
@@ -102,6 +108,18 @@ fn report_command_writes_json_coverage_for_core_root() {
             .pointer("/grouped_coverage/modalities/XC")
             .and_then(Value::as_u64),
         Some(2)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/transfer_syntax_names/Explicit VR Little Endian")
+            .and_then(Value::as_u64),
+        Some(20)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/transfer_syntax_names/Implicit VR Little Endian")
+            .and_then(Value::as_u64),
+        Some(1)
     );
 
     fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
@@ -133,6 +151,9 @@ fn report_command_writes_markdown_coverage_for_core_root() {
     assert!(stdout.contains("| planned | 0 |"));
     assert!(stdout.contains("### Profile Memberships"));
     assert!(stdout.contains("| core | 21 |"));
+    assert!(stdout.contains("### Transfer Syntax Names"));
+    assert!(stdout.contains("| Explicit VR Little Endian | 20 |"));
+    assert!(stdout.contains("| Implicit VR Little Endian | 1 |"));
     assert!(stdout.contains("## Gaps"));
     assert!(
         stdout.contains("| classic/ct/mono2_i16_rescale_12bit_explicit_le | generated | core |")
@@ -170,6 +191,10 @@ fn report_command_counts_generated_rgb_rle_lossless_row() {
     assert_eq!(
         row.get("transfer_syntax").and_then(Value::as_str),
         Some("1.2.840.10008.1.2.5")
+    );
+    assert_eq!(
+        row.get("transfer_syntax_name").and_then(Value::as_str),
+        Some("RLE Lossless")
     );
     assert_eq!(
         row.get("codec_family").and_then(Value::as_str),
@@ -1616,7 +1641,8 @@ fn report_projects_manifest_references_for_non_image_rows() {
                 "dicom": {
                     "iod_name": "Real World Value Mapping",
                     "sop_class_uid": "1.2.840.10008.5.1.4.1.1.67",
-                    "transfer_syntax_uid": "1.2.840.10008.1.2.1"
+                    "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+                    "transfer_syntax_name": "Explicit VR Little Endian"
                 },
                 "image": null,
                 "pixel_data": null,
@@ -1696,7 +1722,8 @@ fn report_summarizes_compressed_codec_coverage() {
                     "iod_name": "Secondary Capture Image",
                     "modality": "OT",
                     "sop_class_uid": "1.2.840.10008.5.1.4.1.1.7",
-                    "transfer_syntax_uid": "1.2.840.10008.1.2.5"
+                    "transfer_syntax_uid": "1.2.840.10008.1.2.5",
+                    "transfer_syntax_name": "RLE Lossless"
                 },
                 "image": {
                     "photometric_interpretation": "RGB",
@@ -1799,6 +1826,18 @@ fn report_summarizes_compressed_codec_coverage() {
     assert_eq!(
         report
             .pointer("/grouped_coverage/codec_families/RLE Lossless")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/transfer_syntax_names/RLE Lossless")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/transfer_syntax_names/JPEG Baseline (Process 1)")
             .and_then(Value::as_u64),
         Some(1)
     );
@@ -1962,6 +2001,12 @@ fn report_summarizes_compressed_codec_coverage() {
     assert_eq!(
         unavailable.get("modality").and_then(Value::as_str),
         Some("OT")
+    );
+    assert_eq!(
+        unavailable
+            .get("transfer_syntax_name")
+            .and_then(Value::as_str),
+        Some("JPEG Baseline (Process 1)")
     );
     assert_eq!(
         unavailable.get("object_type").and_then(Value::as_str),

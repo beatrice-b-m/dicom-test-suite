@@ -53,6 +53,9 @@
         "transfer_syntaxes": {
           "$ref": "#/$defs/count_map"
         },
+        "transfer_syntax_names": {
+          "$ref": "#/$defs/count_map"
+        },
         "codec_families": {
           "$ref": "#/$defs/count_map"
         },
@@ -206,6 +209,7 @@
         "modality",
         "sop_class_uid",
         "transfer_syntax",
+        "transfer_syntax_name",
         "codec_family",
         "codec_backend_id",
         "codec_backend_kind",
@@ -255,6 +259,9 @@
         },
         "transfer_syntax": {
           "type": "string"
+        },
+        "transfer_syntax_name": {
+          "type": ["string", "null"]
         },
         "codec_family": {
           "type": ["string", "null"]

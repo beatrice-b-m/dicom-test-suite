@@ -5,7 +5,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use dicom_core::VR;
-use dicom_dictionary_std::{StandardDataDictionary, tags};
+use dicom_dictionary_std::{StandardDataDictionary, tags, uids};
 use dicom_object::{FileDicomObject, InMemDicomObject, open_file};
 use serde_json::Value;
 
@@ -5914,6 +5914,12 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
     append_count_map_section(
         &mut output,
         report,
+        "Transfer Syntax Names",
+        "/grouped_coverage/transfer_syntax_names",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
         "Codec Families",
         "/grouped_coverage/codec_families",
     );
@@ -6107,6 +6113,12 @@ fn generated_coverage_row(
         "/dicom/transfer_syntax_uid",
         "dicom transfer_syntax_uid must be a string",
     )?;
+    let transfer_syntax_name = report_str(
+        manifest_path,
+        file,
+        "/dicom/transfer_syntax_name",
+        "dicom transfer_syntax_name must be a string",
+    )?;
     let codec = file.pointer("/pixel_data/codec");
     Ok(serde_json::json!({
         "case_id": report_str(manifest_path, file, "/case_id", "file case_id must be a string")?,
@@ -6117,6 +6129,7 @@ fn generated_coverage_row(
         "modality": file.pointer("/dicom/modality").and_then(Value::as_str),
         "sop_class_uid": report_str(manifest_path, file, "/dicom/sop_class_uid", "dicom sop_class_uid must be a string")?,
         "transfer_syntax": transfer_syntax,
+        "transfer_syntax_name": transfer_syntax_name,
         "codec_family": compressed_codec_family(transfer_syntax),
         "codec_backend_id": codec.and_then(|codec| codec.get("backend_id")).and_then(Value::as_str),
         "codec_backend_kind": codec.and_then(|codec| codec.get("backend_kind")).and_then(Value::as_str),
@@ -6221,6 +6234,7 @@ fn skipped_coverage_row(
         "modality": registry_case.get("modality").and_then(Value::as_str),
         "sop_class_uid": registry_case.get("sop_class_uid").and_then(Value::as_str).unwrap_or(""),
         "transfer_syntax": transfer_syntax,
+        "transfer_syntax_name": transfer_syntax_name(transfer_syntax),
         "codec_family": compressed_codec_family(transfer_syntax),
         "codec_backend_id": Value::Null,
         "codec_backend_kind": Value::Null,
@@ -6262,6 +6276,25 @@ fn compressed_codec_family(transfer_syntax_uid: &str) -> Option<&'static str> {
             Some("Legacy JPEG Lossless")
         }
         DEFLATED_IMAGE_FRAME_TRANSFER_SYNTAX_UID => Some("Deflated Image Frame"),
+        _ => None,
+    }
+}
+
+fn transfer_syntax_name(transfer_syntax_uid: &str) -> Option<&'static str> {
+    match transfer_syntax_uid {
+        uids::IMPLICIT_VR_LITTLE_ENDIAN => Some("Implicit VR Little Endian"),
+        uids::EXPLICIT_VR_LITTLE_ENDIAN => Some("Explicit VR Little Endian"),
+        "1.2.840.10008.1.2.2" => Some("Explicit VR Big Endian"),
+        uids::DEFLATED_EXPLICIT_VR_LITTLE_ENDIAN => Some("Deflated Explicit VR Little Endian"),
+        RLE_LOSSLESS_TRANSFER_SYNTAX_UID => Some("RLE Lossless"),
+        JPEG_BASELINE_8BIT_TRANSFER_SYNTAX_UID => Some("JPEG Baseline (Process 1)"),
+        JPEG_LS_LOSSLESS_TRANSFER_SYNTAX_UID => Some("JPEG-LS Lossless"),
+        JPEG_XL_LOSSLESS_TRANSFER_SYNTAX_UID => Some("JPEG XL Lossless"),
+        JPEG_2000_LOSSLESS_TRANSFER_SYNTAX_UID => Some("JPEG 2000 Lossless"),
+        HTJ2K_LOSSLESS_TRANSFER_SYNTAX_UID => Some("HTJ2K Lossless"),
+        JPEG_LOSSLESS_PROCESS_14_TRANSFER_SYNTAX_UID => Some("JPEG Lossless Process 14"),
+        JPEG_LOSSLESS_SV1_TRANSFER_SYNTAX_UID => Some("JPEG Lossless SV1"),
+        DEFLATED_IMAGE_FRAME_TRANSFER_SYNTAX_UID => Some("Deflated Image Frame Compression"),
         _ => None,
     }
 }
@@ -6346,6 +6379,7 @@ struct GroupedCoverage {
     modalities: BTreeMap<String, usize>,
     sop_classes: BTreeMap<String, usize>,
     transfer_syntaxes: BTreeMap<String, usize>,
+    transfer_syntax_names: BTreeMap<String, usize>,
     codec_families: BTreeMap<String, usize>,
     codec_backends: BTreeMap<String, usize>,
     codec_backend_kinds: BTreeMap<String, usize>,
@@ -6396,6 +6430,10 @@ impl GroupedCoverage {
         increment_map(
             &mut self.transfer_syntaxes,
             row.get("transfer_syntax").and_then(Value::as_str),
+        );
+        increment_map(
+            &mut self.transfer_syntax_names,
+            row.get("transfer_syntax_name").and_then(Value::as_str),
         );
         increment_map(
             &mut self.codec_families,
@@ -6510,6 +6548,7 @@ impl GroupedCoverage {
             "modalities": self.modalities,
             "sop_classes": self.sop_classes,
             "transfer_syntaxes": self.transfer_syntaxes,
+            "transfer_syntax_names": self.transfer_syntax_names,
             "codec_families": self.codec_families,
             "codec_backends": self.codec_backends,
             "codec_backend_kinds": self.codec_backend_kinds,

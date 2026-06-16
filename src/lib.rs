@@ -6022,6 +6022,24 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
     append_count_map_section(
         &mut output,
         report,
+        "Basic Offset Tables",
+        "/grouped_coverage/basic_offset_tables",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "Encapsulated Fragment Layouts",
+        "/grouped_coverage/encapsulated_fragment_layouts",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "Extended Offset Tables",
+        "/grouped_coverage/extended_offset_tables",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
         "Frame Counts",
         "/grouped_coverage/frame_counts",
     );
@@ -6157,6 +6175,9 @@ fn generated_coverage_row(
         "planar_configuration": file.pointer("/image/planar_configuration").and_then(Value::as_u64),
         "pixel_data_vr": file.pointer("/pixel_data/vr").and_then(Value::as_str),
         "pixel_data_layout": file.pointer("/pixel_data/native_or_encapsulated").and_then(Value::as_str),
+        "basic_offset_table": basic_offset_table_state(file),
+        "encapsulated_fragment_layout": encapsulated_fragment_layout(file),
+        "extended_offset_table": extended_offset_table_state(file),
         "frames": file.pointer("/image/frames").and_then(Value::as_u64),
         "geometry": {
             "rows": file.pointer("/image/rows").and_then(Value::as_u64),
@@ -6264,6 +6285,9 @@ fn skipped_coverage_row(
         "planar_configuration": Value::Null,
         "pixel_data_vr": Value::Null,
         "pixel_data_layout": Value::Null,
+        "basic_offset_table": Value::Null,
+        "encapsulated_fragment_layout": Value::Null,
+        "extended_offset_table": Value::Null,
         "frames": Value::Null,
         "geometry": {
             "rows": Value::Null,
@@ -6419,6 +6443,9 @@ struct GroupedCoverage {
     derived_reference_states: BTreeMap<String, usize>,
     synthetic_data: BTreeMap<String, usize>,
     known_stressors: BTreeMap<String, usize>,
+    basic_offset_tables: BTreeMap<String, usize>,
+    encapsulated_fragment_layouts: BTreeMap<String, usize>,
+    extended_offset_tables: BTreeMap<String, usize>,
 }
 
 impl GroupedCoverage {
@@ -6533,6 +6560,19 @@ impl GroupedCoverage {
             &mut self.pixel_data_layouts,
             row.get("pixel_data_layout").and_then(Value::as_str),
         );
+        increment_map(
+            &mut self.basic_offset_tables,
+            row.get("basic_offset_table").and_then(Value::as_str),
+        );
+        increment_map(
+            &mut self.encapsulated_fragment_layouts,
+            row.get("encapsulated_fragment_layout")
+                .and_then(Value::as_str),
+        );
+        increment_map(
+            &mut self.extended_offset_tables,
+            row.get("extended_offset_table").and_then(Value::as_str),
+        );
         if let Some(frames) = row.get("frames").and_then(Value::as_u64) {
             *self.frame_counts.entry(frames.to_string()).or_default() += 1;
         }
@@ -6592,6 +6632,9 @@ impl GroupedCoverage {
             "planar_configurations": self.planar_configurations,
             "pixel_data_vrs": self.pixel_data_vrs,
             "pixel_data_layouts": self.pixel_data_layouts,
+            "basic_offset_tables": self.basic_offset_tables,
+            "encapsulated_fragment_layouts": self.encapsulated_fragment_layouts,
+            "extended_offset_tables": self.extended_offset_tables,
             "frame_counts": self.frame_counts,
             "geometries": self.geometries,
             "object_types": self.object_types,
@@ -6600,6 +6643,32 @@ impl GroupedCoverage {
             "known_stressors": self.known_stressors
         })
     }
+}
+
+fn basic_offset_table_state(file: &Value) -> Option<&'static str> {
+    file.pointer("/pixel_data/encapsulated_pixel_data/basic_offset_table/populated")
+        .and_then(Value::as_bool)
+        .map(|populated| if populated { "populated" } else { "empty" })
+}
+
+fn encapsulated_fragment_layout(file: &Value) -> Option<&'static str> {
+    let fragments_per_frame = file
+        .pointer("/pixel_data/encapsulated_pixel_data/fragments_per_frame")
+        .and_then(Value::as_array)?;
+    if fragments_per_frame
+        .iter()
+        .all(|fragment_count| fragment_count.as_u64() == Some(1))
+    {
+        Some("single_fragment_per_frame")
+    } else {
+        Some("multi_fragment_per_frame")
+    }
+}
+
+fn extended_offset_table_state(file: &Value) -> Option<&'static str> {
+    file.pointer("/pixel_data/encapsulated_pixel_data/extended_offset_table/present")
+        .and_then(Value::as_bool)
+        .map(|present| if present { "present" } else { "absent" })
 }
 
 fn geometry_bucket(row: &Value) -> Option<String> {

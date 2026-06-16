@@ -107,6 +107,15 @@
         "pixel_data_layouts": {
           "$ref": "#/$defs/count_map"
         },
+        "basic_offset_tables": {
+          "$ref": "#/$defs/count_map"
+        },
+        "encapsulated_fragment_layouts": {
+          "$ref": "#/$defs/count_map"
+        },
+        "extended_offset_tables": {
+          "$ref": "#/$defs/count_map"
+        },
         "frame_counts": {
           "$ref": "#/$defs/count_map"
         },
@@ -231,6 +240,9 @@
         "planar_configuration",
         "pixel_data_vr",
         "pixel_data_layout",
+        "basic_offset_table",
+        "encapsulated_fragment_layout",
+        "extended_offset_table",
         "frames",
         "geometry",
         "derived_refs",
@@ -324,6 +336,22 @@
         "pixel_data_layout": {
           "type": ["string", "null"],
           "enum": ["native", "encapsulated", "absent", null]
+        },
+        "basic_offset_table": {
+          "type": ["string", "null"],
+          "enum": ["populated", "empty", null]
+        },
+        "encapsulated_fragment_layout": {
+          "type": ["string", "null"],
+          "enum": [
+            "single_fragment_per_frame",
+            "multi_fragment_per_frame",
+            null
+          ]
+        },
+        "extended_offset_table": {
+          "type": ["string", "null"],
+          "enum": ["present", "absent", null]
         },
         "frames": {
           "type": ["integer", "null"],

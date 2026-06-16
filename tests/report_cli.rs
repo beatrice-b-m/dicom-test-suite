@@ -1713,6 +1713,21 @@ fn report_projects_manifest_references_for_non_image_rows() {
         Some(&Value::Null),
         "non-image rows should not invent Pixel Data layout metadata"
     );
+    assert_eq!(
+        row.get("basic_offset_table"),
+        Some(&Value::Null),
+        "non-image rows should not invent Basic Offset Table metadata"
+    );
+    assert_eq!(
+        row.get("encapsulated_fragment_layout"),
+        Some(&Value::Null),
+        "non-image rows should not invent fragment layout metadata"
+    );
+    assert_eq!(
+        row.get("extended_offset_table"),
+        Some(&Value::Null),
+        "non-image rows should not invent Extended Offset Table metadata"
+    );
 
     fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
 }
@@ -1755,6 +1770,25 @@ fn report_summarizes_compressed_codec_coverage() {
                 "pixel_data": {
                     "vr": "OB",
                     "native_or_encapsulated": "encapsulated",
+                    "encapsulated_pixel_data": {
+                        "basic_offset_table": {
+                            "present": true,
+                            "populated": true,
+                            "offset_count": 1,
+                            "offsets": [0]
+                        },
+                        "fragments_per_frame": [1],
+                        "fragments": [],
+                        "extended_offset_table": {
+                            "present": false,
+                            "lengths_present": false,
+                            "offset_count": 0,
+                            "length_count": 0
+                        },
+                        "compressed_frame_hashes": [
+                            "1111111111111111111111111111111111111111111111111111111111111111"
+                        ]
+                    },
                     "codec": {
                         "backend_id": "native_rle_lossless",
                         "backend_kind": "native",
@@ -1847,6 +1881,22 @@ fn report_summarizes_compressed_codec_coverage() {
     assert_eq!(
         generated.get("pixel_data_layout").and_then(Value::as_str),
         Some("encapsulated")
+    );
+    assert_eq!(
+        generated.get("basic_offset_table").and_then(Value::as_str),
+        Some("populated")
+    );
+    assert_eq!(
+        generated
+            .get("encapsulated_fragment_layout")
+            .and_then(Value::as_str),
+        Some("single_fragment_per_frame")
+    );
+    assert_eq!(
+        generated
+            .get("extended_offset_table")
+            .and_then(Value::as_str),
+        Some("absent")
     );
     assert_eq!(
         report
@@ -1976,6 +2026,24 @@ fn report_summarizes_compressed_codec_coverage() {
     );
     assert_eq!(
         report
+            .pointer("/grouped_coverage/basic_offset_tables/populated")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/encapsulated_fragment_layouts/single_fragment_per_frame")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/extended_offset_tables/absent")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
             .pointer("/grouped_coverage/geometries/2x2")
             .and_then(Value::as_u64),
         Some(1)
@@ -2057,6 +2125,12 @@ fn report_summarizes_compressed_codec_coverage() {
     assert_eq!(unavailable.get("planar_configuration"), Some(&Value::Null));
     assert_eq!(unavailable.get("pixel_data_vr"), Some(&Value::Null));
     assert_eq!(unavailable.get("pixel_data_layout"), Some(&Value::Null));
+    assert_eq!(unavailable.get("basic_offset_table"), Some(&Value::Null));
+    assert_eq!(
+        unavailable.get("encapsulated_fragment_layout"),
+        Some(&Value::Null)
+    );
+    assert_eq!(unavailable.get("extended_offset_table"), Some(&Value::Null));
 
     let markdown = dicom_test_suite::render_coverage_report_markdown(&report);
     assert!(markdown.contains("### Codec Families"));
@@ -2094,6 +2168,12 @@ fn report_summarizes_compressed_codec_coverage() {
     assert!(markdown.contains("| OB | 1 |"));
     assert!(markdown.contains("### Pixel Data Layouts"));
     assert!(markdown.contains("| encapsulated | 1 |"));
+    assert!(markdown.contains("### Basic Offset Tables"));
+    assert!(markdown.contains("| populated | 1 |"));
+    assert!(markdown.contains("### Encapsulated Fragment Layouts"));
+    assert!(markdown.contains("| single_fragment_per_frame | 1 |"));
+    assert!(markdown.contains("### Extended Offset Tables"));
+    assert!(markdown.contains("| absent | 1 |"));
     assert!(markdown.contains("### Geometries"));
     assert!(markdown.contains("| 2x2 | 1 |"));
     assert!(markdown.contains("### Object Types"));

@@ -25,6 +25,9 @@ jpeg2000 = [
     "dicom-transfer-syntax-registry/openjp2",
     "dep:openjp2",
 ]
+htj2k_openjph = [
+    "jpeg2000",
+]
 
 [dependencies]
 dicom-core = "=0.9.1"

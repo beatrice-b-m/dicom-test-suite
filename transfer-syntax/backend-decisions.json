@@ -266,13 +266,13 @@
     },
     {
       "family_id": "htj2k",
-      "classification": "research_more",
+      "classification": "implement_now",
       "transfer_syntax_uids": [
         "1.2.840.10008.1.2.4.201"
       ],
-      "selected_backend": "openjph_lossless_external_command",
+      "selected_backend": "openjph_htj2k_lossless_command_writer",
       "backend_kind": "external_command",
-      "feature_gate": null,
+      "feature_gate": "htj2k_openjph",
       "determinism": "semantic_stable",
       "first_case_target": "classic/sc/mono2_u16_htj2k_lossless",
       "integration_mode": {
@@ -280,7 +280,8 @@
         "selected": "external_command",
         "command": "ojph_compress",
         "version_command": null,
-        "version_discovery": "The local `ojph_compress` binary rejects `-v`, `-h`, and `--help`; the project wrapper still needs a portable version-discovery strategy before generation can report backend identity.",
+        "version_discovery": "The local `ojph_compress` binary rejects `-v`, `-h`, and `--help`; the project wrapper therefore reports the resolved executable path and SHA-256 executable fingerprint as the portable backend identity until a reliable version command is available.",
+        "fingerprint_strategy": "Resolve `ojph_compress` through PATH or an explicit command path, canonicalize the executable path, and record the SHA-256 of the executable bytes with the fixed encoder options.",
         "input_path": "Use 16-bit MONOCHROME2 PGM input with big-endian sample bytes and `-num_decomps 1` for the first proof-backed OpenJPH HTJ2K Lossless path. Do not use the raw/YUV path with `-num_decomps 0`; it failed edge-domain unsigned 16-bit round-trip checks.",
         "policy": "Invoke OpenJPH only through an explicit project wrapper that discovers the tool, records the executable version or executable fingerprint when available plus fixed encoder options, and reports the external backend in manifests. Do not vendor OpenJPH C++ or add an FFI wrapper for the first generated case."
       },
@@ -288,19 +289,19 @@
         "OpenJPH can encode a tiny 16-bit unsigned MONOCHROME2 PGM frame into an HTJ2K Lossless codestream that the DICOM-rs OpenJPEG-backed HTJ2K reader decodes exactly for sampled edge-domain values including zero and high unsigned samples.",
         "Integrate OpenJPH as an explicit external command wrapper for the first generated case, not as a vendored C++ build or FFI wrapper.",
         "Use DICOM-rs OpenJPEG-backed HTJ2K decode support as the first independent reader and compare exact native frame hashes in generation and CLI validation.",
-        "Record OpenJPH version or executable fingerprint, invocation options, and platform details before adding any project feature gate.",
+        "Record the OpenJPH executable path and executable SHA-256 fingerprint because this local binary does not expose a working version command.",
         "Defer RPCL and lossy HTJ2K variants until lossless support is proven."
       ],
       "blockers": [
-        "The project OpenJPH external-command wrapper, tool discovery, version reporting, and error model are not implemented.",
-        "The local `ojph_compress` binary does not expose a working `-v`, `-h`, or `--help` version command, so portable version reporting is unresolved.",
+        "The first generated HTJ2K Lossless Secondary Capture case is not implemented yet.",
+        "OpenJPH semantic identity currently depends on executable SHA-256 fingerprinting because the local `ojph_compress` binary does not expose a working `-v`, `-h`, or `--help` version command.",
         "No mature Rust-native HTJ2K encoder dependency is pinned in this project.",
         "Grok has HTJ2K support but is AGPL v3, so it is excluded from default generation by the project licensing policy."
       ],
       "candidate_backends": [
         {
           "name": "OpenJPH",
-          "status": "selected_external_command_integration",
+          "status": "selected_external_command_wrapper",
           "license": "BSD-2-Clause",
           "backend_kind": "external_command",
           "rationale": "OpenJPH targets HTJ2K directly and has a permissive license that fits the default backend policy. A local external-command spike proved exact DICOM-rs decode for a tiny 16-bit unsigned MONOCHROME2 PGM frame with edge-domain sample values. The first project integration should preserve that proven path as a discoverable external command rather than adding vendored C++ or FFI scope."
@@ -367,9 +368,14 @@
         {
           "source": "local-decision",
           "finding": "The first HTJ2K integration mode is an explicit OpenJPH external-command wrapper so the project can reuse the proven command-line path while keeping vendored C++ and FFI work out of the initial generation slice."
+        },
+        {
+          "source": "local-verification",
+          "path": "src/codecs.rs",
+          "finding": "The project `htj2k_openjph` feature exposes an OpenJPH external-command wrapper that resolves `ojph_compress`, fingerprints the executable with SHA-256, encodes fixed-option PGM input, validates SOC/EOC markers, and decodes the resulting HTJ2K Lossless codestream through the pinned DICOM-rs OpenJPEG-backed reader."
         }
       ],
-      "next_action": "Choose a portable OpenJPH version-reporting or executable-fingerprint strategy, then implement the project external-command wrapper behind an explicit feature gate before adding generated HTJ2K cases."
+      "next_action": "Add the first feature-gated generated HTJ2K Lossless Secondary Capture case with manifest backend fingerprint metadata, exact decoded-frame validation, report coverage, and reproducibility evidence."
     },
     {
       "family_id": "legacy_jpeg",

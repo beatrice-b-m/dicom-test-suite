@@ -12,6 +12,13 @@ use crate::PACKAGE_VERSION;
 use std::borrow::Cow;
 #[cfg(feature = "jpeg2000")]
 use std::os::raw::c_void;
+#[cfg(feature = "htj2k_openjph")]
+use std::{
+    env, fs,
+    path::{Path, PathBuf},
+    process::Command,
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 #[cfg(any(
     feature = "charls",
@@ -32,6 +39,8 @@ use dicom_encoding::{
     Codec,
     adapters::{PixelDataObject, PixelDataReader, RawPixelData},
 };
+#[cfg(feature = "htj2k_openjph")]
+use dicom_transfer_syntax_registry::entries::HIGH_THROUGHPUT_JPEG_2000_IMAGE_COMPRESSION_LOSSLESS_ONLY;
 #[cfg(feature = "jpeg2000")]
 use dicom_transfer_syntax_registry::entries::JPEG_2000_IMAGE_COMPRESSION_LOSSLESS_ONLY;
 #[cfg(feature = "jpeg")]
@@ -49,6 +58,7 @@ pub const JPEG_2000_LOSSLESS_TRANSFER_SYNTAX_UID: &str = "1.2.840.10008.1.2.4.90
 pub const JPEG_BASELINE_8BIT_TRANSFER_SYNTAX_UID: &str = "1.2.840.10008.1.2.4.50";
 pub const JPEG_LS_LOSSLESS_TRANSFER_SYNTAX_UID: &str = "1.2.840.10008.1.2.4.80";
 pub const JPEG_XL_LOSSLESS_TRANSFER_SYNTAX_UID: &str = "1.2.840.10008.1.2.4.110";
+pub const HTJ2K_LOSSLESS_TRANSFER_SYNTAX_UID: &str = "1.2.840.10008.1.2.4.201";
 pub const RLE_LOSSLESS_TRANSFER_SYNTAX_UID: &str = "1.2.840.10008.1.2.5";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -333,6 +343,236 @@ impl FrameDecoder for OpenJp2Jpeg2000LosslessEncoder {
             return Err(CodecError::unavailable(
                 Self::BACKEND_ID,
                 "DICOM-rs JPEG 2000 Lossless reader is not available",
+            ));
+        };
+
+        let mut decoded = Vec::new();
+        reader
+            .decode_frame(&obj, 0, &mut decoded)
+            .map_err(|err| CodecError::validation_failed(Self::BACKEND_ID, err.to_string()))?;
+
+        Ok(DecodedFrame {
+            native_bytes: decoded,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg(feature = "htj2k_openjph")]
+pub struct ExternalCommandBackendIdentity {
+    pub command: &'static str,
+    pub executable_path: PathBuf,
+    pub executable_sha256: String,
+    pub version: Option<String>,
+    pub version_source: &'static str,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg(feature = "htj2k_openjph")]
+pub struct OpenJphHtj2kLosslessEncoder {
+    command: PathBuf,
+}
+
+#[cfg(feature = "htj2k_openjph")]
+impl Default for OpenJphHtj2kLosslessEncoder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[cfg(feature = "htj2k_openjph")]
+impl OpenJphHtj2kLosslessEncoder {
+    pub const BACKEND_ID: &'static str = "openjph_htj2k_lossless_command_writer";
+    pub const COMMAND: &'static str = "ojph_compress";
+
+    pub fn new() -> Self {
+        Self {
+            command: PathBuf::from(Self::COMMAND),
+        }
+    }
+
+    pub fn with_command(command: impl Into<PathBuf>) -> Self {
+        Self {
+            command: command.into(),
+        }
+    }
+
+    pub fn discover_backend_identity(&self) -> Result<ExternalCommandBackendIdentity, CodecError> {
+        let executable_path = resolve_command_path(&self.command)?;
+        let executable_bytes = fs::read(&executable_path).map_err(|err| {
+            CodecError::unavailable(
+                Self::BACKEND_ID,
+                format!(
+                    "failed to read OpenJPH executable {} for fingerprinting: {err}",
+                    executable_path.display()
+                ),
+            )
+        })?;
+
+        Ok(ExternalCommandBackendIdentity {
+            command: Self::COMMAND,
+            executable_path,
+            executable_sha256: crate::sha256_hex(&executable_bytes),
+            version: None,
+            version_source: "executable_sha256",
+        })
+    }
+}
+
+#[cfg(feature = "htj2k_openjph")]
+impl FrameEncoder for OpenJphHtj2kLosslessEncoder {
+    fn backend(&self) -> CodecBackendInfo {
+        CodecBackendInfo {
+            backend_id: Self::BACKEND_ID,
+            backend_kind: CodecBackendKind::ExternalCommand,
+            display_name: "OpenJPH HTJ2K Lossless external command writer",
+            version: "OpenJPH ojph_compress executable SHA-256 fingerprint recorded at runtime",
+            transfer_syntax_uid: HTJ2K_LOSSLESS_TRANSFER_SYNTAX_UID,
+            feature_gate: Some("htj2k_openjph"),
+            determinism: CodecDeterminism::SemanticStable,
+        }
+    }
+
+    fn encode_frame(&self, input: FrameEncodeInput<'_>) -> Result<EncodedFrame, CodecError> {
+        if input.bits_allocated != 16 || input.bits_stored != 16 {
+            return Err(CodecError::unsupported(
+                Self::BACKEND_ID,
+                "HTJ2K Lossless first-case support is limited to 16-bit source frames",
+            ));
+        }
+        if input.samples_per_pixel != 1 || input.photometric_interpretation != "MONOCHROME2" {
+            return Err(CodecError::unsupported(
+                Self::BACKEND_ID,
+                "HTJ2K Lossless first-case support currently requires MONOCHROME2 input",
+            ));
+        }
+
+        let expected_len = usize::from(input.rows)
+            .checked_mul(usize::from(input.columns))
+            .and_then(|pixels| pixels.checked_mul(2))
+            .ok_or_else(|| {
+                CodecError::unsupported(Self::BACKEND_ID, "native frame length overflowed")
+            })?;
+        if input.native_frame.len() != expected_len {
+            return Err(CodecError::unsupported(
+                Self::BACKEND_ID,
+                format!(
+                    "native frame length is {}, expected {expected_len}",
+                    input.native_frame.len()
+                ),
+            ));
+        }
+
+        let identity = self.discover_backend_identity()?;
+        let dir = unique_openjph_temp_dir();
+        let encode_result = (|| {
+            fs::create_dir_all(&dir).map_err(|err| {
+                CodecError::encode_failed(
+                    Self::BACKEND_ID,
+                    format!(
+                        "failed to create OpenJPH temporary directory {}: {err}",
+                        dir.display()
+                    ),
+                )
+            })?;
+            let input_path = dir.join("frame.pgm");
+            let output_path = dir.join("frame_htj2k.j2c");
+            fs::write(
+                &input_path,
+                pgm_u16_mono2_from_native_le(input.columns, input.rows, input.native_frame)?,
+            )
+            .map_err(|err| {
+                CodecError::encode_failed(
+                    Self::BACKEND_ID,
+                    format!(
+                        "failed to write OpenJPH PGM input {}: {err}",
+                        input_path.display()
+                    ),
+                )
+            })?;
+
+            let output = Command::new(&identity.executable_path)
+                .arg("-i")
+                .arg(&input_path)
+                .arg("-o")
+                .arg(&output_path)
+                .arg("-reversible")
+                .arg("true")
+                .arg("-num_decomps")
+                .arg("1")
+                .output()
+                .map_err(|err| {
+                    CodecError::encode_failed(
+                        Self::BACKEND_ID,
+                        format!("failed to run OpenJPH command: {err}"),
+                    )
+                })?;
+            if !output.status.success() {
+                return Err(CodecError::encode_failed(
+                    Self::BACKEND_ID,
+                    format!(
+                        "ojph_compress failed with status {:?}: stdout={}, stderr={}",
+                        output.status.code(),
+                        String::from_utf8_lossy(&output.stdout),
+                        String::from_utf8_lossy(&output.stderr)
+                    ),
+                ));
+            }
+
+            fs::read(&output_path).map_err(|err| {
+                CodecError::encode_failed(
+                    Self::BACKEND_ID,
+                    format!(
+                        "failed to read OpenJPH codestream {}: {err}",
+                        output_path.display()
+                    ),
+                )
+            })
+        })();
+        let _ = fs::remove_dir_all(&dir);
+
+        let encoded = encode_result?;
+        if encoded.len() < 4 || encoded[..2] != [0xff, 0x4f] {
+            return Err(CodecError::validation_failed(
+                Self::BACKEND_ID,
+                "HTJ2K codestream is missing the SOC marker",
+            ));
+        }
+        if encoded[encoded.len() - 2..] != [0xff, 0xd9] {
+            return Err(CodecError::validation_failed(
+                Self::BACKEND_ID,
+                "HTJ2K codestream is missing the EOC marker",
+            ));
+        }
+
+        Ok(EncodedFrame { bytes: encoded })
+    }
+}
+
+#[cfg(feature = "htj2k_openjph")]
+impl FrameDecoder for OpenJphHtj2kLosslessEncoder {
+    fn backend(&self) -> CodecBackendInfo {
+        <Self as FrameEncoder>::backend(self)
+    }
+
+    fn decode_frame(&self, input: FrameDecodeInput<'_>) -> Result<DecodedFrame, CodecError> {
+        let obj = DicomRsPixelDataObject {
+            transfer_syntax_uid: HTJ2K_LOSSLESS_TRANSFER_SYNTAX_UID,
+            rows: input.rows,
+            columns: input.columns,
+            samples_per_pixel: input.samples_per_pixel,
+            bits_allocated: input.bits_allocated,
+            bits_stored: input.bits_stored,
+            photometric_interpretation: input.photometric_interpretation,
+            fragments: vec![input.encoded_frame.to_vec()],
+            offset_table: Vec::new(),
+        };
+        let Codec::EncapsulatedPixelData(Some(reader), _) =
+            HIGH_THROUGHPUT_JPEG_2000_IMAGE_COMPRESSION_LOSSLESS_ONLY.codec()
+        else {
+            return Err(CodecError::unavailable(
+                Self::BACKEND_ID,
+                "DICOM-rs HTJ2K Lossless reader is not available",
             ));
         };
 
@@ -1324,6 +1564,123 @@ fn read_u32_le(bytes: &[u8], offset: usize) -> u32 {
     ])
 }
 
+#[cfg(feature = "htj2k_openjph")]
+fn resolve_command_path(command: &Path) -> Result<PathBuf, CodecError> {
+    if command.is_absolute() || command.components().count() > 1 {
+        return canonical_existing_command(command);
+    }
+
+    let path_var = env::var_os("PATH").ok_or_else(|| {
+        CodecError::unavailable(
+            OpenJphHtj2kLosslessEncoder::BACKEND_ID,
+            "PATH is not set, so ojph_compress cannot be discovered",
+        )
+    })?;
+
+    for dir in env::split_paths(&path_var) {
+        for candidate in command_candidates(&dir, command) {
+            if candidate.is_file() {
+                return candidate.canonicalize().map_err(|err| {
+                    CodecError::unavailable(
+                        OpenJphHtj2kLosslessEncoder::BACKEND_ID,
+                        format!(
+                            "failed to canonicalize OpenJPH executable {}: {err}",
+                            candidate.display()
+                        ),
+                    )
+                });
+            }
+        }
+    }
+
+    Err(CodecError::unavailable(
+        OpenJphHtj2kLosslessEncoder::BACKEND_ID,
+        "ojph_compress was not found on PATH",
+    ))
+}
+
+#[cfg(feature = "htj2k_openjph")]
+fn canonical_existing_command(command: &Path) -> Result<PathBuf, CodecError> {
+    if !command.is_file() {
+        return Err(CodecError::unavailable(
+            OpenJphHtj2kLosslessEncoder::BACKEND_ID,
+            format!("OpenJPH executable {} does not exist", command.display()),
+        ));
+    }
+    command.canonicalize().map_err(|err| {
+        CodecError::unavailable(
+            OpenJphHtj2kLosslessEncoder::BACKEND_ID,
+            format!(
+                "failed to canonicalize OpenJPH executable {}: {err}",
+                command.display()
+            ),
+        )
+    })
+}
+
+#[cfg(all(feature = "htj2k_openjph", not(windows)))]
+fn command_candidates(dir: &Path, command: &Path) -> Vec<PathBuf> {
+    vec![dir.join(command)]
+}
+
+#[cfg(all(feature = "htj2k_openjph", windows))]
+fn command_candidates(dir: &Path, command: &Path) -> Vec<PathBuf> {
+    if command.extension().is_some() {
+        return vec![dir.join(command)];
+    }
+
+    let pathext = env::var_os("PATHEXT").unwrap_or_else(|| ".COM;.EXE;.BAT;.CMD".into());
+    env::split_paths(&pathext)
+        .map(|extension| {
+            let extension = extension.to_string_lossy();
+            dir.join(format!("{}{}", command.display(), extension))
+        })
+        .chain(std::iter::once(dir.join(command)))
+        .collect()
+}
+
+#[cfg(feature = "htj2k_openjph")]
+fn pgm_u16_mono2_from_native_le(
+    columns: u16,
+    rows: u16,
+    native_frame: &[u8],
+) -> Result<Vec<u8>, CodecError> {
+    let expected_len = usize::from(columns)
+        .checked_mul(usize::from(rows))
+        .and_then(|samples| samples.checked_mul(2))
+        .ok_or_else(|| {
+            CodecError::unsupported(
+                OpenJphHtj2kLosslessEncoder::BACKEND_ID,
+                "PGM input length overflowed",
+            )
+        })?;
+    if native_frame.len() != expected_len {
+        return Err(CodecError::unsupported(
+            OpenJphHtj2kLosslessEncoder::BACKEND_ID,
+            format!(
+                "native frame length is {}, expected {expected_len}",
+                native_frame.len()
+            ),
+        ));
+    }
+
+    let mut bytes = format!("P5\n{columns} {rows}\n65535\n").into_bytes();
+    for sample in native_frame.chunks_exact(2) {
+        let sample = u16::from_le_bytes([sample[0], sample[1]]);
+        bytes.extend_from_slice(&sample.to_be_bytes());
+    }
+    Ok(bytes)
+}
+
+#[cfg(feature = "htj2k_openjph")]
+fn unique_openjph_temp_dir() -> PathBuf {
+    let nonce = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_nanos())
+        .unwrap_or_default();
+    env::temp_dir().join(format!("dts-openjph-htj2k-{}-{nonce}", std::process::id()))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1902,17 +2259,61 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "jpeg2000")]
+    #[cfg(feature = "htj2k_openjph")]
     #[test]
-    fn openjph_htj2k_lossless_pgm_codestream_is_reproducible_for_u16_edges() {
-        use dicom_transfer_syntax_registry::entries::HIGH_THROUGHPUT_JPEG_2000_IMAGE_COMPRESSION_LOSSLESS_ONLY;
-        use std::fs;
-        use std::process::Command;
-        use std::time::{SystemTime, UNIX_EPOCH};
+    fn openjph_htj2k_lossless_backend_reports_identity() {
+        let encoder = OpenJphHtj2kLosslessEncoder::new();
 
-        if Command::new("ojph_compress").output().is_err() {
-            eprintln!("skipping OpenJPH HTJ2K spike proof because ojph_compress is not on PATH");
-            return;
+        let backend = FrameEncoder::backend(&encoder);
+
+        assert_eq!(backend.backend_id, "openjph_htj2k_lossless_command_writer");
+        assert_eq!(backend.backend_kind.as_str(), "external_command");
+        assert_eq!(backend.transfer_syntax_uid, "1.2.840.10008.1.2.4.201");
+        assert_eq!(backend.feature_gate, Some("htj2k_openjph"));
+        assert_eq!(backend.determinism.as_str(), "semantic_stable");
+        assert!(backend.version.contains("executable SHA-256 fingerprint"));
+    }
+
+    #[cfg(feature = "htj2k_openjph")]
+    #[test]
+    fn openjph_htj2k_lossless_discovers_executable_fingerprint() {
+        let encoder = OpenJphHtj2kLosslessEncoder::new();
+
+        let identity = match encoder.discover_backend_identity() {
+            Ok(identity) => identity,
+            Err(CodecError::Unavailable { reason, .. }) if reason.contains("not found") => {
+                eprintln!("skipping OpenJPH HTJ2K fingerprint proof because {reason}");
+                return;
+            }
+            Err(error) => panic!("OpenJPH backend discovery should not fail unexpectedly: {error}"),
+        };
+
+        assert_eq!(identity.command, "ojph_compress");
+        assert!(
+            identity.executable_path.is_file(),
+            "resolved OpenJPH executable path should point to a file"
+        );
+        assert_eq!(identity.version, None);
+        assert_eq!(identity.version_source, "executable_sha256");
+        assert_eq!(identity.executable_sha256.len(), 64);
+        assert!(
+            identity
+                .executable_sha256
+                .chars()
+                .all(|character| character.is_ascii_hexdigit()),
+            "OpenJPH executable fingerprint should be hex SHA-256"
+        );
+    }
+
+    #[cfg(feature = "htj2k_openjph")]
+    #[test]
+    fn openjph_htj2k_lossless_wrapper_round_trips_u16_edges() {
+        let codec = OpenJphHtj2kLosslessEncoder::new();
+        if let Err(CodecError::Unavailable { reason, .. }) = codec.discover_backend_identity() {
+            if reason.contains("not found") {
+                eprintln!("skipping OpenJPH HTJ2K wrapper proof because {reason}");
+                return;
+            }
         }
 
         let samples = [0u16, 1, 32767, 32768, 65535, 0x1234, 0xabcd, 2];
@@ -1921,55 +2322,76 @@ mod tests {
             .flat_map(|sample| sample.to_le_bytes())
             .collect::<Vec<_>>();
 
-        let suffix = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .expect("system time should be after UNIX_EPOCH")
-            .as_nanos();
-        let dir =
-            std::env::temp_dir().join(format!("dts-openjph-htj2k-{}-{suffix}", std::process::id()));
-        fs::create_dir_all(&dir).expect("temporary OpenJPH spike directory should be writable");
-        let input_path = dir.join("mono2_u16.pgm");
-        let first_codestream_path = dir.join("mono2_u16_htj2k_first.j2c");
-        let second_codestream_path = dir.join("mono2_u16_htj2k_second.j2c");
-        fs::write(&input_path, pgm_u16_mono2_bytes(4, 2, &samples))
-            .expect("temporary PGM input should be writable");
+        let encoded = codec
+            .encode_frame(FrameEncodeInput {
+                native_frame: &native,
+                rows: 2,
+                columns: 4,
+                samples_per_pixel: 1,
+                bits_allocated: 16,
+                bits_stored: 16,
+                photometric_interpretation: "MONOCHROME2",
+            })
+            .expect("OpenJPH HTJ2K Lossless should encode a tiny 16-bit frame");
+        let repeated_encoded = codec
+            .encode_frame(FrameEncodeInput {
+                native_frame: &native,
+                rows: 2,
+                columns: 4,
+                samples_per_pixel: 1,
+                bits_allocated: 16,
+                bits_stored: 16,
+                photometric_interpretation: "MONOCHROME2",
+            })
+            .expect("OpenJPH HTJ2K Lossless should encode reproducibly");
 
-        run_openjph_htj2k_lossless_encode(&input_path, &first_codestream_path);
-        run_openjph_htj2k_lossless_encode(&input_path, &second_codestream_path);
-
-        let codestream =
-            fs::read(&first_codestream_path).expect("OpenJPH HTJ2K codestream should be readable");
-        let repeated_codestream = fs::read(&second_codestream_path)
-            .expect("second OpenJPH HTJ2K codestream should be readable");
         assert_eq!(
-            crate::sha256_hex(&codestream),
-            crate::sha256_hex(&repeated_codestream),
-            "OpenJPH should produce byte-identical HTJ2K codestreams for fixed raw input and options"
+            crate::sha256_hex(&encoded.bytes),
+            crate::sha256_hex(&repeated_encoded.bytes),
+            "OpenJPH should produce byte-identical HTJ2K codestreams for fixed PGM input and options"
         );
         assert!(
-            codestream.len() >= 4,
+            encoded.bytes.len() >= 4,
             "OpenJPH HTJ2K codestream should not be empty"
         );
         assert_eq!(
-            &codestream[..2],
+            &encoded.bytes[..2],
             &[0xff, 0x4f],
             "HTJ2K codestream must start with SOC"
         );
         assert_eq!(
-            &codestream[codestream.len() - 2..],
+            &encoded.bytes[encoded.bytes.len() - 2..],
             &[0xff, 0xd9],
             "HTJ2K codestream must end with EOC"
         );
 
+        let decoded = codec
+            .decode_frame(FrameDecodeInput {
+                encoded_frame: &encoded.bytes,
+                rows: 2,
+                columns: 4,
+                samples_per_pixel: 1,
+                bits_allocated: 16,
+                bits_stored: 16,
+                photometric_interpretation: "MONOCHROME2",
+            })
+            .expect("DICOM-rs OpenJPEG-backed HTJ2K reader should decode OpenJPH output");
+
+        assert_eq!(decoded.native_bytes, native);
+    }
+
+    #[cfg(feature = "htj2k_openjph")]
+    #[test]
+    fn dicom_rs_htj2k_feature_exposes_lossless_reader_without_writer() {
         let obj = DicomRsPixelDataObject {
-            transfer_syntax_uid: "1.2.840.10008.1.2.4.201",
+            transfer_syntax_uid: HTJ2K_LOSSLESS_TRANSFER_SYNTAX_UID,
             rows: 2,
             columns: 4,
             samples_per_pixel: 1,
             bits_allocated: 16,
             bits_stored: 16,
             photometric_interpretation: "MONOCHROME2",
-            fragments: vec![codestream],
+            fragments: vec![vec![0xff, 0x4f, 0xff, 0xd9]],
             offset_table: Vec::new(),
         };
         let Codec::EncapsulatedPixelData(Some(reader), writer) =
@@ -1981,57 +2403,8 @@ mod tests {
             writer.is_none(),
             "DICOM-rs HTJ2K Lossless support should remain decode-only"
         );
-
-        let mut decoded = Vec::new();
-        reader
-            .decode_frame(&obj, 0, &mut decoded)
-            .expect("DICOM-rs OpenJPEG-backed HTJ2K reader should decode OpenJPH output");
-        assert_eq!(decoded, native);
-
-        let _ = fs::remove_dir_all(dir);
-    }
-
-    #[cfg(feature = "jpeg2000")]
-    fn run_openjph_htj2k_lossless_encode(
-        input_path: &std::path::Path,
-        output_path: &std::path::Path,
-    ) {
-        use std::process::Command;
-
-        let output = Command::new("ojph_compress")
-            .arg("-i")
-            .arg(input_path)
-            .arg("-o")
-            .arg(output_path)
-            .arg("-reversible")
-            .arg("true")
-            .arg("-num_decomps")
-            .arg("1")
-            .output()
-            .expect("ojph_compress should run for the HTJ2K spike");
-        assert!(
-            output.status.success(),
-            "ojph_compress should encode the tiny HTJ2K frame: status={:?}, stdout={}, stderr={}",
-            output.status.code(),
-            String::from_utf8_lossy(&output.stdout),
-            String::from_utf8_lossy(&output.stderr)
-        );
-    }
-
-    #[cfg(feature = "jpeg2000")]
-    fn pgm_u16_mono2_bytes(columns: u16, rows: u16, samples: &[u16]) -> Vec<u8> {
-        let expected_len = usize::from(columns) * usize::from(rows);
-        assert_eq!(
-            samples.len(),
-            expected_len,
-            "PGM input sample count must match the declared dimensions"
-        );
-
-        let mut bytes = format!("P5\n{columns} {rows}\n65535\n").into_bytes();
-        for sample in samples {
-            bytes.extend_from_slice(&sample.to_be_bytes());
-        }
-        bytes
+        assert_eq!(obj.transfer_syntax_uid, HTJ2K_LOSSLESS_TRANSFER_SYNTAX_UID);
+        let _ = reader;
     }
 
     #[cfg(any(feature = "charls", feature = "jpeg", feature = "jpegxl"))]

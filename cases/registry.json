@@ -3593,16 +3593,13 @@
       "transfer_syntax_uid": "1.2.840.10008.1.2.4.201",
       "determinism": "semantic_stable",
       "requirements": {
-        "features": [
-          "dicom-transfer-syntax-registry/openjp2",
-          "dicom-transfer-syntax-registry/openjpeg-sys"
-        ],
-        "external_codecs": ["OpenJPEG"],
+        "features": ["htj2k_openjph"],
+        "external_codecs": ["OpenJPH"],
         "external_validators": []
       },
       "skip": {
         "reason_code": "codec_unavailable",
-        "message": "HTJ2K Lossless image generation is unavailable until an encoder strategy, encapsulated Pixel Data validation, and reproducibility strategy are verified.",
+        "message": "HTJ2K Lossless image generation is unavailable until the OpenJPH wrapper is integrated into generation, validation, reporting, and reproducibility checks.",
         "recheck_phase": "phase-6"
       },
       "standards_evidence": [

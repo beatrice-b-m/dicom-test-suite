@@ -362,7 +362,8 @@ fn codec_backend_decisions_track_enabled_low_risk_codecs() {
             "jpeg_baseline_8bit",
             "jpeg_ls",
             "jpeg_xl",
-            "jpeg_2000"
+            "jpeg_2000",
+            "htj2k"
         ],
         "enabled compressed codec families should be explicit"
     );
@@ -537,6 +538,12 @@ fn codec_backend_decisions_track_enabled_low_risk_codecs() {
 
 #[test]
 fn htj2k_lossless_backend_decision_selects_openjph_external_command() {
+    let cargo_toml = fs::read_to_string("Cargo.toml").expect("Cargo.toml must be readable");
+    assert!(
+        cargo_toml.contains("htj2k_openjph = [") && cargo_toml.contains("\"jpeg2000\""),
+        "Cargo.toml should expose a project htj2k_openjph feature through the JPEG 2000 reader stack"
+    );
+
     let decisions = read_json("transfer-syntax/backend-decisions.json");
     let families = decisions
         .get("codec_families")
@@ -549,12 +556,12 @@ fn htj2k_lossless_backend_decision_selects_openjph_external_command() {
 
     assert_eq!(
         htj2k.get("classification").and_then(Value::as_str),
-        Some("research_more"),
-        "HTJ2K should stay research-only until the external command wrapper and reproducibility are proven"
+        Some("implement_now"),
+        "HTJ2K should be selected for implementation once the external command wrapper and fingerprint strategy are proven"
     );
     assert_eq!(
         htj2k.get("selected_backend").and_then(Value::as_str),
-        Some("openjph_lossless_external_command")
+        Some("openjph_htj2k_lossless_command_writer")
     );
     assert_eq!(
         htj2k.get("backend_kind").and_then(Value::as_str),
@@ -562,8 +569,8 @@ fn htj2k_lossless_backend_decision_selects_openjph_external_command() {
     );
     assert_eq!(
         htj2k.get("feature_gate").and_then(Value::as_str),
-        None,
-        "HTJ2K should not claim a project feature gate before a wrapper is implemented"
+        Some("htj2k_openjph"),
+        "HTJ2K should claim only the explicit project wrapper feature gate before corpus promotion"
     );
     assert_eq!(
         htj2k
@@ -593,8 +600,15 @@ fn htj2k_lossless_backend_decision_selects_openjph_external_command() {
         htj2k
             .pointer("/integration_mode/version_discovery")
             .and_then(Value::as_str)
-            .is_some_and(|finding| finding.contains("rejects `-v`")),
-        "HTJ2K should record that OpenJPH version discovery is still unresolved"
+            .is_some_and(|finding| finding.contains("SHA-256 executable fingerprint")),
+        "HTJ2K should record the executable-fingerprint fallback for OpenJPH identity"
+    );
+    assert!(
+        htj2k
+            .pointer("/integration_mode/fingerprint_strategy")
+            .and_then(Value::as_str)
+            .is_some_and(|strategy| strategy.contains("SHA-256")),
+        "HTJ2K should record the executable fingerprint strategy"
     );
     assert_eq!(
         htj2k
@@ -618,7 +632,7 @@ fn htj2k_lossless_backend_decision_selects_openjph_external_command() {
         .expect("OpenJPH candidate should be recorded");
     assert_eq!(
         openjph.get("status").and_then(Value::as_str),
-        Some("selected_external_command_integration")
+        Some("selected_external_command_wrapper")
     );
     assert_eq!(
         openjph.get("license").and_then(Value::as_str),
@@ -653,14 +667,14 @@ fn htj2k_lossless_backend_decision_selects_openjph_external_command() {
     assert!(
         blockers
             .iter()
-            .any(|blocker| blocker.contains("external-command wrapper")),
-        "HTJ2K should keep wrapper implementation blocked before generation"
+            .any(|blocker| blocker.contains("generated HTJ2K Lossless")),
+        "HTJ2K should keep generated corpus integration blocked before generation"
     );
     assert!(
         blockers
             .iter()
-            .any(|blocker| blocker.contains("version reporting")),
-        "HTJ2K should keep portable version reporting blocked before generation"
+            .any(|blocker| blocker.contains("executable SHA-256")),
+        "HTJ2K should record executable fingerprinting as the current OpenJPH identity fallback"
     );
     assert!(
         !blockers
@@ -720,6 +734,20 @@ fn htj2k_lossless_backend_decision_selects_openjph_external_command() {
                     .is_some_and(|finding| finding.contains("external-command wrapper"))
         }),
         "HTJ2K decision should record why the external-command mode was selected"
+    );
+    assert!(
+        evidence.iter().any(|item| {
+            item.get("source").and_then(Value::as_str) == Some("local-verification")
+                && item.get("path").and_then(Value::as_str) == Some("src/codecs.rs")
+                && item
+                    .get("finding")
+                    .and_then(Value::as_str)
+                    .is_some_and(|finding| {
+                        finding.contains("htj2k_openjph")
+                            && finding.contains("fingerprints the executable")
+                    })
+        }),
+        "HTJ2K decision should record the project wrapper verification"
     );
 
     assert!(
@@ -877,11 +905,7 @@ fn skipped_advanced_transfer_syntax_matrix_matches_current_dicom_rs_stubs() {
         .and_then(Value::as_array)
         .expect("transfer syntax matrix must contain entries");
 
-    for (uid, keyword, feature) in [(
-        "1.2.840.10008.1.2.4.201",
-        "HTJ2KLossless",
-        "dicom-transfer-syntax-registry/openjp2",
-    )] {
+    for (uid, keyword, feature) in [("1.2.840.10008.1.2.4.201", "HTJ2KLossless", "htj2k_openjph")] {
         let entry = entries
             .iter()
             .find(|entry| entry.get("uid").and_then(Value::as_str) == Some(uid))
@@ -945,7 +969,7 @@ fn skipped_advanced_transfer_syntax_matrix_matches_current_dicom_rs_stubs() {
                 .is_some_and(|features| features
                     .iter()
                     .any(|value| value.as_str() == Some(feature))),
-            "{uid} should record the DICOM-rs feature gate {feature}"
+            "{uid} should record the project feature gate {feature}"
         );
     }
 }
@@ -1503,6 +1527,12 @@ fn compressed_transfer_syntax_registry_rows_remain_skipped_until_verified() {
         assert_eq!(
             case.get("determinism").and_then(Value::as_str),
             Some("semantic_stable")
+        );
+        assert_eq!(
+            case.pointer("/requirements/features/0")
+                .and_then(Value::as_str),
+            Some("htj2k_openjph"),
+            "{case_id} should name the project OpenJPH wrapper feature gate"
         );
         assert!(
             case.get("standards_evidence")

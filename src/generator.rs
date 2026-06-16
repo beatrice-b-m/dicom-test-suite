@@ -237,6 +237,10 @@ const MONO_U16_MULTIFRAME_PIXELS: [u8; 16] = [
 const MONO_U16_MULTIFRAME_VALUES: [i32; 8] = [0, 21845, 43690, 65535, 65535, 43690, 21845, 0];
 const MONO_U16_PADDING_PIXELS: [u8; 8] = [0, 0, 0xe8, 0x03, 0xd0, 0x07, 0xb8, 0x0b];
 const MONO_U16_PADDING_VALUES: [i32; 4] = [0, 1000, 2000, 3000];
+const MONO_U16_PADDING_MULTIFRAME_PIXELS: [u8; 16] = [
+    0, 0, 0xe8, 0x03, 0xd0, 0x07, 0xb8, 0x0b, 0xb8, 0x0b, 0xd0, 0x07, 0xe8, 0x03, 0, 0,
+];
+const MONO_U16_PADDING_MULTIFRAME_VALUES: [i32; 8] = [0, 1000, 2000, 3000, 3000, 2000, 1000, 0];
 const YBR_FULL_PLANAR0_PIXELS: [u8; 12] = [76, 85, 255, 150, 44, 21, 29, 255, 107, 255, 128, 128];
 const YBR_FULL_PLANAR0_MULTIFRAME_PIXELS: [u8; 24] = [
     76, 85, 255, 150, 44, 21, 29, 255, 107, 255, 128, 128, 179, 171, 1, 105, 212, 235, 226, 1, 149,
@@ -652,6 +656,32 @@ const PIXEL_RECIPES: &[PixelRecipe] = &[
         pixel_max: 3000,
         visual_pattern: "2x2_monochrome_u16_rle_lossless_with_padding_value",
         semantic_note: "Pixel Padding Value 0 identifies a padded unsigned MONOCHROME2 sample after RLE Lossless decode",
+        palette: None,
+        padding: Some(PixelPaddingRecipe {
+            value: 0,
+            range_limit: Some(0),
+        }),
+    },
+    PixelRecipe {
+        case_id: "classic/sc/mono2_u16_padding_multiframe_rle_lossless",
+        recipe_id: "sc_mono2_u16_padding_multiframe_rle_lossless",
+        rows: 2,
+        columns: 2,
+        photometric_interpretation: "MONOCHROME2",
+        samples_per_pixel: 1,
+        planar_configuration: None,
+        bits_allocated: 16,
+        bits_stored: 16,
+        high_bit: 15,
+        pixel_representation: 0,
+        pixel_vr: VR::OB,
+        transfer_syntax: RLE_LOSSLESS,
+        pixel_bytes: &MONO_U16_PADDING_MULTIFRAME_PIXELS,
+        pixel_values: &MONO_U16_PADDING_MULTIFRAME_VALUES,
+        pixel_min: 0,
+        pixel_max: 3000,
+        visual_pattern: "2x2x2_monochrome_u16_rle_lossless_padding_reversed",
+        semantic_note: "two unsigned MONOCHROME2 frames preserve Pixel Padding Value 0 after RLE Lossless decode",
         palette: None,
         padding: Some(PixelPaddingRecipe {
             value: 0,
@@ -5000,6 +5030,7 @@ fn pixel_profile_membership(recipe: PixelRecipe) -> &'static [&'static str] {
         | "classic/sc/mono2_u16_rle_lossless"
         | "classic/sc/mono2_u16_tiny_1x1_rle_lossless"
         | "classic/sc/mono2_u16_padding_rle_lossless"
+        | "classic/sc/mono2_u16_padding_multiframe_rle_lossless"
         | "classic/sc/mono2_i16_rle_lossless"
         | "classic/sc/mono1_i16_rle_lossless"
         | "classic/sc/rgb_planar0_rle_lossless"

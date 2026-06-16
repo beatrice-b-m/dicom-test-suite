@@ -167,6 +167,10 @@ fn registry_contains_initial_smoke_and_core_cases() {
         ),
         ("classic/sc/mono2_u16_tiny_1x1_rle_lossless", "implemented"),
         ("classic/sc/mono2_u16_padding_rle_lossless", "implemented"),
+        (
+            "classic/sc/mono2_u16_padding_multiframe_rle_lossless",
+            "implemented",
+        ),
         ("classic/sc/mono2_i16_rle_lossless", "implemented"),
         ("classic/sc/mono1_i16_rle_lossless", "implemented"),
         (

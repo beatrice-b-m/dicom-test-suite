@@ -146,6 +146,21 @@
         "window_widths": {
           "$ref": "#/$defs/count_map"
         },
+        "modality_lut_descriptors": {
+          "$ref": "#/$defs/count_map"
+        },
+        "modality_lut_types": {
+          "$ref": "#/$defs/count_map"
+        },
+        "modality_lut_data_value_lengths": {
+          "$ref": "#/$defs/count_map"
+        },
+        "voi_lut_descriptors": {
+          "$ref": "#/$defs/count_map"
+        },
+        "voi_lut_data_value_lengths": {
+          "$ref": "#/$defs/count_map"
+        },
         "display_shutter_shapes": {
           "$ref": "#/$defs/count_map"
         },
@@ -291,6 +306,11 @@
         "presentation_lut_shape",
         "window_center",
         "window_width",
+        "modality_lut_descriptor",
+        "modality_lut_type",
+        "modality_lut_data_value_length",
+        "voi_lut_descriptor",
+        "voi_lut_data_value_length",
         "display_shutter_shape",
         "display_shutter_presentation_value",
         "body_part_examined",
@@ -460,6 +480,23 @@
         },
         "window_width": {
           "type": ["string", "null"]
+        },
+        "modality_lut_descriptor": {
+          "type": ["string", "null"]
+        },
+        "modality_lut_type": {
+          "type": ["string", "null"]
+        },
+        "modality_lut_data_value_length": {
+          "type": ["integer", "null"],
+          "minimum": 0
+        },
+        "voi_lut_descriptor": {
+          "type": ["string", "null"]
+        },
+        "voi_lut_data_value_length": {
+          "type": ["integer", "null"],
+          "minimum": 0
         },
         "display_shutter_shape": {
           "type": ["string", "null"]

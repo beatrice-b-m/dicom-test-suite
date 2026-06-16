@@ -6118,6 +6118,36 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
     append_count_map_section(
         &mut output,
         report,
+        "Modality LUT Descriptors",
+        "/grouped_coverage/modality_lut_descriptors",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "Modality LUT Types",
+        "/grouped_coverage/modality_lut_types",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "Modality LUT Data Value Lengths",
+        "/grouped_coverage/modality_lut_data_value_lengths",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "VOI LUT Descriptors",
+        "/grouped_coverage/voi_lut_descriptors",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "VOI LUT Data Value Lengths",
+        "/grouped_coverage/voi_lut_data_value_lengths",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
         "Display Shutter Shapes",
         "/grouped_coverage/display_shutter_shapes",
     );
@@ -6314,7 +6344,49 @@ fn generated_coverage_row(
             .map(Value::from)
             .unwrap_or(Value::Null),
     );
+    row_object.insert(
+        "modality_lut_descriptor".to_string(),
+        report_lut_descriptor(file, "/recipe/recipe_parameters/modality_lut/descriptor")
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
+    row_object.insert(
+        "modality_lut_type".to_string(),
+        file.pointer("/recipe/recipe_parameters/modality_lut/type")
+            .and_then(Value::as_str)
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
+    row_object.insert(
+        "modality_lut_data_value_length".to_string(),
+        file.pointer("/recipe/recipe_parameters/modality_lut/data_value_length")
+            .and_then(Value::as_u64)
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
+    row_object.insert(
+        "voi_lut_descriptor".to_string(),
+        report_lut_descriptor(file, "/recipe/recipe_parameters/voi_lut/descriptor")
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
+    row_object.insert(
+        "voi_lut_data_value_length".to_string(),
+        file.pointer("/recipe/recipe_parameters/voi_lut/data_value_length")
+            .and_then(Value::as_u64)
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
     Ok(row)
+}
+
+fn report_lut_descriptor(file: &Value, pointer: &str) -> Option<String> {
+    let descriptor = file.pointer(pointer)?.as_array()?;
+    let values = descriptor
+        .iter()
+        .map(|value| value.as_u64().map(|value| value.to_string()))
+        .collect::<Option<Vec<_>>>()?;
+    Some(values.join("\\"))
 }
 
 fn report_window_center(file: &Value) -> Option<&str> {
@@ -6489,6 +6561,11 @@ fn skipped_coverage_row(
     );
     row_object.insert("body_part_examined".to_string(), Value::Null);
     row_object.insert("view_position".to_string(), Value::Null);
+    row_object.insert("modality_lut_descriptor".to_string(), Value::Null);
+    row_object.insert("modality_lut_type".to_string(), Value::Null);
+    row_object.insert("modality_lut_data_value_length".to_string(), Value::Null);
+    row_object.insert("voi_lut_descriptor".to_string(), Value::Null);
+    row_object.insert("voi_lut_data_value_length".to_string(), Value::Null);
     Ok(row)
 }
 
@@ -6635,6 +6712,11 @@ struct GroupedCoverage {
     presentation_lut_shapes: BTreeMap<String, usize>,
     window_centers: BTreeMap<String, usize>,
     window_widths: BTreeMap<String, usize>,
+    modality_lut_descriptors: BTreeMap<String, usize>,
+    modality_lut_types: BTreeMap<String, usize>,
+    modality_lut_data_value_lengths: BTreeMap<String, usize>,
+    voi_lut_descriptors: BTreeMap<String, usize>,
+    voi_lut_data_value_lengths: BTreeMap<String, usize>,
     display_shutter_shapes: BTreeMap<String, usize>,
     display_shutter_presentation_values: BTreeMap<String, usize>,
     body_parts_examined: BTreeMap<String, usize>,
@@ -6819,6 +6901,33 @@ impl GroupedCoverage {
             row.get("window_width").and_then(Value::as_str),
         );
         increment_map(
+            &mut self.modality_lut_descriptors,
+            row.get("modality_lut_descriptor").and_then(Value::as_str),
+        );
+        increment_map(
+            &mut self.modality_lut_types,
+            row.get("modality_lut_type").and_then(Value::as_str),
+        );
+        if let Some(length) = row
+            .get("modality_lut_data_value_length")
+            .and_then(Value::as_u64)
+        {
+            *self
+                .modality_lut_data_value_lengths
+                .entry(length.to_string())
+                .or_default() += 1;
+        }
+        increment_map(
+            &mut self.voi_lut_descriptors,
+            row.get("voi_lut_descriptor").and_then(Value::as_str),
+        );
+        if let Some(length) = row.get("voi_lut_data_value_length").and_then(Value::as_u64) {
+            *self
+                .voi_lut_data_value_lengths
+                .entry(length.to_string())
+                .or_default() += 1;
+        }
+        increment_map(
             &mut self.display_shutter_shapes,
             row.get("display_shutter_shape").and_then(Value::as_str),
         );
@@ -6915,6 +7024,31 @@ impl GroupedCoverage {
             "window_widths".to_string(),
             serde_json::to_value(&self.window_widths)
                 .expect("window width count map must serialize"),
+        );
+        grouped_object.insert(
+            "modality_lut_descriptors".to_string(),
+            serde_json::to_value(&self.modality_lut_descriptors)
+                .expect("modality LUT descriptor count map must serialize"),
+        );
+        grouped_object.insert(
+            "modality_lut_types".to_string(),
+            serde_json::to_value(&self.modality_lut_types)
+                .expect("modality LUT type count map must serialize"),
+        );
+        grouped_object.insert(
+            "modality_lut_data_value_lengths".to_string(),
+            serde_json::to_value(&self.modality_lut_data_value_lengths)
+                .expect("modality LUT data value length count map must serialize"),
+        );
+        grouped_object.insert(
+            "voi_lut_descriptors".to_string(),
+            serde_json::to_value(&self.voi_lut_descriptors)
+                .expect("VOI LUT descriptor count map must serialize"),
+        );
+        grouped_object.insert(
+            "voi_lut_data_value_lengths".to_string(),
+            serde_json::to_value(&self.voi_lut_data_value_lengths)
+                .expect("VOI LUT data value length count map must serialize"),
         );
         grouped_object.insert(
             "display_shutter_shapes".to_string(),

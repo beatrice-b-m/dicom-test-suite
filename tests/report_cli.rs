@@ -133,6 +133,36 @@ fn report_command_writes_json_coverage_for_core_root() {
         Some("PA")
     );
     assert_eq!(
+        coverage_row(&report, "classic/cr/overlay_modality_voi_explicit_le")
+            .get("modality_lut_descriptor")
+            .and_then(Value::as_str),
+        Some("4\\0\\16")
+    );
+    assert_eq!(
+        coverage_row(&report, "classic/cr/overlay_modality_voi_explicit_le")
+            .get("modality_lut_type")
+            .and_then(Value::as_str),
+        Some("US")
+    );
+    assert_eq!(
+        coverage_row(&report, "classic/cr/overlay_modality_voi_explicit_le")
+            .get("modality_lut_data_value_length")
+            .and_then(Value::as_u64),
+        Some(8)
+    );
+    assert_eq!(
+        coverage_row(&report, "classic/cr/overlay_modality_voi_explicit_le")
+            .get("voi_lut_descriptor")
+            .and_then(Value::as_str),
+        Some("4\\0\\16")
+    );
+    assert_eq!(
+        coverage_row(&report, "classic/cr/overlay_modality_voi_explicit_le")
+            .get("voi_lut_data_value_length")
+            .and_then(Value::as_u64),
+        Some(8)
+    );
+    assert_eq!(
         coverage_row(&report, "classic/dx/display_shutter_mono2_u16_explicit_le")
             .get("body_part_examined")
             .and_then(Value::as_str),
@@ -275,6 +305,36 @@ fn report_command_writes_json_coverage_for_core_root() {
     );
     assert_eq!(
         report
+            .pointer("/grouped_coverage/modality_lut_descriptors/4\\0\\16")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/modality_lut_types/US")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/modality_lut_data_value_lengths/8")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/voi_lut_descriptors/4\\0\\16")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/voi_lut_data_value_lengths/8")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
             .pointer("/grouped_coverage/display_shutter_shapes/RECTANGULAR")
             .and_then(Value::as_u64),
         Some(1)
@@ -353,6 +413,14 @@ fn report_command_writes_markdown_coverage_for_core_root() {
     assert!(stdout.contains("### Window Widths"));
     assert!(stdout.contains("| 400 | 1 |"));
     assert!(stdout.contains("| 4096 | 2 |"));
+    assert!(stdout.contains("### Modality LUT Descriptors"));
+    assert!(stdout.contains("| 4\\0\\16 | 1 |"));
+    assert!(stdout.contains("### Modality LUT Types"));
+    assert!(stdout.contains("| US | 1 |"));
+    assert!(stdout.contains("### Modality LUT Data Value Lengths"));
+    assert!(stdout.contains("| 8 | 1 |"));
+    assert!(stdout.contains("### VOI LUT Descriptors"));
+    assert!(stdout.contains("### VOI LUT Data Value Lengths"));
     assert!(stdout.contains("### Display Shutter Shapes"));
     assert!(stdout.contains("| RECTANGULAR | 1 |"));
     assert!(stdout.contains("### Display Shutter Presentation Values"));

@@ -11,7 +11,7 @@
 - Phase 1 - Codec Integration Architecture: in progress; minimal codec API plus native RLE and DICOM-rs JPEG Baseline frame encode/decode support are present.
 - Phase 2 - Encapsulated Pixel Data Substrate: complete for the first RLE one-fragment case; Extended Offset Table and future multi-fragment generation remain later substrate expansion.
 - Phase 3 - Low-Risk Codec Enablement: in progress; 8-bit and 16-bit generated RLE Lossless Secondary Capture cases are implemented and round-trip validated; the first JPEG Baseline 8-bit RGB Secondary Capture case is generated and validated when the `jpeg` feature is enabled; the first JPEG-LS Lossless 8-bit MONOCHROME2 Secondary Capture case is generated and exact-hash validated when the `charls` feature is enabled; the first JPEG XL Lossless 8-bit RGB Secondary Capture case is generated and exact-hash validated when the `jpegxl` feature is enabled.
-- Phase 4 - JPEG 2000 And HTJ2K: in progress; JPEG 2000 Lossless has a project `jpeg2000` feature, a project-owned OpenJPEG-rs writer wrapper, a feature-gated generated Secondary Capture case, generation-time exact decoded-frame hash validation, CLI validation, report coverage, reproducibility evidence, and feature-gated capability-matrix promotion. JPEG 2000 lossy remains deferred, and HTJ2K backend selection is still unresolved.
+- Phase 4 - JPEG 2000 And HTJ2K: in progress; JPEG 2000 Lossless has a project `jpeg2000` feature, a project-owned OpenJPEG-rs writer wrapper, a feature-gated generated Secondary Capture case, generation-time exact decoded-frame hash validation, CLI validation, report coverage, reproducibility evidence, and feature-gated capability-matrix promotion. JPEG 2000 lossy remains deferred. HTJ2K Lossless is now scoped to an OpenJPH proof spike, but generation remains unavailable until DICOM-compatible encode output, independent decode validation, reproducibility, and integration mode are proven.
 - Phase 5 - Legacy And Specialty Compressed Syntaxes: not started.
 - Phase 6+ - Corpus expansion and maintenance: blocked until Phase 5 scope is complete.
 
@@ -109,6 +109,13 @@
 - Added manifest/report metadata for JPEG 2000 backend identity, semantic-stable determinism, compressed frame hashes, encapsulated layout, expected lossless semantics, and JPEG 2000 stressor coverage.
 - Flipped the JPEG 2000 Lossless registry row to implemented with required feature `jpeg2000` and updated the capability matrix to `feature_gated` encode/decode support.
 - Updated list-cases, generate, validate, and artifact tests so default builds report the implemented JPEG 2000 case as feature-gated unavailable while `--features jpeg2000` builds generate and validate it.
+- Researched the next Phase 4 HTJ2K Lossless backend direction without starting generation.
+- Confirmed with `dicom-standard-kb` that `HTJ2KLossless` is UID `1.2.840.10008.1.2.4.201` in PS3.6 Table A-1.
+- Compared OpenJPH and Grok for the first HTJ2K Lossless path: OpenJPH is the preferred proof-spike candidate because it targets HTJ2K and reports a BSD-2-Clause license; Grok remains only an optional experiment candidate because it documents HTJ2K support but is AGPL v3.
+- Recorded that no OpenJPH, Grok, or HTJ2K encoder dependency is pinned in `Cargo.toml`, `Cargo.lock`, or the local Cargo registry snapshot.
+- Recorded that pinned DICOM-rs 0.9.1 exposes HTJ2K Lossless as a decoder implementation behind `openjp2`/`openjpeg-sys` and otherwise as a stub descriptor, but writer support remains unavailable.
+- Updated `transfer-syntax/backend-decisions.json` so HTJ2K remains `research_more`, is scoped to Lossless UID `1.2.840.10008.1.2.4.201`, has no project feature gate, and recommends an OpenJPH encode/decode spike before generation.
+- Added artifact regression coverage proving HTJ2K remains research-only while documenting OpenJPH as the preferred spike and Grok as deferred under the licensing policy.
 
 ## Blockers
 
@@ -117,7 +124,8 @@
 - JPEG XL lossy generated-case work is intentionally deferred until lossy compression metadata policy, decoded-frame tolerance, and reproducibility strategy are selected.
 - JPEG 2000 Lossless generated-case work is complete for the first tiny 16-bit MONOCHROME2 Secondary Capture case.
 - JPEG 2000 lossy remains deferred until lossy compression metadata policy, decoded-frame tolerance, and reproducibility strategy are selected.
-- HTJ2K and legacy JPEG backend selection remain unresolved research items.
+- HTJ2K Lossless backend direction is narrowed to an OpenJPH proof spike, but implementation is blocked until integration mode, DICOM-compatible codestream output, decode validation, and reproducibility are proven.
+- Legacy JPEG backend selection remains an unresolved research item.
 - Deflated Image Frame Compression requires a standards/IOD suitability decision before any implementation.
 
 ## Open Decisions
@@ -126,6 +134,7 @@
 - JPEG-LS Lossless now uses a project `charls` feature that exposes the pinned DICOM-rs optional CharLS adapter behind a project-owned wrapper and generated corpus case. JPEG-LS Near-Lossless is deferred until lossy semantics and validation policy are selected.
 - JPEG XL Lossless now uses a project `jpegxl` feature that exposes the pinned DICOM-rs optional JPEG XL adapter behind a project-owned wrapper and generated corpus case. Lossy JPEG XL is deferred until lossy semantics and validation policy are selected.
 - JPEG 2000 Lossless now uses a project `jpeg2000` feature exposing a project-owned OpenJPEG-rs writer wrapper plus DICOM-rs JPEG 2000 decode validation. Lossy JPEG 2000 is deferred until lossy semantics and validation policy are selected.
+- HTJ2K Lossless is narrowed to an OpenJPH proof spike; the open decision is whether to integrate OpenJPH as a subprocess, vendored C++ build, or FFI wrapper after a tiny external encode/decode round-trip is proven.
 - Which independent validators should be used for JPEG 2000 and HTJ2K.
 - Whether the current project-owned RLE decoder should support multi-fragment frame reassembly in generation-time validation before a multi-fragment RLE case is added.
 
@@ -327,14 +336,28 @@
 - `cargo run --features jpeg2000 -- generate --profile extended --out /tmp/dts-jpeg2000-repro-b-0616 --seed 1`: passed, 20 files written.
 - `diff -r /tmp/dts-jpeg2000-repro-a-0616 /tmp/dts-jpeg2000-repro-b-0616`: passed with no differences.
 - `cargo run --features jpeg2000 -- list-cases --profile extended --status implemented`: passed; list-cases includes `classic/sc/mono2_u16_jpeg2000_lossless` as implemented with 2/2 standards evidence coverage.
+- `git status --short`: passed before slice selection; working tree was clean.
+- `dicom-standard-kb` MCP `lookup_uid HTJ2KLossless`: passed; confirmed UID `1.2.840.10008.1.2.4.201` as a PS3.6 Transfer Syntax.
+- `dicom-standard-kb` MCP `lookup_uid HTJ2K`: passed; confirmed UID `1.2.840.10008.1.2.4.203` as a PS3.6 Transfer Syntax for the general lossy HTJ2K family member.
+- `rg -n "openjph|htj2k|grok" Cargo.lock Cargo.toml ~/.cargo/registry/src`: passed; no pinned OpenJPH, Grok, or HTJ2K encoder dependency was found in project dependencies or the local Cargo registry snapshot.
+- `cargo search htj2k`: failed in the restricted sandbox because crates.io DNS resolution was unavailable.
+- `cargo search htj2k` with requested escalation: rejected by policy, so no crates.io search result was used as evidence.
+- Upstream web source check `https://github.com/aous72/OpenJPH`: passed; OpenJPH describes itself as an HTJ2K implementation and reports a BSD-2-Clause license.
+- Upstream web source check `https://github.com/GrokImageCompression/grok`: passed; Grok documents HTJ2K support and Rust bindings but reports AGPL v3 licensing.
+- `rg -n "HTJ2K|1\.2\.840\.10008\.1\.2\.4\.201|HTJ" ~/.cargo/registry/src/index.crates.io-*/dicom-transfer-syntax-registry-0.9.1/src`: passed; pinned DICOM-rs has HTJ2K descriptors.
+- `sed -n '326,365p' ~/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/dicom-transfer-syntax-registry-0.9.1/src/entries.rs`: passed; confirmed HTJ2K Lossless is a DICOM-rs decoder implementation under `openjp2`/`openjpeg-sys` and a stub otherwise.
+- `cargo test --test project_artifacts htj2k_lossless_backend_decision_selects_openjph_spike_only`: passed, 1 focused artifact test.
+- `cargo fmt -- --check`: passed.
+- `cargo test`: passed, full default-build suite clean.
+- `cargo run -- standards check-lock`: passed with existing documented lock warnings.
 
 ## Commit-Ready Summary
 
-- JPEG 2000 Lossless now has a feature-gated generated Secondary Capture case, exact decoded-frame hash validation during generation and CLI validation, manifest/report coverage, reproducibility evidence, and feature-gated registry/capability-matrix promotion.
-- The case uses the project-owned OpenJPEG-rs writer wrapper to emit raw J2K codestream bytes and validates decode through the pinned DICOM-rs JPEG 2000 reader.
-- Default builds report `classic/sc/mono2_u16_jpeg2000_lossless` as an unavailable feature-gated implemented case; `--features jpeg2000` builds generate and validate it.
-- Lossy JPEG 2000 remains explicitly deferred until lossy metadata, decoded tolerance validation, and reproducibility policy are selected.
+- HTJ2K Lossless now has a recorded Phase 4 backend decision narrowing the next proof slice to OpenJPH, while keeping the family `research_more` and leaving generation unavailable.
+- `transfer-syntax/backend-decisions.json` compares OpenJPH, Grok, and local Rust/FFI dependency evidence: OpenJPH is the preferred BSD-2-Clause spike, Grok is deferred as an optional experiment because it is AGPL v3, and no Rust-native encoder dependency is pinned locally.
+- `tests/project_artifacts.rs` now enforces that HTJ2K has no project feature gate, remains scoped to UID `1.2.840.10008.1.2.4.201`, and is not promoted before an encode/decode spike proves DICOM-compatible output.
+- Registry and capability-matrix rows are intentionally unchanged; `classic/sc/mono2_u16_htj2k_lossless` remains skipped/unavailable.
 
 ## Recommended Next Commit
 
-Research and record the next Phase 4 backend decision for HTJ2K Lossless (`1.2.840.10008.1.2.4.201`): compare OpenJPH, Grok, and any viable permissive Rust/FFI options, then update `transfer-syntax/backend-decisions.json`, artifact tests, and `CURRENT_PROGRESS.md` without starting generation until an implement-now backend and validation path are selected.
+Spike OpenJPH HTJ2K Lossless encoding outside generation: prove a tiny 16-bit MONOCHROME2 codestream can be decoded by the DICOM-rs OpenJPEG-backed HTJ2K reader with exact native frame hashes, then decide subprocess versus FFI integration before adding a project feature gate or generated case.

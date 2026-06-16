@@ -536,6 +536,94 @@ fn codec_backend_decisions_track_enabled_low_risk_codecs() {
 }
 
 #[test]
+fn htj2k_lossless_backend_decision_selects_openjph_spike_only() {
+    let decisions = read_json("transfer-syntax/backend-decisions.json");
+    let families = decisions
+        .get("codec_families")
+        .and_then(Value::as_array)
+        .expect("backend decisions must contain codec_families");
+    let htj2k = families
+        .iter()
+        .find(|family| family.get("family_id").and_then(Value::as_str) == Some("htj2k"))
+        .expect("HTJ2K decision must exist");
+
+    assert_eq!(
+        htj2k.get("classification").and_then(Value::as_str),
+        Some("research_more"),
+        "HTJ2K should stay research-only until an encode/decode spike passes"
+    );
+    assert_eq!(
+        htj2k.get("selected_backend").and_then(Value::as_str),
+        Some("openjph_lossless_spike_candidate")
+    );
+    assert_eq!(
+        htj2k.get("backend_kind").and_then(Value::as_str),
+        Some("external_tool_or_ffi_candidate")
+    );
+    assert_eq!(
+        htj2k.get("feature_gate").and_then(Value::as_str),
+        None,
+        "HTJ2K should not claim a project feature gate before a backend spike passes"
+    );
+    assert_eq!(
+        htj2k
+            .get("transfer_syntax_uids")
+            .and_then(Value::as_array)
+            .expect("HTJ2K transfer syntax UID list should exist")
+            .iter()
+            .filter_map(Value::as_str)
+            .collect::<Vec<_>>(),
+        vec!["1.2.840.10008.1.2.4.201"],
+        "the first HTJ2K decision should be scoped to Lossless Only"
+    );
+
+    let candidates = htj2k
+        .get("candidate_backends")
+        .and_then(Value::as_array)
+        .expect("HTJ2K decision should compare candidate backends");
+    let openjph = candidates
+        .iter()
+        .find(|candidate| candidate.get("name").and_then(Value::as_str) == Some("OpenJPH"))
+        .expect("OpenJPH candidate should be recorded");
+    assert_eq!(
+        openjph.get("status").and_then(Value::as_str),
+        Some("preferred_spike")
+    );
+    assert_eq!(
+        openjph.get("license").and_then(Value::as_str),
+        Some("BSD-2-Clause")
+    );
+
+    let grok = candidates
+        .iter()
+        .find(|candidate| candidate.get("name").and_then(Value::as_str) == Some("Grok"))
+        .expect("Grok candidate should be recorded");
+    assert_eq!(
+        grok.get("status").and_then(Value::as_str),
+        Some("defer_optional_experiment"),
+        "Grok should remain outside default generation under the licensing policy"
+    );
+    assert_eq!(
+        grok.get("license").and_then(Value::as_str),
+        Some("AGPL-3.0")
+    );
+
+    let blockers = htj2k
+        .get("blockers")
+        .and_then(Value::as_array)
+        .expect("HTJ2K blockers should be recorded")
+        .iter()
+        .filter_map(Value::as_str)
+        .collect::<Vec<_>>();
+    assert!(
+        blockers
+            .iter()
+            .any(|blocker| blocker.contains("subprocess spike, vendored C++ build, or FFI")),
+        "HTJ2K should keep integration mode unresolved before implementation"
+    );
+}
+
+#[test]
 fn codec_backend_decision_uids_are_known_to_capability_matrix_or_deferred() {
     let matrix = read_json("transfer-syntax/capability-matrix.json");
     let matrix_uids = matrix

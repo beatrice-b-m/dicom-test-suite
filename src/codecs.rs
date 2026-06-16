@@ -1904,7 +1904,7 @@ mod tests {
 
     #[cfg(feature = "jpeg2000")]
     #[test]
-    fn openjph_htj2k_lossless_codestream_decodes_through_dicom_rs_reader() {
+    fn openjph_htj2k_lossless_codestream_is_reproducible_for_sampled_u16_values() {
         use dicom_transfer_syntax_registry::entries::HIGH_THROUGHPUT_JPEG_2000_IMAGE_COMPRESSION_LOSSLESS_ONLY;
         use std::fs;
         use std::process::Command;
@@ -1929,40 +1929,22 @@ mod tests {
             std::env::temp_dir().join(format!("dts-openjph-htj2k-{}-{suffix}", std::process::id()));
         fs::create_dir_all(&dir).expect("temporary OpenJPH spike directory should be writable");
         let input_path = dir.join("mono2_u16.raw");
-        let codestream_path = dir.join("mono2_u16_htj2k.j2c");
+        let first_codestream_path = dir.join("mono2_u16_htj2k_first.j2c");
+        let second_codestream_path = dir.join("mono2_u16_htj2k_second.j2c");
         fs::write(&input_path, &native).expect("temporary raw input should be writable");
 
-        let output = Command::new("ojph_compress")
-            .arg("-i")
-            .arg(&input_path)
-            .arg("-o")
-            .arg(&codestream_path)
-            .arg("-reversible")
-            .arg("true")
-            .arg("-num_decomps")
-            .arg("0")
-            .arg("-dims")
-            .arg("{4,2}")
-            .arg("-num_comps")
-            .arg("1")
-            .arg("-signed")
-            .arg("false")
-            .arg("-bit_depth")
-            .arg("16")
-            .arg("-downsamp")
-            .arg("{1,1}")
-            .output()
-            .expect("ojph_compress should run for the HTJ2K spike");
-        assert!(
-            output.status.success(),
-            "ojph_compress should encode the tiny HTJ2K frame: status={:?}, stdout={}, stderr={}",
-            output.status.code(),
-            String::from_utf8_lossy(&output.stdout),
-            String::from_utf8_lossy(&output.stderr)
-        );
+        run_openjph_htj2k_lossless_encode(&input_path, &first_codestream_path);
+        run_openjph_htj2k_lossless_encode(&input_path, &second_codestream_path);
 
         let codestream =
-            fs::read(&codestream_path).expect("OpenJPH HTJ2K codestream should be readable");
+            fs::read(&first_codestream_path).expect("OpenJPH HTJ2K codestream should be readable");
+        let repeated_codestream = fs::read(&second_codestream_path)
+            .expect("second OpenJPH HTJ2K codestream should be readable");
+        assert_eq!(
+            crate::sha256_hex(&codestream),
+            crate::sha256_hex(&repeated_codestream),
+            "OpenJPH should produce byte-identical HTJ2K codestreams for fixed raw input and options"
+        );
         assert!(
             codestream.len() >= 4,
             "OpenJPH HTJ2K codestream should not be empty"
@@ -2006,6 +1988,43 @@ mod tests {
         assert_eq!(decoded, native);
 
         let _ = fs::remove_dir_all(dir);
+    }
+
+    #[cfg(feature = "jpeg2000")]
+    fn run_openjph_htj2k_lossless_encode(
+        input_path: &std::path::Path,
+        output_path: &std::path::Path,
+    ) {
+        use std::process::Command;
+
+        let output = Command::new("ojph_compress")
+            .arg("-i")
+            .arg(input_path)
+            .arg("-o")
+            .arg(output_path)
+            .arg("-reversible")
+            .arg("true")
+            .arg("-num_decomps")
+            .arg("0")
+            .arg("-dims")
+            .arg("{4,2}")
+            .arg("-num_comps")
+            .arg("1")
+            .arg("-signed")
+            .arg("false")
+            .arg("-bit_depth")
+            .arg("16")
+            .arg("-downsamp")
+            .arg("{1,1}")
+            .output()
+            .expect("ojph_compress should run for the HTJ2K spike");
+        assert!(
+            output.status.success(),
+            "ojph_compress should encode the tiny HTJ2K frame: status={:?}, stdout={}, stderr={}",
+            output.status.code(),
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
     }
 
     #[cfg(any(feature = "charls", feature = "jpeg", feature = "jpegxl"))]

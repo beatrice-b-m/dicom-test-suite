@@ -279,8 +279,9 @@
         "status": "selected",
         "selected": "external_command",
         "command": "ojph_compress",
-        "version_command": "ojph_compress -v",
-        "policy": "Invoke OpenJPH only through an explicit project wrapper that discovers the tool, records the executable version and fixed encoder options, and reports the external backend in manifests. Do not vendor OpenJPH C++ or add an FFI wrapper for the first generated case."
+        "version_command": null,
+        "version_discovery": "The local `ojph_compress` binary rejects `-v`, `-h`, and `--help`; the project wrapper still needs a portable version-discovery strategy before generation can report backend identity.",
+        "policy": "Invoke OpenJPH only through an explicit project wrapper that discovers the tool, records the executable version when available and fixed encoder options, and reports the external backend in manifests. Do not vendor OpenJPH C++ or add an FFI wrapper for the first generated case."
       },
       "validation_strategy": [
         "OpenJPH can encode a tiny 16-bit unsigned MONOCHROME2 raw frame into an HTJ2K Lossless codestream that the DICOM-rs OpenJPEG-backed HTJ2K reader decodes exactly for the sampled values.",
@@ -291,9 +292,10 @@
       ],
       "blockers": [
         "The project OpenJPH external-command wrapper, tool discovery, version reporting, and error model are not implemented.",
+        "The local `ojph_compress` binary does not expose a working `-v`, `-h`, or `--help` version command, so portable version reporting is unresolved.",
         "No mature Rust-native HTJ2K encoder dependency is pinned in this project.",
         "Grok has HTJ2K support but is AGPL v3, so it is excluded from default generation by the project licensing policy.",
-        "Reproducibility and full unsigned 16-bit sample-domain behavior have not been proven beyond the tiny raw-frame spike."
+        "Full unsigned 16-bit sample-domain behavior is not proven: the current raw `ojph_compress` command path decodes zero and high unsigned samples incorrectly through the pinned DICOM-rs HTJ2K reader."
       ],
       "candidate_backends": [
         {
@@ -353,11 +355,21 @@
           "finding": "OpenJPH produced a raw HTJ2K codestream with SOC/EOC markers that DICOM-rs 0.9.1 decoded through the HTJ2K Lossless transfer syntax with exact native bytes for a tiny 2x4 unsigned 16-bit MONOCHROME2 frame using nonzero values within the lower unsigned range."
         },
         {
+          "source": "local-verification",
+          "path": "src/codecs.rs",
+          "finding": "Running the selected `ojph_compress` command twice for the same tiny raw lower-range unsigned 16-bit MONOCHROME2 frame produced byte-identical HTJ2K codestream hashes, so command-level byte reproducibility is proven for the sampled safe domain."
+        },
+        {
+          "source": "local-verification",
+          "path": "src/codecs.rs",
+          "finding": "The same command path did not round-trip the broader unsigned 16-bit sample domain through the pinned DICOM-rs HTJ2K reader: zero and high unsigned samples decoded with offset or clipped values, so generation remains blocked until raw sample interpretation or another OpenJPH input path is resolved."
+        },
+        {
           "source": "local-decision",
           "finding": "The first HTJ2K integration mode is an explicit OpenJPH external-command wrapper so the project can reuse the proven command-line path while keeping vendored C++ and FFI work out of the initial generation slice."
         }
       ],
-      "next_action": "Prove OpenJPH external-command reproducibility and broader unsigned 16-bit sample-domain behavior, then add the project feature gate and wrapper without promoting generation until validation and report coverage are implemented."
+      "next_action": "Resolve OpenJPH raw unsigned 16-bit sample interpretation for zero and high values, or select a different OpenJPH input path, before adding the project feature gate and wrapper."
     },
     {
       "family_id": "legacy_jpeg",

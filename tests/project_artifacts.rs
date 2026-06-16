@@ -585,6 +585,18 @@ fn htj2k_lossless_backend_decision_selects_openjph_external_command() {
         Some("ojph_compress")
     );
     assert_eq!(
+        htj2k.pointer("/integration_mode/version_command"),
+        Some(&Value::Null),
+        "HTJ2K should not record a version command that the local OpenJPH binary rejects"
+    );
+    assert!(
+        htj2k
+            .pointer("/integration_mode/version_discovery")
+            .and_then(Value::as_str)
+            .is_some_and(|finding| finding.contains("rejects `-v`")),
+        "HTJ2K should record that OpenJPH version discovery is still unresolved"
+    );
+    assert_eq!(
         htj2k
             .get("transfer_syntax_uids")
             .and_then(Value::as_array)
@@ -645,6 +657,12 @@ fn htj2k_lossless_backend_decision_selects_openjph_external_command() {
         "HTJ2K should keep wrapper implementation blocked before generation"
     );
     assert!(
+        blockers
+            .iter()
+            .any(|blocker| blocker.contains("Full unsigned 16-bit sample-domain behavior")),
+        "HTJ2K should keep full unsigned sample-domain behavior blocked before generation"
+    );
+    assert!(
         !blockers
             .iter()
             .any(|blocker| blocker.contains("integration mode is not selected")),
@@ -664,6 +682,26 @@ fn htj2k_lossless_backend_decision_selects_openjph_external_command() {
                     .is_some_and(|finding| finding.contains("exact native bytes"))
         }),
         "HTJ2K decision should record the OpenJPH encode/decode proof"
+    );
+    assert!(
+        evidence.iter().any(|item| {
+            item.get("source").and_then(Value::as_str) == Some("local-verification")
+                && item
+                    .get("finding")
+                    .and_then(Value::as_str)
+                    .is_some_and(|finding| finding.contains("byte-identical HTJ2K codestream"))
+        }),
+        "HTJ2K decision should record the OpenJPH command reproducibility proof"
+    );
+    assert!(
+        evidence.iter().any(|item| {
+            item.get("source").and_then(Value::as_str) == Some("local-verification")
+                && item
+                    .get("finding")
+                    .and_then(Value::as_str)
+                    .is_some_and(|finding| finding.contains("zero and high unsigned samples"))
+        }),
+        "HTJ2K decision should record the remaining unsigned sample-domain failure"
     );
     assert!(
         evidence.iter().any(|item| {

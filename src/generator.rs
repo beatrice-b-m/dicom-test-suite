@@ -985,6 +985,7 @@ struct PixelPaddingRecipe {
 struct ClassicCtRecipe {
     case_id: &'static str,
     recipe_id: &'static str,
+    transfer_syntax: TransferSyntaxSpec,
     rows: u16,
     columns: u16,
     pixel_bytes: &'static [u8],
@@ -1003,26 +1004,50 @@ struct ClassicCtRecipe {
     kvp: &'static str,
 }
 
-const CLASSIC_CT_RECIPES: &[ClassicCtRecipe] = &[ClassicCtRecipe {
-    case_id: "classic/ct/mono2_i16_rescale_12bit_explicit_le",
-    recipe_id: "ct_mono2_i16_rescale",
-    rows: 2,
-    columns: 2,
-    pixel_bytes: &CT_I16_12BIT_PIXELS,
-    pixel_values: &CT_I16_12BIT_VALUES,
-    pixel_min: -1024,
-    pixel_max: 2047,
-    rescale_intercept: "-1024",
-    rescale_slope: "1",
-    rescale_type: "HU",
-    window_center: "40",
-    window_width: "400",
-    pixel_spacing: "0.625\\0.625",
-    image_orientation_patient: "1\\0\\0\\0\\1\\0",
-    image_position_patient: "-0.625\\-0.625\\0",
-    slice_thickness: "1",
-    kvp: "120",
-}];
+const CLASSIC_CT_RECIPES: &[ClassicCtRecipe] = &[
+    ClassicCtRecipe {
+        case_id: "classic/ct/mono2_i16_rescale_12bit_explicit_le",
+        recipe_id: "ct_mono2_i16_rescale",
+        transfer_syntax: EXPLICIT_VR_LITTLE_ENDIAN,
+        rows: 2,
+        columns: 2,
+        pixel_bytes: &CT_I16_12BIT_PIXELS,
+        pixel_values: &CT_I16_12BIT_VALUES,
+        pixel_min: -1024,
+        pixel_max: 2047,
+        rescale_intercept: "-1024",
+        rescale_slope: "1",
+        rescale_type: "HU",
+        window_center: "40",
+        window_width: "400",
+        pixel_spacing: "0.625\\0.625",
+        image_orientation_patient: "1\\0\\0\\0\\1\\0",
+        image_position_patient: "-0.625\\-0.625\\0",
+        slice_thickness: "1",
+        kvp: "120",
+    },
+    ClassicCtRecipe {
+        case_id: "classic/ct/mono2_i16_rescale_12bit_rle_lossless",
+        recipe_id: "ct_mono2_i16_rescale_rle_lossless",
+        transfer_syntax: RLE_LOSSLESS,
+        rows: 2,
+        columns: 2,
+        pixel_bytes: &CT_I16_12BIT_PIXELS,
+        pixel_values: &CT_I16_12BIT_VALUES,
+        pixel_min: -1024,
+        pixel_max: 2047,
+        rescale_intercept: "-1024",
+        rescale_slope: "1",
+        rescale_type: "HU",
+        window_center: "40",
+        window_width: "400",
+        pixel_spacing: "0.625\\0.625",
+        image_orientation_patient: "1\\0\\0\\0\\1\\0",
+        image_position_patient: "-0.625\\-0.625\\0",
+        slice_thickness: "1",
+        kvp: "120",
+    },
+];
 
 #[derive(Debug, Clone, Copy)]
 struct EnhancedCtRecipe {
@@ -4460,16 +4485,53 @@ fn write_classic_ct_case(
     put_str(&mut obj, tags::WINDOW_CENTER, VR::DS, recipe.window_center);
     put_str(&mut obj, tags::WINDOW_WIDTH, VR::DS, recipe.window_width);
 
-    obj.put(DataElement::new(
-        tags::PIXEL_DATA,
-        VR::OW,
-        PrimitiveValue::from(recipe.pixel_bytes),
-    ));
+    let compressed_pixel_data = if recipe.transfer_syntax == RLE_LOSSLESS {
+        let rle_encoder = NativeRleLosslessEncoder::new();
+        let encoded_frame = rle_encoder
+            .encode_frame(FrameEncodeInput {
+                native_frame: recipe.pixel_bytes,
+                rows: recipe.rows,
+                columns: recipe.columns,
+                samples_per_pixel: 1,
+                bits_allocated: 16,
+                bits_stored: 12,
+                photometric_interpretation: "MONOCHROME2",
+            })
+            .map_err(|err| GenerateError::WriteDicomFile {
+                path: path.clone(),
+                message: err.to_string(),
+            })?;
+        let compressed_frames = vec![encoded_frame.bytes];
+        let encapsulated = EncapsulatedPixelData::one_fragment_per_frame(
+            &compressed_frames,
+            BasicOffsetTablePolicy::Populated,
+        )
+        .map_err(|err| GenerateError::WriteDicomFile {
+            path: path.clone(),
+            message: err.to_string(),
+        })?;
+        obj.put(DataElement::new(
+            tags::PIXEL_DATA,
+            VR::OB,
+            PixelFragmentSequence::new(
+                encapsulated.basic_offset_table.offsets.clone(),
+                compressed_frames,
+            ),
+        ));
+        Some((FrameEncoder::backend(&rle_encoder), encapsulated))
+    } else {
+        obj.put(DataElement::new(
+            tags::PIXEL_DATA,
+            VR::OW,
+            PrimitiveValue::from(recipe.pixel_bytes),
+        ));
+        None
+    };
 
     let file_obj = obj
         .with_meta(
             FileMetaTableBuilder::new()
-                .transfer_syntax(EXPLICIT_VR_LITTLE_ENDIAN.uid)
+                .transfer_syntax(recipe.transfer_syntax.uid)
                 .implementation_class_uid(&implementation_class_uid)
                 .implementation_version_name(crate::IMPLEMENTATION_VERSION_NAME),
         )
@@ -4485,12 +4547,14 @@ fn write_classic_ct_case(
             message: err.to_string(),
         })?;
 
+    let decoded_frame_hash = sha256_hex(recipe.pixel_bytes);
+    let decoded_frame_hashes = [decoded_frame_hash.as_str()];
     let validated = validate_part10_file(
         &path,
         &Part10Expectations {
             sop_class_uid: uids::CT_IMAGE_STORAGE,
             sop_instance_uid: &sop_instance_uid,
-            transfer_syntax_uid: EXPLICIT_VR_LITTLE_ENDIAN.uid,
+            transfer_syntax_uid: recipe.transfer_syntax.uid,
             implementation_class_uid: &implementation_class_uid,
             synthetic_data: "YES",
             rows: recipe.rows,
@@ -4503,9 +4567,23 @@ fn write_classic_ct_case(
             high_bit: 11,
             pixel_representation: 1,
             planar_configuration: None,
-            pixel_data_vr: VR::OW,
-            pixel_data_length_formula: PixelDataLengthFormula::ContiguousSamples,
-            decoded_frame_hashes: &[],
+            pixel_data_vr: if compressed_pixel_data.is_some() {
+                VR::OB
+            } else {
+                VR::OW
+            },
+            pixel_data_length_formula: compressed_pixel_data
+                .as_ref()
+                .map(|(_, encapsulated)| PixelDataLengthFormula::Encapsulated {
+                    fragments: encapsulated.fragments.len(),
+                    basic_offset_table_offsets: encapsulated.basic_offset_table.offsets.len(),
+                })
+                .unwrap_or(PixelDataLengthFormula::ContiguousSamples),
+            decoded_frame_hashes: if compressed_pixel_data.is_some() {
+                &decoded_frame_hashes
+            } else {
+                &[]
+            },
             palette: None,
             padding: None,
             ct_image: Some(CtImageExpectations {
@@ -4548,6 +4626,7 @@ fn write_classic_ct_case(
             &implementation_class_uid,
             &validated.bytes,
             validated.validation,
+            compressed_pixel_data.as_ref(),
         ),
     })
 }
@@ -4564,6 +4643,7 @@ fn classic_ct_manifest_entry(
     implementation_class_uid: &str,
     bytes: &[u8],
     validation: Value,
+    compressed_pixel_data: Option<&(crate::codecs::CodecBackendInfo, EncapsulatedPixelData)>,
 ) -> Value {
     let mut standards_evidence = standards_evidence_from_case(case);
     standards_evidence.extend([
@@ -4641,9 +4721,90 @@ fn classic_ct_manifest_entry(
         }),
     ]);
 
+    if recipe.transfer_syntax == RLE_LOSSLESS {
+        standards_evidence.extend([
+            serde_json::json!({
+                "source": "dicom-standard-kb",
+                "edition": "2026b",
+                "query": "lookup_uid RLELossless",
+                "covered": true,
+                "part": "PS3.6",
+                "anchor": "table_A-1"
+            }),
+            serde_json::json!({
+                "source": "dicom-standard-kb",
+                "edition": "2026b",
+                "query": "retrieve_standard_text PS3.5 sect_8.2.2",
+                "covered": true,
+                "part": "PS3.5",
+                "anchor": "sect_8.2.2"
+            }),
+            serde_json::json!({
+                "source": "dicom-standard-kb",
+                "edition": "2026b",
+                "query": "retrieve_standard_text PS3.5 sect_A.4",
+                "covered": true,
+                "part": "PS3.5",
+                "anchor": "sect_A.4"
+            }),
+        ]);
+    }
+
+    let frame_hash = sha256_hex(recipe.pixel_bytes);
+    let pixel_data_manifest = if let Some((backend, encapsulated)) = compressed_pixel_data {
+        serde_json::json!({
+            "vr": "OB",
+            "native_or_encapsulated": "encapsulated",
+            "value_length": Value::Null,
+            "frame_count": 1,
+            "frame_hashes": [frame_hash],
+            "codec": {
+                "backend_id": backend.backend_id,
+                "backend_kind": backend.backend_kind.as_str(),
+                "display_name": backend.display_name,
+                "version": backend.version,
+                "transfer_syntax_uid": backend.transfer_syntax_uid,
+                "feature_gate": backend.feature_gate,
+                "determinism": backend.determinism.as_str()
+            },
+            "encapsulated_pixel_data": {
+                "basic_offset_table": {
+                    "present": true,
+                    "populated": encapsulated.basic_offset_table.is_populated(),
+                    "offset_count": encapsulated.basic_offset_table.offsets.len(),
+                    "offsets": encapsulated.basic_offset_table.offsets.clone()
+                },
+                "fragments_per_frame": encapsulated.fragments_per_frame.clone(),
+                "fragments": encapsulated.fragments.iter().map(|fragment| {
+                    serde_json::json!({
+                        "frame_index": fragment.frame_index,
+                        "item_start_offset": fragment.item_start_offset,
+                        "compressed_length": fragment.compressed_length,
+                        "padded_length": fragment.padded_length
+                    })
+                }).collect::<Vec<_>>(),
+                "extended_offset_table": {
+                    "present": false,
+                    "lengths_present": false,
+                    "offset_count": 0,
+                    "length_count": 0
+                },
+                "compressed_frame_hashes": encapsulated.compressed_frame_hashes.clone()
+            }
+        })
+    } else {
+        serde_json::json!({
+            "vr": "OW",
+            "native_or_encapsulated": "native",
+            "value_length": recipe.pixel_bytes.len(),
+            "frame_count": 1,
+            "frame_hashes": [frame_hash]
+        })
+    };
+
     serde_json::json!({
         "case_id": recipe.case_id,
-        "profile_membership": ["core"],
+        "profile_membership": classic_ct_profile_membership(recipe),
         "path": relative_path,
         "sha256": sha256_hex(bytes),
         "size_bytes": bytes.len(),
@@ -4683,8 +4844,8 @@ fn classic_ct_manifest_entry(
             "sop_class_name": "CT Image Storage",
             "iod_name": "CT Image",
             "modality": "CT",
-            "transfer_syntax_uid": EXPLICIT_VR_LITTLE_ENDIAN.uid,
-            "transfer_syntax_name": EXPLICIT_VR_LITTLE_ENDIAN.name
+            "transfer_syntax_uid": recipe.transfer_syntax.uid,
+            "transfer_syntax_name": recipe.transfer_syntax.name
         },
         "uids": {
             "study_instance_uid": study_instance_uid,
@@ -4705,14 +4866,8 @@ fn classic_ct_manifest_entry(
             "pixel_representation": 1,
             "planar_configuration": Value::Null
         },
-        "pixel_data": {
-            "vr": "OW",
-            "native_or_encapsulated": "native",
-            "value_length": recipe.pixel_bytes.len(),
-            "frame_count": 1,
-            "frame_hashes": [sha256_hex(recipe.pixel_bytes)]
-        },
-        "expected_capabilities": ["open_file", "read_metadata", "render_native_pixels", "apply_modality_rescale", "apply_window"],
+        "pixel_data": pixel_data_manifest,
+        "expected_capabilities": classic_ct_expected_capabilities(recipe),
         "expected_semantics": {
             "synthetic_data": "YES",
             "image_type": "ORIGINAL\\PRIMARY\\AXIAL",
@@ -4734,9 +4889,43 @@ fn classic_ct_manifest_entry(
             "pattern": "2x2_signed_ct_hu_gradient"
         },
         "validation": validation,
-        "known_stressors": ["ct_image_storage", "signed_12_bit_pixels", "modality_rescale", "window_center_width"],
+        "known_stressors": classic_ct_known_stressors(recipe),
         "standards_evidence": deduplicated_standards_evidence(standards_evidence)
     })
+}
+
+fn classic_ct_profile_membership(recipe: ClassicCtRecipe) -> &'static [&'static str] {
+    if recipe.transfer_syntax == RLE_LOSSLESS {
+        &["extended"]
+    } else {
+        &["core"]
+    }
+}
+
+fn classic_ct_expected_capabilities(recipe: ClassicCtRecipe) -> Vec<&'static str> {
+    let mut capabilities = vec!["open_file", "read_metadata"];
+    if recipe.transfer_syntax == RLE_LOSSLESS {
+        capabilities.push("decode_rle_lossless_pixels");
+    } else {
+        capabilities.push("render_native_pixels");
+    }
+    capabilities.extend(["apply_modality_rescale", "apply_window"]);
+    capabilities
+}
+
+fn classic_ct_known_stressors(recipe: ClassicCtRecipe) -> Vec<&'static str> {
+    let mut stressors = vec![
+        "ct_image_storage",
+        "signed_12_bit_pixels",
+        "modality_rescale",
+        "window_center_width",
+    ];
+    if recipe.transfer_syntax == RLE_LOSSLESS {
+        stressors.push("encapsulated_pixel_data");
+        stressors.push("rle_lossless_transfer_syntax");
+        stressors.push("compressed_modality_pixels");
+    }
+    stressors
 }
 
 fn write_enhanced_ct_case(

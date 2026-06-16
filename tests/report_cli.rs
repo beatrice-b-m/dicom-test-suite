@@ -144,7 +144,7 @@ fn report_command_counts_generated_rgb_rle_lossless_row() {
         report
             .pointer("/grouped_coverage/codec_families/RLE Lossless")
             .and_then(Value::as_u64),
-        Some(5)
+        Some(6)
     );
     let multiframe_row = coverage_row(&report, "classic/sc/mono2_u8_multiframe_rle_lossless");
     assert_eq!(
@@ -166,6 +166,15 @@ fn report_command_counts_generated_rgb_rle_lossless_row() {
         odd_fragment_row
             .get("codec_backend_id")
             .and_then(Value::as_str),
+        Some("native_project_rle_encoder")
+    );
+    let ct_row = coverage_row(&report, "classic/ct/mono2_i16_rescale_12bit_rle_lossless");
+    assert_eq!(
+        ct_row.get("status").and_then(Value::as_str),
+        Some("generated")
+    );
+    assert_eq!(
+        ct_row.get("codec_backend_id").and_then(Value::as_str),
         Some("native_project_rle_encoder")
     );
 

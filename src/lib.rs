@@ -6557,6 +6557,36 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
     append_count_map_section(
         &mut output,
         report,
+        "KOS Document Titles",
+        "/grouped_coverage/kos_document_titles",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "KOS Key Object Counts",
+        "/grouped_coverage/kos_key_object_counts",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "KOS Key Object Relationship Types",
+        "/grouped_coverage/kos_key_object_relationship_types",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "KOS Key Object Value Types",
+        "/grouped_coverage/kos_key_object_value_types",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "KOS Referenced Frame Numbers",
+        "/grouped_coverage/kos_referenced_frame_numbers",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
         "Modality LUT Descriptors",
         "/grouped_coverage/modality_lut_descriptors",
     );
@@ -7391,6 +7421,57 @@ fn generated_coverage_row(
             .map(Value::from)
             .unwrap_or(Value::Null),
     );
+    let key_objects = file.pointer("/expected_semantics/structured_report/key_objects");
+    row_object.insert(
+        "kos_document_title".to_string(),
+        key_objects
+            .and_then(|_| {
+                file.pointer("/recipe/recipe_parameters/document_title/code_meaning")
+                    .and_then(Value::as_str)
+            })
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
+    row_object.insert(
+        "kos_key_object_count".to_string(),
+        key_objects
+            .and_then(Value::as_array)
+            .map(|items| Value::from(items.len() as u64))
+            .unwrap_or(Value::Null),
+    );
+    row_object.insert(
+        "kos_key_object_relationship_types".to_string(),
+        key_objects
+            .and_then(|_| {
+                report_object_array_string_values(
+                    file,
+                    "/expected_semantics/structured_report/key_objects",
+                    "relationship_type",
+                )
+            })
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
+    row_object.insert(
+        "kos_key_object_value_types".to_string(),
+        key_objects
+            .and_then(|_| {
+                report_object_array_string_values(
+                    file,
+                    "/expected_semantics/structured_report/key_objects",
+                    "value_type",
+                )
+            })
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
+    row_object.insert(
+        "kos_referenced_frame_numbers".to_string(),
+        key_objects
+            .and_then(|_| report_key_object_referenced_frame_numbers(file))
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
     row_object.insert(
         "display_shutter_shape".to_string(),
         report_display_shutter_shape(file)
@@ -7613,6 +7694,39 @@ fn report_string_or_number_array(file: &Value, pointer: &str) -> Option<String> 
             .map(|values| values.join("; ")),
         value => report_scalar_label(value),
     }
+}
+
+fn report_object_array_string_values(file: &Value, pointer: &str, field: &str) -> Option<String> {
+    let labels = file
+        .pointer(pointer)?
+        .as_array()?
+        .iter()
+        .filter_map(|value| value.get(field).and_then(Value::as_str))
+        .collect::<Vec<_>>();
+    (!labels.is_empty()).then(|| labels.join("; "))
+}
+
+fn report_key_object_referenced_frame_numbers(file: &Value) -> Option<String> {
+    let labels = file
+        .pointer("/expected_semantics/structured_report/key_objects")?
+        .as_array()?
+        .iter()
+        .filter_map(|value| {
+            value
+                .get("referenced_frame_numbers")
+                .and_then(report_value_array_label)
+        })
+        .collect::<Vec<_>>();
+    (!labels.is_empty()).then(|| labels.join("; "))
+}
+
+fn report_value_array_label(value: &Value) -> Option<String> {
+    value
+        .as_array()?
+        .iter()
+        .map(report_scalar_label)
+        .collect::<Option<Vec<_>>>()
+        .map(|values| values.join("; "))
 }
 
 fn report_scalar_label(value: &Value) -> Option<String> {
@@ -8028,6 +8142,11 @@ fn skipped_coverage_row(
     row_object.insert("sr_content_sequence_items".to_string(), Value::Null);
     row_object.insert("sr_observation_text".to_string(), Value::Null);
     row_object.insert("sr_measurement_numeric_value".to_string(), Value::Null);
+    row_object.insert("kos_document_title".to_string(), Value::Null);
+    row_object.insert("kos_key_object_count".to_string(), Value::Null);
+    row_object.insert("kos_key_object_relationship_types".to_string(), Value::Null);
+    row_object.insert("kos_key_object_value_types".to_string(), Value::Null);
+    row_object.insert("kos_referenced_frame_numbers".to_string(), Value::Null);
     row_object.insert("display_shutter_shape".to_string(), Value::Null);
     row_object.insert(
         "display_shutter_presentation_value".to_string(),
@@ -8285,6 +8404,11 @@ struct GroupedCoverage {
     sr_content_sequence_item_counts: BTreeMap<String, usize>,
     sr_observation_texts: BTreeMap<String, usize>,
     sr_measurement_numeric_values: BTreeMap<String, usize>,
+    kos_document_titles: BTreeMap<String, usize>,
+    kos_key_object_counts: BTreeMap<String, usize>,
+    kos_key_object_relationship_types: BTreeMap<String, usize>,
+    kos_key_object_value_types: BTreeMap<String, usize>,
+    kos_referenced_frame_numbers: BTreeMap<String, usize>,
     modality_lut_descriptors: BTreeMap<String, usize>,
     modality_lut_types: BTreeMap<String, usize>,
     modality_lut_data_value_lengths: BTreeMap<String, usize>,
@@ -8850,6 +8974,31 @@ impl GroupedCoverage {
                 .and_then(Value::as_str),
         );
         increment_map(
+            &mut self.kos_document_titles,
+            row.get("kos_document_title").and_then(Value::as_str),
+        );
+        if let Some(count) = row.get("kos_key_object_count").and_then(Value::as_u64) {
+            *self
+                .kos_key_object_counts
+                .entry(count.to_string())
+                .or_default() += 1;
+        }
+        increment_map(
+            &mut self.kos_key_object_relationship_types,
+            row.get("kos_key_object_relationship_types")
+                .and_then(Value::as_str),
+        );
+        increment_map(
+            &mut self.kos_key_object_value_types,
+            row.get("kos_key_object_value_types")
+                .and_then(Value::as_str),
+        );
+        increment_map(
+            &mut self.kos_referenced_frame_numbers,
+            row.get("kos_referenced_frame_numbers")
+                .and_then(Value::as_str),
+        );
+        increment_map(
             &mut self.modality_lut_descriptors,
             row.get("modality_lut_descriptor").and_then(Value::as_str),
         );
@@ -9379,6 +9528,31 @@ impl GroupedCoverage {
             "sr_measurement_numeric_values".to_string(),
             serde_json::to_value(&self.sr_measurement_numeric_values)
                 .expect("SR measurement numeric value count map must serialize"),
+        );
+        grouped_object.insert(
+            "kos_document_titles".to_string(),
+            serde_json::to_value(&self.kos_document_titles)
+                .expect("KOS document title count map must serialize"),
+        );
+        grouped_object.insert(
+            "kos_key_object_counts".to_string(),
+            serde_json::to_value(&self.kos_key_object_counts)
+                .expect("KOS key object count map must serialize"),
+        );
+        grouped_object.insert(
+            "kos_key_object_relationship_types".to_string(),
+            serde_json::to_value(&self.kos_key_object_relationship_types)
+                .expect("KOS key object relationship type count map must serialize"),
+        );
+        grouped_object.insert(
+            "kos_key_object_value_types".to_string(),
+            serde_json::to_value(&self.kos_key_object_value_types)
+                .expect("KOS key object value type count map must serialize"),
+        );
+        grouped_object.insert(
+            "kos_referenced_frame_numbers".to_string(),
+            serde_json::to_value(&self.kos_referenced_frame_numbers)
+                .expect("KOS referenced frame number count map must serialize"),
         );
         grouped_object.insert(
             "modality_lut_descriptors".to_string(),
@@ -11153,6 +11327,87 @@ mod tests {
     }
 
     #[test]
+    fn coverage_report_exposes_key_object_selection_labels() {
+        let out_dir = unique_temp_dir("kos_report_labels");
+        let prepared = prepare_generation_run(GenerateOptions {
+            profile: "extended".to_string(),
+            out_dir: out_dir.clone(),
+            seed: 1,
+            include_stress: false,
+        })
+        .expect("extended generation run should prepare");
+
+        write_generation_run(&prepared).expect("extended manifest should write");
+        let report = build_coverage_report(&out_dir).expect("coverage report should build");
+        let kos_row = coverage_row(&report, "derived/sr/key_object_selection_explicit_le");
+
+        assert_eq!(
+            kos_row.get("kos_document_title").and_then(Value::as_str),
+            Some("Of Interest")
+        );
+        assert_eq!(
+            kos_row.get("kos_key_object_count").and_then(Value::as_u64),
+            Some(2)
+        );
+        assert_eq!(
+            kos_row
+                .get("kos_key_object_relationship_types")
+                .and_then(Value::as_str),
+            Some("CONTAINS; CONTAINS")
+        );
+        assert_eq!(
+            kos_row
+                .get("kos_key_object_value_types")
+                .and_then(Value::as_str),
+            Some("IMAGE; IMAGE")
+        );
+        assert_eq!(
+            kos_row
+                .get("kos_referenced_frame_numbers")
+                .and_then(Value::as_str),
+            Some("1; 2")
+        );
+        assert_eq!(
+            report
+                .pointer("/grouped_coverage/kos_document_titles/Of Interest")
+                .and_then(Value::as_u64),
+            Some(1)
+        );
+        assert_eq!(
+            report
+                .pointer("/grouped_coverage/kos_key_object_counts/2")
+                .and_then(Value::as_u64),
+            Some(1)
+        );
+        assert_eq!(
+            report
+                .pointer("/grouped_coverage/kos_key_object_relationship_types/CONTAINS; CONTAINS")
+                .and_then(Value::as_u64),
+            Some(1)
+        );
+        assert_eq!(
+            report
+                .pointer("/grouped_coverage/kos_key_object_value_types/IMAGE; IMAGE")
+                .and_then(Value::as_u64),
+            Some(1)
+        );
+        assert_eq!(
+            report
+                .pointer("/grouped_coverage/kos_referenced_frame_numbers/1; 2")
+                .and_then(Value::as_u64),
+            Some(1)
+        );
+
+        let markdown = render_coverage_report_markdown(&report);
+        assert!(markdown.contains("### KOS Document Titles"));
+        assert!(markdown.contains("| Of Interest | 1 |"));
+        assert!(markdown.contains("### KOS Key Object Relationship Types"));
+        assert!(markdown.contains("| CONTAINS; CONTAINS | 1 |"));
+
+        fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
+    }
+
+    #[test]
     fn skipped_cases_use_registry_status_and_skip_metadata() {
         let run = PreparedGenerationRun {
             profile: "core".to_string(),
@@ -11429,5 +11684,16 @@ mod tests {
             .iter()
             .find(|case| case.get("case_id").and_then(Value::as_str) == Some(case_id))
             .expect("skipped case should be present")
+    }
+
+    fn coverage_row<'a>(report: &'a Value, case_id: &str) -> &'a Value {
+        report
+            .get("coverage_matrix")
+            .and_then(Value::as_array)
+            .and_then(|rows| {
+                rows.iter()
+                    .find(|row| row.get("case_id").and_then(Value::as_str) == Some(case_id))
+            })
+            .expect("coverage row should be present")
     }
 }

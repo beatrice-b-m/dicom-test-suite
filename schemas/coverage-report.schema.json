@@ -368,6 +368,21 @@
         "sr_measurement_numeric_values": {
           "$ref": "#/$defs/count_map"
         },
+        "kos_document_titles": {
+          "$ref": "#/$defs/count_map"
+        },
+        "kos_key_object_counts": {
+          "$ref": "#/$defs/count_map"
+        },
+        "kos_key_object_relationship_types": {
+          "$ref": "#/$defs/count_map"
+        },
+        "kos_key_object_value_types": {
+          "$ref": "#/$defs/count_map"
+        },
+        "kos_referenced_frame_numbers": {
+          "$ref": "#/$defs/count_map"
+        },
         "modality_lut_descriptors": {
           "$ref": "#/$defs/count_map"
         },
@@ -629,6 +644,11 @@
         "sr_content_sequence_items",
         "sr_observation_text",
         "sr_measurement_numeric_value",
+        "kos_document_title",
+        "kos_key_object_count",
+        "kos_key_object_relationship_types",
+        "kos_key_object_value_types",
+        "kos_referenced_frame_numbers",
         "modality_lut_descriptor",
         "modality_lut_type",
         "modality_lut_data_value_length",
@@ -1055,6 +1075,22 @@
           "type": ["string", "null"]
         },
         "sr_measurement_numeric_value": {
+          "type": ["string", "null"]
+        },
+        "kos_document_title": {
+          "type": ["string", "null"]
+        },
+        "kos_key_object_count": {
+          "type": ["integer", "null"],
+          "minimum": 0
+        },
+        "kos_key_object_relationship_types": {
+          "type": ["string", "null"]
+        },
+        "kos_key_object_value_types": {
+          "type": ["string", "null"]
+        },
+        "kos_referenced_frame_numbers": {
           "type": ["string", "null"]
         },
         "modality_lut_descriptor": {

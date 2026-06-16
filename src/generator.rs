@@ -214,6 +214,10 @@ const MONO_U16_RECT_2X3_PIXELS: [u8; 12] = [0, 0, 1, 0, 2, 0, 3, 0, 4, 0, 5, 0];
 const MONO_U16_RECT_2X3_VALUES: [i32; 6] = [0, 1, 2, 3, 4, 5];
 const MONO_U16_TINY_1X1_PIXELS: [u8; 2] = [0xff, 0xff];
 const MONO_U16_TINY_1X1_VALUES: [i32; 1] = [65535];
+const MONO_U16_MULTIFRAME_PIXELS: [u8; 16] = [
+    0, 0, 0x55, 0x55, 0xaa, 0xaa, 0xff, 0xff, 0xff, 0xff, 0xaa, 0xaa, 0x55, 0x55, 0, 0,
+];
+const MONO_U16_MULTIFRAME_VALUES: [i32; 8] = [0, 21845, 43690, 65535, 65535, 43690, 21845, 0];
 const MONO_U16_PADDING_PIXELS: [u8; 8] = [0, 0, 0xe8, 0x03, 0xd0, 0x07, 0xb8, 0x0b];
 const MONO_U16_PADDING_VALUES: [i32; 4] = [0, 1000, 2000, 3000];
 const YBR_FULL_PLANAR0_PIXELS: [u8; 12] = [76, 85, 255, 150, 44, 21, 29, 255, 107, 255, 128, 128];
@@ -662,6 +666,29 @@ const PIXEL_RECIPES: &[PixelRecipe] = &[
         pixel_max: 255,
         visual_pattern: "2x2x2_monochrome_rle_lossless_gradient_reversed",
         semantic_note: "two MONOCHROME2 frames decode from separate RLE Lossless fragments",
+        palette: None,
+        padding: None,
+    },
+    PixelRecipe {
+        case_id: "classic/sc/mono2_u16_multiframe_rle_lossless",
+        recipe_id: "sc_mono2_u16_multiframe_rle_lossless",
+        rows: 2,
+        columns: 2,
+        photometric_interpretation: "MONOCHROME2",
+        samples_per_pixel: 1,
+        planar_configuration: None,
+        bits_allocated: 16,
+        bits_stored: 16,
+        high_bit: 15,
+        pixel_representation: 0,
+        pixel_vr: VR::OB,
+        transfer_syntax: RLE_LOSSLESS,
+        pixel_bytes: &MONO_U16_MULTIFRAME_PIXELS,
+        pixel_values: &MONO_U16_MULTIFRAME_VALUES,
+        pixel_min: 0,
+        pixel_max: 65535,
+        visual_pattern: "2x2x2_monochrome_u16_rle_lossless_gradient_reversed",
+        semantic_note: "two unsigned 16-bit MONOCHROME2 frames decode from separate RLE Lossless fragments",
         palette: None,
         padding: None,
     },
@@ -4685,6 +4712,7 @@ fn pixel_profile_membership(recipe: PixelRecipe) -> &'static [&'static str] {
         | "classic/sc/ybr_full_planar0_rle_lossless"
         | "classic/sc/ybr_full_planar1_rle_lossless"
         | "classic/sc/palette_color_u8_rle_lossless"
+        | "classic/sc/mono2_u16_multiframe_rle_lossless"
         | "classic/sc/mono2_u8_odd_fragment_rle_lossless"
         | "vl/photo/rgb_planar0_rle_lossless"
         | "vl/photo/rgb_planar1_rle_lossless"

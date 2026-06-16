@@ -7557,6 +7557,12 @@ mod tests {
         );
         assert!(
             output.contains(
+                "classic/sc/mono2_u16_multiframe_rle_lossless\timplemented\textended\t1.2.840.10008.5.1.4.1.1.7\t1.2.840.10008.1.2.5\t5/5 covered"
+            ),
+            "list-cases output must show implemented 16-bit multi-frame RLE Lossless status"
+        );
+        assert!(
+            output.contains(
                 "classic/sc/mono2_u16_tiny_1x1_rle_lossless\timplemented\textended\t1.2.840.10008.5.1.4.1.1.7\t1.2.840.10008.1.2.5\t6/6 covered"
             ),
             "list-cases output must show implemented tiny 1x1 RLE Lossless status"

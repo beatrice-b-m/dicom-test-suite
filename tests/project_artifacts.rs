@@ -2244,6 +2244,26 @@ fn rle_lossless_transfer_syntax_is_available_through_native_backend() {
         ct_case.get("sop_class_uid").and_then(Value::as_str),
         Some("1.2.840.10008.5.1.4.1.1.2")
     );
+
+    let mr_case = cases
+        .iter()
+        .find(|case| {
+            case.get("case_id").and_then(Value::as_str) == Some("classic/mr/mono2_u16_rle_lossless")
+        })
+        .expect("registry must contain MR RLE Lossless case");
+    assert_eq!(
+        mr_case.get("status").and_then(Value::as_str),
+        Some("implemented")
+    );
+    assert_eq!(mr_case.get("skip"), Some(&Value::Null));
+    assert_eq!(
+        mr_case.get("determinism").and_then(Value::as_str),
+        Some("byte_stable")
+    );
+    assert_eq!(
+        mr_case.get("sop_class_uid").and_then(Value::as_str),
+        Some("1.2.840.10008.5.1.4.1.1.4")
+    );
 }
 
 #[test]

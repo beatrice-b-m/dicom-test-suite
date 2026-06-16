@@ -7555,6 +7555,12 @@ mod tests {
             ),
             "list-cases output must show implemented DX RLE Lossless status"
         );
+        assert!(
+            output.contains(
+                "classic/mg/for_processing_mono2_u16_12bit_rle_lossless\timplemented\textended\t1.2.840.10008.5.1.4.1.1.1.2.1\t1.2.840.10008.1.2.5\t15/15 covered"
+            ),
+            "list-cases output must show implemented MG For Processing RLE Lossless status"
+        );
     }
 
     #[test]

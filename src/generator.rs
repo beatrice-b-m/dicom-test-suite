@@ -1858,6 +1858,25 @@ const CLASSIC_MG_RECIPES: &[ClassicMgRecipe] = &[
         window_center: None,
         window_width: None,
     },
+    ClassicMgRecipe {
+        case_id: "classic/mg/for_processing_mono2_u16_12bit_rle_lossless",
+        recipe_id: "mg_for_processing_mono2_u16_rle_lossless",
+        sop_class_uid: uids::DIGITAL_MAMMOGRAPHY_X_RAY_IMAGE_STORAGE_FOR_PROCESSING,
+        sop_class_name: "Digital Mammography X-Ray Image Storage - For Processing",
+        transfer_syntax: RLE_LOSSLESS,
+        presentation_intent_type: "FOR PROCESSING",
+        photometric_interpretation: "MONOCHROME2",
+        presentation_lut_shape: "IDENTITY",
+        rows: 2,
+        columns: 2,
+        pixel_bytes: &MG_U16_12BIT_PIXELS,
+        pixel_values: &MG_U16_12BIT_VALUES,
+        pixel_min: 0,
+        pixel_max: 4095,
+        imager_pixel_spacing: "0.070\\0.070",
+        window_center: None,
+        window_width: None,
+    },
 ];
 
 #[derive(Debug, Clone, Copy)]
@@ -11253,7 +11272,6 @@ fn classic_mg_known_stressors(recipe: ClassicMgRecipe) -> Vec<&'static str> {
     let mut stressors = if recipe.presentation_intent_type == "FOR PROCESSING" {
         vec![
             "digital_mammography_for_processing",
-            "implicit_vr_little_endian",
             "mono2_processing_pixels",
             "unsigned_12_bit_pixels",
         ]
@@ -11265,6 +11283,9 @@ fn classic_mg_known_stressors(recipe: ClassicMgRecipe) -> Vec<&'static str> {
             "presentation_lut_inverse",
         ]
     };
+    if recipe.transfer_syntax == IMPLICIT_VR_LITTLE_ENDIAN {
+        stressors.push("implicit_vr_little_endian");
+    }
     if recipe.transfer_syntax == RLE_LOSSLESS {
         stressors.extend([
             "encapsulated_pixel_data",

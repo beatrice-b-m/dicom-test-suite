@@ -6352,6 +6352,7 @@ fn classic_ct_manifest_entry(
                     "width": recipe.window_width
                 },
                 "kvp": recipe.kvp,
+                "acquisition_number": "1",
                 "geometry": {
                     "pixel_spacing": recipe.pixel_spacing,
                     "image_orientation_patient": recipe.image_orientation_patient,

@@ -6191,6 +6191,30 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
     append_count_map_section(
         &mut output,
         report,
+        "CT Acquisition Numbers",
+        "/grouped_coverage/ct_acquisition_numbers",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "CT Rescale Intercepts",
+        "/grouped_coverage/ct_rescale_intercepts",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "CT Rescale Slopes",
+        "/grouped_coverage/ct_rescale_slopes",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "CT Rescale Types",
+        "/grouped_coverage/ct_rescale_types",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
         "Enhanced CT Dimension Index Values",
         "/grouped_coverage/enhanced_ct_dimension_index_values",
     );
@@ -6648,6 +6672,34 @@ fn generated_coverage_row(
     row_object.insert(
         "kvp".to_string(),
         file.pointer("/recipe/recipe_parameters/kvp")
+            .and_then(Value::as_str)
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
+    row_object.insert(
+        "ct_acquisition_number".to_string(),
+        file.pointer("/recipe/recipe_parameters/acquisition_number")
+            .and_then(Value::as_str)
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
+    row_object.insert(
+        "ct_rescale_intercept".to_string(),
+        file.pointer("/recipe/recipe_parameters/rescale/intercept")
+            .and_then(Value::as_str)
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
+    row_object.insert(
+        "ct_rescale_slope".to_string(),
+        file.pointer("/recipe/recipe_parameters/rescale/slope")
+            .and_then(Value::as_str)
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
+    row_object.insert(
+        "ct_rescale_type".to_string(),
+        file.pointer("/recipe/recipe_parameters/rescale/type")
             .and_then(Value::as_str)
             .map(Value::from)
             .unwrap_or(Value::Null),
@@ -7343,6 +7395,10 @@ fn skipped_coverage_row(
         Value::Array(Vec::new()),
     );
     row_object.insert("kvp".to_string(), Value::Null);
+    row_object.insert("ct_acquisition_number".to_string(), Value::Null);
+    row_object.insert("ct_rescale_intercept".to_string(), Value::Null);
+    row_object.insert("ct_rescale_slope".to_string(), Value::Null);
+    row_object.insert("ct_rescale_type".to_string(), Value::Null);
     row_object.insert(
         "enhanced_ct_dimension_index_values".to_string(),
         Value::Null,
@@ -7581,6 +7637,10 @@ struct GroupedCoverage {
     window_centers: BTreeMap<String, usize>,
     window_widths: BTreeMap<String, usize>,
     kvps: BTreeMap<String, usize>,
+    ct_acquisition_numbers: BTreeMap<String, usize>,
+    ct_rescale_intercepts: BTreeMap<String, usize>,
+    ct_rescale_slopes: BTreeMap<String, usize>,
+    ct_rescale_types: BTreeMap<String, usize>,
     enhanced_ct_dimension_index_values: BTreeMap<String, usize>,
     enhanced_ct_in_concatenation_numbers: BTreeMap<String, usize>,
     enhanced_ct_in_concatenation_total_numbers: BTreeMap<String, usize>,
@@ -7871,6 +7931,22 @@ impl GroupedCoverage {
         );
         increment_map(&mut self.kvps, row.get("kvp").and_then(Value::as_str));
         increment_map(
+            &mut self.ct_acquisition_numbers,
+            row.get("ct_acquisition_number").and_then(Value::as_str),
+        );
+        increment_map(
+            &mut self.ct_rescale_intercepts,
+            row.get("ct_rescale_intercept").and_then(Value::as_str),
+        );
+        increment_map(
+            &mut self.ct_rescale_slopes,
+            row.get("ct_rescale_slope").and_then(Value::as_str),
+        );
+        increment_map(
+            &mut self.ct_rescale_types,
+            row.get("ct_rescale_type").and_then(Value::as_str),
+        );
+        increment_map(
             &mut self.enhanced_ct_dimension_index_values,
             row.get("enhanced_ct_dimension_index_values")
                 .and_then(Value::as_str),
@@ -8159,6 +8235,26 @@ impl GroupedCoverage {
         grouped_object.insert(
             "kvps".to_string(),
             serde_json::to_value(&self.kvps).expect("KVP count map must serialize"),
+        );
+        grouped_object.insert(
+            "ct_acquisition_numbers".to_string(),
+            serde_json::to_value(&self.ct_acquisition_numbers)
+                .expect("CT acquisition number count map must serialize"),
+        );
+        grouped_object.insert(
+            "ct_rescale_intercepts".to_string(),
+            serde_json::to_value(&self.ct_rescale_intercepts)
+                .expect("CT rescale intercept count map must serialize"),
+        );
+        grouped_object.insert(
+            "ct_rescale_slopes".to_string(),
+            serde_json::to_value(&self.ct_rescale_slopes)
+                .expect("CT rescale slope count map must serialize"),
+        );
+        grouped_object.insert(
+            "ct_rescale_types".to_string(),
+            serde_json::to_value(&self.ct_rescale_types)
+                .expect("CT rescale type count map must serialize"),
         );
         grouped_object.insert(
             "enhanced_ct_dimension_index_values".to_string(),

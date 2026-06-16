@@ -115,6 +115,30 @@ fn report_command_writes_json_coverage_for_core_root() {
         Some("120")
     );
     assert_eq!(
+        coverage_row(&report, "classic/ct/mono2_i16_rescale_12bit_explicit_le")
+            .get("ct_acquisition_number")
+            .and_then(Value::as_str),
+        Some("1")
+    );
+    assert_eq!(
+        coverage_row(&report, "classic/ct/mono2_i16_rescale_12bit_explicit_le")
+            .get("ct_rescale_intercept")
+            .and_then(Value::as_str),
+        Some("-1024")
+    );
+    assert_eq!(
+        coverage_row(&report, "classic/ct/mono2_i16_rescale_12bit_explicit_le")
+            .get("ct_rescale_slope")
+            .and_then(Value::as_str),
+        Some("1")
+    );
+    assert_eq!(
+        coverage_row(&report, "classic/ct/mono2_i16_rescale_12bit_explicit_le")
+            .get("ct_rescale_type")
+            .and_then(Value::as_str),
+        Some("HU")
+    );
+    assert_eq!(
         coverage_row(&report, "classic/mr/multislice_oblique_explicit_le")
             .get("mr_scanning_sequence")
             .and_then(Value::as_str),
@@ -477,6 +501,30 @@ fn report_command_writes_json_coverage_for_core_root() {
     assert_eq!(
         report
             .pointer("/grouped_coverage/kvps/120")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/ct_acquisition_numbers/1")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/ct_rescale_intercepts/-1024")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/ct_rescale_slopes/1")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/ct_rescale_types/HU")
             .and_then(Value::as_u64),
         Some(1)
     );
@@ -1159,6 +1207,13 @@ fn report_command_writes_markdown_coverage_for_core_root() {
     assert!(stdout.contains("| 4096 | 2 |"));
     assert!(stdout.contains("### KVPs"));
     assert!(stdout.contains("| 120 | 1 |"));
+    assert!(stdout.contains("### CT Acquisition Numbers"));
+    assert!(stdout.contains("| 1 | 1 |"));
+    assert!(stdout.contains("### CT Rescale Intercepts"));
+    assert!(stdout.contains("| -1024 | 1 |"));
+    assert!(stdout.contains("### CT Rescale Slopes"));
+    assert!(stdout.contains("### CT Rescale Types"));
+    assert!(stdout.contains("| HU | 1 |"));
     assert!(stdout.contains("### Pixel Spacings"));
     assert!(stdout.contains("| 0.625\\0.625 | 1 |"));
     assert!(stdout.contains("| 1.000\\1.000 | 3 |"));

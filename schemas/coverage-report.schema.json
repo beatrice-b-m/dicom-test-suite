@@ -185,6 +185,18 @@
         "kvps": {
           "$ref": "#/$defs/count_map"
         },
+        "ct_acquisition_numbers": {
+          "$ref": "#/$defs/count_map"
+        },
+        "ct_rescale_intercepts": {
+          "$ref": "#/$defs/count_map"
+        },
+        "ct_rescale_slopes": {
+          "$ref": "#/$defs/count_map"
+        },
+        "ct_rescale_types": {
+          "$ref": "#/$defs/count_map"
+        },
         "enhanced_ct_dimension_index_values": {
           "$ref": "#/$defs/count_map"
         },
@@ -439,6 +451,10 @@
         "window_center",
         "window_width",
         "kvp",
+        "ct_acquisition_number",
+        "ct_rescale_intercept",
+        "ct_rescale_slope",
+        "ct_rescale_type",
         "enhanced_ct_dimension_index_values",
         "enhanced_ct_in_concatenation_number",
         "enhanced_ct_in_concatenation_total_number",
@@ -691,6 +707,18 @@
           "type": ["string", "null"]
         },
         "kvp": {
+          "type": ["string", "null"]
+        },
+        "ct_acquisition_number": {
+          "type": ["string", "null"]
+        },
+        "ct_rescale_intercept": {
+          "type": ["string", "null"]
+        },
+        "ct_rescale_slope": {
+          "type": ["string", "null"]
+        },
+        "ct_rescale_type": {
           "type": ["string", "null"]
         },
         "enhanced_ct_dimension_index_values": {

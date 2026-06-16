@@ -83,6 +83,9 @@
         "samples_per_pixel": {
           "$ref": "#/$defs/count_map"
         },
+        "planar_configurations": {
+          "$ref": "#/$defs/count_map"
+        },
         "frame_counts": {
           "$ref": "#/$defs/count_map"
         },
@@ -199,6 +202,7 @@
         "bits",
         "pixel_representation",
         "samples_per_pixel",
+        "planar_configuration",
         "frames",
         "geometry",
         "derived_refs",
@@ -259,6 +263,10 @@
         "samples_per_pixel": {
           "type": ["integer", "null"],
           "minimum": 1
+        },
+        "planar_configuration": {
+          "type": ["integer", "null"],
+          "enum": [0, 1, null]
         },
         "frames": {
           "type": ["integer", "null"],

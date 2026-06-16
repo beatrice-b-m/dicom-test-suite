@@ -1376,7 +1376,7 @@ fn report_summarizes_compressed_codec_coverage() {
         },
         "files": [
             {
-                "case_id": "classic/sc/mono2_u8_rle_lossless",
+                "case_id": "classic/sc/rgb_planar0_rle_lossless",
                 "dicom": {
                     "iod_name": "Secondary Capture Image",
                     "modality": "OT",
@@ -1384,10 +1384,11 @@ fn report_summarizes_compressed_codec_coverage() {
                     "transfer_syntax_uid": "1.2.840.10008.1.2.5"
                 },
                 "image": {
-                    "photometric_interpretation": "MONOCHROME2",
+                    "photometric_interpretation": "RGB",
                     "bits_stored": 8,
                     "pixel_representation": 0,
-                    "samples_per_pixel": 1,
+                    "samples_per_pixel": 3,
+                    "planar_configuration": 0,
                     "frames": 1,
                     "rows": 2,
                     "columns": 2
@@ -1432,7 +1433,7 @@ fn report_summarizes_compressed_codec_coverage() {
 
     let report = dicom_test_suite::build_coverage_report(&out_dir)
         .expect("report should summarize compressed coverage");
-    let generated = coverage_row(&report, "classic/sc/mono2_u8_rle_lossless");
+    let generated = coverage_row(&report, "classic/sc/rgb_planar0_rle_lossless");
     assert_eq!(
         generated.get("codec_family").and_then(Value::as_str),
         Some("RLE Lossless")
@@ -1461,7 +1462,13 @@ fn report_summarizes_compressed_codec_coverage() {
     );
     assert_eq!(
         generated.get("samples_per_pixel").and_then(Value::as_u64),
-        Some(1)
+        Some(3)
+    );
+    assert_eq!(
+        generated
+            .get("planar_configuration")
+            .and_then(Value::as_u64),
+        Some(0)
     );
     assert_eq!(
         report
@@ -1531,7 +1538,13 @@ fn report_summarizes_compressed_codec_coverage() {
     );
     assert_eq!(
         report
-            .pointer("/grouped_coverage/samples_per_pixel/1")
+            .pointer("/grouped_coverage/samples_per_pixel/3")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/planar_configurations/0")
             .and_then(Value::as_u64),
         Some(1)
     );
@@ -1606,6 +1619,7 @@ fn report_summarizes_compressed_codec_coverage() {
     );
     assert_eq!(unavailable.get("pixel_representation"), Some(&Value::Null));
     assert_eq!(unavailable.get("samples_per_pixel"), Some(&Value::Null));
+    assert_eq!(unavailable.get("planar_configuration"), Some(&Value::Null));
 
     let markdown = dicom_test_suite::render_coverage_report_markdown(&report);
     assert!(markdown.contains("### Codec Families"));
@@ -1630,7 +1644,9 @@ fn report_summarizes_compressed_codec_coverage() {
     assert!(markdown.contains("### Pixel Representations"));
     assert!(markdown.contains("| 0 | 1 |"));
     assert!(markdown.contains("### Samples Per Pixel"));
-    assert!(markdown.contains("| 1 | 1 |"));
+    assert!(markdown.contains("| 3 | 1 |"));
+    assert!(markdown.contains("### Planar Configurations"));
+    assert!(markdown.contains("| 0 | 1 |"));
     assert!(markdown.contains("### Geometries"));
     assert!(markdown.contains("| 2x2 | 1 |"));
     assert!(markdown.contains("### Object Types"));

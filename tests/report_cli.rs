@@ -144,7 +144,7 @@ fn report_command_counts_generated_rgb_rle_lossless_row() {
         report
             .pointer("/grouped_coverage/codec_families/RLE Lossless")
             .and_then(Value::as_u64),
-        Some(11)
+        Some(12)
     );
     let multiframe_row = coverage_row(&report, "classic/sc/mono2_u8_multiframe_rle_lossless");
     assert_eq!(
@@ -229,6 +229,24 @@ fn report_command_counts_generated_rgb_rle_lossless_row() {
             .get("codec_backend_id")
             .and_then(Value::as_str),
         Some("native_project_rle_encoder")
+    );
+    let us_row = coverage_row(&report, "classic/us/mono2_u8_rle_lossless");
+    assert_eq!(
+        us_row.get("status").and_then(Value::as_str),
+        Some("generated")
+    );
+    assert_eq!(
+        us_row.get("codec_backend_id").and_then(Value::as_str),
+        Some("native_project_rle_encoder")
+    );
+    assert!(
+        us_row
+            .get("known_stressors")
+            .and_then(Value::as_array)
+            .expect("US RLE row should include known stressors")
+            .iter()
+            .any(|stressor| stressor.as_str() == Some("ultrasound_image_storage")),
+        "US RLE report row should retain Ultrasound Image Storage stressor"
     );
 
     fs::remove_dir_all(out_dir).expect("temporary output root should be removable");

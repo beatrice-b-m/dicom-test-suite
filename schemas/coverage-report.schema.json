@@ -146,6 +146,12 @@
         "window_widths": {
           "$ref": "#/$defs/count_map"
         },
+        "display_shutter_shapes": {
+          "$ref": "#/$defs/count_map"
+        },
+        "display_shutter_presentation_values": {
+          "$ref": "#/$defs/count_map"
+        },
         "lossy_image_compression": {
           "$ref": "#/$defs/count_map"
         },
@@ -279,6 +285,8 @@
         "presentation_lut_shape",
         "window_center",
         "window_width",
+        "display_shutter_shape",
+        "display_shutter_presentation_value",
         "lossy_image_compression",
         "lossy_image_compression_ratio",
         "lossy_image_compression_method"
@@ -444,6 +452,13 @@
         },
         "window_width": {
           "type": ["string", "null"]
+        },
+        "display_shutter_shape": {
+          "type": ["string", "null"]
+        },
+        "display_shutter_presentation_value": {
+          "type": ["integer", "null"],
+          "minimum": 0
         },
         "lossy_image_compression": {
           "type": ["string", "null"],

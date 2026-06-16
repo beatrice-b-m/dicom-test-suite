@@ -6118,6 +6118,18 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
     append_count_map_section(
         &mut output,
         report,
+        "Display Shutter Shapes",
+        "/grouped_coverage/display_shutter_shapes",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "Display Shutter Presentation Values",
+        "/grouped_coverage/display_shutter_presentation_values",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
         "Known Stressors",
         "/grouped_coverage/known_stressors",
     );
@@ -6266,6 +6278,18 @@ fn generated_coverage_row(
             .map(Value::from)
             .unwrap_or(Value::Null),
     );
+    row_object.insert(
+        "display_shutter_shape".to_string(),
+        report_display_shutter_shape(file)
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
+    row_object.insert(
+        "display_shutter_presentation_value".to_string(),
+        report_display_shutter_presentation_value(file)
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
     Ok(row)
 }
 
@@ -6285,6 +6309,16 @@ fn report_window_width(file: &Value) -> Option<&str> {
             file.pointer("/recipe/recipe_parameters/window_width")
                 .and_then(Value::as_str)
         })
+}
+
+fn report_display_shutter_shape(file: &Value) -> Option<&str> {
+    file.pointer("/recipe/recipe_parameters/display_shutter/shape")
+        .and_then(Value::as_str)
+}
+
+fn report_display_shutter_presentation_value(file: &Value) -> Option<u64> {
+    file.pointer("/recipe/recipe_parameters/display_shutter/presentation_value")
+        .and_then(Value::as_u64)
 }
 
 fn manifest_reference_case_ids(
@@ -6406,6 +6440,11 @@ fn skipped_coverage_row(
         .expect("skipped coverage row literal must be an object");
     row_object.insert("window_center".to_string(), Value::Null);
     row_object.insert("window_width".to_string(), Value::Null);
+    row_object.insert("display_shutter_shape".to_string(), Value::Null);
+    row_object.insert(
+        "display_shutter_presentation_value".to_string(),
+        Value::Null,
+    );
     Ok(row)
 }
 
@@ -6552,6 +6591,8 @@ struct GroupedCoverage {
     presentation_lut_shapes: BTreeMap<String, usize>,
     window_centers: BTreeMap<String, usize>,
     window_widths: BTreeMap<String, usize>,
+    display_shutter_shapes: BTreeMap<String, usize>,
+    display_shutter_presentation_values: BTreeMap<String, usize>,
     lossy_image_compression: BTreeMap<String, usize>,
     lossy_image_compression_ratios: BTreeMap<String, usize>,
     lossy_image_compression_methods: BTreeMap<String, usize>,
@@ -6732,6 +6773,19 @@ impl GroupedCoverage {
             row.get("window_width").and_then(Value::as_str),
         );
         increment_map(
+            &mut self.display_shutter_shapes,
+            row.get("display_shutter_shape").and_then(Value::as_str),
+        );
+        if let Some(presentation_value) = row
+            .get("display_shutter_presentation_value")
+            .and_then(Value::as_u64)
+        {
+            *self
+                .display_shutter_presentation_values
+                .entry(presentation_value.to_string())
+                .or_default() += 1;
+        }
+        increment_map(
             &mut self.lossy_image_compression,
             row.get("lossy_image_compression").and_then(Value::as_str),
         );
@@ -6807,6 +6861,16 @@ impl GroupedCoverage {
             "window_widths".to_string(),
             serde_json::to_value(&self.window_widths)
                 .expect("window width count map must serialize"),
+        );
+        grouped_object.insert(
+            "display_shutter_shapes".to_string(),
+            serde_json::to_value(&self.display_shutter_shapes)
+                .expect("display shutter shape count map must serialize"),
+        );
+        grouped_object.insert(
+            "display_shutter_presentation_values".to_string(),
+            serde_json::to_value(&self.display_shutter_presentation_values)
+                .expect("display shutter presentation value count map must serialize"),
         );
         grouped
     }

@@ -109,6 +109,18 @@ fn report_command_writes_json_coverage_for_core_root() {
         Some("400")
     );
     assert_eq!(
+        coverage_row(&report, "classic/dx/display_shutter_mono2_u16_explicit_le")
+            .get("display_shutter_shape")
+            .and_then(Value::as_str),
+        Some("RECTANGULAR")
+    );
+    assert_eq!(
+        coverage_row(&report, "classic/dx/display_shutter_mono2_u16_explicit_le")
+            .get("display_shutter_presentation_value")
+            .and_then(Value::as_u64),
+        Some(0)
+    );
+    assert_eq!(
         coverage_row(
             &report,
             "classic/mg/for_processing_mono2_u16_12bit_implicit_le"
@@ -225,6 +237,18 @@ fn report_command_writes_json_coverage_for_core_root() {
             .and_then(Value::as_u64),
         Some(2)
     );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/display_shutter_shapes/RECTANGULAR")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/display_shutter_presentation_values/0")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
 
     fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
 }
@@ -269,6 +293,10 @@ fn report_command_writes_markdown_coverage_for_core_root() {
     assert!(stdout.contains("### Window Widths"));
     assert!(stdout.contains("| 400 | 1 |"));
     assert!(stdout.contains("| 4096 | 2 |"));
+    assert!(stdout.contains("### Display Shutter Shapes"));
+    assert!(stdout.contains("| RECTANGULAR | 1 |"));
+    assert!(stdout.contains("### Display Shutter Presentation Values"));
+    assert!(stdout.contains("| 0 | 1 |"));
     assert!(stdout.contains("## Gaps"));
     assert!(
         stdout.contains("| classic/ct/mono2_i16_rescale_12bit_explicit_le | generated | core |")

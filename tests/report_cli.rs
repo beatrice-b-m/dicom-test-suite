@@ -61,10 +61,28 @@ fn report_command_writes_json_coverage_for_core_root() {
         Some("planned")
     );
     assert_eq!(
+        coverage_row(&report, "vl/photo/rgb_planar0_explicit_le")
+            .get("modality")
+            .and_then(Value::as_str),
+        Some("XC")
+    );
+    assert_eq!(
+        coverage_row(&report, "vl/photo/palette_color_explicit_le")
+            .get("modality")
+            .and_then(Value::as_str),
+        Some("XC")
+    );
+    assert_eq!(
         report
             .pointer("/grouped_coverage/profiles/core")
             .and_then(Value::as_u64),
         Some(21)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/modalities/XC")
+            .and_then(Value::as_u64),
+        Some(2)
     );
 
     fs::remove_dir_all(out_dir).expect("temporary output root should be removable");

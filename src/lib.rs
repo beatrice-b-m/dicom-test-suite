@@ -6113,7 +6113,7 @@ fn skipped_coverage_row(
         "profile": run_profile,
         "status": status,
         "iod": registry_case.get("iod_name").and_then(Value::as_str).unwrap_or(""),
-        "modality": Value::Null,
+        "modality": registry_case.get("modality").and_then(Value::as_str),
         "sop_class_uid": registry_case.get("sop_class_uid").and_then(Value::as_str).unwrap_or(""),
         "transfer_syntax": transfer_syntax,
         "codec_family": compressed_codec_family(transfer_syntax),

@@ -87,6 +87,9 @@
         "sop_class_uid": {
           "type": "string"
         },
+        "modality": {
+          "type": "string"
+        },
         "transfer_syntax_uid": {
           "type": "string"
         },

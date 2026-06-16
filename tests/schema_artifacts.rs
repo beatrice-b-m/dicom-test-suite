@@ -206,6 +206,11 @@ fn case_registry_schema_requires_the_specified_case_fields() {
         );
     }
 
+    assert!(
+        schema.pointer("/$defs/case/properties/modality").is_some(),
+        "case registry schema must allow optional modality metadata"
+    );
+
     let statuses = schema
         .pointer("/$defs/status/enum")
         .and_then(Value::as_array)

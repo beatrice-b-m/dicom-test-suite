@@ -4418,6 +4418,7 @@
       "iod_name": "VL Photographic Image",
       "sop_class_name": "VL Photographic Image Storage",
       "sop_class_uid": "1.2.840.10008.5.1.4.1.1.77.1.4",
+      "modality": "XC",
       "transfer_syntax_uid": "1.2.840.10008.1.2.1",
       "determinism": "byte_stable",
       "requirements": {
@@ -7270,6 +7271,7 @@
       "iod_name": "VL Photographic Image",
       "sop_class_name": "VL Photographic Image Storage",
       "sop_class_uid": "1.2.840.10008.5.1.4.1.1.77.1.4",
+      "modality": "XC",
       "transfer_syntax_uid": "1.2.840.10008.1.2.1",
       "determinism": "byte_stable",
       "requirements": {

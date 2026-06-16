@@ -18,6 +18,7 @@
 - Latest Phase 6 report slice adds projection image detector spacing values to coverage reports: nullable row-level Imager Pixel Spacing plus grouped Imager Pixel Spacing counts in JSON and Markdown reports, sourced from existing DX/MG manifest recipe parameters and DICOM element Imager Pixel Spacing `(0018,1164)`.
 - Latest Phase 6 report slice adds source-reference relationship labels to coverage reports: row-level `derived_reference_relationships` arrays plus grouped relationship counts in JSON and Markdown reports, sourced from existing manifest `references[*].relationship` metadata.
 - Latest Phase 6 report slice adds source-reference target labels to coverage reports: row-level `derived_reference_targets` arrays plus grouped target counts in JSON and Markdown reports, sourced from existing manifest `references[*].source_case_id` metadata.
+- Latest Phase 6 report slice adds source-reference SOP Class UID labels to coverage reports: row-level `derived_reference_sop_class_uids` arrays plus grouped SOP Class UID counts in JSON and Markdown reports, sourced from existing manifest `references[*].sop_class_uid` metadata and DICOM element Referenced SOP Class UID `(0008,1150)`.
 
 ## Completed Work
 
@@ -2870,16 +2871,29 @@
 - `cargo run -- validate /tmp/dts-reference-target-report-slice-0616`: passed, 21 files checked and 0 validation failures.
 - `cargo run -- report /tmp/dts-reference-target-report-slice-0616 --format json`: passed; report counted 21 generated rows, emitted row-level `derived_reference_targets`, included `grouped_coverage.derived_reference_targets`, and showed the default core corpus has no source-reference targets.
 - `cargo run -- report /tmp/dts-reference-target-report-slice-0616 --format markdown`: passed; Markdown includes the new Derived Reference Targets grouped coverage table.
+- `git status --short`: passed before slice selection; working tree was clean.
+- `dicom-standard-kb` MCP `lookup_data_element ReferencedSOPClassUID`: passed; confirmed Referenced SOP Class UID `(0008,1150)` has VR `UI`, VM `1`, and is not retired in PS3.6 2026b.
+- `cargo fmt`: passed during implementation formatting.
+- `jq empty schemas/coverage-report.schema.json`: passed.
+- `cargo test --test report_cli --test schema_artifacts`: initially failed because the hand-built compressed report fixture included a manifest reference without schema-required `sop_class_uid`; passed after adding the referenced SOP Class UID to the fixture, 16 focused report/schema tests.
+- `cargo fmt -- --check`: passed.
+- `git diff --check`: passed.
+- `cargo test`: passed, full default-build suite clean.
+- `cargo run -- standards check-lock`: passed with existing documented lock warnings.
+- `cargo run -- generate --profile core --out /tmp/dts-reference-sop-class-report-slice-0616 --seed 1`: passed, 21 files written in the no-feature default build.
+- `cargo run -- validate /tmp/dts-reference-sop-class-report-slice-0616`: passed, 21 files checked and 0 validation failures.
+- `cargo run -- report /tmp/dts-reference-sop-class-report-slice-0616 --format json`: passed; report counted 21 generated rows, emitted row-level `derived_reference_sop_class_uids`, included `grouped_coverage.derived_reference_sop_class_uids`, and showed the default core corpus has no source-reference SOP Class UID buckets.
+- `cargo run -- report /tmp/dts-reference-sop-class-report-slice-0616 --format markdown`: passed; Markdown includes the new Derived Reference SOP Class UIDs grouped coverage table.
 
 ## Commit-Ready Summary
 
-- Added row-level `derived_reference_targets` coverage sourced from existing manifest reference `source_case_id` metadata.
-- Added grouped source-reference target coverage to JSON and Markdown reports.
+- Added row-level `derived_reference_sop_class_uids` coverage sourced from existing manifest reference `sop_class_uid` metadata.
+- Added grouped source-reference SOP Class UID coverage to JSON and Markdown reports.
 - The coverage-report schema and focused report/schema tests now require the new row field and grouped count map.
-- Focused fixture coverage proves referenced source case IDs appear in row-level and grouped JSON output and in Markdown.
-- Default core report verification shows the new target fields/tables are present and empty when the generated core corpus has no source-reference targets.
+- Focused fixture coverage proves referenced SOP Class UIDs appear in row-level and grouped JSON output and in Markdown.
+- Default core report verification shows the new SOP Class UID fields/tables are present and empty when the generated core corpus has no source-reference SOP Class UID buckets.
 - No registry rows, generated DICOM element values, capability-matrix entries, feature gates, external codec backends, deferred lossy policies, or JPEG Extended 12-bit decisions changed in this slice.
 
 ## Recommended Next Commit
 
-Continue Phase 6 with the next smallest corpus expansion or report refinement that reuses already implemented generator infrastructure without new backend policy work. Prefer another under-covered manifest-backed report-matrix axis that improves compatibility triage visibility, such as Enhanced MR per-frame timing labels, CT acquisition parameters beyond KVP, or source-reference SOP Class/Instance UID buckets; otherwise choose the next standards-backed corpus case from `SYSTEM_SPEC.md` after checking `dicom-standard-kb` for any new IOD/SOP/module assumptions. Compressed expansion remains acceptable when it is standards-compatible and does not require a new backend decision. Do not add a VL Photographic multi-frame case without stronger standards evidence for Number of Frames in that IOD, do not add an RLE YBR_FULL_422 case unless new standards evidence supersedes PS3.5 Table 8.2.2-1, and do not promote JPEG Extended 12-bit or deferred lossy variants until their validation policies are selected.
+Continue Phase 6 with the next smallest corpus expansion or report refinement that reuses already implemented generator infrastructure without new backend policy work. Prefer another under-covered manifest-backed report-matrix axis that improves compatibility triage visibility, such as source-reference SOP Instance UID root buckets, Enhanced MR per-frame timing labels, or CT acquisition parameters beyond KVP; otherwise choose the next standards-backed corpus case from `SYSTEM_SPEC.md` after checking `dicom-standard-kb` for any new IOD/SOP/module assumptions. Compressed expansion remains acceptable when it is standards-compatible and does not require a new backend decision. Do not add a VL Photographic multi-frame case without stronger standards evidence for Number of Frames in that IOD, do not add an RLE YBR_FULL_422 case unless new standards evidence supersedes PS3.5 Table 8.2.2-1, and do not promote JPEG Extended 12-bit or deferred lossy variants until their validation policies are selected.

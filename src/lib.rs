@@ -6124,6 +6124,12 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
     append_count_map_section(
         &mut output,
         report,
+        "Derived Reference SOP Class UIDs",
+        "/grouped_coverage/derived_reference_sop_class_uids",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
         "Synthetic Data",
         "/grouped_coverage/synthetic_data",
     );
@@ -6397,6 +6403,7 @@ fn generated_coverage_row(
 ) -> Result<Value, ReportError> {
     let derived_refs = manifest_reference_case_ids(manifest_path, file)?;
     let derived_reference_relationships = manifest_reference_relationships(manifest_path, file)?;
+    let derived_reference_sop_class_uids = manifest_reference_sop_class_uids(manifest_path, file)?;
     let transfer_syntax = report_str(
         manifest_path,
         file,
@@ -6471,6 +6478,11 @@ fn generated_coverage_row(
     row_object.insert(
         "derived_reference_targets".to_string(),
         serde_json::to_value(derived_refs).expect("derived reference targets must serialize"),
+    );
+    row_object.insert(
+        "derived_reference_sop_class_uids".to_string(),
+        serde_json::to_value(derived_reference_sop_class_uids)
+            .expect("derived reference SOP Class UID values must serialize"),
     );
     row_object.insert(
         "known_stressors".to_string(),
@@ -6959,6 +6971,36 @@ fn manifest_reference_relationships(
         .collect()
 }
 
+fn manifest_reference_sop_class_uids(
+    manifest_path: &Path,
+    file: &Value,
+) -> Result<Vec<String>, ReportError> {
+    let references = match file.get("references") {
+        Some(Value::Array(references)) => references,
+        Some(_) => {
+            return Err(ReportError::MetadataShape {
+                path: manifest_path.to_path_buf(),
+                message: "file references must be an array",
+            });
+        }
+        None => return Ok(Vec::new()),
+    };
+
+    references
+        .iter()
+        .map(|reference| {
+            reference
+                .get("sop_class_uid")
+                .and_then(Value::as_str)
+                .map(str::to_string)
+                .ok_or_else(|| ReportError::MetadataShape {
+                    path: manifest_path.to_path_buf(),
+                    message: "file reference sop_class_uid must be a string",
+                })
+        })
+        .collect()
+}
+
 fn skipped_coverage_row(
     manifest_path: &Path,
     registry: &Value,
@@ -7054,6 +7096,10 @@ fn skipped_coverage_row(
     );
     row_object.insert(
         "derived_reference_targets".to_string(),
+        Value::Array(Vec::new()),
+    );
+    row_object.insert(
+        "derived_reference_sop_class_uids".to_string(),
         Value::Array(Vec::new()),
     );
     row_object.insert("kvp".to_string(), Value::Null);
@@ -7251,6 +7297,7 @@ struct GroupedCoverage {
     derived_reference_states: BTreeMap<String, usize>,
     derived_reference_relationships: BTreeMap<String, usize>,
     derived_reference_targets: BTreeMap<String, usize>,
+    derived_reference_sop_class_uids: BTreeMap<String, usize>,
     synthetic_data: BTreeMap<String, usize>,
     image_types: BTreeMap<String, usize>,
     conversion_types: BTreeMap<String, usize>,
@@ -7489,6 +7536,17 @@ impl GroupedCoverage {
                 increment_map(&mut self.derived_reference_targets, target.as_str());
             }
         }
+        if let Some(sop_class_uids) = row
+            .get("derived_reference_sop_class_uids")
+            .and_then(Value::as_array)
+        {
+            for sop_class_uid in sop_class_uids {
+                increment_map(
+                    &mut self.derived_reference_sop_class_uids,
+                    sop_class_uid.as_str(),
+                );
+            }
+        }
         increment_map(
             &mut self.synthetic_data,
             row.get("synthetic_data").and_then(Value::as_str),
@@ -7714,6 +7772,11 @@ impl GroupedCoverage {
             "derived_reference_targets".to_string(),
             serde_json::to_value(&self.derived_reference_targets)
                 .expect("derived reference target count map must serialize"),
+        );
+        grouped_object.insert(
+            "derived_reference_sop_class_uids".to_string(),
+            serde_json::to_value(&self.derived_reference_sop_class_uids)
+                .expect("derived reference SOP Class UID count map must serialize"),
         );
         grouped_object.insert(
             "window_widths".to_string(),

@@ -143,8 +143,8 @@ fn report_command_counts_generated_htj2k_lossless_row() {
 
 #[test]
 #[cfg(feature = "legacy_jpeg_dcmtk")]
-fn report_command_counts_generated_jpeg_lossless_sv1_row() {
-    let out_dir = unique_temp_dir("report-jpeg-lossless-sv1-json");
+fn report_command_counts_generated_legacy_jpeg_lossless_rows() {
+    let out_dir = unique_temp_dir("report-legacy-jpeg-lossless-json");
     generate_extended(&out_dir);
 
     let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
@@ -164,6 +164,24 @@ fn report_command_counts_generated_jpeg_lossless_sv1_row() {
     );
     let report: Value =
         serde_json::from_slice(&output.stdout).expect("report stdout should be JSON");
+    let process_14_row = coverage_row(&report, "classic/sc/mono2_u16_jpeg_lossless_process_14");
+    assert_eq!(
+        process_14_row.get("status").and_then(Value::as_str),
+        Some("generated")
+    );
+    assert_eq!(
+        process_14_row
+            .get("transfer_syntax")
+            .and_then(Value::as_str),
+        Some("1.2.840.10008.1.2.4.57")
+    );
+    assert_eq!(
+        process_14_row
+            .get("validation_status")
+            .and_then(Value::as_str),
+        Some("passed")
+    );
+
     let row = coverage_row(&report, "classic/sc/mono2_u16_jpeg_lossless_sv1");
     assert_eq!(row.get("status").and_then(Value::as_str), Some("generated"));
     assert_eq!(

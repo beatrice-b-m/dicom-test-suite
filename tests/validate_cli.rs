@@ -64,7 +64,7 @@ fn validate_command_accepts_generated_extended_root() {
             0
         }
         + if cfg!(feature = "legacy_jpeg_dcmtk") {
-            1
+            2
         } else {
             0
         };
@@ -382,6 +382,40 @@ fn validate_command_reports_htj2k_lossless_decoded_frame_hash_mismatch() {
     );
     let stdout = String::from_utf8(output.stdout).expect("validate stdout must be UTF-8");
     assert!(stdout.contains("htj2k_lossless_decoded_frame_hashes"));
+
+    fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
+}
+
+#[test]
+#[cfg(feature = "legacy_jpeg_dcmtk")]
+fn validate_command_reports_jpeg_lossless_process_14_decoded_frame_hash_mismatch() {
+    let out_dir = unique_temp_dir("validate-jpeg-lossless-process-14-decoded-hash");
+    generate_profile(&out_dir, "extended");
+    mutate_case_pixel_data(
+        &out_dir,
+        "classic/sc/mono2_u16_jpeg_lossless_process_14",
+        |pixel_data| {
+            pixel_data.insert(
+                "frame_hashes".to_string(),
+                json!(["0000000000000000000000000000000000000000000000000000000000000000"]),
+            );
+        },
+    );
+
+    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args([
+            "validate",
+            out_dir.to_str().expect("temp path should be valid UTF-8"),
+        ])
+        .output()
+        .expect("validate command must run");
+
+    assert!(
+        !output.status.success(),
+        "validate should reject JPEG Lossless Process 14 files whose decoded native hash does not match the manifest"
+    );
+    let stdout = String::from_utf8(output.stdout).expect("validate stdout must be UTF-8");
+    assert!(stdout.contains("jpeg_lossless_process_14_decoded_frame_hashes"));
 
     fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
 }

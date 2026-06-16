@@ -1639,7 +1639,7 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
             0
         }
         + if cfg!(feature = "legacy_jpeg_dcmtk") {
-            1
+            2
         } else {
             0
         };
@@ -2004,6 +2004,75 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
         );
     }
     if cfg!(feature = "legacy_jpeg_dcmtk") {
+        let legacy_jpeg_process_14_file =
+            file_entry_by_case_id(&manifest, "classic/sc/mono2_u16_jpeg_lossless_process_14");
+        assert_eq!(
+            legacy_jpeg_process_14_file
+                .pointer("/dicom/transfer_syntax_uid")
+                .and_then(Value::as_str),
+            Some("1.2.840.10008.1.2.4.57")
+        );
+        assert_eq!(
+            legacy_jpeg_process_14_file
+                .pointer("/image/bits_allocated")
+                .and_then(Value::as_u64),
+            Some(16)
+        );
+        assert_eq!(
+            legacy_jpeg_process_14_file
+                .pointer("/pixel_data/native_or_encapsulated")
+                .and_then(Value::as_str),
+            Some("encapsulated")
+        );
+        assert_eq!(
+            legacy_jpeg_process_14_file
+                .pointer("/pixel_data/codec/backend_id")
+                .and_then(Value::as_str),
+            Some("dcmtk_dcmcjpeg_jpeg_lossless_process_14_command_writer")
+        );
+        assert_eq!(
+            legacy_jpeg_process_14_file
+                .pointer("/pixel_data/codec/backend_kind")
+                .and_then(Value::as_str),
+            Some("external_command")
+        );
+        assert_eq!(
+            legacy_jpeg_process_14_file
+                .pointer("/pixel_data/codec/feature_gate")
+                .and_then(Value::as_str),
+            Some("legacy_jpeg_dcmtk")
+        );
+        assert_eq!(
+            legacy_jpeg_process_14_file
+                .pointer("/pixel_data/codec/runtime_identity/command")
+                .and_then(Value::as_str),
+            Some("dcmcjpeg")
+        );
+        assert!(
+            legacy_jpeg_process_14_file
+                .pointer("/pixel_data/codec/runtime_identity/executable_sha256")
+                .and_then(Value::as_str)
+                .is_some_and(|hash| hash.len() == 64),
+            "legacy JPEG Process 14 manifest should record the dcmcjpeg executable SHA-256 fingerprint"
+        );
+        assert_eq!(
+            legacy_jpeg_process_14_file
+                .pointer("/pixel_data/codec/runtime_identity/encoder_options/mode")
+                .and_then(Value::as_str),
+            Some("lossless_process_14")
+        );
+        assert_eq!(
+            legacy_jpeg_process_14_file
+                .pointer("/expected_semantics/lossy_image_compression")
+                .and_then(Value::as_str),
+            Some("00")
+        );
+        assert!(
+            validation_result_names(legacy_jpeg_process_14_file.pointer("/validation/internal"))
+                .contains(&"jpeg_lossless_process_14_decoded_frame_hashes"),
+            "legacy JPEG Process 14 manifest should record exact decoded frame hash validation"
+        );
+
         let legacy_jpeg_file =
             file_entry_by_case_id(&manifest, "classic/sc/mono2_u16_jpeg_lossless_sv1");
         assert_eq!(
@@ -2865,7 +2934,7 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
         .expect("manifest should contain skipped cases");
     assert_eq!(
         skipped_cases.len(),
-        7 - if cfg!(feature = "deflate") { 1 } else { 0 }
+        8 - if cfg!(feature = "deflate") { 1 } else { 0 }
             - if cfg!(feature = "jpeg") { 1 } else { 0 }
             - if cfg!(feature = "charls") { 1 } else { 0 }
             - if cfg!(feature = "jpegxl") { 1 } else { 0 }
@@ -2876,7 +2945,7 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
                 0
             }
             - if cfg!(feature = "legacy_jpeg_dcmtk") {
-                1
+                2
             } else {
                 0
             },
@@ -2977,6 +3046,27 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
         );
     }
     if !cfg!(feature = "legacy_jpeg_dcmtk") {
+        let legacy_jpeg_process_14 =
+            skipped_case_by_id(&manifest, "classic/sc/mono2_u16_jpeg_lossless_process_14");
+        assert_eq!(
+            legacy_jpeg_process_14.get("status").and_then(Value::as_str),
+            Some("unavailable")
+        );
+        assert_eq!(
+            legacy_jpeg_process_14
+                .get("reason_code")
+                .and_then(Value::as_str),
+            Some("feature_gated_case_unavailable")
+        );
+        assert!(
+            legacy_jpeg_process_14
+                .get("message")
+                .and_then(Value::as_str)
+                .expect("feature-gated legacy JPEG Process 14 row should have a message")
+                .contains("Cargo feature(s) legacy_jpeg_dcmtk"),
+            "feature-gated legacy JPEG Process 14 unavailable row should name the required feature"
+        );
+
         let legacy_jpeg = skipped_case_by_id(&manifest, "classic/sc/mono2_u16_jpeg_lossless_sv1");
         assert_eq!(
             legacy_jpeg.get("status").and_then(Value::as_str),
@@ -4378,7 +4468,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
             0
         }
         + if cfg!(feature = "legacy_jpeg_dcmtk") {
-            1
+            2
         } else {
             0
         };
@@ -4421,6 +4511,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
         file_entry_by_case_id(&manifest, "classic/sc/mono2_u16_htj2k_lossless");
     }
     if cfg!(feature = "legacy_jpeg_dcmtk") {
+        file_entry_by_case_id(&manifest, "classic/sc/mono2_u16_jpeg_lossless_process_14");
         file_entry_by_case_id(&manifest, "classic/sc/mono2_u16_jpeg_lossless_sv1");
     }
     file_entry_by_case_id(&manifest, "classic/ct/mono2_i16_rescale_12bit_explicit_le");
@@ -4445,7 +4536,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
         .expect("manifest should contain skipped cases");
     assert_eq!(
         skipped_cases.len(),
-        9 - if cfg!(feature = "deflate") { 1 } else { 0 }
+        10 - if cfg!(feature = "deflate") { 1 } else { 0 }
             - if cfg!(feature = "jpeg") { 1 } else { 0 }
             - if cfg!(feature = "charls") { 1 } else { 0 }
             - if cfg!(feature = "jpegxl") { 1 } else { 0 }
@@ -4456,7 +4547,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
                 0
             }
             - if cfg!(feature = "legacy_jpeg_dcmtk") {
-                1
+                2
             } else {
                 0
             },
@@ -4532,6 +4623,17 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
         );
     }
     if !cfg!(feature = "legacy_jpeg_dcmtk") {
+        let skipped =
+            skipped_case_by_id(&manifest, "classic/sc/mono2_u16_jpeg_lossless_process_14");
+        assert_eq!(
+            skipped.get("status").and_then(Value::as_str),
+            Some("unavailable")
+        );
+        assert_eq!(
+            skipped.get("reason_code").and_then(Value::as_str),
+            Some("feature_gated_case_unavailable")
+        );
+
         let skipped = skipped_case_by_id(&manifest, "classic/sc/mono2_u16_jpeg_lossless_sv1");
         assert_eq!(
             skipped.get("status").and_then(Value::as_str),

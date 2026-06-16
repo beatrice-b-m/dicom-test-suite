@@ -58,6 +58,7 @@ use openjp2::openjpeg::*;
 pub const JPEG_2000_LOSSLESS_TRANSFER_SYNTAX_UID: &str = "1.2.840.10008.1.2.4.90";
 pub const JPEG_BASELINE_8BIT_TRANSFER_SYNTAX_UID: &str = "1.2.840.10008.1.2.4.50";
 pub const JPEG_LS_LOSSLESS_TRANSFER_SYNTAX_UID: &str = "1.2.840.10008.1.2.4.80";
+pub const JPEG_LOSSLESS_PROCESS_14_TRANSFER_SYNTAX_UID: &str = "1.2.840.10008.1.2.4.57";
 pub const JPEG_LOSSLESS_SV1_TRANSFER_SYNTAX_UID: &str = "1.2.840.10008.1.2.4.70";
 pub const JPEG_XL_LOSSLESS_TRANSFER_SYNTAX_UID: &str = "1.2.840.10008.1.2.4.110";
 pub const HTJ2K_LOSSLESS_TRANSFER_SYNTAX_UID: &str = "1.2.840.10008.1.2.4.201";
@@ -376,6 +377,51 @@ pub struct EncodedDicomFile {
     pub output_bytes: Vec<u8>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(feature = "legacy_jpeg_dcmtk")]
+pub enum DcmtkDcmcjpegLosslessProcess {
+    Process14,
+    Sv1,
+}
+
+#[cfg(feature = "legacy_jpeg_dcmtk")]
+impl DcmtkDcmcjpegLosslessProcess {
+    pub fn backend_id(self) -> &'static str {
+        match self {
+            Self::Process14 => "dcmtk_dcmcjpeg_jpeg_lossless_process_14_command_writer",
+            Self::Sv1 => "dcmtk_dcmcjpeg_jpeg_lossless_sv1_command_writer",
+        }
+    }
+
+    pub fn display_name(self) -> &'static str {
+        match self {
+            Self::Process14 => "DCMTK dcmcjpeg JPEG Lossless Process 14 file writer",
+            Self::Sv1 => "DCMTK dcmcjpeg JPEG Lossless SV1 file writer",
+        }
+    }
+
+    pub fn transfer_syntax_uid(self) -> &'static str {
+        match self {
+            Self::Process14 => JPEG_LOSSLESS_PROCESS_14_TRANSFER_SYNTAX_UID,
+            Self::Sv1 => JPEG_LOSSLESS_SV1_TRANSFER_SYNTAX_UID,
+        }
+    }
+
+    pub fn mode_label(self) -> &'static str {
+        match self {
+            Self::Process14 => "lossless_process_14",
+            Self::Sv1 => "lossless_sv1",
+        }
+    }
+
+    fn dcmcjpeg_encode_arg(self) -> &'static str {
+        match self {
+            Self::Process14 => "--encode-lossless",
+            Self::Sv1 => "--encode-lossless-sv1",
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg(feature = "legacy_jpeg_dcmtk")]
 pub struct DcmtkDcmcjpegLosslessSv1Encoder {
@@ -407,12 +453,16 @@ impl DcmtkDcmcjpegLosslessSv1Encoder {
     }
 
     pub fn backend(&self) -> CodecBackendInfo {
+        self.backend_for(DcmtkDcmcjpegLosslessProcess::Sv1)
+    }
+
+    pub fn backend_for(&self, process: DcmtkDcmcjpegLosslessProcess) -> CodecBackendInfo {
         CodecBackendInfo {
-            backend_id: Self::BACKEND_ID,
+            backend_id: process.backend_id(),
             backend_kind: CodecBackendKind::ExternalCommand,
-            display_name: "DCMTK dcmcjpeg JPEG Lossless SV1 file writer",
+            display_name: process.display_name(),
             version: "DCMTK dcmcjpeg version and executable SHA-256 recorded at runtime",
-            transfer_syntax_uid: JPEG_LOSSLESS_SV1_TRANSFER_SYNTAX_UID,
+            transfer_syntax_uid: process.transfer_syntax_uid(),
             feature_gate: Some("legacy_jpeg_dcmtk"),
             determinism: CodecDeterminism::SemanticStable,
         }
@@ -452,13 +502,22 @@ impl DcmtkDcmcjpegLosslessSv1Encoder {
         input_path: impl AsRef<Path>,
         output_path: impl AsRef<Path>,
     ) -> Result<EncodedDicomFile, CodecError> {
+        self.encode_file_with_process(DcmtkDcmcjpegLosslessProcess::Sv1, input_path, output_path)
+    }
+
+    pub fn encode_file_with_process(
+        &self,
+        process: DcmtkDcmcjpegLosslessProcess,
+        input_path: impl AsRef<Path>,
+        output_path: impl AsRef<Path>,
+    ) -> Result<EncodedDicomFile, CodecError> {
         let input_path = input_path.as_ref();
         let output_path = output_path.as_ref();
         let identity = self.discover_backend_identity()?;
 
         let output = Command::new(&identity.executable_path)
+            .arg(process.dcmcjpeg_encode_arg())
             .args([
-                "--encode-lossless-sv1",
                 "--true-lossless",
                 "--fragment-per-frame",
                 "--offset-table-create",
@@ -469,13 +528,13 @@ impl DcmtkDcmcjpegLosslessSv1Encoder {
             .output()
             .map_err(|err| {
                 CodecError::encode_failed(
-                    Self::BACKEND_ID,
+                    process.backend_id(),
                     format!("failed to run dcmcjpeg: {err}"),
                 )
             })?;
         if !output.status.success() {
             return Err(CodecError::encode_failed(
-                Self::BACKEND_ID,
+                process.backend_id(),
                 format!(
                     "dcmcjpeg failed with status {:?}: stdout={}, stderr={}",
                     output.status.code(),
@@ -487,7 +546,7 @@ impl DcmtkDcmcjpegLosslessSv1Encoder {
 
         let output_bytes = fs::read(output_path).map_err(|err| {
             CodecError::encode_failed(
-                Self::BACKEND_ID,
+                process.backend_id(),
                 format!(
                     "failed to read DCMTK dcmcjpeg output {}: {err}",
                     output_path.display()
@@ -496,7 +555,7 @@ impl DcmtkDcmcjpegLosslessSv1Encoder {
         })?;
         if output_bytes.len() < 132 || &output_bytes[128..132] != b"DICM" {
             return Err(CodecError::validation_failed(
-                Self::BACKEND_ID,
+                process.backend_id(),
                 "dcmcjpeg output is not a DICOM Part 10 file",
             ));
         }

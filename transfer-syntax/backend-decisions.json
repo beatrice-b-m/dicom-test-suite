@@ -413,7 +413,7 @@
           "host_type": "arm64-Darwin",
           "version_source": "command_stdout"
         },
-        "reason": "DCMTK documents DICOM-level JPEG encoding for the legacy transfer syntaxes; local spikes proved metadata preservation, deterministic UID behavior, fragment layout control, DICOM-rs decode validation, and local byte-identical reproducibility for JPEG Lossless SV1 and JPEG Lossless Process 14 sources; and the project now has a feature-gated generated SV1 case that captures runtime identity, validates exact decoded native frame hashes, and reports corpus coverage."
+        "reason": "DCMTK documents DICOM-level JPEG encoding for the legacy transfer syntaxes; local spikes proved metadata preservation, deterministic UID behavior, fragment layout control, DICOM-rs decode validation, and local byte-identical reproducibility for JPEG Lossless SV1 and JPEG Lossless Process 14 sources; and the project now has feature-gated generated SV1 and Process 14 cases that capture runtime identity, validate exact decoded native frame hashes, and report corpus coverage."
       },
       "candidate_backends": [
         {
@@ -451,14 +451,13 @@
         }
       ],
       "validation_strategy": [
-        "Generate a deterministic uncompressed Secondary Capture source in a temporary file, compress it through the feature-gated dcmcjpeg wrapper, then keep only the compressed JPEG Lossless SV1 Part 10 file in the corpus.",
+        "Generate a deterministic uncompressed Secondary Capture source in a temporary file, compress it through the feature-gated dcmcjpeg wrapper, then keep only the compressed JPEG Lossless SV1 or JPEG Lossless Process 14 Part 10 file in the corpus.",
         "Compare decoded native frame hashes against the source frame through the pinned DICOM-rs JPEG decoder and verify encapsulated Pixel Data, Basic Offset Table, and one-fragment frame semantics.",
         "Record the dcmcjpeg command, canonical executable path, executable SHA-256, version banner, and fixed encoder options in the generated manifest.",
         "Use semantic-stable determinism for the generated case because the external tool identity is manifest-recorded even though local repeated outputs are byte-identical.",
-        "Treat JPEG Extended 12-bit, JPEG Lossless Process 14, and JPEG Lossless SV1 as separate feature gates once each process is proven."
+        "Treat JPEG Extended 12-bit as a separate feature gate once the process is proven."
       ],
       "blockers": [
-        "JPEG Lossless Process 14 still needs a feature-gated wrapper and generated-case promotion before implementation.",
         "JPEG Extended 12-bit still needs separate local spike evidence before it can be implemented."
       ],
       "evidence": [
@@ -510,16 +509,16 @@
           "source": "local-wrapper-test",
           "path": "tests/legacy_jpeg_dcmtk_wrapper.rs",
           "command": "cargo test --features legacy_jpeg_dcmtk --test legacy_jpeg_dcmtk_wrapper",
-          "finding": "The project legacy_jpeg_dcmtk feature exposes a DCMTK dcmcjpeg file-level wrapper for JPEG Lossless SV1 that records the canonical executable path, executable SHA-256, and version banner at runtime while preserving source metadata and exact decoded native frame bytes."
+          "finding": "The project legacy_jpeg_dcmtk feature exposes a DCMTK dcmcjpeg file-level wrapper for JPEG Lossless SV1 and JPEG Lossless Process 14 that records the canonical executable path, executable SHA-256, and version banner at runtime while preserving source metadata and exact decoded native frame bytes."
         },
         {
           "source": "generated-case-verification",
-          "path": "classic/sc/mono2_u16_jpeg_lossless_sv1",
+          "path": "classic/sc/mono2_u16_jpeg_lossless_process_14; classic/sc/mono2_u16_jpeg_lossless_sv1",
           "command": "cargo test --features legacy_jpeg_dcmtk --test generate_cli --test validate_cli --test report_cli --test project_artifacts",
-          "finding": "The generated classic/sc/mono2_u16_jpeg_lossless_sv1 case records DCMTK runtime executable SHA-256 metadata, uses encapsulated JPEG Lossless SV1 Pixel Data, validates exact decoded native frame hashes, appears in JSON coverage reports, and is feature-gated through legacy_jpeg_dcmtk."
+          "finding": "The generated classic/sc/mono2_u16_jpeg_lossless_process_14 and classic/sc/mono2_u16_jpeg_lossless_sv1 cases record DCMTK runtime executable SHA-256 metadata, use encapsulated legacy JPEG Lossless Pixel Data, validate exact decoded native frame hashes, appear in JSON coverage reports, and are feature-gated through legacy_jpeg_dcmtk."
         }
       ],
-      "next_action": "Choose the next Phase 5 legacy/specialty slice: add a feature-gated JPEG Lossless Process 14 wrapper/generated case from the passed DCMTK spike, spike JPEG Extended 12-bit with DCMTK, or resolve Deflated Image Frame Compression standards/IOD suitability before implementation."
+      "next_action": "Choose the next Phase 5 legacy/specialty slice: spike JPEG Extended 12-bit with DCMTK or resolve Deflated Image Frame Compression standards/IOD suitability before implementation."
     },
     {
       "family_id": "deflated_image_frame",

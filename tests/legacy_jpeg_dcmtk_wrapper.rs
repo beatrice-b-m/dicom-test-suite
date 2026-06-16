@@ -9,10 +9,13 @@ use dicom_dictionary_std::{tags, uids};
 use dicom_encoding::{Codec, adapters::PixelDataReader};
 use dicom_object::open_file;
 use dicom_test_suite::codecs::{
-    CodecBackendKind, CodecDeterminism, DcmtkDcmcjpegLosslessSv1Encoder,
+    CodecBackendKind, CodecDeterminism, DcmtkDcmcjpegLosslessProcess,
+    DcmtkDcmcjpegLosslessSv1Encoder, JPEG_LOSSLESS_PROCESS_14_TRANSFER_SYNTAX_UID,
     JPEG_LOSSLESS_SV1_TRANSFER_SYNTAX_UID,
 };
-use dicom_transfer_syntax_registry::entries::JPEG_LOSSLESS_NON_HIERARCHICAL_FIRST_ORDER_PREDICTION;
+use dicom_transfer_syntax_registry::entries::{
+    JPEG_LOSSLESS_NON_HIERARCHICAL, JPEG_LOSSLESS_NON_HIERARCHICAL_FIRST_ORDER_PREDICTION,
+};
 use serde_json::Value;
 
 const SOURCE_CASE_ID: &str = "classic/sc/mono2_u16_explicit_le";
@@ -145,6 +148,126 @@ fn dcmtk_wrapper_encodes_lossless_sv1_and_reports_runtime_identity() {
         dicom_test_suite::sha256_hex(&decoded),
         dicom_test_suite::sha256_hex(&source_pixels)
     );
+}
+
+#[test]
+fn dcmtk_wrapper_encodes_lossless_process_14_and_reports_runtime_identity() {
+    let encoder = DcmtkDcmcjpegLosslessSv1Encoder::new();
+    let backend = encoder.backend_for(DcmtkDcmcjpegLosslessProcess::Process14);
+    assert_eq!(
+        backend.backend_id,
+        "dcmtk_dcmcjpeg_jpeg_lossless_process_14_command_writer"
+    );
+    assert_eq!(backend.backend_kind, CodecBackendKind::ExternalCommand);
+    assert_eq!(
+        backend.transfer_syntax_uid,
+        JPEG_LOSSLESS_PROCESS_14_TRANSFER_SYNTAX_UID
+    );
+    assert_eq!(backend.feature_gate, Some("legacy_jpeg_dcmtk"));
+    assert_eq!(backend.determinism, CodecDeterminism::SemanticStable);
+
+    let out_dir = unique_temp_dir("legacy-jpeg-process-14-dcmtk-wrapper");
+    let source_path = generate_source(&out_dir);
+    let compressed_path = out_dir.join("legacy-jpeg-process-14.dcm");
+
+    let encoded = match encoder.encode_file_with_process(
+        DcmtkDcmcjpegLosslessProcess::Process14,
+        &source_path,
+        &compressed_path,
+    ) {
+        Ok(encoded) => encoded,
+        Err(err)
+            if matches!(
+                err,
+                dicom_test_suite::codecs::CodecError::Unavailable { .. }
+            ) =>
+        {
+            eprintln!("skipping DCMTK wrapper test because dcmcjpeg is unavailable: {err}");
+            return;
+        }
+        Err(err) => panic!("DCMTK wrapper should encode the source: {err}"),
+    };
+
+    assert_eq!(encoded.backend_identity.command, "dcmcjpeg");
+    assert!(
+        encoded.backend_identity.executable_path.is_absolute(),
+        "runtime identity should record a canonical executable path"
+    );
+    assert_eq!(
+        encoded.backend_identity.executable_sha256.len(),
+        64,
+        "runtime identity should include an executable SHA-256 fingerprint"
+    );
+    assert_eq!(
+        encoded.output_bytes,
+        fs::read(&compressed_path).expect("compressed output should be readable")
+    );
+
+    let source = open_file(&source_path).expect("source DICOM should parse");
+    let compressed = open_file(&compressed_path).expect("compressed DICOM should parse");
+    assert_eq!(
+        compressed.meta().transfer_syntax().trim_end_matches('\0'),
+        JPEG_LOSSLESS_PROCESS_14_TRANSFER_SYNTAX_UID
+    );
+    assert_eq!(
+        compressed
+            .meta()
+            .media_storage_sop_class_uid()
+            .trim_end_matches('\0'),
+        uids::SECONDARY_CAPTURE_IMAGE_STORAGE
+    );
+    assert_eq!(
+        compressed
+            .meta()
+            .media_storage_sop_instance_uid()
+            .trim_end_matches('\0'),
+        source
+            .meta()
+            .media_storage_sop_instance_uid()
+            .trim_end_matches('\0')
+    );
+    assert_eq!(
+        compressed
+            .element(tags::SYNTHETIC_DATA)
+            .expect("compressed object should keep Synthetic Data")
+            .to_str()
+            .expect("Synthetic Data should be text")
+            .trim_end_matches('\0'),
+        "YES"
+    );
+
+    let pixel_data = compressed
+        .element(tags::PIXEL_DATA)
+        .expect("compressed object should contain Pixel Data");
+    let DicomValue::PixelSequence(sequence) = pixel_data.value() else {
+        panic!("compressed Pixel Data should be encapsulated");
+    };
+    assert_eq!(sequence.offset_table().len(), 1);
+    assert_eq!(sequence.fragments().len(), 1);
+    assert_eq!(&sequence.fragments()[0][0..2], &[0xff, 0xd8]);
+    let fragment_len = sequence.fragments()[0].len();
+    assert_eq!(
+        &sequence.fragments()[0][fragment_len - 2..fragment_len],
+        &[0xff, 0xd9]
+    );
+
+    let Codec::EncapsulatedPixelData(Some(reader), _) = JPEG_LOSSLESS_NON_HIERARCHICAL.codec()
+    else {
+        panic!("DICOM-rs should expose a legacy JPEG Lossless Process 14 reader");
+    };
+    let mut decoded = Vec::new();
+    reader
+        .decode_frame(&compressed, 0, &mut decoded)
+        .expect("DICOM-rs should decode DCMTK Process 14 output");
+    let source_bytes = source
+        .element(tags::PIXEL_DATA)
+        .expect("source should contain Pixel Data")
+        .value()
+        .to_bytes()
+        .expect("source Pixel Data should be bytes");
+    assert_eq!(decoded, source_bytes.as_ref());
+
+    fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
 }
 
 fn generate_source(out_dir: &Path) -> PathBuf {

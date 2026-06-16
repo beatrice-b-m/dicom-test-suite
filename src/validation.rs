@@ -10,9 +10,10 @@ use crate::{
     GenerateError,
     codecs::{
         FrameDecodeInput, FrameDecoder, HTJ2K_LOSSLESS_TRANSFER_SYNTAX_UID,
-        JPEG_2000_LOSSLESS_TRANSFER_SYNTAX_UID, JPEG_LOSSLESS_SV1_TRANSFER_SYNTAX_UID,
-        JPEG_LS_LOSSLESS_TRANSFER_SYNTAX_UID, JPEG_XL_LOSSLESS_TRANSFER_SYNTAX_UID,
-        NativeRleLosslessEncoder, RLE_LOSSLESS_TRANSFER_SYNTAX_UID,
+        JPEG_2000_LOSSLESS_TRANSFER_SYNTAX_UID, JPEG_LOSSLESS_PROCESS_14_TRANSFER_SYNTAX_UID,
+        JPEG_LOSSLESS_SV1_TRANSFER_SYNTAX_UID, JPEG_LS_LOSSLESS_TRANSFER_SYNTAX_UID,
+        JPEG_XL_LOSSLESS_TRANSFER_SYNTAX_UID, NativeRleLosslessEncoder,
+        RLE_LOSSLESS_TRANSFER_SYNTAX_UID,
     },
     sha256_hex,
 };
@@ -28,7 +29,9 @@ use crate::codecs::OpenJphHtj2kLosslessEncoder;
 #[cfg(feature = "legacy_jpeg_dcmtk")]
 use dicom_encoding::{Codec, adapters::PixelDataReader};
 #[cfg(feature = "legacy_jpeg_dcmtk")]
-use dicom_transfer_syntax_registry::entries::JPEG_LOSSLESS_NON_HIERARCHICAL_FIRST_ORDER_PREDICTION;
+use dicom_transfer_syntax_registry::entries::{
+    JPEG_LOSSLESS_NON_HIERARCHICAL, JPEG_LOSSLESS_NON_HIERARCHICAL_FIRST_ORDER_PREDICTION,
+};
 
 type OpenedObject = FileDicomObject<InMemDicomObject<StandardDataDictionary>>;
 type DatasetObject = InMemDicomObject<StandardDataDictionary>;
@@ -814,7 +817,7 @@ pub(crate) fn validate_part10_file(
                     sequence.fragments(),
                     &mut internal,
                 );
-                validate_jpeg_lossless_sv1_decoded_frame_hashes(
+                validate_legacy_jpeg_lossless_decoded_frame_hashes(
                     expected,
                     &obj,
                     sequence.fragments(),
@@ -3873,22 +3876,24 @@ fn validate_htj2k_lossless_decoded_frame_hashes(
     }
 }
 
-fn validate_jpeg_lossless_sv1_decoded_frame_hashes(
+fn validate_legacy_jpeg_lossless_decoded_frame_hashes(
     expected: &Part10Expectations<'_>,
     file: &OpenedObject,
     fragments: &[Vec<u8>],
     results: &mut Vec<Value>,
 ) {
-    if expected.transfer_syntax_uid != JPEG_LOSSLESS_SV1_TRANSFER_SYNTAX_UID {
+    let Some(validation) =
+        LegacyJpegLosslessValidation::for_transfer_syntax(expected.transfer_syntax_uid)
+    else {
         return;
-    }
+    };
     if expected.decoded_frame_hashes.is_empty() {
         check(
             results,
             false,
-            "jpeg_lossless_sv1_decoded_frame_hashes",
-            "JPEG Lossless SV1 frames decode to the expected native frame hashes.",
-            "JPEG Lossless SV1 validation requires expected native frame hashes.",
+            validation.hash_check_name,
+            validation.success_message,
+            validation.missing_hash_message,
         );
         return;
     }
@@ -3896,24 +3901,28 @@ fn validate_jpeg_lossless_sv1_decoded_frame_hashes(
         check(
             results,
             false,
-            "jpeg_lossless_sv1_decoded_frame_hash_count",
-            "JPEG Lossless SV1 decoded frame count matches expected native frame hash count.",
-            "JPEG Lossless SV1 fragment count does not match expected native frame hash count.",
+            validation.count_check_name,
+            validation.count_success_message,
+            validation.count_failure_message,
         );
         return;
     }
 
     #[cfg(feature = "legacy_jpeg_dcmtk")]
     {
-        let Codec::EncapsulatedPixelData(Some(reader), _) =
+        let codec = if expected.transfer_syntax_uid == JPEG_LOSSLESS_PROCESS_14_TRANSFER_SYNTAX_UID
+        {
+            JPEG_LOSSLESS_NON_HIERARCHICAL.codec()
+        } else {
             JPEG_LOSSLESS_NON_HIERARCHICAL_FIRST_ORDER_PREDICTION.codec()
-        else {
+        };
+        let Codec::EncapsulatedPixelData(Some(reader), _) = codec else {
             check(
                 results,
                 false,
-                "jpeg_lossless_sv1_decoder_unavailable",
-                "JPEG Lossless SV1 frames decode to the expected native frame hashes.",
-                "JPEG Lossless SV1 validation requires the legacy_jpeg_dcmtk Cargo feature.",
+                validation.decoder_unavailable_name,
+                validation.success_message,
+                validation.decoder_unavailable_message,
             );
             return;
         };
@@ -3926,9 +3935,9 @@ fn validate_jpeg_lossless_sv1_decoded_frame_hashes(
                     check(
                         results,
                         false,
-                        "jpeg_lossless_sv1_decode_round_trip",
-                        "JPEG Lossless SV1 frames decode successfully.",
-                        "JPEG Lossless SV1 frame decode failed.",
+                        validation.decode_check_name,
+                        validation.decode_success_message,
+                        validation.decode_failure_message,
                     );
                     return;
                 }
@@ -3937,9 +3946,9 @@ fn validate_jpeg_lossless_sv1_decoded_frame_hashes(
 
         check_equal(
             results,
-            "jpeg_lossless_sv1_decoded_frame_hashes",
-            "JPEG Lossless SV1 frames decode to the expected native frame hashes.",
-            "JPEG Lossless SV1 decoded frame hashes do not match expected native frame hashes.",
+            validation.hash_check_name,
+            validation.success_message,
+            validation.hash_failure_message,
             decoded_hashes
                 .iter()
                 .map(String::as_str)
@@ -3954,10 +3963,62 @@ fn validate_jpeg_lossless_sv1_decoded_frame_hashes(
         check(
             results,
             false,
-            "jpeg_lossless_sv1_decoder_unavailable",
-            "JPEG Lossless SV1 frames decode to the expected native frame hashes.",
-            "JPEG Lossless SV1 validation requires the legacy_jpeg_dcmtk Cargo feature.",
+            validation.decoder_unavailable_name,
+            validation.success_message,
+            validation.decoder_unavailable_message,
         );
+    }
+}
+
+#[allow(dead_code)]
+struct LegacyJpegLosslessValidation {
+    hash_check_name: &'static str,
+    count_check_name: &'static str,
+    decoder_unavailable_name: &'static str,
+    decode_check_name: &'static str,
+    success_message: &'static str,
+    missing_hash_message: &'static str,
+    count_success_message: &'static str,
+    count_failure_message: &'static str,
+    decoder_unavailable_message: &'static str,
+    decode_success_message: &'static str,
+    decode_failure_message: &'static str,
+    hash_failure_message: &'static str,
+}
+
+impl LegacyJpegLosslessValidation {
+    fn for_transfer_syntax(transfer_syntax_uid: &str) -> Option<Self> {
+        match transfer_syntax_uid {
+            JPEG_LOSSLESS_PROCESS_14_TRANSFER_SYNTAX_UID => Some(Self {
+                hash_check_name: "jpeg_lossless_process_14_decoded_frame_hashes",
+                count_check_name: "jpeg_lossless_process_14_decoded_frame_hash_count",
+                decoder_unavailable_name: "jpeg_lossless_process_14_decoder_unavailable",
+                decode_check_name: "jpeg_lossless_process_14_decode_round_trip",
+                success_message: "JPEG Lossless Process 14 frames decode to the expected native frame hashes.",
+                missing_hash_message: "JPEG Lossless Process 14 validation requires expected native frame hashes.",
+                count_success_message: "JPEG Lossless Process 14 decoded frame count matches expected native frame hash count.",
+                count_failure_message: "JPEG Lossless Process 14 fragment count does not match expected native frame hash count.",
+                decoder_unavailable_message: "JPEG Lossless Process 14 validation requires the legacy_jpeg_dcmtk Cargo feature.",
+                decode_success_message: "JPEG Lossless Process 14 frames decode successfully.",
+                decode_failure_message: "JPEG Lossless Process 14 frame decode failed.",
+                hash_failure_message: "JPEG Lossless Process 14 decoded frame hashes do not match expected native frame hashes.",
+            }),
+            JPEG_LOSSLESS_SV1_TRANSFER_SYNTAX_UID => Some(Self {
+                hash_check_name: "jpeg_lossless_sv1_decoded_frame_hashes",
+                count_check_name: "jpeg_lossless_sv1_decoded_frame_hash_count",
+                decoder_unavailable_name: "jpeg_lossless_sv1_decoder_unavailable",
+                decode_check_name: "jpeg_lossless_sv1_decode_round_trip",
+                success_message: "JPEG Lossless SV1 frames decode to the expected native frame hashes.",
+                missing_hash_message: "JPEG Lossless SV1 validation requires expected native frame hashes.",
+                count_success_message: "JPEG Lossless SV1 decoded frame count matches expected native frame hash count.",
+                count_failure_message: "JPEG Lossless SV1 fragment count does not match expected native frame hash count.",
+                decoder_unavailable_message: "JPEG Lossless SV1 validation requires the legacy_jpeg_dcmtk Cargo feature.",
+                decode_success_message: "JPEG Lossless SV1 frames decode successfully.",
+                decode_failure_message: "JPEG Lossless SV1 frame decode failed.",
+                hash_failure_message: "JPEG Lossless SV1 decoded frame hashes do not match expected native frame hashes.",
+            }),
+            _ => None,
+        }
     }
 }
 

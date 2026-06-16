@@ -12,9 +12,9 @@ use serde_json::Value;
 use crate::codecs::{
     FrameDecodeInput, FrameDecoder, HTJ2K_LOSSLESS_TRANSFER_SYNTAX_UID,
     JPEG_2000_LOSSLESS_TRANSFER_SYNTAX_UID, JPEG_BASELINE_8BIT_TRANSFER_SYNTAX_UID,
-    JPEG_LOSSLESS_SV1_TRANSFER_SYNTAX_UID, JPEG_LS_LOSSLESS_TRANSFER_SYNTAX_UID,
-    JPEG_XL_LOSSLESS_TRANSFER_SYNTAX_UID, NativeRleLosslessEncoder,
-    RLE_LOSSLESS_TRANSFER_SYNTAX_UID,
+    JPEG_LOSSLESS_PROCESS_14_TRANSFER_SYNTAX_UID, JPEG_LOSSLESS_SV1_TRANSFER_SYNTAX_UID,
+    JPEG_LS_LOSSLESS_TRANSFER_SYNTAX_UID, JPEG_XL_LOSSLESS_TRANSFER_SYNTAX_UID,
+    NativeRleLosslessEncoder, RLE_LOSSLESS_TRANSFER_SYNTAX_UID,
 };
 
 #[cfg(feature = "jpeg")]
@@ -30,7 +30,9 @@ use crate::codecs::OpenJphHtj2kLosslessEncoder;
 #[cfg(feature = "legacy_jpeg_dcmtk")]
 use dicom_encoding::{Codec, adapters::PixelDataReader};
 #[cfg(feature = "legacy_jpeg_dcmtk")]
-use dicom_transfer_syntax_registry::entries::JPEG_LOSSLESS_NON_HIERARCHICAL_FIRST_ORDER_PREDICTION;
+use dicom_transfer_syntax_registry::entries::{
+    JPEG_LOSSLESS_NON_HIERARCHICAL, JPEG_LOSSLESS_NON_HIERARCHICAL_FIRST_ORDER_PREDICTION,
+};
 
 pub mod codecs;
 pub mod encapsulation;
@@ -1401,7 +1403,7 @@ fn validate_encapsulated_pixel_data_manifest(
         &fragment_counts,
         frame_hashes,
     )?;
-    validate_jpeg_lossless_sv1_manifest_decoded_frame_hashes(
+    validate_legacy_jpeg_lossless_manifest_decoded_frame_hashes(
         failures,
         relative_path,
         manifest_path,
@@ -2144,7 +2146,7 @@ fn validate_htj2k_lossless_manifest_decoded_frame_hashes(
     Ok(())
 }
 
-fn validate_jpeg_lossless_sv1_manifest_decoded_frame_hashes(
+fn validate_legacy_jpeg_lossless_manifest_decoded_frame_hashes(
     failures: &mut Vec<String>,
     relative_path: &str,
     manifest_path: &Path,
@@ -2154,25 +2156,30 @@ fn validate_jpeg_lossless_sv1_manifest_decoded_frame_hashes(
     fragments_per_frame: &[usize],
     frame_hashes: &[Value],
 ) -> Result<(), ValidateError> {
-    if transfer_syntax != JPEG_LOSSLESS_SV1_TRANSFER_SYNTAX_UID {
+    let Some(validation) =
+        LegacyJpegLosslessManifestValidation::for_transfer_syntax(transfer_syntax)
+    else {
         return Ok(());
-    }
+    };
 
     let Some(pixel_fragments) = pixel_fragments else {
         failures.push(format!(
-            "{relative_path}: jpeg_lossless_sv1_pixel_sequence: Pixel Data is not an encapsulated fragment sequence"
+            "{relative_path}: {}: Pixel Data is not an encapsulated fragment sequence",
+            validation.pixel_sequence_name
         ));
         return Ok(());
     };
     if !fragments_per_frame.iter().all(|count| *count == 1) {
         failures.push(format!(
-            "{relative_path}: jpeg_lossless_sv1_decoded_frame_hashes: JPEG Lossless SV1 validation currently requires one fragment per frame"
+            "{relative_path}: {}: {} validation currently requires one fragment per frame",
+            validation.hash_check_name, validation.label
         ));
         return Ok(());
     }
     if pixel_fragments.len() != fragments_per_frame.len() {
         failures.push(format!(
-            "{relative_path}: jpeg_lossless_sv1_fragment_count: expected {} fragment(s), got {}",
+            "{relative_path}: {}: expected {} fragment(s), got {}",
+            validation.fragment_count_name,
             fragments_per_frame.len(),
             pixel_fragments.len()
         ));
@@ -2191,11 +2198,15 @@ fn validate_jpeg_lossless_sv1_manifest_decoded_frame_hashes(
 
     #[cfg(feature = "legacy_jpeg_dcmtk")]
     {
-        let Codec::EncapsulatedPixelData(Some(reader), _) =
+        let codec = if transfer_syntax == JPEG_LOSSLESS_PROCESS_14_TRANSFER_SYNTAX_UID {
+            JPEG_LOSSLESS_NON_HIERARCHICAL.codec()
+        } else {
             JPEG_LOSSLESS_NON_HIERARCHICAL_FIRST_ORDER_PREDICTION.codec()
-        else {
+        };
+        let Codec::EncapsulatedPixelData(Some(reader), _) = codec else {
             failures.push(format!(
-                "{relative_path}: jpeg_lossless_sv1_decoder_unavailable: validate requires the legacy_jpeg_dcmtk Cargo feature"
+                "{relative_path}: {}: validate requires the legacy_jpeg_dcmtk Cargo feature",
+                validation.decoder_unavailable_name
             ));
             return Ok(());
         };
@@ -2204,7 +2215,8 @@ fn validate_jpeg_lossless_sv1_manifest_decoded_frame_hashes(
             let mut decoded = Vec::new();
             if let Err(err) = reader.decode_frame(file, frame_index as u32, &mut decoded) {
                 failures.push(format!(
-                    "{relative_path}: jpeg_lossless_sv1_decode_round_trip: {err}"
+                    "{relative_path}: {}: {err}",
+                    validation.decode_check_name
                 ));
                 return Ok(());
             }
@@ -2214,7 +2226,7 @@ fn validate_jpeg_lossless_sv1_manifest_decoded_frame_hashes(
         validate_equal(
             failures,
             relative_path,
-            "jpeg_lossless_sv1_decoded_frame_hashes",
+            validation.hash_check_name,
             decoded_hashes.join(","),
             expected_hashes.join(","),
         );
@@ -2224,11 +2236,46 @@ fn validate_jpeg_lossless_sv1_manifest_decoded_frame_hashes(
     {
         let _ = (file, pixel_fragments, expected_hashes);
         failures.push(format!(
-            "{relative_path}: jpeg_lossless_sv1_decoder_unavailable: validate requires the legacy_jpeg_dcmtk Cargo feature"
+            "{relative_path}: {}: validate requires the legacy_jpeg_dcmtk Cargo feature",
+            validation.decoder_unavailable_name
         ));
     }
 
     Ok(())
+}
+
+#[allow(dead_code)]
+struct LegacyJpegLosslessManifestValidation {
+    label: &'static str,
+    pixel_sequence_name: &'static str,
+    hash_check_name: &'static str,
+    fragment_count_name: &'static str,
+    decoder_unavailable_name: &'static str,
+    decode_check_name: &'static str,
+}
+
+impl LegacyJpegLosslessManifestValidation {
+    fn for_transfer_syntax(transfer_syntax: &str) -> Option<Self> {
+        match transfer_syntax {
+            JPEG_LOSSLESS_PROCESS_14_TRANSFER_SYNTAX_UID => Some(Self {
+                label: "JPEG Lossless Process 14",
+                pixel_sequence_name: "jpeg_lossless_process_14_pixel_sequence",
+                hash_check_name: "jpeg_lossless_process_14_decoded_frame_hashes",
+                fragment_count_name: "jpeg_lossless_process_14_fragment_count",
+                decoder_unavailable_name: "jpeg_lossless_process_14_decoder_unavailable",
+                decode_check_name: "jpeg_lossless_process_14_decode_round_trip",
+            }),
+            JPEG_LOSSLESS_SV1_TRANSFER_SYNTAX_UID => Some(Self {
+                label: "JPEG Lossless SV1",
+                pixel_sequence_name: "jpeg_lossless_sv1_pixel_sequence",
+                hash_check_name: "jpeg_lossless_sv1_decoded_frame_hashes",
+                fragment_count_name: "jpeg_lossless_sv1_fragment_count",
+                decoder_unavailable_name: "jpeg_lossless_sv1_decoder_unavailable",
+                decode_check_name: "jpeg_lossless_sv1_decode_round_trip",
+            }),
+            _ => None,
+        }
+    }
 }
 
 fn is_native_or_dataset_deflated_transfer_syntax(transfer_syntax: &str) -> bool {

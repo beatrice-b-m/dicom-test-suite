@@ -13,9 +13,10 @@ use serde_json::Value;
 use crate::{
     DeterministicUidInput, GenerateError, PreparedGenerationRun, UidRole,
     codecs::{
-        FrameEncodeInput, FrameEncoder, JPEG_BASELINE_8BIT_TRANSFER_SYNTAX_UID,
-        JPEG_LS_LOSSLESS_TRANSFER_SYNTAX_UID, JPEG_XL_LOSSLESS_TRANSFER_SYNTAX_UID,
-        NativeRleLosslessEncoder, RLE_LOSSLESS_TRANSFER_SYNTAX_UID,
+        FrameEncodeInput, FrameEncoder, JPEG_2000_LOSSLESS_TRANSFER_SYNTAX_UID,
+        JPEG_BASELINE_8BIT_TRANSFER_SYNTAX_UID, JPEG_LS_LOSSLESS_TRANSFER_SYNTAX_UID,
+        JPEG_XL_LOSSLESS_TRANSFER_SYNTAX_UID, NativeRleLosslessEncoder,
+        RLE_LOSSLESS_TRANSFER_SYNTAX_UID,
     },
     deterministic_uid,
     encapsulation::{BasicOffsetTablePolicy, EncapsulatedPixelData},
@@ -40,7 +41,14 @@ use crate::codecs::DicomRsJpegBaselineEncoder;
 use crate::codecs::DicomRsJpegLsLosslessEncoder;
 #[cfg(feature = "jpegxl")]
 use crate::codecs::DicomRsJpegXlLosslessEncoder;
-#[cfg(any(feature = "charls", feature = "jpeg", feature = "jpegxl"))]
+#[cfg(feature = "jpeg2000")]
+use crate::codecs::OpenJp2Jpeg2000LosslessEncoder;
+#[cfg(any(
+    feature = "charls",
+    feature = "jpeg",
+    feature = "jpegxl",
+    feature = "jpeg2000"
+))]
 use crate::codecs::{FrameDecodeInput, FrameDecoder};
 
 const PIXEL_RECIPE_VERSION: &str = "0.1.0";
@@ -126,6 +134,12 @@ const JPEG_XL_LOSSLESS: TransferSyntaxSpec = TransferSyntaxSpec {
     capability_name: "JPEG XL Lossless",
     uid: JPEG_XL_LOSSLESS_TRANSFER_SYNTAX_UID,
     name: "JPEG XL Lossless",
+};
+const JPEG_2000_LOSSLESS: TransferSyntaxSpec = TransferSyntaxSpec {
+    capability_keyword: "JPEG2000Lossless",
+    capability_name: "JPEG 2000 Image Compression (Lossless Only)",
+    uid: JPEG_2000_LOSSLESS_TRANSFER_SYNTAX_UID,
+    name: "JPEG 2000 Lossless",
 };
 const SEGMENTATION_SOURCE_CASE_ID: &str = "enhanced/ct/multiframe_shared_perframe_explicit_le";
 const GSPS_SOURCE_CASE_ID: &str = "enhanced/ct/multiframe_shared_perframe_explicit_le";
@@ -481,6 +495,29 @@ const PIXEL_RECIPES: &[PixelRecipe] = &[
         pixel_max: 255,
         visual_pattern: "2x2_rgb_red_green_blue_white",
         semantic_note: "RGB samples are interleaved color-by-pixel before JPEG XL Lossless compression",
+        palette: None,
+        padding: None,
+    },
+    PixelRecipe {
+        case_id: "classic/sc/mono2_u16_jpeg2000_lossless",
+        recipe_id: "sc_mono2_u16_jpeg2000_lossless",
+        rows: 2,
+        columns: 2,
+        photometric_interpretation: "MONOCHROME2",
+        samples_per_pixel: 1,
+        planar_configuration: None,
+        bits_allocated: 16,
+        bits_stored: 16,
+        high_bit: 15,
+        pixel_representation: 0,
+        pixel_vr: VR::OB,
+        transfer_syntax: JPEG_2000_LOSSLESS,
+        pixel_bytes: &MONO_U16_PIXELS,
+        pixel_values: &MONO_U16_VALUES,
+        pixel_min: 0,
+        pixel_max: 65535,
+        visual_pattern: "2x2_monochrome_u16_gradient",
+        semantic_note: "16-bit unsigned MONOCHROME2 samples span the full stored range after JPEG 2000 Lossless decode",
         palette: None,
         padding: None,
     },
@@ -2444,9 +2481,19 @@ fn write_pixel_case(
         }
     }
 
-    #[cfg(any(feature = "charls", feature = "jpeg", feature = "jpegxl"))]
+    #[cfg(any(
+        feature = "charls",
+        feature = "jpeg",
+        feature = "jpegxl",
+        feature = "jpeg2000"
+    ))]
     let mut codec_internal_validation = Vec::new();
-    #[cfg(not(any(feature = "charls", feature = "jpeg", feature = "jpegxl")))]
+    #[cfg(not(any(
+        feature = "charls",
+        feature = "jpeg",
+        feature = "jpegxl",
+        feature = "jpeg2000"
+    )))]
     let codec_internal_validation = Vec::new();
     let compressed_pixel_data = if recipe.transfer_syntax == RLE_LOSSLESS {
         let rle_encoder = NativeRleLosslessEncoder::new();
@@ -2639,6 +2686,56 @@ fn write_pixel_case(
             return Err(GenerateError::WriteDicomFile {
                 path: path.clone(),
                 message: "JPEG XL Lossless generation requires the jpegxl Cargo feature"
+                    .to_string(),
+            });
+        }
+    } else if recipe.transfer_syntax == JPEG_2000_LOSSLESS {
+        #[cfg(feature = "jpeg2000")]
+        {
+            let jpeg_2000_encoder = OpenJp2Jpeg2000LosslessEncoder::new();
+            let encoded_frame = jpeg_2000_encoder
+                .encode_frame(FrameEncodeInput {
+                    native_frame: recipe.pixel_bytes,
+                    rows: recipe.rows,
+                    columns: recipe.columns,
+                    samples_per_pixel: recipe.samples_per_pixel,
+                    bits_allocated: recipe.bits_allocated,
+                    bits_stored: recipe.bits_stored,
+                    photometric_interpretation: recipe.photometric_interpretation,
+                })
+                .map_err(|err| GenerateError::WriteDicomFile {
+                    path: path.clone(),
+                    message: err.to_string(),
+                })?;
+            codec_internal_validation.push(validate_jpeg_2000_lossless_round_trip(
+                &path,
+                recipe,
+                &encoded_frame.bytes,
+            )?);
+            let compressed_frames = vec![encoded_frame.bytes];
+            let encapsulated = EncapsulatedPixelData::one_fragment_per_frame(
+                &compressed_frames,
+                BasicOffsetTablePolicy::Populated,
+            )
+            .map_err(|err| GenerateError::WriteDicomFile {
+                path: path.clone(),
+                message: err.to_string(),
+            })?;
+            obj.put(DataElement::new(
+                tags::PIXEL_DATA,
+                recipe.pixel_vr,
+                PixelFragmentSequence::new(
+                    encapsulated.basic_offset_table.offsets.clone(),
+                    compressed_frames,
+                ),
+            ));
+            Some((FrameEncoder::backend(&jpeg_2000_encoder), encapsulated))
+        }
+        #[cfg(not(feature = "jpeg2000"))]
+        {
+            return Err(GenerateError::WriteDicomFile {
+                path: path.clone(),
+                message: "JPEG 2000 Lossless generation requires the jpeg2000 Cargo feature"
                     .to_string(),
             });
         }
@@ -2885,6 +2982,46 @@ fn validate_jpeg_xl_lossless_round_trip(
     }))
 }
 
+#[cfg(feature = "jpeg2000")]
+fn validate_jpeg_2000_lossless_round_trip(
+    path: &std::path::Path,
+    recipe: PixelRecipe,
+    encoded_frame: &[u8],
+) -> Result<Value, GenerateError> {
+    let decoder = OpenJp2Jpeg2000LosslessEncoder::new();
+    let decoded = decoder
+        .decode_frame(FrameDecodeInput {
+            encoded_frame,
+            rows: recipe.rows,
+            columns: recipe.columns,
+            samples_per_pixel: recipe.samples_per_pixel,
+            bits_allocated: recipe.bits_allocated,
+            bits_stored: recipe.bits_stored,
+            photometric_interpretation: recipe.photometric_interpretation,
+        })
+        .map_err(|err| GenerateError::ValidateDicomFile {
+            path: path.to_path_buf(),
+            message: err.to_string(),
+        })?;
+
+    let decoded_hash = sha256_hex(&decoded.native_bytes);
+    let expected_hash = sha256_hex(recipe.pixel_bytes);
+    if decoded_hash != expected_hash {
+        return Err(GenerateError::ValidateDicomFile {
+            path: path.to_path_buf(),
+            message: format!(
+                "JPEG 2000 Lossless decoded frame hash {decoded_hash} did not match expected {expected_hash}"
+            ),
+        });
+    }
+
+    Ok(serde_json::json!({
+        "name": "jpeg_2000_lossless_decoded_frame_hashes",
+        "status": "passed",
+        "message": "JPEG 2000 Lossless decoded frame hash matches the native source frame."
+    }))
+}
+
 fn pixel_manifest_entry(
     case: &Value,
     recipe: PixelRecipe,
@@ -3124,6 +3261,26 @@ fn pixel_manifest_entry(
             }),
         ]);
     }
+    if recipe.transfer_syntax == JPEG_2000_LOSSLESS {
+        standards_evidence.extend([
+            serde_json::json!({
+                "source": "dicom-standard-kb",
+                "edition": "2026b",
+                "query": "lookup_uid JPEG2000Lossless",
+                "covered": true,
+                "part": "PS3.6",
+                "anchor": "table_A-1"
+            }),
+            serde_json::json!({
+                "source": "dicom-standard-kb",
+                "edition": "2026b",
+                "query": "search_standard_text Basic Offset Table encapsulated Pixel Data Item padding Extended Offset Table",
+                "covered": true,
+                "part": "PS3.5",
+                "anchor": "sect_A.4"
+            }),
+        ]);
+    }
 
     let palette_manifest = recipe.palette.map(|palette| {
         serde_json::json!({
@@ -3278,6 +3435,9 @@ fn pixel_known_stressors(recipe: PixelRecipe) -> Vec<&'static str> {
     } else if recipe.transfer_syntax == JPEG_XL_LOSSLESS {
         stressors.push("encapsulated_pixel_data");
         stressors.push("jpeg_xl_lossless_transfer_syntax");
+    } else if recipe.transfer_syntax == JPEG_2000_LOSSLESS {
+        stressors.push("encapsulated_pixel_data");
+        stressors.push("jpeg_2000_lossless_transfer_syntax");
     } else {
         stressors.push("native_ob_pixel_data");
     }
@@ -3302,7 +3462,8 @@ fn pixel_profile_membership(recipe: PixelRecipe) -> &'static [&'static str] {
         | "classic/sc/mono2_u16_rle_lossless"
         | "classic/sc/rgb_planar0_jpeg_baseline_8bit"
         | "classic/sc/mono2_u8_jpeg_ls_lossless"
-        | "classic/sc/rgb_planar0_jpegxl_lossless" => &["extended"],
+        | "classic/sc/rgb_planar0_jpegxl_lossless"
+        | "classic/sc/mono2_u16_jpeg2000_lossless" => &["extended"],
         _ => &["core"],
     }
 }
@@ -3336,6 +3497,13 @@ fn pixel_expected_capabilities(recipe: PixelRecipe) -> Vec<&'static str> {
             "decode_jpeg_xl_lossless_pixels",
             "render_color",
         ]
+    } else if recipe.transfer_syntax == JPEG_2000_LOSSLESS {
+        vec![
+            "open_file",
+            "read_metadata",
+            "decode_jpeg_2000_lossless_pixels",
+            "render_grayscale",
+        ]
     } else {
         vec!["open_file", "read_metadata", "render_native_pixels"]
     }
@@ -3345,6 +3513,7 @@ fn pixel_determinism(recipe: PixelRecipe) -> &'static str {
     if recipe.transfer_syntax == JPEG_BASELINE_8BIT
         || recipe.transfer_syntax == JPEG_LS_LOSSLESS
         || recipe.transfer_syntax == JPEG_XL_LOSSLESS
+        || recipe.transfer_syntax == JPEG_2000_LOSSLESS
     {
         "semantic_stable"
     } else {

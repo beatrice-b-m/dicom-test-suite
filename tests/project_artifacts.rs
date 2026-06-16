@@ -674,25 +674,18 @@ fn transfer_syntax_matrix_matches_dicom_rs_native_writer_support() {
 }
 
 #[test]
-fn compressed_transfer_syntax_matrix_matches_current_dicom_rs_stubs() {
+fn skipped_advanced_transfer_syntax_matrix_matches_current_dicom_rs_stubs() {
     let matrix = read_json("transfer-syntax/capability-matrix.json");
     let entries = matrix
         .get("entries")
         .and_then(Value::as_array)
         .expect("transfer syntax matrix must contain entries");
 
-    for (uid, keyword, feature) in [
-        (
-            "1.2.840.10008.1.2.4.90",
-            "JPEG2000Lossless",
-            "dicom-transfer-syntax-registry/openjp2",
-        ),
-        (
-            "1.2.840.10008.1.2.4.201",
-            "HTJ2KLossless",
-            "dicom-transfer-syntax-registry/openjp2",
-        ),
-    ] {
+    for (uid, keyword, feature) in [(
+        "1.2.840.10008.1.2.4.201",
+        "HTJ2KLossless",
+        "dicom-transfer-syntax-registry/openjp2",
+    )] {
         let entry = entries
             .iter()
             .find(|entry| entry.get("uid").and_then(Value::as_str) == Some(uid))
@@ -882,7 +875,7 @@ fn jpeg_xl_lossless_transfer_syntax_has_project_jpegxl_feature_gate() {
 }
 
 #[test]
-fn jpeg_2000_lossless_backend_decision_is_selected_but_not_generated() {
+fn jpeg_2000_lossless_transfer_syntax_has_project_jpeg2000_feature_gate() {
     let cargo_toml = fs::read_to_string("Cargo.toml").expect("Cargo.toml must be readable");
     assert!(
         cargo_toml.contains("jpeg2000 = ["),
@@ -916,19 +909,34 @@ fn jpeg_2000_lossless_backend_decision_is_selected_but_not_generated() {
     );
     assert_eq!(
         entry.get("status").and_then(Value::as_str),
-        Some("unavailable"),
-        "JPEG 2000 generation should stay unavailable until the selected backend is proven"
+        Some("feature_gated"),
+        "JPEG 2000 generation should be available when the project jpeg2000 feature is enabled"
     );
     assert_eq!(
         entry.get("decode_pixel").and_then(Value::as_bool),
-        Some(false),
-        "the committed matrix should not claim JPEG 2000 decode validation yet"
+        Some(true),
+        "the committed matrix should claim JPEG 2000 decode validation behind the jpeg2000 feature"
     );
     assert_eq!(
         entry.get("encode_pixel").and_then(Value::as_bool),
-        Some(false),
-        "the committed matrix should not claim JPEG 2000 encode validation yet"
+        Some(true),
+        "the committed matrix should claim JPEG 2000 encode validation behind the jpeg2000 feature"
     );
+    assert!(
+        entry
+            .get("feature_flags")
+            .and_then(Value::as_array)
+            .is_some_and(|features| features
+                .iter()
+                .any(|value| value.as_str() == Some("jpeg2000"))),
+        "JPEG 2000 should record the project jpeg2000 feature gate"
+    );
+    if cfg!(feature = "jpeg2000") {
+        assert!(
+            transfer_syntax.pixel_data_reader().is_some(),
+            "jpeg2000 feature builds should expose a runtime JPEG 2000 decoder"
+        );
+    }
     assert!(
         transfer_syntax.pixel_data_writer().is_none(),
         "pinned DICOM-rs JPEG 2000 support does not provide a pixel writer"
@@ -948,8 +956,18 @@ fn jpeg_2000_lossless_backend_decision_is_selected_but_not_generated() {
         .expect("case registry must contain the planned JPEG 2000 Lossless case");
     assert_eq!(
         case.get("status").and_then(Value::as_str),
-        Some("skipped"),
-        "JPEG 2000 generation should stay skipped until corpus integration is proven"
+        Some("implemented"),
+        "JPEG 2000 generation should be implemented behind the project feature"
+    );
+    assert_eq!(
+        case.pointer("/requirements/features/0")
+            .and_then(Value::as_str),
+        Some("jpeg2000")
+    );
+    assert_eq!(
+        case.get("skip"),
+        Some(&Value::Null),
+        "implemented JPEG 2000 case should not retain skip metadata"
     );
 
     let decisions = read_json("transfer-syntax/backend-decisions.json");
@@ -990,6 +1008,16 @@ fn jpeg_2000_lossless_backend_decision_is_selected_but_not_generated() {
                     |finding| finding.contains("BSD-2-Clause") && finding.contains("openjp2")
                 ))),
         "JPEG 2000 decision should record selected backend licensing evidence"
+    );
+    assert!(
+        jpeg_2000
+            .get("evidence")
+            .and_then(Value::as_array)
+            .is_some_and(|items| items.iter().any(|item| item
+                .get("finding")
+                .and_then(Value::as_str)
+                .is_some_and(|finding| finding.contains("validates exact decoded frame hashes")))),
+        "JPEG 2000 decision should record generated-case validation evidence"
     );
     assert_eq!(
         jpeg_2000
@@ -1240,18 +1268,11 @@ fn compressed_transfer_syntax_registry_rows_remain_skipped_until_verified() {
     let registry = read_json("cases/registry.json");
     let cases = registry_cases(&registry);
 
-    for (case_id, uid, keyword) in [
-        (
-            "classic/sc/mono2_u16_jpeg2000_lossless",
-            "1.2.840.10008.1.2.4.90",
-            "JPEG2000Lossless",
-        ),
-        (
-            "classic/sc/mono2_u16_htj2k_lossless",
-            "1.2.840.10008.1.2.4.201",
-            "HTJ2KLossless",
-        ),
-    ] {
+    for (case_id, uid, keyword) in [(
+        "classic/sc/mono2_u16_htj2k_lossless",
+        "1.2.840.10008.1.2.4.201",
+        "HTJ2KLossless",
+    )] {
         let matrix_entry = matrix_entries
             .iter()
             .find(|entry| entry.get("uid").and_then(Value::as_str) == Some(uid))

@@ -9,9 +9,9 @@ use serde_json::Value;
 use crate::{
     GenerateError,
     codecs::{
-        FrameDecodeInput, FrameDecoder, JPEG_LS_LOSSLESS_TRANSFER_SYNTAX_UID,
-        JPEG_XL_LOSSLESS_TRANSFER_SYNTAX_UID, NativeRleLosslessEncoder,
-        RLE_LOSSLESS_TRANSFER_SYNTAX_UID,
+        FrameDecodeInput, FrameDecoder, JPEG_2000_LOSSLESS_TRANSFER_SYNTAX_UID,
+        JPEG_LS_LOSSLESS_TRANSFER_SYNTAX_UID, JPEG_XL_LOSSLESS_TRANSFER_SYNTAX_UID,
+        NativeRleLosslessEncoder, RLE_LOSSLESS_TRANSFER_SYNTAX_UID,
     },
     sha256_hex,
 };
@@ -20,6 +20,8 @@ use crate::{
 use crate::codecs::DicomRsJpegLsLosslessEncoder;
 #[cfg(feature = "jpegxl")]
 use crate::codecs::DicomRsJpegXlLosslessEncoder;
+#[cfg(feature = "jpeg2000")]
+use crate::codecs::OpenJp2Jpeg2000LosslessEncoder;
 
 type OpenedObject = FileDicomObject<InMemDicomObject<StandardDataDictionary>>;
 type DatasetObject = InMemDicomObject<StandardDataDictionary>;
@@ -790,6 +792,11 @@ pub(crate) fn validate_part10_file(
                     &mut internal,
                 );
                 validate_jpeg_xl_lossless_decoded_frame_hashes(
+                    expected,
+                    sequence.fragments(),
+                    &mut internal,
+                );
+                validate_jpeg_2000_lossless_decoded_frame_hashes(
                     expected,
                     sequence.fragments(),
                     &mut internal,
@@ -3676,6 +3683,89 @@ fn validate_jpeg_xl_lossless_decoded_frame_hashes(
             "jpeg_xl_lossless_decoder_unavailable",
             "JPEG XL Lossless frames decode to the expected native frame hashes.",
             "JPEG XL Lossless validation requires the jpegxl Cargo feature.",
+        );
+    }
+}
+
+fn validate_jpeg_2000_lossless_decoded_frame_hashes(
+    expected: &Part10Expectations<'_>,
+    fragments: &[Vec<u8>],
+    results: &mut Vec<Value>,
+) {
+    if expected.transfer_syntax_uid != JPEG_2000_LOSSLESS_TRANSFER_SYNTAX_UID {
+        return;
+    }
+    if expected.decoded_frame_hashes.is_empty() {
+        check(
+            results,
+            false,
+            "jpeg_2000_lossless_decoded_frame_hashes",
+            "JPEG 2000 Lossless frames decode to the expected native frame hashes.",
+            "JPEG 2000 Lossless validation requires expected native frame hashes.",
+        );
+        return;
+    }
+    if fragments.len() != expected.decoded_frame_hashes.len() {
+        check(
+            results,
+            false,
+            "jpeg_2000_lossless_decoded_frame_hash_count",
+            "JPEG 2000 Lossless decoded frame count matches expected native frame hash count.",
+            "JPEG 2000 Lossless fragment count does not match expected native frame hash count.",
+        );
+        return;
+    }
+
+    #[cfg(feature = "jpeg2000")]
+    {
+        let decoder = OpenJp2Jpeg2000LosslessEncoder::new();
+        let mut decoded_hashes = Vec::with_capacity(fragments.len());
+        for fragment in fragments {
+            match decoder.decode_frame(FrameDecodeInput {
+                encoded_frame: fragment,
+                rows: expected.rows,
+                columns: expected.columns,
+                samples_per_pixel: expected.samples_per_pixel,
+                bits_allocated: expected.bits_allocated,
+                bits_stored: expected.bits_stored,
+                photometric_interpretation: expected.photometric_interpretation,
+            }) {
+                Ok(decoded) => decoded_hashes.push(sha256_hex(&decoded.native_bytes)),
+                Err(_) => {
+                    check(
+                        results,
+                        false,
+                        "jpeg_2000_lossless_decode_round_trip",
+                        "JPEG 2000 Lossless frames decode successfully.",
+                        "JPEG 2000 Lossless frame decode failed.",
+                    );
+                    return;
+                }
+            }
+        }
+
+        check_equal(
+            results,
+            "jpeg_2000_lossless_decoded_frame_hashes",
+            "JPEG 2000 Lossless frames decode to the expected native frame hashes.",
+            "JPEG 2000 Lossless decoded frame hashes do not match expected native frame hashes.",
+            decoded_hashes
+                .iter()
+                .map(String::as_str)
+                .collect::<Vec<_>>(),
+            expected.decoded_frame_hashes.to_vec(),
+        );
+    }
+
+    #[cfg(not(feature = "jpeg2000"))]
+    {
+        let _ = fragments;
+        check(
+            results,
+            false,
+            "jpeg_2000_lossless_decoder_unavailable",
+            "JPEG 2000 Lossless frames decode to the expected native frame hashes.",
+            "JPEG 2000 Lossless validation requires the jpeg2000 Cargo feature.",
         );
     }
 }

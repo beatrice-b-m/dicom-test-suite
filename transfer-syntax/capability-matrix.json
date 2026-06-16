@@ -185,18 +185,15 @@
       "keyword": "JPEG2000Lossless",
       "name": "JPEG 2000 Image Compression (Lossless Only)",
       "profiles": ["extended"],
-      "status": "unavailable",
+      "status": "feature_gated",
       "read_dataset": true,
-      "decode_pixel": false,
+      "decode_pixel": true,
       "write_dataset": true,
-      "encode_pixel": false,
-      "feature_flags": [
-        "dicom-transfer-syntax-registry/openjp2",
-        "dicom-transfer-syntax-registry/openjpeg-sys"
-      ],
+      "encode_pixel": true,
+      "feature_flags": ["jpeg2000"],
       "external_libraries": ["OpenJPEG"],
       "determinism": "semantic_stable",
-      "notes": "DICOM-rs 0.9.1 exposes this transfer syntax as an encapsulated Pixel Data stub without an OpenJPEG-backed feature. The optional adapter is decoder-only in the pinned crate, so generation remains unavailable until an encoder strategy is selected and validated.",
+      "notes": "Generated when the project `jpeg2000` Cargo feature enables the project OpenJPEG-rs JPEG 2000 Lossless writer plus the pinned DICOM-rs OpenJPEG reader. Default builds report dependent cases as feature-gated unavailable; feature builds validate encapsulated Pixel Data layout and exact decoded frame hashes.",
       "standards_evidence": [
         {
           "source": "dicom-standard-kb",

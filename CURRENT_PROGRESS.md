@@ -11,7 +11,7 @@
 - Phase 1 - Codec Integration Architecture: in progress; minimal codec API plus native RLE and DICOM-rs JPEG Baseline frame encode/decode support are present.
 - Phase 2 - Encapsulated Pixel Data Substrate: complete for the first RLE one-fragment case; Extended Offset Table and future multi-fragment generation remain later substrate expansion.
 - Phase 3 - Low-Risk Codec Enablement: in progress; 8-bit and 16-bit generated RLE Lossless Secondary Capture cases are implemented and round-trip validated; the first JPEG Baseline 8-bit RGB Secondary Capture case is generated and validated when the `jpeg` feature is enabled; the first JPEG-LS Lossless 8-bit MONOCHROME2 Secondary Capture case is generated and exact-hash validated when the `charls` feature is enabled; the first JPEG XL Lossless 8-bit RGB Secondary Capture case is generated and exact-hash validated when the `jpegxl` feature is enabled.
-- Phase 4 - JPEG 2000 And HTJ2K: in progress; JPEG 2000 Lossless has a project `jpeg2000` feature, a project-owned OpenJPEG-rs writer wrapper, and a focused exact round-trip codec test through the DICOM-rs JPEG 2000 reader. The generated case, generation-time validation, CLI validation, report coverage, reproducibility evidence, and capability-matrix promotion have not been added yet.
+- Phase 4 - JPEG 2000 And HTJ2K: in progress; JPEG 2000 Lossless has a project `jpeg2000` feature, a project-owned OpenJPEG-rs writer wrapper, a feature-gated generated Secondary Capture case, generation-time exact decoded-frame hash validation, CLI validation, report coverage, reproducibility evidence, and feature-gated capability-matrix promotion. JPEG 2000 lossy remains deferred, and HTJ2K backend selection is still unresolved.
 - Phase 5 - Legacy And Specialty Compressed Syntaxes: not started.
 - Phase 6+ - Corpus expansion and maintenance: blocked until Phase 5 scope is complete.
 
@@ -39,7 +39,7 @@
 - Used a populated Basic Offset Table for the single-fragment-per-frame RLE case so the case satisfies the project's encapsulated Pixel Data combination validator without requiring Extended Offset Table metadata.
 - Added file manifest codec backend metadata, native decoded frame hashes, compressed frame hashes, fragment layout metadata, and encapsulated Pixel Data schema support.
 - Extended Part 10 generation-time validation to validate encapsulated Pixel Data fragment sequence shape without applying native byte-length checks to compressed data.
-- Flipped only the RLE Lossless registry row and capability matrix entry to implemented/available/byte-stable; JPEG Baseline, JPEG-LS, JPEG XL, JPEG 2000, and HTJ2K remain skipped/unavailable.
+- Flipped only the RLE Lossless registry row and capability matrix entry to implemented/available/byte-stable in the first compressed-generation slice; at that point JPEG Baseline, JPEG-LS, JPEG XL, JPEG 2000, and HTJ2K remained skipped/unavailable.
 - Added focused CLI/artifact/schema tests for RLE generation, list-cases status, validation counts, and capability matrix state.
 - Added a minimal `FrameDecoder` API and native project-owned RLE Lossless decoder for DICOM RLE frame headers, PackBits-style segment payloads, and byte-plane reconstruction.
 - Added generation-time RLE round-trip validation that decodes encapsulated RLE fragments back to native frame bytes and compares decoded SHA-256 hashes to the expected native frame hashes.
@@ -101,14 +101,21 @@
 - Added a feature-gated `OpenJp2Jpeg2000LosslessEncoder` wrapper for the first JPEG 2000 Lossless shape: 16-bit unsigned MONOCHROME2 native frames encoded to raw J2K codestream bytes with SOC/EOC marker validation.
 - Added DICOM-rs JPEG 2000 reader-backed decode support for the wrapper and proved exact round-trip behavior for a tiny 2x4 16-bit MONOCHROME2 frame under `--features jpeg2000`.
 - Updated artifact regression coverage so the runtime JPEG 2000/HTJ2K OpenJPEG readers can exist under the project feature while committed capability-matrix decode/encode validation remains false until corpus generation is proven.
-- Kept `classic/sc/mono2_u16_jpeg2000_lossless` skipped and kept the JPEG 2000 Lossless capability-matrix row unavailable in this slice.
+- Implemented `classic/sc/mono2_u16_jpeg2000_lossless` as a feature-gated generated Secondary Capture case using the proven `OpenJp2Jpeg2000LosslessEncoder`.
+- Added a generator transfer syntax spec and pixel recipe for a tiny 2x2 16-bit unsigned MONOCHROME2 JPEG 2000 Lossless frame using transfer syntax `1.2.840.10008.1.2.4.90`.
+- Generated JPEG 2000 Lossless Pixel Data as an encapsulated one-fragment-per-frame sequence with a populated Basic Offset Table.
+- Added generation-time JPEG 2000 Lossless exact decoded-frame hash validation through the DICOM-rs OpenJPEG-backed reader.
+- Added CLI `validate` JPEG 2000 Lossless exact decoded-frame hash validation and a focused feature-gated mismatch regression test.
+- Added manifest/report metadata for JPEG 2000 backend identity, semantic-stable determinism, compressed frame hashes, encapsulated layout, expected lossless semantics, and JPEG 2000 stressor coverage.
+- Flipped the JPEG 2000 Lossless registry row to implemented with required feature `jpeg2000` and updated the capability matrix to `feature_gated` encode/decode support.
+- Updated list-cases, generate, validate, and artifact tests so default builds report the implemented JPEG 2000 case as feature-gated unavailable while `--features jpeg2000` builds generate and validate it.
 
 ## Blockers
 
 - No current local toolchain blocker for JPEG-LS Lossless generation or verification. `cmake` is available on `PATH`, and `cargo test --features charls` builds `charls-sys v2.4.4` successfully.
 - JPEG-LS Near-Lossless generated-case work is intentionally deferred until a first error limit, lossy compression metadata policy, decoded-frame tolerance, and reproducibility strategy are selected.
 - JPEG XL lossy generated-case work is intentionally deferred until lossy compression metadata policy, decoded-frame tolerance, and reproducibility strategy are selected.
-- JPEG 2000 Lossless codec-wrapper proof is complete. Generated-case work is still blocked on integrating the wrapper with generation, manifest metadata, generation-time validation, CLI validation, report output, and reproducibility checks.
+- JPEG 2000 Lossless generated-case work is complete for the first tiny 16-bit MONOCHROME2 Secondary Capture case.
 - JPEG 2000 lossy remains deferred until lossy compression metadata policy, decoded-frame tolerance, and reproducibility strategy are selected.
 - HTJ2K and legacy JPEG backend selection remain unresolved research items.
 - Deflated Image Frame Compression requires a standards/IOD suitability decision before any implementation.
@@ -303,15 +310,31 @@
 - `cargo test`: passed, full default-build suite clean.
 - `cargo test --features jpeg2000`: initially failed because `compressed_transfer_syntax_matrix_matches_current_dicom_rs_stubs` expected feature-enabled OpenJPEG runtime decode support to be promoted in the committed capability matrix; passed after preserving the staged-feature invariant, full JPEG 2000 feature suite clean.
 - `cargo run -- standards check-lock`: passed with existing documented lock warnings.
-- `cargo run --features jpeg2000 -- list-cases --profile extended --status skipped`: passed; `classic/sc/mono2_u16_jpeg2000_lossless` and `classic/sc/mono2_u16_htj2k_lossless` remain skipped with 2/2 standards evidence coverage.
+- `cargo run --features jpeg2000 -- list-cases --profile extended --status skipped`: passed in the previous wrapper-only slice; at that point `classic/sc/mono2_u16_jpeg2000_lossless` and `classic/sc/mono2_u16_htj2k_lossless` remained skipped with 2/2 standards evidence coverage.
+- `dicom-standard-kb` MCP `lookup_uid JPEG2000Lossless`: passed; confirmed UID `1.2.840.10008.1.2.4.90` as a PS3.6 Transfer Syntax.
+- `dicom-standard-kb` MCP `lookup_sop_class "Secondary Capture Image Storage"`: passed; confirmed Secondary Capture Image Storage UID `1.2.840.10008.5.1.4.1.1.7` and linked Secondary Capture Image IOD.
+- `dicom-standard-kb` MCP `lookup_iod "Secondary Capture Image"`: passed; confirmed the Secondary Capture Image IOD reference in PS3.3 Table A.8-1.
+- `cargo test --test generate_cli --test validate_cli --test list_cases_cli --test project_artifacts`: passed, 63 focused default-build tests.
+- `cargo test --features jpeg2000 --test generate_cli --test validate_cli --test list_cases_cli --test project_artifacts`: initially failed because the HTJ2K artifact assertion expected runtime OpenJPEG decode availability to match the committed unavailable matrix row; passed after preserving HTJ2K staged-support expectations, 64 focused feature-build tests.
+- `cargo fmt -- --check`: passed.
+- `cargo test`: passed, full default-build suite clean.
+- `cargo test --features jpeg2000`: passed, full JPEG 2000 feature suite clean.
+- `cargo run -- standards check-lock`: passed with existing documented lock warnings.
+- `cargo run --features jpeg2000 -- generate --profile extended --out /tmp/dts-jpeg2000-slice-0616 --seed 1`: passed, 20 files written.
+- `cargo run --features jpeg2000 -- validate /tmp/dts-jpeg2000-slice-0616`: passed, 20 files checked and 0 validation failures.
+- `cargo run --features jpeg2000 -- report /tmp/dts-jpeg2000-slice-0616 --format json`: passed; report counted 20 generated rows and included `classic/sc/mono2_u16_jpeg2000_lossless` as generated with semantic-stable determinism and transfer syntax `1.2.840.10008.1.2.4.90`.
+- `cargo run --features jpeg2000 -- generate --profile extended --out /tmp/dts-jpeg2000-repro-a-0616 --seed 1`: passed, 20 files written.
+- `cargo run --features jpeg2000 -- generate --profile extended --out /tmp/dts-jpeg2000-repro-b-0616 --seed 1`: passed, 20 files written.
+- `diff -r /tmp/dts-jpeg2000-repro-a-0616 /tmp/dts-jpeg2000-repro-b-0616`: passed with no differences.
+- `cargo run --features jpeg2000 -- list-cases --profile extended --status implemented`: passed; list-cases includes `classic/sc/mono2_u16_jpeg2000_lossless` as implemented with 2/2 standards evidence coverage.
 
 ## Commit-Ready Summary
 
-- JPEG 2000 Lossless now has a project `jpeg2000` feature and a project-owned OpenJPEG-rs writer wrapper that emits raw J2K codestream bytes for a tiny 16-bit MONOCHROME2 first-case shape.
-- The wrapper decodes through the pinned DICOM-rs JPEG 2000 reader and proves exact native-frame round-trip behavior in focused feature-gated codec tests.
-- JPEG 2000 generation remains unavailable; no registry row status, capability-matrix status, generated case, CLI validation, report behavior, or reproducibility claim was promoted in this slice.
+- JPEG 2000 Lossless now has a feature-gated generated Secondary Capture case, exact decoded-frame hash validation during generation and CLI validation, manifest/report coverage, reproducibility evidence, and feature-gated registry/capability-matrix promotion.
+- The case uses the project-owned OpenJPEG-rs writer wrapper to emit raw J2K codestream bytes and validates decode through the pinned DICOM-rs JPEG 2000 reader.
+- Default builds report `classic/sc/mono2_u16_jpeg2000_lossless` as an unavailable feature-gated implemented case; `--features jpeg2000` builds generate and validate it.
 - Lossy JPEG 2000 remains explicitly deferred until lossy metadata, decoded tolerance validation, and reproducibility policy are selected.
 
 ## Recommended Next Commit
 
-Implement `classic/sc/mono2_u16_jpeg2000_lossless` as a feature-gated generated Secondary Capture case using the proven `OpenJp2Jpeg2000LosslessEncoder`. Add generation-time exact decoded-frame hash validation, CLI `validate` coverage, manifest/report metadata, feature-gated list/generate tests, and reproducibility verification before promoting the registry row and capability matrix to feature-gated support.
+Research and record the next Phase 4 backend decision for HTJ2K Lossless (`1.2.840.10008.1.2.4.201`): compare OpenJPH, Grok, and any viable permissive Rust/FFI options, then update `transfer-syntax/backend-decisions.json`, artifact tests, and `CURRENT_PROGRESS.md` without starting generation until an implement-now backend and validation path are selected.

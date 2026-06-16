@@ -56,7 +56,8 @@ fn validate_command_accepts_generated_extended_root() {
         + if cfg!(feature = "deflate") { 1 } else { 0 }
         + if cfg!(feature = "jpeg") { 1 } else { 0 }
         + if cfg!(feature = "charls") { 1 } else { 0 }
-        + if cfg!(feature = "jpegxl") { 1 } else { 0 };
+        + if cfg!(feature = "jpegxl") { 1 } else { 0 }
+        + if cfg!(feature = "jpeg2000") { 1 } else { 0 };
     assert!(stdout.contains(&format!("files_checked\t{expected_files}")));
     assert!(stdout.contains("validation_failures\t0"));
 
@@ -303,6 +304,40 @@ fn validate_command_reports_jpeg_xl_lossless_decoded_frame_hash_mismatch() {
     );
     let stdout = String::from_utf8(output.stdout).expect("validate stdout must be UTF-8");
     assert!(stdout.contains("jpeg_xl_lossless_decoded_frame_hashes"));
+
+    fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
+}
+
+#[test]
+#[cfg(feature = "jpeg2000")]
+fn validate_command_reports_jpeg_2000_lossless_decoded_frame_hash_mismatch() {
+    let out_dir = unique_temp_dir("validate-jpeg-2000-decoded-hash");
+    generate_profile(&out_dir, "extended");
+    mutate_case_pixel_data(
+        &out_dir,
+        "classic/sc/mono2_u16_jpeg2000_lossless",
+        |pixel_data| {
+            pixel_data.insert(
+                "frame_hashes".to_string(),
+                json!(["0000000000000000000000000000000000000000000000000000000000000000"]),
+            );
+        },
+    );
+
+    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args([
+            "validate",
+            out_dir.to_str().expect("temp path should be valid UTF-8"),
+        ])
+        .output()
+        .expect("validate command must run");
+
+    assert!(
+        !output.status.success(),
+        "validate should reject JPEG 2000 files whose decoded native hash does not match the manifest"
+    );
+    let stdout = String::from_utf8(output.stdout).expect("validate stdout must be UTF-8");
+    assert!(stdout.contains("jpeg_2000_lossless_decoded_frame_hashes"));
 
     fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
 }

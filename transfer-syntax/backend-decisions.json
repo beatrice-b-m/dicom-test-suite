@@ -213,15 +213,14 @@
       "determinism": "semantic_stable",
       "first_case_target": "classic/sc/mono2_u16_jpeg2000_lossless",
       "validation_strategy": [
-        "Add a project jpeg2000 feature that exposes jpeg2k 0.10.1 with the pure Rust openjp2 0.6.1 backend before generating any corpus row.",
-        "Implement a project-owned frame encoder wrapper that emits raw J2K codestream bytes for the JPEG 2000 Lossless transfer syntax.",
+        "Use the project jpeg2000 feature to expose a project-owned OpenJPEG-rs writer plus the pinned DICOM-rs OpenJPEG reader.",
+        "Generate the first Secondary Capture corpus row as raw J2K codestream bytes in encapsulated Pixel Data.",
         "Decode generated codestreams through the pinned DICOM-rs JPEG 2000 reader path and compare exact native frame hashes.",
         "Record decoded frame hashes because byte-stable codestreams are not assumed."
       ],
       "blockers": [
-        "The project jpeg2000 Cargo feature is not added yet.",
-        "The jpeg2k/openjp2 encoder options for DICOM-compatible lossless codestreams have not been proven in a local codec test.",
-        "Generated corpus integration, CLI validation, report coverage, and reproducibility have not been implemented."
+        "JPEG 2000 lossy metadata, decoded tolerance validation, and reproducibility policy are not selected.",
+        "An independent JPEG 2000 validator for expanded coverage has not been selected."
       ],
       "lossy_policy": {
         "classification": "defer",
@@ -251,9 +250,19 @@
           "source": "local-source",
           "path": "openjp2-0.6.1/Cargo.toml",
           "finding": "The selected first backend uses the BSD-2-Clause pure Rust openjp2 crate instead of a system OpenJPEG subprocess or native C build path."
+        },
+        {
+          "source": "local-verification",
+          "path": "src/codecs.rs",
+          "finding": "The project jpeg2000 feature exposes a project-owned OpenJPEG-rs writer plus DICOM-rs reader validation that round-trips a tiny 16-bit MONOCHROME2 frame exactly."
+        },
+        {
+          "source": "local-verification",
+          "path": "src/generator.rs",
+          "finding": "The generated Secondary Capture JPEG 2000 Lossless case uses encapsulated Pixel Data and validates exact decoded frame hashes during generation and CLI validation."
         }
       ],
-      "next_action": "Add the project jpeg2000 feature and a focused codec test that proves a tiny 16-bit MONOCHROME2 frame can be encoded losslessly to a DICOM-compatible J2K codestream and decoded exactly."
+      "next_action": "Keep JPEG 2000 lossy deferred until lossy semantics are selected; choose the next Phase 4 target by either researching HTJ2K backend viability or selecting an independent JPEG 2000 validator for expanded coverage."
     },
     {
       "family_id": "htj2k",

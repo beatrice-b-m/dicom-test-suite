@@ -131,6 +131,12 @@
         "synthetic_data": {
           "$ref": "#/$defs/count_map"
         },
+        "image_types": {
+          "$ref": "#/$defs/count_map"
+        },
+        "conversion_types": {
+          "$ref": "#/$defs/count_map"
+        },
         "lossy_image_compression": {
           "$ref": "#/$defs/count_map"
         },
@@ -259,6 +265,8 @@
         "determinism",
         "object_type",
         "synthetic_data",
+        "image_type",
+        "conversion_type",
         "lossy_image_compression",
         "lossy_image_compression_ratio",
         "lossy_image_compression_method"
@@ -408,6 +416,12 @@
           "type": ["string", "null"]
         },
         "synthetic_data": {
+          "type": ["string", "null"]
+        },
+        "image_type": {
+          "type": ["string", "null"]
+        },
+        "conversion_type": {
           "type": ["string", "null"]
         },
         "lossy_image_compression": {

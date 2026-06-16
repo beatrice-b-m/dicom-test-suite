@@ -67,6 +67,18 @@ fn report_command_writes_json_coverage_for_core_root() {
         Some("XC")
     );
     assert_eq!(
+        coverage_row(&report, "vl/photo/rgb_planar0_explicit_le")
+            .get("image_type")
+            .and_then(Value::as_str),
+        Some("ORIGINAL\\PRIMARY")
+    );
+    assert_eq!(
+        coverage_row(&report, "classic/sc/rgb_planar1_explicit_le")
+            .get("conversion_type")
+            .and_then(Value::as_str),
+        Some("SYN")
+    );
+    assert_eq!(
         coverage_row(&report, "vl/photo/palette_color_explicit_le")
             .get("status")
             .and_then(Value::as_str),
@@ -121,6 +133,24 @@ fn report_command_writes_json_coverage_for_core_root() {
             .and_then(Value::as_u64),
         Some(1)
     );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/image_types/ORIGINAL\\PRIMARY")
+            .and_then(Value::as_u64),
+        Some(7)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/image_types/ORIGINAL\\PRIMARY\\AXIAL")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/conversion_types/SYN")
+            .and_then(Value::as_u64),
+        Some(10)
+    );
 
     fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
 }
@@ -154,6 +184,8 @@ fn report_command_writes_markdown_coverage_for_core_root() {
     assert!(stdout.contains("### Transfer Syntax Names"));
     assert!(stdout.contains("| Explicit VR Little Endian | 20 |"));
     assert!(stdout.contains("| Implicit VR Little Endian | 1 |"));
+    assert!(stdout.contains("### Image Types"));
+    assert!(stdout.contains("### Conversion Types"));
     assert!(stdout.contains("## Gaps"));
     assert!(
         stdout.contains("| classic/ct/mono2_i16_rescale_12bit_explicit_le | generated | core |")
@@ -1801,6 +1833,8 @@ fn report_summarizes_compressed_codec_coverage() {
                 "determinism": "byte_stable",
                 "expected_semantics": {
                     "synthetic_data": "YES",
+                    "image_type": "DERIVED\\PRIMARY",
+                    "conversion_type": "SYN",
                     "lossy_image_compression": "00"
                 },
                 "references": [
@@ -1849,6 +1883,14 @@ fn report_summarizes_compressed_codec_coverage() {
     assert_eq!(
         generated.get("synthetic_data").and_then(Value::as_str),
         Some("YES")
+    );
+    assert_eq!(
+        generated.get("image_type").and_then(Value::as_str),
+        Some("DERIVED\\PRIMARY")
+    );
+    assert_eq!(
+        generated.get("conversion_type").and_then(Value::as_str),
+        Some("SYN")
     );
     assert_eq!(
         generated
@@ -2081,6 +2123,18 @@ fn report_summarizes_compressed_codec_coverage() {
     );
     assert_eq!(
         report
+            .pointer("/grouped_coverage/image_types/DERIVED\\PRIMARY")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/conversion_types/SYN")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
             .pointer("/grouped_coverage/lossy_image_compression/00")
             .and_then(Value::as_u64),
         Some(1)
@@ -2143,6 +2197,8 @@ fn report_summarizes_compressed_codec_coverage() {
         unavailable.get("lossy_image_compression"),
         Some(&Value::Null)
     );
+    assert_eq!(unavailable.get("image_type"), Some(&Value::Null));
+    assert_eq!(unavailable.get("conversion_type"), Some(&Value::Null));
     assert_eq!(
         unavailable.get("encapsulated_fragment_layout"),
         Some(&Value::Null)
@@ -2200,6 +2256,10 @@ fn report_summarizes_compressed_codec_coverage() {
     assert!(markdown.contains("| without_source_reference | 1 |"));
     assert!(markdown.contains("### Synthetic Data"));
     assert!(markdown.contains("| YES | 1 |"));
+    assert!(markdown.contains("### Image Types"));
+    assert!(markdown.contains("| DERIVED\\PRIMARY | 1 |"));
+    assert!(markdown.contains("### Conversion Types"));
+    assert!(markdown.contains("| SYN | 1 |"));
     assert!(markdown.contains("### Lossy Image Compression"));
     assert!(markdown.contains("| 00 | 1 |"));
     assert!(markdown.contains("### Known Stressors"));

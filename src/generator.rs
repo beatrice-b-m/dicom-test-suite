@@ -1821,6 +1821,25 @@ const CLASSIC_MG_RECIPES: &[ClassicMgRecipe] = &[
         window_width: Some("4096"),
     },
     ClassicMgRecipe {
+        case_id: "classic/mg/for_presentation_mono1_u16_12bit_rle_lossless",
+        recipe_id: "mg_for_presentation_mono1_u16_rle_lossless",
+        sop_class_uid: uids::DIGITAL_MAMMOGRAPHY_X_RAY_IMAGE_STORAGE_FOR_PRESENTATION,
+        sop_class_name: "Digital Mammography X-Ray Image Storage - For Presentation",
+        transfer_syntax: RLE_LOSSLESS,
+        presentation_intent_type: "FOR PRESENTATION",
+        photometric_interpretation: "MONOCHROME1",
+        presentation_lut_shape: "INVERSE",
+        rows: 2,
+        columns: 2,
+        pixel_bytes: &MG_U16_12BIT_PIXELS,
+        pixel_values: &MG_U16_12BIT_VALUES,
+        pixel_min: 0,
+        pixel_max: 4095,
+        imager_pixel_spacing: "0.070\\0.070",
+        window_center: Some("2048"),
+        window_width: Some("4096"),
+    },
+    ClassicMgRecipe {
         case_id: "classic/mg/for_processing_mono2_u16_12bit_implicit_le",
         recipe_id: "mg_for_processing_mono2_u16",
         sop_class_uid: uids::DIGITAL_MAMMOGRAPHY_X_RAY_IMAGE_STORAGE_FOR_PROCESSING,
@@ -10770,11 +10789,48 @@ fn write_classic_mg_case(
     );
     put_empty_sequence(&mut obj, tags::ACQUISITION_CONTEXT_SEQUENCE);
 
-    obj.put(DataElement::new(
-        tags::PIXEL_DATA,
-        VR::OW,
-        PrimitiveValue::from(recipe.pixel_bytes),
-    ));
+    let compressed_pixel_data = if recipe.transfer_syntax == RLE_LOSSLESS {
+        let rle_encoder = NativeRleLosslessEncoder::new();
+        let encoded_frame = rle_encoder
+            .encode_frame(FrameEncodeInput {
+                native_frame: recipe.pixel_bytes,
+                rows: recipe.rows,
+                columns: recipe.columns,
+                samples_per_pixel: 1,
+                bits_allocated: 16,
+                bits_stored: 12,
+                photometric_interpretation: recipe.photometric_interpretation,
+            })
+            .map_err(|err| GenerateError::WriteDicomFile {
+                path: path.clone(),
+                message: err.to_string(),
+            })?;
+        let compressed_frames = vec![encoded_frame.bytes];
+        let encapsulated = EncapsulatedPixelData::one_fragment_per_frame(
+            &compressed_frames,
+            BasicOffsetTablePolicy::Populated,
+        )
+        .map_err(|err| GenerateError::WriteDicomFile {
+            path: path.clone(),
+            message: err.to_string(),
+        })?;
+        obj.put(DataElement::new(
+            tags::PIXEL_DATA,
+            VR::OB,
+            PixelFragmentSequence::new(
+                encapsulated.basic_offset_table.offsets.clone(),
+                compressed_frames,
+            ),
+        ));
+        Some((FrameEncoder::backend(&rle_encoder), encapsulated))
+    } else {
+        obj.put(DataElement::new(
+            tags::PIXEL_DATA,
+            VR::OW,
+            PrimitiveValue::from(recipe.pixel_bytes),
+        ));
+        None
+    };
 
     let file_obj = obj
         .with_meta(
@@ -10795,6 +10851,8 @@ fn write_classic_mg_case(
             message: err.to_string(),
         })?;
 
+    let decoded_frame_hash = sha256_hex(recipe.pixel_bytes);
+    let decoded_frame_hashes = [decoded_frame_hash.as_str()];
     let validated = validate_part10_file(
         &path,
         &Part10Expectations {
@@ -10813,9 +10871,23 @@ fn write_classic_mg_case(
             high_bit: 11,
             pixel_representation: 0,
             planar_configuration: None,
-            pixel_data_vr: VR::OW,
-            pixel_data_length_formula: PixelDataLengthFormula::ContiguousSamples,
-            decoded_frame_hashes: &[],
+            pixel_data_vr: if compressed_pixel_data.is_some() {
+                VR::OB
+            } else {
+                VR::OW
+            },
+            pixel_data_length_formula: compressed_pixel_data
+                .as_ref()
+                .map(|(_, encapsulated)| PixelDataLengthFormula::Encapsulated {
+                    fragments: encapsulated.fragments.len(),
+                    basic_offset_table_offsets: encapsulated.basic_offset_table.offsets.len(),
+                })
+                .unwrap_or(PixelDataLengthFormula::ContiguousSamples),
+            decoded_frame_hashes: if compressed_pixel_data.is_some() {
+                &decoded_frame_hashes
+            } else {
+                &[]
+            },
             palette: None,
             padding: None,
             ct_image: None,
@@ -10869,6 +10941,7 @@ fn write_classic_mg_case(
             &implementation_class_uid,
             &validated.bytes,
             validated.validation,
+            compressed_pixel_data.as_ref(),
         ),
     })
 }
@@ -10884,6 +10957,7 @@ fn classic_mg_manifest_entry(
     implementation_class_uid: &str,
     bytes: &[u8],
     validation: Value,
+    compressed_pixel_data: Option<&(crate::codecs::CodecBackendInfo, EncapsulatedPixelData)>,
 ) -> Value {
     let mut standards_evidence = standards_evidence_from_case(case);
     standards_evidence.extend([
@@ -10985,20 +11059,39 @@ fn classic_mg_manifest_entry(
         }),
     ]);
 
+    if recipe.transfer_syntax == RLE_LOSSLESS {
+        standards_evidence.extend([
+            serde_json::json!({
+                "source": "dicom-standard-kb",
+                "edition": "2026b",
+                "query": "lookup_uid RLELossless",
+                "covered": true,
+                "part": "PS3.6",
+                "anchor": "table_A-1"
+            }),
+            serde_json::json!({
+                "source": "dicom-standard-kb",
+                "edition": "2026b",
+                "query": "search_standard_text PS3.5 RLE Lossless image compression Photometric Interpretation Bits Allocated",
+                "covered": true,
+                "part": "PS3.5",
+                "anchor": "sect_8.2.2"
+            }),
+            serde_json::json!({
+                "source": "dicom-standard-kb",
+                "edition": "2026b",
+                "query": "retrieve_standard_text PS3.5 sect_A.4",
+                "covered": true,
+                "part": "PS3.5",
+                "anchor": "sect_A.4"
+            }),
+        ]);
+    }
+
     let window_manifest = serde_json::json!({
         "center": recipe.window_center,
         "width": recipe.window_width
     });
-    let expected_capabilities = if recipe.window_center.is_some() {
-        serde_json::json!([
-            "open_file",
-            "read_metadata",
-            "render_native_pixels",
-            "apply_window"
-        ])
-    } else {
-        serde_json::json!(["open_file", "read_metadata", "render_native_pixels"])
-    };
     let photometric_semantics = if recipe.photometric_interpretation == "MONOCHROME1" {
         "MONOCHROME1 with Presentation LUT Shape INVERSE maps stored values to P-Values for presentation"
     } else {
@@ -11009,25 +11102,61 @@ fn classic_mg_manifest_entry(
     } else {
         "2x2_mammography_mono2_12bit_processing_gradient"
     };
-    let known_stressors = if recipe.presentation_intent_type == "FOR PROCESSING" {
-        serde_json::json!([
-            "digital_mammography_for_processing",
-            "implicit_vr_little_endian",
-            "mono2_processing_pixels",
-            "unsigned_12_bit_pixels"
-        ])
+    let frame_hash = sha256_hex(recipe.pixel_bytes);
+    let pixel_data_manifest = if let Some((backend, encapsulated)) = compressed_pixel_data {
+        serde_json::json!({
+            "vr": "OB",
+            "native_or_encapsulated": "encapsulated",
+            "value_length": Value::Null,
+            "frame_count": 1,
+            "frame_hashes": [frame_hash],
+            "codec": {
+                "backend_id": backend.backend_id,
+                "backend_kind": backend.backend_kind.as_str(),
+                "display_name": backend.display_name,
+                "version": backend.version,
+                "transfer_syntax_uid": backend.transfer_syntax_uid,
+                "feature_gate": backend.feature_gate,
+                "determinism": backend.determinism.as_str()
+            },
+            "encapsulated_pixel_data": {
+                "basic_offset_table": {
+                    "present": true,
+                    "populated": encapsulated.basic_offset_table.is_populated(),
+                    "offset_count": encapsulated.basic_offset_table.offsets.len(),
+                    "offsets": encapsulated.basic_offset_table.offsets.clone()
+                },
+                "fragments_per_frame": encapsulated.fragments_per_frame.clone(),
+                "fragments": encapsulated.fragments.iter().map(|fragment| {
+                    serde_json::json!({
+                        "frame_index": fragment.frame_index,
+                        "item_start_offset": fragment.item_start_offset,
+                        "compressed_length": fragment.compressed_length,
+                        "padded_length": fragment.padded_length
+                    })
+                }).collect::<Vec<_>>(),
+                "extended_offset_table": {
+                    "present": false,
+                    "lengths_present": false,
+                    "offset_count": 0,
+                    "length_count": 0
+                },
+                "compressed_frame_hashes": encapsulated.compressed_frame_hashes.clone()
+            }
+        })
     } else {
-        serde_json::json!([
-            "digital_mammography_for_presentation",
-            "mono1_inversion",
-            "unsigned_12_bit_pixels",
-            "presentation_lut_inverse"
-        ])
+        serde_json::json!({
+            "vr": "OW",
+            "native_or_encapsulated": "native",
+            "value_length": recipe.pixel_bytes.len(),
+            "frame_count": 1,
+            "frame_hashes": [frame_hash]
+        })
     };
 
     serde_json::json!({
         "case_id": recipe.case_id,
-        "profile_membership": ["core"],
+        "profile_membership": classic_mg_profile_membership(recipe),
         "path": relative_path,
         "sha256": sha256_hex(bytes),
         "size_bytes": bytes.len(),
@@ -11080,14 +11209,8 @@ fn classic_mg_manifest_entry(
             "pixel_representation": 0,
             "planar_configuration": Value::Null
         },
-        "pixel_data": {
-            "vr": "OW",
-            "native_or_encapsulated": "native",
-            "value_length": recipe.pixel_bytes.len(),
-            "frame_count": 1,
-            "frame_hashes": [sha256_hex(recipe.pixel_bytes)]
-        },
-        "expected_capabilities": expected_capabilities,
+        "pixel_data": pixel_data_manifest,
+        "expected_capabilities": classic_mg_expected_capabilities(recipe),
         "expected_semantics": {
             "synthetic_data": "YES",
             "presentation_intent_type": recipe.presentation_intent_type,
@@ -11100,9 +11223,56 @@ fn classic_mg_manifest_entry(
             "pattern": visual_pattern
         },
         "validation": validation,
-        "known_stressors": known_stressors,
+        "known_stressors": classic_mg_known_stressors(recipe),
         "standards_evidence": deduplicated_standards_evidence(standards_evidence)
     })
+}
+
+fn classic_mg_profile_membership(recipe: ClassicMgRecipe) -> &'static [&'static str] {
+    if recipe.transfer_syntax == RLE_LOSSLESS {
+        &["extended"]
+    } else {
+        &["core"]
+    }
+}
+
+fn classic_mg_expected_capabilities(recipe: ClassicMgRecipe) -> Vec<&'static str> {
+    let mut capabilities = vec!["open_file", "read_metadata"];
+    if recipe.transfer_syntax == RLE_LOSSLESS {
+        capabilities.push("decode_rle_lossless_pixels");
+    } else {
+        capabilities.push("render_native_pixels");
+    }
+    if recipe.window_center.is_some() {
+        capabilities.push("apply_window");
+    }
+    capabilities
+}
+
+fn classic_mg_known_stressors(recipe: ClassicMgRecipe) -> Vec<&'static str> {
+    let mut stressors = if recipe.presentation_intent_type == "FOR PROCESSING" {
+        vec![
+            "digital_mammography_for_processing",
+            "implicit_vr_little_endian",
+            "mono2_processing_pixels",
+            "unsigned_12_bit_pixels",
+        ]
+    } else {
+        vec![
+            "digital_mammography_for_presentation",
+            "mono1_inversion",
+            "unsigned_12_bit_pixels",
+            "presentation_lut_inverse",
+        ]
+    };
+    if recipe.transfer_syntax == RLE_LOSSLESS {
+        stressors.extend([
+            "encapsulated_pixel_data",
+            "rle_lossless_transfer_syntax",
+            "compressed_modality_pixels",
+        ]);
+    }
+    stressors
 }
 
 fn write_classic_dx_case(

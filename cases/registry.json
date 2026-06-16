@@ -1250,6 +1250,162 @@
       ]
     },
     {
+      "case_id": "classic/mg/for_presentation_mono1_u16_12bit_rle_lossless",
+      "status": "implemented",
+      "profiles": ["extended"],
+      "recipe_id": "mg_for_presentation_mono1_u16_rle_lossless",
+      "recipe_version": "0.1.0",
+      "iod_name": "Digital Mammography X-Ray Image",
+      "sop_class_name": "Digital Mammography X-Ray Image Storage - For Presentation",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.1.2",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.5",
+      "determinism": "byte_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_sop_class DigitalMammographyXRayImageStorageForPresentation",
+          "covered": true,
+          "part": "PS3.4",
+          "anchor": "table_B.5-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_iod Digital Mammography X-Ray Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.27-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_modules_for_iod Digital Mammography X-Ray Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.27-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module DX Series",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-68"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module DX Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-70"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module DX Detector --expand-macros",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-71"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module DX Anatomy Imaged",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-69"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module Mammography Series",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-73"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module Mammography Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-74"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module Acquisition Context",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.7.6.14-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_data_element PresentationIntentType",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_data_element ImagerPixelSpacing",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_data_element PresentationLUTShape",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "resolve_attribute_context PhotometricInterpretation --iod Digital Mammography X-Ray Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-70"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_uid RLELossless",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "search_standard_text PS3.5 RLE Lossless image compression Photometric Interpretation Bits Allocated",
+          "covered": true,
+          "part": "PS3.5",
+          "anchor": "sect_8.2.2"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "retrieve_standard_text PS3.5 sect_A.4",
+          "covered": true,
+          "part": "PS3.5",
+          "anchor": "sect_A.4"
+        }
+      ]
+    },
+    {
       "case_id": "classic/mg/for_processing_mono2_u16_12bit_implicit_le",
       "status": "implemented",
       "profiles": ["core"],

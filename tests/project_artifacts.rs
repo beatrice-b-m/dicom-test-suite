@@ -74,6 +74,10 @@ fn registry_contains_initial_smoke_and_core_cases() {
             "implemented",
         ),
         (
+            "classic/mg/for_presentation_mono1_u16_12bit_rle_lossless",
+            "implemented",
+        ),
+        (
             "classic/mg/for_processing_mono2_u16_12bit_implicit_le",
             "implemented",
         ),
@@ -2313,6 +2317,27 @@ fn rle_lossless_transfer_syntax_is_available_through_native_backend() {
     assert_eq!(
         dx_case.get("sop_class_uid").and_then(Value::as_str),
         Some("1.2.840.10008.5.1.4.1.1.1.1")
+    );
+
+    let mg_case = cases
+        .iter()
+        .find(|case| {
+            case.get("case_id").and_then(Value::as_str)
+                == Some("classic/mg/for_presentation_mono1_u16_12bit_rle_lossless")
+        })
+        .expect("registry must contain MG RLE Lossless case");
+    assert_eq!(
+        mg_case.get("status").and_then(Value::as_str),
+        Some("implemented")
+    );
+    assert_eq!(mg_case.get("skip"), Some(&Value::Null));
+    assert_eq!(
+        mg_case.get("determinism").and_then(Value::as_str),
+        Some("byte_stable")
+    );
+    assert_eq!(
+        mg_case.get("sop_class_uid").and_then(Value::as_str),
+        Some("1.2.840.10008.5.1.4.1.1.1.2")
     );
 }
 

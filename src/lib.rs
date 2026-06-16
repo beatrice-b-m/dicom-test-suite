@@ -6064,6 +6064,12 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
     append_count_map_section(
         &mut output,
         report,
+        "Imager Pixel Spacings",
+        "/grouped_coverage/imager_pixel_spacings",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
         "Image Orientations Patient",
         "/grouped_coverage/image_orientations_patient",
     );
@@ -6480,6 +6486,13 @@ fn generated_coverage_row(
     row_object.insert(
         "pixel_spacing".to_string(),
         pixel_spacing.map(Value::from).unwrap_or(Value::Null),
+    );
+    row_object.insert(
+        "imager_pixel_spacing".to_string(),
+        file.pointer("/recipe/recipe_parameters/imager_pixel_spacing")
+            .and_then(Value::as_str)
+            .map(Value::from)
+            .unwrap_or(Value::Null),
     );
     row_object.insert(
         "image_orientation_patient".to_string(),
@@ -7015,6 +7028,7 @@ fn skipped_coverage_row(
     row_object.insert("overlay_bit_position".to_string(), Value::Null);
     row_object.insert("overlay_data_value_length".to_string(), Value::Null);
     row_object.insert("pixel_spacing".to_string(), Value::Null);
+    row_object.insert("imager_pixel_spacing".to_string(), Value::Null);
     row_object.insert("image_orientation_patient".to_string(), Value::Null);
     row_object.insert("image_position_patient".to_string(), Value::Null);
     row_object.insert("slice_thickness".to_string(), Value::Null);
@@ -7171,6 +7185,7 @@ struct GroupedCoverage {
     frame_counts: BTreeMap<String, usize>,
     geometries: BTreeMap<String, usize>,
     pixel_spacings: BTreeMap<String, usize>,
+    imager_pixel_spacings: BTreeMap<String, usize>,
     image_orientations_patient: BTreeMap<String, usize>,
     image_positions_patient: BTreeMap<String, usize>,
     slice_thicknesses: BTreeMap<String, usize>,
@@ -7357,6 +7372,10 @@ impl GroupedCoverage {
         increment_map(
             &mut self.pixel_spacings,
             row.get("pixel_spacing").and_then(Value::as_str),
+        );
+        increment_map(
+            &mut self.imager_pixel_spacings,
+            row.get("imager_pixel_spacing").and_then(Value::as_str),
         );
         increment_map(
             &mut self.image_orientations_patient,
@@ -7622,6 +7641,11 @@ impl GroupedCoverage {
             "pixel_spacings".to_string(),
             serde_json::to_value(&self.pixel_spacings)
                 .expect("pixel spacing count map must serialize"),
+        );
+        grouped_object.insert(
+            "imager_pixel_spacings".to_string(),
+            serde_json::to_value(&self.imager_pixel_spacings)
+                .expect("imager pixel spacing count map must serialize"),
         );
         grouped_object.insert(
             "image_orientations_patient".to_string(),

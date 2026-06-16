@@ -164,6 +164,12 @@ fn report_command_writes_json_coverage_for_core_root() {
     );
     assert_eq!(
         coverage_row(&report, "classic/dx/display_shutter_mono2_u16_explicit_le")
+            .get("imager_pixel_spacing")
+            .and_then(Value::as_str),
+        Some("0.150\\0.150")
+    );
+    assert_eq!(
+        coverage_row(&report, "classic/dx/display_shutter_mono2_u16_explicit_le")
             .get("display_shutter_presentation_value")
             .and_then(Value::as_u64),
         Some(0)
@@ -275,6 +281,15 @@ fn report_command_writes_json_coverage_for_core_root() {
         .get("view_position")
         .and_then(Value::as_str),
         Some("MLO")
+    );
+    assert_eq!(
+        coverage_row(
+            &report,
+            "classic/mg/for_presentation_mono1_u16_12bit_explicit_le"
+        )
+        .get("imager_pixel_spacing")
+        .and_then(Value::as_str),
+        Some("0.070\\0.070")
     );
     assert_eq!(
         coverage_row(
@@ -476,6 +491,18 @@ fn report_command_writes_json_coverage_for_core_root() {
             .pointer("/grouped_coverage/pixel_spacings/1.000\\1.000")
             .and_then(Value::as_u64),
         Some(3)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/imager_pixel_spacings/0.070\\0.070")
+            .and_then(Value::as_u64),
+        Some(2)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/imager_pixel_spacings/0.150\\0.150")
+            .and_then(Value::as_u64),
+        Some(1)
     );
     assert_eq!(
         report
@@ -733,6 +760,9 @@ fn report_command_writes_markdown_coverage_for_core_root() {
     assert!(stdout.contains("### Pixel Spacings"));
     assert!(stdout.contains("| 0.625\\0.625 | 1 |"));
     assert!(stdout.contains("| 1.000\\1.000 | 3 |"));
+    assert!(stdout.contains("### Imager Pixel Spacings"));
+    assert!(stdout.contains("| 0.070\\0.070 | 2 |"));
+    assert!(stdout.contains("| 0.150\\0.150 | 1 |"));
     assert!(stdout.contains("### Image Orientations Patient"));
     assert!(stdout.contains("| 1\\0\\0\\0\\1\\0 | 1 |"));
     assert!(stdout.contains("### Image Positions Patient"));

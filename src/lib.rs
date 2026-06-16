@@ -7599,6 +7599,12 @@ mod tests {
         );
         assert!(
             output.contains(
+                "classic/sc/mono2_i16_padding_multiframe_rle_lossless\timplemented\textended\t1.2.840.10008.5.1.4.1.1.7\t1.2.840.10008.1.2.5\t10/10 covered"
+            ),
+            "list-cases output must show implemented signed multi-frame Pixel Padding RLE Lossless status"
+        );
+        assert!(
+            output.contains(
                 "classic/sc/rgb_planar0_multiframe_rle_lossless\timplemented\textended\t1.2.840.10008.5.1.4.1.1.7\t1.2.840.10008.1.2.5\t6/6 covered"
             ),
             "list-cases output must show implemented RGB multi-frame RLE Lossless status"

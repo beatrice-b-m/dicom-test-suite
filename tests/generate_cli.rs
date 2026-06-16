@@ -1627,7 +1627,7 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\textended"));
-    let expected_extended_files = 33
+    let expected_extended_files = 34
         + if cfg!(feature = "deflate") { 2 } else { 0 }
         + if cfg!(feature = "jpeg") { 1 } else { 0 }
         + if cfg!(feature = "charls") { 1 } else { 0 }
@@ -1886,6 +1886,52 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
         validation_result_names(rle_ybr_file.pointer("/validation/internal"))
             .contains(&"rle_decoded_frame_hashes"),
         "YBR_FULL RLE manifest should record decoded native frame hash validation"
+    );
+    let rle_ybr_planar1_file =
+        file_entry_by_case_id(&manifest, "classic/sc/ybr_full_planar1_rle_lossless");
+    assert_eq!(
+        rle_ybr_planar1_file
+            .pointer("/image/photometric_interpretation")
+            .and_then(Value::as_str),
+        Some("YBR_FULL")
+    );
+    assert_eq!(
+        rle_ybr_planar1_file
+            .pointer("/image/samples_per_pixel")
+            .and_then(Value::as_u64),
+        Some(3)
+    );
+    assert_eq!(
+        rle_ybr_planar1_file
+            .pointer("/image/planar_configuration")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        rle_ybr_planar1_file
+            .pointer("/pixel_data/native_or_encapsulated")
+            .and_then(Value::as_str),
+        Some("encapsulated")
+    );
+    assert_eq!(
+        rle_ybr_planar1_file
+            .pointer("/pixel_data/codec/backend_id")
+            .and_then(Value::as_str),
+        Some("native_project_rle_encoder")
+    );
+    assert!(
+        rle_ybr_planar1_file
+            .pointer("/known_stressors")
+            .and_then(Value::as_array)
+            .expect("YBR_FULL planar-1 RLE manifest should include known stressors")
+            .iter()
+            .any(|stressor| stressor.as_str() == Some("ybr_full_pixels")),
+        "YBR_FULL planar-1 RLE case should label YBR_FULL pixels as a stressor"
+    );
+    assert!(
+        validation_result_names(rle_ybr_planar1_file.pointer("/validation/internal"))
+            .contains(&"rle_decoded_frame_hashes"),
+        "YBR_FULL planar-1 RLE manifest should record decoded native frame hash validation"
     );
     let rle_palette_file =
         file_entry_by_case_id(&manifest, "classic/sc/palette_color_u8_rle_lossless");
@@ -5158,7 +5204,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\tall"));
-    let expected_all_files = 55
+    let expected_all_files = 56
         + if cfg!(feature = "deflate") { 2 } else { 0 }
         + if cfg!(feature = "jpeg") { 1 } else { 0 }
         + if cfg!(feature = "charls") { 1 } else { 0 }
@@ -5200,6 +5246,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
     file_entry_by_case_id(&manifest, "classic/sc/rgb_planar0_rle_lossless");
     file_entry_by_case_id(&manifest, "classic/sc/rgb_planar1_rle_lossless");
     file_entry_by_case_id(&manifest, "classic/sc/ybr_full_planar0_rle_lossless");
+    file_entry_by_case_id(&manifest, "classic/sc/ybr_full_planar1_rle_lossless");
     file_entry_by_case_id(&manifest, "classic/sc/palette_color_u8_rle_lossless");
     file_entry_by_case_id(&manifest, "classic/sc/mono2_u8_multiframe_rle_lossless");
     file_entry_by_case_id(&manifest, "classic/sc/mono2_u8_odd_fragment_rle_lossless");

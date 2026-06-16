@@ -144,7 +144,7 @@ fn report_command_counts_generated_rgb_rle_lossless_row() {
         report
             .pointer("/grouped_coverage/codec_families/RLE Lossless")
             .and_then(Value::as_u64),
-        Some(16)
+        Some(17)
     );
     let planar1_row = coverage_row(&report, "classic/sc/rgb_planar1_rle_lossless");
     assert_eq!(
@@ -172,6 +172,26 @@ fn report_command_counts_generated_rgb_rle_lossless_row() {
             .iter()
             .any(|stressor| stressor.as_str() == Some("ybr_full_pixels")),
         "YBR_FULL RLE report row should retain YBR_FULL pixel stressor"
+    );
+    let ybr_planar1_row = coverage_row(&report, "classic/sc/ybr_full_planar1_rle_lossless");
+    assert_eq!(
+        ybr_planar1_row.get("status").and_then(Value::as_str),
+        Some("generated")
+    );
+    assert_eq!(
+        ybr_planar1_row
+            .get("codec_backend_id")
+            .and_then(Value::as_str),
+        Some("native_project_rle_encoder")
+    );
+    assert!(
+        ybr_planar1_row
+            .get("known_stressors")
+            .and_then(Value::as_array)
+            .expect("YBR_FULL planar-1 RLE row should include known stressors")
+            .iter()
+            .any(|stressor| stressor.as_str() == Some("ybr_full_pixels")),
+        "YBR_FULL planar-1 RLE report row should retain YBR_FULL pixel stressor"
     );
     let palette_row = coverage_row(&report, "classic/sc/palette_color_u8_rle_lossless");
     assert_eq!(

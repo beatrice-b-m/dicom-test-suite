@@ -1,9 +1,9 @@
 # Current Plan
 
-**Last updated:** 2026-06-14  
-**Active goal:** comprehensive compressed image codec generation support  
-**Source specification:** `SYSTEM_SPEC.md` version 0.2.0  
-**Planning status:** initial high-level plan; research decisions pending
+**Last updated:** 2026-06-15
+**Active goal:** comprehensive compressed image codec generation support
+**Source specification:** `SYSTEM_SPEC.md` version 0.2.0
+**Planning status:** Phase 3 active; low-risk codec enablement in progress
 
 This document replaces the previous historical implementation plan and progress
 ledger. `SYSTEM_SPEC.md` remains the architecture and requirements source of
@@ -24,9 +24,19 @@ generation:
 - Encapsulated Pixel Data manifest and validation metadata exist for offset
   table state, fragments per frame, Extended Offset Table state, Extended
   Offset Table Lengths state, and compressed frame hashes.
-- Initial compressed image registry rows exist but remain skipped/unavailable
-  until an encoder path is selected, feature-gated, validated, and proven
-  reproducible.
+- RLE Lossless generation is implemented for 8-bit and 16-bit Secondary Capture
+  cases through the native project-owned encoder, with decoded-frame validation
+  and byte-stable reproducibility.
+- JPEG Baseline 8-bit generation is implemented as a feature-gated `jpeg`
+  Secondary Capture case through the pinned `dicom-rs` adapter path, with
+  decoded-frame tolerance validation and semantic-stable reproducibility.
+- JPEG-LS Lossless has an implement-now decision, a project-level `charls`
+  feature, and a DICOM-rs CharLS wrapper. Local `charls` feature verification now
+  passes after `cmake` was installed; the generated JPEG-LS corpus row remains
+  skipped until generation, validation, reporting, and reproducibility are added.
+- JPEG XL, JPEG 2000, HTJ2K, legacy JPEG, and Deflated Image Frame Compression
+  remain unavailable until their backend and standards decisions are resolved
+  and proven.
 - `dicom-rs` 0.9.1 provides the useful integration surface:
   `PixelDataReader`, `PixelDataWriter`, transfer syntax descriptors, and
   optional codec features. It does not currently provide verified writers for
@@ -298,8 +308,7 @@ Areas to solidify:
 
 ## Immediate Next Step
 
-Assign a focused research pass for Phase 0. The research output should answer
-the targeted uncertainty list with one recommended option per codec family and
-per backend policy question. No compressed registry row should be flipped from
-skipped to implemented until the selected backend has demonstrated generation,
-validation, reporting, and reproducibility for at least one tiny case.
+Add the feature-gated generated `classic/sc/mono2_u8_jpeg_ls_lossless`
+Secondary Capture case as the next Phase 3 slice. The row should remain skipped
+until the same change proves generation, exact decoded-frame validation,
+manifest/report coverage, and reproducibility under `--features charls`.

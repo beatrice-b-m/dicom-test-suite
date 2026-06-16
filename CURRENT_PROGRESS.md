@@ -1,16 +1,16 @@
 # Current Progress
 
-**Last updated:** 2026-06-15  
-**Active goal:** comprehensive compressed image codec generation support  
+**Last updated:** 2026-06-15
+**Active goal:** comprehensive compressed image codec generation support
 **Current phase:** Phase 3 - Low-Risk Codec Enablement
-**Repo state source:** reconstructed from `SYSTEM_SPEC.md`, `CURRENT_PLAN.md`, `transfer-syntax/capability-matrix.json`, and tests because this file was missing.
+**Repo state source:** reconstructed from `SYSTEM_SPEC.md`, `CURRENT_PLAN.md`, `transfer-syntax/capability-matrix.json`, and current verification runs.
 
 ## Phase Status
 
 - Phase 0 - Research And Decisions: in progress for JPEG XL, JPEG 2000, HTJ2K, legacy JPEG, and Deflated Image Frame Compression; RLE Lossless, JPEG Baseline 8-bit, and JPEG-LS Lossless have implement-now decisions.
 - Phase 1 - Codec Integration Architecture: in progress; minimal codec API plus native RLE and DICOM-rs JPEG Baseline frame encode/decode support are present.
 - Phase 2 - Encapsulated Pixel Data Substrate: complete for the first RLE one-fragment case; Extended Offset Table and future multi-fragment generation remain later substrate expansion.
-- Phase 3 - Low-Risk Codec Enablement: in progress; 8-bit and 16-bit generated RLE Lossless Secondary Capture cases are implemented and round-trip validated; the first JPEG Baseline 8-bit RGB Secondary Capture case is generated and validated when the `jpeg` feature is enabled; a project-level `charls` feature and JPEG-LS Lossless codec wrapper are added, but feature-build verification is blocked on this machine until `cmake` is installed.
+- Phase 3 - Low-Risk Codec Enablement: in progress; 8-bit and 16-bit generated RLE Lossless Secondary Capture cases are implemented and round-trip validated; the first JPEG Baseline 8-bit RGB Secondary Capture case is generated and validated when the `jpeg` feature is enabled; a project-level `charls` feature and JPEG-LS Lossless codec wrapper are added, and the focused `charls` feature-build verification now passes after `cmake` was installed.
 - Phase 4 - JPEG 2000 And HTJ2K: not started.
 - Phase 5 - Legacy And Specialty Compressed Syntaxes: not started.
 - Phase 6+ - Corpus expansion and maintenance: blocked until Phase 5 scope is complete.
@@ -67,7 +67,7 @@
 
 ## Blockers
 
-- Current blocker: local `charls` feature-build verification cannot complete because `cmake` is not installed. `cargo test --features charls codecs` fails while building `charls-sys v2.4.4` with `is cmake not installed?`; `command -v cmake` exits 1. Install `cmake` or provide it on `PATH`, then rerun the `charls` feature tests before adding JPEG-LS generated corpus output.
+- No current local toolchain blocker for JPEG-LS Lossless codec verification. `cmake` is available on `PATH`, and `cargo test --features charls codecs` now builds `charls-sys v2.4.4` successfully.
 - JPEG 2000, HTJ2K, and legacy JPEG backend selection remain unresolved research items.
 - Deflated Image Frame Compression requires a standards/IOD suitability decision before any implementation.
 
@@ -182,13 +182,16 @@
 - `cargo test`: passed, full default-build suite clean.
 - `cargo run -- standards check-lock`: passed with the existing documented lock warnings.
 - `cargo run -- list-cases --profile extended --status skipped`: passed; `classic/sc/mono2_u8_jpeg_ls_lossless` remains skipped with 2/2 standards evidence coverage.
+- `cmake --version`: passed; local PATH exposes `cmake` version 4.3.3.
+- `cargo test --features charls codecs`: passed after `cmake` was installed; `charls-sys v2.4.4` built successfully, with 13 focused codec tests plus the matching artifact test passing.
+- `cargo test`: passed, full default-build suite clean.
 
 ## Commit-Ready Summary
 
 - Phase 3 now has a project-level `charls` feature and JPEG-LS Lossless codec wrapper using the pinned DICOM-rs CharLS adapter path.
 - The JPEG-LS backend decision is `implement_now` for the first lossless case, and artifact tests keep the registry row skipped until generated corpus integration is complete.
-- Default builds pass; `--features charls` verification is blocked by missing local `cmake`, so generated JPEG-LS output must not be added until that prerequisite is installed and the feature tests pass.
+- Default builds pass; `--features charls` codec verification now also passes after installing `cmake`, so the previous local blocker is resolved.
 
 ## Recommended Next Commit
 
-Install `cmake` or otherwise make it available on `PATH`, then rerun `cargo test --features charls codecs`. If the CharLS feature tests pass, the next Phase 3 slice is to add the feature-gated generated `classic/sc/mono2_u8_jpeg_ls_lossless` Secondary Capture case with exact decoded-frame hash validation before flipping the skipped registry row.
+Add the feature-gated generated `classic/sc/mono2_u8_jpeg_ls_lossless` Secondary Capture case with exact decoded-frame hash validation, manifest/report coverage, reproducibility coverage, and registry/capability updates before flipping the skipped registry row.

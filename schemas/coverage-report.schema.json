@@ -125,6 +125,24 @@
         "geometries": {
           "$ref": "#/$defs/count_map"
         },
+        "pixel_spacings": {
+          "$ref": "#/$defs/count_map"
+        },
+        "image_orientations_patient": {
+          "$ref": "#/$defs/count_map"
+        },
+        "image_positions_patient": {
+          "$ref": "#/$defs/count_map"
+        },
+        "slice_thicknesses": {
+          "$ref": "#/$defs/count_map"
+        },
+        "spacing_between_slices": {
+          "$ref": "#/$defs/count_map"
+        },
+        "slice_locations": {
+          "$ref": "#/$defs/count_map"
+        },
         "object_types": {
           "$ref": "#/$defs/count_map"
         },
@@ -351,6 +369,12 @@
         "extended_offset_table",
         "frames",
         "geometry",
+        "pixel_spacing",
+        "image_orientation_patient",
+        "image_position_patient",
+        "slice_thickness",
+        "spacing_between_slices",
+        "slice_location",
         "derived_refs",
         "validation_status",
         "determinism",
@@ -523,6 +547,24 @@
             }
           },
           "additionalProperties": true
+        },
+        "pixel_spacing": {
+          "type": ["string", "null"]
+        },
+        "image_orientation_patient": {
+          "type": ["string", "null"]
+        },
+        "image_position_patient": {
+          "type": ["string", "null"]
+        },
+        "slice_thickness": {
+          "type": ["string", "null"]
+        },
+        "spacing_between_slices": {
+          "type": ["string", "null"]
+        },
+        "slice_location": {
+          "type": ["string", "null"]
         },
         "derived_refs": {
           "type": "array",

@@ -6058,6 +6058,42 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
     append_count_map_section(
         &mut output,
         report,
+        "Pixel Spacings",
+        "/grouped_coverage/pixel_spacings",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "Image Orientations Patient",
+        "/grouped_coverage/image_orientations_patient",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "Image Positions Patient",
+        "/grouped_coverage/image_positions_patient",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "Slice Thicknesses",
+        "/grouped_coverage/slice_thicknesses",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "Spacing Between Slices",
+        "/grouped_coverage/spacing_between_slices",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "Slice Locations",
+        "/grouped_coverage/slice_locations",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
         "Object Types",
         "/grouped_coverage/object_types",
     );
@@ -6418,6 +6454,63 @@ fn generated_coverage_row(
             .cloned()
             .unwrap_or_else(|| Value::Array(Vec::new())),
     );
+    let pixel_spacing = report_patient_pixel_spacing(file);
+    let image_orientation_patient = report_image_orientation_patient(file);
+    if let Some(geometry) = row_object
+        .get_mut("geometry")
+        .and_then(Value::as_object_mut)
+    {
+        geometry.insert(
+            "spacing".to_string(),
+            pixel_spacing
+                .and_then(report_backslash_number_values)
+                .map(|values| {
+                    serde_json::to_value(values)
+                        .expect("patient pixel spacing values must serialize")
+                })
+                .unwrap_or(Value::Null),
+        );
+        geometry.insert(
+            "orientation".to_string(),
+            image_orientation_patient
+                .map(Value::from)
+                .unwrap_or(Value::Null),
+        );
+    }
+    row_object.insert(
+        "pixel_spacing".to_string(),
+        pixel_spacing.map(Value::from).unwrap_or(Value::Null),
+    );
+    row_object.insert(
+        "image_orientation_patient".to_string(),
+        image_orientation_patient
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
+    row_object.insert(
+        "image_position_patient".to_string(),
+        report_image_position_patient(file)
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
+    row_object.insert(
+        "slice_thickness".to_string(),
+        report_slice_thickness(file)
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
+    row_object.insert(
+        "spacing_between_slices".to_string(),
+        report_spacing_between_slices(file)
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
+    row_object.insert(
+        "slice_location".to_string(),
+        report_slice_location(file)
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
     row_object.insert(
         "window_center".to_string(),
         report_window_center(file)
@@ -6636,6 +6729,99 @@ fn report_i64_array(file: &Value, pointer: &str) -> Option<String> {
     Some(values.join("\\"))
 }
 
+fn report_backslash_number_values(value: &str) -> Option<Vec<f64>> {
+    value.split('\\').map(|part| part.parse().ok()).collect()
+}
+
+fn report_patient_pixel_spacing(file: &Value) -> Option<&str> {
+    file.pointer("/recipe/recipe_parameters/geometry/pixel_spacing")
+        .and_then(Value::as_str)
+        .or_else(|| {
+            file.pointer(
+                "/recipe/recipe_parameters/shared_functional_groups/pixel_measures/pixel_spacing",
+            )
+            .and_then(Value::as_str)
+        })
+        .or_else(|| {
+            file.pointer("/recipe/recipe_parameters/pixel_spacing")
+                .and_then(Value::as_str)
+        })
+}
+
+fn report_image_orientation_patient(file: &Value) -> Option<&str> {
+    file.pointer("/recipe/recipe_parameters/geometry/image_orientation_patient")
+        .and_then(Value::as_str)
+        .or_else(|| {
+            file.pointer(
+                "/recipe/recipe_parameters/shared_functional_groups/plane_orientation_patient",
+            )
+            .and_then(Value::as_str)
+        })
+        .or_else(|| {
+            file.pointer("/recipe/recipe_parameters/image_orientation_patient")
+                .and_then(Value::as_str)
+        })
+}
+
+fn report_image_position_patient(file: &Value) -> Option<String> {
+    report_string_or_string_array(
+        file,
+        "/recipe/recipe_parameters/geometry/image_position_patient",
+    )
+    .or_else(|| {
+        report_string_or_string_array(
+            file,
+            "/recipe/recipe_parameters/per_frame_functional_groups/image_position_patient",
+        )
+    })
+    .or_else(|| {
+        report_string_or_string_array(file, "/recipe/recipe_parameters/image_position_patient")
+    })
+}
+
+fn report_string_or_string_array(file: &Value, pointer: &str) -> Option<String> {
+    match file.pointer(pointer)? {
+        Value::String(value) => Some(value.clone()),
+        Value::Array(values) => values
+            .iter()
+            .map(|value| value.as_str().map(str::to_string))
+            .collect::<Option<Vec<_>>>()
+            .map(|values| values.join("; ")),
+        _ => None,
+    }
+}
+
+fn report_slice_thickness(file: &Value) -> Option<&str> {
+    file.pointer("/recipe/recipe_parameters/geometry/slice_thickness")
+        .and_then(Value::as_str)
+        .or_else(|| {
+            file.pointer(
+                "/recipe/recipe_parameters/shared_functional_groups/pixel_measures/slice_thickness",
+            )
+            .and_then(Value::as_str)
+        })
+        .or_else(|| {
+            file.pointer("/recipe/recipe_parameters/slice_thickness")
+                .and_then(Value::as_str)
+        })
+}
+
+fn report_spacing_between_slices(file: &Value) -> Option<&str> {
+    file.pointer("/recipe/recipe_parameters/geometry/spacing_between_slices")
+        .and_then(Value::as_str)
+        .or_else(|| {
+            file.pointer(
+                "/recipe/recipe_parameters/shared_functional_groups/pixel_measures/spacing_between_slices",
+            )
+            .and_then(Value::as_str)
+        })
+}
+
+fn report_slice_location(file: &Value) -> Option<&str> {
+    file.pointer("/recipe/recipe_parameters/geometry/slice_location")
+        .and_then(Value::as_str)
+}
+
 fn report_window_center(file: &Value) -> Option<&str> {
     file.pointer("/recipe/recipe_parameters/window/center")
         .and_then(Value::as_str)
@@ -6828,6 +7014,12 @@ fn skipped_coverage_row(
     row_object.insert("overlay_bits_allocated".to_string(), Value::Null);
     row_object.insert("overlay_bit_position".to_string(), Value::Null);
     row_object.insert("overlay_data_value_length".to_string(), Value::Null);
+    row_object.insert("pixel_spacing".to_string(), Value::Null);
+    row_object.insert("image_orientation_patient".to_string(), Value::Null);
+    row_object.insert("image_position_patient".to_string(), Value::Null);
+    row_object.insert("slice_thickness".to_string(), Value::Null);
+    row_object.insert("spacing_between_slices".to_string(), Value::Null);
+    row_object.insert("slice_location".to_string(), Value::Null);
     row_object.insert(
         "sop_class_name".to_string(),
         registry_case
@@ -6978,6 +7170,12 @@ struct GroupedCoverage {
     pixel_data_layouts: BTreeMap<String, usize>,
     frame_counts: BTreeMap<String, usize>,
     geometries: BTreeMap<String, usize>,
+    pixel_spacings: BTreeMap<String, usize>,
+    image_orientations_patient: BTreeMap<String, usize>,
+    image_positions_patient: BTreeMap<String, usize>,
+    slice_thicknesses: BTreeMap<String, usize>,
+    spacing_between_slices: BTreeMap<String, usize>,
+    slice_locations: BTreeMap<String, usize>,
     object_types: BTreeMap<String, usize>,
     derived_reference_states: BTreeMap<String, usize>,
     synthetic_data: BTreeMap<String, usize>,
@@ -7156,6 +7354,30 @@ impl GroupedCoverage {
         if let Some(geometry) = geometry_bucket(row) {
             *self.geometries.entry(geometry).or_default() += 1;
         }
+        increment_map(
+            &mut self.pixel_spacings,
+            row.get("pixel_spacing").and_then(Value::as_str),
+        );
+        increment_map(
+            &mut self.image_orientations_patient,
+            row.get("image_orientation_patient").and_then(Value::as_str),
+        );
+        increment_map(
+            &mut self.image_positions_patient,
+            row.get("image_position_patient").and_then(Value::as_str),
+        );
+        increment_map(
+            &mut self.slice_thicknesses,
+            row.get("slice_thickness").and_then(Value::as_str),
+        );
+        increment_map(
+            &mut self.spacing_between_slices,
+            row.get("spacing_between_slices").and_then(Value::as_str),
+        );
+        increment_map(
+            &mut self.slice_locations,
+            row.get("slice_location").and_then(Value::as_str),
+        );
         increment_map(
             &mut self.object_types,
             row.get("object_type").and_then(Value::as_str),
@@ -7395,6 +7617,36 @@ impl GroupedCoverage {
         grouped_object.insert(
             "kvps".to_string(),
             serde_json::to_value(&self.kvps).expect("KVP count map must serialize"),
+        );
+        grouped_object.insert(
+            "pixel_spacings".to_string(),
+            serde_json::to_value(&self.pixel_spacings)
+                .expect("pixel spacing count map must serialize"),
+        );
+        grouped_object.insert(
+            "image_orientations_patient".to_string(),
+            serde_json::to_value(&self.image_orientations_patient)
+                .expect("image orientation patient count map must serialize"),
+        );
+        grouped_object.insert(
+            "image_positions_patient".to_string(),
+            serde_json::to_value(&self.image_positions_patient)
+                .expect("image position patient count map must serialize"),
+        );
+        grouped_object.insert(
+            "slice_thicknesses".to_string(),
+            serde_json::to_value(&self.slice_thicknesses)
+                .expect("slice thickness count map must serialize"),
+        );
+        grouped_object.insert(
+            "spacing_between_slices".to_string(),
+            serde_json::to_value(&self.spacing_between_slices)
+                .expect("spacing between slices count map must serialize"),
+        );
+        grouped_object.insert(
+            "slice_locations".to_string(),
+            serde_json::to_value(&self.slice_locations)
+                .expect("slice location count map must serialize"),
         );
         grouped_object.insert(
             "mr_scanning_sequences".to_string(),

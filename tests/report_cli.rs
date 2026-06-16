@@ -309,6 +309,48 @@ fn report_command_writes_json_coverage_for_core_root() {
         Some("CT Image Storage")
     );
     assert_eq!(
+        coverage_row(&report, "classic/ct/mono2_i16_rescale_12bit_explicit_le")
+            .pointer("/geometry/spacing/0")
+            .and_then(Value::as_f64),
+        Some(0.625)
+    );
+    assert_eq!(
+        coverage_row(&report, "classic/ct/mono2_i16_rescale_12bit_explicit_le")
+            .get("pixel_spacing")
+            .and_then(Value::as_str),
+        Some("0.625\\0.625")
+    );
+    assert_eq!(
+        coverage_row(&report, "classic/ct/mono2_i16_rescale_12bit_explicit_le")
+            .get("image_orientation_patient")
+            .and_then(Value::as_str),
+        Some("1\\0\\0\\0\\1\\0")
+    );
+    assert_eq!(
+        coverage_row(&report, "classic/ct/mono2_i16_rescale_12bit_explicit_le")
+            .get("image_position_patient")
+            .and_then(Value::as_str),
+        Some("-0.625\\-0.625\\0")
+    );
+    assert_eq!(
+        coverage_row(&report, "classic/ct/mono2_i16_rescale_12bit_explicit_le")
+            .get("slice_thickness")
+            .and_then(Value::as_str),
+        Some("1")
+    );
+    assert_eq!(
+        coverage_row(&report, "classic/mr/multislice_oblique_explicit_le")
+            .get("spacing_between_slices")
+            .and_then(Value::as_str),
+        Some("5")
+    );
+    assert_eq!(
+        coverage_row(&report, "classic/mr/multislice_oblique_explicit_le")
+            .get("slice_location")
+            .and_then(Value::as_str),
+        Some("0")
+    );
+    assert_eq!(
         coverage_row(&report, "vl/photo/palette_color_explicit_le")
             .get("status")
             .and_then(Value::as_str),
@@ -420,6 +462,48 @@ fn report_command_writes_json_coverage_for_core_root() {
     assert_eq!(
         report
             .pointer("/grouped_coverage/kvps/120")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/pixel_spacings/0.625\\0.625")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/pixel_spacings/1.000\\1.000")
+            .and_then(Value::as_u64),
+        Some(3)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/image_orientations_patient/1\\0\\0\\0\\1\\0")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/image_positions_patient/0\\0\\0")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/slice_thicknesses/5")
+            .and_then(Value::as_u64),
+        Some(3)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/spacing_between_slices/5")
+            .and_then(Value::as_u64),
+        Some(3)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/slice_locations/10")
             .and_then(Value::as_u64),
         Some(1)
     );
@@ -646,6 +730,19 @@ fn report_command_writes_markdown_coverage_for_core_root() {
     assert!(stdout.contains("| 4096 | 2 |"));
     assert!(stdout.contains("### KVPs"));
     assert!(stdout.contains("| 120 | 1 |"));
+    assert!(stdout.contains("### Pixel Spacings"));
+    assert!(stdout.contains("| 0.625\\0.625 | 1 |"));
+    assert!(stdout.contains("| 1.000\\1.000 | 3 |"));
+    assert!(stdout.contains("### Image Orientations Patient"));
+    assert!(stdout.contains("| 1\\0\\0\\0\\1\\0 | 1 |"));
+    assert!(stdout.contains("### Image Positions Patient"));
+    assert!(stdout.contains("| 0\\0\\0 | 1 |"));
+    assert!(stdout.contains("### Slice Thicknesses"));
+    assert!(stdout.contains("| 5 | 3 |"));
+    assert!(stdout.contains("### Spacing Between Slices"));
+    assert!(stdout.contains("| 5 | 3 |"));
+    assert!(stdout.contains("### Slice Locations"));
+    assert!(stdout.contains("| 10 | 1 |"));
     assert!(stdout.contains("### MR Scanning Sequences"));
     assert!(stdout.contains("| SE | 3 |"));
     assert!(stdout.contains("### MR Sequence Variants"));

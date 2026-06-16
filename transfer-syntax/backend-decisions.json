@@ -154,12 +154,11 @@
     },
     {
       "family_id": "jpeg_xl",
-      "classification": "research_more",
+      "classification": "implement_now",
       "transfer_syntax_uids": [
-        "1.2.840.10008.1.2.4.110",
-        "1.2.840.10008.1.2.4.112"
+        "1.2.840.10008.1.2.4.110"
       ],
-      "selected_backend": "dicom_rs_jpegxl_feature_candidate",
+      "selected_backend": "dicom_rs_jpegxl_lossless_writer",
       "backend_kind": "dicom_rs_feature",
       "feature_gate": "jpegxl",
       "determinism": "semantic_stable",
@@ -169,10 +168,12 @@
         "Require decoded frame hash validation and backend version reporting.",
         "Classify lossy JPEG XL separately after lossless support is proven."
       ],
-      "blockers": [
-        "Generated corpus integration, manifest/report coverage, CLI validation, and reproducibility are not implemented.",
-        "Lossy JPEG XL policy is not decided."
-      ],
+      "blockers": ["Lossy JPEG XL policy is not decided."],
+      "lossy_policy": {
+        "classification": "defer",
+        "transfer_syntax_uid": "1.2.840.10008.1.2.4.112",
+        "defer_reason": "Lossy JPEG XL needs explicit lossy Image Pixel metadata, decoded tolerance validation, and reproducibility policy before a generated conformance case is added."
+      },
       "evidence": [
         {
           "source": "dicom-standard-kb",
@@ -191,9 +192,14 @@
           "source": "local-test",
           "path": "src/codecs.rs",
           "finding": "The project jpegxl feature exposes a DICOM-rs JPEG XL Lossless writer and reader that round-trip a tiny 8-bit RGB frame exactly, with backend metadata reporting jxl-oxide 0.10.2 and zune-jpegxl 0.4.0."
+        },
+        {
+          "source": "local-test",
+          "path": "tests/generate_cli.rs; tests/validate_cli.rs",
+          "finding": "The feature-gated JPEG XL Lossless Secondary Capture case generates encapsulated Pixel Data and validates exact decoded frame hashes during generation and CLI validation."
         }
       ],
-      "next_action": "Implement the feature-gated generated JPEG XL Lossless Secondary Capture case only after adding generation-time decoded-frame hash validation and CLI validation coverage."
+      "next_action": "Keep the first JPEG XL Lossless case feature-gated and move Phase 3 attention to the next unresolved low-risk codec decision."
     },
     {
       "family_id": "jpeg_2000",

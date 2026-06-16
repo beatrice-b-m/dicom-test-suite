@@ -357,7 +357,7 @@ fn codec_backend_decisions_track_enabled_low_risk_codecs() {
         .collect::<Vec<_>>();
     assert_eq!(
         implement_now,
-        vec!["rle_lossless", "jpeg_baseline_8bit", "jpeg_ls"],
+        vec!["rle_lossless", "jpeg_baseline_8bit", "jpeg_ls", "jpeg_xl"],
         "enabled Phase 3 codec families should be explicit"
     );
 
@@ -448,6 +448,45 @@ fn codec_backend_decisions_track_enabled_low_risk_codecs() {
             .pointer("/near_lossless_policy/transfer_syntax_uid")
             .and_then(Value::as_str),
         Some("1.2.840.10008.1.2.4.81")
+    );
+
+    let jpeg_xl = families
+        .iter()
+        .find(|family| family.get("family_id").and_then(Value::as_str) == Some("jpeg_xl"))
+        .expect("JPEG XL decision must exist");
+    assert_eq!(
+        jpeg_xl.get("selected_backend").and_then(Value::as_str),
+        Some("dicom_rs_jpegxl_lossless_writer")
+    );
+    assert_eq!(
+        jpeg_xl.get("backend_kind").and_then(Value::as_str),
+        Some("dicom_rs_feature")
+    );
+    assert_eq!(
+        jpeg_xl.get("feature_gate").and_then(Value::as_str),
+        Some("jpegxl")
+    );
+    assert_eq!(
+        jpeg_xl.get("determinism").and_then(Value::as_str),
+        Some("semantic_stable")
+    );
+    assert_eq!(
+        jpeg_xl
+            .get("transfer_syntax_uids")
+            .and_then(Value::as_array)
+            .expect("JPEG XL transfer syntax UID list should exist")
+            .iter()
+            .filter_map(Value::as_str)
+            .collect::<Vec<_>>(),
+        vec!["1.2.840.10008.1.2.4.110"],
+        "implemented JPEG XL decision should be scoped to the lossless transfer syntax"
+    );
+    assert_eq!(
+        jpeg_xl
+            .pointer("/lossy_policy/classification")
+            .and_then(Value::as_str),
+        Some("defer"),
+        "JPEG XL lossy policy should remain deferred after the lossless case is implemented"
     );
 }
 
@@ -666,7 +705,7 @@ fn compressed_transfer_syntax_matrix_matches_current_dicom_rs_stubs() {
 }
 
 #[test]
-fn jpeg_xl_lossless_feature_gate_is_verified_but_generation_stays_unavailable() {
+fn jpeg_xl_lossless_transfer_syntax_has_project_jpegxl_feature_gate() {
     let cargo_toml = fs::read_to_string("Cargo.toml").expect("Cargo.toml must be readable");
     assert!(
         cargo_toml.contains("jpegxl = [")
@@ -693,18 +732,18 @@ fn jpeg_xl_lossless_feature_gate_is_verified_but_generation_stays_unavailable() 
     );
     assert_eq!(
         entry.get("status").and_then(Value::as_str),
-        Some("unavailable"),
-        "JPEG XL generated cases should stay unavailable until corpus integration is verified"
+        Some("feature_gated"),
+        "JPEG XL generation should be available when the project jpegxl feature is enabled"
     );
     assert_eq!(
         entry.get("decode_pixel").and_then(Value::as_bool),
-        Some(false),
-        "the project matrix should not claim JPEG XL decode validation yet"
+        Some(true),
+        "the committed matrix should claim JPEG XL decode validation behind the jpegxl feature"
     );
     assert_eq!(
         entry.get("encode_pixel").and_then(Value::as_bool),
-        Some(false),
-        "the project matrix should not claim JPEG XL encode validation yet"
+        Some(true),
+        "the committed matrix should claim JPEG XL encode validation behind the jpegxl feature"
     );
     assert!(
         entry
@@ -735,15 +774,19 @@ fn jpeg_xl_lossless_feature_gate_is_verified_but_generation_stays_unavailable() 
                 == Some("classic/sc/rgb_planar0_jpegxl_lossless")
         })
         .expect("registry must contain JPEG XL Lossless SC case");
-    assert_eq!(case.get("status").and_then(Value::as_str), Some("skipped"));
+    assert_eq!(
+        case.get("status").and_then(Value::as_str),
+        Some("implemented")
+    );
     assert_eq!(
         case.pointer("/requirements/features/0")
             .and_then(Value::as_str),
         Some("jpegxl")
     );
     assert_eq!(
-        case.pointer("/skip/reason_code").and_then(Value::as_str),
-        Some("codec_unavailable")
+        case.get("skip"),
+        Some(&Value::Null),
+        "implemented JPEG XL case should not retain skip metadata"
     );
 
     let decisions = read_json("transfer-syntax/backend-decisions.json");
@@ -768,6 +811,16 @@ fn jpeg_xl_lossless_feature_gate_is_verified_but_generation_stays_unavailable() 
                 .is_some_and(|finding| finding.contains("jxl-oxide 0.10.2")
                     && finding.contains("zune-jpegxl 0.4.0")))),
         "JPEG XL decision should record backend version behavior from the local codec test"
+    );
+    assert!(
+        jpeg_xl
+            .get("evidence")
+            .and_then(Value::as_array)
+            .is_some_and(|items| items.iter().any(|item| item
+                .get("finding")
+                .and_then(Value::as_str)
+                .is_some_and(|finding| finding.contains("validates exact decoded frame hashes")))),
+        "JPEG XL decision should record generated-case validation evidence"
     );
 }
 
@@ -1016,11 +1069,6 @@ fn compressed_transfer_syntax_registry_rows_remain_skipped_until_verified() {
             "classic/sc/mono2_u16_jpeg2000_lossless",
             "1.2.840.10008.1.2.4.90",
             "JPEG2000Lossless",
-        ),
-        (
-            "classic/sc/rgb_planar0_jpegxl_lossless",
-            "1.2.840.10008.1.2.4.110",
-            "JPEGXLLossless",
         ),
         (
             "classic/sc/mono2_u16_htj2k_lossless",

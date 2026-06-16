@@ -1630,7 +1630,8 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
     let expected_extended_files = 19
         + if cfg!(feature = "deflate") { 1 } else { 0 }
         + if cfg!(feature = "jpeg") { 1 } else { 0 }
-        + if cfg!(feature = "charls") { 1 } else { 0 };
+        + if cfg!(feature = "charls") { 1 } else { 0 }
+        + if cfg!(feature = "jpegxl") { 1 } else { 0 };
     assert!(stdout.contains(&format!("files_written\t{expected_extended_files}")));
 
     let manifest_path = out_dir.join("manifest.json");
@@ -1836,6 +1837,45 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
             validation_result_names(jpeg_ls_file.pointer("/validation/internal"))
                 .contains(&"jpeg_ls_lossless_decoded_frame_hashes"),
             "JPEG-LS manifest should record exact decoded frame hash validation"
+        );
+    }
+    if cfg!(feature = "jpegxl") {
+        let jpeg_xl_file =
+            file_entry_by_case_id(&manifest, "classic/sc/rgb_planar0_jpegxl_lossless");
+        assert_eq!(
+            jpeg_xl_file
+                .pointer("/dicom/transfer_syntax_uid")
+                .and_then(Value::as_str),
+            Some("1.2.840.10008.1.2.4.110")
+        );
+        assert_eq!(
+            jpeg_xl_file
+                .pointer("/pixel_data/native_or_encapsulated")
+                .and_then(Value::as_str),
+            Some("encapsulated")
+        );
+        assert_eq!(
+            jpeg_xl_file
+                .pointer("/pixel_data/codec/backend_id")
+                .and_then(Value::as_str),
+            Some("dicom_rs_jpegxl_lossless_writer")
+        );
+        assert_eq!(
+            jpeg_xl_file
+                .pointer("/pixel_data/codec/feature_gate")
+                .and_then(Value::as_str),
+            Some("jpegxl")
+        );
+        assert_eq!(
+            jpeg_xl_file
+                .pointer("/expected_semantics/lossy_image_compression")
+                .and_then(Value::as_str),
+            Some("00")
+        );
+        assert!(
+            validation_result_names(jpeg_xl_file.pointer("/validation/internal"))
+                .contains(&"jpeg_xl_lossless_decoded_frame_hashes"),
+            "JPEG XL manifest should record exact decoded frame hash validation"
         );
     }
     assert_eq!(
@@ -2632,12 +2672,12 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
         skipped_cases.len(),
         6 - if cfg!(feature = "deflate") { 1 } else { 0 }
             - if cfg!(feature = "jpeg") { 1 } else { 0 }
-            - if cfg!(feature = "charls") { 1 } else { 0 },
+            - if cfg!(feature = "charls") { 1 } else { 0 }
+            - if cfg!(feature = "jpegxl") { 1 } else { 0 },
         "extended generation should report only unavailable compressed transfer syntax rows plus the no-feature deflated row"
     );
     for case_id in [
         "classic/sc/mono2_u16_jpeg2000_lossless",
-        "classic/sc/rgb_planar0_jpegxl_lossless",
         "classic/sc/mono2_u16_htj2k_lossless",
     ] {
         let skipped = skipped_case_by_id(&manifest, case_id);
@@ -2689,6 +2729,25 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
                 .expect("feature-gated JPEG-LS row should have a message")
                 .contains("Cargo feature(s) charls"),
             "feature-gated JPEG-LS unavailable row should name the required feature"
+        );
+    }
+    if !cfg!(feature = "jpegxl") {
+        let jpeg_xl = skipped_case_by_id(&manifest, "classic/sc/rgb_planar0_jpegxl_lossless");
+        assert_eq!(
+            jpeg_xl.get("status").and_then(Value::as_str),
+            Some("unavailable")
+        );
+        assert_eq!(
+            jpeg_xl.get("reason_code").and_then(Value::as_str),
+            Some("feature_gated_case_unavailable")
+        );
+        assert!(
+            jpeg_xl
+                .get("message")
+                .and_then(Value::as_str)
+                .expect("feature-gated JPEG XL row should have a message")
+                .contains("Cargo feature(s) jpegxl"),
+            "feature-gated JPEG XL unavailable row should name the required feature"
         );
     }
     if cfg!(feature = "deflate") {
@@ -4065,7 +4124,8 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
     let expected_all_files = 41
         + if cfg!(feature = "deflate") { 1 } else { 0 }
         + if cfg!(feature = "jpeg") { 1 } else { 0 }
-        + if cfg!(feature = "charls") { 1 } else { 0 };
+        + if cfg!(feature = "charls") { 1 } else { 0 }
+        + if cfg!(feature = "jpegxl") { 1 } else { 0 };
     assert!(stdout.contains(&format!("files_written\t{expected_all_files}")));
 
     let manifest_path = out_dir.join("manifest.json");
@@ -4095,6 +4155,9 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
     if cfg!(feature = "charls") {
         file_entry_by_case_id(&manifest, "classic/sc/mono2_u8_jpeg_ls_lossless");
     }
+    if cfg!(feature = "jpegxl") {
+        file_entry_by_case_id(&manifest, "classic/sc/rgb_planar0_jpegxl_lossless");
+    }
     file_entry_by_case_id(&manifest, "classic/ct/mono2_i16_rescale_12bit_explicit_le");
     file_entry_by_case_id(
         &manifest,
@@ -4119,7 +4182,8 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
         skipped_cases.len(),
         8 - if cfg!(feature = "deflate") { 1 } else { 0 }
             - if cfg!(feature = "jpeg") { 1 } else { 0 }
-            - if cfg!(feature = "charls") { 1 } else { 0 },
+            - if cfg!(feature = "charls") { 1 } else { 0 }
+            - if cfg!(feature = "jpegxl") { 1 } else { 0 },
         "all generation should report unavailable cases according to active features"
     );
     for case_id in [
@@ -4138,7 +4202,6 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
     }
     for case_id in [
         "classic/sc/mono2_u16_jpeg2000_lossless",
-        "classic/sc/rgb_planar0_jpegxl_lossless",
         "classic/sc/mono2_u16_htj2k_lossless",
     ] {
         let skipped = skipped_case_by_id(&manifest, case_id);
@@ -4153,6 +4216,17 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
     }
     if !cfg!(feature = "jpeg") {
         let skipped = skipped_case_by_id(&manifest, "classic/sc/rgb_planar0_jpeg_baseline_8bit");
+        assert_eq!(
+            skipped.get("status").and_then(Value::as_str),
+            Some("unavailable")
+        );
+        assert_eq!(
+            skipped.get("reason_code").and_then(Value::as_str),
+            Some("feature_gated_case_unavailable")
+        );
+    }
+    if !cfg!(feature = "jpegxl") {
+        let skipped = skipped_case_by_id(&manifest, "classic/sc/rgb_planar0_jpegxl_lossless");
         assert_eq!(
             skipped.get("status").and_then(Value::as_str),
             Some("unavailable")

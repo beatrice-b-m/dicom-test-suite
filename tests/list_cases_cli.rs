@@ -374,7 +374,6 @@ fn list_cases_command_shows_skipped_compressed_transfer_syntax_rows() {
     let stdout = String::from_utf8(output.stdout).expect("list-cases stdout must be utf-8");
     for expected in [
         "classic/sc/mono2_u16_jpeg2000_lossless\tskipped\textended\t1.2.840.10008.5.1.4.1.1.7\t1.2.840.10008.1.2.4.90\t2/2 covered",
-        "classic/sc/rgb_planar0_jpegxl_lossless\tskipped\textended\t1.2.840.10008.5.1.4.1.1.7\t1.2.840.10008.1.2.4.110\t2/2 covered",
         "classic/sc/mono2_u16_htj2k_lossless\tskipped\textended\t1.2.840.10008.5.1.4.1.1.7\t1.2.840.10008.1.2.4.201\t2/2 covered",
     ] {
         assert!(
@@ -427,6 +426,12 @@ fn list_cases_command_shows_rle_lossless_as_implemented() {
             "classic/sc/mono2_u8_jpeg_ls_lossless\timplemented\textended\t1.2.840.10008.5.1.4.1.1.7\t1.2.840.10008.1.2.4.80\t2/2 covered"
         ),
         "JPEG-LS Lossless row must be listed as implemented and feature-gated"
+    );
+    assert!(
+        stdout.contains(
+            "classic/sc/rgb_planar0_jpegxl_lossless\timplemented\textended\t1.2.840.10008.5.1.4.1.1.7\t1.2.840.10008.1.2.4.110\t2/2 covered"
+        ),
+        "JPEG XL Lossless row must be listed as implemented and feature-gated"
     );
 }
 

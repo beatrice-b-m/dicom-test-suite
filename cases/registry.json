@@ -3554,7 +3554,7 @@
     },
     {
       "case_id": "classic/sc/rgb_planar0_jpegxl_lossless",
-      "status": "skipped",
+      "status": "implemented",
       "profiles": ["extended"],
       "recipe_id": "sc_rgb_planar0_jpegxl_lossless",
       "recipe_version": "0.1.0",
@@ -3568,11 +3568,7 @@
         "external_codecs": [],
         "external_validators": []
       },
-      "skip": {
-        "reason_code": "codec_unavailable",
-        "message": "JPEG XL Lossless image generation is unavailable until generated corpus integration, decoded-frame validation, manifest/report coverage, and reproducibility are proven.",
-        "recheck_phase": "phase-6"
-      },
+      "skip": null,
       "standards_evidence": [
         {
           "source": "dicom-standard-kb",

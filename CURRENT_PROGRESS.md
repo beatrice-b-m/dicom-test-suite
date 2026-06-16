@@ -7,10 +7,10 @@
 
 ## Phase Status
 
-- Phase 0 - Research And Decisions: in progress for JPEG XL, JPEG 2000, HTJ2K, legacy JPEG, and Deflated Image Frame Compression; RLE Lossless, JPEG Baseline 8-bit, and JPEG-LS Lossless have implement-now decisions; JPEG-LS Near-Lossless is explicitly deferred.
+- Phase 0 - Research And Decisions: in progress for JPEG XL lossy, JPEG 2000, HTJ2K, legacy JPEG, and Deflated Image Frame Compression; RLE Lossless, JPEG Baseline 8-bit, JPEG-LS Lossless, and JPEG XL Lossless have implement-now decisions; JPEG-LS Near-Lossless and JPEG XL lossy are explicitly deferred.
 - Phase 1 - Codec Integration Architecture: in progress; minimal codec API plus native RLE and DICOM-rs JPEG Baseline frame encode/decode support are present.
 - Phase 2 - Encapsulated Pixel Data Substrate: complete for the first RLE one-fragment case; Extended Offset Table and future multi-fragment generation remain later substrate expansion.
-- Phase 3 - Low-Risk Codec Enablement: in progress; 8-bit and 16-bit generated RLE Lossless Secondary Capture cases are implemented and round-trip validated; the first JPEG Baseline 8-bit RGB Secondary Capture case is generated and validated when the `jpeg` feature is enabled; the first JPEG-LS Lossless 8-bit MONOCHROME2 Secondary Capture case is generated and exact-hash validated when the `charls` feature is enabled; JPEG XL Lossless feature-gate verification is complete through the project `jpegxl` feature, but generated corpus integration remains pending.
+- Phase 3 - Low-Risk Codec Enablement: in progress; 8-bit and 16-bit generated RLE Lossless Secondary Capture cases are implemented and round-trip validated; the first JPEG Baseline 8-bit RGB Secondary Capture case is generated and validated when the `jpeg` feature is enabled; the first JPEG-LS Lossless 8-bit MONOCHROME2 Secondary Capture case is generated and exact-hash validated when the `charls` feature is enabled; the first JPEG XL Lossless 8-bit RGB Secondary Capture case is generated and exact-hash validated when the `jpegxl` feature is enabled.
 - Phase 4 - JPEG 2000 And HTJ2K: not started.
 - Phase 5 - Legacy And Specialty Compressed Syntaxes: not started.
 - Phase 6+ - Corpus expansion and maintenance: blocked until Phase 5 scope is complete.
@@ -83,12 +83,21 @@
 - Recorded backend version behavior as `dicom-transfer-syntax-registry 0.9.1 + jxl-oxide 0.10.2 + zune-jpegxl 0.4.0`.
 - Updated the JPEG XL Lossless registry requirement and capability matrix to use the project `jpegxl` feature gate, while keeping `classic/sc/rgb_planar0_jpegxl_lossless` skipped and matrix encode/decode unavailable until generated corpus integration, validation, report coverage, and reproducibility are implemented.
 - Added focused artifact coverage proving the project `jpegxl` feature gate exists and JPEG XL Lossless generation remains unavailable even when runtime adapters are present.
+- Implemented `classic/sc/rgb_planar0_jpegxl_lossless` as a feature-gated generated Secondary Capture case.
+- Added a generator transfer syntax spec and pixel recipe for a tiny 2x2 8-bit RGB JPEG XL Lossless frame using transfer syntax `1.2.840.10008.1.2.4.110`.
+- Generated JPEG XL Lossless Pixel Data as an encapsulated one-fragment-per-frame sequence with a populated Basic Offset Table.
+- Added generation-time JPEG XL Lossless exact decoded-frame hash validation through the DICOM-rs JPEG XL decoder.
+- Added CLI `validate` JPEG XL Lossless exact decoded-frame hash validation and a focused feature-gated mismatch regression test.
+- Added manifest/report metadata for JPEG XL backend identity, semantic-stable determinism, compressed frame hashes, encapsulated layout, expected lossless semantics, and JPEG XL stressor coverage.
+- Flipped the JPEG XL Lossless registry row to implemented with required feature `jpegxl` and updated the capability matrix to `feature_gated` encode/decode support.
+- Scoped the implemented JPEG XL backend decision to Lossless UID `1.2.840.10008.1.2.4.110` and added an explicit lossy policy defer record for UID `1.2.840.10008.1.2.4.112`.
+- Updated list-cases, generate, validate, and artifact tests so default builds report the implemented JPEG XL case as feature-gated unavailable while `--features jpegxl` builds generate and validate it.
 
 ## Blockers
 
 - No current local toolchain blocker for JPEG-LS Lossless generation or verification. `cmake` is available on `PATH`, and `cargo test --features charls` builds `charls-sys v2.4.4` successfully.
 - JPEG-LS Near-Lossless generated-case work is intentionally deferred until a first error limit, lossy compression metadata policy, decoded-frame tolerance, and reproducibility strategy are selected.
-- JPEG XL Lossless generated-case work remains pending until generation-time decoded-frame hash validation, CLI validation, manifest/report coverage, and reproducibility are added.
+- JPEG XL lossy generated-case work is intentionally deferred until lossy compression metadata policy, decoded-frame tolerance, and reproducibility strategy are selected.
 - JPEG 2000, HTJ2K, and legacy JPEG backend selection remain unresolved research items.
 - Deflated Image Frame Compression requires a standards/IOD suitability decision before any implementation.
 
@@ -96,7 +105,7 @@
 
 - Whether codec backend version strings should include transitive codec crate versions in addition to the selected adapter crate version.
 - JPEG-LS Lossless now uses a project `charls` feature that exposes the pinned DICOM-rs optional CharLS adapter behind a project-owned wrapper and generated corpus case. JPEG-LS Near-Lossless is deferred until lossy semantics and validation policy are selected.
-- JPEG XL Lossless now uses a project `jpegxl` feature that exposes the pinned DICOM-rs optional JPEG XL adapter behind a project-owned wrapper. Generated-case promotion remains pending.
+- JPEG XL Lossless now uses a project `jpegxl` feature that exposes the pinned DICOM-rs optional JPEG XL adapter behind a project-owned wrapper and generated corpus case. Lossy JPEG XL is deferred until lossy semantics and validation policy are selected.
 - Which independent validators should be used for JPEG 2000 and HTJ2K.
 - Whether the current project-owned RLE decoder should support multi-fragment frame reassembly in generation-time validation before a multi-fragment RLE case is added.
 
@@ -249,13 +258,32 @@
 - `cargo test --features jpegxl`: passed, full JPEG XL feature suite clean.
 - `cargo run -- standards check-lock`: passed with existing documented lock warnings.
 - `cargo run --features jpegxl -- list-cases --profile extended --status skipped`: passed; JPEG XL Lossless remains skipped with 2/2 standards evidence coverage under the feature build.
+- `dicom-standard-kb` MCP `lookup_uid JPEGXLLossless`: passed; confirmed UID `1.2.840.10008.1.2.4.110` as a PS3.6 Transfer Syntax.
+- `dicom-standard-kb` MCP `lookup_sop_class "Secondary Capture Image Storage"`: passed; confirmed Secondary Capture Image Storage UID `1.2.840.10008.5.1.4.1.1.7` and linked Secondary Capture Image IOD.
+- `dicom-standard-kb` MCP `lookup_iod "Secondary Capture Image"`: passed; confirmed the Secondary Capture Image IOD reference in PS3.3 Table A.8-1.
+- `cargo fmt`: passed.
+- `cargo test --test generate_cli --test validate_cli --test list_cases_cli --test project_artifacts`: initially failed because the JPEG XL registry row had `skip: null` while still marked `skipped`, and then because JPEG 2000 was accidentally promoted by a broad status patch; passed after correcting JPEG XL to `implemented` and restoring JPEG 2000 to `skipped`, 62 focused default-build tests.
+- `cargo test --features jpegxl --test generate_cli --test validate_cli --test list_cases_cli --test project_artifacts codecs`: passed but only exercised the `codecs` test filter for integration tests; reran unfiltered.
+- `cargo test --features jpegxl --test generate_cli --test validate_cli --test list_cases_cli --test project_artifacts`: passed, 63 focused feature-build tests including the JPEG XL decoded-frame hash mismatch regression.
+- `cargo test --features jpegxl codecs`: passed, 13 focused codec tests plus matching filtered artifact test.
+- `cargo fmt -- --check`: passed.
+- `cargo test`: passed, full default-build suite clean.
+- `cargo test --features jpegxl`: passed, full JPEG XL feature suite clean.
+- `cargo run -- standards check-lock`: passed with existing documented lock warnings.
+- `cargo run --features jpegxl -- generate --profile extended --out /tmp/dts-jpegxl-slice-0616 --seed 1`: passed, 20 files written.
+- `cargo run --features jpegxl -- validate /tmp/dts-jpegxl-slice-0616`: passed, 20 files checked and 0 validation failures.
+- `cargo run --features jpegxl -- report /tmp/dts-jpegxl-slice-0616 --format json`: passed; report counted 20 generated rows and included `classic/sc/rgb_planar0_jpegxl_lossless` as generated with semantic-stable determinism and transfer syntax `1.2.840.10008.1.2.4.110`.
+- `cargo run --features jpegxl -- generate --profile extended --out /tmp/dts-jpegxl-repro-a-0616 --seed 1`: passed, 20 files written.
+- `cargo run --features jpegxl -- generate --profile extended --out /tmp/dts-jpegxl-repro-b-0616 --seed 1`: passed, 20 files written.
+- `diff -r /tmp/dts-jpegxl-repro-a-0616 /tmp/dts-jpegxl-repro-b-0616`: passed with no differences.
+- `cargo run --features jpegxl -- list-cases --profile extended --status implemented`: passed; list-cases includes `classic/sc/rgb_planar0_jpegxl_lossless` as implemented with 2/2 standards evidence coverage.
 
 ## Commit-Ready Summary
 
-- Phase 3 now has a project `jpegxl` feature gate and a DICOM-rs JPEG XL Lossless wrapper that proves tiny 8-bit RGB exact round-trip behavior.
-- The backend decision record captures JPEG XL Lossless adapter versions and keeps generated-case promotion blocked on corpus integration, CLI validation, manifest/report coverage, and reproducibility.
-- The capability matrix and registry now use the project `jpegxl` feature gate while continuing to report `classic/sc/rgb_planar0_jpegxl_lossless` as skipped/unavailable.
+- Phase 3 now has a generated JPEG XL Lossless Secondary Capture case behind the project `jpegxl` feature.
+- The generated case writes encapsulated Pixel Data with one fragment per frame, records DICOM-rs JPEG XL backend metadata, and validates exact decoded frame hashes during generation and CLI validation.
+- The registry and capability matrix now report `classic/sc/rgb_planar0_jpegxl_lossless` as implemented and feature-gated, while lossy JPEG XL remains deferred by explicit policy.
 
 ## Recommended Next Commit
 
-Implement the feature-gated generated JPEG XL Lossless Secondary Capture case for Phase 3: add generation-time decoded-frame hash validation, CLI validation, manifest/report metadata, reproducibility coverage, and only then flip `classic/sc/rgb_planar0_jpegxl_lossless` and the capability matrix from unavailable to feature-gated.
+Resolve the next Phase 3/Phase 4 transition decision: either select a concrete lossy JPEG XL policy/backend validation target, or document Phase 3 lossless-only completion and start the JPEG 2000 Lossless backend decision slice. Do not implement JPEG 2000 generation until the backend, validation path, licensing, and determinism classification are recorded in `transfer-syntax/backend-decisions.json`.

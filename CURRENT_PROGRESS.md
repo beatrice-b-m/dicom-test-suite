@@ -616,6 +616,19 @@
 
 ## Blockers
 
+- Local executable and test-binary launch is blocked outside project code: on
+  2026-06-16, `target/debug/dicom-test-suite`, a freshly compiled minimal Rust
+  hello-world binary, and a freshly compiled minimal C hello-world binary all
+  failed to print anything within 30 seconds and had to be interrupted with
+  SIGINT. Sampling a hung `target/debug/dicom-test-suite` process showed the
+  main thread stopped at `_dyld_start`, before Rust `main` or any repository
+  code. Clearing extended attributes from a copied binary and re-signing a
+  minimal Rust binary with `codesign -s - -f` did not resolve the hang. Running
+  the project binary and minimal C binary outside the sandbox with approved
+  escalation also hung, and `otool -L`/`xcrun llvm-otool -L` hung while
+  inspecting newly built local Mach-O files. This must be resolved as a local
+  macOS execution/toolchain environment issue before another CLI-verified
+  implementation slice.
 - No current local toolchain blocker for JPEG-LS Lossless generation or verification. `cmake` is available on `PATH`, and `cargo test --features charls` builds `charls-sys v2.4.4` successfully.
 - JPEG-LS Near-Lossless generated-case work is intentionally deferred until a first error limit, lossy compression metadata policy, decoded-frame tolerance, and reproducibility strategy are selected.
 - JPEG XL lossy generated-case work is intentionally deferred until lossy compression metadata policy, decoded-frame tolerance, and reproducibility strategy are selected.
@@ -3151,17 +3164,50 @@
 - `cargo test --no-run coverage_report_exposes_key_object_selection_labels`: passed; all default-build test binaries compiled without running.
 - `git diff --check`: passed.
 - `cargo check`: passed.
+- `git status --short`: passed before blocker investigation; working tree was clean.
+- `target/debug/dicom-test-suite`: not completed; no version banner was printed after 30 seconds and the process was interrupted with SIGINT.
+- `cargo test --test list_cases_cli list_cases_command_shows_smoke_case_status_and_evidence`: not completed; Cargo launched `target/debug/deps/list_cases_cli-0925cc4ffb308598`, but no test output appeared within 30 seconds and the process was interrupted with SIGINT.
+- `cargo check`: passed, confirming the repository still compiles without executing freshly built binaries.
+- `sample <hung-dicom-test-suite-pid> 3 -mayDie`: passed under approved process-inspection escalation; the sample report showed the main thread at `_dyld_start`, before Rust `main`.
+- `file target/debug/dicom-test-suite`: passed; reported a Mach-O 64-bit arm64 executable.
+- `codesign -dv target/debug/dicom-test-suite`: passed; reported an ad-hoc linker-signed executable.
+- `otool -L target/debug/dicom-test-suite`: not completed; produced no output within 10 seconds and was interrupted with SIGINT.
+- `xcrun llvm-otool -L target/debug/dicom-test-suite`: not completed; produced no output within 10 seconds and was interrupted with SIGINT.
+- `xattr -l target/debug/dicom-test-suite`: passed; reported `com.apple.provenance`.
+- `rustc /tmp/dts-hello.rs -o /tmp/dts-hello`: passed for a minimal Rust hello-world diagnostic binary.
+- `/tmp/dts-hello`: not completed; no output was printed after 30 seconds and the process was interrupted with SIGINT.
+- `codesign -s - -f /tmp/dts-hello`: passed, but the re-signed minimal Rust binary still hung on launch.
+- `cc /tmp/dts-hello.c -o /tmp/dts-hello-c`: passed for a minimal C hello-world diagnostic binary.
+- `/tmp/dts-hello-c`: not completed; no output was printed after 30 seconds and the process was interrupted with SIGINT.
+- `/tmp/dts-hello-c` with approved unsandboxed execution: not completed; no output was printed after 30 seconds and the process was interrupted with SIGINT.
+- `target/debug/dicom-test-suite` with approved unsandboxed execution: not completed; no output was printed after 30 seconds and the process was interrupted with SIGINT.
 
 ## Commit-Ready Summary
 
-- Added row-level Key Object Selection Document Title, key object count, key object Relationship Type labels, key object Value Type labels, and referenced frame number labels sourced from existing manifest `recipe_parameters.document_title` and `expected_semantics.structured_report.key_objects` metadata.
-- Added grouped KOS document-title, key-object-count, relationship-type, value-type, and referenced-frame-number counts to JSON and Markdown reports.
-- Kept KOS extraction scoped to rows with structured-report `key_objects`, so Basic Text SR and Comprehensive SR continue to contribute only the generic SR fields.
-- The coverage-report schema now requires the new nullable KOS row fields and documents the new grouped KOS count maps.
-- A focused library test was added for the KOS report fields and compiled successfully, but executable/test-binary launch hangs prevented runtime assertion execution in this environment.
-- Direct shell-level CLI and test-binary launches still stall before useful output; the exact commands are recorded above and should be investigated before the next report or CLI-verified slice.
-- No registry rows, generated DICOM element values, capability-matrix entries, feature gates, external codec backends, deferred lossy policies, or JPEG Extended 12-bit decisions changed in this slice.
+- Recorded a concrete local execution-environment blocker after reproducing the
+  launch hang against the project binary, a minimal Rust binary, and a minimal C
+  binary.
+- Confirmed the sampled project process is stuck at `_dyld_start`, before Rust
+  `main` or project command dispatch, so the current evidence does not point to
+  report, registry, generator, validator, or DICOM recipe logic.
+- Confirmed clearing extended attributes, re-signing a minimal Rust binary, and
+  running local executables outside the sandbox did not resolve the hang.
+- No source, schema, registry, capability-matrix, standards, generated corpus,
+  feature-gate, deferred lossy, or JPEG Extended 12-bit semantics changed in
+  this slice.
 
 ## Recommended Next Commit
 
-Investigate and resolve the local executable/test-binary launch hang before starting another report or corpus slice. Start by confirming whether `target/debug/dicom-test-suite`, `cargo run --`, and a focused `cargo test` can print their normal first output within 30 seconds after a clean build; if they still hang, debug the macOS execution environment or binary startup path separately from report behavior. After runtime verification is reliable again, continue Phase 6 with the next smallest manifest-backed report refinement or standards-backed corpus case that does not require new backend policy work. Do not add a VL Photographic multi-frame case without stronger standards evidence for Number of Frames in that IOD, do not add an RLE YBR_FULL_422 case unless new standards evidence supersedes PS3.5 Table 8.2.2-1, and do not promote JPEG Extended 12-bit or deferred lossy variants until their validation policies are selected.
+Resolve the local macOS Mach-O launch/toolchain environment blocker before
+starting another report or corpus slice. The next run should first prove that a
+freshly built minimal C executable, a freshly built minimal Rust executable,
+`target/debug/dicom-test-suite`, and a focused `cargo test` can print normal
+first output within 30 seconds; if they still hang at `_dyld_start`, continue
+debugging the host execution environment rather than project logic. After
+runtime verification is reliable again, continue Phase 6 with the next smallest
+manifest-backed report refinement or standards-backed corpus case that does not
+require new backend policy work. Do not add a VL Photographic multi-frame case
+without stronger standards evidence for Number of Frames in that IOD, do not add
+an RLE YBR_FULL_422 case unless new standards evidence supersedes PS3.5 Table
+8.2.2-1, and do not promote JPEG Extended 12-bit or deferred lossy variants
+until their validation policies are selected.

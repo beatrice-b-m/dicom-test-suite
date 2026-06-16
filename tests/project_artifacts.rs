@@ -723,11 +723,23 @@ fn compressed_transfer_syntax_matrix_matches_current_dicom_rs_stubs() {
         );
         let runtime_can_decode_pixel = transfer_syntax.pixel_data_reader().is_some();
         let runtime_can_encode_pixel = transfer_syntax.pixel_data_writer().is_some();
-        assert_eq!(
-            entry.get("decode_pixel").and_then(Value::as_bool),
-            Some(runtime_can_decode_pixel),
-            "{uid} decode_pixel should match the current DICOM-rs feature set"
-        );
+        if cfg!(feature = "jpeg2000") {
+            assert!(
+                runtime_can_decode_pixel,
+                "{uid} should expose a runtime DICOM-rs reader under the project jpeg2000 feature"
+            );
+            assert_eq!(
+                entry.get("decode_pixel").and_then(Value::as_bool),
+                Some(false),
+                "{uid} committed decode validation should stay false until corpus validation is proven"
+            );
+        } else {
+            assert_eq!(
+                entry.get("decode_pixel").and_then(Value::as_bool),
+                Some(runtime_can_decode_pixel),
+                "{uid} decode_pixel should match the current DICOM-rs feature set"
+            );
+        }
         assert_eq!(
             entry.get("encode_pixel").and_then(Value::as_bool),
             Some(runtime_can_encode_pixel),
@@ -873,8 +885,16 @@ fn jpeg_xl_lossless_transfer_syntax_has_project_jpegxl_feature_gate() {
 fn jpeg_2000_lossless_backend_decision_is_selected_but_not_generated() {
     let cargo_toml = fs::read_to_string("Cargo.toml").expect("Cargo.toml must be readable");
     assert!(
-        !cargo_toml.contains("jpeg2000 = ["),
-        "the JPEG 2000 project feature should be added with the codec wrapper, not in the decision-only slice"
+        cargo_toml.contains("jpeg2000 = ["),
+        "the JPEG 2000 project feature should exist once the codec wrapper is added"
+    );
+    assert!(
+        cargo_toml.contains("\"dicom-transfer-syntax-registry/openjp2\""),
+        "the JPEG 2000 project feature should enable the pinned DICOM-rs OpenJPEG reader"
+    );
+    assert!(
+        cargo_toml.contains("\"dep:openjp2\""),
+        "the JPEG 2000 project feature should expose the project OpenJPEG-rs writer dependency"
     );
 
     let matrix = read_json("transfer-syntax/capability-matrix.json");
@@ -912,6 +932,24 @@ fn jpeg_2000_lossless_backend_decision_is_selected_but_not_generated() {
     assert!(
         transfer_syntax.pixel_data_writer().is_none(),
         "pinned DICOM-rs JPEG 2000 support does not provide a pixel writer"
+    );
+
+    let registry = read_json("cases/registry.json");
+    let cases = registry
+        .get("cases")
+        .and_then(Value::as_array)
+        .expect("case registry must contain cases");
+    let case = cases
+        .iter()
+        .find(|case| {
+            case.get("case_id").and_then(Value::as_str)
+                == Some("classic/sc/mono2_u16_jpeg2000_lossless")
+        })
+        .expect("case registry must contain the planned JPEG 2000 Lossless case");
+    assert_eq!(
+        case.get("status").and_then(Value::as_str),
+        Some("skipped"),
+        "JPEG 2000 generation should stay skipped until corpus integration is proven"
     );
 
     let decisions = read_json("transfer-syntax/backend-decisions.json");

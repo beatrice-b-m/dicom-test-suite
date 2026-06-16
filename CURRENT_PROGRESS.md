@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-06-16
 **Active goal:** comprehensive compressed image codec generation support
-**Current phase:** Phase 3 - Low-Risk Codec Enablement
+**Current phase:** Phase 4 - JPEG 2000 And HTJ2K
 **Repo state source:** reconstructed from `SYSTEM_SPEC.md`, `CURRENT_PLAN.md`, `transfer-syntax/capability-matrix.json`, and current verification runs.
 
 ## Phase Status
@@ -11,7 +11,7 @@
 - Phase 1 - Codec Integration Architecture: in progress; minimal codec API plus native RLE and DICOM-rs JPEG Baseline frame encode/decode support are present.
 - Phase 2 - Encapsulated Pixel Data Substrate: complete for the first RLE one-fragment case; Extended Offset Table and future multi-fragment generation remain later substrate expansion.
 - Phase 3 - Low-Risk Codec Enablement: in progress; 8-bit and 16-bit generated RLE Lossless Secondary Capture cases are implemented and round-trip validated; the first JPEG Baseline 8-bit RGB Secondary Capture case is generated and validated when the `jpeg` feature is enabled; the first JPEG-LS Lossless 8-bit MONOCHROME2 Secondary Capture case is generated and exact-hash validated when the `charls` feature is enabled; the first JPEG XL Lossless 8-bit RGB Secondary Capture case is generated and exact-hash validated when the `jpegxl` feature is enabled.
-- Phase 4 - JPEG 2000 And HTJ2K: transition decision started; JPEG 2000 Lossless has a selected `jpeg2k`/`openjp2` project-wrapper spike target, but no feature, codec wrapper, generated case, validation, report coverage, or capability-matrix promotion has been added yet.
+- Phase 4 - JPEG 2000 And HTJ2K: in progress; JPEG 2000 Lossless has a project `jpeg2000` feature, a project-owned OpenJPEG-rs writer wrapper, and a focused exact round-trip codec test through the DICOM-rs JPEG 2000 reader. The generated case, generation-time validation, CLI validation, report coverage, reproducibility evidence, and capability-matrix promotion have not been added yet.
 - Phase 5 - Legacy And Specialty Compressed Syntaxes: not started.
 - Phase 6+ - Corpus expansion and maintenance: blocked until Phase 5 scope is complete.
 
@@ -97,13 +97,18 @@
 - Chose a project-owned `jpeg2k`/`openjp2` adapter spike target behind a future project `jpeg2000` feature, using the BSD-2-Clause pure Rust OpenJPEG port path rather than a system OpenJPEG subprocess or native C build path for the first proof.
 - Recorded that pinned DICOM-rs 0.9.1 JPEG 2000 support is decode-only from this project's perspective because the transfer syntax uses `NeverPixelAdapter` for encoding, so a project writer wrapper is required before generation.
 - Added artifact regression coverage proving JPEG 2000 Lossless remains unavailable in the capability matrix and case registry until the selected backend has a project feature, codec test, generated case, validation, report coverage, and reproducibility evidence.
+- Added the project-level `jpeg2000` Cargo feature enabling `dicom-transfer-syntax-registry/openjp2` plus a direct optional `openjp2` writer dependency.
+- Added a feature-gated `OpenJp2Jpeg2000LosslessEncoder` wrapper for the first JPEG 2000 Lossless shape: 16-bit unsigned MONOCHROME2 native frames encoded to raw J2K codestream bytes with SOC/EOC marker validation.
+- Added DICOM-rs JPEG 2000 reader-backed decode support for the wrapper and proved exact round-trip behavior for a tiny 2x4 16-bit MONOCHROME2 frame under `--features jpeg2000`.
+- Updated artifact regression coverage so the runtime JPEG 2000/HTJ2K OpenJPEG readers can exist under the project feature while committed capability-matrix decode/encode validation remains false until corpus generation is proven.
+- Kept `classic/sc/mono2_u16_jpeg2000_lossless` skipped and kept the JPEG 2000 Lossless capability-matrix row unavailable in this slice.
 
 ## Blockers
 
 - No current local toolchain blocker for JPEG-LS Lossless generation or verification. `cmake` is available on `PATH`, and `cargo test --features charls` builds `charls-sys v2.4.4` successfully.
 - JPEG-LS Near-Lossless generated-case work is intentionally deferred until a first error limit, lossy compression metadata policy, decoded-frame tolerance, and reproducibility strategy are selected.
 - JPEG XL lossy generated-case work is intentionally deferred until lossy compression metadata policy, decoded-frame tolerance, and reproducibility strategy are selected.
-- JPEG 2000 Lossless backend selection is resolved for the next spike, but implementation is blocked on adding the project `jpeg2000` feature and proving a lossless J2K encode/decode round trip through `jpeg2k`/`openjp2`.
+- JPEG 2000 Lossless codec-wrapper proof is complete. Generated-case work is still blocked on integrating the wrapper with generation, manifest metadata, generation-time validation, CLI validation, report output, and reproducibility checks.
 - JPEG 2000 lossy remains deferred until lossy compression metadata policy, decoded-frame tolerance, and reproducibility strategy are selected.
 - HTJ2K and legacy JPEG backend selection remain unresolved research items.
 - Deflated Image Frame Compression requires a standards/IOD suitability decision before any implementation.
@@ -113,7 +118,7 @@
 - Whether codec backend version strings should include transitive codec crate versions in addition to the selected adapter crate version.
 - JPEG-LS Lossless now uses a project `charls` feature that exposes the pinned DICOM-rs optional CharLS adapter behind a project-owned wrapper and generated corpus case. JPEG-LS Near-Lossless is deferred until lossy semantics and validation policy are selected.
 - JPEG XL Lossless now uses a project `jpegxl` feature that exposes the pinned DICOM-rs optional JPEG XL adapter behind a project-owned wrapper and generated corpus case. Lossy JPEG XL is deferred until lossy semantics and validation policy are selected.
-- JPEG 2000 Lossless should use a future project `jpeg2000` feature exposing a project-owned `jpeg2k`/`openjp2` writer wrapper plus DICOM-rs JPEG 2000 decode validation. Lossy JPEG 2000 is deferred until lossy semantics and validation policy are selected.
+- JPEG 2000 Lossless now uses a project `jpeg2000` feature exposing a project-owned OpenJPEG-rs writer wrapper plus DICOM-rs JPEG 2000 decode validation. Lossy JPEG 2000 is deferred until lossy semantics and validation policy are selected.
 - Which independent validators should be used for JPEG 2000 and HTJ2K.
 - Whether the current project-owned RLE decoder should support multi-fragment frame reassembly in generation-time validation before a multi-fragment RLE case is added.
 
@@ -292,13 +297,21 @@
 - `cargo run -- standards check-lock`: passed with existing documented lock warnings.
 - `cargo test --test project_artifacts`: passed, 23 artifact tests.
 - `cargo test`: passed, full default-build suite clean.
+- `cargo test --features jpeg2000 codecs`: initially failed in the restricted sandbox because Cargo needed crates.io index access to resolve optional JPEG 2000 dependencies; passed after rerunning with approved escalation and fixing the OpenJPEG component parameter import, 13 focused codec tests.
+- `cargo test --test project_artifacts jpeg_2000_lossless_backend_decision_is_selected_but_not_generated`: passed, 1 focused artifact test.
+- `cargo fmt -- --check`: initially reported import-order formatting in `src/codecs.rs`; passed after running `cargo fmt`.
+- `cargo test`: passed, full default-build suite clean.
+- `cargo test --features jpeg2000`: initially failed because `compressed_transfer_syntax_matrix_matches_current_dicom_rs_stubs` expected feature-enabled OpenJPEG runtime decode support to be promoted in the committed capability matrix; passed after preserving the staged-feature invariant, full JPEG 2000 feature suite clean.
+- `cargo run -- standards check-lock`: passed with existing documented lock warnings.
+- `cargo run --features jpeg2000 -- list-cases --profile extended --status skipped`: passed; `classic/sc/mono2_u16_jpeg2000_lossless` and `classic/sc/mono2_u16_htj2k_lossless` remain skipped with 2/2 standards evidence coverage.
 
 ## Commit-Ready Summary
 
-- JPEG 2000 Lossless now has an implement-now backend decision for the next spike, scoped to a project-owned `jpeg2k`/`openjp2` adapter behind a future project `jpeg2000` feature.
-- JPEG 2000 generation remains unavailable; no registry row, capability-matrix status, Cargo feature, codec wrapper, generated case, validation, or report behavior was promoted in this slice.
+- JPEG 2000 Lossless now has a project `jpeg2000` feature and a project-owned OpenJPEG-rs writer wrapper that emits raw J2K codestream bytes for a tiny 16-bit MONOCHROME2 first-case shape.
+- The wrapper decodes through the pinned DICOM-rs JPEG 2000 reader and proves exact native-frame round-trip behavior in focused feature-gated codec tests.
+- JPEG 2000 generation remains unavailable; no registry row status, capability-matrix status, generated case, CLI validation, report behavior, or reproducibility claim was promoted in this slice.
 - Lossy JPEG 2000 remains explicitly deferred until lossy metadata, decoded tolerance validation, and reproducibility policy are selected.
 
 ## Recommended Next Commit
 
-Add the project `jpeg2000` feature and a focused codec test proving a tiny 16-bit MONOCHROME2 frame can be encoded losslessly through the selected `jpeg2k`/`openjp2` path to a DICOM-compatible raw J2K codestream and decoded exactly. Keep the JPEG 2000 registry row and capability matrix unavailable until generation, CLI validation, report coverage, and reproducibility are proven.
+Implement `classic/sc/mono2_u16_jpeg2000_lossless` as a feature-gated generated Secondary Capture case using the proven `OpenJp2Jpeg2000LosslessEncoder`. Add generation-time exact decoded-frame hash validation, CLI `validate` coverage, manifest/report metadata, feature-gated list/generate tests, and reproducibility verification before promoting the registry row and capability matrix to feature-gated support.

@@ -3,23 +3,49 @@ use std::fmt;
 
 use crate::PACKAGE_VERSION;
 
-#[cfg(any(feature = "charls", feature = "jpeg", feature = "jpegxl"))]
+#[cfg(any(
+    feature = "charls",
+    feature = "jpeg",
+    feature = "jpegxl",
+    feature = "jpeg2000"
+))]
 use std::borrow::Cow;
+#[cfg(feature = "jpeg2000")]
+use std::os::raw::c_void;
 
-#[cfg(any(feature = "charls", feature = "jpeg", feature = "jpegxl"))]
+#[cfg(any(
+    feature = "charls",
+    feature = "jpeg",
+    feature = "jpegxl",
+    feature = "jpeg2000"
+))]
 use dicom_core::value::C;
 #[cfg(any(feature = "charls", feature = "jpeg", feature = "jpegxl"))]
+use dicom_encoding::adapters::{EncodeOptions, PixelDataWriter};
+#[cfg(any(
+    feature = "charls",
+    feature = "jpeg",
+    feature = "jpegxl",
+    feature = "jpeg2000"
+))]
 use dicom_encoding::{
     Codec,
-    adapters::{EncodeOptions, PixelDataObject, PixelDataReader, PixelDataWriter, RawPixelData},
+    adapters::{PixelDataObject, PixelDataReader, RawPixelData},
 };
+#[cfg(feature = "jpeg2000")]
+use dicom_transfer_syntax_registry::entries::JPEG_2000_IMAGE_COMPRESSION_LOSSLESS_ONLY;
 #[cfg(feature = "jpeg")]
 use dicom_transfer_syntax_registry::entries::JPEG_BASELINE;
 #[cfg(feature = "charls")]
 use dicom_transfer_syntax_registry::entries::JPEG_LS_LOSSLESS_IMAGE_COMPRESSION;
 #[cfg(feature = "jpegxl")]
 use dicom_transfer_syntax_registry::entries::JPEG_XL_LOSSLESS;
+#[cfg(feature = "jpeg2000")]
+use openjp2::image::opj_image_cmptparm_t;
+#[cfg(feature = "jpeg2000")]
+use openjp2::openjpeg::*;
 
+pub const JPEG_2000_LOSSLESS_TRANSFER_SYNTAX_UID: &str = "1.2.840.10008.1.2.4.90";
 pub const JPEG_BASELINE_8BIT_TRANSFER_SYNTAX_UID: &str = "1.2.840.10008.1.2.4.50";
 pub const JPEG_LS_LOSSLESS_TRANSFER_SYNTAX_UID: &str = "1.2.840.10008.1.2.4.80";
 pub const JPEG_XL_LOSSLESS_TRANSFER_SYNTAX_UID: &str = "1.2.840.10008.1.2.4.110";
@@ -202,6 +228,124 @@ impl fmt::Display for CodecError {
 }
 
 impl Error for CodecError {}
+
+#[derive(Debug, Clone, Copy, Default)]
+#[cfg(feature = "jpeg2000")]
+pub struct OpenJp2Jpeg2000LosslessEncoder;
+
+#[cfg(feature = "jpeg2000")]
+impl OpenJp2Jpeg2000LosslessEncoder {
+    pub const BACKEND_ID: &'static str = "project_openjp2_jpeg2000_lossless_writer";
+
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+#[cfg(feature = "jpeg2000")]
+impl FrameEncoder for OpenJp2Jpeg2000LosslessEncoder {
+    fn backend(&self) -> CodecBackendInfo {
+        CodecBackendInfo {
+            backend_id: Self::BACKEND_ID,
+            backend_kind: CodecBackendKind::DicomRsFeature,
+            display_name: "Project OpenJPEG-rs JPEG 2000 Lossless writer",
+            version: "dicom-transfer-syntax-registry 0.9.1 + jpeg2k 0.10.1 + openjp2 0.6.1",
+            transfer_syntax_uid: JPEG_2000_LOSSLESS_TRANSFER_SYNTAX_UID,
+            feature_gate: Some("jpeg2000"),
+            determinism: CodecDeterminism::SemanticStable,
+        }
+    }
+
+    fn encode_frame(&self, input: FrameEncodeInput<'_>) -> Result<EncodedFrame, CodecError> {
+        if input.bits_allocated != 16 || input.bits_stored != 16 {
+            return Err(CodecError::unsupported(
+                Self::BACKEND_ID,
+                "JPEG 2000 Lossless first-case support is limited to 16-bit source frames",
+            ));
+        }
+        if input.samples_per_pixel != 1 || input.photometric_interpretation != "MONOCHROME2" {
+            return Err(CodecError::unsupported(
+                Self::BACKEND_ID,
+                "JPEG 2000 Lossless first-case support currently requires MONOCHROME2 input",
+            ));
+        }
+
+        let expected_len = usize::from(input.rows)
+            .checked_mul(usize::from(input.columns))
+            .and_then(|pixels| pixels.checked_mul(2))
+            .ok_or_else(|| {
+                CodecError::unsupported(Self::BACKEND_ID, "native frame length overflowed")
+            })?;
+        if input.native_frame.len() != expected_len {
+            return Err(CodecError::unsupported(
+                Self::BACKEND_ID,
+                format!(
+                    "native frame length is {}, expected {expected_len}",
+                    input.native_frame.len()
+                ),
+            ));
+        }
+
+        let mut samples = Vec::with_capacity(expected_len / 2);
+        for chunk in input.native_frame.chunks_exact(2) {
+            samples.push(u16::from_le_bytes([chunk[0], chunk[1]]));
+        }
+
+        let encoded = encode_jpeg2000_lossless_u16_mono2(input.rows, input.columns, &samples)?;
+        if encoded.len() < 4 || encoded[..2] != [0xff, 0x4f] {
+            return Err(CodecError::validation_failed(
+                Self::BACKEND_ID,
+                "JPEG 2000 codestream is missing the SOC marker",
+            ));
+        }
+        if encoded[encoded.len() - 2..] != [0xff, 0xd9] {
+            return Err(CodecError::validation_failed(
+                Self::BACKEND_ID,
+                "JPEG 2000 codestream is missing the EOC marker",
+            ));
+        }
+
+        Ok(EncodedFrame { bytes: encoded })
+    }
+}
+
+#[cfg(feature = "jpeg2000")]
+impl FrameDecoder for OpenJp2Jpeg2000LosslessEncoder {
+    fn backend(&self) -> CodecBackendInfo {
+        <Self as FrameEncoder>::backend(self)
+    }
+
+    fn decode_frame(&self, input: FrameDecodeInput<'_>) -> Result<DecodedFrame, CodecError> {
+        let obj = DicomRsPixelDataObject {
+            transfer_syntax_uid: JPEG_2000_LOSSLESS_TRANSFER_SYNTAX_UID,
+            rows: input.rows,
+            columns: input.columns,
+            samples_per_pixel: input.samples_per_pixel,
+            bits_allocated: input.bits_allocated,
+            bits_stored: input.bits_stored,
+            photometric_interpretation: input.photometric_interpretation,
+            fragments: vec![input.encoded_frame.to_vec()],
+            offset_table: Vec::new(),
+        };
+        let Codec::EncapsulatedPixelData(Some(reader), _) =
+            JPEG_2000_IMAGE_COMPRESSION_LOSSLESS_ONLY.codec()
+        else {
+            return Err(CodecError::unavailable(
+                Self::BACKEND_ID,
+                "DICOM-rs JPEG 2000 Lossless reader is not available",
+            ));
+        };
+
+        let mut decoded = Vec::new();
+        reader
+            .decode_frame(&obj, 0, &mut decoded)
+            .map_err(|err| CodecError::validation_failed(Self::BACKEND_ID, err.to_string()))?;
+
+        Ok(DecodedFrame {
+            native_bytes: decoded,
+        })
+    }
+}
 
 #[derive(Debug, Clone, Copy, Default)]
 #[cfg(feature = "charls")]
@@ -561,7 +705,12 @@ impl FrameDecoder for DicomRsJpegXlLosslessEncoder {
     }
 }
 
-#[cfg(any(feature = "charls", feature = "jpeg", feature = "jpegxl"))]
+#[cfg(any(
+    feature = "charls",
+    feature = "jpeg",
+    feature = "jpegxl",
+    feature = "jpeg2000"
+))]
 struct DicomRsPixelDataObject<'a> {
     transfer_syntax_uid: &'a str,
     rows: u16,
@@ -574,7 +723,12 @@ struct DicomRsPixelDataObject<'a> {
     offset_table: Vec<u32>,
 }
 
-#[cfg(any(feature = "charls", feature = "jpeg", feature = "jpegxl"))]
+#[cfg(any(
+    feature = "charls",
+    feature = "jpeg",
+    feature = "jpegxl",
+    feature = "jpeg2000"
+))]
 impl PixelDataObject for DicomRsPixelDataObject<'_> {
     fn transfer_syntax_uid(&self) -> &str {
         self.transfer_syntax_uid
@@ -821,6 +975,232 @@ impl FrameDecoder for NativeRleLosslessEncoder {
     }
 }
 
+#[cfg(feature = "jpeg2000")]
+struct OpenJp2Output {
+    bytes: Vec<u8>,
+    offset: usize,
+}
+
+#[cfg(feature = "jpeg2000")]
+impl OpenJp2Output {
+    fn new() -> Self {
+        Self {
+            bytes: Vec::new(),
+            offset: 0,
+        }
+    }
+}
+
+#[cfg(feature = "jpeg2000")]
+unsafe extern "C" fn openjp2_write_stream(
+    buffer: *mut c_void,
+    byte_count: usize,
+    user_data: *mut c_void,
+) -> usize {
+    if buffer.is_null() || user_data.is_null() {
+        return usize::MAX;
+    }
+    let output = unsafe { &mut *(user_data as *mut OpenJp2Output) };
+    let input = unsafe { std::slice::from_raw_parts(buffer as *const u8, byte_count) };
+    let end = match output.offset.checked_add(byte_count) {
+        Some(end) => end,
+        None => return usize::MAX,
+    };
+    if end > output.bytes.len() {
+        output.bytes.resize(end, 0);
+    }
+    output.bytes[output.offset..end].copy_from_slice(input);
+    output.offset = end;
+    byte_count
+}
+
+#[cfg(feature = "jpeg2000")]
+unsafe extern "C" fn openjp2_skip_stream(byte_count: i64, user_data: *mut c_void) -> i64 {
+    if user_data.is_null() {
+        return -1;
+    }
+    let output = unsafe { &mut *(user_data as *mut OpenJp2Output) };
+    let next_offset = if byte_count >= 0 {
+        output.offset.checked_add(byte_count as usize)
+    } else {
+        output
+            .offset
+            .checked_sub(byte_count.unsigned_abs() as usize)
+    };
+    let Some(next_offset) = next_offset else {
+        return -1;
+    };
+    if next_offset > output.bytes.len() {
+        output.bytes.resize(next_offset, 0);
+    }
+    output.offset = next_offset;
+    byte_count
+}
+
+#[cfg(feature = "jpeg2000")]
+unsafe extern "C" fn openjp2_seek_stream(offset: i64, user_data: *mut c_void) -> i32 {
+    if user_data.is_null() || offset < 0 {
+        return 0;
+    }
+    let output = unsafe { &mut *(user_data as *mut OpenJp2Output) };
+    let offset = offset as usize;
+    if offset > output.bytes.len() {
+        output.bytes.resize(offset, 0);
+    }
+    output.offset = offset;
+    1
+}
+
+#[cfg(feature = "jpeg2000")]
+fn encode_jpeg2000_lossless_u16_mono2(
+    rows: u16,
+    columns: u16,
+    samples: &[u16],
+) -> Result<Vec<u8>, CodecError> {
+    let expected_samples = usize::from(rows)
+        .checked_mul(usize::from(columns))
+        .ok_or_else(|| {
+            CodecError::unsupported(
+                OpenJp2Jpeg2000LosslessEncoder::BACKEND_ID,
+                "sample count overflowed",
+            )
+        })?;
+    if samples.len() != expected_samples {
+        return Err(CodecError::unsupported(
+            OpenJp2Jpeg2000LosslessEncoder::BACKEND_ID,
+            format!(
+                "sample count is {}, expected {expected_samples}",
+                samples.len()
+            ),
+        ));
+    }
+
+    let mut component = opj_image_cmptparm_t {
+        dx: 1,
+        dy: 1,
+        w: u32::from(columns),
+        h: u32::from(rows),
+        x0: 0,
+        y0: 0,
+        prec: 16,
+        bpp: 16,
+        sgnd: 0,
+    };
+
+    let image = opj_image_create(1, &mut component, OPJ_CLRSPC_GRAY);
+    if image.is_null() {
+        return Err(CodecError::encode_failed(
+            OpenJp2Jpeg2000LosslessEncoder::BACKEND_ID,
+            "OpenJPEG failed to allocate an image",
+        ));
+    }
+
+    let encode_result = unsafe {
+        (*image).x0 = 0;
+        (*image).y0 = 0;
+        (*image).x1 = u32::from(columns);
+        (*image).y1 = u32::from(rows);
+
+        if (*image).comps.is_null() {
+            opj_image_destroy(image);
+            return Err(CodecError::encode_failed(
+                OpenJp2Jpeg2000LosslessEncoder::BACKEND_ID,
+                "OpenJPEG image has no component storage",
+            ));
+        }
+        let comps = std::slice::from_raw_parts_mut((*image).comps, 1);
+        if comps[0].data.is_null() {
+            opj_image_destroy(image);
+            return Err(CodecError::encode_failed(
+                OpenJp2Jpeg2000LosslessEncoder::BACKEND_ID,
+                "OpenJPEG image component has no sample storage",
+            ));
+        }
+        let data = std::slice::from_raw_parts_mut(comps[0].data, samples.len());
+        for (target, sample) in data.iter_mut().zip(samples) {
+            *target = i32::from(*sample);
+        }
+
+        let result = encode_openjp2_image_to_j2k(image);
+        opj_image_destroy(image);
+        result
+    };
+
+    encode_result
+}
+
+#[cfg(feature = "jpeg2000")]
+unsafe fn encode_openjp2_image_to_j2k(image: *mut opj_image_t) -> Result<Vec<u8>, CodecError> {
+    let backend_id = OpenJp2Jpeg2000LosslessEncoder::BACKEND_ID;
+    let mut params = opj_cparameters_t::default();
+    unsafe {
+        opj_set_default_encoder_parameters(&mut params);
+    }
+    params.tcp_numlayers = 1;
+    params.cp_disto_alloc = 1;
+    params.tcp_rates[0] = 0.0;
+    params.irreversible = 0;
+    params.numresolution = 1;
+
+    let codec = unsafe { opj_create_compress(OPJ_CODEC_J2K) };
+    if codec.is_null() {
+        return Err(CodecError::encode_failed(
+            backend_id,
+            "OpenJPEG failed to create a J2K compressor",
+        ));
+    }
+
+    let stream = unsafe { opj_stream_default_create(0) };
+    if stream.is_null() {
+        unsafe {
+            opj_destroy_codec(codec);
+        }
+        return Err(CodecError::encode_failed(
+            backend_id,
+            "OpenJPEG failed to create an output stream",
+        ));
+    }
+
+    let mut output = OpenJp2Output::new();
+    unsafe {
+        opj_stream_set_write_function(stream, Some(openjp2_write_stream));
+        opj_stream_set_skip_function(stream, Some(openjp2_skip_stream));
+        opj_stream_set_seek_function(stream, Some(openjp2_seek_stream));
+        opj_stream_set_user_data(
+            stream,
+            (&mut output as *mut OpenJp2Output).cast::<c_void>(),
+            None,
+        );
+    }
+
+    let ok = unsafe {
+        opj_setup_encoder(codec, &mut params, image) == 1
+            && opj_start_compress(codec, image, stream) == 1
+            && opj_encode(codec, stream) == 1
+            && opj_end_compress(codec, stream) == 1
+    };
+
+    unsafe {
+        opj_stream_destroy(stream);
+        opj_destroy_codec(codec);
+    }
+
+    if !ok {
+        return Err(CodecError::encode_failed(
+            backend_id,
+            "OpenJPEG failed to encode the image",
+        ));
+    }
+    if output.bytes.is_empty() {
+        return Err(CodecError::validation_failed(
+            backend_id,
+            "OpenJPEG produced an empty J2K codestream",
+        ));
+    }
+
+    Ok(output.bytes)
+}
+
 fn checked_bytes_per_sample(
     backend_id: &'static str,
     bits_allocated: u16,
@@ -952,11 +1332,17 @@ mod tests {
 
     #[cfg(any(feature = "charls", feature = "jpeg", feature = "jpegxl"))]
     use dicom_core::value::C;
+    #[cfg(any(
+        feature = "charls",
+        feature = "jpeg",
+        feature = "jpegxl",
+        feature = "jpeg2000"
+    ))]
+    use dicom_encoding::Codec;
     #[cfg(any(feature = "charls", feature = "jpeg", feature = "jpegxl"))]
-    use dicom_encoding::{
-        Codec,
-        adapters::{EncodeOptions, PixelDataObject, PixelDataWriter, RawPixelData},
-    };
+    use dicom_encoding::adapters::{EncodeOptions, PixelDataObject, PixelDataWriter, RawPixelData};
+    #[cfg(feature = "jpeg2000")]
+    use dicom_transfer_syntax_registry::entries::JPEG_2000_IMAGE_COMPRESSION_LOSSLESS_ONLY;
     #[cfg(feature = "jpeg")]
     use dicom_transfer_syntax_registry::entries::JPEG_BASELINE;
     #[cfg(feature = "charls")]
@@ -1432,6 +1818,88 @@ mod tests {
             .expect("DICOM-rs JPEG XL Lossless reader should decode the generated frame");
 
         assert_eq!(decoded, obj.pixels);
+    }
+
+    #[cfg(feature = "jpeg2000")]
+    #[test]
+    fn openjp2_jpeg2000_lossless_backend_reports_identity() {
+        let encoder = OpenJp2Jpeg2000LosslessEncoder::new();
+
+        let backend = FrameEncoder::backend(&encoder);
+
+        assert_eq!(
+            backend.backend_id,
+            "project_openjp2_jpeg2000_lossless_writer"
+        );
+        assert_eq!(backend.backend_kind.as_str(), "dicom_rs_feature");
+        assert_eq!(backend.transfer_syntax_uid, "1.2.840.10008.1.2.4.90");
+        assert_eq!(backend.feature_gate, Some("jpeg2000"));
+        assert_eq!(backend.determinism.as_str(), "semantic_stable");
+        assert!(backend.version.contains("jpeg2k 0.10.1"));
+        assert!(backend.version.contains("openjp2 0.6.1"));
+    }
+
+    #[cfg(feature = "jpeg2000")]
+    #[test]
+    fn openjp2_jpeg2000_lossless_round_trips_u16_mono2_frame() {
+        let codec = OpenJp2Jpeg2000LosslessEncoder::new();
+        let samples = [0u16, 17, 1024, 4096, 8192, 32768, 49152, 65535];
+        let native = samples
+            .iter()
+            .flat_map(|sample| sample.to_le_bytes())
+            .collect::<Vec<_>>();
+
+        let encoded = codec
+            .encode_frame(FrameEncodeInput {
+                native_frame: &native,
+                rows: 2,
+                columns: 4,
+                samples_per_pixel: 1,
+                bits_allocated: 16,
+                bits_stored: 16,
+                photometric_interpretation: "MONOCHROME2",
+            })
+            .expect("JPEG 2000 Lossless should encode a tiny 16-bit frame");
+
+        assert_eq!(
+            &encoded.bytes[..2],
+            &[0xff, 0x4f],
+            "J2K codestream must start with SOC"
+        );
+        assert_eq!(
+            &encoded.bytes[encoded.bytes.len() - 2..],
+            &[0xff, 0xd9],
+            "J2K codestream must end with EOC"
+        );
+
+        let decoded = codec
+            .decode_frame(FrameDecodeInput {
+                encoded_frame: &encoded.bytes,
+                rows: 2,
+                columns: 4,
+                samples_per_pixel: 1,
+                bits_allocated: 16,
+                bits_stored: 16,
+                photometric_interpretation: "MONOCHROME2",
+            })
+            .expect("DICOM-rs JPEG 2000 reader should decode the generated codestream");
+
+        assert_eq!(decoded.native_bytes, native);
+    }
+
+    #[cfg(feature = "jpeg2000")]
+    #[test]
+    fn dicom_rs_jpeg2000_feature_exposes_lossless_reader_without_writer() {
+        let Codec::EncapsulatedPixelData(Some(_reader), writer) =
+            JPEG_2000_IMAGE_COMPRESSION_LOSSLESS_ONLY.codec()
+        else {
+            panic!("JPEG 2000 Lossless transfer syntax must expose a reader")
+        };
+
+        assert!(
+            writer.is_none(),
+            "DICOM-rs JPEG 2000 Lossless support remains decode-only"
+        );
     }
 
     #[cfg(any(feature = "charls", feature = "jpeg", feature = "jpegxl"))]

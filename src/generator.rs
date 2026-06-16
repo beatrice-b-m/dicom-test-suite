@@ -253,6 +253,8 @@ const YBR_FULL_PLANAR1_MULTIFRAME_VALUES: [i32; 24] = [
 const YBR_FULL_422_PIXELS: [u8; 8] = [76, 150, 65, 138, 29, 255, 192, 118];
 const PALETTE_COLOR_PIXELS: [u8; 4] = [0, 1, 2, 3];
 const PALETTE_COLOR_VALUES: [i32; 4] = [0, 1, 2, 3];
+const PALETTE_COLOR_MULTIFRAME_PIXELS: [u8; 8] = [0, 1, 2, 3, 3, 2, 1, 0];
+const PALETTE_COLOR_MULTIFRAME_VALUES: [i32; 8] = [0, 1, 2, 3, 3, 2, 1, 0];
 const PALETTE_DESCRIPTOR: [u16; 3] = [4, 0, 16];
 const PALETTE_RED_DATA: [u8; 8] = [0xff, 0xff, 0, 0, 0, 0, 0xff, 0xff];
 const PALETTE_GREEN_DATA: [u8; 8] = [0, 0, 0xff, 0xff, 0, 0, 0xff, 0xff];
@@ -947,6 +949,29 @@ const PIXEL_RECIPES: &[PixelRecipe] = &[
         pixel_max: 3,
         visual_pattern: "2x2_palette_rle_lossless_red_green_blue_white",
         semantic_note: "stored RLE Lossless pixel values index 16-bit RGB palette lookup tables after decode",
+        palette: Some(PALETTE_COLOR_LUT),
+        padding: None,
+    },
+    PixelRecipe {
+        case_id: "classic/sc/palette_color_u8_multiframe_rle_lossless",
+        recipe_id: "sc_palette_color_u8_multiframe_rle_lossless",
+        rows: 2,
+        columns: 2,
+        photometric_interpretation: "PALETTE COLOR",
+        samples_per_pixel: 1,
+        planar_configuration: None,
+        bits_allocated: 8,
+        bits_stored: 8,
+        high_bit: 7,
+        pixel_representation: 0,
+        pixel_vr: VR::OB,
+        transfer_syntax: RLE_LOSSLESS,
+        pixel_bytes: &PALETTE_COLOR_MULTIFRAME_PIXELS,
+        pixel_values: &PALETTE_COLOR_MULTIFRAME_VALUES,
+        pixel_min: 0,
+        pixel_max: 3,
+        visual_pattern: "2x2x2_palette_rle_lossless_palette_order_reversed",
+        semantic_note: "two PALETTE COLOR frames share 16-bit RGB lookup tables after RLE Lossless decode",
         palette: Some(PALETTE_COLOR_LUT),
         padding: None,
     },
@@ -4835,6 +4860,7 @@ fn pixel_profile_membership(recipe: PixelRecipe) -> &'static [&'static str] {
         | "classic/sc/ybr_full_planar1_rle_lossless"
         | "classic/sc/ybr_full_planar1_multiframe_rle_lossless"
         | "classic/sc/palette_color_u8_rle_lossless"
+        | "classic/sc/palette_color_u8_multiframe_rle_lossless"
         | "classic/sc/mono2_u16_multiframe_rle_lossless"
         | "classic/sc/mono2_u8_odd_fragment_rle_lossless"
         | "vl/photo/rgb_planar0_rle_lossless"

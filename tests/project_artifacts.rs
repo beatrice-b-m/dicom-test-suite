@@ -185,6 +185,10 @@ fn registry_contains_initial_smoke_and_core_cases() {
             "implemented",
         ),
         ("classic/sc/palette_color_u8_rle_lossless", "implemented"),
+        (
+            "classic/sc/palette_color_u8_multiframe_rle_lossless",
+            "implemented",
+        ),
         ("classic/sc/mono2_u8_multiframe_rle_lossless", "implemented"),
         (
             "classic/sc/mono2_u8_odd_fragment_rle_lossless",
@@ -2503,6 +2507,27 @@ fn rle_lossless_transfer_syntax_is_available_through_native_backend() {
     assert_eq!(palette_case.get("skip"), Some(&Value::Null));
     assert_eq!(
         palette_case.get("determinism").and_then(Value::as_str),
+        Some("byte_stable")
+    );
+
+    let palette_multiframe_case = cases
+        .iter()
+        .find(|case| {
+            case.get("case_id").and_then(Value::as_str)
+                == Some("classic/sc/palette_color_u8_multiframe_rle_lossless")
+        })
+        .expect("registry must contain PALETTE COLOR multi-frame RLE Lossless SC case");
+    assert_eq!(
+        palette_multiframe_case
+            .get("status")
+            .and_then(Value::as_str),
+        Some("implemented")
+    );
+    assert_eq!(palette_multiframe_case.get("skip"), Some(&Value::Null));
+    assert_eq!(
+        palette_multiframe_case
+            .get("determinism")
+            .and_then(Value::as_str),
         Some("byte_stable")
     );
 

@@ -547,6 +547,29 @@ const PIXEL_RECIPES: &[PixelRecipe] = &[
         padding: None,
     },
     PixelRecipe {
+        case_id: "classic/sc/rgb_planar1_rle_lossless",
+        recipe_id: "sc_rgb_planar1_rle_lossless",
+        rows: 2,
+        columns: 2,
+        photometric_interpretation: "RGB",
+        samples_per_pixel: 3,
+        planar_configuration: Some(1),
+        bits_allocated: 8,
+        bits_stored: 8,
+        high_bit: 7,
+        pixel_representation: 0,
+        pixel_vr: VR::OB,
+        transfer_syntax: RLE_LOSSLESS,
+        pixel_bytes: &RGB_PLANAR1_PIXELS,
+        pixel_values: &[255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255],
+        pixel_min: 0,
+        pixel_max: 255,
+        visual_pattern: "2x2_rgb_planar1_rle_lossless_red_green_blue_white",
+        semantic_note: "RGB samples remain color-by-plane after RLE Lossless decode",
+        palette: None,
+        padding: None,
+    },
+    PixelRecipe {
         case_id: "classic/sc/ybr_full_planar0_rle_lossless",
         recipe_id: "sc_ybr_full_planar0_rle_lossless",
         rows: 2,
@@ -4443,6 +4466,7 @@ fn pixel_profile_membership(recipe: PixelRecipe) -> &'static [&'static str] {
         | "classic/sc/mono2_u8_rle_lossless"
         | "classic/sc/mono2_u16_rle_lossless"
         | "classic/sc/rgb_planar0_rle_lossless"
+        | "classic/sc/rgb_planar1_rle_lossless"
         | "classic/sc/ybr_full_planar0_rle_lossless"
         | "classic/sc/palette_color_u8_rle_lossless"
         | "classic/sc/mono2_u8_odd_fragment_rle_lossless"

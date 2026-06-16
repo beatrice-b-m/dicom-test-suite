@@ -144,7 +144,16 @@ fn report_command_counts_generated_rgb_rle_lossless_row() {
         report
             .pointer("/grouped_coverage/codec_families/RLE Lossless")
             .and_then(Value::as_u64),
-        Some(15)
+        Some(16)
+    );
+    let planar1_row = coverage_row(&report, "classic/sc/rgb_planar1_rle_lossless");
+    assert_eq!(
+        planar1_row.get("status").and_then(Value::as_str),
+        Some("generated")
+    );
+    assert_eq!(
+        planar1_row.get("codec_backend_id").and_then(Value::as_str),
+        Some("native_project_rle_encoder")
     );
     let ybr_row = coverage_row(&report, "classic/sc/ybr_full_planar0_rle_lossless");
     assert_eq!(

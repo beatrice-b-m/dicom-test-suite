@@ -154,6 +154,7 @@ fn registry_contains_initial_smoke_and_core_cases() {
         ("classic/sc/rgb_planar0_jpeg_baseline_8bit", "implemented"),
         ("classic/sc/mono2_u16_rle_lossless", "implemented"),
         ("classic/sc/rgb_planar0_rle_lossless", "implemented"),
+        ("classic/sc/rgb_planar1_rle_lossless", "implemented"),
         ("classic/sc/ybr_full_planar0_rle_lossless", "implemented"),
         ("classic/sc/palette_color_u8_rle_lossless", "implemented"),
         ("classic/sc/mono2_u8_multiframe_rle_lossless", "implemented"),

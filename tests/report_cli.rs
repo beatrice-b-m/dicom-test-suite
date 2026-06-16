@@ -144,7 +144,7 @@ fn report_command_counts_generated_rgb_rle_lossless_row() {
         report
             .pointer("/grouped_coverage/codec_families/RLE Lossless")
             .and_then(Value::as_u64),
-        Some(27)
+        Some(28)
     );
     let mono1_row = coverage_row(&report, "classic/sc/mono1_u8_rle_lossless");
     assert_eq!(
@@ -289,6 +289,32 @@ fn report_command_counts_generated_rgb_rle_lossless_row() {
     );
     assert_eq!(
         rgb_multiframe_row.get("frames").and_then(Value::as_u64),
+        Some(2)
+    );
+    let rgb_planar1_multiframe_row =
+        coverage_row(&report, "classic/sc/rgb_planar1_multiframe_rle_lossless");
+    assert_eq!(
+        rgb_planar1_multiframe_row
+            .get("status")
+            .and_then(Value::as_str),
+        Some("generated")
+    );
+    assert_eq!(
+        rgb_planar1_multiframe_row
+            .get("codec_backend_id")
+            .and_then(Value::as_str),
+        Some("native_project_rle_encoder")
+    );
+    assert_eq!(
+        rgb_planar1_multiframe_row
+            .get("photometric")
+            .and_then(Value::as_str),
+        Some("RGB")
+    );
+    assert_eq!(
+        rgb_planar1_multiframe_row
+            .get("frames")
+            .and_then(Value::as_u64),
         Some(2)
     );
     let ybr_row = coverage_row(&report, "classic/sc/ybr_full_planar0_rle_lossless");

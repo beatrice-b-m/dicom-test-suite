@@ -101,6 +101,12 @@
         "planar_configurations": {
           "$ref": "#/$defs/count_map"
         },
+        "pixel_data_vrs": {
+          "$ref": "#/$defs/count_map"
+        },
+        "pixel_data_layouts": {
+          "$ref": "#/$defs/count_map"
+        },
         "frame_counts": {
           "$ref": "#/$defs/count_map"
         },
@@ -223,6 +229,8 @@
         "pixel_representation",
         "samples_per_pixel",
         "planar_configuration",
+        "pixel_data_vr",
+        "pixel_data_layout",
         "frames",
         "geometry",
         "derived_refs",
@@ -308,6 +316,14 @@
         "planar_configuration": {
           "type": ["integer", "null"],
           "enum": [0, 1, null]
+        },
+        "pixel_data_vr": {
+          "type": ["string", "null"],
+          "enum": ["OB", "OW", "OF", "OD", "OL", "OV", "UN", null]
+        },
+        "pixel_data_layout": {
+          "type": ["string", "null"],
+          "enum": ["native", "encapsulated", "absent", null]
         },
         "frames": {
           "type": ["integer", "null"],

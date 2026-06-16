@@ -204,6 +204,11 @@ fn report_command_counts_generated_rgb_rle_lossless_row() {
         row.get("codec_backend_id").and_then(Value::as_str),
         Some("native_project_rle_encoder")
     );
+    assert_eq!(row.get("pixel_data_vr").and_then(Value::as_str), Some("OB"));
+    assert_eq!(
+        row.get("pixel_data_layout").and_then(Value::as_str),
+        Some("encapsulated")
+    );
     assert_eq!(
         report
             .pointer("/grouped_coverage/codec_families/RLE Lossless")
@@ -1698,6 +1703,16 @@ fn report_projects_manifest_references_for_non_image_rows() {
             .and_then(Value::as_u64),
         Some(1)
     );
+    assert_eq!(
+        row.get("pixel_data_vr"),
+        Some(&Value::Null),
+        "non-image rows should not invent Pixel Data VR metadata"
+    );
+    assert_eq!(
+        row.get("pixel_data_layout"),
+        Some(&Value::Null),
+        "non-image rows should not invent Pixel Data layout metadata"
+    );
 
     fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
 }
@@ -1738,6 +1753,8 @@ fn report_summarizes_compressed_codec_coverage() {
                     "columns": 2
                 },
                 "pixel_data": {
+                    "vr": "OB",
+                    "native_or_encapsulated": "encapsulated",
                     "codec": {
                         "backend_id": "native_rle_lossless",
                         "backend_kind": "native",
@@ -1822,6 +1839,14 @@ fn report_summarizes_compressed_codec_coverage() {
             .get("planar_configuration")
             .and_then(Value::as_u64),
         Some(0)
+    );
+    assert_eq!(
+        generated.get("pixel_data_vr").and_then(Value::as_str),
+        Some("OB")
+    );
+    assert_eq!(
+        generated.get("pixel_data_layout").and_then(Value::as_str),
+        Some("encapsulated")
     );
     assert_eq!(
         report
@@ -1939,6 +1964,18 @@ fn report_summarizes_compressed_codec_coverage() {
     );
     assert_eq!(
         report
+            .pointer("/grouped_coverage/pixel_data_vrs/OB")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/pixel_data_layouts/encapsulated")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
             .pointer("/grouped_coverage/geometries/2x2")
             .and_then(Value::as_u64),
         Some(1)
@@ -2018,6 +2055,8 @@ fn report_summarizes_compressed_codec_coverage() {
     assert_eq!(unavailable.get("bits_stored"), Some(&Value::Null));
     assert_eq!(unavailable.get("high_bit"), Some(&Value::Null));
     assert_eq!(unavailable.get("planar_configuration"), Some(&Value::Null));
+    assert_eq!(unavailable.get("pixel_data_vr"), Some(&Value::Null));
+    assert_eq!(unavailable.get("pixel_data_layout"), Some(&Value::Null));
 
     let markdown = dicom_test_suite::render_coverage_report_markdown(&report);
     assert!(markdown.contains("### Codec Families"));
@@ -2051,6 +2090,10 @@ fn report_summarizes_compressed_codec_coverage() {
     assert!(markdown.contains("| 7 | 1 |"));
     assert!(markdown.contains("### Planar Configurations"));
     assert!(markdown.contains("| 0 | 1 |"));
+    assert!(markdown.contains("### Pixel Data VRs"));
+    assert!(markdown.contains("| OB | 1 |"));
+    assert!(markdown.contains("### Pixel Data Layouts"));
+    assert!(markdown.contains("| encapsulated | 1 |"));
     assert!(markdown.contains("### Geometries"));
     assert!(markdown.contains("| 2x2 | 1 |"));
     assert!(markdown.contains("### Object Types"));

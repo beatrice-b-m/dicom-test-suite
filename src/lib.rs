@@ -6010,6 +6010,18 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
     append_count_map_section(
         &mut output,
         report,
+        "Pixel Data VRs",
+        "/grouped_coverage/pixel_data_vrs",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "Pixel Data Layouts",
+        "/grouped_coverage/pixel_data_layouts",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
         "Frame Counts",
         "/grouped_coverage/frame_counts",
     );
@@ -6143,6 +6155,8 @@ fn generated_coverage_row(
         "pixel_representation": file.pointer("/image/pixel_representation").and_then(Value::as_u64),
         "samples_per_pixel": file.pointer("/image/samples_per_pixel").and_then(Value::as_u64),
         "planar_configuration": file.pointer("/image/planar_configuration").and_then(Value::as_u64),
+        "pixel_data_vr": file.pointer("/pixel_data/vr").and_then(Value::as_str),
+        "pixel_data_layout": file.pointer("/pixel_data/native_or_encapsulated").and_then(Value::as_str),
         "frames": file.pointer("/image/frames").and_then(Value::as_u64),
         "geometry": {
             "rows": file.pointer("/image/rows").and_then(Value::as_u64),
@@ -6248,6 +6262,8 @@ fn skipped_coverage_row(
         "pixel_representation": Value::Null,
         "samples_per_pixel": Value::Null,
         "planar_configuration": Value::Null,
+        "pixel_data_vr": Value::Null,
+        "pixel_data_layout": Value::Null,
         "frames": Value::Null,
         "geometry": {
             "rows": Value::Null,
@@ -6395,6 +6411,8 @@ struct GroupedCoverage {
     pixel_representations: BTreeMap<String, usize>,
     samples_per_pixel: BTreeMap<String, usize>,
     planar_configurations: BTreeMap<String, usize>,
+    pixel_data_vrs: BTreeMap<String, usize>,
+    pixel_data_layouts: BTreeMap<String, usize>,
     frame_counts: BTreeMap<String, usize>,
     geometries: BTreeMap<String, usize>,
     object_types: BTreeMap<String, usize>,
@@ -6507,6 +6525,14 @@ impl GroupedCoverage {
                 .entry(planar_configuration.to_string())
                 .or_default() += 1;
         }
+        increment_map(
+            &mut self.pixel_data_vrs,
+            row.get("pixel_data_vr").and_then(Value::as_str),
+        );
+        increment_map(
+            &mut self.pixel_data_layouts,
+            row.get("pixel_data_layout").and_then(Value::as_str),
+        );
         if let Some(frames) = row.get("frames").and_then(Value::as_u64) {
             *self.frame_counts.entry(frames.to_string()).or_default() += 1;
         }
@@ -6564,6 +6590,8 @@ impl GroupedCoverage {
             "pixel_representations": self.pixel_representations,
             "samples_per_pixel": self.samples_per_pixel,
             "planar_configurations": self.planar_configurations,
+            "pixel_data_vrs": self.pixel_data_vrs,
+            "pixel_data_layouts": self.pixel_data_layouts,
             "frame_counts": self.frame_counts,
             "geometries": self.geometries,
             "object_types": self.object_types,

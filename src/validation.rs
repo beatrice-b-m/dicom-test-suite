@@ -10,9 +10,9 @@ use crate::{
     GenerateError,
     codecs::{
         FrameDecodeInput, FrameDecoder, HTJ2K_LOSSLESS_TRANSFER_SYNTAX_UID,
-        JPEG_2000_LOSSLESS_TRANSFER_SYNTAX_UID, JPEG_LS_LOSSLESS_TRANSFER_SYNTAX_UID,
-        JPEG_XL_LOSSLESS_TRANSFER_SYNTAX_UID, NativeRleLosslessEncoder,
-        RLE_LOSSLESS_TRANSFER_SYNTAX_UID,
+        JPEG_2000_LOSSLESS_TRANSFER_SYNTAX_UID, JPEG_LOSSLESS_SV1_TRANSFER_SYNTAX_UID,
+        JPEG_LS_LOSSLESS_TRANSFER_SYNTAX_UID, JPEG_XL_LOSSLESS_TRANSFER_SYNTAX_UID,
+        NativeRleLosslessEncoder, RLE_LOSSLESS_TRANSFER_SYNTAX_UID,
     },
     sha256_hex,
 };
@@ -25,6 +25,10 @@ use crate::codecs::DicomRsJpegXlLosslessEncoder;
 use crate::codecs::OpenJp2Jpeg2000LosslessEncoder;
 #[cfg(feature = "htj2k_openjph")]
 use crate::codecs::OpenJphHtj2kLosslessEncoder;
+#[cfg(feature = "legacy_jpeg_dcmtk")]
+use dicom_encoding::{Codec, adapters::PixelDataReader};
+#[cfg(feature = "legacy_jpeg_dcmtk")]
+use dicom_transfer_syntax_registry::entries::JPEG_LOSSLESS_NON_HIERARCHICAL_FIRST_ORDER_PREDICTION;
 
 type OpenedObject = FileDicomObject<InMemDicomObject<StandardDataDictionary>>;
 type DatasetObject = InMemDicomObject<StandardDataDictionary>;
@@ -806,6 +810,13 @@ pub(crate) fn validate_part10_file(
                 );
                 validate_htj2k_lossless_decoded_frame_hashes(
                     expected,
+                    &obj,
+                    sequence.fragments(),
+                    &mut internal,
+                );
+                validate_jpeg_lossless_sv1_decoded_frame_hashes(
+                    expected,
+                    &obj,
                     sequence.fragments(),
                     &mut internal,
                 );
@@ -3780,6 +3791,7 @@ fn validate_jpeg_2000_lossless_decoded_frame_hashes(
 
 fn validate_htj2k_lossless_decoded_frame_hashes(
     expected: &Part10Expectations<'_>,
+    _file: &OpenedObject,
     fragments: &[Vec<u8>],
     results: &mut Vec<Value>,
 ) {
@@ -3857,6 +3869,94 @@ fn validate_htj2k_lossless_decoded_frame_hashes(
             "htj2k_lossless_decoder_unavailable",
             "HTJ2K Lossless frames decode to the expected native frame hashes.",
             "HTJ2K Lossless validation requires the htj2k_openjph Cargo feature.",
+        );
+    }
+}
+
+fn validate_jpeg_lossless_sv1_decoded_frame_hashes(
+    expected: &Part10Expectations<'_>,
+    file: &OpenedObject,
+    fragments: &[Vec<u8>],
+    results: &mut Vec<Value>,
+) {
+    if expected.transfer_syntax_uid != JPEG_LOSSLESS_SV1_TRANSFER_SYNTAX_UID {
+        return;
+    }
+    if expected.decoded_frame_hashes.is_empty() {
+        check(
+            results,
+            false,
+            "jpeg_lossless_sv1_decoded_frame_hashes",
+            "JPEG Lossless SV1 frames decode to the expected native frame hashes.",
+            "JPEG Lossless SV1 validation requires expected native frame hashes.",
+        );
+        return;
+    }
+    if fragments.len() != expected.decoded_frame_hashes.len() {
+        check(
+            results,
+            false,
+            "jpeg_lossless_sv1_decoded_frame_hash_count",
+            "JPEG Lossless SV1 decoded frame count matches expected native frame hash count.",
+            "JPEG Lossless SV1 fragment count does not match expected native frame hash count.",
+        );
+        return;
+    }
+
+    #[cfg(feature = "legacy_jpeg_dcmtk")]
+    {
+        let Codec::EncapsulatedPixelData(Some(reader), _) =
+            JPEG_LOSSLESS_NON_HIERARCHICAL_FIRST_ORDER_PREDICTION.codec()
+        else {
+            check(
+                results,
+                false,
+                "jpeg_lossless_sv1_decoder_unavailable",
+                "JPEG Lossless SV1 frames decode to the expected native frame hashes.",
+                "JPEG Lossless SV1 validation requires the legacy_jpeg_dcmtk Cargo feature.",
+            );
+            return;
+        };
+        let mut decoded_hashes = Vec::with_capacity(fragments.len());
+        for frame_index in 0..fragments.len() {
+            let mut decoded = Vec::new();
+            match reader.decode_frame(file, frame_index as u32, &mut decoded) {
+                Ok(()) => decoded_hashes.push(sha256_hex(&decoded)),
+                Err(_) => {
+                    check(
+                        results,
+                        false,
+                        "jpeg_lossless_sv1_decode_round_trip",
+                        "JPEG Lossless SV1 frames decode successfully.",
+                        "JPEG Lossless SV1 frame decode failed.",
+                    );
+                    return;
+                }
+            }
+        }
+
+        check_equal(
+            results,
+            "jpeg_lossless_sv1_decoded_frame_hashes",
+            "JPEG Lossless SV1 frames decode to the expected native frame hashes.",
+            "JPEG Lossless SV1 decoded frame hashes do not match expected native frame hashes.",
+            decoded_hashes
+                .iter()
+                .map(String::as_str)
+                .collect::<Vec<_>>(),
+            expected.decoded_frame_hashes.to_vec(),
+        );
+    }
+
+    #[cfg(not(feature = "legacy_jpeg_dcmtk"))]
+    {
+        let _ = (file, fragments);
+        check(
+            results,
+            false,
+            "jpeg_lossless_sv1_decoder_unavailable",
+            "JPEG Lossless SV1 frames decode to the expected native frame hashes.",
+            "JPEG Lossless SV1 validation requires the legacy_jpeg_dcmtk Cargo feature.",
         );
     }
 }

@@ -423,6 +423,9 @@
         },
         "implementation_class_uid": {
           "type": "string"
+        },
+        "implementation_version_name": {
+          "type": "string"
         }
       },
       "additionalProperties": false

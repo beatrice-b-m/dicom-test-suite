@@ -15,8 +15,9 @@ use crate::{
     codecs::{
         FrameEncodeInput, FrameEncoder, HTJ2K_LOSSLESS_TRANSFER_SYNTAX_UID,
         JPEG_2000_LOSSLESS_TRANSFER_SYNTAX_UID, JPEG_BASELINE_8BIT_TRANSFER_SYNTAX_UID,
-        JPEG_LS_LOSSLESS_TRANSFER_SYNTAX_UID, JPEG_XL_LOSSLESS_TRANSFER_SYNTAX_UID,
-        NativeRleLosslessEncoder, RLE_LOSSLESS_TRANSFER_SYNTAX_UID,
+        JPEG_LOSSLESS_SV1_TRANSFER_SYNTAX_UID, JPEG_LS_LOSSLESS_TRANSFER_SYNTAX_UID,
+        JPEG_XL_LOSSLESS_TRANSFER_SYNTAX_UID, NativeRleLosslessEncoder,
+        RLE_LOSSLESS_TRANSFER_SYNTAX_UID,
     },
     deterministic_uid,
     encapsulation::{BasicOffsetTablePolicy, EncapsulatedPixelData},
@@ -35,6 +36,8 @@ use crate::{
     },
 };
 
+#[cfg(feature = "legacy_jpeg_dcmtk")]
+use crate::codecs::DcmtkDcmcjpegLosslessSv1Encoder;
 #[cfg(feature = "jpeg")]
 use crate::codecs::DicomRsJpegBaselineEncoder;
 #[cfg(feature = "charls")]
@@ -53,6 +56,14 @@ use crate::codecs::OpenJphHtj2kLosslessEncoder;
     feature = "jpeg2000"
 ))]
 use crate::codecs::{FrameDecodeInput, FrameDecoder};
+#[cfg(feature = "legacy_jpeg_dcmtk")]
+use dicom_core::value::Value as DicomValue;
+#[cfg(feature = "legacy_jpeg_dcmtk")]
+use dicom_encoding::{Codec, adapters::PixelDataReader};
+#[cfg(feature = "legacy_jpeg_dcmtk")]
+use dicom_object::open_file;
+#[cfg(feature = "legacy_jpeg_dcmtk")]
+use dicom_transfer_syntax_registry::entries::JPEG_LOSSLESS_NON_HIERARCHICAL_FIRST_ORDER_PREDICTION;
 
 const PIXEL_RECIPE_VERSION: &str = "0.1.0";
 const CLASSIC_CT_RECIPE_VERSION: &str = "0.1.0";
@@ -149,6 +160,12 @@ const HTJ2K_LOSSLESS: TransferSyntaxSpec = TransferSyntaxSpec {
     capability_name: "High-Throughput JPEG 2000 Image Compression (Lossless Only)",
     uid: HTJ2K_LOSSLESS_TRANSFER_SYNTAX_UID,
     name: "HTJ2K Lossless",
+};
+const JPEG_LOSSLESS_SV1: TransferSyntaxSpec = TransferSyntaxSpec {
+    capability_keyword: "JPEGLosslessSV1",
+    capability_name: "JPEG Lossless, Non-Hierarchical, First-Order Prediction (Process 14 [Selection Value 1])",
+    uid: JPEG_LOSSLESS_SV1_TRANSFER_SYNTAX_UID,
+    name: "JPEG Lossless SV1",
 };
 const SEGMENTATION_SOURCE_CASE_ID: &str = "enhanced/ct/multiframe_shared_perframe_explicit_le";
 const GSPS_SOURCE_CASE_ID: &str = "enhanced/ct/multiframe_shared_perframe_explicit_le";
@@ -550,6 +567,29 @@ const PIXEL_RECIPES: &[PixelRecipe] = &[
         pixel_max: 65535,
         visual_pattern: "2x2_monochrome_u16_gradient",
         semantic_note: "16-bit unsigned MONOCHROME2 samples span the full stored range after HTJ2K Lossless decode",
+        palette: None,
+        padding: None,
+    },
+    PixelRecipe {
+        case_id: "classic/sc/mono2_u16_jpeg_lossless_sv1",
+        recipe_id: "sc_mono2_u16_jpeg_lossless_sv1",
+        rows: 2,
+        columns: 2,
+        photometric_interpretation: "MONOCHROME2",
+        samples_per_pixel: 1,
+        planar_configuration: None,
+        bits_allocated: 16,
+        bits_stored: 16,
+        high_bit: 15,
+        pixel_representation: 0,
+        pixel_vr: VR::OB,
+        transfer_syntax: JPEG_LOSSLESS_SV1,
+        pixel_bytes: &MONO_U16_PIXELS,
+        pixel_values: &MONO_U16_VALUES,
+        pixel_min: 0,
+        pixel_max: 65535,
+        visual_pattern: "2x2_monochrome_u16_gradient",
+        semantic_note: "16-bit unsigned MONOCHROME2 samples span the full stored range after JPEG Lossless SV1 decode",
         palette: None,
         padding: None,
     },
@@ -2518,7 +2558,8 @@ fn write_pixel_case(
         feature = "htj2k_openjph",
         feature = "jpeg",
         feature = "jpegxl",
-        feature = "jpeg2000"
+        feature = "jpeg2000",
+        feature = "legacy_jpeg_dcmtk"
     ))]
     let mut codec_internal_validation = Vec::new();
     #[cfg(not(any(
@@ -2526,10 +2567,12 @@ fn write_pixel_case(
         feature = "htj2k_openjph",
         feature = "jpeg",
         feature = "jpegxl",
-        feature = "jpeg2000"
+        feature = "jpeg2000",
+        feature = "legacy_jpeg_dcmtk"
     )))]
     let codec_internal_validation = Vec::new();
-    let compressed_pixel_data = if recipe.transfer_syntax == RLE_LOSSLESS {
+    #[allow(unused_mut)]
+    let mut compressed_pixel_data = if recipe.transfer_syntax == RLE_LOSSLESS {
         let rle_encoder = NativeRleLosslessEncoder::new();
         let encoded_frame = rle_encoder
             .encode_frame(FrameEncodeInput {
@@ -2858,10 +2901,15 @@ fn write_pixel_case(
         None
     };
 
+    let file_transfer_syntax = if recipe.transfer_syntax == JPEG_LOSSLESS_SV1 {
+        EXPLICIT_VR_LITTLE_ENDIAN
+    } else {
+        recipe.transfer_syntax
+    };
     let file_obj = obj
         .with_meta(
             FileMetaTableBuilder::new()
-                .transfer_syntax(recipe.transfer_syntax.uid)
+                .transfer_syntax(file_transfer_syntax.uid)
                 .implementation_class_uid(&implementation_class_uid)
                 .implementation_version_name(crate::IMPLEMENTATION_VERSION_NAME),
         )
@@ -2870,12 +2918,85 @@ fn write_pixel_case(
             message: err.to_string(),
         })?;
 
-    file_obj
-        .write_to_file(&path)
-        .map_err(|err| GenerateError::WriteDicomFile {
-            path: path.clone(),
-            message: err.to_string(),
-        })?;
+    #[cfg(feature = "legacy_jpeg_dcmtk")]
+    let mut output_implementation_class_uid = implementation_class_uid.clone();
+    #[cfg(not(feature = "legacy_jpeg_dcmtk"))]
+    let output_implementation_class_uid = implementation_class_uid.clone();
+    #[cfg(feature = "legacy_jpeg_dcmtk")]
+    let mut output_implementation_version_name = crate::IMPLEMENTATION_VERSION_NAME.to_string();
+    #[cfg(not(feature = "legacy_jpeg_dcmtk"))]
+    let output_implementation_version_name = crate::IMPLEMENTATION_VERSION_NAME.to_string();
+
+    if recipe.transfer_syntax == JPEG_LOSSLESS_SV1 {
+        #[cfg(feature = "legacy_jpeg_dcmtk")]
+        {
+            let source_path = path.with_extension("native-source.dcm");
+            file_obj
+                .write_to_file(&source_path)
+                .map_err(|err| GenerateError::WriteDicomFile {
+                    path: source_path.clone(),
+                    message: err.to_string(),
+                })?;
+            let encoder = DcmtkDcmcjpegLosslessSv1Encoder::new();
+            let encoded = encoder.encode_file(&source_path, &path).map_err(|err| {
+                GenerateError::WriteDicomFile {
+                    path: path.clone(),
+                    message: err.to_string(),
+                }
+            })?;
+            let _ = fs::remove_file(&source_path);
+
+            codec_internal_validation.push(validate_jpeg_lossless_sv1_round_trip(&path, recipe)?);
+            let encapsulated = encapsulated_pixel_data_from_file(&path)?;
+            let runtime_identity = serde_json::json!({
+                "command": encoded.backend_identity.command,
+                "executable_path": encoded.backend_identity.executable_path.to_string_lossy().to_string(),
+                "executable_sha256": encoded.backend_identity.executable_sha256,
+                "version": encoded.backend_identity.version,
+                "version_source": encoded.backend_identity.version_source,
+                "encoder_options": {
+                    "mode": "lossless_sv1",
+                    "true_lossless": true,
+                    "fragment_per_frame": true,
+                    "offset_table": "create",
+                    "uid_policy": "never"
+                }
+            });
+            let compressed = open_file(&path).map_err(|err| GenerateError::ValidateDicomFile {
+                path: path.clone(),
+                message: err.to_string(),
+            })?;
+            output_implementation_class_uid = compressed
+                .meta()
+                .implementation_class_uid()
+                .trim_end_matches('\0')
+                .to_string();
+            output_implementation_version_name = compressed
+                .meta()
+                .implementation_version_name
+                .as_deref()
+                .unwrap_or(crate::IMPLEMENTATION_VERSION_NAME)
+                .trim_end()
+                .to_string();
+            compressed_pixel_data = Some((encoder.backend(), encapsulated, Some(runtime_identity)));
+        }
+        #[cfg(not(feature = "legacy_jpeg_dcmtk"))]
+        {
+            return Err(GenerateError::WriteDicomFile {
+                path: path.clone(),
+                message:
+                    "JPEG Lossless SV1 generation requires the legacy_jpeg_dcmtk Cargo feature"
+                        .to_string(),
+            });
+        }
+    } else {
+        file_obj
+            .write_to_file(&path)
+            .map_err(|err| GenerateError::WriteDicomFile {
+                path: path.clone(),
+                message: err.to_string(),
+            })?;
+    }
 
     let decoded_frame_hash = sha256_hex(recipe.pixel_bytes);
     let decoded_frame_hashes = [decoded_frame_hash.as_str()];
@@ -2885,7 +3006,7 @@ fn write_pixel_case(
             sop_class_uid: uids::SECONDARY_CAPTURE_IMAGE_STORAGE,
             sop_instance_uid: &sop_instance_uid,
             transfer_syntax_uid: recipe.transfer_syntax.uid,
-            implementation_class_uid: &implementation_class_uid,
+            implementation_class_uid: &output_implementation_class_uid,
             synthetic_data: "YES",
             rows: recipe.rows,
             columns: recipe.columns,
@@ -2938,7 +3059,8 @@ fn write_pixel_case(
             &study_instance_uid,
             &series_instance_uid,
             &sop_instance_uid,
-            &implementation_class_uid,
+            &output_implementation_class_uid,
+            &output_implementation_version_name,
             &validated.bytes,
             validated.validation,
             compressed_pixel_data.as_ref(),
@@ -3174,6 +3296,82 @@ fn validate_htj2k_lossless_round_trip(
     }))
 }
 
+#[cfg(feature = "legacy_jpeg_dcmtk")]
+fn validate_jpeg_lossless_sv1_round_trip(
+    path: &std::path::Path,
+    recipe: PixelRecipe,
+) -> Result<Value, GenerateError> {
+    let file = open_file(path).map_err(|err| GenerateError::ValidateDicomFile {
+        path: path.to_path_buf(),
+        message: err.to_string(),
+    })?;
+    let Codec::EncapsulatedPixelData(Some(reader), _) =
+        JPEG_LOSSLESS_NON_HIERARCHICAL_FIRST_ORDER_PREDICTION.codec()
+    else {
+        return Err(GenerateError::ValidateDicomFile {
+            path: path.to_path_buf(),
+            message: "DICOM-rs JPEG Lossless SV1 decoder is unavailable".to_string(),
+        });
+    };
+    let mut decoded = Vec::new();
+    reader.decode_frame(&file, 0, &mut decoded).map_err(|err| {
+        GenerateError::ValidateDicomFile {
+            path: path.to_path_buf(),
+            message: err.to_string(),
+        }
+    })?;
+
+    let decoded_hash = sha256_hex(&decoded);
+    let expected_hash = sha256_hex(recipe.pixel_bytes);
+    if decoded_hash != expected_hash {
+        return Err(GenerateError::ValidateDicomFile {
+            path: path.to_path_buf(),
+            message: format!(
+                "JPEG Lossless SV1 decoded frame hash {decoded_hash} did not match expected {expected_hash}"
+            ),
+        });
+    }
+
+    Ok(serde_json::json!({
+        "name": "jpeg_lossless_sv1_decoded_frame_hashes",
+        "status": "passed",
+        "message": "JPEG Lossless SV1 decoded frame hash matches the native source frame."
+    }))
+}
+
+#[cfg(feature = "legacy_jpeg_dcmtk")]
+fn encapsulated_pixel_data_from_file(
+    path: &std::path::Path,
+) -> Result<EncapsulatedPixelData, GenerateError> {
+    let file = open_file(path).map_err(|err| GenerateError::ValidateDicomFile {
+        path: path.to_path_buf(),
+        message: err.to_string(),
+    })?;
+    let pixel_data =
+        file.element(tags::PIXEL_DATA)
+            .map_err(|err| GenerateError::ValidateDicomFile {
+                path: path.to_path_buf(),
+                message: err.to_string(),
+            })?;
+    let DicomValue::PixelSequence(sequence) = pixel_data.value() else {
+        return Err(GenerateError::ValidateDicomFile {
+            path: path.to_path_buf(),
+            message: "JPEG Lossless SV1 output does not use encapsulated Pixel Data".to_string(),
+        });
+    };
+    let policy = if sequence.offset_table().is_empty() {
+        BasicOffsetTablePolicy::Empty
+    } else {
+        BasicOffsetTablePolicy::Populated
+    };
+    EncapsulatedPixelData::one_fragment_per_frame(sequence.fragments(), policy).map_err(|err| {
+        GenerateError::ValidateDicomFile {
+            path: path.to_path_buf(),
+            message: err.to_string(),
+        }
+    })
+}
+
 fn pixel_manifest_entry(
     case: &Value,
     recipe: PixelRecipe,
@@ -3182,6 +3380,7 @@ fn pixel_manifest_entry(
     series_instance_uid: &str,
     sop_instance_uid: &str,
     implementation_class_uid: &str,
+    implementation_version_name: &str,
     bytes: &[u8],
     validation: Value,
     compressed_pixel_data: Option<&(
@@ -3457,6 +3656,26 @@ fn pixel_manifest_entry(
             }),
         ]);
     }
+    if recipe.transfer_syntax == JPEG_LOSSLESS_SV1 {
+        standards_evidence.extend([
+            serde_json::json!({
+                "source": "dicom-standard-kb",
+                "edition": "2026b",
+                "query": "lookup_uid JPEGLosslessSV1",
+                "covered": true,
+                "part": "PS3.6",
+                "anchor": "table_A-1"
+            }),
+            serde_json::json!({
+                "source": "dicom-standard-kb",
+                "edition": "2026b",
+                "query": "search_standard_text Basic Offset Table encapsulated Pixel Data Item padding Extended Offset Table",
+                "covered": true,
+                "part": "PS3.5",
+                "anchor": "sect_A.4"
+            }),
+        ]);
+    }
 
     let palette_manifest = recipe.palette.map(|palette| {
         serde_json::json!({
@@ -3566,7 +3785,8 @@ fn pixel_manifest_entry(
             "series_instance_uid": series_instance_uid,
             "sop_instance_uid": sop_instance_uid,
             "frame_of_reference_uid": Value::Null,
-            "implementation_class_uid": implementation_class_uid
+            "implementation_class_uid": implementation_class_uid,
+            "implementation_version_name": implementation_version_name
         },
         "image": {
             "rows": recipe.rows,
@@ -3621,6 +3841,10 @@ fn pixel_known_stressors(recipe: PixelRecipe) -> Vec<&'static str> {
     } else if recipe.transfer_syntax == HTJ2K_LOSSLESS {
         stressors.push("encapsulated_pixel_data");
         stressors.push("htj2k_lossless_transfer_syntax");
+    } else if recipe.transfer_syntax == JPEG_LOSSLESS_SV1 {
+        stressors.push("encapsulated_pixel_data");
+        stressors.push("jpeg_lossless_sv1_transfer_syntax");
+        stressors.push("external_command_codec");
     } else {
         stressors.push("native_ob_pixel_data");
     }
@@ -3647,7 +3871,8 @@ fn pixel_profile_membership(recipe: PixelRecipe) -> &'static [&'static str] {
         | "classic/sc/mono2_u8_jpeg_ls_lossless"
         | "classic/sc/rgb_planar0_jpegxl_lossless"
         | "classic/sc/mono2_u16_jpeg2000_lossless"
-        | "classic/sc/mono2_u16_htj2k_lossless" => &["extended"],
+        | "classic/sc/mono2_u16_htj2k_lossless"
+        | "classic/sc/mono2_u16_jpeg_lossless_sv1" => &["extended"],
         _ => &["core"],
     }
 }
@@ -3695,6 +3920,13 @@ fn pixel_expected_capabilities(recipe: PixelRecipe) -> Vec<&'static str> {
             "decode_htj2k_lossless_pixels",
             "render_grayscale",
         ]
+    } else if recipe.transfer_syntax == JPEG_LOSSLESS_SV1 {
+        vec![
+            "open_file",
+            "read_metadata",
+            "decode_jpeg_lossless_sv1_pixels",
+            "render_grayscale",
+        ]
     } else {
         vec!["open_file", "read_metadata", "render_native_pixels"]
     }
@@ -3706,6 +3938,7 @@ fn pixel_determinism(recipe: PixelRecipe) -> &'static str {
         || recipe.transfer_syntax == JPEG_XL_LOSSLESS
         || recipe.transfer_syntax == JPEG_2000_LOSSLESS
         || recipe.transfer_syntax == HTJ2K_LOSSLESS
+        || recipe.transfer_syntax == JPEG_LOSSLESS_SV1
     {
         "semantic_stable"
     } else {

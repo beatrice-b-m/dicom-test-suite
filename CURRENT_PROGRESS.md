@@ -12,7 +12,7 @@
 - Phase 2 - Encapsulated Pixel Data Substrate: complete for the first RLE one-fragment case; Extended Offset Table and future multi-fragment generation remain later substrate expansion.
 - Phase 3 - Low-Risk Codec Enablement: in progress; 8-bit and 16-bit generated RLE Lossless Secondary Capture cases are implemented and round-trip validated; the first JPEG Baseline 8-bit RGB Secondary Capture case is generated and validated when the `jpeg` feature is enabled; the first JPEG-LS Lossless 8-bit MONOCHROME2 Secondary Capture case is generated and exact-hash validated when the `charls` feature is enabled; the first JPEG XL Lossless 8-bit RGB Secondary Capture case is generated and exact-hash validated when the `jpegxl` feature is enabled.
 - Phase 4 - JPEG 2000 And HTJ2K: complete for first lossless generated cases; JPEG 2000 Lossless has a project `jpeg2000` feature, a project-owned OpenJPEG-rs writer wrapper, a feature-gated generated Secondary Capture case, generation-time exact decoded-frame hash validation, CLI validation, report coverage, reproducibility evidence, and feature-gated capability-matrix promotion. JPEG 2000 lossy remains deferred. HTJ2K Lossless has a project `htj2k_openjph` feature, an OpenJPH external-command wrapper that fingerprints `ojph_compress` by executable SHA-256, fixed-option PGM encode support, exact DICOM-rs HTJ2K reader decode validation, a feature-gated generated Secondary Capture case, manifest runtime identity metadata, CLI validation, report coverage, and reproducibility evidence. HTJ2K lossy/RPCL variants remain deferred.
-- Phase 5 - Legacy And Specialty Compressed Syntaxes: in progress; legacy JPEG now has a passed local DCMTK `dcmcjpeg` JPEG Lossless SV1 spike plus a project `legacy_jpeg_dcmtk` feature-gated file-level wrapper with runtime executable path, executable SHA-256, and version capture. No generated case, manifest runtime identity path, CLI validation, report coverage, or capability promotion exists yet.
+- Phase 5 - Legacy And Specialty Compressed Syntaxes: in progress; JPEG Lossless SV1 now has a generated feature-gated Secondary Capture case through the project `legacy_jpeg_dcmtk` DCMTK `dcmcjpeg` file-level wrapper, including manifest runtime executable identity, exact DICOM-rs decoded-frame hash validation, report coverage, and reproducibility evidence. JPEG Lossless Process 14, JPEG Extended 12-bit, and Deflated Image Frame Compression remain unresolved.
 - Phase 6+ - Corpus expansion and maintenance: blocked until Phase 5 scope is complete.
 
 ## Completed Work
@@ -161,7 +161,16 @@
 - Added the project-level `legacy_jpeg_dcmtk` Cargo feature, layered on the existing `jpeg` reader stack, for the selected DCMTK `dcmcjpeg` JPEG Lossless SV1 external-command path.
 - Added `DcmtkDcmcjpegLosslessSv1Encoder` behind `legacy_jpeg_dcmtk`, including backend metadata, PATH or explicit-command discovery, canonical executable path resolution, executable SHA-256 fingerprint reporting, `dcmcjpeg --version` capture, fixed SV1 command options, and Part 10 output sanity checking.
 - Added `tests/legacy_jpeg_dcmtk_wrapper.rs`, a feature-gated integration test proving the wrapper preserves source SOP Instance UID, Secondary Capture SOP Class UID, Synthetic Data, encapsulated Pixel Data shape, JPEG SOI/EOI markers, and exact DICOM-rs decoded native frame bytes while recording runtime identity.
-- Updated `transfer-syntax/backend-decisions.json` and artifact regression coverage so legacy JPEG now records the project wrapper and `legacy_jpeg_dcmtk` feature gate while remaining `research_more` and unpromoted until generated-case validation, report coverage, manifest runtime identity output, and reproducibility evidence are added.
+- Previously updated `transfer-syntax/backend-decisions.json` and artifact regression coverage so legacy JPEG recorded the project wrapper and `legacy_jpeg_dcmtk` feature gate while still unpromoted; the current slice supersedes that wrapper-only state by promoting the first generated SV1 case.
+- Implemented `classic/sc/mono2_u16_jpeg_lossless_sv1` as a feature-gated generated Secondary Capture case using the DCMTK `dcmcjpeg` JPEG Lossless SV1 file-level wrapper.
+- Added a generator transfer syntax spec and pixel recipe for a tiny 2x2 16-bit unsigned MONOCHROME2 JPEG Lossless SV1 frame using transfer syntax `1.2.840.10008.1.2.4.70`.
+- Generated the SV1 case by writing a deterministic temporary Explicit VR Little Endian source, compressing it through `dcmcjpeg --encode-lossless-sv1 --true-lossless --fragment-per-frame --offset-table-create --uid-never`, and keeping only the compressed Part 10 output in the generated corpus.
+- Added generated manifest metadata for DCMTK runtime backend identity: command, canonical executable path, executable SHA-256, version source, and fixed encoder options.
+- Added manifest schema support for per-file `uids.implementation_version_name` so validation can accept deterministic File Meta Implementation Version Name values from file-level external compressors while preserving the existing default for project-written files.
+- Added generation-time and CLI validation for JPEG Lossless SV1 exact decoded-frame hashes through the pinned DICOM-rs JPEG Lossless SV1 reader.
+- Added report coverage proving `classic/sc/mono2_u16_jpeg_lossless_sv1` appears as generated with transfer syntax `1.2.840.10008.1.2.4.70` under `--features legacy_jpeg_dcmtk`.
+- Flipped the JPEG Lossless SV1 registry row to implemented with required feature `legacy_jpeg_dcmtk` and added a feature-gated capability-matrix row with encode/decode support.
+- Promoted the legacy JPEG backend decision to `implement_now` for the first SV1 case while keeping JPEG Lossless Process 14 and JPEG Extended 12-bit as separate future spike targets.
 
 ## Blockers
 
@@ -172,7 +181,7 @@
 - JPEG 2000 lossy remains deferred until lossy compression metadata policy, decoded-frame tolerance, and reproducibility strategy are selected.
 - HTJ2K Lossless OpenJPH external-command encode/decode proof, project wrapper, explicit feature gate, executable SHA-256 fingerprint strategy, generated-case implementation, manifest backend fingerprint metadata, CLI validation, report coverage, and reproducibility checks are complete for the sampled first-case 16-bit MONOCHROME2 PGM domain.
 - Legacy JPEG is no longer blocked on local `dcmcjpeg` availability or wrapper design; Homebrew `dcmtk` 3.7.0 is installed, the SV1 spike passed locally, and the `legacy_jpeg_dcmtk` wrapper exists.
-- Legacy JPEG generated-case implementation is still blocked on adding registry metadata, manifest runtime identity capture, CLI validation, report coverage, and generated-case reproducibility evidence.
+- JPEG Lossless SV1 generated-case implementation is complete for the first tiny 16-bit MONOCHROME2 Secondary Capture case.
 - JPEG Lossless Process 14 and JPEG Extended 12-bit still need separate local spike evidence before they can be implemented.
 - Deflated Image Frame Compression requires a standards/IOD suitability decision before any implementation.
 
@@ -183,7 +192,7 @@
 - JPEG XL Lossless now uses a project `jpegxl` feature that exposes the pinned DICOM-rs optional JPEG XL adapter behind a project-owned wrapper and generated corpus case. Lossy JPEG XL is deferred until lossy semantics and validation policy are selected.
 - JPEG 2000 Lossless now uses a project `jpeg2000` feature exposing a project-owned OpenJPEG-rs writer wrapper plus DICOM-rs JPEG 2000 decode validation. Lossy JPEG 2000 is deferred until lossy semantics and validation policy are selected.
 - HTJ2K Lossless uses the project `htj2k_openjph` feature and selected `ojph_compress` external-command wrapper. Command-level byte reproducibility is proven for sampled edge-domain unsigned values using 16-bit PGM input with `-num_decomps 1`, and generated manifests record canonical executable path plus SHA-256 executable fingerprint because this binary rejects common version/help flags.
-- Legacy JPEG uses DCMTK `dcmcjpeg` as the selected first backend candidate, with JPEG Lossless SV1 as the preferred first process. The local SV1 spike and project `legacy_jpeg_dcmtk` wrapper have proven encoded output, DICOM-rs decode validation, metadata preservation, one-fragment encapsulation, UID preservation, runtime executable identity capture, and local byte-identical reproducibility; it remains `research_more` until a generated-case validation path exists.
+- Legacy JPEG uses DCMTK `dcmcjpeg` as the selected first backend for JPEG Lossless SV1. The generated `classic/sc/mono2_u16_jpeg_lossless_sv1` case is implemented behind `legacy_jpeg_dcmtk`, records runtime executable identity, validates exact decoded native frame hashes through the pinned DICOM-rs JPEG reader, and remains semantic-stable because the external command identity is part of manifest evidence.
 - Which independent validators should be used for JPEG 2000 and HTJ2K.
 - Whether the current project-owned RLE decoder should support multi-fragment frame reassembly in generation-time validation before a multi-fragment RLE case is added.
 
@@ -493,14 +502,29 @@
 - `cargo test --features legacy_jpeg_dcmtk`: initially failed once in `validate_command_accepts_generated_extended_root` while run concurrently with a separate HTJ2K feature test, matching the repo's known transient file-count behavior under concurrent feature test execution; passed on sequential rerun, full `legacy_jpeg_dcmtk` feature suite clean.
 - `cargo test --features htj2k_openjph openjph_htj2k_lossless`: passed, proving the shared external-command path changes did not regress the OpenJPH wrapper tests.
 - `cargo run -- standards check-lock`: passed with existing documented lock warnings.
+- `dicom-standard-kb` MCP `lookup_uid JPEGLosslessSV1`: passed; confirmed UID `1.2.840.10008.1.2.4.70` as a PS3.6 Transfer Syntax.
+- `dicom-standard-kb` MCP `lookup_sop_class "Secondary Capture Image Storage"`: passed; confirmed Secondary Capture Image Storage UID `1.2.840.10008.5.1.4.1.1.7` and linked Secondary Capture Image IOD.
+- `dicom-standard-kb` MCP `lookup_iod "Secondary Capture Image"`: passed; confirmed the Secondary Capture Image IOD reference in PS3.3 Table A.8-1.
+- `cargo test --test generate_cli --test validate_cli --test list_cases_cli --test project_artifacts --test report_cli`: passed, 72 focused default-build tests.
+- `cargo test --features legacy_jpeg_dcmtk --test generate_cli --test validate_cli --test list_cases_cli --test project_artifacts --test report_cli`: initially failed because the validator still expected the project Implementation Version Name after DCMTK rewrote File Meta; failed again because DICOM-rs exposed the DCMTK SH value with trailing padding while raw validation compared the unpadded value; passed after recording normalized per-file `uids.implementation_version_name`, 74 focused feature-build tests.
+- `cargo fmt -- --check`: passed.
+- `cargo test`: passed, full default-build suite clean.
+- `cargo test --features legacy_jpeg_dcmtk`: passed, full legacy JPEG DCMTK feature suite clean including the wrapper and spike tests.
+- `cargo run -- standards check-lock`: passed with existing documented lock warnings.
+- `cargo run --features legacy_jpeg_dcmtk -- generate --profile extended --out /tmp/dts-legacy-sv1-slice-0616 --seed 1`: passed, 21 files written.
+- `cargo run --features legacy_jpeg_dcmtk -- validate /tmp/dts-legacy-sv1-slice-0616`: passed, 21 files checked and 0 validation failures.
+- `cargo run --features legacy_jpeg_dcmtk -- report /tmp/dts-legacy-sv1-slice-0616 --format json`: passed; report JSON included `classic/sc/mono2_u16_jpeg_lossless_sv1` as generated with transfer syntax `1.2.840.10008.1.2.4.70` and validation status `passed`.
+- `cargo run --features legacy_jpeg_dcmtk -- generate --profile extended --out /tmp/dts-legacy-sv1-repro-a-0616 --seed 1`: passed, 21 files written.
+- `cargo run --features legacy_jpeg_dcmtk -- generate --profile extended --out /tmp/dts-legacy-sv1-repro-b-0616 --seed 1`: passed, 21 files written.
+- `diff -r /tmp/dts-legacy-sv1-repro-a-0616 /tmp/dts-legacy-sv1-repro-b-0616`: passed with no differences.
+- `jq -r '.coverage_matrix[] | select(.case_id=="classic/sc/mono2_u16_jpeg_lossless_sv1") | [.case_id,.status,.transfer_syntax,.validation_status] | @tsv' /tmp/dts-legacy-sv1-report-0616.json`: passed; printed `classic/sc/mono2_u16_jpeg_lossless_sv1	generated	1.2.840.10008.1.2.4.70	passed`.
 
 ## Commit-Ready Summary
 
-- Legacy JPEG now has a project `legacy_jpeg_dcmtk` feature-gated DCMTK `dcmcjpeg` file-level wrapper for JPEG Lossless SV1.
-- The wrapper records backend metadata, canonical executable path, executable SHA-256, and `dcmcjpeg --version` output, then runs the proven SV1 command options and verifies Part 10 output.
-- The new wrapper integration test validates metadata preservation, one-fragment encapsulated layout with a populated Basic Offset Table, exact DICOM-rs decoded-frame hash matching, and runtime identity capture.
-- `transfer-syntax/backend-decisions.json` and artifact tests now record the wrapper while keeping legacy JPEG unpromoted with no generated case, registry row, manifest runtime identity output, CLI validation, report coverage, or capability-matrix availability.
+- JPEG Lossless SV1 now has a generated `classic/sc/mono2_u16_jpeg_lossless_sv1` Secondary Capture case behind `legacy_jpeg_dcmtk`.
+- The generator writes a deterministic temporary Explicit VR Little Endian source, compresses it through DCMTK `dcmcjpeg`, records runtime executable identity and normalized File Meta Implementation Version Name, validates exact decoded native frame hashes, and emits the compressed Part 10 output only.
+- Registry, capability matrix, backend decisions, manifest schema, validation, list-cases, report, and focused CLI tests now reflect the promoted SV1 generated case.
 
 ## Recommended Next Commit
 
-Promote the first JPEG Lossless SV1 generated case only after adding registry metadata, manifest runtime identity output, CLI validation, report coverage, and generated-case reproducibility evidence.
+Choose the next Phase 5 legacy/specialty slice: spike JPEG Lossless Process 14 or JPEG Extended 12-bit with DCMTK, or resolve the Deflated Image Frame Compression standards/IOD suitability decision before implementation.

@@ -363,7 +363,8 @@ fn codec_backend_decisions_track_enabled_low_risk_codecs() {
             "jpeg_ls",
             "jpeg_xl",
             "jpeg_2000",
-            "htj2k"
+            "htj2k",
+            "legacy_jpeg"
         ],
         "enabled compressed codec families should be explicit"
     );
@@ -774,7 +775,83 @@ fn htj2k_lossless_backend_decision_selects_openjph_external_command() {
 }
 
 #[test]
-fn legacy_jpeg_backend_decision_records_dcmtk_wrapper_without_generation_promotion() {
+fn legacy_jpeg_lossless_sv1_registry_row_is_feature_gated_implemented() {
+    let matrix = read_json("transfer-syntax/capability-matrix.json");
+    let matrix_entries = matrix
+        .get("entries")
+        .and_then(Value::as_array)
+        .expect("transfer syntax matrix must contain entries");
+    let registry = read_json("cases/registry.json");
+    let cases = registry_cases(&registry);
+
+    let case_id = "classic/sc/mono2_u16_jpeg_lossless_sv1";
+    let uid = "1.2.840.10008.1.2.4.70";
+    let matrix_entry = matrix_entries
+        .iter()
+        .find(|entry| entry.get("uid").and_then(Value::as_str) == Some(uid))
+        .expect("transfer syntax matrix must contain JPEG Lossless SV1");
+    assert_eq!(
+        matrix_entry.get("keyword").and_then(Value::as_str),
+        Some("JPEGLosslessSV1")
+    );
+    assert_eq!(
+        matrix_entry.get("status").and_then(Value::as_str),
+        Some("feature_gated"),
+        "{case_id} should be feature-gated after generated-case validation"
+    );
+    assert_eq!(
+        matrix_entry
+            .pointer("/feature_flags/0")
+            .and_then(Value::as_str),
+        Some("legacy_jpeg_dcmtk")
+    );
+    assert_eq!(
+        matrix_entry.get("encode_pixel").and_then(Value::as_bool),
+        Some(true)
+    );
+    assert_eq!(
+        matrix_entry.get("decode_pixel").and_then(Value::as_bool),
+        Some(true)
+    );
+
+    let case = cases
+        .iter()
+        .find(|case| case.get("case_id").and_then(Value::as_str) == Some(case_id))
+        .expect("registry must contain JPEG Lossless SV1 case");
+    assert_eq!(
+        case.get("status").and_then(Value::as_str),
+        Some("implemented")
+    );
+    assert_eq!(case.get("skip"), Some(&Value::Null));
+    assert_eq!(
+        case.get("transfer_syntax_uid").and_then(Value::as_str),
+        Some(uid)
+    );
+    assert_eq!(
+        case.get("determinism").and_then(Value::as_str),
+        Some("semantic_stable")
+    );
+    assert_eq!(
+        case.pointer("/requirements/features/0")
+            .and_then(Value::as_str),
+        Some("legacy_jpeg_dcmtk"),
+        "{case_id} should name the project DCMTK wrapper feature gate"
+    );
+    assert!(
+        case.get("standards_evidence")
+            .and_then(Value::as_array)
+            .is_some_and(|evidence| evidence.iter().any(|entry| {
+                entry.get("query").and_then(Value::as_str)
+                    == Some("lookup_sop_class Secondary Capture Image Storage")
+            }) && evidence.iter().any(|entry| {
+                entry.get("query").and_then(Value::as_str) == Some("lookup_uid JPEGLosslessSV1")
+            })),
+        "{case_id} must carry SC SOP Class and transfer syntax evidence"
+    );
+}
+
+#[test]
+fn legacy_jpeg_backend_decision_records_dcmtk_generated_case_promotion() {
     let decisions = read_json("transfer-syntax/backend-decisions.json");
     let families = decisions
         .get("codec_families")
@@ -787,8 +864,8 @@ fn legacy_jpeg_backend_decision_records_dcmtk_wrapper_without_generation_promoti
 
     assert_eq!(
         legacy_jpeg.get("classification").and_then(Value::as_str),
-        Some("research_more"),
-        "legacy JPEG must not be promoted before generated-case validation exists"
+        Some("implement_now"),
+        "legacy JPEG SV1 should be promoted after generated-case validation exists"
     );
     assert_eq!(
         legacy_jpeg.get("selected_backend").and_then(Value::as_str),
@@ -807,7 +884,7 @@ fn legacy_jpeg_backend_decision_records_dcmtk_wrapper_without_generation_promoti
         legacy_jpeg
             .pointer("/integration_mode/status")
             .and_then(Value::as_str),
-        Some("wrapper_added")
+        Some("generated_case_added")
     );
     assert_eq!(
         legacy_jpeg
@@ -886,9 +963,9 @@ fn legacy_jpeg_backend_decision_records_dcmtk_wrapper_without_generation_promoti
     assert!(
         blockers
             .iter()
-            .any(|blocker| blocker.contains("generated registry row")
-                && blocker.contains("report coverage")),
-        "legacy JPEG should record the remaining promotion prerequisites"
+            .any(|blocker| blocker.contains("JPEG Lossless Process 14")
+                && blocker.contains("JPEG Extended 12-bit")),
+        "legacy JPEG should leave other legacy processes as separate spike work"
     );
 
     let cargo_toml = fs::read_to_string("Cargo.toml").expect("Cargo.toml must be readable");
@@ -958,6 +1035,20 @@ fn legacy_jpeg_backend_decision_records_dcmtk_wrapper_without_generation_promoti
                     })
         }),
         "legacy JPEG decision should record the project wrapper evidence"
+    );
+    assert!(
+        evidence.iter().any(|item| {
+            item.get("source").and_then(Value::as_str) == Some("generated-case-verification")
+                && item
+                    .get("finding")
+                    .and_then(Value::as_str)
+                    .is_some_and(|finding| {
+                        finding.contains("classic/sc/mono2_u16_jpeg_lossless_sv1")
+                            && finding.contains("runtime executable SHA-256")
+                            && finding.contains("exact decoded native frame hashes")
+                    })
+        }),
+        "legacy JPEG decision should record generated-case verification evidence"
     );
 }
 

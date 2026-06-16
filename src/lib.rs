@@ -12,8 +12,9 @@ use serde_json::Value;
 use crate::codecs::{
     FrameDecodeInput, FrameDecoder, HTJ2K_LOSSLESS_TRANSFER_SYNTAX_UID,
     JPEG_2000_LOSSLESS_TRANSFER_SYNTAX_UID, JPEG_BASELINE_8BIT_TRANSFER_SYNTAX_UID,
-    JPEG_LS_LOSSLESS_TRANSFER_SYNTAX_UID, JPEG_XL_LOSSLESS_TRANSFER_SYNTAX_UID,
-    NativeRleLosslessEncoder, RLE_LOSSLESS_TRANSFER_SYNTAX_UID,
+    JPEG_LOSSLESS_SV1_TRANSFER_SYNTAX_UID, JPEG_LS_LOSSLESS_TRANSFER_SYNTAX_UID,
+    JPEG_XL_LOSSLESS_TRANSFER_SYNTAX_UID, NativeRleLosslessEncoder,
+    RLE_LOSSLESS_TRANSFER_SYNTAX_UID,
 };
 
 #[cfg(feature = "jpeg")]
@@ -26,6 +27,10 @@ use crate::codecs::DicomRsJpegXlLosslessEncoder;
 use crate::codecs::OpenJp2Jpeg2000LosslessEncoder;
 #[cfg(feature = "htj2k_openjph")]
 use crate::codecs::OpenJphHtj2kLosslessEncoder;
+#[cfg(feature = "legacy_jpeg_dcmtk")]
+use dicom_encoding::{Codec, adapters::PixelDataReader};
+#[cfg(feature = "legacy_jpeg_dcmtk")]
+use dicom_transfer_syntax_registry::entries::JPEG_LOSSLESS_NON_HIERARCHICAL_FIRST_ORDER_PREDICTION;
 
 pub mod codecs;
 pub mod encapsulation;
@@ -762,6 +767,10 @@ fn validate_manifest_file(
         "/uids/implementation_class_uid",
         "uids implementation_class_uid must be a string",
     )?;
+    let expected_implementation_version_name = file
+        .pointer("/uids/implementation_version_name")
+        .and_then(Value::as_str)
+        .unwrap_or(IMPLEMENTATION_VERSION_NAME);
 
     validate_raw_part10_file(
         failures,
@@ -771,6 +780,7 @@ fn validate_manifest_file(
         expected_sop_instance,
         expected_transfer_syntax,
         expected_implementation_class_uid,
+        expected_implementation_version_name,
     );
 
     let obj = match open_file(&path) {
@@ -1071,6 +1081,7 @@ fn validate_manifest_image_pixel_data(
                 relative_path,
                 manifest_path,
                 file,
+                &obj,
                 pixel_fragments,
                 rows,
                 columns,
@@ -1176,6 +1187,7 @@ fn validate_encapsulated_pixel_data_manifest(
     relative_path: &str,
     manifest_path: &Path,
     file: &Value,
+    obj: &OpenedObject,
     pixel_fragments: Option<&[Vec<u8>]>,
     rows: u16,
     columns: u16,
@@ -1386,6 +1398,16 @@ fn validate_encapsulated_pixel_data_manifest(
         bits_allocated,
         bits_stored,
         photometric_interpretation,
+        &fragment_counts,
+        frame_hashes,
+    )?;
+    validate_jpeg_lossless_sv1_manifest_decoded_frame_hashes(
+        failures,
+        relative_path,
+        manifest_path,
+        obj,
+        transfer_syntax,
+        pixel_fragments,
         &fragment_counts,
         frame_hashes,
     )?;
@@ -2122,6 +2144,93 @@ fn validate_htj2k_lossless_manifest_decoded_frame_hashes(
     Ok(())
 }
 
+fn validate_jpeg_lossless_sv1_manifest_decoded_frame_hashes(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    manifest_path: &Path,
+    file: &OpenedObject,
+    transfer_syntax: &str,
+    pixel_fragments: Option<&[Vec<u8>]>,
+    fragments_per_frame: &[usize],
+    frame_hashes: &[Value],
+) -> Result<(), ValidateError> {
+    if transfer_syntax != JPEG_LOSSLESS_SV1_TRANSFER_SYNTAX_UID {
+        return Ok(());
+    }
+
+    let Some(pixel_fragments) = pixel_fragments else {
+        failures.push(format!(
+            "{relative_path}: jpeg_lossless_sv1_pixel_sequence: Pixel Data is not an encapsulated fragment sequence"
+        ));
+        return Ok(());
+    };
+    if !fragments_per_frame.iter().all(|count| *count == 1) {
+        failures.push(format!(
+            "{relative_path}: jpeg_lossless_sv1_decoded_frame_hashes: JPEG Lossless SV1 validation currently requires one fragment per frame"
+        ));
+        return Ok(());
+    }
+    if pixel_fragments.len() != fragments_per_frame.len() {
+        failures.push(format!(
+            "{relative_path}: jpeg_lossless_sv1_fragment_count: expected {} fragment(s), got {}",
+            fragments_per_frame.len(),
+            pixel_fragments.len()
+        ));
+        return Ok(());
+    }
+
+    let expected_hashes = frame_hashes
+        .iter()
+        .map(|hash| {
+            hash.as_str().ok_or_else(|| ValidateError::ManifestShape {
+                path: manifest_path.to_path_buf(),
+                message: "pixel_data frame_hashes items must be strings",
+            })
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+
+    #[cfg(feature = "legacy_jpeg_dcmtk")]
+    {
+        let Codec::EncapsulatedPixelData(Some(reader), _) =
+            JPEG_LOSSLESS_NON_HIERARCHICAL_FIRST_ORDER_PREDICTION.codec()
+        else {
+            failures.push(format!(
+                "{relative_path}: jpeg_lossless_sv1_decoder_unavailable: validate requires the legacy_jpeg_dcmtk Cargo feature"
+            ));
+            return Ok(());
+        };
+        let mut decoded_hashes = Vec::with_capacity(pixel_fragments.len());
+        for frame_index in 0..pixel_fragments.len() {
+            let mut decoded = Vec::new();
+            if let Err(err) = reader.decode_frame(file, frame_index as u32, &mut decoded) {
+                failures.push(format!(
+                    "{relative_path}: jpeg_lossless_sv1_decode_round_trip: {err}"
+                ));
+                return Ok(());
+            }
+            decoded_hashes.push(sha256_hex(&decoded));
+        }
+
+        validate_equal(
+            failures,
+            relative_path,
+            "jpeg_lossless_sv1_decoded_frame_hashes",
+            decoded_hashes.join(","),
+            expected_hashes.join(","),
+        );
+    }
+
+    #[cfg(not(feature = "legacy_jpeg_dcmtk"))]
+    {
+        let _ = (file, pixel_fragments, expected_hashes);
+        failures.push(format!(
+            "{relative_path}: jpeg_lossless_sv1_decoder_unavailable: validate requires the legacy_jpeg_dcmtk Cargo feature"
+        ));
+    }
+
+    Ok(())
+}
+
 fn is_native_or_dataset_deflated_transfer_syntax(transfer_syntax: &str) -> bool {
     matches!(
         transfer_syntax,
@@ -2149,6 +2258,7 @@ fn validate_raw_part10_file(
     expected_sop_instance: &str,
     expected_transfer_syntax: &str,
     expected_implementation_class_uid: &str,
+    expected_implementation_version_name: &str,
 ) {
     if bytes.len() < 132 {
         failures.push(format!(
@@ -2285,7 +2395,7 @@ fn validate_raw_part10_file(
             relative_path,
             "implementation_version_name",
             raw_text(bytes, version_name),
-            IMPLEMENTATION_VERSION_NAME,
+            expected_implementation_version_name,
         );
     }
     for element in &file_meta {

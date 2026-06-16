@@ -821,6 +821,7 @@ fn report_command_writes_markdown_coverage_for_core_root() {
     assert!(stdout.contains("### Series Instance UID Roots"));
     assert!(stdout.contains("### SOP Instance UID Roots"));
     assert!(stdout.contains("| 2.25 | 21 |"));
+    assert!(stdout.contains("### Derived Reference SOP Instance UID Roots"));
     assert!(stdout.contains("## Gaps"));
     assert!(
         stdout.contains("| classic/ct/mono2_i16_rescale_12bit_explicit_le | generated | core |")
@@ -2386,6 +2387,13 @@ fn report_projects_manifest_references_for_non_image_rows() {
         Some("1.2.840.10008.5.1.4.1.1.2.1")
     );
     assert_eq!(
+        row.get("derived_reference_sop_instance_uid_roots")
+            .and_then(Value::as_array)
+            .and_then(|refs| refs.first())
+            .and_then(Value::as_str),
+        Some("2.25")
+    );
+    assert_eq!(
         report
             .pointer("/grouped_coverage/derived_reference_relationships/source_image")
             .and_then(Value::as_u64),
@@ -2404,6 +2412,12 @@ fn report_projects_manifest_references_for_non_image_rows() {
             .pointer(
                 "/grouped_coverage/derived_reference_sop_class_uids/1.2.840.10008.5.1.4.1.1.2.1"
             )
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/derived_reference_sop_instance_uid_roots/2.25")
             .and_then(Value::as_u64),
         Some(1)
     );
@@ -2519,7 +2533,8 @@ fn report_summarizes_compressed_codec_coverage() {
                     {
                         "relationship": "source_image",
                         "source_case_id": "classic/sc/mono2_u8_explicit_le",
-                        "sop_class_uid": "1.2.840.10008.5.1.4.1.1.7"
+                        "sop_class_uid": "1.2.840.10008.5.1.4.1.1.7",
+                        "sop_instance_uid": "2.25.42"
                     }
                 ],
                 "known_stressors": ["compressed_pixel_data"]
@@ -2820,6 +2835,14 @@ fn report_summarizes_compressed_codec_coverage() {
         Some("1.2.840.10008.5.1.4.1.1.7")
     );
     assert_eq!(
+        generated
+            .get("derived_reference_sop_instance_uid_roots")
+            .and_then(Value::as_array)
+            .and_then(|refs| refs.first())
+            .and_then(Value::as_str),
+        Some("2.25")
+    );
+    assert_eq!(
         report
             .pointer("/grouped_coverage/derived_reference_relationships/source_image")
             .and_then(Value::as_u64),
@@ -2836,6 +2859,12 @@ fn report_summarizes_compressed_codec_coverage() {
     assert_eq!(
         report
             .pointer("/grouped_coverage/derived_reference_sop_class_uids/1.2.840.10008.5.1.4.1.1.7")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/derived_reference_sop_instance_uid_roots/2.25")
             .and_then(Value::as_u64),
         Some(1)
     );

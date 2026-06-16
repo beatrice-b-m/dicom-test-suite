@@ -161,6 +161,9 @@
         "derived_reference_sop_class_uids": {
           "$ref": "#/$defs/count_map"
         },
+        "derived_reference_sop_instance_uid_roots": {
+          "$ref": "#/$defs/count_map"
+        },
         "synthetic_data": {
           "$ref": "#/$defs/count_map"
         },
@@ -392,6 +395,7 @@
         "derived_reference_targets",
         "derived_reference_relationships",
         "derived_reference_sop_class_uids",
+        "derived_reference_sop_instance_uid_roots",
         "validation_status",
         "determinism",
         "object_type",
@@ -604,6 +608,12 @@
           }
         },
         "derived_reference_sop_class_uids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "derived_reference_sop_instance_uid_roots": {
           "type": "array",
           "items": {
             "type": "string"

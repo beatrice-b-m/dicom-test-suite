@@ -80,6 +80,9 @@
         "pixel_representations": {
           "$ref": "#/$defs/count_map"
         },
+        "samples_per_pixel": {
+          "$ref": "#/$defs/count_map"
+        },
         "frame_counts": {
           "$ref": "#/$defs/count_map"
         },
@@ -195,6 +198,7 @@
         "photometric",
         "bits",
         "pixel_representation",
+        "samples_per_pixel",
         "frames",
         "geometry",
         "derived_refs",
@@ -251,6 +255,10 @@
         "pixel_representation": {
           "type": ["integer", "null"],
           "enum": [0, 1, null]
+        },
+        "samples_per_pixel": {
+          "type": ["integer", "null"],
+          "minimum": 1
         },
         "frames": {
           "type": ["integer", "null"],

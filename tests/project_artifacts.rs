@@ -425,6 +425,30 @@ fn codec_backend_decisions_track_enabled_low_risk_codecs() {
         jpeg_ls.get("determinism").and_then(Value::as_str),
         Some("semantic_stable")
     );
+    assert_eq!(
+        jpeg_ls
+            .get("transfer_syntax_uids")
+            .and_then(Value::as_array)
+            .expect("JPEG-LS transfer syntax UID list should exist")
+            .iter()
+            .filter_map(Value::as_str)
+            .collect::<Vec<_>>(),
+        vec!["1.2.840.10008.1.2.4.80"],
+        "implemented JPEG-LS decision should be scoped to the lossless transfer syntax"
+    );
+    assert_eq!(
+        jpeg_ls
+            .pointer("/near_lossless_policy/classification")
+            .and_then(Value::as_str),
+        Some("defer"),
+        "JPEG-LS Near-Lossless should have an explicit defer policy before JPEG XL work starts"
+    );
+    assert_eq!(
+        jpeg_ls
+            .pointer("/near_lossless_policy/transfer_syntax_uid")
+            .and_then(Value::as_str),
+        Some("1.2.840.10008.1.2.4.81")
+    );
 }
 
 #[test]
@@ -722,6 +746,83 @@ fn jpeg_ls_lossless_transfer_syntax_has_project_charls_feature_gate() {
     assert_eq!(
         case.get("determinism").and_then(Value::as_str),
         Some("semantic_stable")
+    );
+}
+
+#[test]
+fn jpeg_ls_near_lossless_policy_is_deferred_until_lossy_semantics_are_defined() {
+    let matrix = read_json("transfer-syntax/capability-matrix.json");
+    let entries = matrix
+        .get("entries")
+        .and_then(Value::as_array)
+        .expect("transfer syntax matrix must contain entries");
+    let entry = entries
+        .iter()
+        .find(|entry| entry.get("uid").and_then(Value::as_str) == Some("1.2.840.10008.1.2.4.81"))
+        .expect("transfer syntax matrix must contain JPEG-LS Near-Lossless");
+    let transfer_syntax = TransferSyntaxRegistry
+        .get("1.2.840.10008.1.2.4.81")
+        .expect("DICOM-rs registry must expose JPEG-LS Near-Lossless");
+
+    assert_eq!(
+        entry.get("keyword").and_then(Value::as_str),
+        Some("JPEGLSNearLossless")
+    );
+    assert_eq!(
+        entry.get("status").and_then(Value::as_str),
+        Some("unavailable"),
+        "near-lossless generation should stay unavailable until lossy semantics are defined"
+    );
+    assert_eq!(
+        entry.get("decode_pixel").and_then(Value::as_bool),
+        Some(false),
+        "the project matrix should not claim near-lossless decode validation yet"
+    );
+    assert_eq!(
+        entry.get("encode_pixel").and_then(Value::as_bool),
+        Some(false),
+        "the project matrix should not claim near-lossless encode validation yet"
+    );
+    assert!(
+        entry
+            .get("feature_flags")
+            .and_then(Value::as_array)
+            .is_some_and(|features| features
+                .iter()
+                .any(|value| value.as_str() == Some("charls"))),
+        "near-lossless should record the likely project feature gate"
+    );
+    if cfg!(feature = "charls") {
+        assert!(
+            transfer_syntax.pixel_data_reader().is_some(),
+            "charls feature builds should expose a runtime JPEG-LS Near-Lossless decoder"
+        );
+        assert!(
+            transfer_syntax.pixel_data_writer().is_some(),
+            "charls feature builds should expose a runtime JPEG-LS Near-Lossless encoder candidate"
+        );
+    }
+
+    let decisions = read_json("transfer-syntax/backend-decisions.json");
+    let jpeg_ls = decisions
+        .get("codec_families")
+        .and_then(Value::as_array)
+        .expect("backend decisions must contain codec_families")
+        .iter()
+        .find(|family| family.get("family_id").and_then(Value::as_str) == Some("jpeg_ls"))
+        .expect("JPEG-LS backend decision must exist");
+    assert_eq!(
+        jpeg_ls
+            .pointer("/near_lossless_policy/classification")
+            .and_then(Value::as_str),
+        Some("defer")
+    );
+    assert!(
+        jpeg_ls
+            .pointer("/near_lossless_policy/required_before_implementation")
+            .and_then(Value::as_array)
+            .is_some_and(|items| items.len() >= 4),
+        "near-lossless policy should list the missing design and verification work"
     );
 }
 

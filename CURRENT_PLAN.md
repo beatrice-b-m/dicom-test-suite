@@ -1,6 +1,6 @@
 # Current Plan
 
-**Last updated:** 2026-06-15
+**Last updated:** 2026-06-16
 **Active goal:** comprehensive compressed image codec generation support
 **Source specification:** `SYSTEM_SPEC.md` version 0.2.0
 **Planning status:** Phase 3 active; low-risk codec enablement in progress
@@ -31,9 +31,10 @@ generation:
   Secondary Capture case through the pinned `dicom-rs` adapter path, with
   decoded-frame tolerance validation and semantic-stable reproducibility.
 - JPEG-LS Lossless has an implement-now decision, a project-level `charls`
-  feature, and a DICOM-rs CharLS wrapper. Local `charls` feature verification now
-  passes after `cmake` was installed; the generated JPEG-LS corpus row remains
-  skipped until generation, validation, reporting, and reproducibility are added.
+  feature, a DICOM-rs CharLS wrapper, and a feature-gated generated corpus row
+  with validation, reporting, and reproducibility coverage. JPEG-LS
+  Near-Lossless is explicitly deferred until lossy semantics and validation
+  policy are selected.
 - JPEG XL, JPEG 2000, HTJ2K, legacy JPEG, and Deflated Image Frame Compression
   remain unavailable until their backend and standards decisions are resolved
   and proven.
@@ -308,7 +309,7 @@ Areas to solidify:
 
 ## Immediate Next Step
 
-Add the feature-gated generated `classic/sc/mono2_u8_jpeg_ls_lossless`
-Secondary Capture case as the next Phase 3 slice. The row should remain skipped
-until the same change proves generation, exact decoded-frame validation,
-manifest/report coverage, and reproducibility under `--features charls`.
+Start JPEG XL lossless feature verification as the next Phase 3 slice. Keep any
+JPEG XL registry row unavailable until the same change proves backend
+availability, generation, decoded-frame validation, manifest/report coverage,
+and reproducibility under the selected project feature gate.

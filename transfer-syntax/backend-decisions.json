@@ -3,7 +3,7 @@
   "active_goal": "comprehensive compressed image codec generation support",
   "standards_edition": "2026b",
   "dicom_rs_version": "0.9.1",
-  "last_reviewed_at": "2026-06-15",
+  "last_reviewed_at": "2026-06-16",
   "policy_decisions": [
     {
       "decision_id": "codec-integration/default-backend-policy",
@@ -95,10 +95,7 @@
     {
       "family_id": "jpeg_ls",
       "classification": "implement_now",
-      "transfer_syntax_uids": [
-        "1.2.840.10008.1.2.4.80",
-        "1.2.840.10008.1.2.4.81"
-      ],
+      "transfer_syntax_uids": ["1.2.840.10008.1.2.4.80"],
       "selected_backend": "dicom_rs_charls_jpeg_ls_lossless_writer",
       "backend_kind": "dicom_rs_feature",
       "feature_gate": "charls",
@@ -106,18 +103,38 @@
       "first_case_target": "classic/sc/mono2_u8_jpeg_ls_lossless",
       "validation_strategy": [
         "Generate a tiny monochrome Secondary Capture frame through the pinned CharLS-backed DICOM-rs JPEG-LS Lossless writer when the project charls feature is enabled.",
-        "Require exact decoded hashes for JPEG-LS Lossless and bounded semantic expectations for near-lossless.",
+        "Require exact decoded hashes for JPEG-LS Lossless.",
         "Record CharLS version and build mode in generated manifests."
       ],
-      "blockers": [
-        "Generated corpus integration, encapsulated Pixel Data manifest validation, report coverage, and reproducibility are not implemented.",
-        "Near-lossless expectations and metadata policy are not finalized."
-      ],
+      "blockers": [],
+      "near_lossless_policy": {
+        "classification": "defer",
+        "transfer_syntax_uid": "1.2.840.10008.1.2.4.81",
+        "selected_backend": "none_for_now",
+        "determinism": "semantic_stable",
+        "defer_reason": "JPEG-LS Near-Lossless is lossy and needs an explicit threshold, lossy Image Pixel metadata policy, bounded decoded-frame validation, and reproducibility evidence before a generated conformance case is added.",
+        "required_before_implementation": [
+          "Choose the first near-lossless error limit and pixel shape.",
+          "Define expected decoded-frame tolerance and visual semantics.",
+          "Set Lossy Image Compression, Lossy Image Compression Ratio, and Lossy Image Compression Method metadata policy.",
+          "Prove DICOM-rs CharLS near-lossless encode/decode behavior and reproducibility under the project charls feature."
+        ],
+        "standards_evidence": [
+          {
+            "source": "dicom-standard-kb",
+            "edition": "2026b",
+            "query": "lookup_uid JPEGLSNearLossless",
+            "covered": true,
+            "part": "PS3.6",
+            "anchor": "table_A-1"
+          }
+        ]
+      },
       "evidence": [
         {
           "source": "dicom-standard-kb",
           "edition": "2026b",
-          "query": "lookup_uid JPEGLSLossless; lookup_uid JPEGLSNearLossless",
+          "query": "lookup_uid JPEGLSLossless",
           "covered": true,
           "part": "PS3.6",
           "anchor": "table_A-1"
@@ -133,7 +150,7 @@
           "finding": "The project charls feature exposes a DICOM-rs JPEG-LS Lossless writer and reader that round-trip a tiny 8-bit MONOCHROME2 frame exactly."
         }
       ],
-      "next_action": "Add the feature-gated generated JPEG-LS Lossless Secondary Capture case with exact decoded-frame hash validation before flipping the skipped registry row."
+      "next_action": "Proceed to JPEG XL lossless feature verification before adding any JPEG-LS Near-Lossless generated case."
     },
     {
       "family_id": "jpeg_xl",

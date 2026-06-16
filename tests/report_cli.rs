@@ -1253,6 +1253,124 @@ fn report_command_writes_rt_dose_content_coverage_for_extended_root() {
 }
 
 #[test]
+fn report_command_writes_rt_structure_set_content_coverage_for_extended_root() {
+    let out_dir = unique_temp_dir("report-rt-structure-set-content-json");
+    generate_extended(&out_dir);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args([
+            "report",
+            out_dir.to_str().expect("temp path should be valid UTF-8"),
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("report command must run");
+
+    assert!(
+        output.status.success(),
+        "report should accept generated output: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let report: Value =
+        serde_json::from_slice(&output.stdout).expect("report stdout should be JSON");
+    let row = coverage_row(&report, "non-image/rt/structure_set_single_roi_explicit_le");
+    assert_eq!(
+        row.get("rt_structure_set_label").and_then(Value::as_str),
+        Some("DTS_RTSTRUCT")
+    );
+    assert_eq!(
+        row.get("rt_structure_set_roi_name").and_then(Value::as_str),
+        Some("DTS_SYNTHETIC_ROI")
+    );
+    assert_eq!(
+        row.get("rt_roi_generation_algorithm")
+            .and_then(Value::as_str),
+        Some("MANUAL")
+    );
+    assert_eq!(
+        row.get("rt_contour_geometric_type").and_then(Value::as_str),
+        Some("CLOSED_PLANAR")
+    );
+    assert_eq!(
+        row.get("rt_contour_points").and_then(Value::as_u64),
+        Some(4)
+    );
+    assert_eq!(
+        row.get("rt_roi_interpreted_type").and_then(Value::as_str),
+        Some("ORGAN")
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/rt_structure_set_labels/DTS_RTSTRUCT")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/rt_structure_set_roi_names/DTS_SYNTHETIC_ROI")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/rt_roi_generation_algorithms/MANUAL")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/rt_contour_geometric_types/CLOSED_PLANAR")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/rt_contour_points/4")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/rt_roi_interpreted_types/ORGAN")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+
+    let markdown_output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args([
+            "report",
+            out_dir.to_str().expect("temp path should be valid UTF-8"),
+            "--format",
+            "markdown",
+        ])
+        .output()
+        .expect("report markdown command must run");
+
+    assert!(
+        markdown_output.status.success(),
+        "markdown report should accept generated output: {}",
+        String::from_utf8_lossy(&markdown_output.stderr)
+    );
+    let markdown =
+        String::from_utf8(markdown_output.stdout).expect("markdown stdout should be UTF-8");
+    assert!(markdown.contains("### RT Structure Set Labels"));
+    assert!(markdown.contains("| DTS_RTSTRUCT | 1 |"));
+    assert!(markdown.contains("### RT Structure Set ROI Names"));
+    assert!(markdown.contains("| DTS_SYNTHETIC_ROI | 1 |"));
+    assert!(markdown.contains("### RT ROI Generation Algorithms"));
+    assert!(markdown.contains("| MANUAL | 1 |"));
+    assert!(markdown.contains("### RT Contour Geometric Types"));
+    assert!(markdown.contains("| CLOSED_PLANAR | 1 |"));
+    assert!(markdown.contains("### RT Contour Points"));
+    assert!(markdown.contains("| 4 | 1 |"));
+    assert!(markdown.contains("### RT ROI Interpreted Types"));
+    assert!(markdown.contains("| ORGAN | 1 |"));
+
+    fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
+}
+
+#[test]
 fn report_command_writes_markdown_coverage_for_core_root() {
     let out_dir = unique_temp_dir("report-core-markdown");
     generate_core(&out_dir);

@@ -263,6 +263,24 @@
         "rt_dose_grid_scalings": {
           "$ref": "#/$defs/count_map"
         },
+        "rt_structure_set_labels": {
+          "$ref": "#/$defs/count_map"
+        },
+        "rt_structure_set_roi_names": {
+          "$ref": "#/$defs/count_map"
+        },
+        "rt_roi_generation_algorithms": {
+          "$ref": "#/$defs/count_map"
+        },
+        "rt_contour_geometric_types": {
+          "$ref": "#/$defs/count_map"
+        },
+        "rt_contour_points": {
+          "$ref": "#/$defs/count_map"
+        },
+        "rt_roi_interpreted_types": {
+          "$ref": "#/$defs/count_map"
+        },
         "modality_lut_descriptors": {
           "$ref": "#/$defs/count_map"
         },
@@ -489,6 +507,12 @@
         "rt_dose_type",
         "rt_dose_summation_type",
         "rt_dose_grid_scaling",
+        "rt_structure_set_label",
+        "rt_structure_set_roi_name",
+        "rt_roi_generation_algorithm",
+        "rt_contour_geometric_type",
+        "rt_contour_points",
+        "rt_roi_interpreted_type",
         "modality_lut_descriptor",
         "modality_lut_type",
         "modality_lut_data_value_length",
@@ -805,6 +829,25 @@
           "type": ["string", "null"]
         },
         "rt_dose_grid_scaling": {
+          "type": ["string", "null"]
+        },
+        "rt_structure_set_label": {
+          "type": ["string", "null"]
+        },
+        "rt_structure_set_roi_name": {
+          "type": ["string", "null"]
+        },
+        "rt_roi_generation_algorithm": {
+          "type": ["string", "null"]
+        },
+        "rt_contour_geometric_type": {
+          "type": ["string", "null"]
+        },
+        "rt_contour_points": {
+          "type": ["integer", "null"],
+          "minimum": 0
+        },
+        "rt_roi_interpreted_type": {
           "type": ["string", "null"]
         },
         "modality_lut_descriptor": {

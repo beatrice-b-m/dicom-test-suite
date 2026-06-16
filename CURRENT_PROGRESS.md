@@ -25,6 +25,7 @@
 - Latest Phase 6 report slice adds Segmentation content labels to coverage reports: row-level `segmentation_type`, `segmentation_fractional_type`, and `segmentation_maximum_fractional_value` plus grouped counts in JSON and Markdown reports, sourced from existing SEG manifest `recipe_parameters` metadata and DICOM elements Segmentation Type `(0062,0001)`, Segmentation Fractional Type `(0062,0010)`, and Maximum Fractional Value `(0062,000E)`.
 - Latest Phase 6 report slice adds classic CT acquisition/value-transform labels to coverage reports: row-level `ct_acquisition_number`, `ct_rescale_intercept`, `ct_rescale_slope`, and `ct_rescale_type` plus grouped counts in JSON and Markdown reports, sourced from CT manifest recipe parameters and DICOM elements Acquisition Number `(0020,0012)`, Rescale Intercept `(0028,1052)`, Rescale Slope `(0028,1053)`, and Rescale Type `(0028,1054)`.
 - Latest Phase 6 report slice adds RT Dose content labels to coverage reports: row-level `rt_dose_units`, `rt_dose_type`, `rt_dose_summation_type`, and `rt_dose_grid_scaling` plus grouped counts in JSON and Markdown reports, sourced from existing RT Dose manifest `expected_semantics.rt_dose` metadata and DICOM elements Dose Units `(3004,0002)`, Dose Type `(3004,0004)`, Dose Summation Type `(3004,000A)`, and Dose Grid Scaling `(3004,000E)`.
+- Latest Phase 6 report slice adds RT Structure Set content labels to coverage reports: row-level `rt_structure_set_label`, `rt_structure_set_roi_name`, `rt_roi_generation_algorithm`, `rt_contour_geometric_type`, `rt_contour_points`, and `rt_roi_interpreted_type` plus grouped counts in JSON and Markdown reports, sourced from existing RT Structure Set manifest `expected_semantics.rt_structure_set` metadata and DICOM elements Structure Set Label `(3006,0002)`, ROI Name `(3006,0026)`, ROI Generation Algorithm `(3006,0036)`, Contour Geometric Type `(3006,0042)`, Number of Contour Points `(3006,0046)`, and RT ROI Interpreted Type `(3006,00A4)`.
 
 ## Completed Work
 
@@ -3006,13 +3007,35 @@
 - `jq '{generated: .counts.generated, unavailable: .counts.skipped, rt_dose_units: .grouped_coverage.rt_dose_units, rt_dose_types: .grouped_coverage.rt_dose_types, rt_dose_summation_types: .grouped_coverage.rt_dose_summation_types, rt_dose_grid_scalings: .grouped_coverage.rt_dose_grid_scalings, rt_dose_row: (.coverage_matrix[] | select(.case_id == "non-image/rt/dose_grid_u16_explicit_le") | {rt_dose_units, rt_dose_type, rt_dose_summation_type, rt_dose_grid_scaling})}' /tmp/dts-rt-dose-report-slice-0616.json`: passed; report counted 75 generated rows and 9 unavailable rows, emitted row-level RT Dose values `rt_dose_units = GY`, `rt_dose_type = PHYSICAL`, `rt_dose_summation_type = RECORD`, and `rt_dose_grid_scaling = 0.001`, and grouped each RT Dose bucket with count `1`.
 - `cargo run -- report /tmp/dts-rt-dose-report-slice-0616 --format markdown > /tmp/dts-rt-dose-report-slice-0616.md`: passed.
 - `rg -n "RT Dose (Units|Types|Summation Types|Grid Scalings)|\| (GY|PHYSICAL|RECORD|0\.001) \| 1 \|" /tmp/dts-rt-dose-report-slice-0616.md`: passed; Markdown includes RT Dose Units, Types, Summation Types, and Grid Scalings grouped coverage tables with the expected extended buckets.
+- `git status --short`: passed before slice selection; working tree was clean.
+- `dicom-standard-kb` MCP `lookup_data_element StructureSetLabel`: passed; confirmed Structure Set Label `(3006,0002)` has VR `SH`, VM `1`, and is not retired in PS3.6 2026b.
+- `dicom-standard-kb` MCP `lookup_data_element ROIName`: passed; confirmed ROI Name `(3006,0026)` has VR `LO`, VM `1`, and is not retired in PS3.6 2026b.
+- `dicom-standard-kb` MCP `lookup_data_element ROIGenerationAlgorithm`: passed; confirmed ROI Generation Algorithm `(3006,0036)` has VR `CS`, VM `1`, and is not retired in PS3.6 2026b.
+- `dicom-standard-kb` MCP `lookup_data_element ContourGeometricType`: passed; confirmed Contour Geometric Type `(3006,0042)` has VR `CS`, VM `1`, and is not retired in PS3.6 2026b.
+- `dicom-standard-kb` MCP `lookup_data_element NumberOfContourPoints`: passed; confirmed Number of Contour Points `(3006,0046)` has VR `IS`, VM `1`, and is not retired in PS3.6 2026b.
+- `dicom-standard-kb` MCP `lookup_data_element RTROIInterpretedType`: passed; confirmed RT ROI Interpreted Type `(3006,00A4)` has VR `CS`, VM `1`, and is not retired in PS3.6 2026b.
+- `cargo fmt`: passed during implementation formatting.
+- `jq empty schemas/coverage-report.schema.json`: passed.
+- `cargo test --test report_cli report_command_writes_rt_structure_set_content_coverage_for_extended_root`: passed, 1 focused report test.
+- `cargo test --test schema_artifacts coverage_report_schema_requires_the_specified_matrix_fields`: passed, 1 focused schema test.
+- `cargo test --test report_cli --test schema_artifacts`: passed, 21 focused report/schema tests.
+- `cargo test`: passed, full default-build suite clean.
+- `cargo fmt -- --check`: passed.
+- `git diff --check`: passed.
+- `cargo run -- standards check-lock`: passed with existing documented lock warnings.
+- `cargo run -- generate --profile extended --out /tmp/dts-rt-structure-report-slice-0616 --seed 1`: passed, 75 files written in the no-feature default build.
+- `cargo run -- validate /tmp/dts-rt-structure-report-slice-0616`: passed, 75 files checked and 0 validation failures.
+- `cargo run -- report /tmp/dts-rt-structure-report-slice-0616 --format json > /tmp/dts-rt-structure-report-slice-0616.json`: passed.
+- `jq '{generated: .counts.generated, unavailable: .counts.skipped, rt_structure_set_labels: .grouped_coverage.rt_structure_set_labels, rt_structure_set_roi_names: .grouped_coverage.rt_structure_set_roi_names, rt_roi_generation_algorithms: .grouped_coverage.rt_roi_generation_algorithms, rt_contour_geometric_types: .grouped_coverage.rt_contour_geometric_types, rt_contour_points: .grouped_coverage.rt_contour_points, rt_roi_interpreted_types: .grouped_coverage.rt_roi_interpreted_types, rtstruct_row: (.coverage_matrix[] | select(.case_id == "non-image/rt/structure_set_single_roi_explicit_le") | {rt_structure_set_label, rt_structure_set_roi_name, rt_roi_generation_algorithm, rt_contour_geometric_type, rt_contour_points, rt_roi_interpreted_type})}' /tmp/dts-rt-structure-report-slice-0616.json`: passed; report counted 75 generated rows and 9 unavailable rows, emitted row-level RT Structure Set values `DTS_RTSTRUCT`, `DTS_SYNTHETIC_ROI`, `MANUAL`, `CLOSED_PLANAR`, `4`, and `ORGAN`, and grouped each RT Structure Set bucket with count `1`.
+- `cargo run -- report /tmp/dts-rt-structure-report-slice-0616 --format markdown > /tmp/dts-rt-structure-report-slice-0616.md`: passed.
+- `rg -n "RT Structure Set (Labels|ROI Names)|RT ROI (Generation Algorithms|Interpreted Types)|RT Contour (Geometric Types|Points)|\| (DTS_RTSTRUCT|DTS_SYNTHETIC_ROI|MANUAL|CLOSED_PLANAR|4|ORGAN) \| 1 \|" /tmp/dts-rt-structure-report-slice-0616.md`: passed; Markdown includes RT Structure Set Labels, ROI Names, ROI Generation Algorithms, Contour Geometric Types, Contour Points, and ROI Interpreted Types grouped coverage tables with the expected extended buckets.
 
 ## Commit-Ready Summary
 
-- Added row-level RT Dose Units, Dose Type, Dose Summation Type, and Dose Grid Scaling coverage sourced from existing manifest `expected_semantics.rt_dose` metadata.
-- Added grouped RT Dose Units, Types, Summation Types, and Grid Scalings coverage to JSON and Markdown reports.
-- The coverage-report schema and focused report/schema tests now require the new RT Dose row fields and grouped count maps.
-- Extended report verification shows the new fields/tables expose the existing RT Dose values `GY`, `PHYSICAL`, `RECORD`, and `0.001`.
+- Added row-level RT Structure Set Label, ROI Name, ROI Generation Algorithm, Contour Geometric Type, Number of Contour Points, and RT ROI Interpreted Type coverage sourced from existing manifest `expected_semantics.rt_structure_set` metadata.
+- Added grouped RT Structure Set labels, ROI names, ROI generation algorithms, contour geometric types, contour point counts, and ROI interpreted types to JSON and Markdown reports.
+- The coverage-report schema and focused report/schema tests now require the new RT Structure Set row fields and grouped count maps.
+- Extended report verification shows the new fields/tables expose the existing RT Structure Set values `DTS_RTSTRUCT`, `DTS_SYNTHETIC_ROI`, `MANUAL`, `CLOSED_PLANAR`, `4`, and `ORGAN`.
 - No registry rows, generated DICOM element values, capability-matrix entries, feature gates, external codec backends, deferred lossy policies, or JPEG Extended 12-bit decisions changed in this slice.
 
 ## Recommended Next Commit

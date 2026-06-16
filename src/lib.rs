@@ -6347,6 +6347,42 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
     append_count_map_section(
         &mut output,
         report,
+        "RT Structure Set Labels",
+        "/grouped_coverage/rt_structure_set_labels",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "RT Structure Set ROI Names",
+        "/grouped_coverage/rt_structure_set_roi_names",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "RT ROI Generation Algorithms",
+        "/grouped_coverage/rt_roi_generation_algorithms",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "RT Contour Geometric Types",
+        "/grouped_coverage/rt_contour_geometric_types",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "RT Contour Points",
+        "/grouped_coverage/rt_contour_points",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "RT ROI Interpreted Types",
+        "/grouped_coverage/rt_roi_interpreted_types",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
         "Modality LUT Descriptors",
         "/grouped_coverage/modality_lut_descriptors",
     );
@@ -6903,6 +6939,48 @@ fn generated_coverage_row(
     row_object.insert(
         "rt_dose_grid_scaling".to_string(),
         file.pointer("/expected_semantics/rt_dose/dose_grid_scaling")
+            .and_then(Value::as_str)
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
+    row_object.insert(
+        "rt_structure_set_label".to_string(),
+        file.pointer("/expected_semantics/rt_structure_set/structure_set_label")
+            .and_then(Value::as_str)
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
+    row_object.insert(
+        "rt_structure_set_roi_name".to_string(),
+        file.pointer("/expected_semantics/rt_structure_set/roi_name")
+            .and_then(Value::as_str)
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
+    row_object.insert(
+        "rt_roi_generation_algorithm".to_string(),
+        file.pointer("/expected_semantics/rt_structure_set/roi_generation_algorithm")
+            .and_then(Value::as_str)
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
+    row_object.insert(
+        "rt_contour_geometric_type".to_string(),
+        file.pointer("/expected_semantics/rt_structure_set/contour_geometric_type")
+            .and_then(Value::as_str)
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
+    row_object.insert(
+        "rt_contour_points".to_string(),
+        file.pointer("/expected_semantics/rt_structure_set/contour_points")
+            .and_then(Value::as_u64)
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
+    row_object.insert(
+        "rt_roi_interpreted_type".to_string(),
+        file.pointer("/expected_semantics/rt_structure_set/roi_interpreted_type")
             .and_then(Value::as_str)
             .map(Value::from)
             .unwrap_or(Value::Null),
@@ -7497,6 +7575,12 @@ fn skipped_coverage_row(
     row_object.insert("rt_dose_type".to_string(), Value::Null);
     row_object.insert("rt_dose_summation_type".to_string(), Value::Null);
     row_object.insert("rt_dose_grid_scaling".to_string(), Value::Null);
+    row_object.insert("rt_structure_set_label".to_string(), Value::Null);
+    row_object.insert("rt_structure_set_roi_name".to_string(), Value::Null);
+    row_object.insert("rt_roi_generation_algorithm".to_string(), Value::Null);
+    row_object.insert("rt_contour_geometric_type".to_string(), Value::Null);
+    row_object.insert("rt_contour_points".to_string(), Value::Null);
+    row_object.insert("rt_roi_interpreted_type".to_string(), Value::Null);
     row_object.insert("display_shutter_shape".to_string(), Value::Null);
     row_object.insert(
         "display_shutter_presentation_value".to_string(),
@@ -7719,6 +7803,12 @@ struct GroupedCoverage {
     rt_dose_types: BTreeMap<String, usize>,
     rt_dose_summation_types: BTreeMap<String, usize>,
     rt_dose_grid_scalings: BTreeMap<String, usize>,
+    rt_structure_set_labels: BTreeMap<String, usize>,
+    rt_structure_set_roi_names: BTreeMap<String, usize>,
+    rt_roi_generation_algorithms: BTreeMap<String, usize>,
+    rt_contour_geometric_types: BTreeMap<String, usize>,
+    rt_contour_points: BTreeMap<String, usize>,
+    rt_roi_interpreted_types: BTreeMap<String, usize>,
     modality_lut_descriptors: BTreeMap<String, usize>,
     modality_lut_types: BTreeMap<String, usize>,
     modality_lut_data_value_lengths: BTreeMap<String, usize>,
@@ -8122,6 +8212,30 @@ impl GroupedCoverage {
             row.get("rt_dose_grid_scaling").and_then(Value::as_str),
         );
         increment_map(
+            &mut self.rt_structure_set_labels,
+            row.get("rt_structure_set_label").and_then(Value::as_str),
+        );
+        increment_map(
+            &mut self.rt_structure_set_roi_names,
+            row.get("rt_structure_set_roi_name").and_then(Value::as_str),
+        );
+        increment_map(
+            &mut self.rt_roi_generation_algorithms,
+            row.get("rt_roi_generation_algorithm")
+                .and_then(Value::as_str),
+        );
+        increment_map(
+            &mut self.rt_contour_geometric_types,
+            row.get("rt_contour_geometric_type").and_then(Value::as_str),
+        );
+        if let Some(value) = row.get("rt_contour_points").and_then(Value::as_u64) {
+            *self.rt_contour_points.entry(value.to_string()).or_default() += 1;
+        }
+        increment_map(
+            &mut self.rt_roi_interpreted_types,
+            row.get("rt_roi_interpreted_type").and_then(Value::as_str),
+        );
+        increment_map(
             &mut self.modality_lut_descriptors,
             row.get("modality_lut_descriptor").and_then(Value::as_str),
         );
@@ -8476,6 +8590,36 @@ impl GroupedCoverage {
             "rt_dose_grid_scalings".to_string(),
             serde_json::to_value(&self.rt_dose_grid_scalings)
                 .expect("RT Dose Grid Scaling count map must serialize"),
+        );
+        grouped_object.insert(
+            "rt_structure_set_labels".to_string(),
+            serde_json::to_value(&self.rt_structure_set_labels)
+                .expect("RT Structure Set Label count map must serialize"),
+        );
+        grouped_object.insert(
+            "rt_structure_set_roi_names".to_string(),
+            serde_json::to_value(&self.rt_structure_set_roi_names)
+                .expect("RT Structure Set ROI Name count map must serialize"),
+        );
+        grouped_object.insert(
+            "rt_roi_generation_algorithms".to_string(),
+            serde_json::to_value(&self.rt_roi_generation_algorithms)
+                .expect("RT ROI Generation Algorithm count map must serialize"),
+        );
+        grouped_object.insert(
+            "rt_contour_geometric_types".to_string(),
+            serde_json::to_value(&self.rt_contour_geometric_types)
+                .expect("RT Contour Geometric Type count map must serialize"),
+        );
+        grouped_object.insert(
+            "rt_contour_points".to_string(),
+            serde_json::to_value(&self.rt_contour_points)
+                .expect("RT Contour Points count map must serialize"),
+        );
+        grouped_object.insert(
+            "rt_roi_interpreted_types".to_string(),
+            serde_json::to_value(&self.rt_roi_interpreted_types)
+                .expect("RT ROI Interpreted Type count map must serialize"),
         );
         grouped_object.insert(
             "modality_lut_descriptors".to_string(),

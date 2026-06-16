@@ -566,6 +566,12 @@ fn list_cases_command_shows_rle_lossless_as_implemented() {
     );
     assert!(
         stdout.contains(
+            "classic/sc/mono1_i16_multiframe_rle_lossless\timplemented\textended\t1.2.840.10008.5.1.4.1.1.7\t1.2.840.10008.1.2.5\t7/7 covered"
+        ),
+        "signed 16-bit MONOCHROME1 multi-frame RLE Lossless row must be listed as implemented"
+    );
+    assert!(
+        stdout.contains(
             "classic/sc/mono2_u8_odd_fragment_rle_lossless\timplemented\textended\t1.2.840.10008.5.1.4.1.1.7\t1.2.840.10008.1.2.5\t4/4 covered"
         ),
         "odd-fragment RLE Lossless row must be listed as implemented"

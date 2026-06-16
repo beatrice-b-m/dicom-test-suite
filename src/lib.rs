@@ -7551,6 +7551,12 @@ mod tests {
         );
         assert!(
             output.contains(
+                "classic/sc/mono1_i16_multiframe_rle_lossless\timplemented\textended\t1.2.840.10008.5.1.4.1.1.7\t1.2.840.10008.1.2.5\t7/7 covered"
+            ),
+            "list-cases output must show implemented signed MONOCHROME1 multi-frame RLE Lossless status"
+        );
+        assert!(
+            output.contains(
                 "classic/sc/mono2_u16_odd_3x3_rle_lossless\timplemented\textended\t1.2.840.10008.5.1.4.1.1.7\t1.2.840.10008.1.2.5\t6/6 covered"
             ),
             "list-cases output must show implemented odd 3x3 RLE Lossless status"

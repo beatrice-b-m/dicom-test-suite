@@ -774,6 +774,163 @@ fn htj2k_lossless_backend_decision_selects_openjph_external_command() {
 }
 
 #[test]
+fn legacy_jpeg_backend_decision_selects_dcmtk_spike_only() {
+    let decisions = read_json("transfer-syntax/backend-decisions.json");
+    let families = decisions
+        .get("codec_families")
+        .and_then(Value::as_array)
+        .expect("backend decisions must contain codec_families");
+    let legacy_jpeg = families
+        .iter()
+        .find(|family| family.get("family_id").and_then(Value::as_str) == Some("legacy_jpeg"))
+        .expect("legacy JPEG decision must exist");
+
+    assert_eq!(
+        legacy_jpeg.get("classification").and_then(Value::as_str),
+        Some("research_more"),
+        "legacy JPEG must not be promoted before a local encode/decode spike passes"
+    );
+    assert_eq!(
+        legacy_jpeg.get("selected_backend").and_then(Value::as_str),
+        Some("dcmtk_dcmcjpeg_external_command_spike")
+    );
+    assert_eq!(
+        legacy_jpeg.get("backend_kind").and_then(Value::as_str),
+        Some("external_command_spike")
+    );
+    assert_eq!(
+        legacy_jpeg.get("feature_gate"),
+        Some(&Value::Null),
+        "legacy JPEG should not claim a project feature gate before spike evidence exists"
+    );
+    assert_eq!(
+        legacy_jpeg
+            .pointer("/integration_mode/status")
+            .and_then(Value::as_str),
+        Some("spike_selected")
+    );
+    assert_eq!(
+        legacy_jpeg
+            .pointer("/integration_mode/command")
+            .and_then(Value::as_str),
+        Some("dcmcjpeg")
+    );
+    assert_eq!(
+        legacy_jpeg
+            .pointer("/integration_mode/preferred_first_uid")
+            .and_then(Value::as_str),
+        Some("1.2.840.10008.1.2.4.70"),
+        "the first legacy JPEG spike should target JPEG Lossless SV1"
+    );
+    assert_eq!(
+        legacy_jpeg.get("first_case_target").and_then(Value::as_str),
+        Some("classic/sc/mono2_u16_jpeg_lossless_sv1")
+    );
+    assert_eq!(
+        legacy_jpeg
+            .get("transfer_syntax_uids")
+            .and_then(Value::as_array)
+            .expect("legacy JPEG transfer syntax UID list should exist")
+            .iter()
+            .filter_map(Value::as_str)
+            .collect::<Vec<_>>(),
+        vec![
+            "1.2.840.10008.1.2.4.51",
+            "1.2.840.10008.1.2.4.57",
+            "1.2.840.10008.1.2.4.70"
+        ]
+    );
+
+    let candidates = legacy_jpeg
+        .get("candidate_backends")
+        .and_then(Value::as_array)
+        .expect("legacy JPEG decision should compare candidate backends");
+    let dcmtk = candidates
+        .iter()
+        .find(|candidate| candidate.get("name").and_then(Value::as_str) == Some("DCMTK dcmcjpeg"))
+        .expect("DCMTK dcmcjpeg candidate should be recorded");
+    assert_eq!(
+        dcmtk.get("status").and_then(Value::as_str),
+        Some("selected_spike_candidate")
+    );
+    assert_eq!(
+        dcmtk.get("backend_kind").and_then(Value::as_str),
+        Some("external_command")
+    );
+    assert!(
+        dcmtk
+            .get("license")
+            .and_then(Value::as_str)
+            .is_some_and(|license| license.contains("BSD-style")),
+        "DCMTK licensing evidence should stay compatible with optional local tooling"
+    );
+
+    let dicom_rs = candidates
+        .iter()
+        .find(|candidate| {
+            candidate.get("name").and_then(Value::as_str) == Some("Pinned DICOM-rs JPEG adapter")
+        })
+        .expect("DICOM-rs JPEG adapter candidate should be recorded");
+    assert_eq!(
+        dicom_rs.get("status").and_then(Value::as_str),
+        Some("decode_only_for_legacy_processes")
+    );
+
+    let blockers = legacy_jpeg
+        .get("blockers")
+        .and_then(Value::as_array)
+        .expect("legacy JPEG blockers should be recorded")
+        .iter()
+        .filter_map(Value::as_str)
+        .collect::<Vec<_>>();
+    assert!(
+        blockers
+            .iter()
+            .any(|blocker| blocker.contains("dcmcjpeg is not installed")),
+        "legacy JPEG should record the local DCMTK prerequisite"
+    );
+    assert!(
+        blockers
+            .iter()
+            .any(|blocker| blocker.contains("file-level wrapper design")),
+        "legacy JPEG should record the mismatch with the current frame-level codec architecture"
+    );
+
+    let evidence = legacy_jpeg
+        .get("evidence")
+        .and_then(Value::as_array)
+        .expect("legacy JPEG evidence should be recorded");
+    assert!(
+        evidence.iter().any(|item| {
+            item.get("source").and_then(Value::as_str) == Some("official-upstream-docs")
+                && item.get("url").and_then(Value::as_str)
+                    == Some("https://support.dcmtk.org/docs/dcmcjpeg.html")
+                && item
+                    .get("finding")
+                    .and_then(Value::as_str)
+                    .is_some_and(|finding| {
+                        finding.contains("JPEG Lossless SV1")
+                            && finding.contains("Basic Offset Table")
+                    })
+        }),
+        "legacy JPEG decision should cite the DCMTK dcmcjpeg command evidence"
+    );
+    assert!(
+        evidence.iter().any(|item| {
+            item.get("source").and_then(Value::as_str) == Some("local-environment")
+                && item
+                    .get("finding")
+                    .and_then(Value::as_str)
+                    .is_some_and(|finding| {
+                        finding.contains("does not have dcmcjpeg")
+                            && finding.contains("/opt/homebrew/bin/cjpeg")
+                    })
+        }),
+        "legacy JPEG decision should record why this slice stops before a spike"
+    );
+}
+
+#[test]
 fn codec_backend_decision_uids_are_known_to_capability_matrix_or_deferred() {
     let matrix = read_json("transfer-syntax/capability-matrix.json");
     let matrix_uids = matrix

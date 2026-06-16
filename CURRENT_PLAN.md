@@ -3,7 +3,7 @@
 **Last updated:** 2026-06-16
 **Active goal:** comprehensive compressed image codec generation support
 **Source specification:** `SYSTEM_SPEC.md` version 0.2.0
-**Planning status:** Phase 3 lossless baseline complete; JPEG 2000 transition selected
+**Planning status:** Phase 4 lossless baseline complete; Phase 5 legacy JPEG research started
 
 This document replaces the previous historical implementation plan and progress
 ledger. `SYSTEM_SPEC.md` remains the architecture and requirements source of
@@ -68,8 +68,10 @@ Initial target families:
 - JPEG XL Lossless and JPEG XL.
 - JPEG 2000 Lossless and Lossy.
 - HTJ2K Lossless, RPCL, and lossy variants where practical.
-- Legacy JPEG Extended 12-bit, JPEG Lossless, and JPEG Lossless SV1 if a
-  reliable encoder path is identified.
+- Legacy JPEG Extended 12-bit, JPEG Lossless, and JPEG Lossless SV1 have
+  DCMTK `dcmcjpeg` selected as the first external-command spike candidate, but
+  no project feature, local spike output, generation, validation, or capability
+  promotion has been added yet.
 - Deflated Image Frame Compression only if the selected transfer syntax and IOD
   choices are standards-appropriate.
 
@@ -312,8 +314,9 @@ Areas to solidify:
 
 ## Immediate Next Step
 
-Start the JPEG 2000 Lossless backend spike. Add the project `jpeg2000` feature
-and a focused codec test proving a tiny 16-bit MONOCHROME2 frame can be encoded
-through the selected `jpeg2k`/`openjp2` path to a DICOM-compatible raw J2K
-codestream and decoded exactly before any registry row or capability-matrix
+Install or expose DCMTK `dcmcjpeg`, then run a no-registry-promotion spike that
+compresses a tiny deterministic 16-bit MONOCHROME2 Secondary Capture source to
+JPEG Lossless SV1. The spike must validate decoded-frame hashes, metadata
+preservation, fragment layout, UID handling, runtime identity capture, and
+reproducibility before any project feature, registry row, or capability-matrix
 entry is promoted.

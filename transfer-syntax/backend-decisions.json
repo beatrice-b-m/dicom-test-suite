@@ -389,19 +389,74 @@
         "1.2.840.10008.1.2.4.57",
         "1.2.840.10008.1.2.4.70"
       ],
-      "selected_backend": "undecided_legacy_jpeg_candidate",
-      "backend_kind": "undecided",
+      "selected_backend": "dcmtk_dcmcjpeg_external_command_spike",
+      "backend_kind": "external_command_spike",
       "feature_gate": null,
       "determinism": "semantic_stable",
-      "first_case_target": null,
+      "first_case_target": "classic/sc/mono2_u16_jpeg_lossless_sv1",
+      "integration_mode": {
+        "status": "spike_selected",
+        "selected": "external_command",
+        "command": "dcmcjpeg",
+        "preferred_first_process": "JPEG Lossless SV1",
+        "preferred_first_uid": "1.2.840.10008.1.2.4.70",
+        "preferred_first_options": [
+          "--encode-lossless-sv1",
+          "--true-lossless",
+          "--fragment-per-frame",
+          "--offset-table-create",
+          "--uid-never"
+        ],
+        "reason": "DCMTK documents DICOM-level JPEG encoding for the legacy transfer syntaxes and can preserve DICOM file semantics during a spike before any project-owned codestream writer is attempted."
+      },
+      "candidate_backends": [
+        {
+          "name": "DCMTK dcmcjpeg",
+          "status": "selected_spike_candidate",
+          "backend_kind": "external_command",
+          "license": "BSD-style with bundled IJG JPEG notice",
+          "supports": [
+            "JPEG Extended Process 2/4",
+            "JPEG Lossless Process 14",
+            "JPEG Lossless Process 14 Selection Value 1"
+          ],
+          "risk": "The command rewrites a complete DICOM file, so the spike must prove project metadata preservation, deterministic UID handling, fragment layout control, and manifest identity capture."
+        },
+        {
+          "name": "Pinned DICOM-rs JPEG adapter",
+          "status": "decode_only_for_legacy_processes",
+          "backend_kind": "dicom_rs_feature",
+          "license": "MIT/Apache-2.0 transitive Rust crates",
+          "risk": "The pinned adapter exposes writer support only for JPEG Baseline; legacy JPEG descriptors pass encoder=false."
+        },
+        {
+          "name": "Generic cjpeg/libjpeg-turbo command",
+          "status": "rejected_for_first_spike",
+          "backend_kind": "external_command",
+          "license": "permissive",
+          "risk": "The available local cjpeg path is not DICOM-aware and does not provide the Process 14/SV1 DICOM transfer syntax coverage needed for the first legacy lossless case."
+        },
+        {
+          "name": "GDCM gdcmconv",
+          "status": "research_more",
+          "backend_kind": "external_command",
+          "license": "BSD-style",
+          "risk": "A local gdcmconv executable is not available in this environment; keep as a fallback candidate if DCMTK cannot be installed or produces unsuitable output."
+        }
+      ],
       "validation_strategy": [
-        "Select a backend only if it can produce DICOM-compatible JPEG Extended 12-bit or JPEG Lossless codestreams.",
-        "Treat each legacy JPEG transfer syntax as a separate feature gate once a backend is proven.",
-        "Require independent decode validation before changing registry status."
+        "Start with a JPEG Lossless SV1 Secondary Capture spike using DCMTK dcmcjpeg true-lossless mode.",
+        "Generate an uncompressed deterministic Part 10 source file, compress it through dcmcjpeg, then validate the resulting encapsulated Pixel Data through the pinned DICOM-rs JPEG decoder.",
+        "Compare decoded native frame hashes against the source frame and verify file meta SOP Class UID, SOP Instance UID, Synthetic Data, patient/study metadata, Basic Offset Table, and fragment layout semantics.",
+        "Run two identical dcmcjpeg executions and compare either byte identity or decoded-frame/manifest semantics before assigning a determinism class stronger than semantic_stable.",
+        "Treat JPEG Extended 12-bit, JPEG Lossless Process 14, and JPEG Lossless SV1 as separate feature gates once each process is proven."
       ],
       "blockers": [
-        "Reliable encoder backend is not identified.",
-        "Initial tiny case target is not selected."
+        "DCMTK dcmcjpeg is not installed in the current local environment, so no spike output has been produced.",
+        "Project codec architecture currently expects frame-level writers; the DCMTK path rewrites a complete DICOM file and needs an explicit file-level wrapper design.",
+        "Deterministic UID handling and metadata preservation have not been verified for dcmcjpeg options.",
+        "Independent decode validation and reproducibility evidence are not yet available.",
+        "No project feature gate should be added until the local spike passes."
       ],
       "evidence": [
         {
@@ -415,10 +470,35 @@
         {
           "source": "local-source",
           "path": "dicom-transfer-syntax-registry-0.9.1/src/entries.rs",
-          "finding": "Pinned DICOM-rs JPEG feature descriptors do not advertise encoder support for JPEG Extended 12-bit or JPEG Lossless transfer syntaxes."
+          "finding": "Pinned DICOM-rs JPEG feature descriptors create legacy JPEG transfer syntax values with encoder=false for JPEG Extended 12-bit, JPEG Lossless Process 14, and JPEG Lossless SV1."
+        },
+        {
+          "source": "local-source",
+          "path": "dicom-transfer-syntax-registry-0.9.1/src/lib.rs",
+          "finding": "Pinned DICOM-rs 0.9.1 documents JPEG Extended and JPEG Lossless transfer syntaxes as decode-capable under the jpeg feature but without encoding support."
+        },
+        {
+          "source": "official-upstream-docs",
+          "url": "https://support.dcmtk.org/docs/dcmcjpeg.html",
+          "finding": "DCMTK dcmcjpeg documents DICOM file compression to JPEG transfer syntaxes, including options for JPEG Lossless SV1, JPEG Lossless Process 14, JPEG Extended, true-lossless mode, one-fragment-per-frame output, Basic Offset Table creation, and UID preservation."
+        },
+        {
+          "source": "official-upstream-docs",
+          "url": "https://support.dcmtk.org/docs/mod_dcmjpeg.html",
+          "finding": "DCMTK dcmjpeg documents library-level codec registration for converting between uncompressed and JPEG-compressed DICOM representations, including a lossless JPEG SV1 example."
+        },
+        {
+          "source": "official-upstream-docs",
+          "url": "https://support.dcmtk.org/docs/file_copyright.html",
+          "finding": "DCMTK documents BSD-style redistribution terms for the toolkit and includes an adapted IJG JPEG toolkit notice for dcmjpeg."
+        },
+        {
+          "source": "local-environment",
+          "query": "command -v dcmcjpeg; command -v gdcmconv; command -v cjpeg",
+          "finding": "The current environment has /opt/homebrew/bin/cjpeg but does not have dcmcjpeg or gdcmconv on PATH, so the next slice needs the DCMTK command-line prerequisite before a spike can run."
         }
       ],
-      "next_action": "Research candidate external or FFI encoders before planning any implementation."
+      "next_action": "Install or expose DCMTK dcmcjpeg, then run a no-registry-promotion spike that compresses a tiny deterministic 16-bit MONOCHROME2 Secondary Capture source to JPEG Lossless SV1 and validates decoded-frame hashes plus metadata preservation."
     },
     {
       "family_id": "deflated_image_frame",

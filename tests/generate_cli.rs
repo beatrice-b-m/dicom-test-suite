@@ -1627,7 +1627,7 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\textended"));
-    let expected_extended_files = 70
+    let expected_extended_files = 71
         + if cfg!(feature = "deflate") { 2 } else { 0 }
         + if cfg!(feature = "jpeg") { 1 } else { 0 }
         + if cfg!(feature = "charls") { 1 } else { 0 }
@@ -2376,6 +2376,76 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
         validation_result_names(rle_mono1_u8_padding_file.pointer("/validation/internal"))
             .contains(&"rle_decoded_frame_hashes"),
         "MONOCHROME1 8-bit Pixel Padding RLE manifest should record decoded native frame hash validation"
+    );
+    let rle_u8_padding_multiframe_file = file_entry_by_case_id(
+        &manifest,
+        "classic/sc/mono2_u8_padding_multiframe_rle_lossless",
+    );
+    assert_eq!(
+        rle_u8_padding_multiframe_file
+            .pointer("/image/frames")
+            .and_then(Value::as_u64),
+        Some(2)
+    );
+    assert_eq!(
+        rle_u8_padding_multiframe_file
+            .pointer("/image/bits_allocated")
+            .and_then(Value::as_u64),
+        Some(8)
+    );
+    assert_eq!(
+        rle_u8_padding_multiframe_file
+            .pointer("/image/photometric_interpretation")
+            .and_then(Value::as_str),
+        Some("MONOCHROME2")
+    );
+    assert_eq!(
+        rle_u8_padding_multiframe_file.pointer("/recipe/recipe_parameters/pixel_padding/value"),
+        Some(&Value::from(0))
+    );
+    assert_eq!(
+        rle_u8_padding_multiframe_file
+            .pointer("/recipe/recipe_parameters/pixel_padding/range_limit"),
+        Some(&Value::from(0))
+    );
+    assert_eq!(
+        rle_u8_padding_multiframe_file
+            .pointer("/pixel_data/frame_count")
+            .and_then(Value::as_u64),
+        Some(2)
+    );
+    assert_eq!(
+        rle_u8_padding_multiframe_file
+            .pointer("/pixel_data/encapsulated_pixel_data/basic_offset_table/offset_count")
+            .and_then(Value::as_u64),
+        Some(2)
+    );
+    assert_eq!(
+        rle_u8_padding_multiframe_file
+            .pointer("/pixel_data/encapsulated_pixel_data/fragments_per_frame")
+            .and_then(Value::as_array)
+            .map(Vec::len),
+        Some(2)
+    );
+    assert!(
+        validation_result_names(rle_u8_padding_multiframe_file.pointer("/validation/internal"))
+            .contains(&"pixel_padding_value"),
+        "8-bit multi-frame Pixel Padding RLE manifest should record Pixel Padding Value validation"
+    );
+    assert!(
+        validation_result_names(rle_u8_padding_multiframe_file.pointer("/validation/internal"))
+            .contains(&"pixel_padding_range_limit"),
+        "8-bit multi-frame Pixel Padding RLE manifest should record Pixel Padding Range Limit validation"
+    );
+    assert!(
+        validation_result_names(rle_u8_padding_multiframe_file.pointer("/validation/internal"))
+            .contains(&"number_of_frames"),
+        "8-bit multi-frame Pixel Padding RLE manifest should validate Number of Frames"
+    );
+    assert!(
+        validation_result_names(rle_u8_padding_multiframe_file.pointer("/validation/internal"))
+            .contains(&"rle_decoded_frame_hashes"),
+        "8-bit multi-frame Pixel Padding RLE manifest should record decoded native frame hash validation"
     );
     let rle_padding_multiframe_file = file_entry_by_case_id(
         &manifest,
@@ -6758,7 +6828,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\tall"));
-    let expected_all_files = 92
+    let expected_all_files = 93
         + if cfg!(feature = "deflate") { 2 } else { 0 }
         + if cfg!(feature = "jpeg") { 1 } else { 0 }
         + if cfg!(feature = "charls") { 1 } else { 0 }
@@ -6811,6 +6881,10 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
     file_entry_by_case_id(&manifest, "classic/sc/mono2_u16_padding_rle_lossless");
     file_entry_by_case_id(&manifest, "classic/sc/mono2_u8_padding_rle_lossless");
     file_entry_by_case_id(&manifest, "classic/sc/mono1_u8_padding_rle_lossless");
+    file_entry_by_case_id(
+        &manifest,
+        "classic/sc/mono2_u8_padding_multiframe_rle_lossless",
+    );
     file_entry_by_case_id(
         &manifest,
         "classic/sc/mono2_u16_padding_multiframe_rle_lossless",

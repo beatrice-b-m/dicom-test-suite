@@ -174,6 +174,10 @@ fn registry_contains_initial_smoke_and_core_cases() {
         ("classic/sc/mono2_u8_padding_rle_lossless", "implemented"),
         ("classic/sc/mono1_u8_padding_rle_lossless", "implemented"),
         (
+            "classic/sc/mono2_u8_padding_multiframe_rle_lossless",
+            "implemented",
+        ),
+        (
             "classic/sc/mono2_u16_padding_multiframe_rle_lossless",
             "implemented",
         ),
@@ -2690,6 +2694,34 @@ fn rle_lossless_transfer_syntax_is_available_through_native_backend() {
     );
     assert_eq!(
         mono1_u8_padding_case
+            .get("standards_evidence")
+            .and_then(Value::as_array)
+            .map(Vec::len),
+        Some(9)
+    );
+
+    let u8_padding_multiframe_case = cases
+        .iter()
+        .find(|case| {
+            case.get("case_id").and_then(Value::as_str)
+                == Some("classic/sc/mono2_u8_padding_multiframe_rle_lossless")
+        })
+        .expect("registry must contain 8-bit multi-frame Pixel Padding RLE Lossless SC case");
+    assert_eq!(
+        u8_padding_multiframe_case
+            .get("status")
+            .and_then(Value::as_str),
+        Some("implemented")
+    );
+    assert_eq!(u8_padding_multiframe_case.get("skip"), Some(&Value::Null));
+    assert_eq!(
+        u8_padding_multiframe_case
+            .get("determinism")
+            .and_then(Value::as_str),
+        Some("byte_stable")
+    );
+    assert_eq!(
+        u8_padding_multiframe_case
             .get("standards_evidence")
             .and_then(Value::as_array)
             .map(Vec::len),

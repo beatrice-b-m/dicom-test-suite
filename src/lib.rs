@@ -5986,6 +5986,12 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
     append_count_map_section(
         &mut output,
         report,
+        "Synthetic Data",
+        "/grouped_coverage/synthetic_data",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
         "Known Stressors",
         "/grouped_coverage/known_stressors",
     );
@@ -6086,6 +6092,7 @@ fn generated_coverage_row(
         "validation_status": file.pointer("/validation/status").and_then(Value::as_str).unwrap_or("not_run"),
         "determinism": report_str(manifest_path, file, "/determinism", "determinism must be a string")?,
         "object_type": file.get("case_id").and_then(Value::as_str).and_then(|case_id| case_id.split('/').next()),
+        "synthetic_data": file.pointer("/expected_semantics/synthetic_data").and_then(Value::as_str),
         "known_stressors": file.get("known_stressors").cloned().unwrap_or_else(|| serde_json::json!([]))
     }))
 }
@@ -6182,6 +6189,7 @@ fn skipped_coverage_row(
         "validation_status": "unavailable",
         "determinism": registry_case.get("determinism").and_then(Value::as_str).unwrap_or("byte_stable"),
         "object_type": case_id.split('/').next(),
+        "synthetic_data": Value::Null,
         "known_stressors": []
     }))
 }
@@ -6255,6 +6263,7 @@ struct GroupedCoverage {
     geometries: BTreeMap<String, usize>,
     object_types: BTreeMap<String, usize>,
     derived_reference_states: BTreeMap<String, usize>,
+    synthetic_data: BTreeMap<String, usize>,
     known_stressors: BTreeMap<String, usize>,
 }
 
@@ -6342,6 +6351,10 @@ impl GroupedCoverage {
                     }
                 });
         increment_map(&mut self.derived_reference_states, derived_reference_state);
+        increment_map(
+            &mut self.synthetic_data,
+            row.get("synthetic_data").and_then(Value::as_str),
+        );
         if let Some(stressors) = row.get("known_stressors").and_then(Value::as_array) {
             for stressor in stressors {
                 increment_map(&mut self.known_stressors, stressor.as_str());
@@ -6370,6 +6383,7 @@ impl GroupedCoverage {
             "geometries": self.geometries,
             "object_types": self.object_types,
             "derived_reference_states": self.derived_reference_states,
+            "synthetic_data": self.synthetic_data,
             "known_stressors": self.known_stressors
         })
     }

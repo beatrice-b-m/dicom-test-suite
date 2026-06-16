@@ -1401,6 +1401,9 @@ fn report_summarizes_compressed_codec_coverage() {
                     "status": "passed"
                 },
                 "determinism": "byte_stable",
+                "expected_semantics": {
+                    "synthetic_data": "YES"
+                },
                 "references": [
                     {
                         "source_case_id": "classic/sc/mono2_u8_explicit_le"
@@ -1443,6 +1446,10 @@ fn report_summarizes_compressed_codec_coverage() {
     assert_eq!(
         generated.get("object_type").and_then(Value::as_str),
         Some("classic")
+    );
+    assert_eq!(
+        generated.get("synthetic_data").and_then(Value::as_str),
+        Some("YES")
     );
     assert_eq!(
         report
@@ -1530,6 +1537,12 @@ fn report_summarizes_compressed_codec_coverage() {
     );
     assert_eq!(
         report
+            .pointer("/grouped_coverage/synthetic_data/YES")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
             .pointer("/grouped_coverage/modalities/OT")
             .and_then(Value::as_u64),
         Some(2)
@@ -1595,6 +1608,8 @@ fn report_summarizes_compressed_codec_coverage() {
     assert!(markdown.contains("### Derived Reference States"));
     assert!(markdown.contains("| with_source_reference | 1 |"));
     assert!(markdown.contains("| without_source_reference | 1 |"));
+    assert!(markdown.contains("### Synthetic Data"));
+    assert!(markdown.contains("| YES | 1 |"));
     assert!(markdown.contains("### Known Stressors"));
     assert!(markdown.contains("| compressed_pixel_data | 1 |"));
 

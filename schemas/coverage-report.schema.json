@@ -89,6 +89,9 @@
         "derived_reference_states": {
           "$ref": "#/$defs/count_map"
         },
+        "synthetic_data": {
+          "$ref": "#/$defs/count_map"
+        },
         "known_stressors": {
           "$ref": "#/$defs/count_map"
         }
@@ -193,7 +196,8 @@
         "derived_refs",
         "validation_status",
         "determinism",
-        "object_type"
+        "object_type",
+        "synthetic_data"
       ],
       "properties": {
         "case_id": {
@@ -280,6 +284,9 @@
           "$ref": "#/$defs/determinism"
         },
         "object_type": {
+          "type": ["string", "null"]
+        },
+        "synthetic_data": {
           "type": ["string", "null"]
         },
         "known_stressors": {

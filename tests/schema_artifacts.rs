@@ -253,6 +253,7 @@ fn coverage_report_schema_requires_the_specified_matrix_fields() {
         "validation_status",
         "determinism",
         "object_type",
+        "synthetic_data",
     ] {
         assert!(
             required.iter().any(|value| value.as_str() == Some(field)),
@@ -293,6 +294,7 @@ fn coverage_report_schema_requires_the_specified_matrix_fields() {
         "geometries",
         "object_types",
         "derived_reference_states",
+        "synthetic_data",
     ] {
         assert!(
             schema

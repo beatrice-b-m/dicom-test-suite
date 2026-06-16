@@ -7611,6 +7611,12 @@ mod tests {
         );
         assert!(
             output.contains(
+                "classic/sc/ybr_full_planar1_multiframe_rle_lossless\timplemented\textended\t1.2.840.10008.5.1.4.1.1.7\t1.2.840.10008.1.2.5\t6/6 covered"
+            ),
+            "list-cases output must show implemented YBR_FULL planar-1 multi-frame RLE Lossless status"
+        );
+        assert!(
+            output.contains(
                 "classic/sc/palette_color_u8_rle_lossless\timplemented\textended\t1.2.840.10008.5.1.4.1.1.7\t1.2.840.10008.1.2.5\t11/11 covered"
             ),
             "list-cases output must show implemented PALETTE COLOR RLE Lossless status"

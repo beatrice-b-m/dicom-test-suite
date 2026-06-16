@@ -1627,7 +1627,7 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\textended"));
-    let expected_extended_files = 46
+    let expected_extended_files = 47
         + if cfg!(feature = "deflate") { 2 } else { 0 }
         + if cfg!(feature = "jpeg") { 1 } else { 0 }
         + if cfg!(feature = "charls") { 1 } else { 0 }
@@ -2346,6 +2346,61 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
         validation_result_names(rle_ybr_multiframe_file.pointer("/validation/internal"))
             .contains(&"rle_decoded_frame_hashes"),
         "YBR_FULL multi-frame RLE manifest should record decoded native frame hash validation"
+    );
+    let rle_ybr_planar1_multiframe_file = file_entry_by_case_id(
+        &manifest,
+        "classic/sc/ybr_full_planar1_multiframe_rle_lossless",
+    );
+    assert_eq!(
+        rle_ybr_planar1_multiframe_file
+            .pointer("/image/photometric_interpretation")
+            .and_then(Value::as_str),
+        Some("YBR_FULL")
+    );
+    assert_eq!(
+        rle_ybr_planar1_multiframe_file
+            .pointer("/image/frames")
+            .and_then(Value::as_u64),
+        Some(2)
+    );
+    assert_eq!(
+        rle_ybr_planar1_multiframe_file
+            .pointer("/image/planar_configuration")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        rle_ybr_planar1_multiframe_file
+            .pointer("/pixel_data/frame_hashes")
+            .and_then(Value::as_array)
+            .map(Vec::len),
+        Some(2)
+    );
+    assert_eq!(
+        rle_ybr_planar1_multiframe_file
+            .pointer("/pixel_data/encapsulated_pixel_data/basic_offset_table/offset_count")
+            .and_then(Value::as_u64),
+        Some(2)
+    );
+    assert_eq!(
+        rle_ybr_planar1_multiframe_file
+            .pointer("/pixel_data/codec/backend_id")
+            .and_then(Value::as_str),
+        Some("native_project_rle_encoder")
+    );
+    assert!(
+        rle_ybr_planar1_multiframe_file
+            .pointer("/known_stressors")
+            .and_then(Value::as_array)
+            .expect("YBR_FULL planar-1 multi-frame RLE manifest should include known stressors")
+            .iter()
+            .any(|stressor| stressor.as_str() == Some("ybr_full_pixels")),
+        "YBR_FULL planar-1 multi-frame RLE case should label YBR_FULL pixels as a stressor"
+    );
+    assert!(
+        validation_result_names(rle_ybr_planar1_multiframe_file.pointer("/validation/internal"))
+            .contains(&"rle_decoded_frame_hashes"),
+        "YBR_FULL planar-1 multi-frame RLE manifest should record decoded native frame hash validation"
     );
     let rle_palette_file =
         file_entry_by_case_id(&manifest, "classic/sc/palette_color_u8_rle_lossless");
@@ -5693,7 +5748,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\tall"));
-    let expected_all_files = 68
+    let expected_all_files = 69
         + if cfg!(feature = "deflate") { 2 } else { 0 }
         + if cfg!(feature = "jpeg") { 1 } else { 0 }
         + if cfg!(feature = "charls") { 1 } else { 0 }
@@ -5749,6 +5804,10 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
         "classic/sc/ybr_full_planar0_multiframe_rle_lossless",
     );
     file_entry_by_case_id(&manifest, "classic/sc/ybr_full_planar1_rle_lossless");
+    file_entry_by_case_id(
+        &manifest,
+        "classic/sc/ybr_full_planar1_multiframe_rle_lossless",
+    );
     file_entry_by_case_id(&manifest, "classic/sc/palette_color_u8_rle_lossless");
     file_entry_by_case_id(&manifest, "classic/sc/mono2_u8_multiframe_rle_lossless");
     file_entry_by_case_id(&manifest, "classic/sc/mono2_u16_multiframe_rle_lossless");

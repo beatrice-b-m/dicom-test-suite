@@ -180,6 +180,10 @@ fn registry_contains_initial_smoke_and_core_cases() {
             "implemented",
         ),
         ("classic/sc/ybr_full_planar1_rle_lossless", "implemented"),
+        (
+            "classic/sc/ybr_full_planar1_multiframe_rle_lossless",
+            "implemented",
+        ),
         ("classic/sc/palette_color_u8_rle_lossless", "implemented"),
         ("classic/sc/mono2_u8_multiframe_rle_lossless", "implemented"),
         (
@@ -2442,6 +2446,27 @@ fn rle_lossless_transfer_syntax_is_available_through_native_backend() {
     assert_eq!(ybr_multiframe_case.get("skip"), Some(&Value::Null));
     assert_eq!(
         ybr_multiframe_case
+            .get("determinism")
+            .and_then(Value::as_str),
+        Some("byte_stable")
+    );
+
+    let ybr_planar1_multiframe_case = cases
+        .iter()
+        .find(|case| {
+            case.get("case_id").and_then(Value::as_str)
+                == Some("classic/sc/ybr_full_planar1_multiframe_rle_lossless")
+        })
+        .expect("registry must contain YBR_FULL planar-1 multi-frame RLE Lossless SC case");
+    assert_eq!(
+        ybr_planar1_multiframe_case
+            .get("status")
+            .and_then(Value::as_str),
+        Some("implemented")
+    );
+    assert_eq!(ybr_planar1_multiframe_case.get("skip"), Some(&Value::Null));
+    assert_eq!(
+        ybr_planar1_multiframe_case
             .get("determinism")
             .and_then(Value::as_str),
         Some("byte_stable")

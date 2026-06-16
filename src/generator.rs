@@ -242,6 +242,14 @@ const YBR_FULL_PLANAR0_MULTIFRAME_VALUES: [i32; 24] = [
     0, 128, 128,
 ];
 const YBR_FULL_PLANAR1_PIXELS: [u8; 12] = [76, 150, 29, 255, 85, 44, 255, 128, 255, 21, 107, 128];
+const YBR_FULL_PLANAR1_MULTIFRAME_PIXELS: [u8; 24] = [
+    76, 150, 29, 255, 85, 44, 255, 128, 255, 21, 107, 128, 179, 105, 226, 0, 171, 212, 1, 128, 1,
+    235, 149, 128,
+];
+const YBR_FULL_PLANAR1_MULTIFRAME_VALUES: [i32; 24] = [
+    76, 150, 29, 255, 85, 44, 255, 128, 255, 21, 107, 128, 179, 105, 226, 0, 171, 212, 1, 128, 1,
+    235, 149, 128,
+];
 const YBR_FULL_422_PIXELS: [u8; 8] = [76, 150, 65, 138, 29, 255, 192, 118];
 const PALETTE_COLOR_PIXELS: [u8; 4] = [0, 1, 2, 3];
 const PALETTE_COLOR_VALUES: [i32; 4] = [0, 1, 2, 3];
@@ -893,6 +901,29 @@ const PIXEL_RECIPES: &[PixelRecipe] = &[
         pixel_max: 255,
         visual_pattern: "2x2_ybr_full_planar1_rle_lossless_red_green_blue_white",
         semantic_note: "YBR_FULL samples remain color-by-plane after RLE Lossless decode",
+        palette: None,
+        padding: None,
+    },
+    PixelRecipe {
+        case_id: "classic/sc/ybr_full_planar1_multiframe_rle_lossless",
+        recipe_id: "sc_ybr_full_planar1_multiframe_rle_lossless",
+        rows: 2,
+        columns: 2,
+        photometric_interpretation: "YBR_FULL",
+        samples_per_pixel: 3,
+        planar_configuration: Some(1),
+        bits_allocated: 8,
+        bits_stored: 8,
+        high_bit: 7,
+        pixel_representation: 0,
+        pixel_vr: VR::OB,
+        transfer_syntax: RLE_LOSSLESS,
+        pixel_bytes: &YBR_FULL_PLANAR1_MULTIFRAME_PIXELS,
+        pixel_values: &YBR_FULL_PLANAR1_MULTIFRAME_VALUES,
+        pixel_min: 0,
+        pixel_max: 255,
+        visual_pattern: "2x2x2_ybr_full_planar1_rle_lossless_primary_secondary",
+        semantic_note: "two YBR_FULL planar-configuration-1 frames decode from separate RLE Lossless fragments",
         palette: None,
         padding: None,
     },
@@ -4802,6 +4833,7 @@ fn pixel_profile_membership(recipe: PixelRecipe) -> &'static [&'static str] {
         | "classic/sc/ybr_full_planar0_rle_lossless"
         | "classic/sc/ybr_full_planar0_multiframe_rle_lossless"
         | "classic/sc/ybr_full_planar1_rle_lossless"
+        | "classic/sc/ybr_full_planar1_multiframe_rle_lossless"
         | "classic/sc/palette_color_u8_rle_lossless"
         | "classic/sc/mono2_u16_multiframe_rle_lossless"
         | "classic/sc/mono2_u8_odd_fragment_rle_lossless"

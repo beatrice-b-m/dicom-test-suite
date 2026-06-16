@@ -6413,6 +6413,48 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
     append_count_map_section(
         &mut output,
         report,
+        "SR Completion Flags",
+        "/grouped_coverage/sr_completion_flags",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "SR Verification Flags",
+        "/grouped_coverage/sr_verification_flags",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "SR Root Value Types",
+        "/grouped_coverage/sr_root_value_types",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "SR Root Continuity Of Content",
+        "/grouped_coverage/sr_root_continuity_of_content",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "SR Content Sequence Item Counts",
+        "/grouped_coverage/sr_content_sequence_item_counts",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "SR Observation Texts",
+        "/grouped_coverage/sr_observation_texts",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "SR Measurement Numeric Values",
+        "/grouped_coverage/sr_measurement_numeric_values",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
         "Modality LUT Descriptors",
         "/grouped_coverage/modality_lut_descriptors",
     );
@@ -7051,6 +7093,55 @@ fn generated_coverage_row(
             .unwrap_or(Value::Null),
     );
     row_object.insert(
+        "sr_completion_flag".to_string(),
+        file.pointer("/expected_semantics/structured_report/completion_flag")
+            .and_then(Value::as_str)
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
+    row_object.insert(
+        "sr_verification_flag".to_string(),
+        file.pointer("/expected_semantics/structured_report/verification_flag")
+            .and_then(Value::as_str)
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
+    row_object.insert(
+        "sr_root_value_type".to_string(),
+        file.pointer("/expected_semantics/structured_report/root_value_type")
+            .and_then(Value::as_str)
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
+    row_object.insert(
+        "sr_root_continuity_of_content".to_string(),
+        file.pointer("/expected_semantics/structured_report/root_continuity_of_content")
+            .and_then(Value::as_str)
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
+    row_object.insert(
+        "sr_content_sequence_items".to_string(),
+        file.pointer("/expected_semantics/structured_report/content_sequence_items")
+            .and_then(Value::as_u64)
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
+    row_object.insert(
+        "sr_observation_text".to_string(),
+        file.pointer("/expected_semantics/structured_report/observation_text")
+            .and_then(Value::as_str)
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
+    row_object.insert(
+        "sr_measurement_numeric_value".to_string(),
+        file.pointer("/expected_semantics/structured_report/measurement/numeric_value")
+            .and_then(Value::as_str)
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
+    row_object.insert(
         "display_shutter_shape".to_string(),
         report_display_shutter_shape(file)
             .map(Value::from)
@@ -7657,6 +7748,13 @@ fn skipped_coverage_row(
     row_object.insert("encapsulated_document_title".to_string(), Value::Null);
     row_object.insert("encapsulated_document_mime_type".to_string(), Value::Null);
     row_object.insert("encapsulated_document_length".to_string(), Value::Null);
+    row_object.insert("sr_completion_flag".to_string(), Value::Null);
+    row_object.insert("sr_verification_flag".to_string(), Value::Null);
+    row_object.insert("sr_root_value_type".to_string(), Value::Null);
+    row_object.insert("sr_root_continuity_of_content".to_string(), Value::Null);
+    row_object.insert("sr_content_sequence_items".to_string(), Value::Null);
+    row_object.insert("sr_observation_text".to_string(), Value::Null);
+    row_object.insert("sr_measurement_numeric_value".to_string(), Value::Null);
     row_object.insert("display_shutter_shape".to_string(), Value::Null);
     row_object.insert(
         "display_shutter_presentation_value".to_string(),
@@ -7890,6 +7988,13 @@ struct GroupedCoverage {
     encapsulated_document_titles: BTreeMap<String, usize>,
     encapsulated_document_mime_types: BTreeMap<String, usize>,
     encapsulated_document_lengths: BTreeMap<String, usize>,
+    sr_completion_flags: BTreeMap<String, usize>,
+    sr_verification_flags: BTreeMap<String, usize>,
+    sr_root_value_types: BTreeMap<String, usize>,
+    sr_root_continuity_of_content: BTreeMap<String, usize>,
+    sr_content_sequence_item_counts: BTreeMap<String, usize>,
+    sr_observation_texts: BTreeMap<String, usize>,
+    sr_measurement_numeric_values: BTreeMap<String, usize>,
     modality_lut_descriptors: BTreeMap<String, usize>,
     modality_lut_types: BTreeMap<String, usize>,
     modality_lut_data_value_lengths: BTreeMap<String, usize>,
@@ -8346,6 +8451,38 @@ impl GroupedCoverage {
                 .or_default() += 1;
         }
         increment_map(
+            &mut self.sr_completion_flags,
+            row.get("sr_completion_flag").and_then(Value::as_str),
+        );
+        increment_map(
+            &mut self.sr_verification_flags,
+            row.get("sr_verification_flag").and_then(Value::as_str),
+        );
+        increment_map(
+            &mut self.sr_root_value_types,
+            row.get("sr_root_value_type").and_then(Value::as_str),
+        );
+        increment_map(
+            &mut self.sr_root_continuity_of_content,
+            row.get("sr_root_continuity_of_content")
+                .and_then(Value::as_str),
+        );
+        if let Some(count) = row.get("sr_content_sequence_items").and_then(Value::as_u64) {
+            *self
+                .sr_content_sequence_item_counts
+                .entry(count.to_string())
+                .or_default() += 1;
+        }
+        increment_map(
+            &mut self.sr_observation_texts,
+            row.get("sr_observation_text").and_then(Value::as_str),
+        );
+        increment_map(
+            &mut self.sr_measurement_numeric_values,
+            row.get("sr_measurement_numeric_value")
+                .and_then(Value::as_str),
+        );
+        increment_map(
             &mut self.modality_lut_descriptors,
             row.get("modality_lut_descriptor").and_then(Value::as_str),
         );
@@ -8756,6 +8893,41 @@ impl GroupedCoverage {
             "encapsulated_document_lengths".to_string(),
             serde_json::to_value(&self.encapsulated_document_lengths)
                 .expect("encapsulated document length count map must serialize"),
+        );
+        grouped_object.insert(
+            "sr_completion_flags".to_string(),
+            serde_json::to_value(&self.sr_completion_flags)
+                .expect("SR Completion Flag count map must serialize"),
+        );
+        grouped_object.insert(
+            "sr_verification_flags".to_string(),
+            serde_json::to_value(&self.sr_verification_flags)
+                .expect("SR Verification Flag count map must serialize"),
+        );
+        grouped_object.insert(
+            "sr_root_value_types".to_string(),
+            serde_json::to_value(&self.sr_root_value_types)
+                .expect("SR root Value Type count map must serialize"),
+        );
+        grouped_object.insert(
+            "sr_root_continuity_of_content".to_string(),
+            serde_json::to_value(&self.sr_root_continuity_of_content)
+                .expect("SR root Continuity of Content count map must serialize"),
+        );
+        grouped_object.insert(
+            "sr_content_sequence_item_counts".to_string(),
+            serde_json::to_value(&self.sr_content_sequence_item_counts)
+                .expect("SR Content Sequence item count map must serialize"),
+        );
+        grouped_object.insert(
+            "sr_observation_texts".to_string(),
+            serde_json::to_value(&self.sr_observation_texts)
+                .expect("SR observation text count map must serialize"),
+        );
+        grouped_object.insert(
+            "sr_measurement_numeric_values".to_string(),
+            serde_json::to_value(&self.sr_measurement_numeric_values)
+                .expect("SR measurement numeric value count map must serialize"),
         );
         grouped_object.insert(
             "modality_lut_descriptors".to_string(),

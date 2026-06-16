@@ -1485,6 +1485,187 @@ fn report_command_writes_encapsulated_document_content_coverage_for_extended_roo
 }
 
 #[test]
+fn report_command_writes_structured_report_content_coverage_for_extended_root() {
+    let out_dir = unique_temp_dir("report-structured-report-content-json");
+    generate_extended(&out_dir);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args([
+            "report",
+            out_dir.to_str().expect("temp path should be valid UTF-8"),
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("report command must run");
+
+    assert!(
+        output.status.success(),
+        "report should accept generated output: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let report: Value =
+        serde_json::from_slice(&output.stdout).expect("report stdout should be JSON");
+    let basic_text_row = coverage_row(&report, "derived/sr/basic_text_observation_explicit_le");
+    assert_eq!(
+        basic_text_row
+            .get("sr_completion_flag")
+            .and_then(Value::as_str),
+        Some("COMPLETE")
+    );
+    assert_eq!(
+        basic_text_row
+            .get("sr_verification_flag")
+            .and_then(Value::as_str),
+        Some("UNVERIFIED")
+    );
+    assert_eq!(
+        basic_text_row
+            .get("sr_root_value_type")
+            .and_then(Value::as_str),
+        Some("CONTAINER")
+    );
+    assert_eq!(
+        basic_text_row
+            .get("sr_root_continuity_of_content")
+            .and_then(Value::as_str),
+        Some("SEPARATE")
+    );
+    assert_eq!(
+        basic_text_row
+            .get("sr_content_sequence_items")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        basic_text_row
+            .get("sr_observation_text")
+            .and_then(Value::as_str),
+        Some("Synthetic Basic Text SR observation for Enhanced CT source images.")
+    );
+    assert!(
+        basic_text_row
+            .get("sr_measurement_numeric_value")
+            .is_some_and(Value::is_null)
+    );
+
+    let comprehensive_row =
+        coverage_row(&report, "derived/sr/comprehensive_measurement_explicit_le");
+    assert_eq!(
+        comprehensive_row
+            .get("sr_content_sequence_items")
+            .and_then(Value::as_u64),
+        Some(2)
+    );
+    assert_eq!(
+        comprehensive_row
+            .get("sr_measurement_numeric_value")
+            .and_then(Value::as_str),
+        Some("12.5")
+    );
+    assert!(
+        comprehensive_row
+            .get("sr_observation_text")
+            .is_some_and(Value::is_null)
+    );
+
+    let kos_row = coverage_row(&report, "derived/sr/key_object_selection_explicit_le");
+    assert_eq!(
+        kos_row
+            .get("sr_content_sequence_items")
+            .and_then(Value::as_u64),
+        Some(2)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/sr_completion_flags/COMPLETE")
+            .and_then(Value::as_u64),
+        Some(3)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/sr_verification_flags/UNVERIFIED")
+            .and_then(Value::as_u64),
+        Some(3)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/sr_root_value_types/CONTAINER")
+            .and_then(Value::as_u64),
+        Some(3)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/sr_root_continuity_of_content/SEPARATE")
+            .and_then(Value::as_u64),
+        Some(3)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/sr_content_sequence_item_counts/1")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/sr_content_sequence_item_counts/2")
+            .and_then(Value::as_u64),
+        Some(2)
+    );
+    assert_eq!(
+        report
+            .pointer(
+                "/grouped_coverage/sr_observation_texts/Synthetic Basic Text SR observation for Enhanced CT source images."
+            )
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/sr_measurement_numeric_values/12.5")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+
+    let markdown_output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args([
+            "report",
+            out_dir.to_str().expect("temp path should be valid UTF-8"),
+            "--format",
+            "markdown",
+        ])
+        .output()
+        .expect("report markdown command must run");
+
+    assert!(
+        markdown_output.status.success(),
+        "markdown report should accept generated output: {}",
+        String::from_utf8_lossy(&markdown_output.stderr)
+    );
+    let markdown =
+        String::from_utf8(markdown_output.stdout).expect("markdown stdout should be UTF-8");
+    assert!(markdown.contains("### SR Completion Flags"));
+    assert!(markdown.contains("| COMPLETE | 3 |"));
+    assert!(markdown.contains("### SR Verification Flags"));
+    assert!(markdown.contains("| UNVERIFIED | 3 |"));
+    assert!(markdown.contains("### SR Root Value Types"));
+    assert!(markdown.contains("| CONTAINER | 3 |"));
+    assert!(markdown.contains("### SR Root Continuity Of Content"));
+    assert!(markdown.contains("| SEPARATE | 3 |"));
+    assert!(markdown.contains("### SR Content Sequence Item Counts"));
+    assert!(markdown.contains("| 2 | 2 |"));
+    assert!(markdown.contains("### SR Observation Texts"));
+    assert!(
+        markdown
+            .contains("| Synthetic Basic Text SR observation for Enhanced CT source images. | 1 |")
+    );
+    assert!(markdown.contains("### SR Measurement Numeric Values"));
+    assert!(markdown.contains("| 12.5 | 1 |"));
+
+    fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
+}
+
+#[test]
 fn report_command_writes_markdown_coverage_for_core_root() {
     let out_dir = unique_temp_dir("report-core-markdown");
     generate_core(&out_dir);

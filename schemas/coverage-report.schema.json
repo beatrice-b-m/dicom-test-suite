@@ -296,6 +296,27 @@
         "encapsulated_document_lengths": {
           "$ref": "#/$defs/count_map"
         },
+        "sr_completion_flags": {
+          "$ref": "#/$defs/count_map"
+        },
+        "sr_verification_flags": {
+          "$ref": "#/$defs/count_map"
+        },
+        "sr_root_value_types": {
+          "$ref": "#/$defs/count_map"
+        },
+        "sr_root_continuity_of_content": {
+          "$ref": "#/$defs/count_map"
+        },
+        "sr_content_sequence_item_counts": {
+          "$ref": "#/$defs/count_map"
+        },
+        "sr_observation_texts": {
+          "$ref": "#/$defs/count_map"
+        },
+        "sr_measurement_numeric_values": {
+          "$ref": "#/$defs/count_map"
+        },
         "modality_lut_descriptors": {
           "$ref": "#/$defs/count_map"
         },
@@ -533,6 +554,13 @@
         "encapsulated_document_title",
         "encapsulated_document_mime_type",
         "encapsulated_document_length",
+        "sr_completion_flag",
+        "sr_verification_flag",
+        "sr_root_value_type",
+        "sr_root_continuity_of_content",
+        "sr_content_sequence_items",
+        "sr_observation_text",
+        "sr_measurement_numeric_value",
         "modality_lut_descriptor",
         "modality_lut_type",
         "modality_lut_data_value_length",
@@ -885,6 +913,28 @@
         "encapsulated_document_length": {
           "type": ["integer", "null"],
           "minimum": 0
+        },
+        "sr_completion_flag": {
+          "type": ["string", "null"]
+        },
+        "sr_verification_flag": {
+          "type": ["string", "null"]
+        },
+        "sr_root_value_type": {
+          "type": ["string", "null"]
+        },
+        "sr_root_continuity_of_content": {
+          "type": ["string", "null"]
+        },
+        "sr_content_sequence_items": {
+          "type": ["integer", "null"],
+          "minimum": 0
+        },
+        "sr_observation_text": {
+          "type": ["string", "null"]
+        },
+        "sr_measurement_numeric_value": {
+          "type": ["string", "null"]
         },
         "modality_lut_descriptor": {
           "type": ["string", "null"]

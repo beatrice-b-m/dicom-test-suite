@@ -35,6 +35,9 @@
         "profiles": {
           "$ref": "#/$defs/count_map"
         },
+        "statuses": {
+          "$ref": "#/$defs/count_map"
+        },
         "iods": {
           "$ref": "#/$defs/count_map"
         },

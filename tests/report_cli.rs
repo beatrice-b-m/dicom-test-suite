@@ -1483,6 +1483,18 @@ fn report_summarizes_compressed_codec_coverage() {
     );
     assert_eq!(
         report
+            .pointer("/grouped_coverage/statuses/generated")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/statuses/unavailable")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
             .pointer("/grouped_coverage/frame_counts/1")
             .and_then(Value::as_u64),
         Some(1)
@@ -1546,6 +1558,9 @@ fn report_summarizes_compressed_codec_coverage() {
     assert!(markdown.contains("| 1.2.840.10008.5.1.4.1.1.7 | 2 |"));
     assert!(markdown.contains("### Modalities"));
     assert!(markdown.contains("| OT | 2 |"));
+    assert!(markdown.contains("### Statuses"));
+    assert!(markdown.contains("| generated | 1 |"));
+    assert!(markdown.contains("| unavailable | 1 |"));
     assert!(markdown.contains("### Codec Backends"));
     assert!(markdown.contains("| native_rle_lossless | 1 |"));
     assert!(markdown.contains("### Codec Feature Gates"));

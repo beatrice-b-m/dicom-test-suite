@@ -5880,6 +5880,12 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
         "Profiles",
         "/grouped_coverage/profiles",
     );
+    append_count_map_section(
+        &mut output,
+        report,
+        "Statuses",
+        "/grouped_coverage/statuses",
+    );
     append_count_map_section(&mut output, report, "IODs", "/grouped_coverage/iods");
     append_count_map_section(
         &mut output,
@@ -6225,6 +6231,7 @@ struct CoverageCounts {
 #[derive(Default)]
 struct GroupedCoverage {
     profiles: BTreeMap<String, usize>,
+    statuses: BTreeMap<String, usize>,
     iods: BTreeMap<String, usize>,
     modalities: BTreeMap<String, usize>,
     sop_classes: BTreeMap<String, usize>,
@@ -6249,6 +6256,10 @@ impl GroupedCoverage {
         increment_map(
             &mut self.profiles,
             row.get("profile").and_then(Value::as_str),
+        );
+        increment_map(
+            &mut self.statuses,
+            row.get("status").and_then(Value::as_str),
         );
         increment_map(&mut self.iods, row.get("iod").and_then(Value::as_str));
         increment_map(
@@ -6323,6 +6334,7 @@ impl GroupedCoverage {
     fn to_json(&self) -> Value {
         serde_json::json!({
             "profiles": self.profiles,
+            "statuses": self.statuses,
             "iods": self.iods,
             "modalities": self.modalities,
             "sop_classes": self.sop_classes,

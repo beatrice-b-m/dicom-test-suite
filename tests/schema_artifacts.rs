@@ -274,6 +274,7 @@ fn coverage_report_schema_requires_the_specified_matrix_fields() {
 
     for grouped_field in [
         "profiles",
+        "statuses",
         "iods",
         "sop_classes",
         "modalities",

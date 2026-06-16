@@ -528,19 +528,22 @@
     },
     {
       "family_id": "deflated_image_frame",
-      "classification": "defer",
+      "classification": "implement_now",
       "transfer_syntax_uids": ["1.2.840.10008.1.2.8.1"],
-      "selected_backend": "none",
-      "backend_kind": "undecided",
-      "feature_gate": null,
-      "determinism": "unsupported",
-      "first_case_target": null,
+      "selected_backend": "dicom_rs_deflated_image_frame_adapter",
+      "backend_kind": "dicom_rs_feature",
+      "feature_gate": "deflate",
+      "determinism": "byte_stable",
+      "first_case_target": "derived/seg/binary_multiframe_deflated_image_frame",
       "validation_strategy": [
-        "Resolve standards and IOD suitability before selecting a backend.",
+        "Use the project deflate feature to expose the pinned DICOM-rs Deflated Image Frame pixel-data writer and reader.",
+        "Clone the existing binary Segmentation multi-frame source shape because PS3.5 identifies bilevel Segmentation images as one application of Deflated Image Frame Compression.",
+        "Encode each frame as exactly one encapsulated fragment and preserve one-fragment-per-frame validation for multi-frame output.",
+        "Validate exact decoded native frame hashes and record byte-stable reproducibility evidence before promoting the capability-matrix entry to feature_gated.",
         "Keep distinct from Deflated Explicit VR Little Endian dataset compression."
       ],
       "blockers": [
-        "Standards suitability and first IOD target are unresolved."
+        "Generated Segmentation case, CLI validation, report coverage, and reproducibility evidence are not implemented yet."
       ],
       "evidence": [
         {
@@ -550,9 +553,41 @@
           "covered": true,
           "part": "PS3.6",
           "anchor": "table_A-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "retrieve_standard_text PS3.5 sect_8.2.16",
+          "covered": true,
+          "part": "PS3.5",
+          "anchor": "sect_8.2.16",
+          "finding": "Deflated Image Frame Compression applies only to Pixel Data, is distinct from Deflated Explicit VR Little Endian dataset compression, has no Pixel Data Related Attribute value restrictions, and identifies bilevel Segmentation images as one application."
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "retrieve_standard_text PS3.5 sect_A.4.13",
+          "covered": true,
+          "part": "PS3.5",
+          "anchor": "sect_A.4.13",
+          "finding": "The transfer syntax uses UID 1.2.840.10008.1.2.8.1, compresses each frame separately, requires one and only one fragment per frame, and pads odd deflated streams with a trailing NULL byte."
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_sop_class 'Segmentation Storage'; lookup_iod Segmentation",
+          "covered": true,
+          "part": "PS3.3/PS3.4",
+          "anchor": "table_A.51-1; table_B.5-1",
+          "finding": "Segmentation Storage UID 1.2.840.10008.5.1.4.1.1.66.4 maps to the Segmentation IOD, making the existing binary Segmentation recipe family the first standards-aligned target."
+        },
+        {
+          "source": "local-source",
+          "path": "dicom-transfer-syntax-registry-0.9.1/src/adapters/deflated.rs",
+          "finding": "Pinned DICOM-rs provides a DeflatedImageFrameAdapter behind the deflate feature that encodes frame slices with flate2, pads odd fragment lengths, and decodes each fragment independently."
         }
       ],
-      "next_action": "Add a standards note only if a future phase proposes a concrete Deflated Image Frame recipe."
+      "next_action": "Implement the feature-gated derived/seg/binary_multiframe_deflated_image_frame case with one fragment per frame, exact decoded-frame validation, report coverage, and reproducibility evidence."
     }
   ]
 }

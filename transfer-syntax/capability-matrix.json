@@ -306,6 +306,39 @@
       ]
     },
     {
+      "uid": "1.2.840.10008.1.2.8.1",
+      "keyword": "DeflatedImageFrameCompression",
+      "name": "Deflated Image Frame Compression",
+      "profiles": ["extended"],
+      "status": "unavailable",
+      "read_dataset": true,
+      "decode_pixel": false,
+      "write_dataset": true,
+      "encode_pixel": false,
+      "feature_flags": ["deflate"],
+      "external_libraries": [],
+      "determinism": "byte_stable",
+      "notes": "Selected for the next feature-gated implementation through the pinned DICOM-rs Deflated Image Frame adapter, but kept unavailable until a generated binary Segmentation case proves one-fragment-per-frame encapsulation, exact decoded-frame validation, report coverage, and reproducibility.",
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_uid DeflatedImageFrameCompression",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "retrieve_standard_text PS3.5 sect_8.2.16; retrieve_standard_text PS3.5 sect_A.4.13",
+          "covered": true,
+          "part": "PS3.5",
+          "anchor": "sect_8.2.16; sect_A.4.13"
+        }
+      ]
+    },
+    {
       "uid": "1.2.840.10008.1.2.5",
       "keyword": "RLELossless",
       "name": "RLE Lossless",

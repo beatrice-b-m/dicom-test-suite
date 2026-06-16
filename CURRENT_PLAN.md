@@ -3,7 +3,7 @@
 **Last updated:** 2026-06-16
 **Active goal:** comprehensive compressed image codec generation support
 **Source specification:** `SYSTEM_SPEC.md` version 0.2.0
-**Planning status:** Phase 4 lossless baseline complete; Phase 5 JPEG Lossless Process 14 generated case complete; JPEG Extended 12-bit validation blocked
+**Planning status:** Phase 4 lossless baseline complete; Phase 5 JPEG Lossless Process 14 generated case complete; JPEG Extended 12-bit validation blocked; Deflated Image Frame Segmentation target selected
 
 This document replaces the previous historical implementation plan and progress
 ledger. `SYSTEM_SPEC.md` remains the architecture and requirements source of
@@ -43,9 +43,14 @@ generation:
   external-command wrapper, a feature-gated generated Secondary Capture case,
   validation, reporting, and reproducibility evidence. HTJ2K lossy/RPCL
   variants remain deferred.
-- JPEG XL lossy, JPEG 2000 lossy, HTJ2K lossy/RPCL, and Deflated Image Frame
-  Compression remain unavailable until their backend and standards decisions
-  are resolved and proven.
+- JPEG XL lossy, JPEG 2000 lossy, and HTJ2K lossy/RPCL remain unavailable
+  until their backend and standards decisions are resolved and proven.
+- Deflated Image Frame Compression has an implement-now decision through the
+  project `deflate` feature and pinned DICOM-rs adapter. The first target is a
+  binary Segmentation multi-frame case because PS3.5 identifies bilevel
+  Segmentation images as one standards-aligned application; capability-matrix
+  encode/decode promotion remains unavailable until generated-case validation,
+  report coverage, and reproducibility are implemented.
 - `dicom-rs` 0.9.1 provides the useful integration surface:
   `PixelDataReader`, `PixelDataWriter`, transfer syntax descriptors, and
   optional codec features. It does not currently provide verified writers for
@@ -79,8 +84,9 @@ Initial target families:
   validation, report coverage, and reproducibility evidence. JPEG Extended
   12-bit has DCMTK encode and reproducibility spike evidence, but generated-case
   promotion is blocked until a 12-bit decode/validation path is selected.
-- Deflated Image Frame Compression only if the selected transfer syntax and IOD
-  choices are standards-appropriate.
+- Deflated Image Frame Compression using the pinned DICOM-rs `deflate` adapter
+  for a first binary Segmentation multi-frame case, with one fragment per frame
+  and exact decoded-frame validation before promotion.
 
 Out of scope for this immediate goal:
 
@@ -260,16 +266,16 @@ Major work:
 - Add JPEG Extended 12-bit if a reliable encoder backend is selected.
 - Add JPEG Lossless and JPEG Lossless SV1 if a reliable encoder backend is
   selected.
-- Add Deflated Image Frame Compression only after standards and IOD suitability
-  are resolved.
+- Add Deflated Image Frame Compression for the selected binary Segmentation
+  target now that standards and IOD suitability are resolved.
 - Add additional case dimensions for multi-frame, odd compressed frame lengths,
   non-empty offset tables, and selected modality IODs.
 
 Areas to solidify:
 
 - Which tool or library is acceptable for legacy JPEG family encoding.
-- Whether Deflated Image Frame Compression belongs in this corpus now or should
-  remain deferred.
+- Which exact registry ID and source-pixel reuse path should be used for the
+  first binary Segmentation Deflated Image Frame generated case.
 - Which modality IODs are most valuable for compressed transfer syntax coverage
   beyond Secondary Capture.
 
@@ -321,6 +327,7 @@ Areas to solidify:
 
 ## Immediate Next Step
 
-Choose the next Phase 5 legacy/specialty slice: select and prove an independent
-JPEG Extended 12-bit validation path before generated-case promotion, or resolve
-Deflated Image Frame Compression standards/IOD suitability before implementation.
+Implement the feature-gated `derived/seg/binary_multiframe_deflated_image_frame`
+case with one fragment per frame, exact decoded-frame validation, report
+coverage, and reproducibility evidence. Keep JPEG Extended 12-bit blocked until
+an independent 12-bit validation path is selected.

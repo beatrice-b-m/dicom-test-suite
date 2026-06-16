@@ -364,7 +364,8 @@ fn codec_backend_decisions_track_enabled_low_risk_codecs() {
             "jpeg_xl",
             "jpeg_2000",
             "htj2k",
-            "legacy_jpeg"
+            "legacy_jpeg",
+            "deflated_image_frame"
         ],
         "enabled compressed codec families should be explicit"
     );
@@ -1175,6 +1176,131 @@ fn deflated_transfer_syntax_is_feature_gated_in_cargo_and_registry() {
     assert_eq!(
         case.get("determinism").and_then(Value::as_str),
         Some("byte_stable")
+    );
+}
+
+#[test]
+fn deflated_image_frame_decision_selects_segmentation_target_without_promotion() {
+    let cargo_toml = fs::read_to_string("Cargo.toml").expect("Cargo.toml must be readable");
+    assert!(
+        cargo_toml.contains("deflate = [")
+            && cargo_toml.contains("\"dicom-transfer-syntax-registry/deflate\""),
+        "project deflate feature should expose the pinned DICOM-rs deflated image frame adapter"
+    );
+
+    let matrix = read_json("transfer-syntax/capability-matrix.json");
+    let matrix_entries = matrix
+        .get("entries")
+        .and_then(Value::as_array)
+        .expect("transfer syntax matrix must contain entries");
+    let matrix_entry = matrix_entries
+        .iter()
+        .find(|entry| entry.get("uid").and_then(Value::as_str) == Some("1.2.840.10008.1.2.8.1"))
+        .expect("transfer syntax matrix must contain Deflated Image Frame Compression");
+    assert_eq!(
+        matrix_entry.get("keyword").and_then(Value::as_str),
+        Some("DeflatedImageFrameCompression")
+    );
+    assert_eq!(
+        matrix_entry.get("status").and_then(Value::as_str),
+        Some("unavailable"),
+        "Deflated Image Frame should not be capability-promoted before generated-case validation"
+    );
+    assert_eq!(
+        matrix_entry.get("decode_pixel").and_then(Value::as_bool),
+        Some(false),
+        "matrix should not claim Deflated Image Frame decode validation before CLI validation exists"
+    );
+    assert_eq!(
+        matrix_entry.get("encode_pixel").and_then(Value::as_bool),
+        Some(false),
+        "matrix should not claim Deflated Image Frame encode validation before corpus generation exists"
+    );
+    assert!(
+        matrix_entry
+            .get("feature_flags")
+            .and_then(Value::as_array)
+            .is_some_and(|features| features
+                .iter()
+                .any(|feature| feature.as_str() == Some("deflate"))),
+        "matrix should record the project deflate feature gate"
+    );
+
+    let transfer_syntax = TransferSyntaxRegistry
+        .get("1.2.840.10008.1.2.8.1")
+        .expect("DICOM-rs registry must expose Deflated Image Frame Compression");
+    assert!(
+        transfer_syntax.is_encapsulated_pixel_data(),
+        "Deflated Image Frame should use encapsulated Pixel Data"
+    );
+    if cfg!(feature = "deflate") {
+        assert!(
+            transfer_syntax.pixel_data_reader().is_some(),
+            "deflate feature builds should expose a runtime Deflated Image Frame decoder"
+        );
+        assert!(
+            transfer_syntax.pixel_data_writer().is_some(),
+            "deflate feature builds should expose a runtime Deflated Image Frame encoder"
+        );
+    }
+
+    let decisions = read_json("transfer-syntax/backend-decisions.json");
+    let deflated = decisions
+        .get("codec_families")
+        .and_then(Value::as_array)
+        .expect("backend decisions must contain codec_families")
+        .iter()
+        .find(|family| {
+            family.get("family_id").and_then(Value::as_str) == Some("deflated_image_frame")
+        })
+        .expect("Deflated Image Frame backend decision must exist");
+    assert_eq!(
+        deflated.get("classification").and_then(Value::as_str),
+        Some("implement_now")
+    );
+    assert_eq!(
+        deflated.get("selected_backend").and_then(Value::as_str),
+        Some("dicom_rs_deflated_image_frame_adapter")
+    );
+    assert_eq!(
+        deflated.get("backend_kind").and_then(Value::as_str),
+        Some("dicom_rs_feature")
+    );
+    assert_eq!(
+        deflated.get("feature_gate").and_then(Value::as_str),
+        Some("deflate")
+    );
+    assert_eq!(
+        deflated.get("first_case_target").and_then(Value::as_str),
+        Some("derived/seg/binary_multiframe_deflated_image_frame"),
+        "standards suitability decision should target the existing binary Segmentation family first"
+    );
+    assert!(
+        deflated
+            .get("validation_strategy")
+            .and_then(Value::as_array)
+            .is_some_and(|steps| steps.iter().any(|step| {
+                step.as_str()
+                    .is_some_and(|text| text.contains("one-fragment-per-frame"))
+            })),
+        "Deflated Image Frame validation should preserve the one-fragment-per-frame rule"
+    );
+    assert!(
+        deflated
+            .get("evidence")
+            .and_then(Value::as_array)
+            .is_some_and(|evidence| evidence.iter().any(|item| {
+                item.get("part").and_then(Value::as_str) == Some("PS3.5")
+                    && item
+                        .get("anchor")
+                        .and_then(Value::as_str)
+                        .is_some_and(|anchor| anchor.contains("sect_A.4.13"))
+                    && item
+                        .get("finding")
+                        .and_then(Value::as_str)
+                        .is_some_and(|finding| finding.contains("one and only one fragment"))
+            })),
+        "Deflated Image Frame decision should cite PS3.5 fragment layout evidence"
     );
 }
 

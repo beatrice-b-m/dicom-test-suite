@@ -7,12 +7,12 @@
 
 ## Phase Status
 
-- Phase 0 - Research And Decisions: in progress for JPEG XL lossy, JPEG 2000 lossy, HTJ2K, legacy JPEG, and Deflated Image Frame Compression; RLE Lossless, JPEG Baseline 8-bit, JPEG-LS Lossless, JPEG XL Lossless, and JPEG 2000 Lossless have implement-now decisions; JPEG-LS Near-Lossless, JPEG XL lossy, and JPEG 2000 lossy are explicitly deferred.
+- Phase 0 - Research And Decisions: in progress for JPEG XL lossy, JPEG 2000 lossy, HTJ2K, and legacy JPEG; RLE Lossless, JPEG Baseline 8-bit, JPEG-LS Lossless, JPEG XL Lossless, JPEG 2000 Lossless, and Deflated Image Frame Compression have implement-now decisions; JPEG-LS Near-Lossless, JPEG XL lossy, and JPEG 2000 lossy are explicitly deferred.
 - Phase 1 - Codec Integration Architecture: in progress; minimal codec API plus native RLE and DICOM-rs JPEG Baseline frame encode/decode support are present.
 - Phase 2 - Encapsulated Pixel Data Substrate: complete for the first RLE one-fragment case; Extended Offset Table and future multi-fragment generation remain later substrate expansion.
 - Phase 3 - Low-Risk Codec Enablement: in progress; 8-bit and 16-bit generated RLE Lossless Secondary Capture cases are implemented and round-trip validated; the first JPEG Baseline 8-bit RGB Secondary Capture case is generated and validated when the `jpeg` feature is enabled; the first JPEG-LS Lossless 8-bit MONOCHROME2 Secondary Capture case is generated and exact-hash validated when the `charls` feature is enabled; the first JPEG XL Lossless 8-bit RGB Secondary Capture case is generated and exact-hash validated when the `jpegxl` feature is enabled.
 - Phase 4 - JPEG 2000 And HTJ2K: complete for first lossless generated cases; JPEG 2000 Lossless has a project `jpeg2000` feature, a project-owned OpenJPEG-rs writer wrapper, a feature-gated generated Secondary Capture case, generation-time exact decoded-frame hash validation, CLI validation, report coverage, reproducibility evidence, and feature-gated capability-matrix promotion. JPEG 2000 lossy remains deferred. HTJ2K Lossless has a project `htj2k_openjph` feature, an OpenJPH external-command wrapper that fingerprints `ojph_compress` by executable SHA-256, fixed-option PGM encode support, exact DICOM-rs HTJ2K reader decode validation, a feature-gated generated Secondary Capture case, manifest runtime identity metadata, CLI validation, report coverage, and reproducibility evidence. HTJ2K lossy/RPCL variants remain deferred.
-- Phase 5 - Legacy And Specialty Compressed Syntaxes: in progress; JPEG Lossless SV1 and JPEG Lossless Process 14 now have generated feature-gated Secondary Capture cases through the project `legacy_jpeg_dcmtk` DCMTK `dcmcjpeg` file-level wrapper, including manifest runtime executable identity, exact DICOM-rs decoded-frame hash validation, report coverage, and reproducibility evidence. JPEG Extended 12-bit DCMTK encode, metadata preservation, encapsulation, and byte-identical local reproducibility are proven, but generated-case promotion is blocked until a 12-bit JPEG Extended validation decoder/path is selected. Deflated Image Frame Compression remains unresolved.
+- Phase 5 - Legacy And Specialty Compressed Syntaxes: in progress; JPEG Lossless SV1 and JPEG Lossless Process 14 now have generated feature-gated Secondary Capture cases through the project `legacy_jpeg_dcmtk` DCMTK `dcmcjpeg` file-level wrapper, including manifest runtime executable identity, exact DICOM-rs decoded-frame hash validation, report coverage, and reproducibility evidence. JPEG Extended 12-bit DCMTK encode, metadata preservation, encapsulation, and byte-identical local reproducibility are proven, but generated-case promotion is blocked until a 12-bit JPEG Extended validation decoder/path is selected. Deflated Image Frame Compression now has standards/IOD suitability resolved for a first binary Segmentation multi-frame target through the project `deflate` feature and pinned DICOM-rs adapter; generated-case promotion remains pending.
 - Phase 6+ - Corpus expansion and maintenance: blocked until Phase 5 scope is complete.
 
 ## Completed Work
@@ -21,7 +21,7 @@
 - Added `transfer-syntax/backend-decisions.json` as the Phase 0 codec backend decision record.
 - Classified RLE Lossless as the first `implement_now` codec family using a native project-owned encoder.
 - Kept JPEG Baseline, JPEG-LS, JPEG XL, JPEG 2000, HTJ2K, and legacy JPEG families in `research_more`.
-- Deferred Deflated Image Frame Compression until standards/IOD suitability is resolved.
+- Previously deferred Deflated Image Frame Compression until standards/IOD suitability was resolved; this slice resolves it as implement-now for a binary Segmentation target.
 - Preserved the existing invariant that compressed registry rows remain skipped and `transfer-syntax/capability-matrix.json` remains unavailable until generation, validation, reporting, and reproducibility are proven.
 - Added `src/codecs.rs` with a minimal frame encoder API for compressed still-image backends.
 - Added backend identity, backend kind, feature gate, version, transfer syntax UID, and determinism metadata through `CodecBackendInfo`.
@@ -184,6 +184,10 @@
 - Proved `dcmcjpeg --encode-extended --bits-force-12 --quality 100 --fragment-per-frame --offset-table-create --uid-never` writes JPEG Extended UID `1.2.840.10008.1.2.4.51`, preserves SOP Class UID, SOP Instance UID, Synthetic Data, Bits Stored 12, High Bit 11, one Basic Offset Table entry, and one fragment, and repeats byte-identically for the same source and fixed options.
 - Recorded that generated-case promotion for JPEG Extended 12-bit is blocked because the pinned DICOM-rs JPEG Extended reader rejects the 12-bit codestream with `Unsupported(SamplePrecision(12))`.
 - Updated backend decision artifact coverage so JPEG Extended 12-bit cannot be treated as generated-case-ready until an independent 12-bit validation path or decoder support is selected.
+- Resolved Deflated Image Frame Compression standards/IOD suitability for implementation: selected the pinned DICOM-rs `DeflatedImageFrameAdapter` behind the project `deflate` feature, classified the family as `implement_now`, and chose `derived/seg/binary_multiframe_deflated_image_frame` as the first target.
+- Used `dicom-standard-kb` to confirm Deflated Image Frame Compression UID `1.2.840.10008.1.2.8.1`, PS3.5 Section 8.2.16 applicability to Pixel Data and bilevel Segmentation images, PS3.5 Section A.4.13 one-fragment-per-frame requirements, and Segmentation Storage/IOD mappings.
+- Added a capability-matrix row for Deflated Image Frame Compression but kept it `unavailable` with `decode_pixel: false` and `encode_pixel: false` until generated-case validation, report coverage, and reproducibility are implemented.
+- Added artifact regression coverage proving the Deflated Image Frame decision, Segmentation first target, project `deflate` feature gate, one-fragment-per-frame evidence, and non-promoted capability-matrix status.
 
 ## Blockers
 
@@ -197,7 +201,7 @@
 - JPEG Lossless SV1 generated-case implementation is complete for the first tiny 16-bit MONOCHROME2 Secondary Capture case.
 - JPEG Lossless Process 14 generated-case implementation is complete for the first tiny 16-bit MONOCHROME2 Secondary Capture case.
 - JPEG Extended 12-bit has DCMTK encode and repeatability spike evidence, but implementation is blocked on a validation path because the pinned DICOM-rs JPEG Extended reader rejects 12-bit codestreams with `Unsupported(SamplePrecision(12))`.
-- Deflated Image Frame Compression requires a standards/IOD suitability decision before any implementation.
+- Deflated Image Frame Compression standards/IOD suitability is resolved for a binary Segmentation target, but generated-case implementation, exact decoded-frame validation, report coverage, and reproducibility evidence are still pending.
 
 ## Open Decisions
 
@@ -207,6 +211,7 @@
 - JPEG 2000 Lossless now uses a project `jpeg2000` feature exposing a project-owned OpenJPEG-rs writer wrapper plus DICOM-rs JPEG 2000 decode validation. Lossy JPEG 2000 is deferred until lossy semantics and validation policy are selected.
 - HTJ2K Lossless uses the project `htj2k_openjph` feature and selected `ojph_compress` external-command wrapper. Command-level byte reproducibility is proven for sampled edge-domain unsigned values using 16-bit PGM input with `-num_decomps 1`, and generated manifests record canonical executable path plus SHA-256 executable fingerprint because this binary rejects common version/help flags.
 - Legacy JPEG uses DCMTK `dcmcjpeg` as the selected backend for JPEG Lossless SV1 and JPEG Lossless Process 14. The generated `classic/sc/mono2_u16_jpeg_lossless_sv1` and `classic/sc/mono2_u16_jpeg_lossless_process_14` cases are implemented behind `legacy_jpeg_dcmtk`, record runtime executable identity, validate exact decoded native frame hashes through the pinned DICOM-rs JPEG reader, and remain semantic-stable because the external command identity is part of manifest evidence. JPEG Extended 12-bit has encode-only spike evidence but needs an independent 12-bit decode/validation path before generated-case promotion.
+- Deflated Image Frame Compression now uses the project `deflate` feature and pinned DICOM-rs `DeflatedImageFrameAdapter` as the selected backend. The first generated case should reuse the binary Segmentation multi-frame family and must enforce PS3.5 one-fragment-per-frame encapsulation plus exact decoded native frame hash validation before capability-matrix promotion.
 - Which independent validators should be used for JPEG 2000 and HTJ2K.
 - Whether the current project-owned RLE decoder should support multi-fragment frame reassembly in generation-time validation before a multi-fragment RLE case is added.
 
@@ -578,13 +583,32 @@
 - `cargo test`: passed, full default-build suite clean.
 - `cargo test --features jpeg`: passed, full JPEG feature suite clean including the new JPEG Extended 12-bit blocker spike.
 - `cargo run -- standards check-lock`: passed with existing documented lock warnings.
+- `git status --short`: passed before slice selection; working tree was clean.
+- `dicom-standard-kb` MCP `lookup_uid DeflatedImageFrameCompression`: passed; confirmed UID `1.2.840.10008.1.2.8.1` as a non-retired PS3.6 Transfer Syntax.
+- `dicom-standard-kb` MCP `lookup_uid 1.2.840.10008.1.2.8.1`: passed; confirmed keyword `DeflatedImageFrameCompression`.
+- `dicom-standard-kb` MCP `search_standard_text "Deflated Image Frame Compression"` in PS3.5: passed; found sections 8.2.16, 10.20, A.4.13, and A.5.
+- `dicom-standard-kb` MCP `retrieve_standard_text PS3.5 sect_8.2.16`: passed; confirmed Deflated Image Frame Compression applies to Pixel Data, is distinct from Deflated Explicit VR Little Endian dataset compression, and identifies bilevel Segmentation images as one application.
+- `dicom-standard-kb` MCP `retrieve_standard_text PS3.5 sect_10.20`: passed; confirmed the transfer syntax is lossless/reversible.
+- `dicom-standard-kb` MCP `retrieve_standard_text PS3.5 sect_A.4.13`: passed; confirmed UID `1.2.840.10008.1.2.8.1`, separate per-frame compression, exactly one fragment per frame, and trailing NULL padding for odd deflated streams.
+- `dicom-standard-kb` MCP `lookup_sop_class "Segmentation Storage"`: passed; confirmed Segmentation Storage UID `1.2.840.10008.5.1.4.1.1.66.4` and linked Segmentation IOD.
+- `dicom-standard-kb` MCP `lookup_iod Segmentation`: passed; confirmed the Segmentation IOD in PS3.3 Table A.51-1.
+- `jq empty transfer-syntax/backend-decisions.json`: passed.
+- `jq empty transfer-syntax/capability-matrix.json`: passed.
+- `cargo test --test project_artifacts deflated_image_frame_decision_selects_segmentation_target_without_promotion`: passed, 1 focused artifact test.
+- `cargo fmt -- --check`: initially reported rustfmt-only line wrapping in `tests/project_artifacts.rs`; passed after running `cargo fmt`.
+- `cargo test --test project_artifacts`: passed, 27 artifact tests.
+- `cargo test --features deflate --test project_artifacts deflated_image_frame_decision_selects_segmentation_target_without_promotion`: passed, proving the runtime DICOM-rs Deflated Image Frame reader/writer appears under the project `deflate` feature while the committed matrix remains unpromoted.
+- `cargo test`: passed, full default-build suite clean.
+- `cargo run -- standards check-lock`: passed with existing documented lock warnings.
+- `cargo test --features deflate`: passed, full deflate feature suite clean.
 
 ## Commit-Ready Summary
 
-- JPEG Extended 12-bit has a committed DCMTK spike test proving deterministic encode behavior for the existing 12-bit unsigned DX source.
-- Backend decisions and artifact tests now record that generated-case promotion remains blocked because the pinned DICOM-rs JPEG Extended reader rejects the 12-bit codestream with `Unsupported(SamplePrecision(12))`.
-- No generator, registry, capability-matrix, or report promotion was added for JPEG Extended 12-bit in this slice.
+- Deflated Image Frame Compression standards/IOD suitability is resolved for the first implementation target.
+- `transfer-syntax/backend-decisions.json` now classifies Deflated Image Frame Compression as `implement_now` through the project `deflate` feature and pinned DICOM-rs adapter, targeting a binary Segmentation multi-frame case.
+- `transfer-syntax/capability-matrix.json` records UID `1.2.840.10008.1.2.8.1` but keeps encode/decode unavailable until generated-case validation, reports, and reproducibility are complete.
+- Artifact tests lock the selected backend, Segmentation target, one-fragment-per-frame evidence, and non-promoted matrix state.
 
 ## Recommended Next Commit
 
-Choose the next Phase 5 legacy/specialty slice: select and prove an independent JPEG Extended 12-bit validation path before generated-case promotion, or resolve Deflated Image Frame Compression standards/IOD suitability before implementation.
+Implement the feature-gated `derived/seg/binary_multiframe_deflated_image_frame` case with one fragment per frame, exact decoded-frame validation, report coverage, and reproducibility evidence. Keep JPEG Extended 12-bit blocked until an independent 12-bit validation path is selected.

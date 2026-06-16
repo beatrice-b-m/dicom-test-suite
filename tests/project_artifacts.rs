@@ -774,7 +774,7 @@ fn htj2k_lossless_backend_decision_selects_openjph_external_command() {
 }
 
 #[test]
-fn legacy_jpeg_backend_decision_selects_dcmtk_spike_only() {
+fn legacy_jpeg_backend_decision_records_passed_dcmtk_spike_only() {
     let decisions = read_json("transfer-syntax/backend-decisions.json");
     let families = decisions
         .get("codec_families")
@@ -788,7 +788,7 @@ fn legacy_jpeg_backend_decision_selects_dcmtk_spike_only() {
     assert_eq!(
         legacy_jpeg.get("classification").and_then(Value::as_str),
         Some("research_more"),
-        "legacy JPEG must not be promoted before a local encode/decode spike passes"
+        "legacy JPEG must not be promoted before a project feature-gated wrapper and generated case exist"
     );
     assert_eq!(
         legacy_jpeg.get("selected_backend").and_then(Value::as_str),
@@ -801,13 +801,13 @@ fn legacy_jpeg_backend_decision_selects_dcmtk_spike_only() {
     assert_eq!(
         legacy_jpeg.get("feature_gate"),
         Some(&Value::Null),
-        "legacy JPEG should not claim a project feature gate before spike evidence exists"
+        "legacy JPEG should not claim a project feature gate before wrapper work exists"
     );
     assert_eq!(
         legacy_jpeg
             .pointer("/integration_mode/status")
             .and_then(Value::as_str),
-        Some("spike_selected")
+        Some("spike_passed")
     );
     assert_eq!(
         legacy_jpeg
@@ -851,7 +851,7 @@ fn legacy_jpeg_backend_decision_selects_dcmtk_spike_only() {
         .expect("DCMTK dcmcjpeg candidate should be recorded");
     assert_eq!(
         dcmtk.get("status").and_then(Value::as_str),
-        Some("selected_spike_candidate")
+        Some("passed_local_spike")
     );
     assert_eq!(
         dcmtk.get("backend_kind").and_then(Value::as_str),
@@ -886,8 +886,9 @@ fn legacy_jpeg_backend_decision_selects_dcmtk_spike_only() {
     assert!(
         blockers
             .iter()
-            .any(|blocker| blocker.contains("dcmcjpeg is not installed")),
-        "legacy JPEG should record the local DCMTK prerequisite"
+            .any(|blocker| blocker.contains("feature gate")
+                && blocker.contains("generated registry row")),
+        "legacy JPEG should record the remaining promotion prerequisites"
     );
     assert!(
         blockers
@@ -922,11 +923,25 @@ fn legacy_jpeg_backend_decision_selects_dcmtk_spike_only() {
                     .get("finding")
                     .and_then(Value::as_str)
                     .is_some_and(|finding| {
-                        finding.contains("does not have dcmcjpeg")
+                        finding.contains("dcmcjpeg is available")
                             && finding.contains("/opt/homebrew/bin/cjpeg")
                     })
         }),
-        "legacy JPEG decision should record why this slice stops before a spike"
+        "legacy JPEG decision should record the current local command availability"
+    );
+    assert!(
+        evidence.iter().any(|item| {
+            item.get("source").and_then(Value::as_str) == Some("local-spike-test")
+                && item.get("path").and_then(Value::as_str) == Some("tests/legacy_jpeg_spike.rs")
+                && item
+                    .get("finding")
+                    .and_then(Value::as_str)
+                    .is_some_and(|finding| {
+                        finding.contains("decoded exactly")
+                            && finding.contains("repeated byte-identically")
+                    })
+        }),
+        "legacy JPEG decision should record the passed DCMTK SV1 spike evidence"
     );
 }
 

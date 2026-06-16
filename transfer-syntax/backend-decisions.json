@@ -395,7 +395,7 @@
       "determinism": "semantic_stable",
       "first_case_target": "classic/sc/mono2_u16_jpeg_lossless_sv1",
       "integration_mode": {
-        "status": "spike_selected",
+        "status": "spike_passed",
         "selected": "external_command",
         "command": "dcmcjpeg",
         "preferred_first_process": "JPEG Lossless SV1",
@@ -407,12 +407,18 @@
           "--offset-table-create",
           "--uid-never"
         ],
-        "reason": "DCMTK documents DICOM-level JPEG encoding for the legacy transfer syntaxes and can preserve DICOM file semantics during a spike before any project-owned codestream writer is attempted."
+        "runtime_identity": {
+          "version_command": "dcmcjpeg --version",
+          "observed_version": "dcmcjpeg v3.7.0 2025-12-15",
+          "host_type": "arm64-Darwin",
+          "version_source": "command_stdout"
+        },
+        "reason": "DCMTK documents DICOM-level JPEG encoding for the legacy transfer syntaxes and the local spike proved metadata preservation, deterministic UID behavior, fragment layout control, DICOM-rs decode validation, and local byte-identical reproducibility for the first JPEG Lossless SV1 source."
       },
       "candidate_backends": [
         {
           "name": "DCMTK dcmcjpeg",
-          "status": "selected_spike_candidate",
+          "status": "passed_local_spike",
           "backend_kind": "external_command",
           "license": "BSD-style with bundled IJG JPEG notice",
           "supports": [
@@ -420,7 +426,7 @@
             "JPEG Lossless Process 14",
             "JPEG Lossless Process 14 Selection Value 1"
           ],
-          "risk": "The command rewrites a complete DICOM file, so the spike must prove project metadata preservation, deterministic UID handling, fragment layout control, and manifest identity capture."
+          "risk": "The command rewrites a complete DICOM file, so generated-case integration needs a file-level wrapper that records runtime identity and validates metadata preservation before registry promotion."
         },
         {
           "name": "Pinned DICOM-rs JPEG adapter",
@@ -452,11 +458,9 @@
         "Treat JPEG Extended 12-bit, JPEG Lossless Process 14, and JPEG Lossless SV1 as separate feature gates once each process is proven."
       ],
       "blockers": [
-        "DCMTK dcmcjpeg is not installed in the current local environment, so no spike output has been produced.",
         "Project codec architecture currently expects frame-level writers; the DCMTK path rewrites a complete DICOM file and needs an explicit file-level wrapper design.",
-        "Deterministic UID handling and metadata preservation have not been verified for dcmcjpeg options.",
-        "Independent decode validation and reproducibility evidence are not yet available.",
-        "No project feature gate should be added until the local spike passes."
+        "No project feature gate, generated registry row, manifest runtime identity path, CLI validation, report coverage, or cross-platform reproducibility evidence exists for legacy JPEG yet.",
+        "JPEG Lossless Process 14 and JPEG Extended 12-bit still need separate local spike evidence before they can be implemented."
       ],
       "evidence": [
         {
@@ -495,10 +499,16 @@
         {
           "source": "local-environment",
           "query": "command -v dcmcjpeg; command -v gdcmconv; command -v cjpeg",
-          "finding": "The current environment has /opt/homebrew/bin/cjpeg but does not have dcmcjpeg or gdcmconv on PATH, so the next slice needs the DCMTK command-line prerequisite before a spike can run."
+          "finding": "DCMTK dcmcjpeg is available after installing Homebrew dcmtk 3.7.0; gdcmconv remains unavailable and /opt/homebrew/bin/cjpeg is still not selected because it is not DICOM-aware."
+        },
+        {
+          "source": "local-spike-test",
+          "path": "tests/legacy_jpeg_spike.rs",
+          "command": "cargo test --features jpeg --test legacy_jpeg_spike",
+          "finding": "DCMTK dcmcjpeg compressed the deterministic classic/sc/mono2_u16_explicit_le source to JPEG Lossless SV1 with --true-lossless, --fragment-per-frame, --offset-table-create, and --uid-never; the output preserved SOP Class UID, SOP Instance UID, Synthetic Data, and Patient ID, used one Basic Offset Table entry and one fragment, decoded exactly through the pinned DICOM-rs JPEG Lossless SV1 reader, and repeated byte-identically for the same source and options."
         }
       ],
-      "next_action": "Install or expose DCMTK dcmcjpeg, then run a no-registry-promotion spike that compresses a tiny deterministic 16-bit MONOCHROME2 Secondary Capture source to JPEG Lossless SV1 and validates decoded-frame hashes plus metadata preservation."
+      "next_action": "Add a project feature-gated DCMTK dcmcjpeg file-level wrapper for JPEG Lossless SV1 that records runtime identity and keeps the registry/capability matrix unpromoted until generated-case validation, report coverage, and reproducibility evidence pass."
     },
     {
       "family_id": "deflated_image_frame",

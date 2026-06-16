@@ -1627,7 +1627,7 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\textended"));
-    let expected_extended_files = 49
+    let expected_extended_files = 50
         + if cfg!(feature = "deflate") { 2 } else { 0 }
         + if cfg!(feature = "jpeg") { 1 } else { 0 }
         + if cfg!(feature = "charls") { 1 } else { 0 }
@@ -2534,6 +2534,31 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
         validation_result_names(rle_multiframe_file.pointer("/validation/internal"))
             .contains(&"rle_decoded_frame_hashes"),
         "multi-frame RLE manifest should record decoded native frame hash validation"
+    );
+    let rle_mono1_multiframe_file =
+        file_entry_by_case_id(&manifest, "classic/sc/mono1_u8_multiframe_rle_lossless");
+    assert_eq!(
+        rle_mono1_multiframe_file
+            .pointer("/image/photometric_interpretation")
+            .and_then(Value::as_str),
+        Some("MONOCHROME1")
+    );
+    assert_eq!(
+        rle_mono1_multiframe_file
+            .pointer("/image/frames")
+            .and_then(Value::as_u64),
+        Some(2)
+    );
+    assert_eq!(
+        rle_mono1_multiframe_file
+            .pointer("/pixel_data/frame_count")
+            .and_then(Value::as_u64),
+        Some(2)
+    );
+    assert!(
+        validation_result_names(rle_mono1_multiframe_file.pointer("/validation/internal"))
+            .contains(&"rle_decoded_frame_hashes"),
+        "MONOCHROME1 multi-frame RLE manifest should record decoded native frame hash validation"
     );
     let rle_u16_multiframe_file =
         file_entry_by_case_id(&manifest, "classic/sc/mono2_u16_multiframe_rle_lossless");
@@ -5842,7 +5867,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\tall"));
-    let expected_all_files = 71
+    let expected_all_files = 72
         + if cfg!(feature = "deflate") { 2 } else { 0 }
         + if cfg!(feature = "jpeg") { 1 } else { 0 }
         + if cfg!(feature = "charls") { 1 } else { 0 }
@@ -5908,6 +5933,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
         "classic/sc/palette_color_u8_multiframe_rle_lossless",
     );
     file_entry_by_case_id(&manifest, "classic/sc/mono2_u8_multiframe_rle_lossless");
+    file_entry_by_case_id(&manifest, "classic/sc/mono1_u8_multiframe_rle_lossless");
     file_entry_by_case_id(&manifest, "classic/sc/mono2_u16_multiframe_rle_lossless");
     file_entry_by_case_id(&manifest, "classic/sc/mono2_u8_odd_fragment_rle_lossless");
     file_entry_by_case_id(&manifest, "classic/cr/overlay_modality_voi_rle_lossless");

@@ -2314,6 +2314,25 @@ fn rle_lossless_transfer_syntax_is_available_through_native_backend() {
         Some("byte_stable")
     );
 
+    let mono1_multiframe_case = cases
+        .iter()
+        .find(|case| {
+            case.get("case_id").and_then(Value::as_str)
+                == Some("classic/sc/mono1_u8_multiframe_rle_lossless")
+        })
+        .expect("registry must contain MONOCHROME1 multi-frame RLE Lossless SC case");
+    assert_eq!(
+        mono1_multiframe_case.get("status").and_then(Value::as_str),
+        Some("implemented")
+    );
+    assert_eq!(mono1_multiframe_case.get("skip"), Some(&Value::Null));
+    assert_eq!(
+        mono1_multiframe_case
+            .get("determinism")
+            .and_then(Value::as_str),
+        Some("byte_stable")
+    );
+
     let mono1_u16_case = cases
         .iter()
         .find(|case| {

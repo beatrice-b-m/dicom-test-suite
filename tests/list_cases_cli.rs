@@ -536,6 +536,12 @@ fn list_cases_command_shows_rle_lossless_as_implemented() {
     );
     assert!(
         stdout.contains(
+            "classic/sc/mono1_u8_multiframe_rle_lossless\timplemented\textended\t1.2.840.10008.5.1.4.1.1.7\t1.2.840.10008.1.2.5\t5/5 covered"
+        ),
+        "MONOCHROME1 multi-frame RLE Lossless row must be listed as implemented"
+    );
+    assert!(
+        stdout.contains(
             "classic/sc/mono2_u16_multiframe_rle_lossless\timplemented\textended\t1.2.840.10008.5.1.4.1.1.7\t1.2.840.10008.1.2.5\t5/5 covered"
         ),
         "16-bit multi-frame RLE Lossless row must be listed as implemented"

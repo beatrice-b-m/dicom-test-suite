@@ -65,6 +65,8 @@ pub(crate) const ACTIVE_FEATURE_FLAGS: &[&str] = &[
     "jpeg2000",
     #[cfg(feature = "htj2k_openjph")]
     "htj2k_openjph",
+    #[cfg(feature = "legacy_jpeg_dcmtk")]
+    "legacy_jpeg_dcmtk",
 ];
 
 #[derive(Debug, Clone, PartialEq, Eq)]

@@ -13,11 +13,12 @@ use std::borrow::Cow;
 #[cfg(feature = "jpeg2000")]
 use std::os::raw::c_void;
 #[cfg(feature = "htj2k_openjph")]
+use std::time::{SystemTime, UNIX_EPOCH};
+#[cfg(any(feature = "htj2k_openjph", feature = "legacy_jpeg_dcmtk"))]
 use std::{
     env, fs,
     path::{Path, PathBuf},
     process::Command,
-    time::{SystemTime, UNIX_EPOCH},
 };
 
 #[cfg(any(
@@ -57,6 +58,7 @@ use openjp2::openjpeg::*;
 pub const JPEG_2000_LOSSLESS_TRANSFER_SYNTAX_UID: &str = "1.2.840.10008.1.2.4.90";
 pub const JPEG_BASELINE_8BIT_TRANSFER_SYNTAX_UID: &str = "1.2.840.10008.1.2.4.50";
 pub const JPEG_LS_LOSSLESS_TRANSFER_SYNTAX_UID: &str = "1.2.840.10008.1.2.4.80";
+pub const JPEG_LOSSLESS_SV1_TRANSFER_SYNTAX_UID: &str = "1.2.840.10008.1.2.4.70";
 pub const JPEG_XL_LOSSLESS_TRANSFER_SYNTAX_UID: &str = "1.2.840.10008.1.2.4.110";
 pub const HTJ2K_LOSSLESS_TRANSFER_SYNTAX_UID: &str = "1.2.840.10008.1.2.4.201";
 pub const RLE_LOSSLESS_TRANSFER_SYNTAX_UID: &str = "1.2.840.10008.1.2.5";
@@ -358,13 +360,152 @@ impl FrameDecoder for OpenJp2Jpeg2000LosslessEncoder {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg(feature = "htj2k_openjph")]
+#[cfg(any(feature = "htj2k_openjph", feature = "legacy_jpeg_dcmtk"))]
 pub struct ExternalCommandBackendIdentity {
     pub command: &'static str,
     pub executable_path: PathBuf,
     pub executable_sha256: String,
     pub version: Option<String>,
     pub version_source: &'static str,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg(feature = "legacy_jpeg_dcmtk")]
+pub struct EncodedDicomFile {
+    pub backend_identity: ExternalCommandBackendIdentity,
+    pub output_bytes: Vec<u8>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg(feature = "legacy_jpeg_dcmtk")]
+pub struct DcmtkDcmcjpegLosslessSv1Encoder {
+    command: PathBuf,
+}
+
+#[cfg(feature = "legacy_jpeg_dcmtk")]
+impl Default for DcmtkDcmcjpegLosslessSv1Encoder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[cfg(feature = "legacy_jpeg_dcmtk")]
+impl DcmtkDcmcjpegLosslessSv1Encoder {
+    pub const BACKEND_ID: &'static str = "dcmtk_dcmcjpeg_jpeg_lossless_sv1_command_writer";
+    pub const COMMAND: &'static str = "dcmcjpeg";
+
+    pub fn new() -> Self {
+        Self {
+            command: PathBuf::from(Self::COMMAND),
+        }
+    }
+
+    pub fn with_command(command: impl Into<PathBuf>) -> Self {
+        Self {
+            command: command.into(),
+        }
+    }
+
+    pub fn backend(&self) -> CodecBackendInfo {
+        CodecBackendInfo {
+            backend_id: Self::BACKEND_ID,
+            backend_kind: CodecBackendKind::ExternalCommand,
+            display_name: "DCMTK dcmcjpeg JPEG Lossless SV1 file writer",
+            version: "DCMTK dcmcjpeg version and executable SHA-256 recorded at runtime",
+            transfer_syntax_uid: JPEG_LOSSLESS_SV1_TRANSFER_SYNTAX_UID,
+            feature_gate: Some("legacy_jpeg_dcmtk"),
+            determinism: CodecDeterminism::SemanticStable,
+        }
+    }
+
+    pub fn discover_backend_identity(&self) -> Result<ExternalCommandBackendIdentity, CodecError> {
+        let executable_path =
+            resolve_command_path(&self.command, Self::BACKEND_ID, "DCMTK dcmcjpeg")?;
+        let executable_bytes = fs::read(&executable_path).map_err(|err| {
+            CodecError::unavailable(
+                Self::BACKEND_ID,
+                format!(
+                    "failed to read DCMTK dcmcjpeg executable {} for fingerprinting: {err}",
+                    executable_path.display()
+                ),
+            )
+        })?;
+        let version = Command::new(&executable_path)
+            .arg("--version")
+            .output()
+            .ok()
+            .filter(|output| output.status.success())
+            .map(|output| String::from_utf8_lossy(&output.stdout).trim().to_string())
+            .filter(|version| !version.is_empty());
+
+        Ok(ExternalCommandBackendIdentity {
+            command: Self::COMMAND,
+            executable_path,
+            executable_sha256: crate::sha256_hex(&executable_bytes),
+            version,
+            version_source: "command_stdout",
+        })
+    }
+
+    pub fn encode_file(
+        &self,
+        input_path: impl AsRef<Path>,
+        output_path: impl AsRef<Path>,
+    ) -> Result<EncodedDicomFile, CodecError> {
+        let input_path = input_path.as_ref();
+        let output_path = output_path.as_ref();
+        let identity = self.discover_backend_identity()?;
+
+        let output = Command::new(&identity.executable_path)
+            .args([
+                "--encode-lossless-sv1",
+                "--true-lossless",
+                "--fragment-per-frame",
+                "--offset-table-create",
+                "--uid-never",
+            ])
+            .arg(input_path)
+            .arg(output_path)
+            .output()
+            .map_err(|err| {
+                CodecError::encode_failed(
+                    Self::BACKEND_ID,
+                    format!("failed to run dcmcjpeg: {err}"),
+                )
+            })?;
+        if !output.status.success() {
+            return Err(CodecError::encode_failed(
+                Self::BACKEND_ID,
+                format!(
+                    "dcmcjpeg failed with status {:?}: stdout={}, stderr={}",
+                    output.status.code(),
+                    String::from_utf8_lossy(&output.stdout),
+                    String::from_utf8_lossy(&output.stderr)
+                ),
+            ));
+        }
+
+        let output_bytes = fs::read(output_path).map_err(|err| {
+            CodecError::encode_failed(
+                Self::BACKEND_ID,
+                format!(
+                    "failed to read DCMTK dcmcjpeg output {}: {err}",
+                    output_path.display()
+                ),
+            )
+        })?;
+        if output_bytes.len() < 132 || &output_bytes[128..132] != b"DICM" {
+            return Err(CodecError::validation_failed(
+                Self::BACKEND_ID,
+                "dcmcjpeg output is not a DICOM Part 10 file",
+            ));
+        }
+
+        Ok(EncodedDicomFile {
+            backend_identity: identity,
+            output_bytes,
+        })
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -398,7 +539,7 @@ impl OpenJphHtj2kLosslessEncoder {
     }
 
     pub fn discover_backend_identity(&self) -> Result<ExternalCommandBackendIdentity, CodecError> {
-        let executable_path = resolve_command_path(&self.command)?;
+        let executable_path = resolve_command_path(&self.command, Self::BACKEND_ID, "OpenJPH")?;
         let executable_bytes = fs::read(&executable_path).map_err(|err| {
             CodecError::unavailable(
                 Self::BACKEND_ID,
@@ -1564,16 +1705,23 @@ fn read_u32_le(bytes: &[u8], offset: usize) -> u32 {
     ])
 }
 
-#[cfg(feature = "htj2k_openjph")]
-fn resolve_command_path(command: &Path) -> Result<PathBuf, CodecError> {
+#[cfg(any(feature = "htj2k_openjph", feature = "legacy_jpeg_dcmtk"))]
+fn resolve_command_path(
+    command: &Path,
+    backend_id: &'static str,
+    display_name: &str,
+) -> Result<PathBuf, CodecError> {
     if command.is_absolute() || command.components().count() > 1 {
-        return canonical_existing_command(command);
+        return canonical_existing_command(command, backend_id, display_name);
     }
 
     let path_var = env::var_os("PATH").ok_or_else(|| {
         CodecError::unavailable(
-            OpenJphHtj2kLosslessEncoder::BACKEND_ID,
-            "PATH is not set, so ojph_compress cannot be discovered",
+            backend_id,
+            format!(
+                "PATH is not set, so {} cannot be discovered",
+                command.display()
+            ),
         )
     })?;
 
@@ -1582,9 +1730,9 @@ fn resolve_command_path(command: &Path) -> Result<PathBuf, CodecError> {
             if candidate.is_file() {
                 return candidate.canonicalize().map_err(|err| {
                     CodecError::unavailable(
-                        OpenJphHtj2kLosslessEncoder::BACKEND_ID,
+                        backend_id,
                         format!(
-                            "failed to canonicalize OpenJPH executable {}: {err}",
+                            "failed to canonicalize {display_name} executable {}: {err}",
                             candidate.display()
                         ),
                     )
@@ -1594,36 +1742,46 @@ fn resolve_command_path(command: &Path) -> Result<PathBuf, CodecError> {
     }
 
     Err(CodecError::unavailable(
-        OpenJphHtj2kLosslessEncoder::BACKEND_ID,
-        "ojph_compress was not found on PATH",
+        backend_id,
+        format!("{} was not found on PATH", command.display()),
     ))
 }
 
-#[cfg(feature = "htj2k_openjph")]
-fn canonical_existing_command(command: &Path) -> Result<PathBuf, CodecError> {
+#[cfg(any(feature = "htj2k_openjph", feature = "legacy_jpeg_dcmtk"))]
+fn canonical_existing_command(
+    command: &Path,
+    backend_id: &'static str,
+    display_name: &str,
+) -> Result<PathBuf, CodecError> {
     if !command.is_file() {
         return Err(CodecError::unavailable(
-            OpenJphHtj2kLosslessEncoder::BACKEND_ID,
-            format!("OpenJPH executable {} does not exist", command.display()),
+            backend_id,
+            format!(
+                "{display_name} executable {} does not exist",
+                command.display()
+            ),
         ));
     }
     command.canonicalize().map_err(|err| {
         CodecError::unavailable(
-            OpenJphHtj2kLosslessEncoder::BACKEND_ID,
+            backend_id,
             format!(
-                "failed to canonicalize OpenJPH executable {}: {err}",
+                "failed to canonicalize {display_name} executable {}: {err}",
                 command.display()
             ),
         )
     })
 }
 
-#[cfg(all(feature = "htj2k_openjph", not(windows)))]
+#[cfg(all(
+    any(feature = "htj2k_openjph", feature = "legacy_jpeg_dcmtk"),
+    not(windows)
+))]
 fn command_candidates(dir: &Path, command: &Path) -> Vec<PathBuf> {
     vec![dir.join(command)]
 }
 
-#[cfg(all(feature = "htj2k_openjph", windows))]
+#[cfg(all(any(feature = "htj2k_openjph", feature = "legacy_jpeg_dcmtk"), windows))]
 fn command_candidates(dir: &Path, command: &Path) -> Vec<PathBuf> {
     if command.extension().is_some() {
         return vec![dir.join(command)];

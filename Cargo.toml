@@ -28,6 +28,9 @@ jpeg2000 = [
 htj2k_openjph = [
     "jpeg2000",
 ]
+legacy_jpeg_dcmtk = [
+    "jpeg",
+]
 
 [dependencies]
 dicom-core = "=0.9.1"

@@ -774,7 +774,7 @@ fn htj2k_lossless_backend_decision_selects_openjph_external_command() {
 }
 
 #[test]
-fn legacy_jpeg_backend_decision_records_passed_dcmtk_spike_only() {
+fn legacy_jpeg_backend_decision_records_dcmtk_wrapper_without_generation_promotion() {
     let decisions = read_json("transfer-syntax/backend-decisions.json");
     let families = decisions
         .get("codec_families")
@@ -788,26 +788,26 @@ fn legacy_jpeg_backend_decision_records_passed_dcmtk_spike_only() {
     assert_eq!(
         legacy_jpeg.get("classification").and_then(Value::as_str),
         Some("research_more"),
-        "legacy JPEG must not be promoted before a project feature-gated wrapper and generated case exist"
+        "legacy JPEG must not be promoted before generated-case validation exists"
     );
     assert_eq!(
         legacy_jpeg.get("selected_backend").and_then(Value::as_str),
-        Some("dcmtk_dcmcjpeg_external_command_spike")
+        Some("dcmtk_dcmcjpeg_external_command_wrapper")
     );
     assert_eq!(
         legacy_jpeg.get("backend_kind").and_then(Value::as_str),
-        Some("external_command_spike")
+        Some("external_command")
     );
     assert_eq!(
-        legacy_jpeg.get("feature_gate"),
-        Some(&Value::Null),
-        "legacy JPEG should not claim a project feature gate before wrapper work exists"
+        legacy_jpeg.get("feature_gate").and_then(Value::as_str),
+        Some("legacy_jpeg_dcmtk"),
+        "legacy JPEG should record the project feature gate for the wrapper"
     );
     assert_eq!(
         legacy_jpeg
             .pointer("/integration_mode/status")
             .and_then(Value::as_str),
-        Some("spike_passed")
+        Some("wrapper_added")
     );
     assert_eq!(
         legacy_jpeg
@@ -886,15 +886,15 @@ fn legacy_jpeg_backend_decision_records_passed_dcmtk_spike_only() {
     assert!(
         blockers
             .iter()
-            .any(|blocker| blocker.contains("feature gate")
-                && blocker.contains("generated registry row")),
+            .any(|blocker| blocker.contains("generated registry row")
+                && blocker.contains("report coverage")),
         "legacy JPEG should record the remaining promotion prerequisites"
     );
+
+    let cargo_toml = fs::read_to_string("Cargo.toml").expect("Cargo.toml must be readable");
     assert!(
-        blockers
-            .iter()
-            .any(|blocker| blocker.contains("file-level wrapper design")),
-        "legacy JPEG should record the mismatch with the current frame-level codec architecture"
+        cargo_toml.contains("legacy_jpeg_dcmtk = [") && cargo_toml.contains("\"jpeg\""),
+        "Cargo.toml should expose a legacy_jpeg_dcmtk feature through the JPEG reader stack"
     );
 
     let evidence = legacy_jpeg
@@ -942,6 +942,22 @@ fn legacy_jpeg_backend_decision_records_passed_dcmtk_spike_only() {
                     })
         }),
         "legacy JPEG decision should record the passed DCMTK SV1 spike evidence"
+    );
+    assert!(
+        evidence.iter().any(|item| {
+            item.get("source").and_then(Value::as_str) == Some("local-wrapper-test")
+                && item.get("path").and_then(Value::as_str)
+                    == Some("tests/legacy_jpeg_dcmtk_wrapper.rs")
+                && item
+                    .get("finding")
+                    .and_then(Value::as_str)
+                    .is_some_and(|finding| {
+                        finding.contains("legacy_jpeg_dcmtk")
+                            && finding.contains("executable SHA-256")
+                            && finding.contains("exact decoded native frame bytes")
+                    })
+        }),
+        "legacy JPEG decision should record the project wrapper evidence"
     );
 }
 

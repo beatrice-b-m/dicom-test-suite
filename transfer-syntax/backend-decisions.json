@@ -389,13 +389,13 @@
         "1.2.840.10008.1.2.4.57",
         "1.2.840.10008.1.2.4.70"
       ],
-      "selected_backend": "dcmtk_dcmcjpeg_external_command_spike",
-      "backend_kind": "external_command_spike",
-      "feature_gate": null,
+      "selected_backend": "dcmtk_dcmcjpeg_external_command_wrapper",
+      "backend_kind": "external_command",
+      "feature_gate": "legacy_jpeg_dcmtk",
       "determinism": "semantic_stable",
       "first_case_target": "classic/sc/mono2_u16_jpeg_lossless_sv1",
       "integration_mode": {
-        "status": "spike_passed",
+        "status": "wrapper_added",
         "selected": "external_command",
         "command": "dcmcjpeg",
         "preferred_first_process": "JPEG Lossless SV1",
@@ -413,7 +413,7 @@
           "host_type": "arm64-Darwin",
           "version_source": "command_stdout"
         },
-        "reason": "DCMTK documents DICOM-level JPEG encoding for the legacy transfer syntaxes and the local spike proved metadata preservation, deterministic UID behavior, fragment layout control, DICOM-rs decode validation, and local byte-identical reproducibility for the first JPEG Lossless SV1 source."
+        "reason": "DCMTK documents DICOM-level JPEG encoding for the legacy transfer syntaxes; the local spike proved metadata preservation, deterministic UID behavior, fragment layout control, DICOM-rs decode validation, and local byte-identical reproducibility for the first JPEG Lossless SV1 source; and the project now has a feature-gated file-level wrapper that captures runtime identity."
       },
       "candidate_backends": [
         {
@@ -458,8 +458,7 @@
         "Treat JPEG Extended 12-bit, JPEG Lossless Process 14, and JPEG Lossless SV1 as separate feature gates once each process is proven."
       ],
       "blockers": [
-        "Project codec architecture currently expects frame-level writers; the DCMTK path rewrites a complete DICOM file and needs an explicit file-level wrapper design.",
-        "No project feature gate, generated registry row, manifest runtime identity path, CLI validation, report coverage, or cross-platform reproducibility evidence exists for legacy JPEG yet.",
+        "No generated registry row, manifest runtime identity path, CLI validation, report coverage, or generated-case reproducibility evidence exists for legacy JPEG yet.",
         "JPEG Lossless Process 14 and JPEG Extended 12-bit still need separate local spike evidence before they can be implemented."
       ],
       "evidence": [
@@ -506,9 +505,15 @@
           "path": "tests/legacy_jpeg_spike.rs",
           "command": "cargo test --features jpeg --test legacy_jpeg_spike",
           "finding": "DCMTK dcmcjpeg compressed the deterministic classic/sc/mono2_u16_explicit_le source to JPEG Lossless SV1 with --true-lossless, --fragment-per-frame, --offset-table-create, and --uid-never; the output preserved SOP Class UID, SOP Instance UID, Synthetic Data, and Patient ID, used one Basic Offset Table entry and one fragment, decoded exactly through the pinned DICOM-rs JPEG Lossless SV1 reader, and repeated byte-identically for the same source and options."
+        },
+        {
+          "source": "local-wrapper-test",
+          "path": "tests/legacy_jpeg_dcmtk_wrapper.rs",
+          "command": "cargo test --features legacy_jpeg_dcmtk --test legacy_jpeg_dcmtk_wrapper",
+          "finding": "The project legacy_jpeg_dcmtk feature exposes a DCMTK dcmcjpeg file-level wrapper for JPEG Lossless SV1 that records the canonical executable path, executable SHA-256, and version banner at runtime while preserving source metadata and exact decoded native frame bytes."
         }
       ],
-      "next_action": "Add a project feature-gated DCMTK dcmcjpeg file-level wrapper for JPEG Lossless SV1 that records runtime identity and keeps the registry/capability matrix unpromoted until generated-case validation, report coverage, and reproducibility evidence pass."
+      "next_action": "Promote the first JPEG Lossless SV1 generated case only after adding registry metadata, manifest runtime identity output, CLI validation, report coverage, and generated-case reproducibility evidence."
     },
     {
       "family_id": "deflated_image_frame",

@@ -2278,6 +2278,39 @@ mod tests {
     }
 
     #[test]
+    fn native_rle_round_trips_rgb_planar0_as_three_segments() {
+        let codec = NativeRleLosslessEncoder::new();
+        let native = [255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 255, 255];
+
+        let encoded = codec
+            .encode_frame(FrameEncodeInput {
+                native_frame: &native,
+                rows: 2,
+                columns: 2,
+                samples_per_pixel: 3,
+                bits_allocated: 8,
+                bits_stored: 8,
+                photometric_interpretation: "RGB",
+            })
+            .expect("RLE should encode a tiny 8-bit RGB frame");
+
+        assert_eq!(&encoded.bytes[0..4], &3u32.to_le_bytes());
+        let decoded = codec
+            .decode_frame(FrameDecodeInput {
+                encoded_frame: &encoded.bytes,
+                rows: 2,
+                columns: 2,
+                samples_per_pixel: 3,
+                bits_allocated: 8,
+                bits_stored: 8,
+                photometric_interpretation: "RGB",
+            })
+            .expect("RGB RLE frame should decode");
+
+        assert_eq!(decoded.native_bytes, native);
+    }
+
+    #[test]
     fn native_rle_rejects_unsupported_frame_shape() {
         let encoder = NativeRleLosslessEncoder::new();
 

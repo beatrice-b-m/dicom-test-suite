@@ -105,6 +105,52 @@ fn report_command_writes_markdown_coverage_for_core_root() {
 }
 
 #[test]
+fn report_command_counts_generated_rgb_rle_lossless_row() {
+    let out_dir = unique_temp_dir("report-rgb-rle-json");
+    generate_extended(&out_dir);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args([
+            "report",
+            out_dir.to_str().expect("temp path should be valid UTF-8"),
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("report command must run");
+
+    assert!(
+        output.status.success(),
+        "report should accept generated output: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let report: Value =
+        serde_json::from_slice(&output.stdout).expect("report stdout should be JSON");
+    let row = coverage_row(&report, "classic/sc/rgb_planar0_rle_lossless");
+    assert_eq!(row.get("status").and_then(Value::as_str), Some("generated"));
+    assert_eq!(
+        row.get("transfer_syntax").and_then(Value::as_str),
+        Some("1.2.840.10008.1.2.5")
+    );
+    assert_eq!(
+        row.get("codec_family").and_then(Value::as_str),
+        Some("RLE Lossless")
+    );
+    assert_eq!(
+        row.get("codec_backend_id").and_then(Value::as_str),
+        Some("native_project_rle_encoder")
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/codec_families/RLE Lossless")
+            .and_then(Value::as_u64),
+        Some(3)
+    );
+
+    fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
+}
+
+#[test]
 #[cfg(feature = "htj2k_openjph")]
 fn report_command_counts_generated_htj2k_lossless_row() {
     let out_dir = unique_temp_dir("report-htj2k-json");
@@ -575,11 +621,6 @@ fn generate_core(out_dir: &Path) {
     );
 }
 
-#[cfg(any(
-    feature = "deflate",
-    feature = "htj2k_openjph",
-    feature = "legacy_jpeg_dcmtk"
-))]
 fn generate_extended(out_dir: &Path) {
     let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
         .args([

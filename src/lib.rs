@@ -7531,6 +7531,12 @@ mod tests {
             ),
             "list-cases output must show implemented deflated transfer syntax status"
         );
+        assert!(
+            output.contains(
+                "classic/sc/rgb_planar0_rle_lossless\timplemented\textended\t1.2.840.10008.5.1.4.1.1.7\t1.2.840.10008.1.2.5\t5/5 covered"
+            ),
+            "list-cases output must show implemented RGB RLE Lossless status"
+        );
     }
 
     #[test]

@@ -2428,6 +2428,25 @@ fn rle_lossless_transfer_syntax_is_available_through_native_backend() {
         Some("byte_stable")
     );
 
+    let mono1_signed_rect_case = cases
+        .iter()
+        .find(|case| {
+            case.get("case_id").and_then(Value::as_str)
+                == Some("classic/sc/mono1_i16_rect_2x3_rle_lossless")
+        })
+        .expect("registry must contain MONOCHROME1 signed rectangular 2x3 RLE Lossless SC case");
+    assert_eq!(
+        mono1_signed_rect_case.get("status").and_then(Value::as_str),
+        Some("implemented")
+    );
+    assert_eq!(mono1_signed_rect_case.get("skip"), Some(&Value::Null));
+    assert_eq!(
+        mono1_signed_rect_case
+            .get("determinism")
+            .and_then(Value::as_str),
+        Some("byte_stable")
+    );
+
     let tiny_case = cases
         .iter()
         .find(|case| {

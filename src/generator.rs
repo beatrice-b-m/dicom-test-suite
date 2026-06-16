@@ -233,6 +233,8 @@ const MONO_I16_ODD_3X3_PIXELS: [u8; 18] = [
 const MONO_I16_ODD_3X3_VALUES: [i32; 9] = [-4, -3, -2, -1, 0, 1, 2, 3, 4];
 const MONO_U16_RECT_2X3_PIXELS: [u8; 12] = [0, 0, 1, 0, 2, 0, 3, 0, 4, 0, 5, 0];
 const MONO_U16_RECT_2X3_VALUES: [i32; 6] = [0, 1, 2, 3, 4, 5];
+const MONO_I16_RECT_2X3_PIXELS: [u8; 12] = [0xfd, 0xff, 0xfe, 0xff, 0xff, 0xff, 0, 0, 1, 0, 2, 0];
+const MONO_I16_RECT_2X3_VALUES: [i32; 6] = [-3, -2, -1, 0, 1, 2];
 const MONO_U16_TINY_1X1_PIXELS: [u8; 2] = [0xff, 0xff];
 const MONO_U16_TINY_1X1_VALUES: [i32; 1] = [65535];
 const MONO_U16_MULTIFRAME_PIXELS: [u8; 16] = [
@@ -713,6 +715,29 @@ const PIXEL_RECIPES: &[PixelRecipe] = &[
         pixel_max: 5,
         visual_pattern: "2x3_inverse_monochrome_u16_rect_rle_lossless_gradient",
         semantic_note: "rectangular unsigned MONOCHROME1 Pixel Data preserves Rows and Columns with inverse grayscale polarity after RLE Lossless decode",
+        palette: None,
+        padding: None,
+    },
+    PixelRecipe {
+        case_id: "classic/sc/mono2_i16_rect_2x3_rle_lossless",
+        recipe_id: "sc_mono2_i16_rect_2x3_rle_lossless",
+        rows: 2,
+        columns: 3,
+        photometric_interpretation: "MONOCHROME2",
+        samples_per_pixel: 1,
+        planar_configuration: None,
+        bits_allocated: 16,
+        bits_stored: 16,
+        high_bit: 15,
+        pixel_representation: 1,
+        pixel_vr: VR::OB,
+        transfer_syntax: RLE_LOSSLESS,
+        pixel_bytes: &MONO_I16_RECT_2X3_PIXELS,
+        pixel_values: &MONO_I16_RECT_2X3_VALUES,
+        pixel_min: -3,
+        pixel_max: 2,
+        visual_pattern: "2x3_monochrome_i16_rect_rle_lossless_centered_gradient",
+        semantic_note: "rectangular signed MONOCHROME2 Pixel Data preserves Rows and Columns after RLE Lossless decode",
         palette: None,
         padding: None,
     },
@@ -5333,6 +5358,7 @@ fn pixel_profile_membership(recipe: PixelRecipe) -> &'static [&'static str] {
         | "classic/sc/rgb_planar0_rle_lossless"
         | "classic/sc/rgb_planar1_rle_lossless"
         | "classic/sc/mono1_u16_rect_2x3_rle_lossless"
+        | "classic/sc/mono2_i16_rect_2x3_rle_lossless"
         | "classic/sc/rgb_planar1_multiframe_rle_lossless"
         | "classic/sc/ybr_full_planar0_rle_lossless"
         | "classic/sc/ybr_full_planar0_multiframe_rle_lossless"

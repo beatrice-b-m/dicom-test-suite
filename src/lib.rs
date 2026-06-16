@@ -5947,6 +5947,12 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
         "Object Types",
         "/grouped_coverage/object_types",
     );
+    append_count_map_section(
+        &mut output,
+        report,
+        "Known Stressors",
+        "/grouped_coverage/known_stressors",
+    );
 
     output.push_str("## Gaps\n\n");
     let gaps = report
@@ -6207,6 +6213,7 @@ struct GroupedCoverage {
     photometric_interpretations: BTreeMap<String, usize>,
     bit_depths: BTreeMap<String, usize>,
     object_types: BTreeMap<String, usize>,
+    known_stressors: BTreeMap<String, usize>,
 }
 
 impl GroupedCoverage {
@@ -6264,6 +6271,11 @@ impl GroupedCoverage {
             &mut self.object_types,
             row.get("object_type").and_then(Value::as_str),
         );
+        if let Some(stressors) = row.get("known_stressors").and_then(Value::as_array) {
+            for stressor in stressors {
+                increment_map(&mut self.known_stressors, stressor.as_str());
+            }
+        }
     }
 
     fn to_json(&self) -> Value {
@@ -6280,7 +6292,8 @@ impl GroupedCoverage {
             "unavailable_reasons": self.unavailable_reasons,
             "photometric_interpretations": self.photometric_interpretations,
             "bit_depths": self.bit_depths,
-            "object_types": self.object_types
+            "object_types": self.object_types,
+            "known_stressors": self.known_stressors
         })
     }
 }

@@ -280,6 +280,7 @@ fn coverage_report_schema_requires_the_specified_matrix_fields() {
         "codec_families",
         "codec_backends",
         "determinism",
+        "known_stressors",
     ] {
         assert!(
             schema

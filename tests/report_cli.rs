@@ -1477,6 +1477,12 @@ fn report_summarizes_compressed_codec_coverage() {
             .and_then(Value::as_u64),
         Some(1)
     );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/known_stressors/compressed_pixel_data")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
     let unavailable = coverage_row(&report, "classic/sc/rgb_planar0_jpeg_baseline_8bit");
     assert_eq!(
         unavailable
@@ -1499,6 +1505,8 @@ fn report_summarizes_compressed_codec_coverage() {
     assert!(markdown.contains("### Codec Backends"));
     assert!(markdown.contains("| native_rle_lossless | 1 |"));
     assert!(markdown.contains("### Unavailable Reasons"));
+    assert!(markdown.contains("### Known Stressors"));
+    assert!(markdown.contains("| compressed_pixel_data | 1 |"));
 
     fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
 }

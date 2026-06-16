@@ -70,6 +70,9 @@
         },
         "object_types": {
           "$ref": "#/$defs/count_map"
+        },
+        "known_stressors": {
+          "$ref": "#/$defs/count_map"
         }
       },
       "additionalProperties": false

@@ -547,6 +547,29 @@ const PIXEL_RECIPES: &[PixelRecipe] = &[
         padding: None,
     },
     PixelRecipe {
+        case_id: "classic/sc/ybr_full_planar0_rle_lossless",
+        recipe_id: "sc_ybr_full_planar0_rle_lossless",
+        rows: 2,
+        columns: 2,
+        photometric_interpretation: "YBR_FULL",
+        samples_per_pixel: 3,
+        planar_configuration: Some(0),
+        bits_allocated: 8,
+        bits_stored: 8,
+        high_bit: 7,
+        pixel_representation: 0,
+        pixel_vr: VR::OB,
+        transfer_syntax: RLE_LOSSLESS,
+        pixel_bytes: &YBR_FULL_PLANAR0_PIXELS,
+        pixel_values: &[76, 85, 255, 150, 44, 21, 29, 255, 107, 255, 128, 128],
+        pixel_min: 21,
+        pixel_max: 255,
+        visual_pattern: "2x2_ybr_full_rle_lossless_red_green_blue_white",
+        semantic_note: "YBR_FULL samples remain interleaved color-by-pixel after RLE Lossless decode",
+        palette: None,
+        padding: None,
+    },
+    PixelRecipe {
         case_id: "classic/sc/palette_color_u8_rle_lossless",
         recipe_id: "sc_palette_color_u8_rle_lossless",
         rows: 2,
@@ -4404,6 +4427,9 @@ fn pixel_known_stressors(recipe: PixelRecipe) -> Vec<&'static str> {
     if recipe.palette.is_some() {
         stressors.push("palette_color_pixels");
     }
+    if recipe.photometric_interpretation == "YBR_FULL" {
+        stressors.push("ybr_full_pixels");
+    }
     stressors
 }
 
@@ -4417,6 +4443,7 @@ fn pixel_profile_membership(recipe: PixelRecipe) -> &'static [&'static str] {
         | "classic/sc/mono2_u8_rle_lossless"
         | "classic/sc/mono2_u16_rle_lossless"
         | "classic/sc/rgb_planar0_rle_lossless"
+        | "classic/sc/ybr_full_planar0_rle_lossless"
         | "classic/sc/palette_color_u8_rle_lossless"
         | "classic/sc/mono2_u8_odd_fragment_rle_lossless"
         | "vl/photo/rgb_planar0_rle_lossless"

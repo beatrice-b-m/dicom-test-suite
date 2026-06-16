@@ -547,6 +547,29 @@ const PIXEL_RECIPES: &[PixelRecipe] = &[
         padding: None,
     },
     PixelRecipe {
+        case_id: "classic/sc/palette_color_u8_rle_lossless",
+        recipe_id: "sc_palette_color_u8_rle_lossless",
+        rows: 2,
+        columns: 2,
+        photometric_interpretation: "PALETTE COLOR",
+        samples_per_pixel: 1,
+        planar_configuration: None,
+        bits_allocated: 8,
+        bits_stored: 8,
+        high_bit: 7,
+        pixel_representation: 0,
+        pixel_vr: VR::OB,
+        transfer_syntax: RLE_LOSSLESS,
+        pixel_bytes: &PALETTE_COLOR_PIXELS,
+        pixel_values: &PALETTE_COLOR_VALUES,
+        pixel_min: 0,
+        pixel_max: 3,
+        visual_pattern: "2x2_palette_rle_lossless_red_green_blue_white",
+        semantic_note: "stored RLE Lossless pixel values index 16-bit RGB palette lookup tables after decode",
+        palette: Some(PALETTE_COLOR_LUT),
+        padding: None,
+    },
+    PixelRecipe {
         case_id: "vl/photo/rgb_planar0_rle_lossless",
         recipe_id: "vl_photo_rgb_planar0_rle_lossless",
         rows: 2,
@@ -4378,6 +4401,9 @@ fn pixel_known_stressors(recipe: PixelRecipe) -> Vec<&'static str> {
         stressors.push("odd_compressed_fragment_length");
         stressors.push("encapsulated_item_padding");
     }
+    if recipe.palette.is_some() {
+        stressors.push("palette_color_pixels");
+    }
     stressors
 }
 
@@ -4391,6 +4417,7 @@ fn pixel_profile_membership(recipe: PixelRecipe) -> &'static [&'static str] {
         | "classic/sc/mono2_u8_rle_lossless"
         | "classic/sc/mono2_u16_rle_lossless"
         | "classic/sc/rgb_planar0_rle_lossless"
+        | "classic/sc/palette_color_u8_rle_lossless"
         | "classic/sc/mono2_u8_odd_fragment_rle_lossless"
         | "vl/photo/rgb_planar0_rle_lossless"
         | "classic/sc/rgb_planar0_jpeg_baseline_8bit"
@@ -4410,7 +4437,9 @@ fn pixel_expected_capabilities(recipe: PixelRecipe) -> Vec<&'static str> {
             "open_file",
             "read_metadata",
             "decode_rle_lossless_pixels",
-            if recipe.samples_per_pixel > 1 {
+            if recipe.palette.is_some() {
+                "render_palette_color"
+            } else if recipe.samples_per_pixel > 1 {
                 "render_color"
             } else {
                 "render_grayscale"

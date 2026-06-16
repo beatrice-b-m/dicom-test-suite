@@ -7539,6 +7539,12 @@ mod tests {
         );
         assert!(
             output.contains(
+                "classic/sc/palette_color_u8_rle_lossless\timplemented\textended\t1.2.840.10008.5.1.4.1.1.7\t1.2.840.10008.1.2.5\t11/11 covered"
+            ),
+            "list-cases output must show implemented PALETTE COLOR RLE Lossless status"
+        );
+        assert!(
+            output.contains(
                 "classic/mr/mono2_u16_rle_lossless\timplemented\textended\t1.2.840.10008.5.1.4.1.1.4\t1.2.840.10008.1.2.5\t13/13 covered"
             ),
             "list-cases output must show implemented MR RLE Lossless status"

@@ -1627,7 +1627,7 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\textended"));
-    let expected_extended_files = 30
+    let expected_extended_files = 31
         + if cfg!(feature = "deflate") { 2 } else { 0 }
         + if cfg!(feature = "jpeg") { 1 } else { 0 }
         + if cfg!(feature = "charls") { 1 } else { 0 }
@@ -1804,6 +1804,52 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
         validation_result_names(rle_rgb_file.pointer("/validation/internal"))
             .contains(&"rle_decoded_frame_hashes"),
         "RGB RLE manifest should record decoded native frame hash validation"
+    );
+    let rle_palette_file =
+        file_entry_by_case_id(&manifest, "classic/sc/palette_color_u8_rle_lossless");
+    assert_eq!(
+        rle_palette_file
+            .pointer("/image/photometric_interpretation")
+            .and_then(Value::as_str),
+        Some("PALETTE COLOR")
+    );
+    assert_eq!(
+        rle_palette_file
+            .pointer("/recipe/recipe_parameters/palette/descriptor")
+            .and_then(Value::as_array)
+            .map(Vec::len),
+        Some(3)
+    );
+    assert_eq!(
+        rle_palette_file
+            .pointer("/pixel_data/native_or_encapsulated")
+            .and_then(Value::as_str),
+        Some("encapsulated")
+    );
+    assert_eq!(
+        rle_palette_file
+            .pointer("/pixel_data/codec/backend_id")
+            .and_then(Value::as_str),
+        Some("native_project_rle_encoder")
+    );
+    assert!(
+        rle_palette_file
+            .pointer("/known_stressors")
+            .and_then(Value::as_array)
+            .expect("palette RLE manifest should include known stressors")
+            .iter()
+            .any(|stressor| stressor.as_str() == Some("palette_color_pixels")),
+        "palette RLE case should label palette color pixels as a stressor"
+    );
+    assert!(
+        validation_result_names(rle_palette_file.pointer("/validation/internal"))
+            .contains(&"red_palette_lut_data"),
+        "palette RLE manifest should retain Palette Color LUT validation"
+    );
+    assert!(
+        validation_result_names(rle_palette_file.pointer("/validation/internal"))
+            .contains(&"rle_decoded_frame_hashes"),
+        "palette RLE manifest should record decoded native frame hash validation"
     );
     let rle_multiframe_file =
         file_entry_by_case_id(&manifest, "classic/sc/mono2_u8_multiframe_rle_lossless");
@@ -5030,7 +5076,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\tall"));
-    let expected_all_files = 52
+    let expected_all_files = 53
         + if cfg!(feature = "deflate") { 2 } else { 0 }
         + if cfg!(feature = "jpeg") { 1 } else { 0 }
         + if cfg!(feature = "charls") { 1 } else { 0 }
@@ -5070,6 +5116,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
     file_entry_by_case_id(&manifest, "classic/sc/mono2_u8_rle_lossless");
     file_entry_by_case_id(&manifest, "classic/sc/mono2_u16_rle_lossless");
     file_entry_by_case_id(&manifest, "classic/sc/rgb_planar0_rle_lossless");
+    file_entry_by_case_id(&manifest, "classic/sc/palette_color_u8_rle_lossless");
     file_entry_by_case_id(&manifest, "classic/sc/mono2_u8_multiframe_rle_lossless");
     file_entry_by_case_id(&manifest, "classic/sc/mono2_u8_odd_fragment_rle_lossless");
     file_entry_by_case_id(&manifest, "classic/cr/overlay_modality_voi_rle_lossless");

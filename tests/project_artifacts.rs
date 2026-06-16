@@ -87,6 +87,10 @@ fn registry_contains_initial_smoke_and_core_cases() {
             "classic/dx/display_shutter_mono2_u16_explicit_le",
             "implemented",
         ),
+        (
+            "classic/dx/display_shutter_mono2_u16_rle_lossless",
+            "implemented",
+        ),
         ("classic/us/mono2_u8_explicit_le", "implemented"),
         (
             "enhanced/ct/multiframe_shared_perframe_explicit_le",
@@ -2288,6 +2292,27 @@ fn rle_lossless_transfer_syntax_is_available_through_native_backend() {
     assert_eq!(
         cr_case.get("sop_class_uid").and_then(Value::as_str),
         Some("1.2.840.10008.5.1.4.1.1.1")
+    );
+
+    let dx_case = cases
+        .iter()
+        .find(|case| {
+            case.get("case_id").and_then(Value::as_str)
+                == Some("classic/dx/display_shutter_mono2_u16_rle_lossless")
+        })
+        .expect("registry must contain DX RLE Lossless case");
+    assert_eq!(
+        dx_case.get("status").and_then(Value::as_str),
+        Some("implemented")
+    );
+    assert_eq!(dx_case.get("skip"), Some(&Value::Null));
+    assert_eq!(
+        dx_case.get("determinism").and_then(Value::as_str),
+        Some("byte_stable")
+    );
+    assert_eq!(
+        dx_case.get("sop_class_uid").and_then(Value::as_str),
+        Some("1.2.840.10008.5.1.4.1.1.1.1")
     );
 }
 

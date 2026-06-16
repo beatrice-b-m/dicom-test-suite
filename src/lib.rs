@@ -7549,6 +7549,12 @@ mod tests {
             ),
             "list-cases output must show implemented CR RLE Lossless status"
         );
+        assert!(
+            output.contains(
+                "classic/dx/display_shutter_mono2_u16_rle_lossless\timplemented\textended\t1.2.840.10008.5.1.4.1.1.1.1\t1.2.840.10008.1.2.5\t11/11 covered"
+            ),
+            "list-cases output must show implemented DX RLE Lossless status"
+        );
     }
 
     #[test]

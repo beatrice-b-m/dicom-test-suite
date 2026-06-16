@@ -6323,6 +6323,48 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
     append_count_map_section(
         &mut output,
         report,
+        "GSPS Content Labels",
+        "/grouped_coverage/gsps_content_labels",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "GSPS Content Descriptions",
+        "/grouped_coverage/gsps_content_descriptions",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "GSPS Presentation Size Modes",
+        "/grouped_coverage/gsps_presentation_size_modes",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "GSPS Presentation Pixel Aspect Ratios",
+        "/grouped_coverage/gsps_presentation_pixel_aspect_ratios",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "GSPS Window Centers",
+        "/grouped_coverage/gsps_window_centers",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "GSPS Window Widths",
+        "/grouped_coverage/gsps_window_widths",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "GSPS Presentation LUT Shapes",
+        "/grouped_coverage/gsps_presentation_lut_shapes",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
         "RWVM Content Labels",
         "/grouped_coverage/rwvm_content_labels",
     );
@@ -7044,6 +7086,79 @@ fn generated_coverage_row(
         "segmentation_maximum_fractional_value".to_string(),
         file.pointer("/recipe/recipe_parameters/maximum_fractional_value")
             .and_then(Value::as_u64)
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
+    let presentation_state = file.pointer("/expected_semantics/presentation_state");
+    row_object.insert(
+        "gsps_content_label".to_string(),
+        presentation_state
+            .and_then(|_| {
+                file.pointer("/recipe/recipe_parameters/content_label")
+                    .and_then(Value::as_str)
+            })
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
+    row_object.insert(
+        "gsps_content_description".to_string(),
+        presentation_state
+            .and_then(|_| {
+                file.pointer("/recipe/recipe_parameters/content_description")
+                    .and_then(Value::as_str)
+            })
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
+    row_object.insert(
+        "gsps_presentation_size_mode".to_string(),
+        presentation_state
+            .and_then(|_| {
+                file.pointer("/expected_semantics/presentation_state/presentation_size_mode")
+                    .and_then(Value::as_str)
+            })
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
+    row_object.insert(
+        "gsps_presentation_pixel_aspect_ratio".to_string(),
+        presentation_state
+            .and_then(|_| {
+                report_i64_array(
+                    file,
+                    "/expected_semantics/presentation_state/presentation_pixel_aspect_ratio",
+                )
+            })
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
+    row_object.insert(
+        "gsps_window_center".to_string(),
+        presentation_state
+            .and_then(|_| {
+                file.pointer("/expected_semantics/presentation_state/window_center")
+                    .and_then(Value::as_str)
+            })
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
+    row_object.insert(
+        "gsps_window_width".to_string(),
+        presentation_state
+            .and_then(|_| {
+                file.pointer("/expected_semantics/presentation_state/window_width")
+                    .and_then(Value::as_str)
+            })
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
+    row_object.insert(
+        "gsps_presentation_lut_shape".to_string(),
+        presentation_state
+            .and_then(|_| {
+                file.pointer("/expected_semantics/presentation_state/presentation_lut_shape")
+                    .and_then(Value::as_str)
+            })
             .map(Value::from)
             .unwrap_or(Value::Null),
     );
@@ -7862,6 +7977,16 @@ fn skipped_coverage_row(
         "segmentation_maximum_fractional_value".to_string(),
         Value::Null,
     );
+    row_object.insert("gsps_content_label".to_string(), Value::Null);
+    row_object.insert("gsps_content_description".to_string(), Value::Null);
+    row_object.insert("gsps_presentation_size_mode".to_string(), Value::Null);
+    row_object.insert(
+        "gsps_presentation_pixel_aspect_ratio".to_string(),
+        Value::Null,
+    );
+    row_object.insert("gsps_window_center".to_string(), Value::Null);
+    row_object.insert("gsps_window_width".to_string(), Value::Null);
+    row_object.insert("gsps_presentation_lut_shape".to_string(), Value::Null);
     row_object.insert("rwvm_content_label".to_string(), Value::Null);
     row_object.insert("rwvm_lut_label".to_string(), Value::Null);
     row_object.insert("rwvm_first_value_mapped".to_string(), Value::Null);
@@ -8121,6 +8246,13 @@ struct GroupedCoverage {
     segmentation_types: BTreeMap<String, usize>,
     segmentation_fractional_types: BTreeMap<String, usize>,
     segmentation_maximum_fractional_values: BTreeMap<String, usize>,
+    gsps_content_labels: BTreeMap<String, usize>,
+    gsps_content_descriptions: BTreeMap<String, usize>,
+    gsps_presentation_size_modes: BTreeMap<String, usize>,
+    gsps_presentation_pixel_aspect_ratios: BTreeMap<String, usize>,
+    gsps_window_centers: BTreeMap<String, usize>,
+    gsps_window_widths: BTreeMap<String, usize>,
+    gsps_presentation_lut_shapes: BTreeMap<String, usize>,
     rwvm_content_labels: BTreeMap<String, usize>,
     rwvm_lut_labels: BTreeMap<String, usize>,
     rwvm_first_values_mapped: BTreeMap<String, usize>,
@@ -8539,6 +8671,37 @@ impl GroupedCoverage {
                 .entry(value.to_string())
                 .or_default() += 1;
         }
+        increment_map(
+            &mut self.gsps_content_labels,
+            row.get("gsps_content_label").and_then(Value::as_str),
+        );
+        increment_map(
+            &mut self.gsps_content_descriptions,
+            row.get("gsps_content_description").and_then(Value::as_str),
+        );
+        increment_map(
+            &mut self.gsps_presentation_size_modes,
+            row.get("gsps_presentation_size_mode")
+                .and_then(Value::as_str),
+        );
+        increment_map(
+            &mut self.gsps_presentation_pixel_aspect_ratios,
+            row.get("gsps_presentation_pixel_aspect_ratio")
+                .and_then(Value::as_str),
+        );
+        increment_map(
+            &mut self.gsps_window_centers,
+            row.get("gsps_window_center").and_then(Value::as_str),
+        );
+        increment_map(
+            &mut self.gsps_window_widths,
+            row.get("gsps_window_width").and_then(Value::as_str),
+        );
+        increment_map(
+            &mut self.gsps_presentation_lut_shapes,
+            row.get("gsps_presentation_lut_shape")
+                .and_then(Value::as_str),
+        );
         increment_map(
             &mut self.rwvm_content_labels,
             row.get("rwvm_content_label").and_then(Value::as_str),
@@ -9021,6 +9184,41 @@ impl GroupedCoverage {
             "segmentation_maximum_fractional_values".to_string(),
             serde_json::to_value(&self.segmentation_maximum_fractional_values)
                 .expect("segmentation maximum fractional value count map must serialize"),
+        );
+        grouped_object.insert(
+            "gsps_content_labels".to_string(),
+            serde_json::to_value(&self.gsps_content_labels)
+                .expect("GSPS Content Label count map must serialize"),
+        );
+        grouped_object.insert(
+            "gsps_content_descriptions".to_string(),
+            serde_json::to_value(&self.gsps_content_descriptions)
+                .expect("GSPS Content Description count map must serialize"),
+        );
+        grouped_object.insert(
+            "gsps_presentation_size_modes".to_string(),
+            serde_json::to_value(&self.gsps_presentation_size_modes)
+                .expect("GSPS Presentation Size Mode count map must serialize"),
+        );
+        grouped_object.insert(
+            "gsps_presentation_pixel_aspect_ratios".to_string(),
+            serde_json::to_value(&self.gsps_presentation_pixel_aspect_ratios)
+                .expect("GSPS Presentation Pixel Aspect Ratio count map must serialize"),
+        );
+        grouped_object.insert(
+            "gsps_window_centers".to_string(),
+            serde_json::to_value(&self.gsps_window_centers)
+                .expect("GSPS Window Center count map must serialize"),
+        );
+        grouped_object.insert(
+            "gsps_window_widths".to_string(),
+            serde_json::to_value(&self.gsps_window_widths)
+                .expect("GSPS Window Width count map must serialize"),
+        );
+        grouped_object.insert(
+            "gsps_presentation_lut_shapes".to_string(),
+            serde_json::to_value(&self.gsps_presentation_lut_shapes)
+                .expect("GSPS Presentation LUT Shape count map must serialize"),
         );
         grouped_object.insert(
             "rwvm_content_labels".to_string(),

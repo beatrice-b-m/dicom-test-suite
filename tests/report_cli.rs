@@ -1163,6 +1163,143 @@ fn report_command_writes_segmentation_content_coverage_for_extended_root() {
 }
 
 #[test]
+fn report_command_writes_gsps_content_coverage_for_extended_root() {
+    let out_dir = unique_temp_dir("report-gsps-content-json");
+    generate_extended(&out_dir);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args([
+            "report",
+            out_dir.to_str().expect("temp path should be valid UTF-8"),
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("report command must run");
+
+    assert!(
+        output.status.success(),
+        "report should accept generated output: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let report: Value =
+        serde_json::from_slice(&output.stdout).expect("report stdout should be JSON");
+    let row = coverage_row(
+        &report,
+        "derived/presentation-state/grayscale_softcopy_ct_window_explicit_le",
+    );
+    assert_eq!(
+        row.get("gsps_content_label").and_then(Value::as_str),
+        Some("DTSGSPS")
+    );
+    assert_eq!(
+        row.get("gsps_content_description").and_then(Value::as_str),
+        Some("Synthetic CT window presentation state")
+    );
+    assert_eq!(
+        row.get("gsps_presentation_size_mode")
+            .and_then(Value::as_str),
+        Some("SCALE TO FIT")
+    );
+    assert_eq!(
+        row.get("gsps_presentation_pixel_aspect_ratio")
+            .and_then(Value::as_str),
+        Some("1\\1")
+    );
+    assert_eq!(
+        row.get("gsps_window_center").and_then(Value::as_str),
+        Some("350")
+    );
+    assert_eq!(
+        row.get("gsps_window_width").and_then(Value::as_str),
+        Some("1400")
+    );
+    assert_eq!(
+        row.get("gsps_presentation_lut_shape")
+            .and_then(Value::as_str),
+        Some("IDENTITY")
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/gsps_content_labels/DTSGSPS")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
+            .pointer(
+                "/grouped_coverage/gsps_content_descriptions/Synthetic CT window presentation state"
+            )
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/gsps_presentation_size_modes/SCALE TO FIT")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/gsps_presentation_pixel_aspect_ratios/1\\1")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/gsps_window_centers/350")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/gsps_window_widths/1400")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/gsps_presentation_lut_shapes/IDENTITY")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+
+    let markdown_output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args([
+            "report",
+            out_dir.to_str().expect("temp path should be valid UTF-8"),
+            "--format",
+            "markdown",
+        ])
+        .output()
+        .expect("report markdown command must run");
+
+    assert!(
+        markdown_output.status.success(),
+        "markdown report should accept generated output: {}",
+        String::from_utf8_lossy(&markdown_output.stderr)
+    );
+    let markdown =
+        String::from_utf8(markdown_output.stdout).expect("markdown stdout should be UTF-8");
+    assert!(markdown.contains("### GSPS Content Labels"));
+    assert!(markdown.contains("| DTSGSPS | 1 |"));
+    assert!(markdown.contains("### GSPS Content Descriptions"));
+    assert!(markdown.contains("| Synthetic CT window presentation state | 1 |"));
+    assert!(markdown.contains("### GSPS Presentation Size Modes"));
+    assert!(markdown.contains("| SCALE TO FIT | 1 |"));
+    assert!(markdown.contains("### GSPS Presentation Pixel Aspect Ratios"));
+    assert!(markdown.contains("| 1\\1 | 1 |"));
+    assert!(markdown.contains("### GSPS Window Centers"));
+    assert!(markdown.contains("| 350 | 1 |"));
+    assert!(markdown.contains("### GSPS Window Widths"));
+    assert!(markdown.contains("| 1400 | 1 |"));
+    assert!(markdown.contains("### GSPS Presentation LUT Shapes"));
+    assert!(markdown.contains("| IDENTITY | 1 |"));
+
+    fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
+}
+
+#[test]
 fn report_command_writes_rt_dose_content_coverage_for_extended_root() {
     let out_dir = unique_temp_dir("report-rt-dose-content-json");
     generate_extended(&out_dir);

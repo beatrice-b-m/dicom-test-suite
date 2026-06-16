@@ -251,6 +251,27 @@
         "segmentation_maximum_fractional_values": {
           "$ref": "#/$defs/count_map"
         },
+        "gsps_content_labels": {
+          "$ref": "#/$defs/count_map"
+        },
+        "gsps_content_descriptions": {
+          "$ref": "#/$defs/count_map"
+        },
+        "gsps_presentation_size_modes": {
+          "$ref": "#/$defs/count_map"
+        },
+        "gsps_presentation_pixel_aspect_ratios": {
+          "$ref": "#/$defs/count_map"
+        },
+        "gsps_window_centers": {
+          "$ref": "#/$defs/count_map"
+        },
+        "gsps_window_widths": {
+          "$ref": "#/$defs/count_map"
+        },
+        "gsps_presentation_lut_shapes": {
+          "$ref": "#/$defs/count_map"
+        },
         "rwvm_content_labels": {
           "$ref": "#/$defs/count_map"
         },
@@ -569,6 +590,13 @@
         "segmentation_type",
         "segmentation_fractional_type",
         "segmentation_maximum_fractional_value",
+        "gsps_content_label",
+        "gsps_content_description",
+        "gsps_presentation_size_mode",
+        "gsps_presentation_pixel_aspect_ratio",
+        "gsps_window_center",
+        "gsps_window_width",
+        "gsps_presentation_lut_shape",
         "rwvm_content_label",
         "rwvm_lut_label",
         "rwvm_first_value_mapped",
@@ -906,6 +934,27 @@
         "segmentation_maximum_fractional_value": {
           "type": ["integer", "null"],
           "minimum": 0
+        },
+        "gsps_content_label": {
+          "type": ["string", "null"]
+        },
+        "gsps_content_description": {
+          "type": ["string", "null"]
+        },
+        "gsps_presentation_size_mode": {
+          "type": ["string", "null"]
+        },
+        "gsps_presentation_pixel_aspect_ratio": {
+          "type": ["string", "null"]
+        },
+        "gsps_window_center": {
+          "type": ["string", "null"]
+        },
+        "gsps_window_width": {
+          "type": ["string", "null"]
+        },
+        "gsps_presentation_lut_shape": {
+          "type": ["string", "null"]
         },
         "rwvm_content_label": {
           "type": ["string", "null"]

@@ -7543,6 +7543,12 @@ mod tests {
             ),
             "list-cases output must show implemented MR RLE Lossless status"
         );
+        assert!(
+            output.contains(
+                "classic/cr/overlay_modality_voi_rle_lossless\timplemented\textended\t1.2.840.10008.5.1.4.1.1.1\t1.2.840.10008.1.2.5\t16/16 covered"
+            ),
+            "list-cases output must show implemented CR RLE Lossless status"
+        );
     }
 
     #[test]

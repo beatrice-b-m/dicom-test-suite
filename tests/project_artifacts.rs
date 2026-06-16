@@ -78,6 +78,10 @@ fn registry_contains_initial_smoke_and_core_cases() {
             "implemented",
         ),
         ("classic/cr/overlay_modality_voi_explicit_le", "implemented"),
+        (
+            "classic/cr/overlay_modality_voi_rle_lossless",
+            "implemented",
+        ),
         ("classic/mr/multislice_oblique_explicit_le", "implemented"),
         (
             "classic/dx/display_shutter_mono2_u16_explicit_le",
@@ -2263,6 +2267,27 @@ fn rle_lossless_transfer_syntax_is_available_through_native_backend() {
     assert_eq!(
         mr_case.get("sop_class_uid").and_then(Value::as_str),
         Some("1.2.840.10008.5.1.4.1.1.4")
+    );
+
+    let cr_case = cases
+        .iter()
+        .find(|case| {
+            case.get("case_id").and_then(Value::as_str)
+                == Some("classic/cr/overlay_modality_voi_rle_lossless")
+        })
+        .expect("registry must contain CR RLE Lossless case");
+    assert_eq!(
+        cr_case.get("status").and_then(Value::as_str),
+        Some("implemented")
+    );
+    assert_eq!(cr_case.get("skip"), Some(&Value::Null));
+    assert_eq!(
+        cr_case.get("determinism").and_then(Value::as_str),
+        Some("byte_stable")
+    );
+    assert_eq!(
+        cr_case.get("sop_class_uid").and_then(Value::as_str),
+        Some("1.2.840.10008.5.1.4.1.1.1")
     );
 }
 

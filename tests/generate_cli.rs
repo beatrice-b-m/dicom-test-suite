@@ -1627,7 +1627,7 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\textended"));
-    let expected_extended_files = 24
+    let expected_extended_files = 25
         + if cfg!(feature = "deflate") { 2 } else { 0 }
         + if cfg!(feature = "jpeg") { 1 } else { 0 }
         + if cfg!(feature = "charls") { 1 } else { 0 }
@@ -1890,6 +1890,48 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
                 .iter()
                 .any(|stress| stress.as_str() == Some("encapsulated_item_padding"))),
         "odd RLE case should label encapsulated item padding as a stressor"
+    );
+    let cr_rle_file =
+        file_entry_by_case_id(&manifest, "classic/cr/overlay_modality_voi_rle_lossless");
+    assert_eq!(
+        cr_rle_file
+            .pointer("/dicom/sop_class_uid")
+            .and_then(Value::as_str),
+        Some(uids::COMPUTED_RADIOGRAPHY_IMAGE_STORAGE)
+    );
+    assert_eq!(
+        cr_rle_file
+            .pointer("/dicom/transfer_syntax_uid")
+            .and_then(Value::as_str),
+        Some("1.2.840.10008.1.2.5")
+    );
+    assert_eq!(
+        cr_rle_file
+            .pointer("/pixel_data/native_or_encapsulated")
+            .and_then(Value::as_str),
+        Some("encapsulated")
+    );
+    assert_eq!(
+        cr_rle_file
+            .pointer("/pixel_data/codec/backend_id")
+            .and_then(Value::as_str),
+        Some("native_project_rle_encoder")
+    );
+    assert_eq!(
+        cr_rle_file
+            .pointer("/pixel_data/encapsulated_pixel_data/fragments_per_frame/0")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert!(
+        validation_result_names(cr_rle_file.pointer("/validation/internal"))
+            .contains(&"cr_overlay_data"),
+        "compressed CR manifest should retain Overlay Data validation"
+    );
+    assert!(
+        validation_result_names(cr_rle_file.pointer("/validation/internal"))
+            .contains(&"rle_decoded_frame_hashes"),
+        "compressed CR manifest should record RLE decoded native frame hash validation"
     );
     let ct_rle_file =
         file_entry_by_case_id(&manifest, "classic/ct/mono2_i16_rescale_12bit_rle_lossless");
@@ -4739,7 +4781,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\tall"));
-    let expected_all_files = 46
+    let expected_all_files = 47
         + if cfg!(feature = "deflate") { 2 } else { 0 }
         + if cfg!(feature = "jpeg") { 1 } else { 0 }
         + if cfg!(feature = "charls") { 1 } else { 0 }
@@ -4781,6 +4823,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
     file_entry_by_case_id(&manifest, "classic/sc/rgb_planar0_rle_lossless");
     file_entry_by_case_id(&manifest, "classic/sc/mono2_u8_multiframe_rle_lossless");
     file_entry_by_case_id(&manifest, "classic/sc/mono2_u8_odd_fragment_rle_lossless");
+    file_entry_by_case_id(&manifest, "classic/cr/overlay_modality_voi_rle_lossless");
     file_entry_by_case_id(&manifest, "classic/ct/mono2_i16_rescale_12bit_rle_lossless");
     file_entry_by_case_id(&manifest, "classic/mr/mono2_u16_rle_lossless");
     if cfg!(feature = "jpeg") {

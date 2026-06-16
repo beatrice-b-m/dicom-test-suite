@@ -464,6 +464,12 @@ fn list_cases_command_shows_rle_lossless_as_implemented() {
     );
     assert!(
         stdout.contains(
+            "classic/cr/overlay_modality_voi_rle_lossless\timplemented\textended\t1.2.840.10008.5.1.4.1.1.1\t1.2.840.10008.1.2.5\t16/16 covered"
+        ),
+        "CR RLE Lossless row must be listed as implemented"
+    );
+    assert!(
+        stdout.contains(
             "classic/sc/rgb_planar0_jpeg_baseline_8bit\timplemented\textended\t1.2.840.10008.5.1.4.1.1.7\t1.2.840.10008.1.2.4.50\t2/2 covered"
         ),
         "JPEG Baseline row must be listed as implemented and feature-gated"

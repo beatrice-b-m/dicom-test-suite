@@ -292,6 +292,7 @@ fn coverage_report_schema_requires_the_specified_matrix_fields() {
         "frame_counts",
         "geometries",
         "object_types",
+        "derived_reference_states",
     ] {
         assert!(
             schema

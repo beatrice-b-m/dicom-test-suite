@@ -1401,6 +1401,11 @@ fn report_summarizes_compressed_codec_coverage() {
                     "status": "passed"
                 },
                 "determinism": "byte_stable",
+                "references": [
+                    {
+                        "source_case_id": "classic/sc/mono2_u8_explicit_le"
+                    }
+                ],
                 "known_stressors": ["compressed_pixel_data"]
             }
         ],
@@ -1513,6 +1518,18 @@ fn report_summarizes_compressed_codec_coverage() {
     );
     assert_eq!(
         report
+            .pointer("/grouped_coverage/derived_reference_states/with_source_reference")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/derived_reference_states/without_source_reference")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
             .pointer("/grouped_coverage/modalities/OT")
             .and_then(Value::as_u64),
         Some(2)
@@ -1575,6 +1592,9 @@ fn report_summarizes_compressed_codec_coverage() {
     assert!(markdown.contains("| 2x2 | 1 |"));
     assert!(markdown.contains("### Object Types"));
     assert!(markdown.contains("| classic | 2 |"));
+    assert!(markdown.contains("### Derived Reference States"));
+    assert!(markdown.contains("| with_source_reference | 1 |"));
+    assert!(markdown.contains("| without_source_reference | 1 |"));
     assert!(markdown.contains("### Known Stressors"));
     assert!(markdown.contains("| compressed_pixel_data | 1 |"));
 

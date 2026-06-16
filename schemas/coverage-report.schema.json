@@ -86,6 +86,9 @@
         "object_types": {
           "$ref": "#/$defs/count_map"
         },
+        "derived_reference_states": {
+          "$ref": "#/$defs/count_map"
+        },
         "known_stressors": {
           "$ref": "#/$defs/count_map"
         }

@@ -5980,6 +5980,12 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
     append_count_map_section(
         &mut output,
         report,
+        "Derived Reference States",
+        "/grouped_coverage/derived_reference_states",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
         "Known Stressors",
         "/grouped_coverage/known_stressors",
     );
@@ -6248,6 +6254,7 @@ struct GroupedCoverage {
     frame_counts: BTreeMap<String, usize>,
     geometries: BTreeMap<String, usize>,
     object_types: BTreeMap<String, usize>,
+    derived_reference_states: BTreeMap<String, usize>,
     known_stressors: BTreeMap<String, usize>,
 }
 
@@ -6324,6 +6331,17 @@ impl GroupedCoverage {
             &mut self.object_types,
             row.get("object_type").and_then(Value::as_str),
         );
+        let derived_reference_state =
+            row.get("derived_refs")
+                .and_then(Value::as_array)
+                .map(|derived_refs| {
+                    if derived_refs.is_empty() {
+                        "without_source_reference"
+                    } else {
+                        "with_source_reference"
+                    }
+                });
+        increment_map(&mut self.derived_reference_states, derived_reference_state);
         if let Some(stressors) = row.get("known_stressors").and_then(Value::as_array) {
             for stressor in stressors {
                 increment_map(&mut self.known_stressors, stressor.as_str());
@@ -6351,6 +6369,7 @@ impl GroupedCoverage {
             "frame_counts": self.frame_counts,
             "geometries": self.geometries,
             "object_types": self.object_types,
+            "derived_reference_states": self.derived_reference_states,
             "known_stressors": self.known_stressors
         })
     }

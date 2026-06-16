@@ -1627,7 +1627,7 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\textended"));
-    let expected_extended_files = 72
+    let expected_extended_files = 73
         + if cfg!(feature = "deflate") { 2 } else { 0 }
         + if cfg!(feature = "jpeg") { 1 } else { 0 }
         + if cfg!(feature = "charls") { 1 } else { 0 }
@@ -2247,6 +2247,49 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
         validation_result_names(rle_tiny_file.pointer("/validation/internal"))
             .contains(&"rle_decoded_frame_hashes"),
         "tiny 1x1 RLE manifest should record decoded native frame hash validation"
+    );
+    let rle_mono1_tiny_file =
+        file_entry_by_case_id(&manifest, "classic/sc/mono1_u16_tiny_1x1_rle_lossless");
+    assert_eq!(
+        rle_mono1_tiny_file
+            .pointer("/image/photometric_interpretation")
+            .and_then(Value::as_str),
+        Some("MONOCHROME1")
+    );
+    assert_eq!(
+        rle_mono1_tiny_file
+            .pointer("/image/rows")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        rle_mono1_tiny_file
+            .pointer("/image/columns")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        rle_mono1_tiny_file
+            .pointer("/pixel_data/native_or_encapsulated")
+            .and_then(Value::as_str),
+        Some("encapsulated")
+    );
+    assert_eq!(
+        rle_mono1_tiny_file
+            .pointer("/pixel_data/codec/backend_id")
+            .and_then(Value::as_str),
+        Some("native_project_rle_encoder")
+    );
+    assert_eq!(
+        rle_mono1_tiny_file
+            .pointer("/expected_semantics/pixel_min")
+            .and_then(Value::as_u64),
+        Some(65535)
+    );
+    assert!(
+        validation_result_names(rle_mono1_tiny_file.pointer("/validation/internal"))
+            .contains(&"rle_decoded_frame_hashes"),
+        "MONOCHROME1 tiny 1x1 RLE manifest should record decoded native frame hash validation"
     );
     let rle_padding_file =
         file_entry_by_case_id(&manifest, "classic/sc/mono2_u16_padding_rle_lossless");
@@ -6880,7 +6923,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\tall"));
-    let expected_all_files = 94
+    let expected_all_files = 95
         + if cfg!(feature = "deflate") { 2 } else { 0 }
         + if cfg!(feature = "jpeg") { 1 } else { 0 }
         + if cfg!(feature = "charls") { 1 } else { 0 }
@@ -6930,6 +6973,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
     file_entry_by_case_id(&manifest, "classic/sc/mono2_i16_rect_2x3_rle_lossless");
     file_entry_by_case_id(&manifest, "classic/sc/mono1_i16_rect_2x3_rle_lossless");
     file_entry_by_case_id(&manifest, "classic/sc/mono2_u16_tiny_1x1_rle_lossless");
+    file_entry_by_case_id(&manifest, "classic/sc/mono1_u16_tiny_1x1_rle_lossless");
     file_entry_by_case_id(&manifest, "classic/sc/mono2_u16_padding_rle_lossless");
     file_entry_by_case_id(&manifest, "classic/sc/mono2_u8_padding_rle_lossless");
     file_entry_by_case_id(&manifest, "classic/sc/mono1_u8_padding_rle_lossless");

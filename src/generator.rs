@@ -547,6 +547,29 @@ const PIXEL_RECIPES: &[PixelRecipe] = &[
         padding: None,
     },
     PixelRecipe {
+        case_id: "vl/photo/rgb_planar0_rle_lossless",
+        recipe_id: "vl_photo_rgb_planar0_rle_lossless",
+        rows: 2,
+        columns: 2,
+        photometric_interpretation: "RGB",
+        samples_per_pixel: 3,
+        planar_configuration: Some(0),
+        bits_allocated: 8,
+        bits_stored: 8,
+        high_bit: 7,
+        pixel_representation: 0,
+        pixel_vr: VR::OB,
+        transfer_syntax: RLE_LOSSLESS,
+        pixel_bytes: &RGB_PLANAR0_PIXELS,
+        pixel_values: &[255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 255, 255],
+        pixel_min: 0,
+        pixel_max: 255,
+        visual_pattern: "2x2_vl_photo_rgb_rle_lossless_red_green_blue_white",
+        semantic_note: "VL Photographic RGB samples remain interleaved color-by-pixel after RLE Lossless decode",
+        palette: None,
+        padding: None,
+    },
+    PixelRecipe {
         case_id: "classic/sc/rgb_planar0_jpeg_baseline_8bit",
         recipe_id: "sc_rgb_planar0_jpeg_baseline_8bit",
         rows: 2,
@@ -2747,12 +2770,9 @@ fn write_pixel_case(
     })?;
 
     let mut obj = InMemDicomObject::new_empty();
-    put_str(
-        &mut obj,
-        tags::SOP_CLASS_UID,
-        VR::UI,
-        uids::SECONDARY_CAPTURE_IMAGE_STORAGE,
-    );
+    let sop_class_uid = pixel_sop_class_uid(recipe);
+    let is_vl_photographic = pixel_is_vl_photographic(recipe);
+    put_str(&mut obj, tags::SOP_CLASS_UID, VR::UI, sop_class_uid);
     put_str(&mut obj, tags::SOP_INSTANCE_UID, VR::UI, &sop_instance_uid);
     put_str(&mut obj, tags::SYNTHETIC_DATA, VR::CS, "YES");
 
@@ -2773,7 +2793,7 @@ fn write_pixel_case(
     put_str(&mut obj, tags::STUDY_ID, VR::SH, "SMOKE");
     put_str(&mut obj, tags::ACCESSION_NUMBER, VR::SH, "");
 
-    put_str(&mut obj, tags::MODALITY, VR::CS, "OT");
+    put_str(&mut obj, tags::MODALITY, VR::CS, pixel_modality(recipe));
     put_str(
         &mut obj,
         tags::SERIES_INSTANCE_UID,
@@ -2782,7 +2802,9 @@ fn write_pixel_case(
     );
     put_str(&mut obj, tags::SERIES_NUMBER, VR::IS, "1");
 
-    put_str(&mut obj, tags::CONVERSION_TYPE, VR::CS, "SYN");
+    if !is_vl_photographic {
+        put_str(&mut obj, tags::CONVERSION_TYPE, VR::CS, "SYN");
+    }
     put_str(&mut obj, tags::MANUFACTURER, VR::LO, "dicom-test-suite");
     put_str(
         &mut obj,
@@ -2801,6 +2823,11 @@ fn write_pixel_case(
     put_str(&mut obj, tags::PATIENT_ORIENTATION, VR::CS, "");
     put_str(&mut obj, tags::CONTENT_DATE, VR::DA, "20260101");
     put_str(&mut obj, tags::CONTENT_TIME, VR::TM, "000000");
+    if is_vl_photographic {
+        put_str(&mut obj, tags::IMAGE_TYPE, VR::CS, "ORIGINAL\\PRIMARY");
+        put_str(&mut obj, tags::LOSSY_IMAGE_COMPRESSION, VR::CS, "00");
+        put_empty_sequence(&mut obj, tags::ACQUISITION_CONTEXT_SEQUENCE);
+    }
 
     put_u16(
         &mut obj,
@@ -3344,7 +3371,7 @@ fn write_pixel_case(
     let mut validated = validate_part10_file(
         &path,
         &Part10Expectations {
-            sop_class_uid: uids::SECONDARY_CAPTURE_IMAGE_STORAGE,
+            sop_class_uid,
             sop_instance_uid: &sop_instance_uid,
             transfer_syntax_uid: recipe.transfer_syntax.uid,
             implementation_class_uid: &output_implementation_class_uid,
@@ -3821,40 +3848,85 @@ fn pixel_manifest_entry(
     frame_hashes: &[&str],
 ) -> Value {
     let mut standards_evidence = standards_evidence_from_case(case);
-    standards_evidence.extend([
-        serde_json::json!({
-            "source": "dicom-standard-kb",
-            "edition": "2026b",
-            "query": "lookup_sop_class SecondaryCaptureImageStorage",
-            "covered": true,
-            "part": "PS3.3",
-            "anchor": "table_A.8-1"
-        }),
-        serde_json::json!({
-            "source": "dicom-standard-kb",
-            "edition": "2026b",
-            "query": "lookup_data_element SyntheticData",
-            "covered": true,
-            "part": "PS3.6",
-            "anchor": "table_6-1"
-        }),
-        serde_json::json!({
-            "source": "dicom-standard-kb",
-            "edition": "2026b",
-            "query": "search_standard_text Image Pixel Description Macro",
-            "covered": true,
-            "part": "PS3.3",
-            "anchor": "table_C.7-11c"
-        }),
-        serde_json::json!({
-            "source": "dicom-standard-kb",
-            "edition": "2026b",
-            "query": "retrieve_standard_text sect_C.7.6.3.1.2",
-            "covered": true,
-            "part": "PS3.3",
-            "anchor": "sect_C.7.6.3.1.2"
-        }),
-    ]);
+    if pixel_is_vl_photographic(recipe) {
+        standards_evidence.extend([
+            serde_json::json!({
+                "source": "dicom-standard-kb",
+                "edition": "2026b",
+                "query": "lookup_sop_class VL Photographic Image Storage",
+                "covered": true,
+                "part": "PS3.4",
+                "anchor": "table_B.5-1"
+            }),
+            serde_json::json!({
+                "source": "dicom-standard-kb",
+                "edition": "2026b",
+                "query": "lookup_iod VL Photographic Image",
+                "covered": true,
+                "part": "PS3.3",
+                "anchor": "table_A.32.4-1"
+            }),
+            serde_json::json!({
+                "source": "dicom-standard-kb",
+                "edition": "2026b",
+                "query": "list_modules_for_iod VL Photographic Image",
+                "covered": true,
+                "part": "PS3.3",
+                "anchor": "table_A.32.4-1"
+            }),
+            serde_json::json!({
+                "source": "dicom-standard-kb",
+                "edition": "2026b",
+                "query": "list_attributes_for_module VL Image --expand-macros",
+                "covered": true,
+                "part": "PS3.3",
+                "anchor": "table_C.8-77"
+            }),
+            serde_json::json!({
+                "source": "dicom-standard-kb",
+                "edition": "2026b",
+                "query": "list_attributes_for_module Acquisition Context --expand-macros",
+                "covered": true,
+                "part": "PS3.3",
+                "anchor": "table_C.7.6.14-1"
+            }),
+        ]);
+    } else {
+        standards_evidence.extend([
+            serde_json::json!({
+                "source": "dicom-standard-kb",
+                "edition": "2026b",
+                "query": "lookup_sop_class SecondaryCaptureImageStorage",
+                "covered": true,
+                "part": "PS3.3",
+                "anchor": "table_A.8-1"
+            }),
+            serde_json::json!({
+                "source": "dicom-standard-kb",
+                "edition": "2026b",
+                "query": "lookup_data_element SyntheticData",
+                "covered": true,
+                "part": "PS3.6",
+                "anchor": "table_6-1"
+            }),
+            serde_json::json!({
+                "source": "dicom-standard-kb",
+                "edition": "2026b",
+                "query": "search_standard_text Image Pixel Description Macro",
+                "covered": true,
+                "part": "PS3.3",
+                "anchor": "table_C.7-11c"
+            }),
+            serde_json::json!({
+                "source": "dicom-standard-kb",
+                "edition": "2026b",
+                "query": "retrieve_standard_text sect_C.7.6.3.1.2",
+                "covered": true,
+                "part": "PS3.3",
+                "anchor": "sect_C.7.6.3.1.2"
+            }),
+        ]);
+    }
     if recipe.planar_configuration.is_some() {
         standards_evidence.extend([
             serde_json::json!({
@@ -4211,10 +4283,10 @@ fn pixel_manifest_entry(
             }
         },
         "dicom": {
-            "sop_class_uid": uids::SECONDARY_CAPTURE_IMAGE_STORAGE,
-            "sop_class_name": "Secondary Capture Image Storage",
-            "iod_name": "Secondary Capture Image",
-            "modality": "OT",
+            "sop_class_uid": pixel_sop_class_uid(recipe),
+            "sop_class_name": pixel_sop_class_name(recipe),
+            "iod_name": pixel_iod_name(recipe),
+            "modality": pixel_modality(recipe),
             "transfer_syntax_uid": recipe.transfer_syntax.uid,
             "transfer_syntax_name": recipe.transfer_syntax.name
         },
@@ -4242,7 +4314,8 @@ fn pixel_manifest_entry(
         "expected_capabilities": pixel_expected_capabilities(recipe),
         "expected_semantics": {
             "synthetic_data": "YES",
-            "conversion_type": "SYN",
+            "conversion_type": pixel_conversion_type(recipe),
+            "image_type": pixel_image_type(recipe),
             "pixel_min": recipe.pixel_min,
             "pixel_max": recipe.pixel_max,
             "pixel_padding": padding_manifest,
@@ -4259,7 +4332,11 @@ fn pixel_manifest_entry(
 }
 
 fn pixel_known_stressors(recipe: PixelRecipe) -> Vec<&'static str> {
-    let mut stressors = vec!["minimal_secondary_capture"];
+    let mut stressors = if pixel_is_vl_photographic(recipe) {
+        vec!["vl_photographic_image_storage", "vl_rgb_pixels"]
+    } else {
+        vec!["minimal_secondary_capture"]
+    };
     if recipe.transfer_syntax == RLE_LOSSLESS {
         stressors.push("encapsulated_pixel_data");
         stressors.push("rle_lossless_transfer_syntax");
@@ -4315,6 +4392,7 @@ fn pixel_profile_membership(recipe: PixelRecipe) -> &'static [&'static str] {
         | "classic/sc/mono2_u16_rle_lossless"
         | "classic/sc/rgb_planar0_rle_lossless"
         | "classic/sc/mono2_u8_odd_fragment_rle_lossless"
+        | "vl/photo/rgb_planar0_rle_lossless"
         | "classic/sc/rgb_planar0_jpeg_baseline_8bit"
         | "classic/sc/mono2_u8_jpeg_ls_lossless"
         | "classic/sc/rgb_planar0_jpegxl_lossless"
@@ -4332,7 +4410,11 @@ fn pixel_expected_capabilities(recipe: PixelRecipe) -> Vec<&'static str> {
             "open_file",
             "read_metadata",
             "decode_rle_lossless_pixels",
-            "render_grayscale",
+            if recipe.samples_per_pixel > 1 {
+                "render_color"
+            } else {
+                "render_grayscale"
+            },
         ]
     } else if recipe.transfer_syntax == JPEG_BASELINE_8BIT {
         vec![
@@ -4385,6 +4467,58 @@ fn pixel_expected_capabilities(recipe: PixelRecipe) -> Vec<&'static str> {
         ]
     } else {
         vec!["open_file", "read_metadata", "render_native_pixels"]
+    }
+}
+
+fn pixel_is_vl_photographic(recipe: PixelRecipe) -> bool {
+    recipe.case_id.starts_with("vl/photo/")
+}
+
+fn pixel_sop_class_uid(recipe: PixelRecipe) -> &'static str {
+    if pixel_is_vl_photographic(recipe) {
+        uids::VL_PHOTOGRAPHIC_IMAGE_STORAGE
+    } else {
+        uids::SECONDARY_CAPTURE_IMAGE_STORAGE
+    }
+}
+
+fn pixel_sop_class_name(recipe: PixelRecipe) -> &'static str {
+    if pixel_is_vl_photographic(recipe) {
+        "VL Photographic Image Storage"
+    } else {
+        "Secondary Capture Image Storage"
+    }
+}
+
+fn pixel_iod_name(recipe: PixelRecipe) -> &'static str {
+    if pixel_is_vl_photographic(recipe) {
+        "VL Photographic Image"
+    } else {
+        "Secondary Capture Image"
+    }
+}
+
+fn pixel_modality(recipe: PixelRecipe) -> &'static str {
+    if pixel_is_vl_photographic(recipe) {
+        "XC"
+    } else {
+        "OT"
+    }
+}
+
+fn pixel_conversion_type(recipe: PixelRecipe) -> Value {
+    if pixel_is_vl_photographic(recipe) {
+        Value::Null
+    } else {
+        Value::String("SYN".to_string())
+    }
+}
+
+fn pixel_image_type(recipe: PixelRecipe) -> Value {
+    if pixel_is_vl_photographic(recipe) {
+        Value::String("ORIGINAL\\PRIMARY".to_string())
+    } else {
+        Value::Null
     }
 }
 

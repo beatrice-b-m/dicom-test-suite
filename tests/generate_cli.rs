@@ -1627,7 +1627,7 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\textended"));
-    let expected_extended_files = 29
+    let expected_extended_files = 30
         + if cfg!(feature = "deflate") { 2 } else { 0 }
         + if cfg!(feature = "jpeg") { 1 } else { 0 }
         + if cfg!(feature = "charls") { 1 } else { 0 }
@@ -2127,6 +2127,60 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
         validation_result_names(us_rle_file.pointer("/validation/internal"))
             .contains(&"rle_decoded_frame_hashes"),
         "compressed US manifest should record RLE decoded native frame hash validation"
+    );
+    let vl_photo_rle_file = file_entry_by_case_id(&manifest, "vl/photo/rgb_planar0_rle_lossless");
+    assert_eq!(
+        vl_photo_rle_file
+            .pointer("/dicom/sop_class_uid")
+            .and_then(Value::as_str),
+        Some(uids::VL_PHOTOGRAPHIC_IMAGE_STORAGE)
+    );
+    assert_eq!(
+        vl_photo_rle_file
+            .pointer("/dicom/iod_name")
+            .and_then(Value::as_str),
+        Some("VL Photographic Image")
+    );
+    assert_eq!(
+        vl_photo_rle_file
+            .pointer("/dicom/modality")
+            .and_then(Value::as_str),
+        Some("XC")
+    );
+    assert_eq!(
+        vl_photo_rle_file
+            .pointer("/dicom/transfer_syntax_uid")
+            .and_then(Value::as_str),
+        Some("1.2.840.10008.1.2.5")
+    );
+    assert_eq!(
+        vl_photo_rle_file
+            .pointer("/image/samples_per_pixel")
+            .and_then(Value::as_u64),
+        Some(3)
+    );
+    assert_eq!(
+        vl_photo_rle_file
+            .pointer("/image/planar_configuration")
+            .and_then(Value::as_u64),
+        Some(0)
+    );
+    assert_eq!(
+        vl_photo_rle_file
+            .pointer("/pixel_data/native_or_encapsulated")
+            .and_then(Value::as_str),
+        Some("encapsulated")
+    );
+    assert_eq!(
+        vl_photo_rle_file
+            .pointer("/pixel_data/codec/backend_id")
+            .and_then(Value::as_str),
+        Some("native_project_rle_encoder")
+    );
+    assert!(
+        validation_result_names(vl_photo_rle_file.pointer("/validation/internal"))
+            .contains(&"rle_decoded_frame_hashes"),
+        "VL Photographic RLE manifest should record decoded native frame hash validation"
     );
     let ct_rle_file =
         file_entry_by_case_id(&manifest, "classic/ct/mono2_i16_rescale_12bit_rle_lossless");
@@ -4976,7 +5030,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\tall"));
-    let expected_all_files = 51
+    let expected_all_files = 52
         + if cfg!(feature = "deflate") { 2 } else { 0 }
         + if cfg!(feature = "jpeg") { 1 } else { 0 }
         + if cfg!(feature = "charls") { 1 } else { 0 }
@@ -5032,6 +5086,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
         "classic/mg/for_processing_mono2_u16_12bit_rle_lossless",
     );
     file_entry_by_case_id(&manifest, "classic/us/mono2_u8_rle_lossless");
+    file_entry_by_case_id(&manifest, "vl/photo/rgb_planar0_rle_lossless");
     file_entry_by_case_id(&manifest, "classic/ct/mono2_i16_rescale_12bit_rle_lossless");
     file_entry_by_case_id(&manifest, "classic/mr/mono2_u16_rle_lossless");
     if cfg!(feature = "jpeg") {

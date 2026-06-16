@@ -6236,6 +6236,7 @@ fn standard_sop_class_validation_name(sop_class_uid: &str) -> &'static str {
         uids::DIGITAL_MAMMOGRAPHY_X_RAY_IMAGE_STORAGE_FOR_PROCESSING => {
             "digital_mammography_for_processing_sop_class"
         }
+        uids::VL_PHOTOGRAPHIC_IMAGE_STORAGE => "vl_photographic_image_sop_class",
         "1.2.840.10008.5.1.4.1.1.11.1" => "grayscale_softcopy_presentation_state_sop_class",
         "1.2.840.10008.5.1.4.1.1.67" => "real_world_value_mapping_sop_class",
         uids::BASIC_TEXT_SR_STORAGE => "basic_text_sr_sop_class",
@@ -6275,6 +6276,9 @@ fn standard_sop_class_validation_message(sop_class_uid: &str) -> &'static str {
         }
         uids::DIGITAL_MAMMOGRAPHY_X_RAY_IMAGE_STORAGE_FOR_PROCESSING => {
             "SOP Class UID matches Digital Mammography X-Ray Image Storage - For Processing in the 2026b reference."
+        }
+        uids::VL_PHOTOGRAPHIC_IMAGE_STORAGE => {
+            "SOP Class UID matches VL Photographic Image Storage in the 2026b reference."
         }
         "1.2.840.10008.5.1.4.1.1.11.1" => {
             "SOP Class UID matches Grayscale Softcopy Presentation State Storage in the 2026b reference."

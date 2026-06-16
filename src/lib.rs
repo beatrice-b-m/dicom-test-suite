@@ -6148,6 +6148,42 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
     append_count_map_section(
         &mut output,
         report,
+        "Overlay Geometries",
+        "/grouped_coverage/overlay_geometries",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "Overlay Types",
+        "/grouped_coverage/overlay_types",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "Overlay Origins",
+        "/grouped_coverage/overlay_origins",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "Overlay Bits Allocated",
+        "/grouped_coverage/overlay_bits_allocated",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "Overlay Bit Positions",
+        "/grouped_coverage/overlay_bit_positions",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "Overlay Data Value Lengths",
+        "/grouped_coverage/overlay_data_value_lengths",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
         "Display Shutter Shapes",
         "/grouped_coverage/display_shutter_shapes",
     );
@@ -6377,6 +6413,54 @@ fn generated_coverage_row(
             .map(Value::from)
             .unwrap_or(Value::Null),
     );
+    row_object.insert(
+        "overlay_rows".to_string(),
+        file.pointer("/recipe/recipe_parameters/overlay/rows")
+            .and_then(Value::as_u64)
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
+    row_object.insert(
+        "overlay_columns".to_string(),
+        file.pointer("/recipe/recipe_parameters/overlay/columns")
+            .and_then(Value::as_u64)
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
+    row_object.insert(
+        "overlay_type".to_string(),
+        file.pointer("/recipe/recipe_parameters/overlay/type")
+            .and_then(Value::as_str)
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
+    row_object.insert(
+        "overlay_origin".to_string(),
+        report_i64_array(file, "/recipe/recipe_parameters/overlay/origin")
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
+    row_object.insert(
+        "overlay_bits_allocated".to_string(),
+        file.pointer("/recipe/recipe_parameters/overlay/bits_allocated")
+            .and_then(Value::as_u64)
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
+    row_object.insert(
+        "overlay_bit_position".to_string(),
+        file.pointer("/recipe/recipe_parameters/overlay/bit_position")
+            .and_then(Value::as_u64)
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
+    row_object.insert(
+        "overlay_data_value_length".to_string(),
+        file.pointer("/recipe/recipe_parameters/overlay/value_length")
+            .and_then(Value::as_u64)
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
     Ok(row)
 }
 
@@ -6385,6 +6469,15 @@ fn report_lut_descriptor(file: &Value, pointer: &str) -> Option<String> {
     let values = descriptor
         .iter()
         .map(|value| value.as_u64().map(|value| value.to_string()))
+        .collect::<Option<Vec<_>>>()?;
+    Some(values.join("\\"))
+}
+
+fn report_i64_array(file: &Value, pointer: &str) -> Option<String> {
+    let values = file.pointer(pointer)?.as_array()?;
+    let values = values
+        .iter()
+        .map(|value| value.as_i64().map(|value| value.to_string()))
         .collect::<Option<Vec<_>>>()?;
     Some(values.join("\\"))
 }
@@ -6566,6 +6659,13 @@ fn skipped_coverage_row(
     row_object.insert("modality_lut_data_value_length".to_string(), Value::Null);
     row_object.insert("voi_lut_descriptor".to_string(), Value::Null);
     row_object.insert("voi_lut_data_value_length".to_string(), Value::Null);
+    row_object.insert("overlay_rows".to_string(), Value::Null);
+    row_object.insert("overlay_columns".to_string(), Value::Null);
+    row_object.insert("overlay_type".to_string(), Value::Null);
+    row_object.insert("overlay_origin".to_string(), Value::Null);
+    row_object.insert("overlay_bits_allocated".to_string(), Value::Null);
+    row_object.insert("overlay_bit_position".to_string(), Value::Null);
+    row_object.insert("overlay_data_value_length".to_string(), Value::Null);
     Ok(row)
 }
 
@@ -6717,6 +6817,12 @@ struct GroupedCoverage {
     modality_lut_data_value_lengths: BTreeMap<String, usize>,
     voi_lut_descriptors: BTreeMap<String, usize>,
     voi_lut_data_value_lengths: BTreeMap<String, usize>,
+    overlay_geometries: BTreeMap<String, usize>,
+    overlay_types: BTreeMap<String, usize>,
+    overlay_origins: BTreeMap<String, usize>,
+    overlay_bits_allocated: BTreeMap<String, usize>,
+    overlay_bit_positions: BTreeMap<String, usize>,
+    overlay_data_value_lengths: BTreeMap<String, usize>,
     display_shutter_shapes: BTreeMap<String, usize>,
     display_shutter_presentation_values: BTreeMap<String, usize>,
     body_parts_examined: BTreeMap<String, usize>,
@@ -6927,6 +7033,35 @@ impl GroupedCoverage {
                 .entry(length.to_string())
                 .or_default() += 1;
         }
+        if let Some(geometry) = overlay_geometry_bucket(row) {
+            *self.overlay_geometries.entry(geometry).or_default() += 1;
+        }
+        increment_map(
+            &mut self.overlay_types,
+            row.get("overlay_type").and_then(Value::as_str),
+        );
+        increment_map(
+            &mut self.overlay_origins,
+            row.get("overlay_origin").and_then(Value::as_str),
+        );
+        if let Some(bits_allocated) = row.get("overlay_bits_allocated").and_then(Value::as_u64) {
+            *self
+                .overlay_bits_allocated
+                .entry(bits_allocated.to_string())
+                .or_default() += 1;
+        }
+        if let Some(bit_position) = row.get("overlay_bit_position").and_then(Value::as_u64) {
+            *self
+                .overlay_bit_positions
+                .entry(bit_position.to_string())
+                .or_default() += 1;
+        }
+        if let Some(length) = row.get("overlay_data_value_length").and_then(Value::as_u64) {
+            *self
+                .overlay_data_value_lengths
+                .entry(length.to_string())
+                .or_default() += 1;
+        }
         increment_map(
             &mut self.display_shutter_shapes,
             row.get("display_shutter_shape").and_then(Value::as_str),
@@ -7051,6 +7186,36 @@ impl GroupedCoverage {
                 .expect("VOI LUT data value length count map must serialize"),
         );
         grouped_object.insert(
+            "overlay_geometries".to_string(),
+            serde_json::to_value(&self.overlay_geometries)
+                .expect("overlay geometry count map must serialize"),
+        );
+        grouped_object.insert(
+            "overlay_types".to_string(),
+            serde_json::to_value(&self.overlay_types)
+                .expect("overlay type count map must serialize"),
+        );
+        grouped_object.insert(
+            "overlay_origins".to_string(),
+            serde_json::to_value(&self.overlay_origins)
+                .expect("overlay origin count map must serialize"),
+        );
+        grouped_object.insert(
+            "overlay_bits_allocated".to_string(),
+            serde_json::to_value(&self.overlay_bits_allocated)
+                .expect("overlay bits allocated count map must serialize"),
+        );
+        grouped_object.insert(
+            "overlay_bit_positions".to_string(),
+            serde_json::to_value(&self.overlay_bit_positions)
+                .expect("overlay bit position count map must serialize"),
+        );
+        grouped_object.insert(
+            "overlay_data_value_lengths".to_string(),
+            serde_json::to_value(&self.overlay_data_value_lengths)
+                .expect("overlay data value length count map must serialize"),
+        );
+        grouped_object.insert(
             "display_shutter_shapes".to_string(),
             serde_json::to_value(&self.display_shutter_shapes)
                 .expect("display shutter shape count map must serialize"),
@@ -7104,6 +7269,12 @@ fn geometry_bucket(row: &Value) -> Option<String> {
     let geometry = row.get("geometry")?;
     let rows = geometry.get("rows").and_then(Value::as_u64)?;
     let columns = geometry.get("columns").and_then(Value::as_u64)?;
+    Some(format!("{rows}x{columns}"))
+}
+
+fn overlay_geometry_bucket(row: &Value) -> Option<String> {
+    let rows = row.get("overlay_rows").and_then(Value::as_u64)?;
+    let columns = row.get("overlay_columns").and_then(Value::as_u64)?;
     Some(format!("{rows}x{columns}"))
 }
 

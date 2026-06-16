@@ -161,6 +161,24 @@
         "voi_lut_data_value_lengths": {
           "$ref": "#/$defs/count_map"
         },
+        "overlay_geometries": {
+          "$ref": "#/$defs/count_map"
+        },
+        "overlay_types": {
+          "$ref": "#/$defs/count_map"
+        },
+        "overlay_origins": {
+          "$ref": "#/$defs/count_map"
+        },
+        "overlay_bits_allocated": {
+          "$ref": "#/$defs/count_map"
+        },
+        "overlay_bit_positions": {
+          "$ref": "#/$defs/count_map"
+        },
+        "overlay_data_value_lengths": {
+          "$ref": "#/$defs/count_map"
+        },
         "display_shutter_shapes": {
           "$ref": "#/$defs/count_map"
         },
@@ -311,6 +329,13 @@
         "modality_lut_data_value_length",
         "voi_lut_descriptor",
         "voi_lut_data_value_length",
+        "overlay_rows",
+        "overlay_columns",
+        "overlay_type",
+        "overlay_origin",
+        "overlay_bits_allocated",
+        "overlay_bit_position",
+        "overlay_data_value_length",
         "display_shutter_shape",
         "display_shutter_presentation_value",
         "body_part_examined",
@@ -495,6 +520,32 @@
           "type": ["string", "null"]
         },
         "voi_lut_data_value_length": {
+          "type": ["integer", "null"],
+          "minimum": 0
+        },
+        "overlay_rows": {
+          "type": ["integer", "null"],
+          "minimum": 1
+        },
+        "overlay_columns": {
+          "type": ["integer", "null"],
+          "minimum": 1
+        },
+        "overlay_type": {
+          "type": ["string", "null"]
+        },
+        "overlay_origin": {
+          "type": ["string", "null"]
+        },
+        "overlay_bits_allocated": {
+          "type": ["integer", "null"],
+          "minimum": 0
+        },
+        "overlay_bit_position": {
+          "type": ["integer", "null"],
+          "minimum": 0
+        },
+        "overlay_data_value_length": {
           "type": ["integer", "null"],
           "minimum": 0
         },

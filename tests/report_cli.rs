@@ -163,6 +163,48 @@ fn report_command_writes_json_coverage_for_core_root() {
         Some(8)
     );
     assert_eq!(
+        coverage_row(&report, "classic/cr/overlay_modality_voi_explicit_le")
+            .get("overlay_rows")
+            .and_then(Value::as_u64),
+        Some(2)
+    );
+    assert_eq!(
+        coverage_row(&report, "classic/cr/overlay_modality_voi_explicit_le")
+            .get("overlay_columns")
+            .and_then(Value::as_u64),
+        Some(2)
+    );
+    assert_eq!(
+        coverage_row(&report, "classic/cr/overlay_modality_voi_explicit_le")
+            .get("overlay_type")
+            .and_then(Value::as_str),
+        Some("G")
+    );
+    assert_eq!(
+        coverage_row(&report, "classic/cr/overlay_modality_voi_explicit_le")
+            .get("overlay_origin")
+            .and_then(Value::as_str),
+        Some("1\\1")
+    );
+    assert_eq!(
+        coverage_row(&report, "classic/cr/overlay_modality_voi_explicit_le")
+            .get("overlay_bits_allocated")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        coverage_row(&report, "classic/cr/overlay_modality_voi_explicit_le")
+            .get("overlay_bit_position")
+            .and_then(Value::as_u64),
+        Some(0)
+    );
+    assert_eq!(
+        coverage_row(&report, "classic/cr/overlay_modality_voi_explicit_le")
+            .get("overlay_data_value_length")
+            .and_then(Value::as_u64),
+        Some(2)
+    );
+    assert_eq!(
         coverage_row(&report, "classic/dx/display_shutter_mono2_u16_explicit_le")
             .get("body_part_examined")
             .and_then(Value::as_str),
@@ -335,6 +377,42 @@ fn report_command_writes_json_coverage_for_core_root() {
     );
     assert_eq!(
         report
+            .pointer("/grouped_coverage/overlay_geometries/2x2")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/overlay_types/G")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/overlay_origins/1\\1")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/overlay_bits_allocated/1")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/overlay_bit_positions/0")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/overlay_data_value_lengths/2")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
             .pointer("/grouped_coverage/display_shutter_shapes/RECTANGULAR")
             .and_then(Value::as_u64),
         Some(1)
@@ -421,6 +499,18 @@ fn report_command_writes_markdown_coverage_for_core_root() {
     assert!(stdout.contains("| 8 | 1 |"));
     assert!(stdout.contains("### VOI LUT Descriptors"));
     assert!(stdout.contains("### VOI LUT Data Value Lengths"));
+    assert!(stdout.contains("### Overlay Geometries"));
+    assert!(stdout.contains("| 2x2 | 1 |"));
+    assert!(stdout.contains("### Overlay Types"));
+    assert!(stdout.contains("| G | 1 |"));
+    assert!(stdout.contains("### Overlay Origins"));
+    assert!(stdout.contains("| 1\\1 | 1 |"));
+    assert!(stdout.contains("### Overlay Bits Allocated"));
+    assert!(stdout.contains("| 1 | 1 |"));
+    assert!(stdout.contains("### Overlay Bit Positions"));
+    assert!(stdout.contains("| 0 | 1 |"));
+    assert!(stdout.contains("### Overlay Data Value Lengths"));
+    assert!(stdout.contains("| 2 | 1 |"));
     assert!(stdout.contains("### Display Shutter Shapes"));
     assert!(stdout.contains("| RECTANGULAR | 1 |"));
     assert!(stdout.contains("### Display Shutter Presentation Values"));

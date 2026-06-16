@@ -359,7 +359,7 @@ fn list_cases_command_filters_by_status_and_profile() {
 }
 
 #[test]
-fn list_cases_command_shows_skipped_compressed_transfer_syntax_rows() {
+fn list_cases_command_excludes_promoted_htj2k_from_skipped_rows() {
     let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
         .args(["list-cases", "--profile", "extended", "--status", "skipped"])
         .output()
@@ -372,10 +372,9 @@ fn list_cases_command_shows_skipped_compressed_transfer_syntax_rows() {
     );
 
     let stdout = String::from_utf8(output.stdout).expect("list-cases stdout must be utf-8");
-    let expected = "classic/sc/mono2_u16_htj2k_lossless\tskipped\textended\t1.2.840.10008.5.1.4.1.1.7\t1.2.840.10008.1.2.4.201\t2/2 covered";
     assert!(
-        stdout.contains(expected),
-        "skipped compressed transfer syntax row must be listed: {expected}"
+        !stdout.contains("classic/sc/mono2_u16_htj2k_lossless"),
+        "promoted HTJ2K row must not be listed as skipped"
     );
 }
 
@@ -434,6 +433,12 @@ fn list_cases_command_shows_rle_lossless_as_implemented() {
             "classic/sc/mono2_u16_jpeg2000_lossless\timplemented\textended\t1.2.840.10008.5.1.4.1.1.7\t1.2.840.10008.1.2.4.90\t2/2 covered"
         ),
         "JPEG 2000 Lossless row must be listed as implemented and feature-gated"
+    );
+    assert!(
+        stdout.contains(
+            "classic/sc/mono2_u16_htj2k_lossless\timplemented\textended\t1.2.840.10008.5.1.4.1.1.7\t1.2.840.10008.1.2.4.201\t2/2 covered"
+        ),
+        "HTJ2K Lossless row must be listed as implemented and feature-gated"
     );
 }
 

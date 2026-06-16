@@ -665,10 +665,10 @@ fn htj2k_lossless_backend_decision_selects_openjph_external_command() {
         .filter_map(Value::as_str)
         .collect::<Vec<_>>();
     assert!(
-        blockers
+        !blockers
             .iter()
             .any(|blocker| blocker.contains("generated HTJ2K Lossless")),
-        "HTJ2K should keep generated corpus integration blocked before generation"
+        "HTJ2K should not keep generated corpus integration blocked after generation"
     );
     assert!(
         blockers
@@ -748,6 +748,20 @@ fn htj2k_lossless_backend_decision_selects_openjph_external_command() {
                     })
         }),
         "HTJ2K decision should record the project wrapper verification"
+    );
+    assert!(
+        evidence.iter().any(|item| {
+            item.get("source").and_then(Value::as_str) == Some("local-verification")
+                && item.get("path").and_then(Value::as_str) == Some("src/generator.rs")
+                && item
+                    .get("finding")
+                    .and_then(Value::as_str)
+                    .is_some_and(|finding| {
+                        finding.contains("executable SHA-256 runtime identity")
+                            && finding.contains("exact decoded native frame hashes")
+                    })
+        }),
+        "HTJ2K decision should record generated-case validation evidence"
     );
 
     assert!(
@@ -898,80 +912,63 @@ fn transfer_syntax_matrix_matches_dicom_rs_native_writer_support() {
 }
 
 #[test]
-fn skipped_advanced_transfer_syntax_matrix_matches_current_dicom_rs_stubs() {
+fn htj2k_lossless_transfer_syntax_has_project_openjph_feature_gate() {
     let matrix = read_json("transfer-syntax/capability-matrix.json");
     let entries = matrix
         .get("entries")
         .and_then(Value::as_array)
         .expect("transfer syntax matrix must contain entries");
+    let uid = "1.2.840.10008.1.2.4.201";
+    let entry = entries
+        .iter()
+        .find(|entry| entry.get("uid").and_then(Value::as_str) == Some(uid))
+        .expect("transfer syntax matrix must contain HTJ2K Lossless");
+    let transfer_syntax = TransferSyntaxRegistry
+        .get(uid)
+        .expect("DICOM-rs registry must expose HTJ2K Lossless");
 
-    for (uid, keyword, feature) in [("1.2.840.10008.1.2.4.201", "HTJ2KLossless", "htj2k_openjph")] {
-        let entry = entries
-            .iter()
-            .find(|entry| entry.get("uid").and_then(Value::as_str) == Some(uid))
-            .unwrap_or_else(|| panic!("transfer syntax matrix must contain {uid}"));
-        let transfer_syntax = TransferSyntaxRegistry
-            .get(uid)
-            .unwrap_or_else(|| panic!("DICOM-rs registry must expose {uid}"));
-
-        assert_eq!(
-            entry.get("keyword").and_then(Value::as_str),
-            Some(keyword),
-            "{uid} keyword should match PS3.6 evidence"
-        );
-        assert_eq!(
-            entry.get("status").and_then(Value::as_str),
-            Some("unavailable"),
-            "{uid} should remain unavailable until compressed generation is verified"
-        );
-        assert_eq!(
-            entry.get("read_dataset").and_then(Value::as_bool),
-            Some(transfer_syntax.can_decode_dataset()),
-            "{uid} read_dataset should match DICOM-rs registry"
-        );
-        assert_eq!(
-            entry.get("write_dataset").and_then(Value::as_bool),
-            Some(transfer_syntax.encoder().is_some()),
-            "{uid} write_dataset should match DICOM-rs registry"
-        );
-        let runtime_can_decode_pixel = transfer_syntax.pixel_data_reader().is_some();
-        let runtime_can_encode_pixel = transfer_syntax.pixel_data_writer().is_some();
-        if cfg!(feature = "jpeg2000") {
-            assert!(
-                runtime_can_decode_pixel,
-                "{uid} should expose a runtime DICOM-rs reader under the project jpeg2000 feature"
-            );
-            assert_eq!(
-                entry.get("decode_pixel").and_then(Value::as_bool),
-                Some(false),
-                "{uid} committed decode validation should stay false until corpus validation is proven"
-            );
-        } else {
-            assert_eq!(
-                entry.get("decode_pixel").and_then(Value::as_bool),
-                Some(runtime_can_decode_pixel),
-                "{uid} decode_pixel should match the current DICOM-rs feature set"
-            );
-        }
-        assert_eq!(
-            entry.get("encode_pixel").and_then(Value::as_bool),
-            Some(runtime_can_encode_pixel),
-            "{uid} encode_pixel should match the current DICOM-rs feature set"
-        );
+    assert_eq!(
+        entry.get("keyword").and_then(Value::as_str),
+        Some("HTJ2KLossless")
+    );
+    assert_eq!(
+        entry.get("status").and_then(Value::as_str),
+        Some("feature_gated"),
+        "HTJ2K generation should be available when the project htj2k_openjph feature is enabled"
+    );
+    assert_eq!(
+        entry.get("decode_pixel").and_then(Value::as_bool),
+        Some(true),
+        "the committed matrix should claim HTJ2K decode validation behind the project feature"
+    );
+    assert_eq!(
+        entry.get("encode_pixel").and_then(Value::as_bool),
+        Some(true),
+        "the committed matrix should claim HTJ2K encode validation behind the project wrapper"
+    );
+    assert!(
+        transfer_syntax.is_encapsulated_pixel_data(),
+        "HTJ2K should use encapsulated Pixel Data"
+    );
+    assert!(
+        entry
+            .get("feature_flags")
+            .and_then(Value::as_array)
+            .is_some_and(|features| features
+                .iter()
+                .any(|value| value.as_str() == Some("htj2k_openjph"))),
+        "HTJ2K should record the project OpenJPH feature gate"
+    );
+    if cfg!(feature = "htj2k_openjph") {
         assert!(
-            transfer_syntax.is_encapsulated_pixel_data(),
-            "{uid} should use encapsulated Pixel Data"
-        );
-        assert!(
-            entry
-                .get("feature_flags")
-                .and_then(Value::as_array)
-                .is_some_and(|features| features
-                    .iter()
-                    .any(|value| value.as_str() == Some(feature))),
-            "{uid} should record the project feature gate {feature}"
+            transfer_syntax.pixel_data_reader().is_some(),
+            "htj2k_openjph feature builds should expose a runtime HTJ2K decoder"
         );
     }
+    assert!(
+        transfer_syntax.pixel_data_writer().is_none(),
+        "pinned DICOM-rs HTJ2K support does not provide a pixel writer"
+    );
 }
 
 #[test]
@@ -1479,7 +1476,7 @@ fn jpeg_baseline_transfer_syntax_is_feature_gated_through_dicom_rs() {
 }
 
 #[test]
-fn compressed_transfer_syntax_registry_rows_remain_skipped_until_verified() {
+fn htj2k_lossless_registry_row_is_feature_gated_implemented() {
     let matrix = read_json("transfer-syntax/capability-matrix.json");
     let matrix_entries = matrix
         .get("entries")
@@ -1488,67 +1485,56 @@ fn compressed_transfer_syntax_registry_rows_remain_skipped_until_verified() {
     let registry = read_json("cases/registry.json");
     let cases = registry_cases(&registry);
 
-    for (case_id, uid, keyword) in [(
-        "classic/sc/mono2_u16_htj2k_lossless",
-        "1.2.840.10008.1.2.4.201",
-        "HTJ2KLossless",
-    )] {
-        let matrix_entry = matrix_entries
-            .iter()
-            .find(|entry| entry.get("uid").and_then(Value::as_str) == Some(uid))
-            .unwrap_or_else(|| panic!("transfer syntax matrix must contain {uid}"));
-        assert_eq!(
-            matrix_entry.get("keyword").and_then(Value::as_str),
-            Some(keyword)
-        );
-        assert_eq!(
-            matrix_entry.get("status").and_then(Value::as_str),
-            Some("unavailable"),
-            "{case_id} must not be implemented until matrix support is available"
-        );
+    let case_id = "classic/sc/mono2_u16_htj2k_lossless";
+    let uid = "1.2.840.10008.1.2.4.201";
+    let matrix_entry = matrix_entries
+        .iter()
+        .find(|entry| entry.get("uid").and_then(Value::as_str) == Some(uid))
+        .expect("transfer syntax matrix must contain HTJ2K Lossless");
+    assert_eq!(
+        matrix_entry.get("keyword").and_then(Value::as_str),
+        Some("HTJ2KLossless")
+    );
+    assert_eq!(
+        matrix_entry.get("status").and_then(Value::as_str),
+        Some("feature_gated"),
+        "{case_id} should be feature-gated after generated-case validation"
+    );
 
-        let case = cases
-            .iter()
-            .find(|case| case.get("case_id").and_then(Value::as_str) == Some(case_id))
-            .unwrap_or_else(|| panic!("registry must contain {case_id}"));
-        assert_eq!(case.get("status").and_then(Value::as_str), Some("skipped"));
-        assert_eq!(
-            case.get("transfer_syntax_uid").and_then(Value::as_str),
-            Some(uid)
-        );
-        assert_eq!(
-            case.pointer("/skip/reason_code").and_then(Value::as_str),
-            Some("codec_unavailable")
-        );
-        assert_eq!(
-            case.pointer("/skip/recheck_phase").and_then(Value::as_str),
-            Some("phase-6")
-        );
-        assert_eq!(
-            case.get("determinism").and_then(Value::as_str),
-            Some("semantic_stable")
-        );
-        assert_eq!(
-            case.pointer("/requirements/features/0")
-                .and_then(Value::as_str),
-            Some("htj2k_openjph"),
-            "{case_id} should name the project OpenJPH wrapper feature gate"
-        );
-        assert!(
-            case.get("standards_evidence")
-                .and_then(Value::as_array)
-                .is_some_and(|evidence| evidence.iter().any(|entry| {
-                    entry.get("query").and_then(Value::as_str)
-                        == Some("lookup_sop_class Secondary Capture Image Storage")
-                }) && evidence.iter().any(|entry| {
-                    entry
-                        .get("query")
-                        .and_then(Value::as_str)
-                        .is_some_and(|query| query == format!("lookup_uid {keyword}"))
-                })),
-            "{case_id} must carry SC SOP Class and transfer syntax evidence"
-        );
-    }
+    let case = cases
+        .iter()
+        .find(|case| case.get("case_id").and_then(Value::as_str) == Some(case_id))
+        .expect("registry must contain HTJ2K Lossless case");
+    assert_eq!(
+        case.get("status").and_then(Value::as_str),
+        Some("implemented")
+    );
+    assert_eq!(case.get("skip"), Some(&Value::Null));
+    assert_eq!(
+        case.get("transfer_syntax_uid").and_then(Value::as_str),
+        Some(uid)
+    );
+    assert_eq!(
+        case.get("determinism").and_then(Value::as_str),
+        Some("semantic_stable")
+    );
+    assert_eq!(
+        case.pointer("/requirements/features/0")
+            .and_then(Value::as_str),
+        Some("htj2k_openjph"),
+        "{case_id} should name the project OpenJPH wrapper feature gate"
+    );
+    assert!(
+        case.get("standards_evidence")
+            .and_then(Value::as_array)
+            .is_some_and(|evidence| evidence.iter().any(|entry| {
+                entry.get("query").and_then(Value::as_str)
+                    == Some("lookup_sop_class Secondary Capture Image Storage")
+            }) && evidence.iter().any(|entry| {
+                entry.get("query").and_then(Value::as_str) == Some("lookup_uid HTJ2KLossless")
+            })),
+        "{case_id} must carry SC SOP Class and transfer syntax evidence"
+    );
 }
 
 #[test]

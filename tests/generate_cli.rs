@@ -1632,7 +1632,12 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
         + if cfg!(feature = "jpeg") { 1 } else { 0 }
         + if cfg!(feature = "charls") { 1 } else { 0 }
         + if cfg!(feature = "jpegxl") { 1 } else { 0 }
-        + if cfg!(feature = "jpeg2000") { 1 } else { 0 };
+        + if cfg!(feature = "jpeg2000") { 1 } else { 0 }
+        + if cfg!(feature = "htj2k_openjph") {
+            1
+        } else {
+            0
+        };
     assert!(stdout.contains(&format!("files_written\t{expected_extended_files}")));
 
     let manifest_path = out_dir.join("manifest.json");
@@ -1922,6 +1927,75 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
             validation_result_names(jpeg_2000_file.pointer("/validation/internal"))
                 .contains(&"jpeg_2000_lossless_decoded_frame_hashes"),
             "JPEG 2000 manifest should record exact decoded frame hash validation"
+        );
+    }
+    if cfg!(feature = "htj2k_openjph") {
+        let htj2k_file = file_entry_by_case_id(&manifest, "classic/sc/mono2_u16_htj2k_lossless");
+        assert_eq!(
+            htj2k_file
+                .pointer("/dicom/transfer_syntax_uid")
+                .and_then(Value::as_str),
+            Some("1.2.840.10008.1.2.4.201")
+        );
+        assert_eq!(
+            htj2k_file
+                .pointer("/image/bits_allocated")
+                .and_then(Value::as_u64),
+            Some(16)
+        );
+        assert_eq!(
+            htj2k_file
+                .pointer("/pixel_data/native_or_encapsulated")
+                .and_then(Value::as_str),
+            Some("encapsulated")
+        );
+        assert_eq!(
+            htj2k_file
+                .pointer("/pixel_data/codec/backend_id")
+                .and_then(Value::as_str),
+            Some("openjph_htj2k_lossless_command_writer")
+        );
+        assert_eq!(
+            htj2k_file
+                .pointer("/pixel_data/codec/backend_kind")
+                .and_then(Value::as_str),
+            Some("external_command")
+        );
+        assert_eq!(
+            htj2k_file
+                .pointer("/pixel_data/codec/feature_gate")
+                .and_then(Value::as_str),
+            Some("htj2k_openjph")
+        );
+        assert_eq!(
+            htj2k_file
+                .pointer("/pixel_data/codec/runtime_identity/command")
+                .and_then(Value::as_str),
+            Some("ojph_compress")
+        );
+        assert!(
+            htj2k_file
+                .pointer("/pixel_data/codec/runtime_identity/executable_sha256")
+                .and_then(Value::as_str)
+                .is_some_and(|hash| hash.len() == 64),
+            "HTJ2K manifest should record the OpenJPH executable SHA-256 fingerprint"
+        );
+        assert_eq!(
+            htj2k_file
+                .pointer("/pixel_data/codec/runtime_identity/encoder_options/num_decomps")
+                .and_then(Value::as_u64),
+            Some(1)
+        );
+        assert_eq!(
+            htj2k_file
+                .pointer("/expected_semantics/lossy_image_compression")
+                .and_then(Value::as_str),
+            Some("00")
+        );
+        assert!(
+            validation_result_names(htj2k_file.pointer("/validation/internal"))
+                .contains(&"htj2k_lossless_decoded_frame_hashes"),
+            "HTJ2K manifest should record exact decoded frame hash validation"
         );
     }
     assert_eq!(
@@ -2720,22 +2794,33 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
             - if cfg!(feature = "jpeg") { 1 } else { 0 }
             - if cfg!(feature = "charls") { 1 } else { 0 }
             - if cfg!(feature = "jpegxl") { 1 } else { 0 }
-            - if cfg!(feature = "jpeg2000") { 1 } else { 0 },
+            - if cfg!(feature = "jpeg2000") { 1 } else { 0 }
+            - if cfg!(feature = "htj2k_openjph") {
+                1
+            } else {
+                0
+            },
         "extended generation should report only unavailable compressed transfer syntax rows plus the no-feature deflated row"
     );
-    let skipped = skipped_case_by_id(&manifest, "classic/sc/mono2_u16_htj2k_lossless");
-    assert_eq!(
-        skipped.get("status").and_then(Value::as_str),
-        Some("skipped")
-    );
-    assert_eq!(
-        skipped.get("reason_code").and_then(Value::as_str),
-        Some("codec_unavailable")
-    );
-    assert_eq!(
-        skipped.get("recheck_phase").and_then(Value::as_str),
-        Some("phase-6")
-    );
+    if !cfg!(feature = "htj2k_openjph") {
+        let htj2k = skipped_case_by_id(&manifest, "classic/sc/mono2_u16_htj2k_lossless");
+        assert_eq!(
+            htj2k.get("status").and_then(Value::as_str),
+            Some("unavailable")
+        );
+        assert_eq!(
+            htj2k.get("reason_code").and_then(Value::as_str),
+            Some("feature_gated_case_unavailable")
+        );
+        assert!(
+            htj2k
+                .get("message")
+                .and_then(Value::as_str)
+                .expect("feature-gated HTJ2K row should have a message")
+                .contains("Cargo feature(s) htj2k_openjph"),
+            "feature-gated HTJ2K unavailable row should name the required feature"
+        );
+    }
     if !cfg!(feature = "jpeg") {
         let jpeg = skipped_case_by_id(&manifest, "classic/sc/rgb_planar0_jpeg_baseline_8bit");
         assert_eq!(
@@ -4187,7 +4272,12 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
         + if cfg!(feature = "jpeg") { 1 } else { 0 }
         + if cfg!(feature = "charls") { 1 } else { 0 }
         + if cfg!(feature = "jpegxl") { 1 } else { 0 }
-        + if cfg!(feature = "jpeg2000") { 1 } else { 0 };
+        + if cfg!(feature = "jpeg2000") { 1 } else { 0 }
+        + if cfg!(feature = "htj2k_openjph") {
+            1
+        } else {
+            0
+        };
     assert!(stdout.contains(&format!("files_written\t{expected_all_files}")));
 
     let manifest_path = out_dir.join("manifest.json");
@@ -4223,6 +4313,9 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
     if cfg!(feature = "jpeg2000") {
         file_entry_by_case_id(&manifest, "classic/sc/mono2_u16_jpeg2000_lossless");
     }
+    if cfg!(feature = "htj2k_openjph") {
+        file_entry_by_case_id(&manifest, "classic/sc/mono2_u16_htj2k_lossless");
+    }
     file_entry_by_case_id(&manifest, "classic/ct/mono2_i16_rescale_12bit_explicit_le");
     file_entry_by_case_id(
         &manifest,
@@ -4249,7 +4342,12 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
             - if cfg!(feature = "jpeg") { 1 } else { 0 }
             - if cfg!(feature = "charls") { 1 } else { 0 }
             - if cfg!(feature = "jpegxl") { 1 } else { 0 }
-            - if cfg!(feature = "jpeg2000") { 1 } else { 0 },
+            - if cfg!(feature = "jpeg2000") { 1 } else { 0 }
+            - if cfg!(feature = "htj2k_openjph") {
+                1
+            } else {
+                0
+            },
         "all generation should report unavailable cases according to active features"
     );
     for case_id in [
@@ -4266,15 +4364,17 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
             Some("case_planned")
         );
     }
-    let skipped = skipped_case_by_id(&manifest, "classic/sc/mono2_u16_htj2k_lossless");
-    assert_eq!(
-        skipped.get("status").and_then(Value::as_str),
-        Some("skipped")
-    );
-    assert_eq!(
-        skipped.get("reason_code").and_then(Value::as_str),
-        Some("codec_unavailable")
-    );
+    if !cfg!(feature = "htj2k_openjph") {
+        let skipped = skipped_case_by_id(&manifest, "classic/sc/mono2_u16_htj2k_lossless");
+        assert_eq!(
+            skipped.get("status").and_then(Value::as_str),
+            Some("unavailable")
+        );
+        assert_eq!(
+            skipped.get("reason_code").and_then(Value::as_str),
+            Some("feature_gated_case_unavailable")
+        );
+    }
     if !cfg!(feature = "jpeg") {
         let skipped = skipped_case_by_id(&manifest, "classic/sc/rgb_planar0_jpeg_baseline_8bit");
         assert_eq!(

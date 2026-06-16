@@ -105,6 +105,43 @@ fn report_command_writes_markdown_coverage_for_core_root() {
 }
 
 #[test]
+#[cfg(feature = "htj2k_openjph")]
+fn report_command_counts_generated_htj2k_lossless_row() {
+    let out_dir = unique_temp_dir("report-htj2k-json");
+    generate_extended(&out_dir);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args([
+            "report",
+            out_dir.to_str().expect("temp path should be valid UTF-8"),
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("report command must run");
+
+    assert!(
+        output.status.success(),
+        "report should accept generated output: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let report: Value =
+        serde_json::from_slice(&output.stdout).expect("report stdout should be JSON");
+    let row = coverage_row(&report, "classic/sc/mono2_u16_htj2k_lossless");
+    assert_eq!(row.get("status").and_then(Value::as_str), Some("generated"));
+    assert_eq!(
+        row.get("transfer_syntax").and_then(Value::as_str),
+        Some("1.2.840.10008.1.2.4.201")
+    );
+    assert_eq!(
+        row.get("validation_status").and_then(Value::as_str),
+        Some("passed")
+    );
+
+    fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
+}
+
+#[test]
 fn report_projects_manifest_references_for_non_image_rows() {
     let out_dir = unique_temp_dir("report-non-image-references");
     fs::create_dir_all(&out_dir).expect("temporary output root should be created");
@@ -312,6 +349,28 @@ fn generate_core(out_dir: &Path) {
             "generate",
             "--profile",
             "core",
+            "--out",
+            out_dir.to_str().expect("temp path should be valid UTF-8"),
+            "--seed",
+            "7",
+        ])
+        .output()
+        .expect("generate command must run");
+
+    assert!(
+        output.status.success(),
+        "generate should exit successfully: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[cfg(feature = "htj2k_openjph")]
+fn generate_extended(out_dir: &Path) {
+    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args([
+            "generate",
+            "--profile",
+            "extended",
             "--out",
             out_dir.to_str().expect("temp path should be valid UTF-8"),
             "--seed",

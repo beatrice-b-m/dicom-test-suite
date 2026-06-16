@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-06-16
 **Active goal:** comprehensive compressed image codec generation support
-**Current phase:** Phase 4 - JPEG 2000 And HTJ2K
+**Current phase:** Phase 5 - Legacy And Specialty Compressed Syntaxes
 **Repo state source:** reconstructed from `SYSTEM_SPEC.md`, `CURRENT_PLAN.md`, `transfer-syntax/capability-matrix.json`, and current verification runs.
 
 ## Phase Status
@@ -11,8 +11,8 @@
 - Phase 1 - Codec Integration Architecture: in progress; minimal codec API plus native RLE and DICOM-rs JPEG Baseline frame encode/decode support are present.
 - Phase 2 - Encapsulated Pixel Data Substrate: complete for the first RLE one-fragment case; Extended Offset Table and future multi-fragment generation remain later substrate expansion.
 - Phase 3 - Low-Risk Codec Enablement: in progress; 8-bit and 16-bit generated RLE Lossless Secondary Capture cases are implemented and round-trip validated; the first JPEG Baseline 8-bit RGB Secondary Capture case is generated and validated when the `jpeg` feature is enabled; the first JPEG-LS Lossless 8-bit MONOCHROME2 Secondary Capture case is generated and exact-hash validated when the `charls` feature is enabled; the first JPEG XL Lossless 8-bit RGB Secondary Capture case is generated and exact-hash validated when the `jpegxl` feature is enabled.
-- Phase 4 - JPEG 2000 And HTJ2K: in progress; JPEG 2000 Lossless has a project `jpeg2000` feature, a project-owned OpenJPEG-rs writer wrapper, a feature-gated generated Secondary Capture case, generation-time exact decoded-frame hash validation, CLI validation, report coverage, reproducibility evidence, and feature-gated capability-matrix promotion. JPEG 2000 lossy remains deferred. HTJ2K Lossless has an implement-now decision, a project `htj2k_openjph` feature, an OpenJPH external-command wrapper that fingerprints `ojph_compress` by executable SHA-256, fixed-option PGM encode support, exact DICOM-rs HTJ2K reader decode validation, and command-level byte reproducibility for the sampled first-case domain. Generated corpus integration remains unavailable until the feature-gated Secondary Capture case, manifest/report metadata, validation, and reproducibility coverage are added.
-- Phase 5 - Legacy And Specialty Compressed Syntaxes: not started.
+- Phase 4 - JPEG 2000 And HTJ2K: complete for first lossless generated cases; JPEG 2000 Lossless has a project `jpeg2000` feature, a project-owned OpenJPEG-rs writer wrapper, a feature-gated generated Secondary Capture case, generation-time exact decoded-frame hash validation, CLI validation, report coverage, reproducibility evidence, and feature-gated capability-matrix promotion. JPEG 2000 lossy remains deferred. HTJ2K Lossless has a project `htj2k_openjph` feature, an OpenJPH external-command wrapper that fingerprints `ojph_compress` by executable SHA-256, fixed-option PGM encode support, exact DICOM-rs HTJ2K reader decode validation, a feature-gated generated Secondary Capture case, manifest runtime identity metadata, CLI validation, report coverage, and reproducibility evidence. HTJ2K lossy/RPCL variants remain deferred.
+- Phase 5 - Legacy And Specialty Compressed Syntaxes: ready to start with backend research.
 - Phase 6+ - Corpus expansion and maintenance: blocked until Phase 5 scope is complete.
 
 ## Completed Work
@@ -135,6 +135,15 @@
 - Converted the previous OpenJPH spike test into wrapper-focused feature tests that prove backend identity, executable fingerprint discovery, byte-identical repeated codestream output, and exact decoded native bytes for the sampled 16-bit MONOCHROME2 edge-domain frame.
 - Promoted HTJ2K Lossless backend decision state to `implement_now` with feature gate `htj2k_openjph`, while intentionally keeping `classic/sc/mono2_u16_htj2k_lossless` skipped and the capability-matrix row unavailable until generated corpus integration, CLI validation, report coverage, and reproducibility evidence are complete.
 - Updated the skipped HTJ2K registry row and capability matrix to name the project `htj2k_openjph` feature and OpenJPH external codec rather than raw DICOM-rs feature internals.
+- Implemented `classic/sc/mono2_u16_htj2k_lossless` as a feature-gated generated Secondary Capture case using `OpenJphHtj2kLosslessEncoder`.
+- Added a generator transfer syntax spec and pixel recipe for a tiny 2x2 16-bit unsigned MONOCHROME2 HTJ2K Lossless frame using transfer syntax `1.2.840.10008.1.2.4.201`.
+- Generated HTJ2K Lossless Pixel Data as an encapsulated one-fragment-per-frame sequence with a populated Basic Offset Table.
+- Added generation-time HTJ2K Lossless exact decoded-frame hash validation through the DICOM-rs OpenJPEG-backed HTJ2K reader.
+- Added CLI `validate` HTJ2K Lossless exact decoded-frame hash validation and a feature-gated mismatch regression test.
+- Added manifest schema and generated manifest metadata for OpenJPH runtime backend identity: command, executable path, executable SHA-256, version source, and fixed encoder options.
+- Added report coverage proving `classic/sc/mono2_u16_htj2k_lossless` appears as generated with transfer syntax `1.2.840.10008.1.2.4.201` under `--features htj2k_openjph`.
+- Flipped the HTJ2K registry row to implemented with required feature `htj2k_openjph` and updated the capability matrix to `feature_gated` encode/decode support.
+- Updated list-cases, generate, validate, report, schema, and artifact tests so default builds report the implemented HTJ2K case as feature-gated unavailable while `--features htj2k_openjph` builds generate and validate it.
 
 ## Blockers
 
@@ -143,7 +152,7 @@
 - JPEG XL lossy generated-case work is intentionally deferred until lossy compression metadata policy, decoded-frame tolerance, and reproducibility strategy are selected.
 - JPEG 2000 Lossless generated-case work is complete for the first tiny 16-bit MONOCHROME2 Secondary Capture case.
 - JPEG 2000 lossy remains deferred until lossy compression metadata policy, decoded-frame tolerance, and reproducibility strategy are selected.
-- HTJ2K Lossless OpenJPH external-command encode/decode proof, project wrapper, explicit feature gate, executable SHA-256 fingerprint strategy, and command-level byte reproducibility are complete for the sampled first-case 16-bit MONOCHROME2 PGM domain. Generated-case implementation remains pending until the wrapper is integrated into generation, manifest backend fingerprint metadata, CLI validation, report coverage, and reproducibility checks.
+- HTJ2K Lossless OpenJPH external-command encode/decode proof, project wrapper, explicit feature gate, executable SHA-256 fingerprint strategy, generated-case implementation, manifest backend fingerprint metadata, CLI validation, report coverage, and reproducibility checks are complete for the sampled first-case 16-bit MONOCHROME2 PGM domain.
 - Legacy JPEG backend selection remains an unresolved research item.
 - Deflated Image Frame Compression requires a standards/IOD suitability decision before any implementation.
 
@@ -153,7 +162,7 @@
 - JPEG-LS Lossless now uses a project `charls` feature that exposes the pinned DICOM-rs optional CharLS adapter behind a project-owned wrapper and generated corpus case. JPEG-LS Near-Lossless is deferred until lossy semantics and validation policy are selected.
 - JPEG XL Lossless now uses a project `jpegxl` feature that exposes the pinned DICOM-rs optional JPEG XL adapter behind a project-owned wrapper and generated corpus case. Lossy JPEG XL is deferred until lossy semantics and validation policy are selected.
 - JPEG 2000 Lossless now uses a project `jpeg2000` feature exposing a project-owned OpenJPEG-rs writer wrapper plus DICOM-rs JPEG 2000 decode validation. Lossy JPEG 2000 is deferred until lossy semantics and validation policy are selected.
-- HTJ2K Lossless uses the project `htj2k_openjph` feature and selected `ojph_compress` external-command wrapper. Command-level byte reproducibility is proven for sampled edge-domain unsigned values using 16-bit PGM input with `-num_decomps 1`, and backend identity falls back to canonical executable path plus SHA-256 executable fingerprint because this binary rejects common version/help flags. The remaining decision is the exact generated manifest shape for dynamic external-command backend identity before corpus promotion.
+- HTJ2K Lossless uses the project `htj2k_openjph` feature and selected `ojph_compress` external-command wrapper. Command-level byte reproducibility is proven for sampled edge-domain unsigned values using 16-bit PGM input with `-num_decomps 1`, and generated manifests record canonical executable path plus SHA-256 executable fingerprint because this binary rejects common version/help flags.
 - Which independent validators should be used for JPEG 2000 and HTJ2K.
 - Whether the current project-owned RLE decoder should support multi-fragment frame reassembly in generation-time validation before a multi-fragment RLE case is added.
 
@@ -413,14 +422,29 @@
 - `cargo test --features htj2k_openjph`: initially failed during a concurrent run in two `generate_cli` file-count assertions, then passed on sequential rerun with 43 unit tests, 6 generate CLI tests, 3 reproducibility tests, 8 list-cases tests, 24 artifact tests, 6 report tests, 7 schema tests, 7 standards tests, and 27 validate tests.
 - `cargo run -- standards check-lock`: passed with existing documented lock warnings.
 - `cargo run --features htj2k_openjph -- list-cases --profile extended --status skipped`: passed; `classic/sc/mono2_u16_htj2k_lossless` remains skipped with 2/2 standards evidence coverage under the feature build.
+- `git status --short`: passed before slice selection; working tree was clean.
+- `dicom-standard-kb` MCP `lookup_uid HTJ2KLossless`: passed; confirmed UID `1.2.840.10008.1.2.4.201` as a PS3.6 Transfer Syntax.
+- `dicom-standard-kb` MCP `lookup_sop_class "Secondary Capture Image Storage"`: passed; confirmed Secondary Capture Image Storage UID `1.2.840.10008.5.1.4.1.1.7` and linked Secondary Capture Image IOD.
+- `dicom-standard-kb` MCP `lookup_iod "Secondary Capture Image"`: passed; confirmed the Secondary Capture Image IOD reference in PS3.3 Table A.8-1.
+- `cargo test --test generate_cli --test validate_cli --test list_cases_cli --test project_artifacts --test schema_artifacts --test report_cli`: initially failed because the HTJ2K capability-matrix promotion was accidentally applied to the JPEG-LS Near-Lossless row; passed after restoring JPEG-LS Near-Lossless to unavailable and promoting only HTJ2K, 77 focused default-build tests.
+- `cargo test --features htj2k_openjph --test generate_cli --test validate_cli --test list_cases_cli --test project_artifacts --test schema_artifacts --test report_cli`: initially failed because the new report test asserted `transfer_syntax_uid` instead of the report row field `transfer_syntax`; passed after fixing the assertion, 80 focused feature-build tests.
+- `cargo fmt -- --check`: passed.
+- `cargo test`: passed, full default-build suite clean.
+- `cargo test --features htj2k_openjph`: passed, full HTJ2K feature suite clean with 43 unit tests, 6 generate CLI tests, 3 reproducibility tests, 8 list-cases tests, 24 artifact tests, 7 report tests, 7 schema tests, 7 standards tests, and 28 validate tests.
+- `cargo run -- standards check-lock`: passed with existing documented lock warnings.
+- `cargo run --features htj2k_openjph -- generate --profile extended --out /tmp/dts-htj2k-slice-0616 --seed 1`: passed, 21 files written.
+- `cargo run --features htj2k_openjph -- validate /tmp/dts-htj2k-slice-0616`: passed, 21 files checked and 0 validation failures.
+- `cargo run --features htj2k_openjph -- report /tmp/dts-htj2k-slice-0616 --format json`: passed; report counted 21 generated rows and included `classic/sc/mono2_u16_htj2k_lossless` as generated with transfer syntax `1.2.840.10008.1.2.4.201`.
+- `cargo run --features htj2k_openjph -- generate --profile extended --out /tmp/dts-htj2k-repro-a-0616 --seed 1`: passed, 21 files written.
+- `cargo run --features htj2k_openjph -- generate --profile extended --out /tmp/dts-htj2k-repro-b-0616 --seed 1`: passed, 21 files written.
+- `diff -r /tmp/dts-htj2k-repro-a-0616 /tmp/dts-htj2k-repro-b-0616`: passed with no differences.
 
 ## Commit-Ready Summary
 
-- HTJ2K Lossless now has a project `htj2k_openjph` feature and `OpenJphHtj2kLosslessEncoder` wrapper for the selected OpenJPH external-command path.
-- The wrapper records portable backend identity by resolving and SHA-256 fingerprinting the `ojph_compress` executable, because this local binary rejects usable version/help commands.
-- The wrapper uses fixed 16-bit MONOCHROME2 PGM input and `ojph_compress -reversible true -num_decomps 1`, validates HTJ2K SOC/EOC markers, and decodes through the pinned DICOM-rs HTJ2K reader with exact native bytes for the sampled edge-domain frame.
-- `transfer-syntax/backend-decisions.json`, `transfer-syntax/capability-matrix.json`, `cases/registry.json`, and `tests/project_artifacts.rs` record the project feature gate while keeping the HTJ2K generated case skipped and the matrix row unavailable.
+- HTJ2K Lossless now has a feature-gated generated Secondary Capture case at `classic/sc/mono2_u16_htj2k_lossless`.
+- The generator writes encapsulated HTJ2K Lossless Pixel Data through the OpenJPH external-command wrapper, records runtime executable path/SHA-256 identity metadata, and validates exact decoded native frame hashes.
+- CLI validation, report coverage, list-cases output, manifest schema, registry, capability matrix, backend decision evidence, and focused tests now treat HTJ2K Lossless as implemented behind `htj2k_openjph`.
 
 ## Recommended Next Commit
 
-Add the first feature-gated generated HTJ2K Lossless Secondary Capture case with manifest backend fingerprint metadata, exact decoded-frame validation, report coverage, and reproducibility evidence.
+Start Phase 5 by researching and recording the first legacy/specialty compressed syntax backend decision, preferably JPEG Lossless/SV1 or JPEG Extended 12-bit, before adding generation.

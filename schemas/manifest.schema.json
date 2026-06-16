@@ -664,6 +664,51 @@
         },
         "determinism": {
           "$ref": "#/$defs/determinism"
+        },
+        "runtime_identity": {
+          "type": "object",
+          "required": [
+            "command",
+            "executable_path",
+            "executable_sha256",
+            "version",
+            "version_source",
+            "encoder_options"
+          ],
+          "properties": {
+            "command": {
+              "type": "string"
+            },
+            "executable_path": {
+              "type": "string"
+            },
+            "executable_sha256": {
+              "$ref": "#/$defs/sha256"
+            },
+            "version": {
+              "type": ["string", "null"]
+            },
+            "version_source": {
+              "type": "string"
+            },
+            "encoder_options": {
+              "type": "object",
+              "required": ["input_format", "reversible", "num_decomps"],
+              "properties": {
+                "input_format": {
+                  "type": "string"
+                },
+                "reversible": {
+                  "type": "boolean"
+                },
+                "num_decomps": {
+                  "type": "integer"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
         }
       },
       "additionalProperties": false

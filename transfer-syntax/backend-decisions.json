@@ -293,7 +293,6 @@
         "Defer RPCL and lossy HTJ2K variants until lossless support is proven."
       ],
       "blockers": [
-        "The first generated HTJ2K Lossless Secondary Capture case is not implemented yet.",
         "OpenJPH semantic identity currently depends on executable SHA-256 fingerprinting because the local `ojph_compress` binary does not expose a working `-v`, `-h`, or `--help` version command.",
         "No mature Rust-native HTJ2K encoder dependency is pinned in this project.",
         "Grok has HTJ2K support but is AGPL v3, so it is excluded from default generation by the project licensing policy."
@@ -373,9 +372,14 @@
           "source": "local-verification",
           "path": "src/codecs.rs",
           "finding": "The project `htj2k_openjph` feature exposes an OpenJPH external-command wrapper that resolves `ojph_compress`, fingerprints the executable with SHA-256, encodes fixed-option PGM input, validates SOC/EOC markers, and decodes the resulting HTJ2K Lossless codestream through the pinned DICOM-rs OpenJPEG-backed reader."
+        },
+        {
+          "source": "local-verification",
+          "path": "src/generator.rs",
+          "finding": "The first feature-gated generated HTJ2K Lossless Secondary Capture case records OpenJPH executable SHA-256 runtime identity metadata and validates exact decoded native frame hashes during generation and CLI validation."
         }
       ],
-      "next_action": "Add the first feature-gated generated HTJ2K Lossless Secondary Capture case with manifest backend fingerprint metadata, exact decoded-frame validation, report coverage, and reproducibility evidence."
+      "next_action": "Keep HTJ2K lossy and RPCL variants deferred until lossy semantics, encoder options, and validation policy are selected; choose the next Phase 5 legacy/specialty compressed syntax research target."
     },
     {
       "family_id": "legacy_jpeg",

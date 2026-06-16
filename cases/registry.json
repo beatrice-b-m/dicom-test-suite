@@ -3583,7 +3583,7 @@
     },
     {
       "case_id": "classic/sc/mono2_u16_htj2k_lossless",
-      "status": "skipped",
+      "status": "implemented",
       "profiles": ["extended"],
       "recipe_id": "sc_mono2_u16_htj2k_lossless",
       "recipe_version": "0.1.0",
@@ -3597,11 +3597,7 @@
         "external_codecs": ["OpenJPH"],
         "external_validators": []
       },
-      "skip": {
-        "reason_code": "codec_unavailable",
-        "message": "HTJ2K Lossless image generation is unavailable until the OpenJPH wrapper is integrated into generation, validation, reporting, and reproducibility checks.",
-        "recheck_phase": "phase-6"
-      },
+      "skip": null,
       "standards_evidence": [
         {
           "source": "dicom-standard-kb",

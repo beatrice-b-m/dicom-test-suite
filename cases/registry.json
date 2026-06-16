@@ -4412,7 +4412,7 @@
     },
     {
       "case_id": "vl/photo/rgb_planar0_explicit_le",
-      "status": "planned",
+      "status": "implemented",
       "profiles": ["core"],
       "recipe_id": "vl_photo_rgb_planar0",
       "recipe_version": "0.1.0",
@@ -4432,10 +4432,34 @@
         {
           "source": "dicom-standard-kb",
           "edition": "2026b",
-          "query": "lookup_sop_class VLPhotographicImageStorage",
+          "query": "lookup_sop_class VL Photographic Image Storage",
           "covered": true,
           "part": "PS3.4",
           "anchor": "table_B.5-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_modules_for_iod VL Photographic Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.32.4-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "resolve_attribute_context PhotometricInterpretation --iod VL Photographic Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-77"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_data_element PlanarConfiguration",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
         },
         {
           "source": "dicom-standard-kb",

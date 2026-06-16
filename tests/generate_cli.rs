@@ -279,7 +279,7 @@ fn generate_command_writes_core_u16_native_pixel_case() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\tcore"));
-    assert!(stdout.contains("files_written\t19"));
+    assert!(stdout.contains("files_written\t20"));
 
     let manifest_path = out_dir.join("manifest.json");
     let manifest: Value = serde_json::from_str(
@@ -296,7 +296,7 @@ fn generate_command_writes_core_u16_native_pixel_case() {
             .pointer("/files")
             .and_then(Value::as_array)
             .map(Vec::len),
-        Some(19)
+        Some(20)
     );
     let u16_file = file_entry_by_case_id(&manifest, "classic/sc/mono2_u16_explicit_le");
     assert_eq!(
@@ -844,6 +844,55 @@ fn generate_command_writes_core_u16_native_pixel_case() {
             .contains(&"ultrasound_image_sop_class"),
         "US manifest should record standards validation for Ultrasound Image Storage"
     );
+    let vl_photo_file = file_entry_by_case_id(&manifest, "vl/photo/rgb_planar0_explicit_le");
+    assert_eq!(
+        vl_photo_file
+            .pointer("/dicom/sop_class_uid")
+            .and_then(Value::as_str),
+        Some(uids::VL_PHOTOGRAPHIC_IMAGE_STORAGE)
+    );
+    assert_eq!(
+        vl_photo_file
+            .pointer("/dicom/iod_name")
+            .and_then(Value::as_str),
+        Some("VL Photographic Image")
+    );
+    assert_eq!(
+        vl_photo_file
+            .pointer("/dicom/modality")
+            .and_then(Value::as_str),
+        Some("XC")
+    );
+    assert_eq!(
+        vl_photo_file
+            .pointer("/image/photometric_interpretation")
+            .and_then(Value::as_str),
+        Some("RGB")
+    );
+    assert_eq!(
+        vl_photo_file
+            .pointer("/image/samples_per_pixel")
+            .and_then(Value::as_u64),
+        Some(3)
+    );
+    assert_eq!(
+        vl_photo_file
+            .pointer("/image/planar_configuration")
+            .and_then(Value::as_u64),
+        Some(0)
+    );
+    assert_eq!(
+        vl_photo_file
+            .pointer("/pixel_data/native_or_encapsulated")
+            .and_then(Value::as_str),
+        Some("native")
+    );
+    assert_eq!(
+        vl_photo_file
+            .pointer("/pixel_data/value_length")
+            .and_then(Value::as_u64),
+        Some(12)
+    );
     let mr_files = file_entries_by_case_id(&manifest, "classic/mr/multislice_oblique_explicit_le");
     assert_eq!(
         mr_files.len(),
@@ -926,29 +975,8 @@ fn generate_command_writes_core_u16_native_pixel_case() {
         .expect("manifest should contain skipped cases");
     assert_eq!(
         skipped_cases.len(),
-        2,
-        "core generation should report the two planned VL cases as unavailable"
-    );
-    let planned_vl_rgb = skipped_case_by_id(&manifest, "vl/photo/rgb_planar0_explicit_le");
-    assert_eq!(
-        planned_vl_rgb.get("status").and_then(Value::as_str),
-        Some("unavailable")
-    );
-    assert_eq!(
-        planned_vl_rgb.get("reason_code").and_then(Value::as_str),
-        Some("case_planned")
-    );
-    assert_eq!(
-        planned_vl_rgb.get("recheck_phase").and_then(Value::as_str),
-        Some("phase-7")
-    );
-    assert!(
-        !planned_vl_rgb
-            .get("message")
-            .and_then(Value::as_str)
-            .expect("planned skipped row should have a message")
-            .contains("Phase 1"),
-        "planned cases should no longer use the old hard-coded Phase 1 skip text"
+        1,
+        "core generation should report only the planned VL palette case as unavailable"
     );
     let planned_vl_palette = skipped_case_by_id(&manifest, "vl/photo/palette_color_explicit_le");
     assert_eq!(
@@ -960,6 +988,14 @@ fn generate_command_writes_core_u16_native_pixel_case() {
             .get("reason_code")
             .and_then(Value::as_str),
         Some("case_planned")
+    );
+    assert!(
+        !planned_vl_palette
+            .get("message")
+            .and_then(Value::as_str)
+            .expect("planned skipped row should have a message")
+            .contains("Phase 1"),
+        "planned cases should no longer use the old hard-coded Phase 1 skip text"
     );
 
     let dcm_path = out_dir.join("classic/sc/mono2_u16_explicit_le/instance.dcm");
@@ -7015,7 +7051,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\tall"));
-    let expected_all_files = 97
+    let expected_all_files = 98
         + if cfg!(feature = "deflate") { 2 } else { 0 }
         + if cfg!(feature = "jpeg") { 1 } else { 0 }
         + if cfg!(feature = "charls") { 1 } else { 0 }
@@ -7143,6 +7179,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
     file_entry_by_case_id(&manifest, "vl/photo/rgb_planar0_rle_lossless");
     file_entry_by_case_id(&manifest, "vl/photo/rgb_planar1_rle_lossless");
     file_entry_by_case_id(&manifest, "vl/photo/palette_color_rle_lossless");
+    file_entry_by_case_id(&manifest, "vl/photo/rgb_planar0_explicit_le");
     file_entry_by_case_id(&manifest, "classic/ct/mono2_i16_rescale_12bit_rle_lossless");
     file_entry_by_case_id(&manifest, "classic/mr/mono2_u16_rle_lossless");
     if cfg!(feature = "jpeg") {
@@ -7186,7 +7223,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
         .expect("manifest should contain skipped cases");
     assert_eq!(
         skipped_cases.len(),
-        11 - if cfg!(feature = "deflate") { 2 } else { 0 }
+        10 - if cfg!(feature = "deflate") { 2 } else { 0 }
             - if cfg!(feature = "jpeg") { 1 } else { 0 }
             - if cfg!(feature = "charls") { 1 } else { 0 }
             - if cfg!(feature = "jpegxl") { 1 } else { 0 }
@@ -7203,20 +7240,15 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
             },
         "all generation should report unavailable cases according to active features"
     );
-    for case_id in [
-        "vl/photo/rgb_planar0_explicit_le",
-        "vl/photo/palette_color_explicit_le",
-    ] {
-        let skipped = skipped_case_by_id(&manifest, case_id);
-        assert_eq!(
-            skipped.get("status").and_then(Value::as_str),
-            Some("unavailable")
-        );
-        assert_eq!(
-            skipped.get("reason_code").and_then(Value::as_str),
-            Some("case_planned")
-        );
-    }
+    let skipped = skipped_case_by_id(&manifest, "vl/photo/palette_color_explicit_le");
+    assert_eq!(
+        skipped.get("status").and_then(Value::as_str),
+        Some("unavailable")
+    );
+    assert_eq!(
+        skipped.get("reason_code").and_then(Value::as_str),
+        Some("case_planned")
+    );
     if !cfg!(feature = "htj2k_openjph") {
         let skipped = skipped_case_by_id(&manifest, "classic/sc/mono2_u16_htj2k_lossless");
         assert_eq!(

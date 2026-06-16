@@ -35,11 +35,11 @@ fn report_command_writes_json_coverage_for_core_root() {
     );
     assert_eq!(
         report.pointer("/counts/generated").and_then(Value::as_u64),
-        Some(19)
+        Some(20)
     );
     assert_eq!(
         report.pointer("/counts/planned").and_then(Value::as_u64),
-        Some(2)
+        Some(1)
     );
     assert_eq!(
         report
@@ -58,7 +58,7 @@ fn report_command_writes_json_coverage_for_core_root() {
         coverage_row(&report, "vl/photo/rgb_planar0_explicit_le")
             .get("status")
             .and_then(Value::as_str),
-        Some("planned")
+        Some("generated")
     );
     assert_eq!(
         coverage_row(&report, "vl/photo/rgb_planar0_explicit_le")
@@ -110,13 +110,14 @@ fn report_command_writes_markdown_coverage_for_core_root() {
     );
     let stdout = String::from_utf8(output.stdout).expect("report stdout should be UTF-8");
     assert!(stdout.starts_with("# DICOM Test Suite Coverage Report"));
-    assert!(stdout.contains("| generated | 19 |"));
-    assert!(stdout.contains("| planned | 2 |"));
+    assert!(stdout.contains("| generated | 20 |"));
+    assert!(stdout.contains("| planned | 1 |"));
     assert!(stdout.contains("## Gaps"));
-    assert!(stdout.contains("| case | vl/photo/rgb_planar0_explicit_le |"));
+    assert!(stdout.contains("| case | vl/photo/palette_color_explicit_le |"));
     assert!(
         stdout.contains("| classic/ct/mono2_i16_rescale_12bit_explicit_le | generated | core |")
     );
+    assert!(stdout.contains("| vl/photo/rgb_planar0_explicit_le | generated | core |"));
     assert!(stdout.contains("| vl/photo/palette_color_explicit_le | planned | core |"));
 
     fs::remove_dir_all(out_dir).expect("temporary output root should be removable");

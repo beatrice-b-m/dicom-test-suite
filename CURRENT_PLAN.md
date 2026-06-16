@@ -3,7 +3,7 @@
 **Last updated:** 2026-06-16
 **Active goal:** comprehensive compressed image codec generation support
 **Source specification:** `SYSTEM_SPEC.md` version 0.2.0
-**Planning status:** Phase 4 lossless baseline complete; Phase 5 JPEG Lossless SV1 generated case complete
+**Planning status:** Phase 4 lossless baseline complete; Phase 5 JPEG Lossless Process 14 generated case complete; JPEG Extended 12-bit validation blocked
 
 This document replaces the previous historical implementation plan and progress
 ledger. `SYSTEM_SPEC.md` remains the architecture and requirements source of
@@ -35,10 +35,15 @@ generation:
   with validation, reporting, and reproducibility coverage. JPEG-LS
   Near-Lossless is explicitly deferred until lossy semantics and validation
   policy are selected.
-- JPEG 2000 Lossless has a selected implement-now spike target using a
-  project-owned `jpeg2k`/`openjp2` adapter, but no project feature, generation,
-  validation, or capability-matrix promotion has been added yet.
-- JPEG XL lossy, JPEG 2000 lossy, HTJ2K, legacy JPEG, and Deflated Image Frame
+- JPEG 2000 Lossless has a project `jpeg2000` feature, a project-owned
+  `jpeg2k`/`openjp2` adapter, a feature-gated generated Secondary Capture case,
+  validation, reporting, and reproducibility evidence. JPEG 2000 lossy remains
+  deferred until lossy semantics and validation policy are selected.
+- HTJ2K Lossless has a project `htj2k_openjph` feature, an OpenJPH
+  external-command wrapper, a feature-gated generated Secondary Capture case,
+  validation, reporting, and reproducibility evidence. HTJ2K lossy/RPCL
+  variants remain deferred.
+- JPEG XL lossy, JPEG 2000 lossy, HTJ2K lossy/RPCL, and Deflated Image Frame
   Compression remain unavailable until their backend and standards decisions
   are resolved and proven.
 - `dicom-rs` 0.9.1 provides the useful integration surface:
@@ -68,12 +73,12 @@ Initial target families:
 - JPEG XL Lossless and JPEG XL.
 - JPEG 2000 Lossless and Lossy.
 - HTJ2K Lossless, RPCL, and lossy variants where practical.
-- JPEG Lossless SV1 has a project `legacy_jpeg_dcmtk` feature-gated generated
-  Secondary Capture case through DCMTK `dcmcjpeg`, with manifest runtime
-  identity capture, exact decoded-frame validation, report coverage, and
-  reproducibility evidence. JPEG Lossless Process 14 has passed a local DCMTK
-  spike and still needs generated-case promotion. JPEG Extended 12-bit still
-  needs separate spike evidence before generated-case promotion.
+- JPEG Lossless SV1 and JPEG Lossless Process 14 have project
+  `legacy_jpeg_dcmtk` feature-gated generated Secondary Capture cases through
+  DCMTK `dcmcjpeg`, with manifest runtime identity capture, exact decoded-frame
+  validation, report coverage, and reproducibility evidence. JPEG Extended
+  12-bit has DCMTK encode and reproducibility spike evidence, but generated-case
+  promotion is blocked until a 12-bit decode/validation path is selected.
 - Deflated Image Frame Compression only if the selected transfer syntax and IOD
   choices are standards-appropriate.
 
@@ -316,7 +321,6 @@ Areas to solidify:
 
 ## Immediate Next Step
 
-Choose the next Phase 5 legacy/specialty slice: add a feature-gated JPEG
-Lossless Process 14 wrapper/generated case from the passed DCMTK spike, spike
-JPEG Extended 12-bit with DCMTK, or resolve Deflated Image Frame Compression
-standards/IOD suitability before implementation.
+Choose the next Phase 5 legacy/specialty slice: select and prove an independent
+JPEG Extended 12-bit validation path before generated-case promotion, or resolve
+Deflated Image Frame Compression standards/IOD suitability before implementation.

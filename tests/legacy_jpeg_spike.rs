@@ -9,13 +9,16 @@ use dicom_dictionary_std::{tags, uids};
 use dicom_encoding::{Codec, adapters::PixelDataReader};
 use dicom_object::open_file;
 use dicom_transfer_syntax_registry::entries::{
-    JPEG_LOSSLESS_NON_HIERARCHICAL, JPEG_LOSSLESS_NON_HIERARCHICAL_FIRST_ORDER_PREDICTION,
+    JPEG_EXTENDED, JPEG_LOSSLESS_NON_HIERARCHICAL,
+    JPEG_LOSSLESS_NON_HIERARCHICAL_FIRST_ORDER_PREDICTION,
 };
 use serde_json::Value;
 
+const JPEG_EXTENDED_12BIT_UID: &str = "1.2.840.10008.1.2.4.51";
 const JPEG_LOSSLESS_PROCESS_14_UID: &str = "1.2.840.10008.1.2.4.57";
 const JPEG_LOSSLESS_SV1_UID: &str = "1.2.840.10008.1.2.4.70";
 const SOURCE_CASE_ID: &str = "classic/sc/mono2_u16_explicit_le";
+const SOURCE_12BIT_CASE_ID: &str = "classic/dx/display_shutter_mono2_u16_explicit_le";
 
 #[test]
 fn dcmtk_dcmcjpeg_lossless_sv1_spike_preserves_metadata_and_pixels() {
@@ -282,7 +285,144 @@ fn dcmtk_dcmcjpeg_lossless_process_14_spike_preserves_metadata_and_pixels() {
     );
 }
 
+#[test]
+fn dcmtk_dcmcjpeg_extended_12bit_spike_records_decode_blocker() {
+    let dcmcjpeg = match dcmcjpeg_path() {
+        Some(path) => path,
+        None => {
+            eprintln!(
+                "skipping DCMTK legacy JPEG Extended 12-bit spike because dcmcjpeg is not on PATH"
+            );
+            return;
+        }
+    };
+    let out_dir = unique_temp_dir("legacy-jpeg-extended-12bit-spike");
+    let source_path = generate_source_case(&out_dir, SOURCE_12BIT_CASE_ID);
+    let compressed_a = out_dir.join("legacy-jpeg-extended-12bit-a.dcm");
+    let compressed_b = out_dir.join("legacy-jpeg-extended-12bit-b.dcm");
+
+    run_dcmcjpeg_extended_12bit(&dcmcjpeg, &source_path, &compressed_a);
+    run_dcmcjpeg_extended_12bit(&dcmcjpeg, &source_path, &compressed_b);
+
+    let source = open_file(&source_path).expect("source DICOM should parse");
+    let compressed = open_file(&compressed_a).expect("compressed DICOM should parse");
+    let repeated = fs::read(&compressed_b).expect("repeated compressed file should be readable");
+    let compressed_bytes = fs::read(&compressed_a).expect("compressed file should be readable");
+
+    assert_eq!(
+        compressed.meta().transfer_syntax().trim_end_matches('\0'),
+        JPEG_EXTENDED_12BIT_UID,
+        "dcmcjpeg must write JPEG Extended 12-bit into File Meta Information"
+    );
+    assert_eq!(
+        compressed
+            .meta()
+            .media_storage_sop_class_uid()
+            .trim_end_matches('\0'),
+        source
+            .meta()
+            .media_storage_sop_class_uid()
+            .trim_end_matches('\0'),
+        "JPEG Extended spike should preserve the source SOP Class UID"
+    );
+    assert_eq!(
+        compressed
+            .meta()
+            .media_storage_sop_instance_uid()
+            .trim_end_matches('\0'),
+        source
+            .meta()
+            .media_storage_sop_instance_uid()
+            .trim_end_matches('\0'),
+        "--uid-never must preserve the file meta SOP Instance UID"
+    );
+    assert_eq!(
+        compressed
+            .element(tags::SOP_INSTANCE_UID)
+            .expect("compressed dataset should contain SOP Instance UID")
+            .to_str()
+            .expect("SOP Instance UID should be textual")
+            .trim_end_matches('\0'),
+        source
+            .element(tags::SOP_INSTANCE_UID)
+            .expect("source dataset should contain SOP Instance UID")
+            .to_str()
+            .expect("SOP Instance UID should be textual")
+            .trim_end_matches('\0'),
+        "--uid-never must preserve the dataset SOP Instance UID"
+    );
+    assert_eq!(
+        compressed
+            .element(tags::SYNTHETIC_DATA)
+            .expect("compressed dataset should retain Synthetic Data")
+            .to_str()
+            .expect("Synthetic Data should be textual")
+            .trim(),
+        "YES"
+    );
+    assert_eq!(
+        compressed
+            .element(tags::BITS_STORED)
+            .expect("compressed dataset should contain Bits Stored")
+            .to_int::<u16>()
+            .expect("Bits Stored should be US"),
+        12
+    );
+    assert_eq!(
+        compressed
+            .element(tags::HIGH_BIT)
+            .expect("compressed dataset should contain High Bit")
+            .to_int::<u16>()
+            .expect("High Bit should be US"),
+        11
+    );
+
+    let pixel_data = compressed
+        .element(tags::PIXEL_DATA)
+        .expect("compressed DICOM should contain Pixel Data");
+    let DicomValue::PixelSequence(sequence) = pixel_data.value() else {
+        panic!("JPEG Extended output must use encapsulated Pixel Data");
+    };
+    assert_eq!(
+        sequence.offset_table(),
+        &[0],
+        "--offset-table-create should produce one Basic Offset Table entry for one frame"
+    );
+    assert_eq!(
+        sequence.fragments().len(),
+        1,
+        "--fragment-per-frame should produce one fragment for one source frame"
+    );
+    assert!(sequence.fragments()[0].starts_with(&[0xff, 0xd8]));
+    assert!(sequence.fragments()[0].ends_with(&[0xff, 0xd9]));
+
+    let Codec::EncapsulatedPixelData(Some(reader), writer) = JPEG_EXTENDED.codec() else {
+        panic!("DICOM-rs should expose a JPEG Extended reader under the jpeg feature")
+    };
+    assert!(
+        writer.is_none(),
+        "DICOM-rs JPEG Extended remains decode-only from this project"
+    );
+    let mut decoded = Vec::new();
+    let decode_error = reader
+        .decode_frame(&compressed, 0, &mut decoded)
+        .expect_err("pinned DICOM-rs JPEG Extended reader should reject 12-bit sample precision");
+    assert!(
+        format!("{decode_error:?}").contains("SamplePrecision(12)"),
+        "JPEG Extended blocker should identify the unsupported 12-bit decoder path, got {decode_error:?}"
+    );
+    assert_eq!(
+        dicom_test_suite::sha256_hex(&compressed_bytes),
+        dicom_test_suite::sha256_hex(&repeated),
+        "dcmcjpeg should produce byte-identical JPEG Extended files for fixed source and options"
+    );
+}
+
 fn generate_source(out_dir: &Path) -> PathBuf {
+    generate_source_case(out_dir, SOURCE_CASE_ID)
+}
+
+fn generate_source_case(out_dir: &Path, case_id: &str) -> PathBuf {
     let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
         .args([
             "generate",
@@ -312,8 +452,8 @@ fn generate_source(out_dir: &Path) -> PathBuf {
         .and_then(Value::as_array)
         .expect("manifest files should be an array")
         .iter()
-        .find(|file| file.get("case_id").and_then(Value::as_str) == Some(SOURCE_CASE_ID))
-        .expect("core generation should include the u16 MONOCHROME2 source");
+        .find(|file| file.get("case_id").and_then(Value::as_str) == Some(case_id))
+        .unwrap_or_else(|| panic!("core generation should include {case_id}"));
     out_dir.join(
         source
             .get("path")
@@ -348,6 +488,29 @@ fn run_dcmcjpeg_process14(command: &Path, input: &Path, output: &Path) {
         .args([
             "--encode-lossless",
             "--true-lossless",
+            "--fragment-per-frame",
+            "--offset-table-create",
+            "--uid-never",
+        ])
+        .arg(input)
+        .arg(output)
+        .output()
+        .expect("dcmcjpeg command should start");
+    assert!(
+        result.status.success(),
+        "dcmcjpeg should encode the source: stdout={}, stderr={}",
+        String::from_utf8_lossy(&result.stdout),
+        String::from_utf8_lossy(&result.stderr)
+    );
+}
+
+fn run_dcmcjpeg_extended_12bit(command: &Path, input: &Path, output: &Path) {
+    let result = Command::new(command)
+        .args([
+            "--encode-extended",
+            "--bits-force-12",
+            "--quality",
+            "100",
             "--fragment-per-frame",
             "--offset-table-create",
             "--uid-never",

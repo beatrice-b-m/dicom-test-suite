@@ -941,7 +941,7 @@ fn legacy_jpeg_backend_decision_records_dcmtk_generated_case_promotion() {
         .expect("DCMTK dcmcjpeg candidate should be recorded");
     assert_eq!(
         dcmtk.get("status").and_then(Value::as_str),
-        Some("passed_local_spike")
+        Some("passed_lossless_spikes_extended_encode_only")
     );
     assert_eq!(
         dcmtk.get("backend_kind").and_then(Value::as_str),
@@ -980,11 +980,11 @@ fn legacy_jpeg_backend_decision_records_dcmtk_generated_case_promotion() {
         "legacy JPEG should not leave Process 14 generated-case promotion as follow-up work after promotion"
     );
     assert!(
-        blockers
-            .iter()
-            .any(|blocker| blocker.contains("JPEG Extended 12-bit")
-                && blocker.contains("local spike evidence")),
-        "legacy JPEG should leave JPEG Extended as separate spike work"
+        blockers.iter().any(|blocker| {
+            blocker.contains("JPEG Extended 12-bit")
+                && blocker.contains("Unsupported(SamplePrecision(12))")
+        }),
+        "legacy JPEG should record that JPEG Extended generated-case promotion is blocked on 12-bit decode validation"
     );
 
     let cargo_toml = fs::read_to_string("Cargo.toml").expect("Cargo.toml must be readable");
@@ -1039,6 +1039,21 @@ fn legacy_jpeg_backend_decision_records_dcmtk_generated_case_promotion() {
                     })
         }),
         "legacy JPEG decision should record the passed DCMTK SV1 and Process 14 spike evidence"
+    );
+    assert!(
+        evidence.iter().any(|item| {
+            item.get("source").and_then(Value::as_str) == Some("local-spike-test")
+                && item.get("path").and_then(Value::as_str) == Some("tests/legacy_jpeg_spike.rs")
+                && item
+                    .get("finding")
+                    .and_then(Value::as_str)
+                    .is_some_and(|finding| {
+                        finding.contains("JPEG Extended 12-bit")
+                            && finding.contains("byte-identically")
+                            && finding.contains("Unsupported(SamplePrecision(12))")
+                    })
+        }),
+        "legacy JPEG decision should record the JPEG Extended 12-bit encode proof and decode blocker"
     );
     assert!(
         evidence.iter().any(|item| {

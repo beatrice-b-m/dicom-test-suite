@@ -12,7 +12,7 @@
 - Phase 2 - Encapsulated Pixel Data Substrate: complete for the first RLE one-fragment case; Extended Offset Table and future multi-fragment generation remain later substrate expansion.
 - Phase 3 - Low-Risk Codec Enablement: in progress; 8-bit and 16-bit generated RLE Lossless Secondary Capture cases are implemented and round-trip validated; the first JPEG Baseline 8-bit RGB Secondary Capture case is generated and validated when the `jpeg` feature is enabled; the first JPEG-LS Lossless 8-bit MONOCHROME2 Secondary Capture case is generated and exact-hash validated when the `charls` feature is enabled; the first JPEG XL Lossless 8-bit RGB Secondary Capture case is generated and exact-hash validated when the `jpegxl` feature is enabled.
 - Phase 4 - JPEG 2000 And HTJ2K: complete for first lossless generated cases; JPEG 2000 Lossless has a project `jpeg2000` feature, a project-owned OpenJPEG-rs writer wrapper, a feature-gated generated Secondary Capture case, generation-time exact decoded-frame hash validation, CLI validation, report coverage, reproducibility evidence, and feature-gated capability-matrix promotion. JPEG 2000 lossy remains deferred. HTJ2K Lossless has a project `htj2k_openjph` feature, an OpenJPH external-command wrapper that fingerprints `ojph_compress` by executable SHA-256, fixed-option PGM encode support, exact DICOM-rs HTJ2K reader decode validation, a feature-gated generated Secondary Capture case, manifest runtime identity metadata, CLI validation, report coverage, and reproducibility evidence. HTJ2K lossy/RPCL variants remain deferred.
-- Phase 5 - Legacy And Specialty Compressed Syntaxes: in progress; JPEG Lossless SV1 and JPEG Lossless Process 14 now have generated feature-gated Secondary Capture cases through the project `legacy_jpeg_dcmtk` DCMTK `dcmcjpeg` file-level wrapper, including manifest runtime executable identity, exact DICOM-rs decoded-frame hash validation, report coverage, and reproducibility evidence. JPEG Extended 12-bit and Deflated Image Frame Compression remain unresolved.
+- Phase 5 - Legacy And Specialty Compressed Syntaxes: in progress; JPEG Lossless SV1 and JPEG Lossless Process 14 now have generated feature-gated Secondary Capture cases through the project `legacy_jpeg_dcmtk` DCMTK `dcmcjpeg` file-level wrapper, including manifest runtime executable identity, exact DICOM-rs decoded-frame hash validation, report coverage, and reproducibility evidence. JPEG Extended 12-bit DCMTK encode, metadata preservation, encapsulation, and byte-identical local reproducibility are proven, but generated-case promotion is blocked until a 12-bit JPEG Extended validation decoder/path is selected. Deflated Image Frame Compression remains unresolved.
 - Phase 6+ - Corpus expansion and maintenance: blocked until Phase 5 scope is complete.
 
 ## Completed Work
@@ -180,6 +180,10 @@
 - Generalized the `legacy_jpeg_dcmtk` wrapper so the same runtime identity and executable SHA-256 fingerprinting path supports both JPEG Lossless SV1 (`--encode-lossless-sv1`) and JPEG Lossless Process 14 (`--encode-lossless`).
 - Added generation-time, manifest, and CLI validation for Process 14 exact decoded native frame hashes through the pinned DICOM-rs JPEG Lossless Process 14 reader.
 - Updated backend decision evidence so Process 14 generated-case promotion is complete, leaving JPEG Extended 12-bit as the remaining legacy JPEG spike target.
+- Added a JPEG Extended 12-bit DCMTK spike using the existing deterministic 12-bit unsigned DX source `classic/dx/display_shutter_mono2_u16_explicit_le`.
+- Proved `dcmcjpeg --encode-extended --bits-force-12 --quality 100 --fragment-per-frame --offset-table-create --uid-never` writes JPEG Extended UID `1.2.840.10008.1.2.4.51`, preserves SOP Class UID, SOP Instance UID, Synthetic Data, Bits Stored 12, High Bit 11, one Basic Offset Table entry, and one fragment, and repeats byte-identically for the same source and fixed options.
+- Recorded that generated-case promotion for JPEG Extended 12-bit is blocked because the pinned DICOM-rs JPEG Extended reader rejects the 12-bit codestream with `Unsupported(SamplePrecision(12))`.
+- Updated backend decision artifact coverage so JPEG Extended 12-bit cannot be treated as generated-case-ready until an independent 12-bit validation path or decoder support is selected.
 
 ## Blockers
 
@@ -192,7 +196,7 @@
 - Legacy JPEG is no longer blocked on local `dcmcjpeg` availability or wrapper design; Homebrew `dcmtk` 3.7.0 is installed, the SV1 spike passed locally, and the `legacy_jpeg_dcmtk` wrapper exists.
 - JPEG Lossless SV1 generated-case implementation is complete for the first tiny 16-bit MONOCHROME2 Secondary Capture case.
 - JPEG Lossless Process 14 generated-case implementation is complete for the first tiny 16-bit MONOCHROME2 Secondary Capture case.
-- JPEG Extended 12-bit still needs separate local spike evidence before it can be implemented.
+- JPEG Extended 12-bit has DCMTK encode and repeatability spike evidence, but implementation is blocked on a validation path because the pinned DICOM-rs JPEG Extended reader rejects 12-bit codestreams with `Unsupported(SamplePrecision(12))`.
 - Deflated Image Frame Compression requires a standards/IOD suitability decision before any implementation.
 
 ## Open Decisions
@@ -202,7 +206,7 @@
 - JPEG XL Lossless now uses a project `jpegxl` feature that exposes the pinned DICOM-rs optional JPEG XL adapter behind a project-owned wrapper and generated corpus case. Lossy JPEG XL is deferred until lossy semantics and validation policy are selected.
 - JPEG 2000 Lossless now uses a project `jpeg2000` feature exposing a project-owned OpenJPEG-rs writer wrapper plus DICOM-rs JPEG 2000 decode validation. Lossy JPEG 2000 is deferred until lossy semantics and validation policy are selected.
 - HTJ2K Lossless uses the project `htj2k_openjph` feature and selected `ojph_compress` external-command wrapper. Command-level byte reproducibility is proven for sampled edge-domain unsigned values using 16-bit PGM input with `-num_decomps 1`, and generated manifests record canonical executable path plus SHA-256 executable fingerprint because this binary rejects common version/help flags.
-- Legacy JPEG uses DCMTK `dcmcjpeg` as the selected backend for JPEG Lossless SV1 and JPEG Lossless Process 14. The generated `classic/sc/mono2_u16_jpeg_lossless_sv1` and `classic/sc/mono2_u16_jpeg_lossless_process_14` cases are implemented behind `legacy_jpeg_dcmtk`, record runtime executable identity, validate exact decoded native frame hashes through the pinned DICOM-rs JPEG reader, and remain semantic-stable because the external command identity is part of manifest evidence. JPEG Extended 12-bit still needs separate spike evidence before generated-case promotion.
+- Legacy JPEG uses DCMTK `dcmcjpeg` as the selected backend for JPEG Lossless SV1 and JPEG Lossless Process 14. The generated `classic/sc/mono2_u16_jpeg_lossless_sv1` and `classic/sc/mono2_u16_jpeg_lossless_process_14` cases are implemented behind `legacy_jpeg_dcmtk`, record runtime executable identity, validate exact decoded native frame hashes through the pinned DICOM-rs JPEG reader, and remain semantic-stable because the external command identity is part of manifest evidence. JPEG Extended 12-bit has encode-only spike evidence but needs an independent 12-bit decode/validation path before generated-case promotion.
 - Which independent validators should be used for JPEG 2000 and HTJ2K.
 - Whether the current project-owned RLE decoder should support multi-fragment frame reassembly in generation-time validation before a multi-fragment RLE case is added.
 
@@ -562,13 +566,25 @@
 - `cargo run --features legacy_jpeg_dcmtk -- generate --profile extended --out /tmp/dts-legacy-process14-repro-a-0616 --seed 1`: passed, 22 files written.
 - `cargo run --features legacy_jpeg_dcmtk -- generate --profile extended --out /tmp/dts-legacy-process14-repro-b-0616 --seed 1`: passed, 22 files written.
 - `diff -r /tmp/dts-legacy-process14-repro-a-0616 /tmp/dts-legacy-process14-repro-b-0616`: passed with no differences.
+- `git status --short`: passed before slice selection; working tree was clean.
+- `dicom-standard-kb` MCP `lookup_uid JPEGExtended12Bit`: passed; confirmed UID `1.2.840.10008.1.2.4.51` as the PS3.6 Transfer Syntax for JPEG Extended (Process 2 & 4): Default Transfer Syntax for Lossy JPEG 12 Bit Image Compression (Process 4 only).
+- `dcmcjpeg --help`: passed; confirmed installed DCMTK supports `--encode-extended`, `--bits-force-12`, `--quality`, `--fragment-per-frame`, `--offset-table-create`, and `--uid-never`.
+- `rg -n "JPEG_EXTENDED|1\.2\.840\.10008\.1\.2\.4\.51" ~/.cargo/registry/src/index.crates.io-*/dicom-transfer-syntax-registry-0.9.1/src src tests`: passed; confirmed pinned DICOM-rs exposes `JPEG_EXTENDED` as a decode-only transfer syntax under the `jpeg` feature.
+- `cargo test --features jpeg --test legacy_jpeg_spike dcmtk_dcmcjpeg_extended_12bit_spike_preserves_metadata_and_decodes`: failed during initial spike because the pinned DICOM-rs JPEG Extended reader returned `Unsupported(SamplePrecision(12))` when decoding the DCMTK-generated 12-bit codestream.
+- `cargo test --features jpeg --test legacy_jpeg_spike dcmtk_dcmcjpeg_extended_12bit_spike_records_decode_blocker`: passed, proving DCMTK writes deterministic JPEG Extended 12-bit Part 10 output for the selected 12-bit DX source while the current DICOM-rs validation path rejects the codestream with the expected 12-bit sample-precision blocker.
+- `cargo test --test project_artifacts legacy_jpeg_backend_decision_records_dcmtk_generated_case_promotion`: passed, proving the backend decision artifact records JPEG Extended 12-bit as encode-proven but blocked on 12-bit decode validation.
+- `cargo fmt -- --check`: passed.
+- `jq empty transfer-syntax/backend-decisions.json`: passed.
+- `cargo test`: passed, full default-build suite clean.
+- `cargo test --features jpeg`: passed, full JPEG feature suite clean including the new JPEG Extended 12-bit blocker spike.
+- `cargo run -- standards check-lock`: passed with existing documented lock warnings.
 
 ## Commit-Ready Summary
 
-- JPEG Lossless Process 14 now has a feature-gated generated Secondary Capture case beside the existing SV1 case.
-- The implementation uses DCMTK `dcmcjpeg --encode-lossless --true-lossless --fragment-per-frame --offset-table-create --uid-never`, records runtime executable identity in manifests, validates exact decoded native frame hashes through DICOM-rs, appears in report/list-cases coverage, and reproduces byte-identically across two local runs.
-- Backend decisions and artifact tests now record Process 14 as promoted; JPEG Extended 12-bit remains the next unresolved legacy JPEG target.
+- JPEG Extended 12-bit has a committed DCMTK spike test proving deterministic encode behavior for the existing 12-bit unsigned DX source.
+- Backend decisions and artifact tests now record that generated-case promotion remains blocked because the pinned DICOM-rs JPEG Extended reader rejects the 12-bit codestream with `Unsupported(SamplePrecision(12))`.
+- No generator, registry, capability-matrix, or report promotion was added for JPEG Extended 12-bit in this slice.
 
 ## Recommended Next Commit
 
-Choose the next Phase 5 legacy/specialty slice: spike JPEG Extended 12-bit with DCMTK, or resolve Deflated Image Frame Compression standards/IOD suitability before implementation.
+Choose the next Phase 5 legacy/specialty slice: select and prove an independent JPEG Extended 12-bit validation path before generated-case promotion, or resolve Deflated Image Frame Compression standards/IOD suitability before implementation.

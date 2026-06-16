@@ -413,12 +413,12 @@
           "host_type": "arm64-Darwin",
           "version_source": "command_stdout"
         },
-        "reason": "DCMTK documents DICOM-level JPEG encoding for the legacy transfer syntaxes; local spikes proved metadata preservation, deterministic UID behavior, fragment layout control, DICOM-rs decode validation, and local byte-identical reproducibility for JPEG Lossless SV1 and JPEG Lossless Process 14 sources; and the project now has feature-gated generated SV1 and Process 14 cases that capture runtime identity, validate exact decoded native frame hashes, and report corpus coverage."
+        "reason": "DCMTK documents DICOM-level JPEG encoding for the legacy transfer syntaxes; local spikes proved metadata preservation, deterministic UID behavior, fragment layout control, DICOM-rs decode validation, and local byte-identical reproducibility for JPEG Lossless SV1 and JPEG Lossless Process 14 sources; and the project now has feature-gated generated SV1 and Process 14 cases that capture runtime identity, validate exact decoded native frame hashes, and report corpus coverage. A JPEG Extended 12-bit DCMTK spike proved deterministic DICOM file encoding, but generated-case promotion remains blocked because the pinned DICOM-rs JPEG Extended reader rejects the 12-bit codestream with unsupported sample precision."
       },
       "candidate_backends": [
         {
           "name": "DCMTK dcmcjpeg",
-          "status": "passed_local_spike",
+          "status": "passed_lossless_spikes_extended_encode_only",
           "backend_kind": "external_command",
           "license": "BSD-style with bundled IJG JPEG notice",
           "supports": [
@@ -455,10 +455,10 @@
         "Compare decoded native frame hashes against the source frame through the pinned DICOM-rs JPEG decoder and verify encapsulated Pixel Data, Basic Offset Table, and one-fragment frame semantics.",
         "Record the dcmcjpeg command, canonical executable path, executable SHA-256, version banner, and fixed encoder options in the generated manifest.",
         "Use semantic-stable determinism for the generated case because the external tool identity is manifest-recorded even though local repeated outputs are byte-identical.",
-        "Treat JPEG Extended 12-bit as a separate feature gate once the process is proven."
+        "Treat JPEG Extended 12-bit as a separate generated case only after a validation decoder can read the 12-bit codestream or an independent validation path is selected."
       ],
       "blockers": [
-        "JPEG Extended 12-bit still needs separate local spike evidence before it can be implemented."
+        "JPEG Extended 12-bit DCMTK encode, metadata preservation, encapsulation, and local byte-identical reproducibility are proven, but generated-case promotion is blocked because the pinned DICOM-rs JPEG Extended reader rejects 12-bit codestreams with Unsupported(SamplePrecision(12))."
       ],
       "evidence": [
         {
@@ -506,6 +506,12 @@
           "finding": "DCMTK dcmcjpeg compressed the deterministic classic/sc/mono2_u16_explicit_le source to JPEG Lossless SV1 with --encode-lossless-sv1 and to JPEG Lossless Process 14 with --encode-lossless, both using --true-lossless, --fragment-per-frame, --offset-table-create, and --uid-never; both outputs preserved SOP Class UID, SOP Instance UID, Synthetic Data, and Patient ID, used one Basic Offset Table entry and one fragment, decoded exactly through the pinned DICOM-rs JPEG Lossless readers, and repeated byte-identically for the same source and options."
         },
         {
+          "source": "local-spike-test",
+          "path": "tests/legacy_jpeg_spike.rs",
+          "command": "cargo test --features jpeg --test legacy_jpeg_spike dcmtk_dcmcjpeg_extended_12bit_spike_records_decode_blocker",
+          "finding": "DCMTK dcmcjpeg compressed the deterministic 12-bit unsigned DX source classic/dx/display_shutter_mono2_u16_explicit_le to JPEG Extended 12-bit with --encode-extended --bits-force-12 --quality 100 --fragment-per-frame --offset-table-create and --uid-never; the output preserved SOP Class UID, SOP Instance UID, Synthetic Data, Bits Stored 12, High Bit 11, one Basic Offset Table entry, and one fragment, and repeated byte-identically, but the pinned DICOM-rs JPEG Extended reader rejected the codestream with Unsupported(SamplePrecision(12))."
+        },
+        {
           "source": "local-wrapper-test",
           "path": "tests/legacy_jpeg_dcmtk_wrapper.rs",
           "command": "cargo test --features legacy_jpeg_dcmtk --test legacy_jpeg_dcmtk_wrapper",
@@ -518,7 +524,7 @@
           "finding": "The generated classic/sc/mono2_u16_jpeg_lossless_process_14 and classic/sc/mono2_u16_jpeg_lossless_sv1 cases record DCMTK runtime executable SHA-256 metadata, use encapsulated legacy JPEG Lossless Pixel Data, validate exact decoded native frame hashes, appear in JSON coverage reports, and are feature-gated through legacy_jpeg_dcmtk."
         }
       ],
-      "next_action": "Choose the next Phase 5 legacy/specialty slice: spike JPEG Extended 12-bit with DCMTK or resolve Deflated Image Frame Compression standards/IOD suitability before implementation."
+      "next_action": "Choose the next Phase 5 legacy/specialty slice: select an independent JPEG Extended 12-bit validation path before generated-case promotion, or resolve Deflated Image Frame Compression standards/IOD suitability before implementation."
     },
     {
       "family_id": "deflated_image_frame",

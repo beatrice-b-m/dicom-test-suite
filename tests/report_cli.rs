@@ -79,8 +79,21 @@ fn report_command_writes_json_coverage_for_core_root() {
         Some("XC")
     );
     assert_eq!(
+        coverage_row(&report, "vl/photo/palette_color_explicit_le")
+            .get("profile_membership")
+            .and_then(Value::as_array)
+            .map(Vec::len),
+        Some(1)
+    );
+    assert_eq!(
         report
             .pointer("/grouped_coverage/profiles/core")
+            .and_then(Value::as_u64),
+        Some(21)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/profile_memberships/core")
             .and_then(Value::as_u64),
         Some(21)
     );
@@ -118,6 +131,8 @@ fn report_command_writes_markdown_coverage_for_core_root() {
     assert!(stdout.starts_with("# DICOM Test Suite Coverage Report"));
     assert!(stdout.contains("| generated | 21 |"));
     assert!(stdout.contains("| planned | 0 |"));
+    assert!(stdout.contains("### Profile Memberships"));
+    assert!(stdout.contains("| core | 21 |"));
     assert!(stdout.contains("## Gaps"));
     assert!(
         stdout.contains("| classic/ct/mono2_i16_rescale_12bit_explicit_le | generated | core |")
@@ -1597,6 +1612,7 @@ fn report_projects_manifest_references_for_non_image_rows() {
         "files": [
             {
                 "case_id": "derived/rwvm/linear_ct_mapping_explicit_le",
+                "profile_membership": ["extended"],
                 "dicom": {
                     "iod_name": "Real World Value Mapping",
                     "sop_class_uid": "1.2.840.10008.5.1.4.1.1.67",
@@ -1675,6 +1691,7 @@ fn report_summarizes_compressed_codec_coverage() {
         "files": [
             {
                 "case_id": "classic/sc/rgb_planar0_rle_lossless",
+                "profile_membership": ["extended"],
                 "dicom": {
                     "iod_name": "Secondary Capture Image",
                     "modality": "OT",
@@ -1790,6 +1807,12 @@ fn report_summarizes_compressed_codec_coverage() {
             .pointer("/grouped_coverage/codec_families/JPEG Baseline")
             .and_then(Value::as_u64),
         Some(1)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/profile_memberships/extended")
+            .and_then(Value::as_u64),
+        Some(2)
     );
     assert_eq!(
         report

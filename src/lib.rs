@@ -5883,6 +5883,12 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
     append_count_map_section(
         &mut output,
         report,
+        "Profile Memberships",
+        "/grouped_coverage/profile_memberships",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
         "Statuses",
         "/grouped_coverage/statuses",
     );
@@ -6105,6 +6111,7 @@ fn generated_coverage_row(
     Ok(serde_json::json!({
         "case_id": report_str(manifest_path, file, "/case_id", "file case_id must be a string")?,
         "profile": run_profile,
+        "profile_membership": report_string_array(manifest_path, file, "/profile_membership", "file profile_membership must be a string array")?,
         "status": "generated",
         "iod": report_str(manifest_path, file, "/dicom/iod_name", "dicom iod_name must be a string")?,
         "modality": file.pointer("/dicom/modality").and_then(Value::as_str),
@@ -6208,6 +6215,7 @@ fn skipped_coverage_row(
     Ok(serde_json::json!({
         "case_id": case_id,
         "profile": run_profile,
+        "profile_membership": report_registry_string_array(registry_case, "profiles"),
         "status": status,
         "iod": registry_case.get("iod_name").and_then(Value::as_str).unwrap_or(""),
         "modality": registry_case.get("modality").and_then(Value::as_str),
@@ -6281,6 +6289,45 @@ fn report_str<'a>(
         })
 }
 
+fn report_string_array(
+    path: &Path,
+    value: &Value,
+    pointer: &str,
+    message: &'static str,
+) -> Result<Vec<String>, ReportError> {
+    value
+        .pointer(pointer)
+        .and_then(Value::as_array)
+        .ok_or_else(|| ReportError::MetadataShape {
+            path: path.to_path_buf(),
+            message,
+        })?
+        .iter()
+        .map(|item| {
+            item.as_str()
+                .map(str::to_string)
+                .ok_or_else(|| ReportError::MetadataShape {
+                    path: path.to_path_buf(),
+                    message,
+                })
+        })
+        .collect()
+}
+
+fn report_registry_string_array(value: &Value, field: &str) -> Vec<String> {
+    value
+        .get(field)
+        .and_then(Value::as_array)
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(Value::as_str)
+                .map(str::to_string)
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
 #[derive(Default)]
 struct CoverageCounts {
     generated: usize,
@@ -6293,6 +6340,7 @@ struct CoverageCounts {
 #[derive(Default)]
 struct GroupedCoverage {
     profiles: BTreeMap<String, usize>,
+    profile_memberships: BTreeMap<String, usize>,
     statuses: BTreeMap<String, usize>,
     iods: BTreeMap<String, usize>,
     modalities: BTreeMap<String, usize>,
@@ -6327,6 +6375,11 @@ impl GroupedCoverage {
             &mut self.profiles,
             row.get("profile").and_then(Value::as_str),
         );
+        if let Some(profile_memberships) = row.get("profile_membership").and_then(Value::as_array) {
+            for profile in profile_memberships {
+                increment_map(&mut self.profile_memberships, profile.as_str());
+            }
+        }
         increment_map(
             &mut self.statuses,
             row.get("status").and_then(Value::as_str),
@@ -6451,6 +6504,7 @@ impl GroupedCoverage {
     fn to_json(&self) -> Value {
         serde_json::json!({
             "profiles": self.profiles,
+            "profile_memberships": self.profile_memberships,
             "statuses": self.statuses,
             "iods": self.iods,
             "modalities": self.modalities,

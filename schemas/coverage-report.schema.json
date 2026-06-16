@@ -35,6 +35,9 @@
         "profiles": {
           "$ref": "#/$defs/count_map"
         },
+        "profile_memberships": {
+          "$ref": "#/$defs/count_map"
+        },
         "statuses": {
           "$ref": "#/$defs/count_map"
         },
@@ -197,6 +200,7 @@
       "required": [
         "case_id",
         "profile",
+        "profile_membership",
         "status",
         "iod",
         "modality",
@@ -230,6 +234,12 @@
         },
         "profile": {
           "$ref": "#/$defs/profile"
+        },
+        "profile_membership": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/profile"
+          }
         },
         "status": {
           "$ref": "#/$defs/case_status"

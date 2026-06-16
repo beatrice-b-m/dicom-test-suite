@@ -235,6 +235,7 @@ fn coverage_report_schema_requires_the_specified_matrix_fields() {
     for field in [
         "case_id",
         "profile",
+        "profile_membership",
         "status",
         "iod",
         "modality",
@@ -281,6 +282,7 @@ fn coverage_report_schema_requires_the_specified_matrix_fields() {
 
     for grouped_field in [
         "profiles",
+        "profile_memberships",
         "statuses",
         "iods",
         "sop_classes",

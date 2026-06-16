@@ -446,6 +446,12 @@ fn list_cases_command_shows_rle_lossless_as_implemented() {
     );
     assert!(
         stdout.contains(
+            "classic/sc/mono1_i16_odd_3x3_rle_lossless\timplemented\textended\t1.2.840.10008.5.1.4.1.1.7\t1.2.840.10008.1.2.5\t6/6 covered"
+        ),
+        "MONOCHROME1 signed odd 3x3 RLE Lossless row must be listed as implemented"
+    );
+    assert!(
+        stdout.contains(
             "classic/sc/mono2_u16_rect_2x3_rle_lossless\timplemented\textended\t1.2.840.10008.5.1.4.1.1.7\t1.2.840.10008.1.2.5\t6/6 covered"
         ),
         "rectangular 2x3 RLE Lossless row must be listed as implemented"

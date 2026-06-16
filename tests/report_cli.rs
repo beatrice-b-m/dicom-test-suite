@@ -1386,6 +1386,7 @@ fn report_summarizes_compressed_codec_coverage() {
                 "image": {
                     "photometric_interpretation": "MONOCHROME2",
                     "bits_stored": 8,
+                    "pixel_representation": 0,
                     "frames": 1,
                     "rows": 2,
                     "columns": 2
@@ -1452,6 +1453,12 @@ fn report_summarizes_compressed_codec_coverage() {
         Some("YES")
     );
     assert_eq!(
+        generated
+            .get("pixel_representation")
+            .and_then(Value::as_u64),
+        Some(0)
+    );
+    assert_eq!(
         report
             .pointer("/grouped_coverage/codec_families/RLE Lossless")
             .and_then(Value::as_u64),
@@ -1508,6 +1515,12 @@ fn report_summarizes_compressed_codec_coverage() {
     assert_eq!(
         report
             .pointer("/grouped_coverage/frame_counts/1")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/pixel_representations/0")
             .and_then(Value::as_u64),
         Some(1)
     );
@@ -1580,6 +1593,7 @@ fn report_summarizes_compressed_codec_coverage() {
         unavailable.get("object_type").and_then(Value::as_str),
         Some("classic")
     );
+    assert_eq!(unavailable.get("pixel_representation"), Some(&Value::Null));
 
     let markdown = dicom_test_suite::render_coverage_report_markdown(&report);
     assert!(markdown.contains("### Codec Families"));
@@ -1601,6 +1615,8 @@ fn report_summarizes_compressed_codec_coverage() {
     assert!(markdown.contains("### Unavailable Reasons"));
     assert!(markdown.contains("### Frame Counts"));
     assert!(markdown.contains("| 1 | 1 |"));
+    assert!(markdown.contains("### Pixel Representations"));
+    assert!(markdown.contains("| 0 | 1 |"));
     assert!(markdown.contains("### Geometries"));
     assert!(markdown.contains("| 2x2 | 1 |"));
     assert!(markdown.contains("### Object Types"));

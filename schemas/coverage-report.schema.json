@@ -77,6 +77,9 @@
         "bit_depths": {
           "$ref": "#/$defs/count_map"
         },
+        "pixel_representations": {
+          "$ref": "#/$defs/count_map"
+        },
         "frame_counts": {
           "$ref": "#/$defs/count_map"
         },
@@ -191,6 +194,7 @@
         "reason_code",
         "photometric",
         "bits",
+        "pixel_representation",
         "frames",
         "geometry",
         "derived_refs",
@@ -243,6 +247,10 @@
         "bits": {
           "type": ["integer", "null"],
           "minimum": 0
+        },
+        "pixel_representation": {
+          "type": ["integer", "null"],
+          "enum": [0, 1, null]
         },
         "frames": {
           "type": ["integer", "null"],

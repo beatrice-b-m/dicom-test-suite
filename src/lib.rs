@@ -5962,6 +5962,12 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
     append_count_map_section(
         &mut output,
         report,
+        "Pixel Representations",
+        "/grouped_coverage/pixel_representations",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
         "Frame Counts",
         "/grouped_coverage/frame_counts",
     );
@@ -6081,6 +6087,7 @@ fn generated_coverage_row(
         "reason_code": Value::Null,
         "photometric": file.pointer("/image/photometric_interpretation").and_then(Value::as_str),
         "bits": file.pointer("/image/bits_stored").and_then(Value::as_u64),
+        "pixel_representation": file.pointer("/image/pixel_representation").and_then(Value::as_u64),
         "frames": file.pointer("/image/frames").and_then(Value::as_u64),
         "geometry": {
             "rows": file.pointer("/image/rows").and_then(Value::as_u64),
@@ -6178,6 +6185,7 @@ fn skipped_coverage_row(
         "reason_code": skipped.get("reason_code").and_then(Value::as_str),
         "photometric": Value::Null,
         "bits": Value::Null,
+        "pixel_representation": Value::Null,
         "frames": Value::Null,
         "geometry": {
             "rows": Value::Null,
@@ -6259,6 +6267,7 @@ struct GroupedCoverage {
     unavailable_reasons: BTreeMap<String, usize>,
     photometric_interpretations: BTreeMap<String, usize>,
     bit_depths: BTreeMap<String, usize>,
+    pixel_representations: BTreeMap<String, usize>,
     frame_counts: BTreeMap<String, usize>,
     geometries: BTreeMap<String, usize>,
     object_types: BTreeMap<String, usize>,
@@ -6330,6 +6339,13 @@ impl GroupedCoverage {
         if let Some(bits) = row.get("bits").and_then(Value::as_u64) {
             *self.bit_depths.entry(bits.to_string()).or_default() += 1;
         }
+        if let Some(pixel_representation) = row.get("pixel_representation").and_then(Value::as_u64)
+        {
+            *self
+                .pixel_representations
+                .entry(pixel_representation.to_string())
+                .or_default() += 1;
+        }
         if let Some(frames) = row.get("frames").and_then(Value::as_u64) {
             *self.frame_counts.entry(frames.to_string()).or_default() += 1;
         }
@@ -6379,6 +6395,7 @@ impl GroupedCoverage {
             "unavailable_reasons": self.unavailable_reasons,
             "photometric_interpretations": self.photometric_interpretations,
             "bit_depths": self.bit_depths,
+            "pixel_representations": self.pixel_representations,
             "frame_counts": self.frame_counts,
             "geometries": self.geometries,
             "object_types": self.object_types,

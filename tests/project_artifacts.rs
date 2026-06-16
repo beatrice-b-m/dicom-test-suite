@@ -536,7 +536,7 @@ fn codec_backend_decisions_track_enabled_low_risk_codecs() {
 }
 
 #[test]
-fn htj2k_lossless_backend_decision_selects_openjph_spike_only() {
+fn htj2k_lossless_backend_decision_selects_openjph_external_command() {
     let decisions = read_json("transfer-syntax/backend-decisions.json");
     let families = decisions
         .get("codec_families")
@@ -550,20 +550,39 @@ fn htj2k_lossless_backend_decision_selects_openjph_spike_only() {
     assert_eq!(
         htj2k.get("classification").and_then(Value::as_str),
         Some("research_more"),
-        "HTJ2K should stay research-only until integration mode and reproducibility are proven"
+        "HTJ2K should stay research-only until the external command wrapper and reproducibility are proven"
     );
     assert_eq!(
         htj2k.get("selected_backend").and_then(Value::as_str),
-        Some("openjph_lossless_external_command_spike")
+        Some("openjph_lossless_external_command")
     );
     assert_eq!(
         htj2k.get("backend_kind").and_then(Value::as_str),
-        Some("external_command_candidate")
+        Some("external_command")
     );
     assert_eq!(
         htj2k.get("feature_gate").and_then(Value::as_str),
         None,
-        "HTJ2K should not claim a project feature gate before a backend spike passes"
+        "HTJ2K should not claim a project feature gate before a wrapper is implemented"
+    );
+    assert_eq!(
+        htj2k
+            .pointer("/integration_mode/status")
+            .and_then(Value::as_str),
+        Some("selected"),
+        "HTJ2K should record the selected integration mode"
+    );
+    assert_eq!(
+        htj2k
+            .pointer("/integration_mode/selected")
+            .and_then(Value::as_str),
+        Some("external_command")
+    );
+    assert_eq!(
+        htj2k
+            .pointer("/integration_mode/command")
+            .and_then(Value::as_str),
+        Some("ojph_compress")
     );
     assert_eq!(
         htj2k
@@ -587,11 +606,15 @@ fn htj2k_lossless_backend_decision_selects_openjph_spike_only() {
         .expect("OpenJPH candidate should be recorded");
     assert_eq!(
         openjph.get("status").and_then(Value::as_str),
-        Some("encode_decode_spike_passed")
+        Some("selected_external_command_integration")
     );
     assert_eq!(
         openjph.get("license").and_then(Value::as_str),
         Some("BSD-2-Clause")
+    );
+    assert_eq!(
+        openjph.get("backend_kind").and_then(Value::as_str),
+        Some("external_command")
     );
 
     let grok = candidates
@@ -618,8 +641,14 @@ fn htj2k_lossless_backend_decision_selects_openjph_spike_only() {
     assert!(
         blockers
             .iter()
-            .any(|blocker| blocker.contains("external command, vendored C++ build, or FFI")),
-        "HTJ2K should keep integration mode unresolved before implementation"
+            .any(|blocker| blocker.contains("external-command wrapper")),
+        "HTJ2K should keep wrapper implementation blocked before generation"
+    );
+    assert!(
+        !blockers
+            .iter()
+            .any(|blocker| blocker.contains("integration mode is not selected")),
+        "HTJ2K integration mode should no longer be unresolved"
     );
 
     let evidence = htj2k
@@ -635,6 +664,16 @@ fn htj2k_lossless_backend_decision_selects_openjph_spike_only() {
                     .is_some_and(|finding| finding.contains("exact native bytes"))
         }),
         "HTJ2K decision should record the OpenJPH encode/decode proof"
+    );
+    assert!(
+        evidence.iter().any(|item| {
+            item.get("source").and_then(Value::as_str) == Some("local-decision")
+                && item
+                    .get("finding")
+                    .and_then(Value::as_str)
+                    .is_some_and(|finding| finding.contains("external-command wrapper"))
+        }),
+        "HTJ2K decision should record why the external-command mode was selected"
     );
 }
 

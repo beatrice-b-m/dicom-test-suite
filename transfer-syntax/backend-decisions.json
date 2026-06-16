@@ -270,20 +270,27 @@
       "transfer_syntax_uids": [
         "1.2.840.10008.1.2.4.201"
       ],
-      "selected_backend": "openjph_lossless_external_command_spike",
-      "backend_kind": "external_command_candidate",
+      "selected_backend": "openjph_lossless_external_command",
+      "backend_kind": "external_command",
       "feature_gate": null,
       "determinism": "semantic_stable",
       "first_case_target": "classic/sc/mono2_u16_htj2k_lossless",
+      "integration_mode": {
+        "status": "selected",
+        "selected": "external_command",
+        "command": "ojph_compress",
+        "version_command": "ojph_compress -v",
+        "policy": "Invoke OpenJPH only through an explicit project wrapper that discovers the tool, records the executable version and fixed encoder options, and reports the external backend in manifests. Do not vendor OpenJPH C++ or add an FFI wrapper for the first generated case."
+      },
       "validation_strategy": [
         "OpenJPH can encode a tiny 16-bit unsigned MONOCHROME2 raw frame into an HTJ2K Lossless codestream that the DICOM-rs OpenJPEG-backed HTJ2K reader decodes exactly for the sampled values.",
-        "Before generation, choose whether the project should integrate OpenJPH as an external command, vendored C++ build, or FFI wrapper.",
+        "Integrate OpenJPH as an explicit external command wrapper for the first generated case, not as a vendored C++ build or FFI wrapper.",
         "Use DICOM-rs OpenJPEG-backed HTJ2K decode support as the first independent reader and compare exact native frame hashes in generation and CLI validation.",
-        "Record OpenJPH version, invocation or FFI options, and platform details before adding any project feature gate.",
+        "Record OpenJPH version, invocation options, and platform details before adding any project feature gate.",
         "Defer RPCL and lossy HTJ2K variants until lossless support is proven."
       ],
       "blockers": [
-        "OpenJPH integration mode is not selected: external command, vendored C++ build, or FFI wrapper.",
+        "The project OpenJPH external-command wrapper, tool discovery, version reporting, and error model are not implemented.",
         "No mature Rust-native HTJ2K encoder dependency is pinned in this project.",
         "Grok has HTJ2K support but is AGPL v3, so it is excluded from default generation by the project licensing policy.",
         "Reproducibility and full unsigned 16-bit sample-domain behavior have not been proven beyond the tiny raw-frame spike."
@@ -291,10 +298,10 @@
       "candidate_backends": [
         {
           "name": "OpenJPH",
-          "status": "encode_decode_spike_passed",
+          "status": "selected_external_command_integration",
           "license": "BSD-2-Clause",
-          "backend_kind": "external_command_candidate",
-          "rationale": "OpenJPH targets HTJ2K directly and has a permissive license that fits the default backend policy. A local external-command spike proved exact DICOM-rs decode for a tiny 16-bit unsigned MONOCHROME2 raw frame, but the project still needs to choose the long-term integration mode before adding generation."
+          "backend_kind": "external_command",
+          "rationale": "OpenJPH targets HTJ2K directly and has a permissive license that fits the default backend policy. A local external-command spike proved exact DICOM-rs decode for a tiny 16-bit unsigned MONOCHROME2 raw frame. The first project integration should preserve that proven path as a discoverable external command rather than adding vendored C++ or FFI scope."
         },
         {
           "name": "Grok",
@@ -344,9 +351,13 @@
           "source": "local-spike",
           "command": "ojph_compress -i mono2_u16.raw -o mono2_u16_htj2k.j2c -reversible true -num_decomps 0 -dims {4,2} -num_comps 1 -signed false -bit_depth 16 -downsamp {1,1}",
           "finding": "OpenJPH produced a raw HTJ2K codestream with SOC/EOC markers that DICOM-rs 0.9.1 decoded through the HTJ2K Lossless transfer syntax with exact native bytes for a tiny 2x4 unsigned 16-bit MONOCHROME2 frame using nonzero values within the lower unsigned range."
+        },
+        {
+          "source": "local-decision",
+          "finding": "The first HTJ2K integration mode is an explicit OpenJPH external-command wrapper so the project can reuse the proven command-line path while keeping vendored C++ and FFI work out of the initial generation slice."
         }
       ],
-      "next_action": "Decide the HTJ2K OpenJPH integration mode before generation: external command with explicit tool discovery, vendored C++ build, or FFI wrapper. Then add the project feature gate and wrapper only after reproducibility and broader unsigned 16-bit sample behavior are proven."
+      "next_action": "Prove OpenJPH external-command reproducibility and broader unsigned 16-bit sample-domain behavior, then add the project feature gate and wrapper without promoting generation until validation and report coverage are implemented."
     },
     {
       "family_id": "legacy_jpeg",

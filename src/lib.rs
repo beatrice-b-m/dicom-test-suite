@@ -5968,6 +5968,18 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
     append_count_map_section(
         &mut output,
         report,
+        "Bits Stored",
+        "/grouped_coverage/bits_stored",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "High Bits",
+        "/grouped_coverage/high_bits",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
         "Pixel Representations",
         "/grouped_coverage/pixel_representations",
     );
@@ -6106,6 +6118,8 @@ fn generated_coverage_row(
         "photometric": file.pointer("/image/photometric_interpretation").and_then(Value::as_str),
         "bits": file.pointer("/image/bits_stored").and_then(Value::as_u64),
         "bits_allocated": file.pointer("/image/bits_allocated").and_then(Value::as_u64),
+        "bits_stored": file.pointer("/image/bits_stored").and_then(Value::as_u64),
+        "high_bit": file.pointer("/image/high_bit").and_then(Value::as_u64),
         "pixel_representation": file.pointer("/image/pixel_representation").and_then(Value::as_u64),
         "samples_per_pixel": file.pointer("/image/samples_per_pixel").and_then(Value::as_u64),
         "planar_configuration": file.pointer("/image/planar_configuration").and_then(Value::as_u64),
@@ -6207,6 +6221,8 @@ fn skipped_coverage_row(
         "photometric": Value::Null,
         "bits": Value::Null,
         "bits_allocated": Value::Null,
+        "bits_stored": Value::Null,
+        "high_bit": Value::Null,
         "pixel_representation": Value::Null,
         "samples_per_pixel": Value::Null,
         "planar_configuration": Value::Null,
@@ -6292,6 +6308,8 @@ struct GroupedCoverage {
     photometric_interpretations: BTreeMap<String, usize>,
     bit_depths: BTreeMap<String, usize>,
     bits_allocated: BTreeMap<String, usize>,
+    bits_stored: BTreeMap<String, usize>,
+    high_bits: BTreeMap<String, usize>,
     pixel_representations: BTreeMap<String, usize>,
     samples_per_pixel: BTreeMap<String, usize>,
     planar_configurations: BTreeMap<String, usize>,
@@ -6372,6 +6390,12 @@ impl GroupedCoverage {
                 .entry(bits_allocated.to_string())
                 .or_default() += 1;
         }
+        if let Some(bits_stored) = row.get("bits_stored").and_then(Value::as_u64) {
+            *self.bits_stored.entry(bits_stored.to_string()).or_default() += 1;
+        }
+        if let Some(high_bit) = row.get("high_bit").and_then(Value::as_u64) {
+            *self.high_bits.entry(high_bit.to_string()).or_default() += 1;
+        }
         if let Some(pixel_representation) = row.get("pixel_representation").and_then(Value::as_u64)
         {
             *self
@@ -6442,6 +6466,8 @@ impl GroupedCoverage {
             "photometric_interpretations": self.photometric_interpretations,
             "bit_depths": self.bit_depths,
             "bits_allocated": self.bits_allocated,
+            "bits_stored": self.bits_stored,
+            "high_bits": self.high_bits,
             "pixel_representations": self.pixel_representations,
             "samples_per_pixel": self.samples_per_pixel,
             "planar_configurations": self.planar_configurations,

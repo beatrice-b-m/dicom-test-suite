@@ -80,6 +80,12 @@
         "bits_allocated": {
           "$ref": "#/$defs/count_map"
         },
+        "bits_stored": {
+          "$ref": "#/$defs/count_map"
+        },
+        "high_bits": {
+          "$ref": "#/$defs/count_map"
+        },
         "pixel_representations": {
           "$ref": "#/$defs/count_map"
         },
@@ -204,6 +210,8 @@
         "photometric",
         "bits",
         "bits_allocated",
+        "bits_stored",
+        "high_bit",
         "pixel_representation",
         "samples_per_pixel",
         "planar_configuration",
@@ -261,6 +269,14 @@
           "minimum": 0
         },
         "bits_allocated": {
+          "type": ["integer", "null"],
+          "minimum": 0
+        },
+        "bits_stored": {
+          "type": ["integer", "null"],
+          "minimum": 0
+        },
+        "high_bit": {
           "type": ["integer", "null"],
           "minimum": 0
         },

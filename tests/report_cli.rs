@@ -1387,6 +1387,7 @@ fn report_summarizes_compressed_codec_coverage() {
                     "photometric_interpretation": "RGB",
                     "bits_allocated": 8,
                     "bits_stored": 8,
+                    "high_bit": 7,
                     "pixel_representation": 0,
                     "samples_per_pixel": 3,
                     "planar_configuration": 0,
@@ -1469,6 +1470,11 @@ fn report_summarizes_compressed_codec_coverage() {
         generated.get("bits_allocated").and_then(Value::as_u64),
         Some(8)
     );
+    assert_eq!(
+        generated.get("bits_stored").and_then(Value::as_u64),
+        Some(8)
+    );
+    assert_eq!(generated.get("high_bit").and_then(Value::as_u64), Some(7));
     assert_eq!(
         generated
             .get("planar_configuration")
@@ -1555,6 +1561,18 @@ fn report_summarizes_compressed_codec_coverage() {
     );
     assert_eq!(
         report
+            .pointer("/grouped_coverage/bits_stored/8")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/high_bits/7")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
             .pointer("/grouped_coverage/planar_configurations/0")
             .and_then(Value::as_u64),
         Some(1)
@@ -1631,6 +1649,8 @@ fn report_summarizes_compressed_codec_coverage() {
     assert_eq!(unavailable.get("pixel_representation"), Some(&Value::Null));
     assert_eq!(unavailable.get("samples_per_pixel"), Some(&Value::Null));
     assert_eq!(unavailable.get("bits_allocated"), Some(&Value::Null));
+    assert_eq!(unavailable.get("bits_stored"), Some(&Value::Null));
+    assert_eq!(unavailable.get("high_bit"), Some(&Value::Null));
     assert_eq!(unavailable.get("planar_configuration"), Some(&Value::Null));
 
     let markdown = dicom_test_suite::render_coverage_report_markdown(&report);
@@ -1659,6 +1679,10 @@ fn report_summarizes_compressed_codec_coverage() {
     assert!(markdown.contains("| 3 | 1 |"));
     assert!(markdown.contains("### Bits Allocated"));
     assert!(markdown.contains("| 8 | 1 |"));
+    assert!(markdown.contains("### Bits Stored"));
+    assert!(markdown.contains("| 8 | 1 |"));
+    assert!(markdown.contains("### High Bits"));
+    assert!(markdown.contains("| 7 | 1 |"));
     assert!(markdown.contains("### Planar Configurations"));
     assert!(markdown.contains("| 0 | 1 |"));
     assert!(markdown.contains("### Geometries"));

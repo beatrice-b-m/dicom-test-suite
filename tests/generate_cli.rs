@@ -1627,7 +1627,7 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\textended"));
-    let expected_extended_files = 21
+    let expected_extended_files = 22
         + if cfg!(feature = "deflate") { 2 } else { 0 }
         + if cfg!(feature = "jpeg") { 1 } else { 0 }
         + if cfg!(feature = "charls") { 1 } else { 0 }
@@ -1848,6 +1848,48 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
         validation_result_names(rle_multiframe_file.pointer("/validation/internal"))
             .contains(&"rle_decoded_frame_hashes"),
         "multi-frame RLE manifest should record decoded native frame hash validation"
+    );
+    let rle_odd_file =
+        file_entry_by_case_id(&manifest, "classic/sc/mono2_u8_odd_fragment_rle_lossless");
+    assert_eq!(
+        rle_odd_file.pointer("/image/rows").and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        rle_odd_file
+            .pointer("/image/columns")
+            .and_then(Value::as_u64),
+        Some(2)
+    );
+    let odd_fragment = rle_odd_file
+        .pointer("/pixel_data/encapsulated_pixel_data/fragments/0")
+        .expect("odd RLE case should record first fragment metadata");
+    let compressed_length = odd_fragment
+        .get("compressed_length")
+        .and_then(Value::as_u64)
+        .expect("odd RLE fragment should record compressed length");
+    let padded_length = odd_fragment
+        .get("padded_length")
+        .and_then(Value::as_u64)
+        .expect("odd RLE fragment should record padded length");
+    assert_eq!(
+        compressed_length % 2,
+        1,
+        "RLE fragment should exercise odd compressed length"
+    );
+    assert_eq!(
+        padded_length,
+        compressed_length + 1,
+        "encapsulated item padding should round the odd RLE fragment length up by one byte"
+    );
+    assert!(
+        rle_odd_file
+            .pointer("/known_stressors")
+            .and_then(Value::as_array)
+            .is_some_and(|stressors| stressors
+                .iter()
+                .any(|stress| stress.as_str() == Some("encapsulated_item_padding"))),
+        "odd RLE case should label encapsulated item padding as a stressor"
     );
     if cfg!(feature = "jpeg") {
         let jpeg_file =
@@ -4602,7 +4644,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\tall"));
-    let expected_all_files = 43
+    let expected_all_files = 44
         + if cfg!(feature = "deflate") { 2 } else { 0 }
         + if cfg!(feature = "jpeg") { 1 } else { 0 }
         + if cfg!(feature = "charls") { 1 } else { 0 }
@@ -4643,6 +4685,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
     file_entry_by_case_id(&manifest, "classic/sc/mono2_u16_rle_lossless");
     file_entry_by_case_id(&manifest, "classic/sc/rgb_planar0_rle_lossless");
     file_entry_by_case_id(&manifest, "classic/sc/mono2_u8_multiframe_rle_lossless");
+    file_entry_by_case_id(&manifest, "classic/sc/mono2_u8_odd_fragment_rle_lossless");
     if cfg!(feature = "jpeg") {
         file_entry_by_case_id(&manifest, "classic/sc/rgb_planar0_jpeg_baseline_8bit");
     }

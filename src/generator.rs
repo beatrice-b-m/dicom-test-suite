@@ -200,6 +200,8 @@ const RT_DOSE_STRUCTURE_SET_SOURCE_CASE_ID: &str =
 const MONO_PIXELS: [u8; 4] = [0, 85, 170, 255];
 const MONO_MULTIFRAME_PIXELS: [u8; 8] = [0, 85, 170, 255, 255, 170, 85, 0];
 const MONO_MULTIFRAME_VALUES: [i32; 8] = [0, 85, 170, 255, 255, 170, 85, 0];
+const MONO_ODD_RLE_PIXELS: [u8; 2] = [0, 255];
+const MONO_ODD_RLE_VALUES: [i32; 2] = [0, 255];
 const RGB_PLANAR0_PIXELS: [u8; 12] = [255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 255, 255];
 const RGB_PLANAR1_PIXELS: [u8; 12] = [255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255];
 const MONO_U16_PIXELS: [u8; 8] = [0, 0, 0x55, 0x55, 0xaa, 0xaa, 0xff, 0xff];
@@ -495,6 +497,29 @@ const PIXEL_RECIPES: &[PixelRecipe] = &[
         pixel_max: 255,
         visual_pattern: "2x2x2_monochrome_rle_lossless_gradient_reversed",
         semantic_note: "two MONOCHROME2 frames decode from separate RLE Lossless fragments",
+        palette: None,
+        padding: None,
+    },
+    PixelRecipe {
+        case_id: "classic/sc/mono2_u8_odd_fragment_rle_lossless",
+        recipe_id: "sc_mono2_u8_odd_fragment_rle_lossless",
+        rows: 1,
+        columns: 2,
+        photometric_interpretation: "MONOCHROME2",
+        samples_per_pixel: 1,
+        planar_configuration: None,
+        bits_allocated: 8,
+        bits_stored: 8,
+        high_bit: 7,
+        pixel_representation: 0,
+        pixel_vr: VR::OB,
+        transfer_syntax: RLE_LOSSLESS,
+        pixel_bytes: &MONO_ODD_RLE_PIXELS,
+        pixel_values: &MONO_ODD_RLE_VALUES,
+        pixel_min: 0,
+        pixel_max: 255,
+        visual_pattern: "1x2_monochrome_rle_lossless_odd_fragment",
+        semantic_note: "two literal MONOCHROME2 samples produce an odd-length RLE fragment padded in encapsulated Pixel Data",
         palette: None,
         padding: None,
     },
@@ -4119,6 +4144,10 @@ fn pixel_known_stressors(recipe: PixelRecipe) -> Vec<&'static str> {
     if recipe.transfer_syntax == DEFLATED_EXPLICIT_VR_LITTLE_ENDIAN {
         stressors.push("deflated_dataset_transfer_syntax");
     }
+    if recipe.case_id == "classic/sc/mono2_u8_odd_fragment_rle_lossless" {
+        stressors.push("odd_compressed_fragment_length");
+        stressors.push("encapsulated_item_padding");
+    }
     stressors
 }
 
@@ -4132,6 +4161,7 @@ fn pixel_profile_membership(recipe: PixelRecipe) -> &'static [&'static str] {
         | "classic/sc/mono2_u8_rle_lossless"
         | "classic/sc/mono2_u16_rle_lossless"
         | "classic/sc/rgb_planar0_rle_lossless"
+        | "classic/sc/mono2_u8_odd_fragment_rle_lossless"
         | "classic/sc/rgb_planar0_jpeg_baseline_8bit"
         | "classic/sc/mono2_u8_jpeg_ls_lossless"
         | "classic/sc/rgb_planar0_jpegxl_lossless"

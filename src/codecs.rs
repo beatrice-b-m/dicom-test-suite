@@ -2183,6 +2183,28 @@ mod tests {
     }
 
     #[test]
+    fn native_rle_can_emit_odd_length_encoded_frames() {
+        let encoder = NativeRleLosslessEncoder::new();
+
+        let encoded = encoder
+            .encode_frame(FrameEncodeInput {
+                native_frame: &[0, 255],
+                rows: 1,
+                columns: 2,
+                samples_per_pixel: 1,
+                bits_allocated: 8,
+                bits_stored: 8,
+                photometric_interpretation: "MONOCHROME2",
+            })
+            .expect("RLE should encode a two-sample frame");
+
+        assert_eq!(&encoded.bytes[0..4], &1u32.to_le_bytes());
+        assert_eq!(&encoded.bytes[4..8], &64u32.to_le_bytes());
+        assert_eq!(&encoded.bytes[64..], &[1, 0, 255]);
+        assert_eq!(encoded.bytes.len() % 2, 1);
+    }
+
+    #[test]
     fn native_rle_encodes_repeated_runs_deterministically() {
         let encoder = NativeRleLosslessEncoder::new();
 

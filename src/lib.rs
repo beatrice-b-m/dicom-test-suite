@@ -6233,6 +6233,30 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
     append_count_map_section(
         &mut output,
         report,
+        "Enhanced MR Effective Echo Times",
+        "/grouped_coverage/enhanced_mr_effective_echo_times",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "Enhanced MR Temporal Position Time Offsets",
+        "/grouped_coverage/enhanced_mr_temporal_position_time_offsets",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "Enhanced MR Velocity Encoding Minimum Values",
+        "/grouped_coverage/enhanced_mr_velocity_encoding_minimum_values",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "Enhanced MR Velocity Encoding Maximum Values",
+        "/grouped_coverage/enhanced_mr_velocity_encoding_maximum_values",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
         "Modality LUT Descriptors",
         "/grouped_coverage/modality_lut_descriptors",
     );
@@ -6636,6 +6660,42 @@ fn generated_coverage_row(
             .unwrap_or(Value::Null),
     );
     row_object.insert(
+        "enhanced_mr_effective_echo_times".to_string(),
+        report_string_or_number_array(
+            file,
+            "/recipe/recipe_parameters/per_frame_functional_groups/effective_echo_time",
+        )
+        .map(Value::from)
+        .unwrap_or(Value::Null),
+    );
+    row_object.insert(
+        "enhanced_mr_temporal_position_time_offsets".to_string(),
+        report_string_or_number_array(
+            file,
+            "/recipe/recipe_parameters/per_frame_functional_groups/temporal_position_time_offset",
+        )
+        .map(Value::from)
+        .unwrap_or(Value::Null),
+    );
+    row_object.insert(
+        "enhanced_mr_velocity_encoding_minimum_value".to_string(),
+        file.pointer(
+            "/recipe/recipe_parameters/per_frame_functional_groups/velocity_encoding_minimum_value",
+        )
+        .and_then(report_scalar_label)
+        .map(Value::from)
+        .unwrap_or(Value::Null),
+    );
+    row_object.insert(
+        "enhanced_mr_velocity_encoding_maximum_value".to_string(),
+        file.pointer(
+            "/recipe/recipe_parameters/per_frame_functional_groups/velocity_encoding_maximum_value",
+        )
+        .and_then(report_scalar_label)
+        .map(Value::from)
+        .unwrap_or(Value::Null),
+    );
+    row_object.insert(
         "display_shutter_shape".to_string(),
         report_display_shutter_shape(file)
             .map(Value::from)
@@ -6843,6 +6903,26 @@ fn report_string_or_string_array(file: &Value, pointer: &str) -> Option<String> 
             .map(|value| value.as_str().map(str::to_string))
             .collect::<Option<Vec<_>>>()
             .map(|values| values.join("; ")),
+        _ => None,
+    }
+}
+
+fn report_string_or_number_array(file: &Value, pointer: &str) -> Option<String> {
+    match file.pointer(pointer)? {
+        Value::String(value) => Some(value.clone()),
+        Value::Array(values) => values
+            .iter()
+            .map(report_scalar_label)
+            .collect::<Option<Vec<_>>>()
+            .map(|values| values.join("; ")),
+        value => report_scalar_label(value),
+    }
+}
+
+fn report_scalar_label(value: &Value) -> Option<String> {
+    match value {
+        Value::String(value) => Some(value.clone()),
+        Value::Number(value) => Some(value.to_string()),
         _ => None,
     }
 }
@@ -7162,6 +7242,19 @@ fn skipped_coverage_row(
     row_object.insert("mr_echo_time".to_string(), Value::Null);
     row_object.insert("mr_echo_train_length".to_string(), Value::Null);
     row_object.insert("mr_magnetic_field_strength".to_string(), Value::Null);
+    row_object.insert("enhanced_mr_effective_echo_times".to_string(), Value::Null);
+    row_object.insert(
+        "enhanced_mr_temporal_position_time_offsets".to_string(),
+        Value::Null,
+    );
+    row_object.insert(
+        "enhanced_mr_velocity_encoding_minimum_value".to_string(),
+        Value::Null,
+    );
+    row_object.insert(
+        "enhanced_mr_velocity_encoding_maximum_value".to_string(),
+        Value::Null,
+    );
     row_object.insert("display_shutter_shape".to_string(), Value::Null);
     row_object.insert(
         "display_shutter_presentation_value".to_string(),
@@ -7365,6 +7458,10 @@ struct GroupedCoverage {
     mr_echo_times: BTreeMap<String, usize>,
     mr_echo_train_lengths: BTreeMap<String, usize>,
     mr_magnetic_field_strengths: BTreeMap<String, usize>,
+    enhanced_mr_effective_echo_times: BTreeMap<String, usize>,
+    enhanced_mr_temporal_position_time_offsets: BTreeMap<String, usize>,
+    enhanced_mr_velocity_encoding_minimum_values: BTreeMap<String, usize>,
+    enhanced_mr_velocity_encoding_maximum_values: BTreeMap<String, usize>,
     modality_lut_descriptors: BTreeMap<String, usize>,
     modality_lut_types: BTreeMap<String, usize>,
     modality_lut_data_value_lengths: BTreeMap<String, usize>,
@@ -7666,6 +7763,26 @@ impl GroupedCoverage {
                 .and_then(Value::as_str),
         );
         increment_map(
+            &mut self.enhanced_mr_effective_echo_times,
+            row.get("enhanced_mr_effective_echo_times")
+                .and_then(Value::as_str),
+        );
+        increment_map(
+            &mut self.enhanced_mr_temporal_position_time_offsets,
+            row.get("enhanced_mr_temporal_position_time_offsets")
+                .and_then(Value::as_str),
+        );
+        increment_map(
+            &mut self.enhanced_mr_velocity_encoding_minimum_values,
+            row.get("enhanced_mr_velocity_encoding_minimum_value")
+                .and_then(Value::as_str),
+        );
+        increment_map(
+            &mut self.enhanced_mr_velocity_encoding_maximum_values,
+            row.get("enhanced_mr_velocity_encoding_maximum_value")
+                .and_then(Value::as_str),
+        );
+        increment_map(
             &mut self.modality_lut_descriptors,
             row.get("modality_lut_descriptor").and_then(Value::as_str),
         );
@@ -7925,6 +8042,26 @@ impl GroupedCoverage {
             "mr_magnetic_field_strengths".to_string(),
             serde_json::to_value(&self.mr_magnetic_field_strengths)
                 .expect("MR magnetic field strength count map must serialize"),
+        );
+        grouped_object.insert(
+            "enhanced_mr_effective_echo_times".to_string(),
+            serde_json::to_value(&self.enhanced_mr_effective_echo_times)
+                .expect("Enhanced MR effective echo time count map must serialize"),
+        );
+        grouped_object.insert(
+            "enhanced_mr_temporal_position_time_offsets".to_string(),
+            serde_json::to_value(&self.enhanced_mr_temporal_position_time_offsets)
+                .expect("Enhanced MR temporal position time offset count map must serialize"),
+        );
+        grouped_object.insert(
+            "enhanced_mr_velocity_encoding_minimum_values".to_string(),
+            serde_json::to_value(&self.enhanced_mr_velocity_encoding_minimum_values)
+                .expect("Enhanced MR velocity encoding minimum value count map must serialize"),
+        );
+        grouped_object.insert(
+            "enhanced_mr_velocity_encoding_maximum_values".to_string(),
+            serde_json::to_value(&self.enhanced_mr_velocity_encoding_maximum_values)
+                .expect("Enhanced MR velocity encoding maximum value count map must serialize"),
         );
         grouped_object.insert(
             "modality_lut_descriptors".to_string(),

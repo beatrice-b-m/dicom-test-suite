@@ -713,6 +713,113 @@ fn report_command_writes_json_coverage_for_core_root() {
 }
 
 #[test]
+fn report_command_writes_enhanced_mr_per_frame_coverage_for_extended_root() {
+    let out_dir = unique_temp_dir("report-enhanced-mr-per-frame-json");
+    generate_extended(&out_dir);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args([
+            "report",
+            out_dir.to_str().expect("temp path should be valid UTF-8"),
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("report command must run");
+
+    assert!(
+        output.status.success(),
+        "report should accept generated output: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let report: Value =
+        serde_json::from_slice(&output.stdout).expect("report stdout should be JSON");
+    assert_eq!(
+        coverage_row(&report, "enhanced/mr/multiframe_echo_perframe_explicit_le")
+            .get("enhanced_mr_effective_echo_times")
+            .and_then(Value::as_str),
+        Some("12.5; 24.5")
+    );
+    assert_eq!(
+        coverage_row(
+            &report,
+            "enhanced/mr/multiframe_temporal_position_explicit_le"
+        )
+        .get("enhanced_mr_temporal_position_time_offsets")
+        .and_then(Value::as_str),
+        Some("0.0; 1.5")
+    );
+    let phase_row = coverage_row(
+        &report,
+        "enhanced/mr/multiframe_phase_velocity_encoding_explicit_le",
+    );
+    assert_eq!(
+        phase_row
+            .get("enhanced_mr_velocity_encoding_minimum_value")
+            .and_then(Value::as_str),
+        Some("-150.0")
+    );
+    assert_eq!(
+        phase_row
+            .get("enhanced_mr_velocity_encoding_maximum_value")
+            .and_then(Value::as_str),
+        Some("150.0")
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/enhanced_mr_effective_echo_times/12.5; 24.5")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/enhanced_mr_temporal_position_time_offsets/0.0; 1.5")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/enhanced_mr_velocity_encoding_minimum_values/-150.0")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/enhanced_mr_velocity_encoding_maximum_values/150.0")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+
+    let markdown_output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args([
+            "report",
+            out_dir.to_str().expect("temp path should be valid UTF-8"),
+            "--format",
+            "markdown",
+        ])
+        .output()
+        .expect("report markdown command must run");
+
+    assert!(
+        markdown_output.status.success(),
+        "markdown report should accept generated output: {}",
+        String::from_utf8_lossy(&markdown_output.stderr)
+    );
+    let markdown =
+        String::from_utf8(markdown_output.stdout).expect("markdown stdout should be UTF-8");
+    assert!(markdown.contains("### Enhanced MR Effective Echo Times"));
+    assert!(markdown.contains("| 12.5; 24.5 | 1 |"));
+    assert!(markdown.contains("### Enhanced MR Temporal Position Time Offsets"));
+    assert!(markdown.contains("| 0.0; 1.5 | 1 |"));
+    assert!(markdown.contains("### Enhanced MR Velocity Encoding Minimum Values"));
+    assert!(markdown.contains("| -150.0 | 1 |"));
+    assert!(markdown.contains("### Enhanced MR Velocity Encoding Maximum Values"));
+    assert!(markdown.contains("| 150.0 | 1 |"));
+
+    fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
+}
+
+#[test]
 fn report_command_writes_markdown_coverage_for_core_root() {
     let out_dir = unique_temp_dir("report-core-markdown");
     generate_core(&out_dir);

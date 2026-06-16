@@ -206,6 +206,18 @@
         "mr_magnetic_field_strengths": {
           "$ref": "#/$defs/count_map"
         },
+        "enhanced_mr_effective_echo_times": {
+          "$ref": "#/$defs/count_map"
+        },
+        "enhanced_mr_temporal_position_time_offsets": {
+          "$ref": "#/$defs/count_map"
+        },
+        "enhanced_mr_velocity_encoding_minimum_values": {
+          "$ref": "#/$defs/count_map"
+        },
+        "enhanced_mr_velocity_encoding_maximum_values": {
+          "$ref": "#/$defs/count_map"
+        },
         "modality_lut_descriptors": {
           "$ref": "#/$defs/count_map"
         },
@@ -413,6 +425,10 @@
         "mr_echo_time",
         "mr_echo_train_length",
         "mr_magnetic_field_strength",
+        "enhanced_mr_effective_echo_times",
+        "enhanced_mr_temporal_position_time_offsets",
+        "enhanced_mr_velocity_encoding_minimum_value",
+        "enhanced_mr_velocity_encoding_maximum_value",
         "modality_lut_descriptor",
         "modality_lut_type",
         "modality_lut_data_value_length",
@@ -668,6 +684,18 @@
           "type": ["string", "null"]
         },
         "mr_magnetic_field_strength": {
+          "type": ["string", "null"]
+        },
+        "enhanced_mr_effective_echo_times": {
+          "type": ["string", "null"]
+        },
+        "enhanced_mr_temporal_position_time_offsets": {
+          "type": ["string", "null"]
+        },
+        "enhanced_mr_velocity_encoding_minimum_value": {
+          "type": ["string", "null"]
+        },
+        "enhanced_mr_velocity_encoding_maximum_value": {
           "type": ["string", "null"]
         },
         "modality_lut_descriptor": {

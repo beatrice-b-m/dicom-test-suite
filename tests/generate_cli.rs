@@ -1627,7 +1627,7 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\textended"));
-    let expected_extended_files = 48
+    let expected_extended_files = 49
         + if cfg!(feature = "deflate") { 2 } else { 0 }
         + if cfg!(feature = "jpeg") { 1 } else { 0 }
         + if cfg!(feature = "charls") { 1 } else { 0 }
@@ -2942,6 +2942,57 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
         validation_result_names(vl_photo_planar1_rle_file.pointer("/validation/internal"))
             .contains(&"rle_decoded_frame_hashes"),
         "VL Photographic planar-1 RLE manifest should record decoded native frame hash validation"
+    );
+    let vl_photo_palette_rle_file =
+        file_entry_by_case_id(&manifest, "vl/photo/palette_color_rle_lossless");
+    assert_eq!(
+        vl_photo_palette_rle_file
+            .pointer("/dicom/sop_class_uid")
+            .and_then(Value::as_str),
+        Some(uids::VL_PHOTOGRAPHIC_IMAGE_STORAGE)
+    );
+    assert_eq!(
+        vl_photo_palette_rle_file
+            .pointer("/image/photometric_interpretation")
+            .and_then(Value::as_str),
+        Some("PALETTE COLOR")
+    );
+    assert_eq!(
+        vl_photo_palette_rle_file
+            .pointer("/image/samples_per_pixel")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert!(
+        vl_photo_palette_rle_file
+            .pointer("/image/planar_configuration")
+            .is_some_and(Value::is_null),
+        "VL Photographic PALETTE COLOR RLE should not include Planar Configuration"
+    );
+    assert_eq!(
+        vl_photo_palette_rle_file
+            .pointer("/pixel_data/codec/backend_id")
+            .and_then(Value::as_str),
+        Some("native_project_rle_encoder")
+    );
+    assert!(
+        vl_photo_palette_rle_file
+            .pointer("/known_stressors")
+            .and_then(Value::as_array)
+            .expect("VL palette RLE manifest should include known stressors")
+            .iter()
+            .any(|stressor| stressor.as_str() == Some("vl_palette_color_pixels")),
+        "VL palette RLE case should label VL palette pixels as a stressor"
+    );
+    assert!(
+        validation_result_names(vl_photo_palette_rle_file.pointer("/validation/internal"))
+            .contains(&"red_palette_lut_data"),
+        "VL palette RLE manifest should retain Palette Color LUT validation"
+    );
+    assert!(
+        validation_result_names(vl_photo_palette_rle_file.pointer("/validation/internal"))
+            .contains(&"rle_decoded_frame_hashes"),
+        "VL palette RLE manifest should record decoded native frame hash validation"
     );
     let ct_rle_file =
         file_entry_by_case_id(&manifest, "classic/ct/mono2_i16_rescale_12bit_rle_lossless");
@@ -5791,7 +5842,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\tall"));
-    let expected_all_files = 70
+    let expected_all_files = 71
         + if cfg!(feature = "deflate") { 2 } else { 0 }
         + if cfg!(feature = "jpeg") { 1 } else { 0 }
         + if cfg!(feature = "charls") { 1 } else { 0 }
@@ -5875,6 +5926,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
     file_entry_by_case_id(&manifest, "classic/us/mono2_u8_rle_lossless");
     file_entry_by_case_id(&manifest, "vl/photo/rgb_planar0_rle_lossless");
     file_entry_by_case_id(&manifest, "vl/photo/rgb_planar1_rle_lossless");
+    file_entry_by_case_id(&manifest, "vl/photo/palette_color_rle_lossless");
     file_entry_by_case_id(&manifest, "classic/ct/mono2_i16_rescale_12bit_rle_lossless");
     file_entry_by_case_id(&manifest, "classic/mr/mono2_u16_rle_lossless");
     if cfg!(feature = "jpeg") {

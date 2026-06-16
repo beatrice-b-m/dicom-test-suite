@@ -1022,6 +1022,29 @@ const PIXEL_RECIPES: &[PixelRecipe] = &[
         padding: None,
     },
     PixelRecipe {
+        case_id: "vl/photo/palette_color_rle_lossless",
+        recipe_id: "vl_photo_palette_color_rle_lossless",
+        rows: 2,
+        columns: 2,
+        photometric_interpretation: "PALETTE COLOR",
+        samples_per_pixel: 1,
+        planar_configuration: None,
+        bits_allocated: 8,
+        bits_stored: 8,
+        high_bit: 7,
+        pixel_representation: 0,
+        pixel_vr: VR::OB,
+        transfer_syntax: RLE_LOSSLESS,
+        pixel_bytes: &PALETTE_COLOR_PIXELS,
+        pixel_values: &PALETTE_COLOR_VALUES,
+        pixel_min: 0,
+        pixel_max: 3,
+        visual_pattern: "2x2_vl_photo_palette_rle_lossless_red_green_blue_white",
+        semantic_note: "VL Photographic stored RLE Lossless pixel values index 16-bit RGB palette lookup tables after decode",
+        palette: Some(PALETTE_COLOR_LUT),
+        padding: None,
+    },
+    PixelRecipe {
         case_id: "classic/sc/rgb_planar0_jpeg_baseline_8bit",
         recipe_id: "sc_rgb_planar0_jpeg_baseline_8bit",
         rows: 2,
@@ -4785,7 +4808,13 @@ fn pixel_manifest_entry(
 
 fn pixel_known_stressors(recipe: PixelRecipe) -> Vec<&'static str> {
     let mut stressors = if pixel_is_vl_photographic(recipe) {
-        vec!["vl_photographic_image_storage", "vl_rgb_pixels"]
+        let mut stressors = vec!["vl_photographic_image_storage"];
+        if recipe.palette.is_some() {
+            stressors.push("vl_palette_color_pixels");
+        } else if recipe.samples_per_pixel > 1 {
+            stressors.push("vl_rgb_pixels");
+        }
+        stressors
     } else {
         vec!["minimal_secondary_capture"]
     };
@@ -4865,6 +4894,7 @@ fn pixel_profile_membership(recipe: PixelRecipe) -> &'static [&'static str] {
         | "classic/sc/mono2_u8_odd_fragment_rle_lossless"
         | "vl/photo/rgb_planar0_rle_lossless"
         | "vl/photo/rgb_planar1_rle_lossless"
+        | "vl/photo/palette_color_rle_lossless"
         | "classic/sc/rgb_planar0_multiframe_rle_lossless"
         | "classic/sc/rgb_planar0_jpeg_baseline_8bit"
         | "classic/sc/mono2_u8_jpeg_ls_lossless"

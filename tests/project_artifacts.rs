@@ -196,6 +196,7 @@ fn registry_contains_initial_smoke_and_core_cases() {
         ),
         ("vl/photo/rgb_planar0_rle_lossless", "implemented"),
         ("vl/photo/rgb_planar1_rle_lossless", "implemented"),
+        ("vl/photo/palette_color_rle_lossless", "implemented"),
         ("vl/photo/rgb_planar0_explicit_le", "planned"),
         ("vl/photo/palette_color_explicit_le", "planned"),
     ] {
@@ -2753,6 +2754,31 @@ fn rle_lossless_transfer_syntax_is_available_through_native_backend() {
     );
     assert_eq!(
         vl_photo_planar1_case
+            .get("sop_class_uid")
+            .and_then(Value::as_str),
+        Some("1.2.840.10008.5.1.4.1.1.77.1.4")
+    );
+
+    let vl_photo_palette_case = cases
+        .iter()
+        .find(|case| {
+            case.get("case_id").and_then(Value::as_str)
+                == Some("vl/photo/palette_color_rle_lossless")
+        })
+        .expect("registry must contain VL Photographic PALETTE COLOR RLE Lossless case");
+    assert_eq!(
+        vl_photo_palette_case.get("status").and_then(Value::as_str),
+        Some("implemented")
+    );
+    assert_eq!(vl_photo_palette_case.get("skip"), Some(&Value::Null));
+    assert_eq!(
+        vl_photo_palette_case
+            .get("determinism")
+            .and_then(Value::as_str),
+        Some("byte_stable")
+    );
+    assert_eq!(
+        vl_photo_palette_case
             .get("sop_class_uid")
             .and_then(Value::as_str),
         Some("1.2.840.10008.5.1.4.1.1.77.1.4")

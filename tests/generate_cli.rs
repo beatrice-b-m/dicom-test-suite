@@ -1627,7 +1627,7 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\textended"));
-    let expected_extended_files = 51
+    let expected_extended_files = 52
         + if cfg!(feature = "deflate") { 2 } else { 0 }
         + if cfg!(feature = "jpeg") { 1 } else { 0 }
         + if cfg!(feature = "charls") { 1 } else { 0 }
@@ -2609,6 +2609,37 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
         validation_result_names(rle_u16_multiframe_file.pointer("/validation/internal"))
             .contains(&"rle_decoded_frame_hashes"),
         "16-bit multi-frame RLE manifest should record decoded native frame hash validation"
+    );
+    let rle_i16_multiframe_file =
+        file_entry_by_case_id(&manifest, "classic/sc/mono2_i16_multiframe_rle_lossless");
+    assert_eq!(
+        rle_i16_multiframe_file
+            .pointer("/image/pixel_representation")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        rle_i16_multiframe_file
+            .pointer("/image/bits_allocated")
+            .and_then(Value::as_u64),
+        Some(16)
+    );
+    assert_eq!(
+        rle_i16_multiframe_file
+            .pointer("/image/frames")
+            .and_then(Value::as_u64),
+        Some(2)
+    );
+    assert_eq!(
+        rle_i16_multiframe_file
+            .pointer("/pixel_data/encapsulated_pixel_data/basic_offset_table/offset_count")
+            .and_then(Value::as_u64),
+        Some(2)
+    );
+    assert!(
+        validation_result_names(rle_i16_multiframe_file.pointer("/validation/internal"))
+            .contains(&"rle_decoded_frame_hashes"),
+        "signed 16-bit multi-frame RLE manifest should record decoded native frame hash validation"
     );
     let rle_mono1_u16_multiframe_file =
         file_entry_by_case_id(&manifest, "classic/sc/mono1_u16_multiframe_rle_lossless");
@@ -5898,7 +5929,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\tall"));
-    let expected_all_files = 73
+    let expected_all_files = 74
         + if cfg!(feature = "deflate") { 2 } else { 0 }
         + if cfg!(feature = "jpeg") { 1 } else { 0 }
         + if cfg!(feature = "charls") { 1 } else { 0 }
@@ -5967,6 +5998,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
     file_entry_by_case_id(&manifest, "classic/sc/mono1_u8_multiframe_rle_lossless");
     file_entry_by_case_id(&manifest, "classic/sc/mono2_u16_multiframe_rle_lossless");
     file_entry_by_case_id(&manifest, "classic/sc/mono1_u16_multiframe_rle_lossless");
+    file_entry_by_case_id(&manifest, "classic/sc/mono2_i16_multiframe_rle_lossless");
     file_entry_by_case_id(&manifest, "classic/sc/mono2_u8_odd_fragment_rle_lossless");
     file_entry_by_case_id(&manifest, "classic/cr/overlay_modality_voi_rle_lossless");
     file_entry_by_case_id(

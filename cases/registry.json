@@ -6382,6 +6382,74 @@
       ]
     },
     {
+      "case_id": "classic/sc/mono2_i16_multiframe_rle_lossless",
+      "status": "implemented",
+      "profiles": ["extended"],
+      "recipe_id": "sc_mono2_i16_multiframe_rle_lossless",
+      "recipe_version": "0.1.0",
+      "iod_name": "Secondary Capture Image",
+      "sop_class_name": "Secondary Capture Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.7",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.5",
+      "determinism": "byte_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_sop_class Secondary Capture Image Storage",
+          "covered": true,
+          "part": "PS3.4",
+          "anchor": "table_B.5-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_uid RLELossless",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_data_element NumberOfFrames",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_data_element PixelRepresentation",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "retrieve_standard_text PS3.5 sect_8.2.2",
+          "covered": true,
+          "part": "PS3.5",
+          "anchor": "table_8.2.2-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "retrieve_standard_text PS3.3 table_C.7-11c",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.7-11c"
+        }
+      ]
+    },
+    {
       "case_id": "classic/sc/mono2_u8_odd_fragment_rle_lossless",
       "status": "implemented",
       "profiles": ["extended"],

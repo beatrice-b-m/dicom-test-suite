@@ -220,6 +220,11 @@ const MONO_U16_PIXELS: [u8; 8] = [0, 0, 0x55, 0x55, 0xaa, 0xaa, 0xff, 0xff];
 const MONO_U16_VALUES: [i32; 4] = [0, 21845, 43690, 65535];
 const MONO_I16_PIXELS: [u8; 8] = [0x00, 0x80, 0x55, 0xd5, 0xaa, 0x2a, 0xff, 0x7f];
 const MONO_I16_VALUES: [i32; 4] = [-32768, -10923, 10922, 32767];
+const MONO_I16_MULTIFRAME_PIXELS: [u8; 16] = [
+    0x00, 0x80, 0x55, 0xd5, 0xaa, 0x2a, 0xff, 0x7f, 0xff, 0x7f, 0xaa, 0x2a, 0x55, 0xd5, 0x00, 0x80,
+];
+const MONO_I16_MULTIFRAME_VALUES: [i32; 8] =
+    [-32768, -10923, 10922, 32767, 32767, 10922, -10923, -32768];
 const MONO_U16_ODD_3X3_PIXELS: [u8; 18] = [0, 0, 1, 0, 2, 0, 3, 0, 4, 0, 5, 0, 6, 0, 7, 0, 8, 0];
 const MONO_U16_ODD_3X3_VALUES: [i32; 9] = [0, 1, 2, 3, 4, 5, 6, 7, 8];
 const MONO_U16_RECT_2X3_PIXELS: [u8; 12] = [0, 0, 1, 0, 2, 0, 3, 0, 4, 0, 5, 0];
@@ -765,6 +770,29 @@ const PIXEL_RECIPES: &[PixelRecipe] = &[
         pixel_max: 65535,
         visual_pattern: "2x2x2_inverse_monochrome_u16_rle_lossless_gradient_reversed",
         semantic_note: "two unsigned 16-bit MONOCHROME1 frames decode from separate RLE Lossless fragments with inverse grayscale polarity",
+        palette: None,
+        padding: None,
+    },
+    PixelRecipe {
+        case_id: "classic/sc/mono2_i16_multiframe_rle_lossless",
+        recipe_id: "sc_mono2_i16_multiframe_rle_lossless",
+        rows: 2,
+        columns: 2,
+        photometric_interpretation: "MONOCHROME2",
+        samples_per_pixel: 1,
+        planar_configuration: None,
+        bits_allocated: 16,
+        bits_stored: 16,
+        high_bit: 15,
+        pixel_representation: 1,
+        pixel_vr: VR::OB,
+        transfer_syntax: RLE_LOSSLESS,
+        pixel_bytes: &MONO_I16_MULTIFRAME_PIXELS,
+        pixel_values: &MONO_I16_MULTIFRAME_VALUES,
+        pixel_min: -32768,
+        pixel_max: 32767,
+        visual_pattern: "2x2x2_monochrome_i16_rle_lossless_gradient_reversed",
+        semantic_note: "two signed 16-bit MONOCHROME2 frames preserve 2's complement samples after RLE Lossless decode",
         palette: None,
         padding: None,
     },
@@ -4939,6 +4967,7 @@ fn pixel_profile_membership(recipe: PixelRecipe) -> &'static [&'static str] {
         | "classic/sc/mono1_u8_multiframe_rle_lossless"
         | "classic/sc/mono2_u16_multiframe_rle_lossless"
         | "classic/sc/mono1_u16_multiframe_rle_lossless"
+        | "classic/sc/mono2_i16_multiframe_rle_lossless"
         | "classic/sc/mono2_u8_odd_fragment_rle_lossless"
         | "vl/photo/rgb_planar0_rle_lossless"
         | "vl/photo/rgb_planar1_rle_lossless"

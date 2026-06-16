@@ -144,7 +144,7 @@ fn report_command_counts_generated_rgb_rle_lossless_row() {
         report
             .pointer("/grouped_coverage/codec_families/RLE Lossless")
             .and_then(Value::as_u64),
-        Some(17)
+        Some(18)
     );
     let planar1_row = coverage_row(&report, "classic/sc/rgb_planar1_rle_lossless");
     assert_eq!(
@@ -330,6 +330,26 @@ fn report_command_counts_generated_rgb_rle_lossless_row() {
             .iter()
             .any(|stressor| stressor.as_str() == Some("vl_photographic_image_storage")),
         "VL Photographic RLE report row should retain VL Photographic Image Storage stressor"
+    );
+    let vl_photo_planar1_row = coverage_row(&report, "vl/photo/rgb_planar1_rle_lossless");
+    assert_eq!(
+        vl_photo_planar1_row.get("status").and_then(Value::as_str),
+        Some("generated")
+    );
+    assert_eq!(
+        vl_photo_planar1_row
+            .get("codec_backend_id")
+            .and_then(Value::as_str),
+        Some("native_project_rle_encoder")
+    );
+    assert!(
+        vl_photo_planar1_row
+            .get("known_stressors")
+            .and_then(Value::as_array)
+            .expect("VL Photographic planar-1 RLE row should include known stressors")
+            .iter()
+            .any(|stressor| stressor.as_str() == Some("vl_rgb_pixels")),
+        "VL Photographic planar-1 RLE report row should retain VL RGB pixel stressor"
     );
 
     fs::remove_dir_all(out_dir).expect("temporary output root should be removable");

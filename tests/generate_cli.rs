@@ -1627,7 +1627,7 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\textended"));
-    let expected_extended_files = 34
+    let expected_extended_files = 35
         + if cfg!(feature = "deflate") { 2 } else { 0 }
         + if cfg!(feature = "jpeg") { 1 } else { 0 }
         + if cfg!(feature = "charls") { 1 } else { 0 }
@@ -2355,6 +2355,31 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
         validation_result_names(vl_photo_rle_file.pointer("/validation/internal"))
             .contains(&"rle_decoded_frame_hashes"),
         "VL Photographic RLE manifest should record decoded native frame hash validation"
+    );
+    let vl_photo_planar1_rle_file =
+        file_entry_by_case_id(&manifest, "vl/photo/rgb_planar1_rle_lossless");
+    assert_eq!(
+        vl_photo_planar1_rle_file
+            .pointer("/dicom/sop_class_uid")
+            .and_then(Value::as_str),
+        Some(uids::VL_PHOTOGRAPHIC_IMAGE_STORAGE)
+    );
+    assert_eq!(
+        vl_photo_planar1_rle_file
+            .pointer("/image/planar_configuration")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        vl_photo_planar1_rle_file
+            .pointer("/pixel_data/codec/backend_id")
+            .and_then(Value::as_str),
+        Some("native_project_rle_encoder")
+    );
+    assert!(
+        validation_result_names(vl_photo_planar1_rle_file.pointer("/validation/internal"))
+            .contains(&"rle_decoded_frame_hashes"),
+        "VL Photographic planar-1 RLE manifest should record decoded native frame hash validation"
     );
     let ct_rle_file =
         file_entry_by_case_id(&manifest, "classic/ct/mono2_i16_rescale_12bit_rle_lossless");
@@ -5204,7 +5229,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\tall"));
-    let expected_all_files = 56
+    let expected_all_files = 57
         + if cfg!(feature = "deflate") { 2 } else { 0 }
         + if cfg!(feature = "jpeg") { 1 } else { 0 }
         + if cfg!(feature = "charls") { 1 } else { 0 }
@@ -5265,6 +5290,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
     );
     file_entry_by_case_id(&manifest, "classic/us/mono2_u8_rle_lossless");
     file_entry_by_case_id(&manifest, "vl/photo/rgb_planar0_rle_lossless");
+    file_entry_by_case_id(&manifest, "vl/photo/rgb_planar1_rle_lossless");
     file_entry_by_case_id(&manifest, "classic/ct/mono2_i16_rescale_12bit_rle_lossless");
     file_entry_by_case_id(&manifest, "classic/mr/mono2_u16_rle_lossless");
     if cfg!(feature = "jpeg") {

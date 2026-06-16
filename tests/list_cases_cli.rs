@@ -524,6 +524,12 @@ fn list_cases_command_shows_rle_lossless_as_implemented() {
     );
     assert!(
         stdout.contains(
+            "vl/photo/rgb_planar1_rle_lossless\timplemented\textended\t1.2.840.10008.5.1.4.1.1.77.1.4\t1.2.840.10008.1.2.5\t7/7 covered"
+        ),
+        "VL Photographic RGB planar-1 RLE Lossless row must be listed as implemented"
+    );
+    assert!(
+        stdout.contains(
             "classic/sc/rgb_planar0_jpeg_baseline_8bit\timplemented\textended\t1.2.840.10008.5.1.4.1.1.7\t1.2.840.10008.1.2.4.50\t2/2 covered"
         ),
         "JPEG Baseline row must be listed as implemented and feature-gated"

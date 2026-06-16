@@ -131,6 +131,31 @@
       ]
     },
     {
+      "uid": "1.2.840.10008.1.2.4.51",
+      "keyword": "JPEGExtended12Bit",
+      "name": "JPEG Extended (Process 2 & 4): Default Transfer Syntax for Lossy JPEG 12 Bit Image Compression (Process 4 only)",
+      "profiles": ["extended"],
+      "status": "unavailable",
+      "read_dataset": true,
+      "decode_pixel": false,
+      "write_dataset": true,
+      "encode_pixel": false,
+      "feature_flags": ["legacy_jpeg_dcmtk"],
+      "external_libraries": ["DCMTK", "IJG JPEG"],
+      "determinism": "semantic_stable",
+      "notes": "DCMTK dcmcjpeg encode, metadata preservation, encapsulation, and local byte-identical reproducibility are proven for the selected 12-bit DX source, but generated-case promotion is intentionally deferred until an independent 12-bit JPEG Extended validation path is selected. The pinned DICOM-rs JPEG Extended reader rejects the DCMTK codestream with Unsupported(SamplePrecision(12)), and DCMTK dcmdjpeg is not considered independent of dcmcjpeg for this project decision.",
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_uid JPEGExtended12Bit",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        }
+      ]
+    },
+    {
       "uid": "1.2.840.10008.1.2.4.80",
       "keyword": "JPEGLSLossless",
       "name": "JPEG-LS Lossless Image Compression",

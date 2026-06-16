@@ -865,6 +865,61 @@ fn legacy_jpeg_lossless_registry_rows_are_feature_gated_implemented() {
 }
 
 #[test]
+fn jpeg_extended_12bit_remains_deferred_until_independent_validation_exists() {
+    let matrix = read_json("transfer-syntax/capability-matrix.json");
+    let matrix_entries = matrix
+        .get("entries")
+        .and_then(Value::as_array)
+        .expect("transfer syntax matrix must contain entries");
+    let entry = matrix_entries
+        .iter()
+        .find(|entry| entry.get("uid").and_then(Value::as_str) == Some("1.2.840.10008.1.2.4.51"))
+        .expect("transfer syntax matrix must explicitly track JPEG Extended 12-bit");
+
+    assert_eq!(
+        entry.get("keyword").and_then(Value::as_str),
+        Some("JPEGExtended12Bit")
+    );
+    assert_eq!(
+        entry.get("status").and_then(Value::as_str),
+        Some("unavailable"),
+        "JPEG Extended 12-bit must stay unavailable until independent validation exists"
+    );
+    assert_eq!(
+        entry.get("encode_pixel").and_then(Value::as_bool),
+        Some(false)
+    );
+    assert_eq!(
+        entry.get("decode_pixel").and_then(Value::as_bool),
+        Some(false)
+    );
+    assert_eq!(
+        entry.pointer("/feature_flags/0").and_then(Value::as_str),
+        Some("legacy_jpeg_dcmtk")
+    );
+    assert!(
+        entry
+            .get("notes")
+            .and_then(Value::as_str)
+            .is_some_and(|notes| {
+                notes.contains("independent 12-bit JPEG Extended validation path")
+                    && notes.contains("Unsupported(SamplePrecision(12))")
+                    && notes.contains("dcmdjpeg is not considered independent")
+            }),
+        "matrix row should explain the DCMTK encode proof and independent-validation defer reason"
+    );
+    assert!(
+        entry
+            .get("standards_evidence")
+            .and_then(Value::as_array)
+            .is_some_and(|evidence| evidence.iter().any(|item| {
+                item.get("query").and_then(Value::as_str) == Some("lookup_uid JPEGExtended12Bit")
+            })),
+        "JPEG Extended 12-bit matrix row must carry PS3.6 evidence"
+    );
+}
+
+#[test]
 fn legacy_jpeg_backend_decision_records_dcmtk_generated_case_promotion() {
     let decisions = read_json("transfer-syntax/backend-decisions.json");
     let families = decisions
@@ -942,7 +997,7 @@ fn legacy_jpeg_backend_decision_records_dcmtk_generated_case_promotion() {
         .expect("DCMTK dcmcjpeg candidate should be recorded");
     assert_eq!(
         dcmtk.get("status").and_then(Value::as_str),
-        Some("passed_lossless_spikes_extended_encode_only")
+        Some("passed_lossless_spikes_extended_deferred")
     );
     assert_eq!(
         dcmtk.get("backend_kind").and_then(Value::as_str),
@@ -975,17 +1030,50 @@ fn legacy_jpeg_backend_decision_records_dcmtk_generated_case_promotion() {
         .filter_map(Value::as_str)
         .collect::<Vec<_>>();
     assert!(
+        blockers.is_empty(),
+        "legacy JPEG should have no active blockers once JPEG Extended 12-bit is deferred"
+    );
+    assert!(
         !blockers
             .iter()
             .any(|blocker| blocker.contains("JPEG Lossless Process 14")),
         "legacy JPEG should not leave Process 14 generated-case promotion as follow-up work after promotion"
     );
+
+    let deferred_variants = legacy_jpeg
+        .get("deferred_variants")
+        .and_then(Value::as_array)
+        .expect("legacy JPEG should record deferred variants");
+    let jpeg_extended = deferred_variants
+        .iter()
+        .find(|variant| {
+            variant.get("transfer_syntax_uid").and_then(Value::as_str)
+                == Some("1.2.840.10008.1.2.4.51")
+        })
+        .expect("JPEG Extended 12-bit should be explicitly deferred");
+    assert_eq!(
+        jpeg_extended.get("classification").and_then(Value::as_str),
+        Some("defer")
+    );
     assert!(
-        blockers.iter().any(|blocker| {
-            blocker.contains("JPEG Extended 12-bit")
-                && blocker.contains("Unsupported(SamplePrecision(12))")
-        }),
-        "legacy JPEG should record that JPEG Extended generated-case promotion is blocked on 12-bit decode validation"
+        jpeg_extended
+            .get("defer_reason")
+            .and_then(Value::as_str)
+            .is_some_and(|reason| {
+                reason.contains("JPEG Extended 12-bit")
+                    && reason.contains("Unsupported(SamplePrecision(12))")
+            }),
+        "legacy JPEG should record that JPEG Extended generated-case promotion is deferred on 12-bit decode validation"
+    );
+    assert!(
+        jpeg_extended
+            .get("required_before_implementation")
+            .and_then(Value::as_array)
+            .is_some_and(|requirements| requirements.iter().any(|item| {
+                item.as_str()
+                    .is_some_and(|text| text.contains("independent of DCMTK dcmcjpeg"))
+            })),
+        "deferred JPEG Extended work should require an independent validation path"
     );
 
     let cargo_toml = fs::read_to_string("Cargo.toml").expect("Cargo.toml must be readable");

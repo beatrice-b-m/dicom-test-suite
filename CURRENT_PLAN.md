@@ -3,7 +3,7 @@
 **Last updated:** 2026-06-16
 **Active goal:** comprehensive compressed image codec generation support
 **Source specification:** `SYSTEM_SPEC.md` version 0.2.0
-**Planning status:** Phase 4 lossless baseline complete; Phase 5 JPEG Lossless Process 14 generated case complete; JPEG Extended 12-bit validation blocked; Deflated Image Frame Segmentation target selected
+**Planning status:** Phase 5 legacy/specialty compressed syntax scope complete for implement-now cases; JPEG Extended 12-bit intentionally deferred; Phase 6 corpus expansion ready
 
 This document replaces the previous historical implementation plan and progress
 ledger. `SYSTEM_SPEC.md` remains the architecture and requirements source of
@@ -45,12 +45,10 @@ generation:
   variants remain deferred.
 - JPEG XL lossy, JPEG 2000 lossy, and HTJ2K lossy/RPCL remain unavailable
   until their backend and standards decisions are resolved and proven.
-- Deflated Image Frame Compression has an implement-now decision through the
-  project `deflate` feature and pinned DICOM-rs adapter. The first target is a
-  binary Segmentation multi-frame case because PS3.5 identifies bilevel
-  Segmentation images as one standards-aligned application; capability-matrix
-  encode/decode promotion remains unavailable until generated-case validation,
-  report coverage, and reproducibility are implemented.
+- Deflated Image Frame Compression has a project `deflate` feature, a pinned
+  DICOM-rs adapter wrapper, and a generated binary Segmentation multi-frame
+  case with one fragment per frame, exact decoded-frame validation, report
+  coverage, and reproducibility evidence.
 - `dicom-rs` 0.9.1 provides the useful integration surface:
   `PixelDataReader`, `PixelDataWriter`, transfer syntax descriptors, and
   optional codec features. It does not currently provide verified writers for
@@ -83,10 +81,10 @@ Initial target families:
   DCMTK `dcmcjpeg`, with manifest runtime identity capture, exact decoded-frame
   validation, report coverage, and reproducibility evidence. JPEG Extended
   12-bit has DCMTK encode and reproducibility spike evidence, but generated-case
-  promotion is blocked until a 12-bit decode/validation path is selected.
+  promotion is deferred until an independent 12-bit validation path is selected.
 - Deflated Image Frame Compression using the pinned DICOM-rs `deflate` adapter
   for a first binary Segmentation multi-frame case, with one fragment per frame
-  and exact decoded-frame validation before promotion.
+  and exact decoded-frame validation.
 
 Out of scope for this immediate goal:
 
@@ -327,7 +325,6 @@ Areas to solidify:
 
 ## Immediate Next Step
 
-Implement the feature-gated `derived/seg/binary_multiframe_deflated_image_frame`
-case with one fragment per frame, exact decoded-frame validation, report
-coverage, and reproducibility evidence. Keep JPEG Extended 12-bit blocked until
-an independent 12-bit validation path is selected.
+Start Phase 6 by choosing the first compressed corpus expansion slice. Prefer a
+small case-matrix or report-summary improvement that builds on the implemented
+codec families without promoting deferred lossy or JPEG Extended 12-bit work.

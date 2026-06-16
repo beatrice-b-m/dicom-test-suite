@@ -1627,7 +1627,7 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\textended"));
-    let expected_extended_files = 36
+    let expected_extended_files = 37
         + if cfg!(feature = "deflate") { 2 } else { 0 }
         + if cfg!(feature = "jpeg") { 1 } else { 0 }
         + if cfg!(feature = "charls") { 1 } else { 0 }
@@ -1804,6 +1804,36 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
         validation_result_names(rle_u16_file.pointer("/validation/internal"))
             .contains(&"rle_decoded_frame_hashes"),
         "16-bit RLE manifest should record decoded native frame hash validation"
+    );
+    let rle_i16_file = file_entry_by_case_id(&manifest, "classic/sc/mono2_i16_rle_lossless");
+    assert_eq!(
+        rle_i16_file
+            .pointer("/image/pixel_representation")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        rle_i16_file
+            .pointer("/image/bits_allocated")
+            .and_then(Value::as_u64),
+        Some(16)
+    );
+    assert_eq!(
+        rle_i16_file
+            .pointer("/pixel_data/native_or_encapsulated")
+            .and_then(Value::as_str),
+        Some("encapsulated")
+    );
+    assert_eq!(
+        rle_i16_file
+            .pointer("/pixel_data/codec/backend_id")
+            .and_then(Value::as_str),
+        Some("native_project_rle_encoder")
+    );
+    assert!(
+        validation_result_names(rle_i16_file.pointer("/validation/internal"))
+            .contains(&"rle_decoded_frame_hashes"),
+        "signed 16-bit RLE manifest should record decoded native frame hash validation"
     );
     let rle_rgb_file = file_entry_by_case_id(&manifest, "classic/sc/rgb_planar0_rle_lossless");
     assert_eq!(
@@ -5265,7 +5295,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\tall"));
-    let expected_all_files = 58
+    let expected_all_files = 59
         + if cfg!(feature = "deflate") { 2 } else { 0 }
         + if cfg!(feature = "jpeg") { 1 } else { 0 }
         + if cfg!(feature = "charls") { 1 } else { 0 }
@@ -5305,6 +5335,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
     file_entry_by_case_id(&manifest, "classic/sc/mono2_u8_rle_lossless");
     file_entry_by_case_id(&manifest, "classic/sc/mono1_u8_rle_lossless");
     file_entry_by_case_id(&manifest, "classic/sc/mono2_u16_rle_lossless");
+    file_entry_by_case_id(&manifest, "classic/sc/mono2_i16_rle_lossless");
     file_entry_by_case_id(&manifest, "classic/sc/rgb_planar0_rle_lossless");
     file_entry_by_case_id(&manifest, "classic/sc/rgb_planar1_rle_lossless");
     file_entry_by_case_id(&manifest, "classic/sc/ybr_full_planar0_rle_lossless");

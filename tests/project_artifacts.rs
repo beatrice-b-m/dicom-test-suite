@@ -154,6 +154,7 @@ fn registry_contains_initial_smoke_and_core_cases() {
         ("classic/sc/rgb_planar0_jpeg_baseline_8bit", "implemented"),
         ("classic/sc/mono1_u8_rle_lossless", "implemented"),
         ("classic/sc/mono2_u16_rle_lossless", "implemented"),
+        ("classic/sc/mono2_i16_rle_lossless", "implemented"),
         ("classic/sc/rgb_planar0_rle_lossless", "implemented"),
         ("classic/sc/rgb_planar1_rle_lossless", "implemented"),
         ("classic/sc/ybr_full_planar0_rle_lossless", "implemented"),
@@ -2210,6 +2211,22 @@ fn rle_lossless_transfer_syntax_is_available_through_native_backend() {
     assert_eq!(mono1_case.get("skip"), Some(&Value::Null));
     assert_eq!(
         mono1_case.get("determinism").and_then(Value::as_str),
+        Some("byte_stable")
+    );
+
+    let i16_case = cases
+        .iter()
+        .find(|case| {
+            case.get("case_id").and_then(Value::as_str) == Some("classic/sc/mono2_i16_rle_lossless")
+        })
+        .expect("registry must contain signed 16-bit RLE Lossless SC case");
+    assert_eq!(
+        i16_case.get("status").and_then(Value::as_str),
+        Some("implemented")
+    );
+    assert_eq!(i16_case.get("skip"), Some(&Value::Null));
+    assert_eq!(
+        i16_case.get("determinism").and_then(Value::as_str),
         Some("byte_stable")
     );
 

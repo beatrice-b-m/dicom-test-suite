@@ -227,6 +227,10 @@ const MONO_I16_MULTIFRAME_VALUES: [i32; 8] =
     [-32768, -10923, 10922, 32767, 32767, 10922, -10923, -32768];
 const MONO_U16_ODD_3X3_PIXELS: [u8; 18] = [0, 0, 1, 0, 2, 0, 3, 0, 4, 0, 5, 0, 6, 0, 7, 0, 8, 0];
 const MONO_U16_ODD_3X3_VALUES: [i32; 9] = [0, 1, 2, 3, 4, 5, 6, 7, 8];
+const MONO_I16_ODD_3X3_PIXELS: [u8; 18] = [
+    0xfc, 0xff, 0xfd, 0xff, 0xfe, 0xff, 0xff, 0xff, 0, 0, 1, 0, 2, 0, 3, 0, 4, 0,
+];
+const MONO_I16_ODD_3X3_VALUES: [i32; 9] = [-4, -3, -2, -1, 0, 1, 2, 3, 4];
 const MONO_U16_RECT_2X3_PIXELS: [u8; 12] = [0, 0, 1, 0, 2, 0, 3, 0, 4, 0, 5, 0];
 const MONO_U16_RECT_2X3_VALUES: [i32; 6] = [0, 1, 2, 3, 4, 5];
 const MONO_U16_TINY_1X1_PIXELS: [u8; 2] = [0xff, 0xff];
@@ -594,6 +598,29 @@ const PIXEL_RECIPES: &[PixelRecipe] = &[
         pixel_max: 8,
         visual_pattern: "3x3_monochrome_u16_odd_rle_lossless_gradient",
         semantic_note: "odd Rows and Columns use unsigned 16-bit MONOCHROME2 samples after RLE Lossless decode",
+        palette: None,
+        padding: None,
+    },
+    PixelRecipe {
+        case_id: "classic/sc/mono2_i16_odd_3x3_rle_lossless",
+        recipe_id: "sc_mono2_i16_odd_3x3_rle_lossless",
+        rows: 3,
+        columns: 3,
+        photometric_interpretation: "MONOCHROME2",
+        samples_per_pixel: 1,
+        planar_configuration: None,
+        bits_allocated: 16,
+        bits_stored: 16,
+        high_bit: 15,
+        pixel_representation: 1,
+        pixel_vr: VR::OB,
+        transfer_syntax: RLE_LOSSLESS,
+        pixel_bytes: &MONO_I16_ODD_3X3_PIXELS,
+        pixel_values: &MONO_I16_ODD_3X3_VALUES,
+        pixel_min: -4,
+        pixel_max: 4,
+        visual_pattern: "3x3_monochrome_i16_odd_rle_lossless_centered_gradient",
+        semantic_note: "odd Rows and Columns use signed 16-bit MONOCHROME2 samples after RLE Lossless decode",
         palette: None,
         padding: None,
     },

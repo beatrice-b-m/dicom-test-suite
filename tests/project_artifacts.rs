@@ -550,15 +550,15 @@ fn htj2k_lossless_backend_decision_selects_openjph_spike_only() {
     assert_eq!(
         htj2k.get("classification").and_then(Value::as_str),
         Some("research_more"),
-        "HTJ2K should stay research-only until an encode/decode spike passes"
+        "HTJ2K should stay research-only until integration mode and reproducibility are proven"
     );
     assert_eq!(
         htj2k.get("selected_backend").and_then(Value::as_str),
-        Some("openjph_lossless_spike_candidate")
+        Some("openjph_lossless_external_command_spike")
     );
     assert_eq!(
         htj2k.get("backend_kind").and_then(Value::as_str),
-        Some("external_tool_or_ffi_candidate")
+        Some("external_command_candidate")
     );
     assert_eq!(
         htj2k.get("feature_gate").and_then(Value::as_str),
@@ -587,7 +587,7 @@ fn htj2k_lossless_backend_decision_selects_openjph_spike_only() {
         .expect("OpenJPH candidate should be recorded");
     assert_eq!(
         openjph.get("status").and_then(Value::as_str),
-        Some("preferred_spike")
+        Some("encode_decode_spike_passed")
     );
     assert_eq!(
         openjph.get("license").and_then(Value::as_str),
@@ -618,8 +618,23 @@ fn htj2k_lossless_backend_decision_selects_openjph_spike_only() {
     assert!(
         blockers
             .iter()
-            .any(|blocker| blocker.contains("subprocess spike, vendored C++ build, or FFI")),
+            .any(|blocker| blocker.contains("external command, vendored C++ build, or FFI")),
         "HTJ2K should keep integration mode unresolved before implementation"
+    );
+
+    let evidence = htj2k
+        .get("evidence")
+        .and_then(Value::as_array)
+        .expect("HTJ2K evidence should be recorded");
+    assert!(
+        evidence.iter().any(|item| {
+            item.get("source").and_then(Value::as_str) == Some("local-spike")
+                && item
+                    .get("finding")
+                    .and_then(Value::as_str)
+                    .is_some_and(|finding| finding.contains("exact native bytes"))
+        }),
+        "HTJ2K decision should record the OpenJPH encode/decode proof"
     );
 }
 

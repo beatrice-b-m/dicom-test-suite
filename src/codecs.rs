@@ -1902,6 +1902,112 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "jpeg2000")]
+    #[test]
+    fn openjph_htj2k_lossless_codestream_decodes_through_dicom_rs_reader() {
+        use dicom_transfer_syntax_registry::entries::HIGH_THROUGHPUT_JPEG_2000_IMAGE_COMPRESSION_LOSSLESS_ONLY;
+        use std::fs;
+        use std::process::Command;
+        use std::time::{SystemTime, UNIX_EPOCH};
+
+        if Command::new("ojph_compress").arg("-v").output().is_err() {
+            eprintln!("skipping OpenJPH HTJ2K spike proof because ojph_compress is not on PATH");
+            return;
+        }
+
+        let samples = [1u16, 17, 1024, 4096, 8192, 16384, 24576, 32767];
+        let native = samples
+            .iter()
+            .flat_map(|sample| sample.to_le_bytes())
+            .collect::<Vec<_>>();
+
+        let suffix = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system time should be after UNIX_EPOCH")
+            .as_nanos();
+        let dir =
+            std::env::temp_dir().join(format!("dts-openjph-htj2k-{}-{suffix}", std::process::id()));
+        fs::create_dir_all(&dir).expect("temporary OpenJPH spike directory should be writable");
+        let input_path = dir.join("mono2_u16.raw");
+        let codestream_path = dir.join("mono2_u16_htj2k.j2c");
+        fs::write(&input_path, &native).expect("temporary raw input should be writable");
+
+        let output = Command::new("ojph_compress")
+            .arg("-i")
+            .arg(&input_path)
+            .arg("-o")
+            .arg(&codestream_path)
+            .arg("-reversible")
+            .arg("true")
+            .arg("-num_decomps")
+            .arg("0")
+            .arg("-dims")
+            .arg("{4,2}")
+            .arg("-num_comps")
+            .arg("1")
+            .arg("-signed")
+            .arg("false")
+            .arg("-bit_depth")
+            .arg("16")
+            .arg("-downsamp")
+            .arg("{1,1}")
+            .output()
+            .expect("ojph_compress should run for the HTJ2K spike");
+        assert!(
+            output.status.success(),
+            "ojph_compress should encode the tiny HTJ2K frame: status={:?}, stdout={}, stderr={}",
+            output.status.code(),
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+
+        let codestream =
+            fs::read(&codestream_path).expect("OpenJPH HTJ2K codestream should be readable");
+        assert!(
+            codestream.len() >= 4,
+            "OpenJPH HTJ2K codestream should not be empty"
+        );
+        assert_eq!(
+            &codestream[..2],
+            &[0xff, 0x4f],
+            "HTJ2K codestream must start with SOC"
+        );
+        assert_eq!(
+            &codestream[codestream.len() - 2..],
+            &[0xff, 0xd9],
+            "HTJ2K codestream must end with EOC"
+        );
+
+        let obj = DicomRsPixelDataObject {
+            transfer_syntax_uid: "1.2.840.10008.1.2.4.201",
+            rows: 2,
+            columns: 4,
+            samples_per_pixel: 1,
+            bits_allocated: 16,
+            bits_stored: 16,
+            photometric_interpretation: "MONOCHROME2",
+            fragments: vec![codestream],
+            offset_table: Vec::new(),
+        };
+        let Codec::EncapsulatedPixelData(Some(reader), writer) =
+            HIGH_THROUGHPUT_JPEG_2000_IMAGE_COMPRESSION_LOSSLESS_ONLY.codec()
+        else {
+            panic!("DICOM-rs HTJ2K Lossless transfer syntax must expose a reader")
+        };
+        assert!(
+            writer.is_none(),
+            "DICOM-rs HTJ2K Lossless support should remain decode-only"
+        );
+
+        let mut decoded = Vec::new();
+        reader
+            .decode_frame(&obj, 0, &mut decoded)
+            .expect("DICOM-rs OpenJPEG-backed HTJ2K reader should decode OpenJPH output");
+        assert_eq!(decoded, native);
+
+        let _ = fs::remove_dir_all(dir);
+    }
+
     #[cfg(any(feature = "charls", feature = "jpeg", feature = "jpegxl"))]
     struct NativePixelTestObject<'a> {
         transfer_syntax_uid: &'a str,

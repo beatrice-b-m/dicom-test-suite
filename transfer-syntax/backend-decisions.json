@@ -270,30 +270,31 @@
       "transfer_syntax_uids": [
         "1.2.840.10008.1.2.4.201"
       ],
-      "selected_backend": "openjph_lossless_spike_candidate",
-      "backend_kind": "external_tool_or_ffi_candidate",
+      "selected_backend": "openjph_lossless_external_command_spike",
+      "backend_kind": "external_command_candidate",
       "feature_gate": null,
       "determinism": "semantic_stable",
       "first_case_target": "classic/sc/mono2_u16_htj2k_lossless",
       "validation_strategy": [
-        "Start with HTJ2K Lossless Secondary Capture only after OpenJPH can encode a tiny 16-bit MONOCHROME2 frame into DICOM-compatible encapsulated Pixel Data.",
-        "Use DICOM-rs OpenJPEG-backed HTJ2K decode support as the first independent reader and compare exact native frame hashes.",
+        "OpenJPH can encode a tiny 16-bit unsigned MONOCHROME2 raw frame into an HTJ2K Lossless codestream that the DICOM-rs OpenJPEG-backed HTJ2K reader decodes exactly for the sampled values.",
+        "Before generation, choose whether the project should integrate OpenJPH as an external command, vendored C++ build, or FFI wrapper.",
+        "Use DICOM-rs OpenJPEG-backed HTJ2K decode support as the first independent reader and compare exact native frame hashes in generation and CLI validation.",
         "Record OpenJPH version, invocation or FFI options, and platform details before adding any project feature gate.",
         "Defer RPCL and lossy HTJ2K variants until lossless support is proven."
       ],
       "blockers": [
-        "OpenJPH integration mode is not selected: subprocess spike, vendored C++ build, or FFI wrapper.",
+        "OpenJPH integration mode is not selected: external command, vendored C++ build, or FFI wrapper.",
         "No mature Rust-native HTJ2K encoder dependency is pinned in this project.",
         "Grok has HTJ2K support but is AGPL v3, so it is excluded from default generation by the project licensing policy.",
-        "DICOM-compatible OpenJPH codestream output and reproducibility have not been proven."
+        "Reproducibility and full unsigned 16-bit sample-domain behavior have not been proven beyond the tiny raw-frame spike."
       ],
       "candidate_backends": [
         {
           "name": "OpenJPH",
-          "status": "preferred_spike",
+          "status": "encode_decode_spike_passed",
           "license": "BSD-2-Clause",
-          "backend_kind": "external_tool_or_ffi_candidate",
-          "rationale": "OpenJPH targets HTJ2K directly and has a permissive license that fits the default backend policy. The next slice should prove encode/decode round-trip behavior and decide whether a subprocess or FFI integration is more maintainable."
+          "backend_kind": "external_command_candidate",
+          "rationale": "OpenJPH targets HTJ2K directly and has a permissive license that fits the default backend policy. A local external-command spike proved exact DICOM-rs decode for a tiny 16-bit unsigned MONOCHROME2 raw frame, but the project still needs to choose the long-term integration mode before adding generation."
         },
         {
           "name": "Grok",
@@ -338,9 +339,14 @@
           "source": "local-search",
           "path": "Cargo.lock; Cargo.toml; ~/.cargo/registry/src",
           "finding": "No OpenJPH, Grok, or HTJ2K encoder dependency is pinned locally. `cargo search htj2k` could not be completed because crates.io DNS resolution is unavailable in the sandbox and escalation was rejected."
+        },
+        {
+          "source": "local-spike",
+          "command": "ojph_compress -i mono2_u16.raw -o mono2_u16_htj2k.j2c -reversible true -num_decomps 0 -dims {4,2} -num_comps 1 -signed false -bit_depth 16 -downsamp {1,1}",
+          "finding": "OpenJPH produced a raw HTJ2K codestream with SOC/EOC markers that DICOM-rs 0.9.1 decoded through the HTJ2K Lossless transfer syntax with exact native bytes for a tiny 2x4 unsigned 16-bit MONOCHROME2 frame using nonzero values within the lower unsigned range."
         }
       ],
-      "next_action": "Spike OpenJPH HTJ2K Lossless encoding outside generation: prove a tiny 16-bit MONOCHROME2 codestream can be decoded by the DICOM-rs OpenJPEG-backed HTJ2K reader with exact native frame hashes, then decide subprocess versus FFI integration."
+      "next_action": "Decide the HTJ2K OpenJPH integration mode before generation: external command with explicit tool discovery, vendored C++ build, or FFI wrapper. Then add the project feature gate and wrapper only after reproducibility and broader unsigned 16-bit sample behavior are proven."
     },
     {
       "family_id": "legacy_jpeg",

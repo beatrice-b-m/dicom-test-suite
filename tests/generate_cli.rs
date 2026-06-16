@@ -1627,7 +1627,7 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\textended"));
-    let expected_extended_files = 64
+    let expected_extended_files = 65
         + if cfg!(feature = "deflate") { 2 } else { 0 }
         + if cfg!(feature = "jpeg") { 1 } else { 0 }
         + if cfg!(feature = "charls") { 1 } else { 0 }
@@ -1883,6 +1883,61 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
         validation_result_names(rle_odd_3x3_file.pointer("/validation/internal"))
             .contains(&"rle_decoded_frame_hashes"),
         "odd 3x3 RLE manifest should record decoded native frame hash validation"
+    );
+    let rle_mono1_odd_3x3_file =
+        file_entry_by_case_id(&manifest, "classic/sc/mono1_u16_odd_3x3_rle_lossless");
+    assert_eq!(
+        rle_mono1_odd_3x3_file
+            .pointer("/image/photometric_interpretation")
+            .and_then(Value::as_str),
+        Some("MONOCHROME1")
+    );
+    assert_eq!(
+        rle_mono1_odd_3x3_file
+            .pointer("/image/rows")
+            .and_then(Value::as_u64),
+        Some(3)
+    );
+    assert_eq!(
+        rle_mono1_odd_3x3_file
+            .pointer("/image/columns")
+            .and_then(Value::as_u64),
+        Some(3)
+    );
+    assert_eq!(
+        rle_mono1_odd_3x3_file
+            .pointer("/image/pixel_representation")
+            .and_then(Value::as_u64),
+        Some(0)
+    );
+    assert_eq!(
+        rle_mono1_odd_3x3_file
+            .pointer("/expected_semantics/pixel_min")
+            .and_then(Value::as_u64),
+        Some(0)
+    );
+    assert_eq!(
+        rle_mono1_odd_3x3_file
+            .pointer("/expected_semantics/pixel_max")
+            .and_then(Value::as_u64),
+        Some(8)
+    );
+    assert_eq!(
+        rle_mono1_odd_3x3_file
+            .pointer("/pixel_data/native_or_encapsulated")
+            .and_then(Value::as_str),
+        Some("encapsulated")
+    );
+    assert_eq!(
+        rle_mono1_odd_3x3_file
+            .pointer("/pixel_data/codec/backend_id")
+            .and_then(Value::as_str),
+        Some("native_project_rle_encoder")
+    );
+    assert!(
+        validation_result_names(rle_mono1_odd_3x3_file.pointer("/validation/internal"))
+            .contains(&"rle_decoded_frame_hashes"),
+        "MONOCHROME1 unsigned odd 3x3 RLE manifest should record decoded native frame hash validation"
     );
     let rle_signed_odd_3x3_file =
         file_entry_by_case_id(&manifest, "classic/sc/mono2_i16_odd_3x3_rle_lossless");
@@ -6488,7 +6543,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\tall"));
-    let expected_all_files = 86
+    let expected_all_files = 87
         + if cfg!(feature = "deflate") { 2 } else { 0 }
         + if cfg!(feature = "jpeg") { 1 } else { 0 }
         + if cfg!(feature = "charls") { 1 } else { 0 }
@@ -6530,6 +6585,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
     file_entry_by_case_id(&manifest, "classic/sc/mono2_u16_rle_lossless");
     file_entry_by_case_id(&manifest, "classic/sc/mono1_u16_rle_lossless");
     file_entry_by_case_id(&manifest, "classic/sc/mono2_u16_odd_3x3_rle_lossless");
+    file_entry_by_case_id(&manifest, "classic/sc/mono1_u16_odd_3x3_rle_lossless");
     file_entry_by_case_id(&manifest, "classic/sc/mono2_i16_odd_3x3_rle_lossless");
     file_entry_by_case_id(&manifest, "classic/sc/mono1_i16_odd_3x3_rle_lossless");
     file_entry_by_case_id(&manifest, "classic/sc/mono2_u16_rect_2x3_rle_lossless");

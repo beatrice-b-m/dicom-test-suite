@@ -191,6 +191,15 @@
         "view_positions": {
           "$ref": "#/$defs/count_map"
         },
+        "study_instance_uid_roots": {
+          "$ref": "#/$defs/count_map"
+        },
+        "series_instance_uid_roots": {
+          "$ref": "#/$defs/count_map"
+        },
+        "sop_instance_uid_roots": {
+          "$ref": "#/$defs/count_map"
+        },
         "lossy_image_compression": {
           "$ref": "#/$defs/count_map"
         },
@@ -340,6 +349,9 @@
         "display_shutter_presentation_value",
         "body_part_examined",
         "view_position",
+        "study_instance_uid_root",
+        "series_instance_uid_root",
+        "sop_instance_uid_root",
         "lossy_image_compression",
         "lossy_image_compression_ratio",
         "lossy_image_compression_method"
@@ -560,6 +572,15 @@
           "type": ["string", "null"]
         },
         "view_position": {
+          "type": ["string", "null"]
+        },
+        "study_instance_uid_root": {
+          "type": ["string", "null"]
+        },
+        "series_instance_uid_root": {
+          "type": ["string", "null"]
+        },
+        "sop_instance_uid_root": {
           "type": ["string", "null"]
         },
         "lossy_image_compression": {

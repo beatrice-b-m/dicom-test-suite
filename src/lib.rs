@@ -6208,6 +6208,24 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
     append_count_map_section(
         &mut output,
         report,
+        "Study Instance UID Roots",
+        "/grouped_coverage/study_instance_uid_roots",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "Series Instance UID Roots",
+        "/grouped_coverage/series_instance_uid_roots",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "SOP Instance UID Roots",
+        "/grouped_coverage/sop_instance_uid_roots",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
         "Known Stressors",
         "/grouped_coverage/known_stressors",
     );
@@ -6461,6 +6479,30 @@ fn generated_coverage_row(
             .map(Value::from)
             .unwrap_or(Value::Null),
     );
+    row_object.insert(
+        "study_instance_uid_root".to_string(),
+        file.pointer("/uids/study_instance_uid")
+            .and_then(Value::as_str)
+            .and_then(uid_root_bucket)
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
+    row_object.insert(
+        "series_instance_uid_root".to_string(),
+        file.pointer("/uids/series_instance_uid")
+            .and_then(Value::as_str)
+            .and_then(uid_root_bucket)
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
+    row_object.insert(
+        "sop_instance_uid_root".to_string(),
+        file.pointer("/uids/sop_instance_uid")
+            .and_then(Value::as_str)
+            .and_then(uid_root_bucket)
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
     Ok(row)
 }
 
@@ -6666,6 +6708,9 @@ fn skipped_coverage_row(
     row_object.insert("overlay_bits_allocated".to_string(), Value::Null);
     row_object.insert("overlay_bit_position".to_string(), Value::Null);
     row_object.insert("overlay_data_value_length".to_string(), Value::Null);
+    row_object.insert("study_instance_uid_root".to_string(), Value::Null);
+    row_object.insert("series_instance_uid_root".to_string(), Value::Null);
+    row_object.insert("sop_instance_uid_root".to_string(), Value::Null);
     Ok(row)
 }
 
@@ -6827,6 +6872,9 @@ struct GroupedCoverage {
     display_shutter_presentation_values: BTreeMap<String, usize>,
     body_parts_examined: BTreeMap<String, usize>,
     view_positions: BTreeMap<String, usize>,
+    study_instance_uid_roots: BTreeMap<String, usize>,
+    series_instance_uid_roots: BTreeMap<String, usize>,
+    sop_instance_uid_roots: BTreeMap<String, usize>,
     lossy_image_compression: BTreeMap<String, usize>,
     lossy_image_compression_ratios: BTreeMap<String, usize>,
     lossy_image_compression_methods: BTreeMap<String, usize>,
@@ -7084,6 +7132,18 @@ impl GroupedCoverage {
             row.get("view_position").and_then(Value::as_str),
         );
         increment_map(
+            &mut self.study_instance_uid_roots,
+            row.get("study_instance_uid_root").and_then(Value::as_str),
+        );
+        increment_map(
+            &mut self.series_instance_uid_roots,
+            row.get("series_instance_uid_root").and_then(Value::as_str),
+        );
+        increment_map(
+            &mut self.sop_instance_uid_roots,
+            row.get("sop_instance_uid_root").and_then(Value::as_str),
+        );
+        increment_map(
             &mut self.lossy_image_compression,
             row.get("lossy_image_compression").and_then(Value::as_str),
         );
@@ -7235,6 +7295,21 @@ impl GroupedCoverage {
             serde_json::to_value(&self.view_positions)
                 .expect("view position count map must serialize"),
         );
+        grouped_object.insert(
+            "study_instance_uid_roots".to_string(),
+            serde_json::to_value(&self.study_instance_uid_roots)
+                .expect("study instance UID root count map must serialize"),
+        );
+        grouped_object.insert(
+            "series_instance_uid_roots".to_string(),
+            serde_json::to_value(&self.series_instance_uid_roots)
+                .expect("series instance UID root count map must serialize"),
+        );
+        grouped_object.insert(
+            "sop_instance_uid_roots".to_string(),
+            serde_json::to_value(&self.sop_instance_uid_roots)
+                .expect("SOP instance UID root count map must serialize"),
+        );
         grouped
     }
 }
@@ -7276,6 +7351,12 @@ fn overlay_geometry_bucket(row: &Value) -> Option<String> {
     let rows = row.get("overlay_rows").and_then(Value::as_u64)?;
     let columns = row.get("overlay_columns").and_then(Value::as_u64)?;
     Some(format!("{rows}x{columns}"))
+}
+
+fn uid_root_bucket(uid: &str) -> Option<&'static str> {
+    uid.strip_prefix("2.25.")
+        .filter(|suffix| !suffix.is_empty())
+        .map(|_| "2.25")
 }
 
 fn increment_map(map: &mut BTreeMap<String, usize>, key: Option<&str>) {

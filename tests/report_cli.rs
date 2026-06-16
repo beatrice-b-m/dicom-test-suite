@@ -237,6 +237,24 @@ fn report_command_writes_json_coverage_for_core_root() {
         Some(&Value::Null)
     );
     assert_eq!(
+        coverage_row(&report, "classic/ct/mono2_i16_rescale_12bit_explicit_le")
+            .get("study_instance_uid_root")
+            .and_then(Value::as_str),
+        Some("2.25")
+    );
+    assert_eq!(
+        coverage_row(&report, "classic/ct/mono2_i16_rescale_12bit_explicit_le")
+            .get("series_instance_uid_root")
+            .and_then(Value::as_str),
+        Some("2.25")
+    );
+    assert_eq!(
+        coverage_row(&report, "classic/ct/mono2_i16_rescale_12bit_explicit_le")
+            .get("sop_instance_uid_root")
+            .and_then(Value::as_str),
+        Some("2.25")
+    );
+    assert_eq!(
         coverage_row(&report, "vl/photo/palette_color_explicit_le")
             .get("status")
             .and_then(Value::as_str),
@@ -447,6 +465,24 @@ fn report_command_writes_json_coverage_for_core_root() {
             .and_then(Value::as_u64),
         Some(2)
     );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/study_instance_uid_roots/2.25")
+            .and_then(Value::as_u64),
+        Some(21)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/series_instance_uid_roots/2.25")
+            .and_then(Value::as_u64),
+        Some(21)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/sop_instance_uid_roots/2.25")
+            .and_then(Value::as_u64),
+        Some(21)
+    );
 
     fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
 }
@@ -521,6 +557,10 @@ fn report_command_writes_markdown_coverage_for_core_root() {
     assert!(stdout.contains("### View Positions"));
     assert!(stdout.contains("| PA | 1 |"));
     assert!(stdout.contains("| MLO | 2 |"));
+    assert!(stdout.contains("### Study Instance UID Roots"));
+    assert!(stdout.contains("### Series Instance UID Roots"));
+    assert!(stdout.contains("### SOP Instance UID Roots"));
+    assert!(stdout.contains("| 2.25 | 21 |"));
     assert!(stdout.contains("## Gaps"));
     assert!(
         stdout.contains("| classic/ct/mono2_i16_rescale_12bit_explicit_le | generated | core |")

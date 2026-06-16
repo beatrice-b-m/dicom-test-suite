@@ -590,6 +590,32 @@ const PIXEL_RECIPES: &[PixelRecipe] = &[
         }),
     },
     PixelRecipe {
+        case_id: "classic/sc/mono1_u8_padding_multiframe_rle_lossless",
+        recipe_id: "sc_mono1_u8_padding_multiframe_rle_lossless",
+        rows: 2,
+        columns: 2,
+        photometric_interpretation: "MONOCHROME1",
+        samples_per_pixel: 1,
+        planar_configuration: None,
+        bits_allocated: 8,
+        bits_stored: 8,
+        high_bit: 7,
+        pixel_representation: 0,
+        pixel_vr: VR::OB,
+        transfer_syntax: RLE_LOSSLESS,
+        pixel_bytes: &MONO_MULTIFRAME_PIXELS,
+        pixel_values: &MONO_MULTIFRAME_VALUES,
+        pixel_min: 0,
+        pixel_max: 255,
+        visual_pattern: "2x2x2_inverse_monochrome_u8_rle_lossless_padding_reversed",
+        semantic_note: "two unsigned 8-bit MONOCHROME1 frames preserve Pixel Padding Value 0 with inverse grayscale polarity after RLE Lossless decode",
+        palette: None,
+        padding: Some(PixelPaddingRecipe {
+            value: 0,
+            range_limit: Some(0),
+        }),
+    },
+    PixelRecipe {
         case_id: "classic/sc/mono1_u8_rle_lossless",
         recipe_id: "sc_mono1_u8_rle_lossless",
         rows: 2,
@@ -5445,6 +5471,7 @@ fn pixel_profile_membership(recipe: PixelRecipe) -> &'static [&'static str] {
         | "classic/sc/mono2_u8_rle_lossless"
         | "classic/sc/mono2_u8_padding_rle_lossless"
         | "classic/sc/mono1_u8_padding_rle_lossless"
+        | "classic/sc/mono1_u8_padding_multiframe_rle_lossless"
         | "classic/sc/mono1_u8_rle_lossless"
         | "classic/sc/mono2_u16_rle_lossless"
         | "classic/sc/mono2_u16_tiny_1x1_rle_lossless"

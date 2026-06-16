@@ -413,7 +413,7 @@
           "host_type": "arm64-Darwin",
           "version_source": "command_stdout"
         },
-        "reason": "DCMTK documents DICOM-level JPEG encoding for the legacy transfer syntaxes; the local spike proved metadata preservation, deterministic UID behavior, fragment layout control, DICOM-rs decode validation, and local byte-identical reproducibility for the first JPEG Lossless SV1 source; and the project now has a feature-gated generated case that captures runtime identity, validates exact decoded native frame hashes, and reports corpus coverage."
+        "reason": "DCMTK documents DICOM-level JPEG encoding for the legacy transfer syntaxes; local spikes proved metadata preservation, deterministic UID behavior, fragment layout control, DICOM-rs decode validation, and local byte-identical reproducibility for JPEG Lossless SV1 and JPEG Lossless Process 14 sources; and the project now has a feature-gated generated SV1 case that captures runtime identity, validates exact decoded native frame hashes, and reports corpus coverage."
       },
       "candidate_backends": [
         {
@@ -458,7 +458,8 @@
         "Treat JPEG Extended 12-bit, JPEG Lossless Process 14, and JPEG Lossless SV1 as separate feature gates once each process is proven."
       ],
       "blockers": [
-        "JPEG Lossless Process 14 and JPEG Extended 12-bit still need separate local spike evidence before they can be implemented."
+        "JPEG Lossless Process 14 still needs a feature-gated wrapper and generated-case promotion before implementation.",
+        "JPEG Extended 12-bit still needs separate local spike evidence before it can be implemented."
       ],
       "evidence": [
         {
@@ -503,7 +504,7 @@
           "source": "local-spike-test",
           "path": "tests/legacy_jpeg_spike.rs",
           "command": "cargo test --features jpeg --test legacy_jpeg_spike",
-          "finding": "DCMTK dcmcjpeg compressed the deterministic classic/sc/mono2_u16_explicit_le source to JPEG Lossless SV1 with --true-lossless, --fragment-per-frame, --offset-table-create, and --uid-never; the output preserved SOP Class UID, SOP Instance UID, Synthetic Data, and Patient ID, used one Basic Offset Table entry and one fragment, decoded exactly through the pinned DICOM-rs JPEG Lossless SV1 reader, and repeated byte-identically for the same source and options."
+          "finding": "DCMTK dcmcjpeg compressed the deterministic classic/sc/mono2_u16_explicit_le source to JPEG Lossless SV1 with --encode-lossless-sv1 and to JPEG Lossless Process 14 with --encode-lossless, both using --true-lossless, --fragment-per-frame, --offset-table-create, and --uid-never; both outputs preserved SOP Class UID, SOP Instance UID, Synthetic Data, and Patient ID, used one Basic Offset Table entry and one fragment, decoded exactly through the pinned DICOM-rs JPEG Lossless readers, and repeated byte-identically for the same source and options."
         },
         {
           "source": "local-wrapper-test",
@@ -518,7 +519,7 @@
           "finding": "The generated classic/sc/mono2_u16_jpeg_lossless_sv1 case records DCMTK runtime executable SHA-256 metadata, uses encapsulated JPEG Lossless SV1 Pixel Data, validates exact decoded native frame hashes, appears in JSON coverage reports, and is feature-gated through legacy_jpeg_dcmtk."
         }
       ],
-      "next_action": "Choose a separate Phase 5 spike for JPEG Lossless Process 14 or JPEG Extended 12-bit; keep Deflated Image Frame Compression deferred until standards/IOD suitability is decided."
+      "next_action": "Choose the next Phase 5 legacy/specialty slice: add a feature-gated JPEG Lossless Process 14 wrapper/generated case from the passed DCMTK spike, spike JPEG Extended 12-bit with DCMTK, or resolve Deflated Image Frame Compression standards/IOD suitability before implementation."
     },
     {
       "family_id": "deflated_image_frame",

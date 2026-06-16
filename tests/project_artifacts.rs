@@ -961,11 +961,18 @@ fn legacy_jpeg_backend_decision_records_dcmtk_generated_case_promotion() {
         .filter_map(Value::as_str)
         .collect::<Vec<_>>();
     assert!(
+        blockers.iter().any(|blocker| {
+            blocker.contains("JPEG Lossless Process 14")
+                && blocker.contains("generated-case promotion")
+        }),
+        "legacy JPEG should leave Process 14 generated-case promotion as follow-up work"
+    );
+    assert!(
         blockers
             .iter()
-            .any(|blocker| blocker.contains("JPEG Lossless Process 14")
-                && blocker.contains("JPEG Extended 12-bit")),
-        "legacy JPEG should leave other legacy processes as separate spike work"
+            .any(|blocker| blocker.contains("JPEG Extended 12-bit")
+                && blocker.contains("local spike evidence")),
+        "legacy JPEG should leave JPEG Extended as separate spike work"
     );
 
     let cargo_toml = fs::read_to_string("Cargo.toml").expect("Cargo.toml must be readable");
@@ -1014,11 +1021,12 @@ fn legacy_jpeg_backend_decision_records_dcmtk_generated_case_promotion() {
                     .get("finding")
                     .and_then(Value::as_str)
                     .is_some_and(|finding| {
-                        finding.contains("decoded exactly")
+                        finding.contains("JPEG Lossless Process 14")
+                            && finding.contains("decoded exactly")
                             && finding.contains("repeated byte-identically")
                     })
         }),
-        "legacy JPEG decision should record the passed DCMTK SV1 spike evidence"
+        "legacy JPEG decision should record the passed DCMTK SV1 and Process 14 spike evidence"
     );
     assert!(
         evidence.iter().any(|item| {

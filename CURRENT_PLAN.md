@@ -71,8 +71,9 @@ Initial target families:
 - JPEG Lossless SV1 has a project `legacy_jpeg_dcmtk` feature-gated generated
   Secondary Capture case through DCMTK `dcmcjpeg`, with manifest runtime
   identity capture, exact decoded-frame validation, report coverage, and
-  reproducibility evidence. JPEG Lossless Process 14 and JPEG Extended 12-bit
-  still need separate spike evidence before generated-case promotion.
+  reproducibility evidence. JPEG Lossless Process 14 has passed a local DCMTK
+  spike and still needs generated-case promotion. JPEG Extended 12-bit still
+  needs separate spike evidence before generated-case promotion.
 - Deflated Image Frame Compression only if the selected transfer syntax and IOD
   choices are standards-appropriate.
 
@@ -315,6 +316,7 @@ Areas to solidify:
 
 ## Immediate Next Step
 
-Choose the next Phase 5 legacy/specialty slice: spike JPEG Lossless Process 14
-or JPEG Extended 12-bit with DCMTK, or resolve the Deflated Image Frame
-Compression standards/IOD suitability decision before implementation.
+Choose the next Phase 5 legacy/specialty slice: add a feature-gated JPEG
+Lossless Process 14 wrapper/generated case from the passed DCMTK spike, spike
+JPEG Extended 12-bit with DCMTK, or resolve Deflated Image Frame Compression
+standards/IOD suitability before implementation.

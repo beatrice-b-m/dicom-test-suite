@@ -458,6 +458,12 @@ fn list_cases_command_shows_rle_lossless_as_implemented() {
     );
     assert!(
         stdout.contains(
+            "classic/sc/mono1_u16_padding_rle_lossless\timplemented\textended\t1.2.840.10008.5.1.4.1.1.7\t1.2.840.10008.1.2.5\t9/9 covered"
+        ),
+        "MONOCHROME1 unsigned Pixel Padding RLE Lossless row must be listed as implemented"
+    );
+    assert!(
+        stdout.contains(
             "classic/sc/mono2_u16_padding_multiframe_rle_lossless\timplemented\textended\t1.2.840.10008.5.1.4.1.1.7\t1.2.840.10008.1.2.5\t9/9 covered"
         ),
         "multi-frame Pixel Padding RLE Lossless row must be listed as implemented"

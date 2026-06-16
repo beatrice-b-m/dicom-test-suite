@@ -6383,6 +6383,36 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
     append_count_map_section(
         &mut output,
         report,
+        "Encapsulated Document Burned In Annotations",
+        "/grouped_coverage/encapsulated_document_burned_in_annotations",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "Encapsulated Document Recognizable Visual Features",
+        "/grouped_coverage/encapsulated_document_recognizable_visual_features",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "Encapsulated Document Titles",
+        "/grouped_coverage/encapsulated_document_titles",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "Encapsulated Document MIME Types",
+        "/grouped_coverage/encapsulated_document_mime_types",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "Encapsulated Document Lengths",
+        "/grouped_coverage/encapsulated_document_lengths",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
         "Modality LUT Descriptors",
         "/grouped_coverage/modality_lut_descriptors",
     );
@@ -6986,6 +7016,41 @@ fn generated_coverage_row(
             .unwrap_or(Value::Null),
     );
     row_object.insert(
+        "encapsulated_document_burned_in_annotation".to_string(),
+        file.pointer("/expected_semantics/encapsulated_document/burned_in_annotation")
+            .and_then(Value::as_str)
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
+    row_object.insert(
+        "encapsulated_document_recognizable_visual_features".to_string(),
+        file.pointer("/expected_semantics/encapsulated_document/recognizable_visual_features")
+            .and_then(Value::as_str)
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
+    row_object.insert(
+        "encapsulated_document_title".to_string(),
+        file.pointer("/expected_semantics/encapsulated_document/document_title")
+            .and_then(Value::as_str)
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
+    row_object.insert(
+        "encapsulated_document_mime_type".to_string(),
+        file.pointer("/expected_semantics/encapsulated_document/mime_type")
+            .and_then(Value::as_str)
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
+    row_object.insert(
+        "encapsulated_document_length".to_string(),
+        file.pointer("/expected_semantics/encapsulated_document/document_length")
+            .and_then(Value::as_u64)
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
+    row_object.insert(
         "display_shutter_shape".to_string(),
         report_display_shutter_shape(file)
             .map(Value::from)
@@ -7581,6 +7646,17 @@ fn skipped_coverage_row(
     row_object.insert("rt_contour_geometric_type".to_string(), Value::Null);
     row_object.insert("rt_contour_points".to_string(), Value::Null);
     row_object.insert("rt_roi_interpreted_type".to_string(), Value::Null);
+    row_object.insert(
+        "encapsulated_document_burned_in_annotation".to_string(),
+        Value::Null,
+    );
+    row_object.insert(
+        "encapsulated_document_recognizable_visual_features".to_string(),
+        Value::Null,
+    );
+    row_object.insert("encapsulated_document_title".to_string(), Value::Null);
+    row_object.insert("encapsulated_document_mime_type".to_string(), Value::Null);
+    row_object.insert("encapsulated_document_length".to_string(), Value::Null);
     row_object.insert("display_shutter_shape".to_string(), Value::Null);
     row_object.insert(
         "display_shutter_presentation_value".to_string(),
@@ -7809,6 +7885,11 @@ struct GroupedCoverage {
     rt_contour_geometric_types: BTreeMap<String, usize>,
     rt_contour_points: BTreeMap<String, usize>,
     rt_roi_interpreted_types: BTreeMap<String, usize>,
+    encapsulated_document_burned_in_annotations: BTreeMap<String, usize>,
+    encapsulated_document_recognizable_visual_features: BTreeMap<String, usize>,
+    encapsulated_document_titles: BTreeMap<String, usize>,
+    encapsulated_document_mime_types: BTreeMap<String, usize>,
+    encapsulated_document_lengths: BTreeMap<String, usize>,
     modality_lut_descriptors: BTreeMap<String, usize>,
     modality_lut_types: BTreeMap<String, usize>,
     modality_lut_data_value_lengths: BTreeMap<String, usize>,
@@ -8236,6 +8317,35 @@ impl GroupedCoverage {
             row.get("rt_roi_interpreted_type").and_then(Value::as_str),
         );
         increment_map(
+            &mut self.encapsulated_document_burned_in_annotations,
+            row.get("encapsulated_document_burned_in_annotation")
+                .and_then(Value::as_str),
+        );
+        increment_map(
+            &mut self.encapsulated_document_recognizable_visual_features,
+            row.get("encapsulated_document_recognizable_visual_features")
+                .and_then(Value::as_str),
+        );
+        increment_map(
+            &mut self.encapsulated_document_titles,
+            row.get("encapsulated_document_title")
+                .and_then(Value::as_str),
+        );
+        increment_map(
+            &mut self.encapsulated_document_mime_types,
+            row.get("encapsulated_document_mime_type")
+                .and_then(Value::as_str),
+        );
+        if let Some(length) = row
+            .get("encapsulated_document_length")
+            .and_then(Value::as_u64)
+        {
+            *self
+                .encapsulated_document_lengths
+                .entry(length.to_string())
+                .or_default() += 1;
+        }
+        increment_map(
             &mut self.modality_lut_descriptors,
             row.get("modality_lut_descriptor").and_then(Value::as_str),
         );
@@ -8620,6 +8730,32 @@ impl GroupedCoverage {
             "rt_roi_interpreted_types".to_string(),
             serde_json::to_value(&self.rt_roi_interpreted_types)
                 .expect("RT ROI Interpreted Type count map must serialize"),
+        );
+        grouped_object.insert(
+            "encapsulated_document_burned_in_annotations".to_string(),
+            serde_json::to_value(&self.encapsulated_document_burned_in_annotations)
+                .expect("encapsulated document Burned In Annotation count map must serialize"),
+        );
+        grouped_object.insert(
+            "encapsulated_document_recognizable_visual_features".to_string(),
+            serde_json::to_value(&self.encapsulated_document_recognizable_visual_features).expect(
+                "encapsulated document Recognizable Visual Features count map must serialize",
+            ),
+        );
+        grouped_object.insert(
+            "encapsulated_document_titles".to_string(),
+            serde_json::to_value(&self.encapsulated_document_titles)
+                .expect("encapsulated document title count map must serialize"),
+        );
+        grouped_object.insert(
+            "encapsulated_document_mime_types".to_string(),
+            serde_json::to_value(&self.encapsulated_document_mime_types)
+                .expect("encapsulated document MIME type count map must serialize"),
+        );
+        grouped_object.insert(
+            "encapsulated_document_lengths".to_string(),
+            serde_json::to_value(&self.encapsulated_document_lengths)
+                .expect("encapsulated document length count map must serialize"),
         );
         grouped_object.insert(
             "modality_lut_descriptors".to_string(),

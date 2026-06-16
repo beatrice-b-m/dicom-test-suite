@@ -281,6 +281,21 @@
         "rt_roi_interpreted_types": {
           "$ref": "#/$defs/count_map"
         },
+        "encapsulated_document_burned_in_annotations": {
+          "$ref": "#/$defs/count_map"
+        },
+        "encapsulated_document_recognizable_visual_features": {
+          "$ref": "#/$defs/count_map"
+        },
+        "encapsulated_document_titles": {
+          "$ref": "#/$defs/count_map"
+        },
+        "encapsulated_document_mime_types": {
+          "$ref": "#/$defs/count_map"
+        },
+        "encapsulated_document_lengths": {
+          "$ref": "#/$defs/count_map"
+        },
         "modality_lut_descriptors": {
           "$ref": "#/$defs/count_map"
         },
@@ -513,6 +528,11 @@
         "rt_contour_geometric_type",
         "rt_contour_points",
         "rt_roi_interpreted_type",
+        "encapsulated_document_burned_in_annotation",
+        "encapsulated_document_recognizable_visual_features",
+        "encapsulated_document_title",
+        "encapsulated_document_mime_type",
+        "encapsulated_document_length",
         "modality_lut_descriptor",
         "modality_lut_type",
         "modality_lut_data_value_length",
@@ -849,6 +869,22 @@
         },
         "rt_roi_interpreted_type": {
           "type": ["string", "null"]
+        },
+        "encapsulated_document_burned_in_annotation": {
+          "type": ["string", "null"]
+        },
+        "encapsulated_document_recognizable_visual_features": {
+          "type": ["string", "null"]
+        },
+        "encapsulated_document_title": {
+          "type": ["string", "null"]
+        },
+        "encapsulated_document_mime_type": {
+          "type": ["string", "null"]
+        },
+        "encapsulated_document_length": {
+          "type": ["integer", "null"],
+          "minimum": 0
         },
         "modality_lut_descriptor": {
           "type": ["string", "null"]

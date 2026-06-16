@@ -5890,6 +5890,36 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
     append_count_map_section(
         &mut output,
         report,
+        "Codec Families",
+        "/grouped_coverage/codec_families",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "Codec Backends",
+        "/grouped_coverage/codec_backends",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "Codec Backend Kinds",
+        "/grouped_coverage/codec_backend_kinds",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "Determinism",
+        "/grouped_coverage/determinism",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "Unavailable Reasons",
+        "/grouped_coverage/unavailable_reasons",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
         "Photometric Interpretations",
         "/grouped_coverage/photometric_interpretations",
     );
@@ -5969,13 +5999,25 @@ fn generated_coverage_row(
     run_profile: &str,
 ) -> Result<Value, ReportError> {
     let derived_refs = manifest_reference_case_ids(manifest_path, file)?;
+    let transfer_syntax = report_str(
+        manifest_path,
+        file,
+        "/dicom/transfer_syntax_uid",
+        "dicom transfer_syntax_uid must be a string",
+    )?;
+    let codec = file.pointer("/pixel_data/codec");
     Ok(serde_json::json!({
         "case_id": report_str(manifest_path, file, "/case_id", "file case_id must be a string")?,
         "profile": run_profile,
         "status": "generated",
         "iod": report_str(manifest_path, file, "/dicom/iod_name", "dicom iod_name must be a string")?,
         "sop_class_uid": report_str(manifest_path, file, "/dicom/sop_class_uid", "dicom sop_class_uid must be a string")?,
-        "transfer_syntax": report_str(manifest_path, file, "/dicom/transfer_syntax_uid", "dicom transfer_syntax_uid must be a string")?,
+        "transfer_syntax": transfer_syntax,
+        "codec_family": compressed_codec_family(transfer_syntax),
+        "codec_backend_id": codec.and_then(|codec| codec.get("backend_id")).and_then(Value::as_str),
+        "codec_backend_kind": codec.and_then(|codec| codec.get("backend_kind")).and_then(Value::as_str),
+        "codec_feature_gate": codec.and_then(|codec| codec.get("feature_gate")).and_then(Value::as_str),
+        "reason_code": Value::Null,
         "photometric": file.pointer("/image/photometric_interpretation").and_then(Value::as_str),
         "bits": file.pointer("/image/bits_stored").and_then(Value::as_u64),
         "frames": file.pointer("/image/frames").and_then(Value::as_u64),
@@ -6054,6 +6096,10 @@ fn skipped_coverage_row(
         Some("unavailable") => "unavailable",
         _ => "skipped",
     };
+    let transfer_syntax = registry_case
+        .get("transfer_syntax_uid")
+        .and_then(Value::as_str)
+        .unwrap_or("");
 
     Ok(serde_json::json!({
         "case_id": case_id,
@@ -6061,7 +6107,12 @@ fn skipped_coverage_row(
         "status": status,
         "iod": registry_case.get("iod_name").and_then(Value::as_str).unwrap_or(""),
         "sop_class_uid": registry_case.get("sop_class_uid").and_then(Value::as_str).unwrap_or(""),
-        "transfer_syntax": registry_case.get("transfer_syntax_uid").and_then(Value::as_str).unwrap_or(""),
+        "transfer_syntax": transfer_syntax,
+        "codec_family": compressed_codec_family(transfer_syntax),
+        "codec_backend_id": Value::Null,
+        "codec_backend_kind": Value::Null,
+        "codec_feature_gate": registry_case.pointer("/requirements/features/0").and_then(Value::as_str),
+        "reason_code": skipped.get("reason_code").and_then(Value::as_str),
         "photometric": Value::Null,
         "bits": Value::Null,
         "frames": Value::Null,
@@ -6077,6 +6128,22 @@ fn skipped_coverage_row(
         "object_type": case_id.split('/').next(),
         "known_stressors": []
     }))
+}
+
+fn compressed_codec_family(transfer_syntax_uid: &str) -> Option<&'static str> {
+    match transfer_syntax_uid {
+        RLE_LOSSLESS_TRANSFER_SYNTAX_UID => Some("RLE Lossless"),
+        JPEG_BASELINE_8BIT_TRANSFER_SYNTAX_UID => Some("JPEG Baseline"),
+        JPEG_LS_LOSSLESS_TRANSFER_SYNTAX_UID => Some("JPEG-LS"),
+        JPEG_XL_LOSSLESS_TRANSFER_SYNTAX_UID => Some("JPEG XL"),
+        JPEG_2000_LOSSLESS_TRANSFER_SYNTAX_UID => Some("JPEG 2000"),
+        HTJ2K_LOSSLESS_TRANSFER_SYNTAX_UID => Some("HTJ2K"),
+        JPEG_LOSSLESS_PROCESS_14_TRANSFER_SYNTAX_UID | JPEG_LOSSLESS_SV1_TRANSFER_SYNTAX_UID => {
+            Some("Legacy JPEG Lossless")
+        }
+        DEFLATED_IMAGE_FRAME_TRANSFER_SYNTAX_UID => Some("Deflated Image Frame"),
+        _ => None,
+    }
 }
 
 fn registry_case_for_report<'a>(registry: &'a Value, case_id: &str) -> Option<&'a Value> {
@@ -6117,6 +6184,11 @@ struct GroupedCoverage {
     iods: BTreeMap<String, usize>,
     sop_classes: BTreeMap<String, usize>,
     transfer_syntaxes: BTreeMap<String, usize>,
+    codec_families: BTreeMap<String, usize>,
+    codec_backends: BTreeMap<String, usize>,
+    codec_backend_kinds: BTreeMap<String, usize>,
+    determinism: BTreeMap<String, usize>,
+    unavailable_reasons: BTreeMap<String, usize>,
     photometric_interpretations: BTreeMap<String, usize>,
     bit_depths: BTreeMap<String, usize>,
     object_types: BTreeMap<String, usize>,
@@ -6138,6 +6210,31 @@ impl GroupedCoverage {
             row.get("transfer_syntax").and_then(Value::as_str),
         );
         increment_map(
+            &mut self.codec_families,
+            row.get("codec_family").and_then(Value::as_str),
+        );
+        increment_map(
+            &mut self.codec_backends,
+            row.get("codec_backend_id").and_then(Value::as_str),
+        );
+        increment_map(
+            &mut self.codec_backend_kinds,
+            row.get("codec_backend_kind").and_then(Value::as_str),
+        );
+        increment_map(
+            &mut self.determinism,
+            row.get("determinism").and_then(Value::as_str),
+        );
+        if matches!(
+            row.get("status").and_then(Value::as_str),
+            Some("blocked" | "planned" | "skipped" | "unavailable")
+        ) {
+            increment_map(
+                &mut self.unavailable_reasons,
+                row.get("reason_code").and_then(Value::as_str),
+            );
+        }
+        increment_map(
             &mut self.photometric_interpretations,
             row.get("photometric").and_then(Value::as_str),
         );
@@ -6156,6 +6253,11 @@ impl GroupedCoverage {
             "iods": self.iods,
             "sop_classes": self.sop_classes,
             "transfer_syntaxes": self.transfer_syntaxes,
+            "codec_families": self.codec_families,
+            "codec_backends": self.codec_backends,
+            "codec_backend_kinds": self.codec_backend_kinds,
+            "determinism": self.determinism,
+            "unavailable_reasons": self.unavailable_reasons,
             "photometric_interpretations": self.photometric_interpretations,
             "bit_depths": self.bit_depths,
             "object_types": self.object_types

@@ -315,6 +315,122 @@ fn report_projects_manifest_references_for_non_image_rows() {
 }
 
 #[test]
+fn report_summarizes_compressed_codec_coverage() {
+    let out_dir = unique_temp_dir("report-compressed-codec-summary");
+    fs::create_dir_all(&out_dir).expect("temporary output root should be created");
+    let manifest = json!({
+        "generated_at": "19700101000000.000000+0000",
+        "standards": {
+            "standards_lock_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+        },
+        "run": {
+            "profile": "extended"
+        },
+        "files": [
+            {
+                "case_id": "classic/sc/mono2_u8_rle_lossless",
+                "dicom": {
+                    "iod_name": "Secondary Capture Image",
+                    "sop_class_uid": "1.2.840.10008.5.1.4.1.1.7",
+                    "transfer_syntax_uid": "1.2.840.10008.1.2.5"
+                },
+                "image": {
+                    "photometric_interpretation": "MONOCHROME2",
+                    "bits_stored": 8,
+                    "frames": 1,
+                    "rows": 2,
+                    "columns": 2
+                },
+                "pixel_data": {
+                    "codec": {
+                        "backend_id": "native_rle_lossless",
+                        "backend_kind": "native",
+                        "feature_gate": null
+                    }
+                },
+                "validation": {
+                    "status": "passed"
+                },
+                "determinism": "byte_stable",
+                "known_stressors": ["compressed_pixel_data"]
+            }
+        ],
+        "skipped_cases": [
+            {
+                "case_id": "classic/sc/rgb_planar0_jpeg_baseline_8bit",
+                "status": "unavailable",
+                "reason_code": "feature_gated_case_unavailable",
+                "message": "This implemented registry case requires Cargo feature(s) jpeg.",
+                "standards_evidence": []
+            }
+        ]
+    });
+    fs::write(
+        out_dir.join("manifest.json"),
+        serde_json::to_string_pretty(&manifest).expect("manifest should serialize"),
+    )
+    .expect("manifest should be writable");
+
+    let report = dicom_test_suite::build_coverage_report(&out_dir)
+        .expect("report should summarize compressed coverage");
+    let generated = coverage_row(&report, "classic/sc/mono2_u8_rle_lossless");
+    assert_eq!(
+        generated.get("codec_family").and_then(Value::as_str),
+        Some("RLE Lossless")
+    );
+    assert_eq!(
+        generated.get("codec_backend_id").and_then(Value::as_str),
+        Some("native_rle_lossless")
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/codec_families/RLE Lossless")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/codec_families/JPEG Baseline")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/codec_backends/native_rle_lossless")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/determinism/byte_stable")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/unavailable_reasons/feature_gated_case_unavailable")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    let unavailable = coverage_row(&report, "classic/sc/rgb_planar0_jpeg_baseline_8bit");
+    assert_eq!(
+        unavailable
+            .get("codec_feature_gate")
+            .and_then(Value::as_str),
+        Some("jpeg")
+    );
+
+    let markdown = dicom_test_suite::render_coverage_report_markdown(&report);
+    assert!(markdown.contains("### Codec Families"));
+    assert!(markdown.contains("| RLE Lossless | 1 |"));
+    assert!(markdown.contains("### Codec Backends"));
+    assert!(markdown.contains("| native_rle_lossless | 1 |"));
+    assert!(markdown.contains("### Unavailable Reasons"));
+
+    fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
+}
+
+#[test]
 fn report_counts_feature_gated_planned_cases_as_planned() {
     let out_dir = unique_temp_dir("report-feature-gated-planned");
     fs::create_dir_all(&out_dir).expect("temporary output root should be created");

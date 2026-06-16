@@ -44,6 +44,21 @@
         "transfer_syntaxes": {
           "$ref": "#/$defs/count_map"
         },
+        "codec_families": {
+          "$ref": "#/$defs/count_map"
+        },
+        "codec_backends": {
+          "$ref": "#/$defs/count_map"
+        },
+        "codec_backend_kinds": {
+          "$ref": "#/$defs/count_map"
+        },
+        "determinism": {
+          "$ref": "#/$defs/count_map"
+        },
+        "unavailable_reasons": {
+          "$ref": "#/$defs/count_map"
+        },
         "photometric_interpretations": {
           "$ref": "#/$defs/count_map"
         },
@@ -141,6 +156,11 @@
         "iod",
         "sop_class_uid",
         "transfer_syntax",
+        "codec_family",
+        "codec_backend_id",
+        "codec_backend_kind",
+        "codec_feature_gate",
+        "reason_code",
         "photometric",
         "bits",
         "frames",
@@ -168,6 +188,21 @@
         },
         "transfer_syntax": {
           "type": "string"
+        },
+        "codec_family": {
+          "type": ["string", "null"]
+        },
+        "codec_backend_id": {
+          "type": ["string", "null"]
+        },
+        "codec_backend_kind": {
+          "type": ["string", "null"]
+        },
+        "codec_feature_gate": {
+          "type": ["string", "null"]
+        },
+        "reason_code": {
+          "type": ["string", "null"]
         },
         "photometric": {
           "type": ["string", "null"]

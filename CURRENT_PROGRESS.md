@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-06-16
 **Active goal:** comprehensive compressed image codec generation support
-**Current phase:** Phase 6 - Corpus Expansion And Reporting (ready to start)
+**Current phase:** Phase 6 - Corpus Expansion And Reporting (in progress)
 **Repo state source:** reconstructed from `SYSTEM_SPEC.md`, `CURRENT_PLAN.md`, `transfer-syntax/capability-matrix.json`, and current verification runs.
 
 ## Phase Status
@@ -13,7 +13,7 @@
 - Phase 3 - Low-Risk Codec Enablement: in progress; 8-bit and 16-bit generated RLE Lossless Secondary Capture cases are implemented and round-trip validated; the first JPEG Baseline 8-bit RGB Secondary Capture case is generated and validated when the `jpeg` feature is enabled; the first JPEG-LS Lossless 8-bit MONOCHROME2 Secondary Capture case is generated and exact-hash validated when the `charls` feature is enabled; the first JPEG XL Lossless 8-bit RGB Secondary Capture case is generated and exact-hash validated when the `jpegxl` feature is enabled.
 - Phase 4 - JPEG 2000 And HTJ2K: complete for first lossless generated cases; JPEG 2000 Lossless has a project `jpeg2000` feature, a project-owned OpenJPEG-rs writer wrapper, a feature-gated generated Secondary Capture case, generation-time exact decoded-frame hash validation, CLI validation, report coverage, reproducibility evidence, and feature-gated capability-matrix promotion. JPEG 2000 lossy remains deferred. HTJ2K Lossless has a project `htj2k_openjph` feature, an OpenJPH external-command wrapper that fingerprints `ojph_compress` by executable SHA-256, fixed-option PGM encode support, exact DICOM-rs HTJ2K reader decode validation, a feature-gated generated Secondary Capture case, manifest runtime identity metadata, CLI validation, report coverage, and reproducibility evidence. HTJ2K lossy/RPCL variants remain deferred.
 - Phase 5 - Legacy And Specialty Compressed Syntaxes: complete for implement-now scope; JPEG Lossless SV1 and JPEG Lossless Process 14 now have generated feature-gated Secondary Capture cases through the project `legacy_jpeg_dcmtk` DCMTK `dcmcjpeg` file-level wrapper, including manifest runtime executable identity, exact DICOM-rs decoded-frame hash validation, report coverage, and reproducibility evidence. Deflated Image Frame Compression now has a generated feature-gated binary Segmentation multi-frame case through the project `deflate` feature and pinned DICOM-rs adapter, including exact decoded-frame hash validation, report coverage, and reproducibility evidence. JPEG Extended 12-bit DCMTK encode, metadata preservation, encapsulation, and byte-identical local reproducibility are proven, but generated-case promotion is intentionally deferred until an independent 12-bit JPEG Extended validation decoder/path is selected.
-- Phase 6 - Corpus Expansion And Reporting: ready to start; choose the first small compressed corpus expansion or report-summary slice without promoting deferred lossy or JPEG Extended 12-bit work.
+- Phase 6 - Corpus Expansion And Reporting: in progress; the first report-summary slice adds codec family/backend/determinism/unavailable-reason coverage summaries without promoting deferred lossy or JPEG Extended 12-bit work.
 
 ## Completed Work
 
@@ -199,6 +199,9 @@
 - Added an explicit unavailable capability-matrix row for JPEG Extended 12-bit UID `1.2.840.10008.1.2.4.51`, preserving DCMTK encode/reproducibility evidence while requiring an independent 12-bit validation path before generated-case promotion.
 - Updated the legacy JPEG backend decision so JPEG Extended 12-bit is a deferred variant, not an active blocker; `dcmdjpeg` is documented as unavailable for independence purposes because it is part of the same DCMTK codec family as `dcmcjpeg`.
 - Updated artifact regression coverage so future changes must keep JPEG Extended 12-bit unavailable until independent validation exists.
+- Started Phase 6 with a report-summary slice that enriches coverage rows with `codec_family`, `codec_backend_id`, `codec_backend_kind`, `codec_feature_gate`, and `reason_code`.
+- Extended grouped JSON and Markdown coverage reports to summarize codec families, codec backends, codec backend kinds, determinism classes, and unavailable reason codes.
+- Added coverage-report schema fields for the new compressed-report metadata and focused report/schema tests proving generated compressed rows and feature-gated unavailable rows are summarized correctly.
 
 ## Blockers
 
@@ -642,14 +645,24 @@
 - `cargo test --test project_artifacts`: passed, 28 artifact tests.
 - `cargo run -- standards check-lock`: passed with existing documented lock warnings.
 - `cargo test`: passed, full default-build suite clean.
+- `cargo fmt`: passed.
+- `cargo test --test report_cli report_summarizes_compressed_codec_coverage`: passed, 1 focused report test.
+- `cargo test --test schema_artifacts coverage_report_schema_requires_the_specified_matrix_fields`: passed, 1 focused schema test.
+- `cargo fmt -- --check`: passed.
+- `cargo test --test report_cli --test schema_artifacts`: passed, 14 focused report/schema tests.
+- `cargo run -- standards check-lock`: passed with existing documented lock warnings.
+- `cargo test`: passed, full default-build suite clean.
+- `cargo run -- generate --profile extended --out /tmp/dts-report-summary-slice-0616 --seed 1`: passed, 19 files written.
+- `cargo run -- validate /tmp/dts-report-summary-slice-0616`: passed, 19 files checked and 0 validation failures.
+- `cargo run -- report /tmp/dts-report-summary-slice-0616 --format json`: passed; JSON report includes compressed coverage row metadata and grouped codec-family/backend/determinism/unavailable-reason maps.
+- `cargo run -- report /tmp/dts-report-summary-slice-0616 --format markdown`: passed; Markdown report includes Codec Families, Codec Backends, Codec Backend Kinds, Determinism, and Unavailable Reasons sections.
 
 ## Commit-Ready Summary
 
-- JPEG Extended 12-bit is now explicitly deferred rather than blocking Phase 6.
-- `transfer-syntax/capability-matrix.json` records JPEG Extended 12-bit as unavailable with the project `legacy_jpeg_dcmtk` feature context and the independent-validation requirement.
-- `transfer-syntax/backend-decisions.json` records JPEG Extended 12-bit as a deferred legacy JPEG variant with no active legacy JPEG blockers.
-- `CURRENT_PLAN.md` and this tracker now point the next run at Phase 6 corpus expansion/reporting work.
+- Phase 6 report summaries now expose compressed codec family, backend, feature-gate, determinism, and unavailable-reason information in JSON rows and grouped JSON/Markdown sections.
+- `schemas/coverage-report.schema.json` and focused report/schema tests cover the new report metadata.
+- No codec registry rows, capability-matrix entries, generated DICOM payloads, or deferred lossy/JPEG Extended 12-bit decisions changed in this slice.
 
 ## Recommended Next Commit
 
-Start Phase 6 with the smallest compressed corpus expansion or report-summary slice that reuses already implemented codec families. Do not promote JPEG Extended 12-bit or deferred lossy variants until their validation policies are selected.
+Continue Phase 6 with the next smallest compressed corpus expansion that reuses already implemented codec families, such as adding a second RLE or lossless compressed case dimension with full generation, validation, report, and reproducibility coverage. Do not promote JPEG Extended 12-bit or deferred lossy variants until their validation policies are selected.

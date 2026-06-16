@@ -13,7 +13,7 @@
 - Phase 3 - Low-Risk Codec Enablement: in progress; 8-bit and 16-bit generated RLE Lossless Secondary Capture cases are implemented and round-trip validated; the first JPEG Baseline 8-bit RGB Secondary Capture case is generated and validated when the `jpeg` feature is enabled; the first JPEG-LS Lossless 8-bit MONOCHROME2 Secondary Capture case is generated and exact-hash validated when the `charls` feature is enabled; the first JPEG XL Lossless 8-bit RGB Secondary Capture case is generated and exact-hash validated when the `jpegxl` feature is enabled.
 - Phase 4 - JPEG 2000 And HTJ2K: complete for first lossless generated cases; JPEG 2000 Lossless has a project `jpeg2000` feature, a project-owned OpenJPEG-rs writer wrapper, a feature-gated generated Secondary Capture case, generation-time exact decoded-frame hash validation, CLI validation, report coverage, reproducibility evidence, and feature-gated capability-matrix promotion. JPEG 2000 lossy remains deferred. HTJ2K Lossless has a project `htj2k_openjph` feature, an OpenJPH external-command wrapper that fingerprints `ojph_compress` by executable SHA-256, fixed-option PGM encode support, exact DICOM-rs HTJ2K reader decode validation, a feature-gated generated Secondary Capture case, manifest runtime identity metadata, CLI validation, report coverage, and reproducibility evidence. HTJ2K lossy/RPCL variants remain deferred.
 - Phase 5 - Legacy And Specialty Compressed Syntaxes: complete for implement-now scope; JPEG Lossless SV1 and JPEG Lossless Process 14 now have generated feature-gated Secondary Capture cases through the project `legacy_jpeg_dcmtk` DCMTK `dcmcjpeg` file-level wrapper, including manifest runtime executable identity, exact DICOM-rs decoded-frame hash validation, report coverage, and reproducibility evidence. Deflated Image Frame Compression now has a generated feature-gated binary Segmentation multi-frame case through the project `deflate` feature and pinned DICOM-rs adapter, including exact decoded-frame hash validation, report coverage, and reproducibility evidence. JPEG Extended 12-bit DCMTK encode, metadata preservation, encapsulation, and byte-identical local reproducibility are proven, but generated-case promotion is intentionally deferred until an independent 12-bit JPEG Extended validation decoder/path is selected.
-- Phase 6 - Corpus Expansion And Reporting: in progress; report-summary coverage is implemented and now includes row-level modality plus grouped modality counts, and skipped/unavailable rows can carry registry-sourced modality metadata when present. Broad default-build RLE Lossless expansion covers Secondary Capture monochrome/color/palette/signed/padding/geometry/multi-frame cases, signed Pixel Padding Value/Range Limit handling, MONOCHROME1 and MONOCHROME2 signed padding cases, unsigned and signed multi-frame Pixel Padding cases including MONOCHROME1 signed multi-frame padding, modality-specific CT/MR/CR/DX/MG/US cases, VL Photographic RGB planar-configuration-0 and planar-configuration-1 cases, and VL Photographic PALETTE COLOR using the native project encoder without promoting deferred lossy or JPEG Extended 12-bit work.
+- Phase 6 - Corpus Expansion And Reporting: in progress; report-summary coverage is implemented and now includes row-level modality plus grouped modality counts, skipped/unavailable rows can carry registry-sourced modality metadata when present, and implemented feature-gated compressed rows now carry registry modality metadata for default-build unavailable report coverage. Broad default-build RLE Lossless expansion covers Secondary Capture monochrome/color/palette/signed/padding/geometry/multi-frame cases, signed Pixel Padding Value/Range Limit handling, MONOCHROME1 and MONOCHROME2 signed padding cases, unsigned and signed multi-frame Pixel Padding cases including MONOCHROME1 signed multi-frame padding, modality-specific CT/MR/CR/DX/MG/US cases, VL Photographic RGB planar-configuration-0 and planar-configuration-1 cases, and VL Photographic PALETTE COLOR using the native project encoder without promoting deferred lossy or JPEG Extended 12-bit work.
 
 ## Completed Work
 
@@ -1715,12 +1715,26 @@
 - `cargo run -- generate --profile core --out /tmp/dts-registry-modality-slice-0616 --seed 1`: passed, 19 files written in the no-feature default build.
 - `cargo run -- validate /tmp/dts-registry-modality-slice-0616`: passed, 19 files checked and 0 validation failures.
 - `cargo run -- report /tmp/dts-registry-modality-slice-0616 --format json`: passed; report counted 19 generated rows, 2 planned rows, populated `modality: "XC"` for `vl/photo/rgb_planar0_explicit_le` and `vl/photo/palette_color_explicit_le`, and grouped modality coverage included `XC: 2`.
+- `git status --short`: passed before slice selection; working tree was clean.
+- `dicom-standard-kb` MCP `lookup_sop_class "Secondary Capture Image Storage"`: passed; confirmed Secondary Capture Image Storage UID `1.2.840.10008.5.1.4.1.1.7` and linked Secondary Capture Image IOD before adding Secondary Capture registry modality metadata.
+- `dicom-standard-kb` MCP `lookup_defined_terms Modality --context "Secondary Capture Image"`: returned `not_found`; no parsed IOD-specific Modality terms were available, so this slice reused the project's existing generated Secondary Capture modality value `OT`.
+- `jq empty cases/registry.json`: passed.
+- `cargo fmt -- --check`: initially reported rustfmt-only wrapping in `tests/report_cli.rs`; passed after running `cargo fmt`.
+- `cargo test --test report_cli report_summarizes_compressed_codec_coverage`: passed.
+- `cargo test --test report_cli report_command_counts_generated_rgb_rle_lossless_row`: passed.
+- `cargo test --test project_artifacts feature_gated_registry_cases_carry_report_modality_metadata`: passed.
+- `cargo fmt -- --check`: passed after formatting.
+- `cargo test`: passed, full default-build suite clean.
+- `cargo run -- standards check-lock`: passed with existing documented lock warnings.
+- `cargo run -- generate --profile extended --out /tmp/dts-registry-feature-modality-slice-0616 --seed 1`: passed, 59 files written in the no-feature default build.
+- `cargo run -- validate /tmp/dts-registry-feature-modality-slice-0616`: passed, 59 files checked and 0 validation failures.
+- `cargo run -- report /tmp/dts-registry-feature-modality-slice-0616 --format json`: passed; report counted 59 generated rows and 9 skipped/unavailable rows, populated `modality: "OT"` for feature-gated Secondary Capture compressed rows and `modality: "SEG"` for `derived/seg/binary_multiframe_deflated_image_frame`, and grouped modality coverage included `OT: 39` and `SEG: 4`.
 
 ## Commit-Ready Summary
 
-- Phase 6 reporting now uses optional registry modality metadata for skipped and unavailable report rows.
-- The two planned core VL Photographic rows now carry registry `modality: "XC"`, matching the existing generated VL Photographic recipe convention.
-- JSON coverage reports now count those planned rows under grouped modality `XC`; rows without registry modality metadata still emit `null`.
+- Feature-gated compressed registry rows now carry established modality metadata for default-build unavailable report rows.
+- Secondary Capture compressed feature-gated rows use the existing generated `OT` modality convention, and the Deflated Image Frame Segmentation row uses `SEG`.
+- JSON coverage reports now count those unavailable rows under grouped modality coverage in default builds.
 - No generator recipes, capability-matrix entries, generated DICOM payloads, or deferred codec decisions changed in this slice.
 
 ## Recommended Next Commit

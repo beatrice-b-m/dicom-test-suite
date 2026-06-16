@@ -282,6 +282,40 @@ fn implemented_registry_cases_match_generator_recipes() {
 }
 
 #[test]
+fn feature_gated_registry_cases_carry_report_modality_metadata() {
+    let registry = read_json("cases/registry.json");
+    let cases = registry_cases(&registry);
+
+    for (case_id, expected_modality) in [
+        ("classic/sc/rgb_planar0_jpeg_baseline_8bit", "OT"),
+        ("classic/sc/mono2_u8_jpeg_ls_lossless", "OT"),
+        ("classic/sc/mono2_u16_jpeg2000_lossless", "OT"),
+        ("classic/sc/rgb_planar0_jpegxl_lossless", "OT"),
+        ("classic/sc/mono2_u16_htj2k_lossless", "OT"),
+        ("classic/sc/mono2_u16_jpeg_lossless_process_14", "OT"),
+        ("classic/sc/mono2_u16_jpeg_lossless_sv1", "OT"),
+        ("derived/seg/binary_multiframe_deflated_image_frame", "SEG"),
+    ] {
+        let case = cases
+            .iter()
+            .find(|case| case.get("case_id").and_then(Value::as_str) == Some(case_id))
+            .unwrap_or_else(|| panic!("registry must contain {case_id}"));
+
+        assert!(
+            case.pointer("/requirements/features")
+                .and_then(Value::as_array)
+                .is_some_and(|features| !features.is_empty()),
+            "{case_id} should be feature-gated in default builds"
+        );
+        assert_eq!(
+            case.get("modality").and_then(Value::as_str),
+            Some(expected_modality),
+            "{case_id} should expose registry modality metadata for unavailable report rows"
+        );
+    }
+}
+
+#[test]
 fn initial_priority_cases_are_represented_in_registry() {
     let registry = read_json("cases/registry.json");
     let cases = registry_cases(&registry);

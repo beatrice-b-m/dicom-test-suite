@@ -941,6 +941,33 @@ fn report_command_counts_generated_rgb_rle_lossless_row() {
             .any(|stressor| stressor.as_str() == Some("vl_palette_color_pixels")),
         "VL Photographic palette RLE report row should retain VL palette stressor"
     );
+    let feature_gated_jpeg_row = coverage_row(&report, "classic/sc/rgb_planar0_jpeg_baseline_8bit");
+    assert_eq!(
+        feature_gated_jpeg_row.get("status").and_then(Value::as_str),
+        Some("unavailable")
+    );
+    assert_eq!(
+        feature_gated_jpeg_row
+            .get("modality")
+            .and_then(Value::as_str),
+        Some("OT")
+    );
+    let feature_gated_deflated_seg_row = coverage_row(
+        &report,
+        "derived/seg/binary_multiframe_deflated_image_frame",
+    );
+    assert_eq!(
+        feature_gated_deflated_seg_row
+            .get("status")
+            .and_then(Value::as_str),
+        Some("unavailable")
+    );
+    assert_eq!(
+        feature_gated_deflated_seg_row
+            .get("modality")
+            .and_then(Value::as_str),
+        Some("SEG")
+    );
 
     fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
 }
@@ -1256,7 +1283,7 @@ fn report_summarizes_compressed_codec_coverage() {
         report
             .pointer("/grouped_coverage/modalities/OT")
             .and_then(Value::as_u64),
-        Some(1)
+        Some(2)
     );
     assert_eq!(
         report
@@ -1271,12 +1298,16 @@ fn report_summarizes_compressed_codec_coverage() {
             .and_then(Value::as_str),
         Some("jpeg")
     );
+    assert_eq!(
+        unavailable.get("modality").and_then(Value::as_str),
+        Some("OT")
+    );
 
     let markdown = dicom_test_suite::render_coverage_report_markdown(&report);
     assert!(markdown.contains("### Codec Families"));
     assert!(markdown.contains("| RLE Lossless | 1 |"));
     assert!(markdown.contains("### Modalities"));
-    assert!(markdown.contains("| OT | 1 |"));
+    assert!(markdown.contains("| OT | 2 |"));
     assert!(markdown.contains("### Codec Backends"));
     assert!(markdown.contains("| native_rle_lossless | 1 |"));
     assert!(markdown.contains("### Unavailable Reasons"));

@@ -6070,6 +6070,12 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
     append_count_map_section(
         &mut output,
         report,
+        "Lossy Image Compression",
+        "/grouped_coverage/lossy_image_compression",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
         "Known Stressors",
         "/grouped_coverage/known_stressors",
     );
@@ -6190,6 +6196,7 @@ fn generated_coverage_row(
         "determinism": report_str(manifest_path, file, "/determinism", "determinism must be a string")?,
         "object_type": file.get("case_id").and_then(Value::as_str).and_then(|case_id| case_id.split('/').next()),
         "synthetic_data": file.pointer("/expected_semantics/synthetic_data").and_then(Value::as_str),
+        "lossy_image_compression": file.pointer("/expected_semantics/lossy_image_compression").and_then(Value::as_str),
         "known_stressors": file.get("known_stressors").cloned().unwrap_or_else(|| serde_json::json!([]))
     }))
 }
@@ -6300,6 +6307,7 @@ fn skipped_coverage_row(
         "determinism": registry_case.get("determinism").and_then(Value::as_str).unwrap_or("byte_stable"),
         "object_type": case_id.split('/').next(),
         "synthetic_data": Value::Null,
+        "lossy_image_compression": Value::Null,
         "known_stressors": []
     }))
 }
@@ -6442,6 +6450,7 @@ struct GroupedCoverage {
     object_types: BTreeMap<String, usize>,
     derived_reference_states: BTreeMap<String, usize>,
     synthetic_data: BTreeMap<String, usize>,
+    lossy_image_compression: BTreeMap<String, usize>,
     known_stressors: BTreeMap<String, usize>,
     basic_offset_tables: BTreeMap<String, usize>,
     encapsulated_fragment_layouts: BTreeMap<String, usize>,
@@ -6598,6 +6607,10 @@ impl GroupedCoverage {
             &mut self.synthetic_data,
             row.get("synthetic_data").and_then(Value::as_str),
         );
+        increment_map(
+            &mut self.lossy_image_compression,
+            row.get("lossy_image_compression").and_then(Value::as_str),
+        );
         if let Some(stressors) = row.get("known_stressors").and_then(Value::as_array) {
             for stressor in stressors {
                 increment_map(&mut self.known_stressors, stressor.as_str());
@@ -6640,6 +6653,7 @@ impl GroupedCoverage {
             "object_types": self.object_types,
             "derived_reference_states": self.derived_reference_states,
             "synthetic_data": self.synthetic_data,
+            "lossy_image_compression": self.lossy_image_compression,
             "known_stressors": self.known_stressors
         })
     }

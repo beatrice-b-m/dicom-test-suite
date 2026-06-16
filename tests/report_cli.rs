@@ -1800,7 +1800,8 @@ fn report_summarizes_compressed_codec_coverage() {
                 },
                 "determinism": "byte_stable",
                 "expected_semantics": {
-                    "synthetic_data": "YES"
+                    "synthetic_data": "YES",
+                    "lossy_image_compression": "00"
                 },
                 "references": [
                     {
@@ -1848,6 +1849,12 @@ fn report_summarizes_compressed_codec_coverage() {
     assert_eq!(
         generated.get("synthetic_data").and_then(Value::as_str),
         Some("YES")
+    );
+    assert_eq!(
+        generated
+            .get("lossy_image_compression")
+            .and_then(Value::as_str),
+        Some("00")
     );
     assert_eq!(
         generated
@@ -2074,6 +2081,12 @@ fn report_summarizes_compressed_codec_coverage() {
     );
     assert_eq!(
         report
+            .pointer("/grouped_coverage/lossy_image_compression/00")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
             .pointer("/grouped_coverage/modalities/OT")
             .and_then(Value::as_u64),
         Some(2)
@@ -2126,6 +2139,10 @@ fn report_summarizes_compressed_codec_coverage() {
     assert_eq!(unavailable.get("pixel_data_vr"), Some(&Value::Null));
     assert_eq!(unavailable.get("pixel_data_layout"), Some(&Value::Null));
     assert_eq!(unavailable.get("basic_offset_table"), Some(&Value::Null));
+    assert_eq!(
+        unavailable.get("lossy_image_compression"),
+        Some(&Value::Null)
+    );
     assert_eq!(
         unavailable.get("encapsulated_fragment_layout"),
         Some(&Value::Null)
@@ -2183,6 +2200,8 @@ fn report_summarizes_compressed_codec_coverage() {
     assert!(markdown.contains("| without_source_reference | 1 |"));
     assert!(markdown.contains("### Synthetic Data"));
     assert!(markdown.contains("| YES | 1 |"));
+    assert!(markdown.contains("### Lossy Image Compression"));
+    assert!(markdown.contains("| 00 | 1 |"));
     assert!(markdown.contains("### Known Stressors"));
     assert!(markdown.contains("| compressed_pixel_data | 1 |"));
 

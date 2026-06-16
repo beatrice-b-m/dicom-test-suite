@@ -131,6 +131,9 @@
         "synthetic_data": {
           "$ref": "#/$defs/count_map"
         },
+        "lossy_image_compression": {
+          "$ref": "#/$defs/count_map"
+        },
         "known_stressors": {
           "$ref": "#/$defs/count_map"
         }
@@ -249,7 +252,8 @@
         "validation_status",
         "determinism",
         "object_type",
-        "synthetic_data"
+        "synthetic_data",
+        "lossy_image_compression"
       ],
       "properties": {
         "case_id": {
@@ -397,6 +401,10 @@
         },
         "synthetic_data": {
           "type": ["string", "null"]
+        },
+        "lossy_image_compression": {
+          "type": ["string", "null"],
+          "enum": ["00", "01", null]
         },
         "known_stressors": {
           "type": "array",

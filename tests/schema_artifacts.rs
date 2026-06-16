@@ -266,6 +266,7 @@ fn coverage_report_schema_requires_the_specified_matrix_fields() {
         "determinism",
         "object_type",
         "synthetic_data",
+        "lossy_image_compression",
     ] {
         assert!(
             required.iter().any(|value| value.as_str() == Some(field)),
@@ -319,6 +320,7 @@ fn coverage_report_schema_requires_the_specified_matrix_fields() {
         "object_types",
         "derived_reference_states",
         "synthetic_data",
+        "lossy_image_compression",
     ] {
         assert!(
             schema

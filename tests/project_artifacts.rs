@@ -250,7 +250,7 @@ fn registry_contains_initial_smoke_and_core_cases() {
         ("vl/photo/rgb_planar1_rle_lossless", "implemented"),
         ("vl/photo/palette_color_rle_lossless", "implemented"),
         ("vl/photo/rgb_planar0_explicit_le", "implemented"),
-        ("vl/photo/palette_color_explicit_le", "planned"),
+        ("vl/photo/palette_color_explicit_le", "implemented"),
     ] {
         let case = cases
             .iter()

@@ -6076,6 +6076,12 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
     append_count_map_section(
         &mut output,
         report,
+        "Lossy Image Compression Ratios",
+        "/grouped_coverage/lossy_image_compression_ratios",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
         "Lossy Image Compression Methods",
         "/grouped_coverage/lossy_image_compression_methods",
     );
@@ -6203,6 +6209,7 @@ fn generated_coverage_row(
         "object_type": file.get("case_id").and_then(Value::as_str).and_then(|case_id| case_id.split('/').next()),
         "synthetic_data": file.pointer("/expected_semantics/synthetic_data").and_then(Value::as_str),
         "lossy_image_compression": file.pointer("/expected_semantics/lossy_image_compression").and_then(Value::as_str),
+        "lossy_image_compression_ratio": file.pointer("/expected_semantics/lossy_image_compression_ratio").and_then(Value::as_str),
         "lossy_image_compression_method": file.pointer("/expected_semantics/lossy_image_compression_method").and_then(Value::as_str),
         "known_stressors": file.get("known_stressors").cloned().unwrap_or_else(|| serde_json::json!([]))
     }))
@@ -6315,6 +6322,7 @@ fn skipped_coverage_row(
         "object_type": case_id.split('/').next(),
         "synthetic_data": Value::Null,
         "lossy_image_compression": Value::Null,
+        "lossy_image_compression_ratio": Value::Null,
         "lossy_image_compression_method": Value::Null,
         "known_stressors": []
     }))
@@ -6459,6 +6467,7 @@ struct GroupedCoverage {
     derived_reference_states: BTreeMap<String, usize>,
     synthetic_data: BTreeMap<String, usize>,
     lossy_image_compression: BTreeMap<String, usize>,
+    lossy_image_compression_ratios: BTreeMap<String, usize>,
     lossy_image_compression_methods: BTreeMap<String, usize>,
     known_stressors: BTreeMap<String, usize>,
     basic_offset_tables: BTreeMap<String, usize>,
@@ -6621,6 +6630,11 @@ impl GroupedCoverage {
             row.get("lossy_image_compression").and_then(Value::as_str),
         );
         increment_map(
+            &mut self.lossy_image_compression_ratios,
+            row.get("lossy_image_compression_ratio")
+                .and_then(Value::as_str),
+        );
+        increment_map(
             &mut self.lossy_image_compression_methods,
             row.get("lossy_image_compression_method")
                 .and_then(Value::as_str),
@@ -6668,6 +6682,7 @@ impl GroupedCoverage {
             "derived_reference_states": self.derived_reference_states,
             "synthetic_data": self.synthetic_data,
             "lossy_image_compression": self.lossy_image_compression,
+            "lossy_image_compression_ratios": self.lossy_image_compression_ratios,
             "lossy_image_compression_methods": self.lossy_image_compression_methods,
             "known_stressors": self.known_stressors
         })

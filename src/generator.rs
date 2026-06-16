@@ -4098,6 +4098,8 @@ fn write_pixel_case(
     )))]
     let codec_internal_validation = Vec::new();
     #[allow(unused_mut)]
+    let mut lossy_image_compression_ratio: Option<String> = None;
+    #[allow(unused_mut)]
     let mut compressed_pixel_data = if recipe.transfer_syntax == RLE_LOSSLESS {
         let rle_encoder = NativeRleLosslessEncoder::new();
         let compressed_frames = frame_bytes
@@ -4171,6 +4173,7 @@ fn write_pixel_case(
                 VR::DS,
                 &compression_ratio,
             );
+            lossy_image_compression_ratio = Some(compression_ratio);
             put_str(
                 &mut obj,
                 tags::LOSSY_IMAGE_COMPRESSION_METHOD,
@@ -4619,6 +4622,7 @@ fn write_pixel_case(
             &validated.bytes,
             validated.validation,
             compressed_pixel_data.as_ref(),
+            lossy_image_compression_ratio.as_deref(),
             &decoded_frame_hash_refs,
         ),
     })
@@ -5032,6 +5036,7 @@ fn pixel_manifest_entry(
         EncapsulatedPixelData,
         Option<Value>,
     )>,
+    lossy_image_compression_ratio: Option<&str>,
     frame_hashes: &[&str],
 ) -> Value {
     let mut standards_evidence = standards_evidence_from_case(case);
@@ -5507,6 +5512,7 @@ fn pixel_manifest_entry(
             "pixel_max": recipe.pixel_max,
             "pixel_padding": padding_manifest,
             "lossy_image_compression": if recipe.transfer_syntax == JPEG_BASELINE_8BIT { "01" } else { "00" },
+            "lossy_image_compression_ratio": lossy_image_compression_ratio,
             "lossy_image_compression_method": pixel_lossy_image_compression_method(recipe),
             "photometric_semantics": recipe.semantic_note
         },

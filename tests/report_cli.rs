@@ -2383,6 +2383,7 @@ fn report_summarizes_lossy_image_compression_method() {
                 "expected_semantics": {
                     "synthetic_data": "YES",
                     "lossy_image_compression": "01",
+                    "lossy_image_compression_ratio": "1.500000",
                     "lossy_image_compression_method": "ISO_10918_1"
                 },
                 "known_stressors": ["lossy_image_compression"]
@@ -2400,9 +2401,20 @@ fn report_summarizes_lossy_image_compression_method() {
         .expect("report should summarize lossy compression method coverage");
     let row = coverage_row(&report, "classic/sc/rgb_planar0_jpeg_baseline_8bit");
     assert_eq!(
+        row.get("lossy_image_compression_ratio")
+            .and_then(Value::as_str),
+        Some("1.500000")
+    );
+    assert_eq!(
         row.get("lossy_image_compression_method")
             .and_then(Value::as_str),
         Some("ISO_10918_1")
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/lossy_image_compression_ratios/1.500000")
+            .and_then(Value::as_u64),
+        Some(1)
     );
     assert_eq!(
         report
@@ -2411,6 +2423,8 @@ fn report_summarizes_lossy_image_compression_method() {
         Some(1)
     );
     let markdown = dicom_test_suite::render_coverage_report_markdown(&report);
+    assert!(markdown.contains("### Lossy Image Compression Ratios"));
+    assert!(markdown.contains("| 1.500000 | 1 |"));
     assert!(markdown.contains("### Lossy Image Compression Methods"));
     assert!(markdown.contains("| ISO_10918_1 | 1 |"));
 

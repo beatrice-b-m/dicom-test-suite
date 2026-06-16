@@ -4376,9 +4376,22 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
                 .and_then(Value::as_str),
             Some("ISO_10918_1")
         );
+        let manifest_ratio = jpeg_file
+            .pointer("/expected_semantics/lossy_image_compression_ratio")
+            .and_then(Value::as_str)
+            .expect("JPEG manifest should record Lossy Image Compression Ratio");
         let jpeg_path = out_dir.join("classic/sc/rgb_planar0_jpeg_baseline_8bit/instance.dcm");
         let jpeg_dicom =
             open_file(&jpeg_path).expect("JPEG Baseline generated DICOM file should parse");
+        assert_eq!(
+            jpeg_dicom
+                .element(tags::LOSSY_IMAGE_COMPRESSION_RATIO)
+                .expect("JPEG Baseline file should contain Lossy Image Compression Ratio")
+                .to_str()
+                .expect("Lossy Image Compression Ratio should be text")
+                .as_ref(),
+            manifest_ratio
+        );
         assert_eq!(
             jpeg_dicom
                 .element(tags::LOSSY_IMAGE_COMPRESSION_METHOD)

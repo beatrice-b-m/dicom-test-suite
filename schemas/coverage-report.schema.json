@@ -134,6 +134,9 @@
         "lossy_image_compression": {
           "$ref": "#/$defs/count_map"
         },
+        "lossy_image_compression_ratios": {
+          "$ref": "#/$defs/count_map"
+        },
         "lossy_image_compression_methods": {
           "$ref": "#/$defs/count_map"
         },
@@ -257,6 +260,7 @@
         "object_type",
         "synthetic_data",
         "lossy_image_compression",
+        "lossy_image_compression_ratio",
         "lossy_image_compression_method"
       ],
       "properties": {
@@ -409,6 +413,9 @@
         "lossy_image_compression": {
           "type": ["string", "null"],
           "enum": ["00", "01", null]
+        },
+        "lossy_image_compression_ratio": {
+          "type": ["string", "null"]
         },
         "lossy_image_compression_method": {
           "type": ["string", "null"]

@@ -59,6 +59,9 @@
         "determinism": {
           "$ref": "#/$defs/count_map"
         },
+        "validation_statuses": {
+          "$ref": "#/$defs/count_map"
+        },
         "unavailable_reasons": {
           "$ref": "#/$defs/count_map"
         },

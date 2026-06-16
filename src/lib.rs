@@ -5926,6 +5926,12 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
     append_count_map_section(
         &mut output,
         report,
+        "Validation Statuses",
+        "/grouped_coverage/validation_statuses",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
         "Unavailable Reasons",
         "/grouped_coverage/unavailable_reasons",
     );
@@ -6209,6 +6215,7 @@ struct GroupedCoverage {
     codec_backends: BTreeMap<String, usize>,
     codec_backend_kinds: BTreeMap<String, usize>,
     determinism: BTreeMap<String, usize>,
+    validation_statuses: BTreeMap<String, usize>,
     unavailable_reasons: BTreeMap<String, usize>,
     photometric_interpretations: BTreeMap<String, usize>,
     bit_depths: BTreeMap<String, usize>,
@@ -6251,6 +6258,10 @@ impl GroupedCoverage {
             &mut self.determinism,
             row.get("determinism").and_then(Value::as_str),
         );
+        increment_map(
+            &mut self.validation_statuses,
+            row.get("validation_status").and_then(Value::as_str),
+        );
         if matches!(
             row.get("status").and_then(Value::as_str),
             Some("blocked" | "planned" | "skipped" | "unavailable")
@@ -6289,6 +6300,7 @@ impl GroupedCoverage {
             "codec_backends": self.codec_backends,
             "codec_backend_kinds": self.codec_backend_kinds,
             "determinism": self.determinism,
+            "validation_statuses": self.validation_statuses,
             "unavailable_reasons": self.unavailable_reasons,
             "photometric_interpretations": self.photometric_interpretations,
             "bit_depths": self.bit_depths,

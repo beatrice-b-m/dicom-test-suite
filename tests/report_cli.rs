@@ -109,6 +109,12 @@ fn report_command_writes_json_coverage_for_core_root() {
         Some("400")
     );
     assert_eq!(
+        coverage_row(&report, "classic/ct/mono2_i16_rescale_12bit_explicit_le")
+            .get("kvp")
+            .and_then(Value::as_str),
+        Some("120")
+    );
+    assert_eq!(
         coverage_row(&report, "classic/dx/display_shutter_mono2_u16_explicit_le")
             .get("display_shutter_shape")
             .and_then(Value::as_str),
@@ -371,6 +377,12 @@ fn report_command_writes_json_coverage_for_core_root() {
     );
     assert_eq!(
         report
+            .pointer("/grouped_coverage/kvps/120")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
             .pointer("/grouped_coverage/modality_lut_descriptors/4\\0\\16")
             .and_then(Value::as_u64),
         Some(1)
@@ -548,6 +560,8 @@ fn report_command_writes_markdown_coverage_for_core_root() {
     assert!(stdout.contains("### Window Widths"));
     assert!(stdout.contains("| 400 | 1 |"));
     assert!(stdout.contains("| 4096 | 2 |"));
+    assert!(stdout.contains("### KVPs"));
+    assert!(stdout.contains("| 120 | 1 |"));
     assert!(stdout.contains("### Modality LUT Descriptors"));
     assert!(stdout.contains("| 4\\0\\16 | 1 |"));
     assert!(stdout.contains("### Modality LUT Types"));

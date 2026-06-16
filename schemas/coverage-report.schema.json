@@ -149,6 +149,9 @@
         "window_widths": {
           "$ref": "#/$defs/count_map"
         },
+        "kvps": {
+          "$ref": "#/$defs/count_map"
+        },
         "modality_lut_descriptors": {
           "$ref": "#/$defs/count_map"
         },
@@ -337,6 +340,7 @@
         "presentation_lut_shape",
         "window_center",
         "window_width",
+        "kvp",
         "modality_lut_descriptor",
         "modality_lut_type",
         "modality_lut_data_value_length",
@@ -523,6 +527,9 @@
           "type": ["string", "null"]
         },
         "window_width": {
+          "type": ["string", "null"]
+        },
+        "kvp": {
           "type": ["string", "null"]
         },
         "modality_lut_descriptor": {

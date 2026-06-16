@@ -6121,6 +6121,7 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
         "Window Widths",
         "/grouped_coverage/window_widths",
     );
+    append_count_map_section(&mut output, report, "KVPs", "/grouped_coverage/kvps");
     append_count_map_section(
         &mut output,
         report,
@@ -6384,6 +6385,13 @@ fn generated_coverage_row(
     row_object.insert(
         "window_width".to_string(),
         report_window_width(file)
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
+    row_object.insert(
+        "kvp".to_string(),
+        file.pointer("/recipe/recipe_parameters/kvp")
+            .and_then(Value::as_str)
             .map(Value::from)
             .unwrap_or(Value::Null),
     );
@@ -6702,6 +6710,7 @@ fn skipped_coverage_row(
         .expect("skipped coverage row literal must be an object");
     row_object.insert("window_center".to_string(), Value::Null);
     row_object.insert("window_width".to_string(), Value::Null);
+    row_object.insert("kvp".to_string(), Value::Null);
     row_object.insert("display_shutter_shape".to_string(), Value::Null);
     row_object.insert(
         "display_shutter_presentation_value".to_string(),
@@ -6879,6 +6888,7 @@ struct GroupedCoverage {
     presentation_lut_shapes: BTreeMap<String, usize>,
     window_centers: BTreeMap<String, usize>,
     window_widths: BTreeMap<String, usize>,
+    kvps: BTreeMap<String, usize>,
     modality_lut_descriptors: BTreeMap<String, usize>,
     modality_lut_types: BTreeMap<String, usize>,
     modality_lut_data_value_lengths: BTreeMap<String, usize>,
@@ -7080,6 +7090,7 @@ impl GroupedCoverage {
             &mut self.window_widths,
             row.get("window_width").and_then(Value::as_str),
         );
+        increment_map(&mut self.kvps, row.get("kvp").and_then(Value::as_str));
         increment_map(
             &mut self.modality_lut_descriptors,
             row.get("modality_lut_descriptor").and_then(Value::as_str),
@@ -7246,6 +7257,10 @@ impl GroupedCoverage {
             "window_widths".to_string(),
             serde_json::to_value(&self.window_widths)
                 .expect("window width count map must serialize"),
+        );
+        grouped_object.insert(
+            "kvps".to_string(),
+            serde_json::to_value(&self.kvps).expect("KVP count map must serialize"),
         );
         grouped_object.insert(
             "modality_lut_descriptors".to_string(),

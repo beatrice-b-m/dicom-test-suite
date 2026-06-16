@@ -581,6 +581,12 @@ fn generate_command_writes_core_u16_native_pixel_case() {
             .and_then(Value::as_str),
         Some("400")
     );
+    assert_eq!(
+        ct_file
+            .pointer("/recipe/recipe_parameters/kvp")
+            .and_then(Value::as_str),
+        Some("120")
+    );
     assert!(
         validation_result_names(ct_file.pointer("/validation/internal"))
             .contains(&"ct_rescale_intercept"),

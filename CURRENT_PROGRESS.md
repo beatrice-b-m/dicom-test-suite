@@ -13,7 +13,7 @@
 - Phase 3 - Low-Risk Codec Enablement: in progress; 8-bit and 16-bit generated RLE Lossless Secondary Capture cases are implemented and round-trip validated; the first JPEG Baseline 8-bit RGB Secondary Capture case is generated and validated when the `jpeg` feature is enabled; the first JPEG-LS Lossless 8-bit MONOCHROME2 Secondary Capture case is generated and exact-hash validated when the `charls` feature is enabled; the first JPEG XL Lossless 8-bit RGB Secondary Capture case is generated and exact-hash validated when the `jpegxl` feature is enabled.
 - Phase 4 - JPEG 2000 And HTJ2K: complete for first lossless generated cases; JPEG 2000 Lossless has a project `jpeg2000` feature, a project-owned OpenJPEG-rs writer wrapper, a feature-gated generated Secondary Capture case, generation-time exact decoded-frame hash validation, CLI validation, report coverage, reproducibility evidence, and feature-gated capability-matrix promotion. JPEG 2000 lossy remains deferred. HTJ2K Lossless has a project `htj2k_openjph` feature, an OpenJPH external-command wrapper that fingerprints `ojph_compress` by executable SHA-256, fixed-option PGM encode support, exact DICOM-rs HTJ2K reader decode validation, a feature-gated generated Secondary Capture case, manifest runtime identity metadata, CLI validation, report coverage, and reproducibility evidence. HTJ2K lossy/RPCL variants remain deferred.
 - Phase 5 - Legacy And Specialty Compressed Syntaxes: complete for implement-now scope; JPEG Lossless SV1 and JPEG Lossless Process 14 now have generated feature-gated Secondary Capture cases through the project `legacy_jpeg_dcmtk` DCMTK `dcmcjpeg` file-level wrapper, including manifest runtime executable identity, exact DICOM-rs decoded-frame hash validation, report coverage, and reproducibility evidence. Deflated Image Frame Compression now has a generated feature-gated binary Segmentation multi-frame case through the project `deflate` feature and pinned DICOM-rs adapter, including exact decoded-frame hash validation, report coverage, and reproducibility evidence. JPEG Extended 12-bit DCMTK encode, metadata preservation, encapsulation, and byte-identical local reproducibility are proven, but generated-case promotion is intentionally deferred until an independent 12-bit JPEG Extended validation decoder/path is selected.
-- Phase 6 - Corpus Expansion And Reporting: in progress; report-summary coverage is implemented, broad default-build RLE Lossless expansion now covers Secondary Capture monochrome/color/palette/signed/padding/geometry/multi-frame cases, signed Pixel Padding Value/Range Limit handling, MONOCHROME1 and MONOCHROME2 signed padding cases, unsigned and signed multi-frame Pixel Padding cases including MONOCHROME1 signed multi-frame padding, modality-specific CT/MR/CR/DX/MG/US cases, VL Photographic RGB planar-configuration-0 and planar-configuration-1 cases, and VL Photographic PALETTE COLOR using the native project encoder without promoting deferred lossy or JPEG Extended 12-bit work.
+- Phase 6 - Corpus Expansion And Reporting: in progress; report-summary coverage is implemented and now includes row-level modality plus grouped modality counts, while broad default-build RLE Lossless expansion covers Secondary Capture monochrome/color/palette/signed/padding/geometry/multi-frame cases, signed Pixel Padding Value/Range Limit handling, MONOCHROME1 and MONOCHROME2 signed padding cases, unsigned and signed multi-frame Pixel Padding cases including MONOCHROME1 signed multi-frame padding, modality-specific CT/MR/CR/DX/MG/US cases, VL Photographic RGB planar-configuration-0 and planar-configuration-1 cases, and VL Photographic PALETTE COLOR using the native project encoder without promoting deferred lossy or JPEG Extended 12-bit work.
 
 ## Completed Work
 
@@ -202,6 +202,9 @@
 - Started Phase 6 with a report-summary slice that enriches coverage rows with `codec_family`, `codec_backend_id`, `codec_backend_kind`, `codec_feature_gate`, and `reason_code`.
 - Extended grouped JSON and Markdown coverage reports to summarize codec families, codec backends, codec backend kinds, determinism classes, and unavailable reason codes.
 - Added coverage-report schema fields for the new compressed-report metadata and focused report/schema tests proving generated compressed rows and feature-gated unavailable rows are summarized correctly.
+- Added report modality coverage as a Phase 6 report-matrix refinement.
+- Coverage rows now include `modality` from generated manifest DICOM metadata, skipped/unavailable rows emit `null`, grouped JSON reports include `grouped_coverage.modalities`, and Markdown reports render a Modalities grouped-coverage table.
+- Updated coverage-report schema and focused report/schema tests so modality is a documented coverage-row field and grouped modality counts are regression-covered.
 - Added `classic/sc/rgb_planar0_rle_lossless` as the first RGB compressed RLE Lossless Secondary Capture corpus expansion.
 - Reused the native project RLE Lossless encoder for a 2x2 8-bit RGB Planar Configuration 0 case, exercising three RLE segments while keeping generation byte-stable and feature-independent.
 - Added registry evidence for Secondary Capture Image Storage, RLE Lossless UID, PS3.5 RLE image compression rules, Samples Per Pixel, and Planar Configuration.
@@ -1683,14 +1686,27 @@
 - `cargo run -- generate --profile extended --out /tmp/dts-mono1-signed-padding-multiframe-rle-repro-a-0616 --seed 1`: passed, 59 files written.
 - `cargo run -- generate --profile extended --out /tmp/dts-mono1-signed-padding-multiframe-rle-repro-b-0616 --seed 1`: passed, 59 files written.
 - `diff -r /tmp/dts-mono1-signed-padding-multiframe-rle-repro-a-0616 /tmp/dts-mono1-signed-padding-multiframe-rle-repro-b-0616`: passed with no differences.
+- `git status --short`: passed before slice selection; working tree was clean.
+- `dicom-standard-kb` MCP `lookup_uid RLELossless`: passed; confirmed UID `1.2.840.10008.1.2.5` as a non-retired PS3.6 Transfer Syntax while evaluating whether to choose another RLE corpus slice.
+- `dicom-standard-kb` MCP `lookup_sop_class "Enhanced CT Image Storage"`: passed; confirmed Enhanced CT Image Storage UID `1.2.840.10008.5.1.4.1.1.2.1` and linked Enhanced CT Image IOD while evaluating whether an Enhanced CT RLE slice was suitably narrow.
+- `cargo fmt -- --check`: initially reported rustfmt-only wrapping in `tests/report_cli.rs`; passed after running `cargo fmt`.
+- `cargo test --test report_cli report_summarizes_compressed_codec_coverage`: passed.
+- `cargo test --test schema_artifacts coverage_report_schema_requires_the_specified_matrix_fields`: passed.
+- `cargo fmt`: passed during implementation formatting.
+- `cargo fmt -- --check`: passed after formatting.
+- `cargo test`: passed, full default-build suite clean.
+- `cargo run -- standards check-lock`: passed with existing documented lock warnings.
+- `cargo run -- generate --profile extended --out /tmp/dts-report-modality-slice-0616 --seed 1`: passed, 59 files written in the no-feature default build.
+- `cargo run -- validate /tmp/dts-report-modality-slice-0616`: passed, 59 files checked and 0 validation failures.
+- `cargo run -- report /tmp/dts-report-modality-slice-0616 --format json`: passed; report counted 59 generated rows, 9 skipped/unavailable rows, and included row-level `modality` plus grouped modality counts such as `OT: 32`, `CT: 4`, `MR: 4`, `SEG: 3`, `XC: 3`, and single generated rows for `CR`, `DX`, `US`, and other non-image modalities.
 
 ## Commit-Ready Summary
 
-- Phase 6 now includes a Secondary Capture MONOCHROME1 signed 16-bit multi-frame Pixel Padding RLE Lossless expansion case, `classic/sc/mono1_i16_padding_multiframe_rle_lossless`.
-- The new case is default-build, byte-stable, generated through the native RLE encoder with two encapsulated fragments and a populated Basic Offset Table containing two offsets.
-- The case validates signed Pixel Padding Value/Range Limit, MONOCHROME1 photometric metadata, Number of Frames, encapsulated Pixel Data layout, and exact decoded native frame hashes, and appears in JSON reports with native RLE codec metadata, MONOCHROME1 photometric coverage, signed 16-bit samples, and two frames.
-- No capability-matrix entries, generated DICOM payloads, or deferred lossy/JPEG Extended 12-bit decisions changed in this slice.
+- Phase 6 reporting now exposes DICOM modality as a first-class coverage axis.
+- Generated coverage rows carry `modality` from manifest `/dicom/modality`; skipped and unavailable rows carry `null` until registry modality metadata exists.
+- Grouped JSON and Markdown reports now include modality counts, and the coverage-report schema plus focused tests document the new field.
+- No generator recipes, capability-matrix entries, generated DICOM payloads, or deferred codec decisions changed in this slice.
 
 ## Recommended Next Commit
 
-Continue Phase 6 with the next smallest compressed corpus expansion that reuses already implemented lossless codec families without new backend policy work. Good candidates include another standards-compatible RLE Lossless modality or pixel-semantics target, or a small report matrix refinement. Do not add a VL Photographic multi-frame case without stronger standards evidence for Number of Frames in that IOD, do not add an RLE YBR_FULL_422 case unless new standards evidence supersedes PS3.5 Table 8.2.2-1, and do not promote JPEG Extended 12-bit or deferred lossy variants until their validation policies are selected.
+Continue Phase 6 with the next smallest compressed corpus expansion or report refinement that reuses already implemented lossless codec families without new backend policy work. Good candidates include another standards-compatible RLE Lossless modality or pixel-semantics target, deriving modality for skipped/unavailable report rows from registry metadata if that metadata is added, or another small report matrix refinement. Do not add a VL Photographic multi-frame case without stronger standards evidence for Number of Frames in that IOD, do not add an RLE YBR_FULL_422 case unless new standards evidence supersedes PS3.5 Table 8.2.2-1, and do not promote JPEG Extended 12-bit or deferred lossy variants until their validation policies are selected.

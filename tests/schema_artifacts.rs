@@ -232,6 +232,7 @@ fn coverage_report_schema_requires_the_specified_matrix_fields() {
         "profile",
         "status",
         "iod",
+        "modality",
         "sop_class_uid",
         "transfer_syntax",
         "codec_family",

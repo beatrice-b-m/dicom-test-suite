@@ -1154,6 +1154,7 @@ fn report_summarizes_compressed_codec_coverage() {
                 "case_id": "classic/sc/mono2_u8_rle_lossless",
                 "dicom": {
                     "iod_name": "Secondary Capture Image",
+                    "modality": "OT",
                     "sop_class_uid": "1.2.840.10008.5.1.4.1.1.7",
                     "transfer_syntax_uid": "1.2.840.10008.1.2.5"
                 },
@@ -1206,6 +1207,10 @@ fn report_summarizes_compressed_codec_coverage() {
         Some("native_rle_lossless")
     );
     assert_eq!(
+        generated.get("modality").and_then(Value::as_str),
+        Some("OT")
+    );
+    assert_eq!(
         report
             .pointer("/grouped_coverage/codec_families/RLE Lossless")
             .and_then(Value::as_u64),
@@ -1231,6 +1236,12 @@ fn report_summarizes_compressed_codec_coverage() {
     );
     assert_eq!(
         report
+            .pointer("/grouped_coverage/modalities/OT")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
             .pointer("/grouped_coverage/unavailable_reasons/feature_gated_case_unavailable")
             .and_then(Value::as_u64),
         Some(1)
@@ -1246,6 +1257,8 @@ fn report_summarizes_compressed_codec_coverage() {
     let markdown = dicom_test_suite::render_coverage_report_markdown(&report);
     assert!(markdown.contains("### Codec Families"));
     assert!(markdown.contains("| RLE Lossless | 1 |"));
+    assert!(markdown.contains("### Modalities"));
+    assert!(markdown.contains("| OT | 1 |"));
     assert!(markdown.contains("### Codec Backends"));
     assert!(markdown.contains("| native_rle_lossless | 1 |"));
     assert!(markdown.contains("### Unavailable Reasons"));

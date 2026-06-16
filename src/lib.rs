@@ -5884,6 +5884,12 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
     append_count_map_section(
         &mut output,
         report,
+        "Modalities",
+        "/grouped_coverage/modalities",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
         "Transfer Syntaxes",
         "/grouped_coverage/transfer_syntaxes",
     );
@@ -6011,6 +6017,7 @@ fn generated_coverage_row(
         "profile": run_profile,
         "status": "generated",
         "iod": report_str(manifest_path, file, "/dicom/iod_name", "dicom iod_name must be a string")?,
+        "modality": file.pointer("/dicom/modality").and_then(Value::as_str),
         "sop_class_uid": report_str(manifest_path, file, "/dicom/sop_class_uid", "dicom sop_class_uid must be a string")?,
         "transfer_syntax": transfer_syntax,
         "codec_family": compressed_codec_family(transfer_syntax),
@@ -6106,6 +6113,7 @@ fn skipped_coverage_row(
         "profile": run_profile,
         "status": status,
         "iod": registry_case.get("iod_name").and_then(Value::as_str).unwrap_or(""),
+        "modality": Value::Null,
         "sop_class_uid": registry_case.get("sop_class_uid").and_then(Value::as_str).unwrap_or(""),
         "transfer_syntax": transfer_syntax,
         "codec_family": compressed_codec_family(transfer_syntax),
@@ -6182,6 +6190,7 @@ struct CoverageCounts {
 struct GroupedCoverage {
     profiles: BTreeMap<String, usize>,
     iods: BTreeMap<String, usize>,
+    modalities: BTreeMap<String, usize>,
     sop_classes: BTreeMap<String, usize>,
     transfer_syntaxes: BTreeMap<String, usize>,
     codec_families: BTreeMap<String, usize>,
@@ -6201,6 +6210,10 @@ impl GroupedCoverage {
             row.get("profile").and_then(Value::as_str),
         );
         increment_map(&mut self.iods, row.get("iod").and_then(Value::as_str));
+        increment_map(
+            &mut self.modalities,
+            row.get("modality").and_then(Value::as_str),
+        );
         increment_map(
             &mut self.sop_classes,
             row.get("sop_class_uid").and_then(Value::as_str),
@@ -6251,6 +6264,7 @@ impl GroupedCoverage {
         serde_json::json!({
             "profiles": self.profiles,
             "iods": self.iods,
+            "modalities": self.modalities,
             "sop_classes": self.sop_classes,
             "transfer_syntaxes": self.transfer_syntaxes,
             "codec_families": self.codec_families,

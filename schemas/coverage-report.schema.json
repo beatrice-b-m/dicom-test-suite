@@ -38,6 +38,9 @@
         "iods": {
           "$ref": "#/$defs/count_map"
         },
+        "modalities": {
+          "$ref": "#/$defs/count_map"
+        },
         "sop_classes": {
           "$ref": "#/$defs/count_map"
         },
@@ -154,6 +157,7 @@
         "profile",
         "status",
         "iod",
+        "modality",
         "sop_class_uid",
         "transfer_syntax",
         "codec_family",
@@ -182,6 +186,9 @@
         },
         "iod": {
           "type": "string"
+        },
+        "modality": {
+          "type": ["string", "null"]
         },
         "sop_class_uid": {
           "type": "string"

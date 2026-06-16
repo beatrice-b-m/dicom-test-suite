@@ -1627,7 +1627,7 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\textended"));
-    let expected_extended_files = 61
+    let expected_extended_files = 62
         + if cfg!(feature = "deflate") { 2 } else { 0 }
         + if cfg!(feature = "jpeg") { 1 } else { 0 }
         + if cfg!(feature = "charls") { 1 } else { 0 }
@@ -3123,6 +3123,51 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
                 .iter()
                 .any(|stress| stress.as_str() == Some("encapsulated_item_padding"))),
         "odd RLE case should label encapsulated item padding as a stressor"
+    );
+    let rle_mono1_odd_file =
+        file_entry_by_case_id(&manifest, "classic/sc/mono1_u8_odd_fragment_rle_lossless");
+    assert_eq!(
+        rle_mono1_odd_file
+            .pointer("/image/photometric_interpretation")
+            .and_then(Value::as_str),
+        Some("MONOCHROME1")
+    );
+    assert_eq!(
+        rle_mono1_odd_file
+            .pointer("/image/planar_configuration")
+            .is_some_and(Value::is_null),
+        true,
+        "single-sample MONOCHROME1 odd RLE should not include Planar Configuration"
+    );
+    let mono1_odd_fragment = rle_mono1_odd_file
+        .pointer("/pixel_data/encapsulated_pixel_data/fragments/0")
+        .expect("MONOCHROME1 odd RLE case should record first fragment metadata");
+    let mono1_compressed_length = mono1_odd_fragment
+        .get("compressed_length")
+        .and_then(Value::as_u64)
+        .expect("MONOCHROME1 odd RLE fragment should record compressed length");
+    let mono1_padded_length = mono1_odd_fragment
+        .get("padded_length")
+        .and_then(Value::as_u64)
+        .expect("MONOCHROME1 odd RLE fragment should record padded length");
+    assert_eq!(
+        mono1_compressed_length % 2,
+        1,
+        "MONOCHROME1 RLE fragment should exercise odd compressed length"
+    );
+    assert_eq!(
+        mono1_padded_length,
+        mono1_compressed_length + 1,
+        "encapsulated item padding should round the MONOCHROME1 odd RLE fragment length up by one byte"
+    );
+    assert!(
+        rle_mono1_odd_file
+            .pointer("/known_stressors")
+            .and_then(Value::as_array)
+            .is_some_and(|stressors| stressors
+                .iter()
+                .any(|stress| stress.as_str() == Some("encapsulated_item_padding"))),
+        "MONOCHROME1 odd RLE case should label encapsulated item padding as a stressor"
     );
     let cr_rle_file =
         file_entry_by_case_id(&manifest, "classic/cr/overlay_modality_voi_rle_lossless");
@@ -6339,7 +6384,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\tall"));
-    let expected_all_files = 83
+    let expected_all_files = 84
         + if cfg!(feature = "deflate") { 2 } else { 0 }
         + if cfg!(feature = "jpeg") { 1 } else { 0 }
         + if cfg!(feature = "charls") { 1 } else { 0 }
@@ -6430,6 +6475,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
     file_entry_by_case_id(&manifest, "classic/sc/mono2_i16_multiframe_rle_lossless");
     file_entry_by_case_id(&manifest, "classic/sc/mono1_i16_multiframe_rle_lossless");
     file_entry_by_case_id(&manifest, "classic/sc/mono2_u8_odd_fragment_rle_lossless");
+    file_entry_by_case_id(&manifest, "classic/sc/mono1_u8_odd_fragment_rle_lossless");
     file_entry_by_case_id(&manifest, "classic/cr/overlay_modality_voi_rle_lossless");
     file_entry_by_case_id(
         &manifest,

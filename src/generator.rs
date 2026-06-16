@@ -1059,6 +1059,29 @@ const PIXEL_RECIPES: &[PixelRecipe] = &[
         padding: None,
     },
     PixelRecipe {
+        case_id: "classic/sc/mono1_u8_odd_fragment_rle_lossless",
+        recipe_id: "sc_mono1_u8_odd_fragment_rle_lossless",
+        rows: 1,
+        columns: 2,
+        photometric_interpretation: "MONOCHROME1",
+        samples_per_pixel: 1,
+        planar_configuration: None,
+        bits_allocated: 8,
+        bits_stored: 8,
+        high_bit: 7,
+        pixel_representation: 0,
+        pixel_vr: VR::OB,
+        transfer_syntax: RLE_LOSSLESS,
+        pixel_bytes: &MONO_ODD_RLE_PIXELS,
+        pixel_values: &MONO_ODD_RLE_VALUES,
+        pixel_min: 0,
+        pixel_max: 255,
+        visual_pattern: "1x2_inverse_monochrome_rle_lossless_odd_fragment",
+        semantic_note: "two literal MONOCHROME1 samples produce an odd-length RLE fragment padded in encapsulated Pixel Data",
+        palette: None,
+        padding: None,
+    },
+    PixelRecipe {
         case_id: "classic/sc/rgb_planar0_rle_lossless",
         recipe_id: "sc_rgb_planar0_rle_lossless",
         rows: 2,
@@ -5173,7 +5196,11 @@ fn pixel_known_stressors(recipe: PixelRecipe) -> Vec<&'static str> {
     if recipe.transfer_syntax == DEFLATED_EXPLICIT_VR_LITTLE_ENDIAN {
         stressors.push("deflated_dataset_transfer_syntax");
     }
-    if recipe.case_id == "classic/sc/mono2_u8_odd_fragment_rle_lossless" {
+    if matches!(
+        recipe.case_id,
+        "classic/sc/mono2_u8_odd_fragment_rle_lossless"
+            | "classic/sc/mono1_u8_odd_fragment_rle_lossless"
+    ) {
         stressors.push("odd_compressed_fragment_length");
         stressors.push("encapsulated_item_padding");
     }
@@ -5222,6 +5249,7 @@ fn pixel_profile_membership(recipe: PixelRecipe) -> &'static [&'static str] {
         | "classic/sc/mono2_i16_multiframe_rle_lossless"
         | "classic/sc/mono1_i16_multiframe_rle_lossless"
         | "classic/sc/mono2_u8_odd_fragment_rle_lossless"
+        | "classic/sc/mono1_u8_odd_fragment_rle_lossless"
         | "vl/photo/rgb_planar0_rle_lossless"
         | "vl/photo/rgb_planar1_rle_lossless"
         | "vl/photo/palette_color_rle_lossless"

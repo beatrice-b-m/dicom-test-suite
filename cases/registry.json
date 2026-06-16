@@ -7339,6 +7339,66 @@
       ]
     },
     {
+      "case_id": "classic/sc/mono1_u8_odd_fragment_rle_lossless",
+      "status": "implemented",
+      "profiles": ["extended"],
+      "recipe_id": "sc_mono1_u8_odd_fragment_rle_lossless",
+      "recipe_version": "0.1.0",
+      "iod_name": "Secondary Capture Image",
+      "sop_class_name": "Secondary Capture Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.7",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.5",
+      "determinism": "byte_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_sop_class Secondary Capture Image Storage",
+          "covered": true,
+          "part": "PS3.4",
+          "anchor": "table_B.5-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_uid RLELossless",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "retrieve_standard_text sect_8.2.2",
+          "covered": true,
+          "part": "PS3.5",
+          "anchor": "sect_8.2.2"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "resolve_attribute_context PhotometricInterpretation --iod Secondary Capture Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.7-11c"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "retrieve_standard_text sect_A.4",
+          "covered": true,
+          "part": "PS3.5",
+          "anchor": "sect_A.4"
+        }
+      ]
+    },
+    {
       "case_id": "vl/photo/palette_color_rle_lossless",
       "status": "implemented",
       "profiles": ["extended"],

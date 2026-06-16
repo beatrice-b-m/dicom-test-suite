@@ -22,6 +22,7 @@
 - Latest Phase 6 report slice adds source-reference SOP Instance UID root buckets to coverage reports: row-level `derived_reference_sop_instance_uid_roots` arrays plus grouped UID-root counts in JSON and Markdown reports, sourced from existing manifest `references[*].sop_instance_uid` metadata and DICOM element Referenced SOP Instance UID `(0008,1155)`.
 - Latest Phase 6 report slice adds Enhanced MR per-frame labels to coverage reports: row-level `enhanced_mr_effective_echo_times`, `enhanced_mr_temporal_position_time_offsets`, `enhanced_mr_velocity_encoding_minimum_value`, and `enhanced_mr_velocity_encoding_maximum_value` plus grouped counts in JSON and Markdown reports, sourced from existing manifest `recipe_parameters.per_frame_functional_groups` metadata and DICOM elements Effective Echo Time `(0018,9082)`, Temporal Position Time Offset `(0020,930D)`, Velocity Encoding Minimum Value `(0018,9091)`, and Velocity Encoding Maximum Value `(0018,9217)`.
 - Latest Phase 6 report slice adds Enhanced CT dimension and concatenation labels to coverage reports: row-level `enhanced_ct_dimension_index_values`, `enhanced_ct_in_concatenation_number`, `enhanced_ct_in_concatenation_total_number`, and `enhanced_ct_concatenation_frame_offset_number` plus grouped counts in JSON and Markdown reports, sourced from existing Enhanced CT manifest `expected_semantics.dimension_index_values` and `expected_semantics.concatenation` metadata and DICOM elements Dimension Index Values `(0020,9157)`, In-concatenation Number `(0020,9162)`, In-concatenation Total Number `(0020,9163)`, and Concatenation Frame Offset Number `(0020,9228)`.
+- Latest Phase 6 report slice adds Segmentation content labels to coverage reports: row-level `segmentation_type`, `segmentation_fractional_type`, and `segmentation_maximum_fractional_value` plus grouped counts in JSON and Markdown reports, sourced from existing SEG manifest `recipe_parameters` metadata and DICOM elements Segmentation Type `(0062,0001)`, Segmentation Fractional Type `(0062,0010)`, and Maximum Fractional Value `(0062,000E)`.
 
 ## Completed Work
 
@@ -588,6 +589,10 @@
 - JSON and Markdown grouped coverage now include `enhanced_ct_dimension_index_values`, `enhanced_ct_in_concatenation_numbers`, `enhanced_ct_in_concatenation_total_numbers`, and `enhanced_ct_concatenation_frame_offset_numbers`, exposing the default extended Enhanced CT buckets `1; 2`, `1`, `2`, concatenation numbers `1` and `2`, total `2`, and frame offsets `0` and `1`.
 - Skipped/unavailable rows and non-Enhanced-CT generated rows keep the new Enhanced CT report fields null.
 - Updated the coverage-report schema plus focused report/schema tests for row-level Enhanced CT dimension/concatenation labels, grouped JSON counts, and grouped Markdown output.
+- Added nullable row-level Segmentation content coverage fields sourced from existing generated manifest recipe parameters: `segmentation_type`, `segmentation_fractional_type`, and `segmentation_maximum_fractional_value`.
+- JSON and Markdown grouped coverage now include `segmentation_types`, `segmentation_fractional_types`, and `segmentation_maximum_fractional_values`, exposing the default extended SEG buckets `BINARY = 1`, `FRACTIONAL = 1`, `LABELMAP = 1`, `PROBABILITY = 1`, and maximum fractional value `255 = 1`.
+- Skipped/unavailable rows and generated non-SEG rows keep the new Segmentation report fields null.
+- Updated the coverage-report schema plus focused report/schema tests for row-level Segmentation content labels, grouped JSON counts, and grouped Markdown output.
 
 ## Blockers
 
@@ -2942,15 +2947,34 @@
 - `cargo run -- validate /tmp/dts-enhanced-ct-concat-report-slice-0616`: passed, 75 files checked and 0 validation failures.
 - `cargo run -- report /tmp/dts-enhanced-ct-concat-report-slice-0616 --format json | jq '{generated: .counts.generated, unavailable: .counts.skipped, dimension: .grouped_coverage.enhanced_ct_dimension_index_values, concat_numbers: .grouped_coverage.enhanced_ct_in_concatenation_numbers, concat_totals: .grouped_coverage.enhanced_ct_in_concatenation_total_numbers, concat_offsets: .grouped_coverage.enhanced_ct_concatenation_frame_offset_numbers}'`: passed; report counted 75 generated rows and 9 unavailable feature-gated rows, emitted grouped Enhanced CT buckets `dimension["1; 2"] = 1`, `dimension["1"] = 1`, `dimension["2"] = 1`, `concat_numbers["1"] = 1`, `concat_numbers["2"] = 1`, `concat_totals["2"] = 2`, `concat_offsets["0"] = 1`, and `concat_offsets["1"] = 1`.
 - `cargo run -- report /tmp/dts-enhanced-ct-concat-report-slice-0616 --format markdown | rg -n "Enhanced CT|\| 1; 2 \||\| 2 \| 2 \|"`: passed; Markdown includes Enhanced CT Dimension Index Values, In-concatenation Numbers, In-concatenation Total Numbers, and Concatenation Frame Offset Numbers grouped coverage tables with the expected extended buckets.
+- `git status --short`: passed before slice selection; working tree was clean.
+- `dicom-standard-kb` MCP `lookup_data_element SegmentationType`: passed; confirmed Segmentation Type `(0062,0001)` has VR `CS`, VM `1`, and is not retired in PS3.6 2026b.
+- `dicom-standard-kb` MCP `lookup_data_element SegmentationFractionalType`: passed; confirmed Segmentation Fractional Type `(0062,0010)` has VR `CS`, VM `1`, and is not retired in PS3.6 2026b.
+- `dicom-standard-kb` MCP `lookup_data_element MaximumFractionalValue`: passed; confirmed Maximum Fractional Value `(0062,000E)` has VR `US`, VM `1`, and is not retired in PS3.6 2026b.
+- `dicom-standard-kb` MCP `lookup_uid SegmentationStorage`: passed; confirmed Segmentation Storage SOP Class UID `1.2.840.10008.5.1.4.1.1.66.4` is not retired in PS3.6 2026b.
+- `dicom-standard-kb` MCP `lookup_uid LabelMapSegmentationStorage`: passed; confirmed Label Map Segmentation Storage SOP Class UID `1.2.840.10008.5.1.4.1.1.66.7` is not retired in PS3.6 2026b.
+- `cargo fmt`: passed during implementation formatting.
+- `jq empty schemas/coverage-report.schema.json`: passed.
+- `cargo test --test report_cli --test schema_artifacts`: initially failed because the new test expected two default extended BINARY segmentation rows; passed after correcting the assertion to the actual default extended grouped count of `BINARY = 1`, 19 focused report/schema tests.
+- `cargo fmt -- --check`: passed.
+- `git diff --check`: passed.
+- `cargo test`: passed, full default-build suite clean.
+- `cargo run -- standards check-lock`: passed with existing documented lock warnings.
+- `cargo run -- generate --profile extended --out /tmp/dts-segmentation-report-slice-0616 --seed 1`: passed, 75 files written in the no-feature default build.
+- `cargo run -- validate /tmp/dts-segmentation-report-slice-0616`: passed, 75 files checked and 0 validation failures.
+- `cargo run -- report /tmp/dts-segmentation-report-slice-0616 --format json > /tmp/dts-segmentation-report-slice-0616.json`: passed.
+- `jq '{generated: .counts.generated, unavailable: .counts.skipped, segmentation_types: .grouped_coverage.segmentation_types, segmentation_fractional_types: .grouped_coverage.segmentation_fractional_types, segmentation_maximum_fractional_values: .grouped_coverage.segmentation_maximum_fractional_values}' /tmp/dts-segmentation-report-slice-0616.json`: passed; report counted 75 generated rows and 9 unavailable feature-gated rows, emitted grouped Segmentation buckets `BINARY = 1`, `FRACTIONAL = 1`, `LABELMAP = 1`, `PROBABILITY = 1`, and `255 = 1`.
+- `cargo run -- report /tmp/dts-segmentation-report-slice-0616 --format markdown > /tmp/dts-segmentation-report-slice-0616.md`: passed.
+- `rg -n "Segmentation (Types|Fractional Types|Maximum Fractional Values)|\| (BINARY|FRACTIONAL|LABELMAP|PROBABILITY|255) \| 1 \|" /tmp/dts-segmentation-report-slice-0616.md`: passed; Markdown includes Segmentation Types, Segmentation Fractional Types, and Segmentation Maximum Fractional Values grouped coverage tables with the expected extended buckets.
 
 ## Commit-Ready Summary
 
-- Added row-level Enhanced CT dimension and concatenation coverage sourced from existing manifest expected semantics metadata.
-- Added grouped Enhanced CT Dimension Index Values, In-concatenation Number, In-concatenation Total Number, and Concatenation Frame Offset Number coverage to JSON and Markdown reports.
+- Added row-level Segmentation content coverage sourced from existing manifest recipe parameters.
+- Added grouped Segmentation Type, Segmentation Fractional Type, and Maximum Fractional Value coverage to JSON and Markdown reports.
 - The coverage-report schema and focused report/schema tests now require the new row fields and grouped count maps.
-- Extended report verification shows the new fields/tables expose the existing two-frame Enhanced CT and two-part Enhanced CT concatenation cases.
+- Extended report verification shows the new fields/tables expose the existing binary, fractional probability, and labelmap SEG cases.
 - No registry rows, generated DICOM element values, capability-matrix entries, feature gates, external codec backends, deferred lossy policies, or JPEG Extended 12-bit decisions changed in this slice.
 
 ## Recommended Next Commit
 
-Continue Phase 6 with the next smallest corpus expansion or report refinement that reuses already implemented generator infrastructure without new backend policy work. Prefer another under-covered manifest-backed report-matrix axis that improves compatibility triage visibility, such as additional CT acquisition parameters beyond KVP and concatenation labels, derived object content labels, or RT/SEG geometry/reference labels; otherwise choose the next standards-backed corpus case from `SYSTEM_SPEC.md` after checking `dicom-standard-kb` for any new IOD/SOP/module assumptions. Compressed expansion remains acceptable when it is standards-compatible and does not require a new backend decision. Do not add a VL Photographic multi-frame case without stronger standards evidence for Number of Frames in that IOD, do not add an RLE YBR_FULL_422 case unless new standards evidence supersedes PS3.5 Table 8.2.2-1, and do not promote JPEG Extended 12-bit or deferred lossy variants until their validation policies are selected.
+Continue Phase 6 with the next smallest corpus expansion or report refinement that reuses already implemented generator infrastructure without new backend policy work. Prefer another under-covered manifest-backed report-matrix axis that improves compatibility triage visibility, such as additional CT acquisition parameters beyond KVP and concatenation labels, RT/SEG geometry/reference labels, or derived object content labels not already covered by this slice; otherwise choose the next standards-backed corpus case from `SYSTEM_SPEC.md` after checking `dicom-standard-kb` for any new IOD/SOP/module assumptions. Compressed expansion remains acceptable when it is standards-compatible and does not require a new backend decision. Do not add a VL Photographic multi-frame case without stronger standards evidence for Number of Frames in that IOD, do not add an RLE YBR_FULL_422 case unless new standards evidence supersedes PS3.5 Table 8.2.2-1, and do not promote JPEG Extended 12-bit or deferred lossy variants until their validation policies are selected.

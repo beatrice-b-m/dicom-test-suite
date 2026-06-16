@@ -999,6 +999,122 @@ fn report_command_writes_enhanced_ct_concatenation_coverage_for_extended_root() 
 }
 
 #[test]
+fn report_command_writes_segmentation_content_coverage_for_extended_root() {
+    let out_dir = unique_temp_dir("report-segmentation-content-json");
+    generate_extended(&out_dir);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args([
+            "report",
+            out_dir.to_str().expect("temp path should be valid UTF-8"),
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("report command must run");
+
+    assert!(
+        output.status.success(),
+        "report should accept generated output: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let report: Value =
+        serde_json::from_slice(&output.stdout).expect("report stdout should be JSON");
+    assert_eq!(
+        coverage_row(&report, "derived/seg/binary_multiframe_explicit_le")
+            .get("segmentation_type")
+            .and_then(Value::as_str),
+        Some("BINARY")
+    );
+    let fractional_row = coverage_row(
+        &report,
+        "derived/seg/fractional_probability_multiframe_explicit_le",
+    );
+    assert_eq!(
+        fractional_row
+            .get("segmentation_type")
+            .and_then(Value::as_str),
+        Some("FRACTIONAL")
+    );
+    assert_eq!(
+        fractional_row
+            .get("segmentation_fractional_type")
+            .and_then(Value::as_str),
+        Some("PROBABILITY")
+    );
+    assert_eq!(
+        fractional_row
+            .get("segmentation_maximum_fractional_value")
+            .and_then(Value::as_u64),
+        Some(255)
+    );
+    assert_eq!(
+        coverage_row(&report, "derived/seg/labelmap_multiframe_explicit_le")
+            .get("segmentation_type")
+            .and_then(Value::as_str),
+        Some("LABELMAP")
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/segmentation_types/BINARY")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/segmentation_types/FRACTIONAL")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/segmentation_types/LABELMAP")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/segmentation_fractional_types/PROBABILITY")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/segmentation_maximum_fractional_values/255")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+
+    let markdown_output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args([
+            "report",
+            out_dir.to_str().expect("temp path should be valid UTF-8"),
+            "--format",
+            "markdown",
+        ])
+        .output()
+        .expect("report markdown command must run");
+
+    assert!(
+        markdown_output.status.success(),
+        "markdown report should accept generated output: {}",
+        String::from_utf8_lossy(&markdown_output.stderr)
+    );
+    let markdown =
+        String::from_utf8(markdown_output.stdout).expect("markdown stdout should be UTF-8");
+    assert!(markdown.contains("### Segmentation Types"));
+    assert!(markdown.contains("| BINARY | 1 |"));
+    assert!(markdown.contains("| FRACTIONAL | 1 |"));
+    assert!(markdown.contains("| LABELMAP | 1 |"));
+    assert!(markdown.contains("### Segmentation Fractional Types"));
+    assert!(markdown.contains("| PROBABILITY | 1 |"));
+    assert!(markdown.contains("### Segmentation Maximum Fractional Values"));
+    assert!(markdown.contains("| 255 | 1 |"));
+
+    fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
+}
+
+#[test]
 fn report_command_writes_markdown_coverage_for_core_root() {
     let out_dir = unique_temp_dir("report-core-markdown");
     generate_core(&out_dir);

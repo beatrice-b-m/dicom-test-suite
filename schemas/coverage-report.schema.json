@@ -230,6 +230,15 @@
         "enhanced_mr_velocity_encoding_maximum_values": {
           "$ref": "#/$defs/count_map"
         },
+        "segmentation_types": {
+          "$ref": "#/$defs/count_map"
+        },
+        "segmentation_fractional_types": {
+          "$ref": "#/$defs/count_map"
+        },
+        "segmentation_maximum_fractional_values": {
+          "$ref": "#/$defs/count_map"
+        },
         "modality_lut_descriptors": {
           "$ref": "#/$defs/count_map"
         },
@@ -445,6 +454,9 @@
         "enhanced_mr_temporal_position_time_offsets",
         "enhanced_mr_velocity_encoding_minimum_value",
         "enhanced_mr_velocity_encoding_maximum_value",
+        "segmentation_type",
+        "segmentation_fractional_type",
+        "segmentation_maximum_fractional_value",
         "modality_lut_descriptor",
         "modality_lut_type",
         "modality_lut_data_value_length",
@@ -728,6 +740,16 @@
         },
         "enhanced_mr_velocity_encoding_maximum_value": {
           "type": ["string", "null"]
+        },
+        "segmentation_type": {
+          "type": ["string", "null"]
+        },
+        "segmentation_fractional_type": {
+          "type": ["string", "null"]
+        },
+        "segmentation_maximum_fractional_value": {
+          "type": ["integer", "null"],
+          "minimum": 0
         },
         "modality_lut_descriptor": {
           "type": ["string", "null"]

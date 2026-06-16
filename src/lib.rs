@@ -6281,6 +6281,24 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
     append_count_map_section(
         &mut output,
         report,
+        "Segmentation Types",
+        "/grouped_coverage/segmentation_types",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "Segmentation Fractional Types",
+        "/grouped_coverage/segmentation_fractional_types",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "Segmentation Maximum Fractional Values",
+        "/grouped_coverage/segmentation_maximum_fractional_values",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
         "Modality LUT Descriptors",
         "/grouped_coverage/modality_lut_descriptors",
     );
@@ -6763,6 +6781,27 @@ fn generated_coverage_row(
         .and_then(report_scalar_label)
         .map(Value::from)
         .unwrap_or(Value::Null),
+    );
+    row_object.insert(
+        "segmentation_type".to_string(),
+        file.pointer("/recipe/recipe_parameters/segmentation_type")
+            .and_then(Value::as_str)
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
+    row_object.insert(
+        "segmentation_fractional_type".to_string(),
+        file.pointer("/recipe/recipe_parameters/segmentation_fractional_type")
+            .and_then(Value::as_str)
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
+    row_object.insert(
+        "segmentation_maximum_fractional_value".to_string(),
+        file.pointer("/recipe/recipe_parameters/maximum_fractional_value")
+            .and_then(Value::as_u64)
+            .map(Value::from)
+            .unwrap_or(Value::Null),
     );
     row_object.insert(
         "display_shutter_shape".to_string(),
@@ -7340,6 +7379,12 @@ fn skipped_coverage_row(
         "enhanced_mr_velocity_encoding_maximum_value".to_string(),
         Value::Null,
     );
+    row_object.insert("segmentation_type".to_string(), Value::Null);
+    row_object.insert("segmentation_fractional_type".to_string(), Value::Null);
+    row_object.insert(
+        "segmentation_maximum_fractional_value".to_string(),
+        Value::Null,
+    );
     row_object.insert("display_shutter_shape".to_string(), Value::Null);
     row_object.insert(
         "display_shutter_presentation_value".to_string(),
@@ -7551,6 +7596,9 @@ struct GroupedCoverage {
     enhanced_mr_temporal_position_time_offsets: BTreeMap<String, usize>,
     enhanced_mr_velocity_encoding_minimum_values: BTreeMap<String, usize>,
     enhanced_mr_velocity_encoding_maximum_values: BTreeMap<String, usize>,
+    segmentation_types: BTreeMap<String, usize>,
+    segmentation_fractional_types: BTreeMap<String, usize>,
+    segmentation_maximum_fractional_values: BTreeMap<String, usize>,
     modality_lut_descriptors: BTreeMap<String, usize>,
     modality_lut_types: BTreeMap<String, usize>,
     modality_lut_data_value_lengths: BTreeMap<String, usize>,
@@ -7904,6 +7952,24 @@ impl GroupedCoverage {
                 .and_then(Value::as_str),
         );
         increment_map(
+            &mut self.segmentation_types,
+            row.get("segmentation_type").and_then(Value::as_str),
+        );
+        increment_map(
+            &mut self.segmentation_fractional_types,
+            row.get("segmentation_fractional_type")
+                .and_then(Value::as_str),
+        );
+        if let Some(value) = row
+            .get("segmentation_maximum_fractional_value")
+            .and_then(Value::as_u64)
+        {
+            *self
+                .segmentation_maximum_fractional_values
+                .entry(value.to_string())
+                .or_default() += 1;
+        }
+        increment_map(
             &mut self.modality_lut_descriptors,
             row.get("modality_lut_descriptor").and_then(Value::as_str),
         );
@@ -8203,6 +8269,21 @@ impl GroupedCoverage {
             "enhanced_mr_velocity_encoding_maximum_values".to_string(),
             serde_json::to_value(&self.enhanced_mr_velocity_encoding_maximum_values)
                 .expect("Enhanced MR velocity encoding maximum value count map must serialize"),
+        );
+        grouped_object.insert(
+            "segmentation_types".to_string(),
+            serde_json::to_value(&self.segmentation_types)
+                .expect("segmentation type count map must serialize"),
+        );
+        grouped_object.insert(
+            "segmentation_fractional_types".to_string(),
+            serde_json::to_value(&self.segmentation_fractional_types)
+                .expect("segmentation fractional type count map must serialize"),
+        );
+        grouped_object.insert(
+            "segmentation_maximum_fractional_values".to_string(),
+            serde_json::to_value(&self.segmentation_maximum_fractional_values)
+                .expect("segmentation maximum fractional value count map must serialize"),
         );
         grouped_object.insert(
             "modality_lut_descriptors".to_string(),

@@ -3123,6 +3123,18 @@ fn report_command_counts_generated_rgb_rle_lossless_row() {
             .and_then(Value::as_str),
         Some("native_project_rle_encoder")
     );
+    assert_eq!(
+        multiframe_row
+            .get("basic_offset_table")
+            .and_then(Value::as_str),
+        Some("empty")
+    );
+    assert_eq!(
+        multiframe_row
+            .get("encapsulated_fragment_layout")
+            .and_then(Value::as_str),
+        Some("single_fragment_per_frame")
+    );
     let mono1_multiframe_row = coverage_row(&report, "classic/sc/mono1_u8_multiframe_rle_lossless");
     assert_eq!(
         mono1_multiframe_row.get("status").and_then(Value::as_str),

@@ -7,6 +7,10 @@
 
 ## Phase Status
 
+- The existing `classic/sc/mono2_u8_multiframe_rle_lossless` case now exercises
+  an empty Basic Offset Table while retaining exactly one fragment per frame.
+  Generation, CLI validation, reporting, and reproducibility keep exact native
+  frame hashes, and the registry cites PS3.5 Sections A.4 and A.4.2.
 - On 2026-07-28 the current-term scope was frozen: complete the existing
   lossless/native corpus with one empty-Basic-Offset-Table RLE case, one
   multi-fragment-per-frame JPEG Baseline case, automated default and
@@ -663,7 +667,6 @@
 - Legacy JPEG uses DCMTK `dcmcjpeg` as the selected backend for JPEG Lossless SV1 and JPEG Lossless Process 14. The generated `classic/sc/mono2_u16_jpeg_lossless_sv1` and `classic/sc/mono2_u16_jpeg_lossless_process_14` cases are implemented behind `legacy_jpeg_dcmtk`, record runtime executable identity, validate exact decoded native frame hashes through the pinned DICOM-rs JPEG reader, and remain semantic-stable because the external command identity is part of manifest evidence. JPEG Extended 12-bit has encode-only spike evidence and is deferred until an independent 12-bit decode/validation path is selected.
 - Deflated Image Frame Compression now uses the project `deflate` feature and pinned DICOM-rs `DeflatedImageFrameAdapter` as the selected backend. The first generated binary Segmentation multi-frame case enforces PS3.5 one-fragment-per-frame encapsulation plus exact decoded native frame hash validation, and the capability matrix is promoted to feature-gated encode/decode support.
 - Which independent validators should be used for JPEG 2000 and HTJ2K.
-- Whether the current project-owned RLE decoder should support multi-fragment frame reassembly in generation-time validation before a multi-fragment RLE case is added.
 
 ## Verification Results
 

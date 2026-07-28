@@ -3595,16 +3595,31 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
     );
     assert_eq!(
         rle_multiframe_file
+            .pointer("/pixel_data/encapsulated_pixel_data/basic_offset_table/populated")
+            .and_then(Value::as_bool),
+        Some(false)
+    );
+    assert_eq!(
+        rle_multiframe_file
             .pointer("/pixel_data/encapsulated_pixel_data/basic_offset_table/offset_count")
             .and_then(Value::as_u64),
-        Some(2)
+        Some(0)
     );
     assert_eq!(
         rle_multiframe_file
             .pointer("/pixel_data/encapsulated_pixel_data/fragments_per_frame")
             .and_then(Value::as_array)
-            .map(Vec::len),
-        Some(2)
+            .cloned(),
+        Some(vec![Value::from(1), Value::from(1)])
+    );
+    assert!(
+        rle_multiframe_file
+            .pointer("/known_stressors")
+            .and_then(Value::as_array)
+            .expect("multi-frame RLE manifest should include known stressors")
+            .iter()
+            .any(|stressor| stressor.as_str() == Some("empty_basic_offset_table")),
+        "multi-frame RLE case should label the empty Basic Offset Table"
     );
     assert!(
         validation_result_names(rle_multiframe_file.pointer("/validation/internal"))

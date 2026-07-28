@@ -4122,9 +4122,15 @@ fn write_pixel_case(
                 path: path.clone(),
                 message: err.to_string(),
             })?;
+        let basic_offset_table_policy =
+            if recipe.case_id == "classic/sc/mono2_u8_multiframe_rle_lossless" {
+                BasicOffsetTablePolicy::Empty
+            } else {
+                BasicOffsetTablePolicy::Populated
+            };
         let encapsulated = EncapsulatedPixelData::one_fragment_per_frame(
             &compressed_frames,
-            BasicOffsetTablePolicy::Populated,
+            basic_offset_table_policy,
         )
         .map_err(|err| GenerateError::WriteDicomFile {
             path: path.clone(),
@@ -5589,6 +5595,9 @@ fn pixel_known_stressors(recipe: PixelRecipe) -> Vec<&'static str> {
     ) {
         stressors.push("odd_compressed_fragment_length");
         stressors.push("encapsulated_item_padding");
+    }
+    if recipe.case_id == "classic/sc/mono2_u8_multiframe_rle_lossless" {
+        stressors.push("empty_basic_offset_table");
     }
     if recipe.palette.is_some() {
         stressors.push("palette_color_pixels");

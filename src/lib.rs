@@ -1279,7 +1279,6 @@ fn validate_encapsulated_pixel_data_manifest(
         usize::try_from(frame_count).unwrap_or(usize::MAX),
     );
     let mut all_single_fragment = true;
-    let mut all_multiple_fragments = true;
     let mut fragment_counts = Vec::with_capacity(fragments_per_frame.len());
     for fragment_count in fragments_per_frame {
         let Some(fragment_count) = fragment_count.as_u64() else {
@@ -1299,7 +1298,6 @@ fn validate_encapsulated_pixel_data_manifest(
             ));
         }
         all_single_fragment &= fragment_count == 1;
-        all_multiple_fragments &= fragment_count > 1;
         fragment_counts.push(fragment_count);
     }
 
@@ -1528,11 +1526,6 @@ fn validate_encapsulated_pixel_data_manifest(
         if extended_lengths_present {
             failures.push(format!(
                 "{relative_path}: extended_offset_table_lengths_without_table: Extended Offset Table Lengths require Extended Offset Table"
-            ));
-        }
-        if !basic_offset_table_populated && !all_multiple_fragments {
-            failures.push(format!(
-                "{relative_path}: empty_basic_offset_table_without_extended_offsets: empty Basic Offset Table without Extended Offset Table is reserved for multiple-fragment frames"
             ));
         }
     }

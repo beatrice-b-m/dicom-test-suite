@@ -1,9 +1,10 @@
 # Current Plan
 
-**Last updated:** 2026-06-16
-**Active goal:** comprehensive compressed image codec generation support
+**Last updated:** 2026-07-28
+**Active goal:** close the current-term compressed image codec generation scope
 **Source specification:** `SYSTEM_SPEC.md` version 0.2.0
-**Planning status:** Phase 5 legacy/specialty compressed syntax scope complete for implement-now cases; JPEG Extended 12-bit intentionally deferred; Phase 6 corpus expansion ready
+**Planning status:** implementation scope frozen; one encapsulation-layout case,
+automated feature verification, and release-readiness closure remain
 
 This document replaces the previous historical implementation plan and progress
 ledger. `SYSTEM_SPEC.md` remains the architecture and requirements source of
@@ -65,6 +66,27 @@ The work should prefer existing mature encoders and upstreamable `dicom-rs`
 adapters over from-scratch codec implementations. A project-owned native
 encoder is acceptable where the format is small and bounded, such as RLE
 Lossless.
+
+## Current-Term Completion Boundary
+
+The current term ends when the existing lossless/native codec corpus has:
+
+- generation, validation, reporting, and reproducibility coverage;
+- one representative empty Basic Offset Table and multi-fragment-per-frame
+  RLE Lossless case in addition to the existing populated-table,
+  single-fragment cases;
+- automated default-build and feature-gated codec verification; and
+- current user documentation plus a completed durable plan handoff.
+
+Do not extend this term with additional RLE pixel permutations or report fields
+unless they are necessary to satisfy those exit criteria.
+
+Extended Offset Table generation is deferred to the future large-object/stress
+scope because the current small corpus does not require 64-bit frame offsets.
+Lossy JPEG-LS, JPEG XL, JPEG 2000, and HTJ2K variants remain deferred until
+their metadata, tolerance, validation, and reproducibility policies are
+selected. JPEG Extended 12-bit remains deferred until an independent 12-bit
+decode path is available.
 
 ## Scope
 
@@ -301,6 +323,17 @@ Areas to solidify:
   features are enabled.
 - How large stress cases should be gated to avoid slowing normal validation.
 
+Current-term exit work:
+
+- Add one byte-stable multi-frame RLE Lossless case with an empty Basic Offset
+  Table and multiple fragments per frame.
+- Verify that generation-time and CLI validation reassemble each compressed
+  frame before exact native-frame hash comparison.
+- Add default-build and in-process codec feature CI jobs.
+- Give external-command HTJ2K and legacy JPEG backends either pinned execution
+  jobs or an explicit scheduled/manual verification policy.
+- Run the final profile acceptance matrix and update user-facing commands.
+
 ## Phase 7: Upstreaming And Maintenance
 
 Goal: reduce long-term project ownership where codec support belongs in shared
@@ -323,8 +356,19 @@ Areas to solidify:
 - Whether the codec integration layer should be published independently for the
   future partial compressed pixel-array project.
 
+Phase 7 is a long-term maintenance roadmap and is not a current-term completion
+blocker.
+
+## Deferred Long-Term Roadmap
+
+- JPEG Extended 12-bit and deferred lossy codec variants.
+- Whole Slide Microscopy, video transfer syntaxes, and large stress objects.
+- Viewer runner adapters and viewer-specific regression workflows.
+- Negative and fuzz profiles.
+- Publishing or upstreaming codec adapters.
+- Extended Offset Table cases that require genuinely large frame offsets.
+
 ## Immediate Next Step
 
-Start Phase 6 by choosing the first compressed corpus expansion slice. Prefer a
-small case-matrix or report-summary improvement that builds on the implemented
-codec families without promoting deferred lossy or JPEG Extended 12-bit work.
+Add the single empty-Basic-Offset-Table, multi-fragment-per-frame RLE Lossless
+case and its generation, validation, report, and reproducibility evidence.

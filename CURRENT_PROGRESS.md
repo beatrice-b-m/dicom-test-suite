@@ -1,11 +1,19 @@
 # Current Progress
 
-**Last updated:** 2026-06-16
-**Active goal:** comprehensive compressed image codec generation support
-**Current phase:** Phase 6 - Corpus Expansion And Reporting (in progress)
+**Last updated:** 2026-07-28
+**Active goal:** close the current-term compressed image codec generation scope
+**Current phase:** Phase 6 closure - encapsulation layout, CI, and release readiness
 **Repo state source:** reconstructed from `SYSTEM_SPEC.md`, `CURRENT_PLAN.md`, `transfer-syntax/capability-matrix.json`, and current verification runs.
 
 ## Phase Status
+
+- On 2026-07-28 the current-term scope was frozen: complete the existing
+  lossless/native corpus with one empty-Basic-Offset-Table,
+  multi-fragment-per-frame RLE case, automated default and feature-gated
+  verification, and release-readiness documentation. Extended Offset Tables,
+  deferred lossy codecs, JPEG Extended 12-bit, WSI/video/stress work, viewer
+  runners, negative/fuzz profiles, and upstreaming are explicitly outside this
+  term.
 
 - Phase 0 - Research And Decisions: in progress for JPEG XL lossy, JPEG 2000 lossy, HTJ2K, and legacy JPEG; RLE Lossless, JPEG Baseline 8-bit, JPEG-LS Lossless, JPEG XL Lossless, JPEG 2000 Lossless, and Deflated Image Frame Compression have implement-now decisions; JPEG-LS Near-Lossless, JPEG XL lossy, and JPEG 2000 lossy are explicitly deferred.
 - Phase 1 - Codec Integration Architecture: in progress; minimal codec API plus native RLE and DICOM-rs JPEG Baseline frame encode/decode support are present.
@@ -616,7 +624,11 @@
 
 ## Blockers
 
-- Local executable and test-binary launch is blocked outside project code: on
+- Resolved 2026-07-28: the local executable and test-binary launch failure
+  recorded on 2026-06-16 no longer reproduces. `cargo test --all-targets
+  --no-default-features` completed with 143 passing tests, and direct
+  `cargo run --quiet -- list-cases --profile extended` plus extended
+  generate/report commands launched normally. The historical diagnosis was: on
   2026-06-16, `target/debug/dicom-test-suite`, a freshly compiled minimal Rust
   hello-world binary, and a freshly compiled minimal C hello-world binary all
   failed to print anything within 30 seconds and had to be interrupted with
@@ -626,9 +638,7 @@
   minimal Rust binary with `codesign -s - -f` did not resolve the hang. Running
   the project binary and minimal C binary outside the sandbox with approved
   escalation also hung, and `otool -L`/`xcrun llvm-otool -L` hung while
-  inspecting newly built local Mach-O files. This must be resolved as a local
-  macOS execution/toolchain environment issue before another CLI-verified
-  implementation slice.
+  inspecting newly built local Mach-O files.
 - No current local toolchain blocker for JPEG-LS Lossless generation or verification. `cmake` is available on `PATH`, and `cargo test --features charls` builds `charls-sys v2.4.4` successfully.
 - JPEG-LS Near-Lossless generated-case work is intentionally deferred until a first error limit, lossy compression metadata policy, decoded-frame tolerance, and reproducibility strategy are selected.
 - JPEG XL lossy generated-case work is intentionally deferred until lossy compression metadata policy, decoded-frame tolerance, and reproducibility strategy are selected.

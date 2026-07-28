@@ -1,12 +1,35 @@
 # Current Progress
 
 **Last updated:** 2026-07-28
-**Active goal:** close the current-term compressed image codec generation scope
-**Current phase:** Phase 6 closure - encapsulation layout, CI, and release readiness
+**Active goal:** current-term compressed image codec generation scope complete
+**Current phase:** complete; long-term roadmap deferred
 **Repo state source:** reconstructed from `SYSTEM_SPEC.md`, `CURRENT_PLAN.md`, `transfer-syntax/capability-matrix.json`, and current verification runs.
 
 ## Phase Status
 
+- Current-term acceptance completed on 2026-07-28. The default suite passed 146
+  tests. Smoke, core, and extended runs generated and validated 3, 21, and 75
+  files respectively with zero failures; the default extended report contained
+  75 generated, nine unavailable, and zero blocked/planned rows.
+- End-to-end in-process feature runs passed: `jpeg`, `charls`, `jpegxl`, and
+  `jpeg2000` each generated 76 extended files with eight unavailable rows;
+  `deflate` generated 77 with seven unavailable rows. All validation runs
+  reported zero failures.
+- Local external-backend acceptance also passed. With
+  OpenJPH 0.27.3 at
+  `/opt/homebrew/Cellar/openjph/0.27.3/bin/ojph_compress` (SHA-256
+  `d21a8ea98ffce347928c34a2c51c61e424a068ca4eb746a6867a29d6c30b1627`),
+  `htj2k_openjph` generated and validated 77 files and reported the HTJ2K row
+  generated/passed. With DCMTK 3.7.0 at
+  `/opt/homebrew/Cellar/dcmtk/3.7.0/bin/dcmcjpeg` (SHA-256
+  `28707b3dd7dcbd0b2f710ae691602c07c460bf9917d9b944da7cfa052095b120`),
+  `legacy_jpeg_dcmtk` generated and validated 78 files and reported both JPEG
+  Lossless rows generated/passed. Full feature test suites passed for both
+  backends on macOS 26.5.1 arm64 with Rust 1.85.0 using the policy commands.
+- The current-term goal is closed. JPEG Extended 12-bit, lossy variants,
+  Extended Offset Table stress coverage, WSI/video/large objects, viewer
+  runners, negative/fuzz profiles, and upstreaming remain deferred until a new
+  durable goal is opened.
 - Added an always-on GitHub Actions workflow for formatting, JSON artifacts,
   the full default test suite, standards-lock checks, smoke/core/extended
   generation and validation, extended reporting, and smoke reproducibility.

@@ -1,10 +1,9 @@
 # Current Plan
 
 **Last updated:** 2026-07-28
-**Active goal:** close the current-term compressed image codec generation scope
+**Active goal:** current-term compressed image codec generation scope complete
 **Source specification:** `SYSTEM_SPEC.md` version 0.2.0
-**Planning status:** implementation scope frozen; one encapsulation-layout case,
-automated feature verification, and release-readiness closure remain
+**Planning status:** complete; remaining work is explicitly deferred
 
 This document replaces the previous historical implementation plan and progress
 ledger. `SYSTEM_SPEC.md` remains the architecture and requirements source of
@@ -362,6 +361,23 @@ Areas to solidify:
 Phase 7 is a long-term maintenance roadmap and is not a current-term completion
 blocker.
 
+## Completion Status
+
+The current-term exit criteria were completed on 2026-07-28:
+
+- The default extended corpus generates 75 files and reports nine unavailable
+  feature-gated rows with no blocked or planned rows.
+- The existing two-frame RLE Lossless case covers an empty Basic Offset Table
+  while retaining the required one-fragment-per-frame layout.
+- The JPEG Baseline case covers a frame split across two fragments and is
+  reassembled before decoded-sample tolerance validation.
+- Default and in-process codec feature paths have automated CI execution.
+- External-command paths have compile CI plus a documented runtime verification
+  policy; local OpenJPH and DCMTK acceptance runs generated and validated their
+  cases successfully.
+- README commands, feature requirements, profiles, and verification entry
+  points reflect the implemented system.
+
 ## Deferred Long-Term Roadmap
 
 - JPEG Extended 12-bit and deferred lossy codec variants.
@@ -373,6 +389,5 @@ blocker.
 
 ## Immediate Next Step
 
-Add the empty-Basic-Offset-Table RLE Lossless case and the multi-fragment JPEG
-Baseline case with their generation, validation, report, and reproducibility
-evidence.
+No current-term implementation remains. Open a new durable goal before taking
+on an item from the deferred long-term roadmap.

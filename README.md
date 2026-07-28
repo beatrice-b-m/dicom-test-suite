@@ -6,15 +6,76 @@ The suite is standard-first: it is not designed around the current behavior of a
 
 Generated DICOM files are intentionally not committed. The repository should contain deterministic generation code, case recipes, validation rules, manifests, and reports. Local output belongs under ignored paths such as `generated/`, `out/`, or `target/`.
 
-## Planned Commands
+## Requirements
+
+- Rust 1.85.0, selected automatically by `rust-toolchain.toml`.
+- `jq` for the same JSON artifact checks used by CI.
+- Optional external codec commands only when enabling their features.
+
+## Commands
 
 ```sh
-cargo run -- list-cases
-cargo run -- list-cases --profile smoke
-cargo run -- generate --profile smoke --out generated/smoke
-cargo run -- generate --profile core --out generated/core
-cargo run -- validate generated/core
-cargo run -- report generated/core --format markdown
+cargo run --locked -- list-cases
+cargo run --locked -- list-cases --profile smoke
+cargo run --locked -- generate --profile smoke --out generated/smoke --seed 1
+cargo run --locked -- generate --profile core --out generated/core --seed 1
+cargo run --locked -- generate --profile extended --out generated/extended --seed 1
+cargo run --locked -- validate generated/extended
+cargo run --locked -- report generated/extended --format markdown
+cargo run --locked -- standards check-lock
+```
+
+Generation writes DICOM Part 10 files plus a versioned `manifest.json`. The
+default build requires no external codec tools. Cases whose Cargo features are
+disabled remain visible in manifests and reports as feature-gated unavailable
+coverage.
+
+## Profiles
+
+- `smoke`: smallest byte-stable sanity corpus.
+- `core`: common viewer-relevant native cases and required source objects.
+- `extended`: enhanced, derived, non-image, VL, compressed, and broader
+  compatibility cases.
+- `legacy`: valid retired or uncommon behavior.
+- `all`: smoke, core, extended, and legacy; stress remains opt-in.
+
+The future `stress`, `negative`, and `fuzz` scopes are not part of the completed
+current-term corpus.
+
+## Codec Features
+
+| Feature | Coverage | Extra runtime requirement |
+|---|---|---|
+| `jpeg` | JPEG Baseline 8-bit | none |
+| `charls` | JPEG-LS Lossless | build dependency only |
+| `jpegxl` | JPEG XL Lossless | none |
+| `jpeg2000` | JPEG 2000 Lossless | build dependency only |
+| `deflate` | dataset deflate and Deflated Image Frame | none |
+| `htj2k_openjph` | HTJ2K Lossless | `ojph_compress` on `PATH` |
+| `legacy_jpeg_dcmtk` | JPEG Lossless Process 14 and SV1 | `dcmcjpeg` on `PATH` |
+
+For example:
+
+```sh
+cargo test --locked --all-targets --features jpeg
+cargo run --locked --features jpeg -- generate \
+  --profile extended --out generated/extended-jpeg --seed 1
+cargo run --locked --features jpeg -- validate generated/extended-jpeg
+```
+
+See
+[docs/external-codec-verification.md](docs/external-codec-verification.md) for
+the required OpenJPH and DCMTK runtime verification cadence.
+
+## Verification
+
+GitHub Actions runs the default corpus and a separate matrix for every
+in-process codec feature. External-command features receive compile coverage in
+normal CI and require explicit runtime verification. Locally, the main
+regression command is:
+
+```sh
+cargo test --locked --all-targets --no-default-features
 ```
 
 ## Design Principles
@@ -26,4 +87,6 @@ cargo run -- report generated/core --format markdown
 - Cover orthogonal compatibility axes, not only common happy-path examples.
 - Keep `dcmview` and other viewers as consumers of this suite, not as constraints on what the suite can generate.
 
-See [SYSTEM_SPEC.md](SYSTEM_SPEC.md) for the full architecture and phased implementation plan.
+See [SYSTEM_SPEC.md](SYSTEM_SPEC.md) for the architecture and requirements,
+[CURRENT_PLAN.md](CURRENT_PLAN.md) for the durable scope handoff, and
+[CURRENT_PROGRESS.md](CURRENT_PROGRESS.md) for detailed verification history.

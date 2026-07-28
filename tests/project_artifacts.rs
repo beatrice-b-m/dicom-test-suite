@@ -52,6 +52,30 @@ fn external_codec_policy_requires_runtime_evidence() {
 }
 
 #[test]
+fn readme_documents_supported_commands_and_codec_features() {
+    let readme = fs::read_to_string("README.md").expect("README must be readable");
+
+    for required in [
+        "cargo run --locked -- generate",
+        "cargo run --locked -- validate",
+        "cargo run --locked -- report",
+        "`smoke`",
+        "`core`",
+        "`extended`",
+        "`jpeg`",
+        "`charls`",
+        "`jpegxl`",
+        "`jpeg2000`",
+        "`deflate`",
+        "`htj2k_openjph`",
+        "`legacy_jpeg_dcmtk`",
+        "docs/external-codec-verification.md",
+    ] {
+        assert!(readme.contains(required), "README must document {required}");
+    }
+}
+
+#[test]
 fn taxonomy_documents_all_supported_profiles() {
     let taxonomy =
         fs::read_to_string("cases/taxonomy.md").expect("case taxonomy document must be readable");

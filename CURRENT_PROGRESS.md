@@ -14,6 +14,11 @@
   `deflate` corpora, while `htj2k_openjph` and `legacy_jpeg_dcmtk` receive
   compile-only coverage pending their explicit external-command execution
   policy.
+- Added `docs/external-codec-verification.md` to require runtime verification of
+  OpenJPH and DCMTK before releases, after relevant toolchain/backend changes,
+  and at least quarterly. Compile-only CI is explicitly not runtime evidence;
+  qualifying runs must generate, validate, report, and record executable
+  fingerprints.
 - The existing `classic/sc/mono2_u8_multiframe_rle_lossless` case now exercises
   an empty Basic Offset Table while retaining exactly one fragment per frame.
   Generation, CLI validation, reporting, and reproducibility keep exact native

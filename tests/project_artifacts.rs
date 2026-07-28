@@ -31,6 +31,27 @@ fn ci_verifies_default_and_feature_gated_codec_paths() {
 }
 
 #[test]
+fn external_codec_policy_requires_runtime_evidence() {
+    let policy = fs::read_to_string("docs/external-codec-verification.md")
+        .expect("external codec verification policy must be readable");
+
+    for required in [
+        "`ojph_compress`",
+        "`dcmcjpeg`",
+        "before a release",
+        "at least once per calendar quarter",
+        "validation reports zero failures",
+        "executable fingerprint",
+        "`semantic_stable`",
+    ] {
+        assert!(
+            policy.contains(required),
+            "external codec policy must document {required}"
+        );
+    }
+}
+
+#[test]
 fn taxonomy_documents_all_supported_profiles() {
     let taxonomy =
         fs::read_to_string("cases/taxonomy.md").expect("case taxonomy document must be readable");

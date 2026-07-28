@@ -72,9 +72,9 @@ Lossless.
 The current term ends when the existing lossless/native codec corpus has:
 
 - generation, validation, reporting, and reproducibility coverage;
-- one representative empty Basic Offset Table and multi-fragment-per-frame
-  RLE Lossless case in addition to the existing populated-table,
-  single-fragment cases;
+- one representative empty Basic Offset Table RLE Lossless case and one
+  multi-fragment-per-frame JPEG Baseline case in addition to the existing
+  populated-table, single-fragment cases;
 - automated default-build and feature-gated codec verification; and
 - current user documentation plus a completed durable plan handoff.
 
@@ -326,7 +326,10 @@ Areas to solidify:
 Current-term exit work:
 
 - Add one byte-stable multi-frame RLE Lossless case with an empty Basic Offset
-  Table and multiple fragments per frame.
+  Table while retaining one fragment per frame as required by PS3.5
+  Section A.4.2.
+- Add one feature-gated JPEG Baseline case with multiple fragments per frame,
+  which PS3.5 Section A.4.1 explicitly permits.
 - Verify that generation-time and CLI validation reassemble each compressed
   frame before exact native-frame hash comparison.
 - Add default-build and in-process codec feature CI jobs.
@@ -370,5 +373,6 @@ blocker.
 
 ## Immediate Next Step
 
-Add the single empty-Basic-Offset-Table, multi-fragment-per-frame RLE Lossless
-case and its generation, validation, report, and reproducibility evidence.
+Add the empty-Basic-Offset-Table RLE Lossless case and the multi-fragment JPEG
+Baseline case with their generation, validation, report, and reproducibility
+evidence.

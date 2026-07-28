@@ -8,12 +8,14 @@
 ## Phase Status
 
 - On 2026-07-28 the current-term scope was frozen: complete the existing
-  lossless/native corpus with one empty-Basic-Offset-Table,
-  multi-fragment-per-frame RLE case, automated default and feature-gated
-  verification, and release-readiness documentation. Extended Offset Tables,
-  deferred lossy codecs, JPEG Extended 12-bit, WSI/video/stress work, viewer
-  runners, negative/fuzz profiles, and upstreaming are explicitly outside this
-  term.
+  lossless/native corpus with one empty-Basic-Offset-Table RLE case, one
+  multi-fragment-per-frame JPEG Baseline case, automated default and
+  feature-gated verification, and release-readiness documentation. The split
+  follows PS3.5 Section A.4.2, which requires one and only one fragment per RLE
+  frame, and Section A.4.1, which permits a JPEG frame to span multiple
+  fragments. Extended Offset Tables, deferred lossy codecs, JPEG Extended
+  12-bit, WSI/video/stress work, viewer runners, negative/fuzz profiles, and
+  upstreaming are explicitly outside this term.
 
 - Phase 0 - Research And Decisions: in progress for JPEG XL lossy, JPEG 2000 lossy, HTJ2K, and legacy JPEG; RLE Lossless, JPEG Baseline 8-bit, JPEG-LS Lossless, JPEG XL Lossless, JPEG 2000 Lossless, and Deflated Image Frame Compression have implement-now decisions; JPEG-LS Near-Lossless, JPEG XL lossy, and JPEG 2000 lossy are explicitly deferred.
 - Phase 1 - Codec Integration Architecture: in progress; minimal codec API plus native RLE and DICOM-rs JPEG Baseline frame encode/decode support are present.

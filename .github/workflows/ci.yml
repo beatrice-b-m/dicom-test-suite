@@ -1,0 +1,81 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  default:
+    name: Default corpus
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - name: Show toolchain
+        run: rustc --version && cargo --version
+      - name: Check formatting and JSON artifacts
+        run: |
+          cargo fmt -- --check
+          jq empty cases/registry.json schemas/*.json transfer-syntax/*.json standards.lock.json
+      - name: Run default test suite
+        run: cargo test --locked --all-targets --no-default-features
+      - name: Check standards lock
+        run: cargo run --locked --no-default-features -- standards check-lock
+      - name: Exercise default profiles
+        run: |
+          cargo run --locked --no-default-features -- generate --profile smoke --out "$RUNNER_TEMP/dts-smoke" --seed 1
+          cargo run --locked --no-default-features -- validate "$RUNNER_TEMP/dts-smoke"
+          cargo run --locked --no-default-features -- generate --profile core --out "$RUNNER_TEMP/dts-core" --seed 1
+          cargo run --locked --no-default-features -- validate "$RUNNER_TEMP/dts-core"
+          cargo run --locked --no-default-features -- generate --profile extended --out "$RUNNER_TEMP/dts-extended" --seed 1
+          cargo run --locked --no-default-features -- validate "$RUNNER_TEMP/dts-extended"
+          cargo run --locked --no-default-features -- report "$RUNNER_TEMP/dts-extended" --format json > "$RUNNER_TEMP/dts-extended-report.json"
+          jq -e '.counts.generated == 75 and .counts.blocked == 0' "$RUNNER_TEMP/dts-extended-report.json"
+      - name: Verify smoke reproducibility
+        run: |
+          cargo run --locked --no-default-features -- generate --profile smoke --out "$RUNNER_TEMP/dts-repro-a" --seed 1
+          cargo run --locked --no-default-features -- generate --profile smoke --out "$RUNNER_TEMP/dts-repro-b" --seed 1
+          diff -r "$RUNNER_TEMP/dts-repro-a" "$RUNNER_TEMP/dts-repro-b"
+
+  in-process-codecs:
+    name: Codec (${{ matrix.feature }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        feature:
+          - jpeg
+          - charls
+          - jpegxl
+          - jpeg2000
+          - deflate
+    steps:
+      - uses: actions/checkout@v6
+      - name: Test feature
+        run: cargo test --locked --all-targets --features "${{ matrix.feature }}"
+      - name: Exercise feature corpus
+        run: |
+          cargo run --locked --features "${{ matrix.feature }}" -- generate --profile extended --out "$RUNNER_TEMP/dts-${{ matrix.feature }}" --seed 1
+          cargo run --locked --features "${{ matrix.feature }}" -- validate "$RUNNER_TEMP/dts-${{ matrix.feature }}"
+          cargo run --locked --features "${{ matrix.feature }}" -- report "$RUNNER_TEMP/dts-${{ matrix.feature }}" --format json > "$RUNNER_TEMP/dts-${{ matrix.feature }}-report.json"
+          jq -e '.counts.generated > 75 and .counts.blocked == 0' "$RUNNER_TEMP/dts-${{ matrix.feature }}-report.json"
+
+  external-codec-compile:
+    name: External codec compile (${{ matrix.feature }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        feature:
+          - htj2k_openjph
+          - legacy_jpeg_dcmtk
+    steps:
+      - uses: actions/checkout@v6
+      - name: Compile feature and tests
+        run: cargo test --locked --all-targets --features "${{ matrix.feature }}" --no-run

@@ -1106,7 +1106,7 @@ fn report_command_writes_segmentation_content_coverage_for_extended_root() {
         report
             .pointer("/grouped_coverage/segmentation_types/BINARY")
             .and_then(Value::as_u64),
-        Some(1)
+        Some(if cfg!(feature = "deflate") { 2 } else { 1 })
     );
     assert_eq!(
         report
@@ -1151,7 +1151,11 @@ fn report_command_writes_segmentation_content_coverage_for_extended_root() {
     let markdown =
         String::from_utf8(markdown_output.stdout).expect("markdown stdout should be UTF-8");
     assert!(markdown.contains("### Segmentation Types"));
-    assert!(markdown.contains("| BINARY | 1 |"));
+    assert!(markdown.contains(if cfg!(feature = "deflate") {
+        "| BINARY | 2 |"
+    } else {
+        "| BINARY | 1 |"
+    }));
     assert!(markdown.contains("| FRACTIONAL | 1 |"));
     assert!(markdown.contains("| LABELMAP | 1 |"));
     assert!(markdown.contains("### Segmentation Fractional Types"));
@@ -3434,7 +3438,11 @@ fn report_command_counts_generated_rgb_rle_lossless_row() {
         feature_gated_deflated_seg_row
             .get("status")
             .and_then(Value::as_str),
-        Some("unavailable")
+        Some(if cfg!(feature = "deflate") {
+            "generated"
+        } else {
+            "unavailable"
+        })
     );
     assert_eq!(
         feature_gated_deflated_seg_row

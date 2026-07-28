@@ -6,6 +6,31 @@ use dicom_transfer_syntax_registry::{TransferSyntaxIndex, TransferSyntaxRegistry
 use serde_json::Value;
 
 #[test]
+fn ci_verifies_default_and_feature_gated_codec_paths() {
+    let workflow =
+        fs::read_to_string(".github/workflows/ci.yml").expect("CI workflow must be readable");
+
+    for required in [
+        "cargo test --locked --all-targets --no-default-features",
+        "generate --profile smoke",
+        "generate --profile core",
+        "generate --profile extended",
+        "jpeg",
+        "charls",
+        "jpegxl",
+        "jpeg2000",
+        "deflate",
+        "htj2k_openjph",
+        "legacy_jpeg_dcmtk",
+    ] {
+        assert!(
+            workflow.contains(required),
+            "CI workflow must cover {required}"
+        );
+    }
+}
+
+#[test]
 fn taxonomy_documents_all_supported_profiles() {
     let taxonomy =
         fs::read_to_string("cases/taxonomy.md").expect("case taxonomy document must be readable");

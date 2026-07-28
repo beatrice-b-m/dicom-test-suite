@@ -7,6 +7,13 @@
 
 ## Phase Status
 
+- Added an always-on GitHub Actions workflow for formatting, JSON artifacts,
+  the full default test suite, standards-lock checks, smoke/core/extended
+  generation and validation, extended reporting, and smoke reproducibility.
+  Separate matrix jobs execute the `jpeg`, `charls`, `jpegxl`, `jpeg2000`, and
+  `deflate` corpora, while `htj2k_openjph` and `legacy_jpeg_dcmtk` receive
+  compile-only coverage pending their explicit external-command execution
+  policy.
 - The existing `classic/sc/mono2_u8_multiframe_rle_lossless` case now exercises
   an empty Basic Offset Table while retaining exactly one fragment per frame.
   Generation, CLI validation, reporting, and reproducibility keep exact native

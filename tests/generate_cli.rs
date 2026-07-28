@@ -4387,6 +4387,21 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
         );
         assert_eq!(
             jpeg_file
+                .pointer("/pixel_data/encapsulated_pixel_data/fragments_per_frame/0")
+                .and_then(Value::as_u64),
+            Some(2)
+        );
+        assert!(
+            jpeg_file
+                .pointer("/known_stressors")
+                .and_then(Value::as_array)
+                .expect("JPEG manifest should include known stressors")
+                .iter()
+                .any(|stressor| stressor.as_str() == Some("multi_fragment_frame")),
+            "JPEG case should label its multi-fragment frame layout"
+        );
+        assert_eq!(
+            jpeg_file
                 .pointer("/expected_semantics/lossy_image_compression")
                 .and_then(Value::as_str),
             Some("01")

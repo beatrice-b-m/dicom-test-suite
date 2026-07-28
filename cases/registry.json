@@ -4657,6 +4657,14 @@
           "covered": true,
           "part": "PS3.6",
           "anchor": "table_A-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "retrieve_standard_text PS3.5 sect_A.4.1",
+          "covered": true,
+          "part": "PS3.5",
+          "anchor": "sect_A.4.1"
         }
       ]
     },

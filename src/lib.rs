@@ -1640,20 +1640,25 @@ fn validate_jpeg_baseline_manifest_decoded_frame_tolerance(
         ));
         return Ok(());
     };
-    if !fragments_per_frame.iter().all(|count| *count == 1) {
-        failures.push(format!(
-            "{relative_path}: jpeg_baseline_decoded_frame_tolerance: JPEG Baseline validation currently requires one fragment per frame"
-        ));
-        return Ok(());
-    }
-    if pixel_fragments.len() != fragments_per_frame.len() {
+    let expected_fragment_count = fragments_per_frame.iter().sum::<usize>();
+    if pixel_fragments.len() != expected_fragment_count {
         failures.push(format!(
             "{relative_path}: jpeg_baseline_fragment_count: expected {} fragment(s), got {}",
-            fragments_per_frame.len(),
+            expected_fragment_count,
             pixel_fragments.len()
         ));
         return Ok(());
     }
+    let mut fragment_cursor = 0usize;
+    let compressed_frames = fragments_per_frame
+        .iter()
+        .map(|fragment_count| {
+            let frame_end = fragment_cursor + fragment_count;
+            let frame = pixel_fragments[fragment_cursor..frame_end].concat();
+            fragment_cursor = frame_end;
+            frame
+        })
+        .collect::<Vec<_>>();
 
     let expected_values = manifest_array(
         manifest_path,
@@ -1677,9 +1682,9 @@ fn validate_jpeg_baseline_manifest_decoded_frame_tolerance(
     #[cfg(feature = "jpeg")]
     {
         let decoder = DicomRsJpegBaselineEncoder::new();
-        for fragment in pixel_fragments {
+        for compressed_frame in &compressed_frames {
             match decoder.decode_frame(FrameDecodeInput {
-                encoded_frame: fragment,
+                encoded_frame: compressed_frame,
                 rows,
                 columns,
                 samples_per_pixel,
@@ -1729,7 +1734,7 @@ fn validate_jpeg_baseline_manifest_decoded_frame_tolerance(
             bits_allocated,
             bits_stored,
             photometric_interpretation,
-            pixel_fragments,
+            compressed_frames,
             expected_values,
             MAX_ABS_DIFF,
         );

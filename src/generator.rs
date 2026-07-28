@@ -37,6 +37,9 @@ use crate::{
     },
 };
 
+#[cfg(feature = "jpeg")]
+use crate::encapsulation::encapsulate_frames;
+
 #[cfg(feature = "deflate")]
 use crate::codecs::DicomRsDeflatedImageFrameEncoder;
 #[cfg(feature = "jpeg")]
@@ -4187,20 +4190,19 @@ fn write_pixel_case(
                 "ISO_10918_1",
             );
             let compressed_frames = vec![encoded_frame.bytes];
-            let encapsulated = EncapsulatedPixelData::one_fragment_per_frame(
-                &compressed_frames,
-                BasicOffsetTablePolicy::Populated,
-            )
-            .map_err(|err| GenerateError::WriteDicomFile {
-                path: path.clone(),
-                message: err.to_string(),
-            })?;
+            let encapsulated =
+                encapsulate_frames(&compressed_frames, &[2], BasicOffsetTablePolicy::Populated)
+                    .map_err(|err| GenerateError::WriteDicomFile {
+                        path: path.clone(),
+                        message: err.to_string(),
+                    })?;
+            let fragment_payloads = encapsulated.fragment_payloads.clone();
             obj.put(DataElement::new(
                 tags::PIXEL_DATA,
                 recipe.pixel_vr,
                 PixelFragmentSequence::new(
                     encapsulated.basic_offset_table.offsets.clone(),
-                    compressed_frames,
+                    fragment_payloads,
                 ),
             ));
             Some((FrameEncoder::backend(&jpeg_encoder), encapsulated, None))
@@ -5558,6 +5560,7 @@ fn pixel_known_stressors(recipe: PixelRecipe) -> Vec<&'static str> {
         stressors.push("encapsulated_pixel_data");
         stressors.push("jpeg_baseline_8bit_transfer_syntax");
         stressors.push("lossy_image_compression");
+        stressors.push("multi_fragment_frame");
     } else if recipe.transfer_syntax == JPEG_LS_LOSSLESS {
         stressors.push("encapsulated_pixel_data");
         stressors.push("jpeg_ls_lossless_transfer_syntax");

@@ -16,6 +16,7 @@ pub enum BasicOffsetTablePolicy {
 pub struct EncapsulatedPixelData {
     pub basic_offset_table: BasicOffsetTable,
     pub fragments: Vec<EncapsulatedFragment>,
+    pub fragment_payloads: Vec<Vec<u8>>,
     pub fragments_per_frame: Vec<usize>,
     pub compressed_frame_hashes: Vec<String>,
     pub value_bytes: Vec<u8>,
@@ -60,6 +61,11 @@ pub enum EncapsulationError {
     ZeroFragments {
         frame_index: usize,
     },
+    InsufficientFrameBytes {
+        frame_index: usize,
+        frame_length: usize,
+        fragment_count: usize,
+    },
     OffsetOverflow,
     ItemLengthOverflow {
         length: usize,
@@ -80,6 +86,14 @@ impl fmt::Display for EncapsulationError {
             Self::ZeroFragments { frame_index } => {
                 write!(f, "frame {frame_index} must contain at least one fragment")
             }
+            Self::InsufficientFrameBytes {
+                frame_index,
+                frame_length,
+                fragment_count,
+            } => write!(
+                f,
+                "frame {frame_index} has {frame_length} bytes, insufficient for {fragment_count} even-length fragments"
+            ),
             Self::OffsetOverflow => write!(f, "encapsulated Pixel Data item offset exceeded u32"),
             Self::ItemLengthOverflow { length } => write!(
                 f,
@@ -112,7 +126,11 @@ pub fn encapsulate_frames(
         if *fragment_count == 0 {
             return Err(EncapsulationError::ZeroFragments { frame_index });
         }
-        frame_fragments.push(split_frame_evenly(frame, *fragment_count));
+        frame_fragments.push(split_frame_at_even_boundaries(
+            frame,
+            *fragment_count,
+            frame_index,
+        )?);
     }
 
     let bot_payload_len = match basic_offset_table_policy {
@@ -129,6 +147,7 @@ pub fn encapsulate_frames(
 
     let mut basic_offsets = Vec::new();
     let mut fragments = Vec::new();
+    let mut fragment_payloads = Vec::new();
     let compressed_frame_hashes = frames.iter().map(|frame| sha256_hex(frame)).collect();
 
     for (frame_index, frame_parts) in frame_fragments.iter().enumerate() {
@@ -156,6 +175,7 @@ pub fn encapsulate_frames(
                 compressed_length,
                 padded_length,
             });
+            fragment_payloads.push(fragment.to_vec());
         }
     }
     value_bytes.extend_from_slice(&SEQUENCE_DELIMITATION_ITEM_BYTES);
@@ -169,23 +189,40 @@ pub fn encapsulate_frames(
             offsets: basic_offsets,
         },
         fragments,
+        fragment_payloads,
         fragments_per_frame: fragments_per_frame.to_vec(),
         compressed_frame_hashes,
         value_bytes,
     })
 }
 
-fn split_frame_evenly(frame: &[u8], fragment_count: usize) -> Vec<&[u8]> {
-    let base_len = frame.len() / fragment_count;
-    let remainder = frame.len() % fragment_count;
+fn split_frame_at_even_boundaries(
+    frame: &[u8],
+    fragment_count: usize,
+    frame_index: usize,
+) -> Result<Vec<&[u8]>, EncapsulationError> {
+    let even_units = frame.len() / 2;
+    if even_units < fragment_count {
+        return Err(EncapsulationError::InsufficientFrameBytes {
+            frame_index,
+            frame_length: frame.len(),
+            fragment_count,
+        });
+    }
+
+    let base_units = even_units / fragment_count;
+    let remainder_units = even_units % fragment_count;
     let mut offset = 0usize;
     let mut fragments = Vec::with_capacity(fragment_count);
     for index in 0..fragment_count {
-        let len = base_len + usize::from(index < remainder);
+        let mut len = (base_units + usize::from(index < remainder_units)) * 2;
+        if index + 1 == fragment_count {
+            len += frame.len() % 2;
+        }
         fragments.push(&frame[offset..offset + len]);
         offset += len;
     }
-    fragments
+    Ok(fragments)
 }
 
 fn append_item(value_bytes: &mut Vec<u8>, payload: &[u8]) -> Result<(), EncapsulationError> {
@@ -283,7 +320,11 @@ mod tests {
                 .iter()
                 .map(|fragment| fragment.compressed_length)
                 .collect::<Vec<_>>(),
-            vec![3, 2, 2, 2]
+            vec![2, 3, 2, 2]
+        );
+        assert_eq!(
+            encoded.fragment_payloads,
+            vec![vec![1, 2], vec![3, 4, 5], vec![6, 7], vec![8, 9]]
         );
     }
 
@@ -339,6 +380,15 @@ mod tests {
             encapsulate_frames(&[vec![1]], &[0], BasicOffsetTablePolicy::Empty)
                 .expect_err("zero fragments should be rejected"),
             EncapsulationError::ZeroFragments { frame_index: 0 }
+        );
+        assert_eq!(
+            encapsulate_frames(&[vec![1, 2, 3]], &[2], BasicOffsetTablePolicy::Empty)
+                .expect_err("each fragment needs at least two source bytes"),
+            EncapsulationError::InsufficientFrameBytes {
+                frame_index: 0,
+                frame_length: 3,
+                fragment_count: 2,
+            }
         );
     }
 }

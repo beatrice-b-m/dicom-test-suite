@@ -11,6 +11,10 @@
   an empty Basic Offset Table while retaining exactly one fragment per frame.
   Generation, CLI validation, reporting, and reproducibility keep exact native
   frame hashes, and the registry cites PS3.5 Sections A.4 and A.4.2.
+- The feature-gated `classic/sc/rgb_planar0_jpeg_baseline_8bit` case now splits
+  its JPEG codestream across two even-boundary fragments. CLI validation
+  reassembles the fragments before lossy-tolerance decode validation, and the
+  registry cites the multi-fragment permission in PS3.5 Section A.4.1.
 - On 2026-07-28 the current-term scope was frozen: complete the existing
   lossless/native corpus with one empty-Basic-Offset-Table RLE case, one
   multi-fragment-per-frame JPEG Baseline case, automated default and

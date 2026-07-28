@@ -3414,7 +3414,11 @@ fn report_command_counts_generated_rgb_rle_lossless_row() {
     let feature_gated_jpeg_row = coverage_row(&report, "classic/sc/rgb_planar0_jpeg_baseline_8bit");
     assert_eq!(
         feature_gated_jpeg_row.get("status").and_then(Value::as_str),
-        Some("unavailable")
+        Some(if cfg!(feature = "jpeg") {
+            "generated"
+        } else {
+            "unavailable"
+        })
     );
     assert_eq!(
         feature_gated_jpeg_row
@@ -3437,6 +3441,46 @@ fn report_command_counts_generated_rgb_rle_lossless_row() {
             .get("modality")
             .and_then(Value::as_str),
         Some("SEG")
+    );
+
+    fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
+}
+
+#[test]
+#[cfg(feature = "jpeg")]
+fn report_command_counts_generated_multifragment_jpeg_baseline_row() {
+    let out_dir = unique_temp_dir("report-jpeg-multifragment-json");
+    generate_extended(&out_dir);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args([
+            "report",
+            out_dir.to_str().expect("temp path should be valid UTF-8"),
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("report command must run");
+
+    assert!(
+        output.status.success(),
+        "report should accept generated output: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let report: Value =
+        serde_json::from_slice(&output.stdout).expect("report stdout should be JSON");
+    let row = coverage_row(&report, "classic/sc/rgb_planar0_jpeg_baseline_8bit");
+    assert_eq!(row.get("status").and_then(Value::as_str), Some("generated"));
+    assert_eq!(
+        row.get("encapsulated_fragment_layout")
+            .and_then(Value::as_str),
+        Some("multi_fragment_per_frame")
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/encapsulated_fragment_layouts/multi_fragment_per_frame")
+            .and_then(Value::as_u64),
+        Some(1)
     );
 
     fs::remove_dir_all(out_dir).expect("temporary output root should be removable");

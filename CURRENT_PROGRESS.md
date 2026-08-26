@@ -3,7 +3,7 @@
 **Last updated:** 2026-07-28
 **Active goal:** current-term compressed image codec generation scope complete
 **Current phase:** complete; long-term roadmap deferred
-**Repo state source:** reconstructed from `SYSTEM_SPEC.md`, `CURRENT_PLAN.md`, `transfer-syntax/capability-matrix.json`, and current verification runs.
+**Repo state source:** reconstructed from `SYSTEM_SPEC.md`, `transfer-syntax/capability-matrix.json`, and current verification runs.
 
 ## Phase Status
 
@@ -146,7 +146,7 @@
 - Scoped the implemented JPEG-LS backend decision to Lossless UID `1.2.840.10008.1.2.4.80` and added an explicit `near_lossless_policy` for UID `1.2.840.10008.1.2.4.81`.
 - Added a JPEG-LS Near-Lossless capability-matrix row with `status: unavailable`, project `charls` feature gate, CharLS external library metadata, and PS3.6 KB evidence.
 - Added artifact regression coverage proving Near-Lossless remains unavailable until error-limit, lossy Image Pixel metadata, decoded tolerance validation, and reproducibility policy are defined.
-- Updated stale `CURRENT_PLAN.md` baseline and immediate next step text so the next slice starts JPEG XL lossless feature verification rather than repeating the completed JPEG-LS Lossless generation work.
+- Updated stale scope handoff text so the next slice starts JPEG XL lossless feature verification rather than repeating the completed JPEG-LS Lossless generation work.
 - Added a project-level `jpegxl` Cargo feature that enables the pinned DICOM-rs `dicom-transfer-syntax-registry/jpegxl` adapter path.
 - Added a feature-gated `DicomRsJpegXlLosslessEncoder` wrapper with backend metadata, JPEG XL Lossless transfer syntax UID `1.2.840.10008.1.2.4.110`, and encode/decode support through the pinned DICOM-rs JPEG XL adapter.
 - Verified the DICOM-rs JPEG XL Lossless writer and reader round-trip a tiny 8-bit RGB frame exactly under `--features jpegxl`.
@@ -219,7 +219,7 @@
 - Recorded candidate backend comparison for DCMTK `dcmcjpeg`, the pinned DICOM-rs JPEG adapter, local generic `cjpeg`, and GDCM `gdcmconv`.
 - Previously kept legacy JPEG classified as `research_more` with no project feature gate, no generated registry row, and no capability-matrix promotion because `dcmcjpeg` was not installed locally and no encode/decode/reproducibility spike had run; the current state keeps `research_more` only because the project wrapper and generated-case promotion path do not exist yet.
 - Added artifact regression coverage proving the legacy JPEG decision remains a DCMTK spike-only decision until local evidence supports implementation.
-- Corrected stale `CURRENT_PLAN.md` handoff text that still pointed at the completed JPEG 2000 spike; the immediate next step now matches the Phase 5 DCMTK legacy JPEG spike.
+- Corrected stale handoff text that still pointed at the completed JPEG 2000 spike; the immediate next step now matches the Phase 5 DCMTK legacy JPEG spike.
 - Installed Homebrew `dcmtk` 3.7.0 locally so `dcmcjpeg` is available on `PATH`.
 - Added `tests/legacy_jpeg_spike.rs`, a `jpeg` feature-gated integration spike that generates the deterministic `classic/sc/mono2_u16_explicit_le` source, compresses it twice with `dcmcjpeg --encode-lossless-sv1 --true-lossless --fragment-per-frame --offset-table-create --uid-never`, and validates the resulting JPEG Lossless SV1 file.
 - Proved the DCMTK SV1 output preserves File Meta and dataset SOP Instance UID, Secondary Capture SOP Class UID, Synthetic Data `YES`, and deterministic Patient ID metadata.

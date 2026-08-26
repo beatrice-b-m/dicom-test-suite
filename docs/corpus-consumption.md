@@ -175,5 +175,5 @@ case may generate more than one SOP Instance.
 coverage of the DICOM Standard. Current deferred areas include Whole Slide
 Microscopy, video transfer syntaxes, large stress objects, negative and fuzz
 profiles, Extended Offset Table stress cases, and several lossy or legacy codec
-variants. Consult `CURRENT_PLAN.md` and the generated coverage report before
-describing the scope of a downstream review.
+variants. Consult the registry, transfer-syntax capability matrix, and generated
+coverage report before describing the scope of a downstream review.

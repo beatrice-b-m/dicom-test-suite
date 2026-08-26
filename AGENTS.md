@@ -6,24 +6,6 @@
 
 ---
 
-## Current Plan Tracking
-
-Current project direction **MUST** be tracked in `CURRENT_PLAN.md`.
-This document is the durable hand-off reference between coding agents for the
-active major goal.
-
-**Rules:**
-
-- Review `CURRENT_PLAN.md` before starting implementation work.
-- Update `CURRENT_PLAN.md` whenever a task changes the active goal, phase
-  status, blockers, open decisions, research targets, or recommended next step.
-- Commit plan updates in the same granular commit as the implementation,
-  research, or documentation change that caused the status change.
-- Do not treat `SYSTEM_SPEC.md` as a progress tracker; it is the architecture
-  and requirements source of truth.
-
----
-
 ## Git Commit Policy
 
 Every completed task **MUST** be tracked in a descriptive, granular git commit. This requirement is **absolutely critical** and must be followed under all circumstances - no exceptions.

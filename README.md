@@ -101,6 +101,5 @@ cargo test --locked --all-targets --no-default-features
 - Cover orthogonal compatibility axes, not only common happy-path examples.
 - Keep `dcmview` and other viewers as consumers of this suite, not as constraints on what the suite can generate.
 
-See [SYSTEM_SPEC.md](SYSTEM_SPEC.md) for the architecture and requirements,
-[CURRENT_PLAN.md](CURRENT_PLAN.md) for the durable scope handoff, and
+See [SYSTEM_SPEC.md](SYSTEM_SPEC.md) for the architecture and requirements and
 [CURRENT_PROGRESS.md](CURRENT_PROGRESS.md) for detailed verification history.

@@ -11,10 +11,8 @@ The framework must establish confidence in the corpus. It must not prescribe
 viewer behavior, launch a viewer, or turn the generator into a viewer-specific
 test harness.
 
-Read `AGENTS.md`, `CURRENT_PLAN.md`, `SYSTEM_SPEC.md`,
-`docs/corpus-consumption.md`, and this brief before changing files. Follow the
-repository's granular commit policy and update `CURRENT_PLAN.md` in every commit
-that changes phase status, blockers, decisions, or the recommended next step.
+Read `AGENTS.md`, `SYSTEM_SPEC.md`, `docs/corpus-consumption.md`, and this brief
+before changing files. Follow the repository's granular commit policy.
 
 ## Objective
 
@@ -272,7 +270,7 @@ acceptance policy in this task.
 ## Implementation Phases And Commits
 
 Complete these phases in order. Each bullet headed **Commit** is one coherent
-commit and must include the corresponding `CURRENT_PLAN.md` update.
+commit.
 
 ### Phase 0: Baseline And Decisions
 

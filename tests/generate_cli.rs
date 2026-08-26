@@ -6621,6 +6621,23 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
         2,
         "KOS should contain two IMAGE key object items"
     );
+    let kos_template = kos
+        .element(tags::CONTENT_TEMPLATE_SEQUENCE)
+        .expect("KOS should identify its root content template")
+        .items()
+        .expect("Content Template Sequence should be SQ")
+        .first()
+        .expect("Content Template Sequence should contain one item");
+    assert_eq!(
+        kos_template
+            .element(tags::TEMPLATE_IDENTIFIER)
+            .expect("KOS should identify TID 2010")
+            .value()
+            .to_str()
+            .expect("Template Identifier should be text")
+            .trim(),
+        "2010"
+    );
     assert_eq!(
         kos_content[0]
             .element(tags::VALUE_TYPE)
@@ -6630,6 +6647,12 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
             .expect("Value Type should be text")
             .trim(),
         "IMAGE"
+    );
+    assert!(
+        kos_content[0]
+            .element(tags::CONCEPT_NAME_CODE_SEQUENCE)
+            .is_err(),
+        "TID 2010 Row 8 forbids a Concept Name on IMAGE items"
     );
     let first_kos_sop = kos_content[0]
         .element(tags::REFERENCED_SOP_SEQUENCE)

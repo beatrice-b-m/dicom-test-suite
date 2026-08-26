@@ -88,7 +88,7 @@ const GSPS_RECIPE_VERSION: &str = "0.1.0";
 const RWVM_RECIPE_VERSION: &str = "0.1.0";
 const BASIC_TEXT_SR_RECIPE_VERSION: &str = "0.1.0";
 const COMPREHENSIVE_SR_RECIPE_VERSION: &str = "0.1.0";
-const KEY_OBJECT_SELECTION_RECIPE_VERSION: &str = "0.1.0";
+const KEY_OBJECT_SELECTION_RECIPE_VERSION: &str = "0.2.0";
 const RT_STRUCTURE_SET_RECIPE_VERSION: &str = "0.1.0";
 const RT_DOSE_RECIPE_VERSION: &str = "0.1.0";
 const ENCAPSULATED_PDF_RECIPE_VERSION: &str = "0.1.0";
@@ -2702,11 +2702,10 @@ struct KeyObjectSelectionRecipe {
     title_code_value: &'static str,
     title_coding_scheme_designator: &'static str,
     title_code_meaning: &'static str,
+    mapping_resource: &'static str,
+    template_identifier: &'static str,
     relationship_type: &'static str,
     image_value_type: &'static str,
-    image_code_value: &'static str,
-    image_coding_scheme_designator: &'static str,
-    image_code_meaning: &'static str,
     image_referenced_frame_numbers: &'static [u16],
 }
 
@@ -2722,11 +2721,10 @@ const KEY_OBJECT_SELECTION_RECIPES: &[KeyObjectSelectionRecipe] = &[KeyObjectSel
     title_code_value: "113000",
     title_coding_scheme_designator: "DCM",
     title_code_meaning: "Of Interest",
+    mapping_resource: "DCMR",
+    template_identifier: "2010",
     relationship_type: "CONTAINS",
     image_value_type: "IMAGE",
-    image_code_value: "121112",
-    image_coding_scheme_designator: "DCM",
-    image_code_meaning: "Source image for key object selection",
     image_referenced_frame_numbers: &KEY_OBJECT_SELECTION_IMAGE_REFERENCED_FRAMES,
 }];
 
@@ -7967,11 +7965,10 @@ fn write_key_object_selection_case(
             title_code_value: recipe.title_code_value,
             title_coding_scheme_designator: recipe.title_coding_scheme_designator,
             title_code_meaning: recipe.title_code_meaning,
+            mapping_resource: recipe.mapping_resource,
+            template_identifier: recipe.template_identifier,
             relationship_type: recipe.relationship_type,
             image_value_type: recipe.image_value_type,
-            image_code_value: recipe.image_code_value,
-            image_coding_scheme_designator: recipe.image_coding_scheme_designator,
-            image_code_meaning: recipe.image_code_meaning,
             key_objects: &key_objects,
         },
     )?;
@@ -9944,6 +9941,18 @@ fn put_key_object_selection_content_tree(
         recipe.root_continuity_of_content,
     );
     obj.put(DataElement::new(
+        tags::CONTENT_TEMPLATE_SEQUENCE,
+        VR::SQ,
+        DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+            DataElement::new(tags::MAPPING_RESOURCE, VR::CS, recipe.mapping_resource),
+            DataElement::new(
+                tags::TEMPLATE_IDENTIFIER,
+                VR::CS,
+                recipe.template_identifier,
+            ),
+        ])]),
+    ));
+    obj.put(DataElement::new(
         tags::CONTENT_SEQUENCE,
         VR::SQ,
         DataSetSequence::from(vec![
@@ -9989,19 +9998,6 @@ fn key_object_selection_image_item(
     InMemDicomObject::from_element_iter([
         DataElement::new(tags::RELATIONSHIP_TYPE, VR::CS, recipe.relationship_type),
         DataElement::new(tags::VALUE_TYPE, VR::CS, recipe.image_value_type),
-        DataElement::new(
-            tags::CONCEPT_NAME_CODE_SEQUENCE,
-            VR::SQ,
-            DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
-                DataElement::new(tags::CODE_VALUE, VR::SH, recipe.image_code_value),
-                DataElement::new(
-                    tags::CODING_SCHEME_DESIGNATOR,
-                    VR::SH,
-                    recipe.image_coding_scheme_designator,
-                ),
-                DataElement::new(tags::CODE_MEANING, VR::LO, recipe.image_code_meaning),
-            ])]),
-        ),
         DataElement::new(
             tags::REFERENCED_SOP_SEQUENCE,
             VR::SQ,
@@ -10715,22 +10711,20 @@ fn key_object_selection_manifest_entry(
                     "coding_scheme_designator": recipe.title_coding_scheme_designator,
                     "code_meaning": recipe.title_code_meaning
                 },
+                "content_template": {
+                    "mapping_resource": recipe.mapping_resource,
+                    "template_identifier": recipe.template_identifier
+                },
                 "key_object_items": [
                     {
                         "relationship_type": recipe.relationship_type,
                         "value_type": recipe.image_value_type,
-                        "code_value": recipe.image_code_value,
-                        "coding_scheme_designator": recipe.image_coding_scheme_designator,
-                        "code_meaning": recipe.image_code_meaning,
                         "source_case_id": image_source.source_case_id,
                         "referenced_frame_numbers": recipe.image_referenced_frame_numbers
                     },
                     {
                         "relationship_type": recipe.relationship_type,
                         "value_type": recipe.image_value_type,
-                        "code_value": recipe.image_code_value,
-                        "coding_scheme_designator": recipe.image_coding_scheme_designator,
-                        "code_meaning": recipe.image_code_meaning,
                         "source_case_id": seg_source.source_case_id
                     }
                 ]
@@ -10775,14 +10769,15 @@ fn key_object_selection_manifest_entry(
                 "verification_flag": recipe.verification_flag,
                 "root_value_type": recipe.root_value_type,
                 "root_continuity_of_content": recipe.root_continuity_of_content,
+                "content_template": {
+                    "mapping_resource": recipe.mapping_resource,
+                    "template_identifier": recipe.template_identifier
+                },
                 "content_sequence_items": 2,
                 "key_objects": [
                     {
                         "relationship_type": recipe.relationship_type,
                         "value_type": recipe.image_value_type,
-                        "code_value": recipe.image_code_value,
-                        "coding_scheme_designator": recipe.image_coding_scheme_designator,
-                        "code_meaning": recipe.image_code_meaning,
                         "source_case_id": image_source.source_case_id,
                         "sop_instance_uid": image_source.sop_instance_uid,
                         "referenced_frame_numbers": recipe.image_referenced_frame_numbers
@@ -10790,9 +10785,6 @@ fn key_object_selection_manifest_entry(
                     {
                         "relationship_type": recipe.relationship_type,
                         "value_type": recipe.image_value_type,
-                        "code_value": recipe.image_code_value,
-                        "coding_scheme_designator": recipe.image_coding_scheme_designator,
-                        "code_meaning": recipe.image_code_meaning,
                         "source_case_id": seg_source.source_case_id,
                         "sop_instance_uid": seg_source.sop_instance_uid
                     }

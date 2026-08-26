@@ -202,11 +202,10 @@ pub(crate) struct KeyObjectSelectionExpectations<'a> {
     pub title_code_value: &'a str,
     pub title_coding_scheme_designator: &'a str,
     pub title_code_meaning: &'a str,
+    pub mapping_resource: &'a str,
+    pub template_identifier: &'a str,
     pub relationship_type: &'a str,
     pub image_value_type: &'a str,
-    pub image_code_value: &'a str,
-    pub image_coding_scheme_designator: &'a str,
-    pub image_code_meaning: &'a str,
     pub key_objects: &'a [KeyObjectReferenceExpectations<'a>],
 }
 
@@ -2323,6 +2322,23 @@ pub(crate) fn validate_key_object_selection_file(
         item_str(path, title, tags::CODE_MEANING)?.as_str(),
         expected.title_code_meaning,
     );
+    let content_template = top_level_sequence_item(path, &obj, tags::CONTENT_TEMPLATE_SEQUENCE, 0)?;
+    check_equal(
+        &mut internal,
+        "kos_mapping_resource",
+        "KOS root identifies the DICOM Content Mapping Resource.",
+        "KOS root Mapping Resource does not match the recipe.",
+        item_str(path, content_template, tags::MAPPING_RESOURCE)?.as_str(),
+        expected.mapping_resource,
+    );
+    check_equal(
+        &mut internal,
+        "kos_template_identifier",
+        "KOS root identifies TID 2010.",
+        "KOS root Template Identifier does not match the recipe.",
+        item_str(path, content_template, tags::TEMPLATE_IDENTIFIER)?.as_str(),
+        expected.template_identifier,
+    );
     check_equal(
         &mut internal,
         "kos_content_sequence_items",
@@ -2350,31 +2366,14 @@ pub(crate) fn validate_key_object_selection_file(
             item_str(path, content_item, tags::VALUE_TYPE)?.as_str(),
             expected.image_value_type,
         );
-        let image_code =
-            item_sequence_item(path, content_item, tags::CONCEPT_NAME_CODE_SEQUENCE, 0)?;
-        check_equal(
+        check(
             &mut internal,
-            "kos_image_code_value",
-            "KOS IMAGE item Code Value matches the recipe.",
-            "KOS IMAGE item Code Value does not match the recipe.",
-            item_str(path, image_code, tags::CODE_VALUE)?.as_str(),
-            expected.image_code_value,
-        );
-        check_equal(
-            &mut internal,
-            "kos_image_coding_scheme",
-            "KOS IMAGE item Coding Scheme Designator matches the recipe.",
-            "KOS IMAGE item Coding Scheme Designator does not match the recipe.",
-            item_str(path, image_code, tags::CODING_SCHEME_DESIGNATOR)?.as_str(),
-            expected.image_coding_scheme_designator,
-        );
-        check_equal(
-            &mut internal,
-            "kos_image_code_meaning",
-            "KOS IMAGE item Code Meaning matches the recipe.",
-            "KOS IMAGE item Code Meaning does not match the recipe.",
-            item_str(path, image_code, tags::CODE_MEANING)?.as_str(),
-            expected.image_code_meaning,
+            content_item
+                .element(tags::CONCEPT_NAME_CODE_SEQUENCE)
+                .is_err(),
+            "kos_image_concept_name_absent",
+            "KOS IMAGE item omits Concept Name as required by TID 2010 Row 8.",
+            "KOS IMAGE item contains a Concept Name forbidden by TID 2010 Row 8.",
         );
         let image_sop = item_sequence_item(path, content_item, tags::REFERENCED_SOP_SEQUENCE, 0)?;
         check_equal(

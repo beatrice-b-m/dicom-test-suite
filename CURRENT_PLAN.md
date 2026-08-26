@@ -3,7 +3,7 @@
 **Last updated:** 2026-08-26
 **Active goal:** implement independent conformance evidence collection
 **Source specification:** `SYSTEM_SPEC.md` version 0.2.0
-**Planning status:** conformance Phase 7 in progress; RLE evidence complete
+**Planning status:** conformance Phase 8 blocked on dicom3tools acquisition
 
 ## Independent Conformance Framework
 
@@ -55,9 +55,25 @@ compared to the manifest convention. Other lossless transfer syntaxes retain
 precise blockers in `conformance/pixel-decoders.json`; same-implementation paths
 are not credited as independent.
 
-Recommended next step: prove exact normalization adapters for native datasets
-and JPEG-LS, then acquire a non-OpenJPEG JPEG 2000 decoder and an independent
-HTJ2K/JPEG XL stack.
+Recommended next step: approve and lock an immutable dicom3tools distribution,
+then run primary IOD and entity acceptance. Pixel work can continue afterward
+with native/JPEG-LS normalization and independent JPEG 2000, HTJ2K, and JPEG XL
+decoder acquisition.
+
+## Acceptance Blocker
+
+A representative arm64 macOS run parsed all 108 all-features instances and
+matched all 58 RLE instances to their expected native frame hashes. Strict
+verification fails as designed because `dciodvfy` and `dcentvfy` are absent:
+there are no primary results and no entity result. `docs/conformance-acceptance.md`
+records the evidence counts, tool hashes, repeatable commands, and exact
+acquisition decision required to resume.
+
+Phase 8 automation must not be enabled until an immutable dicom3tools source or
+binary distribution, its validator-definition vintage, license attribution,
+and per-platform fingerprints are approved. After that decision, lock the two
+executables, run real acceptance, review findings, evaluate PixelMed for SR,
+and add the manual/scheduled evidence-artifact job.
 
 This document replaces the previous historical implementation plan and progress
 ledger. `SYSTEM_SPEC.md` remains the architecture and requirements source of

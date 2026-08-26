@@ -23,6 +23,9 @@ cargo run --locked -- generate --profile extended --out generated/extended --see
 cargo run --locked -- validate generated/extended
 cargo run --locked -- report generated/extended --format markdown
 cargo run --locked -- standards check-lock
+cargo run --locked -- conformance check-tools
+cargo run --locked -- conformance run generated/extended --out reports/conformance/extended
+cargo run --locked -- conformance verify reports/conformance/extended
 ```
 
 Generation writes DICOM Part 10 files plus a versioned `manifest.json`. The
@@ -72,9 +75,11 @@ For downstream projects, see
 portable, and fast generation workflows; manifest handoff requirements; and the
 scope boundary of the generated corpus.
 
-The implementation assignment for adding reproducible independent conformance
-evidence is in
-[docs/conformance-validation-agent-brief.md](docs/conformance-validation-agent-brief.md).
+The independent validation framework, tool matrix, and acceptance status are in
+[conformance/README.md](conformance/README.md) and
+[docs/conformance-acceptance.md](docs/conformance-acceptance.md). External tool
+gaps are explicit failures; parser success is never substituted for IOD
+validation.
 
 ## Verification
 

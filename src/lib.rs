@@ -39,10 +39,14 @@ use dicom_transfer_syntax_registry::entries::{
 
 pub mod codecs;
 pub mod conformance;
+pub mod coverage_gaps;
 pub mod encapsulation;
 mod generator;
 pub mod uid;
 mod validation;
+pub use coverage_gaps::{
+    CoverageGapError, build_coverage_gap_report, render_coverage_gap_report_markdown,
+};
 pub use uid::{DeterministicUidInput, UidRole, deterministic_uid};
 
 type OpenedObject = FileDicomObject<InMemDicomObject<StandardDataDictionary>>;

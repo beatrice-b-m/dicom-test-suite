@@ -289,7 +289,10 @@ fn run() -> Result<(), String> {
                 print_report_usage();
                 return Ok(());
             }
+            let gap_report = root == "gaps";
             let mut format = None;
+            let mut registry_path = String::from("cases/registry.json");
+            let mut standards_lock_path = String::from("standards.lock.json");
             while let Some(arg) = args.next() {
                 match arg.as_str() {
                     "--format" => {
@@ -298,12 +301,44 @@ fn run() -> Result<(), String> {
                                 .ok_or_else(|| "--format requires a value".to_string())?,
                         );
                     }
+                    "--registry" if gap_report => {
+                        registry_path = args
+                            .next()
+                            .ok_or_else(|| "--registry requires a value".to_string())?;
+                    }
+                    "--standards-lock" if gap_report => {
+                        standards_lock_path = args
+                            .next()
+                            .ok_or_else(|| "--standards-lock requires a value".to_string())?;
+                    }
                     unknown => {
                         return Err(format!("unknown report argument: {unknown}"));
                     }
                 }
             }
             let format = format.ok_or_else(|| "report requires --format".to_string())?;
+            if gap_report {
+                let report =
+                    dicom_test_suite::build_coverage_gap_report(registry_path, standards_lock_path)
+                        .map_err(|err| err.to_string())?;
+                return match format.as_str() {
+                    "json" => {
+                        println!(
+                            "{}",
+                            serde_json::to_string_pretty(&report).map_err(|err| err.to_string())?
+                        );
+                        Ok(())
+                    }
+                    "markdown" => {
+                        print!(
+                            "{}",
+                            dicom_test_suite::render_coverage_gap_report_markdown(&report)
+                        );
+                        Ok(())
+                    }
+                    other => Err(format!("unsupported report format: {other}")),
+                };
+            }
             match format.as_str() {
                 "json" => {
                     let report = dicom_test_suite::build_coverage_report(&root)
@@ -480,7 +515,11 @@ fn print_validate_usage() {
 }
 
 fn print_report_usage() {
-    println!("usage: dicom-test-suite report GENERATED_ROOT --format json|markdown");
+    println!("usage:");
+    println!("  dicom-test-suite report GENERATED_ROOT --format json|markdown");
+    println!(
+        "  dicom-test-suite report gaps --format json|markdown [--registry PATH] [--standards-lock PATH]"
+    );
 }
 
 fn print_standards_usage() {

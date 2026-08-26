@@ -39,14 +39,14 @@ fn report_command_writes_json_coverage_for_core_root() {
     );
     assert_eq!(
         report.pointer("/counts/planned").and_then(Value::as_u64),
-        Some(0)
+        Some(14)
     );
     assert_eq!(
         report
             .pointer("/coverage_matrix")
             .and_then(Value::as_array)
             .map(Vec::len),
-        Some(21)
+        Some(35)
     );
     assert_eq!(
         coverage_row(&report, "classic/ct/mono2_i16_rescale_12bit_explicit_le")
@@ -418,13 +418,13 @@ fn report_command_writes_json_coverage_for_core_root() {
         report
             .pointer("/grouped_coverage/profiles/core")
             .and_then(Value::as_u64),
-        Some(21)
+        Some(35)
     );
     assert_eq!(
         report
             .pointer("/grouped_coverage/profile_memberships/core")
             .and_then(Value::as_u64),
-        Some(21)
+        Some(35)
     );
     assert_eq!(
         report
@@ -436,7 +436,7 @@ fn report_command_writes_json_coverage_for_core_root() {
         report
             .pointer("/grouped_coverage/transfer_syntax_names/Explicit VR Little Endian")
             .and_then(Value::as_u64),
-        Some(20)
+        Some(34)
     );
     assert_eq!(
         report
@@ -748,7 +748,7 @@ fn report_command_writes_json_coverage_for_core_root() {
         report
             .pointer("/grouped_coverage/sop_class_names/CT Image Storage")
             .and_then(Value::as_u64),
-        Some(1)
+        Some(6)
     );
     assert_eq!(
         report
@@ -1999,14 +1999,14 @@ fn report_command_writes_markdown_coverage_for_core_root() {
     let stdout = String::from_utf8(output.stdout).expect("report stdout should be UTF-8");
     assert!(stdout.starts_with("# DICOM Test Suite Coverage Report"));
     assert!(stdout.contains("| generated | 21 |"));
-    assert!(stdout.contains("| planned | 0 |"));
+    assert!(stdout.contains("| planned | 14 |"));
     assert!(stdout.contains("### Profile Memberships"));
-    assert!(stdout.contains("| core | 21 |"));
+    assert!(stdout.contains("| core | 35 |"));
     assert!(stdout.contains("### Transfer Syntax Names"));
-    assert!(stdout.contains("| Explicit VR Little Endian | 20 |"));
+    assert!(stdout.contains("| Explicit VR Little Endian | 34 |"));
     assert!(stdout.contains("| Implicit VR Little Endian | 1 |"));
     assert!(stdout.contains("### SOP Class Names"));
-    assert!(stdout.contains("| CT Image Storage | 1 |"));
+    assert!(stdout.contains("| CT Image Storage | 6 |"));
     assert!(stdout.contains("| VL Photographic Image Storage | 2 |"));
     assert!(stdout.contains("### Image Types"));
     assert!(stdout.contains("### Conversion Types"));

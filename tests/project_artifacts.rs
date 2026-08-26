@@ -3720,7 +3720,7 @@ fn generator_recipe_case_ids() -> BTreeSet<String> {
 fn is_suite_case_id(case_id: &str) -> bool {
     matches!(
         case_id.split('/').next(),
-        Some("classic" | "enhanced" | "derived" | "non-image" | "vl")
+        Some("classic" | "enhanced" | "derived" | "geometry" | "non-image" | "vl")
     )
 }
 

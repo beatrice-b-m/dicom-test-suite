@@ -12,10 +12,11 @@ all-features seed-1 `legacy` corpus generated one file and also reported zero
 failures. These temporary corpora were not committed.
 
 On the baseline arm64 macOS host, DCMTK 3.7.0 `dcmdump` and `dcmdjpeg`,
-`ojph_compress`, and `dcmcjpeg` were installed. `dciodvfy`, `dcentvfy`, GDCM,
-and PixelMed were absent. Consequently, real IOD/entity acceptance is blocked
-until a pinned dicom3tools package is approved and installed; this does not
-block the hermetic framework implementation.
+`ojph_compress`, and `dcmcjpeg` were installed. On 2026-08-26 the upstream
+universal macOS dicom3tools snapshot `1.00.snapshot.20260803085716` was installed
+under a versioned Homebrew prefix with its matching BSD license. The two
+validator executables and both source/binary archives are pinned by SHA-256 in
+`validator-lock.json`. GDCM and PixelMed remain absent.
 
 ## Adapter decision matrix
 
@@ -52,10 +53,10 @@ the manifest's interleaved frame-hash convention before comparison. A real
 seed-1 all-profile run on the locked arm64 macOS tools matched all 58 RLE files.
 Set `DTS_REAL_CONFORMANCE=1` to exercise that conditional integration test.
 
-## Remaining acquisition decision
+## Installation identity
 
-Choose one immutable dicom3tools distribution per supported CI platform. A
-source snapshot is preferable for Linux; the upstream macOS binary or a frozen,
-license-preserving mirror can be used for arm64 macOS after its checksum and
-definition vintage are reviewed. Record the selected identity in
-`validator-lock.json`; do not fetch validators during ordinary tests.
+The arm64 macOS validator acquisition decision is complete. Other acceptance
+platforms still require their own immutable source or binary identity and
+fingerprints. The executables do not expose a version flag, so the framework
+uses their exact hashes and the immutable upstream snapshot name. Ordinary tests
+never fetch or require these external validators.

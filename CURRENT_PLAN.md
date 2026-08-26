@@ -3,7 +3,7 @@
 **Last updated:** 2026-08-26
 **Active goal:** implement independent conformance evidence collection
 **Source specification:** `SYSTEM_SPEC.md` version 0.2.0
-**Planning status:** conformance Phase 8 blocked on dicom3tools acquisition
+**Planning status:** dicom3tools installed and locked; real finding triage next
 
 ## Independent Conformance Framework
 
@@ -12,10 +12,11 @@ Phase 0 is complete: the portable suite passed, all-features seed-1 `all` and
 `legacy` corpora generated and validated internally, installed tools were
 inventoried, and `conformance/README.md` records the adapter decision matrix.
 
-Real IOD/entity acceptance is blocked on choosing and installing an immutable
-dicom3tools distribution providing `dciodvfy` and `dcentvfy`. DCMTK 3.7.0 is
-available for the independent parser. Framework development proceeds with fake
-executables and no network/runtime dependency in the default build.
+The upstream universal macOS dicom3tools snapshot
+`1.00.snapshot.20260803085716` is installed under a versioned Homebrew prefix.
+Both validators, their binary/source archives, and the matching BSD license are
+pinned. DCMTK 3.7.0 remains available for parser and RLE evidence. Ordinary
+tests continue to use fake executables and remain network-free.
 
 Phase 1 is complete: strict Draft 2020-12 schemas define run evidence and exact
 finding dispositions; committed fixtures are validated with a full schema
@@ -55,12 +56,13 @@ compared to the manifest convention. Other lossless transfer syntaxes retain
 precise blockers in `conformance/pixel-decoders.json`; same-implementation paths
 are not credited as independent.
 
-Recommended next step: approve and lock an immutable dicom3tools distribution,
-then run primary IOD and entity acceptance. Pixel work can continue afterward
-with native/JPEG-LS normalization and independent JPEG 2000, HTJ2K, and JPEG XL
+Recommended next step: run primary IOD and entity acceptance on all-features
+`all` and `legacy`, fix generator defects before accepting any findings, and
+record precise validator limitations. Pixel work can continue afterward with
+native/JPEG-LS normalization and independent JPEG 2000, HTJ2K, and JPEG XL
 decoder acquisition.
 
-## Acceptance Blocker
+## Acceptance Status
 
 A representative arm64 macOS run parsed all 108 all-features instances and
 matched all 58 RLE instances to their expected native frame hashes. Strict
@@ -69,11 +71,10 @@ there are no primary results and no entity result. `docs/conformance-acceptance.
 records the evidence counts, tool hashes, repeatable commands, and exact
 acquisition decision required to resume.
 
-Phase 8 automation must not be enabled until an immutable dicom3tools source or
-binary distribution, its validator-definition vintage, license attribution,
-and per-platform fingerprints are approved. After that decision, lock the two
-executables, run real acceptance, review findings, evaluate PixelMed for SR,
-and add the manual/scheduled evidence-artifact job.
+The arm64 macOS acquisition blocker is resolved. Phase 8 remains incomplete
+until real findings are reviewed, generator defects are fixed, strict
+verification succeeds or exact blockers are recorded, PixelMed is evaluated for
+SR, and the manual/scheduled evidence-artifact job is added.
 
 This document replaces the previous historical implementation plan and progress
 ledger. `SYSTEM_SPEC.md` remains the architecture and requirements source of

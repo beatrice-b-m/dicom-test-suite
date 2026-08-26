@@ -11,7 +11,9 @@ use serde_json::Value;
 use crate::sha256_hex;
 
 mod process;
-pub use process::{BackendInvocation, BackendRun, invoke_backend};
+pub use process::{
+    BackendInvocation, BackendRun, environment_fingerprint, executable_fingerprint, invoke_backend,
+};
 mod staging;
 pub use staging::{OutputLimits, promote_staged_outputs, verify_staged_outputs};
 

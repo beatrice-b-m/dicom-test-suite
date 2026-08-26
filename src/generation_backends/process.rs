@@ -7,6 +7,8 @@ use std::time::{Duration, Instant};
 
 use serde_json::Value;
 
+use crate::sha256_hex;
+
 use super::{
     BackendContractError, OutputLimits, validate_request, validate_response_for_request,
     verify_staged_outputs,
@@ -26,6 +28,8 @@ pub struct BackendInvocation {
     pub max_stdout_bytes: usize,
     pub max_stderr_bytes: usize,
     pub output_limits: OutputLimits,
+    pub dependency_lock_sha256: String,
+    pub environment_fingerprint: String,
 }
 
 #[derive(Debug)]
@@ -66,6 +70,7 @@ pub fn invoke_backend(
             executable.display()
         )));
     }
+    let executable_fingerprint = executable_fingerprint(&executable)?;
 
     let mut command = Command::new(&executable);
     command
@@ -75,6 +80,18 @@ pub fn invoke_backend(
         .env("DTS_BACKEND_REQUEST", &request_path)
         .env("DTS_BACKEND_RESPONSE", &response_path)
         .env("DTS_BACKEND_OUTPUTS", &outputs)
+        .env(
+            "DTS_BACKEND_DEPENDENCY_LOCK_SHA256",
+            &invocation.dependency_lock_sha256,
+        )
+        .env(
+            "DTS_BACKEND_EXECUTABLE_FINGERPRINT",
+            &executable_fingerprint,
+        )
+        .env(
+            "DTS_BACKEND_ENVIRONMENT_FINGERPRINT",
+            &invocation.environment_fingerprint,
+        )
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
@@ -145,6 +162,12 @@ pub fn invoke_backend(
             source,
         })?;
     validate_response_for_request(&staged_request, &response)?;
+    verify_response_provenance(
+        &response,
+        &invocation.dependency_lock_sha256,
+        &executable_fingerprint,
+        &invocation.environment_fingerprint,
+    )?;
     verify_staged_outputs(&response, &outputs, invocation.output_limits)?;
 
     Ok(BackendRun {
@@ -153,6 +176,56 @@ pub fn invoke_backend(
         stdout,
         stderr,
     })
+}
+
+pub fn executable_fingerprint(executable: &Path) -> Result<String, BackendContractError> {
+    let bytes = fs::read(executable).map_err(|source| BackendContractError::Read {
+        path: executable.to_path_buf(),
+        source,
+    })?;
+    Ok(sha256_hex(&bytes))
+}
+
+pub fn environment_fingerprint(fixed_arguments: &[String]) -> String {
+    let mut material = Vec::new();
+    for component in [
+        super::PROTOCOL_VERSION,
+        std::env::consts::OS,
+        std::env::consts::ARCH,
+        std::env::consts::FAMILY,
+    ] {
+        material.extend_from_slice(component.as_bytes());
+        material.push(0);
+    }
+    for argument in fixed_arguments {
+        material.extend_from_slice(argument.as_bytes());
+        material.push(0);
+    }
+    sha256_hex(&material)
+}
+
+fn verify_response_provenance(
+    response: &Value,
+    expected_dependency_lock: &str,
+    expected_executable: &str,
+    expected_environment: &str,
+) -> Result<(), BackendContractError> {
+    for (field, expected) in [
+        ("dependency_lock_sha256", expected_dependency_lock),
+        ("executable_fingerprint", expected_executable),
+        ("environment_fingerprint", expected_environment),
+    ] {
+        let actual = response
+            .pointer(&format!("/backend/{field}"))
+            .and_then(Value::as_str)
+            .expect("response schema checked backend provenance");
+        if actual != expected {
+            return Err(invalid(format!(
+                "backend response {field} is {actual}, expected {expected}"
+            )));
+        }
+    }
+    Ok(())
 }
 
 fn prepare_private_staging(root: &Path) -> Result<(), BackendContractError> {
@@ -259,7 +332,7 @@ mod tests {
 
     #[test]
     fn fake_backend_identity_mismatch_is_rejected() {
-        let staging = unique_staging("mismatch");
+        let staging = unique_staging("identity-mismatch");
         let error = invoke_backend(
             &fake_invocation(Duration::from_secs(2)),
             &request(),
@@ -297,6 +370,19 @@ mod tests {
     }
 
     #[test]
+    fn fake_backend_fingerprint_mismatch_is_rejected() {
+        let staging = unique_staging("fingerprint-mismatch");
+        let error = invoke_backend(
+            &fake_invocation(Duration::from_secs(2)),
+            &request(),
+            &staging,
+        )
+        .expect_err("false executable fingerprint must fail");
+        assert!(error.to_string().contains("executable_fingerprint"));
+        fs::remove_dir_all(staging).expect("remove fake staging");
+    }
+
+    #[test]
     #[ignore]
     fn fake_backend_process() {
         let current_directory = std::env::current_dir().expect("fake current directory");
@@ -320,11 +406,20 @@ mod tests {
             )
             .expect("write undeclared output");
         }
-        let request_id = if behavior.contains("mismatch") {
+        let request_id = if behavior.contains("identity-mismatch") {
             "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
         } else {
             request["request_id"].as_str().expect("request id")
         };
+        let dependency_lock_sha256 =
+            std::env::var("DTS_BACKEND_DEPENDENCY_LOCK_SHA256").expect("dependency fingerprint");
+        let executable_fingerprint = if behavior.contains("fingerprint-mismatch") {
+            "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee".to_string()
+        } else {
+            std::env::var("DTS_BACKEND_EXECUTABLE_FINGERPRINT").expect("executable fingerprint")
+        };
+        let environment_fingerprint =
+            std::env::var("DTS_BACKEND_ENVIRONMENT_FINGERPRINT").expect("environment fingerprint");
         let response = json!({
             "response_schema_version": "0.1.0",
             "protocol_version": request["protocol_version"],
@@ -334,9 +429,9 @@ mod tests {
             "backend": {
                 "name": "reentrant Rust fake",
                 "version": "1.0.0",
-                "dependency_lock_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
-                "executable_fingerprint": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
-                "environment_fingerprint": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+                "dependency_lock_sha256": dependency_lock_sha256,
+                "executable_fingerprint": executable_fingerprint,
+                "environment_fingerprint": environment_fingerprint
             },
             "outputs": [],
             "warnings": [],
@@ -354,13 +449,15 @@ mod tests {
     }
 
     fn fake_invocation(timeout: Duration) -> BackendInvocation {
+        let fixed_arguments = vec![
+            "--ignored".to_string(),
+            "--exact".to_string(),
+            "generation_backends::process::tests::fake_backend_process".to_string(),
+        ];
+        let environment_fingerprint = environment_fingerprint(&fixed_arguments);
         BackendInvocation {
             executable: std::env::current_exe().expect("current test executable"),
-            fixed_arguments: vec![
-                "--ignored".to_string(),
-                "--exact".to_string(),
-                "generation_backends::process::tests::fake_backend_process".to_string(),
-            ],
+            fixed_arguments,
             timeout,
             max_response_bytes: 64 * 1024,
             max_stdout_bytes: 64 * 1024,
@@ -370,6 +467,9 @@ mod tests {
                 max_file_bytes: 1024 * 1024,
                 max_total_output_bytes: 4 * 1024 * 1024,
             },
+            dependency_lock_sha256:
+                "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd".to_string(),
+            environment_fingerprint,
         }
     }
 

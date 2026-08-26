@@ -29,6 +29,18 @@ const SCHEMAS: &[(&str, &str)] = &[
         "https://dicom-test-suite.local/schemas/coverage-gap-report.schema.json",
     ),
     (
+        "schemas/generation-backend-request.schema.json",
+        "https://dicom-test-suite.local/schemas/generation-backend-request.schema.json",
+    ),
+    (
+        "schemas/generation-backend-response.schema.json",
+        "https://dicom-test-suite.local/schemas/generation-backend-response.schema.json",
+    ),
+    (
+        "schemas/generation-backend-lock.schema.json",
+        "https://dicom-test-suite.local/schemas/generation-backend-lock.schema.json",
+    ),
+    (
         "schemas/viewer-report.schema.json",
         "https://dicom-test-suite.local/schemas/viewer-report.schema.json",
     ),
@@ -621,6 +633,64 @@ fn coverage_gap_report_schema_separates_logical_cases_and_dimensions() {
                 .iter()
                 .any(|value| value.as_str() == Some(dimension)),
             "coverage gap report schema must require {dimension}"
+        );
+    }
+}
+
+#[test]
+fn generation_backend_schemas_lock_protocol_version_and_security_fields() {
+    for path in [
+        "schemas/generation-backend-request.schema.json",
+        "schemas/generation-backend-response.schema.json",
+        "schemas/generation-backend-lock.schema.json",
+    ] {
+        let schema = read_json(path);
+        jsonschema::validator_for(&schema)
+            .unwrap_or_else(|error| panic!("{path} must compile: {error}"));
+    }
+
+    let request = read_json("schemas/generation-backend-request.schema.json");
+    assert_eq!(
+        request
+            .pointer("/properties/protocol_version/const")
+            .and_then(Value::as_str),
+        Some("0.1.0")
+    );
+    for field in ["staging", "identities", "controlled_metadata", "sources"] {
+        assert!(
+            request
+                .get("required")
+                .and_then(Value::as_array)
+                .is_some_and(|required| required.iter().any(|item| item.as_str() == Some(field))),
+            "backend request must require {field}"
+        );
+    }
+
+    let response = read_json("schemas/generation-backend-response.schema.json");
+    for field in [
+        "dependency_lock_sha256",
+        "executable_fingerprint",
+        "environment_fingerprint",
+    ] {
+        assert!(
+            response
+                .pointer(&format!("/$defs/backend/properties/{field}"))
+                .is_some(),
+            "backend response provenance must include {field}"
+        );
+    }
+
+    let lock = read_json("schemas/generation-backend-lock.schema.json");
+    for field in [
+        "resource_limits",
+        "independent_validation",
+        "license",
+        "blockers",
+    ] {
+        assert!(
+            lock.pointer(&format!("/$defs/backend/properties/{field}"))
+                .is_some(),
+            "backend lock must model {field}"
         );
     }
 }

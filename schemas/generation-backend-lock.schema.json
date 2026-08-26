@@ -1,0 +1,222 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dicom-test-suite.local/schemas/generation-backend-lock.schema.json",
+  "title": "DICOM Generation Backend Policy Lock",
+  "type": "object",
+  "required": ["backend_lock_schema_version", "protocol_version", "backends"],
+  "properties": {
+    "backend_lock_schema_version": { "const": "0.1.0" },
+    "protocol_version": { "const": "0.1.0" },
+    "backends": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/backend" },
+      "minItems": 1,
+      "uniqueItems": true
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_-]*$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "determinism": {
+      "enum": ["byte_stable", "semantic_stable", "unstable"]
+    },
+    "backend": {
+      "type": "object",
+      "required": [
+        "backend_id",
+        "state",
+        "protocol_version",
+        "implementation_kind",
+        "required_by_default",
+        "discovery",
+        "dependency_lock",
+        "fingerprint_components",
+        "supported_case_families",
+        "platforms",
+        "determinism",
+        "resource_limits",
+        "independent_validation",
+        "license",
+        "blockers"
+      ],
+      "properties": {
+        "backend_id": { "$ref": "#/$defs/id" },
+        "state": { "enum": ["available", "planned", "disabled"] },
+        "protocol_version": { "const": "0.1.0" },
+        "implementation_kind": {
+          "enum": ["rust_native", "python", "java", "external_command"]
+        },
+        "required_by_default": { "type": "boolean" },
+        "discovery": {
+          "anyOf": [
+            { "$ref": "#/$defs/discovery" },
+            { "type": "null" }
+          ]
+        },
+        "dependency_lock": {
+          "anyOf": [
+            { "$ref": "#/$defs/dependency_lock" },
+            { "type": "null" }
+          ]
+        },
+        "fingerprint_components": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "canonical_executable_bytes",
+              "entrypoint_bytes",
+              "dependency_lock_bytes",
+              "fixed_arguments",
+              "protocol_version",
+              "platform_architecture",
+              "native_build"
+            ]
+          },
+          "uniqueItems": true
+        },
+        "supported_case_families": {
+          "type": "array",
+          "items": { "type": "string" },
+          "uniqueItems": true
+        },
+        "platforms": {
+          "type": "array",
+          "items": { "enum": ["linux", "macos", "windows"] },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "determinism": { "$ref": "#/$defs/determinism" },
+        "resource_limits": { "$ref": "#/$defs/resource_limits" },
+        "independent_validation": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/validation_requirement" },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "license": { "$ref": "#/$defs/license" },
+        "blockers": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "state": { "const": "planned" } },
+            "required": ["state"]
+          },
+          "then": {
+            "properties": { "blockers": { "minItems": 1 } }
+          }
+        },
+        {
+          "if": {
+            "properties": { "state": { "const": "available" } },
+            "required": ["state"]
+          },
+          "then": {
+            "properties": { "blockers": { "maxItems": 0 } }
+          }
+        }
+      ],
+      "additionalProperties": false
+    },
+    "discovery": {
+      "type": "object",
+      "required": [
+        "executable",
+        "fixed_arguments",
+        "version_arguments",
+        "environment_override"
+      ],
+      "properties": {
+        "executable": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+        },
+        "fixed_arguments": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "version_arguments": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "environment_override": {
+          "type": ["string", "null"],
+          "pattern": "^[A-Z][A-Z0-9_]*$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "dependency_lock": {
+      "type": "object",
+      "required": ["format", "path", "sha256"],
+      "properties": {
+        "format": { "type": "string", "minLength": 1 },
+        "path": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]*$"
+        },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      },
+      "additionalProperties": false
+    },
+    "resource_limits": {
+      "type": "object",
+      "required": [
+        "version_timeout_seconds",
+        "invocation_timeout_seconds",
+        "max_response_bytes",
+        "max_stdout_bytes",
+        "max_stderr_bytes",
+        "max_output_files",
+        "max_file_bytes",
+        "max_total_output_bytes"
+      ],
+      "properties": {
+        "version_timeout_seconds": { "type": "integer", "minimum": 1 },
+        "invocation_timeout_seconds": { "type": "integer", "minimum": 1 },
+        "max_response_bytes": { "type": "integer", "minimum": 1 },
+        "max_stdout_bytes": { "type": "integer", "minimum": 1 },
+        "max_stderr_bytes": { "type": "integer", "minimum": 1 },
+        "max_output_files": { "type": "integer", "minimum": 1 },
+        "max_file_bytes": { "type": "integer", "minimum": 1 },
+        "max_total_output_bytes": { "type": "integer", "minimum": 1 }
+      },
+      "additionalProperties": false
+    },
+    "validation_requirement": {
+      "type": "object",
+      "required": ["role", "validator_ids"],
+      "properties": {
+        "role": { "$ref": "#/$defs/id" },
+        "validator_ids": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/id" },
+          "minItems": 1,
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "license": {
+      "type": "object",
+      "required": ["spdx", "redistribution", "notes"],
+      "properties": {
+        "spdx": { "type": "array", "items": { "type": "string" } },
+        "redistribution": { "enum": ["permitted", "restricted", "unreviewed"] },
+        "notes": { "type": "string" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

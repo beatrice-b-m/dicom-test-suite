@@ -3,7 +3,7 @@
 **Last updated:** 2026-08-26
 **Active goal:** prepare the generated corpus for an independent viewer review
 **Source specification:** `SYSTEM_SPEC.md` version 0.2.0
-**Planning status:** in progress; immediate handoff fixes underway
+**Planning status:** readiness handoff complete; conformance implementation next
 
 This document replaces the previous historical implementation plan and progress
 ledger. `SYSTEM_SPEC.md` remains the architecture and requirements source of
@@ -27,9 +27,11 @@ Current phases:
 2. **Corpus consumption guide:** complete. `docs/corpus-consumption.md`
    documents complete and reduced corpus generation, prerequisites, validation,
    reports, manifests, neutral consumer responsibilities, and scope.
-3. **Independent conformance handoff:** in progress. Define implementable evidence
-   artifacts, validator pinning, finding disposition, corpus-level checks, and
-   independent pixel decoding without prescribing viewer behavior.
+3. **Independent conformance handoff:** complete.
+   `docs/conformance-validation-agent-brief.md` defines implementable evidence
+   artifacts, validator pinning, finding disposition, corpus-level checks,
+   independent pixel decoding, phased commits, and acceptance criteria without
+   prescribing viewer behavior.
 
 Exit criteria:
 
@@ -417,5 +419,7 @@ The current-term exit criteria were completed on 2026-07-28:
 
 ## Immediate Next Step
 
-No current-term implementation remains. Open a new durable goal before taking
-on an item from the deferred long-term roadmap.
+Execute `docs/conformance-validation-agent-brief.md` from Phase 0 through the
+real-tool acceptance phase. Do not give the independent viewer-review go signal
+until strict conformance evidence passes or every remaining limitation is
+recorded as an explicit blocker.

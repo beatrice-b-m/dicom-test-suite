@@ -101,6 +101,34 @@ fn corpus_consumption_guide_documents_complete_handoff() {
 }
 
 #[test]
+fn conformance_agent_brief_is_tractable_and_complete() {
+    let brief = fs::read_to_string("docs/conformance-validation-agent-brief.md")
+        .expect("conformance validation agent brief must be readable");
+
+    for required in [
+        "dciodvfy -new",
+        "dcentvfy",
+        "conformance check-tools",
+        "conformance run",
+        "conformance verify",
+        "validator-lock.json",
+        "accepted-findings.json",
+        "conformance-run.schema.json",
+        "manifest-relative paths",
+        "Independent Pixel Evidence",
+        "Implementation Phases And Commits",
+        "Complete Acceptance Criteria",
+        "Stop And Escalate Conditions",
+        "viewer-specific",
+    ] {
+        assert!(
+            brief.contains(required),
+            "conformance validation agent brief must document {required}"
+        );
+    }
+}
+
+#[test]
 fn taxonomy_documents_all_supported_profiles() {
     let taxonomy =
         fs::read_to_string("cases/taxonomy.md").expect("case taxonomy document must be readable");

@@ -72,6 +72,10 @@ For downstream projects, see
 portable, and fast generation workflows; manifest handoff requirements; and the
 scope boundary of the generated corpus.
 
+The implementation assignment for adding reproducible independent conformance
+evidence is in
+[docs/conformance-validation-agent-brief.md](docs/conformance-validation-agent-brief.md).
+
 ## Verification
 
 GitHub Actions runs the default corpus and a separate matrix for every

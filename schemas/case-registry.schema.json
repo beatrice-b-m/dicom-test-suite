@@ -44,6 +44,7 @@
       "type": "object",
       "required": [
         "case_id",
+        "artifact_kind",
         "status",
         "provider",
         "object_family",
@@ -65,6 +66,9 @@
       "properties": {
         "case_id": {
           "$ref": "#/$defs/case_id"
+        },
+        "artifact_kind": {
+          "enum": ["dicom_instance", "media_file_set", "transaction_scenario"]
         },
         "provider": {
           "$ref": "#/$defs/provider"
@@ -105,7 +109,6 @@
           "items": {
             "$ref": "#/$defs/profile"
           },
-          "minItems": 1,
           "uniqueItems": true
         },
         "recipe_id": {
@@ -115,19 +118,19 @@
           "type": "string"
         },
         "iod_name": {
-          "type": "string"
+          "type": ["string", "null"]
         },
         "sop_class_name": {
-          "type": "string"
+          "type": ["string", "null"]
         },
         "sop_class_uid": {
-          "type": "string"
+          "type": ["string", "null"]
         },
         "modality": {
           "type": "string"
         },
         "transfer_syntax_uid": {
-          "type": "string"
+          "type": ["string", "null"]
         },
         "determinism": {
           "$ref": "#/$defs/determinism"
@@ -153,6 +156,64 @@
         }
       },
       "allOf": [
+        {
+          "if": {
+            "properties": {
+              "artifact_kind": {
+                "enum": ["dicom_instance", "media_file_set"]
+              }
+            },
+            "required": ["artifact_kind"]
+          },
+          "then": {
+            "properties": {
+              "profiles": {
+                "minItems": 1
+              },
+              "iod_name": {
+                "type": "string"
+              },
+              "sop_class_name": {
+                "type": "string"
+              },
+              "sop_class_uid": {
+                "type": "string"
+              },
+              "transfer_syntax_uid": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "artifact_kind": {
+                "const": "transaction_scenario"
+              }
+            },
+            "required": ["artifact_kind"]
+          },
+          "then": {
+            "properties": {
+              "profiles": {
+                "maxItems": 0
+              },
+              "iod_name": {
+                "type": "null"
+              },
+              "sop_class_name": {
+                "type": "null"
+              },
+              "sop_class_uid": {
+                "type": "null"
+              },
+              "transfer_syntax_uid": {
+                "type": "null"
+              }
+            }
+          }
+        },
         {
           "if": {
             "properties": {

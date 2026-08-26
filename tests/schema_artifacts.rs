@@ -195,6 +195,7 @@ fn case_registry_schema_requires_the_specified_case_fields() {
 
     for field in [
         "case_id",
+        "artifact_kind",
         "status",
         "provider",
         "object_family",

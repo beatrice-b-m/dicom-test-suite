@@ -1,10 +1,12 @@
 {
-  "case_registry_schema_version": "0.1.0",
+  "case_registry_schema_version": "0.2.0",
   "cases": [
     {
       "case_id": "classic/sc/mono2_u8_explicit_le",
       "status": "implemented",
-      "profiles": ["smoke"],
+      "profiles": [
+        "smoke"
+      ],
       "recipe_id": "sc_mono2_u8",
       "recipe_version": "0.1.0",
       "iod_name": "Secondary Capture Image",
@@ -35,12 +37,26 @@
           "part": "PS3.6",
           "anchor": "table_A-1"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "OT",
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "classic/sc/mono1_u8_explicit_le",
       "status": "implemented",
-      "profiles": ["smoke"],
+      "profiles": [
+        "smoke"
+      ],
       "recipe_id": "sc_mono1_u8",
       "recipe_version": "0.1.0",
       "iod_name": "Secondary Capture Image",
@@ -71,12 +87,26 @@
           "part": "PS3.6",
           "anchor": "table_A-1"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "OT",
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "classic/sc/rgb_planar0_explicit_le",
       "status": "implemented",
-      "profiles": ["smoke"],
+      "profiles": [
+        "smoke"
+      ],
       "recipe_id": "sc_rgb_planar0",
       "recipe_version": "0.1.0",
       "iod_name": "Secondary Capture Image",
@@ -107,12 +137,26 @@
           "part": "PS3.6",
           "anchor": "table_A-1"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "OT",
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "classic/sc/mono2_u8_explicit_be",
       "status": "implemented",
-      "profiles": ["legacy"],
+      "profiles": [
+        "legacy"
+      ],
       "recipe_id": "sc_mono2_u8_explicit_be",
       "recipe_version": "0.1.0",
       "iod_name": "Secondary Capture Image",
@@ -143,12 +187,26 @@
           "part": "PS3.6",
           "anchor": "table_A-1"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "OT",
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "classic/sc/mono2_u8_deflated_explicit_le",
       "status": "implemented",
-      "profiles": ["extended"],
+      "profiles": [
+        "extended"
+      ],
       "recipe_id": "sc_mono2_u8_deflated_explicit_le",
       "recipe_version": "0.1.0",
       "iod_name": "Secondary Capture Image",
@@ -157,7 +215,9 @@
       "transfer_syntax_uid": "1.2.840.10008.1.2.1.99",
       "determinism": "byte_stable",
       "requirements": {
-        "features": ["deflate"],
+        "features": [
+          "deflate"
+        ],
         "external_codecs": [],
         "external_validators": []
       },
@@ -179,12 +239,26 @@
           "part": "PS3.6",
           "anchor": "table_A-1"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "OT",
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "classic/sc/mono2_u16_explicit_le",
       "status": "implemented",
-      "profiles": ["core"],
+      "profiles": [
+        "core"
+      ],
       "recipe_id": "sc_mono2_u16",
       "recipe_version": "0.1.0",
       "iod_name": "Secondary Capture Image",
@@ -247,12 +321,26 @@
           "part": "PS3.6",
           "anchor": "table_6-1"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "OT",
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "classic/sc/mono2_i16_explicit_le",
       "status": "implemented",
-      "profiles": ["core"],
+      "profiles": [
+        "core"
+      ],
       "recipe_id": "sc_mono2_i16",
       "recipe_version": "0.1.0",
       "iod_name": "Secondary Capture Image",
@@ -323,12 +411,26 @@
           "part": "PS3.3",
           "anchor": "table_C.7-11c"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "OT",
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "classic/sc/rgb_planar1_explicit_le",
       "status": "implemented",
-      "profiles": ["core"],
+      "profiles": [
+        "core"
+      ],
       "recipe_id": "sc_rgb_planar1",
       "recipe_version": "0.1.0",
       "iod_name": "Secondary Capture Image",
@@ -383,12 +485,26 @@
           "part": "PS3.3",
           "anchor": "sect_C.7.6.3.1.3"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "OT",
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "classic/sc/palette_color_u8_explicit_le",
       "status": "implemented",
-      "profiles": ["core"],
+      "profiles": [
+        "core"
+      ],
       "recipe_id": "sc_palette_color_u8",
       "recipe_version": "0.1.0",
       "iod_name": "Secondary Capture Image",
@@ -483,12 +599,26 @@
           "part": "PS3.6",
           "anchor": "table_6-1"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "OT",
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "classic/sc/ybr_full_planar0_explicit_le",
       "status": "implemented",
-      "profiles": ["core"],
+      "profiles": [
+        "core"
+      ],
       "recipe_id": "sc_ybr_full_planar0",
       "recipe_version": "0.1.0",
       "iod_name": "Secondary Capture Image",
@@ -551,12 +681,26 @@
           "part": "PS3.3",
           "anchor": "sect_C.7.6.3.1.3"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "OT",
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "classic/sc/ybr_full_422_explicit_le",
       "status": "implemented",
-      "profiles": ["core"],
+      "profiles": [
+        "core"
+      ],
       "recipe_id": "sc_ybr_full_422",
       "recipe_version": "0.1.0",
       "iod_name": "Secondary Capture Image",
@@ -627,12 +771,26 @@
           "part": "PS3.3",
           "anchor": "sect_C.7.6.3.1.2"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "OT",
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "classic/sc/mono2_u16_odd_3x3_explicit_le",
       "status": "implemented",
-      "profiles": ["core"],
+      "profiles": [
+        "core"
+      ],
       "recipe_id": "sc_mono2_u16_odd_3x3",
       "recipe_version": "0.1.0",
       "iod_name": "Secondary Capture Image",
@@ -687,12 +845,26 @@
           "part": "PS3.6",
           "anchor": "table_6-1"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "OT",
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "classic/sc/mono2_u16_rect_2x3_explicit_le",
       "status": "implemented",
-      "profiles": ["core"],
+      "profiles": [
+        "core"
+      ],
       "recipe_id": "sc_mono2_u16_rect_2x3",
       "recipe_version": "0.1.0",
       "iod_name": "Secondary Capture Image",
@@ -747,12 +919,26 @@
           "part": "PS3.6",
           "anchor": "table_6-1"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "OT",
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "classic/sc/mono2_u16_tiny_1x1_explicit_le",
       "status": "implemented",
-      "profiles": ["core"],
+      "profiles": [
+        "core"
+      ],
       "recipe_id": "sc_mono2_u16_tiny_1x1",
       "recipe_version": "0.1.0",
       "iod_name": "Secondary Capture Image",
@@ -807,12 +993,26 @@
           "part": "PS3.6",
           "anchor": "table_6-1"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "OT",
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "classic/sc/mono2_u16_padding_explicit_le",
       "status": "implemented",
-      "profiles": ["core"],
+      "profiles": [
+        "core"
+      ],
       "recipe_id": "sc_mono2_u16_padding",
       "recipe_version": "0.1.0",
       "iod_name": "Secondary Capture Image",
@@ -883,12 +1083,26 @@
           "part": "PS3.3",
           "anchor": "sect_C.7.5.1.1.2"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "OT",
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "classic/ct/mono2_i16_rescale_12bit_explicit_le",
       "status": "implemented",
-      "profiles": ["core"],
+      "profiles": [
+        "core"
+      ],
       "recipe_id": "ct_mono2_i16_rescale",
       "recipe_version": "0.1.0",
       "iod_name": "CT Image",
@@ -991,12 +1205,27 @@
           "part": "PS3.6",
           "anchor": "table_A-1"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "CT",
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "geometry",
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "classic/ct/mono2_i16_rescale_12bit_rle_lossless",
       "status": "implemented",
-      "profiles": ["extended"],
+      "profiles": [
+        "extended"
+      ],
       "recipe_id": "ct_mono2_i16_rescale_rle_lossless",
       "recipe_version": "0.1.0",
       "iod_name": "CT Image",
@@ -1115,12 +1344,29 @@
           "part": "PS3.5",
           "anchor": "sect_A.4"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "CT",
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "compression",
+        "encapsulation",
+        "geometry",
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "classic/mg/for_presentation_mono1_u16_12bit_explicit_le",
       "status": "implemented",
-      "profiles": ["core"],
+      "profiles": [
+        "core"
+      ],
       "recipe_id": "mg_for_presentation_mono1_u16",
       "recipe_version": "0.1.0",
       "iod_name": "Digital Mammography X-Ray Image",
@@ -1247,12 +1493,26 @@
           "part": "PS3.6",
           "anchor": "table_A-1"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "MG",
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "classic/mg/for_presentation_mono1_u16_12bit_rle_lossless",
       "status": "implemented",
-      "profiles": ["extended"],
+      "profiles": [
+        "extended"
+      ],
       "recipe_id": "mg_for_presentation_mono1_u16_rle_lossless",
       "recipe_version": "0.1.0",
       "iod_name": "Digital Mammography X-Ray Image",
@@ -1403,12 +1663,28 @@
           "part": "PS3.5",
           "anchor": "sect_A.4"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "MG",
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "compression",
+        "encapsulation",
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "classic/mg/for_processing_mono2_u16_12bit_implicit_le",
       "status": "implemented",
-      "profiles": ["core"],
+      "profiles": [
+        "core"
+      ],
       "recipe_id": "mg_for_processing_mono2_u16",
       "recipe_version": "0.1.0",
       "iod_name": "Digital Mammography X-Ray Image",
@@ -1543,12 +1819,26 @@
           "part": "PS3.3",
           "anchor": "table_C.11-2b"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "MG",
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "classic/mg/for_processing_mono2_u16_12bit_rle_lossless",
       "status": "implemented",
-      "profiles": ["extended"],
+      "profiles": [
+        "extended"
+      ],
       "recipe_id": "mg_for_processing_mono2_u16_rle_lossless",
       "recipe_version": "0.1.0",
       "iod_name": "Digital Mammography X-Ray Image",
@@ -1683,12 +1973,28 @@
           "part": "PS3.5",
           "anchor": "sect_A.4"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "MG",
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "compression",
+        "encapsulation",
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "classic/cr/overlay_modality_voi_explicit_le",
       "status": "implemented",
-      "profiles": ["core"],
+      "profiles": [
+        "core"
+      ],
       "recipe_id": "cr_overlay_modality_voi",
       "recipe_version": "0.1.0",
       "iod_name": "Computed Radiography Image",
@@ -1815,12 +2121,26 @@
           "part": "PS3.6",
           "anchor": "table_6-1"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "CR",
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "classic/cr/overlay_modality_voi_rle_lossless",
       "status": "implemented",
-      "profiles": ["extended"],
+      "profiles": [
+        "extended"
+      ],
       "recipe_id": "cr_overlay_modality_voi_rle_lossless",
       "recipe_version": "0.1.0",
       "iod_name": "Computed Radiography Image",
@@ -1963,12 +2283,28 @@
           "part": "PS3.5",
           "anchor": "sect_A.4"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "CR",
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "compression",
+        "encapsulation",
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "classic/mr/multislice_oblique_explicit_le",
       "status": "implemented",
-      "profiles": ["core"],
+      "profiles": [
+        "core"
+      ],
       "recipe_id": "mr_multislice_oblique",
       "recipe_version": "0.1.0",
       "iod_name": "MR Image",
@@ -2071,12 +2407,27 @@
           "part": "PS3.6",
           "anchor": "table_6-1"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "MR",
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "geometry",
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "classic/mr/mono2_u16_rle_lossless",
       "status": "implemented",
-      "profiles": ["extended"],
+      "profiles": [
+        "extended"
+      ],
       "recipe_id": "mr_mono2_u16_rle_lossless",
       "recipe_version": "0.1.0",
       "iod_name": "MR Image",
@@ -2195,12 +2546,29 @@
           "part": "PS3.5",
           "anchor": "sect_A.4"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "MR",
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "compression",
+        "encapsulation",
+        "geometry",
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "classic/dx/display_shutter_mono2_u16_explicit_le",
       "status": "implemented",
-      "profiles": ["core"],
+      "profiles": [
+        "core"
+      ],
       "recipe_id": "dx_display_shutter_mono2_u16",
       "recipe_version": "0.1.0",
       "iod_name": "Digital X-Ray Image",
@@ -2343,12 +2711,26 @@
           "part": "PS3.6",
           "anchor": "table_6-1"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "DX",
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "classic/dx/display_shutter_mono2_u16_rle_lossless",
       "status": "implemented",
-      "profiles": ["extended"],
+      "profiles": [
+        "extended"
+      ],
       "recipe_id": "dx_display_shutter_mono2_u16_rle_lossless",
       "recipe_version": "0.1.0",
       "iod_name": "Digital X-Ray Image",
@@ -2451,12 +2833,28 @@
           "part": "PS3.5",
           "anchor": "sect_A.4"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "DX",
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "compression",
+        "encapsulation",
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "classic/us/mono2_u8_explicit_le",
       "status": "implemented",
-      "profiles": ["core"],
+      "profiles": [
+        "core"
+      ],
       "recipe_id": "us_mono2_u8",
       "recipe_version": "0.1.0",
       "iod_name": "Ultrasound Image",
@@ -2543,12 +2941,26 @@
           "part": "PS3.6",
           "anchor": "table_6-1"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "US",
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "classic/us/mono2_u8_rle_lossless",
       "status": "implemented",
-      "profiles": ["extended"],
+      "profiles": [
+        "extended"
+      ],
       "recipe_id": "us_mono2_u8_rle_lossless",
       "recipe_version": "0.1.0",
       "iod_name": "Ultrasound Image",
@@ -2651,12 +3063,28 @@
           "part": "PS3.5",
           "anchor": "sect_A.4"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "US",
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "compression",
+        "encapsulation",
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "enhanced/ct/multiframe_shared_perframe_explicit_le",
       "status": "implemented",
-      "profiles": ["extended"],
+      "profiles": [
+        "extended"
+      ],
       "recipe_id": "enhanced_ct_multiframe_shared_perframe",
       "recipe_version": "0.1.0",
       "iod_name": "Enhanced CT Image",
@@ -2799,12 +3227,27 @@
           "part": "PS3.3",
           "anchor": "sect_C.8.15.3.10"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "CT",
+      "object_family": "enhanced_image",
+      "compatibility_axes": [
+        "geometry",
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "enhanced/ct/concatenation_two_part_explicit_le",
       "status": "implemented",
-      "profiles": ["extended"],
+      "profiles": [
+        "extended"
+      ],
       "recipe_id": "enhanced_ct_concatenation_two_part",
       "recipe_version": "0.1.0",
       "iod_name": "Enhanced CT Image",
@@ -2931,12 +3374,27 @@
           "part": "PS3.3",
           "anchor": "table_C.7.6.16-1"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "CT",
+      "object_family": "enhanced_image",
+      "compatibility_axes": [
+        "geometry",
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "enhanced/mr/multiframe_echo_perframe_explicit_le",
       "status": "implemented",
-      "profiles": ["extended"],
+      "profiles": [
+        "extended"
+      ],
       "recipe_id": "enhanced_mr_multiframe_echo_perframe",
       "recipe_version": "0.1.0",
       "iod_name": "Enhanced MR Image",
@@ -3111,12 +3569,27 @@
           "part": "PS3.3",
           "anchor": "table_C.8-134"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "MR",
+      "object_family": "enhanced_image",
+      "compatibility_axes": [
+        "geometry",
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "enhanced/mr/multiframe_temporal_position_explicit_le",
       "status": "implemented",
-      "profiles": ["extended"],
+      "profiles": [
+        "extended"
+      ],
       "recipe_id": "enhanced_mr_multiframe_temporal_position",
       "recipe_version": "0.1.0",
       "iod_name": "Enhanced MR Image",
@@ -3315,12 +3788,27 @@
           "part": "PS3.6",
           "anchor": "table_6-1"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "MR",
+      "object_family": "enhanced_image",
+      "compatibility_axes": [
+        "geometry",
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "enhanced/mr/multiframe_phase_velocity_encoding_explicit_le",
       "status": "implemented",
-      "profiles": ["extended"],
+      "profiles": [
+        "extended"
+      ],
       "recipe_id": "enhanced_mr_multiframe_phase_velocity_encoding",
       "recipe_version": "0.1.0",
       "iod_name": "Enhanced MR Image",
@@ -3551,12 +4039,27 @@
           "part": "PS3.3",
           "anchor": "table_C.8-87"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "MR",
+      "object_family": "enhanced_image",
+      "compatibility_axes": [
+        "geometry",
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "derived/seg/binary_multiframe_explicit_le",
       "status": "implemented",
-      "profiles": ["extended"],
+      "profiles": [
+        "extended"
+      ],
       "recipe_id": "seg_binary_multiframe",
       "recipe_version": "0.1.0",
       "iod_name": "Segmentation",
@@ -3635,12 +4138,28 @@
           "part": "PS3.3",
           "anchor": "sect_C.8.20.2.3.1"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "SEG",
+      "object_family": "derived_image",
+      "compatibility_axes": [
+        "geometry",
+        "modality",
+        "pixels",
+        "references"
       ]
     },
     {
       "case_id": "derived/seg/binary_multiframe_deflated_image_frame",
       "status": "implemented",
-      "profiles": ["extended"],
+      "profiles": [
+        "extended"
+      ],
       "recipe_id": "seg_binary_multiframe_deflated_image_frame",
       "recipe_version": "0.1.0",
       "iod_name": "Segmentation",
@@ -3650,7 +4169,9 @@
       "transfer_syntax_uid": "1.2.840.10008.1.2.8.1",
       "determinism": "byte_stable",
       "requirements": {
-        "features": ["deflate"],
+        "features": [
+          "deflate"
+        ],
         "external_codecs": [],
         "external_validators": []
       },
@@ -3736,12 +4257,29 @@
           "part": "PS3.5",
           "anchor": "sect_A.4.13"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "object_family": "derived_image",
+      "compatibility_axes": [
+        "compression",
+        "encapsulation",
+        "geometry",
+        "modality",
+        "pixels",
+        "references"
       ]
     },
     {
       "case_id": "derived/seg/fractional_probability_multiframe_explicit_le",
       "status": "implemented",
-      "profiles": ["extended"],
+      "profiles": [
+        "extended"
+      ],
       "recipe_id": "seg_fractional_probability_multiframe",
       "recipe_version": "0.1.0",
       "iod_name": "Segmentation",
@@ -3820,12 +4358,28 @@
           "part": "PS3.3",
           "anchor": "sect_C.8.20.2.3.2"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "SEG",
+      "object_family": "derived_image",
+      "compatibility_axes": [
+        "geometry",
+        "modality",
+        "pixels",
+        "references"
       ]
     },
     {
       "case_id": "derived/seg/labelmap_multiframe_explicit_le",
       "status": "implemented",
-      "profiles": ["extended"],
+      "profiles": [
+        "extended"
+      ],
       "recipe_id": "seg_labelmap_multiframe",
       "recipe_version": "0.1.0",
       "iod_name": "Segmentation",
@@ -3896,12 +4450,28 @@
           "part": "PS3.3",
           "anchor": "sect_C.8.20.2.3.3"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "SEG",
+      "object_family": "derived_image",
+      "compatibility_axes": [
+        "geometry",
+        "modality",
+        "pixels",
+        "references"
       ]
     },
     {
       "case_id": "derived/presentation-state/grayscale_softcopy_ct_window_explicit_le",
       "status": "implemented",
-      "profiles": ["extended"],
+      "profiles": [
+        "extended"
+      ],
       "recipe_id": "gsps_grayscale_softcopy_ct_window",
       "recipe_version": "0.1.0",
       "iod_name": "Grayscale Softcopy Presentation State",
@@ -3980,12 +4550,27 @@
           "part": "PS3.3",
           "anchor": "table_C.11.6-1"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "PR",
+      "object_family": "presentation_state",
+      "compatibility_axes": [
+        "modality",
+        "presentation",
+        "references"
       ]
     },
     {
       "case_id": "derived/rwvm/linear_ct_mapping_explicit_le",
       "status": "implemented",
-      "profiles": ["extended"],
+      "profiles": [
+        "extended"
+      ],
       "recipe_id": "rwvm_linear_ct_mapping",
       "recipe_version": "0.1.0",
       "iod_name": "Real World Value Mapping",
@@ -4040,12 +4625,27 @@
           "part": "PS3.6",
           "anchor": "table_6-1"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "RWV",
+      "object_family": "quantitative",
+      "compatibility_axes": [
+        "modality",
+        "quantitative",
+        "references"
       ]
     },
     {
       "case_id": "derived/sr/basic_text_observation_explicit_le",
       "status": "implemented",
-      "profiles": ["extended"],
+      "profiles": [
+        "extended"
+      ],
       "recipe_id": "sr_basic_text_observation",
       "recipe_version": "0.1.0",
       "iod_name": "Basic Text SR",
@@ -4100,12 +4700,27 @@
           "part": "PS3.6",
           "anchor": "table_6-1"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "SR",
+      "object_family": "structured_report",
+      "compatibility_axes": [
+        "modality",
+        "references",
+        "structured_report"
       ]
     },
     {
       "case_id": "derived/sr/comprehensive_measurement_explicit_le",
       "status": "implemented",
-      "profiles": ["extended"],
+      "profiles": [
+        "extended"
+      ],
       "recipe_id": "sr_comprehensive_measurement",
       "recipe_version": "0.1.0",
       "iod_name": "Comprehensive SR",
@@ -4160,12 +4775,27 @@
           "part": "PS3.6",
           "anchor": "table_6-1"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "SR",
+      "object_family": "structured_report",
+      "compatibility_axes": [
+        "modality",
+        "references",
+        "structured_report"
       ]
     },
     {
       "case_id": "derived/sr/key_object_selection_explicit_le",
       "status": "implemented",
-      "profiles": ["extended"],
+      "profiles": [
+        "extended"
+      ],
       "recipe_id": "sr_key_object_selection",
       "recipe_version": "0.1.0",
       "iod_name": "Key Object Selection Document",
@@ -4220,12 +4850,27 @@
           "part": "PS3.6",
           "anchor": "table_6-1"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "KO",
+      "object_family": "structured_report",
+      "compatibility_axes": [
+        "modality",
+        "references",
+        "structured_report"
       ]
     },
     {
       "case_id": "non-image/rt/structure_set_single_roi_explicit_le",
       "status": "implemented",
-      "profiles": ["extended"],
+      "profiles": [
+        "extended"
+      ],
       "recipe_id": "rt_structure_set_single_roi",
       "recipe_version": "0.1.0",
       "iod_name": "RT Structure Set",
@@ -4272,12 +4917,28 @@
           "part": "PS3.3",
           "anchor": "table_A.19.3-1"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "RTSTRUCT",
+      "object_family": "radiotherapy",
+      "compatibility_axes": [
+        "modality",
+        "pixels",
+        "radiotherapy",
+        "references"
       ]
     },
     {
       "case_id": "non-image/rt/dose_grid_u16_explicit_le",
       "status": "implemented",
-      "profiles": ["extended"],
+      "profiles": [
+        "extended"
+      ],
       "recipe_id": "rt_dose_grid_u16",
       "recipe_version": "0.1.0",
       "iod_name": "RT Dose",
@@ -4332,12 +4993,28 @@
           "part": "PS3.6",
           "anchor": "table_6-1"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "RTDOSE",
+      "object_family": "radiotherapy",
+      "compatibility_axes": [
+        "modality",
+        "pixels",
+        "radiotherapy",
+        "references"
       ]
     },
     {
       "case_id": "non-image/encapsulated-document/pdf_minimal_explicit_le",
       "status": "implemented",
-      "profiles": ["extended"],
+      "profiles": [
+        "extended"
+      ],
       "recipe_id": "encapsulated_pdf_minimal",
       "recipe_version": "0.1.0",
       "iod_name": "Encapsulated PDF",
@@ -4408,12 +5085,25 @@
           "part": "PS3.6",
           "anchor": "table_6-1"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "DOC",
+      "object_family": "encapsulated_document",
+      "compatibility_axes": [
+        "modality"
       ]
     },
     {
       "case_id": "vl/photo/rgb_planar0_explicit_le",
       "status": "implemented",
-      "profiles": ["core"],
+      "profiles": [
+        "core"
+      ],
       "recipe_id": "vl_photo_rgb_planar0",
       "recipe_version": "0.1.0",
       "iod_name": "VL Photographic Image",
@@ -4469,12 +5159,26 @@
           "part": "PS3.6",
           "anchor": "table_A-1"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "object_family": "visible_light",
+      "compatibility_axes": [
+        "modality",
+        "pixels",
+        "visible_light"
       ]
     },
     {
       "case_id": "vl/photo/rgb_planar0_rle_lossless",
       "status": "implemented",
-      "profiles": ["extended"],
+      "profiles": [
+        "extended"
+      ],
       "recipe_id": "vl_photo_rgb_planar0_rle_lossless",
       "recipe_version": "0.1.0",
       "iod_name": "VL Photographic Image",
@@ -4545,12 +5249,29 @@
           "part": "PS3.5",
           "anchor": "sect_8.2.2"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "XC",
+      "object_family": "visible_light",
+      "compatibility_axes": [
+        "compression",
+        "encapsulation",
+        "modality",
+        "pixels",
+        "visible_light"
       ]
     },
     {
       "case_id": "vl/photo/rgb_planar1_rle_lossless",
       "status": "implemented",
-      "profiles": ["extended"],
+      "profiles": [
+        "extended"
+      ],
       "recipe_id": "vl_photo_rgb_planar1_rle_lossless",
       "recipe_version": "0.1.0",
       "iod_name": "VL Photographic Image",
@@ -4621,12 +5342,29 @@
           "part": "PS3.5",
           "anchor": "sect_8.2.2"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "XC",
+      "object_family": "visible_light",
+      "compatibility_axes": [
+        "compression",
+        "encapsulation",
+        "modality",
+        "pixels",
+        "visible_light"
       ]
     },
     {
       "case_id": "classic/sc/rgb_planar0_jpeg_baseline_8bit",
       "status": "implemented",
-      "profiles": ["extended"],
+      "profiles": [
+        "extended"
+      ],
       "recipe_id": "sc_rgb_planar0_jpeg_baseline_8bit",
       "recipe_version": "0.1.0",
       "iod_name": "Secondary Capture Image",
@@ -4636,7 +5374,9 @@
       "transfer_syntax_uid": "1.2.840.10008.1.2.4.50",
       "determinism": "semantic_stable",
       "requirements": {
-        "features": ["jpeg"],
+        "features": [
+          "jpeg"
+        ],
         "external_codecs": [],
         "external_validators": []
       },
@@ -4666,12 +5406,27 @@
           "part": "PS3.5",
           "anchor": "sect_A.4.1"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "compression",
+        "encapsulation",
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "classic/sc/mono2_u8_jpeg_ls_lossless",
       "status": "implemented",
-      "profiles": ["extended"],
+      "profiles": [
+        "extended"
+      ],
       "recipe_id": "sc_mono2_u8_jpeg_ls_lossless",
       "recipe_version": "0.1.0",
       "iod_name": "Secondary Capture Image",
@@ -4681,8 +5436,12 @@
       "transfer_syntax_uid": "1.2.840.10008.1.2.4.80",
       "determinism": "semantic_stable",
       "requirements": {
-        "features": ["charls"],
-        "external_codecs": ["CharLS"],
+        "features": [
+          "charls"
+        ],
+        "external_codecs": [
+          "CharLS"
+        ],
         "external_validators": []
       },
       "skip": null,
@@ -4703,12 +5462,27 @@
           "part": "PS3.6",
           "anchor": "table_A-1"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "compression",
+        "encapsulation",
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "classic/sc/mono2_u16_jpeg2000_lossless",
       "status": "implemented",
-      "profiles": ["extended"],
+      "profiles": [
+        "extended"
+      ],
       "recipe_id": "sc_mono2_u16_jpeg2000_lossless",
       "recipe_version": "0.1.0",
       "iod_name": "Secondary Capture Image",
@@ -4718,8 +5492,12 @@
       "transfer_syntax_uid": "1.2.840.10008.1.2.4.90",
       "determinism": "semantic_stable",
       "requirements": {
-        "features": ["jpeg2000"],
-        "external_codecs": ["OpenJPEG"],
+        "features": [
+          "jpeg2000"
+        ],
+        "external_codecs": [
+          "OpenJPEG"
+        ],
         "external_validators": []
       },
       "skip": null,
@@ -4740,12 +5518,27 @@
           "part": "PS3.6",
           "anchor": "table_A-1"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "compression",
+        "encapsulation",
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "classic/sc/rgb_planar0_jpegxl_lossless",
       "status": "implemented",
-      "profiles": ["extended"],
+      "profiles": [
+        "extended"
+      ],
       "recipe_id": "sc_rgb_planar0_jpegxl_lossless",
       "recipe_version": "0.1.0",
       "iod_name": "Secondary Capture Image",
@@ -4755,7 +5548,9 @@
       "transfer_syntax_uid": "1.2.840.10008.1.2.4.110",
       "determinism": "semantic_stable",
       "requirements": {
-        "features": ["jpegxl"],
+        "features": [
+          "jpegxl"
+        ],
         "external_codecs": [],
         "external_validators": []
       },
@@ -4777,12 +5572,27 @@
           "part": "PS3.6",
           "anchor": "table_A-1"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "compression",
+        "encapsulation",
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "classic/sc/mono2_u16_htj2k_lossless",
       "status": "implemented",
-      "profiles": ["extended"],
+      "profiles": [
+        "extended"
+      ],
       "recipe_id": "sc_mono2_u16_htj2k_lossless",
       "recipe_version": "0.1.0",
       "iod_name": "Secondary Capture Image",
@@ -4792,8 +5602,12 @@
       "transfer_syntax_uid": "1.2.840.10008.1.2.4.201",
       "determinism": "semantic_stable",
       "requirements": {
-        "features": ["htj2k_openjph"],
-        "external_codecs": ["OpenJPH"],
+        "features": [
+          "htj2k_openjph"
+        ],
+        "external_codecs": [
+          "OpenJPH"
+        ],
         "external_validators": []
       },
       "skip": null,
@@ -4814,12 +5628,27 @@
           "part": "PS3.6",
           "anchor": "table_A-1"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "compression",
+        "encapsulation",
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "classic/sc/mono2_u16_jpeg_lossless_process_14",
       "status": "implemented",
-      "profiles": ["extended"],
+      "profiles": [
+        "extended"
+      ],
       "recipe_id": "sc_mono2_u16_jpeg_lossless_process_14",
       "recipe_version": "0.1.0",
       "iod_name": "Secondary Capture Image",
@@ -4829,8 +5658,12 @@
       "transfer_syntax_uid": "1.2.840.10008.1.2.4.57",
       "determinism": "semantic_stable",
       "requirements": {
-        "features": ["legacy_jpeg_dcmtk"],
-        "external_codecs": ["DCMTK dcmcjpeg"],
+        "features": [
+          "legacy_jpeg_dcmtk"
+        ],
+        "external_codecs": [
+          "DCMTK dcmcjpeg"
+        ],
         "external_validators": []
       },
       "skip": null,
@@ -4851,12 +5684,27 @@
           "part": "PS3.6",
           "anchor": "table_A-1"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "compression",
+        "encapsulation",
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "classic/sc/mono2_u16_jpeg_lossless_sv1",
       "status": "implemented",
-      "profiles": ["extended"],
+      "profiles": [
+        "extended"
+      ],
       "recipe_id": "sc_mono2_u16_jpeg_lossless_sv1",
       "recipe_version": "0.1.0",
       "iod_name": "Secondary Capture Image",
@@ -4866,8 +5714,12 @@
       "transfer_syntax_uid": "1.2.840.10008.1.2.4.70",
       "determinism": "semantic_stable",
       "requirements": {
-        "features": ["legacy_jpeg_dcmtk"],
-        "external_codecs": ["DCMTK dcmcjpeg"],
+        "features": [
+          "legacy_jpeg_dcmtk"
+        ],
+        "external_codecs": [
+          "DCMTK dcmcjpeg"
+        ],
         "external_validators": []
       },
       "skip": null,
@@ -4888,12 +5740,27 @@
           "part": "PS3.6",
           "anchor": "table_A-1"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "compression",
+        "encapsulation",
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "classic/sc/mono2_u8_rle_lossless",
       "status": "implemented",
-      "profiles": ["extended"],
+      "profiles": [
+        "extended"
+      ],
       "recipe_id": "sc_mono2_u8_rle_lossless",
       "recipe_version": "0.1.0",
       "iod_name": "Secondary Capture Image",
@@ -4932,12 +5799,28 @@
           "part": "PS3.5",
           "anchor": "sect_8.2.2"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "OT",
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "compression",
+        "encapsulation",
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "classic/sc/mono2_u16_rle_lossless",
       "status": "implemented",
-      "profiles": ["extended"],
+      "profiles": [
+        "extended"
+      ],
       "recipe_id": "sc_mono2_u16_rle_lossless",
       "recipe_version": "0.1.0",
       "iod_name": "Secondary Capture Image",
@@ -4984,12 +5867,28 @@
           "part": "PS3.3",
           "anchor": "table_C.7-11c"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "OT",
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "compression",
+        "encapsulation",
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "classic/sc/mono2_u16_tiny_1x1_rle_lossless",
       "status": "implemented",
-      "profiles": ["extended"],
+      "profiles": [
+        "extended"
+      ],
       "recipe_id": "sc_mono2_u16_tiny_1x1_rle_lossless",
       "recipe_version": "0.1.0",
       "iod_name": "Secondary Capture Image",
@@ -5052,12 +5951,28 @@
           "part": "PS3.3",
           "anchor": "table_C.7-11c"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "OT",
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "compression",
+        "encapsulation",
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "classic/sc/mono1_u16_tiny_1x1_rle_lossless",
       "status": "implemented",
-      "profiles": ["extended"],
+      "profiles": [
+        "extended"
+      ],
       "recipe_id": "sc_mono1_u16_tiny_1x1_rle_lossless",
       "recipe_version": "0.1.0",
       "iod_name": "Secondary Capture Image",
@@ -5128,12 +6043,28 @@
           "part": "PS3.3",
           "anchor": "table_C.7-11c"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "OT",
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "compression",
+        "encapsulation",
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "classic/sc/mono2_i16_tiny_1x1_rle_lossless",
       "status": "implemented",
-      "profiles": ["extended"],
+      "profiles": [
+        "extended"
+      ],
       "recipe_id": "sc_mono2_i16_tiny_1x1_rle_lossless",
       "recipe_version": "0.1.0",
       "iod_name": "Secondary Capture Image",
@@ -5204,12 +6135,28 @@
           "part": "PS3.3",
           "anchor": "table_C.7-11c"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "OT",
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "compression",
+        "encapsulation",
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "classic/sc/mono1_i16_tiny_1x1_rle_lossless",
       "status": "implemented",
-      "profiles": ["extended"],
+      "profiles": [
+        "extended"
+      ],
       "recipe_id": "sc_mono1_i16_tiny_1x1_rle_lossless",
       "recipe_version": "0.1.0",
       "iod_name": "Secondary Capture Image",
@@ -5280,12 +6227,28 @@
           "part": "PS3.3",
           "anchor": "table_C.7-11c"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "OT",
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "compression",
+        "encapsulation",
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "classic/sc/mono2_u16_odd_3x3_rle_lossless",
       "status": "implemented",
-      "profiles": ["extended"],
+      "profiles": [
+        "extended"
+      ],
       "recipe_id": "sc_mono2_u16_odd_3x3_rle_lossless",
       "recipe_version": "0.1.0",
       "iod_name": "Secondary Capture Image",
@@ -5348,12 +6311,28 @@
           "part": "PS3.3",
           "anchor": "table_C.7-11c"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "OT",
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "compression",
+        "encapsulation",
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "classic/sc/mono1_u16_odd_3x3_rle_lossless",
       "status": "implemented",
-      "profiles": ["extended"],
+      "profiles": [
+        "extended"
+      ],
       "recipe_id": "sc_mono1_u16_odd_3x3_rle_lossless",
       "recipe_version": "0.1.0",
       "iod_name": "Secondary Capture Image",
@@ -5416,12 +6395,28 @@
           "part": "PS3.3",
           "anchor": "table_C.7-11c"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "OT",
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "compression",
+        "encapsulation",
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "classic/sc/mono2_i16_odd_3x3_rle_lossless",
       "status": "implemented",
-      "profiles": ["extended"],
+      "profiles": [
+        "extended"
+      ],
       "recipe_id": "sc_mono2_i16_odd_3x3_rle_lossless",
       "recipe_version": "0.1.0",
       "iod_name": "Secondary Capture Image",
@@ -5484,12 +6479,28 @@
           "part": "PS3.3",
           "anchor": "table_C.7-11c"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "OT",
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "compression",
+        "encapsulation",
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "classic/sc/mono1_i16_odd_3x3_rle_lossless",
       "status": "implemented",
-      "profiles": ["extended"],
+      "profiles": [
+        "extended"
+      ],
       "recipe_id": "sc_mono1_i16_odd_3x3_rle_lossless",
       "recipe_version": "0.1.0",
       "iod_name": "Secondary Capture Image",
@@ -5552,12 +6563,28 @@
           "part": "PS3.3",
           "anchor": "table_C.7-11c"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "OT",
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "compression",
+        "encapsulation",
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "classic/sc/mono2_u16_rect_2x3_rle_lossless",
       "status": "implemented",
-      "profiles": ["extended"],
+      "profiles": [
+        "extended"
+      ],
       "recipe_id": "sc_mono2_u16_rect_2x3_rle_lossless",
       "recipe_version": "0.1.0",
       "iod_name": "Secondary Capture Image",
@@ -5620,12 +6647,28 @@
           "part": "PS3.3",
           "anchor": "table_C.7-11c"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "OT",
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "compression",
+        "encapsulation",
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "classic/sc/mono1_u16_rect_2x3_rle_lossless",
       "status": "implemented",
-      "profiles": ["extended"],
+      "profiles": [
+        "extended"
+      ],
       "recipe_id": "sc_mono1_u16_rect_2x3_rle_lossless",
       "recipe_version": "0.1.0",
       "iod_name": "Secondary Capture Image",
@@ -5688,12 +6731,28 @@
           "part": "PS3.3",
           "anchor": "table_C.7-11c"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "OT",
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "compression",
+        "encapsulation",
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "classic/sc/mono2_i16_rect_2x3_rle_lossless",
       "status": "implemented",
-      "profiles": ["extended"],
+      "profiles": [
+        "extended"
+      ],
       "recipe_id": "sc_mono2_i16_rect_2x3_rle_lossless",
       "recipe_version": "0.1.0",
       "iod_name": "Secondary Capture Image",
@@ -5764,12 +6823,28 @@
           "part": "PS3.3",
           "anchor": "table_C.7-11c"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "OT",
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "compression",
+        "encapsulation",
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "classic/sc/mono1_i16_rect_2x3_rle_lossless",
       "status": "implemented",
-      "profiles": ["extended"],
+      "profiles": [
+        "extended"
+      ],
       "recipe_id": "sc_mono1_i16_rect_2x3_rle_lossless",
       "recipe_version": "0.1.0",
       "iod_name": "Secondary Capture Image",
@@ -5840,12 +6915,28 @@
           "part": "PS3.3",
           "anchor": "table_C.7-11c"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "OT",
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "compression",
+        "encapsulation",
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "classic/sc/mono1_u16_rle_lossless",
       "status": "implemented",
-      "profiles": ["extended"],
+      "profiles": [
+        "extended"
+      ],
       "recipe_id": "sc_mono1_u16_rle_lossless",
       "recipe_version": "0.1.0",
       "iod_name": "Secondary Capture Image",
@@ -5900,12 +6991,28 @@
           "part": "PS3.3",
           "anchor": "table_C.7-11c"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "OT",
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "compression",
+        "encapsulation",
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "classic/sc/mono2_u16_padding_rle_lossless",
       "status": "implemented",
-      "profiles": ["extended"],
+      "profiles": [
+        "extended"
+      ],
       "recipe_id": "sc_mono2_u16_padding_rle_lossless",
       "recipe_version": "0.1.0",
       "iod_name": "Secondary Capture Image",
@@ -5984,12 +7091,28 @@
           "part": "PS3.3",
           "anchor": "sect_C.7.5.1.1.2"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "OT",
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "compression",
+        "encapsulation",
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "classic/sc/mono2_u8_padding_rle_lossless",
       "status": "implemented",
-      "profiles": ["extended"],
+      "profiles": [
+        "extended"
+      ],
       "recipe_id": "sc_mono2_u8_padding_rle_lossless",
       "recipe_version": "0.1.0",
       "iod_name": "Secondary Capture Image",
@@ -6068,12 +7191,28 @@
           "part": "PS3.3",
           "anchor": "sect_C.7.5.1.1.2"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "OT",
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "compression",
+        "encapsulation",
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "classic/sc/mono1_u8_padding_rle_lossless",
       "status": "implemented",
-      "profiles": ["extended"],
+      "profiles": [
+        "extended"
+      ],
       "recipe_id": "sc_mono1_u8_padding_rle_lossless",
       "recipe_version": "0.1.0",
       "iod_name": "Secondary Capture Image",
@@ -6160,12 +7299,28 @@
           "part": "PS3.3",
           "anchor": "sect_C.7.5.1.1.2"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "OT",
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "compression",
+        "encapsulation",
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "classic/sc/mono2_u16_padding_multiframe_rle_lossless",
       "status": "implemented",
-      "profiles": ["extended"],
+      "profiles": [
+        "extended"
+      ],
       "recipe_id": "sc_mono2_u16_padding_multiframe_rle_lossless",
       "recipe_version": "0.1.0",
       "iod_name": "Secondary Capture Image",
@@ -6252,12 +7407,29 @@
           "part": "PS3.3",
           "anchor": "sect_C.7.5.1.1.2"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "OT",
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "compression",
+        "encapsulation",
+        "geometry",
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "classic/sc/mono2_u8_padding_multiframe_rle_lossless",
       "status": "implemented",
-      "profiles": ["extended"],
+      "profiles": [
+        "extended"
+      ],
       "recipe_id": "sc_mono2_u8_padding_multiframe_rle_lossless",
       "recipe_version": "0.1.0",
       "iod_name": "Secondary Capture Image",
@@ -6344,12 +7516,29 @@
           "part": "PS3.3",
           "anchor": "sect_C.7.5.1.1.2"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "OT",
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "compression",
+        "encapsulation",
+        "geometry",
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "classic/sc/mono1_u8_padding_multiframe_rle_lossless",
       "status": "implemented",
-      "profiles": ["extended"],
+      "profiles": [
+        "extended"
+      ],
       "recipe_id": "sc_mono1_u8_padding_multiframe_rle_lossless",
       "recipe_version": "0.1.0",
       "iod_name": "Secondary Capture Image",
@@ -6444,12 +7633,29 @@
           "part": "PS3.3",
           "anchor": "sect_C.7.5.1.1.2"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "OT",
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "compression",
+        "encapsulation",
+        "geometry",
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "classic/sc/mono1_u16_padding_rle_lossless",
       "status": "implemented",
-      "profiles": ["extended"],
+      "profiles": [
+        "extended"
+      ],
       "recipe_id": "sc_mono1_u16_padding_rle_lossless",
       "recipe_version": "0.1.0",
       "iod_name": "Secondary Capture Image",
@@ -6536,12 +7742,28 @@
           "part": "PS3.3",
           "anchor": "sect_C.7.5.1.1.2"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "OT",
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "compression",
+        "encapsulation",
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "classic/sc/mono1_u16_padding_multiframe_rle_lossless",
       "status": "implemented",
-      "profiles": ["extended"],
+      "profiles": [
+        "extended"
+      ],
       "recipe_id": "sc_mono1_u16_padding_multiframe_rle_lossless",
       "recipe_version": "0.1.0",
       "iod_name": "Secondary Capture Image",
@@ -6636,12 +7858,29 @@
           "part": "PS3.3",
           "anchor": "sect_C.7.5.1.1.2"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "OT",
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "compression",
+        "encapsulation",
+        "geometry",
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "classic/sc/mono2_i16_padding_rle_lossless",
       "status": "implemented",
-      "profiles": ["extended"],
+      "profiles": [
+        "extended"
+      ],
       "recipe_id": "sc_mono2_i16_padding_rle_lossless",
       "recipe_version": "0.1.0",
       "iod_name": "Secondary Capture Image",
@@ -6728,12 +7967,28 @@
           "part": "PS3.3",
           "anchor": "table_C.7-11c"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "OT",
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "compression",
+        "encapsulation",
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "classic/sc/mono2_i16_padding_multiframe_rle_lossless",
       "status": "implemented",
-      "profiles": ["extended"],
+      "profiles": [
+        "extended"
+      ],
       "recipe_id": "sc_mono2_i16_padding_multiframe_rle_lossless",
       "recipe_version": "0.1.0",
       "iod_name": "Secondary Capture Image",
@@ -6828,12 +8083,29 @@
           "part": "PS3.3",
           "anchor": "table_C.7-11c"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "OT",
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "compression",
+        "encapsulation",
+        "geometry",
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "classic/sc/mono1_i16_padding_rle_lossless",
       "status": "implemented",
-      "profiles": ["extended"],
+      "profiles": [
+        "extended"
+      ],
       "recipe_id": "sc_mono1_i16_padding_rle_lossless",
       "recipe_version": "0.1.0",
       "iod_name": "Secondary Capture Image",
@@ -6928,12 +8200,28 @@
           "part": "PS3.3",
           "anchor": "sect_C.7.5.1.1.2"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "OT",
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "compression",
+        "encapsulation",
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "classic/sc/mono1_i16_padding_multiframe_rle_lossless",
       "status": "implemented",
-      "profiles": ["extended"],
+      "profiles": [
+        "extended"
+      ],
       "recipe_id": "sc_mono1_i16_padding_multiframe_rle_lossless",
       "recipe_version": "0.1.0",
       "iod_name": "Secondary Capture Image",
@@ -7036,12 +8324,29 @@
           "part": "PS3.3",
           "anchor": "sect_C.7.5.1.1.2"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "OT",
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "compression",
+        "encapsulation",
+        "geometry",
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "classic/sc/mono1_u8_rle_lossless",
       "status": "implemented",
-      "profiles": ["extended"],
+      "profiles": [
+        "extended"
+      ],
       "recipe_id": "sc_mono1_u8_rle_lossless",
       "recipe_version": "0.1.0",
       "iod_name": "Secondary Capture Image",
@@ -7088,12 +8393,28 @@
           "part": "PS3.3",
           "anchor": "table_C.7-11c"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "OT",
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "compression",
+        "encapsulation",
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "classic/sc/mono2_i16_rle_lossless",
       "status": "implemented",
-      "profiles": ["extended"],
+      "profiles": [
+        "extended"
+      ],
       "recipe_id": "sc_mono2_i16_rle_lossless",
       "recipe_version": "0.1.0",
       "iod_name": "Secondary Capture Image",
@@ -7148,12 +8469,28 @@
           "part": "PS3.3",
           "anchor": "table_C.7-11c"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "OT",
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "compression",
+        "encapsulation",
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "classic/sc/mono1_i16_rle_lossless",
       "status": "implemented",
-      "profiles": ["extended"],
+      "profiles": [
+        "extended"
+      ],
       "recipe_id": "sc_mono1_i16_rle_lossless",
       "recipe_version": "0.1.0",
       "iod_name": "Secondary Capture Image",
@@ -7216,12 +8553,28 @@
           "part": "PS3.3",
           "anchor": "table_C.7-11c"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "OT",
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "compression",
+        "encapsulation",
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "classic/sc/rgb_planar0_rle_lossless",
       "status": "implemented",
-      "profiles": ["extended"],
+      "profiles": [
+        "extended"
+      ],
       "recipe_id": "sc_rgb_planar0_rle_lossless",
       "recipe_version": "0.1.0",
       "iod_name": "Secondary Capture Image",
@@ -7276,12 +8629,28 @@
           "part": "PS3.6",
           "anchor": "table_6-1"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "OT",
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "compression",
+        "encapsulation",
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "classic/sc/rgb_planar0_multiframe_rle_lossless",
       "status": "implemented",
-      "profiles": ["extended"],
+      "profiles": [
+        "extended"
+      ],
       "recipe_id": "sc_rgb_planar0_multiframe_rle_lossless",
       "recipe_version": "0.1.0",
       "iod_name": "Secondary Capture Image",
@@ -7344,12 +8713,29 @@
           "part": "PS3.6",
           "anchor": "table_6-1"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "OT",
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "compression",
+        "encapsulation",
+        "geometry",
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "classic/sc/rgb_planar1_rle_lossless",
       "status": "implemented",
-      "profiles": ["extended"],
+      "profiles": [
+        "extended"
+      ],
       "recipe_id": "sc_rgb_planar1_rle_lossless",
       "recipe_version": "0.1.0",
       "iod_name": "Secondary Capture Image",
@@ -7404,12 +8790,28 @@
           "part": "PS3.6",
           "anchor": "table_6-1"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "OT",
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "compression",
+        "encapsulation",
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "classic/sc/rgb_planar1_multiframe_rle_lossless",
       "status": "implemented",
-      "profiles": ["extended"],
+      "profiles": [
+        "extended"
+      ],
       "recipe_id": "sc_rgb_planar1_multiframe_rle_lossless",
       "recipe_version": "0.1.0",
       "iod_name": "Secondary Capture Image",
@@ -7472,12 +8874,29 @@
           "part": "PS3.6",
           "anchor": "table_6-1"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "OT",
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "compression",
+        "encapsulation",
+        "geometry",
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "classic/sc/ybr_full_planar0_rle_lossless",
       "status": "implemented",
-      "profiles": ["extended"],
+      "profiles": [
+        "extended"
+      ],
       "recipe_id": "sc_ybr_full_planar0_rle_lossless",
       "recipe_version": "0.1.0",
       "iod_name": "Secondary Capture Image",
@@ -7532,12 +8951,28 @@
           "part": "PS3.6",
           "anchor": "table_6-1"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "OT",
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "compression",
+        "encapsulation",
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "classic/sc/ybr_full_planar1_rle_lossless",
       "status": "implemented",
-      "profiles": ["extended"],
+      "profiles": [
+        "extended"
+      ],
       "recipe_id": "sc_ybr_full_planar1_rle_lossless",
       "recipe_version": "0.1.0",
       "iod_name": "Secondary Capture Image",
@@ -7592,12 +9027,28 @@
           "part": "PS3.6",
           "anchor": "table_6-1"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "OT",
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "compression",
+        "encapsulation",
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "classic/sc/ybr_full_planar0_multiframe_rle_lossless",
       "status": "implemented",
-      "profiles": ["extended"],
+      "profiles": [
+        "extended"
+      ],
       "recipe_id": "sc_ybr_full_planar0_multiframe_rle_lossless",
       "recipe_version": "0.1.0",
       "iod_name": "Secondary Capture Image",
@@ -7660,12 +9111,29 @@
           "part": "PS3.6",
           "anchor": "table_6-1"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "OT",
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "compression",
+        "encapsulation",
+        "geometry",
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "classic/sc/ybr_full_planar1_multiframe_rle_lossless",
       "status": "implemented",
-      "profiles": ["extended"],
+      "profiles": [
+        "extended"
+      ],
       "recipe_id": "sc_ybr_full_planar1_multiframe_rle_lossless",
       "recipe_version": "0.1.0",
       "iod_name": "Secondary Capture Image",
@@ -7728,12 +9196,29 @@
           "part": "PS3.6",
           "anchor": "table_6-1"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "OT",
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "compression",
+        "encapsulation",
+        "geometry",
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "classic/sc/palette_color_u8_rle_lossless",
       "status": "implemented",
-      "profiles": ["extended"],
+      "profiles": [
+        "extended"
+      ],
       "recipe_id": "sc_palette_color_u8_rle_lossless",
       "recipe_version": "0.1.0",
       "iod_name": "Secondary Capture Image",
@@ -7836,12 +9321,28 @@
           "part": "PS3.3",
           "anchor": "table_C.7-11c"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "OT",
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "compression",
+        "encapsulation",
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "classic/sc/palette_color_u8_multiframe_rle_lossless",
       "status": "implemented",
-      "profiles": ["extended"],
+      "profiles": [
+        "extended"
+      ],
       "recipe_id": "sc_palette_color_u8_multiframe_rle_lossless",
       "recipe_version": "0.1.0",
       "iod_name": "Secondary Capture Image",
@@ -7952,12 +9453,29 @@
           "part": "PS3.6",
           "anchor": "table_6-1"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "OT",
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "compression",
+        "encapsulation",
+        "geometry",
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "classic/sc/mono2_u8_multiframe_rle_lossless",
       "status": "implemented",
-      "profiles": ["extended"],
+      "profiles": [
+        "extended"
+      ],
       "recipe_id": "sc_mono2_u8_multiframe_rle_lossless",
       "recipe_version": "0.1.0",
       "iod_name": "Secondary Capture Image",
@@ -8012,12 +9530,29 @@
           "part": "PS3.5",
           "anchor": "sect_A.4; sect_A.4.2"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "OT",
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "compression",
+        "encapsulation",
+        "geometry",
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "classic/sc/mono1_u8_multiframe_rle_lossless",
       "status": "implemented",
-      "profiles": ["extended"],
+      "profiles": [
+        "extended"
+      ],
       "recipe_id": "sc_mono1_u8_multiframe_rle_lossless",
       "recipe_version": "0.1.0",
       "iod_name": "Secondary Capture Image",
@@ -8072,12 +9607,29 @@
           "part": "PS3.3",
           "anchor": "table_C.7-11c"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "OT",
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "compression",
+        "encapsulation",
+        "geometry",
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "classic/sc/mono2_u16_multiframe_rle_lossless",
       "status": "implemented",
-      "profiles": ["extended"],
+      "profiles": [
+        "extended"
+      ],
       "recipe_id": "sc_mono2_u16_multiframe_rle_lossless",
       "recipe_version": "0.1.0",
       "iod_name": "Secondary Capture Image",
@@ -8132,12 +9684,29 @@
           "part": "PS3.3",
           "anchor": "table_C.7-11c"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "OT",
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "compression",
+        "encapsulation",
+        "geometry",
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "classic/sc/mono1_u16_multiframe_rle_lossless",
       "status": "implemented",
-      "profiles": ["extended"],
+      "profiles": [
+        "extended"
+      ],
       "recipe_id": "sc_mono1_u16_multiframe_rle_lossless",
       "recipe_version": "0.1.0",
       "iod_name": "Secondary Capture Image",
@@ -8200,12 +9769,29 @@
           "part": "PS3.3",
           "anchor": "table_C.7-11c"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "OT",
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "compression",
+        "encapsulation",
+        "geometry",
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "classic/sc/mono2_i16_multiframe_rle_lossless",
       "status": "implemented",
-      "profiles": ["extended"],
+      "profiles": [
+        "extended"
+      ],
       "recipe_id": "sc_mono2_i16_multiframe_rle_lossless",
       "recipe_version": "0.1.0",
       "iod_name": "Secondary Capture Image",
@@ -8268,12 +9854,29 @@
           "part": "PS3.3",
           "anchor": "table_C.7-11c"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "OT",
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "compression",
+        "encapsulation",
+        "geometry",
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "classic/sc/mono1_i16_multiframe_rle_lossless",
       "status": "implemented",
-      "profiles": ["extended"],
+      "profiles": [
+        "extended"
+      ],
       "recipe_id": "sc_mono1_i16_multiframe_rle_lossless",
       "recipe_version": "0.1.0",
       "iod_name": "Secondary Capture Image",
@@ -8344,12 +9947,29 @@
           "part": "PS3.3",
           "anchor": "table_C.7-11c"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "OT",
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "compression",
+        "encapsulation",
+        "geometry",
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "classic/sc/mono2_u8_odd_fragment_rle_lossless",
       "status": "implemented",
-      "profiles": ["extended"],
+      "profiles": [
+        "extended"
+      ],
       "recipe_id": "sc_mono2_u8_odd_fragment_rle_lossless",
       "recipe_version": "0.1.0",
       "iod_name": "Secondary Capture Image",
@@ -8396,12 +10016,28 @@
           "part": "PS3.5",
           "anchor": "sect_A.4"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "OT",
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "compression",
+        "encapsulation",
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "classic/sc/mono1_u8_odd_fragment_rle_lossless",
       "status": "implemented",
-      "profiles": ["extended"],
+      "profiles": [
+        "extended"
+      ],
       "recipe_id": "sc_mono1_u8_odd_fragment_rle_lossless",
       "recipe_version": "0.1.0",
       "iod_name": "Secondary Capture Image",
@@ -8456,12 +10092,28 @@
           "part": "PS3.5",
           "anchor": "sect_A.4"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "OT",
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "compression",
+        "encapsulation",
+        "modality",
+        "pixels"
       ]
     },
     {
       "case_id": "vl/photo/palette_color_rle_lossless",
       "status": "implemented",
-      "profiles": ["extended"],
+      "profiles": [
+        "extended"
+      ],
       "recipe_id": "vl_photo_palette_color_rle_lossless",
       "recipe_version": "0.1.0",
       "iod_name": "VL Photographic Image",
@@ -8580,12 +10232,29 @@
           "part": "PS3.3",
           "anchor": "table_C.8-77"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "XC",
+      "object_family": "visible_light",
+      "compatibility_axes": [
+        "compression",
+        "encapsulation",
+        "modality",
+        "pixels",
+        "visible_light"
       ]
     },
     {
       "case_id": "vl/photo/palette_color_explicit_le",
       "status": "implemented",
-      "profiles": ["core"],
+      "profiles": [
+        "core"
+      ],
       "recipe_id": "vl_photo_palette_color",
       "recipe_version": "0.1.0",
       "iod_name": "VL Photographic Image",
@@ -8705,6 +10374,18 @@
           "part": "PS3.3",
           "anchor": "table_C.8-77"
         }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "object_family": "visible_light",
+      "compatibility_axes": [
+        "modality",
+        "pixels",
+        "visible_light"
       ]
     }
   ]

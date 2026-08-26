@@ -6,7 +6,7 @@
   "required": ["case_registry_schema_version", "cases"],
   "properties": {
     "case_registry_schema_version": {
-      "const": "0.1.0"
+      "const": "0.2.0"
     },
     "cases": {
       "type": "array",
@@ -45,6 +45,11 @@
       "required": [
         "case_id",
         "status",
+        "provider",
+        "object_family",
+        "compatibility_axes",
+        "roadmap",
+        "blockers",
         "profiles",
         "recipe_id",
         "recipe_version",
@@ -60,6 +65,37 @@
       "properties": {
         "case_id": {
           "$ref": "#/$defs/case_id"
+        },
+        "provider": {
+          "$ref": "#/$defs/provider"
+        },
+        "object_family": {
+          "$ref": "#/$defs/object_family"
+        },
+        "compatibility_axes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/compatibility_axis"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "roadmap": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/roadmap"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "blockers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/blocker"
+          },
+          "uniqueItems": true
         },
         "status": {
           "$ref": "#/$defs/status"
@@ -133,8 +169,163 @@
               }
             }
           }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "implemented"
+              }
+            },
+            "required": ["status"]
+          },
+          "then": {
+            "properties": {
+              "roadmap": {
+                "type": "null"
+              },
+              "blockers": {
+                "maxItems": 0
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "enum": ["planned", "blocked"]
+              }
+            },
+            "required": ["status"]
+          },
+          "then": {
+            "properties": {
+              "roadmap": {
+                "$ref": "#/$defs/roadmap"
+              },
+              "blockers": {
+                "minItems": 1
+              }
+            }
+          }
         }
       ],
+      "additionalProperties": false
+    },
+    "provider": {
+      "type": "object",
+      "required": ["kind", "id"],
+      "properties": {
+        "kind": {
+          "enum": [
+            "rust_native",
+            "external_backend",
+            "mutation_layer",
+            "protocol_harness"
+          ]
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9_-]*$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "object_family": {
+      "enum": [
+        "classic_image",
+        "enhanced_image",
+        "derived_image",
+        "quantitative",
+        "presentation_state",
+        "structured_report",
+        "radiotherapy",
+        "waveform",
+        "registration",
+        "mesh",
+        "visible_light",
+        "encapsulated_document",
+        "media",
+        "robustness",
+        "protocol"
+      ]
+    },
+    "compatibility_axis": {
+      "enum": [
+        "geometry",
+        "metadata",
+        "modality",
+        "pixels",
+        "quantitative",
+        "references",
+        "registration",
+        "presentation",
+        "structured_report",
+        "radiotherapy",
+        "waveform",
+        "mesh",
+        "visible_light",
+        "encapsulation",
+        "compression",
+        "scale",
+        "robustness",
+        "media",
+        "protocol",
+        "security"
+      ]
+    },
+    "roadmap": {
+      "type": "object",
+      "required": ["priority", "delivery_phase", "rationale"],
+      "properties": {
+        "priority": {
+          "enum": ["now", "next", "later"]
+        },
+        "delivery_phase": {
+          "type": "string",
+          "pattern": "^phase-[1-8]$"
+        },
+        "rationale": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "blocker_code": {
+      "enum": [
+        "recipe_unimplemented",
+        "standards_verification_pending",
+        "backend_contract_unimplemented",
+        "backend_unavailable",
+        "independent_iod_validator_unavailable",
+        "independent_payload_validator_unavailable",
+        "independent_decoder_unavailable",
+        "numeric_tolerance_policy_pending",
+        "stress_budget_policy_pending",
+        "mutation_contract_unimplemented",
+        "protocol_harness_unimplemented",
+        "security_toolchain_unselected",
+        "decision_checkpoint"
+      ]
+    },
+    "blocker": {
+      "type": "object",
+      "required": ["code", "message", "recheck_phase"],
+      "properties": {
+        "code": {
+          "$ref": "#/$defs/blocker_code"
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1
+        },
+        "recheck_phase": {
+          "type": ["string", "null"],
+          "pattern": "^phase-[1-8]$"
+        }
+      },
       "additionalProperties": false
     },
     "requirements": {

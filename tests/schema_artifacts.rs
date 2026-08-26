@@ -196,6 +196,11 @@ fn case_registry_schema_requires_the_specified_case_fields() {
     for field in [
         "case_id",
         "status",
+        "provider",
+        "object_family",
+        "compatibility_axes",
+        "roadmap",
+        "blockers",
         "profiles",
         "recipe_id",
         "recipe_version",
@@ -219,6 +224,37 @@ fn case_registry_schema_requires_the_specified_case_fields() {
         "case registry schema must allow optional modality metadata"
     );
 
+    assert_eq!(
+        schema
+            .pointer("/properties/case_registry_schema_version/const")
+            .and_then(Value::as_str),
+        Some("0.2.0"),
+        "roadmap metadata requires an explicit registry schema version"
+    );
+
+    let blocker_codes = schema
+        .pointer("/$defs/blocker_code/enum")
+        .and_then(Value::as_array)
+        .expect("case registry schema must define controlled blocker codes");
+    for code in [
+        "recipe_unimplemented",
+        "standards_verification_pending",
+        "backend_contract_unimplemented",
+        "independent_iod_validator_unavailable",
+        "independent_payload_validator_unavailable",
+        "numeric_tolerance_policy_pending",
+        "stress_budget_policy_pending",
+        "mutation_contract_unimplemented",
+        "protocol_harness_unimplemented",
+    ] {
+        assert!(
+            blocker_codes
+                .iter()
+                .any(|value| value.as_str() == Some(code)),
+            "case registry schema must control blocker code {code}"
+        );
+    }
+
     let statuses = schema
         .pointer("/$defs/status/enum")
         .and_then(Value::as_array)
@@ -230,6 +266,23 @@ fn case_registry_schema_requires_the_specified_case_fields() {
             "case registry schema must allow {status}"
         );
     }
+}
+
+#[test]
+fn committed_case_registry_validates_against_its_schema() {
+    let schema = read_json("schemas/case-registry.schema.json");
+    let registry = read_json("cases/registry.json");
+    let validator = jsonschema::validator_for(&schema).expect("case registry schema should compile");
+    let errors = validator
+        .iter_errors(&registry)
+        .map(|error| error.to_string())
+        .collect::<Vec<_>>();
+
+    assert!(
+        errors.is_empty(),
+        "cases/registry.json must validate against its schema:\n{}",
+        errors.join("\n")
+    );
 }
 
 #[test]

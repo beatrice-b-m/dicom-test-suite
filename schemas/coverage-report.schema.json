@@ -568,6 +568,13 @@
         "slice_thickness",
         "spacing_between_slices",
         "slice_location",
+        "geometry_sort_basis",
+        "geometry_sort_direction",
+        "geometry_position_along_normal_mm",
+        "geometry_geometric_order_index",
+        "geometry_instance_number",
+        "geometry_instance_number_order_index",
+        "geometry_sorting_conflict_expected",
         "derived_refs",
         "derived_reference_targets",
         "derived_reference_relationships",
@@ -824,6 +831,30 @@
         },
         "slice_location": {
           "type": ["string", "null"]
+        },
+        "geometry_sort_basis": {
+          "type": ["string", "null"]
+        },
+        "geometry_sort_direction": {
+          "type": ["string", "null"],
+          "enum": ["ascending", "descending", null]
+        },
+        "geometry_position_along_normal_mm": {
+          "type": ["number", "null"]
+        },
+        "geometry_geometric_order_index": {
+          "type": ["integer", "null"],
+          "minimum": 1
+        },
+        "geometry_instance_number": {
+          "type": ["integer", "null"]
+        },
+        "geometry_instance_number_order_index": {
+          "type": ["integer", "null"],
+          "minimum": 1
+        },
+        "geometry_sorting_conflict_expected": {
+          "type": ["boolean", "null"]
         },
         "derived_refs": {
           "type": "array",

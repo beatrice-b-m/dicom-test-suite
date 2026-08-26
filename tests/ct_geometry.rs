@@ -140,6 +140,36 @@ fn core_generates_ct_series_with_conflicting_instance_number_order() {
         validation.failures
     );
 
+    let report = dicom_test_suite::build_coverage_report(&out_dir)
+        .expect("coverage report should include geometry expectations");
+    let report_schema: Value = serde_json::from_slice(
+        &fs::read("schemas/coverage-report.schema.json").expect("coverage schema"),
+    )
+    .expect("coverage schema JSON");
+    let report_validator =
+        jsonschema::validator_for(&report_schema).expect("coverage schema should compile");
+    let report_errors = report_validator
+        .iter_errors(&report)
+        .map(|error| error.to_string())
+        .collect::<Vec<_>>();
+    assert!(
+        report_errors.is_empty(),
+        "geometry coverage report must match schema: {report_errors:?}"
+    );
+    let geometry_rows = report["coverage_matrix"]
+        .as_array()
+        .expect("coverage matrix")
+        .iter()
+        .filter(|row| row["case_id"].as_str() == Some(CASE_ID))
+        .collect::<Vec<_>>();
+    assert_eq!(geometry_rows.len(), 3);
+    assert_eq!(geometry_rows[0]["geometry_geometric_order_index"], 1);
+    assert_eq!(geometry_rows[0]["geometry_instance_number"], 30);
+    assert_eq!(geometry_rows[0]["geometry_sorting_conflict_expected"], true);
+    let markdown = dicom_test_suite::render_coverage_report_markdown(&report);
+    assert!(markdown.contains("## Geometry Sorting Expectations"));
+    assert!(markdown.contains("| 0.0 | 1 | 30 | 3 |"));
+
     fs::remove_dir_all(out_dir).expect("temporary output must be removable");
 }
 

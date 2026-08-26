@@ -6728,6 +6728,38 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
         output.push('\n');
     }
 
+    let geometry_rows = report
+        .get("coverage_matrix")
+        .and_then(Value::as_array)
+        .map(|rows| {
+            rows.iter()
+                .filter(|row| !row["geometry_sort_basis"].is_null())
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    if !geometry_rows.is_empty() {
+        output.push_str("## Geometry Sorting Expectations\n\n");
+        output.push_str("| Case ID | Position along normal (mm) | Geometric rank | Instance Number | Instance rank | Basis | Direction | Conflict expected |\n");
+        output.push_str("|---|---:|---:|---:|---:|---|---|---|\n");
+        for row in geometry_rows {
+            output.push_str(&format!(
+                "| {} | {} | {} | {} | {} | {} | {} | {} |\n",
+                markdown_cell(row.get("case_id").and_then(Value::as_str)),
+                markdown_number(row.get("geometry_position_along_normal_mm")),
+                markdown_number(row.get("geometry_geometric_order_index")),
+                markdown_number(row.get("geometry_instance_number")),
+                markdown_number(row.get("geometry_instance_number_order_index")),
+                markdown_cell(row.get("geometry_sort_basis").and_then(Value::as_str)),
+                markdown_cell(row.get("geometry_sort_direction").and_then(Value::as_str)),
+                row.get("geometry_sorting_conflict_expected")
+                    .and_then(Value::as_bool)
+                    .map(|value| value.to_string())
+                    .unwrap_or_else(|| "—".to_string())
+            ));
+        }
+        output.push('\n');
+    }
+
     output.push_str("## Coverage Matrix\n\n");
     output.push_str("| Case ID | Status | Profile | IOD | Transfer Syntax | Photometric | Bits | Frames | Validation |\n");
     output.push_str("|---|---|---|---|---|---|---:|---:|---|\n");
@@ -6927,6 +6959,38 @@ fn generated_coverage_row(
             .map(Value::from)
             .unwrap_or(Value::Null),
     );
+    for (field, pointer) in [
+        ("geometry_sort_basis", "/expected_geometry/sort_basis"),
+        (
+            "geometry_sort_direction",
+            "/expected_geometry/sort_direction",
+        ),
+        (
+            "geometry_position_along_normal_mm",
+            "/expected_geometry/position_along_normal_mm",
+        ),
+        (
+            "geometry_geometric_order_index",
+            "/expected_geometry/geometric_order_index",
+        ),
+        (
+            "geometry_instance_number",
+            "/expected_geometry/instance_number",
+        ),
+        (
+            "geometry_instance_number_order_index",
+            "/expected_geometry/instance_number_order_index",
+        ),
+        (
+            "geometry_sorting_conflict_expected",
+            "/expected_geometry/sorting_conflict_expected",
+        ),
+    ] {
+        row_object.insert(
+            field.to_string(),
+            file.pointer(pointer).cloned().unwrap_or(Value::Null),
+        );
+    }
     row_object.insert(
         "window_center".to_string(),
         report_window_center(file)
@@ -8179,6 +8243,17 @@ fn skipped_coverage_row(
     row_object.insert("slice_thickness".to_string(), Value::Null);
     row_object.insert("spacing_between_slices".to_string(), Value::Null);
     row_object.insert("slice_location".to_string(), Value::Null);
+    for field in [
+        "geometry_sort_basis",
+        "geometry_sort_direction",
+        "geometry_position_along_normal_mm",
+        "geometry_geometric_order_index",
+        "geometry_instance_number",
+        "geometry_instance_number_order_index",
+        "geometry_sorting_conflict_expected",
+    ] {
+        row_object.insert(field.to_string(), Value::Null);
+    }
     row_object.insert(
         "sop_class_name".to_string(),
         registry_case
@@ -9730,7 +9805,7 @@ fn markdown_cell(value: Option<&str>) -> String {
 
 fn markdown_number(value: Option<&Value>) -> String {
     value
-        .and_then(Value::as_u64)
+        .and_then(Value::as_number)
         .map_or_else(String::new, |number| number.to_string())
 }
 

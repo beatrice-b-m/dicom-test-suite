@@ -35,18 +35,18 @@ fn report_command_writes_json_coverage_for_core_root() {
     );
     assert_eq!(
         report.pointer("/counts/generated").and_then(Value::as_u64),
-        Some(21)
+        Some(24)
     );
     assert_eq!(
         report.pointer("/counts/planned").and_then(Value::as_u64),
-        Some(14)
+        Some(13)
     );
     assert_eq!(
         report
             .pointer("/coverage_matrix")
             .and_then(Value::as_array)
             .map(Vec::len),
-        Some(35)
+        Some(37)
     );
     assert_eq!(
         coverage_row(&report, "classic/ct/mono2_i16_rescale_12bit_explicit_le")
@@ -418,13 +418,13 @@ fn report_command_writes_json_coverage_for_core_root() {
         report
             .pointer("/grouped_coverage/profiles/core")
             .and_then(Value::as_u64),
-        Some(35)
+        Some(37)
     );
     assert_eq!(
         report
             .pointer("/grouped_coverage/profile_memberships/core")
             .and_then(Value::as_u64),
-        Some(35)
+        Some(37)
     );
     assert_eq!(
         report
@@ -436,7 +436,7 @@ fn report_command_writes_json_coverage_for_core_root() {
         report
             .pointer("/grouped_coverage/transfer_syntax_names/Explicit VR Little Endian")
             .and_then(Value::as_u64),
-        Some(34)
+        Some(36)
     );
     assert_eq!(
         report
@@ -454,7 +454,7 @@ fn report_command_writes_json_coverage_for_core_root() {
         report
             .pointer("/grouped_coverage/image_types/ORIGINAL\\PRIMARY\\AXIAL")
             .and_then(Value::as_u64),
-        Some(1)
+        Some(4)
     );
     assert_eq!(
         report
@@ -478,7 +478,7 @@ fn report_command_writes_json_coverage_for_core_root() {
         report
             .pointer("/grouped_coverage/window_centers/40")
             .and_then(Value::as_u64),
-        Some(1)
+        Some(4)
     );
     assert_eq!(
         report
@@ -490,7 +490,7 @@ fn report_command_writes_json_coverage_for_core_root() {
         report
             .pointer("/grouped_coverage/window_widths/400")
             .and_then(Value::as_u64),
-        Some(1)
+        Some(4)
     );
     assert_eq!(
         report
@@ -502,37 +502,37 @@ fn report_command_writes_json_coverage_for_core_root() {
         report
             .pointer("/grouped_coverage/kvps/120")
             .and_then(Value::as_u64),
-        Some(1)
+        Some(4)
     );
     assert_eq!(
         report
             .pointer("/grouped_coverage/ct_acquisition_numbers/1")
             .and_then(Value::as_u64),
-        Some(1)
+        Some(4)
     );
     assert_eq!(
         report
             .pointer("/grouped_coverage/ct_rescale_intercepts/-1024")
             .and_then(Value::as_u64),
-        Some(1)
+        Some(4)
     );
     assert_eq!(
         report
             .pointer("/grouped_coverage/ct_rescale_slopes/1")
             .and_then(Value::as_u64),
-        Some(1)
+        Some(4)
     );
     assert_eq!(
         report
             .pointer("/grouped_coverage/ct_rescale_types/HU")
             .and_then(Value::as_u64),
-        Some(1)
+        Some(4)
     );
     assert_eq!(
         report
             .pointer("/grouped_coverage/pixel_spacings/0.625\\0.625")
             .and_then(Value::as_u64),
-        Some(1)
+        Some(4)
     );
     assert_eq!(
         report
@@ -556,25 +556,25 @@ fn report_command_writes_json_coverage_for_core_root() {
         report
             .pointer("/grouped_coverage/image_orientations_patient/1\\0\\0\\0\\1\\0")
             .and_then(Value::as_u64),
-        Some(1)
+        Some(4)
     );
     assert_eq!(
         report
             .pointer("/grouped_coverage/image_positions_patient/0\\0\\0")
             .and_then(Value::as_u64),
-        Some(1)
+        Some(2)
     );
     assert_eq!(
         report
             .pointer("/grouped_coverage/slice_thicknesses/5")
             .and_then(Value::as_u64),
-        Some(3)
+        Some(6)
     );
     assert_eq!(
         report
             .pointer("/grouped_coverage/spacing_between_slices/5")
             .and_then(Value::as_u64),
-        Some(3)
+        Some(6)
     );
     assert_eq!(
         report
@@ -730,25 +730,25 @@ fn report_command_writes_json_coverage_for_core_root() {
         report
             .pointer("/grouped_coverage/study_instance_uid_roots/2.25")
             .and_then(Value::as_u64),
-        Some(21)
+        Some(24)
     );
     assert_eq!(
         report
             .pointer("/grouped_coverage/series_instance_uid_roots/2.25")
             .and_then(Value::as_u64),
-        Some(21)
+        Some(24)
     );
     assert_eq!(
         report
             .pointer("/grouped_coverage/sop_instance_uid_roots/2.25")
             .and_then(Value::as_u64),
-        Some(21)
+        Some(24)
     );
     assert_eq!(
         report
             .pointer("/grouped_coverage/sop_class_names/CT Image Storage")
             .and_then(Value::as_u64),
-        Some(6)
+        Some(8)
     );
     assert_eq!(
         report
@@ -1998,15 +1998,15 @@ fn report_command_writes_markdown_coverage_for_core_root() {
     );
     let stdout = String::from_utf8(output.stdout).expect("report stdout should be UTF-8");
     assert!(stdout.starts_with("# DICOM Test Suite Coverage Report"));
-    assert!(stdout.contains("| generated | 21 |"));
-    assert!(stdout.contains("| planned | 14 |"));
+    assert!(stdout.contains("| generated | 24 |"));
+    assert!(stdout.contains("| planned | 13 |"));
     assert!(stdout.contains("### Profile Memberships"));
-    assert!(stdout.contains("| core | 35 |"));
+    assert!(stdout.contains("| core | 37 |"));
     assert!(stdout.contains("### Transfer Syntax Names"));
-    assert!(stdout.contains("| Explicit VR Little Endian | 34 |"));
+    assert!(stdout.contains("| Explicit VR Little Endian | 36 |"));
     assert!(stdout.contains("| Implicit VR Little Endian | 1 |"));
     assert!(stdout.contains("### SOP Class Names"));
-    assert!(stdout.contains("| CT Image Storage | 6 |"));
+    assert!(stdout.contains("| CT Image Storage | 8 |"));
     assert!(stdout.contains("| VL Photographic Image Storage | 2 |"));
     assert!(stdout.contains("### Image Types"));
     assert!(stdout.contains("### Conversion Types"));
@@ -2014,34 +2014,34 @@ fn report_command_writes_markdown_coverage_for_core_root() {
     assert!(stdout.contains("| IDENTITY | 2 |"));
     assert!(stdout.contains("| INVERSE | 1 |"));
     assert!(stdout.contains("### Window Centers"));
-    assert!(stdout.contains("| 40 | 1 |"));
+    assert!(stdout.contains("| 40 | 4 |"));
     assert!(stdout.contains("| 2048 | 2 |"));
     assert!(stdout.contains("### Window Widths"));
-    assert!(stdout.contains("| 400 | 1 |"));
+    assert!(stdout.contains("| 400 | 4 |"));
     assert!(stdout.contains("| 4096 | 2 |"));
     assert!(stdout.contains("### KVPs"));
-    assert!(stdout.contains("| 120 | 1 |"));
+    assert!(stdout.contains("| 120 | 4 |"));
     assert!(stdout.contains("### CT Acquisition Numbers"));
-    assert!(stdout.contains("| 1 | 1 |"));
+    assert!(stdout.contains("| 1 | 4 |"));
     assert!(stdout.contains("### CT Rescale Intercepts"));
-    assert!(stdout.contains("| -1024 | 1 |"));
+    assert!(stdout.contains("| -1024 | 4 |"));
     assert!(stdout.contains("### CT Rescale Slopes"));
     assert!(stdout.contains("### CT Rescale Types"));
-    assert!(stdout.contains("| HU | 1 |"));
+    assert!(stdout.contains("| HU | 4 |"));
     assert!(stdout.contains("### Pixel Spacings"));
-    assert!(stdout.contains("| 0.625\\0.625 | 1 |"));
+    assert!(stdout.contains("| 0.625\\0.625 | 4 |"));
     assert!(stdout.contains("| 1.000\\1.000 | 3 |"));
     assert!(stdout.contains("### Imager Pixel Spacings"));
     assert!(stdout.contains("| 0.070\\0.070 | 2 |"));
     assert!(stdout.contains("| 0.150\\0.150 | 1 |"));
     assert!(stdout.contains("### Image Orientations Patient"));
-    assert!(stdout.contains("| 1\\0\\0\\0\\1\\0 | 1 |"));
+    assert!(stdout.contains("| 1\\0\\0\\0\\1\\0 | 4 |"));
     assert!(stdout.contains("### Image Positions Patient"));
-    assert!(stdout.contains("| 0\\0\\0 | 1 |"));
+    assert!(stdout.contains("| 0\\0\\0 | 2 |"));
     assert!(stdout.contains("### Slice Thicknesses"));
-    assert!(stdout.contains("| 5 | 3 |"));
+    assert!(stdout.contains("| 5 | 6 |"));
     assert!(stdout.contains("### Spacing Between Slices"));
-    assert!(stdout.contains("| 5 | 3 |"));
+    assert!(stdout.contains("| 5 | 6 |"));
     assert!(stdout.contains("### Slice Locations"));
     assert!(stdout.contains("| 10 | 1 |"));
     assert!(stdout.contains("### MR Scanning Sequences"));
@@ -2091,7 +2091,7 @@ fn report_command_writes_markdown_coverage_for_core_root() {
     assert!(stdout.contains("### Study Instance UID Roots"));
     assert!(stdout.contains("### Series Instance UID Roots"));
     assert!(stdout.contains("### SOP Instance UID Roots"));
-    assert!(stdout.contains("| 2.25 | 21 |"));
+    assert!(stdout.contains("| 2.25 | 24 |"));
     assert!(stdout.contains("### Derived Reference SOP Instance UID Roots"));
     assert!(stdout.contains("## Gaps"));
     assert!(

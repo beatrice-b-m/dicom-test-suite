@@ -35,6 +35,17 @@
       "capabilities": ["part10_parse"]
     },
     {
+      "id": "dcmtk-dcmdrle",
+      "role": "pixel_decoder",
+      "executable": "dcmdrle",
+      "arguments": ["{input}", "{output}"],
+      "version_arguments": ["--version"],
+      "timeout_seconds": 60,
+      "required": false,
+      "platforms": ["linux", "macos", "windows"],
+      "capabilities": ["1.2.840.10008.1.2.5", "exact_native_frames", "independent_of_project_rle_encoder"]
+    },
+    {
       "id": "dcmtk-dcmdjpeg",
       "role": "pixel_decoder",
       "executable": "dcmdjpeg",

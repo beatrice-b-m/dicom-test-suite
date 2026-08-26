@@ -3,7 +3,7 @@
 **Last updated:** 2026-08-26
 **Active goal:** implement independent conformance evidence collection
 **Source specification:** `SYSTEM_SPEC.md` version 0.2.0
-**Planning status:** conformance Phases 0-6 complete; pixel matrix next
+**Planning status:** conformance Phase 7 in progress; RLE evidence complete
 
 ## Independent Conformance Framework
 
@@ -48,8 +48,16 @@ result with raw logs, timeout/tool-failure state, and explicit unsupported
 transfer-syntax detection. Strict verification rejects missing or incomplete
 independent parser results.
 
-Recommended next step: commit the encoder/decoder independence matrix and add
-lossless external decode adapters without reusing generator codec stacks.
+Phase 7 has a committed independence matrix and exact external RLE evidence.
+DCMTK `dcmdrle` (independent of the project-owned encoder) decompresses to a
+native DICOM, `dcmdump +W` extracts raw Pixel Data, and per-frame hashes are
+compared to the manifest convention. Other lossless transfer syntaxes retain
+precise blockers in `conformance/pixel-decoders.json`; same-implementation paths
+are not credited as independent.
+
+Recommended next step: prove exact normalization adapters for native datasets
+and JPEG-LS, then acquire a non-OpenJPEG JPEG 2000 decoder and an independent
+HTJ2K/JPEG XL stack.
 
 This document replaces the previous historical implementation plan and progress
 ledger. `SYSTEM_SPEC.md` remains the architecture and requirements source of

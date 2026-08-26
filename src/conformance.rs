@@ -124,6 +124,26 @@ fn verify_artifacts(evidence_root: &Path, evidence: &Value, failures: &mut Vec<S
             }
         }
     }
+    for instance in evidence["instances"].as_array().into_iter().flatten() {
+        let Some(artifact) = instance["pixel"]
+            .get("evidence")
+            .filter(|value| !value.is_null())
+        else {
+            continue;
+        };
+        let Some(relative) = artifact["path"].as_str() else {
+            continue;
+        };
+        match fs::read(evidence_root.join(relative)) {
+            Ok(bytes) => {
+                let actual = sha256_hex(&bytes);
+                if artifact["sha256"].as_str() != Some(actual.as_str()) {
+                    failures.push(format!("pixel evidence hash mismatch: {relative}"));
+                }
+            }
+            Err(error) => failures.push(format!("pixel evidence unavailable {relative}: {error}")),
+        }
+    }
 }
 
 fn verify_completeness(evidence_root: &Path, evidence: &Value, failures: &mut Vec<String>) {
@@ -172,6 +192,11 @@ fn verify_completeness(evidence_root: &Path, evidence: &Value, failures: &mut Ve
             .find(|result| result["role"] == "independent_parser");
         if parser.is_none_or(|result| result["status"] != "completed") {
             failures.push(format!("independent parser incomplete: {path}"));
+        }
+        if instance["transfer_syntax_uid"] == "1.2.840.10008.1.2.5"
+            && instance["pixel"]["status"] != "passed"
+        {
+            failures.push(format!("independent RLE pixel evidence failed: {path}"));
         }
     }
     if evidence["entity"]["status"] != "completed" {
@@ -484,27 +509,15 @@ fn collect_instance(
             path,
         )
     };
-    let expected_hashes = file
-        .pointer("/pixel_data/frame_hashes")
-        .cloned()
-        .unwrap_or_else(|| json!([]));
-    let pixel = if file.get("pixel_data").is_some_and(|value| !value.is_null()) {
-        json!({
-            "status": "unsupported",
-            "independence": "not_applicable",
-            "expected_frame_hashes": expected_hashes,
-            "actual_frame_hashes": [],
-            "reason": "Independent pixel adapters are not enabled in this phase"
-        })
-    } else {
-        json!({
-            "status": "unsupported",
-            "independence": "not_applicable",
-            "expected_frame_hashes": [],
-            "actual_frame_hashes": [],
-            "reason": "Instance has no Pixel Data"
-        })
-    };
+    let pixel = collect_pixel_result(
+        generated_root,
+        evidence_root,
+        file,
+        path,
+        &stable_key,
+        adapters,
+        tools,
+    )?;
     let mut results = vec![primary_result];
     results.push(collect_parser_result(
         generated_root,
@@ -523,6 +536,245 @@ fn collect_instance(
         "results": results,
         "pixel": pixel
     }))
+}
+
+fn collect_pixel_result(
+    generated_root: &Path,
+    evidence_root: &Path,
+    file: &Value,
+    relative_input: &str,
+    stable_key: &str,
+    adapters: &[Value],
+    tools: &[Value],
+) -> Result<Value, String> {
+    let expected = file
+        .pointer("/pixel_data/frame_hashes")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    if file.get("pixel_data").is_none_or(Value::is_null) {
+        return Ok(pixel_unsupported(
+            vec![],
+            "not_applicable",
+            "Instance has no Pixel Data",
+        ));
+    }
+    let transfer_syntax = file
+        .pointer("/dicom/transfer_syntax_uid")
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    if transfer_syntax != "1.2.840.10008.1.2.5" {
+        let reason = if file
+            .pointer("/expected_semantics/lossy_image_compression")
+            .and_then(Value::as_str)
+            == Some("01")
+        {
+            "Lossy pixel comparison is outside the first strict milestone"
+        } else {
+            "No proven independent exact-byte decoder adapter is selected for this transfer syntax"
+        };
+        return Ok(pixel_unsupported(expected, "not_applicable", reason));
+    }
+    let Some(adapter) = adapters
+        .iter()
+        .find(|adapter| adapter["id"] == "dcmtk-dcmdrle")
+    else {
+        return Ok(pixel_unsupported(
+            expected,
+            "independent",
+            "The independent DCMTK RLE decoder adapter is not configured",
+        ));
+    };
+    let Some(tool) = tools
+        .iter()
+        .find(|tool| tool["adapter_id"] == "dcmtk-dcmdrle")
+    else {
+        return Ok(pixel_unsupported(
+            expected,
+            "independent",
+            "The independent DCMTK RLE decoder was not discovered",
+        ));
+    };
+    if tool["status"] != "available" {
+        return Ok(pixel_unsupported(
+            expected,
+            "independent",
+            "The independent DCMTK RLE decoder is unavailable",
+        ));
+    }
+    let parser_tool = tools
+        .iter()
+        .find(|tool| tool["role"] == "independent_parser" && tool["status"] == "available")
+        .ok_or_else(|| {
+            "RLE pixel extraction requires the configured independent parser".to_string()
+        })?;
+    let decoder = tool["executable"]
+        .as_str()
+        .ok_or_else(|| "available RLE decoder has no executable".to_string())?;
+    let dcmdump = parser_tool["executable"]
+        .as_str()
+        .ok_or_else(|| "available parser has no executable".to_string())?;
+    let pixel_dir = evidence_root.join("pixels/dcmtk-dcmdrle");
+    fs::create_dir_all(&pixel_dir).map_err(|error| error.to_string())?;
+    let work_dir =
+        std::env::temp_dir().join(format!("dts-pixel-{}-{stable_key}", std::process::id()));
+    fs::create_dir_all(&work_dir).map_err(|error| error.to_string())?;
+    let decoded = work_dir.join("decoded.dcm");
+    let input = generated_root.join(relative_input);
+    let arguments = string_array(adapter, "arguments")?
+        .into_iter()
+        .map(|argument| {
+            argument
+                .replace("{input}", &input.display().to_string())
+                .replace("{output}", &decoded.display().to_string())
+        })
+        .collect::<Vec<_>>();
+    let decode = run_with_timeout(
+        Path::new(decoder),
+        &arguments,
+        Duration::from_secs(adapter["timeout_seconds"].as_u64().unwrap_or(60)),
+    )?;
+    let extraction_args = vec![
+        "+W".to_string(),
+        work_dir.display().to_string(),
+        decoded.display().to_string(),
+    ];
+    let extraction = if decode.exit_code == Some(0) && !decode.timed_out {
+        Some(run_with_timeout(
+            Path::new(dcmdump),
+            &extraction_args,
+            Duration::from_secs(30),
+        )?)
+    } else {
+        None
+    };
+    let raw_path = fs::read_dir(&work_dir)
+        .ok()
+        .into_iter()
+        .flatten()
+        .filter_map(Result::ok)
+        .map(|entry| entry.path())
+        .find(|path| path.extension().and_then(|value| value.to_str()) == Some("raw"));
+    let frame_size = pixel_frame_size(file);
+    let actual_hashes = raw_path
+        .as_ref()
+        .and_then(|path| fs::read(path).ok())
+        .filter(|bytes| frame_size > 0 && bytes.len() >= frame_size * expected.len())
+        .map(|bytes| {
+            bytes[..frame_size * expected.len()]
+                .chunks_exact(frame_size)
+                .map(|frame| sha256_hex(&normalize_native_frame(frame, file)))
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    let expected_strings = expected
+        .iter()
+        .filter_map(Value::as_str)
+        .collect::<Vec<_>>();
+    let passed = decode.exit_code == Some(0)
+        && !decode.timed_out
+        && extraction
+            .as_ref()
+            .is_some_and(|output| output.exit_code == Some(0) && !output.timed_out)
+        && actual_hashes.iter().map(String::as_str).collect::<Vec<_>>() == expected_strings;
+    let sidecar = json!({
+        "adapter_id": "dcmtk-dcmdrle",
+        "decoder_sha256": tool["sha256"],
+        "parser_sha256": parser_tool["sha256"],
+        "independence": "independent",
+        "generator_encoder": file.pointer("/pixel_data/codec/backend").cloned().unwrap_or(Value::Null),
+        "invocation": std::iter::once(decoder.to_string()).chain(arguments.iter().cloned()).collect::<Vec<_>>(),
+        "decode_exit_code": decode.exit_code,
+        "decode_timed_out": decode.timed_out,
+        "extraction_exit_code": extraction.as_ref().and_then(|output| output.exit_code),
+        "expected_frame_hashes": expected,
+        "actual_frame_hashes": actual_hashes,
+        "status": if passed { "passed" } else { "failed" }
+    });
+    let relative = format!("pixels/dcmtk-dcmdrle/{stable_key}.json");
+    let encoded = serde_json::to_vec_pretty(&sidecar).map_err(|error| error.to_string())?;
+    fs::write(evidence_root.join(&relative), &encoded).map_err(|error| error.to_string())?;
+    for path in [raw_path, Some(decoded)]
+        .into_iter()
+        .flatten()
+        .filter(|path| path.is_file())
+    {
+        let _ = fs::remove_file(path);
+    }
+    let _ = fs::remove_dir(&work_dir);
+    Ok(json!({
+        "status": if passed { "passed" } else { "failed" },
+        "independence": "independent",
+        "expected_frame_hashes": sidecar["expected_frame_hashes"],
+        "actual_frame_hashes": sidecar["actual_frame_hashes"],
+        "reason": if passed { "DCMTK RLE decode matched every expected native frame hash" } else { "DCMTK RLE decode or native frame hash comparison failed" },
+        "evidence": { "path": relative, "sha256": sha256_hex(&encoded) }
+    }))
+}
+
+fn pixel_unsupported(expected: Vec<Value>, independence: &str, reason: &str) -> Value {
+    json!({
+        "status": "unsupported",
+        "independence": independence,
+        "expected_frame_hashes": expected,
+        "actual_frame_hashes": [],
+        "reason": reason,
+        "evidence": Value::Null
+    })
+}
+
+fn pixel_frame_size(file: &Value) -> usize {
+    let rows = file
+        .pointer("/image/rows")
+        .and_then(Value::as_u64)
+        .unwrap_or(0);
+    let columns = file
+        .pointer("/image/columns")
+        .and_then(Value::as_u64)
+        .unwrap_or(0);
+    let samples = file
+        .pointer("/image/samples_per_pixel")
+        .and_then(Value::as_u64)
+        .unwrap_or(1);
+    let bits = file
+        .pointer("/image/bits_allocated")
+        .and_then(Value::as_u64)
+        .unwrap_or(0);
+    ((rows * columns * samples * bits).div_ceil(8)) as usize
+}
+
+fn normalize_native_frame(frame: &[u8], file: &Value) -> Vec<u8> {
+    let bits = file
+        .pointer("/image/bits_allocated")
+        .and_then(Value::as_u64)
+        .unwrap_or(8);
+    let sample_bytes = bits.div_ceil(8) as usize;
+    let mut normalized = frame.to_vec();
+    if sample_bytes > 1 {
+        for sample in normalized.chunks_exact_mut(sample_bytes) {
+            sample.reverse();
+        }
+    }
+    let samples = file
+        .pointer("/image/samples_per_pixel")
+        .and_then(Value::as_u64)
+        .unwrap_or(1) as usize;
+    let planar = file
+        .pointer("/image/planar_configuration")
+        .and_then(Value::as_u64);
+    if samples > 1 && planar == Some(1) {
+        let pixels = normalized.len() / (samples * sample_bytes);
+        let mut interleaved = Vec::with_capacity(normalized.len());
+        for pixel in 0..pixels {
+            for plane in 0..samples {
+                let start = (plane * pixels + pixel) * sample_bytes;
+                interleaved.extend_from_slice(&normalized[start..start + sample_bytes]);
+            }
+        }
+        interleaved
+    } else {
+        normalized
+    }
 }
 
 fn collect_parser_result(

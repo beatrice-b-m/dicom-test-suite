@@ -42,6 +42,16 @@ once acquired. `accepted-findings.json` contains only exact, reviewed findings.
 Generated bundles belong below ignored `reports/conformance/`. Every run is
 driven solely by `manifest.json` file entries and uses manifest-relative paths.
 
+## Pixel evidence
+
+`pixel-decoders.json` records the transfer-syntax independence matrix and exact
+blockers. The first promoted adapter is DCMTK `dcmdrle`: it decompresses RLE
+independently of the project-owned encoder, then `dcmdump +W` extracts native
+Pixel Data. The adapter normalizes 16-bit sample byte order and planar color to
+the manifest's interleaved frame-hash convention before comparison. A real
+seed-1 all-profile run on the locked arm64 macOS tools matched all 58 RLE files.
+Set `DTS_REAL_CONFORMANCE=1` to exercise that conditional integration test.
+
 ## Remaining acquisition decision
 
 Choose one immutable dicom3tools distribution per supported CI platform. A

@@ -14,6 +14,20 @@
       "platforms": ["arm64-macos"],
       "verified_at": "2026-08-26",
       "notes": "Parser baseline only; this tool does not perform IOD validation."
+    },
+    {
+      "adapter_id": "dcmtk-dcmdrle",
+      "role": "pixel_decoder",
+      "tool_name": "DCMTK dcmdrle",
+      "version": "3.7.0 (2025-12-15)",
+      "source_repository": "https://github.com/DCMTK/dcmtk",
+      "source_revision": "DCMTK-3.7.0",
+      "package_identity": "Homebrew dcmtk 3.7.0",
+      "executable_sha256": "d63743af7ec1dc8f0af0dc7562e2c502e81c3af9f38a7b51de30e822de7c8daf",
+      "definition_version": "DCMTK dcmdata and dcmdata RLE codec 3.7.0",
+      "platforms": ["arm64-macos"],
+      "verified_at": "2026-08-26",
+      "notes": "Independent of the project-owned native RLE encoder."
     }
   ],
   "unresolved_required_tools": [

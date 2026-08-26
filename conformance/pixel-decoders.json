@@ -1,0 +1,76 @@
+{
+  "schema_version": "0.1.0",
+  "native_frame_convention": "Frame-order bytes before display transforms; little-endian samples, stored signed representation unchanged, manifest planar organization, per-frame bit packing, no container bytes.",
+  "transfer_syntaxes": [
+    {
+      "uid": "1.2.840.10008.1.2.5",
+      "name": "RLE Lossless",
+      "generator_encoder": "project-owned native RLE encoder",
+      "internal_decoder": "project-owned native RLE decoder",
+      "external_decoder": "DCMTK 3.7.0 dcmdrle plus dcmdump raw Pixel Data extraction",
+      "independence": "independent",
+      "supported_shapes": "8/16-bit monochrome and RGB cases in the current corpus",
+      "status": "implemented"
+    },
+    {
+      "uid": "native",
+      "name": "Native and deflated datasets",
+      "generator_encoder": "dicom-rs writer",
+      "internal_decoder": "dicom-rs parser",
+      "external_decoder": "none selected",
+      "independence": "unresolved",
+      "supported_shapes": "none",
+      "status": "blocker: independent raw extraction and bit-packed frame normalization adapter not yet implemented"
+    },
+    {
+      "uid": "1.2.840.10008.1.2.4.80",
+      "name": "JPEG-LS Lossless",
+      "generator_encoder": "dicom-rs CharLS wrapper",
+      "internal_decoder": "dicom-rs CharLS wrapper",
+      "external_decoder": "candidate DCMTK dcmdjpls",
+      "independence": "independent candidate",
+      "supported_shapes": "not yet characterized",
+      "status": "blocker: exact native-byte normalization has not been proven"
+    },
+    {
+      "uid": "1.2.840.10008.1.2.4.90",
+      "name": "JPEG 2000 Lossless",
+      "generator_encoder": "OpenJPEG through openjp2",
+      "internal_decoder": "OpenJPEG through openjp2",
+      "external_decoder": "none installed",
+      "independence": "unresolved",
+      "supported_shapes": "none",
+      "status": "blocker: requires a decoder that is not OpenJPEG"
+    },
+    {
+      "uid": "1.2.840.10008.1.2.4.201",
+      "name": "HTJ2K Lossless",
+      "generator_encoder": "OpenJPH external command",
+      "internal_decoder": "OpenJPEG-compatible project path where supported",
+      "external_decoder": "none selected",
+      "independence": "unresolved",
+      "supported_shapes": "none",
+      "status": "blocker: requires a decoder independent of OpenJPH generation"
+    },
+    {
+      "uid": "1.2.840.10008.1.2.4.110",
+      "name": "JPEG XL Lossless",
+      "generator_encoder": "dicom-rs jpegxl adapter",
+      "internal_decoder": "dicom-rs jpegxl adapter",
+      "external_decoder": "none selected",
+      "independence": "unresolved",
+      "supported_shapes": "none",
+      "status": "blocker: independent DICOM JPEG XL decode stack unavailable"
+    },
+    {
+      "uid": "1.2.840.10008.1.2.4.57 and 1.2.840.10008.1.2.4.70",
+      "name": "JPEG Lossless Process 14 and SV1",
+      "generator_encoder": "DCMTK dcmcjpeg",
+      "internal_decoder": "dicom-rs JPEG decoder",
+      "external_decoder": "none selected",
+      "independence": "same_implementation for DCMTK dcmdjpeg",
+      "supported_shapes": "none",
+      "status": "blocker: DCMTK decode would reuse the generator implementation"
+    }
+  ]
+}

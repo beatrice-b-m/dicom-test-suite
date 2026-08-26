@@ -115,13 +115,14 @@
     },
     "pixel": {
       "type": "object", "additionalProperties": false,
-      "required": ["status", "independence", "expected_frame_hashes", "actual_frame_hashes"],
+      "required": ["status", "independence", "expected_frame_hashes", "actual_frame_hashes", "evidence"],
       "properties": {
         "status": { "enum": ["passed", "failed", "unsupported"] },
         "independence": { "enum": ["independent", "same_implementation", "not_applicable"] },
         "expected_frame_hashes": { "type": "array", "items": { "$ref": "#/$defs/sha256" } },
         "actual_frame_hashes": { "type": "array", "items": { "$ref": "#/$defs/sha256" } },
-        "reason": { "type": "string" }
+        "reason": { "type": "string" },
+        "evidence": { "anyOf": [{ "$ref": "#/$defs/artifact" }, { "type": "null" }] }
       }
     },
     "instance": {

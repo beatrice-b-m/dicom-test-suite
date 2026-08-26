@@ -11630,7 +11630,7 @@
     {
       "case_id": "geometry/ct/spatial_sort_conflicts_instance_number",
       "artifact_kind": "dicom_instance",
-      "status": "planned",
+      "status": "implemented",
       "provider": {
         "kind": "rust_native",
         "id": "rust_native"
@@ -11641,18 +11641,8 @@
         "modality",
         "pixels"
       ],
-      "roadmap": {
-        "priority": "now",
-        "delivery_phase": "phase-1",
-        "rationale": "Proves that spatial position, not Instance Number, controls CT stack ordering."
-      },
-      "blockers": [
-        {
-          "code": "recipe_unimplemented",
-          "message": "The deterministic native recipe is not implemented.",
-          "recheck_phase": "phase-1"
-        }
-      ],
+      "roadmap": null,
+      "blockers": [],
       "profiles": [
         "core"
       ],

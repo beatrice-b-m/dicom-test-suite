@@ -1,0 +1,27 @@
+{
+  "response_schema_version": "0.1.0",
+  "protocol_version": "0.1.0",
+  "request_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "backend_id": "fake_backend",
+  "status": "generated",
+  "backend": {
+    "name": "DTS fake backend",
+    "version": "1.0.0",
+    "dependency_lock_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "executable_fingerprint": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "environment_fingerprint": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+  },
+  "outputs": [
+    {
+      "relative_path": "objects/fake.dcm",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.2",
+      "sop_instance_uid": "1.2.826.0.1.3680043.10.543.4",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "references": [],
+      "expected_semantics": { "modality": "CT" },
+      "payload_expectations": { "rows": 2, "columns": 2 }
+    }
+  ],
+  "warnings": [],
+  "failure": null
+}

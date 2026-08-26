@@ -1,0 +1,52 @@
+{
+  "request_schema_version": "0.1.0",
+  "protocol_version": "0.1.0",
+  "request_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "backend_id": "fake_backend",
+  "case": {
+    "case_id": "fake_case",
+    "recipe_id": "fake_recipe",
+    "recipe_version": "1",
+    "profile": "core",
+    "expected_sop_class_uid": "1.2.840.10008.5.1.4.1.1.2",
+    "expected_transfer_syntax_uid": "1.2.840.10008.1.2.1"
+  },
+  "run": { "seed": 42 },
+  "standards": {
+    "standards_lock_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "dicom_base_edition": "2026b",
+    "kb_source_manifest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+  },
+  "staging": {
+    "root": "/private/staging",
+    "inputs_directory": "/private/staging/inputs",
+    "output_directory": "/private/staging/outputs"
+  },
+  "identities": {
+    "study_instance_uid": "1.2.826.0.1.3680043.10.543.1",
+    "series_instance_uid": "1.2.826.0.1.3680043.10.543.2",
+    "frame_of_reference_uid": "1.2.826.0.1.3680043.10.543.3",
+    "sop_instances": [
+      {
+        "role": "primary",
+        "index": 0,
+        "uid": "1.2.826.0.1.3680043.10.543.4"
+      }
+    ]
+  },
+  "controlled_metadata": {
+    "patient_name": "DICOM^TEST",
+    "patient_id": "DTS-FAKE",
+    "manufacturer": "DICOM Test Suite",
+    "model_name": "External Backend Protocol",
+    "software_versions": "0.1.0",
+    "study_date": "20000101",
+    "study_time": "120000",
+    "content_date": "20000101",
+    "content_time": "120000",
+    "timezone_offset_from_utc": "+0000"
+  },
+  "sources": [],
+  "parameters": { "rows": 2, "columns": 2 },
+  "requested_determinism": "byte_stable"
+}

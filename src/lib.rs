@@ -41,6 +41,7 @@ pub mod codecs;
 pub mod conformance;
 pub mod coverage_gaps;
 pub mod encapsulation;
+pub mod generation_backends;
 mod generator;
 pub mod uid;
 mod validation;

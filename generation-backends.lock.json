@@ -1,0 +1,276 @@
+{
+  "backend_lock_schema_version": "0.1.0",
+  "protocol_version": "0.1.0",
+  "backends": [
+    {
+      "backend_id": "rust_native",
+      "state": "available",
+      "protocol_version": "0.1.0",
+      "implementation_kind": "rust_native",
+      "required_by_default": true,
+      "discovery": null,
+      "dependency_lock": {
+        "format": "cargo-lock-v4",
+        "path": "Cargo.lock",
+        "sha256": "ce15f12a8ddc4b7c5a1c581b428a439490c251b75c56766252d3a80a0d5193b4"
+      },
+      "fingerprint_components": [
+        "dependency_lock_bytes",
+        "protocol_version",
+        "native_build"
+      ],
+      "supported_case_families": [
+        "classic_image",
+        "derived_image",
+        "enhanced_image",
+        "encapsulated_document",
+        "presentation_state",
+        "quantitative",
+        "radiotherapy",
+        "structured_report",
+        "visible_light"
+      ],
+      "platforms": ["linux", "macos", "windows"],
+      "determinism": "byte_stable",
+      "resource_limits": {
+        "version_timeout_seconds": 5,
+        "invocation_timeout_seconds": 300,
+        "max_response_bytes": 1048576,
+        "max_stdout_bytes": 1048576,
+        "max_stderr_bytes": 1048576,
+        "max_output_files": 10000,
+        "max_file_bytes": 4294967296,
+        "max_total_output_bytes": 17179869184
+      },
+      "independent_validation": [
+        {
+          "role": "iod_validation",
+          "validator_ids": ["dicom3tools-dciodvfy"]
+        },
+        {
+          "role": "part10_parse",
+          "validator_ids": ["dcmtk-dcmdump"]
+        }
+      ],
+      "license": {
+        "spdx": ["MIT", "Apache-2.0"],
+        "redistribution": "permitted",
+        "notes": "The project-native generator follows the repository dual license."
+      },
+      "blockers": []
+    },
+    {
+      "backend_id": "highdicom_pydicom",
+      "state": "planned",
+      "protocol_version": "0.1.0",
+      "implementation_kind": "python",
+      "required_by_default": false,
+      "discovery": null,
+      "dependency_lock": null,
+      "fingerprint_components": ["protocol_version", "platform_architecture"],
+      "supported_case_families": [
+        "derived_image",
+        "mesh",
+        "quantitative",
+        "registration",
+        "structured_report",
+        "visible_light"
+      ],
+      "platforms": ["linux", "macos", "windows"],
+      "determinism": "semantic_stable",
+      "resource_limits": {
+        "version_timeout_seconds": 10,
+        "invocation_timeout_seconds": 300,
+        "max_response_bytes": 1048576,
+        "max_stdout_bytes": 1048576,
+        "max_stderr_bytes": 1048576,
+        "max_output_files": 256,
+        "max_file_bytes": 1073741824,
+        "max_total_output_bytes": 4294967296
+      },
+      "independent_validation": [
+        {
+          "role": "iod_validation",
+          "validator_ids": ["dicom3tools-dciodvfy"]
+        },
+        {
+          "role": "part10_parse",
+          "validator_ids": ["dcmtk-dcmdump"]
+        }
+      ],
+      "license": {
+        "spdx": ["BSD-3-Clause", "MIT"],
+        "redistribution": "unreviewed",
+        "notes": "Dependency license and redistribution review will accompany the selected lock and runtime manager."
+      },
+      "blockers": [
+        "A long-term Python runtime and dependency manager requires an explicit project decision.",
+        "No launcher, entrypoint, or dependency lock is selected."
+      ]
+    },
+    {
+      "backend_id": "dcmqi",
+      "state": "planned",
+      "protocol_version": "0.1.0",
+      "implementation_kind": "external_command",
+      "required_by_default": false,
+      "discovery": null,
+      "dependency_lock": null,
+      "fingerprint_components": ["protocol_version", "platform_architecture"],
+      "supported_case_families": ["derived_image", "quantitative", "structured_report"],
+      "platforms": ["linux", "macos", "windows"],
+      "determinism": "semantic_stable",
+      "resource_limits": {
+        "version_timeout_seconds": 10,
+        "invocation_timeout_seconds": 300,
+        "max_response_bytes": 1048576,
+        "max_stdout_bytes": 1048576,
+        "max_stderr_bytes": 1048576,
+        "max_output_files": 256,
+        "max_file_bytes": 1073741824,
+        "max_total_output_bytes": 4294967296
+      },
+      "independent_validation": [
+        {
+          "role": "iod_validation",
+          "validator_ids": ["dicom3tools-dciodvfy"]
+        },
+        {
+          "role": "part10_parse",
+          "validator_ids": ["dcmtk-dcmdump"]
+        }
+      ],
+      "license": {
+        "spdx": ["BSD-3-Clause"],
+        "redistribution": "unreviewed",
+        "notes": "Exact selected release, packaged dependencies, and redistribution terms are not locked."
+      },
+      "blockers": [
+        "No project wrapper, discovery command, or dependency lock is selected."
+      ]
+    },
+    {
+      "backend_id": "dcmtk",
+      "state": "planned",
+      "protocol_version": "0.1.0",
+      "implementation_kind": "external_command",
+      "required_by_default": false,
+      "discovery": null,
+      "dependency_lock": null,
+      "fingerprint_components": ["protocol_version", "platform_architecture"],
+      "supported_case_families": [
+        "presentation_state",
+        "radiotherapy",
+        "waveform"
+      ],
+      "platforms": ["linux", "macos", "windows"],
+      "determinism": "semantic_stable",
+      "resource_limits": {
+        "version_timeout_seconds": 10,
+        "invocation_timeout_seconds": 300,
+        "max_response_bytes": 1048576,
+        "max_stdout_bytes": 1048576,
+        "max_stderr_bytes": 1048576,
+        "max_output_files": 256,
+        "max_file_bytes": 1073741824,
+        "max_total_output_bytes": 4294967296
+      },
+      "independent_validation": [
+        {
+          "role": "iod_validation",
+          "validator_ids": ["dicom3tools-dciodvfy"]
+        }
+      ],
+      "license": {
+        "spdx": ["BSD-3-Clause"],
+        "redistribution": "unreviewed",
+        "notes": "The full-object generation wrapper and exact DCMTK distribution are not selected."
+      },
+      "blockers": [
+        "Existing codec wrappers do not implement the full-object backend protocol."
+      ]
+    },
+    {
+      "backend_id": "dcm4che",
+      "state": "planned",
+      "protocol_version": "0.1.0",
+      "implementation_kind": "java",
+      "required_by_default": false,
+      "discovery": null,
+      "dependency_lock": null,
+      "fingerprint_components": ["protocol_version", "platform_architecture"],
+      "supported_case_families": ["media", "protocol"],
+      "platforms": ["linux", "macos", "windows"],
+      "determinism": "semantic_stable",
+      "resource_limits": {
+        "version_timeout_seconds": 10,
+        "invocation_timeout_seconds": 300,
+        "max_response_bytes": 1048576,
+        "max_stdout_bytes": 1048576,
+        "max_stderr_bytes": 1048576,
+        "max_output_files": 10000,
+        "max_file_bytes": 1073741824,
+        "max_total_output_bytes": 17179869184
+      },
+      "independent_validation": [
+        {
+          "role": "iod_validation",
+          "validator_ids": ["dicom3tools-dciodvfy"]
+        },
+        {
+          "role": "part10_parse",
+          "validator_ids": ["dcmtk-dcmdump"]
+        }
+      ],
+      "license": {
+        "spdx": ["MPL-1.1", "GPL-2.0-or-later", "LGPL-2.1-or-later"],
+        "redistribution": "unreviewed",
+        "notes": "The selected dcm4che components and redistribution mode require review before activation."
+      },
+      "blockers": [
+        "No Java launcher, component set, or dependency lock is selected."
+      ]
+    },
+    {
+      "backend_id": "video_codec_adapter",
+      "state": "planned",
+      "protocol_version": "0.1.0",
+      "implementation_kind": "external_command",
+      "required_by_default": false,
+      "discovery": null,
+      "dependency_lock": null,
+      "fingerprint_components": ["protocol_version", "platform_architecture"],
+      "supported_case_families": ["classic_image", "visible_light"],
+      "platforms": ["linux", "macos", "windows"],
+      "determinism": "semantic_stable",
+      "resource_limits": {
+        "version_timeout_seconds": 10,
+        "invocation_timeout_seconds": 300,
+        "max_response_bytes": 1048576,
+        "max_stdout_bytes": 1048576,
+        "max_stderr_bytes": 1048576,
+        "max_output_files": 256,
+        "max_file_bytes": 4294967296,
+        "max_total_output_bytes": 17179869184
+      },
+      "independent_validation": [
+        {
+          "role": "iod_validation",
+          "validator_ids": ["dicom3tools-dciodvfy"]
+        },
+        {
+          "role": "payload_decode",
+          "validator_ids": ["independent-video-probe"]
+        }
+      ],
+      "license": {
+        "spdx": [],
+        "redistribution": "unreviewed",
+        "notes": "No codec suite, executable, or redistribution policy is selected."
+      },
+      "blockers": [
+        "No encoder, independent decoder, or numeric tolerance policy is selected."
+      ]
+    }
+  ]
+}

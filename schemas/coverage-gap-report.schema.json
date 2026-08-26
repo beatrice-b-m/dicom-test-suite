@@ -1,0 +1,143 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dicom-test-suite.local/schemas/coverage-gap-report.schema.json",
+  "title": "DICOM Test Suite Registry Coverage Gap Report",
+  "type": "object",
+  "required": [
+    "coverage_gap_report_schema_version",
+    "registry_schema_version",
+    "registry_sha256",
+    "standards_lock_sha256",
+    "counts",
+    "dimensions",
+    "gaps"
+  ],
+  "properties": {
+    "coverage_gap_report_schema_version": { "const": "0.1.0" },
+    "registry_schema_version": { "type": "string" },
+    "registry_sha256": { "$ref": "#/$defs/sha256" },
+    "standards_lock_sha256": { "$ref": "#/$defs/sha256" },
+    "counts": { "$ref": "#/$defs/counts" },
+    "dimensions": {
+      "type": "object",
+      "required": [
+        "sop_classes",
+        "modalities",
+        "object_families",
+        "compatibility_axes"
+      ],
+      "properties": {
+        "sop_classes": { "$ref": "#/$defs/dimension_rows" },
+        "modalities": { "$ref": "#/$defs/dimension_rows" },
+        "object_families": { "$ref": "#/$defs/dimension_rows" },
+        "compatibility_axes": { "$ref": "#/$defs/dimension_rows" }
+      },
+      "additionalProperties": false
+    },
+    "gaps": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/gap" }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "count_map": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 0
+      }
+    },
+    "counts": {
+      "type": "object",
+      "required": [
+        "logical_cases",
+        "distinct_sop_classes",
+        "distinct_modalities",
+        "distinct_object_families",
+        "distinct_compatibility_axes",
+        "statuses",
+        "priorities",
+        "providers",
+        "artifact_kinds"
+      ],
+      "properties": {
+        "logical_cases": { "type": "integer", "minimum": 0 },
+        "distinct_sop_classes": { "type": "integer", "minimum": 0 },
+        "distinct_modalities": { "type": "integer", "minimum": 0 },
+        "distinct_object_families": { "type": "integer", "minimum": 0 },
+        "distinct_compatibility_axes": { "type": "integer", "minimum": 0 },
+        "statuses": { "$ref": "#/$defs/count_map" },
+        "priorities": { "$ref": "#/$defs/count_map" },
+        "providers": { "$ref": "#/$defs/count_map" },
+        "artifact_kinds": { "$ref": "#/$defs/count_map" }
+      },
+      "additionalProperties": false
+    },
+    "string_array": {
+      "type": "array",
+      "items": { "type": "string" },
+      "uniqueItems": true
+    },
+    "dimension_rows": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/dimension_row" }
+    },
+    "dimension_row": {
+      "type": "object",
+      "required": [
+        "value",
+        "coverage_state",
+        "logical_case_count",
+        "implemented_case_ids",
+        "planned_case_ids",
+        "blocked_case_ids",
+        "provider_ids"
+      ],
+      "properties": {
+        "value": { "type": "string" },
+        "coverage_state": {
+          "enum": ["covered", "planned", "blocked", "deferred"]
+        },
+        "logical_case_count": { "type": "integer", "minimum": 1 },
+        "implemented_case_ids": { "$ref": "#/$defs/string_array" },
+        "planned_case_ids": { "$ref": "#/$defs/string_array" },
+        "blocked_case_ids": { "$ref": "#/$defs/string_array" },
+        "provider_ids": { "$ref": "#/$defs/string_array" }
+      },
+      "additionalProperties": false
+    },
+    "gap": {
+      "type": "object",
+      "required": [
+        "case_id",
+        "status",
+        "priority",
+        "delivery_phase",
+        "artifact_kind",
+        "provider_id",
+        "object_family",
+        "compatibility_axes",
+        "blocker_codes",
+        "rationale"
+      ],
+      "properties": {
+        "case_id": { "type": "string" },
+        "status": { "enum": ["planned", "blocked", "skipped"] },
+        "priority": { "enum": ["now", "next", "later"] },
+        "delivery_phase": { "type": "string" },
+        "artifact_kind": { "type": "string" },
+        "provider_id": { "type": "string" },
+        "object_family": { "type": "string" },
+        "compatibility_axes": { "$ref": "#/$defs/string_array" },
+        "blocker_codes": { "$ref": "#/$defs/string_array" },
+        "rationale": { "type": "string" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

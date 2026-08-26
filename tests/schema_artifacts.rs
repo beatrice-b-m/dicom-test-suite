@@ -25,6 +25,10 @@ const SCHEMAS: &[(&str, &str)] = &[
         "https://dicom-test-suite.local/schemas/coverage-report.schema.json",
     ),
     (
+        "schemas/coverage-gap-report.schema.json",
+        "https://dicom-test-suite.local/schemas/coverage-gap-report.schema.json",
+    ),
+    (
         "schemas/viewer-report.schema.json",
         "https://dicom-test-suite.local/schemas/viewer-report.schema.json",
     ),
@@ -577,6 +581,46 @@ fn coverage_report_schema_requires_the_specified_matrix_fields() {
                 ))
                 .is_some(),
             "coverage report schema must define grouped {grouped_field} coverage"
+        );
+    }
+}
+
+#[test]
+fn coverage_gap_report_schema_separates_logical_cases_and_dimensions() {
+    let schema = read_json("schemas/coverage-gap-report.schema.json");
+    let required = schema
+        .get("required")
+        .and_then(Value::as_array)
+        .expect("coverage gap report schema must require top-level fields");
+    for field in [
+        "coverage_gap_report_schema_version",
+        "registry_sha256",
+        "standards_lock_sha256",
+        "counts",
+        "dimensions",
+        "gaps",
+    ] {
+        assert!(
+            required.iter().any(|value| value.as_str() == Some(field)),
+            "coverage gap report schema must require {field}"
+        );
+    }
+
+    let dimensions = schema
+        .pointer("/properties/dimensions/required")
+        .and_then(Value::as_array)
+        .expect("coverage gap report schema must require dimensions");
+    for dimension in [
+        "sop_classes",
+        "modalities",
+        "object_families",
+        "compatibility_axes",
+    ] {
+        assert!(
+            dimensions
+                .iter()
+                .any(|value| value.as_str() == Some(dimension)),
+            "coverage gap report schema must require {dimension}"
         );
     }
 }

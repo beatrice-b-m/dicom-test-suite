@@ -122,13 +122,17 @@ fn core_generates_ct_series_with_conflicting_instance_number_order() {
                 .expect("Instance Number must be numeric"),
             expected_instance_numbers[index]
         );
+        assert!(
+            obj.element(tags::LATERALITY).is_err(),
+            "Series Laterality should be absent when Image Laterality is present"
+        );
         assert_eq!(
-            obj.element(tags::LATERALITY)
-                .expect("Laterality Type 2C attribute must be present")
+            obj.element(tags::IMAGE_LATERALITY)
+                .expect("Image Laterality should resolve the Series Laterality condition")
                 .to_str()
-                .expect("Laterality must be text")
+                .expect("Image Laterality must be text")
                 .trim(),
-            ""
+            "U"
         );
         assert_eq!(
             obj.element(tags::PATIENT_POSITION)

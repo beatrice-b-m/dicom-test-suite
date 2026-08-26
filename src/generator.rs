@@ -6003,8 +6003,8 @@ fn write_classic_ct_case(
         );
         put_str(&mut obj, tags::SERIES_NUMBER, VR::IS, "1");
         if recipe.slices.len() > 1 {
-            put_str(&mut obj, tags::LATERALITY, VR::CS, "");
             put_str(&mut obj, tags::PATIENT_POSITION, VR::CS, "");
+            put_str(&mut obj, tags::IMAGE_LATERALITY, VR::CS, "U");
         }
         put_str(
             &mut obj,

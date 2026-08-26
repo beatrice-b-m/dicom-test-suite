@@ -86,7 +86,9 @@ fn verify_manifest(evidence_root: &Path, evidence: &Value, failures: &mut Vec<St
 
 fn verify_tools(evidence: &Value, failures: &mut Vec<String>) {
     for tool in evidence["tools"].as_array().into_iter().flatten() {
-        if tool["required"].as_bool() == Some(true) {
+        let required = tool["required"].as_bool() == Some(true);
+        let active_sr = tool["role"] == "sr_validator" && tool["status"] == "available";
+        if required || active_sr {
             let id = tool["adapter_id"].as_str().unwrap_or("unknown");
             if tool["status"] != "available" {
                 failures.push(format!("required tool {id} is not available"));
@@ -175,6 +177,11 @@ fn verify_completeness(evidence_root: &Path, evidence: &Value, failures: &mut Ve
     if manifest_paths != evidence_paths {
         failures.push("instance evidence is incomplete for the source manifest".to_string());
     }
+    let require_sr = evidence["tools"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .any(|tool| tool["role"] == "sr_validator" && tool["status"] == "available");
     for instance in evidence["instances"].as_array().into_iter().flatten() {
         let path = instance["path"].as_str().unwrap_or("unknown");
         let primary = instance["results"]
@@ -193,6 +200,17 @@ fn verify_completeness(evidence_root: &Path, evidence: &Value, failures: &mut Ve
         if parser.is_none_or(|result| result["status"] != "completed") {
             failures.push(format!("independent parser incomplete: {path}"));
         }
+        if require_sr && is_supported_sr_sop_class(instance["sop_class_uid"].as_str().unwrap_or(""))
+        {
+            let sr = instance["results"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .find(|result| result["role"] == "sr_validator");
+            if sr.is_none_or(|result| result["status"] != "completed") {
+                failures.push(format!("SR validation incomplete: {path}"));
+            }
+        }
         if instance["transfer_syntax_uid"] == "1.2.840.10008.1.2.5"
             && instance["pixel"]["status"] != "passed"
         {
@@ -202,6 +220,15 @@ fn verify_completeness(evidence_root: &Path, evidence: &Value, failures: &mut Ve
     if evidence["entity"]["status"] != "completed" {
         failures.push("corpus entity validation is incomplete".to_string());
     }
+}
+
+fn is_supported_sr_sop_class(uid: &str) -> bool {
+    matches!(
+        uid,
+        "1.2.840.10008.5.1.4.1.1.88.11"
+            | "1.2.840.10008.5.1.4.1.1.88.33"
+            | "1.2.840.10008.5.1.4.1.1.88.59"
+    )
 }
 
 fn verify_findings(evidence: &Value, allowlist: &Value, failures: &mut Vec<String>) -> usize {

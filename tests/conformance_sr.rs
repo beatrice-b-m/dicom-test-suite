@@ -128,6 +128,43 @@ esac"#,
             );
         }
     }
+
+    let mut incomplete = evidence.clone();
+    for tool in incomplete["tools"].as_array_mut().unwrap() {
+        if tool["required"] == true || tool["role"] == "sr_validator" {
+            tool["lock_status"] = json!("matched");
+        }
+    }
+    let sr_instance = incomplete["instances"]
+        .as_array_mut()
+        .unwrap()
+        .iter_mut()
+        .find(|instance| instance["case_id"] == "derived/sr/key_object_selection_explicit_le")
+        .unwrap();
+    sr_instance["results"]
+        .as_array_mut()
+        .unwrap()
+        .retain(|result| result["role"] != "sr_validator");
+    fs::write(
+        evidence_root.join("conformance-run.json"),
+        serde_json::to_vec_pretty(&incomplete).unwrap(),
+    )
+    .unwrap();
+    let allowlist = root.join("accepted-findings.json");
+    fs::write(
+        &allowlist,
+        b"{\"schema_version\":\"0.1.0\",\"findings\":[]}",
+    )
+    .unwrap();
+    let verify = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args(["conformance", "verify"])
+        .arg(&evidence_root)
+        .args(["--allowlist"])
+        .arg(&allowlist)
+        .output()
+        .unwrap();
+    assert!(!verify.status.success());
+    assert!(String::from_utf8_lossy(&verify.stdout).contains("SR validation incomplete"));
 }
 
 fn adapter(id: &str, role: &str, path: &Path) -> Value {

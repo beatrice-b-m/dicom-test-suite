@@ -1,4 +1,103 @@
 {
   "schema_version": "0.1.0",
-  "findings": []
+  "findings": [
+    {
+      "validator_adapter_id": "pixelmed-sr-validator",
+      "validator_fingerprint": "f10b9b06f8d665af35c17af915f0544f21757f8fe51d3cbf2f69d431b5834f50",
+      "case_id": "derived/sr/basic_text_observation_explicit_le",
+      "path": "derived/sr/basic_text_observation_explicit_le/instance.dcm",
+      "message_fingerprint": "e43f77388c4d3dae4ea73ed52914c3dd3de85edab799682dce058c89b0326bc8",
+      "original_severity": "warning",
+      "disposition": "generator_intent_confirmed",
+      "rationale": "This generic Basic Text SR was not created from a named root template, so Content Template Sequence is correctly absent.",
+      "citation": "DICOM PS3.3 2026b C.18.8.1.2; Content Template Sequence is required only when a template was used",
+      "reviewer": "dicom-test-suite conformance review",
+      "review_date": "2026-08-26",
+      "recheck_condition": "Recheck if this recipe adopts a named root template or PixelMed changes template-less SR handling"
+    },
+    {
+      "validator_adapter_id": "pixelmed-sr-validator",
+      "validator_fingerprint": "f10b9b06f8d665af35c17af915f0544f21757f8fe51d3cbf2f69d431b5834f50",
+      "case_id": "derived/sr/basic_text_observation_explicit_le",
+      "path": "derived/sr/basic_text_observation_explicit_le/instance.dcm",
+      "message_fingerprint": "80a34506800a91880dc828e1a8351c770a1927cd75fd5f8455c45ea8505f3d97",
+      "original_severity": "warning",
+      "disposition": "generator_intent_confirmed",
+      "rationale": "PixelMed cannot match the intentionally template-less root CONTAINER to one of its named templates; this is not an IOD error.",
+      "citation": "DICOM PS3.3 2026b C.18.8.1.2",
+      "reviewer": "dicom-test-suite conformance review",
+      "review_date": "2026-08-26",
+      "recheck_condition": "Recheck if this recipe adopts a named root template or PixelMed changes template-less SR handling"
+    },
+    {
+      "validator_adapter_id": "pixelmed-sr-validator",
+      "validator_fingerprint": "f10b9b06f8d665af35c17af915f0544f21757f8fe51d3cbf2f69d431b5834f50",
+      "case_id": "derived/sr/basic_text_observation_explicit_le",
+      "path": "derived/sr/basic_text_observation_explicit_le/instance.dcm",
+      "message_fingerprint": "e4d8096a9c47940382a6543a8a604d1679ea3bae91af7c8eaf64d6c6d5886591",
+      "original_severity": "warning",
+      "disposition": "generator_intent_confirmed",
+      "rationale": "The free-form TEXT item belongs to a generic, intentionally template-less Basic Text SR and therefore is not expected to match a named PixelMed template row.",
+      "citation": "DICOM PS3.3 2026b C.18.8.1.2",
+      "reviewer": "dicom-test-suite conformance review",
+      "review_date": "2026-08-26",
+      "recheck_condition": "Recheck if this recipe adopts a named root template or PixelMed changes template-less SR handling"
+    },
+    {
+      "validator_adapter_id": "pixelmed-sr-validator",
+      "validator_fingerprint": "f10b9b06f8d665af35c17af915f0544f21757f8fe51d3cbf2f69d431b5834f50",
+      "case_id": "derived/sr/comprehensive_measurement_explicit_le",
+      "path": "derived/sr/comprehensive_measurement_explicit_le/instance.dcm",
+      "message_fingerprint": "e43f77388c4d3dae4ea73ed52914c3dd3de85edab799682dce058c89b0326bc8",
+      "original_severity": "warning",
+      "disposition": "generator_intent_confirmed",
+      "rationale": "This generic Comprehensive SR was not created from a named root template, so Content Template Sequence is correctly absent.",
+      "citation": "DICOM PS3.3 2026b C.18.8.1.2; Content Template Sequence is required only when a template was used",
+      "reviewer": "dicom-test-suite conformance review",
+      "review_date": "2026-08-26",
+      "recheck_condition": "Recheck if this recipe adopts a named root template or PixelMed changes template-less SR handling"
+    },
+    {
+      "validator_adapter_id": "pixelmed-sr-validator",
+      "validator_fingerprint": "f10b9b06f8d665af35c17af915f0544f21757f8fe51d3cbf2f69d431b5834f50",
+      "case_id": "derived/sr/comprehensive_measurement_explicit_le",
+      "path": "derived/sr/comprehensive_measurement_explicit_le/instance.dcm",
+      "message_fingerprint": "80a34506800a91880dc828e1a8351c770a1927cd75fd5f8455c45ea8505f3d97",
+      "original_severity": "warning",
+      "disposition": "generator_intent_confirmed",
+      "rationale": "PixelMed cannot match the intentionally template-less root CONTAINER to one of its named templates; this is not an IOD error.",
+      "citation": "DICOM PS3.3 2026b C.18.8.1.2",
+      "reviewer": "dicom-test-suite conformance review",
+      "review_date": "2026-08-26",
+      "recheck_condition": "Recheck if this recipe adopts a named root template or PixelMed changes template-less SR handling"
+    },
+    {
+      "validator_adapter_id": "pixelmed-sr-validator",
+      "validator_fingerprint": "f10b9b06f8d665af35c17af915f0544f21757f8fe51d3cbf2f69d431b5834f50",
+      "case_id": "derived/sr/comprehensive_measurement_explicit_le",
+      "path": "derived/sr/comprehensive_measurement_explicit_le/instance.dcm",
+      "message_fingerprint": "a26e7966685c9bf5c2a5aeb2c609fcb0f1527555c53aa9ca1033c04e23310c07",
+      "original_severity": "warning",
+      "disposition": "generator_intent_confirmed",
+      "rationale": "The NUM item belongs to a generic, intentionally template-less Comprehensive SR and therefore is not expected to match a named PixelMed template row.",
+      "citation": "DICOM PS3.3 2026b C.18.8.1.2",
+      "reviewer": "dicom-test-suite conformance review",
+      "review_date": "2026-08-26",
+      "recheck_condition": "Recheck if this recipe adopts a named root template or PixelMed changes template-less SR handling"
+    },
+    {
+      "validator_adapter_id": "pixelmed-sr-validator",
+      "validator_fingerprint": "f10b9b06f8d665af35c17af915f0544f21757f8fe51d3cbf2f69d431b5834f50",
+      "case_id": "derived/sr/comprehensive_measurement_explicit_le",
+      "path": "derived/sr/comprehensive_measurement_explicit_le/instance.dcm",
+      "message_fingerprint": "de97a3054a047508bafb83437785246f5581c412e47bfca3ae9f75731ef60344",
+      "original_severity": "warning",
+      "disposition": "generator_intent_confirmed",
+      "rationale": "The IMAGE item belongs to a generic, intentionally template-less Comprehensive SR and therefore is not expected to match a named PixelMed template row.",
+      "citation": "DICOM PS3.3 2026b C.18.8.1.2",
+      "reviewer": "dicom-test-suite conformance review",
+      "review_date": "2026-08-26",
+      "recheck_condition": "Recheck if this recipe adopts a named root template or PixelMed changes template-less SR handling"
+    }
+  ]
 }

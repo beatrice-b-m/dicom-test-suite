@@ -31,6 +31,13 @@ the matching source archive SHA-256 is
 `7e8937c2e8a5c61fd9ec1a0405330782abf41ba18efa459327de5c5071be0160`.
 The matching BSD `COPYRIGHT` is installed beside the executables.
 
+SR-specific validation used PixelMed release `20260608` with Oracle Java
+25.0.3. The composite adapter SHA-256 is
+`f10b9b06f8d665af35c17af915f0544f21757f8fe51d3cbf2f69d431b5834f50`;
+it binds the Java executable and the exact PixelMed, Commons Codec, Saxon HE,
+and XML Resolver JAR hashes recorded in `conformance/validator-lock.json`. The
+upstream binary, dependency, and source archive hashes are also locked there.
+
 Results on the 108-instance all-features corpus:
 
 - independent parser completed for 108/108 manifest files;
@@ -41,7 +48,14 @@ Results on the 108-instance all-features corpus:
 - one instance had no primary finding and 107 had at least one finding;
 - primary validation reported 200 errors and 72 warnings;
 - corpus entity validation completed and reported 13 errors and three warnings;
-- strict verification reported all 288 findings unresolved; and
+- PixelMed completed SR IOD/template validation for all three SR instances;
+- the Key Object Selection instance passed PixelMed cleanly after its root was
+  identified as DCMR TID 2010 and its Row 8 IMAGE Concept Names were removed;
+- Basic Text and Comprehensive SR produced seven warnings because those generic
+  recipes intentionally do not claim a named root template; the warnings have
+  exact `generator_intent_confirmed` dispositions citing PS3.3 C.18.8.1.2;
+- strict verification accepted all seven PixelMed warnings and still reported
+  the original 288 primary/entity findings unresolved; and
 - the separate legacy instance completed primary validation with one unresolved
   `Laterality` Type 2C error.
 
@@ -66,8 +80,7 @@ Next actions:
 4. reconcile the validator's compiled definition snapshot with the project
    2026b standards lock;
 5. confirm every generated SOP Class and transfer syntax is recognized;
-6. evaluate PixelMed `DicomSRValidator` for generated SR cases; and
-7. enable a manual/scheduled CI acceptance job pinned to the installed tool
+6. enable a manual/scheduled CI acceptance job pinned to the installed tool
    artifacts and upload the ignored evidence bundle.
 
 Do not call the corpus conformance-ready until strict verification succeeds.
@@ -79,8 +92,9 @@ cargo run --locked -- conformance check-tools
 cargo run --locked --all-features -- generate \
   --profile all --out generated/conformance-all --seed 1
 cargo run --locked --all-features -- validate generated/conformance-all
-cargo run --locked --all-features -- conformance run \
-  generated/conformance-all --out reports/conformance/all-seed-1
+DTS_PIXELMED_HOME=/path/to/pixelmed-20260608 \
+  cargo run --locked --all-features -- conformance run \
+    generated/conformance-all --out reports/conformance/all-seed-1
 cargo run --locked --all-features -- conformance verify \
   reports/conformance/all-seed-1
 ```

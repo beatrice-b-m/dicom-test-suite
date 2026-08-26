@@ -42,6 +42,12 @@ run-specific config; arguments are always arrays and are executed directly,
 never through a shell. `validator-lock.json` contains accepted real fingerprints
 once acquired. `accepted-findings.json` contains only exact, reviewed findings.
 
+The committed PixelMed dispositions apply only to the Basic Text and
+Comprehensive SR cases, the locked composite validator fingerprint, and the
+exact template-less warnings observed on 2026-08-26. They confirm that those
+two generic recipes were not created from a named root template; they do not
+suppress SR IOD errors or findings from the TID 2010 Key Object Selection case.
+
 Generated bundles belong below ignored `reports/conformance/`. Every run is
 driven solely by `manifest.json` file entries and uses manifest-relative paths.
 

@@ -52,6 +52,53 @@ fn external_codec_policy_requires_runtime_evidence() {
 }
 
 #[test]
+fn coverage_baseline_records_the_phase_zero_comparison_point() {
+    let baseline = fs::read_to_string("docs/coverage-baseline.md")
+        .expect("coverage baseline must be readable");
+    for required in [
+        "cc0bef6690dbd7a338608e8e2293e8b1b48eeb114c022cb0827a7fb74ca2483d",
+        "106 implemented logical cases",
+        "21 distinct SOP Classes",
+        "70 Secondary Capture Image Storage cases",
+        "179 logical entries: 106 implemented and 73 planned",
+        "report gaps --format json",
+        "geometry/ct/spatial_sort_conflicts_instance_number",
+        "derived/parametric-map/float32_ct_derived_explicit_le",
+        "Do not use generated file count",
+    ] {
+        assert!(
+            baseline.contains(required),
+            "coverage baseline must record {required}"
+        );
+    }
+
+    let registry = read_json("cases/registry.json");
+    let cases = registry
+        .get("cases")
+        .and_then(Value::as_array)
+        .expect("registry must contain cases");
+    assert!(
+        cases
+            .iter()
+            .filter(|case| case.get("status").and_then(Value::as_str) == Some("implemented"))
+            .count()
+            >= 106,
+        "implemented coverage must not fall below the Phase 0 baseline"
+    );
+    for proof_case in [
+        "geometry/ct/spatial_sort_conflicts_instance_number",
+        "derived/parametric-map/float32_ct_derived_explicit_le",
+    ] {
+        assert!(
+            cases
+                .iter()
+                .any(|case| case.get("case_id").and_then(Value::as_str) == Some(proof_case)),
+            "registry must retain selected proof case {proof_case}"
+        );
+    }
+}
+
+#[test]
 fn readme_documents_supported_commands_and_codec_features() {
     let readme = fs::read_to_string("README.md").expect("README must be readable");
 

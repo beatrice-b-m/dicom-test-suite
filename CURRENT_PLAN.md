@@ -3,7 +3,7 @@
 **Last updated:** 2026-08-26
 **Active goal:** implement independent conformance evidence collection
 **Source specification:** `SYSTEM_SPEC.md` version 0.2.0
-**Planning status:** conformance Phases 0-3 complete; entity collection next
+**Planning status:** conformance Phases 0-4 complete; strict verification next
 
 ## Independent Conformance Framework
 
@@ -32,8 +32,13 @@ by manifest-relative path, derives path-based stable keys, executes the primary
 adapter with a bounded timeout, preserves raw stdout/stderr bytes and hashes,
 and normalizes error/warning/timeout/unparsed evidence deterministically.
 
-Recommended next step: replace the explicit Phase 3 entity placeholder with
-corpus-wide `dcentvfy` collection using a generated stdin file list.
+Phase 4 is complete: the entity adapter writes a deterministic one-path-per-line
+file list and invokes `dcentvfy -f`, avoiding command-line limits and preserving
+paths containing spaces. Corpus findings and raw streams remain separate from
+per-instance evidence.
+
+Recommended next step: implement strict schema, hash, fingerprint, completeness,
+raw-artifact, and exact-disposition verification.
 
 This document replaces the previous historical implementation plan and progress
 ledger. `SYSTEM_SPEC.md` remains the architecture and requirements source of

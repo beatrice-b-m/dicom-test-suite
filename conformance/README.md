@@ -22,7 +22,7 @@ block the hermetic framework implementation.
 | Role | Adapter | Initial command | Requirement | Acquisition and constraints |
 | --- | --- | --- | --- | --- |
 | Per-instance IOD | `dicom3tools-dciodvfy` | `dciodvfy -new` | Required | dicom3tools BSD license; pin source snapshot/package and executable hash. Homebrew does not currently provide it on this host. Debian packages both validator commands; upstream publishes source and platform builds. Validator definitions evolve, so the snapshot/definition baseline must remain visible. |
-| Corpus entity consistency | `dicom3tools-dcentvfy` | `dcentvfy` | Required | Same dicom3tools identity and acquisition decision as `dciodvfy`; pass files through a generated list accepted on stdin to avoid argument limits. |
+| Corpus entity consistency | `dicom3tools-dcentvfy` | `dcentvfy -f <file-list>` | Required | Same dicom3tools identity and acquisition decision as `dciodvfy`; pass files through its one-path-per-line file-list option to avoid argument limits. |
 | Independent parse | `dcmtk-dcmdump` | `dcmdump +fo` | Required | DCMTK is BSD-style licensed and cross-platform. Baseline is Homebrew DCMTK 3.7.0. Dictionary and character mapping data affect behavior and must be noted with the fingerprint. |
 | Independent lossless decode | `dcmtk-dcmdjpeg` | `dcmdjpeg` | Capability-based | Suitable for JPEG families supported by the installed DCMTK build. It is not independent for cases encoded by the project's DCMTK `dcmcjpeg` path. Raw native-byte normalization still needs a proven adapter. |
 | Independent lossless decode | `gdcm-decode` | `gdcmconv`/`gdcmraw` | Optional candidate | GDCM is cross-platform and BSD licensed. Not installed; exact command behavior and native-byte normalization remain research targets. |
@@ -49,4 +49,3 @@ source snapshot is preferable for Linux; the upstream macOS binary or a frozen,
 license-preserving mirror can be used for arm64 macOS after its checksum and
 definition vintage are reviewed. Record the selected identity in
 `validator-lock.json`; do not fetch validators during ordinary tests.
-

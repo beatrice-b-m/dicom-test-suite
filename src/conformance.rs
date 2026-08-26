@@ -53,7 +53,7 @@ pub fn run_conformance(
     let mut sorted_files = files.iter().collect::<Vec<_>>();
     sorted_files.sort_by_key(|file| file.get("path").and_then(Value::as_str).unwrap_or(""));
     let mut instances = Vec::with_capacity(sorted_files.len());
-    for file in sorted_files {
+    for file in &sorted_files {
         instances.push(collect_instance(
             generated_root,
             evidence_root,
@@ -63,7 +63,13 @@ pub fn run_conformance(
         )?);
     }
 
-    let entity = unsupported_entity_result(evidence_root)?;
+    let entity = collect_entity(
+        generated_root,
+        evidence_root,
+        &sorted_files,
+        adapters,
+        &tools,
+    )?;
     let repository = repository_identity();
     let standards_lock_sha256 = manifest
         .pointer("/standards/standards_lock_sha256")
@@ -354,18 +360,88 @@ fn unsupported_result(
     })
 }
 
-fn unsupported_entity_result(evidence_root: &Path) -> Result<Value, String> {
+fn collect_entity(
+    generated_root: &Path,
+    evidence_root: &Path,
+    files: &[&Value],
+    adapters: &[Value],
+    tools: &[Value],
+) -> Result<Value, String> {
     let directory = evidence_root.join("entity");
     fs::create_dir_all(&directory).map_err(|error| error.to_string())?;
-    fs::write(directory.join("dcentvfy.stdout"), []).map_err(|error| error.to_string())?;
-    fs::write(directory.join("dcentvfy.stderr"), []).map_err(|error| error.to_string())?;
-    Ok(unsupported_result(
-        "dicom3tools-dcentvfy",
+    let stdout_path = directory.join("dcentvfy.stdout");
+    let stderr_path = directory.join("dcentvfy.stderr");
+    let list_path = directory.join("files.txt");
+    let mut list = String::new();
+    for file in files {
+        let relative = file
+            .get("path")
+            .and_then(Value::as_str)
+            .ok_or_else(|| "manifest file entry requires path".to_string())?;
+        validate_relative_path(relative)?;
+        list.push_str(&generated_root.join(relative).display().to_string());
+        list.push('\n');
+    }
+    fs::write(&list_path, list.as_bytes()).map_err(|error| error.to_string())?;
+
+    let Some(adapter) = adapters
+        .iter()
+        .find(|adapter| adapter.get("role").and_then(Value::as_str) == Some("entity_validator"))
+    else {
+        fs::write(&stdout_path, []).map_err(|error| error.to_string())?;
+        fs::write(&stderr_path, []).map_err(|error| error.to_string())?;
+        return Ok(unsupported_result(
+            "dicom3tools-dcentvfy",
+            "entity_validator",
+            vec!["dcentvfy".to_string()],
+            "entity/dcentvfy.stdout",
+            "entity/dcentvfy.stderr",
+            "No entity_validator adapter is configured",
+        ));
+    };
+    let adapter_id = required_string(adapter, "id")?;
+    let tool = tools
+        .iter()
+        .find(|tool| tool.get("adapter_id") == adapter.get("id"))
+        .ok_or_else(|| format!("entity validator discovery result missing for {adapter_id}"))?;
+    if tool.get("status").and_then(Value::as_str) != Some("available") {
+        fs::write(&stdout_path, []).map_err(|error| error.to_string())?;
+        fs::write(&stderr_path, []).map_err(|error| error.to_string())?;
+        return Ok(unsupported_result(
+            adapter_id,
+            "entity_validator",
+            vec![required_string(adapter, "executable")?.to_string()],
+            "entity/dcentvfy.stdout",
+            "entity/dcentvfy.stderr",
+            "configured entity validator is unavailable",
+        ));
+    }
+    let executable = tool
+        .get("executable")
+        .and_then(Value::as_str)
+        .ok_or_else(|| format!("available adapter {adapter_id} has no executable"))?;
+    let mut arguments = string_array(adapter, "arguments")?;
+    arguments.push("-f".to_string());
+    arguments.push(list_path.display().to_string());
+    let timeout = Duration::from_secs(
+        adapter
+            .get("timeout_seconds")
+            .and_then(Value::as_u64)
+            .ok_or_else(|| format!("adapter {adapter_id} requires timeout_seconds"))?,
+    );
+    let output = run_with_timeout(Path::new(executable), &arguments, timeout)?;
+    fs::write(&stdout_path, &output.stdout).map_err(|error| error.to_string())?;
+    fs::write(&stderr_path, &output.stderr).map_err(|error| error.to_string())?;
+    Ok(execution_result(
+        adapter_id,
         "entity_validator",
-        vec!["dcentvfy".to_string()],
+        executable,
+        arguments,
+        output,
         "entity/dcentvfy.stdout",
         "entity/dcentvfy.stderr",
-        "Entity validation is not enabled in this phase",
+        &generated_root.display().to_string(),
+        ".",
     ))
 }
 

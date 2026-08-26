@@ -21,7 +21,7 @@
       "timeout_seconds": 120,
       "required": true,
       "platforms": ["linux", "macos", "windows"],
-      "capabilities": ["patient_study_series_instance_consistency", "stdin_file_list"]
+      "capabilities": ["patient_study_series_instance_consistency", "file_list"]
     },
     {
       "id": "dcmtk-dcmdump",

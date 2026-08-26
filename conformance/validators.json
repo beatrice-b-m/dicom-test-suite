@@ -1,0 +1,49 @@
+{
+  "schema_version": "0.1.0",
+  "adapters": [
+    {
+      "id": "dicom3tools-dciodvfy",
+      "role": "primary_iod_validator",
+      "executable": "dciodvfy",
+      "arguments": ["-new", "{input}"],
+      "version_arguments": ["--version"],
+      "timeout_seconds": 30,
+      "required": true,
+      "platforms": ["linux", "macos", "windows"],
+      "capabilities": ["iod_validation", "normalized_findings"]
+    },
+    {
+      "id": "dicom3tools-dcentvfy",
+      "role": "entity_validator",
+      "executable": "dcentvfy",
+      "arguments": [],
+      "version_arguments": ["--version"],
+      "timeout_seconds": 120,
+      "required": true,
+      "platforms": ["linux", "macos", "windows"],
+      "capabilities": ["patient_study_series_instance_consistency", "stdin_file_list"]
+    },
+    {
+      "id": "dcmtk-dcmdump",
+      "role": "independent_parser",
+      "executable": "dcmdump",
+      "arguments": ["+fo", "{input}"],
+      "version_arguments": ["--version"],
+      "timeout_seconds": 30,
+      "required": true,
+      "platforms": ["linux", "macos", "windows"],
+      "capabilities": ["part10_parse"]
+    },
+    {
+      "id": "dcmtk-dcmdjpeg",
+      "role": "pixel_decoder",
+      "executable": "dcmdjpeg",
+      "arguments": ["{input}", "{output}"],
+      "version_arguments": ["--version"],
+      "timeout_seconds": 60,
+      "required": false,
+      "platforms": ["linux", "macos", "windows"],
+      "capabilities": ["jpeg_decode", "jpeg_ls_decode", "jpeg_2000_decode", "rle_decode"]
+    }
+  ]
+}

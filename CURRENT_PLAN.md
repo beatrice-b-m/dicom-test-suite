@@ -1,9 +1,24 @@
 # Current Plan
 
 **Last updated:** 2026-08-26
-**Active goal:** prepare the generated corpus for an independent viewer review
+**Active goal:** implement independent conformance evidence collection
 **Source specification:** `SYSTEM_SPEC.md` version 0.2.0
-**Planning status:** readiness handoff complete; conformance implementation next
+**Planning status:** conformance Phase 0 complete; evidence contracts next
+
+## Independent Conformance Framework
+
+The assignment in `docs/conformance-validation-agent-brief.md` is active.
+Phase 0 is complete: the portable suite passed, all-features seed-1 `all` and
+`legacy` corpora generated and validated internally, installed tools were
+inventoried, and `conformance/README.md` records the adapter decision matrix.
+
+Real IOD/entity acceptance is blocked on choosing and installing an immutable
+dicom3tools distribution providing `dciodvfy` and `dcentvfy`. DCMTK 3.7.0 is
+available for the independent parser. Framework development proceeds with fake
+executables and no network/runtime dependency in the default build.
+
+Recommended next step: define the evidence and exact-disposition JSON Schemas,
+lock file, fixtures, and full structural schema tests.
 
 This document replaces the previous historical implementation plan and progress
 ledger. `SYSTEM_SPEC.md` remains the architecture and requirements source of

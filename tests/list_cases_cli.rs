@@ -16,7 +16,7 @@ fn list_cases_command_shows_smoke_case_status_and_evidence() {
     let stdout = String::from_utf8(output.stdout).expect("list-cases stdout must be utf-8");
     assert!(
         stdout.contains(
-            "case_id\tstatus\tprofiles\tsop_class_uid\ttransfer_syntax_uid\tstandards_evidence"
+            "case_id\tstatus\tprofiles\tsop_class_uid\ttransfer_syntax_uid\tstandards_evidence\tartifact_kind\tprovider\tobject_family\troadmap_priority\tblocker_codes"
         ),
         "list-cases must print structured columns"
     );
@@ -25,6 +25,46 @@ fn list_cases_command_shows_smoke_case_status_and_evidence() {
             "classic/sc/mono2_u8_explicit_le\timplemented\tsmoke\t1.2.840.10008.5.1.4.1.1.7\t1.2.840.10008.1.2.1\t2/2 covered"
         ),
         "list-cases must include implemented smoke cases with standards evidence"
+    );
+}
+
+#[test]
+fn list_cases_command_exposes_planned_provider_and_blockers() {
+    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args(["list-cases", "--status", "planned"])
+        .output()
+        .expect("list-cases command must run");
+
+    assert!(
+        output.status.success(),
+        "list-cases should report planned rows: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("list-cases stdout must be utf-8");
+    assert!(
+        stdout.contains("derived/parametric-map/float32_ct_derived_explicit_le\tplanned\textended\t1.2.840.10008.5.1.4.1.1.30\t1.2.840.10008.1.2.1\t1/1 covered\tdicom_instance\thighdicom_pydicom\tquantitative\tnow\tbackend_contract_unimplemented,independent_iod_validator_unavailable"),
+        "planned rows must expose their provider, priority, and controlled blockers"
+    );
+    assert!(
+        stdout.contains("protocol/dicomweb/stow_qido_wado\tplanned\t\t-\t-\t1/1 covered\ttransaction_scenario\tprotocol_harness\tprotocol\tlater\tprotocol_harness_unimplemented"),
+        "transaction gaps must remain visible without pretending to be DICOM files"
+    );
+}
+
+#[test]
+fn list_cases_command_rejects_unknown_profile() {
+    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args(["list-cases", "--profile", "unknown"])
+        .output()
+        .expect("list-cases command must run");
+
+    assert!(
+        !output.status.success(),
+        "unknown profiles must be rejected"
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("unsupported profile unknown"),
+        "profile errors must name the unsupported value"
     );
 }
 

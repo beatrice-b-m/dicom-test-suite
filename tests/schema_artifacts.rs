@@ -273,7 +273,8 @@ fn case_registry_schema_requires_the_specified_case_fields() {
 fn committed_case_registry_validates_against_its_schema() {
     let schema = read_json("schemas/case-registry.schema.json");
     let registry = read_json("cases/registry.json");
-    let validator = jsonschema::validator_for(&schema).expect("case registry schema should compile");
+    let validator =
+        jsonschema::validator_for(&schema).expect("case registry schema should compile");
     let errors = validator
         .iter_errors(&registry)
         .map(|error| error.to_string())

@@ -10563,6 +10563,13 @@ pub fn list_cases_from_registry_value(
     profile_filter: Option<&str>,
     status_filter: Option<&str>,
 ) -> Result<String, CaseRegistryError> {
+    if let Some(profile_filter) = profile_filter {
+        if !SUPPORTED_PROFILES.contains(&profile_filter) {
+            return Err(CaseRegistryError::InvalidProfile(
+                profile_filter.to_string(),
+            ));
+        }
+    }
     if let Some(status_filter) = status_filter {
         if !SUPPORTED_CASE_STATUSES.contains(&status_filter) {
             return Err(CaseRegistryError::InvalidStatus(status_filter.to_string()));
@@ -10575,7 +10582,7 @@ pub fn list_cases_from_registry_value(
         .ok_or(CaseRegistryError::Shape("missing cases array"))?;
 
     let mut output = String::from(
-        "case_id\tstatus\tprofiles\tsop_class_uid\ttransfer_syntax_uid\tstandards_evidence\n",
+        "case_id\tstatus\tprofiles\tsop_class_uid\ttransfer_syntax_uid\tstandards_evidence\tartifact_kind\tprovider\tobject_family\troadmap_priority\tblocker_codes\n",
     );
 
     for case in cases {
@@ -10593,8 +10600,36 @@ pub fn list_cases_from_registry_value(
                 continue;
             }
         }
-        let sop_class_uid = required_str(case, "sop_class_uid")?;
-        let transfer_syntax_uid = required_str(case, "transfer_syntax_uid")?;
+        let sop_class_uid = case
+            .get("sop_class_uid")
+            .and_then(Value::as_str)
+            .unwrap_or("-");
+        let transfer_syntax_uid = case
+            .get("transfer_syntax_uid")
+            .and_then(Value::as_str)
+            .unwrap_or("-");
+        let artifact_kind = required_str(case, "artifact_kind")?;
+        let provider = case
+            .pointer("/provider/id")
+            .and_then(Value::as_str)
+            .ok_or(CaseRegistryError::Shape("missing provider id"))?;
+        let object_family = required_str(case, "object_family")?;
+        let roadmap_priority = case
+            .pointer("/roadmap/priority")
+            .and_then(Value::as_str)
+            .unwrap_or("-");
+        let blocker_codes = case
+            .get("blockers")
+            .and_then(Value::as_array)
+            .ok_or(CaseRegistryError::Shape("missing blockers array"))?
+            .iter()
+            .map(|blocker| {
+                blocker
+                    .get("code")
+                    .and_then(Value::as_str)
+                    .ok_or(CaseRegistryError::Shape("missing blocker code"))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
         let evidence = case
             .get("standards_evidence")
             .and_then(Value::as_array)
@@ -10605,9 +10640,10 @@ pub fn list_cases_from_registry_value(
             .count();
 
         output.push_str(&format!(
-            "{case_id}\t{status}\t{}\t{sop_class_uid}\t{transfer_syntax_uid}\t{covered}/{} covered\n",
+            "{case_id}\t{status}\t{}\t{sop_class_uid}\t{transfer_syntax_uid}\t{covered}/{} covered\t{artifact_kind}\t{provider}\t{object_family}\t{roadmap_priority}\t{}\n",
             profiles.join(","),
-            evidence.len()
+            evidence.len(),
+            blocker_codes.join(",")
         ));
     }
 
@@ -10666,6 +10702,21 @@ fn standards_gaps_for_case(
             kind: status.to_string(),
             reason,
         });
+    }
+
+    if status == "planned" || status == "blocked" {
+        if let Some(blockers) = case.get("blockers").and_then(Value::as_array) {
+            for blocker in blockers {
+                let code = blocker
+                    .get("code")
+                    .and_then(Value::as_str)
+                    .ok_or(CaseRegistryError::Shape("missing blocker code"))?;
+                gaps.push(StandardsGap {
+                    kind: "roadmap_blocker".to_string(),
+                    reason: code.to_string(),
+                });
+            }
+        }
     }
 
     let evidence = case

@@ -16,7 +16,9 @@ On the baseline arm64 macOS host, DCMTK 3.7.0 `dcmdump` and `dcmdjpeg`,
 universal macOS dicom3tools snapshot `1.00.snapshot.20260803085716` was installed
 under a versioned Homebrew prefix with its matching BSD license. The two
 validator executables and both source/binary archives are pinned by SHA-256 in
-`validator-lock.json`. GDCM and PixelMed remain absent.
+`validator-lock.json`. GDCM remains absent. PixelMed release 20260608 was
+acquired and characterized for SR validation with its Java and classpath
+artifacts locked as one composite adapter identity.
 
 ## Adapter decision matrix
 
@@ -27,7 +29,7 @@ validator executables and both source/binary archives are pinned by SHA-256 in
 | Independent parse | `dcmtk-dcmdump` | `dcmdump +fo` | Required | DCMTK is BSD-style licensed and cross-platform. Baseline is Homebrew DCMTK 3.7.0. Dictionary and character mapping data affect behavior and must be noted with the fingerprint. |
 | Independent lossless decode | `dcmtk-dcmdjpeg` | `dcmdjpeg` | Capability-based | Suitable for JPEG families supported by the installed DCMTK build. It is not independent for cases encoded by the project's DCMTK `dcmcjpeg` path. Raw native-byte normalization still needs a proven adapter. |
 | Independent lossless decode | `gdcm-decode` | `gdcmconv`/`gdcmraw` | Optional candidate | GDCM is cross-platform and BSD licensed. Not installed; exact command behavior and native-byte normalization remain research targets. |
-| SR second validation | `pixelmed-sr-validator` | Java `DicomSRValidator` | Optional milestone | PixelMed Java toolkit is source-distributed under its own BSD-style license. Package/JAR pinning and template identity must be resolved before enabling it. Unavailability never weakens primary IOD acceptance. |
+| SR second validation | `pixelmed-sr-validator` | Java `DicomSRValidator` | Optional milestone | PixelMed 20260608 validates the three generated SR SOP Classes. Set `DTS_PIXELMED_HOME` to the extracted binary/dependency release root. Java, JARs, and embedded definition resources are fingerprinted together. Unavailability never weakens primary IOD acceptance. |
 
 The primary validator and entity checker cannot be replaced by a parser. Pixel
 decode adapters must declare independence from the generator encoder and report

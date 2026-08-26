@@ -56,6 +56,27 @@
       "platforms": ["arm64-macos"],
       "verified_at": "2026-08-26",
       "notes": "Independent of the project-owned native RLE encoder."
+    },
+    {
+      "adapter_id": "pixelmed-sr-validator",
+      "role": "sr_validator",
+      "tool_name": "PixelMed DicomSRValidator",
+      "version": "20260608",
+      "source_repository": "https://www.dclunie.com/pixelmed/software/",
+      "source_revision": "pixelmedjavadicom_sourcerelease.20260608",
+      "package_identity": "upstream binary archive sha256 b614869ea1989dbab5d1b0ead208407f188c6db2017dda5f6f3f74f7b0862be1; dependency archive sha256 c2b45f23758d2ef8663aba6f03cec2ea5635ee498381fb700b53ccc4e1c0a51a; source archive sha256 5457a604bac61d9e2711d548eb9b09d4a55739a49f9b52c91ad493cf33272ac8",
+      "executable_sha256": "d641f84fbed5fcd611d603fe5aa364f152462d7d099e09eeaf36f046be4c3f32",
+      "adapter_sha256": "f10b9b06f8d665af35c17af915f0544f21757f8fe51d3cbf2f69d431b5834f50",
+      "supporting_artifacts": {
+        "pixelmed.jar": "2c779091582f7ce81c0a8d4ae0cab0b937cd570fe827712d7e00d8a10c96b344",
+        "commons-codec-1.3.jar": "1bafd2ece2e88db4cdf835a7f8f0de65fab5b1147977a5dcc59b7c1b8c6f5080",
+        "saxon-he-12.5.jar": "b4a2f61e318512d5afe960fd441be813655c4c55dfb1c9c906eb699a667ec263",
+        "xmlresolver-5.2.2.jar": "efc92bd7ed32b3e57095e0b3e872051ccfbbdcc980831ef33e89e38161a85222"
+      },
+      "definition_version": "IOD, SR template, and context-group XSL resources embedded in pixelmed.jar release 20260608",
+      "platforms": ["arm64-macos"],
+      "verified_at": "2026-08-26",
+      "notes": "Composite adapter fingerprint covers Oracle Java 25.0.3 and every classpath artifact used by DicomSRValidator. Set DTS_PIXELMED_HOME to the extracted binary/dependency release root."
     }
   ],
   "unresolved_required_tools": []

@@ -428,6 +428,8 @@ fn evidence_tools(report: &Value) -> Vec<Value> {
                 "required": tool["required"],
                 "executable": tool["executable"],
                 "sha256": tool["sha256"],
+                "executable_sha256": tool["executable_sha256"],
+                "artifacts": tool["artifacts"],
                 "version_output": tool["version_output"],
                 "version_exit_code": tool["version_exit_code"],
                 "lock_status": tool["lock_status"]
@@ -527,6 +529,17 @@ fn collect_instance(
         adapters,
         tools,
     )?);
+    if let Some(result) = collect_sr_result(
+        generated_root,
+        evidence_root,
+        file,
+        path,
+        &stable_key,
+        adapters,
+        tools,
+    )? {
+        results.push(result);
+    }
     Ok(json!({
         "stable_instance_key": stable_key,
         "case_id": case_id,
@@ -932,9 +945,10 @@ fn normalize_findings(bytes: &[u8], absolute_input: &str, relative_input: &str) 
         .lines()
         .filter_map(|line| {
             let normalized = line.replace(absolute_input, relative_input);
-            let severity = if normalized.starts_with("Error -") {
+            let severity = if normalized.starts_with("Error -") || normalized.starts_with("Error:")
+            {
                 "error"
-            } else if normalized.starts_with("Warning -") {
+            } else if normalized.starts_with("Warning -") || normalized.starts_with("Warning:") {
                 "warning"
             } else if normalized.starts_with("Info -") {
                 "info"
@@ -959,6 +973,77 @@ fn normalize_findings(bytes: &[u8], absolute_input: &str, relative_input: &str) 
             }))
         })
         .collect()
+}
+
+fn collect_sr_result(
+    generated_root: &Path,
+    evidence_root: &Path,
+    file: &Value,
+    relative_input: &str,
+    stable_key: &str,
+    adapters: &[Value],
+    tools: &[Value],
+) -> Result<Option<Value>, String> {
+    let Some(adapter) = adapters
+        .iter()
+        .find(|adapter| adapter["role"] == "sr_validator")
+    else {
+        return Ok(None);
+    };
+    let sop_class_uid = file
+        .pointer("/dicom/sop_class_uid")
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    let supported = string_array(adapter, "supported_sop_class_uids")?;
+    if !supported.iter().any(|uid| uid == sop_class_uid) {
+        return Ok(None);
+    }
+    let adapter_id = required_string(adapter, "id")?;
+    let raw_dir = evidence_root.join("raw").join(adapter_id);
+    fs::create_dir_all(&raw_dir).map_err(|error| error.to_string())?;
+    let stdout_relative = format!("raw/{adapter_id}/{stable_key}.stdout");
+    let stderr_relative = format!("raw/{adapter_id}/{stable_key}.stderr");
+    let stdout_path = evidence_root.join(&stdout_relative);
+    let stderr_path = evidence_root.join(&stderr_relative);
+    let tool = tools
+        .iter()
+        .find(|tool| tool["adapter_id"] == adapter_id)
+        .ok_or_else(|| format!("SR validator discovery result is missing for {adapter_id}"))?;
+    if tool["status"] != "available" {
+        fs::write(&stdout_path, []).map_err(|error| error.to_string())?;
+        fs::write(&stderr_path, []).map_err(|error| error.to_string())?;
+        return Ok(Some(unsupported_result(
+            adapter_id,
+            "sr_validator",
+            vec![required_string(adapter, "executable")?.to_string()],
+            &stdout_relative,
+            &stderr_relative,
+            "configured SR validator or one of its supporting artifacts is unavailable",
+        )));
+    }
+    let executable = tool["executable"]
+        .as_str()
+        .ok_or_else(|| format!("available adapter {adapter_id} has no executable"))?;
+    let input = generated_root.join(relative_input);
+    let arguments = expanded_arguments(adapter, tool, &input)?;
+    let output = run_with_timeout(
+        Path::new(executable),
+        &arguments,
+        Duration::from_secs(adapter["timeout_seconds"].as_u64().unwrap_or(60)),
+    )?;
+    fs::write(&stdout_path, &output.stdout).map_err(|error| error.to_string())?;
+    fs::write(&stderr_path, &output.stderr).map_err(|error| error.to_string())?;
+    Ok(Some(execution_result(
+        adapter_id,
+        "sr_validator",
+        executable,
+        arguments,
+        output,
+        &stdout_relative,
+        &stderr_relative,
+        &input.display().to_string(),
+        relative_input,
+    )))
 }
 
 fn finding(severity: &str, message: &str) -> Value {
@@ -1259,6 +1344,8 @@ fn check_adapter(adapter: &Value, locked_tools: &[Value]) -> Result<Value, Strin
             "required": required,
             "executable": null,
             "sha256": null,
+            "executable_sha256": null,
+            "artifacts": [],
             "version_output": null,
             "version_exit_code": null,
             "lock_status": "unavailable"
@@ -1267,13 +1354,45 @@ fn check_adapter(adapter: &Value, locked_tools: &[Value]) -> Result<Value, Strin
 
     let bytes = fs::read(&path)
         .map_err(|error| format!("failed to fingerprint {}: {error}", path.display()))?;
-    let fingerprint = sha256_hex(&bytes);
+    let executable_fingerprint = sha256_hex(&bytes);
+    let artifacts = match supporting_artifacts(adapter) {
+        Ok(artifacts) => artifacts,
+        Err(_) => {
+            return Ok(json!({
+                "adapter_id": id,
+                "role": role,
+                "status": "misconfigured",
+                "required": required,
+                "executable": path.display().to_string(),
+                "sha256": null,
+                "executable_sha256": executable_fingerprint,
+                "artifacts": [],
+                "version_output": null,
+                "version_exit_code": null,
+                "lock_status": "unavailable"
+            }));
+        }
+    };
+    let fingerprint = if artifacts.is_empty() {
+        executable_fingerprint.clone()
+    } else {
+        let mut material = format!("executable:{executable_fingerprint}\n");
+        for artifact in &artifacts {
+            material.push_str(artifact["sha256"].as_str().unwrap_or(""));
+            material.push('\n');
+        }
+        sha256_hex(material.as_bytes())
+    };
     let probe = run_with_timeout(&path, &version_arguments, Duration::from_secs(timeout))?;
     let lock_status = locked_tools
         .iter()
         .find(|tool| tool.get("adapter_id").and_then(Value::as_str) == Some(id))
         .map(|tool| {
-            if tool.get("executable_sha256").and_then(Value::as_str) == Some(&fingerprint) {
+            let expected = tool
+                .get("adapter_sha256")
+                .or_else(|| tool.get("executable_sha256"))
+                .and_then(Value::as_str);
+            if expected == Some(&fingerprint) {
                 "matched"
             } else {
                 "mismatched"
@@ -1296,11 +1415,60 @@ fn check_adapter(adapter: &Value, locked_tools: &[Value]) -> Result<Value, Strin
         "required": required,
         "executable": path.display().to_string(),
         "sha256": fingerprint,
+        "executable_sha256": executable_fingerprint,
+        "artifacts": artifacts,
         "version_output": if version_output.is_empty() { Value::Null } else { Value::String(version_output) },
         "version_exit_code": probe.exit_code,
         "version_duration_ms": probe.duration_ms,
         "lock_status": lock_status
     }))
+}
+
+fn supporting_artifacts(adapter: &Value) -> Result<Vec<Value>, String> {
+    let Some(classpath) = adapter.get("classpath") else {
+        return Ok(Vec::new());
+    };
+    let root_env = required_string(adapter, "artifact_root_env")?;
+    let root = env::var_os(root_env)
+        .map(PathBuf::from)
+        .ok_or_else(|| format!("adapter artifact root environment variable {root_env} is unset"))?;
+    classpath
+        .as_array()
+        .ok_or_else(|| "adapter classpath must be an array".to_string())?
+        .iter()
+        .map(|entry| {
+            let relative = entry
+                .as_str()
+                .ok_or_else(|| "adapter classpath entries must be strings".to_string())?;
+            validate_relative_path(relative)?;
+            let path = root.join(relative);
+            let bytes = fs::read(&path)
+                .map_err(|error| format!("failed to fingerprint {}: {error}", path.display()))?;
+            Ok(json!({ "path": path.display().to_string(), "sha256": sha256_hex(&bytes) }))
+        })
+        .collect()
+}
+
+fn expanded_arguments(adapter: &Value, tool: &Value, input: &Path) -> Result<Vec<String>, String> {
+    let classpath = tool["artifacts"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|artifact| artifact["path"].as_str())
+        .map(PathBuf::from)
+        .collect::<Vec<_>>();
+    let classpath = env::join_paths(classpath)
+        .map_err(|error| format!("failed to construct adapter classpath: {error}"))?
+        .to_string_lossy()
+        .to_string();
+    Ok(string_array(adapter, "arguments")?
+        .into_iter()
+        .map(|argument| {
+            argument
+                .replace("{input}", &input.display().to_string())
+                .replace("{classpath}", &classpath)
+        })
+        .collect())
 }
 
 fn required_string<'a>(value: &'a Value, field: &str) -> Result<&'a str, String> {

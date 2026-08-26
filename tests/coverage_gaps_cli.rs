@@ -23,19 +23,19 @@ fn report_gaps_counts_logical_cases_and_dimensions() {
         report
             .pointer("/counts/statuses/implemented")
             .and_then(Value::as_u64),
-        Some(106)
+        Some(107)
     );
     assert_eq!(
         report
             .pointer("/counts/statuses/planned")
             .and_then(Value::as_u64),
-        Some(73)
+        Some(72)
     );
     assert_eq!(
         report
             .pointer("/counts/priorities/now")
             .and_then(Value::as_u64),
-        Some(2)
+        Some(1)
     );
     for pointer in [
         "/dimensions/sop_classes",
@@ -79,7 +79,7 @@ fn report_gaps_renders_markdown_from_the_same_model() {
     assert!(output.status.success());
     let markdown = String::from_utf8(output.stdout).expect("markdown should be utf-8");
     assert!(markdown.contains("# DICOM Registry Coverage Gap Report"));
-    assert!(markdown.contains("| now | 2 |"));
+    assert!(markdown.contains("| now | 1 |"));
     assert!(markdown.contains("derived/parametric-map/float32_ct_derived_explicit_le"));
     assert!(markdown.contains("protocol/dicomweb/stow_qido_wado"));
 }

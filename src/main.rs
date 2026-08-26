@@ -53,9 +53,54 @@ fn run() -> Result<(), String> {
                     );
                     Ok(())
                 }
-                "run" | "verify" => Err(format!(
-                    "conformance {subcommand} is not implemented in the current phase"
-                )),
+                "run" => {
+                    let generated_root = args.next().ok_or_else(|| {
+                        "conformance run requires a generated root path".to_string()
+                    })?;
+                    let mut out = None;
+                    let mut config =
+                        String::from(dicom_test_suite::conformance::DEFAULT_VALIDATOR_CONFIG);
+                    while let Some(arg) = args.next() {
+                        match arg.as_str() {
+                            "--out" => {
+                                out = Some(
+                                    args.next()
+                                        .ok_or_else(|| "--out requires a path".to_string())?,
+                                );
+                            }
+                            "--config" => {
+                                config = args
+                                    .next()
+                                    .ok_or_else(|| "--config requires a path".to_string())?;
+                            }
+                            "--help" | "-h" => {
+                                println!(
+                                    "Usage: dicom-test-suite conformance run GENERATED_ROOT --out EVIDENCE_ROOT [--config PATH]"
+                                );
+                                return Ok(());
+                            }
+                            unknown => {
+                                return Err(format!("unknown conformance run argument: {unknown}"));
+                            }
+                        }
+                    }
+                    let out = out.ok_or_else(|| "conformance run requires --out".to_string())?;
+                    let evidence = dicom_test_suite::conformance::run_conformance(
+                        generated_root,
+                        &out,
+                        config,
+                    )?;
+                    println!("evidence_root\t{out}");
+                    println!("run_id\t{}", evidence["run_id"].as_str().unwrap_or(""));
+                    println!(
+                        "instances\t{}",
+                        evidence["instances"].as_array().map(Vec::len).unwrap_or(0)
+                    );
+                    Ok(())
+                }
+                "verify" => {
+                    Err("conformance verify is not implemented in the current phase".to_string())
+                }
                 "--help" | "-h" => {
                     println!("Usage: dicom-test-suite conformance <check-tools|run|verify>");
                     Ok(())

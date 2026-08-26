@@ -3,7 +3,7 @@
 **Last updated:** 2026-08-26
 **Active goal:** implement independent conformance evidence collection
 **Source specification:** `SYSTEM_SPEC.md` version 0.2.0
-**Planning status:** conformance Phases 0-2 complete; instance collection next
+**Planning status:** conformance Phases 0-3 complete; entity collection next
 
 ## Independent Conformance Framework
 
@@ -27,9 +27,13 @@ Phase 2 is complete: `conformance check-tools` resolves configured paths before
 nonzero version probes, times out hung probes, represents versionless commands,
 and compares tools to the committed lock.
 
-Recommended next step: implement manifest-driven, bounded, deterministic
-per-instance `dciodvfy -new` collection with raw byte preservation and finding
-normalization.
+Phase 3 is complete: `conformance run` reads only manifest file entries, sorts
+by manifest-relative path, derives path-based stable keys, executes the primary
+adapter with a bounded timeout, preserves raw stdout/stderr bytes and hashes,
+and normalizes error/warning/timeout/unparsed evidence deterministically.
+
+Recommended next step: replace the explicit Phase 3 entity placeholder with
+corpus-wide `dcentvfy` collection using a generated stdin file list.
 
 This document replaces the previous historical implementation plan and progress
 ledger. `SYSTEM_SPEC.md` remains the architecture and requirements source of

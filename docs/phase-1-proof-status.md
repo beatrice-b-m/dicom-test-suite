@@ -15,7 +15,10 @@ The Rust runner validates requests and responses, invokes a canonical
 executable directly without a shell, uses a private one-shot staging directory,
 drains bounded stdout and stderr concurrently, enforces time and size limits,
 and rejects identity mismatches, path traversal, symbolic links, missing files,
-and undeclared files. It reopens every declared Part 10 object and compares the
+and undeclared files. Rust hashes the canonical executable, derives the locked
+platform and fixed-argument environment identity, and rejects dependency,
+executable, or environment fingerprints that do not match the response. It
+reopens every declared Part 10 object and compares the
 dataset and File Meta SOP identities and Transfer Syntax before permitting an
 atomic directory promotion. Re-entrant Rust fake-backend tests cover explicit
 unavailability, request/response identity mismatch, timeout, and undeclared

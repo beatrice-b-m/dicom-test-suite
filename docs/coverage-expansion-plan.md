@@ -1,0 +1,594 @@
+# DICOM Coverage Expansion Implementation Plan
+
+**Status:** proposed execution baseline
+
+**Prepared:** 2026-08-26
+
+**Applies to:** post-current-term corpus expansion
+
+**Goal:** broaden the suite beyond the current Rust/DICOM-rs generation surface
+without weakening determinism, standards evidence, or independent validation.
+
+## 1. Outcome
+
+The project will retain Rust as the suite orchestrator and native generator, but
+will no longer require every case to be constructed by DICOM-rs. A versioned
+generation-backend contract will allow deterministic external generators and
+codecs to contribute Part 10 instances. Rust will remain authoritative for case
+selection, deterministic identity inputs, manifests, validation orchestration,
+reporting, and profile isolation.
+
+The completed expansion should provide meaningful coverage in these areas:
+
+- multi-instance geometry, sorting, and metadata encoding;
+- additional clinical image families;
+- quantitative, derived, SR, RT, and waveform objects;
+- whole-slide microscopy and other visible-light objects;
+- additional lossy, legacy, video, and encapsulation layouts;
+- large valid stress cases;
+- intentionally invalid and fuzzed files in isolated profiles;
+- media interchange and, as a separate harness, DIMSE and DICOMweb behavior.
+
+The target is not one example of every DICOM SOP Class. Coverage is selected by
+viewer relevance, interoperability risk, independent validation feasibility,
+and the ability to state an unambiguous expected result.
+
+## 2. Baseline And Constraints
+
+The current registry has 106 implemented logical cases across 21 SOP Classes.
+Seventy cases use Secondary Capture Image Storage, so raw case count overstates
+object-family breadth. The current all-features seed-1 baseline produces 108
+files and passes the independent conformance framework recorded in
+`conformance/README.md`.
+
+All expansion work must preserve these existing contracts:
+
+- valid profiles contain only standards-conformant files;
+- `negative` and `fuzz` never enter `all` or another conformance profile;
+- generated payloads and reports remain uncommitted build artifacts;
+- every case has standards evidence and explicit expected semantics;
+- deterministic UIDs, dates, ordering, seeds, and backend identities are
+  controlled inputs;
+- external commands are invoked directly, never through a shell;
+- a generator is not its own independent conformance authority;
+- unavailable tooling is reported rather than silently reducing coverage;
+- viewer behavior does not define whether a generated object is valid.
+
+No expansion phase may be declared complete merely because DICOM-rs can reopen
+its own output.
+
+## 3. Sequencing Principles
+
+1. **Represent the gaps before filling them.** Planned registry rows and a
+   coverage matrix must make omitted domains visible.
+2. **Build shared infrastructure once.** External backends, provenance,
+   semantic comparison, and profile selection precede backend-specific cases.
+3. **Take low-dependency wins first.** Geometry and metadata cases can expand
+   viewer coverage while the external backend substrate is being completed.
+4. **Add vertical slices.** Each milestone includes recipes, generation,
+   manifest data, validation, reports, tests, and documentation.
+5. **Validate by risk.** Complex IODs require IOD/template validators;
+   compressed pixels require an independent decoder; negative cases require an
+   exact expected parser or validator outcome.
+6. **Keep optional ecosystems optional.** Default smoke and core generation
+   must remain local-friendly and must not require Python, Java, DCMTK, or video
+   tooling.
+7. **Measure axes, not volume.** Progress is reported by SOP Class, geometry,
+   metadata, pixel, transfer syntax, encapsulation, and robustness axes rather
+   than total file count alone.
+
+## 4. Target Architecture
+
+### 4.1 Rust-owned orchestration
+
+Rust continues to own:
+
+- CLI and profile resolution;
+- the case registry and recipe version selection;
+- deterministic UID, date/time, synthetic identity, and seed derivation;
+- native DICOM-rs cases and project-owned encapsulation;
+- backend discovery, locking, invocation, and timeout handling;
+- output staging and atomic promotion into the run directory;
+- manifest assembly, schemas, internal validation, reporting, and conformance
+  dispatch.
+
+The current generator should be separated by concern as it is touched. The
+intended boundaries are `generator/native`, `generator/backends`,
+`generator/recipes`, `generator/manifest`, and `generator/mutation`. This is an
+incremental refactor; a large prerequisite rewrite is explicitly avoided.
+
+### 4.2 Versioned external generation contract
+
+Add a JSON request/response protocol, initially `0.1.0`. The Rust process
+creates a private staging directory and invokes a configured backend with an
+argument array. The request contains:
+
+- case and recipe IDs and versions;
+- selected profile, seed, and standards-lock identity;
+- a staging output path;
+- all pre-derived Study, Series, SOP Instance, and Frame of Reference UIDs;
+- controlled patient, equipment, date, time, and timezone values;
+- source-instance paths and reference roles;
+- case-specific parameters and requested determinism level.
+
+The response contains:
+
+- generated relative paths and SOP Class/Instance UIDs;
+- source and derived reference relationships;
+- semantic expectations and expected frame/pixel hashes or tolerances;
+- backend name, version, dependency-lock hash, and executable or environment
+  fingerprint;
+- warnings and an explicit generated, unavailable, or failed status.
+
+Rust must reject path traversal, undeclared files, UID disagreement, missing
+provenance, malformed responses, or output outside the staging directory. It
+must reopen every returned Part 10 file before promotion.
+
+### 4.3 Backend lock and policy
+
+Add a committed backend policy artifact distinct from the transfer-syntax
+matrix. Each backend entry records:
+
+- stable backend ID and protocol version;
+- implementation kind (`rust_native`, `python`, `java`, or
+  `external_command`);
+- discovery command and fixed arguments;
+- dependency/version lock and fingerprint method;
+- supported case families and platforms;
+- determinism classification;
+- independent validation requirements;
+- redistribution and license notes.
+
+Initial candidates are:
+
+| Backend | Initial responsibility | Required independent check |
+| --- | --- | --- |
+| Rust/DICOM-rs | Native images, geometry, metadata, encapsulation | dicom3tools and DCMTK |
+| highdicom/pydicom | Parametric Map, advanced SR, selected derived objects | dicom3tools and PixelMed where applicable |
+| dcmqi | SEG, Parametric Map, TID 1500 cross-implementation cases | dicom3tools plus a backend-independent parser |
+| DCMTK | RT, waveform/presentation utilities, selected legacy codecs | dicom3tools; never use the matching DCMTK decoder as sole pixel evidence |
+| dcm4che | DICOMDIR, charset/JSON/network fixtures | dicom3tools and DCMTK |
+| video codec adapter | MPEG-2, AVC/H.264, HEVC/H.265 codestreams | independent probe/decode plus DICOM IOD validation |
+
+An external backend is an optional capability, not a mandatory development
+environment dependency, unless a later decision explicitly promotes it.
+
+## 5. Workstreams
+
+The program is divided into six workstreams that converge at phase gates.
+
+### A. Registry, standards, and reporting
+
+- add planned rows for acknowledged gaps;
+- define coverage dimensions and priorities;
+- add backend and robustness fields to schemas;
+- report coverage by meaningful axis and provider;
+- maintain standards evidence and source notes.
+
+### B. Generation platform
+
+- split touched generator responsibilities into modules;
+- implement the backend protocol and lock;
+- stage and verify external output safely;
+- capture reproducibility and provenance;
+- support feature/capability-gated cases uniformly.
+
+### C. Native breadth
+
+- add geometry, series, metadata, and clinical image cases that DICOM-rs can
+  express cleanly;
+- reuse module and functional-group builders;
+- avoid multiplying Secondary Capture cases where another IOD is more useful.
+
+### D. Complex objects and payloads
+
+- add quantitative, SR, RT, waveform, pathology, and video cases using the
+  most suitable backend;
+- preserve cross-object references and shared identity;
+- independently validate templates, pixels, and payloads.
+
+### E. Robustness and scale
+
+- add Extended Offset Tables and large valid cases;
+- implement deterministic byte-level mutation;
+- isolate expected-invalid results from conformance results;
+- add bounded fuzz seed corpora and reproducible minimization.
+
+### F. Media and protocol harnesses
+
+- generate DICOMDIR file sets and secure-media samples;
+- exercise DIMSE association/storage/query/retrieve separately from file
+  generation;
+- exercise STOW-RS, QIDO-RS, and WADO-RS with recorded transactions;
+- keep protocol results distinct from per-file conformance.
+
+## 6. Phased Delivery
+
+### Phase 0 — Make the roadmap executable
+
+**Purpose:** establish honest coverage accounting and select the first vertical
+slices before adding generators.
+
+Tasks:
+
+1. Add planned registry entries grouped into `now`, `next`, and `later`
+   priorities for every domain in Section 7.
+2. Extend the registry schema with a small, stable `provider` requirement and
+   structured blocker codes; do not store host-specific paths.
+3. Add a coverage-gap report that distinguishes logical cases, SOP Classes,
+   modalities, object families, and compatibility axes.
+4. Record a baseline report from the existing registry so later gains can be
+   compared without relying on file count.
+5. Select one native and one external proof case:
+   - native: a CT series with spatial ordering that conflicts with Instance
+     Number;
+   - external: a floating-point Parametric Map derived from generated CT.
+
+Gate:
+
+- all acknowledged areas have visible planned or deliberately deferred rows;
+- existing profile outputs and hashes are unchanged;
+- schemas, list output, and reports represent provider requirements and gaps;
+- no external runtime is required by the default test suite.
+
+### Phase 1 — Shared platform and two proof slices
+
+**Purpose:** prove the architecture without committing to a large polyglot
+surface.
+
+This phase has two parallel lanes after the schemas are accepted.
+
+**Lane 1A: native geometry proof**
+
+- add reusable series/geometry recipe types;
+- generate a spatially ordered CT stack whose Instance Numbers disagree with
+  geometric order;
+- add expected sorting and spacing metadata;
+- extend entity validation and reporting for multi-instance expectations.
+
+**Lane 1B: external backend proof**
+
+- implement protocol `0.1.0`, backend discovery, staging, timeouts, and
+  fingerprints;
+- provide a locked highdicom/pydicom development backend;
+- generate a floating-point Parametric Map referencing the CT source series;
+- validate Float Pixel Data, dimensions, real-world value mapping, references,
+  decoded values, and deterministic semantics.
+
+Gate:
+
+- native and external cases use the same manifest/report pipeline;
+- an absent external runtime produces an explicit unavailable row;
+- malformed or malicious backend responses are rejected by tests;
+- repeated runs satisfy declared byte or semantic determinism;
+- dicom3tools validates both vertical slices with no unreviewed errors.
+
+### Phase 2 — High-value native compatibility breadth
+
+**Purpose:** deliver broad viewer value with minimal new operational
+dependencies.
+
+Implement these groups as separate milestones:
+
+1. **Geometry and series:** gantry tilt, non-uniform spacing, duplicated and
+   missing Instance Number, shared Frame of Reference across series, multiple
+   series in one study, and temporal/dynamic frames.
+2. **Metadata and VR:** UTF-8, selected ISO 2022 repertoires, PN component
+   groups, DA/TM/DT and timezone boundaries, empty Type 2 attributes, long and
+   multi-valued text/numeric strings, private creator blocks, and defined versus
+   undefined sequence lengths where writer control is available.
+3. **Clinical families:** one representative valid case each for Nuclear
+   Medicine, PET, XA/XRF, multi-frame Ultrasound, and one additional enhanced
+   modality selected by downstream viewer value.
+4. **Pixels:** 32-bit integer pixels, 1-bit native pixels where permitted, ICC
+   profile handling, and non-square spacing/aspect-ratio cases.
+
+Gate:
+
+- every group has focused internal tests and at least one independently
+  validated generated corpus;
+- geometry reports state the expected sort order rather than only listing tags;
+- charset cases round-trip through at least two independent implementations;
+- core remains within its documented runtime and size budget.
+
+### Phase 3 — Quantitative, derived, SR, RT, and waveform breadth
+
+**Purpose:** cover high-value objects for which domain constructors are more
+reliable than handwritten generic datasets.
+
+Deliver independent vertical slices in this order:
+
+1. Parametric Map: integer, 32-bit float, and 64-bit float variants.
+2. TID 1500 Measurement Report referencing source images and SEG or Parametric
+   Map; then Comprehensive 3D SR with SCOORD3D.
+3. Spatial Registration and Deformable Spatial Registration.
+4. Color Softcopy, Advanced Blending, and Blending Presentation States.
+5. Twelve-lead ECG waveform and one additional representative waveform.
+6. RT Plan and RT Image linked to existing RT Structure Set and RT Dose;
+   evaluate a minimal current RT Radiation Set slice after those references are
+   proven.
+7. Surface Segmentation or Encapsulated STL as the first mesh-oriented case.
+
+Each slice must choose and record one primary generator and at least one
+independent validator. Similar outputs from two backends are useful
+cross-implementation cases, but do not count as independent cases unless their
+semantic intent differs.
+
+Gate:
+
+- all source/derived references resolve within the corpus;
+- template-driven SR passes PixelMed and primary IOD validation;
+- quantitative pixel values are compared after independent decode;
+- reports distinguish renderable, metadata-only, annotation, and recognized-
+  unsupported expectations.
+
+### Phase 4 — Pathology and tiled microscopy
+
+**Purpose:** establish a small but semantically complete WSI corpus before
+attempting large slides.
+
+Milestones:
+
+1. VL Endoscopic and VL Microscopic single-frame cases.
+2. Small VL WSI `TILED_FULL` volume with specimen, optical path, slide label,
+   total pixel matrix, and plane-position metadata.
+3. `TILED_SPARSE` counterpart with deliberately absent tiles.
+4. Multi-resolution pyramid with thumbnail and label instances.
+5. Multiple optical paths or focal planes.
+6. SEG, Parametric Map, or annotation object referencing WSI tiles.
+
+Tile source images must be deterministic synthetic patterns. The project should
+not add identifiable pathology fixtures or commit generated slides.
+
+Gate:
+
+- frame-to-total-pixel-matrix mapping is independently reconstructed and
+  compared;
+- tiled full/sparse expectations are present in the manifest;
+- small WSI remains in `extended`; pyramid and large-slide cases are placed in
+  `stress` according to measured output size and runtime.
+
+### Phase 5 — Encapsulation, lossy codecs, and video
+
+**Purpose:** close the highest-value remaining transfer-syntax and frame-layout
+gaps without making codec availability implicit.
+
+Order:
+
+1. Extended Offset Table and Extended Offset Table Lengths, first with small
+   synthetic frames and simulated overflow checks, then with a genuine large
+   stress object.
+2. JPEG-LS Near-Lossless with a declared maximum sample error and lossy metadata.
+3. JPEG 2000 lossy and JPEG XL lossy with metric/tolerance policies.
+4. JPEG Extended 12-bit only after an independent decoder is proven.
+5. HTJ2K lossy variants where encoder and decoder independence is available.
+6. MPEG-2, H.264/AVC, and H.265/HEVC, starting with one short deterministic
+   monochrome or color cine loop per family.
+
+Lossy acceptance must define per-channel maximum error and an aggregate metric;
+visual similarity alone is insufficient. Video validation must separately
+check the elementary stream, DICOM encapsulation, frame/time metadata, and
+independent decode.
+
+Gate:
+
+- unavailable codecs remain explicit in manifests and reports;
+- independent decoding and tolerance checks exist for every promoted codec;
+- external codec versions and executable fingerprints are locked;
+- no lossy or video case is promoted to `core` without a separate policy
+  decision.
+
+### Phase 6 — Stress and large-object behavior
+
+**Purpose:** test resource and offset behavior without slowing normal work.
+
+Add parameterized, opt-in recipes for:
+
+- high instance-count studies;
+- many-frame enhanced and cine objects;
+- large WSI pyramids;
+- large encapsulated frames and multi-fragment layouts;
+- concatenations and EOT offsets crossing 32-bit Basic Offset Table limits;
+- deeply nested but valid sequences;
+- long-value and large bulk-data handling.
+
+Each recipe has explicit byte, frame, instance, memory, and runtime budgets.
+CI runs reduced boundary variants; scheduled or release jobs run full sizes.
+
+Gate:
+
+- `stress` is functional and excluded unless explicitly selected;
+- generation is streaming or bounded where practical;
+- interruption leaves no promoted partial run;
+- reports record requested and actual scale parameters.
+
+### Phase 7 — Negative and fuzz profiles
+
+**Purpose:** test parser robustness using reproducible failures that conforming
+writers cannot naturally emit.
+
+Implement a mutation layer that starts from a known-good case and applies one
+named mutation after Part 10 writing. Initial deterministic mutations are:
+
+- truncated file meta, dataset, sequence, item, fragment, and pixel value;
+- incorrect explicit-VR length fields and illegal VR bytes;
+- transfer-syntax mismatch between file meta and dataset encoding;
+- SOP Class/Instance disagreement between file meta and dataset;
+- missing Type 1 attributes;
+- invalid Bits Stored/High Bit and pixel byte length;
+- broken Basic or Extended Offset Tables;
+- undefined length without delimitation and invalid nested item lengths;
+- invalid character-set declarations and malformed encoded text.
+
+Every negative case records its valid source hash, mutation ID and parameters,
+byte offsets changed, expected failure layer, and acceptable bounded outcomes.
+Crashes, hangs, timeouts, and unbounded resource usage are never acceptable.
+
+After deterministic mutations are stable, add a bounded fuzz harness with a
+small committed seed description, reproducible RNG seeds, automatic
+minimization, and promotion of valuable minimized inputs into named negative
+recipes. Fuzz-generated DICOM payloads remain uncommitted.
+
+Gate:
+
+- `negative` and `fuzz` cannot be selected through `all`;
+- conformance failure is the expected result and is not counted as a suite
+  failure when it matches the case contract;
+- timeouts and crashes are reported distinctly from clean rejection;
+- every promoted regression is reproducible from recipe plus seed.
+
+### Phase 8 — Media and protocol interoperability
+
+**Purpose:** supplement file compatibility with interchange behavior while
+keeping results separable.
+
+Milestones:
+
+1. DICOMDIR file sets containing mixed image, derived, and non-image objects.
+2. Secure DICOM media samples and digital-signature verification where a
+   maintainable independent toolchain exists.
+3. DIMSE association negotiation matrix, followed by C-STORE and C-ECHO.
+4. C-FIND, C-GET, and C-MOVE scenarios with deterministic expected responses.
+5. STOW-RS, QIDO-RS, and WADO-RS transaction scenarios, including multipart,
+   metadata, frame, and bulk-data responses.
+6. TLS and user-identity negotiation as an opt-in security suite.
+
+Protocol scenarios consume generated cases but produce transaction reports, not
+additional file-conformance rows. Server implementations must be replaceable so
+that the harness does not define conformance by testing only itself.
+
+Gate:
+
+- file, media, DIMSE, DICOMweb, and security outcomes are reported separately;
+- all peers and servers are fingerprinted;
+- captured logs contain only synthetic identities and deterministic request
+  data;
+- protocol failures link back to stable case IDs and transaction IDs.
+
+## 7. Planned Coverage Inventory
+
+Phase 0 should create planned registry rows for at least these groups. Exact
+case IDs and SOP Class UIDs require standards verification before commit.
+
+| Group | Initial representatives | Delivery phase |
+| --- | --- | --- |
+| Geometry | sorting conflict, gantry tilt, non-uniform spacing, multi-series FoR | 1-2 |
+| Metadata | UTF-8, ISO 2022, PN, timezone, private blocks, sequence lengths | 2 |
+| Modalities | NM, PET, XA/XRF, multi-frame US, selected enhanced modality | 2 |
+| Quantitative | integer/float/double Parametric Map | 1, 3 |
+| Registration | spatial and deformable registration | 3 |
+| Presentation | color, blending, advanced blending | 3 |
+| SR | TID 1500 and Comprehensive 3D | 3 |
+| RT | RT Plan, RT Image, evaluated RT Radiation Set | 3 |
+| Waveform | 12-lead ECG and one additional waveform | 3 |
+| Mesh | surface segmentation or Encapsulated STL | 3 |
+| Visible light | endoscopic, microscopic, WSI full/sparse/pyramid | 4 |
+| Encapsulation | EOT/EOT Lengths and large offsets | 5-6 |
+| Compression | near-lossless/lossy JPEG families and video | 5 |
+| Scale | large WSI, frame counts, instances, nesting, bulk data | 6 |
+| Robustness | named structural and semantic mutations | 7 |
+| Media/protocol | DICOMDIR, DIMSE, DICOMweb, optional security | 8 |
+
+Planned rows must state why a case matters and what blocks it. They must not be
+promoted because a backend merely emitted a parseable file.
+
+## 8. Acceptance Contract For Every Vertical Slice
+
+A case milestone is complete only when all applicable items below are present:
+
+1. standards evidence or a source note;
+2. registry entry, stable case ID, profile, recipe version, provider, and
+   determinism declaration;
+3. deterministic recipe and synthetic payload source;
+4. generated Part 10 file or deliberately isolated negative output;
+5. manifest semantics, relationships, hashes, and provenance;
+6. internal structural and semantic validation;
+7. independent IOD validation;
+8. independent pixel, waveform, mesh, document, or video payload validation;
+9. schema and CLI tests;
+10. JSON and Markdown report coverage;
+11. two-run reproducibility evidence appropriate to the determinism level;
+12. documentation of feature gates, external dependencies, and known limits.
+
+If no independent validator supports an otherwise valuable object, retain it as
+planned or experimental and record the blocker. Do not weaken the general gate.
+
+## 9. Efficient Parallelization And Merge Order
+
+The safe dependency and concurrency structure is:
+
+```text
+Phase 0 registry/schema baseline
+              |
+              v
+Phase 1 backend protocol + native geometry proof
+       |                         |
+       v                         v
+Phase 2 native breadth      Phase 3 complex objects
+       |                         |
+       +------------+------------+
+                    v
+             Phase 4 pathology
+                    |
+                    v
+         Phase 5 codecs and video
+                    |
+                    v
+             Phase 6 stress
+
+Phase 7 negative/fuzz may start after Phase 1 staging and manifest contracts.
+Phase 8 media/protocol may start after Phase 1 identity and backend provenance.
+Their promotion gates remain independent from valid-file corpus expansion.
+```
+
+Within a phase, parallel work should operate on different files or modules and
+converge only after shared schemas land. Registry/schema changes merge first,
+then infrastructure, then one case family per commit. Avoid parallel edits to
+the current monolithic `src/generator.rs`; create the target module boundary
+before assigning independent case-family work.
+
+## 10. Commit And Review Units
+
+Follow the repository commit policy with one coherent unit per commit. A normal
+vertical slice will use several commits, for example:
+
+1. `docs(standards): record parametric map generation evidence`
+2. `feat(types): add external generation backend contract`
+3. `feat(generator): invoke fingerprinted external backends`
+4. `feat(parametric-map): generate floating-point derived map`
+5. `test(parametric-map): verify references values and determinism`
+6. `docs(corpus): document parametric map capability`
+
+Do not combine backend infrastructure, several SOP Classes, codec changes, and
+report changes in one commit. Do not amend a commit once recorded in the
+project history.
+
+## 11. Decision Checkpoints
+
+Pause for an explicit project decision at these points:
+
+- before making Python or Java mandatory for any existing profile;
+- before selecting a long-term dependency/runtime manager for external
+  backends;
+- before accepting a generator without an independent IOD validator;
+- before promoting a lossy codec without a numeric tolerance policy;
+- before committing certificates, keys, or cryptographic fixtures;
+- before adding a full-size stress job to ordinary CI;
+- before changing the meaning or inclusion rules of `all`;
+- before treating protocol conformance as part of file-corpus completion.
+
+## 12. First Execution Milestone
+
+The next implementation milestone should be Phase 0 followed by the two Phase 1
+proof slices. Its concrete deliverables are:
+
+- planned coverage inventory and coverage-gap reporting;
+- external backend schema and lock format;
+- safe backend staging/invocation with fake-backend contract tests;
+- one native CT sorting-conflict series;
+- one external floating-point Parametric Map referencing that source series;
+- independent validation, reports, and reproducibility evidence for both.
+
+This milestone tests the architectural assumptions at low corpus volume. If it
+succeeds, the remaining phases can add object families in parallel without
+reworking identity, provenance, manifest, or validation contracts.

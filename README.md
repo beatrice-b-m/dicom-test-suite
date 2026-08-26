@@ -81,6 +81,10 @@ The independent validation framework, tool matrix, and acceptance status are in
 gaps are explicit failures; parser success is never substituted for IOD
 validation.
 
+The post-current-term implementation sequence for broader object-family,
+pathology, codec, stress, robustness, media, and protocol coverage is in
+[docs/coverage-expansion-plan.md](docs/coverage-expansion-plan.md).
+
 ## Verification
 
 GitHub Actions runs the default corpus and a separate matrix for every

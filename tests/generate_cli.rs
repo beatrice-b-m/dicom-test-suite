@@ -1035,8 +1035,8 @@ fn generate_command_writes_core_u16_native_pixel_case() {
         .expect("manifest should contain skipped cases");
     assert_eq!(
         skipped_cases.len(),
-        0,
-        "core generation should not report skipped cases after native VL palette promotion"
+        14,
+        "core generation should report the Phase 0 planned rows without reducing generated coverage"
     );
 
     let dcm_path = out_dir.join("classic/sc/mono2_u16_explicit_le/instance.dcm");
@@ -5565,7 +5565,7 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
         .expect("manifest should contain skipped cases");
     assert_eq!(
         skipped_cases.len(),
-        9 - if cfg!(feature = "deflate") { 2 } else { 0 }
+        47 - if cfg!(feature = "deflate") { 2 } else { 0 }
             - if cfg!(feature = "jpeg") { 1 } else { 0 }
             - if cfg!(feature = "charls") { 1 } else { 0 }
             - if cfg!(feature = "jpegxl") { 1 } else { 0 }
@@ -5580,7 +5580,7 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
             } else {
                 0
             },
-        "extended generation should report only unavailable compressed transfer syntax rows plus the no-feature deflated row"
+        "extended generation should report planned rows and unavailable feature-gated cases"
     );
     if !cfg!(feature = "htj2k_openjph") {
         let htj2k = skipped_case_by_id(&manifest, "classic/sc/mono2_u16_htj2k_lossless");
@@ -7349,7 +7349,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
         .expect("manifest should contain skipped cases");
     assert_eq!(
         skipped_cases.len(),
-        9 - if cfg!(feature = "deflate") { 2 } else { 0 }
+        61 - if cfg!(feature = "deflate") { 2 } else { 0 }
             - if cfg!(feature = "jpeg") { 1 } else { 0 }
             - if cfg!(feature = "charls") { 1 } else { 0 }
             - if cfg!(feature = "jpegxl") { 1 } else { 0 }
@@ -7364,7 +7364,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
             } else {
                 0
             },
-        "all generation should report unavailable cases according to active features"
+        "all generation should report planned rows and unavailable cases according to active features"
     );
     if !cfg!(feature = "htj2k_openjph") {
         let skipped = skipped_case_by_id(&manifest, "classic/sc/mono2_u16_htj2k_lossless");

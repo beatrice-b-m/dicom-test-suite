@@ -123,6 +123,22 @@ fn core_generates_ct_series_with_conflicting_instance_number_order() {
             expected_instance_numbers[index]
         );
         assert_eq!(
+            obj.element(tags::LATERALITY)
+                .expect("Laterality Type 2C attribute must be present")
+                .to_str()
+                .expect("Laterality must be text")
+                .trim(),
+            ""
+        );
+        assert_eq!(
+            obj.element(tags::PATIENT_POSITION)
+                .expect("Patient Position Type 2C attribute must be present")
+                .to_str()
+                .expect("Patient Position must be text")
+                .trim(),
+            ""
+        );
+        assert_eq!(
             obj.element(tags::IMAGE_POSITION_PATIENT)
                 .expect("Image Position Patient must be present")
                 .value()

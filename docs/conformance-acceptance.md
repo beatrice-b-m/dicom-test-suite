@@ -17,35 +17,57 @@ The current arm64 macOS conformance run used locked DCMTK 3.7.0 executables:
 - `dcmdrle` SHA-256
   `d63743af7ec1dc8f0af0dc7562e2c502e81c3af9f38a7b51de30e822de7c8daf`.
 
+It also used the upstream universal macOS dicom3tools snapshot
+`1.00.snapshot.20260803085716`, installed under a versioned Homebrew prefix:
+
+- `dciodvfy` SHA-256
+  `1aeb75d6ccd3f193e3b322b6da77742cdce2e0604868eaf2a2669c786cbc27e5`;
+- `dcentvfy` SHA-256
+  `1b96e598f28f66deee1bfc1cb52ff460c316ab6b0625dae575d701f20c836e2c`.
+
+The binary archive SHA-256 is
+`c1d1feb60a1b206862c52db5a4e3115987c134467332f3397957050e4a83e5e1`;
+the matching source archive SHA-256 is
+`7e8937c2e8a5c61fd9ec1a0405330782abf41ba18efa459327de5c5071be0160`.
+The matching BSD `COPYRIGHT` is installed beside the executables.
+
 Results on the 108-instance all-features corpus:
 
 - independent parser completed for 108/108 manifest files;
 - independent RLE decode matched every expected frame hash for 58/58 RLE
   instances, including 8/16-bit, signed/unsigned, monochrome/color,
   planar/interleaved, and single/multi-frame cases;
-- primary IOD validation completed for 0/108 because `dciodvfy` is absent;
-- corpus entity validation is unsupported because `dcentvfy` is absent; and
-- strict verification correctly failed with 115 failures: six required-tool
-  identity gaps, 108 incomplete primary results, and one incomplete entity run.
+- primary IOD validation completed for 108/108 instances;
+- one instance had no primary finding and 107 had at least one finding;
+- primary validation reported 200 errors and 72 warnings;
+- corpus entity validation completed and reported 13 errors and three warnings;
+- strict verification reported all 288 findings unresolved; and
+- the separate legacy instance completed primary validation with one unresolved
+  `Laterality` Type 2C error.
 
 The generated evidence bundle remains an ignored local artifact and was not
 committed.
 
 ## Exact blocker
 
-Select and approve one immutable dicom3tools distribution for each acceptance
-platform. The decision must cover its BSD license attribution, upstream source
-snapshot or package identity, executable SHA-256 values, validator-definition
-vintage, and CI acquisition method. After installation:
+The arm64 macOS acquisition blocker is resolved. Acceptance is now blocked on
+standards-led finding triage. The first run exposed clear generator defects,
+including incorrect VR/value use for `FieldOfViewDimensions`, missing required
+or conditional attributes, and inconsistent study-level entity values. It also
+reported findings that may reflect validator definition gaps, such as rejecting
+multi-frame Secondary Capture and warning about current attributes as absent
+from the validator's IOD definitions.
 
-1. add `dciodvfy` and `dcentvfy` entries to `validator-lock.json`;
-2. characterize their real exit and stdout/stderr behavior with controlled
-   fixtures;
-3. confirm every generated SOP Class is recognized by that definition build;
-4. run all-features `all` and `legacy` collections;
-5. fix generator defects before considering exact finding dispositions;
+Next actions:
+
+1. group findings by affected recipe and DICOM requirement;
+2. fix generator defects before considering exact finding dispositions;
+3. investigate the two entity parse failures by exact transfer syntax;
+4. reconcile the validator's compiled definition snapshot with the project
+   2026b standards lock;
+5. confirm every generated SOP Class and transfer syntax is recognized;
 6. evaluate PixelMed `DicomSRValidator` for generated SR cases; and
-7. enable a manual/scheduled CI acceptance job pinned to the approved tool
+7. enable a manual/scheduled CI acceptance job pinned to the installed tool
    artifacts and upload the ignored evidence bundle.
 
 Do not call the corpus conformance-ready until strict verification succeeds.
@@ -65,4 +87,3 @@ cargo run --locked --all-features -- conformance verify \
 
 Set `DTS_REAL_CONFORMANCE=1` when running the conditional real DCMTK RLE
 integration test. Ordinary tests remain hermetic and need no external validator.
-

@@ -72,9 +72,14 @@ records the evidence counts, tool hashes, repeatable commands, and exact
 acquisition decision required to resume.
 
 The arm64 macOS acquisition blocker is resolved. Phase 8 remains incomplete
-until real findings are reviewed, generator defects are fixed, strict
-verification succeeds or exact blockers are recorded, PixelMed is evaluated for
-SR, and the manual/scheduled evidence-artifact job is added.
+after the first complete run: all 108 primary validations and entity validation
+executed, reporting 200 primary errors, 72 primary warnings, 13 entity errors,
+and three entity warnings. One primary instance was clean; 107 had findings.
+The separate legacy instance had one unresolved error. No finding is accepted.
+
+Phase 8 remains incomplete until findings are reviewed, generator defects are
+fixed, strict verification succeeds or exact blockers are recorded, PixelMed is
+evaluated for SR, and the manual/scheduled evidence-artifact job is added.
 
 This document replaces the previous historical implementation plan and progress
 ledger. `SYSTEM_SPEC.md` remains the architecture and requirements source of

@@ -7,7 +7,10 @@ use std::time::{Duration, Instant};
 
 use serde_json::Value;
 
-use super::{BackendContractError, validate_request, validate_response_for_request};
+use super::{
+    BackendContractError, OutputLimits, validate_request, validate_response_for_request,
+    verify_staged_outputs,
+};
 
 const REQUEST_FILE: &str = "request.json";
 const RESPONSE_FILE: &str = "response.json";
@@ -22,6 +25,7 @@ pub struct BackendInvocation {
     pub max_response_bytes: u64,
     pub max_stdout_bytes: usize,
     pub max_stderr_bytes: usize,
+    pub output_limits: OutputLimits,
 }
 
 #[derive(Debug)]
@@ -141,6 +145,7 @@ pub fn invoke_backend(
             source,
         })?;
     validate_response_for_request(&staged_request, &response)?;
+    verify_staged_outputs(&response, &outputs, invocation.output_limits)?;
 
     Ok(BackendRun {
         response,
@@ -279,6 +284,19 @@ mod tests {
     }
 
     #[test]
+    fn fake_backend_undeclared_output_is_rejected() {
+        let staging = unique_staging("undeclared");
+        let error = invoke_backend(
+            &fake_invocation(Duration::from_secs(2)),
+            &request(),
+            &staging,
+        )
+        .expect_err("undeclared backend output must fail");
+        assert!(error.to_string().contains("undeclared"));
+        fs::remove_dir_all(staging).expect("remove fake staging");
+    }
+
+    #[test]
     #[ignore]
     fn fake_backend_process() {
         let current_directory = std::env::current_dir().expect("fake current directory");
@@ -294,6 +312,14 @@ mod tests {
         let response_path = std::env::var_os("DTS_BACKEND_RESPONSE").expect("response path");
         let request: Value = serde_json::from_slice(&fs::read(request_path).expect("read request"))
             .expect("parse request");
+        if behavior.contains("undeclared") {
+            let output_directory = std::env::var_os("DTS_BACKEND_OUTPUTS").expect("outputs path");
+            fs::write(
+                Path::new(&output_directory).join("rogue.txt"),
+                b"undeclared",
+            )
+            .expect("write undeclared output");
+        }
         let request_id = if behavior.contains("mismatch") {
             "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
         } else {
@@ -339,6 +365,11 @@ mod tests {
             max_response_bytes: 64 * 1024,
             max_stdout_bytes: 64 * 1024,
             max_stderr_bytes: 64 * 1024,
+            output_limits: OutputLimits {
+                max_output_files: 8,
+                max_file_bytes: 1024 * 1024,
+                max_total_output_bytes: 4 * 1024 * 1024,
+            },
         }
     }
 

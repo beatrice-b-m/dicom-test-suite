@@ -127,7 +127,7 @@
           "type": ["string", "null"]
         },
         "modality": {
-          "type": "string"
+          "type": ["string", "null"]
         },
         "transfer_syntax_uid": {
           "type": ["string", "null"]

@@ -868,6 +868,73 @@
       "artifact_kind": "dicom_instance"
     },
     {
+      "case_id": "classic/dx/mono2_u12_jpeg_extended",
+      "artifact_kind": "dicom_instance",
+      "status": "planned",
+      "provider": {
+        "kind": "external_backend",
+        "id": "dcmtk"
+      },
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "compression",
+        "encapsulation",
+        "pixels"
+      ],
+      "roadmap": {
+        "priority": "later",
+        "delivery_phase": "phase-5",
+        "rationale": "Adds the interoperability-sensitive JPEG Extended 12-bit path."
+      },
+      "blockers": [
+        {
+          "code": "backend_contract_unimplemented",
+          "message": "The external generation contract is not implemented.",
+          "recheck_phase": "phase-1"
+        },
+        {
+          "code": "independent_decoder_unavailable",
+          "message": "An independent 12-bit JPEG decoder is not integrated.",
+          "recheck_phase": "phase-5"
+        }
+      ],
+      "profiles": [
+        "extended"
+      ],
+      "recipe_id": "classic_dx_mono2_u12_jpeg_extended",
+      "recipe_version": "0.1.0",
+      "iod_name": "Digital X-Ray Image - For Presentation",
+      "sop_class_name": "Digital X-Ray Image Storage - For Presentation",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.1.1",
+      "modality": "DX",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.4.51",
+      "determinism": "semantic_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom-kb lookup uid DigitalXRayImageStorageForPresentation --edition 2026b",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom-kb lookup uid JPEGExtended12Bit --edition 2026b",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        }
+      ]
+    },
+    {
       "case_id": "classic/mg/for_presentation_mono1_u16_12bit_explicit_le",
       "status": "implemented",
       "profiles": [
@@ -4614,6 +4681,78 @@
       "artifact_kind": "dicom_instance"
     },
     {
+      "case_id": "classic/sc/mono2_u16_htj2k_lossy",
+      "artifact_kind": "dicom_instance",
+      "status": "planned",
+      "provider": {
+        "kind": "external_backend",
+        "id": "video_codec_adapter"
+      },
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "compression",
+        "encapsulation",
+        "pixels"
+      ],
+      "roadmap": {
+        "priority": "later",
+        "delivery_phase": "phase-5",
+        "rationale": "Adds a lossy HTJ2K variant after independent decoder proof."
+      },
+      "blockers": [
+        {
+          "code": "backend_contract_unimplemented",
+          "message": "The external generation contract is not implemented.",
+          "recheck_phase": "phase-1"
+        },
+        {
+          "code": "numeric_tolerance_policy_pending",
+          "message": "Lossy per-channel and aggregate metrics are not approved.",
+          "recheck_phase": "phase-5"
+        },
+        {
+          "code": "independent_decoder_unavailable",
+          "message": "An independent lossy HTJ2K decoder is not integrated.",
+          "recheck_phase": "phase-5"
+        }
+      ],
+      "profiles": [
+        "extended"
+      ],
+      "recipe_id": "classic_sc_mono2_u16_htj2k_lossy",
+      "recipe_version": "0.1.0",
+      "iod_name": "Secondary Capture Image",
+      "sop_class_name": "Secondary Capture Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.7",
+      "modality": "OT",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.4.203",
+      "determinism": "semantic_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom-kb lookup uid SecondaryCaptureImageStorage --edition 2026b",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom-kb lookup uid HTJ2K --edition 2026b",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        }
+      ]
+    },
+    {
       "case_id": "classic/sc/mono2_u16_jpeg2000_lossless",
       "status": "implemented",
       "profiles": [
@@ -4669,6 +4808,78 @@
         "pixels"
       ],
       "artifact_kind": "dicom_instance"
+    },
+    {
+      "case_id": "classic/sc/mono2_u16_jpeg2000_lossy",
+      "artifact_kind": "dicom_instance",
+      "status": "planned",
+      "provider": {
+        "kind": "external_backend",
+        "id": "video_codec_adapter"
+      },
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "compression",
+        "encapsulation",
+        "pixels"
+      ],
+      "roadmap": {
+        "priority": "later",
+        "delivery_phase": "phase-5",
+        "rationale": "Adds numeric acceptance checks for lossy JPEG 2000."
+      },
+      "blockers": [
+        {
+          "code": "backend_contract_unimplemented",
+          "message": "The external generation contract is not implemented.",
+          "recheck_phase": "phase-1"
+        },
+        {
+          "code": "numeric_tolerance_policy_pending",
+          "message": "Lossy per-channel and aggregate metrics are not approved.",
+          "recheck_phase": "phase-5"
+        },
+        {
+          "code": "independent_decoder_unavailable",
+          "message": "An independent lossy JPEG 2000 decoder is not integrated.",
+          "recheck_phase": "phase-5"
+        }
+      ],
+      "profiles": [
+        "extended"
+      ],
+      "recipe_id": "classic_sc_mono2_u16_jpeg2000_lossy",
+      "recipe_version": "0.1.0",
+      "iod_name": "Secondary Capture Image",
+      "sop_class_name": "Secondary Capture Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.7",
+      "modality": "OT",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.4.91",
+      "determinism": "semantic_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom-kb lookup uid SecondaryCaptureImageStorage --edition 2026b",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom-kb lookup uid JPEG2000 --edition 2026b",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        }
+      ]
     },
     {
       "case_id": "classic/sc/mono2_u16_jpeg_lossless_process_14",
@@ -6030,6 +6241,78 @@
       "artifact_kind": "dicom_instance"
     },
     {
+      "case_id": "classic/sc/mono2_u8_jpeg_ls_near_lossless",
+      "artifact_kind": "dicom_instance",
+      "status": "planned",
+      "provider": {
+        "kind": "external_backend",
+        "id": "video_codec_adapter"
+      },
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "compression",
+        "encapsulation",
+        "pixels"
+      ],
+      "roadmap": {
+        "priority": "later",
+        "delivery_phase": "phase-5",
+        "rationale": "Adds bounded near-lossless sample error behavior."
+      },
+      "blockers": [
+        {
+          "code": "backend_contract_unimplemented",
+          "message": "The external generation contract is not implemented.",
+          "recheck_phase": "phase-1"
+        },
+        {
+          "code": "numeric_tolerance_policy_pending",
+          "message": "A maximum sample error and aggregate metric policy is not approved.",
+          "recheck_phase": "phase-5"
+        },
+        {
+          "code": "independent_decoder_unavailable",
+          "message": "An independent near-lossless decoder path is not integrated.",
+          "recheck_phase": "phase-5"
+        }
+      ],
+      "profiles": [
+        "extended"
+      ],
+      "recipe_id": "classic_sc_mono2_u8_jpeg_ls_near_lossless",
+      "recipe_version": "0.1.0",
+      "iod_name": "Secondary Capture Image",
+      "sop_class_name": "Secondary Capture Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.7",
+      "modality": "OT",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.4.81",
+      "determinism": "semantic_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom-kb lookup uid SecondaryCaptureImageStorage --edition 2026b",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom-kb lookup uid JPEGLSNearLossless --edition 2026b",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        }
+      ]
+    },
+    {
       "case_id": "classic/sc/mono2_u8_multiframe_rle_lossless",
       "status": "implemented",
       "profiles": [
@@ -6874,6 +7157,78 @@
         "pixels"
       ],
       "artifact_kind": "dicom_instance"
+    },
+    {
+      "case_id": "classic/sc/rgb_jpegxl_lossy",
+      "artifact_kind": "dicom_instance",
+      "status": "planned",
+      "provider": {
+        "kind": "external_backend",
+        "id": "video_codec_adapter"
+      },
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "compression",
+        "encapsulation",
+        "pixels"
+      ],
+      "roadmap": {
+        "priority": "later",
+        "delivery_phase": "phase-5",
+        "rationale": "Adds numeric color acceptance checks for lossy JPEG XL."
+      },
+      "blockers": [
+        {
+          "code": "backend_contract_unimplemented",
+          "message": "The external generation contract is not implemented.",
+          "recheck_phase": "phase-1"
+        },
+        {
+          "code": "numeric_tolerance_policy_pending",
+          "message": "Lossy per-channel and aggregate metrics are not approved.",
+          "recheck_phase": "phase-5"
+        },
+        {
+          "code": "independent_decoder_unavailable",
+          "message": "An independent lossy JPEG XL decoder is not integrated.",
+          "recheck_phase": "phase-5"
+        }
+      ],
+      "profiles": [
+        "extended"
+      ],
+      "recipe_id": "classic_sc_rgb_jpegxl_lossy",
+      "recipe_version": "0.1.0",
+      "iod_name": "Secondary Capture Image",
+      "sop_class_name": "Secondary Capture Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.7",
+      "modality": "OT",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.4.112",
+      "determinism": "semantic_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom-kb lookup uid SecondaryCaptureImageStorage --edition 2026b",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom-kb lookup uid JPEGXL --edition 2026b",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        }
+      ]
     },
     {
       "case_id": "classic/sc/rgb_planar0_explicit_le",
@@ -9459,6 +9814,65 @@
       "artifact_kind": "dicom_instance"
     },
     {
+      "case_id": "derived/seg/wsi_tile_reference",
+      "artifact_kind": "dicom_instance",
+      "status": "planned",
+      "provider": {
+        "kind": "external_backend",
+        "id": "highdicom_pydicom"
+      },
+      "object_family": "derived_image",
+      "compatibility_axes": [
+        "visible_light",
+        "references",
+        "geometry"
+      ],
+      "roadmap": {
+        "priority": "later",
+        "delivery_phase": "phase-4",
+        "rationale": "Adds a derived annotation object that references WSI tiles."
+      },
+      "blockers": [
+        {
+          "code": "backend_contract_unimplemented",
+          "message": "The external generation contract is not implemented.",
+          "recheck_phase": "phase-1"
+        },
+        {
+          "code": "independent_payload_validator_unavailable",
+          "message": "Independent WSI tile reference reconstruction is not integrated.",
+          "recheck_phase": "phase-4"
+        }
+      ],
+      "profiles": [
+        "extended"
+      ],
+      "recipe_id": "derived_seg_wsi_tile_reference",
+      "recipe_version": "0.1.0",
+      "iod_name": "Segmentation",
+      "sop_class_name": "Segmentation Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.66.4",
+      "modality": "SEG",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "semantic_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom-kb lookup uid SegmentationStorage --edition 2026b",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        }
+      ]
+    },
+    {
       "case_id": "derived/sr/basic_text_observation_explicit_le",
       "status": "implemented",
       "profiles": [
@@ -9798,6 +10212,112 @@
           "source": "dicom-standard-kb",
           "edition": "2026b",
           "query": "dicom-kb lookup uid Comprehensive3DSRStorage --edition 2026b",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        }
+      ]
+    },
+    {
+      "case_id": "encapsulation/sc/eot_simulated_overflow",
+      "artifact_kind": "dicom_instance",
+      "status": "planned",
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "encapsulation",
+        "scale"
+      ],
+      "roadmap": {
+        "priority": "later",
+        "delivery_phase": "phase-5",
+        "rationale": "Exercises offset arithmetic beyond Basic Offset Table range without a huge payload."
+      },
+      "blockers": [
+        {
+          "code": "recipe_unimplemented",
+          "message": "The deterministic native recipe is not implemented.",
+          "recheck_phase": "phase-5"
+        }
+      ],
+      "profiles": [
+        "extended"
+      ],
+      "recipe_id": "encapsulation_sc_eot_simulated_overflow",
+      "recipe_version": "0.1.0",
+      "iod_name": "Multi-frame Grayscale Byte Secondary Capture Image",
+      "sop_class_name": "Multi-frame Grayscale Byte Secondary Capture Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.7.2",
+      "modality": "OT",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "byte_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom-kb lookup uid MultiFrameGrayscaleByteSecondaryCaptureImageStorage --edition 2026b",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        }
+      ]
+    },
+    {
+      "case_id": "encapsulation/sc/eot_single_fragment_multiframe",
+      "artifact_kind": "dicom_instance",
+      "status": "planned",
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "encapsulation",
+        "pixels"
+      ],
+      "roadmap": {
+        "priority": "later",
+        "delivery_phase": "phase-5",
+        "rationale": "Exercises Extended Offset Table and Lengths with small deterministic frames."
+      },
+      "blockers": [
+        {
+          "code": "recipe_unimplemented",
+          "message": "The deterministic native recipe is not implemented.",
+          "recheck_phase": "phase-5"
+        }
+      ],
+      "profiles": [
+        "extended"
+      ],
+      "recipe_id": "encapsulation_sc_eot_single_fragment_multiframe",
+      "recipe_version": "0.1.0",
+      "iod_name": "Multi-frame Grayscale Byte Secondary Capture Image",
+      "sop_class_name": "Multi-frame Grayscale Byte Secondary Capture Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.7.2",
+      "modality": "OT",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "byte_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom-kb lookup uid MultiFrameGrayscaleByteSecondaryCaptureImageStorage --edition 2026b",
           "covered": true,
           "part": "PS3.6",
           "anchor": "table_A-1"
@@ -10840,6 +11360,58 @@
       ]
     },
     {
+      "case_id": "fuzz/parser/bounded_seed_corpus",
+      "artifact_kind": "dicom_instance",
+      "status": "planned",
+      "provider": {
+        "kind": "mutation_layer",
+        "id": "mutation_layer"
+      },
+      "object_family": "robustness",
+      "compatibility_axes": [
+        "robustness"
+      ],
+      "roadmap": {
+        "priority": "later",
+        "delivery_phase": "phase-7",
+        "rationale": "Adds reproducible bounded fuzzing and minimization from known-good cases."
+      },
+      "blockers": [
+        {
+          "code": "mutation_contract_unimplemented",
+          "message": "The bounded fuzz and minimization contract is not implemented.",
+          "recheck_phase": "phase-7"
+        }
+      ],
+      "profiles": [
+        "fuzz"
+      ],
+      "recipe_id": "fuzz_parser_bounded_seed_corpus",
+      "recipe_version": "0.1.0",
+      "iod_name": "Secondary Capture Image",
+      "sop_class_name": "Secondary Capture Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.7",
+      "modality": "OT",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "unstable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom-kb lookup uid SecondaryCaptureImageStorage --edition 2026b",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        }
+      ]
+    },
+    {
       "case_id": "geometry/ct/duplicate_missing_instance_number",
       "artifact_kind": "dicom_instance",
       "status": "planned",
@@ -11110,6 +11682,64 @@
       ]
     },
     {
+      "case_id": "media/dicomdir/mixed_file_set",
+      "artifact_kind": "media_file_set",
+      "status": "planned",
+      "provider": {
+        "kind": "external_backend",
+        "id": "dcm4che"
+      },
+      "object_family": "media",
+      "compatibility_axes": [
+        "media",
+        "references"
+      ],
+      "roadmap": {
+        "priority": "later",
+        "delivery_phase": "phase-8",
+        "rationale": "Adds a mixed-object DICOM File-set with a DICOMDIR index."
+      },
+      "blockers": [
+        {
+          "code": "backend_contract_unimplemented",
+          "message": "The external media-generation contract is not implemented.",
+          "recheck_phase": "phase-1"
+        },
+        {
+          "code": "independent_iod_validator_unavailable",
+          "message": "Independent DICOMDIR validation is not integrated.",
+          "recheck_phase": "phase-8"
+        }
+      ],
+      "profiles": [
+        "extended"
+      ],
+      "recipe_id": "media_dicomdir_mixed_file_set",
+      "recipe_version": "0.1.0",
+      "iod_name": "Basic Directory",
+      "sop_class_name": "Media Storage Directory Storage",
+      "sop_class_uid": "1.2.840.10008.1.3.10",
+      "modality": null,
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "semantic_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom-kb lookup uid MediaStorageDirectoryStorage --edition 2026b",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        }
+      ]
+    },
+    {
       "case_id": "metadata/sc/defined_undefined_sequence_lengths",
       "artifact_kind": "dicom_instance",
       "status": "planned",
@@ -11345,6 +11975,526 @@
         "core"
       ],
       "recipe_id": "metadata_sc_utf8_person_name",
+      "recipe_version": "0.1.0",
+      "iod_name": "Secondary Capture Image",
+      "sop_class_name": "Secondary Capture Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.7",
+      "modality": "OT",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "byte_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom-kb lookup uid SecondaryCaptureImageStorage --edition 2026b",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        }
+      ]
+    },
+    {
+      "case_id": "negative/charset/malformed_encoded_text",
+      "artifact_kind": "dicom_instance",
+      "status": "planned",
+      "provider": {
+        "kind": "mutation_layer",
+        "id": "mutation_layer"
+      },
+      "object_family": "robustness",
+      "compatibility_axes": [
+        "robustness"
+      ],
+      "roadmap": {
+        "priority": "later",
+        "delivery_phase": "phase-7",
+        "rationale": "Exercises invalid character-set declarations and malformed text."
+      },
+      "blockers": [
+        {
+          "code": "mutation_contract_unimplemented",
+          "message": "The malformed-character-set mutation is not implemented.",
+          "recheck_phase": "phase-7"
+        }
+      ],
+      "profiles": [
+        "negative"
+      ],
+      "recipe_id": "negative_charset_malformed_encoded_text",
+      "recipe_version": "0.1.0",
+      "iod_name": "Secondary Capture Image",
+      "sop_class_name": "Secondary Capture Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.7",
+      "modality": "OT",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "byte_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom-kb lookup uid SecondaryCaptureImageStorage --edition 2026b",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        }
+      ]
+    },
+    {
+      "case_id": "negative/dataset/truncated_sequence_item",
+      "artifact_kind": "dicom_instance",
+      "status": "planned",
+      "provider": {
+        "kind": "mutation_layer",
+        "id": "mutation_layer"
+      },
+      "object_family": "robustness",
+      "compatibility_axes": [
+        "robustness"
+      ],
+      "roadmap": {
+        "priority": "later",
+        "delivery_phase": "phase-7",
+        "rationale": "Exercises bounded rejection of truncated nested sequence content."
+      },
+      "blockers": [
+        {
+          "code": "mutation_contract_unimplemented",
+          "message": "The deterministic sequence truncation mutation is not implemented.",
+          "recheck_phase": "phase-7"
+        }
+      ],
+      "profiles": [
+        "negative"
+      ],
+      "recipe_id": "negative_dataset_truncated_sequence_item",
+      "recipe_version": "0.1.0",
+      "iod_name": "Secondary Capture Image",
+      "sop_class_name": "Secondary Capture Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.7",
+      "modality": "OT",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "byte_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom-kb lookup uid SecondaryCaptureImageStorage --edition 2026b",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        }
+      ]
+    },
+    {
+      "case_id": "negative/encapsulation/broken_offset_table",
+      "artifact_kind": "dicom_instance",
+      "status": "planned",
+      "provider": {
+        "kind": "mutation_layer",
+        "id": "mutation_layer"
+      },
+      "object_family": "robustness",
+      "compatibility_axes": [
+        "robustness"
+      ],
+      "roadmap": {
+        "priority": "later",
+        "delivery_phase": "phase-7",
+        "rationale": "Exercises invalid Basic and Extended Offset Table outcomes."
+      },
+      "blockers": [
+        {
+          "code": "mutation_contract_unimplemented",
+          "message": "The offset-table mutation is not implemented.",
+          "recheck_phase": "phase-7"
+        }
+      ],
+      "profiles": [
+        "negative"
+      ],
+      "recipe_id": "negative_encapsulation_broken_offset_table",
+      "recipe_version": "0.1.0",
+      "iod_name": "Secondary Capture Image",
+      "sop_class_name": "Secondary Capture Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.7",
+      "modality": "OT",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "byte_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom-kb lookup uid SecondaryCaptureImageStorage --edition 2026b",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        }
+      ]
+    },
+    {
+      "case_id": "negative/encoding/explicit_vr_length_mismatch",
+      "artifact_kind": "dicom_instance",
+      "status": "planned",
+      "provider": {
+        "kind": "mutation_layer",
+        "id": "mutation_layer"
+      },
+      "object_family": "robustness",
+      "compatibility_axes": [
+        "robustness"
+      ],
+      "roadmap": {
+        "priority": "later",
+        "delivery_phase": "phase-7",
+        "rationale": "Exercises rejection of an incorrect explicit-VR value length."
+      },
+      "blockers": [
+        {
+          "code": "mutation_contract_unimplemented",
+          "message": "The explicit-VR length mutation is not implemented.",
+          "recheck_phase": "phase-7"
+        }
+      ],
+      "profiles": [
+        "negative"
+      ],
+      "recipe_id": "negative_encoding_explicit_vr_length_mismatch",
+      "recipe_version": "0.1.0",
+      "iod_name": "Secondary Capture Image",
+      "sop_class_name": "Secondary Capture Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.7",
+      "modality": "OT",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "byte_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom-kb lookup uid SecondaryCaptureImageStorage --edition 2026b",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        }
+      ]
+    },
+    {
+      "case_id": "negative/encoding/illegal_vr_bytes",
+      "artifact_kind": "dicom_instance",
+      "status": "planned",
+      "provider": {
+        "kind": "mutation_layer",
+        "id": "mutation_layer"
+      },
+      "object_family": "robustness",
+      "compatibility_axes": [
+        "robustness"
+      ],
+      "roadmap": {
+        "priority": "later",
+        "delivery_phase": "phase-7",
+        "rationale": "Exercises rejection of illegal VR bytes without a crash or hang."
+      },
+      "blockers": [
+        {
+          "code": "mutation_contract_unimplemented",
+          "message": "The illegal-VR mutation is not implemented.",
+          "recheck_phase": "phase-7"
+        }
+      ],
+      "profiles": [
+        "negative"
+      ],
+      "recipe_id": "negative_encoding_illegal_vr_bytes",
+      "recipe_version": "0.1.0",
+      "iod_name": "Secondary Capture Image",
+      "sop_class_name": "Secondary Capture Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.7",
+      "modality": "OT",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "byte_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom-kb lookup uid SecondaryCaptureImageStorage --edition 2026b",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        }
+      ]
+    },
+    {
+      "case_id": "negative/encoding/transfer_syntax_mismatch",
+      "artifact_kind": "dicom_instance",
+      "status": "planned",
+      "provider": {
+        "kind": "mutation_layer",
+        "id": "mutation_layer"
+      },
+      "object_family": "robustness",
+      "compatibility_axes": [
+        "robustness"
+      ],
+      "roadmap": {
+        "priority": "later",
+        "delivery_phase": "phase-7",
+        "rationale": "Exercises mismatch between File Meta transfer syntax and dataset encoding."
+      },
+      "blockers": [
+        {
+          "code": "mutation_contract_unimplemented",
+          "message": "The transfer-syntax mismatch mutation is not implemented.",
+          "recheck_phase": "phase-7"
+        }
+      ],
+      "profiles": [
+        "negative"
+      ],
+      "recipe_id": "negative_encoding_transfer_syntax_mismatch",
+      "recipe_version": "0.1.0",
+      "iod_name": "Secondary Capture Image",
+      "sop_class_name": "Secondary Capture Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.7",
+      "modality": "OT",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "byte_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom-kb lookup uid SecondaryCaptureImageStorage --edition 2026b",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        }
+      ]
+    },
+    {
+      "case_id": "negative/identity/meta_dataset_uid_mismatch",
+      "artifact_kind": "dicom_instance",
+      "status": "planned",
+      "provider": {
+        "kind": "mutation_layer",
+        "id": "mutation_layer"
+      },
+      "object_family": "robustness",
+      "compatibility_axes": [
+        "robustness"
+      ],
+      "roadmap": {
+        "priority": "later",
+        "delivery_phase": "phase-7",
+        "rationale": "Exercises SOP Class and Instance disagreement across File Meta and dataset."
+      },
+      "blockers": [
+        {
+          "code": "mutation_contract_unimplemented",
+          "message": "The identity mismatch mutation is not implemented.",
+          "recheck_phase": "phase-7"
+        }
+      ],
+      "profiles": [
+        "negative"
+      ],
+      "recipe_id": "negative_identity_meta_dataset_uid_mismatch",
+      "recipe_version": "0.1.0",
+      "iod_name": "Secondary Capture Image",
+      "sop_class_name": "Secondary Capture Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.7",
+      "modality": "OT",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "byte_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom-kb lookup uid SecondaryCaptureImageStorage --edition 2026b",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        }
+      ]
+    },
+    {
+      "case_id": "negative/iod/missing_type1_attribute",
+      "artifact_kind": "dicom_instance",
+      "status": "planned",
+      "provider": {
+        "kind": "mutation_layer",
+        "id": "mutation_layer"
+      },
+      "object_family": "robustness",
+      "compatibility_axes": [
+        "robustness"
+      ],
+      "roadmap": {
+        "priority": "later",
+        "delivery_phase": "phase-7",
+        "rationale": "Exercises a precise conformance failure for a removed Type 1 attribute."
+      },
+      "blockers": [
+        {
+          "code": "mutation_contract_unimplemented",
+          "message": "The missing-Type-1 mutation is not implemented.",
+          "recheck_phase": "phase-7"
+        }
+      ],
+      "profiles": [
+        "negative"
+      ],
+      "recipe_id": "negative_iod_missing_type1_attribute",
+      "recipe_version": "0.1.0",
+      "iod_name": "Secondary Capture Image",
+      "sop_class_name": "Secondary Capture Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.7",
+      "modality": "OT",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "byte_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom-kb lookup uid SecondaryCaptureImageStorage --edition 2026b",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        }
+      ]
+    },
+    {
+      "case_id": "negative/part10/truncated_file_meta",
+      "artifact_kind": "dicom_instance",
+      "status": "planned",
+      "provider": {
+        "kind": "mutation_layer",
+        "id": "mutation_layer"
+      },
+      "object_family": "robustness",
+      "compatibility_axes": [
+        "robustness"
+      ],
+      "roadmap": {
+        "priority": "later",
+        "delivery_phase": "phase-7",
+        "rationale": "Exercises bounded rejection of truncated File Meta Information."
+      },
+      "blockers": [
+        {
+          "code": "mutation_contract_unimplemented",
+          "message": "The deterministic file-meta truncation mutation is not implemented.",
+          "recheck_phase": "phase-7"
+        }
+      ],
+      "profiles": [
+        "negative"
+      ],
+      "recipe_id": "negative_part10_truncated_file_meta",
+      "recipe_version": "0.1.0",
+      "iod_name": "Secondary Capture Image",
+      "sop_class_name": "Secondary Capture Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.7",
+      "modality": "OT",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "byte_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom-kb lookup uid SecondaryCaptureImageStorage --edition 2026b",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        }
+      ]
+    },
+    {
+      "case_id": "negative/pixels/invalid_bits_and_length",
+      "artifact_kind": "dicom_instance",
+      "status": "planned",
+      "provider": {
+        "kind": "mutation_layer",
+        "id": "mutation_layer"
+      },
+      "object_family": "robustness",
+      "compatibility_axes": [
+        "robustness"
+      ],
+      "roadmap": {
+        "priority": "later",
+        "delivery_phase": "phase-7",
+        "rationale": "Exercises invalid Bits Stored, High Bit, and Pixel Data length outcomes."
+      },
+      "blockers": [
+        {
+          "code": "mutation_contract_unimplemented",
+          "message": "The invalid pixel-module mutation is not implemented.",
+          "recheck_phase": "phase-7"
+        }
+      ],
+      "profiles": [
+        "negative"
+      ],
+      "recipe_id": "negative_pixels_invalid_bits_and_length",
       "recipe_version": "0.1.0",
       "iod_name": "Secondary Capture Image",
       "sop_class_name": "Secondary Capture Image Storage",
@@ -11888,6 +13038,778 @@
           "source": "dicom-standard-kb",
           "edition": "2026b",
           "query": "dicom-kb lookup uid TwelveLeadECGWaveformStorage --edition 2026b",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        }
+      ]
+    },
+    {
+      "case_id": "protocol/dicomweb/stow_qido_wado",
+      "artifact_kind": "transaction_scenario",
+      "status": "planned",
+      "provider": {
+        "kind": "protocol_harness",
+        "id": "protocol_harness"
+      },
+      "object_family": "protocol",
+      "compatibility_axes": [
+        "protocol"
+      ],
+      "roadmap": {
+        "priority": "later",
+        "delivery_phase": "phase-8",
+        "rationale": "Tracks STOW-RS, QIDO-RS, and WADO-RS transactions separately from file conformance."
+      },
+      "blockers": [
+        {
+          "code": "protocol_harness_unimplemented",
+          "message": "The replaceable DICOMweb server harness is not implemented.",
+          "recheck_phase": "phase-8"
+        }
+      ],
+      "profiles": [],
+      "recipe_id": "protocol_dicomweb_stow_qido_wado",
+      "recipe_version": "0.1.0",
+      "iod_name": null,
+      "sop_class_name": null,
+      "sop_class_uid": null,
+      "modality": null,
+      "transfer_syntax_uid": null,
+      "determinism": "semantic_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "official-dicom-standard",
+          "edition": "2026b",
+          "covered": true,
+          "part": "PS3.18",
+          "anchor": "Web Services",
+          "reason": "DICOMweb transactions produce transaction reports rather than file rows."
+        }
+      ]
+    },
+    {
+      "case_id": "protocol/dimse/storage_query_retrieve",
+      "artifact_kind": "transaction_scenario",
+      "status": "planned",
+      "provider": {
+        "kind": "protocol_harness",
+        "id": "protocol_harness"
+      },
+      "object_family": "protocol",
+      "compatibility_axes": [
+        "protocol"
+      ],
+      "roadmap": {
+        "priority": "later",
+        "delivery_phase": "phase-8",
+        "rationale": "Tracks association, C-STORE, query, and retrieve transaction coverage separately from files."
+      },
+      "blockers": [
+        {
+          "code": "protocol_harness_unimplemented",
+          "message": "The replaceable DIMSE peer harness is not implemented.",
+          "recheck_phase": "phase-8"
+        }
+      ],
+      "profiles": [],
+      "recipe_id": "protocol_dimse_storage_query_retrieve",
+      "recipe_version": "0.1.0",
+      "iod_name": null,
+      "sop_class_name": null,
+      "sop_class_uid": null,
+      "modality": null,
+      "transfer_syntax_uid": null,
+      "determinism": "semantic_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "official-dicom-standard",
+          "edition": "2026b",
+          "covered": true,
+          "part": "PS3.7",
+          "anchor": "DIMSE-C Services",
+          "reason": "DIMSE transaction behavior is not a per-file SOP Instance."
+        }
+      ]
+    },
+    {
+      "case_id": "protocol/security/tls_user_identity",
+      "artifact_kind": "transaction_scenario",
+      "status": "planned",
+      "provider": {
+        "kind": "protocol_harness",
+        "id": "protocol_harness"
+      },
+      "object_family": "protocol",
+      "compatibility_axes": [
+        "protocol",
+        "security"
+      ],
+      "roadmap": {
+        "priority": "later",
+        "delivery_phase": "phase-8",
+        "rationale": "Tracks opt-in TLS and user-identity negotiation without committing credentials."
+      },
+      "blockers": [
+        {
+          "code": "security_toolchain_unselected",
+          "message": "A maintainable security toolchain and fixture policy are not selected.",
+          "recheck_phase": "phase-8"
+        },
+        {
+          "code": "decision_checkpoint",
+          "message": "Project approval is required before committing cryptographic fixtures.",
+          "recheck_phase": "phase-8"
+        }
+      ],
+      "profiles": [],
+      "recipe_id": "protocol_security_tls_user_identity",
+      "recipe_version": "0.1.0",
+      "iod_name": null,
+      "sop_class_name": null,
+      "sop_class_uid": null,
+      "modality": null,
+      "transfer_syntax_uid": null,
+      "determinism": "semantic_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "official-dicom-standard",
+          "edition": "2026b",
+          "covered": true,
+          "part": "PS3.15",
+          "anchor": "Security and System Management Profiles",
+          "reason": "Security harness policy requires an explicit project decision."
+        }
+      ]
+    },
+    {
+      "case_id": "stress/enhanced-ct/many_frames",
+      "artifact_kind": "dicom_instance",
+      "status": "planned",
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "object_family": "enhanced_image",
+      "compatibility_axes": [
+        "scale",
+        "geometry",
+        "pixels"
+      ],
+      "roadmap": {
+        "priority": "later",
+        "delivery_phase": "phase-6",
+        "rationale": "Exercises many-frame enhanced image navigation."
+      },
+      "blockers": [
+        {
+          "code": "recipe_unimplemented",
+          "message": "The deterministic native recipe is not implemented.",
+          "recheck_phase": "phase-6"
+        },
+        {
+          "code": "stress_budget_policy_pending",
+          "message": "Frame, byte, memory, and runtime budgets are not established.",
+          "recheck_phase": "phase-6"
+        }
+      ],
+      "profiles": [
+        "stress"
+      ],
+      "recipe_id": "stress_enhanced_ct_many_frames",
+      "recipe_version": "0.1.0",
+      "iod_name": "Enhanced CT Image",
+      "sop_class_name": "Enhanced CT Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.2.1",
+      "modality": "CT",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "byte_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom-kb lookup uid EnhancedCTImageStorage --edition 2026b",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        }
+      ]
+    },
+    {
+      "case_id": "stress/sc/deep_nested_sequences",
+      "artifact_kind": "dicom_instance",
+      "status": "planned",
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "scale",
+        "metadata"
+      ],
+      "roadmap": {
+        "priority": "later",
+        "delivery_phase": "phase-6",
+        "rationale": "Exercises deeply nested but valid sequence parsing."
+      },
+      "blockers": [
+        {
+          "code": "recipe_unimplemented",
+          "message": "The deterministic native recipe is not implemented.",
+          "recheck_phase": "phase-6"
+        },
+        {
+          "code": "stress_budget_policy_pending",
+          "message": "Nesting, memory, and runtime budgets are not established.",
+          "recheck_phase": "phase-6"
+        }
+      ],
+      "profiles": [
+        "stress"
+      ],
+      "recipe_id": "stress_sc_deep_nested_sequences",
+      "recipe_version": "0.1.0",
+      "iod_name": "Secondary Capture Image",
+      "sop_class_name": "Secondary Capture Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.7",
+      "modality": "OT",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "byte_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom-kb lookup uid SecondaryCaptureImageStorage --edition 2026b",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        }
+      ]
+    },
+    {
+      "case_id": "stress/sc/large_encapsulated_multifragment",
+      "artifact_kind": "dicom_instance",
+      "status": "planned",
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "scale",
+        "encapsulation",
+        "pixels"
+      ],
+      "roadmap": {
+        "priority": "later",
+        "delivery_phase": "phase-6",
+        "rationale": "Exercises large fragments and streaming encapsulation."
+      },
+      "blockers": [
+        {
+          "code": "recipe_unimplemented",
+          "message": "The deterministic native recipe is not implemented.",
+          "recheck_phase": "phase-6"
+        },
+        {
+          "code": "stress_budget_policy_pending",
+          "message": "Fragment, byte, memory, and runtime budgets are not established.",
+          "recheck_phase": "phase-6"
+        }
+      ],
+      "profiles": [
+        "stress"
+      ],
+      "recipe_id": "stress_sc_large_encapsulated_multifragment",
+      "recipe_version": "0.1.0",
+      "iod_name": "Multi-frame Grayscale Byte Secondary Capture Image",
+      "sop_class_name": "Multi-frame Grayscale Byte Secondary Capture Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.7.2",
+      "modality": "OT",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "byte_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom-kb lookup uid MultiFrameGrayscaleByteSecondaryCaptureImageStorage --edition 2026b",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        }
+      ]
+    },
+    {
+      "case_id": "stress/study/high_instance_count_ct",
+      "artifact_kind": "dicom_instance",
+      "status": "planned",
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "scale",
+        "geometry"
+      ],
+      "roadmap": {
+        "priority": "later",
+        "delivery_phase": "phase-6",
+        "rationale": "Exercises high instance-count study indexing and sorting."
+      },
+      "blockers": [
+        {
+          "code": "recipe_unimplemented",
+          "message": "The deterministic native recipe is not implemented.",
+          "recheck_phase": "phase-6"
+        },
+        {
+          "code": "stress_budget_policy_pending",
+          "message": "Instance, byte, memory, and runtime budgets are not established.",
+          "recheck_phase": "phase-6"
+        }
+      ],
+      "profiles": [
+        "stress"
+      ],
+      "recipe_id": "stress_study_high_instance_count_ct",
+      "recipe_version": "0.1.0",
+      "iod_name": "CT Image",
+      "sop_class_name": "CT Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.2",
+      "modality": "CT",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "byte_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom-kb lookup uid CTImageStorage --edition 2026b",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        }
+      ]
+    },
+    {
+      "case_id": "stress/wsi/large_pyramid",
+      "artifact_kind": "dicom_instance",
+      "status": "planned",
+      "provider": {
+        "kind": "external_backend",
+        "id": "highdicom_pydicom"
+      },
+      "object_family": "visible_light",
+      "compatibility_axes": [
+        "scale",
+        "visible_light",
+        "geometry",
+        "pixels"
+      ],
+      "roadmap": {
+        "priority": "later",
+        "delivery_phase": "phase-6",
+        "rationale": "Exercises large whole-slide pyramid indexing and bounded generation."
+      },
+      "blockers": [
+        {
+          "code": "backend_contract_unimplemented",
+          "message": "The external generation contract is not implemented.",
+          "recheck_phase": "phase-1"
+        },
+        {
+          "code": "stress_budget_policy_pending",
+          "message": "Tile, byte, memory, and runtime budgets are not established.",
+          "recheck_phase": "phase-6"
+        }
+      ],
+      "profiles": [
+        "stress"
+      ],
+      "recipe_id": "stress_wsi_large_pyramid",
+      "recipe_version": "0.1.0",
+      "iod_name": "VL Whole Slide Microscopy Image",
+      "sop_class_name": "VL Whole Slide Microscopy Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.77.1.6",
+      "modality": "SM",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "semantic_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom-kb lookup uid VLWholeSlideMicroscopyImageStorage --edition 2026b",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        }
+      ]
+    },
+    {
+      "case_id": "video/endoscopic/avc_short",
+      "artifact_kind": "dicom_instance",
+      "status": "planned",
+      "provider": {
+        "kind": "external_backend",
+        "id": "video_codec_adapter"
+      },
+      "object_family": "visible_light",
+      "compatibility_axes": [
+        "compression",
+        "encapsulation",
+        "pixels",
+        "visible_light"
+      ],
+      "roadmap": {
+        "priority": "later",
+        "delivery_phase": "phase-5",
+        "rationale": "Adds a short deterministic H.264 endoscopic cine loop."
+      },
+      "blockers": [
+        {
+          "code": "backend_contract_unimplemented",
+          "message": "The external generation contract is not implemented.",
+          "recheck_phase": "phase-1"
+        },
+        {
+          "code": "independent_decoder_unavailable",
+          "message": "Independent stream probe and decode are not integrated.",
+          "recheck_phase": "phase-5"
+        }
+      ],
+      "profiles": [
+        "extended"
+      ],
+      "recipe_id": "video_endoscopic_avc_short",
+      "recipe_version": "0.1.0",
+      "iod_name": "Video Endoscopic Image",
+      "sop_class_name": "Video Endoscopic Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.77.1.1.1",
+      "modality": "ES",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.4.102",
+      "determinism": "semantic_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom-kb lookup uid VideoEndoscopicImageStorage --edition 2026b",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom-kb lookup uid MPEG4HP41 --edition 2026b",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        }
+      ]
+    },
+    {
+      "case_id": "video/endoscopic/hevc_short",
+      "artifact_kind": "dicom_instance",
+      "status": "planned",
+      "provider": {
+        "kind": "external_backend",
+        "id": "video_codec_adapter"
+      },
+      "object_family": "visible_light",
+      "compatibility_axes": [
+        "compression",
+        "encapsulation",
+        "pixels",
+        "visible_light"
+      ],
+      "roadmap": {
+        "priority": "later",
+        "delivery_phase": "phase-5",
+        "rationale": "Adds a short deterministic H.265 endoscopic cine loop."
+      },
+      "blockers": [
+        {
+          "code": "backend_contract_unimplemented",
+          "message": "The external generation contract is not implemented.",
+          "recheck_phase": "phase-1"
+        },
+        {
+          "code": "independent_decoder_unavailable",
+          "message": "Independent stream probe and decode are not integrated.",
+          "recheck_phase": "phase-5"
+        }
+      ],
+      "profiles": [
+        "extended"
+      ],
+      "recipe_id": "video_endoscopic_hevc_short",
+      "recipe_version": "0.1.0",
+      "iod_name": "Video Endoscopic Image",
+      "sop_class_name": "Video Endoscopic Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.77.1.1.1",
+      "modality": "ES",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.4.107",
+      "determinism": "semantic_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom-kb lookup uid VideoEndoscopicImageStorage --edition 2026b",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom-kb lookup uid HEVCMP51 --edition 2026b",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        }
+      ]
+    },
+    {
+      "case_id": "video/endoscopic/mpeg2_short",
+      "artifact_kind": "dicom_instance",
+      "status": "planned",
+      "provider": {
+        "kind": "external_backend",
+        "id": "video_codec_adapter"
+      },
+      "object_family": "visible_light",
+      "compatibility_axes": [
+        "compression",
+        "encapsulation",
+        "pixels",
+        "visible_light"
+      ],
+      "roadmap": {
+        "priority": "later",
+        "delivery_phase": "phase-5",
+        "rationale": "Adds a short deterministic MPEG-2 endoscopic cine loop."
+      },
+      "blockers": [
+        {
+          "code": "backend_contract_unimplemented",
+          "message": "The external generation contract is not implemented.",
+          "recheck_phase": "phase-1"
+        },
+        {
+          "code": "independent_decoder_unavailable",
+          "message": "Independent stream probe and decode are not integrated.",
+          "recheck_phase": "phase-5"
+        }
+      ],
+      "profiles": [
+        "extended"
+      ],
+      "recipe_id": "video_endoscopic_mpeg2_short",
+      "recipe_version": "0.1.0",
+      "iod_name": "Video Endoscopic Image",
+      "sop_class_name": "Video Endoscopic Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.77.1.1.1",
+      "modality": "ES",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.4.100",
+      "determinism": "semantic_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom-kb lookup uid VideoEndoscopicImageStorage --edition 2026b",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom-kb lookup uid MPEG2MPML --edition 2026b",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        }
+      ]
+    },
+    {
+      "case_id": "vl/endoscopic/rgb_explicit_le",
+      "artifact_kind": "dicom_instance",
+      "status": "planned",
+      "provider": {
+        "kind": "external_backend",
+        "id": "highdicom_pydicom"
+      },
+      "object_family": "visible_light",
+      "compatibility_axes": [
+        "visible_light",
+        "pixels",
+        "modality"
+      ],
+      "roadmap": {
+        "priority": "later",
+        "delivery_phase": "phase-4",
+        "rationale": "Adds representative endoscopic color image semantics."
+      },
+      "blockers": [
+        {
+          "code": "backend_contract_unimplemented",
+          "message": "The external generation contract is not implemented.",
+          "recheck_phase": "phase-1"
+        },
+        {
+          "code": "independent_iod_validator_unavailable",
+          "message": "Independent VL Endoscopic validation is not integrated.",
+          "recheck_phase": "phase-4"
+        }
+      ],
+      "profiles": [
+        "extended"
+      ],
+      "recipe_id": "vl_endoscopic_rgb_explicit_le",
+      "recipe_version": "0.1.0",
+      "iod_name": "VL Endoscopic Image",
+      "sop_class_name": "VL Endoscopic Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.77.1.1",
+      "modality": "ES",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "semantic_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom-kb lookup uid VLEndoscopicImageStorage --edition 2026b",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        }
+      ]
+    },
+    {
+      "case_id": "vl/microscopic/rgb_explicit_le",
+      "artifact_kind": "dicom_instance",
+      "status": "planned",
+      "provider": {
+        "kind": "external_backend",
+        "id": "highdicom_pydicom"
+      },
+      "object_family": "visible_light",
+      "compatibility_axes": [
+        "visible_light",
+        "pixels",
+        "modality"
+      ],
+      "roadmap": {
+        "priority": "later",
+        "delivery_phase": "phase-4",
+        "rationale": "Adds representative microscopic color image semantics."
+      },
+      "blockers": [
+        {
+          "code": "backend_contract_unimplemented",
+          "message": "The external generation contract is not implemented.",
+          "recheck_phase": "phase-1"
+        },
+        {
+          "code": "independent_iod_validator_unavailable",
+          "message": "Independent VL Microscopic validation is not integrated.",
+          "recheck_phase": "phase-4"
+        }
+      ],
+      "profiles": [
+        "extended"
+      ],
+      "recipe_id": "vl_microscopic_rgb_explicit_le",
+      "recipe_version": "0.1.0",
+      "iod_name": "VL Microscopic Image",
+      "sop_class_name": "VL Microscopic Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.77.1.2",
+      "modality": "GM",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "semantic_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom-kb lookup uid VLMicroscopicImageStorage --edition 2026b",
           "covered": true,
           "part": "PS3.6",
           "anchor": "table_A-1"
@@ -12493,6 +14415,247 @@
         "visible_light"
       ],
       "artifact_kind": "dicom_instance"
+    },
+    {
+      "case_id": "vl/wsi/multiple_optical_paths",
+      "artifact_kind": "dicom_instance",
+      "status": "planned",
+      "provider": {
+        "kind": "external_backend",
+        "id": "highdicom_pydicom"
+      },
+      "object_family": "visible_light",
+      "compatibility_axes": [
+        "visible_light",
+        "geometry",
+        "pixels",
+        "scale"
+      ],
+      "roadmap": {
+        "priority": "later",
+        "delivery_phase": "phase-4",
+        "rationale": "Exercises multiple optical paths and focal planes."
+      },
+      "blockers": [
+        {
+          "code": "backend_contract_unimplemented",
+          "message": "The external generation contract is not implemented.",
+          "recheck_phase": "phase-1"
+        },
+        {
+          "code": "stress_budget_policy_pending",
+          "message": "Measured multi-path size and runtime budgets are not established.",
+          "recheck_phase": "phase-4"
+        }
+      ],
+      "profiles": [
+        "stress"
+      ],
+      "recipe_id": "vl_wsi_multiple_optical_paths",
+      "recipe_version": "0.1.0",
+      "iod_name": "VL Whole Slide Microscopy Image",
+      "sop_class_name": "VL Whole Slide Microscopy Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.77.1.6",
+      "modality": "SM",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "semantic_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom-kb lookup uid VLWholeSlideMicroscopyImageStorage --edition 2026b",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        }
+      ]
+    },
+    {
+      "case_id": "vl/wsi/pyramid_multiresolution",
+      "artifact_kind": "dicom_instance",
+      "status": "planned",
+      "provider": {
+        "kind": "external_backend",
+        "id": "highdicom_pydicom"
+      },
+      "object_family": "visible_light",
+      "compatibility_axes": [
+        "visible_light",
+        "geometry",
+        "pixels",
+        "scale",
+        "references"
+      ],
+      "roadmap": {
+        "priority": "later",
+        "delivery_phase": "phase-4",
+        "rationale": "Exercises pyramid, thumbnail, and label instance relationships."
+      },
+      "blockers": [
+        {
+          "code": "backend_contract_unimplemented",
+          "message": "The external generation contract is not implemented.",
+          "recheck_phase": "phase-1"
+        },
+        {
+          "code": "stress_budget_policy_pending",
+          "message": "Measured pyramid size and runtime budgets are not established.",
+          "recheck_phase": "phase-4"
+        }
+      ],
+      "profiles": [
+        "stress"
+      ],
+      "recipe_id": "vl_wsi_pyramid_multiresolution",
+      "recipe_version": "0.1.0",
+      "iod_name": "VL Whole Slide Microscopy Image",
+      "sop_class_name": "VL Whole Slide Microscopy Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.77.1.6",
+      "modality": "SM",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "semantic_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom-kb lookup uid VLWholeSlideMicroscopyImageStorage --edition 2026b",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        }
+      ]
+    },
+    {
+      "case_id": "vl/wsi/tiled_full_small",
+      "artifact_kind": "dicom_instance",
+      "status": "planned",
+      "provider": {
+        "kind": "external_backend",
+        "id": "highdicom_pydicom"
+      },
+      "object_family": "visible_light",
+      "compatibility_axes": [
+        "visible_light",
+        "geometry",
+        "pixels",
+        "scale"
+      ],
+      "roadmap": {
+        "priority": "later",
+        "delivery_phase": "phase-4",
+        "rationale": "Adds a small semantically complete TILED_FULL whole-slide volume."
+      },
+      "blockers": [
+        {
+          "code": "backend_contract_unimplemented",
+          "message": "The external generation contract is not implemented.",
+          "recheck_phase": "phase-1"
+        },
+        {
+          "code": "independent_payload_validator_unavailable",
+          "message": "Independent tile-to-total-matrix reconstruction is not integrated.",
+          "recheck_phase": "phase-4"
+        }
+      ],
+      "profiles": [
+        "extended"
+      ],
+      "recipe_id": "vl_wsi_tiled_full_small",
+      "recipe_version": "0.1.0",
+      "iod_name": "VL Whole Slide Microscopy Image",
+      "sop_class_name": "VL Whole Slide Microscopy Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.77.1.6",
+      "modality": "SM",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "semantic_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom-kb lookup uid VLWholeSlideMicroscopyImageStorage --edition 2026b",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        }
+      ]
+    },
+    {
+      "case_id": "vl/wsi/tiled_sparse_small",
+      "artifact_kind": "dicom_instance",
+      "status": "planned",
+      "provider": {
+        "kind": "external_backend",
+        "id": "highdicom_pydicom"
+      },
+      "object_family": "visible_light",
+      "compatibility_axes": [
+        "visible_light",
+        "geometry",
+        "pixels",
+        "scale"
+      ],
+      "roadmap": {
+        "priority": "later",
+        "delivery_phase": "phase-4",
+        "rationale": "Exercises TILED_SPARSE mapping with deliberately absent tiles."
+      },
+      "blockers": [
+        {
+          "code": "backend_contract_unimplemented",
+          "message": "The external generation contract is not implemented.",
+          "recheck_phase": "phase-1"
+        },
+        {
+          "code": "independent_payload_validator_unavailable",
+          "message": "Independent sparse tile reconstruction is not integrated.",
+          "recheck_phase": "phase-4"
+        }
+      ],
+      "profiles": [
+        "extended"
+      ],
+      "recipe_id": "vl_wsi_tiled_sparse_small",
+      "recipe_version": "0.1.0",
+      "iod_name": "VL Whole Slide Microscopy Image",
+      "sop_class_name": "VL Whole Slide Microscopy Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.77.1.6",
+      "modality": "SM",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "semantic_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom-kb lookup uid VLWholeSlideMicroscopyImageStorage --edition 2026b",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        }
+      ]
     }
   ]
 }

@@ -1,0 +1,23 @@
+{
+  "schema_version": "0.1.0",
+  "tools": [
+    {
+      "adapter_id": "dcmtk-dcmdump",
+      "role": "independent_parser",
+      "tool_name": "DCMTK dcmdump",
+      "version": "3.7.0 (2025-12-15)",
+      "source_repository": "https://github.com/DCMTK/dcmtk",
+      "source_revision": "DCMTK-3.7.0",
+      "package_identity": "Homebrew dcmtk 3.7.0",
+      "executable_sha256": "d2261944ea1ceb6743df9866f2237014b284fa39119c8a5eee226ae922ead45f",
+      "definition_version": "external dictionary; default Homebrew package data",
+      "platforms": ["arm64-macos"],
+      "verified_at": "2026-08-26",
+      "notes": "Parser baseline only; this tool does not perform IOD validation."
+    }
+  ],
+  "unresolved_required_tools": [
+    "dicom3tools-dciodvfy",
+    "dicom3tools-dcentvfy"
+  ]
+}

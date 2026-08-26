@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dicom-test-suite.local/schemas/conformance-accepted-findings.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "findings"],
+  "properties": {
+    "schema_version": { "const": "0.1.0" },
+    "findings": { "type": "array", "items": { "$ref": "#/$defs/finding" } }
+  },
+  "$defs": {
+    "non_wildcard": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[^*?\\[\\]{}]+$"
+    },
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "validator_adapter_id", "validator_fingerprint", "case_id",
+        "message_fingerprint", "original_severity", "disposition",
+        "rationale", "citation", "reviewer", "review_date",
+        "recheck_condition"
+      ],
+      "properties": {
+        "validator_adapter_id": { "$ref": "#/$defs/non_wildcard" },
+        "validator_fingerprint": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "case_id": { "$ref": "#/$defs/non_wildcard" },
+        "path": { "$ref": "#/$defs/non_wildcard" },
+        "rule_id": { "$ref": "#/$defs/non_wildcard" },
+        "message_fingerprint": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "original_severity": { "enum": ["error", "warning"] },
+        "disposition": {
+          "enum": [
+            "validator_limitation", "validator_standard_version_gap",
+            "standard_ambiguity", "generator_intent_confirmed"
+          ]
+        },
+        "rationale": { "type": "string", "minLength": 20 },
+        "citation": { "type": "string", "minLength": 8 },
+        "reviewer": { "type": "string", "minLength": 1 },
+        "review_date": { "type": "string", "format": "date" },
+        "recheck_condition": { "type": "string", "minLength": 8 },
+        "expires_on": { "type": "string", "format": "date" }
+      }
+    }
+  }
+}

@@ -5,6 +5,14 @@ use serde_json::Value;
 
 const SCHEMAS: &[(&str, &str)] = &[
     (
+        "schemas/conformance-run.schema.json",
+        "https://dicom-test-suite.local/schemas/conformance-run.schema.json",
+    ),
+    (
+        "schemas/conformance-accepted-findings.schema.json",
+        "https://dicom-test-suite.local/schemas/conformance-accepted-findings.schema.json",
+    ),
+    (
         "schemas/manifest.schema.json",
         "https://dicom-test-suite.local/schemas/manifest.schema.json",
     ),

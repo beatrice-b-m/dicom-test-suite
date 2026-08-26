@@ -3,7 +3,7 @@
 **Last updated:** 2026-08-26
 **Active goal:** implement independent conformance evidence collection
 **Source specification:** `SYSTEM_SPEC.md` version 0.2.0
-**Planning status:** conformance Phase 0 complete; evidence contracts next
+**Planning status:** conformance Phases 0-1 complete; tool discovery next
 
 ## Independent Conformance Framework
 
@@ -17,8 +17,14 @@ dicom3tools distribution providing `dciodvfy` and `dcentvfy`. DCMTK 3.7.0 is
 available for the independent parser. Framework development proceeds with fake
 executables and no network/runtime dependency in the default build.
 
-Recommended next step: define the evidence and exact-disposition JSON Schemas,
-lock file, fixtures, and full structural schema tests.
+Phase 1 is complete: strict Draft 2020-12 schemas define run evidence and exact
+finding dispositions; committed fixtures are validated with a full schema
+engine; the accepted-finding set starts empty; and the DCMTK parser baseline is
+locked by version, source tag, package identity, platform, and executable hash.
+
+Recommended next step: implement `conformance check-tools`, including explicit
+path precedence, direct argv execution, timeouts, executable hashing, version
+capture, and lock comparison.
 
 This document replaces the previous historical implementation plan and progress
 ledger. `SYSTEM_SPEC.md` remains the architecture and requirements source of

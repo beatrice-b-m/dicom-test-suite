@@ -1,0 +1,48 @@
+{
+  "schema_version": "0.1.0",
+  "run_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "created_at": "2026-08-26T12:00:00Z",
+  "repository": { "commit": "0bfffe2", "dirty": false },
+  "source": {
+    "manifest_path": "manifest.json",
+    "manifest_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "generator": {
+    "identity": "dicom-test-suite 0.1.0",
+    "seed": 1,
+    "profile": "smoke",
+    "features": [],
+    "standards_lock_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+  },
+  "host": { "os": "macos", "architecture": "arm64" },
+  "tools": [],
+  "instances": [],
+  "entity": {
+    "adapter_id": "dicom3tools-dcentvfy",
+    "role": "entity_validator",
+    "status": "unsupported",
+    "invocation": ["dcentvfy"],
+    "stdout": { "path": "entity/dcentvfy.stdout", "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd" },
+    "stderr": { "path": "entity/dcentvfy.stderr", "sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee" },
+    "exit_code": null,
+    "duration_ms": 0,
+    "timed_out": false,
+    "findings": [{
+      "severity": "unsupported",
+      "rule_id": null,
+      "message": "Tool is unavailable",
+      "message_fingerprint": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "dicom_path": null,
+      "disposition": "unresolved"
+    }],
+    "unsupported_reason": "Tool is unavailable"
+  },
+  "summary": {
+    "instances": 0,
+    "by_severity": { "unsupported": 1 },
+    "by_disposition": { "unresolved": 1 },
+    "by_tool": { "dicom3tools-dcentvfy": 1 },
+    "by_sop_class": {},
+    "by_transfer_syntax": {}
+  }
+}

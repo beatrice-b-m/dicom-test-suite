@@ -2,6 +2,7 @@ use std::collections::BTreeSet;
 use std::fs;
 use std::path::{Component, Path};
 
+use dicom_test_suite::sha256_hex;
 use serde_json::Value;
 
 #[test]
@@ -81,6 +82,26 @@ fn external_registry_providers_resolve_to_optional_planned_backends() {
             "planned providers must not imply a selected launcher"
         );
     }
+}
+
+#[test]
+fn native_backend_dependency_hash_matches_cargo_lock() {
+    let lock = read_json("generation-backends.lock.json");
+    let native = lock
+        .get("backends")
+        .and_then(Value::as_array)
+        .and_then(|backends| {
+            backends.iter().find(|backend| {
+                backend.get("backend_id").and_then(Value::as_str) == Some("rust_native")
+            })
+        })
+        .expect("native backend must be locked");
+    let expected = native
+        .pointer("/dependency_lock/sha256")
+        .and_then(Value::as_str)
+        .expect("native dependency hash should be present");
+    let cargo_lock = fs::read("Cargo.lock").expect("Cargo.lock should be readable");
+    assert_eq!(expected, sha256_hex(&cargo_lock));
 }
 
 fn read_json(path: &str) -> Value {

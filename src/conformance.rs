@@ -165,6 +165,14 @@ fn verify_completeness(evidence_root: &Path, evidence: &Value, failures: &mut Ve
         if primary.is_none_or(|result| result["status"] != "completed") {
             failures.push(format!("primary validation incomplete: {path}"));
         }
+        let parser = instance["results"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .find(|result| result["role"] == "independent_parser");
+        if parser.is_none_or(|result| result["status"] != "completed") {
+            failures.push(format!("independent parser incomplete: {path}"));
+        }
     }
     if evidence["entity"]["status"] != "completed" {
         failures.push("corpus entity validation is incomplete".to_string());
@@ -320,6 +328,8 @@ pub fn run_conformance(
             file,
             primary,
             primary_tool,
+            adapters,
+            &tools,
         )?);
     }
 
@@ -407,6 +417,8 @@ fn collect_instance(
     file: &Value,
     adapter: &Value,
     tool: &Value,
+    adapters: &[Value],
+    tools: &[Value],
 ) -> Result<Value, String> {
     let path = file
         .get("path")
@@ -427,7 +439,7 @@ fn collect_instance(
     let stdout_path = evidence_root.join(&stdout_relative);
     let stderr_path = evidence_root.join(&stderr_relative);
 
-    let result = if tool.get("status").and_then(Value::as_str) != Some("available") {
+    let primary_result = if tool.get("status").and_then(Value::as_str) != Some("available") {
         fs::write(&stdout_path, []).map_err(|error| error.to_string())?;
         fs::write(&stderr_path, []).map_err(|error| error.to_string())?;
         unsupported_result(
@@ -493,15 +505,100 @@ fn collect_instance(
             "reason": "Instance has no Pixel Data"
         })
     };
+    let mut results = vec![primary_result];
+    results.push(collect_parser_result(
+        generated_root,
+        evidence_root,
+        path,
+        &stable_key,
+        adapters,
+        tools,
+    )?);
     Ok(json!({
         "stable_instance_key": stable_key,
         "case_id": case_id,
         "path": path,
         "sop_class_uid": file.pointer("/dicom/sop_class_uid").and_then(Value::as_str).unwrap_or("0.0"),
         "transfer_syntax_uid": file.pointer("/dicom/transfer_syntax_uid").and_then(Value::as_str).unwrap_or("0.0"),
-        "results": [result],
+        "results": results,
         "pixel": pixel
     }))
+}
+
+fn collect_parser_result(
+    generated_root: &Path,
+    evidence_root: &Path,
+    relative_input: &str,
+    stable_key: &str,
+    adapters: &[Value],
+    tools: &[Value],
+) -> Result<Value, String> {
+    let Some(adapter) = adapters
+        .iter()
+        .find(|adapter| adapter["role"] == "independent_parser")
+    else {
+        let adapter_id = "dcmtk-dcmdump";
+        let raw_dir = evidence_root.join("raw").join(adapter_id);
+        fs::create_dir_all(&raw_dir).map_err(|error| error.to_string())?;
+        let stdout_relative = format!("raw/{adapter_id}/{stable_key}.stdout");
+        let stderr_relative = format!("raw/{adapter_id}/{stable_key}.stderr");
+        fs::write(evidence_root.join(&stdout_relative), []).map_err(|error| error.to_string())?;
+        fs::write(evidence_root.join(&stderr_relative), []).map_err(|error| error.to_string())?;
+        return Ok(unsupported_result(
+            adapter_id,
+            "independent_parser",
+            vec!["dcmdump".to_string()],
+            &stdout_relative,
+            &stderr_relative,
+            "No independent_parser adapter is configured",
+        ));
+    };
+    let adapter_id = required_string(adapter, "id")?;
+    let tool = tools
+        .iter()
+        .find(|tool| tool["adapter_id"] == adapter["id"])
+        .ok_or_else(|| "independent parser discovery result is missing".to_string())?;
+    let raw_dir = evidence_root.join("raw").join(adapter_id);
+    fs::create_dir_all(&raw_dir).map_err(|error| error.to_string())?;
+    let stdout_relative = format!("raw/{adapter_id}/{stable_key}.stdout");
+    let stderr_relative = format!("raw/{adapter_id}/{stable_key}.stderr");
+    let stdout_path = evidence_root.join(&stdout_relative);
+    let stderr_path = evidence_root.join(&stderr_relative);
+    if tool["status"] != "available" {
+        fs::write(&stdout_path, []).map_err(|error| error.to_string())?;
+        fs::write(&stderr_path, []).map_err(|error| error.to_string())?;
+        return Ok(unsupported_result(
+            adapter_id,
+            "independent_parser",
+            vec![required_string(adapter, "executable")?.to_string()],
+            &stdout_relative,
+            &stderr_relative,
+            "configured independent parser is unavailable",
+        ));
+    }
+    let executable = tool["executable"]
+        .as_str()
+        .ok_or_else(|| "available parser has no executable".to_string())?;
+    let input = generated_root.join(relative_input);
+    let arguments = string_array(adapter, "arguments")?
+        .into_iter()
+        .map(|argument| argument.replace("{input}", &input.display().to_string()))
+        .collect::<Vec<_>>();
+    let timeout = Duration::from_secs(adapter["timeout_seconds"].as_u64().unwrap_or(30));
+    let output = run_with_timeout(Path::new(executable), &arguments, timeout)?;
+    fs::write(&stdout_path, &output.stdout).map_err(|error| error.to_string())?;
+    fs::write(&stderr_path, &output.stderr).map_err(|error| error.to_string())?;
+    Ok(execution_result(
+        adapter_id,
+        "independent_parser",
+        executable,
+        arguments,
+        output,
+        &stdout_relative,
+        &stderr_relative,
+        &input.display().to_string(),
+        relative_input,
+    ))
 }
 
 fn execution_result(
@@ -521,7 +618,21 @@ fn execution_result(
         absolute_input,
         relative_input,
     ));
-    if output.timed_out {
+    let combined_lower = format!(
+        "{}\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    )
+    .to_lowercase();
+    let unsupported_parser = role == "independent_parser"
+        && (combined_lower.contains("unsupported transfer syntax")
+            || combined_lower.contains("unknown transfer syntax"));
+    if unsupported_parser {
+        findings.push(finding(
+            "unsupported",
+            "independent parser reported an unsupported transfer syntax",
+        ));
+    } else if output.timed_out {
         findings.push(finding("timeout", "validator execution timed out"));
     } else if output.exit_code != Some(0) && findings.is_empty() {
         findings.push(finding(
@@ -529,8 +640,15 @@ fn execution_result(
             "validator exited nonzero without a recognized finding",
         ));
     }
-    let status = if output.timed_out {
+    let unparsed_failure = findings
+        .iter()
+        .any(|finding| finding["severity"] == "unparsed_output");
+    let status = if unsupported_parser {
+        "unsupported"
+    } else if output.timed_out {
         "timeout"
+    } else if unparsed_failure {
+        "tool_failure"
     } else if output.exit_code.is_none() {
         "tool_failure"
     } else {
@@ -538,7 +656,7 @@ fn execution_result(
     };
     let mut invocation = vec![executable.to_string()];
     invocation.extend(arguments);
-    json!({
+    let mut result = json!({
         "adapter_id": adapter_id,
         "role": role,
         "status": status,
@@ -549,7 +667,12 @@ fn execution_result(
         "duration_ms": output.duration_ms,
         "timed_out": output.timed_out,
         "findings": findings
-    })
+    });
+    if unsupported_parser {
+        result["unsupported_reason"] =
+            json!("independent parser reported an unsupported transfer syntax");
+    }
+    result
 }
 
 fn normalize_findings(bytes: &[u8], absolute_input: &str, relative_input: &str) -> Vec<Value> {

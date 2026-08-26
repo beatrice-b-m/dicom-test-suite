@@ -3,7 +3,7 @@
 **Last updated:** 2026-08-26
 **Active goal:** implement independent conformance evidence collection
 **Source specification:** `SYSTEM_SPEC.md` version 0.2.0
-**Planning status:** conformance Phases 0-5 complete; parser evidence next
+**Planning status:** conformance Phases 0-6 complete; pixel matrix next
 
 ## Independent Conformance Framework
 
@@ -43,8 +43,13 @@ complete primary/entity results, and accepts only exact, current finding
 dispositions. Unknown warnings, operational failures, stale/expired entries,
 and evidence corruption fail verification.
 
-Recommended next step: execute the independent `dcmdump` parser adapter for
-every manifest instance and make unexplained parser gaps fail verification.
+Phase 6 is complete: every manifest instance records a distinct DCMTK parser
+result with raw logs, timeout/tool-failure state, and explicit unsupported
+transfer-syntax detection. Strict verification rejects missing or incomplete
+independent parser results.
+
+Recommended next step: commit the encoder/decoder independence matrix and add
+lossless external decode adapters without reusing generator codec stacks.
 
 This document replaces the previous historical implementation plan and progress
 ledger. `SYSTEM_SPEC.md` remains the architecture and requirements source of

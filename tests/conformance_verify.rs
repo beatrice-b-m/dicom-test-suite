@@ -122,6 +122,7 @@ impl Fixture {
         generate_smoke(&generated);
         let primary = fake_tool(&root, "primary", "exit 0");
         let entity = fake_tool(&root, "entity", "exit 0");
+        let parser = fake_tool(&root, "parser", "exit 0");
         let config = root.join("validators.json");
         fs::write(
             &config,
@@ -129,7 +130,8 @@ impl Fixture {
                 "schema_version": "0.1.0",
                 "adapters": [
                     adapter("primary", "primary_iod_validator", &primary),
-                    adapter("entity", "entity_validator", &entity)
+                    adapter("entity", "entity_validator", &entity),
+                    adapter("parser", "independent_parser", &parser)
                 ]
             }))
             .unwrap(),

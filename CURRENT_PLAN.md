@@ -3,7 +3,7 @@
 **Last updated:** 2026-08-26
 **Active goal:** implement independent conformance evidence collection
 **Source specification:** `SYSTEM_SPEC.md` version 0.2.0
-**Planning status:** conformance Phases 0-1 complete; tool discovery next
+**Planning status:** conformance Phases 0-2 complete; instance collection next
 
 ## Independent Conformance Framework
 
@@ -22,9 +22,14 @@ finding dispositions; committed fixtures are validated with a full schema
 engine; the accepted-finding set starts empty; and the DCMTK parser baseline is
 locked by version, source tag, package identity, platform, and executable hash.
 
-Recommended next step: implement `conformance check-tools`, including explicit
-path precedence, direct argv execution, timeouts, executable hashing, version
-capture, and lock comparison.
+Phase 2 is complete: `conformance check-tools` resolves configured paths before
+`PATH`, executes argv directly, fingerprints bytes, captures stdout/stderr and
+nonzero version probes, times out hung probes, represents versionless commands,
+and compares tools to the committed lock.
+
+Recommended next step: implement manifest-driven, bounded, deterministic
+per-instance `dciodvfy -new` collection with raw byte preservation and finding
+normalization.
 
 This document replaces the previous historical implementation plan and progress
 ledger. `SYSTEM_SPEC.md` remains the architecture and requirements source of

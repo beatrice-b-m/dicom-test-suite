@@ -38,6 +38,7 @@ use dicom_transfer_syntax_registry::entries::{
 };
 
 pub mod codecs;
+pub mod conformance;
 pub mod encapsulation;
 mod generator;
 pub mod uid;

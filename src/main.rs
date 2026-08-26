@@ -18,6 +18,51 @@ fn run() -> Result<(), String> {
     };
 
     match command.as_str() {
+        "conformance" => {
+            let subcommand = args
+                .next()
+                .ok_or_else(|| "conformance requires a subcommand".to_string())?;
+            match subcommand.as_str() {
+                "check-tools" => {
+                    let mut config =
+                        String::from(dicom_test_suite::conformance::DEFAULT_VALIDATOR_CONFIG);
+                    while let Some(arg) = args.next() {
+                        match arg.as_str() {
+                            "--config" => {
+                                config = args
+                                    .next()
+                                    .ok_or_else(|| "--config requires a path".to_string())?;
+                            }
+                            "--help" | "-h" => {
+                                println!(
+                                    "Usage: dicom-test-suite conformance check-tools [--config PATH]"
+                                );
+                                return Ok(());
+                            }
+                            unknown => {
+                                return Err(format!(
+                                    "unknown conformance check-tools argument: {unknown}"
+                                ));
+                            }
+                        }
+                    }
+                    let report = dicom_test_suite::conformance::check_tools_path(config)?;
+                    println!(
+                        "{}",
+                        serde_json::to_string_pretty(&report).map_err(|err| err.to_string())?
+                    );
+                    Ok(())
+                }
+                "run" | "verify" => Err(format!(
+                    "conformance {subcommand} is not implemented in the current phase"
+                )),
+                "--help" | "-h" => {
+                    println!("Usage: dicom-test-suite conformance <check-tools|run|verify>");
+                    Ok(())
+                }
+                unknown => Err(format!("unknown conformance subcommand: {unknown}")),
+            }
+        }
         "generate" => {
             let mut profile = None;
             let mut out_dir = None;

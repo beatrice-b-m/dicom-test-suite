@@ -37,7 +37,7 @@ coverage.
 - `extended`: enhanced, derived, non-image, VL, compressed, and broader
   compatibility cases.
 - `legacy`: valid retired or uncommon behavior.
-- `all`: smoke, core, extended, and legacy; stress remains opt-in.
+- `all`: smoke, core, and extended; legacy remains opt-in.
 
 The future `stress`, `negative`, and `fuzz` scopes are not part of the completed
 current-term corpus.
@@ -66,6 +66,11 @@ cargo run --locked --features jpeg -- validate generated/extended-jpeg
 See
 [docs/external-codec-verification.md](docs/external-codec-verification.md) for
 the required OpenJPH and DCMTK runtime verification cadence.
+
+For downstream projects, see
+[docs/corpus-consumption.md](docs/corpus-consumption.md) for the complete,
+portable, and fast generation workflows; manifest handoff requirements; and the
+scope boundary of the generated corpus.
 
 ## Verification
 

@@ -76,6 +76,31 @@ fn readme_documents_supported_commands_and_codec_features() {
 }
 
 #[test]
+fn corpus_consumption_guide_documents_complete_handoff() {
+    let guide = fs::read_to_string("docs/corpus-consumption.md")
+        .expect("corpus consumption guide must be readable");
+
+    for required in [
+        "`all` is the union of `smoke`, `core`, and `extended`",
+        "Generate `legacy` separately",
+        "--all-features",
+        "ojph_compress",
+        "dcmcjpeg",
+        "validation_failures\\t0",
+        "manifest.json",
+        "skipped_cases",
+        "stable `case_id`",
+        "does not require",
+        "Scope Boundary",
+    ] {
+        assert!(
+            guide.contains(required),
+            "corpus consumption guide must document {required}"
+        );
+    }
+}
+
+#[test]
 fn taxonomy_documents_all_supported_profiles() {
     let taxonomy =
         fs::read_to_string("cases/taxonomy.md").expect("case taxonomy document must be readable");

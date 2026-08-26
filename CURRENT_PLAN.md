@@ -24,9 +24,10 @@ Current phases:
 
 1. **Profile contract:** complete. `list-cases --profile all` uses the same
    smoke/core/extended union as generation and keeps legacy opt-in.
-2. **Corpus consumption guide:** in progress. Document complete and reduced corpus
-   generation, prerequisites, validation, reports, manifests, and scope.
-3. **Independent conformance handoff:** pending. Define implementable evidence
+2. **Corpus consumption guide:** complete. `docs/corpus-consumption.md`
+   documents complete and reduced corpus generation, prerequisites, validation,
+   reports, manifests, neutral consumer responsibilities, and scope.
+3. **Independent conformance handoff:** in progress. Define implementable evidence
    artifacts, validator pinning, finding disposition, corpus-level checks, and
    independent pixel decoding without prescribing viewer behavior.
 

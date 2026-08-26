@@ -43,6 +43,7 @@ pub mod coverage_gaps;
 pub mod encapsulation;
 pub mod generation_backends;
 mod generator;
+mod geometry;
 pub mod uid;
 mod validation;
 pub use coverage_gaps::{
@@ -537,6 +538,7 @@ pub fn validate_generated_root(
         validate_manifest_references(&manifest_path, file, &source_objects, &mut failures)?;
         validate_manifest_file(root_dir, &manifest_path, file, &mut failures)?;
     }
+    geometry::validate_manifest_geometry(root_dir, files, &mut failures);
 
     Ok(ValidationSummary {
         manifest_path,

@@ -1,15 +1,42 @@
 # Current Plan
 
-**Last updated:** 2026-07-28
-**Active goal:** current-term compressed image codec generation scope complete
+**Last updated:** 2026-08-26
+**Active goal:** prepare the generated corpus for an independent viewer review
 **Source specification:** `SYSTEM_SPEC.md` version 0.2.0
-**Planning status:** complete; remaining work is explicitly deferred
+**Planning status:** in progress; immediate handoff fixes underway
 
 This document replaces the previous historical implementation plan and progress
 ledger. `SYSTEM_SPEC.md` remains the architecture and requirements source of
 truth. This file should stay focused on the active project goal, the major
 implementation phases, and the decisions that must be researched before a
 specific backend or codec strategy is locked in.
+
+## Viewer-Review Readiness Term
+
+The completed codec corpus is entering a short readiness term before an
+independent viewer project consumes it. This term does not add viewer-specific
+behavior to the generator and does not prescribe how a viewer must be tested.
+It establishes a reliable corpus-selection contract, neutral consumption
+instructions, and a tractable handoff for independent DICOM conformance
+evidence.
+
+Current phases:
+
+1. **Profile contract:** complete. `list-cases --profile all` uses the same
+   smoke/core/extended union as generation and keeps legacy opt-in.
+2. **Corpus consumption guide:** in progress. Document complete and reduced corpus
+   generation, prerequisites, validation, reports, manifests, and scope.
+3. **Independent conformance handoff:** pending. Define implementable evidence
+   artifacts, validator pinning, finding disposition, corpus-level checks, and
+   independent pixel decoding without prescribing viewer behavior.
+
+Exit criteria:
+
+- Listing and generation agree on the meaning of `all`.
+- A consuming agent can generate every available case without discovering
+  hidden feature or external-command requirements.
+- A validation-framework agent has a self-contained brief with phased work,
+  acceptance criteria, and explicit evidence outputs.
 
 ## Current Baseline
 

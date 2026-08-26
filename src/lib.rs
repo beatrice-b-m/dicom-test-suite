@@ -10580,7 +10580,7 @@ pub fn list_cases_from_registry_value(
     for case in cases {
         let profiles = string_array(case.get("profiles"))?;
         if let Some(profile_filter) = profile_filter {
-            if !profiles.iter().any(|profile| profile == profile_filter) {
+            if !case_matches_profile(&profiles, profile_filter, false) {
                 continue;
             }
         }
@@ -11189,6 +11189,17 @@ mod tests {
             !output.contains("classic/sc/mono2_u8_deflated_explicit_le"),
             "planned status filter should exclude implemented feature-gated deflated cases"
         );
+    }
+
+    #[test]
+    fn list_cases_all_profile_uses_generation_union() {
+        let output = list_cases_from_registry_path("cases/registry.json", Some("all"), None)
+            .expect("all cases should list");
+
+        assert!(output.contains("classic/sc/mono2_u8_explicit_le"));
+        assert!(output.contains("classic/ct/mono2_i16_rescale_12bit_explicit_le"));
+        assert!(output.contains("enhanced/ct/multiframe_shared_perframe_explicit_le"));
+        assert!(!output.contains("classic/sc/mono2_u8_explicit_be"));
     }
 
     #[test]

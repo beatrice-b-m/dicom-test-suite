@@ -181,6 +181,36 @@ fn list_cases_command_shows_legacy_big_endian_case_status_and_evidence() {
 }
 
 #[test]
+fn list_cases_command_expands_all_profile_like_generation() {
+    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args(["list-cases", "--profile", "all"])
+        .output()
+        .expect("list-cases command must run");
+
+    assert!(
+        output.status.success(),
+        "list-cases should exit successfully: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8(output.stdout).expect("list-cases stdout must be utf-8");
+    for case_id in [
+        "classic/sc/mono2_u8_explicit_le",
+        "classic/ct/mono2_i16_rescale_12bit_explicit_le",
+        "enhanced/ct/multiframe_shared_perframe_explicit_le",
+    ] {
+        assert!(
+            stdout.contains(case_id),
+            "all profile must include smoke, core, and extended case {case_id}"
+        );
+    }
+    assert!(
+        !stdout.contains("classic/sc/mono2_u8_explicit_be"),
+        "all profile must preserve the generation rule that legacy is opt-in"
+    );
+}
+
+#[test]
 fn list_cases_command_shows_extended_case_status_and_evidence() {
     let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
         .args(["list-cases", "--profile", "extended"])

@@ -288,6 +288,12 @@
           "type": "object",
           "additionalProperties": true
         },
+        "expected_geometry": {
+          "anyOf": [
+            { "$ref": "#/$defs/expected_geometry" },
+            { "type": "null" }
+          ]
+        },
         "expected_visual_checks": {
           "type": "object",
           "additionalProperties": true
@@ -348,6 +354,36 @@
           },
           "uniqueItems": true
         }
+      },
+      "additionalProperties": false
+    },
+    "expected_geometry": {
+      "type": "object",
+      "required": [
+        "sort_basis",
+        "sort_direction",
+        "position_tolerance_mm",
+        "spacing_tolerance_mm",
+        "series_instance_count",
+        "geometric_order_index",
+        "position_along_normal_mm",
+        "instance_number",
+        "instance_number_order_index",
+        "sorting_conflict_expected"
+      ],
+      "properties": {
+        "sort_basis": {
+          "const": "image_position_patient_projected_on_slice_normal"
+        },
+        "sort_direction": { "enum": ["ascending", "descending"] },
+        "position_tolerance_mm": { "type": "number", "exclusiveMinimum": 0 },
+        "spacing_tolerance_mm": { "type": "number", "exclusiveMinimum": 0 },
+        "series_instance_count": { "type": "integer", "minimum": 2 },
+        "geometric_order_index": { "type": "integer", "minimum": 1 },
+        "position_along_normal_mm": { "type": "number" },
+        "instance_number": { "type": "integer" },
+        "instance_number_order_index": { "type": "integer", "minimum": 1 },
+        "sorting_conflict_expected": { "type": "boolean" }
       },
       "additionalProperties": false
     },

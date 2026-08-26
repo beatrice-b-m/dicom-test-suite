@@ -202,6 +202,32 @@ fn manifest_schema_defines_encapsulated_pixel_data_layout_metadata() {
 }
 
 #[test]
+fn manifest_schema_types_cross_instance_geometry_expectations() {
+    let schema = read_json("schemas/manifest.schema.json");
+    assert_eq!(
+        schema.pointer("/$defs/expected_geometry/properties/sort_basis/const"),
+        Some(&Value::String(
+            "image_position_patient_projected_on_slice_normal".to_string()
+        ))
+    );
+    let required = schema
+        .pointer("/$defs/expected_geometry/required")
+        .and_then(Value::as_array)
+        .expect("expected geometry should have required fields");
+    for field in [
+        "geometric_order_index",
+        "position_along_normal_mm",
+        "instance_number_order_index",
+        "sorting_conflict_expected",
+    ] {
+        assert!(
+            required.iter().any(|value| value.as_str() == Some(field)),
+            "expected geometry should require {field}"
+        );
+    }
+}
+
+#[test]
 fn case_registry_schema_requires_the_specified_case_fields() {
     let schema = read_json("schemas/case-registry.schema.json");
     let required = schema

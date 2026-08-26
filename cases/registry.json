@@ -11668,6 +11668,22 @@
           "covered": true,
           "part": "PS3.6",
           "anchor": "table_A-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom-kb resolve attribute-context Laterality --iod 'CT Image' --edition 2026b",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.7-5a"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom-kb resolve attribute-context PatientPosition --iod 'CT Image' --edition 2026b",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.7-5a"
         }
       ]
     },

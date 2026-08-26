@@ -10,6 +10,9 @@ use serde_json::Value;
 
 use crate::sha256_hex;
 
+mod process;
+pub use process::{BackendInvocation, BackendRun, invoke_backend};
+
 pub const PROTOCOL_VERSION: &str = "0.1.0";
 pub const BACKEND_LOCK_FILE: &str = "generation-backends.lock.json";
 

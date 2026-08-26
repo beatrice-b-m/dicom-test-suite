@@ -279,7 +279,7 @@ fn generate_command_writes_core_u16_native_pixel_case() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\tcore"));
-    assert!(stdout.contains("files_written\t21"));
+    assert!(stdout.contains("files_written\t24"));
 
     let manifest_path = out_dir.join("manifest.json");
     let manifest: Value = serde_json::from_str(
@@ -296,7 +296,7 @@ fn generate_command_writes_core_u16_native_pixel_case() {
             .pointer("/files")
             .and_then(Value::as_array)
             .map(Vec::len),
-        Some(21)
+        Some(24)
     );
     let u16_file = file_entry_by_case_id(&manifest, "classic/sc/mono2_u16_explicit_le");
     assert_eq!(
@@ -1035,8 +1035,8 @@ fn generate_command_writes_core_u16_native_pixel_case() {
         .expect("manifest should contain skipped cases");
     assert_eq!(
         skipped_cases.len(),
-        14,
-        "core generation should report the Phase 0 planned rows without reducing generated coverage"
+        13,
+        "core generation should report the remaining planned rows without reducing generated coverage"
     );
 
     let dcm_path = out_dir.join("classic/sc/mono2_u16_explicit_le/instance.dcm");
@@ -7176,7 +7176,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\tall"));
-    let expected_all_files = 99
+    let expected_all_files = 102
         + if cfg!(feature = "deflate") { 2 } else { 0 }
         + if cfg!(feature = "jpeg") { 1 } else { 0 }
         + if cfg!(feature = "charls") { 1 } else { 0 }
@@ -7338,6 +7338,15 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
         "all profile should include every file in the multi-instance MR case"
     );
     assert_eq!(
+        file_entries_by_case_id(
+            &manifest,
+            "geometry/ct/spatial_sort_conflicts_instance_number"
+        )
+        .len(),
+        3,
+        "all profile should include every file in the CT sorting-conflict series"
+    );
+    assert_eq!(
         file_entries_by_case_id(&manifest, "enhanced/ct/concatenation_two_part_explicit_le").len(),
         2,
         "all profile should include both Enhanced CT concatenation members"
@@ -7349,7 +7358,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
         .expect("manifest should contain skipped cases");
     assert_eq!(
         skipped_cases.len(),
-        61 - if cfg!(feature = "deflate") { 2 } else { 0 }
+        60 - if cfg!(feature = "deflate") { 2 } else { 0 }
             - if cfg!(feature = "jpeg") { 1 } else { 0 }
             - if cfg!(feature = "charls") { 1 } else { 0 }
             - if cfg!(feature = "jpegxl") { 1 } else { 0 }

@@ -11,6 +11,261 @@ use crate::sha256_hex;
 
 pub const DEFAULT_VALIDATOR_CONFIG: &str = "conformance/validators.json";
 pub const DEFAULT_VALIDATOR_LOCK: &str = "conformance/validator-lock.json";
+pub const DEFAULT_ACCEPTED_FINDINGS: &str = "conformance/accepted-findings.json";
+
+pub fn verify_conformance(
+    evidence_root: impl AsRef<Path>,
+    allowlist_path: impl AsRef<Path>,
+) -> Result<Value, String> {
+    let evidence_root = evidence_root.as_ref();
+    let evidence = read_json(&evidence_root.join("conformance-run.json"))?;
+    let allowlist = read_json(allowlist_path.as_ref())?;
+    let run_schema = read_json(Path::new("schemas/conformance-run.schema.json"))?;
+    let allowlist_schema = read_json(Path::new(
+        "schemas/conformance-accepted-findings.schema.json",
+    ))?;
+    let mut failures = Vec::new();
+    validate_schema(&run_schema, &evidence, "evidence", &mut failures)?;
+    validate_schema(&allowlist_schema, &allowlist, "allowlist", &mut failures)?;
+    if !failures.is_empty() {
+        return Ok(json!({ "valid": false, "accepted_findings": 0, "failures": failures }));
+    }
+    verify_manifest(evidence_root, &evidence, &mut failures);
+    verify_tools(&evidence, &mut failures);
+    verify_artifacts(evidence_root, &evidence, &mut failures);
+    verify_completeness(evidence_root, &evidence, &mut failures);
+    let accepted = verify_findings(&evidence, &allowlist, &mut failures);
+    Ok(json!({
+        "valid": failures.is_empty(),
+        "accepted_findings": accepted,
+        "failures": failures
+    }))
+}
+
+fn validate_schema(
+    schema: &Value,
+    instance: &Value,
+    label: &str,
+    failures: &mut Vec<String>,
+) -> Result<(), String> {
+    let validator = jsonschema::validator_for(schema)
+        .map_err(|error| format!("failed to compile {label} schema: {error}"))?;
+    failures.extend(
+        validator
+            .iter_errors(instance)
+            .map(|error| format!("{label} schema: {error}")),
+    );
+    Ok(())
+}
+
+fn verify_manifest(evidence_root: &Path, evidence: &Value, failures: &mut Vec<String>) {
+    let Some(relative) = evidence
+        .pointer("/source/manifest_path")
+        .and_then(Value::as_str)
+    else {
+        return;
+    };
+    if validate_relative_path(relative).is_err() {
+        failures.push("source manifest path is not safely relative".to_string());
+        return;
+    }
+    match fs::read(evidence_root.join(relative)) {
+        Ok(bytes) => {
+            let actual = sha256_hex(&bytes);
+            if evidence
+                .pointer("/source/manifest_sha256")
+                .and_then(Value::as_str)
+                != Some(actual.as_str())
+            {
+                failures.push("source manifest hash mismatch".to_string());
+            }
+        }
+        Err(error) => failures.push(format!("source manifest unavailable: {error}")),
+    }
+}
+
+fn verify_tools(evidence: &Value, failures: &mut Vec<String>) {
+    for tool in evidence["tools"].as_array().into_iter().flatten() {
+        if tool["required"].as_bool() == Some(true) {
+            let id = tool["adapter_id"].as_str().unwrap_or("unknown");
+            if tool["status"] != "available" {
+                failures.push(format!("required tool {id} is not available"));
+            }
+            if tool["lock_status"] != "matched" {
+                failures.push(format!("required tool {id} does not match its lock"));
+            }
+            if tool["sha256"].as_str().is_none() {
+                failures.push(format!("required tool {id} has no fingerprint"));
+            }
+        }
+    }
+}
+
+fn verify_artifacts(evidence_root: &Path, evidence: &Value, failures: &mut Vec<String>) {
+    for result in all_results(evidence) {
+        for stream in ["stdout", "stderr"] {
+            let Some(relative) = result[stream]["path"].as_str() else {
+                continue;
+            };
+            if validate_relative_path(relative).is_err() {
+                failures.push(format!("unsafe raw artifact path: {relative}"));
+                continue;
+            }
+            match fs::read(evidence_root.join(relative)) {
+                Ok(bytes) => {
+                    let actual = sha256_hex(&bytes);
+                    if result[stream]["sha256"].as_str() != Some(actual.as_str()) {
+                        failures.push(format!("raw artifact hash mismatch: {relative}"));
+                    }
+                }
+                Err(error) => {
+                    failures.push(format!("raw artifact unavailable {relative}: {error}"))
+                }
+            }
+        }
+    }
+}
+
+fn verify_completeness(evidence_root: &Path, evidence: &Value, failures: &mut Vec<String>) {
+    let Some(relative) = evidence
+        .pointer("/source/manifest_path")
+        .and_then(Value::as_str)
+    else {
+        return;
+    };
+    let manifest = fs::read(evidence_root.join(relative))
+        .ok()
+        .and_then(|bytes| serde_json::from_slice::<Value>(&bytes).ok());
+    let manifest_paths = manifest
+        .as_ref()
+        .and_then(|value| value["files"].as_array())
+        .map(|files| {
+            files
+                .iter()
+                .filter_map(|file| file["path"].as_str())
+                .collect::<std::collections::BTreeSet<_>>()
+        })
+        .unwrap_or_default();
+    let evidence_paths = evidence["instances"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|instance| instance["path"].as_str())
+        .collect::<std::collections::BTreeSet<_>>();
+    if manifest_paths != evidence_paths {
+        failures.push("instance evidence is incomplete for the source manifest".to_string());
+    }
+    for instance in evidence["instances"].as_array().into_iter().flatten() {
+        let path = instance["path"].as_str().unwrap_or("unknown");
+        let primary = instance["results"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .find(|result| result["role"] == "primary_iod_validator");
+        if primary.is_none_or(|result| result["status"] != "completed") {
+            failures.push(format!("primary validation incomplete: {path}"));
+        }
+    }
+    if evidence["entity"]["status"] != "completed" {
+        failures.push("corpus entity validation is incomplete".to_string());
+    }
+}
+
+fn verify_findings(evidence: &Value, allowlist: &Value, failures: &mut Vec<String>) -> usize {
+    let entries = allowlist["findings"]
+        .as_array()
+        .cloned()
+        .unwrap_or_default();
+    let mut matched = vec![false; entries.len()];
+    let mut accepted = 0;
+    let now = rfc3339_now();
+    let today = &now[..10];
+    for (instance, result, finding) in instance_findings(evidence) {
+        let severity = finding["severity"].as_str().unwrap_or("unknown");
+        if severity == "info" || severity == "unsupported" {
+            continue;
+        }
+        let fingerprint = evidence["tools"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .find(|tool| tool["adapter_id"] == result["adapter_id"])
+            .and_then(|tool| tool["sha256"].as_str());
+        let found = entries.iter().enumerate().find(|(_, entry)| {
+            entry["validator_adapter_id"] == result["adapter_id"]
+                && entry["validator_fingerprint"].as_str() == fingerprint
+                && entry["case_id"] == instance["case_id"]
+                && entry
+                    .get("path")
+                    .is_none_or(|path| path == &instance["path"])
+                && entry["message_fingerprint"] == finding["message_fingerprint"]
+                && entry["original_severity"] == finding["severity"]
+                && entry
+                    .get("rule_id")
+                    .is_none_or(|rule| rule == &finding["rule_id"])
+                && entry["expires_on"]
+                    .as_str()
+                    .is_none_or(|expiry| expiry >= today)
+        });
+        if let Some((index, _)) = found {
+            matched[index] = true;
+            accepted += 1;
+        } else {
+            failures.push(format!(
+                "unresolved {severity} for {}: {}",
+                instance["path"].as_str().unwrap_or("unknown"),
+                finding["message"].as_str().unwrap_or("unknown finding")
+            ));
+        }
+    }
+    for finding in evidence["entity"]["findings"]
+        .as_array()
+        .into_iter()
+        .flatten()
+    {
+        let severity = finding["severity"].as_str().unwrap_or("unknown");
+        if !matches!(severity, "info" | "unsupported") {
+            failures.push(format!(
+                "unresolved entity {severity}: {}",
+                finding["message"].as_str().unwrap_or("unknown finding")
+            ));
+        }
+    }
+    for (index, entry) in entries.iter().enumerate() {
+        if entry["expires_on"]
+            .as_str()
+            .is_some_and(|expiry| expiry < today)
+        {
+            failures.push(format!("expired disposition at allowlist index {index}"));
+        } else if !matched[index] {
+            failures.push(format!("stale disposition at allowlist index {index}"));
+        }
+    }
+    accepted
+}
+
+fn all_results(evidence: &Value) -> Vec<&Value> {
+    let mut results = evidence["instances"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .flat_map(|instance| instance["results"].as_array().into_iter().flatten())
+        .collect::<Vec<_>>();
+    results.push(&evidence["entity"]);
+    results
+}
+
+fn instance_findings(evidence: &Value) -> Vec<(&Value, &Value, &Value)> {
+    let mut findings = Vec::new();
+    for instance in evidence["instances"].as_array().into_iter().flatten() {
+        for result in instance["results"].as_array().into_iter().flatten() {
+            for finding in result["findings"].as_array().into_iter().flatten() {
+                findings.push((instance, result, finding));
+            }
+        }
+    }
+    findings
+}
 
 pub fn run_conformance(
     generated_root: impl AsRef<Path>,
@@ -50,6 +305,11 @@ pub fn run_conformance(
 
     fs::create_dir_all(evidence_root)
         .map_err(|error| format!("failed to create {}: {error}", evidence_root.display()))?;
+    let source_dir = evidence_root.join("source");
+    fs::create_dir_all(&source_dir)
+        .map_err(|error| format!("failed to create {}: {error}", source_dir.display()))?;
+    fs::write(source_dir.join("manifest.json"), &manifest_bytes)
+        .map_err(|error| format!("failed to preserve source manifest: {error}"))?;
     let mut sorted_files = files.iter().collect::<Vec<_>>();
     sorted_files.sort_by_key(|file| file.get("path").and_then(Value::as_str).unwrap_or(""));
     let mut instances = Vec::with_capacity(sorted_files.len());
@@ -91,7 +351,7 @@ pub fn run_conformance(
         "created_at": rfc3339_now(),
         "repository": repository,
         "source": {
-            "manifest_path": "manifest.json",
+            "manifest_path": "source/manifest.json",
             "manifest_sha256": manifest_sha256
         },
         "generator": {

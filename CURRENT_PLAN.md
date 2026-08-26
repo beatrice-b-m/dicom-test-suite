@@ -3,7 +3,7 @@
 **Last updated:** 2026-08-26
 **Active goal:** implement independent conformance evidence collection
 **Source specification:** `SYSTEM_SPEC.md` version 0.2.0
-**Planning status:** conformance Phases 0-4 complete; strict verification next
+**Planning status:** conformance Phases 0-5 complete; parser evidence next
 
 ## Independent Conformance Framework
 
@@ -37,8 +37,14 @@ file list and invokes `dcentvfy -f`, avoiding command-line limits and preserving
 paths containing spaces. Corpus findings and raw streams remain separate from
 per-instance evidence.
 
-Recommended next step: implement strict schema, hash, fingerprint, completeness,
-raw-artifact, and exact-disposition verification.
+Phase 5 is complete: strict verification applies both full JSON Schemas, checks
+the preserved source manifest and every raw-log hash, requires matched locks and
+complete primary/entity results, and accepts only exact, current finding
+dispositions. Unknown warnings, operational failures, stale/expired entries,
+and evidence corruption fail verification.
+
+Recommended next step: execute the independent `dcmdump` parser adapter for
+every manifest instance and make unexplained parser gaps fail verification.
 
 This document replaces the previous historical implementation plan and progress
 ledger. `SYSTEM_SPEC.md` remains the architecture and requirements source of

@@ -99,7 +99,49 @@ fn run() -> Result<(), String> {
                     Ok(())
                 }
                 "verify" => {
-                    Err("conformance verify is not implemented in the current phase".to_string())
+                    let evidence_root = args.next().ok_or_else(|| {
+                        "conformance verify requires an evidence root path".to_string()
+                    })?;
+                    let mut allowlist =
+                        String::from(dicom_test_suite::conformance::DEFAULT_ACCEPTED_FINDINGS);
+                    while let Some(arg) = args.next() {
+                        match arg.as_str() {
+                            "--allowlist" => {
+                                allowlist = args
+                                    .next()
+                                    .ok_or_else(|| "--allowlist requires a path".to_string())?;
+                            }
+                            "--help" | "-h" => {
+                                println!(
+                                    "Usage: dicom-test-suite conformance verify EVIDENCE_ROOT [--allowlist PATH]"
+                                );
+                                return Ok(());
+                            }
+                            unknown => {
+                                return Err(format!(
+                                    "unknown conformance verify argument: {unknown}"
+                                ));
+                            }
+                        }
+                    }
+                    let result = dicom_test_suite::conformance::verify_conformance(
+                        evidence_root,
+                        allowlist,
+                    )?;
+                    println!(
+                        "accepted_findings\t{}",
+                        result["accepted_findings"].as_u64().unwrap_or(0)
+                    );
+                    let failures = result["failures"].as_array().cloned().unwrap_or_default();
+                    println!("verification_failures\t{}", failures.len());
+                    for failure in &failures {
+                        println!("failure\t{}", failure.as_str().unwrap_or("unknown"));
+                    }
+                    if failures.is_empty() {
+                        Ok(())
+                    } else {
+                        Err("conformance verification failed".to_string())
+                    }
                 }
                 "--help" | "-h" => {
                     println!("Usage: dicom-test-suite conformance <check-tools|run|verify>");

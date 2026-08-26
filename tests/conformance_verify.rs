@@ -1,0 +1,275 @@
+#![cfg(unix)]
+
+use std::fs;
+use std::os::unix::fs::PermissionsExt;
+use std::path::{Path, PathBuf};
+use std::process::{Command, Output};
+use std::time::{SystemTime, UNIX_EPOCH};
+
+use serde_json::{Value, json};
+
+#[test]
+fn verify_accepts_complete_clean_hash_linked_evidence() {
+    let fixture = Fixture::new("clean");
+    let output = fixture.verify(&fixture.allowlist);
+    assert!(
+        output.status.success(),
+        "{}\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(String::from_utf8_lossy(&output.stdout).contains("verification_failures\t0"));
+}
+
+#[test]
+fn verify_rejects_hash_corruption_tool_gaps_and_incomplete_results() {
+    let fixture = Fixture::new("integrity");
+    let baseline = fixture.evidence_json();
+
+    fs::write(fixture.evidence.join("source/manifest.json"), b"altered").unwrap();
+    fixture.assert_failure("source manifest hash mismatch");
+    fixture.restore(&baseline);
+
+    let raw_path = baseline["instances"][0]["results"][0]["stdout"]["path"]
+        .as_str()
+        .unwrap();
+    fs::write(fixture.evidence.join(raw_path), b"altered").unwrap();
+    fixture.assert_failure("raw artifact hash mismatch");
+    fixture.restore(&baseline);
+
+    let mut evidence = baseline.clone();
+    evidence["tools"][0]["status"] = json!("absent");
+    fixture.write_evidence(&evidence);
+    fixture.assert_failure("required tool");
+    fixture.restore(&baseline);
+
+    let mut evidence = baseline.clone();
+    evidence["instances"].as_array_mut().unwrap().pop();
+    fixture.write_evidence(&evidence);
+    fixture.assert_failure("instance evidence is incomplete");
+}
+
+#[test]
+fn verify_rejects_unknown_warnings_stale_dispositions_and_wildcards() {
+    let fixture = Fixture::new("findings");
+    let mut evidence = fixture.evidence_json();
+    let message = "Warning - test warning without disposition";
+    evidence["instances"][0]["results"][0]["findings"] = json!([{
+        "severity": "warning",
+        "rule_id": null,
+        "message": message,
+        "message_fingerprint": dicom_test_suite::sha256_hex(message.as_bytes()),
+        "dicom_path": null,
+        "disposition": "unresolved"
+    }]);
+    fixture.write_evidence(&evidence);
+    fixture.assert_failure("unresolved warning");
+
+    let tool_hash = evidence["tools"][0]["sha256"].as_str().unwrap();
+    let case_id = evidence["instances"][0]["case_id"].as_str().unwrap();
+    let mut entry = json!({
+        "validator_adapter_id": "primary",
+        "validator_fingerprint": tool_hash,
+        "case_id": case_id,
+        "message_fingerprint": "f".repeat(64),
+        "original_severity": "warning",
+        "disposition": "validator_limitation",
+        "rationale": "This deliberately stale entry exercises strict matching.",
+        "citation": "PS3.3 test citation",
+        "reviewer": "test reviewer",
+        "review_date": "2026-08-26",
+        "recheck_condition": "Recheck whenever the fixture changes"
+    });
+    fs::write(
+        &fixture.allowlist,
+        serde_json::to_vec_pretty(&json!({"schema_version": "0.1.0", "findings": [entry.clone()]}))
+            .unwrap(),
+    )
+    .unwrap();
+    fixture.assert_failure("stale disposition");
+
+    entry["expires_on"] = json!("2020-01-01");
+    fs::write(
+        &fixture.allowlist,
+        serde_json::to_vec_pretty(&json!({"schema_version": "0.1.0", "findings": [entry.clone()]}))
+            .unwrap(),
+    )
+    .unwrap();
+    fixture.assert_failure("expired disposition");
+
+    entry.as_object_mut().unwrap().remove("expires_on");
+    entry["case_id"] = json!("classic/*");
+    fs::write(
+        &fixture.allowlist,
+        serde_json::to_vec_pretty(&json!({"schema_version": "0.1.0", "findings": [entry]}))
+            .unwrap(),
+    )
+    .unwrap();
+    fixture.assert_failure("allowlist schema");
+}
+
+struct Fixture {
+    evidence: PathBuf,
+    allowlist: PathBuf,
+    source_manifest: Vec<u8>,
+    raw_files: Vec<(PathBuf, Vec<u8>)>,
+}
+
+impl Fixture {
+    fn new(label: &str) -> Self {
+        let root = temp_dir(label);
+        let generated = root.join("generated");
+        generate_smoke(&generated);
+        let primary = fake_tool(&root, "primary", "exit 0");
+        let entity = fake_tool(&root, "entity", "exit 0");
+        let config = root.join("validators.json");
+        fs::write(
+            &config,
+            serde_json::to_vec(&json!({
+                "schema_version": "0.1.0",
+                "adapters": [
+                    adapter("primary", "primary_iod_validator", &primary),
+                    adapter("entity", "entity_validator", &entity)
+                ]
+            }))
+            .unwrap(),
+        )
+        .unwrap();
+        let evidence = root.join("evidence");
+        let run = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+            .args(["conformance", "run"])
+            .arg(&generated)
+            .args(["--out"])
+            .arg(&evidence)
+            .args(["--config"])
+            .arg(&config)
+            .output()
+            .unwrap();
+        assert!(run.status.success());
+        let allowlist = root.join("allowlist.json");
+        fs::write(
+            &allowlist,
+            b"{\"schema_version\":\"0.1.0\",\"findings\":[]}",
+        )
+        .unwrap();
+        let mut value: Value =
+            serde_json::from_slice(&fs::read(evidence.join("conformance-run.json")).unwrap())
+                .unwrap();
+        for tool in value["tools"].as_array_mut().unwrap() {
+            tool["lock_status"] = json!("matched");
+        }
+        fs::write(
+            evidence.join("conformance-run.json"),
+            serde_json::to_vec_pretty(&value).unwrap(),
+        )
+        .unwrap();
+        let source_manifest = fs::read(evidence.join("source/manifest.json")).unwrap();
+        let mut raw_files = Vec::new();
+        for result in results(&value) {
+            for stream in ["stdout", "stderr"] {
+                let path = PathBuf::from(result[stream]["path"].as_str().unwrap());
+                raw_files.push((path.clone(), fs::read(evidence.join(path)).unwrap()));
+            }
+        }
+        Self {
+            evidence,
+            allowlist,
+            source_manifest,
+            raw_files,
+        }
+    }
+
+    fn evidence_json(&self) -> Value {
+        serde_json::from_slice(&fs::read(self.evidence.join("conformance-run.json")).unwrap())
+            .unwrap()
+    }
+
+    fn write_evidence(&self, value: &Value) {
+        fs::write(
+            self.evidence.join("conformance-run.json"),
+            serde_json::to_vec_pretty(value).unwrap(),
+        )
+        .unwrap();
+    }
+
+    fn restore(&self, value: &Value) {
+        self.write_evidence(value);
+        fs::write(
+            self.evidence.join("source/manifest.json"),
+            &self.source_manifest,
+        )
+        .unwrap();
+        for (path, bytes) in &self.raw_files {
+            fs::write(self.evidence.join(path), bytes).unwrap();
+        }
+    }
+
+    fn verify(&self, allowlist: &Path) -> Output {
+        Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+            .args(["conformance", "verify"])
+            .arg(&self.evidence)
+            .args(["--allowlist"])
+            .arg(allowlist)
+            .output()
+            .unwrap()
+    }
+
+    fn assert_failure(&self, needle: &str) {
+        let output = self.verify(&self.allowlist);
+        assert!(!output.status.success());
+        assert!(
+            String::from_utf8_lossy(&output.stdout).contains(needle),
+            "expected {needle:?} in {}",
+            String::from_utf8_lossy(&output.stdout)
+        );
+    }
+}
+
+fn results(evidence: &Value) -> Vec<&Value> {
+    let mut results = evidence["instances"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .flat_map(|instance| instance["results"].as_array().unwrap())
+        .collect::<Vec<_>>();
+    results.push(&evidence["entity"]);
+    results
+}
+
+fn adapter(id: &str, role: &str, path: &Path) -> Value {
+    json!({
+        "id": id, "role": role, "executable": path, "arguments": [],
+        "version_arguments": ["--version"], "timeout_seconds": 2,
+        "required": true, "platforms": ["macos"], "capabilities": ["test"]
+    })
+}
+
+fn generate_smoke(root: &Path) {
+    assert!(
+        Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+            .args(["generate", "--profile", "smoke", "--out"])
+            .arg(root)
+            .status()
+            .unwrap()
+            .success()
+    );
+}
+
+fn fake_tool(root: &Path, name: &str, body: &str) -> PathBuf {
+    let path = root.join(name);
+    fs::write(&path, format!("#!/bin/sh\n{body}\n")).unwrap();
+    let mut permissions = fs::metadata(&path).unwrap().permissions();
+    permissions.set_mode(0o755);
+    fs::set_permissions(&path, permissions).unwrap();
+    path
+}
+
+fn temp_dir(label: &str) -> PathBuf {
+    let nonce = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let root = std::env::temp_dir().join(format!("dts-verify-{label}-{nonce}"));
+    fs::create_dir_all(&root).unwrap();
+    root
+}

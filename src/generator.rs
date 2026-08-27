@@ -4401,6 +4401,9 @@ fn write_pixel_case_with_text_metadata(
         &series_instance_uid,
     );
     put_str(&mut obj, tags::SERIES_NUMBER, VR::IS, "1");
+    if text_metadata.is_some() {
+        put_str(&mut obj, tags::LATERALITY, VR::CS, "R");
+    }
 
     if !is_vl_photographic {
         put_str(&mut obj, tags::CONVERSION_TYPE, VR::CS, "SYN");

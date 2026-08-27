@@ -285,6 +285,24 @@
         "enhanced_ct_concatenation_frame_offset_numbers": {
           "$ref": "#/$defs/count_map"
         },
+        "nm_frame_increment_pointers": {
+          "$ref": "#/$defs/count_map"
+        },
+        "nm_energy_window_vectors": {
+          "$ref": "#/$defs/count_map"
+        },
+        "nm_detector_vectors": {
+          "$ref": "#/$defs/count_map"
+        },
+        "nm_energy_window_names": {
+          "$ref": "#/$defs/count_map"
+        },
+        "nm_detector_start_angles_degrees": {
+          "$ref": "#/$defs/count_map"
+        },
+        "nm_frame_dimension_tuples": {
+          "$ref": "#/$defs/count_map"
+        },
         "mr_scanning_sequences": {
           "$ref": "#/$defs/count_map"
         },
@@ -741,6 +759,12 @@
         "enhanced_ct_in_concatenation_number",
         "enhanced_ct_in_concatenation_total_number",
         "enhanced_ct_concatenation_frame_offset_number",
+        "nm_frame_increment_pointers",
+        "nm_energy_window_vector",
+        "nm_detector_vector",
+        "nm_energy_window_names",
+        "nm_detector_start_angles_degrees",
+        "nm_frame_dimension_tuples",
         "mr_scanning_sequence",
         "mr_sequence_variant",
         "mr_acquisition_type",
@@ -1286,6 +1310,24 @@
         "enhanced_ct_concatenation_frame_offset_number": {
           "type": ["integer", "null"],
           "minimum": 0
+        },
+        "nm_frame_increment_pointers": {
+          "type": ["string", "null"]
+        },
+        "nm_energy_window_vector": {
+          "type": ["string", "null"]
+        },
+        "nm_detector_vector": {
+          "type": ["string", "null"]
+        },
+        "nm_energy_window_names": {
+          "type": ["string", "null"]
+        },
+        "nm_detector_start_angles_degrees": {
+          "type": ["string", "null"]
+        },
+        "nm_frame_dimension_tuples": {
+          "type": ["string", "null"]
         },
         "mr_scanning_sequence": {
           "type": ["string", "null"]

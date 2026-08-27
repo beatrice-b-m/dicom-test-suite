@@ -7755,6 +7755,34 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
         "Enhanced CT Concatenation Frame Offset Numbers",
         "/grouped_coverage/enhanced_ct_concatenation_frame_offset_numbers",
     );
+    for (title, pointer) in [
+        (
+            "NM Frame Increment Pointers",
+            "/grouped_coverage/nm_frame_increment_pointers",
+        ),
+        (
+            "NM Energy Window Vectors",
+            "/grouped_coverage/nm_energy_window_vectors",
+        ),
+        (
+            "NM Detector Vectors",
+            "/grouped_coverage/nm_detector_vectors",
+        ),
+        (
+            "NM Energy Window Names",
+            "/grouped_coverage/nm_energy_window_names",
+        ),
+        (
+            "NM Detector Start Angles (degrees)",
+            "/grouped_coverage/nm_detector_start_angles_degrees",
+        ),
+        (
+            "NM Frame Dimension Tuples",
+            "/grouped_coverage/nm_frame_dimension_tuples",
+        ),
+    ] {
+        append_count_map_section(&mut output, report, title, pointer);
+    }
     append_count_map_section(
         &mut output,
         report,
@@ -8277,6 +8305,40 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
         output.push('\n');
     }
 
+    let nm_rows = report
+        .get("coverage_matrix")
+        .and_then(Value::as_array)
+        .map(|rows| {
+            rows.iter()
+                .filter(|row| !row["nm_frame_increment_pointers"].is_null())
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    if !nm_rows.is_empty() {
+        output.push_str("## Nuclear Medicine Multi-frame Expectations\n\n");
+        output.push_str("| Case ID | Frame increment pointers | Energy vector | Detector vector | Energy window names | Detector start angles (degrees) | Frame tuples (frame:window:detector) |\n");
+        output.push_str("|---|---|---|---|---|---|---|\n");
+        for row in nm_rows {
+            output.push_str(&format!(
+                "| {} | {} | {} | {} | {} | {} | {} |\n",
+                markdown_cell(row.get("case_id").and_then(Value::as_str)),
+                markdown_cell(
+                    row.get("nm_frame_increment_pointers")
+                        .and_then(Value::as_str)
+                ),
+                markdown_cell(row.get("nm_energy_window_vector").and_then(Value::as_str)),
+                markdown_cell(row.get("nm_detector_vector").and_then(Value::as_str)),
+                markdown_cell(row.get("nm_energy_window_names").and_then(Value::as_str)),
+                markdown_cell(
+                    row.get("nm_detector_start_angles_degrees")
+                        .and_then(Value::as_str)
+                ),
+                markdown_cell(row.get("nm_frame_dimension_tuples").and_then(Value::as_str))
+            ));
+        }
+        output.push('\n');
+    }
+
     let enhanced_mr_temporal_rows = report
         .get("coverage_matrix")
         .and_then(Value::as_array)
@@ -8662,6 +8724,7 @@ fn generated_coverage_row(
     let codec = file.pointer("/pixel_data/codec");
     let generation_backend = file.pointer("/generation_backend");
     let metadata = metadata_report_fields(file);
+    let nm = nm_multiframe_report_fields(file);
     let mut row = serde_json::json!({
         "case_id": report_str(manifest_path, file, "/case_id", "file case_id must be a string")?,
         "profile": run_profile,
@@ -8849,6 +8912,22 @@ fn generated_coverage_row(
         ),
     ] {
         row_object.insert(field.to_string(), value.unwrap_or(Value::Null));
+    }
+    for (field, value) in [
+        ("nm_frame_increment_pointers", nm.frame_increment_pointers),
+        ("nm_energy_window_vector", nm.energy_window_vector),
+        ("nm_detector_vector", nm.detector_vector),
+        ("nm_energy_window_names", nm.energy_window_names),
+        (
+            "nm_detector_start_angles_degrees",
+            nm.detector_start_angles_degrees,
+        ),
+        ("nm_frame_dimension_tuples", nm.frame_dimension_tuples),
+    ] {
+        row_object.insert(
+            field.to_string(),
+            value.map(Value::from).unwrap_or(Value::Null),
+        );
     }
     for (field, backend_field) in [
         ("generation_backend_id", "backend_id"),
@@ -9753,6 +9832,88 @@ fn generated_coverage_row(
 }
 
 #[derive(Default)]
+struct NmMultiframeReportFields {
+    frame_increment_pointers: Option<String>,
+    energy_window_vector: Option<String>,
+    detector_vector: Option<String>,
+    energy_window_names: Option<String>,
+    detector_start_angles_degrees: Option<String>,
+    frame_dimension_tuples: Option<String>,
+}
+
+fn nm_multiframe_report_fields(file: &Value) -> NmMultiframeReportFields {
+    let Some(expected) = file
+        .get("expected_nm_multiframe")
+        .and_then(Value::as_object)
+    else {
+        return NmMultiframeReportFields::default();
+    };
+
+    let joined_scalars = |field: &str| {
+        expected
+            .get(field)
+            .and_then(Value::as_array)
+            .and_then(|values| {
+                values
+                    .iter()
+                    .map(report_scalar_label)
+                    .collect::<Option<Vec<_>>>()
+            })
+            .map(|values| values.join("; "))
+    };
+    let energy_window_names = expected
+        .get("energy_windows")
+        .and_then(Value::as_array)
+        .and_then(|windows| {
+            windows
+                .iter()
+                .map(|window| window.get("name").and_then(Value::as_str))
+                .collect::<Option<Vec<_>>>()
+        })
+        .map(|names| names.join("; "));
+    let detector_start_angles_degrees = expected
+        .get("detectors")
+        .and_then(Value::as_array)
+        .and_then(|detectors| {
+            detectors
+                .iter()
+                .map(|detector| {
+                    detector
+                        .get("start_angle_degrees")
+                        .and_then(report_scalar_label)
+                })
+                .collect::<Option<Vec<_>>>()
+        })
+        .map(|angles| angles.join("; "));
+    let frame_dimension_tuples = expected
+        .get("frame_dimensions")
+        .and_then(Value::as_array)
+        .and_then(|frames| {
+            frames
+                .iter()
+                .map(|frame| {
+                    Some(format!(
+                        "{}:{}:{}",
+                        frame.get("frame_number")?.as_u64()?,
+                        frame.get("energy_window_index")?.as_u64()?,
+                        frame.get("detector_index")?.as_u64()?,
+                    ))
+                })
+                .collect::<Option<Vec<_>>>()
+        })
+        .map(|tuples| tuples.join("; "));
+
+    NmMultiframeReportFields {
+        frame_increment_pointers: joined_scalars("frame_increment_pointers"),
+        energy_window_vector: joined_scalars("energy_window_vector"),
+        detector_vector: joined_scalars("detector_vector"),
+        energy_window_names,
+        detector_start_angles_degrees,
+        frame_dimension_tuples,
+    }
+}
+
+#[derive(Default)]
 struct MetadataReportFields {
     specific_character_sets: Option<String>,
     person_name: Option<String>,
@@ -10641,6 +10802,12 @@ fn skipped_coverage_row(
         "metadata_sequence_item_length_encoding",
         "metadata_sequence_item_delimitation_present",
         "metadata_sequence_decoded_code",
+        "nm_frame_increment_pointers",
+        "nm_energy_window_vector",
+        "nm_detector_vector",
+        "nm_energy_window_names",
+        "nm_detector_start_angles_degrees",
+        "nm_frame_dimension_tuples",
     ] {
         row_object.insert(field.to_string(), Value::Null);
     }
@@ -11029,6 +11196,12 @@ struct GroupedCoverage {
     enhanced_ct_in_concatenation_numbers: BTreeMap<String, usize>,
     enhanced_ct_in_concatenation_total_numbers: BTreeMap<String, usize>,
     enhanced_ct_concatenation_frame_offset_numbers: BTreeMap<String, usize>,
+    nm_frame_increment_pointers: BTreeMap<String, usize>,
+    nm_energy_window_vectors: BTreeMap<String, usize>,
+    nm_detector_vectors: BTreeMap<String, usize>,
+    nm_energy_window_names: BTreeMap<String, usize>,
+    nm_detector_start_angles_degrees: BTreeMap<String, usize>,
+    nm_frame_dimension_tuples: BTreeMap<String, usize>,
     mr_scanning_sequences: BTreeMap<String, usize>,
     mr_sequence_variants: BTreeMap<String, usize>,
     mr_acquisition_types: BTreeMap<String, usize>,
@@ -11399,6 +11572,28 @@ impl GroupedCoverage {
         }
         if let Some(geometry) = geometry_bucket(row) {
             *self.geometries.entry(geometry).or_default() += 1;
+        }
+        for (map, field) in [
+            (
+                &mut self.nm_frame_increment_pointers,
+                "nm_frame_increment_pointers",
+            ),
+            (
+                &mut self.nm_energy_window_vectors,
+                "nm_energy_window_vector",
+            ),
+            (&mut self.nm_detector_vectors, "nm_detector_vector"),
+            (&mut self.nm_energy_window_names, "nm_energy_window_names"),
+            (
+                &mut self.nm_detector_start_angles_degrees,
+                "nm_detector_start_angles_degrees",
+            ),
+            (
+                &mut self.nm_frame_dimension_tuples,
+                "nm_frame_dimension_tuples",
+            ),
+        ] {
+            increment_map(map, row.get(field).and_then(Value::as_str));
         }
         increment_map(
             &mut self.pixel_spacings,
@@ -12218,6 +12413,25 @@ impl GroupedCoverage {
             serde_json::to_value(&self.enhanced_ct_concatenation_frame_offset_numbers)
                 .expect("Enhanced CT concatenation frame offset number count map must serialize"),
         );
+        for (field, map) in [
+            (
+                "nm_frame_increment_pointers",
+                &self.nm_frame_increment_pointers,
+            ),
+            ("nm_energy_window_vectors", &self.nm_energy_window_vectors),
+            ("nm_detector_vectors", &self.nm_detector_vectors),
+            ("nm_energy_window_names", &self.nm_energy_window_names),
+            (
+                "nm_detector_start_angles_degrees",
+                &self.nm_detector_start_angles_degrees,
+            ),
+            ("nm_frame_dimension_tuples", &self.nm_frame_dimension_tuples),
+        ] {
+            grouped_object.insert(
+                field.to_string(),
+                serde_json::to_value(map).expect("NM coverage count map must serialize"),
+            );
+        }
         grouped_object.insert(
             "pixel_spacings".to_string(),
             serde_json::to_value(&self.pixel_spacings)
@@ -13886,6 +14100,81 @@ mod tests {
     use dicom_dictionary_std::uids;
     use dicom_object::{InMemDicomObject, meta::FileMetaTableBuilder};
     use dicom_transfer_syntax_registry::{TransferSyntaxIndex, TransferSyntaxRegistry};
+
+    #[test]
+    fn nuclear_medicine_report_fields_are_exact_grouped_and_rendered() {
+        let file = serde_json::json!({
+            "expected_nm_multiframe": {
+                "frame_increment_pointers": ["0054,0010", "0054,0020"],
+                "energy_window_vector": [1, 1, 2, 2],
+                "detector_vector": [1, 2, 1, 2],
+                "energy_windows": [
+                    { "name": "Tc99m Photopeak" },
+                    { "name": "Tc99m Scatter" }
+                ],
+                "detectors": [
+                    { "start_angle_degrees": 0.0 },
+                    { "start_angle_degrees": 180.0 }
+                ],
+                "frame_dimensions": [
+                    { "frame_number": 1, "energy_window_index": 1, "detector_index": 1 },
+                    { "frame_number": 2, "energy_window_index": 1, "detector_index": 2 },
+                    { "frame_number": 3, "energy_window_index": 2, "detector_index": 1 },
+                    { "frame_number": 4, "energy_window_index": 2, "detector_index": 2 }
+                ]
+            }
+        });
+        let fields = nm_multiframe_report_fields(&file);
+        assert_eq!(
+            fields.frame_increment_pointers.as_deref(),
+            Some("0054,0010; 0054,0020")
+        );
+        assert_eq!(fields.energy_window_vector.as_deref(), Some("1; 1; 2; 2"));
+        assert_eq!(fields.detector_vector.as_deref(), Some("1; 2; 1; 2"));
+        assert_eq!(
+            fields.energy_window_names.as_deref(),
+            Some("Tc99m Photopeak; Tc99m Scatter")
+        );
+        assert_eq!(
+            fields.detector_start_angles_degrees.as_deref(),
+            Some("0.0; 180.0")
+        );
+        assert_eq!(
+            fields.frame_dimension_tuples.as_deref(),
+            Some("1:1:1; 2:1:2; 3:2:1; 4:2:2")
+        );
+
+        let row = serde_json::json!({
+            "case_id": "classic/nm/multiframe_explicit_le",
+            "nm_frame_increment_pointers": fields.frame_increment_pointers,
+            "nm_energy_window_vector": fields.energy_window_vector,
+            "nm_detector_vector": fields.detector_vector,
+            "nm_energy_window_names": fields.energy_window_names,
+            "nm_detector_start_angles_degrees": fields.detector_start_angles_degrees,
+            "nm_frame_dimension_tuples": fields.frame_dimension_tuples
+        });
+        let mut grouped = GroupedCoverage::default();
+        grouped.record(&row);
+        let grouped_json = grouped.to_json();
+        assert_eq!(
+            grouped_json.pointer("/nm_energy_window_vectors/1; 1; 2; 2"),
+            Some(&Value::from(1))
+        );
+        assert_eq!(
+            grouped_json.pointer("/nm_frame_dimension_tuples/1:1:1; 2:1:2; 3:2:1; 4:2:2"),
+            Some(&Value::from(1))
+        );
+
+        let markdown = render_coverage_report_markdown(&serde_json::json!({
+            "coverage_matrix": [row],
+            "grouped_coverage": grouped_json,
+            "gaps": []
+        }));
+        assert!(markdown.contains("## Nuclear Medicine Multi-frame Expectations"));
+        assert!(markdown.contains("0054,0010; 0054,0020"));
+        assert!(markdown.contains("1:1:1; 2:1:2; 3:2:1; 4:2:2"));
+        assert!(markdown.contains("## NM Energy Window Vectors"));
+    }
 
     #[test]
     fn version_banner_uses_package_metadata() {

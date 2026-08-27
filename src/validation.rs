@@ -210,6 +210,29 @@ pub(crate) struct Tid1500Expectations<'a> {
 }
 
 #[derive(Debug, Clone)]
+pub(crate) struct Scoord3dExpectations<'a> {
+    pub sop_class_uid: &'a str,
+    pub sop_instance_uid: &'a str,
+    pub transfer_syntax_uid: &'a str,
+    pub implementation_class_uid: &'a str,
+    pub synthetic_data: &'a str,
+    pub modality: &'a str,
+    pub completion_flag: &'a str,
+    pub verification_flag: &'a str,
+    pub preliminary_flag: &'a str,
+    pub referenced_study_instance_uid: &'a str,
+    pub observer_uid: &'a str,
+    pub tracking_identifier: &'a str,
+    pub tracking_uid: &'a str,
+    pub frame_of_reference_uid: &'a str,
+    pub fiducial_uid: &'a str,
+    pub source_series_instance_uid: &'a str,
+    pub source_sop_class_uid: &'a str,
+    pub source_sop_instance_uid: &'a str,
+    pub source_frame_numbers: &'a [u16],
+}
+
+#[derive(Debug, Clone)]
 pub(crate) struct KeyObjectReferenceExpectations<'a> {
     pub referenced_series_instance_uid: &'a str,
     pub referenced_sop_class_uid: &'a str,
@@ -2453,6 +2476,14 @@ pub(crate) fn validate_tid1500_file(
         "DCM",
         "Imaging Measurement Report",
     )?;
+    check_equal(
+        &mut internal,
+        "scoord3d_root_template_count",
+        "Root contains exactly one Content Template Sequence item.",
+        "Root Content Template Sequence cardinality differs from the contract.",
+        sequence_item_count(path, &obj, tags::CONTENT_TEMPLATE_SEQUENCE)?,
+        1,
+    );
     let root_template = top_level_sequence_item(path, &obj, tags::CONTENT_TEMPLATE_SEQUENCE, 0)?;
     check_equal(
         &mut internal,
@@ -2600,6 +2631,14 @@ pub(crate) fn validate_tid1500_file(
         "DCM",
         "Measurement Group",
     )?;
+    check_equal(
+        &mut internal,
+        "scoord3d_measurement_group_template_count",
+        "Measurement Group contains exactly one Content Template Sequence item.",
+        "Measurement Group Content Template Sequence cardinality differs from the contract.",
+        item_sequence_item_count(path, group, tags::CONTENT_TEMPLATE_SEQUENCE)?,
+        1,
+    );
     let group_template = item_sequence_item(path, group, tags::CONTENT_TEMPLATE_SEQUENCE, 0)?;
     check_equal(
         &mut internal,
@@ -2912,6 +2951,628 @@ pub(crate) fn validate_tid1500_file(
                     "name": "tid1500_measurement_report",
                     "status": "passed",
                     "message": "TID 1500, TID 1411, measurement, SEG/source references, and evidence closure match the recipe."
+                }
+            ],
+            "external": []
+        }),
+    })
+}
+
+pub(crate) fn validate_scoord3d_file(
+    path: &Path,
+    expected: &Scoord3dExpectations<'_>,
+) -> Result<ValidatedPart10, GenerateError> {
+    let bytes = fs::read(path).map_err(|source| GenerateError::ReadGeneratedFile {
+        path: path.to_path_buf(),
+        source,
+    })?;
+    let obj = open_file(path).map_err(|err| GenerateError::ValidateDicomFile {
+        path: path.to_path_buf(),
+        message: err.to_string(),
+    })?;
+    let mut internal = Vec::new();
+
+    check(
+        &mut internal,
+        bytes.len() >= 132 && &bytes[128..132] == b"DICM",
+        "scoord3d_part10_preamble",
+        "SCOORD3D report has a Part 10 preamble and DICM marker.",
+        "SCOORD3D report is missing its Part 10 preamble or DICM marker.",
+    );
+    check_equal(
+        &mut internal,
+        "scoord3d_file_meta_transfer_syntax",
+        "File Meta Information Transfer Syntax UID matches the recipe.",
+        "File Meta Information Transfer Syntax UID does not match the recipe.",
+        trim_uid(obj.meta().transfer_syntax()).as_str(),
+        expected.transfer_syntax_uid,
+    );
+    let dataset_sop_class = element_str(path, &obj, tags::SOP_CLASS_UID)?;
+    check_equal(
+        &mut internal,
+        "scoord3d_sop_class_uid_consistency",
+        "Dataset, File Meta, and recipe identify Comprehensive 3D SR Storage.",
+        "Dataset, File Meta, or recipe SOP Class UID differs.",
+        dataset_sop_class.as_str(),
+        expected.sop_class_uid,
+    );
+    check_equal(
+        &mut internal,
+        "scoord3d_comprehensive_3d_sr_storage",
+        "SOP Class UID is Comprehensive 3D SR Storage.",
+        "SOP Class UID is not Comprehensive 3D SR Storage.",
+        dataset_sop_class.as_str(),
+        "1.2.840.10008.5.1.4.1.1.88.34",
+    );
+    check_equal(
+        &mut internal,
+        "scoord3d_media_storage_sop_class_uid",
+        "File Meta SOP Class UID matches the dataset.",
+        "File Meta SOP Class UID does not match the dataset.",
+        trim_uid(obj.meta().media_storage_sop_class_uid()).as_str(),
+        dataset_sop_class.as_str(),
+    );
+    let dataset_sop_instance = element_str(path, &obj, tags::SOP_INSTANCE_UID)?;
+    check_equal(
+        &mut internal,
+        "scoord3d_sop_instance_uid_consistency",
+        "Dataset, File Meta, and recipe SOP Instance UIDs match.",
+        "Dataset, File Meta, or recipe SOP Instance UID differs.",
+        dataset_sop_instance.as_str(),
+        expected.sop_instance_uid,
+    );
+    check_equal(
+        &mut internal,
+        "scoord3d_media_storage_sop_instance_uid",
+        "File Meta SOP Instance UID matches the dataset.",
+        "File Meta SOP Instance UID does not match the dataset.",
+        trim_uid(obj.meta().media_storage_sop_instance_uid()).as_str(),
+        dataset_sop_instance.as_str(),
+    );
+    check_equal(
+        &mut internal,
+        "scoord3d_implementation_class_uid",
+        "Implementation Class UID matches the locked backend identity.",
+        "Implementation Class UID does not match the locked backend identity.",
+        trim_uid(obj.meta().implementation_class_uid()).as_str(),
+        expected.implementation_class_uid,
+    );
+    for (name, tag, value) in [
+        (
+            "scoord3d_synthetic_data",
+            tags::SYNTHETIC_DATA,
+            expected.synthetic_data,
+        ),
+        ("scoord3d_modality", tags::MODALITY, expected.modality),
+        (
+            "scoord3d_completion_flag",
+            tags::COMPLETION_FLAG,
+            expected.completion_flag,
+        ),
+        (
+            "scoord3d_verification_flag",
+            tags::VERIFICATION_FLAG,
+            expected.verification_flag,
+        ),
+        (
+            "scoord3d_preliminary_flag",
+            tags::PRELIMINARY_FLAG,
+            expected.preliminary_flag,
+        ),
+    ] {
+        check_equal(
+            &mut internal,
+            name,
+            "SCOORD3D document attribute matches the recipe.",
+            "SCOORD3D document attribute does not match the recipe.",
+            element_str(path, &obj, tag)?.as_str(),
+            value,
+        );
+    }
+    check_equal(
+        &mut internal,
+        "scoord3d_root_value_type",
+        "TID 1500 root Value Type is CONTAINER.",
+        "TID 1500 root Value Type is not CONTAINER.",
+        element_str(path, &obj, tags::VALUE_TYPE)?.as_str(),
+        "CONTAINER",
+    );
+    check_equal(
+        &mut internal,
+        "scoord3d_root_continuity",
+        "TID 1500 root Continuity of Content is CONTINUOUS.",
+        "TID 1500 root Continuity of Content is not CONTINUOUS.",
+        element_str(path, &obj, tags::CONTINUITY_OF_CONTENT)?.as_str(),
+        "CONTINUOUS",
+    );
+    validate_sr_code(
+        &mut internal,
+        path,
+        &obj,
+        tags::CONCEPT_NAME_CODE_SEQUENCE,
+        "scoord3d_document_title",
+        "126000",
+        "DCM",
+        "Imaging Measurement Report",
+    )?;
+    let root_template = top_level_sequence_item(path, &obj, tags::CONTENT_TEMPLATE_SEQUENCE, 0)?;
+    check_equal(
+        &mut internal,
+        "scoord3d_root_mapping_resource",
+        "Root Content Template Sequence identifies DCMR.",
+        "Root Content Template Sequence does not identify DCMR.",
+        item_str(path, root_template, tags::MAPPING_RESOURCE)?.as_str(),
+        "DCMR",
+    );
+    check_equal(
+        &mut internal,
+        "scoord3d_root_template_identifier",
+        "Root Content Template Sequence identifies TID 1500.",
+        "Root Content Template Sequence does not identify TID 1500.",
+        item_str(path, root_template, tags::TEMPLATE_IDENTIFIER)?.as_str(),
+        "1500",
+    );
+    check_equal(
+        &mut internal,
+        "scoord3d_root_content_count",
+        "TID 1500 root contains the exact highdicom content tree.",
+        "TID 1500 root content item count differs from the contract.",
+        sequence_item_count(path, &obj, tags::CONTENT_SEQUENCE)?,
+        8,
+    );
+
+    let language = top_level_sequence_item(path, &obj, tags::CONTENT_SEQUENCE, 0)?;
+    validate_sr_content_item(
+        &mut internal,
+        path,
+        language,
+        "scoord3d_language",
+        "HAS CONCEPT MOD",
+        "CODE",
+        "121049",
+        "DCM",
+        "Language of Content Item and Descendants",
+    )?;
+    validate_sr_code(
+        &mut internal,
+        path,
+        language,
+        tags::CONCEPT_CODE_SEQUENCE,
+        "scoord3d_language_value",
+        "en-US",
+        "RFC5646",
+        "English (United States)",
+    )?;
+    let observer_type = top_level_sequence_item(path, &obj, tags::CONTENT_SEQUENCE, 1)?;
+    validate_sr_content_item(
+        &mut internal,
+        path,
+        observer_type,
+        "scoord3d_observer_type",
+        "HAS OBS CONTEXT",
+        "CODE",
+        "121005",
+        "DCM",
+        "Observer Type",
+    )?;
+    validate_sr_code(
+        &mut internal,
+        path,
+        observer_type,
+        tags::CONCEPT_CODE_SEQUENCE,
+        "scoord3d_observer_type_value",
+        "121007",
+        "DCM",
+        "Device",
+    )?;
+    let observer_uid = top_level_sequence_item(path, &obj, tags::CONTENT_SEQUENCE, 2)?;
+    validate_sr_content_item(
+        &mut internal,
+        path,
+        observer_uid,
+        "scoord3d_observer_uid",
+        "HAS OBS CONTEXT",
+        "UIDREF",
+        "121012",
+        "DCM",
+        "Device Observer UID",
+    )?;
+    check_equal(
+        &mut internal,
+        "scoord3d_observer_uid_value",
+        "Device Observer UID matches the deterministic recipe UID.",
+        "Device Observer UID does not match the deterministic recipe UID.",
+        item_str(path, observer_uid, tags::UID)?.as_str(),
+        expected.observer_uid,
+    );
+    let procedure = top_level_sequence_item(path, &obj, tags::CONTENT_SEQUENCE, 6)?;
+    validate_sr_content_item(
+        &mut internal,
+        path,
+        procedure,
+        "scoord3d_procedure_reported",
+        "HAS CONCEPT MOD",
+        "CODE",
+        "121058",
+        "DCM",
+        "Procedure reported",
+    )?;
+    validate_sr_code(
+        &mut internal,
+        path,
+        procedure,
+        tags::CONCEPT_CODE_SEQUENCE,
+        "scoord3d_procedure_value",
+        "25045-6",
+        "LN",
+        "CT unspecified body region",
+    )?;
+
+    let imaging = top_level_sequence_item(path, &obj, tags::CONTENT_SEQUENCE, 7)?;
+    validate_sr_content_item(
+        &mut internal,
+        path,
+        imaging,
+        "scoord3d_imaging_measurements",
+        "CONTAINS",
+        "CONTAINER",
+        "126010",
+        "DCM",
+        "Imaging Measurements",
+    )?;
+    check_equal(
+        &mut internal,
+        "scoord3d_imaging_measurements_children",
+        "Imaging Measurements contains one Measurement Group.",
+        "Imaging Measurements child count does not match the recipe.",
+        item_sequence_item_count(path, imaging, tags::CONTENT_SEQUENCE)?,
+        1,
+    );
+    let group = item_sequence_item(path, imaging, tags::CONTENT_SEQUENCE, 0)?;
+    validate_sr_content_item(
+        &mut internal,
+        path,
+        group,
+        "scoord3d_measurement_group",
+        "CONTAINS",
+        "CONTAINER",
+        "125007",
+        "DCM",
+        "Measurement Group",
+    )?;
+    let group_template = item_sequence_item(path, group, tags::CONTENT_TEMPLATE_SEQUENCE, 0)?;
+    check_equal(
+        &mut internal,
+        "scoord3d_measurement_group_mapping_resource",
+        "Measurement Group identifies DCMR.",
+        "Measurement Group Mapping Resource does not identify DCMR.",
+        item_str(path, group_template, tags::MAPPING_RESOURCE)?.as_str(),
+        "DCMR",
+    );
+    check_equal(
+        &mut internal,
+        "scoord3d_measurement_group_template_identifier",
+        "Measurement Group identifies TID 1501.",
+        "Measurement Group does not identify TID 1501.",
+        item_str(path, group_template, tags::TEMPLATE_IDENTIFIER)?.as_str(),
+        "1501",
+    );
+    check_equal(
+        &mut internal,
+        "scoord3d_measurement_group_children",
+        "TID 1501 Measurement Group has five ordered content items.",
+        "TID 1501 Measurement Group content item count differs from the recipe.",
+        item_sequence_item_count(path, group, tags::CONTENT_SEQUENCE)?,
+        5,
+    );
+
+    let tracking = item_sequence_item(path, group, tags::CONTENT_SEQUENCE, 0)?;
+    validate_sr_content_item(
+        &mut internal,
+        path,
+        tracking,
+        "scoord3d_tracking_identifier",
+        "HAS OBS CONTEXT",
+        "TEXT",
+        "112039",
+        "DCM",
+        "Tracking Identifier",
+    )?;
+    check_equal(
+        &mut internal,
+        "scoord3d_tracking_identifier_value",
+        "Tracking Identifier matches the recipe.",
+        "Tracking Identifier does not match the recipe.",
+        item_str(path, tracking, tags::TEXT_VALUE)?.as_str(),
+        expected.tracking_identifier,
+    );
+    let tracking_uid = item_sequence_item(path, group, tags::CONTENT_SEQUENCE, 1)?;
+    validate_sr_content_item(
+        &mut internal,
+        path,
+        tracking_uid,
+        "scoord3d_tracking_uid",
+        "HAS OBS CONTEXT",
+        "UIDREF",
+        "112040",
+        "DCM",
+        "Tracking Unique Identifier",
+    )?;
+    check_equal(
+        &mut internal,
+        "scoord3d_tracking_uid_value",
+        "Tracking Unique Identifier matches the recipe.",
+        "Tracking Unique Identifier does not match the recipe.",
+        item_str(path, tracking_uid, tags::UID)?.as_str(),
+        expected.tracking_uid,
+    );
+    let finding = item_sequence_item(path, group, tags::CONTENT_SEQUENCE, 2)?;
+    validate_sr_content_item(
+        &mut internal,
+        path,
+        finding,
+        "scoord3d_finding",
+        "CONTAINS",
+        "CODE",
+        "121071",
+        "DCM",
+        "Finding",
+    )?;
+    validate_sr_code(
+        &mut internal,
+        path,
+        finding,
+        tags::CONCEPT_CODE_SEQUENCE,
+        "scoord3d_finding_value",
+        "123037004",
+        "SCT",
+        "Body structure",
+    )?;
+
+    let measurement = item_sequence_item(path, group, tags::CONTENT_SEQUENCE, 3)?;
+    validate_sr_content_item(
+        &mut internal,
+        path,
+        measurement,
+        "scoord3d_distance_measurement",
+        "CONTAINS",
+        "NUM",
+        "121206",
+        "DCM",
+        "Distance",
+    )?;
+    check_equal(
+        &mut internal,
+        "scoord3d_measured_value_count",
+        "Distance contains exactly one Measured Value Sequence item.",
+        "Distance Measured Value Sequence cardinality differs from the contract.",
+        item_sequence_item_count(path, measurement, tags::MEASURED_VALUE_SEQUENCE)?,
+        1,
+    );
+    let measured_value = item_sequence_item(path, measurement, tags::MEASURED_VALUE_SEQUENCE, 0)?;
+    check_equal(
+        &mut internal,
+        "scoord3d_numeric_value",
+        "Distance Numeric Value is exactly 2.5.",
+        "Distance Numeric Value is not exactly 2.5.",
+        item_str(path, measured_value, tags::NUMERIC_VALUE)?.as_str(),
+        "2.5",
+    );
+    check_equal(
+        &mut internal,
+        "scoord3d_floating_point_value",
+        "Distance Floating Point Value is exactly 2.5.",
+        "Distance Floating Point Value is not exactly 2.5.",
+        item_f64(path, measured_value, tags::FLOATING_POINT_VALUE)?,
+        2.5,
+    );
+    validate_sr_code(
+        &mut internal,
+        path,
+        measured_value,
+        tags::MEASUREMENT_UNITS_CODE_SEQUENCE,
+        "scoord3d_measurement_units",
+        "mm",
+        "UCUM",
+        "millimeter",
+    )?;
+    check_equal(
+        &mut internal,
+        "scoord3d_measurement_children",
+        "Distance measurement contains one SCOORD3D source.",
+        "Distance measurement does not contain exactly one SCOORD3D source.",
+        item_sequence_item_count(path, measurement, tags::CONTENT_SEQUENCE)?,
+        1,
+    );
+    let coordinates = item_sequence_item(path, measurement, tags::CONTENT_SEQUENCE, 0)?;
+    validate_sr_content_item(
+        &mut internal,
+        path,
+        coordinates,
+        "scoord3d_coordinates",
+        "INFERRED FROM",
+        "SCOORD3D",
+        "260753009",
+        "SCT",
+        "Source",
+    )?;
+    check_equal(
+        &mut internal,
+        "scoord3d_graphic_type",
+        "SCOORD3D Graphic Type is POLYLINE.",
+        "SCOORD3D Graphic Type is not POLYLINE.",
+        item_str(path, coordinates, tags::GRAPHIC_TYPE)?.as_str(),
+        "POLYLINE",
+    );
+    check_equal(
+        &mut internal,
+        "scoord3d_graphic_data",
+        "SCOORD3D Graphic Data contains the exact two patient-space endpoints.",
+        "SCOORD3D Graphic Data differs from the derived source geometry.",
+        item_f32_values(path, coordinates, tags::GRAPHIC_DATA)?,
+        vec![0.0_f32, 0.0, 0.0, 0.0, 0.0, 2.5],
+    );
+    check_equal(
+        &mut internal,
+        "scoord3d_frame_of_reference_uid",
+        "SCOORD3D Frame of Reference UID matches the Enhanced CT.",
+        "SCOORD3D Frame of Reference UID does not match the Enhanced CT.",
+        item_str(path, coordinates, tags::REFERENCED_FRAME_OF_REFERENCE_UID)?.as_str(),
+        expected.frame_of_reference_uid,
+    );
+    check_equal(
+        &mut internal,
+        "scoord3d_fiducial_uid",
+        "SCOORD3D Fiducial UID matches the deterministic recipe UID.",
+        "SCOORD3D Fiducial UID does not match the deterministic recipe UID.",
+        item_str(path, coordinates, tags::FIDUCIAL_UID)?.as_str(),
+        expected.fiducial_uid,
+    );
+
+    let source_image = item_sequence_item(path, group, tags::CONTENT_SEQUENCE, 4)?;
+    validate_sr_content_item(
+        &mut internal,
+        path,
+        source_image,
+        "scoord3d_source_image",
+        "CONTAINS",
+        "IMAGE",
+        "121112",
+        "DCM",
+        "Source of Measurement",
+    )?;
+    check_equal(
+        &mut internal,
+        "scoord3d_source_reference_count",
+        "Source of Measurement contains exactly one SOP reference.",
+        "Source of Measurement SOP reference cardinality differs from the contract.",
+        item_sequence_item_count(path, source_image, tags::REFERENCED_SOP_SEQUENCE)?,
+        1,
+    );
+    let source_sop = item_sequence_item(path, source_image, tags::REFERENCED_SOP_SEQUENCE, 0)?;
+    check_sr_reference(
+        &mut internal,
+        path,
+        source_sop,
+        "scoord3d_source_image",
+        expected.source_sop_class_uid,
+        expected.source_sop_instance_uid,
+    )?;
+    let expected_source_frames = expected
+        .source_frame_numbers
+        .iter()
+        .map(|number| i32::from(*number))
+        .collect::<Vec<_>>();
+    check_equal(
+        &mut internal,
+        "scoord3d_source_image_frames",
+        "Source of Measurement references Enhanced CT frames 1 and 2.",
+        "Source of Measurement frame references do not match the recipe.",
+        item_i32_values(path, source_sop, TAG_REFERENCED_FRAME_NUMBER)?,
+        expected_source_frames,
+    );
+
+    check_equal(
+        &mut internal,
+        "scoord3d_evidence_study_count",
+        "Current Requested Procedure Evidence contains exactly one study.",
+        "Current Requested Procedure Evidence does not contain exactly one study.",
+        sequence_item_count(
+            path,
+            &obj,
+            tags::CURRENT_REQUESTED_PROCEDURE_EVIDENCE_SEQUENCE,
+        )?,
+        1,
+    );
+    let evidence = top_level_sequence_item(
+        path,
+        &obj,
+        tags::CURRENT_REQUESTED_PROCEDURE_EVIDENCE_SEQUENCE,
+        0,
+    )?;
+    check_equal(
+        &mut internal,
+        "scoord3d_evidence_study_instance_uid",
+        "Evidence Study Instance UID matches the source study.",
+        "Evidence Study Instance UID does not match the source study.",
+        item_str(path, evidence, tags::STUDY_INSTANCE_UID)?.as_str(),
+        expected.referenced_study_instance_uid,
+    );
+    check_equal(
+        &mut internal,
+        "scoord3d_evidence_series_count",
+        "Evidence contains exactly one Enhanced CT series.",
+        "Evidence does not contain exactly one Enhanced CT series.",
+        item_sequence_item_count(path, evidence, tags::REFERENCED_SERIES_SEQUENCE)?,
+        1,
+    );
+    let evidence_series = item_sequence_item(path, evidence, tags::REFERENCED_SERIES_SEQUENCE, 0)?;
+    check_equal(
+        &mut internal,
+        "scoord3d_evidence_series_instance_uid",
+        "Evidence series identity matches the Enhanced CT.",
+        "Evidence series identity does not match the Enhanced CT.",
+        item_str(path, evidence_series, tags::SERIES_INSTANCE_UID)?.as_str(),
+        expected.source_series_instance_uid,
+    );
+    check_equal(
+        &mut internal,
+        "scoord3d_evidence_sop_count",
+        "Evidence series contains exactly one SOP reference.",
+        "Evidence series SOP reference count does not match the recipe.",
+        item_sequence_item_count(path, evidence_series, tags::REFERENCED_SOP_SEQUENCE)?,
+        1,
+    );
+    let evidence_sop = item_sequence_item(path, evidence_series, tags::REFERENCED_SOP_SEQUENCE, 0)?;
+    check_sr_reference(
+        &mut internal,
+        path,
+        evidence_sop,
+        "scoord3d_evidence",
+        expected.source_sop_class_uid,
+        expected.source_sop_instance_uid,
+    )?;
+
+    for (name, tag) in [
+        ("scoord3d_integer_pixel_data_absent", tags::PIXEL_DATA),
+        ("scoord3d_float_pixel_data_absent", tags::FLOAT_PIXEL_DATA),
+        (
+            "scoord3d_double_float_pixel_data_absent",
+            tags::DOUBLE_FLOAT_PIXEL_DATA,
+        ),
+    ] {
+        check(
+            &mut internal,
+            obj.element_opt(tag)
+                .map_err(|err| validation_error(path, err))?
+                .is_none(),
+            name,
+            "Structured Report contains no pixel payload.",
+            "Structured Report unexpectedly contains pixel payload.",
+        );
+    }
+
+    fail_if_any_failed(path, &internal)?;
+    Ok(ValidatedPart10 {
+        bytes,
+        validation: serde_json::json!({
+            "status": "passed",
+            "internal": internal,
+            "standards": [
+                {
+                    "name": standard_sop_class_validation_name(expected.sop_class_uid),
+                    "status": "passed",
+                    "message": standard_sop_class_validation_message(expected.sop_class_uid)
+                },
+                {
+                    "name": standard_transfer_syntax_validation_name(expected.transfer_syntax_uid),
+                    "status": "passed",
+                    "message": standard_transfer_syntax_validation_message(expected.transfer_syntax_uid)
+                },
+                {
+                    "name": "comprehensive_3d_sr_scoord3d",
+                    "status": "passed",
+                    "message": "TID 1500, TID 1501, distance measurement, SCOORD3D geometry, source reference, and evidence closure match the recipe."
                 }
             ],
             "external": []
@@ -8983,6 +9644,14 @@ fn item_f64(path: &Path, obj: &DatasetObject, tag: Tag) -> Result<f64, GenerateE
         .map_err(|err| validation_error(path, err))?
         .value()
         .to_float64()
+        .map_err(|err| validation_error(path, err))
+}
+
+fn item_f32_values(path: &Path, obj: &DatasetObject, tag: Tag) -> Result<Vec<f32>, GenerateError> {
+    obj.element(tag)
+        .map_err(|err| validation_error(path, err))?
+        .value()
+        .to_multi_float32()
         .map_err(|err| validation_error(path, err))
 }
 

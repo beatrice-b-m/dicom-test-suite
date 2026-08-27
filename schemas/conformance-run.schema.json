@@ -190,8 +190,47 @@
         "evidence": { "anyOf": [{ "$ref": "#/$defs/artifact" }, { "type": "null" }] }
       }
     },
+    "waveform": {
+      "type": "object", "additionalProperties": false,
+      "required": [
+        "adapter_id", "status", "independence", "expected_payload_sha256",
+        "actual_payload_sha256", "expected_channel_sha256",
+        "actual_channel_sha256", "reason", "evidence"
+      ],
+      "properties": {
+        "adapter_id": { "const": "pydicom-dicom-validator-waveform" },
+        "status": { "enum": ["passed", "failed", "unsupported"] },
+        "independence": { "const": "independent" },
+        "expected_payload_sha256": { "$ref": "#/$defs/sha256" },
+        "actual_payload_sha256": {
+          "anyOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }]
+        },
+        "expected_channel_sha256": {
+          "type": "array", "minItems": 12, "maxItems": 12,
+          "items": { "$ref": "#/$defs/sha256" }
+        },
+        "actual_channel_sha256": {
+          "type": "array", "maxItems": 12,
+          "items": { "$ref": "#/$defs/sha256" }
+        },
+        "reason": { "type": "string", "minLength": 1 },
+        "evidence": { "anyOf": [{ "$ref": "#/$defs/artifact" }, { "type": "null" }] }
+      }
+    },
     "instance": {
       "type": "object", "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "case_id": { "const": "non-image/waveform/twelve_lead_ecg" }
+            },
+            "required": ["case_id"]
+          },
+          "then": { "required": ["waveform"] },
+          "else": { "not": { "required": ["waveform"] } }
+        }
+      ],
       "required": ["stable_instance_key", "case_id", "path", "sop_class_uid", "transfer_syntax_uid", "results", "pixel"],
       "properties": {
         "stable_instance_key": { "$ref": "#/$defs/sha256" },
@@ -201,7 +240,8 @@
         "transfer_syntax_uid": { "type": "string", "pattern": "^[0-9]+(?:\\.[0-9]+)+$" },
         "results": { "type": "array", "items": { "$ref": "#/$defs/result" } },
         "pixel": { "$ref": "#/$defs/pixel" },
-        "icc": { "$ref": "#/$defs/icc" }
+        "icc": { "$ref": "#/$defs/icc" },
+        "waveform": { "$ref": "#/$defs/waveform" }
       }
     },
     "summary": {

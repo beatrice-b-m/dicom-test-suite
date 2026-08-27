@@ -17,6 +17,7 @@ const PIXELMED_SR_VALIDATOR_ID: &str = "pixelmed-sr-validator";
 const REGISTRATION_SECONDARY_VALIDATOR_ID: &str = "pydicom-dicom-validator-registration";
 const PRESENTATION_STATE_SECONDARY_VALIDATOR_ID: &str =
     "pydicom-dicom-validator-presentation-state";
+const WAVEFORM_VALIDATOR_ID: &str = "pydicom-dicom-validator-waveform";
 
 pub fn verify_conformance(
     evidence_root: impl AsRef<Path>,
@@ -164,6 +165,21 @@ fn verify_artifacts(evidence_root: &Path, evidence: &Value, failures: &mut Vec<S
             continue;
         };
         verify_hash_linked_artifact(evidence_root, artifact, "ICC profile evidence", failures);
+    }
+    for instance in evidence["instances"].as_array().into_iter().flatten() {
+        let Some(artifact) = instance
+            .get("waveform")
+            .and_then(|waveform| waveform.get("evidence"))
+            .filter(|value| !value.is_null())
+        else {
+            continue;
+        };
+        verify_hash_linked_artifact(
+            evidence_root,
+            artifact,
+            "waveform payload evidence",
+            failures,
+        );
     }
     if let Some(projection) = evidence["entity"].get("input_projection") {
         verify_hash_linked_artifact(
@@ -420,6 +436,53 @@ fn verify_completeness(evidence_root: &Path, evidence: &Value, failures: &mut Ve
                     "required presentation-state secondary IOD validation incomplete: {path}"
                 ));
             }
+        }
+        if requires_waveform_validation(case_id) {
+            let waveform_tool = evidence["tools"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .find(|tool| tool["adapter_id"] == WAVEFORM_VALIDATOR_ID);
+            if waveform_tool.is_none_or(|tool| tool["status"] != "available") {
+                failures.push(format!(
+                    "required waveform secondary IOD validator is unavailable for {path}"
+                ));
+            }
+            if waveform_tool.is_none_or(|tool| tool["lock_status"] != "matched") {
+                failures.push(format!(
+                    "required waveform secondary IOD validator is unlocked for {path}"
+                ));
+            }
+            let secondary = instance["results"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .find(|result| {
+                    result["role"] == "secondary_iod_validator"
+                        && result["adapter_id"] == WAVEFORM_VALIDATOR_ID
+                });
+            if secondary.is_none_or(|result| result["status"] != "completed") {
+                failures.push(format!(
+                    "required waveform secondary IOD validation incomplete: {path}"
+                ));
+            }
+            let manifest_file = manifest
+                .as_ref()
+                .and_then(|value| value["files"].as_array())
+                .into_iter()
+                .flatten()
+                .find(|file| file["path"] == path);
+            if let Some(manifest_file) = manifest_file {
+                verify_waveform_evidence(
+                    evidence_root,
+                    evidence,
+                    instance,
+                    manifest_file,
+                    failures,
+                );
+            }
+        } else if instance.get("waveform").is_some() {
+            failures.push(format!("waveform payload evidence is out of scope: {path}"));
         }
         if requires_pixelmed_sr_validation(case_id) {
             let pixelmed_tool = evidence["tools"]
@@ -1062,6 +1125,145 @@ fn verify_icc_profile_evidence(
     }
 }
 
+fn verify_waveform_evidence(
+    evidence_root: &Path,
+    evidence: &Value,
+    instance: &Value,
+    manifest_file: &Value,
+    failures: &mut Vec<String>,
+) {
+    let path = instance["path"].as_str().unwrap_or("unknown");
+    let Some(waveform) = instance.get("waveform") else {
+        failures.push(format!(
+            "independent waveform payload evidence is missing: {path}"
+        ));
+        return;
+    };
+    if waveform["status"] != "passed" || waveform["independence"] != "independent" {
+        failures.push(format!(
+            "independent waveform payload evidence failed: {path}"
+        ));
+        return;
+    }
+    let Some(relative) = waveform.pointer("/evidence/path").and_then(Value::as_str) else {
+        failures.push(format!(
+            "waveform payload evidence sidecar is missing: {path}"
+        ));
+        return;
+    };
+    if validate_relative_path(relative).is_err() {
+        failures.push(format!(
+            "waveform payload evidence sidecar path is unsafe: {path}"
+        ));
+        return;
+    }
+    let Ok(bytes) = fs::read(evidence_root.join(relative)) else {
+        failures.push(format!(
+            "waveform payload evidence sidecar is unavailable: {path}"
+        ));
+        return;
+    };
+    let Ok(sidecar) = serde_json::from_slice::<Value>(&bytes) else {
+        failures.push(format!(
+            "waveform payload evidence sidecar is invalid JSON: {path}"
+        ));
+        return;
+    };
+    let tool = evidence["tools"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .find(|tool| tool["adapter_id"] == WAVEFORM_VALIDATOR_ID);
+    let expected = &manifest_file["expected_waveform"];
+    let actual = &sidecar["actual"];
+    let expected_channels = expected["channels"].as_array().cloned().unwrap_or_default();
+    let actual_channels = actual["channel_definitions"]
+        .as_array()
+        .cloned()
+        .unwrap_or_default();
+    let expected_hashes = expected["storage"]["channel_sha256"]
+        .as_array()
+        .cloned()
+        .unwrap_or_default();
+    let channels_match = expected_channels.len() == actual_channels.len()
+        && expected_channels.len() == expected_hashes.len()
+        && expected_channels
+            .iter()
+            .zip(&actual_channels)
+            .zip(&expected_hashes)
+            .all(|((expected, actual), expected_hash)| {
+                actual["channel_number"] == expected["ordinal"]
+                    && actual["label"] == expected["label"]
+                    && actual["source"] == expected["source"]
+                    && actual["sensitivity"] == expected["sensitivity"]
+                    && actual["sensitivity_unit"] == expected["sensitivity_units"]
+                    && actual["correction_factor"] == expected["sensitivity_correction_factor"]
+                    && actual["baseline"] == expected["baseline"]
+                    && actual["bits_stored"] == expected["bits_stored"]
+                    && actual["time_skew"] == expected["time_skew_seconds"]
+                    && actual["sample_skew_present"].as_bool()
+                        == expected["sample_skew_absent"].as_bool().map(|value| !value)
+                    && actual["channel_sha256"] == *expected_hash
+            });
+    let expected_storage = &expected["storage"];
+    let expected_group = &expected["multiplex_group"];
+    let actual_channel_hashes = actual["channel_hashes"].clone();
+    let semantic_match = actual["adapter_id"] == WAVEFORM_VALIDATOR_ID
+        && actual["sop_class_uid"] == expected["sop_class_uid"]
+        && actual["modality"] == expected["modality"]
+        && actual["transfer_syntax_uid"] == expected["transfer_syntax_uid"]
+        && actual["multiplex_group_count"] == expected_group["group_count"]
+        && actual["originality"] == expected_group["originality"]
+        && actual["multiplex_group_label"] == expected_group["label"]
+        && actual["channel_count"] == expected_group["channel_count"]
+        && actual["sample_count"] == expected_group["samples_per_channel"]
+        && actual["sampling_frequency_hz"] == expected_group["sampling_frequency_hz"]
+        && actual["duration_seconds"] == expected_group["duration_seconds"]
+        && actual["bits_allocated"] == expected_storage["bits_allocated"]
+        && actual["sample_interpretation"] == expected_storage["sample_interpretation"]
+        && actual["waveform_data_vr"] == expected_storage["data_vr"]
+        && actual["byte_order"] == expected_storage["byte_order"]
+        && actual["interleave_order"] == expected_storage["interleave_order"]
+        && actual["waveform_data_length"] == expected_storage["payload_length_bytes"]
+        && actual["waveform_data_sha256"] == expected_storage["payload_sha256"]
+        && actual_channel_hashes == expected_storage["channel_sha256"]
+        && actual["stored_value_min"] == expected_storage["sample_min"]
+        && actual["stored_value_max"] == expected_storage["sample_max"]
+        && actual["formula_match"] == true
+        && actual["waveform_padding_present"].as_bool()
+            == expected_storage["waveform_padding_value_absent"]
+                .as_bool()
+                .map(|value| !value)
+        && actual["pixel_data_present"].as_bool()
+            == expected
+                .pointer("/absent_content/pixel_data")
+                .and_then(Value::as_bool)
+                .map(|value| !value)
+        && channels_match;
+    let linked = sidecar["adapter_id"] == WAVEFORM_VALIDATOR_ID
+        && sidecar["adapter_sha256"].as_str() == tool.and_then(|tool| tool["sha256"].as_str())
+        && tool
+            .is_some_and(|tool| tool["status"] == "available" && tool["lock_status"] == "matched")
+        && sidecar["independence"] == "independent"
+        && sidecar["extraction_method"] == "uv_locked_pydicom_raw_ow_struct_unpack_i16_le"
+        && sidecar["source_manifest_sha256"] == evidence["source"]["manifest_sha256"]
+        && sidecar["source_instance_sha256"] == manifest_file["sha256"]
+        && sidecar["source_path"] == instance["path"]
+        && sidecar.get("expected_contract") == Some(expected)
+        && sidecar["status"] == "passed"
+        && waveform["adapter_id"] == WAVEFORM_VALIDATOR_ID
+        && waveform["expected_payload_sha256"] == expected_storage["payload_sha256"]
+        && waveform["actual_payload_sha256"] == actual["waveform_data_sha256"]
+        && waveform["expected_channel_sha256"] == expected_storage["channel_sha256"]
+        && waveform["actual_channel_sha256"] == actual_channel_hashes
+        && semantic_match;
+    if !linked {
+        failures.push(format!(
+            "waveform payload evidence sidecar is not linked to its locked tool and exact source manifest contract: {path}"
+        ));
+    }
+}
+
 fn is_supported_sr_sop_class(uid: &str) -> bool {
     matches!(
         uid,
@@ -1093,6 +1295,10 @@ fn requires_presentation_state_secondary_validation(case_id: &str) -> bool {
             | "derived/presentation-state/advanced_blending"
             | "derived/presentation-state/blending"
     )
+}
+
+fn requires_waveform_validation(case_id: &str) -> bool {
+    case_id == "non-image/waveform/twelve_lead_ecg"
 }
 
 fn verify_findings(evidence: &Value, allowlist: &Value, failures: &mut Vec<String>) -> usize {
@@ -1238,6 +1444,7 @@ pub fn run_conformance(
             generated_root,
             evidence_root,
             file,
+            &manifest_sha256,
             adapters,
             &tools,
         )?);
@@ -1327,6 +1534,7 @@ fn collect_instance(
     generated_root: &Path,
     evidence_root: &Path,
     file: &Value,
+    manifest_sha256: &str,
     adapters: &[Value],
     tools: &[Value],
 ) -> Result<Value, String> {
@@ -1457,7 +1665,139 @@ fn collect_instance(
     if let Some((_, icc)) = icc {
         instance["icc"] = icc;
     }
+    if requires_waveform_validation(case_id) {
+        instance["waveform"] = collect_waveform_result(
+            generated_root,
+            evidence_root,
+            file,
+            manifest_sha256,
+            path,
+            &stable_key,
+            adapters,
+            tools,
+        )?;
+    }
     Ok(instance)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn collect_waveform_result(
+    generated_root: &Path,
+    evidence_root: &Path,
+    file: &Value,
+    manifest_sha256: &str,
+    relative_input: &str,
+    stable_key: &str,
+    adapters: &[Value],
+    tools: &[Value],
+) -> Result<Value, String> {
+    let expected = &file["expected_waveform"];
+    let unsupported = |reason: &str| {
+        json!({
+            "adapter_id": WAVEFORM_VALIDATOR_ID,
+            "status": "unsupported",
+            "independence": "independent",
+            "expected_payload_sha256": expected.pointer("/storage/payload_sha256").cloned().unwrap_or(Value::Null),
+            "actual_payload_sha256": null,
+            "expected_channel_sha256": expected.pointer("/storage/channel_sha256").cloned().unwrap_or_else(|| json!([])),
+            "actual_channel_sha256": [],
+            "reason": reason,
+            "evidence": null
+        })
+    };
+    let Some(adapter) = adapters
+        .iter()
+        .find(|adapter| adapter["id"] == WAVEFORM_VALIDATOR_ID)
+    else {
+        return Ok(unsupported(
+            "The independent waveform payload adapter is not configured",
+        ));
+    };
+    let Some(tool) = tools
+        .iter()
+        .find(|tool| tool["adapter_id"] == WAVEFORM_VALIDATOR_ID)
+    else {
+        return Ok(unsupported(
+            "The independent waveform payload adapter was not discovered",
+        ));
+    };
+    if tool["status"] != "available" {
+        return Ok(unsupported(
+            "The independent waveform payload adapter is unavailable",
+        ));
+    }
+    let executable = tool["executable"]
+        .as_str()
+        .ok_or_else(|| "available waveform payload adapter has no executable".to_string())?;
+    let input = generated_root.join(relative_input);
+    let arguments = string_array(adapter, "waveform_arguments")?
+        .into_iter()
+        .map(|argument| argument.replace("{input}", &input.display().to_string()))
+        .collect::<Vec<_>>();
+    let output = run_with_timeout(
+        Path::new(executable),
+        &arguments,
+        Duration::from_secs(adapter["timeout_seconds"].as_u64().unwrap_or(60)),
+    )?;
+    let actual = if output.exit_code == Some(0) && !output.timed_out {
+        serde_json::from_slice::<Value>(&output.stdout).ok()
+    } else {
+        None
+    };
+    let expected_payload_sha256 = expected.pointer("/storage/payload_sha256");
+    let expected_channel_sha256 = expected.pointer("/storage/channel_sha256");
+    let actual_payload_sha256 = actual
+        .as_ref()
+        .and_then(|value| value.get("waveform_data_sha256"))
+        .cloned()
+        .unwrap_or(Value::Null);
+    let actual_channel_sha256 = actual
+        .as_ref()
+        .and_then(|value| value.get("channel_hashes"))
+        .cloned()
+        .unwrap_or_else(|| json!([]));
+    let passed = actual.as_ref().is_some_and(|value| {
+        value["adapter_id"] == WAVEFORM_VALIDATOR_ID
+            && Some(&value["waveform_data_sha256"]) == expected_payload_sha256
+            && Some(&value["channel_hashes"]) == expected_channel_sha256
+    });
+    let sidecar = json!({
+        "adapter_id": WAVEFORM_VALIDATOR_ID,
+        "adapter_sha256": tool["sha256"],
+        "independence": "independent",
+        "extraction_method": "uv_locked_pydicom_raw_ow_struct_unpack_i16_le",
+        "source_manifest_sha256": manifest_sha256,
+        "source_instance_sha256": file["sha256"],
+        "source_path": relative_input,
+        "exit_code": output.exit_code,
+        "timed_out": output.timed_out,
+        "stderr_sha256": sha256_hex(&output.stderr),
+        "expected_contract": expected,
+        "actual": actual,
+        "status": if passed { "passed" } else { "failed" }
+    });
+    let relative = format!("waveforms/{WAVEFORM_VALIDATOR_ID}/{stable_key}.json");
+    let target = evidence_root.join(&relative);
+    if let Some(parent) = target.parent() {
+        fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+    }
+    let encoded = serde_json::to_vec_pretty(&sidecar).map_err(|error| error.to_string())?;
+    fs::write(&target, &encoded).map_err(|error| error.to_string())?;
+    Ok(json!({
+        "adapter_id": WAVEFORM_VALIDATOR_ID,
+        "status": if passed { "passed" } else { "failed" },
+        "independence": "independent",
+        "expected_payload_sha256": expected_payload_sha256.cloned().unwrap_or(Value::Null),
+        "actual_payload_sha256": actual_payload_sha256,
+        "expected_channel_sha256": expected_channel_sha256.cloned().unwrap_or_else(|| json!([])),
+        "actual_channel_sha256": actual_channel_sha256,
+        "reason": if passed {
+            "uv-locked pydicom independently extracted and matched the exact signed waveform payload"
+        } else {
+            "pydicom waveform extraction or exact manifest comparison failed"
+        },
+        "evidence": { "path": relative, "sha256": sha256_hex(&encoded) }
+    }))
 }
 
 fn collect_secondary_iod_results(

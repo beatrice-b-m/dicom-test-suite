@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use dicom_core::{Tag, VR};
+use dicom_core::{Tag, VR, header::Header};
 use dicom_dictionary_std::{StandardDataDictionary, tags, uids};
 use dicom_object::{FileDicomObject, InMemDicomObject, open_file};
 use serde_json::Value;
@@ -33,6 +33,10 @@ mod color_softcopy_presentation_state_tests;
 #[cfg(test)]
 #[path = "validation_advanced_blending_presentation_state_tests.rs"]
 mod advanced_blending_presentation_state_tests;
+
+#[cfg(test)]
+#[path = "validation_blending_presentation_state_tests.rs"]
+mod blending_presentation_state_tests;
 
 #[cfg(feature = "deflate")]
 use crate::codecs::DicomRsDeflatedImageFrameEncoder;
@@ -148,6 +152,27 @@ pub(crate) struct AdvancedBlendingPresentationStateExpectations<'a> {
     pub series_instance_uid: &'a str,
     pub frame_of_reference_uid: &'a str,
     pub source_series: [AdvancedBlendingSourceSeriesExpectations<'a>; 2],
+    pub icc_profile_sha256: &'a str,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct BlendingSourceSeriesExpectations<'a> {
+    pub series_instance_uid: &'a str,
+    pub sop_class_uid: &'a str,
+    pub sop_instance_uids: [&'a str; 2],
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct BlendingPresentationStateExpectations<'a> {
+    pub sop_class_uid: &'a str,
+    pub sop_instance_uid: &'a str,
+    pub transfer_syntax_uid: &'a str,
+    pub implementation_class_uid: &'a str,
+    pub synthetic_data: &'a str,
+    pub study_instance_uid: &'a str,
+    pub series_instance_uid: &'a str,
+    pub source_series: [BlendingSourceSeriesExpectations<'a>; 2],
+    pub palette_channel_sha256: &'a str,
     pub icc_profile_sha256: &'a str,
 }
 
@@ -2244,6 +2269,634 @@ pub(crate) fn validate_color_softcopy_presentation_state_file(
                 }
             ],
             "external": []
+        }),
+    })
+}
+
+pub(crate) fn validate_blending_presentation_state_file(
+    path: &Path,
+    expected: &BlendingPresentationStateExpectations<'_>,
+) -> Result<ValidatedPart10, GenerateError> {
+    let bytes = fs::read(path).map_err(|source| GenerateError::ReadGeneratedFile {
+        path: path.to_path_buf(),
+        source,
+    })?;
+    let obj = open_file(path).map_err(|err| GenerateError::ValidateDicomFile {
+        path: path.to_path_buf(),
+        message: err.to_string(),
+    })?;
+    let mut internal = Vec::new();
+
+    check(
+        &mut internal,
+        bytes.len() >= 132 && &bytes[128..132] == b"DICM",
+        "blending_part10_preamble",
+        "File has a Part 10 preamble and DICM marker.",
+        "File is missing the Part 10 DICM marker.",
+    );
+    check_equal(
+        &mut internal,
+        "blending_transfer_syntax",
+        "Transfer Syntax matches the locked recipe.",
+        "Transfer Syntax does not match the locked recipe.",
+        trim_uid(obj.meta().transfer_syntax()),
+        expected.transfer_syntax_uid.to_string(),
+    );
+    let sop_class_uid = element_str(path, &obj, tags::SOP_CLASS_UID)?;
+    let sop_instance_uid = element_str(path, &obj, tags::SOP_INSTANCE_UID)?;
+    for (name, actual, locked) in [
+        (
+            "blending_sop_class_uid",
+            sop_class_uid.as_str(),
+            expected.sop_class_uid,
+        ),
+        (
+            "blending_sop_instance_uid",
+            sop_instance_uid.as_str(),
+            expected.sop_instance_uid,
+        ),
+        (
+            "blending_synthetic_data",
+            element_str(path, &obj, tags::SYNTHETIC_DATA)?.as_str(),
+            expected.synthetic_data,
+        ),
+        (
+            "blending_study_instance_uid",
+            element_str(path, &obj, tags::STUDY_INSTANCE_UID)?.as_str(),
+            expected.study_instance_uid,
+        ),
+        (
+            "blending_series_instance_uid",
+            element_str(path, &obj, tags::SERIES_INSTANCE_UID)?.as_str(),
+            expected.series_instance_uid,
+        ),
+    ] {
+        check_equal(
+            &mut internal,
+            name,
+            "Identity matches the locked recipe.",
+            "Identity does not match the locked recipe.",
+            actual,
+            locked,
+        );
+    }
+    for (name, actual, locked) in [
+        (
+            "blending_media_storage_sop_class_uid",
+            trim_uid(obj.meta().media_storage_sop_class_uid()),
+            sop_class_uid.clone(),
+        ),
+        (
+            "blending_media_storage_sop_instance_uid",
+            trim_uid(obj.meta().media_storage_sop_instance_uid()),
+            sop_instance_uid.clone(),
+        ),
+        (
+            "blending_implementation_class_uid",
+            trim_uid(obj.meta().implementation_class_uid()),
+            expected.implementation_class_uid.to_string(),
+        ),
+    ] {
+        check_equal(
+            &mut internal,
+            name,
+            "File Meta identity matches the dataset and generator.",
+            "File Meta identity does not match the dataset or generator.",
+            actual,
+            locked,
+        );
+    }
+    for (name, tag, locked) in [
+        (
+            "patient_name",
+            tags::PATIENT_NAME,
+            "DTS^Synthetic^Patient001",
+        ),
+        ("patient_id", tags::PATIENT_ID, "DTS-PATIENT-001"),
+        ("patient_birth_date", tags::PATIENT_BIRTH_DATE, "19700101"),
+        ("patient_sex", tags::PATIENT_SEX, "O"),
+        ("study_date", tags::STUDY_DATE, "20260101"),
+        ("study_time", tags::STUDY_TIME, "000000"),
+        ("referring_physician", tags::REFERRING_PHYSICIAN_NAME, ""),
+        ("study_id", tags::STUDY_ID, "DTS-CT"),
+        ("accession_number", tags::ACCESSION_NUMBER, ""),
+        ("modality", tags::MODALITY, "PR"),
+        ("series_number", tags::SERIES_NUMBER, "81"),
+        ("laterality", tags::LATERALITY, "R"),
+        ("manufacturer", tags::MANUFACTURER, "dicom-test-suite"),
+        ("institution_name", tags::INSTITUTION_NAME, ""),
+        ("institution_address", tags::INSTITUTION_ADDRESS, ""),
+        (
+            "model_name",
+            tags::MANUFACTURER_MODEL_NAME,
+            "Native Blending Softcopy Presentation State",
+        ),
+        ("device_serial", tags::DEVICE_SERIAL_NUMBER, "DTS-BLEND-001"),
+        (
+            "software_versions",
+            tags::SOFTWARE_VERSIONS,
+            crate::PACKAGE_VERSION,
+        ),
+        ("instance_number", tags::INSTANCE_NUMBER, "1"),
+        (
+            "creation_date",
+            tags::PRESENTATION_CREATION_DATE,
+            "20260101",
+        ),
+        ("creation_time", tags::PRESENTATION_CREATION_TIME, "000000"),
+        ("content_label", tags::CONTENT_LABEL, "DTSBLEND"),
+        (
+            "content_description",
+            tags::CONTENT_DESCRIPTION,
+            "Synthetic DTSBLEND presentation state",
+        ),
+        (
+            "content_creator",
+            tags::CONTENT_CREATOR_NAME,
+            "DTS^Generator",
+        ),
+    ] {
+        check_equal(
+            &mut internal,
+            &format!("blending_{name}"),
+            "Attribute matches the locked recipe.",
+            "Attribute does not match the locked recipe.",
+            element_str(path, &obj, tag)?.as_str(),
+            locked,
+        );
+    }
+    check(
+        &mut internal,
+        expected
+            .source_series
+            .iter()
+            .all(|source| source.series_instance_uid != expected.series_instance_uid),
+        "blending_distinct_presentation_series",
+        "Presentation Series is distinct from source Series.",
+        "Presentation Series reuses a source Series UID.",
+    );
+
+    check_equal(
+        &mut internal,
+        "blending_item_count",
+        "Blending Sequence has exactly two items.",
+        "Blending Sequence does not have exactly two items.",
+        sequence_item_count(path, &obj, tags::BLENDING_SEQUENCE)?,
+        2,
+    );
+    for (index, source) in expected.source_series.iter().enumerate() {
+        let ordinal = index + 1;
+        let item = top_level_sequence_item(path, &obj, tags::BLENDING_SEQUENCE, index)?;
+        check_equal(
+            &mut internal,
+            &format!("blending_item_{ordinal}_position"),
+            "Blending Position matches locked order and is unique.",
+            "Blending Position is missing, duplicated, or reordered.",
+            item_str(path, item, tags::BLENDING_POSITION)?.as_str(),
+            if index == 0 {
+                "UNDERLYING"
+            } else {
+                "SUPERIMPOSED"
+            },
+        );
+        check_equal(
+            &mut internal,
+            &format!("blending_item_{ordinal}_study"),
+            "Blending item references the source Study.",
+            "Blending item redirects the source Study.",
+            item_str(path, item, tags::STUDY_INSTANCE_UID)?.as_str(),
+            expected.study_instance_uid,
+        );
+        check_equal(
+            &mut internal,
+            &format!("blending_item_{ordinal}_series_count"),
+            "Blending item has one source Series.",
+            "Blending item has an invalid source Series cardinality.",
+            item_sequence_item_count(path, item, tags::REFERENCED_SERIES_SEQUENCE)?,
+            1,
+        );
+        let series = item_sequence_item(path, item, tags::REFERENCED_SERIES_SEQUENCE, 0)?;
+        check_equal(
+            &mut internal,
+            &format!("blending_item_{ordinal}_series"),
+            "Blending item references the ordered source Series.",
+            "Blending item redirects or reorders the source Series.",
+            item_str(path, series, tags::SERIES_INSTANCE_UID)?.as_str(),
+            source.series_instance_uid,
+        );
+        check_equal(
+            &mut internal,
+            &format!("blending_item_{ordinal}_image_count"),
+            "Blending item references exactly two source Images.",
+            "Blending item omits, duplicates, or adds a source Image.",
+            item_sequence_item_count(path, series, tags::REFERENCED_IMAGE_SEQUENCE)?,
+            2,
+        );
+        for (image_index, expected_uid) in source.sop_instance_uids.iter().enumerate() {
+            let image =
+                item_sequence_item(path, series, tags::REFERENCED_IMAGE_SEQUENCE, image_index)?;
+            check_equal(
+                &mut internal,
+                &format!(
+                    "blending_item_{ordinal}_image_{}_sop_class",
+                    image_index + 1
+                ),
+                "Source SOP Class matches CT.",
+                "Source SOP Class is redirected.",
+                item_str(path, image, tags::REFERENCED_SOP_CLASS_UID)?.as_str(),
+                source.sop_class_uid,
+            );
+            check_equal(
+                &mut internal,
+                &format!(
+                    "blending_item_{ordinal}_image_{}_sop_instance",
+                    image_index + 1
+                ),
+                "Source SOP Instance matches locked order.",
+                "Source SOP Instance is redirected, duplicated, or reordered.",
+                item_str(path, image, tags::REFERENCED_SOP_INSTANCE_UID)?.as_str(),
+                *expected_uid,
+            );
+            check(
+                &mut internal,
+                image
+                    .element_opt(tags::REFERENCED_FRAME_NUMBER)
+                    .map_err(|err| validation_error(path, err))?
+                    .is_none(),
+                &format!(
+                    "blending_item_{ordinal}_image_{}_complete_instance",
+                    image_index + 1
+                ),
+                "Reference selects the complete Instance.",
+                "Referenced Frame Number unexpectedly narrows the Instance.",
+            );
+        }
+        for (name, tag, locked) in [
+            ("rescale_intercept", tags::RESCALE_INTERCEPT, "-1024"),
+            ("rescale_slope", tags::RESCALE_SLOPE, "1"),
+            ("rescale_type", tags::RESCALE_TYPE, "HU"),
+        ] {
+            check_equal(
+                &mut internal,
+                &format!("blending_item_{ordinal}_{name}"),
+                "Modality LUT transform matches the CT recipe.",
+                "Modality LUT transform does not match the CT recipe.",
+                item_str(path, item, tag)?.as_str(),
+                locked,
+            );
+        }
+        for (name, tag) in [
+            ("softcopy_voi", tags::SOFTCOPY_VOILUT_SEQUENCE),
+            (
+                "spatial_registration",
+                tags::REFERENCED_SPATIAL_REGISTRATION_SEQUENCE,
+            ),
+        ] {
+            check(
+                &mut internal,
+                item.element_opt(tag)
+                    .map_err(|err| validation_error(path, err))?
+                    .is_none(),
+                &format!("blending_item_{ordinal}_{name}_absent"),
+                "Optional transform is absent.",
+                "Forbidden optional transform is present.",
+            );
+        }
+    }
+    let opacity_element = obj
+        .element(tags::RELATIVE_OPACITY)
+        .map_err(|err| validation_error(path, err))?;
+    check_equal(
+        &mut internal,
+        "blending_opacity_vr",
+        "Relative Opacity uses VR FL.",
+        "Relative Opacity does not use VR FL.",
+        opacity_element.vr(),
+        VR::FL,
+    );
+    check_equal(
+        &mut internal,
+        "blending_opacity_vm",
+        "Relative Opacity has VM 1.",
+        "Relative Opacity does not have VM 1.",
+        opacity_element.value().multiplicity(),
+        1,
+    );
+    let opacity = opacity_element
+        .value()
+        .to_float32()
+        .map_err(|err| validation_error(path, err))?;
+    check(
+        &mut internal,
+        opacity.is_finite() && (0.0..=1.0).contains(&opacity),
+        "blending_opacity_range",
+        "Relative Opacity is finite and in range.",
+        "Relative Opacity is non-finite or out of range.",
+    );
+    check_equal(
+        &mut internal,
+        "blending_opacity",
+        "Relative Opacity is exactly 0.5.",
+        "Relative Opacity does not match the locked recipe.",
+        opacity.to_bits(),
+        0.5_f32.to_bits(),
+    );
+
+    check_equal(
+        &mut internal,
+        "blending_displayed_area_count",
+        "Exactly one global displayed area is present.",
+        "Displayed Area cardinality is invalid.",
+        sequence_item_count(path, &obj, tags::DISPLAYED_AREA_SELECTION_SEQUENCE)?,
+        1,
+    );
+    let area = top_level_sequence_item(path, &obj, tags::DISPLAYED_AREA_SELECTION_SEQUENCE, 0)?;
+    check(
+        &mut internal,
+        area.element_opt(tags::REFERENCED_IMAGE_SEQUENCE)
+            .map_err(|err| validation_error(path, err))?
+            .is_none(),
+        "blending_displayed_area_global",
+        "Displayed area applies globally.",
+        "Displayed area unexpectedly selects referenced Images.",
+    );
+    check_equal(
+        &mut internal,
+        "blending_displayed_area_top_left",
+        "Top-left corner matches.",
+        "Top-left corner does not match.",
+        item_i32_values(path, area, tags::DISPLAYED_AREA_TOP_LEFT_HAND_CORNER)?,
+        vec![1, 1],
+    );
+    check_equal(
+        &mut internal,
+        "blending_displayed_area_bottom_right",
+        "Bottom-right corner matches.",
+        "Bottom-right corner does not match.",
+        item_i32_values(path, area, tags::DISPLAYED_AREA_BOTTOM_RIGHT_HAND_CORNER)?,
+        vec![2, 2],
+    );
+    check_equal(
+        &mut internal,
+        "blending_displayed_area_mode",
+        "Presentation Size Mode matches.",
+        "Presentation Size Mode does not match.",
+        item_str(path, area, tags::PRESENTATION_SIZE_MODE)?.as_str(),
+        "SCALE TO FIT",
+    );
+    check_equal(
+        &mut internal,
+        "blending_displayed_area_aspect",
+        "Pixel aspect ratio matches.",
+        "Pixel aspect ratio does not match.",
+        item_i32_values(path, area, tags::PRESENTATION_PIXEL_ASPECT_RATIO)?,
+        vec![1, 1],
+    );
+    for (name, tag) in [
+        ("spacing", tags::PRESENTATION_PIXEL_SPACING),
+        (
+            "magnification",
+            tags::PRESENTATION_PIXEL_MAGNIFICATION_RATIO,
+        ),
+    ] {
+        check(
+            &mut internal,
+            area.element_opt(tag)
+                .map_err(|err| validation_error(path, err))?
+                .is_none(),
+            &format!("blending_displayed_area_{name}_absent"),
+            "Conditional displayed-area attribute is absent.",
+            "Unexpected displayed-area attribute is present.",
+        );
+    }
+
+    for (channel, descriptor_tag, data_tag) in [
+        (
+            "red",
+            tags::RED_PALETTE_COLOR_LOOKUP_TABLE_DESCRIPTOR,
+            tags::RED_PALETTE_COLOR_LOOKUP_TABLE_DATA,
+        ),
+        (
+            "green",
+            tags::GREEN_PALETTE_COLOR_LOOKUP_TABLE_DESCRIPTOR,
+            tags::GREEN_PALETTE_COLOR_LOOKUP_TABLE_DATA,
+        ),
+        (
+            "blue",
+            tags::BLUE_PALETTE_COLOR_LOOKUP_TABLE_DESCRIPTOR,
+            tags::BLUE_PALETTE_COLOR_LOOKUP_TABLE_DATA,
+        ),
+    ] {
+        let descriptor = obj
+            .element(descriptor_tag)
+            .map_err(|err| validation_error(path, err))?;
+        check_equal(
+            &mut internal,
+            &format!("blending_palette_{channel}_descriptor_vr"),
+            "Palette descriptor uses VR US.",
+            "Palette descriptor does not use VR US.",
+            descriptor.vr(),
+            VR::US,
+        );
+        check_equal(
+            &mut internal,
+            &format!("blending_palette_{channel}_descriptor"),
+            "Palette descriptor matches [256,0,16].",
+            "Palette descriptor does not match.",
+            descriptor
+                .value()
+                .to_multi_int::<u16>()
+                .map_err(|err| validation_error(path, err))?,
+            vec![256, 0, 16],
+        );
+        let data = obj
+            .element(data_tag)
+            .map_err(|err| validation_error(path, err))?;
+        let data_bytes = data
+            .value()
+            .to_bytes()
+            .map_err(|err| validation_error(path, err))?;
+        check_equal(
+            &mut internal,
+            &format!("blending_palette_{channel}_data_vr"),
+            "Palette data uses VR OW.",
+            "Palette data does not use VR OW.",
+            data.vr(),
+            VR::OW,
+        );
+        check_equal(
+            &mut internal,
+            &format!("blending_palette_{channel}_data_size"),
+            "Palette data has 512 bytes.",
+            "Palette data length is invalid.",
+            data_bytes.len(),
+            512,
+        );
+        check_equal(
+            &mut internal,
+            &format!("blending_palette_{channel}_data_sha256"),
+            "Palette bytes match the locked identity ramp.",
+            "Palette bytes do not match the locked identity ramp.",
+            sha256_hex(data_bytes.as_ref()).as_str(),
+            expected.palette_channel_sha256,
+        );
+    }
+    for (name, tag) in [
+        (
+            "segmented_red",
+            tags::SEGMENTED_RED_PALETTE_COLOR_LOOKUP_TABLE_DATA,
+        ),
+        (
+            "segmented_green",
+            tags::SEGMENTED_GREEN_PALETTE_COLOR_LOOKUP_TABLE_DATA,
+        ),
+        (
+            "segmented_blue",
+            tags::SEGMENTED_BLUE_PALETTE_COLOR_LOOKUP_TABLE_DATA,
+        ),
+        ("uid", tags::PALETTE_COLOR_LOOKUP_TABLE_UID),
+    ] {
+        check(
+            &mut internal,
+            obj.element_opt(tag)
+                .map_err(|err| validation_error(path, err))?
+                .is_none(),
+            &format!("blending_palette_{name}_absent"),
+            "Forbidden palette representation is absent.",
+            "Forbidden palette representation is present.",
+        );
+    }
+    let icc_element = obj
+        .element(tags::ICC_PROFILE)
+        .map_err(|err| validation_error(path, err))?;
+    let icc_bytes = icc_element
+        .value()
+        .to_bytes()
+        .map_err(|err| validation_error(path, err))?;
+    let icc = icc_bytes.as_ref();
+    check_equal(
+        &mut internal,
+        "blending_icc_vr",
+        "ICC Profile uses OB.",
+        "ICC Profile does not use OB.",
+        icc_element.vr(),
+        VR::OB,
+    );
+    check_equal(
+        &mut internal,
+        "blending_icc_size",
+        "ICC Profile has 736 bytes.",
+        "ICC Profile size is invalid.",
+        icc.len(),
+        736,
+    );
+    check_equal(
+        &mut internal,
+        "blending_icc_sha256",
+        "ICC bytes match the locked profile.",
+        "ICC bytes do not match the locked profile.",
+        sha256_hex(icc).as_str(),
+        expected.icc_profile_sha256,
+    );
+    for (name, range, locked) in [
+        ("device_class", 12..16, &b"scnr"[..]),
+        ("data_color_space", 16..20, &b"RGB "[..]),
+        ("connection_space", 20..24, &b"XYZ "[..]),
+        ("signature", 36..40, &b"acsp"[..]),
+    ] {
+        check_equal(
+            &mut internal,
+            &format!("blending_icc_{name}"),
+            "ICC header matches the locked profile.",
+            "ICC header does not match the locked profile.",
+            icc.get(range),
+            Some(locked),
+        );
+    }
+    check_equal(
+        &mut internal,
+        "blending_color_space",
+        "DICOM Color Space is SRGB.",
+        "DICOM Color Space is not SRGB.",
+        element_str(path, &obj, tags::COLOR_SPACE)?.as_str(),
+        "SRGB",
+    );
+
+    for (name, tag) in [
+        ("frame_of_reference", tags::FRAME_OF_REFERENCE_UID),
+        ("position_reference", tags::POSITION_REFERENCE_INDICATOR),
+        ("common_reference", tags::REFERENCED_SERIES_SEQUENCE),
+        (
+            "other_studies",
+            tags::STUDIES_CONTAINING_OTHER_REFERENCED_INSTANCES_SEQUENCE,
+        ),
+        ("graphic_group", tags::GRAPHIC_GROUP_SEQUENCE),
+        ("graphic_annotation", tags::GRAPHIC_ANNOTATION_SEQUENCE),
+        ("graphic_layer", tags::GRAPHIC_LAYER_SEQUENCE),
+        ("spatial_transform_flip", tags::IMAGE_HORIZONTAL_FLIP),
+        ("spatial_transform_rotation", tags::IMAGE_ROTATION),
+        ("softcopy_voi", tags::SOFTCOPY_VOILUT_SEQUENCE),
+        ("voi_lut", tags::VOILUT_SEQUENCE),
+        ("window_center", tags::WINDOW_CENTER),
+        ("window_width", tags::WINDOW_WIDTH),
+        ("presentation_lut_sequence", tags::PRESENTATION_LUT_SEQUENCE),
+        ("presentation_lut", tags::PRESENTATION_LUT_SHAPE),
+        ("display_shutter_shape", tags::SHUTTER_SHAPE),
+        ("display_shutter_value", tags::SHUTTER_PRESENTATION_VALUE),
+        ("pixel_data", tags::PIXEL_DATA),
+        ("specimen", tags::SPECIMEN_DESCRIPTION_SEQUENCE),
+        ("patient_study", tags::PATIENT_AGE),
+        ("patient_study_history", tags::ADDITIONAL_PATIENT_HISTORY),
+        (
+            "patient_study_diagnosis",
+            tags::ADMITTING_DIAGNOSES_DESCRIPTION,
+        ),
+        ("patient_study_pregnancy", tags::PREGNANCY_STATUS),
+        ("patient_study_menstrual_date", tags::LAST_MENSTRUAL_DATE),
+        ("clinical_trial_subject", tags::CLINICAL_TRIAL_SPONSOR_NAME),
+        ("clinical_trial_series", tags::CLINICAL_TRIAL_SERIES_ID),
+    ] {
+        check(
+            &mut internal,
+            obj.element_opt(tag)
+                .map_err(|err| validation_error(path, err))?
+                .is_none(),
+            &format!("blending_{name}_absent"),
+            "Forbidden module content is absent.",
+            "Forbidden module content is present.",
+        );
+    }
+    let overlay_activation_present = obj.iter().any(|element| {
+        element.tag().group() & 0xFF00 == 0x6000 && element.tag().element() == 0x1001
+    });
+    check(
+        &mut internal,
+        !overlay_activation_present,
+        "blending_overlay_activation_absent",
+        "Overlay Activation is absent.",
+        "Overlay Activation is present.",
+    );
+    let overlay_plane_present = obj
+        .iter()
+        .any(|element| element.tag().group() & 0xFF00 == 0x6000);
+    check(
+        &mut internal,
+        !overlay_plane_present,
+        "blending_overlay_plane_absent",
+        "Overlay Plane and Bitmap Display Shutter content are absent.",
+        "Overlay Plane or Bitmap Display Shutter content is present.",
+    );
+
+    fail_if_any_failed(path, &internal)?;
+    Ok(ValidatedPart10 {
+        bytes,
+        validation: serde_json::json!({
+            "status": "passed", "internal": internal,
+            "standards": [
+                {"name": standard_sop_class_validation_name(expected.sop_class_uid), "status": "passed", "message": standard_sop_class_validation_message(expected.sop_class_uid)},
+                {"name": standard_transfer_syntax_validation_name(expected.transfer_syntax_uid), "status": "passed", "message": standard_transfer_syntax_validation_message(expected.transfer_syntax_uid)},
+                {"name": "blending_presentation_state_modules", "status": "passed", "message": "Blending topology, source closure, rescale transforms, opacity, displayed area, palette, ICC, and absence invariants match the locked recipe."}
+            ], "external": []
         }),
     })
 }
@@ -12625,6 +13278,7 @@ fn standard_sop_class_validation_name(sop_class_uid: &str) -> &'static str {
         uids::VL_PHOTOGRAPHIC_IMAGE_STORAGE => "vl_photographic_image_sop_class",
         "1.2.840.10008.5.1.4.1.1.11.1" => "grayscale_softcopy_presentation_state_sop_class",
         "1.2.840.10008.5.1.4.1.1.11.2" => "color_softcopy_presentation_state_sop_class",
+        "1.2.840.10008.5.1.4.1.1.11.4" => "blending_softcopy_presentation_state_sop_class",
         "1.2.840.10008.5.1.4.1.1.67" => "real_world_value_mapping_sop_class",
         uids::BASIC_TEXT_SR_STORAGE => "basic_text_sr_sop_class",
         uids::COMPREHENSIVE_SR_STORAGE => "comprehensive_sr_sop_class",
@@ -12689,6 +13343,9 @@ fn standard_sop_class_validation_message(sop_class_uid: &str) -> &'static str {
         }
         "1.2.840.10008.5.1.4.1.1.11.2" => {
             "SOP Class UID matches Color Softcopy Presentation State Storage in the 2026b reference."
+        }
+        "1.2.840.10008.5.1.4.1.1.11.4" => {
+            "SOP Class UID matches Blending Softcopy Presentation State Storage in the 2026b reference."
         }
         "1.2.840.10008.5.1.4.1.1.67" => {
             "SOP Class UID matches Real World Value Mapping Storage in the 2026b reference."

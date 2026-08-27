@@ -68,11 +68,30 @@ avoid gated, dynamic, and reprojection conditionals.
 
 ## Project Action
 
-- Registry status: planned until generation, typed manifest and report
+- Registry status: implemented. Generation, typed manifest and report
   contracts, internal and manifest-driven quantitative validation,
   determinism, exact independent native pixel extraction, and independent IOD
-  gates pass.
-- Registry reason or linked issue: `recipe_unimplemented`
+  gates all pass.
+- Registry reason or linked issue: none.
 - Should become KB patch: yes, for the missing `PET Image` IOD alias only.
 - Expected cleanup after KB coverage exists: remove the local note about the
   alias limitation; retain this case-specific quantitative scope decision.
+
+## Promotion Evidence
+
+- Two seed-1 `core` generations each produced 44 files, were recursively
+  byte-identical, and passed strict corpus validation with zero failures.
+- The PET fixture SHA-256 is
+  `33abd3fe6540741c3c46ee1ac93f10402eaf39e24a832a938e2060c136fa716c`.
+- Locked `dciodvfy` identifies only `PETImage`, and isolated `dcentvfy` is
+  silent.
+- DCMTK independently extracts the exact 8-byte native Pixel Data. Its
+  SHA-256 is
+  `03ec353fd2407afb09c8d65712ef9aa30f03c8243f6f3f1675dca7ea5f6a4784`,
+  matching the manifest frame hash and unsigned stored samples `0, 100, 200,
+  400`.
+- The offline frozen environment managed by locked `uv` selects pydicom 3.0.2.
+  It independently reads a `(2, 2)` unsigned array, derives `0, 250, 500,
+  1000` Bq/ml with the declared rescale, verifies the empty mandatory
+  sequences, and produces a byte-identical Part 10 rewrite. Both independent
+  validators remain clean on that rewrite.

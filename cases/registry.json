@@ -6091,12 +6091,12 @@
       "roadmap": {
         "priority": "next",
         "delivery_phase": "phase-2",
-        "rationale": "Exercises permitted 32-bit integer native Pixel Data."
+        "rationale": "Exercises permitted 32-bit integer native Pixel Data after an independent IOD validator can evaluate it."
       },
       "blockers": [
         {
-          "code": "recipe_unimplemented",
-          "message": "The deterministic native recipe is not implemented.",
+          "code": "independent_iod_validator_unsupported",
+          "message": "The locked dciodvfy and dcentvfy builds abort on an internal 32-bit Pixel Data assertion, so the mandatory independent IOD gate is unavailable.",
           "recheck_phase": "phase-2"
         }
       ],
@@ -6125,6 +6125,14 @@
           "covered": true,
           "part": "PS3.6",
           "anchor": "table_A-1"
+        },
+        {
+          "source": "local-source-note",
+          "edition": "2026b",
+          "query": "standards/source-notes/phase-2-u32-native-pixels.md",
+          "covered": true,
+          "part": "PS3.5",
+          "anchor": "sect_8.1.1"
         }
       ]
     },

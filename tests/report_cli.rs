@@ -6848,6 +6848,321 @@ fn report_locks_general_ecg_group_contract() {
     fs::remove_dir_all(out_dir).expect("remove report root");
 }
 
+#[test]
+fn report_locks_linked_rt_plan_contract_and_markdown() {
+    let out_dir = unique_temp_dir("report-linked-rt-plan");
+    fs::create_dir_all(&out_dir).expect("create RT Plan report root");
+    fs::write(
+        out_dir.join("manifest.json"),
+        serde_json::to_vec_pretty(&linked_rt_plan_report_manifest()).expect("serialize fixture"),
+    )
+    .expect("write RT Plan manifest");
+
+    let report = dicom_test_suite::build_coverage_report(&out_dir).expect("RT Plan report");
+    let schema: Value = serde_json::from_slice(
+        &fs::read("schemas/coverage-report.schema.json").expect("coverage schema"),
+    )
+    .expect("coverage schema JSON");
+    let validator = jsonschema::validator_for(&schema).expect("coverage schema should compile");
+    let errors = validator
+        .iter_errors(&report)
+        .map(|error| error.to_string())
+        .collect::<Vec<_>>();
+    assert!(errors.is_empty(), "RT Plan schema errors: {errors:?}");
+
+    let row = coverage_row(&report, "non-image/rt/plan_linked");
+    for (field, expected) in [
+        ("rt_plan_label", "DTS_PLAN"),
+        ("rt_plan_geometry", "PATIENT"),
+        ("rt_plan_fraction_group_numbers", "1"),
+        ("rt_plan_beam_numbers", "1"),
+        ("rt_plan_beam_names", "DTS_STATIC_AP"),
+        ("rt_plan_beam_types", "STATIC"),
+        ("rt_plan_radiation_types", "PHOTON"),
+        ("rt_plan_control_point_indices", "0; 1"),
+        ("rt_plan_meterset_range", "0..1"),
+    ] {
+        assert_eq!(row[field], expected, "{field}");
+    }
+    assert_eq!(row["rt_plan_fraction_group_count"], 1);
+    assert_eq!(row["rt_plan_beam_count"], 1);
+    assert_eq!(row["rt_plan_control_point_count"], 2);
+    assert_eq!(row["rt_plan_reference_closure"], true);
+    assert_eq!(row["rt_plan_pixel_data_absent"], true);
+    assert_eq!(
+        row["rt_plan_external_validator_disposition"],
+        "external conformance evidence not embedded; run conformance separately"
+    );
+    let structure_identity = row["rt_plan_structure_set_reference_identity"]
+        .as_str()
+        .expect("Structure Set identity");
+    assert!(structure_identity.starts_with(
+        "non-image/rt/structure_set_single_roi_explicit_le|non-image/rt/structure_set_single_roi_explicit_le/instance.dcm|aaaaaaaa"
+    ));
+    assert!(structure_identity.contains("class=1.2.840.10008.5.1.4.1.1.481.3"));
+    let dose_identity = row["rt_plan_dose_reference_identity"]
+        .as_str()
+        .expect("Dose identity");
+    assert!(dose_identity.starts_with(
+        "non-image/rt/dose_grid_u16_explicit_le|non-image/rt/dose_grid_u16_explicit_le/instance.dcm|bbbbbbbb"
+    ));
+    assert!(dose_identity.contains("class=1.2.840.10008.5.1.4.1.1.481.2"));
+
+    for pointer in [
+        "/grouped_coverage/rt_plan_labels/DTS_PLAN",
+        "/grouped_coverage/rt_plan_geometries/PATIENT",
+        "/grouped_coverage/rt_plan_fraction_group_counts/1",
+        "/grouped_coverage/rt_plan_beam_counts/1",
+        "/grouped_coverage/rt_plan_beam_name_orders/DTS_STATIC_AP",
+        "/grouped_coverage/rt_plan_beam_type_orders/STATIC",
+        "/grouped_coverage/rt_plan_radiation_type_orders/PHOTON",
+        "/grouped_coverage/rt_plan_control_point_counts/2",
+        "/grouped_coverage/rt_plan_control_point_index_orders/0; 1",
+        "/grouped_coverage/rt_plan_meterset_ranges/0..1",
+        "/grouped_coverage/rt_plan_reference_closure_states/true",
+        "/grouped_coverage/rt_plan_pixel_data_absent_states/true",
+    ] {
+        assert_eq!(report.pointer(pointer), Some(&Value::from(1)), "{pointer}");
+    }
+
+    let mut partial = report.clone();
+    coverage_row_mut(&mut partial, "non-image/rt/plan_linked")["rt_plan_control_point_count"] =
+        Value::Null;
+    assert!(
+        !validator.is_valid(&partial),
+        "partial Plan coverage must fail"
+    );
+    let mut tampered = report.clone();
+    coverage_row_mut(&mut tampered, "non-image/rt/plan_linked")["rt_plan_beam_types"] =
+        Value::from("DYNAMIC");
+    assert!(
+        !validator.is_valid(&tampered),
+        "tampered Plan coverage must fail"
+    );
+    let mut leaked = report.clone();
+    let leaked_row = coverage_row_mut(&mut leaked, "non-image/rt/plan_linked");
+    leaked_row["case_id"] = Value::from("non-image/rt/dose_grid_u16_explicit_le");
+    assert!(!validator.is_valid(&leaked), "Plan coverage must not leak");
+
+    let markdown = dicom_test_suite::render_coverage_report_markdown(&report);
+    for expected in [
+        "## Linked RT Plan Expectations",
+        "DTS_PLAN",
+        "PATIENT",
+        "DTS_STATIC_AP",
+        "STATIC / PHOTON",
+        "0; 1 / 0..1",
+        "non-image/rt/structure_set_single_roi_explicit_le",
+        "non-image/rt/dose_grid_u16_explicit_le",
+        "### RT Plan Reference Closure States",
+    ] {
+        assert!(
+            markdown.contains(expected),
+            "Markdown must contain {expected}"
+        );
+    }
+    fs::remove_dir_all(out_dir).expect("remove RT Plan report root");
+}
+
+#[test]
+fn report_keeps_planned_rt_plan_coverage_null() {
+    let out_dir = unique_temp_dir("report-planned-rt-plan");
+    fs::create_dir_all(&out_dir).expect("create planned RT Plan root");
+    fs::write(
+        out_dir.join("manifest.json"),
+        serde_json::to_vec_pretty(&json!({
+            "generated_at": "20260101000000.000000+0000",
+            "standards": { "standards_lock_sha256": "0".repeat(64) },
+            "run": { "profile": "extended" },
+            "files": [],
+            "skipped_cases": [{
+                "case_id": "non-image/rt/plan_linked",
+                "status": "unavailable",
+                "reason_code": "case_planned",
+                "message": "recipe_unimplemented"
+            }]
+        }))
+        .expect("serialize planned fixture"),
+    )
+    .expect("write planned fixture");
+    let report = dicom_test_suite::build_coverage_report(&out_dir).expect("planned Plan report");
+    let row = coverage_row(&report, "non-image/rt/plan_linked");
+    assert_eq!(row["status"], "planned");
+    for field in RT_PLAN_REPORT_FIELDS {
+        assert!(row[*field].is_null(), "planned row leaked {field}");
+    }
+    fs::remove_dir_all(out_dir).expect("remove planned Plan root");
+}
+
+const RT_PLAN_REPORT_FIELDS: &[&str] = &[
+    "rt_plan_label",
+    "rt_plan_geometry",
+    "rt_plan_fraction_group_count",
+    "rt_plan_fraction_group_numbers",
+    "rt_plan_beam_count",
+    "rt_plan_beam_numbers",
+    "rt_plan_beam_names",
+    "rt_plan_beam_types",
+    "rt_plan_radiation_types",
+    "rt_plan_control_point_count",
+    "rt_plan_control_point_indices",
+    "rt_plan_meterset_range",
+    "rt_plan_structure_set_reference_identity",
+    "rt_plan_dose_reference_identity",
+    "rt_plan_reference_closure",
+    "rt_plan_pixel_data_absent",
+    "rt_plan_external_validator_disposition",
+];
+
+fn linked_rt_plan_report_manifest() -> Value {
+    let study_uid = "2.25.410000000000000000000000000000000000001";
+    let frame_uid = "2.25.410000000000000000000000000000000000002";
+    let plan_series_uid = "2.25.410000000000000000000000000000000000003";
+    let plan_sop_uid = "2.25.410000000000000000000000000000000000004";
+    let structure_series_uid = "2.25.410000000000000000000000000000000000005";
+    let structure_sop_uid = "2.25.410000000000000000000000000000000000006";
+    let dose_series_uid = "2.25.410000000000000000000000000000000000007";
+    let dose_sop_uid = "2.25.410000000000000000000000000000000000008";
+    let structure_reference = json!({
+        "ordinal": 1,
+        "relationship": "referenced_structure_set",
+        "source_case_id": "non-image/rt/structure_set_single_roi_explicit_le",
+        "source_path": "non-image/rt/structure_set_single_roi_explicit_le/instance.dcm",
+        "source_sha256": "a".repeat(64),
+        "study_instance_uid": study_uid,
+        "series_instance_uid": structure_series_uid,
+        "sop_class_uid": "1.2.840.10008.5.1.4.1.1.481.3",
+        "sop_instance_uid": structure_sop_uid,
+        "frame_of_reference_uid": frame_uid
+    });
+    let dose_reference = json!({
+        "ordinal": 2,
+        "relationship": "referenced_dose",
+        "source_case_id": "non-image/rt/dose_grid_u16_explicit_le",
+        "source_path": "non-image/rt/dose_grid_u16_explicit_le/instance.dcm",
+        "source_sha256": "b".repeat(64),
+        "study_instance_uid": study_uid,
+        "series_instance_uid": dose_series_uid,
+        "sop_class_uid": "1.2.840.10008.5.1.4.1.1.481.2",
+        "sop_instance_uid": dose_sop_uid,
+        "frame_of_reference_uid": frame_uid
+    });
+    let generic_reference = |reference: &Value| {
+        json!({
+            "relationship": reference["relationship"],
+            "source_case_id": reference["source_case_id"],
+            "source_path": reference["source_path"],
+            "series_instance_uid": reference["series_instance_uid"],
+            "sop_class_uid": reference["sop_class_uid"],
+            "sop_instance_uid": reference["sop_instance_uid"]
+        })
+    };
+    json!({
+        "generated_at": "20260101000000.000000+0000",
+        "standards": { "standards_lock_sha256": "0".repeat(64) },
+        "run": { "profile": "extended" },
+        "files": [{
+            "case_id": "non-image/rt/plan_linked",
+            "profile_membership": ["extended"],
+            "determinism": "byte_stable",
+            "dicom": {
+                "sop_class_uid": "1.2.840.10008.5.1.4.1.1.481.5",
+                "sop_class_name": "RT Plan Storage",
+                "iod_name": "RT Plan",
+                "modality": "RTPLAN",
+                "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+                "transfer_syntax_name": "Explicit VR Little Endian"
+            },
+            "image": null,
+            "pixel_data": null,
+            "references": [
+                generic_reference(&structure_reference),
+                generic_reference(&dose_reference)
+            ],
+            "expected_semantics": { "synthetic_data": "YES" },
+            "expected_rt_plan": {
+                "iod_kind": "rt_plan",
+                "sop_class_uid": "1.2.840.10008.5.1.4.1.1.481.5",
+                "iod_name": "RT Plan",
+                "modality": "RTPLAN",
+                "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+                "sop_instance_uid": plan_sop_uid,
+                "study_instance_uid": study_uid,
+                "series_instance_uid": plan_series_uid,
+                "frame_of_reference_uid": frame_uid,
+                "references": [structure_reference, dose_reference],
+                "plan": {
+                    "label": "DTS_PLAN", "date": "20260101", "time": "000000",
+                    "geometry": "PATIENT"
+                },
+                "fraction_groups": [{
+                    "ordinal": 1, "fraction_group_number": 1,
+                    "number_of_fractions_planned": 1, "number_of_beams": 1,
+                    "number_of_brachy_application_setups": 0,
+                    "referenced_beams": [{ "ordinal": 1, "referenced_beam_number": 1 }]
+                }],
+                "beams": [{
+                    "ordinal": 1, "treatment_machine_name": "DTS_LINAC",
+                    "primary_dosimeter_unit": "MU", "source_axis_distance_mm": 1000,
+                    "beam_number": 1, "beam_name": "DTS_STATIC_AP", "beam_type": "STATIC",
+                    "radiation_type": "PHOTON", "treatment_delivery_type": "TREATMENT",
+                    "accessories": {
+                        "number_of_wedges": 0, "wedge_sequence_absent": true,
+                        "number_of_compensators": 0, "compensator_sequence_absent": true,
+                        "number_of_boli": 0, "bolus_sequence_absent": true,
+                        "number_of_blocks": 0, "block_sequence_absent": true
+                    },
+                    "beam_limiting_devices": [
+                        { "ordinal": 1, "device_type": "X", "number_of_leaf_jaw_pairs": 1, "source_to_device_distance_mm": 500 },
+                        { "ordinal": 2, "device_type": "Y", "number_of_leaf_jaw_pairs": 1, "source_to_device_distance_mm": 500 }
+                    ],
+                    "number_of_control_points": 2,
+                    "final_cumulative_meterset_weight": 1,
+                    "control_points": [{
+                        "ordinal": 1, "control_point_index": 0, "cumulative_meterset_weight": 0,
+                        "geometry": {
+                            "nominal_beam_energy_mev": 6,
+                            "jaw_positions_mm": [[-50, 50], [-50, 50]],
+                            "gantry_angle_degrees": 0, "gantry_rotation_direction": "NONE",
+                            "beam_limiting_device_angle_degrees": 0,
+                            "beam_limiting_device_rotation_direction": "NONE",
+                            "patient_support_angle_degrees": 0,
+                            "patient_support_rotation_direction": "NONE",
+                            "table_top_vertical_position_mm": 0,
+                            "table_top_longitudinal_position_mm": 0,
+                            "table_top_lateral_position_mm": 0,
+                            "table_top_pitch_angle_degrees": 0,
+                            "table_top_pitch_rotation_direction": "NONE",
+                            "table_top_roll_angle_degrees": 0,
+                            "table_top_roll_rotation_direction": "NONE",
+                            "isocenter_position_mm": [0, 0, 0]
+                        },
+                        "inherits_geometry_from_control_point": null
+                    }, {
+                        "ordinal": 2, "control_point_index": 1, "cumulative_meterset_weight": 1,
+                        "geometry": null, "inherits_geometry_from_control_point": 0
+                    }]
+                }],
+                "absent_content": {
+                    "referenced_rt_plan_sequence": true,
+                    "rt_prescription_module": true,
+                    "rt_tolerance_tables_module": true,
+                    "rt_patient_setup_module": true,
+                    "rt_brachy_application_setups_module": true,
+                    "approval_module": true,
+                    "clinical_trial_module": true,
+                    "common_instance_reference_module": true,
+                    "image": true,
+                    "pixel_data": true
+                }
+            },
+            "validation": { "status": "passed" },
+            "known_stressors": []
+        }],
+        "skipped_cases": []
+    })
+}
+
 fn general_ecg_report_manifest() -> Value {
     let standard_channels = [
         ("I", "2:1", "Lead I"),

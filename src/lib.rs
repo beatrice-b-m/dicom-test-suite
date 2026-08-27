@@ -15851,6 +15851,72 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
         "RT Dose Grid Scalings",
         "/grouped_coverage/rt_dose_grid_scalings",
     );
+    for (title, pointer) in [
+        ("RT Plan Labels", "/grouped_coverage/rt_plan_labels"),
+        ("RT Plan Geometries", "/grouped_coverage/rt_plan_geometries"),
+        (
+            "RT Plan Fraction Group Counts",
+            "/grouped_coverage/rt_plan_fraction_group_counts",
+        ),
+        (
+            "RT Plan Fraction Group Number Orders",
+            "/grouped_coverage/rt_plan_fraction_group_number_orders",
+        ),
+        (
+            "RT Plan Beam Counts",
+            "/grouped_coverage/rt_plan_beam_counts",
+        ),
+        (
+            "RT Plan Beam Number Orders",
+            "/grouped_coverage/rt_plan_beam_number_orders",
+        ),
+        (
+            "RT Plan Beam Name Orders",
+            "/grouped_coverage/rt_plan_beam_name_orders",
+        ),
+        (
+            "RT Plan Beam Type Orders",
+            "/grouped_coverage/rt_plan_beam_type_orders",
+        ),
+        (
+            "RT Plan Radiation Type Orders",
+            "/grouped_coverage/rt_plan_radiation_type_orders",
+        ),
+        (
+            "RT Plan Control Point Counts",
+            "/grouped_coverage/rt_plan_control_point_counts",
+        ),
+        (
+            "RT Plan Control Point Index Orders",
+            "/grouped_coverage/rt_plan_control_point_index_orders",
+        ),
+        (
+            "RT Plan Meterset Ranges",
+            "/grouped_coverage/rt_plan_meterset_ranges",
+        ),
+        (
+            "RT Plan Structure Set Reference Identities",
+            "/grouped_coverage/rt_plan_structure_set_reference_identities",
+        ),
+        (
+            "RT Plan Dose Reference Identities",
+            "/grouped_coverage/rt_plan_dose_reference_identities",
+        ),
+        (
+            "RT Plan Reference Closure States",
+            "/grouped_coverage/rt_plan_reference_closure_states",
+        ),
+        (
+            "RT Plan Pixel Data Absent States",
+            "/grouped_coverage/rt_plan_pixel_data_absent_states",
+        ),
+        (
+            "RT Plan External Validator Dispositions",
+            "/grouped_coverage/rt_plan_external_validator_dispositions",
+        ),
+    ] {
+        append_count_map_section(&mut output, report, title, pointer);
+    }
     append_count_map_section(
         &mut output,
         report,
@@ -16978,6 +17044,45 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
         output.push('\n');
     }
 
+    let rt_plan_rows = report
+        .get("coverage_matrix")
+        .and_then(Value::as_array)
+        .map(|rows| {
+            rows.iter()
+                .filter(|row| !row["rt_plan_label"].is_null())
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    if !rt_plan_rows.is_empty() {
+        output.push_str("## Linked RT Plan Expectations\n\n");
+        output.push_str("| Case ID | Label / geometry | Fraction groups / numbers | Beams / numbers / names | Beam / radiation types | Control points / order / meterset | Structure Set identity | Dose identity | References closed | Pixel data absent | External-validator disposition |\n");
+        output.push_str("|---|---|---|---|---|---|---|---|---|---|---|\n");
+        for row in rt_plan_rows {
+            output.push_str(&format!(
+                "| {} | {} / {} | {} / {} | {} / {} / {} | {} / {} | {} / {} / {} | {} | {} | {} | {} | {} |\n",
+                markdown_cell(row.get("case_id").and_then(Value::as_str)),
+                markdown_cell(row.get("rt_plan_label").and_then(Value::as_str)),
+                markdown_cell(row.get("rt_plan_geometry").and_then(Value::as_str)),
+                markdown_number(row.get("rt_plan_fraction_group_count")),
+                markdown_cell(row.get("rt_plan_fraction_group_numbers").and_then(Value::as_str)),
+                markdown_number(row.get("rt_plan_beam_count")),
+                markdown_cell(row.get("rt_plan_beam_numbers").and_then(Value::as_str)),
+                markdown_cell(row.get("rt_plan_beam_names").and_then(Value::as_str)),
+                markdown_cell(row.get("rt_plan_beam_types").and_then(Value::as_str)),
+                markdown_cell(row.get("rt_plan_radiation_types").and_then(Value::as_str)),
+                markdown_number(row.get("rt_plan_control_point_count")),
+                markdown_cell(row.get("rt_plan_control_point_indices").and_then(Value::as_str)),
+                markdown_cell(row.get("rt_plan_meterset_range").and_then(Value::as_str)),
+                markdown_cell(row.get("rt_plan_structure_set_reference_identity").and_then(Value::as_str)),
+                markdown_cell(row.get("rt_plan_dose_reference_identity").and_then(Value::as_str)),
+                markdown_bool(row.get("rt_plan_reference_closure")),
+                markdown_bool(row.get("rt_plan_pixel_data_absent")),
+                markdown_cell(row.get("rt_plan_external_validator_disposition").and_then(Value::as_str)),
+            ));
+        }
+        output.push('\n');
+    }
+
     let waveform_rows = report
         .get("coverage_matrix")
         .and_then(Value::as_array)
@@ -17101,6 +17206,7 @@ fn generated_coverage_row(
     let icc_profile = icc_profile_report_fields(manifest_path, file)?;
     let nonsquare_spacing = nonsquare_spacing_report_fields(manifest_path, file)?;
     let waveform = waveform_report_fields(manifest_path, file)?;
+    let rt_plan = rt_plan_report_fields(manifest_path, file)?;
     let is_spatial_registration =
         file.get("case_id").and_then(Value::as_str) == Some("derived/registration/spatial_ct_pair");
     let is_deformable_registration = file.get("case_id").and_then(Value::as_str)
@@ -17564,6 +17670,63 @@ fn generated_coverage_row(
         (
             "waveform_external_validator_disposition",
             waveform.external_validator_disposition.map(Value::from),
+        ),
+    ] {
+        row_object.insert(field.to_string(), value.unwrap_or(Value::Null));
+    }
+    for (field, value) in [
+        ("rt_plan_label", rt_plan.label.map(Value::from)),
+        ("rt_plan_geometry", rt_plan.geometry.map(Value::from)),
+        (
+            "rt_plan_fraction_group_count",
+            rt_plan.fraction_group_count.map(Value::from),
+        ),
+        (
+            "rt_plan_fraction_group_numbers",
+            rt_plan.fraction_group_numbers.map(Value::from),
+        ),
+        ("rt_plan_beam_count", rt_plan.beam_count.map(Value::from)),
+        (
+            "rt_plan_beam_numbers",
+            rt_plan.beam_numbers.map(Value::from),
+        ),
+        ("rt_plan_beam_names", rt_plan.beam_names.map(Value::from)),
+        ("rt_plan_beam_types", rt_plan.beam_types.map(Value::from)),
+        (
+            "rt_plan_radiation_types",
+            rt_plan.radiation_types.map(Value::from),
+        ),
+        (
+            "rt_plan_control_point_count",
+            rt_plan.control_point_count.map(Value::from),
+        ),
+        (
+            "rt_plan_control_point_indices",
+            rt_plan.control_point_indices.map(Value::from),
+        ),
+        (
+            "rt_plan_meterset_range",
+            rt_plan.meterset_range.map(Value::from),
+        ),
+        (
+            "rt_plan_structure_set_reference_identity",
+            rt_plan.structure_set_reference_identity.map(Value::from),
+        ),
+        (
+            "rt_plan_dose_reference_identity",
+            rt_plan.dose_reference_identity.map(Value::from),
+        ),
+        (
+            "rt_plan_reference_closure",
+            rt_plan.reference_closure.map(Value::from),
+        ),
+        (
+            "rt_plan_pixel_data_absent",
+            rt_plan.pixel_data_absent.map(Value::from),
+        ),
+        (
+            "rt_plan_external_validator_disposition",
+            rt_plan.external_validator_disposition.map(Value::from),
         ),
     ] {
         row_object.insert(field.to_string(), value.unwrap_or(Value::Null));
@@ -19849,6 +20012,207 @@ fn waveform_report_fields(
     Ok(fields)
 }
 
+#[derive(Debug, Default, PartialEq)]
+struct RtPlanReportFields {
+    label: Option<String>,
+    geometry: Option<String>,
+    fraction_group_count: Option<u64>,
+    fraction_group_numbers: Option<String>,
+    beam_count: Option<u64>,
+    beam_numbers: Option<String>,
+    beam_names: Option<String>,
+    beam_types: Option<String>,
+    radiation_types: Option<String>,
+    control_point_count: Option<u64>,
+    control_point_indices: Option<String>,
+    meterset_range: Option<String>,
+    structure_set_reference_identity: Option<String>,
+    dose_reference_identity: Option<String>,
+    reference_closure: Option<bool>,
+    pixel_data_absent: Option<bool>,
+    external_validator_disposition: Option<String>,
+}
+
+fn rt_plan_report_fields(
+    manifest_path: &Path,
+    file: &Value,
+) -> Result<RtPlanReportFields, ReportError> {
+    let is_rt_plan =
+        file.get("case_id").and_then(Value::as_str) == Some("non-image/rt/plan_linked");
+    let Some(expected) = file.get("expected_rt_plan") else {
+        return if is_rt_plan {
+            Err(ReportError::MetadataShape {
+                path: manifest_path.to_path_buf(),
+                message: "generated linked RT Plan must define expected_rt_plan",
+            })
+        } else {
+            Ok(RtPlanReportFields::default())
+        };
+    };
+    if !is_rt_plan {
+        return Err(ReportError::MetadataShape {
+            path: manifest_path.to_path_buf(),
+            message: "expected_rt_plan is only valid for non-image/rt/plan_linked",
+        });
+    }
+
+    let fraction_groups = expected.get("fraction_groups").and_then(Value::as_array);
+    let beams = expected.get("beams").and_then(Value::as_array);
+    let references = expected.get("references").and_then(Value::as_array);
+    let control_points = beams
+        .and_then(|items| items.first())
+        .and_then(|beam| beam.get("control_points"))
+        .and_then(Value::as_array);
+    let join_u64 = |items: Option<&Vec<Value>>, field: &str| {
+        items.and_then(|values| {
+            values
+                .iter()
+                .map(|value| value.get(field)?.as_u64().map(|value| value.to_string()))
+                .collect::<Option<Vec<_>>>()
+                .map(|values| values.join("; "))
+        })
+    };
+    let join_str = |items: Option<&Vec<Value>>, field: &str| {
+        items.and_then(|values| {
+            values
+                .iter()
+                .map(|value| value.get(field)?.as_str().map(str::to_string))
+                .collect::<Option<Vec<_>>>()
+                .map(|values| values.join("; "))
+        })
+    };
+    let reference_identity = |relationship: &str| {
+        references
+            .and_then(|items| {
+                items.iter().find(|reference| {
+                    reference.get("relationship").and_then(Value::as_str) == Some(relationship)
+                })
+            })
+            .and_then(|reference| {
+                Some(format!(
+                    "{}|{}|{}|study={}|series={}|class={}|instance={}|for={}",
+                    reference.get("source_case_id")?.as_str()?,
+                    reference.get("source_path")?.as_str()?,
+                    reference.get("source_sha256")?.as_str()?,
+                    reference.get("study_instance_uid")?.as_str()?,
+                    reference.get("series_instance_uid")?.as_str()?,
+                    reference.get("sop_class_uid")?.as_str()?,
+                    reference.get("sop_instance_uid")?.as_str()?,
+                    reference.get("frame_of_reference_uid")?.as_str()?,
+                ))
+            })
+    };
+    let structure_set_reference_identity = reference_identity("referenced_structure_set");
+    let dose_reference_identity = reference_identity("referenced_dose");
+    let manifest_references = file.get("references").and_then(Value::as_array);
+    let reference_closure = references
+        .zip(manifest_references)
+        .map(|(expected, actual)| {
+            expected.len() == 2
+                && actual.len() == 2
+                && expected.iter().zip(actual).all(|(locked, manifest)| {
+                    [
+                        "relationship",
+                        "source_case_id",
+                        "source_path",
+                        "series_instance_uid",
+                        "sop_class_uid",
+                        "sop_instance_uid",
+                    ]
+                    .iter()
+                    .all(|field| locked.get(field) == manifest.get(field))
+                        && locked.get("study_instance_uid")
+                            == expected
+                                .first()
+                                .and_then(|_| file.pointer("/expected_rt_plan/study_instance_uid"))
+                        && locked.get("frame_of_reference_uid")
+                            == expected.first().and_then(|_| {
+                                file.pointer("/expected_rt_plan/frame_of_reference_uid")
+                            })
+                        && locked
+                            .get("source_sha256")
+                            .and_then(Value::as_str)
+                            .is_some_and(|hash| hash.len() == 64)
+                })
+        });
+    let control_point_count = beams.and_then(|items| {
+        items
+            .iter()
+            .map(|beam| beam.get("number_of_control_points")?.as_u64())
+            .collect::<Option<Vec<_>>>()
+            .map(|counts| counts.into_iter().sum())
+    });
+    let meterset_range = control_points.and_then(|items| {
+        Some(format!(
+            "{}..{}",
+            items.first()?.get("cumulative_meterset_weight")?.as_u64()?,
+            items.last()?.get("cumulative_meterset_weight")?.as_u64()?
+        ))
+    });
+    let fields = RtPlanReportFields {
+        label: expected
+            .pointer("/plan/label")
+            .and_then(Value::as_str)
+            .map(str::to_string),
+        geometry: expected
+            .pointer("/plan/geometry")
+            .and_then(Value::as_str)
+            .map(str::to_string),
+        fraction_group_count: fraction_groups.map(|items| items.len() as u64),
+        fraction_group_numbers: join_u64(fraction_groups, "fraction_group_number"),
+        beam_count: beams.map(|items| items.len() as u64),
+        beam_numbers: join_u64(beams, "beam_number"),
+        beam_names: join_str(beams, "beam_name"),
+        beam_types: join_str(beams, "beam_type"),
+        radiation_types: join_str(beams, "radiation_type"),
+        control_point_count,
+        control_point_indices: join_u64(control_points, "control_point_index"),
+        meterset_range,
+        structure_set_reference_identity,
+        dose_reference_identity,
+        reference_closure,
+        pixel_data_absent: expected
+            .pointer("/absent_content/pixel_data")
+            .and_then(Value::as_bool),
+        external_validator_disposition: Some(
+            "external conformance evidence not embedded; run conformance separately".to_string(),
+        ),
+    };
+    let complete = fields.label.is_some()
+        && fields.geometry.is_some()
+        && fields.fraction_group_count == Some(1)
+        && fields.fraction_group_numbers.as_deref() == Some("1")
+        && fields.beam_count == Some(1)
+        && fields.beam_numbers.as_deref() == Some("1")
+        && fields.beam_names.as_deref() == Some("DTS_STATIC_AP")
+        && fields.beam_types.as_deref() == Some("STATIC")
+        && fields.radiation_types.as_deref() == Some("PHOTON")
+        && fields.control_point_count == Some(2)
+        && fields.control_point_indices.as_deref() == Some("0; 1")
+        && fields.meterset_range.as_deref() == Some("0..1")
+        && fields.structure_set_reference_identity.is_some()
+        && fields.dose_reference_identity.is_some()
+        && fields.reference_closure == Some(true)
+        && fields.pixel_data_absent == Some(true)
+        && control_points.is_some_and(|items| items.len() == 2)
+        && beams.is_some_and(|items| {
+            items.first().is_some_and(|beam| {
+                beam.get("number_of_control_points").and_then(Value::as_u64) == Some(2)
+                    && beam
+                        .get("final_cumulative_meterset_weight")
+                        .and_then(Value::as_u64)
+                        == Some(1)
+            })
+        });
+    if !complete {
+        return Err(ReportError::MetadataShape {
+            path: manifest_path.to_path_buf(),
+            message: "expected_rt_plan must define the complete linked Plan report contract",
+        });
+    }
+    Ok(fields)
+}
+
 #[derive(Default)]
 struct PetActivityReportFields {
     units: Option<String>,
@@ -21849,6 +22213,23 @@ fn skipped_coverage_row(
         "waveform_simultaneous_sampling",
         "waveform_pixel_data_absent",
         "waveform_external_validator_disposition",
+        "rt_plan_label",
+        "rt_plan_geometry",
+        "rt_plan_fraction_group_count",
+        "rt_plan_fraction_group_numbers",
+        "rt_plan_beam_count",
+        "rt_plan_beam_numbers",
+        "rt_plan_beam_names",
+        "rt_plan_beam_types",
+        "rt_plan_radiation_types",
+        "rt_plan_control_point_count",
+        "rt_plan_control_point_indices",
+        "rt_plan_meterset_range",
+        "rt_plan_structure_set_reference_identity",
+        "rt_plan_dose_reference_identity",
+        "rt_plan_reference_closure",
+        "rt_plan_pixel_data_absent",
+        "rt_plan_external_validator_disposition",
         "metadata_specific_character_sets",
         "metadata_person_name",
         "metadata_person_name_component_groups",
@@ -22726,6 +23107,23 @@ struct GroupedCoverage {
     rt_dose_types: BTreeMap<String, usize>,
     rt_dose_summation_types: BTreeMap<String, usize>,
     rt_dose_grid_scalings: BTreeMap<String, usize>,
+    rt_plan_labels: BTreeMap<String, usize>,
+    rt_plan_geometries: BTreeMap<String, usize>,
+    rt_plan_fraction_group_counts: BTreeMap<String, usize>,
+    rt_plan_fraction_group_number_orders: BTreeMap<String, usize>,
+    rt_plan_beam_counts: BTreeMap<String, usize>,
+    rt_plan_beam_number_orders: BTreeMap<String, usize>,
+    rt_plan_beam_name_orders: BTreeMap<String, usize>,
+    rt_plan_beam_type_orders: BTreeMap<String, usize>,
+    rt_plan_radiation_type_orders: BTreeMap<String, usize>,
+    rt_plan_control_point_counts: BTreeMap<String, usize>,
+    rt_plan_control_point_index_orders: BTreeMap<String, usize>,
+    rt_plan_meterset_ranges: BTreeMap<String, usize>,
+    rt_plan_structure_set_reference_identities: BTreeMap<String, usize>,
+    rt_plan_dose_reference_identities: BTreeMap<String, usize>,
+    rt_plan_reference_closure_states: BTreeMap<String, usize>,
+    rt_plan_pixel_data_absent_states: BTreeMap<String, usize>,
+    rt_plan_external_validator_dispositions: BTreeMap<String, usize>,
     rt_structure_set_labels: BTreeMap<String, usize>,
     rt_structure_set_roi_names: BTreeMap<String, usize>,
     rt_roi_generation_algorithms: BTreeMap<String, usize>,
@@ -24274,6 +24672,67 @@ impl GroupedCoverage {
             &mut self.rt_dose_grid_scalings,
             row.get("rt_dose_grid_scaling").and_then(Value::as_str),
         );
+        for (map, field) in [
+            (&mut self.rt_plan_labels, "rt_plan_label"),
+            (&mut self.rt_plan_geometries, "rt_plan_geometry"),
+            (
+                &mut self.rt_plan_fraction_group_number_orders,
+                "rt_plan_fraction_group_numbers",
+            ),
+            (&mut self.rt_plan_beam_number_orders, "rt_plan_beam_numbers"),
+            (&mut self.rt_plan_beam_name_orders, "rt_plan_beam_names"),
+            (&mut self.rt_plan_beam_type_orders, "rt_plan_beam_types"),
+            (
+                &mut self.rt_plan_radiation_type_orders,
+                "rt_plan_radiation_types",
+            ),
+            (
+                &mut self.rt_plan_control_point_index_orders,
+                "rt_plan_control_point_indices",
+            ),
+            (&mut self.rt_plan_meterset_ranges, "rt_plan_meterset_range"),
+            (
+                &mut self.rt_plan_structure_set_reference_identities,
+                "rt_plan_structure_set_reference_identity",
+            ),
+            (
+                &mut self.rt_plan_dose_reference_identities,
+                "rt_plan_dose_reference_identity",
+            ),
+            (
+                &mut self.rt_plan_external_validator_dispositions,
+                "rt_plan_external_validator_disposition",
+            ),
+        ] {
+            increment_map(map, row.get(field).and_then(Value::as_str));
+        }
+        for (map, field) in [
+            (
+                &mut self.rt_plan_fraction_group_counts,
+                "rt_plan_fraction_group_count",
+            ),
+            (&mut self.rt_plan_beam_counts, "rt_plan_beam_count"),
+            (
+                &mut self.rt_plan_control_point_counts,
+                "rt_plan_control_point_count",
+            ),
+        ] {
+            increment_scalar_map(map, row.get(field));
+        }
+        for (map, field) in [
+            (
+                &mut self.rt_plan_reference_closure_states,
+                "rt_plan_reference_closure",
+            ),
+            (
+                &mut self.rt_plan_pixel_data_absent_states,
+                "rt_plan_pixel_data_absent",
+            ),
+        ] {
+            if let Some(value) = row.get(field).and_then(Value::as_bool) {
+                *map.entry(value.to_string()).or_default() += 1;
+            }
+        }
         increment_map(
             &mut self.rt_structure_set_labels,
             row.get("rt_structure_set_label").and_then(Value::as_str),
@@ -25700,6 +26159,63 @@ impl GroupedCoverage {
             serde_json::to_value(&self.rt_dose_grid_scalings)
                 .expect("RT Dose Grid Scaling count map must serialize"),
         );
+        for (field, map) in [
+            ("rt_plan_labels", &self.rt_plan_labels),
+            ("rt_plan_geometries", &self.rt_plan_geometries),
+            (
+                "rt_plan_fraction_group_counts",
+                &self.rt_plan_fraction_group_counts,
+            ),
+            (
+                "rt_plan_fraction_group_number_orders",
+                &self.rt_plan_fraction_group_number_orders,
+            ),
+            ("rt_plan_beam_counts", &self.rt_plan_beam_counts),
+            (
+                "rt_plan_beam_number_orders",
+                &self.rt_plan_beam_number_orders,
+            ),
+            ("rt_plan_beam_name_orders", &self.rt_plan_beam_name_orders),
+            ("rt_plan_beam_type_orders", &self.rt_plan_beam_type_orders),
+            (
+                "rt_plan_radiation_type_orders",
+                &self.rt_plan_radiation_type_orders,
+            ),
+            (
+                "rt_plan_control_point_counts",
+                &self.rt_plan_control_point_counts,
+            ),
+            (
+                "rt_plan_control_point_index_orders",
+                &self.rt_plan_control_point_index_orders,
+            ),
+            ("rt_plan_meterset_ranges", &self.rt_plan_meterset_ranges),
+            (
+                "rt_plan_structure_set_reference_identities",
+                &self.rt_plan_structure_set_reference_identities,
+            ),
+            (
+                "rt_plan_dose_reference_identities",
+                &self.rt_plan_dose_reference_identities,
+            ),
+            (
+                "rt_plan_reference_closure_states",
+                &self.rt_plan_reference_closure_states,
+            ),
+            (
+                "rt_plan_pixel_data_absent_states",
+                &self.rt_plan_pixel_data_absent_states,
+            ),
+            (
+                "rt_plan_external_validator_dispositions",
+                &self.rt_plan_external_validator_dispositions,
+            ),
+        ] {
+            grouped_object.insert(
+                field.to_string(),
+                serde_json::to_value(map).expect("RT Plan coverage count map must serialize"),
+            );
+        }
         grouped_object.insert(
             "rt_structure_set_labels".to_string(),
             serde_json::to_value(&self.rt_structure_set_labels)

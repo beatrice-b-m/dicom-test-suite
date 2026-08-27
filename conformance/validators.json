@@ -468,7 +468,7 @@
       "id": "dcmtk-dcm2img-visible-light",
       "role": "pixel_decoder",
       "executable": "dcm2img",
-      "arguments": ["+F", "1", "-S", "-bs", "-M", "-W", "+Pid", "-O", "+opn", "8", "{input}", "{output}"],
+      "arguments": ["+F", "1", "-S", "-bs", "-M", "-W", "+Pid", "-O", "+op", "{input}", "{output}"],
       "version_arguments": ["--version"],
       "timeout_seconds": 60,
       "required": false,

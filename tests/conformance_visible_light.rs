@@ -75,7 +75,7 @@ fn visible_light_pixel_and_parser_routes_are_exact_and_locked() {
     assert_eq!(
         adapter["arguments"],
         serde_json::json!([
-            "+F", "1", "-S", "-bs", "-M", "-W", "+Pid", "-O", "+opn", "8", "{input}", "{output}"
+            "+F", "1", "-S", "-bs", "-M", "-W", "+Pid", "-O", "+op", "{input}", "{output}"
         ])
     );
     let parser = config["adapters"]

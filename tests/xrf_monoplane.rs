@@ -297,7 +297,7 @@ fn xrf_monoplane_vertical_slice_is_exact_byte_stable_and_reported() {
     assert_eq!(dicom_test_suite::sha256_hex(&PIXELS), PAYLOAD_SHA256);
 
     let summary = dicom_test_suite::validate_generated_root(&first_root).unwrap();
-    assert_eq!(summary.files_checked, 47);
+    assert_eq!(summary.files_checked, 49);
     assert!(summary.failures.is_empty(), "{:?}", summary.failures);
 
     let report = report_json(&first_root);

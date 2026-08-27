@@ -1064,6 +1064,9 @@
         "radiopharmaceutical_usage_agent_number",
         "table_motion",
         "time_of_flight_information_used",
+        "view_code",
+        "view_modifier_item_count",
+        "slice_progression_direction_present",
         "counts_source",
         "corrections",
         "derivation_image_item_count",
@@ -1081,7 +1084,7 @@
             { "const": "DERIVED" },
             { "const": "PRIMARY" },
             { "const": "STATIC" },
-            { "const": "EMISSION" }
+            { "const": "MULTIPLICATION" }
           ],
           "items": false,
           "minItems": 4,
@@ -1093,7 +1096,7 @@
             { "const": "DERIVED" },
             { "const": "PRIMARY" },
             { "const": "STATIC" },
-            { "const": "EMISSION" }
+            { "const": "MULTIPLICATION" }
           ],
           "items": false,
           "minItems": 4,
@@ -1241,7 +1244,7 @@
             "radionuclide",
             "administration_route",
             "start_datetime",
-            "total_dose_mbq",
+            "total_dose_present_empty",
             "half_life_seconds",
             "positron_fraction",
             "radiopharmaceutical"
@@ -1274,7 +1277,7 @@
               ]
             },
             "start_datetime": { "const": "20260101000000" },
-            "total_dose_mbq": { "const": 0.0 },
+            "total_dose_present_empty": { "const": true },
             "half_life_seconds": { "const": 6586.2 },
             "positron_fraction": { "const": 0.967 },
             "radiopharmaceutical": {
@@ -1295,6 +1298,20 @@
         "radiopharmaceutical_usage_agent_number": { "const": 1 },
         "table_motion": { "const": "STATIC" },
         "time_of_flight_information_used": { "const": "FALSE" },
+        "view_code": {
+          "allOf": [
+            { "$ref": "#/$defs/expected_enhanced_pet_code" },
+            {
+              "properties": {
+                "code_value": { "const": "24422004" },
+                "coding_scheme_designator": { "const": "SCT" },
+                "code_meaning": { "const": "Axial" }
+              }
+            }
+          ]
+        },
+        "view_modifier_item_count": { "const": 0 },
+        "slice_progression_direction_present": { "const": false },
         "counts_source": { "const": "EMISSION" },
         "corrections": {
           "type": "object",

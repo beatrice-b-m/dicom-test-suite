@@ -640,6 +640,7 @@ fn manifest_schema_types_enhanced_pet_expectations() {
     expectations["anatomic_region"]["code_value"] = serde_json::json!("80891009");
     expectations["radiopharmaceutical_information"]["radionuclide"]["code_meaning"] =
         serde_json::json!("Fluorine-18");
+    expectations["view_code"]["code_value"] = serde_json::json!("399321004");
     expectations["corrections"]["decay"] = serde_json::json!("YES");
     expectations["real_world_value_mapping"]["slope"] = serde_json::json!(1.0);
     expectations["stored_values_by_frame"][1][3] = serde_json::json!(401);
@@ -1211,8 +1212,8 @@ fn pet_activity_expectations() -> Value {
 fn enhanced_pet_expectations() -> Value {
     let frame_hash = "03ec353fd2407afb09c8d65712ef9aa30f03c8243f6f3f1675dca7ea5f6a4784";
     serde_json::json!({
-        "image_type": ["DERIVED", "PRIMARY", "STATIC", "EMISSION"],
-        "frame_type": ["DERIVED", "PRIMARY", "STATIC", "EMISSION"],
+        "image_type": ["DERIVED", "PRIMARY", "STATIC", "MULTIPLICATION"],
+        "frame_type": ["DERIVED", "PRIMARY", "STATIC", "MULTIPLICATION"],
         "pixel_presentation": "MONOCHROME",
         "volumetric_properties": "VOLUME",
         "volume_based_calculation_technique": "NONE",
@@ -1274,7 +1275,7 @@ fn enhanced_pet_expectations() -> Value {
                 "code_meaning": "Intravenous route"
             },
             "start_datetime": "20260101000000",
-            "total_dose_mbq": 0.0,
+            "total_dose_present_empty": true,
             "half_life_seconds": 6586.2,
             "positron_fraction": 0.967,
             "radiopharmaceutical": {
@@ -1286,6 +1287,13 @@ fn enhanced_pet_expectations() -> Value {
         "radiopharmaceutical_usage_agent_number": 1,
         "table_motion": "STATIC",
         "time_of_flight_information_used": "FALSE",
+        "view_code": {
+            "code_value": "24422004",
+            "coding_scheme_designator": "SCT",
+            "code_meaning": "Axial"
+        },
+        "view_modifier_item_count": 0,
+        "slice_progression_direction_present": false,
         "counts_source": "EMISSION",
         "corrections": {
             "decay": "NO",

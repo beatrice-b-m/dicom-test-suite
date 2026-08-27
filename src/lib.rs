@@ -127,6 +127,11 @@ struct ManifestSourceObject {
     series_instance_uid: Option<String>,
     frame_of_reference_uid: Option<String>,
     frames: Option<u64>,
+    rows: Option<u64>,
+    columns: Option<u64>,
+    photometric_interpretation: Option<String>,
+    samples_per_pixel: Option<u64>,
+    planar_configuration: Option<u64>,
 }
 
 const TAG_SEGMENTATION_TYPE: dicom_core::Tag = dicom_core::Tag(0x0062, 0x0001);
@@ -601,6 +606,18 @@ fn build_manifest_source_object_map(
                     .and_then(Value::as_str)
                     .map(ToOwned::to_owned),
                 frames,
+                rows: file.pointer("/image/rows").and_then(Value::as_u64),
+                columns: file.pointer("/image/columns").and_then(Value::as_u64),
+                photometric_interpretation: file
+                    .pointer("/image/photometric_interpretation")
+                    .and_then(Value::as_str)
+                    .map(ToOwned::to_owned),
+                samples_per_pixel: file
+                    .pointer("/image/samples_per_pixel")
+                    .and_then(Value::as_u64),
+                planar_configuration: file
+                    .pointer("/image/planar_configuration")
+                    .and_then(Value::as_u64),
             },
         );
     }
@@ -753,6 +770,422 @@ fn validate_manifest_references(
             source_objects,
             failures,
         )?;
+    } else if file.get("case_id").and_then(Value::as_str)
+        == Some("derived/presentation-state/color_softcopy")
+    {
+        validate_color_softcopy_presentation_state_manifest_closure(
+            manifest_path,
+            file,
+            source_objects,
+            failures,
+        )?;
+    }
+
+    Ok(())
+}
+
+fn validate_color_softcopy_presentation_state_manifest_closure(
+    manifest_path: &Path,
+    file: &Value,
+    source_objects: &HashMap<String, ManifestSourceObject>,
+    failures: &mut Vec<String>,
+) -> Result<(), ValidateError> {
+    const CASE_ID: &str = "derived/presentation-state/color_softcopy";
+    const SOURCE_CASE_ID: &str = "classic/sc/rgb_planar0_explicit_le";
+    const SOURCE_PATH: &str = "classic/sc/rgb_planar0_explicit_le/instance.dcm";
+    const SOURCE_SOP_CLASS_UID: &str = "1.2.840.10008.5.1.4.1.1.7";
+    const SOP_CLASS_UID: &str = "1.2.840.10008.5.1.4.1.1.11.2";
+    const TRANSFER_SYNTAX_UID: &str = "1.2.840.10008.1.2.1";
+
+    let relative_path = manifest_str(manifest_path, file, "/path", "file path must be a string")?;
+    let expected = file
+        .get("expected_color_softcopy_presentation_state")
+        .ok_or(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "Color Softcopy Presentation State must declare expected_color_softcopy_presentation_state",
+        })?;
+    let source = expected.get("source").ok_or(ValidateError::ManifestShape {
+        path: manifest_path.to_path_buf(),
+        message: "Color Softcopy Presentation State source must be an object",
+    })?;
+
+    for (name, pointer, locked) in [
+        ("case_id", "/case_id", CASE_ID),
+        ("sop_class_uid", "/dicom/sop_class_uid", SOP_CLASS_UID),
+        (
+            "iod_name",
+            "/dicom/iod_name",
+            "Color Softcopy Presentation State",
+        ),
+        ("modality", "/dicom/modality", "PR"),
+        (
+            "transfer_syntax_uid",
+            "/dicom/transfer_syntax_uid",
+            TRANSFER_SYNTAX_UID,
+        ),
+    ] {
+        validate_equal(
+            failures,
+            relative_path,
+            &format!("color_softcopy_manifest_{name}"),
+            manifest_str(
+                manifest_path,
+                file,
+                pointer,
+                "Color Softcopy Presentation State DICOM identity must be a string",
+            )?,
+            locked,
+        );
+    }
+
+    let source_path = manifest_str(
+        manifest_path,
+        source,
+        "/source_path",
+        "Color Softcopy Presentation State source_path must be a string",
+    )?;
+    validate_equal(
+        failures,
+        relative_path,
+        "color_softcopy_source_path_locked",
+        source_path,
+        SOURCE_PATH,
+    );
+    let Some(actual) = source_objects.get(source_path) else {
+        failures.push(format!(
+            "{relative_path}: color_softcopy_source_path: {source_path} is not generated in this run"
+        ));
+        return Ok(());
+    };
+
+    for (name, expected_value, actual_value, locked) in [
+        (
+            "source_case_id",
+            manifest_str(
+                manifest_path,
+                source,
+                "/source_case_id",
+                "Color Softcopy Presentation State source_case_id must be a string",
+            )?,
+            actual.case_id.as_str(),
+            SOURCE_CASE_ID,
+        ),
+        (
+            "source_sha256",
+            manifest_str(
+                manifest_path,
+                source,
+                "/source_sha256",
+                "Color Softcopy Presentation State source_sha256 must be a string",
+            )?,
+            actual.sha256.as_str(),
+            actual.sha256.as_str(),
+        ),
+        (
+            "study_instance_uid",
+            manifest_str(
+                manifest_path,
+                source,
+                "/study_instance_uid",
+                "Color Softcopy Presentation State source Study UID must be a string",
+            )?,
+            actual.study_instance_uid.as_str(),
+            actual.study_instance_uid.as_str(),
+        ),
+        (
+            "series_instance_uid",
+            manifest_str(
+                manifest_path,
+                source,
+                "/series_instance_uid",
+                "Color Softcopy Presentation State source Series UID must be a string",
+            )?,
+            actual.series_instance_uid.as_deref().unwrap_or(""),
+            actual.series_instance_uid.as_deref().unwrap_or(""),
+        ),
+        (
+            "sop_class_uid",
+            manifest_str(
+                manifest_path,
+                source,
+                "/sop_class_uid",
+                "Color Softcopy Presentation State source SOP Class UID must be a string",
+            )?,
+            actual.sop_class_uid.as_str(),
+            SOURCE_SOP_CLASS_UID,
+        ),
+        (
+            "sop_instance_uid",
+            manifest_str(
+                manifest_path,
+                source,
+                "/sop_instance_uid",
+                "Color Softcopy Presentation State source SOP Instance UID must be a string",
+            )?,
+            actual.sop_instance_uid.as_str(),
+            actual.sop_instance_uid.as_str(),
+        ),
+    ] {
+        validate_equal(
+            failures,
+            relative_path,
+            &format!("color_softcopy_{name}"),
+            expected_value,
+            actual_value,
+        );
+        validate_equal(
+            failures,
+            relative_path,
+            &format!("color_softcopy_{name}_locked"),
+            actual_value,
+            locked,
+        );
+    }
+
+    for (name, pointer, actual_value, locked) in [
+        ("rows", "/rows", actual.rows, 2),
+        ("columns", "/columns", actual.columns, 2),
+        (
+            "samples_per_pixel",
+            "/samples_per_pixel",
+            actual.samples_per_pixel,
+            3,
+        ),
+        (
+            "planar_configuration",
+            "/planar_configuration",
+            actual.planar_configuration,
+            0,
+        ),
+    ] {
+        let expected_value = manifest_u64(
+            manifest_path,
+            source,
+            pointer,
+            "Color Softcopy Presentation State source image value must be an integer",
+        )?;
+        validate_equal_debug(
+            failures,
+            relative_path,
+            &format!("color_softcopy_source_{name}"),
+            actual_value,
+            Some(expected_value),
+        );
+        validate_equal(
+            failures,
+            relative_path,
+            &format!("color_softcopy_source_{name}_locked"),
+            expected_value,
+            locked,
+        );
+    }
+    let expected_photometric = manifest_str(
+        manifest_path,
+        source,
+        "/photometric_interpretation",
+        "Color Softcopy Presentation State source photometric interpretation must be a string",
+    )?;
+    validate_equal_debug(
+        failures,
+        relative_path,
+        "color_softcopy_source_photometric_interpretation",
+        actual.photometric_interpretation.as_deref(),
+        Some(expected_photometric),
+    );
+    validate_equal(
+        failures,
+        relative_path,
+        "color_softcopy_source_photometric_interpretation_locked",
+        expected_photometric,
+        "RGB",
+    );
+    validate_equal_debug(
+        failures,
+        relative_path,
+        "color_softcopy_source_frame_count",
+        actual.frames,
+        Some(1),
+    );
+
+    let complete_instance = manifest_bool(
+        manifest_path,
+        source,
+        "/complete_instance",
+        "Color Softcopy Presentation State complete_instance must be a boolean",
+    )?;
+    validate_equal(
+        failures,
+        relative_path,
+        "color_softcopy_source_complete_instance",
+        complete_instance,
+        true,
+    );
+    let same_study = manifest_bool(
+        manifest_path,
+        expected,
+        "/same_study",
+        "Color Softcopy Presentation State same_study must be a boolean",
+    )?;
+    validate_equal(
+        failures,
+        relative_path,
+        "color_softcopy_same_study_declared",
+        same_study,
+        true,
+    );
+    validate_equal(
+        failures,
+        relative_path,
+        "color_softcopy_same_study",
+        manifest_str(
+            manifest_path,
+            file,
+            "/uids/study_instance_uid",
+            "Color Softcopy Presentation State Study UID must be a string",
+        )?,
+        actual.study_instance_uid.as_str(),
+    );
+    let different_series = manifest_bool(
+        manifest_path,
+        expected,
+        "/different_series",
+        "Color Softcopy Presentation State different_series must be a boolean",
+    )?;
+    validate_equal(
+        failures,
+        relative_path,
+        "color_softcopy_different_series_declared",
+        different_series,
+        true,
+    );
+    let presentation_series_uid = manifest_str(
+        manifest_path,
+        file,
+        "/uids/series_instance_uid",
+        "Color Softcopy Presentation State Series UID must be a string",
+    )?;
+    if actual.series_instance_uid.as_deref() == Some(presentation_series_uid) {
+        failures.push(format!(
+            "{relative_path}: color_softcopy_different_series: presentation and source Series Instance UIDs must differ"
+        ));
+    }
+
+    for (name, pointer, locked) in [
+        (
+            "referenced_series_items",
+            "/relationship/referenced_series_items",
+            1,
+        ),
+        (
+            "referenced_image_items",
+            "/relationship/referenced_image_items",
+            1,
+        ),
+    ] {
+        validate_equal(
+            failures,
+            relative_path,
+            &format!("color_softcopy_{name}"),
+            manifest_u64(
+                manifest_path,
+                expected,
+                pointer,
+                "Color Softcopy Presentation State relationship count must be an integer",
+            )?,
+            locked,
+        );
+    }
+    let referenced_frames = manifest_array(
+        manifest_path,
+        expected,
+        "/relationship/referenced_frame_numbers",
+        "Color Softcopy Presentation State referenced_frame_numbers must be an array",
+    )?;
+    if !referenced_frames.is_empty() {
+        failures.push(format!(
+            "{relative_path}: color_softcopy_referenced_frame_numbers: complete-instance reference must not name frames"
+        ));
+    }
+    validate_equal(
+        failures,
+        relative_path,
+        "color_softcopy_applies_to_complete_instance",
+        manifest_bool(
+            manifest_path,
+            expected,
+            "/relationship/applies_to_complete_instance",
+            "Color Softcopy Presentation State applies_to_complete_instance must be a boolean",
+        )?,
+        true,
+    );
+
+    let references = manifest_array(
+        manifest_path,
+        file,
+        "/references",
+        "Color Softcopy Presentation State references must be an array",
+    )?;
+    if references.len() != 1 {
+        failures.push(format!(
+            "{relative_path}: color_softcopy_manifest_closure: expected exactly one ordinary source reference"
+        ));
+        return Ok(());
+    }
+    let reference = &references[0];
+    validate_equal(
+        failures,
+        relative_path,
+        "color_softcopy_reference_relationship",
+        manifest_str(
+            manifest_path,
+            reference,
+            "/relationship",
+            "Color Softcopy Presentation State reference relationship must be a string",
+        )?,
+        "source_image",
+    );
+    for (name, actual_value, expected_value) in [
+        (
+            "source_case_id",
+            reference.get("source_case_id"),
+            source.get("source_case_id"),
+        ),
+        (
+            "source_path",
+            reference.get("source_path"),
+            source.get("source_path"),
+        ),
+        (
+            "series_instance_uid",
+            reference.get("series_instance_uid"),
+            source.get("series_instance_uid"),
+        ),
+        (
+            "sop_class_uid",
+            reference.get("sop_class_uid"),
+            source.get("sop_class_uid"),
+        ),
+        (
+            "sop_instance_uid",
+            reference.get("sop_instance_uid"),
+            source.get("sop_instance_uid"),
+        ),
+    ] {
+        validate_equal_debug(
+            failures,
+            relative_path,
+            &format!("color_softcopy_reference_{name}"),
+            actual_value,
+            expected_value,
+        );
+    }
+    if reference
+        .get("frame_numbers")
+        .is_some_and(|value| !value.is_null())
+    {
+        failures.push(format!(
+            "{relative_path}: color_softcopy_reference_frame_numbers: complete-instance reference must omit frame numbers"
+        ));
     }
 
     Ok(())
@@ -5249,6 +5682,15 @@ fn validate_family_standard_elements(
                 file,
             )?
         }
+        "Color Softcopy Presentation State" => {
+            validate_color_softcopy_presentation_state_standard_elements(
+                failures,
+                relative_path,
+                path,
+                manifest_path,
+                file,
+            )?
+        }
         "Encapsulated PDF" => validate_encapsulated_pdf_standard_elements(
             failures,
             relative_path,
@@ -5259,6 +5701,107 @@ fn validate_family_standard_elements(
         _ => {}
     }
 
+    Ok(())
+}
+
+fn validate_color_softcopy_presentation_state_standard_elements(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    path: &Path,
+    manifest_path: &Path,
+    file: &Value,
+) -> Result<(), ValidateError> {
+    let expected = file
+        .get("expected_color_softcopy_presentation_state")
+        .ok_or(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "Color Softcopy Presentation State must declare expected_color_softcopy_presentation_state",
+        })?;
+    let source = expected.get("source").ok_or(ValidateError::ManifestShape {
+        path: manifest_path.to_path_buf(),
+        message: "Color Softcopy Presentation State source must be an object",
+    })?;
+    let expectations = validation::ColorSoftcopyPresentationStateExpectations {
+        sop_class_uid: manifest_str(
+            manifest_path,
+            file,
+            "/dicom/sop_class_uid",
+            "Color Softcopy Presentation State SOP Class UID must be a string",
+        )?,
+        sop_instance_uid: manifest_str(
+            manifest_path,
+            file,
+            "/uids/sop_instance_uid",
+            "Color Softcopy Presentation State SOP Instance UID must be a string",
+        )?,
+        transfer_syntax_uid: manifest_str(
+            manifest_path,
+            file,
+            "/dicom/transfer_syntax_uid",
+            "Color Softcopy Presentation State transfer syntax UID must be a string",
+        )?,
+        implementation_class_uid: manifest_str(
+            manifest_path,
+            file,
+            "/uids/implementation_class_uid",
+            "Color Softcopy Presentation State implementation class UID must be a string",
+        )?,
+        synthetic_data: manifest_str(
+            manifest_path,
+            file,
+            "/expected_semantics/synthetic_data",
+            "Color Softcopy Presentation State Synthetic Data expectation must be a string",
+        )?,
+        study_instance_uid: manifest_str(
+            manifest_path,
+            file,
+            "/uids/study_instance_uid",
+            "Color Softcopy Presentation State Study UID must be a string",
+        )?,
+        series_instance_uid: manifest_str(
+            manifest_path,
+            file,
+            "/uids/series_instance_uid",
+            "Color Softcopy Presentation State Series UID must be a string",
+        )?,
+        source_study_instance_uid: manifest_str(
+            manifest_path,
+            source,
+            "/study_instance_uid",
+            "Color Softcopy Presentation State source Study UID must be a string",
+        )?,
+        source_series_instance_uid: manifest_str(
+            manifest_path,
+            source,
+            "/series_instance_uid",
+            "Color Softcopy Presentation State source Series UID must be a string",
+        )?,
+        source_sop_class_uid: manifest_str(
+            manifest_path,
+            source,
+            "/sop_class_uid",
+            "Color Softcopy Presentation State source SOP Class UID must be a string",
+        )?,
+        source_sop_instance_uid: manifest_str(
+            manifest_path,
+            source,
+            "/sop_instance_uid",
+            "Color Softcopy Presentation State source SOP Instance UID must be a string",
+        )?,
+        icc_profile_sha256: manifest_str(
+            manifest_path,
+            expected,
+            "/icc_profile/sha256",
+            "Color Softcopy Presentation State ICC profile SHA-256 must be a string",
+        )?,
+    };
+    if let Err(error) =
+        validation::validate_color_softcopy_presentation_state_file(path, &expectations)
+    {
+        failures.push(format!(
+            "{relative_path}: color_softcopy_presentation_state_content_contract: {error}"
+        ));
+    }
     Ok(())
 }
 
@@ -26679,6 +27222,128 @@ mod tests {
     }
 
     #[test]
+    fn color_softcopy_manifest_closure_accepts_exact_complete_rgb_source() {
+        let file = color_softcopy_manifest_fixture();
+        let sources = color_softcopy_source_objects();
+        let mut failures = Vec::new();
+
+        validate_color_softcopy_presentation_state_manifest_closure(
+            Path::new("manifest.json"),
+            &file,
+            &sources,
+            &mut failures,
+        )
+        .expect("complete Color Softcopy manifest contract should be well shaped");
+
+        assert_eq!(failures, Vec::<String>::new());
+    }
+
+    #[test]
+    fn color_softcopy_manifest_closure_rejects_missing_source_and_contract() {
+        let mut missing_contract = color_softcopy_manifest_fixture();
+        missing_contract
+            .as_object_mut()
+            .expect("fixture must be an object")
+            .remove("expected_color_softcopy_presentation_state");
+        let error = validate_color_softcopy_presentation_state_manifest_closure(
+            Path::new("manifest.json"),
+            &missing_contract,
+            &HashMap::new(),
+            &mut Vec::new(),
+        )
+        .expect_err("Color Softcopy expectation must be mandatory");
+        assert!(matches!(
+            error,
+            ValidateError::ManifestShape {
+                message: "Color Softcopy Presentation State must declare expected_color_softcopy_presentation_state",
+                ..
+            }
+        ));
+
+        let file = color_softcopy_manifest_fixture();
+        let mut failures = Vec::new();
+        validate_color_softcopy_presentation_state_manifest_closure(
+            Path::new("manifest.json"),
+            &file,
+            &HashMap::new(),
+            &mut failures,
+        )
+        .expect("missing generated source should be a validation failure");
+        assert!(
+            failures
+                .iter()
+                .any(|failure| failure.contains("color_softcopy_source_path"))
+        );
+    }
+
+    #[test]
+    fn color_softcopy_manifest_closure_rejects_broken_identity_geometry_and_reference() {
+        let mut file = color_softcopy_manifest_fixture();
+        file["dicom"]["sop_class_uid"] = Value::from("1.2.3");
+        file["uids"]["study_instance_uid"] = Value::from("1.2.840.999.404");
+        file["uids"]["series_instance_uid"] = Value::from("1.2.840.999.2");
+        file["expected_color_softcopy_presentation_state"]["source"]["source_sha256"] =
+            Value::from("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
+        file["expected_color_softcopy_presentation_state"]["source"]["rows"] = Value::from(3);
+        file["expected_color_softcopy_presentation_state"]["relationship"]["referenced_frame_numbers"] =
+            serde_json::json!([1]);
+        file["references"][0]["relationship"] = Value::from("wrong_relationship");
+        file["references"][0]["frame_numbers"] = serde_json::json!([1]);
+
+        let mut failures = Vec::new();
+        validate_color_softcopy_presentation_state_manifest_closure(
+            Path::new("manifest.json"),
+            &file,
+            &color_softcopy_source_objects(),
+            &mut failures,
+        )
+        .expect("semantic corruption should remain reportable as failures");
+
+        for expected in [
+            "color_softcopy_manifest_sop_class_uid",
+            "color_softcopy_source_sha256",
+            "color_softcopy_source_rows",
+            "color_softcopy_source_rows_locked",
+            "color_softcopy_same_study",
+            "color_softcopy_different_series",
+            "color_softcopy_referenced_frame_numbers",
+            "color_softcopy_reference_relationship",
+            "color_softcopy_reference_frame_numbers",
+        ] {
+            assert!(
+                failures.iter().any(|failure| failure.contains(expected)),
+                "missing expected failure {expected}: {failures:#?}"
+            );
+        }
+    }
+
+    #[test]
+    fn color_softcopy_manifest_closure_rejects_reference_cardinality() {
+        let mut file = color_softcopy_manifest_fixture();
+        let duplicate = file["references"][0].clone();
+        file["references"]
+            .as_array_mut()
+            .expect("fixture references must be an array")
+            .push(duplicate);
+        let mut failures = Vec::new();
+
+        validate_color_softcopy_presentation_state_manifest_closure(
+            Path::new("manifest.json"),
+            &file,
+            &color_softcopy_source_objects(),
+            &mut failures,
+        )
+        .expect("reference cardinality is a semantic failure");
+
+        assert!(
+            failures
+                .iter()
+                .any(|failure| failure.contains("color_softcopy_manifest_closure")),
+            "duplicate ordinary references must not close: {failures:#?}"
+        );
+    }
+
+    #[test]
     fn sha256_hex_matches_known_digest() {
         assert_eq!(
             sha256_hex(b"abc"),
@@ -26702,6 +27367,78 @@ mod tests {
             .iter()
             .find(|case| case.get("case_id").and_then(Value::as_str) == Some(case_id))
             .expect("skipped case should be present")
+    }
+
+    fn color_softcopy_manifest_fixture() -> Value {
+        serde_json::json!({
+            "case_id": "derived/presentation-state/color_softcopy",
+            "path": "derived/presentation-state/color_softcopy/instance.dcm",
+            "dicom": {
+                "sop_class_uid": "1.2.840.10008.5.1.4.1.1.11.2",
+                "iod_name": "Color Softcopy Presentation State",
+                "modality": "PR",
+                "transfer_syntax_uid": "1.2.840.10008.1.2.1"
+            },
+            "uids": {
+                "study_instance_uid": "1.2.840.999.1",
+                "series_instance_uid": "1.2.840.999.3"
+            },
+            "references": [{
+                "relationship": "source_image",
+                "source_case_id": "classic/sc/rgb_planar0_explicit_le",
+                "source_path": "classic/sc/rgb_planar0_explicit_le/instance.dcm",
+                "series_instance_uid": "1.2.840.999.2",
+                "sop_class_uid": "1.2.840.10008.5.1.4.1.1.7",
+                "sop_instance_uid": "1.2.840.999.4"
+            }],
+            "expected_color_softcopy_presentation_state": {
+                "source": {
+                    "source_case_id": "classic/sc/rgb_planar0_explicit_le",
+                    "source_path": "classic/sc/rgb_planar0_explicit_le/instance.dcm",
+                    "source_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                    "study_instance_uid": "1.2.840.999.1",
+                    "series_instance_uid": "1.2.840.999.2",
+                    "sop_class_uid": "1.2.840.10008.5.1.4.1.1.7",
+                    "sop_instance_uid": "1.2.840.999.4",
+                    "rows": 2,
+                    "columns": 2,
+                    "photometric_interpretation": "RGB",
+                    "samples_per_pixel": 3,
+                    "planar_configuration": 0,
+                    "complete_instance": true
+                },
+                "same_study": true,
+                "different_series": true,
+                "relationship": {
+                    "referenced_series_items": 1,
+                    "referenced_image_items": 1,
+                    "referenced_frame_numbers": [],
+                    "applies_to_complete_instance": true
+                }
+            }
+        })
+    }
+
+    fn color_softcopy_source_objects() -> HashMap<String, ManifestSourceObject> {
+        HashMap::from([(
+            "classic/sc/rgb_planar0_explicit_le/instance.dcm".to_string(),
+            ManifestSourceObject {
+                case_id: "classic/sc/rgb_planar0_explicit_le".to_string(),
+                sha256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                    .to_string(),
+                study_instance_uid: "1.2.840.999.1".to_string(),
+                sop_class_uid: "1.2.840.10008.5.1.4.1.1.7".to_string(),
+                sop_instance_uid: "1.2.840.999.4".to_string(),
+                series_instance_uid: Some("1.2.840.999.2".to_string()),
+                frame_of_reference_uid: None,
+                frames: Some(1),
+                rows: Some(2),
+                columns: Some(2),
+                photometric_interpretation: Some("RGB".to_string()),
+                samples_per_pixel: Some(3),
+                planar_configuration: Some(0),
+            },
+        )])
     }
 
     fn coverage_row<'a>(report: &'a Value, case_id: &str) -> &'a Value {

@@ -3833,7 +3833,10 @@ pub(crate) fn validate_spatial_registration_file(
             "spatial_registration_referring_physician",
             tags::REFERRING_PHYSICIAN_NAME,
         ),
-        ("spatial_registration_accession_number", tags::ACCESSION_NUMBER),
+        (
+            "spatial_registration_accession_number",
+            tags::ACCESSION_NUMBER,
+        ),
         (
             "spatial_registration_position_reference_indicator",
             tags::POSITION_REFERENCE_INDICATOR,
@@ -4161,10 +4164,8 @@ fn validate_spatial_registration_item(
     );
     let determinant = rotation[0][0]
         * (rotation[1][1] * rotation[2][2] - rotation[1][2] * rotation[2][1])
-        - rotation[0][1]
-            * (rotation[1][0] * rotation[2][2] - rotation[1][2] * rotation[2][0])
-        + rotation[0][2]
-            * (rotation[1][0] * rotation[2][1] - rotation[1][1] * rotation[2][0]);
+        - rotation[0][1] * (rotation[1][0] * rotation[2][2] - rotation[1][2] * rotation[2][0])
+        + rotation[0][2] * (rotation[1][0] * rotation[2][1] - rotation[1][1] * rotation[2][0]);
     check(
         results,
         close(determinant, 1.0, tolerance),

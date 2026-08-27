@@ -345,6 +345,30 @@
         "pet_radiopharmaceutical_information_item_counts": {
           "$ref": "#/$defs/count_map"
         },
+        "us_image_types": {
+          "$ref": "#/$defs/count_map"
+        },
+        "us_frame_increment_pointers": {
+          "$ref": "#/$defs/count_map"
+        },
+        "us_frame_times_ms": {
+          "$ref": "#/$defs/count_map"
+        },
+        "us_frame_counts": {
+          "$ref": "#/$defs/count_map"
+        },
+        "us_spatially_related_frames": {
+          "$ref": "#/$defs/count_map"
+        },
+        "us_color_data_present": {
+          "$ref": "#/$defs/count_map"
+        },
+        "us_region_calibrated": {
+          "$ref": "#/$defs/count_map"
+        },
+        "us_lossy_image_compressions": {
+          "$ref": "#/$defs/count_map"
+        },
         "mr_scanning_sequences": {
           "$ref": "#/$defs/count_map"
         },
@@ -821,6 +845,16 @@
         "pet_actual_frame_duration_ms",
         "pet_image_index",
         "pet_radiopharmaceutical_information_item_count",
+        "us_image_type",
+        "us_frame_increment_pointer",
+        "us_frame_time_ms",
+        "us_frame_relative_times_ms",
+        "us_frame_count",
+        "us_ordered_frame_hashes",
+        "us_spatially_related_frames",
+        "us_color_data_present",
+        "us_region_calibrated",
+        "us_lossy_image_compression",
         "mr_scanning_sequence",
         "mr_sequence_variant",
         "mr_acquisition_type",
@@ -1430,6 +1464,39 @@
         "pet_radiopharmaceutical_information_item_count": {
           "type": ["integer", "null"],
           "minimum": 0
+        },
+        "us_image_type": {
+          "type": ["string", "null"]
+        },
+        "us_frame_increment_pointer": {
+          "type": ["string", "null"]
+        },
+        "us_frame_time_ms": {
+          "type": ["number", "null"],
+          "exclusiveMinimum": 0
+        },
+        "us_frame_relative_times_ms": {
+          "type": ["string", "null"]
+        },
+        "us_frame_count": {
+          "type": ["integer", "null"],
+          "minimum": 1
+        },
+        "us_ordered_frame_hashes": {
+          "type": ["string", "null"]
+        },
+        "us_spatially_related_frames": {
+          "type": ["boolean", "null"]
+        },
+        "us_color_data_present": {
+          "type": ["boolean", "null"]
+        },
+        "us_region_calibrated": {
+          "type": ["boolean", "null"]
+        },
+        "us_lossy_image_compression": {
+          "type": ["string", "null"],
+          "enum": ["00", "01", null]
         },
         "mr_scanning_sequence": {
           "type": ["string", "null"]

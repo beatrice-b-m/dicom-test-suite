@@ -8463,6 +8463,33 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
     ] {
         append_count_map_section(&mut output, report, title, pointer);
     }
+    for (title, pointer) in [
+        ("US Image Types", "/grouped_coverage/us_image_types"),
+        (
+            "US Frame Increment Pointers",
+            "/grouped_coverage/us_frame_increment_pointers",
+        ),
+        ("US Frame Times (ms)", "/grouped_coverage/us_frame_times_ms"),
+        ("US Frame Counts", "/grouped_coverage/us_frame_counts"),
+        (
+            "US Spatially Related Frame States",
+            "/grouped_coverage/us_spatially_related_frames",
+        ),
+        (
+            "US Color Data Present States",
+            "/grouped_coverage/us_color_data_present",
+        ),
+        (
+            "US Region Calibration States",
+            "/grouped_coverage/us_region_calibrated",
+        ),
+        (
+            "US Lossy Image Compression History",
+            "/grouped_coverage/us_lossy_image_compressions",
+        ),
+    ] {
+        append_count_map_section(&mut output, report, title, pointer);
+    }
     append_count_map_section(
         &mut output,
         report,
@@ -9354,6 +9381,47 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
         output.push('\n');
     }
 
+    let us_rows = report
+        .get("coverage_matrix")
+        .and_then(Value::as_array)
+        .map(|rows| {
+            rows.iter()
+                .filter(|row| !row["us_image_type"].is_null())
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    if !us_rows.is_empty() {
+        output.push_str("## Ultrasound Multi-frame Expectations\n\n");
+        output.push_str("| Case ID | Image type | Frame increment pointer | Frame time (ms) | Relative times (ms) | Frame count | Ordered frame SHA-256 values | Spatially related | Color data present | Region calibrated | Lossy image compression |\n");
+        output.push_str("|---|---|---|---:|---|---:|---|---|---|---|---|\n");
+        for row in us_rows {
+            output.push_str(&format!(
+                "| {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} |\n",
+                markdown_cell(row.get("case_id").and_then(Value::as_str)),
+                markdown_cell(row.get("us_image_type").and_then(Value::as_str)),
+                markdown_cell(
+                    row.get("us_frame_increment_pointer")
+                        .and_then(Value::as_str)
+                ),
+                markdown_number(row.get("us_frame_time_ms")),
+                markdown_cell(
+                    row.get("us_frame_relative_times_ms")
+                        .and_then(Value::as_str)
+                ),
+                markdown_number(row.get("us_frame_count")),
+                markdown_cell(row.get("us_ordered_frame_hashes").and_then(Value::as_str)),
+                markdown_bool(row.get("us_spatially_related_frames")),
+                markdown_bool(row.get("us_color_data_present")),
+                markdown_bool(row.get("us_region_calibrated")),
+                markdown_cell(
+                    row.get("us_lossy_image_compression")
+                        .and_then(Value::as_str)
+                )
+            ));
+        }
+        output.push('\n');
+    }
+
     let enhanced_mr_temporal_rows = report
         .get("coverage_matrix")
         .and_then(Value::as_array)
@@ -9741,6 +9809,7 @@ fn generated_coverage_row(
     let metadata = metadata_report_fields(file);
     let nm = nm_multiframe_report_fields(file);
     let pet = pet_activity_report_fields(file);
+    let us = us_multiframe_report_fields(manifest_path, file)?;
     let mut row = serde_json::json!({
         "case_id": report_str(manifest_path, file, "/case_id", "file case_id must be a string")?,
         "profile": run_profile,
@@ -9925,6 +9994,41 @@ fn generated_coverage_row(
         (
             "metadata_sequence_decoded_code",
             metadata.sequence_decoded_code.map(Value::from),
+        ),
+    ] {
+        row_object.insert(field.to_string(), value.unwrap_or(Value::Null));
+    }
+    for (field, value) in [
+        ("us_image_type", us.image_type.map(Value::from)),
+        (
+            "us_frame_increment_pointer",
+            us.frame_increment_pointer.map(Value::from),
+        ),
+        ("us_frame_time_ms", us.frame_time_ms.map(Value::from)),
+        (
+            "us_frame_relative_times_ms",
+            us.frame_relative_times_ms.map(Value::from),
+        ),
+        ("us_frame_count", us.frame_count.map(Value::from)),
+        (
+            "us_ordered_frame_hashes",
+            us.ordered_frame_hashes.map(Value::from),
+        ),
+        (
+            "us_spatially_related_frames",
+            us.spatially_related_frames.map(Value::from),
+        ),
+        (
+            "us_color_data_present",
+            us.color_data_present.map(Value::from),
+        ),
+        (
+            "us_region_calibrated",
+            us.region_calibrated.map(Value::from),
+        ),
+        (
+            "us_lossy_image_compression",
+            us.lossy_image_compression.map(Value::from),
         ),
     ] {
         row_object.insert(field.to_string(), value.unwrap_or(Value::Null));
@@ -10913,6 +11017,110 @@ struct PetActivityReportFields {
     actual_frame_duration_ms: Option<u64>,
     image_index: Option<u64>,
     radiopharmaceutical_information_item_count: Option<u64>,
+}
+
+#[derive(Debug, Default)]
+struct UsMultiframeReportFields {
+    image_type: Option<String>,
+    frame_increment_pointer: Option<String>,
+    frame_time_ms: Option<f64>,
+    frame_relative_times_ms: Option<String>,
+    frame_count: Option<u64>,
+    ordered_frame_hashes: Option<String>,
+    spatially_related_frames: Option<bool>,
+    color_data_present: Option<bool>,
+    region_calibrated: Option<bool>,
+    lossy_image_compression: Option<String>,
+}
+
+fn us_multiframe_report_fields(
+    manifest_path: &Path,
+    file: &Value,
+) -> Result<UsMultiframeReportFields, ReportError> {
+    let Some(expected) = file.get("expected_us_multiframe") else {
+        return Ok(UsMultiframeReportFields::default());
+    };
+    let expected = expected.as_object().ok_or(ReportError::MetadataShape {
+        path: manifest_path.to_path_buf(),
+        message: "expected_us_multiframe must be an object",
+    })?;
+    let string_array = |field: &str| {
+        expected
+            .get(field)
+            .and_then(Value::as_array)
+            .and_then(|values| values.iter().map(Value::as_str).collect::<Option<Vec<_>>>())
+            .map(|values| values.join("; "))
+    };
+    let scalar_array = |field: &str| {
+        expected
+            .get(field)
+            .and_then(Value::as_array)
+            .and_then(|values| {
+                values
+                    .iter()
+                    .map(report_scalar_label)
+                    .collect::<Option<Vec<_>>>()
+            })
+            .map(|values| values.join("; "))
+    };
+    let ordered_frame_hashes = expected
+        .get("frames")
+        .and_then(Value::as_array)
+        .and_then(|frames| {
+            frames
+                .iter()
+                .map(|frame| frame.get("frame_sha256").and_then(Value::as_str))
+                .collect::<Option<Vec<_>>>()
+        })
+        .map(|hashes| hashes.join("; "));
+
+    let fields = UsMultiframeReportFields {
+        image_type: string_array("image_type"),
+        frame_increment_pointer: expected
+            .get("frame_increment_pointer")
+            .and_then(Value::as_str)
+            .map(str::to_string),
+        frame_time_ms: expected.get("frame_time_ms").and_then(Value::as_f64),
+        frame_relative_times_ms: scalar_array("frame_relative_times_ms"),
+        frame_count: expected.get("frame_count").and_then(Value::as_u64),
+        ordered_frame_hashes,
+        spatially_related_frames: expected
+            .get("spatially_related_frames")
+            .and_then(Value::as_bool),
+        color_data_present: expected.get("color_data_present").and_then(Value::as_bool),
+        region_calibrated: expected.get("region_calibrated").and_then(Value::as_bool),
+        lossy_image_compression: expected
+            .get("lossy_image_compression")
+            .and_then(Value::as_str)
+            .map(str::to_string),
+    };
+    if fields.image_type.is_none()
+        || fields.frame_increment_pointer.is_none()
+        || fields.frame_time_ms.is_none()
+        || fields.frame_relative_times_ms.is_none()
+        || fields.frame_count.is_none()
+        || fields.ordered_frame_hashes.is_none()
+        || fields.spatially_related_frames.is_none()
+        || fields.color_data_present.is_none()
+        || fields.region_calibrated.is_none()
+        || fields.lossy_image_compression.is_none()
+        || expected
+            .get("frame_relative_times_ms")
+            .and_then(Value::as_array)
+            .zip(fields.frame_count)
+            .is_none_or(|(times, count)| times.len() as u64 != count)
+        || expected
+            .get("frames")
+            .and_then(Value::as_array)
+            .zip(fields.frame_count)
+            .is_none_or(|(frames, count)| frames.len() as u64 != count)
+    {
+        return Err(ReportError::MetadataShape {
+            path: manifest_path.to_path_buf(),
+            message: "expected_us_multiframe must define the complete report contract",
+        });
+    }
+    Ok(fields)
 }
 
 fn pet_activity_report_fields(file: &Value) -> PetActivityReportFields {
@@ -11937,6 +12145,16 @@ fn skipped_coverage_row(
         "pet_actual_frame_duration_ms",
         "pet_image_index",
         "pet_radiopharmaceutical_information_item_count",
+        "us_image_type",
+        "us_frame_increment_pointer",
+        "us_frame_time_ms",
+        "us_frame_relative_times_ms",
+        "us_frame_count",
+        "us_ordered_frame_hashes",
+        "us_spatially_related_frames",
+        "us_color_data_present",
+        "us_region_calibrated",
+        "us_lossy_image_compression",
     ] {
         row_object.insert(field.to_string(), Value::Null);
     }
@@ -12345,6 +12563,14 @@ struct GroupedCoverage {
     pet_actual_frame_durations_ms: BTreeMap<String, usize>,
     pet_image_indices: BTreeMap<String, usize>,
     pet_radiopharmaceutical_information_item_counts: BTreeMap<String, usize>,
+    us_image_types: BTreeMap<String, usize>,
+    us_frame_increment_pointers: BTreeMap<String, usize>,
+    us_frame_times_ms: BTreeMap<String, usize>,
+    us_frame_counts: BTreeMap<String, usize>,
+    us_spatially_related_frames: BTreeMap<String, usize>,
+    us_color_data_present: BTreeMap<String, usize>,
+    us_region_calibrated: BTreeMap<String, usize>,
+    us_lossy_image_compressions: BTreeMap<String, usize>,
     mr_scanning_sequences: BTreeMap<String, usize>,
     mr_sequence_variants: BTreeMap<String, usize>,
     mr_acquisition_types: BTreeMap<String, usize>,
@@ -12774,6 +13000,37 @@ impl GroupedCoverage {
             ),
         ] {
             increment_scalar_map(map, row.get(field));
+        }
+        for (map, field) in [
+            (&mut self.us_image_types, "us_image_type"),
+            (
+                &mut self.us_frame_increment_pointers,
+                "us_frame_increment_pointer",
+            ),
+            (
+                &mut self.us_lossy_image_compressions,
+                "us_lossy_image_compression",
+            ),
+        ] {
+            increment_map(map, row.get(field).and_then(Value::as_str));
+        }
+        for (map, field) in [
+            (&mut self.us_frame_times_ms, "us_frame_time_ms"),
+            (&mut self.us_frame_counts, "us_frame_count"),
+        ] {
+            increment_scalar_map(map, row.get(field));
+        }
+        for (map, field) in [
+            (
+                &mut self.us_spatially_related_frames,
+                "us_spatially_related_frames",
+            ),
+            (&mut self.us_color_data_present, "us_color_data_present"),
+            (&mut self.us_region_calibrated, "us_region_calibrated"),
+        ] {
+            if let Some(value) = row.get(field).and_then(Value::as_bool) {
+                *map.entry(value.to_string()).or_default() += 1;
+            }
         }
         increment_map(
             &mut self.pixel_spacings,
@@ -13643,6 +13900,30 @@ impl GroupedCoverage {
             grouped_object.insert(
                 field.to_string(),
                 serde_json::to_value(map).expect("PET coverage count map must serialize"),
+            );
+        }
+        for (field, map) in [
+            ("us_image_types", &self.us_image_types),
+            (
+                "us_frame_increment_pointers",
+                &self.us_frame_increment_pointers,
+            ),
+            ("us_frame_times_ms", &self.us_frame_times_ms),
+            ("us_frame_counts", &self.us_frame_counts),
+            (
+                "us_spatially_related_frames",
+                &self.us_spatially_related_frames,
+            ),
+            ("us_color_data_present", &self.us_color_data_present),
+            ("us_region_calibrated", &self.us_region_calibrated),
+            (
+                "us_lossy_image_compressions",
+                &self.us_lossy_image_compressions,
+            ),
+        ] {
+            grouped_object.insert(
+                field.to_string(),
+                serde_json::to_value(map).expect("US coverage count map must serialize"),
             );
         }
         grouped_object.insert(
@@ -15484,6 +15765,110 @@ mod tests {
         assert!(markdown.contains("0.0; 250.0; 500.0; 1000.0"));
         assert!(markdown.contains("## PET Units"));
         assert!(markdown.contains("## PET Activity Values (BQML)"));
+    }
+
+    #[test]
+    fn ultrasound_multiframe_report_fields_are_exact_grouped_and_rendered() {
+        let file = serde_json::json!({
+            "expected_us_multiframe": {
+                "image_type": ["ORIGINAL", "PRIMARY", "ABDOMINAL", "0001"],
+                "frame_increment_pointer": "0018,1063",
+                "frame_time_ms": 100.0,
+                "frame_relative_times_ms": [0.0, 100.0, 200.0, 300.0],
+                "frame_count": 4,
+                "frames": [
+                    { "frame_sha256": "be422fa58b70ec0d940f28a4dba3dadac62d4583b9ecba1e73d65b37ee9733e7" },
+                    { "frame_sha256": "303d53edfa9bf6eeeb81dba8a6a4c1a9c2e1cb0ea773f90afb583d1132d88eee" },
+                    { "frame_sha256": "7f8a6e2fa2665b2465075b9e0cf86dfb0646f6f21a2a647525476e5bb6e489bb" },
+                    { "frame_sha256": "8c213da26d1c57661b68238ac5c1f1d9417f661e0ab578846bf84040e753f650" }
+                ],
+                "spatially_related_frames": false,
+                "color_data_present": false,
+                "region_calibrated": false,
+                "lossy_image_compression": "00"
+            }
+        });
+        let fields = us_multiframe_report_fields(Path::new("manifest.json"), &file)
+            .expect("complete US report contract must extract");
+        assert_eq!(
+            fields.image_type.as_deref(),
+            Some("ORIGINAL; PRIMARY; ABDOMINAL; 0001")
+        );
+        assert_eq!(fields.frame_increment_pointer.as_deref(), Some("0018,1063"));
+        assert_eq!(fields.frame_time_ms, Some(100.0));
+        assert_eq!(
+            fields.frame_relative_times_ms.as_deref(),
+            Some("0.0; 100.0; 200.0; 300.0")
+        );
+        assert_eq!(fields.frame_count, Some(4));
+        assert!(
+            fields
+                .ordered_frame_hashes
+                .as_deref()
+                .is_some_and(|hashes| hashes.starts_with("be422fa58b70"))
+        );
+        assert_eq!(fields.spatially_related_frames, Some(false));
+        assert_eq!(fields.color_data_present, Some(false));
+        assert_eq!(fields.region_calibrated, Some(false));
+        assert_eq!(fields.lossy_image_compression.as_deref(), Some("00"));
+
+        let row = serde_json::json!({
+            "case_id": "classic/us/multiframe_explicit_le",
+            "us_image_type": fields.image_type,
+            "us_frame_increment_pointer": fields.frame_increment_pointer,
+            "us_frame_time_ms": fields.frame_time_ms,
+            "us_frame_relative_times_ms": fields.frame_relative_times_ms,
+            "us_frame_count": fields.frame_count,
+            "us_ordered_frame_hashes": fields.ordered_frame_hashes,
+            "us_spatially_related_frames": fields.spatially_related_frames,
+            "us_color_data_present": fields.color_data_present,
+            "us_region_calibrated": fields.region_calibrated,
+            "us_lossy_image_compression": fields.lossy_image_compression
+        });
+        let mut grouped = GroupedCoverage::default();
+        grouped.record(&row);
+        let grouped_json = grouped.to_json();
+        for (pointer, expected) in [
+            ("/us_image_types/ORIGINAL; PRIMARY; ABDOMINAL; 0001", 1),
+            ("/us_frame_increment_pointers/0018,1063", 1),
+            ("/us_frame_times_ms/100.0", 1),
+            ("/us_frame_counts/4", 1),
+            ("/us_spatially_related_frames/false", 1),
+            ("/us_color_data_present/false", 1),
+            ("/us_region_calibrated/false", 1),
+            ("/us_lossy_image_compressions/00", 1),
+        ] {
+            assert_eq!(grouped_json.pointer(pointer), Some(&Value::from(expected)));
+        }
+
+        let markdown = render_coverage_report_markdown(&serde_json::json!({
+            "coverage_matrix": [row],
+            "grouped_coverage": grouped_json,
+            "gaps": []
+        }));
+        assert!(markdown.contains("## Ultrasound Multi-frame Expectations"));
+        assert!(markdown.contains("classic/us/multiframe_explicit_le"));
+        assert!(markdown.contains("0.0; 100.0; 200.0; 300.0"));
+        assert!(markdown.contains("## US Frame Increment Pointers"));
+        assert!(markdown.contains("## US Lossy Image Compression History"));
+    }
+
+    #[test]
+    fn ultrasound_multiframe_report_rejects_partial_contract() {
+        let file = serde_json::json!({
+            "expected_us_multiframe": {
+                "image_type": ["ORIGINAL", "PRIMARY", "ABDOMINAL", "0001"]
+            }
+        });
+        let error = us_multiframe_report_fields(Path::new("manifest.json"), &file)
+            .expect_err("partial US report contract must not silently disappear");
+        assert!(matches!(
+            error,
+            ReportError::MetadataShape {
+                message: "expected_us_multiframe must define the complete report contract",
+                ..
+            }
+        ));
     }
 
     #[test]

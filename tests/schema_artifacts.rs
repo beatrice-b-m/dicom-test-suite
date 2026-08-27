@@ -1272,6 +1272,16 @@ fn coverage_report_schema_requires_the_specified_matrix_fields() {
         "enhanced_ct_in_concatenation_number",
         "enhanced_ct_in_concatenation_total_number",
         "enhanced_ct_concatenation_frame_offset_number",
+        "us_image_type",
+        "us_frame_increment_pointer",
+        "us_frame_time_ms",
+        "us_frame_relative_times_ms",
+        "us_frame_count",
+        "us_ordered_frame_hashes",
+        "us_spatially_related_frames",
+        "us_color_data_present",
+        "us_region_calibrated",
+        "us_lossy_image_compression",
         "mr_scanning_sequence",
         "mr_sequence_variant",
         "mr_acquisition_type",
@@ -1368,6 +1378,9 @@ fn coverage_report_schema_requires_the_specified_matrix_fields() {
         "shared_study_instance_uid_expected",
         "shared_frame_of_reference_uid_expected",
         "distinct_series_instance_uids_expected",
+        "us_spatially_related_frames",
+        "us_color_data_present",
+        "us_region_calibrated",
     ] {
         assert_eq!(
             schema
@@ -1377,6 +1390,11 @@ fn coverage_report_schema_requires_the_specified_matrix_fields() {
             "coverage row {field} must be nullable boolean"
         );
     }
+    assert_eq!(
+        schema.pointer("/$defs/coverage_row/properties/us_lossy_image_compression/enum"),
+        Some(&serde_json::json!(["00", "01", null])),
+        "US lossy history must use the DICOM nullable vocabulary"
+    );
     for (field, values) in [
         (
             "enhanced_mr_dimension_index_pointer",
@@ -1483,6 +1501,14 @@ fn coverage_report_schema_requires_the_specified_matrix_fields() {
         "enhanced_ct_in_concatenation_numbers",
         "enhanced_ct_in_concatenation_total_numbers",
         "enhanced_ct_concatenation_frame_offset_numbers",
+        "us_image_types",
+        "us_frame_increment_pointers",
+        "us_frame_times_ms",
+        "us_frame_counts",
+        "us_spatially_related_frames",
+        "us_color_data_present",
+        "us_region_calibrated",
+        "us_lossy_image_compressions",
         "mr_scanning_sequences",
         "mr_sequence_variants",
         "mr_acquisition_types",

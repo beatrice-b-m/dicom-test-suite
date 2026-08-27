@@ -1,3 +1,5 @@
+#![recursion_limit = "256"]
+
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -6636,6 +6638,318 @@ fn report_command_exposes_twelve_lead_waveform_contract_and_preserves_planned_ro
         );
     }
     fs::remove_dir_all(out_dir).expect("remove report root");
+}
+
+#[test]
+fn report_locks_general_ecg_group_contract_without_promoting_planned_registry() {
+    let out_dir = unique_temp_dir("report-general-ecg-groups");
+    fs::create_dir_all(&out_dir).expect("create report fixture root");
+    fs::write(
+        out_dir.join("manifest.json"),
+        serde_json::to_vec_pretty(&general_ecg_report_manifest()).expect("serialize fixture"),
+    )
+    .expect("write report fixture manifest");
+
+    let report = dicom_test_suite::build_coverage_report(&out_dir).expect("General ECG report");
+    let schema: Value = serde_json::from_slice(
+        &fs::read("schemas/coverage-report.schema.json").expect("coverage schema"),
+    )
+    .expect("coverage schema JSON");
+    let validator = jsonschema::validator_for(&schema).expect("coverage schema should compile");
+    let errors = validator
+        .iter_errors(&report)
+        .map(|error| error.to_string())
+        .collect::<Vec<_>>();
+    assert!(errors.is_empty(), "General ECG schema errors: {errors:?}");
+
+    let row = coverage_row(&report, "non-image/waveform/general_ecg");
+    assert_eq!(row["status"], "generated");
+    assert_eq!(row["waveform_iod_kind"], "general_ecg");
+    assert_eq!(row["waveform_group_count"], 2);
+    assert_eq!(row["waveform_group_shapes"], "12x1000@250Hz; 4x4000@1000Hz");
+    assert_eq!(
+        row["waveform_group_channel_labels"],
+        "STD12_250HZ[I, II, III, aVR, aVL, aVF, V1, V2, V3, V4, V5, V6]; AUX4_1000HZ[A1, A2, A3, A4]"
+    );
+    assert!(
+        row["waveform_group_channel_source_codes"]
+            .as_str()
+            .is_some_and(|value| {
+                value.starts_with("STD12_250HZ[2:1|MDC|Lead I")
+                    && value.ends_with("2:78|MDC|Auxiliary unipolar lead 4]")
+            })
+    );
+    assert_eq!(row["waveform_group_payload_lengths_bytes"], "24000; 32000");
+    assert_eq!(
+        row["waveform_group_payload_sha256_values"],
+        "e4bfb8a3290d9057fa5f5935fa6960ce2a44a07f18991d28c190522739008dbb; 5b201d4fa7274ba36d6f7387c3d0217e1b5da161a915f983c2b63b995dde7bbe"
+    );
+    assert_eq!(row["waveform_total_channel_count"], 16);
+    assert_eq!(row["waveform_total_channel_hash_count"], 16);
+    assert_eq!(row["waveform_total_payload_length_bytes"], 56_000);
+    assert_eq!(
+        row["waveform_aggregate_payload_sha256"],
+        "c450f55360d6c07394600e4c0f71f951565cd0e1699edfbbb52f660221c6abea"
+    );
+    assert_eq!(row["waveform_all_groups_simultaneous_sampling"], true);
+    assert_eq!(row["waveform_common_duration_seconds"], 4);
+    assert_eq!(row["waveform_pixel_data_absent"], true);
+    for field in [
+        "waveform_channel_count",
+        "waveform_samples_per_channel",
+        "waveform_sampling_frequency_hz",
+        "waveform_duration_seconds",
+        "waveform_channel_labels",
+        "waveform_channel_source_codes",
+        "waveform_bits_allocated",
+        "waveform_bits_stored",
+        "waveform_sample_interpretation",
+        "waveform_storage_vr",
+        "waveform_payload_length_bytes",
+        "waveform_payload_sha256",
+        "waveform_interleave_order",
+        "waveform_channel_hash_count",
+        "waveform_simultaneous_sampling",
+    ] {
+        assert!(
+            row[field].is_null(),
+            "heterogeneous groups must not expose {field}"
+        );
+    }
+
+    for pointer in [
+        "/grouped_coverage/waveform_iod_kinds/general_ecg",
+        "/grouped_coverage/waveform_group_counts/2",
+        "/grouped_coverage/waveform_group_shape_orders/12x1000@250Hz; 4x4000@1000Hz",
+        "/grouped_coverage/waveform_total_channel_counts/16",
+        "/grouped_coverage/waveform_total_channel_hash_counts/16",
+        "/grouped_coverage/waveform_total_payload_lengths_bytes/56000",
+        "/grouped_coverage/waveform_aggregate_payload_sha256_values/c450f55360d6c07394600e4c0f71f951565cd0e1699edfbbb52f660221c6abea",
+        "/grouped_coverage/waveform_all_groups_simultaneous_sampling_states/true",
+        "/grouped_coverage/waveform_common_durations_seconds/4",
+    ] {
+        assert_eq!(report.pointer(pointer), Some(&Value::from(1)), "{pointer}");
+    }
+
+    let mut partial = report.clone();
+    coverage_row_mut(&mut partial, "non-image/waveform/general_ecg")["waveform_total_channel_hash_count"] =
+        Value::Null;
+    assert!(
+        !validator.is_valid(&partial),
+        "partial General contract must fail"
+    );
+    let mut tampered = report.clone();
+    coverage_row_mut(&mut tampered, "non-image/waveform/general_ecg")["waveform_aggregate_payload_sha256"] =
+        Value::from("0".repeat(64));
+    assert!(
+        !validator.is_valid(&tampered),
+        "tampered aggregate hash must fail"
+    );
+    let mut leaked = report.clone();
+    coverage_row_mut(&mut leaked, "non-image/waveform/general_ecg")["status"] =
+        Value::from("planned");
+    assert!(
+        !validator.is_valid(&leaked),
+        "General waveform fields must not leak onto a planned row"
+    );
+
+    let markdown = dicom_test_suite::render_coverage_report_markdown(&report);
+    for expected in [
+        "12x1000@250Hz; 4x4000@1000Hz",
+        "STD12_250HZ[I, II, III, aVR, aVL, aVF, V1, V2, V3, V4, V5, V6]",
+        "AUX4_1000HZ[A1, A2, A3, A4]",
+        "c450f55360d6c07394600e4c0f71f951565cd0e1699edfbbb52f660221c6abea",
+    ] {
+        assert!(
+            markdown.contains(expected),
+            "Markdown must contain {expected}"
+        );
+    }
+    fs::remove_dir_all(out_dir).expect("remove report root");
+}
+
+fn general_ecg_report_manifest() -> Value {
+    let standard_channels = [
+        ("I", "2:1", "Lead I"),
+        ("II", "2:2", "Lead II"),
+        ("III", "2:61", "Lead III"),
+        ("aVR", "2:62", "aVR, augmented voltage, right"),
+        ("aVL", "2:63", "aVL, augmented voltage, left"),
+        ("aVF", "2:64", "aVF, augmented voltage, foot"),
+        ("V1", "2:3", "Lead V1"),
+        ("V2", "2:4", "Lead V2"),
+        ("V3", "2:5", "Lead V3"),
+        ("V4", "2:6", "Lead V4"),
+        ("V5", "2:7", "Lead V5"),
+        ("V6", "2:8", "Lead V6"),
+    ];
+    let auxiliary_channels = [
+        ("A1", "2:75", "Auxiliary unipolar lead 1"),
+        ("A2", "2:76", "Auxiliary unipolar lead 2"),
+        ("A3", "2:77", "Auxiliary unipolar lead 3"),
+        ("A4", "2:78", "Auxiliary unipolar lead 4"),
+    ];
+    let standard_hashes = [
+        "3211bada5580e8bd9c5a2934deb231122706b00aa92f8cdc78480c03b2352197",
+        "8f66471e35940851acdd9ea55b422c738bf50ea7971822deed0edca1980e1ea2",
+        "9652eb91f4f73f2654c922048a1a8c8731a08062eecd6f5b373256831d0e82b0",
+        "97fb26e75907437a705e4e28eb6492d51020570a23265bdf765aca3c4e7b2708",
+        "c9776b85b3bda6adef798d33d3c7c95d64a1a7d5bf525866ccf7b0cf5fc3209e",
+        "95871f48d729a001eeb1543b36a27059916df360e04838fd322d006661bafb44",
+        "04513ee1f1d5803f3f53093f016a606a7fa874c5af8d2651749b909b93392366",
+        "c12790f5b1f233662a0a1c3f266cd2abb15af5a75b39258ff961e9b4afaf7913",
+        "750913ccad5eb7ec8d8199451e6eb9aa41357eb21d2a0dac6ba75dce4e5708bd",
+        "218d5f967ef253722359fee1846485331c63de9330af1f9fad183d779a196cca",
+        "9027ec7a0fc7fea3d8236a16a5aa6f265ff20e18a2575f99e61807e102fb3d81",
+        "9280ad35672b82a7847d3ccabadd4d85a94be3d39d0a836191384571f0a23ab6",
+    ];
+    let auxiliary_hashes = [
+        "5da46776ad84a78eb0c16066cb8ac7d5e05ca6ad87170264b227c71261def284",
+        "7bd73425422f4e79504b55932040e481ccdfafecabe1dba613ee36074a51b9e3",
+        "e56dad9647dfa50a10b40d244e29eaedbf23d97a558901f46fbccc07ad1a1766",
+        "e1b68207c92fe2cc4c6765fc097668f2600eeda152eb5a1d6f0444f4c9e36fbc",
+    ];
+    let standard = standard_channels
+        .into_iter()
+        .enumerate()
+        .map(|(index, (label, code, meaning))| {
+            report_waveform_channel(index + 1, label, code, meaning)
+        })
+        .collect::<Vec<_>>();
+    let auxiliary = auxiliary_channels
+        .into_iter()
+        .enumerate()
+        .map(|(index, (label, code, meaning))| {
+            report_waveform_channel(index + 1, label, code, meaning)
+        })
+        .collect::<Vec<_>>();
+
+    json!({
+        "generated_at": "20260101000000.000000+0000",
+        "standards": {
+            "standards_lock_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+        },
+        "run": { "profile": "extended" },
+        "files": [{
+            "case_id": "non-image/waveform/general_ecg",
+            "profile_membership": ["extended"],
+            "determinism": "byte_stable",
+            "dicom": {
+                "sop_class_uid": "1.2.840.10008.5.1.4.1.1.9.1.2",
+                "sop_class_name": "General ECG Waveform Storage",
+                "iod_name": "General ECG Waveform",
+                "modality": "ECG",
+                "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+                "transfer_syntax_name": "Explicit VR Little Endian"
+            },
+            "pixel_data": null,
+            "references": [],
+            "expected_semantics": { "synthetic_data": "YES" },
+            "expected_waveform": {
+                "iod_kind": "general_ecg",
+                "sop_class_uid": "1.2.840.10008.5.1.4.1.1.9.1.2",
+                "iod_name": "General ECG Waveform",
+                "modality": "ECG",
+                "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+                "acquisition_context_items": 0,
+                "multiplex_groups": [{
+                    "ordinal": 1,
+                    "originality": "ORIGINAL",
+                    "label": "STD12_250HZ",
+                    "channel_count": 12,
+                    "samples_per_channel": 1000,
+                    "sampling_frequency_hz": 250,
+                    "duration_seconds": 4,
+                    "simultaneous_sampling": true,
+                    "channels": standard,
+                    "storage": {
+                        "bits_allocated": 16,
+                        "sample_interpretation": "SS",
+                        "data_vr": "OW",
+                        "byte_order": "little_endian",
+                        "interleave_order": "channel_then_sample",
+                        "payload_length_bytes": 24000,
+                        "payload_sha256": "e4bfb8a3290d9057fa5f5935fa6960ce2a44a07f18991d28c190522739008dbb",
+                        "channel_sha256": standard_hashes,
+                        "sample_value_formula": "((s * (c + 1) * (g + 1) * 37 + c * 101 + g * 307) mod 2001) - 1000",
+                        "sample_min": -1000,
+                        "sample_max": 1000,
+                        "waveform_padding_value_absent": true,
+                        "value_field_padding_bytes": 0
+                    }
+                }, {
+                    "ordinal": 2,
+                    "originality": "ORIGINAL",
+                    "label": "AUX4_1000HZ",
+                    "channel_count": 4,
+                    "samples_per_channel": 4000,
+                    "sampling_frequency_hz": 1000,
+                    "duration_seconds": 4,
+                    "simultaneous_sampling": true,
+                    "channels": auxiliary,
+                    "storage": {
+                        "bits_allocated": 16,
+                        "sample_interpretation": "SS",
+                        "data_vr": "OW",
+                        "byte_order": "little_endian",
+                        "interleave_order": "channel_then_sample",
+                        "payload_length_bytes": 32000,
+                        "payload_sha256": "5b201d4fa7274ba36d6f7387c3d0217e1b5da161a915f983c2b63b995dde7bbe",
+                        "channel_sha256": auxiliary_hashes,
+                        "sample_value_formula": "((s * (c + 1) * (g + 1) * 37 + c * 101 + g * 307) mod 2001) - 1000",
+                        "sample_min": -1000,
+                        "sample_max": 1000,
+                        "waveform_padding_value_absent": true,
+                        "value_field_padding_bytes": 0
+                    }
+                }],
+                "aggregate": {
+                    "group_count": 2,
+                    "total_channel_count": 16,
+                    "common_duration_seconds": 4,
+                    "total_payload_length_bytes": 56000,
+                    "group_payload_sha256": [
+                        "e4bfb8a3290d9057fa5f5935fa6960ce2a44a07f18991d28c190522739008dbb",
+                        "5b201d4fa7274ba36d6f7387c3d0217e1b5da161a915f983c2b63b995dde7bbe"
+                    ],
+                    "aggregate_payload_sha256": "c450f55360d6c07394600e4c0f71f951565cd0e1699edfbbb52f660221c6abea"
+                },
+                "absent_content": {
+                    "annotation_module": true,
+                    "synchronization_module": true,
+                    "references": true,
+                    "image": true,
+                    "pixel_data": true
+                }
+            },
+            "validation": { "status": "passed" },
+            "known_stressors": []
+        }],
+        "skipped_cases": []
+    })
+}
+
+fn report_waveform_channel(ordinal: usize, label: &str, code: &str, meaning: &str) -> Value {
+    json!({
+        "ordinal": ordinal,
+        "label": label,
+        "source": {
+            "code_value": code,
+            "coding_scheme_designator": "MDC",
+            "code_meaning": meaning
+        },
+        "sensitivity": 1,
+        "sensitivity_units": {
+            "code_value": "uV",
+            "coding_scheme_designator": "UCUM",
+            "code_meaning": "microvolt"
+        },
+        "sensitivity_correction_factor": 1,
+        "baseline": 0,
+        "bits_stored": 16,
+        "time_skew_seconds": 0,
+        "sample_skew_absent": true
+    })
 }
 
 fn waveform_report_manifest() -> Value {

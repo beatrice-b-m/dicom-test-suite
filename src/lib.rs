@@ -19534,6 +19534,7 @@ struct NmMultiframeReportFields {
 
 #[derive(Debug, Default, PartialEq)]
 struct WaveformGroupReportSummary {
+    label: String,
     shape: String,
     channel_labels: String,
     channel_source_codes: String,
@@ -19651,7 +19652,8 @@ fn waveform_report_fields(
                     .copied()
                     .filter(|first| bits_stored.iter().all(|value| value == first))?;
                 Some(WaveformGroupReportSummary {
-                    shape: format!("{label}:{channel_count}x{samples}@{rate}Hz"),
+                    label: label.to_string(),
+                    shape: format!("{channel_count}x{samples}@{rate}Hz"),
                     channel_labels: format!("{label}[{}]", labels.join(", ")),
                     channel_source_codes: format!("{label}[{}]", source_codes.join(", ")),
                     payload_length_bytes: storage.get("payload_length_bytes")?.as_u64()?,
@@ -19681,6 +19683,9 @@ fn waveform_report_fields(
         .filter(|summaries| summaries.len() == 1)
         .and_then(|summaries| summaries.first());
     let group_shapes = group_summaries.as_ref().map(|summaries| {
+        if let [summary] = summaries.as_slice() {
+            return format!("{}:{}", summary.label, summary.shape);
+        }
         summaries
             .iter()
             .map(|summary| summary.shape.as_str())

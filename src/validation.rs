@@ -6253,17 +6253,49 @@ fn validate_xrf_image(
     }
 
     for (name, tag, expected_vr) in [
+        ("xrf_modality_vr", tags::MODALITY, VR::CS),
+        (
+            "xrf_body_part_examined_vr",
+            tags::BODY_PART_EXAMINED,
+            VR::CS,
+        ),
         ("xrf_image_type_vr", tags::IMAGE_TYPE, VR::CS),
         (
             "xrf_patient_orientation_vr",
             tags::PATIENT_ORIENTATION,
             VR::CS,
         ),
+        (
+            "xrf_pixel_intensity_relationship_vr",
+            tags::PIXEL_INTENSITY_RELATIONSHIP,
+            VR::CS,
+        ),
+        (
+            "xrf_lossy_image_compression_vr",
+            tags::LOSSY_IMAGE_COMPRESSION,
+            VR::CS,
+        ),
+        ("xrf_radiation_setting_vr", tags::RADIATION_SETTING, VR::CS),
         ("xrf_kvp_vr", tags::KVP, VR::DS),
         ("xrf_exposure_vr", tags::EXPOSURE, VR::IS),
         (
             "xrf_imager_pixel_spacing_vr",
             tags::IMAGER_PIXEL_SPACING,
+            VR::DS,
+        ),
+        (
+            "xrf_distance_source_to_detector_vr",
+            tags::DISTANCE_SOURCE_TO_DETECTOR,
+            VR::DS,
+        ),
+        (
+            "xrf_distance_source_to_patient_vr",
+            tags::DISTANCE_SOURCE_TO_PATIENT,
+            VR::DS,
+        ),
+        (
+            "xrf_estimated_magnification_vr",
+            tags::ESTIMATED_RADIOGRAPHIC_MAGNIFICATION_FACTOR,
             VR::DS,
         ),
         ("xrf_column_angulation_vr", tags::COLUMN_ANGULATION, VR::DS),
@@ -6314,6 +6346,15 @@ fn validate_xrf_image(
             "xrf_positioner_secondary_angle_absent",
             tags::POSITIONER_SECONDARY_ANGLE,
         ),
+        ("xrf_positioner_motion_absent", tags::POSITIONER_MOTION),
+        (
+            "xrf_primary_angle_increment_absent",
+            tags::POSITIONER_PRIMARY_ANGLE_INCREMENT,
+        ),
+        (
+            "xrf_secondary_angle_increment_absent",
+            tags::POSITIONER_SECONDARY_ANGLE_INCREMENT,
+        ),
         ("xrf_number_of_frames_absent", tags::NUMBER_OF_FRAMES),
         (
             "xrf_frame_increment_pointer_absent",
@@ -6334,6 +6375,18 @@ fn validate_xrf_image(
         ("xrf_table_traverse_absent", tags::TABLE_TRAVERSE),
         ("xrf_table_position_absent", tags::TABLE_POSITION),
         ("xrf_table_motion_absent", tags::TABLE_MOTION),
+        (
+            "xrf_table_vertical_increment_absent",
+            tags::TABLE_VERTICAL_INCREMENT,
+        ),
+        (
+            "xrf_table_lateral_increment_absent",
+            tags::TABLE_LATERAL_INCREMENT,
+        ),
+        (
+            "xrf_table_longitudinal_increment_absent",
+            tags::TABLE_LONGITUDINAL_INCREMENT,
+        ),
         ("xrf_table_tilt_absent", tags::TABLE_ANGLE),
         ("xrf_scan_options_absent", tags::SCAN_OPTIONS),
         ("xrf_tomo_layer_height_absent", tags::TOMO_LAYER_HEIGHT),
@@ -6341,6 +6394,10 @@ fn validate_xrf_image(
         ("xrf_tomo_time_absent", tags::TOMO_TIME),
         ("xrf_tomo_type_absent", tags::TOMO_TYPE),
         ("xrf_tomo_class_absent", tags::TOMO_CLASS),
+        (
+            "xrf_number_of_tomosynthesis_source_images_absent",
+            dicom_core::Tag(0x0018, 0x1495),
+        ),
         (
             "xrf_frame_of_reference_absent",
             tags::FRAME_OF_REFERENCE_UID,
@@ -6356,6 +6413,52 @@ fn validate_xrf_image(
         ("xrf_pixel_spacing_absent", tags::PIXEL_SPACING),
         ("xrf_modality_lut_absent", tags::MODALITY_LUT_SEQUENCE),
         ("xrf_voi_lut_absent", tags::VOILUT_SEQUENCE),
+        (
+            "xrf_presentation_lut_shape_absent",
+            tags::PRESENTATION_LUT_SHAPE,
+        ),
+        ("xrf_window_center_absent", tags::WINDOW_CENTER),
+        ("xrf_window_width_absent", tags::WINDOW_WIDTH),
+        ("xrf_shutter_shape_absent", tags::SHUTTER_SHAPE),
+        (
+            "xrf_shutter_left_vertical_edge_absent",
+            tags::SHUTTER_LEFT_VERTICAL_EDGE,
+        ),
+        (
+            "xrf_shutter_right_vertical_edge_absent",
+            tags::SHUTTER_RIGHT_VERTICAL_EDGE,
+        ),
+        (
+            "xrf_shutter_upper_horizontal_edge_absent",
+            tags::SHUTTER_UPPER_HORIZONTAL_EDGE,
+        ),
+        (
+            "xrf_shutter_lower_horizontal_edge_absent",
+            tags::SHUTTER_LOWER_HORIZONTAL_EDGE,
+        ),
+        ("xrf_overlay_rows_absent", dicom_core::Tag(0x6000, 0x0010)),
+        ("xrf_overlay_data_absent", dicom_core::Tag(0x6000, 0x3000)),
+        ("xrf_collimator_shape_absent", tags::COLLIMATOR_SHAPE),
+        (
+            "xrf_collimator_left_vertical_edge_absent",
+            tags::COLLIMATOR_LEFT_VERTICAL_EDGE,
+        ),
+        (
+            "xrf_collimator_right_vertical_edge_absent",
+            tags::COLLIMATOR_RIGHT_VERTICAL_EDGE,
+        ),
+        (
+            "xrf_collimator_upper_horizontal_edge_absent",
+            tags::COLLIMATOR_UPPER_HORIZONTAL_EDGE,
+        ),
+        (
+            "xrf_collimator_lower_horizontal_edge_absent",
+            tags::COLLIMATOR_LOWER_HORIZONTAL_EDGE,
+        ),
+        (
+            "xrf_area_dose_product_absent",
+            tags::IMAGE_AND_FLUOROSCOPY_AREA_DOSE_PRODUCT,
+        ),
         ("xrf_calibration_image_absent", tags::CALIBRATION_IMAGE),
         (
             "xrf_lossy_image_compression_ratio_absent",
@@ -6371,6 +6474,18 @@ fn validate_xrf_image(
             tags::DETECTOR_CONFIGURATION,
         ),
         ("xrf_detector_id_absent", tags::DETECTOR_ID),
+        (
+            "xrf_detector_description_absent",
+            tags::DETECTOR_DESCRIPTION,
+        ),
+        (
+            "xrf_detector_element_physical_size_absent",
+            tags::DETECTOR_ELEMENT_PHYSICAL_SIZE,
+        ),
+        (
+            "xrf_detector_element_spacing_absent",
+            tags::DETECTOR_ELEMENT_SPACING,
+        ),
     ] {
         let present = obj
             .element_opt(tag)

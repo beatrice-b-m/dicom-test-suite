@@ -121,7 +121,6 @@ const CLASSIC_DX_RECIPE_VERSION: &str = "0.1.0";
 const CLASSIC_US_RECIPE_VERSION: &str = "0.1.0";
 const CLASSIC_US_MULTIFRAME_RECIPE_VERSION: &str = "0.1.0";
 const CLASSIC_XA_RECIPE_VERSION: &str = "0.1.0";
-const CLASSIC_XRF_RECIPE_VERSION: &str = "0.1.0";
 const CLASSIC_NM_RECIPE_VERSION: &str = "0.1.0";
 const CLASSIC_PET_RECIPE_VERSION: &str = "0.1.0";
 const CLASSIC_CR_RECIPE_VERSION: &str = "0.1.0";
@@ -17435,8 +17434,18 @@ fn classic_xrf_manifest_entry(
         }),
         serde_json::json!({
             "source": "dicom-standard-kb", "edition": "2026b",
-            "query": "list_attributes_for_module X-Ray Image; X-Ray Acquisition; XRF Positioner",
+            "query": "list_attributes_for_module X-Ray Image",
             "covered": true, "part": "PS3.3", "anchor": "table_C.8-26"
+        }),
+        serde_json::json!({
+            "source": "dicom-standard-kb", "edition": "2026b",
+            "query": "list_attributes_for_module X-Ray Acquisition",
+            "covered": true, "part": "PS3.3", "anchor": "table_C.8-27"
+        }),
+        serde_json::json!({
+            "source": "dicom-standard-kb", "edition": "2026b",
+            "query": "list_attributes_for_module XRF Positioner",
+            "covered": true, "part": "PS3.3", "anchor": "table_C.8-31"
         }),
     ]);
     let xrf_projection = serde_json::json!({
@@ -17477,7 +17486,7 @@ fn classic_xrf_manifest_entry(
         "determinism": "byte_stable",
         "recipe": {
             "recipe_id": recipe.recipe_id,
-            "recipe_version": CLASSIC_XRF_RECIPE_VERSION,
+            "recipe_version": recipe.recipe_version,
             "recipe_parameters": {
                 "rows": recipe.rows,
                 "columns": recipe.columns,
@@ -20056,7 +20065,7 @@ fn deterministic_classic_xrf_uid(
     deterministic_uid(&DeterministicUidInput {
         standards_lock_sha256,
         case_id: recipe.case_id,
-        recipe_version: CLASSIC_XRF_RECIPE_VERSION,
+        recipe_version: recipe.recipe_version,
         run_seed,
         file_index: 0,
         frame_index: None,
@@ -20585,23 +20594,49 @@ mod tests {
             "native_frame_hashes",
             "xrf_modality",
             "xrf_body_part_examined",
+            "xrf_image_type",
             "xrf_patient_orientation_empty",
+            "xrf_pixel_intensity_relationship",
+            "xrf_lossy_image_compression",
             "xrf_radiation_setting",
             "xrf_kvp",
             "xrf_exposure",
             "xrf_imager_pixel_spacing",
+            "xrf_distance_source_to_detector",
+            "xrf_distance_source_to_patient",
+            "xrf_estimated_magnification",
             "xrf_column_angulation",
             "xrf_sid_sod_magnification_relation",
+            "xrf_modality_vr",
+            "xrf_body_part_examined_vr",
+            "xrf_pixel_intensity_relationship_vr",
+            "xrf_radiation_setting_vr",
+            "xrf_distance_source_to_detector_vr",
+            "xrf_estimated_magnification_vr",
             "xrf_positioner_primary_angle_absent",
+            "xrf_positioner_secondary_angle_absent",
+            "xrf_primary_angle_increment_absent",
+            "xrf_positioner_motion_absent",
             "xrf_number_of_frames_absent",
             "xrf_table_position_absent",
             "xrf_table_motion_absent",
+            "xrf_table_vertical_increment_absent",
+            "xrf_table_lateral_increment_absent",
+            "xrf_table_longitudinal_increment_absent",
             "xrf_table_tilt_absent",
             "xrf_scan_options_absent",
             "xrf_tomo_type_absent",
+            "xrf_number_of_tomosynthesis_source_images_absent",
             "xrf_frame_of_reference_absent",
             "xrf_pixel_spacing_absent",
+            "xrf_presentation_lut_shape_absent",
+            "xrf_shutter_shape_absent",
+            "xrf_overlay_data_absent",
+            "xrf_collimator_shape_absent",
+            "xrf_area_dose_product_absent",
             "xrf_detector_type_absent",
+            "xrf_detector_description_absent",
+            "xrf_detector_element_spacing_absent",
         ] {
             assert!(
                 validation_names.contains(name),

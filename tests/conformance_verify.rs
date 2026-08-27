@@ -44,6 +44,33 @@ fn verify_rejects_hash_corruption_tool_gaps_and_incomplete_results() {
     fixture.restore(&baseline);
 
     let mut evidence = baseline.clone();
+    let mut optional_primary = evidence["tools"][0].clone();
+    optional_primary["adapter_id"] = json!("optional-primary");
+    optional_primary["required"] = json!(false);
+    optional_primary["lock_status"] = json!("mismatched");
+    evidence["tools"]
+        .as_array_mut()
+        .unwrap()
+        .push(optional_primary);
+    let primary_result = evidence["instances"][0]["results"]
+        .as_array_mut()
+        .unwrap()
+        .iter_mut()
+        .find(|result| result["role"] == "primary_iod_validator")
+        .unwrap();
+    primary_result["adapter_id"] = json!("optional-primary");
+    fixture.write_evidence(&evidence);
+    fixture.assert_failure("primary validator optional-primary is unavailable or unlocked");
+    evidence["tools"]
+        .as_array_mut()
+        .unwrap()
+        .last_mut()
+        .unwrap()["lock_status"] = json!("matched");
+    fixture.write_evidence(&evidence);
+    assert!(fixture.verify(&fixture.allowlist).status.success());
+    fixture.restore(&baseline);
+
+    let mut evidence = baseline.clone();
     evidence["instances"].as_array_mut().unwrap().pop();
     fixture.write_evidence(&evidence);
     fixture.assert_failure("instance evidence is incomplete");

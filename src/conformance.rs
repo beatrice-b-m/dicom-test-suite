@@ -210,6 +210,21 @@ fn verify_completeness(evidence_root: &Path, evidence: &Value, failures: &mut Ve
         if primary.is_none_or(|result| result["status"] != "completed") {
             failures.push(format!("primary validation incomplete: {path}"));
         }
+        if let Some(primary) = primary {
+            let adapter_id = primary["adapter_id"].as_str().unwrap_or("unknown");
+            let primary_tool = evidence["tools"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .find(|tool| tool["adapter_id"] == adapter_id);
+            if primary_tool.is_none_or(|tool| {
+                tool["status"] != "available" || tool["lock_status"] != "matched"
+            }) {
+                failures.push(format!(
+                    "primary validator {adapter_id} is unavailable or unlocked for {path}"
+                ));
+            }
+        }
         let parser = instance["results"]
             .as_array()
             .into_iter()
@@ -376,18 +391,14 @@ pub fn run_conformance(
         .get("adapters")
         .and_then(Value::as_array)
         .ok_or_else(|| format!("{} must contain an adapters array", config_path.display()))?;
-    let primary = adapters
-        .iter()
-        .find(|adapter| {
-            adapter.get("role").and_then(Value::as_str) == Some("primary_iod_validator")
-        })
-        .ok_or_else(|| "configuration requires a primary_iod_validator adapter".to_string())?;
+    if !adapters.iter().any(|adapter| {
+        adapter.get("role").and_then(Value::as_str) == Some("primary_iod_validator")
+            && adapter.get("supported_case_ids").is_none()
+    }) {
+        return Err("configuration requires a default primary_iod_validator adapter".to_string());
+    }
     let tool_report = check_tools_path(config_path)?;
     let tools = evidence_tools(&tool_report);
-    let primary_tool = tools
-        .iter()
-        .find(|tool| tool.get("adapter_id") == primary.get("id"))
-        .ok_or_else(|| "primary validator discovery result is missing".to_string())?;
 
     fs::create_dir_all(evidence_root)
         .map_err(|error| format!("failed to create {}: {error}", evidence_root.display()))?;
@@ -404,8 +415,6 @@ pub fn run_conformance(
             generated_root,
             evidence_root,
             file,
-            primary,
-            primary_tool,
             adapters,
             &tools,
         )?);
@@ -495,8 +504,6 @@ fn collect_instance(
     generated_root: &Path,
     evidence_root: &Path,
     file: &Value,
-    adapter: &Value,
-    tool: &Value,
     adapters: &[Value],
     tools: &[Value],
 ) -> Result<Value, String> {
@@ -508,6 +515,7 @@ fn collect_instance(
         .get("case_id")
         .and_then(Value::as_str)
         .ok_or_else(|| format!("manifest file {path} requires case_id"))?;
+    let (adapter, tool) = select_primary_iod_validator(case_id, adapters, tools)?;
     validate_relative_path(path)?;
     let stable_key = sha256_hex(path.as_bytes());
     let adapter_id = required_string(adapter, "id")?;
@@ -602,6 +610,48 @@ fn collect_instance(
         "results": results,
         "pixel": pixel
     }))
+}
+
+fn select_primary_iod_validator<'a>(
+    case_id: &str,
+    adapters: &'a [Value],
+    tools: &'a [Value],
+) -> Result<(&'a Value, &'a Value), String> {
+    let matching = adapters
+        .iter()
+        .filter(|adapter| {
+            adapter.get("role").and_then(Value::as_str) == Some("primary_iod_validator")
+                && adapter
+                    .get("supported_case_ids")
+                    .and_then(Value::as_array)
+                    .is_some_and(|case_ids| {
+                        case_ids.iter().any(|value| value.as_str() == Some(case_id))
+                    })
+        })
+        .collect::<Vec<_>>();
+    let adapter = match matching.as_slice() {
+        [] => adapters
+            .iter()
+            .find(|adapter| {
+                adapter.get("role").and_then(Value::as_str) == Some("primary_iod_validator")
+                    && adapter.get("supported_case_ids").is_none()
+            })
+            .ok_or_else(|| {
+                "configuration requires a default primary_iod_validator adapter".to_string()
+            })?,
+        [adapter] => *adapter,
+        _ => {
+            return Err(format!(
+                "multiple primary IOD validators are configured for case {case_id}"
+            ));
+        }
+    };
+    let adapter_id = required_string(adapter, "id")?;
+    let tool = tools
+        .iter()
+        .find(|tool| tool.get("adapter_id").and_then(Value::as_str) == Some(adapter_id))
+        .ok_or_else(|| format!("primary validator discovery result is missing for {adapter_id}"))?;
+    Ok((adapter, tool))
 }
 
 fn collect_pixel_result(
@@ -1578,15 +1628,38 @@ fn check_adapter(adapter: &Value, locked_tools: &[Value]) -> Result<Value, Strin
         .ok_or_else(|| format!("adapter {id} requires boolean required"))?;
     let executable = required_string(adapter, "executable")?;
     let configured_path = adapter.get("path").and_then(Value::as_str);
+    let executable_env = adapter.get("executable_env").and_then(Value::as_str);
+    let environment_path = executable_env.and_then(env::var_os).map(PathBuf::from);
     let timeout = adapter
         .get("timeout_seconds")
         .and_then(Value::as_u64)
         .ok_or_else(|| format!("adapter {id} requires timeout_seconds"))?;
     let version_arguments = string_array(adapter, "version_arguments")?;
 
-    let Some(path) = resolve_executable(configured_path.unwrap_or(executable)) else {
-        let executable_path = Path::new(configured_path.unwrap_or(executable));
+    if executable_env.is_some() && environment_path.is_none() {
+        return Ok(json!({
+            "adapter_id": id,
+            "role": role,
+            "status": "absent",
+            "required": required,
+            "executable": null,
+            "sha256": null,
+            "executable_sha256": null,
+            "artifacts": [],
+            "version_output": null,
+            "version_exit_code": null,
+            "lock_status": "unavailable"
+        }));
+    }
+    let selected = environment_path
+        .as_deref()
+        .and_then(Path::to_str)
+        .or(configured_path)
+        .unwrap_or(executable);
+    let Some(path) = resolve_executable(selected) else {
+        let executable_path = Path::new(selected);
         let status = if configured_path.is_some()
+            || executable_env.is_some()
             || executable_path.is_absolute()
             || executable_path.components().count() > 1
         {
@@ -1682,6 +1755,32 @@ fn check_adapter(adapter: &Value, locked_tools: &[Value]) -> Result<Value, Strin
 }
 
 fn supporting_artifacts(adapter: &Value) -> Result<Vec<Value>, String> {
+    if let Some(artifacts) = adapter.get("artifacts") {
+        return artifacts
+            .as_array()
+            .ok_or_else(|| "adapter artifacts must be an array".to_string())?
+            .iter()
+            .map(|entry| {
+                let relative = required_string(entry, "path")?;
+                validate_relative_path(relative)?;
+                let root = match entry.get("root_env").and_then(Value::as_str) {
+                    Some(root_env) => {
+                        env::var_os(root_env).map(PathBuf::from).ok_or_else(|| {
+                            format!(
+                                "adapter artifact root environment variable {root_env} is unset"
+                            )
+                        })?
+                    }
+                    None => PathBuf::new(),
+                };
+                let path = root.join(relative);
+                let bytes = fs::read(&path).map_err(|error| {
+                    format!("failed to fingerprint {}: {error}", path.display())
+                })?;
+                Ok(json!({ "path": path.display().to_string(), "sha256": sha256_hex(&bytes) }))
+            })
+            .collect();
+    }
     let Some(classpath) = adapter.get("classpath") else {
         return Ok(Vec::new());
     };

@@ -58,6 +58,39 @@ fn run_schema_rejects_unknown_fields_missing_fingerprints_and_severities() {
 }
 
 #[test]
+fn run_schema_locks_the_entity_projection_contract() {
+    let mut run = read("tests/conformance/fixtures/minimal-run.json");
+    run["entity"]["input_projection"] = json!({
+        "method": "terminal_pixel_data_element_redaction_v1",
+        "scope": "entity_consistency_only",
+        "file_list": { "path": "entity/files.txt", "sha256": "a".repeat(64) },
+        "entries": [{
+            "source_case_id": "classic/sc/mono2_u32_explicit_le",
+            "source_path": "classic/sc/mono2_u32_explicit_le/instance.dcm",
+            "source_copy": { "path": "entity/projections/u32.source.dcm", "sha256": "b".repeat(64) },
+            "projected_input": { "path": "entity/projections/u32.projected.dcm", "sha256": "c".repeat(64) },
+            "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+            "removed_element": {
+                "tag": "(7FE0,0010)", "vr": "OW", "element_offset": 930,
+                "value_offset": 942, "value_length": 16, "value_sha256": "d".repeat(64)
+            }
+        }]
+    });
+    assert_valid("schemas/conformance-run.schema.json", &run);
+
+    let mut unknown_method = run.clone();
+    unknown_method["entity"]["input_projection"]["method"] = json!("generic_redaction");
+    assert_invalid("schemas/conformance-run.schema.json", &unknown_method);
+
+    let mut wrong_role = run.clone();
+    wrong_role["entity"]["role"] = json!("primary_iod_validator");
+    assert_invalid("schemas/conformance-run.schema.json", &wrong_role);
+
+    run["entity"]["input_projection"]["entries"][0]["unexpected"] = json!(true);
+    assert_invalid("schemas/conformance-run.schema.json", &run);
+}
+
+#[test]
 fn allowlist_schema_rejects_broad_entries_and_incomplete_reviews() {
     let base = json!({
         "schema_version": "0.1.0",

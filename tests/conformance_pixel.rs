@@ -233,22 +233,19 @@ impl U32Fixture {
         let generated = root.join("generated");
         let evidence = root.join("evidence");
         fs::create_dir_all(&generated).unwrap();
-        fs::write(
-            generated.join("u32.dcm"),
-            b"independent adapter owns parsing",
-        )
-        .unwrap();
 
         let raw_bytes = [
             0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80, 0xff, 0xff,
             0xff, 0xff,
         ];
+        let mut source = b"independent adapter owns parsing".to_vec();
+        source.extend_from_slice(&[
+            0xe0, 0x7f, 0x10, 0x00, b'O', b'W', 0x00, 0x00, 0x10, 0x00, 0x00, 0x00,
+        ]);
+        source.extend_from_slice(&raw_bytes);
+        fs::write(generated.join("u32.dcm"), &source).unwrap();
         let pixel_hash = dicom_test_suite::sha256_hex(&raw_bytes);
         let expected_hashes = json!([pixel_hash]);
-        let mut manifest_hashes = expected_hashes.clone();
-        if mismatch {
-            manifest_hashes[0] = json!("0".repeat(64));
-        }
         let manifest = json!({
             "run": { "seed": 1, "profile": "test" },
             "generator": { "name": "u32-fixture", "version": "1", "feature_flags": [] },
@@ -256,6 +253,7 @@ impl U32Fixture {
             "files": [{
                 "case_id": "classic/sc/mono2_u32_explicit_le",
                 "path": "u32.dcm",
+                "sha256": dicom_test_suite::sha256_hex(&source),
                 "dicom": {
                     "sop_class_uid": "1.2.840.10008.5.1.4.1.1.7",
                     "transfer_syntax_uid": "1.2.840.10008.1.2.1"
@@ -267,7 +265,7 @@ impl U32Fixture {
                 },
                 "pixel_data": {
                     "vr": "OW", "native_or_encapsulated": "native", "value_length": 16,
-                    "frame_count": 1, "frame_hashes": manifest_hashes
+                    "frame_count": 1, "frame_hashes": expected_hashes
                 },
                 "expected_u32_pixels": {
                     "pixel_data_sha256": pixel_hash,
@@ -282,10 +280,15 @@ impl U32Fixture {
         .unwrap();
 
         let default_primary = fake_tool(&root, "default-primary", "exit 0");
+        let actual_frame_hash = if mismatch {
+            "0".repeat(64)
+        } else {
+            pixel_hash.clone()
+        };
         let u32_payload = json!({
             "adapter_id": "pydicom-dicom-validator-u32",
             "bits_allocated": 32, "bits_stored": 32, "byte_order": "little_endian",
-            "columns": 2, "frame_hashes": [pixel_hash], "frames": 1, "high_bit": 31,
+            "columns": 2, "frame_hashes": [actual_frame_hash], "frames": 1, "high_bit": 31,
             "photometric_interpretation": "MONOCHROME2", "pixel_data_sha256": pixel_hash,
             "pixel_data_vr": "OW", "pixel_representation": 0, "rows": 2,
             "samples_per_pixel": 1,

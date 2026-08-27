@@ -150,6 +150,52 @@ fn verify_artifacts(evidence_root: &Path, evidence: &Value, failures: &mut Vec<S
             Err(error) => failures.push(format!("pixel evidence unavailable {relative}: {error}")),
         }
     }
+    if let Some(projection) = evidence["entity"].get("input_projection") {
+        verify_hash_linked_artifact(
+            evidence_root,
+            &projection["file_list"],
+            "entity projection file list",
+            failures,
+        );
+        for entry in projection["entries"].as_array().into_iter().flatten() {
+            verify_hash_linked_artifact(
+                evidence_root,
+                &entry["source_copy"],
+                "entity projection source copy",
+                failures,
+            );
+            verify_hash_linked_artifact(
+                evidence_root,
+                &entry["projected_input"],
+                "entity projected input",
+                failures,
+            );
+        }
+    }
+}
+
+fn verify_hash_linked_artifact(
+    evidence_root: &Path,
+    artifact: &Value,
+    label: &str,
+    failures: &mut Vec<String>,
+) {
+    let Some(relative) = artifact["path"].as_str() else {
+        failures.push(format!("{label} path is missing"));
+        return;
+    };
+    if validate_relative_path(relative).is_err() {
+        failures.push(format!("{label} path is unsafe: {relative}"));
+        return;
+    }
+    match fs::read(evidence_root.join(relative)) {
+        Ok(bytes) => {
+            if artifact["sha256"].as_str() != Some(sha256_hex(&bytes).as_str()) {
+                failures.push(format!("{label} hash mismatch: {relative}"));
+            }
+        }
+        Err(error) => failures.push(format!("{label} unavailable {relative}: {error}")),
+    }
 }
 
 fn verify_completeness(evidence_root: &Path, evidence: &Value, failures: &mut Vec<String>) {
@@ -300,6 +346,148 @@ fn verify_completeness(evidence_root: &Path, evidence: &Value, failures: &mut Ve
     }
     if evidence["entity"]["status"] != "completed" {
         failures.push("corpus entity validation is incomplete".to_string());
+    }
+    if let Some(manifest) = manifest.as_ref() {
+        verify_entity_projection(evidence_root, evidence, manifest, failures);
+    }
+}
+
+fn verify_entity_projection(
+    evidence_root: &Path,
+    evidence: &Value,
+    manifest: &Value,
+    failures: &mut Vec<String>,
+) {
+    let files = manifest["files"].as_array().cloned().unwrap_or_default();
+    let u32_files = files
+        .iter()
+        .filter(|file| file["case_id"] == "classic/sc/mono2_u32_explicit_le")
+        .collect::<Vec<_>>();
+    let projection = evidence["entity"].get("input_projection");
+    if u32_files.is_empty() {
+        if projection.is_some() {
+            failures
+                .push("entity input projection exists without an eligible u32 case".to_string());
+        }
+        return;
+    }
+    let Some(projection) = projection else {
+        failures.push("u32 corpus requires an entity input projection".to_string());
+        return;
+    };
+    let entries = projection["entries"]
+        .as_array()
+        .cloned()
+        .unwrap_or_default();
+    let file_list = projection["file_list"]["path"]
+        .as_str()
+        .filter(|path| validate_relative_path(path).is_ok())
+        .and_then(|path| fs::read_to_string(evidence_root.join(path)).ok());
+    let Some(file_list) = file_list else {
+        failures.push("entity projection file list cannot be verified".to_string());
+        return;
+    };
+    let listed = file_list.lines().map(Path::new).collect::<Vec<_>>();
+    let mut valid = projection["method"] == "terminal_pixel_data_element_redaction_v1"
+        && projection["scope"] == "entity_consistency_only"
+        && entries.len() == u32_files.len()
+        && listed.len() == files.len();
+    for file in &files {
+        let Some(relative) = file["path"].as_str() else {
+            valid = false;
+            continue;
+        };
+        if file["case_id"] != "classic/sc/mono2_u32_explicit_le"
+            && listed
+                .iter()
+                .filter(|path| path.ends_with(relative))
+                .count()
+                != 1
+        {
+            valid = false;
+        }
+    }
+    for file in u32_files {
+        let relative = file["path"].as_str().unwrap_or("");
+        let matching = entries
+            .iter()
+            .filter(|entry| entry["source_path"] == relative)
+            .collect::<Vec<_>>();
+        let [entry] = matching.as_slice() else {
+            valid = false;
+            continue;
+        };
+        let source_relative = entry["source_copy"]["path"].as_str().unwrap_or("");
+        let projected_relative = entry["projected_input"]["path"].as_str().unwrap_or("");
+        if validate_relative_path(source_relative).is_err()
+            || validate_relative_path(projected_relative).is_err()
+        {
+            valid = false;
+            continue;
+        }
+        let Ok(source) = fs::read(evidence_root.join(source_relative)) else {
+            valid = false;
+            continue;
+        };
+        let Ok(projected) = fs::read(evidence_root.join(projected_relative)) else {
+            valid = false;
+            continue;
+        };
+        let removed = &entry["removed_element"];
+        let element_offset = removed["element_offset"].as_u64().unwrap_or(u64::MAX) as usize;
+        let value_offset = removed["value_offset"].as_u64().unwrap_or(u64::MAX) as usize;
+        let value_length = removed["value_length"].as_u64().unwrap_or(0) as usize;
+        let range_is_valid = value_offset == element_offset.saturating_add(12)
+            && value_length == 16
+            && value_offset
+                .checked_add(value_length)
+                .is_some_and(|end| end == source.len())
+            && element_offset
+                .checked_add(12)
+                .is_some_and(|end| end <= source.len());
+        if !range_is_valid {
+            valid = false;
+            continue;
+        }
+        let expected_header = [
+            0xe0, 0x7f, 0x10, 0x00, b'O', b'W', 0x00, 0x00, 0x10, 0x00, 0x00, 0x00,
+        ];
+        let value = &source[value_offset..];
+        let expected_projection = source[..element_offset].to_vec();
+        valid &= entry["source_case_id"] == "classic/sc/mono2_u32_explicit_le"
+            && entry["transfer_syntax_uid"] == "1.2.840.10008.1.2.1"
+            && file["dicom"]["transfer_syntax_uid"] == "1.2.840.10008.1.2.1"
+            && file["image"]["bits_allocated"] == 32
+            && file["image"]["bits_stored"] == 32
+            && file["image"]["high_bit"] == 31
+            && file["image"]["pixel_representation"] == 0
+            && file["pixel_data"]["vr"] == "OW"
+            && file["pixel_data"]["value_length"] == 16
+            && file["pixel_data"]["frame_count"] == 1
+            && file["expected_u32_pixels"]["stored_values"]
+                == json!([0_u64, 65_535, 2_147_483_648_u64, 4_294_967_295_u64])
+            && removed["tag"] == "(7FE0,0010)"
+            && removed["vr"] == "OW"
+            && source[element_offset..value_offset] == expected_header
+            && sha256_hex(&source) == file["sha256"].as_str().unwrap_or("")
+            && sha256_hex(value) == removed["value_sha256"].as_str().unwrap_or("")
+            && sha256_hex(value)
+                == file["expected_u32_pixels"]["pixel_data_sha256"]
+                    .as_str()
+                    .unwrap_or("")
+            && projected == expected_projection
+            && listed
+                .iter()
+                .filter(|path| path.ends_with(projected_relative))
+                .count()
+                == 1
+            && listed.iter().all(|path| !path.ends_with(relative));
+    }
+    if !valid {
+        failures.push(
+            "entity input projection is not a byte-preserving, manifest-linked u32 redaction"
+                .to_string(),
+        );
     }
 }
 
@@ -1634,13 +1822,21 @@ fn collect_entity(
     let stderr_path = directory.join("dcentvfy.stderr");
     let list_path = directory.join("files.txt");
     let mut list = String::new();
+    let mut projection_entries = Vec::new();
     for file in files {
         let relative = file
             .get("path")
             .and_then(Value::as_str)
             .ok_or_else(|| "manifest file entry requires path".to_string())?;
         validate_relative_path(relative)?;
-        list.push_str(&generated_root.join(relative).display().to_string());
+        if file.get("case_id").and_then(Value::as_str) == Some("classic/sc/mono2_u32_explicit_le") {
+            let (projected, entry) =
+                project_u32_entity_input(generated_root, evidence_root, file, relative)?;
+            list.push_str(&projected.display().to_string());
+            projection_entries.push(entry);
+        } else {
+            list.push_str(&generated_root.join(relative).display().to_string());
+        }
         list.push('\n');
     }
     fs::write(&list_path, list.as_bytes()).map_err(|error| error.to_string())?;
@@ -1693,7 +1889,7 @@ fn collect_entity(
     let output = run_with_timeout(Path::new(executable), &arguments, timeout)?;
     fs::write(&stdout_path, &output.stdout).map_err(|error| error.to_string())?;
     fs::write(&stderr_path, &output.stderr).map_err(|error| error.to_string())?;
-    Ok(execution_result(
+    let mut result = execution_result(
         adapter_id,
         "entity_validator",
         executable,
@@ -1703,6 +1899,129 @@ fn collect_entity(
         "entity/dcentvfy.stderr",
         &generated_root.display().to_string(),
         ".",
+    );
+    if !projection_entries.is_empty() {
+        result["input_projection"] = json!({
+            "method": "terminal_pixel_data_element_redaction_v1",
+            "scope": "entity_consistency_only",
+            "file_list": {
+                "path": "entity/files.txt",
+                "sha256": sha256_hex(list.as_bytes())
+            },
+            "entries": projection_entries
+        });
+    }
+    Ok(result)
+}
+
+fn project_u32_entity_input(
+    generated_root: &Path,
+    evidence_root: &Path,
+    file: &Value,
+    relative: &str,
+) -> Result<(PathBuf, Value), String> {
+    let invalid = |reason: &str| format!("u32 entity projection rejected {relative}: {reason}");
+    if file
+        .pointer("/dicom/transfer_syntax_uid")
+        .and_then(Value::as_str)
+        != Some("1.2.840.10008.1.2.1")
+        || file
+            .pointer("/image/bits_allocated")
+            .and_then(Value::as_u64)
+            != Some(32)
+        || file.pointer("/image/bits_stored").and_then(Value::as_u64) != Some(32)
+        || file.pointer("/image/high_bit").and_then(Value::as_u64) != Some(31)
+        || file
+            .pointer("/image/pixel_representation")
+            .and_then(Value::as_u64)
+            != Some(0)
+        || file.pointer("/pixel_data/vr").and_then(Value::as_str) != Some("OW")
+        || file
+            .pointer("/pixel_data/value_length")
+            .and_then(Value::as_u64)
+            != Some(16)
+        || file
+            .pointer("/pixel_data/frame_count")
+            .and_then(Value::as_u64)
+            != Some(1)
+        || file.pointer("/expected_u32_pixels/stored_values")
+            != Some(&json!([
+                0_u64,
+                65_535,
+                2_147_483_648_u64,
+                4_294_967_295_u64
+            ]))
+    {
+        return Err(invalid(
+            "manifest eligibility fields do not match the locked case",
+        ));
+    }
+    let source = fs::read(generated_root.join(relative))
+        .map_err(|error| invalid(&format!("source is unavailable: {error}")))?;
+    let source_sha256 = sha256_hex(&source);
+    if file.get("sha256").and_then(Value::as_str) != Some(source_sha256.as_str()) {
+        return Err(invalid("source hash does not match the manifest"));
+    }
+    let value_length = 16_usize;
+    let header_length = 12_usize;
+    let element_offset = source
+        .len()
+        .checked_sub(value_length + header_length)
+        .ok_or_else(|| invalid("source is shorter than terminal Pixel Data"))?;
+    let value_offset = element_offset + header_length;
+    let expected_header = [
+        0xe0, 0x7f, 0x10, 0x00, b'O', b'W', 0x00, 0x00, 0x10, 0x00, 0x00, 0x00,
+    ];
+    if source[element_offset..value_offset] != expected_header
+        || value_offset + value_length != source.len()
+    {
+        return Err(invalid(
+            "Pixel Data is not the unique expected terminal OW element",
+        ));
+    }
+    let value = &source[value_offset..];
+    let value_sha256 = sha256_hex(value);
+    let expected_value_sha256 = file
+        .pointer("/expected_u32_pixels/pixel_data_sha256")
+        .and_then(Value::as_str)
+        .ok_or_else(|| invalid("expected pixel hash is missing"))?;
+    let frame_hash = file
+        .pointer("/pixel_data/frame_hashes/0")
+        .and_then(Value::as_str)
+        .ok_or_else(|| invalid("expected frame hash is missing"))?;
+    if value_sha256 != expected_value_sha256 || value_sha256 != frame_hash {
+        return Err(invalid(
+            "terminal Pixel Data hash does not match the manifest",
+        ));
+    }
+
+    let stable_key = sha256_hex(relative.as_bytes());
+    let projection_directory = evidence_root.join("entity/projections");
+    fs::create_dir_all(&projection_directory).map_err(|error| error.to_string())?;
+    let source_relative = format!("entity/projections/{stable_key}.source.dcm");
+    let projected_relative = format!("entity/projections/{stable_key}.projected.dcm");
+    fs::write(evidence_root.join(&source_relative), &source).map_err(|error| error.to_string())?;
+    let projected = source[..element_offset].to_vec();
+    fs::write(evidence_root.join(&projected_relative), &projected)
+        .map_err(|error| error.to_string())?;
+    let projected_path = evidence_root.join(&projected_relative);
+    Ok((
+        projected_path,
+        json!({
+            "source_case_id": "classic/sc/mono2_u32_explicit_le",
+            "source_path": relative,
+            "source_copy": { "path": source_relative, "sha256": source_sha256 },
+            "projected_input": { "path": projected_relative, "sha256": sha256_hex(&projected) },
+            "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+            "removed_element": {
+                "tag": "(7FE0,0010)",
+                "vr": "OW",
+                "element_offset": element_offset,
+                "value_offset": value_offset,
+                "value_length": value_length,
+                "value_sha256": value_sha256
+            }
+        }),
     ))
 }
 

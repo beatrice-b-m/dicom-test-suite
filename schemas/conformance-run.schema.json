@@ -97,6 +97,41 @@
         "sha256": { "$ref": "#/$defs/sha256" }
       }
     },
+    "entity_input_projection": {
+      "type": "object", "additionalProperties": false,
+      "required": ["method", "scope", "file_list", "entries"],
+      "properties": {
+        "method": { "const": "terminal_pixel_data_element_redaction_v1" },
+        "scope": { "const": "entity_consistency_only" },
+        "file_list": { "$ref": "#/$defs/artifact" },
+        "entries": {
+          "type": "array", "minItems": 1,
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["source_case_id", "source_path", "source_copy", "projected_input", "transfer_syntax_uid", "removed_element"],
+            "properties": {
+              "source_case_id": { "const": "classic/sc/mono2_u32_explicit_le" },
+              "source_path": { "$ref": "#/$defs/relative_path" },
+              "source_copy": { "$ref": "#/$defs/artifact" },
+              "projected_input": { "$ref": "#/$defs/artifact" },
+              "transfer_syntax_uid": { "const": "1.2.840.10008.1.2.1" },
+              "removed_element": {
+                "type": "object", "additionalProperties": false,
+                "required": ["tag", "vr", "element_offset", "value_offset", "value_length", "value_sha256"],
+                "properties": {
+                  "tag": { "const": "(7FE0,0010)" },
+                  "vr": { "const": "OW" },
+                  "element_offset": { "type": "integer", "minimum": 0 },
+                  "value_offset": { "type": "integer", "minimum": 12 },
+                  "value_length": { "const": 16 },
+                  "value_sha256": { "$ref": "#/$defs/sha256" }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "finding": {
       "type": "object", "additionalProperties": false,
       "required": ["severity", "message", "message_fingerprint", "disposition"],
@@ -111,6 +146,12 @@
     },
     "result": {
       "type": "object", "additionalProperties": false,
+      "allOf": [
+        {
+          "if": { "required": ["input_projection"] },
+          "then": { "properties": { "role": { "const": "entity_validator" } } }
+        }
+      ],
       "required": ["adapter_id", "role", "status", "invocation", "stdout", "stderr", "exit_code", "duration_ms", "timed_out", "findings"],
       "properties": {
         "adapter_id": { "type": "string", "minLength": 1 },
@@ -123,7 +164,8 @@
         "duration_ms": { "type": "integer", "minimum": 0 },
         "timed_out": { "type": "boolean" },
         "findings": { "type": "array", "items": { "$ref": "#/$defs/finding" } },
-        "unsupported_reason": { "type": "string", "minLength": 1 }
+        "unsupported_reason": { "type": "string", "minLength": 1 },
+        "input_projection": { "$ref": "#/$defs/entity_input_projection" }
       }
     },
     "pixel": {

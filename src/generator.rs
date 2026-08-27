@@ -81,6 +81,12 @@ use native::rt_plan::{
     RT_STRUCTURE_SET_STORAGE_UID as RT_PLAN_REFERENCED_STRUCTURE_SET_STORAGE_UID, RtPlanInput,
     build_rt_plan,
 };
+use native::rt_radiation::{
+    C_ARM_PHOTON_ELECTRON_RADIATION_STORAGE_UID,
+    RT_PLAN_STORAGE_UID as RT_RADIATION_PLAN_STORAGE_UID, RT_RADIATION_OUTPUT_FILE,
+    RT_RADIATION_SET_OUTPUT_FILE, RT_RADIATION_SET_STORAGE_UID, RtRadiationInput,
+    RtRadiationSetInput as NativeRtRadiationSetInput, build_rt_radiation, build_rt_radiation_set,
+};
 use native::sc_integer_pixels::{U1_SC_RECIPE, U32_SC_RECIPE};
 use native::sc_nonsquare_spacing::{
     NONSQUARE_SPACING_SC_RECIPE, NonsquareGeometryVariant, NonsquareSpacingScRecipe,
@@ -130,6 +136,10 @@ use crate::{
     rt_manifest::{
         LinkedRtImageInput, LinkedRtPlanInput, linked_rt_image_expected, linked_rt_plan_expected,
     },
+    rt_radiation_manifest::{
+        CArmRtRadiationInput, RtRadiationSetInput, minimal_carm_rt_radiation_expected,
+        minimal_rt_radiation_set_expected,
+    },
     sha256_hex,
     validation::{
         AdvancedBlendingPresentationStateExpectations, AdvancedBlendingSourceSeriesExpectations,
@@ -141,8 +151,9 @@ use crate::{
         GeneralEcgExpectations, MgImageExpectations, MrImageExpectations, NmDetectorExpectations,
         NmEnergyWindowExpectations, NmImageExpectations, Part10Expectations, PetImageExpectations,
         PixelDataLengthFormula, PresentationStateExpectations, RealWorldValueMappingExpectations,
-        RtDoseExpectations, RtImageExpectations, RtPlanExpectations, RtStructureSetExpectations,
-        Scoord3dExpectations, SegmentationExpectations, SpatialRegistrationExpectations,
+        RtDoseExpectations, RtImageExpectations, RtPlanExpectations, RtRadiationExpectations,
+        RtRadiationSetExpectations, RtStructureSetExpectations, Scoord3dExpectations,
+        SegmentationExpectations, SpatialRegistrationExpectations,
         SpatialRegistrationReferenceExpectations, Tid1500Expectations, TwelveLeadEcgExpectations,
         UsImageExpectations, UsMultiframeExpectations, XaImageExpectations, XrfImageExpectations,
         validate_advanced_blending_presentation_state_file, validate_basic_text_sr_file,
@@ -151,8 +162,9 @@ use crate::{
         validate_encapsulated_pdf_file, validate_general_ecg_file,
         validate_key_object_selection_file, validate_part10_file, validate_presentation_state_file,
         validate_real_world_value_mapping_file, validate_rt_dose_file, validate_rt_image_file,
-        validate_rt_plan_file, validate_rt_structure_set_file, validate_scoord3d_file,
-        validate_spatial_registration_file, validate_tid1500_file, validate_twelve_lead_ecg_file,
+        validate_rt_plan_file, validate_rt_radiation_file, validate_rt_radiation_set_file,
+        validate_rt_structure_set_file, validate_scoord3d_file, validate_spatial_registration_file,
+        validate_tid1500_file, validate_twelve_lead_ecg_file,
     },
     waveform_manifest::{general_ecg_expected_waveform, twelve_lead_ecg_expected_waveform},
 };
@@ -218,6 +230,8 @@ const RT_STRUCTURE_SET_RECIPE_VERSION: &str = "0.1.0";
 const RT_DOSE_RECIPE_VERSION: &str = "0.1.0";
 const RT_PLAN_RECIPE_VERSION: &str = "0.1.0";
 const RT_IMAGE_RECIPE_VERSION: &str = "0.1.0";
+const RT_RADIATION_RECIPE_VERSION: &str = "0.1.0";
+const RT_RADIATION_SET_RECIPE_VERSION: &str = "0.1.0";
 const ENCAPSULATED_PDF_RECIPE_VERSION: &str = "0.1.0";
 const SEGMENTATION_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.66.4";
 const LABEL_MAP_SEGMENTATION_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.66.7";
@@ -404,6 +418,11 @@ const RT_PLAN_DOSE_SOURCE_CASE_ID: &str = "non-image/rt/dose_grid_u16_explicit_l
 const RT_IMAGE_CASE_ID: &str = "non-image/rt/image_linked";
 const RT_IMAGE_RECIPE_ID: &str = "non_image_rt_image_linked";
 const RT_IMAGE_PLAN_SOURCE_CASE_ID: &str = RT_PLAN_CASE_ID;
+const RT_RADIATION_CASE_ID: &str = "non-image/rt/carm_photon_electron_radiation_minimal";
+const RT_RADIATION_RECIPE_ID: &str = "non_image_rt_carm_photon_electron_radiation_minimal";
+const RT_RADIATION_PLAN_SOURCE_CASE_ID: &str = RT_PLAN_CASE_ID;
+const RT_RADIATION_SET_CASE_ID: &str = "non-image/rt/radiation_set_minimal";
+const RT_RADIATION_SET_RECIPE_ID: &str = "non_image_rt_radiation_set_minimal";
 const MONO_PIXELS: [u8; 4] = [0, 85, 170, 255];
 const MONO_MULTIFRAME_PIXELS: [u8; 8] = [0, 85, 170, 255, 255, 170, 85, 0];
 const MONO_MULTIFRAME_VALUES: [i32; 8] = [0, 85, 170, 255, 255, 170, 85, 0];
@@ -3048,6 +3067,34 @@ const RT_IMAGE_RECIPES: &[RtImageRecipe] = &[RtImageRecipe {
 }];
 
 #[derive(Debug, Clone, Copy)]
+struct RtRadiationRecipe {
+    case_id: &'static str,
+    recipe_id: &'static str,
+    plan_source_case_id: &'static str,
+}
+
+const RT_RADIATION_RECIPES: &[RtRadiationRecipe] = &[RtRadiationRecipe {
+    case_id: RT_RADIATION_CASE_ID,
+    recipe_id: RT_RADIATION_RECIPE_ID,
+    plan_source_case_id: RT_RADIATION_PLAN_SOURCE_CASE_ID,
+}];
+
+#[derive(Debug, Clone, Copy)]
+struct RtRadiationSetRecipe {
+    case_id: &'static str,
+    recipe_id: &'static str,
+    plan_source_case_id: &'static str,
+    radiation_source_case_id: &'static str,
+}
+
+const RT_RADIATION_SET_RECIPES: &[RtRadiationSetRecipe] = &[RtRadiationSetRecipe {
+    case_id: RT_RADIATION_SET_CASE_ID,
+    recipe_id: RT_RADIATION_SET_RECIPE_ID,
+    plan_source_case_id: RT_PLAN_CASE_ID,
+    radiation_source_case_id: RT_RADIATION_CASE_ID,
+}];
+
+#[derive(Debug, Clone, Copy)]
 struct EncapsulatedPdfRecipe {
     case_id: &'static str,
     recipe_id: &'static str,
@@ -4485,6 +4532,61 @@ pub(crate) fn write_supported_cases(
             *recipe,
             &structure_set_source,
             &dose_source,
+            standards_lock_sha256,
+        )?)?;
+    }
+    for recipe in RT_RADIATION_RECIPES {
+        let Some(case) = registry_case(registry, recipe.case_id)? else {
+            continue;
+        };
+        if !should_generate_case(case, run)? {
+            continue;
+        }
+        let plan_source = context
+            .source_registry()
+            .first_for_case(recipe.plan_source_case_id)
+            .cloned()
+            .ok_or_else(|| GenerateError::MetadataShape {
+                path: PathBuf::from(recipe.case_id),
+                message: "C-Arm RT Radiation Plan source must be generated before the derived recipe",
+            })?;
+        context.record_one(write_rt_radiation_case(
+            run,
+            case,
+            *recipe,
+            &plan_source,
+            standards_lock_sha256,
+        )?)?;
+    }
+    for recipe in RT_RADIATION_SET_RECIPES {
+        let Some(case) = registry_case(registry, recipe.case_id)? else {
+            continue;
+        };
+        if !should_generate_case(case, run)? {
+            continue;
+        }
+        let plan_source = context
+            .source_registry()
+            .first_for_case(recipe.plan_source_case_id)
+            .cloned()
+            .ok_or_else(|| GenerateError::MetadataShape {
+                path: PathBuf::from(recipe.case_id),
+                message: "RT Radiation Set Plan source must be generated before the derived recipe",
+            })?;
+        let radiation_source = context
+            .source_registry()
+            .first_for_case(recipe.radiation_source_case_id)
+            .cloned()
+            .ok_or_else(|| GenerateError::MetadataShape {
+                path: PathBuf::from(recipe.case_id),
+                message: "RT Radiation Set Radiation source must be generated before the derived recipe",
+            })?;
+        context.record_one(write_rt_radiation_set_case(
+            run,
+            case,
+            *recipe,
+            &plan_source,
+            &radiation_source,
             standards_lock_sha256,
         )?)?;
     }
@@ -14943,6 +15045,468 @@ fn rt_image_source_error(message: impl Into<String>) -> GenerateError {
     }
 }
 
+fn write_rt_radiation_case(
+    run: &PreparedGenerationRun,
+    case: &Value,
+    recipe: RtRadiationRecipe,
+    plan_source: &GeneratedSourceObject,
+    standards_lock_sha256: &str,
+) -> Result<GeneratedFile, GenerateError> {
+    validate_generated_rt_source(
+        &run.out_dir,
+        recipe.case_id,
+        plan_source,
+        recipe.plan_source_case_id,
+        RT_RADIATION_PLAN_STORAGE_UID,
+    )?;
+    let plan_series_instance_uid = required_source_uid(
+        plan_source.series_instance_uid.as_deref(),
+        RT_RADIATION_CASE_ID,
+        "C-Arm RT Radiation Plan source Series Instance UID is missing",
+    )?;
+    let frame_of_reference_uid = required_source_uid(
+        plan_source.frame_of_reference_uid.as_deref(),
+        RT_RADIATION_CASE_ID,
+        "C-Arm RT Radiation Plan source Frame of Reference UID is missing",
+    )?;
+    let series_instance_uid = deterministic_rt_radiation_uid(
+        standards_lock_sha256,
+        recipe,
+        run.seed,
+        UidRole::SeriesInstance,
+        None,
+    );
+    let sop_instance_uid = deterministic_rt_radiation_uid(
+        standards_lock_sha256,
+        recipe,
+        run.seed,
+        UidRole::SopInstance,
+        None,
+    );
+    let implementation_class_uid = deterministic_implementation_uid(standards_lock_sha256);
+    let relative_path = format!("{}/{RT_RADIATION_OUTPUT_FILE}", recipe.case_id);
+    let path = run.out_dir.join(&relative_path);
+    let case_dir = path.parent().ok_or_else(|| GenerateError::MetadataShape {
+        path: PathBuf::from(&relative_path),
+        message: "C-Arm RT Radiation output must have a parent directory",
+    })?;
+    fs::create_dir_all(case_dir).map_err(|source| GenerateError::CreateCaseOutputDir {
+        path: case_dir.to_path_buf(),
+        source,
+    })?;
+
+    build_rt_radiation(RtRadiationInput {
+        study_instance_uid: &plan_source.study_instance_uid,
+        frame_of_reference_uid,
+        series_instance_uid: &series_instance_uid,
+        sop_instance_uid: &sop_instance_uid,
+        plan_series_instance_uid,
+        plan_sop_class_uid: &plan_source.sop_class_uid,
+        plan_sop_instance_uid: &plan_source.sop_instance_uid,
+    })
+    .map_err(|message| GenerateError::WriteDicomFile {
+        path: path.clone(),
+        message,
+    })?
+    .with_meta(
+        FileMetaTableBuilder::new()
+            .transfer_syntax(EXPLICIT_VR_LITTLE_ENDIAN.uid)
+            .implementation_class_uid(&implementation_class_uid)
+            .implementation_version_name(crate::IMPLEMENTATION_VERSION_NAME),
+    )
+    .map_err(|error| GenerateError::WriteDicomFile {
+        path: path.clone(),
+        message: error.to_string(),
+    })?
+    .write_to_file(&path)
+    .map_err(|error| GenerateError::WriteDicomFile {
+        path: path.clone(),
+        message: error.to_string(),
+    })?;
+
+    let expected_rt_radiation_contract = minimal_carm_rt_radiation_expected(CArmRtRadiationInput {
+        sop_instance_uid: &sop_instance_uid,
+        study_instance_uid: &plan_source.study_instance_uid,
+        series_instance_uid: &series_instance_uid,
+        frame_of_reference_uid,
+        plan_series_instance_uid,
+        plan_sop_instance_uid: &plan_source.sop_instance_uid,
+        plan_sha256: &plan_source.sha256,
+        software_versions: crate::PACKAGE_VERSION,
+    });
+    let validated = validate_rt_radiation_file(
+        &path,
+        &RtRadiationExpectations {
+            implementation_class_uid: &implementation_class_uid,
+            synthetic_data: "YES",
+            expected_rt_radiation: expected_rt_radiation_contract,
+        },
+    )?;
+    let mut validation = validated.validation;
+    validation["internal"]
+        .as_array_mut()
+        .expect("RT Radiation validation internal results are an array")
+        .push(serde_json::json!({
+            "name": "rt_radiation_source_precheck",
+            "status": "passed",
+            "message": "Rust reopened and hashed the linked RT Plan, then verified its manifest identity, Study, and Frame of Reference before Radiation construction."
+        }));
+    let expected_rt_radiation = serde_json::to_value(expected_rt_radiation_contract)
+        .expect("C-Arm RT Radiation expectation serialization is infallible");
+    let bytes = validated.bytes;
+
+    Ok(GeneratedFile {
+        case_id: recipe.case_id.to_string(),
+        manifest_entry: serde_json::json!({
+            "case_id": recipe.case_id,
+            "profile_membership": ["extended"],
+            "path": relative_path,
+            "sha256": sha256_hex(&bytes),
+            "size_bytes": bytes.len(),
+            "determinism": "byte_stable",
+            "recipe": {
+                "recipe_id": recipe.recipe_id,
+                "recipe_version": RT_RADIATION_RECIPE_VERSION,
+                "recipe_parameters": {
+                    "plan_source_case_id": recipe.plan_source_case_id,
+                    "physical_and_geometric_content_detail_flag": "IDENT_ONLY",
+                    "rt_record_flag": "NO",
+                    "treatment_position_count": 1,
+                    "control_point_count": 2
+                }
+            },
+            "dicom": {
+                "sop_class_uid": C_ARM_PHOTON_ELECTRON_RADIATION_STORAGE_UID,
+                "sop_class_name": "C-Arm Photon-Electron Radiation Storage",
+                "iod_name": "C-Arm Photon-Electron Radiation",
+                "modality": "RTRAD",
+                "transfer_syntax_uid": EXPLICIT_VR_LITTLE_ENDIAN.uid,
+                "transfer_syntax_name": EXPLICIT_VR_LITTLE_ENDIAN.name
+            },
+            "uids": {
+                "study_instance_uid": plan_source.study_instance_uid,
+                "series_instance_uid": series_instance_uid,
+                "sop_instance_uid": sop_instance_uid,
+                "frame_of_reference_uid": frame_of_reference_uid,
+                "implementation_class_uid": implementation_class_uid,
+                "implementation_version_name": crate::IMPLEMENTATION_VERSION_NAME
+            },
+            "image": Value::Null,
+            "pixel_data": Value::Null,
+            "references": [plan_source.to_manifest_reference("definition_source", None)],
+            "expected_capabilities": [
+                "open_file", "read_metadata", "resolve_references", "read_rt_radiation"
+            ],
+            "expected_semantics": {
+                "synthetic_data": "YES",
+                "linked_plan_sop_instance_uid": plan_source.sop_instance_uid,
+                "rt_record_flag": "NO",
+                "control_point_inheritance": true,
+                "pixel_data_absent": true
+            },
+            "expected_rt_radiation": expected_rt_radiation,
+            "expected_visual_checks": {
+                "pattern": "single_static_carm_beam"
+            },
+            "validation": validation,
+            "known_stressors": [
+                "carm_photon_electron_radiation_storage", "linked_rt_plan",
+                "ident_only_content", "control_point_inheritance", "pixel_data_absent"
+            ],
+            "standards_evidence": deduplicated_standards_evidence(standards_evidence_from_case(case))
+        }),
+    })
+}
+
+fn write_rt_radiation_set_case(
+    run: &PreparedGenerationRun,
+    case: &Value,
+    recipe: RtRadiationSetRecipe,
+    plan_source: &GeneratedSourceObject,
+    radiation_source: &GeneratedSourceObject,
+    standards_lock_sha256: &str,
+) -> Result<GeneratedFile, GenerateError> {
+    validate_generated_rt_source(
+        &run.out_dir,
+        recipe.case_id,
+        plan_source,
+        recipe.plan_source_case_id,
+        RT_RADIATION_PLAN_STORAGE_UID,
+    )?;
+    validate_generated_rt_source(
+        &run.out_dir,
+        recipe.case_id,
+        radiation_source,
+        recipe.radiation_source_case_id,
+        C_ARM_PHOTON_ELECTRON_RADIATION_STORAGE_UID,
+    )?;
+    let plan_series_instance_uid = required_source_uid(
+        plan_source.series_instance_uid.as_deref(),
+        RT_RADIATION_SET_CASE_ID,
+        "RT Radiation Set Plan source Series Instance UID is missing",
+    )?;
+    let radiation_series_instance_uid = required_source_uid(
+        radiation_source.series_instance_uid.as_deref(),
+        RT_RADIATION_SET_CASE_ID,
+        "RT Radiation Set Radiation source Series Instance UID is missing",
+    )?;
+    let plan_frame_of_reference_uid = required_source_uid(
+        plan_source.frame_of_reference_uid.as_deref(),
+        RT_RADIATION_SET_CASE_ID,
+        "RT Radiation Set Plan source Frame of Reference UID is missing",
+    )?;
+    let radiation_frame_of_reference_uid = required_source_uid(
+        radiation_source.frame_of_reference_uid.as_deref(),
+        RT_RADIATION_SET_CASE_ID,
+        "RT Radiation Set Radiation source Frame of Reference UID is missing",
+    )?;
+    if plan_source.study_instance_uid != radiation_source.study_instance_uid
+        || plan_frame_of_reference_uid != radiation_frame_of_reference_uid
+        || plan_source.sop_instance_uid == radiation_source.sop_instance_uid
+        || plan_series_instance_uid == radiation_series_instance_uid
+    {
+        return Err(rt_generation_source_error(
+            recipe.case_id,
+            "RT Radiation Set sources differ from the locked Plan-to-Radiation identity topology",
+        ));
+    }
+
+    let series_instance_uid = deterministic_rt_radiation_set_uid(
+        standards_lock_sha256,
+        recipe,
+        run.seed,
+        UidRole::SeriesInstance,
+        None,
+    );
+    let sop_instance_uid = deterministic_rt_radiation_set_uid(
+        standards_lock_sha256,
+        recipe,
+        run.seed,
+        UidRole::SopInstance,
+        None,
+    );
+    let treatment_position_group_uid = deterministic_rt_radiation_set_uid(
+        standards_lock_sha256,
+        recipe,
+        run.seed,
+        UidRole::DerivedReference,
+        Some(0),
+    );
+    let implementation_class_uid = deterministic_implementation_uid(standards_lock_sha256);
+    let relative_path = format!("{}/{RT_RADIATION_SET_OUTPUT_FILE}", recipe.case_id);
+    let path = run.out_dir.join(&relative_path);
+    let case_dir = path.parent().ok_or_else(|| GenerateError::MetadataShape {
+        path: PathBuf::from(&relative_path),
+        message: "RT Radiation Set output must have a parent directory",
+    })?;
+    fs::create_dir_all(case_dir).map_err(|source| GenerateError::CreateCaseOutputDir {
+        path: case_dir.to_path_buf(),
+        source,
+    })?;
+
+    build_rt_radiation_set(NativeRtRadiationSetInput {
+        study_instance_uid: &plan_source.study_instance_uid,
+        frame_of_reference_uid: plan_frame_of_reference_uid,
+        series_instance_uid: &series_instance_uid,
+        sop_instance_uid: &sop_instance_uid,
+        plan_series_instance_uid,
+        plan_sop_class_uid: &plan_source.sop_class_uid,
+        plan_sop_instance_uid: &plan_source.sop_instance_uid,
+        radiation_series_instance_uid,
+        radiation_sop_class_uid: &radiation_source.sop_class_uid,
+        radiation_sop_instance_uid: &radiation_source.sop_instance_uid,
+        treatment_position_group_uid: &treatment_position_group_uid,
+    })
+    .map_err(|message| GenerateError::WriteDicomFile {
+        path: path.clone(),
+        message,
+    })?
+    .with_meta(
+        FileMetaTableBuilder::new()
+            .transfer_syntax(EXPLICIT_VR_LITTLE_ENDIAN.uid)
+            .implementation_class_uid(&implementation_class_uid)
+            .implementation_version_name(crate::IMPLEMENTATION_VERSION_NAME),
+    )
+    .map_err(|error| GenerateError::WriteDicomFile {
+        path: path.clone(),
+        message: error.to_string(),
+    })?
+    .write_to_file(&path)
+    .map_err(|error| GenerateError::WriteDicomFile {
+        path: path.clone(),
+        message: error.to_string(),
+    })?;
+
+    let expected_rt_radiation_set_contract =
+        minimal_rt_radiation_set_expected(RtRadiationSetInput {
+            sop_instance_uid: &sop_instance_uid,
+            study_instance_uid: &plan_source.study_instance_uid,
+            series_instance_uid: &series_instance_uid,
+            frame_of_reference_uid: plan_frame_of_reference_uid,
+            treatment_position_group_uid: &treatment_position_group_uid,
+            plan_series_instance_uid,
+            plan_sop_instance_uid: &plan_source.sop_instance_uid,
+            plan_sha256: &plan_source.sha256,
+            radiation_series_instance_uid,
+            radiation_sop_instance_uid: &radiation_source.sop_instance_uid,
+            radiation_sha256: &radiation_source.sha256,
+            software_versions: crate::PACKAGE_VERSION,
+        });
+    let validated = validate_rt_radiation_set_file(
+        &path,
+        &RtRadiationSetExpectations {
+            implementation_class_uid: &implementation_class_uid,
+            synthetic_data: "YES",
+            expected_rt_radiation_set: expected_rt_radiation_set_contract,
+        },
+    )?;
+    let mut validation = validated.validation;
+    validation["internal"]
+        .as_array_mut()
+        .expect("RT Radiation Set validation internal results are an array")
+        .push(serde_json::json!({
+            "name": "rt_radiation_set_source_precheck",
+            "status": "passed",
+            "message": "Rust reopened and hashed the linked RT Plan and companion Radiation, then verified their manifest identities and shared Study and Frame of Reference before Set construction."
+        }));
+    let expected_rt_radiation_set = serde_json::to_value(expected_rt_radiation_set_contract)
+        .expect("RT Radiation Set expectation serialization is infallible");
+    let bytes = validated.bytes;
+
+    Ok(GeneratedFile {
+        case_id: recipe.case_id.to_string(),
+        manifest_entry: serde_json::json!({
+            "case_id": recipe.case_id,
+            "profile_membership": ["extended"],
+            "path": relative_path,
+            "sha256": sha256_hex(&bytes),
+            "size_bytes": bytes.len(),
+            "determinism": "byte_stable",
+            "recipe": {
+                "recipe_id": recipe.recipe_id,
+                "recipe_version": RT_RADIATION_SET_RECIPE_VERSION,
+                "recipe_parameters": {
+                    "plan_source_case_id": recipe.plan_source_case_id,
+                    "radiation_source_case_id": recipe.radiation_source_case_id,
+                    "intended_number_of_fractions": 1,
+                    "treatment_position_group_count": 1,
+                    "radiation_count": 1
+                }
+            },
+            "dicom": {
+                "sop_class_uid": RT_RADIATION_SET_STORAGE_UID,
+                "sop_class_name": "RT Radiation Set Storage",
+                "iod_name": "RT Radiation Set",
+                "modality": "RTRAD",
+                "transfer_syntax_uid": EXPLICIT_VR_LITTLE_ENDIAN.uid,
+                "transfer_syntax_name": EXPLICIT_VR_LITTLE_ENDIAN.name
+            },
+            "uids": {
+                "study_instance_uid": plan_source.study_instance_uid,
+                "series_instance_uid": series_instance_uid,
+                "sop_instance_uid": sop_instance_uid,
+                "frame_of_reference_uid": plan_frame_of_reference_uid,
+                "implementation_class_uid": implementation_class_uid,
+                "implementation_version_name": crate::IMPLEMENTATION_VERSION_NAME
+            },
+            "image": Value::Null,
+            "pixel_data": Value::Null,
+            "references": [
+                plan_source.to_manifest_reference("definition_source", None),
+                radiation_source.to_manifest_reference("referenced_rt_radiation", None)
+            ],
+            "expected_capabilities": [
+                "open_file", "read_metadata", "resolve_references", "read_rt_radiation_set"
+            ],
+            "expected_semantics": {
+                "synthetic_data": "YES",
+                "intent": "TREATMENT",
+                "definition_source_plan_sop_instance_uid": plan_source.sop_instance_uid,
+                "linked_radiation_sop_instance_uid": radiation_source.sop_instance_uid,
+                "dose_contribution_absent": true,
+                "pixel_data_absent": true
+            },
+            "expected_rt_radiation_set": expected_rt_radiation_set,
+            "expected_visual_checks": {
+                "pattern": "single_radiation_treatment_position_group"
+            },
+            "validation": validation,
+            "known_stressors": [
+                "rt_radiation_set_storage", "linked_rt_plan", "linked_rt_radiation",
+                "treatment_position_group", "dose_contribution_absent", "pixel_data_absent"
+            ],
+            "standards_evidence": deduplicated_standards_evidence(standards_evidence_from_case(case))
+        }),
+    })
+}
+
+fn validate_generated_rt_source(
+    generated_root: &std::path::Path,
+    owner_case_id: &'static str,
+    source: &GeneratedSourceObject,
+    expected_case_id: &'static str,
+    expected_sop_class_uid: &'static str,
+) -> Result<(), GenerateError> {
+    let series_instance_uid = source.series_instance_uid.as_deref().ok_or_else(|| {
+        rt_generation_source_error(owner_case_id, "RT source Series Instance UID is missing")
+    })?;
+    let frame_of_reference_uid = source.frame_of_reference_uid.as_deref().ok_or_else(|| {
+        rt_generation_source_error(owner_case_id, "RT source Frame of Reference UID is missing")
+    })?;
+    if source.source_case_id != expected_case_id
+        || source.source_path != format!("{expected_case_id}/instance.dcm")
+        || source.sop_class_uid != expected_sop_class_uid
+        || source.study_instance_uid.is_empty()
+        || series_instance_uid.is_empty()
+        || frame_of_reference_uid.is_empty()
+    {
+        return Err(rt_generation_source_error(
+            owner_case_id,
+            "RT source differs from the locked dependency identity topology",
+        ));
+    }
+    let path = generated_root.join(&source.source_path);
+    let bytes = fs::read(&path).map_err(|error| GenerateError::ReadMetadata {
+        path: path.clone(),
+        source: error,
+    })?;
+    let object = open_file(&path).map_err(|error| GenerateError::ValidateDicomFile {
+        path: path.clone(),
+        message: error.to_string(),
+    })?;
+    let text = |tag| {
+        object
+            .element(tag)
+            .map_err(|error| rt_generation_source_error(owner_case_id, error.to_string()))?
+            .to_str()
+            .map(|value| value.trim_end_matches(['\0', ' ']).to_string())
+            .map_err(|error| rt_generation_source_error(owner_case_id, error.to_string()))
+    };
+    if sha256_hex(&bytes) != source.sha256
+        || object.meta().media_storage_sop_class_uid() != source.sop_class_uid
+        || object.meta().media_storage_sop_instance_uid() != source.sop_instance_uid
+        || object.meta().transfer_syntax() != EXPLICIT_VR_LITTLE_ENDIAN.uid
+        || text(tags::SOP_CLASS_UID)? != source.sop_class_uid
+        || text(tags::SOP_INSTANCE_UID)? != source.sop_instance_uid
+        || text(tags::STUDY_INSTANCE_UID)? != source.study_instance_uid
+        || text(tags::SERIES_INSTANCE_UID)? != series_instance_uid
+        || text(tags::FRAME_OF_REFERENCE_UID)? != frame_of_reference_uid
+    {
+        return Err(rt_generation_source_error(
+            owner_case_id,
+            "RT source bytes or DICOM identity differ from the generated-source registry",
+        ));
+    }
+    Ok(())
+}
+
+fn rt_generation_source_error(case_id: &'static str, message: impl Into<String>) -> GenerateError {
+    GenerateError::ValidateDicomFile {
+        path: PathBuf::from(case_id),
+        message: message.into(),
+    }
+}
+
 fn write_encapsulated_pdf_case(
     run: &PreparedGenerationRun,
     case: &Value,
@@ -25122,6 +25686,44 @@ fn deterministic_rt_image_uid(
     })
 }
 
+fn deterministic_rt_radiation_uid(
+    standards_lock_sha256: &str,
+    recipe: RtRadiationRecipe,
+    run_seed: u64,
+    role: UidRole,
+    referenced_object_index: Option<u32>,
+) -> String {
+    deterministic_uid(&DeterministicUidInput {
+        standards_lock_sha256,
+        case_id: recipe.case_id,
+        recipe_version: RT_RADIATION_RECIPE_VERSION,
+        run_seed,
+        file_index: 0,
+        frame_index: None,
+        referenced_object_index,
+        role,
+    })
+}
+
+fn deterministic_rt_radiation_set_uid(
+    standards_lock_sha256: &str,
+    recipe: RtRadiationSetRecipe,
+    run_seed: u64,
+    role: UidRole,
+    referenced_object_index: Option<u32>,
+) -> String {
+    deterministic_uid(&DeterministicUidInput {
+        standards_lock_sha256,
+        case_id: recipe.case_id,
+        recipe_version: RT_RADIATION_SET_RECIPE_VERSION,
+        run_seed,
+        file_index: 0,
+        frame_index: None,
+        referenced_object_index,
+        role,
+    })
+}
+
 fn deterministic_encapsulated_pdf_uid(
     standards_lock_sha256: &str,
     recipe: EncapsulatedPdfRecipe,
@@ -27478,6 +28080,231 @@ mod tests {
             deduplicated[1].get("query").and_then(Value::as_str),
             Some("lookup_data_element SyntheticData")
         );
+    }
+
+    #[test]
+    fn rt_radiation_pair_writers_are_linked_byte_stable_and_schema_valid() {
+        let output = ParametricMapStagingGuard::new();
+        let run = PreparedGenerationRun {
+            profile: "extended".to_string(),
+            out_dir: output.path().to_path_buf(),
+            manifest_path: output.path().join("manifest.json"),
+            seed: 7,
+            include_stress: false,
+        };
+        let lock = "0000000000000000000000000000000000000000000000000000000000000000";
+        let plan_source = rt_plan_source_for_radiation_tests(&run, lock);
+        let radiation_case = serde_json::json!({
+            "case_id": RT_RADIATION_CASE_ID,
+            "standards_evidence": []
+        });
+        let first_radiation = write_rt_radiation_case(
+            &run,
+            &radiation_case,
+            RT_RADIATION_RECIPES[0],
+            &plan_source,
+            lock,
+        )
+        .expect("C-Arm RT Radiation should write");
+        let radiation_path = output
+            .path()
+            .join(RT_RADIATION_CASE_ID)
+            .join(RT_RADIATION_OUTPUT_FILE);
+        let first_radiation_bytes = fs::read(&radiation_path).expect("first Radiation bytes");
+        assert_eq!(
+            sha256_hex(&first_radiation_bytes),
+            "d374972b724a635b6398721babb553b2cbde21cd624dad9b16d2de26e3d8c104"
+        );
+        let second_radiation = write_rt_radiation_case(
+            &run,
+            &radiation_case,
+            RT_RADIATION_RECIPES[0],
+            &plan_source,
+            lock,
+        )
+        .expect("repeated C-Arm RT Radiation should write");
+        let second_radiation_bytes = fs::read(&radiation_path).expect("second Radiation bytes");
+        assert_eq!(first_radiation_bytes, second_radiation_bytes);
+        assert_eq!(
+            first_radiation.manifest_entry["sha256"],
+            second_radiation.manifest_entry["sha256"]
+        );
+        assert_eq!(
+            first_radiation
+                .manifest_entry
+                .pointer("/expected_rt_radiation/definition_source/source_sha256"),
+            Some(&Value::from(plan_source.sha256.as_str()))
+        );
+        assert_eq!(
+            first_radiation.manifest_entry.pointer(
+                "/expected_rt_radiation/control_points/1/inherits_geometry_from_control_point"
+            ),
+            Some(&Value::from(1))
+        );
+
+        let radiation_source = GeneratedSourceObject::from_generated_file(&first_radiation)
+            .expect("C-Arm RT Radiation should register as a source");
+        let set_case = serde_json::json!({
+            "case_id": RT_RADIATION_SET_CASE_ID,
+            "standards_evidence": []
+        });
+        let first_set = write_rt_radiation_set_case(
+            &run,
+            &set_case,
+            RT_RADIATION_SET_RECIPES[0],
+            &plan_source,
+            &radiation_source,
+            lock,
+        )
+        .expect("RT Radiation Set should write");
+        let set_path = output
+            .path()
+            .join(RT_RADIATION_SET_CASE_ID)
+            .join(RT_RADIATION_SET_OUTPUT_FILE);
+        let first_set_bytes = fs::read(&set_path).expect("first Radiation Set bytes");
+        assert_eq!(
+            sha256_hex(&first_set_bytes),
+            "0e17b4772a534613d4ad1d62f9a9a441d8dc5ce8338a39fe7e14c1def596f36b"
+        );
+        let second_set = write_rt_radiation_set_case(
+            &run,
+            &set_case,
+            RT_RADIATION_SET_RECIPES[0],
+            &plan_source,
+            &radiation_source,
+            lock,
+        )
+        .expect("repeated RT Radiation Set should write");
+        let second_set_bytes = fs::read(&set_path).expect("second Radiation Set bytes");
+        assert_eq!(first_set_bytes, second_set_bytes);
+        assert_eq!(
+            first_set.manifest_entry["sha256"],
+            second_set.manifest_entry["sha256"]
+        );
+        assert_eq!(
+            first_set
+                .manifest_entry
+                .pointer("/expected_rt_radiation_set/definition_source/source_sha256"),
+            Some(&Value::from(plan_source.sha256.as_str()))
+        );
+        assert_eq!(
+            first_set
+                .manifest_entry
+                .pointer("/expected_rt_radiation_set/radiation_references/0/source_sha256"),
+            Some(&Value::from(radiation_source.sha256.as_str()))
+        );
+        assert_eq!(
+            first_set
+                .manifest_entry
+                .pointer("/references/0/relationship"),
+            Some(&Value::from("definition_source"))
+        );
+        assert_eq!(
+            first_set
+                .manifest_entry
+                .pointer("/references/1/relationship"),
+            Some(&Value::from("referenced_rt_radiation"))
+        );
+
+        let manifest_schema: Value =
+            serde_json::from_str(include_str!("../schemas/manifest.schema.json"))
+                .expect("manifest schema should parse");
+        let file_schema = serde_json::json!({
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$ref": "#/$defs/file",
+            "$defs": manifest_schema["$defs"].clone(),
+        });
+        let validator =
+            jsonschema::validator_for(&file_schema).expect("file manifest schema should compile");
+        for entry in [&first_radiation.manifest_entry, &first_set.manifest_entry] {
+            assert!(
+                validator.is_valid(entry),
+                "second-generation RT manifest entry should satisfy schema: {:?}",
+                validator.iter_errors(entry).collect::<Vec<_>>()
+            );
+        }
+
+        let mut stale_plan = plan_source.clone();
+        stale_plan.sha256 = "0".repeat(64);
+        let error = write_rt_radiation_case(
+            &run,
+            &radiation_case,
+            RT_RADIATION_RECIPES[0],
+            &stale_plan,
+            lock,
+        )
+        .expect_err("stale Plan hash must fail before Radiation construction");
+        assert!(error.to_string().contains("source bytes or DICOM identity"));
+
+        let mut stale_radiation = radiation_source.clone();
+        stale_radiation.sha256 = "0".repeat(64);
+        let error = write_rt_radiation_set_case(
+            &run,
+            &set_case,
+            RT_RADIATION_SET_RECIPES[0],
+            &plan_source,
+            &stale_radiation,
+            lock,
+        )
+        .expect_err("stale Radiation hash must fail before Set construction");
+        assert!(error.to_string().contains("source bytes or DICOM identity"));
+    }
+
+    fn rt_plan_source_for_radiation_tests(
+        run: &PreparedGenerationRun,
+        lock: &str,
+    ) -> GeneratedSourceObject {
+        let image_case = serde_json::json!({
+            "case_id": RT_STRUCTURE_SET_SOURCE_CASE_ID,
+            "standards_evidence": []
+        });
+        let image_file = write_enhanced_ct_case(run, &image_case, ENHANCED_CT_RECIPES[0], lock)
+            .expect("Enhanced CT source should write");
+        let image_source = GeneratedSourceObject::from_generated_file(&image_file)
+            .expect("Enhanced CT should register");
+        let structure_case = serde_json::json!({
+            "case_id": RT_PLAN_STRUCTURE_SET_SOURCE_CASE_ID,
+            "standards_evidence": []
+        });
+        let structure_file = write_rt_structure_set_case(
+            run,
+            &structure_case,
+            RT_STRUCTURE_SET_RECIPES[0],
+            &image_source,
+            lock,
+        )
+        .expect("RT Structure Set source should write");
+        let structure_source = GeneratedSourceObject::from_generated_file(&structure_file)
+            .expect("RT Structure Set should register");
+        let dose_case = serde_json::json!({
+            "case_id": RT_PLAN_DOSE_SOURCE_CASE_ID,
+            "standards_evidence": []
+        });
+        let dose_file = write_rt_dose_case(
+            run,
+            &dose_case,
+            RT_DOSE_RECIPES[0],
+            &image_source,
+            &structure_source,
+            lock,
+        )
+        .expect("RT Dose source should write");
+        let dose_source = GeneratedSourceObject::from_generated_file(&dose_file)
+            .expect("RT Dose should register");
+        let plan_case = serde_json::json!({
+            "case_id": RT_PLAN_CASE_ID,
+            "standards_evidence": []
+        });
+        let plan_file = write_rt_plan_case(
+            run,
+            &plan_case,
+            RT_PLAN_RECIPES[0],
+            &structure_source,
+            &dose_source,
+            lock,
+        )
+        .expect("RT Plan source should write");
+        GeneratedSourceObject::from_generated_file(&plan_file).expect("RT Plan should register")
     }
 
     fn generated_source_fixture(

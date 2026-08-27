@@ -7,7 +7,7 @@ use dicom_object::{FileDicomObject, InMemDicomObject, open_file};
 use serde_json::Value;
 
 use crate::{
-    GenerateError,
+    GenerateError, WsiPyramidRole,
     codecs::{
         DEFLATED_IMAGE_FRAME_TRANSFER_SYNTAX_UID, FrameDecodeInput, FrameDecoder,
         HTJ2K_LOSSLESS_TRANSFER_SYNTAX_UID, JPEG_2000_LOSSLESS_TRANSFER_SYNTAX_UID,
@@ -76,6 +76,10 @@ mod wsi_tiled_full_tests;
 #[cfg(test)]
 #[path = "validation_wsi_tiled_sparse_tests.rs"]
 mod wsi_tiled_sparse_tests;
+
+#[cfg(test)]
+#[path = "validation_wsi_pyramid_tests.rs"]
+mod wsi_pyramid_tests;
 
 #[cfg(feature = "deflate")]
 use crate::codecs::DicomRsDeflatedImageFrameEncoder;
@@ -2958,6 +2962,661 @@ fn valid_dicom_uid(value: &str) -> bool {
                 && part.bytes().all(|byte| byte.is_ascii_digit())
                 && (part.len() == 1 || !part.starts_with('0'))
         })
+}
+
+/// Validate one member of the locked three-instance multi-resolution WSI group.
+///
+/// The repeated group contract is deliberately consumed for every member: this makes
+/// each generated file independently accountable to the shared patient, study, series,
+/// specimen, optical-path, and Pyramid UID identities rather than merely checking the
+/// role-local Image Pixel attributes.
+pub(crate) fn validate_wsi_pyramid_file(
+    path: &Path,
+    identity: &Part10Expectations<'_>,
+    expected_wsi_pyramid: &Value,
+    role: WsiPyramidRole,
+) -> Result<ValidatedPart10, GenerateError> {
+    let mut validated = validate_part10_file(path, identity)?;
+    let obj = open_file(path).map_err(|err| GenerateError::ValidateDicomFile {
+        path: path.to_path_buf(),
+        message: err.to_string(),
+    })?;
+    let mut internal = Vec::new();
+    validate_wsi_pyramid(
+        path,
+        &obj,
+        &mut internal,
+        identity,
+        expected_wsi_pyramid,
+        role,
+    )?;
+    fail_if_any_failed(path, &internal)?;
+    validated
+        .validation
+        .get_mut("internal")
+        .and_then(Value::as_array_mut)
+        .ok_or_else(|| GenerateError::ValidateDicomFile {
+            path: path.to_path_buf(),
+            message: "generic validation result has no internal findings array".to_string(),
+        })?
+        .extend(internal);
+    if let Some(standards) = validated.validation["standards"].as_array_mut() {
+        standards.push(serde_json::json!({
+            "name": "vl_whole_slide_microscopy_pyramid_contract",
+            "status": "passed",
+            "message": format!("{} WSI role, shared group identity, Pyramid UID membership, geometry, functional groups, native pixels, and locked absences match the repeated manifest contract.", role.as_str())
+        }));
+    }
+    Ok(validated)
+}
+
+fn validate_wsi_pyramid(
+    path: &Path,
+    obj: &OpenedObject,
+    internal: &mut Vec<Value>,
+    identity: &Part10Expectations<'_>,
+    expected: &Value,
+    role: WsiPyramidRole,
+) -> Result<(), GenerateError> {
+    const WSI_UID: &str = "1.2.840.10008.5.1.4.1.1.77.1.6";
+    const ICC_HASH: &str = "8e069a3476b71a0e0ae7272d9278ba70540d1c4a0b19af1c7d52e56f49091fef";
+    let role_name = role.as_str();
+    let members = expected.pointer("/members").and_then(Value::as_array);
+    let member = members.and_then(|items| {
+        items
+            .iter()
+            .find(|item| item.get("role").and_then(Value::as_str) == Some(role_name))
+    });
+    check(
+        internal,
+        expected.pointer("/iod_kind").and_then(Value::as_str)
+            == Some("vl_wsi_pyramid_multiresolution")
+            && expected.pointer("/member_count").and_then(Value::as_u64) == Some(3)
+            && expected.pointer("/ordered_roles")
+                == Some(&serde_json::json!(["volume", "thumbnail", "label"]))
+            && expected.pointer("/apex_role").and_then(Value::as_str) == Some("thumbnail")
+            && expected.pointer("/pyramid_membership/member_roles")
+                == Some(&serde_json::json!(["volume", "thumbnail"]))
+            && expected.pointer("/pyramid_membership/non_member_roles")
+                == Some(&serde_json::json!(["label"]))
+            && members.is_some_and(|items| {
+                items.len() == 3
+                    && items.iter().enumerate().all(|(index, item)| {
+                        item.pointer("/ordinal").and_then(Value::as_u64) == Some((index + 1) as u64)
+                            && item.pointer("/role").and_then(Value::as_str)
+                                == Some(["volume", "thumbnail", "label"][index])
+                    })
+                    && {
+                        let sop_uids = items
+                            .iter()
+                            .filter_map(|item| {
+                                item.pointer("/sop_instance_uid").and_then(Value::as_str)
+                            })
+                            .collect::<Vec<_>>();
+                        sop_uids.len() == 3
+                            && sop_uids.iter().all(|uid| valid_dicom_uid(uid))
+                            && sop_uids[0] != sop_uids[1]
+                            && sop_uids[0] != sop_uids[2]
+                            && sop_uids[1] != sop_uids[2]
+                    }
+            })
+            && member.is_some(),
+        "wsi_pyramid_expected_contract",
+        "Repeated pyramid contract identifies the exact ordered three-member group.",
+        "Repeated pyramid contract does not identify the exact ordered three-member group.",
+    );
+    let member = member.ok_or_else(|| GenerateError::ValidateDicomFile {
+        path: path.to_path_buf(),
+        message: format!("expected_wsi_pyramid has no {role_name} member"),
+    })?;
+    let string = |pointer: &str| {
+        member
+            .pointer(pointer)
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+    };
+    let shared_string = |pointer: &str| {
+        expected
+            .pointer(pointer)
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+    };
+    let number = |pointer: &str| {
+        member
+            .pointer(pointer)
+            .and_then(Value::as_u64)
+            .unwrap_or_default()
+    };
+    let image_type = member
+        .pointer("/image_type")
+        .and_then(Value::as_array)
+        .map(|v| {
+            v.iter()
+                .filter_map(Value::as_str)
+                .collect::<Vec<_>>()
+                .join("\\")
+        })
+        .unwrap_or_default();
+    let frame_type = member
+        .pointer("/frame_type")
+        .and_then(Value::as_array)
+        .map(|v| {
+            v.iter()
+                .filter_map(Value::as_str)
+                .collect::<Vec<_>>()
+                .join("\\")
+        })
+        .unwrap_or_default();
+    let expected_frames = number("/frames") as usize;
+
+    check(
+        internal,
+        identity.sop_class_uid == WSI_UID
+            && identity.transfer_syntax_uid == uids::EXPLICIT_VR_LITTLE_ENDIAN
+            && identity.sop_instance_uid == string("/sop_instance_uid")
+            && identity.rows == number("/rows") as u16
+            && identity.columns == number("/columns") as u16
+            && identity.frames as usize == expected_frames
+            && identity.samples_per_pixel == 3
+            && identity.photometric_interpretation == "RGB"
+            && identity.planar_configuration == Some(0)
+            && identity.bits_allocated == 8
+            && identity.bits_stored == 8
+            && identity.high_bit == 7
+            && identity.pixel_representation == 0
+            && identity.pixel_data_vr == VR::OB
+            && matches!(
+                identity.pixel_data_length_formula,
+                PixelDataLengthFormula::ContiguousSamples
+            ),
+        "wsi_pyramid_identity_contract",
+        "Part 10 and Image Pixel identity matches the selected pyramid member.",
+        "Part 10 or Image Pixel identity differs from the selected pyramid member.",
+    );
+
+    for (name, tag, locked) in [
+        (
+            "patient_id",
+            tags::PATIENT_ID,
+            shared_string("/shared_identity/patient_id"),
+        ),
+        (
+            "study_uid",
+            tags::STUDY_INSTANCE_UID,
+            shared_string("/shared_identity/study_instance_uid"),
+        ),
+        (
+            "series_uid",
+            tags::SERIES_INSTANCE_UID,
+            shared_string("/shared_identity/series_instance_uid"),
+        ),
+        (
+            "frame_of_reference_uid",
+            tags::FRAME_OF_REFERENCE_UID,
+            shared_string("/shared_identity/frame_of_reference_uid"),
+        ),
+        ("image_type", tags::IMAGE_TYPE, image_type.as_str()),
+        (
+            "specimen_label_in_image",
+            tags::SPECIMEN_LABEL_IN_IMAGE,
+            string("/specimen_label_in_image"),
+        ),
+        ("modality", tags::MODALITY, "SM"),
+        (
+            "dimension_organization_type",
+            tags::DIMENSION_ORGANIZATION_TYPE,
+            "TILED_FULL",
+        ),
+        ("burned_in_annotation", tags::BURNED_IN_ANNOTATION, "NO"),
+        (
+            "position_reference_indicator",
+            tags::POSITION_REFERENCE_INDICATOR,
+            "SLIDE_CORNER",
+        ),
+        (
+            "acquisition_date_time",
+            tags::ACQUISITION_DATE_TIME,
+            "20260101000000",
+        ),
+        (
+            "volumetric_properties",
+            tags::VOLUMETRIC_PROPERTIES,
+            "VOLUME",
+        ),
+        ("focus_method", tags::FOCUS_METHOD, "AUTO"),
+        (
+            "extended_depth_of_field",
+            tags::EXTENDED_DEPTH_OF_FIELD,
+            "NO",
+        ),
+        (
+            "lossy_image_compression",
+            tags::LOSSY_IMAGE_COMPRESSION,
+            "00",
+        ),
+        ("tiles_overlap", tags::TILES_OVERLAP, "NONE"),
+        ("label_text", tags::LABEL_TEXT, "DTS SYNTHETIC SLIDE 001"),
+        ("barcode_value", tags::BARCODE_VALUE, "DTS-SLIDE-001"),
+    ] {
+        check_equal(
+            internal,
+            &format!("wsi_pyramid_{name}"),
+            "Pyramid string identity matches the repeated contract.",
+            "Pyramid string identity differs from the repeated contract.",
+            element_str(path, obj, tag)?.as_str(),
+            locked,
+        );
+    }
+    check_equal(
+        internal,
+        "wsi_pyramid_sop_instance_uid",
+        "Role SOP Instance UID matches.",
+        "Role SOP Instance UID differs.",
+        element_str(path, obj, tags::SOP_INSTANCE_UID)?.as_str(),
+        string("/sop_instance_uid"),
+    );
+    check_equal(
+        internal,
+        "wsi_pyramid_container_identifier",
+        "Container identity matches.",
+        "Container identity differs.",
+        element_str(path, obj, tags::CONTAINER_IDENTIFIER)?.as_str(),
+        shared_string("/shared_identity/container_identifier"),
+    );
+    check_equal(
+        internal,
+        "wsi_pyramid_acquisition_context_items",
+        "Acquisition Context is present and empty.",
+        "Acquisition Context is not present and empty.",
+        sequence_item_count(path, obj, tags::ACQUISITION_CONTEXT_SEQUENCE)?,
+        0,
+    );
+    validate_wsi_specimen(
+        path,
+        obj,
+        internal,
+        shared_string("/shared_identity/specimen_uid"),
+    )?;
+    validate_wsi_optical_path(path, obj, internal, ICC_HASH)?;
+    check_equal(
+        internal,
+        "wsi_pyramid_expected_icc_hash",
+        "Manifest ICC identity is locked.",
+        "Manifest ICC identity differs from the lock.",
+        shared_string("/shared_identity/icc_profile_sha256"),
+        ICC_HASH,
+    );
+    check_equal(
+        internal,
+        "wsi_pyramid_optical_path_identity",
+        "Optical path identity is shared.",
+        "Optical path identity differs.",
+        top_level_sequence_item_str(
+            path,
+            obj,
+            tags::OPTICAL_PATH_SEQUENCE,
+            0,
+            tags::OPTICAL_PATH_IDENTIFIER,
+        )?
+        .as_str(),
+        shared_string("/shared_identity/optical_path_identifier"),
+    );
+
+    for (name, tag, locked) in [
+        (
+            "matrix_rows",
+            tags::TOTAL_PIXEL_MATRIX_ROWS,
+            number("/total_pixel_matrix_rows") as u32,
+        ),
+        (
+            "matrix_columns",
+            tags::TOTAL_PIXEL_MATRIX_COLUMNS,
+            number("/total_pixel_matrix_columns") as u32,
+        ),
+    ] {
+        check_equal(
+            internal,
+            &format!("wsi_pyramid_{name}"),
+            "Pyramid matrix geometry matches.",
+            "Pyramid matrix geometry differs.",
+            element_u32(path, obj, tag)?,
+            locked,
+        );
+    }
+    for (name, tag, locked) in [
+        ("number_of_optical_paths", tags::NUMBER_OF_OPTICAL_PATHS, 1),
+        ("focal_planes", tags::TOTAL_PIXEL_MATRIX_FOCAL_PLANES, 1),
+    ] {
+        check_equal(
+            internal,
+            &format!("wsi_pyramid_{name}"),
+            "WSI pyramid cardinality matches.",
+            "WSI pyramid cardinality differs.",
+            element_u32(path, obj, tag)?,
+            locked,
+        );
+    }
+    for (name, tag, locked) in [
+        (
+            "imaged_width",
+            tags::IMAGED_VOLUME_WIDTH,
+            member
+                .pointer("/imaged_volume_width_mm")
+                .and_then(Value::as_f64)
+                .unwrap_or_default(),
+        ),
+        (
+            "imaged_height",
+            tags::IMAGED_VOLUME_HEIGHT,
+            member
+                .pointer("/imaged_volume_height_mm")
+                .and_then(Value::as_f64)
+                .unwrap_or_default(),
+        ),
+        ("imaged_depth", tags::IMAGED_VOLUME_DEPTH, 0.001),
+    ] {
+        check_equal(
+            internal,
+            &format!("wsi_pyramid_{name}"),
+            "Pyramid physical extent matches.",
+            "Pyramid physical extent differs.",
+            element_f64_values(path, obj, tag)?,
+            vec![locked],
+        );
+    }
+    check_equal(
+        internal,
+        "wsi_pyramid_orientation",
+        "Slide orientation matches.",
+        "Slide orientation differs.",
+        element_f64_values(path, obj, tags::IMAGE_ORIENTATION_SLIDE)?,
+        vec![1.0, 0.0, 0.0, 0.0, 1.0, 0.0],
+    );
+    let origin = top_level_sequence_item(path, obj, tags::TOTAL_PIXEL_MATRIX_ORIGIN_SEQUENCE, 0)?;
+    for (name, tag) in [
+        ("x", tags::X_OFFSET_IN_SLIDE_COORDINATE_SYSTEM),
+        ("y", tags::Y_OFFSET_IN_SLIDE_COORDINATE_SYSTEM),
+        ("z", tags::Z_OFFSET_IN_SLIDE_COORDINATE_SYSTEM),
+    ] {
+        check_equal(
+            internal,
+            &format!("wsi_pyramid_origin_{name}"),
+            "Pyramid origin is zero.",
+            "Pyramid origin differs.",
+            item_f64(path, origin, tag)?,
+            0.0,
+        );
+    }
+    let shared = top_level_sequence_item(path, obj, tags::SHARED_FUNCTIONAL_GROUPS_SEQUENCE, 0)?;
+    check_equal(
+        internal,
+        "wsi_pyramid_shared_functional_groups_items",
+        "Shared Functional Groups has one item.",
+        "Shared Functional Groups cardinality differs.",
+        sequence_item_count(path, obj, tags::SHARED_FUNCTIONAL_GROUPS_SEQUENCE)?,
+        1,
+    );
+    check(
+        internal,
+        shared.iter().count() == 2
+            && shared.iter().all(|e| {
+                matches!(
+                    e.tag(),
+                    tags::PIXEL_MEASURES_SEQUENCE
+                        | tags::WHOLE_SLIDE_MICROSCOPY_IMAGE_FRAME_TYPE_SEQUENCE
+                )
+            }),
+        "wsi_pyramid_shared_macro_set",
+        "Shared Functional Groups contain exactly the locked macros.",
+        "Shared Functional Groups contain an unexpected or missing macro.",
+    );
+    let measures = item_sequence_item(path, shared, tags::PIXEL_MEASURES_SEQUENCE, 0)?;
+    check_equal(
+        internal,
+        "wsi_pyramid_pixel_measures_items",
+        "Pixel Measures has one item.",
+        "Pixel Measures cardinality differs.",
+        item_sequence_item_count(path, shared, tags::PIXEL_MEASURES_SEQUENCE)?,
+        1,
+    );
+    check_equal(
+        internal,
+        "wsi_pyramid_frame_type_items",
+        "WSI Frame Type has one item.",
+        "WSI Frame Type cardinality differs.",
+        item_sequence_item_count(
+            path,
+            shared,
+            tags::WHOLE_SLIDE_MICROSCOPY_IMAGE_FRAME_TYPE_SEQUENCE,
+        )?,
+        1,
+    );
+    let spacing = member
+        .pointer("/pixel_spacing_mm")
+        .and_then(Value::as_array)
+        .map(|v| v.iter().filter_map(Value::as_f64).collect::<Vec<_>>())
+        .unwrap_or_default();
+    check_equal(
+        internal,
+        "wsi_pyramid_pixel_spacing",
+        "Role pixel spacing matches.",
+        "Role pixel spacing differs.",
+        item_f64_values(path, measures, tags::PIXEL_SPACING)?,
+        spacing,
+    );
+    check_equal(
+        internal,
+        "wsi_pyramid_slice_thickness",
+        "Slice thickness matches.",
+        "Slice thickness differs.",
+        item_f64(path, measures, tags::SLICE_THICKNESS)?,
+        0.001,
+    );
+    check_equal(
+        internal,
+        "wsi_pyramid_frame_type",
+        "Shared Frame Type equals Image Type.",
+        "Shared Frame Type differs from Image Type.",
+        nested_sequence_item_str(
+            path,
+            shared,
+            tags::WHOLE_SLIDE_MICROSCOPY_IMAGE_FRAME_TYPE_SEQUENCE,
+            0,
+            tags::FRAME_TYPE,
+        )?
+        .as_str(),
+        frame_type.as_str(),
+    );
+    check_equal(
+        internal,
+        "wsi_pyramid_image_frame_type_match",
+        "Image Type and Frame Type agree.",
+        "Image Type and Frame Type differ.",
+        image_type.as_str(),
+        frame_type.as_str(),
+    );
+
+    let pixel = obj
+        .element(tags::PIXEL_DATA)
+        .map_err(|err| validation_error(path, err))?;
+    let bytes = pixel
+        .value()
+        .to_bytes()
+        .map_err(|err| validation_error(path, err))?;
+    check_equal(
+        internal,
+        "wsi_pyramid_pixel_vr",
+        "Pixel Data uses native OB.",
+        "Pixel Data does not use native OB.",
+        pixel.vr(),
+        VR::OB,
+    );
+    check_equal(
+        internal,
+        "wsi_pyramid_pixel_length",
+        "Pixel payload length matches frame geometry.",
+        "Pixel payload length differs from frame geometry.",
+        bytes.len(),
+        expected_frames * 12,
+    );
+    check_equal(
+        internal,
+        "wsi_pyramid_payload_sha256",
+        "Pixel payload hash matches the role contract.",
+        "Pixel payload hash differs from the role contract.",
+        sha256_hex(bytes.as_ref()).as_str(),
+        string("/payload_sha256"),
+    );
+    let frame_hashes = member
+        .pointer("/frame_hashes")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    for (index, expected_hash) in frame_hashes.iter().filter_map(Value::as_str).enumerate() {
+        check_equal(
+            internal,
+            &format!("wsi_pyramid_frame_{}_sha256", index + 1),
+            "Role frame hash matches.",
+            "Role frame hash differs.",
+            bytes
+                .get(index * 12..index * 12 + 12)
+                .map(sha256_hex)
+                .as_deref(),
+            Some(expected_hash),
+        );
+    }
+    let matrix_hash = if role == WsiPyramidRole::Volume {
+        reconstruct_tiled_full_matrix(bytes.as_ref()).map(|m| sha256_hex(&m))
+    } else {
+        Some(sha256_hex(bytes.as_ref()))
+    };
+    check_equal(
+        internal,
+        "wsi_pyramid_matrix_sha256",
+        "Reconstructed role matrix matches.",
+        "Reconstructed role matrix differs.",
+        matrix_hash.as_deref(),
+        Some(string("/matrix_sha256")),
+    );
+    if role == WsiPyramidRole::Thumbnail {
+        check_equal(
+            internal,
+            "wsi_pyramid_thumbnail_reduction",
+            "Thumbnail is the locked deterministic 2x2 reduction of the four VOLUME tiles.",
+            "Thumbnail is not the locked deterministic reduction.",
+            bytes.as_ref(),
+            [255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 255, 255].as_slice(),
+        );
+    } else if role == WsiPyramidRole::Label {
+        check_equal(
+            internal,
+            "wsi_pyramid_label_pixels",
+            "LABEL pixels match the locked label pattern.",
+            "LABEL pixels differ from the locked label pattern.",
+            bytes.as_ref(),
+            [0, 32, 96, 255, 255, 255, 0, 32, 96, 255, 255, 255].as_slice(),
+        );
+    }
+
+    let pyramid_uid = expected
+        .pointer("/pyramid_membership/pyramid_uid")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let expected_member_uid = member.get("pyramid_uid").and_then(Value::as_str);
+    let actual_pyramid_uid = obj
+        .element_opt(tags::PYRAMID_UID)
+        .map_err(|e| validation_error(path, e))?
+        .map(|_| element_str(path, obj, tags::PYRAMID_UID))
+        .transpose()?;
+    check_equal(
+        internal,
+        "wsi_pyramid_membership",
+        "Pyramid UID membership matches the role.",
+        "Pyramid UID membership differs for the role.",
+        actual_pyramid_uid.as_deref(),
+        expected_member_uid,
+    );
+    check(
+        internal,
+        valid_dicom_uid(pyramid_uid)
+            && (role == WsiPyramidRole::Label || expected_member_uid == Some(pyramid_uid)),
+        "wsi_pyramid_uid_contract",
+        "Pyramid UID is valid and shared by VOLUME and THUMBNAIL.",
+        "Pyramid UID is invalid or membership is inconsistent.",
+    );
+    check_equal(
+        internal,
+        "wsi_pyramid_dimension_organization_items",
+        "Dimension Organization has one item.",
+        "Dimension Organization cardinality differs.",
+        sequence_item_count(path, obj, tags::DIMENSION_ORGANIZATION_SEQUENCE)?,
+        1,
+    );
+    let dimension = top_level_sequence_item(path, obj, tags::DIMENSION_ORGANIZATION_SEQUENCE, 0)?;
+    check(
+        internal,
+        valid_dicom_uid(item_str(path, dimension, tags::DIMENSION_ORGANIZATION_UID)?.as_str()),
+        "wsi_pyramid_dimension_organization_uid",
+        "Dimension Organization UID is valid.",
+        "Dimension Organization UID is invalid.",
+    );
+    for (name, tags_to_check) in [
+        (
+            "pyramid_metadata",
+            &[tags::PYRAMID_LABEL, tags::PYRAMID_DESCRIPTION][..],
+        ),
+        (
+            "per_frame",
+            &[tags::PER_FRAME_FUNCTIONAL_GROUPS_SEQUENCE][..],
+        ),
+        ("dimension_index", &[tags::DIMENSION_INDEX_SEQUENCE][..]),
+        (
+            "references",
+            &[
+                tags::REFERENCED_SERIES_SEQUENCE,
+                tags::STUDIES_CONTAINING_OTHER_REFERENCED_INSTANCES_SEQUENCE,
+            ][..],
+        ),
+        (
+            "concatenation",
+            &[
+                tags::CONCATENATION_UID,
+                tags::IN_CONCATENATION_NUMBER,
+                tags::CONCATENATION_FRAME_OFFSET_NUMBER,
+                tags::SOP_INSTANCE_UID_OF_CONCATENATION_SOURCE,
+            ][..],
+        ),
+        ("top_level_icc", &[tags::ICC_PROFILE][..]),
+        (
+            "lossy_detail",
+            &[
+                tags::LOSSY_IMAGE_COMPRESSION_RATIO,
+                tags::LOSSY_IMAGE_COMPRESSION_METHOD,
+            ][..],
+        ),
+        (
+            "extended_depth",
+            &[
+                tags::NUMBER_OF_FOCAL_PLANES,
+                tags::DISTANCE_BETWEEN_FOCAL_PLANES,
+            ][..],
+        ),
+        (
+            "specimen_reference",
+            &[tags::SPECIMEN_REFERENCE_SEQUENCE][..],
+        ),
+    ] {
+        check(
+            internal,
+            tags_to_check
+                .iter()
+                .all(|tag| obj.element_opt(*tag).is_ok_and(|v| v.is_none())),
+            &format!("wsi_pyramid_{name}_absent"),
+            "Locked optional content is absent.",
+            "Locked optional content is unexpectedly present.",
+        );
+    }
+    Ok(())
 }
 
 pub(crate) fn validate_presentation_state_file(

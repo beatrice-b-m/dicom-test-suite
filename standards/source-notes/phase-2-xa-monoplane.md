@@ -115,12 +115,34 @@ is `1`.
 
 ## Project Action
 
-- Registry status: planned until generation, typed manifest and report
+- Registry status: implemented after generation, typed manifest and report
   contracts, internal and manifest-driven validation, determinism, exact
-  independent native pixel extraction, and independent IOD gates pass.
-- Registry reason or linked issue: `recipe_unimplemented`.
+  independent native pixel extraction, and independent IOD gates passed.
+- Registry reason or linked issue: none.
 - Should become KB patch: yes; the missing context-specific value-term results
   are systematic parser coverage gaps.
 - Expected cleanup after KB coverage exists: replace local value-term fallbacks
   with normal KB evidence while retaining this case-specific acquisition,
   equipment-geometry, and non-claim decision.
+
+## Promotion Evidence
+
+- Two fresh seed-1 `core` generations each produced 46 files and were
+  byte-for-byte identical. Native corpus validation checked all 46 files with
+  zero failures.
+- The fixture SHA-256 is
+  `9368e2b335876ae2c01b4ac5cf6c52e8c2875754e36b54efc928097c75da6dd6`.
+  DCMTK independently extracted the 16-byte Pixel Data value with SHA-256
+  `0b9c742cc3fafec4c1d0240048d27210f2da155b3574458ae26035ffa488c00e`
+  and confirmed the SOP Class, Image Type, modality, cardiac anatomy, empty
+  Patient Orientation, intensity relationship, acquisition values, imager
+  spacing, positioner angles, source-to-detector and source-to-patient
+  distances, magnification, and no-lossy history.
+- Locked `dciodvfy -new` reported only its normal `XAImage` identification and
+  no finding. Isolated `dcentvfy` was silent.
+- The repository's frozen `uv 0.11.26` environment selected pydicom 3.0.2.
+  Its independent decode produced a `(4, 4)` unsigned 8-bit array, matched the
+  exact frame and payload hash, re-derived the 1.5 distance ratio, confirmed
+  the empty orientation and all declared absences, and produced a
+  byte-identical read/write/read output. That rewrite passed both dicom3tools
+  validators with the same clean results.

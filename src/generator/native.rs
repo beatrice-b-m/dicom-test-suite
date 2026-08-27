@@ -6,6 +6,7 @@ pub(super) mod nm;
 pub(super) mod pet;
 pub(super) mod private_creator_sc;
 pub(super) mod sc_integer_pixels;
+pub(super) mod sc_nonsquare_spacing;
 pub(super) mod sequence_length_sc;
 pub(super) mod string_boundary_sc;
 pub(super) mod timezone_sc;
@@ -27,6 +28,8 @@ mod pet_tests;
 mod private_creator_sc_tests;
 #[cfg(test)]
 mod sc_integer_pixels_tests;
+#[cfg(test)]
+mod sc_nonsquare_spacing_tests;
 #[cfg(test)]
 mod sequence_length_sc_tests;
 #[cfg(test)]

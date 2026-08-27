@@ -7,6 +7,7 @@ pub(super) mod private_creator_sc;
 pub(super) mod sequence_length_sc;
 pub(super) mod string_boundary_sc;
 pub(super) mod timezone_sc;
+pub(super) mod us_multiframe;
 
 #[cfg(test)]
 mod empty_type2_sc_tests;
@@ -22,3 +23,5 @@ mod private_creator_sc_tests;
 mod sequence_length_sc_tests;
 #[cfg(test)]
 mod string_boundary_sc_tests;
+#[cfg(test)]
+mod us_multiframe_tests;

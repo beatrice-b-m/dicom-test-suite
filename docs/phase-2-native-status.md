@@ -262,6 +262,18 @@ validators. Pydicom warns that the padded second LO component has length 65
 because it counts the legal trailing pad; this reviewed tool behavior remains
 visible and does not replace the clean independent conformance evidence.
 
+The private creator block slice passed two byte-identical seed-1 `core` runs,
+each producing 42 files with zero strict validation failures. The fixture
+SHA-256 is
+`cd7e529698c8716890da44045faaef6b218d35e18e91543103877971fe82a56c`.
+Locked `dciodvfy` identifies the SC Image and emits only its expected
+informational warnings for the four unrecognized private data tags; isolated
+`dcentvfy` is silent. DCMTK independently reports the three LO creator slots,
+three private LO values, and private US value `4660` at their exact tags and
+VRs. The uv-locked pydicom 3.0.2 read/write/read proof preserves all seven
+typed values, produces a byte-identical rewrite, and passes the same
+dicom3tools and DCMTK checks.
+
 The two matching `core` corpora each occupy 480 KiB in the local filesystem.
 This measurement is implementation-environment evidence rather than a
 portable byte-size guarantee; tracked generated artifacts remain forbidden.
@@ -269,13 +281,13 @@ portable byte-size guarantee; tracked generated artifacts remain forbidden.
 ## Milestone gate
 
 All planned Phase 2 geometry and series cases are implemented, and the UTF-8,
-ISO 2022, timezone, empty Type 2, and string boundary metadata slices have
-passed their vertical gates. The latest seed-1 `core` corpus contains 41 files;
-the seed-1 `extended` corpus contains 81 files. The complete
+ISO 2022, timezone, empty Type 2, string boundary, and private creator metadata
+slices have passed their vertical gates. The latest seed-1 `core` corpus
+contains 42 files; the seed-1 `extended` corpus contains 81 files. The complete
 locked no-default-feature, all-target test suite passes, including byte-stable
 smoke, core, and extended regeneration. Each new CT slice and the temporal MR
 slice has clean isolated IOD, entity, parser, and applicable independent pixel
 evidence, except for the one exact reviewed DICOMDIR-usability warning described
 above. Older corpus findings remain visible and unresolved. The dependency-
 ordered Phase 2 metadata and VR milestone continues with the remaining
-registry cases.
+`metadata/sc/defined_undefined_sequence_lengths` registry case.

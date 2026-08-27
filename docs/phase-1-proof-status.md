@@ -85,7 +85,7 @@ The following checks passed on 2026-08-26:
 - `dciodvfy -new` on all three CT proof instances with no findings; and
 - `dcentvfy` on the three-instance series with no findings.
 - exact `uv.lock` SHA-256
-  `aeacf28dd34d6095eede990f066b894f808f6d9557457be02eb4f1031f2ffa24`;
+  `14dbb27f74f33da06e3775020d2e669af34860104ecba484e12fd735538a099f`;
 - two seed-7 external runs with identical source-derived float semantics,
   identities, mappings, references, backend provenance, and OF payload;
 - internal validation of all 79 extended files with zero failures;

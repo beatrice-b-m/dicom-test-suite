@@ -2181,31 +2181,32 @@ fn collect_icc_result(
     if file.get("case_id").and_then(Value::as_str) != Some(CASE_ID) {
         return Ok(None);
     }
-    let adapter = adapters
-        .iter()
-        .find(|adapter| adapter["id"] == ADAPTER_ID)
-        .ok_or_else(|| "ICC case requires the LittleCMS validator adapter".to_string())?;
-    let tool = tools
-        .iter()
-        .find(|tool| tool["adapter_id"] == ADAPTER_ID)
-        .ok_or_else(|| "ICC validator discovery result is missing".to_string())?;
+    let adapter = adapters.iter().find(|adapter| adapter["id"] == ADAPTER_ID);
+    let tool = tools.iter().find(|tool| tool["adapter_id"] == ADAPTER_ID);
     let parser_tool = tools
         .iter()
-        .find(|tool| tool["role"] == "independent_parser")
-        .ok_or_else(|| "ICC validation requires the independent DICOM parser".to_string())?;
+        .find(|tool| tool["role"] == "independent_parser");
     let raw_dir = evidence_root.join("raw").join(ADAPTER_ID);
     fs::create_dir_all(&raw_dir).map_err(|error| error.to_string())?;
     let stdout_relative = format!("raw/{ADAPTER_ID}/{stable_key}.stdout");
     let stderr_relative = format!("raw/{ADAPTER_ID}/{stable_key}.stderr");
     let stdout_path = evidence_root.join(&stdout_relative);
     let stderr_path = evidence_root.join(&stderr_relative);
-    if tool["status"] != "available" || parser_tool["status"] != "available" {
+    if adapter.is_none()
+        || tool.is_none_or(|tool| tool["status"] != "available")
+        || parser_tool.is_none_or(|tool| tool["status"] != "available")
+    {
         fs::write(&stdout_path, []).map_err(|error| error.to_string())?;
         fs::write(&stderr_path, []).map_err(|error| error.to_string())?;
         let result = unsupported_result(
             ADAPTER_ID,
             "icc_validator",
-            vec![required_string(adapter, "executable")?.to_string()],
+            vec![
+                adapter
+                    .and_then(|adapter| adapter["executable"].as_str())
+                    .unwrap_or(ADAPTER_ID)
+                    .to_string(),
+            ],
             &stdout_relative,
             &stderr_relative,
             "configured ICC validator or independent DICOM extractor is unavailable",
@@ -2220,6 +2221,9 @@ fn collect_icc_result(
             }),
         )));
     }
+    let adapter = adapter.expect("adapter presence checked above");
+    let tool = tool.expect("tool presence checked above");
+    let parser_tool = parser_tool.expect("parser presence checked above");
 
     let executable = tool["executable"]
         .as_str()

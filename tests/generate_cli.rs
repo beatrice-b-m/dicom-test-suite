@@ -1719,7 +1719,7 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\textended"));
-    let native_extended_files = 83
+    let native_extended_files = 84
         + if cfg!(feature = "deflate") { 2 } else { 0 }
         + if cfg!(feature = "jpeg") { 1 } else { 0 }
         + if cfg!(feature = "charls") { 1 } else { 0 }
@@ -1766,6 +1766,72 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
             Some("external_backend_unavailable")
         );
     }
+    let u32_file = file_entry_by_case_id(&manifest, "classic/sc/mono2_u32_explicit_le");
+    assert_eq!(
+        u32_file
+            .pointer("/image/bits_allocated")
+            .and_then(Value::as_u64),
+        Some(32)
+    );
+    assert_eq!(
+        u32_file
+            .pointer("/image/bits_stored")
+            .and_then(Value::as_u64),
+        Some(32)
+    );
+    assert_eq!(
+        u32_file.pointer("/image/high_bit").and_then(Value::as_u64),
+        Some(31)
+    );
+    assert_eq!(
+        u32_file
+            .pointer("/image/pixel_representation")
+            .and_then(Value::as_u64),
+        Some(0)
+    );
+    assert_eq!(
+        u32_file.pointer("/pixel_data/vr").and_then(Value::as_str),
+        Some("OW")
+    );
+    assert_eq!(
+        u32_file.pointer("/expected_u32_pixels/stored_values"),
+        Some(&serde_json::json!([
+            0_u64,
+            65_535,
+            2_147_483_648_u64,
+            4_294_967_295_u64
+        ]))
+    );
+    assert_eq!(
+        u32_file
+            .pointer("/expected_u32_pixels/pixel_data_sha256")
+            .and_then(Value::as_str),
+        Some("56bca1a85c2838126b1d1a5fbedfe731839496d972df2c6ab33e1a1183392b41")
+    );
+    assert_eq!(
+        u32_file
+            .pointer("/validation/status")
+            .and_then(Value::as_str),
+        Some("passed")
+    );
+    let u32_path = out_dir.join("classic/sc/mono2_u32_explicit_le/instance.dcm");
+    let u32_object = open_file(&u32_path).expect("unsigned u32 DICOM file should parse");
+    let pixel_element = u32_object
+        .element(tags::PIXEL_DATA)
+        .expect("unsigned u32 Pixel Data must exist");
+    assert_eq!(format!("{:?}", pixel_element.vr()), "OW");
+    let pixel_bytes = pixel_element.value().to_bytes().unwrap();
+    assert_eq!(
+        dicom_test_suite::sha256_hex(pixel_bytes.as_ref()),
+        "56bca1a85c2838126b1d1a5fbedfe731839496d972df2c6ab33e1a1183392b41"
+    );
+    assert_eq!(
+        pixel_bytes
+            .chunks_exact(4)
+            .map(|word| u32::from_le_bytes(word.try_into().unwrap()))
+            .collect::<Vec<_>>(),
+        vec![0, 65_535, 2_147_483_648, 4_294_967_295]
+    );
     let enhanced_ct_file = file_entry_by_case_id(
         &manifest,
         "enhanced/ct/multiframe_shared_perframe_explicit_le",
@@ -5597,7 +5663,7 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
         .expect("manifest should contain skipped cases");
     assert_eq!(
         skipped_cases.len(),
-        44 - usize::from(parametric_map_generated)
+        43 - usize::from(parametric_map_generated)
             - if cfg!(feature = "deflate") { 2 } else { 0 }
             - if cfg!(feature = "jpeg") { 1 } else { 0 }
             - if cfg!(feature = "charls") { 1 } else { 0 }

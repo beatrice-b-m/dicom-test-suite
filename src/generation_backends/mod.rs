@@ -16,6 +16,12 @@ mod process;
 pub use process::{
     BackendInvocation, BackendRun, environment_fingerprint, executable_fingerprint, invoke_backend,
 };
+mod parametric_map;
+pub use parametric_map::{
+    ControlledMetadata, ParametricMapFloatPayload, ParametricMapGenerated,
+    ParametricMapGenerationInput, ParametricMapIdentities, ParametricMapOutcome,
+    ParametricMapSource, StandardsProvenance, generate_parametric_map,
+};
 mod staging;
 pub use staging::{
     OutputLimits, promote_staged_outputs, stage_declared_sources, verify_staged_outputs,

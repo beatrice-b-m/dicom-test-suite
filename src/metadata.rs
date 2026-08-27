@@ -43,6 +43,7 @@ pub(crate) fn validate_manifest_metadata(
     validate_person_names(relative_path, bytes, expected, obj, failures);
     validate_temporal_metadata(relative_path, bytes, expected, obj, failures);
     validate_empty_type2_attributes(relative_path, bytes, expected, obj, failures);
+    validate_string_elements(relative_path, bytes, expected, obj, failures);
 }
 
 pub(crate) fn validate_manifest_metadata_corpus(files: &[Value], failures: &mut Vec<String>) {
@@ -228,6 +229,247 @@ fn validate_empty_type2_attributes(
             }
             None => failures.push(format!(
                 "{relative_path}: metadata_empty_type2_raw_presence: raw {keyword} element is missing"
+            )),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+struct StringBoundarySpec {
+    tag: &'static str,
+    keyword: &'static str,
+    vr: &'static str,
+    value_multiplicity: usize,
+    decoded_value_lengths: &'static [usize],
+    raw_value_byte_length: usize,
+    raw_value_sha256: &'static str,
+    padding: &'static str,
+}
+
+const STRING_BOUNDARY_SPECS: &[StringBoundarySpec] = &[
+    StringBoundarySpec {
+        tag: "0020,4000",
+        keyword: "ImageComments",
+        vr: "LT",
+        value_multiplicity: 1,
+        decoded_value_lengths: &[10_240],
+        raw_value_byte_length: 10_240,
+        raw_value_sha256: "75497849c172d88a38e271cc6ce82f31adbba1f16b6191d8ddaeb4e9f6268e52",
+        padding: "none",
+    },
+    StringBoundarySpec {
+        tag: "0018,1020",
+        keyword: "SoftwareVersions",
+        vr: "LO",
+        value_multiplicity: 2,
+        decoded_value_lengths: &[64, 64],
+        raw_value_byte_length: 130,
+        raw_value_sha256: "e79f64c5853732dd713d14c3530ef494d800f684653fc5bf0aced3933241a260",
+        padding: "space",
+    },
+    StringBoundarySpec {
+        tag: "0028,0030",
+        keyword: "PixelSpacing",
+        vr: "DS",
+        value_multiplicity: 2,
+        decoded_value_lengths: &[16, 16],
+        raw_value_byte_length: 34,
+        raw_value_sha256: "e09885a80758e44eaa4b9b544e7301c852395d3ee14ed7b7588e62a5f3b2db6a",
+        padding: "space",
+    },
+    StringBoundarySpec {
+        tag: "0020,0012",
+        keyword: "AcquisitionNumber",
+        vr: "IS",
+        value_multiplicity: 1,
+        decoded_value_lengths: &[12],
+        raw_value_byte_length: 12,
+        raw_value_sha256: "f9cf9c74b83f0c66cdb48d3536a5a5d884babc2cfda813d01b3577b473de20cf",
+        padding: "none",
+    },
+];
+
+fn validate_string_elements(
+    relative_path: &str,
+    bytes: &[u8],
+    expected: &Value,
+    obj: &OpenedObject,
+    failures: &mut Vec<String>,
+) {
+    let Some(elements) = expected.get("string_elements").and_then(Value::as_array) else {
+        return;
+    };
+    let declared = elements
+        .iter()
+        .map(|element| {
+            (
+                element.get("tag").and_then(Value::as_str).unwrap_or(""),
+                element.get("keyword").and_then(Value::as_str).unwrap_or(""),
+                element.get("vr").and_then(Value::as_str).unwrap_or(""),
+            )
+        })
+        .collect::<BTreeSet<_>>();
+    let required = STRING_BOUNDARY_SPECS
+        .iter()
+        .map(|spec| (spec.tag, spec.keyword, spec.vr))
+        .collect::<BTreeSet<_>>();
+    if elements.len() != STRING_BOUNDARY_SPECS.len() || declared != required {
+        failures.push(format!(
+            "{relative_path}: metadata_string_element_set: manifest {declared:?}, expected {required:?}"
+        ));
+    }
+
+    for expected_element in elements {
+        let tag_text = expected_element
+            .get("tag")
+            .and_then(Value::as_str)
+            .unwrap_or("");
+        let Some(spec) = STRING_BOUNDARY_SPECS
+            .iter()
+            .find(|spec| spec.tag == tag_text)
+        else {
+            continue;
+        };
+        let Some(tag) = parse_tag(tag_text) else {
+            continue;
+        };
+        let values = expected_element
+            .get("decoded_values")
+            .and_then(Value::as_array)
+            .map(|values| {
+                values
+                    .iter()
+                    .filter_map(Value::as_str)
+                    .map(str::to_string)
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
+        let lengths = values.iter().map(|value| value.len()).collect::<Vec<_>>();
+        let manifest_lengths = expected_element
+            .get("decoded_value_lengths")
+            .and_then(Value::as_array)
+            .map(|lengths| {
+                lengths
+                    .iter()
+                    .filter_map(Value::as_u64)
+                    .map(|length| length as usize)
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
+        let manifest_vm = expected_element
+            .get("value_multiplicity")
+            .and_then(Value::as_u64)
+            .unwrap_or_default() as usize;
+        let manifest_raw_length = expected_element
+            .get("raw_value_byte_length")
+            .and_then(Value::as_u64)
+            .unwrap_or_default() as usize;
+        let manifest_hash = expected_element
+            .get("raw_value_sha256")
+            .and_then(Value::as_str)
+            .unwrap_or("");
+        let manifest_padding = expected_element
+            .get("padding")
+            .and_then(Value::as_str)
+            .unwrap_or("");
+        if manifest_vm != values.len()
+            || manifest_vm != spec.value_multiplicity
+            || lengths != manifest_lengths
+            || lengths != spec.decoded_value_lengths
+        {
+            failures.push(format!(
+                "{relative_path}: metadata_string_vm_lengths: {} values {} lengths {lengths:?}, manifest VM {manifest_vm} lengths {manifest_lengths:?}, required VM {} lengths {:?}",
+                spec.keyword,
+                values.len(),
+                spec.value_multiplicity,
+                spec.decoded_value_lengths
+            ));
+        }
+        if manifest_raw_length != spec.raw_value_byte_length
+            || manifest_hash != spec.raw_value_sha256
+            || manifest_padding != spec.padding
+        {
+            failures.push(format!(
+                "{relative_path}: metadata_string_raw_contract: {} manifest VL {manifest_raw_length} hash {manifest_hash} padding {manifest_padding}, required VL {} hash {} padding {}",
+                spec.keyword,
+                spec.raw_value_byte_length,
+                spec.raw_value_sha256,
+                spec.padding
+            ));
+        }
+
+        match obj.element(tag) {
+            Ok(element) => {
+                if format!("{:?}", element.vr()) != spec.vr {
+                    failures.push(format!(
+                        "{relative_path}: metadata_string_vr: {} dataset {:?}, expected {}",
+                        spec.keyword,
+                        element.vr(),
+                        spec.vr
+                    ));
+                }
+                let actual = element
+                    .to_multi_str()
+                    .map(|values| values.iter().map(ToString::to_string).collect::<Vec<_>>());
+                match actual {
+                    Ok(actual) if actual == values => {}
+                    Ok(actual) => failures.push(format!(
+                        "{relative_path}: metadata_string_decoded_values: {} dataset VM {} lengths {:?}, manifest VM {} lengths {:?}",
+                        spec.keyword,
+                        actual.len(),
+                        actual.iter().map(|value| value.len()).collect::<Vec<_>>(),
+                        values.len(),
+                        lengths
+                    )),
+                    Err(error) => failures.push(format!(
+                        "{relative_path}: metadata_string_decoded_values: {} is unreadable: {error}",
+                        spec.keyword
+                    )),
+                }
+            }
+            Err(_) => failures.push(format!(
+                "{relative_path}: metadata_string_presence: {} is missing",
+                spec.keyword
+            )),
+        }
+
+        match find_raw_element(bytes, tag) {
+            Some(raw) => {
+                if raw.vr != spec.vr {
+                    failures.push(format!(
+                        "{relative_path}: metadata_string_raw_vr: {} dataset {}, expected {}",
+                        spec.keyword, raw.vr, spec.vr
+                    ));
+                }
+                if raw.value.len() != manifest_raw_length {
+                    failures.push(format!(
+                        "{relative_path}: metadata_string_raw_length: {} dataset {}, manifest {manifest_raw_length}",
+                        spec.keyword,
+                        raw.value.len()
+                    ));
+                }
+                if sha256_hex(raw.value) != manifest_hash {
+                    failures.push(format!(
+                        "{relative_path}: metadata_string_raw_hash: {} dataset {}, manifest {manifest_hash}",
+                        spec.keyword,
+                        sha256_hex(raw.value)
+                    ));
+                }
+                let padding_matches = match manifest_padding {
+                    "space" => raw.value.last() == Some(&b' '),
+                    "none" => raw.value.last() != Some(&b' '),
+                    _ => false,
+                };
+                if !padding_matches {
+                    failures.push(format!(
+                        "{relative_path}: metadata_string_padding: {} raw ending does not match {manifest_padding}",
+                        spec.keyword
+                    ));
+                }
+            }
+            None => failures.push(format!(
+                "{relative_path}: metadata_string_raw_presence: raw {} element is missing",
+                spec.keyword
             )),
         }
     }

@@ -3710,7 +3710,8 @@ pub(crate) fn write_supported_cases(
             .cloned()
             .ok_or_else(|| GenerateError::MetadataShape {
                 path: PathBuf::from(recipe.case_id),
-                message: "presentation state source object must be generated before the derived recipe",
+                message:
+                    "presentation state source object must be generated before the derived recipe",
             })?;
         context.record_one(write_presentation_state_case(
             run,
@@ -3779,7 +3780,8 @@ pub(crate) fn write_supported_cases(
             .cloned()
             .ok_or_else(|| GenerateError::MetadataShape {
                 path: PathBuf::from(recipe.case_id),
-                message: "Comprehensive SR source object must be generated before the derived recipe",
+                message:
+                    "Comprehensive SR source object must be generated before the derived recipe",
             })?;
         context.record_one(write_comprehensive_sr_case(
             run,
@@ -3834,7 +3836,8 @@ pub(crate) fn write_supported_cases(
             .cloned()
             .ok_or_else(|| GenerateError::MetadataShape {
                 path: PathBuf::from(recipe.case_id),
-                message: "RT Structure Set source object must be generated before the derived recipe",
+                message:
+                    "RT Structure Set source object must be generated before the derived recipe",
             })?;
         context.record_one(write_rt_structure_set_case(
             run,

@@ -175,6 +175,11 @@ fn validate_empty_type2_attributes(
             .and_then(Value::as_str)
             .unwrap_or(tag_text);
         let expected_vr = attribute.get("vr").and_then(Value::as_str).unwrap_or("");
+        if attribute.get("value_length").and_then(Value::as_u64) != Some(0) {
+            failures.push(format!(
+                "{relative_path}: metadata_empty_type2_manifest_value_length: {keyword} must declare value_length 0"
+            ));
+        }
         let Some(tag) = parse_tag(tag_text) else {
             failures.push(format!(
                 "{relative_path}: metadata_empty_type2_tag: invalid manifest tag {tag_text}"

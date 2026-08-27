@@ -51,6 +51,13 @@ export DTS_DICOM_VALIDATOR_PYTHON="$PWD/conformance-backends/dicom-validator/.ve
 export DTS_DICOM_VALIDATOR_STANDARD_HOME=/path/to/locked/dicom-validator-cache
 ```
 
+The unchanged normal IOD entry point is also registered as
+`pydicom-dicom-validator-visible-light` for exactly
+`vl/endoscopic/rgb_explicit_le` and `vl/microscopic/rgb_explicit_le`. This is
+an additive second IOD opinion over the same locked runtime and 2026b
+definitions; `dciodvfy` remains the primary validator and `dcmdump` remains
+the independent parser.
+
 Adapter version 0.4.0 exposes `--pixel-u32`. It reads the native OW value
 through pydicom, requires the locked 32/32/31 unsigned MONOCHROME2 shape, and
 emits canonical JSON containing dimensions, attributes, exact stored values,

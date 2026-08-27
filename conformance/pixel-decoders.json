@@ -17,9 +17,9 @@
       "name": "Native and deflated datasets",
       "generator_encoder": "dicom-rs writer",
       "internal_decoder": "dicom-rs parser",
-      "external_decoder": "case-scoped uv-locked pydicom raw U32 extractor; DCMTK 3.7.0 dcm2img plus dcmdump for Multi-frame Single Bit SC and linked RT Image",
-      "independence": "independent for the explicitly supported U32, U1, and linked RT Image shapes; unresolved otherwise",
-      "supported_shapes": "classic/sc/mono2_u32_explicit_le, classic/sc/mono2_u1_native, and non-image/rt/image_linked only",
+      "external_decoder": "case-scoped uv-locked pydicom raw U32 extractor; DCMTK 3.7.0 dcm2img plus dcmdump for Multi-frame Single Bit SC, linked RT Image, and Phase 4 single-frame VL RGB",
+      "independence": "independent for the explicitly supported U32, U1, linked RT Image, and Phase 4 VL RGB shapes; unresolved otherwise",
+      "supported_shapes": "classic/sc/mono2_u32_explicit_le, classic/sc/mono2_u1_native, non-image/rt/image_linked, vl/endoscopic/rgb_explicit_le, and vl/microscopic/rgb_explicit_le only",
       "status": "partially implemented: every other native pixel shape remains an explicit unsupported result"
     },
     {

@@ -1245,7 +1245,7 @@ fn general_ecg_source_note_locks_multigroup_contract_and_native_provider() {
 }
 
 #[test]
-fn linked_rt_plan_image_source_note_locks_meaningful_reference_graph() {
+fn linked_rt_plan_image_source_note_and_native_providers_are_locked() {
     let source = fs::read_to_string("standards/source-notes/phase-3-rt-plan-image-linked.md")
         .expect("linked RT Plan and RT Image source note must be readable");
     for required in [
@@ -1308,9 +1308,9 @@ fn linked_rt_plan_image_source_note_locks_meaningful_reference_graph() {
             .find(|case| case.get("case_id").and_then(Value::as_str) == Some(case_id))
             .unwrap_or_else(|| panic!("registry must retain {case_id}"));
         assert_eq!(case["status"], "planned");
-        assert_eq!(case["provider"]["kind"], "external_backend");
-        assert_eq!(case["provider"]["id"], "dcmtk");
-        assert_eq!(case["determinism"], "semantic_stable");
+        assert_eq!(case["provider"]["kind"], "rust_native");
+        assert_eq!(case["provider"]["id"], "rust_native");
+        assert_eq!(case["determinism"], "byte_stable");
         assert_eq!(
             case["blockers"]
                 .as_array()
@@ -1318,10 +1318,16 @@ fn linked_rt_plan_image_source_note_locks_meaningful_reference_graph() {
                 .iter()
                 .map(|blocker| blocker["code"].as_str().unwrap())
                 .collect::<Vec<_>>(),
-            vec![
-                "backend_contract_unimplemented",
-                "independent_iod_validator_unavailable"
-            ]
+            vec!["recipe_unimplemented"]
+        );
+        assert!(
+            case["standards_evidence"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|entry| {
+                    entry["query"] == "standards/source-notes/phase-3-rt-plan-image-linked.md"
+                })
         );
     }
 }

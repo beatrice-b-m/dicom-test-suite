@@ -13281,8 +13281,8 @@
       "artifact_kind": "dicom_instance",
       "status": "planned",
       "provider": {
-        "kind": "external_backend",
-        "id": "dcmtk"
+        "kind": "rust_native",
+        "id": "rust_native"
       },
       "object_family": "radiotherapy",
       "compatibility_axes": [
@@ -13297,13 +13297,8 @@
       },
       "blockers": [
         {
-          "code": "backend_contract_unimplemented",
-          "message": "The external generation protocol is not implemented.",
-          "recheck_phase": "phase-1"
-        },
-        {
-          "code": "independent_iod_validator_unavailable",
-          "message": "The required independent validation path is not integrated.",
+          "code": "recipe_unimplemented",
+          "message": "The deterministic native recipe is not implemented.",
           "recheck_phase": "phase-3"
         }
       ],
@@ -13317,7 +13312,7 @@
       "sop_class_uid": "1.2.840.10008.5.1.4.1.1.481.1",
       "modality": "RTIMAGE",
       "transfer_syntax_uid": "1.2.840.10008.1.2.1",
-      "determinism": "semantic_stable",
+      "determinism": "byte_stable",
       "requirements": {
         "features": [],
         "external_codecs": [],
@@ -13332,6 +13327,14 @@
           "covered": true,
           "part": "PS3.6",
           "anchor": "table_A-1"
+        },
+        {
+          "source": "local-source-note",
+          "edition": "2026b",
+          "query": "standards/source-notes/phase-3-rt-plan-image-linked.md",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.17.3-1"
         }
       ]
     },
@@ -13340,8 +13343,8 @@
       "artifact_kind": "dicom_instance",
       "status": "planned",
       "provider": {
-        "kind": "external_backend",
-        "id": "dcmtk"
+        "kind": "rust_native",
+        "id": "rust_native"
       },
       "object_family": "radiotherapy",
       "compatibility_axes": [
@@ -13355,13 +13358,8 @@
       },
       "blockers": [
         {
-          "code": "backend_contract_unimplemented",
-          "message": "The external generation protocol is not implemented.",
-          "recheck_phase": "phase-1"
-        },
-        {
-          "code": "independent_iod_validator_unavailable",
-          "message": "The required independent validation path is not integrated.",
+          "code": "recipe_unimplemented",
+          "message": "The deterministic native recipe is not implemented.",
           "recheck_phase": "phase-3"
         }
       ],
@@ -13375,7 +13373,7 @@
       "sop_class_uid": "1.2.840.10008.5.1.4.1.1.481.5",
       "modality": "RTPLAN",
       "transfer_syntax_uid": "1.2.840.10008.1.2.1",
-      "determinism": "semantic_stable",
+      "determinism": "byte_stable",
       "requirements": {
         "features": [],
         "external_codecs": [],
@@ -13390,6 +13388,14 @@
           "covered": true,
           "part": "PS3.6",
           "anchor": "table_A-1"
+        },
+        {
+          "source": "local-source-note",
+          "edition": "2026b",
+          "query": "standards/source-notes/phase-3-rt-plan-image-linked.md",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.20.3-1"
         }
       ]
     },

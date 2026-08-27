@@ -177,8 +177,48 @@ implemented, `uv`-locked `dicom-validator` 0.8.2 adapter passed with zero
 errors; and isolated `dcentvfy` was silent. Full-corpus verification continues
 to expose 208 older or unrelated findings, with no new allowlisting.
 
+## Color Softcopy Presentation State
+
+`derived/presentation-state/color_softcopy` is an implemented, byte-stable
+Color Softcopy Presentation State Storage case. An `extended` run now
+materializes its smoke-profile 2 by 2 interleaved RGB Secondary Capture source
+as an explicit cross-profile dependency, reopens and hashes it, and binds the
+same Study with a distinct Presentation Series. The Presentation State selects
+the complete source Instance, applies one global `[1,1]` through `[2,2]`
+`SCALE TO FIT` displayed area with aspect ratio `1\\1`, and carries the exact
+736-byte locked sRGB ICC profile without Pixel Data or optional rendering
+modules.
+
+The manifest closes the source path, hash, Study/Series/SOP identities, image
+shape, relationship cardinality, displayed-area semantics, ICC header and
+hash, and absence invariants. Strict Rust validation rejects redirected or
+dangling references, partial-frame selection, geometry drift, ICC corruption,
+unexpected graphics, transforms, overlays, shutters, and Pixel Data. JSON and
+Markdown reports expose the source topology, displayed area, ICC identity,
+optional-module absence, and pixel absence.
+
+Two seed-7 extended generations each wrote 95 files. Their byte-identical
+manifests have SHA-256
+`99832aaabe9ca4e36e4c108db44974de352b113ca1ccf0e4a41df74e88ced62a`;
+the byte-identical 2,036-byte Presentation State instances have SHA-256
+`4e737e1429b7b2463bc412e4c6ff330411259f321070b32d9ce68cdef0bc0543`;
+and the byte-identical materialized RGB source has SHA-256
+`53208a21ccd2153118b20a5c6da2cbf9ba0d92c70475fbf4ae74add140b0de55`.
+Both roots passed strict validation with zero failures.
+
+Integrated conformance run
+`b1e494962d40634300fb488fdf95c92ad80bad9b2d1e0f0be6bff9b4e8503b0a`
+recorded stable instance key
+`3dad35670aba58140d84cd326fd2624348b8f6215cd72e30d3ca76d35eae1801`.
+Locked `dciodvfy -new` and DCMTK `dcmdump` were clean; the independently
+implemented, `uv`-locked `dicom-validator` 0.8.2 adapter passed with zero
+errors; and isolated source-plus-Presentation-State `dcentvfy` was silent. An
+initial external run rejected non-IOD Content Date and Content Time, which
+were removed and are now strictly absent rather than allowlisted. Full-corpus
+verification retains 213 older or unrelated findings with no new acceptance
+dispositions.
+
 ## Next dependency
 
-The next Phase 3 dependency milestone is presentation-state breadth: Color
-Softcopy, Advanced Blending, and Blending Presentation States, in that order
-subject to their source-image dependencies.
+The next Phase 3 dependency is Advanced Blending Presentation State, followed
+by Blending Presentation State to complete milestone 4 breadth.

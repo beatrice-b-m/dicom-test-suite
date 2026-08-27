@@ -340,7 +340,13 @@ two-run reproducibility, exact source/transform/grid/reference closure, strict
 manifest-driven validation, registration-specific reports, clean locked
 primary IOD validation, independently implemented `uv`-locked secondary IOD
 validation, independent parsing, and clean isolated entity-reference
-validation. Milestone 4 presentation-state breadth is next.
+validation. In milestone 4, Color Softcopy Presentation State is complete as a
+byte-stable native vertical slice with automatic cross-profile RGB source
+materialization, exact reference/display/ICC closure, strict manifest-driven
+validation, report coverage, clean locked primary and `uv`-locked secondary
+IOD validation, independent parsing, and silent isolated entity-reference
+validation. Advanced Blending Presentation State is next, followed by Blending
+Presentation State.
 
 ### Phase 4 — Pathology and tiled microscopy
 

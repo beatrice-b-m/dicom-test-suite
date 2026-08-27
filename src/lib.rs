@@ -16536,6 +16536,12 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
     append_count_map_section(
         &mut output,
         report,
+        "Lateralities",
+        "/grouped_coverage/lateralities",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
         "View Positions",
         "/grouped_coverage/view_positions",
     );
@@ -17678,6 +17684,147 @@ fn read_report_json(path: &Path) -> Result<Value, ReportError> {
     })
 }
 
+#[derive(Clone, Copy)]
+struct VlSingleFrameReportContract {
+    iod_kind: &'static str,
+    sop_class_uid: &'static str,
+    sop_class_name: &'static str,
+    iod_name: &'static str,
+    modality: &'static str,
+    body_part_examined: &'static str,
+    storage_stressor: &'static str,
+}
+
+fn vl_single_frame_report_contract(case_id: &str) -> Option<VlSingleFrameReportContract> {
+    match case_id {
+        "vl/endoscopic/rgb_explicit_le" => Some(VlSingleFrameReportContract {
+            iod_kind: "vl_endoscopic_single_frame",
+            sop_class_uid: "1.2.840.10008.5.1.4.1.1.77.1.1",
+            sop_class_name: "VL Endoscopic Image Storage",
+            iod_name: "VL Endoscopic Image",
+            modality: "ES",
+            body_part_examined: "LUNG",
+            storage_stressor: "vl_endoscopic_image_storage",
+        }),
+        "vl/microscopic/rgb_explicit_le" => Some(VlSingleFrameReportContract {
+            iod_kind: "vl_microscopic_single_frame",
+            sop_class_uid: "1.2.840.10008.5.1.4.1.1.77.1.2",
+            sop_class_name: "VL Microscopic Image Storage",
+            iod_name: "VL Microscopic Image",
+            modality: "GM",
+            body_part_examined: "EYE",
+            storage_stressor: "vl_microscopic_image_storage",
+        }),
+        _ => None,
+    }
+}
+
+fn vl_single_frame_expected_contract(contract: VlSingleFrameReportContract) -> Value {
+    serde_json::json!({
+        "iod_kind": contract.iod_kind,
+        "sop_class_uid": contract.sop_class_uid,
+        "sop_class_name": contract.sop_class_name,
+        "iod_name": contract.iod_name,
+        "modality": contract.modality,
+        "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+        "body_part_examined": contract.body_part_examined,
+        "laterality": "R",
+        "image_type": ["ORIGINAL", "PRIMARY"],
+        "acquisition_context_items": 0,
+        "image": {
+            "rows": 2,
+            "columns": 2,
+            "samples_per_pixel": 3,
+            "photometric_interpretation": "RGB",
+            "planar_configuration": 0,
+            "bits_allocated": 8,
+            "bits_stored": 8,
+            "high_bit": 7,
+            "pixel_representation": 0
+        },
+        "absent_content": [
+            "number_of_frames",
+            "frame_of_reference_uid",
+            "specimen_module",
+            "optical_path_module",
+            "icc_profile_module"
+        ]
+    })
+}
+
+fn vl_single_frame_report_laterality(
+    manifest_path: &Path,
+    file: &Value,
+) -> Result<Option<&'static str>, ReportError> {
+    let case_id = file.get("case_id").and_then(Value::as_str).unwrap_or("");
+    let Some(contract) = vl_single_frame_report_contract(case_id) else {
+        return if file.get("expected_vl_single_frame").is_some() {
+            Err(ReportError::MetadataShape {
+                path: manifest_path.to_path_buf(),
+                message: "expected_vl_single_frame is only valid for the two locked Phase 4 single-frame VL cases",
+            })
+        } else {
+            Ok(None)
+        };
+    };
+
+    if file.get("expected_vl_single_frame") != Some(&vl_single_frame_expected_contract(contract)) {
+        return Err(ReportError::MetadataShape {
+            path: manifest_path.to_path_buf(),
+            message: "expected_vl_single_frame must equal the exact locked report contract",
+        });
+    }
+
+    let locked_fields = [
+        ("/dicom/sop_class_uid", Value::from(contract.sop_class_uid)),
+        (
+            "/dicom/sop_class_name",
+            Value::from(contract.sop_class_name),
+        ),
+        ("/dicom/iod_name", Value::from(contract.iod_name)),
+        ("/dicom/modality", Value::from(contract.modality)),
+        (
+            "/dicom/transfer_syntax_uid",
+            Value::from("1.2.840.10008.1.2.1"),
+        ),
+        ("/image/rows", Value::from(2)),
+        ("/image/columns", Value::from(2)),
+        ("/image/frames", Value::from(1)),
+        ("/image/samples_per_pixel", Value::from(3)),
+        ("/image/photometric_interpretation", Value::from("RGB")),
+        ("/image/planar_configuration", Value::from(0)),
+        ("/image/bits_allocated", Value::from(8)),
+        ("/image/bits_stored", Value::from(8)),
+        ("/image/high_bit", Value::from(7)),
+        ("/image/pixel_representation", Value::from(0)),
+        (
+            "/expected_semantics/body_part_examined",
+            Value::from(contract.body_part_examined),
+        ),
+        ("/expected_semantics/laterality", Value::from("R")),
+        (
+            "/expected_semantics/image_type",
+            Value::from("ORIGINAL\\PRIMARY"),
+        ),
+    ];
+    let generic_contract_matches = locked_fields
+        .iter()
+        .all(|(pointer, expected)| file.pointer(pointer) == Some(expected));
+    let stressors_match = file.get("known_stressors")
+        == Some(&serde_json::json!([
+            contract.storage_stressor,
+            "vl_rgb_pixels"
+        ]));
+    if !generic_contract_matches || !stressors_match {
+        return Err(ReportError::MetadataShape {
+            path: manifest_path.to_path_buf(),
+            message: "single-frame VL generic report fields must match the exact locked contract",
+        });
+    }
+
+    Ok(Some("R"))
+}
+
 fn generated_coverage_row(
     manifest_path: &Path,
     file: &Value,
@@ -17718,6 +17865,7 @@ fn generated_coverage_row(
     let rt_image = rt_image_report_fields(manifest_path, file)?;
     let rt_radiation = rt_radiation_report_fields(manifest_path, file)?;
     let rt_radiation_set = rt_radiation_set_report_fields(manifest_path, file)?;
+    let vl_single_frame_laterality = vl_single_frame_report_laterality(manifest_path, file)?;
     let is_spatial_registration =
         file.get("case_id").and_then(Value::as_str) == Some("derived/registration/spatial_ct_pair");
     let is_deformable_registration = file.get("case_id").and_then(Value::as_str)
@@ -18067,6 +18215,12 @@ fn generated_coverage_row(
     let row_object = row
         .as_object_mut()
         .expect("generated coverage row literal must be an object");
+    row_object.insert(
+        "laterality".to_string(),
+        vl_single_frame_laterality
+            .map(Value::from)
+            .unwrap_or(Value::Null),
+    );
     for (field, value) in [
         ("waveform_iod_kind", waveform.iod_kind.map(Value::from)),
         (
@@ -23475,6 +23629,26 @@ fn skipped_coverage_row(
         .get("transfer_syntax_uid")
         .and_then(Value::as_str)
         .unwrap_or("");
+    let vl_single_frame = vl_single_frame_report_contract(case_id);
+    if let Some(contract) = vl_single_frame {
+        let registry_matches = [
+            ("sop_class_uid", contract.sop_class_uid),
+            ("sop_class_name", contract.sop_class_name),
+            ("iod_name", contract.iod_name),
+            ("modality", contract.modality),
+            ("transfer_syntax_uid", "1.2.840.10008.1.2.1"),
+        ]
+        .iter()
+        .all(|(field, expected)| {
+            registry_case.get(field).and_then(Value::as_str) == Some(*expected)
+        });
+        if !registry_matches {
+            return Err(ReportError::MetadataShape {
+                path: PathBuf::from("cases/registry.json"),
+                message: "planned single-frame VL registry identity must match the locked report contract",
+            });
+        }
+    }
 
     let mut row = serde_json::json!({
         "case_id": case_id,
@@ -23491,23 +23665,23 @@ fn skipped_coverage_row(
         "codec_backend_kind": Value::Null,
         "codec_feature_gate": registry_case.pointer("/requirements/features/0").and_then(Value::as_str),
         "reason_code": skipped.get("reason_code").and_then(Value::as_str),
-        "photometric": Value::Null,
-        "bits": Value::Null,
-        "bits_allocated": Value::Null,
-        "bits_stored": Value::Null,
-        "high_bit": Value::Null,
-        "pixel_representation": Value::Null,
-        "samples_per_pixel": Value::Null,
-        "planar_configuration": Value::Null,
+        "photometric": vl_single_frame.map(|_| "RGB"),
+        "bits": vl_single_frame.map(|_| 8),
+        "bits_allocated": vl_single_frame.map(|_| 8),
+        "bits_stored": vl_single_frame.map(|_| 8),
+        "high_bit": vl_single_frame.map(|_| 7),
+        "pixel_representation": vl_single_frame.map(|_| 0),
+        "samples_per_pixel": vl_single_frame.map(|_| 3),
+        "planar_configuration": vl_single_frame.map(|_| 0),
         "pixel_data_vr": Value::Null,
         "pixel_data_layout": Value::Null,
         "basic_offset_table": Value::Null,
         "encapsulated_fragment_layout": Value::Null,
         "extended_offset_table": Value::Null,
-        "frames": Value::Null,
+        "frames": vl_single_frame.map(|_| 1),
         "geometry": {
-            "rows": Value::Null,
-            "columns": Value::Null,
+            "rows": vl_single_frame.map(|_| 2),
+            "columns": vl_single_frame.map(|_| 2),
             "spacing": Value::Null,
             "orientation": Value::Null
         },
@@ -23516,7 +23690,7 @@ fn skipped_coverage_row(
         "determinism": registry_case.get("determinism").and_then(Value::as_str).unwrap_or("byte_stable"),
         "object_type": case_id.split('/').next(),
         "synthetic_data": Value::Null,
-        "image_type": Value::Null,
+        "image_type": vl_single_frame.map(|_| "ORIGINAL\\PRIMARY"),
         "conversion_type": Value::Null,
         "presentation_lut_shape": Value::Null,
         "lossy_image_compression": Value::Null,
@@ -23527,6 +23701,18 @@ fn skipped_coverage_row(
     let row_object = row
         .as_object_mut()
         .expect("skipped coverage row literal must be an object");
+    row_object.insert(
+        "laterality".to_string(),
+        vl_single_frame
+            .map(|_| Value::from("R"))
+            .unwrap_or(Value::Null),
+    );
+    row_object.insert(
+        "known_stressors".to_string(),
+        vl_single_frame
+            .map(|contract| serde_json::json!([contract.storage_stressor, "vl_rgb_pixels"]))
+            .unwrap_or_else(|| Value::Array(Vec::new())),
+    );
     for field in [
         "generation_backend_id",
         "generation_backend_version",
@@ -23992,7 +24178,12 @@ fn skipped_coverage_row(
         "display_shutter_presentation_value".to_string(),
         Value::Null,
     );
-    row_object.insert("body_part_examined".to_string(), Value::Null);
+    row_object.insert(
+        "body_part_examined".to_string(),
+        vl_single_frame
+            .map(|contract| Value::from(contract.body_part_examined))
+            .unwrap_or(Value::Null),
+    );
     row_object.insert("view_position".to_string(), Value::Null);
     row_object.insert("modality_lut_descriptor".to_string(), Value::Null);
     row_object.insert("modality_lut_type".to_string(), Value::Null);
@@ -24354,6 +24545,7 @@ struct GroupedCoverage {
     waveform_external_validator_dispositions: BTreeMap<String, usize>,
     synthetic_data: BTreeMap<String, usize>,
     image_types: BTreeMap<String, usize>,
+    lateralities: BTreeMap<String, usize>,
     conversion_types: BTreeMap<String, usize>,
     presentation_lut_shapes: BTreeMap<String, usize>,
     window_centers: BTreeMap<String, usize>,
@@ -26538,6 +26730,10 @@ impl GroupedCoverage {
             row.get("body_part_examined").and_then(Value::as_str),
         );
         increment_map(
+            &mut self.lateralities,
+            row.get("laterality").and_then(Value::as_str),
+        );
+        increment_map(
             &mut self.view_positions,
             row.get("view_position").and_then(Value::as_str),
         );
@@ -26621,6 +26817,10 @@ impl GroupedCoverage {
         let grouped_object = grouped
             .as_object_mut()
             .expect("grouped coverage literal must be an object");
+        grouped_object.insert(
+            "lateralities".to_string(),
+            serde_json::to_value(&self.lateralities).expect("laterality count map must serialize"),
+        );
         for (field, map) in [
             (
                 "registration_matrix_directions",

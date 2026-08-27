@@ -372,6 +372,9 @@
         "image_types": {
           "$ref": "#/$defs/count_map"
         },
+        "lateralities": {
+          "$ref": "#/$defs/count_map"
+        },
         "conversion_types": {
           "$ref": "#/$defs/count_map"
         },
@@ -1195,6 +1198,7 @@
         "object_type",
         "synthetic_data",
         "image_type",
+        "laterality",
         "conversion_type",
         "presentation_lut_shape",
         "window_center",
@@ -2143,6 +2147,9 @@
         "image_type": {
           "type": ["string", "null"]
         },
+        "laterality": {
+          "type": ["string", "null"]
+        },
         "conversion_type": {
           "type": ["string", "null"]
         },
@@ -2710,6 +2717,29 @@
         }
       },
       "allOf": [
+        {
+          "if": {
+            "properties": {
+              "case_id": {
+                "enum": [
+                  "vl/endoscopic/rgb_explicit_le",
+                  "vl/microscopic/rgb_explicit_le"
+                ]
+              }
+            },
+            "required": ["case_id"]
+          },
+          "then": {
+            "properties": {
+              "laterality": { "const": "R" }
+            }
+          },
+          "else": {
+            "properties": {
+              "laterality": { "type": "null" }
+            }
+          }
+        },
         {
           "if": {
             "properties": {

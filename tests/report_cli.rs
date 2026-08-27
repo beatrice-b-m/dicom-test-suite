@@ -7157,6 +7157,218 @@ fn report_keeps_planned_rt_image_coverage_null() {
 }
 
 #[test]
+fn report_exposes_locked_single_frame_vl_rows_and_markdown() {
+    let out_dir = unique_temp_dir("report-vl-single-frame");
+    fs::create_dir_all(&out_dir).expect("create VL report root");
+    fs::write(
+        out_dir.join("manifest.json"),
+        serde_json::to_vec_pretty(&vl_single_frame_report_manifest())
+            .expect("serialize VL report manifest"),
+    )
+    .expect("write VL report manifest");
+
+    let report = dicom_test_suite::build_coverage_report(&out_dir)
+        .expect("single-frame VL coverage report should build");
+    let schema: Value = serde_json::from_slice(
+        &fs::read("schemas/coverage-report.schema.json").expect("coverage schema"),
+    )
+    .expect("coverage schema JSON");
+    let validator = jsonschema::validator_for(&schema).expect("coverage schema compiles");
+    let errors = validator
+        .iter_errors(&report)
+        .map(|error| error.to_string())
+        .collect::<Vec<_>>();
+    assert!(errors.is_empty(), "VL report must match schema: {errors:?}");
+
+    for (case_id, sop_uid, sop_name, iod, modality, body_part, stressor) in [
+        (
+            "vl/endoscopic/rgb_explicit_le",
+            "1.2.840.10008.5.1.4.1.1.77.1.1",
+            "VL Endoscopic Image Storage",
+            "VL Endoscopic Image",
+            "ES",
+            "LUNG",
+            "vl_endoscopic_image_storage",
+        ),
+        (
+            "vl/microscopic/rgb_explicit_le",
+            "1.2.840.10008.5.1.4.1.1.77.1.2",
+            "VL Microscopic Image Storage",
+            "VL Microscopic Image",
+            "GM",
+            "EYE",
+            "vl_microscopic_image_storage",
+        ),
+    ] {
+        let row = coverage_row(&report, case_id);
+        assert_eq!(row["status"], "generated");
+        assert_eq!(row["sop_class_uid"], sop_uid);
+        assert_eq!(row["sop_class_name"], sop_name);
+        assert_eq!(row["iod"], iod);
+        assert_eq!(row["modality"], modality);
+        assert_eq!(row["body_part_examined"], body_part);
+        assert_eq!(row["laterality"], "R");
+        assert_eq!(row["image_type"], "ORIGINAL\\PRIMARY");
+        assert_eq!(row["photometric"], "RGB");
+        assert_eq!(row["samples_per_pixel"], 3);
+        assert_eq!(row["frames"], 1);
+        assert_eq!(row.pointer("/geometry/rows"), Some(&Value::from(2)));
+        assert_eq!(row.pointer("/geometry/columns"), Some(&Value::from(2)));
+        assert_eq!(row["known_stressors"], json!([stressor, "vl_rgb_pixels"]));
+    }
+    assert_eq!(
+        report.pointer("/grouped_coverage/lateralities/R"),
+        Some(&Value::from(2))
+    );
+    assert_eq!(
+        report.pointer("/grouped_coverage/body_parts_examined/LUNG"),
+        Some(&Value::from(1))
+    );
+    assert_eq!(
+        report.pointer("/grouped_coverage/body_parts_examined/EYE"),
+        Some(&Value::from(1))
+    );
+    assert_eq!(
+        report.pointer("/grouped_coverage/image_types/ORIGINAL\\PRIMARY"),
+        Some(&Value::from(2))
+    );
+    let mut missing_laterality = report.clone();
+    coverage_row_mut(&mut missing_laterality, "vl/endoscopic/rgb_explicit_le")["laterality"] =
+        Value::Null;
+    assert!(
+        !validator.is_valid(&missing_laterality),
+        "VL row must not hide its locked Laterality"
+    );
+    let mut leaked_laterality = report.clone();
+    coverage_row_mut(&mut leaked_laterality, "vl/endoscopic/rgb_explicit_le")["case_id"] =
+        Value::from("vl/photo/rgb_planar0_explicit_le");
+    assert!(
+        !validator.is_valid(&leaked_laterality),
+        "non-milestone row must not leak the locked VL Laterality"
+    );
+
+    let markdown = dicom_test_suite::render_coverage_report_markdown(&report);
+    for expected in [
+        "### Lateralities",
+        "| R | 2 |",
+        "### Body Parts Examined",
+        "| LUNG | 1 |",
+        "| EYE | 1 |",
+        "### Image Types",
+        "ORIGINAL\\PRIMARY",
+        "vl_endoscopic_image_storage",
+        "vl_microscopic_image_storage",
+    ] {
+        assert!(
+            markdown.contains(expected),
+            "Markdown must contain {expected}"
+        );
+    }
+
+    fs::remove_dir_all(out_dir).expect("remove VL report root");
+}
+
+#[test]
+fn report_exposes_locked_single_frame_vl_planned_rows() {
+    let out_dir = unique_temp_dir("report-vl-single-frame-planned");
+    fs::create_dir_all(&out_dir).expect("create planned VL report root");
+    fs::write(
+        out_dir.join("manifest.json"),
+        serde_json::to_vec_pretty(&json!({
+            "generated_at": "20260101000000.000000+0000",
+            "standards": { "standards_lock_sha256": "0".repeat(64) },
+            "run": { "profile": "extended" },
+            "files": [],
+            "skipped_cases": [
+                { "case_id": "vl/endoscopic/rgb_explicit_le", "status": "unavailable", "reason_code": "case_planned", "message": "recipe_unimplemented" },
+                { "case_id": "vl/microscopic/rgb_explicit_le", "status": "unavailable", "reason_code": "case_planned", "message": "recipe_unimplemented" }
+            ]
+        }))
+        .expect("serialize planned VL manifest"),
+    )
+    .expect("write planned VL manifest");
+
+    let report = dicom_test_suite::build_coverage_report(&out_dir)
+        .expect("planned VL coverage report should build");
+    let schema: Value = serde_json::from_slice(
+        &fs::read("schemas/coverage-report.schema.json").expect("coverage schema"),
+    )
+    .expect("coverage schema JSON");
+    let validator = jsonschema::validator_for(&schema).expect("coverage schema compiles");
+    assert!(
+        validator.is_valid(&report),
+        "planned VL coverage report must match its schema"
+    );
+    for (case_id, sop_uid, sop_name, iod, modality, body_part, stressor) in [
+        (
+            "vl/endoscopic/rgb_explicit_le",
+            "1.2.840.10008.5.1.4.1.1.77.1.1",
+            "VL Endoscopic Image Storage",
+            "VL Endoscopic Image",
+            "ES",
+            "LUNG",
+            "vl_endoscopic_image_storage",
+        ),
+        (
+            "vl/microscopic/rgb_explicit_le",
+            "1.2.840.10008.5.1.4.1.1.77.1.2",
+            "VL Microscopic Image Storage",
+            "VL Microscopic Image",
+            "GM",
+            "EYE",
+            "vl_microscopic_image_storage",
+        ),
+    ] {
+        let row = coverage_row(&report, case_id);
+        assert_eq!(row["status"], "planned");
+        assert_eq!(row["sop_class_uid"], sop_uid);
+        assert_eq!(row["sop_class_name"], sop_name);
+        assert_eq!(row["iod"], iod);
+        assert_eq!(row["modality"], modality);
+        assert_eq!(row["body_part_examined"], body_part);
+        assert_eq!(row["laterality"], "R");
+        assert_eq!(row["image_type"], "ORIGINAL\\PRIMARY");
+        assert_eq!(row["photometric"], "RGB");
+        assert_eq!(row.pointer("/geometry/rows"), Some(&Value::from(2)));
+        assert_eq!(row.pointer("/geometry/columns"), Some(&Value::from(2)));
+        assert_eq!(row["known_stressors"], json!([stressor, "vl_rgb_pixels"]));
+    }
+    fs::remove_dir_all(out_dir).expect("remove planned VL report root");
+}
+
+#[test]
+fn report_rejects_partial_and_wrong_case_single_frame_vl_contracts() {
+    let out_dir = unique_temp_dir("report-vl-single-frame-malformed");
+    fs::create_dir_all(&out_dir).expect("create malformed VL report root");
+    let manifest_path = out_dir.join("manifest.json");
+    let original = vl_single_frame_report_manifest();
+    let reject = |label: &str, manifest: &Value| {
+        fs::write(
+            &manifest_path,
+            serde_json::to_vec_pretty(manifest).expect("serialize malformed VL manifest"),
+        )
+        .expect("write malformed VL manifest");
+        assert!(
+            dicom_test_suite::build_coverage_report(&out_dir).is_err(),
+            "report must reject {label}"
+        );
+    };
+
+    let mut partial = original.clone();
+    partial["files"][0]["expected_vl_single_frame"]
+        .as_object_mut()
+        .expect("VL expectation object")
+        .remove("laterality");
+    reject("partial expected_vl_single_frame", &partial);
+
+    let mut wrong_case = original;
+    wrong_case["files"][0]["case_id"] = Value::from("vl/photo/rgb_planar0_explicit_le");
+    reject("expected_vl_single_frame on the wrong case", &wrong_case);
+
+    fs::remove_dir_all(out_dir).expect("remove malformed VL report root");
+}
+
+#[test]
 fn report_locks_rt_radiation_pair_contracts_and_markdown() {
     let out_dir = unique_temp_dir("report-rt-radiation-pair");
     generate_extended(&out_dir);
@@ -7714,6 +7926,116 @@ fn linked_rt_image_report_manifest() -> Value {
             "validation": { "status": "passed" },
             "known_stressors": []
         }],
+        "skipped_cases": []
+    })
+}
+
+fn vl_single_frame_report_manifest() -> Value {
+    let file = |case_id: &str,
+                iod_kind: &str,
+                sop_class_uid: &str,
+                sop_class_name: &str,
+                iod_name: &str,
+                modality: &str,
+                body_part_examined: &str,
+                storage_stressor: &str| {
+        json!({
+            "case_id": case_id,
+            "profile_membership": ["extended"],
+            "determinism": "byte_stable",
+            "dicom": {
+                "sop_class_uid": sop_class_uid,
+                "sop_class_name": sop_class_name,
+                "iod_name": iod_name,
+                "modality": modality,
+                "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+                "transfer_syntax_name": "Explicit VR Little Endian"
+            },
+            "image": {
+                "rows": 2,
+                "columns": 2,
+                "frames": 1,
+                "samples_per_pixel": 3,
+                "photometric_interpretation": "RGB",
+                "bits_allocated": 8,
+                "bits_stored": 8,
+                "high_bit": 7,
+                "pixel_representation": 0,
+                "planar_configuration": 0
+            },
+            "pixel_data": {
+                "vr": "OB",
+                "native_or_encapsulated": "native",
+                "value_length": 12,
+                "frame_count": 1,
+                "frame_hashes": ["0".repeat(64)]
+            },
+            "expected_semantics": {
+                "synthetic_data": "YES",
+                "body_part_examined": body_part_examined,
+                "laterality": "R",
+                "image_type": "ORIGINAL\\PRIMARY"
+            },
+            "expected_vl_single_frame": {
+                "iod_kind": iod_kind,
+                "sop_class_uid": sop_class_uid,
+                "sop_class_name": sop_class_name,
+                "iod_name": iod_name,
+                "modality": modality,
+                "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+                "body_part_examined": body_part_examined,
+                "laterality": "R",
+                "image_type": ["ORIGINAL", "PRIMARY"],
+                "acquisition_context_items": 0,
+                "image": {
+                    "rows": 2,
+                    "columns": 2,
+                    "samples_per_pixel": 3,
+                    "photometric_interpretation": "RGB",
+                    "planar_configuration": 0,
+                    "bits_allocated": 8,
+                    "bits_stored": 8,
+                    "high_bit": 7,
+                    "pixel_representation": 0
+                },
+                "absent_content": [
+                    "number_of_frames",
+                    "frame_of_reference_uid",
+                    "specimen_module",
+                    "optical_path_module",
+                    "icc_profile_module"
+                ]
+            },
+            "validation": { "status": "passed" },
+            "known_stressors": [storage_stressor, "vl_rgb_pixels"]
+        })
+    };
+    json!({
+        "generated_at": "20260101000000.000000+0000",
+        "standards": { "standards_lock_sha256": "0".repeat(64) },
+        "run": { "profile": "extended" },
+        "files": [
+            file(
+                "vl/endoscopic/rgb_explicit_le",
+                "vl_endoscopic_single_frame",
+                "1.2.840.10008.5.1.4.1.1.77.1.1",
+                "VL Endoscopic Image Storage",
+                "VL Endoscopic Image",
+                "ES",
+                "LUNG",
+                "vl_endoscopic_image_storage",
+            ),
+            file(
+                "vl/microscopic/rgb_explicit_le",
+                "vl_microscopic_single_frame",
+                "1.2.840.10008.5.1.4.1.1.77.1.2",
+                "VL Microscopic Image Storage",
+                "VL Microscopic Image",
+                "GM",
+                "EYE",
+                "vl_microscopic_image_storage",
+            )
+        ],
         "skipped_cases": []
     })
 }

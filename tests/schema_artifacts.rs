@@ -217,6 +217,12 @@ fn manifest_schema_types_cross_instance_geometry_expectations() {
     for field in [
         "geometric_order_index",
         "position_along_normal_mm",
+        "image_position_patient",
+        "image_orientation_patient",
+        "adjacent_spacing_mm",
+        "spacing_uniform",
+        "instance_number_state",
+        "instance_number",
         "instance_number_order_index",
         "sorting_conflict_expected",
     ] {
@@ -225,6 +231,124 @@ fn manifest_schema_types_cross_instance_geometry_expectations() {
             "expected geometry should require {field}"
         );
     }
+
+    assert_eq!(
+        schema.pointer("/$defs/expected_geometry/properties/instance_number_state/enum"),
+        Some(&serde_json::json!(["numeric", "empty"]))
+    );
+    for field in [
+        "instance_number",
+        "instance_number_order_index",
+        "sorting_conflict_expected",
+    ] {
+        assert!(
+            schema
+                .pointer(&format!("/$defs/expected_geometry/properties/{field}/type"))
+                .and_then(Value::as_array)
+                .is_some_and(|types| types.iter().any(|value| value.as_str() == Some("null"))),
+            "expected geometry {field} must allow null"
+        );
+    }
+    for (field, length) in [
+        ("image_position_patient", 3),
+        ("image_orientation_patient", 6),
+    ] {
+        assert_eq!(
+            schema
+                .pointer(&format!(
+                    "/$defs/expected_geometry/properties/{field}/minItems"
+                ))
+                .and_then(Value::as_u64),
+            Some(length)
+        );
+        assert_eq!(
+            schema
+                .pointer(&format!(
+                    "/$defs/expected_geometry/properties/{field}/maxItems"
+                ))
+                .and_then(Value::as_u64),
+            Some(length)
+        );
+        assert_eq!(
+            schema
+                .pointer(&format!(
+                    "/$defs/expected_geometry/properties/{field}/items/type"
+                ))
+                .and_then(Value::as_str),
+            Some("number")
+        );
+    }
+    assert_eq!(
+        schema
+            .pointer("/$defs/expected_geometry/properties/adjacent_spacing_mm/minItems")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        schema
+            .pointer("/$defs/expected_geometry/properties/spacing_uniform/type")
+            .and_then(Value::as_str),
+        Some("boolean")
+    );
+    assert!(
+        schema
+            .pointer("/$defs/expected_geometry/properties/gantry_detector_tilt_degrees/type")
+            .and_then(Value::as_array)
+            .is_some_and(|types| types.iter().any(|value| value.as_str() == Some("null"))),
+        "gantry detector tilt must allow null"
+    );
+    assert_eq!(
+        schema
+            .pointer("/$defs/expected_geometry/additionalProperties")
+            .and_then(Value::as_bool),
+        Some(false)
+    );
+}
+
+#[test]
+fn manifest_schema_types_cross_series_organization_expectations() {
+    let schema = read_json("schemas/manifest.schema.json");
+    let file_required = schema
+        .pointer("/$defs/file/required")
+        .and_then(Value::as_array)
+        .expect("manifest schema must define required file fields");
+    assert!(
+        !file_required
+            .iter()
+            .any(|value| value.as_str() == Some("expected_series_organization")),
+        "series organization expectations must remain optional per file"
+    );
+    assert_eq!(
+        schema.pointer("/$defs/file/properties/expected_series_organization/anyOf/0/$ref"),
+        Some(&Value::String(
+            "#/$defs/expected_series_organization".to_string()
+        ))
+    );
+
+    let required = schema
+        .pointer("/$defs/expected_series_organization/required")
+        .and_then(Value::as_array)
+        .expect("expected series organization should have required fields");
+    for field in [
+        "group_id",
+        "study_series_count",
+        "series_ordinal",
+        "series_instance_count",
+        "shared_study_instance_uid_expected",
+        "shared_frame_of_reference_uid_expected",
+        "distinct_series_instance_uids_expected",
+    ] {
+        assert!(
+            required.iter().any(|value| value.as_str() == Some(field)),
+            "expected series organization should require {field}"
+        );
+    }
+    assert_eq!(
+        schema
+            .pointer("/$defs/expected_series_organization/additionalProperties")
+            .and_then(Value::as_bool),
+        Some(false)
+    );
 }
 
 #[test]

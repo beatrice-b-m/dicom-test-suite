@@ -304,6 +304,12 @@
             { "type": "null" }
           ]
         },
+        "expected_series_organization": {
+          "anyOf": [
+            { "$ref": "#/$defs/expected_series_organization" },
+            { "type": "null" }
+          ]
+        },
         "expected_visual_checks": {
           "type": "object",
           "additionalProperties": true
@@ -377,6 +383,11 @@
         "series_instance_count",
         "geometric_order_index",
         "position_along_normal_mm",
+        "image_position_patient",
+        "image_orientation_patient",
+        "adjacent_spacing_mm",
+        "spacing_uniform",
+        "instance_number_state",
         "instance_number",
         "instance_number_order_index",
         "sorting_conflict_expected"
@@ -391,9 +402,54 @@
         "series_instance_count": { "type": "integer", "minimum": 2 },
         "geometric_order_index": { "type": "integer", "minimum": 1 },
         "position_along_normal_mm": { "type": "number" },
-        "instance_number": { "type": "integer" },
-        "instance_number_order_index": { "type": "integer", "minimum": 1 },
-        "sorting_conflict_expected": { "type": "boolean" }
+        "image_position_patient": {
+          "type": "array",
+          "items": { "type": "number" },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "image_orientation_patient": {
+          "type": "array",
+          "items": { "type": "number" },
+          "minItems": 6,
+          "maxItems": 6
+        },
+        "adjacent_spacing_mm": {
+          "type": "array",
+          "items": { "type": "number" },
+          "minItems": 1
+        },
+        "spacing_uniform": { "type": "boolean" },
+        "instance_number_state": { "enum": ["numeric", "empty"] },
+        "instance_number": { "type": ["integer", "null"] },
+        "instance_number_order_index": {
+          "type": ["integer", "null"],
+          "minimum": 1
+        },
+        "sorting_conflict_expected": { "type": ["boolean", "null"] },
+        "gantry_detector_tilt_degrees": { "type": ["number", "null"] }
+      },
+      "additionalProperties": false
+    },
+    "expected_series_organization": {
+      "type": "object",
+      "required": [
+        "group_id",
+        "study_series_count",
+        "series_ordinal",
+        "series_instance_count",
+        "shared_study_instance_uid_expected",
+        "shared_frame_of_reference_uid_expected",
+        "distinct_series_instance_uids_expected"
+      ],
+      "properties": {
+        "group_id": { "type": "string" },
+        "study_series_count": { "type": "integer", "minimum": 1 },
+        "series_ordinal": { "type": "integer", "minimum": 1 },
+        "series_instance_count": { "type": "integer", "minimum": 1 },
+        "shared_study_instance_uid_expected": { "type": "boolean" },
+        "shared_frame_of_reference_uid_expected": { "type": "boolean" },
+        "distinct_series_instance_uids_expected": { "type": "boolean" }
       },
       "additionalProperties": false
     },

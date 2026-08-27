@@ -1,6 +1,5 @@
 pub(super) mod ct_geometry;
 pub(super) mod empty_type2_sc;
-#[cfg(test)]
 pub(super) mod icc_profile;
 pub(super) mod metadata_sc;
 pub(super) mod nm;

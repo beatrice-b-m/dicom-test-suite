@@ -21,6 +21,10 @@ use native::ct_geometry::{
     ClassicCtSliceRecipe,
 };
 use native::empty_type2_sc::{EMPTY_TYPE2_SC_RECIPE, EmptyType2ScRecipe};
+use native::icc_profile::{
+    ICC_CASE_ID, ICC_COLOR_SPACE, ICC_PROFILE_BYTES, ICC_PROFILE_SHA256, ICC_PROFILE_SIZE,
+    ICC_RECIPE_ID, validate_locked_icc_profile,
+};
 use native::metadata_sc::{METADATA_SC_RECIPES, MetadataScRecipe};
 use native::nm::{
     CLASSIC_NM_RECIPES, ClassicNmDetectorRecipe, ClassicNmEnergyWindowRecipe, ClassicNmRecipe,
@@ -521,6 +525,29 @@ const PIXEL_RECIPES: &[PixelRecipe] = &[
         pixel_max: 255,
         visual_pattern: "2x2_vl_photo_rgb_red_green_blue_white",
         semantic_note: "VL Photographic RGB samples are interleaved color-by-pixel",
+        palette: None,
+        padding: None,
+    },
+    PixelRecipe {
+        case_id: ICC_CASE_ID,
+        recipe_id: ICC_RECIPE_ID,
+        rows: 2,
+        columns: 2,
+        photometric_interpretation: "RGB",
+        samples_per_pixel: 3,
+        planar_configuration: Some(0),
+        bits_allocated: 8,
+        bits_stored: 8,
+        high_bit: 7,
+        pixel_representation: 0,
+        pixel_vr: VR::OB,
+        transfer_syntax: EXPLICIT_VR_LITTLE_ENDIAN,
+        pixel_bytes: &RGB_PLANAR0_PIXELS,
+        pixel_values: &[255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 255, 255],
+        pixel_min: 0,
+        pixel_max: 255,
+        visual_pattern: "2x2_vl_photo_rgb_red_green_blue_white_with_srgb_icc",
+        semantic_note: "VL Photographic RGB samples are interpreted through the embedded SRGB input profile",
         palette: None,
         padding: None,
     },
@@ -4666,6 +4693,15 @@ fn write_pixel_case_with_metadata(
             message: "unsigned 32-bit source pixels do not match their locked bytes/hash",
         });
     }
+    if pixel_has_icc_profile(recipe)
+        && (validate_locked_icc_profile(&ICC_PROFILE_BYTES).is_err()
+            || sha256_hex(&ICC_PROFILE_BYTES) != ICC_PROFILE_SHA256)
+    {
+        return Err(GenerateError::MetadataShape {
+            path: PathBuf::from(recipe.case_id),
+            message: "ICC source profile does not match its locked structure/hash",
+        });
+    }
     let study_instance_uid = deterministic_case_uid_with_file_index(
         standards_lock_sha256,
         recipe,
@@ -4871,6 +4907,14 @@ fn write_pixel_case_with_metadata(
         put_str(&mut obj, tags::IMAGE_TYPE, VR::CS, "ORIGINAL\\PRIMARY");
         put_str(&mut obj, tags::LOSSY_IMAGE_COMPRESSION, VR::CS, "00");
         put_empty_sequence(&mut obj, tags::ACQUISITION_CONTEXT_SEQUENCE);
+    }
+    if pixel_has_icc_profile(recipe) {
+        obj.put(DataElement::new(
+            tags::ICC_PROFILE,
+            VR::OB,
+            PrimitiveValue::U8(ICC_PROFILE_BYTES.to_vec().into()),
+        ));
+        put_str(&mut obj, tags::COLOR_SPACE, VR::CS, ICC_COLOR_SPACE);
     }
 
     put_u16(
@@ -5496,6 +5540,12 @@ fn write_pixel_case_with_metadata(
     for result in codec_internal_validation {
         append_internal_validation(&mut validated.validation, result);
     }
+    if pixel_has_icc_profile(recipe) {
+        append_internal_validation(
+            &mut validated.validation,
+            validate_icc_profile_round_trip(&path)?,
+        );
+    }
     if let Some(metadata) = metadata {
         let result = match metadata {
             ScMetadataPayload::PersonName(recipe) => {
@@ -5539,6 +5589,69 @@ fn write_pixel_case_with_metadata(
             metadata,
         ),
     })
+}
+
+fn validate_icc_profile_round_trip(path: &std::path::Path) -> Result<Value, GenerateError> {
+    let obj = open_file(path).map_err(|error| GenerateError::ValidateDicomFile {
+        path: path.to_path_buf(),
+        message: format!("reopen ICC VL Photographic fixture: {error}"),
+    })?;
+    let profile =
+        obj.element(tags::ICC_PROFILE)
+            .map_err(|error| GenerateError::ValidateDicomFile {
+                path: path.to_path_buf(),
+                message: format!("read ICC Profile: {error}"),
+            })?;
+    if profile.vr() != VR::OB {
+        return Err(GenerateError::ValidateDicomFile {
+            path: path.to_path_buf(),
+            message: format!("ICC Profile VR is {:?}, expected OB", profile.vr()),
+        });
+    }
+    let bytes = profile
+        .value()
+        .to_bytes()
+        .map_err(|error| GenerateError::ValidateDicomFile {
+            path: path.to_path_buf(),
+            message: format!("read ICC Profile bytes: {error}"),
+        })?;
+    validate_locked_icc_profile(bytes.as_ref()).map_err(|message| {
+        GenerateError::ValidateDicomFile {
+            path: path.to_path_buf(),
+            message,
+        }
+    })?;
+    if bytes.as_ref() != ICC_PROFILE_BYTES {
+        return Err(GenerateError::ValidateDicomFile {
+            path: path.to_path_buf(),
+            message: "ICC Profile bytes differ from the locked source profile".to_string(),
+        });
+    }
+    let color_space = obj
+        .element(tags::COLOR_SPACE)
+        .map_err(|error| GenerateError::ValidateDicomFile {
+            path: path.to_path_buf(),
+            message: format!("read Color Space: {error}"),
+        })?
+        .to_str()
+        .map_err(|error| GenerateError::ValidateDicomFile {
+            path: path.to_path_buf(),
+            message: format!("decode Color Space: {error}"),
+        })?;
+    if color_space.trim() != ICC_COLOR_SPACE {
+        return Err(GenerateError::ValidateDicomFile {
+            path: path.to_path_buf(),
+            message: format!(
+                "Color Space {} does not match locked {ICC_COLOR_SPACE}",
+                color_space.trim()
+            ),
+        });
+    }
+    Ok(serde_json::json!({
+        "name": "icc_profile_round_trip",
+        "status": "passed",
+        "message": "ICC Profile OB bytes, DICOM-constrained header, tag table, hash, and SRGB declaration match."
+    }))
 }
 
 fn validate_text_metadata_round_trip(
@@ -6685,6 +6798,34 @@ fn pixel_manifest_entry(
                 "anchor": "table_C.7.6.14-1"
             }),
         ]);
+        if pixel_has_icc_profile(recipe) {
+            standards_evidence.extend([
+                serde_json::json!({
+                    "source": "dicom-standard-kb",
+                    "edition": "2026b",
+                    "query": "list_attributes_for_module ICC Profile --expand-macros",
+                    "covered": true,
+                    "part": "PS3.3",
+                    "anchor": "table_C.11.15-1"
+                }),
+                serde_json::json!({
+                    "source": "dicom-standard-kb",
+                    "edition": "2026b",
+                    "query": "retrieve_standard_text sect_C.11.15.1.1",
+                    "covered": true,
+                    "part": "PS3.3",
+                    "anchor": "sect_C.11.15.1.1"
+                }),
+                serde_json::json!({
+                    "source": "local-source-note",
+                    "edition": "2026b",
+                    "query": "standards/source-notes/phase-2-icc-profile.md",
+                    "covered": true,
+                    "part": "PS3.3",
+                    "anchor": "sect_C.11.15.1.2"
+                }),
+            ]);
+        }
     } else {
         standards_evidence.extend([
             serde_json::json!({
@@ -7152,6 +7293,27 @@ fn pixel_manifest_entry(
             "frame_two_bit_offset": 9
         });
     }
+    if pixel_has_icc_profile(recipe) {
+        manifest["expected_icc_profile"] = serde_json::json!({
+            "tag": "(0028,2000)",
+            "vr": "OB",
+            "profile_sha256": ICC_PROFILE_SHA256,
+            "profile_size_bytes": ICC_PROFILE_SIZE,
+            "declared_profile_size_bytes": ICC_PROFILE_SIZE,
+            "profile_version": "2.1.0",
+            "device_class": "scnr",
+            "data_color_space": "RGB",
+            "profile_connection_space": "XYZ",
+            "profile_signature": "acsp",
+            "rendering_intent": "perceptual",
+            "rendering_intent_code": 0,
+            "tag_count": 9,
+            "color_space": ICC_COLOR_SPACE,
+            "profile_description": "sRGB",
+            "copyright": "CC0",
+            "source_identity": "DCMTK 3.7.0 DCMTK_SRGB_ICC_SAMPLE"
+        });
+    }
     if let Some(ScMetadataPayload::PersonName(metadata)) = metadata {
         let mut raw_value = metadata.patient_name_raw.to_vec();
         if raw_value.len() % 2 == 1 {
@@ -7458,6 +7620,10 @@ fn pixel_known_stressors(recipe: PixelRecipe) -> Vec<&'static str> {
         stressors.push("multi_frame_single_bit_secondary_capture");
         stressors.push("whole_value_field_even_length_padding");
     }
+    if pixel_has_icc_profile(recipe) {
+        stressors.push("embedded_icc_input_profile");
+        stressors.push("srgb_color_management");
+    }
     if recipe.transfer_syntax == DEFLATED_EXPLICIT_VR_LITTLE_ENDIAN {
         stressors.push("deflated_dataset_transfer_syntax");
     }
@@ -7539,12 +7705,21 @@ fn pixel_profile_membership(recipe: PixelRecipe) -> &'static [&'static str] {
         | "classic/sc/mono2_u16_jpeg_lossless_process_14"
         | "classic/sc/mono2_u16_jpeg_lossless_sv1"
         | "classic/sc/mono2_u32_explicit_le"
-        | "classic/sc/mono2_u1_native" => &["extended"],
+        | "classic/sc/mono2_u1_native"
+        | ICC_CASE_ID => &["extended"],
         _ => &["core"],
     }
 }
 
 fn pixel_expected_capabilities(recipe: PixelRecipe) -> Vec<&'static str> {
+    if pixel_has_icc_profile(recipe) {
+        return vec![
+            "open_file",
+            "read_metadata",
+            "render_native_pixels",
+            "apply_icc_profile",
+        ];
+    }
     if recipe.case_id == U1_SC_RECIPE.case_id {
         return vec![
             "open_file",
@@ -7622,6 +7797,10 @@ fn pixel_expected_capabilities(recipe: PixelRecipe) -> Vec<&'static str> {
 
 fn pixel_is_vl_photographic(recipe: PixelRecipe) -> bool {
     recipe.case_id.starts_with("vl/photo/")
+}
+
+fn pixel_has_icc_profile(recipe: PixelRecipe) -> bool {
+    recipe.case_id == ICC_CASE_ID
 }
 
 fn pixel_sop_class_uid(recipe: PixelRecipe) -> &'static str {

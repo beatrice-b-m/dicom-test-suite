@@ -15,6 +15,7 @@ pub(super) mod sequence_length_sc;
 pub(super) mod spatial_registration;
 pub(super) mod string_boundary_sc;
 pub(super) mod timezone_sc;
+pub(super) mod twelve_lead_ecg;
 pub(super) mod us_multiframe;
 pub(super) mod xa;
 pub(super) mod xrf;
@@ -49,6 +50,8 @@ mod sequence_length_sc_tests;
 mod spatial_registration_tests;
 #[cfg(test)]
 mod string_boundary_sc_tests;
+#[cfg(test)]
+mod twelve_lead_ecg_tests;
 #[cfg(test)]
 mod us_multiframe_tests;
 #[cfg(test)]

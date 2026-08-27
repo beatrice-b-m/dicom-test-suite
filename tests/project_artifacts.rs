@@ -969,7 +969,9 @@ fn phase4_single_frame_vl_qualification_is_recorded() {
         "Two seed-7 extended roots each contain 109\nstrictly valid files",
         "authorized `uv`-locked secondary IOD route",
         "registry now contains 146 implemented and 36 planned cases",
-        "Milestone 3,\nthe deliberately incomplete `TILED_SPARSE` counterpart, is next",
+        "the deliberately incomplete `TILED_SPARSE` counterpart, is complete",
+        "registry now contains 147\nimplemented and 35 planned cases",
+        "Milestone 4, the opt-in stress-profile\nmulti-resolution pyramid",
     ] {
         assert!(
             plan.contains(required),
@@ -979,7 +981,7 @@ fn phase4_single_frame_vl_qualification_is_recorded() {
 }
 
 #[test]
-fn phase4_tiled_full_wsi_qualification_is_recorded() {
+fn phase4_wsi_qualification_is_recorded() {
     let status = fs::read_to_string("docs/phase-4-pathology-status.md")
         .expect("Phase 4 pathology status must be readable");
     for required in [
@@ -995,11 +997,34 @@ fn phase4_tiled_full_wsi_qualification_is_recorded() {
         "isolated from generation",
         "229 unrelated visible and\nunallowlisted failures",
         "146 implemented and 36 planned logical cases",
-        "Phase 4 milestone 3",
+        "`vl/wsi/tiled_sparse_small` completes milestone 3",
+        "456d571b7121bb67ece6593870dc4d6ef103b83c1488ccb74e84627f347186df",
+        "84251b2108b6cacb39c18de12c628bc00e0ab3d166310bcf5b82b6291955ceb3",
+        "0c347e699e40876d0fdd4ae20e8bbb76ecdb2859a10f596019202a8acefa26b1",
+        "a89f55577263f84a27291a6d3adf6659ccebedb76e68dd8b9c06f8b0b3ce7f4e",
+        "147 implemented and 35 planned logical cases",
+        "Phase 4 milestone 4",
     ] {
         assert!(
             status.contains(required),
             "Phase 4 pathology status requires {required}"
+        );
+    }
+
+    let sparse_note = fs::read_to_string("standards/source-notes/phase-4-wsi-tiled-sparse.md")
+        .expect("Phase 4 tiled-sparse WSI source note must be readable");
+    for required in [
+        "## Qualification And Promotion Result",
+        "111 DICOM files",
+        "456d571b7121bb67ece6593870dc4d6ef103b83c1488ccb74e84627f347186df",
+        "84251b2108b6cacb39c18de12c628bc00e0ab3d166310bcf5b82b6291955ceb3",
+        "dicom-validator 0.8.2 route as passed",
+        "unallowlisted `iod_characterization` result",
+        "provider `rust_native`",
+    ] {
+        assert!(
+            sparse_note.contains(required),
+            "Phase 4 tiled-sparse WSI note requires {required}"
         );
     }
 }

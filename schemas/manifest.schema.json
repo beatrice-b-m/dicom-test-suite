@@ -461,7 +461,8 @@
       "anyOf": [
         { "required": ["person_names"] },
         { "required": ["temporal"] },
-        { "required": ["empty_type2_attributes"] }
+        { "required": ["empty_type2_attributes"] },
+        { "required": ["string_elements"] }
       ],
       "dependentRequired": {
         "person_names": ["specific_character_sets"]
@@ -488,6 +489,12 @@
           "items": { "$ref": "#/$defs/expected_empty_type2_attribute" },
           "minItems": 5,
           "maxItems": 5
+        },
+        "string_elements": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/expected_string_element" },
+          "minItems": 4,
+          "maxItems": 4
         }
       },
       "additionalProperties": false
@@ -506,6 +513,46 @@
         },
         "vr": { "enum": ["PN", "DA", "CS", "SH"] },
         "value_length": { "const": 0 }
+      },
+      "additionalProperties": false
+    },
+    "expected_string_element": {
+      "type": "object",
+      "required": [
+        "tag",
+        "keyword",
+        "vr",
+        "decoded_values",
+        "value_multiplicity",
+        "decoded_value_lengths",
+        "raw_value_byte_length",
+        "raw_value_sha256",
+        "padding"
+      ],
+      "properties": {
+        "tag": {
+          "type": "string",
+          "pattern": "^[0-9A-F]{4},[0-9A-F]{4}$"
+        },
+        "keyword": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Za-z0-9]*$"
+        },
+        "vr": { "enum": ["LT", "LO", "DS", "IS"] },
+        "decoded_values": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "minItems": 1
+        },
+        "value_multiplicity": { "type": "integer", "minimum": 1 },
+        "decoded_value_lengths": {
+          "type": "array",
+          "items": { "type": "integer", "minimum": 1 },
+          "minItems": 1
+        },
+        "raw_value_byte_length": { "type": "integer", "minimum": 1 },
+        "raw_value_sha256": { "$ref": "#/$defs/sha256" },
+        "padding": { "enum": ["none", "space"] }
       },
       "additionalProperties": false
     },

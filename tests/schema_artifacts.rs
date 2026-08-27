@@ -475,6 +475,34 @@ fn manifest_schema_types_empty_type2_expectations() {
 }
 
 #[test]
+fn manifest_schema_types_long_multivalue_string_expectations() {
+    let schema = read_json("schemas/manifest.schema.json");
+    let metadata_schema = serde_json::json!({
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$ref": "#/$defs/expected_metadata",
+        "$defs": schema["$defs"].clone(),
+    });
+    let validator =
+        jsonschema::validator_for(&metadata_schema).expect("metadata schema should compile");
+    let mut metadata = string_element_expectations();
+    assert!(validator.is_valid(&metadata));
+
+    metadata["string_elements"][0]["vr"] = serde_json::json!("UT");
+    metadata["string_elements"][1]["value_multiplicity"] = serde_json::json!(0);
+    metadata["string_elements"][2]["raw_value_sha256"] = serde_json::json!("not-a-hash");
+    metadata["string_elements"][2]["padding"] = serde_json::json!("null");
+    metadata["string_elements"]
+        .as_array_mut()
+        .expect("string elements should be an array")
+        .pop();
+    let errors = validator.iter_errors(&metadata).collect::<Vec<_>>();
+    assert!(
+        errors.len() >= 5,
+        "VR, VM, hash, padding, and exact element count must be enforced: {errors:?}"
+    );
+}
+
+#[test]
 fn manifest_schema_rejects_malformed_person_name_expectations() {
     let schema = read_json("schemas/manifest.schema.json");
     let metadata_schema = serde_json::json!({
@@ -554,6 +582,42 @@ fn empty_type2_expectations() -> Value {
             { "tag": "0010,0040", "keyword": "PatientSex", "vr": "CS", "value_length": 0 },
             { "tag": "0008,0090", "keyword": "ReferringPhysicianName", "vr": "PN", "value_length": 0 },
             { "tag": "0008,0050", "keyword": "AccessionNumber", "vr": "SH", "value_length": 0 }
+        ]
+    })
+}
+
+fn string_element_expectations() -> Value {
+    serde_json::json!({
+        "string_elements": [
+            {
+                "tag": "0020,4000", "keyword": "ImageComments", "vr": "LT",
+                "decoded_values": ["A"], "value_multiplicity": 1,
+                "decoded_value_lengths": [10240], "raw_value_byte_length": 10240,
+                "raw_value_sha256": "75497849c172d88a38e271cc6ce82f31adbba1f16b6191d8ddaeb4e9f6268e52",
+                "padding": "none"
+            },
+            {
+                "tag": "0018,1020", "keyword": "SoftwareVersions", "vr": "LO",
+                "decoded_values": ["A", "B"], "value_multiplicity": 2,
+                "decoded_value_lengths": [64, 64], "raw_value_byte_length": 130,
+                "raw_value_sha256": "e79f64c5853732dd713d14c3530ef494d800f684653fc5bf0aced3933241a260",
+                "padding": "space"
+            },
+            {
+                "tag": "0028,0030", "keyword": "PixelSpacing", "vr": "DS",
+                "decoded_values": ["0.12345678901234", "0.98765432109876"],
+                "value_multiplicity": 2, "decoded_value_lengths": [16, 16],
+                "raw_value_byte_length": 34,
+                "raw_value_sha256": "e09885a80758e44eaa4b9b544e7301c852395d3ee14ed7b7588e62a5f3b2db6a",
+                "padding": "space"
+            },
+            {
+                "tag": "0020,0012", "keyword": "AcquisitionNumber", "vr": "IS",
+                "decoded_values": ["+02147483647"], "value_multiplicity": 1,
+                "decoded_value_lengths": [12], "raw_value_byte_length": 12,
+                "raw_value_sha256": "f9cf9c74b83f0c66cdb48d3536a5a5d884babc2cfda813d01b3577b473de20cf",
+                "padding": "none"
+            }
         ]
     })
 }

@@ -7368,9 +7368,13 @@ fn report_exposes_locked_tiled_full_wsi_plan_without_claiming_generation() {
     )
     .expect("coverage schema JSON");
     let validator = jsonschema::validator_for(&schema).expect("coverage schema compiles");
+    let errors = validator
+        .iter_errors(&report)
+        .map(|error| error.to_string())
+        .collect::<Vec<_>>();
     assert!(
-        validator.is_valid(&report),
-        "planned WSI coverage report must match its schema"
+        errors.is_empty(),
+        "planned WSI coverage report must match its schema: {errors:#?}"
     );
 
     let row = coverage_row(&report, "vl/wsi/tiled_full_small");

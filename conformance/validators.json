@@ -348,7 +348,7 @@
       "timeout_seconds": 60,
       "required": false,
       "platforms": ["linux", "macos", "windows"],
-      "supported_case_ids": ["vl/endoscopic/rgb_explicit_le", "vl/microscopic/rgb_explicit_le"],
+      "supported_case_ids": ["vl/endoscopic/rgb_explicit_le", "vl/microscopic/rgb_explicit_le", "vl/wsi/tiled_full_small"],
       "artifacts": [
         {"path": "conformance-backends/dicom-validator/.python-version"},
         {"path": "conformance-backends/dicom-validator/pyproject.toml"},
@@ -365,7 +365,27 @@
         {"path": "2026b/json/uid_info.json", "root_env": "DTS_DICOM_VALIDATOR_STANDARD_HOME"},
         {"path": "2026b/json/version", "root_env": "DTS_DICOM_VALIDATOR_STANDARD_HOME"}
       ],
-      "capabilities": ["iod_validation", "normalized_findings", "dicom_2026b_definitions", "vl_endoscopic_iod_validation", "vl_microscopic_iod_validation"]
+      "capabilities": ["iod_validation", "normalized_findings", "dicom_2026b_definitions", "vl_endoscopic_iod_validation", "vl_microscopic_iod_validation", "vl_wsi_iod_validation"]
+    },
+    {
+      "id": "highdicom-wsi-reconstruction",
+      "role": "pixel_decoder",
+      "executable": "python",
+      "executable_env": "DTS_WSI_RECONSTRUCTION_PYTHON",
+      "arguments": ["-m", "dts_wsi_reconstruction", "--input", "{input}"],
+      "version_arguments": ["-m", "dts_wsi_reconstruction", "--version"],
+      "timeout_seconds": 60,
+      "required": false,
+      "platforms": ["linux", "macos", "windows"],
+      "supported_case_ids": ["vl/wsi/tiled_full_small"],
+      "artifacts": [
+        {"path": "conformance-backends/wsi-reconstruction/.python-version"},
+        {"path": "conformance-backends/wsi-reconstruction/pyproject.toml"},
+        {"path": "conformance-backends/wsi-reconstruction/uv.lock"},
+        {"path": "conformance-backends/wsi-reconstruction/src/dts_wsi_reconstruction/__init__.py"},
+        {"path": "conformance-backends/wsi-reconstruction/src/dts_wsi_reconstruction/__main__.py"}
+      ],
+      "capabilities": ["tiled_full_implicit_positions", "exact_stored_frame_hashes", "total_pixel_matrix_reconstruction", "transforms_disabled"]
     },
     {
       "id": "dcmtk-dcmdump",

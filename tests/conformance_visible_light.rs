@@ -2,7 +2,12 @@ use std::fs;
 
 use serde_json::Value;
 
-const CASE_IDS: &[&str] = &[
+const IOD_CASE_IDS: &[&str] = &[
+    "vl/endoscopic/rgb_explicit_le",
+    "vl/microscopic/rgb_explicit_le",
+    "vl/wsi/tiled_full_small",
+];
+const PIXEL_CASE_IDS: &[&str] = &[
     "vl/endoscopic/rgb_explicit_le",
     "vl/microscopic/rgb_explicit_le",
 ];
@@ -23,7 +28,10 @@ fn visible_light_iod_route_is_additive_exact_case_and_uv_locked() {
         .find(|adapter| adapter["id"] == "pydicom-dicom-validator-visible-light")
         .expect("VL IOD adapter");
     assert_eq!(adapter["role"], "secondary_iod_validator");
-    assert_eq!(adapter["supported_case_ids"], serde_json::json!(CASE_IDS));
+    assert_eq!(
+        adapter["supported_case_ids"],
+        serde_json::json!(IOD_CASE_IDS)
+    );
     assert_eq!(adapter["executable_env"], "DTS_DICOM_VALIDATOR_PYTHON");
     assert!(
         adapter["arguments"]
@@ -71,7 +79,10 @@ fn visible_light_pixel_and_parser_routes_are_exact_and_locked() {
         .find(|adapter| adapter["id"] == "dcmtk-dcm2img-visible-light")
         .expect("VL pixel adapter");
     assert_eq!(adapter["role"], "pixel_decoder");
-    assert_eq!(adapter["supported_case_ids"], serde_json::json!(CASE_IDS));
+    assert_eq!(
+        adapter["supported_case_ids"],
+        serde_json::json!(PIXEL_CASE_IDS)
+    );
     assert_eq!(
         adapter["arguments"],
         serde_json::json!([

@@ -21,6 +21,8 @@ const LINKED_RT_SECONDARY_VALIDATOR_ID: &str = "pydicom-dicom-validator-rt";
 const WAVEFORM_VALIDATOR_ID: &str = "pydicom-dicom-validator-waveform";
 const VISIBLE_LIGHT_SECONDARY_VALIDATOR_ID: &str = "pydicom-dicom-validator-visible-light";
 const VISIBLE_LIGHT_PIXEL_DECODER_ID: &str = "dcmtk-dcm2img-visible-light";
+const WSI_RECONSTRUCTION_ID: &str = "highdicom-wsi-reconstruction";
+const WSI_CASE_ID: &str = "vl/wsi/tiled_full_small";
 
 pub fn verify_conformance(
     evidence_root: impl AsRef<Path>,
@@ -331,6 +333,17 @@ fn verify_completeness(evidence_root: &Path, evidence: &Value, failures: &mut Ve
                     file["case_id"] == "vl/endoscopic/rgb_explicit_le"
                         || file["case_id"] == "vl/microscopic/rgb_explicit_le"
                 })
+                .filter_map(|file| file["path"].as_str())
+                .collect::<std::collections::BTreeSet<_>>()
+        })
+        .unwrap_or_default();
+    let required_wsi_reconstruction_paths = manifest
+        .as_ref()
+        .and_then(|value| value["files"].as_array())
+        .map(|files| {
+            files
+                .iter()
+                .filter(|file| file["case_id"] == WSI_CASE_ID)
                 .filter_map(|file| file["path"].as_str())
                 .collect::<std::collections::BTreeSet<_>>()
         })
@@ -752,6 +765,42 @@ fn verify_completeness(evidence_root: &Path, evidence: &Value, failures: &mut Ve
                 .find(|file| file["path"] == path);
             if let Some(manifest_file) = manifest_file {
                 verify_visible_light_pixel_evidence(
+                    evidence_root,
+                    evidence,
+                    instance,
+                    manifest_file,
+                    failures,
+                );
+            }
+        }
+        if required_wsi_reconstruction_paths.contains(path) {
+            let tool = evidence["tools"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .find(|tool| tool["adapter_id"] == WSI_RECONSTRUCTION_ID);
+            if tool.is_none_or(|tool| {
+                tool["status"] != "available" || tool["lock_status"] != "matched"
+            }) {
+                failures.push(format!(
+                    "required WSI reconstruction adapter is unavailable or unlocked for {path}"
+                ));
+            }
+            if instance["pixel"]["status"] != "passed"
+                || instance["pixel"]["independence"] != "independent"
+            {
+                failures.push(format!(
+                    "independent WSI total pixel matrix reconstruction failed: {path}"
+                ));
+            }
+            let manifest_file = manifest
+                .as_ref()
+                .and_then(|value| value["files"].as_array())
+                .into_iter()
+                .flatten()
+                .find(|file| file["path"] == path);
+            if let Some(manifest_file) = manifest_file {
+                verify_wsi_reconstruction_evidence(
                     evidence_root,
                     evidence,
                     instance,
@@ -1410,6 +1459,75 @@ fn verify_visible_light_pixel_evidence(
     }
 }
 
+fn verify_wsi_reconstruction_evidence(
+    evidence_root: &Path,
+    evidence: &Value,
+    instance: &Value,
+    manifest_file: &Value,
+    failures: &mut Vec<String>,
+) {
+    let path = instance["path"].as_str().unwrap_or("unknown");
+    let Some(relative) = instance
+        .pointer("/pixel/evidence/path")
+        .and_then(Value::as_str)
+    else {
+        failures.push(format!(
+            "WSI reconstruction evidence sidecar is missing: {path}"
+        ));
+        return;
+    };
+    if validate_relative_path(relative).is_err() {
+        failures.push(format!(
+            "WSI reconstruction evidence path is unsafe: {path}"
+        ));
+        return;
+    }
+    let Ok(bytes) = fs::read(evidence_root.join(relative)) else {
+        failures.push(format!(
+            "WSI reconstruction evidence is unavailable: {path}"
+        ));
+        return;
+    };
+    let Ok(sidecar) = serde_json::from_slice::<Value>(&bytes) else {
+        failures.push(format!(
+            "WSI reconstruction evidence is invalid JSON: {path}"
+        ));
+        return;
+    };
+    let tool = evidence["tools"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .find(|tool| tool["adapter_id"] == WSI_RECONSTRUCTION_ID);
+    let contract = &manifest_file["expected_wsi_tiled_full"];
+    let linked = tool
+        .is_some_and(|tool| tool["status"] == "available" && tool["lock_status"] == "matched")
+        && sidecar["adapter_id"] == WSI_RECONSTRUCTION_ID
+        && sidecar["adapter_sha256"].as_str() == tool.and_then(|tool| tool["sha256"].as_str())
+        && sidecar["independence"] == "independent"
+        && sidecar["extraction_method"]
+            == "uv_locked_highdicom_tiled_full_implicit_total_pixel_matrix"
+        && sidecar["status"] == "passed"
+        && sidecar["source_manifest_sha256"] == evidence["source"]["manifest_sha256"]
+        && sidecar["source_instance_sha256"] == manifest_file["sha256"]
+        && sidecar["source_path"] == instance["path"]
+        && sidecar["expected_contract"] == *contract
+        && sidecar["runtime"]
+            == json!({"highdicom": "0.28.1", "numpy": "2.5.2", "pydicom": "3.0.2"})
+        && sidecar["frame_hashes"] == contract["pixel_data"]["frame_hashes"]
+        && sidecar["implicit_frame_positions"] == contract["tiling"]["implicit_frame_positions"]
+        && sidecar["total_pixel_matrix_shape"] == json!([4, 4, 3])
+        && sidecar["total_pixel_matrix_sha256"] == contract["tiling"]["total_pixel_matrix_sha256"]
+        && sidecar["transforms_applied"] == false
+        && instance["pixel"]["expected_frame_hashes"] == contract["pixel_data"]["frame_hashes"]
+        && instance["pixel"]["actual_frame_hashes"] == contract["pixel_data"]["frame_hashes"];
+    if !linked {
+        failures.push(format!(
+            "WSI reconstruction evidence sidecar is not linked to its locked tool and exact source manifest contract: {path}"
+        ));
+    }
+}
+
 fn verify_icc_profile_evidence(
     evidence_root: &Path,
     evidence: &Value,
@@ -1798,7 +1916,7 @@ fn requires_waveform_validation(case_id: &str) -> bool {
 fn requires_visible_light_validation(case_id: &str) -> bool {
     matches!(
         case_id,
-        "vl/endoscopic/rgb_explicit_le" | "vl/microscopic/rgb_explicit_le"
+        "vl/endoscopic/rgb_explicit_le" | "vl/microscopic/rgb_explicit_le" | WSI_CASE_ID
     )
 }
 
@@ -2108,6 +2226,7 @@ fn collect_instance(
         generated_root,
         evidence_root,
         file,
+        manifest_sha256,
         path,
         &stable_key,
         adapters,
@@ -2424,6 +2543,7 @@ fn collect_pixel_result(
     generated_root: &Path,
     evidence_root: &Path,
     file: &Value,
+    manifest_sha256: &str,
     relative_input: &str,
     stable_key: &str,
     adapters: &[Value],
@@ -2474,6 +2594,19 @@ fn collect_pixel_result(
             generated_root,
             evidence_root,
             file,
+            relative_input,
+            stable_key,
+            adapters,
+            tools,
+            expected,
+        );
+    }
+    if file.get("case_id").and_then(Value::as_str) == Some(WSI_CASE_ID) {
+        return collect_wsi_reconstruction_result(
+            generated_root,
+            evidence_root,
+            file,
+            manifest_sha256,
             relative_input,
             stable_key,
             adapters,
@@ -3125,6 +3258,123 @@ fn parse_binary_ppm(path: &Path) -> Result<(usize, usize, u16, Vec<u8>), String>
         index += 1;
     }
     Ok((columns, rows, max_value, source[index..].to_vec()))
+}
+
+#[allow(clippy::too_many_arguments)]
+fn collect_wsi_reconstruction_result(
+    generated_root: &Path,
+    evidence_root: &Path,
+    file: &Value,
+    manifest_sha256: &str,
+    relative_input: &str,
+    stable_key: &str,
+    adapters: &[Value],
+    tools: &[Value],
+    expected: Vec<Value>,
+) -> Result<Value, String> {
+    let unsupported = |reason: &str| pixel_unsupported(expected.clone(), "independent", reason);
+    let Some(adapter) = adapters
+        .iter()
+        .find(|adapter| adapter["id"] == WSI_RECONSTRUCTION_ID)
+    else {
+        return Ok(unsupported(
+            "The independent WSI reconstruction adapter is not configured",
+        ));
+    };
+    let Some(tool) = tools
+        .iter()
+        .find(|tool| tool["adapter_id"] == WSI_RECONSTRUCTION_ID)
+    else {
+        return Ok(unsupported(
+            "The independent WSI reconstruction adapter was not discovered",
+        ));
+    };
+    if tool["status"] != "available" {
+        return Ok(unsupported(
+            "The independent WSI reconstruction adapter is unavailable",
+        ));
+    }
+    let executable = tool["executable"]
+        .as_str()
+        .ok_or_else(|| "available WSI reconstruction adapter has no executable".to_string())?;
+    let input = generated_root.join(relative_input);
+    let arguments = string_array(adapter, "arguments")?
+        .into_iter()
+        .map(|argument| argument.replace("{input}", &input.display().to_string()))
+        .collect::<Vec<_>>();
+    let output = run_with_timeout(
+        Path::new(executable),
+        &arguments,
+        Duration::from_secs(adapter["timeout_seconds"].as_u64().unwrap_or(60)),
+    )?;
+    let actual = serde_json::from_slice::<Value>(&output.stdout).unwrap_or(Value::Null);
+    let contract = &file["expected_wsi_tiled_full"];
+    let manifest_eligible = file["case_id"] == WSI_CASE_ID
+        && file.pointer("/dicom/sop_class_uid").and_then(Value::as_str)
+            == Some("1.2.840.10008.5.1.4.1.1.77.1.6")
+        && file
+            .pointer("/dicom/transfer_syntax_uid")
+            .and_then(Value::as_str)
+            == Some("1.2.840.10008.1.2.1")
+        && file["image"] == contract["image"]
+        && file["pixel_data"] == contract["pixel_data"]
+        && contract["pixel_data"]["frame_hashes"].as_array() == Some(&expected);
+    let reconstruction_matches = actual["status"] == "passed"
+        && actual["backend"] == "dts-wsi-reconstruct"
+        && actual["backend_version"] == "0.1.0"
+        && actual["runtime"]
+            == json!({"highdicom": "0.28.1", "numpy": "2.5.2", "pydicom": "3.0.2"})
+        && actual["frame_hashes"] == contract["pixel_data"]["frame_hashes"]
+        && actual["implicit_frame_positions"] == contract["tiling"]["implicit_frame_positions"]
+        && actual["total_pixel_matrix_shape"] == json!([4, 4, 3])
+        && actual["total_pixel_matrix_sha256"] == contract["tiling"]["total_pixel_matrix_sha256"]
+        && actual["transforms_applied"] == false;
+    let passed = tool["lock_status"] == "matched"
+        && manifest_eligible
+        && output.exit_code == Some(0)
+        && !output.timed_out
+        && reconstruction_matches;
+    let sidecar = json!({
+        "adapter_id": WSI_RECONSTRUCTION_ID,
+        "adapter_sha256": tool["sha256"],
+        "independence": "independent",
+        "extraction_method": "uv_locked_highdicom_tiled_full_implicit_total_pixel_matrix",
+        "source_manifest_sha256": manifest_sha256,
+        "source_instance_sha256": file["sha256"],
+        "source_path": relative_input,
+        "expected_contract": contract,
+        "invocation": std::iter::once(executable.to_string()).chain(arguments.iter().cloned()).collect::<Vec<_>>(),
+        "exit_code": output.exit_code,
+        "timed_out": output.timed_out,
+        "backend": actual["backend"],
+        "backend_version": actual["backend_version"],
+        "runtime": actual["runtime"],
+        "frame_hashes": actual["frame_hashes"],
+        "implicit_frame_positions": actual["implicit_frame_positions"],
+        "total_pixel_matrix_shape": actual["total_pixel_matrix_shape"],
+        "total_pixel_matrix_sha256": actual["total_pixel_matrix_sha256"],
+        "transforms_applied": actual["transforms_applied"],
+        "status": if passed { "passed" } else { "failed" }
+    });
+    let relative = format!("pixels/{WSI_RECONSTRUCTION_ID}/{stable_key}.json");
+    let target = evidence_root.join(&relative);
+    if let Some(parent) = target.parent() {
+        fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+    }
+    let encoded = serde_json::to_vec_pretty(&sidecar).map_err(|error| error.to_string())?;
+    fs::write(&target, &encoded).map_err(|error| error.to_string())?;
+    Ok(json!({
+        "status": if passed { "passed" } else { "failed" },
+        "independence": "independent",
+        "expected_frame_hashes": expected,
+        "actual_frame_hashes": actual["frame_hashes"],
+        "reason": if passed {
+            "The uv-locked highdicom adapter independently reconstructed exact implicit positions, stored frames, and total pixel matrix with transforms disabled"
+        } else {
+            "The independent WSI reconstruction or exact manifest-contract comparison failed"
+        },
+        "evidence": {"path": relative, "sha256": sha256_hex(&encoded)}
+    }))
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -4403,6 +4653,129 @@ mod visible_light_tests {
         let _ = fs::remove_file(root.join("pixels/vl.json"));
         let _ = fs::remove_dir(root.join("pixels"));
         let _ = fs::remove_dir(root);
+    }
+}
+
+#[cfg(test)]
+mod wsi_reconstruction_tests {
+    use super::*;
+
+    fn fixture() -> (Value, Value, Value) {
+        let frame_hashes = json!([
+            "fcf067f6323bb42b8292a565a8f826ec5fdb1b142b7a69bf7f7721f0d5d46ef8",
+            "6c8f6d772829d493618e079a099cf4f20d8524ed3656f49db234f5bbf60a4e65",
+            "7263ad3fd60c6620abd423516d748baedf5e393b1fbdaaf780ff5803a443cc4f",
+            "8688d249e9d047b4fc2fb89ce05afe9ec89252ffccdd969de6eef260dd7ffb21"
+        ]);
+        let contract = crate::wsi_tiled_full_locked_contract("2.25.11", "2.25.12");
+        let evidence = json!({
+            "source": {"manifest_sha256": "manifest-hash"},
+            "tools": [{
+                "adapter_id": WSI_RECONSTRUCTION_ID,
+                "status": "available",
+                "lock_status": "matched",
+                "sha256": "adapter-hash"
+            }]
+        });
+        let instance = json!({
+            "path": "vl/wsi/tiled_full_small.dcm",
+            "pixel": {
+                "expected_frame_hashes": frame_hashes,
+                "actual_frame_hashes": frame_hashes,
+                "evidence": {"path": "pixels/wsi.json"}
+            }
+        });
+        let manifest_file = json!({
+            "path": "vl/wsi/tiled_full_small.dcm",
+            "sha256": "instance-hash",
+            "expected_wsi_tiled_full": contract
+        });
+        (evidence, instance, manifest_file)
+    }
+
+    fn sidecar(manifest_file: &Value) -> Value {
+        let contract = &manifest_file["expected_wsi_tiled_full"];
+        json!({
+            "adapter_id": WSI_RECONSTRUCTION_ID,
+            "adapter_sha256": "adapter-hash",
+            "independence": "independent",
+            "extraction_method": "uv_locked_highdicom_tiled_full_implicit_total_pixel_matrix",
+            "status": "passed",
+            "source_manifest_sha256": "manifest-hash",
+            "source_instance_sha256": "instance-hash",
+            "source_path": "vl/wsi/tiled_full_small.dcm",
+            "expected_contract": contract,
+            "runtime": {"highdicom": "0.28.1", "numpy": "2.5.2", "pydicom": "3.0.2"},
+            "frame_hashes": contract["pixel_data"]["frame_hashes"],
+            "implicit_frame_positions": contract["tiling"]["implicit_frame_positions"],
+            "total_pixel_matrix_shape": [4, 4, 3],
+            "total_pixel_matrix_sha256": contract["tiling"]["total_pixel_matrix_sha256"],
+            "transforms_applied": false
+        })
+    }
+
+    #[test]
+    fn wsi_reconstruction_sidecar_is_bound_to_tool_source_and_exact_contract() {
+        let root = std::env::temp_dir().join(format!(
+            "dts-wsi-sidecar-{}-{:?}",
+            std::process::id(),
+            std::thread::current().id()
+        ));
+        fs::create_dir_all(root.join("pixels")).expect("create fixture");
+        let (evidence, instance, manifest_file) = fixture();
+        let valid = sidecar(&manifest_file);
+        fs::write(
+            root.join("pixels/wsi.json"),
+            serde_json::to_vec(&valid).unwrap(),
+        )
+        .unwrap();
+        let mut failures = Vec::new();
+        verify_wsi_reconstruction_evidence(
+            &root,
+            &evidence,
+            &instance,
+            &manifest_file,
+            &mut failures,
+        );
+        assert!(failures.is_empty(), "{failures:?}");
+
+        for (pointer, mutation) in [
+            ("/source_manifest_sha256", json!("other-manifest-hash")),
+            (
+                "/frame_hashes/0",
+                json!("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
+            ),
+            ("/implicit_frame_positions/1/column_position", json!(4)),
+            (
+                "/total_pixel_matrix_sha256",
+                json!("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"),
+            ),
+            ("/transforms_applied", json!(true)),
+        ] {
+            let mut corrupt = valid.clone();
+            *corrupt.pointer_mut(pointer).expect("mutation pointer") = mutation;
+            fs::write(
+                root.join("pixels/wsi.json"),
+                serde_json::to_vec(&corrupt).unwrap(),
+            )
+            .unwrap();
+            let mut failures = Vec::new();
+            verify_wsi_reconstruction_evidence(
+                &root,
+                &evidence,
+                &instance,
+                &manifest_file,
+                &mut failures,
+            );
+            assert_eq!(failures.len(), 1, "mutation {pointer}");
+        }
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn wsi_is_exactly_scoped_into_the_visible_light_iod_route() {
+        assert!(requires_visible_light_validation(WSI_CASE_ID));
+        assert!(!requires_visible_light_validation("vl/wsi/tiled_sparse"));
     }
 }
 

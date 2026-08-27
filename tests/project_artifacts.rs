@@ -4978,6 +4978,7 @@ fn generator_recipe_case_ids() -> BTreeSet<String> {
                 "COLOR_SOFTCOPY_PRESENTATION_STATE_CASE_ID: &str = \"",
                 "ADVANCED_BLENDING_PRESENTATION_STATE_CASE_ID: &str =\n    \"",
                 "BLENDING_PRESENTATION_STATE_CASE_ID: &str = \"",
+                "TWELVE_LEAD_ECG_CASE_ID: &str = \"",
             ][..],
         ),
         ("src/generator/native/ct_geometry.rs", &["case_id: \""][..]),

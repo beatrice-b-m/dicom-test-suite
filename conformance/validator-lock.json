@@ -89,6 +89,24 @@
       "notes": "Independent of the project-owned native RLE encoder."
     },
     {
+      "adapter_id": "littlecms-transicc-icc",
+      "role": "icc_validator",
+      "tool_name": "LittleCMS transicc",
+      "version": "LittleCMS 2.19; transicc calculator 5.1",
+      "source_repository": "https://github.com/mm2/Little-CMS",
+      "source_revision": "lcms2.19",
+      "package_identity": "Homebrew little-cms2 2.19; transicc and the dynamically linked liblcms2.2.dylib are both fingerprinted",
+      "executable_sha256": "44a0fe12b05c82c80ce04001a2a0abea737cf8cd3efc0c4f9fe8aa483913331f",
+      "adapter_sha256": "498f65088efa9f32a013a26232336348a3c195eb9cb8f487411f2fe51e085328",
+      "supporting_artifacts": {
+        "lib/liblcms2.2.dylib": "c74076bc75654249cd88fee91aa4413c9cf00d3708710cf652bef04eec1a9ad1"
+      },
+      "definition_version": "ICC v2 profile parser and RGB-to-XYZ transform implementation in LittleCMS 2.19",
+      "platforms": ["arm64-macos"],
+      "verified_at": "2026-08-27",
+      "notes": "Case-scoped independent ICC validator for vl/photo/rgb_icc_profile_explicit_le. Set DTS_LCMS_HOME to the immutable LittleCMS prefix; the collector separately binds DCMTK extraction, exact DICOM profile bytes, and locked transform vectors."
+    },
+    {
       "adapter_id": "dcmtk-dcm2img-u1",
       "role": "pixel_decoder",
       "tool_name": "DCMTK dcm2img",

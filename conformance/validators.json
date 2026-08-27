@@ -130,6 +130,24 @@
       "capabilities": ["1.2.840.10008.1.2.5", "exact_native_frames", "independent_of_project_rle_encoder"]
     },
     {
+      "id": "littlecms-transicc-icc",
+      "role": "icc_validator",
+      "executable": "transicc",
+      "arguments": ["-n", "-i{profile}", "-o*XYZ", "-t0"],
+      "version_arguments": ["-v"],
+      "timeout_seconds": 60,
+      "required": false,
+      "platforms": ["macos"],
+      "artifacts": [
+        {
+          "root_env": "DTS_LCMS_HOME",
+          "path": "lib/liblcms2.2.dylib"
+        }
+      ],
+      "supported_case_ids": ["vl/photo/rgb_icc_profile_explicit_le"],
+      "capabilities": ["icc_v2_input_profile_parse", "rgb_to_xyz_transform", "independent_color_management_engine"]
+    },
+    {
       "id": "dcmtk-dcm2img-u1",
       "role": "pixel_decoder",
       "executable": "dcm2img",

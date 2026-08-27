@@ -282,6 +282,36 @@ fn icc_source_note_locks_dicom_input_profile_contract() {
             "ICC source note requires {required}"
         );
     }
+
+    let validators = read_json("conformance/validators.json");
+    let adapter = validators["adapters"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|adapter| adapter["id"] == "littlecms-transicc-icc")
+        .expect("LittleCMS ICC validator must be configured");
+    assert_eq!(adapter["role"], "icc_validator");
+    assert_eq!(
+        adapter["supported_case_ids"],
+        serde_json::json!(["vl/photo/rgb_icc_profile_explicit_le"])
+    );
+    assert_eq!(adapter["artifacts"][0]["root_env"], "DTS_LCMS_HOME");
+
+    let lock = read_json("conformance/validator-lock.json");
+    let tool = lock["tools"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|tool| tool["adapter_id"] == "littlecms-transicc-icc")
+        .expect("LittleCMS ICC validator must be locked");
+    assert_eq!(
+        tool["adapter_sha256"],
+        "498f65088efa9f32a013a26232336348a3c195eb9cb8f487411f2fe51e085328"
+    );
+    assert_eq!(
+        tool["supporting_artifacts"]["lib/liblcms2.2.dylib"],
+        "c74076bc75654249cd88fee91aa4413c9cf00d3708710cf652bef04eec1a9ad1"
+    );
 }
 
 #[test]

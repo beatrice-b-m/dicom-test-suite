@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use dicom_core::{Tag, VR, header::Header};
+use dicom_core::{Tag, VR, header::Header, value::DicomValueType};
 use dicom_dictionary_std::{StandardDataDictionary, tags, uids};
 use dicom_object::{FileDicomObject, InMemDicomObject, open_file};
 use serde_json::Value;
@@ -16,6 +16,11 @@ use crate::{
         NativeRleLosslessEncoder, RLE_LOSSLESS_TRANSFER_SYNTAX_UID,
     },
     rt_manifest::{ExpectedRtImage, ExpectedRtPlan},
+    rt_radiation_manifest::{
+        ExpectedRtCode, ExpectedRtRadiation, ExpectedRtRadiationAbsentContent,
+        ExpectedRtRadiationControlPoint, ExpectedRtRadiationInstance, ExpectedRtRadiationSet,
+        ExpectedRtRadiationSetAbsentContent, ExpectedRtTreatmentDevice,
+    },
     sha256_hex,
     waveform_manifest::ExpectedWaveform,
 };
@@ -55,6 +60,10 @@ mod rt_plan_tests;
 #[cfg(test)]
 #[path = "validation_rt_image_tests.rs"]
 mod rt_image_tests;
+
+#[cfg(test)]
+#[path = "validation_rt_radiation_tests.rs"]
+mod rt_radiation_tests;
 
 #[cfg(feature = "deflate")]
 use crate::codecs::DicomRsDeflatedImageFrameEncoder;
@@ -529,6 +538,20 @@ pub(crate) struct RtImageExpectations<'a> {
     pub implementation_class_uid: &'a str,
     pub synthetic_data: &'a str,
     pub expected_rt_image: ExpectedRtImage<'a>,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct RtRadiationExpectations<'a> {
+    pub implementation_class_uid: &'a str,
+    pub synthetic_data: &'a str,
+    pub expected_rt_radiation: ExpectedRtRadiation<'a>,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct RtRadiationSetExpectations<'a> {
+    pub implementation_class_uid: &'a str,
+    pub synthetic_data: &'a str,
+    pub expected_rt_radiation_set: ExpectedRtRadiationSet<'a>,
 }
 
 #[derive(Debug, Clone)]
@@ -8376,6 +8399,1762 @@ pub(crate) fn validate_key_object_selection_file(
             "external": []
         }),
     })
+}
+
+pub(crate) fn validate_rt_radiation_file(
+    path: &Path,
+    expected: &RtRadiationExpectations<'_>,
+) -> Result<ValidatedPart10, GenerateError> {
+    let bytes = fs::read(path).map_err(|source| GenerateError::ReadGeneratedFile {
+        path: path.to_path_buf(),
+        source,
+    })?;
+    let obj = open_file(path).map_err(|err| GenerateError::ValidateDicomFile {
+        path: path.to_path_buf(),
+        message: err.to_string(),
+    })?;
+    let contract = expected.expected_rt_radiation;
+    let mut internal = Vec::new();
+
+    validate_rt_radiation_manifest(&mut internal, contract);
+    validate_rt_part10_identity(
+        path,
+        &obj,
+        &mut internal,
+        contract.sop_class_uid,
+        contract.sop_instance_uid,
+        contract.transfer_syntax_uid,
+        expected.implementation_class_uid,
+        expected.synthetic_data,
+        contract.study_instance_uid,
+        contract.series_instance_uid,
+        contract.frame_of_reference_uid,
+        contract.modality,
+        contract.instance.series_number,
+    )?;
+    validate_rt_instance_context(path, &obj, &mut internal, contract.instance)?;
+
+    for (name, tag, vr, value) in [
+        (
+            "rt_radiation_user_content_label",
+            tags::USER_CONTENT_LABEL,
+            VR::SH,
+            contract.content.user_content_label,
+        ),
+        (
+            "rt_radiation_content_description",
+            tags::CONTENT_DESCRIPTION,
+            VR::LO,
+            contract.content.content_description,
+        ),
+        (
+            "rt_radiation_detail_flag",
+            tags::RT_RADIATION_PHYSICAL_AND_GEOMETRIC_CONTENT_DETAIL_FLAG,
+            VR::CS,
+            contract.content.physical_and_geometric_content_detail_flag,
+        ),
+        (
+            "rt_radiation_record_flag",
+            tags::RT_RECORD_FLAG,
+            VR::CS,
+            contract.content.rt_record_flag,
+        ),
+        (
+            "rt_radiation_equipment_for",
+            tags::EQUIPMENT_FRAME_OF_REFERENCE_UID,
+            VR::UI,
+            contract.equipment_frame_of_reference_uid,
+        ),
+    ] {
+        rt_check_top_str(path, &obj, &mut internal, name, tag, vr, value)?;
+    }
+    rt_check_top_u16(
+        path,
+        &obj,
+        &mut internal,
+        "rt_radiation_control_point_count",
+        tags::NUMBER_OF_RT_CONTROL_POINTS,
+        contract.content.number_of_rt_control_points.into(),
+    )?;
+    rt_check_top_u16(
+        path,
+        &obj,
+        &mut internal,
+        "rt_radiation_patient_support_device_count",
+        tags::NUMBER_OF_PATIENT_SUPPORT_DEVICES,
+        contract.number_of_patient_support_devices.into(),
+    )?;
+    rt_check_top_f64(
+        path,
+        &obj,
+        &mut internal,
+        "rt_radiation_modifier_distance",
+        tags::RT_BEAM_MODIFIER_DEFINITION_DISTANCE,
+        VR::FD,
+        f64::from(contract.rt_beam_modifier_definition_distance_mm),
+    )?;
+    rt_check_top_f64(
+        path,
+        &obj,
+        &mut internal,
+        "rt_radiation_source_axis_distance",
+        tags::RADIATION_SOURCE_AXIS_DISTANCE,
+        VR::FD,
+        f64::from(contract.radiation_source_axis_distance_mm),
+    )?;
+    rt_check_top_empty_sequence(
+        path,
+        &obj,
+        &mut internal,
+        "rt_radiation_equipment_reference_points_empty",
+        tags::EQUIPMENT_REFERENCE_POINT_COORDINATES_SEQUENCE,
+    )?;
+    rt_check_top_empty_sequence(
+        path,
+        &obj,
+        &mut internal,
+        "rt_radiation_author_identification_empty",
+        tags::AUTHOR_IDENTIFICATION_SEQUENCE,
+    )?;
+
+    validate_rt_top_code(
+        path,
+        &obj,
+        &mut internal,
+        "rt_radiation_treatment_technique",
+        tags::RT_TREATMENT_TECHNIQUE_CODE_SEQUENCE,
+        contract.content.treatment_technique,
+    )?;
+    validate_rt_top_code(
+        path,
+        &obj,
+        &mut internal,
+        "rt_radiation_dosimeter_unit",
+        tags::RADIATION_DOSIMETER_UNIT_SEQUENCE,
+        contract.dosimeter_unit,
+    )?;
+    validate_rt_top_code(
+        path,
+        &obj,
+        &mut internal,
+        "rt_radiation_distance_reference",
+        tags::RT_DEVICE_DISTANCE_REFERENCE_LOCATION_CODE_SEQUENCE,
+        contract.distance_reference_location,
+    )?;
+
+    rt_check_top_sequence_count(
+        path,
+        &obj,
+        &mut internal,
+        "rt_radiation_definition_source_count",
+        tags::DEFINITION_SOURCE_SEQUENCE,
+        1,
+    )?;
+    rt_check_top_sequence_count(
+        path,
+        &obj,
+        &mut internal,
+        "rt_radiation_device_count",
+        tags::TREATMENT_DEVICE_IDENTIFICATION_SEQUENCE,
+        1,
+    )?;
+    rt_check_top_sequence_count(
+        path,
+        &obj,
+        &mut internal,
+        "rt_radiation_treatment_position_count",
+        tags::TREATMENT_POSITION_SEQUENCE,
+        contract.treatment_positions.len(),
+    )?;
+    rt_check_top_sequence_count(
+        path,
+        &obj,
+        &mut internal,
+        "rt_radiation_control_point_sequence_count",
+        tags::C_ARM_PHOTON_ELECTRON_CONTROL_POINT_SEQUENCE,
+        contract.control_points.len(),
+    )?;
+    rt_check_top_sequence_count(
+        path,
+        &obj,
+        &mut internal,
+        "rt_radiation_common_reference_count",
+        tags::REFERENCED_SERIES_SEQUENCE,
+        1,
+    )?;
+    fail_if_any_failed(path, &internal)?;
+
+    let definition = top_level_sequence_item(path, &obj, tags::DEFINITION_SOURCE_SEQUENCE, 0)?;
+    validate_rt_sop_reference(
+        path,
+        definition,
+        &mut internal,
+        "rt_radiation_definition_source",
+        contract.definition_source.sop_class_uid,
+        contract.definition_source.sop_instance_uid,
+    )?;
+    rt_check_item_str(
+        path,
+        definition,
+        &mut internal,
+        "rt_radiation_definition_beam",
+        tags::REFERENCED_BEAM_NUMBER,
+        VR::IS,
+        &contract
+            .definition_source
+            .referenced_beam_number
+            .to_string(),
+    )?;
+
+    let device = top_level_sequence_item(
+        path,
+        &obj,
+        tags::TREATMENT_DEVICE_IDENTIFICATION_SEQUENCE,
+        0,
+    )?;
+    validate_rt_treatment_device(path, device, &mut internal, contract.device)?;
+
+    let position = top_level_sequence_item(path, &obj, tags::TREATMENT_POSITION_SEQUENCE, 0)?;
+    let locked_position = contract.treatment_positions[0];
+    rt_check_item_u16(
+        path,
+        position,
+        &mut internal,
+        "rt_radiation_position_index",
+        tags::TREATMENT_POSITION_INDEX,
+        locked_position.treatment_position_index.into(),
+    )?;
+    validate_rt_item_code(
+        path,
+        position,
+        &mut internal,
+        "rt_radiation_patient_orientation",
+        tags::PATIENT_ORIENTATION_CODE_SEQUENCE,
+        locked_position.patient_orientation,
+    )?;
+    validate_rt_item_code(
+        path,
+        position,
+        &mut internal,
+        "rt_radiation_orientation_modifier",
+        tags::PATIENT_ORIENTATION_MODIFIER_CODE_SEQUENCE,
+        locked_position.patient_orientation_modifier,
+    )?;
+    validate_rt_item_code(
+        path,
+        position,
+        &mut internal,
+        "rt_radiation_patient_equipment_relationship",
+        tags::PATIENT_EQUIPMENT_RELATIONSHIP_CODE_SEQUENCE,
+        locked_position.patient_equipment_relationship,
+    )?;
+    rt_check_item_f64_values(
+        path,
+        position,
+        &mut internal,
+        "rt_radiation_mapping_matrix",
+        tags::IMAGE_TO_EQUIPMENT_MAPPING_MATRIX,
+        VR::DS,
+        locked_position
+            .image_to_equipment_mapping_matrix
+            .map(f64::from)
+            .to_vec(),
+    )?;
+    rt_check_item_empty_sequence(
+        path,
+        position,
+        &mut internal,
+        "rt_radiation_patient_location_empty",
+        tags::PATIENT_LOCATION_COORDINATES_SEQUENCE,
+    )?;
+    rt_check_item_empty_sequence(
+        path,
+        position,
+        &mut internal,
+        "rt_radiation_patient_support_position_empty",
+        tags::PATIENT_SUPPORT_POSITION_SEQUENCE,
+    )?;
+
+    let first = top_level_sequence_item(
+        path,
+        &obj,
+        tags::C_ARM_PHOTON_ELECTRON_CONTROL_POINT_SEQUENCE,
+        0,
+    )?;
+    let second = top_level_sequence_item(
+        path,
+        &obj,
+        tags::C_ARM_PHOTON_ELECTRON_CONTROL_POINT_SEQUENCE,
+        1,
+    )?;
+    validate_rt_control_point(path, first, &mut internal, contract.control_points[0], true)?;
+    validate_rt_control_point(
+        path,
+        second,
+        &mut internal,
+        contract.control_points[1],
+        false,
+    )?;
+    validate_rt_common_reference(
+        path,
+        &obj,
+        &mut internal,
+        0,
+        "rt_radiation_common_plan",
+        contract.definition_source.series_instance_uid,
+        contract.definition_source.sop_class_uid,
+        contract.definition_source.sop_instance_uid,
+    )?;
+
+    validate_rt_radiation_absences(path, &obj, &mut internal, contract.absent_content)?;
+    fail_if_any_failed(path, &internal)?;
+    Ok(rt_validated(
+        bytes,
+        internal,
+        "rt_radiation_sop_class",
+        "C-Arm Photon-Electron Radiation modules and references match the locked contract.",
+    ))
+}
+
+pub(crate) fn validate_rt_radiation_set_file(
+    path: &Path,
+    expected: &RtRadiationSetExpectations<'_>,
+) -> Result<ValidatedPart10, GenerateError> {
+    let bytes = fs::read(path).map_err(|source| GenerateError::ReadGeneratedFile {
+        path: path.to_path_buf(),
+        source,
+    })?;
+    let obj = open_file(path).map_err(|err| GenerateError::ValidateDicomFile {
+        path: path.to_path_buf(),
+        message: err.to_string(),
+    })?;
+    let contract = expected.expected_rt_radiation_set;
+    let mut internal = Vec::new();
+    validate_rt_radiation_set_manifest(&mut internal, contract);
+    validate_rt_part10_identity(
+        path,
+        &obj,
+        &mut internal,
+        contract.sop_class_uid,
+        contract.sop_instance_uid,
+        contract.transfer_syntax_uid,
+        expected.implementation_class_uid,
+        expected.synthetic_data,
+        contract.study_instance_uid,
+        contract.series_instance_uid,
+        contract.frame_of_reference_uid,
+        contract.modality,
+        contract.instance.series_number,
+    )?;
+    validate_rt_instance_context(path, &obj, &mut internal, contract.instance)?;
+    for (name, tag, vr, value) in [
+        (
+            "rt_radiation_set_user_content_label",
+            tags::USER_CONTENT_LABEL,
+            VR::SH,
+            contract.content.user_content_label,
+        ),
+        (
+            "rt_radiation_set_content_description",
+            tags::CONTENT_DESCRIPTION,
+            VR::LO,
+            contract.content.content_description,
+        ),
+        (
+            "rt_radiation_set_intent",
+            tags::RT_RADIATION_SET_INTENT,
+            VR::CS,
+            contract.content.intent,
+        ),
+    ] {
+        rt_check_top_str(path, &obj, &mut internal, name, tag, vr, value)?;
+    }
+    rt_check_top_u16(
+        path,
+        &obj,
+        &mut internal,
+        "rt_radiation_set_fraction_count",
+        tags::INTENDED_NUMBER_OF_FRACTIONS,
+        contract.content.intended_number_of_fractions.into(),
+    )?;
+    rt_check_top_empty_sequence(
+        path,
+        &obj,
+        &mut internal,
+        "rt_radiation_set_physician_intent_empty",
+        tags::REFERENCED_RT_PHYSICIAN_INTENT_SEQUENCE,
+    )?;
+    rt_check_top_empty_sequence(
+        path,
+        &obj,
+        &mut internal,
+        "rt_radiation_set_author_identification_empty",
+        tags::AUTHOR_IDENTIFICATION_SEQUENCE,
+    )?;
+    for (name, tag, count) in [
+        (
+            "rt_radiation_set_definition_source_count",
+            tags::DEFINITION_SOURCE_SEQUENCE,
+            1,
+        ),
+        (
+            "rt_radiation_set_direct_radiation_count",
+            tags::RT_RADIATION_SEQUENCE,
+            1,
+        ),
+        (
+            "rt_radiation_set_position_group_count",
+            tags::TREATMENT_POSITION_GROUP_SEQUENCE,
+            1,
+        ),
+        (
+            "rt_radiation_set_common_reference_count",
+            tags::REFERENCED_SERIES_SEQUENCE,
+            2,
+        ),
+    ] {
+        rt_check_top_sequence_count(path, &obj, &mut internal, name, tag, count)?;
+    }
+    fail_if_any_failed(path, &internal)?;
+
+    let plan = contract.definition_source;
+    let radiation = contract.radiation_references[0];
+    let definition = top_level_sequence_item(path, &obj, tags::DEFINITION_SOURCE_SEQUENCE, 0)?;
+    validate_rt_sop_reference(
+        path,
+        definition,
+        &mut internal,
+        "rt_radiation_set_definition_source",
+        plan.sop_class_uid,
+        plan.sop_instance_uid,
+    )?;
+    rt_check_absent_item(
+        path,
+        definition,
+        &mut internal,
+        "rt_radiation_set_definition_beam_absent",
+        tags::REFERENCED_BEAM_NUMBER,
+    )?;
+    let direct = top_level_sequence_item(path, &obj, tags::RT_RADIATION_SEQUENCE, 0)?;
+    validate_rt_sop_reference(
+        path,
+        direct,
+        &mut internal,
+        "rt_radiation_set_direct_radiation",
+        radiation.sop_class_uid,
+        radiation.sop_instance_uid,
+    )?;
+    let group = top_level_sequence_item(path, &obj, tags::TREATMENT_POSITION_GROUP_SEQUENCE, 0)?;
+    rt_check_item_str(
+        path,
+        group,
+        &mut internal,
+        "rt_radiation_set_group_uid",
+        tags::TREATMENT_POSITION_GROUP_UID,
+        VR::UI,
+        contract.treatment_position_groups[0].treatment_position_group_uid,
+    )?;
+    rt_check_item_str(
+        path,
+        group,
+        &mut internal,
+        "rt_radiation_set_group_label",
+        tags::TREATMENT_POSITION_GROUP_LABEL,
+        VR::LO,
+        contract.treatment_position_groups[0].label,
+    )?;
+    rt_check_item_sequence_count(
+        path,
+        group,
+        &mut internal,
+        "rt_radiation_set_group_membership_count",
+        tags::REFERENCED_RT_RADIATION_SEQUENCE,
+        1,
+    )?;
+    fail_if_any_failed(path, &internal)?;
+    let member = item_sequence_item(path, group, tags::REFERENCED_RT_RADIATION_SEQUENCE, 0)?;
+    validate_rt_sop_reference(
+        path,
+        member,
+        &mut internal,
+        "rt_radiation_set_group_radiation",
+        radiation.sop_class_uid,
+        radiation.sop_instance_uid,
+    )?;
+    validate_rt_common_reference(
+        path,
+        &obj,
+        &mut internal,
+        0,
+        "rt_radiation_set_common_plan",
+        plan.series_instance_uid,
+        plan.sop_class_uid,
+        plan.sop_instance_uid,
+    )?;
+    validate_rt_common_reference(
+        path,
+        &obj,
+        &mut internal,
+        1,
+        "rt_radiation_set_common_radiation",
+        radiation.series_instance_uid,
+        radiation.sop_class_uid,
+        radiation.sop_instance_uid,
+    )?;
+    check(
+        &mut internal,
+        direct == member,
+        "rt_radiation_set_once_only_membership",
+        "The direct and group projections identify the same sole Radiation.",
+        "The group projection does not repeat the direct Radiation exactly once.",
+    );
+    validate_rt_radiation_set_absences(path, &obj, &mut internal, contract.absent_content)?;
+    fail_if_any_failed(path, &internal)?;
+    Ok(rt_validated(
+        bytes,
+        internal,
+        "rt_radiation_set_sop_class",
+        "RT Radiation Set modules and graph references match the locked contract.",
+    ))
+}
+
+fn validate_rt_radiation_manifest(results: &mut Vec<Value>, expected: ExpectedRtRadiation<'_>) {
+    let source = expected.definition_source;
+    check(
+        results,
+        expected.iod_kind == "carm_photon_electron_radiation"
+            && expected.sop_class_uid == "1.2.840.10008.5.1.4.1.1.481.13"
+            && expected.iod_name == "C-Arm Photon-Electron Radiation"
+            && expected.modality == "RTRAD"
+            && expected.transfer_syntax_uid == uids::EXPLICIT_VR_LITTLE_ENDIAN
+            && source.relationship == "definition_source"
+            && source.source_case_id == "non-image/rt/plan_linked"
+            && source.source_path == "non-image/rt/plan_linked/instance.dcm"
+            && source.sop_class_uid == "1.2.840.10008.5.1.4.1.1.481.5"
+            && source.study_instance_uid == expected.study_instance_uid
+            && source.frame_of_reference_uid == expected.frame_of_reference_uid
+            && source.referenced_beam_number == 1
+            && source.common_instance_reference_ordinal == 1,
+        "rt_radiation_manifest_identity_contract",
+        "The manifest locks the C-Arm Radiation and Plan graph identity.",
+        "The manifest weakens the C-Arm Radiation or Plan graph identity.",
+    );
+    check(
+        results,
+        expected.treatment_positions.len() == 1
+            && expected.treatment_positions[0].ordinal == 1
+            && expected.control_points.len() == 2
+            && expected.control_points[0].ordinal == 1
+            && expected.control_points[0].geometry.is_some()
+            && expected.control_points[0]
+                .inherits_geometry_from_control_point
+                .is_none()
+            && expected.control_points[1].ordinal == 2
+            && expected.control_points[1].geometry.is_none()
+            && expected.control_points[1].inherits_geometry_from_control_point == Some(1),
+        "rt_radiation_manifest_cardinality_contract",
+        "The manifest locks one position and two inherited control points.",
+        "The manifest treatment-position or control-point topology is invalid.",
+    );
+    let absent = expected.absent_content;
+    check(
+        results,
+        absent.patient_study_module
+            && absent.clinical_trial_modules
+            && absent.referenced_performed_procedure_step_sequences
+            && absent.treatment_session_uid
+            && absent.treatment_machine_special_mode
+            && absent.rt_tolerance_set
+            && absent.treatment_time_limit
+            && absent.device_alternate_identifier_type
+            && absent.device_alternate_identifier_format
+            && absent.unique_device_identifier_sequence
+            && absent.device_manufacture_date
+            && absent.device_expiration_date
+            && absent.device_institution_content
+            && absent.long_device_description
+            && absent.patient_support_devices_sequence
+            && absent.radiation_generation_mode
+            && absent.beam_limiting_device_definition_and_opening
+            && absent.wedge
+            && absent.compensator
+            && absent.block
+            && absent.accessory_holder
+            && absent.general_accessory
+            && absent.bolus
+            && absent.beam_area_limit
+            && absent.recorded_control_point_attributes
+            && absent.image
+            && absent.pixel_data
+            && absent.synchronization,
+        "rt_radiation_manifest_absence_contract",
+        "The manifest records every locked C-Arm Radiation absence.",
+        "The manifest weakens a locked C-Arm Radiation absence.",
+    );
+}
+
+fn validate_rt_radiation_set_manifest(
+    results: &mut Vec<Value>,
+    expected: ExpectedRtRadiationSet<'_>,
+) {
+    let plan = expected.definition_source;
+    let radiation = expected.radiation_references[0];
+    check(
+        results,
+        expected.iod_kind == "rt_radiation_set"
+            && expected.sop_class_uid == "1.2.840.10008.5.1.4.1.1.481.12"
+            && expected.iod_name == "RT Radiation Set"
+            && expected.modality == "RTRAD"
+            && expected.transfer_syntax_uid == uids::EXPLICIT_VR_LITTLE_ENDIAN
+            && plan.relationship == "definition_source"
+            && plan.sop_class_uid == "1.2.840.10008.5.1.4.1.1.481.5"
+            && radiation.relationship == "referenced_rt_radiation"
+            && radiation.sop_class_uid == "1.2.840.10008.5.1.4.1.1.481.13",
+        "rt_radiation_set_manifest_identity_contract",
+        "The manifest locks the Set, Plan, and Radiation identities.",
+        "The manifest weakens the Set, Plan, or Radiation identities.",
+    );
+    let group = expected.treatment_position_groups[0];
+    check(
+        results,
+        expected.radiation_references.len() == 1
+            && expected.treatment_position_groups.len() == 1
+            && group.ordinal == 1
+            && group.radiation_references == expected.radiation_references
+            && expected.common_instance_references.len() == 2
+            && expected.common_instance_references[0].sop_instance_uid == plan.sop_instance_uid
+            && expected.common_instance_references[1].sop_instance_uid
+                == radiation.sop_instance_uid
+            && plan.study_instance_uid == expected.study_instance_uid
+            && radiation.study_instance_uid == expected.study_instance_uid
+            && plan.frame_of_reference_uid == expected.frame_of_reference_uid
+            && radiation.frame_of_reference_uid == expected.frame_of_reference_uid,
+        "rt_radiation_set_manifest_graph_contract",
+        "The manifest repeats one Radiation in each ordered graph projection.",
+        "The manifest graph cardinality, order, or shared identities are invalid.",
+    );
+    let absent = expected.absent_content;
+    check(
+        results,
+        absent.patient_study_module
+            && absent.clinical_trial_modules
+            && absent.referenced_performed_procedure_step_sequences
+            && absent.treatment_session_uid
+            && absent.synchronization
+            && absent.rt_dose_contribution_module
+            && absent.fraction_pattern_sequence
+            && absent.image
+            && absent.pixel_data,
+        "rt_radiation_set_manifest_absence_contract",
+        "The manifest records every locked RT Radiation Set absence.",
+        "The manifest weakens a locked RT Radiation Set absence.",
+    );
+}
+
+#[allow(clippy::too_many_arguments)]
+fn validate_rt_part10_identity(
+    path: &Path,
+    obj: &OpenedObject,
+    results: &mut Vec<Value>,
+    sop_class: &str,
+    sop_instance: &str,
+    transfer_syntax: &str,
+    implementation: &str,
+    synthetic: &str,
+    study: &str,
+    series: &str,
+    frame: &str,
+    modality: &str,
+    series_number: u8,
+) -> Result<(), GenerateError> {
+    check(
+        results,
+        fs::read(path)
+            .map(|bytes| bytes.len() >= 132 && &bytes[128..132] == b"DICM")
+            .unwrap_or(false),
+        "rt_part10_preamble",
+        "The file has the Part 10 marker.",
+        "The file lacks the Part 10 marker.",
+    );
+    for (name, tag, vr, value) in [
+        ("rt_sop_class_uid", tags::SOP_CLASS_UID, VR::UI, sop_class),
+        (
+            "rt_sop_instance_uid",
+            tags::SOP_INSTANCE_UID,
+            VR::UI,
+            sop_instance,
+        ),
+        ("rt_synthetic_data", tags::SYNTHETIC_DATA, VR::CS, synthetic),
+        (
+            "rt_study_instance_uid",
+            tags::STUDY_INSTANCE_UID,
+            VR::UI,
+            study,
+        ),
+        (
+            "rt_series_instance_uid",
+            tags::SERIES_INSTANCE_UID,
+            VR::UI,
+            series,
+        ),
+        (
+            "rt_frame_of_reference_uid",
+            tags::FRAME_OF_REFERENCE_UID,
+            VR::UI,
+            frame,
+        ),
+        ("rt_modality", tags::MODALITY, VR::CS, modality),
+    ] {
+        rt_check_top_str(path, obj, results, name, tag, vr, value)?;
+    }
+    rt_check_top_str(
+        path,
+        obj,
+        results,
+        "rt_series_number",
+        tags::SERIES_NUMBER,
+        VR::IS,
+        &series_number.to_string(),
+    )?;
+    check_equal(
+        results,
+        "rt_media_storage_sop_class_uid",
+        "File Meta SOP Class matches the dataset.",
+        "File Meta SOP Class differs from the dataset.",
+        trim_uid(obj.meta().media_storage_sop_class_uid()),
+        sop_class.to_string(),
+    );
+    check_equal(
+        results,
+        "rt_media_storage_sop_instance_uid",
+        "File Meta SOP Instance matches the dataset.",
+        "File Meta SOP Instance differs from the dataset.",
+        trim_uid(obj.meta().media_storage_sop_instance_uid()),
+        sop_instance.to_string(),
+    );
+    check_equal(
+        results,
+        "rt_transfer_syntax_uid",
+        "Transfer Syntax matches the contract.",
+        "Transfer Syntax differs from the contract.",
+        trim_uid(obj.meta().transfer_syntax()),
+        transfer_syntax.to_string(),
+    );
+    check_equal(
+        results,
+        "rt_implementation_class_uid",
+        "Implementation Class UID matches the generator.",
+        "Implementation Class UID differs from the generator.",
+        trim_uid(obj.meta().implementation_class_uid()),
+        implementation.to_string(),
+    );
+    Ok(())
+}
+
+fn validate_rt_instance_context(
+    path: &Path,
+    obj: &OpenedObject,
+    results: &mut Vec<Value>,
+    expected: ExpectedRtRadiationInstance<'_>,
+) -> Result<(), GenerateError> {
+    for (name, tag, vr, value) in [
+        (
+            "rt_patient_name",
+            tags::PATIENT_NAME,
+            VR::PN,
+            expected.patient_name,
+        ),
+        (
+            "rt_patient_id",
+            tags::PATIENT_ID,
+            VR::LO,
+            expected.patient_id,
+        ),
+        (
+            "rt_patient_birth_date",
+            tags::PATIENT_BIRTH_DATE,
+            VR::DA,
+            expected.patient_birth_date,
+        ),
+        (
+            "rt_patient_sex",
+            tags::PATIENT_SEX,
+            VR::CS,
+            expected.patient_sex,
+        ),
+        ("rt_study_id", tags::STUDY_ID, VR::SH, expected.study_id),
+        (
+            "rt_referring_physician",
+            tags::REFERRING_PHYSICIAN_NAME,
+            VR::PN,
+            expected.referring_physician_name,
+        ),
+        (
+            "rt_accession_number",
+            tags::ACCESSION_NUMBER,
+            VR::SH,
+            expected.accession_number,
+        ),
+        (
+            "rt_position_reference_indicator",
+            tags::POSITION_REFERENCE_INDICATOR,
+            VR::LO,
+            expected.position_reference_indicator,
+        ),
+        (
+            "rt_manufacturer",
+            tags::MANUFACTURER,
+            VR::LO,
+            expected.equipment_manufacturer,
+        ),
+        (
+            "rt_model_name",
+            tags::MANUFACTURER_MODEL_NAME,
+            VR::LO,
+            expected.equipment_model_name,
+        ),
+        (
+            "rt_device_serial",
+            tags::DEVICE_SERIAL_NUMBER,
+            VR::LO,
+            expected.equipment_serial_number,
+        ),
+        (
+            "rt_software_versions",
+            tags::SOFTWARE_VERSIONS,
+            VR::LO,
+            expected.software_versions,
+        ),
+        (
+            "rt_series_date",
+            tags::SERIES_DATE,
+            VR::DA,
+            expected.series_date,
+        ),
+        (
+            "rt_series_time",
+            tags::SERIES_TIME,
+            VR::TM,
+            expected.series_time,
+        ),
+        (
+            "rt_instance_creation_date",
+            tags::INSTANCE_CREATION_DATE,
+            VR::DA,
+            expected.instance_creation_date,
+        ),
+        (
+            "rt_instance_creation_time",
+            tags::INSTANCE_CREATION_TIME,
+            VR::TM,
+            expected.instance_creation_time,
+        ),
+        (
+            "rt_content_date",
+            tags::CONTENT_DATE,
+            VR::DA,
+            expected.content_date,
+        ),
+        (
+            "rt_content_time",
+            tags::CONTENT_TIME,
+            VR::TM,
+            expected.content_time,
+        ),
+    ] {
+        rt_check_top_str(path, obj, results, name, tag, vr, value)?;
+    }
+    Ok(())
+}
+
+fn validate_rt_treatment_device(
+    path: &Path,
+    item: &DatasetObject,
+    results: &mut Vec<Value>,
+    expected: ExpectedRtTreatmentDevice<'_>,
+) -> Result<(), GenerateError> {
+    for (name, tag, vr, value) in [
+        (
+            "rt_radiation_device_manufacturer",
+            tags::MANUFACTURER,
+            VR::LO,
+            expected.manufacturer,
+        ),
+        (
+            "rt_radiation_device_model",
+            tags::MANUFACTURER_MODEL_NAME,
+            VR::LO,
+            expected.model_name,
+        ),
+        (
+            "rt_radiation_device_model_version",
+            tags::MANUFACTURER_MODEL_VERSION,
+            VR::LO,
+            expected.model_version,
+        ),
+        (
+            "rt_radiation_device_label",
+            tags::DEVICE_LABEL,
+            VR::LO,
+            expected.device_label,
+        ),
+        (
+            "rt_radiation_device_serial",
+            tags::DEVICE_SERIAL_NUMBER,
+            VR::LO,
+            expected.serial_number,
+        ),
+        (
+            "rt_radiation_device_software",
+            tags::SOFTWARE_VERSIONS,
+            VR::LO,
+            expected.software_versions,
+        ),
+        (
+            "rt_radiation_manufacturer_identifier",
+            tags::MANUFACTURER_DEVICE_IDENTIFIER,
+            VR::ST,
+            expected.manufacturer_device_identifier,
+        ),
+        (
+            "rt_radiation_manufacturer_class_uid",
+            tags::MANUFACTURER_DEVICE_CLASS_UID,
+            VR::UI,
+            expected.manufacturer_device_class_uid,
+        ),
+        (
+            "rt_radiation_device_alternate_identifier",
+            tags::DEVICE_ALTERNATE_IDENTIFIER,
+            VR::UC,
+            expected.device_alternate_identifier,
+        ),
+    ] {
+        rt_check_item_str(path, item, results, name, tag, vr, value)?;
+    }
+    validate_rt_item_code(
+        path,
+        item,
+        results,
+        "rt_radiation_device_type",
+        tags::DEVICE_TYPE_CODE_SEQUENCE,
+        expected.device_type,
+    )
+}
+
+fn validate_rt_control_point(
+    path: &Path,
+    item: &DatasetObject,
+    results: &mut Vec<Value>,
+    expected: ExpectedRtRadiationControlPoint,
+    first: bool,
+) -> Result<(), GenerateError> {
+    rt_check_item_u16(
+        path,
+        item,
+        results,
+        if first {
+            "rt_radiation_control_point_1_index"
+        } else {
+            "rt_radiation_control_point_2_index"
+        },
+        tags::RT_CONTROL_POINT_INDEX,
+        expected.rt_control_point_index.into(),
+    )?;
+    rt_check_item_f64(
+        path,
+        item,
+        results,
+        if first {
+            "rt_radiation_control_point_1_meterset"
+        } else {
+            "rt_radiation_control_point_2_meterset"
+        },
+        tags::CUMULATIVE_METERSET,
+        VR::FD,
+        f64::from(expected.cumulative_meterset),
+    )?;
+    fail_if_any_failed(path, results)?;
+    if let Some(geometry) = expected.geometry {
+        rt_check_item_u16(
+            path,
+            item,
+            results,
+            "rt_radiation_control_point_1_position",
+            tags::REFERENCED_TREATMENT_POSITION_INDEX,
+            geometry.referenced_treatment_position_index.into(),
+        )?;
+        rt_check_item_empty(
+            path,
+            item,
+            results,
+            "rt_radiation_control_point_1_delivery_rate_empty",
+            tags::DELIVERY_RATE,
+            VR::FD,
+        )?;
+        rt_check_item_f64(
+            path,
+            item,
+            results,
+            "rt_radiation_control_point_1_source_roll",
+            tags::SOURCE_ROLL_ANGLE,
+            VR::FD,
+            f64::from(geometry.source_roll_angle_degrees),
+        )?;
+        rt_check_item_f64(
+            path,
+            item,
+            results,
+            "rt_radiation_control_point_1_bl_angle",
+            tags::RT_BEAM_LIMITING_DEVICE_ANGLE,
+            VR::FD,
+            f64::from(geometry.rt_beam_limiting_device_angle_degrees),
+        )?;
+        rt_check_item_empty(
+            path,
+            item,
+            results,
+            "rt_radiation_control_point_1_surface_distance_empty",
+            tags::SOURCE_TO_PATIENT_SURFACE_DISTANCE,
+            VR::FD,
+        )?;
+        rt_check_item_empty(
+            path,
+            item,
+            results,
+            "rt_radiation_control_point_1_contour_distance_empty",
+            tags::SOURCE_TO_EXTERNAL_CONTOUR_DISTANCE,
+            VR::FL,
+        )?;
+        rt_check_absent_item(
+            path,
+            item,
+            results,
+            "rt_radiation_control_point_1_delivery_unit_absent",
+            tags::DELIVERY_RATE_UNIT_SEQUENCE,
+        )?;
+    } else {
+        for (name, tag) in [
+            (
+                "rt_radiation_control_point_2_position_inherited",
+                tags::REFERENCED_TREATMENT_POSITION_INDEX,
+            ),
+            (
+                "rt_radiation_control_point_2_delivery_rate_inherited",
+                tags::DELIVERY_RATE,
+            ),
+            (
+                "rt_radiation_control_point_2_source_roll_inherited",
+                tags::SOURCE_ROLL_ANGLE,
+            ),
+            (
+                "rt_radiation_control_point_2_bl_angle_inherited",
+                tags::RT_BEAM_LIMITING_DEVICE_ANGLE,
+            ),
+            (
+                "rt_radiation_control_point_2_surface_distance_inherited",
+                tags::SOURCE_TO_PATIENT_SURFACE_DISTANCE,
+            ),
+            (
+                "rt_radiation_control_point_2_contour_distance_inherited",
+                tags::SOURCE_TO_EXTERNAL_CONTOUR_DISTANCE,
+            ),
+        ] {
+            rt_check_absent_item(path, item, results, name, tag)?;
+        }
+    }
+    Ok(())
+}
+
+fn validate_rt_common_reference(
+    path: &Path,
+    obj: &OpenedObject,
+    results: &mut Vec<Value>,
+    index: usize,
+    prefix: &str,
+    series_uid: &str,
+    sop_class: &str,
+    sop_instance: &str,
+) -> Result<(), GenerateError> {
+    let series = top_level_sequence_item(path, obj, tags::REFERENCED_SERIES_SEQUENCE, index)?;
+    rt_check_item_str(
+        path,
+        series,
+        results,
+        &format!("{prefix}_series_uid"),
+        tags::SERIES_INSTANCE_UID,
+        VR::UI,
+        series_uid,
+    )?;
+    rt_check_item_sequence_count(
+        path,
+        series,
+        results,
+        &format!("{prefix}_instance_count"),
+        tags::REFERENCED_INSTANCE_SEQUENCE,
+        1,
+    )?;
+    fail_if_any_failed(path, results)?;
+    let reference = item_sequence_item(path, series, tags::REFERENCED_INSTANCE_SEQUENCE, 0)?;
+    validate_rt_sop_reference(path, reference, results, prefix, sop_class, sop_instance)
+}
+
+fn validate_rt_top_code(
+    path: &Path,
+    obj: &OpenedObject,
+    results: &mut Vec<Value>,
+    prefix: &str,
+    tag: Tag,
+    expected: ExpectedRtCode<'_>,
+) -> Result<(), GenerateError> {
+    rt_check_top_sequence_count(path, obj, results, &format!("{prefix}_count"), tag, 1)?;
+    fail_if_any_failed(path, results)?;
+    validate_rt_code_item(
+        path,
+        top_level_sequence_item(path, obj, tag, 0)?,
+        results,
+        prefix,
+        expected,
+    )
+}
+
+fn validate_rt_item_code(
+    path: &Path,
+    obj: &DatasetObject,
+    results: &mut Vec<Value>,
+    prefix: &str,
+    tag: Tag,
+    expected: ExpectedRtCode<'_>,
+) -> Result<(), GenerateError> {
+    rt_check_item_sequence_count(path, obj, results, &format!("{prefix}_count"), tag, 1)?;
+    fail_if_any_failed(path, results)?;
+    validate_rt_code_item(
+        path,
+        item_sequence_item(path, obj, tag, 0)?,
+        results,
+        prefix,
+        expected,
+    )
+}
+
+fn validate_rt_code_item(
+    path: &Path,
+    item: &DatasetObject,
+    results: &mut Vec<Value>,
+    prefix: &str,
+    expected: ExpectedRtCode<'_>,
+) -> Result<(), GenerateError> {
+    rt_check_item_str(
+        path,
+        item,
+        results,
+        &format!("{prefix}_value"),
+        tags::CODE_VALUE,
+        VR::SH,
+        expected.code_value,
+    )?;
+    rt_check_item_str(
+        path,
+        item,
+        results,
+        &format!("{prefix}_scheme"),
+        tags::CODING_SCHEME_DESIGNATOR,
+        VR::SH,
+        expected.coding_scheme_designator,
+    )?;
+    rt_check_item_str(
+        path,
+        item,
+        results,
+        &format!("{prefix}_meaning"),
+        tags::CODE_MEANING,
+        VR::LO,
+        expected.code_meaning,
+    )
+}
+
+fn validate_rt_sop_reference(
+    path: &Path,
+    item: &DatasetObject,
+    results: &mut Vec<Value>,
+    prefix: &str,
+    sop_class: &str,
+    sop_instance: &str,
+) -> Result<(), GenerateError> {
+    rt_check_item_str(
+        path,
+        item,
+        results,
+        &format!("{prefix}_sop_class_uid"),
+        tags::REFERENCED_SOP_CLASS_UID,
+        VR::UI,
+        sop_class,
+    )?;
+    rt_check_item_str(
+        path,
+        item,
+        results,
+        &format!("{prefix}_sop_instance_uid"),
+        tags::REFERENCED_SOP_INSTANCE_UID,
+        VR::UI,
+        sop_instance,
+    )
+}
+
+fn validate_rt_radiation_absences(
+    path: &Path,
+    obj: &OpenedObject,
+    results: &mut Vec<Value>,
+    _: ExpectedRtRadiationAbsentContent,
+) -> Result<(), GenerateError> {
+    for (name, tag) in [
+        (
+            "rt_radiation_referenced_pps_absent",
+            tags::REFERENCED_PERFORMED_PROCEDURE_STEP_SEQUENCE,
+        ),
+        (
+            "rt_radiation_patient_study_absent",
+            tags::ADDITIONAL_PATIENT_HISTORY,
+        ),
+        (
+            "rt_radiation_clinical_trial_absent",
+            tags::CLINICAL_TRIAL_SPONSOR_NAME,
+        ),
+        (
+            "rt_radiation_treatment_session_uid_absent",
+            tags::TREATMENT_SESSION_UID,
+        ),
+        (
+            "rt_radiation_special_mode_absent",
+            tags::TREATMENT_MACHINE_SPECIAL_MODE_CODE_SEQUENCE,
+        ),
+        (
+            "rt_radiation_tolerance_set_absent",
+            tags::RT_TOLERANCE_SET_SEQUENCE,
+        ),
+        ("rt_radiation_time_limit_absent", tags::TREATMENT_TIME_LIMIT),
+        (
+            "rt_radiation_patient_support_sequence_absent",
+            tags::PATIENT_SUPPORT_DEVICES_SEQUENCE,
+        ),
+        (
+            "rt_radiation_generation_mode_absent",
+            tags::RADIATION_GENERATION_MODE_SEQUENCE,
+        ),
+        (
+            "rt_radiation_bl_definition_absent",
+            tags::RT_BEAM_LIMITING_DEVICE_DEFINITION_SEQUENCE,
+        ),
+        (
+            "rt_radiation_bl_opening_absent",
+            tags::RT_BEAM_LIMITING_DEVICE_OPENING_SEQUENCE,
+        ),
+        ("rt_radiation_wedge_absent", tags::WEDGE_DEFINITION_SEQUENCE),
+        (
+            "rt_radiation_compensator_absent",
+            tags::COMPENSATOR_DEFINITION_SEQUENCE,
+        ),
+        ("rt_radiation_block_absent", tags::BLOCK_DEFINITION_SEQUENCE),
+        (
+            "rt_radiation_accessory_holder_absent",
+            tags::RT_ACCESSORY_HOLDER_DEFINITION_SEQUENCE,
+        ),
+        (
+            "rt_radiation_general_accessory_absent",
+            tags::GENERAL_ACCESSORY_DEFINITION_SEQUENCE,
+        ),
+        ("rt_radiation_bolus_absent", tags::BOLUS_DEFINITION_SEQUENCE),
+        (
+            "rt_radiation_beam_area_limit_absent",
+            tags::BEAM_AREA_LIMIT_SEQUENCE,
+        ),
+        ("rt_radiation_patient_age_absent", tags::PATIENT_AGE),
+        (
+            "rt_radiation_patient_history_absent",
+            tags::ADDITIONAL_PATIENT_HISTORY,
+        ),
+        (
+            "rt_radiation_clinical_trial_subject_absent",
+            tags::CLINICAL_TRIAL_SPONSOR_NAME,
+        ),
+        (
+            "rt_radiation_clinical_trial_series_absent",
+            tags::CLINICAL_TRIAL_SERIES_ID,
+        ),
+        (
+            "rt_radiation_synchronization_for_absent",
+            tags::SYNCHRONIZATION_FRAME_OF_REFERENCE_UID,
+        ),
+        (
+            "rt_radiation_synchronization_trigger_absent",
+            tags::SYNCHRONIZATION_TRIGGER,
+        ),
+        (
+            "rt_radiation_acquisition_sync_absent",
+            tags::ACQUISITION_TIME_SYNCHRONIZED,
+        ),
+        ("rt_radiation_rows_absent", tags::ROWS),
+        ("rt_radiation_columns_absent", tags::COLUMNS),
+        (
+            "rt_radiation_samples_per_pixel_absent",
+            tags::SAMPLES_PER_PIXEL,
+        ),
+        (
+            "rt_radiation_photometric_interpretation_absent",
+            tags::PHOTOMETRIC_INTERPRETATION,
+        ),
+        ("rt_radiation_pixel_data_absent", tags::PIXEL_DATA),
+        ("rt_radiation_rows_absent", tags::ROWS),
+        ("rt_radiation_columns_absent", tags::COLUMNS),
+        (
+            "rt_radiation_synchronization_absent",
+            tags::SYNCHRONIZATION_FRAME_OF_REFERENCE_UID,
+        ),
+    ] {
+        rt_check_absent_top(path, obj, results, name, tag)?;
+    }
+    let device =
+        top_level_sequence_item(path, obj, tags::TREATMENT_DEVICE_IDENTIFICATION_SEQUENCE, 0)?;
+    for (name, tag) in [
+        (
+            "rt_radiation_device_alt_type_absent",
+            tags::DEVICE_ALTERNATE_IDENTIFIER_TYPE,
+        ),
+        (
+            "rt_radiation_device_alt_format_absent",
+            tags::DEVICE_ALTERNATE_IDENTIFIER_FORMAT,
+        ),
+        ("rt_radiation_device_udi_absent", tags::UDI_SEQUENCE),
+        (
+            "rt_radiation_device_manufacture_date_absent",
+            tags::DATE_OF_MANUFACTURE,
+        ),
+        (
+            "rt_radiation_device_expiration_date_absent",
+            tags::EXPIRATION_DATE_TIME,
+        ),
+        (
+            "rt_radiation_device_institution_absent",
+            tags::INSTITUTION_NAME,
+        ),
+        (
+            "rt_radiation_device_long_description_absent",
+            tags::LONG_DEVICE_DESCRIPTION,
+        ),
+    ] {
+        rt_check_absent_item(path, device, results, name, tag)?;
+    }
+    for index in 0..2 {
+        let point = top_level_sequence_item(
+            path,
+            obj,
+            tags::C_ARM_PHOTON_ELECTRON_CONTROL_POINT_SEQUENCE,
+            index,
+        )?;
+        rt_check_absent_item(
+            path,
+            point,
+            results,
+            &format!("rt_radiation_control_point_{}_recorded_absent", index + 1),
+            tags::RECORDED_RT_CONTROL_POINT_DATE_TIME,
+        )?;
+    }
+    Ok(())
+}
+
+fn validate_rt_radiation_set_absences(
+    path: &Path,
+    obj: &OpenedObject,
+    results: &mut Vec<Value>,
+    _: ExpectedRtRadiationSetAbsentContent,
+) -> Result<(), GenerateError> {
+    for (name, tag) in [
+        (
+            "rt_radiation_set_referenced_pps_absent",
+            tags::REFERENCED_PERFORMED_PROCEDURE_STEP_SEQUENCE,
+        ),
+        (
+            "rt_radiation_set_patient_study_absent",
+            tags::ADDITIONAL_PATIENT_HISTORY,
+        ),
+        (
+            "rt_radiation_set_clinical_trial_absent",
+            tags::CLINICAL_TRIAL_SPONSOR_NAME,
+        ),
+        (
+            "rt_radiation_set_treatment_session_uid_absent",
+            tags::TREATMENT_SESSION_UID,
+        ),
+        (
+            "rt_radiation_set_fraction_pattern_absent",
+            tags::FRACTION_PATTERN,
+        ),
+        (
+            "rt_radiation_set_dose_contribution_absent",
+            tags::RADIATION_DOSE_SEQUENCE,
+        ),
+        ("rt_radiation_set_patient_age_absent", tags::PATIENT_AGE),
+        (
+            "rt_radiation_set_patient_history_absent",
+            tags::ADDITIONAL_PATIENT_HISTORY,
+        ),
+        (
+            "rt_radiation_set_clinical_trial_subject_absent",
+            tags::CLINICAL_TRIAL_SPONSOR_NAME,
+        ),
+        (
+            "rt_radiation_set_clinical_trial_series_absent",
+            tags::CLINICAL_TRIAL_SERIES_ID,
+        ),
+        (
+            "rt_radiation_set_synchronization_for_absent",
+            tags::SYNCHRONIZATION_FRAME_OF_REFERENCE_UID,
+        ),
+        (
+            "rt_radiation_set_synchronization_trigger_absent",
+            tags::SYNCHRONIZATION_TRIGGER,
+        ),
+        (
+            "rt_radiation_set_acquisition_sync_absent",
+            tags::ACQUISITION_TIME_SYNCHRONIZED,
+        ),
+        ("rt_radiation_set_rows_absent", tags::ROWS),
+        ("rt_radiation_set_columns_absent", tags::COLUMNS),
+        (
+            "rt_radiation_set_samples_per_pixel_absent",
+            tags::SAMPLES_PER_PIXEL,
+        ),
+        (
+            "rt_radiation_set_photometric_interpretation_absent",
+            tags::PHOTOMETRIC_INTERPRETATION,
+        ),
+        ("rt_radiation_set_pixel_data_absent", tags::PIXEL_DATA),
+        ("rt_radiation_set_rows_absent", tags::ROWS),
+        ("rt_radiation_set_columns_absent", tags::COLUMNS),
+        (
+            "rt_radiation_set_synchronization_absent",
+            tags::SYNCHRONIZATION_FRAME_OF_REFERENCE_UID,
+        ),
+    ] {
+        rt_check_absent_top(path, obj, results, name, tag)?;
+    }
+    Ok(())
+}
+
+fn rt_check_top_str(
+    path: &Path,
+    obj: &OpenedObject,
+    results: &mut Vec<Value>,
+    name: &str,
+    tag: Tag,
+    vr: VR,
+    expected: &str,
+) -> Result<(), GenerateError> {
+    let element = obj
+        .element(tag)
+        .map_err(|err| rt_named_error(path, name, err))?;
+    let actual = element
+        .value()
+        .to_str()
+        .map_err(|err| rt_named_error(path, name, err))?;
+    check(
+        results,
+        element.vr() == vr
+            && element.value().cardinality() == usize::from(!expected.is_empty())
+            && actual.trim_matches('\0').trim() == expected,
+        name,
+        "Attribute VR, VM, and value match the locked contract.",
+        "Attribute VR, VM, or value differs from the locked contract.",
+    );
+    Ok(())
+}
+fn rt_check_item_str(
+    path: &Path,
+    obj: &DatasetObject,
+    results: &mut Vec<Value>,
+    name: &str,
+    tag: Tag,
+    vr: VR,
+    expected: &str,
+) -> Result<(), GenerateError> {
+    let element = obj
+        .element(tag)
+        .map_err(|err| rt_named_error(path, name, err))?;
+    let actual = element
+        .value()
+        .to_str()
+        .map_err(|err| rt_named_error(path, name, err))?;
+    check(
+        results,
+        element.vr() == vr
+            && element.value().cardinality() == usize::from(!expected.is_empty())
+            && actual.trim_matches('\0').trim() == expected,
+        name,
+        "Attribute VR, VM, and value match the locked contract.",
+        "Attribute VR, VM, or value differs from the locked contract.",
+    );
+    Ok(())
+}
+fn rt_check_top_u16(
+    path: &Path,
+    obj: &OpenedObject,
+    results: &mut Vec<Value>,
+    name: &str,
+    tag: Tag,
+    expected: u16,
+) -> Result<(), GenerateError> {
+    let element = obj
+        .element(tag)
+        .map_err(|err| rt_named_error(path, name, err))?;
+    let actual = element
+        .value()
+        .to_int::<u16>()
+        .map_err(|err| rt_named_error(path, name, err))?;
+    check(
+        results,
+        element.vr() == VR::US && element.value().cardinality() == 1 && actual == expected,
+        name,
+        "US attribute has VM 1 and the locked value.",
+        "US attribute VR, VM, or value differs from the contract.",
+    );
+    Ok(())
+}
+fn rt_check_item_u16(
+    path: &Path,
+    obj: &DatasetObject,
+    results: &mut Vec<Value>,
+    name: &str,
+    tag: Tag,
+    expected: u16,
+) -> Result<(), GenerateError> {
+    let element = obj
+        .element(tag)
+        .map_err(|err| rt_named_error(path, name, err))?;
+    let actual = element
+        .value()
+        .to_int::<u16>()
+        .map_err(|err| rt_named_error(path, name, err))?;
+    check(
+        results,
+        element.vr() == VR::US && element.value().cardinality() == 1 && actual == expected,
+        name,
+        "US attribute has VM 1 and the locked value.",
+        "US attribute VR, VM, or value differs from the contract.",
+    );
+    Ok(())
+}
+fn rt_check_top_f64(
+    path: &Path,
+    obj: &OpenedObject,
+    results: &mut Vec<Value>,
+    name: &str,
+    tag: Tag,
+    vr: VR,
+    expected: f64,
+) -> Result<(), GenerateError> {
+    let element = obj
+        .element(tag)
+        .map_err(|err| rt_named_error(path, name, err))?;
+    let actual = element
+        .value()
+        .to_float64()
+        .map_err(|err| rt_named_error(path, name, err))?;
+    check(
+        results,
+        element.vr() == vr && element.value().cardinality() == 1 && actual == expected,
+        name,
+        "Numeric attribute VR, VM, and value match the contract.",
+        "Numeric attribute VR, VM, or value differs from the contract.",
+    );
+    Ok(())
+}
+fn rt_check_item_f64(
+    path: &Path,
+    obj: &DatasetObject,
+    results: &mut Vec<Value>,
+    name: &str,
+    tag: Tag,
+    vr: VR,
+    expected: f64,
+) -> Result<(), GenerateError> {
+    let element = obj
+        .element(tag)
+        .map_err(|err| rt_named_error(path, name, err))?;
+    let actual = element
+        .value()
+        .to_float64()
+        .map_err(|err| rt_named_error(path, name, err))?;
+    check(
+        results,
+        element.vr() == vr && element.value().cardinality() == 1 && actual == expected,
+        name,
+        "Numeric attribute VR, VM, and value match the contract.",
+        "Numeric attribute VR, VM, or value differs from the contract.",
+    );
+    Ok(())
+}
+fn rt_check_item_f64_values(
+    path: &Path,
+    obj: &DatasetObject,
+    results: &mut Vec<Value>,
+    name: &str,
+    tag: Tag,
+    vr: VR,
+    expected: Vec<f64>,
+) -> Result<(), GenerateError> {
+    let element = obj
+        .element(tag)
+        .map_err(|err| rt_named_error(path, name, err))?;
+    let actual = element
+        .value()
+        .to_multi_float64()
+        .map_err(|err| rt_named_error(path, name, err))?;
+    check(
+        results,
+        element.vr() == vr && element.value().cardinality() == expected.len() && actual == expected,
+        name,
+        "Numeric attribute VR, VM, order, and values match the contract.",
+        "Numeric attribute VR, VM, order, or values differ from the contract.",
+    );
+    Ok(())
+}
+fn rt_check_top_sequence_count(
+    path: &Path,
+    obj: &OpenedObject,
+    results: &mut Vec<Value>,
+    name: &str,
+    tag: Tag,
+    expected: usize,
+) -> Result<(), GenerateError> {
+    let element = obj
+        .element(tag)
+        .map_err(|err| rt_named_error(path, name, err))?;
+    let count = element
+        .items()
+        .map(|items| items.len())
+        .unwrap_or(usize::MAX);
+    check(
+        results,
+        element.vr() == VR::SQ && count == expected,
+        name,
+        "Sequence VR and cardinality match the contract.",
+        "Sequence VR or cardinality differs from the contract.",
+    );
+    Ok(())
+}
+fn rt_check_item_sequence_count(
+    path: &Path,
+    obj: &DatasetObject,
+    results: &mut Vec<Value>,
+    name: &str,
+    tag: Tag,
+    expected: usize,
+) -> Result<(), GenerateError> {
+    let element = obj
+        .element(tag)
+        .map_err(|err| rt_named_error(path, name, err))?;
+    let count = element
+        .items()
+        .map(|items| items.len())
+        .unwrap_or(usize::MAX);
+    check(
+        results,
+        element.vr() == VR::SQ && count == expected,
+        name,
+        "Sequence VR and cardinality match the contract.",
+        "Sequence VR or cardinality differs from the contract.",
+    );
+    Ok(())
+}
+fn rt_check_top_empty_sequence(
+    path: &Path,
+    obj: &OpenedObject,
+    results: &mut Vec<Value>,
+    name: &str,
+    tag: Tag,
+) -> Result<(), GenerateError> {
+    rt_check_top_sequence_count(path, obj, results, name, tag, 0)
+}
+fn rt_check_item_empty_sequence(
+    path: &Path,
+    obj: &DatasetObject,
+    results: &mut Vec<Value>,
+    name: &str,
+    tag: Tag,
+) -> Result<(), GenerateError> {
+    rt_check_item_sequence_count(path, obj, results, name, tag, 0)
+}
+fn rt_check_item_empty(
+    path: &Path,
+    obj: &DatasetObject,
+    results: &mut Vec<Value>,
+    name: &str,
+    tag: Tag,
+    vr: VR,
+) -> Result<(), GenerateError> {
+    let element = obj
+        .element(tag)
+        .map_err(|err| rt_named_error(path, name, err))?;
+    check(
+        results,
+        element.vr() == vr && element.value().cardinality() == 0,
+        name,
+        "Type 2 attribute is present empty with the locked VR.",
+        "Type 2 attribute is missing, non-empty, or uses the wrong VR.",
+    );
+    Ok(())
+}
+fn rt_check_absent_top(
+    path: &Path,
+    obj: &OpenedObject,
+    results: &mut Vec<Value>,
+    name: &str,
+    tag: Tag,
+) -> Result<(), GenerateError> {
+    check(
+        results,
+        obj.element_opt(tag)
+            .map_err(|err| rt_named_error(path, name, err))?
+            .is_none(),
+        name,
+        "Locked conditional attribute is absent.",
+        "A locked-absent conditional attribute is present.",
+    );
+    Ok(())
+}
+fn rt_check_absent_item(
+    path: &Path,
+    obj: &DatasetObject,
+    results: &mut Vec<Value>,
+    name: &str,
+    tag: Tag,
+) -> Result<(), GenerateError> {
+    check(
+        results,
+        obj.element_opt(tag)
+            .map_err(|err| rt_named_error(path, name, err))?
+            .is_none(),
+        name,
+        "Locked conditional attribute is absent.",
+        "A locked-absent conditional attribute is present.",
+    );
+    Ok(())
+}
+fn rt_named_error(path: &Path, name: &str, err: impl std::fmt::Display) -> GenerateError {
+    GenerateError::ValidateDicomFile {
+        path: path.to_path_buf(),
+        message: format!("{name}: {err}"),
+    }
+}
+fn rt_validated(
+    bytes: Vec<u8>,
+    internal: Vec<Value>,
+    standard_name: &str,
+    message: &str,
+) -> ValidatedPart10 {
+    ValidatedPart10 {
+        bytes,
+        validation: serde_json::json!({"status":"passed","internal":internal,"standards":[{"name":standard_name,"status":"passed","message":message},{"name":"explicit_vr_little_endian_transfer_syntax","status":"passed","message":"Transfer Syntax UID matches Explicit VR Little Endian in the 2026b reference."},{"name":"synthetic_data_attribute","status":"passed","message":"Synthetic Data (0008,001C) is present with value YES."}],"external":[]}),
+    }
 }
 
 pub(crate) fn validate_rt_image_file(

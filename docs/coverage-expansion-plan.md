@@ -424,18 +424,30 @@ Gate:
 - small WSI remains in `extended`; pyramid and large-slide cases are placed in
   `stress` according to measured output size and runtime.
 
-Milestone 1 is complete. VL Endoscopic and direct-patient VL Microscopic are
-native byte-stable extended-profile slices with exact LUNG/R and EYE/R
-anatomy/laterality contracts, empty Acquisition Context, planar-0 2 by 2 RGB,
-and explicit specimen, optical-path, ICC, frame-count, and frame-of-reference
-absences. Two seed-7 extended roots each contain 109 strictly valid files and
-have byte-identical manifests and instances. Locked `dciodvfy` and the
-authorized `uv`-locked secondary IOD route report zero errors for both exact
-SOP Classes; DCMTK parses both, and independent binary P6 plus native OB
-extraction reconstructs the exact 12-byte RGB payload. Integrated conformance
-accepts no finding, while unrelated whole-corpus failures remain visible. The
-registry now contains 145 implemented and 37 planned cases. Milestone 2,
-small `TILED_FULL` WSI, is next.
+Milestones 1 and 2 are complete. VL Endoscopic and direct-patient VL
+Microscopic are native byte-stable extended-profile slices with exact LUNG/R
+and EYE/R anatomy/laterality contracts, empty Acquisition Context, planar-0 2
+by 2 RGB, and explicit specimen, optical-path, ICC, frame-count, and
+frame-of-reference absences. Two seed-7 extended roots each contain 109
+strictly valid files and have byte-identical manifests and instances. Locked
+`dciodvfy` and the authorized `uv`-locked secondary IOD route report zero
+errors for both exact SOP Classes; DCMTK parses both, and independent binary P6
+plus native OB extraction reconstructs the exact 12-byte RGB payload.
+Integrated conformance accepts no finding, while unrelated whole-corpus
+failures remain visible. The
+single native VL Whole Slide Microscopy Image in milestone 2 adds a byte-stable
+small `TILED_FULL` VOLUME with four 2 by 2 RGB Frames, a 4 by 4 total pixel
+matrix, and locked specimen, optical-path, slide-label, physical-geometry, and
+implicit tile-order contracts. Two seed-7 extended roots each contain 110
+strictly valid files and have byte-identical manifests and WSI instances.
+Locked `dciodvfy` and the authorized `uv`-locked secondary IOD route report
+zero errors for the exact WSI SOP Class, DCMTK parses the instance cleanly,
+and an isolated, non-generation `uv`-locked highdicom/pydicom route
+independently reconstructs all implicit positions and the exact total pixel
+matrix. Integrated case-scoped conformance accepts no finding. The 229
+unrelated whole-corpus conformance failures remain visible and unallowlisted.
+The registry now contains 146 implemented and 36 planned cases. Milestone 3,
+the deliberately incomplete `TILED_SPARSE` counterpart, is next.
 
 ### Phase 5 — Encapsulation, lossy codecs, and video
 

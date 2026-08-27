@@ -965,15 +965,41 @@ fn phase4_single_frame_vl_qualification_is_recorded() {
     let plan = fs::read_to_string("docs/coverage-expansion-plan.md")
         .expect("coverage expansion plan must be readable");
     for required in [
-        "Milestone 1 is complete. VL Endoscopic",
-        "Two seed-7 extended roots each contain 109 strictly valid files",
+        "Milestones 1 and 2 are complete. VL Endoscopic",
+        "Two seed-7 extended roots each contain 109\nstrictly valid files",
         "authorized `uv`-locked secondary IOD route",
-        "registry now contains 145 implemented and 37 planned cases",
-        "Milestone 2,\nsmall `TILED_FULL` WSI, is next",
+        "registry now contains 146 implemented and 36 planned cases",
+        "Milestone 3,\nthe deliberately incomplete `TILED_SPARSE` counterpart, is next",
     ] {
         assert!(
             plan.contains(required),
             "coverage expansion plan requires {required}"
+        );
+    }
+}
+
+#[test]
+fn phase4_tiled_full_wsi_qualification_is_recorded() {
+    let status = fs::read_to_string("docs/phase-4-pathology-status.md")
+        .expect("Phase 4 pathology status must be readable");
+    for required in [
+        "`vl/wsi/tiled_full_small` completes milestone 2",
+        "Two independent seed-7 extended generations each wrote 110 files",
+        "0dc0e975bcacc89a282130e69b2a84620cbe5d5e1eb736d074915781aa6fbe1a",
+        "a04f2f5b8e4f8526d1f2b7594427adeab255701087157d49c3db7a9622872f2b",
+        "530414e9b8b02637566f085c64234f23ec0cfe4e6f1520383d347ec09bb8c200",
+        "zero errors from both locked IOD validators",
+        "clean `dcmdump` parsing",
+        "6b3f67bfc1aae4609ba7ccc399d78119e326556a64613621403b3b7b7a788716",
+        "62d9532d46c3f71b045a1393d95c49c4757ef5e62bb043a61baf4fffed189a2a",
+        "isolated from generation",
+        "229 unrelated visible and\nunallowlisted failures",
+        "146 implemented and 36 planned logical cases",
+        "Phase 4 milestone 3",
+    ] {
+        assert!(
+            status.contains(required),
+            "Phase 4 pathology status requires {required}"
         );
     }
 }
@@ -5637,6 +5663,10 @@ fn generator_recipe_case_ids() -> BTreeSet<String> {
         (
             "src/generator/native/us_multiframe.rs",
             &["case_id: \""][..],
+        ),
+        (
+            "src/generator/native/wsi_tiled_full.rs",
+            &["WSI_TILED_FULL_CASE_ID: &str = \""][..],
         ),
         ("src/generator/native/xa.rs", &["case_id: \""][..]),
         ("src/generator/native/xrf.rs", &["case_id: \""][..]),

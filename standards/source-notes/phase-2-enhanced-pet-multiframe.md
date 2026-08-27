@@ -22,11 +22,15 @@ The whole 16-byte Pixel Data SHA-256 is
 `3a43b45e2f6d4d04fe4fc357dfc0efaa21caa5415ffc5db96fc19428d34a7bb5`.
 
 Image Type and PET Frame Type are
-`DERIVED\\PRIMARY\\STATIC\\EMISSION`. Selecting `DERIVED` deliberately keeps
+`DERIVED\\PRIMARY\\STATIC\\MULTIPLICATION`. Selecting `DERIVED` deliberately keeps
 the acquisition start and termination conditions, detector geometry, energy
 window, PET acquisition, detector-motion, position, correction-factor,
-reconstruction, and table-dynamics functional groups outside this slice. The
-optional Derivation Image Sequence is explicitly present with zero Items, as
+reconstruction, and table-dynamics functional groups outside this slice.
+`MULTIPLICATION` is the locked derived-pixel-contrast term because the fixture
+maps each stored value by the deterministic factor `2.5`; `EMISSION` is
+reserved for Counts Source and is not valid as the fourth enhanced Image/Frame
+Type value. The optional Derivation Image Sequence is explicitly present with
+zero Items, as
 permitted when the macro is included, because this synthetic quantitative
 fixture has no source SOP Instance. It therefore makes no unresolved
 cross-profile reference claim.
@@ -40,8 +44,12 @@ General Equipment carries deterministic nonempty manufacturer, model, serial,
 and software values. Frame of Reference is present.
 
 The mandatory Enhanced PET Acquisition attributes declare Table Motion
-`STATIC` and Time of Flight Information Used `FALSE`; no scanner motion or TOF
-processing is claimed. The mandatory Enhanced PET Corrections module declares
+`STATIC` and Time of Flight Information Used `FALSE`. Its mandatory View and
+Slice Progression Direction macro contains one top-level View Code Sequence
+Item `(24422004, SCT, "Axial")` from CID 26. View Modifier Code Sequence and
+Slice Progression Direction are absent because a plain axial, non-cardiac view
+triggers neither conditional. No scanner motion or TOF processing is claimed.
+The mandatory Enhanced PET Corrections module declares
 Counts Source `EMISSION` and sets Decay, Attenuation, Scatter, Dead Time,
 Gantry Motion, Patient Motion, Count Loss Normalization, Randoms, Non-uniform
 Radial Sampling, Sensitivity Calibration, and Detector Normalization
@@ -52,7 +60,8 @@ The mandatory Radiopharmaceutical Information Sequence has one synthetic
 Item. Radiopharmaceutical Agent Number is `1`; Radionuclide is
 `(77004003, SCT, "^18^Fluorine")`; Administration Route is
 `(47625008, SCT, "Intravenous route")`; start DateTime is
-`20260101000000`; Total Dose is synthetic `0` MBq; Half Life is `6586.2`
+`20260101000000`; Total Dose is present with a zero-length DS value because an
+actual administration is unknown; Half Life is `6586.2`
 seconds; Positron Fraction is `0.967`; and Radiopharmaceutical is
 `(35321007, SCT, "Fluorodeoxyglucose F^18^")`. These values exercise the
 mandatory Enhanced PET isotope structure and are not a real administration
@@ -123,6 +132,12 @@ Frame Content is never shared.
 - PS3.3 Tables C.8.22-1, C.8.22-2, C.8.22-3, C.8.22-9, and C.8.22-19 define
   the Enhanced PET series, acquisition, image, isotope, and corrections
   attributes used here.
+- PS3.3 Table 10-24 and Section 10.20.1.1 define the mandatory view macro and
+  make Slice Progression Direction conditional only for the listed cardiac
+  views. PS3.16 CID 26 supplies `(24422004, SCT, "Axial")`.
+- PS3.3 Sections C.8.16.1.3 and C.8.16.1.4 define `STATIC` as Image Flavor and
+  `MULTIPLICATION` as Derived Pixel Contrast for Image/Frame Type values 3 and
+  4 respectively.
 - PS3.3 Tables C.7.6.16-1 through C.7.6.16-12b,
   C.7.6.16.2-20, and C.8.22-10 define the selected multi-frame, spatial,
   quantitative, isotope-usage, and PET Frame Type macros. Table C.7.6.16-7

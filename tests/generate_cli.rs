@@ -1885,9 +1885,11 @@ fn generate_command_writes_deterministic_nonsquare_spatial_variants() {
                     .and_then(Value::as_str),
                 Some("0.6\\0.3")
             );
-            assert!(entry
-                .pointer("/expected_nonsquare_spacing/pixel_aspect_ratio")
-                .is_some_and(Value::is_null));
+            assert!(
+                entry
+                    .pointer("/expected_nonsquare_spacing/pixel_aspect_ratio")
+                    .is_some_and(Value::is_null)
+            );
             assert_eq!(
                 object
                     .element(tags::PIXEL_SPACING)
@@ -1918,21 +1920,29 @@ fn generate_command_writes_deterministic_nonsquare_spatial_variants() {
                 ),
                 "DS"
             );
-            assert!(object
-                .element_opt(tags::PIXEL_ASPECT_RATIO)
-                .unwrap()
-                .is_none());
-            assert!(object
-                .element_opt(tags::IMAGER_PIXEL_SPACING)
-                .unwrap()
-                .is_none());
+            assert!(
+                object
+                    .element_opt(tags::PIXEL_ASPECT_RATIO)
+                    .unwrap()
+                    .is_none()
+            );
+            assert!(
+                object
+                    .element_opt(tags::IMAGER_PIXEL_SPACING)
+                    .unwrap()
+                    .is_none()
+            );
         } else {
-            assert!(entry
-                .pointer("/expected_nonsquare_spacing/pixel_spacing")
-                .is_some_and(Value::is_null));
-            assert!(entry
-                .pointer("/expected_nonsquare_spacing/nominal_scanned_pixel_spacing")
-                .is_some_and(Value::is_null));
+            assert!(
+                entry
+                    .pointer("/expected_nonsquare_spacing/pixel_spacing")
+                    .is_some_and(Value::is_null)
+            );
+            assert!(
+                entry
+                    .pointer("/expected_nonsquare_spacing/nominal_scanned_pixel_spacing")
+                    .is_some_and(Value::is_null)
+            );
             assert_eq!(
                 entry
                     .pointer("/expected_nonsquare_spacing/pixel_aspect_ratio/lexical_value")
@@ -2057,8 +2067,7 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
             files
                 .iter()
                 .filter(|file| {
-                    file["case_id"].as_str()
-                        == Some("derived/sr/tid1500_ct_measurement_report")
+                    file["case_id"].as_str() == Some("derived/sr/tid1500_ct_measurement_report")
                 })
                 .count()
         })
@@ -2087,10 +2096,7 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
         }
     }
     if tid1500_generated == 0 {
-        let unavailable = skipped_case_by_id(
-            &manifest,
-            "derived/sr/tid1500_ct_measurement_report",
-        );
+        let unavailable = skipped_case_by_id(&manifest, "derived/sr/tid1500_ct_measurement_report");
         assert_eq!(
             unavailable.get("reason_code").and_then(Value::as_str),
             Some("external_backend_unavailable")
@@ -6160,7 +6166,8 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
         .expect("manifest should contain skipped cases");
     assert_eq!(
         skipped_cases.len(),
-        41 - parametric_maps_generated - tid1500_generated
+        41 - parametric_maps_generated
+            - tid1500_generated
             - if cfg!(feature = "deflate") { 2 } else { 0 }
             - if cfg!(feature = "jpeg") { 1 } else { 0 }
             - if cfg!(feature = "charls") { 1 } else { 0 }
@@ -7816,8 +7823,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
             files
                 .iter()
                 .filter(|file| {
-                    file["case_id"].as_str()
-                        == Some("derived/sr/tid1500_ct_measurement_report")
+                    file["case_id"].as_str() == Some("derived/sr/tid1500_ct_measurement_report")
                 })
                 .count()
         })
@@ -7991,7 +7997,8 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
         .expect("manifest should contain skipped cases");
     assert_eq!(
         skipped_cases.len(),
-        41 - parametric_maps_generated - tid1500_generated
+        41 - parametric_maps_generated
+            - tid1500_generated
             - if cfg!(feature = "deflate") { 2 } else { 0 }
             - if cfg!(feature = "jpeg") { 1 } else { 0 }
             - if cfg!(feature = "charls") { 1 } else { 0 }
@@ -8022,10 +8029,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
         }
     }
     if tid1500_generated == 0 {
-        let unavailable = skipped_case_by_id(
-            &manifest,
-            "derived/sr/tid1500_ct_measurement_report",
-        );
+        let unavailable = skipped_case_by_id(&manifest, "derived/sr/tid1500_ct_measurement_report");
         assert_eq!(
             unavailable.get("reason_code").and_then(Value::as_str),
             Some("external_backend_unavailable")

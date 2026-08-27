@@ -95,7 +95,8 @@ fn assert_generated_float64_contract(root: &Path, file: &Value) {
         Some("float64")
     );
     assert_eq!(
-        file.pointer("/image/bits_allocated").and_then(Value::as_u64),
+        file.pointer("/image/bits_allocated")
+            .and_then(Value::as_u64),
         Some(64)
     );
     assert_eq!(
@@ -103,7 +104,8 @@ fn assert_generated_float64_contract(root: &Path, file: &Value) {
         Some("OD")
     );
     assert_eq!(
-        file.pointer("/pixel_data/value_length").and_then(Value::as_u64),
+        file.pointer("/pixel_data/value_length")
+            .and_then(Value::as_u64),
         Some(96)
     );
 
@@ -132,9 +134,7 @@ fn assert_generated_float64_contract(root: &Path, file: &Value) {
     );
     assert_eq!(
         bits,
-        nested_u64_frames(
-            &file["recipe"]["recipe_parameters"]["little_endian_float64_bits"]
-        )
+        nested_u64_frames(&file["recipe"]["recipe_parameters"]["little_endian_float64_bits"])
     );
     let hashes = bytes
         .chunks_exact(32)

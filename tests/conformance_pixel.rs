@@ -538,8 +538,8 @@ impl NonsquareFixture {
         let evidence = root.join("evidence");
         fs::create_dir_all(&generated).unwrap();
         let pixels = [
-            0_u8, 255, 0, 255, 0, 255, 255, 0, 255, 0, 255, 0, 0, 255, 0, 255, 0, 255, 255, 0,
-            255, 0, 255, 0,
+            0_u8, 255, 0, 255, 0, 255, 255, 0, 255, 0, 255, 0, 0, 255, 0, 255, 0, 255, 255, 0, 255,
+            0, 255, 0,
         ];
         let pixel_hash = dicom_test_suite::sha256_hex(&pixels);
         let spacing_contract = json!({

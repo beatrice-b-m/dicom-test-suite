@@ -2,8 +2,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use serde_json::json;
 use serde_json::Value;
+use serde_json::json;
 
 #[test]
 fn report_command_writes_json_coverage_for_core_root() {
@@ -43,8 +43,8 @@ fn report_command_writes_json_coverage_for_core_root() {
         "metadata coverage report must match its schema: {report_errors:?}"
     );
     let mut partial_xa_report = report.clone();
-    coverage_row_mut(&mut partial_xa_report, "classic/xa/monoplane_explicit_le")
-        ["xa_frame_count"] = Value::Null;
+    coverage_row_mut(&mut partial_xa_report, "classic/xa/monoplane_explicit_le")["xa_frame_count"] =
+        Value::Null;
     assert!(
         !report_validator.is_valid(&partial_xa_report),
         "coverage schema must reject a partial non-null XA contract"
@@ -125,10 +125,12 @@ fn report_command_writes_json_coverage_for_core_root() {
             .and_then(Value::as_u64),
         Some(5)
     );
-    assert!(empty_type2_row
-        .get("metadata_empty_type2_attributes")
-        .and_then(Value::as_str)
-        .is_some_and(|value| value.contains("0010,0010 PatientName PN VL=0")));
+    assert!(
+        empty_type2_row
+            .get("metadata_empty_type2_attributes")
+            .and_then(Value::as_str)
+            .is_some_and(|value| value.contains("0010,0010 PatientName PN VL=0"))
+    );
     let native_row = coverage_row(&report, "metadata/sc/utf8_person_name");
     assert_eq!(
         native_row
@@ -2118,10 +2120,7 @@ fn report_command_writes_rwvm_content_coverage_for_extended_root() {
             .expect("generated float64 Parametric Map coverage row");
         assert_eq!(float64_row["bits_allocated"], 64);
         assert_eq!(float64_row["pixel_data_vr"], "OD");
-        assert_eq!(
-            float64_row["generation_backend_id"],
-            "highdicom_pydicom"
-        );
+        assert_eq!(float64_row["generation_backend_id"], "highdicom_pydicom");
         assert_eq!(
             report
                 .pointer("/grouped_coverage/bits_allocated/64")
@@ -2226,17 +2225,11 @@ fn report_command_writes_rwvm_content_coverage_for_extended_root() {
     assert!(markdown.contains("### RWVM Intercepts"));
     assert!(markdown.contains("| -1024.0 | 1 |"));
     assert!(markdown.contains("### RWVM Slopes"));
-    assert!(markdown.contains(&format!(
-        "| 1.0 | {} |",
-        1 + parametric_maps_generated
-    )));
+    assert!(markdown.contains(&format!("| 1.0 | {} |", 1 + parametric_maps_generated)));
     assert!(markdown.contains("### RWVM Units Code Values"));
     assert!(markdown.contains("| HU | 1 |"));
     assert!(markdown.contains("### RWVM Units Coding Scheme Designators"));
-    assert!(markdown.contains(&format!(
-        "| UCUM | {} |",
-        1 + parametric_maps_generated
-    )));
+    assert!(markdown.contains(&format!("| UCUM | {} |", 1 + parametric_maps_generated)));
     assert!(markdown.contains("### RWVM Units Code Meanings"));
     assert!(markdown.contains("| Hounsfield unit | 1 |"));
     assert!(markdown.contains("### RWVM Referenced Frame Numbers"));
@@ -2304,9 +2297,11 @@ fn report_command_writes_structured_report_content_coverage_for_extended_root() 
             .and_then(Value::as_str),
         Some("Synthetic Basic Text SR observation for Enhanced CT source images.")
     );
-    assert!(basic_text_row
-        .get("sr_measurement_numeric_value")
-        .is_some_and(Value::is_null));
+    assert!(
+        basic_text_row
+            .get("sr_measurement_numeric_value")
+            .is_some_and(Value::is_null)
+    );
 
     let comprehensive_row =
         coverage_row(&report, "derived/sr/comprehensive_measurement_explicit_le");
@@ -2322,9 +2317,11 @@ fn report_command_writes_structured_report_content_coverage_for_extended_root() 
             .and_then(Value::as_str),
         Some("12.5")
     );
-    assert!(comprehensive_row
-        .get("sr_observation_text")
-        .is_some_and(Value::is_null));
+    assert!(
+        comprehensive_row
+            .get("sr_observation_text")
+            .is_some_and(Value::is_null)
+    );
 
     let kos_row = coverage_row(&report, "derived/sr/key_object_selection_explicit_le");
     assert_eq!(
@@ -2445,8 +2442,10 @@ fn report_command_writes_structured_report_content_coverage_for_extended_root() 
     assert!(markdown.contains("| 2 | 2 |"));
     assert!(markdown.contains("| 8 | 1 |"));
     assert!(markdown.contains("### SR Observation Texts"));
-    assert!(markdown
-        .contains("| Synthetic Basic Text SR observation for Enhanced CT source images. | 1 |"));
+    assert!(
+        markdown
+            .contains("| Synthetic Basic Text SR observation for Enhanced CT source images. | 1 |")
+    );
     assert!(markdown.contains("### SR Measurement Numeric Values"));
     assert!(markdown.contains("| 12.5 | 1 |"));
     assert!(markdown.contains("| 5.625 | 1 |"));

@@ -22,16 +22,14 @@ fn sr_adapter_runs_only_for_supported_sop_classes_and_hashes_its_classpath() {
             .success()
     );
     let manifest_path = generated.join("manifest.json");
-    let mut manifest: Value =
-        serde_json::from_slice(&fs::read(&manifest_path).unwrap()).unwrap();
+    let mut manifest: Value = serde_json::from_slice(&fs::read(&manifest_path).unwrap()).unwrap();
     let comprehensive_sr = manifest["files"]
         .as_array_mut()
         .unwrap()
         .iter_mut()
         .find(|file| file["case_id"] == "derived/sr/comprehensive_measurement_explicit_le")
         .unwrap();
-    comprehensive_sr["dicom"]["sop_class_uid"] =
-        json!("1.2.840.10008.5.1.4.1.1.88.34");
+    comprehensive_sr["dicom"]["sop_class_uid"] = json!("1.2.840.10008.5.1.4.1.1.88.34");
     fs::write(
         &manifest_path,
         serde_json::to_vec_pretty(&manifest).unwrap(),

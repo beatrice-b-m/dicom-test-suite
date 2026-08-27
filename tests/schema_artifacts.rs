@@ -1756,22 +1756,51 @@ fn manifest_schema_locks_float64_parametric_map_pixel_contract() {
     let rule = file_rules
         .iter()
         .find(|rule| {
-            rule.pointer("/if/properties/case_id/const").and_then(Value::as_str)
+            rule.pointer("/if/properties/case_id/const")
+                .and_then(Value::as_str)
                 == Some("derived/parametric-map/float64_ct_derived_explicit_le")
         })
         .expect("float64 Parametric Map must have a case-specific manifest contract");
 
     for (pointer, expected) in [
-        ("/then/properties/image/properties/sample_type/const", serde_json::json!("float64")),
-        ("/then/properties/image/properties/rows/const", serde_json::json!(2)),
-        ("/then/properties/image/properties/columns/const", serde_json::json!(2)),
-        ("/then/properties/image/properties/frames/const", serde_json::json!(3)),
-        ("/then/properties/image/properties/bits_allocated/const", serde_json::json!(64)),
-        ("/then/properties/pixel_data/properties/vr/const", serde_json::json!("OD")),
-        ("/then/properties/pixel_data/properties/value_length/const", serde_json::json!(96)),
-        ("/then/properties/pixel_data/properties/frame_count/const", serde_json::json!(3)),
+        (
+            "/then/properties/image/properties/sample_type/const",
+            serde_json::json!("float64"),
+        ),
+        (
+            "/then/properties/image/properties/rows/const",
+            serde_json::json!(2),
+        ),
+        (
+            "/then/properties/image/properties/columns/const",
+            serde_json::json!(2),
+        ),
+        (
+            "/then/properties/image/properties/frames/const",
+            serde_json::json!(3),
+        ),
+        (
+            "/then/properties/image/properties/bits_allocated/const",
+            serde_json::json!(64),
+        ),
+        (
+            "/then/properties/pixel_data/properties/vr/const",
+            serde_json::json!("OD"),
+        ),
+        (
+            "/then/properties/pixel_data/properties/value_length/const",
+            serde_json::json!(96),
+        ),
+        (
+            "/then/properties/pixel_data/properties/frame_count/const",
+            serde_json::json!(3),
+        ),
     ] {
-        assert_eq!(rule.pointer(pointer), Some(&expected), "unexpected contract at {pointer}");
+        assert_eq!(
+            rule.pointer(pointer),
+            Some(&expected),
+            "unexpected contract at {pointer}"
+        );
     }
 
     let image_rules = schema
@@ -1821,8 +1850,8 @@ fn manifest_schema_types_tid1500_expectations() {
     assert!(!validator.is_valid(&wrong_measurement));
 
     let mut segment_frames = expectation.clone();
-    segment_frames["measurement_group"]["referenced_segment"]
-        ["referenced_frame_numbers"] = serde_json::json!([1, 2]);
+    segment_frames["measurement_group"]["referenced_segment"]["referenced_frame_numbers"] =
+        serde_json::json!([1, 2]);
     assert!(
         !validator.is_valid(&segment_frames),
         "the all-frames segment reference must omit Referenced Frame Number"
@@ -2010,13 +2039,12 @@ fn manifest_schema_types_comprehensive3d_scoord3d_expectations() {
     assert!(!validator.is_valid(&wrong_group_template));
 
     let mut wrong_distance = expectation.clone();
-    wrong_distance["measurement_group"]["measurement"]["numeric_value"] =
-        serde_json::json!("2.4");
+    wrong_distance["measurement_group"]["measurement"]["numeric_value"] = serde_json::json!("2.4");
     assert!(!validator.is_valid(&wrong_distance));
 
     let mut wrong_coordinate = expectation.clone();
-    wrong_coordinate["measurement_group"]["measurement"]["spatial_coordinates"]
-        ["graphic_data_mm"][5] = serde_json::json!(2.4);
+    wrong_coordinate["measurement_group"]["measurement"]["spatial_coordinates"]["graphic_data_mm"]
+        [5] = serde_json::json!(2.4);
     assert!(!validator.is_valid(&wrong_coordinate));
 
     let mut missing_fiducial = expectation.clone();

@@ -383,7 +383,9 @@ fn verify_completeness(evidence_root: &Path, evidence: &Value, failures: &mut Ve
                         && result["adapter_id"] == PIXELMED_SR_VALIDATOR_ID
                 });
             if sr.is_none_or(|result| result["status"] != "completed") {
-                failures.push(format!("required PixelMed SR validation incomplete: {path}"));
+                failures.push(format!(
+                    "required PixelMed SR validation incomplete: {path}"
+                ));
             }
         } else if require_sr
             && is_supported_sr_sop_class(instance["sop_class_uid"].as_str().unwrap_or(""))
@@ -752,32 +754,48 @@ fn verify_nonsquare_spacing_evidence(
     failures: &mut Vec<String>,
 ) {
     let path = instance["path"].as_str().unwrap_or("unknown");
-    let Some(relative) = instance.pointer("/pixel/evidence/path").and_then(Value::as_str) else {
-        failures.push(format!("non-square spacing evidence sidecar is missing: {path}"));
+    let Some(relative) = instance
+        .pointer("/pixel/evidence/path")
+        .and_then(Value::as_str)
+    else {
+        failures.push(format!(
+            "non-square spacing evidence sidecar is missing: {path}"
+        ));
         return;
     };
     if validate_relative_path(relative).is_err() {
-        failures.push(format!("non-square spacing evidence sidecar path is unsafe: {path}"));
+        failures.push(format!(
+            "non-square spacing evidence sidecar path is unsafe: {path}"
+        ));
         return;
     }
     let Ok(bytes) = fs::read(evidence_root.join(relative)) else {
-        failures.push(format!("non-square spacing evidence sidecar is unavailable: {path}"));
+        failures.push(format!(
+            "non-square spacing evidence sidecar is unavailable: {path}"
+        ));
         return;
     };
     let Ok(sidecar) = serde_json::from_slice::<Value>(&bytes) else {
-        failures.push(format!("non-square spacing evidence sidecar is invalid JSON: {path}"));
+        failures.push(format!(
+            "non-square spacing evidence sidecar is invalid JSON: {path}"
+        ));
         return;
     };
     let adapter_id = "pydicom-dicom-validator-u32";
-    let tool = evidence["tools"].as_array().into_iter().flatten()
+    let tool = evidence["tools"]
+        .as_array()
+        .into_iter()
+        .flatten()
         .find(|tool| tool["adapter_id"] == adapter_id);
     let actual = &sidecar["actual"];
     let contract = &manifest_file["expected_nonsquare_spacing"];
     let linked = sidecar["adapter_id"] == adapter_id
         && sidecar["adapter_sha256"].as_str() == tool.and_then(|tool| tool["sha256"].as_str())
-        && tool.is_some_and(|tool| tool["status"] == "available" && tool["lock_status"] == "matched")
+        && tool
+            .is_some_and(|tool| tool["status"] == "available" && tool["lock_status"] == "matched")
         && sidecar["independence"] == "independent"
-        && sidecar["extraction_method"] == "uv_locked_pydicom_nonsquare_spatial_semantic_extraction"
+        && sidecar["extraction_method"]
+            == "uv_locked_pydicom_nonsquare_spatial_semantic_extraction"
         && sidecar["status"] == "passed"
         && sidecar["expected_contract"] == *contract
         && sidecar["expected_frame_hashes"] == instance["pixel"]["expected_frame_hashes"]
@@ -785,8 +803,14 @@ fn verify_nonsquare_spacing_evidence(
         && actual["frame_hashes"] == instance["pixel"]["actual_frame_hashes"]
         && actual["variant_id"] == contract["variant_id"]
         && spatial_element_matches(&actual["pixel_spacing"], &contract["pixel_spacing"])
-        && spatial_element_matches(&actual["nominal_scanned_pixel_spacing"], &contract["nominal_scanned_pixel_spacing"])
-        && spatial_element_matches(&actual["pixel_aspect_ratio"], &contract["pixel_aspect_ratio"])
+        && spatial_element_matches(
+            &actual["nominal_scanned_pixel_spacing"],
+            &contract["nominal_scanned_pixel_spacing"],
+        )
+        && spatial_element_matches(
+            &actual["pixel_aspect_ratio"],
+            &contract["pixel_aspect_ratio"],
+        )
         && actual["uncalibrated"] == contract["uncalibrated"]
         && actual["patient_space_geometry_present"] == contract["patient_space_geometry_present"]
         && actual["pixel_data_sha256"] == contract["pixel_data_sha256"]
@@ -798,7 +822,8 @@ fn verify_nonsquare_spacing_evidence(
         && actual["bits_stored"] == manifest_file["image"]["bits_stored"]
         && actual["high_bit"] == manifest_file["image"]["high_bit"]
         && actual["pixel_representation"] == manifest_file["image"]["pixel_representation"]
-        && actual["photometric_interpretation"] == manifest_file["image"]["photometric_interpretation"]
+        && actual["photometric_interpretation"]
+            == manifest_file["image"]["photometric_interpretation"]
         && actual["pixel_data_vr"] == manifest_file["pixel_data"]["vr"]
         && actual["transfer_syntax_uid"] == manifest_file["dicom"]["transfer_syntax_uid"];
     if !linked {
@@ -807,9 +832,13 @@ fn verify_nonsquare_spacing_evidence(
 }
 
 fn spatial_element_matches(actual: &Value, expected: &Value) -> bool {
-    if expected.is_null() { return actual.is_null(); }
-    actual["tag"] == expected["tag"] && actual["vr"] == expected["vr"]
-        && actual["vm"] == expected["vm"] && actual["lexical_value"] == expected["lexical_value"]
+    if expected.is_null() {
+        return actual.is_null();
+    }
+    actual["tag"] == expected["tag"]
+        && actual["vr"] == expected["vr"]
+        && actual["vm"] == expected["vm"]
+        && actual["lexical_value"] == expected["lexical_value"]
 }
 
 fn verify_u1_pixel_evidence(
@@ -2289,10 +2318,7 @@ fn collect_floating_pixel_result(
     }))
 }
 
-fn parse_dcmdump_floating_values(
-    stdout: &[u8],
-    spec: FloatingExtractionSpec,
-) -> Option<Vec<u8>> {
+fn parse_dcmdump_floating_values(stdout: &[u8], spec: FloatingExtractionSpec) -> Option<Vec<u8>> {
     let dump = String::from_utf8_lossy(stdout);
     let parenthesized_tag = format!("({})", spec.tag);
     let line = dump

@@ -165,7 +165,9 @@ fn validate_input(input: &Tid1500GenerationInput) -> Result<(), BackendContractE
         ));
     }
     if ct.series_instance_uid.is_none() || seg.series_instance_uid.is_none() {
-        return Err(invalid("TID 1500 sources must declare Series Instance UIDs"));
+        return Err(invalid(
+            "TID 1500 sources must declare Series Instance UIDs",
+        ));
     }
     Ok(())
 }
@@ -272,7 +274,9 @@ fn verify_response(
             != Some(&json!(MEASUREMENT_VALUE))
         || output.pointer("/payload_expectations/pixel_data") != Some(&json!("absent"))
     {
-        return Err(invalid("TID 1500 backend response semantics differ from request"));
+        return Err(invalid(
+            "TID 1500 backend response semantics differ from request",
+        ));
     }
     let references = output["references"]
         .as_array()
@@ -283,7 +287,9 @@ fn verify_response(
         || references[1]["sop_instance_uid"] != input.sources[1].sop_instance_uid
         || !references[1]["frame_numbers"].is_null()
     {
-        return Err(invalid("TID 1500 backend response references differ from inputs"));
+        return Err(invalid(
+            "TID 1500 backend response references differ from inputs",
+        ));
     }
     Ok(())
 }
@@ -304,7 +310,11 @@ fn verify_staged_object(
             .as_deref()
             .map(str::trim)
             != Some(SOP_CLASS_UID)
-        || object.element_opt(tags::PIXEL_DATA).ok().flatten().is_some()
+        || object
+            .element_opt(tags::PIXEL_DATA)
+            .ok()
+            .flatten()
+            .is_some()
         || object
             .element_opt(tags::FLOAT_PIXEL_DATA)
             .ok()
@@ -316,7 +326,9 @@ fn verify_staged_object(
             .flatten()
             .is_some()
     {
-        return Err(invalid("staged TID 1500 Part 10 identity or payload is invalid"));
+        return Err(invalid(
+            "staged TID 1500 Part 10 identity or payload is invalid",
+        ));
     }
     Ok(())
 }

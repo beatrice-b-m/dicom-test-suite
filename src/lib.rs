@@ -853,14 +853,7 @@ fn validate_manifest_file(
         expected_sop_instance,
     );
     validate_standard_baseline_elements(failures, relative_path, manifest_path, file, &obj)?;
-    validate_family_standard_elements(
-        failures,
-        relative_path,
-        &path,
-        manifest_path,
-        file,
-        &obj,
-    )?;
+    validate_family_standard_elements(failures, relative_path, &path, manifest_path, file, &obj)?;
     metadata::validate_manifest_metadata(
         relative_path,
         &bytes,
@@ -2489,11 +2482,10 @@ fn validate_floating_manifest_image_pixel_data(
             return Ok(());
         }
     };
-    let frame_length =
-        usize::from(rows)
-            * usize::from(columns)
-            * usize::from(samples_per_pixel)
-            * spec.bytes_per_sample;
+    let frame_length = usize::from(rows)
+        * usize::from(columns)
+        * usize::from(samples_per_pixel)
+        * spec.bytes_per_sample;
     let expected_value_length = frame_length * usize::from(frames);
     validate_equal(
         failures,
@@ -4769,13 +4761,9 @@ fn validate_family_standard_elements(
                 obj,
             )?
         }
-        "Comprehensive 3D SR" => validate_tid1500_standard_elements(
-            failures,
-            relative_path,
-            path,
-            manifest_path,
-            file,
-        )?,
+        "Comprehensive 3D SR" => {
+            validate_tid1500_standard_elements(failures, relative_path, path, manifest_path, file)?
+        }
         "RT Structure Set" => validate_rt_structure_set_standard_elements(
             failures,
             relative_path,
@@ -10599,13 +10587,13 @@ fn validate_tid1500_standard_elements(
             path: manifest_path.to_path_buf(),
             message: "Comprehensive 3D SR must declare expected_tid1500",
         })?;
-    let references = file
-        .get("references")
-        .and_then(Value::as_array)
-        .ok_or(ValidateError::ManifestShape {
-            path: manifest_path.to_path_buf(),
-            message: "TID 1500 references must be an array",
-        })?;
+    let references =
+        file.get("references")
+            .and_then(Value::as_array)
+            .ok_or(ValidateError::ManifestShape {
+                path: manifest_path.to_path_buf(),
+                message: "TID 1500 references must be an array",
+            })?;
     if references.len() != 2 {
         return Err(ValidateError::ManifestShape {
             path: manifest_path.to_path_buf(),

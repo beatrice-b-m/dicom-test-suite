@@ -417,7 +417,10 @@ fn float64_parametric_map_note_locks_od_and_binary64_contract() {
         "nine Parametric Map functional-group macro gaps",
         "TID 1500 Measurement Report",
     ] {
-        assert!(status.contains(required), "Phase 3 status requires {required}");
+        assert!(
+            status.contains(required),
+            "Phase 3 status requires {required}"
+        );
     }
 }
 
@@ -436,7 +439,10 @@ fn phase3_status_records_tid1500_vertical_gate() {
         "no findings",
         "derived/sr/comprehensive3d_scoord3d",
     ] {
-        assert!(status.contains(required), "Phase 3 status requires {required}");
+        assert!(
+            status.contains(required),
+            "Phase 3 status requires {required}"
+        );
     }
 }
 
@@ -478,10 +484,8 @@ fn integer_parametric_map_retains_explicit_provider_blocker() {
 
 #[test]
 fn tid1500_source_note_locks_template_measurement_and_validator_gate() {
-    let source = fs::read_to_string(
-        "standards/source-notes/phase-3-tid1500-measurement-report.md",
-    )
-    .expect("TID 1500 source note must be readable");
+    let source = fs::read_to_string("standards/source-notes/phase-3-tid1500-measurement-report.md")
+        .expect("TID 1500 source note must be readable");
     for required in [
         "derived/sr/tid1500_ct_measurement_report",
         "derived/seg/binary_multiframe_explicit_le",
@@ -497,7 +501,10 @@ fn tid1500_source_note_locks_template_measurement_and_validator_gate() {
         "DicomSRValidator -checktemplateid",
         "Should become KB patch: yes",
     ] {
-        assert!(source.contains(required), "TID 1500 note requires {required}");
+        assert!(
+            source.contains(required),
+            "TID 1500 note requires {required}"
+        );
     }
 
     let lock = read_json("standards.lock.json");
@@ -505,8 +512,7 @@ fn tid1500_source_note_locks_template_measurement_and_validator_gate() {
         lock["source_artifacts"]
             .as_array()
             .is_some_and(|artifacts| artifacts.iter().any(|artifact| {
-                artifact["part"] == "PS3.16"
-                    && artifact["status"] == "unavailable_not_downloaded"
+                artifact["part"] == "PS3.16" && artifact["status"] == "unavailable_not_downloaded"
             })),
         "standards lock must explicitly account for the reviewed PS3.16 source"
     );
@@ -514,10 +520,8 @@ fn tid1500_source_note_locks_template_measurement_and_validator_gate() {
 
 #[test]
 fn comprehensive3d_scoord3d_source_note_locks_geometry_and_validator_gate() {
-    let source = fs::read_to_string(
-        "standards/source-notes/phase-3-comprehensive3d-scoord3d.md",
-    )
-    .expect("Comprehensive 3D SCOORD3D source note must be readable");
+    let source = fs::read_to_string("standards/source-notes/phase-3-comprehensive3d-scoord3d.md")
+        .expect("Comprehensive 3D SCOORD3D source note must be readable");
     for required in [
         "derived/sr/comprehensive3d_scoord3d",
         "Identifier `1500`",
@@ -532,7 +536,10 @@ fn comprehensive3d_scoord3d_source_note_locks_geometry_and_validator_gate() {
         "No new allowlist entry",
         "Should become KB patch: yes",
     ] {
-        assert!(source.contains(required), "SCOORD3D note requires {required}");
+        assert!(
+            source.contains(required),
+            "SCOORD3D note requires {required}"
+        );
     }
 
     let registry = read_json("cases/registry.json");
@@ -551,12 +558,13 @@ fn comprehensive3d_scoord3d_source_note_locks_geometry_and_validator_gate() {
             "recheck_phase": "phase-3"
         }])
     );
-    assert!(case["standards_evidence"]
-        .as_array()
-        .is_some_and(|evidence| evidence.iter().any(|entry| {
-            entry["part"] == "PS3.16"
-                && entry["anchor"] == "TID_1500_TID_1501_TID_300"
-        })));
+    assert!(
+        case["standards_evidence"]
+            .as_array()
+            .is_some_and(|evidence| evidence.iter().any(|entry| {
+                entry["part"] == "PS3.16" && entry["anchor"] == "TID_1500_TID_1501_TID_300"
+            }))
+    );
 }
 
 #[test]

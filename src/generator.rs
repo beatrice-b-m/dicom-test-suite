@@ -63,10 +63,10 @@ use crate::{
     encapsulation::{BasicOffsetTablePolicy, EncapsulatedPixelData},
     generation_backends::{
         ControlledMetadata, FLOAT32_SPEC, FLOAT64_SPEC, ParametricMapGenerationInput,
-        ParametricMapIdentities, ParametricMapPayload, ParametricMapSampleKind, ParametricMapSource,
-        ParametricMapSpec, ParametricMapVariantGenerated, ParametricMapVariantOutcome,
-        StandardsProvenance, Tid1500Generated, Tid1500GenerationInput, Tid1500Identities,
-        Tid1500Outcome, generate_parametric_map_for_spec, generate_tid1500,
+        ParametricMapIdentities, ParametricMapPayload, ParametricMapSampleKind,
+        ParametricMapSource, ParametricMapSpec, ParametricMapVariantGenerated,
+        ParametricMapVariantOutcome, StandardsProvenance, Tid1500Generated, Tid1500GenerationInput,
+        Tid1500Identities, Tid1500Outcome, generate_parametric_map_for_spec, generate_tid1500,
     },
     sha256_hex,
     validation::{
@@ -78,8 +78,7 @@ use crate::{
         PixelDataLengthFormula, PresentationStateExpectations, RealWorldValueMappingExpectations,
         RtDoseExpectations, RtStructureSetExpectations, SegmentationExpectations,
         Tid1500Expectations, UsImageExpectations, UsMultiframeExpectations, XaImageExpectations,
-        XrfImageExpectations,
-        validate_basic_text_sr_file, validate_comprehensive_sr_file,
+        XrfImageExpectations, validate_basic_text_sr_file, validate_comprehensive_sr_file,
         validate_encapsulated_pdf_file, validate_key_object_selection_file, validate_part10_file,
         validate_presentation_state_file, validate_real_world_value_mapping_file,
         validate_rt_dose_file, validate_rt_structure_set_file, validate_tid1500_file,
@@ -169,8 +168,7 @@ const TID1500_RECIPE_ID: &str = "derived_sr_tid1500_ct_measurement_report";
 const TID1500_RECIPE_VERSION: &str = "0.1.0";
 const TID1500_OUTPUT_FILE: &str = "measurement-report.dcm";
 const TID1500_SOP_CLASS_UID: &str = "1.2.840.10008.5.1.4.1.1.88.34";
-const TID1500_CT_SOURCE_CASE_ID: &str =
-    "enhanced/ct/multiframe_shared_perframe_explicit_le";
+const TID1500_CT_SOURCE_CASE_ID: &str = "enhanced/ct/multiframe_shared_perframe_explicit_le";
 const TID1500_SEG_SOURCE_CASE_ID: &str = "derived/seg/binary_multiframe_explicit_le";
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct TransferSyntaxSpec {
@@ -3816,13 +3814,7 @@ pub(crate) fn write_supported_cases(
                     path: PathBuf::from(TID1500_CASE_ID),
                     message: "TID 1500 SEG source must be generated before the report",
                 })?;
-            match write_tid1500_case(
-                run,
-                case,
-                &ct_source,
-                &seg_source,
-                standards_lock_sha256,
-            )? {
+            match write_tid1500_case(run, case, &ct_source, &seg_source, standards_lock_sha256)? {
                 Tid1500CaseOutcome::Generated(file) => context.record_one(file)?,
                 Tid1500CaseOutcome::Unavailable(row) => context.unavailable_cases.push(row),
             }
@@ -4396,9 +4388,11 @@ fn write_parametric_map_case(
                 "standards_evidence": standards_evidence_from_case(case)
             })))
         }
-        ParametricMapVariantOutcome::Generated(generated) => Ok(ParametricMapCaseOutcome::Generated(
-            parametric_map_generated_file(case, sources, generated)?,
-        )),
+        ParametricMapVariantOutcome::Generated(generated) => {
+            Ok(ParametricMapCaseOutcome::Generated(
+                parametric_map_generated_file(case, sources, generated)?,
+            ))
+        }
     }
 }
 
@@ -4473,12 +4467,13 @@ fn parametric_map_generated_file(
             PARAMETRIC_MAP_FLOAT64_SPATIAL_RANK_INCREMENT,
         ),
     };
-    let pixel_data = object.element(pixel_tag).map_err(|error| {
-        GenerateError::ValidateDicomFile {
-            path: generated.output_path.clone(),
-            message: format!("read promoted {pixel_label}: {error}"),
-        }
-    })?;
+    let pixel_data =
+        object
+            .element(pixel_tag)
+            .map_err(|error| GenerateError::ValidateDicomFile {
+                path: generated.output_path.clone(),
+                message: format!("read promoted {pixel_label}: {error}"),
+            })?;
     if pixel_data.vr() != expected_vr {
         return Err(GenerateError::ValidateDicomFile {
             path: generated.output_path.clone(),
@@ -4488,12 +4483,14 @@ fn parametric_map_generated_file(
             ),
         });
     }
-    let actual_bytes = pixel_data.value().to_bytes().map_err(|error| {
-        GenerateError::ValidateDicomFile {
-            path: generated.output_path.clone(),
-            message: format!("decode promoted {pixel_label}: {error}"),
-        }
-    })?;
+    let actual_bytes =
+        pixel_data
+            .value()
+            .to_bytes()
+            .map_err(|error| GenerateError::ValidateDicomFile {
+                path: generated.output_path.clone(),
+                message: format!("decode promoted {pixel_label}: {error}"),
+            })?;
     if actual_bytes.as_ref() != expected_bytes {
         return Err(GenerateError::ValidateDicomFile {
             path: generated.output_path.clone(),
@@ -4520,7 +4517,9 @@ fn parametric_map_generated_file(
         if object.element_opt(tag).ok().flatten().is_some() {
             return Err(GenerateError::ValidateDicomFile {
                 path: generated.output_path.clone(),
-                message: format!("promoted {sample_type} Parametric Map contains unexpected {label}"),
+                message: format!(
+                    "promoted {sample_type} Parametric Map contains unexpected {label}"
+                ),
             });
         }
     }
@@ -4694,27 +4693,30 @@ fn write_tid1500_case(
     seg_source: &GeneratedSourceObject,
     standards_lock_sha256: &str,
 ) -> Result<Tid1500CaseOutcome, GenerateError> {
-    let ct_series_instance_uid = ct_source
-        .series_instance_uid
-        .as_deref()
-        .ok_or(GenerateError::MetadataShape {
-            path: PathBuf::from(TID1500_CASE_ID),
-            message: "TID 1500 Enhanced CT source must record a Series Instance UID",
-        })?;
-    let seg_series_instance_uid = seg_source
-        .series_instance_uid
-        .as_deref()
-        .ok_or(GenerateError::MetadataShape {
-            path: PathBuf::from(TID1500_CASE_ID),
-            message: "TID 1500 SEG source must record a Series Instance UID",
-        })?;
-    let frame_of_reference_uid = ct_source
-        .frame_of_reference_uid
-        .as_deref()
-        .ok_or(GenerateError::MetadataShape {
-            path: PathBuf::from(TID1500_CASE_ID),
-            message: "TID 1500 Enhanced CT source must record a Frame of Reference UID",
-        })?;
+    let ct_series_instance_uid =
+        ct_source
+            .series_instance_uid
+            .as_deref()
+            .ok_or(GenerateError::MetadataShape {
+                path: PathBuf::from(TID1500_CASE_ID),
+                message: "TID 1500 Enhanced CT source must record a Series Instance UID",
+            })?;
+    let seg_series_instance_uid =
+        seg_source
+            .series_instance_uid
+            .as_deref()
+            .ok_or(GenerateError::MetadataShape {
+                path: PathBuf::from(TID1500_CASE_ID),
+                message: "TID 1500 SEG source must record a Series Instance UID",
+            })?;
+    let frame_of_reference_uid =
+        ct_source
+            .frame_of_reference_uid
+            .as_deref()
+            .ok_or(GenerateError::MetadataShape {
+                path: PathBuf::from(TID1500_CASE_ID),
+                message: "TID 1500 Enhanced CT source must record a Frame of Reference UID",
+            })?;
     if ct_source.study_instance_uid != seg_source.study_instance_uid
         || seg_source.frame_of_reference_uid.as_deref() != Some(frame_of_reference_uid)
         || ct_source.frame_count != Some(2)
@@ -4851,13 +4853,16 @@ fn tid1500_generated_file(
     seg_source: &GeneratedSourceObject,
     generated: Tid1500Generated,
 ) -> Result<GeneratedFile, GenerateError> {
-    let object = open_file(&generated.output_path).map_err(|error| {
-        GenerateError::ValidateDicomFile {
+    let object =
+        open_file(&generated.output_path).map_err(|error| GenerateError::ValidateDicomFile {
             path: generated.output_path.clone(),
             message: format!("reopen promoted TID 1500 report: {error}"),
-        }
-    })?;
-    if object.element_opt(tags::PIXEL_DATA).ok().flatten().is_some()
+        })?;
+    if object
+        .element_opt(tags::PIXEL_DATA)
+        .ok()
+        .flatten()
+        .is_some()
         || object
             .element_opt(tags::FLOAT_PIXEL_DATA)
             .ok()
@@ -4882,18 +4887,22 @@ fn tid1500_generated_file(
         .unwrap_or_else(|| "UNKNOWN".to_string());
     let response_backend = &generated.response["backend"];
     let warnings = generated.response["warnings"].clone();
-    let ct_series = ct_source.series_instance_uid.as_deref().ok_or(
-        GenerateError::MetadataShape {
-            path: generated.output_path.clone(),
-            message: "TID 1500 CT source series UID is missing",
-        },
-    )?;
-    let seg_series = seg_source.series_instance_uid.as_deref().ok_or(
-        GenerateError::MetadataShape {
-            path: generated.output_path.clone(),
-            message: "TID 1500 SEG source series UID is missing",
-        },
-    )?;
+    let ct_series =
+        ct_source
+            .series_instance_uid
+            .as_deref()
+            .ok_or(GenerateError::MetadataShape {
+                path: generated.output_path.clone(),
+                message: "TID 1500 CT source series UID is missing",
+            })?;
+    let seg_series =
+        seg_source
+            .series_instance_uid
+            .as_deref()
+            .ok_or(GenerateError::MetadataShape {
+                path: generated.output_path.clone(),
+                message: "TID 1500 SEG source series UID is missing",
+            })?;
     let source_frame_numbers = [1, 2];
     let validated = validate_tid1500_file(
         &generated.output_path,

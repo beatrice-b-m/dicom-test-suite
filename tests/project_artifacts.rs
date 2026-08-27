@@ -218,8 +218,8 @@ fn u1_source_note_locks_cross_frame_bit_packing() {
     for required in [
         "classic/sc/mono2_u1_native",
         "Multi-frame Single Bit Secondary Capture",
-        "middle of a byte",
-        "`aa aa 5e 07`",
+        "18 samples",
+        "`55 55 01 00`",
         "least significant bit",
         "without per-frame padding",
         "1.2.840.10008.5.1.4.1.1.7.1",

@@ -12,24 +12,24 @@ Standards baseline: 2026b, `standards.lock.json`
 
 ## Required Decision
 
-Generate one three-frame, 3 by 3 Multi-frame Single Bit Secondary Capture
-instance. Each frame contains nine samples, so frames two and three begin in
-the middle of a byte. Concatenate all 27 samples before final Value Field
-padding, pack the first sample into the least significant bit, and emit the
-four-byte payload `aa aa 5e 07`. The unused high five bits of the last byte are
-zero. The decoded frame patterns are:
+Generate one two-frame, 3 by 3 Multi-frame Single Bit Secondary Capture
+instance. Each frame contains nine samples, so frame two begins in the middle
+of a byte. Concatenate all 18 samples before final Value Field padding and pack
+the first sample into the least significant bit. The three significant payload
+bytes are `55 55 01`; six unused high bits in the last significant byte are
+zero, and a final zero byte pads the complete Value Field to even length. The
+decoded frame patterns are:
 
 ```text
-frame 1: 0 1 0 / 1 0 1 / 0 1 0
-frame 2: 1 0 1 / 0 1 0 / 1 0 1
-frame 3: 1 1 1 / 0 1 0 / 1 1 1
+frame 1: 1 0 1 / 0 1 0 / 1 0 1
+frame 2: 0 1 0 / 1 0 1 / 0 1 0
 ```
 
 Set Samples per Pixel, Bits Allocated, and Bits Stored to one; High Bit and
 Pixel Representation to zero; Photometric Interpretation to MONOCHROME2; and
 omit Planar Configuration. Use Explicit VR Little Endian native Pixel Data
-with OB VR. Number of Frames is three. Frame Increment Pointer references a
-three-value Page Number Vector so the required multi-frame increment is
+with OB VR. Number of Frames is two. Frame Increment Pointer references a
+two-value Page Number Vector so the required multi-frame increment is
 explicit without selecting the conditional Cine Module.
 
 ## KB Query
@@ -65,7 +65,8 @@ explicit without selecting the conditional Cine Module.
   Pointer and permit Page Number Vector as the referenced frame increment.
 - PS3.5 Section 8.1.1 requires native one-bit multi-frame samples to continue
   across frame boundaries without per-frame padding. Only the complete Pixel
-  Data Value Field receives even-length padding.
+  Data Value Field receives even-length padding; this recipe exercises both
+  rules in the same four-byte Value Field `55 55 01 00`.
 - PS3.5 Section D.1 describes the packed stream from the least significant bit
   of the first Pixel Cell upward. Section A.2 permits OB or OW for native Pixel
   Data when Bits Allocated is at most eight; this recipe selects OB.
@@ -83,4 +84,3 @@ explicit without selecting the conditional Cine Module.
 - Should become KB patch: no; the current query surface covers the required
   IOD, module, content-constraint, and packing decisions.
 - Expected cleanup after KB coverage exists: none.
-

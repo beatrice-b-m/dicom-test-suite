@@ -951,6 +951,13 @@ fn validate_manifest_image_pixel_data(
             file,
             obj,
         ),
+        "float64" => validate_float64_manifest_image_pixel_data(
+            failures,
+            relative_path,
+            manifest_path,
+            file,
+            obj,
+        ),
         _ => {
             failures.push(format!(
                 "{relative_path}: image_sample_type: unsupported sample type"
@@ -2200,6 +2207,71 @@ fn validate_float32_manifest_image_pixel_data(
     file: &Value,
     obj: &OpenedObject,
 ) -> Result<(), ValidateError> {
+    validate_floating_manifest_image_pixel_data(
+        failures,
+        relative_path,
+        manifest_path,
+        file,
+        obj,
+        FloatingPixelValidationSpec {
+            sample_type: "float32",
+            bits_allocated: 32,
+            bytes_per_sample: 4,
+            pixel_tag: tags::FLOAT_PIXEL_DATA,
+            pixel_vr: VR::OF,
+            pixel_check: "float_pixel_data",
+            sibling_tag: tags::DOUBLE_FLOAT_PIXEL_DATA,
+            sibling_absent_check: "double_float_pixel_data_absent",
+        },
+    )
+}
+
+fn validate_float64_manifest_image_pixel_data(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    manifest_path: &Path,
+    file: &Value,
+    obj: &OpenedObject,
+) -> Result<(), ValidateError> {
+    validate_floating_manifest_image_pixel_data(
+        failures,
+        relative_path,
+        manifest_path,
+        file,
+        obj,
+        FloatingPixelValidationSpec {
+            sample_type: "float64",
+            bits_allocated: 64,
+            bytes_per_sample: 8,
+            pixel_tag: tags::DOUBLE_FLOAT_PIXEL_DATA,
+            pixel_vr: VR::OD,
+            pixel_check: "double_float_pixel_data",
+            sibling_tag: tags::FLOAT_PIXEL_DATA,
+            sibling_absent_check: "float_pixel_data_absent",
+        },
+    )
+}
+
+#[derive(Clone, Copy)]
+struct FloatingPixelValidationSpec {
+    sample_type: &'static str,
+    bits_allocated: u16,
+    bytes_per_sample: usize,
+    pixel_tag: dicom_core::Tag,
+    pixel_vr: VR,
+    pixel_check: &'static str,
+    sibling_tag: dicom_core::Tag,
+    sibling_absent_check: &'static str,
+}
+
+fn validate_floating_manifest_image_pixel_data(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    manifest_path: &Path,
+    file: &Value,
+    obj: &OpenedObject,
+    spec: FloatingPixelValidationSpec,
+) -> Result<(), ValidateError> {
     let rows = validate_u16_from_manifest_and_dataset(
         failures,
         relative_path,
@@ -2233,7 +2305,7 @@ fn validate_float32_manifest_image_pixel_data(
     validate_equal(
         failures,
         relative_path,
-        "float32_samples_per_pixel",
+        &format!("{}_samples_per_pixel", spec.sample_type),
         samples_per_pixel,
         1,
     );
@@ -2250,9 +2322,9 @@ fn validate_float32_manifest_image_pixel_data(
     validate_equal(
         failures,
         relative_path,
-        "float32_bits_allocated",
+        &format!("{}_bits_allocated", spec.sample_type),
         bits_allocated,
-        32,
+        spec.bits_allocated,
     );
     let photometric_interpretation = manifest_str(
         manifest_path,
@@ -2263,7 +2335,7 @@ fn validate_float32_manifest_image_pixel_data(
     validate_equal(
         failures,
         relative_path,
-        "float32_photometric_interpretation",
+        &format!("{}_photometric_interpretation", spec.sample_type),
         photometric_interpretation,
         "MONOCHROME2",
     );
@@ -2286,7 +2358,8 @@ fn validate_float32_manifest_image_pixel_data(
             );
         }
         Some(_) => failures.push(format!(
-            "{relative_path}: planar_configuration_absent: float32 single-sample pixels require null manifest planar configuration"
+            "{relative_path}: planar_configuration_absent: {} single-sample pixels require null manifest planar configuration",
+            spec.sample_type
         )),
         None => {
             return Err(ValidateError::ManifestShape {
@@ -2311,7 +2384,8 @@ fn validate_float32_manifest_image_pixel_data(
     ] {
         if file.pointer(pointer).is_some() {
             failures.push(format!(
-                "{relative_path}: {name}: float32 manifest must omit integer-only metadata"
+                "{relative_path}: {name}: {} manifest must omit integer-only metadata",
+                spec.sample_type
             ));
         }
         validate_element_absent(failures, relative_path, obj, tag, name);
@@ -2329,22 +2403,22 @@ fn validate_float32_manifest_image_pixel_data(
         failures,
         relative_path,
         obj,
-        tags::DOUBLE_FLOAT_PIXEL_DATA,
-        "double_float_pixel_data_absent",
+        spec.sibling_tag,
+        spec.sibling_absent_check,
     );
-    let pixel_element = match obj.element(tags::FLOAT_PIXEL_DATA) {
+    let pixel_element = match obj.element(spec.pixel_tag) {
         Ok(element) => element,
         Err(err) => {
-            failures.push(format!("{relative_path}: float_pixel_data: {err}"));
+            failures.push(format!("{relative_path}: {}: {err}", spec.pixel_check));
             return Ok(());
         }
     };
     validate_equal(
         failures,
         relative_path,
-        "pixel_data_vr",
+        &format!("{}_vr", spec.pixel_check),
         vr_name(pixel_element.vr()),
-        "OF",
+        vr_name(spec.pixel_vr),
     );
     validate_equal(
         failures,
@@ -2356,7 +2430,7 @@ fn validate_float32_manifest_image_pixel_data(
             "/pixel_data/vr",
             "pixel_data vr must be a string",
         )?,
-        "OF",
+        vr_name(spec.pixel_vr),
     );
     validate_equal(
         failures,
@@ -2401,17 +2475,23 @@ fn validate_float32_manifest_image_pixel_data(
     let pixel_bytes = match pixel_element.value().to_bytes() {
         Ok(bytes) => bytes,
         Err(err) => {
-            failures.push(format!("{relative_path}: float_pixel_data_bytes: {err}"));
+            failures.push(format!(
+                "{relative_path}: {}_bytes: {err}",
+                spec.pixel_check
+            ));
             return Ok(());
         }
     };
     let frame_length =
-        usize::from(rows) * usize::from(columns) * usize::from(samples_per_pixel) * 4;
+        usize::from(rows)
+            * usize::from(columns)
+            * usize::from(samples_per_pixel)
+            * spec.bytes_per_sample;
     let expected_value_length = frame_length * usize::from(frames);
     validate_equal(
         failures,
         relative_path,
-        "float_pixel_data_length",
+        &format!("{}_length", spec.pixel_check),
         pixel_bytes.len(),
         expected_value_length,
     );
@@ -2439,7 +2519,7 @@ fn validate_float32_manifest_image_pixel_data(
             validate_equal(
                 failures,
                 relative_path,
-                "float_pixel_data_frame_hash",
+                &format!("{}_frame_hash", spec.pixel_check),
                 sha256_hex(frame),
                 expected_hash,
             );
@@ -23260,6 +23340,51 @@ mod tests {
     }
 
     #[test]
+    fn float64_manifest_pixel_validation_accepts_exact_native_frames() {
+        let values = [0.25_f64, 0.5, 1.0, 1.5];
+        let obj = float64_test_object(&values, false);
+        let manifest = float64_test_manifest(&values);
+        let mut failures = Vec::new();
+
+        validate_manifest_image_pixel_data(
+            &mut failures,
+            "parametric-map-float64.dcm",
+            Path::new("manifest.json"),
+            &manifest,
+            &obj,
+        )
+        .expect("float64 manifest validation should complete");
+
+        assert_eq!(failures, Vec::<String>::new());
+    }
+
+    #[test]
+    fn float64_manifest_pixel_validation_rejects_integer_fields_and_bad_hash() {
+        let values = [0.25_f64, 0.5, 1.0, 1.5];
+        let obj = float64_test_object(&values, true);
+        let mut manifest = float64_test_manifest(&values);
+        manifest["image"]["pixel_representation"] = serde_json::json!(0);
+        manifest["pixel_data"]["frame_hashes"][1] =
+            serde_json::json!("0000000000000000000000000000000000000000000000000000000000000000");
+        let mut failures = Vec::new();
+
+        validate_manifest_image_pixel_data(
+            &mut failures,
+            "parametric-map-float64.dcm",
+            Path::new("manifest.json"),
+            &manifest,
+            &obj,
+        )
+        .expect("invalid float64 metadata should produce validation failures");
+
+        let joined = failures.join("\n");
+        assert!(joined.contains("pixel_representation_absent"));
+        assert!(joined.contains("integer_pixel_data_absent"));
+        assert!(joined.contains("float_pixel_data_absent"));
+        assert!(joined.contains("double_float_pixel_data_frame_hash"));
+    }
+
+    #[test]
     fn u32_sc_manifest_pixel_contract_accepts_exact_full_range_words() {
         let manifest = u32_sc_test_manifest();
         let bytes = u32_sc_test_bytes();
@@ -23854,6 +23979,86 @@ mod tests {
                 "value_length": bytes.len(),
                 "frame_count": 2,
                 "frame_hashes": [sha256_hex(&bytes[..8]), sha256_hex(&bytes[8..])]
+            }
+        })
+    }
+
+    fn float64_test_object(values: &[f64], include_forbidden_fields: bool) -> OpenedObject {
+        let mut obj = InMemDicomObject::new_empty();
+        for (tag, vr, value) in [
+            (tags::SOP_CLASS_UID, VR::UI, uids::PARAMETRIC_MAP_STORAGE),
+            (tags::SOP_INSTANCE_UID, VR::UI, "2.25.3"),
+            (tags::PHOTOMETRIC_INTERPRETATION, VR::CS, "MONOCHROME2"),
+        ] {
+            obj.put(DataElement::new(tag, vr, PrimitiveValue::from(value)));
+        }
+        for (tag, value) in [
+            (tags::ROWS, 1_u16),
+            (tags::COLUMNS, 2),
+            (tags::SAMPLES_PER_PIXEL, 1),
+            (tags::BITS_ALLOCATED, 64),
+        ] {
+            obj.put(DataElement::new(tag, VR::US, PrimitiveValue::from(value)));
+        }
+        obj.put(DataElement::new(
+            tags::NUMBER_OF_FRAMES,
+            VR::IS,
+            PrimitiveValue::from("2"),
+        ));
+        obj.put(DataElement::new(
+            tags::DOUBLE_FLOAT_PIXEL_DATA,
+            VR::OD,
+            PrimitiveValue::F64(values.to_vec().into()),
+        ));
+        if include_forbidden_fields {
+            obj.put(DataElement::new(
+                tags::PIXEL_REPRESENTATION,
+                VR::US,
+                PrimitiveValue::from(0_u16),
+            ));
+            obj.put(DataElement::new(
+                tags::PIXEL_DATA,
+                VR::OW,
+                PrimitiveValue::from(vec![0_u8; 32]),
+            ));
+            obj.put(DataElement::new(
+                tags::FLOAT_PIXEL_DATA,
+                VR::OF,
+                PrimitiveValue::F32(vec![0.0_f32; 4].into()),
+            ));
+        }
+        obj.with_meta(
+            FileMetaTableBuilder::new()
+                .transfer_syntax(uids::EXPLICIT_VR_LITTLE_ENDIAN)
+                .media_storage_sop_class_uid(uids::PARAMETRIC_MAP_STORAGE)
+                .media_storage_sop_instance_uid("2.25.3")
+                .implementation_class_uid("2.25.2"),
+        )
+        .expect("float64 test object should have valid file metadata")
+    }
+
+    fn float64_test_manifest(values: &[f64]) -> Value {
+        let bytes = values
+            .iter()
+            .flat_map(|value| value.to_le_bytes())
+            .collect::<Vec<_>>();
+        serde_json::json!({
+            "image": {
+                "sample_type": "float64",
+                "rows": 1,
+                "columns": 2,
+                "frames": 2,
+                "samples_per_pixel": 1,
+                "photometric_interpretation": "MONOCHROME2",
+                "bits_allocated": 64,
+                "planar_configuration": Value::Null
+            },
+            "pixel_data": {
+                "vr": "OD",
+                "native_or_encapsulated": "native",
+                "value_length": bytes.len(),
+                "frame_count": 2,
+                "frame_hashes": [sha256_hex(&bytes[..16]), sha256_hex(&bytes[16..])]
             }
         })
     }

@@ -29,6 +29,7 @@ use native::pet::{CLASSIC_PET_RECIPES, ClassicPetRecipe, ENHANCED_PET_RECIPES, E
 use native::private_creator_sc::{
     PRIVATE_CREATOR_SC_RECIPE, PrivateCreatorBlockRecipe, PrivateCreatorScRecipe, PrivateValue,
 };
+use native::sc_integer_pixels::U32_SC_RECIPE;
 use native::sequence_length_sc::{
     CODE_MEANING as SEQUENCE_CODE_MEANING, CODE_VALUE as SEQUENCE_CODE_VALUE,
     CODING_SCHEME_DESIGNATOR as SEQUENCE_CODING_SCHEME_DESIGNATOR, ITEM_DATASET_ENCODED_LENGTH,
@@ -2195,6 +2196,29 @@ const PIXEL_RECIPES: &[PixelRecipe] = &[
             range_limit: Some(0),
         }),
     },
+    PixelRecipe {
+        case_id: U32_SC_RECIPE.case_id,
+        recipe_id: U32_SC_RECIPE.recipe_id,
+        rows: U32_SC_RECIPE.rows,
+        columns: U32_SC_RECIPE.columns,
+        photometric_interpretation: "MONOCHROME2",
+        samples_per_pixel: 1,
+        planar_configuration: None,
+        bits_allocated: 32,
+        bits_stored: 32,
+        high_bit: 31,
+        pixel_representation: 0,
+        pixel_vr: VR::OW,
+        transfer_syntax: EXPLICIT_VR_LITTLE_ENDIAN,
+        pixel_bytes: U32_SC_RECIPE.pixel_bytes_le,
+        pixel_values: &[],
+        pixel_min: 0,
+        pixel_max: 4_294_967_295,
+        visual_pattern: "2x2_monochrome_u32_unsigned_boundaries",
+        semantic_note: "unsigned 32-bit MONOCHROME2 samples span both sides of the signed boundary",
+        palette: None,
+        padding: None,
+    },
 ];
 
 #[derive(Debug, Clone, Copy)]
@@ -2214,8 +2238,8 @@ struct PixelRecipe {
     transfer_syntax: TransferSyntaxSpec,
     pixel_bytes: &'static [u8],
     pixel_values: &'static [i32],
-    pixel_min: i32,
-    pixel_max: i32,
+    pixel_min: i64,
+    pixel_max: i64,
     visual_pattern: &'static str,
     semantic_note: &'static str,
     palette: Option<PaletteRecipe>,
@@ -4610,6 +4634,15 @@ fn write_pixel_case_with_metadata(
     file_index: u32,
     file_name: &str,
 ) -> Result<GeneratedFile, GenerateError> {
+    if recipe.case_id == U32_SC_RECIPE.case_id
+        && (!U32_SC_RECIPE.pixel_bytes_are_consistent()
+            || sha256_hex(U32_SC_RECIPE.pixel_bytes_le) != U32_SC_RECIPE.pixel_data_sha256)
+    {
+        return Err(GenerateError::MetadataShape {
+            path: PathBuf::from(recipe.case_id),
+            message: "unsigned 32-bit source pixels do not match their locked bytes/hash",
+        });
+    }
     let study_instance_uid = deterministic_case_uid_with_file_index(
         standards_lock_sha256,
         recipe,
@@ -6939,6 +6972,11 @@ fn pixel_manifest_entry(
         })
     };
 
+    let declared_pixel_values = if recipe.case_id == U32_SC_RECIPE.case_id {
+        serde_json::json!(U32_SC_RECIPE.pixel_values)
+    } else {
+        serde_json::json!(recipe.pixel_values)
+    };
     let mut manifest = serde_json::json!({
         "case_id": recipe.case_id,
         "profile_membership": pixel_profile_membership(recipe),
@@ -6957,7 +6995,7 @@ fn pixel_manifest_entry(
                 "bits_allocated": recipe.bits_allocated,
                 "bits_stored": recipe.bits_stored,
                 "planar_configuration": recipe.planar_configuration,
-                "pixel_values": recipe.pixel_values,
+                "pixel_values": declared_pixel_values,
                 "palette": palette_manifest,
                 "pixel_padding": padding_manifest
             }
@@ -21168,6 +21206,74 @@ fn case_matches_profile(profiles: &[String], requested: &str, include_stress: bo
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn u32_sc_writer_reopens_and_preserves_full_unsigned_range() {
+        let output = ParametricMapStagingGuard::new();
+        let run = PreparedGenerationRun {
+            profile: "extended".to_string(),
+            out_dir: output.path().to_path_buf(),
+            manifest_path: output.path().join("manifest.json"),
+            seed: 1,
+            include_stress: false,
+        };
+        let case = serde_json::json!({
+            "case_id": U32_SC_RECIPE.case_id,
+            "standards_evidence": []
+        });
+        let recipe = PIXEL_RECIPES
+            .iter()
+            .copied()
+            .find(|recipe| recipe.case_id == U32_SC_RECIPE.case_id)
+            .expect("unsigned 32-bit recipe must be dispatched");
+
+        let generated = write_pixel_case(
+            &run,
+            &case,
+            recipe,
+            "0000000000000000000000000000000000000000000000000000000000000000",
+        )
+        .expect("unsigned 32-bit SC fixture should write, reopen, and validate");
+
+        assert_eq!(
+            generated
+                .manifest_entry
+                .pointer("/recipe/recipe_parameters/pixel_values"),
+            Some(&serde_json::json!([
+                0_u64,
+                65_535_u64,
+                2_147_483_648_u64,
+                4_294_967_295_u64
+            ]))
+        );
+        assert_eq!(
+            generated.manifest_entry.pointer("/image/bits_allocated"),
+            Some(&Value::from(32))
+        );
+        assert_eq!(
+            generated.manifest_entry.pointer("/pixel_data/vr"),
+            Some(&Value::from("OW"))
+        );
+        assert_eq!(
+            generated.manifest_entry.pointer("/validation/status"),
+            Some(&Value::from("passed"))
+        );
+        let path = output
+            .path()
+            .join("classic/sc/mono2_u32_explicit_le/instance.dcm");
+        let reopened = dicom_object::open_file(path).expect("unsigned 32-bit SC should reopen");
+        let pixels = reopened
+            .element(tags::PIXEL_DATA)
+            .expect("Pixel Data should be present");
+        assert_eq!(pixels.vr(), VR::OW);
+        assert_eq!(
+            pixels
+                .value()
+                .to_bytes()
+                .expect("Pixel Data should be bytes"),
+            U32_SC_RECIPE.pixel_bytes_le.as_slice()
+        );
+    }
 
     #[test]
     fn classic_xa_writer_reopens_and_validates_native_projection() {

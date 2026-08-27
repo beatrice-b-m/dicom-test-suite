@@ -1489,6 +1489,67 @@ fn linked_rt_plan_image_source_note_and_native_providers_are_locked() {
 }
 
 #[test]
+fn minimal_rt_radiation_set_source_note_locks_required_companion_graph() {
+    let source = fs::read_to_string(
+        "standards/source-notes/phase-3-rt-radiation-set-minimal.md",
+    )
+    .expect("minimal RT Radiation Set source note must be readable");
+    for required in [
+        "non-image/rt/carm_photon_electron_radiation_minimal",
+        "non-image/rt/radiation_set_minimal",
+        "Recommended provider: `rust_native`",
+        "1.2.840.10008.5.1.4.1.1.481.13",
+        "1.2.840.10008.5.1.4.1.1.481.12",
+        "An RT Radiation Set cannot be implemented as a standalone instance",
+        "RT Radiation Sequence `(300A,0616)` Type 1",
+        "second-generation\nRT Radiation SOP Instance",
+        "The C-Arm Radiation is a distinct registry case",
+        "Referenced Beam Number `1`",
+        "once and only once",
+        "PS3.3 A.86.1.5 and Table A.86.1.5-1",
+        "Detail Flag `(300A,0638)` is\n`IDENT_ONLY`",
+        "RT Record Flag `(300A,0639)` is `NO`",
+        "(130102, DCM, \"Static Beam\")",
+        "(130361, DCM, \"Radiotherapy Treatment Device\")",
+        "({MU}, UCUM, \"Monitor Units\")",
+        "(130358, DCM, \"Nominal Radiation Source Location\")",
+        "1.2.840.10008.1.4.3.1",
+        "(102538003, SCT, \"recumbent\")",
+        "(40199007, SCT, \"supine\")",
+        "(102540008, SCT, \"headfirst\")",
+        "Number of RT Control Points `(300A,0604)` is `2`",
+        "Control Point `1` contains RT Control Point Index `1`",
+        "Cumulative Meterset `100`",
+        "Zero counts must not be substituted",
+        "PS3.3 A.86.1.4 and Table A.86.1.4-1",
+        "Intended Number of Fractions `(300A,0636)` is `1`",
+        "RT Radiation Set\nIntent `(300A,0637)` is `TREATMENT`",
+        "DTS_TPG_1",
+        "RT Dose Contribution is conditional and is absent",
+        "expected_rt_radiation",
+        "expected_rt_radiation_set",
+        "Every cardinality is checked before indexing",
+        "No finding may be silently allowlisted",
+        "`dicom3tools dciodvfy` knows the SOP UID names but returns `Information Object\nNot found`",
+        "Locked PixelMed 20260608 likewise reports\nthe IOD unrecognized",
+        "`uv`-locked `dicom-validator` 0.8.2",
+        "selected as the required primary IOD\nvalidator for exactly these two cases, subject to the locked defect correction",
+        "KeyError: 'other_cond'",
+        "Changing RT Record Flag to `YES` makes the validator pass but\nviolates A.86.1.5.4.3 and is forbidden",
+        "narrowly guarded adapter correction",
+        "No other condition may be rewritten",
+        "both registry cases remain\nplanned with an explicit recipe blocker",
+        "4967dac55719ba63cbc7f404f444e00d4adf50c785c8353e89c94db0259ede05",
+        "9f4853924ef520dd9b97ada0f14abd206fb15e6d8622e4d24a90f8b404a3e8c3",
+    ] {
+        assert!(
+            source.contains(required),
+            "minimal RT Radiation Set source note must contain {required:?}"
+        );
+    }
+}
+
+#[test]
 fn twelve_lead_ecg_registry_promotes_complete_native_slice() {
     let source = fs::read_to_string("standards/source-notes/phase-3-twelve-lead-ecg-waveform.md")
         .expect("Twelve-lead ECG Waveform source note must be readable");

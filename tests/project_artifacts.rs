@@ -913,11 +913,12 @@ fn phase3_status_records_completed_derived_vertical_gates() {
         "b061e5f654eb426bbab0da9cce0ac945aadcf3cf506182eb6bf33acd3d7a3659",
         "e9337a6c46fe85b56f1f563120dd3caf56ea1335355792db42386db959be6db2",
         "460d525ab06aaf74df963029f3ab39c2536e4e1c5bf4b75fcf16b500382db20c",
-        "141 implemented and 41 planned logical cases",
+        "141 implemented and 41\nplanned logical cases",
         "d0d78ffccf44218a27944cf1b80dec63c8afa7162b0e085532feb51706a04714",
         "milestone-6 decision checkpoint authorized selecting and locking",
         "registered second-generation\nC-Arm Photon-Electron Radiation companion",
-        "Both cases remain planned",
+        "Both cases are now implemented as byte-stable native",
+        "143 implemented and 39 planned logical cases",
     ] {
         assert!(
             status.contains(required),

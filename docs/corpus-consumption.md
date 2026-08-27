@@ -35,6 +35,20 @@ also requires these commands on `PATH`:
 - `ojph_compress` for the `htj2k_openjph` feature;
 - `dcmcjpeg` for the `legacy_jpeg_dcmtk` feature.
 
+The implemented float32 Parametric Map is a separate optional runtime
+capability, not a Cargo feature. Prepare its exact environment with:
+
+```sh
+uv python install 3.12.12
+uv sync --project generation-backends/highdicom-pydicom \
+  --locked --no-editable --python 3.12.12
+```
+
+If that runtime is absent, generation succeeds but records
+`external_backend_unavailable` for the case. A handoff claiming complete
+implemented quantitative coverage must prepare the runtime and confirm that
+the Parametric Map appears in `files`, not `skipped_cases`.
+
 Confirm the external commands before generation:
 
 ```sh
@@ -127,6 +141,7 @@ Review at least:
 - SOP Class and transfer syntax coverage;
 - photometric interpretation, bit depth, frame count, and geometry coverage;
 - codec features and backends;
+- external generation backend identity and determinism;
 - derived references and known stressors; and
 - validation status.
 
@@ -161,9 +176,11 @@ Preserve these items together for every downstream review:
 4. The Rust and Cargo versions.
 5. Active Cargo features.
 6. External codec command versions and executable fingerprints.
-7. Generator validation output showing zero failures.
-8. JSON coverage reports.
-9. Any independent conformance-validation evidence.
+7. External generator lock, runtime, entrypoint, and environment fingerprints.
+8. Generator validation output showing zero failures.
+9. JSON coverage reports.
+10. Any independent conformance-validation evidence, including exact float
+    payload hashes for quantitative cases.
 
 Do not rename case directories or edit generated instances. Downstream findings
 should identify both `case_id` and manifest-relative `path`, because a logical

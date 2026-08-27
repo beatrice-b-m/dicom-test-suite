@@ -11,6 +11,8 @@ Generated DICOM files are intentionally not committed. The repository should con
 - Rust 1.85.0, selected automatically by `rust-toolchain.toml`.
 - `jq` for the same JSON artifact checks used by CI.
 - Optional external codec commands only when enabling their features.
+- Optional `uv` 0.11.26 and managed CPython 3.12.12 for the float32
+  Parametric Map proof.
 
 ## Commands
 
@@ -32,6 +34,23 @@ Generation writes DICOM Part 10 files plus a versioned `manifest.json`. The
 default build requires no external codec tools. Cases whose Cargo features are
 disabled remain visible in manifests and reports as feature-gated unavailable
 coverage.
+
+The `extended` profile always generates and manifests the three native CT
+sources for the Parametric Map proof. If its prepared `uv` environment is
+absent, the derived case is retained as an explicit
+`external_backend_unavailable` row. To enable it:
+
+```sh
+uv python install 3.12.12
+uv sync --project generation-backends/highdicom-pydicom \
+  --locked --no-editable --python 3.12.12
+cargo run --locked -- generate \
+  --profile extended --out generated/extended --seed 1
+```
+
+Generation never invokes `uv` or performs network access. Runtime preparation,
+exact versions, fingerprints, and licenses are documented in
+[generation-backends/highdicom-pydicom/README.md](generation-backends/highdicom-pydicom/README.md).
 
 ## Profiles
 
@@ -84,9 +103,9 @@ validation.
 The post-current-term implementation sequence for broader object-family,
 pathology, codec, stress, robustness, media, and protocol coverage is in
 [docs/coverage-expansion-plan.md](docs/coverage-expansion-plan.md).
-The completed backend-platform and native CT proof status is in
-[docs/phase-1-proof-status.md](docs/phase-1-proof-status.md), together with the
-explicit runtime-manager decision checkpoint for the external proof.
+The completed backend platform, native CT proof, external float32 Parametric
+Map proof, and independent validation evidence are in
+[docs/phase-1-proof-status.md](docs/phase-1-proof-status.md).
 
 ## Verification
 

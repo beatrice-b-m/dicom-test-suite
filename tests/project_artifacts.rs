@@ -808,6 +808,68 @@ fn deformable_registration_source_note_locks_grid_sampling_contract() {
 }
 
 #[test]
+fn color_softcopy_source_note_locks_native_color_contract() {
+    let source =
+        fs::read_to_string("standards/source-notes/phase-3-color-softcopy-presentation-state.md")
+            .expect("Color Softcopy Presentation State source note must be readable");
+    for required in [
+        "derived/presentation-state/color_softcopy",
+        "Selected provider: `rust_native`",
+        "classic/sc/rgb_planar0_explicit_le",
+        "1.2.840.10008.5.1.4.1.1.11.2",
+        "same Study",
+        "separate Presentation Series",
+        "Referenced Series Sequence `(0008,1115)` contains exactly one Item",
+        "Referenced Frame Number is absent",
+        "Displayed Area Top Left Hand Corner `(0070,0052)`: SL VM 2, `[1,1]`",
+        "Displayed Area Bottom Right Hand Corner `(0070,0053)`: SL VM 2, `[2,2]`",
+        "Presentation Size Mode `(0070,0100)`: `SCALE TO FIT`",
+        "Presentation Pixel Aspect Ratio `(0070,0102)`: IS VM 2, `[1,1]`",
+        "ICC Profile `(0028,2000)` Type 1",
+        "8e069a3476b71a0e0ae7272d9278ba70540d1c4a0b19af1c7d52e56f49091fef",
+        "input color space at bytes 16 through 19: `RGB `",
+        "profile connection space at bytes 20 through 23: `XYZ `",
+        "DICOM Color Space `(0028,2002)`: `SRGB`",
+        "expected_color_softcopy_presentation_state",
+        "a3044e2dd64dcd2fa1e37620172db176495e68c598d3620986aaa194c436e982",
+        "wrong enclosing referenced Series Instance UID",
+        "Isolated `dcentvfy` detected a dangling referenced SOP Instance UID",
+        "Strict Rust validation owns every exact semantic invariant",
+        "No new finding may be silently allowlisted",
+        "Registry status: planned",
+        "Registry provider: `rust_native`",
+        "Registry blocker: exactly `recipe_unimplemented`",
+        "Should become KB patch: yes",
+    ] {
+        assert!(
+            source.contains(required),
+            "Color Softcopy Presentation State note requires {required}"
+        );
+    }
+
+    let registry = read_json("cases/registry.json");
+    let case = registry_cases(&registry)
+        .into_iter()
+        .find(|case| {
+            case.get("case_id").and_then(Value::as_str)
+                == Some("derived/presentation-state/color_softcopy")
+        })
+        .expect("Color Softcopy Presentation State row must exist");
+    assert_eq!(case["status"], "planned");
+    assert_eq!(case["provider"]["kind"], "rust_native");
+    assert_eq!(case["provider"]["id"], "rust_native");
+    assert_eq!(
+        case["blockers"],
+        serde_json::json!([{
+            "code": "recipe_unimplemented",
+            "message": "The deterministic native recipe is not implemented.",
+            "recheck_phase": "phase-3"
+        }])
+    );
+    assert_eq!(case["determinism"], "semantic_stable");
+}
+
+#[test]
 fn u1_pixel_decoder_is_case_scoped_and_locked() {
     let validators = read_json("conformance/validators.json");
     let adapter = validators["adapters"]

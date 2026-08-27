@@ -9299,8 +9299,8 @@
       "artifact_kind": "dicom_instance",
       "status": "planned",
       "provider": {
-        "kind": "external_backend",
-        "id": "dcmtk"
+        "kind": "rust_native",
+        "id": "rust_native"
       },
       "object_family": "presentation_state",
       "compatibility_axes": [
@@ -9314,13 +9314,8 @@
       },
       "blockers": [
         {
-          "code": "backend_contract_unimplemented",
-          "message": "The external generation protocol is not implemented.",
-          "recheck_phase": "phase-1"
-        },
-        {
-          "code": "independent_iod_validator_unavailable",
-          "message": "The required independent validation path is not integrated.",
+          "code": "recipe_unimplemented",
+          "message": "The deterministic native recipe is not implemented.",
           "recheck_phase": "phase-3"
         }
       ],

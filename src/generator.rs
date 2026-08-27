@@ -7348,6 +7348,8 @@ fn pixel_known_stressors(recipe: PixelRecipe) -> Vec<&'static str> {
         stressors.push("encapsulated_pixel_data");
         stressors.push("jpeg_lossless_sv1_transfer_syntax");
         stressors.push("external_command_codec");
+    } else if recipe.case_id == U32_SC_RECIPE.case_id {
+        stressors.push("native_ow_pixel_data");
     } else {
         stressors.push("native_ob_pixel_data");
     }
@@ -7434,7 +7436,8 @@ fn pixel_profile_membership(recipe: PixelRecipe) -> &'static [&'static str] {
         | "classic/sc/mono2_u16_jpeg2000_lossless"
         | "classic/sc/mono2_u16_htj2k_lossless"
         | "classic/sc/mono2_u16_jpeg_lossless_process_14"
-        | "classic/sc/mono2_u16_jpeg_lossless_sv1" => &["extended"],
+        | "classic/sc/mono2_u16_jpeg_lossless_sv1"
+        | "classic/sc/mono2_u32_explicit_le" => &["extended"],
         _ => &["core"],
     }
 }
@@ -21262,6 +21265,17 @@ mod tests {
             generated.manifest_entry.pointer("/pixel_data/vr"),
             Some(&Value::from("OW"))
         );
+        assert_eq!(
+            generated.manifest_entry.pointer("/profile_membership"),
+            Some(&serde_json::json!(["extended"]))
+        );
+        let known_stressors = generated
+            .manifest_entry
+            .pointer("/known_stressors")
+            .and_then(Value::as_array)
+            .expect("u32 manifest entry should declare known stressors");
+        assert!(known_stressors.contains(&Value::from("native_ow_pixel_data")));
+        assert!(!known_stressors.contains(&Value::from("native_ob_pixel_data")));
         assert_eq!(
             generated
                 .manifest_entry

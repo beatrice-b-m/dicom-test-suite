@@ -3409,6 +3409,20 @@ fn coverage_report_schema_requires_the_specified_matrix_fields() {
         "lossy_image_compression",
         "lossy_image_compression_ratio",
         "lossy_image_compression_method",
+        "wsi_iod_kind",
+        "wsi_dimension_organization_type",
+        "wsi_tile_geometry",
+        "wsi_implicit_frame_order",
+        "wsi_total_pixel_matrix_sha256",
+        "wsi_specimen_identity",
+        "wsi_slide_label_identity",
+        "wsi_optical_path_identity",
+        "wsi_optical_path_icc_sha256",
+        "wsi_pixel_spacing_mm",
+        "wsi_image_orientation_slide",
+        "wsi_implicit_position_reconstruction",
+        "wsi_sparse_dimension_metadata_absent",
+        "wsi_reference_free",
     ] {
         assert!(
             required.iter().any(|value| value.as_str() == Some(field)),
@@ -3448,6 +3462,24 @@ fn coverage_report_schema_requires_the_specified_matrix_fields() {
         Some(&serde_json::json!(["00", "01", null])),
         "US lossy history must use the DICOM nullable vocabulary"
     );
+    assert_eq!(
+        schema.pointer("/$defs/coverage_row/properties/wsi_dimension_organization_type/enum"),
+        Some(&serde_json::json!(["TILED_FULL", null])),
+        "WSI dimension organization must use the locked nullable vocabulary"
+    );
+    for field in [
+        "wsi_implicit_position_reconstruction",
+        "wsi_sparse_dimension_metadata_absent",
+        "wsi_reference_free",
+    ] {
+        assert_eq!(
+            schema
+                .pointer(&format!("/$defs/coverage_row/properties/{field}/type/0"))
+                .and_then(Value::as_str),
+            Some("boolean"),
+            "coverage row {field} must be nullable boolean"
+        );
+    }
     for (field, values) in [
         (
             "enhanced_mr_dimension_index_pointer",

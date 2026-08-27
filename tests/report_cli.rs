@@ -7340,6 +7340,113 @@ fn report_exposes_locked_single_frame_vl_planned_rows() {
 }
 
 #[test]
+fn report_exposes_locked_tiled_full_wsi_plan_without_claiming_generation() {
+    let out_dir = unique_temp_dir("report-wsi-tiled-full-planned");
+    fs::create_dir_all(&out_dir).expect("create planned WSI report root");
+    fs::write(
+        out_dir.join("manifest.json"),
+        serde_json::to_vec_pretty(&json!({
+            "generated_at": "20260101000000.000000+0000",
+            "standards": { "standards_lock_sha256": "0".repeat(64) },
+            "run": { "profile": "extended" },
+            "files": [],
+            "skipped_cases": [{
+                "case_id": "vl/wsi/tiled_full_small",
+                "status": "unavailable",
+                "reason_code": "case_planned",
+                "message": "recipe_unimplemented"
+            }]
+        }))
+        .expect("serialize planned WSI manifest"),
+    )
+    .expect("write planned WSI manifest");
+
+    let report = dicom_test_suite::build_coverage_report(&out_dir)
+        .expect("planned WSI coverage report should build");
+    let schema: Value = serde_json::from_slice(
+        &fs::read("schemas/coverage-report.schema.json").expect("coverage schema"),
+    )
+    .expect("coverage schema JSON");
+    let validator = jsonschema::validator_for(&schema).expect("coverage schema compiles");
+    assert!(
+        validator.is_valid(&report),
+        "planned WSI coverage report must match its schema"
+    );
+
+    let row = coverage_row(&report, "vl/wsi/tiled_full_small");
+    assert_eq!(row["status"], "planned");
+    assert_eq!(row["validation_status"], "unavailable");
+    assert_eq!(row["determinism"], "semantic_stable");
+    assert_eq!(row["wsi_iod_kind"], "vl_wsi_tiled_full");
+    assert_eq!(row["wsi_dimension_organization_type"], "TILED_FULL");
+    assert_eq!(
+        row["wsi_tile_geometry"],
+        "2x2 tiles; 4x4 total matrix; 2x2 tile grid; 4 frames"
+    );
+    assert_eq!(
+        row["wsi_implicit_frame_order"],
+        "1:(1,1); 2:(3,1); 3:(1,3); 4:(3,3)"
+    );
+    assert_eq!(
+        row["wsi_total_pixel_matrix_sha256"],
+        "62d9532d46c3f71b045a1393d95c49c4757ef5e62bb043a61baf4fffed189a2a"
+    );
+    assert_eq!(
+        row["wsi_specimen_identity"],
+        "DTS-SLIDE-001/DTS-SPECIMEN-001"
+    );
+    assert_eq!(
+        row["wsi_optical_path_icc_sha256"],
+        "8e069a3476b71a0e0ae7272d9278ba70540d1c4a0b19af1c7d52e56f49091fef"
+    );
+    assert_eq!(row["wsi_implicit_position_reconstruction"], true);
+    assert_eq!(row["wsi_sparse_dimension_metadata_absent"], true);
+    assert_eq!(row["wsi_reference_free"], true);
+    assert_eq!(
+        row["known_stressors"],
+        json!([
+            "vl_whole_slide_microscopy_image_storage",
+            "tiled_full_implicit_frame_order",
+            "total_pixel_matrix_reconstruction",
+            "specimen_and_optical_path_metadata",
+            "nested_icc_profile",
+            "absent_per_frame_functional_groups"
+        ])
+    );
+
+    let mut corrupted = report.clone();
+    coverage_row_mut(&mut corrupted, "vl/wsi/tiled_full_small")["wsi_total_pixel_matrix_sha256"] =
+        Value::from("a".repeat(64));
+    assert!(
+        !validator.is_valid(&corrupted),
+        "schema must reject a corrupted locked WSI reconstruction hash"
+    );
+    let mut leaked = report.clone();
+    coverage_row_mut(&mut leaked, "vl/wsi/tiled_full_small")["case_id"] =
+        Value::from("vl/wsi/tiled_sparse_small");
+    assert!(
+        !validator.is_valid(&leaked),
+        "schema must reject WSI report fields outside the locked case"
+    );
+
+    let markdown = dicom_test_suite::render_coverage_report_markdown(&report);
+    for expected in [
+        "## Whole Slide Microscopy Expectations",
+        "vl/wsi/tiled_full_small",
+        "TILED_FULL",
+        "DTS-SLIDE-001/DTS-SPECIMEN-001",
+        "62d9532d46c3f71b045a1393d95c49c4757ef5e62bb043a61baf4fffed189a2a",
+    ] {
+        assert!(
+            markdown.contains(expected),
+            "Markdown must contain {expected}"
+        );
+    }
+
+    fs::remove_dir_all(out_dir).expect("remove planned WSI report root");
+}
+
+#[test]
 fn report_rejects_partial_and_wrong_case_single_frame_vl_contracts() {
     let out_dir = unique_temp_dir("report-vl-single-frame-malformed");
     fs::create_dir_all(&out_dir).expect("create malformed VL report root");

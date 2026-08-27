@@ -17861,6 +17861,54 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
         output.push('\n');
     }
 
+    let wsi_rows = report
+        .get("coverage_matrix")
+        .and_then(Value::as_array)
+        .map(|rows| {
+            rows.iter()
+                .filter(|row| !row["wsi_iod_kind"].is_null())
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    if !wsi_rows.is_empty() {
+        output.push_str("## Whole Slide Microscopy Expectations\n\n");
+        output.push_str("| Case ID | IOD / dimension organization | Tile geometry | Implicit frame order | Total matrix SHA-256 | Specimen / slide label | Optical path / ICC SHA-256 | Spacing / orientation | Implicit reconstruction | Sparse dimension metadata absent | Reference-free |\n");
+        output.push_str("|---|---|---|---|---|---|---|---|---|---|---|\n");
+        for row in wsi_rows {
+            output.push_str(&format!(
+                "| {} | {} / {} | {} | {} | {} | {} / {} | {} / {} | {} / {} | {} | {} | {} |\n",
+                markdown_cell(row.get("case_id").and_then(Value::as_str)),
+                markdown_cell(row.get("wsi_iod_kind").and_then(Value::as_str)),
+                markdown_cell(
+                    row.get("wsi_dimension_organization_type")
+                        .and_then(Value::as_str)
+                ),
+                markdown_cell(row.get("wsi_tile_geometry").and_then(Value::as_str)),
+                markdown_cell(row.get("wsi_implicit_frame_order").and_then(Value::as_str)),
+                markdown_cell(
+                    row.get("wsi_total_pixel_matrix_sha256")
+                        .and_then(Value::as_str)
+                ),
+                markdown_cell(row.get("wsi_specimen_identity").and_then(Value::as_str)),
+                markdown_cell(row.get("wsi_slide_label_identity").and_then(Value::as_str)),
+                markdown_cell(row.get("wsi_optical_path_identity").and_then(Value::as_str)),
+                markdown_cell(
+                    row.get("wsi_optical_path_icc_sha256")
+                        .and_then(Value::as_str)
+                ),
+                markdown_cell(row.get("wsi_pixel_spacing_mm").and_then(Value::as_str)),
+                markdown_cell(
+                    row.get("wsi_image_orientation_slide")
+                        .and_then(Value::as_str)
+                ),
+                markdown_bool(row.get("wsi_implicit_position_reconstruction")),
+                markdown_bool(row.get("wsi_sparse_dimension_metadata_absent")),
+                markdown_bool(row.get("wsi_reference_free")),
+            ));
+        }
+        output.push('\n');
+    }
+
     output.push_str("## Coverage Matrix\n\n");
     output.push_str("| Case ID | Status | Profile | IOD | Transfer Syntax | Photometric | Bits | Frames | Generation Backend | Backend Version | Backend Determinism | Validation |\n");
     output.push_str("|---|---|---|---|---|---|---:|---:|---|---|---|---|\n");
@@ -18046,6 +18094,88 @@ fn vl_single_frame_report_laterality(
     Ok(Some("R"))
 }
 
+#[derive(Default)]
+struct WsiTiledFullReportFields {
+    iod_kind: Option<&'static str>,
+    dimension_organization_type: Option<&'static str>,
+    tile_geometry: Option<&'static str>,
+    implicit_frame_order: Option<&'static str>,
+    total_pixel_matrix_sha256: Option<&'static str>,
+    specimen_identity: Option<&'static str>,
+    slide_label_identity: Option<&'static str>,
+    optical_path_identity: Option<&'static str>,
+    optical_path_icc_sha256: Option<&'static str>,
+    pixel_spacing_mm: Option<&'static str>,
+    image_orientation_slide: Option<&'static str>,
+    implicit_position_reconstruction: Option<bool>,
+    sparse_dimension_metadata_absent: Option<bool>,
+    reference_free: Option<bool>,
+}
+
+fn locked_wsi_tiled_full_report_fields() -> WsiTiledFullReportFields {
+    WsiTiledFullReportFields {
+        iod_kind: Some("vl_wsi_tiled_full"),
+        dimension_organization_type: Some("TILED_FULL"),
+        tile_geometry: Some("2x2 tiles; 4x4 total matrix; 2x2 tile grid; 4 frames"),
+        implicit_frame_order: Some("1:(1,1); 2:(3,1); 3:(1,3); 4:(3,3)"),
+        total_pixel_matrix_sha256: Some(
+            "62d9532d46c3f71b045a1393d95c49c4757ef5e62bb043a61baf4fffed189a2a",
+        ),
+        specimen_identity: Some("DTS-SLIDE-001/DTS-SPECIMEN-001"),
+        slide_label_identity: Some("DTS-SLIDE-001/DTS SYNTHETIC SLIDE 001"),
+        optical_path_identity: Some("RGB/550nm/111744^DCM^Brightfield illumination"),
+        optical_path_icc_sha256: Some(
+            "8e069a3476b71a0e0ae7272d9278ba70540d1c4a0b19af1c7d52e56f49091fef",
+        ),
+        pixel_spacing_mm: Some("0.5\\0.5"),
+        image_orientation_slide: Some("1\\0\\0\\0\\1\\0"),
+        implicit_position_reconstruction: Some(true),
+        sparse_dimension_metadata_absent: Some(true),
+        reference_free: Some(true),
+    }
+}
+
+fn wsi_tiled_full_report_fields(
+    manifest_path: &Path,
+    file: &Value,
+) -> Result<WsiTiledFullReportFields, ReportError> {
+    const CASE_ID: &str = "vl/wsi/tiled_full_small";
+    let case_id = file.get("case_id").and_then(Value::as_str).unwrap_or("");
+    if case_id != CASE_ID {
+        return if file.get("expected_wsi_tiled_full").is_some() {
+            Err(ReportError::MetadataShape {
+                path: manifest_path.to_path_buf(),
+                message: "expected_wsi_tiled_full is only valid for vl/wsi/tiled_full_small coverage",
+            })
+        } else {
+            Ok(WsiTiledFullReportFields::default())
+        };
+    }
+
+    validate_wsi_tiled_full_manifest_contract(manifest_path, file).map_err(|_| {
+        ReportError::MetadataShape {
+            path: manifest_path.to_path_buf(),
+            message: "generated tiled-full WSI coverage requires the exact locked manifest contract",
+        }
+    })?;
+    let expected_stressors = serde_json::json!([
+        "vl_whole_slide_microscopy_image_storage",
+        "tiled_full_implicit_frame_order",
+        "total_pixel_matrix_reconstruction",
+        "specimen_and_optical_path_metadata",
+        "nested_icc_profile",
+        "absent_per_frame_functional_groups"
+    ]);
+    if file.get("known_stressors") != Some(&expected_stressors) {
+        return Err(ReportError::MetadataShape {
+            path: manifest_path.to_path_buf(),
+            message: "generated tiled-full WSI coverage requires the exact locked stressor set",
+        });
+    }
+
+    Ok(locked_wsi_tiled_full_report_fields())
+}
+
 fn generated_coverage_row(
     manifest_path: &Path,
     file: &Value,
@@ -18087,6 +18217,7 @@ fn generated_coverage_row(
     let rt_radiation = rt_radiation_report_fields(manifest_path, file)?;
     let rt_radiation_set = rt_radiation_set_report_fields(manifest_path, file)?;
     let vl_single_frame_laterality = vl_single_frame_report_laterality(manifest_path, file)?;
+    let wsi_tiled_full = wsi_tiled_full_report_fields(manifest_path, file)?;
     let is_spatial_registration =
         file.get("case_id").and_then(Value::as_str) == Some("derived/registration/spatial_ct_pair");
     let is_deformable_registration = file.get("case_id").and_then(Value::as_str)
@@ -18426,7 +18557,10 @@ fn generated_coverage_row(
         "determinism": report_str(manifest_path, file, "/determinism", "determinism must be a string")?,
         "object_type": file.get("case_id").and_then(Value::as_str).and_then(|case_id| case_id.split('/').next()),
         "synthetic_data": file.pointer("/expected_semantics/synthetic_data").and_then(Value::as_str),
-        "image_type": file.pointer("/expected_semantics/image_type").and_then(Value::as_str),
+        "image_type": file
+            .pointer("/expected_semantics/image_type")
+            .and_then(Value::as_str)
+            .or_else(|| wsi_tiled_full.iod_kind.map(|_| "ORIGINAL\\PRIMARY\\VOLUME\\NONE")),
         "conversion_type": file.pointer("/expected_semantics/conversion_type").and_then(Value::as_str),
         "presentation_lut_shape": file.pointer("/recipe/recipe_parameters/presentation_lut_shape").and_then(Value::as_str),
         "lossy_image_compression": file.pointer("/expected_semantics/lossy_image_compression").and_then(Value::as_str),
@@ -18442,6 +18576,67 @@ fn generated_coverage_row(
             .map(Value::from)
             .unwrap_or(Value::Null),
     );
+    for (field, value) in [
+        ("wsi_iod_kind", wsi_tiled_full.iod_kind.map(Value::from)),
+        (
+            "wsi_dimension_organization_type",
+            wsi_tiled_full.dimension_organization_type.map(Value::from),
+        ),
+        (
+            "wsi_tile_geometry",
+            wsi_tiled_full.tile_geometry.map(Value::from),
+        ),
+        (
+            "wsi_implicit_frame_order",
+            wsi_tiled_full.implicit_frame_order.map(Value::from),
+        ),
+        (
+            "wsi_total_pixel_matrix_sha256",
+            wsi_tiled_full.total_pixel_matrix_sha256.map(Value::from),
+        ),
+        (
+            "wsi_specimen_identity",
+            wsi_tiled_full.specimen_identity.map(Value::from),
+        ),
+        (
+            "wsi_slide_label_identity",
+            wsi_tiled_full.slide_label_identity.map(Value::from),
+        ),
+        (
+            "wsi_optical_path_identity",
+            wsi_tiled_full.optical_path_identity.map(Value::from),
+        ),
+        (
+            "wsi_optical_path_icc_sha256",
+            wsi_tiled_full.optical_path_icc_sha256.map(Value::from),
+        ),
+        (
+            "wsi_pixel_spacing_mm",
+            wsi_tiled_full.pixel_spacing_mm.map(Value::from),
+        ),
+        (
+            "wsi_image_orientation_slide",
+            wsi_tiled_full.image_orientation_slide.map(Value::from),
+        ),
+        (
+            "wsi_implicit_position_reconstruction",
+            wsi_tiled_full
+                .implicit_position_reconstruction
+                .map(Value::from),
+        ),
+        (
+            "wsi_sparse_dimension_metadata_absent",
+            wsi_tiled_full
+                .sparse_dimension_metadata_absent
+                .map(Value::from),
+        ),
+        (
+            "wsi_reference_free",
+            wsi_tiled_full.reference_free.map(Value::from),
+        ),
+    ] {
+        row_object.insert(field.to_string(), value.unwrap_or(Value::Null));
+    }
     for (field, value) in [
         ("waveform_iod_kind", waveform.iod_kind.map(Value::from)),
         (
@@ -23851,6 +24046,7 @@ fn skipped_coverage_row(
         .and_then(Value::as_str)
         .unwrap_or("");
     let vl_single_frame = vl_single_frame_report_contract(case_id);
+    let is_wsi_tiled_full = case_id == "vl/wsi/tiled_full_small";
     if let Some(contract) = vl_single_frame {
         let registry_matches = [
             ("sop_class_uid", contract.sop_class_uid),
@@ -23870,6 +24066,26 @@ fn skipped_coverage_row(
             });
         }
     }
+    if is_wsi_tiled_full {
+        let registry_matches = [
+            ("sop_class_uid", "1.2.840.10008.5.1.4.1.1.77.1.6"),
+            ("sop_class_name", "VL Whole Slide Microscopy Image Storage"),
+            ("iod_name", "VL Whole Slide Microscopy Image"),
+            ("modality", "SM"),
+            ("transfer_syntax_uid", "1.2.840.10008.1.2.1"),
+        ]
+        .iter()
+        .all(|(field, expected)| {
+            registry_case.get(field).and_then(Value::as_str) == Some(*expected)
+        });
+        if !registry_matches {
+            return Err(ReportError::MetadataShape {
+                path: PathBuf::from("cases/registry.json"),
+                message: "planned tiled-full WSI registry identity must match the locked report contract",
+            });
+        }
+    }
+    let wsi_tiled_full = is_wsi_tiled_full.then(locked_wsi_tiled_full_report_fields);
 
     let mut row = serde_json::json!({
         "case_id": case_id,
@@ -23886,23 +24102,23 @@ fn skipped_coverage_row(
         "codec_backend_kind": Value::Null,
         "codec_feature_gate": registry_case.pointer("/requirements/features/0").and_then(Value::as_str),
         "reason_code": skipped.get("reason_code").and_then(Value::as_str),
-        "photometric": vl_single_frame.map(|_| "RGB"),
-        "bits": vl_single_frame.map(|_| 8),
-        "bits_allocated": vl_single_frame.map(|_| 8),
-        "bits_stored": vl_single_frame.map(|_| 8),
-        "high_bit": vl_single_frame.map(|_| 7),
-        "pixel_representation": vl_single_frame.map(|_| 0),
-        "samples_per_pixel": vl_single_frame.map(|_| 3),
-        "planar_configuration": vl_single_frame.map(|_| 0),
+        "photometric": (vl_single_frame.is_some() || is_wsi_tiled_full).then_some("RGB"),
+        "bits": (vl_single_frame.is_some() || is_wsi_tiled_full).then_some(8),
+        "bits_allocated": (vl_single_frame.is_some() || is_wsi_tiled_full).then_some(8),
+        "bits_stored": (vl_single_frame.is_some() || is_wsi_tiled_full).then_some(8),
+        "high_bit": (vl_single_frame.is_some() || is_wsi_tiled_full).then_some(7),
+        "pixel_representation": (vl_single_frame.is_some() || is_wsi_tiled_full).then_some(0),
+        "samples_per_pixel": (vl_single_frame.is_some() || is_wsi_tiled_full).then_some(3),
+        "planar_configuration": (vl_single_frame.is_some() || is_wsi_tiled_full).then_some(0),
         "pixel_data_vr": Value::Null,
         "pixel_data_layout": Value::Null,
         "basic_offset_table": Value::Null,
         "encapsulated_fragment_layout": Value::Null,
         "extended_offset_table": Value::Null,
-        "frames": vl_single_frame.map(|_| 1),
+        "frames": vl_single_frame.map(|_| 1).or(is_wsi_tiled_full.then_some(4)),
         "geometry": {
-            "rows": vl_single_frame.map(|_| 2),
-            "columns": vl_single_frame.map(|_| 2),
+            "rows": (vl_single_frame.is_some() || is_wsi_tiled_full).then_some(2),
+            "columns": (vl_single_frame.is_some() || is_wsi_tiled_full).then_some(2),
             "spacing": Value::Null,
             "orientation": Value::Null
         },
@@ -23911,7 +24127,7 @@ fn skipped_coverage_row(
         "determinism": registry_case.get("determinism").and_then(Value::as_str).unwrap_or("byte_stable"),
         "object_type": case_id.split('/').next(),
         "synthetic_data": Value::Null,
-        "image_type": vl_single_frame.map(|_| "ORIGINAL\\PRIMARY"),
+        "image_type": vl_single_frame.map(|_| "ORIGINAL\\PRIMARY").or(is_wsi_tiled_full.then_some("ORIGINAL\\PRIMARY\\VOLUME\\NONE")),
         "conversion_type": Value::Null,
         "presentation_lut_shape": Value::Null,
         "lossy_image_compression": Value::Null,
@@ -23930,14 +24146,95 @@ fn skipped_coverage_row(
     );
     row_object.insert(
         "known_stressors".to_string(),
-        vl_single_frame
-            .map(|contract| serde_json::json!([contract.storage_stressor, "vl_rgb_pixels"]))
+        wsi_tiled_full
+            .as_ref()
+            .map(|_| {
+                serde_json::json!([
+                    "vl_whole_slide_microscopy_image_storage",
+                    "tiled_full_implicit_frame_order",
+                    "total_pixel_matrix_reconstruction",
+                    "specimen_and_optical_path_metadata",
+                    "nested_icc_profile",
+                    "absent_per_frame_functional_groups"
+                ])
+            })
+            .or_else(|| {
+                vl_single_frame
+                    .map(|contract| serde_json::json!([contract.storage_stressor, "vl_rgb_pixels"]))
+            })
             .unwrap_or_else(|| Value::Array(Vec::new())),
     );
+    if let Some(wsi) = wsi_tiled_full {
+        for (field, value) in [
+            ("wsi_iod_kind", wsi.iod_kind.map(Value::from)),
+            (
+                "wsi_dimension_organization_type",
+                wsi.dimension_organization_type.map(Value::from),
+            ),
+            ("wsi_tile_geometry", wsi.tile_geometry.map(Value::from)),
+            (
+                "wsi_implicit_frame_order",
+                wsi.implicit_frame_order.map(Value::from),
+            ),
+            (
+                "wsi_total_pixel_matrix_sha256",
+                wsi.total_pixel_matrix_sha256.map(Value::from),
+            ),
+            (
+                "wsi_specimen_identity",
+                wsi.specimen_identity.map(Value::from),
+            ),
+            (
+                "wsi_slide_label_identity",
+                wsi.slide_label_identity.map(Value::from),
+            ),
+            (
+                "wsi_optical_path_identity",
+                wsi.optical_path_identity.map(Value::from),
+            ),
+            (
+                "wsi_optical_path_icc_sha256",
+                wsi.optical_path_icc_sha256.map(Value::from),
+            ),
+            (
+                "wsi_pixel_spacing_mm",
+                wsi.pixel_spacing_mm.map(Value::from),
+            ),
+            (
+                "wsi_image_orientation_slide",
+                wsi.image_orientation_slide.map(Value::from),
+            ),
+            (
+                "wsi_implicit_position_reconstruction",
+                wsi.implicit_position_reconstruction.map(Value::from),
+            ),
+            (
+                "wsi_sparse_dimension_metadata_absent",
+                wsi.sparse_dimension_metadata_absent.map(Value::from),
+            ),
+            ("wsi_reference_free", wsi.reference_free.map(Value::from)),
+        ] {
+            row_object.insert(field.to_string(), value.unwrap_or(Value::Null));
+        }
+    }
     for field in [
         "generation_backend_id",
         "generation_backend_version",
         "generation_backend_determinism",
+        "wsi_iod_kind",
+        "wsi_dimension_organization_type",
+        "wsi_tile_geometry",
+        "wsi_implicit_frame_order",
+        "wsi_total_pixel_matrix_sha256",
+        "wsi_specimen_identity",
+        "wsi_slide_label_identity",
+        "wsi_optical_path_identity",
+        "wsi_optical_path_icc_sha256",
+        "wsi_pixel_spacing_mm",
+        "wsi_image_orientation_slide",
+        "wsi_implicit_position_reconstruction",
+        "wsi_sparse_dimension_metadata_absent",
+        "wsi_reference_free",
         "waveform_iod_kind",
         "waveform_group_count",
         "waveform_group_shapes",
@@ -24261,6 +24558,9 @@ fn skipped_coverage_row(
         "blending_pixel_data_absent",
         "blending_unresolved_external_validator_findings",
     ] {
+        if is_wsi_tiled_full && field.starts_with("wsi_") {
+            continue;
+        }
         row_object.insert(field.to_string(), Value::Null);
     }
     row_object.insert("window_center".to_string(), Value::Null);
@@ -29962,6 +30262,14 @@ mod tests {
                 ]
             },
             "references": [],
+            "known_stressors": [
+                "vl_whole_slide_microscopy_image_storage",
+                "tiled_full_implicit_frame_order",
+                "total_pixel_matrix_reconstruction",
+                "specimen_and_optical_path_metadata",
+                "nested_icc_profile",
+                "absent_per_frame_functional_groups"
+            ],
             "expected_wsi_tiled_full": wsi_tiled_full_locked_contract(
                 frame_of_reference_uid,
                 "1.2.826.0.1.3680043.10.543.2"
@@ -30012,6 +30320,46 @@ mod tests {
         assert!(
             validate_wsi_tiled_full_manifest_contract(Path::new("manifest.json"), &misplaced)
                 .is_err()
+        );
+    }
+
+    #[test]
+    fn wsi_tiled_full_report_fields_require_the_locked_semantic_stressors() {
+        let fields = wsi_tiled_full_report_fields(Path::new("manifest.json"), &wsi_manifest())
+            .expect("locked WSI report fields");
+        assert_eq!(fields.iod_kind, Some("vl_wsi_tiled_full"));
+        assert_eq!(fields.dimension_organization_type, Some("TILED_FULL"));
+        assert_eq!(fields.implicit_position_reconstruction, Some(true));
+        assert_eq!(fields.sparse_dimension_metadata_absent, Some(true));
+        assert_eq!(fields.reference_free, Some(true));
+
+        let mut incomplete = wsi_manifest();
+        incomplete["known_stressors"]
+            .as_array_mut()
+            .expect("WSI stressor array")
+            .pop();
+        assert!(
+            wsi_tiled_full_report_fields(Path::new("manifest.json"), &incomplete).is_err(),
+            "generated WSI reporting must not omit the absence-policy stressor"
+        );
+
+        let mut misplaced = serde_json::json!({
+            "case_id": "vl/wsi/tiled_sparse_small",
+            "expected_wsi_tiled_full": wsi_manifest()["expected_wsi_tiled_full"].clone()
+        });
+        assert!(
+            wsi_tiled_full_report_fields(Path::new("manifest.json"), &misplaced).is_err(),
+            "WSI report contract must remain case scoped"
+        );
+        misplaced
+            .as_object_mut()
+            .expect("misplaced report fixture")
+            .remove("expected_wsi_tiled_full");
+        assert!(
+            wsi_tiled_full_report_fields(Path::new("manifest.json"), &misplaced)
+                .expect("unrelated row")
+                .iod_kind
+                .is_none()
         );
     }
 

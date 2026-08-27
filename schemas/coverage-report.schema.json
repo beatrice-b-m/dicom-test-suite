@@ -1193,6 +1193,20 @@
         "waveform_simultaneous_sampling",
         "waveform_pixel_data_absent",
         "waveform_external_validator_disposition",
+        "wsi_iod_kind",
+        "wsi_dimension_organization_type",
+        "wsi_tile_geometry",
+        "wsi_implicit_frame_order",
+        "wsi_total_pixel_matrix_sha256",
+        "wsi_specimen_identity",
+        "wsi_slide_label_identity",
+        "wsi_optical_path_identity",
+        "wsi_optical_path_icc_sha256",
+        "wsi_pixel_spacing_mm",
+        "wsi_image_orientation_slide",
+        "wsi_implicit_position_reconstruction",
+        "wsi_sparse_dimension_metadata_absent",
+        "wsi_reference_free",
         "validation_status",
         "determinism",
         "object_type",
@@ -2132,6 +2146,34 @@
         "waveform_external_validator_disposition": {
           "enum": ["external conformance evidence not embedded; run conformance separately", null]
         },
+        "wsi_iod_kind": { "enum": ["vl_wsi_tiled_full", null] },
+        "wsi_dimension_organization_type": { "enum": ["TILED_FULL", null] },
+        "wsi_tile_geometry": {
+          "enum": ["2x2 tiles; 4x4 total matrix; 2x2 tile grid; 4 frames", null]
+        },
+        "wsi_implicit_frame_order": {
+          "enum": ["1:(1,1); 2:(3,1); 3:(1,3); 4:(3,3)", null]
+        },
+        "wsi_total_pixel_matrix_sha256": {
+          "anyOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }]
+        },
+        "wsi_specimen_identity": {
+          "enum": ["DTS-SLIDE-001/DTS-SPECIMEN-001", null]
+        },
+        "wsi_slide_label_identity": {
+          "enum": ["DTS-SLIDE-001/DTS SYNTHETIC SLIDE 001", null]
+        },
+        "wsi_optical_path_identity": {
+          "enum": ["RGB/550nm/111744^DCM^Brightfield illumination", null]
+        },
+        "wsi_optical_path_icc_sha256": {
+          "anyOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }]
+        },
+        "wsi_pixel_spacing_mm": { "enum": ["0.5\\0.5", null] },
+        "wsi_image_orientation_slide": { "enum": ["1\\0\\0\\0\\1\\0", null] },
+        "wsi_implicit_position_reconstruction": { "type": ["boolean", "null"] },
+        "wsi_sparse_dimension_metadata_absent": { "type": ["boolean", "null"] },
+        "wsi_reference_free": { "type": ["boolean", "null"] },
         "validation_status": {
           "$ref": "#/$defs/validation_status"
         },
@@ -2737,6 +2779,50 @@
           "else": {
             "properties": {
               "laterality": { "type": "null" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "case_id": { "const": "vl/wsi/tiled_full_small" }
+            },
+            "required": ["case_id"]
+          },
+          "then": {
+            "properties": {
+              "wsi_iod_kind": { "const": "vl_wsi_tiled_full" },
+              "wsi_dimension_organization_type": { "const": "TILED_FULL" },
+              "wsi_tile_geometry": { "const": "2x2 tiles; 4x4 total matrix; 2x2 tile grid; 4 frames" },
+              "wsi_implicit_frame_order": { "const": "1:(1,1); 2:(3,1); 3:(1,3); 4:(3,3)" },
+              "wsi_total_pixel_matrix_sha256": { "const": "62d9532d46c3f71b045a1393d95c49c4757ef5e62bb043a61baf4fffed189a2a" },
+              "wsi_specimen_identity": { "const": "DTS-SLIDE-001/DTS-SPECIMEN-001" },
+              "wsi_slide_label_identity": { "const": "DTS-SLIDE-001/DTS SYNTHETIC SLIDE 001" },
+              "wsi_optical_path_identity": { "const": "RGB/550nm/111744^DCM^Brightfield illumination" },
+              "wsi_optical_path_icc_sha256": { "const": "8e069a3476b71a0e0ae7272d9278ba70540d1c4a0b19af1c7d52e56f49091fef" },
+              "wsi_pixel_spacing_mm": { "const": "0.5\\0.5" },
+              "wsi_image_orientation_slide": { "const": "1\\0\\0\\0\\1\\0" },
+              "wsi_implicit_position_reconstruction": { "const": true },
+              "wsi_sparse_dimension_metadata_absent": { "const": true },
+              "wsi_reference_free": { "const": true }
+            }
+          },
+          "else": {
+            "properties": {
+              "wsi_iod_kind": { "type": "null" },
+              "wsi_dimension_organization_type": { "type": "null" },
+              "wsi_tile_geometry": { "type": "null" },
+              "wsi_implicit_frame_order": { "type": "null" },
+              "wsi_total_pixel_matrix_sha256": { "type": "null" },
+              "wsi_specimen_identity": { "type": "null" },
+              "wsi_slide_label_identity": { "type": "null" },
+              "wsi_optical_path_identity": { "type": "null" },
+              "wsi_optical_path_icc_sha256": { "type": "null" },
+              "wsi_pixel_spacing_mm": { "type": "null" },
+              "wsi_image_orientation_slide": { "type": "null" },
+              "wsi_implicit_position_reconstruction": { "type": "null" },
+              "wsi_sparse_dimension_metadata_absent": { "type": "null" },
+              "wsi_reference_free": { "type": "null" }
             }
           }
         },

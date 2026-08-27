@@ -4,6 +4,7 @@ pub(super) mod metadata_sc;
 pub(super) mod nm;
 pub(super) mod pet;
 pub(super) mod private_creator_sc;
+pub(super) mod sc_integer_pixels;
 pub(super) mod sequence_length_sc;
 pub(super) mod string_boundary_sc;
 pub(super) mod timezone_sc;
@@ -21,6 +22,8 @@ mod nm_tests;
 mod pet_tests;
 #[cfg(test)]
 mod private_creator_sc_tests;
+#[cfg(test)]
+mod sc_integer_pixels_tests;
 #[cfg(test)]
 mod sequence_length_sc_tests;
 #[cfg(test)]

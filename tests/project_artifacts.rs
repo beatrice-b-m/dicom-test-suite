@@ -550,14 +550,9 @@ fn comprehensive3d_scoord3d_source_note_locks_geometry_and_validator_gate() {
                 == Some("derived/sr/comprehensive3d_scoord3d")
         })
         .expect("Comprehensive 3D SCOORD3D row must exist");
-    assert_eq!(
-        case["blockers"],
-        serde_json::json!([{
-            "code": "recipe_unimplemented",
-            "message": "The locked TID 1501 distance and SCOORD3D POLYLINE recipe is not implemented.",
-            "recheck_phase": "phase-3"
-        }])
-    );
+    assert_eq!(case["status"], "implemented");
+    assert_eq!(case["roadmap"], Value::Null);
+    assert_eq!(case["blockers"], serde_json::json!([]));
     assert!(
         case["standards_evidence"]
             .as_array()
@@ -4439,6 +4434,10 @@ fn generator_recipe_case_ids() -> BTreeSet<String> {
         ),
         (
             "src/generation_backends/tid1500.rs",
+            &["CASE_ID: &str = \""][..],
+        ),
+        (
+            "src/generation_backends/scoord3d.rs",
             &["CASE_ID: &str = \""][..],
         ),
     ] {

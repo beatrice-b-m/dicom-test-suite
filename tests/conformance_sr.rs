@@ -122,7 +122,7 @@ esac"#,
                 .map(|result| (instance, result))
         })
         .collect::<Vec<_>>();
-    assert_eq!(sr_results.len(), 4);
+    assert_eq!(sr_results.len(), 5);
     assert!(sr_results.iter().any(|(instance, _)| {
         instance["case_id"] == "derived/sr/comprehensive_measurement_explicit_le"
             && instance["sop_class_uid"] == "1.2.840.10008.5.1.4.1.1.88.34"
@@ -136,6 +136,15 @@ esac"#,
         .expect("promoted TID 1500 case must route through PixelMed");
     assert_eq!(tid1500_result["status"], "completed");
     assert_eq!(tid1500_result["findings"], json!([]));
+    let (_, scoord3d_result) = sr_results
+        .iter()
+        .find(|(instance, _)| {
+            instance["case_id"] == "derived/sr/comprehensive3d_scoord3d"
+                && instance["sop_class_uid"] == "1.2.840.10008.5.1.4.1.1.88.34"
+        })
+        .expect("promoted SCOORD3D case must route through PixelMed");
+    assert_eq!(scoord3d_result["status"], "completed");
+    assert_eq!(scoord3d_result["findings"], json!([]));
     assert!(
         sr_results
             .iter()
@@ -198,7 +207,13 @@ esac"#,
     optional["instances"]
         .as_array_mut()
         .unwrap()
-        .retain(|instance| instance["case_id"] != "derived/sr/tid1500_ct_measurement_report");
+        .retain(|instance| {
+            !matches!(
+                instance["case_id"].as_str(),
+                Some("derived/sr/tid1500_ct_measurement_report")
+                    | Some("derived/sr/comprehensive3d_scoord3d")
+            )
+        });
     for instance in optional["instances"].as_array_mut().unwrap() {
         instance["results"]
             .as_array_mut()

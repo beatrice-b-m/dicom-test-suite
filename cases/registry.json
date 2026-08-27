@@ -10200,7 +10200,7 @@
     {
       "case_id": "derived/sr/comprehensive3d_scoord3d",
       "artifact_kind": "dicom_instance",
-      "status": "planned",
+      "status": "implemented",
       "provider": {
         "kind": "external_backend",
         "id": "highdicom_pydicom"
@@ -10211,18 +10211,8 @@
         "references",
         "geometry"
       ],
-      "roadmap": {
-        "priority": "next",
-        "delivery_phase": "phase-3",
-        "rationale": "Exercises SCOORD3D content and Frame of Reference linkage."
-      },
-      "blockers": [
-        {
-          "code": "recipe_unimplemented",
-          "message": "The locked TID 1501 distance and SCOORD3D POLYLINE recipe is not implemented.",
-          "recheck_phase": "phase-3"
-        }
-      ],
+      "roadmap": null,
+      "blockers": [],
       "profiles": [
         "extended"
       ],

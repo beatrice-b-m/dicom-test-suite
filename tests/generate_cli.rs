@@ -2073,8 +2073,22 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
         })
         .unwrap_or(0);
     assert!(matches!(tid1500_generated, 0 | 1));
-    let expected_extended_files =
-        native_extended_files + parametric_maps_generated + tid1500_generated;
+    let scoord3d_generated = manifest["files"]
+        .as_array()
+        .map(|files| {
+            files
+                .iter()
+                .filter(|file| {
+                    file["case_id"].as_str() == Some("derived/sr/comprehensive3d_scoord3d")
+                })
+                .count()
+        })
+        .unwrap_or(0);
+    assert!(matches!(scoord3d_generated, 0 | 1));
+    let expected_extended_files = native_extended_files
+        + parametric_maps_generated
+        + tid1500_generated
+        + scoord3d_generated;
     assert!(stdout.contains(&format!("files_written\t{expected_extended_files}")));
     assert_eq!(
         manifest
@@ -2097,6 +2111,13 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
     }
     if tid1500_generated == 0 {
         let unavailable = skipped_case_by_id(&manifest, "derived/sr/tid1500_ct_measurement_report");
+        assert_eq!(
+            unavailable.get("reason_code").and_then(Value::as_str),
+            Some("external_backend_unavailable")
+        );
+    }
+    if scoord3d_generated == 0 {
+        let unavailable = skipped_case_by_id(&manifest, "derived/sr/comprehensive3d_scoord3d");
         assert_eq!(
             unavailable.get("reason_code").and_then(Value::as_str),
             Some("external_backend_unavailable")
@@ -6168,6 +6189,7 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
         skipped_cases.len(),
         41 - parametric_maps_generated
             - tid1500_generated
+            - scoord3d_generated
             - if cfg!(feature = "deflate") { 2 } else { 0 }
             - if cfg!(feature = "jpeg") { 1 } else { 0 }
             - if cfg!(feature = "charls") { 1 } else { 0 }
@@ -7829,7 +7851,20 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
         })
         .unwrap_or(0);
     assert!(matches!(tid1500_generated, 0 | 1));
-    let expected_all_files = native_all_files + parametric_maps_generated + tid1500_generated;
+    let scoord3d_generated = manifest["files"]
+        .as_array()
+        .map(|files| {
+            files
+                .iter()
+                .filter(|file| {
+                    file["case_id"].as_str() == Some("derived/sr/comprehensive3d_scoord3d")
+                })
+                .count()
+        })
+        .unwrap_or(0);
+    assert!(matches!(scoord3d_generated, 0 | 1));
+    let expected_all_files =
+        native_all_files + parametric_maps_generated + tid1500_generated + scoord3d_generated;
     assert!(stdout.contains(&format!("files_written\t{expected_all_files}")));
     assert_eq!(
         manifest.pointer("/run/profile").and_then(Value::as_str),
@@ -7999,6 +8034,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
         skipped_cases.len(),
         41 - parametric_maps_generated
             - tid1500_generated
+            - scoord3d_generated
             - if cfg!(feature = "deflate") { 2 } else { 0 }
             - if cfg!(feature = "jpeg") { 1 } else { 0 }
             - if cfg!(feature = "charls") { 1 } else { 0 }
@@ -8030,6 +8066,13 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
     }
     if tid1500_generated == 0 {
         let unavailable = skipped_case_by_id(&manifest, "derived/sr/tid1500_ct_measurement_report");
+        assert_eq!(
+            unavailable.get("reason_code").and_then(Value::as_str),
+            Some("external_backend_unavailable")
+        );
+    }
+    if scoord3d_generated == 0 {
+        let unavailable = skipped_case_by_id(&manifest, "derived/sr/comprehensive3d_scoord3d");
         assert_eq!(
             unavailable.get("reason_code").and_then(Value::as_str),
             Some("external_backend_unavailable")

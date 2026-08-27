@@ -23,13 +23,13 @@ fn report_gaps_counts_logical_cases_and_dimensions() {
         report
             .pointer("/counts/statuses/implemented")
             .and_then(Value::as_u64),
-        Some(131)
+        Some(132)
     );
     assert_eq!(
         report
             .pointer("/counts/statuses/planned")
             .and_then(Value::as_u64),
-        Some(50)
+        Some(49)
     );
     assert!(
         report.pointer("/counts/priorities/now").is_none(),
@@ -113,6 +113,16 @@ fn report_gaps_counts_logical_cases_and_dimensions() {
                     == Some("derived/sr/tid1500_ct_measurement_report")
             })),
         "promoted TID 1500 measurement coverage must not remain a gap"
+    );
+    assert!(
+        report
+            .get("gaps")
+            .and_then(Value::as_array)
+            .is_some_and(|gaps| !gaps.iter().any(|gap| {
+                gap.get("case_id").and_then(Value::as_str)
+                    == Some("derived/sr/comprehensive3d_scoord3d")
+            })),
+        "promoted Comprehensive 3D SCOORD3D coverage must not remain a gap"
     );
     for pointer in [
         "/dimensions/sop_classes",

@@ -5225,6 +5225,95 @@ fn report_surfaces_complete_unsigned_u32_pixel_contract() {
     fs::remove_dir_all(out_dir).unwrap();
 }
 
+#[test]
+fn report_surfaces_complete_one_bit_pixel_contract() {
+    let out_dir = unique_temp_dir("report-u1-pixels");
+    generate_extended(&out_dir);
+    let json_output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args(["report"])
+        .arg(&out_dir)
+        .args(["--format", "json"])
+        .output()
+        .unwrap();
+    assert!(json_output.status.success());
+    let report: Value = serde_json::from_slice(&json_output.stdout).unwrap();
+    let row = coverage_row(&report, "classic/sc/mono2_u1_native");
+    assert_eq!(
+        row["u1_stored_values"],
+        "1; 0; 1; 0; 1; 0; 1; 0; 1; 0; 1; 0; 1; 0; 1; 0; 1; 0"
+    );
+    assert_eq!(
+        row["u1_decoded_frame_sha256"],
+        "a6188710c09cfbc77383ee0588dec2f7affa6e03e78aa900e9ae597a8d8faba3; c520efb8f894a1125bb1a513a9b64ef957f7c2cd63835fd7e130357c47f989ae"
+    );
+    assert_eq!(
+        row["u1_pixel_data_sha256"],
+        "9d6baf87a79d40ef2b145f92945a05cf156a2741e2c2834a3a7721d52757594b"
+    );
+    assert_eq!(row["u1_packing_order"], "least_significant_bit_first");
+    assert_eq!(
+        row["u1_frame_boundary_policy"],
+        "continuous_without_per_frame_padding"
+    );
+    assert_eq!(row["u1_significant_bits"], 18);
+    assert_eq!(row["u1_unused_high_bits"], 6);
+    assert_eq!(row["u1_value_field_padding_bytes"], 1);
+    assert_eq!(
+        report.pointer("/grouped_coverage/u1_packing_orders/least_significant_bit_first"),
+        Some(&json!(1))
+    );
+    assert_eq!(
+        report.pointer("/grouped_coverage/u1_value_field_padding_byte_counts/1"),
+        Some(&json!(1))
+    );
+    let schema: Value =
+        serde_json::from_slice(&fs::read("schemas/coverage-report.schema.json").unwrap()).unwrap();
+    assert!(
+        jsonschema::validator_for(&schema)
+            .unwrap()
+            .is_valid(&report)
+    );
+
+    let markdown_output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args(["report"])
+        .arg(&out_dir)
+        .args(["--format", "markdown"])
+        .output()
+        .unwrap();
+    assert!(markdown_output.status.success());
+    let markdown = String::from_utf8(markdown_output.stdout).unwrap();
+    assert!(markdown.contains("### One-bit Stored Value Sets"));
+    assert!(markdown.contains("continuous_without_per_frame_padding"));
+    assert!(markdown.contains("9d6baf87a79d40ef2b145f92945a05cf156a2741e2c2834a3a7721d52757594b"));
+
+    let manifest_path = out_dir.join("manifest.json");
+    let mut manifest: Value = serde_json::from_slice(&fs::read(&manifest_path).unwrap()).unwrap();
+    manifest["files"]
+        .as_array_mut()
+        .unwrap()
+        .iter_mut()
+        .find(|file| file["case_id"] == "classic/sc/mono2_u1_native")
+        .unwrap()
+        .as_object_mut()
+        .unwrap()
+        .remove("expected_u1_pixels");
+    fs::write(
+        &manifest_path,
+        serde_json::to_vec_pretty(&manifest).unwrap(),
+    )
+    .unwrap();
+    let rejected = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args(["report"])
+        .arg(&out_dir)
+        .args(["--format", "json"])
+        .output()
+        .unwrap();
+    assert!(!rejected.status.success());
+    assert!(String::from_utf8_lossy(&rejected.stderr).contains("requires expected_u1_pixels"));
+
+    fs::remove_dir_all(out_dir).unwrap();
+}
+
 fn generate_core(out_dir: &Path) {
     let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
         .args([

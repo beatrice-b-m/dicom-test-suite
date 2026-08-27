@@ -190,6 +190,11 @@
         "u32_pixel_data_sha256_values": { "$ref": "#/$defs/count_map" },
         "u32_word_byte_orders": { "$ref": "#/$defs/count_map" },
         "u32_full_unsigned_range_states": { "$ref": "#/$defs/count_map" },
+        "u1_stored_value_sets": { "$ref": "#/$defs/count_map" },
+        "u1_pixel_data_sha256_values": { "$ref": "#/$defs/count_map" },
+        "u1_packing_orders": { "$ref": "#/$defs/count_map" },
+        "u1_frame_boundary_policies": { "$ref": "#/$defs/count_map" },
+        "u1_value_field_padding_byte_counts": { "$ref": "#/$defs/count_map" },
         "basic_offset_tables": {
           "$ref": "#/$defs/count_map"
         },
@@ -845,6 +850,14 @@
         "u32_pixel_data_sha256",
         "u32_word_byte_order",
         "u32_full_unsigned_range",
+        "u1_stored_values",
+        "u1_decoded_frame_sha256",
+        "u1_pixel_data_sha256",
+        "u1_packing_order",
+        "u1_frame_boundary_policy",
+        "u1_significant_bits",
+        "u1_unused_high_bits",
+        "u1_value_field_padding_bytes",
         "basic_offset_table",
         "encapsulated_fragment_layout",
         "extended_offset_table",
@@ -1338,6 +1351,39 @@
         },
         "u32_full_unsigned_range": {
           "type": ["boolean", "null"]
+        },
+        "u1_stored_values": {
+          "type": ["string", "null"]
+        },
+        "u1_decoded_frame_sha256": {
+          "type": ["string", "null"]
+        },
+        "u1_pixel_data_sha256": {
+          "anyOf": [
+            { "$ref": "#/$defs/sha256" },
+            { "type": "null" }
+          ]
+        },
+        "u1_packing_order": {
+          "type": ["string", "null"],
+          "enum": ["least_significant_bit_first", null]
+        },
+        "u1_frame_boundary_policy": {
+          "type": ["string", "null"],
+          "enum": ["continuous_without_per_frame_padding", null]
+        },
+        "u1_significant_bits": {
+          "type": ["integer", "null"],
+          "minimum": 0
+        },
+        "u1_unused_high_bits": {
+          "type": ["integer", "null"],
+          "minimum": 0,
+          "maximum": 7
+        },
+        "u1_value_field_padding_bytes": {
+          "type": ["integer", "null"],
+          "enum": [0, 1, null]
         },
         "basic_offset_table": {
           "type": ["string", "null"],
@@ -2037,6 +2083,37 @@
               "u32_pixel_data_sha256": { "type": "null" },
               "u32_word_byte_order": { "type": "null" },
               "u32_full_unsigned_range": { "type": "null" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "case_id": { "const": "classic/sc/mono2_u1_native" }
+            }
+          },
+          "then": {
+            "properties": {
+              "u1_stored_values": { "const": "1; 0; 1; 0; 1; 0; 1; 0; 1; 0; 1; 0; 1; 0; 1; 0; 1; 0" },
+              "u1_decoded_frame_sha256": { "const": "a6188710c09cfbc77383ee0588dec2f7affa6e03e78aa900e9ae597a8d8faba3; c520efb8f894a1125bb1a513a9b64ef957f7c2cd63835fd7e130357c47f989ae" },
+              "u1_pixel_data_sha256": { "const": "9d6baf87a79d40ef2b145f92945a05cf156a2741e2c2834a3a7721d52757594b" },
+              "u1_packing_order": { "const": "least_significant_bit_first" },
+              "u1_frame_boundary_policy": { "const": "continuous_without_per_frame_padding" },
+              "u1_significant_bits": { "const": 18 },
+              "u1_unused_high_bits": { "const": 6 },
+              "u1_value_field_padding_bytes": { "const": 1 }
+            }
+          },
+          "else": {
+            "properties": {
+              "u1_stored_values": { "type": "null" },
+              "u1_decoded_frame_sha256": { "type": "null" },
+              "u1_pixel_data_sha256": { "type": "null" },
+              "u1_packing_order": { "type": "null" },
+              "u1_frame_boundary_policy": { "type": "null" },
+              "u1_significant_bits": { "type": "null" },
+              "u1_unused_high_bits": { "type": "null" },
+              "u1_value_field_padding_bytes": { "type": "null" }
             }
           }
         },

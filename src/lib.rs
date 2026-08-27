@@ -12515,6 +12515,36 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
     append_count_map_section(
         &mut output,
         report,
+        "One-bit Stored Value Sets",
+        "/grouped_coverage/u1_stored_value_sets",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "One-bit Pixel Data SHA-256 Values",
+        "/grouped_coverage/u1_pixel_data_sha256_values",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "One-bit Packing Orders",
+        "/grouped_coverage/u1_packing_orders",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "One-bit Frame Boundary Policies",
+        "/grouped_coverage/u1_frame_boundary_policies",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "One-bit Value Field Padding Byte Counts",
+        "/grouped_coverage/u1_value_field_padding_byte_counts",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
         "Basic Offset Tables",
         "/grouped_coverage/basic_offset_tables",
     );
@@ -13934,6 +13964,7 @@ fn generated_coverage_row(
     let xa = xa_projection_report_fields(manifest_path, file)?;
     let xrf = xrf_projection_report_fields(manifest_path, file)?;
     let u32_pixels = u32_pixel_report_fields(manifest_path, file)?;
+    let u1_pixels = u1_pixel_report_fields(manifest_path, file)?;
     let mut row = serde_json::json!({
         "case_id": report_str(manifest_path, file, "/case_id", "file case_id must be a string")?,
         "profile": run_profile,
@@ -14001,6 +14032,36 @@ fn generated_coverage_row(
         (
             "u32_full_unsigned_range",
             u32_pixels.full_unsigned_range.map(Value::from),
+        ),
+    ] {
+        row_object.insert(field.to_string(), value.unwrap_or(Value::Null));
+    }
+    for (field, value) in [
+        ("u1_stored_values", u1_pixels.stored_values.map(Value::from)),
+        (
+            "u1_decoded_frame_sha256",
+            u1_pixels.decoded_frame_sha256.map(Value::from),
+        ),
+        (
+            "u1_pixel_data_sha256",
+            u1_pixels.pixel_data_sha256.map(Value::from),
+        ),
+        ("u1_packing_order", u1_pixels.packing_order.map(Value::from)),
+        (
+            "u1_frame_boundary_policy",
+            u1_pixels.frame_boundary_policy.map(Value::from),
+        ),
+        (
+            "u1_significant_bits",
+            u1_pixels.significant_bits.map(Value::from),
+        ),
+        (
+            "u1_unused_high_bits",
+            u1_pixels.unused_high_bits.map(Value::from),
+        ),
+        (
+            "u1_value_field_padding_bytes",
+            u1_pixels.value_field_padding_bytes.map(Value::from),
         ),
     ] {
         row_object.insert(field.to_string(), value.unwrap_or(Value::Null));
@@ -16627,6 +16688,18 @@ struct U32PixelReportFields {
     full_unsigned_range: Option<bool>,
 }
 
+#[derive(Default)]
+struct U1PixelReportFields {
+    stored_values: Option<String>,
+    decoded_frame_sha256: Option<String>,
+    pixel_data_sha256: Option<String>,
+    packing_order: Option<String>,
+    frame_boundary_policy: Option<String>,
+    significant_bits: Option<u64>,
+    unused_high_bits: Option<u64>,
+    value_field_padding_bytes: Option<u64>,
+}
+
 fn u32_pixel_report_fields(
     manifest_path: &Path,
     file: &Value,
@@ -16676,6 +16749,86 @@ fn u32_pixel_report_fields(
         pixel_data_sha256: Some(pixel_data_sha256.to_string()),
         word_byte_order: Some(word_byte_order.to_string()),
         full_unsigned_range: Some(true),
+    })
+}
+
+fn u1_pixel_report_fields(
+    manifest_path: &Path,
+    file: &Value,
+) -> Result<U1PixelReportFields, ReportError> {
+    if file.get("case_id").and_then(Value::as_str) != Some("classic/sc/mono2_u1_native") {
+        return Ok(U1PixelReportFields::default());
+    }
+    let expected = file
+        .get("expected_u1_pixels")
+        .ok_or(ReportError::MetadataShape {
+            path: manifest_path.to_path_buf(),
+            message: "one-bit coverage row requires expected_u1_pixels",
+        })?;
+    let stored_values = report_value_array_label(&expected["stored_values"])
+        .filter(|value| value == "1; 0; 1; 0; 1; 0; 1; 0; 1; 0; 1; 0; 1; 0; 1; 0; 1; 0")
+        .ok_or(ReportError::MetadataShape {
+            path: manifest_path.to_path_buf(),
+            message: "one-bit coverage row requires the locked two-frame checkerboard values",
+        })?;
+    let decoded_frame_sha256 = report_value_array_label(&expected["decoded_frame_sha256"])
+        .filter(|value| value == "a6188710c09cfbc77383ee0588dec2f7affa6e03e78aa900e9ae597a8d8faba3; c520efb8f894a1125bb1a513a9b64ef957f7c2cd63835fd7e130357c47f989ae")
+        .ok_or(ReportError::MetadataShape {
+            path: manifest_path.to_path_buf(),
+            message: "one-bit coverage row requires both locked decoded-frame hashes",
+        })?;
+    let exact_string = |field: &'static str, expected_value: &'static str, message| {
+        expected[field]
+            .as_str()
+            .filter(|value| *value == expected_value)
+            .map(str::to_string)
+            .ok_or(ReportError::MetadataShape {
+                path: manifest_path.to_path_buf(),
+                message,
+            })
+    };
+    let exact_u64 = |field: &'static str, expected_value: u64, message| {
+        expected[field]
+            .as_u64()
+            .filter(|value| *value == expected_value)
+            .ok_or(ReportError::MetadataShape {
+                path: manifest_path.to_path_buf(),
+                message,
+            })
+    };
+    Ok(U1PixelReportFields {
+        stored_values: Some(stored_values),
+        decoded_frame_sha256: Some(decoded_frame_sha256),
+        pixel_data_sha256: Some(exact_string(
+            "pixel_data_sha256",
+            "9d6baf87a79d40ef2b145f92945a05cf156a2741e2c2834a3a7721d52757594b",
+            "one-bit coverage row requires the locked Pixel Data SHA-256",
+        )?),
+        packing_order: Some(exact_string(
+            "packing_order",
+            "least_significant_bit_first",
+            "one-bit coverage row requires least-significant-bit-first packing",
+        )?),
+        frame_boundary_policy: Some(exact_string(
+            "frame_boundary_policy",
+            "continuous_without_per_frame_padding",
+            "one-bit coverage row requires continuous cross-frame packing",
+        )?),
+        significant_bits: Some(exact_u64(
+            "significant_bits",
+            18,
+            "one-bit coverage row requires 18 significant bits",
+        )?),
+        unused_high_bits: Some(exact_u64(
+            "unused_high_bits",
+            6,
+            "one-bit coverage row requires six unused high bits",
+        )?),
+        value_field_padding_bytes: Some(exact_u64(
+            "value_field_padding_bytes",
+            1,
+            "one-bit coverage row requires one final Value Field padding byte",
+        )?),
     })
 }
 
@@ -17019,6 +17172,14 @@ fn skipped_coverage_row(
         "u32_pixel_data_sha256",
         "u32_word_byte_order",
         "u32_full_unsigned_range",
+        "u1_stored_values",
+        "u1_decoded_frame_sha256",
+        "u1_pixel_data_sha256",
+        "u1_packing_order",
+        "u1_frame_boundary_policy",
+        "u1_significant_bits",
+        "u1_unused_high_bits",
+        "u1_value_field_padding_bytes",
         "nm_frame_increment_pointers",
         "nm_energy_window_vector",
         "nm_detector_vector",
@@ -17476,6 +17637,11 @@ struct GroupedCoverage {
     u32_pixel_data_sha256_values: BTreeMap<String, usize>,
     u32_word_byte_orders: BTreeMap<String, usize>,
     u32_full_unsigned_range_states: BTreeMap<String, usize>,
+    u1_stored_value_sets: BTreeMap<String, usize>,
+    u1_pixel_data_sha256_values: BTreeMap<String, usize>,
+    u1_packing_orders: BTreeMap<String, usize>,
+    u1_frame_boundary_policies: BTreeMap<String, usize>,
+    u1_value_field_padding_byte_counts: BTreeMap<String, usize>,
     frame_counts: BTreeMap<String, usize>,
     geometries: BTreeMap<String, usize>,
     pixel_spacings: BTreeMap<String, usize>,
@@ -17966,6 +18132,31 @@ impl GroupedCoverage {
         if let Some(value) = row.get("u32_full_unsigned_range").and_then(Value::as_bool) {
             *self
                 .u32_full_unsigned_range_states
+                .entry(value.to_string())
+                .or_default() += 1;
+        }
+        increment_map(
+            &mut self.u1_stored_value_sets,
+            row.get("u1_stored_values").and_then(Value::as_str),
+        );
+        increment_map(
+            &mut self.u1_pixel_data_sha256_values,
+            row.get("u1_pixel_data_sha256").and_then(Value::as_str),
+        );
+        increment_map(
+            &mut self.u1_packing_orders,
+            row.get("u1_packing_order").and_then(Value::as_str),
+        );
+        increment_map(
+            &mut self.u1_frame_boundary_policies,
+            row.get("u1_frame_boundary_policy").and_then(Value::as_str),
+        );
+        if let Some(value) = row
+            .get("u1_value_field_padding_bytes")
+            .and_then(Value::as_u64)
+        {
+            *self
+                .u1_value_field_padding_byte_counts
                 .entry(value.to_string())
                 .or_default() += 1;
         }
@@ -18944,6 +19135,20 @@ impl GroupedCoverage {
             (
                 "u32_full_unsigned_range_states",
                 &self.u32_full_unsigned_range_states,
+            ),
+            ("u1_stored_value_sets", &self.u1_stored_value_sets),
+            (
+                "u1_pixel_data_sha256_values",
+                &self.u1_pixel_data_sha256_values,
+            ),
+            ("u1_packing_orders", &self.u1_packing_orders),
+            (
+                "u1_frame_boundary_policies",
+                &self.u1_frame_boundary_policies,
+            ),
+            (
+                "u1_value_field_padding_byte_counts",
+                &self.u1_value_field_padding_byte_counts,
             ),
         ] {
             grouped_object.insert(

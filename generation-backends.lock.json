@@ -69,7 +69,7 @@
       "dependency_lock": {
         "format": "uv-lock-v1",
         "path": "generation-backends/highdicom-pydicom/uv.lock",
-        "sha256": "6bc67862bd52fb0ffe767579f181aa0c404634a3fb576da51c7c331b1fb143b0"
+        "sha256": "aeacf28dd34d6095eede990f066b894f808f6d9557457be02eb4f1031f2ffa24"
       },
       "fingerprint_components": [
         "canonical_executable_bytes",

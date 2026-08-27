@@ -9,7 +9,17 @@ dependencies = [
     "pydicom==3.0.2",
 ]
 
+[project.scripts]
+dts-highdicom-backend = "dts_highdicom_backend.__main__:main"
+
+[build-system]
+requires = ["setuptools==80.9.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
 [tool.uv]
-package = false
+package = true
 python-downloads = "manual"
 python-preference = "only-managed"

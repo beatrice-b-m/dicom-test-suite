@@ -168,6 +168,24 @@ fn verify_completeness(evidence_root: &Path, evidence: &Value, failures: &mut Ve
                 .collect::<std::collections::BTreeSet<_>>()
         })
         .unwrap_or_default();
+    let required_float_pixel_paths = manifest
+        .as_ref()
+        .and_then(|value| value["files"].as_array())
+        .map(|files| {
+            files
+                .iter()
+                .filter(|file| {
+                    file.pointer("/image/sample_type").and_then(Value::as_str) == Some("float32")
+                        && file.pointer("/pixel_data/vr").and_then(Value::as_str) == Some("OF")
+                        && file
+                            .pointer("/pixel_data/native_or_encapsulated")
+                            .and_then(Value::as_str)
+                            == Some("native")
+                })
+                .filter_map(|file| file["path"].as_str())
+                .collect::<std::collections::BTreeSet<_>>()
+        })
+        .unwrap_or_default();
     let evidence_paths = evidence["instances"]
         .as_array()
         .into_iter()
@@ -215,6 +233,14 @@ fn verify_completeness(evidence_root: &Path, evidence: &Value, failures: &mut Ve
             && instance["pixel"]["status"] != "passed"
         {
             failures.push(format!("independent RLE pixel evidence failed: {path}"));
+        }
+        if required_float_pixel_paths.contains(path)
+            && (instance["pixel"]["status"] != "passed"
+                || instance["pixel"]["independence"] != "independent")
+        {
+            failures.push(format!(
+                "independent native float32 pixel evidence failed: {path}"
+            ));
         }
     }
     if evidence["entity"]["status"] != "completed" {
@@ -603,6 +629,21 @@ fn collect_pixel_result(
         .pointer("/dicom/transfer_syntax_uid")
         .and_then(Value::as_str)
         .unwrap_or("");
+    if file.pointer("/image/sample_type").and_then(Value::as_str) == Some("float32")
+        || file.pointer("/pixel_data/vr").and_then(Value::as_str) == Some("OF")
+    {
+        return collect_float32_pixel_result(
+            generated_root,
+            evidence_root,
+            file,
+            relative_input,
+            stable_key,
+            adapters,
+            tools,
+            expected,
+            transfer_syntax,
+        );
+    }
     if transfer_syntax != "1.2.840.10008.1.2.5" {
         let reason = if file
             .pointer("/expected_semantics/lossy_image_compression")
@@ -750,6 +791,195 @@ fn collect_pixel_result(
         "reason": if passed { "DCMTK RLE decode matched every expected native frame hash" } else { "DCMTK RLE decode or native frame hash comparison failed" },
         "evidence": { "path": relative, "sha256": sha256_hex(&encoded) }
     }))
+}
+
+#[allow(clippy::too_many_arguments)]
+fn collect_float32_pixel_result(
+    generated_root: &Path,
+    evidence_root: &Path,
+    file: &Value,
+    relative_input: &str,
+    stable_key: &str,
+    adapters: &[Value],
+    tools: &[Value],
+    expected: Vec<Value>,
+    transfer_syntax: &str,
+) -> Result<Value, String> {
+    if file.pointer("/image/sample_type").and_then(Value::as_str) != Some("float32")
+        || file.pointer("/pixel_data/vr").and_then(Value::as_str) != Some("OF")
+        || file
+            .pointer("/pixel_data/native_or_encapsulated")
+            .and_then(Value::as_str)
+            != Some("native")
+        || transfer_syntax != "1.2.840.10008.1.2.1"
+    {
+        return Ok(pixel_unsupported(
+            expected,
+            "independent",
+            "Independent float32 extraction is proven only for native Float Pixel Data in Explicit VR Little Endian",
+        ));
+    }
+    let Some(adapter) = adapters.iter().find(|adapter| {
+        adapter["id"] == "dcmtk-dcmdump" && adapter["role"] == "independent_parser"
+    }) else {
+        return Ok(pixel_unsupported(
+            expected,
+            "independent",
+            "The independent DCMTK dcmdump adapter is not configured",
+        ));
+    };
+    let Some(tool) = tools
+        .iter()
+        .find(|tool| tool["adapter_id"] == "dcmtk-dcmdump")
+    else {
+        return Ok(pixel_unsupported(
+            expected,
+            "independent",
+            "The independent DCMTK dcmdump parser was not discovered",
+        ));
+    };
+    if tool["status"] != "available" {
+        return Ok(pixel_unsupported(
+            expected,
+            "independent",
+            "The independent DCMTK dcmdump parser is unavailable",
+        ));
+    }
+    let executable = tool["executable"]
+        .as_str()
+        .ok_or_else(|| "available DCMTK dcmdump parser has no executable".to_string())?;
+    let pixel_dir = evidence_root.join("pixels/dcmtk-native-float32");
+    fs::create_dir_all(&pixel_dir).map_err(|error| error.to_string())?;
+    let input = generated_root.join(relative_input);
+    let extraction_args = vec![
+        "+L".to_string(),
+        "+P".to_string(),
+        "7fe0,0008".to_string(),
+        input.display().to_string(),
+    ];
+    let extraction = run_with_timeout(
+        Path::new(executable),
+        &extraction_args,
+        Duration::from_secs(adapter["timeout_seconds"].as_u64().unwrap_or(30)),
+    )?;
+    let reconstructed_bytes = parse_dcmdump_float32_values(&extraction.stdout);
+    let frame_size = float32_frame_size(file);
+    let expected_frame_count = file
+        .pointer("/pixel_data/frame_count")
+        .and_then(Value::as_u64)
+        .unwrap_or(0) as usize;
+    let expected_value_length = file
+        .pointer("/pixel_data/value_length")
+        .and_then(Value::as_u64)
+        .unwrap_or(0) as usize;
+    let exact_length = frame_size > 0
+        && expected_frame_count == expected.len()
+        && expected_value_length == frame_size * expected_frame_count
+        && reconstructed_bytes
+            .as_ref()
+            .is_some_and(|bytes| bytes.len() == expected_value_length);
+    let actual_hashes = reconstructed_bytes
+        .as_ref()
+        .filter(|_| exact_length)
+        .map(|bytes| {
+            bytes
+                .chunks_exact(frame_size)
+                .map(sha256_hex)
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    let expected_strings = expected
+        .iter()
+        .filter_map(Value::as_str)
+        .collect::<Vec<_>>();
+    let passed = extraction.exit_code == Some(0)
+        && !extraction.timed_out
+        && exact_length
+        && actual_hashes.iter().map(String::as_str).collect::<Vec<_>>() == expected_strings;
+    let sidecar = json!({
+        "adapter_id": "dcmtk-dcmdump",
+        "parser_sha256": tool["sha256"],
+        "independence": "independent",
+        "source_element": "(7FE0,0008) Float Pixel Data",
+        "byte_order": "little_endian",
+        "extraction_method": "dcmdump_full_float_values_reconstructed_as_ieee754_binary32",
+        "invocation": std::iter::once(executable.to_string()).chain(extraction_args.iter().cloned()).collect::<Vec<_>>(),
+        "extraction_exit_code": extraction.exit_code,
+        "extraction_timed_out": extraction.timed_out,
+        "extracted_value_count": reconstructed_bytes.as_ref().map(|bytes| bytes.len() / 4),
+        "expected_value_length": expected_value_length,
+        "actual_value_length": reconstructed_bytes.as_ref().map(Vec::len),
+        "little_endian_value_sha256": reconstructed_bytes.as_ref().map(|bytes| sha256_hex(bytes)),
+        "expected_frame_hashes": expected,
+        "actual_frame_hashes": actual_hashes,
+        "status": if passed { "passed" } else { "failed" }
+    });
+    let relative = format!("pixels/dcmtk-native-float32/{stable_key}.json");
+    let encoded = serde_json::to_vec_pretty(&sidecar).map_err(|error| error.to_string())?;
+    fs::write(evidence_root.join(&relative), &encoded).map_err(|error| error.to_string())?;
+    Ok(json!({
+        "status": if passed { "passed" } else { "failed" },
+        "independence": "independent",
+        "expected_frame_hashes": sidecar["expected_frame_hashes"],
+        "actual_frame_hashes": sidecar["actual_frame_hashes"],
+        "reason": if passed { "DCMTK dcmdump independently extracted (7FE0,0008) and exact little-endian frame hashes matched" } else { "DCMTK dcmdump Float Pixel Data extraction or exact little-endian frame hash comparison failed" },
+        "evidence": { "path": relative, "sha256": sha256_hex(&encoded) }
+    }))
+}
+
+fn parse_dcmdump_float32_values(stdout: &[u8]) -> Option<Vec<u8>> {
+    let dump = String::from_utf8_lossy(stdout);
+    let line = dump
+        .lines()
+        .find(|line| line.to_ascii_lowercase().contains("(7fe0,0008)"))?;
+    let tag_end = line.to_ascii_lowercase().find("(7fe0,0008)")? + "(7fe0,0008)".len();
+    let after_tag = line.get(tag_end..)?.trim_start();
+    if !after_tag
+        .get(..2)
+        .is_some_and(|vr| vr.eq_ignore_ascii_case("OF"))
+    {
+        return None;
+    }
+    let encoded_values = after_tag.get(2..)?.split_once(" #").map_or_else(
+        || after_tag.get(2..).unwrap_or_default(),
+        |(values, _)| values,
+    );
+    let encoded_values = encoded_values
+        .trim()
+        .trim_start_matches('[')
+        .trim_end_matches(']');
+    if encoded_values.is_empty() {
+        return Some(Vec::new());
+    }
+    let mut bytes = Vec::new();
+    for encoded in encoded_values.split('\\') {
+        let value = encoded.trim().parse::<f32>().ok()?;
+        bytes.extend_from_slice(&value.to_le_bytes());
+    }
+    Some(bytes)
+}
+
+fn float32_frame_size(file: &Value) -> usize {
+    if file
+        .pointer("/image/bits_allocated")
+        .and_then(Value::as_u64)
+        != Some(32)
+    {
+        return 0;
+    }
+    let rows = file
+        .pointer("/image/rows")
+        .and_then(Value::as_u64)
+        .unwrap_or(0);
+    let columns = file
+        .pointer("/image/columns")
+        .and_then(Value::as_u64)
+        .unwrap_or(0);
+    let samples = file
+        .pointer("/image/samples_per_pixel")
+        .and_then(Value::as_u64)
+        .unwrap_or(0);
+    (rows * columns * samples * 4) as usize
 }
 
 fn pixel_unsupported(expected: Vec<Value>, independence: &str, reason: &str) -> Value {

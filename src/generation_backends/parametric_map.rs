@@ -18,6 +18,7 @@ use super::{
 pub const BACKEND_ID: &str = "highdicom_pydicom";
 pub const CASE_ID: &str = "derived/parametric-map/float32_ct_derived_explicit_le";
 pub const RECIPE_ID: &str = "derived_parametric_map_float32_ct_derived_explicit_le";
+pub const RECIPE_VERSION: &str = "0.1.0";
 pub const SOP_CLASS_UID: &str = "1.2.840.10008.5.1.4.1.1.30";
 pub const TRANSFER_SYNTAX_UID: &str = "1.2.840.10008.1.2.1";
 pub const OUTPUT_FILE: &str = "parametric-map.dcm";
@@ -229,7 +230,7 @@ fn build_request(input: &ParametricMapGenerationInput) -> Result<Value, BackendC
         "case": {
             "case_id": CASE_ID,
             "recipe_id": RECIPE_ID,
-            "recipe_version": "1.0.0",
+            "recipe_version": RECIPE_VERSION,
             "profile": "extended",
             "expected_sop_class_uid": SOP_CLASS_UID,
             "expected_transfer_syntax_uid": TRANSFER_SYNTAX_UID,
@@ -575,6 +576,7 @@ mod tests {
 
         assert_eq!(first["request_id"], second["request_id"]);
         assert_eq!(first["staging"], second["staging"]);
+        assert_eq!(first["case"]["recipe_version"], RECIPE_VERSION);
     }
 
     #[test]

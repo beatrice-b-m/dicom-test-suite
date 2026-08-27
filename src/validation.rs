@@ -15,6 +15,7 @@ use crate::{
         JPEG_LS_LOSSLESS_TRANSFER_SYNTAX_UID, JPEG_XL_LOSSLESS_TRANSFER_SYNTAX_UID,
         NativeRleLosslessEncoder, RLE_LOSSLESS_TRANSFER_SYNTAX_UID,
     },
+    rt_manifest::ExpectedRtPlan,
     sha256_hex,
     waveform_manifest::ExpectedWaveform,
 };
@@ -46,6 +47,10 @@ mod twelve_lead_ecg_tests;
 #[cfg(test)]
 #[path = "validation_general_ecg_tests.rs"]
 mod general_ecg_tests;
+
+#[cfg(test)]
+#[path = "validation_rt_plan_tests.rs"]
+mod rt_plan_tests;
 
 #[cfg(feature = "deflate")]
 use crate::codecs::DicomRsDeflatedImageFrameEncoder;
@@ -506,6 +511,13 @@ pub(crate) struct RtDoseExpectations<'a> {
     pub referenced_image_sop_instance_uid: &'a str,
     pub referenced_structure_set_sop_class_uid: &'a str,
     pub referenced_structure_set_sop_instance_uid: &'a str,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct RtPlanExpectations<'a> {
+    pub implementation_class_uid: &'a str,
+    pub synthetic_data: &'a str,
+    pub expected_rt_plan: ExpectedRtPlan<'a>,
 }
 
 #[derive(Debug, Clone)]
@@ -4337,6 +4349,7 @@ fn validate_waveform_ecg_file(
         ("rows", tags::ROWS),
         ("columns", tags::COLUMNS),
         ("samples_per_pixel", tags::SAMPLES_PER_PIXEL),
+        ("number_of_frames", tags::NUMBER_OF_FRAMES),
         (
             "photometric_interpretation",
             tags::PHOTOMETRIC_INTERPRETATION,
@@ -8347,6 +8360,927 @@ pub(crate) fn validate_key_object_selection_file(
                     "name": "key_object_selection_document_modules",
                     "status": "passed",
                     "message": "KOS document flags, evidence, and IMAGE content items match the recipe."
+                }
+            ],
+            "external": []
+        }),
+    })
+}
+
+pub(crate) fn validate_rt_plan_file(
+    path: &Path,
+    expected: &RtPlanExpectations<'_>,
+) -> Result<ValidatedPart10, GenerateError> {
+    let bytes = fs::read(path).map_err(|source| GenerateError::ReadGeneratedFile {
+        path: path.to_path_buf(),
+        source,
+    })?;
+    let obj = open_file(path).map_err(|err| GenerateError::ValidateDicomFile {
+        path: path.to_path_buf(),
+        message: err.to_string(),
+    })?;
+    let plan_expected = expected.expected_rt_plan;
+    let mut internal = Vec::new();
+    check_equal(
+        &mut internal,
+        "rt_plan_manifest_fraction_group_count",
+        "Manifest contains exactly one fraction group.",
+        "Manifest fraction-group cardinality is invalid.",
+        plan_expected.fraction_groups.len(),
+        1,
+    );
+    check_equal(
+        &mut internal,
+        "rt_plan_manifest_beam_count",
+        "Manifest contains exactly one beam.",
+        "Manifest beam cardinality is invalid.",
+        plan_expected.beams.len(),
+        1,
+    );
+    fail_if_any_failed(path, &internal)?;
+    let structure_expected = plan_expected.references[0];
+    let dose_expected = plan_expected.references[1];
+    let fraction_expected = plan_expected.fraction_groups[0];
+    let beam_expected = plan_expected.beams[0];
+    for (name, actual, locked) in [
+        (
+            "manifest_referenced_beam_count",
+            fraction_expected.referenced_beams.len(),
+            1,
+        ),
+        (
+            "manifest_device_count",
+            beam_expected.beam_limiting_devices.len(),
+            2,
+        ),
+        (
+            "manifest_control_point_count",
+            beam_expected.control_points.len(),
+            2,
+        ),
+    ] {
+        check_equal(
+            &mut internal,
+            &format!("rt_plan_{name}"),
+            "Manifest nested cardinality matches the validator-owned recipe.",
+            "Manifest nested cardinality does not match the validator-owned recipe.",
+            actual,
+            locked,
+        );
+    }
+    fail_if_any_failed(path, &internal)?;
+
+    check(
+        &mut internal,
+        bytes.len() >= 132 && &bytes[128..132] == b"DICM",
+        "rt_plan_part10_preamble",
+        "File has a Part 10 preamble and DICM marker.",
+        "File is missing the Part 10 DICM marker.",
+    );
+    check_equal(
+        &mut internal,
+        "rt_plan_transfer_syntax",
+        "Transfer Syntax matches the locked RT Plan recipe.",
+        "Transfer Syntax does not match the locked RT Plan recipe.",
+        trim_uid(obj.meta().transfer_syntax()).as_str(),
+        plan_expected.transfer_syntax_uid,
+    );
+    let dataset_sop_class = element_str(path, &obj, tags::SOP_CLASS_UID)?;
+    let dataset_sop_instance = element_str(path, &obj, tags::SOP_INSTANCE_UID)?;
+    for (name, actual, locked) in [
+        (
+            "sop_class_uid",
+            dataset_sop_class.as_str(),
+            "1.2.840.10008.5.1.4.1.1.481.5",
+        ),
+        (
+            "sop_instance_uid",
+            dataset_sop_instance.as_str(),
+            plan_expected.sop_instance_uid,
+        ),
+        (
+            "synthetic_data",
+            element_str(path, &obj, tags::SYNTHETIC_DATA)?.as_str(),
+            expected.synthetic_data,
+        ),
+        (
+            "study_instance_uid",
+            element_str(path, &obj, tags::STUDY_INSTANCE_UID)?.as_str(),
+            plan_expected.study_instance_uid,
+        ),
+        (
+            "series_instance_uid",
+            element_str(path, &obj, tags::SERIES_INSTANCE_UID)?.as_str(),
+            plan_expected.series_instance_uid,
+        ),
+        (
+            "frame_of_reference_uid",
+            element_str(path, &obj, tags::FRAME_OF_REFERENCE_UID)?.as_str(),
+            plan_expected.frame_of_reference_uid,
+        ),
+    ] {
+        check_equal(
+            &mut internal,
+            &format!("rt_plan_{name}"),
+            "RT Plan identity matches the locked recipe.",
+            "RT Plan identity does not match the locked recipe.",
+            actual,
+            locked,
+        );
+    }
+    for (name, actual, locked) in [
+        (
+            "media_storage_sop_class_uid",
+            trim_uid(obj.meta().media_storage_sop_class_uid()),
+            dataset_sop_class.clone(),
+        ),
+        (
+            "media_storage_sop_instance_uid",
+            trim_uid(obj.meta().media_storage_sop_instance_uid()),
+            dataset_sop_instance.clone(),
+        ),
+        (
+            "implementation_class_uid",
+            trim_uid(obj.meta().implementation_class_uid()),
+            expected.implementation_class_uid.to_string(),
+        ),
+    ] {
+        check_equal(
+            &mut internal,
+            &format!("rt_plan_{name}"),
+            "File Meta identity matches the locked dataset identity.",
+            "File Meta identity does not match the locked dataset identity.",
+            actual,
+            locked,
+        );
+    }
+    for (name, tag, locked) in [
+        (
+            "patient_name",
+            tags::PATIENT_NAME,
+            "DTS^Synthetic^Patient001",
+        ),
+        ("patient_id", tags::PATIENT_ID, "DTS-PATIENT-001"),
+        ("patient_birth_date", tags::PATIENT_BIRTH_DATE, "19700101"),
+        ("patient_sex", tags::PATIENT_SEX, "O"),
+        ("study_date", tags::STUDY_DATE, "20260101"),
+        ("study_time", tags::STUDY_TIME, "000000"),
+        ("referring_physician", tags::REFERRING_PHYSICIAN_NAME, ""),
+        ("study_id", tags::STUDY_ID, "DTS-RT"),
+        ("accession_number", tags::ACCESSION_NUMBER, ""),
+        ("modality", tags::MODALITY, "RTPLAN"),
+        ("series_number", tags::SERIES_NUMBER, "72"),
+        ("operators_name", tags::OPERATORS_NAME, ""),
+        (
+            "position_reference_indicator",
+            tags::POSITION_REFERENCE_INDICATOR,
+            "",
+        ),
+        ("manufacturer", tags::MANUFACTURER, "dicom-test-suite"),
+        ("institution_name", tags::INSTITUTION_NAME, ""),
+        ("institution_address", tags::INSTITUTION_ADDRESS, ""),
+        (
+            "manufacturer_model_name",
+            tags::MANUFACTURER_MODEL_NAME,
+            "Native Linked RT Plan",
+        ),
+        (
+            "device_serial_number",
+            tags::DEVICE_SERIAL_NUMBER,
+            "DTS-RTPLAN-001",
+        ),
+        (
+            "software_versions",
+            tags::SOFTWARE_VERSIONS,
+            crate::PACKAGE_VERSION,
+        ),
+        ("instance_number", tags::INSTANCE_NUMBER, "1"),
+        ("label", tags::RT_PLAN_LABEL, "DTS_PLAN"),
+        ("date", tags::RT_PLAN_DATE, "20260101"),
+        ("time", tags::RT_PLAN_TIME, "000000"),
+        ("geometry", tags::RT_PLAN_GEOMETRY, "PATIENT"),
+    ] {
+        check_equal(
+            &mut internal,
+            &format!("rt_plan_{name}"),
+            "RT Plan IOD attribute matches the locked recipe.",
+            "RT Plan IOD attribute does not match the locked recipe.",
+            element_str(path, &obj, tag)?.as_str(),
+            locked,
+        );
+    }
+
+    for (name, actual, locked) in [
+        ("manifest_iod_kind", plan_expected.iod_kind, "rt_plan"),
+        (
+            "manifest_sop_class",
+            plan_expected.sop_class_uid,
+            "1.2.840.10008.5.1.4.1.1.481.5",
+        ),
+        ("manifest_modality", plan_expected.modality, "RTPLAN"),
+        ("manifest_plan_label", plan_expected.plan.label, "DTS_PLAN"),
+        ("manifest_plan_date", plan_expected.plan.date, "20260101"),
+        ("manifest_plan_time", plan_expected.plan.time, "000000"),
+        (
+            "manifest_plan_geometry",
+            plan_expected.plan.geometry,
+            "PATIENT",
+        ),
+        (
+            "manifest_structure_role",
+            structure_expected.relationship,
+            "referenced_structure_set",
+        ),
+        (
+            "manifest_structure_class",
+            structure_expected.sop_class_uid,
+            "1.2.840.10008.5.1.4.1.1.481.3",
+        ),
+        (
+            "manifest_structure_case",
+            structure_expected.source_case_id,
+            "non-image/rt/structure_set_single_roi_explicit_le",
+        ),
+        (
+            "manifest_structure_path",
+            structure_expected.source_path,
+            "non-image/rt/structure_set_single_roi_explicit_le/instance.dcm",
+        ),
+        (
+            "manifest_dose_role",
+            dose_expected.relationship,
+            "referenced_dose",
+        ),
+        (
+            "manifest_dose_class",
+            dose_expected.sop_class_uid,
+            "1.2.840.10008.5.1.4.1.1.481.2",
+        ),
+        (
+            "manifest_dose_case",
+            dose_expected.source_case_id,
+            "non-image/rt/dose_grid_u16_explicit_le",
+        ),
+        (
+            "manifest_dose_path",
+            dose_expected.source_path,
+            "non-image/rt/dose_grid_u16_explicit_le/instance.dcm",
+        ),
+    ] {
+        check_equal(
+            &mut internal,
+            &format!("rt_plan_{name}"),
+            "Manifest expectation matches the validator-owned RT Plan recipe.",
+            "Manifest expectation does not match the validator-owned RT Plan recipe.",
+            actual,
+            locked,
+        );
+    }
+    check(
+        &mut internal,
+        [structure_expected, dose_expected].iter().all(|reference| {
+            reference.study_instance_uid == plan_expected.study_instance_uid
+                && reference.frame_of_reference_uid == plan_expected.frame_of_reference_uid
+        }),
+        "rt_plan_manifest_shared_identity",
+        "Manifest references share the Plan Study and Frame of Reference.",
+        "Manifest references do not share the Plan Study and Frame of Reference.",
+    );
+    check(
+        &mut internal,
+        structure_expected.sop_instance_uid != dose_expected.sop_instance_uid,
+        "rt_plan_manifest_distinct_references",
+        "Structure Set and Dose references are distinct.",
+        "Structure Set and Dose references are duplicated.",
+    );
+    check(
+        &mut internal,
+        [
+            structure_expected.source_sha256,
+            dose_expected.source_sha256,
+        ]
+        .iter()
+        .all(|hash| {
+            hash.len() == 64
+                && hash
+                    .bytes()
+                    .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+        }),
+        "rt_plan_manifest_source_hashes",
+        "Manifest references retain lowercase SHA-256 source identities.",
+        "Manifest source hash identity is malformed.",
+    );
+    check(
+        &mut internal,
+        structure_expected.ordinal == 1
+            && dose_expected.ordinal == 2
+            && fraction_expected.ordinal == 1
+            && beam_expected.ordinal == 1
+            && fraction_expected.referenced_beams[0].ordinal == 1
+            && beam_expected.beam_limiting_devices[0].ordinal == 1
+            && beam_expected.beam_limiting_devices[1].ordinal == 2
+            && beam_expected.control_points[0].ordinal == 1
+            && beam_expected.control_points[1].ordinal == 2,
+        "rt_plan_manifest_order",
+        "Manifest RT Plan arrays use explicit one-based order.",
+        "Manifest RT Plan order or ordinal is invalid.",
+    );
+    check(
+        &mut internal,
+        fraction_expected.fraction_group_number == 1
+            && fraction_expected.number_of_fractions_planned == 1
+            && fraction_expected.number_of_beams == 1
+            && fraction_expected.number_of_brachy_application_setups == 0
+            && fraction_expected.referenced_beams[0].referenced_beam_number == 1
+            && beam_expected.beam_number == 1
+            && beam_expected.number_of_control_points == 2
+            && beam_expected.final_cumulative_meterset_weight == 1,
+        "rt_plan_manifest_topology",
+        "Manifest fraction, beam, and control-point topology matches the recipe.",
+        "Manifest fraction, beam, or control-point topology is invalid.",
+    );
+    check(
+        &mut internal,
+        beam_expected.treatment_machine_name == "DTS_LINAC"
+            && beam_expected.primary_dosimeter_unit == "MU"
+            && beam_expected.source_axis_distance_mm == 1000
+            && beam_expected.beam_name == "DTS_STATIC_AP"
+            && beam_expected.beam_type == "STATIC"
+            && beam_expected.radiation_type == "PHOTON"
+            && beam_expected.treatment_delivery_type == "TREATMENT"
+            && beam_expected.accessories.number_of_wedges == 0
+            && beam_expected.accessories.wedge_sequence_absent
+            && beam_expected.accessories.number_of_compensators == 0
+            && beam_expected.accessories.compensator_sequence_absent
+            && beam_expected.accessories.number_of_boli == 0
+            && beam_expected.accessories.bolus_sequence_absent
+            && beam_expected.accessories.number_of_blocks == 0
+            && beam_expected.accessories.block_sequence_absent
+            && beam_expected.beam_limiting_devices[0].device_type == "X"
+            && beam_expected.beam_limiting_devices[1].device_type == "Y"
+            && beam_expected.beam_limiting_devices.iter().all(|device| {
+                device.number_of_leaf_jaw_pairs == 1 && device.source_to_device_distance_mm == 500
+            }),
+        "rt_plan_manifest_beam_contract",
+        "Manifest beam and accessory contract matches the validator-owned recipe.",
+        "Manifest beam or accessory contract does not match the validator-owned recipe.",
+    );
+    let first_expected = beam_expected.control_points[0];
+    let final_expected = beam_expected.control_points[1];
+    let first_geometry = first_expected.geometry;
+    check(
+        &mut internal,
+        first_expected.control_point_index == 0
+            && first_expected.cumulative_meterset_weight == 0
+            && first_expected
+                .inherits_geometry_from_control_point
+                .is_none()
+            && first_geometry.is_some_and(|geometry| {
+                geometry.nominal_beam_energy_mev == 6
+                    && geometry.jaw_positions_mm == [[-50, 50], [-50, 50]]
+                    && geometry.gantry_angle_degrees == 0
+                    && geometry.gantry_rotation_direction == "NONE"
+                    && geometry.beam_limiting_device_angle_degrees == 0
+                    && geometry.beam_limiting_device_rotation_direction == "NONE"
+                    && geometry.patient_support_angle_degrees == 0
+                    && geometry.patient_support_rotation_direction == "NONE"
+                    && geometry.table_top_vertical_position_mm == 0
+                    && geometry.table_top_longitudinal_position_mm == 0
+                    && geometry.table_top_lateral_position_mm == 0
+                    && geometry.table_top_pitch_angle_degrees == 0
+                    && geometry.table_top_pitch_rotation_direction == "NONE"
+                    && geometry.table_top_roll_angle_degrees == 0
+                    && geometry.table_top_roll_rotation_direction == "NONE"
+                    && geometry.isocenter_position_mm == [0, 0, 0]
+            })
+            && final_expected.control_point_index == 1
+            && final_expected.cumulative_meterset_weight == 1
+            && final_expected.geometry.is_none()
+            && final_expected.inherits_geometry_from_control_point == Some(0),
+        "rt_plan_manifest_control_point_contract",
+        "Manifest control points encode exact geometry and inheritance.",
+        "Manifest control-point geometry or inheritance is invalid.",
+    );
+    let absent = plan_expected.absent_content;
+    check(
+        &mut internal,
+        absent.referenced_rt_plan_sequence
+            && absent.rt_prescription_module
+            && absent.rt_tolerance_tables_module
+            && absent.rt_patient_setup_module
+            && absent.rt_brachy_application_setups_module
+            && absent.approval_module
+            && absent.clinical_trial_module
+            && absent.common_instance_reference_module
+            && absent.image
+            && absent.pixel_data,
+        "rt_plan_manifest_absence_contract",
+        "Manifest records every locked RT Plan absence.",
+        "Manifest weakens a locked RT Plan absence.",
+    );
+
+    for (name, tag) in [
+        (
+            "structure_reference_count",
+            tags::REFERENCED_STRUCTURE_SET_SEQUENCE,
+        ),
+        ("dose_reference_count", tags::REFERENCED_DOSE_SEQUENCE),
+        ("fraction_group_count", tags::FRACTION_GROUP_SEQUENCE),
+        ("beam_count", tags::BEAM_SEQUENCE),
+    ] {
+        check_equal(
+            &mut internal,
+            &format!("rt_plan_{name}"),
+            "Locked RT Plan sequence contains exactly one item.",
+            "Locked RT Plan sequence cardinality is invalid.",
+            sequence_item_count(path, &obj, tag)?,
+            1,
+        );
+    }
+    fail_if_any_failed(path, &internal)?;
+
+    for (sequence_tag, prefix, reference) in [
+        (
+            tags::REFERENCED_STRUCTURE_SET_SEQUENCE,
+            "structure",
+            structure_expected,
+        ),
+        (tags::REFERENCED_DOSE_SEQUENCE, "dose", dose_expected),
+    ] {
+        let item = top_level_sequence_item(path, &obj, sequence_tag, 0)?;
+        for (suffix, tag, locked) in [
+            (
+                "sop_class_uid",
+                TAG_REFERENCED_SOP_CLASS_UID,
+                reference.sop_class_uid,
+            ),
+            (
+                "sop_instance_uid",
+                TAG_REFERENCED_SOP_INSTANCE_UID,
+                reference.sop_instance_uid,
+            ),
+        ] {
+            check_equal(
+                &mut internal,
+                &format!("rt_plan_{prefix}_{suffix}"),
+                "RT Plan reference matches the locked upstream identity.",
+                "RT Plan reference does not match the locked upstream identity.",
+                item_str(path, item, tag)?.as_str(),
+                locked,
+            );
+        }
+    }
+
+    let fraction = top_level_sequence_item(path, &obj, tags::FRACTION_GROUP_SEQUENCE, 0)?;
+    for (name, tag, locked) in [
+        (
+            "fraction_group_number",
+            tags::FRACTION_GROUP_NUMBER,
+            fraction_expected.fraction_group_number,
+        ),
+        (
+            "fractions_planned",
+            tags::NUMBER_OF_FRACTIONS_PLANNED,
+            fraction_expected.number_of_fractions_planned,
+        ),
+        (
+            "fraction_beam_count",
+            tags::NUMBER_OF_BEAMS,
+            fraction_expected.number_of_beams,
+        ),
+        (
+            "brachy_setup_count",
+            tags::NUMBER_OF_BRACHY_APPLICATION_SETUPS,
+            fraction_expected.number_of_brachy_application_setups,
+        ),
+    ] {
+        check_equal(
+            &mut internal,
+            &format!("rt_plan_{name}"),
+            "Fraction Group value matches the locked recipe.",
+            "Fraction Group value does not match the locked recipe.",
+            item_u16(path, fraction, tag)?,
+            u16::from(locked),
+        );
+    }
+    check_equal(
+        &mut internal,
+        "rt_plan_referenced_beam_count",
+        "Fraction Group contains exactly one referenced beam.",
+        "Referenced Beam Sequence cardinality is invalid.",
+        item_sequence_item_count(path, fraction, tags::REFERENCED_BEAM_SEQUENCE)?,
+        1,
+    );
+    fail_if_any_failed(path, &internal)?;
+    let fraction_beam = item_sequence_item(path, fraction, tags::REFERENCED_BEAM_SEQUENCE, 0)?;
+    check_equal(
+        &mut internal,
+        "rt_plan_referenced_beam_number",
+        "Fraction Group references the locked Beam Number.",
+        "Fraction Group contains a dangling Beam Number.",
+        item_u16(path, fraction_beam, tags::REFERENCED_BEAM_NUMBER)?,
+        u16::from(fraction_expected.referenced_beams[0].referenced_beam_number),
+    );
+
+    let beam = top_level_sequence_item(path, &obj, tags::BEAM_SEQUENCE, 0)?;
+    for (name, tag, locked) in [
+        (
+            "treatment_machine_name",
+            tags::TREATMENT_MACHINE_NAME,
+            "DTS_LINAC",
+        ),
+        ("primary_dosimeter_unit", tags::PRIMARY_DOSIMETER_UNIT, "MU"),
+        ("beam_number", tags::BEAM_NUMBER, "1"),
+        ("beam_name", tags::BEAM_NAME, "DTS_STATIC_AP"),
+        ("beam_type", tags::BEAM_TYPE, "STATIC"),
+        ("radiation_type", tags::RADIATION_TYPE, "PHOTON"),
+        (
+            "treatment_delivery_type",
+            tags::TREATMENT_DELIVERY_TYPE,
+            "TREATMENT",
+        ),
+    ] {
+        check_equal(
+            &mut internal,
+            &format!("rt_plan_{name}"),
+            "Beam value matches the locked recipe.",
+            "Beam value does not match the locked recipe.",
+            item_str(path, beam, tag)?.as_str(),
+            locked,
+        );
+    }
+    check_equal(
+        &mut internal,
+        "rt_plan_source_axis_distance",
+        "Source-axis distance matches the locked recipe.",
+        "Source-axis distance does not match the locked recipe.",
+        item_f64(path, beam, tags::SOURCE_AXIS_DISTANCE)?,
+        1000.0,
+    );
+    for (name, tag) in [
+        ("wedges", tags::NUMBER_OF_WEDGES),
+        ("compensators", tags::NUMBER_OF_COMPENSATORS),
+        ("boli", tags::NUMBER_OF_BOLI),
+        ("blocks", tags::NUMBER_OF_BLOCKS),
+    ] {
+        check_equal(
+            &mut internal,
+            &format!("rt_plan_number_of_{name}"),
+            "Accessory count is present and zero.",
+            "Accessory count is missing or nonzero.",
+            item_u16(path, beam, tag)?,
+            0,
+        );
+    }
+    for (name, tag) in [
+        ("wedge_sequence", tags::WEDGE_SEQUENCE),
+        ("compensator_sequence", tags::COMPENSATOR_SEQUENCE),
+        ("bolus_id", tags::BOLUS_ID),
+        ("referenced_bolus_sequence", tags::REFERENCED_BOLUS_SEQUENCE),
+        ("block_sequence", tags::BLOCK_SEQUENCE),
+    ] {
+        check(
+            &mut internal,
+            beam.element_opt(tag)
+                .map_err(|err| validation_error(path, err))?
+                .is_none(),
+            &format!("rt_plan_{name}_absent"),
+            "Conditional accessory content is absent for a zero count.",
+            "Conditional accessory content is present despite a zero count.",
+        );
+    }
+    check_equal(
+        &mut internal,
+        "rt_plan_device_count",
+        "Beam Limiting Device Sequence contains X and Y.",
+        "Beam Limiting Device Sequence cardinality is invalid.",
+        item_sequence_item_count(path, beam, tags::BEAM_LIMITING_DEVICE_SEQUENCE)?,
+        2,
+    );
+    check_equal(
+        &mut internal,
+        "rt_plan_control_point_count",
+        "Control Point Sequence contains exactly two items.",
+        "Control Point Sequence cardinality is invalid.",
+        item_sequence_item_count(path, beam, tags::CONTROL_POINT_SEQUENCE)?,
+        2,
+    );
+    check_equal(
+        &mut internal,
+        "rt_plan_number_of_control_points",
+        "Number of Control Points matches the sequence.",
+        "Number of Control Points does not match the sequence.",
+        item_u16(path, beam, tags::NUMBER_OF_CONTROL_POINTS)?,
+        2,
+    );
+    check_equal(
+        &mut internal,
+        "rt_plan_final_cumulative_meterset_weight",
+        "Final meterset weight is one.",
+        "Final meterset weight is not one.",
+        item_f64(path, beam, tags::FINAL_CUMULATIVE_METERSET_WEIGHT)?,
+        1.0,
+    );
+    fail_if_any_failed(path, &internal)?;
+
+    for (index, device_expected) in beam_expected.beam_limiting_devices.iter().enumerate() {
+        let device = item_sequence_item(path, beam, tags::BEAM_LIMITING_DEVICE_SEQUENCE, index)?;
+        check_equal(
+            &mut internal,
+            &format!("rt_plan_device_{}_type", index + 1),
+            "Beam limiting device order matches X then Y.",
+            "Beam limiting device order is invalid.",
+            item_str(path, device, tags::RT_BEAM_LIMITING_DEVICE_TYPE)?.as_str(),
+            device_expected.device_type,
+        );
+        check_equal(
+            &mut internal,
+            &format!("rt_plan_device_{}_jaw_pairs", index + 1),
+            "Beam limiting device has one jaw pair.",
+            "Beam limiting device jaw-pair count is invalid.",
+            item_u16(path, device, tags::NUMBER_OF_LEAF_JAW_PAIRS)?,
+            1,
+        );
+        check_equal(
+            &mut internal,
+            &format!("rt_plan_device_{}_distance", index + 1),
+            "Beam limiting device distance matches the recipe.",
+            "Beam limiting device distance is invalid.",
+            item_f64(path, device, tags::SOURCE_TO_BEAM_LIMITING_DEVICE_DISTANCE)?,
+            500.0,
+        );
+    }
+
+    let first = item_sequence_item(path, beam, tags::CONTROL_POINT_SEQUENCE, 0)?;
+    let final_point = item_sequence_item(path, beam, tags::CONTROL_POINT_SEQUENCE, 1)?;
+    check_equal(
+        &mut internal,
+        "rt_plan_control_point_1_index",
+        "First control point index is zero.",
+        "First control point index is invalid.",
+        item_u16(path, first, tags::CONTROL_POINT_INDEX)?,
+        0,
+    );
+    check_equal(
+        &mut internal,
+        "rt_plan_control_point_2_index",
+        "Final control point index is one.",
+        "Final control point index is invalid.",
+        item_u16(path, final_point, tags::CONTROL_POINT_INDEX)?,
+        1,
+    );
+    check_equal(
+        &mut internal,
+        "rt_plan_control_point_1_meterset",
+        "First control point meterset is zero.",
+        "First control point meterset is invalid.",
+        item_f64(path, first, tags::CUMULATIVE_METERSET_WEIGHT)?,
+        0.0,
+    );
+    check_equal(
+        &mut internal,
+        "rt_plan_control_point_2_meterset",
+        "Final control point meterset is one.",
+        "Final control point meterset is invalid.",
+        item_f64(path, final_point, tags::CUMULATIVE_METERSET_WEIGHT)?,
+        1.0,
+    );
+    check_equal(
+        &mut internal,
+        "rt_plan_jaw_position_count",
+        "First control point has ordered X and Y jaw positions.",
+        "First control point jaw-position cardinality is invalid.",
+        item_sequence_item_count(path, first, tags::BEAM_LIMITING_DEVICE_POSITION_SEQUENCE)?,
+        2,
+    );
+    fail_if_any_failed(path, &internal)?;
+    for (index, device_type) in ["X", "Y"].iter().enumerate() {
+        let jaws = item_sequence_item(
+            path,
+            first,
+            tags::BEAM_LIMITING_DEVICE_POSITION_SEQUENCE,
+            index,
+        )?;
+        check_equal(
+            &mut internal,
+            &format!("rt_plan_jaw_{}_type", index + 1),
+            "Jaw position order matches X then Y.",
+            "Jaw position device order is invalid.",
+            item_str(path, jaws, tags::RT_BEAM_LIMITING_DEVICE_TYPE)?.as_str(),
+            *device_type,
+        );
+        check_equal(
+            &mut internal,
+            &format!("rt_plan_jaw_{}_positions", index + 1),
+            "Jaw positions match the locked aperture.",
+            "Jaw positions do not match the locked aperture.",
+            item_f64_values(path, jaws, tags::LEAF_JAW_POSITIONS)?,
+            vec![-50.0, 50.0],
+        );
+    }
+    for (name, tag, locked) in [
+        ("nominal_energy", tags::NOMINAL_BEAM_ENERGY, 6.0),
+        ("gantry_angle", tags::GANTRY_ANGLE, 0.0),
+        (
+            "beam_limiting_device_angle",
+            tags::BEAM_LIMITING_DEVICE_ANGLE,
+            0.0,
+        ),
+        ("patient_support_angle", tags::PATIENT_SUPPORT_ANGLE, 0.0),
+        ("table_vertical", tags::TABLE_TOP_VERTICAL_POSITION, 0.0),
+        (
+            "table_longitudinal",
+            tags::TABLE_TOP_LONGITUDINAL_POSITION,
+            0.0,
+        ),
+        ("table_lateral", tags::TABLE_TOP_LATERAL_POSITION, 0.0),
+        ("table_pitch", tags::TABLE_TOP_PITCH_ANGLE, 0.0),
+        ("table_roll", tags::TABLE_TOP_ROLL_ANGLE, 0.0),
+    ] {
+        check_equal(
+            &mut internal,
+            &format!("rt_plan_control_point_1_{name}"),
+            "Control-point geometry matches the locked recipe.",
+            "Control-point geometry does not match the locked recipe.",
+            item_f64(path, first, tag)?,
+            locked,
+        );
+    }
+    for (name, tag) in [
+        ("gantry_rotation", tags::GANTRY_ROTATION_DIRECTION),
+        (
+            "beam_limiting_device_rotation",
+            tags::BEAM_LIMITING_DEVICE_ROTATION_DIRECTION,
+        ),
+        (
+            "patient_support_rotation",
+            tags::PATIENT_SUPPORT_ROTATION_DIRECTION,
+        ),
+        (
+            "table_pitch_rotation",
+            tags::TABLE_TOP_PITCH_ROTATION_DIRECTION,
+        ),
+        (
+            "table_roll_rotation",
+            tags::TABLE_TOP_ROLL_ROTATION_DIRECTION,
+        ),
+    ] {
+        check_equal(
+            &mut internal,
+            &format!("rt_plan_control_point_1_{name}"),
+            "Control-point rotation direction is NONE.",
+            "Control-point rotation direction is invalid.",
+            item_str(path, first, tag)?.as_str(),
+            "NONE",
+        );
+    }
+    check_equal(
+        &mut internal,
+        "rt_plan_control_point_1_isocenter",
+        "Isocenter is the locked origin.",
+        "Isocenter does not match the locked origin.",
+        item_f64_values(path, first, tags::ISOCENTER_POSITION)?,
+        vec![0.0, 0.0, 0.0],
+    );
+
+    for (name, tag) in [
+        ("nominal_energy", tags::NOMINAL_BEAM_ENERGY),
+        (
+            "jaw_positions",
+            tags::BEAM_LIMITING_DEVICE_POSITION_SEQUENCE,
+        ),
+        ("gantry_angle", tags::GANTRY_ANGLE),
+        ("gantry_rotation", tags::GANTRY_ROTATION_DIRECTION),
+        (
+            "beam_limiting_device_angle",
+            tags::BEAM_LIMITING_DEVICE_ANGLE,
+        ),
+        (
+            "beam_limiting_device_rotation",
+            tags::BEAM_LIMITING_DEVICE_ROTATION_DIRECTION,
+        ),
+        ("patient_support_angle", tags::PATIENT_SUPPORT_ANGLE),
+        (
+            "patient_support_rotation",
+            tags::PATIENT_SUPPORT_ROTATION_DIRECTION,
+        ),
+        ("table_vertical", tags::TABLE_TOP_VERTICAL_POSITION),
+        ("table_longitudinal", tags::TABLE_TOP_LONGITUDINAL_POSITION),
+        ("table_lateral", tags::TABLE_TOP_LATERAL_POSITION),
+        ("table_pitch", tags::TABLE_TOP_PITCH_ANGLE),
+        (
+            "table_pitch_rotation",
+            tags::TABLE_TOP_PITCH_ROTATION_DIRECTION,
+        ),
+        ("table_roll", tags::TABLE_TOP_ROLL_ANGLE),
+        (
+            "table_roll_rotation",
+            tags::TABLE_TOP_ROLL_ROTATION_DIRECTION,
+        ),
+        ("isocenter", tags::ISOCENTER_POSITION),
+    ] {
+        check(
+            &mut internal,
+            final_point
+                .element_opt(tag)
+                .map_err(|err| validation_error(path, err))?
+                .is_none(),
+            &format!("rt_plan_control_point_2_{name}_inherited"),
+            "Unchanged final control-point geometry is absent and inherited.",
+            "Final control point repeats or changes inherited geometry.",
+        );
+    }
+    for (name, tag) in [
+        (
+            "referenced_rt_plan_sequence",
+            tags::REFERENCED_RT_PLAN_SEQUENCE,
+        ),
+        ("rt_prescription_module", tags::DOSE_REFERENCE_SEQUENCE),
+        ("rt_tolerance_tables_module", tags::TOLERANCE_TABLE_SEQUENCE),
+        ("rt_patient_setup_module", tags::PATIENT_SETUP_SEQUENCE),
+        (
+            "rt_brachy_application_setups_module",
+            tags::APPLICATION_SETUP_SEQUENCE,
+        ),
+        ("approval_module", tags::APPROVAL_STATUS),
+        ("approval_review_date", tags::REVIEW_DATE),
+        ("approval_review_time", tags::REVIEW_TIME),
+        ("approval_reviewer_name", tags::REVIEWER_NAME),
+        ("clinical_trial_module", tags::CLINICAL_TRIAL_SPONSOR_NAME),
+        (
+            "clinical_trial_protocol_id",
+            tags::CLINICAL_TRIAL_PROTOCOL_ID,
+        ),
+        (
+            "clinical_trial_protocol_name",
+            tags::CLINICAL_TRIAL_PROTOCOL_NAME,
+        ),
+        ("clinical_trial_site_id", tags::CLINICAL_TRIAL_SITE_ID),
+        ("clinical_trial_site_name", tags::CLINICAL_TRIAL_SITE_NAME),
+        ("clinical_trial_subject_id", tags::CLINICAL_TRIAL_SUBJECT_ID),
+        (
+            "clinical_trial_subject_reading_id",
+            tags::CLINICAL_TRIAL_SUBJECT_READING_ID,
+        ),
+        (
+            "common_instance_reference_module",
+            tags::STUDIES_CONTAINING_OTHER_REFERENCED_INSTANCES_SEQUENCE,
+        ),
+        (
+            "common_instance_referenced_series",
+            tags::REFERENCED_SERIES_SEQUENCE,
+        ),
+        ("pixel_data", tags::PIXEL_DATA),
+        ("rows", tags::ROWS),
+        ("columns", tags::COLUMNS),
+        ("samples_per_pixel", tags::SAMPLES_PER_PIXEL),
+        (
+            "photometric_interpretation",
+            tags::PHOTOMETRIC_INTERPRETATION,
+        ),
+        ("planar_configuration", tags::PLANAR_CONFIGURATION),
+        ("bits_allocated", tags::BITS_ALLOCATED),
+        ("bits_stored", tags::BITS_STORED),
+        ("high_bit", tags::HIGH_BIT),
+        ("pixel_representation", tags::PIXEL_REPRESENTATION),
+    ] {
+        check(
+            &mut internal,
+            obj.element_opt(tag)
+                .map_err(|err| validation_error(path, err))?
+                .is_none(),
+            &format!("rt_plan_{name}_absent"),
+            "Locked optional module or pixel attribute is absent.",
+            "Locked optional module or pixel attribute is unexpectedly present.",
+        );
+    }
+
+    fail_if_any_failed(path, &internal)?;
+    Ok(ValidatedPart10 {
+        bytes,
+        validation: serde_json::json!({
+            "status": "passed",
+            "internal": internal,
+            "standards": [
+                {
+                    "name": "rt_plan_sop_class",
+                    "status": "passed",
+                    "message": "SOP Class UID matches RT Plan Storage in the 2026b reference."
+                },
+                {
+                    "name": standard_transfer_syntax_validation_name(plan_expected.transfer_syntax_uid),
+                    "status": "passed",
+                    "message": standard_transfer_syntax_validation_message(plan_expected.transfer_syntax_uid)
+                },
+                {
+                    "name": "synthetic_data_attribute",
+                    "status": "passed",
+                    "message": "Synthetic Data (0008,001C) is present with value YES."
+                },
+                {
+                    "name": "rt_plan_modules",
+                    "status": "passed",
+                    "message": "RT General Plan, Fraction Scheme, Beam, control-point inheritance, reference closure, and absence invariants match the locked recipe."
                 }
             ],
             "external": []
@@ -14089,6 +15023,14 @@ fn item_f64(path: &Path, obj: &DatasetObject, tag: Tag) -> Result<f64, GenerateE
         .map_err(|err| validation_error(path, err))?
         .value()
         .to_float64()
+        .map_err(|err| validation_error(path, err))
+}
+
+fn item_f64_values(path: &Path, obj: &DatasetObject, tag: Tag) -> Result<Vec<f64>, GenerateError> {
+    obj.element(tag)
+        .map_err(|err| validation_error(path, err))?
+        .value()
+        .to_multi_float64()
         .map_err(|err| validation_error(path, err))
 }
 

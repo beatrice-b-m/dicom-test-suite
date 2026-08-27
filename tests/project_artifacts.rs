@@ -1030,6 +1030,53 @@ fn phase4_wsi_qualification_is_recorded() {
 }
 
 #[test]
+fn phase4_wsi_pyramid_standards_lock_is_recorded_without_promotion() {
+    let note = fs::read_to_string("standards/source-notes/phase-4-wsi-pyramid.md")
+        .expect("Phase 4 WSI pyramid source note must be readable");
+    for required in [
+        "exactly three native DICOM instances",
+        "`ORIGINAL\\\\PRIMARY\\\\VOLUME\\\\NONE`",
+        "`DERIVED\\\\PRIMARY\\\\THUMBNAIL\\\\RESAMPLED`",
+        "`ORIGINAL\\\\PRIMARY\\\\LABEL\\\\NONE`",
+        "b40b0afc9b180d5ebfb54a7db428e13fe09a33dcc9a8f76220f395ba2c68d2db",
+        "6733cdd08e5c7ef0453e2759ef0d28fbd43ea2aa7883b55422a13dac38e23ecc",
+        "ad078f83d3ea66f075867d116c8c126e9c8a8a9dd873cd27280371c173d8ad02",
+        "8,794 total DICOM bytes",
+        "no more than 65,536 total DICOM bytes",
+        "no more than 5 seconds",
+        "distinct from\n`stress/wsi/large_pyramid`",
+    ] {
+        assert!(
+            note.contains(required),
+            "Phase 4 WSI pyramid note requires {required}"
+        );
+    }
+
+    let registry = read_json("cases/registry.json");
+    let case = registry_cases(&registry)
+        .into_iter()
+        .find(|case| {
+            case.get("case_id").and_then(Value::as_str) == Some("vl/wsi/pyramid_multiresolution")
+        })
+        .expect("WSI pyramid registry row must exist");
+    assert_eq!(case["status"], "planned");
+    assert_eq!(
+        case["provider"],
+        serde_json::json!({"kind": "rust_native", "id": "rust_native"})
+    );
+    assert_eq!(case["determinism"], "byte_stable");
+    assert_eq!(case["profiles"], serde_json::json!(["stress"]));
+    assert_eq!(case["blockers"].as_array().map(Vec::len), Some(1));
+    assert_eq!(case["blockers"][0]["code"], "recipe_unimplemented");
+    assert!(case["standards_evidence"].as_array().is_some_and(|items| {
+        items.iter().any(|item| {
+            item["query"] == "standards/source-notes/phase-4-wsi-pyramid.md"
+                && item["covered"] == true
+        })
+    }));
+}
+
+#[test]
 fn integer_parametric_map_retains_explicit_provider_blocker() {
     let registry = read_json("cases/registry.json");
     let case = registry_cases(&registry)

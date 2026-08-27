@@ -3584,6 +3584,9 @@ fn validate_family_standard_elements(
         "X-Ray Angiographic Image" => {
             validate_xa_image_standard_elements(failures, relative_path, manifest_path, file, obj)?
         }
+        "X-Ray Radiofluoroscopic Image" => {
+            validate_xrf_image_standard_elements(failures, relative_path, manifest_path, file, obj)?
+        }
         "Computed Radiography Image" => {
             validate_computed_radiography_standard_elements(failures, relative_path, obj)
         }
@@ -5637,6 +5640,637 @@ fn validate_xa_image_standard_elements(
             Err(err) => failures.push(format!("{relative_path}: xa_payload_hash: {err}")),
         },
         Err(err) => failures.push(format!("{relative_path}: xa_payload_hash: {err}")),
+    }
+
+    Ok(())
+}
+
+fn validate_xrf_image_standard_elements(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    manifest_path: &Path,
+    file: &Value,
+    obj: &OpenedObject,
+) -> Result<(), ValidateError> {
+    let expected =
+        file.pointer("/expected_xrf_projection")
+            .ok_or(ValidateError::ManifestShape {
+                path: manifest_path.to_path_buf(),
+                message: "X-Ray Radiofluoroscopic Image must define expected_xrf_projection",
+            })?;
+    let recipe_expected = file
+        .pointer("/recipe/recipe_parameters/xrf_projection")
+        .ok_or(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "XRF recipe parameters must define xrf_projection",
+        })?;
+    validate_equal_debug(
+        failures,
+        relative_path,
+        "xrf_projection_recipe_manifest_contract",
+        recipe_expected,
+        expected,
+    );
+
+    let image_type = manifest_string_array(
+        manifest_path,
+        expected,
+        "/image_type",
+        "XRF image_type must be a string array",
+    )?;
+    validate_equal_debug(
+        failures,
+        relative_path,
+        "xrf_image_type_manifest_contract",
+        image_type.clone(),
+        vec![
+            "ORIGINAL".to_string(),
+            "PRIMARY".to_string(),
+            "SINGLE PLANE".to_string(),
+        ],
+    );
+    let image_type_string = image_type.join("\\");
+    validate_equal(
+        failures,
+        relative_path,
+        "xrf_image_type_semantics_manifest_contract",
+        manifest_str(
+            manifest_path,
+            file,
+            "/expected_semantics/image_type",
+            "XRF expected_semantics image_type must be a string",
+        )?,
+        image_type_string.as_str(),
+    );
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::IMAGE_TYPE,
+        "xrf_image_type",
+        &image_type_string,
+    );
+
+    let body_part = manifest_str(
+        manifest_path,
+        expected,
+        "/body_part_examined",
+        "XRF body_part_examined must be a string",
+    )?;
+    validate_equal(
+        failures,
+        relative_path,
+        "xrf_body_part_examined_manifest_contract",
+        body_part,
+        "ABDOMEN",
+    );
+    validate_equal(
+        failures,
+        relative_path,
+        "xrf_body_part_semantics_manifest_contract",
+        manifest_str(
+            manifest_path,
+            file,
+            "/expected_semantics/body_part_examined",
+            "XRF expected_semantics body_part_examined must be a string",
+        )?,
+        body_part,
+    );
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::BODY_PART_EXAMINED,
+        "xrf_body_part_examined",
+        body_part,
+    );
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::MODALITY,
+        "xrf_modality",
+        "RF",
+    );
+
+    for (pointer, name, locked) in [
+        (
+            "/patient_orientation_empty",
+            "xrf_patient_orientation_empty_manifest_contract",
+            true,
+        ),
+        (
+            "/laterality_present",
+            "xrf_laterality_present_manifest_contract",
+            false,
+        ),
+        (
+            "/multiframe_cine",
+            "xrf_multiframe_cine_manifest_contract",
+            false,
+        ),
+        (
+            "/biplane_data_present",
+            "xrf_biplane_data_present_manifest_contract",
+            false,
+        ),
+        (
+            "/contrast_used",
+            "xrf_contrast_used_manifest_contract",
+            false,
+        ),
+        (
+            "/subtraction_applied",
+            "xrf_subtraction_applied_manifest_contract",
+            false,
+        ),
+        (
+            "/table_position_present",
+            "xrf_table_position_present_manifest_contract",
+            false,
+        ),
+        (
+            "/table_motion_present",
+            "xrf_table_motion_present_manifest_contract",
+            false,
+        ),
+        (
+            "/table_tilt_present",
+            "xrf_table_tilt_present_manifest_contract",
+            false,
+        ),
+        (
+            "/tomography_present",
+            "xrf_tomography_present_manifest_contract",
+            false,
+        ),
+        (
+            "/patient_space_geometry_present",
+            "xrf_patient_space_geometry_present_manifest_contract",
+            false,
+        ),
+        (
+            "/pixel_spacing_calibrated",
+            "xrf_pixel_spacing_calibrated_manifest_contract",
+            false,
+        ),
+        (
+            "/xa_positioner_angles_present",
+            "xrf_xa_positioner_angles_present_manifest_contract",
+            false,
+        ),
+    ] {
+        validate_equal(
+            failures,
+            relative_path,
+            name,
+            manifest_bool(
+                manifest_path,
+                expected,
+                pointer,
+                "XRF projection flag must be a boolean",
+            )?,
+            locked,
+        );
+    }
+    validate_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::PATIENT_ORIENTATION,
+        "xrf_patient_orientation_empty",
+        "",
+    );
+
+    for (pointer, tag, name, locked) in [
+        (
+            "/pixel_intensity_relationship",
+            tags::PIXEL_INTENSITY_RELATIONSHIP,
+            "xrf_pixel_intensity_relationship",
+            "LIN",
+        ),
+        (
+            "/radiation_setting",
+            tags::RADIATION_SETTING,
+            "xrf_radiation_setting",
+            "SC",
+        ),
+        (
+            "/lossy_image_compression",
+            tags::LOSSY_IMAGE_COMPRESSION,
+            "xrf_lossy_image_compression",
+            "00",
+        ),
+    ] {
+        let manifest_value = manifest_str(
+            manifest_path,
+            expected,
+            pointer,
+            "XRF coded projection value must be a string",
+        )?;
+        validate_equal(
+            failures,
+            relative_path,
+            &format!("{name}_manifest_contract"),
+            manifest_value,
+            locked,
+        );
+        validate_type1_str_element(failures, relative_path, obj, tag, name, manifest_value);
+    }
+
+    for (pointer, tag, name, locked) in [
+        ("/kvp", tags::KVP, "xrf_kvp", 70.0),
+        (
+            "/distance_source_to_detector_mm",
+            tags::DISTANCE_SOURCE_TO_DETECTOR,
+            "xrf_distance_source_to_detector",
+            1200.0,
+        ),
+        (
+            "/distance_source_to_patient_mm",
+            tags::DISTANCE_SOURCE_TO_PATIENT,
+            "xrf_distance_source_to_patient",
+            800.0,
+        ),
+        (
+            "/estimated_radiographic_magnification_factor",
+            tags::ESTIMATED_RADIOGRAPHIC_MAGNIFICATION_FACTOR,
+            "xrf_estimated_magnification",
+            1.5,
+        ),
+        (
+            "/column_angulation_degrees",
+            tags::COLUMN_ANGULATION,
+            "xrf_column_angulation",
+            10.0,
+        ),
+    ] {
+        let manifest_value = manifest_f64(
+            manifest_path,
+            expected,
+            pointer,
+            "XRF projection scalar must be numeric",
+        )?;
+        validate_equal(
+            failures,
+            relative_path,
+            &format!("{name}_manifest_contract"),
+            manifest_value,
+            locked,
+        );
+        match element_f64_for_validate(obj, tag) {
+            Ok(actual) => validate_equal(failures, relative_path, name, actual, manifest_value),
+            Err(err) => failures.push(format!("{relative_path}: {name}: {err}")),
+        }
+    }
+
+    let exposure = manifest_u64(
+        manifest_path,
+        expected,
+        "/exposure_mas",
+        "XRF exposure_mas must be an integer",
+    )?;
+    validate_equal(
+        failures,
+        relative_path,
+        "xrf_exposure_manifest_contract",
+        exposure,
+        1,
+    );
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::EXPOSURE,
+        "xrf_exposure",
+        &exposure.to_string(),
+    );
+
+    let imager_spacing = manifest_f64_array(
+        manifest_path,
+        expected,
+        "/imager_pixel_spacing_mm",
+        "XRF imager_pixel_spacing_mm must be numeric",
+    )?;
+    validate_equal_debug(
+        failures,
+        relative_path,
+        "xrf_imager_pixel_spacing_manifest_contract",
+        imager_spacing.clone(),
+        vec![0.2, 0.2],
+    );
+    match element_f64_values_for_validate(obj, tags::IMAGER_PIXEL_SPACING) {
+        Ok(actual) => validate_equal_debug(
+            failures,
+            relative_path,
+            "xrf_imager_pixel_spacing",
+            actual,
+            imager_spacing,
+        ),
+        Err(err) => failures.push(format!("{relative_path}: xrf_imager_pixel_spacing: {err}")),
+    }
+
+    validate_equal(
+        failures,
+        relative_path,
+        "xrf_frame_count_manifest_contract",
+        manifest_u64(
+            manifest_path,
+            expected,
+            "/frame_count",
+            "XRF frame_count must be an integer",
+        )?,
+        1,
+    );
+    for (pointer, name) in [
+        ("/image/frames", "xrf_image_frame_count_manifest_contract"),
+        (
+            "/pixel_data/frame_count",
+            "xrf_pixel_frame_count_manifest_contract",
+        ),
+    ] {
+        validate_equal(
+            failures,
+            relative_path,
+            name,
+            manifest_u64(
+                manifest_path,
+                file,
+                pointer,
+                "XRF frame count must be an integer",
+            )?,
+            1,
+        );
+    }
+
+    let sid = element_f64_for_validate(obj, tags::DISTANCE_SOURCE_TO_DETECTOR);
+    let sod = element_f64_for_validate(obj, tags::DISTANCE_SOURCE_TO_PATIENT);
+    let magnification =
+        element_f64_for_validate(obj, tags::ESTIMATED_RADIOGRAPHIC_MAGNIFICATION_FACTOR);
+    if let (Ok(sid), Ok(sod), Ok(magnification)) = (sid, sod, magnification) {
+        validate_equal(
+            failures,
+            relative_path,
+            "xrf_sid_sod_magnification_relation",
+            sid / sod,
+            magnification,
+        );
+    }
+
+    for (tag, expected_vr, name) in [
+        (tags::IMAGE_TYPE, dicom_core::VR::CS, "xrf_image_type_vr"),
+        (
+            tags::PATIENT_ORIENTATION,
+            dicom_core::VR::CS,
+            "xrf_patient_orientation_vr",
+        ),
+        (tags::KVP, dicom_core::VR::DS, "xrf_kvp_vr"),
+        (tags::EXPOSURE, dicom_core::VR::IS, "xrf_exposure_vr"),
+        (
+            tags::IMAGER_PIXEL_SPACING,
+            dicom_core::VR::DS,
+            "xrf_imager_pixel_spacing_vr",
+        ),
+        (
+            tags::DISTANCE_SOURCE_TO_DETECTOR,
+            dicom_core::VR::DS,
+            "xrf_distance_source_to_detector_vr",
+        ),
+        (
+            tags::DISTANCE_SOURCE_TO_PATIENT,
+            dicom_core::VR::DS,
+            "xrf_distance_source_to_patient_vr",
+        ),
+        (
+            tags::ESTIMATED_RADIOGRAPHIC_MAGNIFICATION_FACTOR,
+            dicom_core::VR::DS,
+            "xrf_estimated_magnification_vr",
+        ),
+        (
+            tags::COLUMN_ANGULATION,
+            dicom_core::VR::DS,
+            "xrf_column_angulation_vr",
+        ),
+    ] {
+        match obj.element(tag) {
+            Ok(element) => validate_equal(failures, relative_path, name, element.vr(), expected_vr),
+            Err(err) => failures.push(format!("{relative_path}: {name}: {err}")),
+        }
+    }
+
+    for (tag, name) in [
+        (tags::LATERALITY, "xrf_laterality_absent"),
+        (tags::NUMBER_OF_FRAMES, "xrf_number_of_frames_absent"),
+        (
+            tags::FRAME_INCREMENT_POINTER,
+            "xrf_frame_increment_pointer_absent",
+        ),
+        (tags::FRAME_TIME, "xrf_frame_time_absent"),
+        (tags::FRAME_TIME_VECTOR, "xrf_frame_time_vector_absent"),
+        (
+            tags::REFERENCED_IMAGE_SEQUENCE,
+            "xrf_biplane_reference_absent",
+        ),
+        (tags::CONTRAST_BOLUS_AGENT, "xrf_contrast_agent_absent"),
+        (
+            tags::MASK_SUBTRACTION_SEQUENCE,
+            "xrf_mask_subtraction_absent",
+        ),
+        (tags::TABLE_HEIGHT, "xrf_table_height_absent"),
+        (tags::TABLE_TRAVERSE, "xrf_table_traverse_absent"),
+        (tags::TABLE_MOTION, "xrf_table_motion_absent"),
+        (
+            tags::TABLE_VERTICAL_INCREMENT,
+            "xrf_table_vertical_increment_absent",
+        ),
+        (
+            tags::TABLE_LATERAL_INCREMENT,
+            "xrf_table_lateral_increment_absent",
+        ),
+        (
+            tags::TABLE_LONGITUDINAL_INCREMENT,
+            "xrf_table_longitudinal_increment_absent",
+        ),
+        (tags::TABLE_ANGLE, "xrf_table_angle_absent"),
+        (
+            tags::GANTRY_DETECTOR_TILT,
+            "xrf_gantry_detector_tilt_absent",
+        ),
+        (tags::SCAN_OPTIONS, "xrf_scan_options_absent"),
+        (tags::TOMO_LAYER_HEIGHT, "xrf_tomo_layer_height_absent"),
+        (tags::TOMO_ANGLE, "xrf_tomo_angle_absent"),
+        (tags::TOMO_TIME, "xrf_tomo_time_absent"),
+        (tags::TOMO_TYPE, "xrf_tomo_type_absent"),
+        (tags::TOMO_CLASS, "xrf_tomo_class_absent"),
+        (
+            tags::FRAME_OF_REFERENCE_UID,
+            "xrf_frame_of_reference_absent",
+        ),
+        (
+            tags::IMAGE_ORIENTATION_PATIENT,
+            "xrf_image_orientation_patient_absent",
+        ),
+        (
+            tags::IMAGE_POSITION_PATIENT,
+            "xrf_image_position_patient_absent",
+        ),
+        (tags::PIXEL_SPACING, "xrf_pixel_spacing_absent"),
+        (tags::CALIBRATION_IMAGE, "xrf_calibration_image_absent"),
+        (
+            tags::POSITIONER_PRIMARY_ANGLE,
+            "xrf_positioner_primary_angle_absent",
+        ),
+        (
+            tags::POSITIONER_SECONDARY_ANGLE,
+            "xrf_positioner_secondary_angle_absent",
+        ),
+        (
+            tags::POSITIONER_PRIMARY_ANGLE_INCREMENT,
+            "xrf_primary_angle_increment_absent",
+        ),
+        (
+            tags::POSITIONER_SECONDARY_ANGLE_INCREMENT,
+            "xrf_secondary_angle_increment_absent",
+        ),
+        (tags::MODALITY_LUT_SEQUENCE, "xrf_modality_lut_absent"),
+        (tags::VOILUT_SEQUENCE, "xrf_voi_lut_absent"),
+        (
+            tags::PRESENTATION_LUT_SHAPE,
+            "xrf_presentation_lut_shape_absent",
+        ),
+        (tags::WINDOW_CENTER, "xrf_window_center_absent"),
+        (tags::WINDOW_WIDTH, "xrf_window_width_absent"),
+        (tags::SHUTTER_SHAPE, "xrf_shutter_shape_absent"),
+        (
+            tags::SHUTTER_LEFT_VERTICAL_EDGE,
+            "xrf_shutter_left_vertical_edge_absent",
+        ),
+        (
+            tags::SHUTTER_RIGHT_VERTICAL_EDGE,
+            "xrf_shutter_right_vertical_edge_absent",
+        ),
+        (
+            tags::SHUTTER_UPPER_HORIZONTAL_EDGE,
+            "xrf_shutter_upper_horizontal_edge_absent",
+        ),
+        (
+            tags::SHUTTER_LOWER_HORIZONTAL_EDGE,
+            "xrf_shutter_lower_horizontal_edge_absent",
+        ),
+        (dicom_core::Tag(0x6000, 0x0010), "xrf_overlay_rows_absent"),
+        (dicom_core::Tag(0x6000, 0x3000), "xrf_overlay_data_absent"),
+        (tags::COLLIMATOR_SHAPE, "xrf_collimator_shape_absent"),
+        (
+            tags::COLLIMATOR_LEFT_VERTICAL_EDGE,
+            "xrf_collimator_left_vertical_edge_absent",
+        ),
+        (
+            tags::COLLIMATOR_RIGHT_VERTICAL_EDGE,
+            "xrf_collimator_right_vertical_edge_absent",
+        ),
+        (
+            tags::COLLIMATOR_UPPER_HORIZONTAL_EDGE,
+            "xrf_collimator_upper_horizontal_edge_absent",
+        ),
+        (
+            tags::COLLIMATOR_LOWER_HORIZONTAL_EDGE,
+            "xrf_collimator_lower_horizontal_edge_absent",
+        ),
+        (
+            tags::IMAGE_AND_FLUOROSCOPY_AREA_DOSE_PRODUCT,
+            "xrf_area_dose_product_absent",
+        ),
+        (
+            tags::LOSSY_IMAGE_COMPRESSION_RATIO,
+            "xrf_lossy_image_compression_ratio_absent",
+        ),
+        (
+            tags::LOSSY_IMAGE_COMPRESSION_METHOD,
+            "xrf_lossy_image_compression_method_absent",
+        ),
+        (tags::RADIATION_MODE, "xrf_radiation_mode_absent"),
+        (tags::AVERAGE_PULSE_WIDTH, "xrf_average_pulse_width_absent"),
+        (tags::EXPOSURE_TIME, "xrf_exposure_time_absent"),
+        (tags::X_RAY_TUBE_CURRENT, "xrf_x_ray_tube_current_absent"),
+        (tags::DETECTOR_TYPE, "xrf_detector_type_absent"),
+        (
+            tags::DETECTOR_CONFIGURATION,
+            "xrf_detector_configuration_absent",
+        ),
+        (
+            tags::DETECTOR_DESCRIPTION,
+            "xrf_detector_description_absent",
+        ),
+        (tags::DETECTOR_ID, "xrf_detector_id_absent"),
+        (
+            tags::DETECTOR_ELEMENT_PHYSICAL_SIZE,
+            "xrf_detector_element_physical_size_absent",
+        ),
+        (
+            tags::DETECTOR_ELEMENT_SPACING,
+            "xrf_detector_element_spacing_absent",
+        ),
+        (
+            tags::DETECTOR_ACTIVE_SHAPE,
+            "xrf_detector_active_shape_absent",
+        ),
+        (
+            tags::DETECTOR_ACTIVE_DIMENSIONS,
+            "xrf_detector_active_dimensions_absent",
+        ),
+        (
+            tags::DETECTOR_ACTIVE_ORIGIN,
+            "xrf_detector_active_origin_absent",
+        ),
+        (
+            tags::FIELD_OF_VIEW_ORIGIN,
+            "xrf_field_of_view_origin_absent",
+        ),
+        (
+            tags::FIELD_OF_VIEW_ROTATION,
+            "xrf_field_of_view_rotation_absent",
+        ),
+        (
+            tags::FIELD_OF_VIEW_HORIZONTAL_FLIP,
+            "xrf_field_of_view_horizontal_flip_absent",
+        ),
+    ] {
+        validate_element_absent(failures, relative_path, obj, tag, name);
+    }
+    if !file
+        .pointer("/uids/frame_of_reference_uid")
+        .is_some_and(Value::is_null)
+    {
+        failures.push(format!(
+            "{relative_path}: xrf_frame_of_reference_manifest_contract: expected null"
+        ));
+    }
+
+    let payload_hash = manifest_str(
+        manifest_path,
+        file,
+        "/recipe/recipe_parameters/payload_sha256",
+        "XRF payload_sha256 must be a string",
+    )?;
+    validate_equal(
+        failures,
+        relative_path,
+        "xrf_payload_hash_manifest_contract",
+        payload_hash,
+        "0b9c742cc3fafec4c1d0240048d27210f2da155b3574458ae26035ffa488c00e",
+    );
+    match obj.element(tags::PIXEL_DATA) {
+        Ok(element) => match element.value().to_bytes() {
+            Ok(bytes) => validate_equal(
+                failures,
+                relative_path,
+                "xrf_payload_hash",
+                sha256_hex(bytes.as_ref()),
+                payload_hash,
+            ),
+            Err(err) => failures.push(format!("{relative_path}: xrf_payload_hash: {err}")),
+        },
+        Err(err) => failures.push(format!("{relative_path}: xrf_payload_hash: {err}")),
     }
 
     Ok(())

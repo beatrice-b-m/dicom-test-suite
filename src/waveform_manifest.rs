@@ -18,6 +18,36 @@ pub(crate) const TWELVE_LEAD_ECG_CHANNEL_SHA256: [&str; 12] = [
     "f448df95acb226c5c992363e27707a42efc3ffb974ebeff38e2a81522b57d82c",
 ];
 
+pub(crate) const GENERAL_ECG_GROUP_PAYLOAD_SHA256: [&str; 2] = [
+    "e4bfb8a3290d9057fa5f5935fa6960ce2a44a07f18991d28c190522739008dbb",
+    "5b201d4fa7274ba36d6f7387c3d0217e1b5da161a915f983c2b63b995dde7bbe",
+];
+
+pub(crate) const GENERAL_ECG_AGGREGATE_PAYLOAD_SHA256: &str =
+    "c450f55360d6c07394600e4c0f71f951565cd0e1699edfbbb52f660221c6abea";
+
+const GENERAL_ECG_STANDARD_CHANNEL_SHA256: [&str; 12] = [
+    "3211bada5580e8bd9c5a2934deb231122706b00aa92f8cdc78480c03b2352197",
+    "8f66471e35940851acdd9ea55b422c738bf50ea7971822deed0edca1980e1ea2",
+    "9652eb91f4f73f2654c922048a1a8c8731a08062eecd6f5b373256831d0e82b0",
+    "97fb26e75907437a705e4e28eb6492d51020570a23265bdf765aca3c4e7b2708",
+    "c9776b85b3bda6adef798d33d3c7c95d64a1a7d5bf525866ccf7b0cf5fc3209e",
+    "95871f48d729a001eeb1543b36a27059916df360e04838fd322d006661bafb44",
+    "04513ee1f1d5803f3f53093f016a606a7fa874c5af8d2651749b909b93392366",
+    "c12790f5b1f233662a0a1c3f266cd2abb15af5a75b39258ff961e9b4afaf7913",
+    "750913ccad5eb7ec8d8199451e6eb9aa41357eb21d2a0dac6ba75dce4e5708bd",
+    "218d5f967ef253722359fee1846485331c63de9330af1f9fad183d779a196cca",
+    "9027ec7a0fc7fea3d8236a16a5aa6f265ff20e18a2575f99e61807e102fb3d81",
+    "9280ad35672b82a7847d3ccabadd4d85a94be3d39d0a836191384571f0a23ab6",
+];
+
+const GENERAL_ECG_AUXILIARY_CHANNEL_SHA256: [&str; 4] = [
+    "5da46776ad84a78eb0c16066cb8ac7d5e05ca6ad87170264b227c71261def284",
+    "7bd73425422f4e79504b55932040e481ccdfafecabe1dba613ee36074a51b9e3",
+    "e56dad9647dfa50a10b40d244e29eaedbf23d97a558901f46fbccc07ad1a1766",
+    "e1b68207c92fe2cc4c6765fc097668f2600eeda152eb5a1d6f0444f4c9e36fbc",
+];
+
 #[derive(Debug, Clone, Copy, PartialEq, Serialize)]
 pub(crate) struct ExpectedWaveform<'a> {
     pub iod_kind: &'a str,
@@ -123,6 +153,13 @@ pub(crate) const TWELVE_LEAD_ECG_CHANNELS: [ExpectedWaveformChannel<'static>; 12
     channel(12, "V6", "2:8", "Lead V6"),
 ];
 
+const GENERAL_ECG_AUXILIARY_CHANNELS: [ExpectedWaveformChannel<'static>; 4] = [
+    channel(1, "A1", "2:75", "Auxiliary unipolar lead 1"),
+    channel(2, "A2", "2:76", "Auxiliary unipolar lead 2"),
+    channel(3, "A3", "2:77", "Auxiliary unipolar lead 3"),
+    channel(4, "A4", "2:78", "Auxiliary unipolar lead 4"),
+];
+
 const TWELVE_LEAD_ECG_GROUP_PAYLOAD_SHA256: [&str; 1] = [TWELVE_LEAD_ECG_PAYLOAD_SHA256];
 
 const TWELVE_LEAD_ECG_MULTIPLEX_GROUPS: [ExpectedMultiplexGroup<'static>; 1] =
@@ -152,6 +189,64 @@ const TWELVE_LEAD_ECG_MULTIPLEX_GROUPS: [ExpectedMultiplexGroup<'static>; 1] =
             value_field_padding_bytes: 0,
         },
     }];
+
+const GENERAL_ECG_SAMPLE_FORMULA: &str =
+    "((s * (c + 1) * (g + 1) * 37 + c * 101 + g * 307) mod 2001) - 1000";
+
+const GENERAL_ECG_MULTIPLEX_GROUPS: [ExpectedMultiplexGroup<'static>; 2] = [
+    ExpectedMultiplexGroup {
+        ordinal: 1,
+        originality: "ORIGINAL",
+        label: "STD12_250HZ",
+        channel_count: 12,
+        samples_per_channel: 1_000,
+        sampling_frequency_hz: 250,
+        duration_seconds: 4,
+        simultaneous_sampling: true,
+        channels: &TWELVE_LEAD_ECG_CHANNELS,
+        storage: ExpectedWaveformStorage {
+            bits_allocated: 16,
+            sample_interpretation: "SS",
+            data_vr: "OW",
+            byte_order: "little_endian",
+            interleave_order: "channel_then_sample",
+            payload_length_bytes: 24_000,
+            payload_sha256: GENERAL_ECG_GROUP_PAYLOAD_SHA256[0],
+            channel_sha256: &GENERAL_ECG_STANDARD_CHANNEL_SHA256,
+            sample_value_formula: GENERAL_ECG_SAMPLE_FORMULA,
+            sample_min: -1000,
+            sample_max: 1000,
+            waveform_padding_value_absent: true,
+            value_field_padding_bytes: 0,
+        },
+    },
+    ExpectedMultiplexGroup {
+        ordinal: 2,
+        originality: "ORIGINAL",
+        label: "AUX4_1000HZ",
+        channel_count: 4,
+        samples_per_channel: 4_000,
+        sampling_frequency_hz: 1_000,
+        duration_seconds: 4,
+        simultaneous_sampling: true,
+        channels: &GENERAL_ECG_AUXILIARY_CHANNELS,
+        storage: ExpectedWaveformStorage {
+            bits_allocated: 16,
+            sample_interpretation: "SS",
+            data_vr: "OW",
+            byte_order: "little_endian",
+            interleave_order: "channel_then_sample",
+            payload_length_bytes: 32_000,
+            payload_sha256: GENERAL_ECG_GROUP_PAYLOAD_SHA256[1],
+            channel_sha256: &GENERAL_ECG_AUXILIARY_CHANNEL_SHA256,
+            sample_value_formula: GENERAL_ECG_SAMPLE_FORMULA,
+            sample_min: -1000,
+            sample_max: 1000,
+            waveform_padding_value_absent: true,
+            value_field_padding_bytes: 0,
+        },
+    },
+];
 
 const fn channel(
     ordinal: u8,
@@ -204,6 +299,33 @@ pub(crate) fn twelve_lead_ecg_expected_waveform() -> ExpectedWaveform<'static> {
     }
 }
 
+pub(crate) fn general_ecg_expected_waveform() -> ExpectedWaveform<'static> {
+    ExpectedWaveform {
+        iod_kind: "general_ecg",
+        sop_class_uid: "1.2.840.10008.5.1.4.1.1.9.1.2",
+        iod_name: "General ECG Waveform",
+        modality: "ECG",
+        transfer_syntax_uid: "1.2.840.10008.1.2.1",
+        acquisition_context_items: 0,
+        multiplex_groups: &GENERAL_ECG_MULTIPLEX_GROUPS,
+        aggregate: ExpectedWaveformAggregate {
+            group_count: 2,
+            total_channel_count: 16,
+            common_duration_seconds: 4,
+            total_payload_length_bytes: 56_000,
+            group_payload_sha256: &GENERAL_ECG_GROUP_PAYLOAD_SHA256,
+            aggregate_payload_sha256: GENERAL_ECG_AGGREGATE_PAYLOAD_SHA256,
+        },
+        absent_content: ExpectedWaveformAbsentContent {
+            annotation_module: true,
+            synchronization_module: true,
+            references: true,
+            image: true,
+            pixel_data: true,
+        },
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -245,5 +367,36 @@ mod tests {
             TWELVE_LEAD_ECG_PAYLOAD_SHA256
         );
         assert_eq!(value["absent_content"]["pixel_data"], true);
+    }
+
+    #[test]
+    fn general_ecg_contract_serializes_exact_ordered_groups() {
+        let value = serde_json::to_value(general_ecg_expected_waveform())
+            .expect("General ECG expectation should serialize");
+        let groups = value["multiplex_groups"].as_array().expect("groups");
+
+        assert_eq!(groups.len(), 2);
+        assert_eq!(groups[0]["ordinal"], 1);
+        assert_eq!(groups[0]["label"], "STD12_250HZ");
+        assert_eq!(groups[0]["channel_count"], 12);
+        assert_eq!(groups[0]["samples_per_channel"], 1_000);
+        assert_eq!(groups[0]["sampling_frequency_hz"], 250);
+        assert_eq!(groups[0]["storage"]["payload_length_bytes"], 24_000);
+        assert_eq!(groups[0]["channels"][0]["source"]["code_value"], "2:1");
+        assert_eq!(groups[1]["ordinal"], 2);
+        assert_eq!(groups[1]["label"], "AUX4_1000HZ");
+        assert_eq!(groups[1]["channel_count"], 4);
+        assert_eq!(groups[1]["samples_per_channel"], 4_000);
+        assert_eq!(groups[1]["sampling_frequency_hz"], 1_000);
+        assert_eq!(groups[1]["storage"]["payload_length_bytes"], 32_000);
+        assert_eq!(groups[1]["channels"][0]["source"]["code_value"], "2:75");
+        assert_eq!(groups[1]["channels"][3]["source"]["code_value"], "2:78");
+        assert_eq!(value["aggregate"]["group_count"], 2);
+        assert_eq!(value["aggregate"]["total_channel_count"], 16);
+        assert_eq!(value["aggregate"]["total_payload_length_bytes"], 56_000);
+        assert_eq!(
+            value["aggregate"]["aggregate_payload_sha256"],
+            GENERAL_ECG_AGGREGATE_PAYLOAD_SHA256
+        );
     }
 }

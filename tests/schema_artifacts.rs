@@ -3927,9 +3927,130 @@ fn manifest_schema_requires_exclusive_twelve_lead_ecg_waveform_contract() {
         Some(&serde_json::json!("null"))
     );
     assert_eq!(
-        rule.pointer("/else/not/required"),
+        rule.pointer("/else/else/not/required"),
         Some(&serde_json::json!(["expected_waveform"]))
     );
+    assert_eq!(
+        rule.pointer("/else/if/properties/case_id/const"),
+        Some(&serde_json::json!("non-image/waveform/general_ecg"))
+    );
+    assert_eq!(
+        rule.pointer("/else/then/required"),
+        Some(&serde_json::json!(["expected_waveform"]))
+    );
+}
+
+#[test]
+fn manifest_schema_types_exact_general_ecg_waveform_expectations() {
+    let schema = read_json("schemas/manifest.schema.json");
+    let expectation_schema = serde_json::json!({
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$ref": "#/$defs/expected_general_ecg_waveform",
+        "$defs": schema["$defs"].clone(),
+    });
+    let validator = jsonschema::validator_for(&expectation_schema)
+        .expect("General ECG expectation schema should compile");
+    let expectation = general_ecg_waveform_expectation();
+    assert!(validator.is_valid(&expectation));
+
+    let mut reordered = expectation.clone();
+    reordered["multiplex_groups"]
+        .as_array_mut()
+        .expect("groups")
+        .swap(0, 1);
+    assert!(!validator.is_valid(&reordered));
+
+    for (pointer, value) in [
+        ("/multiplex_groups/0/ordinal", serde_json::json!(2)),
+        (
+            "/multiplex_groups/0/samples_per_channel",
+            serde_json::json!(4000),
+        ),
+        (
+            "/multiplex_groups/0/sampling_frequency_hz",
+            serde_json::json!(1000),
+        ),
+        (
+            "/multiplex_groups/1/samples_per_channel",
+            serde_json::json!(1000),
+        ),
+        (
+            "/multiplex_groups/1/sampling_frequency_hz",
+            serde_json::json!(250),
+        ),
+        (
+            "/multiplex_groups/0/storage/payload_length_bytes",
+            serde_json::json!(32000),
+        ),
+        (
+            "/multiplex_groups/1/storage/payload_sha256",
+            serde_json::json!("0".repeat(64)),
+        ),
+        (
+            "/multiplex_groups/1/channels/0/source/code_value",
+            serde_json::json!("2:1"),
+        ),
+        (
+            "/multiplex_groups/1/channels/3/source/code_value",
+            serde_json::json!("2:75"),
+        ),
+        ("/aggregate/group_count", serde_json::json!(1)),
+        ("/aggregate/total_channel_count", serde_json::json!(12)),
+        (
+            "/aggregate/total_payload_length_bytes",
+            serde_json::json!(24000),
+        ),
+        (
+            "/aggregate/aggregate_payload_sha256",
+            serde_json::json!("0".repeat(64)),
+        ),
+    ] {
+        let mut mutated = expectation.clone();
+        *mutated.pointer_mut(pointer).expect("mutation pointer") = value;
+        assert!(!validator.is_valid(&mutated), "must reject {pointer}");
+    }
+
+    let mut missing_group = expectation.clone();
+    missing_group["multiplex_groups"]
+        .as_array_mut()
+        .expect("groups")
+        .pop();
+    assert!(!validator.is_valid(&missing_group));
+
+    let mut missing_aux_channel = expectation.clone();
+    missing_aux_channel["multiplex_groups"][1]["channels"]
+        .as_array_mut()
+        .expect("aux channels")
+        .pop();
+    assert!(!validator.is_valid(&missing_aux_channel));
+
+    let mut missing_channel_hash = expectation.clone();
+    missing_channel_hash["multiplex_groups"][1]["storage"]["channel_sha256"]
+        .as_array_mut()
+        .expect("aux channel hashes")
+        .pop();
+    assert!(!validator.is_valid(&missing_channel_hash));
+
+    let mut missing_standard_channel_hash = expectation.clone();
+    missing_standard_channel_hash["multiplex_groups"][0]["storage"]["channel_sha256"]
+        .as_array_mut()
+        .expect("standard channel hashes")
+        .pop();
+    assert!(!validator.is_valid(&missing_standard_channel_hash));
+
+    let mut missing_group_hash = expectation.clone();
+    missing_group_hash["aggregate"]["group_payload_sha256"]
+        .as_array_mut()
+        .expect("group hashes")
+        .pop();
+    assert!(!validator.is_valid(&missing_group_hash));
+
+    let mut reversed_group_hashes = expectation;
+    reversed_group_hashes["aggregate"]["group_payload_sha256"]
+        .as_array_mut()
+        .expect("group hashes")
+        .swap(0, 1);
+    assert!(!validator.is_valid(&reversed_group_hashes));
 }
 
 fn twelve_lead_ecg_waveform_expectation() -> Value {
@@ -4034,6 +4155,111 @@ fn twelve_lead_ecg_waveform_expectation() -> Value {
             "pixel_data": true
         }
     })
+}
+
+fn general_ecg_waveform_expectation() -> Value {
+    let mut expectation = twelve_lead_ecg_waveform_expectation();
+    expectation["iod_kind"] = serde_json::json!("general_ecg");
+    expectation["sop_class_uid"] = serde_json::json!("1.2.840.10008.5.1.4.1.1.9.1.2");
+    expectation["iod_name"] = serde_json::json!("General ECG Waveform");
+
+    let formula = "((s * (c + 1) * (g + 1) * 37 + c * 101 + g * 307) mod 2001) - 1000";
+    let mut standard = expectation["multiplex_groups"][0].clone();
+    standard["label"] = serde_json::json!("STD12_250HZ");
+    standard["samples_per_channel"] = serde_json::json!(1000);
+    standard["sampling_frequency_hz"] = serde_json::json!(250);
+    standard["duration_seconds"] = serde_json::json!(4);
+    standard["storage"]["payload_length_bytes"] = serde_json::json!(24000);
+    standard["storage"]["payload_sha256"] =
+        serde_json::json!("e4bfb8a3290d9057fa5f5935fa6960ce2a44a07f18991d28c190522739008dbb");
+    standard["storage"]["channel_sha256"] = serde_json::json!([
+        "3211bada5580e8bd9c5a2934deb231122706b00aa92f8cdc78480c03b2352197",
+        "8f66471e35940851acdd9ea55b422c738bf50ea7971822deed0edca1980e1ea2",
+        "9652eb91f4f73f2654c922048a1a8c8731a08062eecd6f5b373256831d0e82b0",
+        "97fb26e75907437a705e4e28eb6492d51020570a23265bdf765aca3c4e7b2708",
+        "c9776b85b3bda6adef798d33d3c7c95d64a1a7d5bf525866ccf7b0cf5fc3209e",
+        "95871f48d729a001eeb1543b36a27059916df360e04838fd322d006661bafb44",
+        "04513ee1f1d5803f3f53093f016a606a7fa874c5af8d2651749b909b93392366",
+        "c12790f5b1f233662a0a1c3f266cd2abb15af5a75b39258ff961e9b4afaf7913",
+        "750913ccad5eb7ec8d8199451e6eb9aa41357eb21d2a0dac6ba75dce4e5708bd",
+        "218d5f967ef253722359fee1846485331c63de9330af1f9fad183d779a196cca",
+        "9027ec7a0fc7fea3d8236a16a5aa6f265ff20e18a2575f99e61807e102fb3d81",
+        "9280ad35672b82a7847d3ccabadd4d85a94be3d39d0a836191384571f0a23ab6"
+    ]);
+    standard["storage"]["sample_value_formula"] = serde_json::json!(formula);
+
+    let auxiliary_channels = [
+        (1, "A1", "2:75", "Auxiliary unipolar lead 1"),
+        (2, "A2", "2:76", "Auxiliary unipolar lead 2"),
+        (3, "A3", "2:77", "Auxiliary unipolar lead 3"),
+        (4, "A4", "2:78", "Auxiliary unipolar lead 4"),
+    ]
+    .map(|(ordinal, label, code_value, code_meaning)| {
+        serde_json::json!({
+            "ordinal": ordinal,
+            "label": label,
+            "source": {
+                "code_value": code_value,
+                "coding_scheme_designator": "MDC",
+                "code_meaning": code_meaning
+            },
+            "sensitivity": 1,
+            "sensitivity_units": {
+                "code_value": "uV",
+                "coding_scheme_designator": "UCUM",
+                "code_meaning": "microvolt"
+            },
+            "sensitivity_correction_factor": 1,
+            "baseline": 0,
+            "bits_stored": 16,
+            "time_skew_seconds": 0,
+            "sample_skew_absent": true
+        })
+    });
+    let auxiliary = serde_json::json!({
+        "ordinal": 2,
+        "originality": "ORIGINAL",
+        "label": "AUX4_1000HZ",
+        "channel_count": 4,
+        "samples_per_channel": 4000,
+        "sampling_frequency_hz": 1000,
+        "duration_seconds": 4,
+        "simultaneous_sampling": true,
+        "channels": auxiliary_channels,
+        "storage": {
+            "bits_allocated": 16,
+            "sample_interpretation": "SS",
+            "data_vr": "OW",
+            "byte_order": "little_endian",
+            "interleave_order": "channel_then_sample",
+            "payload_length_bytes": 32000,
+            "payload_sha256": "5b201d4fa7274ba36d6f7387c3d0217e1b5da161a915f983c2b63b995dde7bbe",
+            "channel_sha256": [
+                "5da46776ad84a78eb0c16066cb8ac7d5e05ca6ad87170264b227c71261def284",
+                "7bd73425422f4e79504b55932040e481ccdfafecabe1dba613ee36074a51b9e3",
+                "e56dad9647dfa50a10b40d244e29eaedbf23d97a558901f46fbccc07ad1a1766",
+                "e1b68207c92fe2cc4c6765fc097668f2600eeda152eb5a1d6f0444f4c9e36fbc"
+            ],
+            "sample_value_formula": formula,
+            "sample_min": -1000,
+            "sample_max": 1000,
+            "waveform_padding_value_absent": true,
+            "value_field_padding_bytes": 0
+        }
+    });
+    expectation["multiplex_groups"] = serde_json::json!([standard, auxiliary]);
+    expectation["aggregate"] = serde_json::json!({
+        "group_count": 2,
+        "total_channel_count": 16,
+        "common_duration_seconds": 4,
+        "total_payload_length_bytes": 56000,
+        "group_payload_sha256": [
+            "e4bfb8a3290d9057fa5f5935fa6960ce2a44a07f18991d28c190522739008dbb",
+            "5b201d4fa7274ba36d6f7387c3d0217e1b5da161a915f983c2b63b995dde7bbe"
+        ],
+        "aggregate_payload_sha256": "c450f55360d6c07394600e4c0f71f951565cd0e1699edfbbb52f660221c6abea"
+    });
+    expectation
 }
 
 fn read_json(path: impl AsRef<Path>) -> Value {

@@ -4060,6 +4060,10 @@ fn generator_recipe_case_ids() -> BTreeSet<String> {
             "src/generator/native/empty_type2_sc.rs",
             &["case_id: \""][..],
         ),
+        (
+            "src/generator/native/icc_profile.rs",
+            &["ICC_CASE_ID: &str = \""][..],
+        ),
         ("src/generator/native/metadata_sc.rs", &["case_id: \""][..]),
         ("src/generator/native/nm.rs", &["case_id: \""][..]),
         ("src/generator/native/pet.rs", &["case_id: \""][..]),

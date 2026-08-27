@@ -65,6 +65,7 @@ pub(crate) struct Part10Expectations<'a> {
     pub enhanced_mr_image: Option<EnhancedMrImageExpectations<'a>>,
     pub mg_image: Option<MgImageExpectations<'a>>,
     pub dx_image: Option<DxImageExpectations<'a>>,
+    pub xa_image: Option<XaImageExpectations<'a>>,
     pub us_image: Option<UsImageExpectations<'a>>,
     pub us_multiframe: Option<UsMultiframeExpectations<'a>>,
     pub nm_image: Option<NmImageExpectations<'a>>,
@@ -471,6 +472,25 @@ pub(crate) struct DxImageExpectations<'a> {
     pub shutter_upper_horizontal_edge: &'a str,
     pub shutter_lower_horizontal_edge: &'a str,
     pub shutter_presentation_value: u16,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct XaImageExpectations<'a> {
+    pub modality: &'a str,
+    pub body_part_examined: &'a str,
+    pub image_type: &'a str,
+    pub patient_orientation: &'a str,
+    pub pixel_intensity_relationship: &'a str,
+    pub lossy_image_compression: &'a str,
+    pub radiation_setting: &'a str,
+    pub kvp: &'a str,
+    pub exposure_mas: &'a str,
+    pub imager_pixel_spacing_mm: &'a str,
+    pub positioner_primary_angle_degrees: &'a str,
+    pub positioner_secondary_angle_degrees: &'a str,
+    pub distance_source_to_detector_mm: &'a str,
+    pub distance_source_to_patient_mm: &'a str,
+    pub estimated_radiographic_magnification_factor: &'a str,
 }
 
 #[derive(Debug, Clone)]
@@ -981,6 +1001,9 @@ pub(crate) fn validate_part10_file(
     }
     if let Some(dx_image) = &expected.dx_image {
         validate_dx_image(path, &obj, &mut internal, dx_image)?;
+    }
+    if let Some(xa_image) = &expected.xa_image {
+        validate_xa_image(path, &obj, &mut internal, xa_image)?;
     }
     if let Some(us_image) = &expected.us_image {
         validate_us_image(path, &obj, &mut internal, us_image)?;
@@ -5950,6 +5973,191 @@ fn validate_dx_image(
     Ok(())
 }
 
+fn validate_xa_image(
+    path: &Path,
+    obj: &OpenedObject,
+    results: &mut Vec<Value>,
+    expected: &XaImageExpectations<'_>,
+) -> Result<(), GenerateError> {
+    for (name, tag, expected_value) in [
+        ("xa_modality", tags::MODALITY, expected.modality),
+        (
+            "xa_body_part_examined",
+            tags::BODY_PART_EXAMINED,
+            expected.body_part_examined,
+        ),
+        ("xa_image_type", tags::IMAGE_TYPE, expected.image_type),
+        (
+            "xa_patient_orientation_empty",
+            tags::PATIENT_ORIENTATION,
+            expected.patient_orientation,
+        ),
+        (
+            "xa_pixel_intensity_relationship",
+            tags::PIXEL_INTENSITY_RELATIONSHIP,
+            expected.pixel_intensity_relationship,
+        ),
+        (
+            "xa_lossy_image_compression",
+            tags::LOSSY_IMAGE_COMPRESSION,
+            expected.lossy_image_compression,
+        ),
+        (
+            "xa_radiation_setting",
+            tags::RADIATION_SETTING,
+            expected.radiation_setting,
+        ),
+        ("xa_kvp", tags::KVP, expected.kvp),
+        ("xa_exposure", tags::EXPOSURE, expected.exposure_mas),
+        (
+            "xa_imager_pixel_spacing",
+            tags::IMAGER_PIXEL_SPACING,
+            expected.imager_pixel_spacing_mm,
+        ),
+        (
+            "xa_positioner_primary_angle",
+            tags::POSITIONER_PRIMARY_ANGLE,
+            expected.positioner_primary_angle_degrees,
+        ),
+        (
+            "xa_positioner_secondary_angle",
+            tags::POSITIONER_SECONDARY_ANGLE,
+            expected.positioner_secondary_angle_degrees,
+        ),
+        (
+            "xa_distance_source_to_detector",
+            tags::DISTANCE_SOURCE_TO_DETECTOR,
+            expected.distance_source_to_detector_mm,
+        ),
+        (
+            "xa_distance_source_to_patient",
+            tags::DISTANCE_SOURCE_TO_PATIENT,
+            expected.distance_source_to_patient_mm,
+        ),
+        (
+            "xa_estimated_magnification",
+            tags::ESTIMATED_RADIOGRAPHIC_MAGNIFICATION_FACTOR,
+            expected.estimated_radiographic_magnification_factor,
+        ),
+    ] {
+        check_equal(
+            results,
+            name,
+            "XA acquisition or projection attribute matches the recipe.",
+            "XA acquisition or projection attribute does not match the recipe.",
+            element_str(path, obj, tag)?.as_str(),
+            expected_value,
+        );
+    }
+
+    for (name, tag, expected_vr) in [
+        ("xa_image_type_vr", tags::IMAGE_TYPE, VR::CS),
+        (
+            "xa_patient_orientation_vr",
+            tags::PATIENT_ORIENTATION,
+            VR::CS,
+        ),
+        ("xa_kvp_vr", tags::KVP, VR::DS),
+        ("xa_exposure_vr", tags::EXPOSURE, VR::IS),
+        (
+            "xa_imager_pixel_spacing_vr",
+            tags::IMAGER_PIXEL_SPACING,
+            VR::DS,
+        ),
+        (
+            "xa_positioner_primary_angle_vr",
+            tags::POSITIONER_PRIMARY_ANGLE,
+            VR::DS,
+        ),
+        (
+            "xa_positioner_secondary_angle_vr",
+            tags::POSITIONER_SECONDARY_ANGLE,
+            VR::DS,
+        ),
+    ] {
+        let actual_vr = obj
+            .element(tag)
+            .map_err(|err| validation_error(path, err))?
+            .vr();
+        check_equal(
+            results,
+            name,
+            "XA attribute VR matches the 2026b data dictionary.",
+            "XA attribute VR does not match the 2026b data dictionary.",
+            actual_vr,
+            expected_vr,
+        );
+    }
+
+    let sid = element_f64_values(path, obj, tags::DISTANCE_SOURCE_TO_DETECTOR)?[0];
+    let sod = element_f64_values(path, obj, tags::DISTANCE_SOURCE_TO_PATIENT)?[0];
+    let magnification =
+        element_f64_values(path, obj, tags::ESTIMATED_RADIOGRAPHIC_MAGNIFICATION_FACTOR)?[0];
+    check(
+        results,
+        (sid / sod - magnification).abs() <= f64::EPSILON,
+        "xa_sid_sod_magnification_relation",
+        "Estimated magnification equals the serialized SID/SOD ratio.",
+        "Estimated magnification does not equal the serialized SID/SOD ratio.",
+    );
+
+    for (name, tag) in [
+        ("xa_laterality_absent", tags::LATERALITY),
+        ("xa_number_of_frames_absent", tags::NUMBER_OF_FRAMES),
+        (
+            "xa_frame_increment_pointer_absent",
+            tags::FRAME_INCREMENT_POINTER,
+        ),
+        ("xa_frame_time_absent", tags::FRAME_TIME),
+        ("xa_frame_time_vector_absent", tags::FRAME_TIME_VECTOR),
+        ("xa_positioner_motion_absent", tags::POSITIONER_MOTION),
+        (
+            "xa_primary_angle_increment_absent",
+            tags::POSITIONER_PRIMARY_ANGLE_INCREMENT,
+        ),
+        (
+            "xa_secondary_angle_increment_absent",
+            tags::POSITIONER_SECONDARY_ANGLE_INCREMENT,
+        ),
+        (
+            "xa_biplane_reference_absent",
+            tags::REFERENCED_IMAGE_SEQUENCE,
+        ),
+        ("xa_contrast_agent_absent", tags::CONTRAST_BOLUS_AGENT),
+        (
+            "xa_mask_subtraction_absent",
+            tags::MASK_SUBTRACTION_SEQUENCE,
+        ),
+        ("xa_frame_of_reference_absent", tags::FRAME_OF_REFERENCE_UID),
+        (
+            "xa_image_orientation_patient_absent",
+            tags::IMAGE_ORIENTATION_PATIENT,
+        ),
+        (
+            "xa_image_position_patient_absent",
+            tags::IMAGE_POSITION_PATIENT,
+        ),
+        ("xa_pixel_spacing_absent", tags::PIXEL_SPACING),
+        ("xa_modality_lut_absent", tags::MODALITY_LUT_SEQUENCE),
+        ("xa_voi_lut_absent", tags::VOILUT_SEQUENCE),
+        ("xa_calibration_image_absent", tags::CALIBRATION_IMAGE),
+    ] {
+        let present = obj
+            .element_opt(tag)
+            .map_err(|err| validation_error(path, err))?
+            .is_some();
+        check(
+            results,
+            !present,
+            name,
+            "Excluded XA conditional or optional claim is absent.",
+            "An excluded XA conditional or optional claim is unexpectedly present.",
+        );
+    }
+
+    Ok(())
+}
+
 fn validate_us_image(
     path: &Path,
     obj: &OpenedObject,
@@ -7091,6 +7299,7 @@ fn standard_sop_class_validation_name(sop_class_uid: &str) -> &'static str {
         }
         uids::ULTRASOUND_IMAGE_STORAGE => "ultrasound_image_sop_class",
         uids::ULTRASOUND_MULTI_FRAME_IMAGE_STORAGE => "ultrasound_multiframe_image_sop_class",
+        uids::X_RAY_ANGIOGRAPHIC_IMAGE_STORAGE => "x_ray_angiographic_image_sop_class",
         uids::NUCLEAR_MEDICINE_IMAGE_STORAGE => "nuclear_medicine_image_sop_class",
         uids::DIGITAL_MAMMOGRAPHY_X_RAY_IMAGE_STORAGE_FOR_PRESENTATION => {
             "digital_mammography_for_presentation_sop_class"
@@ -7135,6 +7344,9 @@ fn standard_sop_class_validation_message(sop_class_uid: &str) -> &'static str {
         }
         uids::ULTRASOUND_MULTI_FRAME_IMAGE_STORAGE => {
             "SOP Class UID matches Ultrasound Multi-frame Image Storage in the 2026b reference."
+        }
+        uids::X_RAY_ANGIOGRAPHIC_IMAGE_STORAGE => {
+            "SOP Class UID matches X-Ray Angiographic Image Storage in the 2026b reference."
         }
         uids::NUCLEAR_MEDICINE_IMAGE_STORAGE => {
             "SOP Class UID matches Nuclear Medicine Image Storage in the 2026b reference."

@@ -66,10 +66,11 @@ use crate::{
         NmImageExpectations, Part10Expectations, PetImageExpectations, PixelDataLengthFormula,
         PresentationStateExpectations, RealWorldValueMappingExpectations, RtDoseExpectations,
         RtStructureSetExpectations, SegmentationExpectations, UsImageExpectations,
-        UsMultiframeExpectations, validate_basic_text_sr_file, validate_comprehensive_sr_file,
-        validate_encapsulated_pdf_file, validate_key_object_selection_file, validate_part10_file,
-        validate_presentation_state_file, validate_real_world_value_mapping_file,
-        validate_rt_dose_file, validate_rt_structure_set_file,
+        UsMultiframeExpectations, XaImageExpectations, validate_basic_text_sr_file,
+        validate_comprehensive_sr_file, validate_encapsulated_pdf_file,
+        validate_key_object_selection_file, validate_part10_file, validate_presentation_state_file,
+        validate_real_world_value_mapping_file, validate_rt_dose_file,
+        validate_rt_structure_set_file,
     },
 };
 
@@ -5368,6 +5369,7 @@ fn write_pixel_case_with_metadata(
             enhanced_mr_image: None,
             mg_image: None,
             dx_image: None,
+            xa_image: None,
             us_image: None,
             us_multiframe: None,
             nm_image: None,
@@ -7882,6 +7884,7 @@ fn write_classic_ct_case(
                     enhanced_mr_image: None,
                     mg_image: None,
                     dx_image: None,
+                    xa_image: None,
                     us_image: None,
                     us_multiframe: None,
                     nm_image: None,
@@ -8710,6 +8713,7 @@ fn write_enhanced_ct_case(
             enhanced_mr_image: None,
             mg_image: None,
             dx_image: None,
+            xa_image: None,
             us_image: None,
             us_multiframe: None,
             nm_image: None,
@@ -9057,6 +9061,7 @@ fn write_segmentation_case(
             enhanced_mr_image: None,
             mg_image: None,
             dx_image: None,
+            xa_image: None,
             us_image: None,
             us_multiframe: None,
             nm_image: None,
@@ -10961,6 +10966,7 @@ fn write_enhanced_ct_concatenation_case(
                 enhanced_mr_image: None,
                 mg_image: None,
                 dx_image: None,
+                xa_image: None,
                 us_image: None,
                 us_multiframe: None,
                 nm_image: None,
@@ -13549,6 +13555,7 @@ fn write_enhanced_mr_case(
             }),
             mg_image: None,
             dx_image: None,
+            xa_image: None,
             us_image: None,
             us_multiframe: None,
             nm_image: None,
@@ -14525,6 +14532,7 @@ fn write_classic_mg_case(
                 acquisition_context_items: 0,
             }),
             dx_image: None,
+            xa_image: None,
             us_image: None,
             us_multiframe: None,
             nm_image: None,
@@ -15228,6 +15236,7 @@ fn write_classic_dx_case(
                 shutter_lower_horizontal_edge: recipe.shutter_lower_horizontal_edge,
                 shutter_presentation_value: recipe.shutter_presentation_value,
             }),
+            xa_image: None,
             us_image: None,
             us_multiframe: None,
             nm_image: None,
@@ -15851,6 +15860,7 @@ fn write_classic_nm_case(
             enhanced_mr_image: None,
             mg_image: None,
             dx_image: None,
+            xa_image: None,
             us_image: None,
             us_multiframe: None,
             nm_image: Some(NmImageExpectations {
@@ -16432,6 +16442,7 @@ fn write_classic_pet_case(
             enhanced_mr_image: None,
             mg_image: None,
             dx_image: None,
+            xa_image: None,
             us_image: None,
             us_multiframe: None,
             nm_image: None,
@@ -16906,6 +16917,23 @@ fn write_classic_xa_case(
             enhanced_mr_image: None,
             mg_image: None,
             dx_image: None,
+            xa_image: Some(XaImageExpectations {
+                modality: "XA",
+                body_part_examined: recipe.body_part_examined,
+                image_type: recipe.image_type,
+                patient_orientation: "",
+                pixel_intensity_relationship: recipe.pixel_intensity_relationship,
+                lossy_image_compression: recipe.lossy_image_compression,
+                radiation_setting: recipe.radiation_setting,
+                kvp: "80",
+                exposure_mas: "4",
+                imager_pixel_spacing_mm: "0.2\\0.2",
+                positioner_primary_angle_degrees: "15",
+                positioner_secondary_angle_degrees: "-10",
+                distance_source_to_detector_mm: "1200",
+                distance_source_to_patient_mm: "800",
+                estimated_radiographic_magnification_factor: "1.5",
+            }),
             us_image: None,
             us_multiframe: None,
             nm_image: None,
@@ -17283,6 +17311,7 @@ fn write_classic_us_multiframe_case(
             enhanced_mr_image: None,
             mg_image: None,
             dx_image: None,
+            xa_image: None,
             us_image: None,
             us_multiframe: Some(UsMultiframeExpectations {
                 modality: "US",
@@ -17688,6 +17717,7 @@ fn write_classic_us_case(
             enhanced_mr_image: None,
             mg_image: None,
             dx_image: None,
+            xa_image: None,
             us_image: Some(UsImageExpectations {
                 modality: "US",
                 image_type: "ORIGINAL\\PRIMARY",
@@ -18244,6 +18274,7 @@ fn write_classic_cr_case(
             enhanced_mr_image: None,
             mg_image: None,
             dx_image: None,
+            xa_image: None,
             us_image: None,
             us_multiframe: None,
             nm_image: None,
@@ -18854,6 +18885,7 @@ fn write_classic_mr_case(
                 enhanced_mr_image: None,
                 mg_image: None,
                 dx_image: None,
+                xa_image: None,
                 us_image: None,
                 us_multiframe: None,
                 nm_image: None,
@@ -19961,6 +19993,45 @@ mod tests {
                 .pointer("/validation/status")
                 .and_then(Value::as_str),
             Some("passed")
+        );
+        let validation_names = generated
+            .manifest_entry
+            .pointer("/validation/internal")
+            .and_then(Value::as_array)
+            .expect("internal validation checks should be present")
+            .iter()
+            .filter_map(|check| check.get("name").and_then(Value::as_str))
+            .collect::<BTreeSet<_>>();
+        for name in [
+            "native_frame_hashes",
+            "xa_body_part_examined",
+            "xa_patient_orientation_empty",
+            "xa_pixel_intensity_relationship",
+            "xa_radiation_setting",
+            "xa_imager_pixel_spacing",
+            "xa_positioner_primary_angle",
+            "xa_positioner_secondary_angle",
+            "xa_sid_sod_magnification_relation",
+            "xa_laterality_absent",
+            "xa_number_of_frames_absent",
+            "xa_biplane_reference_absent",
+            "xa_frame_of_reference_absent",
+            "xa_pixel_spacing_absent",
+        ] {
+            assert!(
+                validation_names.contains(name),
+                "missing internal check {name}"
+            );
+        }
+        assert!(
+            generated
+                .manifest_entry
+                .pointer("/validation/standards")
+                .and_then(Value::as_array)
+                .expect("standards validation checks should be present")
+                .iter()
+                .any(|check| check.get("name").and_then(Value::as_str)
+                    == Some("x_ray_angiographic_image_sop_class"))
         );
         let manifest_schema: Value =
             serde_json::from_str(include_str!("../schemas/manifest.schema.json"))

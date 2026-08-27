@@ -211,7 +211,8 @@
       "required": false,
       "platforms": ["linux", "macos", "windows"],
       "supported_case_ids": [
-        "non-image/waveform/twelve_lead_ecg"
+        "non-image/waveform/twelve_lead_ecg",
+        "non-image/waveform/general_ecg"
       ],
       "artifacts": [
         {"path": "conformance-backends/dicom-validator/.python-version"},
@@ -234,6 +235,8 @@
         "normalized_findings",
         "dicom_2026b_definitions",
         "twelve_lead_ecg_iod_validation",
+        "general_ecg_iod_validation",
+        "ordered_multi_group_waveform_validation",
         "raw_waveform_payload_validation"
       ]
     },

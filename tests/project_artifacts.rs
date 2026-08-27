@@ -1493,10 +1493,8 @@ fn linked_rt_plan_image_source_note_and_native_providers_are_locked() {
 
 #[test]
 fn minimal_rt_radiation_set_source_note_locks_required_companion_graph() {
-    let source = fs::read_to_string(
-        "standards/source-notes/phase-3-rt-radiation-set-minimal.md",
-    )
-    .expect("minimal RT Radiation Set source note must be readable");
+    let source = fs::read_to_string("standards/source-notes/phase-3-rt-radiation-set-minimal.md")
+        .expect("minimal RT Radiation Set source note must be readable");
     for required in [
         "non-image/rt/carm_photon_electron_radiation_minimal",
         "non-image/rt/radiation_set_minimal",
@@ -1583,8 +1581,7 @@ fn minimal_rt_radiation_set_source_note_locks_required_companion_graph() {
                 .unwrap()
                 .iter()
                 .any(|entry| {
-                    entry["query"]
-                        == "standards/source-notes/phase-3-rt-radiation-set-minimal.md"
+                    entry["query"] == "standards/source-notes/phase-3-rt-radiation-set-minimal.md"
                 })
         );
     }

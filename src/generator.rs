@@ -16,6 +16,14 @@ use serde_json::Value;
 
 mod native;
 
+use native::color_softcopy_presentation_state::{
+    COLOR_SOFTCOPY_PRESENTATION_STATE_CONTENT_DESCRIPTION,
+    COLOR_SOFTCOPY_PRESENTATION_STATE_CONTENT_LABEL,
+    COLOR_SOFTCOPY_PRESENTATION_STATE_CREATION_DATE,
+    COLOR_SOFTCOPY_PRESENTATION_STATE_CREATION_TIME, COLOR_SOFTCOPY_PRESENTATION_STATE_OUTPUT_FILE,
+    COLOR_SOFTCOPY_PRESENTATION_STATE_STORAGE_UID, ColorSoftcopyPresentationStateInput,
+    ColorSoftcopyPresentationStateReference, build_color_softcopy_presentation_state,
+};
 use native::ct_geometry::{
     CLASSIC_CT_RECIPES, ClassicCtInstanceNumber, ClassicCtRecipe, ClassicCtSeriesRecipe,
     ClassicCtSliceRecipe,
@@ -85,8 +93,8 @@ use crate::{
     },
     sha256_hex,
     validation::{
-        BasicTextSrExpectations, CrImageExpectations, CtImageExpectations,
-        DeformableSpatialRegistrationExpectations, DxImageExpectations,
+        BasicTextSrExpectations, ColorSoftcopyPresentationStateExpectations, CrImageExpectations,
+        CtImageExpectations, DeformableSpatialRegistrationExpectations, DxImageExpectations,
         EncapsulatedPdfExpectations, EnhancedCtConcatenationExpectations,
         EnhancedCtImageExpectations, EnhancedMrImageExpectations, EnhancedPetImageExpectations,
         MgImageExpectations, MrImageExpectations, NmDetectorExpectations,
@@ -96,12 +104,12 @@ use crate::{
         SegmentationExpectations, SpatialRegistrationExpectations,
         SpatialRegistrationReferenceExpectations, Tid1500Expectations, UsImageExpectations,
         UsMultiframeExpectations, XaImageExpectations, XrfImageExpectations,
-        validate_basic_text_sr_file, validate_comprehensive_sr_file,
-        validate_deformable_spatial_registration_file, validate_encapsulated_pdf_file,
-        validate_key_object_selection_file, validate_part10_file, validate_presentation_state_file,
-        validate_real_world_value_mapping_file, validate_rt_dose_file,
-        validate_rt_structure_set_file, validate_scoord3d_file, validate_spatial_registration_file,
-        validate_tid1500_file,
+        validate_basic_text_sr_file, validate_color_softcopy_presentation_state_file,
+        validate_comprehensive_sr_file, validate_deformable_spatial_registration_file,
+        validate_encapsulated_pdf_file, validate_key_object_selection_file, validate_part10_file,
+        validate_presentation_state_file, validate_real_world_value_mapping_file,
+        validate_rt_dose_file, validate_rt_structure_set_file, validate_scoord3d_file,
+        validate_spatial_registration_file, validate_tid1500_file,
     },
 };
 
@@ -205,6 +213,11 @@ const SPATIAL_REGISTRATION_SOURCE_CASE_ID: &str = "classic/ct/mono2_i16_rescale_
 const DEFORMABLE_SPATIAL_REGISTRATION_CASE_ID: &str = "derived/registration/deformable_ct_pair";
 const DEFORMABLE_SPATIAL_REGISTRATION_RECIPE_ID: &str = "derived_registration_deformable_ct_pair";
 const DEFORMABLE_SPATIAL_REGISTRATION_RECIPE_VERSION: &str = "0.1.0";
+const COLOR_SOFTCOPY_PRESENTATION_STATE_CASE_ID: &str = "derived/presentation-state/color_softcopy";
+const COLOR_SOFTCOPY_PRESENTATION_STATE_RECIPE_ID: &str =
+    "derived_presentation_state_color_softcopy";
+const COLOR_SOFTCOPY_PRESENTATION_STATE_RECIPE_VERSION: &str = "0.1.0";
+const COLOR_SOFTCOPY_PRESENTATION_STATE_SOURCE_CASE_ID: &str = "classic/sc/rgb_planar0_explicit_le";
 const DEFORMABLE_VECTOR_GRID_DATA_SHA256: &str =
     "d0673d2da1b415db6465047e607b7f16f1a886dfae4ede91764c71bf7df72f47";
 const DEFORMABLE_REGISTERED_POINTS_MM: [[f64; 3]; 4] = [
@@ -3989,6 +4002,24 @@ pub(crate) fn write_supported_cases(
             )?)?;
         }
     }
+    if let Some(case) = registry_case(registry, COLOR_SOFTCOPY_PRESENTATION_STATE_CASE_ID)? {
+        if should_generate_case(case, run)? {
+            let source = context
+                .source_registry()
+                .first_for_case(COLOR_SOFTCOPY_PRESENTATION_STATE_SOURCE_CASE_ID)
+                .cloned()
+                .ok_or_else(|| GenerateError::MetadataShape {
+                    path: PathBuf::from(COLOR_SOFTCOPY_PRESENTATION_STATE_CASE_ID),
+                    message: "Color Softcopy Presentation State RGB source must be generated first",
+                })?;
+            context.record_one(write_color_softcopy_presentation_state_case(
+                run,
+                case,
+                &source,
+                standards_lock_sha256,
+            )?)?;
+        }
+    }
     for recipe in PRESENTATION_STATE_RECIPES {
         let Some(case) = registry_case(registry, recipe.case_id)? else {
             continue;
@@ -6166,6 +6197,339 @@ fn write_deformable_spatial_registration_case(
             "standards_evidence": deduplicated_standards_evidence(standards_evidence_from_case(case))
         }),
     })
+}
+
+fn write_color_softcopy_presentation_state_case(
+    run: &PreparedGenerationRun,
+    case: &Value,
+    source: &GeneratedSourceObject,
+    standards_lock_sha256: &str,
+) -> Result<GeneratedFile, GenerateError> {
+    validate_color_softcopy_presentation_state_source(&run.out_dir, source)?;
+    let source_series_instance_uid = required_source_uid(
+        source.series_instance_uid.as_deref(),
+        COLOR_SOFTCOPY_PRESENTATION_STATE_CASE_ID,
+        "Color Softcopy Presentation State source Series Instance UID is missing",
+    )?;
+    let uid = |role| {
+        deterministic_uid(&DeterministicUidInput {
+            standards_lock_sha256,
+            case_id: COLOR_SOFTCOPY_PRESENTATION_STATE_CASE_ID,
+            recipe_version: COLOR_SOFTCOPY_PRESENTATION_STATE_RECIPE_VERSION,
+            run_seed: run.seed,
+            file_index: 0,
+            frame_index: None,
+            referenced_object_index: None,
+            role,
+        })
+    };
+    let series_instance_uid = uid(UidRole::SeriesInstance);
+    let sop_instance_uid = uid(UidRole::SopInstance);
+    if series_instance_uid == source_series_instance_uid {
+        return Err(color_softcopy_presentation_state_source_error(
+            "Color Softcopy Presentation State and source Series Instance UIDs must differ",
+        ));
+    }
+    let implementation_class_uid = deterministic_implementation_uid(standards_lock_sha256);
+    let relative_path = format!(
+        "{COLOR_SOFTCOPY_PRESENTATION_STATE_CASE_ID}/{COLOR_SOFTCOPY_PRESENTATION_STATE_OUTPUT_FILE}"
+    );
+    let path = run.out_dir.join(&relative_path);
+    let case_dir = path.parent().ok_or_else(|| GenerateError::MetadataShape {
+        path: PathBuf::from(&relative_path),
+        message: "Color Softcopy Presentation State output must have a parent directory",
+    })?;
+    fs::create_dir_all(case_dir).map_err(|source| GenerateError::CreateCaseOutputDir {
+        path: case_dir.to_path_buf(),
+        source,
+    })?;
+
+    let object = build_color_softcopy_presentation_state(ColorSoftcopyPresentationStateInput {
+        sop_instance_uid: &sop_instance_uid,
+        series_instance_uid: &series_instance_uid,
+        source: ColorSoftcopyPresentationStateReference {
+            study_instance_uid: &source.study_instance_uid,
+            series_instance_uid: source_series_instance_uid,
+            sop_class_uid: &source.sop_class_uid,
+            sop_instance_uid: &source.sop_instance_uid,
+        },
+    })
+    .map_err(|message| GenerateError::WriteDicomFile {
+        path: path.clone(),
+        message,
+    })?;
+    object
+        .with_meta(
+            FileMetaTableBuilder::new()
+                .transfer_syntax(EXPLICIT_VR_LITTLE_ENDIAN.uid)
+                .implementation_class_uid(&implementation_class_uid)
+                .implementation_version_name(crate::IMPLEMENTATION_VERSION_NAME),
+        )
+        .map_err(|error| GenerateError::WriteDicomFile {
+            path: path.clone(),
+            message: error.to_string(),
+        })?
+        .write_to_file(&path)
+        .map_err(|error| GenerateError::WriteDicomFile {
+            path: path.clone(),
+            message: error.to_string(),
+        })?;
+
+    let validated = validate_color_softcopy_presentation_state_file(
+        &path,
+        &ColorSoftcopyPresentationStateExpectations {
+            sop_class_uid: COLOR_SOFTCOPY_PRESENTATION_STATE_STORAGE_UID,
+            sop_instance_uid: &sop_instance_uid,
+            transfer_syntax_uid: EXPLICIT_VR_LITTLE_ENDIAN.uid,
+            implementation_class_uid: &implementation_class_uid,
+            synthetic_data: "YES",
+            study_instance_uid: &source.study_instance_uid,
+            series_instance_uid: &series_instance_uid,
+            source_study_instance_uid: &source.study_instance_uid,
+            source_series_instance_uid,
+            source_sop_class_uid: &source.sop_class_uid,
+            source_sop_instance_uid: &source.sop_instance_uid,
+            icc_profile_sha256: ICC_PROFILE_SHA256,
+        },
+    )?;
+    let mut validation = validated.validation;
+    validation["internal"]
+        .as_array_mut()
+        .expect("Color Softcopy validation internal results are an array")
+        .push(serde_json::json!({
+            "name": "color_softcopy_source_precheck",
+            "status": "passed",
+            "message": "Rust reopened and hashed the RGB source, then verified its manifest identity, Explicit VR Little Endian encoding, single-frame 2x2 interleaved RGB shape, and 8-bit depth before construction."
+        }));
+    let bytes = validated.bytes;
+    let expected_color_softcopy_presentation_state = serde_json::json!({
+        "presentation_state": {
+            "modality": "PR",
+            "body_part_examined": "HAND",
+            "laterality": "R",
+            "content_label": COLOR_SOFTCOPY_PRESENTATION_STATE_CONTENT_LABEL,
+            "content_description": COLOR_SOFTCOPY_PRESENTATION_STATE_CONTENT_DESCRIPTION,
+            "presentation_creation_date": COLOR_SOFTCOPY_PRESENTATION_STATE_CREATION_DATE,
+            "presentation_creation_time": COLOR_SOFTCOPY_PRESENTATION_STATE_CREATION_TIME,
+            "instance_number": 1,
+            "series_number": 62
+        },
+        "source": {
+            "source_case_id": source.source_case_id,
+            "source_path": source.source_path,
+            "source_sha256": source.sha256,
+            "study_instance_uid": source.study_instance_uid,
+            "series_instance_uid": source_series_instance_uid,
+            "sop_class_uid": source.sop_class_uid,
+            "sop_instance_uid": source.sop_instance_uid,
+            "rows": 2,
+            "columns": 2,
+            "photometric_interpretation": "RGB",
+            "samples_per_pixel": 3,
+            "planar_configuration": 0,
+            "complete_instance": true
+        },
+        "same_study": true,
+        "different_series": true,
+        "relationship": {
+            "referenced_series_items": 1,
+            "referenced_image_items": 1,
+            "referenced_frame_numbers": [],
+            "applies_to_complete_instance": true
+        },
+        "displayed_area": {
+            "items": 1,
+            "applies_to_all_references": true,
+            "top_left": [1, 1],
+            "bottom_right": [2, 2],
+            "presentation_size_mode": "SCALE TO FIT",
+            "presentation_pixel_aspect_ratio": [1, 1],
+            "presentation_pixel_spacing": Value::Null,
+            "presentation_pixel_magnification_ratio": Value::Null
+        },
+        "icc_profile": {
+            "vr": "OB",
+            "size_bytes": ICC_PROFILE_SIZE,
+            "sha256": ICC_PROFILE_SHA256,
+            "device_class": "scnr",
+            "data_color_space": "RGB ",
+            "profile_connection_space": "XYZ ",
+            "signature": "acsp",
+            "dicom_color_space": ICC_COLOR_SPACE
+        },
+        "shutter_items": 0,
+        "graphic_annotation_items": 0,
+        "graphic_layer_items": 0,
+        "overlay_items": 0,
+        "spatial_transform_present": false,
+        "pixel_data_absent": true
+    });
+
+    Ok(GeneratedFile {
+        case_id: COLOR_SOFTCOPY_PRESENTATION_STATE_CASE_ID.to_string(),
+        manifest_entry: serde_json::json!({
+            "case_id": COLOR_SOFTCOPY_PRESENTATION_STATE_CASE_ID,
+            "profile_membership": ["extended"],
+            "path": relative_path,
+            "sha256": sha256_hex(&bytes),
+            "size_bytes": bytes.len(),
+            "determinism": "byte_stable",
+            "recipe": {
+                "recipe_id": COLOR_SOFTCOPY_PRESENTATION_STATE_RECIPE_ID,
+                "recipe_version": COLOR_SOFTCOPY_PRESENTATION_STATE_RECIPE_VERSION,
+                "recipe_parameters": {
+                    "source_case_id": COLOR_SOFTCOPY_PRESENTATION_STATE_SOURCE_CASE_ID,
+                    "complete_instance": true,
+                    "displayed_area_top_left": [1, 1],
+                    "displayed_area_bottom_right": [2, 2],
+                    "presentation_size_mode": "SCALE TO FIT",
+                    "presentation_pixel_aspect_ratio": [1, 1],
+                    "icc_profile_sha256": ICC_PROFILE_SHA256
+                }
+            },
+            "dicom": {
+                "sop_class_uid": COLOR_SOFTCOPY_PRESENTATION_STATE_STORAGE_UID,
+                "sop_class_name": "Color Softcopy Presentation State Storage",
+                "iod_name": "Color Softcopy Presentation State",
+                "modality": "PR",
+                "transfer_syntax_uid": EXPLICIT_VR_LITTLE_ENDIAN.uid,
+                "transfer_syntax_name": EXPLICIT_VR_LITTLE_ENDIAN.name
+            },
+            "uids": {
+                "study_instance_uid": source.study_instance_uid,
+                "series_instance_uid": series_instance_uid,
+                "sop_instance_uid": sop_instance_uid,
+                "implementation_class_uid": implementation_class_uid,
+                "implementation_version_name": crate::IMPLEMENTATION_VERSION_NAME
+            },
+            "image": Value::Null,
+            "pixel_data": Value::Null,
+            "references": [
+                source.to_manifest_reference("source_image", None)
+            ],
+            "expected_capabilities": [
+                "open_file", "read_metadata", "resolve_references",
+                "apply_color_presentation_state", "apply_displayed_area",
+                "color_manage_icc_profile"
+            ],
+            "expected_semantics": {
+                "synthetic_data": "YES",
+                "same_study_as_source": true,
+                "different_series_from_source": true,
+                "complete_instance_reference": true,
+                "global_displayed_area": true,
+                "pixel_data_absent": true
+            },
+            "expected_color_softcopy_presentation_state":
+                expected_color_softcopy_presentation_state,
+            "expected_visual_checks": {
+                "pattern": "color_pr_displays_entire_2x2_rgb_source_with_srgb_profile"
+            },
+            "validation": validation,
+            "known_stressors": [
+                "color_softcopy_presentation_state_storage", "same_study_reference",
+                "distinct_presentation_series", "complete_instance_reference",
+                "global_displayed_area", "one_based_display_coordinates",
+                "mandatory_exact_icc_profile", "optional_rendering_modules_absent"
+            ],
+            "standards_evidence":
+                deduplicated_standards_evidence(standards_evidence_from_case(case))
+        }),
+    })
+}
+
+fn validate_color_softcopy_presentation_state_source(
+    generated_root: &std::path::Path,
+    source: &GeneratedSourceObject,
+) -> Result<(), GenerateError> {
+    if source.source_case_id != COLOR_SOFTCOPY_PRESENTATION_STATE_SOURCE_CASE_ID
+        || source.source_path
+            != format!("{COLOR_SOFTCOPY_PRESENTATION_STATE_SOURCE_CASE_ID}/instance.dcm")
+        || source.sop_class_uid != uids::SECONDARY_CAPTURE_IMAGE_STORAGE
+        || source.frame_count != Some(1)
+    {
+        return Err(color_softcopy_presentation_state_source_error(
+            "Color Softcopy Presentation State requires the locked single-frame RGB Secondary Capture source",
+        ));
+    }
+    let source_series_instance_uid = required_source_uid(
+        source.series_instance_uid.as_deref(),
+        COLOR_SOFTCOPY_PRESENTATION_STATE_CASE_ID,
+        "Color Softcopy Presentation State source Series Instance UID is missing",
+    )?;
+    let source_path = generated_root.join(&source.source_path);
+    let bytes = fs::read(&source_path).map_err(|error| GenerateError::ReadMetadata {
+        path: source_path.clone(),
+        source: error,
+    })?;
+    if sha256_hex(&bytes) != source.sha256 {
+        return Err(color_softcopy_presentation_state_source_error(
+            "Color Softcopy Presentation State source bytes differ from the manifest hash",
+        ));
+    }
+    let object = open_file(&source_path).map_err(|error| GenerateError::ValidateDicomFile {
+        path: source_path.clone(),
+        message: error.to_string(),
+    })?;
+    let text = |tag| {
+        object
+            .element(tag)
+            .map_err(|error| color_softcopy_presentation_state_source_error(error.to_string()))?
+            .to_str()
+            .map(|value| value.trim_end_matches(['\0', ' ']).to_string())
+            .map_err(|error| color_softcopy_presentation_state_source_error(error.to_string()))
+    };
+    let unsigned = |tag| {
+        object
+            .element(tag)
+            .map_err(|error| color_softcopy_presentation_state_source_error(error.to_string()))?
+            .to_int::<u16>()
+            .map_err(|error| color_softcopy_presentation_state_source_error(error.to_string()))
+    };
+    let frames = object
+        .element(tags::NUMBER_OF_FRAMES)
+        .ok()
+        .and_then(|element| element.to_int::<u64>().ok())
+        .unwrap_or(1);
+    let pixel_data = object
+        .element(tags::PIXEL_DATA)
+        .map_err(|error| color_softcopy_presentation_state_source_error(error.to_string()))?;
+    let pixel_value_length = pixel_data
+        .to_bytes()
+        .map_err(|error| color_softcopy_presentation_state_source_error(error.to_string()))?
+        .len();
+    if object.meta().media_storage_sop_class_uid() != source.sop_class_uid
+        || object.meta().media_storage_sop_instance_uid() != source.sop_instance_uid
+        || object.meta().transfer_syntax() != EXPLICIT_VR_LITTLE_ENDIAN.uid
+        || text(tags::SOP_CLASS_UID)? != source.sop_class_uid
+        || text(tags::SOP_INSTANCE_UID)? != source.sop_instance_uid
+        || text(tags::STUDY_INSTANCE_UID)? != source.study_instance_uid
+        || text(tags::SERIES_INSTANCE_UID)? != source_series_instance_uid
+        || unsigned(tags::ROWS)? != 2
+        || unsigned(tags::COLUMNS)? != 2
+        || text(tags::PHOTOMETRIC_INTERPRETATION)? != "RGB"
+        || unsigned(tags::SAMPLES_PER_PIXEL)? != 3
+        || unsigned(tags::PLANAR_CONFIGURATION)? != 0
+        || unsigned(tags::BITS_ALLOCATED)? != 8
+        || unsigned(tags::BITS_STORED)? != 8
+        || unsigned(tags::HIGH_BIT)? != 7
+        || unsigned(tags::PIXEL_REPRESENTATION)? != 0
+        || frames != 1
+        || pixel_data.vr() != VR::OB
+        || pixel_value_length != 12
+    {
+        return Err(color_softcopy_presentation_state_source_error(
+            "Color Softcopy Presentation State source DICOM identity or RGB shape differs from the generated-source registry and locked recipe",
+        ));
+    }
+    Ok(())
+}
+
+fn color_softcopy_presentation_state_source_error(message: impl Into<String>) -> GenerateError {
+    GenerateError::ValidateDicomFile {
+        path: PathBuf::from(COLOR_SOFTCOPY_PRESENTATION_STATE_CASE_ID),
+        message: message.into(),
+    }
 }
 
 fn required_source_uid<'a>(
@@ -23527,6 +23891,118 @@ fn case_matches_profile(profiles: &[String], requested: &str, include_stress: bo
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn color_softcopy_writer_reopens_source_validates_manifest_and_is_deterministic() {
+        let output = ParametricMapStagingGuard::new();
+        let run = PreparedGenerationRun {
+            profile: "extended".to_string(),
+            out_dir: output.path().to_path_buf(),
+            manifest_path: output.path().join("manifest.json"),
+            seed: 7,
+            include_stress: false,
+        };
+        let source_recipe = PIXEL_RECIPES
+            .iter()
+            .find(|recipe| recipe.case_id == COLOR_SOFTCOPY_PRESENTATION_STATE_SOURCE_CASE_ID)
+            .copied()
+            .expect("locked RGB source recipe");
+        let source_case = serde_json::json!({
+            "case_id": COLOR_SOFTCOPY_PRESENTATION_STATE_SOURCE_CASE_ID,
+            "standards_evidence": []
+        });
+        let source_file = write_pixel_case(
+            &run,
+            &source_case,
+            source_recipe,
+            "0000000000000000000000000000000000000000000000000000000000000000",
+        )
+        .expect("RGB source should write and validate");
+        let source = GeneratedSourceObject::from_generated_file(&source_file)
+            .expect("RGB source manifest should register");
+        let color_case = serde_json::json!({
+            "case_id": COLOR_SOFTCOPY_PRESENTATION_STATE_CASE_ID,
+            "standards_evidence": []
+        });
+
+        let first = write_color_softcopy_presentation_state_case(
+            &run,
+            &color_case,
+            &source,
+            "0000000000000000000000000000000000000000000000000000000000000000",
+        )
+        .expect("Color Softcopy Presentation State should write and validate");
+        let output_path = output
+            .path()
+            .join(COLOR_SOFTCOPY_PRESENTATION_STATE_CASE_ID)
+            .join(COLOR_SOFTCOPY_PRESENTATION_STATE_OUTPUT_FILE);
+        let first_bytes = fs::read(&output_path).expect("first Color PR bytes");
+        let second = write_color_softcopy_presentation_state_case(
+            &run,
+            &color_case,
+            &source,
+            "0000000000000000000000000000000000000000000000000000000000000000",
+        )
+        .expect("repeated Color Softcopy Presentation State should validate");
+        let second_bytes = fs::read(&output_path).expect("second Color PR bytes");
+
+        assert_eq!(first_bytes, second_bytes);
+        assert_eq!(
+            first.manifest_entry["sha256"],
+            second.manifest_entry["sha256"]
+        );
+        assert_eq!(
+            first.manifest_entry.pointer("/references/0/relationship"),
+            Some(&Value::from("source_image"))
+        );
+        assert!(
+            first
+                .manifest_entry
+                .pointer("/references/0/frame_numbers")
+                .is_none(),
+            "complete-instance relationship must not select frames"
+        );
+        assert_eq!(
+            first
+                .manifest_entry
+                .pointer("/expected_color_softcopy_presentation_state/source/source_sha256"),
+            Some(&Value::from(source.sha256.as_str()))
+        );
+        assert_eq!(
+            first.manifest_entry.pointer(
+                "/expected_color_softcopy_presentation_state/displayed_area/applies_to_all_references"
+            ),
+            Some(&Value::Bool(true))
+        );
+        assert!(
+            first
+                .manifest_entry
+                .pointer("/validation/internal")
+                .and_then(Value::as_array)
+                .expect("internal validation evidence")
+                .iter()
+                .any(|check| check.get("name").and_then(Value::as_str)
+                    == Some("color_softcopy_source_precheck"))
+        );
+
+        let manifest_schema: Value =
+            serde_json::from_str(include_str!("../schemas/manifest.schema.json"))
+                .expect("manifest schema should parse");
+        let file_schema = serde_json::json!({
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$ref": "#/$defs/file",
+            "$defs": manifest_schema["$defs"].clone(),
+        });
+        let validator =
+            jsonschema::validator_for(&file_schema).expect("file manifest schema should compile");
+        assert!(
+            validator.is_valid(&first.manifest_entry),
+            "Color PR manifest entry should satisfy the committed file schema: {:?}",
+            validator
+                .iter_errors(&first.manifest_entry)
+                .collect::<Vec<_>>()
+        );
+    }
 
     #[test]
     fn nonsquare_sc_writer_emits_and_reopens_independent_geometry_variants() {

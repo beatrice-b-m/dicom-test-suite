@@ -25817,12 +25817,12 @@ mod tests {
         let committed_registry: Value =
             serde_json::from_str(include_str!("../cases/registry.json"))
                 .expect("committed registry should parse");
-        let planned_case = registry_case(&committed_registry, RT_PLAN_CASE_ID)
+        let promoted_case = registry_case(&committed_registry, RT_PLAN_CASE_ID)
             .expect("registry shape should be valid")
             .expect("RT Plan registry row should exist");
         assert!(
-            !should_generate_case(planned_case, &run).expect("planned Plan case should be valid"),
-            "the wired Plan branch must remain dormant until registry promotion"
+            should_generate_case(promoted_case, &run).expect("promoted Plan case should be valid"),
+            "the committed Plan registry row must keep the wired branch live"
         );
 
         let first = write_rt_plan_case(

@@ -109,6 +109,14 @@ use native::twelve_lead_ecg::{
     build_twelve_lead_ecg,
 };
 use native::us_multiframe::{CLASSIC_US_MULTIFRAME_RECIPES, ClassicUsMultiframeRecipe};
+use native::wsi_pyramid::{
+    WSI_PYRAMID_CASE_ID, WSI_PYRAMID_LABEL_IMAGE_TYPE, WSI_PYRAMID_LABEL_OUTPUT_FILE,
+    WSI_PYRAMID_LABEL_PIXEL_BYTES, WSI_PYRAMID_LABEL_PIXEL_DATA_SHA256, WSI_PYRAMID_RECIPE_ID,
+    WSI_PYRAMID_RECIPE_VERSION, WSI_PYRAMID_STORAGE_UID, WSI_PYRAMID_THUMBNAIL_IMAGE_TYPE,
+    WSI_PYRAMID_THUMBNAIL_OUTPUT_FILE, WSI_PYRAMID_THUMBNAIL_PIXEL_BYTES,
+    WSI_PYRAMID_THUMBNAIL_PIXEL_DATA_SHA256, WSI_PYRAMID_VOLUME_IMAGE_TYPE,
+    WSI_PYRAMID_VOLUME_OUTPUT_FILE, WsiPyramidInput, build_wsi_pyramid,
+};
 use native::wsi_tiled_full::{
     WSI_FRAME_SHA256, WSI_NUMBER_OF_FRAMES, WSI_PIXEL_BYTES, WSI_PIXEL_DATA_SHA256,
     WSI_TILE_COLUMNS, WSI_TILE_ROWS, WSI_TILED_FULL_CASE_ID, WSI_TILED_FULL_OUTPUT_FILE,
@@ -127,7 +135,8 @@ use native::xa::{CLASSIC_XA_RECIPES, ClassicXaRecipe};
 use native::xrf::{CLASSIC_XRF_RECIPES, ClassicXrfRecipe};
 
 use crate::{
-    DeterministicUidInput, GenerateError, PreparedGenerationRun, UidRole,
+    DeterministicUidInput, GenerateError, PreparedGenerationRun, UidRole, WsiPyramidLockedInputs,
+    WsiPyramidMemberIdentity, WsiPyramidRole,
     codecs::{
         DEFLATED_IMAGE_FRAME_TRANSFER_SYNTAX_UID, FrameEncodeInput, FrameEncoder,
         HTJ2K_LOSSLESS_TRANSFER_SYNTAX_UID, JPEG_2000_LOSSLESS_TRANSFER_SYNTAX_UID,
@@ -178,8 +187,8 @@ use crate::{
         validate_real_world_value_mapping_file, validate_rt_dose_file, validate_rt_image_file,
         validate_rt_plan_file, validate_rt_radiation_file, validate_rt_radiation_set_file,
         validate_rt_structure_set_file, validate_scoord3d_file, validate_spatial_registration_file,
-        validate_tid1500_file, validate_twelve_lead_ecg_file, validate_wsi_tiled_full_file,
-        validate_wsi_tiled_sparse_file,
+        validate_tid1500_file, validate_twelve_lead_ecg_file, validate_wsi_pyramid_file,
+        validate_wsi_tiled_full_file, validate_wsi_tiled_sparse_file,
     },
     waveform_manifest::{general_ecg_expected_waveform, twelve_lead_ecg_expected_waveform},
 };
@@ -3929,6 +3938,11 @@ pub(crate) fn write_supported_cases(
                 case,
                 standards_lock_sha256,
             )?)?;
+        }
+    }
+    if let Some(case) = registry_case(registry, WSI_PYRAMID_CASE_ID)? {
+        if should_generate_case(case, run)? {
+            context.record_many(write_wsi_pyramid_case(run, case, standards_lock_sha256)?)?;
         }
     }
     for recipe in PIXEL_RECIPES {
@@ -8372,6 +8386,338 @@ fn write_wsi_tiled_sparse_case(
             "standards_evidence": standards_evidence
         }),
     })
+}
+
+fn write_wsi_pyramid_case(
+    run: &PreparedGenerationRun,
+    case: &Value,
+    standards_lock_sha256: &str,
+) -> Result<Vec<GeneratedFile>, GenerateError> {
+    let uid = |role, file_index, referenced_object_index| {
+        deterministic_uid(&DeterministicUidInput {
+            standards_lock_sha256,
+            case_id: WSI_PYRAMID_CASE_ID,
+            recipe_version: WSI_PYRAMID_RECIPE_VERSION,
+            run_seed: run.seed,
+            file_index,
+            frame_index: None,
+            referenced_object_index,
+            role,
+        })
+    };
+    let study_instance_uid = uid(UidRole::StudyInstance, 0, None);
+    let series_instance_uid = uid(UidRole::SeriesInstance, 0, None);
+    let frame_of_reference_uid = uid(UidRole::FrameOfReference, 0, None);
+    let specimen_uid = uid(UidRole::DerivedReference, 0, Some(0));
+    let pyramid_uid = uid(UidRole::DerivedReference, 0, Some(1));
+    let sop_instance_uids = [
+        uid(UidRole::SopInstance, 0, None),
+        uid(UidRole::SopInstance, 1, None),
+        uid(UidRole::SopInstance, 2, None),
+    ];
+    let dimension_organization_uids = [
+        uid(UidRole::DimensionOrganization, 0, None),
+        uid(UidRole::DimensionOrganization, 1, None),
+        uid(UidRole::DimensionOrganization, 2, None),
+    ];
+    let implementation_class_uid = deterministic_implementation_uid(standards_lock_sha256);
+
+    if validate_locked_icc_profile(&ICC_PROFILE_BYTES).is_err()
+        || sha256_hex(&ICC_PROFILE_BYTES) != ICC_PROFILE_SHA256
+        || sha256_hex(&WSI_PIXEL_BYTES) != WSI_PIXEL_DATA_SHA256
+        || sha256_hex(&reconstructed_total_pixel_matrix()) != WSI_TOTAL_PIXEL_MATRIX_SHA256
+        || sha256_hex(&WSI_PYRAMID_THUMBNAIL_PIXEL_BYTES) != WSI_PYRAMID_THUMBNAIL_PIXEL_DATA_SHA256
+        || sha256_hex(&WSI_PYRAMID_LABEL_PIXEL_BYTES) != WSI_PYRAMID_LABEL_PIXEL_DATA_SHA256
+    {
+        return Err(GenerateError::MetadataShape {
+            path: PathBuf::from(WSI_PYRAMID_CASE_ID),
+            message: "WSI pyramid source pixels, reconstructed matrix, or ICC profile differ from their locked hashes",
+        });
+    }
+
+    let objects = build_wsi_pyramid(WsiPyramidInput {
+        study_instance_uid: &study_instance_uid,
+        series_instance_uid: &series_instance_uid,
+        frame_of_reference_uid: &frame_of_reference_uid,
+        specimen_uid: &specimen_uid,
+        specimen_identifier: "DTS-SPECIMEN-001",
+        container_identifier: "DTS-SLIDE-001",
+        optical_path_identifier: "RGB",
+        pyramid_uid: &pyramid_uid,
+        volume_sop_instance_uid: &sop_instance_uids[0],
+        thumbnail_sop_instance_uid: &sop_instance_uids[1],
+        label_sop_instance_uid: &sop_instance_uids[2],
+        volume_dimension_organization_uid: &dimension_organization_uids[0],
+        thumbnail_dimension_organization_uid: &dimension_organization_uids[1],
+        label_dimension_organization_uid: &dimension_organization_uids[2],
+    })
+    .map_err(|message| GenerateError::WriteDicomFile {
+        path: PathBuf::from(WSI_PYRAMID_CASE_ID),
+        message,
+    })?;
+
+    let case_dir = run.out_dir.join(WSI_PYRAMID_CASE_ID);
+    fs::create_dir_all(&case_dir).map_err(|source| GenerateError::CreateCaseOutputDir {
+        path: case_dir.clone(),
+        source,
+    })?;
+    let role_objects = [
+        (
+            WsiPyramidRole::Volume,
+            WSI_PYRAMID_VOLUME_OUTPUT_FILE,
+            objects.volume,
+        ),
+        (
+            WsiPyramidRole::Thumbnail,
+            WSI_PYRAMID_THUMBNAIL_OUTPUT_FILE,
+            objects.thumbnail,
+        ),
+        (
+            WsiPyramidRole::Label,
+            WSI_PYRAMID_LABEL_OUTPUT_FILE,
+            objects.label,
+        ),
+    ];
+    let mut bytes_by_role = Vec::with_capacity(3);
+    for (role, output_file, object) in role_objects {
+        let relative_path = format!("{WSI_PYRAMID_CASE_ID}/{output_file}");
+        let path = run.out_dir.join(&relative_path);
+        object
+            .with_meta(
+                FileMetaTableBuilder::new()
+                    .transfer_syntax(EXPLICIT_VR_LITTLE_ENDIAN.uid)
+                    .implementation_class_uid(&implementation_class_uid)
+                    .implementation_version_name(crate::IMPLEMENTATION_VERSION_NAME),
+            )
+            .map_err(|error| GenerateError::WriteDicomFile {
+                path: path.clone(),
+                message: error.to_string(),
+            })?
+            .write_to_file(&path)
+            .map_err(|error| GenerateError::WriteDicomFile {
+                path: path.clone(),
+                message: error.to_string(),
+            })?;
+        let bytes = fs::read(&path).map_err(|source| GenerateError::ReadMetadata {
+            path: path.clone(),
+            source,
+        })?;
+        bytes_by_role.push((role, output_file, relative_path, path, bytes));
+    }
+
+    let total_size = bytes_by_role
+        .iter()
+        .map(|(_, _, _, _, bytes)| bytes.len())
+        .sum::<usize>();
+    if total_size > 65_536 {
+        return Err(GenerateError::MetadataShape {
+            path: PathBuf::from(WSI_PYRAMID_CASE_ID),
+            message: "WSI pyramid exceeds the locked 65,536-byte qualification ceiling",
+        });
+    }
+
+    let file_hashes = bytes_by_role
+        .iter()
+        .map(|(_, _, _, _, bytes)| sha256_hex(bytes))
+        .collect::<Vec<_>>();
+    let expected_wsi_pyramid = crate::wsi_pyramid_locked_contract(WsiPyramidLockedInputs {
+        study_instance_uid: &study_instance_uid,
+        series_instance_uid: &series_instance_uid,
+        frame_of_reference_uid: &frame_of_reference_uid,
+        specimen_uid: &specimen_uid,
+        pyramid_uid: &pyramid_uid,
+        members: [
+            WsiPyramidMemberIdentity {
+                role: WsiPyramidRole::Volume,
+                path: &bytes_by_role[0].2,
+                sha256: &file_hashes[0],
+                size_bytes: bytes_by_role[0].4.len() as u64,
+                sop_instance_uid: &sop_instance_uids[0],
+            },
+            WsiPyramidMemberIdentity {
+                role: WsiPyramidRole::Thumbnail,
+                path: &bytes_by_role[1].2,
+                sha256: &file_hashes[1],
+                size_bytes: bytes_by_role[1].4.len() as u64,
+                sop_instance_uid: &sop_instance_uids[1],
+            },
+            WsiPyramidMemberIdentity {
+                role: WsiPyramidRole::Label,
+                path: &bytes_by_role[2].2,
+                sha256: &file_hashes[2],
+                size_bytes: bytes_by_role[2].4.len() as u64,
+                sop_instance_uid: &sop_instance_uids[2],
+            },
+        ],
+    });
+
+    let standards_evidence = deduplicated_standards_evidence(standards_evidence_from_case(case));
+    let mut generated = Vec::with_capacity(3);
+    for (index, (role, _, relative_path, path, _)) in bytes_by_role.iter().enumerate() {
+        let (image_type, frames, pixel_bytes, frame_hashes, pyramid_membership) = match role {
+            WsiPyramidRole::Volume => (
+                WSI_PYRAMID_VOLUME_IMAGE_TYPE,
+                WSI_NUMBER_OF_FRAMES,
+                WSI_PIXEL_BYTES.len(),
+                serde_json::json!(WSI_FRAME_SHA256),
+                "pyramid_layer",
+            ),
+            WsiPyramidRole::Thumbnail => (
+                WSI_PYRAMID_THUMBNAIL_IMAGE_TYPE,
+                1,
+                WSI_PYRAMID_THUMBNAIL_PIXEL_BYTES.len(),
+                serde_json::json!([WSI_PYRAMID_THUMBNAIL_PIXEL_DATA_SHA256]),
+                "pyramid_apex",
+            ),
+            WsiPyramidRole::Label => (
+                WSI_PYRAMID_LABEL_IMAGE_TYPE,
+                1,
+                WSI_PYRAMID_LABEL_PIXEL_BYTES.len(),
+                serde_json::json!([WSI_PYRAMID_LABEL_PIXEL_DATA_SHA256]),
+                "non_member_companion",
+            ),
+        };
+        let validated = validate_wsi_pyramid_file(
+            path,
+            &Part10Expectations {
+                sop_class_uid: WSI_PYRAMID_STORAGE_UID,
+                sop_instance_uid: &sop_instance_uids[index],
+                transfer_syntax_uid: EXPLICIT_VR_LITTLE_ENDIAN.uid,
+                implementation_class_uid: &implementation_class_uid,
+                synthetic_data: "YES",
+                rows: WSI_TILE_ROWS,
+                columns: WSI_TILE_COLUMNS,
+                frames,
+                samples_per_pixel: 3,
+                photometric_interpretation: "RGB",
+                bits_allocated: 8,
+                bits_stored: 8,
+                high_bit: 7,
+                pixel_representation: 0,
+                planar_configuration: Some(0),
+                pixel_data_vr: VR::OB,
+                pixel_data_length_formula: PixelDataLengthFormula::ContiguousSamples,
+                decoded_frame_hashes: &[],
+                palette: None,
+                padding: None,
+                ct_image: None,
+                enhanced_ct_image: None,
+                enhanced_mr_image: None,
+                enhanced_pet_image: None,
+                mg_image: None,
+                dx_image: None,
+                xa_image: None,
+                xrf_image: None,
+                us_image: None,
+                us_multiframe: None,
+                nm_image: None,
+                pet_image: None,
+                cr_image: None,
+                mr_image: None,
+                segmentation: None,
+            },
+            &expected_wsi_pyramid,
+            *role,
+        )?;
+        generated.push(GeneratedFile {
+            case_id: WSI_PYRAMID_CASE_ID.to_string(),
+            manifest_entry: serde_json::json!({
+                "case_id": WSI_PYRAMID_CASE_ID,
+                "profile_membership": ["stress"],
+                "path": relative_path,
+                "sha256": sha256_hex(&validated.bytes),
+                "size_bytes": validated.bytes.len(),
+                "determinism": "byte_stable",
+                "wsi_pyramid_role": role.as_str(),
+                "wsi_pyramid_ordinal": index + 1,
+                "recipe": {
+                    "recipe_id": WSI_PYRAMID_RECIPE_ID,
+                    "recipe_version": WSI_PYRAMID_RECIPE_VERSION,
+                    "recipe_parameters": {
+                        "group_role": role.as_str(),
+                        "group_ordinal": index + 1,
+                        "ordered_roles": ["volume", "thumbnail", "label"],
+                        "pyramid_membership": pyramid_membership,
+                        "thumbnail_provenance": if *role == WsiPyramidRole::Thumbnail {
+                            Value::from("deterministic_quadrant_reduction_of_volume")
+                        } else {
+                            Value::Null
+                        },
+                        "icc_profile_sha256": ICC_PROFILE_SHA256
+                    }
+                },
+                "dicom": {
+                    "sop_class_uid": WSI_PYRAMID_STORAGE_UID,
+                    "sop_class_name": "VL Whole Slide Microscopy Image Storage",
+                    "iod_name": "VL Whole Slide Microscopy Image",
+                    "modality": "SM",
+                    "transfer_syntax_uid": EXPLICIT_VR_LITTLE_ENDIAN.uid,
+                    "transfer_syntax_name": EXPLICIT_VR_LITTLE_ENDIAN.name
+                },
+                "uids": {
+                    "study_instance_uid": study_instance_uid,
+                    "series_instance_uid": series_instance_uid,
+                    "sop_instance_uid": sop_instance_uids[index],
+                    "frame_of_reference_uid": frame_of_reference_uid,
+                    "dimension_organization_uid": dimension_organization_uids[index],
+                    "implementation_class_uid": implementation_class_uid,
+                    "implementation_version_name": crate::IMPLEMENTATION_VERSION_NAME
+                },
+                "image": {
+                    "rows": WSI_TILE_ROWS,
+                    "columns": WSI_TILE_COLUMNS,
+                    "frames": frames,
+                    "samples_per_pixel": 3,
+                    "photometric_interpretation": "RGB",
+                    "bits_allocated": 8,
+                    "bits_stored": 8,
+                    "high_bit": 7,
+                    "pixel_representation": 0,
+                    "planar_configuration": 0
+                },
+                "pixel_data": {
+                    "vr": "OB",
+                    "native_or_encapsulated": "native",
+                    "value_length": pixel_bytes,
+                    "frame_count": frames,
+                    "frame_hashes": frame_hashes
+                },
+                "references": [],
+                "expected_capabilities": [
+                    "open_file", "read_metadata", "render_native_pixels",
+                    "navigate_multiframe", "reconstruct_wsi_pyramid"
+                ],
+                "expected_semantics": {
+                    "synthetic_data": "YES",
+                    "image_type": image_type.split('\\').collect::<Vec<_>>(),
+                    "shared_study_series_frame_of_reference": true,
+                    "shared_specimen_and_optical_path": true,
+                    "pyramid_membership": pyramid_membership,
+                    "ordered_group_member": true,
+                    "reference_free": true
+                },
+                "expected_wsi_pyramid": expected_wsi_pyramid,
+                "expected_visual_checks": {
+                    "pattern": match role {
+                        WsiPyramidRole::Volume => "4x4_red_green_blue_white_quadrants",
+                        WsiPyramidRole::Thumbnail => "2x2_volume_quadrant_reduction",
+                        WsiPyramidRole::Label => "2x2_synthetic_label_companion",
+                    }
+                },
+                "validation": validated.validation,
+                "known_stressors": [
+                    "vl_whole_slide_microscopy_image_storage",
+                    "multi_resolution_pyramid_membership",
+                    "thumbnail_apex_reduction",
+                    "label_non_member_companion",
+                    "shared_specimen_and_optical_path_metadata",
+                    "three_instance_group_closure"
+                ],
+                "standards_evidence": standards_evidence
+            }),
+        });
+    }
+    Ok(generated)
 }
 
 fn validate_spatial_registration_sources(
@@ -27077,6 +27423,204 @@ mod tests {
                 })),
             "writer must retain strict sparse reconstruction evidence"
         );
+    }
+
+    #[test]
+    fn wsi_pyramid_writer_emits_exact_byte_stable_three_member_group() {
+        let output = ParametricMapStagingGuard::new();
+        let run = PreparedGenerationRun {
+            profile: "stress".to_string(),
+            out_dir: output.path().to_path_buf(),
+            manifest_path: output.path().join("manifest.json"),
+            seed: 7,
+            include_stress: true,
+        };
+        let case = serde_json::json!({
+            "case_id": WSI_PYRAMID_CASE_ID,
+            "profiles": ["stress"],
+            "status": "implemented",
+            "requirements": {"features": []},
+            "standards_evidence": []
+        });
+        let standards_lock = "0000000000000000000000000000000000000000000000000000000000000000";
+
+        let first = write_wsi_pyramid_case(&run, &case, standards_lock)
+            .expect("WSI pyramid should write, reopen, and validate");
+        let first_bytes = [
+            WSI_PYRAMID_VOLUME_OUTPUT_FILE,
+            WSI_PYRAMID_THUMBNAIL_OUTPUT_FILE,
+            WSI_PYRAMID_LABEL_OUTPUT_FILE,
+        ]
+        .map(|name| {
+            fs::read(output.path().join(WSI_PYRAMID_CASE_ID).join(name))
+                .expect("first WSI pyramid member bytes")
+        });
+        let second = write_wsi_pyramid_case(&run, &case, standards_lock)
+            .expect("repeated WSI pyramid should write, reopen, and validate");
+        let second_bytes = [
+            WSI_PYRAMID_VOLUME_OUTPUT_FILE,
+            WSI_PYRAMID_THUMBNAIL_OUTPUT_FILE,
+            WSI_PYRAMID_LABEL_OUTPUT_FILE,
+        ]
+        .map(|name| {
+            fs::read(output.path().join(WSI_PYRAMID_CASE_ID).join(name))
+                .expect("second WSI pyramid member bytes")
+        });
+
+        assert_eq!(first_bytes, second_bytes);
+        assert_eq!(
+            first
+                .iter()
+                .map(|file| file.manifest_entry["wsi_pyramid_role"].as_str().unwrap())
+                .collect::<Vec<_>>(),
+            ["volume", "thumbnail", "label"]
+        );
+        assert_eq!(
+            first
+                .iter()
+                .map(|file| file.manifest_entry["wsi_pyramid_ordinal"].as_u64().unwrap())
+                .collect::<Vec<_>>(),
+            [1, 2, 3]
+        );
+        assert_eq!(
+            first
+                .iter()
+                .map(|file| file.manifest_entry["path"].as_str().unwrap())
+                .collect::<Vec<_>>(),
+            [
+                "vl/wsi/pyramid_multiresolution/volume.dcm",
+                "vl/wsi/pyramid_multiresolution/thumbnail.dcm",
+                "vl/wsi/pyramid_multiresolution/label.dcm",
+            ]
+        );
+        assert_eq!(
+            first
+                .iter()
+                .map(|file| file.manifest_entry["sha256"].as_str().unwrap())
+                .collect::<Vec<_>>(),
+            first_bytes
+                .iter()
+                .map(|bytes| sha256_hex(bytes))
+                .collect::<Vec<_>>()
+        );
+        assert_eq!(
+            first
+                .iter()
+                .map(|file| file.manifest_entry["sha256"].as_str().unwrap())
+                .collect::<Vec<_>>(),
+            [
+                "960eed4df9aa3b5e6eff14b782ee08a8714282c4419a954ff6179ac2ea50a347",
+                "fd95d3c94ce577257e31c4c3c23eae21bf31ba6a2041798ad3d56261a4b50cb9",
+                "11ce715b84ab5e71c37246be7ebc6b52cd92b05074543c3c3595790efd4afd7b",
+            ]
+        );
+        assert_eq!(
+            first
+                .iter()
+                .map(|file| file.manifest_entry["sha256"].as_str().unwrap())
+                .collect::<Vec<_>>(),
+            second
+                .iter()
+                .map(|file| file.manifest_entry["sha256"].as_str().unwrap())
+                .collect::<Vec<_>>()
+        );
+        assert_eq!(
+            first[0]
+                .manifest_entry
+                .pointer("/expected_wsi_pyramid/members/0/payload_sha256"),
+            Some(&Value::from(WSI_PIXEL_DATA_SHA256))
+        );
+        assert_eq!(
+            first[1]
+                .manifest_entry
+                .pointer("/expected_wsi_pyramid/members/1/payload_sha256"),
+            Some(&Value::from(WSI_PYRAMID_THUMBNAIL_PIXEL_DATA_SHA256))
+        );
+        assert_eq!(
+            first[2]
+                .manifest_entry
+                .pointer("/expected_wsi_pyramid/members/2/payload_sha256"),
+            Some(&Value::from(WSI_PYRAMID_LABEL_PIXEL_DATA_SHA256))
+        );
+        assert!(first_bytes.iter().map(Vec::len).sum::<usize>() <= 65_536);
+
+        let contract = &first[0].manifest_entry["expected_wsi_pyramid"];
+        assert!(
+            first
+                .iter()
+                .all(|file| &file.manifest_entry["expected_wsi_pyramid"] == contract)
+        );
+        let study = contract["shared_identity"]["study_instance_uid"]
+            .as_str()
+            .unwrap();
+        let series = contract["shared_identity"]["series_instance_uid"]
+            .as_str()
+            .unwrap();
+        let frame_of_reference = contract["shared_identity"]["frame_of_reference_uid"]
+            .as_str()
+            .unwrap();
+        for file in &first {
+            assert_eq!(file.manifest_entry["uids"]["study_instance_uid"], study);
+            assert_eq!(file.manifest_entry["uids"]["series_instance_uid"], series);
+            assert_eq!(
+                file.manifest_entry["uids"]["frame_of_reference_uid"],
+                frame_of_reference
+            );
+            assert_eq!(file.manifest_entry["validation"]["status"], "passed");
+        }
+        let mut semantic_uids = BTreeSet::new();
+        for pointer in [
+            "/shared_identity/study_instance_uid",
+            "/shared_identity/series_instance_uid",
+            "/shared_identity/frame_of_reference_uid",
+            "/shared_identity/specimen_uid",
+            "/pyramid_membership/pyramid_uid",
+        ] {
+            semantic_uids.insert(contract.pointer(pointer).unwrap().as_str().unwrap());
+        }
+        for file in &first {
+            semantic_uids.insert(
+                file.manifest_entry["uids"]["sop_instance_uid"]
+                    .as_str()
+                    .unwrap(),
+            );
+            semantic_uids.insert(
+                file.manifest_entry["uids"]["dimension_organization_uid"]
+                    .as_str()
+                    .unwrap(),
+            );
+        }
+        assert_eq!(
+            semantic_uids.len(),
+            11,
+            "all semantic UIDs must be distinct"
+        );
+
+        let manifest_schema: Value =
+            serde_json::from_str(include_str!("../schemas/manifest.schema.json"))
+                .expect("manifest schema should parse");
+        let file_schema = serde_json::json!({
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$ref": "#/$defs/file",
+            "$defs": manifest_schema["$defs"].clone(),
+        });
+        let validator =
+            jsonschema::validator_for(&file_schema).expect("file manifest schema should compile");
+        for file in &first {
+            assert!(
+                validator.is_valid(&file.manifest_entry),
+                "WSI pyramid member should satisfy the file schema: {:?}",
+                validator
+                    .iter_errors(&file.manifest_entry)
+                    .collect::<Vec<_>>()
+            );
+        }
+        let entries = first
+            .iter()
+            .map(|file| file.manifest_entry.clone())
+            .collect::<Vec<_>>();
+        crate::validate_wsi_pyramid_manifest_group(&run.manifest_path, &entries)
+            .expect("writer output should satisfy exact WSI pyramid group closure");
     }
 
     #[test]

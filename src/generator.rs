@@ -16704,6 +16704,15 @@ fn write_enhanced_pet_case(
         VR::CS,
         "FALSE",
     );
+    obj.put(DataElement::new(
+        tags::VIEW_CODE_SEQUENCE,
+        VR::SQ,
+        DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+            DataElement::new(tags::CODE_VALUE, VR::SH, "24422004"),
+            DataElement::new(tags::CODING_SCHEME_DESIGNATOR, VR::SH, "SCT"),
+            DataElement::new(tags::CODE_MEANING, VR::LO, "Axial"),
+        ])]),
+    ));
     put_str(&mut obj, tags::COUNTS_SOURCE, VR::CS, recipe.counts_source);
     for tag in [
         tags::DECAY_CORRECTED,
@@ -16874,7 +16883,7 @@ fn put_enhanced_pet_radiopharmaceutical_information(obj: &mut InMemDicomObject) 
                 VR::DT,
                 "20260101000000",
             ),
-            DataElement::new(tags::RADIONUCLIDE_TOTAL_DOSE, VR::DS, "0"),
+            DataElement::new(tags::RADIONUCLIDE_TOTAL_DOSE, VR::DS, ""),
             DataElement::new(tags::RADIONUCLIDE_HALF_LIFE, VR::DS, "6586.2"),
             DataElement::new(tags::RADIONUCLIDE_POSITRON_FRACTION, VR::DS, "0.967"),
             code(
@@ -17114,7 +17123,7 @@ fn enhanced_pet_manifest_entry(
         "item_count": 1, "agent_number": 1,
         "radionuclide": { "code_value": "77004003", "coding_scheme_designator": "SCT", "code_meaning": "^18^Fluorine" },
         "administration_route": { "code_value": "47625008", "coding_scheme_designator": "SCT", "code_meaning": "Intravenous route" },
-        "start_datetime": "20260101000000", "total_dose_mbq": 0.0,
+        "start_datetime": "20260101000000", "total_dose_present_empty": true,
         "half_life_seconds": 6586.2, "positron_fraction": 0.967,
         "radiopharmaceutical": { "code_value": "35321007", "coding_scheme_designator": "SCT", "code_meaning": "Fluorodeoxyglucose F^18^" }
     });
@@ -17176,6 +17185,9 @@ fn enhanced_pet_manifest_entry(
     });
     let acquisition = serde_json::json!({
         "table_motion": "STATIC", "time_of_flight_information_used": "FALSE",
+        "view_code": { "code_value": "24422004", "coding_scheme_designator": "SCT", "code_meaning": "Axial" },
+        "view_modifier_item_count": 0,
+        "slice_progression_direction_present": false,
         "counts_source": recipe.counts_source,
         "corrections": corrections,
         "derivation_image_item_count": 0,
@@ -21626,6 +21638,11 @@ mod tests {
             "enhanced_pet_in_stack_position",
             "enhanced_pet_decay_corrected",
             "enhanced_pet_attenuation_method_absent",
+            "enhanced_pet_view_code_sequence",
+            "enhanced_pet_view_code_value",
+            "enhanced_pet_view_modifier_absent",
+            "enhanced_pet_slice_progression_direction_absent",
+            "enhanced_pet_total_dose_present_empty",
         ] {
             assert!(names.contains(name), "missing internal check {name}");
         }

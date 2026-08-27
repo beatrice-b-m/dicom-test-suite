@@ -5798,6 +5798,47 @@ fn validate_enhanced_pet_image(
             "NO",
         );
     }
+    let view = top_level_sequence_item(path, obj, tags::VIEW_CODE_SEQUENCE, 0)?;
+    for (name, tag, value) in [
+        ("enhanced_pet_view_code_value", tags::CODE_VALUE, "24422004"),
+        (
+            "enhanced_pet_view_coding_scheme",
+            tags::CODING_SCHEME_DESIGNATOR,
+            "SCT",
+        ),
+        (
+            "enhanced_pet_view_code_meaning",
+            tags::CODE_MEANING,
+            "Axial",
+        ),
+    ] {
+        check_equal(
+            results,
+            name,
+            "Enhanced PET axial view code matches the locked contract.",
+            "Enhanced PET axial view code does not match the locked contract.",
+            item_str(path, view, tag)?.as_str(),
+            value,
+        );
+    }
+    check(
+        results,
+        view.element_opt(tags::VIEW_MODIFIER_CODE_SEQUENCE)
+            .map_err(|err| validation_error(path, err))?
+            .is_none(),
+        "enhanced_pet_view_modifier_absent",
+        "Plain axial view omits View Modifier Code Sequence.",
+        "Plain axial view unexpectedly contains View Modifier Code Sequence.",
+    );
+    check(
+        results,
+        obj.element_opt(tags::SLICE_PROGRESSION_DIRECTION)
+            .map_err(|err| validation_error(path, err))?
+            .is_none(),
+        "enhanced_pet_slice_progression_direction_absent",
+        "Non-cardiac axial view omits Slice Progression Direction.",
+        "Non-cardiac axial view unexpectedly contains Slice Progression Direction.",
+    );
     for (name, tag) in [
         (
             "enhanced_pet_attenuation_method_absent",
@@ -5868,6 +5909,11 @@ fn validate_enhanced_pet_image(
             tags::RADIOPHARMACEUTICAL_INFORMATION_SEQUENCE,
             1,
         ),
+        (
+            "enhanced_pet_view_code_sequence",
+            tags::VIEW_CODE_SEQUENCE,
+            1,
+        ),
     ] {
         check_equal(
             results,
@@ -5910,11 +5956,6 @@ fn validate_enhanced_pet_image(
             "20260101000000",
         ),
         (
-            "enhanced_pet_total_dose",
-            tags::RADIONUCLIDE_TOTAL_DOSE,
-            "0",
-        ),
-        (
             "enhanced_pet_half_life",
             tags::RADIONUCLIDE_HALF_LIFE,
             "6586.2",
@@ -5934,6 +5975,25 @@ fn validate_enhanced_pet_image(
             value,
         );
     }
+    let total_dose = isotope
+        .element(tags::RADIONUCLIDE_TOTAL_DOSE)
+        .map_err(|err| validation_error(path, err))?;
+    check_equal(
+        results,
+        "enhanced_pet_total_dose_vr",
+        "Radionuclide Total Dose uses DS VR.",
+        "Radionuclide Total Dose does not use DS VR.",
+        total_dose.vr(),
+        VR::DS,
+    );
+    check_equal(
+        results,
+        "enhanced_pet_total_dose_present_empty",
+        "Unknown total dose is present with an empty value as required by Type 2.",
+        "Unknown total dose is absent or contains a claimed numeric value.",
+        item_str(path, isotope, tags::RADIONUCLIDE_TOTAL_DOSE)?.as_str(),
+        "",
+    );
     for (name, sequence, code) in [
         (
             "enhanced_pet_radionuclide_code",

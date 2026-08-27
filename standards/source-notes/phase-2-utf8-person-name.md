@@ -45,8 +45,10 @@ successful parsing alone is not sufficient.
 
 ## Project Action
 
-- Registry status: planned until the complete vertical slice passes
-  deterministic and independent conformance gates.
-- Registry reason: deterministic native recipe is not yet implemented.
+- Registry status: implemented in the `core` profile after the complete
+  vertical slice passed deterministic and independent conformance gates.
+- Registry reason: the native recipe, strict manifest and report contracts,
+  raw and decoded validation, and two independent character-set round-trips
+  are implemented.
 - Should become KB patch: no; the persisted standard text covers the rules.
 - Expected cleanup after KB coverage exists: none.

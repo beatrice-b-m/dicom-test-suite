@@ -85,6 +85,22 @@ validation binds these top-level and nested values to the manifest, and JSON
 and Markdown reports expose every temporal index, pointer, offset, and seconds
 unit with strict companion-field checks.
 
+### UTF-8 Person Name
+
+`metadata/sc/utf8_person_name` is an implemented `core` Secondary Capture
+instance declaring `SpecificCharacterSet = ISO_IR 192`. Patient Name is exactly
+`Wang^XiaoDong=王^小東`, with ordered alphabetic and ideographic groups. The
+manifest records all five components in each group, the 24-byte serialized PN
+value, and its SHA-256
+`64a9d3d6b55142162489a8679e8643caa94efcff26dd30bf24650ac5186c1382`.
+
+Internal validation independently compares the reopened Unicode value and the
+raw Explicit VR element against the declaration, VR, group order, component
+order, byte length, and hash. JSON grouped coverage and the Markdown Metadata
+and VR Expectations table expose the same contract. The synthetic General
+Series carries `Laterality = R`, which satisfies the independent Type 2C IOD
+check without a warning.
+
 ## Verification evidence
 
 The following checks passed on 2026-08-26 for a seed-23 `core` corpus:
@@ -143,6 +159,19 @@ into two 8-byte frames produced SHA-256 values
 and `0335fbafa06dc1f6264cb86d8d1d668d2f92f928dee11232f202bdb54bc60338`,
 exactly matching the manifest, with decoded unsigned samples
 `[0,25,50,75]` and `[150,175,200,225]`.
+
+The UTF-8 slice passed two byte-identical seed-37 `core` runs, producing 38
+files and a 696 KiB local corpus with zero internal validation failures. The
+locked `dciodvfy -new` and `dcentvfy` tools are silent for the native fixture.
+DCMTK 3.7.0 `dcmconv +U8` rewrote the file and `dcmdump +U8` recovered the exact
+character-set declaration and PN value; the rewritten file also passes both
+dicom3tools checks. The locked optional Python environment is managed by
+`uv 0.11.26` and contains CPython 3.12.12 with pydicom 3.0.2. A pydicom
+read/write/read cycle preserved `ISO_IR 192`, the full PN, and the alphabetic,
+ideographic, and empty phonetic projections exactly, and its output also passes
+both dicom3tools checks. The locked DCMTK `dcmconv` SHA-256 is
+`beae7cc9a01e780a4137e282436848b1349e209bb40365a76dfc599c51c14964`;
+the other validator fingerprints remain those recorded above.
 
 The two matching `core` corpora each occupy 480 KiB in the local filesystem.
 This measurement is implementation-environment evidence rather than a

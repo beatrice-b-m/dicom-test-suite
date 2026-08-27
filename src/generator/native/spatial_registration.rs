@@ -9,7 +9,7 @@ pub(in crate::generator) const TARGET_IDENTITY_MATRIX: [&str; 16] = [
     "1", "0", "0", "0", "0", "1", "0", "0", "0", "0", "1", "0", "0", "0", "0", "1",
 ];
 pub(in crate::generator) const SOURCE_TO_TARGET_MATRIX: [&str; 16] = [
-    "1", "0", "0", "0", "0", "1", "0", "0", "0", "0", "1", "2.5", "0", "0", "0", "1",
+    "1", "0", "0", "0.625", "0", "1", "0", "0.625", "0", "0", "1", "2.5", "0", "0", "0", "1",
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -142,7 +142,7 @@ pub(in crate::generator) fn build_spatial_registration(
             registration_item(
                 input.source,
                 &SOURCE_TO_TARGET_MATRIX,
-                "Classic CT translated +2.5 mm along target z",
+                "Classic CT first-pixel origin aligned to target frame 2",
             ),
         ]),
     ));

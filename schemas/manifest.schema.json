@@ -1946,8 +1946,8 @@
                       "properties": {
                         "values": {
                           "prefixItems": [
-                            { "const": 1 }, { "const": 0 }, { "const": 0 }, { "const": 0 },
-                            { "const": 0 }, { "const": 1 }, { "const": 0 }, { "const": 0 },
+                            { "const": 1 }, { "const": 0 }, { "const": 0 }, { "const": 0.625 },
+                            { "const": 0 }, { "const": 1 }, { "const": 0 }, { "const": 0.625 },
                             { "const": 0 }, { "const": 0 }, { "const": 1 }, { "const": 2.5 },
                             { "const": 0 }, { "const": 0 }, { "const": 0 }, { "const": 1 }
                           ]
@@ -1979,7 +1979,7 @@
           "properties": {
             "source_point_mm": {
               "type": "array",
-              "prefixItems": [{ "const": 0 }, { "const": 0 }, { "const": 0 }],
+              "prefixItems": [{ "const": -0.625 }, { "const": -0.625 }, { "const": 0 }],
               "items": false,
               "minItems": 3,
               "maxItems": 3

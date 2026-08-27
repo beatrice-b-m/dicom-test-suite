@@ -37,14 +37,15 @@ The moving source-to-registered matrix is the following row-major 4 by 4
 homogeneous transform:
 
 ```text
-[1, 0, 0, 0,
- 0, 1, 0, 0,
+[1, 0, 0, 0.625,
+ 0, 1, 0, 0.625,
  0, 0, 1, 2.5,
  0, 0, 0, 1]
 ```
 
-It is a z-only translation of `+2.5 mm`: moving-source point `[0,0,0]` maps to
-registered point `[0,0,2.5]`, the first-pixel center of Enhanced CT frame 2.
+It is the geometry-derived translation `[+0.625,+0.625,+2.5]` mm: the classic
+CT first-pixel center `[-0.625,-0.625,0]` maps to registered point
+`[0,0,2.5]`, the first-pixel center of Enhanced CT frame 2.
 The rotation submatrix is orthonormal, its determinant is one, and the final
 row is `[0,0,0,1]`. The direction is deliberately locked as Source RCS to Registered RCS;
 Deformable Spatial Registration uses the opposite sampling
@@ -101,7 +102,7 @@ normative PS3.3 matrix rules.
 matrix direction, ordered registration Items, exact source case/path/hash and
 Study/Series/SOP/Frame of Reference identities, complete-instance selection,
 nested sequence cardinalities, matrix type, all 16 row-major values, rigid
-tolerances, and the `[0,0,0]` to `[0,0,2.5]` landmark. It shall also bind the
+tolerances, and the `[-0.625,-0.625,0]` to `[0,0,2.5]` landmark. It shall also bind the
 exact same-Study and other-Study Common Instance Reference hierarchy and assert
 that Pixel Data is absent. The ordinary manifest reference list retains both
 source hashes and identities.

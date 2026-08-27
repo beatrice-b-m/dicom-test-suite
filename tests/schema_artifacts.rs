@@ -2035,8 +2035,7 @@ fn manifest_schema_types_spatial_registration_expectations() {
     assert!(!validator.is_valid(&reversed));
 
     let mut wrong_translation = expectation.clone();
-    wrong_translation["registration_items"][1]["matrix"]["values"][11] =
-        serde_json::json!(-2.5);
+    wrong_translation["registration_items"][1]["matrix"]["values"][11] = serde_json::json!(-2.5);
     assert!(!validator.is_valid(&wrong_translation));
 
     let mut wrong_order = expectation.clone();
@@ -2144,7 +2143,7 @@ fn spatial_registration_expectation() -> Value {
                 "matrix_items": 1,
                 "matrix": {
                     "type": "RIGID",
-                    "values": [1,0,0,0, 0,1,0,0, 0,0,1,2.5, 0,0,0,1]
+                    "values": [1,0,0,0.625, 0,1,0,0.625, 0,0,1,2.5, 0,0,0,1]
                 }
             }
         ],
@@ -2154,7 +2153,7 @@ fn spatial_registration_expectation() -> Value {
             "homogeneous_abs": 0.000001
         },
         "landmark": {
-            "source_point_mm": [0,0,0],
+            "source_point_mm": [-0.625,-0.625,0],
             "registered_point_mm": [0,0,2.5],
             "tolerance_mm": 0.000001
         },

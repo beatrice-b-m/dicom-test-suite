@@ -25,7 +25,7 @@ const TARGET_MATRIX: [&str; 16] = [
     "1", "0", "0", "0", "0", "1", "0", "0", "0", "0", "1", "0", "0", "0", "0", "1",
 ];
 const SOURCE_MATRIX: [&str; 16] = [
-    "1", "0", "0", "0", "0", "1", "0", "0", "0", "0", "1", "2.5", "0", "0", "0", "1",
+    "1", "0", "0", "0.625", "0", "1", "0", "0.625", "0", "0", "1", "2.5", "0", "0", "0", "1",
 ];
 
 #[test]
@@ -159,7 +159,7 @@ fn expectations() -> SpatialRegistrationExpectations<'static> {
         },
         target_matrix: TARGET_MATRIX.map(|value| value.parse().unwrap()),
         source_to_registered_matrix: SOURCE_MATRIX.map(|value| value.parse().unwrap()),
-        source_landmark_mm: [0.0, 0.0, 0.0],
+        source_landmark_mm: [-0.625, -0.625, 0.0],
         registered_landmark_mm: [0.0, 0.0, 2.5],
         rigid_tolerance: 1.0e-9,
     }

@@ -340,6 +340,9 @@
         "expected_spatial_registration": {
           "$ref": "#/$defs/expected_spatial_registration"
         },
+        "expected_deformable_spatial_registration": {
+          "$ref": "#/$defs/expected_deformable_spatial_registration"
+        },
         "expected_geometry": {
           "anyOf": [
             { "$ref": "#/$defs/expected_geometry" },
@@ -613,6 +616,30 @@
                   "sop_class_uid": { "const": "1.2.840.10008.5.1.4.1.1.66.1" },
                   "sop_class_name": { "const": "Spatial Registration Storage" },
                   "iod_name": { "const": "Spatial Registration" },
+                  "modality": { "const": "REG" },
+                  "transfer_syntax_uid": { "const": "1.2.840.10008.1.2.1" }
+                }
+              },
+              "image": { "type": "null" },
+              "pixel_data": { "type": "null" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "case_id": { "const": "derived/registration/deformable_ct_pair" }
+            },
+            "required": ["case_id"]
+          },
+          "then": {
+            "required": ["expected_deformable_spatial_registration"],
+            "properties": {
+              "dicom": {
+                "properties": {
+                  "sop_class_uid": { "const": "1.2.840.10008.5.1.4.1.1.66.3" },
+                  "sop_class_name": { "const": "Deformable Spatial Registration Storage" },
+                  "iod_name": { "const": "Deformable Spatial Registration" },
                   "modality": { "const": "REG" },
                   "transfer_syntax_uid": { "const": "1.2.840.10008.1.2.1" }
                 }
@@ -2035,6 +2062,270 @@
           "additionalProperties": false
         },
         "pixel_data_absent": { "const": true }
+      },
+      "additionalProperties": false
+    },
+    "expected_deformable_spatial_registration": {
+      "type": "object",
+      "required": [
+        "registered_frame_of_reference_uid",
+        "sampling_direction",
+        "source",
+        "complete_instance",
+        "deformable_registration_items",
+        "registration_type_code_items",
+        "pre_deformation_matrix",
+        "post_deformation_matrix",
+        "grid",
+        "point_mappings",
+        "common_instance_reference",
+        "pixel_data_absent"
+      ],
+      "properties": {
+        "registered_frame_of_reference_uid": {
+          "type": "string",
+          "pattern": "^[0-9]+(?:\\.[0-9]+)+$"
+        },
+        "sampling_direction": { "const": "registered_to_source" },
+        "source": {
+          "allOf": [
+            { "$ref": "#/$defs/spatial_registration_identity" },
+            {
+              "properties": {
+                "source_case_id": { "const": "classic/ct/mono2_i16_rescale_12bit_explicit_le" },
+                "source_path": { "const": "classic/ct/mono2_i16_rescale_12bit_explicit_le/instance.dcm" },
+                "sop_class_uid": { "const": "1.2.840.10008.5.1.4.1.1.2" }
+              }
+            }
+          ]
+        },
+        "complete_instance": { "const": true },
+        "deformable_registration_items": { "const": 1 },
+        "registration_type_code_items": { "const": 0 },
+        "pre_deformation_matrix": { "$ref": "#/$defs/deformable_identity_matrix" },
+        "post_deformation_matrix": { "$ref": "#/$defs/deformable_identity_matrix" },
+        "grid": {
+          "type": "object",
+          "required": [
+            "items",
+            "image_position_patient_mm",
+            "image_orientation_patient",
+            "dimensions",
+            "resolution_mm",
+            "vector_data_vr",
+            "vector_data_vm",
+            "vector_count",
+            "component_count",
+            "byte_length",
+            "payload_sha256",
+            "byte_order",
+            "index_order",
+            "vectors_mm"
+          ],
+          "properties": {
+            "items": { "const": 1 },
+            "image_position_patient_mm": {
+              "type": "array",
+              "prefixItems": [{ "const": 0 }, { "const": 0 }, { "const": 2.5 }],
+              "items": false,
+              "minItems": 3,
+              "maxItems": 3
+            },
+            "image_orientation_patient": {
+              "type": "array",
+              "prefixItems": [
+                { "const": 1 }, { "const": 0 }, { "const": 0 },
+                { "const": 0 }, { "const": 1 }, { "const": 0 }
+              ],
+              "items": false,
+              "minItems": 6,
+              "maxItems": 6
+            },
+            "dimensions": {
+              "type": "array",
+              "prefixItems": [{ "const": 2 }, { "const": 2 }, { "const": 1 }],
+              "items": false,
+              "minItems": 3,
+              "maxItems": 3
+            },
+            "resolution_mm": {
+              "type": "array",
+              "prefixItems": [{ "const": 0.75 }, { "const": 0.75 }, { "const": 2.5 }],
+              "items": false,
+              "minItems": 3,
+              "maxItems": 3
+            },
+            "vector_data_vr": { "const": "OF" },
+            "vector_data_vm": { "const": 1 },
+            "vector_count": { "const": 4 },
+            "component_count": { "const": 12 },
+            "byte_length": { "const": 48 },
+            "payload_sha256": { "const": "d0673d2da1b415db6465047e607b7f16f1a886dfae4ede91764c71bf7df72f47" },
+            "byte_order": { "const": "little_endian_ieee754_binary32" },
+            "index_order": { "const": "i_fastest_then_j_then_k" },
+            "vectors_mm": {
+              "type": "array",
+              "prefixItems": [
+                { "$ref": "#/$defs/deformable_vector_00" },
+                { "$ref": "#/$defs/deformable_vector_10" },
+                { "$ref": "#/$defs/deformable_vector_01" },
+                { "$ref": "#/$defs/deformable_vector_11" }
+              ],
+              "items": false,
+              "minItems": 4,
+              "maxItems": 4
+            }
+          },
+          "additionalProperties": false
+        },
+        "point_mappings": {
+          "type": "array",
+          "prefixItems": [
+            { "$ref": "#/$defs/deformable_mapping_00" },
+            { "$ref": "#/$defs/deformable_mapping_10" },
+            { "$ref": "#/$defs/deformable_mapping_01" },
+            { "$ref": "#/$defs/deformable_mapping_11" }
+          ],
+          "items": false,
+          "minItems": 4,
+          "maxItems": 4
+        },
+        "common_instance_reference": {
+          "type": "object",
+          "required": ["same_study", "other_studies"],
+          "properties": {
+            "same_study": {
+              "allOf": [
+                { "$ref": "#/$defs/spatial_registration_identity" },
+                {
+                  "properties": {
+                    "source_case_id": { "const": "enhanced/ct/multiframe_shared_perframe_explicit_le" },
+                    "source_path": { "const": "enhanced/ct/multiframe_shared_perframe_explicit_le/instance.dcm" },
+                    "sop_class_uid": { "const": "1.2.840.10008.5.1.4.1.1.2.1" }
+                  }
+                }
+              ]
+            },
+            "other_studies": {
+              "type": "array",
+              "prefixItems": [{ "$ref": "#/$defs/deformable_source_identity" }],
+              "items": false,
+              "minItems": 1,
+              "maxItems": 1
+            }
+          },
+          "additionalProperties": false
+        },
+        "pixel_data_absent": { "const": true }
+      },
+      "additionalProperties": false
+    },
+    "deformable_identity_matrix": {
+      "type": "object",
+      "required": ["items", "type", "values"],
+      "properties": {
+        "items": { "const": 1 },
+        "type": { "const": "RIGID" },
+        "values": {
+          "type": "array",
+          "prefixItems": [
+            { "const": 1 }, { "const": 0 }, { "const": 0 }, { "const": 0 },
+            { "const": 0 }, { "const": 1 }, { "const": 0 }, { "const": 0 },
+            { "const": 0 }, { "const": 0 }, { "const": 1 }, { "const": 0 },
+            { "const": 0 }, { "const": 0 }, { "const": 0 }, { "const": 1 }
+          ],
+          "items": false,
+          "minItems": 16,
+          "maxItems": 16
+        }
+      },
+      "additionalProperties": false
+    },
+    "deformable_source_identity": {
+      "allOf": [
+        { "$ref": "#/$defs/spatial_registration_identity" },
+        {
+          "properties": {
+            "source_case_id": { "const": "classic/ct/mono2_i16_rescale_12bit_explicit_le" },
+            "source_path": { "const": "classic/ct/mono2_i16_rescale_12bit_explicit_le/instance.dcm" },
+            "sop_class_uid": { "const": "1.2.840.10008.5.1.4.1.1.2" }
+          }
+        }
+      ]
+    },
+    "deformable_vector_00": {
+      "type": "array",
+      "prefixItems": [{ "const": -0.625 }, { "const": -0.625 }, { "const": -2.5 }],
+      "items": false,
+      "minItems": 3,
+      "maxItems": 3
+    },
+    "deformable_vector_10": {
+      "type": "array",
+      "prefixItems": [{ "const": -0.75 }, { "const": -0.625 }, { "const": -2.5 }],
+      "items": false,
+      "minItems": 3,
+      "maxItems": 3
+    },
+    "deformable_vector_01": {
+      "type": "array",
+      "prefixItems": [{ "const": -0.625 }, { "const": -0.75 }, { "const": -2.5 }],
+      "items": false,
+      "minItems": 3,
+      "maxItems": 3
+    },
+    "deformable_vector_11": {
+      "type": "array",
+      "prefixItems": [{ "const": -0.75 }, { "const": -0.75 }, { "const": -2.5 }],
+      "items": false,
+      "minItems": 3,
+      "maxItems": 3
+    },
+    "deformable_mapping_00": {
+      "$ref": "#/$defs/deformable_mapping",
+      "properties": {
+        "registered_point_mm": { "prefixItems": [{ "const": 0 }, { "const": 0 }, { "const": 2.5 }] },
+        "source_point_mm": { "prefixItems": [{ "const": -0.625 }, { "const": -0.625 }, { "const": 0 }] }
+      }
+    },
+    "deformable_mapping_10": {
+      "$ref": "#/$defs/deformable_mapping",
+      "properties": {
+        "registered_point_mm": { "prefixItems": [{ "const": 0.75 }, { "const": 0 }, { "const": 2.5 }] },
+        "source_point_mm": { "prefixItems": [{ "const": 0 }, { "const": -0.625 }, { "const": 0 }] }
+      }
+    },
+    "deformable_mapping_01": {
+      "$ref": "#/$defs/deformable_mapping",
+      "properties": {
+        "registered_point_mm": { "prefixItems": [{ "const": 0 }, { "const": 0.75 }, { "const": 2.5 }] },
+        "source_point_mm": { "prefixItems": [{ "const": -0.625 }, { "const": 0 }, { "const": 0 }] }
+      }
+    },
+    "deformable_mapping_11": {
+      "$ref": "#/$defs/deformable_mapping",
+      "properties": {
+        "registered_point_mm": { "prefixItems": [{ "const": 0.75 }, { "const": 0.75 }, { "const": 2.5 }] },
+        "source_point_mm": { "prefixItems": [{ "const": 0 }, { "const": 0 }, { "const": 0 }] }
+      }
+    },
+    "deformable_mapping": {
+      "type": "object",
+      "required": ["registered_point_mm", "source_point_mm", "tolerance_mm"],
+      "properties": {
+        "registered_point_mm": {
+          "type": "array",
+          "items": { "type": "number" },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "source_point_mm": {
+          "type": "array",
+          "items": { "type": "number" },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "tolerance_mm": { "const": 0.000001 }
       },
       "additionalProperties": false
     },

@@ -4169,6 +4169,144 @@ fn manifest_schema_locks_phase4_tiled_full_wsi_expectation() {
 }
 
 #[test]
+fn manifest_schema_locks_phase4_tiled_sparse_wsi_expectation() {
+    let schema = read_json("schemas/manifest.schema.json");
+    let expectation_schema = serde_json::json!({
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$ref": "#/$defs/expected_wsi_tiled_sparse",
+        "$defs": schema["$defs"].clone(),
+    });
+    let validator = jsonschema::validator_for(&expectation_schema)
+        .expect("TILED_SPARSE WSI expectation schema should compile");
+    let dimension_organization_uid = "1.2.826.0.1.3680043.10.543.13";
+    let expectation = serde_json::json!({
+        "iod_kind": "vl_wsi_tiled_sparse",
+        "sop_class_uid": "1.2.840.10008.5.1.4.1.1.77.1.6",
+        "sop_class_name": "VL Whole Slide Microscopy Image Storage",
+        "iod_name": "VL Whole Slide Microscopy Image", "modality": "SM",
+        "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+        "frame_of_reference_uid": "1.2.826.0.1.3680043.10.543.11",
+        "dimension_organization_uid": dimension_organization_uid,
+        "image_type": ["ORIGINAL", "PRIMARY", "VOLUME", "NONE"],
+        "dimension_organization_type": "TILED_SPARSE",
+        "position_reference_indicator": "SLIDE_CORNER", "acquisition_context_items": 0,
+        "volumetric_properties": "VOLUME", "specimen_label_in_image": "NO",
+        "burned_in_annotation": "NO", "focus_method": "AUTO",
+        "extended_depth_of_field": "NO", "lossy_image_compression": "00",
+        "tiles_overlap": "NONE",
+        "image": {
+            "rows": 2, "columns": 2, "frames": 2, "samples_per_pixel": 3,
+            "photometric_interpretation": "RGB", "planar_configuration": 0,
+            "bits_allocated": 8, "bits_stored": 8, "high_bit": 7, "pixel_representation": 0
+        },
+        "pixel_data": {
+            "vr": "OB", "native_or_encapsulated": "native", "value_length": 24, "frame_count": 2,
+            "frame_hashes": [
+                "fcf067f6323bb42b8292a565a8f826ec5fdb1b142b7a69bf7f7721f0d5d46ef8",
+                "8688d249e9d047b4fc2fb89ce05afe9ec89252ffccdd969de6eef260dd7ffb21"
+            ],
+            "payload_sha256": "94a57aca44c4a97d424e8e546b2673fa91f711694de1ccb36f062aabbc9b55ee"
+        },
+        "tiling": {
+            "total_pixel_matrix_rows": 4, "total_pixel_matrix_columns": 4,
+            "tiles_per_row": 2, "tiles_per_column": 2,
+            "number_of_optical_paths": 1, "total_pixel_matrix_focal_planes": 1,
+            "total_pixel_matrix_origin_mm": [0.0, 0.0, 0.0],
+            "image_orientation_slide": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0],
+            "pixel_spacing_mm": [0.5, 0.5], "slice_thickness_mm": 0.001,
+            "imaged_volume": { "width_mm": 2.0, "height_mm": 2.0, "depth_micrometers": 1.0 },
+            "occupancy_mask": ["present", "absent", "absent", "present"],
+            "absent_tile_positions": [
+                { "column_position": 3, "row_position": 1 },
+                { "column_position": 1, "row_position": 3 }
+            ],
+            "sentinel_fill_rgb": [0, 0, 0],
+            "sentinel_matrix_sha256": "d10a587875f14a0b74a9e4935ce83cdb73377bd7357a172db8e9f7347c030eb3"
+        },
+        "dimension_indices": [
+            { "ordinal": 1, "dimension_index_pointer": "(0048,021E)", "functional_group_pointer": "(0048,021A)", "dimension_organization_uid": dimension_organization_uid, "dimension_description_label": "Column Position" },
+            { "ordinal": 2, "dimension_index_pointer": "(0048,021F)", "functional_group_pointer": "(0048,021A)", "dimension_organization_uid": dimension_organization_uid, "dimension_description_label": "Row Position" }
+        ],
+        "shared_functional_group_macros": ["pixel_measures", "whole_slide_microscopy_image_frame_type"],
+        "per_frame_functional_groups": [
+            { "frame_number": 1, "macros": ["frame_content", "plane_position_slide", "optical_path_identification"], "dimension_index_values": [1, 1], "optical_path_identifier": "RGB", "column_position": 1, "row_position": 1, "x_mm": 0.0, "y_mm": 0.0, "z_mm": 0.0 },
+            { "frame_number": 2, "macros": ["frame_content", "plane_position_slide", "optical_path_identification"], "dimension_index_values": [2, 2], "optical_path_identifier": "RGB", "column_position": 3, "row_position": 3, "x_mm": 1.0, "y_mm": 1.0, "z_mm": 0.0 }
+        ],
+        "specimen": {
+            "container_identifier": "DTS-SLIDE-001", "container_issuer_items": 0,
+            "container_type_code_items": 0, "description_items": 1,
+            "specimen_identifier": "DTS-SPECIMEN-001",
+            "specimen_uid": "1.2.826.0.1.3680043.10.543.12",
+            "specimen_issuer_items": 0, "specimen_preparation_items": 0
+        },
+        "slide_label": { "barcode_value": "DTS-SLIDE-001", "label_text": "DTS SYNTHETIC SLIDE 001" },
+        "optical_path": {
+            "items": 1, "identifier": "RGB", "illumination_wavelength_nm": 550,
+            "illumination_type": { "code_value": "111744", "coding_scheme_designator": "DCM", "code_meaning": "Brightfield illumination" },
+            "icc_profile": { "size_bytes": 736, "sha256": "8e069a3476b71a0e0ae7272d9278ba70540d1c4a0b19af1c7d52e56f49091fef", "dicom_color_space": "SRGB", "device_class": "scnr", "data_color_space": "RGB ", "profile_connection_space": "XYZ ", "signature": "acsp" }
+        },
+        "presence": { "shared_functional_groups_sequence": true, "per_frame_functional_groups_sequence": true, "dimension_index_sequence": true, "references": false, "concatenation": false, "multi_resolution_pyramid": false },
+        "absent_content": ["referenced_series_sequence", "concatenation_attributes", "multi_resolution_pyramid", "extended_depth_of_field_number_of_focal_planes", "extended_depth_of_field_distance_between_focal_planes", "lossy_image_compression_ratio", "lossy_image_compression_method", "top_level_image_pixel_description_icc_profile", "specimen_reference_sequence"]
+    });
+    assert!(validator.is_valid(&expectation));
+
+    for (pointer, malformed_value) in [
+        (
+            "/dimension_organization_type",
+            serde_json::json!("TILED_FULL"),
+        ),
+        (
+            "/pixel_data/payload_sha256",
+            serde_json::json!("0".repeat(64)),
+        ),
+        ("/tiling/occupancy_mask/1", serde_json::json!("present")),
+        (
+            "/dimension_indices/0/dimension_index_pointer",
+            serde_json::json!("(0048,021F)"),
+        ),
+        (
+            "/per_frame_functional_groups/1/dimension_index_values/0",
+            serde_json::json!(1),
+        ),
+        (
+            "/presence/per_frame_functional_groups_sequence",
+            serde_json::json!(false),
+        ),
+    ] {
+        let mut malformed = expectation.clone();
+        *malformed.pointer_mut(pointer).expect("mutation pointer") = malformed_value;
+        assert!(
+            !validator.is_valid(&malformed),
+            "schema must reject {pointer}"
+        );
+    }
+
+    let rule = schema
+        .pointer("/$defs/file/allOf")
+        .and_then(Value::as_array)
+        .unwrap()
+        .iter()
+        .find(|rule| {
+            rule.pointer("/if/properties/case_id/const")
+                .and_then(Value::as_str)
+                == Some("vl/wsi/tiled_sparse_small")
+        })
+        .expect("exact sparse WSI case rule");
+    assert_eq!(
+        rule.pointer("/then/required"),
+        Some(&serde_json::json!([
+            "image",
+            "pixel_data",
+            "expected_wsi_tiled_sparse"
+        ]))
+    );
+    assert_eq!(
+        rule.pointer("/else/not/required"),
+        Some(&serde_json::json!(["expected_wsi_tiled_sparse"]))
+    );
+}
+
+#[test]
 fn manifest_schema_requires_exclusive_twelve_lead_ecg_waveform_contract() {
     let schema = read_json("schemas/manifest.schema.json");
     let rule = schema

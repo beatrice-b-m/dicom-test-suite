@@ -373,6 +373,9 @@
         "expected_wsi_tiled_full": {
           "$ref": "#/$defs/expected_wsi_tiled_full"
         },
+        "expected_wsi_tiled_sparse": {
+          "$ref": "#/$defs/expected_wsi_tiled_sparse"
+        },
         "expected_geometry": {
           "anyOf": [
             { "$ref": "#/$defs/expected_geometry" },
@@ -880,6 +883,41 @@
             }
           },
           "else": { "not": { "required": ["expected_wsi_tiled_full"] } }
+        },
+        {
+          "if": {
+            "properties": { "case_id": { "const": "vl/wsi/tiled_sparse_small" } },
+            "required": ["case_id"]
+          },
+          "then": {
+            "required": ["image", "pixel_data", "expected_wsi_tiled_sparse"],
+            "properties": {
+              "dicom": { "properties": {
+                "sop_class_uid": { "const": "1.2.840.10008.5.1.4.1.1.77.1.6" },
+                "sop_class_name": { "const": "VL Whole Slide Microscopy Image Storage" },
+                "iod_name": { "const": "VL Whole Slide Microscopy Image" },
+                "modality": { "const": "SM" },
+                "transfer_syntax_uid": { "const": "1.2.840.10008.1.2.1" }
+              } },
+              "image": { "properties": {
+                "rows": { "const": 2 }, "columns": { "const": 2 }, "frames": { "const": 2 },
+                "samples_per_pixel": { "const": 3 }, "photometric_interpretation": { "const": "RGB" },
+                "planar_configuration": { "const": 0 }, "bits_allocated": { "const": 8 },
+                "bits_stored": { "const": 8 }, "high_bit": { "const": 7 }, "pixel_representation": { "const": 0 }
+              } },
+              "pixel_data": { "properties": {
+                "vr": { "const": "OB" }, "native_or_encapsulated": { "const": "native" },
+                "value_length": { "const": 24 }, "frame_count": { "const": 2 },
+                "frame_hashes": { "const": [
+                  "fcf067f6323bb42b8292a565a8f826ec5fdb1b142b7a69bf7f7721f0d5d46ef8",
+                  "8688d249e9d047b4fc2fb89ce05afe9ec89252ffccdd969de6eef260dd7ffb21"
+                ] }
+              } },
+              "references": { "maxItems": 0 },
+              "expected_wsi_tiled_sparse": { "$ref": "#/$defs/expected_wsi_tiled_sparse" }
+            }
+          },
+          "else": { "not": { "required": ["expected_wsi_tiled_sparse"] } }
         },
         {
           "if": {
@@ -3193,6 +3231,156 @@
           "minItems": 10,
           "maxItems": 10
         }
+      },
+      "additionalProperties": false
+    },
+    "expected_wsi_tiled_sparse": {
+      "type": "object",
+      "required": ["iod_kind", "sop_class_uid", "sop_class_name", "iod_name", "modality", "transfer_syntax_uid", "frame_of_reference_uid", "dimension_organization_uid", "image_type", "dimension_organization_type", "position_reference_indicator", "acquisition_context_items", "volumetric_properties", "specimen_label_in_image", "burned_in_annotation", "focus_method", "extended_depth_of_field", "lossy_image_compression", "tiles_overlap", "image", "pixel_data", "tiling", "dimension_indices", "shared_functional_group_macros", "per_frame_functional_groups", "specimen", "slide_label", "optical_path", "presence", "absent_content"],
+      "properties": {
+        "iod_kind": { "const": "vl_wsi_tiled_sparse" },
+        "sop_class_uid": { "const": "1.2.840.10008.5.1.4.1.1.77.1.6" },
+        "sop_class_name": { "const": "VL Whole Slide Microscopy Image Storage" },
+        "iod_name": { "const": "VL Whole Slide Microscopy Image" },
+        "modality": { "const": "SM" },
+        "transfer_syntax_uid": { "const": "1.2.840.10008.1.2.1" },
+        "frame_of_reference_uid": { "type": "string", "pattern": "^[0-9]+(\\.[0-9]+)+$", "maxLength": 64 },
+        "dimension_organization_uid": { "type": "string", "pattern": "^[0-9]+(\\.[0-9]+)+$", "maxLength": 64 },
+        "image_type": { "const": ["ORIGINAL", "PRIMARY", "VOLUME", "NONE"] },
+        "dimension_organization_type": { "const": "TILED_SPARSE" },
+        "position_reference_indicator": { "const": "SLIDE_CORNER" },
+        "acquisition_context_items": { "const": 0 },
+        "volumetric_properties": { "const": "VOLUME" },
+        "specimen_label_in_image": { "const": "NO" },
+        "burned_in_annotation": { "const": "NO" },
+        "focus_method": { "const": "AUTO" },
+        "extended_depth_of_field": { "const": "NO" },
+        "lossy_image_compression": { "const": "00" },
+        "tiles_overlap": { "const": "NONE" },
+        "image": {
+          "type": "object",
+          "required": ["rows", "columns", "frames", "samples_per_pixel", "photometric_interpretation", "planar_configuration", "bits_allocated", "bits_stored", "high_bit", "pixel_representation"],
+          "properties": {
+            "rows": { "const": 2 }, "columns": { "const": 2 }, "frames": { "const": 2 },
+            "samples_per_pixel": { "const": 3 }, "photometric_interpretation": { "const": "RGB" },
+            "planar_configuration": { "const": 0 }, "bits_allocated": { "const": 8 },
+            "bits_stored": { "const": 8 }, "high_bit": { "const": 7 }, "pixel_representation": { "const": 0 }
+          },
+          "additionalProperties": false
+        },
+        "pixel_data": {
+          "type": "object",
+          "required": ["vr", "native_or_encapsulated", "value_length", "frame_count", "frame_hashes", "payload_sha256"],
+          "properties": {
+            "vr": { "const": "OB" }, "native_or_encapsulated": { "const": "native" },
+            "value_length": { "const": 24 }, "frame_count": { "const": 2 },
+            "frame_hashes": { "const": [
+              "fcf067f6323bb42b8292a565a8f826ec5fdb1b142b7a69bf7f7721f0d5d46ef8",
+              "8688d249e9d047b4fc2fb89ce05afe9ec89252ffccdd969de6eef260dd7ffb21"
+            ] },
+            "payload_sha256": { "const": "94a57aca44c4a97d424e8e546b2673fa91f711694de1ccb36f062aabbc9b55ee" }
+          },
+          "additionalProperties": false
+        },
+        "tiling": {
+          "type": "object",
+          "required": ["total_pixel_matrix_rows", "total_pixel_matrix_columns", "tiles_per_row", "tiles_per_column", "number_of_optical_paths", "total_pixel_matrix_focal_planes", "total_pixel_matrix_origin_mm", "image_orientation_slide", "pixel_spacing_mm", "slice_thickness_mm", "imaged_volume", "occupancy_mask", "absent_tile_positions", "sentinel_fill_rgb", "sentinel_matrix_sha256"],
+          "properties": {
+            "total_pixel_matrix_rows": { "const": 4 },
+            "total_pixel_matrix_columns": { "const": 4 },
+            "tiles_per_row": { "const": 2 },
+            "tiles_per_column": { "const": 2 },
+            "number_of_optical_paths": { "const": 1 },
+            "total_pixel_matrix_focal_planes": { "const": 1 },
+            "total_pixel_matrix_origin_mm": { "const": [0.0, 0.0, 0.0] },
+            "image_orientation_slide": { "const": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0] },
+            "pixel_spacing_mm": { "const": [0.5, 0.5] },
+            "slice_thickness_mm": { "const": 0.001 },
+            "imaged_volume": { "$ref": "#/$defs/expected_wsi_tiled_full/properties/tiling/properties/imaged_volume" },
+            "occupancy_mask": { "const": ["present", "absent", "absent", "present"] },
+            "absent_tile_positions": { "const": [
+              { "column_position": 3, "row_position": 1 },
+              { "column_position": 1, "row_position": 3 }
+            ] },
+            "sentinel_fill_rgb": { "const": [0, 0, 0] },
+            "sentinel_matrix_sha256": { "const": "d10a587875f14a0b74a9e4935ce83cdb73377bd7357a172db8e9f7347c030eb3" }
+          },
+          "additionalProperties": false
+        },
+        "dimension_indices": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "object", "additionalProperties": false,
+              "required": ["ordinal", "dimension_index_pointer", "functional_group_pointer", "dimension_organization_uid", "dimension_description_label"],
+              "properties": {
+                "ordinal": { "const": 1 }, "dimension_index_pointer": { "const": "(0048,021E)" },
+                "functional_group_pointer": { "const": "(0048,021A)" },
+                "dimension_organization_uid": { "type": "string", "pattern": "^[0-9]+(\\.[0-9]+)+$", "maxLength": 64 },
+                "dimension_description_label": { "const": "Column Position" }
+              }
+            },
+            {
+              "type": "object", "additionalProperties": false,
+              "required": ["ordinal", "dimension_index_pointer", "functional_group_pointer", "dimension_organization_uid", "dimension_description_label"],
+              "properties": {
+                "ordinal": { "const": 2 }, "dimension_index_pointer": { "const": "(0048,021F)" },
+                "functional_group_pointer": { "const": "(0048,021A)" },
+                "dimension_organization_uid": { "type": "string", "pattern": "^[0-9]+(\\.[0-9]+)+$", "maxLength": 64 },
+                "dimension_description_label": { "const": "Row Position" }
+              }
+            }
+          ],
+          "items": false, "minItems": 2, "maxItems": 2
+        },
+        "shared_functional_group_macros": { "const": ["pixel_measures", "whole_slide_microscopy_image_frame_type"] },
+        "per_frame_functional_groups": {
+          "type": "array",
+          "prefixItems": [
+            { "$ref": "#/$defs/wsi_sparse_per_frame", "properties": {
+              "frame_number": { "const": 1 }, "dimension_index_values": { "const": [1, 1] },
+              "column_position": { "const": 1 }, "row_position": { "const": 1 },
+              "x_mm": { "const": 0.0 }, "y_mm": { "const": 0.0 }
+            } },
+            { "$ref": "#/$defs/wsi_sparse_per_frame", "properties": {
+              "frame_number": { "const": 2 }, "dimension_index_values": { "const": [2, 2] },
+              "column_position": { "const": 3 }, "row_position": { "const": 3 },
+              "x_mm": { "const": 1.0 }, "y_mm": { "const": 1.0 }
+            } }
+          ],
+          "items": false, "minItems": 2, "maxItems": 2
+        },
+        "specimen": { "$ref": "#/$defs/expected_wsi_tiled_full/properties/specimen" },
+        "slide_label": { "$ref": "#/$defs/expected_wsi_tiled_full/properties/slide_label" },
+        "optical_path": { "$ref": "#/$defs/expected_wsi_tiled_full/properties/optical_path" },
+        "presence": {
+          "type": "object",
+          "required": ["shared_functional_groups_sequence", "per_frame_functional_groups_sequence", "dimension_index_sequence", "references", "concatenation", "multi_resolution_pyramid"],
+          "properties": {
+            "shared_functional_groups_sequence": { "const": true },
+            "per_frame_functional_groups_sequence": { "const": true },
+            "dimension_index_sequence": { "const": true },
+            "references": { "const": false }, "concatenation": { "const": false },
+            "multi_resolution_pyramid": { "const": false }
+          },
+          "additionalProperties": false
+        },
+        "absent_content": {
+          "const": ["referenced_series_sequence", "concatenation_attributes", "multi_resolution_pyramid", "extended_depth_of_field_number_of_focal_planes", "extended_depth_of_field_distance_between_focal_planes", "lossy_image_compression_ratio", "lossy_image_compression_method", "top_level_image_pixel_description_icc_profile", "specimen_reference_sequence"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "wsi_sparse_per_frame": {
+      "type": "object",
+      "required": ["frame_number", "macros", "dimension_index_values", "optical_path_identifier", "column_position", "row_position", "x_mm", "y_mm", "z_mm"],
+      "properties": {
+        "frame_number": { "type": "integer" },
+        "macros": { "const": ["frame_content", "plane_position_slide", "optical_path_identification"] },
+        "dimension_index_values": { "type": "array", "items": { "type": "integer" }, "minItems": 2, "maxItems": 2 },
+        "optical_path_identifier": { "const": "RGB" },
+        "column_position": { "type": "integer" }, "row_position": { "type": "integer" },
+        "x_mm": { "type": "number" }, "y_mm": { "type": "number" }, "z_mm": { "const": 0.0 }
       },
       "additionalProperties": false
     },

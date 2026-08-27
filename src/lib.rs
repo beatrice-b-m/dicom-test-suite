@@ -1664,6 +1664,7 @@ fn validate_manifest_file(
     let relative_path = manifest_str(manifest_path, file, "/path", "file path must be a string")?;
     validate_vl_single_frame_manifest_contract(manifest_path, file)?;
     validate_wsi_tiled_full_manifest_contract(manifest_path, file)?;
+    validate_wsi_tiled_sparse_manifest_contract(manifest_path, file)?;
     let path = root_dir.join(relative_path);
     let bytes = match fs::read(&path) {
         Ok(bytes) => bytes,
@@ -2151,6 +2152,222 @@ pub(crate) fn wsi_tiled_full_locked_contract(
         "optical_path": optical_path,
         "presence": presence,
         "absent_content": absent_content
+    })
+}
+
+fn validate_wsi_tiled_sparse_manifest_contract(
+    manifest_path: &Path,
+    file: &Value,
+) -> Result<(), ValidateError> {
+    const CASE_ID: &str = "vl/wsi/tiled_sparse_small";
+    if file.get("case_id").and_then(Value::as_str) != Some(CASE_ID) {
+        return if file.get("expected_wsi_tiled_sparse").is_some() {
+            Err(ValidateError::ManifestShape {
+                path: manifest_path.to_path_buf(),
+                message: "expected_wsi_tiled_sparse is only valid for vl/wsi/tiled_sparse_small",
+            })
+        } else {
+            Ok(())
+        };
+    }
+    let expected = file
+        .get("expected_wsi_tiled_sparse")
+        .ok_or(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "vl/wsi/tiled_sparse_small must define expected_wsi_tiled_sparse",
+        })?;
+    let dynamic_uid = |pointer: &str, message| {
+        expected
+            .pointer(pointer)
+            .and_then(Value::as_str)
+            .filter(|uid| is_manifest_uid(uid))
+            .ok_or(ValidateError::ManifestShape {
+                path: manifest_path.to_path_buf(),
+                message,
+            })
+    };
+    let frame_of_reference_uid = dynamic_uid(
+        "/frame_of_reference_uid",
+        "expected_wsi_tiled_sparse frame_of_reference_uid must be a valid UID",
+    )?;
+    let specimen_uid = dynamic_uid(
+        "/specimen/specimen_uid",
+        "expected_wsi_tiled_sparse specimen_uid must be a valid UID",
+    )?;
+    let dimension_organization_uid = dynamic_uid(
+        "/dimension_organization_uid",
+        "expected_wsi_tiled_sparse dimension_organization_uid must be a valid UID",
+    )?;
+    let locked = wsi_tiled_sparse_locked_contract(
+        frame_of_reference_uid,
+        specimen_uid,
+        dimension_organization_uid,
+    );
+    if expected != &locked {
+        return Err(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "expected_wsi_tiled_sparse must equal the exact locked case contract",
+        });
+    }
+    for (pointer, locked_value) in [
+        (
+            "/dicom/sop_class_uid",
+            Value::from("1.2.840.10008.5.1.4.1.1.77.1.6"),
+        ),
+        (
+            "/dicom/sop_class_name",
+            Value::from("VL Whole Slide Microscopy Image Storage"),
+        ),
+        (
+            "/dicom/iod_name",
+            Value::from("VL Whole Slide Microscopy Image"),
+        ),
+        ("/dicom/modality", Value::from("SM")),
+        (
+            "/dicom/transfer_syntax_uid",
+            Value::from("1.2.840.10008.1.2.1"),
+        ),
+        (
+            "/uids/frame_of_reference_uid",
+            Value::from(frame_of_reference_uid),
+        ),
+        ("/image/rows", Value::from(2)),
+        ("/image/columns", Value::from(2)),
+        ("/image/frames", Value::from(2)),
+        ("/image/samples_per_pixel", Value::from(3)),
+        ("/image/photometric_interpretation", Value::from("RGB")),
+        ("/image/planar_configuration", Value::from(0)),
+        ("/image/bits_allocated", Value::from(8)),
+        ("/image/bits_stored", Value::from(8)),
+        ("/image/high_bit", Value::from(7)),
+        ("/image/pixel_representation", Value::from(0)),
+        ("/pixel_data/vr", Value::from("OB")),
+        ("/pixel_data/native_or_encapsulated", Value::from("native")),
+        ("/pixel_data/value_length", Value::from(24)),
+        ("/pixel_data/frame_count", Value::from(2)),
+    ] {
+        if file.pointer(pointer) != Some(&locked_value) {
+            return Err(ValidateError::ManifestShape {
+                path: manifest_path.to_path_buf(),
+                message: "sparse WSI manifest identity and pixel metadata must match expected_wsi_tiled_sparse",
+            });
+        }
+    }
+    if file.pointer("/pixel_data/frame_hashes") != expected.pointer("/pixel_data/frame_hashes") {
+        return Err(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "sparse WSI manifest frame hashes must match expected_wsi_tiled_sparse",
+        });
+    }
+    if file
+        .get("references")
+        .and_then(Value::as_array)
+        .is_none_or(|references| !references.is_empty())
+    {
+        return Err(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "TILED_SPARSE WSI references must be an empty array",
+        });
+    }
+    Ok(())
+}
+
+pub(crate) fn wsi_tiled_sparse_locked_contract(
+    frame_of_reference_uid: &str,
+    specimen_uid: &str,
+    dimension_organization_uid: &str,
+) -> Value {
+    let carried = wsi_tiled_full_locked_contract(frame_of_reference_uid, specimen_uid);
+    let image = serde_json::json!({
+        "rows": 2, "columns": 2, "frames": 2, "samples_per_pixel": 3,
+        "photometric_interpretation": "RGB", "planar_configuration": 0,
+        "bits_allocated": 8, "bits_stored": 8, "high_bit": 7, "pixel_representation": 0
+    });
+    let pixel_data = serde_json::json!({
+        "vr": "OB", "native_or_encapsulated": "native", "value_length": 24, "frame_count": 2,
+        "frame_hashes": [
+            "fcf067f6323bb42b8292a565a8f826ec5fdb1b142b7a69bf7f7721f0d5d46ef8",
+            "8688d249e9d047b4fc2fb89ce05afe9ec89252ffccdd969de6eef260dd7ffb21"
+        ],
+        "payload_sha256": "94a57aca44c4a97d424e8e546b2673fa91f711694de1ccb36f062aabbc9b55ee"
+    });
+    let tiling = serde_json::json!({
+        "total_pixel_matrix_rows": 4, "total_pixel_matrix_columns": 4,
+        "tiles_per_row": 2, "tiles_per_column": 2,
+        "number_of_optical_paths": 1, "total_pixel_matrix_focal_planes": 1,
+        "total_pixel_matrix_origin_mm": [0.0, 0.0, 0.0],
+        "image_orientation_slide": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0],
+        "pixel_spacing_mm": [0.5, 0.5], "slice_thickness_mm": 0.001,
+        "imaged_volume": { "width_mm": 2.0, "height_mm": 2.0, "depth_micrometers": 1.0 },
+        "occupancy_mask": ["present", "absent", "absent", "present"],
+        "absent_tile_positions": [
+            { "column_position": 3, "row_position": 1 },
+            { "column_position": 1, "row_position": 3 }
+        ],
+        "sentinel_fill_rgb": [0, 0, 0],
+        "sentinel_matrix_sha256": "d10a587875f14a0b74a9e4935ce83cdb73377bd7357a172db8e9f7347c030eb3"
+    });
+    let dimension_indices = serde_json::json!([
+        {
+            "ordinal": 1, "dimension_index_pointer": "(0048,021E)",
+            "functional_group_pointer": "(0048,021A)",
+            "dimension_organization_uid": dimension_organization_uid,
+            "dimension_description_label": "Column Position"
+        },
+        {
+            "ordinal": 2, "dimension_index_pointer": "(0048,021F)",
+            "functional_group_pointer": "(0048,021A)",
+            "dimension_organization_uid": dimension_organization_uid,
+            "dimension_description_label": "Row Position"
+        }
+    ]);
+    let per_frame_functional_groups = serde_json::json!([
+        {
+            "frame_number": 1,
+            "macros": ["frame_content", "plane_position_slide", "optical_path_identification"],
+            "dimension_index_values": [1, 1], "optical_path_identifier": "RGB",
+            "column_position": 1, "row_position": 1, "x_mm": 0.0, "y_mm": 0.0, "z_mm": 0.0
+        },
+        {
+            "frame_number": 2,
+            "macros": ["frame_content", "plane_position_slide", "optical_path_identification"],
+            "dimension_index_values": [2, 2], "optical_path_identifier": "RGB",
+            "column_position": 3, "row_position": 3, "x_mm": 1.0, "y_mm": 1.0, "z_mm": 0.0
+        }
+    ]);
+    serde_json::json!({
+        "iod_kind": "vl_wsi_tiled_sparse",
+        "sop_class_uid": "1.2.840.10008.5.1.4.1.1.77.1.6",
+        "sop_class_name": "VL Whole Slide Microscopy Image Storage",
+        "iod_name": "VL Whole Slide Microscopy Image", "modality": "SM",
+        "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+        "frame_of_reference_uid": frame_of_reference_uid,
+        "dimension_organization_uid": dimension_organization_uid,
+        "image_type": ["ORIGINAL", "PRIMARY", "VOLUME", "NONE"],
+        "dimension_organization_type": "TILED_SPARSE",
+        "position_reference_indicator": "SLIDE_CORNER", "acquisition_context_items": 0,
+        "volumetric_properties": "VOLUME", "specimen_label_in_image": "NO",
+        "burned_in_annotation": "NO", "focus_method": "AUTO",
+        "extended_depth_of_field": "NO", "lossy_image_compression": "00",
+        "tiles_overlap": "NONE", "image": image, "pixel_data": pixel_data, "tiling": tiling,
+        "dimension_indices": dimension_indices,
+        "shared_functional_group_macros": ["pixel_measures", "whole_slide_microscopy_image_frame_type"],
+        "per_frame_functional_groups": per_frame_functional_groups,
+        "specimen": carried["specimen"].clone(),
+        "slide_label": carried["slide_label"].clone(),
+        "optical_path": carried["optical_path"].clone(),
+        "presence": {
+            "shared_functional_groups_sequence": true, "per_frame_functional_groups_sequence": true,
+            "dimension_index_sequence": true, "references": false,
+            "concatenation": false, "multi_resolution_pyramid": false
+        },
+        "absent_content": [
+            "referenced_series_sequence", "concatenation_attributes", "multi_resolution_pyramid",
+            "extended_depth_of_field_number_of_focal_planes",
+            "extended_depth_of_field_distance_between_focal_planes",
+            "lossy_image_compression_ratio", "lossy_image_compression_method",
+            "top_level_image_pixel_description_icc_profile", "specimen_reference_sequence"
+        ]
     })
 }
 
@@ -30319,6 +30536,106 @@ mod tests {
         misplaced["expected_wsi_tiled_full"] = wsi_manifest()["expected_wsi_tiled_full"].clone();
         assert!(
             validate_wsi_tiled_full_manifest_contract(Path::new("manifest.json"), &misplaced)
+                .is_err()
+        );
+    }
+
+    fn wsi_sparse_manifest() -> Value {
+        let frame_of_reference_uid = "1.2.826.0.1.3680043.10.543.11";
+        serde_json::json!({
+            "case_id": "vl/wsi/tiled_sparse_small",
+            "dicom": {
+                "sop_class_uid": "1.2.840.10008.5.1.4.1.1.77.1.6",
+                "sop_class_name": "VL Whole Slide Microscopy Image Storage",
+                "iod_name": "VL Whole Slide Microscopy Image", "modality": "SM",
+                "transfer_syntax_uid": "1.2.840.10008.1.2.1"
+            },
+            "uids": { "frame_of_reference_uid": frame_of_reference_uid },
+            "image": {
+                "rows": 2, "columns": 2, "frames": 2, "samples_per_pixel": 3,
+                "photometric_interpretation": "RGB", "planar_configuration": 0,
+                "bits_allocated": 8, "bits_stored": 8, "high_bit": 7, "pixel_representation": 0
+            },
+            "pixel_data": {
+                "vr": "OB", "native_or_encapsulated": "native", "value_length": 24,
+                "frame_count": 2,
+                "frame_hashes": [
+                    "fcf067f6323bb42b8292a565a8f826ec5fdb1b142b7a69bf7f7721f0d5d46ef8",
+                    "8688d249e9d047b4fc2fb89ce05afe9ec89252ffccdd969de6eef260dd7ffb21"
+                ]
+            },
+            "references": [],
+            "expected_wsi_tiled_sparse": wsi_tiled_sparse_locked_contract(
+                frame_of_reference_uid,
+                "1.2.826.0.1.3680043.10.543.12",
+                "1.2.826.0.1.3680043.10.543.13"
+            )
+        })
+    }
+
+    #[test]
+    fn wsi_tiled_sparse_manifest_contract_is_exact_case_scoped_and_cross_bound() {
+        validate_wsi_tiled_sparse_manifest_contract(
+            Path::new("manifest.json"),
+            &wsi_sparse_manifest(),
+        )
+        .expect("locked sparse WSI contract");
+
+        for pointer in [
+            "/expected_wsi_tiled_sparse/dimension_indices/0/dimension_index_pointer",
+            "/expected_wsi_tiled_sparse/dimension_indices/1/dimension_organization_uid",
+            "/expected_wsi_tiled_sparse/per_frame_functional_groups/1/dimension_index_values/0",
+            "/expected_wsi_tiled_sparse/per_frame_functional_groups/1/column_position",
+            "/expected_wsi_tiled_sparse/tiling/occupancy_mask/1",
+            "/expected_wsi_tiled_sparse/tiling/sentinel_matrix_sha256",
+            "/expected_wsi_tiled_sparse/pixel_data/payload_sha256",
+        ] {
+            let mut malformed = wsi_sparse_manifest();
+            *malformed.pointer_mut(pointer).expect("mutation pointer") = Value::from("invalid");
+            assert!(
+                validate_wsi_tiled_sparse_manifest_contract(Path::new("manifest.json"), &malformed)
+                    .is_err(),
+                "locked sparse contract must reject {pointer}"
+            );
+        }
+
+        let mut crossed_frame_hashes = wsi_sparse_manifest();
+        crossed_frame_hashes["pixel_data"]["frame_hashes"][1] =
+            Value::from("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+        assert!(
+            validate_wsi_tiled_sparse_manifest_contract(
+                Path::new("manifest.json"),
+                &crossed_frame_hashes
+            )
+            .is_err()
+        );
+
+        let mut crossed_frame_of_reference = wsi_sparse_manifest();
+        crossed_frame_of_reference["uids"]["frame_of_reference_uid"] =
+            Value::from("1.2.826.0.1.3680043.10.543.99");
+        assert!(
+            validate_wsi_tiled_sparse_manifest_contract(
+                Path::new("manifest.json"),
+                &crossed_frame_of_reference
+            )
+            .is_err()
+        );
+
+        let mut missing = wsi_sparse_manifest();
+        missing
+            .as_object_mut()
+            .unwrap()
+            .remove("expected_wsi_tiled_sparse");
+        assert!(
+            validate_wsi_tiled_sparse_manifest_contract(Path::new("manifest.json"), &missing)
+                .is_err()
+        );
+
+        let mut misplaced = serde_json::json!({"case_id": "vl/wsi/tiled_full_small"});
+        misplaced["expected_wsi_tiled_sparse"] =
+            wsi_sparse_manifest()["expected_wsi_tiled_sparse"].clone();
+        assert!(
+            validate_wsi_tiled_sparse_manifest_contract(Path::new("manifest.json"), &misplaced)
                 .is_err()
         );
     }

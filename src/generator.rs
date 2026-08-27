@@ -26323,12 +26323,12 @@ mod tests {
         });
         let committed: Value =
             serde_json::from_str(include_str!("../cases/registry.json")).unwrap();
-        let planned = registry_case(&committed, RT_IMAGE_CASE_ID)
+        let promoted = registry_case(&committed, RT_IMAGE_CASE_ID)
             .unwrap()
             .unwrap();
         assert!(
-            !should_generate_case(planned, &run).unwrap(),
-            "wired Image branch must remain dormant until promotion"
+            should_generate_case(promoted, &run).unwrap(),
+            "the committed Image registry row must keep the wired branch live"
         );
 
         let first = write_rt_image_case(&run, &case, RT_IMAGE_RECIPES[0], &plan_source, lock)

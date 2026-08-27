@@ -1447,8 +1447,8 @@ fn linked_rt_plan_image_source_note_and_native_providers_are_locked() {
         ),
         (
             "non-image/rt/image_linked",
-            "planned",
-            vec!["recipe_unimplemented"],
+            "implemented",
+            Vec::<&str>::new(),
         ),
     ] {
         let case = registry_cases(&registry)
@@ -5394,6 +5394,7 @@ fn generator_recipe_case_ids() -> BTreeSet<String> {
                 "TWELVE_LEAD_ECG_CASE_ID: &str = \"",
                 "GENERAL_ECG_CASE_ID: &str = \"",
                 "RT_PLAN_CASE_ID: &str = \"",
+                "RT_IMAGE_CASE_ID: &str = \"",
             ][..],
         ),
         ("src/generator/native/ct_geometry.rs", &["case_id: \""][..]),

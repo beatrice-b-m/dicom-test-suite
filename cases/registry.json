@@ -6838,7 +6838,7 @@
     {
       "case_id": "classic/sc/nonsquare_pixel_spacing",
       "artifact_kind": "dicom_instance",
-      "status": "planned",
+      "status": "implemented",
       "provider": {
         "kind": "rust_native",
         "id": "rust_native"
@@ -6848,18 +6848,8 @@
         "geometry",
         "pixels"
       ],
-      "roadmap": {
-        "priority": "next",
-        "delivery_phase": "phase-2",
-        "rationale": "Exercises non-square spacing and aspect-ratio interpretation."
-      },
-      "blockers": [
-        {
-          "code": "recipe_unimplemented",
-          "message": "The deterministic native recipe is not implemented.",
-          "recheck_phase": "phase-2"
-        }
-      ],
+      "roadmap": null,
+      "blockers": [],
       "profiles": [
         "core"
       ],
@@ -6885,6 +6875,50 @@
           "covered": true,
           "part": "PS3.6",
           "anchor": "table_A-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom_lookup_iod Secondary Capture Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.8-1",
+          "source_manifest_sha256": "1cc11d28abf1e6f4efa4b07a73d4a7c953b3b3101b4112865c7170ccdeb84728"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom_resolve_attribute_context PixelAspectRatio --iod Secondary Capture Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.7-11c",
+          "source_manifest_sha256": "1cc11d28abf1e6f4efa4b07a73d4a7c953b3b3101b4112865c7170ccdeb84728"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom_resolve_attribute_context PixelSpacing --iod Secondary Capture Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_10-10",
+          "source_manifest_sha256": "1cc11d28abf1e6f4efa4b07a73d4a7c953b3b3101b4112865c7170ccdeb84728"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom_resolve_attribute_context NominalScannedPixelSpacing --iod Secondary Capture Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-25",
+          "source_manifest_sha256": "1cc11d28abf1e6f4efa4b07a73d4a7c953b3b3101b4112865c7170ccdeb84728"
+        },
+        {
+          "source": "local-source-note",
+          "edition": "2026b",
+          "query": "standards/source-notes/phase-2-nonsquare-spacing-aspect-ratio.md",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "sect_C.7.6.3.1.7"
         }
       ]
     },

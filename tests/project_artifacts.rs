@@ -540,6 +540,7 @@ fn registry_contains_initial_smoke_and_core_cases() {
         ("classic/sc/mono2_u16_rect_2x3_explicit_le", "implemented"),
         ("classic/sc/mono2_u16_tiny_1x1_explicit_le", "implemented"),
         ("classic/sc/mono2_u16_padding_explicit_le", "implemented"),
+        ("classic/sc/nonsquare_pixel_spacing", "implemented"),
         (
             "classic/ct/mono2_i16_rescale_12bit_explicit_le",
             "implemented",
@@ -4116,6 +4117,61 @@ fn enhanced_pet_registry_evidence_resolves_to_a_source_note() {
     assert!(
         std::path::Path::new(source_note).is_file(),
         "Enhanced PET local source-note evidence must resolve to a tracked artifact"
+    );
+}
+
+#[test]
+fn nonsquare_registry_evidence_resolves_to_a_source_note() {
+    let registry = read_json("cases/registry.json");
+    let cases = registry_cases(&registry);
+    let case = cases
+        .iter()
+        .find(|case| {
+            case.get("case_id").and_then(Value::as_str)
+                == Some("classic/sc/nonsquare_pixel_spacing")
+        })
+        .expect("registry must contain the non-square spatial case");
+
+    assert_eq!(
+        case.get("status").and_then(Value::as_str),
+        Some("implemented")
+    );
+    assert!(
+        case.get("blockers")
+            .and_then(Value::as_array)
+            .is_some_and(Vec::is_empty),
+        "promoted non-square spatial coverage must not retain controlled blockers"
+    );
+    let evidence = case
+        .get("standards_evidence")
+        .and_then(Value::as_array)
+        .expect("non-square spatial coverage must carry standards evidence");
+    assert!(
+        evidence
+            .iter()
+            .filter(|entry| {
+                entry.get("source_manifest_sha256").and_then(Value::as_str)
+                    == Some("1cc11d28abf1e6f4efa4b07a73d4a7c953b3b3101b4112865c7170ccdeb84728")
+            })
+            .count()
+            >= 4,
+        "non-square spatial evidence must lock the 2026b KB source manifest"
+    );
+    let source_note = evidence
+        .iter()
+        .find_map(|entry| {
+            (entry.get("source").and_then(Value::as_str) == Some("local-source-note"))
+                .then(|| entry.get("query").and_then(Value::as_str))
+                .flatten()
+        })
+        .expect("non-square spatial evidence must name its local source note");
+    assert_eq!(
+        source_note,
+        "standards/source-notes/phase-2-nonsquare-spacing-aspect-ratio.md"
+    );
+    assert!(
+        std::path::Path::new(source_note).is_file(),
+        "non-square spatial local source-note evidence must resolve to a tracked artifact"
     );
 }
 

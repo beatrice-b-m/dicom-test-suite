@@ -943,6 +943,42 @@ fn phase3_status_records_completed_derived_vertical_gates() {
 }
 
 #[test]
+fn phase4_single_frame_vl_qualification_is_recorded() {
+    let note = fs::read_to_string("standards/source-notes/phase-4-vl-single-frame.md")
+        .expect("Phase 4 single-frame VL source note must be readable");
+    for required in [
+        "Registry status: implemented",
+        "169ed3a7878986cb289420cef935c6f8598467f240c9a8ce88bf960d30fb1958",
+        "dc3b2e155c9be0b728412df6fed7432a238a150512b176305fc6104c63bd6a3e",
+        "5785f387d79f79e4b168390bb1def6520d165ac7279374b141beb2c2804f41e3",
+        "f410d948b8761b9a1f6802f4fce81c2b90355c62214f5f333ac33ffba130b0d3",
+        "1c5c2a6477b81f01222d61f30ce7499046a1299522c45c6c5691e3fcfa92159b",
+        "145 implemented and 37 planned logical cases",
+        "small `TILED_FULL` WSI",
+    ] {
+        assert!(
+            note.contains(required),
+            "Phase 4 single-frame VL note requires {required}"
+        );
+    }
+
+    let plan = fs::read_to_string("docs/coverage-expansion-plan.md")
+        .expect("coverage expansion plan must be readable");
+    for required in [
+        "Milestone 1 is complete. VL Endoscopic",
+        "Two seed-7 extended roots each contain 109 strictly valid files",
+        "authorized `uv`-locked secondary IOD route",
+        "registry now contains 145 implemented and 37 planned cases",
+        "Milestone 2,\nsmall `TILED_FULL` WSI, is next",
+    ] {
+        assert!(
+            plan.contains(required),
+            "coverage expansion plan requires {required}"
+        );
+    }
+}
+
+#[test]
 fn integer_parametric_map_retains_explicit_provider_blocker() {
     let registry = read_json("cases/registry.json");
     let case = registry_cases(&registry)

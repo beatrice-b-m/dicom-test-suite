@@ -1,11 +1,19 @@
 # Current Progress
 
-**Last updated:** 2026-07-28
-**Active goal:** current-term compressed image codec generation scope complete
-**Current phase:** complete; long-term roadmap deferred
+**Last updated:** 2026-08-27
+**Active goal:** execute `docs/coverage-expansion-plan.md` in dependency order
+**Current phase:** Phase 4 milestone 1 complete; milestone 2 next
 **Repo state source:** reconstructed from `SYSTEM_SPEC.md`, `transfer-syntax/capability-matrix.json`, and current verification runs.
 
 ## Phase Status
+
+- Phase 4 milestone 1 is complete. Native byte-stable VL Endoscopic and direct-
+  patient VL Microscopic RGB cases bring the registry to 145 implemented and
+  37 planned logical cases. Two seed-7 extended roots each contain 109 files,
+  validate with zero failures, and have byte-identical manifests and instances.
+  Both files pass locked `dciodvfy`, the authorized `uv`-locked secondary IOD
+  validator, DCMTK parsing, and exact independent P6/native-OB pixel checks.
+  Small `TILED_FULL` WSI is the next dependency-ordered milestone.
 
 - Current-term acceptance completed on 2026-07-28. The default suite passed 146
   tests. Smoke, core, and extended runs generated and validated 3, 21, and 75

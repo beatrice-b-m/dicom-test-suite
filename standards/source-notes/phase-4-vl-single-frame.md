@@ -154,17 +154,31 @@ additive and does not replace dicom3tools. The cases add no identifiable
 pathology fixture, lossy policy, stress job, certificate, key, protocol rule,
 or change to `all` profile semantics.
 
-## Project Action
+## Qualification Result
 
-- Current registry status: planned.
-- Current registry provider: external backend `highdicom_pydicom`.
-- Selected provider after standards review: `rust_native`.
-- Registry transition before implementation: replace the obsolete backend
-  blocker with `recipe_unimplemented` and declare `byte_stable` determinism.
-- Promotion requirement: native generation, typed manifest/schema closure,
-  strict validation, reports, focused tests, two-run reproducibility, clean
-  independent IOD and pixel evidence, clean parsing, and integrated
-  conformance with no accepted finding.
+- Registry status: implemented; provider `rust_native`; determinism
+  `byte_stable`.
+- Two seed-7 extended roots each contain 109 files and validate with zero
+  failures. Their byte-identical manifest SHA-256 is
+  `169ed3a7878986cb289420cef935c6f8598467f240c9a8ce88bf960d30fb1958`.
+- Endoscopic instance SHA-256:
+  `dc3b2e155c9be0b728412df6fed7432a238a150512b176305fc6104c63bd6a3e`.
+- Microscopic instance SHA-256:
+  `5785f387d79f79e4b168390bb1def6520d165ac7279374b141beb2c2804f41e3`.
+- Integrated conformance run
+  `f410d948b8761b9a1f6802f4fce81c2b90355c62214f5f333ac33ffba130b0d3`
+  contains clean primary and secondary IOD results, clean parser results, and
+  passing independent pixel evidence for both exact cases. Its canonical
+  `conformance-run.json` SHA-256 is
+  `1c5c2a6477b81f01222d61f30ce7499046a1299522c45c6c5691e3fcfa92159b`.
+- The first real pixel run rejected the configured ASCII `+opn 8` output
+  because the locked collector requires binary P6. Qualification corrected the
+  policy to DCMTK raw PNM `+op` and reran both exact cases successfully rather
+  than weakening the parser.
+- Integrated conformance accepts no finding. The existing 229 unrelated whole-
+  corpus failures remain visible and unallowlisted.
+- The registry now contains 145 implemented and 37 planned logical cases.
+- Milestone 2, small `TILED_FULL` WSI, is the next dependency-ordered slice.
 - Should become KB patch: yes; expose the two IOD module tables and content
   constraints as stable typed query results.
 - Expected cleanup after KB coverage exists: replace local module and modality

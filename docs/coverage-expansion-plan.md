@@ -424,6 +424,19 @@ Gate:
 - small WSI remains in `extended`; pyramid and large-slide cases are placed in
   `stress` according to measured output size and runtime.
 
+Milestone 1 is complete. VL Endoscopic and direct-patient VL Microscopic are
+native byte-stable extended-profile slices with exact LUNG/R and EYE/R
+anatomy/laterality contracts, empty Acquisition Context, planar-0 2 by 2 RGB,
+and explicit specimen, optical-path, ICC, frame-count, and frame-of-reference
+absences. Two seed-7 extended roots each contain 109 strictly valid files and
+have byte-identical manifests and instances. Locked `dciodvfy` and the
+authorized `uv`-locked secondary IOD route report zero errors for both exact
+SOP Classes; DCMTK parses both, and independent binary P6 plus native OB
+extraction reconstructs the exact 12-byte RGB payload. Integrated conformance
+accepts no finding, while unrelated whole-corpus failures remain visible. The
+registry now contains 145 implemented and 37 planned cases. Milestone 2,
+small `TILED_FULL` WSI, is next.
+
 ### Phase 5 — Encapsulation, lossy codecs, and video
 
 **Purpose:** close the highest-value remaining transfer-syntax and frame-layout

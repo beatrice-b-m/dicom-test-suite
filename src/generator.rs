@@ -27509,9 +27509,9 @@ mod tests {
                 .map(|file| file.manifest_entry["sha256"].as_str().unwrap())
                 .collect::<Vec<_>>(),
             [
-                "960eed4df9aa3b5e6eff14b782ee08a8714282c4419a954ff6179ac2ea50a347",
-                "fd95d3c94ce577257e31c4c3c23eae21bf31ba6a2041798ad3d56261a4b50cb9",
-                "11ce715b84ab5e71c37246be7ebc6b52cd92b05074543c3c3595790efd4afd7b",
+                "eb88550fdce0cd4255eb83dd2551a15aeda1681b0ed6563610c527b389fe61a5",
+                "c0f6d9e0b2b7aa72685b7f299b9fb27161026d8eefe3ffecc01eec9c1e45fcab",
+                "f7b8c3a863cf2d2f15e52608f51a534164e7d9366fca534976d62a7eaed46ad9",
             ]
         );
         assert_eq!(

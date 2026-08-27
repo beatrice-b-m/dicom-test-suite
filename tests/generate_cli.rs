@@ -2023,7 +2023,7 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\textended"));
-    let native_extended_files = 88
+    let native_extended_files = 89
         + if cfg!(feature = "deflate") { 2 } else { 0 }
         + if cfg!(feature = "jpeg") { 1 } else { 0 }
         + if cfg!(feature = "charls") { 1 } else { 0 }
@@ -2093,6 +2093,15 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
             .pointer("/dicom/sop_class_uid")
             .and_then(Value::as_str),
         Some("1.2.840.10008.5.1.4.1.1.66.1")
+    );
+    let deformable_registration =
+        file_entry_by_case_id(&manifest, "derived/registration/deformable_ct_pair");
+    assert_eq!(deformable_registration["determinism"], "byte_stable");
+    assert_eq!(
+        deformable_registration
+            .pointer("/dicom/sop_class_uid")
+            .and_then(Value::as_str),
+        Some("1.2.840.10008.5.1.4.1.1.66.3")
     );
     let expected_extended_files =
         native_extended_files + parametric_maps_generated + tid1500_generated + scoord3d_generated;
@@ -6194,7 +6203,7 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
         .expect("manifest should contain skipped cases");
     assert_eq!(
         skipped_cases.len(),
-        40 - parametric_maps_generated
+        39 - parametric_maps_generated
             - tid1500_generated
             - scoord3d_generated
             - if cfg!(feature = "deflate") { 2 } else { 0 }
@@ -7808,7 +7817,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\tall"));
-    let native_all_files = 136
+    let native_all_files = 137
         + if cfg!(feature = "deflate") { 2 } else { 0 }
         + if cfg!(feature = "jpeg") { 1 } else { 0 }
         + if cfg!(feature = "charls") { 1 } else { 0 }
@@ -7871,6 +7880,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
         .unwrap_or(0);
     assert!(matches!(scoord3d_generated, 0 | 1));
     file_entry_by_case_id(&manifest, "derived/registration/spatial_ct_pair");
+    file_entry_by_case_id(&manifest, "derived/registration/deformable_ct_pair");
     let expected_all_files =
         native_all_files + parametric_maps_generated + tid1500_generated + scoord3d_generated;
     assert!(stdout.contains(&format!("files_written\t{expected_all_files}")));
@@ -8040,7 +8050,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
         .expect("manifest should contain skipped cases");
     assert_eq!(
         skipped_cases.len(),
-        40 - parametric_maps_generated
+        39 - parametric_maps_generated
             - tid1500_generated
             - scoord3d_generated
             - if cfg!(feature = "deflate") { 2 } else { 0 }

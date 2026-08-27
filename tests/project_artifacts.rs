@@ -742,18 +742,12 @@ fn deformable_registration_source_note_locks_grid_sampling_contract() {
                 == Some("derived/registration/deformable_ct_pair")
         })
         .expect("Deformable Spatial Registration row must exist");
-    assert_eq!(case["status"], "planned");
+    assert_eq!(case["status"], "implemented");
     assert_eq!(case["provider"]["kind"], "rust_native");
     assert_eq!(case["provider"]["id"], "rust_native");
-    assert_eq!(case["roadmap"]["delivery_phase"], "phase-3");
-    assert_eq!(
-        case["blockers"],
-        serde_json::json!([{
-            "code": "recipe_unimplemented",
-            "message": "The deterministic native Deformable Spatial Registration recipe is not implemented.",
-            "recheck_phase": "phase-3"
-        }])
-    );
+    assert!(case["roadmap"].is_null());
+    assert_eq!(case["blockers"], serde_json::json!([]));
+    assert_eq!(case["determinism"], "byte_stable");
 }
 
 #[test]

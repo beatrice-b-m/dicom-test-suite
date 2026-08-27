@@ -447,7 +447,19 @@ independently reconstructs all implicit positions and the exact total pixel
 matrix. Integrated case-scoped conformance accepts no finding. The 229
 unrelated whole-corpus conformance failures remain visible and unallowlisted.
 The registry now contains 146 implemented and 36 planned cases. Milestone 3,
-the deliberately incomplete `TILED_SPARSE` counterpart, is next.
+the deliberately incomplete `TILED_SPARSE` counterpart, is complete as a
+native byte-stable extended-profile slice. It encodes two diagonal tiles and
+two deliberate absences with exact dimension indices, per-frame positions,
+payload and occupancy contracts. Two seed-7 extended roots each contain 111
+strictly valid files and compare byte-for-byte. The authorized case-specific
+`uv`-locked dicom-validator reports zero IOD errors, DCMTK parses the instance,
+and the isolated `uv`-locked highdicom adapter independently reconstructs the
+exact sparse matrix. dicom3tools' incompatible full-grid cardinality result
+remains visible unallowlisted characterization, and the 229 unrelated
+whole-corpus failures remain visible. The registry now contains 147
+implemented and 35 planned cases. Milestone 4, the opt-in stress-profile
+multi-resolution pyramid with thumbnail and label companions, is next; adding
+a full-size pyramid job to ordinary CI remains an explicit decision checkpoint.
 
 ### Phase 5 — Encapsulation, lossy codecs, and video
 

@@ -853,7 +853,14 @@ fn validate_manifest_file(
         expected_sop_instance,
     );
     validate_standard_baseline_elements(failures, relative_path, manifest_path, file, &obj)?;
-    validate_family_standard_elements(failures, relative_path, manifest_path, file, &obj)?;
+    validate_family_standard_elements(
+        failures,
+        relative_path,
+        &path,
+        manifest_path,
+        file,
+        &obj,
+    )?;
     metadata::validate_manifest_metadata(
         relative_path,
         &bytes,
@@ -4658,6 +4665,7 @@ fn validate_standard_baseline_elements(
 fn validate_family_standard_elements(
     failures: &mut Vec<String>,
     relative_path: &str,
+    path: &Path,
     manifest_path: &Path,
     file: &Value,
     obj: &OpenedObject,
@@ -4761,6 +4769,13 @@ fn validate_family_standard_elements(
                 obj,
             )?
         }
+        "Comprehensive 3D SR" => validate_tid1500_standard_elements(
+            failures,
+            relative_path,
+            path,
+            manifest_path,
+            file,
+        )?,
         "RT Structure Set" => validate_rt_structure_set_standard_elements(
             failures,
             relative_path,
@@ -10568,6 +10583,143 @@ fn validate_segmentation_standard_elements(
         }
     }
 
+    Ok(())
+}
+
+fn validate_tid1500_standard_elements(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    path: &Path,
+    manifest_path: &Path,
+    file: &Value,
+) -> Result<(), ValidateError> {
+    let expected = file
+        .get("expected_tid1500")
+        .ok_or(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "Comprehensive 3D SR must declare expected_tid1500",
+        })?;
+    let references = file
+        .get("references")
+        .and_then(Value::as_array)
+        .ok_or(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "TID 1500 references must be an array",
+        })?;
+    if references.len() != 2 {
+        return Err(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "TID 1500 references must contain ordered CT and SEG entries",
+        });
+    }
+    let source_frames = references[0]
+        .get("frame_numbers")
+        .and_then(Value::as_array)
+        .ok_or(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "TID 1500 CT reference frame_numbers must be an array",
+        })?
+        .iter()
+        .map(|value| {
+            value
+                .as_u64()
+                .and_then(|value| u16::try_from(value).ok())
+                .ok_or(ValidateError::ManifestShape {
+                    path: manifest_path.to_path_buf(),
+                    message: "TID 1500 CT reference frame number must fit u16",
+                })
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    let required = |pointer, message| manifest_str(manifest_path, file, pointer, message);
+    let expectations = validation::Tid1500Expectations {
+        sop_class_uid: required(
+            "/dicom/sop_class_uid",
+            "TID 1500 SOP Class UID must be a string",
+        )?,
+        sop_instance_uid: required(
+            "/uids/sop_instance_uid",
+            "TID 1500 SOP Instance UID must be a string",
+        )?,
+        transfer_syntax_uid: required(
+            "/dicom/transfer_syntax_uid",
+            "TID 1500 transfer syntax UID must be a string",
+        )?,
+        implementation_class_uid: required(
+            "/uids/implementation_class_uid",
+            "TID 1500 implementation class UID must be a string",
+        )?,
+        synthetic_data: required(
+            "/expected_semantics/synthetic_data",
+            "TID 1500 Synthetic Data expectation must be a string",
+        )?,
+        modality: required("/dicom/modality", "TID 1500 modality must be a string")?,
+        completion_flag: required(
+            "/expected_tid1500/completion_flag",
+            "TID 1500 completion flag must be a string",
+        )?,
+        verification_flag: required(
+            "/expected_tid1500/verification_flag",
+            "TID 1500 verification flag must be a string",
+        )?,
+        preliminary_flag: required(
+            "/expected_tid1500/preliminary_flag",
+            "TID 1500 preliminary flag must be a string",
+        )?,
+        referenced_study_instance_uid: required(
+            "/uids/study_instance_uid",
+            "TID 1500 study UID must be a string",
+        )?,
+        observer_uid: required(
+            "/expected_tid1500/observation_context/device_observer_uid",
+            "TID 1500 device observer UID must be a string",
+        )?,
+        tracking_identifier: required(
+            "/expected_tid1500/measurement_group/tracking_identifier",
+            "TID 1500 tracking identifier must be a string",
+        )?,
+        tracking_uid: required(
+            "/expected_tid1500/measurement_group/tracking_uid",
+            "TID 1500 tracking UID must be a string",
+        )?,
+        source_series_instance_uid: required(
+            "/expected_tid1500/measurement_group/referenced_segment/source_image/series_instance_uid",
+            "TID 1500 CT series UID must be a string",
+        )?,
+        source_sop_class_uid: required(
+            "/expected_tid1500/measurement_group/referenced_segment/source_image/sop_class_uid",
+            "TID 1500 CT SOP Class UID must be a string",
+        )?,
+        source_sop_instance_uid: required(
+            "/expected_tid1500/measurement_group/referenced_segment/source_image/sop_instance_uid",
+            "TID 1500 CT SOP Instance UID must be a string",
+        )?,
+        source_frame_numbers: &source_frames,
+        segmentation_series_instance_uid: required(
+            "/expected_tid1500/measurement_group/referenced_segment/series_instance_uid",
+            "TID 1500 SEG series UID must be a string",
+        )?,
+        segmentation_sop_class_uid: required(
+            "/expected_tid1500/measurement_group/referenced_segment/sop_class_uid",
+            "TID 1500 SEG SOP Class UID must be a string",
+        )?,
+        segmentation_sop_instance_uid: required(
+            "/expected_tid1500/measurement_group/referenced_segment/sop_instance_uid",
+            "TID 1500 SEG SOP Instance UID must be a string",
+        )?,
+        referenced_segment_number: expected
+            .pointer("/measurement_group/referenced_segment/segment_number")
+            .and_then(Value::as_u64)
+            .and_then(|value| u16::try_from(value).ok())
+            .ok_or(ValidateError::ManifestShape {
+                path: manifest_path.to_path_buf(),
+                message: "TID 1500 referenced segment number must fit u16",
+            })?,
+    };
+    if let Err(error) = validation::validate_tid1500_file(path, &expectations) {
+        failures.push(format!(
+            "{relative_path}: tid1500_content_contract: {error}"
+        ));
+    }
     Ok(())
 }
 

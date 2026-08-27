@@ -77,11 +77,12 @@ use crate::{
         NmEnergyWindowExpectations, NmImageExpectations, Part10Expectations, PetImageExpectations,
         PixelDataLengthFormula, PresentationStateExpectations, RealWorldValueMappingExpectations,
         RtDoseExpectations, RtStructureSetExpectations, SegmentationExpectations,
-        UsImageExpectations, UsMultiframeExpectations, XaImageExpectations, XrfImageExpectations,
+        Tid1500Expectations, UsImageExpectations, UsMultiframeExpectations, XaImageExpectations,
+        XrfImageExpectations,
         validate_basic_text_sr_file, validate_comprehensive_sr_file,
         validate_encapsulated_pdf_file, validate_key_object_selection_file, validate_part10_file,
         validate_presentation_state_file, validate_real_world_value_mapping_file,
-        validate_rt_dose_file, validate_rt_structure_set_file,
+        validate_rt_dose_file, validate_rt_structure_set_file, validate_tid1500_file,
     },
 };
 
@@ -4893,6 +4894,42 @@ fn tid1500_generated_file(
             message: "TID 1500 SEG source series UID is missing",
         },
     )?;
+    let source_frame_numbers = [1, 2];
+    let validated = validate_tid1500_file(
+        &generated.output_path,
+        &Tid1500Expectations {
+            sop_class_uid: TID1500_SOP_CLASS_UID,
+            sop_instance_uid: &generated.identities.sop_instance_uid,
+            transfer_syntax_uid: PARAMETRIC_MAP_TRANSFER_SYNTAX_UID,
+            implementation_class_uid: meta.implementation_class_uid(),
+            synthetic_data: "YES",
+            modality: "SR",
+            completion_flag: "COMPLETE",
+            verification_flag: "UNVERIFIED",
+            preliminary_flag: "FINAL",
+            referenced_study_instance_uid: &generated.identities.study_instance_uid,
+            observer_uid: &generated.identities.observer_uid,
+            tracking_identifier: "DTS-TID1500-ROI-1",
+            tracking_uid: &generated.identities.tracking_uid,
+            source_series_instance_uid: ct_series,
+            source_sop_class_uid: &ct_source.sop_class_uid,
+            source_sop_instance_uid: &ct_source.sop_instance_uid,
+            source_frame_numbers: &source_frame_numbers,
+            segmentation_series_instance_uid: seg_series,
+            segmentation_sop_class_uid: &seg_source.sop_class_uid,
+            segmentation_sop_instance_uid: &seg_source.sop_instance_uid,
+            referenced_segment_number: 1,
+        },
+    )?;
+    let mut validation = validated.validation;
+    validation["internal"]
+        .as_array_mut()
+        .expect("TID 1500 validation internal results are an array")
+        .push(serde_json::json!({
+            "name": "external_backend_contract",
+            "status": "passed",
+            "message": "The locked backend response and provenance satisfied protocol 0.1.0."
+        }));
     let expected_tid1500 = serde_json::json!({
         "completion_flag": "COMPLETE",
         "preliminary_flag": "FINAL",
@@ -5015,23 +5052,13 @@ fn tid1500_generated_file(
                     "preliminary_flag": "FINAL",
                     "verification_flag": "UNVERIFIED",
                     "root_value_type": "CONTAINER",
-                    "root_continuity_of_content": "CONTINUOUS"
+                    "root_continuity_of_content": "CONTINUOUS",
+                    "content_sequence_items": 8
                 }
             },
             "expected_tid1500": expected_tid1500,
             "expected_visual_checks": {"pattern": "tid1500_volume_measurement_from_binary_segmentation"},
-            "validation": {
-                "status": "passed",
-                "internal": [
-                    {"name": "external_backend_contract", "status": "passed", "message": "The locked backend response and provenance satisfied protocol 0.1.0."},
-                    {"name": "promoted_part10_reopened", "status": "passed", "message": "The promoted Comprehensive 3D SR reopened without pixel payload."}
-                ],
-                "standards": [
-                    {"name": "comprehensive_3d_sr_storage_sop_class", "status": "passed", "message": "The output uses Comprehensive 3D SR Storage."},
-                    {"name": "tid1500_measurement_report", "status": "passed", "message": "The manifest locks the TID 1500 and TID 1411 content contract."}
-                ],
-                "external": []
-            },
+            "validation": validation,
             "known_stressors": [
                 "comprehensive_3d_sr_storage", "tid1500_measurement_report",
                 "tid1411_measurement_group", "referenced_segment",

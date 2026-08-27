@@ -185,6 +185,31 @@ pub(crate) struct ComprehensiveSrExpectations<'a> {
 }
 
 #[derive(Debug, Clone)]
+pub(crate) struct Tid1500Expectations<'a> {
+    pub sop_class_uid: &'a str,
+    pub sop_instance_uid: &'a str,
+    pub transfer_syntax_uid: &'a str,
+    pub implementation_class_uid: &'a str,
+    pub synthetic_data: &'a str,
+    pub modality: &'a str,
+    pub completion_flag: &'a str,
+    pub verification_flag: &'a str,
+    pub preliminary_flag: &'a str,
+    pub referenced_study_instance_uid: &'a str,
+    pub observer_uid: &'a str,
+    pub tracking_identifier: &'a str,
+    pub tracking_uid: &'a str,
+    pub source_series_instance_uid: &'a str,
+    pub source_sop_class_uid: &'a str,
+    pub source_sop_instance_uid: &'a str,
+    pub source_frame_numbers: &'a [u16],
+    pub segmentation_series_instance_uid: &'a str,
+    pub segmentation_sop_class_uid: &'a str,
+    pub segmentation_sop_instance_uid: &'a str,
+    pub referenced_segment_number: u16,
+}
+
+#[derive(Debug, Clone)]
 pub(crate) struct KeyObjectReferenceExpectations<'a> {
     pub referenced_series_instance_uid: &'a str,
     pub referenced_sop_class_uid: &'a str,
@@ -2292,6 +2317,601 @@ pub(crate) fn validate_comprehensive_sr_file(
                     "name": "comprehensive_sr_modules",
                     "status": "passed",
                     "message": "Comprehensive SR document flags, evidence, numeric measurement, and image reference match the recipe."
+                }
+            ],
+            "external": []
+        }),
+    })
+}
+
+pub(crate) fn validate_tid1500_file(
+    path: &Path,
+    expected: &Tid1500Expectations<'_>,
+) -> Result<ValidatedPart10, GenerateError> {
+    let bytes = fs::read(path).map_err(|source| GenerateError::ReadGeneratedFile {
+        path: path.to_path_buf(),
+        source,
+    })?;
+    let obj = open_file(path).map_err(|err| GenerateError::ValidateDicomFile {
+        path: path.to_path_buf(),
+        message: err.to_string(),
+    })?;
+    let mut internal = Vec::new();
+
+    check(
+        &mut internal,
+        bytes.len() >= 132 && &bytes[128..132] == b"DICM",
+        "tid1500_part10_preamble",
+        "TID 1500 file has a Part 10 preamble and DICM marker.",
+        "TID 1500 file is missing its Part 10 preamble or DICM marker.",
+    );
+    check_equal(
+        &mut internal,
+        "tid1500_file_meta_transfer_syntax",
+        "File Meta Information Transfer Syntax UID matches the recipe.",
+        "File Meta Information Transfer Syntax UID does not match the recipe.",
+        trim_uid(obj.meta().transfer_syntax()).as_str(),
+        expected.transfer_syntax_uid,
+    );
+    let dataset_sop_class = element_str(path, &obj, tags::SOP_CLASS_UID)?;
+    check_equal(
+        &mut internal,
+        "tid1500_sop_class_uid_consistency",
+        "Dataset, File Meta, and recipe SOP Class UIDs identify Comprehensive 3D SR.",
+        "Dataset, File Meta, or recipe SOP Class UID differs.",
+        dataset_sop_class.as_str(),
+        expected.sop_class_uid,
+    );
+    check_equal(
+        &mut internal,
+        "tid1500_media_storage_sop_class_uid",
+        "File Meta SOP Class UID matches the dataset.",
+        "File Meta SOP Class UID does not match the dataset.",
+        trim_uid(obj.meta().media_storage_sop_class_uid()).as_str(),
+        dataset_sop_class.as_str(),
+    );
+    let dataset_sop_instance = element_str(path, &obj, tags::SOP_INSTANCE_UID)?;
+    check_equal(
+        &mut internal,
+        "tid1500_sop_instance_uid_consistency",
+        "Dataset, File Meta, and recipe SOP Instance UIDs match.",
+        "Dataset, File Meta, or recipe SOP Instance UID differs.",
+        dataset_sop_instance.as_str(),
+        expected.sop_instance_uid,
+    );
+    check_equal(
+        &mut internal,
+        "tid1500_media_storage_sop_instance_uid",
+        "File Meta SOP Instance UID matches the dataset.",
+        "File Meta SOP Instance UID does not match the dataset.",
+        trim_uid(obj.meta().media_storage_sop_instance_uid()).as_str(),
+        dataset_sop_instance.as_str(),
+    );
+    check_equal(
+        &mut internal,
+        "tid1500_implementation_class_uid",
+        "Implementation Class UID matches the locked backend identity.",
+        "Implementation Class UID does not match the locked backend identity.",
+        trim_uid(obj.meta().implementation_class_uid()).as_str(),
+        expected.implementation_class_uid,
+    );
+    for (name, tag, value) in [
+        (
+            "tid1500_synthetic_data",
+            tags::SYNTHETIC_DATA,
+            expected.synthetic_data,
+        ),
+        ("tid1500_modality", tags::MODALITY, expected.modality),
+        (
+            "tid1500_completion_flag",
+            tags::COMPLETION_FLAG,
+            expected.completion_flag,
+        ),
+        (
+            "tid1500_verification_flag",
+            tags::VERIFICATION_FLAG,
+            expected.verification_flag,
+        ),
+        (
+            "tid1500_preliminary_flag",
+            tags::PRELIMINARY_FLAG,
+            expected.preliminary_flag,
+        ),
+    ] {
+        check_equal(
+            &mut internal,
+            name,
+            "TID 1500 document attribute matches the recipe.",
+            "TID 1500 document attribute does not match the recipe.",
+            element_str(path, &obj, tag)?.as_str(),
+            value,
+        );
+    }
+    check_equal(
+        &mut internal,
+        "tid1500_root_value_type",
+        "TID 1500 root Value Type is CONTAINER.",
+        "TID 1500 root Value Type is not CONTAINER.",
+        element_str(path, &obj, tags::VALUE_TYPE)?.as_str(),
+        "CONTAINER",
+    );
+    check_equal(
+        &mut internal,
+        "tid1500_root_continuity",
+        "Highdicom TID 1500 root Continuity of Content is CONTINUOUS.",
+        "Highdicom TID 1500 root Continuity of Content is not CONTINUOUS.",
+        element_str(path, &obj, tags::CONTINUITY_OF_CONTENT)?.as_str(),
+        "CONTINUOUS",
+    );
+    validate_sr_code(
+        &mut internal,
+        path,
+        &obj,
+        tags::CONCEPT_NAME_CODE_SEQUENCE,
+        "tid1500_document_title",
+        "126000",
+        "DCM",
+        "Imaging Measurement Report",
+    )?;
+    let root_template = top_level_sequence_item(path, &obj, tags::CONTENT_TEMPLATE_SEQUENCE, 0)?;
+    check_equal(
+        &mut internal,
+        "tid1500_root_mapping_resource",
+        "Root Content Template Sequence identifies DCMR.",
+        "Root Content Template Sequence does not identify DCMR.",
+        item_str(path, root_template, tags::MAPPING_RESOURCE)?.as_str(),
+        "DCMR",
+    );
+    check_equal(
+        &mut internal,
+        "tid1500_root_template_identifier",
+        "Root Content Template Sequence identifies TID 1500.",
+        "Root Content Template Sequence does not identify TID 1500.",
+        item_str(path, root_template, tags::TEMPLATE_IDENTIFIER)?.as_str(),
+        "1500",
+    );
+    check_equal(
+        &mut internal,
+        "tid1500_root_content_count",
+        "TID 1500 root contains the exact highdicom content tree.",
+        "TID 1500 root content item count differs from the highdicom contract.",
+        sequence_item_count(path, &obj, tags::CONTENT_SEQUENCE)?,
+        8,
+    );
+
+    let language = top_level_sequence_item(path, &obj, tags::CONTENT_SEQUENCE, 0)?;
+    validate_sr_content_item(
+        &mut internal,
+        path,
+        language,
+        "tid1500_language",
+        "HAS CONCEPT MOD",
+        "CODE",
+        "121049",
+        "DCM",
+        "Language of Content Item and Descendants",
+    )?;
+    validate_sr_code(
+        &mut internal,
+        path,
+        language,
+        tags::CONCEPT_CODE_SEQUENCE,
+        "tid1500_language_value",
+        "en-US",
+        "RFC5646",
+        "English (United States)",
+    )?;
+
+    let observer_type = top_level_sequence_item(path, &obj, tags::CONTENT_SEQUENCE, 1)?;
+    validate_sr_content_item(
+        &mut internal,
+        path,
+        observer_type,
+        "tid1500_observer_type",
+        "HAS OBS CONTEXT",
+        "CODE",
+        "121005",
+        "DCM",
+        "Observer Type",
+    )?;
+    validate_sr_code(
+        &mut internal,
+        path,
+        observer_type,
+        tags::CONCEPT_CODE_SEQUENCE,
+        "tid1500_observer_type_value",
+        "121007",
+        "DCM",
+        "Device",
+    )?;
+    let observer_uid = top_level_sequence_item(path, &obj, tags::CONTENT_SEQUENCE, 2)?;
+    validate_sr_content_item(
+        &mut internal,
+        path,
+        observer_uid,
+        "tid1500_observer_uid",
+        "HAS OBS CONTEXT",
+        "UIDREF",
+        "121012",
+        "DCM",
+        "Device Observer UID",
+    )?;
+    check_equal(
+        &mut internal,
+        "tid1500_observer_uid_value",
+        "Device Observer UID matches the deterministic recipe UID.",
+        "Device Observer UID does not match the deterministic recipe UID.",
+        item_str(path, observer_uid, tags::UID)?.as_str(),
+        expected.observer_uid,
+    );
+
+    let procedure = top_level_sequence_item(path, &obj, tags::CONTENT_SEQUENCE, 6)?;
+    validate_sr_content_item(
+        &mut internal,
+        path,
+        procedure,
+        "tid1500_procedure_reported",
+        "HAS CONCEPT MOD",
+        "CODE",
+        "121058",
+        "DCM",
+        "Procedure reported",
+    )?;
+    validate_sr_code(
+        &mut internal,
+        path,
+        procedure,
+        tags::CONCEPT_CODE_SEQUENCE,
+        "tid1500_procedure_value",
+        "25045-6",
+        "LN",
+        "CT unspecified body region",
+    )?;
+
+    let imaging = top_level_sequence_item(path, &obj, tags::CONTENT_SEQUENCE, 7)?;
+    validate_sr_content_item(
+        &mut internal,
+        path,
+        imaging,
+        "tid1500_imaging_measurements",
+        "CONTAINS",
+        "CONTAINER",
+        "126010",
+        "DCM",
+        "Imaging Measurements",
+    )?;
+    check_equal(
+        &mut internal,
+        "tid1500_imaging_measurements_children",
+        "Imaging Measurements contains one Measurement Group.",
+        "Imaging Measurements child count does not match the recipe.",
+        item_sequence_item_count(path, imaging, tags::CONTENT_SEQUENCE)?,
+        1,
+    );
+    let group = item_sequence_item(path, imaging, tags::CONTENT_SEQUENCE, 0)?;
+    validate_sr_content_item(
+        &mut internal,
+        path,
+        group,
+        "tid1500_measurement_group",
+        "CONTAINS",
+        "CONTAINER",
+        "125007",
+        "DCM",
+        "Measurement Group",
+    )?;
+    let group_template = item_sequence_item(path, group, tags::CONTENT_TEMPLATE_SEQUENCE, 0)?;
+    check_equal(
+        &mut internal,
+        "tid1500_measurement_group_mapping_resource",
+        "Measurement Group identifies DCMR.",
+        "Measurement Group Mapping Resource does not identify DCMR.",
+        item_str(path, group_template, tags::MAPPING_RESOURCE)?.as_str(),
+        "DCMR",
+    );
+    check_equal(
+        &mut internal,
+        "tid1500_measurement_group_template_identifier",
+        "Measurement Group identifies TID 1411.",
+        "Measurement Group does not identify TID 1411.",
+        item_str(path, group_template, tags::TEMPLATE_IDENTIFIER)?.as_str(),
+        "1411",
+    );
+    check_equal(
+        &mut internal,
+        "tid1500_measurement_group_children",
+        "TID 1411 Measurement Group has six ordered content items.",
+        "TID 1411 Measurement Group content item count differs from the recipe.",
+        item_sequence_item_count(path, group, tags::CONTENT_SEQUENCE)?,
+        6,
+    );
+
+    let tracking = item_sequence_item(path, group, tags::CONTENT_SEQUENCE, 0)?;
+    validate_sr_content_item(
+        &mut internal,
+        path,
+        tracking,
+        "tid1500_tracking_identifier",
+        "HAS OBS CONTEXT",
+        "TEXT",
+        "112039",
+        "DCM",
+        "Tracking Identifier",
+    )?;
+    check_equal(
+        &mut internal,
+        "tid1500_tracking_identifier_value",
+        "Tracking Identifier matches the recipe.",
+        "Tracking Identifier does not match the recipe.",
+        item_str(path, tracking, tags::TEXT_VALUE)?.as_str(),
+        expected.tracking_identifier,
+    );
+    let tracking_uid = item_sequence_item(path, group, tags::CONTENT_SEQUENCE, 1)?;
+    validate_sr_content_item(
+        &mut internal,
+        path,
+        tracking_uid,
+        "tid1500_tracking_uid",
+        "HAS OBS CONTEXT",
+        "UIDREF",
+        "112040",
+        "DCM",
+        "Tracking Unique Identifier",
+    )?;
+    check_equal(
+        &mut internal,
+        "tid1500_tracking_uid_value",
+        "Tracking Unique Identifier matches the recipe.",
+        "Tracking Unique Identifier does not match the recipe.",
+        item_str(path, tracking_uid, tags::UID)?.as_str(),
+        expected.tracking_uid,
+    );
+    let finding = item_sequence_item(path, group, tags::CONTENT_SEQUENCE, 2)?;
+    validate_sr_content_item(
+        &mut internal,
+        path,
+        finding,
+        "tid1500_finding",
+        "CONTAINS",
+        "CODE",
+        "121071",
+        "DCM",
+        "Finding",
+    )?;
+    validate_sr_code(
+        &mut internal,
+        path,
+        finding,
+        tags::CONCEPT_CODE_SEQUENCE,
+        "tid1500_finding_value",
+        "123037004",
+        "SCT",
+        "Body structure",
+    )?;
+
+    let measurement = item_sequence_item(path, group, tags::CONTENT_SEQUENCE, 3)?;
+    validate_sr_content_item(
+        &mut internal,
+        path,
+        measurement,
+        "tid1500_volume_measurement",
+        "CONTAINS",
+        "NUM",
+        "118565006",
+        "SCT",
+        "Volume",
+    )?;
+    let measured_value = item_sequence_item(path, measurement, tags::MEASURED_VALUE_SEQUENCE, 0)?;
+    check_equal(
+        &mut internal,
+        "tid1500_numeric_value",
+        "Volume Numeric Value is exactly 5.625.",
+        "Volume Numeric Value is not exactly 5.625.",
+        item_str(path, measured_value, tags::NUMERIC_VALUE)?.as_str(),
+        "5.625",
+    );
+    check_equal(
+        &mut internal,
+        "tid1500_floating_point_value",
+        "Volume Floating Point Value is exactly 5.625.",
+        "Volume Floating Point Value is not exactly 5.625.",
+        item_f64(path, measured_value, tags::FLOATING_POINT_VALUE)?,
+        5.625,
+    );
+    validate_sr_code(
+        &mut internal,
+        path,
+        measured_value,
+        tags::MEASUREMENT_UNITS_CODE_SEQUENCE,
+        "tid1500_measurement_units",
+        "mm3",
+        "UCUM",
+        "cubic millimeter",
+    )?;
+
+    let referenced_segment = item_sequence_item(path, group, tags::CONTENT_SEQUENCE, 4)?;
+    validate_sr_content_item(
+        &mut internal,
+        path,
+        referenced_segment,
+        "tid1500_referenced_segment",
+        "CONTAINS",
+        "IMAGE",
+        "121191",
+        "DCM",
+        "Referenced Segment",
+    )?;
+    let segment_sop =
+        item_sequence_item(path, referenced_segment, tags::REFERENCED_SOP_SEQUENCE, 0)?;
+    check_sr_reference(
+        &mut internal,
+        path,
+        segment_sop,
+        "tid1500_referenced_segment",
+        expected.segmentation_sop_class_uid,
+        expected.segmentation_sop_instance_uid,
+    )?;
+    check_equal(
+        &mut internal,
+        "tid1500_referenced_segment_number",
+        "Referenced Segment identifies segment 1.",
+        "Referenced Segment number does not match the recipe.",
+        item_u16(path, segment_sop, TAG_REFERENCED_SEGMENT_NUMBER)?,
+        expected.referenced_segment_number,
+    );
+    check(
+        &mut internal,
+        segment_sop
+            .element_opt(TAG_REFERENCED_FRAME_NUMBER)
+            .map_err(|err| validation_error(path, err))?
+            .is_none(),
+        "tid1500_referenced_segment_frame_absent",
+        "Referenced Segment correctly omits Referenced Frame Number.",
+        "Referenced Segment unexpectedly includes Referenced Frame Number.",
+    );
+
+    let source_image = item_sequence_item(path, group, tags::CONTENT_SEQUENCE, 5)?;
+    validate_sr_content_item(
+        &mut internal,
+        path,
+        source_image,
+        "tid1500_source_image_for_segmentation",
+        "CONTAINS",
+        "IMAGE",
+        "121233",
+        "DCM",
+        "Source image for segmentation",
+    )?;
+    let source_sop = item_sequence_item(path, source_image, tags::REFERENCED_SOP_SEQUENCE, 0)?;
+    check_sr_reference(
+        &mut internal,
+        path,
+        source_sop,
+        "tid1500_source_image",
+        expected.source_sop_class_uid,
+        expected.source_sop_instance_uid,
+    )?;
+    let source_frames = item_i32_values(path, source_sop, TAG_REFERENCED_FRAME_NUMBER)?;
+    let expected_source_frames = expected
+        .source_frame_numbers
+        .iter()
+        .map(|number| i32::from(*number))
+        .collect::<Vec<_>>();
+    check_equal(
+        &mut internal,
+        "tid1500_source_image_frames",
+        "Source image for segmentation references CT frames 1 and 2.",
+        "Source image for segmentation frame references do not match the recipe.",
+        source_frames,
+        expected_source_frames,
+    );
+
+    let evidence = top_level_sequence_item(
+        path,
+        &obj,
+        tags::CURRENT_REQUESTED_PROCEDURE_EVIDENCE_SEQUENCE,
+        0,
+    )?;
+    check_equal(
+        &mut internal,
+        "tid1500_evidence_study_instance_uid",
+        "Evidence Study Instance UID matches the source study.",
+        "Evidence Study Instance UID does not match the source study.",
+        item_str(path, evidence, tags::STUDY_INSTANCE_UID)?.as_str(),
+        expected.referenced_study_instance_uid,
+    );
+    check_equal(
+        &mut internal,
+        "tid1500_evidence_series_count",
+        "Evidence contains ordered CT then SEG series entries.",
+        "Evidence does not contain exactly two ordered series entries.",
+        item_sequence_item_count(path, evidence, tags::REFERENCED_SERIES_SEQUENCE)?,
+        2,
+    );
+    for (index, prefix, series_uid, sop_class_uid, sop_instance_uid) in [
+        (
+            0,
+            "tid1500_evidence_ct",
+            expected.source_series_instance_uid,
+            expected.source_sop_class_uid,
+            expected.source_sop_instance_uid,
+        ),
+        (
+            1,
+            "tid1500_evidence_seg",
+            expected.segmentation_series_instance_uid,
+            expected.segmentation_sop_class_uid,
+            expected.segmentation_sop_instance_uid,
+        ),
+    ] {
+        let series = item_sequence_item(path, evidence, tags::REFERENCED_SERIES_SEQUENCE, index)?;
+        check_equal(
+            &mut internal,
+            &format!("{prefix}_series_instance_uid"),
+            "Evidence series identity and order match the recipe.",
+            "Evidence series identity or order does not match the recipe.",
+            item_str(path, series, tags::SERIES_INSTANCE_UID)?.as_str(),
+            series_uid,
+        );
+        check_equal(
+            &mut internal,
+            &format!("{prefix}_sop_count"),
+            "Evidence series contains exactly one SOP reference.",
+            "Evidence series SOP reference count does not match the recipe.",
+            item_sequence_item_count(path, series, tags::REFERENCED_SOP_SEQUENCE)?,
+            1,
+        );
+        let sop = item_sequence_item(path, series, tags::REFERENCED_SOP_SEQUENCE, 0)?;
+        check_sr_reference(
+            &mut internal,
+            path,
+            sop,
+            prefix,
+            sop_class_uid,
+            sop_instance_uid,
+        )?;
+    }
+
+    for (name, tag) in [
+        ("tid1500_integer_pixel_data_absent", tags::PIXEL_DATA),
+        ("tid1500_float_pixel_data_absent", tags::FLOAT_PIXEL_DATA),
+        (
+            "tid1500_double_float_pixel_data_absent",
+            tags::DOUBLE_FLOAT_PIXEL_DATA,
+        ),
+    ] {
+        check(
+            &mut internal,
+            obj.element_opt(tag)
+                .map_err(|err| validation_error(path, err))?
+                .is_none(),
+            name,
+            "Structured Report contains no pixel payload.",
+            "Structured Report unexpectedly contains pixel payload.",
+        );
+    }
+
+    fail_if_any_failed(path, &internal)?;
+    Ok(ValidatedPart10 {
+        bytes,
+        validation: serde_json::json!({
+            "status": "passed",
+            "internal": internal,
+            "standards": [
+                {
+                    "name": standard_sop_class_validation_name(expected.sop_class_uid),
+                    "status": "passed",
+                    "message": standard_sop_class_validation_message(expected.sop_class_uid)
+                },
+                {
+                    "name": standard_transfer_syntax_validation_name(expected.transfer_syntax_uid),
+                    "status": "passed",
+                    "message": standard_transfer_syntax_validation_message(expected.transfer_syntax_uid)
+                },
+                {
+                    "name": "tid1500_measurement_report",
+                    "status": "passed",
+                    "message": "TID 1500, TID 1411, measurement, SEG/source references, and evidence closure match the recipe."
                 }
             ],
             "external": []
@@ -8230,6 +8850,106 @@ fn nested_sequence_item_f64_values(
         .value()
         .to_multi_float64()
         .map_err(|err| validation_error(path, err))
+}
+
+#[allow(clippy::too_many_arguments)]
+fn validate_sr_code(
+    results: &mut Vec<Value>,
+    path: &Path,
+    obj: &DatasetObject,
+    sequence_tag: Tag,
+    prefix: &str,
+    expected_code_value: &str,
+    expected_coding_scheme: &str,
+    expected_code_meaning: &str,
+) -> Result<(), GenerateError> {
+    let code = item_sequence_item(path, obj, sequence_tag, 0)?;
+    for (suffix, tag, expected) in [
+        ("code_value", tags::CODE_VALUE, expected_code_value),
+        (
+            "coding_scheme_designator",
+            tags::CODING_SCHEME_DESIGNATOR,
+            expected_coding_scheme,
+        ),
+        ("code_meaning", tags::CODE_MEANING, expected_code_meaning),
+    ] {
+        check_equal(
+            results,
+            &format!("{prefix}_{suffix}"),
+            "Structured Report coded value matches the recipe.",
+            "Structured Report coded value does not match the recipe.",
+            item_str(path, code, tag)?.as_str(),
+            expected,
+        );
+    }
+    Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
+fn validate_sr_content_item(
+    results: &mut Vec<Value>,
+    path: &Path,
+    item: &DatasetObject,
+    prefix: &str,
+    expected_relationship: &str,
+    expected_value_type: &str,
+    expected_code_value: &str,
+    expected_coding_scheme: &str,
+    expected_code_meaning: &str,
+) -> Result<(), GenerateError> {
+    check_equal(
+        results,
+        &format!("{prefix}_relationship_type"),
+        "Structured Report relationship type matches the recipe.",
+        "Structured Report relationship type does not match the recipe.",
+        item_str(path, item, tags::RELATIONSHIP_TYPE)?.as_str(),
+        expected_relationship,
+    );
+    check_equal(
+        results,
+        &format!("{prefix}_value_type"),
+        "Structured Report value type matches the recipe.",
+        "Structured Report value type does not match the recipe.",
+        item_str(path, item, tags::VALUE_TYPE)?.as_str(),
+        expected_value_type,
+    );
+    validate_sr_code(
+        results,
+        path,
+        item,
+        tags::CONCEPT_NAME_CODE_SEQUENCE,
+        prefix,
+        expected_code_value,
+        expected_coding_scheme,
+        expected_code_meaning,
+    )
+}
+
+fn check_sr_reference(
+    results: &mut Vec<Value>,
+    path: &Path,
+    reference: &DatasetObject,
+    prefix: &str,
+    expected_sop_class_uid: &str,
+    expected_sop_instance_uid: &str,
+) -> Result<(), GenerateError> {
+    check_equal(
+        results,
+        &format!("{prefix}_sop_class_uid"),
+        "Structured Report reference SOP Class UID matches the recipe.",
+        "Structured Report reference SOP Class UID does not match the recipe.",
+        item_str(path, reference, TAG_REFERENCED_SOP_CLASS_UID)?.as_str(),
+        expected_sop_class_uid,
+    );
+    check_equal(
+        results,
+        &format!("{prefix}_sop_instance_uid"),
+        "Structured Report reference SOP Instance UID matches the recipe.",
+        "Structured Report reference SOP Instance UID does not match the recipe.",
+        item_str(path, reference, TAG_REFERENCED_SOP_INSTANCE_UID)?.as_str(),
+        expected_sop_instance_uid,
+    );
+    Ok(())
 }
 
 fn item_str(path: &Path, obj: &DatasetObject, tag: Tag) -> Result<String, GenerateError> {

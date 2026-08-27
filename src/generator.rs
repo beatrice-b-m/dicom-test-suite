@@ -66,7 +66,9 @@ use crate::{
         ParametricMapIdentities, ParametricMapPayload, ParametricMapSampleKind,
         ParametricMapSource, ParametricMapSpec, ParametricMapVariantGenerated,
         ParametricMapVariantOutcome, StandardsProvenance, Tid1500Generated, Tid1500GenerationInput,
-        Tid1500Identities, Tid1500Outcome, generate_parametric_map_for_spec, generate_tid1500,
+        Tid1500Identities, Tid1500Outcome, Scoord3dGenerated, Scoord3dGenerationInput,
+        Scoord3dIdentities, Scoord3dOutcome, generate_parametric_map_for_spec, generate_scoord3d,
+        generate_tid1500,
     },
     sha256_hex,
     validation::{
@@ -77,11 +79,13 @@ use crate::{
         NmEnergyWindowExpectations, NmImageExpectations, Part10Expectations, PetImageExpectations,
         PixelDataLengthFormula, PresentationStateExpectations, RealWorldValueMappingExpectations,
         RtDoseExpectations, RtStructureSetExpectations, SegmentationExpectations,
-        Tid1500Expectations, UsImageExpectations, UsMultiframeExpectations, XaImageExpectations,
-        XrfImageExpectations, validate_basic_text_sr_file, validate_comprehensive_sr_file,
+        Scoord3dExpectations, Tid1500Expectations, UsImageExpectations, UsMultiframeExpectations,
+        XaImageExpectations, XrfImageExpectations, validate_basic_text_sr_file,
+        validate_comprehensive_sr_file,
         validate_encapsulated_pdf_file, validate_key_object_selection_file, validate_part10_file,
         validate_presentation_state_file, validate_real_world_value_mapping_file,
-        validate_rt_dose_file, validate_rt_structure_set_file, validate_tid1500_file,
+        validate_rt_dose_file, validate_rt_structure_set_file, validate_scoord3d_file,
+        validate_tid1500_file,
     },
 };
 
@@ -170,6 +174,12 @@ const TID1500_OUTPUT_FILE: &str = "measurement-report.dcm";
 const TID1500_SOP_CLASS_UID: &str = "1.2.840.10008.5.1.4.1.1.88.34";
 const TID1500_CT_SOURCE_CASE_ID: &str = "enhanced/ct/multiframe_shared_perframe_explicit_le";
 const TID1500_SEG_SOURCE_CASE_ID: &str = "derived/seg/binary_multiframe_explicit_le";
+const SCOORD3D_CASE_ID: &str = "derived/sr/comprehensive3d_scoord3d";
+const SCOORD3D_RECIPE_ID: &str = "derived_sr_comprehensive3d_scoord3d";
+const SCOORD3D_RECIPE_VERSION: &str = "0.1.0";
+const SCOORD3D_OUTPUT_FILE: &str = "scoord3d-report.dcm";
+const SCOORD3D_SOP_CLASS_UID: &str = "1.2.840.10008.5.1.4.1.1.88.34";
+const SCOORD3D_CT_SOURCE_CASE_ID: &str = "enhanced/ct/multiframe_shared_perframe_explicit_le";
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct TransferSyntaxSpec {
     capability_keyword: &'static str,
@@ -3820,6 +3830,22 @@ pub(crate) fn write_supported_cases(
             }
         }
     }
+    if let Some(case) = registry_case(registry, SCOORD3D_CASE_ID)? {
+        if should_generate_case(case, run)? {
+            let ct_source = context
+                .source_registry()
+                .first_for_case(SCOORD3D_CT_SOURCE_CASE_ID)
+                .cloned()
+                .ok_or_else(|| GenerateError::MetadataShape {
+                    path: PathBuf::from(SCOORD3D_CASE_ID),
+                    message: "SCOORD3D Enhanced CT source must be generated before the report",
+                })?;
+            match write_scoord3d_case(run, case, &ct_source, standards_lock_sha256)? {
+                Scoord3dCaseOutcome::Generated(file) => context.record_one(file)?,
+                Scoord3dCaseOutcome::Unavailable(row) => context.unavailable_cases.push(row),
+            }
+        }
+    }
     for recipe in PRESENTATION_STATE_RECIPES {
         let Some(case) = registry_case(registry, recipe.case_id)? else {
             continue;
@@ -5072,6 +5098,340 @@ fn tid1500_generated_file(
                 "comprehensive_3d_sr_storage", "tid1500_measurement_report",
                 "tid1411_measurement_group", "referenced_segment",
                 "cross_instance_references", "external_generation_backend"
+            ],
+            "standards_evidence": deduplicated_standards_evidence(standards_evidence_from_case(case))
+        }),
+    })
+}
+
+enum Scoord3dCaseOutcome {
+    Generated(GeneratedFile),
+    Unavailable(Value),
+}
+
+fn write_scoord3d_case(
+    run: &PreparedGenerationRun,
+    case: &Value,
+    ct_source: &GeneratedSourceObject,
+    standards_lock_sha256: &str,
+) -> Result<Scoord3dCaseOutcome, GenerateError> {
+    let ct_series_instance_uid = ct_source.series_instance_uid.as_deref().ok_or(
+        GenerateError::MetadataShape {
+            path: PathBuf::from(SCOORD3D_CASE_ID),
+            message: "SCOORD3D Enhanced CT source must record a Series Instance UID",
+        },
+    )?;
+    let frame_of_reference_uid = ct_source.frame_of_reference_uid.as_deref().ok_or(
+        GenerateError::MetadataShape {
+            path: PathBuf::from(SCOORD3D_CASE_ID),
+            message: "SCOORD3D Enhanced CT source must record a Frame of Reference UID",
+        },
+    )?;
+    if ct_source.frame_count != Some(2) {
+        return Err(GenerateError::MetadataShape {
+            path: PathBuf::from(SCOORD3D_CASE_ID),
+            message: "SCOORD3D Enhanced CT source must contain exactly two frames",
+        });
+    }
+
+    let uid = |role, referenced_object_index| {
+        deterministic_uid(&DeterministicUidInput {
+            standards_lock_sha256,
+            case_id: SCOORD3D_CASE_ID,
+            recipe_version: SCOORD3D_RECIPE_VERSION,
+            run_seed: run.seed,
+            file_index: 0,
+            frame_index: None,
+            referenced_object_index,
+            role,
+        })
+    };
+    let identities = Scoord3dIdentities {
+        study_instance_uid: ct_source.study_instance_uid.clone(),
+        series_instance_uid: uid(UidRole::SeriesInstance, None),
+        frame_of_reference_uid: frame_of_reference_uid.to_string(),
+        sop_instance_uid: uid(UidRole::SopInstance, None),
+        tracking_uid: uid(UidRole::DerivedReference, Some(0)),
+        observer_uid: uid(UidRole::DerivedReference, Some(1)),
+        fiducial_uid: uid(UidRole::DerivedReference, Some(2)),
+    };
+    let standards_lock_path = PathBuf::from("standards.lock.json");
+    let standards_lock_bytes =
+        fs::read(&standards_lock_path).map_err(|source| GenerateError::ReadMetadata {
+            path: standards_lock_path.clone(),
+            source,
+        })?;
+    let standards_lock: Value = serde_json::from_slice(&standards_lock_bytes).map_err(|source| {
+        GenerateError::ParseMetadata {
+            path: standards_lock_path,
+            source,
+        }
+    })?;
+    let staging = ParametricMapStagingGuard::new();
+    let input = Scoord3dGenerationInput {
+        repository_root: PathBuf::from("."),
+        generated_root: run.out_dir.clone(),
+        staging_root: staging.path().to_path_buf(),
+        destination_root: run.out_dir.join(SCOORD3D_CASE_ID),
+        seed: run.seed,
+        standards: StandardsProvenance {
+            standards_lock_sha256: standards_lock_sha256.to_string(),
+            dicom_base_edition: standards_lock["dicom_base_edition"]
+                .as_str()
+                .ok_or(GenerateError::MetadataShape {
+                    path: PathBuf::from("standards.lock.json"),
+                    message: "standards lock dicom_base_edition must be a string",
+                })?
+                .to_string(),
+            kb_source_manifest_sha256: standards_lock
+                .pointer("/dicom_standard_kb/source_manifest_sha256")
+                .and_then(Value::as_str)
+                .map(ToOwned::to_owned),
+        },
+        controlled_metadata: ControlledMetadata {
+            patient_name: "DTS^Synthetic^Patient001".to_string(),
+            patient_id: "DTS-PATIENT-001".to_string(),
+            manufacturer: "dicom-test-suite".to_string(),
+            model_name: SCOORD3D_RECIPE_ID.to_string(),
+            software_versions: env!("CARGO_PKG_VERSION").to_string(),
+            study_date: "20260101".to_string(),
+            study_time: "000000".to_string(),
+            content_date: "20260101".to_string(),
+            content_time: "000000".to_string(),
+            timezone_offset_from_utc: "+0000".to_string(),
+        },
+        identities,
+        sources: vec![ParametricMapSource {
+            role: "source_image".to_string(),
+            source_case_id: ct_source.source_case_id.clone(),
+            relative_path: ct_source.source_path.clone(),
+            sha256: ct_source.sha256.clone(),
+            sop_class_uid: ct_source.sop_class_uid.clone(),
+            sop_instance_uid: ct_source.sop_instance_uid.clone(),
+            series_instance_uid: Some(ct_series_instance_uid.to_string()),
+            frame_numbers: Some(vec![1, 2]),
+        }],
+    };
+    match generate_scoord3d(&input).map_err(|error| GenerateError::WriteDicomFile {
+        path: PathBuf::from(SCOORD3D_CASE_ID),
+        message: error.to_string(),
+    })? {
+        Scoord3dOutcome::Unavailable { code, message } => {
+            Ok(Scoord3dCaseOutcome::Unavailable(serde_json::json!({
+                "case_id": SCOORD3D_CASE_ID,
+                "status": "unavailable",
+                "reason_code": "external_backend_unavailable",
+                "message": format!("{code}: {message}"),
+                "recheck_phase": "phase-3",
+                "standards_evidence": standards_evidence_from_case(case)
+            })))
+        }
+        Scoord3dOutcome::Generated(generated) => Ok(Scoord3dCaseOutcome::Generated(
+            scoord3d_generated_file(case, ct_source, generated)?,
+        )),
+    }
+}
+
+fn scoord3d_generated_file(
+    case: &Value,
+    ct_source: &GeneratedSourceObject,
+    generated: Scoord3dGenerated,
+) -> Result<GeneratedFile, GenerateError> {
+    let object = open_file(&generated.output_path).map_err(|error| {
+        GenerateError::ValidateDicomFile {
+            path: generated.output_path.clone(),
+            message: format!("reopen promoted SCOORD3D report: {error}"),
+        }
+    })?;
+    let meta = object.meta();
+    let implementation_version_name = meta
+        .implementation_version_name
+        .clone()
+        .map(|value| value.trim().to_string())
+        .unwrap_or_else(|| "UNKNOWN".to_string());
+    let ct_series = ct_source.series_instance_uid.as_deref().ok_or(
+        GenerateError::MetadataShape {
+            path: generated.output_path.clone(),
+            message: "SCOORD3D CT source series UID is missing",
+        },
+    )?;
+    let source_frame_numbers = [1, 2];
+    let validated = validate_scoord3d_file(
+        &generated.output_path,
+        &Scoord3dExpectations {
+            sop_class_uid: SCOORD3D_SOP_CLASS_UID,
+            sop_instance_uid: &generated.identities.sop_instance_uid,
+            transfer_syntax_uid: PARAMETRIC_MAP_TRANSFER_SYNTAX_UID,
+            implementation_class_uid: meta.implementation_class_uid(),
+            synthetic_data: "YES",
+            modality: "SR",
+            completion_flag: "COMPLETE",
+            verification_flag: "UNVERIFIED",
+            preliminary_flag: "FINAL",
+            referenced_study_instance_uid: &generated.identities.study_instance_uid,
+            observer_uid: &generated.identities.observer_uid,
+            tracking_identifier: "DTS-SCOORD3D-ROI-1",
+            tracking_uid: &generated.identities.tracking_uid,
+            frame_of_reference_uid: &generated.identities.frame_of_reference_uid,
+            fiducial_uid: &generated.identities.fiducial_uid,
+            source_series_instance_uid: ct_series,
+            source_sop_class_uid: &ct_source.sop_class_uid,
+            source_sop_instance_uid: &ct_source.sop_instance_uid,
+            source_frame_numbers: &source_frame_numbers,
+        },
+    )?;
+    let mut validation = validated.validation;
+    validation["internal"]
+        .as_array_mut()
+        .expect("SCOORD3D validation internal results are an array")
+        .push(serde_json::json!({
+            "name": "external_backend_contract",
+            "status": "passed",
+            "message": "The locked backend response and provenance satisfied protocol 0.1.0."
+        }));
+    let code = |value: &str, scheme: &str, meaning: &str| {
+        serde_json::json!({
+            "code_value": value,
+            "coding_scheme_designator": scheme,
+            "code_meaning": meaning
+        })
+    };
+    let expected_scoord3d = serde_json::json!({
+        "completion_flag": "COMPLETE",
+        "preliminary_flag": "FINAL",
+        "verification_flag": "UNVERIFIED",
+        "root_template": {"mapping_resource": "DCMR", "template_identifier": "1500"},
+        "document_title": code("126000", "DCM", "Imaging Measurement Report"),
+        "observation_context": {
+            "observer_type": "DEVICE",
+            "device_observer_uid": generated.identities.observer_uid
+        },
+        "procedure_reported": code("25045-6", "LN", "CT unspecified body region"),
+        "imaging_measurements": code("126010", "DCM", "Imaging Measurements"),
+        "measurement_group": {
+            "template": {"mapping_resource": "DCMR", "template_identifier": "1501"},
+            "container": code("125007", "DCM", "Measurement Group"),
+            "tracking_identifier": "DTS-SCOORD3D-ROI-1",
+            "tracking_uid": generated.identities.tracking_uid,
+            "finding": code("123037004", "SCT", "Body structure"),
+            "measurement": {
+                "name": code("121206", "DCM", "Distance"),
+                "numeric_value": "2.5",
+                "units": code("mm", "UCUM", "millimeter"),
+                "spatial_coordinates": {
+                    "relationship": "INFERRED FROM",
+                    "value_type": "SCOORD3D",
+                    "concept_name": code("260753009", "SCT", "Source"),
+                    "graphic_type": "POLYLINE",
+                    "graphic_data_mm": [0.0, 0.0, 0.0, 0.0, 0.0, 2.5],
+                    "frame_of_reference_uid": generated.identities.frame_of_reference_uid,
+                    "fiducial_uid": generated.identities.fiducial_uid
+                }
+            },
+            "source_image": {
+                "relationship": "CONTAINS",
+                "value_type": "IMAGE",
+                "concept_name": code("121112", "DCM", "Source of Measurement"),
+                "source_case_id": ct_source.source_case_id,
+                "sop_class_uid": ct_source.sop_class_uid,
+                "sop_instance_uid": ct_source.sop_instance_uid,
+                "series_instance_uid": ct_series,
+                "referenced_frame_numbers": [1, 2]
+            }
+        },
+        "image_library_present": false,
+        "evidence": [{
+            "role": "source_image",
+            "source_case_id": ct_source.source_case_id,
+            "sop_class_uid": ct_source.sop_class_uid,
+            "sop_instance_uid": ct_source.sop_instance_uid,
+            "series_instance_uid": ct_series
+        }]
+    });
+    let response_backend = &generated.response["backend"];
+    let warnings = generated.response["warnings"].clone();
+    Ok(GeneratedFile {
+        case_id: SCOORD3D_CASE_ID.to_string(),
+        manifest_entry: serde_json::json!({
+            "case_id": SCOORD3D_CASE_ID,
+            "profile_membership": ["extended"],
+            "path": format!("{SCOORD3D_CASE_ID}/{SCOORD3D_OUTPUT_FILE}"),
+            "sha256": sha256_hex(&generated.output_bytes),
+            "size_bytes": generated.output_bytes.len(),
+            "determinism": "semantic_stable",
+            "recipe": {
+                "recipe_id": SCOORD3D_RECIPE_ID,
+                "recipe_version": SCOORD3D_RECIPE_VERSION,
+                "recipe_parameters": {
+                    "tracking_identifier": "DTS-SCOORD3D-ROI-1",
+                    "source_frame_numbers": [1, 2],
+                    "graphic_type": "POLYLINE",
+                    "graphic_data_patient_mm": [[0.0, 0.0, 0.0], [0.0, 0.0, 2.5]],
+                    "measurement_value_mm": 2.5
+                }
+            },
+            "dicom": {
+                "sop_class_uid": SCOORD3D_SOP_CLASS_UID,
+                "sop_class_name": "Comprehensive 3D SR Storage",
+                "iod_name": "Comprehensive 3D SR",
+                "modality": "SR",
+                "transfer_syntax_uid": PARAMETRIC_MAP_TRANSFER_SYNTAX_UID,
+                "transfer_syntax_name": "Explicit VR Little Endian"
+            },
+            "uids": {
+                "study_instance_uid": generated.identities.study_instance_uid,
+                "series_instance_uid": generated.identities.series_instance_uid,
+                "sop_instance_uid": generated.identities.sop_instance_uid,
+                "frame_of_reference_uid": generated.identities.frame_of_reference_uid,
+                "implementation_class_uid": meta.implementation_class_uid,
+                "implementation_version_name": implementation_version_name
+            },
+            "image": Value::Null,
+            "pixel_data": Value::Null,
+            "generation_backend": {
+                "backend_id": generated.backend.backend_id,
+                "protocol_version": crate::generation_backends::PROTOCOL_VERSION,
+                "name": response_backend["name"],
+                "version": response_backend["version"],
+                "dependency_lock_sha256": generated.backend.dependency_lock_sha256,
+                "executable_fingerprint": generated.backend.executable_fingerprint,
+                "entrypoint_fingerprint": generated.backend.entrypoint_fingerprint,
+                "environment_fingerprint": generated.backend.environment_fingerprint,
+                "runtime_identity": generated.backend.runtime_identity,
+                "determinism": "semantic_stable",
+                "warnings": warnings
+            },
+            "references": [ct_source.to_manifest_reference("source_of_measurement", Some(vec![1, 2]))],
+            "expected_capabilities": [
+                "parse_structured_report", "parse_scoord3d", "resolve_references",
+                "render_spatial_annotation"
+            ],
+            "expected_semantics": {
+                "synthetic_data": "YES",
+                "source_sop_instance_uid": ct_source.sop_instance_uid,
+                "structured_report": {
+                    "completion_flag": "COMPLETE",
+                    "preliminary_flag": "FINAL",
+                    "verification_flag": "UNVERIFIED",
+                    "root_value_type": "CONTAINER",
+                    "root_continuity_of_content": "CONTINUOUS",
+                    "content_sequence_items": 8
+                },
+                "scoord3d": {
+                    "graphic_type": "POLYLINE",
+                    "graphic_data_patient_mm": [[0.0, 0.0, 0.0], [0.0, 0.0, 2.5]],
+                    "frame_of_reference_uid": generated.identities.frame_of_reference_uid,
+                    "fiducial_uid": generated.identities.fiducial_uid
+                }
+            },
+            "expected_scoord3d": expected_scoord3d,
+            "expected_visual_checks": {"pattern": "scoord3d_polyline_between_enhanced_ct_frames"},
+            "validation": validation,
+            "known_stressors": [
+                "comprehensive_3d_sr_storage", "tid1500_measurement_report",
+                "tid1501_measurement_group", "scoord3d_patient_coordinates",
+                "frame_of_reference_geometry", "cross_instance_references",
+                "external_generation_backend"
             ],
             "standards_evidence": deduplicated_standards_evidence(standards_evidence_from_case(case))
         }),

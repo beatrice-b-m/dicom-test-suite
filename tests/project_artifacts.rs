@@ -256,6 +256,7 @@ fn registry_contains_initial_smoke_and_core_cases() {
             "implemented",
         ),
         ("classic/nm/multiframe_explicit_le", "implemented"),
+        ("classic/pet/rescaled_activity_explicit_le", "implemented"),
         ("classic/cr/overlay_modality_voi_explicit_le", "implemented"),
         (
             "classic/cr/overlay_modality_voi_rle_lossless",
@@ -3707,6 +3708,7 @@ fn generator_recipe_case_ids() -> BTreeSet<String> {
         ),
         ("src/generator/native/metadata_sc.rs", &["case_id: \""][..]),
         ("src/generator/native/nm.rs", &["case_id: \""][..]),
+        ("src/generator/native/pet.rs", &["case_id: \""][..]),
         (
             "src/generator/native/private_creator_sc.rs",
             &["case_id: \""][..],

@@ -1943,7 +1943,7 @@
     {
       "case_id": "classic/pet/rescaled_activity_explicit_le",
       "artifact_kind": "dicom_instance",
-      "status": "planned",
+      "status": "implemented",
       "provider": {
         "kind": "rust_native",
         "id": "rust_native"
@@ -1954,18 +1954,8 @@
         "quantitative",
         "pixels"
       ],
-      "roadmap": {
-        "priority": "next",
-        "delivery_phase": "phase-2",
-        "rationale": "Adds PET rescale and activity metadata coverage."
-      },
-      "blockers": [
-        {
-          "code": "recipe_unimplemented",
-          "message": "The deterministic native recipe is not implemented.",
-          "recheck_phase": "phase-2"
-        }
-      ],
+      "roadmap": null,
+      "blockers": [],
       "profiles": [
         "core"
       ],
@@ -1991,6 +1981,62 @@
           "covered": true,
           "part": "PS3.6",
           "anchor": "table_A-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_sop_class Positron Emission Tomography Image Storage",
+          "covered": true,
+          "part": "PS3.4",
+          "anchor": "table_B.5-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_modules_for_iod Positron Emission Tomography Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.21.3-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module PET Series",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-60"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module PET Isotope",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-61"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module PET Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-63"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_defined_terms Units --context PET Series",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "sect_C.8.9.1.1.3"
+        },
+        {
+          "source": "local-source-note",
+          "edition": "2026b",
+          "query": "standards/source-notes/phase-2-pet-rescaled-activity.md",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "sect_C.8.9"
         }
       ]
     },

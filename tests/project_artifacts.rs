@@ -941,6 +941,73 @@ fn advanced_blending_source_note_locks_native_two_input_contract() {
 }
 
 #[test]
+fn blending_source_note_locks_audited_contract_before_provider_selection() {
+    let source =
+        fs::read_to_string("standards/source-notes/phase-3-blending-presentation-state.md")
+            .expect("Blending Softcopy Presentation State source note must be readable");
+    for required in [
+        "derived/presentation-state/blending",
+        "Recommended provider: `rust_native`",
+        "geometry/ct/multiseries_shared_frame_of_reference",
+        "geometry/ct/multiseries_shared_frame_of_reference/series-001/slice-001.dcm",
+        "geometry/ct/multiseries_shared_frame_of_reference/series-002/slice-002.dcm",
+        "1.2.840.10008.5.1.4.1.1.11.4",
+        "PS3.3 Table A.33.4-1",
+        "Presentation State Blending Sequence `(0070,0402)` is SQ VM 1 with exactly two",
+        "`UNDERLYING`",
+        "`SUPERIMPOSED`",
+        "Relative Opacity `(0070,0403)` is FL VM 1 with exact value `0.5`",
+        "Displayed Area Selection Sequence `(0070,005A)` is SQ VM 1 with exactly one",
+        "each with\nUS VM 3 value `[256,0,16]`",
+        "f393097e80ec38db493eb054a0886181eb2c0e8cf7b5cdf1de392fbe94b0d1f5",
+        "8e069a3476b71a0e0ae7272d9278ba70540d1c4a0b19af1c7d52e56f49091fef",
+        "expected_blending_presentation_state",
+        "b6382bbc750feb18f25d3450ea14cf65aa5344950ee69c7e900926e6948056d4",
+        "emitted no errors or\nwarnings",
+        "`Passed` with zero errors",
+        "Both IOD validators accepted two\nItems with duplicate `UNDERLYING`",
+        "accepted Relative\nOpacity outside",
+        "Strict Rust validation owns every cardinality, ordering, uniqueness, source",
+        "triggers no Section 11 decision checkpoint",
+        "Current registry status: planned and `semantic_stable`",
+        "Current registry provider: external backend `dcmtk`",
+        "`backend_contract_unimplemented` and\n  `independent_iod_validator_unavailable`",
+        "this evidence\n  commit intentionally does not change registry state",
+        "Should become KB patch: yes",
+    ] {
+        assert!(
+            source.contains(required),
+            "Blending Softcopy Presentation State note requires {required}"
+        );
+    }
+
+    let registry = read_json("cases/registry.json");
+    let case = registry_cases(&registry)
+        .into_iter()
+        .find(|case| {
+            case.get("case_id").and_then(Value::as_str)
+                == Some("derived/presentation-state/blending")
+        })
+        .expect("Blending Softcopy Presentation State row must exist");
+    assert_eq!(case["status"], "planned");
+    assert_eq!(case["provider"]["kind"], "external_backend");
+    assert_eq!(case["provider"]["id"], "dcmtk");
+    assert_eq!(case["determinism"], "semantic_stable");
+    assert_eq!(
+        case["blockers"]
+            .as_array()
+            .expect("planned Blending blockers must be an array")
+            .iter()
+            .map(|blocker| blocker["code"].as_str().unwrap())
+            .collect::<Vec<_>>(),
+        vec![
+            "backend_contract_unimplemented",
+            "independent_iod_validator_unavailable"
+        ]
+    );
+}
+
+#[test]
 fn u1_pixel_decoder_is_case_scoped_and_locked() {
     let validators = read_json("conformance/validators.json");
     let adapter = validators["adapters"]

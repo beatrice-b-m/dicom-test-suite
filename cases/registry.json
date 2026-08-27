@@ -11455,6 +11455,41 @@
           "covered": true,
           "part": "PS3.6",
           "anchor": "table_A-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom_lookup_sop_class CTImageStorage",
+          "covered": true,
+          "part": "PS3.4",
+          "anchor": "table_B.5-1",
+          "source_manifest_sha256": "1cc11d28abf1e6f4efa4b07a73d4a7c953b3b3101b4112865c7170ccdeb84728"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom_list_modules_for_iod CT Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.3-1",
+          "source_manifest_sha256": "1cc11d28abf1e6f4efa4b07a73d4a7c953b3b3101b4112865c7170ccdeb84728"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom_resolve_attribute_context InstanceNumber --iod CT Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.7-9",
+          "source_manifest_sha256": "1cc11d28abf1e6f4efa4b07a73d4a7c953b3b3101b4112865c7170ccdeb84728"
+        },
+        {
+          "source": "local-source-note",
+          "edition": "2026b",
+          "query": "standards/source-notes/phase-2-ct-geometry.md",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.7-9"
         }
       ]
     },
@@ -11509,6 +11544,50 @@
           "covered": true,
           "part": "PS3.6",
           "anchor": "table_A-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom_lookup_sop_class CTImageStorage",
+          "covered": true,
+          "part": "PS3.4",
+          "anchor": "table_B.5-1",
+          "source_manifest_sha256": "1cc11d28abf1e6f4efa4b07a73d4a7c953b3b3101b4112865c7170ccdeb84728"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom_list_modules_for_iod CT Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.3-1",
+          "source_manifest_sha256": "1cc11d28abf1e6f4efa4b07a73d4a7c953b3b3101b4112865c7170ccdeb84728"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom_resolve_attribute_context GantryDetectorTilt --iod CT Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-3",
+          "source_manifest_sha256": "1cc11d28abf1e6f4efa4b07a73d4a7c953b3b3101b4112865c7170ccdeb84728"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom_resolve_attribute_context ImagePositionPatient --iod CT Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.7-10",
+          "source_manifest_sha256": "1cc11d28abf1e6f4efa4b07a73d4a7c953b3b3101b4112865c7170ccdeb84728"
+        },
+        {
+          "source": "local-source-note",
+          "edition": "2026b",
+          "query": "standards/source-notes/phase-2-ct-geometry.md",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-3"
         }
       ]
     },
@@ -11563,6 +11642,50 @@
           "covered": true,
           "part": "PS3.6",
           "anchor": "table_A-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom_lookup_sop_class CTImageStorage",
+          "covered": true,
+          "part": "PS3.4",
+          "anchor": "table_B.5-1",
+          "source_manifest_sha256": "1cc11d28abf1e6f4efa4b07a73d4a7c953b3b3101b4112865c7170ccdeb84728"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom_resolve_attribute_context StudyInstanceUID --iod CT Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.7-3",
+          "source_manifest_sha256": "1cc11d28abf1e6f4efa4b07a73d4a7c953b3b3101b4112865c7170ccdeb84728"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom_resolve_attribute_context SeriesInstanceUID --iod CT Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.7-5a",
+          "source_manifest_sha256": "1cc11d28abf1e6f4efa4b07a73d4a7c953b3b3101b4112865c7170ccdeb84728"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom_resolve_attribute_context FrameOfReferenceUID --iod CT Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.7-6",
+          "source_manifest_sha256": "1cc11d28abf1e6f4efa4b07a73d4a7c953b3b3101b4112865c7170ccdeb84728"
+        },
+        {
+          "source": "local-source-note",
+          "edition": "2026b",
+          "query": "standards/source-notes/phase-2-ct-geometry.md",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.7-6"
         }
       ]
     },
@@ -11617,6 +11740,41 @@
           "covered": true,
           "part": "PS3.6",
           "anchor": "table_A-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom_lookup_sop_class CTImageStorage",
+          "covered": true,
+          "part": "PS3.4",
+          "anchor": "table_B.5-1",
+          "source_manifest_sha256": "1cc11d28abf1e6f4efa4b07a73d4a7c953b3b3101b4112865c7170ccdeb84728"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom_resolve_attribute_context ImagePositionPatient --iod CT Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.7-10",
+          "source_manifest_sha256": "1cc11d28abf1e6f4efa4b07a73d4a7c953b3b3101b4112865c7170ccdeb84728"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom_resolve_attribute_context SpacingBetweenSlices --iod CT Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.7-10",
+          "source_manifest_sha256": "1cc11d28abf1e6f4efa4b07a73d4a7c953b3b3101b4112865c7170ccdeb84728"
+        },
+        {
+          "source": "local-source-note",
+          "edition": "2026b",
+          "query": "standards/source-notes/phase-2-ct-geometry.md",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.7-10"
         }
       ]
     },

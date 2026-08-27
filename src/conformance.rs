@@ -15,6 +15,8 @@ pub const DEFAULT_VALIDATOR_LOCK: &str = "conformance/validator-lock.json";
 pub const DEFAULT_ACCEPTED_FINDINGS: &str = "conformance/accepted-findings.json";
 const PIXELMED_SR_VALIDATOR_ID: &str = "pixelmed-sr-validator";
 const REGISTRATION_SECONDARY_VALIDATOR_ID: &str = "pydicom-dicom-validator-registration";
+const PRESENTATION_STATE_SECONDARY_VALIDATOR_ID: &str =
+    "pydicom-dicom-validator-presentation-state";
 
 pub fn verify_conformance(
     evidence_root: impl AsRef<Path>,
@@ -386,6 +388,36 @@ fn verify_completeness(evidence_root: &Path, evidence: &Value, failures: &mut Ve
             if secondary.is_none_or(|result| result["status"] != "completed") {
                 failures.push(format!(
                     "required registration secondary IOD validation incomplete: {path}"
+                ));
+            }
+        }
+        if requires_presentation_state_secondary_validation(case_id) {
+            let secondary_tool = evidence["tools"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .find(|tool| tool["adapter_id"] == PRESENTATION_STATE_SECONDARY_VALIDATOR_ID);
+            if secondary_tool.is_none_or(|tool| tool["status"] != "available") {
+                failures.push(format!(
+                    "required presentation-state secondary IOD validator is unavailable for {path}"
+                ));
+            }
+            if secondary_tool.is_none_or(|tool| tool["lock_status"] != "matched") {
+                failures.push(format!(
+                    "required presentation-state secondary IOD validator is unlocked for {path}"
+                ));
+            }
+            let secondary = instance["results"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .find(|result| {
+                    result["role"] == "secondary_iod_validator"
+                        && result["adapter_id"] == PRESENTATION_STATE_SECONDARY_VALIDATOR_ID
+                });
+            if secondary.is_none_or(|result| result["status"] != "completed") {
+                failures.push(format!(
+                    "required presentation-state secondary IOD validation incomplete: {path}"
                 ));
             }
         }
@@ -1051,6 +1083,15 @@ fn requires_registration_secondary_validation(case_id: &str) -> bool {
     matches!(
         case_id,
         "derived/registration/spatial_ct_pair" | "derived/registration/deformable_ct_pair"
+    )
+}
+
+fn requires_presentation_state_secondary_validation(case_id: &str) -> bool {
+    matches!(
+        case_id,
+        "derived/presentation-state/color_softcopy"
+            | "derived/presentation-state/advanced_blending"
+            | "derived/presentation-state/blending"
     )
 }
 

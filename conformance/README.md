@@ -32,6 +32,7 @@ dynamically linked `liblcms2.2` implementation.
 | Per-instance IOD | `dicom3tools-dciodvfy` | `dciodvfy -new` | Required | dicom3tools BSD license; pin source snapshot/package and executable hash. Homebrew does not currently provide it on this host. Debian packages both validator commands; upstream publishes source and platform builds. Validator definitions evolve, so the snapshot/definition baseline must remain visible. |
 | U32 and non-square SC per-instance IOD | `pydicom-dicom-validator-u32` | `python -m dts_dicom_validator_adapter` | Required for its declared cases only | `uv` locks CPython 3.12.12, `dicom-validator` 0.8.2, pydicom 3.0.2, and transitive packages. `DTS_DICOM_VALIDATOR_PYTHON` selects the prepared interpreter and `DTS_DICOM_VALIDATOR_STANDARD_HOME` selects the external hash-locked 2026b cache. It is not a generation-profile runtime. |
 | Registration second IOD opinion | `pydicom-dicom-validator-registration` | `python -m dts_dicom_validator_adapter` | Required for its declared cases only | Runs in addition to, never instead of, locked `dciodvfy` for Spatial Registration and Deformable Spatial Registration. The same `uv` runtime and exact 2026b definitions are independently fingerprinted under the case-scoped secondary adapter. |
+| Presentation-state second IOD opinion | `pydicom-dicom-validator-presentation-state` | `python -m dts_dicom_validator_adapter` | Required for its declared cases only | Runs additively for Color Softcopy, Advanced Blending, and Blending Softcopy Presentation States. It reuses the independently implemented, `uv`-locked runtime and hash-locked 2026b definitions under a separate case-scoped adapter identity. |
 | U1 SC independent pixels | `dcmtk-dcm2img-u1` | `dcm2img +Fa +Fn -M -W +Pid -O +opn 1` | Required when collecting evidence for its declared case | DCMTK 3.7.0 emits one PGM per frame. The collector requires P2, dimensions 3 by 3, maximum value one, exact samples, and exact frame hashes; `dcmdump +W` separately binds the packed Pixel Data bytes. Primary IOD validation remains `dciodvfy`. |
 | ICC profile processing | `littlecms-transicc-icc` | `transicc -n -i<profile> -o*XYZ -t0` | Required when collecting evidence for its declared case | Set `DTS_LCMS_HOME` to the immutable LittleCMS prefix. Locked DCMTK reconstructs the complete ICC OB value, strict checks enforce the DICOM input-profile header and `SRGB` label, and LittleCMS 2.19 must reproduce four fixed RGB-to-XYZ vectors. Primary IOD validation remains `dciodvfy`. |
 | Corpus entity consistency | `dicom3tools-dcentvfy` | `dcentvfy -f <file-list>` | Required | Same dicom3tools identity and acquisition decision as `dciodvfy`; pass files through its one-path-per-line file-list option to avoid argument limits. |
@@ -69,6 +70,19 @@ Sequence. It did not reject a VM 15 transformation matrix, non-orthonormal
 `RIGID` values, or a dangling referenced SOP Instance UID. Consequently it
 cannot replace `dciodvfy`, strict registration semantics, or `dcentvfy`
 reference closure, and no finding is allowlisted for this route.
+
+The presentation-state secondary adapter is likewise exact-case-only for
+`derived/presentation-state/color_softcopy`,
+`derived/presentation-state/advanced_blending`, and
+`derived/presentation-state/blending`. Qualification recognized all three
+2026b IODs and added a Type 1 finding when Content Label was removed. It also
+identified the target-specific ICC, blending, display, frame-of-reference, and
+common-reference modules. A dangling referenced SOP Instance UID did not alter
+its Color Softcopy findings, and it missed absent conditional palette LUT data
+that `dciodvfy` reported for the Blending probe. Strict verification therefore
+requires this additive evidence without replacing `dciodvfy`, project-owned
+presentation semantics, or `dcentvfy` reference closure; no finding is
+allowlisted for this route.
 
 The U1 case stays on the unrestricted, locked `dciodvfy` primary route because
 that validator recognizes Multi-frame Single Bit Secondary Capture and its

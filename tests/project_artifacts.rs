@@ -216,6 +216,54 @@ fn registration_secondary_iod_validator_is_additive_and_locked() {
 }
 
 #[test]
+fn presentation_state_secondary_iod_validator_is_additive_and_locked() {
+    let validators = read_json("conformance/validators.json");
+    let adapter = validators["adapters"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|adapter| adapter["id"] == "pydicom-dicom-validator-presentation-state")
+        .expect("presentation-state secondary IOD validator must be configured");
+    assert_eq!(adapter["role"], "secondary_iod_validator");
+    assert_eq!(adapter["required"], false);
+    assert_eq!(
+        adapter["supported_case_ids"],
+        serde_json::json!([
+            "derived/presentation-state/color_softcopy",
+            "derived/presentation-state/advanced_blending",
+            "derived/presentation-state/blending"
+        ])
+    );
+
+    let lock = read_json("conformance/validator-lock.json");
+    let tool = lock["tools"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|tool| tool["adapter_id"] == "pydicom-dicom-validator-presentation-state")
+        .expect("presentation-state secondary validator must have an accepted lock entry");
+    assert_eq!(tool["role"], "secondary_iod_validator");
+    assert_eq!(
+        tool["adapter_sha256"],
+        "3f20de6ca7d310e2e9f2920f368912f97b6cf62bdfdf750e1417eb5dc4b335b6"
+    );
+
+    let readme = fs::read_to_string("conformance/README.md").unwrap();
+    for required in [
+        "pydicom-dicom-validator-presentation-state",
+        "Content Label was removed",
+        "dangling referenced SOP Instance UID did not alter",
+        "missed absent conditional palette LUT data",
+        "no finding is allowlisted",
+    ] {
+        assert!(
+            readme.contains(required),
+            "presentation-state route requires {required}"
+        );
+    }
+}
+
+#[test]
 fn uv_conformance_docs_preserve_the_independent_gate() {
     let readme = fs::read_to_string("conformance/README.md").unwrap();
     for required in [

@@ -352,6 +352,111 @@ fn manifest_schema_types_cross_series_organization_expectations() {
 }
 
 #[test]
+fn manifest_schema_accepts_strict_utf8_person_name_expectations() {
+    let schema = read_json("schemas/manifest.schema.json");
+    let metadata_schema = serde_json::json!({
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$ref": "#/$defs/expected_metadata",
+        "$defs": schema["$defs"].clone(),
+    });
+    let validator =
+        jsonschema::validator_for(&metadata_schema).expect("metadata schema should compile");
+    let metadata = utf8_person_name_expectations();
+
+    let errors = validator
+        .iter_errors(&metadata)
+        .map(|error| error.to_string())
+        .collect::<Vec<_>>();
+    assert!(
+        errors.is_empty(),
+        "valid UTF-8 Person Name expectations should pass:\n{}",
+        errors.join("\n")
+    );
+
+    assert_eq!(
+        schema.pointer("/$defs/file/properties/expected_metadata/$ref"),
+        Some(&Value::String("#/$defs/expected_metadata".to_string()))
+    );
+    assert_eq!(
+        schema
+            .pointer("/$defs/expected_metadata/additionalProperties")
+            .and_then(Value::as_bool),
+        Some(false),
+        "metadata expectations must reject undeclared fields"
+    );
+}
+
+#[test]
+fn manifest_schema_rejects_malformed_person_name_expectations() {
+    let schema = read_json("schemas/manifest.schema.json");
+    let metadata_schema = serde_json::json!({
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$ref": "#/$defs/expected_metadata",
+        "$defs": schema["$defs"].clone(),
+    });
+    let validator =
+        jsonschema::validator_for(&metadata_schema).expect("metadata schema should compile");
+
+    let mut malformed = utf8_person_name_expectations();
+    malformed["person_names"][0]["tag"] = serde_json::json!("00100010");
+    malformed["person_names"][0]["vr"] = serde_json::json!("LO");
+    malformed["person_names"][0]["raw_value_sha256"] = serde_json::json!("not-a-hash");
+    malformed["person_names"][0]["component_groups"][0]["components"][0]["position"] =
+        serde_json::json!(2);
+    malformed["unexpected"] = serde_json::json!(true);
+
+    let errors = validator.iter_errors(&malformed).collect::<Vec<_>>();
+    assert!(
+        errors.len() >= 5,
+        "malformed tag, VR, hash, component order, and unknown field must each be rejected; got {errors:?}"
+    );
+}
+
+fn utf8_person_name_expectations() -> Value {
+    let components = |values: [&str; 5]| {
+        serde_json::json!([
+            { "position": 1, "decoded_value": values[0] },
+            { "position": 2, "decoded_value": values[1] },
+            { "position": 3, "decoded_value": values[2] },
+            { "position": 4, "decoded_value": values[3] },
+            { "position": 5, "decoded_value": values[4] },
+        ])
+    };
+
+    serde_json::json!({
+        "specific_character_sets": ["ISO_IR 192"],
+        "person_names": [{
+            "tag": "0010,0010",
+            "keyword": "PatientName",
+            "vr": "PN",
+            "decoded_value": "Müller^Zoë^^Dr.^III=山田^太郎=やまだ^たろう",
+            "raw_value_sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+            "raw_value_byte_length": 61,
+            "component_groups": [
+                {
+                    "position": 1,
+                    "kind": "alphabetic",
+                    "decoded_value": "Müller^Zoë^^Dr.^III",
+                    "components": components(["Müller", "Zoë", "", "Dr.", "III"]),
+                },
+                {
+                    "position": 2,
+                    "kind": "ideographic",
+                    "decoded_value": "山田^太郎",
+                    "components": components(["山田", "太郎", "", "", ""]),
+                },
+                {
+                    "position": 3,
+                    "kind": "phonetic",
+                    "decoded_value": "やまだ^たろう",
+                    "components": components(["やまだ", "たろう", "", "", ""]),
+                },
+            ],
+        }],
+    })
+}
+
+#[test]
 fn manifest_schema_types_enhanced_instance_uids() {
     let schema = read_json("schemas/manifest.schema.json");
     let uid_properties = schema

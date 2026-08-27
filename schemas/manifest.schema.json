@@ -298,6 +298,9 @@
           "type": "object",
           "additionalProperties": true
         },
+        "expected_metadata": {
+          "$ref": "#/$defs/expected_metadata"
+        },
         "expected_geometry": {
           "anyOf": [
             { "$ref": "#/$defs/expected_geometry" },
@@ -450,6 +453,169 @@
         "shared_study_instance_uid_expected": { "type": "boolean" },
         "shared_frame_of_reference_uid_expected": { "type": "boolean" },
         "distinct_series_instance_uids_expected": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "expected_metadata": {
+      "type": "object",
+      "required": ["specific_character_sets", "person_names"],
+      "properties": {
+        "specific_character_sets": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "person_names": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/expected_person_name" },
+          "minItems": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "expected_person_name": {
+      "type": "object",
+      "required": [
+        "tag",
+        "keyword",
+        "vr",
+        "decoded_value",
+        "raw_value_sha256",
+        "raw_value_byte_length",
+        "component_groups"
+      ],
+      "properties": {
+        "tag": {
+          "type": "string",
+          "pattern": "^[0-9A-F]{4},[0-9A-F]{4}$"
+        },
+        "keyword": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Za-z0-9]*$"
+        },
+        "vr": { "const": "PN" },
+        "decoded_value": { "type": "string" },
+        "raw_value_sha256": { "$ref": "#/$defs/sha256" },
+        "raw_value_byte_length": { "type": "integer", "minimum": 1 },
+        "component_groups": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "allOf": [
+                { "$ref": "#/$defs/expected_person_name_component_group" },
+                {
+                  "properties": {
+                    "position": { "const": 1 },
+                    "kind": { "const": "alphabetic" }
+                  }
+                }
+              ]
+            },
+            {
+              "allOf": [
+                { "$ref": "#/$defs/expected_person_name_component_group" },
+                {
+                  "properties": {
+                    "position": { "const": 2 },
+                    "kind": { "const": "ideographic" }
+                  }
+                }
+              ]
+            },
+            {
+              "allOf": [
+                { "$ref": "#/$defs/expected_person_name_component_group" },
+                {
+                  "properties": {
+                    "position": { "const": 3 },
+                    "kind": { "const": "phonetic" }
+                  }
+                }
+              ]
+            }
+          ],
+          "items": false,
+          "minItems": 1,
+          "maxItems": 3
+        }
+      },
+      "additionalProperties": false
+    },
+    "expected_person_name_component_group": {
+      "type": "object",
+      "required": ["position", "kind", "decoded_value", "components"],
+      "properties": {
+        "position": { "type": "integer", "minimum": 1, "maximum": 3 },
+        "kind": { "enum": ["alphabetic", "ideographic", "phonetic"] },
+        "decoded_value": { "type": "string" },
+        "components": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "allOf": [
+                { "$ref": "#/$defs/expected_person_name_component" },
+                {
+                  "properties": {
+                    "position": { "const": 1 }
+                  }
+                }
+              ]
+            },
+            {
+              "allOf": [
+                { "$ref": "#/$defs/expected_person_name_component" },
+                {
+                  "properties": {
+                    "position": { "const": 2 }
+                  }
+                }
+              ]
+            },
+            {
+              "allOf": [
+                { "$ref": "#/$defs/expected_person_name_component" },
+                {
+                  "properties": {
+                    "position": { "const": 3 }
+                  }
+                }
+              ]
+            },
+            {
+              "allOf": [
+                { "$ref": "#/$defs/expected_person_name_component" },
+                {
+                  "properties": {
+                    "position": { "const": 4 }
+                  }
+                }
+              ]
+            },
+            {
+              "allOf": [
+                { "$ref": "#/$defs/expected_person_name_component" },
+                {
+                  "properties": {
+                    "position": { "const": 5 }
+                  }
+                }
+              ]
+            }
+          ],
+          "items": false,
+          "minItems": 5,
+          "maxItems": 5
+        }
+      },
+      "additionalProperties": false
+    },
+    "expected_person_name_component": {
+      "type": "object",
+      "required": ["position", "decoded_value"],
+      "properties": {
+        "position": { "type": "integer", "minimum": 1, "maximum": 5 },
+        "decoded_value": { "type": "string" }
       },
       "additionalProperties": false
     },

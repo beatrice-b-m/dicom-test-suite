@@ -7193,7 +7193,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\tall"));
-    let expected_all_files = 102
+    let native_all_files = 102
         + if cfg!(feature = "deflate") { 2 } else { 0 }
         + if cfg!(feature = "jpeg") { 1 } else { 0 }
         + if cfg!(feature = "charls") { 1 } else { 0 }
@@ -7209,14 +7209,20 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
         } else {
             0
         };
-    assert!(stdout.contains(&format!("files_written\t{expected_all_files}")));
-
     let manifest_path = out_dir.join("manifest.json");
     let manifest: Value = serde_json::from_str(
         &fs::read_to_string(&manifest_path).expect("manifest should be readable"),
     )
     .expect("manifest should parse");
     assert_manifest_matches_committed_schema(&manifest);
+    let parametric_map_generated = manifest["files"].as_array().is_some_and(|files| {
+        files.iter().any(|file| {
+            file["case_id"].as_str()
+                == Some("derived/parametric-map/float32_ct_derived_explicit_le")
+        })
+    });
+    let expected_all_files = native_all_files + usize::from(parametric_map_generated);
+    assert!(stdout.contains(&format!("files_written\t{expected_all_files}")));
     assert_eq!(
         manifest.pointer("/run/profile").and_then(Value::as_str),
         Some("all")
@@ -7375,7 +7381,8 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
         .expect("manifest should contain skipped cases");
     assert_eq!(
         skipped_cases.len(),
-        60 - if cfg!(feature = "deflate") { 2 } else { 0 }
+        60 - usize::from(parametric_map_generated)
+            - if cfg!(feature = "deflate") { 2 } else { 0 }
             - if cfg!(feature = "jpeg") { 1 } else { 0 }
             - if cfg!(feature = "charls") { 1 } else { 0 }
             - if cfg!(feature = "jpegxl") { 1 } else { 0 }
@@ -7392,6 +7399,16 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
             },
         "all generation should report planned rows and unavailable cases according to active features"
     );
+    if !parametric_map_generated {
+        let unavailable = skipped_case_by_id(
+            &manifest,
+            "derived/parametric-map/float32_ct_derived_explicit_le",
+        );
+        assert_eq!(
+            unavailable.get("reason_code").and_then(Value::as_str),
+            Some("external_backend_unavailable")
+        );
+    }
     if !cfg!(feature = "htj2k_openjph") {
         let skipped = skipped_case_by_id(&manifest, "classic/sc/mono2_u16_htj2k_lossless");
         assert_eq!(

@@ -3696,19 +3696,29 @@ fn registry_cases(registry: &Value) -> Vec<&Value> {
 }
 
 fn generator_recipe_case_ids() -> BTreeSet<String> {
-    let source = fs::read_to_string("src/generator.rs").expect("generator source must be readable");
     let mut case_ids = BTreeSet::new();
-    let mut remaining = source.as_str();
-    while let Some(start) = remaining.find("case_id: \"") {
-        remaining = &remaining[start + "case_id: \"".len()..];
-        let Some(end) = remaining.find('"') else {
-            break;
-        };
-        let case_id = &remaining[..end];
-        if is_suite_case_id(case_id) {
-            case_ids.insert(case_id.to_string());
+    for (path, prefixes) in [
+        ("src/generator.rs", &["case_id: \""][..]),
+        (
+            "src/generation_backends/parametric_map.rs",
+            &["CASE_ID: &str = \""][..],
+        ),
+    ] {
+        let source = fs::read_to_string(path).expect("generator source must be readable");
+        for prefix in prefixes {
+            let mut remaining = source.as_str();
+            while let Some(start) = remaining.find(prefix) {
+                remaining = &remaining[start + prefix.len()..];
+                let Some(end) = remaining.find('"') else {
+                    break;
+                };
+                let case_id = &remaining[..end];
+                if is_suite_case_id(case_id) {
+                    case_ids.insert(case_id.to_string());
+                }
+                remaining = &remaining[end + 1..];
+            }
         }
-        remaining = &remaining[end + 1..];
     }
     assert!(
         !case_ids.is_empty(),

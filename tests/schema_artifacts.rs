@@ -4187,6 +4187,130 @@ fn manifest_schema_scopes_linked_rt_plan_expectation_to_its_case() {
     );
 }
 
+#[test]
+fn manifest_schema_types_exact_linked_rt_image_expectations() {
+    let schema = read_json("schemas/manifest.schema.json");
+    let expectation_schema = serde_json::json!({
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$ref": "#/$defs/expected_rt_image",
+        "$defs": schema["$defs"].clone(),
+    });
+    let validator = jsonschema::validator_for(&expectation_schema)
+        .expect("linked RT Image expectation schema should compile");
+    let expectation = linked_rt_image_expectation();
+    assert!(validator.is_valid(&expectation));
+
+    for (pointer, value) in [
+        (
+            "/plan_reference/relationship",
+            serde_json::json!("referenced_dose"),
+        ),
+        (
+            "/plan_reference/source_path",
+            serde_json::json!("non-image/rt/plan_linked/wrong.dcm"),
+        ),
+        (
+            "/plan_reference/source_sha256",
+            serde_json::json!("bad-hash"),
+        ),
+        (
+            "/plan_reference/sop_class_uid",
+            serde_json::json!("1.2.840.10008.5.1.4.1.1.481.2"),
+        ),
+        (
+            "/linkage/referenced_fraction_group_number",
+            serde_json::json!(2),
+        ),
+        ("/linkage/referenced_beam_number", serde_json::json!(2)),
+        ("/image/image_type/2", serde_json::json!("PORTAL")),
+        ("/image/label", serde_json::json!("WRONG")),
+        ("/image/plane", serde_json::json!("NON_NORMAL")),
+        (
+            "/image/image_plane_pixel_spacing_mm/0",
+            serde_json::json!(2),
+        ),
+        ("/image/position_mm/0", serde_json::json!(-1.0)),
+        ("/image/radiation_machine_sad_mm", serde_json::json!(999)),
+        ("/image/rt_image_sid_mm", serde_json::json!(1499)),
+        ("/storage/rows", serde_json::json!(5)),
+        ("/storage/payload_length_bytes", serde_json::json!(15)),
+        ("/storage/bits_stored", serde_json::json!(7)),
+        ("/storage/high_bit", serde_json::json!(6)),
+        ("/storage/pixel_representation", serde_json::json!(1)),
+        ("/storage/pixel_values/7", serde_json::json!(118)),
+        (
+            "/storage/payload_sha256",
+            serde_json::json!("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"),
+        ),
+        (
+            "/storage/decoded_pixels_sha256",
+            serde_json::json!("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"),
+        ),
+        (
+            "/absent_content/reported_values_origin",
+            serde_json::json!(false),
+        ),
+        (
+            "/absent_content/rt_image_orientation",
+            serde_json::json!(false),
+        ),
+        (
+            "/absent_content/encapsulated_pixel_data",
+            serde_json::json!(false),
+        ),
+    ] {
+        let mut mutated = expectation.clone();
+        *mutated.pointer_mut(pointer).expect("mutation pointer") = value;
+        assert!(!validator.is_valid(&mutated), "must reject {pointer}");
+    }
+
+    let mut short_type = expectation.clone();
+    short_type["image"]["image_type"]
+        .as_array_mut()
+        .unwrap()
+        .pop();
+    assert!(!validator.is_valid(&short_type));
+
+    let mut short_pixels = expectation.clone();
+    short_pixels["storage"]["pixel_values"]
+        .as_array_mut()
+        .unwrap()
+        .pop();
+    assert!(!validator.is_valid(&short_pixels));
+}
+
+#[test]
+fn manifest_schema_scopes_linked_rt_image_expectation_to_its_case() {
+    let schema = read_json("schemas/manifest.schema.json");
+    let rules = schema
+        .pointer("/$defs/file/allOf")
+        .and_then(Value::as_array)
+        .expect("file conditions");
+    let rule = rules
+        .iter()
+        .find(|rule| {
+            rule.pointer("/if/properties/case_id/const")
+                == Some(&serde_json::json!("non-image/rt/image_linked"))
+        })
+        .expect("linked RT Image rule");
+    assert_eq!(
+        rule.pointer("/then/required"),
+        Some(&serde_json::json!([
+            "image",
+            "pixel_data",
+            "expected_rt_image"
+        ]))
+    );
+    assert_eq!(
+        rule.pointer("/then/properties/references/minItems"),
+        Some(&serde_json::json!(1))
+    );
+    assert_eq!(
+        rule.pointer("/else/not/required"),
+        Some(&serde_json::json!(["expected_rt_image"]))
+    );
+}
+
 fn twelve_lead_ecg_waveform_expectation() -> Value {
     let leads = [
         (1, "I", "2:1", "Lead I"),
@@ -4509,6 +4633,90 @@ fn linked_rt_plan_expectation() -> Value {
             "common_instance_reference_module": true,
             "image": true,
             "pixel_data": true
+        }
+    })
+}
+
+fn linked_rt_image_expectation() -> Value {
+    serde_json::json!({
+        "iod_kind": "rt_image",
+        "sop_class_uid": "1.2.840.10008.5.1.4.1.1.481.1",
+        "iod_name": "RT Image",
+        "modality": "RTIMAGE",
+        "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+        "sop_instance_uid": "2.25.201",
+        "study_instance_uid": "2.25.202",
+        "series_instance_uid": "2.25.203",
+        "frame_of_reference_uid": "2.25.204",
+        "plan_reference": {
+            "relationship": "referenced_rt_plan",
+            "source_case_id": "non-image/rt/plan_linked",
+            "source_path": "non-image/rt/plan_linked/instance.dcm",
+            "source_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "study_instance_uid": "2.25.202",
+            "series_instance_uid": "2.25.205",
+            "sop_class_uid": "1.2.840.10008.5.1.4.1.1.481.5",
+            "sop_instance_uid": "2.25.206",
+            "frame_of_reference_uid": "2.25.204"
+        },
+        "linkage": {
+            "referenced_fraction_group_number": 1,
+            "referenced_beam_number": 1
+        },
+        "image": {
+            "image_type": ["DERIVED", "SECONDARY", "DRR"],
+            "conversion_type": "WSD",
+            "label": "DTS_DRR",
+            "plane": "NORMAL",
+            "xray_image_receptor_angle_degrees": 0,
+            "image_plane_pixel_spacing_mm": [1, 1],
+            "position_mm": [-1.5, 1.5],
+            "radiation_machine_name": "DTS_LINAC",
+            "radiation_machine_sad_mm": 1000,
+            "rt_image_sid_mm": 1500,
+            "primary_dosimeter_unit": "MU"
+        },
+        "storage": {
+            "rows": 4,
+            "columns": 4,
+            "frames": 1,
+            "samples_per_pixel": 1,
+            "photometric_interpretation": "MONOCHROME2",
+            "bits_allocated": 8,
+            "bits_stored": 8,
+            "high_bit": 7,
+            "pixel_representation": 0,
+            "data_vr": "OB",
+            "encoding": "native",
+            "payload_length_bytes": 16,
+            "value_field_padding_bytes": 0,
+            "pixel_value_formula": "17 * (4 * r + c)",
+            "pixel_values": [0, 17, 34, 51, 68, 85, 102, 119, 136, 153, 170, 187, 204, 221, 238, 255],
+            "pixel_min": 0,
+            "pixel_max": 255,
+            "payload_sha256": "a8faed6abbf35c12a4b26e40f6feb19d736d90045c83b9f9a31f638d323e6811",
+            "decoded_pixels_sha256": "a8faed6abbf35c12a4b26e40f6feb19d736d90045c83b9f9a31f638d323e6811"
+        },
+        "absent_content": {
+            "patient_study_module": true,
+            "contrast_bolus_module": true,
+            "cine_module": true,
+            "multi_frame_module": true,
+            "modality_lut_module": true,
+            "voi_lut_module": true,
+            "approval_module": true,
+            "clinical_trial_module": true,
+            "frame_extraction_module": true,
+            "common_instance_reference_module": true,
+            "reported_values_origin": true,
+            "rt_image_orientation": true,
+            "isocenter_position": true,
+            "patient_position": true,
+            "fluence_map_sequence": true,
+            "exposure_sequence": true,
+            "overlays": true,
+            "encapsulated_pixel_data": true,
+            "lossy_pixel_attributes": true
         }
     })
 }

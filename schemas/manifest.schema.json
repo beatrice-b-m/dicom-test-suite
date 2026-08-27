@@ -358,6 +358,9 @@
         "expected_rt_plan": {
           "$ref": "#/$defs/expected_rt_plan"
         },
+        "expected_rt_image": {
+          "$ref": "#/$defs/expected_rt_image"
+        },
         "expected_geometry": {
           "anyOf": [
             { "$ref": "#/$defs/expected_geometry" },
@@ -808,6 +811,46 @@
           },
           "else": {
             "not": { "required": ["expected_rt_plan"] }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "case_id": { "const": "non-image/rt/image_linked" }
+            },
+            "required": ["case_id"]
+          },
+          "then": {
+            "required": ["image", "pixel_data", "expected_rt_image"],
+            "properties": {
+              "dicom": {
+                "properties": {
+                  "sop_class_uid": { "const": "1.2.840.10008.5.1.4.1.1.481.1" },
+                  "sop_class_name": { "const": "RT Image Storage" },
+                  "iod_name": { "const": "RT Image" },
+                  "modality": { "const": "RTIMAGE" },
+                  "transfer_syntax_uid": { "const": "1.2.840.10008.1.2.1" }
+                }
+              },
+              "image": {
+                "type": "object",
+                "properties": {
+                  "rows": { "const": 4 },
+                  "columns": { "const": 4 },
+                  "frames": { "const": 1 },
+                  "samples_per_pixel": { "const": 1 },
+                  "photometric_interpretation": { "const": "MONOCHROME2" },
+                  "bits_allocated": { "const": 8 },
+                  "bits_stored": { "const": 8 },
+                  "high_bit": { "const": 7 },
+                  "pixel_representation": { "const": 0 }
+                }
+              },
+              "references": { "minItems": 1, "maxItems": 1 }
+            }
+          },
+          "else": {
+            "not": { "required": ["expected_rt_image"] }
           }
         },
         {
@@ -2933,6 +2976,123 @@
             "common_instance_reference_module": { "const": true },
             "image": { "const": true },
             "pixel_data": { "const": true }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "expected_rt_image": {
+      "type": "object",
+      "required": ["iod_kind", "sop_class_uid", "iod_name", "modality", "transfer_syntax_uid", "sop_instance_uid", "study_instance_uid", "series_instance_uid", "frame_of_reference_uid", "plan_reference", "linkage", "image", "storage", "absent_content"],
+      "properties": {
+        "iod_kind": { "const": "rt_image" },
+        "sop_class_uid": { "const": "1.2.840.10008.5.1.4.1.1.481.1" },
+        "iod_name": { "const": "RT Image" },
+        "modality": { "const": "RTIMAGE" },
+        "transfer_syntax_uid": { "const": "1.2.840.10008.1.2.1" },
+        "sop_instance_uid": { "type": "string", "pattern": "^[0-9]+(\\.[0-9]+)+$" },
+        "study_instance_uid": { "type": "string", "pattern": "^[0-9]+(\\.[0-9]+)+$" },
+        "series_instance_uid": { "type": "string", "pattern": "^[0-9]+(\\.[0-9]+)+$" },
+        "frame_of_reference_uid": { "type": "string", "pattern": "^[0-9]+(\\.[0-9]+)+$" },
+        "plan_reference": {
+          "type": "object",
+          "required": ["relationship", "source_case_id", "source_path", "source_sha256", "study_instance_uid", "series_instance_uid", "sop_class_uid", "sop_instance_uid", "frame_of_reference_uid"],
+          "properties": {
+            "relationship": { "const": "referenced_rt_plan" },
+            "source_case_id": { "const": "non-image/rt/plan_linked" },
+            "source_path": { "const": "non-image/rt/plan_linked/instance.dcm" },
+            "source_sha256": { "$ref": "#/$defs/sha256" },
+            "study_instance_uid": { "type": "string", "pattern": "^[0-9]+(\\.[0-9]+)+$" },
+            "series_instance_uid": { "type": "string", "pattern": "^[0-9]+(\\.[0-9]+)+$" },
+            "sop_class_uid": { "const": "1.2.840.10008.5.1.4.1.1.481.5" },
+            "sop_instance_uid": { "type": "string", "pattern": "^[0-9]+(\\.[0-9]+)+$" },
+            "frame_of_reference_uid": { "type": "string", "pattern": "^[0-9]+(\\.[0-9]+)+$" }
+          },
+          "additionalProperties": false
+        },
+        "linkage": {
+          "type": "object",
+          "required": ["referenced_fraction_group_number", "referenced_beam_number"],
+          "properties": {
+            "referenced_fraction_group_number": { "const": 1 },
+            "referenced_beam_number": { "const": 1 }
+          },
+          "additionalProperties": false
+        },
+        "image": {
+          "type": "object",
+          "required": ["image_type", "conversion_type", "label", "plane", "xray_image_receptor_angle_degrees", "image_plane_pixel_spacing_mm", "position_mm", "radiation_machine_name", "radiation_machine_sad_mm", "rt_image_sid_mm", "primary_dosimeter_unit"],
+          "properties": {
+            "image_type": {
+              "type": "array",
+              "prefixItems": [{ "const": "DERIVED" }, { "const": "SECONDARY" }, { "const": "DRR" }],
+              "items": false,
+              "minItems": 3,
+              "maxItems": 3
+            },
+            "conversion_type": { "const": "WSD" },
+            "label": { "const": "DTS_DRR" },
+            "plane": { "const": "NORMAL" },
+            "xray_image_receptor_angle_degrees": { "const": 0 },
+            "image_plane_pixel_spacing_mm": { "const": [1, 1] },
+            "position_mm": { "const": [-1.5, 1.5] },
+            "radiation_machine_name": { "const": "DTS_LINAC" },
+            "radiation_machine_sad_mm": { "const": 1000 },
+            "rt_image_sid_mm": { "const": 1500 },
+            "primary_dosimeter_unit": { "const": "MU" }
+          },
+          "additionalProperties": false
+        },
+        "storage": {
+          "type": "object",
+          "required": ["rows", "columns", "frames", "samples_per_pixel", "photometric_interpretation", "bits_allocated", "bits_stored", "high_bit", "pixel_representation", "data_vr", "encoding", "payload_length_bytes", "value_field_padding_bytes", "pixel_value_formula", "pixel_values", "pixel_min", "pixel_max", "payload_sha256", "decoded_pixels_sha256"],
+          "properties": {
+            "rows": { "const": 4 },
+            "columns": { "const": 4 },
+            "frames": { "const": 1 },
+            "samples_per_pixel": { "const": 1 },
+            "photometric_interpretation": { "const": "MONOCHROME2" },
+            "bits_allocated": { "const": 8 },
+            "bits_stored": { "const": 8 },
+            "high_bit": { "const": 7 },
+            "pixel_representation": { "const": 0 },
+            "data_vr": { "const": "OB" },
+            "encoding": { "const": "native" },
+            "payload_length_bytes": { "const": 16 },
+            "value_field_padding_bytes": { "const": 0 },
+            "pixel_value_formula": { "const": "17 * (4 * r + c)" },
+            "pixel_values": { "const": [0, 17, 34, 51, 68, 85, 102, 119, 136, 153, 170, 187, 204, 221, 238, 255] },
+            "pixel_min": { "const": 0 },
+            "pixel_max": { "const": 255 },
+            "payload_sha256": { "const": "a8faed6abbf35c12a4b26e40f6feb19d736d90045c83b9f9a31f638d323e6811" },
+            "decoded_pixels_sha256": { "const": "a8faed6abbf35c12a4b26e40f6feb19d736d90045c83b9f9a31f638d323e6811" }
+          },
+          "additionalProperties": false
+        },
+        "absent_content": {
+          "type": "object",
+          "required": ["patient_study_module", "contrast_bolus_module", "cine_module", "multi_frame_module", "modality_lut_module", "voi_lut_module", "approval_module", "clinical_trial_module", "frame_extraction_module", "common_instance_reference_module", "reported_values_origin", "rt_image_orientation", "isocenter_position", "patient_position", "fluence_map_sequence", "exposure_sequence", "overlays", "encapsulated_pixel_data", "lossy_pixel_attributes"],
+          "properties": {
+            "patient_study_module": { "const": true },
+            "contrast_bolus_module": { "const": true },
+            "cine_module": { "const": true },
+            "multi_frame_module": { "const": true },
+            "modality_lut_module": { "const": true },
+            "voi_lut_module": { "const": true },
+            "approval_module": { "const": true },
+            "clinical_trial_module": { "const": true },
+            "frame_extraction_module": { "const": true },
+            "common_instance_reference_module": { "const": true },
+            "reported_values_origin": { "const": true },
+            "rt_image_orientation": { "const": true },
+            "isocenter_position": { "const": true },
+            "patient_position": { "const": true },
+            "fluence_map_sequence": { "const": true },
+            "exposure_sequence": { "const": true },
+            "overlays": { "const": true },
+            "encapsulated_pixel_data": { "const": true },
+            "lossy_pixel_attributes": { "const": true }
           },
           "additionalProperties": false
         }

@@ -6,6 +6,14 @@ const STRUCTURE_SET_SOP_CLASS_UID: &str = "1.2.840.10008.5.1.4.1.1.481.3";
 const DOSE_CASE_ID: &str = "non-image/rt/dose_grid_u16_explicit_le";
 const DOSE_PATH: &str = "non-image/rt/dose_grid_u16_explicit_le/instance.dcm";
 const DOSE_SOP_CLASS_UID: &str = "1.2.840.10008.5.1.4.1.1.481.2";
+const PLAN_CASE_ID: &str = "non-image/rt/plan_linked";
+const PLAN_PATH: &str = "non-image/rt/plan_linked/instance.dcm";
+const PLAN_SOP_CLASS_UID: &str = "1.2.840.10008.5.1.4.1.1.481.5";
+pub(crate) const RT_IMAGE_PIXEL_SHA256: &str =
+    "a8faed6abbf35c12a4b26e40f6feb19d736d90045c83b9f9a31f638d323e6811";
+pub(crate) const RT_IMAGE_PIXEL_VALUES: [u8; 16] = [
+    0, 17, 34, 51, 68, 85, 102, 119, 136, 153, 170, 187, 204, 221, 238, 255,
+];
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct LinkedRtPlanInput<'a> {
@@ -19,6 +27,17 @@ pub(crate) struct LinkedRtPlanInput<'a> {
     pub dose_series_instance_uid: &'a str,
     pub dose_sop_instance_uid: &'a str,
     pub dose_sha256: &'a str,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct LinkedRtImageInput<'a> {
+    pub sop_instance_uid: &'a str,
+    pub study_instance_uid: &'a str,
+    pub series_instance_uid: &'a str,
+    pub frame_of_reference_uid: &'a str,
+    pub plan_series_instance_uid: &'a str,
+    pub plan_sop_instance_uid: &'a str,
+    pub plan_sha256: &'a str,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize)]
@@ -156,6 +175,104 @@ pub(crate) struct ExpectedRtPlanAbsentContent {
     pub common_instance_reference_module: bool,
     pub image: bool,
     pub pixel_data: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+pub(crate) struct ExpectedRtImage<'a> {
+    pub iod_kind: &'a str,
+    pub sop_class_uid: &'a str,
+    pub iod_name: &'a str,
+    pub modality: &'a str,
+    pub transfer_syntax_uid: &'a str,
+    pub sop_instance_uid: &'a str,
+    pub study_instance_uid: &'a str,
+    pub series_instance_uid: &'a str,
+    pub frame_of_reference_uid: &'a str,
+    pub plan_reference: ExpectedRtImagePlanReference<'a>,
+    pub linkage: ExpectedRtImageLinkage,
+    pub image: ExpectedRtImageGeometry<'a>,
+    pub storage: ExpectedRtImageStorage<'a>,
+    pub absent_content: ExpectedRtImageAbsentContent,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub(crate) struct ExpectedRtImagePlanReference<'a> {
+    pub relationship: &'a str,
+    pub source_case_id: &'a str,
+    pub source_path: &'a str,
+    pub source_sha256: &'a str,
+    pub study_instance_uid: &'a str,
+    pub series_instance_uid: &'a str,
+    pub sop_class_uid: &'a str,
+    pub sop_instance_uid: &'a str,
+    pub frame_of_reference_uid: &'a str,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub(crate) struct ExpectedRtImageLinkage {
+    pub referenced_fraction_group_number: u8,
+    pub referenced_beam_number: u8,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+pub(crate) struct ExpectedRtImageGeometry<'a> {
+    pub image_type: [&'a str; 3],
+    pub conversion_type: &'a str,
+    pub label: &'a str,
+    pub plane: &'a str,
+    pub xray_image_receptor_angle_degrees: i16,
+    pub image_plane_pixel_spacing_mm: [u8; 2],
+    pub position_mm: [f32; 2],
+    pub radiation_machine_name: &'a str,
+    pub radiation_machine_sad_mm: u16,
+    pub rt_image_sid_mm: u16,
+    pub primary_dosimeter_unit: &'a str,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub(crate) struct ExpectedRtImageStorage<'a> {
+    pub rows: u8,
+    pub columns: u8,
+    pub frames: u8,
+    pub samples_per_pixel: u8,
+    pub photometric_interpretation: &'a str,
+    pub bits_allocated: u8,
+    pub bits_stored: u8,
+    pub high_bit: u8,
+    pub pixel_representation: u8,
+    pub data_vr: &'a str,
+    pub encoding: &'a str,
+    pub payload_length_bytes: u8,
+    pub value_field_padding_bytes: u8,
+    pub pixel_value_formula: &'a str,
+    pub pixel_values: &'a [u8],
+    pub pixel_min: u8,
+    pub pixel_max: u8,
+    pub payload_sha256: &'a str,
+    pub decoded_pixels_sha256: &'a str,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub(crate) struct ExpectedRtImageAbsentContent {
+    pub patient_study_module: bool,
+    pub contrast_bolus_module: bool,
+    pub cine_module: bool,
+    pub multi_frame_module: bool,
+    pub modality_lut_module: bool,
+    pub voi_lut_module: bool,
+    pub approval_module: bool,
+    pub clinical_trial_module: bool,
+    pub frame_extraction_module: bool,
+    pub common_instance_reference_module: bool,
+    pub reported_values_origin: bool,
+    pub rt_image_orientation: bool,
+    pub isocenter_position: bool,
+    pub patient_position: bool,
+    pub fluence_map_sequence: bool,
+    pub exposure_sequence: bool,
+    pub overlays: bool,
+    pub encapsulated_pixel_data: bool,
+    pub lossy_pixel_attributes: bool,
 }
 
 const REFERENCED_BEAMS: [ExpectedRtReferencedBeam; 1] = [ExpectedRtReferencedBeam {
@@ -307,6 +424,90 @@ pub(crate) fn linked_rt_plan_expected(input: LinkedRtPlanInput<'_>) -> ExpectedR
     }
 }
 
+pub(crate) fn linked_rt_image_expected(input: LinkedRtImageInput<'_>) -> ExpectedRtImage<'_> {
+    ExpectedRtImage {
+        iod_kind: "rt_image",
+        sop_class_uid: "1.2.840.10008.5.1.4.1.1.481.1",
+        iod_name: "RT Image",
+        modality: "RTIMAGE",
+        transfer_syntax_uid: "1.2.840.10008.1.2.1",
+        sop_instance_uid: input.sop_instance_uid,
+        study_instance_uid: input.study_instance_uid,
+        series_instance_uid: input.series_instance_uid,
+        frame_of_reference_uid: input.frame_of_reference_uid,
+        plan_reference: ExpectedRtImagePlanReference {
+            relationship: "referenced_rt_plan",
+            source_case_id: PLAN_CASE_ID,
+            source_path: PLAN_PATH,
+            source_sha256: input.plan_sha256,
+            study_instance_uid: input.study_instance_uid,
+            series_instance_uid: input.plan_series_instance_uid,
+            sop_class_uid: PLAN_SOP_CLASS_UID,
+            sop_instance_uid: input.plan_sop_instance_uid,
+            frame_of_reference_uid: input.frame_of_reference_uid,
+        },
+        linkage: ExpectedRtImageLinkage {
+            referenced_fraction_group_number: 1,
+            referenced_beam_number: 1,
+        },
+        image: ExpectedRtImageGeometry {
+            image_type: ["DERIVED", "SECONDARY", "DRR"],
+            conversion_type: "WSD",
+            label: "DTS_DRR",
+            plane: "NORMAL",
+            xray_image_receptor_angle_degrees: 0,
+            image_plane_pixel_spacing_mm: [1, 1],
+            position_mm: [-1.5, 1.5],
+            radiation_machine_name: "DTS_LINAC",
+            radiation_machine_sad_mm: 1_000,
+            rt_image_sid_mm: 1_500,
+            primary_dosimeter_unit: "MU",
+        },
+        storage: ExpectedRtImageStorage {
+            rows: 4,
+            columns: 4,
+            frames: 1,
+            samples_per_pixel: 1,
+            photometric_interpretation: "MONOCHROME2",
+            bits_allocated: 8,
+            bits_stored: 8,
+            high_bit: 7,
+            pixel_representation: 0,
+            data_vr: "OB",
+            encoding: "native",
+            payload_length_bytes: 16,
+            value_field_padding_bytes: 0,
+            pixel_value_formula: "17 * (4 * r + c)",
+            pixel_values: &RT_IMAGE_PIXEL_VALUES,
+            pixel_min: 0,
+            pixel_max: 255,
+            payload_sha256: RT_IMAGE_PIXEL_SHA256,
+            decoded_pixels_sha256: RT_IMAGE_PIXEL_SHA256,
+        },
+        absent_content: ExpectedRtImageAbsentContent {
+            patient_study_module: true,
+            contrast_bolus_module: true,
+            cine_module: true,
+            multi_frame_module: true,
+            modality_lut_module: true,
+            voi_lut_module: true,
+            approval_module: true,
+            clinical_trial_module: true,
+            frame_extraction_module: true,
+            common_instance_reference_module: true,
+            reported_values_origin: true,
+            rt_image_orientation: true,
+            isocenter_position: true,
+            patient_position: true,
+            fluence_map_sequence: true,
+            exposure_sequence: true,
+            overlays: true,
+            encapsulated_pixel_data: true,
+            lossy_pixel_attributes: true,
+        },
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -348,6 +549,39 @@ mod tests {
         assert_eq!(
             value["beams"][0]["control_points"][1]["inherits_geometry_from_control_point"],
             0
+        );
+    }
+
+    #[test]
+    fn linked_image_serializes_exact_linkage_geometry_and_pixels() {
+        let value = serde_json::to_value(linked_rt_image_expected(LinkedRtImageInput {
+            sop_instance_uid: "2.25.11",
+            study_instance_uid: "2.25.12",
+            series_instance_uid: "2.25.13",
+            frame_of_reference_uid: "2.25.14",
+            plan_series_instance_uid: "2.25.15",
+            plan_sop_instance_uid: "2.25.16",
+            plan_sha256: &"c".repeat(64),
+        }))
+        .expect("RT Image expectation should serialize");
+
+        assert_eq!(
+            value["plan_reference"]["relationship"],
+            "referenced_rt_plan"
+        );
+        assert_eq!(value["linkage"]["referenced_beam_number"], 1);
+        assert_eq!(
+            value["image"]["image_type"],
+            serde_json::json!(["DERIVED", "SECONDARY", "DRR"])
+        );
+        assert_eq!(
+            value["storage"]["pixel_values"],
+            serde_json::json!(RT_IMAGE_PIXEL_VALUES)
+        );
+        assert_eq!(value["storage"]["payload_sha256"], RT_IMAGE_PIXEL_SHA256);
+        assert_eq!(
+            value["storage"]["decoded_pixels_sha256"],
+            RT_IMAGE_PIXEL_SHA256
         );
     }
 }

@@ -3420,6 +3420,7 @@ pub(crate) struct GenerationOutput {
 pub(crate) struct GeneratedSourceObject {
     pub source_case_id: String,
     pub source_path: String,
+    pub sha256: String,
     pub study_instance_uid: String,
     pub sop_class_uid: String,
     pub sop_instance_uid: String,
@@ -3446,6 +3447,11 @@ impl GeneratedSourceObject {
                 message: "generated file case_id must match manifest case_id",
             });
         }
+        let sha256 = generated_manifest_str(
+            &file.manifest_entry,
+            "/sha256",
+            "generated file manifest sha256 must be a string",
+        )?;
         let sop_class_uid = generated_manifest_str(
             &file.manifest_entry,
             "/dicom/sop_class_uid",
@@ -3479,6 +3485,7 @@ impl GeneratedSourceObject {
         Ok(Self {
             source_case_id: source_case_id.to_string(),
             source_path: source_path.to_string(),
+            sha256: sha256.to_string(),
             study_instance_uid: study_instance_uid.to_string(),
             sop_class_uid: sop_class_uid.to_string(),
             sop_instance_uid: sop_instance_uid.to_string(),
@@ -16033,6 +16040,10 @@ mod tests {
             Some(source)
         );
         assert_eq!(source.source_case_id, file.case_id);
+        assert_eq!(
+            source.sha256,
+            "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+        );
         assert_eq!(source.frame_count, Some(2));
 
         let reference = source.to_manifest_reference("source_image", Some(vec![1, 2]));
@@ -16181,6 +16192,7 @@ mod tests {
         let mut manifest_entry = serde_json::json!({
             "path": path,
             "case_id": case_id,
+            "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
             "dicom": {
                 "sop_class_uid": sop_class_uid
             },

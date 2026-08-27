@@ -65,7 +65,7 @@ words and span both sides of the signed 32-bit boundary.
   frozen offline `uv`/pydicom unsigned decode gate pass. Report and CLI coverage
   remain intentionally incomplete because promotion stopped at the mandatory
   independent IOD-validation checkpoint.
-- Registry reason or linked issue: `independent_iod_validator_unsupported`.
+- Registry reason or linked issue: `independent_iod_validator_unavailable`.
   The locked dicom3tools validators abort on an internal assertion for this
   standards-permitted pixel format, so the case must not be promoted merely
   because structural parsers and pixel decoders accept it.

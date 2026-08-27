@@ -6095,7 +6095,7 @@
       },
       "blockers": [
         {
-          "code": "independent_iod_validator_unsupported",
+          "code": "independent_iod_validator_unavailable",
           "message": "The locked dciodvfy and dcentvfy builds abort on an internal 32-bit Pixel Data assertion, so the mandatory independent IOD gate is unavailable.",
           "recheck_phase": "phase-2"
         }

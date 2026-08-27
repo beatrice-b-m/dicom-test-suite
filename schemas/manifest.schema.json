@@ -304,6 +304,9 @@
         "expected_nm_multiframe": {
           "$ref": "#/$defs/expected_nm_multiframe"
         },
+        "expected_pet_activity": {
+          "$ref": "#/$defs/expected_pet_activity"
+        },
         "expected_geometry": {
           "anyOf": [
             { "$ref": "#/$defs/expected_geometry" },
@@ -417,6 +420,44 @@
                 "properties": {
                   "recipe_parameters": {
                     "required": ["nm_dimensions"]
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "case_id": { "const": "classic/pet/rescaled_activity_explicit_le" }
+            },
+            "required": ["case_id"]
+          },
+          "then": {
+            "required": ["image", "pixel_data", "expected_pet_activity"],
+            "properties": {
+              "dicom": {
+                "properties": {
+                  "sop_class_uid": { "const": "1.2.840.10008.5.1.4.1.1.128" },
+                  "iod_name": { "const": "PET Image" },
+                  "modality": { "const": "PT" }
+                }
+              },
+              "image": {
+                "properties": {
+                  "frames": { "const": 1 },
+                  "samples_per_pixel": { "const": 1 },
+                  "photometric_interpretation": { "const": "MONOCHROME2" },
+                  "bits_allocated": { "const": 16 },
+                  "bits_stored": { "const": 16 },
+                  "high_bit": { "const": 15 },
+                  "pixel_representation": { "const": 0 }
+                }
+              },
+              "recipe": {
+                "properties": {
+                  "recipe_parameters": {
+                    "required": ["pet_activity"]
                   }
                 }
               }
@@ -683,6 +724,92 @@
           "minItems": 4,
           "maxItems": 4
         }
+      },
+      "additionalProperties": false
+    },
+    "expected_pet_activity": {
+      "type": "object",
+      "required": [
+        "image_type",
+        "units",
+        "counts_source",
+        "series_type",
+        "number_of_slices",
+        "corrected_image",
+        "decay_correction",
+        "dose_calibration_factor",
+        "rescale_intercept",
+        "rescale_slope",
+        "stored_values",
+        "activity_values_bqml",
+        "frame_reference_time_ms",
+        "actual_frame_duration_ms",
+        "image_index",
+        "radiopharmaceutical_information_item_count"
+      ],
+      "properties": {
+        "image_type": {
+          "type": "array",
+          "prefixItems": [
+            { "const": "ORIGINAL" },
+            { "const": "PRIMARY" }
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "units": { "const": "BQML" },
+        "counts_source": { "const": "EMISSION" },
+        "series_type": {
+          "type": "array",
+          "prefixItems": [
+            { "const": "STATIC" },
+            { "const": "IMAGE" }
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "number_of_slices": { "const": 1 },
+        "corrected_image": {
+          "type": "array",
+          "prefixItems": [{ "const": "DCAL" }],
+          "items": false,
+          "minItems": 1,
+          "maxItems": 1
+        },
+        "decay_correction": { "const": "NONE" },
+        "dose_calibration_factor": { "const": 1.0 },
+        "rescale_intercept": { "const": 0.0 },
+        "rescale_slope": { "const": 2.5 },
+        "stored_values": {
+          "type": "array",
+          "prefixItems": [
+            { "const": 0 },
+            { "const": 100 },
+            { "const": 200 },
+            { "const": 400 }
+          ],
+          "items": false,
+          "minItems": 4,
+          "maxItems": 4
+        },
+        "activity_values_bqml": {
+          "type": "array",
+          "prefixItems": [
+            { "const": 0.0 },
+            { "const": 250.0 },
+            { "const": 500.0 },
+            { "const": 1000.0 }
+          ],
+          "items": false,
+          "minItems": 4,
+          "maxItems": 4
+        },
+        "frame_reference_time_ms": { "const": 30000.0 },
+        "actual_frame_duration_ms": { "const": 60000 },
+        "image_index": { "const": 1 },
+        "radiopharmaceutical_information_item_count": { "const": 0 }
       },
       "additionalProperties": false
     },

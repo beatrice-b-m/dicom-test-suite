@@ -589,6 +589,37 @@ fn manifest_schema_types_nuclear_medicine_multiframe_expectations() {
 }
 
 #[test]
+fn manifest_schema_types_pet_activity_expectations() {
+    let schema = read_json("schemas/manifest.schema.json");
+    let pet_schema = serde_json::json!({
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$ref": "#/$defs/expected_pet_activity",
+        "$defs": schema["$defs"].clone(),
+    });
+    let validator =
+        jsonschema::validator_for(&pet_schema).expect("PET expectation schema should compile");
+    let mut expectations = pet_activity_expectations();
+    assert!(validator.is_valid(&expectations));
+
+    expectations["units"] = serde_json::json!("GML");
+    expectations["rescale_intercept"] = serde_json::json!(1.0);
+    expectations["series_type"][0] = serde_json::json!("GATED");
+    expectations["activity_values_bqml"][3] = serde_json::json!(999.0);
+    expectations["radiopharmaceutical_information_item_count"] = serde_json::json!(1);
+    expectations["unexpected"] = serde_json::json!(true);
+    let errors = validator.iter_errors(&expectations).collect::<Vec<_>>();
+    assert!(
+        errors.len() >= 6,
+        "units, intercept, series type, activity mapping, isotope cardinality, and unknown fields must be rejected: {errors:?}"
+    );
+
+    assert_eq!(
+        schema.pointer("/$defs/file/properties/expected_pet_activity/$ref"),
+        Some(&Value::String("#/$defs/expected_pet_activity".to_string()))
+    );
+}
+
+#[test]
 fn manifest_schema_rejects_malformed_person_name_expectations() {
     let schema = read_json("schemas/manifest.schema.json");
     let metadata_schema = serde_json::json!({
@@ -813,6 +844,27 @@ fn nuclear_medicine_multiframe_expectations() -> Value {
             { "frame_number": 3, "energy_window_index": 2, "detector_index": 1, "frame_sha256": hash },
             { "frame_number": 4, "energy_window_index": 2, "detector_index": 2, "frame_sha256": hash }
         ]
+    })
+}
+
+fn pet_activity_expectations() -> Value {
+    serde_json::json!({
+        "image_type": ["ORIGINAL", "PRIMARY"],
+        "units": "BQML",
+        "counts_source": "EMISSION",
+        "series_type": ["STATIC", "IMAGE"],
+        "number_of_slices": 1,
+        "corrected_image": ["DCAL"],
+        "decay_correction": "NONE",
+        "dose_calibration_factor": 1.0,
+        "rescale_intercept": 0.0,
+        "rescale_slope": 2.5,
+        "stored_values": [0, 100, 200, 400],
+        "activity_values_bqml": [0.0, 250.0, 500.0, 1000.0],
+        "frame_reference_time_ms": 30000.0,
+        "actual_frame_duration_ms": 60000,
+        "image_index": 1,
+        "radiopharmaceutical_information_item_count": 0
     })
 }
 

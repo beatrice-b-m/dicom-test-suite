@@ -294,6 +294,7 @@ dependencies = [
  "dicom-transfer-syntax-registry",
  "jsonschema",
  "openjp2",
+ "serde",
  "serde_json",
 ]
 

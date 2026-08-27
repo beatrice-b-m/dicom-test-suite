@@ -47,6 +47,7 @@ mod geometry;
 mod metadata;
 pub mod uid;
 mod validation;
+pub(crate) mod waveform_manifest;
 pub use coverage_gaps::{
     CoverageGapError, build_coverage_gap_report, render_coverage_gap_report_markdown,
 };

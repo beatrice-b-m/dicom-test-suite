@@ -8735,7 +8735,7 @@
     {
       "case_id": "classic/xa/monoplane_explicit_le",
       "artifact_kind": "dicom_instance",
-      "status": "planned",
+      "status": "implemented",
       "provider": {
         "kind": "rust_native",
         "id": "rust_native"
@@ -8746,18 +8746,8 @@
         "geometry",
         "pixels"
       ],
-      "roadmap": {
-        "priority": "next",
-        "delivery_phase": "phase-2",
-        "rationale": "Adds projection X-Ray angiography geometry and acquisition metadata."
-      },
-      "blockers": [
-        {
-          "code": "recipe_unimplemented",
-          "message": "The deterministic native recipe is not implemented.",
-          "recheck_phase": "phase-2"
-        }
-      ],
+      "roadmap": null,
+      "blockers": [],
       "profiles": [
         "core"
       ],

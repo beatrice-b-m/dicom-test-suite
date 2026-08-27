@@ -12226,6 +12226,38 @@
           "covered": true,
           "part": "PS3.6",
           "anchor": "table_A-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom-kb retrieve PS3.5 sect_6.1 --edition 2026b",
+          "covered": true,
+          "part": "PS3.5",
+          "anchor": "sect_6.1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom-kb retrieve PS3.5 sect_6.1.2.2 --edition 2026b",
+          "covered": true,
+          "part": "PS3.5",
+          "anchor": "sect_6.1.2.2"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom-kb retrieve PS3.5 sect_6.2.1.2 --edition 2026b",
+          "covered": true,
+          "part": "PS3.5",
+          "anchor": "sect_6.2.1.2"
+        },
+        {
+          "source": "local-source-note",
+          "edition": "2026b",
+          "query": "standards/source-notes/phase-2-utf8-person-name.md",
+          "covered": true,
+          "part": "PS3.5",
+          "anchor": "sect_J.1"
         }
       ]
     },

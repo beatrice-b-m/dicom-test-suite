@@ -1,3 +1,5 @@
+#![recursion_limit = "256"]
+
 use std::fs;
 use std::path::Path;
 
@@ -620,6 +622,72 @@ fn manifest_schema_types_pet_activity_expectations() {
 }
 
 #[test]
+fn manifest_schema_types_enhanced_pet_expectations() {
+    let schema = read_json("schemas/manifest.schema.json");
+    let enhanced_pet_schema = serde_json::json!({
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$ref": "#/$defs/expected_enhanced_pet",
+        "$defs": schema["$defs"].clone(),
+    });
+    let validator = jsonschema::validator_for(&enhanced_pet_schema)
+        .expect("Enhanced PET expectation schema should compile");
+    let mut expectations = enhanced_pet_expectations();
+    assert!(validator.is_valid(&expectations));
+
+    expectations["image_type"][0] = serde_json::json!("ORIGINAL");
+    expectations["dimension_index_pointer"] = serde_json::json!("0020,0032");
+    expectations["stack_ids"][1] = serde_json::json!("2");
+    expectations["anatomic_region"]["code_value"] = serde_json::json!("80891009");
+    expectations["radiopharmaceutical_information"]["radionuclide"]["code_meaning"] =
+        serde_json::json!("Fluorine-18");
+    expectations["corrections"]["decay"] = serde_json::json!("YES");
+    expectations["real_world_value_mapping"]["slope"] = serde_json::json!(1.0);
+    expectations["stored_values_by_frame"][1][3] = serde_json::json!(401);
+    expectations["nonclaims"]["suv"] = serde_json::json!(true);
+    expectations["unexpected"] = serde_json::json!(true);
+    let errors = validator.iter_errors(&expectations).collect::<Vec<_>>();
+    assert!(
+        errors.len() >= 10,
+        "Enhanced PET identity, dimensions, codes, correction nonclaims, quantitative mapping, native frames, and unknown fields must be rejected: {errors:?}"
+    );
+
+    assert_eq!(
+        schema.pointer("/$defs/file/properties/expected_enhanced_pet/$ref"),
+        Some(&Value::String("#/$defs/expected_enhanced_pet".to_string()))
+    );
+
+    let case_rule = schema
+        .pointer("/$defs/file/allOf")
+        .and_then(Value::as_array)
+        .and_then(|rules| {
+            rules.iter().find(|rule| {
+                rule.pointer("/if/properties/case_id/const")
+                    .and_then(Value::as_str)
+                    == Some("enhanced/pet/multiframe_explicit_le")
+            })
+        })
+        .expect("Enhanced PET case must have a manifest schema conditional");
+    let required = case_rule
+        .pointer("/then/required")
+        .and_then(Value::as_array)
+        .expect("Enhanced PET case conditional must require manifest fields");
+    for field in ["image", "pixel_data", "expected_enhanced_pet"] {
+        assert!(
+            required.iter().any(|value| value.as_str() == Some(field)),
+            "Enhanced PET case conditional must require {field}"
+        );
+    }
+    assert_eq!(
+        case_rule.pointer("/then/properties/dicom/properties/sop_class_uid/const"),
+        Some(&Value::from("1.2.840.10008.5.1.4.1.1.130"))
+    );
+    assert_eq!(
+        case_rule.pointer("/then/properties/image/properties/frames/const"),
+        Some(&Value::from(2))
+    );
+}
+
+#[test]
 fn manifest_schema_types_ultrasound_multiframe_expectations() {
     let schema = read_json("schemas/manifest.schema.json");
     let us_schema = serde_json::json!({
@@ -1137,6 +1205,123 @@ fn pet_activity_expectations() -> Value {
         "actual_frame_duration_ms": 60000,
         "image_index": 1,
         "radiopharmaceutical_information_item_count": 0
+    })
+}
+
+fn enhanced_pet_expectations() -> Value {
+    let frame_hash = "03ec353fd2407afb09c8d65712ef9aa30f03c8243f6f3f1675dca7ea5f6a4784";
+    serde_json::json!({
+        "image_type": ["DERIVED", "PRIMARY", "STATIC", "EMISSION"],
+        "frame_type": ["DERIVED", "PRIMARY", "STATIC", "EMISSION"],
+        "pixel_presentation": "MONOCHROME",
+        "volumetric_properties": "VOLUME",
+        "volume_based_calculation_technique": "NONE",
+        "content_qualification": "RESEARCH",
+        "burned_in_annotation": "NO",
+        "lossy_image_compression": "00",
+        "presentation_lut_shape": "IDENTITY",
+        "frame_count": 2,
+        "shared_functional_groups_item_count": 1,
+        "per_frame_functional_groups_item_count": 2,
+        "dimension_organization_item_count": 1,
+        "dimension_index_item_count": 1,
+        "dimension_index_pointer": "0020,9057",
+        "functional_group_pointer": "0020,9111",
+        "stack_ids": ["1", "1"],
+        "in_stack_position_numbers": [1, 2],
+        "dimension_index_values": [1, 2],
+        "temporal_position_indices": [1, 1],
+        "image_positions_patient_mm": [[0.0, 0.0, 0.0], [0.0, 0.0, 5.0]],
+        "pixel_spacing_mm": [2.0, 2.0],
+        "slice_thickness_mm": 5.0,
+        "spacing_between_slices_mm": 5.0,
+        "image_orientation_patient": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0],
+        "frame_laterality": "U",
+        "anatomic_region": {
+            "code_value": "69536005",
+            "coding_scheme_designator": "SCT",
+            "code_meaning": "Head"
+        },
+        "rescale_intercept": 0.0,
+        "rescale_slope": 2.5,
+        "rescale_type": "US",
+        "window_center": 500.0,
+        "window_width": 1000.0,
+        "real_world_value_mapping": {
+            "first_value_mapped": 0,
+            "last_value_mapped": 400,
+            "intercept": 0.0,
+            "slope": 2.5,
+            "lut_label": "BQML",
+            "lut_explanation": "Activity concentration",
+            "measurement_units": {
+                "code_value": "Bq/ml",
+                "coding_scheme_designator": "UCUM",
+                "code_meaning": "Becquerels/milliliter"
+            }
+        },
+        "radiopharmaceutical_information": {
+            "item_count": 1,
+            "agent_number": 1,
+            "radionuclide": {
+                "code_value": "77004003",
+                "coding_scheme_designator": "SCT",
+                "code_meaning": "^18^Fluorine"
+            },
+            "administration_route": {
+                "code_value": "47625008",
+                "coding_scheme_designator": "SCT",
+                "code_meaning": "Intravenous route"
+            },
+            "start_datetime": "20260101000000",
+            "total_dose_mbq": 0.0,
+            "half_life_seconds": 6586.2,
+            "positron_fraction": 0.967,
+            "radiopharmaceutical": {
+                "code_value": "35321007",
+                "coding_scheme_designator": "SCT",
+                "code_meaning": "Fluorodeoxyglucose F^18^"
+            }
+        },
+        "radiopharmaceutical_usage_agent_number": 1,
+        "table_motion": "STATIC",
+        "time_of_flight_information_used": "FALSE",
+        "counts_source": "EMISSION",
+        "corrections": {
+            "decay": "NO",
+            "attenuation": "NO",
+            "scatter": "NO",
+            "dead_time": "NO",
+            "gantry_motion": "NO",
+            "patient_motion": "NO",
+            "count_loss_normalization": "NO",
+            "randoms": "NO",
+            "non_uniform_radial_sampling": "NO",
+            "sensitivity_calibration": "NO",
+            "detector_normalization": "NO"
+        },
+        "derivation_image_item_count": 0,
+        "acquisition_context_item_count": 0,
+        "stored_values_by_frame": [[0, 100, 200, 400], [0, 100, 200, 400]],
+        "activity_values_bqml_by_frame": [
+            [0.0, 250.0, 500.0, 1000.0],
+            [0.0, 250.0, 500.0, 1000.0]
+        ],
+        "frame_sha256": [frame_hash, frame_hash],
+        "pixel_data_sha256": "3a43b45e2f6d4d04fe4fc357dfc0efaa21caa5415ffc5db96fc19428d34a7bb5",
+        "nonclaims": {
+            "suv": false,
+            "body_weight_normalization": false,
+            "body_surface_area_normalization": false,
+            "decay_corrected": false,
+            "clinically_calibrated": false,
+            "acquisition_counts": false,
+            "actual_clinical_dose": false,
+            "gating": false,
+            "detector_motion": false,
+            "time_of_flight_processing": false,
+            "reconstruction": false
+        }
     })
 }
 

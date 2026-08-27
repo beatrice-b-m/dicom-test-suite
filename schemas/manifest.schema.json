@@ -307,6 +307,9 @@
         "expected_pet_activity": {
           "$ref": "#/$defs/expected_pet_activity"
         },
+        "expected_enhanced_pet": {
+          "$ref": "#/$defs/expected_enhanced_pet"
+        },
         "expected_us_multiframe": {
           "$ref": "#/$defs/expected_us_multiframe"
         },
@@ -467,6 +470,46 @@
                 "properties": {
                   "recipe_parameters": {
                     "required": ["pet_activity"]
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "case_id": { "const": "enhanced/pet/multiframe_explicit_le" }
+            },
+            "required": ["case_id"]
+          },
+          "then": {
+            "required": ["image", "pixel_data", "expected_enhanced_pet"],
+            "properties": {
+              "dicom": {
+                "properties": {
+                  "sop_class_uid": { "const": "1.2.840.10008.5.1.4.1.1.130" },
+                  "iod_name": { "const": "Enhanced PET Image" },
+                  "modality": { "const": "PT" }
+                }
+              },
+              "image": {
+                "properties": {
+                  "rows": { "const": 2 },
+                  "columns": { "const": 2 },
+                  "frames": { "const": 2 },
+                  "samples_per_pixel": { "const": 1 },
+                  "photometric_interpretation": { "const": "MONOCHROME2" },
+                  "bits_allocated": { "const": 16 },
+                  "bits_stored": { "const": 16 },
+                  "high_bit": { "const": 15 },
+                  "pixel_representation": { "const": 0 }
+                }
+              },
+              "recipe": {
+                "properties": {
+                  "recipe_parameters": {
+                    "required": ["enhanced_pet"]
                   }
                 }
               }
@@ -968,6 +1011,408 @@
         "actual_frame_duration_ms": { "const": 60000 },
         "image_index": { "const": 1 },
         "radiopharmaceutical_information_item_count": { "const": 0 }
+      },
+      "additionalProperties": false
+    },
+    "expected_enhanced_pet_code": {
+      "type": "object",
+      "required": ["code_value", "coding_scheme_designator", "code_meaning"],
+      "properties": {
+        "code_value": { "type": "string" },
+        "coding_scheme_designator": { "type": "string" },
+        "code_meaning": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "expected_enhanced_pet": {
+      "type": "object",
+      "required": [
+        "image_type",
+        "frame_type",
+        "pixel_presentation",
+        "volumetric_properties",
+        "volume_based_calculation_technique",
+        "content_qualification",
+        "burned_in_annotation",
+        "lossy_image_compression",
+        "presentation_lut_shape",
+        "frame_count",
+        "shared_functional_groups_item_count",
+        "per_frame_functional_groups_item_count",
+        "dimension_organization_item_count",
+        "dimension_index_item_count",
+        "dimension_index_pointer",
+        "functional_group_pointer",
+        "stack_ids",
+        "in_stack_position_numbers",
+        "dimension_index_values",
+        "temporal_position_indices",
+        "image_positions_patient_mm",
+        "pixel_spacing_mm",
+        "slice_thickness_mm",
+        "spacing_between_slices_mm",
+        "image_orientation_patient",
+        "frame_laterality",
+        "anatomic_region",
+        "rescale_intercept",
+        "rescale_slope",
+        "rescale_type",
+        "window_center",
+        "window_width",
+        "real_world_value_mapping",
+        "radiopharmaceutical_information",
+        "radiopharmaceutical_usage_agent_number",
+        "table_motion",
+        "time_of_flight_information_used",
+        "counts_source",
+        "corrections",
+        "derivation_image_item_count",
+        "acquisition_context_item_count",
+        "stored_values_by_frame",
+        "activity_values_bqml_by_frame",
+        "frame_sha256",
+        "pixel_data_sha256",
+        "nonclaims"
+      ],
+      "properties": {
+        "image_type": {
+          "type": "array",
+          "prefixItems": [
+            { "const": "DERIVED" },
+            { "const": "PRIMARY" },
+            { "const": "STATIC" },
+            { "const": "EMISSION" }
+          ],
+          "items": false,
+          "minItems": 4,
+          "maxItems": 4
+        },
+        "frame_type": {
+          "type": "array",
+          "prefixItems": [
+            { "const": "DERIVED" },
+            { "const": "PRIMARY" },
+            { "const": "STATIC" },
+            { "const": "EMISSION" }
+          ],
+          "items": false,
+          "minItems": 4,
+          "maxItems": 4
+        },
+        "pixel_presentation": { "const": "MONOCHROME" },
+        "volumetric_properties": { "const": "VOLUME" },
+        "volume_based_calculation_technique": { "const": "NONE" },
+        "content_qualification": { "const": "RESEARCH" },
+        "burned_in_annotation": { "const": "NO" },
+        "lossy_image_compression": { "const": "00" },
+        "presentation_lut_shape": { "const": "IDENTITY" },
+        "frame_count": { "const": 2 },
+        "shared_functional_groups_item_count": { "const": 1 },
+        "per_frame_functional_groups_item_count": { "const": 2 },
+        "dimension_organization_item_count": { "const": 1 },
+        "dimension_index_item_count": { "const": 1 },
+        "dimension_index_pointer": { "const": "0020,9057" },
+        "functional_group_pointer": { "const": "0020,9111" },
+        "stack_ids": {
+          "type": "array",
+          "prefixItems": [{ "const": "1" }, { "const": "1" }],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "in_stack_position_numbers": {
+          "type": "array",
+          "prefixItems": [{ "const": 1 }, { "const": 2 }],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "dimension_index_values": {
+          "type": "array",
+          "prefixItems": [{ "const": 1 }, { "const": 2 }],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "temporal_position_indices": {
+          "type": "array",
+          "prefixItems": [{ "const": 1 }, { "const": 1 }],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "image_positions_patient_mm": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "array",
+              "prefixItems": [{ "const": 0.0 }, { "const": 0.0 }, { "const": 0.0 }],
+              "items": false,
+              "minItems": 3,
+              "maxItems": 3
+            },
+            {
+              "type": "array",
+              "prefixItems": [{ "const": 0.0 }, { "const": 0.0 }, { "const": 5.0 }],
+              "items": false,
+              "minItems": 3,
+              "maxItems": 3
+            }
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "pixel_spacing_mm": {
+          "type": "array",
+          "prefixItems": [{ "const": 2.0 }, { "const": 2.0 }],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "slice_thickness_mm": { "const": 5.0 },
+        "spacing_between_slices_mm": { "const": 5.0 },
+        "image_orientation_patient": {
+          "type": "array",
+          "prefixItems": [
+            { "const": 1.0 }, { "const": 0.0 }, { "const": 0.0 },
+            { "const": 0.0 }, { "const": 1.0 }, { "const": 0.0 }
+          ],
+          "items": false,
+          "minItems": 6,
+          "maxItems": 6
+        },
+        "frame_laterality": { "const": "U" },
+        "anatomic_region": {
+          "allOf": [
+            { "$ref": "#/$defs/expected_enhanced_pet_code" },
+            {
+              "properties": {
+                "code_value": { "const": "69536005" },
+                "coding_scheme_designator": { "const": "SCT" },
+                "code_meaning": { "const": "Head" }
+              }
+            }
+          ]
+        },
+        "rescale_intercept": { "const": 0.0 },
+        "rescale_slope": { "const": 2.5 },
+        "rescale_type": { "const": "US" },
+        "window_center": { "const": 500.0 },
+        "window_width": { "const": 1000.0 },
+        "real_world_value_mapping": {
+          "type": "object",
+          "required": [
+            "first_value_mapped",
+            "last_value_mapped",
+            "intercept",
+            "slope",
+            "lut_label",
+            "lut_explanation",
+            "measurement_units"
+          ],
+          "properties": {
+            "first_value_mapped": { "const": 0 },
+            "last_value_mapped": { "const": 400 },
+            "intercept": { "const": 0.0 },
+            "slope": { "const": 2.5 },
+            "lut_label": { "const": "BQML" },
+            "lut_explanation": { "const": "Activity concentration" },
+            "measurement_units": {
+              "allOf": [
+                { "$ref": "#/$defs/expected_enhanced_pet_code" },
+                {
+                  "properties": {
+                    "code_value": { "const": "Bq/ml" },
+                    "coding_scheme_designator": { "const": "UCUM" },
+                    "code_meaning": { "const": "Becquerels/milliliter" }
+                  }
+                }
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "radiopharmaceutical_information": {
+          "type": "object",
+          "required": [
+            "item_count",
+            "agent_number",
+            "radionuclide",
+            "administration_route",
+            "start_datetime",
+            "total_dose_mbq",
+            "half_life_seconds",
+            "positron_fraction",
+            "radiopharmaceutical"
+          ],
+          "properties": {
+            "item_count": { "const": 1 },
+            "agent_number": { "const": 1 },
+            "radionuclide": {
+              "allOf": [
+                { "$ref": "#/$defs/expected_enhanced_pet_code" },
+                {
+                  "properties": {
+                    "code_value": { "const": "77004003" },
+                    "coding_scheme_designator": { "const": "SCT" },
+                    "code_meaning": { "const": "^18^Fluorine" }
+                  }
+                }
+              ]
+            },
+            "administration_route": {
+              "allOf": [
+                { "$ref": "#/$defs/expected_enhanced_pet_code" },
+                {
+                  "properties": {
+                    "code_value": { "const": "47625008" },
+                    "coding_scheme_designator": { "const": "SCT" },
+                    "code_meaning": { "const": "Intravenous route" }
+                  }
+                }
+              ]
+            },
+            "start_datetime": { "const": "20260101000000" },
+            "total_dose_mbq": { "const": 0.0 },
+            "half_life_seconds": { "const": 6586.2 },
+            "positron_fraction": { "const": 0.967 },
+            "radiopharmaceutical": {
+              "allOf": [
+                { "$ref": "#/$defs/expected_enhanced_pet_code" },
+                {
+                  "properties": {
+                    "code_value": { "const": "35321007" },
+                    "coding_scheme_designator": { "const": "SCT" },
+                    "code_meaning": { "const": "Fluorodeoxyglucose F^18^" }
+                  }
+                }
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "radiopharmaceutical_usage_agent_number": { "const": 1 },
+        "table_motion": { "const": "STATIC" },
+        "time_of_flight_information_used": { "const": "FALSE" },
+        "counts_source": { "const": "EMISSION" },
+        "corrections": {
+          "type": "object",
+          "required": [
+            "decay",
+            "attenuation",
+            "scatter",
+            "dead_time",
+            "gantry_motion",
+            "patient_motion",
+            "count_loss_normalization",
+            "randoms",
+            "non_uniform_radial_sampling",
+            "sensitivity_calibration",
+            "detector_normalization"
+          ],
+          "properties": {
+            "decay": { "const": "NO" },
+            "attenuation": { "const": "NO" },
+            "scatter": { "const": "NO" },
+            "dead_time": { "const": "NO" },
+            "gantry_motion": { "const": "NO" },
+            "patient_motion": { "const": "NO" },
+            "count_loss_normalization": { "const": "NO" },
+            "randoms": { "const": "NO" },
+            "non_uniform_radial_sampling": { "const": "NO" },
+            "sensitivity_calibration": { "const": "NO" },
+            "detector_normalization": { "const": "NO" }
+          },
+          "additionalProperties": false
+        },
+        "derivation_image_item_count": { "const": 0 },
+        "acquisition_context_item_count": { "const": 0 },
+        "stored_values_by_frame": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "array",
+              "prefixItems": [{ "const": 0 }, { "const": 100 }, { "const": 200 }, { "const": 400 }],
+              "items": false,
+              "minItems": 4,
+              "maxItems": 4
+            },
+            {
+              "type": "array",
+              "prefixItems": [{ "const": 0 }, { "const": 100 }, { "const": 200 }, { "const": 400 }],
+              "items": false,
+              "minItems": 4,
+              "maxItems": 4
+            }
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "activity_values_bqml_by_frame": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "array",
+              "prefixItems": [{ "const": 0.0 }, { "const": 250.0 }, { "const": 500.0 }, { "const": 1000.0 }],
+              "items": false,
+              "minItems": 4,
+              "maxItems": 4
+            },
+            {
+              "type": "array",
+              "prefixItems": [{ "const": 0.0 }, { "const": 250.0 }, { "const": 500.0 }, { "const": 1000.0 }],
+              "items": false,
+              "minItems": 4,
+              "maxItems": 4
+            }
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "frame_sha256": {
+          "type": "array",
+          "prefixItems": [
+            { "const": "03ec353fd2407afb09c8d65712ef9aa30f03c8243f6f3f1675dca7ea5f6a4784" },
+            { "const": "03ec353fd2407afb09c8d65712ef9aa30f03c8243f6f3f1675dca7ea5f6a4784" }
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "pixel_data_sha256": { "const": "3a43b45e2f6d4d04fe4fc357dfc0efaa21caa5415ffc5db96fc19428d34a7bb5" },
+        "nonclaims": {
+          "type": "object",
+          "required": [
+            "suv",
+            "body_weight_normalization",
+            "body_surface_area_normalization",
+            "decay_corrected",
+            "clinically_calibrated",
+            "acquisition_counts",
+            "actual_clinical_dose",
+            "gating",
+            "detector_motion",
+            "time_of_flight_processing",
+            "reconstruction"
+          ],
+          "properties": {
+            "suv": { "const": false },
+            "body_weight_normalization": { "const": false },
+            "body_surface_area_normalization": { "const": false },
+            "decay_corrected": { "const": false },
+            "clinically_calibrated": { "const": false },
+            "acquisition_counts": { "const": false },
+            "actual_clinical_dose": { "const": false },
+            "gating": { "const": false },
+            "detector_motion": { "const": false },
+            "time_of_flight_processing": { "const": false },
+            "reconstruction": { "const": false }
+          },
+          "additionalProperties": false
+        }
       },
       "additionalProperties": false
     },

@@ -370,8 +370,16 @@ payload, typed manifest semantics, strict formula and interleave validation,
 dedicated reports, and locked independent IOD and payload validation. Two
 seed-7 extended roots each contained 102 strictly valid files with
 byte-identical manifest and ECG instance hashes; integrated conformance kept
-`accepted_findings` at zero and the waveform added no finding. The additional
-representative General ECG waveform is next.
+`accepted_findings` at zero and the waveform added no finding. General ECG
+Waveform Storage completes milestone 5 as a byte-stable native slice with two
+ordered heterogeneous groups (`12x1000@250Hz; 4x4000@1000Hz`), sixteen
+channels, a 56,000-byte ordered payload aggregate, typed manifest/report
+closure, strict validator-owned group arithmetic, and locked independent IOD
+and raw waveform validation. Two seed-7 extended roots each contained 103
+strictly valid files with byte-identical manifest and General ECG instance
+hashes; integrated conformance kept `accepted_findings` at zero and General
+ECG added no finding. Phase 3 milestone 5 is complete; RT Plan and RT Image
+milestone 6 is next.
 
 ### Phase 4 — Pathology and tiled microscopy
 

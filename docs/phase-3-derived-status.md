@@ -351,7 +351,45 @@ to the exact manifest contract and locked tool. Full-corpus verification keeps
 `accepted_findings` at zero and reports 211 older or unrelated failures; the
 Twelve-lead ECG adds no finding.
 
+## General ECG Waveform
+
+`non-image/waveform/general_ecg` completes Phase 3 milestone 5 as a
+byte-stable native extended-profile General ECG Waveform Storage slice. Its two
+ordered heterogeneous multiplex groups are `12x1000@250Hz; 4x4000@1000Hz`:
+sixteen channels share a four-second duration while retaining
+separate sampling models. The signed `SS` samples occupy two `OW` payloads of
+24,000 and 32,000 bytes, for an ordered aggregate of exactly 56,000 bytes. The
+group payload SHA-256 values are
+`e4bfb8a3290d9057fa5f5935fa6960ce2a44a07f18991d28c190522739008dbb` and
+`5b201d4fa7274ba36d6f7387c3d0217e1b5da161a915f983c2b63b995dde7bbe`;
+their concatenated aggregate SHA-256 is
+`c450f55360d6c07394600e4c0f71f951565cd0e1699edfbbb52f660221c6abea`.
+
+Two seed-7 extended generations each wrote 103 files. Their byte-identical
+manifests have SHA-256
+`cb2e19a667a302f781e4ce8c1f44041fbb96273acff2debbecbad8160929d301`;
+the byte-identical General ECG instances have SHA-256
+`a656720538672c95aacdf068ba89b0c6d6f78042610f3a665d55065d0a4ab40c`.
+Both roots passed strict validation for all 103 files with zero failures.
+Locked `dciodvfy -new` identified the object as GeneralECG and completed
+cleanly; `dcmdump` parsed both groups, and isolated `dcentvfy` was silent. The
+independently implemented, `uv`-locked `dicom-validator` 0.8.2 IOD route and
+its independent raw waveform route both passed, with the raw route reproducing
+every group shape, sample, payload length, group/channel hash, and aggregate
+hash.
+
+Integrated conformance run
+`16175e687c81729fd428510c26a60c518a7271553afc4a22a5a127f32a47168a`
+produced run JSON SHA-256
+`8b262be912c625cc16df43e3935fef2fa1dfbd0d5fea4ba3cb6dba535b6048df`,
+recorded stable instance key
+`e2613c273b6fe464a6b3308c4ec4a768103af61d0702033d8999e509dc69d23d`,
+and bound waveform sidecar SHA-256
+`565f7db1d5f26cb74256bc9a6d84b6319667d90c7b6a07ef7ddc5be03f929d2c`
+to the exact manifest contract and locked tools. Full-corpus verification keeps
+`accepted_findings` at zero and reports 211 older or unrelated failures; the
+General ECG adds no finding.
+
 ## Next dependency
 
-The first half of Phase 3 milestone 5 is complete. The additional
-representative General ECG waveform is next.
+Phase 3 milestone 5 is complete. RT Plan and RT Image milestone 6 is next.

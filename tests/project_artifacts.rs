@@ -696,7 +696,26 @@ fn phase3_status_records_completed_derived_vertical_gates() {
         "6e0c8f5880ccf65ba78f031b4687c6ea33ca62560e883e78e487935b6c795faf",
         "211 older or unrelated failures",
         "accepted_findings",
-        "representative General ECG waveform is next",
+        "non-image/waveform/general_ecg",
+        "12x1000@250Hz; 4x4000@1000Hz",
+        "sixteen channels",
+        "56,000 bytes",
+        "e4bfb8a3290d9057fa5f5935fa6960ce2a44a07f18991d28c190522739008dbb",
+        "5b201d4fa7274ba36d6f7387c3d0217e1b5da161a915f983c2b63b995dde7bbe",
+        "c450f55360d6c07394600e4c0f71f951565cd0e1699edfbbb52f660221c6abea",
+        "103 files",
+        "cb2e19a667a302f781e4ce8c1f44041fbb96273acff2debbecbad8160929d301",
+        "a656720538672c95aacdf068ba89b0c6d6f78042610f3a665d55065d0a4ab40c",
+        "GeneralECG",
+        "uv`-locked `dicom-validator` 0.8.2",
+        "dcmdump",
+        "dcentvfy",
+        "16175e687c81729fd428510c26a60c518a7271553afc4a22a5a127f32a47168a",
+        "8b262be912c625cc16df43e3935fef2fa1dfbd0d5fea4ba3cb6dba535b6048df",
+        "e2613c273b6fe464a6b3308c4ec4a768103af61d0702033d8999e509dc69d23d",
+        "565f7db1d5f26cb74256bc9a6d84b6319667d90c7b6a07ef7ddc5be03f929d2c",
+        "Phase 3 milestone 5 is complete",
+        "RT Plan and RT Image milestone 6 is next",
     ] {
         assert!(
             status.contains(required),
@@ -708,7 +727,11 @@ fn phase3_status_records_completed_derived_vertical_gates() {
         .expect("coverage expansion plan must be readable");
     for required in [
         "Twelve-lead ECG Waveform Storage is complete",
-        "representative General ECG waveform is next",
+        "General ECG\nWaveform Storage completes milestone 5",
+        "12x1000@250Hz; 4x4000@1000Hz",
+        "103\nstrictly valid files",
+        "Phase 3 milestone 5 is complete",
+        "RT Plan and RT Image\nmilestone 6 is next",
     ] {
         assert!(plan.contains(required), "coverage plan requires {required}");
     }

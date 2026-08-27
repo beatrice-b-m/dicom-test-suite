@@ -124,11 +124,20 @@ esac"#,
                 .map(|result| (instance, result))
         })
         .collect::<Vec<_>>();
-    assert_eq!(sr_results.len(), 3);
+    assert_eq!(sr_results.len(), 4);
     assert!(sr_results.iter().any(|(instance, _)| {
         instance["case_id"] == "derived/sr/comprehensive_measurement_explicit_le"
             && instance["sop_class_uid"] == "1.2.840.10008.5.1.4.1.1.88.34"
     }));
+    let (_, tid1500_result) = sr_results
+        .iter()
+        .find(|(instance, _)| {
+            instance["case_id"] == "derived/sr/tid1500_ct_measurement_report"
+                && instance["sop_class_uid"] == "1.2.840.10008.5.1.4.1.1.88.34"
+        })
+        .expect("promoted TID 1500 case must route through PixelMed");
+    assert_eq!(tid1500_result["status"], "completed");
+    assert_eq!(tid1500_result["findings"], json!([]));
     assert!(
         sr_results
             .iter()
@@ -188,6 +197,10 @@ esac"#,
     assert!(String::from_utf8_lossy(&verify.stdout).contains("SR validation incomplete"));
 
     let mut optional = evidence.clone();
+    optional["instances"]
+        .as_array_mut()
+        .unwrap()
+        .retain(|instance| instance["case_id"] != "derived/sr/tid1500_ct_measurement_report");
     for instance in optional["instances"].as_array_mut().unwrap() {
         instance["results"]
             .as_array_mut()

@@ -62,6 +62,59 @@ fn strict_verification_rejects_native_float32_hash_mismatch() {
 
 #[cfg(unix)]
 #[test]
+fn dcmtk_dcmdump_matches_native_float64_little_endian_frame_hashes() {
+    let fixture = FloatFixture::new_float64(false);
+    let instance = &fixture.run["instances"][0];
+    assert_eq!(instance["pixel"]["status"], "passed");
+    assert_eq!(instance["pixel"]["independence"], "independent");
+    assert_eq!(
+        instance["pixel"]["actual_frame_hashes"],
+        fixture.expected_hashes
+    );
+
+    let sidecar_path = instance["pixel"]["evidence"]["path"].as_str().unwrap();
+    let sidecar: Value =
+        serde_json::from_slice(&fs::read(fixture.evidence.join(sidecar_path)).unwrap()).unwrap();
+    assert_eq!(
+        sidecar["source_element"],
+        "(7FE0,0009) Double Float Pixel Data"
+    );
+    assert_eq!(
+        sidecar["extraction_method"],
+        "dcmdump_full_double_values_reconstructed_as_ieee754_binary64"
+    );
+    assert_eq!(sidecar["extracted_value_count"], 4);
+}
+
+#[cfg(unix)]
+#[test]
+fn strict_verification_rejects_native_float64_hash_mismatch() {
+    let mut fixture = FloatFixture::new_float64(true);
+    assert_eq!(fixture.run["instances"][0]["pixel"]["status"], "failed");
+    for tool in fixture.run["tools"].as_array_mut().unwrap() {
+        tool["lock_status"] = json!("matched");
+    }
+    fs::write(
+        fixture.evidence.join("conformance-run.json"),
+        serde_json::to_vec_pretty(&fixture.run).unwrap(),
+    )
+    .unwrap();
+    let result =
+        dicom_test_suite::conformance::verify_conformance(&fixture.evidence, &fixture.allowlist)
+            .unwrap();
+    assert_eq!(result["valid"], false);
+    assert!(
+        result["failures"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(Value::as_str)
+            .any(|failure| failure.contains("independent native float64 pixel evidence failed"))
+    );
+}
+
+#[cfg(unix)]
+#[test]
 fn pydicom_u32_adapter_matches_unsigned_values_metadata_and_frame_hash() {
     let fixture = U32Fixture::new(false);
     let repeat = U32Fixture::new(false);
@@ -719,6 +772,14 @@ impl U32Fixture {
 #[cfg(unix)]
 impl FloatFixture {
     fn new(mismatch: bool) -> Self {
+        Self::new_for(false, mismatch)
+    }
+
+    fn new_float64(mismatch: bool) -> Self {
+        Self::new_for(true, mismatch)
+    }
+
+    fn new_for(float64: bool, mismatch: bool) -> Self {
         let root = temp_dir();
         let generated = root.join("generated");
         let evidence = root.join("evidence");
@@ -729,13 +790,39 @@ impl FloatFixture {
         )
         .unwrap();
 
-        let raw_bytes = [
-            0x00, 0x00, 0x80, 0x3f, 0x00, 0x00, 0x20, 0xc0, // 1.0, -2.5
-            0x00, 0x00, 0x00, 0x3f, 0x00, 0x00, 0x28, 0x42, // 0.5, 42.0
-        ];
+        let (sample_type, vr, bits_allocated, value_length, frame_length, tag, keyword, raw_bytes) =
+            if float64 {
+                (
+                    "float64",
+                    "OD",
+                    64,
+                    32,
+                    16,
+                    "0009",
+                    "DoubleFloatPixelData",
+                    [1.0_f64, -2.5, 0.5, 42.0]
+                        .into_iter()
+                        .flat_map(f64::to_le_bytes)
+                        .collect::<Vec<_>>(),
+                )
+            } else {
+                (
+                    "float32",
+                    "OF",
+                    32,
+                    16,
+                    8,
+                    "0008",
+                    "FloatPixelData",
+                    [1.0_f32, -2.5, 0.5, 42.0]
+                        .into_iter()
+                        .flat_map(f32::to_le_bytes)
+                        .collect::<Vec<_>>(),
+                )
+            };
         let expected_hashes = json!([
-            dicom_test_suite::sha256_hex(&raw_bytes[..8]),
-            dicom_test_suite::sha256_hex(&raw_bytes[8..])
+            dicom_test_suite::sha256_hex(&raw_bytes[..frame_length]),
+            dicom_test_suite::sha256_hex(&raw_bytes[frame_length..])
         ]);
         let mut manifest_hashes = expected_hashes.clone();
         if mismatch {
@@ -746,19 +833,19 @@ impl FloatFixture {
             "generator": { "name": "float-fixture", "version": "1", "feature_flags": [] },
             "standards": { "standards_lock_sha256": "0".repeat(64) },
             "files": [{
-                "case_id": "derived/parametric-map/float32_fixture",
+                "case_id": format!("derived/parametric-map/{sample_type}_fixture"),
                 "path": "float.dcm",
                 "dicom": {
                     "sop_class_uid": "1.2.840.10008.5.1.4.1.1.30",
                     "transfer_syntax_uid": "1.2.840.10008.1.2.1"
                 },
                 "image": {
-                    "sample_type": "float32", "rows": 1, "columns": 2, "frames": 2,
+                    "sample_type": sample_type, "rows": 1, "columns": 2, "frames": 2,
                     "samples_per_pixel": 1, "photometric_interpretation": "MONOCHROME2",
-                    "bits_allocated": 32, "planar_configuration": null
+                    "bits_allocated": bits_allocated, "planar_configuration": null
                 },
                 "pixel_data": {
-                    "vr": "OF", "native_or_encapsulated": "native", "value_length": 16,
+                    "vr": vr, "native_or_encapsulated": "native", "value_length": value_length,
                     "frame_count": 2, "frame_hashes": manifest_hashes
                 }
             }]
@@ -774,7 +861,9 @@ impl FloatFixture {
         let parser = fake_tool(
             &root,
             "dcmdump",
-            "if [ \"$1\" = \"+L\" ]; then printf '%s\\n' '(7fe0,0008) OF 1\\-2.5\\0.5\\42 # 16, 4 FloatPixelData'; fi\nexit 0",
+            &format!(
+                "if [ \"$1\" = \"+L\" ]; then printf '%s\\n' '(7fe0,{tag}) {vr} 1\\-2.5\\0.5\\42 # {value_length}, 4 {keyword}'; fi\nexit 0"
+            ),
         );
         let config = root.join("validators.json");
         fs::write(

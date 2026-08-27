@@ -123,6 +123,7 @@ fn validator_rejects_tampered_utf8_metadata_expectations() {
         .expect("UTF-8 case must be generated");
     file["expected_metadata"]["specific_character_sets"][0] = Value::from("ISO 2022 IR 87");
     file["expected_metadata"]["person_names"][0]["decoded_value"] = Value::from("Wrong^Name");
+    file["expected_metadata"]["person_names"][0]["raw_value_hex"] = Value::from("00".repeat(24));
     file["expected_metadata"]["person_names"][0]["raw_value_sha256"] = Value::from("0".repeat(64));
     file["expected_metadata"]["person_names"][0]["component_groups"][0]["decoded_value"] =
         Value::from("Wrong^Group");
@@ -139,6 +140,7 @@ fn validator_rejects_tampered_utf8_metadata_expectations() {
         "metadata_specific_character_sets_raw",
         "metadata_person_name_decoded",
         "metadata_person_name_component_group",
+        "metadata_person_name_raw_hex",
         "metadata_person_name_raw_hash",
     ] {
         assert!(

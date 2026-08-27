@@ -188,12 +188,32 @@ fn validate_person_names(
                         "{relative_path}: metadata_person_name_raw_hash: {keyword} dataset {actual_hash}, manifest {expected_hash}"
                     ));
                 }
+                let expected_hex = person_name
+                    .get("raw_value_hex")
+                    .and_then(Value::as_str)
+                    .unwrap_or_default();
+                let actual_hex = uppercase_hex(element.value);
+                if actual_hex != expected_hex {
+                    failures.push(format!(
+                        "{relative_path}: metadata_person_name_raw_hex: {keyword} dataset {actual_hex}, manifest {expected_hex}"
+                    ));
+                }
             }
             None => failures.push(format!(
                 "{relative_path}: metadata_person_name_raw: {keyword} raw element is missing"
             )),
         }
     }
+}
+
+fn uppercase_hex(bytes: &[u8]) -> String {
+    use std::fmt::Write as _;
+
+    let mut encoded = String::with_capacity(bytes.len() * 2);
+    for byte in bytes {
+        write!(&mut encoded, "{byte:02X}").expect("writing to a String cannot fail");
+    }
+    encoded
 }
 
 fn validate_person_name_groups(

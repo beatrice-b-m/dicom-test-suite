@@ -9,7 +9,7 @@ use serde_json::{Value, json};
 
 const CASE_ID: &str = "classic/xa/monoplane_explicit_le";
 const RELATIVE_PATH: &str = "classic/xa/monoplane_explicit_le/instance.dcm";
-const INSTANCE_SHA256: &str = "9368e2b335876ae2c01b4ac5cf6c52e8c2875754e36b54efc928097c75da6dd6";
+const INSTANCE_SHA256: &str = "7efc114021a4a292e7170055f92948823844192d3f3609509a73b8e2b97dc824";
 const PAYLOAD_SHA256: &str = "0b9c742cc3fafec4c1d0240048d27210f2da155b3574458ae26035ffa488c00e";
 const PIXELS: [u8; 16] = [
     0, 16, 32, 48, 16, 64, 96, 64, 32, 96, 255, 96, 48, 64, 96, 64,

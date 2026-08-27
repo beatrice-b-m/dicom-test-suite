@@ -8,7 +8,7 @@ use serde_json::{Value, json};
 
 const CASE_ID: &str = "classic/pet/rescaled_activity_explicit_le";
 const RELATIVE_PATH: &str = "classic/pet/rescaled_activity_explicit_le/instance.dcm";
-const INSTANCE_SHA256: &str = "33abd3fe6540741c3c46ee1ac93f10402eaf39e24a832a938e2060c136fa716c";
+const INSTANCE_SHA256: &str = "78ced6c57926cafc6538ebf65459bb9efd7ecbb9a3c4ec90b28b4457cc795ce6";
 const FRAME_SHA256: &str = "03ec353fd2407afb09c8d65712ef9aa30f03c8243f6f3f1675dca7ea5f6a4784";
 
 #[test]

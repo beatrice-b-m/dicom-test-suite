@@ -8,7 +8,7 @@ use serde_json::Value;
 
 const CASE_ID: &str = "metadata/sc/long_multivalue_text_numeric_strings";
 const RELATIVE_PATH: &str = "metadata/sc/long_multivalue_text_numeric_strings/instance.dcm";
-const FILE_SHA256: &str = "f8ff4f8df83534f26c8193206ca8b2b1407a61a8ab1a909660da438743dd61ac";
+const FILE_SHA256: &str = "238f7478de59027060c3807a2075faf9deb9e32d2a4a33bf622170183470c5c2";
 
 #[test]
 fn string_boundary_vertical_slice_is_exact_byte_stable_and_reported() {

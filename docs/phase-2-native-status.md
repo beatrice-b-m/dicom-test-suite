@@ -241,7 +241,7 @@ byte-identical to the native inputs and also pass both dicom3tools validators.
 
 The empty Type 2 slice passed two byte-identical seed-1 `core` runs, each
 producing 41 files with zero strict validation failures. The fixture SHA-256 is
-`e70ce329e96932c6189e1bb31c39673456809036d169c243e3cbeeddb2be787d`.
+`7f457e4f9593a8d41dff970d32de86c8b5493841546dd6d60b219f311a7abc7c`.
 Locked `dciodvfy` reports only the normal `SCImage` identification and no
 finding, while isolated `dcentvfy` is silent. DCMTK 3.7.0 independently
 reports Patient Name, Patient Birth Date, Patient Sex, Referring Physician's
@@ -252,7 +252,7 @@ empty values, and VM 0 for all five attributes.
 The long and multi-valued string slice passed two byte-identical seed-1
 `extended` runs, each producing 81 files with zero strict validation failures.
 The fixture SHA-256 is
-`f8ff4f8df83534f26c8193206ca8b2b1407a61a8ab1a909660da438743dd61ac`.
+`238f7478de59027060c3807a2075faf9deb9e32d2a4a33bf622170183470c5c2`.
 Locked `dciodvfy` reports only the normal `SCImage` identification and no
 finding, and isolated `dcentvfy` is silent. DCMTK 3.7.0 independently reports
 the locked LT, LO, DS, and IS VRs with VL/VM pairs 10240/1, 130/2, 34/2, and
@@ -265,7 +265,7 @@ visible and does not replace the clean independent conformance evidence.
 The private creator block slice passed two byte-identical seed-1 `core` runs,
 each producing 42 files with zero strict validation failures. The fixture
 SHA-256 is
-`cd7e529698c8716890da44045faaef6b218d35e18e91543103877971fe82a56c`.
+`5a0726a68554bb55a6dc5f7a74f639138dc365e8a46f444013303261705141e9`.
 Locked `dciodvfy` identifies the SC Image and emits only its expected
 informational warnings for the four unrecognized private data tags; isolated
 `dcentvfy` is silent. DCMTK independently reports the three LO creator slots,
@@ -312,7 +312,7 @@ ordered native frame hash. Tamper tests independently exercise each boundary.
 
 Two seed-1 `core` generations each produced 43 files and were byte-identical;
 strict corpus validation reported zero failures. The NM fixture SHA-256 is
-`facb70cd576c5d4b0ffbed58450d11a73c9bdd2c4bbc04960a342c41dc6a2d21`.
+`6f0f857b35c1abd133043cb0ae27543b1f56add494891f4b6ea7f8d50c96a7f4`.
 Locked `dciodvfy` identifies only `NMImage`, `dcentvfy` is silent, and DCMTK
 extracts the exact 32-byte native payload and four declared frame hashes. The
 offline pydicom 3.0.2 environment managed by locked `uv` independently decodes
@@ -339,7 +339,7 @@ rederive the activity values and reject each tampered boundary.
 
 Two seed-1 `core` generations each produced 44 files and were byte-identical;
 strict corpus validation reported zero failures. The PET fixture SHA-256 is
-`33abd3fe6540741c3c46ee1ac93f10402eaf39e24a832a938e2060c136fa716c`.
+`78ced6c57926cafc6538ebf65459bb9efd7ecbb9a3c4ec90b28b4457cc795ce6`.
 Locked `dciodvfy` identifies only `PETImage`, `dcentvfy` is silent, and DCMTK
 extracts the exact 8-byte native payload with frame SHA-256
 `03ec353fd2407afb09c8d65712ef9aa30f03c8243f6f3f1675dca7ea5f6a4784`.
@@ -368,7 +368,7 @@ manifest-driven validation rejects tampering at every boundary.
 
 Two seed-1 `core` generations each produced 45 files and were byte-identical;
 strict corpus validation reported zero failures. The fixture SHA-256 is
-`76803d95757f9a2b4edb6ca2d1acc88f814f60f003140c88fbf9b05e754a24c1`.
+`6f97371d5746d00e10ddadbdf436a29717a7bc241f53993a5fa9bc21ea41206d`.
 Locked `dciodvfy` identifies only `USMultiFrameImage`, `dcentvfy` is silent,
 and DCMTK extracts the exact 64-byte native payload with SHA-256
 `060e2c56c9728f787339515ef16bc8c1adfbfb4fb85b2d2c18f115c17b439bc9`.
@@ -400,7 +400,7 @@ tests exercise every boundary.
 
 Two seed-1 `core` generations each produced 46 files and were byte-identical;
 strict corpus validation reported zero failures. The XA fixture SHA-256 is
-`9368e2b335876ae2c01b4ac5cf6c52e8c2875754e36b54efc928097c75da6dd6`.
+`7efc114021a4a292e7170055f92948823844192d3f3609509a73b8e2b97dc824`.
 Locked `dciodvfy` identifies only `XAImage`, `dcentvfy` is silent, and DCMTK
 extracts the exact 16-byte native payload with SHA-256
 `0b9c742cc3fafec4c1d0240048d27210f2da155b3574458ae26035ffa488c00e`.
@@ -431,7 +431,7 @@ non-claim; both generation-time and manifest-driven validation enforce them.
 
 Two seed-1 `core` generations each produced 47 files and were byte-identical;
 strict corpus validation reported zero failures. The XRF fixture SHA-256 is
-`886e361ec277a5f5e5d34ff985aaaac13cee4d4d5733a6ea38b5fa1bdba966c2`.
+`da7415ddb66c2cce4a3e8c27eb4f5a04a6f03b3bfb9402346fe13a41fadf30ff`.
 Locked `dciodvfy` identifies only `XRFImage`, `dcentvfy` is silent, and DCMTK
 extracts the exact 16-byte native payload with SHA-256
 `0b9c742cc3fafec4c1d0240048d27210f2da155b3574458ae26035ffa488c00e`.
@@ -462,7 +462,7 @@ the complete contract.
 Two seed-1 `extended` generations each produced 84 files and were recursively
 byte-identical; strict validation checked all 84 with zero failures. The
 Enhanced PET instance SHA-256 is
-`93bda38274c6bafe510d8dc1764ee68463bbdba42723d5f44b31793fefe21228`.
+`f40d03339b2344d0f415c3be9ed5194b3657dcf68a06680f131f1dfe0607125f`.
 Locked `dciodvfy` identifies only `EnhancedPETImage`, `dcentvfy` is silent,
 and DCMTK extracts the exact view, zero-length dose, and 16-byte Pixel Data.
 The frozen offline pydicom 3.0.2 environment managed by locked `uv`
@@ -587,9 +587,9 @@ enforce exact values, mutual exclusivity, required absences, payload shape,
 and both file paths. Two seed-7 `core` generations each produced 49 files and
 were recursively byte-identical; strict corpus validation passed all 49. The
 two instance SHA-256 values are
-`3b389bfd9eefeb9883c5edc2730d8fbde8304e0ab3f621aa3ce3a41d67bbfd73`
+`50f897625dcc489d212a81674086d1183569d6e0ac7a847d55afc8dd599276d4`
 and
-`ce8c5c17fd6fb427b8dcd0934c0049a191c6fd0125bd3a2cb6e13eb531e96609`.
+`dc330a2b51d1381d943e5ba0f50086114eb95102852228e7ffcb62e0bdec93b9`.
 
 The authorized `uv`-locked adapter 0.3.0 binds CPython 3.12.12,
 dicom-validator 0.8.2, pydicom 3.0.2, the 2026b definition cache, and every

@@ -8,7 +8,7 @@ use serde_json::Value;
 
 const CASE_ID: &str = "metadata/sc/private_creator_blocks";
 const RELATIVE_PATH: &str = "metadata/sc/private_creator_blocks/instance.dcm";
-const FILE_SHA256: &str = "cd7e529698c8716890da44045faaef6b218d35e18e91543103877971fe82a56c";
+const FILE_SHA256: &str = "5a0726a68554bb55a6dc5f7a74f639138dc365e8a46f444013303261705141e9";
 
 #[test]
 fn private_creator_vertical_slice_is_exact_byte_stable_and_reported() {

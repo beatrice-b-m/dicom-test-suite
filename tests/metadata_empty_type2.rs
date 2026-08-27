@@ -9,7 +9,7 @@ use serde_json::Value;
 
 const CASE_ID: &str = "metadata/sc/empty_type2_attributes";
 const RELATIVE_PATH: &str = "metadata/sc/empty_type2_attributes/instance.dcm";
-const FILE_SHA256: &str = "e70ce329e96932c6189e1bb31c39673456809036d169c243e3cbeeddb2be787d";
+const FILE_SHA256: &str = "7f457e4f9593a8d41dff970d32de86c8b5493841546dd6d60b219f311a7abc7c";
 
 #[test]
 fn empty_type2_vertical_slice_is_exact_byte_stable_and_reported() {

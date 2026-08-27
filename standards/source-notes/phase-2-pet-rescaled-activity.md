@@ -82,7 +82,7 @@ avoid gated, dynamic, and reprojection conditionals.
 - Two seed-1 `core` generations each produced 44 files, were recursively
   byte-identical, and passed strict corpus validation with zero failures.
 - The PET fixture SHA-256 is
-  `33abd3fe6540741c3c46ee1ac93f10402eaf39e24a832a938e2060c136fa716c`.
+  `78ced6c57926cafc6538ebf65459bb9efd7ecbb9a3c4ec90b28b4457cc795ce6`.
 - Locked `dciodvfy` identifies only `PETImage`, and isolated `dcentvfy` is
   silent.
 - DCMTK independently extracts the exact 8-byte native Pixel Data. Its

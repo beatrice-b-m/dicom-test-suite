@@ -57,7 +57,7 @@ remains `R` to avoid conflating emptiness with optional clinical metadata.
 - Two seed-1 `core` generations were byte-identical and each produced 41 files;
   strict validation checked all 41 with zero failures.
 - The fixture SHA-256 is
-  `e70ce329e96932c6189e1bb31c39673456809036d169c243e3cbeeddb2be787d`.
+  `7f457e4f9593a8d41dff970d32de86c8b5493841546dd6d60b219f311a7abc7c`.
 - `dciodvfy` reported only the normal `SCImage` identification and no finding;
   isolated `dcentvfy` was silent.
 - DCMTK `dcmdump` independently reported PN, DA, CS, PN, and SH with zero Value

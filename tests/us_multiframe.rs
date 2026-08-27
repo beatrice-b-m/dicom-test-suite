@@ -9,7 +9,7 @@ use serde_json::{Value, json};
 
 const CASE_ID: &str = "classic/us/multiframe_explicit_le";
 const RELATIVE_PATH: &str = "classic/us/multiframe_explicit_le/instance.dcm";
-const INSTANCE_SHA256: &str = "76803d95757f9a2b4edb6ca2d1acc88f814f60f003140c88fbf9b05e754a24c1";
+const INSTANCE_SHA256: &str = "6f97371d5746d00e10ddadbdf436a29717a7bc241f53993a5fa9bc21ea41206d";
 const PAYLOAD_SHA256: &str = "060e2c56c9728f787339515ef16bc8c1adfbfb4fb85b2d2c18f115c17b439bc9";
 const FRAME_HASHES: [&str; 4] = [
     "be422fa58b70ec0d940f28a4dba3dadac62d4583b9ecba1e73d65b37ee9733e7",

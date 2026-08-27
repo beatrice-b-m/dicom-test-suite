@@ -65,7 +65,7 @@ even length and receive no padding.
 - Two seed-1 `extended` generations were byte-identical and each produced 81
   files; strict validation checked all 81 with zero failures.
 - The fixture SHA-256 is
-  `f8ff4f8df83534f26c8193206ca8b2b1407a61a8ab1a909660da438743dd61ac`.
+  `238f7478de59027060c3807a2075faf9deb9e32d2a4a33bf622170183470c5c2`.
 - `dciodvfy` reported only the normal `SCImage` identification and no finding;
   isolated `dcentvfy` was silent.
 - DCMTK `dcmdump` independently reported VL/VM pairs 10240/1, 130/2, 34/2,

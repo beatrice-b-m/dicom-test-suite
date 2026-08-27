@@ -113,7 +113,7 @@ single timing authority.
   byte-for-byte identical. Strict native validation checked all 45 files with
   zero failures.
 - The fixture SHA-256 is
-  `76803d95757f9a2b4edb6ca2d1acc88f814f60f003140c88fbf9b05e754a24c1`.
+  `6f97371d5746d00e10ddadbdf436a29717a7bc241f53993a5fa9bc21ea41206d`.
   DCMTK independently extracted the 64-byte Pixel Data value with SHA-256
   `060e2c56c9728f787339515ef16bc8c1adfbfb4fb85b2d2c18f115c17b439bc9`
   and confirmed the SOP Class, Image Type, modality, abdominal anatomy,

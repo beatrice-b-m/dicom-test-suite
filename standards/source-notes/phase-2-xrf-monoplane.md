@@ -131,7 +131,7 @@ Number is `1`.
 Two seed-1 `core` generations each produced 47 files and were recursively
 byte-identical. Strict corpus validation checked all 47 files with zero
 failures. The XRF instance SHA-256 is
-`886e361ec277a5f5e5d34ff985aaaac13cee4d4d5733a6ea38b5fa1bdba966c2`;
+`da7415ddb66c2cce4a3e8c27eb4f5a04a6f03b3bfb9402346fe13a41fadf30ff`;
 the independently extracted 16-byte Pixel Data SHA-256 is
 `0b9c742cc3fafec4c1d0240048d27210f2da155b3574458ae26035ffa488c00e`.
 

@@ -65,7 +65,7 @@ The US value is emitted as typed little-endian binary, not a string surrogate.
 
 - Two seed-1 `core` generations produced 42 byte-identical files and zero
   strict validation failures. The private fixture SHA-256 is
-  `cd7e529698c8716890da44045faaef6b218d35e18e91543103877971fe82a56c`.
+  `5a0726a68554bb55a6dc5f7a74f639138dc365e8a46f444013303261705141e9`.
 - `dciodvfy` accepted the Secondary Capture IOD and emitted only its expected
   informational warnings that the four private data tags are unrecognized;
   `dcentvfy` was silent.

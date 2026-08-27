@@ -131,7 +131,7 @@ is `1`.
   byte-for-byte identical. Native corpus validation checked all 46 files with
   zero failures.
 - The fixture SHA-256 is
-  `9368e2b335876ae2c01b4ac5cf6c52e8c2875754e36b54efc928097c75da6dd6`.
+  `7efc114021a4a292e7170055f92948823844192d3f3609509a73b8e2b97dc824`.
   DCMTK independently extracted the 16-byte Pixel Data value with SHA-256
   `0b9c742cc3fafec4c1d0240048d27210f2da155b3574458ae26035ffa488c00e`
   and confirmed the SOP Class, Image Type, modality, cardiac anatomy, empty

@@ -10,7 +10,7 @@ use serde_json::{Value, json};
 
 const CASE_ID: &str = "enhanced/pet/multiframe_explicit_le";
 const RELATIVE_PATH: &str = "enhanced/pet/multiframe_explicit_le/instance.dcm";
-const INSTANCE_SHA256: &str = "93bda38274c6bafe510d8dc1764ee68463bbdba42723d5f44b31793fefe21228";
+const INSTANCE_SHA256: &str = "f40d03339b2344d0f415c3be9ed5194b3657dcf68a06680f131f1dfe0607125f";
 const FRAME_SHA256: &str = "03ec353fd2407afb09c8d65712ef9aa30f03c8243f6f3f1675dca7ea5f6a4784";
 const PIXEL_SHA256: &str = "3a43b45e2f6d4d04fe4fc357dfc0efaa21caa5415ffc5db96fc19428d34a7bb5";
 

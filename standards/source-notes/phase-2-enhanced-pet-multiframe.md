@@ -156,7 +156,7 @@ Frame Content is never shared.
 Two seed-1 `extended` generations each produced 84 DICOM files and were
 recursively byte-identical. Strict corpus validation checked all 84 files with
 zero failures. The Enhanced PET instance SHA-256 is
-`93bda38274c6bafe510d8dc1764ee68463bbdba42723d5f44b31793fefe21228`;
+`f40d03339b2344d0f415c3be9ed5194b3657dcf68a06680f131f1dfe0607125f`;
 the independently extracted frame and whole Pixel Data hashes match the
 values locked above.
 

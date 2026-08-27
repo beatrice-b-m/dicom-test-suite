@@ -90,7 +90,7 @@ tuple to its independently checkable native frame hash.
 - Two seed-1 `core` generations each produced 43 files. Recursive comparison
   found no differences, and strict corpus validation reported zero failures.
 - The promoted instance SHA-256 is
-  `facb70cd576c5d4b0ffbed58450d11a73c9bdd2c4bbc04960a342c41dc6a2d21`.
+  `6f0f857b35c1abd133043cb0ae27543b1f56add494891f4b6ea7f8d50c96a7f4`.
 - Locked `dciodvfy -new` identifies only `NMImage`; isolated `dcentvfy` is
   silent.
 - DCMTK `dcmdump +W` independently extracted exactly 32 native pixel bytes.

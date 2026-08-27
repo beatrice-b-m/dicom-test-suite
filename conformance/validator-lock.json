@@ -168,6 +168,37 @@
       "notes": "Case-scoped secondary IOD validator selected for linked RT Plan and RT Image. Corrected RT Plan SHA-256 e9337a6c46fe85b56f1f563120dd3caf56ea1335355792db42386db959be6db2 uses Study ID DTS-RTSTRUCT; dciodvfy and this locked 2026b adapter accepted it with zero IOD errors and DCMTK parsed it. Of 20 Plan mutations, both IOD validators caught missing Plan Label, PATIENT without Structure Set, and missing zero accessory counts; dciodvfy alone caught wrong control-point count; dcentvfy alone added missing-SOP evidence for the dangling Structure reference. Strict Rust owns the other 15 misses: wrong, duplicated, or reordered Structure/Dose identities; fraction/beam mismatch; dangling or duplicate Beam Number; device/jaw changes; control-point index/order, isocenter, and first/final meterset; and wrong Study or Frame of Reference. Corrected RT Image SHA-256 460d525ab06aaf74df963029f3ab39c2536e4e1c5bf4b75fcf16b500382db20c passed both IOD validators and parsing; its exact DCMTK 4x4 pixel route produced raw and decoded SHA-256 a8faed6abbf35c12a4b26e40f6feb19d736d90045c83b9f9a31f638d323e6811. Across 20 Image mutations dciodvfy detected 10, this adapter detected 6, the pixel route detected 6, and dcentvfy alone added missing-SOP evidence for the wrong Plan UID. Strict Rust owns wrong beam/fraction, spacing/position, SAD/SID, Study/Frame of Reference, and the full exact contract, including reopening the Plan and rejecting a stale source digest. The exact entity baseline visibly retains immutable Study ID findings for Dose DTS-RTDOSE and enhanced CT DTS-ECT versus Plan/Structure/Image DTS-RTSTRUCT; acceptance is no additive missing/dangling reference finding, not silent or zero-exit dcentvfy, and no finding is allowlisted. Integrated Image qualification run ID d0d78ffccf44218a27944cf1b80dec63c8afa7162b0e085532feb51706a04714 is clean for the Image routes; qualification itself made no registry status change. Set DTS_DICOM_VALIDATOR_PYTHON and DTS_DICOM_VALIDATOR_STANDARD_HOME; every runtime and definition input contributes to the composite adapter fingerprint."
     },
     {
+      "adapter_id": "pydicom-dicom-validator-rt-radiation",
+      "role": "primary_iod_validator",
+      "tool_name": "pydicom dicom-validator second-generation RT adapter",
+      "version": "dicom-validator 0.8.2; adapter 0.6.0; CPython 3.12.12",
+      "source_repository": "https://github.com/pydicom/dicom-validator",
+      "source_revision": "61cdb9f41f1e4f15354a855e18845777927a804c",
+      "package_identity": "uv.lock sha256 988c01b0da2b433a4a26cb566cbbcfb4f18b31099ddd679520119c47309afdc0; dicom_validator-0.8.2 wheel sha256 9dd3f2a00c99cea15438a108408ae9e210ab8d6b607c75861c4da06423e417e4; exact transitive versions are committed in the uv lock",
+      "executable_sha256": "cf450e6bc0b00adecd12b7b13024de7000c7350801addc802bd3b45782104e79",
+      "adapter_sha256": "636d64bf315a658742fa1d4b9e3d8cc1b6a1294ae75973da5989d06c2ef23e97",
+      "supporting_artifacts": {
+        ".python-version": "f01d748a75eb195e6fd73201279bfb23f09036ddd360eb3e9ff40ef042acbc8a",
+        "pyproject.toml": "84a3860fe240736fcb7b82258f5b327e397c79514dd9770361bb6cbc39fae640",
+        "uv.lock": "988c01b0da2b433a4a26cb566cbbcfb4f18b31099ddd679520119c47309afdc0",
+        "standard-lock.json": "95574ed005a8ff84fe9834fee65ba82c3cadbd6f433fd4b11bc54b5ce71e9f9b",
+        "adapter/__init__.py": "7e7d68d8a989818282738d650f219133de4aea65a5cf28a787851d527e52cca2",
+        "adapter/__main__.py": "991598d92c5660e7edb8e1e64d1e9a6ec0c6bcf5d9308b3b661c6b3b148f0331",
+        "2026b/docbook/part03.xml": "4967dac55719ba63cbc7f404f444e00d4adf50c785c8353e89c94db0259ede05",
+        "2026b/docbook/part04.xml": "8445baf9a360e423b76671bae6b2de158cb545b688d7a2b085ea91c46147230b",
+        "2026b/docbook/part06.xml": "512977071f31403dba5f00ea437157ee02bdf5b148375a826b2662085edd6a70",
+        "2026b/json/dict_info.json": "9d6301ac33c82154c45f3b2a451d4fd52a19d3bbe21b1adfa1913f71750eaec9",
+        "2026b/json/iod_info.json": "ca5c4a56d05a57c6587d84fffc31a842e8e369b09f1186e6542a619b69dac683",
+        "2026b/json/module_info.json": "9f4853924ef520dd9b97ada0f14abd206fb15e6d8622e4d24a90f8b404a3e8c3",
+        "2026b/json/uid_info.json": "f8c8d337dbbf10c28ff30c06468ea601842c4fc50f6b584cbbf34f5378c832c7",
+        "2026b/json/version": "dc12666e07ed23b09d26df08cf22979241f3d708013591aa547ff2ad90606d94"
+      },
+      "definition_version": "DICOM 2026b official DocBook parts 3, 4, and 6 transformed into locked dicom-validator JSON definitions",
+      "platforms": ["arm64-macos"],
+      "verified_at": "2026-08-27",
+      "notes": "Case-scoped primary IOD validator for C-Arm Photon-Electron Radiation and RT Radiation Set because locked dciodvfy and PixelMed do not recognize these current IODs. The uv-locked 2026b definitions select both exact SOP Classes. A guarded adapter correction repairs only the verified missing other_cond branch for Recorded RT Control Point DateTime and fails closed on any definition-shape drift. Qualification accepted RT Record Flag NO with recorded content absent and rejected the complementary NO/present and YES/absent mutations; the Set passed with zero IOD errors. Strict Rust and dcentvfy remain responsible for exact graph closure, device equality, order, cardinality, inheritance, and all semantic absences. No finding is allowlisted, and qualification itself makes no registry status change."
+    },
+    {
       "adapter_id": "pydicom-dicom-validator-waveform",
       "role": "secondary_iod_validator",
       "tool_name": "pydicom dicom-validator waveform adapter",

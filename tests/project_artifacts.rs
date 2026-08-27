@@ -374,6 +374,82 @@ fn linked_rt_secondary_iod_validator_is_additive_and_locked() {
 }
 
 #[test]
+fn second_generation_rt_primary_iod_validator_is_exact_case_locked() {
+    let validators = read_json("conformance/validators.json");
+    let adapter = validators["adapters"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|adapter| adapter["id"] == "pydicom-dicom-validator-rt-radiation")
+        .expect("second-generation RT primary validator must be configured");
+    assert_eq!(adapter["role"], "primary_iod_validator");
+    assert_eq!(adapter["required"], false);
+    assert_eq!(adapter["executable_env"], "DTS_DICOM_VALIDATOR_PYTHON");
+    assert_eq!(
+        adapter["supported_case_ids"],
+        serde_json::json!([
+            "non-image/rt/carm_photon_electron_radiation_minimal",
+            "non-image/rt/radiation_set_minimal"
+        ])
+    );
+    assert_eq!(adapter["artifacts"].as_array().unwrap().len(), 14);
+    for capability in [
+        "carm_photon_electron_radiation_iod_validation",
+        "rt_radiation_set_iod_validation",
+        "guarded_rt_record_condition_correction",
+    ] {
+        assert!(
+            adapter["capabilities"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|value| value == capability),
+            "second-generation RT adapter requires {capability}"
+        );
+    }
+
+    let lock = read_json("conformance/validator-lock.json");
+    let tool = lock["tools"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|tool| tool["adapter_id"] == "pydicom-dicom-validator-rt-radiation")
+        .expect("second-generation RT validator must have a lock entry");
+    assert_eq!(tool["role"], "primary_iod_validator");
+    assert_eq!(
+        tool["version"],
+        "dicom-validator 0.8.2; adapter 0.6.0; CPython 3.12.12"
+    );
+    assert_eq!(
+        tool["adapter_sha256"],
+        "636d64bf315a658742fa1d4b9e3d8cc1b6a1294ae75973da5989d06c2ef23e97"
+    );
+    let shared = lock["tools"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|tool| tool["adapter_id"] == "pydicom-dicom-validator-waveform")
+        .unwrap();
+    assert_eq!(tool["supporting_artifacts"], shared["supporting_artifacts"]);
+    assert_eq!(tool["package_identity"], shared["package_identity"]);
+    let notes = tool["notes"].as_str().expect("RT Radiation lock notes");
+    for required in [
+        "do not recognize these current IODs",
+        "missing other_cond branch",
+        "fails closed",
+        "NO with recorded content absent",
+        "YES/absent mutations",
+        "No finding is allowlisted",
+        "no registry status change",
+    ] {
+        assert!(
+            notes.contains(required),
+            "RT Radiation route requires {required}"
+        );
+    }
+}
+
+#[test]
 fn waveform_secondary_iod_and_payload_validator_is_additive_and_locked() {
     let validators = read_json("conformance/validators.json");
     let adapter = validators["adapters"]
@@ -446,6 +522,7 @@ fn waveform_secondary_iod_and_payload_validator_is_additive_and_locked() {
         "pydicom-dicom-validator-registration",
         "pydicom-dicom-validator-presentation-state",
         "pydicom-dicom-validator-rt",
+        "pydicom-dicom-validator-rt-radiation",
         "pydicom-dicom-validator-waveform",
     ] {
         let shared = lock["tools"]

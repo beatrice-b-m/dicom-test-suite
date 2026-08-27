@@ -25,6 +25,7 @@ use native::metadata_sc::{METADATA_SC_RECIPES, MetadataScRecipe};
 use native::nm::{
     CLASSIC_NM_RECIPES, ClassicNmDetectorRecipe, ClassicNmEnergyWindowRecipe, ClassicNmRecipe,
 };
+use native::pet::{CLASSIC_PET_RECIPES, ClassicPetRecipe};
 use native::private_creator_sc::{
     PRIVATE_CREATOR_SC_RECIPE, PrivateCreatorBlockRecipe, PrivateCreatorScRecipe, PrivateValue,
 };
@@ -60,7 +61,7 @@ use crate::{
         EncapsulatedPdfExpectations, EnhancedCtConcatenationExpectations,
         EnhancedCtImageExpectations, EnhancedMrImageExpectations, MgImageExpectations,
         MrImageExpectations, NmDetectorExpectations, NmEnergyWindowExpectations,
-        NmImageExpectations, Part10Expectations, PixelDataLengthFormula,
+        NmImageExpectations, Part10Expectations, PetImageExpectations, PixelDataLengthFormula,
         PresentationStateExpectations, RealWorldValueMappingExpectations, RtDoseExpectations,
         RtStructureSetExpectations, SegmentationExpectations, UsImageExpectations,
         validate_basic_text_sr_file, validate_comprehensive_sr_file,
@@ -115,6 +116,7 @@ const CLASSIC_MG_RECIPE_VERSION: &str = "0.1.0";
 const CLASSIC_DX_RECIPE_VERSION: &str = "0.1.0";
 const CLASSIC_US_RECIPE_VERSION: &str = "0.1.0";
 const CLASSIC_NM_RECIPE_VERSION: &str = "0.1.0";
+const CLASSIC_PET_RECIPE_VERSION: &str = "0.1.0";
 const CLASSIC_CR_RECIPE_VERSION: &str = "0.1.0";
 const CLASSIC_MR_RECIPE_VERSION: &str = "0.1.0";
 const SEGMENTATION_RECIPE_VERSION: &str = "0.1.0";
@@ -3953,6 +3955,20 @@ pub(crate) fn write_supported_cases(
             standards_lock_sha256,
         )?)?;
     }
+    for recipe in CLASSIC_PET_RECIPES {
+        let Some(case) = registry_case(registry, recipe.case_id)? else {
+            continue;
+        };
+        if !should_generate_case(case, run)? {
+            continue;
+        }
+        context.record_one(write_classic_pet_case(
+            run,
+            case,
+            *recipe,
+            standards_lock_sha256,
+        )?)?;
+    }
     for recipe in CLASSIC_US_RECIPES {
         let Some(case) = registry_case(registry, recipe.case_id)? else {
             continue;
@@ -5322,6 +5338,7 @@ fn write_pixel_case_with_metadata(
             dx_image: None,
             us_image: None,
             nm_image: None,
+            pet_image: None,
             cr_image: None,
             mr_image: None,
             segmentation: None,
@@ -7834,6 +7851,7 @@ fn write_classic_ct_case(
                     dx_image: None,
                     us_image: None,
                     nm_image: None,
+                    pet_image: None,
                     cr_image: None,
                     mr_image: None,
                     segmentation: None,
@@ -8660,6 +8678,7 @@ fn write_enhanced_ct_case(
             dx_image: None,
             us_image: None,
             nm_image: None,
+            pet_image: None,
             cr_image: None,
             mr_image: None,
             segmentation: None,
@@ -9005,6 +9024,7 @@ fn write_segmentation_case(
             dx_image: None,
             us_image: None,
             nm_image: None,
+            pet_image: None,
             cr_image: None,
             mr_image: None,
             segmentation: Some(SegmentationExpectations {
@@ -10907,6 +10927,7 @@ fn write_enhanced_ct_concatenation_case(
                 dx_image: None,
                 us_image: None,
                 nm_image: None,
+                pet_image: None,
                 cr_image: None,
                 mr_image: None,
                 segmentation: None,
@@ -13493,6 +13514,7 @@ fn write_enhanced_mr_case(
             dx_image: None,
             us_image: None,
             nm_image: None,
+            pet_image: None,
             cr_image: None,
             mr_image: None,
             segmentation: None,
@@ -14467,6 +14489,7 @@ fn write_classic_mg_case(
             dx_image: None,
             us_image: None,
             nm_image: None,
+            pet_image: None,
             cr_image: None,
             mr_image: None,
             segmentation: None,
@@ -15168,6 +15191,7 @@ fn write_classic_dx_case(
             }),
             us_image: None,
             nm_image: None,
+            pet_image: None,
             cr_image: None,
             mr_image: None,
             segmentation: None,
@@ -15801,6 +15825,7 @@ fn write_classic_nm_case(
                 energy_windows: &energy_expectations,
                 detectors: &detector_expectations,
             }),
+            pet_image: None,
             cr_image: None,
             mr_image: None,
             segmentation: None,
@@ -16103,6 +16128,501 @@ fn classic_nm_manifest_entry(
     })
 }
 
+fn write_classic_pet_case(
+    run: &PreparedGenerationRun,
+    case: &Value,
+    recipe: ClassicPetRecipe,
+    standards_lock_sha256: &str,
+) -> Result<GeneratedFile, GenerateError> {
+    if !recipe.pixel_bytes_are_consistent() || !recipe.activity_mapping_is_consistent() {
+        return Err(GenerateError::MetadataShape {
+            path: PathBuf::from(recipe.case_id),
+            message: "PET pixels or rescaled activity values are inconsistent",
+        });
+    }
+
+    let study_instance_uid = deterministic_classic_pet_uid(
+        standards_lock_sha256,
+        recipe,
+        run.seed,
+        UidRole::StudyInstance,
+    );
+    let series_instance_uid = deterministic_classic_pet_uid(
+        standards_lock_sha256,
+        recipe,
+        run.seed,
+        UidRole::SeriesInstance,
+    );
+    let sop_instance_uid = deterministic_classic_pet_uid(
+        standards_lock_sha256,
+        recipe,
+        run.seed,
+        UidRole::SopInstance,
+    );
+    let frame_of_reference_uid = deterministic_classic_pet_uid(
+        standards_lock_sha256,
+        recipe,
+        run.seed,
+        UidRole::FrameOfReference,
+    );
+    let implementation_class_uid = deterministic_implementation_uid(standards_lock_sha256);
+    let relative_path = format!("{}/instance.dcm", recipe.case_id);
+    let path = run.out_dir.join(&relative_path);
+    let case_dir = path.parent().ok_or_else(|| GenerateError::MetadataShape {
+        path: PathBuf::from(&relative_path),
+        message: "generated DICOM path must have a parent directory",
+    })?;
+    fs::create_dir_all(case_dir).map_err(|source| GenerateError::CreateCaseOutputDir {
+        path: case_dir.to_path_buf(),
+        source,
+    })?;
+
+    let mut obj = InMemDicomObject::new_empty();
+    put_str(
+        &mut obj,
+        tags::SOP_CLASS_UID,
+        VR::UI,
+        uids::POSITRON_EMISSION_TOMOGRAPHY_IMAGE_STORAGE,
+    );
+    put_str(&mut obj, tags::SOP_INSTANCE_UID, VR::UI, &sop_instance_uid);
+    put_str(&mut obj, tags::SYNTHETIC_DATA, VR::CS, "YES");
+
+    put_str(
+        &mut obj,
+        tags::PATIENT_NAME,
+        VR::PN,
+        "DTS^Synthetic^Patient001",
+    );
+    put_str(&mut obj, tags::PATIENT_ID, VR::LO, "DTS-PATIENT-001");
+    put_str(&mut obj, tags::PATIENT_BIRTH_DATE, VR::DA, "19700101");
+    put_str(&mut obj, tags::PATIENT_SEX, VR::CS, "O");
+
+    put_str(
+        &mut obj,
+        tags::STUDY_INSTANCE_UID,
+        VR::UI,
+        &study_instance_uid,
+    );
+    put_str(&mut obj, tags::STUDY_DATE, VR::DA, "20260101");
+    put_str(&mut obj, tags::STUDY_TIME, VR::TM, "000000");
+    put_str(&mut obj, tags::REFERRING_PHYSICIAN_NAME, VR::PN, "");
+    put_str(&mut obj, tags::STUDY_ID, VR::SH, "DTS-PET");
+    put_str(&mut obj, tags::ACCESSION_NUMBER, VR::SH, "");
+
+    put_str(&mut obj, tags::MODALITY, VR::CS, "PT");
+    put_str(
+        &mut obj,
+        tags::SERIES_INSTANCE_UID,
+        VR::UI,
+        &series_instance_uid,
+    );
+    put_str(&mut obj, tags::SERIES_NUMBER, VR::IS, "1");
+    put_str(&mut obj, tags::SERIES_DATE, VR::DA, "20260101");
+    put_str(&mut obj, tags::SERIES_TIME, VR::TM, "000000");
+    put_str(&mut obj, tags::BODY_PART_EXAMINED, VR::CS, "HEAD");
+
+    put_str(&mut obj, tags::UNITS, VR::CS, recipe.units);
+    put_str(&mut obj, tags::COUNTS_SOURCE, VR::CS, recipe.counts_source);
+    put_str(&mut obj, tags::SERIES_TYPE, VR::CS, recipe.series_type);
+    put_u16(
+        &mut obj,
+        tags::NUMBER_OF_SLICES,
+        VR::US,
+        recipe.number_of_slices,
+    );
+    put_str(
+        &mut obj,
+        tags::CORRECTED_IMAGE,
+        VR::CS,
+        recipe.corrected_image,
+    );
+    put_str(
+        &mut obj,
+        tags::DECAY_CORRECTION,
+        VR::CS,
+        recipe.decay_correction,
+    );
+    put_str(&mut obj, tags::COLLIMATOR_TYPE, VR::CS, "NONE");
+    put_empty_sequence(&mut obj, tags::RADIOPHARMACEUTICAL_INFORMATION_SEQUENCE);
+    put_empty_sequence(&mut obj, tags::PATIENT_ORIENTATION_CODE_SEQUENCE);
+    put_empty_sequence(&mut obj, tags::PATIENT_GANTRY_RELATIONSHIP_CODE_SEQUENCE);
+
+    put_str(
+        &mut obj,
+        tags::FRAME_OF_REFERENCE_UID,
+        VR::UI,
+        &frame_of_reference_uid,
+    );
+    put_str(&mut obj, tags::POSITION_REFERENCE_INDICATOR, VR::LO, "");
+
+    put_str(&mut obj, tags::MANUFACTURER, VR::LO, "dicom-test-suite");
+    put_str(
+        &mut obj,
+        tags::MANUFACTURER_MODEL_NAME,
+        VR::LO,
+        recipe.recipe_id,
+    );
+    put_str(
+        &mut obj,
+        tags::SOFTWARE_VERSIONS,
+        VR::LO,
+        crate::PACKAGE_VERSION,
+    );
+
+    put_str(&mut obj, tags::ACQUISITION_NUMBER, VR::IS, "1");
+    put_str(&mut obj, tags::ACQUISITION_DATE, VR::DA, "20260101");
+    put_str(&mut obj, tags::ACQUISITION_TIME, VR::TM, "000000");
+    put_str(&mut obj, tags::IMAGE_TYPE, VR::CS, recipe.image_type);
+    put_str(&mut obj, tags::INSTANCE_NUMBER, VR::IS, "1");
+    put_str(&mut obj, tags::PATIENT_ORIENTATION, VR::CS, "");
+    put_str(&mut obj, tags::CONTENT_DATE, VR::DA, "20260101");
+    put_str(&mut obj, tags::CONTENT_TIME, VR::TM, "000000");
+    put_str(&mut obj, tags::LOSSY_IMAGE_COMPRESSION, VR::CS, "00");
+
+    put_str(&mut obj, tags::PIXEL_SPACING, VR::DS, recipe.pixel_spacing);
+    put_str(
+        &mut obj,
+        tags::IMAGE_ORIENTATION_PATIENT,
+        VR::DS,
+        recipe.image_orientation_patient,
+    );
+    put_str(
+        &mut obj,
+        tags::IMAGE_POSITION_PATIENT,
+        VR::DS,
+        recipe.image_position_patient,
+    );
+    put_str(
+        &mut obj,
+        tags::SLICE_THICKNESS,
+        VR::DS,
+        recipe.slice_thickness,
+    );
+
+    put_u16(&mut obj, tags::SAMPLES_PER_PIXEL, VR::US, 1);
+    put_str(
+        &mut obj,
+        tags::PHOTOMETRIC_INTERPRETATION,
+        VR::CS,
+        "MONOCHROME2",
+    );
+    put_u16(&mut obj, tags::ROWS, VR::US, recipe.rows);
+    put_u16(&mut obj, tags::COLUMNS, VR::US, recipe.columns);
+    put_u16(&mut obj, tags::BITS_ALLOCATED, VR::US, 16);
+    put_u16(&mut obj, tags::BITS_STORED, VR::US, 16);
+    put_u16(&mut obj, tags::HIGH_BIT, VR::US, 15);
+    put_u16(&mut obj, tags::PIXEL_REPRESENTATION, VR::US, 0);
+
+    put_str(
+        &mut obj,
+        tags::RESCALE_INTERCEPT,
+        VR::DS,
+        recipe.rescale_intercept,
+    );
+    put_str(&mut obj, tags::RESCALE_SLOPE, VR::DS, recipe.rescale_slope);
+    put_str(
+        &mut obj,
+        tags::FRAME_REFERENCE_TIME,
+        VR::DS,
+        recipe.frame_reference_time_ms,
+    );
+    put_u16(&mut obj, tags::IMAGE_INDEX, VR::US, recipe.image_index);
+    put_str(
+        &mut obj,
+        tags::ACTUAL_FRAME_DURATION,
+        VR::IS,
+        recipe.actual_frame_duration_ms,
+    );
+    put_str(
+        &mut obj,
+        tags::DOSE_CALIBRATION_FACTOR,
+        VR::DS,
+        recipe.dose_calibration_factor,
+    );
+    obj.put(DataElement::new(
+        tags::PIXEL_DATA,
+        VR::OW,
+        PrimitiveValue::from(recipe.pixel_bytes_le.to_vec()),
+    ));
+
+    let file_obj = obj
+        .with_meta(
+            FileMetaTableBuilder::new()
+                .transfer_syntax(uids::EXPLICIT_VR_LITTLE_ENDIAN)
+                .implementation_class_uid(&implementation_class_uid)
+                .implementation_version_name(crate::IMPLEMENTATION_VERSION_NAME),
+        )
+        .map_err(|err| GenerateError::WriteDicomFile {
+            path: path.clone(),
+            message: err.to_string(),
+        })?;
+    file_obj
+        .write_to_file(&path)
+        .map_err(|err| GenerateError::WriteDicomFile {
+            path: path.clone(),
+            message: err.to_string(),
+        })?;
+
+    let validated = validate_part10_file(
+        &path,
+        &Part10Expectations {
+            sop_class_uid: uids::POSITRON_EMISSION_TOMOGRAPHY_IMAGE_STORAGE,
+            sop_instance_uid: &sop_instance_uid,
+            transfer_syntax_uid: uids::EXPLICIT_VR_LITTLE_ENDIAN,
+            implementation_class_uid: &implementation_class_uid,
+            synthetic_data: "YES",
+            rows: recipe.rows,
+            columns: recipe.columns,
+            frames: 1,
+            samples_per_pixel: 1,
+            photometric_interpretation: "MONOCHROME2",
+            bits_allocated: 16,
+            bits_stored: 16,
+            high_bit: 15,
+            pixel_representation: 0,
+            planar_configuration: None,
+            pixel_data_vr: VR::OW,
+            pixel_data_length_formula: PixelDataLengthFormula::ContiguousSamples,
+            decoded_frame_hashes: &[recipe.frame_sha256],
+            palette: None,
+            padding: None,
+            ct_image: None,
+            enhanced_ct_image: None,
+            enhanced_mr_image: None,
+            mg_image: None,
+            dx_image: None,
+            us_image: None,
+            nm_image: None,
+            pet_image: Some(PetImageExpectations {
+                modality: "PT",
+                body_part_examined: "HEAD",
+                image_type: recipe.image_type,
+                series_date: "20260101",
+                series_time: "000000",
+                units: recipe.units,
+                counts_source: recipe.counts_source,
+                series_type: recipe.series_type,
+                frame_of_reference_uid: &frame_of_reference_uid,
+                position_reference_indicator: "",
+                number_of_slices: recipe.number_of_slices,
+                corrected_image: recipe.corrected_image,
+                decay_correction: recipe.decay_correction,
+                collimator_type: "NONE",
+                rescale_intercept: recipe.rescale_intercept,
+                rescale_slope: recipe.rescale_slope,
+                stored_values: recipe.pixel_values,
+                activity_values_bqml: recipe.expected_activity_bqml,
+                dose_calibration_factor: recipe.dose_calibration_factor,
+                frame_reference_time_ms: recipe.frame_reference_time_ms,
+                acquisition_date: "20260101",
+                acquisition_time: "000000",
+                actual_frame_duration_ms: recipe.actual_frame_duration_ms,
+                image_index: recipe.image_index,
+                pixel_spacing: recipe.pixel_spacing,
+                image_orientation_patient: recipe.image_orientation_patient,
+                image_position_patient: recipe.image_position_patient,
+                slice_thickness: recipe.slice_thickness,
+                radiopharmaceutical_information_items: 0,
+                patient_orientation_code_items: 0,
+                patient_gantry_relationship_code_items: 0,
+            }),
+            cr_image: None,
+            mr_image: None,
+            segmentation: None,
+        },
+    )?;
+
+    Ok(GeneratedFile {
+        case_id: recipe.case_id.to_string(),
+        manifest_entry: classic_pet_manifest_entry(
+            case,
+            recipe,
+            &relative_path,
+            &study_instance_uid,
+            &series_instance_uid,
+            &sop_instance_uid,
+            &frame_of_reference_uid,
+            &implementation_class_uid,
+            &validated.bytes,
+            validated.validation,
+        ),
+    })
+}
+
+#[allow(clippy::too_many_arguments)]
+fn classic_pet_manifest_entry(
+    case: &Value,
+    recipe: ClassicPetRecipe,
+    relative_path: &str,
+    study_instance_uid: &str,
+    series_instance_uid: &str,
+    sop_instance_uid: &str,
+    frame_of_reference_uid: &str,
+    implementation_class_uid: &str,
+    bytes: &[u8],
+    validation: Value,
+) -> Value {
+    let rescale_intercept = recipe
+        .rescale_intercept
+        .parse::<f64>()
+        .expect("static PET Rescale Intercept must be numeric");
+    let rescale_slope = recipe
+        .rescale_slope
+        .parse::<f64>()
+        .expect("static PET Rescale Slope must be numeric");
+    let dose_calibration_factor = recipe
+        .dose_calibration_factor
+        .parse::<f64>()
+        .expect("static PET Dose Calibration Factor must be numeric");
+    let frame_reference_time_ms = recipe
+        .frame_reference_time_ms
+        .parse::<f64>()
+        .expect("static PET Frame Reference Time must be numeric");
+    let actual_frame_duration_ms = recipe
+        .actual_frame_duration_ms
+        .parse::<u64>()
+        .expect("static PET Actual Frame Duration must be numeric");
+    let pet_activity = serde_json::json!({
+        "units": recipe.units,
+        "rescale_intercept": rescale_intercept,
+        "rescale_slope": rescale_slope,
+        "stored_values": recipe.pixel_values,
+        "activity_values_bqml": recipe.expected_activity_bqml
+    });
+    let mut standards_evidence = standards_evidence_from_case(case);
+    standards_evidence.extend([
+        serde_json::json!({
+            "source": "dicom-standard-kb", "edition": "2026b",
+            "query": "list_modules_for_iod Positron Emission Tomography Image",
+            "covered": true, "part": "PS3.3", "anchor": "table_A.21.3-1"
+        }),
+        serde_json::json!({
+            "source": "dicom-standard-kb", "edition": "2026b",
+            "query": "list_attributes_for_module PET Series",
+            "covered": true, "part": "PS3.3", "anchor": "table_C.8-60"
+        }),
+        serde_json::json!({
+            "source": "dicom-standard-kb", "edition": "2026b",
+            "query": "list_attributes_for_module PET Isotope",
+            "covered": true, "part": "PS3.3", "anchor": "table_C.8-61"
+        }),
+        serde_json::json!({
+            "source": "dicom-standard-kb", "edition": "2026b",
+            "query": "list_attributes_for_module PET Image",
+            "covered": true, "part": "PS3.3", "anchor": "table_C.8-63"
+        }),
+        serde_json::json!({
+            "source": "local-source-note", "edition": "2026b",
+            "query": "standards/source-notes/phase-2-pet-rescaled-activity.md",
+            "covered": true, "part": "PS3.3", "anchor": "sect_C.8.9"
+        }),
+    ]);
+
+    serde_json::json!({
+        "case_id": recipe.case_id,
+        "profile_membership": ["core"],
+        "path": relative_path,
+        "sha256": sha256_hex(bytes),
+        "size_bytes": bytes.len(),
+        "determinism": "byte_stable",
+        "recipe": {
+            "recipe_id": recipe.recipe_id,
+            "recipe_version": CLASSIC_PET_RECIPE_VERSION,
+            "recipe_parameters": {
+                "rows": recipe.rows,
+                "columns": recipe.columns,
+                "frames": 1,
+                "samples_per_pixel": 1,
+                "photometric_interpretation": "MONOCHROME2",
+                "bits_allocated": 16,
+                "bits_stored": 16,
+                "high_bit": 15,
+                "pixel_representation": 0,
+                "pixel_values": recipe.pixel_values,
+                "pet_activity": pet_activity,
+                "geometry": {
+                    "pixel_spacing": recipe.pixel_spacing,
+                    "image_orientation_patient": recipe.image_orientation_patient,
+                    "image_position_patient": recipe.image_position_patient,
+                    "slice_thickness": recipe.slice_thickness
+                }
+            }
+        },
+        "dicom": {
+            "sop_class_uid": uids::POSITRON_EMISSION_TOMOGRAPHY_IMAGE_STORAGE,
+            "sop_class_name": "Positron Emission Tomography Image Storage",
+            "iod_name": "PET Image",
+            "modality": "PT",
+            "transfer_syntax_uid": uids::EXPLICIT_VR_LITTLE_ENDIAN,
+            "transfer_syntax_name": "Explicit VR Little Endian"
+        },
+        "uids": {
+            "study_instance_uid": study_instance_uid,
+            "series_instance_uid": series_instance_uid,
+            "sop_instance_uid": sop_instance_uid,
+            "frame_of_reference_uid": frame_of_reference_uid,
+            "implementation_class_uid": implementation_class_uid
+        },
+        "image": {
+            "rows": recipe.rows,
+            "columns": recipe.columns,
+            "frames": 1,
+            "samples_per_pixel": 1,
+            "photometric_interpretation": "MONOCHROME2",
+            "bits_allocated": 16,
+            "bits_stored": 16,
+            "high_bit": 15,
+            "pixel_representation": 0,
+            "planar_configuration": Value::Null
+        },
+        "pixel_data": {
+            "vr": "OW",
+            "native_or_encapsulated": "native",
+            "value_length": recipe.pixel_bytes_le.len(),
+            "frame_count": 1,
+            "frame_hashes": [recipe.frame_sha256]
+        },
+        "references": [],
+        "expected_capabilities": ["open_file", "read_metadata", "render_native_pixels", "apply_rescale", "interpret_pet_activity"],
+        "expected_semantics": {
+            "synthetic_data": "YES",
+            "body_part_examined": "HEAD",
+            "image_type": recipe.image_type,
+            "pixel_min": 0,
+            "pixel_max": 400,
+            "rescale": {
+                "intercept": rescale_intercept,
+                "slope": rescale_slope,
+                "type": recipe.units
+            }
+        },
+        "expected_pet_activity": {
+            "image_type": recipe.image_type.split('\\').collect::<Vec<_>>(),
+            "units": recipe.units,
+            "counts_source": recipe.counts_source,
+            "series_type": recipe.series_type.split('\\').collect::<Vec<_>>(),
+            "number_of_slices": recipe.number_of_slices,
+            "corrected_image": recipe.corrected_image.split('\\').collect::<Vec<_>>(),
+            "decay_correction": recipe.decay_correction,
+            "dose_calibration_factor": dose_calibration_factor,
+            "rescale_intercept": rescale_intercept,
+            "rescale_slope": rescale_slope,
+            "stored_values": recipe.pixel_values,
+            "activity_values_bqml": recipe.expected_activity_bqml,
+            "frame_reference_time_ms": frame_reference_time_ms,
+            "actual_frame_duration_ms": actual_frame_duration_ms,
+            "image_index": recipe.image_index,
+            "radiopharmaceutical_information_item_count": 0
+        },
+        "expected_visual_checks": {
+            "pattern": "pet_stored_values_rescaled_to_bqml"
+        },
+        "validation": validation,
+        "known_stressors": ["positron_emission_tomography_image_storage", "pet_bqml_activity", "rescale_slope", "dose_calibration", "native_u16_pixels"],
+        "standards_evidence": deduplicated_standards_evidence(standards_evidence)
+    })
+}
+
 fn write_classic_us_case(
     run: &PreparedGenerationRun,
     case: &Value,
@@ -16340,6 +16860,7 @@ fn write_classic_us_case(
                 ultrasound_color_data_present: recipe.ultrasound_color_data_present,
             }),
             nm_image: None,
+            pet_image: None,
             cr_image: None,
             mr_image: None,
             segmentation: None,
@@ -16889,6 +17410,7 @@ fn write_classic_cr_case(
             dx_image: None,
             us_image: None,
             nm_image: None,
+            pet_image: None,
             cr_image: Some(CrImageExpectations {
                 modality: "CR",
                 image_type: "ORIGINAL\\PRIMARY",
@@ -17497,6 +18019,7 @@ fn write_classic_mr_case(
                 dx_image: None,
                 us_image: None,
                 nm_image: None,
+                pet_image: None,
                 cr_image: None,
                 mr_image: Some(MrImageExpectations {
                     modality: "MR",
@@ -18185,6 +18708,24 @@ fn deterministic_classic_nm_uid(
     })
 }
 
+fn deterministic_classic_pet_uid(
+    standards_lock_sha256: &str,
+    recipe: ClassicPetRecipe,
+    run_seed: u64,
+    role: UidRole,
+) -> String {
+    deterministic_uid(&DeterministicUidInput {
+        standards_lock_sha256,
+        case_id: recipe.case_id,
+        recipe_version: CLASSIC_PET_RECIPE_VERSION,
+        run_seed,
+        file_index: 0,
+        frame_index: None,
+        referenced_object_index: None,
+        role,
+    })
+}
+
 fn deterministic_classic_cr_uid(
     standards_lock_sha256: &str,
     recipe: ClassicCrRecipe,
@@ -18499,6 +19040,54 @@ fn case_matches_profile(profiles: &[String], requested: &str, include_stress: bo
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn classic_pet_writer_reopens_and_validates_quantitative_fixture() {
+        let output = ParametricMapStagingGuard::new();
+        let run = PreparedGenerationRun {
+            profile: "core".to_string(),
+            out_dir: output.path().to_path_buf(),
+            manifest_path: output.path().join("manifest.json"),
+            seed: 1,
+            include_stress: false,
+        };
+        let case = serde_json::json!({
+            "case_id": "classic/pet/rescaled_activity_explicit_le",
+            "standards_evidence": []
+        });
+
+        let generated = write_classic_pet_case(
+            &run,
+            &case,
+            CLASSIC_PET_RECIPES[0],
+            "0000000000000000000000000000000000000000000000000000000000000000",
+        )
+        .expect("PET Part 10 fixture should write, reopen, and validate");
+
+        assert_eq!(
+            generated.case_id,
+            "classic/pet/rescaled_activity_explicit_le"
+        );
+        assert_eq!(
+            generated
+                .manifest_entry
+                .pointer("/expected_pet_activity/activity_values_bqml"),
+            Some(&serde_json::json!([0.0, 250.0, 500.0, 1000.0]))
+        );
+        assert_eq!(
+            generated
+                .manifest_entry
+                .pointer("/validation/status")
+                .and_then(Value::as_str),
+            Some("passed")
+        );
+        assert!(
+            output
+                .path()
+                .join("classic/pet/rescaled_activity_explicit_le/instance.dcm")
+                .is_file()
+        );
+    }
 
     #[test]
     fn transfer_syntax_specs_are_backed_by_capability_matrix() {

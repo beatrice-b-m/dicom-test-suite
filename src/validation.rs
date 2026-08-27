@@ -67,6 +67,7 @@ pub(crate) struct Part10Expectations<'a> {
     pub dx_image: Option<DxImageExpectations<'a>>,
     pub us_image: Option<UsImageExpectations<'a>>,
     pub nm_image: Option<NmImageExpectations<'a>>,
+    pub pet_image: Option<PetImageExpectations<'a>>,
     pub cr_image: Option<CrImageExpectations<'a>>,
     pub mr_image: Option<MrImageExpectations<'a>>,
     pub segmentation: Option<SegmentationExpectations<'a>>,
@@ -511,6 +512,41 @@ pub(crate) struct NmImageExpectations<'a> {
 }
 
 #[derive(Debug, Clone)]
+pub(crate) struct PetImageExpectations<'a> {
+    pub modality: &'a str,
+    pub body_part_examined: &'a str,
+    pub image_type: &'a str,
+    pub series_date: &'a str,
+    pub series_time: &'a str,
+    pub units: &'a str,
+    pub counts_source: &'a str,
+    pub series_type: &'a str,
+    pub frame_of_reference_uid: &'a str,
+    pub position_reference_indicator: &'a str,
+    pub number_of_slices: u16,
+    pub corrected_image: &'a str,
+    pub decay_correction: &'a str,
+    pub collimator_type: &'a str,
+    pub rescale_intercept: &'a str,
+    pub rescale_slope: &'a str,
+    pub stored_values: &'a [u16],
+    pub activity_values_bqml: &'a [f64],
+    pub dose_calibration_factor: &'a str,
+    pub frame_reference_time_ms: &'a str,
+    pub acquisition_date: &'a str,
+    pub acquisition_time: &'a str,
+    pub actual_frame_duration_ms: &'a str,
+    pub image_index: u16,
+    pub pixel_spacing: &'a str,
+    pub image_orientation_patient: &'a str,
+    pub image_position_patient: &'a str,
+    pub slice_thickness: &'a str,
+    pub radiopharmaceutical_information_items: usize,
+    pub patient_orientation_code_items: usize,
+    pub patient_gantry_relationship_code_items: usize,
+}
+
+#[derive(Debug, Clone)]
 pub(crate) struct CrImageExpectations<'a> {
     pub modality: &'a str,
     pub image_type: &'a str,
@@ -938,6 +974,9 @@ pub(crate) fn validate_part10_file(
     }
     if let Some(nm_image) = &expected.nm_image {
         validate_nm_image(path, &obj, &mut internal, nm_image)?;
+    }
+    if let Some(pet_image) = &expected.pet_image {
+        validate_pet_image(path, &obj, &mut internal, pet_image)?;
     }
     if let Some(cr_image) = &expected.cr_image {
         validate_cr_image(path, &obj, &mut internal, cr_image)?;
@@ -6130,6 +6169,235 @@ fn validate_nm_image(
             "Required Type 2 NM Sequence is missing or has the wrong cardinality.",
             sequence_item_count(path, obj, tag)?,
             expected_count,
+        );
+    }
+
+    Ok(())
+}
+
+fn validate_pet_image(
+    path: &Path,
+    obj: &OpenedObject,
+    results: &mut Vec<Value>,
+    expected: &PetImageExpectations<'_>,
+) -> Result<(), GenerateError> {
+    for (name, tag, expected_value) in [
+        ("pet_modality", tags::MODALITY, expected.modality),
+        (
+            "pet_body_part_examined",
+            tags::BODY_PART_EXAMINED,
+            expected.body_part_examined,
+        ),
+        ("pet_image_type", tags::IMAGE_TYPE, expected.image_type),
+        ("pet_series_date", tags::SERIES_DATE, expected.series_date),
+        ("pet_series_time", tags::SERIES_TIME, expected.series_time),
+        ("pet_units", tags::UNITS, expected.units),
+        (
+            "pet_counts_source",
+            tags::COUNTS_SOURCE,
+            expected.counts_source,
+        ),
+        ("pet_series_type", tags::SERIES_TYPE, expected.series_type),
+        (
+            "pet_corrected_image",
+            tags::CORRECTED_IMAGE,
+            expected.corrected_image,
+        ),
+        (
+            "pet_decay_correction",
+            tags::DECAY_CORRECTION,
+            expected.decay_correction,
+        ),
+        (
+            "pet_collimator_type",
+            tags::COLLIMATOR_TYPE,
+            expected.collimator_type,
+        ),
+        (
+            "pet_frame_of_reference_uid",
+            tags::FRAME_OF_REFERENCE_UID,
+            expected.frame_of_reference_uid,
+        ),
+        (
+            "pet_position_reference_indicator",
+            tags::POSITION_REFERENCE_INDICATOR,
+            expected.position_reference_indicator,
+        ),
+        (
+            "pet_rescale_intercept",
+            tags::RESCALE_INTERCEPT,
+            expected.rescale_intercept,
+        ),
+        (
+            "pet_rescale_slope",
+            tags::RESCALE_SLOPE,
+            expected.rescale_slope,
+        ),
+        (
+            "pet_dose_calibration_factor",
+            tags::DOSE_CALIBRATION_FACTOR,
+            expected.dose_calibration_factor,
+        ),
+        (
+            "pet_frame_reference_time",
+            tags::FRAME_REFERENCE_TIME,
+            expected.frame_reference_time_ms,
+        ),
+        (
+            "pet_acquisition_date",
+            tags::ACQUISITION_DATE,
+            expected.acquisition_date,
+        ),
+        (
+            "pet_acquisition_time",
+            tags::ACQUISITION_TIME,
+            expected.acquisition_time,
+        ),
+        (
+            "pet_actual_frame_duration",
+            tags::ACTUAL_FRAME_DURATION,
+            expected.actual_frame_duration_ms,
+        ),
+        (
+            "pet_pixel_spacing",
+            tags::PIXEL_SPACING,
+            expected.pixel_spacing,
+        ),
+        (
+            "pet_image_orientation_patient",
+            tags::IMAGE_ORIENTATION_PATIENT,
+            expected.image_orientation_patient,
+        ),
+        (
+            "pet_image_position_patient",
+            tags::IMAGE_POSITION_PATIENT,
+            expected.image_position_patient,
+        ),
+        (
+            "pet_slice_thickness",
+            tags::SLICE_THICKNESS,
+            expected.slice_thickness,
+        ),
+    ] {
+        check_equal(
+            results,
+            name,
+            "PET attribute matches the recipe.",
+            "PET attribute does not match the recipe.",
+            element_str(path, obj, tag)?.as_str(),
+            expected_value,
+        );
+    }
+
+    for (name, tag, expected_value) in [
+        (
+            "pet_number_of_slices",
+            tags::NUMBER_OF_SLICES,
+            expected.number_of_slices,
+        ),
+        ("pet_image_index", tags::IMAGE_INDEX, expected.image_index),
+    ] {
+        check_equal(
+            results,
+            name,
+            "PET unsigned integer attribute matches the recipe.",
+            "PET unsigned integer attribute does not match the recipe.",
+            element_u16(path, obj, tag)?,
+            expected_value,
+        );
+    }
+
+    for (name, tag, expected_count) in [
+        (
+            "pet_radiopharmaceutical_information_empty",
+            tags::RADIOPHARMACEUTICAL_INFORMATION_SEQUENCE,
+            expected.radiopharmaceutical_information_items,
+        ),
+        (
+            "pet_patient_orientation_code_empty",
+            tags::PATIENT_ORIENTATION_CODE_SEQUENCE,
+            expected.patient_orientation_code_items,
+        ),
+        (
+            "pet_patient_gantry_relationship_code_empty",
+            tags::PATIENT_GANTRY_RELATIONSHIP_CODE_SEQUENCE,
+            expected.patient_gantry_relationship_code_items,
+        ),
+    ] {
+        check_equal(
+            results,
+            name,
+            "Required Type 2 PET Sequence is present with the expected cardinality.",
+            "Required Type 2 PET Sequence is missing or has the wrong cardinality.",
+            sequence_item_count(path, obj, tag)?,
+            expected_count,
+        );
+    }
+
+    let pixel_bytes = obj
+        .element(tags::PIXEL_DATA)
+        .map_err(|err| validation_error(path, err))?
+        .value()
+        .to_bytes()
+        .map_err(|err| validation_error(path, err))?;
+    let stored_values = pixel_bytes
+        .chunks_exact(2)
+        .map(|bytes| u16::from_le_bytes([bytes[0], bytes[1]]))
+        .collect::<Vec<_>>();
+    check_equal(
+        results,
+        "pet_stored_values",
+        "Reopened PET stored values match the recipe.",
+        "Reopened PET stored values do not match the recipe.",
+        stored_values.as_slice(),
+        expected.stored_values,
+    );
+    let intercept = expected.rescale_intercept.parse::<f64>().map_err(|err| {
+        GenerateError::ValidateDicomFile {
+            path: path.to_path_buf(),
+            message: format!("invalid expected PET Rescale Intercept: {err}"),
+        }
+    })?;
+    let slope =
+        expected
+            .rescale_slope
+            .parse::<f64>()
+            .map_err(|err| GenerateError::ValidateDicomFile {
+                path: path.to_path_buf(),
+                message: format!("invalid expected PET Rescale Slope: {err}"),
+            })?;
+    let activity_values = stored_values
+        .iter()
+        .map(|value| slope * f64::from(*value) + intercept)
+        .collect::<Vec<_>>();
+    check_equal(
+        results,
+        "pet_rescaled_activity_values_bqml",
+        "Reopened PET stored values map to the expected BQML activity values.",
+        "Reopened PET stored values do not map to the expected BQML activity values.",
+        activity_values.as_slice(),
+        expected.activity_values_bqml,
+    );
+
+    for (name, tag) in [
+        ("pet_decay_factor_absent_for_none", tags::DECAY_FACTOR),
+        ("pet_trigger_time_absent_for_static", tags::TRIGGER_TIME),
+        ("pet_frame_time_absent_for_static", tags::FRAME_TIME),
+        (
+            "pet_reprojection_method_absent_for_image",
+            tags::REPROJECTION_METHOD,
+        ),
+    ] {
+        let present = obj
+            .element_opt(tag)
+            .map_err(|err| validation_error(path, err))?
+            .is_some();
+        check(
+            results,
+            !present,
+            name,
+            "Conditional PET attribute is absent because its condition is false.",
+            "Conditional PET attribute is unexpectedly present.",
         );
     }
 

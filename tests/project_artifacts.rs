@@ -373,6 +373,42 @@ fn nonsquare_source_note_locks_distinct_spacing_and_aspect_axes() {
 }
 
 #[test]
+fn float64_parametric_map_note_locks_od_and_binary64_contract() {
+    let source = fs::read_to_string("standards/source-notes/parametric-map-float64.md")
+        .expect("float64 Parametric Map source note must be readable");
+    for required in [
+        "derived/parametric-map/float64_ct_derived_explicit_le",
+        "Double Float Pixel Data",
+        "`(7FE0,0009)`",
+        "VR `OD`",
+        "Bits Allocated `(0028,0100)`",
+        "`64`",
+        "`(7FE0,0008)`",
+        "`(7FE0,0010)`",
+        "`(0040,9214)`",
+        "`(0040,9213)`",
+        "`2^-30`",
+        "13866583252673691648",
+        "921a8e74cc86e767d5436be2a4eb0c6d383bf3f210ec4c32e8f8c43c239f8abe",
+        "be480ba76c1931f10052029005c539dd45b565f7020cc94a41a89825c3b6ea44",
+        "ce1600d46bb7468f4a0f60c2d58cf96430234a89e50f0cacdd56bfd86bc3ec90",
+        "21a27d41285f045a72c0de209c4b48ea98a09257d44520290bc6044b132fc002",
+        "1cc11d28abf1e6f4efa4b07a73d4a7c953b3b3101b4112865c7170ccdeb84728",
+        "highdicom `0.28.1`",
+        "Independent Validator Qualification Plan",
+        "dicom-validator` 0.8.2",
+        "DCMTK `dcmdump`",
+        "Registry status: remain planned",
+        "Should become KB patch: yes",
+    ] {
+        assert!(
+            source.contains(required),
+            "float64 Parametric Map source note requires {required}"
+        );
+    }
+}
+
+#[test]
 fn integer_parametric_map_retains_explicit_provider_blocker() {
     let registry = read_json("cases/registry.json");
     let case = registry_cases(&registry)

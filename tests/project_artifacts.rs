@@ -5668,6 +5668,10 @@ fn generator_recipe_case_ids() -> BTreeSet<String> {
             "src/generator/native/wsi_tiled_full.rs",
             &["WSI_TILED_FULL_CASE_ID: &str = \""][..],
         ),
+        (
+            "src/generator/native/wsi_tiled_sparse.rs",
+            &["WSI_TILED_SPARSE_CASE_ID: &str = \""][..],
+        ),
         ("src/generator/native/xa.rs", &["case_id: \""][..]),
         ("src/generator/native/xrf.rs", &["case_id: \""][..]),
         (

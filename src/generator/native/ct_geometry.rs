@@ -1,0 +1,132 @@
+use super::super::{
+    CT_I16_12BIT_PIXELS, CT_I16_12BIT_VALUES, EXPLICIT_VR_LITTLE_ENDIAN, RLE_LOSSLESS,
+    TransferSyntaxSpec,
+};
+
+#[derive(Debug, Clone, Copy)]
+pub(in crate::generator) struct ClassicCtRecipe {
+    pub(in crate::generator) case_id: &'static str,
+    pub(in crate::generator) recipe_id: &'static str,
+    pub(in crate::generator) transfer_syntax: TransferSyntaxSpec,
+    pub(in crate::generator) rows: u16,
+    pub(in crate::generator) columns: u16,
+    pub(in crate::generator) slices: &'static [ClassicCtSliceRecipe],
+    pub(in crate::generator) rescale_intercept: &'static str,
+    pub(in crate::generator) rescale_slope: &'static str,
+    pub(in crate::generator) rescale_type: &'static str,
+    pub(in crate::generator) window_center: &'static str,
+    pub(in crate::generator) window_width: &'static str,
+    pub(in crate::generator) pixel_spacing: &'static str,
+    pub(in crate::generator) image_orientation_patient: &'static str,
+    pub(in crate::generator) slice_thickness: &'static str,
+    pub(in crate::generator) spacing_between_slices: Option<&'static str>,
+    pub(in crate::generator) kvp: &'static str,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub(in crate::generator) struct ClassicCtSliceRecipe {
+    pub(in crate::generator) instance_number: &'static str,
+    pub(in crate::generator) image_position_patient: &'static str,
+    pub(in crate::generator) position_along_normal: f64,
+    pub(in crate::generator) pixel_bytes: &'static [u8],
+    pub(in crate::generator) pixel_values: &'static [i32],
+    pub(in crate::generator) pixel_min: i32,
+    pub(in crate::generator) pixel_max: i32,
+}
+
+const CLASSIC_CT_SINGLE_SLICE: &[ClassicCtSliceRecipe] = &[ClassicCtSliceRecipe {
+    instance_number: "1",
+    image_position_patient: "-0.625\\-0.625\\0",
+    position_along_normal: 0.0,
+    pixel_bytes: &CT_I16_12BIT_PIXELS,
+    pixel_values: &CT_I16_12BIT_VALUES,
+    pixel_min: -1024,
+    pixel_max: 2047,
+}];
+
+const CLASSIC_CT_SORT_CONFLICT_SLICES: &[ClassicCtSliceRecipe] = &[
+    ClassicCtSliceRecipe {
+        instance_number: "30",
+        image_position_patient: "0\\0\\0",
+        position_along_normal: 0.0,
+        pixel_bytes: &CT_I16_12BIT_PIXELS,
+        pixel_values: &CT_I16_12BIT_VALUES,
+        pixel_min: -1024,
+        pixel_max: 2047,
+    },
+    ClassicCtSliceRecipe {
+        instance_number: "10",
+        image_position_patient: "0\\0\\5",
+        position_along_normal: 5.0,
+        pixel_bytes: &CT_I16_12BIT_PIXELS,
+        pixel_values: &CT_I16_12BIT_VALUES,
+        pixel_min: -1024,
+        pixel_max: 2047,
+    },
+    ClassicCtSliceRecipe {
+        instance_number: "20",
+        image_position_patient: "0\\0\\10",
+        position_along_normal: 10.0,
+        pixel_bytes: &CT_I16_12BIT_PIXELS,
+        pixel_values: &CT_I16_12BIT_VALUES,
+        pixel_min: -1024,
+        pixel_max: 2047,
+    },
+];
+
+pub(in crate::generator) const CLASSIC_CT_RECIPES: &[ClassicCtRecipe] = &[
+    ClassicCtRecipe {
+        case_id: "classic/ct/mono2_i16_rescale_12bit_explicit_le",
+        recipe_id: "ct_mono2_i16_rescale",
+        transfer_syntax: EXPLICIT_VR_LITTLE_ENDIAN,
+        rows: 2,
+        columns: 2,
+        slices: CLASSIC_CT_SINGLE_SLICE,
+        rescale_intercept: "-1024",
+        rescale_slope: "1",
+        rescale_type: "HU",
+        window_center: "40",
+        window_width: "400",
+        pixel_spacing: "0.625\\0.625",
+        image_orientation_patient: "1\\0\\0\\0\\1\\0",
+        slice_thickness: "1",
+        spacing_between_slices: None,
+        kvp: "120",
+    },
+    ClassicCtRecipe {
+        case_id: "classic/ct/mono2_i16_rescale_12bit_rle_lossless",
+        recipe_id: "ct_mono2_i16_rescale_rle_lossless",
+        transfer_syntax: RLE_LOSSLESS,
+        rows: 2,
+        columns: 2,
+        slices: CLASSIC_CT_SINGLE_SLICE,
+        rescale_intercept: "-1024",
+        rescale_slope: "1",
+        rescale_type: "HU",
+        window_center: "40",
+        window_width: "400",
+        pixel_spacing: "0.625\\0.625",
+        image_orientation_patient: "1\\0\\0\\0\\1\\0",
+        slice_thickness: "1",
+        spacing_between_slices: None,
+        kvp: "120",
+    },
+    ClassicCtRecipe {
+        case_id: "geometry/ct/spatial_sort_conflicts_instance_number",
+        recipe_id: "geometry_ct_spatial_sort_conflicts_instance_number",
+        transfer_syntax: EXPLICIT_VR_LITTLE_ENDIAN,
+        rows: 2,
+        columns: 2,
+        slices: CLASSIC_CT_SORT_CONFLICT_SLICES,
+        rescale_intercept: "-1024",
+        rescale_slope: "1",
+        rescale_type: "HU",
+        window_center: "40",
+        window_width: "400",
+        pixel_spacing: "0.625\\0.625",
+        image_orientation_patient: "1\\0\\0\\0\\1\\0",
+        slice_thickness: "5",
+        spacing_between_slices: Some("5"),
+        kvp: "120",
+    },
+];

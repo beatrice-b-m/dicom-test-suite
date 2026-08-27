@@ -11,6 +11,10 @@ use dicom_dictionary_std::{tags, uids};
 use dicom_object::{FileMetaTableBuilder, InMemDicomObject, open_file};
 use serde_json::Value;
 
+mod native;
+
+use native::ct_geometry::{CLASSIC_CT_RECIPES, ClassicCtRecipe, ClassicCtSliceRecipe};
+
 use crate::{
     DeterministicUidInput, GenerateError, PreparedGenerationRun, UidRole,
     codecs::{
@@ -2198,134 +2202,6 @@ struct PixelPaddingRecipe {
     value: i16,
     range_limit: Option<i16>,
 }
-
-#[derive(Debug, Clone, Copy)]
-struct ClassicCtRecipe {
-    case_id: &'static str,
-    recipe_id: &'static str,
-    transfer_syntax: TransferSyntaxSpec,
-    rows: u16,
-    columns: u16,
-    slices: &'static [ClassicCtSliceRecipe],
-    rescale_intercept: &'static str,
-    rescale_slope: &'static str,
-    rescale_type: &'static str,
-    window_center: &'static str,
-    window_width: &'static str,
-    pixel_spacing: &'static str,
-    image_orientation_patient: &'static str,
-    slice_thickness: &'static str,
-    spacing_between_slices: Option<&'static str>,
-    kvp: &'static str,
-}
-
-#[derive(Debug, Clone, Copy)]
-struct ClassicCtSliceRecipe {
-    instance_number: &'static str,
-    image_position_patient: &'static str,
-    position_along_normal: f64,
-    pixel_bytes: &'static [u8],
-    pixel_values: &'static [i32],
-    pixel_min: i32,
-    pixel_max: i32,
-}
-
-const CLASSIC_CT_SINGLE_SLICE: &[ClassicCtSliceRecipe] = &[ClassicCtSliceRecipe {
-    instance_number: "1",
-    image_position_patient: "-0.625\\-0.625\\0",
-    position_along_normal: 0.0,
-    pixel_bytes: &CT_I16_12BIT_PIXELS,
-    pixel_values: &CT_I16_12BIT_VALUES,
-    pixel_min: -1024,
-    pixel_max: 2047,
-}];
-
-const CLASSIC_CT_SORT_CONFLICT_SLICES: &[ClassicCtSliceRecipe] = &[
-    ClassicCtSliceRecipe {
-        instance_number: "30",
-        image_position_patient: "0\\0\\0",
-        position_along_normal: 0.0,
-        pixel_bytes: &CT_I16_12BIT_PIXELS,
-        pixel_values: &CT_I16_12BIT_VALUES,
-        pixel_min: -1024,
-        pixel_max: 2047,
-    },
-    ClassicCtSliceRecipe {
-        instance_number: "10",
-        image_position_patient: "0\\0\\5",
-        position_along_normal: 5.0,
-        pixel_bytes: &CT_I16_12BIT_PIXELS,
-        pixel_values: &CT_I16_12BIT_VALUES,
-        pixel_min: -1024,
-        pixel_max: 2047,
-    },
-    ClassicCtSliceRecipe {
-        instance_number: "20",
-        image_position_patient: "0\\0\\10",
-        position_along_normal: 10.0,
-        pixel_bytes: &CT_I16_12BIT_PIXELS,
-        pixel_values: &CT_I16_12BIT_VALUES,
-        pixel_min: -1024,
-        pixel_max: 2047,
-    },
-];
-
-const CLASSIC_CT_RECIPES: &[ClassicCtRecipe] = &[
-    ClassicCtRecipe {
-        case_id: "classic/ct/mono2_i16_rescale_12bit_explicit_le",
-        recipe_id: "ct_mono2_i16_rescale",
-        transfer_syntax: EXPLICIT_VR_LITTLE_ENDIAN,
-        rows: 2,
-        columns: 2,
-        slices: CLASSIC_CT_SINGLE_SLICE,
-        rescale_intercept: "-1024",
-        rescale_slope: "1",
-        rescale_type: "HU",
-        window_center: "40",
-        window_width: "400",
-        pixel_spacing: "0.625\\0.625",
-        image_orientation_patient: "1\\0\\0\\0\\1\\0",
-        slice_thickness: "1",
-        spacing_between_slices: None,
-        kvp: "120",
-    },
-    ClassicCtRecipe {
-        case_id: "classic/ct/mono2_i16_rescale_12bit_rle_lossless",
-        recipe_id: "ct_mono2_i16_rescale_rle_lossless",
-        transfer_syntax: RLE_LOSSLESS,
-        rows: 2,
-        columns: 2,
-        slices: CLASSIC_CT_SINGLE_SLICE,
-        rescale_intercept: "-1024",
-        rescale_slope: "1",
-        rescale_type: "HU",
-        window_center: "40",
-        window_width: "400",
-        pixel_spacing: "0.625\\0.625",
-        image_orientation_patient: "1\\0\\0\\0\\1\\0",
-        slice_thickness: "1",
-        spacing_between_slices: None,
-        kvp: "120",
-    },
-    ClassicCtRecipe {
-        case_id: "geometry/ct/spatial_sort_conflicts_instance_number",
-        recipe_id: "geometry_ct_spatial_sort_conflicts_instance_number",
-        transfer_syntax: EXPLICIT_VR_LITTLE_ENDIAN,
-        rows: 2,
-        columns: 2,
-        slices: CLASSIC_CT_SORT_CONFLICT_SLICES,
-        rescale_intercept: "-1024",
-        rescale_slope: "1",
-        rescale_type: "HU",
-        window_center: "40",
-        window_width: "400",
-        pixel_spacing: "0.625\\0.625",
-        image_orientation_patient: "1\\0\\0\\0\\1\\0",
-        slice_thickness: "5",
-        spacing_between_slices: Some("5"),
-        kvp: "120",
-    },
-];
 
 #[derive(Debug, Clone, Copy)]
 struct EnhancedCtRecipe {

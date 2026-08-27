@@ -1,0 +1,25 @@
+[project]
+name = "dicom-test-suite-wsi-reconstruction"
+version = "0.1.0"
+description = "Locked independent tiled-full WSI reconstruction adapter"
+requires-python = "==3.12.12"
+dependencies = [
+    "highdicom==0.28.1",
+    "numpy>=2.0,<3",
+    "pydicom==3.0.2",
+]
+
+[project.scripts]
+dts-wsi-reconstruct = "dts_wsi_reconstruction.__main__:main"
+
+[build-system]
+requires = ["setuptools==80.9.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.uv]
+package = true
+python-downloads = "manual"
+python-preference = "only-managed"

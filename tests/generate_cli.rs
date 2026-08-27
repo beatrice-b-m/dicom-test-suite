@@ -2023,7 +2023,7 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\textended"));
-    let native_extended_files = 98
+    let native_extended_files = 99
         + if cfg!(feature = "deflate") { 2 } else { 0 }
         + if cfg!(feature = "jpeg") { 1 } else { 0 }
         + if cfg!(feature = "charls") { 1 } else { 0 }
@@ -6197,13 +6197,18 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
             .contains(&"encapsulated_pdf_document_payload"),
         "Encapsulated PDF manifest should record document payload validation"
     );
+    let general_ecg_file = file_entry_by_case_id(&manifest, "non-image/waveform/general_ecg");
+    assert_eq!(
+        general_ecg_file.pointer("/path").and_then(Value::as_str),
+        Some("non-image/waveform/general_ecg/instance.dcm")
+    );
     let skipped_cases = manifest
         .pointer("/skipped_cases")
         .and_then(Value::as_array)
         .expect("manifest should contain skipped cases");
     assert_eq!(
         skipped_cases.len(),
-        35 - parametric_maps_generated
+        34 - parametric_maps_generated
             - tid1500_generated
             - scoord3d_generated
             - if cfg!(feature = "deflate") { 2 } else { 0 }
@@ -6222,6 +6227,12 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
                 0
             },
         "extended generation should report planned rows and unavailable feature-gated cases"
+    );
+    assert!(
+        skipped_cases.iter().all(|case| {
+            case.get("case_id").and_then(Value::as_str) != Some("non-image/waveform/general_ecg")
+        }),
+        "implemented General ECG must not be reported as skipped"
     );
     if !cfg!(feature = "htj2k_openjph") {
         let htj2k = skipped_case_by_id(&manifest, "classic/sc/mono2_u16_htj2k_lossless");
@@ -7817,7 +7828,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\tall"));
-    let native_all_files = 141
+    let native_all_files = 142
         + if cfg!(feature = "deflate") { 2 } else { 0 }
         + if cfg!(feature = "jpeg") { 1 } else { 0 }
         + if cfg!(feature = "charls") { 1 } else { 0 }
@@ -8024,6 +8035,11 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
         &manifest,
         "enhanced/ct/multiframe_shared_perframe_explicit_le",
     );
+    let general_ecg_file = file_entry_by_case_id(&manifest, "non-image/waveform/general_ecg");
+    assert_eq!(
+        general_ecg_file.pointer("/path").and_then(Value::as_str),
+        Some("non-image/waveform/general_ecg/instance.dcm")
+    );
     assert_eq!(
         file_entries_by_case_id(&manifest, "classic/mr/multislice_oblique_explicit_le").len(),
         3,
@@ -8050,7 +8066,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
         .expect("manifest should contain skipped cases");
     assert_eq!(
         skipped_cases.len(),
-        35 - parametric_maps_generated
+        34 - parametric_maps_generated
             - tid1500_generated
             - scoord3d_generated
             - if cfg!(feature = "deflate") { 2 } else { 0 }
@@ -8209,6 +8225,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
                 Some("classic/sc/mono2_u8_explicit_le")
                     | Some("classic/ct/mono2_i16_rescale_12bit_explicit_le")
                     | Some("enhanced/ct/multiframe_shared_perframe_explicit_le")
+                    | Some("non-image/waveform/general_ecg")
             )
         }),
         "all generation should not report implemented union cases as skipped"

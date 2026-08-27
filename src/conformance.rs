@@ -3675,7 +3675,7 @@ fn collect_wsi_reconstruction_result(
             .and_then(Value::as_str)
             == Some("1.2.840.10008.1.2.1")
         && file["image"] == contract["image"]
-        && file["pixel_data"] == contract["pixel_data"]
+        && wsi_manifest_pixel_contract_matches(file, contract, sparse)
         && contract["pixel_data"]["frame_hashes"].as_array() == Some(&expected);
     let common_matches = actual["status"] == "passed"
         && actual["backend"] == "dts-wsi-reconstruct"
@@ -3815,6 +3815,21 @@ fn sparse_reconstruction_fields_match(actual: &Value, contract: &Value) -> bool 
         && actual["pixel_data_sha256"] == contract["pixel_data"]["payload_sha256"]
         && actual["missing_pixel_sentinel"] == contract["tiling"]["sentinel_fill_rgb"]
         && actual["total_pixel_matrix_sha256"] == contract["tiling"]["sentinel_matrix_sha256"]
+}
+
+fn wsi_manifest_pixel_contract_matches(file: &Value, contract: &Value, sparse: bool) -> bool {
+    if !sparse {
+        return file["pixel_data"] == contract["pixel_data"];
+    }
+
+    file["pixel_data"]
+        == json!({
+            "frame_count": contract["pixel_data"]["frame_count"],
+            "frame_hashes": contract["pixel_data"]["frame_hashes"],
+            "native_or_encapsulated": contract["pixel_data"]["native_or_encapsulated"],
+            "value_length": contract["pixel_data"]["value_length"],
+            "vr": contract["pixel_data"]["vr"]
+        })
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -5289,6 +5304,29 @@ mod wsi_reconstruction_tests {
             "missing_pixel_sentinel": contract["tiling"]["sentinel_fill_rgb"],
             "transforms_applied": false
         })
+    }
+
+    #[test]
+    fn sparse_manifest_pixel_summary_omits_reconstruction_only_payload_hash() {
+        let contract = crate::wsi_tiled_sparse_locked_contract("2.25.21", "2.25.22", "2.25.23");
+        let file = json!({
+            "pixel_data": {
+                "frame_count": contract["pixel_data"]["frame_count"],
+                "frame_hashes": contract["pixel_data"]["frame_hashes"],
+                "native_or_encapsulated": contract["pixel_data"]["native_or_encapsulated"],
+                "value_length": contract["pixel_data"]["value_length"],
+                "vr": contract["pixel_data"]["vr"]
+            }
+        });
+
+        assert!(wsi_manifest_pixel_contract_matches(&file, &contract, true));
+        assert_ne!(file["pixel_data"], contract["pixel_data"]);
+
+        let mut mutated = file;
+        mutated["pixel_data"]["value_length"] = json!(22);
+        assert!(!wsi_manifest_pixel_contract_matches(
+            &mutated, &contract, true
+        ));
     }
 
     #[test]

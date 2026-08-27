@@ -336,6 +336,25 @@
         "blending_forbidden_modules_absent_states": { "$ref": "#/$defs/count_map" },
         "blending_pixel_data_absent_states": { "$ref": "#/$defs/count_map" },
         "blending_unresolved_external_validator_findings": { "$ref": "#/$defs/count_map" },
+        "waveform_iod_kinds": { "$ref": "#/$defs/count_map" },
+        "waveform_group_counts": { "$ref": "#/$defs/count_map" },
+        "waveform_channel_counts": { "$ref": "#/$defs/count_map" },
+        "waveform_samples_per_channel": { "$ref": "#/$defs/count_map" },
+        "waveform_sampling_frequencies_hz": { "$ref": "#/$defs/count_map" },
+        "waveform_durations_seconds": { "$ref": "#/$defs/count_map" },
+        "waveform_channel_label_orders": { "$ref": "#/$defs/count_map" },
+        "waveform_channel_source_code_orders": { "$ref": "#/$defs/count_map" },
+        "waveform_bits_allocated": { "$ref": "#/$defs/count_map" },
+        "waveform_bits_stored": { "$ref": "#/$defs/count_map" },
+        "waveform_sample_interpretations": { "$ref": "#/$defs/count_map" },
+        "waveform_storage_vrs": { "$ref": "#/$defs/count_map" },
+        "waveform_payload_length_bytes": { "$ref": "#/$defs/count_map" },
+        "waveform_payload_sha256_values": { "$ref": "#/$defs/count_map" },
+        "waveform_interleave_orders": { "$ref": "#/$defs/count_map" },
+        "waveform_channel_hash_counts": { "$ref": "#/$defs/count_map" },
+        "waveform_simultaneous_sampling_states": { "$ref": "#/$defs/count_map" },
+        "waveform_pixel_data_absent_states": { "$ref": "#/$defs/count_map" },
+        "waveform_external_validator_dispositions": { "$ref": "#/$defs/count_map" },
         "synthetic_data": {
           "$ref": "#/$defs/count_map"
         },
@@ -1067,6 +1086,25 @@
         "blending_forbidden_modules_absent",
         "blending_pixel_data_absent",
         "blending_unresolved_external_validator_findings",
+        "waveform_iod_kind",
+        "waveform_group_count",
+        "waveform_channel_count",
+        "waveform_samples_per_channel",
+        "waveform_sampling_frequency_hz",
+        "waveform_duration_seconds",
+        "waveform_channel_labels",
+        "waveform_channel_source_codes",
+        "waveform_bits_allocated",
+        "waveform_bits_stored",
+        "waveform_sample_interpretation",
+        "waveform_storage_vr",
+        "waveform_payload_length_bytes",
+        "waveform_payload_sha256",
+        "waveform_interleave_order",
+        "waveform_channel_hash_count",
+        "waveform_simultaneous_sampling",
+        "waveform_pixel_data_absent",
+        "waveform_external_validator_disposition",
         "validation_status",
         "determinism",
         "object_type",
@@ -1906,6 +1944,29 @@
         "blending_forbidden_modules_absent": { "type": ["boolean", "null"] },
         "blending_pixel_data_absent": { "type": ["boolean", "null"] },
         "blending_unresolved_external_validator_findings": { "enum": ["none", null] },
+        "waveform_iod_kind": { "enum": ["twelve_lead_ecg", null] },
+        "waveform_group_count": { "type": ["integer", "null"], "minimum": 1 },
+        "waveform_channel_count": { "type": ["integer", "null"], "minimum": 1 },
+        "waveform_samples_per_channel": { "type": ["integer", "null"], "minimum": 1 },
+        "waveform_sampling_frequency_hz": { "type": ["integer", "null"], "minimum": 1 },
+        "waveform_duration_seconds": { "type": ["integer", "null"], "minimum": 1 },
+        "waveform_channel_labels": { "type": ["string", "null"] },
+        "waveform_channel_source_codes": { "type": ["string", "null"] },
+        "waveform_bits_allocated": { "type": ["integer", "null"], "minimum": 1 },
+        "waveform_bits_stored": { "type": ["integer", "null"], "minimum": 1 },
+        "waveform_sample_interpretation": { "enum": ["SS", null] },
+        "waveform_storage_vr": { "enum": ["OW", null] },
+        "waveform_payload_length_bytes": { "type": ["integer", "null"], "minimum": 1 },
+        "waveform_payload_sha256": {
+          "anyOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }]
+        },
+        "waveform_interleave_order": { "enum": ["channel_then_sample", null] },
+        "waveform_channel_hash_count": { "type": ["integer", "null"], "minimum": 1 },
+        "waveform_simultaneous_sampling": { "type": ["boolean", "null"] },
+        "waveform_pixel_data_absent": { "type": ["boolean", "null"] },
+        "waveform_external_validator_disposition": {
+          "enum": ["external conformance evidence not embedded; run conformance separately", null]
+        },
         "validation_status": {
           "$ref": "#/$defs/validation_status"
         },
@@ -2794,6 +2855,59 @@
               "blending_forbidden_modules_absent": { "type": "null" },
               "blending_pixel_data_absent": { "type": "null" },
               "blending_unresolved_external_validator_findings": { "type": "null" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "case_id": { "const": "non-image/waveform/twelve_lead_ecg" }
+            }
+          },
+          "then": {
+            "properties": {
+              "waveform_iod_kind": { "const": "twelve_lead_ecg" },
+              "waveform_group_count": { "const": 1 },
+              "waveform_channel_count": { "const": 12 },
+              "waveform_samples_per_channel": { "const": 500 },
+              "waveform_sampling_frequency_hz": { "const": 500 },
+              "waveform_duration_seconds": { "const": 1 },
+              "waveform_channel_labels": { "const": "I; II; III; aVR; aVL; aVF; V1; V2; V3; V4; V5; V6" },
+              "waveform_channel_source_codes": { "const": "2:1|MDC|Lead I; 2:2|MDC|Lead II; 2:61|MDC|Lead III; 2:62|MDC|aVR, augmented voltage, right; 2:63|MDC|aVL, augmented voltage, left; 2:64|MDC|aVF, augmented voltage, foot; 2:3|MDC|Lead V1; 2:4|MDC|Lead V2; 2:5|MDC|Lead V3; 2:6|MDC|Lead V4; 2:7|MDC|Lead V5; 2:8|MDC|Lead V6" },
+              "waveform_bits_allocated": { "const": 16 },
+              "waveform_bits_stored": { "const": 16 },
+              "waveform_sample_interpretation": { "const": "SS" },
+              "waveform_storage_vr": { "const": "OW" },
+              "waveform_payload_length_bytes": { "const": 12000 },
+              "waveform_payload_sha256": { "const": "98b7a9b1be25d9d64ffa75bc6e16ea80f60deed1891aeed8dfb440c1c19e6713" },
+              "waveform_interleave_order": { "const": "channel_then_sample" },
+              "waveform_channel_hash_count": { "const": 12 },
+              "waveform_simultaneous_sampling": { "const": true },
+              "waveform_pixel_data_absent": { "const": true },
+              "waveform_external_validator_disposition": { "const": "external conformance evidence not embedded; run conformance separately" }
+            }
+          },
+          "else": {
+            "properties": {
+              "waveform_iod_kind": { "type": "null" },
+              "waveform_group_count": { "type": "null" },
+              "waveform_channel_count": { "type": "null" },
+              "waveform_samples_per_channel": { "type": "null" },
+              "waveform_sampling_frequency_hz": { "type": "null" },
+              "waveform_duration_seconds": { "type": "null" },
+              "waveform_channel_labels": { "type": "null" },
+              "waveform_channel_source_codes": { "type": "null" },
+              "waveform_bits_allocated": { "type": "null" },
+              "waveform_bits_stored": { "type": "null" },
+              "waveform_sample_interpretation": { "type": "null" },
+              "waveform_storage_vr": { "type": "null" },
+              "waveform_payload_length_bytes": { "type": "null" },
+              "waveform_payload_sha256": { "type": "null" },
+              "waveform_interleave_order": { "type": "null" },
+              "waveform_channel_hash_count": { "type": "null" },
+              "waveform_simultaneous_sampling": { "type": "null" },
+              "waveform_pixel_data_absent": { "type": "null" },
+              "waveform_external_validator_disposition": { "type": "null" }
             }
           }
         },

@@ -14788,6 +14788,83 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
     ] {
         append_count_map_section(&mut output, report, title, pointer);
     }
+    for (title, pointer) in [
+        ("Waveform IOD Kinds", "/grouped_coverage/waveform_iod_kinds"),
+        (
+            "Waveform Group Counts",
+            "/grouped_coverage/waveform_group_counts",
+        ),
+        (
+            "Waveform Channel Counts",
+            "/grouped_coverage/waveform_channel_counts",
+        ),
+        (
+            "Waveform Samples Per Channel",
+            "/grouped_coverage/waveform_samples_per_channel",
+        ),
+        (
+            "Waveform Sampling Frequencies (Hz)",
+            "/grouped_coverage/waveform_sampling_frequencies_hz",
+        ),
+        (
+            "Waveform Durations (seconds)",
+            "/grouped_coverage/waveform_durations_seconds",
+        ),
+        (
+            "Waveform Channel Label Orders",
+            "/grouped_coverage/waveform_channel_label_orders",
+        ),
+        (
+            "Waveform Channel Source Code Orders",
+            "/grouped_coverage/waveform_channel_source_code_orders",
+        ),
+        (
+            "Waveform Bits Allocated",
+            "/grouped_coverage/waveform_bits_allocated",
+        ),
+        (
+            "Waveform Bits Stored",
+            "/grouped_coverage/waveform_bits_stored",
+        ),
+        (
+            "Waveform Sample Interpretations",
+            "/grouped_coverage/waveform_sample_interpretations",
+        ),
+        (
+            "Waveform Storage VRs",
+            "/grouped_coverage/waveform_storage_vrs",
+        ),
+        (
+            "Waveform Payload Lengths (bytes)",
+            "/grouped_coverage/waveform_payload_length_bytes",
+        ),
+        (
+            "Waveform Payload SHA-256 Values",
+            "/grouped_coverage/waveform_payload_sha256_values",
+        ),
+        (
+            "Waveform Interleave Orders",
+            "/grouped_coverage/waveform_interleave_orders",
+        ),
+        (
+            "Waveform Channel Hash Counts",
+            "/grouped_coverage/waveform_channel_hash_counts",
+        ),
+        (
+            "Waveform Simultaneous Sampling States",
+            "/grouped_coverage/waveform_simultaneous_sampling_states",
+        ),
+        (
+            "Waveform Pixel Data Absent States",
+            "/grouped_coverage/waveform_pixel_data_absent_states",
+        ),
+        (
+            "Waveform External Validator Dispositions",
+            "/grouped_coverage/waveform_external_validator_dispositions",
+        ),
+    ] {
+        append_count_map_section(&mut output, report, title, pointer);
+    }
     append_count_map_section(
         &mut output,
         report,
@@ -16856,6 +16933,50 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
         output.push('\n');
     }
 
+    let waveform_rows = report
+        .get("coverage_matrix")
+        .and_then(Value::as_array)
+        .map(|rows| {
+            rows.iter()
+                .filter(|row| !row["waveform_iod_kind"].is_null())
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    if !waveform_rows.is_empty() {
+        output.push_str("## Waveform Expectations\n\n");
+        output.push_str("| Case ID | IOD kind | Groups / channels / samples | Rate (Hz) / duration (s) | Labels | Source codes | Bits allocated / stored | Interpretation / VR | Payload bytes / SHA-256 | Interleave / channel hashes | Simultaneous | Pixel data absent | External-validator disposition |\n");
+        output.push_str("|---|---|---|---|---|---|---|---|---|---|---|---|---|\n");
+        for row in waveform_rows {
+            output.push_str(&format!(
+                "| {} | {} | {} / {} / {} | {} / {} | {} | {} | {} / {} | {} / {} | {} / {} | {} / {} | {} | {} | {} |\n",
+                markdown_cell(row.get("case_id").and_then(Value::as_str)),
+                markdown_cell(row.get("waveform_iod_kind").and_then(Value::as_str)),
+                markdown_number(row.get("waveform_group_count")),
+                markdown_number(row.get("waveform_channel_count")),
+                markdown_number(row.get("waveform_samples_per_channel")),
+                markdown_number(row.get("waveform_sampling_frequency_hz")),
+                markdown_number(row.get("waveform_duration_seconds")),
+                markdown_cell(row.get("waveform_channel_labels").and_then(Value::as_str)),
+                markdown_cell(row.get("waveform_channel_source_codes").and_then(Value::as_str)),
+                markdown_number(row.get("waveform_bits_allocated")),
+                markdown_number(row.get("waveform_bits_stored")),
+                markdown_cell(row.get("waveform_sample_interpretation").and_then(Value::as_str)),
+                markdown_cell(row.get("waveform_storage_vr").and_then(Value::as_str)),
+                markdown_number(row.get("waveform_payload_length_bytes")),
+                markdown_cell(row.get("waveform_payload_sha256").and_then(Value::as_str)),
+                markdown_cell(row.get("waveform_interleave_order").and_then(Value::as_str)),
+                markdown_number(row.get("waveform_channel_hash_count")),
+                markdown_bool(row.get("waveform_simultaneous_sampling")),
+                markdown_bool(row.get("waveform_pixel_data_absent")),
+                markdown_cell(
+                    row.get("waveform_external_validator_disposition")
+                        .and_then(Value::as_str)
+                ),
+            ));
+        }
+        output.push('\n');
+    }
+
     output.push_str("## Coverage Matrix\n\n");
     output.push_str("| Case ID | Status | Profile | IOD | Transfer Syntax | Photometric | Bits | Frames | Generation Backend | Backend Version | Backend Determinism | Validation |\n");
     output.push_str("|---|---|---|---|---|---|---:|---:|---|---|---|---|\n");
@@ -16934,6 +17055,7 @@ fn generated_coverage_row(
     let u1_pixels = u1_pixel_report_fields(manifest_path, file)?;
     let icc_profile = icc_profile_report_fields(manifest_path, file)?;
     let nonsquare_spacing = nonsquare_spacing_report_fields(manifest_path, file)?;
+    let waveform = waveform_report_fields(manifest_path, file)?;
     let is_spatial_registration =
         file.get("case_id").and_then(Value::as_str) == Some("derived/registration/spatial_ct_pair");
     let is_deformable_registration = file.get("case_id").and_then(Value::as_str)
@@ -17283,6 +17405,80 @@ fn generated_coverage_row(
     let row_object = row
         .as_object_mut()
         .expect("generated coverage row literal must be an object");
+    for (field, value) in [
+        ("waveform_iod_kind", waveform.iod_kind.map(Value::from)),
+        (
+            "waveform_group_count",
+            waveform.group_count.map(Value::from),
+        ),
+        (
+            "waveform_channel_count",
+            waveform.channel_count.map(Value::from),
+        ),
+        (
+            "waveform_samples_per_channel",
+            waveform.samples_per_channel.map(Value::from),
+        ),
+        (
+            "waveform_sampling_frequency_hz",
+            waveform.sampling_frequency_hz.map(Value::from),
+        ),
+        (
+            "waveform_duration_seconds",
+            waveform.duration_seconds.map(Value::from),
+        ),
+        (
+            "waveform_channel_labels",
+            waveform.channel_labels.map(Value::from),
+        ),
+        (
+            "waveform_channel_source_codes",
+            waveform.channel_source_codes.map(Value::from),
+        ),
+        (
+            "waveform_bits_allocated",
+            waveform.bits_allocated.map(Value::from),
+        ),
+        (
+            "waveform_bits_stored",
+            waveform.bits_stored.map(Value::from),
+        ),
+        (
+            "waveform_sample_interpretation",
+            waveform.sample_interpretation.map(Value::from),
+        ),
+        ("waveform_storage_vr", waveform.storage_vr.map(Value::from)),
+        (
+            "waveform_payload_length_bytes",
+            waveform.payload_length_bytes.map(Value::from),
+        ),
+        (
+            "waveform_payload_sha256",
+            waveform.payload_sha256.map(Value::from),
+        ),
+        (
+            "waveform_interleave_order",
+            waveform.interleave_order.map(Value::from),
+        ),
+        (
+            "waveform_channel_hash_count",
+            waveform.channel_hash_count.map(Value::from),
+        ),
+        (
+            "waveform_simultaneous_sampling",
+            waveform.simultaneous_sampling.map(Value::from),
+        ),
+        (
+            "waveform_pixel_data_absent",
+            waveform.pixel_data_absent.map(Value::from),
+        ),
+        (
+            "waveform_external_validator_disposition",
+            waveform.external_validator_disposition.map(Value::from),
+        ),
+    ] {
+        row_object.insert(field.to_string(), value.unwrap_or(Value::Null));
+    }
     for (field, pointer) in [
         (
             "registration_matrix_direction",
@@ -19246,6 +19442,180 @@ struct NmMultiframeReportFields {
     energy_window_names: Option<String>,
     detector_start_angles_degrees: Option<String>,
     frame_dimension_tuples: Option<String>,
+}
+
+#[derive(Debug, Default, PartialEq)]
+struct WaveformReportFields {
+    iod_kind: Option<String>,
+    group_count: Option<u64>,
+    channel_count: Option<u64>,
+    samples_per_channel: Option<u64>,
+    sampling_frequency_hz: Option<u64>,
+    duration_seconds: Option<u64>,
+    channel_labels: Option<String>,
+    channel_source_codes: Option<String>,
+    bits_allocated: Option<u64>,
+    bits_stored: Option<u64>,
+    sample_interpretation: Option<String>,
+    storage_vr: Option<String>,
+    payload_length_bytes: Option<u64>,
+    payload_sha256: Option<String>,
+    interleave_order: Option<String>,
+    channel_hash_count: Option<u64>,
+    simultaneous_sampling: Option<bool>,
+    pixel_data_absent: Option<bool>,
+    external_validator_disposition: Option<String>,
+}
+
+fn waveform_report_fields(
+    manifest_path: &Path,
+    file: &Value,
+) -> Result<WaveformReportFields, ReportError> {
+    let is_waveform = file
+        .get("case_id")
+        .and_then(Value::as_str)
+        .is_some_and(|case_id| case_id.starts_with("non-image/waveform/"));
+    let Some(expected) = file.get("expected_waveform") else {
+        return if is_waveform {
+            Err(ReportError::MetadataShape {
+                path: manifest_path.to_path_buf(),
+                message: "waveform file must define expected_waveform",
+            })
+        } else {
+            Ok(WaveformReportFields::default())
+        };
+    };
+    let group = expected.get("multiplex_group");
+    let storage = expected.get("storage");
+    let channels = expected.get("channels").and_then(Value::as_array);
+    let absent = expected.get("absent_content");
+    let channel_labels = channels.map(|items| {
+        items
+            .iter()
+            .filter_map(|channel| channel.get("label").and_then(Value::as_str))
+            .collect::<Vec<_>>()
+            .join("; ")
+    });
+    let channel_source_codes = channels.map(|items| {
+        items
+            .iter()
+            .filter_map(|channel| {
+                let source = channel.get("source")?;
+                Some(format!(
+                    "{}|{}|{}",
+                    source.get("code_value")?.as_str()?,
+                    source.get("coding_scheme_designator")?.as_str()?,
+                    source.get("code_meaning")?.as_str()?
+                ))
+            })
+            .collect::<Vec<_>>()
+            .join("; ")
+    });
+    let bits_stored = channels.and_then(|items| {
+        let values = items
+            .iter()
+            .filter_map(|channel| channel.get("bits_stored").and_then(Value::as_u64))
+            .collect::<Vec<_>>();
+        values.first().copied().filter(|first| {
+            values.len() == items.len() && values.iter().all(|value| value == first)
+        })
+    });
+    let channel_hash_count = storage
+        .and_then(|value| value.get("channel_sha256"))
+        .and_then(Value::as_array)
+        .map(|hashes| hashes.len() as u64);
+
+    let fields = WaveformReportFields {
+        iod_kind: expected
+            .get("iod_kind")
+            .and_then(Value::as_str)
+            .map(str::to_string),
+        group_count: group
+            .and_then(|value| value.get("group_count"))
+            .and_then(Value::as_u64),
+        channel_count: group
+            .and_then(|value| value.get("channel_count"))
+            .and_then(Value::as_u64),
+        samples_per_channel: group
+            .and_then(|value| value.get("samples_per_channel"))
+            .and_then(Value::as_u64),
+        sampling_frequency_hz: group
+            .and_then(|value| value.get("sampling_frequency_hz"))
+            .and_then(Value::as_u64),
+        duration_seconds: group
+            .and_then(|value| value.get("duration_seconds"))
+            .and_then(Value::as_u64),
+        channel_labels,
+        channel_source_codes,
+        bits_allocated: storage
+            .and_then(|value| value.get("bits_allocated"))
+            .and_then(Value::as_u64),
+        bits_stored,
+        sample_interpretation: storage
+            .and_then(|value| value.get("sample_interpretation"))
+            .and_then(Value::as_str)
+            .map(str::to_string),
+        storage_vr: storage
+            .and_then(|value| value.get("data_vr"))
+            .and_then(Value::as_str)
+            .map(str::to_string),
+        payload_length_bytes: storage
+            .and_then(|value| value.get("payload_length_bytes"))
+            .and_then(Value::as_u64),
+        payload_sha256: storage
+            .and_then(|value| value.get("payload_sha256"))
+            .and_then(Value::as_str)
+            .map(str::to_string),
+        interleave_order: storage
+            .and_then(|value| value.get("interleave_order"))
+            .and_then(Value::as_str)
+            .map(str::to_string),
+        channel_hash_count,
+        simultaneous_sampling: group
+            .and_then(|value| value.get("simultaneous_sampling"))
+            .and_then(Value::as_bool),
+        pixel_data_absent: absent
+            .and_then(|value| value.get("pixel_data"))
+            .and_then(Value::as_bool),
+        external_validator_disposition: Some(
+            "external conformance evidence not embedded; run conformance separately".to_string(),
+        ),
+    };
+    let complete = fields.iod_kind.is_some()
+        && fields.group_count.is_some()
+        && fields.channel_count.is_some()
+        && fields.samples_per_channel.is_some()
+        && fields.sampling_frequency_hz.is_some()
+        && fields.duration_seconds.is_some()
+        && fields
+            .channel_labels
+            .as_deref()
+            .is_some_and(|value| !value.is_empty())
+        && fields
+            .channel_source_codes
+            .as_deref()
+            .is_some_and(|value| !value.is_empty())
+        && fields.bits_allocated.is_some()
+        && fields.bits_stored.is_some()
+        && fields.sample_interpretation.is_some()
+        && fields.storage_vr.is_some()
+        && fields.payload_length_bytes.is_some()
+        && fields.payload_sha256.is_some()
+        && fields.interleave_order.is_some()
+        && fields.channel_hash_count.is_some()
+        && fields.simultaneous_sampling.is_some()
+        && fields.pixel_data_absent.is_some()
+        && channels.is_some_and(|items| {
+            fields.channel_count == Some(items.len() as u64)
+                && fields.channel_hash_count == Some(items.len() as u64)
+        });
+    if !complete {
+        return Err(ReportError::MetadataShape {
+            path: manifest_path.to_path_buf(),
+            message: "expected_waveform must define the complete report contract",
+        });
+    }
+    Ok(fields)
 }
 
 #[derive(Default)]
@@ -21218,6 +21588,25 @@ fn skipped_coverage_row(
         "generation_backend_id",
         "generation_backend_version",
         "generation_backend_determinism",
+        "waveform_iod_kind",
+        "waveform_group_count",
+        "waveform_channel_count",
+        "waveform_samples_per_channel",
+        "waveform_sampling_frequency_hz",
+        "waveform_duration_seconds",
+        "waveform_channel_labels",
+        "waveform_channel_source_codes",
+        "waveform_bits_allocated",
+        "waveform_bits_stored",
+        "waveform_sample_interpretation",
+        "waveform_storage_vr",
+        "waveform_payload_length_bytes",
+        "waveform_payload_sha256",
+        "waveform_interleave_order",
+        "waveform_channel_hash_count",
+        "waveform_simultaneous_sampling",
+        "waveform_pixel_data_absent",
+        "waveform_external_validator_disposition",
         "metadata_specific_character_sets",
         "metadata_person_name",
         "metadata_person_name_component_groups",
@@ -21916,6 +22305,25 @@ struct GroupedCoverage {
     blending_forbidden_modules_absent_states: BTreeMap<String, usize>,
     blending_pixel_data_absent_states: BTreeMap<String, usize>,
     blending_unresolved_external_validator_findings: BTreeMap<String, usize>,
+    waveform_iod_kinds: BTreeMap<String, usize>,
+    waveform_group_counts: BTreeMap<String, usize>,
+    waveform_channel_counts: BTreeMap<String, usize>,
+    waveform_samples_per_channel: BTreeMap<String, usize>,
+    waveform_sampling_frequencies_hz: BTreeMap<String, usize>,
+    waveform_durations_seconds: BTreeMap<String, usize>,
+    waveform_channel_label_orders: BTreeMap<String, usize>,
+    waveform_channel_source_code_orders: BTreeMap<String, usize>,
+    waveform_bits_allocated: BTreeMap<String, usize>,
+    waveform_bits_stored: BTreeMap<String, usize>,
+    waveform_sample_interpretations: BTreeMap<String, usize>,
+    waveform_storage_vrs: BTreeMap<String, usize>,
+    waveform_payload_length_bytes: BTreeMap<String, usize>,
+    waveform_payload_sha256_values: BTreeMap<String, usize>,
+    waveform_interleave_orders: BTreeMap<String, usize>,
+    waveform_channel_hash_counts: BTreeMap<String, usize>,
+    waveform_simultaneous_sampling_states: BTreeMap<String, usize>,
+    waveform_pixel_data_absent_states: BTreeMap<String, usize>,
+    waveform_external_validator_dispositions: BTreeMap<String, usize>,
     synthetic_data: BTreeMap<String, usize>,
     image_types: BTreeMap<String, usize>,
     conversion_types: BTreeMap<String, usize>,
@@ -22578,6 +22986,78 @@ impl GroupedCoverage {
             (
                 &mut self.blending_pixel_data_absent_states,
                 "blending_pixel_data_absent",
+            ),
+        ] {
+            if let Some(value) = row.get(field).and_then(Value::as_bool) {
+                *map.entry(value.to_string()).or_default() += 1;
+            }
+        }
+        for (map, field) in [
+            (&mut self.waveform_iod_kinds, "waveform_iod_kind"),
+            (
+                &mut self.waveform_channel_label_orders,
+                "waveform_channel_labels",
+            ),
+            (
+                &mut self.waveform_channel_source_code_orders,
+                "waveform_channel_source_codes",
+            ),
+            (
+                &mut self.waveform_sample_interpretations,
+                "waveform_sample_interpretation",
+            ),
+            (&mut self.waveform_storage_vrs, "waveform_storage_vr"),
+            (
+                &mut self.waveform_payload_sha256_values,
+                "waveform_payload_sha256",
+            ),
+            (
+                &mut self.waveform_interleave_orders,
+                "waveform_interleave_order",
+            ),
+            (
+                &mut self.waveform_external_validator_dispositions,
+                "waveform_external_validator_disposition",
+            ),
+        ] {
+            increment_map(map, row.get(field).and_then(Value::as_str));
+        }
+        for (map, field) in [
+            (&mut self.waveform_group_counts, "waveform_group_count"),
+            (&mut self.waveform_channel_counts, "waveform_channel_count"),
+            (
+                &mut self.waveform_samples_per_channel,
+                "waveform_samples_per_channel",
+            ),
+            (
+                &mut self.waveform_sampling_frequencies_hz,
+                "waveform_sampling_frequency_hz",
+            ),
+            (
+                &mut self.waveform_durations_seconds,
+                "waveform_duration_seconds",
+            ),
+            (&mut self.waveform_bits_allocated, "waveform_bits_allocated"),
+            (&mut self.waveform_bits_stored, "waveform_bits_stored"),
+            (
+                &mut self.waveform_payload_length_bytes,
+                "waveform_payload_length_bytes",
+            ),
+            (
+                &mut self.waveform_channel_hash_counts,
+                "waveform_channel_hash_count",
+            ),
+        ] {
+            increment_scalar_map(map, row.get(field));
+        }
+        for (map, field) in [
+            (
+                &mut self.waveform_simultaneous_sampling_states,
+                "waveform_simultaneous_sampling",
+            ),
+            (
+                &mut self.waveform_pixel_data_absent_states,
+                "waveform_pixel_data_absent",
             ),
         ] {
             if let Some(value) = row.get(field).and_then(Value::as_bool) {
@@ -23995,6 +24475,64 @@ impl GroupedCoverage {
             (
                 "blending_unresolved_external_validator_findings",
                 &self.blending_unresolved_external_validator_findings,
+            ),
+            ("waveform_iod_kinds", &self.waveform_iod_kinds),
+            ("waveform_group_counts", &self.waveform_group_counts),
+            ("waveform_channel_counts", &self.waveform_channel_counts),
+            (
+                "waveform_samples_per_channel",
+                &self.waveform_samples_per_channel,
+            ),
+            (
+                "waveform_sampling_frequencies_hz",
+                &self.waveform_sampling_frequencies_hz,
+            ),
+            (
+                "waveform_durations_seconds",
+                &self.waveform_durations_seconds,
+            ),
+            (
+                "waveform_channel_label_orders",
+                &self.waveform_channel_label_orders,
+            ),
+            (
+                "waveform_channel_source_code_orders",
+                &self.waveform_channel_source_code_orders,
+            ),
+            ("waveform_bits_allocated", &self.waveform_bits_allocated),
+            ("waveform_bits_stored", &self.waveform_bits_stored),
+            (
+                "waveform_sample_interpretations",
+                &self.waveform_sample_interpretations,
+            ),
+            ("waveform_storage_vrs", &self.waveform_storage_vrs),
+            (
+                "waveform_payload_length_bytes",
+                &self.waveform_payload_length_bytes,
+            ),
+            (
+                "waveform_payload_sha256_values",
+                &self.waveform_payload_sha256_values,
+            ),
+            (
+                "waveform_interleave_orders",
+                &self.waveform_interleave_orders,
+            ),
+            (
+                "waveform_channel_hash_counts",
+                &self.waveform_channel_hash_counts,
+            ),
+            (
+                "waveform_simultaneous_sampling_states",
+                &self.waveform_simultaneous_sampling_states,
+            ),
+            (
+                "waveform_pixel_data_absent_states",
+                &self.waveform_pixel_data_absent_states,
+            ),
+            (
+                "waveform_external_validator_dispositions",
+                &self.waveform_external_validator_dispositions,
             ),
         ] {
             grouped_object.insert(

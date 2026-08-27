@@ -6468,6 +6468,224 @@ fn blending_report_exposes_palette_rescale_and_source_closure() {
     fs::remove_dir_all(out_dir).expect("remove report root");
 }
 
+#[test]
+fn report_command_exposes_twelve_lead_waveform_contract_and_preserves_planned_rows() {
+    let out_dir = unique_temp_dir("report-twelve-lead-waveform-json");
+    fs::create_dir_all(&out_dir).expect("create report fixture root");
+    fs::write(
+        out_dir.join("manifest.json"),
+        serde_json::to_vec_pretty(&waveform_report_manifest()).expect("serialize report fixture"),
+    )
+    .expect("write report fixture manifest");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args([
+            "report",
+            out_dir.to_str().expect("temp path should be valid UTF-8"),
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("report command must run");
+    assert!(
+        output.status.success(),
+        "report should accept waveform output: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let report: Value = serde_json::from_slice(&output.stdout).expect("report stdout JSON");
+    let schema: Value = serde_json::from_slice(
+        &fs::read("schemas/coverage-report.schema.json").expect("coverage schema"),
+    )
+    .expect("coverage schema JSON");
+    let validator = jsonschema::validator_for(&schema).expect("coverage schema should compile");
+    let errors = validator
+        .iter_errors(&report)
+        .map(|error| error.to_string())
+        .collect::<Vec<_>>();
+    assert!(
+        errors.is_empty(),
+        "waveform report schema errors: {errors:?}"
+    );
+
+    let row = coverage_row(&report, "non-image/waveform/twelve_lead_ecg");
+    for (field, expected) in [
+        ("waveform_group_count", 1),
+        ("waveform_channel_count", 12),
+        ("waveform_samples_per_channel", 500),
+        ("waveform_sampling_frequency_hz", 500),
+        ("waveform_duration_seconds", 1),
+        ("waveform_bits_allocated", 16),
+        ("waveform_bits_stored", 16),
+        ("waveform_payload_length_bytes", 12_000),
+        ("waveform_channel_hash_count", 12),
+    ] {
+        assert_eq!(row[field], expected, "{field}");
+    }
+    assert_eq!(row["waveform_iod_kind"], "twelve_lead_ecg");
+    assert_eq!(
+        row["waveform_channel_labels"],
+        "I; II; III; aVR; aVL; aVF; V1; V2; V3; V4; V5; V6"
+    );
+    assert!(
+        row["waveform_channel_source_codes"]
+            .as_str()
+            .is_some_and(|value| value.starts_with("2:1|MDC|Lead I; 2:2|MDC|Lead II"))
+    );
+    assert_eq!(row["waveform_sample_interpretation"], "SS");
+    assert_eq!(row["waveform_storage_vr"], "OW");
+    assert_eq!(row["waveform_interleave_order"], "channel_then_sample");
+    assert_eq!(row["waveform_simultaneous_sampling"], true);
+    assert_eq!(row["waveform_pixel_data_absent"], true);
+    assert_eq!(
+        row["waveform_payload_sha256"],
+        "98b7a9b1be25d9d64ffa75bc6e16ea80f60deed1891aeed8dfb440c1c19e6713"
+    );
+    assert_eq!(
+        row["waveform_external_validator_disposition"],
+        "external conformance evidence not embedded; run conformance separately"
+    );
+    for pointer in [
+        "/grouped_coverage/waveform_iod_kinds/twelve_lead_ecg",
+        "/grouped_coverage/waveform_channel_counts/12",
+        "/grouped_coverage/waveform_sampling_frequencies_hz/500",
+        "/grouped_coverage/waveform_payload_length_bytes/12000",
+        "/grouped_coverage/waveform_channel_hash_counts/12",
+        "/grouped_coverage/waveform_simultaneous_sampling_states/true",
+        "/grouped_coverage/waveform_pixel_data_absent_states/true",
+    ] {
+        assert_eq!(report.pointer(pointer), Some(&Value::from(1)), "{pointer}");
+    }
+
+    let planned = coverage_row(&report, "non-image/waveform/general_ecg");
+    assert_eq!(planned["status"], "planned");
+    assert!(planned["waveform_iod_kind"].is_null());
+    assert!(planned["waveform_payload_sha256"].is_null());
+
+    let mut incomplete = report.clone();
+    coverage_row_mut(&mut incomplete, "non-image/waveform/twelve_lead_ecg")["waveform_channel_hash_count"] =
+        Value::Null;
+    assert!(
+        !validator.is_valid(&incomplete),
+        "coverage schema must reject a partial Twelve-lead waveform contract"
+    );
+    let mut leaked = report.clone();
+    coverage_row_mut(&mut leaked, "non-image/waveform/general_ecg")["waveform_iod_kind"] =
+        Value::from("twelve_lead_ecg");
+    assert!(
+        !validator.is_valid(&leaked),
+        "coverage schema must reject waveform coverage hidden on another case"
+    );
+
+    let markdown = dicom_test_suite::render_coverage_report_markdown(&report);
+    for expected in [
+        "## Waveform Expectations",
+        "I; II; III; aVR; aVL; aVF; V1; V2; V3; V4; V5; V6",
+        "98b7a9b1be25d9d64ffa75bc6e16ea80f60deed1891aeed8dfb440c1c19e6713",
+        "### Waveform IOD Kinds",
+        "### Waveform External Validator Dispositions",
+    ] {
+        assert!(
+            markdown.contains(expected),
+            "markdown should contain {expected}"
+        );
+    }
+    fs::remove_dir_all(out_dir).expect("remove report root");
+}
+
+fn waveform_report_manifest() -> Value {
+    let labels = [
+        "I", "II", "III", "aVR", "aVL", "aVF", "V1", "V2", "V3", "V4", "V5", "V6",
+    ];
+    let codes = [
+        "2:1", "2:2", "2:61", "2:62", "2:63", "2:64", "2:3", "2:4", "2:5", "2:6", "2:7", "2:8",
+    ];
+    let meanings = [
+        "Lead I",
+        "Lead II",
+        "Lead III",
+        "aVR, augmented voltage, right",
+        "aVL, augmented voltage, left",
+        "aVF, augmented voltage, foot",
+        "Lead V1",
+        "Lead V2",
+        "Lead V3",
+        "Lead V4",
+        "Lead V5",
+        "Lead V6",
+    ];
+    let channels = labels
+        .iter()
+        .zip(codes)
+        .zip(meanings)
+        .enumerate()
+        .map(|(index, ((label, code), meaning))| {
+            json!({
+                "ordinal": index + 1,
+                "label": label,
+                "source": {
+                    "code_value": code,
+                    "coding_scheme_designator": "MDC",
+                    "code_meaning": meaning
+                },
+                "bits_stored": 16
+            })
+        })
+        .collect::<Vec<_>>();
+    json!({
+        "generated_at": "20260101000000.000000+0000",
+        "standards": {
+            "standards_lock_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+        },
+        "run": { "profile": "extended" },
+        "files": [{
+            "case_id": "non-image/waveform/twelve_lead_ecg",
+            "profile_membership": ["extended"],
+            "determinism": "byte_stable",
+            "dicom": {
+                "sop_class_uid": "1.2.840.10008.5.1.4.1.1.9.1.1",
+                "sop_class_name": "12-lead ECG Waveform Storage",
+                "iod_name": "12-lead ECG Waveform",
+                "modality": "ECG",
+                "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+                "transfer_syntax_name": "Explicit VR Little Endian"
+            },
+            "pixel_data": null,
+            "references": [],
+            "expected_semantics": { "synthetic_data": "YES" },
+            "expected_waveform": {
+                "iod_kind": "twelve_lead_ecg",
+                "multiplex_group": {
+                    "group_count": 1,
+                    "channel_count": 12,
+                    "samples_per_channel": 500,
+                    "sampling_frequency_hz": 500,
+                    "duration_seconds": 1,
+                    "simultaneous_sampling": true
+                },
+                "channels": channels,
+                "storage": {
+                    "bits_allocated": 16,
+                    "sample_interpretation": "SS",
+                    "data_vr": "OW",
+                    "interleave_order": "channel_then_sample",
+                    "payload_length_bytes": 12000,
+                    "payload_sha256": "98b7a9b1be25d9d64ffa75bc6e16ea80f60deed1891aeed8dfb440c1c19e6713",
+                    "channel_sha256": vec!["unused"; 12]
+                },
+                "absent_content": { "pixel_data": true }
+            },
+            "validation": { "status": "passed" },
+            "known_stressors": []
+        }],
+        "skipped_cases": [{
+            "case_id": "non-image/waveform/general_ecg",
+            "status": "unavailable",
+            "reason_code": "case_planned",
+            "message": "recipe_unimplemented"
+        }]
+    })
+}
+
 fn generate_core(out_dir: &Path) {
     let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
         .args([

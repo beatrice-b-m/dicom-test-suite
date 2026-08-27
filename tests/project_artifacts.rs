@@ -506,7 +506,12 @@ fn phase3_status_records_completed_derived_vertical_gates() {
         "522f2627658dd11ae6e5b88ad5e673659cacfdb2abf45fe4cb43adfb90feb7ea",
         "dicom-validator` 0.8.2",
         "207 older or unrelated findings",
-        "next Phase 3 dependency milestone is Deformable Spatial Registration",
+        "derived/registration/deformable_ct_pair",
+        "93 files",
+        "d8c539ad4ac9e72a8a597f9bf8a6588feac4d110d97464a70f6d543a033e5114",
+        "225bef48a5503e4ed2adc88490d9f28d9f8c314e0bc34d3fa8bff0d144b4127e",
+        "208 older or unrelated findings",
+        "next Phase 3 dependency milestone is presentation-state breadth",
     ] {
         assert!(
             status.contains(required),

@@ -445,6 +445,36 @@ fn manifest_schema_types_timezone_boundary_expectations() {
 }
 
 #[test]
+fn manifest_schema_types_empty_type2_expectations() {
+    let schema = read_json("schemas/manifest.schema.json");
+    let metadata_schema = serde_json::json!({
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$ref": "#/$defs/expected_metadata",
+        "$defs": schema["$defs"].clone(),
+    });
+    let validator =
+        jsonschema::validator_for(&metadata_schema).expect("metadata schema should compile");
+    let mut metadata = empty_type2_expectations();
+    assert!(
+        validator.is_valid(&metadata),
+        "the exact five-attribute zero-length contract should pass"
+    );
+
+    metadata["empty_type2_attributes"][0]["value_length"] = serde_json::json!(2);
+    metadata["empty_type2_attributes"][1]["vr"] = serde_json::json!("LO");
+    metadata["empty_type2_attributes"][2]["unexpected"] = serde_json::json!(true);
+    metadata["empty_type2_attributes"]
+        .as_array_mut()
+        .expect("attributes should be an array")
+        .pop();
+    let errors = validator.iter_errors(&metadata).collect::<Vec<_>>();
+    assert!(
+        errors.len() >= 4,
+        "nonzero VL, invalid VR, unknown fields, and incomplete sets must be rejected: {errors:?}"
+    );
+}
+
+#[test]
 fn manifest_schema_rejects_malformed_person_name_expectations() {
     let schema = read_json("schemas/manifest.schema.json");
     let metadata_schema = serde_json::json!({
@@ -513,6 +543,18 @@ fn utf8_person_name_expectations() -> Value {
                 },
             ],
         }],
+    })
+}
+
+fn empty_type2_expectations() -> Value {
+    serde_json::json!({
+        "empty_type2_attributes": [
+            { "tag": "0010,0010", "keyword": "PatientName", "vr": "PN", "value_length": 0 },
+            { "tag": "0010,0030", "keyword": "PatientBirthDate", "vr": "DA", "value_length": 0 },
+            { "tag": "0010,0040", "keyword": "PatientSex", "vr": "CS", "value_length": 0 },
+            { "tag": "0008,0090", "keyword": "ReferringPhysicianName", "vr": "PN", "value_length": 0 },
+            { "tag": "0008,0050", "keyword": "AccessionNumber", "vr": "SH", "value_length": 0 }
+        ]
     })
 }
 

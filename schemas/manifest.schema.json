@@ -460,7 +460,8 @@
       "type": "object",
       "anyOf": [
         { "required": ["person_names"] },
-        { "required": ["temporal"] }
+        { "required": ["temporal"] },
+        { "required": ["empty_type2_attributes"] }
       ],
       "dependentRequired": {
         "person_names": ["specific_character_sets"]
@@ -481,7 +482,30 @@
         },
         "temporal": {
           "$ref": "#/$defs/expected_temporal_metadata"
+        },
+        "empty_type2_attributes": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/expected_empty_type2_attribute" },
+          "minItems": 5,
+          "maxItems": 5
         }
+      },
+      "additionalProperties": false
+    },
+    "expected_empty_type2_attribute": {
+      "type": "object",
+      "required": ["tag", "keyword", "vr", "value_length"],
+      "properties": {
+        "tag": {
+          "type": "string",
+          "pattern": "^[0-9A-F]{4},[0-9A-F]{4}$"
+        },
+        "keyword": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Za-z0-9]*$"
+        },
+        "vr": { "enum": ["PN", "DA", "CS", "SH"] },
+        "value_length": { "const": 0 }
       },
       "additionalProperties": false
     },

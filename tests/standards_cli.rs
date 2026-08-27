@@ -26,8 +26,9 @@ fn standards_check_lock_accepts_committed_lock_with_documented_warnings() {
     ));
     assert!(stdout.contains("warning\tdicom_standard_kb.commit unavailable"));
     assert!(stdout.contains("warning\tdicom_standard_kb.db_sha256 unavailable"));
-    assert!(stdout.contains("source_artifacts\t5"));
+    assert!(stdout.contains("source_artifacts\t6"));
     assert!(stdout.contains("verification_queries\t3"));
+    assert!(stdout.contains("warning\tsource_artifact.PS3.16.chtml sha256 unavailable"));
 }
 
 #[test]

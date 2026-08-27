@@ -292,17 +292,46 @@ The two matching `core` corpora each occupy 480 KiB in the local filesystem.
 This measurement is implementation-environment evidence rather than a
 portable byte-size guarantee; tracked generated artifacts remain forbidden.
 
+## Clinical-family milestone
+
+### Nuclear Medicine STATIC dimensions
+
+`classic/nm/multiframe_explicit_le` is an implemented `core` Nuclear Medicine
+Image Storage instance with four native unsigned 16-bit frames. Image Type is
+`ORIGINAL\\PRIMARY\\STATIC\\EMISSION`. Frame Increment Pointer names Energy
+Window Vector followed by Detector Vector, with ordered values `1,1,2,2` and
+`1,2,1,2`; the four frames therefore bind to tuples `(1,1)`, `(1,2)`, `(2,1)`,
+and `(2,2)` with the detector index changing fastest.
+
+The two energy-window Items describe Tc99m photopeak 126–154 keV and scatter
+100–120 keV ranges. The two PARA detector Items carry start angles 0 and 180
+degrees and explicit patient orientations. Typed manifest and coverage-report
+contracts expose these sequences and vectors, while internal and
+manifest-driven validation enforce every count, one-based index, tuple, and
+ordered native frame hash. Tamper tests independently exercise each boundary.
+
+Two seed-1 `core` generations each produced 43 files and were byte-identical;
+strict corpus validation reported zero failures. The NM fixture SHA-256 is
+`facb70cd576c5d4b0ffbed58450d11a73c9bdd2c4bbc04960a342c41dc6a2d21`.
+Locked `dciodvfy` identifies only `NMImage`, `dcentvfy` is silent, and DCMTK
+extracts the exact 32-byte native payload and four declared frame hashes. The
+offline pydicom 3.0.2 environment managed by locked `uv` independently decodes
+the `(4, 2, 2)` array and all NM dimensions; its Part 10 rewrite is
+byte-identical and retains the same clean validator results.
+
 ## Milestone gate
 
 All planned Phase 2 geometry and series cases are implemented, and the UTF-8,
 ISO 2022, timezone, empty Type 2, string boundary, private creator, and sequence
 length metadata slices have passed their vertical gates. The latest seed-1
-`core` corpus contains 42 files; the seed-1 `extended` corpus contains 83
+`core` corpus contains 43 files; the seed-1 `extended` corpus contains 83
 files. The complete
 locked no-default-feature, all-target test suite passes, including byte-stable
 smoke, core, and extended regeneration. Each new CT slice and the temporal MR
 slice has clean isolated IOD, entity, parser, and applicable independent pixel
 evidence, except for the one exact reviewed DICOMDIR-usability warning described
 above. Older corpus findings remain visible and unresolved. The dependency-
-ordered Phase 2 metadata and VR milestone is complete. Phase 2 continues with
-the clinical-family representatives in their registry dependency order.
+ordered Phase 2 metadata and VR milestone is complete. The first
+clinical-family representative, Nuclear Medicine STATIC multi-frame, is also
+complete. Phase 2 continues with the remaining clinical-family representatives
+in their registry dependency order.

@@ -888,6 +888,41 @@ fn validate_manifest_image_pixel_data(
     file: &Value,
     obj: &OpenedObject,
 ) -> Result<(), ValidateError> {
+    match file
+        .pointer("/image/sample_type")
+        .and_then(Value::as_str)
+        .unwrap_or("integer")
+    {
+        "integer" => validate_integer_manifest_image_pixel_data(
+            failures,
+            relative_path,
+            manifest_path,
+            file,
+            obj,
+        ),
+        "float32" => validate_float32_manifest_image_pixel_data(
+            failures,
+            relative_path,
+            manifest_path,
+            file,
+            obj,
+        ),
+        _ => {
+            failures.push(format!(
+                "{relative_path}: image_sample_type: unsupported sample type"
+            ));
+            Ok(())
+        }
+    }
+}
+
+fn validate_integer_manifest_image_pixel_data(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    manifest_path: &Path,
+    file: &Value,
+    obj: &OpenedObject,
+) -> Result<(), ValidateError> {
     let rows = validate_u16_from_manifest_and_dataset(
         failures,
         relative_path,
@@ -1116,6 +1151,274 @@ fn validate_manifest_image_pixel_data(
     }
 
     Ok(())
+}
+
+fn validate_float32_manifest_image_pixel_data(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    manifest_path: &Path,
+    file: &Value,
+    obj: &OpenedObject,
+) -> Result<(), ValidateError> {
+    let rows = validate_u16_from_manifest_and_dataset(
+        failures,
+        relative_path,
+        manifest_path,
+        file,
+        obj,
+        "/image/rows",
+        tags::ROWS,
+        "rows",
+    )?;
+    let columns = validate_u16_from_manifest_and_dataset(
+        failures,
+        relative_path,
+        manifest_path,
+        file,
+        obj,
+        "/image/columns",
+        tags::COLUMNS,
+        "columns",
+    )?;
+    let samples_per_pixel = validate_u16_from_manifest_and_dataset(
+        failures,
+        relative_path,
+        manifest_path,
+        file,
+        obj,
+        "/image/samples_per_pixel",
+        tags::SAMPLES_PER_PIXEL,
+        "samples_per_pixel",
+    )?;
+    validate_equal(
+        failures,
+        relative_path,
+        "float32_samples_per_pixel",
+        samples_per_pixel,
+        1,
+    );
+    let bits_allocated = validate_u16_from_manifest_and_dataset(
+        failures,
+        relative_path,
+        manifest_path,
+        file,
+        obj,
+        "/image/bits_allocated",
+        tags::BITS_ALLOCATED,
+        "bits_allocated",
+    )?;
+    validate_equal(
+        failures,
+        relative_path,
+        "float32_bits_allocated",
+        bits_allocated,
+        32,
+    );
+    let photometric_interpretation = manifest_str(
+        manifest_path,
+        file,
+        "/image/photometric_interpretation",
+        "photometric_interpretation must be a string",
+    )?;
+    validate_equal(
+        failures,
+        relative_path,
+        "float32_photometric_interpretation",
+        photometric_interpretation,
+        "MONOCHROME2",
+    );
+    validate_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::PHOTOMETRIC_INTERPRETATION,
+        "photometric_interpretation",
+        photometric_interpretation,
+    );
+    match file.pointer("/image/planar_configuration") {
+        Some(Value::Null) => {
+            validate_element_absent(
+                failures,
+                relative_path,
+                obj,
+                tags::PLANAR_CONFIGURATION,
+                "planar_configuration_absent",
+            );
+        }
+        Some(_) => failures.push(format!(
+            "{relative_path}: planar_configuration_absent: float32 single-sample pixels require null manifest planar configuration"
+        )),
+        None => {
+            return Err(ValidateError::ManifestShape {
+                path: manifest_path.to_path_buf(),
+                message: "image planar_configuration is missing",
+            });
+        }
+    }
+
+    for (pointer, tag, name) in [
+        (
+            "/image/bits_stored",
+            tags::BITS_STORED,
+            "bits_stored_absent",
+        ),
+        ("/image/high_bit", tags::HIGH_BIT, "high_bit_absent"),
+        (
+            "/image/pixel_representation",
+            tags::PIXEL_REPRESENTATION,
+            "pixel_representation_absent",
+        ),
+    ] {
+        if file.pointer(pointer).is_some() {
+            failures.push(format!(
+                "{relative_path}: {name}: float32 manifest must omit integer-only metadata"
+            ));
+        }
+        validate_element_absent(failures, relative_path, obj, tag, name);
+    }
+
+    let frames = validate_frames(failures, relative_path, manifest_path, file, obj)?;
+    validate_element_absent(
+        failures,
+        relative_path,
+        obj,
+        tags::PIXEL_DATA,
+        "integer_pixel_data_absent",
+    );
+    validate_element_absent(
+        failures,
+        relative_path,
+        obj,
+        tags::DOUBLE_FLOAT_PIXEL_DATA,
+        "double_float_pixel_data_absent",
+    );
+    let pixel_element = match obj.element(tags::FLOAT_PIXEL_DATA) {
+        Ok(element) => element,
+        Err(err) => {
+            failures.push(format!("{relative_path}: float_pixel_data: {err}"));
+            return Ok(());
+        }
+    };
+    validate_equal(
+        failures,
+        relative_path,
+        "pixel_data_vr",
+        vr_name(pixel_element.vr()),
+        "OF",
+    );
+    validate_equal(
+        failures,
+        relative_path,
+        "pixel_data_manifest_vr",
+        manifest_str(
+            manifest_path,
+            file,
+            "/pixel_data/vr",
+            "pixel_data vr must be a string",
+        )?,
+        "OF",
+    );
+    validate_equal(
+        failures,
+        relative_path,
+        "pixel_data_layout",
+        manifest_str(
+            manifest_path,
+            file,
+            "/pixel_data/native_or_encapsulated",
+            "pixel_data native_or_encapsulated must be a string",
+        )?,
+        "native",
+    );
+
+    let frame_count = manifest_u64(
+        manifest_path,
+        file,
+        "/pixel_data/frame_count",
+        "pixel_data frame_count must be an integer",
+    )?;
+    validate_equal(
+        failures,
+        relative_path,
+        "pixel_data_frame_count",
+        frame_count,
+        u64::from(frames),
+    );
+    let frame_hashes = manifest_array(
+        manifest_path,
+        file,
+        "/pixel_data/frame_hashes",
+        "pixel_data frame_hashes must be an array",
+    )?;
+    validate_equal(
+        failures,
+        relative_path,
+        "pixel_data_frame_hash_count",
+        frame_hashes.len(),
+        usize::from(frames),
+    );
+
+    let pixel_bytes = match pixel_element.value().to_bytes() {
+        Ok(bytes) => bytes,
+        Err(err) => {
+            failures.push(format!("{relative_path}: float_pixel_data_bytes: {err}"));
+            return Ok(());
+        }
+    };
+    let frame_length =
+        usize::from(rows) * usize::from(columns) * usize::from(samples_per_pixel) * 4;
+    let expected_value_length = frame_length * usize::from(frames);
+    validate_equal(
+        failures,
+        relative_path,
+        "float_pixel_data_length",
+        pixel_bytes.len(),
+        expected_value_length,
+    );
+    validate_equal(
+        failures,
+        relative_path,
+        "pixel_data_manifest_length",
+        manifest_u64(
+            manifest_path,
+            file,
+            "/pixel_data/value_length",
+            "pixel_data value_length must be an integer",
+        )?,
+        expected_value_length as u64,
+    );
+    if pixel_bytes.len() == expected_value_length {
+        for (frame_index, frame) in pixel_bytes.chunks_exact(frame_length).enumerate() {
+            let expected_hash = frame_hashes
+                .get(frame_index)
+                .and_then(Value::as_str)
+                .ok_or(ValidateError::ManifestShape {
+                    path: manifest_path.to_path_buf(),
+                    message: "pixel_data frame_hashes items must be strings",
+                })?;
+            validate_equal(
+                failures,
+                relative_path,
+                "float_pixel_data_frame_hash",
+                sha256_hex(frame),
+                expected_hash,
+            );
+        }
+    }
+
+    Ok(())
+}
+
+fn validate_element_absent(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    obj: &OpenedObject,
+    tag: dicom_core::Tag,
+    name: &str,
+) {
+    if matches!(obj.element_opt(tag), Ok(Some(_))) {
+        failures.push(format!("{relative_path}: {name}: expected absent"));
+    }
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -10889,8 +11192,9 @@ fn string_array(value: Option<&Value>) -> Result<Vec<String>, CaseRegistryError>
 #[cfg(test)]
 mod tests {
     use super::*;
+    use dicom_core::{DataElement, PrimitiveValue, VR};
     use dicom_dictionary_std::uids;
-    use dicom_object::InMemDicomObject;
+    use dicom_object::{InMemDicomObject, meta::FileMetaTableBuilder};
     use dicom_transfer_syntax_registry::{TransferSyntaxIndex, TransferSyntaxRegistry};
 
     #[test]
@@ -10908,6 +11212,131 @@ mod tests {
 
         assert_eq!(explicit_vr_le.uid(), uids::EXPLICIT_VR_LITTLE_ENDIAN);
         assert_eq!(uids::VERIFICATION, "1.2.840.10008.1.1");
+    }
+
+    #[test]
+    fn float32_manifest_pixel_validation_accepts_exact_native_frames() {
+        let values = [0.25_f32, 0.5, 1.0, 1.5];
+        let obj = float32_test_object(&values, false);
+        let manifest = float32_test_manifest(&values);
+        let mut failures = Vec::new();
+
+        validate_manifest_image_pixel_data(
+            &mut failures,
+            "parametric-map.dcm",
+            Path::new("manifest.json"),
+            &manifest,
+            &obj,
+        )
+        .expect("float32 manifest validation should complete");
+
+        assert_eq!(failures, Vec::<String>::new());
+    }
+
+    #[test]
+    fn float32_manifest_pixel_validation_rejects_integer_fields_and_bad_hash() {
+        let values = [0.25_f32, 0.5, 1.0, 1.5];
+        let obj = float32_test_object(&values, true);
+        let mut manifest = float32_test_manifest(&values);
+        manifest["image"]["bits_stored"] = serde_json::json!(32);
+        manifest["pixel_data"]["frame_hashes"][0] =
+            serde_json::json!("0000000000000000000000000000000000000000000000000000000000000000");
+        let mut failures = Vec::new();
+
+        validate_manifest_image_pixel_data(
+            &mut failures,
+            "parametric-map.dcm",
+            Path::new("manifest.json"),
+            &manifest,
+            &obj,
+        )
+        .expect("invalid float32 metadata should produce validation failures");
+
+        let joined = failures.join("\n");
+        assert!(joined.contains("bits_stored_absent"));
+        assert!(joined.contains("integer_pixel_data_absent"));
+        assert!(joined.contains("double_float_pixel_data_absent"));
+        assert!(joined.contains("float_pixel_data_frame_hash"));
+    }
+
+    fn float32_test_object(values: &[f32], include_forbidden_fields: bool) -> OpenedObject {
+        let mut obj = InMemDicomObject::new_empty();
+        for (tag, vr, value) in [
+            (tags::SOP_CLASS_UID, VR::UI, uids::PARAMETRIC_MAP_STORAGE),
+            (tags::SOP_INSTANCE_UID, VR::UI, "2.25.1"),
+            (tags::PHOTOMETRIC_INTERPRETATION, VR::CS, "MONOCHROME2"),
+        ] {
+            obj.put(DataElement::new(tag, vr, PrimitiveValue::from(value)));
+        }
+        for (tag, value) in [
+            (tags::ROWS, 1_u16),
+            (tags::COLUMNS, 2),
+            (tags::SAMPLES_PER_PIXEL, 1),
+            (tags::BITS_ALLOCATED, 32),
+        ] {
+            obj.put(DataElement::new(tag, VR::US, PrimitiveValue::from(value)));
+        }
+        obj.put(DataElement::new(
+            tags::NUMBER_OF_FRAMES,
+            VR::IS,
+            PrimitiveValue::from("2"),
+        ));
+        obj.put(DataElement::new(
+            tags::FLOAT_PIXEL_DATA,
+            VR::OF,
+            PrimitiveValue::F32(values.to_vec().into()),
+        ));
+        if include_forbidden_fields {
+            obj.put(DataElement::new(
+                tags::BITS_STORED,
+                VR::US,
+                PrimitiveValue::from(32_u16),
+            ));
+            obj.put(DataElement::new(
+                tags::PIXEL_DATA,
+                VR::OW,
+                PrimitiveValue::from(vec![0_u8; 16]),
+            ));
+            obj.put(DataElement::new(
+                tags::DOUBLE_FLOAT_PIXEL_DATA,
+                VR::OD,
+                PrimitiveValue::F64(vec![0.0_f64; 4].into()),
+            ));
+        }
+        obj.with_meta(
+            FileMetaTableBuilder::new()
+                .transfer_syntax(uids::EXPLICIT_VR_LITTLE_ENDIAN)
+                .media_storage_sop_class_uid(uids::PARAMETRIC_MAP_STORAGE)
+                .media_storage_sop_instance_uid("2.25.1")
+                .implementation_class_uid("2.25.2"),
+        )
+        .expect("float32 test object should have valid file metadata")
+    }
+
+    fn float32_test_manifest(values: &[f32]) -> Value {
+        let bytes = values
+            .iter()
+            .flat_map(|value| value.to_le_bytes())
+            .collect::<Vec<_>>();
+        serde_json::json!({
+            "image": {
+                "sample_type": "float32",
+                "rows": 1,
+                "columns": 2,
+                "frames": 2,
+                "samples_per_pixel": 1,
+                "photometric_interpretation": "MONOCHROME2",
+                "bits_allocated": 32,
+                "planar_configuration": Value::Null
+            },
+            "pixel_data": {
+                "vr": "OF",
+                "native_or_encapsulated": "native",
+                "value_length": bytes.len(),
+                "frame_count": 2,
+                "frame_hashes": [sha256_hex(&bytes[..8]), sha256_hex(&bytes[8..])]
+            }
+        })
     }
 
     #[test]

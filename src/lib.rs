@@ -7050,22 +7050,58 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
         .unwrap_or_default();
     if !geometry_rows.is_empty() {
         output.push_str("## Geometry Sorting Expectations\n\n");
-        output.push_str("| Case ID | Position along normal (mm) | Geometric rank | Instance Number | Instance rank | Basis | Direction | Conflict expected |\n");
-        output.push_str("|---|---:|---:|---:|---:|---|---|---|\n");
+        output.push_str("| Case ID | Position along normal (mm) | Geometric rank | Instance Number state | Instance Number | Instance rank | Adjacent spacing (mm) | Uniform spacing | Gantry tilt (degrees) | Basis | Direction | Conflict expected |\n");
+        output.push_str("|---|---:|---:|---|---:|---:|---|---|---:|---|---|---|\n");
         for row in geometry_rows {
             output.push_str(&format!(
-                "| {} | {} | {} | {} | {} | {} | {} | {} |\n",
+                "| {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} |\n",
                 markdown_cell(row.get("case_id").and_then(Value::as_str)),
                 markdown_number(row.get("geometry_position_along_normal_mm")),
                 markdown_number(row.get("geometry_geometric_order_index")),
+                markdown_cell(
+                    row.get("geometry_instance_number_state")
+                        .and_then(Value::as_str)
+                ),
                 markdown_number(row.get("geometry_instance_number")),
                 markdown_number(row.get("geometry_instance_number_order_index")),
+                markdown_number_list(row.get("geometry_adjacent_spacing_mm")),
+                markdown_bool(row.get("geometry_spacing_uniform")),
+                markdown_number(row.get("geometry_gantry_detector_tilt_degrees")),
                 markdown_cell(row.get("geometry_sort_basis").and_then(Value::as_str)),
                 markdown_cell(row.get("geometry_sort_direction").and_then(Value::as_str)),
-                row.get("geometry_sorting_conflict_expected")
-                    .and_then(Value::as_bool)
-                    .map(|value| value.to_string())
-                    .unwrap_or_else(|| "—".to_string())
+                markdown_bool(row.get("geometry_sorting_conflict_expected"))
+            ));
+        }
+        output.push('\n');
+    }
+
+    let series_organization_rows = report
+        .get("coverage_matrix")
+        .and_then(Value::as_array)
+        .map(|rows| {
+            rows.iter()
+                .filter(|row| !row["series_organization_group_id"].is_null())
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    if !series_organization_rows.is_empty() {
+        output.push_str("## Cross-Series Organization Expectations\n\n");
+        output.push_str("| Case ID | Group | Study series count | Series ordinal | Instances in series | Shared study UID | Shared frame of reference UID | Distinct series UIDs |\n");
+        output.push_str("|---|---|---:|---:|---:|---|---|---|\n");
+        for row in series_organization_rows {
+            output.push_str(&format!(
+                "| {} | {} | {} | {} | {} | {} | {} | {} |\n",
+                markdown_cell(row.get("case_id").and_then(Value::as_str)),
+                markdown_cell(
+                    row.get("series_organization_group_id")
+                        .and_then(Value::as_str)
+                ),
+                markdown_number(row.get("study_series_count")),
+                markdown_number(row.get("series_ordinal")),
+                markdown_number(row.get("series_organization_instance_count")),
+                markdown_bool(row.get("shared_study_instance_uid_expected")),
+                markdown_bool(row.get("shared_frame_of_reference_uid_expected")),
+                markdown_bool(row.get("distinct_series_instance_uids_expected"))
             ));
         }
         output.push('\n');
@@ -7319,6 +7355,57 @@ fn generated_coverage_row(
         (
             "geometry_sorting_conflict_expected",
             "/expected_geometry/sorting_conflict_expected",
+        ),
+        (
+            "geometry_instance_number_state",
+            "/expected_geometry/instance_number_state",
+        ),
+        (
+            "geometry_adjacent_spacing_mm",
+            "/expected_geometry/adjacent_spacing_mm",
+        ),
+        (
+            "geometry_spacing_uniform",
+            "/expected_geometry/spacing_uniform",
+        ),
+        (
+            "geometry_gantry_detector_tilt_degrees",
+            "/expected_geometry/gantry_detector_tilt_degrees",
+        ),
+    ] {
+        row_object.insert(
+            field.to_string(),
+            file.pointer(pointer).cloned().unwrap_or(Value::Null),
+        );
+    }
+    for (field, pointer) in [
+        (
+            "series_organization_group_id",
+            "/expected_series_organization/group_id",
+        ),
+        (
+            "study_series_count",
+            "/expected_series_organization/study_series_count",
+        ),
+        (
+            "series_ordinal",
+            "/expected_series_organization/series_ordinal",
+        ),
+        (
+            "series_organization_instance_count",
+            "/expected_series_organization/series_instance_count",
+        ),
+        (
+            "shared_study_instance_uid_expected",
+            "/expected_series_organization/shared_study_instance_uid_expected",
+        ),
+        (
+            "shared_frame_of_reference_uid_expected",
+            "/expected_series_organization/shared_frame_of_reference_uid_expected",
+        ),
+        (
+            "distinct_series_instance_uids_expected",
+            "/expected_series_organization/distinct_series_instance_uids_expected",
         ),
     ] {
         row_object.insert(
@@ -8593,6 +8680,17 @@ fn skipped_coverage_row(
         "geometry_instance_number",
         "geometry_instance_number_order_index",
         "geometry_sorting_conflict_expected",
+        "geometry_instance_number_state",
+        "geometry_adjacent_spacing_mm",
+        "geometry_spacing_uniform",
+        "geometry_gantry_detector_tilt_degrees",
+        "series_organization_group_id",
+        "study_series_count",
+        "series_ordinal",
+        "series_organization_instance_count",
+        "shared_study_instance_uid_expected",
+        "shared_frame_of_reference_uid_expected",
+        "distinct_series_instance_uids_expected",
     ] {
         row_object.insert(field.to_string(), Value::Null);
     }
@@ -10159,6 +10257,27 @@ fn markdown_number(value: Option<&Value>) -> String {
     value
         .and_then(Value::as_number)
         .map_or_else(String::new, |number| number.to_string())
+}
+
+fn markdown_number_list(value: Option<&Value>) -> String {
+    value
+        .and_then(Value::as_array)
+        .map(|values| {
+            values
+                .iter()
+                .filter_map(Value::as_number)
+                .map(ToString::to_string)
+                .collect::<Vec<_>>()
+                .join(", ")
+        })
+        .unwrap_or_default()
+}
+
+fn markdown_bool(value: Option<&Value>) -> String {
+    value
+        .and_then(Value::as_bool)
+        .map(|value| value.to_string())
+        .unwrap_or_else(|| "—".to_string())
 }
 
 pub fn check_standards_lock_path(

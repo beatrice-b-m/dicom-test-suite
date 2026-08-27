@@ -581,6 +581,17 @@
         "geometry_instance_number",
         "geometry_instance_number_order_index",
         "geometry_sorting_conflict_expected",
+        "geometry_instance_number_state",
+        "geometry_adjacent_spacing_mm",
+        "geometry_spacing_uniform",
+        "geometry_gantry_detector_tilt_degrees",
+        "series_organization_group_id",
+        "study_series_count",
+        "series_ordinal",
+        "series_organization_instance_count",
+        "shared_study_instance_uid_expected",
+        "shared_frame_of_reference_uid_expected",
+        "distinct_series_instance_uids_expected",
         "derived_refs",
         "derived_reference_targets",
         "derived_reference_relationships",
@@ -872,6 +883,47 @@
           "minimum": 1
         },
         "geometry_sorting_conflict_expected": {
+          "type": ["boolean", "null"]
+        },
+        "geometry_instance_number_state": {
+          "type": ["string", "null"],
+          "enum": ["numeric", "empty", null]
+        },
+        "geometry_adjacent_spacing_mm": {
+          "type": ["array", "null"],
+          "items": {
+            "type": "number"
+          },
+          "minItems": 1
+        },
+        "geometry_spacing_uniform": {
+          "type": ["boolean", "null"]
+        },
+        "geometry_gantry_detector_tilt_degrees": {
+          "type": ["number", "null"]
+        },
+        "series_organization_group_id": {
+          "type": ["string", "null"]
+        },
+        "study_series_count": {
+          "type": ["integer", "null"],
+          "minimum": 1
+        },
+        "series_ordinal": {
+          "type": ["integer", "null"],
+          "minimum": 1
+        },
+        "series_organization_instance_count": {
+          "type": ["integer", "null"],
+          "minimum": 1
+        },
+        "shared_study_instance_uid_expected": {
+          "type": ["boolean", "null"]
+        },
+        "shared_frame_of_reference_uid_expected": {
+          "type": ["boolean", "null"]
+        },
+        "distinct_series_instance_uids_expected": {
           "type": ["boolean", "null"]
         },
         "derived_refs": {

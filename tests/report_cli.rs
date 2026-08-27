@@ -387,6 +387,45 @@ fn report_command_writes_json_coverage_for_core_root() {
             .and_then(Value::as_str),
         Some("1")
     );
+    let spatial_sort_row = coverage_row(
+        &report,
+        "geometry/ct/spatial_sort_conflicts_instance_number",
+    );
+    assert_eq!(
+        spatial_sort_row
+            .get("geometry_instance_number_state")
+            .and_then(Value::as_str),
+        Some("numeric")
+    );
+    assert_eq!(
+        spatial_sort_row.get("geometry_adjacent_spacing_mm"),
+        Some(&json!([5.0, 5.0]))
+    );
+    assert_eq!(
+        spatial_sort_row
+            .get("geometry_spacing_uniform")
+            .and_then(Value::as_bool),
+        Some(true)
+    );
+    assert_eq!(
+        spatial_sort_row.get("geometry_gantry_detector_tilt_degrees"),
+        Some(&Value::Null)
+    );
+    for field in [
+        "series_organization_group_id",
+        "study_series_count",
+        "series_ordinal",
+        "series_organization_instance_count",
+        "shared_study_instance_uid_expected",
+        "shared_frame_of_reference_uid_expected",
+        "distinct_series_instance_uids_expected",
+    ] {
+        assert_eq!(
+            spatial_sort_row.get(field),
+            Some(&Value::Null),
+            "single-series Phase 1 geometry should leave {field} unset"
+        );
+    }
     assert_eq!(
         coverage_row(&report, "classic/mr/multislice_oblique_explicit_le")
             .get("spacing_between_slices")
@@ -767,7 +806,38 @@ fn report_command_writes_json_coverage_for_core_root() {
         Some(2)
     );
 
+    let markdown = dicom_test_suite::render_coverage_report_markdown(&report);
+    assert!(markdown.contains("## Geometry Sorting Expectations"));
+    assert!(markdown.contains("Instance Number state"));
+    assert!(markdown.contains("Adjacent spacing (mm)"));
+    assert!(markdown.contains("Uniform spacing"));
+    assert!(markdown.contains("Gantry tilt (degrees)"));
+
     fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
+}
+
+#[test]
+fn markdown_report_renders_cross_series_organization_expectations() {
+    let report = json!({
+        "coverage_matrix": [{
+            "case_id": "geometry/ct/multiseries_shared_frame_of_reference",
+            "geometry_sort_basis": null,
+            "series_organization_group_id": "shared-study-frame-of-reference",
+            "study_series_count": 2,
+            "series_ordinal": 1,
+            "series_organization_instance_count": 3,
+            "shared_study_instance_uid_expected": true,
+            "shared_frame_of_reference_uid_expected": true,
+            "distinct_series_instance_uids_expected": true
+        }],
+        "gaps": []
+    });
+
+    let markdown = dicom_test_suite::render_coverage_report_markdown(&report);
+    assert!(markdown.contains("## Cross-Series Organization Expectations"));
+    assert!(markdown.contains(
+        "| geometry/ct/multiseries_shared_frame_of_reference | shared-study-frame-of-reference | 2 | 1 | 3 | true | true | true |"
+    ));
 }
 
 #[test]
@@ -4609,6 +4679,25 @@ fn report_counts_feature_gated_implemented_cases_as_unavailable() {
         row.get("status").and_then(Value::as_str),
         Some("unavailable")
     );
+    for field in [
+        "geometry_instance_number_state",
+        "geometry_adjacent_spacing_mm",
+        "geometry_spacing_uniform",
+        "geometry_gantry_detector_tilt_degrees",
+        "series_organization_group_id",
+        "study_series_count",
+        "series_ordinal",
+        "series_organization_instance_count",
+        "shared_study_instance_uid_expected",
+        "shared_frame_of_reference_uid_expected",
+        "distinct_series_instance_uids_expected",
+    ] {
+        assert_eq!(
+            row.get(field),
+            Some(&Value::Null),
+            "unavailable coverage rows must keep {field} explicitly null"
+        );
+    }
 
     fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
 }

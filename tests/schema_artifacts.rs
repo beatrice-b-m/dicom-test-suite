@@ -551,6 +551,17 @@ fn coverage_report_schema_requires_the_specified_matrix_fields() {
         "slice_thickness",
         "spacing_between_slices",
         "slice_location",
+        "geometry_instance_number_state",
+        "geometry_adjacent_spacing_mm",
+        "geometry_spacing_uniform",
+        "geometry_gantry_detector_tilt_degrees",
+        "series_organization_group_id",
+        "study_series_count",
+        "series_ordinal",
+        "series_organization_instance_count",
+        "shared_study_instance_uid_expected",
+        "shared_frame_of_reference_uid_expected",
+        "distinct_series_instance_uids_expected",
         "derived_refs",
         "derived_reference_targets",
         "derived_reference_relationships",
@@ -646,6 +657,50 @@ fn coverage_report_schema_requires_the_specified_matrix_fields() {
         assert!(
             required.iter().any(|value| value.as_str() == Some(field)),
             "coverage report schema must require {field}"
+        );
+    }
+
+    assert_eq!(
+        schema.pointer(
+            "/$defs/coverage_row/properties/geometry_instance_number_state/enum"
+        ),
+        Some(&serde_json::json!(["numeric", "empty", null]))
+    );
+    assert_eq!(
+        schema
+            .pointer("/$defs/coverage_row/properties/geometry_adjacent_spacing_mm/items/type")
+            .and_then(Value::as_str),
+        Some("number")
+    );
+    for field in [
+        "geometry_spacing_uniform",
+        "shared_study_instance_uid_expected",
+        "shared_frame_of_reference_uid_expected",
+        "distinct_series_instance_uids_expected",
+    ] {
+        assert_eq!(
+            schema
+                .pointer(&format!(
+                    "/$defs/coverage_row/properties/{field}/type/0"
+                ))
+                .and_then(Value::as_str),
+            Some("boolean"),
+            "coverage row {field} must be nullable boolean"
+        );
+    }
+    for field in [
+        "study_series_count",
+        "series_ordinal",
+        "series_organization_instance_count",
+    ] {
+        assert_eq!(
+            schema
+                .pointer(&format!(
+                    "/$defs/coverage_row/properties/{field}/minimum"
+                ))
+                .and_then(Value::as_u64),
+            Some(1),
+            "coverage row {field} must be positive"
         );
     }
 

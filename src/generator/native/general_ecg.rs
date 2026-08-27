@@ -232,6 +232,7 @@ pub(in crate::generator) fn general_ecg_group_payload(group_index: usize) -> Vec
     payload
 }
 
+#[cfg(test)]
 pub(in crate::generator) fn general_ecg_ordered_payload() -> Vec<u8> {
     let mut payload = Vec::with_capacity(GENERAL_ECG_TOTAL_PAYLOAD_LENGTH);
     for group_index in 0..GENERAL_ECG_GROUPS.len() {

@@ -17,6 +17,7 @@ use native::ct_geometry::{
     CLASSIC_CT_RECIPES, ClassicCtInstanceNumber, ClassicCtRecipe, ClassicCtSeriesRecipe,
     ClassicCtSliceRecipe,
 };
+use native::metadata_sc::{METADATA_SC_RECIPES, MetadataScRecipe};
 
 use crate::{
     DeterministicUidInput, GenerateError, PreparedGenerationRun, UidRole,
@@ -3540,6 +3541,20 @@ pub(crate) fn write_supported_cases(
         }
         context.record_one(write_pixel_case(run, case, *recipe, standards_lock_sha256)?)?;
     }
+    for recipe in METADATA_SC_RECIPES {
+        let Some(case) = registry_case(registry, recipe.pixel.case_id)? else {
+            continue;
+        };
+        if !should_generate_case(case, run)? {
+            continue;
+        }
+        context.record_one(write_metadata_sc_case(
+            run,
+            case,
+            *recipe,
+            standards_lock_sha256,
+        )?)?;
+    }
     for recipe in CLASSIC_CT_RECIPES {
         let Some(case) = registry_case(registry, recipe.case_id)? else {
             continue;
@@ -4283,6 +4298,31 @@ fn write_pixel_case(
     recipe: PixelRecipe,
     standards_lock_sha256: &str,
 ) -> Result<GeneratedFile, GenerateError> {
+    write_pixel_case_with_text_metadata(run, case, recipe, standards_lock_sha256, None)
+}
+
+fn write_metadata_sc_case(
+    run: &PreparedGenerationRun,
+    case: &Value,
+    recipe: MetadataScRecipe,
+    standards_lock_sha256: &str,
+) -> Result<GeneratedFile, GenerateError> {
+    write_pixel_case_with_text_metadata(
+        run,
+        case,
+        recipe.pixel,
+        standards_lock_sha256,
+        Some((recipe.specific_character_set, recipe.patient_name)),
+    )
+}
+
+fn write_pixel_case_with_text_metadata(
+    run: &PreparedGenerationRun,
+    case: &Value,
+    recipe: PixelRecipe,
+    standards_lock_sha256: &str,
+    text_metadata: Option<(&str, &str)>,
+) -> Result<GeneratedFile, GenerateError> {
     let study_instance_uid = deterministic_case_uid(
         standards_lock_sha256,
         recipe,
@@ -4321,7 +4361,22 @@ fn write_pixel_case(
     put_str(&mut obj, tags::SOP_INSTANCE_UID, VR::UI, &sop_instance_uid);
     put_str(&mut obj, tags::SYNTHETIC_DATA, VR::CS, "YES");
 
-    put_str(&mut obj, tags::PATIENT_NAME, VR::PN, "DICOMTEST^SMOKE");
+    if let Some((specific_character_set, _)) = text_metadata {
+        put_str(
+            &mut obj,
+            tags::SPECIFIC_CHARACTER_SET,
+            VR::CS,
+            specific_character_set,
+        );
+    }
+    put_str(
+        &mut obj,
+        tags::PATIENT_NAME,
+        VR::PN,
+        text_metadata
+            .map(|(_, patient_name)| patient_name)
+            .unwrap_or("DICOMTEST^SMOKE"),
+    );
     put_str(&mut obj, tags::PATIENT_ID, VR::LO, "DICOMTEST-SMOKE-001");
     put_str(&mut obj, tags::PATIENT_BIRTH_DATE, VR::DA, "19700101");
     put_str(&mut obj, tags::PATIENT_SEX, VR::CS, "O");
@@ -4981,6 +5036,12 @@ fn write_pixel_case(
     for result in codec_internal_validation {
         append_internal_validation(&mut validated.validation, result);
     }
+    if let Some((specific_character_set, patient_name)) = text_metadata {
+        append_internal_validation(
+            &mut validated.validation,
+            validate_text_metadata_round_trip(&path, specific_character_set, patient_name)?,
+        );
+    }
 
     Ok(GeneratedFile {
         case_id: recipe.case_id.to_string(),
@@ -4998,8 +5059,55 @@ fn write_pixel_case(
             compressed_pixel_data.as_ref(),
             lossy_image_compression_ratio.as_deref(),
             &decoded_frame_hash_refs,
+            text_metadata,
         ),
     })
+}
+
+fn validate_text_metadata_round_trip(
+    path: &std::path::Path,
+    expected_character_set: &str,
+    expected_patient_name: &str,
+) -> Result<Value, GenerateError> {
+    let obj = open_file(path).map_err(|error| GenerateError::ValidateDicomFile {
+        path: path.to_path_buf(),
+        message: format!("reopen metadata SC fixture: {error}"),
+    })?;
+    for (tag, label, expected) in [
+        (
+            tags::SPECIFIC_CHARACTER_SET,
+            "Specific Character Set",
+            expected_character_set,
+        ),
+        (tags::PATIENT_NAME, "Patient Name", expected_patient_name),
+    ] {
+        let element = obj
+            .element(tag)
+            .map_err(|error| GenerateError::ValidateDicomFile {
+                path: path.to_path_buf(),
+                message: format!("read {label} from metadata SC fixture: {error}"),
+            })?;
+        let actual = element
+            .to_str()
+            .map_err(|error| GenerateError::ValidateDicomFile {
+                path: path.to_path_buf(),
+                message: format!("decode {label} from metadata SC fixture: {error}"),
+            })?;
+        if actual.trim_end_matches([' ', '\0']) != expected {
+            return Err(GenerateError::ValidateDicomFile {
+                path: path.to_path_buf(),
+                message: format!(
+                    "metadata SC {label} decoded as {:?}, expected {expected:?}",
+                    actual.trim_end_matches([' ', '\0'])
+                ),
+            });
+        }
+    }
+    Ok(serde_json::json!({
+        "name": "utf8_person_name_round_trip",
+        "status": "passed",
+        "message": "The native writer output reopened with the exact declared UTF-8 character set and decoded Person Name."
+    }))
 }
 
 fn append_internal_validation(validation: &mut Value, result: Value) {
@@ -5412,6 +5520,7 @@ fn pixel_manifest_entry(
     )>,
     lossy_image_compression_ratio: Option<&str>,
     frame_hashes: &[&str],
+    text_metadata: Option<(&str, &str)>,
 ) -> Value {
     let mut standards_evidence = standards_evidence_from_case(case);
     if pixel_is_vl_photographic(recipe) {
@@ -5825,7 +5934,7 @@ fn pixel_manifest_entry(
         })
     };
 
-    serde_json::json!({
+    let mut manifest = serde_json::json!({
         "case_id": recipe.case_id,
         "profile_membership": pixel_profile_membership(recipe),
         "path": relative_path,
@@ -5896,7 +6005,54 @@ fn pixel_manifest_entry(
         "validation": validation,
         "known_stressors": pixel_known_stressors(recipe),
         "standards_evidence": deduplicated_standards_evidence(standards_evidence)
-    })
+    });
+    if let Some((specific_character_set, patient_name)) = text_metadata {
+        let mut raw_value = patient_name.as_bytes().to_vec();
+        if raw_value.len() % 2 == 1 {
+            raw_value.push(b' ');
+        }
+        manifest["expected_metadata"] = serde_json::json!({
+            "specific_character_sets": [specific_character_set],
+            "person_names": [{
+                "tag": "0010,0010",
+                "keyword": "PatientName",
+                "vr": "PN",
+                "decoded_value": patient_name,
+                "raw_value_sha256": sha256_hex(&raw_value),
+                "raw_value_byte_length": raw_value.len(),
+                "component_groups": [
+                    {
+                        "position": 1,
+                        "kind": "alphabetic",
+                        "decoded_value": "Wang^XiaoDong",
+                        "components": [
+                            {"position": 1, "decoded_value": "Wang"},
+                            {"position": 2, "decoded_value": "XiaoDong"},
+                            {"position": 3, "decoded_value": ""},
+                            {"position": 4, "decoded_value": ""},
+                            {"position": 5, "decoded_value": ""}
+                        ]
+                    },
+                    {
+                        "position": 2,
+                        "kind": "ideographic",
+                        "decoded_value": "王^小東",
+                        "components": [
+                            {"position": 1, "decoded_value": "王"},
+                            {"position": 2, "decoded_value": "小東"},
+                            {"position": 3, "decoded_value": ""},
+                            {"position": 4, "decoded_value": ""},
+                            {"position": 5, "decoded_value": ""}
+                        ]
+                    }
+                ]
+            }]
+        });
+        manifest["recipe"]["recipe_parameters"]["specific_character_set"] =
+            Value::from(specific_character_set);
+        manifest["recipe"]["recipe_parameters"]["patient_name"] = Value::from(patient_name);
+    }
+    manifest
 }
 
 fn pixel_lossy_image_compression_method(recipe: PixelRecipe) -> Option<&'static str> {

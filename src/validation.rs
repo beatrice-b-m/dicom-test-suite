@@ -1713,20 +1713,6 @@ pub(crate) fn validate_color_softcopy_presentation_state_file(
             "Instance Number does not match the locked recipe.",
         ),
         (
-            "color_softcopy_content_date",
-            tags::CONTENT_DATE,
-            "20260101",
-            "Content Date matches the locked recipe.",
-            "Content Date does not match the locked recipe.",
-        ),
-        (
-            "color_softcopy_content_time",
-            tags::CONTENT_TIME,
-            "000000",
-            "Content Time matches the locked recipe.",
-            "Content Time does not match the locked recipe.",
-        ),
-        (
             "color_softcopy_presentation_creation_date",
             tags::PRESENTATION_CREATION_DATE,
             "20260101",
@@ -2086,6 +2072,18 @@ pub(crate) fn validate_color_softcopy_presentation_state_file(
     );
 
     for (name, tag, passed, failed) in [
+        (
+            "color_softcopy_content_date_absent",
+            tags::CONTENT_DATE,
+            "Content Date is absent from the Color Softcopy IOD.",
+            "Content Date is unexpectedly present in the Color Softcopy IOD.",
+        ),
+        (
+            "color_softcopy_content_time_absent",
+            tags::CONTENT_TIME,
+            "Content Time is absent from the Color Softcopy IOD.",
+            "Content Time is unexpectedly present in the Color Softcopy IOD.",
+        ),
         (
             "color_softcopy_shutter_shape_absent",
             tags::SHUTTER_SHAPE,

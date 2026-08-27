@@ -438,7 +438,10 @@ fn temporary_workspace(label: &str) -> PathBuf {
         .iter_mut()
         .find(|case| case["case_id"] == CASE_ID)
         .expect("Color Softcopy PR registry row");
-    assert_eq!(case["status"], "planned");
+    assert!(
+        matches!(case["status"].as_str(), Some("planned" | "implemented")),
+        "Color Softcopy row must be promotable or already promoted"
+    );
     case["status"] = json!("implemented");
     case["blockers"] = json!([]);
     fs::write(

@@ -232,8 +232,6 @@ fn write_fixture(label: &str, mutation: Mutation, pristine_profile: &[u8]) -> Pa
         text(tags::DEVICE_SERIAL_NUMBER, VR::LO, "DTS-COLOR-PR-0001"),
         text(tags::SOFTWARE_VERSIONS, VR::LO, crate::PACKAGE_VERSION),
         text(tags::INSTANCE_NUMBER, VR::IS, "1"),
-        text(tags::CONTENT_DATE, VR::DA, "20260101"),
-        text(tags::CONTENT_TIME, VR::TM, "000000"),
         text(tags::PRESENTATION_CREATION_DATE, VR::DA, "20260101"),
         text(tags::PRESENTATION_CREATION_TIME, VR::TM, "000000"),
         text(tags::CONTENT_LABEL, VR::CS, "DTSCOLORPR"),

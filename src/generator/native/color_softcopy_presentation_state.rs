@@ -105,8 +105,6 @@ pub(in crate::generator) fn build_color_softcopy_presentation_state(
     );
 
     put_str(&mut object, tags::INSTANCE_NUMBER, VR::IS, "1");
-    put_str(&mut object, tags::CONTENT_DATE, VR::DA, "20260101");
-    put_str(&mut object, tags::CONTENT_TIME, VR::TM, "000000");
     put_str(
         &mut object,
         tags::PRESENTATION_CREATION_DATE,

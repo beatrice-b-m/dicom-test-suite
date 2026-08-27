@@ -199,6 +199,8 @@ fn color_softcopy_presentation_state_omits_optional_rendering_content_and_pixels
         build_color_softcopy_presentation_state(locked_input()).expect("locked input should build");
 
     for tag in [
+        tags::CONTENT_DATE,
+        tags::CONTENT_TIME,
         tags::SHUTTER_SHAPE,
         tags::GRAPHIC_ANNOTATION_SEQUENCE,
         tags::GRAPHIC_LAYER_SEQUENCE,

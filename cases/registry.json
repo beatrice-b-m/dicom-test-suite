@@ -11918,6 +11918,58 @@
       ]
     },
     {
+      "case_id": "metadata/sc/empty_type2_attributes",
+      "artifact_kind": "dicom_instance",
+      "status": "planned",
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "metadata"
+      ],
+      "roadmap": {
+        "priority": "next",
+        "delivery_phase": "phase-2",
+        "rationale": "Exercises present Type 2 attributes encoded with zero value length."
+      },
+      "blockers": [
+        {
+          "code": "recipe_unimplemented",
+          "message": "The deterministic native recipe is not implemented.",
+          "recheck_phase": "phase-2"
+        }
+      ],
+      "profiles": [
+        "core"
+      ],
+      "recipe_id": "metadata_sc_empty_type2_attributes",
+      "recipe_version": "0.1.0",
+      "iod_name": "Secondary Capture Image",
+      "sop_class_name": "Secondary Capture Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.7",
+      "modality": "OT",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "byte_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom-kb lookup uid SecondaryCaptureImageStorage --edition 2026b",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        }
+      ]
+    },
+    {
       "case_id": "metadata/sc/iso2022_person_name_component_groups",
       "artifact_kind": "dicom_instance",
       "status": "planned",
@@ -11945,6 +11997,58 @@
         "extended"
       ],
       "recipe_id": "metadata_sc_iso2022_person_name_component_groups",
+      "recipe_version": "0.1.0",
+      "iod_name": "Secondary Capture Image",
+      "sop_class_name": "Secondary Capture Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.7",
+      "modality": "OT",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "byte_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom-kb lookup uid SecondaryCaptureImageStorage --edition 2026b",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        }
+      ]
+    },
+    {
+      "case_id": "metadata/sc/long_multivalue_text_numeric_strings",
+      "artifact_kind": "dicom_instance",
+      "status": "planned",
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "metadata"
+      ],
+      "roadmap": {
+        "priority": "next",
+        "delivery_phase": "phase-2",
+        "rationale": "Exercises valid near-boundary text and multivalued numeric strings."
+      },
+      "blockers": [
+        {
+          "code": "recipe_unimplemented",
+          "message": "The deterministic native recipe is not implemented.",
+          "recheck_phase": "phase-2"
+        }
+      ],
+      "profiles": [
+        "extended"
+      ],
+      "recipe_id": "metadata_sc_long_multivalue_text_numeric_strings",
       "recipe_version": "0.1.0",
       "iod_name": "Secondary Capture Image",
       "sop_class_name": "Secondary Capture Image Storage",

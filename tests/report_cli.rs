@@ -6259,6 +6259,215 @@ fn advanced_blending_report_exposes_exact_topology_and_unresolved_findings() {
     fs::remove_dir_all(out_dir).expect("remove report root");
 }
 
+#[test]
+fn blending_report_exposes_palette_rescale_and_source_closure() {
+    let out_dir = unique_temp_dir("report-blending");
+    generate_extended(&out_dir);
+    let manifest_path = out_dir.join("manifest.json");
+    let mut manifest: Value =
+        serde_json::from_slice(&fs::read(&manifest_path).expect("generated manifest"))
+            .expect("manifest JSON");
+    if !manifest["files"].as_array().is_some_and(|files| {
+        files
+            .iter()
+            .any(|file| file["case_id"] == Value::from("derived/presentation-state/blending"))
+    }) {
+        let mut fixture = manifest["files"]
+            .as_array()
+            .and_then(|files| {
+                files.iter().find(|file| {
+                    file["case_id"] == Value::from("derived/presentation-state/color_softcopy")
+                })
+            })
+            .cloned()
+            .expect("Color Softcopy report fixture source");
+        fixture["case_id"] = json!("derived/presentation-state/blending");
+        fixture["dicom"]["iod_name"] = json!("Blending Softcopy Presentation State");
+        fixture["dicom"]["sop_class_uid"] = json!("1.2.840.10008.5.1.4.1.1.11.4");
+        fixture["expected_blending_presentation_state"] = json!({
+            "same_study": true,
+            "shared_frame_of_reference": true,
+            "different_series": true,
+            "sources": [{}, {}, {}, {}],
+            "blending_items": [
+                {
+                    "blending_position": "UNDERLYING",
+                    "rescale_intercept": -1024,
+                    "rescale_slope": 1,
+                    "rescale_type": "HU",
+                    "softcopy_voi_lut_items": 0,
+                    "referenced_spatial_registration_items": 0,
+                    "referenced_frame_numbers": [],
+                    "complete_instances": true
+                },
+                {
+                    "blending_position": "SUPERIMPOSED",
+                    "rescale_intercept": -1024,
+                    "rescale_slope": 1,
+                    "rescale_type": "HU",
+                    "softcopy_voi_lut_items": 0,
+                    "referenced_spatial_registration_items": 0,
+                    "referenced_frame_numbers": [],
+                    "complete_instances": true
+                }
+            ],
+            "relative_opacity": 0.5,
+            "displayed_area": {
+                "items": 1,
+                "applies_to_all_references": true,
+                "top_left": [1, 1],
+                "bottom_right": [2, 2],
+                "presentation_size_mode": "SCALE TO FIT",
+                "presentation_pixel_aspect_ratio": [1, 1]
+            },
+            "palette_color_lut": {
+                "channels": [
+                    {
+                        "channel": "red",
+                        "data_size_bytes": 512,
+                        "data_sha256": "f393097e80ec38db493eb054a0886181eb2c0e8cf7b5cdf1de392fbe94b0d1f5",
+                        "storage": "identity_u16_little_endian"
+                    },
+                    {
+                        "channel": "green",
+                        "data_size_bytes": 512,
+                        "data_sha256": "f393097e80ec38db493eb054a0886181eb2c0e8cf7b5cdf1de392fbe94b0d1f5",
+                        "storage": "identity_u16_little_endian"
+                    },
+                    {
+                        "channel": "blue",
+                        "data_size_bytes": 512,
+                        "data_sha256": "f393097e80ec38db493eb054a0886181eb2c0e8cf7b5cdf1de392fbe94b0d1f5",
+                        "storage": "identity_u16_little_endian"
+                    }
+                ]
+            },
+            "icc_profile": {
+                "size_bytes": 736,
+                "sha256": "8e069a3476b71a0e0ae7272d9278ba70540d1c4a0b19af1c7d52e56f49091fef",
+                "dicom_color_space": "SRGB"
+            },
+            "absent_modules": {
+                "clinical_trial_subject": true,
+                "clinical_trial_study": true,
+                "clinical_trial_series": true,
+                "clinical_trial_equipment": true,
+                "patient_study": true,
+                "specimen": true,
+                "graphic_annotation": true,
+                "graphic_layer": true,
+                "graphic_group": true,
+                "spatial_transformation": true,
+                "frame_of_reference": true,
+                "common_instance_reference": true,
+                "softcopy_presentation_lut": true,
+                "voi_lut": true,
+                "softcopy_voi_lut": true,
+                "overlay_plane": true,
+                "overlay_activation": true,
+                "display_shutter": true,
+                "bitmap_display_shutter": true
+            },
+            "pixel_data_absent": true
+        });
+        manifest["files"]
+            .as_array_mut()
+            .expect("manifest files")
+            .push(fixture);
+        manifest["skipped_cases"]
+            .as_array_mut()
+            .expect("manifest skipped cases")
+            .retain(|case| case["case_id"] != Value::from("derived/presentation-state/blending"));
+        fs::write(
+            &manifest_path,
+            serde_json::to_vec_pretty(&manifest).expect("serialize report fixture manifest"),
+        )
+        .expect("write report fixture manifest");
+    }
+
+    let report =
+        dicom_test_suite::build_coverage_report(&out_dir).expect("Blending coverage report");
+    let schema: Value = serde_json::from_slice(
+        &fs::read("schemas/coverage-report.schema.json").expect("coverage schema"),
+    )
+    .expect("coverage schema JSON");
+    let validator = jsonschema::validator_for(&schema).expect("coverage schema should compile");
+    let errors = validator
+        .iter_errors(&report)
+        .map(|error| error.to_string())
+        .collect::<Vec<_>>();
+    assert!(errors.is_empty(), "Blending report schema: {errors:?}");
+
+    let row = coverage_row(&report, "derived/presentation-state/blending");
+    for (field, expected) in [
+        (
+            "blending_presentation_state_kind",
+            json!("Blending Softcopy Presentation State"),
+        ),
+        (
+            "blending_sop_class_uid",
+            json!("1.2.840.10008.5.1.4.1.1.11.4"),
+        ),
+        ("blending_source_series_count", json!(2)),
+        ("blending_source_image_count", json!(4)),
+        ("blending_source_closure", json!(true)),
+        ("blending_positions", json!("UNDERLYING; SUPERIMPOSED")),
+        ("blending_relative_opacity", json!("0.5")),
+        ("blending_rescale_summary", json!("-1024/1/HU; -1024/1/HU")),
+        ("blending_optional_transforms_absent", json!(true)),
+        ("blending_palette_data_sizes_bytes", json!("512; 512; 512")),
+        ("blending_icc_profile_size_bytes", json!(736)),
+        ("blending_icc_color_space", json!("SRGB")),
+        ("blending_forbidden_modules_absent", json!(true)),
+        ("blending_pixel_data_absent", json!(true)),
+        (
+            "blending_unresolved_external_validator_findings",
+            json!("none"),
+        ),
+    ] {
+        assert_eq!(row[field], expected, "{field}");
+    }
+    for pointer in [
+        "/grouped_coverage/blending_source_series_counts/2",
+        "/grouped_coverage/blending_source_image_counts/4",
+        "/grouped_coverage/blending_source_closure_states/true",
+        "/grouped_coverage/blending_position_orders/UNDERLYING; SUPERIMPOSED",
+        "/grouped_coverage/blending_relative_opacities/0.5",
+        "/grouped_coverage/blending_optional_transforms_absent_states/true",
+        "/grouped_coverage/blending_icc_profile_size_byte_counts/736",
+        "/grouped_coverage/blending_forbidden_modules_absent_states/true",
+        "/grouped_coverage/blending_pixel_data_absent_states/true",
+    ] {
+        assert_eq!(report.pointer(pointer), Some(&json!(1)), "{pointer}");
+    }
+
+    let mut incomplete = report.clone();
+    coverage_row_mut(&mut incomplete, "derived/presentation-state/blending")["blending_palette_descriptors"] =
+        Value::Null;
+    assert!(!validator.is_valid(&incomplete));
+    let mut leaked = report.clone();
+    coverage_row_mut(
+        &mut leaked,
+        "classic/ct/mono2_i16_rescale_12bit_explicit_le",
+    )["blending_relative_opacity"] = json!("0.5");
+    assert!(!validator.is_valid(&leaked));
+
+    let markdown = dicom_test_suite::render_coverage_report_markdown(&report);
+    for expected in [
+        "## Blending Softcopy Presentation State Expectations",
+        "UNDERLYING; SUPERIMPOSED",
+        "red:[256,0,16]",
+        "identity_u16_little_endian",
+        "### Blending Position Orders",
+    ] {
+        assert!(
+            markdown.contains(expected),
+            "markdown should contain {expected}"
+        );
+    }
+    fs::remove_dir_all(out_dir).expect("remove report root");
+}
+
 fn generate_core(out_dir: &Path) {
     let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
         .args([

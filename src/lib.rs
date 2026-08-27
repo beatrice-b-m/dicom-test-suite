@@ -15561,6 +15561,86 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
             "Advanced Blending Unresolved External Validator Findings",
             "/grouped_coverage/advanced_blending_unresolved_external_validator_findings",
         ),
+        (
+            "Blending Presentation State Kinds",
+            "/grouped_coverage/blending_presentation_state_kinds",
+        ),
+        (
+            "Blending SOP Class UIDs",
+            "/grouped_coverage/blending_sop_class_uids",
+        ),
+        (
+            "Blending Source Series Counts",
+            "/grouped_coverage/blending_source_series_counts",
+        ),
+        (
+            "Blending Source Image Counts",
+            "/grouped_coverage/blending_source_image_counts",
+        ),
+        (
+            "Blending Source Closure States",
+            "/grouped_coverage/blending_source_closure_states",
+        ),
+        (
+            "Blending Position Orders",
+            "/grouped_coverage/blending_position_orders",
+        ),
+        (
+            "Blending Relative Opacities",
+            "/grouped_coverage/blending_relative_opacities",
+        ),
+        (
+            "Blending Rescale Summaries",
+            "/grouped_coverage/blending_rescale_summaries",
+        ),
+        (
+            "Blending Optional Transform Absence States",
+            "/grouped_coverage/blending_optional_transforms_absent_states",
+        ),
+        (
+            "Blending Displayed Areas",
+            "/grouped_coverage/blending_displayed_areas",
+        ),
+        (
+            "Blending Palette Descriptors",
+            "/grouped_coverage/blending_palette_descriptors",
+        ),
+        (
+            "Blending Palette Data Size Byte Sets",
+            "/grouped_coverage/blending_palette_data_size_byte_sets",
+        ),
+        (
+            "Blending Palette Channel Hash Sets",
+            "/grouped_coverage/blending_palette_channel_hash_sets",
+        ),
+        (
+            "Blending Palette Storage Forms",
+            "/grouped_coverage/blending_palette_storage_forms",
+        ),
+        (
+            "Blending ICC Profile Size Byte Counts",
+            "/grouped_coverage/blending_icc_profile_size_byte_counts",
+        ),
+        (
+            "Blending ICC Profile SHA-256 Values",
+            "/grouped_coverage/blending_icc_profile_sha256_values",
+        ),
+        (
+            "Blending DICOM Color Spaces",
+            "/grouped_coverage/blending_icc_color_spaces",
+        ),
+        (
+            "Blending Forbidden Module Absence States",
+            "/grouped_coverage/blending_forbidden_modules_absent_states",
+        ),
+        (
+            "Blending Pixel Data Absence States",
+            "/grouped_coverage/blending_pixel_data_absent_states",
+        ),
+        (
+            "Blending Unresolved External Validator Findings",
+            "/grouped_coverage/blending_unresolved_external_validator_findings",
+        ),
     ] {
         append_count_map_section(&mut output, report, title, pointer);
     }
@@ -16733,6 +16813,48 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
         output.push('\n');
     }
 
+    let blending_rows = report
+        .get("coverage_matrix")
+        .and_then(Value::as_array)
+        .map(|rows| {
+            rows.iter()
+                .filter(|row| !row["blending_presentation_state_kind"].is_null())
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    if !blending_rows.is_empty() {
+        output.push_str("## Blending Softcopy Presentation State Expectations\n\n");
+        output.push_str("| Case ID | State kind / SOP Class UID | Sources / closed | Positions / opacity | Per-item rescale / optional transforms absent | Displayed area | Palette descriptor / bytes / hashes / storage | ICC bytes / SHA-256 / color space | Forbidden modules absent | Pixel data absent | Unresolved external-validator findings |\n");
+        output.push_str("|---|---|---|---|---|---|---|---|---|---|---|\n");
+        for row in blending_rows {
+            output.push_str(&format!(
+                "| {} | {} / {} | {} series / {} images / {} | {} / {} | {} / {} | {} | {} / {} / {} / {} | {} / {} / {} | {} | {} | {} |\n",
+                markdown_cell(row.get("case_id").and_then(Value::as_str)),
+                markdown_cell(row.get("blending_presentation_state_kind").and_then(Value::as_str)),
+                markdown_cell(row.get("blending_sop_class_uid").and_then(Value::as_str)),
+                markdown_number(row.get("blending_source_series_count")),
+                markdown_number(row.get("blending_source_image_count")),
+                markdown_bool(row.get("blending_source_closure")),
+                markdown_cell(row.get("blending_positions").and_then(Value::as_str)),
+                markdown_cell(row.get("blending_relative_opacity").and_then(Value::as_str)),
+                markdown_cell(row.get("blending_rescale_summary").and_then(Value::as_str)),
+                markdown_bool(row.get("blending_optional_transforms_absent")),
+                markdown_cell(row.get("blending_displayed_area").and_then(Value::as_str)),
+                markdown_cell(row.get("blending_palette_descriptors").and_then(Value::as_str)),
+                markdown_cell(row.get("blending_palette_data_sizes_bytes").and_then(Value::as_str)),
+                markdown_cell(row.get("blending_palette_channel_hashes").and_then(Value::as_str)),
+                markdown_cell(row.get("blending_palette_storage").and_then(Value::as_str)),
+                markdown_number(row.get("blending_icc_profile_size_bytes")),
+                markdown_cell(row.get("blending_icc_profile_sha256").and_then(Value::as_str)),
+                markdown_cell(row.get("blending_icc_color_space").and_then(Value::as_str)),
+                markdown_bool(row.get("blending_forbidden_modules_absent")),
+                markdown_bool(row.get("blending_pixel_data_absent")),
+                markdown_cell(row.get("blending_unresolved_external_validator_findings").and_then(Value::as_str)),
+            ));
+        }
+        output.push('\n');
+    }
+
     output.push_str("## Coverage Matrix\n\n");
     output.push_str("| Case ID | Status | Profile | IOD | Transfer Syntax | Photometric | Bits | Frames | Generation Backend | Backend Version | Backend Determinism | Validation |\n");
     output.push_str("|---|---|---|---|---|---|---:|---:|---|---|---|---|\n");
@@ -16879,6 +17001,140 @@ fn generated_coverage_row(
                     == Some(false)
         })
         .map(|_| "shutter+graphic_annotation+graphic_layer+overlay+spatial_transform");
+    let is_blending =
+        file.get("case_id").and_then(Value::as_str) == Some("derived/presentation-state/blending");
+    let blending_contract = is_blending
+        .then(|| file.pointer("/expected_blending_presentation_state"))
+        .flatten();
+    let blending_sources = blending_contract
+        .and_then(|contract| contract.get("sources"))
+        .and_then(Value::as_array);
+    let blending_items = blending_contract
+        .and_then(|contract| contract.get("blending_items"))
+        .and_then(Value::as_array);
+    let blending_source_closure = blending_contract.map(|contract| {
+        contract.get("same_study").and_then(Value::as_bool) == Some(true)
+            && contract
+                .get("shared_frame_of_reference")
+                .and_then(Value::as_bool)
+                == Some(true)
+            && contract.get("different_series").and_then(Value::as_bool) == Some(true)
+            && blending_sources.is_some_and(|sources| sources.len() == 4)
+            && blending_items.is_some_and(|items| {
+                items.len() == 2
+                    && items.iter().all(|item| {
+                        item.get("complete_instances").and_then(Value::as_bool) == Some(true)
+                            && item
+                                .get("referenced_frame_numbers")
+                                .and_then(Value::as_array)
+                                .is_some_and(Vec::is_empty)
+                    })
+            })
+    });
+    let join_blending_item_field = |field: &str| {
+        blending_items.map(|items| {
+            items
+                .iter()
+                .filter_map(|item| item.get(field))
+                .filter_map(Value::as_str)
+                .collect::<Vec<_>>()
+                .join("; ")
+        })
+    };
+    let blending_rescale_summary = blending_items.map(|items| {
+        items
+            .iter()
+            .map(|item| {
+                format!(
+                    "{}/{}/{}",
+                    item.get("rescale_intercept")
+                        .and_then(Value::as_i64)
+                        .map(|value| value.to_string())
+                        .unwrap_or_default(),
+                    item.get("rescale_slope")
+                        .and_then(Value::as_i64)
+                        .map(|value| value.to_string())
+                        .unwrap_or_default(),
+                    item.get("rescale_type")
+                        .and_then(Value::as_str)
+                        .unwrap_or_default()
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("; ")
+    });
+    let blending_optional_transforms_absent = blending_items.map(|items| {
+        items.iter().all(|item| {
+            item.get("softcopy_voi_lut_items").and_then(Value::as_u64) == Some(0)
+                && item
+                    .get("referenced_spatial_registration_items")
+                    .and_then(Value::as_u64)
+                    == Some(0)
+        })
+    });
+    let blending_displayed_area = blending_contract
+        .filter(|contract| {
+            contract
+                .pointer("/displayed_area/items")
+                .and_then(Value::as_u64)
+                == Some(1)
+                && contract
+                    .pointer("/displayed_area/applies_to_all_references")
+                    .and_then(Value::as_bool)
+                    == Some(true)
+                && contract.pointer("/displayed_area/top_left") == Some(&serde_json::json!([1, 1]))
+                && contract.pointer("/displayed_area/bottom_right")
+                    == Some(&serde_json::json!([2, 2]))
+                && contract
+                    .pointer("/displayed_area/presentation_size_mode")
+                    .and_then(Value::as_str)
+                    == Some("SCALE TO FIT")
+                && contract.pointer("/displayed_area/presentation_pixel_aspect_ratio")
+                    == Some(&serde_json::json!([1, 1]))
+        })
+        .map(|_| "global [1,1]-[2,2]; SCALE TO FIT; aspect 1\\1");
+    let blending_palette_channels = blending_contract
+        .and_then(|contract| contract.pointer("/palette_color_lut/channels"))
+        .and_then(Value::as_array);
+    let blending_palette_descriptors = blending_palette_channels.map(|channels| {
+        channels
+            .iter()
+            .map(|channel| {
+                format!(
+                    "{}:[256,0,16]",
+                    channel
+                        .get("channel")
+                        .and_then(Value::as_str)
+                        .unwrap_or_default()
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("; ")
+    });
+    let join_blending_palette_field = |field: &str| {
+        blending_palette_channels.map(|channels| {
+            channels
+                .iter()
+                .filter_map(|channel| channel.get(field))
+                .map(|value| {
+                    value
+                        .as_str()
+                        .map(str::to_string)
+                        .or_else(|| value.as_u64().map(|value| value.to_string()))
+                        .unwrap_or_default()
+                })
+                .collect::<Vec<_>>()
+                .join("; ")
+        })
+    };
+    let blending_forbidden_modules_absent = blending_contract.map(|contract| {
+        contract
+            .get("absent_modules")
+            .and_then(Value::as_object)
+            .is_some_and(|modules| {
+                modules.len() == 19 && modules.values().all(|value| value.as_bool() == Some(true))
+            })
+    });
     let is_advanced_blending = file.get("case_id").and_then(Value::as_str)
         == Some("derived/presentation-state/advanced_blending");
     let advanced_blending_contract = is_advanced_blending
@@ -17231,6 +17487,113 @@ fn generated_coverage_row(
         } else {
             Value::Null
         },
+    );
+    for (field, pointer) in [
+        ("blending_presentation_state_kind", "/dicom/iod_name"),
+        ("blending_sop_class_uid", "/dicom/sop_class_uid"),
+        (
+            "blending_icc_profile_sha256",
+            "/expected_blending_presentation_state/icc_profile/sha256",
+        ),
+        (
+            "blending_icc_color_space",
+            "/expected_blending_presentation_state/icc_profile/dicom_color_space",
+        ),
+    ] {
+        row_object.insert(
+            field.to_string(),
+            if is_blending {
+                file.pointer(pointer)
+                    .and_then(Value::as_str)
+                    .map(Value::from)
+                    .unwrap_or(Value::Null)
+            } else {
+                Value::Null
+            },
+        );
+    }
+    for (field, value) in [
+        (
+            "blending_source_series_count",
+            blending_items.map(|items| Value::from(items.len() as u64)),
+        ),
+        (
+            "blending_source_image_count",
+            blending_sources.map(|sources| Value::from(sources.len() as u64)),
+        ),
+        (
+            "blending_icc_profile_size_bytes",
+            blending_contract
+                .and_then(|contract| contract.pointer("/icc_profile/size_bytes"))
+                .and_then(Value::as_u64)
+                .map(Value::from),
+        ),
+    ] {
+        row_object.insert(field.to_string(), value.unwrap_or(Value::Null));
+    }
+    for (field, value) in [
+        ("blending_source_closure", blending_source_closure),
+        (
+            "blending_optional_transforms_absent",
+            blending_optional_transforms_absent,
+        ),
+        (
+            "blending_forbidden_modules_absent",
+            blending_forbidden_modules_absent,
+        ),
+        (
+            "blending_pixel_data_absent",
+            blending_contract
+                .and_then(|contract| contract.get("pixel_data_absent"))
+                .and_then(Value::as_bool),
+        ),
+    ] {
+        row_object.insert(
+            field.to_string(),
+            value.map(Value::from).unwrap_or(Value::Null),
+        );
+    }
+    for (field, value) in [
+        (
+            "blending_positions",
+            join_blending_item_field("blending_position"),
+        ),
+        ("blending_rescale_summary", blending_rescale_summary),
+        (
+            "blending_relative_opacity",
+            blending_contract
+                .and_then(|contract| contract.get("relative_opacity"))
+                .and_then(Value::as_f64)
+                .map(|value| value.to_string()),
+        ),
+        (
+            "blending_displayed_area",
+            blending_displayed_area.map(str::to_string),
+        ),
+        ("blending_palette_descriptors", blending_palette_descriptors),
+        (
+            "blending_palette_data_sizes_bytes",
+            join_blending_palette_field("data_size_bytes"),
+        ),
+        (
+            "blending_palette_channel_hashes",
+            join_blending_palette_field("data_sha256"),
+        ),
+        (
+            "blending_palette_storage",
+            join_blending_palette_field("storage"),
+        ),
+    ] {
+        row_object.insert(
+            field.to_string(),
+            value.map(Value::from).unwrap_or(Value::Null),
+        );
+    }
+    row_object.insert(
+        "blending_unresolved_external_validator_findings".to_string(),
+        is_blending
+            .then(|| Value::from("none"))
+            .unwrap_or(Value::Null),
     );
     for (field, pointer) in [
         (
@@ -21063,6 +21426,26 @@ fn skipped_coverage_row(
         "advanced_blending_optional_transforms_absent",
         "advanced_blending_pixel_data_absent",
         "advanced_blending_unresolved_external_validator_findings",
+        "blending_presentation_state_kind",
+        "blending_sop_class_uid",
+        "blending_source_series_count",
+        "blending_source_image_count",
+        "blending_source_closure",
+        "blending_positions",
+        "blending_relative_opacity",
+        "blending_rescale_summary",
+        "blending_optional_transforms_absent",
+        "blending_displayed_area",
+        "blending_palette_descriptors",
+        "blending_palette_data_sizes_bytes",
+        "blending_palette_channel_hashes",
+        "blending_palette_storage",
+        "blending_icc_profile_size_bytes",
+        "blending_icc_profile_sha256",
+        "blending_icc_color_space",
+        "blending_forbidden_modules_absent",
+        "blending_pixel_data_absent",
+        "blending_unresolved_external_validator_findings",
     ] {
         row_object.insert(field.to_string(), Value::Null);
     }
@@ -21512,6 +21895,26 @@ struct GroupedCoverage {
     advanced_blending_optional_transforms_absent_states: BTreeMap<String, usize>,
     advanced_blending_pixel_data_absent_states: BTreeMap<String, usize>,
     advanced_blending_unresolved_external_validator_findings: BTreeMap<String, usize>,
+    blending_presentation_state_kinds: BTreeMap<String, usize>,
+    blending_sop_class_uids: BTreeMap<String, usize>,
+    blending_source_series_counts: BTreeMap<String, usize>,
+    blending_source_image_counts: BTreeMap<String, usize>,
+    blending_source_closure_states: BTreeMap<String, usize>,
+    blending_position_orders: BTreeMap<String, usize>,
+    blending_relative_opacities: BTreeMap<String, usize>,
+    blending_rescale_summaries: BTreeMap<String, usize>,
+    blending_optional_transforms_absent_states: BTreeMap<String, usize>,
+    blending_displayed_areas: BTreeMap<String, usize>,
+    blending_palette_descriptors: BTreeMap<String, usize>,
+    blending_palette_data_size_byte_sets: BTreeMap<String, usize>,
+    blending_palette_channel_hash_sets: BTreeMap<String, usize>,
+    blending_palette_storage_forms: BTreeMap<String, usize>,
+    blending_icc_profile_size_byte_counts: BTreeMap<String, usize>,
+    blending_icc_profile_sha256_values: BTreeMap<String, usize>,
+    blending_icc_color_spaces: BTreeMap<String, usize>,
+    blending_forbidden_modules_absent_states: BTreeMap<String, usize>,
+    blending_pixel_data_absent_states: BTreeMap<String, usize>,
+    blending_unresolved_external_validator_findings: BTreeMap<String, usize>,
     synthetic_data: BTreeMap<String, usize>,
     image_types: BTreeMap<String, usize>,
     conversion_types: BTreeMap<String, usize>,
@@ -22086,6 +22489,94 @@ impl GroupedCoverage {
             (
                 &mut self.nonsquare_patient_space_geometry_present_states,
                 "nonsquare_patient_space_geometry_present",
+            ),
+        ] {
+            if let Some(value) = row.get(field).and_then(Value::as_bool) {
+                *map.entry(value.to_string()).or_default() += 1;
+            }
+        }
+        for (map, field) in [
+            (
+                &mut self.blending_presentation_state_kinds,
+                "blending_presentation_state_kind",
+            ),
+            (&mut self.blending_sop_class_uids, "blending_sop_class_uid"),
+            (&mut self.blending_position_orders, "blending_positions"),
+            (
+                &mut self.blending_relative_opacities,
+                "blending_relative_opacity",
+            ),
+            (
+                &mut self.blending_rescale_summaries,
+                "blending_rescale_summary",
+            ),
+            (
+                &mut self.blending_displayed_areas,
+                "blending_displayed_area",
+            ),
+            (
+                &mut self.blending_palette_descriptors,
+                "blending_palette_descriptors",
+            ),
+            (
+                &mut self.blending_palette_data_size_byte_sets,
+                "blending_palette_data_sizes_bytes",
+            ),
+            (
+                &mut self.blending_palette_channel_hash_sets,
+                "blending_palette_channel_hashes",
+            ),
+            (
+                &mut self.blending_palette_storage_forms,
+                "blending_palette_storage",
+            ),
+            (
+                &mut self.blending_icc_profile_sha256_values,
+                "blending_icc_profile_sha256",
+            ),
+            (
+                &mut self.blending_icc_color_spaces,
+                "blending_icc_color_space",
+            ),
+            (
+                &mut self.blending_unresolved_external_validator_findings,
+                "blending_unresolved_external_validator_findings",
+            ),
+        ] {
+            increment_map(map, row.get(field).and_then(Value::as_str));
+        }
+        for (map, field) in [
+            (
+                &mut self.blending_source_series_counts,
+                "blending_source_series_count",
+            ),
+            (
+                &mut self.blending_source_image_counts,
+                "blending_source_image_count",
+            ),
+            (
+                &mut self.blending_icc_profile_size_byte_counts,
+                "blending_icc_profile_size_bytes",
+            ),
+        ] {
+            increment_scalar_map(map, row.get(field));
+        }
+        for (map, field) in [
+            (
+                &mut self.blending_source_closure_states,
+                "blending_source_closure",
+            ),
+            (
+                &mut self.blending_optional_transforms_absent_states,
+                "blending_optional_transforms_absent",
+            ),
+            (
+                &mut self.blending_forbidden_modules_absent_states,
+                "blending_forbidden_modules_absent",
+            ),
+            (
+                &mut self.blending_pixel_data_absent_states,
+                "blending_pixel_data_absent",
             ),
         ] {
             if let Some(value) = row.get(field).and_then(Value::as_bool) {
@@ -23435,6 +23926,74 @@ impl GroupedCoverage {
             (
                 "advanced_blending_unresolved_external_validator_findings",
                 &self.advanced_blending_unresolved_external_validator_findings,
+            ),
+            (
+                "blending_presentation_state_kinds",
+                &self.blending_presentation_state_kinds,
+            ),
+            ("blending_sop_class_uids", &self.blending_sop_class_uids),
+            (
+                "blending_source_series_counts",
+                &self.blending_source_series_counts,
+            ),
+            (
+                "blending_source_image_counts",
+                &self.blending_source_image_counts,
+            ),
+            (
+                "blending_source_closure_states",
+                &self.blending_source_closure_states,
+            ),
+            ("blending_position_orders", &self.blending_position_orders),
+            (
+                "blending_relative_opacities",
+                &self.blending_relative_opacities,
+            ),
+            (
+                "blending_rescale_summaries",
+                &self.blending_rescale_summaries,
+            ),
+            (
+                "blending_optional_transforms_absent_states",
+                &self.blending_optional_transforms_absent_states,
+            ),
+            ("blending_displayed_areas", &self.blending_displayed_areas),
+            (
+                "blending_palette_descriptors",
+                &self.blending_palette_descriptors,
+            ),
+            (
+                "blending_palette_data_size_byte_sets",
+                &self.blending_palette_data_size_byte_sets,
+            ),
+            (
+                "blending_palette_channel_hash_sets",
+                &self.blending_palette_channel_hash_sets,
+            ),
+            (
+                "blending_palette_storage_forms",
+                &self.blending_palette_storage_forms,
+            ),
+            (
+                "blending_icc_profile_size_byte_counts",
+                &self.blending_icc_profile_size_byte_counts,
+            ),
+            (
+                "blending_icc_profile_sha256_values",
+                &self.blending_icc_profile_sha256_values,
+            ),
+            ("blending_icc_color_spaces", &self.blending_icc_color_spaces),
+            (
+                "blending_forbidden_modules_absent_states",
+                &self.blending_forbidden_modules_absent_states,
+            ),
+            (
+                "blending_pixel_data_absent_states",
+                &self.blending_pixel_data_absent_states,
+            ),
+            (
+                "blending_unresolved_external_validator_findings",
+                &self.blending_unresolved_external_validator_findings,
             ),
         ] {
             grouped_object.insert(

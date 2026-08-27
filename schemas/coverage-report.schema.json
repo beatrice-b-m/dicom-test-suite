@@ -316,6 +316,26 @@
         "advanced_blending_optional_transforms_absent_states": { "$ref": "#/$defs/count_map" },
         "advanced_blending_pixel_data_absent_states": { "$ref": "#/$defs/count_map" },
         "advanced_blending_unresolved_external_validator_findings": { "$ref": "#/$defs/count_map" },
+        "blending_presentation_state_kinds": { "$ref": "#/$defs/count_map" },
+        "blending_sop_class_uids": { "$ref": "#/$defs/count_map" },
+        "blending_source_series_counts": { "$ref": "#/$defs/count_map" },
+        "blending_source_image_counts": { "$ref": "#/$defs/count_map" },
+        "blending_source_closure_states": { "$ref": "#/$defs/count_map" },
+        "blending_position_orders": { "$ref": "#/$defs/count_map" },
+        "blending_relative_opacities": { "$ref": "#/$defs/count_map" },
+        "blending_rescale_summaries": { "$ref": "#/$defs/count_map" },
+        "blending_optional_transforms_absent_states": { "$ref": "#/$defs/count_map" },
+        "blending_displayed_areas": { "$ref": "#/$defs/count_map" },
+        "blending_palette_descriptors": { "$ref": "#/$defs/count_map" },
+        "blending_palette_data_size_byte_sets": { "$ref": "#/$defs/count_map" },
+        "blending_palette_channel_hash_sets": { "$ref": "#/$defs/count_map" },
+        "blending_palette_storage_forms": { "$ref": "#/$defs/count_map" },
+        "blending_icc_profile_size_byte_counts": { "$ref": "#/$defs/count_map" },
+        "blending_icc_profile_sha256_values": { "$ref": "#/$defs/count_map" },
+        "blending_icc_color_spaces": { "$ref": "#/$defs/count_map" },
+        "blending_forbidden_modules_absent_states": { "$ref": "#/$defs/count_map" },
+        "blending_pixel_data_absent_states": { "$ref": "#/$defs/count_map" },
+        "blending_unresolved_external_validator_findings": { "$ref": "#/$defs/count_map" },
         "synthetic_data": {
           "$ref": "#/$defs/count_map"
         },
@@ -1027,6 +1047,26 @@
         "advanced_blending_optional_transforms_absent",
         "advanced_blending_pixel_data_absent",
         "advanced_blending_unresolved_external_validator_findings",
+        "blending_presentation_state_kind",
+        "blending_sop_class_uid",
+        "blending_source_series_count",
+        "blending_source_image_count",
+        "blending_source_closure",
+        "blending_positions",
+        "blending_relative_opacity",
+        "blending_rescale_summary",
+        "blending_optional_transforms_absent",
+        "blending_displayed_area",
+        "blending_palette_descriptors",
+        "blending_palette_data_sizes_bytes",
+        "blending_palette_channel_hashes",
+        "blending_palette_storage",
+        "blending_icc_profile_size_bytes",
+        "blending_icc_profile_sha256",
+        "blending_icc_color_space",
+        "blending_forbidden_modules_absent",
+        "blending_pixel_data_absent",
+        "blending_unresolved_external_validator_findings",
         "validation_status",
         "determinism",
         "object_type",
@@ -1832,6 +1872,40 @@
         "advanced_blending_unresolved_external_validator_findings": {
           "enum": ["dciodvfy: Frame of Reference UID and Position Reference Indicator reported outside standard IOD", null]
         },
+        "blending_presentation_state_kind": {
+          "enum": ["Blending Softcopy Presentation State", null]
+        },
+        "blending_sop_class_uid": {
+          "enum": ["1.2.840.10008.5.1.4.1.1.11.4", null]
+        },
+        "blending_source_series_count": { "type": ["integer", "null"], "minimum": 1 },
+        "blending_source_image_count": { "type": ["integer", "null"], "minimum": 1 },
+        "blending_source_closure": { "type": ["boolean", "null"] },
+        "blending_positions": { "enum": ["UNDERLYING; SUPERIMPOSED", null] },
+        "blending_relative_opacity": { "enum": ["0.5", null] },
+        "blending_rescale_summary": { "enum": ["-1024/1/HU; -1024/1/HU", null] },
+        "blending_optional_transforms_absent": { "type": ["boolean", "null"] },
+        "blending_displayed_area": {
+          "enum": ["global [1,1]-[2,2]; SCALE TO FIT; aspect 1\\1", null]
+        },
+        "blending_palette_descriptors": {
+          "enum": ["red:[256,0,16]; green:[256,0,16]; blue:[256,0,16]", null]
+        },
+        "blending_palette_data_sizes_bytes": { "enum": ["512; 512; 512", null] },
+        "blending_palette_channel_hashes": {
+          "enum": ["f393097e80ec38db493eb054a0886181eb2c0e8cf7b5cdf1de392fbe94b0d1f5; f393097e80ec38db493eb054a0886181eb2c0e8cf7b5cdf1de392fbe94b0d1f5; f393097e80ec38db493eb054a0886181eb2c0e8cf7b5cdf1de392fbe94b0d1f5", null]
+        },
+        "blending_palette_storage": {
+          "enum": ["identity_u16_little_endian; identity_u16_little_endian; identity_u16_little_endian", null]
+        },
+        "blending_icc_profile_size_bytes": { "type": ["integer", "null"], "minimum": 1 },
+        "blending_icc_profile_sha256": {
+          "anyOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }]
+        },
+        "blending_icc_color_space": { "enum": ["SRGB", null] },
+        "blending_forbidden_modules_absent": { "type": ["boolean", "null"] },
+        "blending_pixel_data_absent": { "type": ["boolean", "null"] },
+        "blending_unresolved_external_validator_findings": { "enum": ["none", null] },
         "validation_status": {
           "$ref": "#/$defs/validation_status"
         },
@@ -2663,6 +2737,63 @@
               "advanced_blending_optional_transforms_absent": { "type": "null" },
               "advanced_blending_pixel_data_absent": { "type": "null" },
               "advanced_blending_unresolved_external_validator_findings": { "type": "null" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "case_id": { "const": "derived/presentation-state/blending" },
+              "status": { "const": "generated" }
+            },
+            "required": ["case_id", "status"]
+          },
+          "then": {
+            "properties": {
+              "blending_presentation_state_kind": { "const": "Blending Softcopy Presentation State" },
+              "blending_sop_class_uid": { "const": "1.2.840.10008.5.1.4.1.1.11.4" },
+              "blending_source_series_count": { "const": 2 },
+              "blending_source_image_count": { "const": 4 },
+              "blending_source_closure": { "const": true },
+              "blending_positions": { "const": "UNDERLYING; SUPERIMPOSED" },
+              "blending_relative_opacity": { "const": "0.5" },
+              "blending_rescale_summary": { "const": "-1024/1/HU; -1024/1/HU" },
+              "blending_optional_transforms_absent": { "const": true },
+              "blending_displayed_area": { "const": "global [1,1]-[2,2]; SCALE TO FIT; aspect 1\\1" },
+              "blending_palette_descriptors": { "const": "red:[256,0,16]; green:[256,0,16]; blue:[256,0,16]" },
+              "blending_palette_data_sizes_bytes": { "const": "512; 512; 512" },
+              "blending_palette_channel_hashes": { "const": "f393097e80ec38db493eb054a0886181eb2c0e8cf7b5cdf1de392fbe94b0d1f5; f393097e80ec38db493eb054a0886181eb2c0e8cf7b5cdf1de392fbe94b0d1f5; f393097e80ec38db493eb054a0886181eb2c0e8cf7b5cdf1de392fbe94b0d1f5" },
+              "blending_palette_storage": { "const": "identity_u16_little_endian; identity_u16_little_endian; identity_u16_little_endian" },
+              "blending_icc_profile_size_bytes": { "const": 736 },
+              "blending_icc_profile_sha256": { "const": "8e069a3476b71a0e0ae7272d9278ba70540d1c4a0b19af1c7d52e56f49091fef" },
+              "blending_icc_color_space": { "const": "SRGB" },
+              "blending_forbidden_modules_absent": { "const": true },
+              "blending_pixel_data_absent": { "const": true },
+              "blending_unresolved_external_validator_findings": { "const": "none" }
+            }
+          },
+          "else": {
+            "properties": {
+              "blending_presentation_state_kind": { "type": "null" },
+              "blending_sop_class_uid": { "type": "null" },
+              "blending_source_series_count": { "type": "null" },
+              "blending_source_image_count": { "type": "null" },
+              "blending_source_closure": { "type": "null" },
+              "blending_positions": { "type": "null" },
+              "blending_relative_opacity": { "type": "null" },
+              "blending_rescale_summary": { "type": "null" },
+              "blending_optional_transforms_absent": { "type": "null" },
+              "blending_displayed_area": { "type": "null" },
+              "blending_palette_descriptors": { "type": "null" },
+              "blending_palette_data_sizes_bytes": { "type": "null" },
+              "blending_palette_channel_hashes": { "type": "null" },
+              "blending_palette_storage": { "type": "null" },
+              "blending_icc_profile_size_bytes": { "type": "null" },
+              "blending_icc_profile_sha256": { "type": "null" },
+              "blending_icc_color_space": { "type": "null" },
+              "blending_forbidden_modules_absent": { "type": "null" },
+              "blending_pixel_data_absent": { "type": "null" },
+              "blending_unresolved_external_validator_findings": { "type": "null" }
             }
           }
         },

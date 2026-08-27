@@ -83,6 +83,10 @@ use native::spatial_registration::{
 };
 use native::string_boundary_sc::{STRING_BOUNDARY_SC_RECIPE, StringBoundaryScRecipe};
 use native::timezone_sc::{TIMEZONE_SC_RECIPE, TimezoneBoundary, TimezoneScRecipe};
+use native::twelve_lead_ecg::{
+    TWELVE_LEAD_ECG_OUTPUT_FILE, TWELVE_LEAD_ECG_STORAGE_UID, TwelveLeadEcgInput,
+    build_twelve_lead_ecg,
+};
 use native::us_multiframe::{CLASSIC_US_MULTIFRAME_RECIPES, ClassicUsMultiframeRecipe};
 use native::xa::{CLASSIC_XA_RECIPES, ClassicXaRecipe};
 use native::xrf::{CLASSIC_XRF_RECIPES, ClassicXrfRecipe};
@@ -121,16 +125,17 @@ use crate::{
         PixelDataLengthFormula, PresentationStateExpectations, RealWorldValueMappingExpectations,
         RtDoseExpectations, RtStructureSetExpectations, Scoord3dExpectations,
         SegmentationExpectations, SpatialRegistrationExpectations,
-        SpatialRegistrationReferenceExpectations, Tid1500Expectations, UsImageExpectations,
-        UsMultiframeExpectations, XaImageExpectations, XrfImageExpectations,
+        SpatialRegistrationReferenceExpectations, Tid1500Expectations, TwelveLeadEcgExpectations,
+        UsImageExpectations, UsMultiframeExpectations, XaImageExpectations, XrfImageExpectations,
         validate_advanced_blending_presentation_state_file, validate_basic_text_sr_file,
         validate_blending_presentation_state_file, validate_color_softcopy_presentation_state_file,
         validate_comprehensive_sr_file, validate_deformable_spatial_registration_file,
         validate_encapsulated_pdf_file, validate_key_object_selection_file, validate_part10_file,
         validate_presentation_state_file, validate_real_world_value_mapping_file,
         validate_rt_dose_file, validate_rt_structure_set_file, validate_scoord3d_file,
-        validate_spatial_registration_file, validate_tid1500_file,
+        validate_spatial_registration_file, validate_tid1500_file, validate_twelve_lead_ecg_file,
     },
+    waveform_manifest::twelve_lead_ecg_expected_waveform,
 };
 
 #[cfg(feature = "jpeg")]
@@ -252,6 +257,9 @@ const BLENDING_PRESENTATION_STATE_SOURCE_CASE_ID: &str =
     "geometry/ct/multiseries_shared_frame_of_reference";
 const BLENDING_PRESENTATION_STATE_PALETTE_SHA256: &str =
     "f393097e80ec38db493eb054a0886181eb2c0e8cf7b5cdf1de392fbe94b0d1f5";
+const TWELVE_LEAD_ECG_CASE_ID: &str = "non-image/waveform/twelve_lead_ecg";
+const TWELVE_LEAD_ECG_RECIPE_ID: &str = "non_image_waveform_twelve_lead_ecg";
+const TWELVE_LEAD_ECG_RECIPE_VERSION: &str = "0.1.0";
 const DEFORMABLE_VECTOR_GRID_DATA_SHA256: &str =
     "d0673d2da1b415db6465047e607b7f16f1a886dfae4ede91764c71bf7df72f47";
 const DEFORMABLE_REGISTERED_POINTS_MM: [[f64; 3]; 4] = [
@@ -4192,6 +4200,15 @@ pub(crate) fn write_supported_cases(
             )?)?;
         }
     }
+    if let Some(case) = registry_case(registry, TWELVE_LEAD_ECG_CASE_ID)? {
+        if should_generate_case(case, run)? {
+            context.record_one(write_twelve_lead_ecg_case(
+                run,
+                case,
+                standards_lock_sha256,
+            )?)?;
+        }
+    }
     for recipe in PRESENTATION_STATE_RECIPES {
         let Some(case) = registry_case(registry, recipe.case_id)? else {
             continue;
@@ -7060,6 +7077,145 @@ fn write_blending_presentation_state_case(
             "expected_visual_checks": {"pattern": "equal_opacity_identity_palette_blend_of_two_registered_ct_series"},
             "validation": validation,
             "known_stressors": ["blending_softcopy_presentation_state_storage", "two_source_series", "four_complete_instance_references", "underlying_superimposed_positions", "relative_opacity", "per_item_rescale", "global_displayed_area", "mandatory_palette_color_lut", "mandatory_exact_icc_profile", "optional_modules_absent"],
+            "standards_evidence": deduplicated_standards_evidence(standards_evidence_from_case(case))
+        }),
+    })
+}
+
+fn write_twelve_lead_ecg_case(
+    run: &PreparedGenerationRun,
+    case: &Value,
+    standards_lock_sha256: &str,
+) -> Result<GeneratedFile, GenerateError> {
+    let uid = |role| {
+        deterministic_uid(&DeterministicUidInput {
+            standards_lock_sha256,
+            case_id: TWELVE_LEAD_ECG_CASE_ID,
+            recipe_version: TWELVE_LEAD_ECG_RECIPE_VERSION,
+            run_seed: run.seed,
+            file_index: 0,
+            frame_index: None,
+            referenced_object_index: None,
+            role,
+        })
+    };
+    let study_instance_uid = uid(UidRole::StudyInstance);
+    let series_instance_uid = uid(UidRole::SeriesInstance);
+    let sop_instance_uid = uid(UidRole::SopInstance);
+    let implementation_class_uid = deterministic_implementation_uid(standards_lock_sha256);
+    let relative_path = format!("{TWELVE_LEAD_ECG_CASE_ID}/{TWELVE_LEAD_ECG_OUTPUT_FILE}");
+    let path = run.out_dir.join(&relative_path);
+    let case_dir = path.parent().ok_or_else(|| GenerateError::MetadataShape {
+        path: PathBuf::from(&relative_path),
+        message: "Twelve-lead ECG output must have a parent directory",
+    })?;
+    fs::create_dir_all(case_dir).map_err(|source| GenerateError::CreateCaseOutputDir {
+        path: case_dir.to_path_buf(),
+        source,
+    })?;
+
+    let object = build_twelve_lead_ecg(TwelveLeadEcgInput {
+        study_instance_uid: &study_instance_uid,
+        series_instance_uid: &series_instance_uid,
+        sop_instance_uid: &sop_instance_uid,
+    })
+    .map_err(|message| GenerateError::WriteDicomFile {
+        path: path.clone(),
+        message,
+    })?;
+    object
+        .with_meta(
+            FileMetaTableBuilder::new()
+                .transfer_syntax(EXPLICIT_VR_LITTLE_ENDIAN.uid)
+                .implementation_class_uid(&implementation_class_uid)
+                .implementation_version_name(crate::IMPLEMENTATION_VERSION_NAME),
+        )
+        .map_err(|error| GenerateError::WriteDicomFile {
+            path: path.clone(),
+            message: error.to_string(),
+        })?
+        .write_to_file(&path)
+        .map_err(|error| GenerateError::WriteDicomFile {
+            path: path.clone(),
+            message: error.to_string(),
+        })?;
+
+    let expected_waveform = twelve_lead_ecg_expected_waveform();
+    let validated = validate_twelve_lead_ecg_file(
+        &path,
+        &TwelveLeadEcgExpectations {
+            sop_instance_uid: &sop_instance_uid,
+            implementation_class_uid: &implementation_class_uid,
+            study_instance_uid: &study_instance_uid,
+            series_instance_uid: &series_instance_uid,
+            waveform: expected_waveform,
+        },
+    )?;
+    let bytes = validated.bytes;
+    let validation = validated.validation;
+    let expected_waveform = serde_json::to_value(expected_waveform)
+        .expect("Twelve-lead ECG expectation serialization is infallible");
+
+    Ok(GeneratedFile {
+        case_id: TWELVE_LEAD_ECG_CASE_ID.to_string(),
+        manifest_entry: serde_json::json!({
+            "case_id": TWELVE_LEAD_ECG_CASE_ID,
+            "profile_membership": ["extended"],
+            "path": relative_path,
+            "sha256": sha256_hex(&bytes),
+            "size_bytes": bytes.len(),
+            "determinism": "byte_stable",
+            "recipe": {
+                "recipe_id": TWELVE_LEAD_ECG_RECIPE_ID,
+                "recipe_version": TWELVE_LEAD_ECG_RECIPE_VERSION,
+                "recipe_parameters": {
+                    "multiplex_group_label": "RESTING_12_LEAD",
+                    "channel_count": 12,
+                    "samples_per_channel": 500,
+                    "sampling_frequency_hz": 500,
+                    "sample_formula": "((s * (c + 1) * 37 + c * 101) mod 2001) - 1000"
+                }
+            },
+            "dicom": {
+                "sop_class_uid": TWELVE_LEAD_ECG_STORAGE_UID,
+                "sop_class_name": "12-lead ECG Waveform Storage",
+                "iod_name": "12-lead ECG Waveform",
+                "modality": "ECG",
+                "transfer_syntax_uid": EXPLICIT_VR_LITTLE_ENDIAN.uid,
+                "transfer_syntax_name": EXPLICIT_VR_LITTLE_ENDIAN.name
+            },
+            "uids": {
+                "study_instance_uid": study_instance_uid,
+                "series_instance_uid": series_instance_uid,
+                "sop_instance_uid": sop_instance_uid,
+                "implementation_class_uid": implementation_class_uid,
+                "implementation_version_name": crate::IMPLEMENTATION_VERSION_NAME
+            },
+            "image": Value::Null,
+            "pixel_data": Value::Null,
+            "references": [],
+            "expected_capabilities": [
+                "open_file", "read_metadata", "read_waveform", "display_twelve_lead_ecg"
+            ],
+            "expected_semantics": {
+                "synthetic_data": "YES",
+                "simultaneous_sampling": true,
+                "one_second_duration": true,
+                "pixel_data_absent": true,
+                "diagnostic_use": false
+            },
+            "expected_waveform": expected_waveform,
+            "expected_visual_checks": {
+                "pattern": "one_second_deterministic_resting_twelve_lead_trace"
+            },
+            "validation": validation,
+            "known_stressors": [
+                "twelve_lead_ecg_waveform_storage",
+                "twelve_simultaneous_channels",
+                "signed_16_bit_ow_payload",
+                "channel_then_sample_interleave",
+                "cid_3001_channel_sources"
+            ],
             "standards_evidence": deduplicated_standards_evidence(standards_evidence_from_case(case))
         }),
     })
@@ -24880,6 +25036,86 @@ mod tests {
         assert!(
             validator.is_valid(&first.manifest_entry),
             "Blending manifest entry should satisfy schema: {:?}",
+            validator
+                .iter_errors(&first.manifest_entry)
+                .collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn twelve_lead_ecg_writer_is_byte_deterministic_and_schema_valid() {
+        let output = ParametricMapStagingGuard::new();
+        let run = PreparedGenerationRun {
+            profile: "extended".to_string(),
+            out_dir: output.path().to_path_buf(),
+            manifest_path: output.path().join("manifest.json"),
+            seed: 7,
+            include_stress: false,
+        };
+        let case = serde_json::json!({
+            "case_id": TWELVE_LEAD_ECG_CASE_ID,
+            "standards_evidence": []
+        });
+        let standards_lock = "0000000000000000000000000000000000000000000000000000000000000000";
+
+        let first = write_twelve_lead_ecg_case(&run, &case, standards_lock)
+            .expect("Twelve-lead ECG should write and validate");
+        let output_path = output
+            .path()
+            .join(TWELVE_LEAD_ECG_CASE_ID)
+            .join(TWELVE_LEAD_ECG_OUTPUT_FILE);
+        let first_bytes = fs::read(&output_path).expect("first Twelve-lead ECG bytes");
+        let second = write_twelve_lead_ecg_case(&run, &case, standards_lock)
+            .expect("repeated Twelve-lead ECG should validate");
+        let second_bytes = fs::read(&output_path).expect("second Twelve-lead ECG bytes");
+
+        assert_eq!(first_bytes, second_bytes);
+        assert_eq!(
+            first.manifest_entry["sha256"],
+            second.manifest_entry["sha256"]
+        );
+        assert_eq!(first.manifest_entry["image"], Value::Null);
+        assert_eq!(first.manifest_entry["pixel_data"], Value::Null);
+        assert_eq!(
+            first
+                .manifest_entry
+                .pointer("/expected_waveform/channels")
+                .and_then(Value::as_array)
+                .map(Vec::len),
+            Some(12)
+        );
+        assert_eq!(
+            first
+                .manifest_entry
+                .pointer("/expected_waveform/storage/payload_sha256"),
+            Some(&Value::from(
+                "98b7a9b1be25d9d64ffa75bc6e16ea80f60deed1891aeed8dfb440c1c19e6713"
+            ))
+        );
+        assert!(
+            first
+                .manifest_entry
+                .pointer("/validation/internal")
+                .and_then(Value::as_array)
+                .expect("internal waveform validation evidence")
+                .iter()
+                .any(|check| check.get("name").and_then(Value::as_str)
+                    == Some("twelve_lead_ecg_formula_and_interleave"))
+        );
+
+        let manifest_schema: Value =
+            serde_json::from_str(include_str!("../schemas/manifest.schema.json"))
+                .expect("manifest schema should parse");
+        let file_schema = serde_json::json!({
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$ref": "#/$defs/file",
+            "$defs": manifest_schema["$defs"].clone(),
+        });
+        let validator =
+            jsonschema::validator_for(&file_schema).expect("file manifest schema should compile");
+        assert!(
+            validator.is_valid(&first.manifest_entry),
+            "Twelve-lead ECG manifest entry should satisfy schema: {:?}",
             validator
                 .iter_errors(&first.manifest_entry)
                 .collect::<Vec<_>>()

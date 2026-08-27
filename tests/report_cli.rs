@@ -5314,6 +5314,127 @@ fn report_surfaces_complete_one_bit_pixel_contract() {
     fs::remove_dir_all(out_dir).unwrap();
 }
 
+#[test]
+fn report_surfaces_complete_icc_profile_contract() {
+    let out_dir = unique_temp_dir("report-icc-profile");
+    generate_extended(&out_dir);
+    let json_output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args(["report"])
+        .arg(&out_dir)
+        .args(["--format", "json"])
+        .output()
+        .unwrap();
+    assert!(json_output.status.success());
+    let report: Value = serde_json::from_slice(&json_output.stdout).unwrap();
+    let row = coverage_row(&report, "vl/photo/rgb_icc_profile_explicit_le");
+    assert_eq!(row["icc_profile_tag"], "(0028,2000)");
+    assert_eq!(row["icc_profile_vr"], "OB");
+    assert_eq!(
+        row["icc_profile_sha256"],
+        "8e069a3476b71a0e0ae7272d9278ba70540d1c4a0b19af1c7d52e56f49091fef"
+    );
+    assert_eq!(row["icc_profile_size_bytes"], 736);
+    assert_eq!(row["icc_declared_profile_size_bytes"], 736);
+    assert_eq!(row["icc_profile_version"], "2.1.0");
+    assert_eq!(row["icc_device_class"], "scnr");
+    assert_eq!(row["icc_data_color_space"], "RGB");
+    assert_eq!(row["icc_profile_connection_space"], "XYZ");
+    assert_eq!(row["icc_profile_signature"], "acsp");
+    assert_eq!(row["icc_rendering_intent"], "perceptual");
+    assert_eq!(row["icc_rendering_intent_code"], 0);
+    assert_eq!(row["icc_tag_count"], 9);
+    assert_eq!(row["icc_color_space"], "SRGB");
+    assert_eq!(row["icc_profile_description"], "sRGB");
+    assert_eq!(row["icc_copyright"], "CC0");
+    assert_eq!(
+        row["icc_source_identity"],
+        "DCMTK 3.7.0 DCMTK_SRGB_ICC_SAMPLE"
+    );
+    assert_eq!(
+        report.pointer("/grouped_coverage/icc_device_classes/scnr"),
+        Some(&json!(1))
+    );
+    assert_eq!(
+        report.pointer("/grouped_coverage/icc_profile_size_byte_counts/736"),
+        Some(&json!(1))
+    );
+    assert_eq!(
+        report.pointer("/grouped_coverage/icc_color_spaces/SRGB"),
+        Some(&json!(1))
+    );
+    let schema: Value =
+        serde_json::from_slice(&fs::read("schemas/coverage-report.schema.json").unwrap()).unwrap();
+    assert!(
+        jsonschema::validator_for(&schema)
+            .unwrap()
+            .is_valid(&report)
+    );
+
+    let markdown_output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args(["report"])
+        .arg(&out_dir)
+        .args(["--format", "markdown"])
+        .output()
+        .unwrap();
+    assert!(markdown_output.status.success());
+    let markdown = String::from_utf8(markdown_output.stdout).unwrap();
+    assert!(markdown.contains("### ICC Profile SHA-256 Values"));
+    assert!(markdown.contains("### ICC Profile Connection Spaces"));
+    assert!(markdown.contains("DCMTK 3.7.0 DCMTK_SRGB_ICC_SAMPLE"));
+
+    let manifest_path = out_dir.join("manifest.json");
+    let original_manifest: Value =
+        serde_json::from_slice(&fs::read(&manifest_path).unwrap()).unwrap();
+    let mut missing_contract = original_manifest.clone();
+    missing_contract["files"]
+        .as_array_mut()
+        .unwrap()
+        .iter_mut()
+        .find(|file| file["case_id"] == "vl/photo/rgb_icc_profile_explicit_le")
+        .unwrap()
+        .as_object_mut()
+        .unwrap()
+        .remove("expected_icc_profile");
+    fs::write(
+        &manifest_path,
+        serde_json::to_vec_pretty(&missing_contract).unwrap(),
+    )
+    .unwrap();
+    let rejected = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args(["report"])
+        .arg(&out_dir)
+        .args(["--format", "json"])
+        .output()
+        .unwrap();
+    assert!(!rejected.status.success());
+    assert!(String::from_utf8_lossy(&rejected.stderr).contains("requires expected_icc_profile"));
+
+    let mut malformed_contract = original_manifest;
+    malformed_contract["files"]
+        .as_array_mut()
+        .unwrap()
+        .iter_mut()
+        .find(|file| file["case_id"] == "vl/photo/rgb_icc_profile_explicit_le")
+        .unwrap()["expected_icc_profile"]["profile_connection_space"] = json!("Lab");
+    fs::write(
+        &manifest_path,
+        serde_json::to_vec_pretty(&malformed_contract).unwrap(),
+    )
+    .unwrap();
+    let rejected = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args(["report"])
+        .arg(&out_dir)
+        .args(["--format", "json"])
+        .output()
+        .unwrap();
+    assert!(!rejected.status.success());
+    assert!(
+        String::from_utf8_lossy(&rejected.stderr).contains("requires XYZ profile connection space")
+    );
+
+    fs::remove_dir_all(out_dir).unwrap();
+}
+
 fn generate_core(out_dir: &Path) {
     let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
         .args([

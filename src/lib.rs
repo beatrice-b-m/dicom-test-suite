@@ -12768,6 +12768,60 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
         "One-bit Value Field Padding Byte Counts",
         "/grouped_coverage/u1_value_field_padding_byte_counts",
     );
+    for (title, pointer) in [
+        ("ICC Profile Tags", "/grouped_coverage/icc_profile_tags"),
+        ("ICC Profile VRs", "/grouped_coverage/icc_profile_vrs"),
+        (
+            "ICC Profile SHA-256 Values",
+            "/grouped_coverage/icc_profile_sha256_values",
+        ),
+        (
+            "ICC Profile Size Byte Counts",
+            "/grouped_coverage/icc_profile_size_byte_counts",
+        ),
+        (
+            "ICC Declared Profile Size Byte Counts",
+            "/grouped_coverage/icc_declared_profile_size_byte_counts",
+        ),
+        (
+            "ICC Profile Versions",
+            "/grouped_coverage/icc_profile_versions",
+        ),
+        ("ICC Device Classes", "/grouped_coverage/icc_device_classes"),
+        (
+            "ICC Data Color Spaces",
+            "/grouped_coverage/icc_data_color_spaces",
+        ),
+        (
+            "ICC Profile Connection Spaces",
+            "/grouped_coverage/icc_profile_connection_spaces",
+        ),
+        (
+            "ICC Profile Signatures",
+            "/grouped_coverage/icc_profile_signatures",
+        ),
+        (
+            "ICC Rendering Intents",
+            "/grouped_coverage/icc_rendering_intents",
+        ),
+        (
+            "ICC Rendering Intent Codes",
+            "/grouped_coverage/icc_rendering_intent_codes",
+        ),
+        ("ICC Tag Counts", "/grouped_coverage/icc_tag_counts"),
+        ("DICOM Color Spaces", "/grouped_coverage/icc_color_spaces"),
+        (
+            "ICC Profile Descriptions",
+            "/grouped_coverage/icc_profile_descriptions",
+        ),
+        ("ICC Copyrights", "/grouped_coverage/icc_copyrights"),
+        (
+            "ICC Source Identities",
+            "/grouped_coverage/icc_source_identities",
+        ),
+    ] {
+        append_count_map_section(&mut output, report, title, pointer);
+    }
     append_count_map_section(
         &mut output,
         report,
@@ -14191,6 +14245,7 @@ fn generated_coverage_row(
     let xrf = xrf_projection_report_fields(manifest_path, file)?;
     let u32_pixels = u32_pixel_report_fields(manifest_path, file)?;
     let u1_pixels = u1_pixel_report_fields(manifest_path, file)?;
+    let icc_profile = icc_profile_report_fields(manifest_path, file)?;
     let mut row = serde_json::json!({
         "case_id": report_str(manifest_path, file, "/case_id", "file case_id must be a string")?,
         "profile": run_profile,
@@ -14258,6 +14313,63 @@ fn generated_coverage_row(
         (
             "u32_full_unsigned_range",
             u32_pixels.full_unsigned_range.map(Value::from),
+        ),
+    ] {
+        row_object.insert(field.to_string(), value.unwrap_or(Value::Null));
+    }
+    for (field, value) in [
+        ("icc_profile_tag", icc_profile.tag.map(Value::from)),
+        ("icc_profile_vr", icc_profile.vr.map(Value::from)),
+        (
+            "icc_profile_sha256",
+            icc_profile.profile_sha256.map(Value::from),
+        ),
+        (
+            "icc_profile_size_bytes",
+            icc_profile.profile_size_bytes.map(Value::from),
+        ),
+        (
+            "icc_declared_profile_size_bytes",
+            icc_profile.declared_profile_size_bytes.map(Value::from),
+        ),
+        (
+            "icc_profile_version",
+            icc_profile.profile_version.map(Value::from),
+        ),
+        (
+            "icc_device_class",
+            icc_profile.device_class.map(Value::from),
+        ),
+        (
+            "icc_data_color_space",
+            icc_profile.data_color_space.map(Value::from),
+        ),
+        (
+            "icc_profile_connection_space",
+            icc_profile.profile_connection_space.map(Value::from),
+        ),
+        (
+            "icc_profile_signature",
+            icc_profile.profile_signature.map(Value::from),
+        ),
+        (
+            "icc_rendering_intent",
+            icc_profile.rendering_intent.map(Value::from),
+        ),
+        (
+            "icc_rendering_intent_code",
+            icc_profile.rendering_intent_code.map(Value::from),
+        ),
+        ("icc_tag_count", icc_profile.tag_count.map(Value::from)),
+        ("icc_color_space", icc_profile.color_space.map(Value::from)),
+        (
+            "icc_profile_description",
+            icc_profile.profile_description.map(Value::from),
+        ),
+        ("icc_copyright", icc_profile.copyright.map(Value::from)),
+        (
+            "icc_source_identity",
+            icc_profile.source_identity.map(Value::from),
         ),
     ] {
         row_object.insert(field.to_string(), value.unwrap_or(Value::Null));
@@ -16926,6 +17038,27 @@ struct U1PixelReportFields {
     value_field_padding_bytes: Option<u64>,
 }
 
+#[derive(Default)]
+struct IccProfileReportFields {
+    tag: Option<String>,
+    vr: Option<String>,
+    profile_sha256: Option<String>,
+    profile_size_bytes: Option<u64>,
+    declared_profile_size_bytes: Option<u64>,
+    profile_version: Option<String>,
+    device_class: Option<String>,
+    data_color_space: Option<String>,
+    profile_connection_space: Option<String>,
+    profile_signature: Option<String>,
+    rendering_intent: Option<String>,
+    rendering_intent_code: Option<u64>,
+    tag_count: Option<u64>,
+    color_space: Option<String>,
+    profile_description: Option<String>,
+    copyright: Option<String>,
+    source_identity: Option<String>,
+}
+
 fn u32_pixel_report_fields(
     manifest_path: &Path,
     file: &Value,
@@ -17054,6 +17187,128 @@ fn u1_pixel_report_fields(
             "value_field_padding_bytes",
             1,
             "one-bit coverage row requires one final Value Field padding byte",
+        )?),
+    })
+}
+
+fn icc_profile_report_fields(
+    manifest_path: &Path,
+    file: &Value,
+) -> Result<IccProfileReportFields, ReportError> {
+    if file.get("case_id").and_then(Value::as_str) != Some("vl/photo/rgb_icc_profile_explicit_le") {
+        return Ok(IccProfileReportFields::default());
+    }
+    let expected = file
+        .get("expected_icc_profile")
+        .ok_or(ReportError::MetadataShape {
+            path: manifest_path.to_path_buf(),
+            message: "ICC coverage row requires expected_icc_profile",
+        })?;
+    let exact_string = |field: &'static str, expected_value: &'static str, message| {
+        expected[field]
+            .as_str()
+            .filter(|value| *value == expected_value)
+            .map(str::to_string)
+            .ok_or(ReportError::MetadataShape {
+                path: manifest_path.to_path_buf(),
+                message,
+            })
+    };
+    let exact_u64 = |field: &'static str, expected_value: u64, message| {
+        expected[field]
+            .as_u64()
+            .filter(|value| *value == expected_value)
+            .ok_or(ReportError::MetadataShape {
+                path: manifest_path.to_path_buf(),
+                message,
+            })
+    };
+
+    Ok(IccProfileReportFields {
+        tag: Some(exact_string(
+            "tag",
+            "(0028,2000)",
+            "ICC coverage row requires the locked ICC Profile tag",
+        )?),
+        vr: Some(exact_string(
+            "vr",
+            "OB",
+            "ICC coverage row requires ICC Profile VR OB",
+        )?),
+        profile_sha256: Some(exact_string(
+            "profile_sha256",
+            "8e069a3476b71a0e0ae7272d9278ba70540d1c4a0b19af1c7d52e56f49091fef",
+            "ICC coverage row requires the locked profile SHA-256",
+        )?),
+        profile_size_bytes: Some(exact_u64(
+            "profile_size_bytes",
+            736,
+            "ICC coverage row requires a 736-byte profile",
+        )?),
+        declared_profile_size_bytes: Some(exact_u64(
+            "declared_profile_size_bytes",
+            736,
+            "ICC coverage row requires a declared 736-byte profile",
+        )?),
+        profile_version: Some(exact_string(
+            "profile_version",
+            "2.1.0",
+            "ICC coverage row requires profile version 2.1.0",
+        )?),
+        device_class: Some(exact_string(
+            "device_class",
+            "scnr",
+            "ICC coverage row requires input-device class scnr",
+        )?),
+        data_color_space: Some(exact_string(
+            "data_color_space",
+            "RGB",
+            "ICC coverage row requires RGB input color space",
+        )?),
+        profile_connection_space: Some(exact_string(
+            "profile_connection_space",
+            "XYZ",
+            "ICC coverage row requires XYZ profile connection space",
+        )?),
+        profile_signature: Some(exact_string(
+            "profile_signature",
+            "acsp",
+            "ICC coverage row requires acsp profile signature",
+        )?),
+        rendering_intent: Some(exact_string(
+            "rendering_intent",
+            "perceptual",
+            "ICC coverage row requires perceptual rendering intent",
+        )?),
+        rendering_intent_code: Some(exact_u64(
+            "rendering_intent_code",
+            0,
+            "ICC coverage row requires rendering intent code zero",
+        )?),
+        tag_count: Some(exact_u64(
+            "tag_count",
+            9,
+            "ICC coverage row requires nine profile tags",
+        )?),
+        color_space: Some(exact_string(
+            "color_space",
+            "SRGB",
+            "ICC coverage row requires DICOM Color Space SRGB",
+        )?),
+        profile_description: Some(exact_string(
+            "profile_description",
+            "sRGB",
+            "ICC coverage row requires profile description sRGB",
+        )?),
+        copyright: Some(exact_string(
+            "copyright",
+            "CC0",
+            "ICC coverage row requires CC0 profile copyright",
+        )?),
+        source_identity: Some(exact_string(
+            "source_identity",
+            "DCMTK 3.7.0 DCMTK_SRGB_ICC_SAMPLE",
+            "ICC coverage row requires the locked source identity",
         )?),
     })
 }
@@ -17406,6 +17661,23 @@ fn skipped_coverage_row(
         "u1_significant_bits",
         "u1_unused_high_bits",
         "u1_value_field_padding_bytes",
+        "icc_profile_tag",
+        "icc_profile_vr",
+        "icc_profile_sha256",
+        "icc_profile_size_bytes",
+        "icc_declared_profile_size_bytes",
+        "icc_profile_version",
+        "icc_device_class",
+        "icc_data_color_space",
+        "icc_profile_connection_space",
+        "icc_profile_signature",
+        "icc_rendering_intent",
+        "icc_rendering_intent_code",
+        "icc_tag_count",
+        "icc_color_space",
+        "icc_profile_description",
+        "icc_copyright",
+        "icc_source_identity",
         "nm_frame_increment_pointers",
         "nm_energy_window_vector",
         "nm_detector_vector",
@@ -17868,6 +18140,23 @@ struct GroupedCoverage {
     u1_packing_orders: BTreeMap<String, usize>,
     u1_frame_boundary_policies: BTreeMap<String, usize>,
     u1_value_field_padding_byte_counts: BTreeMap<String, usize>,
+    icc_profile_tags: BTreeMap<String, usize>,
+    icc_profile_vrs: BTreeMap<String, usize>,
+    icc_profile_sha256_values: BTreeMap<String, usize>,
+    icc_profile_size_byte_counts: BTreeMap<String, usize>,
+    icc_declared_profile_size_byte_counts: BTreeMap<String, usize>,
+    icc_profile_versions: BTreeMap<String, usize>,
+    icc_device_classes: BTreeMap<String, usize>,
+    icc_data_color_spaces: BTreeMap<String, usize>,
+    icc_profile_connection_spaces: BTreeMap<String, usize>,
+    icc_profile_signatures: BTreeMap<String, usize>,
+    icc_rendering_intents: BTreeMap<String, usize>,
+    icc_rendering_intent_codes: BTreeMap<String, usize>,
+    icc_tag_counts: BTreeMap<String, usize>,
+    icc_color_spaces: BTreeMap<String, usize>,
+    icc_profile_descriptions: BTreeMap<String, usize>,
+    icc_copyrights: BTreeMap<String, usize>,
+    icc_source_identities: BTreeMap<String, usize>,
     frame_counts: BTreeMap<String, usize>,
     geometries: BTreeMap<String, usize>,
     pixel_spacings: BTreeMap<String, usize>,
@@ -18385,6 +18674,48 @@ impl GroupedCoverage {
                 .u1_value_field_padding_byte_counts
                 .entry(value.to_string())
                 .or_default() += 1;
+        }
+        for (map, field) in [
+            (&mut self.icc_profile_tags, "icc_profile_tag"),
+            (&mut self.icc_profile_vrs, "icc_profile_vr"),
+            (&mut self.icc_profile_sha256_values, "icc_profile_sha256"),
+            (&mut self.icc_profile_versions, "icc_profile_version"),
+            (&mut self.icc_device_classes, "icc_device_class"),
+            (&mut self.icc_data_color_spaces, "icc_data_color_space"),
+            (
+                &mut self.icc_profile_connection_spaces,
+                "icc_profile_connection_space",
+            ),
+            (&mut self.icc_profile_signatures, "icc_profile_signature"),
+            (&mut self.icc_rendering_intents, "icc_rendering_intent"),
+            (&mut self.icc_color_spaces, "icc_color_space"),
+            (
+                &mut self.icc_profile_descriptions,
+                "icc_profile_description",
+            ),
+            (&mut self.icc_copyrights, "icc_copyright"),
+            (&mut self.icc_source_identities, "icc_source_identity"),
+        ] {
+            increment_map(map, row.get(field).and_then(Value::as_str));
+        }
+        for (map, field) in [
+            (
+                &mut self.icc_profile_size_byte_counts,
+                "icc_profile_size_bytes",
+            ),
+            (
+                &mut self.icc_declared_profile_size_byte_counts,
+                "icc_declared_profile_size_bytes",
+            ),
+            (
+                &mut self.icc_rendering_intent_codes,
+                "icc_rendering_intent_code",
+            ),
+            (&mut self.icc_tag_counts, "icc_tag_count"),
+        ] {
+            if let Some(value) = row.get(field).and_then(Value::as_u64) {
+                *map.entry(value.to_string()).or_default() += 1;
+            }
         }
         increment_map(
             &mut self.basic_offset_tables,
@@ -19376,6 +19707,35 @@ impl GroupedCoverage {
                 "u1_value_field_padding_byte_counts",
                 &self.u1_value_field_padding_byte_counts,
             ),
+            ("icc_profile_tags", &self.icc_profile_tags),
+            ("icc_profile_vrs", &self.icc_profile_vrs),
+            ("icc_profile_sha256_values", &self.icc_profile_sha256_values),
+            (
+                "icc_profile_size_byte_counts",
+                &self.icc_profile_size_byte_counts,
+            ),
+            (
+                "icc_declared_profile_size_byte_counts",
+                &self.icc_declared_profile_size_byte_counts,
+            ),
+            ("icc_profile_versions", &self.icc_profile_versions),
+            ("icc_device_classes", &self.icc_device_classes),
+            ("icc_data_color_spaces", &self.icc_data_color_spaces),
+            (
+                "icc_profile_connection_spaces",
+                &self.icc_profile_connection_spaces,
+            ),
+            ("icc_profile_signatures", &self.icc_profile_signatures),
+            ("icc_rendering_intents", &self.icc_rendering_intents),
+            (
+                "icc_rendering_intent_codes",
+                &self.icc_rendering_intent_codes,
+            ),
+            ("icc_tag_counts", &self.icc_tag_counts),
+            ("icc_color_spaces", &self.icc_color_spaces),
+            ("icc_profile_descriptions", &self.icc_profile_descriptions),
+            ("icc_copyrights", &self.icc_copyrights),
+            ("icc_source_identities", &self.icc_source_identities),
         ] {
             grouped_object.insert(
                 field.to_string(),

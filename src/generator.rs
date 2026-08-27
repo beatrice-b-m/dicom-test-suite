@@ -6021,6 +6021,7 @@ fn pixel_manifest_entry(
                 "keyword": "PatientName",
                 "vr": "PN",
                 "decoded_value": patient_name,
+                "raw_value_hex": uppercase_hex(&raw_value),
                 "raw_value_sha256": sha256_hex(&raw_value),
                 "raw_value_byte_length": raw_value.len(),
                 "component_groups": [
@@ -6056,6 +6057,16 @@ fn pixel_manifest_entry(
         manifest["recipe"]["recipe_parameters"]["patient_name"] = Value::from(patient_name);
     }
     manifest
+}
+
+fn uppercase_hex(bytes: &[u8]) -> String {
+    use std::fmt::Write as _;
+
+    let mut encoded = String::with_capacity(bytes.len() * 2);
+    for byte in bytes {
+        write!(&mut encoded, "{byte:02X}").expect("writing to a String cannot fail");
+    }
+    encoded
 }
 
 fn pixel_lossy_image_compression_method(recipe: PixelRecipe) -> Option<&'static str> {

@@ -9,6 +9,7 @@ use serde_json::Value;
 const CASE_ID: &str = "metadata/sc/utf8_person_name";
 const RELATIVE_PATH: &str = "metadata/sc/utf8_person_name/instance.dcm";
 const PATIENT_NAME: &str = "Wang^XiaoDong=王^小東";
+const RAW_PATIENT_NAME_HEX: &str = "57616E675E5869616F446F6E673DE78E8B5EE5B08FE69DB1";
 const RAW_PATIENT_NAME_SHA256: &str =
     "64a9d3d6b55142162489a8679e8643caa94efcff26dd30bf24650ac5186c1382";
 
@@ -36,6 +37,7 @@ fn utf8_person_name_vertical_slice_is_exact_and_byte_stable() {
     assert_eq!(person_name["vr"], "PN");
     assert_eq!(person_name["decoded_value"], PATIENT_NAME);
     assert_eq!(person_name["raw_value_byte_length"], 24);
+    assert_eq!(person_name["raw_value_hex"], RAW_PATIENT_NAME_HEX);
     assert_eq!(person_name["raw_value_sha256"], RAW_PATIENT_NAME_SHA256);
     assert_eq!(
         person_name["component_groups"].as_array().map(Vec::len),

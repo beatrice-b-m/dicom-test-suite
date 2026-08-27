@@ -7595,6 +7595,55 @@ fn pixel_manifest_entry(
         });
         manifest["recipe"]["recipe_parameters"]["sequence_length_variant"] =
             Value::from(variant.variant_id.as_str());
+    } else if let Some(ScMetadataPayload::Nonsquare(variant)) = metadata {
+        let pixel_spacing = variant.pixel_spacing_mm.map(|[row, column]| {
+            serde_json::json!({
+                "tag": "0028,0030",
+                "keyword": "PixelSpacing",
+                "vr": "DS",
+                "vm": 2,
+                "lexical_value": format!("{row}\\{column}"),
+                "row_spacing_mm": row.parse::<f64>().expect("locked DS row spacing should parse"),
+                "column_spacing_mm": column.parse::<f64>().expect("locked DS column spacing should parse")
+            })
+        });
+        let nominal_scanned_pixel_spacing =
+            variant
+                .nominal_scanned_pixel_spacing_mm
+                .map(|[row, column]| {
+                    serde_json::json!({
+                        "tag": "0018,2010",
+                        "keyword": "NominalScannedPixelSpacing",
+                        "vr": "DS",
+                        "vm": 2,
+                        "lexical_value": format!("{row}\\{column}"),
+                        "row_spacing_mm": row.parse::<f64>().expect("locked DS row spacing should parse"),
+                        "column_spacing_mm": column.parse::<f64>().expect("locked DS column spacing should parse")
+                    })
+                });
+        let pixel_aspect_ratio = variant.pixel_aspect_ratio.map(|[vertical, horizontal]| {
+            serde_json::json!({
+                "tag": "0028,0034",
+                "keyword": "PixelAspectRatio",
+                "vr": "IS",
+                "vm": 2,
+                "lexical_value": format!("{vertical}\\{horizontal}"),
+                "vertical_extent": vertical,
+                "horizontal_extent": horizontal
+            })
+        });
+        manifest["expected_nonsquare_spacing"] = serde_json::json!({
+            "variant_id": variant.variant_id.as_str(),
+            "pixel_spacing": pixel_spacing,
+            "nominal_scanned_pixel_spacing": nominal_scanned_pixel_spacing,
+            "pixel_aspect_ratio": pixel_aspect_ratio,
+            "uncalibrated": true,
+            "patient_space_geometry_present": false,
+            "pixel_data_sha256": NONSQUARE_SPACING_SC_RECIPE.pixel_data_sha256
+        });
+        manifest["recipe"]["recipe_parameters"]["nonsquare_variant"] =
+            Value::from(variant.variant_id.as_str());
+        manifest["recipe"]["recipe_parameters"]["row_to_column_ratio"] = Value::from(2.0);
     }
     manifest
 }
@@ -7755,6 +7804,10 @@ fn pixel_known_stressors(recipe: PixelRecipe) -> Vec<&'static str> {
         stressors.push("embedded_icc_input_profile");
         stressors.push("srgb_color_management");
     }
+    if recipe.case_id == NONSQUARE_SPACING_SC_RECIPE.pixel.case_id {
+        stressors.push("nonsquare_pixel_geometry");
+        stressors.push("independent_spacing_and_aspect_ratio_axes");
+    }
     if recipe.transfer_syntax == DEFLATED_EXPLICIT_VR_LITTLE_ENDIAN {
         stressors.push("deflated_dataset_transfer_syntax");
     }
@@ -7843,6 +7896,14 @@ fn pixel_profile_membership(recipe: PixelRecipe) -> &'static [&'static str] {
 }
 
 fn pixel_expected_capabilities(recipe: PixelRecipe) -> Vec<&'static str> {
+    if recipe.case_id == NONSQUARE_SPACING_SC_RECIPE.pixel.case_id {
+        return vec![
+            "open_file",
+            "read_metadata",
+            "interpret_pixel_geometry",
+            "render_native_pixels",
+        ];
+    }
     if pixel_has_icc_profile(recipe) {
         return vec![
             "open_file",
@@ -21676,6 +21737,30 @@ mod tests {
         .expect("non-square SC variants should write, reopen, and validate");
 
         assert_eq!(generated.len(), 2);
+        assert_eq!(
+            generated[0]
+                .manifest_entry
+                .pointer("/expected_nonsquare_spacing/variant_id"),
+            Some(&Value::from("pixel_spacing"))
+        );
+        assert_eq!(
+            generated[0]
+                .manifest_entry
+                .pointer("/expected_nonsquare_spacing/pixel_spacing/lexical_value"),
+            Some(&Value::from("0.6\\0.3"))
+        );
+        assert_eq!(
+            generated[1]
+                .manifest_entry
+                .pointer("/expected_nonsquare_spacing/variant_id"),
+            Some(&Value::from("pixel_aspect_ratio"))
+        );
+        assert_eq!(
+            generated[1]
+                .manifest_entry
+                .pointer("/expected_nonsquare_spacing/pixel_aspect_ratio/lexical_value"),
+            Some(&Value::from("2\\1"))
+        );
         let spacing = open_file(
             output
                 .path()

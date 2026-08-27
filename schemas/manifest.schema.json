@@ -328,6 +328,9 @@
         "expected_icc_profile": {
           "$ref": "#/$defs/expected_icc_profile"
         },
+        "expected_nonsquare_spacing": {
+          "$ref": "#/$defs/expected_nonsquare_spacing"
+        },
         "expected_geometry": {
           "anyOf": [
             { "$ref": "#/$defs/expected_geometry" },
@@ -425,6 +428,43 @@
                   "vr": { "const": "OB" },
                   "native_or_encapsulated": { "const": "native" },
                   "value_length": { "const": 12 },
+                  "frame_count": { "const": 1 }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "case_id": { "const": "classic/sc/nonsquare_pixel_spacing" }
+            },
+            "required": ["case_id"]
+          },
+          "then": {
+            "required": ["image", "pixel_data", "expected_nonsquare_spacing"],
+            "properties": {
+              "image": {
+                "type": "object",
+                "properties": {
+                  "rows": { "const": 4 },
+                  "columns": { "const": 6 },
+                  "frames": { "const": 1 },
+                  "samples_per_pixel": { "const": 1 },
+                  "photometric_interpretation": { "const": "MONOCHROME2" },
+                  "bits_allocated": { "const": 8 },
+                  "bits_stored": { "const": 8 },
+                  "high_bit": { "const": 7 },
+                  "pixel_representation": { "const": 0 },
+                  "planar_configuration": { "type": "null" }
+                }
+              },
+              "pixel_data": {
+                "type": "object",
+                "properties": {
+                  "vr": { "const": "OB" },
+                  "native_or_encapsulated": { "const": "native" },
+                  "value_length": { "const": 24 },
                   "frame_count": { "const": 1 }
                 }
               }
@@ -1248,6 +1288,135 @@
         "source_identity": { "const": "DCMTK 3.7.0 DCMTK_SRGB_ICC_SAMPLE" }
       },
       "additionalProperties": false
+    },
+    "expected_nonsquare_pixel_spacing": {
+      "type": "object",
+      "required": [
+        "tag",
+        "keyword",
+        "vr",
+        "vm",
+        "lexical_value",
+        "row_spacing_mm",
+        "column_spacing_mm"
+      ],
+      "properties": {
+        "tag": { "const": "0028,0030" },
+        "keyword": { "const": "PixelSpacing" },
+        "vr": { "const": "DS" },
+        "vm": { "const": 2 },
+        "lexical_value": { "const": "0.6\\0.3" },
+        "row_spacing_mm": { "const": 0.6 },
+        "column_spacing_mm": { "const": 0.3 }
+      },
+      "additionalProperties": false
+    },
+    "expected_nonsquare_nominal_scanned_pixel_spacing": {
+      "type": "object",
+      "required": [
+        "tag",
+        "keyword",
+        "vr",
+        "vm",
+        "lexical_value",
+        "row_spacing_mm",
+        "column_spacing_mm"
+      ],
+      "properties": {
+        "tag": { "const": "0018,2010" },
+        "keyword": { "const": "NominalScannedPixelSpacing" },
+        "vr": { "const": "DS" },
+        "vm": { "const": 2 },
+        "lexical_value": { "const": "0.6\\0.3" },
+        "row_spacing_mm": { "const": 0.6 },
+        "column_spacing_mm": { "const": 0.3 }
+      },
+      "additionalProperties": false
+    },
+    "expected_nonsquare_pixel_aspect_ratio": {
+      "type": "object",
+      "required": [
+        "tag",
+        "keyword",
+        "vr",
+        "vm",
+        "lexical_value",
+        "vertical_extent",
+        "horizontal_extent"
+      ],
+      "properties": {
+        "tag": { "const": "0028,0034" },
+        "keyword": { "const": "PixelAspectRatio" },
+        "vr": { "const": "IS" },
+        "vm": { "const": 2 },
+        "lexical_value": { "const": "2\\1" },
+        "vertical_extent": { "const": 2 },
+        "horizontal_extent": { "const": 1 }
+      },
+      "additionalProperties": false
+    },
+    "expected_nonsquare_spacing": {
+      "type": "object",
+      "required": [
+        "variant_id",
+        "pixel_spacing",
+        "nominal_scanned_pixel_spacing",
+        "pixel_aspect_ratio",
+        "uncalibrated",
+        "patient_space_geometry_present",
+        "pixel_data_sha256"
+      ],
+      "properties": {
+        "variant_id": {
+          "enum": ["pixel_spacing", "pixel_aspect_ratio"]
+        },
+        "pixel_spacing": {
+          "anyOf": [
+            { "$ref": "#/$defs/expected_nonsquare_pixel_spacing" },
+            { "type": "null" }
+          ]
+        },
+        "nominal_scanned_pixel_spacing": {
+          "anyOf": [
+            { "$ref": "#/$defs/expected_nonsquare_nominal_scanned_pixel_spacing" },
+            { "type": "null" }
+          ]
+        },
+        "pixel_aspect_ratio": {
+          "anyOf": [
+            { "$ref": "#/$defs/expected_nonsquare_pixel_aspect_ratio" },
+            { "type": "null" }
+          ]
+        },
+        "uncalibrated": { "const": true },
+        "patient_space_geometry_present": { "const": false },
+        "pixel_data_sha256": {
+          "const": "e89b23efeade0dc3de624fc8982ea8b99adb35a3bb9a2fbf8b8ce675e10581a6"
+        }
+      },
+      "additionalProperties": false,
+      "oneOf": [
+        {
+          "properties": {
+            "variant_id": { "const": "pixel_spacing" },
+            "pixel_spacing": { "$ref": "#/$defs/expected_nonsquare_pixel_spacing" },
+            "nominal_scanned_pixel_spacing": {
+              "$ref": "#/$defs/expected_nonsquare_nominal_scanned_pixel_spacing"
+            },
+            "pixel_aspect_ratio": { "type": "null" }
+          }
+        },
+        {
+          "properties": {
+            "variant_id": { "const": "pixel_aspect_ratio" },
+            "pixel_spacing": { "type": "null" },
+            "nominal_scanned_pixel_spacing": { "type": "null" },
+            "pixel_aspect_ratio": {
+              "$ref": "#/$defs/expected_nonsquare_pixel_aspect_ratio"
+            }
+          }
+        }
+      ]
     },
     "expected_enhanced_pet_code": {
       "type": "object",

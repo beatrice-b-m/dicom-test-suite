@@ -561,6 +561,198 @@ fn manifest_schema_types_sequence_length_encoding_expectations() {
 }
 
 #[test]
+fn manifest_schema_types_nonsquare_spacing_variants() {
+    let schema = read_json("schemas/manifest.schema.json");
+    let expectation_schema = serde_json::json!({
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$ref": "#/$defs/expected_nonsquare_spacing",
+        "$defs": schema["$defs"].clone(),
+    });
+    let validator = jsonschema::validator_for(&expectation_schema)
+        .expect("non-square spacing expectation schema should compile");
+    let spacing = nonsquare_spacing_expectation("pixel_spacing");
+    let aspect = nonsquare_spacing_expectation("pixel_aspect_ratio");
+    assert!(validator.is_valid(&spacing));
+    assert!(validator.is_valid(&aspect));
+
+    let mut malformed = Vec::new();
+
+    let mut swapped_spacing = spacing.clone();
+    swapped_spacing["pixel_spacing"]["lexical_value"] = serde_json::json!("0.3\\0.6");
+    malformed.push(("swapped spacing", swapped_spacing));
+
+    let mut zero_aspect = aspect.clone();
+    zero_aspect["pixel_aspect_ratio"]["horizontal_extent"] = serde_json::json!(0);
+    malformed.push(("zero aspect component", zero_aspect));
+
+    let mut combined_axes = spacing.clone();
+    combined_axes["pixel_aspect_ratio"] = aspect["pixel_aspect_ratio"].clone();
+    malformed.push(("combined spacing and aspect axes", combined_axes));
+
+    let mut missing_nominal = spacing.clone();
+    missing_nominal["nominal_scanned_pixel_spacing"] = Value::Null;
+    malformed.push(("missing nominal scanned spacing", missing_nominal));
+
+    let mut wrong_vr = aspect.clone();
+    wrong_vr["pixel_aspect_ratio"]["vr"] = serde_json::json!("DS");
+    malformed.push(("wrong aspect VR", wrong_vr));
+
+    let mut wrong_tag = spacing.clone();
+    wrong_tag["nominal_scanned_pixel_spacing"]["tag"] = serde_json::json!("0018,1164");
+    malformed.push(("wrong nominal spacing tag", wrong_tag));
+
+    let mut wrong_vm = aspect.clone();
+    wrong_vm["pixel_aspect_ratio"]["vm"] = serde_json::json!(1);
+    malformed.push(("wrong aspect VM", wrong_vm));
+
+    let mut wrong_hash = aspect.clone();
+    wrong_hash["pixel_data_sha256"] = serde_json::json!("0".repeat(64));
+    malformed.push(("wrong pixel hash", wrong_hash));
+
+    let mut unexpected = spacing;
+    unexpected["unexpected"] = serde_json::json!(true);
+    malformed.push(("unexpected field", unexpected));
+
+    for (description, value) in malformed {
+        assert!(
+            !validator.is_valid(&value),
+            "schema must reject {description}: {value}"
+        );
+    }
+}
+
+#[test]
+fn manifest_schema_locks_nonsquare_case_image_and_pixel_contract() {
+    let schema = read_json("schemas/manifest.schema.json");
+    let rule = schema
+        .pointer("/$defs/file/allOf")
+        .and_then(Value::as_array)
+        .expect("file schema should define case conditionals")
+        .iter()
+        .find(|rule| {
+            rule.pointer("/if/properties/case_id/const")
+                .and_then(Value::as_str)
+                == Some("classic/sc/nonsquare_pixel_spacing")
+        })
+        .expect("manifest schema should define the non-square spacing case conditional");
+
+    let required = rule
+        .pointer("/then/required")
+        .and_then(Value::as_array)
+        .expect("non-square case conditional should require specialized fields");
+    for field in ["image", "pixel_data", "expected_nonsquare_spacing"] {
+        assert!(
+            required.iter().any(|value| value.as_str() == Some(field)),
+            "non-square case conditional must require {field}"
+        );
+    }
+    for (pointer, expected) in [
+        (
+            "/then/properties/image/properties/rows/const",
+            serde_json::json!(4),
+        ),
+        (
+            "/then/properties/image/properties/columns/const",
+            serde_json::json!(6),
+        ),
+        (
+            "/then/properties/image/properties/frames/const",
+            serde_json::json!(1),
+        ),
+        (
+            "/then/properties/image/properties/photometric_interpretation/const",
+            serde_json::json!("MONOCHROME2"),
+        ),
+        (
+            "/then/properties/image/properties/bits_allocated/const",
+            serde_json::json!(8),
+        ),
+        (
+            "/then/properties/image/properties/bits_stored/const",
+            serde_json::json!(8),
+        ),
+        (
+            "/then/properties/image/properties/high_bit/const",
+            serde_json::json!(7),
+        ),
+        (
+            "/then/properties/pixel_data/properties/vr/const",
+            serde_json::json!("OB"),
+        ),
+        (
+            "/then/properties/pixel_data/properties/native_or_encapsulated/const",
+            serde_json::json!("native"),
+        ),
+        (
+            "/then/properties/pixel_data/properties/value_length/const",
+            serde_json::json!(24),
+        ),
+        (
+            "/then/properties/pixel_data/properties/frame_count/const",
+            serde_json::json!(1),
+        ),
+    ] {
+        assert_eq!(
+            rule.pointer(pointer),
+            Some(&expected),
+            "wrong contract at {pointer}"
+        );
+    }
+    assert_eq!(
+        rule.pointer("/then/properties/image/properties/planar_configuration/type")
+            .and_then(Value::as_str),
+        Some("null")
+    );
+}
+
+fn nonsquare_spacing_expectation(variant_id: &str) -> Value {
+    let pixel_spacing = serde_json::json!({
+        "tag": "0028,0030",
+        "keyword": "PixelSpacing",
+        "vr": "DS",
+        "vm": 2,
+        "lexical_value": "0.6\\0.3",
+        "row_spacing_mm": 0.6,
+        "column_spacing_mm": 0.3
+    });
+    let nominal_scanned_pixel_spacing = serde_json::json!({
+        "tag": "0018,2010",
+        "keyword": "NominalScannedPixelSpacing",
+        "vr": "DS",
+        "vm": 2,
+        "lexical_value": "0.6\\0.3",
+        "row_spacing_mm": 0.6,
+        "column_spacing_mm": 0.3
+    });
+    let pixel_aspect_ratio = serde_json::json!({
+        "tag": "0028,0034",
+        "keyword": "PixelAspectRatio",
+        "vr": "IS",
+        "vm": 2,
+        "lexical_value": "2\\1",
+        "vertical_extent": 2,
+        "horizontal_extent": 1
+    });
+    serde_json::json!({
+        "variant_id": variant_id,
+        "pixel_spacing": if variant_id == "pixel_spacing" { pixel_spacing } else { Value::Null },
+        "nominal_scanned_pixel_spacing": if variant_id == "pixel_spacing" {
+            nominal_scanned_pixel_spacing
+        } else {
+            Value::Null
+        },
+        "pixel_aspect_ratio": if variant_id == "pixel_aspect_ratio" {
+            pixel_aspect_ratio
+        } else {
+            Value::Null
+        },
+        "uncalibrated": true,
+        "patient_space_geometry_present": false,
+        "pixel_data_sha256": "e89b23efeade0dc3de624fc8982ea8b99adb35a3bb9a2fbf8b8ce675e10581a6"
+    })
+}
+
+#[test]
 fn manifest_schema_types_nuclear_medicine_multiframe_expectations() {
     let schema = read_json("schemas/manifest.schema.json");
     let nm_schema = serde_json::json!({

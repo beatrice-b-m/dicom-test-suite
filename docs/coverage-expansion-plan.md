@@ -378,8 +378,17 @@ closure, strict validator-owned group arithmetic, and locked independent IOD
 and raw waveform validation. Two seed-7 extended roots each contained 103
 strictly valid files with byte-identical manifest and General ECG instance
 hashes; integrated conformance kept `accepted_findings` at zero and General
-ECG added no finding. Phase 3 milestone 5 is complete; RT Plan and RT Image
-milestone 6 is next.
+ECG added no finding. Phase 3 milestone 5 is complete. In milestone 6, linked
+RT Plan and RT Image are complete as byte-stable native slices over the
+existing RT Structure Set and RT Dose graph. Two promoted seed-7 extended
+roots each contain 105 strictly valid files and have byte-identical Plan,
+Image, and manifest bytes. Both IODs pass locked `dciodvfy` and a separately
+implemented `uv`-locked secondary IOD route; the Image also passes exact
+independent native-pixel decoding. Strict validation closes the Image over the
+generated Plan digest and identity, and integrated conformance adds no linked
+RT finding or accepted finding. The next action is the explicit milestone-6
+decision checkpoint: evaluate whether to select and lock a minimal current RT
+Radiation Set slice before implementing it.
 
 ### Phase 4 — Pathology and tiled microscopy
 

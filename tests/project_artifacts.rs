@@ -825,8 +825,15 @@ fn phase3_status_records_completed_derived_vertical_gates() {
         "8b262be912c625cc16df43e3935fef2fa1dfbd0d5fea4ba3cb6dba535b6048df",
         "e2613c273b6fe464a6b3308c4ec4a768103af61d0702033d8999e509dc69d23d",
         "565f7db1d5f26cb74256bc9a6d84b6319667d90c7b6a07ef7ddc5be03f929d2c",
-        "Phase 3 milestone 5 is complete",
-        "RT Plan and RT Image milestone 6 is next",
+        "non-image/rt/plan_linked",
+        "non-image/rt/image_linked",
+        "105 files",
+        "b061e5f654eb426bbab0da9cce0ac945aadcf3cf506182eb6bf33acd3d7a3659",
+        "e9337a6c46fe85b56f1f563120dd3caf56ea1335355792db42386db959be6db2",
+        "460d525ab06aaf74df963029f3ab39c2536e4e1c5bf4b75fcf16b500382db20c",
+        "141 implemented and 40 planned logical cases",
+        "d0d78ffccf44218a27944cf1b80dec63c8afa7162b0e085532feb51706a04714",
+        "No Radiation Set\nimplementation starts without that decision",
     ] {
         assert!(
             status.contains(required),
@@ -841,8 +848,9 @@ fn phase3_status_records_completed_derived_vertical_gates() {
         "General ECG\nWaveform Storage completes milestone 5",
         "12x1000@250Hz; 4x4000@1000Hz",
         "103\nstrictly valid files",
-        "Phase 3 milestone 5 is complete",
-        "RT Plan and RT Image\nmilestone 6 is next",
+        "linked\nRT Plan and RT Image are complete",
+        "105 strictly valid files",
+        "explicit milestone-6\ndecision checkpoint",
     ] {
         assert!(plan.contains(required), "coverage plan requires {required}");
     }

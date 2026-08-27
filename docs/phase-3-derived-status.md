@@ -390,6 +390,49 @@ to the exact manifest contract and locked tools. Full-corpus verification keeps
 `accepted_findings` at zero and reports 211 older or unrelated failures; the
 General ECG adds no finding.
 
-## Next dependency
+## Linked RT Plan and RT Image
 
-Phase 3 milestone 5 is complete. RT Plan and RT Image milestone 6 is next.
+`non-image/rt/plan_linked` and `non-image/rt/image_linked` complete the legacy
+linked-object portion of Phase 3 milestone 6. Both are byte-stable native
+extended-profile slices. The Plan closes over the existing RT Structure Set
+and RT Dose, with one fraction group, one static photon beam, and two ordered
+control points. The Image shares the Plan Study and Frame of Reference,
+selects beam and fraction group 1, and carries an exact native 4 by 4
+monochrome gradient.
+
+Two promoted seed-7 extended generations each wrote 105 files and passed
+strict validation with zero failures. Their manifests are byte-identical with
+SHA-256
+`b061e5f654eb426bbab0da9cce0ac945aadcf3cf506182eb6bf33acd3d7a3659`.
+The byte-identical Plan and Image instance SHA-256 values are respectively
+`e9337a6c46fe85b56f1f563120dd3caf56ea1335355792db42386db959be6db2`
+and
+`460d525ab06aaf74df963029f3ab39c2536e4e1c5bf4b75fcf16b500382db20c`.
+The registry now contains 141 implemented and 40 planned logical cases.
+
+Locked `dciodvfy -new` and the separately implemented, `uv`-locked
+`dicom-validator` 0.8.2 route accept both IODs. The Image's DCMTK route proves
+the exact decoded and raw native OB SHA-256
+`a8faed6abbf35c12a4b26e40f6feb19d736d90045c83b9f9a31f638d323e6811`.
+All 20 Plan and all 20 Image qualification mutations remained parseable;
+their independent detection boundaries and strict-Rust owners are recorded in
+the linked source note. Strict validation additionally binds the Image's
+locked Plan digest to the generated Plan entry, so a syntactically valid stale
+digest fails graph closure.
+
+Integrated conformance run
+`d0d78ffccf44218a27944cf1b80dec63c8afa7162b0e085532feb51706a04714`
+has run JSON SHA-256
+`87846c587a4f721b90624008a3f7abfc9ae70a31d83e28449e82528b408b3ce7`
+and pixel sidecar SHA-256
+`071b32384d1648222424f77a0392e90ca11d6e51df0d5bd1fc0a241754bec1fc`.
+The linked RT routes add no finding and accept none. The two immutable upstream
+Study ID diagnostics remain visible and unallowlisted, while valid entity
+closure adds no missing or dangling reference finding.
+
+## Decision checkpoint
+
+The dependency-ordered Plan and Image work is complete. The next milestone-6
+action is the plan's explicit decision checkpoint: evaluate whether to select,
+lock, and implement a minimal current RT Radiation Set slice. No Radiation Set
+implementation starts without that decision.

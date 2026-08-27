@@ -71,6 +71,9 @@
         "codec_feature_gates": {
           "$ref": "#/$defs/count_map"
         },
+        "generation_backends": {
+          "$ref": "#/$defs/count_map"
+        },
         "determinism": {
           "$ref": "#/$defs/count_map"
         },
@@ -545,6 +548,9 @@
         "codec_backend_id",
         "codec_backend_kind",
         "codec_feature_gate",
+        "generation_backend_id",
+        "generation_backend_version",
+        "generation_backend_determinism",
         "reason_code",
         "photometric",
         "bits",
@@ -725,6 +731,18 @@
         },
         "codec_feature_gate": {
           "type": ["string", "null"]
+        },
+        "generation_backend_id": {
+          "type": ["string", "null"]
+        },
+        "generation_backend_version": {
+          "type": ["string", "null"]
+        },
+        "generation_backend_determinism": {
+          "anyOf": [
+            { "$ref": "#/$defs/determinism" },
+            { "type": "null" }
+          ]
         },
         "reason_code": {
           "type": ["string", "null"]

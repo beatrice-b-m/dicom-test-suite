@@ -54,6 +54,16 @@ fn report_command_writes_json_coverage_for_core_root() {
             .and_then(Value::as_str),
         Some("generated")
     );
+    let native_row = coverage_row(&report, "classic/ct/mono2_i16_rescale_12bit_explicit_le");
+    assert_eq!(native_row.get("generation_backend_id"), Some(&Value::Null));
+    assert_eq!(
+        native_row.get("generation_backend_version"),
+        Some(&Value::Null)
+    );
+    assert_eq!(
+        native_row.get("generation_backend_determinism"),
+        Some(&Value::Null)
+    );
     assert_eq!(
         coverage_row(&report, "vl/photo/rgb_planar0_explicit_le")
             .get("status")
@@ -4406,6 +4416,123 @@ fn report_counts_feature_gated_planned_cases_as_planned() {
         row.get("transfer_syntax").and_then(Value::as_str),
         Some("1.2.840.10008.1.2.1.99")
     );
+
+    fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
+}
+
+#[test]
+fn report_exposes_external_generation_backend_provenance() {
+    let out_dir = unique_temp_dir("report-generation-backend");
+    fs::create_dir_all(&out_dir).expect("temporary output root should be created");
+    let manifest = json!({
+        "generated_at": "19700101000000.000000+0000",
+        "standards": {
+            "standards_lock_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+        },
+        "run": {
+            "profile": "extended"
+        },
+        "files": [
+            {
+                "case_id": "derived/parametric-map/float32_ct_derived_explicit_le",
+                "profile_membership": ["extended"],
+                "relative_path": "derived/parametric-map/float32_ct_derived_explicit_le/instance.dcm",
+                "dicom": {
+                    "iod_name": "Parametric Map",
+                    "modality": "OT",
+                    "sop_class_uid": "1.2.840.10008.5.1.4.1.1.30",
+                    "sop_class_name": "Parametric Map Storage",
+                    "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+                    "transfer_syntax_name": "Explicit VR Little Endian"
+                },
+                "image": {
+                    "rows": 2,
+                    "columns": 2,
+                    "frames": 2,
+                    "samples_per_pixel": 1,
+                    "photometric_interpretation": "MONOCHROME2",
+                    "bits_allocated": 32,
+                    "sample_type": "float32"
+                },
+                "pixel_data": {
+                    "vr": "OF",
+                    "native_or_encapsulated": "native",
+                    "value_length": 32,
+                    "frame_count": 2,
+                    "frame_hashes": [
+                        "0000000000000000000000000000000000000000000000000000000000000000",
+                        "1111111111111111111111111111111111111111111111111111111111111111"
+                    ]
+                },
+                "generation_backend": {
+                    "backend_id": "highdicom_pydicom",
+                    "version": "0.27.0",
+                    "determinism": "semantic_stable"
+                },
+                "validation": {
+                    "status": "passed"
+                },
+                "determinism": "semantic_stable",
+                "expected_semantics": {
+                    "synthetic_data": "YES"
+                },
+                "known_stressors": ["float_pixel_data"]
+            }
+        ],
+        "skipped_cases": []
+    });
+    fs::write(
+        out_dir.join("manifest.json"),
+        serde_json::to_string_pretty(&manifest).expect("manifest should serialize"),
+    )
+    .expect("manifest should be writable");
+
+    let report = dicom_test_suite::build_coverage_report(&out_dir)
+        .expect("report should accept external generation backend provenance");
+    let row = coverage_row(
+        &report,
+        "derived/parametric-map/float32_ct_derived_explicit_le",
+    );
+    assert_eq!(
+        row.get("generation_backend_id").and_then(Value::as_str),
+        Some("highdicom_pydicom")
+    );
+    assert_eq!(
+        row.get("generation_backend_version")
+            .and_then(Value::as_str),
+        Some("0.27.0")
+    );
+    assert_eq!(
+        row.get("generation_backend_determinism")
+            .and_then(Value::as_str),
+        Some("semantic_stable")
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/generation_backends/highdicom_pydicom")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    let report_schema: Value = serde_json::from_slice(
+        &fs::read("schemas/coverage-report.schema.json")
+            .expect("coverage schema should be readable"),
+    )
+    .expect("coverage schema should be JSON");
+    let validator =
+        jsonschema::validator_for(&report_schema).expect("coverage schema should compile");
+    let errors = validator
+        .iter_errors(&report)
+        .map(|error| error.to_string())
+        .collect::<Vec<_>>();
+    assert!(
+        errors.is_empty(),
+        "provenance coverage report must match its schema: {errors:?}"
+    );
+
+    let markdown = dicom_test_suite::render_coverage_report_markdown(&report);
+    assert!(markdown.contains("### Generation Backends"));
+    assert!(markdown.contains("| highdicom_pydicom | 1 |"));
+    assert!(markdown.contains("| highdicom_pydicom | 0.27.0 | semantic_stable | passed |"));
 
     fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
 }

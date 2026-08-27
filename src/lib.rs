@@ -6261,6 +6261,12 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
     append_count_map_section(
         &mut output,
         report,
+        "Generation Backends",
+        "/grouped_coverage/generation_backends",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
         "Determinism",
         "/grouped_coverage/determinism",
     );
@@ -7066,12 +7072,12 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
     }
 
     output.push_str("## Coverage Matrix\n\n");
-    output.push_str("| Case ID | Status | Profile | IOD | Transfer Syntax | Photometric | Bits | Frames | Validation |\n");
-    output.push_str("|---|---|---|---|---|---|---:|---:|---|\n");
+    output.push_str("| Case ID | Status | Profile | IOD | Transfer Syntax | Photometric | Bits | Frames | Generation Backend | Backend Version | Backend Determinism | Validation |\n");
+    output.push_str("|---|---|---|---|---|---|---:|---:|---|---|---|---|\n");
     if let Some(rows) = report.get("coverage_matrix").and_then(Value::as_array) {
         for row in rows {
             output.push_str(&format!(
-                "| {} | {} | {} | {} | {} | {} | {} | {} | {} |\n",
+                "| {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} |\n",
                 markdown_cell(row.get("case_id").and_then(Value::as_str)),
                 markdown_cell(row.get("status").and_then(Value::as_str)),
                 markdown_cell(row.get("profile").and_then(Value::as_str)),
@@ -7080,6 +7086,15 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
                 markdown_cell(row.get("photometric").and_then(Value::as_str)),
                 markdown_number(row.get("bits")),
                 markdown_number(row.get("frames")),
+                markdown_cell(row.get("generation_backend_id").and_then(Value::as_str)),
+                markdown_cell(
+                    row.get("generation_backend_version")
+                        .and_then(Value::as_str)
+                ),
+                markdown_cell(
+                    row.get("generation_backend_determinism")
+                        .and_then(Value::as_str)
+                ),
                 markdown_cell(row.get("validation_status").and_then(Value::as_str))
             ));
         }
@@ -7122,6 +7137,7 @@ fn generated_coverage_row(
         "dicom transfer_syntax_name must be a string",
     )?;
     let codec = file.pointer("/pixel_data/codec");
+    let generation_backend = file.pointer("/generation_backend");
     let mut row = serde_json::json!({
         "case_id": report_str(manifest_path, file, "/case_id", "file case_id must be a string")?,
         "profile": run_profile,
@@ -7173,6 +7189,20 @@ fn generated_coverage_row(
     let row_object = row
         .as_object_mut()
         .expect("generated coverage row literal must be an object");
+    for (field, backend_field) in [
+        ("generation_backend_id", "backend_id"),
+        ("generation_backend_version", "version"),
+        ("generation_backend_determinism", "determinism"),
+    ] {
+        row_object.insert(
+            field.to_string(),
+            generation_backend
+                .and_then(|backend| backend.get(backend_field))
+                .and_then(Value::as_str)
+                .map(Value::from)
+                .unwrap_or(Value::Null),
+        );
+    }
     row_object.insert(
         "sop_class_name".to_string(),
         file.pointer("/dicom/sop_class_name")
@@ -8401,6 +8431,13 @@ fn skipped_coverage_row(
     let row_object = row
         .as_object_mut()
         .expect("skipped coverage row literal must be an object");
+    for field in [
+        "generation_backend_id",
+        "generation_backend_version",
+        "generation_backend_determinism",
+    ] {
+        row_object.insert(field.to_string(), Value::Null);
+    }
     row_object.insert("window_center".to_string(), Value::Null);
     row_object.insert("window_width".to_string(), Value::Null);
     row_object.insert(
@@ -8694,6 +8731,7 @@ struct GroupedCoverage {
     codec_backends: BTreeMap<String, usize>,
     codec_backend_kinds: BTreeMap<String, usize>,
     codec_feature_gates: BTreeMap<String, usize>,
+    generation_backends: BTreeMap<String, usize>,
     determinism: BTreeMap<String, usize>,
     validation_statuses: BTreeMap<String, usize>,
     unavailable_reasons: BTreeMap<String, usize>,
@@ -8873,6 +8911,10 @@ impl GroupedCoverage {
         increment_map(
             &mut self.codec_feature_gates,
             row.get("codec_feature_gate").and_then(Value::as_str),
+        );
+        increment_map(
+            &mut self.generation_backends,
+            row.get("generation_backend_id").and_then(Value::as_str),
         );
         increment_map(
             &mut self.determinism,
@@ -9541,6 +9583,11 @@ impl GroupedCoverage {
         let grouped_object = grouped
             .as_object_mut()
             .expect("grouped coverage literal must be an object");
+        grouped_object.insert(
+            "generation_backends".to_string(),
+            serde_json::to_value(&self.generation_backends)
+                .expect("generation backend count map must serialize"),
+        );
         grouped_object.insert(
             "window_centers".to_string(),
             serde_json::to_value(&self.window_centers)

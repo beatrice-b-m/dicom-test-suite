@@ -16744,6 +16744,7 @@ fn write_classic_us_multiframe_case(
         &series_instance_uid,
     );
     put_str(&mut obj, tags::SERIES_NUMBER, VR::IS, "1");
+    put_str(&mut obj, tags::BODY_PART_EXAMINED, VR::CS, "ABDOMEN");
     put_str(&mut obj, tags::MANUFACTURER, VR::LO, "dicom-test-suite");
     put_str(
         &mut obj,
@@ -16866,6 +16867,7 @@ fn write_classic_us_multiframe_case(
             us_image: None,
             us_multiframe: Some(UsMultiframeExpectations {
                 modality: "US",
+                body_part_examined: "ABDOMEN",
                 image_type: recipe.image_type,
                 lossy_image_compression: recipe.lossy_image_compression,
                 ultrasound_color_data_present: u16::from(recipe.color_data_present),
@@ -17025,6 +17027,7 @@ fn classic_us_multiframe_manifest_entry(
         "expected_semantics": {
             "synthetic_data": "YES",
             "image_type": recipe.image_type,
+            "body_part_examined": "ABDOMEN",
             "pixel_min": 0,
             "pixel_max": 255
         },
@@ -19527,6 +19530,8 @@ mod tests {
         for name in [
             "native_frame_hashes",
             "us_multiframe_number_of_frames",
+            "us_multiframe_body_part_examined",
+            "us_multiframe_laterality_absent",
             "us_multiframe_frame_increment_pointer",
             "us_multiframe_frame_time",
             "us_multiframe_frame_time_vector_absent",

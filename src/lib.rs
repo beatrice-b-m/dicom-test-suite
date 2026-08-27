@@ -4050,6 +4050,39 @@ fn validate_ultrasound_multiframe_standard_elements(
         &image_type_string,
     );
 
+    let body_part_examined = manifest_str(
+        manifest_path,
+        file,
+        "/expected_semantics/body_part_examined",
+        "US multi-frame expected_semantics body_part_examined must be a string",
+    )?;
+    validate_equal(
+        failures,
+        relative_path,
+        "us_multiframe_body_part_examined_manifest_contract",
+        body_part_examined,
+        "ABDOMEN",
+    );
+    match element_str_for_validate(obj, tags::BODY_PART_EXAMINED) {
+        Ok(actual) => validate_equal(
+            failures,
+            relative_path,
+            "us_multiframe_body_part_examined",
+            actual.as_str(),
+            body_part_examined,
+        ),
+        Err(err) => failures.push(format!(
+            "{relative_path}: us_multiframe_body_part_examined: {err}"
+        )),
+    }
+    validate_element_absent(
+        failures,
+        relative_path,
+        obj,
+        tags::LATERALITY,
+        "us_multiframe_laterality_absent",
+    );
+
     let frame_count = manifest_u64(
         manifest_path,
         expected,

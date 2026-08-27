@@ -484,6 +484,7 @@ pub(crate) struct UsImageExpectations<'a> {
 #[derive(Debug, Clone)]
 pub(crate) struct UsMultiframeExpectations<'a> {
     pub modality: &'a str,
+    pub body_part_examined: &'a str,
     pub image_type: &'a str,
     pub lossy_image_compression: &'a str,
     pub ultrasound_color_data_present: u16,
@@ -5995,6 +5996,11 @@ fn validate_us_multiframe(
     for (name, tag, expected_value) in [
         ("us_multiframe_modality", tags::MODALITY, expected.modality),
         (
+            "us_multiframe_body_part_examined",
+            tags::BODY_PART_EXAMINED,
+            expected.body_part_examined,
+        ),
+        (
             "us_multiframe_image_type",
             tags::IMAGE_TYPE,
             expected.image_type,
@@ -6054,6 +6060,7 @@ fn validate_us_multiframe(
             "us_multiframe_frame_of_reference_absent",
             tags::FRAME_OF_REFERENCE_UID,
         ),
+        ("us_multiframe_laterality_absent", tags::LATERALITY),
         (
             "us_multiframe_region_calibration_absent",
             tags::SEQUENCE_OF_ULTRASOUND_REGIONS,

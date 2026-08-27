@@ -126,12 +126,30 @@ Number is `1`.
   official source artifacts remain `unavailable_not_downloaded` as recorded
   in `standards.lock.json` and are not committed.
 
+## Independent Conformance Evidence
+
+Two seed-1 `core` generations each produced 47 files and were recursively
+byte-identical. Strict corpus validation checked all 47 files with zero
+failures. The XRF instance SHA-256 is
+`886e361ec277a5f5e5d34ff985aaaac13cee4d4d5733a6ea38b5fa1bdba966c2`;
+the independently extracted 16-byte Pixel Data SHA-256 is
+`0b9c742cc3fafec4c1d0240048d27210f2da155b3574458ae26035ffa488c00e`.
+
+Locked `dciodvfy -new` identifies only `XRFImage` and exits successfully;
+`dcentvfy` is silent and successful. DCMTK independently reports RF modality,
+the exact SOP Class, Image Type, acquisition values, receptor spacing,
+source distances, magnification, Column Angulation, OB VR, and ordered pixel
+bytes. The frozen offline pydicom 3.0.2 environment managed by locked `uv`
+independently reads the complete contract and declared absences and writes a
+byte-identical Part 10 file with the same SHA-256. Both independent validators
+also accept that rewrite without a finding.
+
 ## Project Action
 
-- Registry status: planned until generation, typed manifest and report
-  contracts, internal and manifest-driven validation, determinism, exact
-  independent native pixel extraction, and independent IOD gates pass.
-- Registry reason or linked issue: `recipe_unimplemented`.
+- Registry status: implemented after typed manifest and report contracts,
+  internal and manifest-driven validation, two-run determinism, exact
+  independent native pixel extraction, and independent IOD gates passed.
+- Registry reason or linked issue: none; `recipe_unimplemented` was removed.
 - Should become KB patch: yes; the missing context-specific value-term results
   are systematic parser coverage gaps.
 - Expected cleanup after KB coverage exists: replace local value-term

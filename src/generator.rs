@@ -37,6 +37,7 @@ use native::sequence_length_sc::{
 };
 use native::string_boundary_sc::{STRING_BOUNDARY_SC_RECIPE, StringBoundaryScRecipe};
 use native::timezone_sc::{TIMEZONE_SC_RECIPE, TimezoneBoundary, TimezoneScRecipe};
+use native::us_multiframe::{CLASSIC_US_MULTIFRAME_RECIPES, ClassicUsMultiframeRecipe};
 
 use crate::{
     DeterministicUidInput, GenerateError, PreparedGenerationRun, UidRole,
@@ -64,7 +65,7 @@ use crate::{
         NmImageExpectations, Part10Expectations, PetImageExpectations, PixelDataLengthFormula,
         PresentationStateExpectations, RealWorldValueMappingExpectations, RtDoseExpectations,
         RtStructureSetExpectations, SegmentationExpectations, UsImageExpectations,
-        validate_basic_text_sr_file, validate_comprehensive_sr_file,
+        UsMultiframeExpectations, validate_basic_text_sr_file, validate_comprehensive_sr_file,
         validate_encapsulated_pdf_file, validate_key_object_selection_file, validate_part10_file,
         validate_presentation_state_file, validate_real_world_value_mapping_file,
         validate_rt_dose_file, validate_rt_structure_set_file,
@@ -115,6 +116,7 @@ const ENHANCED_MR_RECIPE_VERSION: &str = "0.1.0";
 const CLASSIC_MG_RECIPE_VERSION: &str = "0.1.0";
 const CLASSIC_DX_RECIPE_VERSION: &str = "0.1.0";
 const CLASSIC_US_RECIPE_VERSION: &str = "0.1.0";
+const CLASSIC_US_MULTIFRAME_RECIPE_VERSION: &str = "0.1.0";
 const CLASSIC_NM_RECIPE_VERSION: &str = "0.1.0";
 const CLASSIC_PET_RECIPE_VERSION: &str = "0.1.0";
 const CLASSIC_CR_RECIPE_VERSION: &str = "0.1.0";
@@ -3969,6 +3971,20 @@ pub(crate) fn write_supported_cases(
             standards_lock_sha256,
         )?)?;
     }
+    for recipe in CLASSIC_US_MULTIFRAME_RECIPES {
+        let Some(case) = registry_case(registry, recipe.case_id)? else {
+            continue;
+        };
+        if !should_generate_case(case, run)? {
+            continue;
+        }
+        context.record_one(write_classic_us_multiframe_case(
+            run,
+            case,
+            *recipe,
+            standards_lock_sha256,
+        )?)?;
+    }
     for recipe in CLASSIC_US_RECIPES {
         let Some(case) = registry_case(registry, recipe.case_id)? else {
             continue;
@@ -5337,6 +5353,7 @@ fn write_pixel_case_with_metadata(
             mg_image: None,
             dx_image: None,
             us_image: None,
+            us_multiframe: None,
             nm_image: None,
             pet_image: None,
             cr_image: None,
@@ -7850,6 +7867,7 @@ fn write_classic_ct_case(
                     mg_image: None,
                     dx_image: None,
                     us_image: None,
+                    us_multiframe: None,
                     nm_image: None,
                     pet_image: None,
                     cr_image: None,
@@ -8677,6 +8695,7 @@ fn write_enhanced_ct_case(
             mg_image: None,
             dx_image: None,
             us_image: None,
+            us_multiframe: None,
             nm_image: None,
             pet_image: None,
             cr_image: None,
@@ -9023,6 +9042,7 @@ fn write_segmentation_case(
             mg_image: None,
             dx_image: None,
             us_image: None,
+            us_multiframe: None,
             nm_image: None,
             pet_image: None,
             cr_image: None,
@@ -10926,6 +10946,7 @@ fn write_enhanced_ct_concatenation_case(
                 mg_image: None,
                 dx_image: None,
                 us_image: None,
+                us_multiframe: None,
                 nm_image: None,
                 pet_image: None,
                 cr_image: None,
@@ -13513,6 +13534,7 @@ fn write_enhanced_mr_case(
             mg_image: None,
             dx_image: None,
             us_image: None,
+            us_multiframe: None,
             nm_image: None,
             pet_image: None,
             cr_image: None,
@@ -14488,6 +14510,7 @@ fn write_classic_mg_case(
             }),
             dx_image: None,
             us_image: None,
+            us_multiframe: None,
             nm_image: None,
             pet_image: None,
             cr_image: None,
@@ -15190,6 +15213,7 @@ fn write_classic_dx_case(
                 shutter_presentation_value: recipe.shutter_presentation_value,
             }),
             us_image: None,
+            us_multiframe: None,
             nm_image: None,
             pet_image: None,
             cr_image: None,
@@ -15812,6 +15836,7 @@ fn write_classic_nm_case(
             mg_image: None,
             dx_image: None,
             us_image: None,
+            us_multiframe: None,
             nm_image: Some(NmImageExpectations {
                 modality: "NM",
                 body_part_examined: "HEAD",
@@ -16392,6 +16417,7 @@ fn write_classic_pet_case(
             mg_image: None,
             dx_image: None,
             us_image: None,
+            us_multiframe: None,
             nm_image: None,
             pet_image: Some(PetImageExpectations {
                 modality: "PT",
@@ -16619,6 +16645,393 @@ fn classic_pet_manifest_entry(
         },
         "validation": validation,
         "known_stressors": ["positron_emission_tomography_image_storage", "pet_bqml_activity", "rescale_slope", "dose_calibration", "native_u16_pixels"],
+        "standards_evidence": deduplicated_standards_evidence(standards_evidence)
+    })
+}
+
+fn write_classic_us_multiframe_case(
+    run: &PreparedGenerationRun,
+    case: &Value,
+    recipe: ClassicUsMultiframeRecipe,
+    standards_lock_sha256: &str,
+) -> Result<GeneratedFile, GenerateError> {
+    if !recipe.dimensions_and_order_are_consistent()
+        || !recipe.relative_times_are_derived()
+        || !recipe.hash_lengths_are_consistent()
+    {
+        return Err(GenerateError::MetadataShape {
+            path: PathBuf::from(recipe.case_id),
+            message: "ultrasound multi-frame recipe dimensions, order, timing, or hashes are inconsistent",
+        });
+    }
+
+    let study_instance_uid = deterministic_classic_us_multiframe_uid(
+        standards_lock_sha256,
+        recipe,
+        run.seed,
+        UidRole::StudyInstance,
+    );
+    let series_instance_uid = deterministic_classic_us_multiframe_uid(
+        standards_lock_sha256,
+        recipe,
+        run.seed,
+        UidRole::SeriesInstance,
+    );
+    let sop_instance_uid = deterministic_classic_us_multiframe_uid(
+        standards_lock_sha256,
+        recipe,
+        run.seed,
+        UidRole::SopInstance,
+    );
+    let implementation_class_uid = deterministic_implementation_uid(standards_lock_sha256);
+    let relative_path = format!("{}/instance.dcm", recipe.case_id);
+    let path = run.out_dir.join(&relative_path);
+    let case_dir = path.parent().ok_or_else(|| GenerateError::MetadataShape {
+        path: PathBuf::from(&relative_path),
+        message: "generated DICOM path must have a parent directory",
+    })?;
+    fs::create_dir_all(case_dir).map_err(|source| GenerateError::CreateCaseOutputDir {
+        path: case_dir.to_path_buf(),
+        source,
+    })?;
+
+    let pixel_bytes = recipe
+        .frames
+        .iter()
+        .flat_map(|frame| frame.pixel_bytes.iter().copied())
+        .collect::<Vec<_>>();
+    if sha256_hex(&pixel_bytes) != recipe.payload_sha256 {
+        return Err(GenerateError::MetadataShape {
+            path: PathBuf::from(recipe.case_id),
+            message: "ultrasound multi-frame payload hash does not match the recipe",
+        });
+    }
+
+    let mut obj = InMemDicomObject::new_empty();
+    put_str(
+        &mut obj,
+        tags::SOP_CLASS_UID,
+        VR::UI,
+        uids::ULTRASOUND_MULTI_FRAME_IMAGE_STORAGE,
+    );
+    put_str(&mut obj, tags::SOP_INSTANCE_UID, VR::UI, &sop_instance_uid);
+    put_str(&mut obj, tags::SYNTHETIC_DATA, VR::CS, "YES");
+    put_str(
+        &mut obj,
+        tags::PATIENT_NAME,
+        VR::PN,
+        "DTS^Synthetic^Patient001",
+    );
+    put_str(&mut obj, tags::PATIENT_ID, VR::LO, "DTS-PATIENT-001");
+    put_str(&mut obj, tags::PATIENT_BIRTH_DATE, VR::DA, "19700101");
+    put_str(&mut obj, tags::PATIENT_SEX, VR::CS, "O");
+    put_str(
+        &mut obj,
+        tags::STUDY_INSTANCE_UID,
+        VR::UI,
+        &study_instance_uid,
+    );
+    put_str(&mut obj, tags::STUDY_DATE, VR::DA, "20260101");
+    put_str(&mut obj, tags::STUDY_TIME, VR::TM, "000000");
+    put_str(&mut obj, tags::REFERRING_PHYSICIAN_NAME, VR::PN, "");
+    put_str(&mut obj, tags::STUDY_ID, VR::SH, "DTS-US-MF");
+    put_str(&mut obj, tags::ACCESSION_NUMBER, VR::SH, "");
+    put_str(&mut obj, tags::MODALITY, VR::CS, "US");
+    put_str(
+        &mut obj,
+        tags::SERIES_INSTANCE_UID,
+        VR::UI,
+        &series_instance_uid,
+    );
+    put_str(&mut obj, tags::SERIES_NUMBER, VR::IS, "1");
+    put_str(&mut obj, tags::MANUFACTURER, VR::LO, "dicom-test-suite");
+    put_str(
+        &mut obj,
+        tags::MANUFACTURER_MODEL_NAME,
+        VR::LO,
+        recipe.recipe_id,
+    );
+    put_str(
+        &mut obj,
+        tags::SOFTWARE_VERSIONS,
+        VR::LO,
+        crate::PACKAGE_VERSION,
+    );
+    put_str(&mut obj, tags::ACQUISITION_NUMBER, VR::IS, "1");
+    put_str(&mut obj, tags::ACQUISITION_DATE, VR::DA, "20260101");
+    put_str(&mut obj, tags::ACQUISITION_TIME, VR::TM, "000000");
+    put_str(&mut obj, tags::IMAGE_TYPE, VR::CS, recipe.image_type);
+    put_str(&mut obj, tags::INSTANCE_NUMBER, VR::IS, "1");
+    put_str(&mut obj, tags::PATIENT_ORIENTATION, VR::CS, "");
+    put_str(&mut obj, tags::CONTENT_DATE, VR::DA, "20260101");
+    put_str(&mut obj, tags::CONTENT_TIME, VR::TM, "000000");
+    put_str(
+        &mut obj,
+        tags::NUMBER_OF_FRAMES,
+        VR::IS,
+        &recipe.frame_count().to_string(),
+    );
+    obj.put(DataElement::new(
+        tags::FRAME_INCREMENT_POINTER,
+        VR::AT,
+        PrimitiveValue::Tags(vec![tags::FRAME_TIME].into()),
+    ));
+    put_str(
+        &mut obj,
+        tags::FRAME_TIME,
+        VR::DS,
+        &recipe.frame_time_ms.to_string(),
+    );
+    put_u16(&mut obj, tags::SAMPLES_PER_PIXEL, VR::US, 1);
+    put_str(
+        &mut obj,
+        tags::PHOTOMETRIC_INTERPRETATION,
+        VR::CS,
+        "MONOCHROME2",
+    );
+    put_u16(&mut obj, tags::ROWS, VR::US, recipe.rows);
+    put_u16(&mut obj, tags::COLUMNS, VR::US, recipe.columns);
+    put_u16(&mut obj, tags::BITS_ALLOCATED, VR::US, 8);
+    put_u16(&mut obj, tags::BITS_STORED, VR::US, 8);
+    put_u16(&mut obj, tags::HIGH_BIT, VR::US, 7);
+    put_u16(&mut obj, tags::PIXEL_REPRESENTATION, VR::US, 0);
+    put_str(
+        &mut obj,
+        tags::LOSSY_IMAGE_COMPRESSION,
+        VR::CS,
+        recipe.lossy_image_compression,
+    );
+    put_u16(
+        &mut obj,
+        tags::ULTRASOUND_COLOR_DATA_PRESENT,
+        VR::US,
+        u16::from(recipe.color_data_present),
+    );
+    obj.put(DataElement::new(
+        tags::PIXEL_DATA,
+        VR::OB,
+        PrimitiveValue::from(pixel_bytes),
+    ));
+
+    obj.with_meta(
+        FileMetaTableBuilder::new()
+            .transfer_syntax(uids::EXPLICIT_VR_LITTLE_ENDIAN)
+            .implementation_class_uid(&implementation_class_uid)
+            .implementation_version_name(crate::IMPLEMENTATION_VERSION_NAME),
+    )
+    .map_err(|err| GenerateError::WriteDicomFile {
+        path: path.clone(),
+        message: err.to_string(),
+    })?
+    .write_to_file(&path)
+    .map_err(|err| GenerateError::WriteDicomFile {
+        path: path.clone(),
+        message: err.to_string(),
+    })?;
+
+    let frame_hashes = recipe
+        .frames
+        .iter()
+        .map(|frame| frame.frame_sha256)
+        .collect::<Vec<_>>();
+    let frame_time_ms = recipe.frame_time_ms.to_string();
+    let validated = validate_part10_file(
+        &path,
+        &Part10Expectations {
+            sop_class_uid: uids::ULTRASOUND_MULTI_FRAME_IMAGE_STORAGE,
+            sop_instance_uid: &sop_instance_uid,
+            transfer_syntax_uid: uids::EXPLICIT_VR_LITTLE_ENDIAN,
+            implementation_class_uid: &implementation_class_uid,
+            synthetic_data: "YES",
+            rows: recipe.rows,
+            columns: recipe.columns,
+            frames: recipe.frame_count() as u16,
+            samples_per_pixel: 1,
+            photometric_interpretation: "MONOCHROME2",
+            bits_allocated: 8,
+            bits_stored: 8,
+            high_bit: 7,
+            pixel_representation: 0,
+            planar_configuration: None,
+            pixel_data_vr: VR::OB,
+            pixel_data_length_formula: PixelDataLengthFormula::ContiguousSamples,
+            decoded_frame_hashes: &frame_hashes,
+            palette: None,
+            padding: None,
+            ct_image: None,
+            enhanced_ct_image: None,
+            enhanced_mr_image: None,
+            mg_image: None,
+            dx_image: None,
+            us_image: None,
+            us_multiframe: Some(UsMultiframeExpectations {
+                modality: "US",
+                image_type: recipe.image_type,
+                lossy_image_compression: recipe.lossy_image_compression,
+                ultrasound_color_data_present: u16::from(recipe.color_data_present),
+                number_of_frames: recipe.frame_count() as u16,
+                frame_increment_pointer: tags::FRAME_TIME,
+                frame_time_ms: &frame_time_ms,
+            }),
+            nm_image: None,
+            pet_image: None,
+            cr_image: None,
+            mr_image: None,
+            segmentation: None,
+        },
+    )?;
+
+    Ok(GeneratedFile {
+        case_id: recipe.case_id.to_string(),
+        manifest_entry: classic_us_multiframe_manifest_entry(
+            case,
+            recipe,
+            &relative_path,
+            &study_instance_uid,
+            &series_instance_uid,
+            &sop_instance_uid,
+            &implementation_class_uid,
+            &validated.bytes,
+            validated.validation,
+        ),
+    })
+}
+
+#[allow(clippy::too_many_arguments)]
+fn classic_us_multiframe_manifest_entry(
+    case: &Value,
+    recipe: ClassicUsMultiframeRecipe,
+    relative_path: &str,
+    study_instance_uid: &str,
+    series_instance_uid: &str,
+    sop_instance_uid: &str,
+    implementation_class_uid: &str,
+    bytes: &[u8],
+    validation: Value,
+) -> Value {
+    let mut standards_evidence = standards_evidence_from_case(case);
+    standards_evidence.extend([
+        serde_json::json!({
+            "source": "dicom-standard-kb", "edition": "2026b",
+            "query": "lookup_iod Ultrasound Multi-frame Image",
+            "covered": true, "part": "PS3.3", "anchor": "table_A.7-1"
+        }),
+        serde_json::json!({
+            "source": "dicom-standard-kb", "edition": "2026b",
+            "query": "list_attributes_for_module Multi-frame",
+            "covered": true, "part": "PS3.3", "anchor": "table_C.7-14"
+        }),
+        serde_json::json!({
+            "source": "dicom-standard-kb", "edition": "2026b",
+            "query": "list_attributes_for_module Cine",
+            "covered": true, "part": "PS3.3", "anchor": "table_C.7-13"
+        }),
+        serde_json::json!({
+            "source": "local-source-note", "edition": "2026b",
+            "query": "standards/source-notes/phase-2-us-multiframe.md",
+            "covered": true, "part": "PS3.3", "anchor": "table_C.8-18"
+        }),
+    ]);
+    let frames = recipe
+        .frames
+        .iter()
+        .map(|frame| {
+            serde_json::json!({
+                "frame_number": frame.frame_number,
+                "frame_sha256": frame.frame_sha256,
+                "pixel_values": frame.pixel_values,
+            })
+        })
+        .collect::<Vec<_>>();
+    let frame_hashes = recipe
+        .frames
+        .iter()
+        .map(|frame| frame.frame_sha256)
+        .collect::<Vec<_>>();
+    let us_multiframe = serde_json::json!({
+        "image_type": recipe.image_type.split('\\').collect::<Vec<_>>(),
+        "frame_increment_pointer": recipe.frame_increment_pointer,
+        "frame_time_ms": f64::from(recipe.frame_time_ms),
+        "frame_relative_times_ms": recipe.frame_relative_times_ms.iter().map(|value| f64::from(*value)).collect::<Vec<_>>(),
+        "frame_count": recipe.frame_count(),
+        "frames": frames,
+        "spatially_related_frames": recipe.spatially_related_frames,
+        "color_data_present": recipe.color_data_present,
+        "region_calibrated": recipe.region_calibrated,
+        "lossy_image_compression": recipe.lossy_image_compression
+    });
+
+    serde_json::json!({
+        "case_id": recipe.case_id,
+        "profile_membership": ["core"],
+        "path": relative_path,
+        "sha256": sha256_hex(bytes),
+        "size_bytes": bytes.len(),
+        "determinism": "byte_stable",
+        "recipe": {
+            "recipe_id": recipe.recipe_id,
+            "recipe_version": CLASSIC_US_MULTIFRAME_RECIPE_VERSION,
+            "recipe_parameters": {
+                "rows": recipe.rows,
+                "columns": recipe.columns,
+                "frames": recipe.frame_count(),
+                "samples_per_pixel": 1,
+                "photometric_interpretation": "MONOCHROME2",
+                "bits_allocated": 8,
+                "bits_stored": 8,
+                "high_bit": 7,
+                "pixel_representation": 0,
+                "frame_time_ms": recipe.frame_time_ms,
+                "payload_sha256": recipe.payload_sha256,
+                "us_multiframe": us_multiframe.clone()
+            }
+        },
+        "dicom": {
+            "sop_class_uid": uids::ULTRASOUND_MULTI_FRAME_IMAGE_STORAGE,
+            "sop_class_name": "Ultrasound Multi-frame Image Storage",
+            "iod_name": "Ultrasound Multi-frame Image",
+            "modality": "US",
+            "transfer_syntax_uid": uids::EXPLICIT_VR_LITTLE_ENDIAN,
+            "transfer_syntax_name": "Explicit VR Little Endian"
+        },
+        "uids": {
+            "study_instance_uid": study_instance_uid,
+            "series_instance_uid": series_instance_uid,
+            "sop_instance_uid": sop_instance_uid,
+            "frame_of_reference_uid": Value::Null,
+            "implementation_class_uid": implementation_class_uid
+        },
+        "image": {
+            "rows": recipe.rows,
+            "columns": recipe.columns,
+            "frames": recipe.frame_count(),
+            "samples_per_pixel": 1,
+            "photometric_interpretation": "MONOCHROME2",
+            "bits_allocated": 8,
+            "bits_stored": 8,
+            "high_bit": 7,
+            "pixel_representation": 0,
+            "planar_configuration": Value::Null
+        },
+        "pixel_data": {
+            "vr": "OB",
+            "native_or_encapsulated": "native",
+            "value_length": recipe.frame_count() * recipe.pixel_count_per_frame(),
+            "frame_count": recipe.frame_count(),
+            "frame_hashes": frame_hashes
+        },
+        "references": [],
+        "expected_capabilities": ["open_file", "read_metadata", "render_native_pixels", "navigate_multiframe", "interpret_frame_time"],
+        "expected_semantics": {
+            "synthetic_data": "YES",
+            "image_type": recipe.image_type,
+            "pixel_min": 0,
+            "pixel_max": 255
+        },
+        "expected_us_multiframe": us_multiframe,
+        "expected_visual_checks": { "pattern": "four_frame_moving_ultrasound_echo" },
+        "validation": validation,
+        "known_stressors": ["ultrasound_multiframe_image_storage", "classic_multiframe", "frame_time_increment_pointer", "native_u8_pixels"],
         "standards_evidence": deduplicated_standards_evidence(standards_evidence)
     })
 }
@@ -16859,6 +17272,7 @@ fn write_classic_us_case(
                 lossy_image_compression: recipe.lossy_image_compression,
                 ultrasound_color_data_present: recipe.ultrasound_color_data_present,
             }),
+            us_multiframe: None,
             nm_image: None,
             pet_image: None,
             cr_image: None,
@@ -17409,6 +17823,7 @@ fn write_classic_cr_case(
             mg_image: None,
             dx_image: None,
             us_image: None,
+            us_multiframe: None,
             nm_image: None,
             pet_image: None,
             cr_image: Some(CrImageExpectations {
@@ -18018,6 +18433,7 @@ fn write_classic_mr_case(
                 mg_image: None,
                 dx_image: None,
                 us_image: None,
+                us_multiframe: None,
                 nm_image: None,
                 pet_image: None,
                 cr_image: None,
@@ -18690,6 +19106,24 @@ fn deterministic_classic_us_uid(
     })
 }
 
+fn deterministic_classic_us_multiframe_uid(
+    standards_lock_sha256: &str,
+    recipe: ClassicUsMultiframeRecipe,
+    run_seed: u64,
+    role: UidRole,
+) -> String {
+    deterministic_uid(&DeterministicUidInput {
+        standards_lock_sha256,
+        case_id: recipe.case_id,
+        recipe_version: CLASSIC_US_MULTIFRAME_RECIPE_VERSION,
+        run_seed,
+        file_index: 0,
+        frame_index: None,
+        referenced_object_index: None,
+        role,
+    })
+}
+
 fn deterministic_classic_nm_uid(
     standards_lock_sha256: &str,
     recipe: ClassicNmRecipe,
@@ -19040,6 +19474,104 @@ fn case_matches_profile(profiles: &[String], requested: &str, include_stress: bo
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn classic_us_multiframe_writer_reopens_and_validates_timing_and_frames() {
+        let output = ParametricMapStagingGuard::new();
+        let run = PreparedGenerationRun {
+            profile: "core".to_string(),
+            out_dir: output.path().to_path_buf(),
+            manifest_path: output.path().join("manifest.json"),
+            seed: 1,
+            include_stress: false,
+        };
+        let case = serde_json::json!({
+            "case_id": "classic/us/multiframe_explicit_le",
+            "standards_evidence": []
+        });
+
+        let generated = write_classic_us_multiframe_case(
+            &run,
+            &case,
+            CLASSIC_US_MULTIFRAME_RECIPES[0],
+            "0000000000000000000000000000000000000000000000000000000000000000",
+        )
+        .expect("US multi-frame Part 10 fixture should write, reopen, and validate");
+
+        assert_eq!(generated.case_id, "classic/us/multiframe_explicit_le");
+        assert_eq!(
+            generated
+                .manifest_entry
+                .pointer("/expected_us_multiframe/frame_relative_times_ms"),
+            Some(&serde_json::json!([0.0, 100.0, 200.0, 300.0]))
+        );
+        assert_eq!(
+            generated.manifest_entry.pointer("/pixel_data/value_length"),
+            Some(&Value::from(64))
+        );
+        assert_eq!(
+            generated
+                .manifest_entry
+                .pointer("/validation/status")
+                .and_then(Value::as_str),
+            Some("passed")
+        );
+        let validation_names = generated
+            .manifest_entry
+            .pointer("/validation/internal")
+            .and_then(Value::as_array)
+            .expect("internal validation checks should be present")
+            .iter()
+            .filter_map(|check| check.get("name").and_then(Value::as_str))
+            .collect::<BTreeSet<_>>();
+        for name in [
+            "native_frame_hashes",
+            "us_multiframe_number_of_frames",
+            "us_multiframe_frame_increment_pointer",
+            "us_multiframe_frame_time",
+            "us_multiframe_frame_time_vector_absent",
+            "us_multiframe_frame_of_reference_absent",
+            "us_multiframe_region_calibration_absent",
+        ] {
+            assert!(
+                validation_names.contains(name),
+                "missing internal check {name}"
+            );
+        }
+        assert!(
+            generated
+                .manifest_entry
+                .pointer("/validation/standards")
+                .and_then(Value::as_array)
+                .expect("standards validation checks should be present")
+                .iter()
+                .any(|check| check.get("name").and_then(Value::as_str)
+                    == Some("ultrasound_multiframe_image_sop_class"))
+        );
+        let manifest_schema: Value =
+            serde_json::from_str(include_str!("../schemas/manifest.schema.json"))
+                .expect("manifest schema should parse");
+        let file_schema = serde_json::json!({
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$ref": "#/$defs/file",
+            "$defs": manifest_schema["$defs"].clone(),
+        });
+        let validator =
+            jsonschema::validator_for(&file_schema).expect("file manifest schema should compile");
+        assert!(
+            validator.is_valid(&generated.manifest_entry),
+            "US multi-frame manifest entry should satisfy the committed file schema: {:?}",
+            validator
+                .iter_errors(&generated.manifest_entry)
+                .collect::<Vec<_>>()
+        );
+        assert!(
+            output
+                .path()
+                .join("classic/us/multiframe_explicit_le/instance.dcm")
+                .is_file()
+        );
+    }
 
     #[test]
     fn classic_pet_writer_reopens_and_validates_quantitative_fixture() {

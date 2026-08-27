@@ -66,6 +66,7 @@ pub(crate) struct Part10Expectations<'a> {
     pub mg_image: Option<MgImageExpectations<'a>>,
     pub dx_image: Option<DxImageExpectations<'a>>,
     pub us_image: Option<UsImageExpectations<'a>>,
+    pub us_multiframe: Option<UsMultiframeExpectations<'a>>,
     pub nm_image: Option<NmImageExpectations<'a>>,
     pub pet_image: Option<PetImageExpectations<'a>>,
     pub cr_image: Option<CrImageExpectations<'a>>,
@@ -478,6 +479,17 @@ pub(crate) struct UsImageExpectations<'a> {
     pub image_type: &'a str,
     pub lossy_image_compression: &'a str,
     pub ultrasound_color_data_present: u16,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct UsMultiframeExpectations<'a> {
+    pub modality: &'a str,
+    pub image_type: &'a str,
+    pub lossy_image_compression: &'a str,
+    pub ultrasound_color_data_present: u16,
+    pub number_of_frames: u16,
+    pub frame_increment_pointer: Tag,
+    pub frame_time_ms: &'a str,
 }
 
 #[derive(Debug, Clone)]
@@ -971,6 +983,9 @@ pub(crate) fn validate_part10_file(
     }
     if let Some(us_image) = &expected.us_image {
         validate_us_image(path, &obj, &mut internal, us_image)?;
+    }
+    if let Some(us_multiframe) = &expected.us_multiframe {
+        validate_us_multiframe(path, &obj, &mut internal, us_multiframe)?;
     }
     if let Some(nm_image) = &expected.nm_image {
         validate_nm_image(path, &obj, &mut internal, nm_image)?;
@@ -5971,6 +5986,95 @@ fn validate_us_image(
     Ok(())
 }
 
+fn validate_us_multiframe(
+    path: &Path,
+    obj: &OpenedObject,
+    results: &mut Vec<Value>,
+    expected: &UsMultiframeExpectations<'_>,
+) -> Result<(), GenerateError> {
+    for (name, tag, expected_value) in [
+        ("us_multiframe_modality", tags::MODALITY, expected.modality),
+        (
+            "us_multiframe_image_type",
+            tags::IMAGE_TYPE,
+            expected.image_type,
+        ),
+        (
+            "us_multiframe_lossy_image_compression",
+            tags::LOSSY_IMAGE_COMPRESSION,
+            expected.lossy_image_compression,
+        ),
+        (
+            "us_multiframe_frame_time",
+            tags::FRAME_TIME,
+            expected.frame_time_ms,
+        ),
+    ] {
+        check_equal(
+            results,
+            name,
+            "Ultrasound multi-frame attribute matches the recipe.",
+            "Ultrasound multi-frame attribute does not match the recipe.",
+            element_str(path, obj, tag)?.as_str(),
+            expected_value,
+        );
+    }
+
+    check_equal(
+        results,
+        "us_multiframe_color_data_present",
+        "Ultrasound Color Data Present matches the monochrome recipe.",
+        "Ultrasound Color Data Present does not match the monochrome recipe.",
+        element_u16(path, obj, tags::ULTRASOUND_COLOR_DATA_PRESENT)?,
+        expected.ultrasound_color_data_present,
+    );
+    check_equal(
+        results,
+        "us_multiframe_number_of_frames",
+        "Number of Frames matches the recipe.",
+        "Number of Frames does not match the recipe.",
+        element_u16(path, obj, tags::NUMBER_OF_FRAMES)?,
+        expected.number_of_frames,
+    );
+    check_equal(
+        results,
+        "us_multiframe_frame_increment_pointer",
+        "Frame Increment Pointer names Frame Time exactly.",
+        "Frame Increment Pointer does not name Frame Time exactly.",
+        element_tags(path, obj, tags::FRAME_INCREMENT_POINTER)?,
+        vec![expected.frame_increment_pointer],
+    );
+
+    for (name, tag) in [
+        (
+            "us_multiframe_frame_time_vector_absent",
+            tags::FRAME_TIME_VECTOR,
+        ),
+        (
+            "us_multiframe_frame_of_reference_absent",
+            tags::FRAME_OF_REFERENCE_UID,
+        ),
+        (
+            "us_multiframe_region_calibration_absent",
+            tags::SEQUENCE_OF_ULTRASOUND_REGIONS,
+        ),
+    ] {
+        let present = obj
+            .element_opt(tag)
+            .map_err(|err| validation_error(path, err))?
+            .is_some();
+        check(
+            results,
+            !present,
+            name,
+            "Optional ultrasound claim is explicitly absent.",
+            "An optional ultrasound claim is unexpectedly present.",
+        );
+    }
+
+    Ok(())
+}
+
 fn validate_nm_image(
     path: &Path,
     obj: &OpenedObject,
@@ -6979,6 +7083,7 @@ fn standard_sop_class_validation_name(sop_class_uid: &str) -> &'static str {
             "digital_x_ray_for_presentation_sop_class"
         }
         uids::ULTRASOUND_IMAGE_STORAGE => "ultrasound_image_sop_class",
+        uids::ULTRASOUND_MULTI_FRAME_IMAGE_STORAGE => "ultrasound_multiframe_image_sop_class",
         uids::NUCLEAR_MEDICINE_IMAGE_STORAGE => "nuclear_medicine_image_sop_class",
         uids::DIGITAL_MAMMOGRAPHY_X_RAY_IMAGE_STORAGE_FOR_PRESENTATION => {
             "digital_mammography_for_presentation_sop_class"
@@ -7020,6 +7125,9 @@ fn standard_sop_class_validation_message(sop_class_uid: &str) -> &'static str {
         }
         uids::ULTRASOUND_IMAGE_STORAGE => {
             "SOP Class UID matches Ultrasound Image Storage in the 2026b reference."
+        }
+        uids::ULTRASOUND_MULTI_FRAME_IMAGE_STORAGE => {
+            "SOP Class UID matches Ultrasound Multi-frame Image Storage in the 2026b reference."
         }
         uids::NUCLEAR_MEDICINE_IMAGE_STORAGE => {
             "SOP Class UID matches Nuclear Medicine Image Storage in the 2026b reference."

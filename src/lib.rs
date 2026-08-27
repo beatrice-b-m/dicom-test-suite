@@ -14910,6 +14910,65 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
     ] {
         append_count_map_section(&mut output, report, title, pointer);
     }
+    for (title, pointer) in [
+        ("RT Image Types", "/grouped_coverage/rt_image_types"),
+        ("RT Image Labels", "/grouped_coverage/rt_image_labels"),
+        ("RT Image Planes", "/grouped_coverage/rt_image_planes"),
+        (
+            "RT Image Pixel Spacings (mm)",
+            "/grouped_coverage/rt_image_pixel_spacings_mm",
+        ),
+        (
+            "RT Image Positions (mm)",
+            "/grouped_coverage/rt_image_positions_mm",
+        ),
+        (
+            "RT Image Dimensions",
+            "/grouped_coverage/rt_image_dimensions",
+        ),
+        (
+            "RT Image Bit Contracts",
+            "/grouped_coverage/rt_image_bit_contracts",
+        ),
+        (
+            "RT Image Payload SHA-256 Values",
+            "/grouped_coverage/rt_image_payload_sha256_values",
+        ),
+        (
+            "RT Image Plan Reference Identities",
+            "/grouped_coverage/rt_image_plan_reference_identities",
+        ),
+        (
+            "RT Image Referenced Beam Numbers",
+            "/grouped_coverage/rt_image_referenced_beam_numbers",
+        ),
+        (
+            "RT Image Referenced Fraction Group Numbers",
+            "/grouped_coverage/rt_image_referenced_fraction_group_numbers",
+        ),
+        (
+            "RT Image Radiation Machine SAD Values (mm)",
+            "/grouped_coverage/rt_image_radiation_machine_sad_values_mm",
+        ),
+        (
+            "RT Image SID Values (mm)",
+            "/grouped_coverage/rt_image_sid_values_mm",
+        ),
+        (
+            "RT Image Reference Closure States",
+            "/grouped_coverage/rt_image_reference_closure_states",
+        ),
+        (
+            "RT Image Pixel Dispositions",
+            "/grouped_coverage/rt_image_pixel_dispositions",
+        ),
+        (
+            "RT Image External Validator Dispositions",
+            "/grouped_coverage/rt_image_external_validator_dispositions",
+        ),
+    ] {
+        append_count_map_section(&mut output, report, title, pointer);
+    }
     append_count_map_section(
         &mut output,
         report,
@@ -17083,6 +17142,44 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
         output.push('\n');
     }
 
+    let rt_image_rows = report
+        .get("coverage_matrix")
+        .and_then(Value::as_array)
+        .map(|rows| {
+            rows.iter()
+                .filter(|row| !row["rt_image_type"].is_null())
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    if !rt_image_rows.is_empty() {
+        output.push_str("## Linked RT Image Expectations\n\n");
+        output.push_str("| Case ID | Type | Label / plane | Spacing / position (mm) | Dimensions / bits | Payload SHA-256 | Plan identity | Beam / fraction group | SAD / SID (mm) | References closed | Pixel disposition | External-validator disposition |\n");
+        output.push_str("|---|---|---|---|---|---|---|---|---|---|---|---|\n");
+        for row in rt_image_rows {
+            output.push_str(&format!(
+                "| {} | {} | {} / {} | {} / {} | {} / {} | {} | {} | {} / {} | {} / {} | {} | {} | {} |\n",
+                markdown_cell(row.get("case_id").and_then(Value::as_str)),
+                markdown_cell(row.get("rt_image_type").and_then(Value::as_str)),
+                markdown_cell(row.get("rt_image_label").and_then(Value::as_str)),
+                markdown_cell(row.get("rt_image_plane").and_then(Value::as_str)),
+                markdown_cell(row.get("rt_image_pixel_spacing_mm").and_then(Value::as_str)),
+                markdown_cell(row.get("rt_image_position_mm").and_then(Value::as_str)),
+                markdown_cell(row.get("rt_image_dimensions").and_then(Value::as_str)),
+                markdown_cell(row.get("rt_image_bit_contract").and_then(Value::as_str)),
+                markdown_cell(row.get("rt_image_payload_sha256").and_then(Value::as_str)),
+                markdown_cell(row.get("rt_image_plan_reference_identity").and_then(Value::as_str)),
+                markdown_number(row.get("rt_image_referenced_beam_number")),
+                markdown_number(row.get("rt_image_referenced_fraction_group_number")),
+                markdown_number(row.get("rt_image_radiation_machine_sad_mm")),
+                markdown_number(row.get("rt_image_sid_mm")),
+                markdown_bool(row.get("rt_image_reference_closure")),
+                markdown_cell(row.get("rt_image_pixel_disposition").and_then(Value::as_str)),
+                markdown_cell(row.get("rt_image_external_validator_disposition").and_then(Value::as_str)),
+            ));
+        }
+        output.push('\n');
+    }
+
     let waveform_rows = report
         .get("coverage_matrix")
         .and_then(Value::as_array)
@@ -17207,6 +17304,7 @@ fn generated_coverage_row(
     let nonsquare_spacing = nonsquare_spacing_report_fields(manifest_path, file)?;
     let waveform = waveform_report_fields(manifest_path, file)?;
     let rt_plan = rt_plan_report_fields(manifest_path, file)?;
+    let rt_image = rt_image_report_fields(manifest_path, file)?;
     let is_spatial_registration =
         file.get("case_id").and_then(Value::as_str) == Some("derived/registration/spatial_ct_pair");
     let is_deformable_registration = file.get("case_id").and_then(Value::as_str)
@@ -17670,6 +17768,59 @@ fn generated_coverage_row(
         (
             "waveform_external_validator_disposition",
             waveform.external_validator_disposition.map(Value::from),
+        ),
+    ] {
+        row_object.insert(field.to_string(), value.unwrap_or(Value::Null));
+    }
+    for (field, value) in [
+        ("rt_image_type", rt_image.image_type.map(Value::from)),
+        ("rt_image_label", rt_image.label.map(Value::from)),
+        ("rt_image_plane", rt_image.plane.map(Value::from)),
+        (
+            "rt_image_pixel_spacing_mm",
+            rt_image.pixel_spacing_mm.map(Value::from),
+        ),
+        (
+            "rt_image_position_mm",
+            rt_image.position_mm.map(Value::from),
+        ),
+        ("rt_image_dimensions", rt_image.dimensions.map(Value::from)),
+        (
+            "rt_image_bit_contract",
+            rt_image.bit_contract.map(Value::from),
+        ),
+        (
+            "rt_image_payload_sha256",
+            rt_image.payload_sha256.map(Value::from),
+        ),
+        (
+            "rt_image_plan_reference_identity",
+            rt_image.plan_reference_identity.map(Value::from),
+        ),
+        (
+            "rt_image_referenced_beam_number",
+            rt_image.referenced_beam_number.map(Value::from),
+        ),
+        (
+            "rt_image_referenced_fraction_group_number",
+            rt_image.referenced_fraction_group_number.map(Value::from),
+        ),
+        (
+            "rt_image_radiation_machine_sad_mm",
+            rt_image.radiation_machine_sad_mm.map(Value::from),
+        ),
+        ("rt_image_sid_mm", rt_image.sid_mm.map(Value::from)),
+        (
+            "rt_image_reference_closure",
+            rt_image.reference_closure.map(Value::from),
+        ),
+        (
+            "rt_image_pixel_disposition",
+            rt_image.pixel_disposition.map(Value::from),
+        ),
+        (
+            "rt_image_external_validator_disposition",
+            rt_image.external_validator_disposition.map(Value::from),
         ),
     ] {
         row_object.insert(field.to_string(), value.unwrap_or(Value::Null));
@@ -20013,6 +20164,275 @@ fn waveform_report_fields(
 }
 
 #[derive(Debug, Default, PartialEq)]
+struct RtImageReportFields {
+    image_type: Option<String>,
+    label: Option<String>,
+    plane: Option<String>,
+    pixel_spacing_mm: Option<String>,
+    position_mm: Option<String>,
+    dimensions: Option<String>,
+    bit_contract: Option<String>,
+    payload_sha256: Option<String>,
+    plan_reference_identity: Option<String>,
+    referenced_beam_number: Option<u64>,
+    referenced_fraction_group_number: Option<u64>,
+    radiation_machine_sad_mm: Option<u64>,
+    sid_mm: Option<u64>,
+    reference_closure: Option<bool>,
+    pixel_disposition: Option<String>,
+    external_validator_disposition: Option<String>,
+}
+
+fn rt_image_report_fields(
+    manifest_path: &Path,
+    file: &Value,
+) -> Result<RtImageReportFields, ReportError> {
+    let is_rt_image =
+        file.get("case_id").and_then(Value::as_str) == Some("non-image/rt/image_linked");
+    let Some(expected) = file.get("expected_rt_image") else {
+        return if is_rt_image {
+            Err(ReportError::MetadataShape {
+                path: manifest_path.to_path_buf(),
+                message: "generated linked RT Image must define expected_rt_image",
+            })
+        } else {
+            Ok(RtImageReportFields::default())
+        };
+    };
+    if !is_rt_image {
+        return Err(ReportError::MetadataShape {
+            path: manifest_path.to_path_buf(),
+            message: "expected_rt_image is only valid for non-image/rt/image_linked",
+        });
+    }
+
+    let image_type = expected
+        .pointer("/image/image_type")
+        .and_then(Value::as_array)
+        .and_then(|values| {
+            values
+                .iter()
+                .map(Value::as_str)
+                .collect::<Option<Vec<_>>>()
+                .map(|values| values.join("\\"))
+        });
+    let pair = |pointer: &str| {
+        expected
+            .pointer(pointer)
+            .and_then(Value::as_array)
+            .and_then(|values| {
+                (values.len() == 2).then(|| {
+                    values
+                        .iter()
+                        .map(|value| {
+                            value
+                                .as_i64()
+                                .map(|value| value.to_string())
+                                .or_else(|| value.as_f64().map(|value| value.to_string()))
+                        })
+                        .collect::<Option<Vec<_>>>()
+                        .map(|values| values.join("\\"))
+                })?
+            })
+    };
+    let plan_reference = expected.get("plan_reference");
+    let plan_reference_identity = plan_reference.and_then(|reference| {
+        Some(format!(
+            "{}|{}|{}|study={}|series={}|class={}|instance={}|for={}",
+            reference.get("source_case_id")?.as_str()?,
+            reference.get("source_path")?.as_str()?,
+            reference.get("source_sha256")?.as_str()?,
+            reference.get("study_instance_uid")?.as_str()?,
+            reference.get("series_instance_uid")?.as_str()?,
+            reference.get("sop_class_uid")?.as_str()?,
+            reference.get("sop_instance_uid")?.as_str()?,
+            reference.get("frame_of_reference_uid")?.as_str()?,
+        ))
+    });
+    let manifest_reference = file
+        .get("references")
+        .and_then(Value::as_array)
+        .and_then(|items| (items.len() == 1).then(|| &items[0]));
+    let reference_closure = plan_reference
+        .zip(manifest_reference)
+        .map(|(locked, actual)| {
+            [
+                "relationship",
+                "source_case_id",
+                "source_path",
+                "series_instance_uid",
+                "sop_class_uid",
+                "sop_instance_uid",
+            ]
+            .iter()
+            .all(|field| locked.get(field) == actual.get(field))
+                && locked.get("study_instance_uid") == expected.get("study_instance_uid")
+                && locked.get("frame_of_reference_uid") == expected.get("frame_of_reference_uid")
+                && locked
+                    .get("source_sha256")
+                    .and_then(Value::as_str)
+                    .is_some_and(|hash| hash.len() == 64)
+        });
+    let storage = expected.get("storage");
+    let dimensions = storage.and_then(|storage| {
+        Some(format!(
+            "{}x{}x{}",
+            storage.get("rows")?.as_u64()?,
+            storage.get("columns")?.as_u64()?,
+            storage.get("frames")?.as_u64()?
+        ))
+    });
+    let bit_contract = storage.and_then(|storage| {
+        Some(format!(
+            "{}/{}/{}/u{}",
+            storage.get("bits_allocated")?.as_u64()?,
+            storage.get("bits_stored")?.as_u64()?,
+            storage.get("high_bit")?.as_u64()?,
+            storage.get("pixel_representation")?.as_u64()?
+        ))
+    });
+    let pixel_disposition = storage.and_then(|storage| {
+        Some(format!(
+            "{} {} / {} bytes / {} padding bytes",
+            storage.get("encoding")?.as_str()?,
+            storage.get("data_vr")?.as_str()?,
+            storage.get("payload_length_bytes")?.as_u64()?,
+            storage.get("value_field_padding_bytes")?.as_u64()?
+        ))
+    });
+    let fields = RtImageReportFields {
+        image_type,
+        label: expected
+            .pointer("/image/label")
+            .and_then(Value::as_str)
+            .map(str::to_string),
+        plane: expected
+            .pointer("/image/plane")
+            .and_then(Value::as_str)
+            .map(str::to_string),
+        pixel_spacing_mm: pair("/image/image_plane_pixel_spacing_mm"),
+        position_mm: pair("/image/position_mm"),
+        dimensions,
+        bit_contract,
+        payload_sha256: storage
+            .and_then(|storage| storage.get("payload_sha256"))
+            .and_then(Value::as_str)
+            .map(str::to_string),
+        plan_reference_identity,
+        referenced_beam_number: expected
+            .pointer("/linkage/referenced_beam_number")
+            .and_then(Value::as_u64),
+        referenced_fraction_group_number: expected
+            .pointer("/linkage/referenced_fraction_group_number")
+            .and_then(Value::as_u64),
+        radiation_machine_sad_mm: expected
+            .pointer("/image/radiation_machine_sad_mm")
+            .and_then(Value::as_u64),
+        sid_mm: expected
+            .pointer("/image/rt_image_sid_mm")
+            .and_then(Value::as_u64),
+        reference_closure,
+        pixel_disposition,
+        external_validator_disposition: Some(
+            "external conformance evidence not embedded; run conformance separately".to_string(),
+        ),
+    };
+    let exact_pixels = serde_json::json!([
+        0, 17, 34, 51, 68, 85, 102, 119, 136, 153, 170, 187, 204, 221, 238, 255
+    ]);
+    let absent = expected.get("absent_content").and_then(Value::as_object);
+    let complete = expected.get("iod_kind").and_then(Value::as_str) == Some("rt_image")
+        && expected.get("sop_class_uid").and_then(Value::as_str)
+            == Some("1.2.840.10008.5.1.4.1.1.481.1")
+        && expected.get("iod_name").and_then(Value::as_str) == Some("RT Image")
+        && expected.get("modality").and_then(Value::as_str) == Some("RTIMAGE")
+        && expected.get("transfer_syntax_uid").and_then(Value::as_str)
+            == Some("1.2.840.10008.1.2.1")
+        && fields.image_type.as_deref() == Some("DERIVED\\SECONDARY\\DRR")
+        && fields.label.as_deref() == Some("DTS_DRR")
+        && fields.plane.as_deref() == Some("NORMAL")
+        && expected
+            .pointer("/image/conversion_type")
+            .and_then(Value::as_str)
+            == Some("WSD")
+        && expected
+            .pointer("/image/xray_image_receptor_angle_degrees")
+            .and_then(Value::as_i64)
+            == Some(0)
+        && fields.pixel_spacing_mm.as_deref() == Some("1\\1")
+        && fields.position_mm.as_deref() == Some("-1.5\\1.5")
+        && expected
+            .pointer("/image/radiation_machine_name")
+            .and_then(Value::as_str)
+            == Some("DTS_LINAC")
+        && fields.radiation_machine_sad_mm == Some(1000)
+        && fields.sid_mm == Some(1500)
+        && expected
+            .pointer("/image/primary_dosimeter_unit")
+            .and_then(Value::as_str)
+            == Some("MU")
+        && fields.dimensions.as_deref() == Some("4x4x1")
+        && storage
+            .and_then(|value| value.get("samples_per_pixel"))
+            .and_then(Value::as_u64)
+            == Some(1)
+        && storage
+            .and_then(|value| value.get("photometric_interpretation"))
+            .and_then(Value::as_str)
+            == Some("MONOCHROME2")
+        && fields.bit_contract.as_deref() == Some("8/8/7/u0")
+        && fields.pixel_disposition.as_deref() == Some("native OB / 16 bytes / 0 padding bytes")
+        && storage
+            .and_then(|value| value.get("pixel_value_formula"))
+            .and_then(Value::as_str)
+            == Some("17 * (4 * r + c)")
+        && storage.and_then(|value| value.get("pixel_values")) == Some(&exact_pixels)
+        && storage
+            .and_then(|value| value.get("pixel_min"))
+            .and_then(Value::as_u64)
+            == Some(0)
+        && storage
+            .and_then(|value| value.get("pixel_max"))
+            .and_then(Value::as_u64)
+            == Some(255)
+        && fields.payload_sha256.as_deref()
+            == Some("a8faed6abbf35c12a4b26e40f6feb19d736d90045c83b9f9a31f638d323e6811")
+        && storage
+            .and_then(|value| value.get("decoded_pixels_sha256"))
+            .and_then(Value::as_str)
+            == fields.payload_sha256.as_deref()
+        && plan_reference
+            .and_then(|value| value.get("relationship"))
+            .and_then(Value::as_str)
+            == Some("referenced_rt_plan")
+        && plan_reference
+            .and_then(|value| value.get("source_case_id"))
+            .and_then(Value::as_str)
+            == Some("non-image/rt/plan_linked")
+        && plan_reference
+            .and_then(|value| value.get("source_path"))
+            .and_then(Value::as_str)
+            == Some("non-image/rt/plan_linked/instance.dcm")
+        && plan_reference
+            .and_then(|value| value.get("sop_class_uid"))
+            .and_then(Value::as_str)
+            == Some("1.2.840.10008.5.1.4.1.1.481.5")
+        && fields.referenced_beam_number == Some(1)
+        && fields.referenced_fraction_group_number == Some(1)
+        && fields.reference_closure == Some(true)
+        && absent.is_some_and(|values| {
+            values.len() == 19 && values.values().all(|v| v.as_bool() == Some(true))
+        });
+    if !complete {
+        return Err(ReportError::MetadataShape {
+            path: manifest_path.to_path_buf(),
+            message: "expected_rt_image must define the complete linked Image report contract",
+        });
+    }
+    Ok(fields)
+}
+
+#[derive(Debug, Default, PartialEq)]
 struct RtPlanReportFields {
     label: Option<String>,
     geometry: Option<String>,
@@ -22230,6 +22650,22 @@ fn skipped_coverage_row(
         "rt_plan_reference_closure",
         "rt_plan_pixel_data_absent",
         "rt_plan_external_validator_disposition",
+        "rt_image_type",
+        "rt_image_label",
+        "rt_image_plane",
+        "rt_image_pixel_spacing_mm",
+        "rt_image_position_mm",
+        "rt_image_dimensions",
+        "rt_image_bit_contract",
+        "rt_image_payload_sha256",
+        "rt_image_plan_reference_identity",
+        "rt_image_referenced_beam_number",
+        "rt_image_referenced_fraction_group_number",
+        "rt_image_radiation_machine_sad_mm",
+        "rt_image_sid_mm",
+        "rt_image_reference_closure",
+        "rt_image_pixel_disposition",
+        "rt_image_external_validator_disposition",
         "metadata_specific_character_sets",
         "metadata_person_name",
         "metadata_person_name_component_groups",
@@ -23124,6 +23560,22 @@ struct GroupedCoverage {
     rt_plan_reference_closure_states: BTreeMap<String, usize>,
     rt_plan_pixel_data_absent_states: BTreeMap<String, usize>,
     rt_plan_external_validator_dispositions: BTreeMap<String, usize>,
+    rt_image_types: BTreeMap<String, usize>,
+    rt_image_labels: BTreeMap<String, usize>,
+    rt_image_planes: BTreeMap<String, usize>,
+    rt_image_pixel_spacings_mm: BTreeMap<String, usize>,
+    rt_image_positions_mm: BTreeMap<String, usize>,
+    rt_image_dimensions: BTreeMap<String, usize>,
+    rt_image_bit_contracts: BTreeMap<String, usize>,
+    rt_image_payload_sha256_values: BTreeMap<String, usize>,
+    rt_image_plan_reference_identities: BTreeMap<String, usize>,
+    rt_image_referenced_beam_numbers: BTreeMap<String, usize>,
+    rt_image_referenced_fraction_group_numbers: BTreeMap<String, usize>,
+    rt_image_radiation_machine_sad_values_mm: BTreeMap<String, usize>,
+    rt_image_sid_values_mm: BTreeMap<String, usize>,
+    rt_image_reference_closure_states: BTreeMap<String, usize>,
+    rt_image_pixel_dispositions: BTreeMap<String, usize>,
+    rt_image_external_validator_dispositions: BTreeMap<String, usize>,
     rt_structure_set_labels: BTreeMap<String, usize>,
     rt_structure_set_roi_names: BTreeMap<String, usize>,
     rt_roi_generation_algorithms: BTreeMap<String, usize>,
@@ -24733,6 +25185,62 @@ impl GroupedCoverage {
                 *map.entry(value.to_string()).or_default() += 1;
             }
         }
+        for (map, field) in [
+            (&mut self.rt_image_types, "rt_image_type"),
+            (&mut self.rt_image_labels, "rt_image_label"),
+            (&mut self.rt_image_planes, "rt_image_plane"),
+            (
+                &mut self.rt_image_pixel_spacings_mm,
+                "rt_image_pixel_spacing_mm",
+            ),
+            (&mut self.rt_image_positions_mm, "rt_image_position_mm"),
+            (&mut self.rt_image_dimensions, "rt_image_dimensions"),
+            (&mut self.rt_image_bit_contracts, "rt_image_bit_contract"),
+            (
+                &mut self.rt_image_payload_sha256_values,
+                "rt_image_payload_sha256",
+            ),
+            (
+                &mut self.rt_image_plan_reference_identities,
+                "rt_image_plan_reference_identity",
+            ),
+            (
+                &mut self.rt_image_pixel_dispositions,
+                "rt_image_pixel_disposition",
+            ),
+            (
+                &mut self.rt_image_external_validator_dispositions,
+                "rt_image_external_validator_disposition",
+            ),
+        ] {
+            increment_map(map, row.get(field).and_then(Value::as_str));
+        }
+        for (map, field) in [
+            (
+                &mut self.rt_image_referenced_beam_numbers,
+                "rt_image_referenced_beam_number",
+            ),
+            (
+                &mut self.rt_image_referenced_fraction_group_numbers,
+                "rt_image_referenced_fraction_group_number",
+            ),
+            (
+                &mut self.rt_image_radiation_machine_sad_values_mm,
+                "rt_image_radiation_machine_sad_mm",
+            ),
+            (&mut self.rt_image_sid_values_mm, "rt_image_sid_mm"),
+        ] {
+            increment_scalar_map(map, row.get(field));
+        }
+        if let Some(value) = row
+            .get("rt_image_reference_closure")
+            .and_then(Value::as_bool)
+        {
+            *self
+                .rt_image_reference_closure_states
+                .entry(value.to_string())
+                .or_default() += 1;
+        }
         increment_map(
             &mut self.rt_structure_set_labels,
             row.get("rt_structure_set_label").and_then(Value::as_str),
@@ -26214,6 +26722,56 @@ impl GroupedCoverage {
             grouped_object.insert(
                 field.to_string(),
                 serde_json::to_value(map).expect("RT Plan coverage count map must serialize"),
+            );
+        }
+        for (field, map) in [
+            ("rt_image_types", &self.rt_image_types),
+            ("rt_image_labels", &self.rt_image_labels),
+            ("rt_image_planes", &self.rt_image_planes),
+            (
+                "rt_image_pixel_spacings_mm",
+                &self.rt_image_pixel_spacings_mm,
+            ),
+            ("rt_image_positions_mm", &self.rt_image_positions_mm),
+            ("rt_image_dimensions", &self.rt_image_dimensions),
+            ("rt_image_bit_contracts", &self.rt_image_bit_contracts),
+            (
+                "rt_image_payload_sha256_values",
+                &self.rt_image_payload_sha256_values,
+            ),
+            (
+                "rt_image_plan_reference_identities",
+                &self.rt_image_plan_reference_identities,
+            ),
+            (
+                "rt_image_referenced_beam_numbers",
+                &self.rt_image_referenced_beam_numbers,
+            ),
+            (
+                "rt_image_referenced_fraction_group_numbers",
+                &self.rt_image_referenced_fraction_group_numbers,
+            ),
+            (
+                "rt_image_radiation_machine_sad_values_mm",
+                &self.rt_image_radiation_machine_sad_values_mm,
+            ),
+            ("rt_image_sid_values_mm", &self.rt_image_sid_values_mm),
+            (
+                "rt_image_reference_closure_states",
+                &self.rt_image_reference_closure_states,
+            ),
+            (
+                "rt_image_pixel_dispositions",
+                &self.rt_image_pixel_dispositions,
+            ),
+            (
+                "rt_image_external_validator_dispositions",
+                &self.rt_image_external_validator_dispositions,
+            ),
+        ] {
+            grouped_object.insert(
+                field.to_string(),
+                serde_json::to_value(map).expect("RT Image coverage count map must serialize"),
             );
         }
         grouped_object.insert(

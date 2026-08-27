@@ -700,6 +700,22 @@
         "rt_plan_reference_closure_states": { "$ref": "#/$defs/count_map" },
         "rt_plan_pixel_data_absent_states": { "$ref": "#/$defs/count_map" },
         "rt_plan_external_validator_dispositions": { "$ref": "#/$defs/count_map" },
+        "rt_image_types": { "$ref": "#/$defs/count_map" },
+        "rt_image_labels": { "$ref": "#/$defs/count_map" },
+        "rt_image_planes": { "$ref": "#/$defs/count_map" },
+        "rt_image_pixel_spacings_mm": { "$ref": "#/$defs/count_map" },
+        "rt_image_positions_mm": { "$ref": "#/$defs/count_map" },
+        "rt_image_dimensions": { "$ref": "#/$defs/count_map" },
+        "rt_image_bit_contracts": { "$ref": "#/$defs/count_map" },
+        "rt_image_payload_sha256_values": { "$ref": "#/$defs/count_map" },
+        "rt_image_plan_reference_identities": { "$ref": "#/$defs/count_map" },
+        "rt_image_referenced_beam_numbers": { "$ref": "#/$defs/count_map" },
+        "rt_image_referenced_fraction_group_numbers": { "$ref": "#/$defs/count_map" },
+        "rt_image_radiation_machine_sad_values_mm": { "$ref": "#/$defs/count_map" },
+        "rt_image_sid_values_mm": { "$ref": "#/$defs/count_map" },
+        "rt_image_reference_closure_states": { "$ref": "#/$defs/count_map" },
+        "rt_image_pixel_dispositions": { "$ref": "#/$defs/count_map" },
+        "rt_image_external_validator_dispositions": { "$ref": "#/$defs/count_map" },
         "rt_structure_set_labels": {
           "$ref": "#/$defs/count_map"
         },
@@ -1315,6 +1331,22 @@
         "rt_plan_reference_closure",
         "rt_plan_pixel_data_absent",
         "rt_plan_external_validator_disposition",
+        "rt_image_type",
+        "rt_image_label",
+        "rt_image_plane",
+        "rt_image_pixel_spacing_mm",
+        "rt_image_position_mm",
+        "rt_image_dimensions",
+        "rt_image_bit_contract",
+        "rt_image_payload_sha256",
+        "rt_image_plan_reference_identity",
+        "rt_image_referenced_beam_number",
+        "rt_image_referenced_fraction_group_number",
+        "rt_image_radiation_machine_sad_mm",
+        "rt_image_sid_mm",
+        "rt_image_reference_closure",
+        "rt_image_pixel_disposition",
+        "rt_image_external_validator_disposition",
         "rt_structure_set_label",
         "rt_structure_set_roi_name",
         "rt_roi_generation_algorithm",
@@ -2415,6 +2447,22 @@
         "rt_plan_reference_closure": { "type": ["boolean", "null"] },
         "rt_plan_pixel_data_absent": { "type": ["boolean", "null"] },
         "rt_plan_external_validator_disposition": { "type": ["string", "null"] },
+        "rt_image_type": { "type": ["string", "null"] },
+        "rt_image_label": { "type": ["string", "null"] },
+        "rt_image_plane": { "type": ["string", "null"] },
+        "rt_image_pixel_spacing_mm": { "type": ["string", "null"] },
+        "rt_image_position_mm": { "type": ["string", "null"] },
+        "rt_image_dimensions": { "type": ["string", "null"] },
+        "rt_image_bit_contract": { "type": ["string", "null"] },
+        "rt_image_payload_sha256": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$" },
+        "rt_image_plan_reference_identity": { "type": ["string", "null"] },
+        "rt_image_referenced_beam_number": { "type": ["integer", "null"], "minimum": 1 },
+        "rt_image_referenced_fraction_group_number": { "type": ["integer", "null"], "minimum": 1 },
+        "rt_image_radiation_machine_sad_mm": { "type": ["integer", "null"], "minimum": 1 },
+        "rt_image_sid_mm": { "type": ["integer", "null"], "minimum": 1 },
+        "rt_image_reference_closure": { "type": ["boolean", "null"] },
+        "rt_image_pixel_disposition": { "type": ["string", "null"] },
+        "rt_image_external_validator_disposition": { "type": ["string", "null"] },
         "rt_structure_set_label": {
           "type": ["string", "null"]
         },
@@ -2998,6 +3046,58 @@
               "rt_plan_reference_closure": { "type": "null" },
               "rt_plan_pixel_data_absent": { "type": "null" },
               "rt_plan_external_validator_disposition": { "type": "null" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "case_id": { "const": "non-image/rt/image_linked" },
+              "status": { "const": "generated" }
+            },
+            "required": ["case_id", "status"]
+          },
+          "then": {
+            "properties": {
+              "rt_image_type": { "const": "DERIVED\\SECONDARY\\DRR" },
+              "rt_image_label": { "const": "DTS_DRR" },
+              "rt_image_plane": { "const": "NORMAL" },
+              "rt_image_pixel_spacing_mm": { "const": "1\\1" },
+              "rt_image_position_mm": { "const": "-1.5\\1.5" },
+              "rt_image_dimensions": { "const": "4x4x1" },
+              "rt_image_bit_contract": { "const": "8/8/7/u0" },
+              "rt_image_payload_sha256": { "const": "a8faed6abbf35c12a4b26e40f6feb19d736d90045c83b9f9a31f638d323e6811" },
+              "rt_image_plan_reference_identity": {
+                "type": "string",
+                "pattern": "^non-image/rt/plan_linked\\|non-image/rt/plan_linked/instance\\.dcm\\|[0-9a-f]{64}\\|study=[0-9.]+\\|series=[0-9.]+\\|class=1\\.2\\.840\\.10008\\.5\\.1\\.4\\.1\\.1\\.481\\.5\\|instance=[0-9.]+\\|for=[0-9.]+$"
+              },
+              "rt_image_referenced_beam_number": { "const": 1 },
+              "rt_image_referenced_fraction_group_number": { "const": 1 },
+              "rt_image_radiation_machine_sad_mm": { "const": 1000 },
+              "rt_image_sid_mm": { "const": 1500 },
+              "rt_image_reference_closure": { "const": true },
+              "rt_image_pixel_disposition": { "const": "native OB / 16 bytes / 0 padding bytes" },
+              "rt_image_external_validator_disposition": { "const": "external conformance evidence not embedded; run conformance separately" }
+            }
+          },
+          "else": {
+            "properties": {
+              "rt_image_type": { "type": "null" },
+              "rt_image_label": { "type": "null" },
+              "rt_image_plane": { "type": "null" },
+              "rt_image_pixel_spacing_mm": { "type": "null" },
+              "rt_image_position_mm": { "type": "null" },
+              "rt_image_dimensions": { "type": "null" },
+              "rt_image_bit_contract": { "type": "null" },
+              "rt_image_payload_sha256": { "type": "null" },
+              "rt_image_plan_reference_identity": { "type": "null" },
+              "rt_image_referenced_beam_number": { "type": "null" },
+              "rt_image_referenced_fraction_group_number": { "type": "null" },
+              "rt_image_radiation_machine_sad_mm": { "type": "null" },
+              "rt_image_sid_mm": { "type": "null" },
+              "rt_image_reference_closure": { "type": "null" },
+              "rt_image_pixel_disposition": { "type": "null" },
+              "rt_image_external_validator_disposition": { "type": "null" }
             }
           }
         },

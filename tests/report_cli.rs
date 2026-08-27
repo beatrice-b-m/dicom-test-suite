@@ -6994,6 +6994,295 @@ fn report_keeps_planned_rt_plan_coverage_null() {
     fs::remove_dir_all(out_dir).expect("remove planned Plan root");
 }
 
+#[test]
+fn report_locks_linked_rt_image_contract_and_markdown() {
+    let out_dir = unique_temp_dir("report-linked-rt-image");
+    fs::create_dir_all(&out_dir).expect("create RT Image report root");
+    fs::write(
+        out_dir.join("manifest.json"),
+        serde_json::to_vec_pretty(&linked_rt_image_report_manifest()).expect("serialize fixture"),
+    )
+    .expect("write RT Image manifest");
+
+    let report = dicom_test_suite::build_coverage_report(&out_dir).expect("RT Image report");
+    let schema: Value = serde_json::from_slice(
+        &fs::read("schemas/coverage-report.schema.json").expect("coverage schema"),
+    )
+    .expect("coverage schema JSON");
+    let validator = jsonschema::validator_for(&schema).expect("coverage schema should compile");
+    let errors = validator
+        .iter_errors(&report)
+        .map(|error| error.to_string())
+        .collect::<Vec<_>>();
+    assert!(errors.is_empty(), "RT Image schema errors: {errors:?}");
+
+    let row = coverage_row(&report, "non-image/rt/image_linked");
+    for (field, expected) in [
+        ("rt_image_type", "DERIVED\\SECONDARY\\DRR"),
+        ("rt_image_label", "DTS_DRR"),
+        ("rt_image_plane", "NORMAL"),
+        ("rt_image_pixel_spacing_mm", "1\\1"),
+        ("rt_image_position_mm", "-1.5\\1.5"),
+        ("rt_image_dimensions", "4x4x1"),
+        ("rt_image_bit_contract", "8/8/7/u0"),
+        (
+            "rt_image_payload_sha256",
+            "a8faed6abbf35c12a4b26e40f6feb19d736d90045c83b9f9a31f638d323e6811",
+        ),
+        (
+            "rt_image_pixel_disposition",
+            "native OB / 16 bytes / 0 padding bytes",
+        ),
+        (
+            "rt_image_external_validator_disposition",
+            "external conformance evidence not embedded; run conformance separately",
+        ),
+    ] {
+        assert_eq!(row[field], expected, "{field}");
+    }
+    assert_eq!(row["rt_image_referenced_beam_number"], 1);
+    assert_eq!(row["rt_image_referenced_fraction_group_number"], 1);
+    assert_eq!(row["rt_image_radiation_machine_sad_mm"], 1000);
+    assert_eq!(row["rt_image_sid_mm"], 1500);
+    assert_eq!(row["rt_image_reference_closure"], true);
+    let plan_identity = row["rt_image_plan_reference_identity"]
+        .as_str()
+        .expect("Plan identity");
+    assert!(
+        plan_identity
+            .starts_with("non-image/rt/plan_linked|non-image/rt/plan_linked/instance.dcm|cccccccc")
+    );
+    assert!(plan_identity.contains("class=1.2.840.10008.5.1.4.1.1.481.5"));
+
+    for pointer in [
+        "/grouped_coverage/rt_image_types/DERIVED\\SECONDARY\\DRR",
+        "/grouped_coverage/rt_image_labels/DTS_DRR",
+        "/grouped_coverage/rt_image_planes/NORMAL",
+        "/grouped_coverage/rt_image_pixel_spacings_mm/1\\1",
+        "/grouped_coverage/rt_image_positions_mm/-1.5\\1.5",
+        "/grouped_coverage/rt_image_dimensions/4x4x1",
+        "/grouped_coverage/rt_image_bit_contracts/8~18~17~1u0",
+        "/grouped_coverage/rt_image_referenced_beam_numbers/1",
+        "/grouped_coverage/rt_image_referenced_fraction_group_numbers/1",
+        "/grouped_coverage/rt_image_radiation_machine_sad_values_mm/1000",
+        "/grouped_coverage/rt_image_sid_values_mm/1500",
+        "/grouped_coverage/rt_image_reference_closure_states/true",
+    ] {
+        assert_eq!(report.pointer(pointer), Some(&Value::from(1)), "{pointer}");
+    }
+
+    let mut partial = report.clone();
+    coverage_row_mut(&mut partial, "non-image/rt/image_linked")["rt_image_payload_sha256"] =
+        Value::Null;
+    assert!(
+        !validator.is_valid(&partial),
+        "partial Image coverage must fail"
+    );
+    let mut tampered = report.clone();
+    coverage_row_mut(&mut tampered, "non-image/rt/image_linked")["rt_image_sid_mm"] =
+        Value::from(1499);
+    assert!(
+        !validator.is_valid(&tampered),
+        "tampered Image coverage must fail"
+    );
+    let mut leaked = report.clone();
+    coverage_row_mut(&mut leaked, "non-image/rt/image_linked")["case_id"] =
+        Value::from("non-image/rt/plan_linked");
+    assert!(!validator.is_valid(&leaked), "Image coverage must not leak");
+
+    let markdown = dicom_test_suite::render_coverage_report_markdown(&report);
+    for expected in [
+        "## Linked RT Image Expectations",
+        "DERIVED\\SECONDARY\\DRR",
+        "DTS_DRR / NORMAL",
+        "1\\1 / -1.5\\1.5",
+        "4x4x1 / 8/8/7/u0",
+        "non-image/rt/plan_linked",
+        "1000 / 1500",
+        "native OB / 16 bytes / 0 padding bytes",
+        "### RT Image Reference Closure States",
+    ] {
+        assert!(
+            markdown.contains(expected),
+            "Markdown must contain {expected}"
+        );
+    }
+    fs::remove_dir_all(out_dir).expect("remove RT Image report root");
+}
+
+#[test]
+fn report_keeps_planned_rt_image_coverage_null() {
+    let out_dir = unique_temp_dir("report-planned-rt-image");
+    fs::create_dir_all(&out_dir).expect("create planned RT Image root");
+    fs::write(
+        out_dir.join("manifest.json"),
+        serde_json::to_vec_pretty(&json!({
+            "generated_at": "20260101000000.000000+0000",
+            "standards": { "standards_lock_sha256": "0".repeat(64) },
+            "run": { "profile": "extended" },
+            "files": [],
+            "skipped_cases": [{
+                "case_id": "non-image/rt/image_linked",
+                "status": "unavailable",
+                "reason_code": "case_planned",
+                "message": "recipe_unimplemented"
+            }]
+        }))
+        .expect("serialize planned fixture"),
+    )
+    .expect("write planned fixture");
+    let report = dicom_test_suite::build_coverage_report(&out_dir).expect("planned Image report");
+    let row = coverage_row(&report, "non-image/rt/image_linked");
+    assert_eq!(row["status"], "planned");
+    for field in RT_IMAGE_REPORT_FIELDS {
+        assert!(row[*field].is_null(), "planned row leaked {field}");
+    }
+    let schema: Value = serde_json::from_slice(
+        &fs::read("schemas/coverage-report.schema.json").expect("coverage schema"),
+    )
+    .expect("coverage schema JSON");
+    let validator = jsonschema::validator_for(&schema).expect("coverage schema should compile");
+    assert!(
+        validator.is_valid(&report),
+        "planned Image report must validate"
+    );
+    let mut leaked = report.clone();
+    coverage_row_mut(&mut leaked, "non-image/rt/image_linked")["rt_image_label"] =
+        Value::from("DTS_DRR");
+    assert!(
+        !validator.is_valid(&leaked),
+        "planned Image coverage must reject leaked generated fields"
+    );
+    fs::remove_dir_all(out_dir).expect("remove planned Image root");
+}
+
+const RT_IMAGE_REPORT_FIELDS: &[&str] = &[
+    "rt_image_type",
+    "rt_image_label",
+    "rt_image_plane",
+    "rt_image_pixel_spacing_mm",
+    "rt_image_position_mm",
+    "rt_image_dimensions",
+    "rt_image_bit_contract",
+    "rt_image_payload_sha256",
+    "rt_image_plan_reference_identity",
+    "rt_image_referenced_beam_number",
+    "rt_image_referenced_fraction_group_number",
+    "rt_image_radiation_machine_sad_mm",
+    "rt_image_sid_mm",
+    "rt_image_reference_closure",
+    "rt_image_pixel_disposition",
+    "rt_image_external_validator_disposition",
+];
+
+fn linked_rt_image_report_manifest() -> Value {
+    let study_uid = "2.25.420000000000000000000000000000000000001";
+    let frame_uid = "2.25.420000000000000000000000000000000000002";
+    let image_series_uid = "2.25.420000000000000000000000000000000000003";
+    let image_sop_uid = "2.25.420000000000000000000000000000000000004";
+    let plan_series_uid = "2.25.420000000000000000000000000000000000005";
+    let plan_sop_uid = "2.25.420000000000000000000000000000000000006";
+    let plan_reference = json!({
+        "relationship": "referenced_rt_plan",
+        "source_case_id": "non-image/rt/plan_linked",
+        "source_path": "non-image/rt/plan_linked/instance.dcm",
+        "source_sha256": "c".repeat(64),
+        "study_instance_uid": study_uid,
+        "series_instance_uid": plan_series_uid,
+        "sop_class_uid": "1.2.840.10008.5.1.4.1.1.481.5",
+        "sop_instance_uid": plan_sop_uid,
+        "frame_of_reference_uid": frame_uid
+    });
+    json!({
+        "generated_at": "20260101000000.000000+0000",
+        "standards": { "standards_lock_sha256": "0".repeat(64) },
+        "run": { "profile": "extended" },
+        "files": [{
+            "case_id": "non-image/rt/image_linked",
+            "profile_membership": ["extended"],
+            "determinism": "byte_stable",
+            "dicom": {
+                "sop_class_uid": "1.2.840.10008.5.1.4.1.1.481.1",
+                "sop_class_name": "RT Image Storage",
+                "iod_name": "RT Image",
+                "modality": "RTIMAGE",
+                "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+                "transfer_syntax_name": "Explicit VR Little Endian"
+            },
+            "image": {
+                "rows": 4, "columns": 4, "frames": 1, "samples_per_pixel": 1,
+                "photometric_interpretation": "MONOCHROME2", "bits_allocated": 8,
+                "bits_stored": 8, "high_bit": 7, "pixel_representation": 0,
+                "planar_configuration": null
+            },
+            "pixel_data": {
+                "vr": "OB", "native_or_encapsulated": "native", "value_length": 16,
+                "frame_count": 1,
+                "frame_hashes": ["a8faed6abbf35c12a4b26e40f6feb19d736d90045c83b9f9a31f638d323e6811"]
+            },
+            "references": [{
+                "relationship": plan_reference["relationship"],
+                "source_case_id": plan_reference["source_case_id"],
+                "source_path": plan_reference["source_path"],
+                "series_instance_uid": plan_reference["series_instance_uid"],
+                "sop_class_uid": plan_reference["sop_class_uid"],
+                "sop_instance_uid": plan_reference["sop_instance_uid"]
+            }],
+            "expected_semantics": { "synthetic_data": "YES" },
+            "expected_rt_image": {
+                "iod_kind": "rt_image",
+                "sop_class_uid": "1.2.840.10008.5.1.4.1.1.481.1",
+                "iod_name": "RT Image",
+                "modality": "RTIMAGE",
+                "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+                "sop_instance_uid": image_sop_uid,
+                "study_instance_uid": study_uid,
+                "series_instance_uid": image_series_uid,
+                "frame_of_reference_uid": frame_uid,
+                "plan_reference": plan_reference,
+                "linkage": {
+                    "referenced_fraction_group_number": 1,
+                    "referenced_beam_number": 1
+                },
+                "image": {
+                    "image_type": ["DERIVED", "SECONDARY", "DRR"],
+                    "conversion_type": "WSD", "label": "DTS_DRR", "plane": "NORMAL",
+                    "xray_image_receptor_angle_degrees": 0,
+                    "image_plane_pixel_spacing_mm": [1, 1], "position_mm": [-1.5, 1.5],
+                    "radiation_machine_name": "DTS_LINAC", "radiation_machine_sad_mm": 1000,
+                    "rt_image_sid_mm": 1500, "primary_dosimeter_unit": "MU"
+                },
+                "storage": {
+                    "rows": 4, "columns": 4, "frames": 1, "samples_per_pixel": 1,
+                    "photometric_interpretation": "MONOCHROME2", "bits_allocated": 8,
+                    "bits_stored": 8, "high_bit": 7, "pixel_representation": 0,
+                    "data_vr": "OB", "encoding": "native", "payload_length_bytes": 16,
+                    "value_field_padding_bytes": 0, "pixel_value_formula": "17 * (4 * r + c)",
+                    "pixel_values": [0, 17, 34, 51, 68, 85, 102, 119, 136, 153, 170, 187, 204, 221, 238, 255],
+                    "pixel_min": 0, "pixel_max": 255,
+                    "payload_sha256": "a8faed6abbf35c12a4b26e40f6feb19d736d90045c83b9f9a31f638d323e6811",
+                    "decoded_pixels_sha256": "a8faed6abbf35c12a4b26e40f6feb19d736d90045c83b9f9a31f638d323e6811"
+                },
+                "absent_content": {
+                    "patient_study_module": true, "contrast_bolus_module": true,
+                    "cine_module": true, "multi_frame_module": true,
+                    "modality_lut_module": true, "voi_lut_module": true,
+                    "approval_module": true, "clinical_trial_module": true,
+                    "frame_extraction_module": true, "common_instance_reference_module": true,
+                    "reported_values_origin": true, "rt_image_orientation": true,
+                    "isocenter_position": true, "patient_position": true,
+                    "fluence_map_sequence": true, "exposure_sequence": true,
+                    "overlays": true, "encapsulated_pixel_data": true,
+                    "lossy_pixel_attributes": true
+                }
+            },
+            "validation": { "status": "passed" },
+            "known_stressors": []
+        }],
+        "skipped_cases": []
+    })
+}
+
 const RT_PLAN_REPORT_FIELDS: &[&str] = &[
     "rt_plan_label",
     "rt_plan_geometry",

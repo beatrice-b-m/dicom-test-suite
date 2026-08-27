@@ -47,8 +47,9 @@ Pointer, Cine timing, Positioner Motion, angle increments, and biplane
 references are absent. It makes no claim about contrast administration,
 subtraction or masks, table motion, calibration phantoms, Modality or VOI LUTs,
 display processing, overlays, shutters, referenced images, or patient-space
-geometry. Body Part Examined and Laterality are both absent rather than
-inventing anatomy.
+geometry. Body Part Examined is `HEART`, a narrow clinical region consistent
+with angiographic projection. The heart is not paired, so Laterality is absent
+rather than inventing right, left, bilateral, or median anatomy.
 
 Patient Orientation is present with CS VR and zero Value Length. The XA IOD
 uses equipment positioner angles rather than patient Image Orientation and
@@ -107,6 +108,9 @@ is `1`.
 - PS3.3 Table C.7-9 requires zero-length Patient Orientation when an IOD uses
   other orientation Attributes and does not require patient Image Orientation
   and Image Position. The fixture preserves that empty Type 2C distinction.
+- PS3.3 Table C.7-5a defines Body Part Examined as Type 3 and Laterality as
+  Type 2C for paired anatomy when no lower-level laterality is present. `HEART`
+  leaves the paired-body-part condition false, so Laterality is absent.
 - Source artifact identity is the locked DICOM 2026b KB source manifest above.
 
 ## Project Action

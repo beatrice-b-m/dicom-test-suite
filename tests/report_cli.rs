@@ -6522,6 +6522,25 @@ fn report_command_exposes_twelve_lead_waveform_contract_and_preserves_planned_ro
         assert_eq!(row[field], expected, "{field}");
     }
     assert_eq!(row["waveform_iod_kind"], "twelve_lead_ecg");
+    assert_eq!(row["waveform_group_shapes"], "RESTING_12_LEAD:12x500@500Hz");
+    assert_eq!(
+        row["waveform_group_channel_labels"],
+        "RESTING_12_LEAD[I, II, III, aVR, aVL, aVF, V1, V2, V3, V4, V5, V6]"
+    );
+    assert_eq!(row["waveform_group_payload_lengths_bytes"], "12000");
+    assert_eq!(
+        row["waveform_group_payload_sha256_values"],
+        "98b7a9b1be25d9d64ffa75bc6e16ea80f60deed1891aeed8dfb440c1c19e6713"
+    );
+    assert_eq!(row["waveform_total_channel_count"], 12);
+    assert_eq!(row["waveform_total_payload_length_bytes"], 12_000);
+    assert_eq!(
+        row["waveform_aggregate_payload_sha256"],
+        "98b7a9b1be25d9d64ffa75bc6e16ea80f60deed1891aeed8dfb440c1c19e6713"
+    );
+    assert_eq!(row["waveform_total_channel_hash_count"], 12);
+    assert_eq!(row["waveform_all_groups_simultaneous_sampling"], true);
+    assert_eq!(row["waveform_common_duration_seconds"], 1);
     assert_eq!(
         row["waveform_channel_labels"],
         "I; II; III; aVR; aVL; aVF; V1; V2; V3; V4; V5; V6"
@@ -6546,6 +6565,13 @@ fn report_command_exposes_twelve_lead_waveform_contract_and_preserves_planned_ro
     );
     for pointer in [
         "/grouped_coverage/waveform_iod_kinds/twelve_lead_ecg",
+        "/grouped_coverage/waveform_group_shape_orders/RESTING_12_LEAD:12x500@500Hz",
+        "/grouped_coverage/waveform_total_channel_counts/12",
+        "/grouped_coverage/waveform_total_payload_lengths_bytes/12000",
+        "/grouped_coverage/waveform_aggregate_payload_sha256_values/98b7a9b1be25d9d64ffa75bc6e16ea80f60deed1891aeed8dfb440c1c19e6713",
+        "/grouped_coverage/waveform_total_channel_hash_counts/12",
+        "/grouped_coverage/waveform_all_groups_simultaneous_sampling_states/true",
+        "/grouped_coverage/waveform_common_durations_seconds/1",
         "/grouped_coverage/waveform_channel_counts/12",
         "/grouped_coverage/waveform_sampling_frequencies_hz/500",
         "/grouped_coverage/waveform_payload_length_bytes/12000",
@@ -6560,6 +6586,24 @@ fn report_command_exposes_twelve_lead_waveform_contract_and_preserves_planned_ro
     assert_eq!(planned["status"], "planned");
     assert!(planned["waveform_iod_kind"].is_null());
     assert!(planned["waveform_payload_sha256"].is_null());
+    for field in [
+        "waveform_group_shapes",
+        "waveform_group_channel_labels",
+        "waveform_group_channel_source_codes",
+        "waveform_group_payload_lengths_bytes",
+        "waveform_group_payload_sha256_values",
+        "waveform_total_channel_count",
+        "waveform_total_payload_length_bytes",
+        "waveform_aggregate_payload_sha256",
+        "waveform_total_channel_hash_count",
+        "waveform_all_groups_simultaneous_sampling",
+        "waveform_common_duration_seconds",
+    ] {
+        assert!(
+            planned[field].is_null(),
+            "planned General must not leak {field}"
+        );
+    }
 
     let mut incomplete = report.clone();
     coverage_row_mut(&mut incomplete, "non-image/waveform/twelve_lead_ecg")["waveform_channel_hash_count"] =
@@ -6579,6 +6623,8 @@ fn report_command_exposes_twelve_lead_waveform_contract_and_preserves_planned_ro
     let markdown = dicom_test_suite::render_coverage_report_markdown(&report);
     for expected in [
         "## Waveform Expectations",
+        "RESTING_12_LEAD:12x500@500Hz",
+        "RESTING_12_LEAD[I, II, III, aVR, aVL, aVF, V1, V2, V3, V4, V5, V6]",
         "I; II; III; aVR; aVL; aVF; V1; V2; V3; V4; V5; V6",
         "98b7a9b1be25d9d64ffa75bc6e16ea80f60deed1891aeed8dfb440c1c19e6713",
         "### Waveform IOD Kinds",
@@ -6654,23 +6700,33 @@ fn waveform_report_manifest() -> Value {
             "expected_semantics": { "synthetic_data": "YES" },
             "expected_waveform": {
                 "iod_kind": "twelve_lead_ecg",
-                "multiplex_group": {
-                    "group_count": 1,
+                "multiplex_groups": [{
+                    "ordinal": 1,
+                    "originality": "ORIGINAL",
+                    "label": "RESTING_12_LEAD",
                     "channel_count": 12,
                     "samples_per_channel": 500,
                     "sampling_frequency_hz": 500,
                     "duration_seconds": 1,
-                    "simultaneous_sampling": true
-                },
-                "channels": channels,
-                "storage": {
-                    "bits_allocated": 16,
-                    "sample_interpretation": "SS",
-                    "data_vr": "OW",
-                    "interleave_order": "channel_then_sample",
-                    "payload_length_bytes": 12000,
-                    "payload_sha256": "98b7a9b1be25d9d64ffa75bc6e16ea80f60deed1891aeed8dfb440c1c19e6713",
-                    "channel_sha256": vec!["unused"; 12]
+                    "simultaneous_sampling": true,
+                    "channels": channels,
+                    "storage": {
+                        "bits_allocated": 16,
+                        "sample_interpretation": "SS",
+                        "data_vr": "OW",
+                        "interleave_order": "channel_then_sample",
+                        "payload_length_bytes": 12000,
+                        "payload_sha256": "98b7a9b1be25d9d64ffa75bc6e16ea80f60deed1891aeed8dfb440c1c19e6713",
+                        "channel_sha256": vec!["unused"; 12]
+                    }
+                }],
+                "aggregate": {
+                    "group_count": 1,
+                    "total_channel_count": 12,
+                    "common_duration_seconds": 1,
+                    "total_payload_length_bytes": 12000,
+                    "group_payload_sha256": ["98b7a9b1be25d9d64ffa75bc6e16ea80f60deed1891aeed8dfb440c1c19e6713"],
+                    "aggregate_payload_sha256": "98b7a9b1be25d9d64ffa75bc6e16ea80f60deed1891aeed8dfb440c1c19e6713"
                 },
                 "absent_content": { "pixel_data": true }
             },

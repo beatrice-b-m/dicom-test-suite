@@ -14795,6 +14795,50 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
             "/grouped_coverage/waveform_group_counts",
         ),
         (
+            "Waveform Ordered Group Shapes",
+            "/grouped_coverage/waveform_group_shape_orders",
+        ),
+        (
+            "Waveform Group Channel Label Summaries",
+            "/grouped_coverage/waveform_group_channel_label_summaries",
+        ),
+        (
+            "Waveform Group Channel Source Code Summaries",
+            "/grouped_coverage/waveform_group_channel_source_code_summaries",
+        ),
+        (
+            "Waveform Ordered Group Payload Lengths",
+            "/grouped_coverage/waveform_group_payload_length_orders",
+        ),
+        (
+            "Waveform Ordered Group Payload SHA-256 Values",
+            "/grouped_coverage/waveform_group_payload_sha256_orders",
+        ),
+        (
+            "Waveform Total Channel Counts",
+            "/grouped_coverage/waveform_total_channel_counts",
+        ),
+        (
+            "Waveform Total Payload Lengths (bytes)",
+            "/grouped_coverage/waveform_total_payload_lengths_bytes",
+        ),
+        (
+            "Waveform Aggregate Payload SHA-256 Values",
+            "/grouped_coverage/waveform_aggregate_payload_sha256_values",
+        ),
+        (
+            "Waveform Total Channel Hash Counts",
+            "/grouped_coverage/waveform_total_channel_hash_counts",
+        ),
+        (
+            "Waveform All-Groups Simultaneous Sampling States",
+            "/grouped_coverage/waveform_all_groups_simultaneous_sampling_states",
+        ),
+        (
+            "Waveform Common Durations (seconds)",
+            "/grouped_coverage/waveform_common_durations_seconds",
+        ),
+        (
             "Waveform Channel Counts",
             "/grouped_coverage/waveform_channel_counts",
         ),
@@ -16944,29 +16988,29 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
         .unwrap_or_default();
     if !waveform_rows.is_empty() {
         output.push_str("## Waveform Expectations\n\n");
-        output.push_str("| Case ID | IOD kind | Groups / channels / samples | Rate (Hz) / duration (s) | Labels | Source codes | Bits allocated / stored | Interpretation / VR | Payload bytes / SHA-256 | Interleave / channel hashes | Simultaneous | Pixel data absent | External-validator disposition |\n");
-        output.push_str("|---|---|---|---|---|---|---|---|---|---|---|---|---|\n");
+        output.push_str("| Case ID | IOD kind | Group count / ordered shapes | Group channel boundaries | Group source-code boundaries | Ordered group payload bytes / hashes | Total channels / bytes | Aggregate SHA-256 | Channel hashes / all simultaneous / common duration (s) | Bits / interpretation / VR / interleave | Pixel data absent | External-validator disposition |\n");
+        output.push_str("|---|---|---|---|---|---|---|---|---|---|---|---|\n");
         for row in waveform_rows {
             output.push_str(&format!(
-                "| {} | {} | {} / {} / {} | {} / {} | {} | {} | {} / {} | {} / {} | {} / {} | {} / {} | {} | {} | {} |\n",
+                "| {} | {} | {} / {} | {} | {} | {} / {} | {} / {} | {} | {} / {} / {} | {} / {} / {} / {} | {} | {} |\n",
                 markdown_cell(row.get("case_id").and_then(Value::as_str)),
                 markdown_cell(row.get("waveform_iod_kind").and_then(Value::as_str)),
                 markdown_number(row.get("waveform_group_count")),
-                markdown_number(row.get("waveform_channel_count")),
-                markdown_number(row.get("waveform_samples_per_channel")),
-                markdown_number(row.get("waveform_sampling_frequency_hz")),
-                markdown_number(row.get("waveform_duration_seconds")),
-                markdown_cell(row.get("waveform_channel_labels").and_then(Value::as_str)),
-                markdown_cell(row.get("waveform_channel_source_codes").and_then(Value::as_str)),
+                markdown_cell(row.get("waveform_group_shapes").and_then(Value::as_str)),
+                markdown_cell(row.get("waveform_group_channel_labels").and_then(Value::as_str)),
+                markdown_cell(row.get("waveform_group_channel_source_codes").and_then(Value::as_str)),
+                markdown_cell(row.get("waveform_group_payload_lengths_bytes").and_then(Value::as_str)),
+                markdown_cell(row.get("waveform_group_payload_sha256_values").and_then(Value::as_str)),
+                markdown_number(row.get("waveform_total_channel_count")),
+                markdown_number(row.get("waveform_total_payload_length_bytes")),
+                markdown_cell(row.get("waveform_aggregate_payload_sha256").and_then(Value::as_str)),
+                markdown_number(row.get("waveform_total_channel_hash_count")),
+                markdown_bool(row.get("waveform_all_groups_simultaneous_sampling")),
+                markdown_number(row.get("waveform_common_duration_seconds")),
                 markdown_number(row.get("waveform_bits_allocated")),
-                markdown_number(row.get("waveform_bits_stored")),
                 markdown_cell(row.get("waveform_sample_interpretation").and_then(Value::as_str)),
                 markdown_cell(row.get("waveform_storage_vr").and_then(Value::as_str)),
-                markdown_number(row.get("waveform_payload_length_bytes")),
-                markdown_cell(row.get("waveform_payload_sha256").and_then(Value::as_str)),
                 markdown_cell(row.get("waveform_interleave_order").and_then(Value::as_str)),
-                markdown_number(row.get("waveform_channel_hash_count")),
-                markdown_bool(row.get("waveform_simultaneous_sampling")),
                 markdown_bool(row.get("waveform_pixel_data_absent")),
                 markdown_cell(
                     row.get("waveform_external_validator_disposition")
@@ -17410,6 +17454,50 @@ fn generated_coverage_row(
         (
             "waveform_group_count",
             waveform.group_count.map(Value::from),
+        ),
+        (
+            "waveform_group_shapes",
+            waveform.group_shapes.map(Value::from),
+        ),
+        (
+            "waveform_group_channel_labels",
+            waveform.group_channel_labels.map(Value::from),
+        ),
+        (
+            "waveform_group_channel_source_codes",
+            waveform.group_channel_source_codes.map(Value::from),
+        ),
+        (
+            "waveform_group_payload_lengths_bytes",
+            waveform.group_payload_lengths_bytes.map(Value::from),
+        ),
+        (
+            "waveform_group_payload_sha256_values",
+            waveform.group_payload_sha256_values.map(Value::from),
+        ),
+        (
+            "waveform_total_channel_count",
+            waveform.total_channel_count.map(Value::from),
+        ),
+        (
+            "waveform_total_payload_length_bytes",
+            waveform.total_payload_length_bytes.map(Value::from),
+        ),
+        (
+            "waveform_aggregate_payload_sha256",
+            waveform.aggregate_payload_sha256.map(Value::from),
+        ),
+        (
+            "waveform_total_channel_hash_count",
+            waveform.total_channel_hash_count.map(Value::from),
+        ),
+        (
+            "waveform_all_groups_simultaneous_sampling",
+            waveform.all_groups_simultaneous_sampling.map(Value::from),
+        ),
+        (
+            "waveform_common_duration_seconds",
+            waveform.common_duration_seconds.map(Value::from),
         ),
         (
             "waveform_channel_count",
@@ -19445,9 +19533,42 @@ struct NmMultiframeReportFields {
 }
 
 #[derive(Debug, Default, PartialEq)]
+struct WaveformGroupReportSummary {
+    shape: String,
+    channel_labels: String,
+    channel_source_codes: String,
+    payload_length_bytes: u64,
+    payload_sha256: String,
+    channel_hash_count: u64,
+    simultaneous_sampling: bool,
+    duration_seconds: u64,
+    bits_stored: u64,
+    bits_allocated: u64,
+    sample_interpretation: String,
+    storage_vr: String,
+    interleave_order: String,
+    channel_count: u64,
+    samples_per_channel: u64,
+    sampling_frequency_hz: u64,
+    legacy_channel_labels: String,
+    legacy_channel_source_codes: String,
+}
+
+#[derive(Debug, Default, PartialEq)]
 struct WaveformReportFields {
     iod_kind: Option<String>,
     group_count: Option<u64>,
+    group_shapes: Option<String>,
+    group_channel_labels: Option<String>,
+    group_channel_source_codes: Option<String>,
+    group_payload_lengths_bytes: Option<String>,
+    group_payload_sha256_values: Option<String>,
+    total_channel_count: Option<u64>,
+    total_payload_length_bytes: Option<u64>,
+    aggregate_payload_sha256: Option<String>,
+    total_channel_hash_count: Option<u64>,
+    all_groups_simultaneous_sampling: Option<bool>,
+    common_duration_seconds: Option<u64>,
     channel_count: Option<u64>,
     samples_per_channel: Option<u64>,
     sampling_frequency_hz: Option<u64>,
@@ -19485,95 +19606,171 @@ fn waveform_report_fields(
             Ok(WaveformReportFields::default())
         };
     };
-    let group = expected.get("multiplex_group");
-    let storage = expected.get("storage");
-    let channels = expected.get("channels").and_then(Value::as_array);
+    let groups = expected.get("multiplex_groups").and_then(Value::as_array);
+    let aggregate = expected.get("aggregate");
     let absent = expected.get("absent_content");
-    let channel_labels = channels.map(|items| {
+    let group_summaries = groups.and_then(|items| {
         items
             .iter()
-            .filter_map(|channel| channel.get("label").and_then(Value::as_str))
-            .collect::<Vec<_>>()
-            .join("; ")
-    });
-    let channel_source_codes = channels.map(|items| {
-        items
-            .iter()
-            .filter_map(|channel| {
-                let source = channel.get("source")?;
-                Some(format!(
-                    "{}|{}|{}",
-                    source.get("code_value")?.as_str()?,
-                    source.get("coding_scheme_designator")?.as_str()?,
-                    source.get("code_meaning")?.as_str()?
-                ))
+            .map(|group| {
+                let label = group.get("label")?.as_str()?;
+                let channel_count = group.get("channel_count")?.as_u64()?;
+                let samples = group.get("samples_per_channel")?.as_u64()?;
+                let rate = group.get("sampling_frequency_hz")?.as_u64()?;
+                let channels = group.get("channels")?.as_array()?;
+                let storage = group.get("storage")?;
+                let labels = channels
+                    .iter()
+                    .map(|channel| channel.get("label")?.as_str())
+                    .collect::<Option<Vec<_>>>()?;
+                let source_codes = channels
+                    .iter()
+                    .map(|channel| {
+                        let source = channel.get("source")?;
+                        Some(format!(
+                            "{}|{}|{}",
+                            source.get("code_value")?.as_str()?,
+                            source.get("coding_scheme_designator")?.as_str()?,
+                            source.get("code_meaning")?.as_str()?
+                        ))
+                    })
+                    .collect::<Option<Vec<_>>>()?;
+                let bits_stored = channels
+                    .iter()
+                    .map(|channel| channel.get("bits_stored")?.as_u64())
+                    .collect::<Option<Vec<_>>>()?;
+                let channel_hashes = storage.get("channel_sha256")?.as_array()?;
+                if channel_count != channels.len() as u64
+                    || channel_count != channel_hashes.len() as u64
+                    || bits_stored.len() != channels.len()
+                {
+                    return None;
+                }
+                let common_bits_stored = bits_stored
+                    .first()
+                    .copied()
+                    .filter(|first| bits_stored.iter().all(|value| value == first))?;
+                Some(WaveformGroupReportSummary {
+                    shape: format!("{label}:{channel_count}x{samples}@{rate}Hz"),
+                    channel_labels: format!("{label}[{}]", labels.join(", ")),
+                    channel_source_codes: format!("{label}[{}]", source_codes.join(", ")),
+                    payload_length_bytes: storage.get("payload_length_bytes")?.as_u64()?,
+                    payload_sha256: storage.get("payload_sha256")?.as_str()?.to_string(),
+                    channel_hash_count: channel_hashes.len() as u64,
+                    simultaneous_sampling: group.get("simultaneous_sampling")?.as_bool()?,
+                    duration_seconds: group.get("duration_seconds")?.as_u64()?,
+                    bits_stored: common_bits_stored,
+                    bits_allocated: storage.get("bits_allocated")?.as_u64()?,
+                    sample_interpretation: storage
+                        .get("sample_interpretation")?
+                        .as_str()?
+                        .to_string(),
+                    storage_vr: storage.get("data_vr")?.as_str()?.to_string(),
+                    interleave_order: storage.get("interleave_order")?.as_str()?.to_string(),
+                    channel_count,
+                    samples_per_channel: samples,
+                    sampling_frequency_hz: rate,
+                    legacy_channel_labels: labels.join("; "),
+                    legacy_channel_source_codes: source_codes.join("; "),
+                })
             })
+            .collect::<Option<Vec<_>>>()
+    });
+    let single_group = group_summaries
+        .as_ref()
+        .filter(|summaries| summaries.len() == 1)
+        .and_then(|summaries| summaries.first());
+    let group_shapes = group_summaries.as_ref().map(|summaries| {
+        summaries
+            .iter()
+            .map(|summary| summary.shape.as_str())
             .collect::<Vec<_>>()
             .join("; ")
     });
-    let bits_stored = channels.and_then(|items| {
-        let values = items
+    let group_channel_labels = group_summaries.as_ref().map(|summaries| {
+        summaries
             .iter()
-            .filter_map(|channel| channel.get("bits_stored").and_then(Value::as_u64))
-            .collect::<Vec<_>>();
-        values.first().copied().filter(|first| {
-            values.len() == items.len() && values.iter().all(|value| value == first)
-        })
+            .map(|summary| summary.channel_labels.as_str())
+            .collect::<Vec<_>>()
+            .join("; ")
     });
-    let channel_hash_count = storage
-        .and_then(|value| value.get("channel_sha256"))
-        .and_then(Value::as_array)
-        .map(|hashes| hashes.len() as u64);
+    let group_channel_source_codes = group_summaries.as_ref().map(|summaries| {
+        summaries
+            .iter()
+            .map(|summary| summary.channel_source_codes.as_str())
+            .collect::<Vec<_>>()
+            .join("; ")
+    });
+    let group_payload_lengths_bytes = group_summaries.as_ref().map(|summaries| {
+        summaries
+            .iter()
+            .map(|summary| summary.payload_length_bytes.to_string())
+            .collect::<Vec<_>>()
+            .join("; ")
+    });
+    let group_payload_sha256_values = group_summaries.as_ref().map(|summaries| {
+        summaries
+            .iter()
+            .map(|summary| summary.payload_sha256.as_str())
+            .collect::<Vec<_>>()
+            .join("; ")
+    });
+    let total_channel_hash_count = group_summaries.as_ref().map(|summaries| {
+        summaries
+            .iter()
+            .map(|summary| summary.channel_hash_count)
+            .sum()
+    });
+    let all_groups_simultaneous_sampling = group_summaries.as_ref().map(|summaries| {
+        summaries
+            .iter()
+            .all(|summary| summary.simultaneous_sampling)
+    });
 
     let fields = WaveformReportFields {
         iod_kind: expected
             .get("iod_kind")
             .and_then(Value::as_str)
             .map(str::to_string),
-        group_count: group
+        group_count: aggregate
             .and_then(|value| value.get("group_count"))
             .and_then(Value::as_u64),
-        channel_count: group
-            .and_then(|value| value.get("channel_count"))
+        group_shapes,
+        group_channel_labels,
+        group_channel_source_codes,
+        group_payload_lengths_bytes,
+        group_payload_sha256_values,
+        total_channel_count: aggregate
+            .and_then(|value| value.get("total_channel_count"))
             .and_then(Value::as_u64),
-        samples_per_channel: group
-            .and_then(|value| value.get("samples_per_channel"))
+        total_payload_length_bytes: aggregate
+            .and_then(|value| value.get("total_payload_length_bytes"))
             .and_then(Value::as_u64),
-        sampling_frequency_hz: group
-            .and_then(|value| value.get("sampling_frequency_hz"))
-            .and_then(Value::as_u64),
-        duration_seconds: group
-            .and_then(|value| value.get("duration_seconds"))
-            .and_then(Value::as_u64),
-        channel_labels,
-        channel_source_codes,
-        bits_allocated: storage
-            .and_then(|value| value.get("bits_allocated"))
-            .and_then(Value::as_u64),
-        bits_stored,
-        sample_interpretation: storage
-            .and_then(|value| value.get("sample_interpretation"))
+        aggregate_payload_sha256: aggregate
+            .and_then(|value| value.get("aggregate_payload_sha256"))
             .and_then(Value::as_str)
             .map(str::to_string),
-        storage_vr: storage
-            .and_then(|value| value.get("data_vr"))
-            .and_then(Value::as_str)
-            .map(str::to_string),
-        payload_length_bytes: storage
-            .and_then(|value| value.get("payload_length_bytes"))
+        total_channel_hash_count,
+        all_groups_simultaneous_sampling,
+        common_duration_seconds: aggregate
+            .and_then(|value| value.get("common_duration_seconds"))
             .and_then(Value::as_u64),
-        payload_sha256: storage
-            .and_then(|value| value.get("payload_sha256"))
-            .and_then(Value::as_str)
-            .map(str::to_string),
-        interleave_order: storage
-            .and_then(|value| value.get("interleave_order"))
-            .and_then(Value::as_str)
-            .map(str::to_string),
-        channel_hash_count,
-        simultaneous_sampling: group
-            .and_then(|value| value.get("simultaneous_sampling"))
-            .and_then(Value::as_bool),
+        channel_count: single_group.map(|summary| summary.channel_count),
+        samples_per_channel: single_group.map(|summary| summary.samples_per_channel),
+        sampling_frequency_hz: single_group.map(|summary| summary.sampling_frequency_hz),
+        duration_seconds: single_group.map(|summary| summary.duration_seconds),
+        channel_labels: single_group.map(|summary| summary.legacy_channel_labels.clone()),
+        channel_source_codes: single_group
+            .map(|summary| summary.legacy_channel_source_codes.clone()),
+        bits_allocated: single_group.map(|summary| summary.bits_allocated),
+        bits_stored: single_group.map(|summary| summary.bits_stored),
+        sample_interpretation: single_group.map(|summary| summary.sample_interpretation.clone()),
+        storage_vr: single_group.map(|summary| summary.storage_vr.clone()),
+        payload_length_bytes: single_group.map(|summary| summary.payload_length_bytes),
+        payload_sha256: single_group.map(|summary| summary.payload_sha256.clone()),
+        interleave_order: single_group.map(|summary| summary.interleave_order.clone()),
+        channel_hash_count: single_group.map(|summary| summary.channel_hash_count),
+        simultaneous_sampling: single_group.map(|summary| summary.simultaneous_sampling),
         pixel_data_absent: absent
             .and_then(|value| value.get("pixel_data"))
             .and_then(Value::as_bool),
@@ -19583,32 +19780,60 @@ fn waveform_report_fields(
     };
     let complete = fields.iod_kind.is_some()
         && fields.group_count.is_some()
-        && fields.channel_count.is_some()
-        && fields.samples_per_channel.is_some()
-        && fields.sampling_frequency_hz.is_some()
-        && fields.duration_seconds.is_some()
         && fields
-            .channel_labels
+            .group_shapes
             .as_deref()
             .is_some_and(|value| !value.is_empty())
         && fields
-            .channel_source_codes
+            .group_channel_labels
             .as_deref()
             .is_some_and(|value| !value.is_empty())
-        && fields.bits_allocated.is_some()
-        && fields.bits_stored.is_some()
-        && fields.sample_interpretation.is_some()
-        && fields.storage_vr.is_some()
-        && fields.payload_length_bytes.is_some()
-        && fields.payload_sha256.is_some()
-        && fields.interleave_order.is_some()
-        && fields.channel_hash_count.is_some()
-        && fields.simultaneous_sampling.is_some()
+        && fields
+            .group_channel_source_codes
+            .as_deref()
+            .is_some_and(|value| !value.is_empty())
+        && fields.group_payload_lengths_bytes.is_some()
+        && fields.group_payload_sha256_values.is_some()
+        && fields.total_channel_count.is_some()
+        && fields.total_payload_length_bytes.is_some()
+        && fields.aggregate_payload_sha256.is_some()
+        && fields.total_channel_hash_count.is_some()
+        && fields.all_groups_simultaneous_sampling.is_some()
+        && fields.common_duration_seconds.is_some()
         && fields.pixel_data_absent.is_some()
-        && channels.is_some_and(|items| {
-            fields.channel_count == Some(items.len() as u64)
-                && fields.channel_hash_count == Some(items.len() as u64)
-        });
+        && groups.is_some_and(|items| fields.group_count == Some(items.len() as u64))
+        && group_summaries.as_ref().is_some_and(|summaries| {
+            fields.total_channel_count
+                == Some(summaries.iter().map(|summary| summary.channel_count).sum())
+                && fields.total_payload_length_bytes
+                    == Some(
+                        summaries
+                            .iter()
+                            .map(|summary| summary.payload_length_bytes)
+                            .sum(),
+                    )
+                && fields.total_channel_hash_count
+                    == Some(
+                        summaries
+                            .iter()
+                            .map(|summary| summary.channel_hash_count)
+                            .sum(),
+                    )
+                && summaries
+                    .iter()
+                    .all(|summary| Some(summary.duration_seconds) == fields.common_duration_seconds)
+        })
+        && aggregate
+            .and_then(|value| value.get("group_payload_sha256"))
+            .and_then(Value::as_array)
+            .is_some_and(|hashes| {
+                group_summaries.as_ref().is_some_and(|summaries| {
+                    hashes.len() == summaries.len()
+                        && hashes.iter().zip(summaries).all(|(hash, summary)| {
+                            hash.as_str() == Some(summary.payload_sha256.as_str())
+                        })
+                })
+            });
     if !complete {
         return Err(ReportError::MetadataShape {
             path: manifest_path.to_path_buf(),
@@ -21590,6 +21815,17 @@ fn skipped_coverage_row(
         "generation_backend_determinism",
         "waveform_iod_kind",
         "waveform_group_count",
+        "waveform_group_shapes",
+        "waveform_group_channel_labels",
+        "waveform_group_channel_source_codes",
+        "waveform_group_payload_lengths_bytes",
+        "waveform_group_payload_sha256_values",
+        "waveform_total_channel_count",
+        "waveform_total_payload_length_bytes",
+        "waveform_aggregate_payload_sha256",
+        "waveform_total_channel_hash_count",
+        "waveform_all_groups_simultaneous_sampling",
+        "waveform_common_duration_seconds",
         "waveform_channel_count",
         "waveform_samples_per_channel",
         "waveform_sampling_frequency_hz",
@@ -22307,6 +22543,17 @@ struct GroupedCoverage {
     blending_unresolved_external_validator_findings: BTreeMap<String, usize>,
     waveform_iod_kinds: BTreeMap<String, usize>,
     waveform_group_counts: BTreeMap<String, usize>,
+    waveform_group_shape_orders: BTreeMap<String, usize>,
+    waveform_group_channel_label_summaries: BTreeMap<String, usize>,
+    waveform_group_channel_source_code_summaries: BTreeMap<String, usize>,
+    waveform_group_payload_length_orders: BTreeMap<String, usize>,
+    waveform_group_payload_sha256_orders: BTreeMap<String, usize>,
+    waveform_total_channel_counts: BTreeMap<String, usize>,
+    waveform_total_payload_lengths_bytes: BTreeMap<String, usize>,
+    waveform_aggregate_payload_sha256_values: BTreeMap<String, usize>,
+    waveform_total_channel_hash_counts: BTreeMap<String, usize>,
+    waveform_all_groups_simultaneous_sampling_states: BTreeMap<String, usize>,
+    waveform_common_durations_seconds: BTreeMap<String, usize>,
     waveform_channel_counts: BTreeMap<String, usize>,
     waveform_samples_per_channel: BTreeMap<String, usize>,
     waveform_sampling_frequencies_hz: BTreeMap<String, usize>,
@@ -22995,6 +23242,30 @@ impl GroupedCoverage {
         for (map, field) in [
             (&mut self.waveform_iod_kinds, "waveform_iod_kind"),
             (
+                &mut self.waveform_group_shape_orders,
+                "waveform_group_shapes",
+            ),
+            (
+                &mut self.waveform_group_channel_label_summaries,
+                "waveform_group_channel_labels",
+            ),
+            (
+                &mut self.waveform_group_channel_source_code_summaries,
+                "waveform_group_channel_source_codes",
+            ),
+            (
+                &mut self.waveform_group_payload_length_orders,
+                "waveform_group_payload_lengths_bytes",
+            ),
+            (
+                &mut self.waveform_group_payload_sha256_orders,
+                "waveform_group_payload_sha256_values",
+            ),
+            (
+                &mut self.waveform_aggregate_payload_sha256_values,
+                "waveform_aggregate_payload_sha256",
+            ),
+            (
                 &mut self.waveform_channel_label_orders,
                 "waveform_channel_labels",
             ),
@@ -23024,6 +23295,22 @@ impl GroupedCoverage {
         }
         for (map, field) in [
             (&mut self.waveform_group_counts, "waveform_group_count"),
+            (
+                &mut self.waveform_total_channel_counts,
+                "waveform_total_channel_count",
+            ),
+            (
+                &mut self.waveform_total_payload_lengths_bytes,
+                "waveform_total_payload_length_bytes",
+            ),
+            (
+                &mut self.waveform_total_channel_hash_counts,
+                "waveform_total_channel_hash_count",
+            ),
+            (
+                &mut self.waveform_common_durations_seconds,
+                "waveform_common_duration_seconds",
+            ),
             (&mut self.waveform_channel_counts, "waveform_channel_count"),
             (
                 &mut self.waveform_samples_per_channel,
@@ -23051,6 +23338,10 @@ impl GroupedCoverage {
             increment_scalar_map(map, row.get(field));
         }
         for (map, field) in [
+            (
+                &mut self.waveform_all_groups_simultaneous_sampling_states,
+                "waveform_all_groups_simultaneous_sampling",
+            ),
             (
                 &mut self.waveform_simultaneous_sampling_states,
                 "waveform_simultaneous_sampling",
@@ -24478,6 +24769,50 @@ impl GroupedCoverage {
             ),
             ("waveform_iod_kinds", &self.waveform_iod_kinds),
             ("waveform_group_counts", &self.waveform_group_counts),
+            (
+                "waveform_group_shape_orders",
+                &self.waveform_group_shape_orders,
+            ),
+            (
+                "waveform_group_channel_label_summaries",
+                &self.waveform_group_channel_label_summaries,
+            ),
+            (
+                "waveform_group_channel_source_code_summaries",
+                &self.waveform_group_channel_source_code_summaries,
+            ),
+            (
+                "waveform_group_payload_length_orders",
+                &self.waveform_group_payload_length_orders,
+            ),
+            (
+                "waveform_group_payload_sha256_orders",
+                &self.waveform_group_payload_sha256_orders,
+            ),
+            (
+                "waveform_total_channel_counts",
+                &self.waveform_total_channel_counts,
+            ),
+            (
+                "waveform_total_payload_lengths_bytes",
+                &self.waveform_total_payload_lengths_bytes,
+            ),
+            (
+                "waveform_aggregate_payload_sha256_values",
+                &self.waveform_aggregate_payload_sha256_values,
+            ),
+            (
+                "waveform_total_channel_hash_counts",
+                &self.waveform_total_channel_hash_counts,
+            ),
+            (
+                "waveform_all_groups_simultaneous_sampling_states",
+                &self.waveform_all_groups_simultaneous_sampling_states,
+            ),
+            (
+                "waveform_common_durations_seconds",
+                &self.waveform_common_durations_seconds,
+            ),
             ("waveform_channel_counts", &self.waveform_channel_counts),
             (
                 "waveform_samples_per_channel",

@@ -122,21 +122,25 @@ fn assert_manifest_contract(file: &Value) {
     assert_eq!(expected["modality"], "ECG");
     assert_eq!(expected["transfer_syntax_uid"], "1.2.840.10008.1.2.1");
     assert_eq!(expected["acquisition_context_items"], 0);
-    assert_eq!(
-        expected["multiplex_group"],
-        json!({
-            "group_count": 1,
-            "originality": "ORIGINAL",
-            "label": "RESTING_12_LEAD",
-            "channel_count": 12,
-            "samples_per_channel": 500,
-            "sampling_frequency_hz": 500,
-            "duration_seconds": 1,
-            "simultaneous_sampling": true
-        })
-    );
+    let groups = expected["multiplex_groups"]
+        .as_array()
+        .expect("waveform multiplex groups");
+    assert_eq!(groups.len(), 1);
+    let group = &groups[0];
+    for (field, value) in [
+        ("ordinal", json!(1)),
+        ("originality", json!("ORIGINAL")),
+        ("label", json!("RESTING_12_LEAD")),
+        ("channel_count", json!(12)),
+        ("samples_per_channel", json!(500)),
+        ("sampling_frequency_hz", json!(500)),
+        ("duration_seconds", json!(1)),
+        ("simultaneous_sampling", json!(true)),
+    ] {
+        assert_eq!(group[field], value, "multiplex group {field}");
+    }
 
-    let channels = expected["channels"].as_array().expect("waveform channels");
+    let channels = group["channels"].as_array().expect("waveform channels");
     assert_eq!(channels.len(), CHANNELS.len());
     for (index, ((label, code, scheme, meaning), channel)) in
         CHANNELS.iter().zip(channels).enumerate()
@@ -158,7 +162,7 @@ fn assert_manifest_contract(file: &Value) {
         assert_eq!(channel["sample_skew_absent"], true);
     }
 
-    let storage = &expected["storage"];
+    let storage = &group["storage"];
     assert_eq!(storage["bits_allocated"], 16);
     assert_eq!(storage["sample_interpretation"], "SS");
     assert_eq!(storage["data_vr"], "OW");
@@ -175,6 +179,17 @@ fn assert_manifest_contract(file: &Value) {
     assert_eq!(storage["sample_max"], 1000);
     assert_eq!(storage["waveform_padding_value_absent"], true);
     assert_eq!(storage["value_field_padding_bytes"], 0);
+    assert_eq!(
+        expected["aggregate"],
+        json!({
+            "group_count": 1,
+            "total_channel_count": 12,
+            "common_duration_seconds": 1,
+            "total_payload_length_bytes": 12_000,
+            "group_payload_sha256": [PAYLOAD_SHA256],
+            "aggregate_payload_sha256": PAYLOAD_SHA256
+        })
+    );
     assert_eq!(
         expected["absent_content"],
         json!({
@@ -254,6 +269,19 @@ fn assert_report_contract(report: &Value) {
         assert_eq!(row[field], expected, "{field}");
     }
     assert_eq!(row["waveform_iod_kind"], "twelve_lead_ecg");
+    assert_eq!(row["waveform_group_shapes"], "RESTING_12_LEAD:12x500@500Hz");
+    assert_eq!(
+        row["waveform_group_channel_labels"],
+        "RESTING_12_LEAD[I, II, III, aVR, aVL, aVF, V1, V2, V3, V4, V5, V6]"
+    );
+    assert_eq!(row["waveform_group_payload_lengths_bytes"], "12000");
+    assert_eq!(row["waveform_group_payload_sha256_values"], PAYLOAD_SHA256);
+    assert_eq!(row["waveform_total_channel_count"], 12);
+    assert_eq!(row["waveform_total_payload_length_bytes"], 12_000);
+    assert_eq!(row["waveform_aggregate_payload_sha256"], PAYLOAD_SHA256);
+    assert_eq!(row["waveform_total_channel_hash_count"], 12);
+    assert_eq!(row["waveform_all_groups_simultaneous_sampling"], true);
+    assert_eq!(row["waveform_common_duration_seconds"], 1);
     assert_eq!(
         row["waveform_channel_labels"],
         "I; II; III; aVR; aVL; aVF; V1; V2; V3; V4; V5; V6"
@@ -271,6 +299,13 @@ fn assert_report_contract(report: &Value) {
     for pointer in [
         "/grouped_coverage/waveform_iod_kinds/twelve_lead_ecg",
         "/grouped_coverage/waveform_group_counts/1",
+        "/grouped_coverage/waveform_group_shape_orders/RESTING_12_LEAD:12x500@500Hz",
+        "/grouped_coverage/waveform_total_channel_counts/12",
+        "/grouped_coverage/waveform_total_payload_lengths_bytes/12000",
+        "/grouped_coverage/waveform_aggregate_payload_sha256_values/98b7a9b1be25d9d64ffa75bc6e16ea80f60deed1891aeed8dfb440c1c19e6713",
+        "/grouped_coverage/waveform_total_channel_hash_counts/12",
+        "/grouped_coverage/waveform_all_groups_simultaneous_sampling_states/true",
+        "/grouped_coverage/waveform_common_durations_seconds/1",
         "/grouped_coverage/waveform_channel_counts/12",
         "/grouped_coverage/waveform_samples_per_channel/500",
         "/grouped_coverage/waveform_sampling_frequencies_hz/500",

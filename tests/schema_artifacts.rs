@@ -4315,6 +4315,136 @@ fn manifest_schema_locks_phase4_tiled_sparse_wsi_expectation() {
 }
 
 #[test]
+fn manifest_schema_locks_phase4_multiresolution_wsi_group() {
+    let schema = read_json("schemas/manifest.schema.json");
+    let expectation_schema = serde_json::json!({
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$ref": "#/$defs/expected_wsi_pyramid",
+        "$defs": schema["$defs"].clone(),
+    });
+    let validator = jsonschema::validator_for(&expectation_schema)
+        .expect("multi-resolution WSI group schema should compile");
+    let uid = |suffix| format!("1.2.826.0.1.3680043.10.543.{suffix}");
+    let common = |ordinal,
+                  role,
+                  image_type: Value,
+                  pyramid_uid: Value,
+                  frames,
+                  matrix_rows,
+                  matrix_columns,
+                  spacing: Value,
+                  width,
+                  height,
+                  frame_hashes: Value,
+                  payload_hash,
+                  matrix_hash,
+                  label_in_image| {
+        serde_json::json!({
+            "ordinal": ordinal, "role": role, "path": format!("vl/wsi/pyramid_multiresolution/{role}.dcm"),
+            "sha256": format!("{:064x}", ordinal), "size_bytes": 2900 + ordinal,
+            "sop_class_uid": "1.2.840.10008.5.1.4.1.1.77.1.6",
+            "sop_instance_uid": uid(20 + ordinal),
+            "image_type": image_type, "frame_type": image_type,
+            "pyramid_uid": pyramid_uid, "rows": 2, "columns": 2, "frames": frames,
+            "total_pixel_matrix_rows": matrix_rows, "total_pixel_matrix_columns": matrix_columns,
+            "pixel_spacing_mm": spacing, "imaged_volume_width_mm": width,
+            "imaged_volume_height_mm": height, "frame_hashes": frame_hashes,
+            "payload_sha256": payload_hash, "matrix_sha256": matrix_hash,
+            "specimen_label_in_image": label_in_image
+        })
+    };
+    let pyramid_uid = uid(15);
+    let expectation = serde_json::json!({
+        "iod_kind": "vl_wsi_pyramid_multiresolution",
+        "member_count": 3, "ordered_roles": ["volume", "thumbnail", "label"],
+        "apex_role": "thumbnail",
+        "shared_identity": {
+            "patient_id": "DTS-PATIENT-001", "study_instance_uid": uid(11),
+            "series_instance_uid": uid(12), "frame_of_reference_uid": uid(13),
+            "container_identifier": "DTS-SLIDE-001", "specimen_identifier": "DTS-SPECIMEN-001",
+            "specimen_uid": uid(14), "optical_path_identifier": "RGB",
+            "icc_profile_sha256": "8e069a3476b71a0e0ae7272d9278ba70540d1c4a0b19af1c7d52e56f49091fef"
+        },
+        "pyramid_membership": {
+            "pyramid_uid": pyramid_uid, "member_roles": ["volume", "thumbnail"],
+            "non_member_roles": ["label"]
+        },
+        "members": [
+            common(1, "volume", serde_json::json!(["ORIGINAL", "PRIMARY", "VOLUME", "NONE"]), serde_json::json!(pyramid_uid), 4, 4, 4, serde_json::json!([0.5, 0.5]), 2.0, 2.0,
+                serde_json::json!(["fcf067f6323bb42b8292a565a8f826ec5fdb1b142b7a69bf7f7721f0d5d46ef8", "6c8f6d772829d493618e079a099cf4f20d8524ed3656f49db234f5bbf60a4e65", "7263ad3fd60c6620abd423516d748baedf5e393b1fbdaaf780ff5803a443cc4f", "8688d249e9d047b4fc2fb89ce05afe9ec89252ffccdd969de6eef260dd7ffb21"]), "b40b0afc9b180d5ebfb54a7db428e13fe09a33dcc9a8f76220f395ba2c68d2db", "62d9532d46c3f71b045a1393d95c49c4757ef5e62bb043a61baf4fffed189a2a", "NO"),
+            common(2, "thumbnail", serde_json::json!(["DERIVED", "PRIMARY", "THUMBNAIL", "RESAMPLED"]), serde_json::json!(pyramid_uid), 1, 2, 2, serde_json::json!([1.0, 1.0]), 2.0, 2.0,
+                serde_json::json!(["6733cdd08e5c7ef0453e2759ef0d28fbd43ea2aa7883b55422a13dac38e23ecc"]), "6733cdd08e5c7ef0453e2759ef0d28fbd43ea2aa7883b55422a13dac38e23ecc", "6733cdd08e5c7ef0453e2759ef0d28fbd43ea2aa7883b55422a13dac38e23ecc", "NO"),
+            common(3, "label", serde_json::json!(["ORIGINAL", "PRIMARY", "LABEL", "NONE"]), Value::Null, 1, 2, 2, serde_json::json!([0.5, 0.5]), 1.0, 1.0,
+                serde_json::json!(["ad078f83d3ea66f075867d116c8c126e9c8a8a9dd873cd27280371c173d8ad02"]), "ad078f83d3ea66f075867d116c8c126e9c8a8a9dd873cd27280371c173d8ad02", "ad078f83d3ea66f075867d116c8c126e9c8a8a9dd873cd27280371c173d8ad02", "YES")
+        ],
+        "budget": { "instance_count": 3, "total_frame_count": 6, "max_total_dicom_bytes": 65536, "max_generation_wall_time_seconds": 5 }
+    });
+    assert!(validator.is_valid(&expectation));
+    for (pointer, bad) in [
+        ("/ordered_roles/1", serde_json::json!("label")),
+        (
+            "/pyramid_membership/member_roles/1",
+            serde_json::json!("label"),
+        ),
+        ("/members/0/image_type/2", serde_json::json!("THUMBNAIL")),
+        ("/members/1/pixel_spacing_mm/0", serde_json::json!(0.5)),
+        ("/members/2/pyramid_uid", serde_json::json!(uid(15))),
+        (
+            "/members/2/payload_sha256",
+            serde_json::json!("0".repeat(64)),
+        ),
+        ("/budget/max_total_dicom_bytes", serde_json::json!(65535)),
+    ] {
+        let mut malformed = expectation.clone();
+        *malformed.pointer_mut(pointer).expect("mutation pointer") = bad;
+        assert!(
+            !validator.is_valid(&malformed),
+            "schema must reject {pointer}"
+        );
+    }
+
+    let rule = schema
+        .pointer("/$defs/file/allOf")
+        .and_then(Value::as_array)
+        .unwrap()
+        .iter()
+        .find(|rule| {
+            rule.pointer("/if/properties/case_id/const")
+                .and_then(Value::as_str)
+                == Some("vl/wsi/pyramid_multiresolution")
+        })
+        .expect("exact pyramid WSI case rule");
+    assert_eq!(
+        rule.pointer("/then/required"),
+        Some(&serde_json::json!([
+            "image",
+            "pixel_data",
+            "wsi_pyramid_role",
+            "wsi_pyramid_ordinal",
+            "expected_wsi_pyramid"
+        ]))
+    );
+    assert_eq!(
+        rule.pointer("/else/not/anyOf/2/required"),
+        Some(&serde_json::json!(["expected_wsi_pyramid"]))
+    );
+    assert_eq!(
+        rule.pointer("/then/allOf/0/then/properties/wsi_pyramid_ordinal/const"),
+        Some(&serde_json::json!(1))
+    );
+    assert_eq!(
+        rule.pointer("/then/allOf/1/then/properties/pixel_data/properties/frame_hashes/const/0"),
+        Some(&serde_json::json!(
+            "6733cdd08e5c7ef0453e2759ef0d28fbd43ea2aa7883b55422a13dac38e23ecc"
+        ))
+    );
+    assert_eq!(
+        rule.pointer("/then/allOf/2/then/properties/wsi_pyramid_ordinal/const"),
+        Some(&serde_json::json!(3))
+    );
+}
+
+#[test]
 fn manifest_schema_requires_exclusive_twelve_lead_ecg_waveform_contract() {
     let schema = read_json("schemas/manifest.schema.json");
     let rule = schema

@@ -548,6 +548,7 @@ pub fn validate_generated_root(
     let source_objects = build_manifest_source_object_map(&manifest_path, files)?;
 
     let mut failures = Vec::new();
+    validate_wsi_pyramid_manifest_group(&manifest_path, files)?;
     for file in files {
         validate_manifest_references(&manifest_path, file, &source_objects, &mut failures)?;
         validate_manifest_file(root_dir, &manifest_path, file, &mut failures)?;
@@ -1665,6 +1666,7 @@ fn validate_manifest_file(
     validate_vl_single_frame_manifest_contract(manifest_path, file)?;
     validate_wsi_tiled_full_manifest_contract(manifest_path, file)?;
     validate_wsi_tiled_sparse_manifest_contract(manifest_path, file)?;
+    validate_wsi_pyramid_manifest_member(manifest_path, file)?;
     let path = root_dir.join(relative_path);
     let bytes = match fs::read(&path) {
         Ok(bytes) => bytes,
@@ -2369,6 +2371,473 @@ pub(crate) fn wsi_tiled_sparse_locked_contract(
             "top_level_image_pixel_description_icc_profile", "specimen_reference_sequence"
         ]
     })
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum WsiPyramidRole {
+    Volume,
+    Thumbnail,
+    Label,
+}
+
+impl WsiPyramidRole {
+    pub(crate) const fn as_str(self) -> &'static str {
+        match self {
+            Self::Volume => "volume",
+            Self::Thumbnail => "thumbnail",
+            Self::Label => "label",
+        }
+    }
+
+    const fn ordinal(self) -> u64 {
+        match self {
+            Self::Volume => 1,
+            Self::Thumbnail => 2,
+            Self::Label => 3,
+        }
+    }
+
+    fn from_str(value: &str) -> Option<Self> {
+        match value {
+            "volume" => Some(Self::Volume),
+            "thumbnail" => Some(Self::Thumbnail),
+            "label" => Some(Self::Label),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct WsiPyramidMemberIdentity<'a> {
+    pub role: WsiPyramidRole,
+    pub path: &'a str,
+    pub sha256: &'a str,
+    pub size_bytes: u64,
+    pub sop_instance_uid: &'a str,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct WsiPyramidLockedInputs<'a> {
+    pub study_instance_uid: &'a str,
+    pub series_instance_uid: &'a str,
+    pub frame_of_reference_uid: &'a str,
+    pub specimen_uid: &'a str,
+    pub pyramid_uid: &'a str,
+    pub members: [WsiPyramidMemberIdentity<'a>; 3],
+}
+
+pub(crate) fn wsi_pyramid_locked_contract(inputs: WsiPyramidLockedInputs<'_>) -> Value {
+    let member = |identity: WsiPyramidMemberIdentity<'_>| {
+        let (
+            image_type,
+            frames,
+            matrix_rows,
+            matrix_columns,
+            spacing,
+            width,
+            height,
+            frame_hashes,
+            payload_sha256,
+            matrix_sha256,
+            specimen_label_in_image,
+            pyramid_uid,
+        ) = match identity.role {
+            WsiPyramidRole::Volume => (
+                serde_json::json!(["ORIGINAL", "PRIMARY", "VOLUME", "NONE"]),
+                4,
+                4,
+                4,
+                serde_json::json!([0.5, 0.5]),
+                2.0,
+                2.0,
+                serde_json::json!([
+                    "fcf067f6323bb42b8292a565a8f826ec5fdb1b142b7a69bf7f7721f0d5d46ef8",
+                    "6c8f6d772829d493618e079a099cf4f20d8524ed3656f49db234f5bbf60a4e65",
+                    "7263ad3fd60c6620abd423516d748baedf5e393b1fbdaaf780ff5803a443cc4f",
+                    "8688d249e9d047b4fc2fb89ce05afe9ec89252ffccdd969de6eef260dd7ffb21"
+                ]),
+                "b40b0afc9b180d5ebfb54a7db428e13fe09a33dcc9a8f76220f395ba2c68d2db",
+                "62d9532d46c3f71b045a1393d95c49c4757ef5e62bb043a61baf4fffed189a2a",
+                "NO",
+                Some(inputs.pyramid_uid),
+            ),
+            WsiPyramidRole::Thumbnail => (
+                serde_json::json!(["DERIVED", "PRIMARY", "THUMBNAIL", "RESAMPLED"]),
+                1,
+                2,
+                2,
+                serde_json::json!([1.0, 1.0]),
+                2.0,
+                2.0,
+                serde_json::json!([
+                    "6733cdd08e5c7ef0453e2759ef0d28fbd43ea2aa7883b55422a13dac38e23ecc"
+                ]),
+                "6733cdd08e5c7ef0453e2759ef0d28fbd43ea2aa7883b55422a13dac38e23ecc",
+                "6733cdd08e5c7ef0453e2759ef0d28fbd43ea2aa7883b55422a13dac38e23ecc",
+                "NO",
+                Some(inputs.pyramid_uid),
+            ),
+            WsiPyramidRole::Label => (
+                serde_json::json!(["ORIGINAL", "PRIMARY", "LABEL", "NONE"]),
+                1,
+                2,
+                2,
+                serde_json::json!([0.5, 0.5]),
+                1.0,
+                1.0,
+                serde_json::json!([
+                    "ad078f83d3ea66f075867d116c8c126e9c8a8a9dd873cd27280371c173d8ad02"
+                ]),
+                "ad078f83d3ea66f075867d116c8c126e9c8a8a9dd873cd27280371c173d8ad02",
+                "ad078f83d3ea66f075867d116c8c126e9c8a8a9dd873cd27280371c173d8ad02",
+                "YES",
+                None,
+            ),
+        };
+        serde_json::json!({
+            "ordinal": identity.role.ordinal(), "role": identity.role.as_str(),
+            "path": identity.path, "sha256": identity.sha256, "size_bytes": identity.size_bytes,
+            "sop_class_uid": "1.2.840.10008.5.1.4.1.1.77.1.6",
+            "sop_instance_uid": identity.sop_instance_uid,
+            "image_type": image_type, "frame_type": image_type,
+            "pyramid_uid": pyramid_uid,
+            "rows": 2, "columns": 2, "frames": frames,
+            "total_pixel_matrix_rows": matrix_rows,
+            "total_pixel_matrix_columns": matrix_columns,
+            "pixel_spacing_mm": spacing,
+            "imaged_volume_width_mm": width, "imaged_volume_height_mm": height,
+            "frame_hashes": frame_hashes, "payload_sha256": payload_sha256,
+            "matrix_sha256": matrix_sha256,
+            "specimen_label_in_image": specimen_label_in_image
+        })
+    };
+    serde_json::json!({
+        "iod_kind": "vl_wsi_pyramid_multiresolution",
+        "member_count": 3,
+        "ordered_roles": ["volume", "thumbnail", "label"],
+        "apex_role": "thumbnail",
+        "shared_identity": {
+            "patient_id": "DTS-PATIENT-001",
+            "study_instance_uid": inputs.study_instance_uid,
+            "series_instance_uid": inputs.series_instance_uid,
+            "frame_of_reference_uid": inputs.frame_of_reference_uid,
+            "container_identifier": "DTS-SLIDE-001",
+            "specimen_identifier": "DTS-SPECIMEN-001",
+            "specimen_uid": inputs.specimen_uid,
+            "optical_path_identifier": "RGB",
+            "icc_profile_sha256": "8e069a3476b71a0e0ae7272d9278ba70540d1c4a0b19af1c7d52e56f49091fef"
+        },
+        "pyramid_membership": {
+            "pyramid_uid": inputs.pyramid_uid,
+            "member_roles": ["volume", "thumbnail"],
+            "non_member_roles": ["label"]
+        },
+        "members": inputs.members.map(member),
+        "budget": {
+            "instance_count": 3, "total_frame_count": 6,
+            "max_total_dicom_bytes": 65536,
+            "max_generation_wall_time_seconds": 5
+        }
+    })
+}
+
+fn wsi_pyramid_inputs_from_expected<'a>(
+    manifest_path: &Path,
+    expected: &'a Value,
+) -> Result<WsiPyramidLockedInputs<'a>, ValidateError> {
+    let string = |pointer: &str, message| {
+        expected
+            .pointer(pointer)
+            .and_then(Value::as_str)
+            .ok_or(ValidateError::ManifestShape {
+                path: manifest_path.to_path_buf(),
+                message,
+            })
+    };
+    let uid = |pointer: &str, message| {
+        string(pointer, message).and_then(|value| {
+            is_manifest_uid(value)
+                .then_some(value)
+                .ok_or(ValidateError::ManifestShape {
+                    path: manifest_path.to_path_buf(),
+                    message,
+                })
+        })
+    };
+    let role = |index, locked_role| {
+        let pointer = format!("/members/{index}/role");
+        let value = expected.pointer(&pointer).and_then(Value::as_str).ok_or(
+            ValidateError::ManifestShape {
+                path: manifest_path.to_path_buf(),
+                message: "expected_wsi_pyramid member role must be a string",
+            },
+        )?;
+        let parsed = WsiPyramidRole::from_str(value).ok_or(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "expected_wsi_pyramid member role is invalid",
+        })?;
+        (parsed == locked_role)
+            .then_some(parsed)
+            .ok_or(ValidateError::ManifestShape {
+                path: manifest_path.to_path_buf(),
+                message: "expected_wsi_pyramid member roles must use locked order",
+            })
+    };
+    let member = |index, locked_role| -> Result<WsiPyramidMemberIdentity<'a>, ValidateError> {
+        let base = format!("/members/{index}");
+        let field = |name| format!("{base}/{name}");
+        Ok(WsiPyramidMemberIdentity {
+            role: role(index, locked_role)?,
+            path: string(
+                &field("path"),
+                "expected_wsi_pyramid member path must be a string",
+            )?,
+            sha256: string(
+                &field("sha256"),
+                "expected_wsi_pyramid member sha256 must be a string",
+            )?,
+            size_bytes: expected
+                .pointer(&field("size_bytes"))
+                .and_then(Value::as_u64)
+                .ok_or(ValidateError::ManifestShape {
+                    path: manifest_path.to_path_buf(),
+                    message: "expected_wsi_pyramid member size_bytes must be an integer",
+                })?,
+            sop_instance_uid: uid(
+                &field("sop_instance_uid"),
+                "expected_wsi_pyramid member SOP Instance UID must be valid",
+            )?,
+        })
+    };
+    let members = [
+        member(0, WsiPyramidRole::Volume)?,
+        member(1, WsiPyramidRole::Thumbnail)?,
+        member(2, WsiPyramidRole::Label)?,
+    ];
+    if members.iter().any(|member| {
+        member.path.is_empty()
+            || member.size_bytes == 0
+            || member.size_bytes > 65_536
+            || member.sha256.len() != 64
+            || !member
+                .sha256
+                .bytes()
+                .all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
+    }) {
+        return Err(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "expected_wsi_pyramid member path, hash, or size is invalid",
+        });
+    }
+    for left in 0..members.len() {
+        for right in left + 1..members.len() {
+            if members[left].path == members[right].path
+                || members[left].sop_instance_uid == members[right].sop_instance_uid
+            {
+                return Err(ValidateError::ManifestShape {
+                    path: manifest_path.to_path_buf(),
+                    message: "expected_wsi_pyramid member paths and SOP Instance UIDs must be distinct",
+                });
+            }
+        }
+    }
+    Ok(WsiPyramidLockedInputs {
+        study_instance_uid: uid(
+            "/shared_identity/study_instance_uid",
+            "expected_wsi_pyramid Study UID must be valid",
+        )?,
+        series_instance_uid: uid(
+            "/shared_identity/series_instance_uid",
+            "expected_wsi_pyramid Series UID must be valid",
+        )?,
+        frame_of_reference_uid: uid(
+            "/shared_identity/frame_of_reference_uid",
+            "expected_wsi_pyramid Frame of Reference UID must be valid",
+        )?,
+        specimen_uid: uid(
+            "/shared_identity/specimen_uid",
+            "expected_wsi_pyramid Specimen UID must be valid",
+        )?,
+        pyramid_uid: uid(
+            "/pyramid_membership/pyramid_uid",
+            "expected_wsi_pyramid Pyramid UID must be valid",
+        )?,
+        members,
+    })
+}
+
+fn validate_wsi_pyramid_manifest_member(
+    manifest_path: &Path,
+    file: &Value,
+) -> Result<(), ValidateError> {
+    const CASE_ID: &str = "vl/wsi/pyramid_multiresolution";
+    if file.get("case_id").and_then(Value::as_str) != Some(CASE_ID) {
+        if [
+            "wsi_pyramid_role",
+            "wsi_pyramid_ordinal",
+            "expected_wsi_pyramid",
+        ]
+        .iter()
+        .any(|field| file.get(field).is_some())
+        {
+            return Err(ValidateError::ManifestShape {
+                path: manifest_path.to_path_buf(),
+                message: "WSI pyramid manifest fields are only valid for vl/wsi/pyramid_multiresolution",
+            });
+        }
+        return Ok(());
+    }
+    let expected = file
+        .get("expected_wsi_pyramid")
+        .ok_or(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "vl/wsi/pyramid_multiresolution must define expected_wsi_pyramid",
+        })?;
+    let inputs = wsi_pyramid_inputs_from_expected(manifest_path, expected)?;
+    if expected != &wsi_pyramid_locked_contract(inputs) {
+        return Err(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "expected_wsi_pyramid must equal the exact locked group contract",
+        });
+    }
+    let role = manifest_str(
+        manifest_path,
+        file,
+        "/wsi_pyramid_role",
+        "wsi_pyramid_role must be a string",
+    )?;
+    let ordinal = manifest_u64(
+        manifest_path,
+        file,
+        "/wsi_pyramid_ordinal",
+        "wsi_pyramid_ordinal must be an integer",
+    )?;
+    let parsed_role = WsiPyramidRole::from_str(role).ok_or(ValidateError::ManifestShape {
+        path: manifest_path.to_path_buf(),
+        message: "wsi_pyramid_role is invalid",
+    })?;
+    if ordinal != parsed_role.ordinal() {
+        return Err(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "WSI pyramid role and ordinal must match",
+        });
+    }
+    let identity = inputs.members[(ordinal - 1) as usize];
+    let expected_member = &expected["members"][(ordinal - 1) as usize];
+    for (pointer, value) in [
+        ("/path", Value::from(identity.path)),
+        ("/sha256", Value::from(identity.sha256)),
+        ("/size_bytes", Value::from(identity.size_bytes)),
+        (
+            "/dicom/sop_class_uid",
+            Value::from("1.2.840.10008.5.1.4.1.1.77.1.6"),
+        ),
+        (
+            "/uids/sop_instance_uid",
+            Value::from(identity.sop_instance_uid),
+        ),
+        (
+            "/uids/study_instance_uid",
+            Value::from(inputs.study_instance_uid),
+        ),
+        (
+            "/uids/series_instance_uid",
+            Value::from(inputs.series_instance_uid),
+        ),
+        (
+            "/uids/frame_of_reference_uid",
+            Value::from(inputs.frame_of_reference_uid),
+        ),
+    ] {
+        if file.pointer(pointer) != Some(&value) {
+            return Err(ValidateError::ManifestShape {
+                path: manifest_path.to_path_buf(),
+                message: "WSI pyramid member identity must match the repeated group contract",
+            });
+        }
+    }
+    for (file_pointer, member_pointer) in [
+        ("/image/rows", "/rows"),
+        ("/image/columns", "/columns"),
+        ("/image/frames", "/frames"),
+        ("/pixel_data/frame_count", "/frames"),
+        ("/pixel_data/frame_hashes", "/frame_hashes"),
+    ] {
+        if file.pointer(file_pointer) != expected_member.pointer(member_pointer) {
+            return Err(ValidateError::ManifestShape {
+                path: manifest_path.to_path_buf(),
+                message: "WSI pyramid image and pixel metadata must match the member contract",
+            });
+        }
+    }
+    let expected_value_length = if parsed_role == WsiPyramidRole::Volume {
+        48
+    } else {
+        12
+    };
+    if file.pointer("/pixel_data/value_length") != Some(&Value::from(expected_value_length)) {
+        return Err(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "WSI pyramid Pixel Data length must match the member contract",
+        });
+    }
+    if file
+        .get("references")
+        .and_then(Value::as_array)
+        .is_none_or(|items| !items.is_empty())
+    {
+        return Err(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "WSI pyramid references must be empty",
+        });
+    }
+    Ok(())
+}
+
+fn validate_wsi_pyramid_manifest_group(
+    manifest_path: &Path,
+    files: &[Value],
+) -> Result<(), ValidateError> {
+    let members: Vec<_> = files
+        .iter()
+        .filter(|file| {
+            file.get("case_id").and_then(Value::as_str) == Some("vl/wsi/pyramid_multiresolution")
+        })
+        .collect();
+    if members.is_empty() {
+        return Ok(());
+    }
+    if members.len() != 3 {
+        return Err(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "vl/wsi/pyramid_multiresolution must emit exactly three manifest entries",
+        });
+    }
+    let first = members[0].get("expected_wsi_pyramid");
+    let mut total_size = 0_u64;
+    for (index, file) in members.iter().enumerate() {
+        validate_wsi_pyramid_manifest_member(manifest_path, file)?;
+        if file.get("expected_wsi_pyramid") != first
+            || file.get("wsi_pyramid_ordinal").and_then(Value::as_u64) != Some((index + 1) as u64)
+        {
+            return Err(ValidateError::ManifestShape {
+                path: manifest_path.to_path_buf(),
+                message: "WSI pyramid entries must repeat one contract in volume, thumbnail, label order",
+            });
+        }
+        total_size = total_size.saturating_add(
+            file.get("size_bytes")
+                .and_then(Value::as_u64)
+                .unwrap_or(u64::MAX),
+        );
+    }
+    if total_size > 65_536 {
+        return Err(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "WSI pyramid exceeds the locked total byte budget",
+        });
+    }
+    Ok(())
 }
 
 fn validate_nonsquare_spacing_non_native_scope(
@@ -30815,6 +31284,126 @@ mod tests {
         assert!(
             validate_wsi_tiled_sparse_manifest_contract(Path::new("manifest.json"), &misplaced)
                 .is_err()
+        );
+    }
+
+    fn wsi_pyramid_test_contract() -> Value {
+        wsi_pyramid_locked_contract(WsiPyramidLockedInputs {
+            study_instance_uid: "1.2.826.0.1.3680043.10.543.31",
+            series_instance_uid: "1.2.826.0.1.3680043.10.543.32",
+            frame_of_reference_uid: "1.2.826.0.1.3680043.10.543.33",
+            specimen_uid: "1.2.826.0.1.3680043.10.543.34",
+            pyramid_uid: "1.2.826.0.1.3680043.10.543.35",
+            members: [
+                WsiPyramidMemberIdentity {
+                    role: WsiPyramidRole::Volume,
+                    path: "vl/wsi/pyramid_multiresolution/volume.dcm",
+                    sha256: "1111111111111111111111111111111111111111111111111111111111111111",
+                    size_bytes: 2966,
+                    sop_instance_uid: "1.2.826.0.1.3680043.10.543.36",
+                },
+                WsiPyramidMemberIdentity {
+                    role: WsiPyramidRole::Thumbnail,
+                    path: "vl/wsi/pyramid_multiresolution/thumbnail.dcm",
+                    sha256: "2222222222222222222222222222222222222222222222222222222222222222",
+                    size_bytes: 2946,
+                    sop_instance_uid: "1.2.826.0.1.3680043.10.543.37",
+                },
+                WsiPyramidMemberIdentity {
+                    role: WsiPyramidRole::Label,
+                    path: "vl/wsi/pyramid_multiresolution/label.dcm",
+                    sha256: "3333333333333333333333333333333333333333333333333333333333333333",
+                    size_bytes: 2882,
+                    sop_instance_uid: "1.2.826.0.1.3680043.10.543.38",
+                },
+            ],
+        })
+    }
+
+    fn wsi_pyramid_test_files() -> Vec<Value> {
+        let contract = wsi_pyramid_test_contract();
+        contract["members"].as_array().unwrap().iter().map(|member| {
+            serde_json::json!({
+                "case_id": "vl/wsi/pyramid_multiresolution",
+                "path": member["path"], "sha256": member["sha256"],
+                "size_bytes": member["size_bytes"],
+                "wsi_pyramid_role": member["role"],
+                "wsi_pyramid_ordinal": member["ordinal"],
+                "dicom": { "sop_class_uid": member["sop_class_uid"] },
+                "uids": {
+                    "sop_instance_uid": member["sop_instance_uid"],
+                    "study_instance_uid": contract["shared_identity"]["study_instance_uid"],
+                    "series_instance_uid": contract["shared_identity"]["series_instance_uid"],
+                    "frame_of_reference_uid": contract["shared_identity"]["frame_of_reference_uid"]
+                },
+                "image": {
+                    "rows": member["rows"], "columns": member["columns"],
+                    "frames": member["frames"]
+                },
+                "pixel_data": {
+                    "value_length": if member["role"] == "volume" { 48 } else { 12 },
+                    "frame_count": member["frames"], "frame_hashes": member["frame_hashes"]
+                },
+                "references": [], "expected_wsi_pyramid": contract
+            })
+        }).collect()
+    }
+
+    #[test]
+    fn wsi_pyramid_manifest_contract_is_exact_repeated_and_cross_bound() {
+        let files = wsi_pyramid_test_files();
+        validate_wsi_pyramid_manifest_group(Path::new("manifest.json"), &files)
+            .expect("locked three-member pyramid contract");
+        for pointer in [
+            "/expected_wsi_pyramid/ordered_roles/1",
+            "/expected_wsi_pyramid/pyramid_membership/member_roles/1",
+            "/expected_wsi_pyramid/members/1/image_type/2",
+            "/expected_wsi_pyramid/members/2/pyramid_uid",
+            "/expected_wsi_pyramid/budget/total_frame_count",
+        ] {
+            let mut malformed = files[0].clone();
+            *malformed.pointer_mut(pointer).unwrap() = Value::from("invalid");
+            assert!(
+                validate_wsi_pyramid_manifest_member(Path::new("manifest.json"), &malformed)
+                    .is_err(),
+                "locked helper must reject {pointer}"
+            );
+        }
+
+        let mut wrong_identity = files[1].clone();
+        wrong_identity["uids"]["sop_instance_uid"] = Value::from("1.2.3.999");
+        assert!(
+            validate_wsi_pyramid_manifest_member(Path::new("manifest.json"), &wrong_identity)
+                .is_err()
+        );
+
+        let mut wrong_role = files[2].clone();
+        wrong_role["wsi_pyramid_role"] = Value::from("thumbnail");
+        assert!(
+            validate_wsi_pyramid_manifest_member(Path::new("manifest.json"), &wrong_role).is_err()
+        );
+
+        let mut reordered = files.clone();
+        reordered.swap(0, 1);
+        assert!(
+            validate_wsi_pyramid_manifest_group(Path::new("manifest.json"), &reordered).is_err()
+        );
+        assert!(
+            validate_wsi_pyramid_manifest_group(Path::new("manifest.json"), &files[..2]).is_err()
+        );
+
+        let mut divergent = files.clone();
+        divergent[2]["expected_wsi_pyramid"]["members"][0]["sha256"] = Value::from("0".repeat(64));
+        assert!(
+            validate_wsi_pyramid_manifest_group(Path::new("manifest.json"), &divergent).is_err()
+        );
+
+        let misplaced = serde_json::json!({
+            "case_id": "vl/wsi/tiled_full_small",
+            "expected_wsi_pyramid": wsi_pyramid_test_contract()
+        });
+        assert!(
+            validate_wsi_pyramid_manifest_member(Path::new("manifest.json"), &misplaced).is_err()
         );
     }
 

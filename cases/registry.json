@@ -139,7 +139,13 @@
         "id": "rust_native"
       },
       "roadmap": null,
-      "blockers": [],
+      "blockers": [
+        {
+          "code": "recipe_unimplemented",
+          "message": "The deterministic native Spatial Registration recipe is not implemented.",
+          "recheck_phase": "phase-3"
+        }
+      ],
       "modality": "CR",
       "object_family": "classic_image",
       "compatibility_axes": [
@@ -9516,8 +9522,8 @@
       "artifact_kind": "dicom_instance",
       "status": "planned",
       "provider": {
-        "kind": "external_backend",
-        "id": "highdicom_pydicom"
+        "kind": "rust_native",
+        "id": "rust_native"
       },
       "object_family": "registration",
       "compatibility_axes": [
@@ -9530,18 +9536,7 @@
         "delivery_phase": "phase-3",
         "rationale": "Adds rigid spatial registration between generated CT series."
       },
-      "blockers": [
-        {
-          "code": "backend_contract_unimplemented",
-          "message": "The external generation protocol is not implemented.",
-          "recheck_phase": "phase-1"
-        },
-        {
-          "code": "independent_iod_validator_unavailable",
-          "message": "The required independent validation path is not integrated.",
-          "recheck_phase": "phase-3"
-        }
-      ],
+      "blockers": [],
       "profiles": [
         "extended"
       ],
@@ -9567,6 +9562,38 @@
           "covered": true,
           "part": "PS3.6",
           "anchor": "table_A-1"
+        },
+        {
+          "source": "local-source-note",
+          "edition": "2026b",
+          "query": "standards/source-notes/phase-3-spatial-registration.md",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "A.39.1_C.20.1_C.20.2_C.12.2"
+        },
+        {
+          "source": "local-source-note",
+          "edition": "2026b",
+          "query": "standards/source-notes/phase-3-spatial-registration.md",
+          "covered": true,
+          "part": "PS3.4",
+          "anchor": "table_B.5-1"
+        },
+        {
+          "source": "local-source-note",
+          "edition": "2026b",
+          "query": "standards/source-notes/phase-3-spatial-registration.md",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
+        },
+        {
+          "source": "local-source-note",
+          "edition": "2026b",
+          "query": "standards/source-notes/phase-3-spatial-registration.md",
+          "covered": true,
+          "part": "PS3.17",
+          "anchor": "O.1_O.3_O.5"
         }
       ]
     },

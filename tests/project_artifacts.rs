@@ -560,7 +560,14 @@ fn comprehensive3d_scoord3d_source_note_locks_geometry_and_validator_gate() {
         .expect("Comprehensive 3D SCOORD3D row must exist");
     assert_eq!(case["status"], "implemented");
     assert_eq!(case["roadmap"], Value::Null);
-    assert_eq!(case["blockers"], serde_json::json!([]));
+    assert_eq!(
+        case["blockers"],
+        serde_json::json!([{
+            "code": "recipe_unimplemented",
+            "message": "The deterministic native Spatial Registration recipe is not implemented.",
+            "recheck_phase": "phase-3"
+        }])
+    );
     assert!(
         case["standards_evidence"]
             .as_array()
@@ -568,6 +575,66 @@ fn comprehensive3d_scoord3d_source_note_locks_geometry_and_validator_gate() {
                 entry["part"] == "PS3.16" && entry["anchor"] == "TID_1500_TID_1501_TID_300"
             }))
     );
+}
+
+#[test]
+fn spatial_registration_source_note_locks_native_rigid_contract() {
+    let source = fs::read_to_string("standards/source-notes/phase-3-spatial-registration.md")
+        .expect("Spatial Registration source note must be readable");
+    for required in [
+        "derived/registration/spatial_ct_pair",
+        "Provider: `rust_native`",
+        "enhanced/ct/multiframe_shared_perframe_explicit_le",
+        "classic/ct/mono2_i16_rescale_12bit_explicit_le",
+        "Source RCS to Registered RCS",
+        "z-only translation of `+2.5 mm`",
+        "[0,0,0]` maps to",
+        "Registration Type Code Sequence",
+        "Studies Containing Other Referenced Instances Sequence",
+        "expected_spatial_registration",
+        "dicom-validator` 0.8.2",
+        "secondary IOD evidence",
+        "detect a VM 15",
+        "strict Rust validation owns rigid",
+        "owns reference closure",
+        "must not be silently allowlisted",
+        "Should become KB patch: yes",
+    ] {
+        assert!(
+            source.contains(required),
+            "Spatial Registration note requires {required}"
+        );
+    }
+
+    let registry = read_json("cases/registry.json");
+    let case = registry_cases(&registry)
+        .into_iter()
+        .find(|case| {
+            case.get("case_id").and_then(Value::as_str)
+                == Some("derived/registration/spatial_ct_pair")
+        })
+        .expect("Spatial Registration row must exist");
+    assert_eq!(case["status"], "planned");
+    assert_eq!(case["provider"]["kind"], "rust_native");
+    assert_eq!(case["provider"]["id"], "rust_native");
+    assert_eq!(case["blockers"], serde_json::json!([]));
+
+    for (part, anchor) in [
+        ("PS3.3", "A.39.1_C.20.1_C.20.2_C.12.2"),
+        ("PS3.4", "table_B.5-1"),
+        ("PS3.6", "table_A-1"),
+        ("PS3.6", "table_6-1"),
+        ("PS3.17", "O.1_O.3_O.5"),
+    ] {
+        assert!(
+            case["standards_evidence"]
+                .as_array()
+                .is_some_and(|evidence| evidence
+                    .iter()
+                    .any(|entry| { entry["part"] == part && entry["anchor"] == anchor })),
+            "Spatial Registration evidence requires {part} {anchor}"
+        );
+    }
 }
 
 #[test]

@@ -503,6 +503,33 @@ fn manifest_schema_types_long_multivalue_string_expectations() {
 }
 
 #[test]
+fn manifest_schema_types_private_creator_block_expectations() {
+    let schema = read_json("schemas/manifest.schema.json");
+    let metadata_schema = serde_json::json!({
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$ref": "#/$defs/expected_metadata",
+        "$defs": schema["$defs"].clone(),
+    });
+    let validator =
+        jsonschema::validator_for(&metadata_schema).expect("metadata schema should compile");
+    let mut metadata = private_creator_expectations();
+    assert!(validator.is_valid(&metadata));
+
+    metadata["private_creator_blocks"][0]["vr"] = serde_json::json!("SH");
+    metadata["private_creator_blocks"][1]["block_start_tag"] = serde_json::json!("00111200");
+    metadata["private_creator_blocks"][1]["elements"][0]["vr"] = serde_json::json!("UL");
+    metadata["private_creator_blocks"]
+        .as_array_mut()
+        .expect("private blocks should be an array")
+        .pop();
+    let errors = validator.iter_errors(&metadata).collect::<Vec<_>>();
+    assert!(
+        errors.len() >= 4,
+        "creator VR, block ID, private VR, and exact block count must be enforced: {errors:?}"
+    );
+}
+
+#[test]
 fn manifest_schema_rejects_malformed_person_name_expectations() {
     let schema = read_json("schemas/manifest.schema.json");
     let metadata_schema = serde_json::json!({
@@ -617,6 +644,44 @@ fn string_element_expectations() -> Value {
                 "decoded_value_lengths": [12], "raw_value_byte_length": 12,
                 "raw_value_sha256": "f9cf9c74b83f0c66cdb48d3536a5a5d884babc2cfda813d01b3577b473de20cf",
                 "padding": "none"
+            }
+        ]
+    })
+}
+
+fn private_creator_expectations() -> Value {
+    serde_json::json!({
+        "private_creator_blocks": [
+            {
+                "creator_tag": "0011,0010", "creator_id": "DTS_PRIVATE_ALPHA", "vr": "LO",
+                "raw_value_hex": "4454535F505249564154455F414C50484120",
+                "raw_value_byte_length": 18,
+                "raw_value_sha256": "02a7ccdec62f131efea4bb7c0954d15df2b1efd67abec69123ff0afcb197f8c3",
+                "block_start_tag": "0011,1000", "block_end_tag": "0011,10FF",
+                "elements": [
+                    { "tag": "0011,1001", "vr": "LO", "decoded_value": "ALPHA-GROUP-0011", "raw_value_hex": "414C5048412D47524F55502D30303131", "raw_value_byte_length": 16, "raw_value_sha256": "6b95b0cd9835f0ab50173c42a37511a7e8a547af8837f67e0a9bd0d6ff0da1ae" },
+                    { "tag": "0011,10F0", "vr": "US", "decoded_value": 4660, "raw_value_hex": "3412", "raw_value_byte_length": 2, "raw_value_sha256": "e74d0e44a658ffcdc0ee7266ebd171413b8fcf182c97a27254d9f48abaea6266" }
+                ]
+            },
+            {
+                "creator_tag": "0011,0012", "creator_id": "DTS_PRIVATE_BETA", "vr": "LO",
+                "raw_value_hex": "4454535F505249564154455F42455441",
+                "raw_value_byte_length": 16,
+                "raw_value_sha256": "df2316ffa7d764760e6c7f6174d3b15a2d59687834a90474b7446ff323df073d",
+                "block_start_tag": "0011,1200", "block_end_tag": "0011,12FF",
+                "elements": [
+                    { "tag": "0011,1201", "vr": "LO", "decoded_value": "BETA-BLOCK-12", "raw_value_hex": "424554412D424C4F434B2D313220", "raw_value_byte_length": 14, "raw_value_sha256": "3329e2d8d73e62f294fd73110474122239fd4d75a8a2aefbe16c117f0265b328" }
+                ]
+            },
+            {
+                "creator_tag": "0013,0011", "creator_id": "DTS_PRIVATE_ALPHA", "vr": "LO",
+                "raw_value_hex": "4454535F505249564154455F414C50484120",
+                "raw_value_byte_length": 18,
+                "raw_value_sha256": "02a7ccdec62f131efea4bb7c0954d15df2b1efd67abec69123ff0afcb197f8c3",
+                "block_start_tag": "0013,1100", "block_end_tag": "0013,11FF",
+                "elements": [
+                    { "tag": "0013,1101", "vr": "LO", "decoded_value": "ALPHA-GROUP-0013", "raw_value_hex": "414C5048412D47524F55502D30303133", "raw_value_byte_length": 16, "raw_value_sha256": "6374ee55ea117a6d46b516c6ca6f2550d95c849a16221c58bfea5c054b9e6919" }
+                ]
             }
         ]
     })

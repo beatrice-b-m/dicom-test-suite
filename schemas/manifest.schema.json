@@ -462,7 +462,8 @@
         { "required": ["person_names"] },
         { "required": ["temporal"] },
         { "required": ["empty_type2_attributes"] },
-        { "required": ["string_elements"] }
+        { "required": ["string_elements"] },
+        { "required": ["private_creator_blocks"] }
       ],
       "dependentRequired": {
         "person_names": ["specific_character_sets"]
@@ -495,6 +496,12 @@
           "items": { "$ref": "#/$defs/expected_string_element" },
           "minItems": 4,
           "maxItems": 4
+        },
+        "private_creator_blocks": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/expected_private_creator_block" },
+          "minItems": 3,
+          "maxItems": 3
         }
       },
       "additionalProperties": false
@@ -553,6 +560,106 @@
         "raw_value_byte_length": { "type": "integer", "minimum": 1 },
         "raw_value_sha256": { "$ref": "#/$defs/sha256" },
         "padding": { "enum": ["none", "space"] }
+      },
+      "additionalProperties": false
+    },
+    "expected_private_creator_block": {
+      "type": "object",
+      "required": [
+        "creator_tag",
+        "creator_id",
+        "vr",
+        "raw_value_hex",
+        "raw_value_sha256",
+        "raw_value_byte_length",
+        "block_start_tag",
+        "block_end_tag",
+        "elements"
+      ],
+      "properties": {
+        "creator_tag": {
+          "type": "string",
+          "pattern": "^[0-9A-F]{4},00[1-9A-F][0-9A-F]$"
+        },
+        "creator_id": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "vr": { "const": "LO" },
+        "raw_value_hex": {
+          "type": "string",
+          "pattern": "^(?:[0-9A-F]{2})+$"
+        },
+        "raw_value_sha256": { "$ref": "#/$defs/sha256" },
+        "raw_value_byte_length": { "type": "integer", "minimum": 2 },
+        "block_start_tag": {
+          "type": "string",
+          "pattern": "^[0-9A-F]{4},[0-9A-F]{4}$"
+        },
+        "block_end_tag": {
+          "type": "string",
+          "pattern": "^[0-9A-F]{4},[0-9A-F]{4}$"
+        },
+        "elements": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/expected_private_element" },
+          "minItems": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "expected_private_element": {
+      "oneOf": [
+        { "$ref": "#/$defs/expected_private_lo_element" },
+        { "$ref": "#/$defs/expected_private_us_element" }
+      ]
+    },
+    "expected_private_lo_element": {
+      "type": "object",
+      "required": [
+        "tag",
+        "vr",
+        "decoded_value",
+        "raw_value_hex",
+        "raw_value_byte_length",
+        "raw_value_sha256"
+      ],
+      "properties": {
+        "tag": {
+          "type": "string",
+          "pattern": "^[0-9A-F]{4},[0-9A-F]{4}$"
+        },
+        "vr": { "const": "LO" },
+        "decoded_value": { "type": "string", "minLength": 1 },
+        "raw_value_hex": {
+          "type": "string",
+          "pattern": "^(?:[0-9A-F]{2})+$"
+        },
+        "raw_value_byte_length": { "type": "integer", "minimum": 2 },
+        "raw_value_sha256": { "$ref": "#/$defs/sha256" }
+      },
+      "additionalProperties": false
+    },
+    "expected_private_us_element": {
+      "type": "object",
+      "required": [
+        "tag",
+        "vr",
+        "decoded_value",
+        "raw_value_hex",
+        "raw_value_byte_length",
+        "raw_value_sha256"
+      ],
+      "properties": {
+        "tag": {
+          "type": "string",
+          "pattern": "^[0-9A-F]{4},[0-9A-F]{4}$"
+        },
+        "vr": { "const": "US" },
+        "decoded_value": { "type": "integer", "minimum": 0, "maximum": 65535 },
+        "raw_value_hex": {
+          "type": "string",
+          "pattern": "^(?:[0-9A-F]{2})+$"
+        },
+        "raw_value_byte_length": { "const": 2 },
+        "raw_value_sha256": { "$ref": "#/$defs/sha256" }
       },
       "additionalProperties": false
     },

@@ -1,4 +1,5 @@
 pub(super) mod ct_geometry;
+pub(super) mod deformable_spatial_registration;
 pub(super) mod empty_type2_sc;
 pub(super) mod icc_profile;
 pub(super) mod metadata_sc;
@@ -15,6 +16,8 @@ pub(super) mod us_multiframe;
 pub(super) mod xa;
 pub(super) mod xrf;
 
+#[cfg(test)]
+mod deformable_spatial_registration_tests;
 #[cfg(test)]
 mod empty_type2_sc_tests;
 #[cfg(test)]

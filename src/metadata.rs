@@ -1,3 +1,5 @@
+use std::collections::BTreeSet;
+
 use dicom_core::{Tag, VR};
 use dicom_dictionary_std::{StandardDataDictionary, tags};
 use dicom_object::{FileDicomObject, InMemDicomObject};
@@ -35,8 +37,36 @@ pub(crate) fn validate_manifest_metadata(
         return;
     }
 
-    validate_character_sets(relative_path, bytes, expected, obj, failures);
+    if expected.get("specific_character_sets").is_some() {
+        validate_character_sets(relative_path, bytes, expected, obj, failures);
+    }
     validate_person_names(relative_path, bytes, expected, obj, failures);
+    validate_temporal_metadata(relative_path, bytes, expected, obj, failures);
+}
+
+pub(crate) fn validate_manifest_metadata_corpus(files: &[Value], failures: &mut Vec<String>) {
+    let temporal_files = files
+        .iter()
+        .filter(|file| {
+            file.get("case_id").and_then(Value::as_str) == Some("metadata/sc/timezone_boundaries")
+        })
+        .collect::<Vec<_>>();
+    if temporal_files.is_empty() {
+        return;
+    }
+
+    let boundary_ids = temporal_files
+        .iter()
+        .filter_map(|file| file.pointer("/expected_metadata/temporal/boundary_id"))
+        .filter_map(Value::as_str)
+        .collect::<BTreeSet<_>>();
+    let expected = BTreeSet::from(["negative_min", "positive_max"]);
+    if temporal_files.len() != 2 || boundary_ids != expected {
+        failures.push(format!(
+            "metadata/sc/timezone_boundaries: metadata_temporal_boundary_set: expected exactly one negative_min and one positive_max instance, found {} files and {boundary_ids:?}",
+            temporal_files.len()
+        ));
+    }
 }
 
 fn validate_character_sets(
@@ -227,6 +257,409 @@ fn validate_person_names(
     }
 }
 
+fn validate_temporal_metadata(
+    relative_path: &str,
+    bytes: &[u8],
+    expected: &Value,
+    obj: &OpenedObject,
+    failures: &mut Vec<String>,
+) {
+    let Some(temporal) = expected.get("temporal") else {
+        return;
+    };
+
+    let offset_value = temporal
+        .get("timezone_offset_from_utc")
+        .unwrap_or(&Value::Null);
+    validate_encoded_temporal_element(relative_path, bytes, offset_value, obj, failures);
+    let offset_text = offset_value
+        .get("decoded_value")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let offset_minutes = match parse_timezone_offset(offset_text) {
+        Ok(value) => value,
+        Err(message) => {
+            failures.push(format!(
+                "{relative_path}: metadata_temporal_timezone_offset: {message}"
+            ));
+            0
+        }
+    };
+    let manifest_offset = offset_value
+        .get("offset_minutes")
+        .and_then(Value::as_i64)
+        .unwrap_or_default();
+    if i64::from(offset_minutes) != manifest_offset {
+        failures.push(format!(
+            "{relative_path}: metadata_temporal_timezone_offset_minutes: parsed {offset_minutes}, manifest {manifest_offset}"
+        ));
+    }
+
+    let mut study_date = None;
+    for value in temporal
+        .get("date_values")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+    {
+        validate_encoded_temporal_element(relative_path, bytes, value, obj, failures);
+        let decoded = value
+            .get("decoded_value")
+            .and_then(Value::as_str)
+            .unwrap_or_default();
+        match parse_dicom_date(decoded) {
+            Ok(date) => {
+                if value.get("keyword").and_then(Value::as_str) == Some("StudyDate") {
+                    study_date = Some(date);
+                }
+            }
+            Err(message) => failures.push(format!(
+                "{relative_path}: metadata_temporal_date_lexical: {message}"
+            )),
+        }
+    }
+
+    let mut study_time = None;
+    for value in temporal
+        .get("time_values")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+    {
+        validate_encoded_temporal_element(relative_path, bytes, value, obj, failures);
+        let decoded = value
+            .get("decoded_value")
+            .and_then(Value::as_str)
+            .unwrap_or_default();
+        match parse_dicom_time(decoded) {
+            Ok(time) => {
+                if value.get("keyword").and_then(Value::as_str) == Some("StudyTime") {
+                    study_time = Some(time);
+                }
+            }
+            Err(message) => failures.push(format!(
+                "{relative_path}: metadata_temporal_time_lexical: {message}"
+            )),
+        }
+    }
+
+    for value in temporal
+        .get("date_time_values")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+    {
+        validate_encoded_temporal_element(relative_path, bytes, value, obj, failures);
+        let decoded = value
+            .get("decoded_value")
+            .and_then(Value::as_str)
+            .unwrap_or_default();
+        match parse_dicom_date_time(decoded) {
+            Ok((date, time, embedded_offset)) => {
+                let manifest_embedded = value
+                    .get("embedded_offset_minutes")
+                    .and_then(Value::as_i64)
+                    .unwrap_or_default();
+                if embedded_offset != offset_minutes
+                    || i64::from(embedded_offset) != manifest_embedded
+                {
+                    failures.push(format!(
+                        "{relative_path}: metadata_temporal_embedded_offset: DT {embedded_offset}, global {offset_minutes}, manifest {manifest_embedded}"
+                    ));
+                }
+                let normalized = normalize_utc(date, time, embedded_offset);
+                let manifest_normalized = value
+                    .get("normalized_utc")
+                    .and_then(Value::as_str)
+                    .unwrap_or_default();
+                if normalized != manifest_normalized {
+                    failures.push(format!(
+                        "{relative_path}: metadata_temporal_date_time_utc: computed {normalized}, manifest {manifest_normalized}"
+                    ));
+                }
+            }
+            Err(message) => failures.push(format!(
+                "{relative_path}: metadata_temporal_date_time_lexical: {message}"
+            )),
+        }
+    }
+
+    if let (Some(date), Some(time)) = (study_date, study_time) {
+        let normalized = normalize_utc(date, time, offset_minutes);
+        let manifest_normalized = temporal
+            .get("combined_da_tm_utc")
+            .and_then(Value::as_str)
+            .unwrap_or_default();
+        if normalized != manifest_normalized {
+            failures.push(format!(
+                "{relative_path}: metadata_temporal_combined_utc: computed {normalized}, manifest {manifest_normalized}"
+            ));
+        }
+    } else {
+        failures.push(format!(
+            "{relative_path}: metadata_temporal_combined_source: StudyDate and StudyTime expectations are required"
+        ));
+    }
+}
+
+fn validate_encoded_temporal_element(
+    relative_path: &str,
+    bytes: &[u8],
+    expected: &Value,
+    obj: &OpenedObject,
+    failures: &mut Vec<String>,
+) {
+    let tag_text = expected
+        .get("tag")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let Some(tag) = parse_tag(tag_text) else {
+        failures.push(format!(
+            "{relative_path}: metadata_temporal_tag: invalid manifest tag {tag_text:?}"
+        ));
+        return;
+    };
+    let keyword = expected
+        .get("keyword")
+        .and_then(Value::as_str)
+        .unwrap_or(tag_text);
+    let expected_vr = expected
+        .get("vr")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let expected_value = expected
+        .get("decoded_value")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+
+    match obj.element(tag) {
+        Ok(element) => {
+            if format!("{:?}", element.vr()) != expected_vr {
+                failures.push(format!(
+                    "{relative_path}: metadata_temporal_vr: {keyword} dataset {:?}, manifest {expected_vr}",
+                    element.vr()
+                ));
+            }
+            match element.to_str() {
+                Ok(actual) if actual.trim_end_matches([' ', '\0']) == expected_value => {}
+                Ok(actual) => failures.push(format!(
+                    "{relative_path}: metadata_temporal_decoded: {keyword} dataset {:?}, manifest {expected_value:?}",
+                    actual.trim_end_matches([' ', '\0'])
+                )),
+                Err(error) => failures.push(format!(
+                    "{relative_path}: metadata_temporal_decoded: {keyword} is unreadable: {error}"
+                )),
+            }
+        }
+        Err(error) => failures.push(format!(
+            "{relative_path}: metadata_temporal_present: {keyword} is missing: {error}"
+        )),
+    }
+
+    match find_raw_element(bytes, tag) {
+        Some(element) => {
+            if element.vr != expected_vr {
+                failures.push(format!(
+                    "{relative_path}: metadata_temporal_raw_vr: {keyword} dataset {}, manifest {expected_vr}",
+                    element.vr
+                ));
+            }
+            let expected_length = expected
+                .get("raw_value_byte_length")
+                .and_then(Value::as_u64)
+                .unwrap_or_default() as usize;
+            if element.value.len() != expected_length {
+                failures.push(format!(
+                    "{relative_path}: metadata_temporal_raw_length: {keyword} dataset {}, manifest {expected_length}",
+                    element.value.len()
+                ));
+            }
+            let expected_hash = expected
+                .get("raw_value_sha256")
+                .and_then(Value::as_str)
+                .unwrap_or_default();
+            let actual_hash = sha256_hex(element.value);
+            if actual_hash != expected_hash {
+                failures.push(format!(
+                    "{relative_path}: metadata_temporal_raw_hash: {keyword} dataset {actual_hash}, manifest {expected_hash}"
+                ));
+            }
+            let expected_hex = expected
+                .get("raw_value_hex")
+                .and_then(Value::as_str)
+                .unwrap_or_default();
+            let actual_hex = uppercase_hex(element.value);
+            if actual_hex != expected_hex {
+                failures.push(format!(
+                    "{relative_path}: metadata_temporal_raw_hex: {keyword} dataset {actual_hex}, manifest {expected_hex}"
+                ));
+            }
+        }
+        None => failures.push(format!(
+            "{relative_path}: metadata_temporal_raw: {keyword} raw element is missing"
+        )),
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+struct DicomDate {
+    year: i64,
+    month: i64,
+    day: i64,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct DicomTime {
+    hour: i64,
+    minute: i64,
+    second: i64,
+    micros: i64,
+}
+
+fn parse_dicom_date(value: &str) -> Result<DicomDate, String> {
+    if value.len() != 8 || !value.bytes().all(|byte| byte.is_ascii_digit()) {
+        return Err(format!("DA {value:?} must contain exactly YYYYMMDD"));
+    }
+    let year = parse_digits(&value[0..4])?;
+    let month = parse_digits(&value[4..6])?;
+    let day = parse_digits(&value[6..8])?;
+    if year == 0 || !(1..=12).contains(&month) {
+        return Err(format!("DA {value:?} has an invalid year or month"));
+    }
+    let max_day = days_in_month(year, month);
+    if !(1..=max_day).contains(&day) {
+        return Err(format!("DA {value:?} has an invalid day"));
+    }
+    Ok(DicomDate { year, month, day })
+}
+
+fn parse_dicom_time(value: &str) -> Result<DicomTime, String> {
+    let (base, fraction) = value
+        .split_once('.')
+        .ok_or_else(|| format!("TM {value:?} must include fractional seconds"))?;
+    if base.len() != 6
+        || !base.bytes().all(|byte| byte.is_ascii_digit())
+        || fraction.is_empty()
+        || fraction.len() > 6
+        || !fraction.bytes().all(|byte| byte.is_ascii_digit())
+    {
+        return Err(format!(
+            "TM {value:?} must contain HHMMSS and one through six fractional digits"
+        ));
+    }
+    let hour = parse_digits(&base[0..2])?;
+    let minute = parse_digits(&base[2..4])?;
+    let second = parse_digits(&base[4..6])?;
+    if hour > 23 || minute > 59 || second > 60 {
+        return Err(format!("TM {value:?} is outside the 24-hour range"));
+    }
+    let micros = parse_digits(fraction)? * 10_i64.pow((6 - fraction.len()) as u32);
+    Ok(DicomTime {
+        hour,
+        minute,
+        second,
+        micros,
+    })
+}
+
+fn parse_dicom_date_time(value: &str) -> Result<(DicomDate, DicomTime, i16), String> {
+    if value.len() != 26 {
+        return Err(format!(
+            "DT {value:?} must contain YYYYMMDDHHMMSS.ffffff&ZZXX"
+        ));
+    }
+    let date = parse_dicom_date(&value[0..8])?;
+    let time = parse_dicom_time(&value[8..21])?;
+    let offset = parse_timezone_offset(&value[21..26])?;
+    Ok((date, time, offset))
+}
+
+fn parse_timezone_offset(value: &str) -> Result<i16, String> {
+    let bytes = value.as_bytes();
+    if bytes.len() != 5
+        || !matches!(bytes[0], b'+' | b'-')
+        || !bytes[1..].iter().all(u8::is_ascii_digit)
+    {
+        return Err(format!("timezone offset {value:?} must use [+-]HHMM"));
+    }
+    let hours = parse_digits(&value[1..3])?;
+    let minutes = parse_digits(&value[3..5])?;
+    if minutes > 59 {
+        return Err(format!("timezone offset {value:?} has invalid minutes"));
+    }
+    let magnitude = hours * 60 + minutes;
+    let signed = if bytes[0] == b'-' {
+        -magnitude
+    } else {
+        magnitude
+    };
+    if !(-720..=840).contains(&signed) {
+        return Err(format!(
+            "timezone offset {value:?} is outside -1200 through +1400"
+        ));
+    }
+    Ok(signed as i16)
+}
+
+fn parse_digits(value: &str) -> Result<i64, String> {
+    value
+        .parse::<i64>()
+        .map_err(|_| format!("{value:?} is not numeric"))
+}
+
+fn days_in_month(year: i64, month: i64) -> i64 {
+    match month {
+        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+        4 | 6 | 9 | 11 => 30,
+        2 if year % 4 == 0 && (year % 100 != 0 || year % 400 == 0) => 29,
+        2 => 28,
+        _ => 0,
+    }
+}
+
+fn normalize_utc(date: DicomDate, time: DicomTime, offset_minutes: i16) -> String {
+    let local_seconds = days_from_civil(date.year, date.month, date.day) * 86_400
+        + time.hour * 3_600
+        + time.minute * 60
+        + time.second;
+    let utc_seconds = local_seconds - i64::from(offset_minutes) * 60;
+    let utc_days = utc_seconds.div_euclid(86_400);
+    let day_seconds = utc_seconds.rem_euclid(86_400);
+    let (year, month, day) = civil_from_days(utc_days);
+    format!(
+        "{year:04}-{month:02}-{day:02}T{:02}:{:02}:{:02}.{:06}Z",
+        day_seconds / 3_600,
+        day_seconds % 3_600 / 60,
+        day_seconds % 60,
+        time.micros
+    )
+}
+
+fn days_from_civil(mut year: i64, month: i64, day: i64) -> i64 {
+    year -= i64::from(month <= 2);
+    let era = if year >= 0 { year } else { year - 399 } / 400;
+    let year_of_era = year - era * 400;
+    let month_prime = month + if month > 2 { -3 } else { 9 };
+    let day_of_year = (153 * month_prime + 2) / 5 + day - 1;
+    let day_of_era = year_of_era * 365 + year_of_era / 4 - year_of_era / 100 + day_of_year;
+    era * 146_097 + day_of_era - 719_468
+}
+
+fn civil_from_days(days_since_epoch: i64) -> (i64, i64, i64) {
+    let z = days_since_epoch + 719_468;
+    let era = if z >= 0 { z } else { z - 146_096 } / 146_097;
+    let day_of_era = z - era * 146_097;
+    let year_of_era =
+        (day_of_era - day_of_era / 1460 + day_of_era / 36_524 - day_of_era / 146_096) / 365;
+    let mut year = year_of_era + era * 400;
+    let day_of_year = day_of_era - (365 * year_of_era + year_of_era / 4 - year_of_era / 100);
+    let month_prime = (5 * day_of_year + 2) / 153;
+    let day = day_of_year - (153 * month_prime + 2) / 5 + 1;
+    let month = month_prime + if month_prime < 10 { 3 } else { -9 };
+    year += i64::from(month <= 2);
+    (year, month, day)
+}
+
 fn uppercase_hex(bytes: &[u8]) -> String {
     use std::fmt::Write as _;
 
@@ -390,12 +823,43 @@ fn read_u32(bytes: &[u8], offset: usize) -> Option<u32> {
 
 #[cfg(test)]
 mod tests {
-    use super::parse_tag;
+    use super::{
+        normalize_utc, parse_dicom_date, parse_dicom_date_time, parse_dicom_time, parse_tag,
+        parse_timezone_offset,
+    };
     use dicom_core::Tag;
 
     #[test]
     fn parses_canonical_manifest_tag() {
         assert_eq!(parse_tag("0010,0010"), Some(Tag(0x0010, 0x0010)));
         assert_eq!(parse_tag("PatientName"), None);
+    }
+
+    #[test]
+    fn parses_and_normalizes_timezone_extrema() {
+        let positive_date = parse_dicom_date("20240229").expect("leap day must parse");
+        let positive_time = parse_dicom_time("235959.999999").expect("max local time must parse");
+        assert_eq!(parse_timezone_offset("+1400"), Ok(840));
+        assert_eq!(
+            normalize_utc(positive_date, positive_time, 840),
+            "2024-02-29T09:59:59.999999Z"
+        );
+
+        let (date, time, offset) = parse_dicom_date_time("20240301000000.000000-1200")
+            .expect("negative boundary DT must parse");
+        assert_eq!(offset, -720);
+        assert_eq!(
+            normalize_utc(date, time, offset),
+            "2024-03-01T12:00:00.000000Z"
+        );
+    }
+
+    #[test]
+    fn rejects_invalid_temporal_lexemes() {
+        assert!(parse_dicom_date("20230229").is_err());
+        assert!(parse_dicom_time("240000.000000").is_err());
+        assert!(parse_timezone_offset("+1401").is_err());
+        assert!(parse_timezone_offset("-1201").is_err());
+        assert!(parse_dicom_date_time("20240229235959+1400").is_err());
     }
 }

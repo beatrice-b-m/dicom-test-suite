@@ -542,6 +542,7 @@ pub fn validate_generated_root(
         validate_manifest_file(root_dir, &manifest_path, file, &mut failures)?;
     }
     geometry::validate_manifest_geometry(root_dir, files, &mut failures);
+    metadata::validate_manifest_metadata_corpus(files, &mut failures);
 
     Ok(ValidationSummary {
         manifest_path,

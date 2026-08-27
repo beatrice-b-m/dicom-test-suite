@@ -44,6 +44,7 @@ pub mod encapsulation;
 pub mod generation_backends;
 mod generator;
 mod geometry;
+mod metadata;
 pub mod uid;
 mod validation;
 pub use coverage_gaps::{
@@ -852,6 +853,14 @@ fn validate_manifest_file(
     );
     validate_standard_baseline_elements(failures, relative_path, manifest_path, file, &obj)?;
     validate_family_standard_elements(failures, relative_path, manifest_path, file, &obj)?;
+    metadata::validate_manifest_metadata(
+        relative_path,
+        &bytes,
+        expected_transfer_syntax,
+        file,
+        &obj,
+        failures,
+    );
 
     validate_str_element(
         failures,

@@ -12090,6 +12090,22 @@
           "covered": true,
           "part": "PS3.6",
           "anchor": "table_A-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom-kb lookup ImageComments SoftwareVersions PixelSpacing AcquisitionNumber --edition 2026b",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
+        },
+        {
+          "source": "local-source-note",
+          "edition": "2026b",
+          "query": "standards/source-notes/phase-2-long-multivalue-strings.md",
+          "covered": true,
+          "part": "PS3.5",
+          "anchor": "table_6.2-1_sect_6.4"
         }
       ]
     },

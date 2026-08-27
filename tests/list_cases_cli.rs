@@ -391,6 +391,12 @@ fn list_cases_command_shows_extended_case_status_and_evidence() {
         ),
         "list-cases must include the implemented feature-gated deflated transfer syntax case"
     );
+    assert!(
+        stdout.contains(
+            "non-image/waveform/general_ecg\timplemented\textended\t1.2.840.10008.5.1.4.1.1.9.1.2\t1.2.840.10008.1.2.1\t2/2 covered\tdicom_instance\trust_native"
+        ),
+        "list-cases must include the implemented General ECG extended case"
+    );
 }
 
 #[test]
@@ -466,6 +472,10 @@ fn list_cases_command_filters_by_status_and_profile() {
     assert!(
         !stdout.contains("classic/sc/mono2_u8_deflated_explicit_le"),
         "planned status filter must exclude implemented feature-gated deflated cases"
+    );
+    assert!(
+        !stdout.contains("non-image/waveform/general_ecg"),
+        "planned status filter must exclude implemented General ECG"
     );
 }
 

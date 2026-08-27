@@ -1196,18 +1196,18 @@ fn general_ecg_source_note_locks_multigroup_contract_and_native_provider() {
             case.get("case_id").and_then(Value::as_str) == Some("non-image/waveform/general_ecg")
         })
         .expect("General ECG Waveform row must exist");
-    assert_eq!(case["status"], "planned");
+    assert_eq!(case["status"], "implemented");
     assert_eq!(case["provider"]["kind"], "rust_native");
     assert_eq!(case["provider"]["id"], "rust_native");
     assert_eq!(case["determinism"], "byte_stable");
     assert_eq!(
         case["blockers"]
             .as_array()
-            .expect("planned General ECG blockers must be an array")
+            .expect("implemented General ECG blockers must be an array")
             .iter()
             .map(|blocker| blocker["code"].as_str().unwrap())
             .collect::<Vec<_>>(),
-        vec!["recipe_unimplemented"]
+        Vec::<&str>::new()
     );
     assert!(
         case["standards_evidence"]
@@ -5133,6 +5133,7 @@ fn generator_recipe_case_ids() -> BTreeSet<String> {
                 "ADVANCED_BLENDING_PRESENTATION_STATE_CASE_ID: &str =\n    \"",
                 "BLENDING_PRESENTATION_STATE_CASE_ID: &str = \"",
                 "TWELVE_LEAD_ECG_CASE_ID: &str = \"",
+                "GENERAL_ECG_CASE_ID: &str = \"",
             ][..],
         ),
         ("src/generator/native/ct_geometry.rs", &["case_id: \""][..]),

@@ -25304,15 +25304,15 @@ mod tests {
         let case = serde_json::json!({
             "case_id": GENERAL_ECG_CASE_ID,
             "profiles": ["extended"],
-            "status": "planned",
+            "status": "implemented",
             "requirements": {"features": []},
             "standards_evidence": []
         });
         let standards_lock = "0000000000000000000000000000000000000000000000000000000000000000";
 
         assert!(
-            !should_generate_case(&case, &run).expect("planned case should be well formed"),
-            "General ECG must remain excluded from profile generation until registry promotion"
+            should_generate_case(&case, &run).expect("implemented case should be well formed"),
+            "General ECG must be included in extended generation after registry promotion"
         );
 
         let first = write_general_ecg_case(&run, &case, standards_lock)

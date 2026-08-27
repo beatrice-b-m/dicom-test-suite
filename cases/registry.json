@@ -13523,7 +13523,7 @@
     {
       "case_id": "non-image/waveform/general_ecg",
       "artifact_kind": "dicom_instance",
-      "status": "planned",
+      "status": "implemented",
       "provider": {
         "kind": "rust_native",
         "id": "rust_native"
@@ -13532,18 +13532,8 @@
       "compatibility_axes": [
         "waveform"
       ],
-      "roadmap": {
-        "priority": "next",
-        "delivery_phase": "phase-3",
-        "rationale": "Adds a second waveform channel layout and sampling model."
-      },
-      "blockers": [
-        {
-          "code": "recipe_unimplemented",
-          "message": "The deterministic native recipe is not implemented.",
-          "recheck_phase": "phase-3"
-        }
-      ],
+      "roadmap": null,
+      "blockers": [],
       "profiles": [
         "extended"
       ],

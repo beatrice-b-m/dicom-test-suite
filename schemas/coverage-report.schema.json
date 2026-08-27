@@ -273,6 +273,13 @@
         "derived_reference_sop_instance_uid_roots": {
           "$ref": "#/$defs/count_map"
         },
+        "registration_matrix_directions": { "$ref": "#/$defs/count_map" },
+        "registration_matrix_types": { "$ref": "#/$defs/count_map" },
+        "registration_item_counts": { "$ref": "#/$defs/count_map" },
+        "registration_reference_topologies": { "$ref": "#/$defs/count_map" },
+        "registration_reference_relationships": { "$ref": "#/$defs/count_map" },
+        "registration_pixel_data_absent_states": { "$ref": "#/$defs/count_map" },
+        "registration_landmark_mappings": { "$ref": "#/$defs/count_map" },
         "synthetic_data": {
           "$ref": "#/$defs/count_map"
         },
@@ -941,6 +948,13 @@
         "derived_reference_relationships",
         "derived_reference_sop_class_uids",
         "derived_reference_sop_instance_uid_roots",
+        "registration_matrix_direction",
+        "registration_matrix_type",
+        "registration_item_count",
+        "registration_reference_topology",
+        "registration_reference_relationships",
+        "registration_pixel_data_absent",
+        "registration_landmark_mapping",
         "validation_status",
         "determinism",
         "object_type",
@@ -1636,6 +1650,28 @@
             "type": "string"
           }
         },
+        "registration_matrix_direction": {
+          "enum": ["source_to_registered", null]
+        },
+        "registration_matrix_type": {
+          "enum": ["RIGID", null]
+        },
+        "registration_item_count": {
+          "type": ["integer", "null"],
+          "minimum": 1
+        },
+        "registration_reference_topology": {
+          "enum": ["same_study_target+other_study_source", null]
+        },
+        "registration_reference_relationships": {
+          "enum": ["registered_target; moving_source", null]
+        },
+        "registration_pixel_data_absent": {
+          "type": ["boolean", "null"]
+        },
+        "registration_landmark_mapping": {
+          "enum": ["[-0.625, -0.625, 0] -> [0, 0, 2.5]", null]
+        },
         "validation_status": {
           "$ref": "#/$defs/validation_status"
         },
@@ -2315,6 +2351,35 @@
               "nonsquare_uncalibrated": { "type": "null" },
               "nonsquare_patient_space_geometry_present": { "type": "null" },
               "nonsquare_pixel_data_sha256": { "type": "null" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "case_id": { "const": "derived/registration/spatial_ct_pair" }
+            }
+          },
+          "then": {
+            "properties": {
+              "registration_matrix_direction": { "const": "source_to_registered" },
+              "registration_matrix_type": { "const": "RIGID" },
+              "registration_item_count": { "const": 2 },
+              "registration_reference_topology": { "const": "same_study_target+other_study_source" },
+              "registration_reference_relationships": { "const": "registered_target; moving_source" },
+              "registration_pixel_data_absent": { "const": true },
+              "registration_landmark_mapping": { "const": "[-0.625, -0.625, 0] -> [0, 0, 2.5]" }
+            }
+          },
+          "else": {
+            "properties": {
+              "registration_matrix_direction": { "type": "null" },
+              "registration_matrix_type": { "type": "null" },
+              "registration_item_count": { "type": "null" },
+              "registration_reference_topology": { "type": "null" },
+              "registration_reference_relationships": { "type": "null" },
+              "registration_pixel_data_absent": { "type": "null" },
+              "registration_landmark_mapping": { "type": "null" }
             }
           }
         },

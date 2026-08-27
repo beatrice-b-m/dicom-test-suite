@@ -14054,6 +14054,38 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
         "Derived Reference SOP Instance UID Roots",
         "/grouped_coverage/derived_reference_sop_instance_uid_roots",
     );
+    for (title, pointer) in [
+        (
+            "Registration Matrix Directions",
+            "/grouped_coverage/registration_matrix_directions",
+        ),
+        (
+            "Registration Matrix Types",
+            "/grouped_coverage/registration_matrix_types",
+        ),
+        (
+            "Registration Item Counts",
+            "/grouped_coverage/registration_item_counts",
+        ),
+        (
+            "Registration Reference Topologies",
+            "/grouped_coverage/registration_reference_topologies",
+        ),
+        (
+            "Registration Reference Relationships",
+            "/grouped_coverage/registration_reference_relationships",
+        ),
+        (
+            "Registration Pixel Data Absent States",
+            "/grouped_coverage/registration_pixel_data_absent_states",
+        ),
+        (
+            "Registration Landmark Mappings",
+            "/grouped_coverage/registration_landmark_mappings",
+        ),
+    ] {
+        append_count_map_section(&mut output, report, title, pointer);
+    }
     append_count_map_section(
         &mut output,
         report,
@@ -15331,6 +15363,47 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
         output.push('\n');
     }
 
+    let registration_rows = report
+        .get("coverage_matrix")
+        .and_then(Value::as_array)
+        .map(|rows| {
+            rows.iter()
+                .filter(|row| !row["registration_matrix_direction"].is_null())
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    if !registration_rows.is_empty() {
+        output.push_str("## Spatial Registration Expectations\n\n");
+        output.push_str("| Case ID | Matrix direction | Matrix type | Items | Reference topology | Relationships | Pixel data absent | Landmark mapping |\n");
+        output.push_str("|---|---|---|---:|---|---|---|---|\n");
+        for row in registration_rows {
+            output.push_str(&format!(
+                "| {} | {} | {} | {} | {} | {} | {} | {} |\n",
+                markdown_cell(row.get("case_id").and_then(Value::as_str)),
+                markdown_cell(
+                    row.get("registration_matrix_direction")
+                        .and_then(Value::as_str)
+                ),
+                markdown_cell(row.get("registration_matrix_type").and_then(Value::as_str)),
+                markdown_number(row.get("registration_item_count")),
+                markdown_cell(
+                    row.get("registration_reference_topology")
+                        .and_then(Value::as_str)
+                ),
+                markdown_cell(
+                    row.get("registration_reference_relationships")
+                        .and_then(Value::as_str)
+                ),
+                markdown_bool(row.get("registration_pixel_data_absent")),
+                markdown_cell(
+                    row.get("registration_landmark_mapping")
+                        .and_then(Value::as_str)
+                ),
+            ));
+        }
+        output.push('\n');
+    }
+
     output.push_str("## Coverage Matrix\n\n");
     output.push_str("| Case ID | Status | Profile | IOD | Transfer Syntax | Photometric | Bits | Frames | Generation Backend | Backend Version | Backend Determinism | Validation |\n");
     output.push_str("|---|---|---|---|---|---|---:|---:|---|---|---|---|\n");
@@ -15409,6 +15482,8 @@ fn generated_coverage_row(
     let u1_pixels = u1_pixel_report_fields(manifest_path, file)?;
     let icc_profile = icc_profile_report_fields(manifest_path, file)?;
     let nonsquare_spacing = nonsquare_spacing_report_fields(manifest_path, file)?;
+    let is_spatial_registration =
+        file.get("case_id").and_then(Value::as_str) == Some("derived/registration/spatial_ct_pair");
     let mut row = serde_json::json!({
         "case_id": report_str(manifest_path, file, "/case_id", "file case_id must be a string")?,
         "profile": run_profile,
@@ -15460,6 +15535,71 @@ fn generated_coverage_row(
     let row_object = row
         .as_object_mut()
         .expect("generated coverage row literal must be an object");
+    for (field, pointer) in [
+        (
+            "registration_matrix_direction",
+            "/expected_spatial_registration/matrix_direction",
+        ),
+        (
+            "registration_matrix_type",
+            "/expected_spatial_registration/registration_items/1/matrix/type",
+        ),
+    ] {
+        row_object.insert(
+            field.to_string(),
+            if is_spatial_registration {
+                file.pointer(pointer)
+                    .and_then(Value::as_str)
+                    .map(Value::from)
+                    .unwrap_or(Value::Null)
+            } else {
+                Value::Null
+            },
+        );
+    }
+    row_object.insert(
+        "registration_item_count".to_string(),
+        if is_spatial_registration {
+            file.pointer("/expected_spatial_registration/registration_items")
+                .and_then(Value::as_array)
+                .map(|items| Value::from(items.len() as u64))
+                .unwrap_or(Value::Null)
+        } else {
+            Value::Null
+        },
+    );
+    for (field, value) in [
+        (
+            "registration_reference_topology",
+            "same_study_target+other_study_source",
+        ),
+        (
+            "registration_reference_relationships",
+            "registered_target; moving_source",
+        ),
+        (
+            "registration_landmark_mapping",
+            "[-0.625, -0.625, 0] -> [0, 0, 2.5]",
+        ),
+    ] {
+        row_object.insert(
+            field.to_string(),
+            is_spatial_registration
+                .then(|| Value::from(value))
+                .unwrap_or(Value::Null),
+        );
+    }
+    row_object.insert(
+        "registration_pixel_data_absent".to_string(),
+        if is_spatial_registration {
+            file.pointer("/expected_spatial_registration/pixel_data_absent")
+                .and_then(Value::as_bool)
+                .map(Value::from)
+                .unwrap_or(Value::Null)
+        } else {
+            Value::Null
+        },
+    );
     for (field, value) in [
         (
             "u32_stored_values",
@@ -19108,6 +19248,13 @@ fn skipped_coverage_row(
         "xrf_patient_space_geometry_present",
         "xrf_pixel_spacing_calibrated",
         "xrf_xa_positioner_angles_present",
+        "registration_matrix_direction",
+        "registration_matrix_type",
+        "registration_item_count",
+        "registration_reference_topology",
+        "registration_reference_relationships",
+        "registration_pixel_data_absent",
+        "registration_landmark_mapping",
     ] {
         row_object.insert(field.to_string(), Value::Null);
     }
@@ -19514,6 +19661,13 @@ struct GroupedCoverage {
     derived_reference_targets: BTreeMap<String, usize>,
     derived_reference_sop_class_uids: BTreeMap<String, usize>,
     derived_reference_sop_instance_uid_roots: BTreeMap<String, usize>,
+    registration_matrix_directions: BTreeMap<String, usize>,
+    registration_matrix_types: BTreeMap<String, usize>,
+    registration_item_counts: BTreeMap<String, usize>,
+    registration_reference_topologies: BTreeMap<String, usize>,
+    registration_reference_relationships: BTreeMap<String, usize>,
+    registration_pixel_data_absent_states: BTreeMap<String, usize>,
+    registration_landmark_mappings: BTreeMap<String, usize>,
     synthetic_data: BTreeMap<String, usize>,
     image_types: BTreeMap<String, usize>,
     conversion_types: BTreeMap<String, usize>,
@@ -20529,6 +20683,45 @@ impl GroupedCoverage {
                 );
             }
         }
+        for (map, field) in [
+            (
+                &mut self.registration_matrix_directions,
+                "registration_matrix_direction",
+            ),
+            (
+                &mut self.registration_matrix_types,
+                "registration_matrix_type",
+            ),
+            (
+                &mut self.registration_reference_topologies,
+                "registration_reference_topology",
+            ),
+            (
+                &mut self.registration_reference_relationships,
+                "registration_reference_relationships",
+            ),
+            (
+                &mut self.registration_landmark_mappings,
+                "registration_landmark_mapping",
+            ),
+        ] {
+            increment_map(map, row.get(field).and_then(Value::as_str));
+        }
+        if let Some(count) = row.get("registration_item_count").and_then(Value::as_u64) {
+            *self
+                .registration_item_counts
+                .entry(count.to_string())
+                .or_default() += 1;
+        }
+        if let Some(absent) = row
+            .get("registration_pixel_data_absent")
+            .and_then(Value::as_bool)
+        {
+            *self
+                .registration_pixel_data_absent_states
+                .entry(absent.to_string())
+                .or_default() += 1;
+        }
         increment_map(
             &mut self.synthetic_data,
             row.get("synthetic_data").and_then(Value::as_str),
@@ -21059,6 +21252,35 @@ impl GroupedCoverage {
         let grouped_object = grouped
             .as_object_mut()
             .expect("grouped coverage literal must be an object");
+        for (field, map) in [
+            (
+                "registration_matrix_directions",
+                &self.registration_matrix_directions,
+            ),
+            ("registration_matrix_types", &self.registration_matrix_types),
+            ("registration_item_counts", &self.registration_item_counts),
+            (
+                "registration_reference_topologies",
+                &self.registration_reference_topologies,
+            ),
+            (
+                "registration_reference_relationships",
+                &self.registration_reference_relationships,
+            ),
+            (
+                "registration_pixel_data_absent_states",
+                &self.registration_pixel_data_absent_states,
+            ),
+            (
+                "registration_landmark_mappings",
+                &self.registration_landmark_mappings,
+            ),
+        ] {
+            grouped_object.insert(
+                field.to_string(),
+                serde_json::to_value(map).expect("registration coverage count map must serialize"),
+            );
+        }
         for (field, map) in [
             ("u32_stored_value_sets", &self.u32_stored_value_sets),
             (

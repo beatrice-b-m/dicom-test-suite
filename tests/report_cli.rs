@@ -5671,6 +5671,91 @@ fn report_surfaces_both_nonsquare_spatial_variants() {
     fs::remove_dir_all(out_dir).unwrap();
 }
 
+#[test]
+fn spatial_registration_report_exposes_strict_json_groups_and_compact_markdown() {
+    let out_dir = unique_temp_dir("report-spatial-registration");
+    generate_extended(&out_dir);
+
+    let report = dicom_test_suite::build_coverage_report(&out_dir)
+        .expect("Spatial Registration coverage report should build");
+    let schema: Value = serde_json::from_slice(
+        &fs::read("schemas/coverage-report.schema.json").expect("coverage schema"),
+    )
+    .expect("coverage schema JSON");
+    let validator = jsonschema::validator_for(&schema).expect("coverage schema should compile");
+    let errors = validator
+        .iter_errors(&report)
+        .map(|error| error.to_string())
+        .collect::<Vec<_>>();
+    assert!(
+        errors.is_empty(),
+        "registration report must match schema: {errors:?}"
+    );
+
+    let row = coverage_row(&report, "derived/registration/spatial_ct_pair");
+    assert_eq!(row["registration_matrix_direction"], "source_to_registered");
+    assert_eq!(row["registration_matrix_type"], "RIGID");
+    assert_eq!(row["registration_item_count"], 2);
+    assert_eq!(
+        row["registration_reference_topology"],
+        "same_study_target+other_study_source"
+    );
+    assert_eq!(
+        row["registration_reference_relationships"],
+        "registered_target; moving_source"
+    );
+    assert_eq!(row["registration_pixel_data_absent"], true);
+    assert_eq!(
+        row["registration_landmark_mapping"],
+        "[-0.625, -0.625, 0] -> [0, 0, 2.5]"
+    );
+    for pointer in [
+        "/grouped_coverage/registration_matrix_directions/source_to_registered",
+        "/grouped_coverage/registration_matrix_types/RIGID",
+        "/grouped_coverage/registration_item_counts/2",
+        "/grouped_coverage/registration_reference_topologies/same_study_target+other_study_source",
+        "/grouped_coverage/registration_reference_relationships/registered_target; moving_source",
+        "/grouped_coverage/registration_pixel_data_absent_states/true",
+    ] {
+        assert_eq!(report.pointer(pointer), Some(&Value::from(1)), "{pointer}");
+    }
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/registration_landmark_mappings")
+            .and_then(Value::as_object)
+            .and_then(|mappings| mappings.get("[-0.625, -0.625, 0] -> [0, 0, 2.5]")),
+        Some(&Value::from(1))
+    );
+
+    let mut incomplete = report.clone();
+    coverage_row_mut(&mut incomplete, "derived/registration/spatial_ct_pair")["registration_pixel_data_absent"] =
+        Value::Null;
+    assert!(
+        !validator.is_valid(&incomplete),
+        "schema must reject a partial Spatial Registration report contract"
+    );
+    let mut leaked = report.clone();
+    coverage_row_mut(
+        &mut leaked,
+        "classic/ct/mono2_i16_rescale_12bit_explicit_le",
+    )["registration_matrix_type"] = json!("RIGID");
+    assert!(
+        !validator.is_valid(&leaked),
+        "schema must reject registration fields on unrelated rows"
+    );
+
+    let markdown = dicom_test_suite::render_coverage_report_markdown(&report);
+    assert!(markdown.contains("## Spatial Registration Expectations"));
+    assert!(markdown.contains("Matrix direction"));
+    assert!(markdown.contains("registered_target; moving_source"));
+    assert!(markdown.contains("same_study_target+other_study_source"));
+    assert!(markdown.contains("[-0.625, -0.625, 0] -> [0, 0, 2.5]"));
+    assert!(markdown.contains("### Registration Matrix Directions"));
+    assert!(markdown.contains("| source_to_registered | 1 |"));
+
+    fs::remove_dir_all(out_dir).expect("remove report root");
+}
+
 fn generate_core(out_dir: &Path) {
     let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
         .args([

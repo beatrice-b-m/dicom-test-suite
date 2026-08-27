@@ -8783,6 +8783,54 @@
           "covered": true,
           "part": "PS3.6",
           "anchor": "table_A-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_sop_class X-Ray Angiographic Image Storage",
+          "covered": true,
+          "part": "PS3.4",
+          "anchor": "table_B.5-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_modules_for_iod X-Ray Angiographic Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.14-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module X-Ray Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-26"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module X-Ray Acquisition",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-27"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module XA Positioner",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-30"
+        },
+        {
+          "source": "local-source-note",
+          "edition": "2026b",
+          "query": "standards/source-notes/phase-2-xa-monoplane.md",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.14-1"
         }
       ]
     },

@@ -8951,6 +8951,90 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
     ] {
         append_count_map_section(&mut output, report, title, pointer);
     }
+    for (title, pointer) in [
+        ("XA Image Types", "/grouped_coverage/xa_image_types"),
+        ("XA Frame Counts", "/grouped_coverage/xa_frame_counts"),
+        (
+            "XA Body Parts Examined",
+            "/grouped_coverage/xa_body_parts_examined",
+        ),
+        (
+            "XA Patient Orientation Empty States",
+            "/grouped_coverage/xa_patient_orientation_empty_states",
+        ),
+        (
+            "XA Laterality Present States",
+            "/grouped_coverage/xa_laterality_present_states",
+        ),
+        (
+            "XA Pixel Intensity Relationships",
+            "/grouped_coverage/xa_pixel_intensity_relationships",
+        ),
+        (
+            "XA Radiation Settings",
+            "/grouped_coverage/xa_radiation_settings",
+        ),
+        ("XA KVPs", "/grouped_coverage/xa_kvps"),
+        ("XA Exposures (mAs)", "/grouped_coverage/xa_exposures_mas"),
+        (
+            "XA Imager Pixel Spacings (mm)",
+            "/grouped_coverage/xa_imager_pixel_spacings_mm",
+        ),
+        (
+            "XA Positioner Primary Angles (degrees)",
+            "/grouped_coverage/xa_positioner_primary_angles_degrees",
+        ),
+        (
+            "XA Positioner Secondary Angles (degrees)",
+            "/grouped_coverage/xa_positioner_secondary_angles_degrees",
+        ),
+        (
+            "XA Source-to-Detector Distances (mm)",
+            "/grouped_coverage/xa_distances_source_to_detector_mm",
+        ),
+        (
+            "XA Source-to-Patient Distances (mm)",
+            "/grouped_coverage/xa_distances_source_to_patient_mm",
+        ),
+        (
+            "XA Estimated Radiographic Magnification Factors",
+            "/grouped_coverage/xa_estimated_radiographic_magnification_factors",
+        ),
+        (
+            "XA Lossy Image Compression History",
+            "/grouped_coverage/xa_lossy_image_compressions",
+        ),
+        (
+            "XA Multi-frame Cine States",
+            "/grouped_coverage/xa_multiframe_cine_states",
+        ),
+        (
+            "XA Biplane Data Present States",
+            "/grouped_coverage/xa_biplane_data_present_states",
+        ),
+        (
+            "XA Contrast Used States",
+            "/grouped_coverage/xa_contrast_used_states",
+        ),
+        (
+            "XA Subtraction Applied States",
+            "/grouped_coverage/xa_subtraction_applied_states",
+        ),
+        (
+            "XA Table Motion Present States",
+            "/grouped_coverage/xa_table_motion_present_states",
+        ),
+        (
+            "XA Patient-space Geometry Present States",
+            "/grouped_coverage/xa_patient_space_geometry_present_states",
+        ),
+        (
+            "XA Pixel Spacing Calibrated States",
+            "/grouped_coverage/xa_pixel_spacing_calibrated_states",
+        ),
+    ] {
+        append_count_map_section(&mut output, report, title, pointer);
+    }
     append_count_map_section(
         &mut output,
         report,
@@ -9883,6 +9967,62 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
         output.push('\n');
     }
 
+    let xa_rows = report
+        .get("coverage_matrix")
+        .and_then(Value::as_array)
+        .map(|rows| {
+            rows.iter()
+                .filter(|row| !row["xa_image_type"].is_null())
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    if !xa_rows.is_empty() {
+        output.push_str("## X-Ray Angiographic Projection Expectations\n\n");
+        output.push_str("| Case ID | Image type | Frames | Body part | Patient orientation empty | Laterality present | Pixel intensity relationship | Radiation setting | KVP | Exposure (mAs) | Imager pixel spacing (mm) | Primary angle (degrees) | Secondary angle (degrees) | SID (mm) | Source-to-patient distance (mm) | Estimated magnification | Lossy compression | Multi-frame cine | Biplane data | Contrast used | Subtraction applied | Table motion | Patient-space geometry | Pixel spacing calibrated |\n");
+        output.push_str("|---|---|---:|---|---|---|---|---|---:|---:|---|---:|---:|---:|---:|---:|---|---|---|---|---|---|---|---|\n");
+        for row in xa_rows {
+            output.push_str(&format!(
+                "| {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} |\n",
+                markdown_cell(row.get("case_id").and_then(Value::as_str)),
+                markdown_cell(row.get("xa_image_type").and_then(Value::as_str)),
+                markdown_number(row.get("xa_frame_count")),
+                markdown_cell(row.get("xa_body_part_examined").and_then(Value::as_str)),
+                markdown_bool(row.get("xa_patient_orientation_empty")),
+                markdown_bool(row.get("xa_laterality_present")),
+                markdown_cell(
+                    row.get("xa_pixel_intensity_relationship")
+                        .and_then(Value::as_str)
+                ),
+                markdown_cell(row.get("xa_radiation_setting").and_then(Value::as_str)),
+                markdown_number(row.get("xa_kvp")),
+                markdown_number(row.get("xa_exposure_mas")),
+                markdown_cell(
+                    row.get("xa_imager_pixel_spacing_mm")
+                        .and_then(Value::as_str)
+                ),
+                markdown_number(row.get("xa_positioner_primary_angle_degrees")),
+                markdown_number(row.get("xa_positioner_secondary_angle_degrees")),
+                markdown_number(row.get("xa_distance_source_to_detector_mm")),
+                markdown_number(row.get("xa_distance_source_to_patient_mm")),
+                markdown_number(
+                    row.get("xa_estimated_radiographic_magnification_factor")
+                ),
+                markdown_cell(
+                    row.get("xa_lossy_image_compression")
+                        .and_then(Value::as_str)
+                ),
+                markdown_bool(row.get("xa_multiframe_cine")),
+                markdown_bool(row.get("xa_biplane_data_present")),
+                markdown_bool(row.get("xa_contrast_used")),
+                markdown_bool(row.get("xa_subtraction_applied")),
+                markdown_bool(row.get("xa_table_motion_present")),
+                markdown_bool(row.get("xa_patient_space_geometry_present")),
+                markdown_bool(row.get("xa_pixel_spacing_calibrated"))
+            ));
+        }
+        output.push('\n');
+    }
+
     let enhanced_mr_temporal_rows = report
         .get("coverage_matrix")
         .and_then(Value::as_array)
@@ -10271,6 +10411,7 @@ fn generated_coverage_row(
     let nm = nm_multiframe_report_fields(file);
     let pet = pet_activity_report_fields(file);
     let us = us_multiframe_report_fields(manifest_path, file)?;
+    let xa = xa_projection_report_fields(manifest_path, file)?;
     let mut row = serde_json::json!({
         "case_id": report_str(manifest_path, file, "/case_id", "file case_id must be a string")?,
         "profile": run_profile,
@@ -10455,6 +10596,85 @@ fn generated_coverage_row(
         (
             "metadata_sequence_decoded_code",
             metadata.sequence_decoded_code.map(Value::from),
+        ),
+    ] {
+        row_object.insert(field.to_string(), value.unwrap_or(Value::Null));
+    }
+    for (field, value) in [
+        ("xa_image_type", xa.image_type.map(Value::from)),
+        ("xa_frame_count", xa.frame_count.map(Value::from)),
+        (
+            "xa_body_part_examined",
+            xa.body_part_examined.map(Value::from),
+        ),
+        (
+            "xa_patient_orientation_empty",
+            xa.patient_orientation_empty.map(Value::from),
+        ),
+        (
+            "xa_laterality_present",
+            xa.laterality_present.map(Value::from),
+        ),
+        (
+            "xa_pixel_intensity_relationship",
+            xa.pixel_intensity_relationship.map(Value::from),
+        ),
+        (
+            "xa_radiation_setting",
+            xa.radiation_setting.map(Value::from),
+        ),
+        ("xa_kvp", xa.kvp.map(Value::from)),
+        ("xa_exposure_mas", xa.exposure_mas.map(Value::from)),
+        (
+            "xa_imager_pixel_spacing_mm",
+            xa.imager_pixel_spacing_mm.map(Value::from),
+        ),
+        (
+            "xa_positioner_primary_angle_degrees",
+            xa.positioner_primary_angle_degrees.map(Value::from),
+        ),
+        (
+            "xa_positioner_secondary_angle_degrees",
+            xa.positioner_secondary_angle_degrees.map(Value::from),
+        ),
+        (
+            "xa_distance_source_to_detector_mm",
+            xa.distance_source_to_detector_mm.map(Value::from),
+        ),
+        (
+            "xa_distance_source_to_patient_mm",
+            xa.distance_source_to_patient_mm.map(Value::from),
+        ),
+        (
+            "xa_estimated_radiographic_magnification_factor",
+            xa.estimated_radiographic_magnification_factor
+                .map(Value::from),
+        ),
+        (
+            "xa_lossy_image_compression",
+            xa.lossy_image_compression.map(Value::from),
+        ),
+        ("xa_multiframe_cine", xa.multiframe_cine.map(Value::from)),
+        (
+            "xa_biplane_data_present",
+            xa.biplane_data_present.map(Value::from),
+        ),
+        ("xa_contrast_used", xa.contrast_used.map(Value::from)),
+        (
+            "xa_subtraction_applied",
+            xa.subtraction_applied.map(Value::from),
+        ),
+        (
+            "xa_table_motion_present",
+            xa.table_motion_present.map(Value::from),
+        ),
+        (
+            "xa_patient_space_geometry_present",
+            xa.patient_space_geometry_present.map(Value::from),
+        ),
+        (
+            "xa_pixel_spacing_calibrated",
+            xa.pixel_spacing_calibrated.map(Value::from),
         ),
     ] {
         row_object.insert(field.to_string(), value.unwrap_or(Value::Null));
@@ -11480,6 +11700,33 @@ struct PetActivityReportFields {
     radiopharmaceutical_information_item_count: Option<u64>,
 }
 
+#[derive(Debug, Default, PartialEq)]
+struct XaProjectionReportFields {
+    image_type: Option<String>,
+    frame_count: Option<u64>,
+    body_part_examined: Option<String>,
+    patient_orientation_empty: Option<bool>,
+    laterality_present: Option<bool>,
+    pixel_intensity_relationship: Option<String>,
+    radiation_setting: Option<String>,
+    kvp: Option<f64>,
+    exposure_mas: Option<u64>,
+    imager_pixel_spacing_mm: Option<String>,
+    positioner_primary_angle_degrees: Option<f64>,
+    positioner_secondary_angle_degrees: Option<f64>,
+    distance_source_to_detector_mm: Option<f64>,
+    distance_source_to_patient_mm: Option<f64>,
+    estimated_radiographic_magnification_factor: Option<f64>,
+    lossy_image_compression: Option<String>,
+    multiframe_cine: Option<bool>,
+    biplane_data_present: Option<bool>,
+    contrast_used: Option<bool>,
+    subtraction_applied: Option<bool>,
+    table_motion_present: Option<bool>,
+    patient_space_geometry_present: Option<bool>,
+    pixel_spacing_calibrated: Option<bool>,
+}
+
 #[derive(Debug, Default)]
 struct UsMultiframeReportFields {
     image_type: Option<String>,
@@ -11579,6 +11826,122 @@ fn us_multiframe_report_fields(
         return Err(ReportError::MetadataShape {
             path: manifest_path.to_path_buf(),
             message: "expected_us_multiframe must define the complete report contract",
+        });
+    }
+    Ok(fields)
+}
+
+fn xa_projection_report_fields(
+    manifest_path: &Path,
+    file: &Value,
+) -> Result<XaProjectionReportFields, ReportError> {
+    let Some(expected) = file.get("expected_xa_projection") else {
+        if file.pointer("/dicom/modality").and_then(Value::as_str) == Some("XA") {
+            return Err(ReportError::MetadataShape {
+                path: manifest_path.to_path_buf(),
+                message: "XA file must define expected_xa_projection",
+            });
+        }
+        return Ok(XaProjectionReportFields::default());
+    };
+    let expected = expected.as_object().ok_or(ReportError::MetadataShape {
+        path: manifest_path.to_path_buf(),
+        message: "expected_xa_projection must be an object",
+    })?;
+    let string_array = |field: &str| {
+        expected
+            .get(field)
+            .and_then(Value::as_array)
+            .and_then(|values| values.iter().map(Value::as_str).collect::<Option<Vec<_>>>())
+            .map(|values| values.join("; "))
+    };
+
+    let fields = XaProjectionReportFields {
+        image_type: string_array("image_type"),
+        frame_count: expected.get("frame_count").and_then(Value::as_u64),
+        body_part_examined: expected
+            .get("body_part_examined")
+            .and_then(Value::as_str)
+            .map(str::to_string),
+        patient_orientation_empty: expected
+            .get("patient_orientation_empty")
+            .and_then(Value::as_bool),
+        laterality_present: expected.get("laterality_present").and_then(Value::as_bool),
+        pixel_intensity_relationship: expected
+            .get("pixel_intensity_relationship")
+            .and_then(Value::as_str)
+            .map(str::to_string),
+        radiation_setting: expected
+            .get("radiation_setting")
+            .and_then(Value::as_str)
+            .map(str::to_string),
+        kvp: expected.get("kvp").and_then(Value::as_f64),
+        exposure_mas: expected.get("exposure_mas").and_then(Value::as_u64),
+        imager_pixel_spacing_mm: expected
+            .get("imager_pixel_spacing_mm")
+            .and_then(report_value_array_label),
+        positioner_primary_angle_degrees: expected
+            .get("positioner_primary_angle_degrees")
+            .and_then(Value::as_f64),
+        positioner_secondary_angle_degrees: expected
+            .get("positioner_secondary_angle_degrees")
+            .and_then(Value::as_f64),
+        distance_source_to_detector_mm: expected
+            .get("distance_source_to_detector_mm")
+            .and_then(Value::as_f64),
+        distance_source_to_patient_mm: expected
+            .get("distance_source_to_patient_mm")
+            .and_then(Value::as_f64),
+        estimated_radiographic_magnification_factor: expected
+            .get("estimated_radiographic_magnification_factor")
+            .and_then(Value::as_f64),
+        lossy_image_compression: expected
+            .get("lossy_image_compression")
+            .and_then(Value::as_str)
+            .map(str::to_string),
+        multiframe_cine: expected.get("multiframe_cine").and_then(Value::as_bool),
+        biplane_data_present: expected
+            .get("biplane_data_present")
+            .and_then(Value::as_bool),
+        contrast_used: expected.get("contrast_used").and_then(Value::as_bool),
+        subtraction_applied: expected.get("subtraction_applied").and_then(Value::as_bool),
+        table_motion_present: expected
+            .get("table_motion_present")
+            .and_then(Value::as_bool),
+        patient_space_geometry_present: expected
+            .get("patient_space_geometry_present")
+            .and_then(Value::as_bool),
+        pixel_spacing_calibrated: expected
+            .get("pixel_spacing_calibrated")
+            .and_then(Value::as_bool),
+    };
+    if fields.image_type.is_none()
+        || fields.frame_count.is_none()
+        || fields.body_part_examined.is_none()
+        || fields.patient_orientation_empty.is_none()
+        || fields.laterality_present.is_none()
+        || fields.pixel_intensity_relationship.is_none()
+        || fields.radiation_setting.is_none()
+        || fields.kvp.is_none()
+        || fields.exposure_mas.is_none()
+        || fields.imager_pixel_spacing_mm.is_none()
+        || fields.positioner_primary_angle_degrees.is_none()
+        || fields.positioner_secondary_angle_degrees.is_none()
+        || fields.distance_source_to_detector_mm.is_none()
+        || fields.distance_source_to_patient_mm.is_none()
+        || fields.estimated_radiographic_magnification_factor.is_none()
+        || fields.lossy_image_compression.is_none()
+        || fields.multiframe_cine.is_none()
+        || fields.biplane_data_present.is_none()
+        || fields.contrast_used.is_none()
+        || fields.subtraction_applied.is_none()
+        || fields.table_motion_present.is_none()
+        || fields.patient_space_geometry_present.is_none()
+        || fields.pixel_spacing_calibrated.is_none()
+    {
+        return Err(ReportError::MetadataShape {
+            path: manifest_path.to_path_buf(),
+            message: "expected_xa_projection must define the complete report contract",
         });
     }
     Ok(fields)
@@ -12616,6 +12979,29 @@ fn skipped_coverage_row(
         "us_color_data_present",
         "us_region_calibrated",
         "us_lossy_image_compression",
+        "xa_image_type",
+        "xa_frame_count",
+        "xa_body_part_examined",
+        "xa_patient_orientation_empty",
+        "xa_laterality_present",
+        "xa_pixel_intensity_relationship",
+        "xa_radiation_setting",
+        "xa_kvp",
+        "xa_exposure_mas",
+        "xa_imager_pixel_spacing_mm",
+        "xa_positioner_primary_angle_degrees",
+        "xa_positioner_secondary_angle_degrees",
+        "xa_distance_source_to_detector_mm",
+        "xa_distance_source_to_patient_mm",
+        "xa_estimated_radiographic_magnification_factor",
+        "xa_lossy_image_compression",
+        "xa_multiframe_cine",
+        "xa_biplane_data_present",
+        "xa_contrast_used",
+        "xa_subtraction_applied",
+        "xa_table_motion_present",
+        "xa_patient_space_geometry_present",
+        "xa_pixel_spacing_calibrated",
     ] {
         row_object.insert(field.to_string(), Value::Null);
     }
@@ -13032,6 +13418,29 @@ struct GroupedCoverage {
     us_color_data_present: BTreeMap<String, usize>,
     us_region_calibrated: BTreeMap<String, usize>,
     us_lossy_image_compressions: BTreeMap<String, usize>,
+    xa_image_types: BTreeMap<String, usize>,
+    xa_frame_counts: BTreeMap<String, usize>,
+    xa_body_parts_examined: BTreeMap<String, usize>,
+    xa_patient_orientation_empty_states: BTreeMap<String, usize>,
+    xa_laterality_present_states: BTreeMap<String, usize>,
+    xa_pixel_intensity_relationships: BTreeMap<String, usize>,
+    xa_radiation_settings: BTreeMap<String, usize>,
+    xa_kvps: BTreeMap<String, usize>,
+    xa_exposures_mas: BTreeMap<String, usize>,
+    xa_imager_pixel_spacings_mm: BTreeMap<String, usize>,
+    xa_positioner_primary_angles_degrees: BTreeMap<String, usize>,
+    xa_positioner_secondary_angles_degrees: BTreeMap<String, usize>,
+    xa_distances_source_to_detector_mm: BTreeMap<String, usize>,
+    xa_distances_source_to_patient_mm: BTreeMap<String, usize>,
+    xa_estimated_radiographic_magnification_factors: BTreeMap<String, usize>,
+    xa_lossy_image_compressions: BTreeMap<String, usize>,
+    xa_multiframe_cine_states: BTreeMap<String, usize>,
+    xa_biplane_data_present_states: BTreeMap<String, usize>,
+    xa_contrast_used_states: BTreeMap<String, usize>,
+    xa_subtraction_applied_states: BTreeMap<String, usize>,
+    xa_table_motion_present_states: BTreeMap<String, usize>,
+    xa_patient_space_geometry_present_states: BTreeMap<String, usize>,
+    xa_pixel_spacing_calibrated_states: BTreeMap<String, usize>,
     mr_scanning_sequences: BTreeMap<String, usize>,
     mr_sequence_variants: BTreeMap<String, usize>,
     mr_acquisition_types: BTreeMap<String, usize>,
@@ -13488,6 +13897,88 @@ impl GroupedCoverage {
             ),
             (&mut self.us_color_data_present, "us_color_data_present"),
             (&mut self.us_region_calibrated, "us_region_calibrated"),
+        ] {
+            if let Some(value) = row.get(field).and_then(Value::as_bool) {
+                *map.entry(value.to_string()).or_default() += 1;
+            }
+        }
+        for (map, field) in [
+            (&mut self.xa_image_types, "xa_image_type"),
+            (&mut self.xa_body_parts_examined, "xa_body_part_examined"),
+            (
+                &mut self.xa_pixel_intensity_relationships,
+                "xa_pixel_intensity_relationship",
+            ),
+            (&mut self.xa_radiation_settings, "xa_radiation_setting"),
+            (
+                &mut self.xa_imager_pixel_spacings_mm,
+                "xa_imager_pixel_spacing_mm",
+            ),
+            (
+                &mut self.xa_lossy_image_compressions,
+                "xa_lossy_image_compression",
+            ),
+        ] {
+            increment_map(map, row.get(field).and_then(Value::as_str));
+        }
+        for (map, field) in [
+            (&mut self.xa_frame_counts, "xa_frame_count"),
+            (&mut self.xa_kvps, "xa_kvp"),
+            (&mut self.xa_exposures_mas, "xa_exposure_mas"),
+            (
+                &mut self.xa_positioner_primary_angles_degrees,
+                "xa_positioner_primary_angle_degrees",
+            ),
+            (
+                &mut self.xa_positioner_secondary_angles_degrees,
+                "xa_positioner_secondary_angle_degrees",
+            ),
+            (
+                &mut self.xa_distances_source_to_detector_mm,
+                "xa_distance_source_to_detector_mm",
+            ),
+            (
+                &mut self.xa_distances_source_to_patient_mm,
+                "xa_distance_source_to_patient_mm",
+            ),
+            (
+                &mut self.xa_estimated_radiographic_magnification_factors,
+                "xa_estimated_radiographic_magnification_factor",
+            ),
+        ] {
+            increment_scalar_map(map, row.get(field));
+        }
+        for (map, field) in [
+            (
+                &mut self.xa_patient_orientation_empty_states,
+                "xa_patient_orientation_empty",
+            ),
+            (
+                &mut self.xa_laterality_present_states,
+                "xa_laterality_present",
+            ),
+            (&mut self.xa_multiframe_cine_states, "xa_multiframe_cine"),
+            (
+                &mut self.xa_biplane_data_present_states,
+                "xa_biplane_data_present",
+            ),
+            (&mut self.xa_contrast_used_states, "xa_contrast_used"),
+            (
+                &mut self.xa_subtraction_applied_states,
+                "xa_subtraction_applied",
+            ),
+            (
+                &mut self.xa_table_motion_present_states,
+                "xa_table_motion_present",
+            ),
+            (
+                &mut self.xa_patient_space_geometry_present_states,
+                "xa_patient_space_geometry_present",
+            ),
+            (
+                &mut self.xa_pixel_spacing_calibrated_states,
+                "xa_pixel_spacing_calibrated",
+            ),
         ] {
             if let Some(value) = row.get(field).and_then(Value::as_bool) {
                 *map.entry(value.to_string()).or_default() += 1;
@@ -14385,6 +14876,81 @@ impl GroupedCoverage {
             grouped_object.insert(
                 field.to_string(),
                 serde_json::to_value(map).expect("US coverage count map must serialize"),
+            );
+        }
+        for (field, map) in [
+            ("xa_image_types", &self.xa_image_types),
+            ("xa_frame_counts", &self.xa_frame_counts),
+            ("xa_body_parts_examined", &self.xa_body_parts_examined),
+            (
+                "xa_patient_orientation_empty_states",
+                &self.xa_patient_orientation_empty_states,
+            ),
+            (
+                "xa_laterality_present_states",
+                &self.xa_laterality_present_states,
+            ),
+            (
+                "xa_pixel_intensity_relationships",
+                &self.xa_pixel_intensity_relationships,
+            ),
+            ("xa_radiation_settings", &self.xa_radiation_settings),
+            ("xa_kvps", &self.xa_kvps),
+            ("xa_exposures_mas", &self.xa_exposures_mas),
+            (
+                "xa_imager_pixel_spacings_mm",
+                &self.xa_imager_pixel_spacings_mm,
+            ),
+            (
+                "xa_positioner_primary_angles_degrees",
+                &self.xa_positioner_primary_angles_degrees,
+            ),
+            (
+                "xa_positioner_secondary_angles_degrees",
+                &self.xa_positioner_secondary_angles_degrees,
+            ),
+            (
+                "xa_distances_source_to_detector_mm",
+                &self.xa_distances_source_to_detector_mm,
+            ),
+            (
+                "xa_distances_source_to_patient_mm",
+                &self.xa_distances_source_to_patient_mm,
+            ),
+            (
+                "xa_estimated_radiographic_magnification_factors",
+                &self.xa_estimated_radiographic_magnification_factors,
+            ),
+            (
+                "xa_lossy_image_compressions",
+                &self.xa_lossy_image_compressions,
+            ),
+            ("xa_multiframe_cine_states", &self.xa_multiframe_cine_states),
+            (
+                "xa_biplane_data_present_states",
+                &self.xa_biplane_data_present_states,
+            ),
+            ("xa_contrast_used_states", &self.xa_contrast_used_states),
+            (
+                "xa_subtraction_applied_states",
+                &self.xa_subtraction_applied_states,
+            ),
+            (
+                "xa_table_motion_present_states",
+                &self.xa_table_motion_present_states,
+            ),
+            (
+                "xa_patient_space_geometry_present_states",
+                &self.xa_patient_space_geometry_present_states,
+            ),
+            (
+                "xa_pixel_spacing_calibrated_states",
+                &self.xa_pixel_spacing_calibrated_states,
+            ),
+        ] {
+            grouped_object.insert(
+                field.to_string(),
+                serde_json::to_value(map).expect("XA coverage count map must serialize"),
             );
         }
         grouped_object.insert(
@@ -16330,6 +16896,180 @@ mod tests {
                 ..
             }
         ));
+    }
+
+    #[test]
+    fn xa_projection_report_fields_are_exact_grouped_and_rendered() {
+        let file = serde_json::json!({
+            "expected_xa_projection": {
+                "image_type": ["ORIGINAL", "PRIMARY", "SINGLE PLANE"],
+                "frame_count": 1,
+                "body_part_examined": "HEART",
+                "patient_orientation_empty": true,
+                "laterality_present": false,
+                "pixel_intensity_relationship": "LIN",
+                "radiation_setting": "GR",
+                "kvp": 80.0,
+                "exposure_mas": 4,
+                "imager_pixel_spacing_mm": [0.2, 0.2],
+                "positioner_primary_angle_degrees": 15.0,
+                "positioner_secondary_angle_degrees": -10.0,
+                "distance_source_to_detector_mm": 1200.0,
+                "distance_source_to_patient_mm": 800.0,
+                "estimated_radiographic_magnification_factor": 1.5,
+                "lossy_image_compression": "00",
+                "multiframe_cine": false,
+                "biplane_data_present": false,
+                "contrast_used": false,
+                "subtraction_applied": false,
+                "table_motion_present": false,
+                "patient_space_geometry_present": false,
+                "pixel_spacing_calibrated": false
+            }
+        });
+        let fields = xa_projection_report_fields(Path::new("manifest.json"), &file)
+            .expect("complete XA report contract must extract");
+        assert_eq!(
+            fields.image_type.as_deref(),
+            Some("ORIGINAL; PRIMARY; SINGLE PLANE")
+        );
+        assert_eq!(fields.frame_count, Some(1));
+        assert_eq!(fields.body_part_examined.as_deref(), Some("HEART"));
+        assert_eq!(fields.patient_orientation_empty, Some(true));
+        assert_eq!(fields.laterality_present, Some(false));
+        assert_eq!(fields.pixel_intensity_relationship.as_deref(), Some("LIN"));
+        assert_eq!(fields.radiation_setting.as_deref(), Some("GR"));
+        assert_eq!(fields.kvp, Some(80.0));
+        assert_eq!(fields.exposure_mas, Some(4));
+        assert_eq!(fields.imager_pixel_spacing_mm.as_deref(), Some("0.2; 0.2"));
+        assert_eq!(fields.positioner_primary_angle_degrees, Some(15.0));
+        assert_eq!(fields.positioner_secondary_angle_degrees, Some(-10.0));
+        assert_eq!(fields.distance_source_to_detector_mm, Some(1200.0));
+        assert_eq!(fields.distance_source_to_patient_mm, Some(800.0));
+        assert_eq!(
+            fields.estimated_radiographic_magnification_factor,
+            Some(1.5)
+        );
+        assert_eq!(fields.lossy_image_compression.as_deref(), Some("00"));
+        assert_eq!(fields.multiframe_cine, Some(false));
+        assert_eq!(fields.biplane_data_present, Some(false));
+        assert_eq!(fields.contrast_used, Some(false));
+        assert_eq!(fields.subtraction_applied, Some(false));
+        assert_eq!(fields.table_motion_present, Some(false));
+        assert_eq!(fields.patient_space_geometry_present, Some(false));
+        assert_eq!(fields.pixel_spacing_calibrated, Some(false));
+
+        let row = serde_json::json!({
+            "case_id": "classic/xa/monoplane_explicit_le",
+            "xa_image_type": fields.image_type,
+            "xa_frame_count": fields.frame_count,
+            "xa_body_part_examined": fields.body_part_examined,
+            "xa_patient_orientation_empty": fields.patient_orientation_empty,
+            "xa_laterality_present": fields.laterality_present,
+            "xa_pixel_intensity_relationship": fields.pixel_intensity_relationship,
+            "xa_radiation_setting": fields.radiation_setting,
+            "xa_kvp": fields.kvp,
+            "xa_exposure_mas": fields.exposure_mas,
+            "xa_imager_pixel_spacing_mm": fields.imager_pixel_spacing_mm,
+            "xa_positioner_primary_angle_degrees": fields.positioner_primary_angle_degrees,
+            "xa_positioner_secondary_angle_degrees": fields.positioner_secondary_angle_degrees,
+            "xa_distance_source_to_detector_mm": fields.distance_source_to_detector_mm,
+            "xa_distance_source_to_patient_mm": fields.distance_source_to_patient_mm,
+            "xa_estimated_radiographic_magnification_factor":
+                fields.estimated_radiographic_magnification_factor,
+            "xa_lossy_image_compression": fields.lossy_image_compression,
+            "xa_multiframe_cine": fields.multiframe_cine,
+            "xa_biplane_data_present": fields.biplane_data_present,
+            "xa_contrast_used": fields.contrast_used,
+            "xa_subtraction_applied": fields.subtraction_applied,
+            "xa_table_motion_present": fields.table_motion_present,
+            "xa_patient_space_geometry_present": fields.patient_space_geometry_present,
+            "xa_pixel_spacing_calibrated": fields.pixel_spacing_calibrated
+        });
+        let mut grouped = GroupedCoverage::default();
+        grouped.record(&row);
+        let grouped_json = grouped.to_json();
+        for pointer in [
+            "/xa_image_types/ORIGINAL; PRIMARY; SINGLE PLANE",
+            "/xa_frame_counts/1",
+            "/xa_body_parts_examined/HEART",
+            "/xa_patient_orientation_empty_states/true",
+            "/xa_laterality_present_states/false",
+            "/xa_pixel_intensity_relationships/LIN",
+            "/xa_radiation_settings/GR",
+            "/xa_kvps/80.0",
+            "/xa_exposures_mas/4",
+            "/xa_imager_pixel_spacings_mm/0.2; 0.2",
+            "/xa_positioner_primary_angles_degrees/15.0",
+            "/xa_positioner_secondary_angles_degrees/-10.0",
+            "/xa_distances_source_to_detector_mm/1200.0",
+            "/xa_distances_source_to_patient_mm/800.0",
+            "/xa_estimated_radiographic_magnification_factors/1.5",
+            "/xa_lossy_image_compressions/00",
+            "/xa_multiframe_cine_states/false",
+            "/xa_biplane_data_present_states/false",
+            "/xa_contrast_used_states/false",
+            "/xa_subtraction_applied_states/false",
+            "/xa_table_motion_present_states/false",
+            "/xa_patient_space_geometry_present_states/false",
+            "/xa_pixel_spacing_calibrated_states/false",
+        ] {
+            assert_eq!(
+                grouped_json.pointer(pointer),
+                Some(&Value::from(1)),
+                "{pointer}"
+            );
+        }
+
+        let markdown = render_coverage_report_markdown(&serde_json::json!({
+            "coverage_matrix": [row],
+            "grouped_coverage": grouped_json,
+            "gaps": []
+        }));
+        assert!(markdown.contains("## X-Ray Angiographic Projection Expectations"));
+        assert!(markdown.contains("classic/xa/monoplane_explicit_le"));
+        assert!(markdown.contains("ORIGINAL; PRIMARY; SINGLE PLANE"));
+        assert!(markdown.contains("## XA Positioner Primary Angles (degrees)"));
+        assert!(markdown.contains("## XA Patient-space Geometry Present States"));
+    }
+
+    #[test]
+    fn xa_projection_report_rejects_partial_contract() {
+        let file = serde_json::json!({
+            "expected_xa_projection": {
+                "image_type": ["ORIGINAL", "PRIMARY", "SINGLE PLANE"]
+            }
+        });
+        let error = xa_projection_report_fields(Path::new("manifest.json"), &file)
+            .expect_err("partial XA report contract must not silently disappear");
+        assert!(matches!(
+            error,
+            ReportError::MetadataShape {
+                message: "expected_xa_projection must define the complete report contract",
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn xa_projection_report_rejects_missing_contract_for_xa_file() {
+        let file = serde_json::json!({"dicom": {"modality": "XA"}});
+        let error = xa_projection_report_fields(Path::new("manifest.json"), &file)
+            .expect_err("XA report contract must not silently disappear");
+        assert!(matches!(
+            error,
+            ReportError::MetadataShape {
+                message: "XA file must define expected_xa_projection",
+                ..
+            }
+        ));
+
+        let non_xa = serde_json::json!({"dicom": {"modality": "CT"}});
+        assert_eq!(
+            xa_projection_report_fields(Path::new("manifest.json"), &non_xa)
+                .expect("non-XA files may omit the XA contract"),
+            XaProjectionReportFields::default()
+        );
     }
 
     #[test]

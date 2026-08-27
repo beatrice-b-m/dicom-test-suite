@@ -369,6 +369,29 @@
         "us_lossy_image_compressions": {
           "$ref": "#/$defs/count_map"
         },
+        "xa_image_types": { "$ref": "#/$defs/count_map" },
+        "xa_frame_counts": { "$ref": "#/$defs/count_map" },
+        "xa_body_parts_examined": { "$ref": "#/$defs/count_map" },
+        "xa_patient_orientation_empty_states": { "$ref": "#/$defs/count_map" },
+        "xa_laterality_present_states": { "$ref": "#/$defs/count_map" },
+        "xa_pixel_intensity_relationships": { "$ref": "#/$defs/count_map" },
+        "xa_radiation_settings": { "$ref": "#/$defs/count_map" },
+        "xa_kvps": { "$ref": "#/$defs/count_map" },
+        "xa_exposures_mas": { "$ref": "#/$defs/count_map" },
+        "xa_imager_pixel_spacings_mm": { "$ref": "#/$defs/count_map" },
+        "xa_positioner_primary_angles_degrees": { "$ref": "#/$defs/count_map" },
+        "xa_positioner_secondary_angles_degrees": { "$ref": "#/$defs/count_map" },
+        "xa_distances_source_to_detector_mm": { "$ref": "#/$defs/count_map" },
+        "xa_distances_source_to_patient_mm": { "$ref": "#/$defs/count_map" },
+        "xa_estimated_radiographic_magnification_factors": { "$ref": "#/$defs/count_map" },
+        "xa_lossy_image_compressions": { "$ref": "#/$defs/count_map" },
+        "xa_multiframe_cine_states": { "$ref": "#/$defs/count_map" },
+        "xa_biplane_data_present_states": { "$ref": "#/$defs/count_map" },
+        "xa_contrast_used_states": { "$ref": "#/$defs/count_map" },
+        "xa_subtraction_applied_states": { "$ref": "#/$defs/count_map" },
+        "xa_table_motion_present_states": { "$ref": "#/$defs/count_map" },
+        "xa_patient_space_geometry_present_states": { "$ref": "#/$defs/count_map" },
+        "xa_pixel_spacing_calibrated_states": { "$ref": "#/$defs/count_map" },
         "mr_scanning_sequences": {
           "$ref": "#/$defs/count_map"
         },
@@ -855,6 +878,29 @@
         "us_color_data_present",
         "us_region_calibrated",
         "us_lossy_image_compression",
+        "xa_image_type",
+        "xa_frame_count",
+        "xa_body_part_examined",
+        "xa_patient_orientation_empty",
+        "xa_laterality_present",
+        "xa_pixel_intensity_relationship",
+        "xa_radiation_setting",
+        "xa_kvp",
+        "xa_exposure_mas",
+        "xa_imager_pixel_spacing_mm",
+        "xa_positioner_primary_angle_degrees",
+        "xa_positioner_secondary_angle_degrees",
+        "xa_distance_source_to_detector_mm",
+        "xa_distance_source_to_patient_mm",
+        "xa_estimated_radiographic_magnification_factor",
+        "xa_lossy_image_compression",
+        "xa_multiframe_cine",
+        "xa_biplane_data_present",
+        "xa_contrast_used",
+        "xa_subtraction_applied",
+        "xa_table_motion_present",
+        "xa_patient_space_geometry_present",
+        "xa_pixel_spacing_calibrated",
         "mr_scanning_sequence",
         "mr_sequence_variant",
         "mr_acquisition_type",
@@ -1498,6 +1544,38 @@
           "type": ["string", "null"],
           "enum": ["00", "01", null]
         },
+        "xa_image_type": { "type": ["string", "null"] },
+        "xa_frame_count": {
+          "type": ["integer", "null"],
+          "minimum": 1
+        },
+        "xa_body_part_examined": { "type": ["string", "null"] },
+        "xa_patient_orientation_empty": { "type": ["boolean", "null"] },
+        "xa_laterality_present": { "type": ["boolean", "null"] },
+        "xa_pixel_intensity_relationship": { "type": ["string", "null"] },
+        "xa_radiation_setting": { "type": ["string", "null"] },
+        "xa_kvp": { "type": ["number", "null"] },
+        "xa_exposure_mas": {
+          "type": ["integer", "null"],
+          "minimum": 0
+        },
+        "xa_imager_pixel_spacing_mm": { "type": ["string", "null"] },
+        "xa_positioner_primary_angle_degrees": { "type": ["number", "null"] },
+        "xa_positioner_secondary_angle_degrees": { "type": ["number", "null"] },
+        "xa_distance_source_to_detector_mm": { "type": ["number", "null"] },
+        "xa_distance_source_to_patient_mm": { "type": ["number", "null"] },
+        "xa_estimated_radiographic_magnification_factor": { "type": ["number", "null"] },
+        "xa_lossy_image_compression": {
+          "type": ["string", "null"],
+          "enum": ["00", "01", null]
+        },
+        "xa_multiframe_cine": { "type": ["boolean", "null"] },
+        "xa_biplane_data_present": { "type": ["boolean", "null"] },
+        "xa_contrast_used": { "type": ["boolean", "null"] },
+        "xa_subtraction_applied": { "type": ["boolean", "null"] },
+        "xa_table_motion_present": { "type": ["boolean", "null"] },
+        "xa_patient_space_geometry_present": { "type": ["boolean", "null"] },
+        "xa_pixel_spacing_calibrated": { "type": ["boolean", "null"] },
         "mr_scanning_sequence": {
           "type": ["string", "null"]
         },
@@ -1780,6 +1858,70 @@
           "uniqueItems": true
         }
       },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "xa_image_type": { "type": "null" } }
+          },
+          "then": {
+            "properties": {
+              "xa_frame_count": { "type": "null" },
+              "xa_body_part_examined": { "type": "null" },
+              "xa_patient_orientation_empty": { "type": "null" },
+              "xa_laterality_present": { "type": "null" },
+              "xa_pixel_intensity_relationship": { "type": "null" },
+              "xa_radiation_setting": { "type": "null" },
+              "xa_kvp": { "type": "null" },
+              "xa_exposure_mas": { "type": "null" },
+              "xa_imager_pixel_spacing_mm": { "type": "null" },
+              "xa_positioner_primary_angle_degrees": { "type": "null" },
+              "xa_positioner_secondary_angle_degrees": { "type": "null" },
+              "xa_distance_source_to_detector_mm": { "type": "null" },
+              "xa_distance_source_to_patient_mm": { "type": "null" },
+              "xa_estimated_radiographic_magnification_factor": { "type": "null" },
+              "xa_lossy_image_compression": { "type": "null" },
+              "xa_multiframe_cine": { "type": "null" },
+              "xa_biplane_data_present": { "type": "null" },
+              "xa_contrast_used": { "type": "null" },
+              "xa_subtraction_applied": { "type": "null" },
+              "xa_table_motion_present": { "type": "null" },
+              "xa_patient_space_geometry_present": { "type": "null" },
+              "xa_pixel_spacing_calibrated": { "type": "null" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "xa_image_type": { "type": "string" } }
+          },
+          "then": {
+            "properties": {
+              "xa_frame_count": { "not": { "type": "null" } },
+              "xa_body_part_examined": { "not": { "type": "null" } },
+              "xa_patient_orientation_empty": { "not": { "type": "null" } },
+              "xa_laterality_present": { "not": { "type": "null" } },
+              "xa_pixel_intensity_relationship": { "not": { "type": "null" } },
+              "xa_radiation_setting": { "not": { "type": "null" } },
+              "xa_kvp": { "not": { "type": "null" } },
+              "xa_exposure_mas": { "not": { "type": "null" } },
+              "xa_imager_pixel_spacing_mm": { "not": { "type": "null" } },
+              "xa_positioner_primary_angle_degrees": { "not": { "type": "null" } },
+              "xa_positioner_secondary_angle_degrees": { "not": { "type": "null" } },
+              "xa_distance_source_to_detector_mm": { "not": { "type": "null" } },
+              "xa_distance_source_to_patient_mm": { "not": { "type": "null" } },
+              "xa_estimated_radiographic_magnification_factor": { "not": { "type": "null" } },
+              "xa_lossy_image_compression": { "not": { "type": "null" } },
+              "xa_multiframe_cine": { "not": { "type": "null" } },
+              "xa_biplane_data_present": { "not": { "type": "null" } },
+              "xa_contrast_used": { "not": { "type": "null" } },
+              "xa_subtraction_applied": { "not": { "type": "null" } },
+              "xa_table_motion_present": { "not": { "type": "null" } },
+              "xa_patient_space_geometry_present": { "not": { "type": "null" } },
+              "xa_pixel_spacing_calibrated": { "not": { "type": "null" } }
+            }
+          }
+        }
+      ],
       "additionalProperties": false
     },
     "gap": {

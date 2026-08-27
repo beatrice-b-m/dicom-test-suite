@@ -661,9 +661,7 @@ fn coverage_report_schema_requires_the_specified_matrix_fields() {
     }
 
     assert_eq!(
-        schema.pointer(
-            "/$defs/coverage_row/properties/geometry_instance_number_state/enum"
-        ),
+        schema.pointer("/$defs/coverage_row/properties/geometry_instance_number_state/enum"),
         Some(&serde_json::json!(["numeric", "empty", null]))
     );
     assert_eq!(
@@ -680,9 +678,7 @@ fn coverage_report_schema_requires_the_specified_matrix_fields() {
     ] {
         assert_eq!(
             schema
-                .pointer(&format!(
-                    "/$defs/coverage_row/properties/{field}/type/0"
-                ))
+                .pointer(&format!("/$defs/coverage_row/properties/{field}/type/0"))
                 .and_then(Value::as_str),
             Some("boolean"),
             "coverage row {field} must be nullable boolean"
@@ -695,9 +691,7 @@ fn coverage_report_schema_requires_the_specified_matrix_fields() {
     ] {
         assert_eq!(
             schema
-                .pointer(&format!(
-                    "/$defs/coverage_row/properties/{field}/minimum"
-                ))
+                .pointer(&format!("/$defs/coverage_row/properties/{field}/minimum"))
                 .and_then(Value::as_u64),
             Some(1),
             "coverage row {field} must be positive"

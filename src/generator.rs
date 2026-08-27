@@ -1,13 +1,14 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use dicom_core::{
     DataElement, PrimitiveValue, Tag, VR,
     value::{DataSetSequence, PixelFragmentSequence},
 };
 use dicom_dictionary_std::{tags, uids};
-use dicom_object::{FileMetaTableBuilder, InMemDicomObject};
+use dicom_object::{FileMetaTableBuilder, InMemDicomObject, open_file};
 use serde_json::Value;
 
 use crate::{
@@ -22,6 +23,11 @@ use crate::{
     },
     deterministic_uid,
     encapsulation::{BasicOffsetTablePolicy, EncapsulatedPixelData},
+    generation_backends::{
+        ControlledMetadata, ParametricMapGenerated, ParametricMapGenerationInput,
+        ParametricMapIdentities, ParametricMapOutcome, ParametricMapSource, StandardsProvenance,
+        generate_parametric_map,
+    },
     sha256_hex,
     validation::{
         BasicTextSrExpectations, CrImageExpectations, CtImageExpectations, DxImageExpectations,
@@ -102,6 +108,16 @@ const KEY_OBJECT_SELECTION_DOCUMENT_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1
 const RT_STRUCTURE_SET_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.481.3";
 const RT_DOSE_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.481.2";
 const ENCAPSULATED_PDF_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.104.1";
+const PARAMETRIC_MAP_CASE_ID: &str = "derived/parametric-map/float32_ct_derived_explicit_le";
+const PARAMETRIC_MAP_RECIPE_ID: &str = "derived_parametric_map_float32_ct_derived_explicit_le";
+const PARAMETRIC_MAP_RECIPE_VERSION: &str = "0.1.0";
+const PARAMETRIC_MAP_SOP_CLASS_UID: &str = "1.2.840.10008.5.1.4.1.1.30";
+const PARAMETRIC_MAP_TRANSFER_SYNTAX_UID: &str = "1.2.840.10008.1.2.1";
+const PARAMETRIC_MAP_OUTPUT_FILE: &str = "parametric-map.dcm";
+const PARAMETRIC_MAP_SOURCE_CASE_ID: &str = "geometry/ct/spatial_sort_conflicts_instance_number";
+const PARAMETRIC_MAP_STORED_VALUE_SCALE: f32 = 0.25;
+const PARAMETRIC_MAP_SPATIAL_RANK_INCREMENT: f32 = 0.25;
+static PARAMETRIC_MAP_STAGING_COUNTER: AtomicU64 = AtomicU64::new(0);
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct TransferSyntaxSpec {
     capability_keyword: &'static str,
@@ -3641,6 +3657,20 @@ pub(crate) fn write_supported_cases(
             standards_lock_sha256,
         )?)?;
     }
+    if let Some(case) = registry_case(registry, PARAMETRIC_MAP_CASE_ID)? {
+        if should_generate_case(case, run)? {
+            let mut sources = context
+                .source_registry()
+                .sources_for_case(PARAMETRIC_MAP_SOURCE_CASE_ID)
+                .cloned()
+                .collect::<Vec<_>>();
+            sources.sort_by(|left, right| left.source_path.cmp(&right.source_path));
+            match write_parametric_map_case(run, case, &sources, standards_lock_sha256)? {
+                ParametricMapCaseOutcome::Generated(file) => context.record_one(file)?,
+                ParametricMapCaseOutcome::Unavailable(row) => context.unavailable_cases.push(row),
+            }
+        }
+    }
     for recipe in ENHANCED_CT_RECIPES {
         let Some(case) = registry_case(registry, recipe.case_id)? else {
             continue;
@@ -3984,6 +4014,356 @@ fn generated_manifest_str<'a>(
             path: PathBuf::from("generated manifest entry"),
             message,
         })
+}
+
+enum ParametricMapCaseOutcome {
+    Generated(GeneratedFile),
+    Unavailable(Value),
+}
+
+struct ParametricMapStagingGuard(PathBuf);
+
+impl ParametricMapStagingGuard {
+    fn new() -> Self {
+        let counter = PARAMETRIC_MAP_STAGING_COUNTER.fetch_add(1, Ordering::Relaxed);
+        Self(std::env::temp_dir().join(format!(
+            "dicom-test-suite-parametric-map-{}-{counter}",
+            std::process::id()
+        )))
+    }
+
+    fn path(&self) -> &std::path::Path {
+        &self.0
+    }
+}
+
+impl Drop for ParametricMapStagingGuard {
+    fn drop(&mut self) {
+        if self.0.exists() {
+            let _ = fs::remove_dir_all(&self.0);
+        }
+    }
+}
+
+fn write_parametric_map_case(
+    run: &PreparedGenerationRun,
+    case: &Value,
+    sources: &[GeneratedSourceObject],
+    standards_lock_sha256: &str,
+) -> Result<ParametricMapCaseOutcome, GenerateError> {
+    if sources.len() != 3 {
+        return Err(GenerateError::MetadataShape {
+            path: PathBuf::from(PARAMETRIC_MAP_CASE_ID),
+            message: "Parametric Map proof requires three generated CT source instances",
+        });
+    }
+    let first = &sources[0];
+    let source_series_instance_uid =
+        first
+            .series_instance_uid
+            .as_deref()
+            .ok_or(GenerateError::MetadataShape {
+                path: PathBuf::from(PARAMETRIC_MAP_CASE_ID),
+                message: "Parametric Map source must record a Series Instance UID",
+            })?;
+    let frame_of_reference_uid =
+        first
+            .frame_of_reference_uid
+            .as_deref()
+            .ok_or(GenerateError::MetadataShape {
+                path: PathBuf::from(PARAMETRIC_MAP_CASE_ID),
+                message: "Parametric Map source must record a Frame of Reference UID",
+            })?;
+    if sources.iter().any(|source| {
+        source.study_instance_uid != first.study_instance_uid
+            || source.series_instance_uid.as_deref() != Some(source_series_instance_uid)
+            || source.frame_of_reference_uid.as_deref() != Some(frame_of_reference_uid)
+            || source.frame_count != Some(1)
+    }) {
+        return Err(GenerateError::MetadataShape {
+            path: PathBuf::from(PARAMETRIC_MAP_CASE_ID),
+            message: "Parametric Map CT sources must share Study, Series, and Frame of Reference identity and be single-frame",
+        });
+    }
+
+    let uid = |role| {
+        deterministic_uid(&DeterministicUidInput {
+            standards_lock_sha256,
+            case_id: PARAMETRIC_MAP_CASE_ID,
+            recipe_version: PARAMETRIC_MAP_RECIPE_VERSION,
+            run_seed: run.seed,
+            file_index: 0,
+            frame_index: None,
+            referenced_object_index: None,
+            role,
+        })
+    };
+    let identities = ParametricMapIdentities {
+        study_instance_uid: first.study_instance_uid.clone(),
+        series_instance_uid: uid(UidRole::SeriesInstance),
+        frame_of_reference_uid: frame_of_reference_uid.to_string(),
+        sop_instance_uid: uid(UidRole::SopInstance),
+        dimension_organization_uid: uid(UidRole::DimensionOrganization),
+    };
+    let standards_lock_path = PathBuf::from("standards.lock.json");
+    let standards_lock_bytes =
+        fs::read(&standards_lock_path).map_err(|source| GenerateError::ReadMetadata {
+            path: standards_lock_path.clone(),
+            source,
+        })?;
+    let standards_lock: Value =
+        serde_json::from_slice(&standards_lock_bytes).map_err(|source| {
+            GenerateError::ParseMetadata {
+                path: standards_lock_path,
+                source,
+            }
+        })?;
+    let staging = ParametricMapStagingGuard::new();
+    let input = ParametricMapGenerationInput {
+        repository_root: PathBuf::from("."),
+        generated_root: run.out_dir.clone(),
+        staging_root: staging.path().to_path_buf(),
+        destination_root: run.out_dir.join(PARAMETRIC_MAP_CASE_ID),
+        seed: run.seed,
+        standards: StandardsProvenance {
+            standards_lock_sha256: standards_lock_sha256.to_string(),
+            dicom_base_edition: standards_lock["dicom_base_edition"]
+                .as_str()
+                .ok_or(GenerateError::MetadataShape {
+                    path: PathBuf::from("standards.lock.json"),
+                    message: "standards lock dicom_base_edition must be a string",
+                })?
+                .to_string(),
+            kb_source_manifest_sha256: standards_lock
+                .pointer("/dicom_standard_kb/source_manifest_sha256")
+                .and_then(Value::as_str)
+                .map(ToOwned::to_owned),
+        },
+        controlled_metadata: ControlledMetadata {
+            patient_name: "DTS^Synthetic^Patient001".to_string(),
+            patient_id: "DTS-PATIENT-001".to_string(),
+            manufacturer: "dicom-test-suite".to_string(),
+            model_name: "derived_parametric_map_float32_ct_derived_explicit_le".to_string(),
+            software_versions: env!("CARGO_PKG_VERSION").to_string(),
+            study_date: "20260101".to_string(),
+            study_time: "000000".to_string(),
+            content_date: "20260101".to_string(),
+            content_time: "000000".to_string(),
+            timezone_offset_from_utc: "+0000".to_string(),
+        },
+        identities: identities.clone(),
+        sources: sources
+            .iter()
+            .map(|source| ParametricMapSource {
+                role: "source_image".to_string(),
+                source_case_id: source.source_case_id.clone(),
+                relative_path: source.source_path.clone(),
+                sha256: source.sha256.clone(),
+                sop_class_uid: source.sop_class_uid.clone(),
+                sop_instance_uid: source.sop_instance_uid.clone(),
+                series_instance_uid: source.series_instance_uid.clone(),
+                frame_numbers: None,
+            })
+            .collect(),
+        stored_value_scale: PARAMETRIC_MAP_STORED_VALUE_SCALE,
+        spatial_rank_increment: PARAMETRIC_MAP_SPATIAL_RANK_INCREMENT,
+    };
+    let outcome =
+        generate_parametric_map(&input).map_err(|error| GenerateError::WriteDicomFile {
+            path: PathBuf::from(PARAMETRIC_MAP_CASE_ID),
+            message: error.to_string(),
+        })?;
+    match outcome {
+        ParametricMapOutcome::Unavailable { code, message } => {
+            Ok(ParametricMapCaseOutcome::Unavailable(serde_json::json!({
+                "case_id": PARAMETRIC_MAP_CASE_ID,
+                "status": "unavailable",
+                "reason_code": "external_backend_unavailable",
+                "message": format!("{code}: {message}"),
+                "recheck_phase": "phase-1",
+                "standards_evidence": standards_evidence_from_case(case)
+            })))
+        }
+        ParametricMapOutcome::Generated(generated) => Ok(ParametricMapCaseOutcome::Generated(
+            parametric_map_generated_file(case, sources, generated)?,
+        )),
+    }
+}
+
+fn parametric_map_generated_file(
+    case: &Value,
+    sources: &[GeneratedSourceObject],
+    generated: ParametricMapGenerated,
+) -> Result<GeneratedFile, GenerateError> {
+    let object =
+        open_file(&generated.output_path).map_err(|error| GenerateError::ValidateDicomFile {
+            path: generated.output_path.clone(),
+            message: format!("reopen promoted Parametric Map: {error}"),
+        })?;
+    let float_pixel_data = object.element(tags::FLOAT_PIXEL_DATA).map_err(|error| {
+        GenerateError::ValidateDicomFile {
+            path: generated.output_path.clone(),
+            message: format!("read promoted Float Pixel Data: {error}"),
+        }
+    })?;
+    if float_pixel_data.vr() != VR::OF {
+        return Err(GenerateError::ValidateDicomFile {
+            path: generated.output_path.clone(),
+            message: format!(
+                "promoted Float Pixel Data VR is {:?}, expected OF",
+                float_pixel_data.vr()
+            ),
+        });
+    }
+    let actual_float_bytes =
+        float_pixel_data
+            .value()
+            .to_bytes()
+            .map_err(|error| GenerateError::ValidateDicomFile {
+                path: generated.output_path.clone(),
+                message: format!("decode promoted Float Pixel Data: {error}"),
+            })?;
+    if actual_float_bytes.as_ref() != generated.payload.little_endian_bytes.as_slice() {
+        return Err(GenerateError::ValidateDicomFile {
+            path: generated.output_path.clone(),
+            message: "promoted Float Pixel Data differs from Rust source-derived expectations"
+                .to_string(),
+        });
+    }
+    for (tag, label) in [
+        (tags::PIXEL_DATA, "integer Pixel Data"),
+        (tags::DOUBLE_FLOAT_PIXEL_DATA, "Double Float Pixel Data"),
+        (tags::BITS_STORED, "Bits Stored"),
+        (tags::HIGH_BIT, "High Bit"),
+        (tags::PIXEL_REPRESENTATION, "Pixel Representation"),
+    ] {
+        if object.element_opt(tag).ok().flatten().is_some() {
+            return Err(GenerateError::ValidateDicomFile {
+                path: generated.output_path.clone(),
+                message: format!("promoted float32 Parametric Map contains unexpected {label}"),
+            });
+        }
+    }
+    let meta = object.meta();
+    let implementation_version_name = meta
+        .implementation_version_name
+        .clone()
+        .map(|value| value.trim().to_string())
+        .unwrap_or_else(|| "UNKNOWN".to_string());
+    let response_backend = &generated.response["backend"];
+    let warnings = generated.response["warnings"].clone();
+    let output = generated
+        .response
+        .get("outputs")
+        .and_then(Value::as_array)
+        .and_then(|outputs| outputs.first())
+        .ok_or(GenerateError::MetadataShape {
+            path: generated.output_path.clone(),
+            message: "Parametric Map response must contain one output",
+        })?;
+    let references = sources
+        .iter()
+        .map(|source| source.to_manifest_reference("source_image", None))
+        .collect::<Vec<_>>();
+    let float_bits = generated.payload.little_endian_float32_bits.clone();
+    let validation = serde_json::json!({
+        "status": "passed",
+        "internal": [
+            {"name": "external_backend_contract", "status": "passed", "message": "The locked backend response and provenance satisfied protocol 0.1.0."},
+            {"name": "float_payload_recomputed", "status": "passed", "message": "Rust recomputed every float32 bit pattern and frame hash from the staged CT sources."},
+            {"name": "promoted_part10_reopened", "status": "passed", "message": "The promoted Parametric Map reopened as a Part 10 file."}
+        ],
+        "standards": [
+            {"name": "parametric_map_storage_sop_class", "status": "passed", "message": "The output uses Parametric Map Storage."},
+            {"name": "float_pixel_data", "status": "passed", "message": "The payload is native Float Pixel Data with OF VR."}
+        ],
+        "external": []
+    });
+    Ok(GeneratedFile {
+        case_id: PARAMETRIC_MAP_CASE_ID.to_string(),
+        manifest_entry: serde_json::json!({
+            "case_id": PARAMETRIC_MAP_CASE_ID,
+            "profile_membership": ["extended"],
+            "path": format!("{PARAMETRIC_MAP_CASE_ID}/{PARAMETRIC_MAP_OUTPUT_FILE}"),
+            "sha256": sha256_hex(&generated.output_bytes),
+            "size_bytes": generated.output_bytes.len(),
+            "determinism": "semantic_stable",
+            "recipe": {
+                "recipe_id": PARAMETRIC_MAP_RECIPE_ID,
+                "recipe_version": PARAMETRIC_MAP_RECIPE_VERSION,
+                "recipe_parameters": {
+                    "stored_value_scale": PARAMETRIC_MAP_STORED_VALUE_SCALE,
+                    "spatial_rank_increment": PARAMETRIC_MAP_SPATIAL_RANK_INCREMENT,
+                    "dimension_organization_uid": generated.identities.dimension_organization_uid,
+                    "little_endian_float32_bits": float_bits
+                }
+            },
+            "dicom": {
+                "sop_class_uid": PARAMETRIC_MAP_SOP_CLASS_UID,
+                "sop_class_name": "Parametric Map Storage",
+                "iod_name": "Parametric Map",
+                "modality": "OT",
+                "transfer_syntax_uid": PARAMETRIC_MAP_TRANSFER_SYNTAX_UID,
+                "transfer_syntax_name": "Explicit VR Little Endian"
+            },
+            "uids": {
+                "study_instance_uid": generated.identities.study_instance_uid,
+                "series_instance_uid": generated.identities.series_instance_uid,
+                "sop_instance_uid": generated.identities.sop_instance_uid,
+                "frame_of_reference_uid": generated.identities.frame_of_reference_uid,
+                "implementation_class_uid": meta.implementation_class_uid,
+                "implementation_version_name": implementation_version_name
+            },
+            "image": {
+                "sample_type": "float32",
+                "rows": generated.payload.rows,
+                "columns": generated.payload.columns,
+                "frames": generated.payload.frames,
+                "samples_per_pixel": 1,
+                "photometric_interpretation": "MONOCHROME2",
+                "bits_allocated": 32,
+                "planar_configuration": Value::Null
+            },
+            "pixel_data": {
+                "vr": "OF",
+                "native_or_encapsulated": "native",
+                "value_length": generated.payload.little_endian_bytes.len(),
+                "frame_count": generated.payload.frames,
+                "frame_hashes": generated.payload.frame_sha256
+            },
+            "generation_backend": {
+                "backend_id": generated.backend.backend_id,
+                "protocol_version": crate::generation_backends::PROTOCOL_VERSION,
+                "name": response_backend["name"],
+                "version": response_backend["version"],
+                "dependency_lock_sha256": generated.backend.dependency_lock_sha256,
+                "executable_fingerprint": generated.backend.executable_fingerprint,
+                "entrypoint_fingerprint": generated.backend.entrypoint_fingerprint,
+                "environment_fingerprint": generated.backend.environment_fingerprint,
+                "runtime_identity": generated.backend.runtime_identity,
+                "determinism": "semantic_stable",
+                "warnings": warnings
+            },
+            "references": references,
+            "expected_capabilities": ["open_file", "read_metadata", "render_float_pixels", "parse_multiframe_functional_groups", "apply_real_world_value_mapping"],
+            "expected_semantics": {
+                "synthetic_data": "YES",
+                "sample_type": "float32",
+                "pixel_min": generated.payload.minimum,
+                "pixel_max": generated.payload.maximum,
+                "little_endian_float32_bits": generated.payload.little_endian_float32_bits,
+                "shared_functional_groups_sequence_items": 1,
+                "per_frame_functional_groups_sequence_items": generated.payload.frames,
+                "dimension_organization_uid": generated.identities.dimension_organization_uid,
+                "source_reference_count": sources.len(),
+                "real_world_value_mapping": output["expected_semantics"]["real_world_value_mapping"]
+            },
+            "expected_visual_checks": {"pattern": "three_frame_ct_derived_float32_parametric_map"},
+            "validation": validation,
+            "known_stressors": ["parametric_map_storage", "float_pixel_data", "native_multiframe_pixel_data", "real_world_value_mapping", "cross_instance_references", "external_generation_backend"],
+            "standards_evidence": deduplicated_standards_evidence(standards_evidence_from_case(case))
+        }),
+    })
 }
 
 fn write_pixel_case(

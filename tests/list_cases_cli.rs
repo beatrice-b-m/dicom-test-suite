@@ -296,7 +296,7 @@ fn list_cases_command_shows_extended_case_status_and_evidence() {
     );
     assert!(
         stdout.contains(
-            "enhanced/mr/multiframe_temporal_position_explicit_le\timplemented\textended\t1.2.840.10008.5.1.4.1.1.4.1\t1.2.840.10008.1.2.1\t23/23 covered"
+            "enhanced/mr/multiframe_temporal_position_explicit_le\timplemented\textended\t1.2.840.10008.5.1.4.1.1.4.1\t1.2.840.10008.1.2.1\t24/24 covered"
         ),
         "list-cases must include implemented Enhanced MR temporal extended cases with standards evidence"
     );

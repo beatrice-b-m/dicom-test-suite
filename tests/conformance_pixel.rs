@@ -4,6 +4,7 @@ use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde_json::{Value, json};
@@ -259,11 +260,16 @@ fn real_dcmtk_rle_adapter_matches_all_manifest_frame_hashes_when_enabled() {
 }
 
 fn temp_dir() -> PathBuf {
+    static NEXT_TEMP_ID: AtomicU64 = AtomicU64::new(0);
     let nonce = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_nanos();
-    let root = std::env::temp_dir().join(format!("dts-real-pixel-{nonce}"));
+    let sequence = NEXT_TEMP_ID.fetch_add(1, Ordering::Relaxed);
+    let root = std::env::temp_dir().join(format!(
+        "dts-real-pixel-{}-{nonce}-{sequence}",
+        std::process::id()
+    ));
     fs::create_dir_all(&root).unwrap();
     root
 }

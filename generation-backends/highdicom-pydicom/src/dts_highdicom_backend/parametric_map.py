@@ -74,6 +74,7 @@ def _normalize_metadata(dataset: Dataset, request: dict[str, Any]) -> None:
     dataset.Manufacturer = controlled["manufacturer"]
     dataset.ManufacturerModelName = controlled["model_name"]
     dataset.SoftwareVersions = controlled["software_versions"]
+    dataset.Laterality = "R"
     dataset.SyntheticData = "YES"
     dataset.TimezoneOffsetFromUTC = controlled["timezone_offset_from_utc"]
     for keyword, field in (

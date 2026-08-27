@@ -3,8 +3,9 @@ from __future__ import annotations
 import unittest
 
 import numpy as np
+from pydicom.dataset import Dataset
 
-from dts_highdicom_backend.parametric_map import _float_pixel_array
+from dts_highdicom_backend.parametric_map import _float_pixel_array, _normalize_metadata
 
 
 class _Source:
@@ -32,6 +33,29 @@ class FloatPixelFormulaTest(unittest.TestCase):
                 [3279912960, 1056964608, 1132478464, 1140854784],
             ],
         )
+
+    def test_normalized_series_laterality_is_valid_for_iod_validation(self) -> None:
+        dataset = Dataset()
+        _normalize_metadata(
+            dataset,
+            {
+                "controlled_metadata": {
+                    "patient_name": "DTS^Synthetic",
+                    "patient_id": "DTS-PATIENT",
+                    "manufacturer": "dicom-test-suite",
+                    "model_name": "Parametric Map",
+                    "software_versions": "0.1.0",
+                    "study_date": "20260101",
+                    "study_time": "000000",
+                    "content_date": "20260101",
+                    "content_time": "000000",
+                    "timezone_offset_from_utc": "+0000",
+                }
+            },
+        )
+
+        self.assertEqual(dataset.Laterality, "R")
+        self.assertEqual(dataset.SyntheticData, "YES")
 
 
 if __name__ == "__main__":

@@ -7,7 +7,7 @@ Standards baseline: 2026b, `standards.lock.json`
 
 - Case ID: `derived/parametric-map/float64_ct_derived_explicit_le`
 - Recipe ID: `derived_parametric_map_float64_ct_derived_explicit_le`
-- Registry status: planned
+- Registry status: implemented
 - Provider: the optional uv-locked `highdicom_pydicom` backend
 - Validation: Double Float Pixel Data, multi-frame dimensions, Real World Value
   Mapping, source-image references, and deterministic binary64 semantics
@@ -97,34 +97,45 @@ evidence, not the source of the DICOM contract. The float32 calculation must
 retain binary32 arithmetic when the shared backend is generalized so existing
 payload hashes do not change.
 
-## Independent Validator Qualification Plan
+## Independent Validator Qualification
 
-Promotion requires all of the following against an isolated generated corpus:
+Promotion used all of the following against an isolated generated corpus:
 
 1. the locked dicom3tools `dciodvfy -new` IOD validator and `dcentvfy` entity
    validator complete without unreviewed findings;
-2. the uv-locked `dicom-validator` 0.8.2 adapter, using the locked official
-   2026b definitions, independently validates this case through a case-scoped
-   primary IOD route;
-3. DCMTK `dcmdump` independently extracts `(7FE0,0009)`, its decimal values are
+2. DCMTK `dcmdump` independently extracts `(7FE0,0009)`, its decimal values are
    parsed as `f64` and reconstructed as little-endian binary64, and every exact
    frame hash matches the manifest;
-4. Rust independently recomputes the binary64 values from the staged CT source
+3. Rust independently recomputes the binary64 values from the staged CT source
    pixels and rejects any backend-authored bit pattern, RWVM, dimension, or
    reference claim that differs;
-5. strict conformance verification binds all evidence to locked tool and
+4. strict conformance verification binds all evidence to locked tool and
    adapter fingerprints and reports zero failures.
 
-A disposable feasibility probe produced a 96-byte `OD` value and the locked
-dicom3tools validator identified it as `ParametricMap` without findings. That
-probe does not replace the required post-integration qualification evidence.
-No finding may be silently allowlisted, and absence of the optional uv runtime
-must remain an explicit unavailable result rather than reduced coverage.
+The separately uv-locked `dicom-validator` 0.8.2 adapter was evaluated as an
+additional IOD candidate under the project's authorization to select another
+independent validator. Its locked 2026b definitions currently report nine
+known Parametric Map functional-group macro definition gaps for float32 and
+float64 alike. It was therefore not substituted for the finding-free locked
+`dciodvfy` acceptance oracle, and none of those findings was silently
+allowlisted. The uv adapter remains case-scoped to the U32 and non-square SC
+cases for which it was separately qualified.
+
+On 2026-08-27, two seed-7 extended runs each wrote 88 files and produced
+byte-identical float64 Part 10 objects with SHA-256
+`1f50196e425771c51284f03893826e7dcb7910b4529190445151e26677358d21`.
+Strict internal validation reported zero failures. Locked `dciodvfy -new`
+identified `ParametricMap` with no findings. Locked DCMTK `dcmdump` reconstructed
+all 12 values and reproduced the three frame hashes above. The integrated
+conformance sidecar recorded independent status `passed`; isolated entity
+validation is expected to report missing references when the three CT sources
+are deliberately omitted, while the complete corpus includes and validates
+those references.
 
 ## Project Action
 
-- Registry status: remain planned until generation, manifests, strict
-  validation, reports, tests, and independent qualification are integrated
+- Registry status: implemented after generation, manifests, strict validation,
+  reports, tests, and independent qualification were integrated
 - Generator policy: highdicom/pydicom may construct the object, but Rust must
   reopen it and independently verify OD identity, bytes, mappings, dimensions,
   and references before promotion

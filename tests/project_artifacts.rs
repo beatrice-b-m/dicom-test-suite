@@ -395,16 +395,29 @@ fn float64_parametric_map_note_locks_od_and_binary64_contract() {
         "21a27d41285f045a72c0de209c4b48ea98a09257d44520290bc6044b132fc002",
         "1cc11d28abf1e6f4efa4b07a73d4a7c953b3b3101b4112865c7170ccdeb84728",
         "highdicom `0.28.1`",
-        "Independent Validator Qualification Plan",
+        "Independent Validator Qualification",
         "dicom-validator` 0.8.2",
         "DCMTK `dcmdump`",
-        "Registry status: remain planned",
+        "Registry status: implemented",
         "Should become KB patch: yes",
     ] {
         assert!(
             source.contains(required),
             "float64 Parametric Map source note requires {required}"
         );
+    }
+
+    let status = fs::read_to_string("docs/phase-3-complex-object-status.md")
+        .expect("Phase 3 status note must be readable");
+    for required in [
+        "provider_capability_unavailable",
+        "1f50196e425771c51284f03893826e7dcb7910b4529190445151e26677358d21",
+        "dciodvfy -new",
+        "DCMTK",
+        "nine Parametric Map functional-group macro gaps",
+        "TID 1500 Measurement Report",
+    ] {
+        assert!(status.contains(required), "Phase 3 status requires {required}");
     }
 }
 

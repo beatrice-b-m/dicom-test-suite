@@ -58,6 +58,7 @@ pub struct ParametricMapSpec {
 }
 
 pub const CASE_ID: &str = "derived/parametric-map/float32_ct_derived_explicit_le";
+pub const FLOAT64_CASE_ID: &str = "derived/parametric-map/float64_ct_derived_explicit_le";
 pub const RECIPE_ID: &str = "derived_parametric_map_float32_ct_derived_explicit_le";
 pub const OUTPUT_FILE: &str = "parametric-map.dcm";
 
@@ -70,7 +71,7 @@ pub const FLOAT32_SPEC: ParametricMapSpec = ParametricMapSpec {
 
 pub const FLOAT64_SPEC: ParametricMapSpec = ParametricMapSpec {
     sample_kind: ParametricMapSampleKind::Float64,
-    case_id: "derived/parametric-map/float64_ct_derived_explicit_le",
+    case_id: FLOAT64_CASE_ID,
     recipe_id: "derived_parametric_map_float64_ct_derived_explicit_le",
     output_file: "parametric-map-float64.dcm",
 };

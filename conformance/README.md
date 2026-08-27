@@ -35,6 +35,7 @@ dynamically linked `liblcms2.2` implementation.
 | ICC profile processing | `littlecms-transicc-icc` | `transicc -n -i<profile> -o*XYZ -t0` | Required when collecting evidence for its declared case | Set `DTS_LCMS_HOME` to the immutable LittleCMS prefix. Locked DCMTK reconstructs the complete ICC OB value, strict checks enforce the DICOM input-profile header and `SRGB` label, and LittleCMS 2.19 must reproduce four fixed RGB-to-XYZ vectors. Primary IOD validation remains `dciodvfy`. |
 | Corpus entity consistency | `dicom3tools-dcentvfy` | `dcentvfy -f <file-list>` | Required | Same dicom3tools identity and acquisition decision as `dciodvfy`; pass files through its one-path-per-line file-list option to avoid argument limits. |
 | Independent parse | `dcmtk-dcmdump` | `dcmdump +fo` | Required | DCMTK is BSD-style licensed and cross-platform. Baseline is Homebrew DCMTK 3.7.0. Dictionary and character mapping data affect behavior and must be noted with the fingerprint. |
+| Native floating payloads | `dcmtk-dcmdump` | `dcmdump +L +P 7fe0,0008/0009` | Required for native OF/OD cases | The collector parses complete decimal values as `f32` or `f64`, reconstructs exact little-endian IEEE 754 bytes, and compares every manifest frame hash. This payload proof is independent of the highdicom/pydicom generator; primary IOD validation remains locked `dciodvfy`. |
 | Independent lossless decode | `dcmtk-dcmdjpeg` | `dcmdjpeg` | Capability-based | Suitable for JPEG families supported by the installed DCMTK build. It is not independent for cases encoded by the project's DCMTK `dcmcjpeg` path. Raw native-byte normalization still needs a proven adapter. |
 | Independent lossless decode | `gdcm-decode` | `gdcmconv`/`gdcmraw` | Optional candidate | GDCM is cross-platform and BSD licensed. Not installed; exact command behavior and native-byte normalization remain research targets. |
 | SR second validation | `pixelmed-sr-validator` | Java `DicomSRValidator` | Optional milestone | PixelMed 20260608 validates the three generated SR SOP Classes. Set `DTS_PIXELMED_HOME` to the extracted binary/dependency release root. Java, JARs, and embedded definition resources are fingerprinted together. Unavailability never weakens primary IOD acceptance. |
@@ -77,6 +78,13 @@ The U32 payload path uses adapter version 0.3.0 to read raw OW bytes through
 pydicom and unpack exact little-endian unsigned 32-bit words without NumPy.
 Its deterministic sidecar is cross-linked to the locked adapter, all image
 attributes, the four expected values, and every manifest frame hash.
+
+Native float32 and float64 Parametric Maps stay on the unrestricted, locked
+`dciodvfy` primary route. The independent DCMTK parser selects `(7FE0,0008)`
+OF or `(7FE0,0009)` OD from manifest sample type, reconstructs the corresponding
+binary width, and writes separate `dcmtk-native-float32` or
+`dcmtk-native-float64` evidence. Strict completeness requires passing,
+lock-matched independent evidence for every native floating payload.
 
 For `classic/sc/nonsquare_pixel_spacing`, adapter version 0.3.0 also performs
 case-scoped semantic extraction with pydicom. It proves that the two files use

@@ -1,7 +1,7 @@
 [project]
 name = "dicom-test-suite-wsi-reconstruction"
-version = "0.2.0"
-description = "Locked independent tiled full and sparse WSI reconstruction adapter"
+version = "0.3.0"
+description = "Locked independent tiled full, sparse, and pyramid WSI reconstruction adapter"
 requires-python = "==3.12.12"
 dependencies = [
     "highdicom==0.28.1",

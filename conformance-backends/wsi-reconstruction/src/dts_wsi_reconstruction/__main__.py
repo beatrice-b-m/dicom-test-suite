@@ -29,6 +29,16 @@ SPARSE_FRAME_HASHES = [FRAME_HASHES[0], FRAME_HASHES[3]]
 SPARSE_PAYLOAD_HASH = "94a57aca44c4a97d424e8e546b2673fa91f711694de1ccb36f062aabbc9b55ee"
 SPARSE_MATRIX_HASH = "d10a587875f14a0b74a9e4935ce83cdb73377bd7357a172db8e9f7347c030eb3"
 SPARSE_OCCUPANCY_MASK = [True, False, False, True]
+VOLUME_PAYLOAD_HASH = "b40b0afc9b180d5ebfb54a7db428e13fe09a33dcc9a8f76220f395ba2c68d2db"
+THUMBNAIL_HASH = "6733cdd08e5c7ef0453e2759ef0d28fbd43ea2aa7883b55422a13dac38e23ecc"
+LABEL_HASH = "ad078f83d3ea66f075867d116c8c126e9c8a8a9dd873cd27280371c173d8ad02"
+ICC_PROFILE_HASH = "8e069a3476b71a0e0ae7272d9278ba70540d1c4a0b19af1c7d52e56f49091fef"
+GROUP_ROLES = ("volume", "thumbnail", "label")
+ROLE_IMAGE_TYPES = {
+    "volume": ["ORIGINAL", "PRIMARY", "VOLUME", "NONE"],
+    "thumbnail": ["DERIVED", "PRIMARY", "THUMBNAIL", "RESAMPLED"],
+    "label": ["ORIGINAL", "PRIMARY", "LABEL", "NONE"],
+}
 
 
 class ReconstructionError(RuntimeError):
@@ -41,6 +51,13 @@ def _sha256(array: np.ndarray) -> str:
 
 def _require_equal(actual: Any, expected: Any, name: str) -> None:
     if actual != expected:
+        raise ReconstructionError(
+            f"{name} mismatch: expected {expected!r}, got {actual!r}"
+        )
+
+
+def _require_float_close(actual: float, expected: float, name: str) -> None:
+    if not np.isclose(actual, expected, rtol=0.0, atol=1e-9):
         raise ReconstructionError(
             f"{name} mismatch: expected {expected!r}, got {actual!r}"
         )
@@ -447,18 +464,245 @@ def reconstruct(path: Path) -> dict[str, Any]:
     )
 
 
+def _role(dataset: pydicom.Dataset) -> str:
+    image_type = [str(value) for value in getattr(dataset, "ImageType", [])]
+    if len(image_type) < 3:
+        raise ReconstructionError("ImageType must contain a role in value 3")
+    role = image_type[2].lower()
+    if role not in GROUP_ROLES:
+        raise ReconstructionError(
+            f"ImageType value 3 mismatch: expected VOLUME, THUMBNAIL, or LABEL, got {image_type[2]!r}"
+        )
+    _require_equal(image_type, ROLE_IMAGE_TYPES[role], f"{role} ImageType")
+    return role
+
+
+def _single_frame_matrix(dataset: pydicom.Dataset, role: str) -> np.ndarray:
+    image = hd.Image.from_dataset(dataset, copy=True)
+    frame = image.get_stored_frame(1, as_index=False)
+    _require_equal(list(frame.shape), [2, 2, 3], f"{role} stored frame shape")
+    return frame.astype(np.uint8, copy=False)
+
+
+def _validate_group_member(dataset: pydicom.Dataset, role: str) -> dict[str, Any]:
+    _require_equal(str(dataset.SOPClassUID), WSI_STORAGE, f"{role} SOP Class UID")
+    _require_equal(
+        str(dataset.file_meta.TransferSyntaxUID),
+        EXPLICIT_VR_LITTLE_ENDIAN,
+        f"{role} transfer syntax",
+    )
+    for keyword, expected in (
+        ("Modality", "SM"),
+        ("DimensionOrganizationType", "TILED_FULL"),
+        ("PhotometricInterpretation", "RGB"),
+        ("LossyImageCompression", "00"),
+        ("BurnedInAnnotation", "NO"),
+        ("SpecimenLabelInImage", "YES" if role == "label" else "NO"),
+    ):
+        _require_equal(str(getattr(dataset, keyword)), expected, f"{role} {keyword}")
+    expected_frames = 4 if role == "volume" else 1
+    expected_matrix = 4 if role == "volume" else 2
+    for keyword, expected in (
+        ("Rows", 2),
+        ("Columns", 2),
+        ("NumberOfFrames", expected_frames),
+        ("TotalPixelMatrixRows", expected_matrix),
+        ("TotalPixelMatrixColumns", expected_matrix),
+        ("NumberOfOpticalPaths", 1),
+        ("TotalPixelMatrixFocalPlanes", 1),
+        ("SamplesPerPixel", 3),
+        ("PlanarConfiguration", 0),
+        ("BitsAllocated", 8),
+        ("BitsStored", 8),
+        ("HighBit", 7),
+        ("PixelRepresentation", 0),
+    ):
+        _require_equal(int(getattr(dataset, keyword)), expected, f"{role} {keyword}")
+    if "DimensionIndexSequence" in dataset or "PerFrameFunctionalGroupsSequence" in dataset:
+        raise ReconstructionError(
+            f"{role} TILED_FULL input must use implicit positions without per-frame or dimension-index sequences"
+        )
+    _require_equal(
+        [str(value) for value in dataset.SharedFunctionalGroupsSequence[0]
+         .WholeSlideMicroscopyImageFrameTypeSequence[0].FrameType],
+        ROLE_IMAGE_TYPES[role],
+        f"{role} shared FrameType",
+    )
+    measures = dataset.SharedFunctionalGroupsSequence[0].PixelMeasuresSequence[0]
+    spacing = [float(value) for value in measures.PixelSpacing]
+    _require_equal(
+        spacing,
+        [1.0, 1.0] if role == "thumbnail" else [0.5, 0.5],
+        f"{role} pixel spacing",
+    )
+    expected_extent = 1.0 if role == "label" else 2.0
+    _require_equal(float(dataset.ImagedVolumeWidth), expected_extent, f"{role} imaged width")
+    _require_equal(float(dataset.ImagedVolumeHeight), expected_extent, f"{role} imaged height")
+    _require_float_close(
+        float(dataset.ImagedVolumeDepth), 0.001, f"{role} imaged depth"
+    )
+    _require_equal(
+        [float(value) for value in dataset.ImageOrientationSlide],
+        [1.0, 0.0, 0.0, 0.0, 1.0, 0.0],
+        f"{role} image orientation slide",
+    )
+    origin = dataset.TotalPixelMatrixOriginSequence[0]
+    _require_equal(
+        [
+            float(origin.XOffsetInSlideCoordinateSystem),
+            float(origin.YOffsetInSlideCoordinateSystem),
+            float(getattr(origin, "ZOffsetInSlideCoordinateSystem", 0.0)),
+        ],
+        [0.0, 0.0, 0.0],
+        f"{role} total pixel matrix origin",
+    )
+    payload_hash = hashlib.sha256(bytes(dataset.PixelData)).hexdigest()
+    expected_payload = {
+        "volume": VOLUME_PAYLOAD_HASH,
+        "thumbnail": THUMBNAIL_HASH,
+        "label": LABEL_HASH,
+    }[role]
+    _require_equal(payload_hash, expected_payload, f"{role} Pixel Data payload hash")
+    if role == "volume":
+        result = _reconstruct_tiled_full(dataset)
+        matrix_hash = result["total_pixel_matrix_sha256"]
+        shape = result["total_pixel_matrix_shape"]
+        frame_hashes = result["frame_hashes"]
+    else:
+        matrix = _single_frame_matrix(dataset, role)
+        matrix_hash = _sha256(matrix)
+        _require_equal(matrix_hash, expected_payload, f"{role} reconstructed matrix hash")
+        shape = list(matrix.shape)
+        frame_hashes = [matrix_hash]
+    return {
+        "role": role,
+        "sop_instance_uid": str(dataset.SOPInstanceUID),
+        "image_type": ROLE_IMAGE_TYPES[role],
+        "frame_type": ROLE_IMAGE_TYPES[role],
+        "frame_count": expected_frames,
+        "stored_frame_shape": [2, 2, 3],
+        "frame_hashes": frame_hashes,
+        "pixel_data_sha256": payload_hash,
+        "total_pixel_matrix_shape": shape,
+        "total_pixel_matrix_sha256": matrix_hash,
+        "pyramid_member": role != "label",
+        "pyramid_uid": str(dataset.PyramidUID) if role != "label" else None,
+        "specimen_label_in_image": "YES" if role == "label" else "NO",
+        "burned_in_annotation": "NO",
+        "transforms_applied": False,
+    }
+
+
+def _shared_group_identity(dataset: pydicom.Dataset) -> dict[str, str]:
+    specimen = dataset.SpecimenDescriptionSequence[0]
+    optical = dataset.OpticalPathSequence[0]
+    icc_profile = bytes(optical.ICCProfile)
+    _require_equal(hashlib.sha256(icc_profile).hexdigest(), ICC_PROFILE_HASH, "ICC Profile hash")
+    _require_equal(str(optical.OpticalPathIdentifier), "RGB", "optical path identifier")
+    _require_equal(float(optical.IlluminationWaveLength), 550.0, "illumination wavelength")
+    _require_equal(str(dataset.ContainerIdentifier), "DTS-SLIDE-001", "container identifier")
+    _require_equal(str(specimen.SpecimenIdentifier), "DTS-SPECIMEN-001", "specimen identifier")
+    return {
+        "patient_id": str(dataset.PatientID),
+        "patient_name": str(dataset.PatientName),
+        "study_instance_uid": str(dataset.StudyInstanceUID),
+        "series_instance_uid": str(dataset.SeriesInstanceUID),
+        "frame_of_reference_uid": str(dataset.FrameOfReferenceUID),
+        "container_identifier": str(dataset.ContainerIdentifier),
+        "specimen_identifier": str(specimen.SpecimenIdentifier),
+        "specimen_uid": str(specimen.SpecimenUID),
+        "optical_path_identifier": str(optical.OpticalPathIdentifier),
+        "illumination_wavelength_nm": str(float(optical.IlluminationWaveLength)),
+        "icc_profile_sha256": hashlib.sha256(icc_profile).hexdigest(),
+    }
+
+
+def reconstruct_group(paths: list[Path]) -> dict[str, Any]:
+    _require_equal(len(paths), 3, "group input count")
+    datasets_by_role: dict[str, pydicom.Dataset] = {}
+    for path in paths:
+        dataset = pydicom.dcmread(path)
+        role = _role(dataset)
+        if role in datasets_by_role:
+            raise ReconstructionError(f"duplicate group role: {role}")
+        datasets_by_role[role] = dataset
+    _require_equal(set(datasets_by_role), set(GROUP_ROLES), "group roles")
+
+    volume = datasets_by_role["volume"]
+    identity = _shared_group_identity(volume)
+    for role in GROUP_ROLES[1:]:
+        _require_equal(
+            _shared_group_identity(datasets_by_role[role]),
+            identity,
+            f"{role} shared group identity",
+        )
+    sop_uids = [str(datasets_by_role[role].SOPInstanceUID) for role in GROUP_ROLES]
+    _require_equal(len(set(sop_uids)), 3, "unique SOP Instance UID count")
+    volume_pyramid_uid = str(volume.PyramidUID)
+    _require_equal(
+        str(datasets_by_role["thumbnail"].PyramidUID),
+        volume_pyramid_uid,
+        "thumbnail Pyramid UID",
+    )
+    if "PyramidUID" in datasets_by_role["label"]:
+        raise ReconstructionError("label Pyramid UID must be absent")
+
+    members = [
+        _validate_group_member(datasets_by_role[role], role) for role in GROUP_ROLES
+    ]
+    volume_image = hd.Image.from_dataset(volume, copy=True).get_total_pixel_matrix(
+        dtype=np.uint8,
+        apply_real_world_transform=False,
+        apply_modality_transform=False,
+        apply_voi_transform=False,
+        apply_presentation_lut=False,
+        apply_palette_color_lut=False,
+        apply_icc_profile=False,
+    )
+    thumbnail_image = _single_frame_matrix(datasets_by_role["thumbnail"], "thumbnail")
+    quadrant_reduction = volume_image[np.ix_([0, 2], [0, 2])]
+    if not np.array_equal(thumbnail_image, quadrant_reduction):
+        raise ReconstructionError("thumbnail does not equal deterministic volume quadrant reduction")
+
+    return {
+        "status": "passed",
+        "backend": "dts-wsi-reconstruct",
+        "backend_version": __version__,
+        "runtime": {
+            "highdicom": version("highdicom"),
+            "numpy": version("numpy"),
+            "pydicom": version("pydicom"),
+        },
+        "ordered_roles": list(GROUP_ROLES),
+        "group_identity": identity,
+        "pyramid_uid": volume_pyramid_uid,
+        "pyramid_roles": ["volume", "thumbnail"],
+        "apex_role": "thumbnail",
+        "label_excluded_from_pyramid": True,
+        "thumbnail_reduction": "volume_quadrant_top_left_pixels",
+        "thumbnail_reduction_sha256": _sha256(quadrant_reduction),
+        "members": members,
+        "transforms_applied": False,
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--input", type=Path)
+    parser.add_argument("--group-input", type=Path, action="append", default=[])
     parser.add_argument("--version", action="store_true")
     args = parser.parse_args()
     if args.version:
         print(f"dts-wsi-reconstruct {__version__}")
         return 0
-    if args.input is None:
-        parser.error("--input is required")
+    if args.input is not None and args.group_input:
+        parser.error("--input and --group-input are mutually exclusive")
+    if args.input is None and not args.group_input:
+        parser.error("--input or exactly three --group-input values are required")
+    if args.group_input and len(args.group_input) != 3:
+        parser.error("--group-input must be repeated exactly three times")
     try:
-        result = reconstruct(args.input)
+        result = reconstruct_group(args.group_input) if args.group_input else reconstruct(args.input)
     except Exception as error:
         print(
             json.dumps(

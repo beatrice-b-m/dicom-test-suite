@@ -10,11 +10,14 @@ from pydicom.dataset import Dataset, FileDataset, FileMetaDataset
 from pydicom.sequence import Sequence
 
 from dts_wsi_reconstruction.__main__ import (
+    LABEL_HASH,
     MATRIX_HASH,
     SPARSE_MATRIX_HASH,
     SPARSE_OCCUPANCY_MASK,
+    THUMBNAIL_HASH,
     ReconstructionError,
     reconstruct,
+    reconstruct_group,
 )
 
 
@@ -136,6 +139,61 @@ def _sparse_dataset(path: Path) -> FileDataset:
         2, 2, 2, 3
     )
     ds.PixelData = frames.tobytes()
+    return ds
+
+
+def _icc_profile() -> bytes:
+    source = (
+        Path(__file__).resolve().parents[3]
+        / "src/generator/native/dcmtk_srgb_input_profile.hex"
+    )
+    return bytes.fromhex(source.read_text(encoding="ascii").strip())
+
+
+def _group_dataset(path: Path, role: str) -> FileDataset:
+    ds = _dataset(path)
+    image_types = {
+        "volume": ["ORIGINAL", "PRIMARY", "VOLUME", "NONE"],
+        "thumbnail": ["DERIVED", "PRIMARY", "THUMBNAIL", "RESAMPLED"],
+        "label": ["ORIGINAL", "PRIMARY", "LABEL", "NONE"],
+    }
+    ds.SOPInstanceUID = {
+        "volume": "2.25.101",
+        "thumbnail": "2.25.102",
+        "label": "2.25.103",
+    }[role]
+    ds.file_meta.MediaStorageSOPInstanceUID = ds.SOPInstanceUID
+    ds.ImageType = image_types[role]
+    ds.SharedFunctionalGroupsSequence[0].WholeSlideMicroscopyImageFrameTypeSequence[
+        0
+    ].FrameType = image_types[role]
+    ds.ContainerIdentifier = "DTS-SLIDE-001"
+    ds.BurnedInAnnotation = "NO"
+    ds.SpecimenLabelInImage = "YES" if role == "label" else "NO"
+    ds.PyramidUID = "2.25.200"
+    ds.OpticalPathSequence[0].ICCProfile = _icc_profile()
+    if role != "volume":
+        ds.NumberOfFrames = 1
+        ds.TotalPixelMatrixRows = 2
+        ds.TotalPixelMatrixColumns = 2
+        ds.SharedFunctionalGroupsSequence[0].PixelMeasuresSequence[0].PixelSpacing = (
+            [1.0, 1.0] if role == "thumbnail" else [0.5, 0.5]
+        )
+        extent = 2.0 if role == "thumbnail" else 1.0
+        ds.ImagedVolumeWidth = extent
+        ds.ImagedVolumeHeight = extent
+        pixels = {
+            "thumbnail": [
+                [255, 0, 0],
+                [0, 255, 0],
+                [0, 0, 255],
+                [255, 255, 255],
+            ],
+            "label": [[0, 32, 96], [255, 255, 255], [0, 32, 96], [255, 255, 255]],
+        }[role]
+        ds.PixelData = np.asarray(pixels, dtype=np.uint8).reshape(1, 2, 2, 3).tobytes()
+    if role == "label":
+        del ds.PyramidUID
     return ds
 
 
@@ -266,6 +324,85 @@ class SparseReconstructionTest(unittest.TestCase):
         ):
             reconstruct(self.path)
 
+
+class PyramidGroupReconstructionTest(unittest.TestCase):
+    def setUp(self) -> None:
+        self.temp = tempfile.TemporaryDirectory()
+        self.paths: dict[str, Path] = {}
+        filenames = {"volume": "c.dcm", "thumbnail": "a.dcm", "label": "b.dcm"}
+        for role in ("volume", "thumbnail", "label"):
+            path = Path(self.temp.name) / filenames[role]
+            _group_dataset(path, role).save_as(path, enforce_file_format=True)
+            self.paths[role] = path
+
+    def tearDown(self) -> None:
+        self.temp.cleanup()
+
+    def test_reconstructs_group_from_attributes_in_arbitrary_order(self) -> None:
+        result = reconstruct_group(
+            [self.paths["label"], self.paths["volume"], self.paths["thumbnail"]]
+        )
+        self.assertEqual(result["status"], "passed")
+        self.assertEqual(result["ordered_roles"], ["volume", "thumbnail", "label"])
+        self.assertEqual(result["pyramid_roles"], ["volume", "thumbnail"])
+        self.assertTrue(result["label_excluded_from_pyramid"])
+        self.assertEqual(result["thumbnail_reduction_sha256"], THUMBNAIL_HASH)
+        self.assertEqual(
+            [member["total_pixel_matrix_sha256"] for member in result["members"]],
+            [MATRIX_HASH, THUMBNAIL_HASH, LABEL_HASH],
+        )
+        self.assertFalse(result["transforms_applied"])
+        self.assertTrue(
+            all(not member["transforms_applied"] for member in result["members"])
+        )
+
+    def test_rejects_wrong_member_count(self) -> None:
+        with self.assertRaisesRegex(ReconstructionError, "group input count"):
+            reconstruct_group([self.paths["volume"], self.paths["thumbnail"]])
+
+    def test_rejects_duplicate_attribute_derived_role(self) -> None:
+        with self.assertRaisesRegex(ReconstructionError, "duplicate group role"):
+            reconstruct_group(
+                [self.paths["volume"], self.paths["volume"], self.paths["label"]]
+            )
+
+    def test_rejects_shared_identity_mutation(self) -> None:
+        dataset = _group_dataset(self.paths["thumbnail"], "thumbnail")
+        dataset.SeriesInstanceUID = "2.25.999"
+        dataset.save_as(self.paths["thumbnail"], enforce_file_format=True)
+        with self.assertRaisesRegex(ReconstructionError, "shared group identity"):
+            reconstruct_group(list(self.paths.values()))
+
+    def test_rejects_duplicate_sop_instance_uid(self) -> None:
+        dataset = _group_dataset(self.paths["label"], "label")
+        dataset.SOPInstanceUID = "2.25.101"
+        dataset.file_meta.MediaStorageSOPInstanceUID = dataset.SOPInstanceUID
+        dataset.save_as(self.paths["label"], enforce_file_format=True)
+        with self.assertRaisesRegex(ReconstructionError, "unique SOP Instance UID"):
+            reconstruct_group(list(self.paths.values()))
+
+    def test_rejects_label_pyramid_membership(self) -> None:
+        dataset = _group_dataset(self.paths["label"], "label")
+        dataset.PyramidUID = "2.25.200"
+        dataset.save_as(self.paths["label"], enforce_file_format=True)
+        with self.assertRaisesRegex(ReconstructionError, "label Pyramid UID"):
+            reconstruct_group(list(self.paths.values()))
+
+    def test_rejects_label_flag_mutation(self) -> None:
+        dataset = _group_dataset(self.paths["label"], "label")
+        dataset.SpecimenLabelInImage = "NO"
+        dataset.save_as(self.paths["label"], enforce_file_format=True)
+        with self.assertRaisesRegex(ReconstructionError, "SpecimenLabelInImage"):
+            reconstruct_group(list(self.paths.values()))
+
+    def test_rejects_thumbnail_payload_mutation(self) -> None:
+        dataset = _group_dataset(self.paths["thumbnail"], "thumbnail")
+        pixels = bytearray(dataset.PixelData)
+        pixels[0] = 254
+        dataset.PixelData = bytes(pixels)
+        dataset.save_as(self.paths["thumbnail"], enforce_file_format=True)
+        with self.assertRaisesRegex(ReconstructionError, "Pixel Data payload hash"):
+            reconstruct_group(list(self.paths.values()))
 
 if __name__ == "__main__":
     unittest.main()

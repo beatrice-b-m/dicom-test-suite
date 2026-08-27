@@ -1,7 +1,8 @@
 # Locked WSI reconstruction backend
 
 This optional `uv` project independently reconstructs the exact total pixel
-matrices of `vl/wsi/tiled_full_small` and `vl/wsi/tiled_sparse_small`. It uses
+matrices of `vl/wsi/tiled_full_small`, `vl/wsi/tiled_sparse_small`, and the
+three instances of `vl/wsi/pyramid_multiresolution`. It uses
 highdicom's stored-frame APIs with all modality, VOI, palette, presentation,
 real-world, and ICC transforms disabled. For `TILED_FULL`, the adapter also
 cross-checks highdicom's total-pixel-matrix API against a separate implicit
@@ -9,6 +10,10 @@ tile-order implementation. For `TILED_SPARSE`, it independently cross-binds
 the Dimension Index Sequence and all required per-frame macros, places only
 the two encoded tiles into a zero-sentinel matrix, and emits the exact
 occupancy mask so absent tiles cannot be mistaken for encoded black pixels.
+In group mode it derives VOLUME, THUMBNAIL, and LABEL roles only from Image
+Type value 3, binds their shared slide identity, proves that only VOLUME and
+THUMBNAIL share the Pyramid UID, reconstructs all three matrices, and proves
+the THUMBNAIL is the locked quadrant reduction of VOLUME.
 
 The adapter fails closed on SOP Class, transfer syntax, geometry, frame order,
 dimension indices, explicit positions, macro placement, occupancy, payload,
@@ -26,4 +31,13 @@ Run it against one generated instance:
 
 ```sh
 uv run --locked --offline dts-wsi-reconstruct --input /path/to/instance.dcm
+```
+
+Run it against a pyramid group (argument order is deliberately irrelevant):
+
+```sh
+uv run --locked --offline dts-wsi-reconstruct \
+  --group-input /path/to/label.dcm \
+  --group-input /path/to/volume.dcm \
+  --group-input /path/to/thumbnail.dcm
 ```

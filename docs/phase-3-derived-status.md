@@ -143,9 +143,42 @@ Isolated `dcentvfy` reference closure was silent and successful. Full-corpus
 verification still exposes 207 older or unrelated findings; none was
 allowlisted for this slice.
 
+## Deformable Spatial Registration
+
+`derived/registration/deformable_ct_pair` is an implemented, byte-stable
+Deformable Spatial Registration Storage case. Its single 2 by 2 by 1 grid maps
+Enhanced CT frame 2 centers from the Registered RCS into classic CT source
+pixel centers. Identity pre/post `RIGID` matrices keep the displacement field
+observable, and the 48-byte little-endian OF payload is locked by exact hash,
+decoded vector order, and four registered-to-source point mappings.
+
+The manifest binds source hashes and Study/Series/SOP/Frame-of-Reference
+identities, complete-instance selection, grid geometry and cardinalities,
+matrix types and values, Common Instance Reference topology, and pixel
+absence. Strict Rust validation covers the byte-count equation, finite-vector
+rules, i-fastest ordering, sampling mathematics, point mappings, and reference
+closure that neither independent IOD validator fully owns. JSON and Markdown
+reports expose the sampling direction, grid dimensions and resolution, vector
+count and payload hash, matrix types, reference topology, and mapping count.
+
+Two seed-7 extended generations each wrote 93 files. Their byte-identical
+manifests have SHA-256
+`9a449b434db4863b3f6f848edf761b920ce5cc713e3d5142fd1801106ed912fe`;
+the byte-identical 2,128-byte REG instances have SHA-256
+`d8c539ad4ac9e72a8a597f9bf8a6588feac4d110d97464a70f6d543a033e5114`.
+Both roots passed strict validation with zero failures.
+
+Integrated conformance run
+`225bef48a5503e4ed2adc88490d9f28d9f8c314e0bc34d3fa8bff0d144b4127e`
+recorded stable instance key
+`e6a78f3868532d08691c6570ad52e137ffce85661b0cc4ebb810cdff234e63ca`.
+Locked `dciodvfy -new` and DCMTK `dcmdump` were clean; the independently
+implemented, `uv`-locked `dicom-validator` 0.8.2 adapter passed with zero
+errors; and isolated `dcentvfy` was silent. Full-corpus verification continues
+to expose 208 older or unrelated findings, with no new allowlisting.
+
 ## Next dependency
 
-The next Phase 3 dependency milestone is Deformable Spatial Registration. It
-remains planned until its opposite matrix/grid sampling direction, vector-grid
-geometry, source closure, independent evidence, reports, tests, and
-documentation are complete.
+The next Phase 3 dependency milestone is presentation-state breadth: Color
+Softcopy, Advanced Blending, and Blending Presentation States, in that order
+subject to their source-image dependencies.

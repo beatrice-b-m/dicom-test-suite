@@ -334,13 +334,13 @@ Gate:
 - reports distinguish renderable, metadata-only, annotation, and recognized-
   unsupported expectations.
 
-Status on 2026-08-27: Phase 3 milestones 1 and 2 are complete. In milestone 3,
-Spatial Registration is complete as a byte-stable native vertical slice with
-two-run reproducibility, exact source/transform/reference closure, strict
+Status on 2026-08-27: Phase 3 milestones 1, 2, and 3 are complete. Spatial and
+Deformable Spatial Registration are byte-stable native vertical slices with
+two-run reproducibility, exact source/transform/grid/reference closure, strict
 manifest-driven validation, registration-specific reports, clean locked
-primary and secondary IOD validation, clean independent parsing, and clean
-isolated entity-reference validation. Deformable Spatial Registration is the
-next dependency-ordered slice and remains planned without reduced coverage.
+primary IOD validation, independently implemented `uv`-locked secondary IOD
+validation, independent parsing, and clean isolated entity-reference
+validation. Milestone 4 presentation-state breadth is next.
 
 ### Phase 4 — Pathology and tiled microscopy
 

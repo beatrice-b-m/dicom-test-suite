@@ -14,7 +14,7 @@ Source manifest SHA-256:
 - Source image: `classic/ct/mono2_i16_rescale_12bit_explicit_le`
 - Output: Deformable Spatial Registration Storage
   (`1.2.840.10008.5.1.4.1.1.66.3`), Explicit VR Little Endian
-- Future manifest field: `expected_deformable_spatial_registration`
+- Manifest field: `expected_deformable_spatial_registration`
 
 ## Locked IOD And Module Contract
 
@@ -191,18 +191,40 @@ responsibilities; they are not accepted findings.
 
 ## Project Action
 
-- Registry status: planned; this note does not promote the case.
+- Registry status: implemented and byte-stable.
 - Registry provider: `rust_native`. DICOM-rs can write the required nested
   Sequences and OF payload directly, allows a byte-stable little-endian
   contract, and preserves Python/pydicom as an independent secondary
   validation implementation.
-- Registry blocker: `recipe_unimplemented`. The stale external-backend and
-  unavailable-validator blockers are removed because the native construction
-  path and locked additive validator are both proven. Promotion still requires
-  the writer, strict payload validator, reference closure, deterministic
-  manifests, report surfaces, and mutation tests.
+- Registry blocker: none. Native construction, strict payload validation,
+  reference closure, deterministic manifests, report surfaces, mutation tests,
+  and the locked additive validator are proven.
 - Should become KB patch: yes; expose the Deformable Spatial Registration
   module table, sampling direction, sequence cardinalities, grid semantics,
   and Vector Grid Data ordering as structured 2026b queries.
 - Do not commit generated DICOM files, validator outputs, or official standards
   artifacts.
+
+## Promotion Evidence
+
+Two seed-7 `extended` generations each wrote 93 files. Their manifests were
+byte-identical with SHA-256
+`9a449b434db4863b3f6f848edf761b920ce5cc713e3d5142fd1801106ed912fe`;
+the 2,128-byte Deformable Spatial Registration instances were byte-identical
+with SHA-256
+`d8c539ad4ac9e72a8a597f9bf8a6588feac4d110d97464a70f6d543a033e5114`.
+Both generated roots passed strict manifest-driven validation with zero
+failures.
+
+Integrated conformance run
+`225bef48a5503e4ed2adc88490d9f28d9f8c314e0bc34d3fa8bff0d144b4127e`
+recorded stable instance key
+`e6a78f3868532d08691c6570ad52e137ffce85661b0cc4ebb810cdff234e63ca`.
+Locked `dciodvfy -new` and DCMTK 3.7.0 `dcmdump` completed with no findings.
+The independently implemented, `uv`-locked `dicom-validator` 0.8.2 adapter
+reported `Passed` with zero errors; its informational success line remains
+visible as information rather than an allowlisted finding. Isolated `dcentvfy`
+over the REG and both CT inputs was silent and successful. Full-corpus strict
+verification exposes 208 older, unavailable-tool, or unrelated findings,
+including the known shared-Study entity inconsistency now also visible for this
+new instance; none was allowlisted or weakened for this slice.

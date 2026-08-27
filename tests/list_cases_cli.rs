@@ -397,6 +397,12 @@ fn list_cases_command_shows_extended_case_status_and_evidence() {
         ),
         "list-cases must include the implemented General ECG extended case"
     );
+    assert!(
+        stdout.contains(
+            "vl/wsi/tiled_sparse_small\timplemented\textended\t1.2.840.10008.5.1.4.1.1.77.1.6\t1.2.840.10008.1.2.1\t1/1 covered\tdicom_instance\trust_native\tvisible_light\t-\t"
+        ),
+        "list-cases must include the implemented native tiled-sparse WSI case"
+    );
 }
 
 #[test]
@@ -476,6 +482,10 @@ fn list_cases_command_filters_by_status_and_profile() {
     assert!(
         !stdout.contains("non-image/waveform/general_ecg"),
         "planned status filter must exclude implemented General ECG"
+    );
+    assert!(
+        !stdout.contains("vl/wsi/tiled_sparse_small"),
+        "planned status filter must exclude implemented tiled-sparse WSI"
     );
 }
 

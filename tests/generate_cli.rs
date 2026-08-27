@@ -2023,7 +2023,7 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\textended"));
-    let native_extended_files = 106
+    let native_extended_files = 107
         + if cfg!(feature = "deflate") { 2 } else { 0 }
         + if cfg!(feature = "jpeg") { 1 } else { 0 }
         + if cfg!(feature = "charls") { 1 } else { 0 }
@@ -2108,6 +2108,7 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
     file_entry_by_case_id(&manifest, "vl/endoscopic/rgb_explicit_le");
     file_entry_by_case_id(&manifest, "vl/microscopic/rgb_explicit_le");
     file_entry_by_case_id(&manifest, "vl/wsi/tiled_full_small");
+    file_entry_by_case_id(&manifest, "vl/wsi/tiled_sparse_small");
     let expected_extended_files =
         native_extended_files + parametric_maps_generated + tid1500_generated + scoord3d_generated;
     assert!(stdout.contains(&format!("files_written\t{expected_extended_files}")));
@@ -6213,7 +6214,7 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
         .expect("manifest should contain skipped cases");
     assert_eq!(
         skipped_cases.len(),
-        28 - parametric_maps_generated
+        27 - parametric_maps_generated
             - tid1500_generated
             - scoord3d_generated
             - if cfg!(feature = "deflate") { 2 } else { 0 }
@@ -7833,7 +7834,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\tall"));
-    let native_all_files = 149
+    let native_all_files = 150
         + if cfg!(feature = "deflate") { 2 } else { 0 }
         + if cfg!(feature = "jpeg") { 1 } else { 0 }
         + if cfg!(feature = "charls") { 1 } else { 0 }
@@ -7902,6 +7903,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
     file_entry_by_case_id(&manifest, "vl/endoscopic/rgb_explicit_le");
     file_entry_by_case_id(&manifest, "vl/microscopic/rgb_explicit_le");
     file_entry_by_case_id(&manifest, "vl/wsi/tiled_full_small");
+    file_entry_by_case_id(&manifest, "vl/wsi/tiled_sparse_small");
     let expected_all_files =
         native_all_files + parametric_maps_generated + tid1500_generated + scoord3d_generated;
     assert!(stdout.contains(&format!("files_written\t{expected_all_files}")));
@@ -8076,7 +8078,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
         .expect("manifest should contain skipped cases");
     assert_eq!(
         skipped_cases.len(),
-        28 - parametric_maps_generated
+        27 - parametric_maps_generated
             - tid1500_generated
             - scoord3d_generated
             - if cfg!(feature = "deflate") { 2 } else { 0 }

@@ -560,14 +560,7 @@ fn comprehensive3d_scoord3d_source_note_locks_geometry_and_validator_gate() {
         .expect("Comprehensive 3D SCOORD3D row must exist");
     assert_eq!(case["status"], "implemented");
     assert_eq!(case["roadmap"], Value::Null);
-    assert_eq!(
-        case["blockers"],
-        serde_json::json!([{
-            "code": "recipe_unimplemented",
-            "message": "The deterministic native Spatial Registration recipe is not implemented.",
-            "recheck_phase": "phase-3"
-        }])
-    );
+    assert_eq!(case["blockers"], serde_json::json!([]));
     assert!(
         case["standards_evidence"]
             .as_array()
@@ -617,7 +610,14 @@ fn spatial_registration_source_note_locks_native_rigid_contract() {
     assert_eq!(case["status"], "planned");
     assert_eq!(case["provider"]["kind"], "rust_native");
     assert_eq!(case["provider"]["id"], "rust_native");
-    assert_eq!(case["blockers"], serde_json::json!([]));
+    assert_eq!(
+        case["blockers"],
+        serde_json::json!([{
+            "code": "recipe_unimplemented",
+            "message": "The deterministic native Spatial Registration recipe is not implemented.",
+            "recheck_phase": "phase-3"
+        }])
+    );
 
     for (part, anchor) in [
         ("PS3.3", "A.39.1_C.20.1_C.20.2_C.12.2"),

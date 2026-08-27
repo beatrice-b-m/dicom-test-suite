@@ -1700,9 +1700,9 @@ fn generate_command_writes_deterministic_nonsquare_spatial_variants() {
     const CASE_ID: &str = "classic/sc/nonsquare_pixel_spacing";
     const PIXEL_SHA256: &str = "e89b23efeade0dc3de624fc8982ea8b99adb35a3bb9a2fbf8b8ce675e10581a6";
     const SPACING_FILE_SHA256: &str =
-        "3b389bfd9eefeb9883c5edc2730d8fbde8304e0ab3f621aa3ce3a41d67bbfd73";
+        "50f897625dcc489d212a81674086d1183569d6e0ac7a847d55afc8dd599276d4";
     const ASPECT_FILE_SHA256: &str =
-        "ce8c5c17fd6fb427b8dcd0934c0049a191c6fd0125bd3a2cb6e13eb531e96609";
+        "dc330a2b51d1381d943e5ba0f50086114eb95102852228e7ffcb62e0bdec93b9";
 
     let first_out = unique_temp_dir("generate-nonsquare-first");
     let second_out = unique_temp_dir("generate-nonsquare-second");
@@ -2051,7 +2051,21 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
         })
         .unwrap_or(0);
     assert!(matches!(parametric_maps_generated, 0 | 2));
-    let expected_extended_files = native_extended_files + parametric_maps_generated;
+    let tid1500_generated = manifest["files"]
+        .as_array()
+        .map(|files| {
+            files
+                .iter()
+                .filter(|file| {
+                    file["case_id"].as_str()
+                        == Some("derived/sr/tid1500_ct_measurement_report")
+                })
+                .count()
+        })
+        .unwrap_or(0);
+    assert!(matches!(tid1500_generated, 0 | 1));
+    let expected_extended_files =
+        native_extended_files + parametric_maps_generated + tid1500_generated;
     assert!(stdout.contains(&format!("files_written\t{expected_extended_files}")));
     assert_eq!(
         manifest
@@ -2071,6 +2085,16 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
                 Some("external_backend_unavailable")
             );
         }
+    }
+    if tid1500_generated == 0 {
+        let unavailable = skipped_case_by_id(
+            &manifest,
+            "derived/sr/tid1500_ct_measurement_report",
+        );
+        assert_eq!(
+            unavailable.get("reason_code").and_then(Value::as_str),
+            Some("external_backend_unavailable")
+        );
     }
     let u32_file = file_entry_by_case_id(&manifest, "classic/sc/mono2_u32_explicit_le");
     assert_eq!(
@@ -6136,7 +6160,7 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
         .expect("manifest should contain skipped cases");
     assert_eq!(
         skipped_cases.len(),
-        41 - parametric_maps_generated
+        41 - parametric_maps_generated - tid1500_generated
             - if cfg!(feature = "deflate") { 2 } else { 0 }
             - if cfg!(feature = "jpeg") { 1 } else { 0 }
             - if cfg!(feature = "charls") { 1 } else { 0 }
@@ -7786,7 +7810,20 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
         })
         .unwrap_or(0);
     assert!(matches!(parametric_maps_generated, 0 | 2));
-    let expected_all_files = native_all_files + parametric_maps_generated;
+    let tid1500_generated = manifest["files"]
+        .as_array()
+        .map(|files| {
+            files
+                .iter()
+                .filter(|file| {
+                    file["case_id"].as_str()
+                        == Some("derived/sr/tid1500_ct_measurement_report")
+                })
+                .count()
+        })
+        .unwrap_or(0);
+    assert!(matches!(tid1500_generated, 0 | 1));
+    let expected_all_files = native_all_files + parametric_maps_generated + tid1500_generated;
     assert!(stdout.contains(&format!("files_written\t{expected_all_files}")));
     assert_eq!(
         manifest.pointer("/run/profile").and_then(Value::as_str),
@@ -7954,7 +7991,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
         .expect("manifest should contain skipped cases");
     assert_eq!(
         skipped_cases.len(),
-        41 - parametric_maps_generated
+        41 - parametric_maps_generated - tid1500_generated
             - if cfg!(feature = "deflate") { 2 } else { 0 }
             - if cfg!(feature = "jpeg") { 1 } else { 0 }
             - if cfg!(feature = "charls") { 1 } else { 0 }
@@ -7983,6 +8020,16 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
                 Some("external_backend_unavailable")
             );
         }
+    }
+    if tid1500_generated == 0 {
+        let unavailable = skipped_case_by_id(
+            &manifest,
+            "derived/sr/tid1500_ct_measurement_report",
+        );
+        assert_eq!(
+            unavailable.get("reason_code").and_then(Value::as_str),
+            Some("external_backend_unavailable")
+        );
     }
     if !cfg!(feature = "htj2k_openjph") {
         let skipped = skipped_case_by_id(&manifest, "classic/sc/mono2_u16_htj2k_lossless");

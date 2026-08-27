@@ -4008,16 +4008,24 @@ fn collect_wsi_pyramid_group_results(
     Ok(expected_by_path
         .into_iter()
         .map(|(path, hashes)| {
-            let actual_hashes = contract["members"]
+            let role = contract["members"]
                 .as_array()
                 .and_then(|members| members.iter().find(|member| member["path"] == path))
+                .and_then(|member| member["role"].as_str());
+            let actual_hashes = actual["members"]
+                .as_array()
+                .and_then(|members| {
+                    members
+                        .iter()
+                        .find(|member| member["role"].as_str() == role)
+                })
                 .map(|member| member["frame_hashes"].clone())
                 .unwrap_or_else(|| json!([]));
             (path, json!({
                 "status": if passed { "passed" } else { "failed" },
                 "independence": "independent",
                 "expected_frame_hashes": hashes,
-                "actual_frame_hashes": if passed { actual_hashes } else { json!([]) },
+                "actual_frame_hashes": actual_hashes,
                 "reason": if passed {
                     "The uv-locked highdicom adapter independently validated the exact three-instance WSI pyramid group"
                 } else {

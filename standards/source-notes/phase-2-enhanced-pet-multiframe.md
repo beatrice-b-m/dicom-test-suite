@@ -151,6 +151,32 @@ Frame Content is never shared.
   official source artifacts remain `unavailable_not_downloaded` as recorded
   in `standards.lock.json` and are not committed.
 
+## Independent Conformance Evidence
+
+Two seed-1 `extended` generations each produced 84 DICOM files and were
+recursively byte-identical. Strict corpus validation checked all 84 files with
+zero failures. The Enhanced PET instance SHA-256 is
+`93bda38274c6bafe510d8dc1764ee68463bbdba42723d5f44b31793fefe21228`;
+the independently extracted frame and whole Pixel Data hashes match the
+values locked above.
+
+The first pre-promotion `dciodvfy -new` run was intentionally treated as a
+blocking gate: it exposed the missing mandatory View Code Sequence, rejected
+`EMISSION` as Image/Frame Type Value 4, and warned that numeric zero was an
+inaccurate Total Dose claim. After correcting those contracts from the
+official table and section anchors above, locked `dciodvfy -new` identifies
+only `EnhancedPETImage` and exits successfully without a finding; locked
+`dcentvfy` is silent and successful.
+
+DCMTK independently reports
+`DERIVED\\PRIMARY\\STATIC\\MULTIPLICATION`, the exact axial view code, absent
+View Modifier and Slice Progression Direction attributes, zero-length DS
+Total Dose, and ordered Pixel Data words
+`0000\\0064\\00c8\\0190\\0000\\0064\\00c8\\0190`. The frozen offline pydicom
+3.0.2 environment managed by locked `uv` independently reads those semantics,
+decodes both frames as `0, 100, 200, 400`, reproduces both frame hashes, and
+recomputes `0, 250, 500, 1000` Bq/ml per frame from the `2.5` mapping.
+
 ## Project Action
 
 - Registry status: planned until generation, typed manifest and report

@@ -19,9 +19,9 @@ from dicom_validator.validator.error_handler import ValidationResultHandlerBase
 from dicom_validator.validator.validation_result import Status
 
 
-ADAPTER_VERSION = "0.6.0"
+ADAPTER_VERSION = "0.7.0"
 EDITION = "2026b"
-DEFINITION_CORRECTION_ID = "rt-recorded-control-point-mc-other-cond-v1"
+DEFINITION_CORRECTION_ID = "rt-2026b-condition-compat-v2"
 RT_CONTROL_POINT_MODULE = "C.36.2.2.5-1"
 RT_DELIVERY_CONTROL_POINT_MODULE = "C.36.2.2.6-1"
 C_ARM_PHOTON_ELECTRON_BEAM_MODULE = "C.36.15"
@@ -44,6 +44,37 @@ RT_RECORD_FLAG_YES_ALTERNATIVE = {
     "tag": "(300A,0639)",
     "type": "MU",
     "values": ["YES"],
+}
+RT_DELIVERY_DEVICE_COMMON_MODULE = "C.36.12"
+RT_TREATMENT_DEVICE_IDENTIFICATION_MODULE = "C.36.2.2.1-1"
+DEVICE_COMPONENT_IDENTIFICATION_MODULE = "10.36-1"
+TREATMENT_DEVICE_IDENTIFICATION_SEQUENCE = "(300A,063A)"
+DEVICE_ALTERNATE_IDENTIFIER_TYPE = "(3010,001C)"
+DEVICE_ALTERNATE_IDENTIFIER_FORMAT = "(3010,001D)"
+LOCKED_DEVICE_ALTERNATE_IDENTIFIER_CONDITION = {
+    "index": 0,
+    "op": "++",
+    "tag": "(3010,001B)",
+    "type": "MU",
+}
+CORRECTED_DEVICE_ALTERNATE_IDENTIFIER_CONDITION = {
+    "index": 0,
+    "op": "!=",
+    "tag": "(3010,001B)",
+    "type": "MU",
+    "values": [""],
+}
+LOCKED_DEVICE_CONDITIONAL_ATTRIBUTES = {
+    DEVICE_ALTERNATE_IDENTIFIER_TYPE: {
+        "cond": LOCKED_DEVICE_ALTERNATE_IDENTIFIER_CONDITION,
+        "name": "Device Alternate Identifier Type",
+        "type": "1C",
+    },
+    DEVICE_ALTERNATE_IDENTIFIER_FORMAT: {
+        "cond": LOCKED_DEVICE_ALTERNATE_IDENTIFIER_CONDITION,
+        "name": "Device Alternate Identifier Format",
+        "type": "1C",
+    },
 }
 TWELVE_LEAD_ECG_STORAGE = "1.2.840.10008.5.1.4.1.1.9.1.1"
 GENERAL_ECG_STORAGE = "1.2.840.10008.5.1.4.1.1.9.1.2"
@@ -194,7 +225,7 @@ def verify_standard(standard_root: Path, lock_path: Path) -> None:
 
 
 def correct_locked_definition(dicom_info: object) -> None:
-    """Repair one verified 2026b generator omission, failing closed on drift."""
+    """Repair verified 2026b condition incompatibilities, failing closed on drift."""
     modules = getattr(dicom_info, "modules", None)
     if not isinstance(modules, dict):
         raise RuntimeError(
@@ -244,6 +275,48 @@ def correct_locked_definition(dicom_info: object) -> None:
     corrected = copy.deepcopy(LOCKED_MALFORMED_RECORDED_DATETIME)
     corrected["cond"]["other_cond"] = copy.deepcopy(RT_RECORD_FLAG_YES_ALTERNATIVE)
     module[RECORDED_RT_CONTROL_POINT_DATETIME] = corrected
+
+    delivery_device_module = modules.get(RT_DELIVERY_DEVICE_COMMON_MODULE)
+    treatment_device_sequence = (
+        delivery_device_module.get(TREATMENT_DEVICE_IDENTIFICATION_SEQUENCE)
+        if isinstance(delivery_device_module, dict)
+        else None
+    )
+    if treatment_device_sequence != {
+        "items": {"include": [{"ref": RT_TREATMENT_DEVICE_IDENTIFICATION_MODULE}]},
+        "name": "Treatment Device Identification Sequence",
+        "type": "1",
+    }:
+        raise RuntimeError(
+            f"definition correction {DEFINITION_CORRECTION_ID} device path shape mismatch"
+        )
+    treatment_device_module = modules.get(RT_TREATMENT_DEVICE_IDENTIFICATION_MODULE)
+    if not isinstance(treatment_device_module, dict) or treatment_device_module.get(
+        "include"
+    ) != [
+        {"ref": "10.35-1"},
+        {"ref": DEVICE_COMPONENT_IDENTIFICATION_MODULE},
+    ]:
+        raise RuntimeError(
+            f"definition correction {DEFINITION_CORRECTION_ID} device path shape mismatch"
+        )
+    device_component_module = modules.get(DEVICE_COMPONENT_IDENTIFICATION_MODULE)
+    if not isinstance(device_component_module, dict):
+        raise RuntimeError(
+            f"definition correction {DEFINITION_CORRECTION_ID} device module shape mismatch"
+        )
+    for tag, locked_attribute in LOCKED_DEVICE_CONDITIONAL_ATTRIBUTES.items():
+        if device_component_module.get(tag) != locked_attribute:
+            raise RuntimeError(
+                f"definition correction {DEFINITION_CORRECTION_ID} "
+                "device attribute shape mismatch"
+            )
+    for tag, locked_attribute in LOCKED_DEVICE_CONDITIONAL_ATTRIBUTES.items():
+        corrected_attribute = copy.deepcopy(locked_attribute)
+        corrected_attribute["cond"] = copy.deepcopy(
+            CORRECTED_DEVICE_ALTERNATE_IDENTIFIER_CONDITION
+        )
+        device_component_module[tag] = corrected_attribute
 
 
 def stable_context(context: dict | None) -> str:

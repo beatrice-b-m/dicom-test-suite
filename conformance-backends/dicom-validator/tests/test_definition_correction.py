@@ -11,12 +11,20 @@ from unittest.mock import patch
 from dts_dicom_validator_adapter.__main__ import (
     C_ARM_CONTROL_POINT_SEQUENCE,
     C_ARM_PHOTON_ELECTRON_BEAM_MODULE,
+    CORRECTED_DEVICE_ALTERNATE_IDENTIFIER_CONDITION,
     DEFINITION_CORRECTION_ID,
+    DEVICE_ALTERNATE_IDENTIFIER_FORMAT,
+    DEVICE_ALTERNATE_IDENTIFIER_TYPE,
+    DEVICE_COMPONENT_IDENTIFICATION_MODULE,
+    LOCKED_DEVICE_CONDITIONAL_ATTRIBUTES,
     LOCKED_MALFORMED_RECORDED_DATETIME,
     RECORDED_RT_CONTROL_POINT_DATETIME,
     RT_CONTROL_POINT_MODULE,
+    RT_DELIVERY_DEVICE_COMMON_MODULE,
     RT_DELIVERY_CONTROL_POINT_MODULE,
     RT_RECORD_FLAG_YES_ALTERNATIVE,
+    RT_TREATMENT_DEVICE_IDENTIFICATION_MODULE,
+    TREATMENT_DEVICE_IDENTIFICATION_SEQUENCE,
     correct_locked_definition,
     main,
 )
@@ -48,6 +56,27 @@ class DefinitionCorrectionTests(unittest.TestCase):
                     "unrelated": {"sentinel": "preserved"},
                     RECORDED_RT_CONTROL_POINT_DATETIME: attribute,
                 },
+                RT_DELIVERY_DEVICE_COMMON_MODULE: {
+                    TREATMENT_DEVICE_IDENTIFICATION_SEQUENCE: {
+                        "items": {
+                            "include": [
+                                {"ref": RT_TREATMENT_DEVICE_IDENTIFICATION_MODULE}
+                            ]
+                        },
+                        "name": "Treatment Device Identification Sequence",
+                        "type": "1",
+                    }
+                },
+                RT_TREATMENT_DEVICE_IDENTIFICATION_MODULE: {
+                    "include": [
+                        {"ref": "10.35-1"},
+                        {"ref": DEVICE_COMPONENT_IDENTIFICATION_MODULE},
+                    ]
+                },
+                DEVICE_COMPONENT_IDENTIFICATION_MODULE: {
+                    "unrelated": {"sentinel": "preserved"},
+                    **copy.deepcopy(LOCKED_DEVICE_CONDITIONAL_ATTRIBUTES),
+                },
             }
         )
 
@@ -73,6 +102,59 @@ class DefinitionCorrectionTests(unittest.TestCase):
             before_unrelated_attribute,
         )
         self.assertEqual(malformed, LOCKED_MALFORMED_RECORDED_DATETIME)
+
+    def test_rewrites_locked_not_empty_conditions_without_touching_attributes(self) -> None:
+        info = self.dicom_info(copy.deepcopy(LOCKED_MALFORMED_RECORDED_DATETIME))
+        before_unrelated = copy.deepcopy(
+            info.modules[DEVICE_COMPONENT_IDENTIFICATION_MODULE]["unrelated"]
+        )
+
+        correct_locked_definition(info)
+
+        module = info.modules[DEVICE_COMPONENT_IDENTIFICATION_MODULE]
+        for tag in (
+            DEVICE_ALTERNATE_IDENTIFIER_TYPE,
+            DEVICE_ALTERNATE_IDENTIFIER_FORMAT,
+        ):
+            expected = copy.deepcopy(LOCKED_DEVICE_CONDITIONAL_ATTRIBUTES[tag])
+            expected["cond"] = CORRECTED_DEVICE_ALTERNATE_IDENTIFIER_CONDITION
+            self.assertEqual(module[tag], expected)
+        self.assertEqual(module["unrelated"], before_unrelated)
+
+    def test_rejects_device_attribute_condition_drift(self) -> None:
+        for tag in (
+            DEVICE_ALTERNATE_IDENTIFIER_TYPE,
+            DEVICE_ALTERNATE_IDENTIFIER_FORMAT,
+        ):
+            info = self.dicom_info(copy.deepcopy(LOCKED_MALFORMED_RECORDED_DATETIME))
+            info.modules[DEVICE_COMPONENT_IDENTIFICATION_MODULE][tag]["cond"]["op"] = "="
+            with self.subTest(tag=tag):
+                with self.assertRaisesRegex(
+                    RuntimeError,
+                    f"definition correction {DEFINITION_CORRECTION_ID} "
+                    "device attribute shape mismatch",
+                ):
+                    correct_locked_definition(info)
+
+    def test_rejects_device_parent_path_drift(self) -> None:
+        mutations = []
+        missing_delivery = self.dicom_info(
+            copy.deepcopy(LOCKED_MALFORMED_RECORDED_DATETIME)
+        )
+        del missing_delivery.modules[RT_DELIVERY_DEVICE_COMMON_MODULE]
+        mutations.append(missing_delivery)
+        wrong_macro = self.dicom_info(copy.deepcopy(LOCKED_MALFORMED_RECORDED_DATETIME))
+        wrong_macro.modules[RT_TREATMENT_DEVICE_IDENTIFICATION_MODULE]["include"] = []
+        mutations.append(wrong_macro)
+
+        for info in mutations:
+            with self.subTest(info=info):
+                with self.assertRaisesRegex(
+                    RuntimeError,
+                    f"definition correction {DEFINITION_CORRECTION_ID} "
+                    "device path shape mismatch",
+                ):
+                    correct_locked_definition(info)
 
     def test_rejects_every_locked_shape_drift(self) -> None:
         mutations = []

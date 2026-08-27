@@ -6676,6 +6676,34 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
             "Metadata String Raw SHA-256 Values",
             "/grouped_coverage/metadata_string_raw_sha256_values",
         ),
+        (
+            "Metadata Private Creator Tags",
+            "/grouped_coverage/metadata_private_creator_tags",
+        ),
+        (
+            "Metadata Private Creator IDs",
+            "/grouped_coverage/metadata_private_creator_ids",
+        ),
+        (
+            "Metadata Private Block Ranges",
+            "/grouped_coverage/metadata_private_block_ranges",
+        ),
+        (
+            "Metadata Private Creator Raw SHA-256 Values",
+            "/grouped_coverage/metadata_private_creator_raw_sha256_values",
+        ),
+        (
+            "Metadata Private Element Tags",
+            "/grouped_coverage/metadata_private_element_tags",
+        ),
+        (
+            "Metadata Private Element VRs",
+            "/grouped_coverage/metadata_private_element_vrs",
+        ),
+        (
+            "Metadata Private Element Raw SHA-256 Values",
+            "/grouped_coverage/metadata_private_element_raw_sha256_values",
+        ),
     ] {
         append_count_map_section(&mut output, report, title, pointer);
     }
@@ -7650,6 +7678,35 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
         output.push('\n');
     }
 
+    let private_rows = report
+        .get("coverage_matrix")
+        .and_then(Value::as_array)
+        .map(|rows| {
+            rows.iter()
+                .filter(|row| !row["metadata_private_creator_tags"].is_null())
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    if !private_rows.is_empty() {
+        output.push_str("## Private Creator Block Expectations\n\n");
+        output.push_str("| Case ID | Creator tags | Creator IDs | Block ranges | Creator raw SHA-256 values | Element tags | Element VRs | Element raw SHA-256 values |\n");
+        output.push_str("|---|---|---|---|---|---|---|---|\n");
+        for row in private_rows {
+            output.push_str(&format!(
+                "| {} | {} | {} | {} | {} | {} | {} | {} |\n",
+                markdown_cell(row.get("case_id").and_then(Value::as_str)),
+                markdown_value_array(row.get("metadata_private_creator_tags")),
+                markdown_value_array(row.get("metadata_private_creator_ids")),
+                markdown_value_array(row.get("metadata_private_block_ranges")),
+                markdown_value_array(row.get("metadata_private_creator_raw_sha256_values")),
+                markdown_value_array(row.get("metadata_private_element_tags")),
+                markdown_value_array(row.get("metadata_private_element_vrs")),
+                markdown_value_array(row.get("metadata_private_element_raw_sha256_values")),
+            ));
+        }
+        output.push('\n');
+    }
+
     let geometry_rows = report
         .get("coverage_matrix")
         .and_then(Value::as_array)
@@ -7910,6 +7967,34 @@ fn generated_coverage_row(
         (
             "metadata_string_raw_sha256_values",
             metadata.string_raw_sha256_values.map(Value::from),
+        ),
+        (
+            "metadata_private_creator_tags",
+            metadata.private_creator_tags.map(Value::from),
+        ),
+        (
+            "metadata_private_creator_ids",
+            metadata.private_creator_ids.map(Value::from),
+        ),
+        (
+            "metadata_private_block_ranges",
+            metadata.private_block_ranges.map(Value::from),
+        ),
+        (
+            "metadata_private_creator_raw_sha256_values",
+            metadata.private_creator_raw_sha256_values.map(Value::from),
+        ),
+        (
+            "metadata_private_element_tags",
+            metadata.private_element_tags.map(Value::from),
+        ),
+        (
+            "metadata_private_element_vrs",
+            metadata.private_element_vrs.map(Value::from),
+        ),
+        (
+            "metadata_private_element_raw_sha256_values",
+            metadata.private_element_raw_sha256_values.map(Value::from),
         ),
     ] {
         row_object.insert(field.to_string(), value.unwrap_or(Value::Null));
@@ -8838,6 +8923,13 @@ struct MetadataReportFields {
     string_max_component_encoded_length_bytes: Option<Vec<u64>>,
     string_raw_value_lengths: Option<Vec<u64>>,
     string_raw_sha256_values: Option<Vec<String>>,
+    private_creator_tags: Option<Vec<String>>,
+    private_creator_ids: Option<Vec<String>>,
+    private_block_ranges: Option<Vec<String>>,
+    private_creator_raw_sha256_values: Option<Vec<String>>,
+    private_element_tags: Option<Vec<String>>,
+    private_element_vrs: Option<Vec<String>>,
+    private_element_raw_sha256_values: Option<Vec<String>>,
 }
 
 fn metadata_report_fields(file: &Value) -> MetadataReportFields {
@@ -8879,6 +8971,27 @@ fn metadata_report_fields(file: &Value) -> MetadataReportFields {
     if let Some(elements) = string_elements.as_mut() {
         elements.sort_by_key(|element| element.get("tag").and_then(Value::as_str));
     }
+    let mut private_blocks = file
+        .pointer("/expected_metadata/private_creator_blocks")
+        .and_then(Value::as_array)
+        .map(|blocks| blocks.iter().collect::<Vec<_>>());
+    if let Some(blocks) = private_blocks.as_mut() {
+        blocks.sort_by_key(|block| block.get("creator_tag").and_then(Value::as_str));
+    }
+    let private_elements = private_blocks.as_ref().map(|blocks| {
+        let mut elements = blocks
+            .iter()
+            .flat_map(|block| {
+                block
+                    .get("elements")
+                    .and_then(Value::as_array)
+                    .into_iter()
+                    .flatten()
+            })
+            .collect::<Vec<_>>();
+        elements.sort_by_key(|element| element.get("tag").and_then(Value::as_str));
+        elements
+    });
 
     MetadataReportFields {
         specific_character_sets,
@@ -8951,6 +9064,30 @@ fn metadata_report_fields(file: &Value) -> MetadataReportFields {
         }),
         string_raw_value_lengths: metadata_u64_field(&string_elements, "raw_value_byte_length"),
         string_raw_sha256_values: metadata_string_field(&string_elements, "raw_value_sha256"),
+        private_creator_tags: metadata_string_field(&private_blocks, "creator_tag"),
+        private_creator_ids: metadata_string_field(&private_blocks, "creator_id"),
+        private_block_ranges: private_blocks.as_ref().and_then(|blocks| {
+            blocks
+                .iter()
+                .map(|block| {
+                    Some(format!(
+                        "{}-{}",
+                        block.get("block_start_tag")?.as_str()?,
+                        block.get("block_end_tag")?.as_str()?
+                    ))
+                })
+                .collect()
+        }),
+        private_creator_raw_sha256_values: metadata_string_field(
+            &private_blocks,
+            "raw_value_sha256",
+        ),
+        private_element_tags: metadata_string_field(&private_elements, "tag"),
+        private_element_vrs: metadata_string_field(&private_elements, "vr"),
+        private_element_raw_sha256_values: metadata_string_field(
+            &private_elements,
+            "raw_value_sha256",
+        ),
     }
 }
 
@@ -9594,6 +9731,13 @@ fn skipped_coverage_row(
         "metadata_string_max_component_encoded_length_bytes",
         "metadata_string_raw_value_lengths",
         "metadata_string_raw_sha256_values",
+        "metadata_private_creator_tags",
+        "metadata_private_creator_ids",
+        "metadata_private_block_ranges",
+        "metadata_private_creator_raw_sha256_values",
+        "metadata_private_element_tags",
+        "metadata_private_element_vrs",
+        "metadata_private_element_raw_sha256_values",
     ] {
         row_object.insert(field.to_string(), Value::Null);
     }
@@ -9931,6 +10075,13 @@ struct GroupedCoverage {
     metadata_string_max_component_encoded_length_bytes: BTreeMap<String, usize>,
     metadata_string_raw_value_lengths: BTreeMap<String, usize>,
     metadata_string_raw_sha256_values: BTreeMap<String, usize>,
+    metadata_private_creator_tags: BTreeMap<String, usize>,
+    metadata_private_creator_ids: BTreeMap<String, usize>,
+    metadata_private_block_ranges: BTreeMap<String, usize>,
+    metadata_private_creator_raw_sha256_values: BTreeMap<String, usize>,
+    metadata_private_element_tags: BTreeMap<String, usize>,
+    metadata_private_element_vrs: BTreeMap<String, usize>,
+    metadata_private_element_raw_sha256_values: BTreeMap<String, usize>,
     photometric_interpretations: BTreeMap<String, usize>,
     bit_depths: BTreeMap<String, usize>,
     bits_allocated: BTreeMap<String, usize>,
@@ -10182,6 +10333,38 @@ impl GroupedCoverage {
             &mut self.metadata_string_raw_sha256_values,
             row.get("metadata_string_raw_sha256_values"),
         );
+        for (map, field) in [
+            (
+                &mut self.metadata_private_creator_tags,
+                "metadata_private_creator_tags",
+            ),
+            (
+                &mut self.metadata_private_creator_ids,
+                "metadata_private_creator_ids",
+            ),
+            (
+                &mut self.metadata_private_block_ranges,
+                "metadata_private_block_ranges",
+            ),
+            (
+                &mut self.metadata_private_creator_raw_sha256_values,
+                "metadata_private_creator_raw_sha256_values",
+            ),
+            (
+                &mut self.metadata_private_element_tags,
+                "metadata_private_element_tags",
+            ),
+            (
+                &mut self.metadata_private_element_vrs,
+                "metadata_private_element_vrs",
+            ),
+            (
+                &mut self.metadata_private_element_raw_sha256_values,
+                "metadata_private_element_raw_sha256_values",
+            ),
+        ] {
+            increment_string_array_map(map, row.get(field));
+        }
         increment_map(
             &mut self.metadata_person_name_encoded_sha256_values,
             row.get("metadata_person_name_encoded_sha256")
@@ -10979,6 +11162,34 @@ impl GroupedCoverage {
             (
                 "metadata_string_raw_sha256_values",
                 serde_json::to_value(&self.metadata_string_raw_sha256_values),
+            ),
+            (
+                "metadata_private_creator_tags",
+                serde_json::to_value(&self.metadata_private_creator_tags),
+            ),
+            (
+                "metadata_private_creator_ids",
+                serde_json::to_value(&self.metadata_private_creator_ids),
+            ),
+            (
+                "metadata_private_block_ranges",
+                serde_json::to_value(&self.metadata_private_block_ranges),
+            ),
+            (
+                "metadata_private_creator_raw_sha256_values",
+                serde_json::to_value(&self.metadata_private_creator_raw_sha256_values),
+            ),
+            (
+                "metadata_private_element_tags",
+                serde_json::to_value(&self.metadata_private_element_tags),
+            ),
+            (
+                "metadata_private_element_vrs",
+                serde_json::to_value(&self.metadata_private_element_vrs),
+            ),
+            (
+                "metadata_private_element_raw_sha256_values",
+                serde_json::to_value(&self.metadata_private_element_raw_sha256_values),
             ),
         ] {
             grouped_object.insert(

@@ -131,6 +131,27 @@
         "metadata_string_raw_sha256_values": {
           "$ref": "#/$defs/count_map"
         },
+        "metadata_private_creator_tags": {
+          "$ref": "#/$defs/count_map"
+        },
+        "metadata_private_creator_ids": {
+          "$ref": "#/$defs/count_map"
+        },
+        "metadata_private_block_ranges": {
+          "$ref": "#/$defs/count_map"
+        },
+        "metadata_private_creator_raw_sha256_values": {
+          "$ref": "#/$defs/count_map"
+        },
+        "metadata_private_element_tags": {
+          "$ref": "#/$defs/count_map"
+        },
+        "metadata_private_element_vrs": {
+          "$ref": "#/$defs/count_map"
+        },
+        "metadata_private_element_raw_sha256_values": {
+          "$ref": "#/$defs/count_map"
+        },
         "photometric_interpretations": {
           "$ref": "#/$defs/count_map"
         },
@@ -638,6 +659,13 @@
         "metadata_string_max_component_encoded_length_bytes",
         "metadata_string_raw_value_lengths",
         "metadata_string_raw_sha256_values",
+        "metadata_private_creator_tags",
+        "metadata_private_creator_ids",
+        "metadata_private_block_ranges",
+        "metadata_private_creator_raw_sha256_values",
+        "metadata_private_element_tags",
+        "metadata_private_element_vrs",
+        "metadata_private_element_raw_sha256_values",
         "photometric",
         "bits",
         "bits_allocated",
@@ -926,6 +954,46 @@
           "items": { "type": "integer", "minimum": 1 }
         },
         "metadata_string_raw_sha256_values": {
+          "type": ["array", "null"],
+          "items": { "$ref": "#/$defs/sha256" }
+        },
+        "metadata_private_creator_tags": {
+          "type": ["array", "null"],
+          "items": {
+            "type": "string",
+            "pattern": "^[0-9A-F]{4},00[1-9A-F][0-9A-F]$"
+          },
+          "uniqueItems": true
+        },
+        "metadata_private_creator_ids": {
+          "type": ["array", "null"],
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "metadata_private_block_ranges": {
+          "type": ["array", "null"],
+          "items": {
+            "type": "string",
+            "pattern": "^[0-9A-F]{4},[0-9A-F]{4}-[0-9A-F]{4},[0-9A-F]{4}$"
+          },
+          "uniqueItems": true
+        },
+        "metadata_private_creator_raw_sha256_values": {
+          "type": ["array", "null"],
+          "items": { "$ref": "#/$defs/sha256" }
+        },
+        "metadata_private_element_tags": {
+          "type": ["array", "null"],
+          "items": {
+            "type": "string",
+            "pattern": "^[0-9A-F]{4},[0-9A-F]{4}$"
+          },
+          "uniqueItems": true
+        },
+        "metadata_private_element_vrs": {
+          "type": ["array", "null"],
+          "items": { "enum": ["LO", "US"] }
+        },
+        "metadata_private_element_raw_sha256_values": {
           "type": ["array", "null"],
           "items": { "$ref": "#/$defs/sha256" }
         },

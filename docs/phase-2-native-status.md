@@ -319,19 +319,48 @@ offline pydicom 3.0.2 environment managed by locked `uv` independently decodes
 the `(4, 2, 2)` array and all NM dimensions; its Part 10 rewrite is
 byte-identical and retains the same clean validator results.
 
+### PET rescaled activity concentration
+
+`classic/pet/rescaled_activity_explicit_le` is an implemented `core`
+Positron Emission Tomography Image Storage instance with one 2 by 2 native
+unsigned 16-bit frame. Its stored samples `0, 100, 200, 400` are transformed
+by Rescale Intercept `0` and Rescale Slope `2.5` into `0, 250, 500, 1000`
+Bq/ml. Units is `BQML`; Counts Source is `EMISSION`; Series Type is
+`STATIC\\IMAGE`; Corrected Image is `DCAL`; Dose Calibration Factor is `1`;
+and Decay Correction is `NONE`.
+
+The slice deliberately makes no SUV, radiopharmaceutical-administration, or
+decay-correction claim. Its mandatory Radiopharmaceutical Information,
+Patient Orientation Code, and Patient Gantry Relationship Code sequences are
+present with zero Items. Typed manifest and coverage-report contracts expose
+the stored and derived values, calibration fields, timing, image index, and
+empty-sequence counts. Internal and manifest-driven validation independently
+rederive the activity values and reject each tampered boundary.
+
+Two seed-1 `core` generations each produced 44 files and were byte-identical;
+strict corpus validation reported zero failures. The PET fixture SHA-256 is
+`33abd3fe6540741c3c46ee1ac93f10402eaf39e24a832a938e2060c136fa716c`.
+Locked `dciodvfy` identifies only `PETImage`, `dcentvfy` is silent, and DCMTK
+extracts the exact 8-byte native payload with frame SHA-256
+`03ec353fd2407afb09c8d65712ef9aa30f03c8243f6f3f1675dca7ea5f6a4784`.
+The offline frozen pydicom 3.0.2 environment managed by locked `uv`
+independently decodes the `(2, 2)` unsigned array, derives the declared BQML
+values, and produces a byte-identical Part 10 rewrite that retains the same
+clean validator results.
+
 ## Milestone gate
 
 All planned Phase 2 geometry and series cases are implemented, and the UTF-8,
 ISO 2022, timezone, empty Type 2, string boundary, private creator, and sequence
 length metadata slices have passed their vertical gates. The latest seed-1
-`core` corpus contains 43 files; the seed-1 `extended` corpus contains 83
+`core` corpus contains 44 files; the seed-1 `extended` corpus contains 83
 files. The complete
 locked no-default-feature, all-target test suite passes, including byte-stable
 smoke, core, and extended regeneration. Each new CT slice and the temporal MR
 slice has clean isolated IOD, entity, parser, and applicable independent pixel
 evidence, except for the one exact reviewed DICOMDIR-usability warning described
 above. Older corpus findings remain visible and unresolved. The dependency-
-ordered Phase 2 metadata and VR milestone is complete. The first
-clinical-family representative, Nuclear Medicine STATIC multi-frame, is also
-complete. Phase 2 continues with the remaining clinical-family representatives
-in their registry dependency order.
+ordered Phase 2 metadata and VR milestone is complete. The Nuclear Medicine
+STATIC multi-frame and PET rescaled-activity clinical-family representatives
+are also complete. Phase 2 continues with the remaining clinical-family
+representatives in their registry dependency order.

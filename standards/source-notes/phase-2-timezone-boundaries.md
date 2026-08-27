@@ -56,9 +56,9 @@ padding without assigning conflicting offsets to one instance.
 
 ## Project Action
 
-- Registry status: planned until both boundaries are present, exact raw values
-  and UTC normalization pass strict validation, deterministic generation is
-  proven, and dicom3tools, DCMTK, and uv-locked pydicom gates pass.
+- Registry status: implemented after both boundaries, exact raw values, UTC
+  normalization, byte-identical same-seed generation, dicom3tools, DCMTK, and
+  uv-locked pydicom gates passed.
 - Manifest decision: use a typed `temporal` metadata contract rather than
   adding loose fields to `expected_semantics`.
 - Should become KB patch: no; the official table and module rows resolve the

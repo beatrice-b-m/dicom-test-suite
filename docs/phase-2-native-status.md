@@ -119,6 +119,24 @@ Because dicom-rs does not semantically decode this multi-repertoire value, it
 is not used as the Unicode oracle; independent DCMTK and uv-locked pydicom
 reads provide that proof.
 
+### DA, TM, DT, and timezone boundaries
+
+`metadata/sc/timezone_boundaries` is an implemented `core` case with separate
+`positive_max` and `negative_min` Secondary Capture instances. The first binds
+leap-day `20240229`, `235959.999999`, and
+`20240229235959.999999+1400` to `+1400`; the second binds the following local
+day, `20240301`, `000000.000000`, and
+`20240301000000.000000-1200` to `-1200`. They normalize to
+`2024-02-29T09:59:59.999999Z` and `2024-03-01T12:00:00.000000Z`.
+
+Each file has distinct deterministic Study, Series, and SOP Instance UIDs.
+The manifest records exact DA/TM/DT/SH VRs, decoded values, padded raw bytes,
+lengths, hashes, numeric offsets, and normalized UTC. Validation reparses the
+Gregorian date and fractional time, enforces the asymmetric legal offset
+range, requires the DT suffix to match the instance-wide offset, recomputes
+both UTC paths, and requires exactly one instance of each boundary. Reports
+retain the boundary ID so the two rows cannot collapse behind one case ID.
+
 ## Verification evidence
 
 The following checks passed on 2026-08-26 for a seed-23 `core` corpus:
@@ -206,6 +224,21 @@ its read/write/read proof preserved both charset values and all three named
 groups. That rewrite is byte-identical to the native input, and both rewritten
 files pass `dciodvfy` and `dcentvfy`.
 
+The timezone slice passed two byte-identical seed-37 `core` runs, each
+producing 40 files with zero strict validation failures. Native SHA-256 values
+are `6f8e29ac1785c61e0f2b0ac5e713a79cc798ed8419c0cf3334c0340b7d495478`
+for `positive_max` and
+`055eebc4c818f56fef8e8246ed6d2422aadac6f4f37d5ed36e864c0fafd17d57`
+for `negative_min`. Locked `dciodvfy -new` reports only the normal `SCImage`
+identification for each file, and isolated `dcentvfy` is silent. DCMTK 3.7.0
+extracts the exact DA/TM/DT/SH values and VLs; `dcmconv` rewrites are conformant
+with SHA-256 values
+`31be92d406cef12c558bf9cd7b30ab516155198111ceb218c2705ef1a64d55a9`
+and `f7af26ea1f78ec01ed53ec6aeceedc81d03c752c0dc34a2b2009991b256223e8`.
+The uv-locked pydicom 3.0.2 read/write/read retains every original lexical
+string and reports offsets of +50,400 and -43,200 seconds. Those rewrites are
+byte-identical to the native inputs and also pass both dicom3tools validators.
+
 The two matching `core` corpora each occupy 480 KiB in the local filesystem.
 This measurement is implementation-environment evidence rather than a
 portable byte-size guarantee; tracked generated artifacts remain forbidden.
@@ -214,7 +247,7 @@ portable byte-size guarantee; tracked generated artifacts remain forbidden.
 
 All planned Phase 2 geometry and series cases are implemented, and the UTF-8
 and ISO 2022 metadata slices have passed their vertical gates. The latest
-seed-37 `core` corpus contains 38 files; the seed-37 `extended` corpus contains
+seed-37 `core` corpus contains 40 files; the seed-37 `extended` corpus contains
 80 files and occupies 1.5 MiB on this host. The complete
 locked no-default-feature, all-target test suite passes, including byte-stable
 smoke, core, and extended regeneration. Each new CT slice and the temporal MR

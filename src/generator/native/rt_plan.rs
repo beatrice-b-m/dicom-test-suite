@@ -61,7 +61,7 @@ pub(in crate::generator) fn build_rt_plan(
     put_str(&mut object, tags::STUDY_DATE, VR::DA, "20260101");
     put_str(&mut object, tags::STUDY_TIME, VR::TM, "000000");
     put_str(&mut object, tags::REFERRING_PHYSICIAN_NAME, VR::PN, "");
-    put_str(&mut object, tags::STUDY_ID, VR::SH, "DTS-RT");
+    put_str(&mut object, tags::STUDY_ID, VR::SH, "DTS-RTSTRUCT");
     put_str(&mut object, tags::ACCESSION_NUMBER, VR::SH, "");
 
     put_str(&mut object, tags::MODALITY, VR::CS, "RTPLAN");

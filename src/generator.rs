@@ -25841,7 +25841,7 @@ mod tests {
         let first_bytes = fs::read(&output_path).expect("first RT Plan bytes");
         assert_eq!(
             sha256_hex(&first_bytes),
-            "15eac73d4f9ba2cdc9839f404796a21489dfc9490a225cc1f4097cee9e26971a"
+            "7d67029cc2d18f0cea9cd4180f2080e19efbcc16cccf8f44854c4c9f64ee4e6a"
         );
         let second = write_rt_plan_case(
             &run,

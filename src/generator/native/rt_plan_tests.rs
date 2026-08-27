@@ -45,7 +45,7 @@ fn rt_plan_builds_locked_identity_and_mandatory_metadata() {
         (tags::STUDY_DATE, VR::DA, "20260101"),
         (tags::STUDY_TIME, VR::TM, "000000"),
         (tags::REFERRING_PHYSICIAN_NAME, VR::PN, ""),
-        (tags::STUDY_ID, VR::SH, "DTS-RT"),
+        (tags::STUDY_ID, VR::SH, "DTS-RTSTRUCT"),
         (tags::ACCESSION_NUMBER, VR::SH, ""),
         (tags::MODALITY, VR::CS, "RTPLAN"),
         (tags::SERIES_INSTANCE_UID, VR::UI, SERIES_UID),

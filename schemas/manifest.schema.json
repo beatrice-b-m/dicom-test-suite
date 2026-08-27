@@ -15,7 +15,7 @@
   ],
   "properties": {
     "manifest_schema_version": {
-      "const": "0.1.0"
+      "const": "0.2.0"
     },
     "generated_at": {
       "type": "string",
@@ -2384,51 +2384,57 @@
       },
       "additionalProperties": false
     },
-    "expected_waveform": {
+    "twelve_lead_ecg_waveform_storage": {
       "type": "object",
-      "required": [
-        "iod_kind",
-        "sop_class_uid",
-        "iod_name",
-        "modality",
-        "transfer_syntax_uid",
-        "acquisition_context_items",
-        "multiplex_group",
-        "channels",
-        "storage",
-        "absent_content"
-      ],
+      "required": ["bits_allocated", "sample_interpretation", "data_vr", "byte_order", "interleave_order", "payload_length_bytes", "payload_sha256", "channel_sha256", "sample_value_formula", "sample_min", "sample_max", "waveform_padding_value_absent", "value_field_padding_bytes"],
       "properties": {
-        "iod_kind": { "const": "twelve_lead_ecg" },
-        "sop_class_uid": { "const": "1.2.840.10008.5.1.4.1.1.9.1.1" },
-        "iod_name": { "const": "12-lead ECG Waveform" },
-        "modality": { "const": "ECG" },
-        "transfer_syntax_uid": { "const": "1.2.840.10008.1.2.1" },
-        "acquisition_context_items": { "const": 0 },
-        "multiplex_group": {
-          "type": "object",
-          "required": [
-            "group_count",
-            "originality",
-            "label",
-            "channel_count",
-            "samples_per_channel",
-            "sampling_frequency_hz",
-            "duration_seconds",
-            "simultaneous_sampling"
+        "bits_allocated": { "const": 16 },
+        "sample_interpretation": { "const": "SS" },
+        "data_vr": { "const": "OW" },
+        "byte_order": { "const": "little_endian" },
+        "interleave_order": { "const": "channel_then_sample" },
+        "payload_length_bytes": { "const": 12000 },
+        "payload_sha256": { "const": "98b7a9b1be25d9d64ffa75bc6e16ea80f60deed1891aeed8dfb440c1c19e6713" },
+        "channel_sha256": {
+          "type": "array",
+          "prefixItems": [
+            { "const": "7b4aee068e05c2bdff3896937c78a4c7a32f9ed2bde64d91b1d925913bf29476" },
+            { "const": "bd775dc70f76ea153a25832ad622b0cc26fbe6a37cf3ec6548a30965c4d17fba" },
+            { "const": "19d26b694df281209aa1296abbfa8f7d360e24a03a091422aba6f67663e2f3b1" },
+            { "const": "bb4c99d7857dbfcee5ee620bcff09b7060b61c5f2432427affc6139cb8d3cf9b" },
+            { "const": "230f52ed2ac57624a9a35214d7867711008dd56014f4176ce258623e5b596d3a" },
+            { "const": "60e167db3c081ba5bca957aba820afb519b790d048b660634d49566df88105f2" },
+            { "const": "cf8c73bebf746b799b1fe8aa2c908ca69bc7acc72311c64cbf4131fc8976609f" },
+            { "const": "0f11e5fb5105dac699fa4bcfc01c79fbe696a81db04606f39a719de57b4c7c30" },
+            { "const": "a41d5962abceb6dbe25f8421091ce3df6a69202c45b24ab6b0736159d15e253b" },
+            { "const": "d655e2cbb23d70e229ed52fedba9c45573e22729fed0a794ab690df8d7f33804" },
+            { "const": "005c539f9f4256a86d9e0a212b3bfe73741f99942b0677fb483c0c48db9583cd" },
+            { "const": "f448df95acb226c5c992363e27707a42efc3ffb974ebeff38e2a81522b57d82c" }
           ],
-          "properties": {
-            "group_count": { "const": 1 },
-            "originality": { "const": "ORIGINAL" },
-            "label": { "const": "RESTING_12_LEAD" },
-            "channel_count": { "const": 12 },
-            "samples_per_channel": { "const": 500 },
-            "sampling_frequency_hz": { "const": 500 },
-            "duration_seconds": { "const": 1 },
-            "simultaneous_sampling": { "const": true }
-          },
-          "additionalProperties": false
+          "items": false,
+          "minItems": 12,
+          "maxItems": 12
         },
+        "sample_value_formula": { "const": "((s * (c + 1) * 37 + c * 101) mod 2001) - 1000" },
+        "sample_min": { "const": -1000 },
+        "sample_max": { "const": 1000 },
+        "waveform_padding_value_absent": { "const": true },
+        "value_field_padding_bytes": { "const": 0 }
+      },
+      "additionalProperties": false
+    },
+    "twelve_lead_ecg_multiplex_group": {
+      "type": "object",
+      "required": ["ordinal", "originality", "label", "channel_count", "samples_per_channel", "sampling_frequency_hz", "duration_seconds", "simultaneous_sampling", "channels", "storage"],
+      "properties": {
+        "ordinal": { "const": 1 },
+        "originality": { "const": "ORIGINAL" },
+        "label": { "const": "RESTING_12_LEAD" },
+        "channel_count": { "const": 12 },
+        "samples_per_channel": { "const": 500 },
+        "sampling_frequency_hz": { "const": 500 },
+        "duration_seconds": { "const": 1 },
+        "simultaneous_sampling": { "const": true },
         "channels": {
           "type": "array",
           "prefixItems": [
@@ -2449,56 +2455,43 @@
           "minItems": 12,
           "maxItems": 12
         },
-        "storage": {
+        "storage": { "$ref": "#/$defs/twelve_lead_ecg_waveform_storage" }
+      },
+      "additionalProperties": false
+    },
+    "expected_waveform": {
+      "type": "object",
+      "required": ["iod_kind", "sop_class_uid", "iod_name", "modality", "transfer_syntax_uid", "acquisition_context_items", "multiplex_groups", "aggregate", "absent_content"],
+      "properties": {
+        "iod_kind": { "const": "twelve_lead_ecg" },
+        "sop_class_uid": { "const": "1.2.840.10008.5.1.4.1.1.9.1.1" },
+        "iod_name": { "const": "12-lead ECG Waveform" },
+        "modality": { "const": "ECG" },
+        "transfer_syntax_uid": { "const": "1.2.840.10008.1.2.1" },
+        "acquisition_context_items": { "const": 0 },
+        "multiplex_groups": {
+          "type": "array",
+          "prefixItems": [{ "$ref": "#/$defs/twelve_lead_ecg_multiplex_group" }],
+          "items": false,
+          "minItems": 1,
+          "maxItems": 1
+        },
+        "aggregate": {
           "type": "object",
-          "required": [
-            "bits_allocated",
-            "sample_interpretation",
-            "data_vr",
-            "byte_order",
-            "interleave_order",
-            "payload_length_bytes",
-            "payload_sha256",
-            "channel_sha256",
-            "sample_value_formula",
-            "sample_min",
-            "sample_max",
-            "waveform_padding_value_absent",
-            "value_field_padding_bytes"
-          ],
+          "required": ["group_count", "total_channel_count", "common_duration_seconds", "total_payload_length_bytes", "group_payload_sha256", "aggregate_payload_sha256"],
           "properties": {
-            "bits_allocated": { "const": 16 },
-            "sample_interpretation": { "const": "SS" },
-            "data_vr": { "const": "OW" },
-            "byte_order": { "const": "little_endian" },
-            "interleave_order": { "const": "channel_then_sample" },
-            "payload_length_bytes": { "const": 12000 },
-            "payload_sha256": { "const": "98b7a9b1be25d9d64ffa75bc6e16ea80f60deed1891aeed8dfb440c1c19e6713" },
-            "channel_sha256": {
+            "group_count": { "const": 1 },
+            "total_channel_count": { "const": 12 },
+            "common_duration_seconds": { "const": 1 },
+            "total_payload_length_bytes": { "const": 12000 },
+            "group_payload_sha256": {
               "type": "array",
-              "prefixItems": [
-                { "const": "7b4aee068e05c2bdff3896937c78a4c7a32f9ed2bde64d91b1d925913bf29476" },
-                { "const": "bd775dc70f76ea153a25832ad622b0cc26fbe6a37cf3ec6548a30965c4d17fba" },
-                { "const": "19d26b694df281209aa1296abbfa8f7d360e24a03a091422aba6f67663e2f3b1" },
-                { "const": "bb4c99d7857dbfcee5ee620bcff09b7060b61c5f2432427affc6139cb8d3cf9b" },
-                { "const": "230f52ed2ac57624a9a35214d7867711008dd56014f4176ce258623e5b596d3a" },
-                { "const": "60e167db3c081ba5bca957aba820afb519b790d048b660634d49566df88105f2" },
-                { "const": "cf8c73bebf746b799b1fe8aa2c908ca69bc7acc72311c64cbf4131fc8976609f" },
-                { "const": "0f11e5fb5105dac699fa4bcfc01c79fbe696a81db04606f39a719de57b4c7c30" },
-                { "const": "a41d5962abceb6dbe25f8421091ce3df6a69202c45b24ab6b0736159d15e253b" },
-                { "const": "d655e2cbb23d70e229ed52fedba9c45573e22729fed0a794ab690df8d7f33804" },
-                { "const": "005c539f9f4256a86d9e0a212b3bfe73741f99942b0677fb483c0c48db9583cd" },
-                { "const": "f448df95acb226c5c992363e27707a42efc3ffb974ebeff38e2a81522b57d82c" }
-              ],
+              "prefixItems": [{ "const": "98b7a9b1be25d9d64ffa75bc6e16ea80f60deed1891aeed8dfb440c1c19e6713" }],
               "items": false,
-              "minItems": 12,
-              "maxItems": 12
+              "minItems": 1,
+              "maxItems": 1
             },
-            "sample_value_formula": { "const": "((s * (c + 1) * 37 + c * 101) mod 2001) - 1000" },
-            "sample_min": { "const": -1000 },
-            "sample_max": { "const": 1000 },
-            "waveform_padding_value_absent": { "const": true },
-            "value_field_padding_bytes": { "const": 0 }
+            "aggregate_payload_sha256": { "const": "98b7a9b1be25d9d64ffa75bc6e16ea80f60deed1891aeed8dfb440c1c19e6713" }
           },
           "additionalProperties": false
         },

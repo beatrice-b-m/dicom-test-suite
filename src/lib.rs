@@ -26074,7 +26074,7 @@ fn build_generation_manifest(
         .collect();
 
     Ok(serde_json::json!({
-        "manifest_schema_version": "0.1.0",
+        "manifest_schema_version": "0.2.0",
         "generated_at": "19700101000000.000000+0000",
         "generator": {
             "name": PACKAGE_NAME,
@@ -28747,7 +28747,7 @@ mod tests {
             manifest
                 .get("manifest_schema_version")
                 .and_then(Value::as_str),
-            Some("0.1.0")
+            Some("0.2.0")
         );
         assert_eq!(
             manifest.pointer("/run/profile").and_then(Value::as_str),

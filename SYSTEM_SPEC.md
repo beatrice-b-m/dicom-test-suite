@@ -726,7 +726,7 @@ Recommended top-level shape:
 
 ```json
 {
-  "manifest_schema_version": "0.1.0",
+  "manifest_schema_version": "0.2.0",
   "generated_at": "20000101T000000Z",
   "generator": {
     "name": "dicom-test-suite",

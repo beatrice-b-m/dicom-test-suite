@@ -26,14 +26,24 @@ pub(crate) struct ExpectedWaveform<'a> {
     pub modality: &'a str,
     pub transfer_syntax_uid: &'a str,
     pub acquisition_context_items: u8,
+    pub multiplex_groups: &'a [ExpectedMultiplexGroup<'a>],
+    pub aggregate: ExpectedWaveformAggregate<'a>,
+    // Transitional typed aliases keep the strict validator compiling while it
+    // migrates to ordered group iteration in the next dependency commit. They
+    // are deliberately absent from the serialized manifest contract.
+    #[serde(skip)]
     pub multiplex_group: ExpectedMultiplexGroup<'a>,
+    #[serde(skip)]
     pub channels: &'a [ExpectedWaveformChannel<'a>],
+    #[serde(skip)]
     pub storage: ExpectedWaveformStorage<'a>,
     pub absent_content: ExpectedWaveformAbsentContent,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize)]
 pub(crate) struct ExpectedMultiplexGroup<'a> {
+    pub ordinal: u8,
+    #[serde(skip)]
     pub group_count: u8,
     pub originality: &'a str,
     pub label: &'a str,
@@ -42,6 +52,18 @@ pub(crate) struct ExpectedMultiplexGroup<'a> {
     pub sampling_frequency_hz: u16,
     pub duration_seconds: u8,
     pub simultaneous_sampling: bool,
+    pub channels: &'a [ExpectedWaveformChannel<'a>],
+    pub storage: ExpectedWaveformStorage<'a>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+pub(crate) struct ExpectedWaveformAggregate<'a> {
+    pub group_count: u8,
+    pub total_channel_count: u8,
+    pub common_duration_seconds: u8,
+    pub total_payload_length_bytes: u16,
+    pub group_payload_sha256: &'a [&'a str],
+    pub aggregate_payload_sha256: &'a str,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize)]
@@ -112,6 +134,37 @@ pub(crate) const TWELVE_LEAD_ECG_CHANNELS: [ExpectedWaveformChannel<'static>; 12
     channel(12, "V6", "2:8", "Lead V6"),
 ];
 
+const TWELVE_LEAD_ECG_GROUP_PAYLOAD_SHA256: [&str; 1] = [TWELVE_LEAD_ECG_PAYLOAD_SHA256];
+
+const TWELVE_LEAD_ECG_MULTIPLEX_GROUPS: [ExpectedMultiplexGroup<'static>; 1] =
+    [ExpectedMultiplexGroup {
+        ordinal: 1,
+        group_count: 1,
+        originality: "ORIGINAL",
+        label: "RESTING_12_LEAD",
+        channel_count: 12,
+        samples_per_channel: 500,
+        sampling_frequency_hz: 500,
+        duration_seconds: 1,
+        simultaneous_sampling: true,
+        channels: &TWELVE_LEAD_ECG_CHANNELS,
+        storage: ExpectedWaveformStorage {
+            bits_allocated: 16,
+            sample_interpretation: "SS",
+            data_vr: "OW",
+            byte_order: "little_endian",
+            interleave_order: "channel_then_sample",
+            payload_length_bytes: 12_000,
+            payload_sha256: TWELVE_LEAD_ECG_PAYLOAD_SHA256,
+            channel_sha256: &TWELVE_LEAD_ECG_CHANNEL_SHA256,
+            sample_value_formula: "((s * (c + 1) * 37 + c * 101) mod 2001) - 1000",
+            sample_min: -1000,
+            sample_max: 1000,
+            waveform_padding_value_absent: true,
+            value_field_padding_bytes: 0,
+        },
+    }];
+
 const fn channel(
     ordinal: u8,
     label: &'static str,
@@ -144,32 +197,18 @@ pub(crate) fn twelve_lead_ecg_expected_waveform() -> ExpectedWaveform<'static> {
         modality: "ECG",
         transfer_syntax_uid: "1.2.840.10008.1.2.1",
         acquisition_context_items: 0,
-        multiplex_group: ExpectedMultiplexGroup {
+        multiplex_groups: &TWELVE_LEAD_ECG_MULTIPLEX_GROUPS,
+        aggregate: ExpectedWaveformAggregate {
             group_count: 1,
-            originality: "ORIGINAL",
-            label: "RESTING_12_LEAD",
-            channel_count: 12,
-            samples_per_channel: 500,
-            sampling_frequency_hz: 500,
-            duration_seconds: 1,
-            simultaneous_sampling: true,
+            total_channel_count: 12,
+            common_duration_seconds: 1,
+            total_payload_length_bytes: 12_000,
+            group_payload_sha256: &TWELVE_LEAD_ECG_GROUP_PAYLOAD_SHA256,
+            aggregate_payload_sha256: TWELVE_LEAD_ECG_PAYLOAD_SHA256,
         },
+        multiplex_group: TWELVE_LEAD_ECG_MULTIPLEX_GROUPS[0],
         channels: &TWELVE_LEAD_ECG_CHANNELS,
-        storage: ExpectedWaveformStorage {
-            bits_allocated: 16,
-            sample_interpretation: "SS",
-            data_vr: "OW",
-            byte_order: "little_endian",
-            interleave_order: "channel_then_sample",
-            payload_length_bytes: 12_000,
-            payload_sha256: TWELVE_LEAD_ECG_PAYLOAD_SHA256,
-            channel_sha256: &TWELVE_LEAD_ECG_CHANNEL_SHA256,
-            sample_value_formula: "((s * (c + 1) * 37 + c * 101) mod 2001) - 1000",
-            sample_min: -1000,
-            sample_max: 1000,
-            waveform_padding_value_absent: true,
-            value_field_padding_bytes: 0,
-        },
+        storage: TWELVE_LEAD_ECG_MULTIPLEX_GROUPS[0].storage,
         absent_content: ExpectedWaveformAbsentContent {
             annotation_module: true,
             synchronization_module: true,
@@ -189,19 +228,37 @@ mod tests {
         let value = serde_json::to_value(twelve_lead_ecg_expected_waveform())
             .expect("waveform expectation should serialize");
 
-        assert_eq!(value["channels"].as_array().map(Vec::len), Some(12));
-        assert_eq!(value["channels"][0]["source"]["code_value"], "2:1");
-        assert_eq!(value["channels"][11]["source"]["code_value"], "2:8");
-        assert_eq!(value["storage"]["payload_length_bytes"], 12_000);
+        assert!(value.get("multiplex_group").is_none());
+        assert!(value.get("channels").is_none());
+        assert!(value.get("storage").is_none());
+        assert_eq!(value["multiplex_groups"].as_array().map(Vec::len), Some(1));
+        let group = &value["multiplex_groups"][0];
+        assert_eq!(group["ordinal"], 1);
+        assert_eq!(group["channels"].as_array().map(Vec::len), Some(12));
+        assert_eq!(group["channels"][0]["source"]["code_value"], "2:1");
+        assert_eq!(group["channels"][11]["source"]["code_value"], "2:8");
+        assert_eq!(group["storage"]["payload_length_bytes"], 12_000);
         assert_eq!(
-            value["storage"]["payload_sha256"],
+            group["storage"]["payload_sha256"],
             TWELVE_LEAD_ECG_PAYLOAD_SHA256
         );
         assert_eq!(
-            value["storage"]["channel_sha256"].as_array().map(Vec::len),
+            group["storage"]["channel_sha256"].as_array().map(Vec::len),
             Some(12)
         );
-        assert_eq!(value["multiplex_group"]["simultaneous_sampling"], true);
+        assert_eq!(group["simultaneous_sampling"], true);
+        assert_eq!(value["aggregate"]["group_count"], 1);
+        assert_eq!(value["aggregate"]["total_channel_count"], 12);
+        assert_eq!(value["aggregate"]["common_duration_seconds"], 1);
+        assert_eq!(value["aggregate"]["total_payload_length_bytes"], 12_000);
+        assert_eq!(
+            value["aggregate"]["group_payload_sha256"],
+            serde_json::json!([TWELVE_LEAD_ECG_PAYLOAD_SHA256])
+        );
+        assert_eq!(
+            value["aggregate"]["aggregate_payload_sha256"],
+            TWELVE_LEAD_ECG_PAYLOAD_SHA256
+        );
         assert_eq!(value["absent_content"]["pixel_data"], true);
     }
 }

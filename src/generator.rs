@@ -25079,7 +25079,7 @@ mod tests {
         assert_eq!(
             first
                 .manifest_entry
-                .pointer("/expected_waveform/channels")
+                .pointer("/expected_waveform/multiplex_groups/0/channels")
                 .and_then(Value::as_array)
                 .map(Vec::len),
             Some(12)
@@ -25087,7 +25087,7 @@ mod tests {
         assert_eq!(
             first
                 .manifest_entry
-                .pointer("/expected_waveform/storage/payload_sha256"),
+                .pointer("/expected_waveform/multiplex_groups/0/storage/payload_sha256"),
             Some(&Value::from(
                 "98b7a9b1be25d9d64ffa75bc6e16ea80f60deed1891aeed8dfb440c1c19e6713"
             ))

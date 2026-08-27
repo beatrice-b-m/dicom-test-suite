@@ -3808,31 +3808,83 @@ fn manifest_schema_types_twelve_lead_ecg_waveform_expectations() {
     assert!(validator.is_valid(&expectation));
 
     let mut reordered = expectation.clone();
-    reordered["channels"]
+    reordered["multiplex_groups"][0]["channels"]
         .as_array_mut()
         .expect("channels")
         .swap(0, 1);
     assert!(!validator.is_valid(&reordered));
 
     let mut duplicate_lead = expectation.clone();
-    duplicate_lead["channels"][11]["source"] = duplicate_lead["channels"][0]["source"].clone();
+    duplicate_lead["multiplex_groups"][0]["channels"][11]["source"] =
+        duplicate_lead["multiplex_groups"][0]["channels"][0]["source"].clone();
     assert!(!validator.is_valid(&duplicate_lead));
 
     let mut wrong_rate = expectation.clone();
-    wrong_rate["multiplex_group"]["sampling_frequency_hz"] = serde_json::json!(199);
+    wrong_rate["multiplex_groups"][0]["sampling_frequency_hz"] = serde_json::json!(199);
     assert!(!validator.is_valid(&wrong_rate));
 
     let mut wrong_interleave = expectation.clone();
-    wrong_interleave["storage"]["interleave_order"] = serde_json::json!("sample_then_channel");
+    wrong_interleave["multiplex_groups"][0]["storage"]["interleave_order"] =
+        serde_json::json!("sample_then_channel");
     assert!(!validator.is_valid(&wrong_interleave));
 
     let mut corrupt_payload = expectation.clone();
-    corrupt_payload["storage"]["payload_sha256"] = serde_json::json!("0".repeat(64));
+    corrupt_payload["multiplex_groups"][0]["storage"]["payload_sha256"] =
+        serde_json::json!("0".repeat(64));
     assert!(!validator.is_valid(&corrupt_payload));
 
-    let mut padded = expectation;
-    padded["storage"]["value_field_padding_bytes"] = serde_json::json!(2);
+    let mut padded = expectation.clone();
+    padded["multiplex_groups"][0]["storage"]["value_field_padding_bytes"] = serde_json::json!(2);
     assert!(!validator.is_valid(&padded));
+
+    let mut wrong_group_ordinal = expectation.clone();
+    wrong_group_ordinal["multiplex_groups"][0]["ordinal"] = serde_json::json!(2);
+    assert!(!validator.is_valid(&wrong_group_ordinal));
+
+    let mut extra_group = expectation.clone();
+    let duplicate_group = extra_group["multiplex_groups"][0].clone();
+    extra_group["multiplex_groups"]
+        .as_array_mut()
+        .expect("multiplex groups")
+        .push(duplicate_group);
+    assert!(!validator.is_valid(&extra_group));
+
+    let mut missing_channel = expectation.clone();
+    missing_channel["multiplex_groups"][0]["channels"]
+        .as_array_mut()
+        .expect("channels")
+        .pop();
+    assert!(!validator.is_valid(&missing_channel));
+
+    let mut missing_channel_hash = expectation.clone();
+    missing_channel_hash["multiplex_groups"][0]["storage"]["channel_sha256"]
+        .as_array_mut()
+        .expect("channel hashes")
+        .pop();
+    assert!(!validator.is_valid(&missing_channel_hash));
+
+    for field in [
+        "group_count",
+        "total_channel_count",
+        "common_duration_seconds",
+        "total_payload_length_bytes",
+    ] {
+        let mut wrong_aggregate = expectation.clone();
+        wrong_aggregate["aggregate"][field] = serde_json::json!(99);
+        assert!(
+            !validator.is_valid(&wrong_aggregate),
+            "aggregate {field} must remain locked"
+        );
+    }
+
+    let mut wrong_group_hashes = expectation.clone();
+    wrong_group_hashes["aggregate"]["group_payload_sha256"] = serde_json::json!(["0".repeat(64)]);
+    assert!(!validator.is_valid(&wrong_group_hashes));
+
+    let mut wrong_aggregate_hash = expectation;
+    wrong_aggregate_hash["aggregate"]["aggregate_payload_sha256"] =
+        serde_json::json!("0".repeat(64));
+    assert!(!validator.is_valid(&wrong_aggregate_hash));
 }
 
 #[test]
@@ -3925,26 +3977,25 @@ fn twelve_lead_ecg_waveform_expectation() -> Value {
         "modality": "ECG",
         "transfer_syntax_uid": "1.2.840.10008.1.2.1",
         "acquisition_context_items": 0,
-        "multiplex_group": {
-            "group_count": 1,
+        "multiplex_groups": [{
+            "ordinal": 1,
             "originality": "ORIGINAL",
             "label": "RESTING_12_LEAD",
             "channel_count": 12,
             "samples_per_channel": 500,
             "sampling_frequency_hz": 500,
             "duration_seconds": 1,
-            "simultaneous_sampling": true
-        },
-        "channels": channels,
-        "storage": {
-            "bits_allocated": 16,
-            "sample_interpretation": "SS",
-            "data_vr": "OW",
-            "byte_order": "little_endian",
-            "interleave_order": "channel_then_sample",
-            "payload_length_bytes": 12000,
-            "payload_sha256": "98b7a9b1be25d9d64ffa75bc6e16ea80f60deed1891aeed8dfb440c1c19e6713",
-            "channel_sha256": [
+            "simultaneous_sampling": true,
+            "channels": channels,
+            "storage": {
+                "bits_allocated": 16,
+                "sample_interpretation": "SS",
+                "data_vr": "OW",
+                "byte_order": "little_endian",
+                "interleave_order": "channel_then_sample",
+                "payload_length_bytes": 12000,
+                "payload_sha256": "98b7a9b1be25d9d64ffa75bc6e16ea80f60deed1891aeed8dfb440c1c19e6713",
+                "channel_sha256": [
                 "7b4aee068e05c2bdff3896937c78a4c7a32f9ed2bde64d91b1d925913bf29476",
                 "bd775dc70f76ea153a25832ad622b0cc26fbe6a37cf3ec6548a30965c4d17fba",
                 "19d26b694df281209aa1296abbfa8f7d360e24a03a091422aba6f67663e2f3b1",
@@ -3957,12 +4008,23 @@ fn twelve_lead_ecg_waveform_expectation() -> Value {
                 "d655e2cbb23d70e229ed52fedba9c45573e22729fed0a794ab690df8d7f33804",
                 "005c539f9f4256a86d9e0a212b3bfe73741f99942b0677fb483c0c48db9583cd",
                 "f448df95acb226c5c992363e27707a42efc3ffb974ebeff38e2a81522b57d82c"
+                ],
+                "sample_value_formula": "((s * (c + 1) * 37 + c * 101) mod 2001) - 1000",
+                "sample_min": -1000,
+                "sample_max": 1000,
+                "waveform_padding_value_absent": true,
+                "value_field_padding_bytes": 0
+            }
+        }],
+        "aggregate": {
+            "group_count": 1,
+            "total_channel_count": 12,
+            "common_duration_seconds": 1,
+            "total_payload_length_bytes": 12000,
+            "group_payload_sha256": [
+                "98b7a9b1be25d9d64ffa75bc6e16ea80f60deed1891aeed8dfb440c1c19e6713"
             ],
-            "sample_value_formula": "((s * (c + 1) * 37 + c * 101) mod 2001) - 1000",
-            "sample_min": -1000,
-            "sample_max": 1000,
-            "waveform_padding_value_absent": true,
-            "value_field_padding_bytes": 0
+            "aggregate_payload_sha256": "98b7a9b1be25d9d64ffa75bc6e16ea80f60deed1891aeed8dfb440c1c19e6713"
         },
         "absent_content": {
             "annotation_module": true,

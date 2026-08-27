@@ -925,18 +925,11 @@ fn advanced_blending_source_note_locks_native_two_input_contract() {
                 == Some("derived/presentation-state/advanced_blending")
         })
         .expect("Advanced Blending Presentation State row must exist");
-    assert_eq!(case["status"], "planned");
+    assert_eq!(case["status"], "implemented");
     assert_eq!(case["provider"]["kind"], "rust_native");
     assert_eq!(case["provider"]["id"], "rust_native");
-    assert_eq!(
-        case["blockers"],
-        serde_json::json!([{
-            "code": "recipe_unimplemented",
-            "message": "The deterministic native recipe is not implemented.",
-            "recheck_phase": "phase-3"
-        }])
-    );
-    assert_eq!(case["determinism"], "semantic_stable");
+    assert_eq!(case["blockers"], serde_json::json!([]));
+    assert_eq!(case["determinism"], "byte_stable");
     assert!(
         case["standards_evidence"]
             .as_array()
@@ -4779,6 +4772,7 @@ fn generator_recipe_case_ids() -> BTreeSet<String> {
                 "case_id: \"",
                 "SPATIAL_REGISTRATION_CASE_ID: &str = \"",
                 "COLOR_SOFTCOPY_PRESENTATION_STATE_CASE_ID: &str = \"",
+                "ADVANCED_BLENDING_PRESENTATION_STATE_CASE_ID: &str =\n    \"",
             ][..],
         ),
         ("src/generator/native/ct_geometry.rs", &["case_id: \""][..]),

@@ -18,6 +18,7 @@ use native::ct_geometry::{
     ClassicCtSliceRecipe,
 };
 use native::metadata_sc::{METADATA_SC_RECIPES, MetadataScRecipe};
+use native::timezone_sc::{TIMEZONE_SC_RECIPE, TimezoneBoundary, TimezoneScRecipe};
 
 use crate::{
     DeterministicUidInput, GenerateError, PreparedGenerationRun, UidRole,
@@ -3555,6 +3556,16 @@ pub(crate) fn write_supported_cases(
             standards_lock_sha256,
         )?)?;
     }
+    if let Some(case) = registry_case(registry, TIMEZONE_SC_RECIPE.pixel.case_id)? {
+        if should_generate_case(case, run)? {
+            context.record_many(write_timezone_sc_case(
+                run,
+                case,
+                TIMEZONE_SC_RECIPE,
+                standards_lock_sha256,
+            )?)?;
+        }
+    }
     for recipe in CLASSIC_CT_RECIPES {
         let Some(case) = registry_case(registry, recipe.case_id)? else {
             continue;
@@ -4298,7 +4309,21 @@ fn write_pixel_case(
     recipe: PixelRecipe,
     standards_lock_sha256: &str,
 ) -> Result<GeneratedFile, GenerateError> {
-    write_pixel_case_with_text_metadata(run, case, recipe, standards_lock_sha256, None)
+    write_pixel_case_with_metadata(
+        run,
+        case,
+        recipe,
+        standards_lock_sha256,
+        None,
+        0,
+        "instance.dcm",
+    )
+}
+
+#[derive(Debug, Clone, Copy)]
+enum ScMetadataPayload {
+    PersonName(MetadataScRecipe),
+    Temporal(TimezoneBoundary),
 }
 
 fn write_metadata_sc_case(
@@ -4307,43 +4332,74 @@ fn write_metadata_sc_case(
     recipe: MetadataScRecipe,
     standards_lock_sha256: &str,
 ) -> Result<GeneratedFile, GenerateError> {
-    write_pixel_case_with_text_metadata(
+    write_pixel_case_with_metadata(
         run,
         case,
         recipe.pixel,
         standards_lock_sha256,
-        Some(recipe),
+        Some(ScMetadataPayload::PersonName(recipe)),
+        0,
+        "instance.dcm",
     )
 }
 
-fn write_pixel_case_with_text_metadata(
+fn write_timezone_sc_case(
+    run: &PreparedGenerationRun,
+    case: &Value,
+    recipe: TimezoneScRecipe,
+    standards_lock_sha256: &str,
+) -> Result<Vec<GeneratedFile>, GenerateError> {
+    recipe
+        .boundaries
+        .iter()
+        .enumerate()
+        .map(|(index, boundary)| {
+            write_pixel_case_with_metadata(
+                run,
+                case,
+                recipe.pixel,
+                standards_lock_sha256,
+                Some(ScMetadataPayload::Temporal(*boundary)),
+                index as u32,
+                &format!("{}.dcm", boundary.boundary_id),
+            )
+        })
+        .collect()
+}
+
+fn write_pixel_case_with_metadata(
     run: &PreparedGenerationRun,
     case: &Value,
     recipe: PixelRecipe,
     standards_lock_sha256: &str,
-    text_metadata: Option<MetadataScRecipe>,
+    metadata: Option<ScMetadataPayload>,
+    file_index: u32,
+    file_name: &str,
 ) -> Result<GeneratedFile, GenerateError> {
-    let study_instance_uid = deterministic_case_uid(
+    let study_instance_uid = deterministic_case_uid_with_file_index(
         standards_lock_sha256,
         recipe,
         run.seed,
         UidRole::StudyInstance,
+        file_index,
     );
-    let series_instance_uid = deterministic_case_uid(
+    let series_instance_uid = deterministic_case_uid_with_file_index(
         standards_lock_sha256,
         recipe,
         run.seed,
         UidRole::SeriesInstance,
+        file_index,
     );
-    let sop_instance_uid = deterministic_case_uid(
+    let sop_instance_uid = deterministic_case_uid_with_file_index(
         standards_lock_sha256,
         recipe,
         run.seed,
         UidRole::SopInstance,
+        file_index,
     );
     let implementation_class_uid = deterministic_implementation_uid(standards_lock_sha256);
 
-    let relative_path = format!("{}/instance.dcm", recipe.case_id);
+    let relative_path = format!("{}/{file_name}", recipe.case_id);
     let path = run.out_dir.join(&relative_path);
     let case_dir = path.parent().ok_or_else(|| GenerateError::MetadataShape {
         path: PathBuf::from(&relative_path),
@@ -4361,7 +4417,7 @@ fn write_pixel_case_with_text_metadata(
     put_str(&mut obj, tags::SOP_INSTANCE_UID, VR::UI, &sop_instance_uid);
     put_str(&mut obj, tags::SYNTHETIC_DATA, VR::CS, "YES");
 
-    if let Some(metadata) = text_metadata {
+    if let Some(ScMetadataPayload::PersonName(metadata)) = metadata {
         put_str(
             &mut obj,
             tags::SPECIFIC_CHARACTER_SET,
@@ -4369,7 +4425,7 @@ fn write_pixel_case_with_text_metadata(
             &metadata.specific_character_sets.join("\\"),
         );
     }
-    if let Some(metadata) = text_metadata {
+    if let Some(ScMetadataPayload::PersonName(metadata)) = metadata {
         obj.put(DataElement::new(
             tags::PATIENT_NAME,
             VR::PN,
@@ -4388,8 +4444,26 @@ fn write_pixel_case_with_text_metadata(
         VR::UI,
         &study_instance_uid,
     );
-    put_str(&mut obj, tags::STUDY_DATE, VR::DA, "20260101");
-    put_str(&mut obj, tags::STUDY_TIME, VR::TM, "000000");
+    let (study_date, study_time) = match metadata {
+        Some(ScMetadataPayload::Temporal(boundary)) => (boundary.study_date, boundary.study_time),
+        _ => ("20260101", "000000"),
+    };
+    put_str(&mut obj, tags::STUDY_DATE, VR::DA, study_date);
+    put_str(&mut obj, tags::STUDY_TIME, VR::TM, study_time);
+    if let Some(ScMetadataPayload::Temporal(boundary)) = metadata {
+        put_str(
+            &mut obj,
+            tags::ACQUISITION_DATE_TIME,
+            VR::DT,
+            boundary.acquisition_date_time,
+        );
+        put_str(
+            &mut obj,
+            tags::TIMEZONE_OFFSET_FROM_UTC,
+            VR::SH,
+            boundary.timezone_offset,
+        );
+    }
     put_str(&mut obj, tags::REFERRING_PHYSICIAN_NAME, VR::PN, "");
     put_str(&mut obj, tags::STUDY_ID, VR::SH, "SMOKE");
     put_str(&mut obj, tags::ACCESSION_NUMBER, VR::SH, "");
@@ -4402,7 +4476,7 @@ fn write_pixel_case_with_text_metadata(
         &series_instance_uid,
     );
     put_str(&mut obj, tags::SERIES_NUMBER, VR::IS, "1");
-    if text_metadata.is_some() {
+    if metadata.is_some() {
         put_str(&mut obj, tags::LATERALITY, VR::CS, "R");
     }
 
@@ -5040,11 +5114,16 @@ fn write_pixel_case_with_text_metadata(
     for result in codec_internal_validation {
         append_internal_validation(&mut validated.validation, result);
     }
-    if let Some(metadata) = text_metadata {
-        append_internal_validation(
-            &mut validated.validation,
-            validate_text_metadata_round_trip(&path, metadata)?,
-        );
+    if let Some(metadata) = metadata {
+        let result = match metadata {
+            ScMetadataPayload::PersonName(recipe) => {
+                validate_text_metadata_round_trip(&path, recipe)?
+            }
+            ScMetadataPayload::Temporal(boundary) => {
+                validate_temporal_metadata_round_trip(&path, boundary)?
+            }
+        };
+        append_internal_validation(&mut validated.validation, result);
     }
 
     Ok(GeneratedFile {
@@ -5063,7 +5142,7 @@ fn write_pixel_case_with_text_metadata(
             compressed_pixel_data.as_ref(),
             lossy_image_compression_ratio.as_deref(),
             &decoded_frame_hash_refs,
-            text_metadata,
+            metadata,
         ),
     })
 }
@@ -5145,6 +5224,59 @@ fn validate_text_metadata_round_trip(
         "name": recipe.validation_name,
         "status": "passed",
         "message": recipe.validation_message
+    }))
+}
+
+fn validate_temporal_metadata_round_trip(
+    path: &std::path::Path,
+    boundary: TimezoneBoundary,
+) -> Result<Value, GenerateError> {
+    let obj = open_file(path).map_err(|error| GenerateError::ValidateDicomFile {
+        path: path.to_path_buf(),
+        message: format!("reopen temporal SC fixture: {error}"),
+    })?;
+    for (tag, label, expected) in [
+        (tags::STUDY_DATE, "Study Date", boundary.study_date),
+        (tags::STUDY_TIME, "Study Time", boundary.study_time),
+        (
+            tags::ACQUISITION_DATE_TIME,
+            "Acquisition DateTime",
+            boundary.acquisition_date_time,
+        ),
+        (
+            tags::TIMEZONE_OFFSET_FROM_UTC,
+            "Timezone Offset From UTC",
+            boundary.timezone_offset,
+        ),
+    ] {
+        let actual = obj
+            .element(tag)
+            .map_err(|error| GenerateError::ValidateDicomFile {
+                path: path.to_path_buf(),
+                message: format!("read {label} from temporal SC fixture: {error}"),
+            })?
+            .to_str()
+            .map_err(|error| GenerateError::ValidateDicomFile {
+                path: path.to_path_buf(),
+                message: format!("decode {label} from temporal SC fixture: {error}"),
+            })?;
+        if actual.trim_end_matches([' ', '\0']) != expected {
+            return Err(GenerateError::ValidateDicomFile {
+                path: path.to_path_buf(),
+                message: format!(
+                    "temporal SC {label} decoded as {:?}, expected {expected:?}",
+                    actual.trim_end_matches([' ', '\0'])
+                ),
+            });
+        }
+    }
+    Ok(serde_json::json!({
+        "name": "timezone_boundary_round_trip",
+        "status": "passed",
+        "message": format!(
+            "The {} fixture reopened with exact DA, TM, DT, and Timezone Offset values.",
+            boundary.boundary_id
+        )
     }))
 }
 
@@ -5558,7 +5690,7 @@ fn pixel_manifest_entry(
     )>,
     lossy_image_compression_ratio: Option<&str>,
     frame_hashes: &[&str],
-    text_metadata: Option<MetadataScRecipe>,
+    metadata: Option<ScMetadataPayload>,
 ) -> Value {
     let mut standards_evidence = standards_evidence_from_case(case);
     if pixel_is_vl_photographic(recipe) {
@@ -6044,7 +6176,7 @@ fn pixel_manifest_entry(
         "known_stressors": pixel_known_stressors(recipe),
         "standards_evidence": deduplicated_standards_evidence(standards_evidence)
     });
-    if let Some(metadata) = text_metadata {
+    if let Some(ScMetadataPayload::PersonName(metadata)) = metadata {
         let mut raw_value = metadata.patient_name_raw.to_vec();
         if raw_value.len() % 2 == 1 {
             raw_value.push(b' ');
@@ -6090,8 +6222,64 @@ fn pixel_manifest_entry(
             serde_json::json!(metadata.specific_character_sets);
         manifest["recipe"]["recipe_parameters"]["patient_name"] =
             Value::from(metadata.patient_name_decoded);
+    } else if let Some(ScMetadataPayload::Temporal(boundary)) = metadata {
+        let mut timezone_offset = encoded_temporal_value(
+            "0008,0201",
+            "TimezoneOffsetFromUTC",
+            "SH",
+            boundary.timezone_offset,
+        );
+        timezone_offset["offset_minutes"] = Value::from(boundary.offset_minutes);
+        let mut acquisition_date_time = encoded_temporal_value(
+            "0008,002A",
+            "AcquisitionDateTime",
+            "DT",
+            boundary.acquisition_date_time,
+        );
+        acquisition_date_time["embedded_offset_minutes"] = Value::from(boundary.offset_minutes);
+        acquisition_date_time["normalized_utc"] = Value::from(boundary.normalized_utc);
+        manifest["expected_metadata"] = serde_json::json!({
+            "temporal": {
+                "boundary_id": boundary.boundary_id,
+                "timezone_offset_from_utc": timezone_offset,
+                "date_values": [encoded_temporal_value(
+                    "0008,0020",
+                    "StudyDate",
+                    "DA",
+                    boundary.study_date,
+                )],
+                "time_values": [encoded_temporal_value(
+                    "0008,0030",
+                    "StudyTime",
+                    "TM",
+                    boundary.study_time,
+                )],
+                "date_time_values": [acquisition_date_time],
+                "combined_da_tm_utc": boundary.normalized_utc
+            }
+        });
+        manifest["recipe"]["recipe_parameters"]["temporal_boundary_id"] =
+            Value::from(boundary.boundary_id);
+        manifest["recipe"]["recipe_parameters"]["timezone_offset_from_utc"] =
+            Value::from(boundary.timezone_offset);
     }
     manifest
+}
+
+fn encoded_temporal_value(tag: &str, keyword: &str, vr: &str, decoded_value: &str) -> Value {
+    let mut raw_value = decoded_value.as_bytes().to_vec();
+    if raw_value.len() % 2 == 1 {
+        raw_value.push(b' ');
+    }
+    serde_json::json!({
+        "tag": tag,
+        "keyword": keyword,
+        "vr": vr,
+        "decoded_value": decoded_value,
+        "raw_value_hex": uppercase_hex(&raw_value),
+        "raw_value_sha256": sha256_hex(&raw_value),
+        "raw_value_byte_length": raw_value.len()
+    })
 }
 
 fn uppercase_hex(bytes: &[u8]) -> String {
@@ -16178,18 +16366,19 @@ fn classic_mr_known_stressors(recipe: ClassicMrRecipe) -> Vec<&'static str> {
     stressors
 }
 
-fn deterministic_case_uid(
+fn deterministic_case_uid_with_file_index(
     standards_lock_sha256: &str,
     recipe: PixelRecipe,
     run_seed: u64,
     role: UidRole,
+    file_index: u32,
 ) -> String {
     deterministic_uid(&DeterministicUidInput {
         standards_lock_sha256,
         case_id: recipe.case_id,
         recipe_version: PIXEL_RECIPE_VERSION,
         run_seed,
-        file_index: 0,
+        file_index,
         frame_index: None,
         referenced_object_index: None,
         role,

@@ -348,12 +348,41 @@ independently decodes the `(2, 2)` unsigned array, derives the declared BQML
 values, and produces a byte-identical Part 10 rewrite that retains the same
 clean validator results.
 
+### Ultrasound timed multi-frame cine
+
+`classic/us/multiframe_explicit_le` is an implemented `core` Ultrasound
+Multi-frame Image Storage instance with four 4 by 4 native unsigned 8-bit
+MONOCHROME2 frames. Image Type is
+`ORIGINAL\\PRIMARY\\ABDOMINAL\\0001`, Body Part Examined is `ABDOMEN`, and
+Laterality is absent because the declared anatomy is not paired. Frame
+Increment Pointer names Frame Time, which is exactly 100 ms, yielding ordered
+relative frame starts at 0, 100, 200, and 300 ms.
+
+The fixed grayscale frames move one 255-valued echo and have distinct ordered
+hashes. Lossy Image Compression is `00` and Ultrasound Color Data Present is
+zero. The fixture explicitly omits Frame Time Vector, Frame of Reference,
+ultrasound region calibration, lossy ratio and method, spatial relationships,
+color flow, and enhanced functional groups. Typed manifest and report
+contracts expose the timing, frame order, hashes, and each non-claim;
+manifest-driven validation rejects tampering at every boundary.
+
+Two seed-1 `core` generations each produced 45 files and were byte-identical;
+strict corpus validation reported zero failures. The fixture SHA-256 is
+`76803d95757f9a2b4edb6ca2d1acc88f814f60f003140c88fbf9b05e754a24c1`.
+Locked `dciodvfy` identifies only `USMultiFrameImage`, `dcentvfy` is silent,
+and DCMTK extracts the exact 64-byte native payload with SHA-256
+`060e2c56c9728f787339515ef16bc8c1adfbfb4fb85b2d2c18f115c17b439bc9`.
+The frozen pydicom 3.0.2 environment managed by locked `uv` independently
+decodes the `(4, 4, 4)` unsigned array and every ordered frame hash. Its
+read/write/read output is byte-identical and retains the same clean validator
+results.
+
 ## Milestone gate
 
 All planned Phase 2 geometry and series cases are implemented, and the UTF-8,
 ISO 2022, timezone, empty Type 2, string boundary, private creator, and sequence
 length metadata slices have passed their vertical gates. The latest seed-1
-`core` corpus contains 44 files; the seed-1 `extended` corpus contains 83
+`core` corpus contains 45 files; the seed-1 `extended` corpus contains 83
 files. The complete
 locked no-default-feature, all-target test suite passes, including byte-stable
 smoke, core, and extended regeneration. Each new CT slice and the temporal MR
@@ -361,6 +390,6 @@ slice has clean isolated IOD, entity, parser, and applicable independent pixel
 evidence, except for the one exact reviewed DICOMDIR-usability warning described
 above. Older corpus findings remain visible and unresolved. The dependency-
 ordered Phase 2 metadata and VR milestone is complete. The Nuclear Medicine
-STATIC multi-frame and PET rescaled-activity clinical-family representatives
-are also complete. Phase 2 continues with the remaining clinical-family
-representatives in their registry dependency order.
+STATIC multi-frame, PET rescaled-activity, and timed Ultrasound multi-frame
+clinical-family representatives are also complete. Phase 2 continues with
+XA and XRF in registry dependency order.

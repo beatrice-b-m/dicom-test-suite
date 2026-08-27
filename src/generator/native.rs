@@ -10,6 +10,7 @@ pub(super) mod metadata_sc;
 pub(super) mod nm;
 pub(super) mod pet;
 pub(super) mod private_creator_sc;
+pub(super) mod rt_plan;
 pub(super) mod sc_integer_pixels;
 pub(super) mod sc_nonsquare_spacing;
 pub(super) mod sequence_length_sc;
@@ -43,6 +44,8 @@ mod nm_tests;
 mod pet_tests;
 #[cfg(test)]
 mod private_creator_sc_tests;
+#[cfg(test)]
+mod rt_plan_tests;
 #[cfg(test)]
 mod sc_integer_pixels_tests;
 #[cfg(test)]

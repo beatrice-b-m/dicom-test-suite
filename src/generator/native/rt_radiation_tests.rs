@@ -75,6 +75,7 @@ fn rt_radiation_builds_locked_identity_and_mandatory_metadata() {
         (tags::MODALITY, VR::CS, "RTRAD"),
         (tags::SERIES_INSTANCE_UID, VR::UI, RADIATION_SERIES_UID),
         (tags::SERIES_NUMBER, VR::IS, RT_RADIATION_SERIES_NUMBER),
+        (tags::INSTANCE_NUMBER, VR::IS, "1"),
         (tags::SERIES_DATE, VR::DA, "20260101"),
         (tags::SERIES_TIME, VR::TM, "000000"),
         (tags::FRAME_OF_REFERENCE_UID, VR::UI, FRAME_OF_REFERENCE_UID),

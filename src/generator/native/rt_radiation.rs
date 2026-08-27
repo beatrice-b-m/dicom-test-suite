@@ -256,6 +256,7 @@ fn base_object(
         series_instance_uid,
     );
     put_str(&mut object, tags::SERIES_NUMBER, VR::IS, series_number);
+    put_str(&mut object, tags::INSTANCE_NUMBER, VR::IS, "1");
     put_str(&mut object, tags::SERIES_DATE, VR::DA, "20260101");
     put_str(&mut object, tags::SERIES_TIME, VR::TM, "000000");
 

@@ -3056,9 +3056,10 @@
     },
     "rt_radiation_instance": {
       "type": "object",
-      "required": ["series_number", "series_date", "series_time", "instance_creation_date", "instance_creation_time", "content_date", "content_time", "patient_name", "patient_id", "patient_birth_date", "patient_sex", "study_id", "referring_physician_name", "accession_number", "position_reference_indicator", "equipment_manufacturer", "equipment_model_name", "equipment_serial_number", "software_versions", "author_identification_sequence_present_empty"],
+      "required": ["series_number", "instance_number", "series_date", "series_time", "instance_creation_date", "instance_creation_time", "content_date", "content_time", "patient_name", "patient_id", "patient_birth_date", "patient_sex", "study_id", "referring_physician_name", "accession_number", "position_reference_indicator", "equipment_manufacturer", "equipment_model_name", "equipment_serial_number", "software_versions", "author_identification_sequence_present_empty"],
       "properties": {
         "series_number": { "enum": [74, 75] },
+        "instance_number": { "const": 1 },
         "series_date": { "const": "20260101" },
         "series_time": { "const": "000000" },
         "instance_creation_date": { "const": "20260101" },

@@ -28113,7 +28113,7 @@ mod tests {
         let first_radiation_bytes = fs::read(&radiation_path).expect("first Radiation bytes");
         assert_eq!(
             sha256_hex(&first_radiation_bytes),
-            "d374972b724a635b6398721babb553b2cbde21cd624dad9b16d2de26e3d8c104"
+            "5d337f59707d0ba27828e850e98cdbdfb946b68910c6bc54de67448ec05a4ec9"
         );
         let second_radiation = write_rt_radiation_case(
             &run,
@@ -28164,7 +28164,7 @@ mod tests {
         let first_set_bytes = fs::read(&set_path).expect("first Radiation Set bytes");
         assert_eq!(
             sha256_hex(&first_set_bytes),
-            "0e17b4772a534613d4ad1d62f9a9a441d8dc5ce8338a39fe7e14c1def596f36b"
+            "3bfdcda5ff5a38095460cfa21f88b196ae57a4a84f68280513375344006e8bc8"
         );
         let second_set = write_rt_radiation_set_case(
             &run,

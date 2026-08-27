@@ -4906,6 +4906,7 @@ fn minimal_rt_radiation_set_expectation() -> Value {
 fn rt_radiation_instance(series_number: u8, equipment_model_name: &str) -> Value {
     serde_json::json!({
         "series_number": series_number,
+        "instance_number": 1,
         "series_date": "20260101",
         "series_time": "000000",
         "instance_creation_date": "20260101",

@@ -81,6 +81,7 @@ pub(crate) struct ExpectedRtRadiationSourceReference<'a> {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub(crate) struct ExpectedRtRadiationInstance<'a> {
     pub series_number: u8,
+    pub instance_number: u8,
     pub series_date: &'a str,
     pub series_time: &'a str,
     pub instance_creation_date: &'a str,
@@ -340,6 +341,7 @@ fn instance_context<'a>(
 ) -> ExpectedRtRadiationInstance<'a> {
     ExpectedRtRadiationInstance {
         series_number,
+        instance_number: 1,
         series_date: "20260101",
         series_time: "000000",
         instance_creation_date: "20260101",

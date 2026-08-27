@@ -9157,6 +9157,15 @@ fn validate_rt_instance_context(
     results: &mut Vec<Value>,
     expected: ExpectedRtRadiationInstance<'_>,
 ) -> Result<(), GenerateError> {
+    rt_check_top_str(
+        path,
+        obj,
+        results,
+        "rt_instance_number",
+        tags::INSTANCE_NUMBER,
+        VR::IS,
+        &expected.instance_number.to_string(),
+    )?;
     for (name, tag, vr, value) in [
         (
             "rt_patient_name",

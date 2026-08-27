@@ -39,7 +39,7 @@ def _require_equal(actual: Any, expected: Any, name: str) -> None:
         raise ReconstructionError(f"{name} mismatch: expected {expected!r}, got {actual!r}")
 
 
-def _validate_shape(dataset: pydicom.Dataset) -> None:
+def _validate_shape(dataset: pydicom.Dataset) -> tuple[list[float], list[float], list[float]]:
     _require_equal(str(dataset.SOPClassUID), WSI_STORAGE, "SOP Class UID")
     _require_equal(str(dataset.file_meta.TransferSyntaxUID), EXPLICIT_VR_LITTLE_ENDIAN, "transfer syntax")
     for keyword, expected in (
@@ -71,11 +71,25 @@ def _validate_shape(dataset: pydicom.Dataset) -> None:
     _require_equal(len(dataset.SpecimenDescriptionSequence), 1, "specimen item count")
     _require_equal(len(dataset.OpticalPathSequence), 1, "optical path item count")
     _require_equal(str(dataset.OpticalPathSequence[0].OpticalPathIdentifier), "RGB", "optical path identifier")
+    _require_equal(len(dataset.SharedFunctionalGroupsSequence), 1, "shared functional groups item count")
+    measures = dataset.SharedFunctionalGroupsSequence[0].PixelMeasuresSequence[0]
+    spacing = [float(value) for value in measures.PixelSpacing]
+    _require_equal(spacing, [0.5, 0.5], "pixel spacing")
+    orientation = [float(value) for value in dataset.ImageOrientationSlide]
+    _require_equal(orientation, [1.0, 0.0, 0.0, 0.0, 1.0, 0.0], "image orientation slide")
+    origin_item = dataset.TotalPixelMatrixOriginSequence[0]
+    origin = [
+        float(origin_item.XOffsetInSlideCoordinateSystem),
+        float(origin_item.YOffsetInSlideCoordinateSystem),
+        float(getattr(origin_item, "ZOffsetInSlideCoordinateSystem", 0.0)),
+    ]
+    _require_equal(origin, [0.0, 0.0, 0.0], "total pixel matrix origin")
+    return spacing, orientation, origin
 
 
 def reconstruct(path: Path) -> dict[str, Any]:
     dataset = pydicom.dcmread(path)
-    _validate_shape(dataset)
+    spacing, orientation, origin = _validate_shape(dataset)
 
     image = hd.Image.from_dataset(dataset, copy=True)
     frames = [image.get_stored_frame(number, as_index=False) for number in range(1, 5)]
@@ -88,11 +102,31 @@ def reconstruct(path: Path) -> dict[str, Any]:
     # columns vary fastest, followed by rows, focal planes, and optical paths.
     reconstructed = np.empty((4, 4, 3), dtype=np.uint8)
     positions: list[dict[str, int | float | str]] = []
+    tiles_per_row = int(dataset.TotalPixelMatrixColumns) // int(dataset.Columns)
     for index, frame in enumerate(frames):
-        tile_row, tile_column = divmod(index, 2)
-        row = tile_row * 2
-        column = tile_column * 2
-        reconstructed[row : row + 2, column : column + 2, :] = frame
+        tile_row, tile_column = divmod(index, tiles_per_row)
+        row = tile_row * int(dataset.Rows)
+        column = tile_column * int(dataset.Columns)
+        reconstructed[
+            row : row + int(dataset.Rows),
+            column : column + int(dataset.Columns),
+            :,
+        ] = frame
+        x_mm = (
+            origin[0]
+            + column * spacing[1] * orientation[0]
+            + row * spacing[0] * orientation[3]
+        )
+        y_mm = (
+            origin[1]
+            + column * spacing[1] * orientation[1]
+            + row * spacing[0] * orientation[4]
+        )
+        z_mm = (
+            origin[2]
+            + column * spacing[1] * orientation[2]
+            + row * spacing[0] * orientation[5]
+        )
         positions.append(
             {
                 "frame_number": index + 1,
@@ -100,9 +134,9 @@ def reconstruct(path: Path) -> dict[str, Any]:
                 "focal_plane": 1,
                 "column_position": column + 1,
                 "row_position": row + 1,
-                "x_mm": float(column) * 0.5,
-                "y_mm": float(row) * 0.5,
-                "z_mm": 0.0,
+                "x_mm": x_mm,
+                "y_mm": y_mm,
+                "z_mm": z_mm,
             }
         )
 

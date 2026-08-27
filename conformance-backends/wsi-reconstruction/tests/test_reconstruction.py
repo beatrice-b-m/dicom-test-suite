@@ -127,6 +127,13 @@ class ReconstructionTest(unittest.TestCase):
         with self.assertRaisesRegex(ReconstructionError, "TotalPixelMatrixColumns"):
             reconstruct(self.path)
 
+    def test_rejects_position_metadata_mutation(self) -> None:
+        ds = copy.deepcopy(_dataset(self.path))
+        ds.SharedFunctionalGroupsSequence[0].PixelMeasuresSequence[0].PixelSpacing = [0.5, 0.6]
+        ds.save_as(self.path, enforce_file_format=True)
+        with self.assertRaisesRegex(ReconstructionError, "pixel spacing"):
+            reconstruct(self.path)
+
 
 if __name__ == "__main__":
     unittest.main()

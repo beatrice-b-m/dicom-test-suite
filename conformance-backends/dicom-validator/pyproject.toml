@@ -1,0 +1,26 @@
+[project]
+name = "dicom-test-suite-dicom-validator-adapter"
+version = "0.1.0"
+description = "Locked independent IOD validation adapter for dicom-test-suite"
+requires-python = "==3.12.12"
+dependencies = [
+    "dicom-validator==0.8.2",
+    "lxml==6.1.2",
+    "pydicom==3.0.2",
+    "pyparsing==3.3.2",
+]
+
+[project.scripts]
+dts-dicom-validator = "dts_dicom_validator_adapter.__main__:main"
+
+[build-system]
+requires = ["setuptools==80.9.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.uv]
+package = true
+python-downloads = "manual"
+python-preference = "only-managed"

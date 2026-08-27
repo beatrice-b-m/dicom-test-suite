@@ -1,0 +1,55 @@
+{
+  "schema_version": "0.1.0",
+  "edition": "2026b",
+  "source": "https://dicom.nema.org/medical/dicom/2026b/source/docbook/",
+  "artifacts": [
+    {
+      "path": "2026b/docbook/part03.xml",
+      "size_bytes": 25419270,
+      "sha256": "4967dac55719ba63cbc7f404f444e00d4adf50c785c8353e89c94db0259ede05",
+      "role": "official_docbook_source"
+    },
+    {
+      "path": "2026b/docbook/part04.xml",
+      "size_bytes": 4632679,
+      "sha256": "8445baf9a360e423b76671bae6b2de158cb545b688d7a2b085ea91c46147230b",
+      "role": "official_docbook_source"
+    },
+    {
+      "path": "2026b/docbook/part06.xml",
+      "size_bytes": 9659890,
+      "sha256": "512977071f31403dba5f00ea437157ee02bdf5b148375a826b2662085edd6a70",
+      "role": "official_docbook_source"
+    },
+    {
+      "path": "2026b/json/dict_info.json",
+      "size_bytes": 598837,
+      "sha256": "9d6301ac33c82154c45f3b2a451d4fd52a19d3bbe21b1adfa1913f71750eaec9",
+      "role": "generated_validator_definition"
+    },
+    {
+      "path": "2026b/json/iod_info.json",
+      "size_bytes": 455415,
+      "sha256": "ca5c4a56d05a57c6587d84fffc31a842e8e369b09f1186e6542a619b69dac683",
+      "role": "generated_validator_definition"
+    },
+    {
+      "path": "2026b/json/module_info.json",
+      "size_bytes": 1440759,
+      "sha256": "9f4853924ef520dd9b97ada0f14abd206fb15e6d8622e4d24a90f8b404a3e8c3",
+      "role": "generated_validator_definition"
+    },
+    {
+      "path": "2026b/json/uid_info.json",
+      "size_bytes": 35484,
+      "sha256": "f8c8d337dbbf10c28ff30c06468ea601842c4fc50f6b584cbbf34f5378c832c7",
+      "role": "generated_validator_definition"
+    },
+    {
+      "path": "2026b/json/version",
+      "size_bytes": 5,
+      "sha256": "dc12666e07ed23b09d26df08cf22979241f3d708013591aa547ff2ad90606d94",
+      "role": "generated_validator_definition"
+    }
+  ]
+}

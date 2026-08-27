@@ -33,6 +33,7 @@ dynamically linked `liblcms2.2` implementation.
 | U32 and non-square SC per-instance IOD | `pydicom-dicom-validator-u32` | `python -m dts_dicom_validator_adapter` | Required for its declared cases only | `uv` locks CPython 3.12.12, `dicom-validator` 0.8.2, pydicom 3.0.2, and transitive packages. `DTS_DICOM_VALIDATOR_PYTHON` selects the prepared interpreter and `DTS_DICOM_VALIDATOR_STANDARD_HOME` selects the external hash-locked 2026b cache. It is not a generation-profile runtime. |
 | Registration second IOD opinion | `pydicom-dicom-validator-registration` | `python -m dts_dicom_validator_adapter` | Required for its declared cases only | Runs in addition to, never instead of, locked `dciodvfy` for Spatial Registration and Deformable Spatial Registration. The same `uv` runtime and exact 2026b definitions are independently fingerprinted under the case-scoped secondary adapter. |
 | Presentation-state second IOD opinion | `pydicom-dicom-validator-presentation-state` | `python -m dts_dicom_validator_adapter` | Required for its declared cases only | Runs additively for Color Softcopy, Advanced Blending, and Blending Softcopy Presentation States. It reuses the independently implemented, `uv`-locked runtime and hash-locked 2026b definitions under a separate case-scoped adapter identity. |
+| Waveform second IOD and payload opinion | `pydicom-dicom-validator-waveform` | `python -m dts_dicom_validator_adapter` / `--waveform` | Required for its declared cases only | Runs additively for Twelve-lead ECG. The normal route validates the 2026b IOD; the waveform route independently extracts raw OW bytes with pydicom and decodes signed samples with Python `struct`, without NumPy or generator code. |
 | U1 SC independent pixels | `dcmtk-dcm2img-u1` | `dcm2img +Fa +Fn -M -W +Pid -O +opn 1` | Required when collecting evidence for its declared case | DCMTK 3.7.0 emits one PGM per frame. The collector requires P2, dimensions 3 by 3, maximum value one, exact samples, and exact frame hashes; `dcmdump +W` separately binds the packed Pixel Data bytes. Primary IOD validation remains `dciodvfy`. |
 | ICC profile processing | `littlecms-transicc-icc` | `transicc -n -i<profile> -o*XYZ -t0` | Required when collecting evidence for its declared case | Set `DTS_LCMS_HOME` to the immutable LittleCMS prefix. Locked DCMTK reconstructs the complete ICC OB value, strict checks enforce the DICOM input-profile header and `SRGB` label, and LittleCMS 2.19 must reproduce four fixed RGB-to-XYZ vectors. Primary IOD validation remains `dciodvfy`. |
 | Corpus entity consistency | `dicom3tools-dcentvfy` | `dcentvfy -f <file-list>` | Required | Same dicom3tools identity and acquisition decision as `dciodvfy`; pass files through its one-path-per-line file-list option to avoid argument limits. |
@@ -84,6 +85,17 @@ requires this additive evidence without replacing `dciodvfy`, project-owned
 presentation semantics, or `dcentvfy` reference closure; no finding is
 allowlisted for this route.
 
+The waveform secondary adapter is exact-case-only for
+`non-image/waveform/twelve_lead_ecg`. Qualification recognized the 2026b
+Twelve-lead ECG IOD and rejected a channel missing both conditional skew
+attributes. Both IOD validators accepted invalid sampling frequency,
+signedness, channel identity, sample-count arithmetic, and payload mutations,
+so strict Rust validation remains authoritative for those semantics. The
+separate `--waveform` route independently enforces the locked formula,
+channel-then-sample interleave, channel definitions, raw and per-channel
+hashes, and value range. Strict verification requires both additive IOD and
+payload evidence; no waveform finding is allowlisted.
+
 The U1 case stays on the unrestricted, locked `dciodvfy` primary route because
 that validator recognizes Multi-frame Single Bit Secondary Capture and its
 PS3.3 A.8.2.4 content constraints. The `uv`-locked pydicom validator was
@@ -101,7 +113,7 @@ LittleCMS transform. Strict verification requires both external tools to be
 available and lock-matched and rejects relinked sidecars; no ICC failure can be
 converted to ordinary unsupported native-pixel coverage.
 
-The U32 payload path uses adapter version 0.3.0 to read raw OW bytes through
+The U32 payload path uses adapter version 0.4.0 to read raw OW bytes through
 pydicom and unpack exact little-endian unsigned 32-bit words without NumPy.
 Its deterministic sidecar is cross-linked to the locked adapter, all image
 attributes, the four expected values, and every manifest frame hash.
@@ -113,7 +125,7 @@ binary width, and writes separate `dcmtk-native-float32` or
 `dcmtk-native-float64` evidence. Strict completeness requires passing,
 lock-matched independent evidence for every native floating payload.
 
-For `classic/sc/nonsquare_pixel_spacing`, adapter version 0.3.0 also performs
+For `classic/sc/nonsquare_pixel_spacing`, adapter version 0.4.0 also performs
 case-scoped semantic extraction with pydicom. It proves that the two files use
 mutually exclusive physical-spacing and integer-aspect-ratio declarations,
 checks exact VR, VM, lexical values and required absences, and binds the 4x6

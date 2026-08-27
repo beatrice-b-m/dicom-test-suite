@@ -183,6 +183,61 @@
       ]
     },
     {
+      "id": "pydicom-dicom-validator-waveform",
+      "role": "secondary_iod_validator",
+      "executable": "python",
+      "executable_env": "DTS_DICOM_VALIDATOR_PYTHON",
+      "arguments": [
+        "-m",
+        "dts_dicom_validator_adapter",
+        "--lock-path",
+        "conformance-backends/dicom-validator/standard-lock.json",
+        "{input}"
+      ],
+      "waveform_arguments": [
+        "-m",
+        "dts_dicom_validator_adapter",
+        "--waveform",
+        "--lock-path",
+        "conformance-backends/dicom-validator/standard-lock.json",
+        "{input}"
+      ],
+      "version_arguments": [
+        "-m",
+        "dts_dicom_validator_adapter",
+        "--version"
+      ],
+      "timeout_seconds": 60,
+      "required": false,
+      "platforms": ["linux", "macos", "windows"],
+      "supported_case_ids": [
+        "non-image/waveform/twelve_lead_ecg"
+      ],
+      "artifacts": [
+        {"path": "conformance-backends/dicom-validator/.python-version"},
+        {"path": "conformance-backends/dicom-validator/pyproject.toml"},
+        {"path": "conformance-backends/dicom-validator/uv.lock"},
+        {"path": "conformance-backends/dicom-validator/standard-lock.json"},
+        {"path": "conformance-backends/dicom-validator/src/dts_dicom_validator_adapter/__init__.py"},
+        {"path": "conformance-backends/dicom-validator/src/dts_dicom_validator_adapter/__main__.py"},
+        {"path": "2026b/docbook/part03.xml", "root_env": "DTS_DICOM_VALIDATOR_STANDARD_HOME"},
+        {"path": "2026b/docbook/part04.xml", "root_env": "DTS_DICOM_VALIDATOR_STANDARD_HOME"},
+        {"path": "2026b/docbook/part06.xml", "root_env": "DTS_DICOM_VALIDATOR_STANDARD_HOME"},
+        {"path": "2026b/json/dict_info.json", "root_env": "DTS_DICOM_VALIDATOR_STANDARD_HOME"},
+        {"path": "2026b/json/iod_info.json", "root_env": "DTS_DICOM_VALIDATOR_STANDARD_HOME"},
+        {"path": "2026b/json/module_info.json", "root_env": "DTS_DICOM_VALIDATOR_STANDARD_HOME"},
+        {"path": "2026b/json/uid_info.json", "root_env": "DTS_DICOM_VALIDATOR_STANDARD_HOME"},
+        {"path": "2026b/json/version", "root_env": "DTS_DICOM_VALIDATOR_STANDARD_HOME"}
+      ],
+      "capabilities": [
+        "iod_validation",
+        "normalized_findings",
+        "dicom_2026b_definitions",
+        "twelve_lead_ecg_iod_validation",
+        "raw_waveform_payload_validation"
+      ]
+    },
+    {
       "id": "dcmtk-dcmdump",
       "role": "independent_parser",
       "executable": "dcmdump",

@@ -143,7 +143,7 @@ fn uv_iod_validator_is_case_scoped_and_fully_locked() {
         .expect("u32 IOD validator must have an accepted lock entry");
     assert_eq!(
         tool["adapter_sha256"],
-        "3f20de6ca7d310e2e9f2920f368912f97b6cf62bdfdf750e1417eb5dc4b335b6"
+        "c571a68eb9677bd415e61acfaf0b201fdbf9fb27fdbf37fd5bfe7cad68d163e4"
     );
     assert_eq!(tool["platforms"], serde_json::json!(["arm64-macos"]));
     assert!(
@@ -198,7 +198,7 @@ fn registration_secondary_iod_validator_is_additive_and_locked() {
     assert_eq!(tool["role"], "secondary_iod_validator");
     assert_eq!(
         tool["adapter_sha256"],
-        "3f20de6ca7d310e2e9f2920f368912f97b6cf62bdfdf750e1417eb5dc4b335b6"
+        "c571a68eb9677bd415e61acfaf0b201fdbf9fb27fdbf37fd5bfe7cad68d163e4"
     );
 
     let readme = fs::read_to_string("conformance/README.md").unwrap();
@@ -245,7 +245,7 @@ fn presentation_state_secondary_iod_validator_is_additive_and_locked() {
     assert_eq!(tool["role"], "secondary_iod_validator");
     assert_eq!(
         tool["adapter_sha256"],
-        "3f20de6ca7d310e2e9f2920f368912f97b6cf62bdfdf750e1417eb5dc4b335b6"
+        "c571a68eb9677bd415e61acfaf0b201fdbf9fb27fdbf37fd5bfe7cad68d163e4"
     );
 
     let readme = fs::read_to_string("conformance/README.md").unwrap();
@@ -260,6 +260,52 @@ fn presentation_state_secondary_iod_validator_is_additive_and_locked() {
             readme.contains(required),
             "presentation-state route requires {required}"
         );
+    }
+}
+
+#[test]
+fn waveform_secondary_iod_and_payload_validator_is_additive_and_locked() {
+    let validators = read_json("conformance/validators.json");
+    let adapter = validators["adapters"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|adapter| adapter["id"] == "pydicom-dicom-validator-waveform")
+        .expect("waveform validator must be configured");
+    assert_eq!(adapter["role"], "secondary_iod_validator");
+    assert_eq!(adapter["required"], false);
+    assert_eq!(
+        adapter["supported_case_ids"],
+        serde_json::json!(["non-image/waveform/twelve_lead_ecg"])
+    );
+    assert!(adapter["waveform_arguments"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|argument| argument == "--waveform"));
+
+    let lock = read_json("conformance/validator-lock.json");
+    let tool = lock["tools"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|tool| tool["adapter_id"] == "pydicom-dicom-validator-waveform")
+        .expect("waveform validator must have an accepted lock entry");
+    assert_eq!(tool["role"], "secondary_iod_validator");
+    assert_eq!(
+        tool["adapter_sha256"],
+        "c571a68eb9677bd415e61acfaf0b201fdbf9fb27fdbf37fd5bfe7cad68d163e4"
+    );
+
+    let readme = fs::read_to_string("conformance/README.md").unwrap();
+    for required in [
+        "pydicom-dicom-validator-waveform",
+        "channel missing both conditional skew",
+        "Both IOD validators accepted invalid sampling frequency",
+        "channel-then-sample interleave",
+        "no waveform finding is allowlisted",
+    ] {
+        assert!(readme.contains(required), "waveform route requires {required}");
     }
 }
 
@@ -281,7 +327,7 @@ fn uv_conformance_docs_preserve_the_independent_gate() {
     let backend = fs::read_to_string("conformance-backends/dicom-validator/README.md").unwrap();
     for required in [
         "`uv`",
-        "Adapter version 0.3.0",
+        "Adapter version 0.4.0",
         "`--pixel-u32`",
         "`--nonsquare-spacing`",
         "does not use NumPy",

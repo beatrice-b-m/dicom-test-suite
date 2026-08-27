@@ -4004,6 +4004,36 @@ pub(crate) fn write_supported_cases(
     }
     if let Some(case) = registry_case(registry, COLOR_SOFTCOPY_PRESENTATION_STATE_CASE_ID)? {
         if should_generate_case(case, run)? {
+            if context
+                .source_registry()
+                .first_for_case(COLOR_SOFTCOPY_PRESENTATION_STATE_SOURCE_CASE_ID)
+                .is_none()
+            {
+                let source_case = registry_case(
+                    registry,
+                    COLOR_SOFTCOPY_PRESENTATION_STATE_SOURCE_CASE_ID,
+                )?
+                .ok_or_else(|| GenerateError::MetadataShape {
+                    path: PathBuf::from(COLOR_SOFTCOPY_PRESENTATION_STATE_CASE_ID),
+                    message: "Color Softcopy Presentation State RGB source registry row is missing",
+                })?;
+                let source_recipe = PIXEL_RECIPES
+                    .iter()
+                    .find(|recipe| {
+                        recipe.case_id == COLOR_SOFTCOPY_PRESENTATION_STATE_SOURCE_CASE_ID
+                    })
+                    .copied()
+                    .ok_or_else(|| GenerateError::MetadataShape {
+                        path: PathBuf::from(COLOR_SOFTCOPY_PRESENTATION_STATE_CASE_ID),
+                        message: "Color Softcopy Presentation State RGB native recipe is missing",
+                    })?;
+                context.record_one(write_pixel_case(
+                    run,
+                    source_case,
+                    source_recipe,
+                    standards_lock_sha256,
+                )?)?;
+            }
             let source = context
                 .source_registry()
                 .first_for_case(COLOR_SOFTCOPY_PRESENTATION_STATE_SOURCE_CASE_ID)

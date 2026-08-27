@@ -970,8 +970,6 @@ fn phase4_single_frame_vl_qualification_is_recorded() {
         "authorized `uv`-locked secondary IOD route",
         "registry now contains 146 implemented and 36 planned cases",
         "the deliberately incomplete `TILED_SPARSE` counterpart, is complete",
-        "registry now contains 147\nimplemented and 35 planned cases",
-        "Milestone 4, the opt-in stress-profile\nmulti-resolution pyramid",
     ] {
         assert!(
             plan.contains(required),
@@ -1074,6 +1072,19 @@ fn phase4_wsi_pyramid_standards_lock_and_promotion_are_recorded() {
                 && item["covered"] == true
         })
     }));
+
+    let plan = fs::read_to_string("docs/coverage-expansion-plan.md")
+        .expect("coverage expansion plan must be readable");
+    for required in [
+        "registry now contains 148 implemented and 34\nplanned cases",
+        "Ordinary `all` remains unchanged because stress cases require\nexplicit selection",
+        "Phase 4 milestone 5, multiple optical paths or focal\nplanes, is next",
+    ] {
+        assert!(
+            plan.contains(required),
+            "coverage expansion plan requires {required}"
+        );
+    }
 }
 
 #[test]
@@ -5743,6 +5754,10 @@ fn generator_recipe_case_ids() -> BTreeSet<String> {
         (
             "src/generator/native/wsi_tiled_sparse.rs",
             &["WSI_TILED_SPARSE_CASE_ID: &str = \""][..],
+        ),
+        (
+            "src/generator/native/wsi_pyramid.rs",
+            &["WSI_PYRAMID_CASE_ID: &str = \""][..],
         ),
         ("src/generator/native/xa.rs", &["case_id: \""][..]),
         ("src/generator/native/xrf.rs", &["case_id: \""][..]),

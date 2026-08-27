@@ -12148,6 +12148,14 @@
           "covered": true,
           "part": "PS3.6",
           "anchor": "table_A-1"
+        },
+        {
+          "source": "local-source-note",
+          "edition": "2026b",
+          "query": "standards/source-notes/phase-2-private-creator-blocks.md",
+          "covered": true,
+          "part": "PS3.5",
+          "anchor": "sect_7.8.1"
         }
       ]
     },

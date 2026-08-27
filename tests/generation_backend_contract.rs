@@ -20,11 +20,15 @@ fn committed_backend_lock_loads_with_dependency_verification() {
     let highdicom = backend_policy(&lock, "highdicom_pydicom")
         .expect("highdicom/pydicom policy must be present");
     assert_eq!(
-        highdicom.pointer("/dependency_lock/format").and_then(Value::as_str),
+        highdicom
+            .pointer("/dependency_lock/format")
+            .and_then(Value::as_str),
         Some("uv-lock-v1")
     );
     assert_eq!(
-        highdicom.pointer("/dependency_lock/path").and_then(Value::as_str),
+        highdicom
+            .pointer("/dependency_lock/path")
+            .and_then(Value::as_str),
         Some("generation-backends/highdicom-pydicom/uv.lock")
     );
     assert!(
@@ -32,7 +36,10 @@ fn committed_backend_lock_loads_with_dependency_verification() {
             .as_array()
             .expect("blockers must be an array")
             .iter()
-            .all(|blocker| !blocker.as_str().unwrap_or_default().contains("runtime manager")),
+            .all(|blocker| !blocker
+                .as_str()
+                .unwrap_or_default()
+                .contains("runtime manager")),
         "the explicit uv decision must remove the runtime-manager blocker"
     );
 }

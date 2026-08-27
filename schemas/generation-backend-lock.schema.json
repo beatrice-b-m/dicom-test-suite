@@ -133,14 +133,21 @@
       "type": "object",
       "required": [
         "executable",
+        "default_relative_executable",
         "fixed_arguments",
         "version_arguments",
+        "runtime_identity_arguments",
+        "entrypoint_paths",
         "environment_override"
       ],
       "properties": {
         "executable": {
           "type": "string",
           "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+        },
+        "default_relative_executable": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]*$"
         },
         "fixed_arguments": {
           "type": "array",
@@ -149,6 +156,20 @@
         "version_arguments": {
           "type": "array",
           "items": { "type": "string" }
+        },
+        "runtime_identity_arguments": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1
+        },
+        "entrypoint_paths": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]*$"
+          },
+          "minItems": 1,
+          "uniqueItems": true
         },
         "environment_override": {
           "type": ["string", "null"],

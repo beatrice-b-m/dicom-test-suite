@@ -775,6 +775,28 @@ fn generation_backend_schemas_lock_protocol_version_and_security_fields() {
 }
 
 #[test]
+fn backend_discovery_schema_requires_portable_runtime_identity_inputs() {
+    let schema = read_json("schemas/generation-backend-lock.schema.json");
+    let required = schema
+        .pointer("/$defs/discovery/required")
+        .and_then(Value::as_array)
+        .expect("backend discovery must define required fields");
+    for field in [
+        "default_relative_executable",
+        "fixed_arguments",
+        "version_arguments",
+        "runtime_identity_arguments",
+        "entrypoint_paths",
+        "environment_override",
+    ] {
+        assert!(
+            required.iter().any(|value| value.as_str() == Some(field)),
+            "backend discovery must require {field}"
+        );
+    }
+}
+
+#[test]
 fn viewer_report_schema_requires_viewer_compatibility_result_fields() {
     let schema = read_json("schemas/viewer-report.schema.json");
     let required = schema

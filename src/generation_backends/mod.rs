@@ -10,6 +10,8 @@ use serde_json::Value;
 
 use crate::sha256_hex;
 
+mod discovery;
+pub use discovery::{BackendDiscovery, PreparedBackend, discover_prepared_backend};
 mod process;
 pub use process::{
     BackendInvocation, BackendRun, environment_fingerprint, executable_fingerprint, invoke_backend,
@@ -110,6 +112,28 @@ pub fn validate_backend_lock(
             problems.push(format!(
                 "planned backend {id} must not imply executable discovery"
             ));
+        }
+        if let Some(discovery) = backend["discovery"].as_object() {
+            let default_executable = Path::new(
+                discovery["default_relative_executable"]
+                    .as_str()
+                    .expect("schema checked default executable"),
+            );
+            if !is_safe_relative_path(default_executable) {
+                problems.push(format!(
+                    "backend {id} default runtime executable path is unsafe"
+                ));
+            }
+            for entrypoint in discovery["entrypoint_paths"]
+                .as_array()
+                .expect("schema checked entrypoint paths")
+            {
+                let relative =
+                    Path::new(entrypoint.as_str().expect("schema checked entrypoint path"));
+                if !is_safe_relative_path(relative) {
+                    problems.push(format!("backend {id} entrypoint path is unsafe"));
+                }
+            }
         }
 
         if let Some(dependency_lock) = backend["dependency_lock"].as_object() {

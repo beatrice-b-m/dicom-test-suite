@@ -10,8 +10,8 @@ use serde_json::Value;
 use crate::sha256_hex;
 
 use super::{
-    BackendContractError, OutputLimits, validate_request, validate_response_for_request,
-    verify_staged_outputs,
+    BackendContractError, OutputLimits, stage_declared_sources, validate_request,
+    validate_response_for_request, verify_staged_outputs,
 };
 
 const REQUEST_FILE: &str = "request.json";
@@ -43,6 +43,7 @@ pub struct BackendRun {
 pub fn invoke_backend(
     invocation: &BackendInvocation,
     request: &Value,
+    input_root: &Path,
     staging_root: &Path,
 ) -> Result<BackendRun, BackendContractError> {
     validate_request(request)?;
@@ -51,6 +52,7 @@ pub fn invoke_backend(
     let outputs = staging_root.join(OUTPUT_DIRECTORY);
     let request_path = staging_root.join(REQUEST_FILE);
     let response_path = staging_root.join(RESPONSE_FILE);
+    stage_declared_sources(request, input_root, &inputs)?;
 
     let mut staged_request = request.clone();
     staged_request["staging"]["root"] = Value::String(staging_root.display().to_string());
@@ -322,6 +324,7 @@ mod tests {
         let result = invoke_backend(
             &fake_invocation(Duration::from_secs(2)),
             &request(),
+            Path::new("."),
             &staging,
         )
         .expect("fake backend should return unavailable");
@@ -336,6 +339,7 @@ mod tests {
         let error = invoke_backend(
             &fake_invocation(Duration::from_secs(2)),
             &request(),
+            Path::new("."),
             &staging,
         )
         .expect_err("mismatched response must fail");
@@ -349,6 +353,7 @@ mod tests {
         let error = invoke_backend(
             &fake_invocation(Duration::from_millis(30)),
             &request(),
+            Path::new("."),
             &staging,
         )
         .expect_err("slow backend must time out");
@@ -362,6 +367,7 @@ mod tests {
         let error = invoke_backend(
             &fake_invocation(Duration::from_secs(2)),
             &request(),
+            Path::new("."),
             &staging,
         )
         .expect_err("undeclared backend output must fail");
@@ -375,6 +381,7 @@ mod tests {
         let error = invoke_backend(
             &fake_invocation(Duration::from_secs(2)),
             &request(),
+            Path::new("."),
             &staging,
         )
         .expect_err("false executable fingerprint must fail");

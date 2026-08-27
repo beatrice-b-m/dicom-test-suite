@@ -15,7 +15,9 @@ pub use process::{
     BackendInvocation, BackendRun, environment_fingerprint, executable_fingerprint, invoke_backend,
 };
 mod staging;
-pub use staging::{OutputLimits, promote_staged_outputs, verify_staged_outputs};
+pub use staging::{
+    OutputLimits, promote_staged_outputs, stage_declared_sources, verify_staged_outputs,
+};
 
 pub const PROTOCOL_VERSION: &str = "0.1.0";
 pub const BACKEND_LOCK_FILE: &str = "generation-backends.lock.json";
@@ -219,7 +221,12 @@ pub fn backend_policy<'a>(lock: &'a Value, backend_id: &str) -> Option<&'a Value
 }
 
 pub fn is_safe_relative_path(path: &Path) -> bool {
-    !path.as_os_str().is_empty()
+    let Some(text) = path.to_str() else {
+        return false;
+    };
+    !text.is_empty()
+        && !text.contains(['\\', ':'])
+        && !text.split('/').any(|component| component.is_empty())
         && !path.is_absolute()
         && path.components().all(|component| {
             matches!(component, Component::Normal(_))
@@ -272,6 +279,9 @@ mod tests {
         assert!(!is_safe_relative_path(Path::new("nested/../object.dcm")));
         assert!(!is_safe_relative_path(Path::new("./object.dcm")));
         assert!(!is_safe_relative_path(Path::new("/absolute/object.dcm")));
+        assert!(!is_safe_relative_path(Path::new("nested\\object.dcm")));
+        assert!(!is_safe_relative_path(Path::new("C:/object.dcm")));
+        assert!(!is_safe_relative_path(Path::new("nested//object.dcm")));
         assert!(!is_safe_relative_path(Path::new("")));
     }
 }

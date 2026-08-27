@@ -9067,7 +9067,7 @@
     {
       "case_id": "derived/parametric-map/float64_ct_derived_explicit_le",
       "artifact_kind": "dicom_instance",
-      "status": "planned",
+      "status": "implemented",
       "provider": {
         "kind": "external_backend",
         "id": "highdicom_pydicom"
@@ -9078,23 +9078,8 @@
         "references",
         "pixels"
       ],
-      "roadmap": {
-        "priority": "next",
-        "delivery_phase": "phase-3",
-        "rationale": "Exercises Double Float Pixel Data and real-world value mapping."
-      },
-      "blockers": [
-        {
-          "code": "backend_contract_unimplemented",
-          "message": "The external generation protocol is not implemented.",
-          "recheck_phase": "phase-1"
-        },
-        {
-          "code": "independent_iod_validator_unavailable",
-          "message": "The required independent validation path is not integrated.",
-          "recheck_phase": "phase-3"
-        }
-      ],
+      "roadmap": null,
+      "blockers": [],
       "profiles": [
         "extended"
       ],
@@ -9120,6 +9105,14 @@
           "covered": true,
           "part": "PS3.6",
           "anchor": "table_A-1"
+        },
+        {
+          "source": "official-dicom-standard",
+          "edition": "2026b",
+          "covered": true,
+          "part": "PS3.3; PS3.5; PS3.6",
+          "anchor": "A.75.1; table_A.75-1; C.7.6.24; C.7.6.16; C.7.6.17; C.8.32.1; C.8.32.2; section_6.2; table_6-1",
+          "reason": "Locks the Double Float Image Pixel, multi-frame functional group, dimension, real-world value mapping, OD VR, and Double Float Pixel Data requirements recorded in the source note."
         }
       ]
     },

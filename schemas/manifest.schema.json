@@ -458,7 +458,13 @@
     },
     "expected_metadata": {
       "type": "object",
-      "required": ["specific_character_sets", "person_names"],
+      "anyOf": [
+        { "required": ["person_names"] },
+        { "required": ["temporal"] }
+      ],
+      "dependentRequired": {
+        "person_names": ["specific_character_sets"]
+      },
       "properties": {
         "specific_character_sets": {
           "type": "array",
@@ -472,9 +478,131 @@
           "type": "array",
           "items": { "$ref": "#/$defs/expected_person_name" },
           "minItems": 1
+        },
+        "temporal": {
+          "$ref": "#/$defs/expected_temporal_metadata"
         }
       },
       "additionalProperties": false
+    },
+    "expected_temporal_metadata": {
+      "type": "object",
+      "required": [
+        "boundary_id",
+        "timezone_offset_from_utc",
+        "date_values",
+        "time_values",
+        "date_time_values",
+        "combined_da_tm_utc"
+      ],
+      "properties": {
+        "boundary_id": {
+          "enum": ["positive_max", "negative_min"]
+        },
+        "timezone_offset_from_utc": {
+          "$ref": "#/$defs/expected_timezone_offset"
+        },
+        "date_values": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/expected_date_value" },
+          "minItems": 1
+        },
+        "time_values": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/expected_time_value" },
+          "minItems": 1
+        },
+        "date_time_values": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/expected_date_time_value" },
+          "minItems": 1
+        },
+        "combined_da_tm_utc": { "$ref": "#/$defs/utc_timestamp" }
+      },
+      "additionalProperties": false
+    },
+    "expected_encoded_temporal_value": {
+      "type": "object",
+      "required": [
+        "tag",
+        "keyword",
+        "vr",
+        "decoded_value",
+        "raw_value_hex",
+        "raw_value_sha256",
+        "raw_value_byte_length"
+      ],
+      "properties": {
+        "tag": {
+          "type": "string",
+          "pattern": "^[0-9A-F]{4},[0-9A-F]{4}$"
+        },
+        "keyword": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Za-z0-9]*$"
+        },
+        "vr": { "enum": ["DA", "TM", "DT", "SH"] },
+        "decoded_value": { "type": "string", "minLength": 1 },
+        "raw_value_hex": {
+          "type": "string",
+          "pattern": "^(?:[0-9A-F]{2})+$"
+        },
+        "raw_value_sha256": { "$ref": "#/$defs/sha256" },
+        "raw_value_byte_length": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "expected_timezone_offset": {
+      "allOf": [
+        { "$ref": "#/$defs/expected_encoded_temporal_value" },
+        {
+          "required": ["offset_minutes"],
+          "properties": {
+            "vr": { "const": "SH" },
+            "offset_minutes": {
+              "type": "integer",
+              "minimum": -720,
+              "maximum": 840
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "expected_date_value": {
+      "allOf": [
+        { "$ref": "#/$defs/expected_encoded_temporal_value" },
+        { "properties": { "vr": { "const": "DA" } } }
+      ],
+      "unevaluatedProperties": false
+    },
+    "expected_time_value": {
+      "allOf": [
+        { "$ref": "#/$defs/expected_encoded_temporal_value" },
+        { "properties": { "vr": { "const": "TM" } } }
+      ],
+      "unevaluatedProperties": false
+    },
+    "expected_date_time_value": {
+      "allOf": [
+        { "$ref": "#/$defs/expected_encoded_temporal_value" },
+        {
+          "required": ["embedded_offset_minutes", "normalized_utc"],
+          "properties": {
+            "vr": { "const": "DT" },
+            "embedded_offset_minutes": {
+              "type": "integer",
+              "minimum": -720,
+              "maximum": 840
+            },
+            "normalized_utc": { "$ref": "#/$defs/utc_timestamp" }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "utc_timestamp": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{6}Z$"
     },
     "expected_person_name": {
       "type": "object",

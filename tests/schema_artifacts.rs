@@ -412,6 +412,39 @@ fn manifest_schema_allows_default_iso2022_repertoire_but_not_all_empty() {
 }
 
 #[test]
+fn manifest_schema_types_timezone_boundary_expectations() {
+    let schema = read_json("schemas/manifest.schema.json");
+    let metadata_schema = serde_json::json!({
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$ref": "#/$defs/expected_metadata",
+        "$defs": schema["$defs"].clone(),
+    });
+    let validator =
+        jsonschema::validator_for(&metadata_schema).expect("metadata schema should compile");
+    let temporal = positive_timezone_expectations();
+    let errors = validator
+        .iter_errors(&temporal)
+        .map(|error| error.to_string())
+        .collect::<Vec<_>>();
+    assert!(
+        errors.is_empty(),
+        "valid timezone boundary expectations should pass: {errors:?}"
+    );
+
+    let mut malformed = temporal;
+    malformed["temporal"]["timezone_offset_from_utc"]["offset_minutes"] = serde_json::json!(841);
+    malformed["temporal"]["date_values"][0]["vr"] = serde_json::json!("TM");
+    malformed["temporal"]["date_time_values"][0]["normalized_utc"] =
+        serde_json::json!("2024-02-29T09:59:59Z");
+    malformed["temporal"]["unexpected"] = serde_json::json!(true);
+    let errors = validator.iter_errors(&malformed).collect::<Vec<_>>();
+    assert!(
+        errors.len() >= 4,
+        "offset range, typed VR, UTC precision, and unknown fields must be rejected: {errors:?}"
+    );
+}
+
+#[test]
 fn manifest_schema_rejects_malformed_person_name_expectations() {
     let schema = read_json("schemas/manifest.schema.json");
     let metadata_schema = serde_json::json!({
@@ -480,6 +513,54 @@ fn utf8_person_name_expectations() -> Value {
                 },
             ],
         }],
+    })
+}
+
+fn positive_timezone_expectations() -> Value {
+    serde_json::json!({
+        "temporal": {
+            "boundary_id": "positive_max",
+            "timezone_offset_from_utc": {
+                "tag": "0008,0201",
+                "keyword": "TimezoneOffsetFromUTC",
+                "vr": "SH",
+                "decoded_value": "+1400",
+                "raw_value_hex": "2B3134303020",
+                "raw_value_sha256": "91a932becb33d781226fc6594e6bcb216db6ea5b3083e3fa61c7d0d8f9ea3385",
+                "raw_value_byte_length": 6,
+                "offset_minutes": 840
+            },
+            "date_values": [{
+                "tag": "0008,0020",
+                "keyword": "StudyDate",
+                "vr": "DA",
+                "decoded_value": "20240229",
+                "raw_value_hex": "3230323430323239",
+                "raw_value_sha256": "2f6535964836f84a6109cda2cfd8603a977b64a00c1d6db2a6e3eb754a6f5370",
+                "raw_value_byte_length": 8
+            }],
+            "time_values": [{
+                "tag": "0008,0030",
+                "keyword": "StudyTime",
+                "vr": "TM",
+                "decoded_value": "235959.999999",
+                "raw_value_hex": "3233353935392E39393939393920",
+                "raw_value_sha256": "9a0aa44898ffd1f02e8896c0083f939cf2fcfaa838084947aa8f9035ed094fad",
+                "raw_value_byte_length": 14
+            }],
+            "date_time_values": [{
+                "tag": "0008,002A",
+                "keyword": "AcquisitionDateTime",
+                "vr": "DT",
+                "decoded_value": "20240229235959.999999+1400",
+                "raw_value_hex": "32303234303232393233353935392E3939393939392B31343030",
+                "raw_value_sha256": "81ba5e3ca1486cfdb6d2ca599c135950a3e406cfc0d890aafc06bcdd2a806252",
+                "raw_value_byte_length": 26,
+                "embedded_offset_minutes": 840,
+                "normalized_utc": "2024-02-29T09:59:59.999999Z"
+            }],
+            "combined_da_tm_utc": "2024-02-29T09:59:59.999999Z"
+        }
     })
 }
 

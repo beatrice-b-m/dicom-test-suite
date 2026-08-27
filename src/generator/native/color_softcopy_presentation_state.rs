@@ -49,13 +49,8 @@ pub(in crate::generator) fn build_color_softcopy_presentation_state(
     );
     put_str(&mut object, tags::SYNTHETIC_DATA, VR::CS, "YES");
 
-    put_str(
-        &mut object,
-        tags::PATIENT_NAME,
-        VR::PN,
-        "DTS^Synthetic^Patient001",
-    );
-    put_str(&mut object, tags::PATIENT_ID, VR::LO, "DTS-PATIENT-001");
+    put_str(&mut object, tags::PATIENT_NAME, VR::PN, "DICOMTEST^SMOKE");
+    put_str(&mut object, tags::PATIENT_ID, VR::LO, "DICOMTEST-SMOKE-001");
     put_str(&mut object, tags::PATIENT_BIRTH_DATE, VR::DA, "19700101");
     put_str(&mut object, tags::PATIENT_SEX, VR::CS, "O");
 

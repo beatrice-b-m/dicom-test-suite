@@ -35,6 +35,8 @@ fn color_softcopy_presentation_state_builds_locked_identity_and_series() {
     let object = build_color_softcopy_presentation_state(input).expect("locked input should build");
 
     for (tag, expected) in [
+        (tags::PATIENT_NAME, "DICOMTEST^SMOKE"),
+        (tags::PATIENT_ID, "DICOMTEST-SMOKE-001"),
         (
             tags::SOP_CLASS_UID,
             COLOR_SOFTCOPY_PRESENTATION_STATE_STORAGE_UID,

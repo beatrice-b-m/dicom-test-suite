@@ -3296,6 +3296,25 @@ fn manifest_u16_array(
         .collect()
 }
 
+fn manifest_u32_array(
+    manifest_path: &Path,
+    value: &Value,
+    pointer: &str,
+    message: &'static str,
+) -> Result<Vec<u32>, ValidateError> {
+    manifest_array(manifest_path, value, pointer, message)?
+        .iter()
+        .map(|item| {
+            item.as_u64()
+                .and_then(|number| u32::try_from(number).ok())
+                .ok_or(ValidateError::ManifestShape {
+                    path: manifest_path.to_path_buf(),
+                    message,
+                })
+        })
+        .collect()
+}
+
 fn manifest_f64_array(
     manifest_path: &Path,
     value: &Value,
@@ -3601,6 +3620,13 @@ fn validate_family_standard_elements(
             obj,
         )?,
         "Enhanced MR Image" => validate_enhanced_mr_image_standard_elements(
+            failures,
+            relative_path,
+            manifest_path,
+            file,
+            obj,
+        )?,
+        "Enhanced PET Image" => validate_enhanced_pet_image_standard_elements(
             failures,
             relative_path,
             manifest_path,
@@ -4818,6 +4844,52 @@ fn validate_pet_image_standard_elements(
             locked,
         );
         validate_type1_str_element(failures, relative_path, obj, tag, name, manifest_value);
+    }
+    for (tag, name) in [
+        (tags::IMAGE_TYPE, "enhanced_pet_image_type"),
+        (tags::MODALITY, "enhanced_pet_modality"),
+        (tags::PIXEL_PRESENTATION, "enhanced_pet_pixel_presentation"),
+        (
+            tags::VOLUMETRIC_PROPERTIES,
+            "enhanced_pet_volumetric_properties",
+        ),
+        (
+            tags::VOLUME_BASED_CALCULATION_TECHNIQUE,
+            "enhanced_pet_volume_based_calculation_technique",
+        ),
+        (
+            tags::CONTENT_QUALIFICATION,
+            "enhanced_pet_content_qualification",
+        ),
+        (
+            tags::BURNED_IN_ANNOTATION,
+            "enhanced_pet_burned_in_annotation",
+        ),
+        (
+            tags::LOSSY_IMAGE_COMPRESSION,
+            "enhanced_pet_lossy_image_compression",
+        ),
+        (
+            tags::PRESENTATION_LUT_SHAPE,
+            "enhanced_pet_presentation_lut_shape",
+        ),
+        (tags::TABLE_MOTION, "enhanced_pet_table_motion"),
+        (
+            tags::TIME_OF_FLIGHT_INFORMATION_USED,
+            "enhanced_pet_time_of_flight_information_used",
+        ),
+        (tags::COUNTS_SOURCE, "enhanced_pet_counts_source"),
+    ] {
+        match obj.element(tag) {
+            Ok(element) => validate_equal(
+                failures,
+                relative_path,
+                &format!("{name}_vr"),
+                element.vr(),
+                dicom_core::VR::CS,
+            ),
+            Err(err) => failures.push(format!("{relative_path}: {name}_vr: {err}")),
+        }
     }
 
     let series_type = manifest_string_array(
@@ -6931,6 +7003,1863 @@ fn validate_enhanced_mr_image_standard_elements(
 
     validate_enhanced_mr_timing_safety(failures, relative_path, manifest_path, file, shared)?;
 
+    Ok(())
+}
+
+fn validate_enhanced_pet_image_standard_elements(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    manifest_path: &Path,
+    file: &Value,
+    obj: &OpenedObject,
+) -> Result<(), ValidateError> {
+    let expected = file
+        .pointer("/expected_enhanced_pet")
+        .ok_or(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "Enhanced PET Image file must define expected_enhanced_pet",
+        })?;
+    let recipe_expected = file
+        .pointer("/recipe/recipe_parameters/enhanced_pet")
+        .ok_or(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "Enhanced PET recipe parameters must define enhanced_pet",
+        })?;
+    validate_equal_debug(
+        failures,
+        relative_path,
+        "enhanced_pet_recipe_manifest_contract",
+        recipe_expected,
+        expected,
+    );
+
+    let image_type = manifest_string_array(
+        manifest_path,
+        expected,
+        "/image_type",
+        "Enhanced PET image_type must be a string array",
+    )?;
+    let frame_type = manifest_string_array(
+        manifest_path,
+        expected,
+        "/frame_type",
+        "Enhanced PET frame_type must be a string array",
+    )?;
+    let locked_type = vec!["DERIVED", "PRIMARY", "STATIC", "EMISSION"];
+    validate_equal_debug(
+        failures,
+        relative_path,
+        "enhanced_pet_image_type_manifest_contract",
+        image_type.clone(),
+        locked_type.iter().map(ToString::to_string).collect(),
+    );
+    validate_equal_debug(
+        failures,
+        relative_path,
+        "enhanced_pet_frame_type_manifest_contract",
+        frame_type.clone(),
+        locked_type.iter().map(ToString::to_string).collect(),
+    );
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::IMAGE_TYPE,
+        "enhanced_pet_image_type",
+        &image_type.join("\\"),
+    );
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::MODALITY,
+        "enhanced_pet_modality",
+        "PT",
+    );
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::FRAME_OF_REFERENCE_UID,
+        "enhanced_pet_frame_of_reference_uid",
+        manifest_str(
+            manifest_path,
+            file,
+            "/uids/frame_of_reference_uid",
+            "Enhanced PET frame_of_reference_uid must be a string",
+        )?,
+    );
+    validate_type2_element(
+        failures,
+        relative_path,
+        obj,
+        tags::POSITION_REFERENCE_INDICATOR,
+        "enhanced_pet_position_reference_indicator_type2",
+    );
+    for (tag, name, locked) in [
+        (
+            tags::MANUFACTURER,
+            "enhanced_pet_manufacturer_type1",
+            "dicom-test-suite",
+        ),
+        (
+            tags::MANUFACTURER_MODEL_NAME,
+            "enhanced_pet_model_name_type1",
+            "enhanced_pet_multiframe_explicit_le",
+        ),
+        (
+            tags::DEVICE_SERIAL_NUMBER,
+            "enhanced_pet_device_serial_number_type1",
+            "DTS-EPET-0001",
+        ),
+        (
+            tags::SOFTWARE_VERSIONS,
+            "enhanced_pet_software_versions_type1",
+            PACKAGE_VERSION,
+        ),
+    ] {
+        validate_type1_str_element(failures, relative_path, obj, tag, name, locked);
+    }
+
+    for (pointer, tag, name, locked) in [
+        (
+            "/pixel_presentation",
+            tags::PIXEL_PRESENTATION,
+            "enhanced_pet_pixel_presentation",
+            "MONOCHROME",
+        ),
+        (
+            "/volumetric_properties",
+            tags::VOLUMETRIC_PROPERTIES,
+            "enhanced_pet_volumetric_properties",
+            "VOLUME",
+        ),
+        (
+            "/volume_based_calculation_technique",
+            tags::VOLUME_BASED_CALCULATION_TECHNIQUE,
+            "enhanced_pet_volume_based_calculation_technique",
+            "NONE",
+        ),
+        (
+            "/content_qualification",
+            tags::CONTENT_QUALIFICATION,
+            "enhanced_pet_content_qualification",
+            "RESEARCH",
+        ),
+        (
+            "/burned_in_annotation",
+            tags::BURNED_IN_ANNOTATION,
+            "enhanced_pet_burned_in_annotation",
+            "NO",
+        ),
+        (
+            "/lossy_image_compression",
+            tags::LOSSY_IMAGE_COMPRESSION,
+            "enhanced_pet_lossy_image_compression",
+            "00",
+        ),
+        (
+            "/presentation_lut_shape",
+            tags::PRESENTATION_LUT_SHAPE,
+            "enhanced_pet_presentation_lut_shape",
+            "IDENTITY",
+        ),
+        (
+            "/table_motion",
+            tags::TABLE_MOTION,
+            "enhanced_pet_table_motion",
+            "STATIC",
+        ),
+        (
+            "/time_of_flight_information_used",
+            tags::TIME_OF_FLIGHT_INFORMATION_USED,
+            "enhanced_pet_time_of_flight_information_used",
+            "FALSE",
+        ),
+        (
+            "/counts_source",
+            tags::COUNTS_SOURCE,
+            "enhanced_pet_counts_source",
+            "EMISSION",
+        ),
+    ] {
+        let manifest_value = manifest_str(
+            manifest_path,
+            expected,
+            pointer,
+            "Enhanced PET coded scalar must be a string",
+        )?;
+        validate_equal(
+            failures,
+            relative_path,
+            &format!("{name}_manifest_contract"),
+            manifest_value,
+            locked,
+        );
+        validate_type1_str_element(failures, relative_path, obj, tag, name, manifest_value);
+    }
+
+    let frame_count = manifest_u64(
+        manifest_path,
+        expected,
+        "/frame_count",
+        "Enhanced PET frame_count must be an integer",
+    )?;
+    validate_equal(
+        failures,
+        relative_path,
+        "enhanced_pet_frame_count_manifest_contract",
+        frame_count,
+        2,
+    );
+    for (pointer, name) in [
+        (
+            "/image/frames",
+            "enhanced_pet_image_frame_count_manifest_contract",
+        ),
+        (
+            "/pixel_data/frame_count",
+            "enhanced_pet_pixel_frame_count_manifest_contract",
+        ),
+    ] {
+        validate_equal(
+            failures,
+            relative_path,
+            name,
+            manifest_u64(
+                manifest_path,
+                file,
+                pointer,
+                "Enhanced PET frame count must be an integer",
+            )?,
+            frame_count,
+        );
+    }
+
+    for (pointer, tag, name, locked) in [
+        (
+            "/shared_functional_groups_item_count",
+            tags::SHARED_FUNCTIONAL_GROUPS_SEQUENCE,
+            "enhanced_pet_shared_functional_groups",
+            1_u64,
+        ),
+        (
+            "/per_frame_functional_groups_item_count",
+            tags::PER_FRAME_FUNCTIONAL_GROUPS_SEQUENCE,
+            "enhanced_pet_per_frame_functional_groups",
+            2,
+        ),
+        (
+            "/dimension_organization_item_count",
+            tags::DIMENSION_ORGANIZATION_SEQUENCE,
+            "enhanced_pet_dimension_organization",
+            1,
+        ),
+        (
+            "/dimension_index_item_count",
+            tags::DIMENSION_INDEX_SEQUENCE,
+            "enhanced_pet_dimension_index",
+            1,
+        ),
+        (
+            "/acquisition_context_item_count",
+            tags::ACQUISITION_CONTEXT_SEQUENCE,
+            "enhanced_pet_acquisition_context_empty",
+            0,
+        ),
+    ] {
+        let declared = manifest_u64(
+            manifest_path,
+            expected,
+            pointer,
+            "Enhanced PET sequence count must be an integer",
+        )?;
+        validate_equal(
+            failures,
+            relative_path,
+            &format!("{name}_manifest_contract"),
+            declared,
+            locked,
+        );
+        match sequence_item_count_for_validate(obj, tag) {
+            Ok(actual) => validate_equal(failures, relative_path, name, actual, declared),
+            Err(err) => failures.push(format!("{relative_path}: {name}: {err}")),
+        }
+    }
+
+    validate_enhanced_pet_dimensions(failures, relative_path, manifest_path, file, expected, obj)?;
+    validate_enhanced_pet_shared_groups(
+        failures,
+        relative_path,
+        manifest_path,
+        expected,
+        obj,
+        &frame_type,
+    )?;
+    validate_enhanced_pet_per_frame_groups(failures, relative_path, manifest_path, expected, obj)?;
+    validate_enhanced_pet_isotope_and_corrections(
+        failures,
+        relative_path,
+        manifest_path,
+        expected,
+        obj,
+    )?;
+    validate_enhanced_pet_pixels_and_nonclaims(
+        failures,
+        relative_path,
+        manifest_path,
+        file,
+        expected,
+        obj,
+    )?;
+
+    Ok(())
+}
+
+fn validate_enhanced_pet_dimensions(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    manifest_path: &Path,
+    file: &Value,
+    expected: &Value,
+    obj: &OpenedObject,
+) -> Result<(), ValidateError> {
+    let organization_uid = manifest_str(
+        manifest_path,
+        file,
+        "/uids/dimension_organization_uid",
+        "Enhanced PET dimension_organization_uid must be a string",
+    )?;
+    if let Ok(item) =
+        top_level_sequence_item_for_validate(obj, tags::DIMENSION_ORGANIZATION_SEQUENCE, 0)
+    {
+        validate_item_type1_str_element(
+            failures,
+            relative_path,
+            item,
+            tags::DIMENSION_ORGANIZATION_UID,
+            "enhanced_pet_dimension_organization_uid",
+            organization_uid,
+        );
+    }
+    if let Ok(item) = top_level_sequence_item_for_validate(obj, tags::DIMENSION_INDEX_SEQUENCE, 0) {
+        validate_item_type1_str_element(
+            failures,
+            relative_path,
+            item,
+            tags::DIMENSION_ORGANIZATION_UID,
+            "enhanced_pet_dimension_index_organization_uid",
+            organization_uid,
+        );
+        for (pointer, tag, name, locked) in [
+            (
+                "/dimension_index_pointer",
+                tags::DIMENSION_INDEX_POINTER,
+                "enhanced_pet_dimension_index_pointer",
+                tags::IN_STACK_POSITION_NUMBER,
+            ),
+            (
+                "/functional_group_pointer",
+                tags::FUNCTIONAL_GROUP_POINTER,
+                "enhanced_pet_functional_group_pointer",
+                tags::FRAME_CONTENT_SEQUENCE,
+            ),
+        ] {
+            let declared = parse_manifest_tag(
+                manifest_path,
+                manifest_str(
+                    manifest_path,
+                    expected,
+                    pointer,
+                    "Enhanced PET dimension pointer must be GGGG,EEEE",
+                )?,
+            )?;
+            validate_equal(
+                failures,
+                relative_path,
+                &format!("{name}_manifest_contract"),
+                declared,
+                locked,
+            );
+            match item_tag_for_validate(item, tag) {
+                Ok(actual) => validate_equal(failures, relative_path, name, actual, declared),
+                Err(err) => failures.push(format!("{relative_path}: {name}: {err}")),
+            }
+            validate_item_vr(failures, relative_path, item, tag, name, dicom_core::VR::AT);
+        }
+    }
+    Ok(())
+}
+
+fn validate_enhanced_pet_shared_groups(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    manifest_path: &Path,
+    expected: &Value,
+    obj: &OpenedObject,
+    frame_type_expected: &[String],
+) -> Result<(), ValidateError> {
+    let shared =
+        match top_level_sequence_item_for_validate(obj, tags::SHARED_FUNCTIONAL_GROUPS_SEQUENCE, 0)
+        {
+            Ok(item) => item,
+            Err(err) => {
+                failures.push(format!(
+                    "{relative_path}: enhanced_pet_shared_functional_groups_content: {err}"
+                ));
+                return Ok(());
+            }
+        };
+    for (tag, name) in [
+        (
+            tags::FRAME_CONTENT_SEQUENCE,
+            "enhanced_pet_frame_content_not_shared",
+        ),
+        (
+            tags::PLANE_POSITION_SEQUENCE,
+            "enhanced_pet_plane_position_not_shared",
+        ),
+    ] {
+        validate_item_absent(failures, relative_path, shared, tag, name);
+    }
+    for (tag, name) in [
+        (
+            tags::CARDIAC_SYNCHRONIZATION_SEQUENCE,
+            "enhanced_pet_cardiac_synchronization_not_shared",
+        ),
+        (
+            tags::RESPIRATORY_SYNCHRONIZATION_SEQUENCE,
+            "enhanced_pet_respiratory_synchronization_not_shared",
+        ),
+        (
+            tags::PET_FRAME_ACQUISITION_SEQUENCE,
+            "enhanced_pet_frame_acquisition_not_shared",
+        ),
+        (
+            tags::PET_DETECTOR_MOTION_DETAILS_SEQUENCE,
+            "enhanced_pet_detector_motion_not_shared",
+        ),
+        (
+            tags::PET_TABLE_DYNAMICS_SEQUENCE,
+            "enhanced_pet_table_dynamics_not_shared",
+        ),
+        (
+            tags::PET_POSITION_SEQUENCE,
+            "enhanced_pet_position_not_shared",
+        ),
+        (
+            tags::PET_FRAME_CORRECTION_FACTORS_SEQUENCE,
+            "enhanced_pet_correction_factors_not_shared",
+        ),
+        (
+            tags::PET_RECONSTRUCTION_SEQUENCE,
+            "enhanced_pet_reconstruction_not_shared",
+        ),
+        (
+            tags::PATIENT_PHYSIOLOGICAL_STATE_SEQUENCE,
+            "enhanced_pet_physiological_state_not_shared",
+        ),
+    ] {
+        validate_item_absent(failures, relative_path, shared, tag, name);
+    }
+    for (tag, name) in [
+        (tags::PIXEL_MEASURES_SEQUENCE, "enhanced_pet_pixel_measures"),
+        (
+            tags::PLANE_ORIENTATION_SEQUENCE,
+            "enhanced_pet_plane_orientation",
+        ),
+        (tags::FRAME_ANATOMY_SEQUENCE, "enhanced_pet_frame_anatomy"),
+        (
+            tags::PIXEL_VALUE_TRANSFORMATION_SEQUENCE,
+            "enhanced_pet_pixel_value_transformation",
+        ),
+        (tags::FRAME_VOILUT_SEQUENCE, "enhanced_pet_frame_voi_lut"),
+        (
+            tags::REAL_WORLD_VALUE_MAPPING_SEQUENCE,
+            "enhanced_pet_real_world_value_mapping",
+        ),
+        (
+            tags::RADIOPHARMACEUTICAL_USAGE_SEQUENCE,
+            "enhanced_pet_radiopharmaceutical_usage",
+        ),
+        (tags::PET_FRAME_TYPE_SEQUENCE, "enhanced_pet_pet_frame_type"),
+    ] {
+        match item_sequence_item_count_for_validate(shared, tag) {
+            Ok(actual) => validate_equal(failures, relative_path, name, actual, 1),
+            Err(err) => failures.push(format!("{relative_path}: {name}: {err}")),
+        }
+    }
+    let derivation_count = manifest_u64(
+        manifest_path,
+        expected,
+        "/derivation_image_item_count",
+        "Enhanced PET derivation item count must be an integer",
+    )?;
+    validate_equal(
+        failures,
+        relative_path,
+        "enhanced_pet_derivation_manifest_contract",
+        derivation_count,
+        0,
+    );
+    match item_sequence_item_count_for_validate(shared, tags::DERIVATION_IMAGE_SEQUENCE) {
+        Ok(actual) => validate_equal(
+            failures,
+            relative_path,
+            "enhanced_pet_derivation_image_empty",
+            actual,
+            derivation_count,
+        ),
+        Err(err) => failures.push(format!(
+            "{relative_path}: enhanced_pet_derivation_image_empty: {err}"
+        )),
+    }
+
+    if let Ok(pixel_measures) =
+        item_sequence_item_for_validate(shared, tags::PIXEL_MEASURES_SEQUENCE, 0)
+    {
+        for (tag, name) in [
+            (tags::PIXEL_SPACING, "enhanced_pet_pixel_spacing"),
+            (tags::SLICE_THICKNESS, "enhanced_pet_slice_thickness"),
+            (
+                tags::SPACING_BETWEEN_SLICES,
+                "enhanced_pet_spacing_between_slices",
+            ),
+        ] {
+            validate_item_vr(
+                failures,
+                relative_path,
+                pixel_measures,
+                tag,
+                name,
+                dicom_core::VR::DS,
+            );
+        }
+        for (pointer, tag, name, locked) in [
+            (
+                "/slice_thickness_mm",
+                tags::SLICE_THICKNESS,
+                "enhanced_pet_slice_thickness",
+                5.0,
+            ),
+            (
+                "/spacing_between_slices_mm",
+                tags::SPACING_BETWEEN_SLICES,
+                "enhanced_pet_spacing_between_slices",
+                5.0,
+            ),
+        ] {
+            let declared = manifest_f64(
+                manifest_path,
+                expected,
+                pointer,
+                "Enhanced PET spacing must be numeric",
+            )?;
+            validate_equal(
+                failures,
+                relative_path,
+                &format!("{name}_manifest_contract"),
+                declared,
+                locked,
+            );
+            validate_item_f64(failures, relative_path, pixel_measures, tag, name, declared);
+        }
+        let spacing = manifest_f64_array(
+            manifest_path,
+            expected,
+            "/pixel_spacing_mm",
+            "Enhanced PET pixel_spacing_mm must be numeric",
+        )?;
+        validate_equal_debug(
+            failures,
+            relative_path,
+            "enhanced_pet_pixel_spacing_manifest_contract",
+            spacing.clone(),
+            vec![2.0, 2.0],
+        );
+        validate_item_f64_array(
+            failures,
+            relative_path,
+            pixel_measures,
+            tags::PIXEL_SPACING,
+            "enhanced_pet_pixel_spacing",
+            spacing,
+        );
+    }
+    if let Ok(orientation) =
+        item_sequence_item_for_validate(shared, tags::PLANE_ORIENTATION_SEQUENCE, 0)
+    {
+        validate_item_vr(
+            failures,
+            relative_path,
+            orientation,
+            tags::IMAGE_ORIENTATION_PATIENT,
+            "enhanced_pet_image_orientation_patient",
+            dicom_core::VR::DS,
+        );
+        let declared = manifest_f64_array(
+            manifest_path,
+            expected,
+            "/image_orientation_patient",
+            "Enhanced PET orientation must be numeric",
+        )?;
+        validate_equal_debug(
+            failures,
+            relative_path,
+            "enhanced_pet_orientation_manifest_contract",
+            declared.clone(),
+            vec![1.0, 0.0, 0.0, 0.0, 1.0, 0.0],
+        );
+        validate_item_f64_array(
+            failures,
+            relative_path,
+            orientation,
+            tags::IMAGE_ORIENTATION_PATIENT,
+            "enhanced_pet_image_orientation_patient",
+            declared,
+        );
+    }
+    if let Ok(anatomy) = item_sequence_item_for_validate(shared, tags::FRAME_ANATOMY_SEQUENCE, 0) {
+        validate_item_vr(
+            failures,
+            relative_path,
+            anatomy,
+            tags::FRAME_LATERALITY,
+            "enhanced_pet_frame_laterality",
+            dicom_core::VR::CS,
+        );
+        let laterality = manifest_str(
+            manifest_path,
+            expected,
+            "/frame_laterality",
+            "Enhanced PET frame_laterality must be a string",
+        )?;
+        validate_equal(
+            failures,
+            relative_path,
+            "enhanced_pet_frame_laterality_manifest_contract",
+            laterality,
+            "U",
+        );
+        validate_item_type1_str_element(
+            failures,
+            relative_path,
+            anatomy,
+            tags::FRAME_LATERALITY,
+            "enhanced_pet_frame_laterality",
+            laterality,
+        );
+        validate_enhanced_pet_code(
+            failures,
+            relative_path,
+            manifest_path,
+            expected
+                .pointer("/anatomic_region")
+                .ok_or(ValidateError::ManifestShape {
+                    path: manifest_path.to_path_buf(),
+                    message: "Enhanced PET anatomic_region must be an object",
+                })?,
+            anatomy,
+            tags::ANATOMIC_REGION_SEQUENCE,
+            "enhanced_pet_anatomic_region",
+            ("69536005", "SCT", "Head"),
+        )?;
+    }
+    if let Ok(transform) =
+        item_sequence_item_for_validate(shared, tags::PIXEL_VALUE_TRANSFORMATION_SEQUENCE, 0)
+    {
+        for (tag, name, vr) in [
+            (
+                tags::RESCALE_INTERCEPT,
+                "enhanced_pet_rescale_intercept",
+                dicom_core::VR::DS,
+            ),
+            (
+                tags::RESCALE_SLOPE,
+                "enhanced_pet_rescale_slope",
+                dicom_core::VR::DS,
+            ),
+            (
+                tags::RESCALE_TYPE,
+                "enhanced_pet_rescale_type",
+                dicom_core::VR::LO,
+            ),
+        ] {
+            validate_item_vr(failures, relative_path, transform, tag, name, vr);
+        }
+        for (pointer, tag, name, locked) in [
+            (
+                "/rescale_intercept",
+                tags::RESCALE_INTERCEPT,
+                "enhanced_pet_rescale_intercept",
+                0.0,
+            ),
+            (
+                "/rescale_slope",
+                tags::RESCALE_SLOPE,
+                "enhanced_pet_rescale_slope",
+                2.5,
+            ),
+        ] {
+            let declared = manifest_f64(
+                manifest_path,
+                expected,
+                pointer,
+                "Enhanced PET rescale scalar must be numeric",
+            )?;
+            validate_equal(
+                failures,
+                relative_path,
+                &format!("{name}_manifest_contract"),
+                declared,
+                locked,
+            );
+            validate_item_f64(failures, relative_path, transform, tag, name, declared);
+        }
+        let rescale_type = manifest_str(
+            manifest_path,
+            expected,
+            "/rescale_type",
+            "Enhanced PET rescale_type must be a string",
+        )?;
+        validate_equal(
+            failures,
+            relative_path,
+            "enhanced_pet_rescale_type_manifest_contract",
+            rescale_type,
+            "US",
+        );
+        validate_item_type1_str_element(
+            failures,
+            relative_path,
+            transform,
+            tags::RESCALE_TYPE,
+            "enhanced_pet_rescale_type",
+            rescale_type,
+        );
+    }
+    if let Ok(voi) = item_sequence_item_for_validate(shared, tags::FRAME_VOILUT_SEQUENCE, 0) {
+        for (tag, name) in [
+            (tags::WINDOW_CENTER, "enhanced_pet_window_center"),
+            (tags::WINDOW_WIDTH, "enhanced_pet_window_width"),
+        ] {
+            validate_item_vr(failures, relative_path, voi, tag, name, dicom_core::VR::DS);
+        }
+        for (pointer, tag, name, locked) in [
+            (
+                "/window_center",
+                tags::WINDOW_CENTER,
+                "enhanced_pet_window_center",
+                500.0,
+            ),
+            (
+                "/window_width",
+                tags::WINDOW_WIDTH,
+                "enhanced_pet_window_width",
+                1000.0,
+            ),
+        ] {
+            let declared = manifest_f64(
+                manifest_path,
+                expected,
+                pointer,
+                "Enhanced PET VOI scalar must be numeric",
+            )?;
+            validate_equal(
+                failures,
+                relative_path,
+                &format!("{name}_manifest_contract"),
+                declared,
+                locked,
+            );
+            validate_item_f64(failures, relative_path, voi, tag, name, declared);
+        }
+    }
+    if let Ok(frame_type) =
+        item_sequence_item_for_validate(shared, tags::PET_FRAME_TYPE_SEQUENCE, 0)
+    {
+        for (tag, name) in [
+            (tags::FRAME_TYPE, "enhanced_pet_frame_type"),
+            (
+                tags::PIXEL_PRESENTATION,
+                "enhanced_pet_frame_pixel_presentation",
+            ),
+            (
+                tags::VOLUMETRIC_PROPERTIES,
+                "enhanced_pet_frame_volumetric_properties",
+            ),
+            (
+                tags::VOLUME_BASED_CALCULATION_TECHNIQUE,
+                "enhanced_pet_frame_volume_based_calculation_technique",
+            ),
+        ] {
+            validate_item_vr(
+                failures,
+                relative_path,
+                frame_type,
+                tag,
+                name,
+                dicom_core::VR::CS,
+            );
+        }
+        validate_item_type1_str_element(
+            failures,
+            relative_path,
+            frame_type,
+            tags::FRAME_TYPE,
+            "enhanced_pet_frame_type",
+            &frame_type_expected.join("\\"),
+        );
+        for (tag, name, expected_value) in [
+            (
+                tags::PIXEL_PRESENTATION,
+                "enhanced_pet_frame_pixel_presentation",
+                "MONOCHROME",
+            ),
+            (
+                tags::VOLUMETRIC_PROPERTIES,
+                "enhanced_pet_frame_volumetric_properties",
+                "VOLUME",
+            ),
+            (
+                tags::VOLUME_BASED_CALCULATION_TECHNIQUE,
+                "enhanced_pet_frame_volume_based_calculation_technique",
+                "NONE",
+            ),
+        ] {
+            validate_item_type1_str_element(
+                failures,
+                relative_path,
+                frame_type,
+                tag,
+                name,
+                expected_value,
+            );
+        }
+    }
+    validate_enhanced_pet_rwvm(failures, relative_path, manifest_path, expected, shared)?;
+    if let Ok(usage) =
+        item_sequence_item_for_validate(shared, tags::RADIOPHARMACEUTICAL_USAGE_SEQUENCE, 0)
+    {
+        validate_item_vr(
+            failures,
+            relative_path,
+            usage,
+            tags::RADIOPHARMACEUTICAL_AGENT_NUMBER,
+            "enhanced_pet_usage_agent_number",
+            dicom_core::VR::US,
+        );
+        let declared = manifest_u64(
+            manifest_path,
+            expected,
+            "/radiopharmaceutical_usage_agent_number",
+            "Enhanced PET usage agent number must be an integer",
+        )? as u16;
+        validate_equal(
+            failures,
+            relative_path,
+            "enhanced_pet_usage_agent_manifest_contract",
+            declared,
+            1,
+        );
+        validate_item_u16(
+            failures,
+            relative_path,
+            usage,
+            tags::RADIOPHARMACEUTICAL_AGENT_NUMBER,
+            "enhanced_pet_usage_agent_number",
+            declared,
+        );
+    }
+    Ok(())
+}
+
+fn validate_enhanced_pet_per_frame_groups(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    manifest_path: &Path,
+    expected: &Value,
+    obj: &OpenedObject,
+) -> Result<(), ValidateError> {
+    let stack_ids = manifest_string_array(
+        manifest_path,
+        expected,
+        "/stack_ids",
+        "Enhanced PET stack_ids must be a string array",
+    )?;
+    let in_stack = manifest_u32_array(
+        manifest_path,
+        expected,
+        "/in_stack_position_numbers",
+        "Enhanced PET in-stack positions must be integers",
+    )?;
+    let dimensions = manifest_u32_array(
+        manifest_path,
+        expected,
+        "/dimension_index_values",
+        "Enhanced PET dimension values must be integers",
+    )?;
+    let temporal = manifest_u32_array(
+        manifest_path,
+        expected,
+        "/temporal_position_indices",
+        "Enhanced PET temporal positions must be integers",
+    )?;
+    let positions = manifest_array(
+        manifest_path,
+        expected,
+        "/image_positions_patient_mm",
+        "Enhanced PET image positions must be arrays",
+    )?;
+    validate_equal_debug(
+        failures,
+        relative_path,
+        "enhanced_pet_stack_ids_manifest_contract",
+        stack_ids.clone(),
+        vec!["1".to_string(), "1".to_string()],
+    );
+    validate_equal_debug(
+        failures,
+        relative_path,
+        "enhanced_pet_in_stack_positions_manifest_contract",
+        in_stack.clone(),
+        vec![1, 2],
+    );
+    validate_equal_debug(
+        failures,
+        relative_path,
+        "enhanced_pet_dimension_values_manifest_contract",
+        dimensions.clone(),
+        vec![1, 2],
+    );
+    validate_equal_debug(
+        failures,
+        relative_path,
+        "enhanced_pet_temporal_positions_manifest_contract",
+        temporal.clone(),
+        vec![1, 1],
+    );
+    validate_equal(
+        failures,
+        relative_path,
+        "enhanced_pet_position_count_manifest_contract",
+        positions.len(),
+        2,
+    );
+    if stack_ids.len() != 2
+        || in_stack.len() != 2
+        || dimensions.len() != 2
+        || temporal.len() != 2
+        || positions.len() != 2
+    {
+        return Ok(());
+    }
+
+    let shared_only = [
+        tags::PIXEL_MEASURES_SEQUENCE,
+        tags::PLANE_ORIENTATION_SEQUENCE,
+        tags::FRAME_ANATOMY_SEQUENCE,
+        tags::PIXEL_VALUE_TRANSFORMATION_SEQUENCE,
+        tags::FRAME_VOILUT_SEQUENCE,
+        tags::REAL_WORLD_VALUE_MAPPING_SEQUENCE,
+        tags::RADIOPHARMACEUTICAL_USAGE_SEQUENCE,
+        tags::PET_FRAME_TYPE_SEQUENCE,
+        tags::DERIVATION_IMAGE_SEQUENCE,
+    ];
+    for index in 0..2 {
+        let frame = match top_level_sequence_item_for_validate(
+            obj,
+            tags::PER_FRAME_FUNCTIONAL_GROUPS_SEQUENCE,
+            index,
+        ) {
+            Ok(frame) => frame,
+            Err(err) => {
+                failures.push(format!(
+                    "{relative_path}: enhanced_pet_per_frame_item[{index}]: {err}"
+                ));
+                continue;
+            }
+        };
+        for tag in shared_only {
+            validate_item_absent(
+                failures,
+                relative_path,
+                frame,
+                tag,
+                &format!("enhanced_pet_shared_macro_not_per_frame[{index}]"),
+            );
+        }
+        for (tag, name) in [
+            (
+                tags::CARDIAC_SYNCHRONIZATION_SEQUENCE,
+                "cardiac_synchronization",
+            ),
+            (
+                tags::RESPIRATORY_SYNCHRONIZATION_SEQUENCE,
+                "respiratory_synchronization",
+            ),
+            (tags::PET_FRAME_ACQUISITION_SEQUENCE, "frame_acquisition"),
+            (
+                tags::PET_DETECTOR_MOTION_DETAILS_SEQUENCE,
+                "detector_motion",
+            ),
+            (tags::PET_TABLE_DYNAMICS_SEQUENCE, "table_dynamics"),
+            (tags::PET_POSITION_SEQUENCE, "position"),
+            (
+                tags::PET_FRAME_CORRECTION_FACTORS_SEQUENCE,
+                "correction_factors",
+            ),
+            (tags::PET_RECONSTRUCTION_SEQUENCE, "reconstruction"),
+            (
+                tags::PATIENT_PHYSIOLOGICAL_STATE_SEQUENCE,
+                "physiological_state",
+            ),
+        ] {
+            validate_item_absent(
+                failures,
+                relative_path,
+                frame,
+                tag,
+                &format!("enhanced_pet_{name}_not_per_frame[{index}]"),
+            );
+        }
+        for (tag, name) in [
+            (tags::FRAME_CONTENT_SEQUENCE, "enhanced_pet_frame_content"),
+            (tags::PLANE_POSITION_SEQUENCE, "enhanced_pet_plane_position"),
+        ] {
+            match item_sequence_item_count_for_validate(frame, tag) {
+                Ok(actual) => validate_equal(
+                    failures,
+                    relative_path,
+                    &format!("{name}[{index}]"),
+                    actual,
+                    1,
+                ),
+                Err(err) => failures.push(format!("{relative_path}: {name}[{index}]: {err}")),
+            }
+        }
+        if let Ok(content) = item_sequence_item_for_validate(frame, tags::FRAME_CONTENT_SEQUENCE, 0)
+        {
+            validate_item_vr(
+                failures,
+                relative_path,
+                content,
+                tags::STACK_ID,
+                &format!("enhanced_pet_stack_id[{index}]"),
+                dicom_core::VR::SH,
+            );
+            for (tag, name) in [
+                (tags::IN_STACK_POSITION_NUMBER, "in_stack_position"),
+                (tags::DIMENSION_INDEX_VALUES, "dimension_index_value"),
+                (tags::TEMPORAL_POSITION_INDEX, "temporal_position_index"),
+            ] {
+                validate_item_vr(
+                    failures,
+                    relative_path,
+                    content,
+                    tag,
+                    &format!("enhanced_pet_{name}[{index}]"),
+                    dicom_core::VR::UL,
+                );
+            }
+            validate_item_type1_str_element(
+                failures,
+                relative_path,
+                content,
+                tags::STACK_ID,
+                &format!("enhanced_pet_stack_id[{index}]"),
+                &stack_ids[index],
+            );
+            for (tag, name, value) in [
+                (
+                    tags::IN_STACK_POSITION_NUMBER,
+                    "enhanced_pet_in_stack_position",
+                    in_stack[index],
+                ),
+                (
+                    tags::DIMENSION_INDEX_VALUES,
+                    "enhanced_pet_dimension_index_value",
+                    dimensions[index],
+                ),
+                (
+                    tags::TEMPORAL_POSITION_INDEX,
+                    "enhanced_pet_temporal_position_index",
+                    temporal[index],
+                ),
+            ] {
+                validate_item_u32(
+                    failures,
+                    relative_path,
+                    content,
+                    tag,
+                    &format!("{name}[{index}]"),
+                    value,
+                );
+            }
+        }
+        if let Ok(position) =
+            item_sequence_item_for_validate(frame, tags::PLANE_POSITION_SEQUENCE, 0)
+        {
+            validate_item_vr(
+                failures,
+                relative_path,
+                position,
+                tags::IMAGE_POSITION_PATIENT,
+                &format!("enhanced_pet_image_position_patient[{index}]"),
+                dicom_core::VR::DS,
+            );
+            let declared = manifest_f64_array(
+                manifest_path,
+                &positions[index],
+                "",
+                "Enhanced PET image position must be numeric",
+            )?;
+            let locked = if index == 0 {
+                vec![0.0, 0.0, 0.0]
+            } else {
+                vec![0.0, 0.0, 5.0]
+            };
+            validate_equal_debug(
+                failures,
+                relative_path,
+                &format!("enhanced_pet_position_manifest_contract[{index}]"),
+                declared.clone(),
+                locked,
+            );
+            validate_item_f64_array(
+                failures,
+                relative_path,
+                position,
+                tags::IMAGE_POSITION_PATIENT,
+                &format!("enhanced_pet_image_position_patient[{index}]"),
+                declared,
+            );
+        }
+    }
+    Ok(())
+}
+
+fn validate_enhanced_pet_rwvm(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    manifest_path: &Path,
+    expected: &Value,
+    shared: &DatasetObject,
+) -> Result<(), ValidateError> {
+    let rwvm_expected =
+        expected
+            .pointer("/real_world_value_mapping")
+            .ok_or(ValidateError::ManifestShape {
+                path: manifest_path.to_path_buf(),
+                message: "Enhanced PET real_world_value_mapping must be an object",
+            })?;
+    let rwvm =
+        match item_sequence_item_for_validate(shared, tags::REAL_WORLD_VALUE_MAPPING_SEQUENCE, 0) {
+            Ok(rwvm) => rwvm,
+            Err(err) => {
+                failures.push(format!("{relative_path}: enhanced_pet_rwvm_content: {err}"));
+                return Ok(());
+            }
+        };
+    for (pointer, tag, name, locked) in [
+        (
+            "/first_value_mapped",
+            tags::REAL_WORLD_VALUE_FIRST_VALUE_MAPPED,
+            "enhanced_pet_rwvm_first_value",
+            0_u64,
+        ),
+        (
+            "/last_value_mapped",
+            tags::REAL_WORLD_VALUE_LAST_VALUE_MAPPED,
+            "enhanced_pet_rwvm_last_value",
+            400,
+        ),
+    ] {
+        let declared = manifest_u64(
+            manifest_path,
+            rwvm_expected,
+            pointer,
+            "Enhanced PET RWVM stored bound must be an integer",
+        )? as u16;
+        validate_equal(
+            failures,
+            relative_path,
+            &format!("{name}_manifest_contract"),
+            u64::from(declared),
+            locked,
+        );
+        validate_item_u16(failures, relative_path, rwvm, tag, name, declared);
+        validate_item_vr(failures, relative_path, rwvm, tag, name, dicom_core::VR::US);
+    }
+    for (pointer, tag, name, locked) in [
+        (
+            "/intercept",
+            tags::REAL_WORLD_VALUE_INTERCEPT,
+            "enhanced_pet_rwvm_intercept",
+            0.0,
+        ),
+        (
+            "/slope",
+            tags::REAL_WORLD_VALUE_SLOPE,
+            "enhanced_pet_rwvm_slope",
+            2.5,
+        ),
+    ] {
+        let declared = manifest_f64(
+            manifest_path,
+            rwvm_expected,
+            pointer,
+            "Enhanced PET RWVM scalar must be numeric",
+        )?;
+        validate_equal(
+            failures,
+            relative_path,
+            &format!("{name}_manifest_contract"),
+            declared,
+            locked,
+        );
+        validate_item_f64(failures, relative_path, rwvm, tag, name, declared);
+        validate_item_vr(failures, relative_path, rwvm, tag, name, dicom_core::VR::FD);
+    }
+    for (pointer, tag, name, locked) in [
+        (
+            "/lut_label",
+            tags::LUT_LABEL,
+            "enhanced_pet_rwvm_lut_label",
+            "BQML",
+        ),
+        (
+            "/lut_explanation",
+            tags::LUT_EXPLANATION,
+            "enhanced_pet_rwvm_lut_explanation",
+            "Activity concentration",
+        ),
+    ] {
+        let declared = manifest_str(
+            manifest_path,
+            rwvm_expected,
+            pointer,
+            "Enhanced PET RWVM label must be a string",
+        )?;
+        validate_equal(
+            failures,
+            relative_path,
+            &format!("{name}_manifest_contract"),
+            declared,
+            locked,
+        );
+        validate_item_type1_str_element(failures, relative_path, rwvm, tag, name, declared);
+        validate_item_vr(
+            failures,
+            relative_path,
+            rwvm,
+            tag,
+            name,
+            if tag == tags::LUT_LABEL {
+                dicom_core::VR::SH
+            } else {
+                dicom_core::VR::LO
+            },
+        );
+    }
+    validate_enhanced_pet_code(
+        failures,
+        relative_path,
+        manifest_path,
+        rwvm_expected
+            .pointer("/measurement_units")
+            .ok_or(ValidateError::ManifestShape {
+                path: manifest_path.to_path_buf(),
+                message: "Enhanced PET measurement_units must be an object",
+            })?,
+        rwvm,
+        tags::MEASUREMENT_UNITS_CODE_SEQUENCE,
+        "enhanced_pet_rwvm_measurement_units",
+        ("Bq/ml", "UCUM", "Becquerels/milliliter"),
+    )?;
+    Ok(())
+}
+
+fn validate_enhanced_pet_isotope_and_corrections(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    manifest_path: &Path,
+    expected: &Value,
+    obj: &OpenedObject,
+) -> Result<(), ValidateError> {
+    let isotope_expected = expected.pointer("/radiopharmaceutical_information").ok_or(
+        ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "Enhanced PET radiopharmaceutical_information must be an object",
+        },
+    )?;
+    let isotope_count = manifest_u64(
+        manifest_path,
+        isotope_expected,
+        "/item_count",
+        "Enhanced PET isotope item_count must be an integer",
+    )?;
+    validate_equal(
+        failures,
+        relative_path,
+        "enhanced_pet_isotope_count_manifest_contract",
+        isotope_count,
+        1,
+    );
+    match sequence_item_count_for_validate(obj, tags::RADIOPHARMACEUTICAL_INFORMATION_SEQUENCE) {
+        Ok(actual) => validate_equal(
+            failures,
+            relative_path,
+            "enhanced_pet_isotope_item_count",
+            actual,
+            isotope_count,
+        ),
+        Err(err) => failures.push(format!(
+            "{relative_path}: enhanced_pet_isotope_item_count: {err}"
+        )),
+    }
+    if let Ok(item) =
+        top_level_sequence_item_for_validate(obj, tags::RADIOPHARMACEUTICAL_INFORMATION_SEQUENCE, 0)
+    {
+        validate_item_vr(
+            failures,
+            relative_path,
+            item,
+            tags::RADIOPHARMACEUTICAL_AGENT_NUMBER,
+            "enhanced_pet_isotope_agent_number",
+            dicom_core::VR::US,
+        );
+        let agent = manifest_u64(
+            manifest_path,
+            isotope_expected,
+            "/agent_number",
+            "Enhanced PET isotope agent_number must be an integer",
+        )? as u16;
+        validate_equal(
+            failures,
+            relative_path,
+            "enhanced_pet_isotope_agent_manifest_contract",
+            agent,
+            1,
+        );
+        validate_item_u16(
+            failures,
+            relative_path,
+            item,
+            tags::RADIOPHARMACEUTICAL_AGENT_NUMBER,
+            "enhanced_pet_isotope_agent_number",
+            agent,
+        );
+        for (pointer, sequence, name, locked) in [
+            (
+                "/radionuclide",
+                tags::RADIONUCLIDE_CODE_SEQUENCE,
+                "enhanced_pet_radionuclide",
+                ("77004003", "SCT", "^18^Fluorine"),
+            ),
+            (
+                "/administration_route",
+                tags::ADMINISTRATION_ROUTE_CODE_SEQUENCE,
+                "enhanced_pet_administration_route",
+                ("47625008", "SCT", "Intravenous route"),
+            ),
+            (
+                "/radiopharmaceutical",
+                tags::RADIOPHARMACEUTICAL_CODE_SEQUENCE,
+                "enhanced_pet_radiopharmaceutical",
+                ("35321007", "SCT", "Fluorodeoxyglucose F^18^"),
+            ),
+        ] {
+            validate_enhanced_pet_code(
+                failures,
+                relative_path,
+                manifest_path,
+                isotope_expected
+                    .pointer(pointer)
+                    .ok_or(ValidateError::ManifestShape {
+                        path: manifest_path.to_path_buf(),
+                        message: "Enhanced PET isotope code must be an object",
+                    })?,
+                item,
+                sequence,
+                name,
+                locked,
+            )?;
+        }
+        let start = manifest_str(
+            manifest_path,
+            isotope_expected,
+            "/start_datetime",
+            "Enhanced PET start_datetime must be a string",
+        )?;
+        validate_equal(
+            failures,
+            relative_path,
+            "enhanced_pet_start_datetime_manifest_contract",
+            start,
+            "20260101000000",
+        );
+        validate_item_type1_str_element(
+            failures,
+            relative_path,
+            item,
+            tags::RADIOPHARMACEUTICAL_START_DATE_TIME,
+            "enhanced_pet_start_datetime",
+            start,
+        );
+        validate_item_vr(
+            failures,
+            relative_path,
+            item,
+            tags::RADIOPHARMACEUTICAL_START_DATE_TIME,
+            "enhanced_pet_start_datetime",
+            dicom_core::VR::DT,
+        );
+        for (pointer, tag, name, locked) in [
+            (
+                "/total_dose_mbq",
+                tags::RADIONUCLIDE_TOTAL_DOSE,
+                "enhanced_pet_total_dose",
+                0.0,
+            ),
+            (
+                "/half_life_seconds",
+                tags::RADIONUCLIDE_HALF_LIFE,
+                "enhanced_pet_half_life",
+                6586.2,
+            ),
+            (
+                "/positron_fraction",
+                tags::RADIONUCLIDE_POSITRON_FRACTION,
+                "enhanced_pet_positron_fraction",
+                0.967,
+            ),
+        ] {
+            let declared = manifest_f64(
+                manifest_path,
+                isotope_expected,
+                pointer,
+                "Enhanced PET isotope scalar must be numeric",
+            )?;
+            validate_equal(
+                failures,
+                relative_path,
+                &format!("{name}_manifest_contract"),
+                declared,
+                locked,
+            );
+            validate_item_f64(failures, relative_path, item, tag, name, declared);
+            validate_item_vr(failures, relative_path, item, tag, name, dicom_core::VR::DS);
+        }
+    }
+    let corrections = expected
+        .pointer("/corrections")
+        .ok_or(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "Enhanced PET corrections must be an object",
+        })?;
+    for (pointer, tag, name) in [
+        (
+            "/decay",
+            tags::DECAY_CORRECTED,
+            "enhanced_pet_decay_corrected",
+        ),
+        (
+            "/attenuation",
+            tags::ATTENUATION_CORRECTED,
+            "enhanced_pet_attenuation_corrected",
+        ),
+        (
+            "/scatter",
+            tags::SCATTER_CORRECTED,
+            "enhanced_pet_scatter_corrected",
+        ),
+        (
+            "/dead_time",
+            tags::DEAD_TIME_CORRECTED,
+            "enhanced_pet_dead_time_corrected",
+        ),
+        (
+            "/gantry_motion",
+            tags::GANTRY_MOTION_CORRECTED,
+            "enhanced_pet_gantry_motion_corrected",
+        ),
+        (
+            "/patient_motion",
+            tags::PATIENT_MOTION_CORRECTED,
+            "enhanced_pet_patient_motion_corrected",
+        ),
+        (
+            "/count_loss_normalization",
+            tags::COUNT_LOSS_NORMALIZATION_CORRECTED,
+            "enhanced_pet_count_loss_normalization_corrected",
+        ),
+        (
+            "/randoms",
+            tags::RANDOMS_CORRECTED,
+            "enhanced_pet_randoms_corrected",
+        ),
+        (
+            "/non_uniform_radial_sampling",
+            tags::NON_UNIFORM_RADIAL_SAMPLING_CORRECTED,
+            "enhanced_pet_non_uniform_radial_sampling_corrected",
+        ),
+        (
+            "/sensitivity_calibration",
+            tags::SENSITIVITY_CALIBRATED,
+            "enhanced_pet_sensitivity_calibrated",
+        ),
+        (
+            "/detector_normalization",
+            tags::DETECTOR_NORMALIZATION_CORRECTION,
+            "enhanced_pet_detector_normalization_correction",
+        ),
+    ] {
+        let declared = manifest_str(
+            manifest_path,
+            corrections,
+            pointer,
+            "Enhanced PET correction flag must be a string",
+        )?;
+        validate_equal(
+            failures,
+            relative_path,
+            &format!("{name}_manifest_contract"),
+            declared,
+            "NO",
+        );
+        validate_type1_str_element(failures, relative_path, obj, tag, name, declared);
+        match obj.element(tag) {
+            Ok(element) => validate_equal(
+                failures,
+                relative_path,
+                &format!("{name}_vr"),
+                element.vr(),
+                dicom_core::VR::CS,
+            ),
+            Err(err) => failures.push(format!("{relative_path}: {name}_vr: {err}")),
+        }
+    }
+    Ok(())
+}
+
+fn validate_enhanced_pet_code(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    manifest_path: &Path,
+    expected: &Value,
+    parent: &DatasetObject,
+    sequence_tag: dicom_core::Tag,
+    name: &str,
+    locked: (&str, &str, &str),
+) -> Result<(), ValidateError> {
+    match item_sequence_item_count_for_validate(parent, sequence_tag) {
+        Ok(actual) => validate_equal(
+            failures,
+            relative_path,
+            &format!("{name}_item_count"),
+            actual,
+            1,
+        ),
+        Err(err) => {
+            failures.push(format!("{relative_path}: {name}_item_count: {err}"));
+            return Ok(());
+        }
+    }
+    let item = match item_sequence_item_for_validate(parent, sequence_tag, 0) {
+        Ok(item) => item,
+        Err(_) => return Ok(()),
+    };
+    for (pointer, tag, suffix, locked_value) in [
+        ("/code_value", tags::CODE_VALUE, "code_value", locked.0),
+        (
+            "/coding_scheme_designator",
+            tags::CODING_SCHEME_DESIGNATOR,
+            "coding_scheme_designator",
+            locked.1,
+        ),
+        (
+            "/code_meaning",
+            tags::CODE_MEANING,
+            "code_meaning",
+            locked.2,
+        ),
+    ] {
+        let declared = manifest_str(
+            manifest_path,
+            expected,
+            pointer,
+            "Enhanced PET code field must be a string",
+        )?;
+        validate_equal(
+            failures,
+            relative_path,
+            &format!("{name}_{suffix}_manifest_contract"),
+            declared,
+            locked_value,
+        );
+        validate_item_type1_str_element(
+            failures,
+            relative_path,
+            item,
+            tag,
+            &format!("{name}_{suffix}"),
+            declared,
+        );
+        validate_item_vr(
+            failures,
+            relative_path,
+            item,
+            tag,
+            &format!("{name}_{suffix}"),
+            if tag == tags::CODE_MEANING {
+                dicom_core::VR::LO
+            } else {
+                dicom_core::VR::SH
+            },
+        );
+    }
+    Ok(())
+}
+
+fn validate_enhanced_pet_pixels_and_nonclaims(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    manifest_path: &Path,
+    file: &Value,
+    expected: &Value,
+    obj: &OpenedObject,
+) -> Result<(), ValidateError> {
+    let frame_hashes = manifest_string_array(
+        manifest_path,
+        expected,
+        "/frame_sha256",
+        "Enhanced PET frame_sha256 must be a string array",
+    )?;
+    validate_equal_debug(
+        failures,
+        relative_path,
+        "enhanced_pet_frame_hash_manifest_contract",
+        frame_hashes.clone(),
+        vec!["03ec353fd2407afb09c8d65712ef9aa30f03c8243f6f3f1675dca7ea5f6a4784".to_string(); 2],
+    );
+    let pixel_hash = manifest_str(
+        manifest_path,
+        expected,
+        "/pixel_data_sha256",
+        "Enhanced PET pixel_data_sha256 must be a string",
+    )?;
+    validate_equal(
+        failures,
+        relative_path,
+        "enhanced_pet_pixel_hash_manifest_contract",
+        pixel_hash,
+        "3a43b45e2f6d4d04fe4fc357dfc0efaa21caa5415ffc5db96fc19428d34a7bb5",
+    );
+    validate_equal_debug(
+        failures,
+        relative_path,
+        "enhanced_pet_frame_hash_pixel_manifest_contract",
+        manifest_string_array(
+            manifest_path,
+            file,
+            "/pixel_data/frame_hashes",
+            "Enhanced PET pixel_data frame_hashes must be a string array",
+        )?,
+        frame_hashes.clone(),
+    );
+    let pixel_bytes = match obj.element(tags::PIXEL_DATA) {
+        Ok(element) => match element.value().to_bytes() {
+            Ok(bytes) => bytes,
+            Err(err) => {
+                failures.push(format!("{relative_path}: enhanced_pet_pixel_bytes: {err}"));
+                return Ok(());
+            }
+        },
+        Err(err) => {
+            failures.push(format!("{relative_path}: enhanced_pet_pixel_bytes: {err}"));
+            return Ok(());
+        }
+    };
+    validate_equal(
+        failures,
+        relative_path,
+        "enhanced_pet_pixel_byte_length",
+        pixel_bytes.len(),
+        16,
+    );
+    validate_equal(
+        failures,
+        relative_path,
+        "enhanced_pet_pixel_data_sha256",
+        sha256_hex(pixel_bytes.as_ref()),
+        pixel_hash,
+    );
+    let stored_by_frame = manifest_array(
+        manifest_path,
+        expected,
+        "/stored_values_by_frame",
+        "Enhanced PET stored_values_by_frame must be an array",
+    )?;
+    let activity_by_frame = manifest_array(
+        manifest_path,
+        expected,
+        "/activity_values_bqml_by_frame",
+        "Enhanced PET activity_values_bqml_by_frame must be an array",
+    )?;
+    validate_equal(
+        failures,
+        relative_path,
+        "enhanced_pet_stored_frame_count",
+        stored_by_frame.len(),
+        2,
+    );
+    validate_equal(
+        failures,
+        relative_path,
+        "enhanced_pet_activity_frame_count",
+        activity_by_frame.len(),
+        2,
+    );
+    if pixel_bytes.len() == 16
+        && frame_hashes.len() == 2
+        && stored_by_frame.len() == 2
+        && activity_by_frame.len() == 2
+    {
+        for (index, frame) in pixel_bytes.chunks_exact(8).enumerate() {
+            validate_equal(
+                failures,
+                relative_path,
+                &format!("enhanced_pet_frame_sha256[{index}]"),
+                sha256_hex(frame),
+                &frame_hashes[index],
+            );
+            let actual_stored = frame
+                .chunks_exact(2)
+                .map(|bytes| u16::from_le_bytes([bytes[0], bytes[1]]))
+                .collect::<Vec<_>>();
+            let declared_stored = manifest_u16_array(
+                manifest_path,
+                &stored_by_frame[index],
+                "",
+                "Enhanced PET stored frame must contain u16 values",
+            )?;
+            validate_equal_debug(
+                failures,
+                relative_path,
+                &format!("enhanced_pet_stored_values_manifest_contract[{index}]"),
+                declared_stored.clone(),
+                vec![0, 100, 200, 400],
+            );
+            validate_equal_debug(
+                failures,
+                relative_path,
+                &format!("enhanced_pet_stored_values[{index}]"),
+                actual_stored.clone(),
+                declared_stored,
+            );
+            let declared_activity = manifest_f64_array(
+                manifest_path,
+                &activity_by_frame[index],
+                "",
+                "Enhanced PET activity frame must contain numbers",
+            )?;
+            validate_equal_debug(
+                failures,
+                relative_path,
+                &format!("enhanced_pet_activity_values_manifest_contract[{index}]"),
+                declared_activity.clone(),
+                vec![0.0, 250.0, 500.0, 1000.0],
+            );
+            let recomputed = actual_stored
+                .iter()
+                .map(|stored| f64::from(*stored) * 2.5)
+                .collect::<Vec<_>>();
+            validate_equal_debug(
+                failures,
+                relative_path,
+                &format!("enhanced_pet_activity_recomputed[{index}]"),
+                recomputed,
+                declared_activity,
+            );
+        }
+    }
+
+    let nonclaims = expected
+        .pointer("/nonclaims")
+        .ok_or(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "Enhanced PET nonclaims must be an object",
+        })?;
+    for field in [
+        "suv",
+        "body_weight_normalization",
+        "body_surface_area_normalization",
+        "decay_corrected",
+        "clinically_calibrated",
+        "acquisition_counts",
+        "actual_clinical_dose",
+        "gating",
+        "detector_motion",
+        "time_of_flight_processing",
+        "reconstruction",
+    ] {
+        validate_equal(
+            failures,
+            relative_path,
+            &format!("enhanced_pet_nonclaim_{field}_manifest_contract"),
+            manifest_bool(
+                manifest_path,
+                nonclaims,
+                &format!("/{field}"),
+                "Enhanced PET nonclaim must be boolean",
+            )?,
+            false,
+        );
+    }
+    for (tag, name) in [
+        (tags::UNITS, "enhanced_pet_suv_units_absent"),
+        (tags::PATIENT_WEIGHT, "enhanced_pet_body_weight_absent"),
+        (
+            tags::DOSE_CALIBRATION_FACTOR,
+            "enhanced_pet_clinical_calibration_absent",
+        ),
+        (
+            tags::DECAY_CORRECTION,
+            "enhanced_pet_decay_correction_absent",
+        ),
+        (tags::CORRECTED_IMAGE, "enhanced_pet_corrected_image_absent"),
+        (
+            tags::CARDIAC_SYNCHRONIZATION_SEQUENCE,
+            "enhanced_pet_gating_absent",
+        ),
+        (
+            tags::PET_DETECTOR_MOTION_DETAILS_SEQUENCE,
+            "enhanced_pet_detector_motion_absent",
+        ),
+        (
+            tags::PET_RECONSTRUCTION_SEQUENCE,
+            "enhanced_pet_reconstruction_absent",
+        ),
+        (
+            tags::GATED_INFORMATION_SEQUENCE,
+            "enhanced_pet_gated_information_absent",
+        ),
+        (
+            tags::COUNTS_ACCUMULATED,
+            "enhanced_pet_acquisition_counts_absent",
+        ),
+        (
+            tags::PRIMARY_PROMPTS_COUNTS_ACCUMULATED,
+            "enhanced_pet_primary_counts_absent",
+        ),
+        (
+            tags::SECONDARY_COUNTS_ACCUMULATED,
+            "enhanced_pet_secondary_counts_absent",
+        ),
+    ] {
+        validate_element_absent(failures, relative_path, obj, tag, name);
+    }
     Ok(())
 }
 
@@ -9113,6 +11042,124 @@ fn item_f64_values_for_validate(
         .value()
         .to_multi_float64()
         .map_err(|err| err.to_string())
+}
+
+fn item_tag_for_validate(
+    obj: &DatasetObject,
+    tag: dicom_core::Tag,
+) -> Result<dicom_core::Tag, String> {
+    obj.element(tag)
+        .map_err(|err| err.to_string())?
+        .value()
+        .tags()
+        .map_err(|err| err.to_string())?
+        .first()
+        .copied()
+        .ok_or_else(|| "element is empty".to_string())
+}
+
+fn validate_item_absent(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    obj: &DatasetObject,
+    tag: dicom_core::Tag,
+    name: &str,
+) {
+    if matches!(obj.element_opt(tag), Ok(Some(_))) {
+        failures.push(format!("{relative_path}: {name}: expected absent"));
+    }
+}
+
+fn validate_item_vr(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    obj: &DatasetObject,
+    tag: dicom_core::Tag,
+    name: &str,
+    expected: dicom_core::VR,
+) {
+    match obj.element(tag) {
+        Ok(element) => validate_equal(
+            failures,
+            relative_path,
+            &format!("{name}_vr"),
+            element.vr(),
+            expected,
+        ),
+        Err(err) => failures.push(format!("{relative_path}: {name}_vr: {err}")),
+    }
+}
+
+fn validate_item_u16(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    obj: &DatasetObject,
+    tag: dicom_core::Tag,
+    name: &str,
+    expected: u16,
+) {
+    match obj
+        .element(tag)
+        .map_err(|err| err.to_string())
+        .and_then(|element| {
+            element
+                .value()
+                .to_int::<u16>()
+                .map_err(|err| err.to_string())
+        }) {
+        Ok(actual) => validate_equal(failures, relative_path, name, actual, expected),
+        Err(err) => failures.push(format!("{relative_path}: {name}: {err}")),
+    }
+}
+
+fn validate_item_u32(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    obj: &DatasetObject,
+    tag: dicom_core::Tag,
+    name: &str,
+    expected: u32,
+) {
+    match obj
+        .element(tag)
+        .map_err(|err| err.to_string())
+        .and_then(|element| {
+            element
+                .value()
+                .to_int::<u32>()
+                .map_err(|err| err.to_string())
+        }) {
+        Ok(actual) => validate_equal(failures, relative_path, name, actual, expected),
+        Err(err) => failures.push(format!("{relative_path}: {name}: {err}")),
+    }
+}
+
+fn validate_item_f64(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    obj: &DatasetObject,
+    tag: dicom_core::Tag,
+    name: &str,
+    expected: f64,
+) {
+    match item_f64_for_validate(obj, tag) {
+        Ok(actual) => validate_equal(failures, relative_path, name, actual, expected),
+        Err(err) => failures.push(format!("{relative_path}: {name}: {err}")),
+    }
+}
+
+fn validate_item_f64_array(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    obj: &DatasetObject,
+    tag: dicom_core::Tag,
+    name: &str,
+    expected: Vec<f64>,
+) {
+    match item_f64_values_for_validate(obj, tag) {
+        Ok(actual) => validate_equal_debug(failures, relative_path, name, actual, expected),
+        Err(err) => failures.push(format!("{relative_path}: {name}: {err}")),
+    }
 }
 
 fn element_str_for_validate(obj: &OpenedObject, tag: dicom_core::Tag) -> Result<String, String> {

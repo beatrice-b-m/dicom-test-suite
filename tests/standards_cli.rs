@@ -22,7 +22,7 @@ fn standards_check_lock_accepts_committed_lock_with_documented_warnings() {
     assert!(stdout.contains("include_final_text_after_base\tfalse"));
     assert!(stdout.contains("kb_db_edition\t2026b"));
     assert!(stdout.contains(
-        "kb_source_manifest_sha256\t9959bee76fd293c7eda3fc81ce2ced7528612faa1b2df28cccd01504a83f54b0"
+        "kb_source_manifest_sha256\t1cc11d28abf1e6f4efa4b07a73d4a7c953b3b3101b4112865c7170ccdeb84728"
     ));
     assert!(stdout.contains("warning\tdicom_standard_kb.commit unavailable"));
     assert!(stdout.contains("warning\tdicom_standard_kb.db_sha256 unavailable"));

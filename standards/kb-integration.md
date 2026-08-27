@@ -58,7 +58,7 @@ Example evidence shape:
       "anchor": "table_A-1"
     }
   ],
-  "source_manifest_sha256": "9959bee76fd293c7eda3fc81ce2ced7528612faa1b2df28cccd01504a83f54b0"
+  "source_manifest_sha256": "1cc11d28abf1e6f4efa4b07a73d4a7c953b3b3101b4112865c7170ccdeb84728"
 }
 ```
 
@@ -112,7 +112,7 @@ commit and DB SHA-256 become exposed or independently verifiable.
 ## Standards Lock Null Pins
 
 Every null reproducibility field in `standards.lock.json` must be paired with
-an explicit non-fatal unavailable status and reason. For the 2026-06-13 lock,
+an explicit non-fatal unavailable status and reason. For the 2026-08-26 lock,
 the MCP exposes query traces and the 2026b `source_manifest_sha256`, but not the
 `dicom-standard-kb` repository checkout commit, generated local database path,
 or database SHA-256. Those two KB fields therefore use field-specific

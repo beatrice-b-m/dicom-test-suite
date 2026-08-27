@@ -3,7 +3,7 @@
   "dicom_base_edition": "2026b",
   "include_final_text_after_base": false,
   "final_text_policy": "Base DICOM 2026b reference only; post-base final text supplements and correction items are excluded unless this lock is deliberately updated.",
-  "verified_at": "2026-06-13",
+  "verified_at": "2026-08-26",
   "official_source_policy": "PDF authoritative; HTML/CHTML/DocBook/TargetDB convenience",
   "dicom_standard_kb": {
     "repository": "https://github.com/beatrice-b-m/dicom-standard-kb",
@@ -14,7 +14,7 @@
     "db_sha256": null,
     "db_sha256_status": "unavailable",
     "db_sha256_unavailable_reason": "The Codex MCP query surface exposes the generated 2026b source_manifest_sha256 but does not expose the local generated KB database path or SHA-256.",
-    "source_manifest_sha256": "9959bee76fd293c7eda3fc81ce2ced7528612faa1b2df28cccd01504a83f54b0",
+    "source_manifest_sha256": "1cc11d28abf1e6f4efa4b07a73d4a7c953b3b3101b4112865c7170ccdeb84728",
     "parser_surface": ["PS3.3", "PS3.4", "PS3.6"],
     "pin_status": "MCP server is pinned to a generated 2026b reference by source_manifest_sha256; repository commit and local DB SHA-256 are documented unavailable until exposed or independently verified."
   },

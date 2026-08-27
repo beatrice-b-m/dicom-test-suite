@@ -3631,7 +3631,7 @@ fn kb_integration_workflow_documents_2026b_reference_policy() {
         "dicom_lookup_uid",
         "dicom_lookup_sop_class",
         "source_manifest_sha256",
-        "9959bee76fd293c7eda3fc81ce2ced7528612faa1b2df28cccd01504a83f54b0",
+        "1cc11d28abf1e6f4efa4b07a73d4a7c953b3b3101b4112865c7170ccdeb84728",
         "Do not commit official",
     ] {
         assert!(

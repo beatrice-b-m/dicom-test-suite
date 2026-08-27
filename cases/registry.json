@@ -11280,6 +11280,14 @@
           "covered": true,
           "part": "PS3.6",
           "anchor": "table_6-1"
+        },
+        {
+          "source": "local-source-note",
+          "edition": "2026b",
+          "query": "standards/source-notes/phase-2-enhanced-mr-temporal.md",
+          "covered": true,
+          "part": "PS3.3/PS3.16",
+          "anchor": "table_C.7-5a/table_C.8-79/table_C.8-83/table_C.8-84/table_C.8-88/table_C.8-89/table_C.7.6.16.2.23-1/table_CID_4031"
         }
       ],
       "provider": {

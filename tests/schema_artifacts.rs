@@ -3794,6 +3794,186 @@ fn viewer_report_schema_requires_viewer_compatibility_result_fields() {
     }
 }
 
+#[test]
+fn manifest_schema_types_twelve_lead_ecg_waveform_expectations() {
+    let schema = read_json("schemas/manifest.schema.json");
+    let expectation_schema = serde_json::json!({
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$ref": "#/$defs/expected_waveform",
+        "$defs": schema["$defs"].clone(),
+    });
+    let validator = jsonschema::validator_for(&expectation_schema)
+        .expect("Twelve-lead ECG expectation schema should compile");
+    let expectation = twelve_lead_ecg_waveform_expectation();
+    assert!(validator.is_valid(&expectation));
+
+    let mut reordered = expectation.clone();
+    reordered["channels"]
+        .as_array_mut()
+        .expect("channels")
+        .swap(0, 1);
+    assert!(!validator.is_valid(&reordered));
+
+    let mut duplicate_lead = expectation.clone();
+    duplicate_lead["channels"][11]["source"] = duplicate_lead["channels"][0]["source"].clone();
+    assert!(!validator.is_valid(&duplicate_lead));
+
+    let mut wrong_rate = expectation.clone();
+    wrong_rate["multiplex_group"]["sampling_frequency_hz"] = serde_json::json!(199);
+    assert!(!validator.is_valid(&wrong_rate));
+
+    let mut wrong_interleave = expectation.clone();
+    wrong_interleave["storage"]["interleave_order"] = serde_json::json!("sample_then_channel");
+    assert!(!validator.is_valid(&wrong_interleave));
+
+    let mut corrupt_payload = expectation.clone();
+    corrupt_payload["storage"]["payload_sha256"] = serde_json::json!("0".repeat(64));
+    assert!(!validator.is_valid(&corrupt_payload));
+
+    let mut padded = expectation;
+    padded["storage"]["value_field_padding_bytes"] = serde_json::json!(2);
+    assert!(!validator.is_valid(&padded));
+}
+
+#[test]
+fn manifest_schema_requires_exclusive_twelve_lead_ecg_waveform_contract() {
+    let schema = read_json("schemas/manifest.schema.json");
+    let rule = schema
+        .pointer("/$defs/file/allOf")
+        .and_then(Value::as_array)
+        .expect("file schema should define case conditionals")
+        .iter()
+        .find(|rule| {
+            rule.pointer("/if/properties/case_id/const")
+                .and_then(Value::as_str)
+                == Some("non-image/waveform/twelve_lead_ecg")
+        })
+        .expect("manifest schema should define the Twelve-lead ECG conditional");
+
+    assert_eq!(
+        rule.pointer("/then/required"),
+        Some(&serde_json::json!(["expected_waveform"]))
+    );
+    assert_eq!(
+        rule.pointer("/then/properties/dicom/properties/sop_class_uid/const"),
+        Some(&serde_json::json!("1.2.840.10008.5.1.4.1.1.9.1.1"))
+    );
+    assert_eq!(
+        rule.pointer("/then/properties/dicom/properties/modality/const"),
+        Some(&serde_json::json!("ECG"))
+    );
+    assert_eq!(
+        rule.pointer("/then/properties/references/maxItems"),
+        Some(&serde_json::json!(0))
+    );
+    assert_eq!(
+        rule.pointer("/then/properties/image/type"),
+        Some(&serde_json::json!("null"))
+    );
+    assert_eq!(
+        rule.pointer("/then/properties/pixel_data/type"),
+        Some(&serde_json::json!("null"))
+    );
+    assert_eq!(
+        rule.pointer("/else/not/required"),
+        Some(&serde_json::json!(["expected_waveform"]))
+    );
+}
+
+fn twelve_lead_ecg_waveform_expectation() -> Value {
+    let leads = [
+        (1, "I", "2:1", "Lead I"),
+        (2, "II", "2:2", "Lead II"),
+        (3, "III", "2:61", "Lead III"),
+        (4, "aVR", "2:62", "aVR, augmented voltage, right"),
+        (5, "aVL", "2:63", "aVL, augmented voltage, left"),
+        (6, "aVF", "2:64", "aVF, augmented voltage, foot"),
+        (7, "V1", "2:3", "Lead V1"),
+        (8, "V2", "2:4", "Lead V2"),
+        (9, "V3", "2:5", "Lead V3"),
+        (10, "V4", "2:6", "Lead V4"),
+        (11, "V5", "2:7", "Lead V5"),
+        (12, "V6", "2:8", "Lead V6"),
+    ];
+    let channels = leads.map(|(ordinal, label, code_value, code_meaning)| {
+        serde_json::json!({
+            "ordinal": ordinal,
+            "label": label,
+            "source": {
+                "code_value": code_value,
+                "coding_scheme_designator": "MDC",
+                "code_meaning": code_meaning
+            },
+            "sensitivity": 1,
+            "sensitivity_units": {
+                "code_value": "uV",
+                "coding_scheme_designator": "UCUM",
+                "code_meaning": "microvolt"
+            },
+            "sensitivity_correction_factor": 1,
+            "baseline": 0,
+            "bits_stored": 16,
+            "time_skew_seconds": 0,
+            "sample_skew_absent": true
+        })
+    });
+
+    serde_json::json!({
+        "iod_kind": "twelve_lead_ecg",
+        "sop_class_uid": "1.2.840.10008.5.1.4.1.1.9.1.1",
+        "iod_name": "12-lead ECG Waveform",
+        "modality": "ECG",
+        "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+        "acquisition_context_items": 0,
+        "multiplex_group": {
+            "group_count": 1,
+            "originality": "ORIGINAL",
+            "label": "RESTING_12_LEAD",
+            "channel_count": 12,
+            "samples_per_channel": 500,
+            "sampling_frequency_hz": 500,
+            "duration_seconds": 1,
+            "simultaneous_sampling": true
+        },
+        "channels": channels,
+        "storage": {
+            "bits_allocated": 16,
+            "sample_interpretation": "SS",
+            "data_vr": "OW",
+            "byte_order": "little_endian",
+            "interleave_order": "channel_then_sample",
+            "payload_length_bytes": 12000,
+            "payload_sha256": "98b7a9b1be25d9d64ffa75bc6e16ea80f60deed1891aeed8dfb440c1c19e6713",
+            "channel_sha256": [
+                "7b4aee068e05c2bdff3896937c78a4c7a32f9ed2bde64d91b1d925913bf29476",
+                "bd775dc70f76ea153a25832ad622b0cc26fbe6a37cf3ec6548a30965c4d17fba",
+                "19d26b694df281209aa1296abbfa8f7d360e24a03a091422aba6f67663e2f3b1",
+                "bb4c99d7857dbfcee5ee620bcff09b7060b61c5f2432427affc6139cb8d3cf9b",
+                "230f52ed2ac57624a9a35214d7867711008dd56014f4176ce258623e5b596d3a",
+                "60e167db3c081ba5bca957aba820afb519b790d048b660634d49566df88105f2",
+                "cf8c73bebf746b799b1fe8aa2c908ca69bc7acc72311c64cbf4131fc8976609f",
+                "0f11e5fb5105dac699fa4bcfc01c79fbe696a81db04606f39a719de57b4c7c30",
+                "a41d5962abceb6dbe25f8421091ce3df6a69202c45b24ab6b0736159d15e253b",
+                "d655e2cbb23d70e229ed52fedba9c45573e22729fed0a794ab690df8d7f33804",
+                "005c539f9f4256a86d9e0a212b3bfe73741f99942b0677fb483c0c48db9583cd",
+                "f448df95acb226c5c992363e27707a42efc3ffb974ebeff38e2a81522b57d82c"
+            ],
+            "sample_value_formula": "((s * (c + 1) * 37 + c * 101) mod 2001) - 1000",
+            "sample_min": -1000,
+            "sample_max": 1000,
+            "waveform_padding_value_absent": true,
+            "value_field_padding_bytes": 0
+        },
+        "absent_content": {
+            "annotation_module": true,
+            "synchronization_module": true,
+            "references": true,
+            "image": true,
+            "pixel_data": true
+        }
+    })
+}
+
 fn read_json(path: impl AsRef<Path>) -> Value {
     let path = path.as_ref();
     let contents =

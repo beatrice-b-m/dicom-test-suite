@@ -352,6 +352,9 @@
         "expected_advanced_blending_presentation_state": {
           "$ref": "#/$defs/expected_advanced_blending_presentation_state"
         },
+        "expected_waveform": {
+          "$ref": "#/$defs/expected_waveform"
+        },
         "expected_geometry": {
           "anyOf": [
             { "$ref": "#/$defs/expected_geometry" },
@@ -731,6 +734,34 @@
               "image": { "type": "null" },
               "pixel_data": { "type": "null" }
             }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "case_id": { "const": "non-image/waveform/twelve_lead_ecg" }
+            },
+            "required": ["case_id"]
+          },
+          "then": {
+            "required": ["expected_waveform"],
+            "properties": {
+              "dicom": {
+                "properties": {
+                  "sop_class_uid": { "const": "1.2.840.10008.5.1.4.1.1.9.1.1" },
+                  "sop_class_name": { "const": "12-lead ECG Waveform Storage" },
+                  "iod_name": { "const": "12-lead ECG Waveform" },
+                  "modality": { "const": "ECG" },
+                  "transfer_syntax_uid": { "const": "1.2.840.10008.1.2.1" }
+                }
+              },
+              "image": { "type": "null" },
+              "pixel_data": { "type": "null" },
+              "references": { "maxItems": 0 }
+            }
+          },
+          "else": {
+            "not": { "required": ["expected_waveform"] }
           }
         },
         {
@@ -2301,6 +2332,188 @@
           "additionalProperties": false
         },
         "pixel_data_absent": { "const": true }
+      },
+      "additionalProperties": false
+    },
+    "waveform_code": {
+      "type": "object",
+      "required": ["code_value", "coding_scheme_designator", "code_meaning"],
+      "properties": {
+        "code_value": { "type": "string" },
+        "coding_scheme_designator": { "type": "string" },
+        "code_meaning": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "waveform_channel": {
+      "type": "object",
+      "required": [
+        "ordinal",
+        "label",
+        "source",
+        "sensitivity",
+        "sensitivity_units",
+        "sensitivity_correction_factor",
+        "baseline",
+        "bits_stored",
+        "time_skew_seconds",
+        "sample_skew_absent"
+      ],
+      "properties": {
+        "ordinal": { "type": "integer" },
+        "label": { "type": "string" },
+        "source": { "$ref": "#/$defs/waveform_code" },
+        "sensitivity": { "const": 1 },
+        "sensitivity_units": {
+          "allOf": [
+            { "$ref": "#/$defs/waveform_code" },
+            {
+              "properties": {
+                "code_value": { "const": "uV" },
+                "coding_scheme_designator": { "const": "UCUM" },
+                "code_meaning": { "const": "microvolt" }
+              }
+            }
+          ]
+        },
+        "sensitivity_correction_factor": { "const": 1 },
+        "baseline": { "const": 0 },
+        "bits_stored": { "const": 16 },
+        "time_skew_seconds": { "const": 0 },
+        "sample_skew_absent": { "const": true }
+      },
+      "additionalProperties": false
+    },
+    "expected_waveform": {
+      "type": "object",
+      "required": [
+        "iod_kind",
+        "sop_class_uid",
+        "iod_name",
+        "modality",
+        "transfer_syntax_uid",
+        "acquisition_context_items",
+        "multiplex_group",
+        "channels",
+        "storage",
+        "absent_content"
+      ],
+      "properties": {
+        "iod_kind": { "const": "twelve_lead_ecg" },
+        "sop_class_uid": { "const": "1.2.840.10008.5.1.4.1.1.9.1.1" },
+        "iod_name": { "const": "12-lead ECG Waveform" },
+        "modality": { "const": "ECG" },
+        "transfer_syntax_uid": { "const": "1.2.840.10008.1.2.1" },
+        "acquisition_context_items": { "const": 0 },
+        "multiplex_group": {
+          "type": "object",
+          "required": [
+            "group_count",
+            "originality",
+            "label",
+            "channel_count",
+            "samples_per_channel",
+            "sampling_frequency_hz",
+            "duration_seconds",
+            "simultaneous_sampling"
+          ],
+          "properties": {
+            "group_count": { "const": 1 },
+            "originality": { "const": "ORIGINAL" },
+            "label": { "const": "RESTING_12_LEAD" },
+            "channel_count": { "const": 12 },
+            "samples_per_channel": { "const": 500 },
+            "sampling_frequency_hz": { "const": 500 },
+            "duration_seconds": { "const": 1 },
+            "simultaneous_sampling": { "const": true }
+          },
+          "additionalProperties": false
+        },
+        "channels": {
+          "type": "array",
+          "prefixItems": [
+            { "$ref": "#/$defs/waveform_channel", "properties": { "ordinal": { "const": 1 }, "label": { "const": "I" }, "source": { "properties": { "code_value": { "const": "2:1" }, "coding_scheme_designator": { "const": "MDC" }, "code_meaning": { "const": "Lead I" } } } } },
+            { "$ref": "#/$defs/waveform_channel", "properties": { "ordinal": { "const": 2 }, "label": { "const": "II" }, "source": { "properties": { "code_value": { "const": "2:2" }, "coding_scheme_designator": { "const": "MDC" }, "code_meaning": { "const": "Lead II" } } } } },
+            { "$ref": "#/$defs/waveform_channel", "properties": { "ordinal": { "const": 3 }, "label": { "const": "III" }, "source": { "properties": { "code_value": { "const": "2:61" }, "coding_scheme_designator": { "const": "MDC" }, "code_meaning": { "const": "Lead III" } } } } },
+            { "$ref": "#/$defs/waveform_channel", "properties": { "ordinal": { "const": 4 }, "label": { "const": "aVR" }, "source": { "properties": { "code_value": { "const": "2:62" }, "coding_scheme_designator": { "const": "MDC" }, "code_meaning": { "const": "aVR, augmented voltage, right" } } } } },
+            { "$ref": "#/$defs/waveform_channel", "properties": { "ordinal": { "const": 5 }, "label": { "const": "aVL" }, "source": { "properties": { "code_value": { "const": "2:63" }, "coding_scheme_designator": { "const": "MDC" }, "code_meaning": { "const": "aVL, augmented voltage, left" } } } } },
+            { "$ref": "#/$defs/waveform_channel", "properties": { "ordinal": { "const": 6 }, "label": { "const": "aVF" }, "source": { "properties": { "code_value": { "const": "2:64" }, "coding_scheme_designator": { "const": "MDC" }, "code_meaning": { "const": "aVF, augmented voltage, foot" } } } } },
+            { "$ref": "#/$defs/waveform_channel", "properties": { "ordinal": { "const": 7 }, "label": { "const": "V1" }, "source": { "properties": { "code_value": { "const": "2:3" }, "coding_scheme_designator": { "const": "MDC" }, "code_meaning": { "const": "Lead V1" } } } } },
+            { "$ref": "#/$defs/waveform_channel", "properties": { "ordinal": { "const": 8 }, "label": { "const": "V2" }, "source": { "properties": { "code_value": { "const": "2:4" }, "coding_scheme_designator": { "const": "MDC" }, "code_meaning": { "const": "Lead V2" } } } } },
+            { "$ref": "#/$defs/waveform_channel", "properties": { "ordinal": { "const": 9 }, "label": { "const": "V3" }, "source": { "properties": { "code_value": { "const": "2:5" }, "coding_scheme_designator": { "const": "MDC" }, "code_meaning": { "const": "Lead V3" } } } } },
+            { "$ref": "#/$defs/waveform_channel", "properties": { "ordinal": { "const": 10 }, "label": { "const": "V4" }, "source": { "properties": { "code_value": { "const": "2:6" }, "coding_scheme_designator": { "const": "MDC" }, "code_meaning": { "const": "Lead V4" } } } } },
+            { "$ref": "#/$defs/waveform_channel", "properties": { "ordinal": { "const": 11 }, "label": { "const": "V5" }, "source": { "properties": { "code_value": { "const": "2:7" }, "coding_scheme_designator": { "const": "MDC" }, "code_meaning": { "const": "Lead V5" } } } } },
+            { "$ref": "#/$defs/waveform_channel", "properties": { "ordinal": { "const": 12 }, "label": { "const": "V6" }, "source": { "properties": { "code_value": { "const": "2:8" }, "coding_scheme_designator": { "const": "MDC" }, "code_meaning": { "const": "Lead V6" } } } } }
+          ],
+          "items": false,
+          "minItems": 12,
+          "maxItems": 12
+        },
+        "storage": {
+          "type": "object",
+          "required": [
+            "bits_allocated",
+            "sample_interpretation",
+            "data_vr",
+            "byte_order",
+            "interleave_order",
+            "payload_length_bytes",
+            "payload_sha256",
+            "channel_sha256",
+            "sample_value_formula",
+            "sample_min",
+            "sample_max",
+            "waveform_padding_value_absent",
+            "value_field_padding_bytes"
+          ],
+          "properties": {
+            "bits_allocated": { "const": 16 },
+            "sample_interpretation": { "const": "SS" },
+            "data_vr": { "const": "OW" },
+            "byte_order": { "const": "little_endian" },
+            "interleave_order": { "const": "channel_then_sample" },
+            "payload_length_bytes": { "const": 12000 },
+            "payload_sha256": { "const": "98b7a9b1be25d9d64ffa75bc6e16ea80f60deed1891aeed8dfb440c1c19e6713" },
+            "channel_sha256": {
+              "type": "array",
+              "prefixItems": [
+                { "const": "7b4aee068e05c2bdff3896937c78a4c7a32f9ed2bde64d91b1d925913bf29476" },
+                { "const": "bd775dc70f76ea153a25832ad622b0cc26fbe6a37cf3ec6548a30965c4d17fba" },
+                { "const": "19d26b694df281209aa1296abbfa8f7d360e24a03a091422aba6f67663e2f3b1" },
+                { "const": "bb4c99d7857dbfcee5ee620bcff09b7060b61c5f2432427affc6139cb8d3cf9b" },
+                { "const": "230f52ed2ac57624a9a35214d7867711008dd56014f4176ce258623e5b596d3a" },
+                { "const": "60e167db3c081ba5bca957aba820afb519b790d048b660634d49566df88105f2" },
+                { "const": "cf8c73bebf746b799b1fe8aa2c908ca69bc7acc72311c64cbf4131fc8976609f" },
+                { "const": "0f11e5fb5105dac699fa4bcfc01c79fbe696a81db04606f39a719de57b4c7c30" },
+                { "const": "a41d5962abceb6dbe25f8421091ce3df6a69202c45b24ab6b0736159d15e253b" },
+                { "const": "d655e2cbb23d70e229ed52fedba9c45573e22729fed0a794ab690df8d7f33804" },
+                { "const": "005c539f9f4256a86d9e0a212b3bfe73741f99942b0677fb483c0c48db9583cd" },
+                { "const": "f448df95acb226c5c992363e27707a42efc3ffb974ebeff38e2a81522b57d82c" }
+              ],
+              "items": false,
+              "minItems": 12,
+              "maxItems": 12
+            },
+            "sample_value_formula": { "const": "((s * (c + 1) * 37 + c * 101) mod 2001) - 1000" },
+            "sample_min": { "const": -1000 },
+            "sample_max": { "const": 1000 },
+            "waveform_padding_value_absent": { "const": true },
+            "value_field_padding_bytes": { "const": 0 }
+          },
+          "additionalProperties": false
+        },
+        "absent_content": {
+          "type": "object",
+          "required": ["annotation_module", "synchronization_module", "references", "image", "pixel_data"],
+          "properties": {
+            "annotation_module": { "const": true },
+            "synchronization_module": { "const": true },
+            "references": { "const": true },
+            "image": { "const": true },
+            "pixel_data": { "const": true }
+          },
+          "additionalProperties": false
+        }
       },
       "additionalProperties": false
     },

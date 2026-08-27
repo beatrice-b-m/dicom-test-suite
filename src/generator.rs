@@ -4909,6 +4909,7 @@ fn write_pixel_case_with_metadata(
         put_empty_sequence(&mut obj, tags::ACQUISITION_CONTEXT_SEQUENCE);
     }
     if pixel_has_icc_profile(recipe) {
+        put_str(&mut obj, tags::LATERALITY, VR::CS, "R");
         obj.put(DataElement::new(
             tags::ICC_PROFILE,
             VR::OB,

@@ -1971,6 +1971,15 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
     let icc_object = open_file(&icc_path).expect("ICC VL Photographic DICOM file should parse");
     assert_eq!(
         icc_object
+            .element(tags::LATERALITY)
+            .expect("ICC file should satisfy General Series Laterality")
+            .to_str()
+            .expect("Laterality should be a string")
+            .as_ref(),
+        "R"
+    );
+    assert_eq!(
+        icc_object
             .element(tags::COLOR_SPACE)
             .expect("ICC file should declare Color Space")
             .to_str()

@@ -1,0 +1,15 @@
+[project]
+name = "dicom-test-suite-highdicom-backend"
+version = "0.1.0"
+description = "Locked optional highdicom/pydicom generation backend for dicom-test-suite"
+requires-python = "==3.12.12"
+dependencies = [
+    "highdicom==0.28.1",
+    "numpy>=2.0,<3",
+    "pydicom==3.0.2",
+]
+
+[tool.uv]
+package = false
+python-downloads = "manual"
+python-preference = "only-managed"

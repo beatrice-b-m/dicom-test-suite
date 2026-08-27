@@ -66,8 +66,19 @@
       "implementation_kind": "python",
       "required_by_default": false,
       "discovery": null,
-      "dependency_lock": null,
-      "fingerprint_components": ["protocol_version", "platform_architecture"],
+      "dependency_lock": {
+        "format": "uv-lock-v1",
+        "path": "generation-backends/highdicom-pydicom/uv.lock",
+        "sha256": "6bc67862bd52fb0ffe767579f181aa0c404634a3fb576da51c7c331b1fb143b0"
+      },
+      "fingerprint_components": [
+        "canonical_executable_bytes",
+        "entrypoint_bytes",
+        "dependency_lock_bytes",
+        "fixed_arguments",
+        "protocol_version",
+        "platform_architecture"
+      ],
       "supported_case_families": [
         "derived_image",
         "mesh",
@@ -101,11 +112,11 @@
       "license": {
         "spdx": ["BSD-3-Clause", "MIT"],
         "redistribution": "unreviewed",
-        "notes": "Dependency license and redistribution review will accompany the selected lock and runtime manager."
+        "notes": "The optional uv environment is locked but not vendored. Complete the transitive dependency license review before marking the backend available."
       },
       "blockers": [
-        "A long-term Python runtime and dependency manager requires an explicit project decision.",
-        "No launcher, entrypoint, or dependency lock is selected."
+        "The uv-managed backend entrypoint, isolated runtime discovery, and installed-environment fingerprint are not implemented.",
+        "The transitive dependency license review and independent Parametric Map validation run are incomplete."
       ]
     },
     {

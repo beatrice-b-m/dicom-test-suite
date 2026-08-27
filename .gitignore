@@ -20,6 +20,7 @@
 
 # Local caches and generated standards knowledge bases
 /.cache/
+**/.venv/
 /standards/cache/
 /standards/generated/
 *.sqlite

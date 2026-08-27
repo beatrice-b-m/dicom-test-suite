@@ -29,7 +29,7 @@ use native::pet::{CLASSIC_PET_RECIPES, ClassicPetRecipe, ENHANCED_PET_RECIPES, E
 use native::private_creator_sc::{
     PRIVATE_CREATOR_SC_RECIPE, PrivateCreatorBlockRecipe, PrivateCreatorScRecipe, PrivateValue,
 };
-use native::sc_integer_pixels::U32_SC_RECIPE;
+use native::sc_integer_pixels::{U1_SC_RECIPE, U32_SC_RECIPE};
 use native::sequence_length_sc::{
     CODE_MEANING as SEQUENCE_CODE_MEANING, CODE_VALUE as SEQUENCE_CODE_VALUE,
     CODING_SCHEME_DESIGNATOR as SEQUENCE_CODING_SCHEME_DESIGNATOR, ITEM_DATASET_ENCODED_LENGTH,
@@ -2195,6 +2195,29 @@ const PIXEL_RECIPES: &[PixelRecipe] = &[
             value: 0,
             range_limit: Some(0),
         }),
+    },
+    PixelRecipe {
+        case_id: U1_SC_RECIPE.case_id,
+        recipe_id: U1_SC_RECIPE.recipe_id,
+        rows: U1_SC_RECIPE.rows,
+        columns: U1_SC_RECIPE.columns,
+        photometric_interpretation: "MONOCHROME2",
+        samples_per_pixel: 1,
+        planar_configuration: None,
+        bits_allocated: 1,
+        bits_stored: 1,
+        high_bit: 0,
+        pixel_representation: 0,
+        pixel_vr: VR::OB,
+        transfer_syntax: EXPLICIT_VR_LITTLE_ENDIAN,
+        pixel_bytes: U1_SC_RECIPE.packed_pixel_bytes,
+        pixel_values: U1_SC_RECIPE.pixel_values,
+        pixel_min: 0,
+        pixel_max: 1,
+        visual_pattern: "3x3x2_continuous_lsb_first_checkerboards",
+        semantic_note: "two one-bit MONOCHROME2 frames cross a byte boundary and receive padding only at the end of the complete Value Field",
+        palette: None,
+        padding: None,
     },
     PixelRecipe {
         case_id: U32_SC_RECIPE.case_id,
@@ -4680,6 +4703,7 @@ fn write_pixel_case_with_metadata(
     let mut obj = InMemDicomObject::new_empty();
     let sop_class_uid = pixel_sop_class_uid(recipe);
     let is_vl_photographic = pixel_is_vl_photographic(recipe);
+    let is_u1_sc = recipe.case_id == U1_SC_RECIPE.case_id;
     put_str(&mut obj, tags::SOP_CLASS_UID, VR::UI, sop_class_uid);
     put_str(&mut obj, tags::SOP_INSTANCE_UID, VR::UI, &sop_instance_uid);
     put_str(&mut obj, tags::SYNTHETIC_DATA, VR::CS, "YES");
@@ -4743,6 +4767,15 @@ fn write_pixel_case_with_metadata(
             VR::SH,
             boundary.timezone_offset,
         );
+    }
+    if is_u1_sc {
+        put_str(
+            &mut obj,
+            tags::ACQUISITION_DATE_TIME,
+            VR::DT,
+            "20260101000000",
+        );
+        put_str(&mut obj, tags::ACQUISITION_NUMBER, VR::IS, "1");
     }
     put_str(&mut obj, tags::REFERRING_PHYSICIAN_NAME, VR::PN, "");
     put_str(&mut obj, tags::STUDY_ID, VR::SH, "SMOKE");
@@ -4829,6 +4862,11 @@ fn write_pixel_case_with_metadata(
     put_str(&mut obj, tags::PATIENT_ORIENTATION, VR::CS, "");
     put_str(&mut obj, tags::CONTENT_DATE, VR::DA, "20260101");
     put_str(&mut obj, tags::CONTENT_TIME, VR::TM, "000000");
+    if is_u1_sc {
+        put_str(&mut obj, tags::BODY_PART_EXAMINED, VR::CS, "CHEST");
+        put_str(&mut obj, tags::BURNED_IN_ANNOTATION, VR::CS, "NO");
+        put_str(&mut obj, tags::LOSSY_IMAGE_COMPRESSION, VR::CS, "00");
+    }
     if is_vl_photographic {
         put_str(&mut obj, tags::IMAGE_TYPE, VR::CS, "ORIGINAL\\PRIMARY");
         put_str(&mut obj, tags::LOSSY_IMAGE_COMPRESSION, VR::CS, "00");
@@ -4874,6 +4912,14 @@ fn write_pixel_case_with_metadata(
             VR::IS,
             &frame_count.to_string(),
         );
+    }
+    if is_u1_sc {
+        obj.put(DataElement::new(
+            tags::FRAME_INCREMENT_POINTER,
+            VR::AT,
+            PrimitiveValue::Tags(vec![tags::PAGE_NUMBER_VECTOR].into()),
+        ));
+        put_str(&mut obj, tags::PAGE_NUMBER_VECTOR, VR::IS, "1\\2");
     }
     put_u16(
         &mut obj,
@@ -6561,7 +6607,42 @@ fn pixel_manifest_entry(
     metadata: Option<ScMetadataPayload>,
 ) -> Value {
     let mut standards_evidence = standards_evidence_from_case(case);
-    if pixel_is_vl_photographic(recipe) {
+    if recipe.case_id == U1_SC_RECIPE.case_id {
+        standards_evidence.extend([
+            serde_json::json!({
+                "source": "dicom-standard-kb",
+                "edition": "2026b",
+                "query": "lookup_sop_class Multi-frame Single Bit Secondary Capture Image Storage",
+                "covered": true,
+                "part": "PS3.4",
+                "anchor": "table_B.5-1"
+            }),
+            serde_json::json!({
+                "source": "dicom-standard-kb",
+                "edition": "2026b",
+                "query": "lookup_iod Multi-frame Single Bit Secondary Capture Image",
+                "covered": true,
+                "part": "PS3.3",
+                "anchor": "table_A.8-2"
+            }),
+            serde_json::json!({
+                "source": "dicom-standard-kb",
+                "edition": "2026b",
+                "query": "retrieve_standard_text sect_A.8.2.4",
+                "covered": true,
+                "part": "PS3.3",
+                "anchor": "sect_A.8.2.4"
+            }),
+            serde_json::json!({
+                "source": "local-source-note",
+                "edition": "2026b",
+                "query": "standards/source-notes/phase-2-u1-native-pixels.md",
+                "covered": true,
+                "part": "PS3.5",
+                "anchor": "sect_8.1.1"
+            }),
+        ]);
+    } else if pixel_is_vl_photographic(recipe) {
         standards_evidence.extend([
             serde_json::json!({
                 "source": "dicom-standard-kb",
@@ -7057,6 +7138,20 @@ fn pixel_manifest_entry(
             "full_unsigned_range": true
         });
     }
+    if recipe.case_id == U1_SC_RECIPE.case_id {
+        manifest["expected_u1_pixels"] = serde_json::json!({
+            "packing_order": "least_significant_bit_first",
+            "frame_boundary_policy": "continuous_without_per_frame_padding",
+            "stored_values": U1_SC_RECIPE.pixel_values,
+            "decoded_frame_sha256": U1_SC_RECIPE.decoded_frame_sha256,
+            "pixel_data_sha256": U1_SC_RECIPE.pixel_data_sha256,
+            "significant_bits": 18,
+            "significant_packed_bytes": U1_SC_RECIPE.significant_packed_bytes,
+            "unused_high_bits": 6,
+            "value_field_padding_bytes": 1,
+            "frame_two_bit_offset": 9
+        });
+    }
     if let Some(ScMetadataPayload::PersonName(metadata)) = metadata {
         let mut raw_value = metadata.patient_name_raw.to_vec();
         if raw_value.len() % 2 == 1 {
@@ -7357,6 +7452,12 @@ fn pixel_known_stressors(recipe: PixelRecipe) -> Vec<&'static str> {
         stressors.push("retired_transfer_syntax");
         stressors.push("explicit_vr_big_endian_dataset");
     }
+    if recipe.case_id == U1_SC_RECIPE.case_id {
+        stressors.push("native_bit_packed_pixel_data");
+        stressors.push("continuous_cross_frame_bit_packing");
+        stressors.push("multi_frame_single_bit_secondary_capture");
+        stressors.push("whole_value_field_even_length_padding");
+    }
     if recipe.transfer_syntax == DEFLATED_EXPLICIT_VR_LITTLE_ENDIAN {
         stressors.push("deflated_dataset_transfer_syntax");
     }
@@ -7437,12 +7538,21 @@ fn pixel_profile_membership(recipe: PixelRecipe) -> &'static [&'static str] {
         | "classic/sc/mono2_u16_htj2k_lossless"
         | "classic/sc/mono2_u16_jpeg_lossless_process_14"
         | "classic/sc/mono2_u16_jpeg_lossless_sv1"
-        | "classic/sc/mono2_u32_explicit_le" => &["extended"],
+        | "classic/sc/mono2_u32_explicit_le"
+        | "classic/sc/mono2_u1_native" => &["extended"],
         _ => &["core"],
     }
 }
 
 fn pixel_expected_capabilities(recipe: PixelRecipe) -> Vec<&'static str> {
+    if recipe.case_id == U1_SC_RECIPE.case_id {
+        return vec![
+            "open_file",
+            "read_metadata",
+            "unpack_native_bit_packed_pixels",
+            "render_native_pixels",
+        ];
+    }
     if recipe.transfer_syntax == RLE_LOSSLESS {
         vec![
             "open_file",
@@ -7515,7 +7625,9 @@ fn pixel_is_vl_photographic(recipe: PixelRecipe) -> bool {
 }
 
 fn pixel_sop_class_uid(recipe: PixelRecipe) -> &'static str {
-    if pixel_is_vl_photographic(recipe) {
+    if recipe.case_id == U1_SC_RECIPE.case_id {
+        uids::MULTI_FRAME_SINGLE_BIT_SECONDARY_CAPTURE_IMAGE_STORAGE
+    } else if pixel_is_vl_photographic(recipe) {
         uids::VL_PHOTOGRAPHIC_IMAGE_STORAGE
     } else {
         uids::SECONDARY_CAPTURE_IMAGE_STORAGE
@@ -7523,7 +7635,9 @@ fn pixel_sop_class_uid(recipe: PixelRecipe) -> &'static str {
 }
 
 fn pixel_sop_class_name(recipe: PixelRecipe) -> &'static str {
-    if pixel_is_vl_photographic(recipe) {
+    if recipe.case_id == U1_SC_RECIPE.case_id {
+        "Multi-frame Single Bit Secondary Capture Image Storage"
+    } else if pixel_is_vl_photographic(recipe) {
         "VL Photographic Image Storage"
     } else {
         "Secondary Capture Image Storage"
@@ -7531,7 +7645,9 @@ fn pixel_sop_class_name(recipe: PixelRecipe) -> &'static str {
 }
 
 fn pixel_iod_name(recipe: PixelRecipe) -> &'static str {
-    if pixel_is_vl_photographic(recipe) {
+    if recipe.case_id == U1_SC_RECIPE.case_id {
+        "Multi-frame Single Bit Secondary Capture Image"
+    } else if pixel_is_vl_photographic(recipe) {
         "VL Photographic Image"
     } else {
         "Secondary Capture Image"
@@ -7578,6 +7694,9 @@ fn pixel_determinism(recipe: PixelRecipe) -> &'static str {
 }
 
 fn pixel_recipe_frame_bytes(recipe: PixelRecipe) -> Result<Vec<&'static [u8]>, String> {
+    if recipe.case_id == U1_SC_RECIPE.case_id {
+        return Ok(U1_SC_RECIPE.decoded_frames());
+    }
     let frame_len = pixel_recipe_frame_len(recipe)?;
     if frame_len == 0 {
         return Err(format!(
@@ -12207,7 +12326,9 @@ fn segmentation_frame_byte_len(recipe: SegmentationRecipe) -> usize {
                 * usize::from(recipe.bits_allocated)
                 / 8
         }
-        PixelDataLengthFormula::YbrFull422 | PixelDataLengthFormula::Encapsulated { .. } => {
+        PixelDataLengthFormula::YbrFull422
+        | PixelDataLengthFormula::BitPackedContinuousFrames
+        | PixelDataLengthFormula::Encapsulated { .. } => {
             unreachable!("segmentation recipes do not use this native frame length formula")
         }
     }
@@ -20962,6 +21083,9 @@ fn pixel_vr_name(vr: VR) -> &'static str {
 }
 
 fn pixel_data_length_formula(recipe: PixelRecipe) -> PixelDataLengthFormula {
+    if recipe.case_id == U1_SC_RECIPE.case_id {
+        return PixelDataLengthFormula::BitPackedContinuousFrames;
+    }
     match recipe.photometric_interpretation {
         "YBR_FULL_422" => PixelDataLengthFormula::YbrFull422,
         _ => PixelDataLengthFormula::ContiguousSamples,

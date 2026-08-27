@@ -297,6 +297,7 @@ pub(crate) enum PixelDataLengthFormula {
     ContiguousSamples,
     YbrFull422,
     BitPackedFrames,
+    BitPackedContinuousFrames,
     Encapsulated {
         fragments: usize,
         basic_offset_table_offsets: usize,
@@ -3660,6 +3661,18 @@ fn expected_pixel_data_length(
             (
                 "native_bit_packed_pixel_data_length",
                 "Native one-bit Pixel Data length matches byte-packed frames.",
+                value_length + (value_length % 2),
+            )
+        }
+        PixelDataLengthFormula::BitPackedContinuousFrames => {
+            let value_bits = usize::from(expected.rows)
+                * usize::from(expected.columns)
+                * usize::from(expected.frames)
+                * usize::from(expected.samples_per_pixel);
+            let value_length = value_bits.div_ceil(8);
+            (
+                "native_continuous_bit_packed_pixel_data_length",
+                "Native one-bit Pixel Data length packs frames continuously and pads only the complete Value Field.",
                 value_length + (value_length % 2),
             )
         }

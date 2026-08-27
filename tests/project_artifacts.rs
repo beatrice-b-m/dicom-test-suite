@@ -565,7 +565,13 @@ fn phase3_status_records_completed_derived_vertical_gates() {
         "4e737e1429b7b2463bc412e4c6ff330411259f321070b32d9ce68cdef0bc0543",
         "b1e494962d40634300fb488fdf95c92ad80bad9b2d1e0f0be6bff9b4e8503b0a",
         "213 older or unrelated findings",
-        "next Phase 3 dependency is Advanced Blending Presentation State",
+        "derived/presentation-state/advanced_blending",
+        "100 files",
+        "52ae3faf72563b66069cb9546396e9d291ae324ec7302012f2eaadf3c491786a",
+        "4bf58b3a29f168c6d24398603f98ebaa5b40ee62353eb30449e3c193b84ad75d",
+        "c6a017c46b7e489059dd3bc71b1be66e1ff70008af853aaf393880a4e4f69c73",
+        "211 older or unrelated failures",
+        "next Phase 3 dependency is Blending Presentation State",
     ] {
         assert!(
             status.contains(required),

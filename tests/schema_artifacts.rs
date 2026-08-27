@@ -620,6 +620,72 @@ fn manifest_schema_types_pet_activity_expectations() {
 }
 
 #[test]
+fn manifest_schema_types_ultrasound_multiframe_expectations() {
+    let schema = read_json("schemas/manifest.schema.json");
+    let us_schema = serde_json::json!({
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$ref": "#/$defs/expected_us_multiframe",
+        "$defs": schema["$defs"].clone(),
+    });
+    let validator =
+        jsonschema::validator_for(&us_schema).expect("US expectation schema should compile");
+    let mut expectations = ultrasound_multiframe_expectations();
+    assert!(validator.is_valid(&expectations));
+
+    expectations["frame_increment_pointer"] = serde_json::json!("0018,1065");
+    expectations["frame_relative_times_ms"][2] = serde_json::json!(250.0);
+    expectations["frames"][1]["frame_number"] = serde_json::json!(3);
+    expectations["frames"][2]["frame_sha256"] =
+        serde_json::json!("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef");
+    expectations["frames"][3]["pixel_values"][13] = serde_json::json!(80);
+    expectations["spatially_related_frames"] = serde_json::json!(true);
+    expectations["color_data_present"] = serde_json::json!(true);
+    expectations["region_calibrated"] = serde_json::json!(true);
+    expectations["lossy_image_compression"] = serde_json::json!("01");
+    expectations["unexpected"] = serde_json::json!(true);
+    let errors = validator.iter_errors(&expectations).collect::<Vec<_>>();
+    assert!(
+        errors.len() >= 10,
+        "pointer, timing, frame order, hashes, pixels, explicit non-claims, loss history, and unknown fields must be rejected: {errors:?}"
+    );
+
+    assert_eq!(
+        schema.pointer("/$defs/file/properties/expected_us_multiframe/$ref"),
+        Some(&Value::String("#/$defs/expected_us_multiframe".to_string()))
+    );
+
+    let us_case_rule = schema
+        .pointer("/$defs/file/allOf")
+        .and_then(Value::as_array)
+        .and_then(|rules| {
+            rules.iter().find(|rule| {
+                rule.pointer("/if/properties/case_id/const")
+                    .and_then(Value::as_str)
+                    == Some("classic/us/multiframe_explicit_le")
+            })
+        })
+        .expect("US case must have a manifest schema conditional");
+    let required = us_case_rule
+        .pointer("/then/required")
+        .and_then(Value::as_array)
+        .expect("US case conditional must require manifest fields");
+    for field in ["image", "pixel_data", "expected_us_multiframe"] {
+        assert!(
+            required.iter().any(|value| value.as_str() == Some(field)),
+            "US case conditional must require {field}"
+        );
+    }
+    assert_eq!(
+        us_case_rule.pointer("/then/properties/image/properties/rows/const"),
+        Some(&Value::from(4))
+    );
+    assert_eq!(
+        us_case_rule.pointer("/then/properties/image/properties/columns/const"),
+        Some(&Value::from(4))
+    );
+}
+
+#[test]
 fn manifest_schema_rejects_malformed_person_name_expectations() {
     let schema = read_json("schemas/manifest.schema.json");
     let metadata_schema = serde_json::json!({
@@ -865,6 +931,42 @@ fn pet_activity_expectations() -> Value {
         "actual_frame_duration_ms": 60000,
         "image_index": 1,
         "radiopharmaceutical_information_item_count": 0
+    })
+}
+
+fn ultrasound_multiframe_expectations() -> Value {
+    serde_json::json!({
+        "image_type": ["ORIGINAL", "PRIMARY", "ABDOMINAL", "0001"],
+        "frame_increment_pointer": "0018,1063",
+        "frame_time_ms": 100.0,
+        "frame_relative_times_ms": [0.0, 100.0, 200.0, 300.0],
+        "frame_count": 4,
+        "frames": [
+            {
+                "frame_number": 1,
+                "frame_sha256": "be422fa58b70ec0d940f28a4dba3dadac62d4583b9ecba1e73d65b37ee9733e7",
+                "pixel_values": [0, 16, 32, 48, 16, 64, 80, 64, 32, 80, 255, 80, 48, 64, 80, 64]
+            },
+            {
+                "frame_number": 2,
+                "frame_sha256": "303d53edfa9bf6eeeb81dba8a6a4c1a9c2e1cb0ea773f90afb583d1132d88eee",
+                "pixel_values": [0, 16, 32, 48, 16, 64, 80, 64, 32, 80, 80, 255, 48, 64, 80, 80]
+            },
+            {
+                "frame_number": 3,
+                "frame_sha256": "7f8a6e2fa2665b2465075b9e0cf86dfb0646f6f21a2a647525476e5bb6e489bb",
+                "pixel_values": [0, 16, 32, 48, 16, 64, 80, 64, 32, 80, 80, 80, 48, 64, 255, 80]
+            },
+            {
+                "frame_number": 4,
+                "frame_sha256": "8c213da26d1c57661b68238ac5c1f1d9417f661e0ab578846bf84040e753f650",
+                "pixel_values": [0, 16, 32, 48, 16, 64, 80, 64, 32, 80, 80, 80, 48, 255, 80, 64]
+            }
+        ],
+        "spatially_related_frames": false,
+        "color_data_present": false,
+        "region_calibrated": false,
+        "lossy_image_compression": "00"
     })
 }
 

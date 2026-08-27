@@ -50,11 +50,11 @@ fn report_command_writes_json_coverage_for_core_root() {
     );
     assert_eq!(
         report.pointer("/counts/generated").and_then(Value::as_u64),
-        Some(41)
+        Some(42)
     );
     assert_eq!(
         report.pointer("/counts/planned").and_then(Value::as_u64),
-        Some(7)
+        Some(6)
     );
     assert_eq!(
         report
@@ -583,7 +583,7 @@ fn report_command_writes_json_coverage_for_core_root() {
         report
             .pointer("/grouped_coverage/conversion_types/SYN")
             .and_then(Value::as_u64),
-        Some(14)
+        Some(15)
     );
     assert_eq!(
         report
@@ -853,19 +853,19 @@ fn report_command_writes_json_coverage_for_core_root() {
         report
             .pointer("/grouped_coverage/study_instance_uid_roots/2.25")
             .and_then(Value::as_u64),
-        Some(41)
+        Some(42)
     );
     assert_eq!(
         report
             .pointer("/grouped_coverage/series_instance_uid_roots/2.25")
             .and_then(Value::as_u64),
-        Some(41)
+        Some(42)
     );
     assert_eq!(
         report
             .pointer("/grouped_coverage/sop_instance_uid_roots/2.25")
             .and_then(Value::as_u64),
-        Some(41)
+        Some(42)
     );
     assert_eq!(
         report
@@ -2352,8 +2352,8 @@ fn report_command_writes_markdown_coverage_for_core_root() {
     );
     let stdout = String::from_utf8(output.stdout).expect("report stdout should be UTF-8");
     assert!(stdout.starts_with("# DICOM Test Suite Coverage Report"));
-    assert!(stdout.contains("| generated | 41 |"));
-    assert!(stdout.contains("| planned | 7 |"));
+    assert!(stdout.contains("| generated | 42 |"));
+    assert!(stdout.contains("| planned | 6 |"));
     assert!(stdout.contains("### Profile Memberships"));
     assert!(stdout.contains("| core | 48 |"));
     assert!(stdout.contains("### Transfer Syntax Names"));
@@ -2446,7 +2446,7 @@ fn report_command_writes_markdown_coverage_for_core_root() {
     assert!(stdout.contains("### Study Instance UID Roots"));
     assert!(stdout.contains("### Series Instance UID Roots"));
     assert!(stdout.contains("### SOP Instance UID Roots"));
-    assert!(stdout.contains("| 2.25 | 41 |"));
+    assert!(stdout.contains("| 2.25 | 42 |"));
     assert!(stdout.contains("### Derived Reference SOP Instance UID Roots"));
     assert!(stdout.contains("## Gaps"));
     assert!(

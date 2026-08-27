@@ -62,6 +62,33 @@ Results on the 108-instance all-features corpus:
 The generated evidence bundle remains an ignored local artifact and was not
 committed.
 
+## Scoped U1 qualification on 2026-08-27
+
+The overall corpus remains blocked as described below, but the
+`classic/sc/mono2_u1_native` vertical slice independently qualifies within its
+declared case boundary. A seed-1 `extended` corpus generated 86 instances and
+strict internal validation passed 86/86. The integrated conformance runner
+recorded a lock-matched, finding-free `dciodvfy -new` result for the U1 file,
+silent isolated entity validation, complete parser evidence, and exact
+independent pixel evidence.
+
+DCMTK 3.7.0 `dcm2img`, executable SHA-256
+`6a6103a7c516814b5eb44f53d198b111cbaf1678de5952ab7d31961732f112d5`,
+decoded two 3 by 3 PGM frames with maximum value one. Their SHA-256 values are
+`a6188710c09cfbc77383ee0588dec2f7affa6e03e78aa900e9ae597a8d8faba3`
+and
+`c520efb8f894a1125bb1a513a9b64ef957f7c2cd63835fd7e130357c47f989ae`.
+Locked `dcmdump` extracted Pixel Data `55 55 01 00`, SHA-256
+`9d6baf87a79d40ef2b145f92945a05cf156a2741e2c2834a3a7721d52757594b`.
+
+The `uv`-locked pydicom validator was evaluated but not selected for U1
+because it accepted an invalid `8/8/7` single-bit constraint control. Locked
+dicom3tools rejects that control and reports forbidden Planar Configuration.
+The latter finding occurs with process exit zero, so the framework continues
+to decide acceptance from normalized findings rather than exit status alone.
+No U1 disposition or validation weakening was added; the older unrelated
+whole-corpus findings remain unresolved.
+
 ## Exact blocker
 
 The arm64 macOS acquisition blocker is resolved. Acceptance is now blocked on

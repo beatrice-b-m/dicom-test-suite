@@ -504,12 +504,50 @@ verification failures. Python remains optional for ordinary profile generation
 and becomes required only when collecting conformance evidence for this one
 declared case.
 
+## One-bit native Multi-frame Secondary Capture
+
+`classic/sc/mono2_u1_native` completes the second Phase 2 pixel slice. It is a
+two-frame, 3 by 3 Multi-frame Single Bit Secondary Capture instance with
+Samples per Pixel/Bits Allocated/Bits Stored `1/1/1`, High Bit and unsigned
+Pixel Representation zero, MONOCHROME2 photometric interpretation, OB Pixel
+Data, and no Planar Configuration. Frame Increment Pointer names Page Number
+Vector with values `1\\2`.
+
+The alternating checkerboards deliberately place the second frame at bit
+offset nine. PS3.5 continuous packing therefore produces three significant
+bytes `55 55 01`, with six unused high bits zero and one final zero byte for
+even Value Field length. Per-frame byte padding is forbidden. The complete
+Pixel Data SHA-256 is
+`9d6baf87a79d40ef2b145f92945a05cf156a2741e2c2834a3a7721d52757594b`;
+decoded-frame hashes are
+`a6188710c09cfbc77383ee0588dec2f7affa6e03e78aa900e9ae597a8d8faba3`
+and
+`c520efb8f894a1125bb1a513a9b64ef957f7c2cd63835fd7e130357c47f989ae`.
+The manifest, validator, JSON/Markdown reports, and schema all bind these
+values and the least-significant-bit-first, cross-frame packing policy.
+
+Two seed-1 `extended` generations each produced 86 files and were recursively
+byte-identical; strict internal validation passed all 86. Locked
+`dciodvfy -new` identifies `MultiframeSingleBitSCImage` without findings and
+isolated `dcentvfy` is silent. Pydicom `dicom-validator` was not selected for
+this case because an empirical invalid `8/8/7` control showed that its current
+definitions do not enforce PS3.3 A.8.2.4.
+
+Independent pixel evidence instead uses locked DCMTK 3.7.0 `dcm2img`,
+executable SHA-256
+`6a6103a7c516814b5eb44f53d198b111cbaf1678de5952ab7d31961732f112d5`,
+to produce exact PGM frames, plus locked `dcmdump` raw extraction. Strict
+verification binds both decoded hashes and the raw payload to the generated
+file and manifest. Negative controls confirm that invalid `8/8/7` bit fields
+produce enumerated-value and length findings, while forbidden Planar
+Configuration produces normalized errors despite a zero tool exit code.
+
 ## Milestone gate
 
 All planned Phase 2 geometry and series cases are implemented, and the UTF-8,
 ISO 2022, timezone, empty Type 2, string boundary, private creator, and sequence
 length metadata slices have passed their vertical gates. The latest seed-1
-`core` corpus contains 47 files; the seed-1 `extended` corpus contains 85
+`core` corpus contains 47 files; the seed-1 `extended` corpus contains 86
 files. The complete
 locked no-default-feature, all-target test suite passes, including byte-stable
 smoke, core, and extended regeneration. Each new CT slice and the temporal MR
@@ -520,5 +558,5 @@ ordered Phase 2 metadata and VR milestone is complete. The Nuclear Medicine
 STATIC multi-frame, PET rescaled-activity, timed Ultrasound multi-frame,
 XA monoplane, XRF monoplane, and Enhanced PET clinical-family representatives
 are complete. The dependency-ordered Phase 2 clinical-family milestone is
-closed. The first pixel slice, unsigned 32-bit native Pixel Data, is complete;
-Phase 2 continues with 1-bit native pixels.
+closed. The unsigned 32-bit and one-bit native Pixel Data slices are complete;
+Phase 2 continues with ICC profile handling.

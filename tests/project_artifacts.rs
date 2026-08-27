@@ -202,13 +202,15 @@ fn u32_conformance_docs_preserve_the_independent_gate() {
         "Unsigned 32-bit native Secondary Capture",
         "85 files",
         "silent entity validation",
-        "continues with 1-bit native pixels",
+        "One-bit native Multi-frame Secondary Capture",
+        "continues with ICC profile handling",
     ] {
         assert!(phase.contains(required), "phase status requires {required}");
     }
     let plan = fs::read_to_string("docs/coverage-expansion-plan.md").unwrap();
     assert!(plan.contains("unsigned 32-bit native Secondary Capture"));
-    assert!(plan.contains("1-bit native pixels are the next"));
+    assert!(plan.contains("1-bit native Multi-frame Secondary Capture slice is also"));
+    assert!(plan.contains("ICC profile handling is the next"));
 }
 
 #[test]
@@ -224,10 +226,33 @@ fn u1_source_note_locks_cross_frame_bit_packing() {
         "without per-frame padding",
         "1.2.840.10008.5.1.4.1.1.7.1",
         "1cc11d28abf1e6f4efa4b07a73d4a7c953b3b3101b4112865c7170ccdeb84728",
+        "Registry status: implemented",
+        "Pydicom `dicom-validator` 0.8.2 was evaluated but rejected",
+        "6a6103a7c516814b5eb44f53d198b111cbaf1678de5952ab7d31961732f112d5",
     ] {
         assert!(
             source.contains(required),
             "u1 source note requires {required}"
+        );
+    }
+
+    let phase = fs::read_to_string("docs/phase-2-native-status.md").unwrap();
+    for required in [
+        "86 files",
+        "continuous packing",
+        "normalized errors despite a zero tool exit code",
+    ] {
+        assert!(phase.contains(required), "phase status requires {required}");
+    }
+    let readme = fs::read_to_string("conformance/README.md").unwrap();
+    for required in [
+        "U1 SC independent pixels",
+        "did not reject an invalid `8/8/7`",
+        "Every other native shape remains explicitly",
+    ] {
+        assert!(
+            readme.contains(required),
+            "conformance docs require {required}"
         );
     }
 }

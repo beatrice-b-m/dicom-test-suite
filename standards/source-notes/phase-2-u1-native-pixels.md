@@ -78,9 +78,37 @@ explicit without selecting the conditional Cine Module.
 
 ## Project Action
 
-- Registry status: planned until the complete vertical slice passes internal
-  and independent conformance validation.
-- Registry reason: deterministic recipe implementation remains outstanding.
+- Registry status: implemented after the complete vertical slice passed
+  deterministic generation, strict internal validation, case-scoped IOD
+  validation, independent pixel decoding, manifest/report schema validation,
+  and focused tamper tests.
+- Registry reason: none; the former deterministic-recipe blocker is resolved.
 - Should become KB patch: no; the current query surface covers the required
   IOD, module, content-constraint, and packing decisions.
 - Expected cleanup after KB coverage exists: none.
+
+## Qualification Evidence
+
+- Two seed-1 `extended` generations produce the same bytes and manifests. The
+  profile now contains 86 generated files and strict internal validation
+  reports 86 passed, zero failed.
+- The U1 Pixel Data Value Field is exactly `55 55 01 00`, SHA-256
+  `9d6baf87a79d40ef2b145f92945a05cf156a2741e2c2834a3a7721d52757594b`.
+  Independent frame hashes are
+  `a6188710c09cfbc77383ee0588dec2f7affa6e03e78aa900e9ae597a8d8faba3`
+  and
+  `c520efb8f894a1125bb1a513a9b64ef957f7c2cd63835fd7e130357c47f989ae`.
+- Locked dicom3tools `dciodvfy -new` identifies
+  `MultiframeSingleBitSCImage` without findings; isolated `dcentvfy` is
+  silent. The primary IOD validator remains independent of the Rust
+  generator. Pydicom `dicom-validator` 0.8.2 was evaluated but rejected for
+  this route because it did not enforce the A.8.2.4 single-bit constraints.
+- Locked DCMTK `dcm2img` 3.7.0, executable SHA-256
+  `6a6103a7c516814b5eb44f53d198b111cbaf1678de5952ab7d31961732f112d5`,
+  decodes two exact PGM frames with maximum sample value one. Locked
+  `dcmdump` independently extracts the four raw bytes.
+- Negative controls are finding-driven rather than exit-code-only. Changing
+  Bits Allocated/Stored/High Bit to `8/8/7` produces incorrect-length and
+  enumerated-value errors with exit 1. Inserting forbidden Planar
+  Configuration produces two conditional-presence errors even though this
+  dicom3tools build exits 0, proving why normalized findings are authoritative.

@@ -29,6 +29,7 @@ official DICOM 2026b DocBook inputs and derived definitions for the unsigned
 | --- | --- | --- | --- | --- |
 | Per-instance IOD | `dicom3tools-dciodvfy` | `dciodvfy -new` | Required | dicom3tools BSD license; pin source snapshot/package and executable hash. Homebrew does not currently provide it on this host. Debian packages both validator commands; upstream publishes source and platform builds. Validator definitions evolve, so the snapshot/definition baseline must remain visible. |
 | U32 SC per-instance IOD | `pydicom-dicom-validator-u32` | `python -m dts_dicom_validator_adapter` | Required for its declared case only | `uv` locks CPython 3.12.12, `dicom-validator` 0.8.2, pydicom 3.0.2, and transitive packages. `DTS_DICOM_VALIDATOR_PYTHON` selects the prepared interpreter and `DTS_DICOM_VALIDATOR_STANDARD_HOME` selects the external hash-locked 2026b cache. It is not a generation-profile runtime. |
+| U1 SC independent pixels | `dcmtk-dcm2img-u1` | `dcm2img +Fa +Fn -M -W +Pid -O +opn 1` | Required when collecting evidence for its declared case | DCMTK 3.7.0 emits one PGM per frame. The collector requires P2, dimensions 3 by 3, maximum value one, exact samples, and exact frame hashes; `dcmdump +W` separately binds the packed Pixel Data bytes. Primary IOD validation remains `dciodvfy`. |
 | Corpus entity consistency | `dicom3tools-dcentvfy` | `dcentvfy -f <file-list>` | Required | Same dicom3tools identity and acquisition decision as `dciodvfy`; pass files through its one-path-per-line file-list option to avoid argument limits. |
 | Independent parse | `dcmtk-dcmdump` | `dcmdump +fo` | Required | DCMTK is BSD-style licensed and cross-platform. Baseline is Homebrew DCMTK 3.7.0. Dictionary and character mapping data affect behavior and must be noted with the fingerprint. |
 | Independent lossless decode | `dcmtk-dcmdjpeg` | `dcmdjpeg` | Capability-based | Suitable for JPEG families supported by the installed DCMTK build. It is not independent for cases encoded by the project's DCMTK `dcmcjpeg` path. Raw native-byte normalization still needs a proven adapter. |
@@ -51,6 +52,14 @@ Primary IOD routing is exact-case-first. A validator with
 overlapping declarations are rejected. The U32 route therefore cannot alter
 acceptance for existing cases, and strict verification requires the optional
 tool to be available and lock-matched whenever it produced evidence.
+
+The U1 case stays on the unrestricted, locked `dciodvfy` primary route because
+that validator recognizes Multi-frame Single Bit Secondary Capture and its
+PS3.3 A.8.2.4 content constraints. The `uv`-locked pydicom validator was
+evaluated but did not reject an invalid `8/8/7` Bits
+Allocated/Stored/High Bit control, so it is not an acceptance oracle for U1.
+Normalized findings remain authoritative because `dciodvfy` reports forbidden
+Planar Configuration while returning zero for that control.
 
 The U32 payload path uses adapter version 0.2.0 to read raw OW bytes through
 pydicom and unpack exact little-endian unsigned 32-bit words without NumPy.
@@ -92,6 +101,16 @@ Pixel Data. The adapter normalizes 16-bit sample byte order and planar color to
 the manifest's interleaved frame-hash convention before comparison. A real
 seed-1 all-profile run on the locked arm64 macOS tools matched all 58 RLE files.
 Set `DTS_REAL_CONFORMANCE=1` to exercise that conditional integration test.
+
+Native pixel coverage remains case-scoped rather than implied for every native
+shape. U32 uses the `uv`-locked pydicom adapter described above. U1 uses locked
+DCMTK 3.7.0 `dcm2img`, executable SHA-256
+`6a6103a7c516814b5eb44f53d198b111cbaf1678de5952ab7d31961732f112d5`,
+to decode both non-byte-aligned frames and locked `dcmdump` to extract the raw
+four-byte Value Field. Strict verification rejects a missing frame, any PGM
+shape/maxval/sample mismatch, manifest relinking, payload mismatch, lock
+mismatch, or policy mismatch. Every other native shape remains explicitly
+unsupported in `pixel-decoders.json`.
 
 ## Installation identity
 

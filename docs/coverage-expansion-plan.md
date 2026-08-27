@@ -287,7 +287,10 @@ Status on 2026-08-27: milestones 1 through 3 are complete. The clinical-family
 milestone closes with the independently conformant Enhanced PET multi-frame
 representative. In milestone 4, the unsigned 32-bit native Secondary Capture
 slice is complete with a case-specific `uv`-locked independent IOD/payload
-validator; 1-bit native pixels are the next dependency-ordered slice.
+validator. The 1-bit native Multi-frame Secondary Capture slice is also
+complete with clean dicom3tools IOD/entity results and a locked DCMTK
+independent frame decoder. ICC profile handling is the next dependency-ordered
+slice; non-square spacing/aspect-ratio follows it.
 
 Gate:
 

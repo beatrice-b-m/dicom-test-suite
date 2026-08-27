@@ -4356,7 +4356,21 @@ fn parametric_map_generated_file(
                 "per_frame_functional_groups_sequence_items": generated.payload.frames,
                 "dimension_organization_uid": generated.identities.dimension_organization_uid,
                 "source_reference_count": sources.len(),
-                "real_world_value_mapping": output["expected_semantics"]["real_world_value_mapping"]
+                "real_world_value_mapping": {
+                    "lut_label": output["expected_semantics"]["real_world_value_mapping"]["lut_label"],
+                    "slope": output["expected_semantics"]["real_world_value_mapping"]["slope"],
+                    "intercept": output["expected_semantics"]["real_world_value_mapping"]["intercept"],
+                    "units": {
+                        "code_value": output["expected_semantics"]["real_world_value_mapping"]["unit"]["value"],
+                        "coding_scheme_designator": output["expected_semantics"]["real_world_value_mapping"]["unit"]["scheme"],
+                        "code_meaning": output["expected_semantics"]["real_world_value_mapping"]["unit"]["meaning"]
+                    },
+                    "quantity_definition": {
+                        "code_value": output["expected_semantics"]["real_world_value_mapping"]["quantity"]["value"],
+                        "coding_scheme_designator": output["expected_semantics"]["real_world_value_mapping"]["quantity"]["scheme"],
+                        "code_meaning": output["expected_semantics"]["real_world_value_mapping"]["quantity"]["meaning"]
+                    }
+                }
             },
             "expected_visual_checks": {"pattern": "three_frame_ct_derived_float32_parametric_map"},
             "validation": validation,

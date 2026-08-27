@@ -1733,11 +1733,18 @@ fn report_command_writes_rwvm_content_coverage_for_extended_root() {
             .and_then(Value::as_u64),
         Some(1)
     );
+    let parametric_map_generated = report["coverage_matrix"]
+        .as_array()
+        .expect("coverage matrix")
+        .iter()
+        .any(|row| {
+            row["case_id"].as_str() == Some("derived/parametric-map/float32_ct_derived_explicit_le")
+        });
     assert_eq!(
         report
             .pointer("/grouped_coverage/rwvm_slopes/1.0")
             .and_then(Value::as_u64),
-        Some(1)
+        Some(1 + u64::from(parametric_map_generated))
     );
     assert_eq!(
         report
@@ -1749,8 +1756,22 @@ fn report_command_writes_rwvm_content_coverage_for_extended_root() {
         report
             .pointer("/grouped_coverage/rwvm_units_coding_scheme_designators/UCUM")
             .and_then(Value::as_u64),
-        Some(1)
+        Some(1 + u64::from(parametric_map_generated))
     );
+    if parametric_map_generated {
+        assert_eq!(
+            report
+                .pointer("/grouped_coverage/rwvm_units_code_values/1")
+                .and_then(Value::as_u64),
+            Some(1)
+        );
+        assert_eq!(
+            report
+                .pointer("/grouped_coverage/rwvm_units_code_meanings/no units")
+                .and_then(Value::as_u64),
+            Some(1)
+        );
+    }
     assert_eq!(
         report
             .pointer("/grouped_coverage/rwvm_units_code_meanings/Hounsfield unit")
@@ -1792,11 +1813,17 @@ fn report_command_writes_rwvm_content_coverage_for_extended_root() {
     assert!(markdown.contains("### RWVM Intercepts"));
     assert!(markdown.contains("| -1024.0 | 1 |"));
     assert!(markdown.contains("### RWVM Slopes"));
-    assert!(markdown.contains("| 1.0 | 1 |"));
+    assert!(markdown.contains(&format!(
+        "| 1.0 | {} |",
+        1 + usize::from(parametric_map_generated)
+    )));
     assert!(markdown.contains("### RWVM Units Code Values"));
     assert!(markdown.contains("| HU | 1 |"));
     assert!(markdown.contains("### RWVM Units Coding Scheme Designators"));
-    assert!(markdown.contains("| UCUM | 1 |"));
+    assert!(markdown.contains(&format!(
+        "| UCUM | {} |",
+        1 + usize::from(parametric_map_generated)
+    )));
     assert!(markdown.contains("### RWVM Units Code Meanings"));
     assert!(markdown.contains("| Hounsfield unit | 1 |"));
     assert!(markdown.contains("### RWVM Referenced Frame Numbers"));

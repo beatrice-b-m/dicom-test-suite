@@ -99,3 +99,13 @@ words and span both sides of the signed 32-bit boundary.
   `bitsallocated <= bytesinword*8u` in `Proposal14EncodingRules`; neither
   produces an IOD conformance result. This is an unavailable required gate,
   not an accepted warning and not grounds to reduce the planned coverage.
+- The already-locked PixelMed 20260608 alternative was evaluated without
+  changing any profile runtime requirement. The official binary and dependency
+  archives matched their committed SHA-256 identities, as did `pixelmed.jar`,
+  Commons Codec, Saxon HE, and XML Resolver. With the repository-locked Oracle
+  Java 25.0.3 and Saxon transformer configuration,
+  `com.pixelmed.validate.DicomInstanceValidator` completed but reported
+  `IOD (SOP Class) unrecognized`. The same result for an existing legacy
+  Secondary Capture comparator confirms that this PixelMed release does not
+  provide the missing SC IOD coverage; it is not evidence against the u32
+  fixture.

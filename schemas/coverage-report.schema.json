@@ -288,6 +288,15 @@
         "deformable_registration_matrix_types": { "$ref": "#/$defs/count_map" },
         "deformable_registration_reference_topologies": { "$ref": "#/$defs/count_map" },
         "deformable_registration_mapping_summaries": { "$ref": "#/$defs/count_map" },
+        "color_softcopy_presentation_state_kinds": { "$ref": "#/$defs/count_map" },
+        "color_softcopy_sop_class_uids": { "$ref": "#/$defs/count_map" },
+        "color_softcopy_source_topologies": { "$ref": "#/$defs/count_map" },
+        "color_softcopy_displayed_areas": { "$ref": "#/$defs/count_map" },
+        "color_softcopy_icc_profile_sha256_values": { "$ref": "#/$defs/count_map" },
+        "color_softcopy_icc_profile_size_byte_counts": { "$ref": "#/$defs/count_map" },
+        "color_softcopy_icc_color_spaces": { "$ref": "#/$defs/count_map" },
+        "color_softcopy_optional_module_absence_sets": { "$ref": "#/$defs/count_map" },
+        "color_softcopy_pixel_data_absent_states": { "$ref": "#/$defs/count_map" },
         "synthetic_data": {
           "$ref": "#/$defs/count_map"
         },
@@ -971,6 +980,15 @@
         "deformable_registration_matrix_types",
         "deformable_registration_reference_topology",
         "deformable_registration_mapping_summary",
+        "color_softcopy_presentation_state_kind",
+        "color_softcopy_sop_class_uid",
+        "color_softcopy_source_topology",
+        "color_softcopy_displayed_area",
+        "color_softcopy_icc_profile_sha256",
+        "color_softcopy_icc_profile_size_bytes",
+        "color_softcopy_icc_color_space",
+        "color_softcopy_optional_modules_absent",
+        "color_softcopy_pixel_data_absent",
         "validation_status",
         "determinism",
         "object_type",
@@ -1713,6 +1731,34 @@
         "deformable_registration_mapping_summary": {
           "enum": ["4 registered_to_source point mappings", null]
         },
+        "color_softcopy_presentation_state_kind": {
+          "enum": ["Color Softcopy Presentation State", null]
+        },
+        "color_softcopy_sop_class_uid": {
+          "enum": ["1.2.840.10008.5.1.4.1.1.11.2", null]
+        },
+        "color_softcopy_source_topology": {
+          "enum": ["same_study+different_series; 1 series/1 complete instance", null]
+        },
+        "color_softcopy_displayed_area": {
+          "enum": ["global [1,1]-[2,2]; SCALE TO FIT; aspect 1\\1", null]
+        },
+        "color_softcopy_icc_profile_sha256": {
+          "anyOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }]
+        },
+        "color_softcopy_icc_profile_size_bytes": {
+          "type": ["integer", "null"],
+          "minimum": 1
+        },
+        "color_softcopy_icc_color_space": {
+          "enum": ["SRGB", null]
+        },
+        "color_softcopy_optional_modules_absent": {
+          "enum": ["shutter+graphic_annotation+graphic_layer+overlay+spatial_transform", null]
+        },
+        "color_softcopy_pixel_data_absent": {
+          "type": ["boolean", "null"]
+        },
         "validation_status": {
           "$ref": "#/$defs/validation_status"
         },
@@ -2454,6 +2500,41 @@
               "deformable_registration_matrix_types": { "type": "null" },
               "deformable_registration_reference_topology": { "type": "null" },
               "deformable_registration_mapping_summary": { "type": "null" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "case_id": { "const": "derived/presentation-state/color_softcopy" },
+              "status": { "const": "generated" }
+            },
+            "required": ["case_id", "status"]
+          },
+          "then": {
+            "properties": {
+              "color_softcopy_presentation_state_kind": { "const": "Color Softcopy Presentation State" },
+              "color_softcopy_sop_class_uid": { "const": "1.2.840.10008.5.1.4.1.1.11.2" },
+              "color_softcopy_source_topology": { "const": "same_study+different_series; 1 series/1 complete instance" },
+              "color_softcopy_displayed_area": { "const": "global [1,1]-[2,2]; SCALE TO FIT; aspect 1\\1" },
+              "color_softcopy_icc_profile_sha256": { "const": "8e069a3476b71a0e0ae7272d9278ba70540d1c4a0b19af1c7d52e56f49091fef" },
+              "color_softcopy_icc_profile_size_bytes": { "const": 736 },
+              "color_softcopy_icc_color_space": { "const": "SRGB" },
+              "color_softcopy_optional_modules_absent": { "const": "shutter+graphic_annotation+graphic_layer+overlay+spatial_transform" },
+              "color_softcopy_pixel_data_absent": { "const": true }
+            }
+          },
+          "else": {
+            "properties": {
+              "color_softcopy_presentation_state_kind": { "type": "null" },
+              "color_softcopy_sop_class_uid": { "type": "null" },
+              "color_softcopy_source_topology": { "type": "null" },
+              "color_softcopy_displayed_area": { "type": "null" },
+              "color_softcopy_icc_profile_sha256": { "type": "null" },
+              "color_softcopy_icc_profile_size_bytes": { "type": "null" },
+              "color_softcopy_icc_color_space": { "type": "null" },
+              "color_softcopy_optional_modules_absent": { "type": "null" },
+              "color_softcopy_pixel_data_absent": { "type": "null" }
             }
           }
         },

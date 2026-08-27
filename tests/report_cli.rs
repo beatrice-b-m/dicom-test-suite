@@ -1676,6 +1676,171 @@ fn report_command_writes_gsps_content_coverage_for_extended_root() {
 }
 
 #[test]
+fn report_command_writes_color_softcopy_coverage_for_extended_root() {
+    let out_dir = unique_temp_dir("report-color-softcopy-json");
+    generate_extended(&out_dir);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args([
+            "report",
+            out_dir.to_str().expect("temp path should be valid UTF-8"),
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("report command must run");
+
+    assert!(
+        output.status.success(),
+        "report should accept generated output: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let report: Value =
+        serde_json::from_slice(&output.stdout).expect("report stdout should be JSON");
+    let row = coverage_row(&report, "derived/presentation-state/color_softcopy");
+    assert_eq!(
+        row.get("color_softcopy_presentation_state_kind")
+            .and_then(Value::as_str),
+        Some("Color Softcopy Presentation State")
+    );
+    assert_eq!(
+        row.get("color_softcopy_sop_class_uid")
+            .and_then(Value::as_str),
+        Some("1.2.840.10008.5.1.4.1.1.11.2")
+    );
+    assert_eq!(
+        row.get("color_softcopy_source_topology")
+            .and_then(Value::as_str),
+        Some("same_study+different_series; 1 series/1 complete instance")
+    );
+    assert_eq!(
+        row.get("color_softcopy_displayed_area")
+            .and_then(Value::as_str),
+        Some("global [1,1]-[2,2]; SCALE TO FIT; aspect 1\\1")
+    );
+    assert_eq!(
+        row.get("color_softcopy_icc_profile_sha256")
+            .and_then(Value::as_str),
+        Some("8e069a3476b71a0e0ae7272d9278ba70540d1c4a0b19af1c7d52e56f49091fef")
+    );
+    assert_eq!(
+        row.get("color_softcopy_icc_profile_size_bytes")
+            .and_then(Value::as_u64),
+        Some(736)
+    );
+    assert_eq!(
+        row.get("color_softcopy_icc_color_space")
+            .and_then(Value::as_str),
+        Some("SRGB")
+    );
+    assert_eq!(
+        row.get("color_softcopy_optional_modules_absent")
+            .and_then(Value::as_str),
+        Some("shutter+graphic_annotation+graphic_layer+overlay+spatial_transform")
+    );
+    assert_eq!(
+        row.get("color_softcopy_pixel_data_absent")
+            .and_then(Value::as_bool),
+        Some(true)
+    );
+
+    for (field, key) in [
+        (
+            "color_softcopy_presentation_state_kinds",
+            "Color Softcopy Presentation State",
+        ),
+        (
+            "color_softcopy_sop_class_uids",
+            "1.2.840.10008.5.1.4.1.1.11.2",
+        ),
+        (
+            "color_softcopy_source_topologies",
+            "same_study+different_series; 1 series/1 complete instance",
+        ),
+        (
+            "color_softcopy_displayed_areas",
+            "global [1,1]-[2,2]; SCALE TO FIT; aspect 1\\1",
+        ),
+        (
+            "color_softcopy_icc_profile_sha256_values",
+            "8e069a3476b71a0e0ae7272d9278ba70540d1c4a0b19af1c7d52e56f49091fef",
+        ),
+        ("color_softcopy_icc_profile_size_byte_counts", "736"),
+        ("color_softcopy_icc_color_spaces", "SRGB"),
+        (
+            "color_softcopy_optional_module_absence_sets",
+            "shutter+graphic_annotation+graphic_layer+overlay+spatial_transform",
+        ),
+        ("color_softcopy_pixel_data_absent_states", "true"),
+    ] {
+        assert_eq!(
+            report["grouped_coverage"][field][key].as_u64(),
+            Some(1),
+            "grouped Color Softcopy coverage must count {field}={key}"
+        );
+    }
+
+    let report_schema: Value = serde_json::from_slice(
+        &fs::read("schemas/coverage-report.schema.json")
+            .expect("coverage report schema should be readable"),
+    )
+    .expect("coverage report schema should be JSON");
+    let report_validator =
+        jsonschema::validator_for(&report_schema).expect("coverage schema should compile");
+    assert!(
+        report_validator.is_valid(&report),
+        "Color Softcopy coverage report must match its schema"
+    );
+    let mut partial_report = report.clone();
+    coverage_row_mut(
+        &mut partial_report,
+        "derived/presentation-state/color_softcopy",
+    )["color_softcopy_displayed_area"] = Value::Null;
+    assert!(
+        !report_validator.is_valid(&partial_report),
+        "coverage schema must reject a partial Color Softcopy contract"
+    );
+    let mut hidden_report = report.clone();
+    coverage_row_mut(
+        &mut hidden_report,
+        "derived/presentation-state/grayscale_softcopy_ct_window_explicit_le",
+    )["color_softcopy_pixel_data_absent"] = Value::from(true);
+    assert!(
+        !report_validator.is_valid(&hidden_report),
+        "coverage schema must reject Color Softcopy fields on other cases"
+    );
+
+    let markdown_output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args([
+            "report",
+            out_dir.to_str().expect("temp path should be valid UTF-8"),
+            "--format",
+            "markdown",
+        ])
+        .output()
+        .expect("report markdown command must run");
+    assert!(
+        markdown_output.status.success(),
+        "markdown report should accept generated output: {}",
+        String::from_utf8_lossy(&markdown_output.stderr)
+    );
+    let markdown =
+        String::from_utf8(markdown_output.stdout).expect("markdown stdout should be UTF-8");
+    assert!(markdown.contains("## Color Softcopy Presentation State Expectations"));
+    assert!(markdown.contains("### Color Softcopy Source Topologies"));
+    assert!(markdown.contains("### Color Softcopy Displayed Areas"));
+    assert!(markdown.contains("### Color Softcopy ICC Profile SHA-256 Values"));
+    assert!(markdown.contains("### Color Softcopy Optional Modules Absent"));
+    assert!(markdown.contains("same_study+different_series; 1 series/1 complete instance"));
+    assert!(markdown.contains("global [1,1]-[2,2]; SCALE TO FIT; aspect 1\\1"));
+    assert!(
+        markdown.contains("shutter+graphic_annotation+graphic_layer+overlay+spatial_transform")
+    );
+
+    fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
+}
+
+#[test]
 fn report_command_writes_rt_dose_content_coverage_for_extended_root() {
     let out_dir = unique_temp_dir("report-rt-dose-content-json");
     generate_extended(&out_dir);

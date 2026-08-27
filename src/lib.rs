@@ -15448,6 +15448,46 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
         "GSPS Presentation LUT Shapes",
         "/grouped_coverage/gsps_presentation_lut_shapes",
     );
+    for (title, pointer) in [
+        (
+            "Color Softcopy Presentation State Kinds",
+            "/grouped_coverage/color_softcopy_presentation_state_kinds",
+        ),
+        (
+            "Color Softcopy SOP Class UIDs",
+            "/grouped_coverage/color_softcopy_sop_class_uids",
+        ),
+        (
+            "Color Softcopy Source Topologies",
+            "/grouped_coverage/color_softcopy_source_topologies",
+        ),
+        (
+            "Color Softcopy Displayed Areas",
+            "/grouped_coverage/color_softcopy_displayed_areas",
+        ),
+        (
+            "Color Softcopy ICC Profile SHA-256 Values",
+            "/grouped_coverage/color_softcopy_icc_profile_sha256_values",
+        ),
+        (
+            "Color Softcopy ICC Profile Size Byte Counts",
+            "/grouped_coverage/color_softcopy_icc_profile_size_byte_counts",
+        ),
+        (
+            "Color Softcopy DICOM Color Spaces",
+            "/grouped_coverage/color_softcopy_icc_color_spaces",
+        ),
+        (
+            "Color Softcopy Optional Modules Absent",
+            "/grouped_coverage/color_softcopy_optional_module_absence_sets",
+        ),
+        (
+            "Color Softcopy Pixel Data Absent States",
+            "/grouped_coverage/color_softcopy_pixel_data_absent_states",
+        ),
+    ] {
+        append_count_map_section(&mut output, report, title, pointer);
+    }
     append_count_map_section(
         &mut output,
         report,
@@ -16524,6 +16564,58 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
         output.push('\n');
     }
 
+    let color_softcopy_rows = report
+        .get("coverage_matrix")
+        .and_then(Value::as_array)
+        .map(|rows| {
+            rows.iter()
+                .filter(|row| !row["color_softcopy_presentation_state_kind"].is_null())
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    if !color_softcopy_rows.is_empty() {
+        output.push_str("## Color Softcopy Presentation State Expectations\n\n");
+        output.push_str("| Case ID | State kind / SOP Class UID | Source topology | Displayed area | ICC profile SHA-256 | ICC bytes / color space | Optional modules absent | Pixel data absent |\n");
+        output.push_str("|---|---|---|---|---|---|---|---|\n");
+        for row in color_softcopy_rows {
+            output.push_str(&format!(
+                "| {} | {} / {} | {} | {} | {} | {} / {} | {} | {} |\n",
+                markdown_cell(row.get("case_id").and_then(Value::as_str)),
+                markdown_cell(
+                    row.get("color_softcopy_presentation_state_kind")
+                        .and_then(Value::as_str)
+                ),
+                markdown_cell(
+                    row.get("color_softcopy_sop_class_uid")
+                        .and_then(Value::as_str)
+                ),
+                markdown_cell(
+                    row.get("color_softcopy_source_topology")
+                        .and_then(Value::as_str)
+                ),
+                markdown_cell(
+                    row.get("color_softcopy_displayed_area")
+                        .and_then(Value::as_str)
+                ),
+                markdown_cell(
+                    row.get("color_softcopy_icc_profile_sha256")
+                        .and_then(Value::as_str)
+                ),
+                markdown_number(row.get("color_softcopy_icc_profile_size_bytes")),
+                markdown_cell(
+                    row.get("color_softcopy_icc_color_space")
+                        .and_then(Value::as_str)
+                ),
+                markdown_cell(
+                    row.get("color_softcopy_optional_modules_absent")
+                        .and_then(Value::as_str)
+                ),
+                markdown_bool(row.get("color_softcopy_pixel_data_absent")),
+            ));
+        }
+        output.push('\n');
+    }
+
     output.push_str("## Coverage Matrix\n\n");
     output.push_str("| Case ID | Status | Profile | IOD | Transfer Syntax | Photometric | Bits | Frames | Generation Backend | Backend Version | Backend Determinism | Validation |\n");
     output.push_str("|---|---|---|---|---|---|---:|---:|---|---|---|---|\n");
@@ -16606,6 +16698,70 @@ fn generated_coverage_row(
         file.get("case_id").and_then(Value::as_str) == Some("derived/registration/spatial_ct_pair");
     let is_deformable_registration = file.get("case_id").and_then(Value::as_str)
         == Some("derived/registration/deformable_ct_pair");
+    let is_color_softcopy = file.get("case_id").and_then(Value::as_str)
+        == Some("derived/presentation-state/color_softcopy");
+    let color_softcopy_contract = is_color_softcopy
+        .then(|| file.pointer("/expected_color_softcopy_presentation_state"))
+        .flatten();
+    let color_softcopy_source_topology = color_softcopy_contract
+        .filter(|contract| {
+            contract.get("same_study").and_then(Value::as_bool) == Some(true)
+                && contract.get("different_series").and_then(Value::as_bool) == Some(true)
+                && contract
+                    .pointer("/relationship/referenced_series_items")
+                    .and_then(Value::as_u64)
+                    == Some(1)
+                && contract
+                    .pointer("/relationship/referenced_image_items")
+                    .and_then(Value::as_u64)
+                    == Some(1)
+                && contract
+                    .pointer("/relationship/referenced_frame_numbers")
+                    .and_then(Value::as_array)
+                    .is_some_and(Vec::is_empty)
+                && contract
+                    .pointer("/relationship/applies_to_complete_instance")
+                    .and_then(Value::as_bool)
+                    == Some(true)
+        })
+        .map(|_| "same_study+different_series; 1 series/1 complete instance");
+    let color_softcopy_displayed_area = color_softcopy_contract
+        .filter(|contract| {
+            contract
+                .pointer("/displayed_area/items")
+                .and_then(Value::as_u64)
+                == Some(1)
+                && contract
+                    .pointer("/displayed_area/applies_to_all_references")
+                    .and_then(Value::as_bool)
+                    == Some(true)
+                && contract.pointer("/displayed_area/top_left") == Some(&serde_json::json!([1, 1]))
+                && contract.pointer("/displayed_area/bottom_right")
+                    == Some(&serde_json::json!([2, 2]))
+                && contract
+                    .pointer("/displayed_area/presentation_size_mode")
+                    .and_then(Value::as_str)
+                    == Some("SCALE TO FIT")
+                && contract.pointer("/displayed_area/presentation_pixel_aspect_ratio")
+                    == Some(&serde_json::json!([1, 1]))
+        })
+        .map(|_| "global [1,1]-[2,2]; SCALE TO FIT; aspect 1\\1");
+    let color_softcopy_optional_modules_absent = color_softcopy_contract
+        .filter(|contract| {
+            [
+                "shutter_items",
+                "graphic_annotation_items",
+                "graphic_layer_items",
+                "overlay_items",
+            ]
+            .iter()
+            .all(|field| contract.get(field).and_then(Value::as_u64) == Some(0))
+                && contract
+                    .get("spatial_transform_present")
+                    .and_then(Value::as_bool)
+                    == Some(false)
+        })
+        .map(|_| "shutter+graphic_annotation+graphic_layer+overlay+spatial_transform");
     let mut row = serde_json::json!({
         "case_id": report_str(manifest_path, file, "/case_id", "file case_id must be a string")?,
         "profile": run_profile,
@@ -16798,6 +16954,71 @@ fn generated_coverage_row(
                 .unwrap_or(Value::Null),
         );
     }
+    for (field, pointer) in [
+        ("color_softcopy_presentation_state_kind", "/dicom/iod_name"),
+        ("color_softcopy_sop_class_uid", "/dicom/sop_class_uid"),
+        (
+            "color_softcopy_icc_profile_sha256",
+            "/expected_color_softcopy_presentation_state/icc_profile/sha256",
+        ),
+        (
+            "color_softcopy_icc_color_space",
+            "/expected_color_softcopy_presentation_state/icc_profile/dicom_color_space",
+        ),
+    ] {
+        row_object.insert(
+            field.to_string(),
+            if is_color_softcopy {
+                file.pointer(pointer)
+                    .and_then(Value::as_str)
+                    .map(Value::from)
+                    .unwrap_or(Value::Null)
+            } else {
+                Value::Null
+            },
+        );
+    }
+    for (field, value) in [
+        (
+            "color_softcopy_source_topology",
+            color_softcopy_source_topology,
+        ),
+        (
+            "color_softcopy_displayed_area",
+            color_softcopy_displayed_area,
+        ),
+        (
+            "color_softcopy_optional_modules_absent",
+            color_softcopy_optional_modules_absent,
+        ),
+    ] {
+        row_object.insert(
+            field.to_string(),
+            value.map(Value::from).unwrap_or(Value::Null),
+        );
+    }
+    row_object.insert(
+        "color_softcopy_icc_profile_size_bytes".to_string(),
+        if is_color_softcopy {
+            file.pointer("/expected_color_softcopy_presentation_state/icc_profile/size_bytes")
+                .and_then(Value::as_u64)
+                .map(Value::from)
+                .unwrap_or(Value::Null)
+        } else {
+            Value::Null
+        },
+    );
+    row_object.insert(
+        "color_softcopy_pixel_data_absent".to_string(),
+        if is_color_softcopy {
+            file.pointer("/expected_color_softcopy_presentation_state/pixel_data_absent")
+                .and_then(Value::as_bool)
+                .map(Value::from)
+                .unwrap_or(Value::Null)
+        } else {
+            Value::Null
+        },
+    );
     for (field, value) in [
         (
             "u32_stored_values",
@@ -20474,6 +20695,15 @@ fn skipped_coverage_row(
         "deformable_registration_matrix_types",
         "deformable_registration_reference_topology",
         "deformable_registration_mapping_summary",
+        "color_softcopy_presentation_state_kind",
+        "color_softcopy_sop_class_uid",
+        "color_softcopy_source_topology",
+        "color_softcopy_displayed_area",
+        "color_softcopy_icc_profile_sha256",
+        "color_softcopy_icc_profile_size_bytes",
+        "color_softcopy_icc_color_space",
+        "color_softcopy_optional_modules_absent",
+        "color_softcopy_pixel_data_absent",
     ] {
         row_object.insert(field.to_string(), Value::Null);
     }
@@ -20895,6 +21125,15 @@ struct GroupedCoverage {
     deformable_registration_matrix_types: BTreeMap<String, usize>,
     deformable_registration_reference_topologies: BTreeMap<String, usize>,
     deformable_registration_mapping_summaries: BTreeMap<String, usize>,
+    color_softcopy_presentation_state_kinds: BTreeMap<String, usize>,
+    color_softcopy_sop_class_uids: BTreeMap<String, usize>,
+    color_softcopy_source_topologies: BTreeMap<String, usize>,
+    color_softcopy_displayed_areas: BTreeMap<String, usize>,
+    color_softcopy_icc_profile_sha256_values: BTreeMap<String, usize>,
+    color_softcopy_icc_profile_size_byte_counts: BTreeMap<String, usize>,
+    color_softcopy_icc_color_spaces: BTreeMap<String, usize>,
+    color_softcopy_optional_module_absence_sets: BTreeMap<String, usize>,
+    color_softcopy_pixel_data_absent_states: BTreeMap<String, usize>,
     synthetic_data: BTreeMap<String, usize>,
     image_types: BTreeMap<String, usize>,
     conversion_types: BTreeMap<String, usize>,
@@ -21990,6 +22229,51 @@ impl GroupedCoverage {
                 .entry(count.to_string())
                 .or_default() += 1;
         }
+        for (map, field) in [
+            (
+                &mut self.color_softcopy_presentation_state_kinds,
+                "color_softcopy_presentation_state_kind",
+            ),
+            (
+                &mut self.color_softcopy_sop_class_uids,
+                "color_softcopy_sop_class_uid",
+            ),
+            (
+                &mut self.color_softcopy_source_topologies,
+                "color_softcopy_source_topology",
+            ),
+            (
+                &mut self.color_softcopy_displayed_areas,
+                "color_softcopy_displayed_area",
+            ),
+            (
+                &mut self.color_softcopy_icc_profile_sha256_values,
+                "color_softcopy_icc_profile_sha256",
+            ),
+            (
+                &mut self.color_softcopy_icc_color_spaces,
+                "color_softcopy_icc_color_space",
+            ),
+            (
+                &mut self.color_softcopy_optional_module_absence_sets,
+                "color_softcopy_optional_modules_absent",
+            ),
+        ] {
+            increment_map(map, row.get(field).and_then(Value::as_str));
+        }
+        increment_scalar_map(
+            &mut self.color_softcopy_icc_profile_size_byte_counts,
+            row.get("color_softcopy_icc_profile_size_bytes"),
+        );
+        if let Some(absent) = row
+            .get("color_softcopy_pixel_data_absent")
+            .and_then(Value::as_bool)
+        {
+            *self
+                .color_softcopy_pixel_data_absent_states
+                .entry(absent.to_string())
+                .or_default() += 1;
+        }
         increment_map(
             &mut self.synthetic_data,
             row.get("synthetic_data").and_then(Value::as_str),
@@ -22574,6 +22858,42 @@ impl GroupedCoverage {
             (
                 "deformable_registration_mapping_summaries",
                 &self.deformable_registration_mapping_summaries,
+            ),
+            (
+                "color_softcopy_presentation_state_kinds",
+                &self.color_softcopy_presentation_state_kinds,
+            ),
+            (
+                "color_softcopy_sop_class_uids",
+                &self.color_softcopy_sop_class_uids,
+            ),
+            (
+                "color_softcopy_source_topologies",
+                &self.color_softcopy_source_topologies,
+            ),
+            (
+                "color_softcopy_displayed_areas",
+                &self.color_softcopy_displayed_areas,
+            ),
+            (
+                "color_softcopy_icc_profile_sha256_values",
+                &self.color_softcopy_icc_profile_sha256_values,
+            ),
+            (
+                "color_softcopy_icc_profile_size_byte_counts",
+                &self.color_softcopy_icc_profile_size_byte_counts,
+            ),
+            (
+                "color_softcopy_icc_color_spaces",
+                &self.color_softcopy_icc_color_spaces,
+            ),
+            (
+                "color_softcopy_optional_module_absence_sets",
+                &self.color_softcopy_optional_module_absence_sets,
+            ),
+            (
+                "color_softcopy_pixel_data_absent_states",
+                &self.color_softcopy_pixel_data_absent_states,
             ),
         ] {
             grouped_object.insert(

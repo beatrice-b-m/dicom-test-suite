@@ -15077,7 +15077,7 @@
     {
       "case_id": "vl/wsi/pyramid_multiresolution",
       "artifact_kind": "dicom_instance",
-      "status": "planned",
+      "status": "implemented",
       "provider": {
         "kind": "rust_native",
         "id": "rust_native"
@@ -15090,18 +15090,8 @@
         "scale",
         "references"
       ],
-      "roadmap": {
-        "priority": "next",
-        "delivery_phase": "phase-4",
-        "rationale": "Exercises pyramid, thumbnail, and label instance relationships."
-      },
-      "blockers": [
-        {
-          "code": "recipe_unimplemented",
-          "message": "The standards-locked three-instance native recipe is not implemented.",
-          "recheck_phase": "phase-4"
-        }
-      ],
+      "roadmap": null,
+      "blockers": [],
       "profiles": [
         "stress"
       ],

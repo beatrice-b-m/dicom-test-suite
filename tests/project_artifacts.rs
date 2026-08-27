@@ -1030,7 +1030,7 @@ fn phase4_wsi_qualification_is_recorded() {
 }
 
 #[test]
-fn phase4_wsi_pyramid_standards_lock_is_recorded_without_promotion() {
+fn phase4_wsi_pyramid_standards_lock_and_promotion_are_recorded() {
     let note = fs::read_to_string("standards/source-notes/phase-4-wsi-pyramid.md")
         .expect("Phase 4 WSI pyramid source note must be readable");
     for required in [
@@ -1059,15 +1059,15 @@ fn phase4_wsi_pyramid_standards_lock_is_recorded_without_promotion() {
             case.get("case_id").and_then(Value::as_str) == Some("vl/wsi/pyramid_multiresolution")
         })
         .expect("WSI pyramid registry row must exist");
-    assert_eq!(case["status"], "planned");
+    assert_eq!(case["status"], "implemented");
     assert_eq!(
         case["provider"],
         serde_json::json!({"kind": "rust_native", "id": "rust_native"})
     );
     assert_eq!(case["determinism"], "byte_stable");
     assert_eq!(case["profiles"], serde_json::json!(["stress"]));
-    assert_eq!(case["blockers"].as_array().map(Vec::len), Some(1));
-    assert_eq!(case["blockers"][0]["code"], "recipe_unimplemented");
+    assert_eq!(case["roadmap"], Value::Null);
+    assert_eq!(case["blockers"], serde_json::json!([]));
     assert!(case["standards_evidence"].as_array().is_some_and(|items| {
         items.iter().any(|item| {
             item["query"] == "standards/source-notes/phase-4-wsi-pyramid.md"

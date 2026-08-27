@@ -32,6 +32,10 @@ fn private_creator_vertical_slice_is_exact_byte_stable_and_reported() {
         .expect("private creator blocks must be an array");
     assert_eq!(blocks.len(), 3);
     assert_eq!(
+        first["recipe"]["recipe_parameters"]["private_creator_block_count"],
+        3
+    );
+    assert_eq!(
         blocks
             .iter()
             .map(|block| (
@@ -122,6 +126,23 @@ fn private_creator_vertical_slice_is_exact_byte_stable_and_reported() {
         serde_json::json!(["LO", "US", "LO", "LO"])
     );
     assert_eq!(
+        row["metadata_private_creator_raw_sha256_values"],
+        serde_json::json!([
+            "02a7ccdec62f131efea4bb7c0954d15df2b1efd67abec69123ff0afcb197f8c3",
+            "df2316ffa7d764760e6c7f6174d3b15a2d59687834a90474b7446ff323df073d",
+            "02a7ccdec62f131efea4bb7c0954d15df2b1efd67abec69123ff0afcb197f8c3"
+        ])
+    );
+    assert_eq!(
+        row["metadata_private_element_raw_sha256_values"],
+        serde_json::json!([
+            "6b95b0cd9835f0ab50173c42a37511a7e8a547af8837f67e0a9bd0d6ff0da1ae",
+            "e74d0e44a658ffcdc0ee7266ebd171413b8fcf182c97a27254d9f48abaea6266",
+            "3329e2d8d73e62f294fd73110474122239fd4d75a8a2aefbe16c117f0265b328",
+            "6374ee55ea117a6d46b516c6ca6f2550d95c849a16221c58bfea5c054b9e6919"
+        ])
+    );
+    assert_eq!(
         report.pointer("/grouped_coverage/metadata_private_creator_ids/DTS_PRIVATE_ALPHA"),
         Some(&Value::from(2))
     );
@@ -151,6 +172,7 @@ fn validator_rejects_tampered_private_creator_contract() {
     blocks[0]["block_end_tag"] = Value::from("0011,11FF");
     blocks[1]["raw_value_sha256"] = Value::from("0".repeat(64));
     blocks[0]["elements"][1]["decoded_value"] = Value::from(1);
+    blocks[1]["elements"][0]["tag"] = Value::from("0011,1101");
     fs::write(
         root.join("manifest.json"),
         serde_json::to_vec_pretty(&manifest).expect("tampered manifest must serialize"),
@@ -165,6 +187,7 @@ fn validator_rejects_tampered_private_creator_contract() {
         "metadata_private_creator_raw_contract",
         "metadata_private_creator_raw_value",
         "metadata_private_element_manifest_value",
+        "metadata_private_element_ownership",
     ] {
         assert!(
             summary
@@ -175,6 +198,48 @@ fn validator_rejects_tampered_private_creator_contract() {
             summary.failures
         );
     }
+}
+
+#[test]
+fn schema_and_validator_require_private_metadata_and_block_count() {
+    let root = unique_temp_dir("private-creators-required-contract");
+    let original = generate_core(&root);
+    let schema = read_json("schemas/manifest.schema.json");
+    let validator = jsonschema::validator_for(&schema).expect("manifest schema must compile");
+
+    let mut wrong_count = original.clone();
+    let file = case_file_mut(&mut wrong_count);
+    file["recipe"]["recipe_parameters"]["private_creator_block_count"] = Value::from(2);
+    assert!(!validator.is_valid(&wrong_count));
+    write_manifest(&root, &wrong_count);
+    let summary = dicom_test_suite::validate_generated_root(&root)
+        .expect("wrong-count corpus must remain inspectable");
+    assert!(
+        summary
+            .failures
+            .iter()
+            .any(|failure| failure.contains("metadata_private_creator_block_count")),
+        "{:?}",
+        summary.failures
+    );
+
+    let mut missing_metadata = original;
+    case_file_mut(&mut missing_metadata)
+        .as_object_mut()
+        .expect("file entry must be an object")
+        .remove("expected_metadata");
+    assert!(!validator.is_valid(&missing_metadata));
+    write_manifest(&root, &missing_metadata);
+    let summary = dicom_test_suite::validate_generated_root(&root)
+        .expect("missing-metadata corpus must remain inspectable");
+    assert!(
+        summary
+            .failures
+            .iter()
+            .any(|failure| failure.contains("metadata_private_expected_metadata")),
+        "{:?}",
+        summary.failures
+    );
 }
 
 fn generate_core(out_dir: &Path) -> Value {
@@ -210,6 +275,23 @@ fn case_file(manifest: &Value) -> &Value {
         .iter()
         .find(|file| file["case_id"] == CASE_ID)
         .expect("private creator case must be generated")
+}
+
+fn case_file_mut(manifest: &mut Value) -> &mut Value {
+    manifest["files"]
+        .as_array_mut()
+        .expect("manifest files must be an array")
+        .iter_mut()
+        .find(|file| file["case_id"] == CASE_ID)
+        .expect("private creator case must be generated")
+}
+
+fn write_manifest(root: &Path, manifest: &Value) {
+    fs::write(
+        root.join("manifest.json"),
+        serde_json::to_vec_pretty(manifest).expect("manifest must serialize"),
+    )
+    .expect("manifest must be writable");
 }
 
 fn read_json(path: impl AsRef<Path>) -> Value {

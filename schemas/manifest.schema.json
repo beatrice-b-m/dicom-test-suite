@@ -334,7 +334,32 @@
           }
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "case_id": { "const": "metadata/sc/private_creator_blocks" }
+            },
+            "required": ["case_id"]
+          },
+          "then": {
+            "required": ["expected_metadata"],
+            "properties": {
+              "recipe": {
+                "properties": {
+                  "recipe_parameters": {
+                    "required": ["private_creator_block_count"],
+                    "properties": {
+                      "private_creator_block_count": { "const": 3 }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
     },
     "reference": {
       "type": "object",

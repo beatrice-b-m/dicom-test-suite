@@ -23,10 +23,18 @@ pub(crate) fn validate_manifest_metadata(
     obj: &OpenedObject,
     failures: &mut Vec<String>,
 ) {
-    let Some(expected) = file
+    let expected = file
         .get("expected_metadata")
-        .filter(|value| !value.is_null())
-    else {
+        .filter(|value| !value.is_null());
+    if file.get("case_id").and_then(Value::as_str) == Some("metadata/sc/private_creator_blocks")
+        && expected.is_none()
+    {
+        failures.push(format!(
+            "{relative_path}: metadata_private_expected_metadata: private creator expectations are required"
+        ));
+        return;
+    }
+    let Some(expected) = expected else {
         return;
     };
 
@@ -44,7 +52,7 @@ pub(crate) fn validate_manifest_metadata(
     validate_temporal_metadata(relative_path, bytes, expected, obj, failures);
     validate_empty_type2_attributes(relative_path, bytes, expected, obj, failures);
     validate_string_elements(relative_path, bytes, expected, obj, failures);
-    validate_private_creator_blocks(relative_path, bytes, expected, obj, failures);
+    validate_private_creator_blocks(relative_path, bytes, file, expected, obj, failures);
 }
 
 pub(crate) fn validate_manifest_metadata_corpus(files: &[Value], failures: &mut Vec<String>) {
@@ -574,6 +582,7 @@ const PRIVATE_CREATOR_SPECS: &[PrivateCreatorSpec] = &[
 fn validate_private_creator_blocks(
     relative_path: &str,
     bytes: &[u8],
+    file: &Value,
     expected: &Value,
     obj: &OpenedObject,
     failures: &mut Vec<String>,
@@ -584,6 +593,18 @@ fn validate_private_creator_blocks(
     else {
         return;
     };
+    let declared_count = file
+        .pointer("/recipe/recipe_parameters/private_creator_block_count")
+        .and_then(Value::as_u64);
+    if declared_count != Some(blocks.len() as u64)
+        || declared_count != Some(PRIVATE_CREATOR_SPECS.len() as u64)
+    {
+        failures.push(format!(
+            "{relative_path}: metadata_private_creator_block_count: recipe declares {declared_count:?}, manifest contains {}, expected {}",
+            blocks.len(),
+            PRIVATE_CREATOR_SPECS.len()
+        ));
+    }
     let declared_tags = blocks
         .iter()
         .filter_map(|block| block.get("creator_tag").and_then(Value::as_str))
@@ -698,9 +719,6 @@ fn validate_private_creator_blocks(
         }
         for element in elements {
             let tag_text = element.get("tag").and_then(Value::as_str).unwrap_or("");
-            let Some(element_spec) = spec.elements.iter().find(|spec| spec.tag == tag_text) else {
-                continue;
-            };
             let Some(tag) = parse_tag(tag_text) else {
                 continue;
             };
@@ -709,6 +727,9 @@ fn validate_private_creator_blocks(
                     "{relative_path}: metadata_private_element_ownership: {tag_text} is outside creator {creator_tag_text}"
                 ));
             }
+            let Some(element_spec) = spec.elements.iter().find(|spec| spec.tag == tag_text) else {
+                continue;
+            };
             if element.get("vr").and_then(Value::as_str) != Some(element_spec.vr) {
                 failures.push(format!(
                     "{relative_path}: metadata_private_element_vr: {tag_text} manifest VR differs from {}",

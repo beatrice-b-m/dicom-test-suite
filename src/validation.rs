@@ -65,6 +65,10 @@ mod rt_image_tests;
 #[path = "validation_rt_radiation_tests.rs"]
 mod rt_radiation_tests;
 
+#[cfg(test)]
+#[path = "validation_vl_single_frame_tests.rs"]
+mod vl_single_frame_tests;
+
 #[cfg(feature = "deflate")]
 use crate::codecs::DicomRsDeflatedImageFrameEncoder;
 #[cfg(feature = "charls")]
@@ -1356,6 +1360,7 @@ pub(crate) fn validate_part10_file(
     if let Some(segmentation) = &expected.segmentation {
         validate_segmentation(path, &obj, &mut internal, segmentation)?;
     }
+    validate_vl_single_frame(path, &obj, &mut internal, expected)?;
 
     fail_if_any_failed(path, &internal)?;
 
@@ -1389,6 +1394,128 @@ pub(crate) fn validate_part10_file(
             "external": []
         }),
     })
+}
+
+fn validate_vl_single_frame(
+    path: &Path,
+    obj: &OpenedObject,
+    internal: &mut Vec<Value>,
+    expected: &Part10Expectations<'_>,
+) -> Result<(), GenerateError> {
+    let (modality, body_part_examined, family_name) = match expected.sop_class_uid {
+        uids::VL_ENDOSCOPIC_IMAGE_STORAGE => ("ES", "LUNG", "VL Endoscopic"),
+        uids::VL_MICROSCOPIC_IMAGE_STORAGE => ("GM", "EYE", "VL Microscopic"),
+        _ => return Ok(()),
+    };
+    const PIXELS: [u8; 12] = [255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 255, 255];
+
+    check(
+        internal,
+        expected.transfer_syntax_uid == uids::EXPLICIT_VR_LITTLE_ENDIAN
+            && expected.rows == 2
+            && expected.columns == 2
+            && expected.frames == 1
+            && expected.samples_per_pixel == 3
+            && expected.photometric_interpretation == "RGB"
+            && expected.planar_configuration == Some(0)
+            && expected.bits_allocated == 8
+            && expected.bits_stored == 8
+            && expected.high_bit == 7
+            && expected.pixel_representation == 0
+            && expected.pixel_data_vr == VR::OB
+            && matches!(
+                expected.pixel_data_length_formula,
+                PixelDataLengthFormula::ContiguousSamples
+            ),
+        "vl_single_frame_expected_contract",
+        "Manifest-derived single-frame VL expectations match the locked native RGB contract.",
+        "Manifest-derived single-frame VL expectations do not match the locked native RGB contract.",
+    );
+
+    for (name, tag, locked) in [
+        ("modality", tags::MODALITY, modality),
+        (
+            "body_part_examined",
+            tags::BODY_PART_EXAMINED,
+            body_part_examined,
+        ),
+        ("laterality", tags::LATERALITY, "R"),
+        ("image_type", tags::IMAGE_TYPE, "ORIGINAL\\PRIMARY"),
+        (
+            "lossy_image_compression",
+            tags::LOSSY_IMAGE_COMPRESSION,
+            "00",
+        ),
+    ] {
+        check_equal(
+            internal,
+            &format!("vl_single_frame_{name}"),
+            &format!("{family_name} {name} matches the locked contract."),
+            &format!("{family_name} {name} does not match the locked contract."),
+            element_str(path, obj, tag)?.as_str(),
+            locked,
+        );
+    }
+
+    check_equal(
+        internal,
+        "vl_single_frame_acquisition_context_items",
+        "Acquisition Context Sequence is present and empty.",
+        "Acquisition Context Sequence is not present and empty.",
+        sequence_item_count(path, obj, tags::ACQUISITION_CONTEXT_SEQUENCE)?,
+        0,
+    );
+
+    let pixel_data = obj
+        .element(tags::PIXEL_DATA)
+        .map_err(|err| validation_error(path, err))?;
+    check_equal(
+        internal,
+        "vl_single_frame_pixel_vr",
+        "Single-frame VL Pixel Data uses native OB storage.",
+        "Single-frame VL Pixel Data does not use native OB storage.",
+        pixel_data.vr(),
+        VR::OB,
+    );
+    check_equal(
+        internal,
+        "vl_single_frame_pixel_bytes",
+        "Single-frame VL RGB bytes match the locked deterministic pattern.",
+        "Single-frame VL RGB bytes do not match the locked deterministic pattern.",
+        pixel_data
+            .value()
+            .to_bytes()
+            .map_err(|err| validation_error(path, err))?
+            .as_ref(),
+        PIXELS.as_slice(),
+    );
+
+    for (name, tag) in [
+        ("number_of_frames_absent", tags::NUMBER_OF_FRAMES),
+        (
+            "frame_of_reference_uid_absent",
+            tags::FRAME_OF_REFERENCE_UID,
+        ),
+        (
+            "specimen_description_sequence_absent",
+            tags::SPECIMEN_DESCRIPTION_SEQUENCE,
+        ),
+        ("optical_path_sequence_absent", tags::OPTICAL_PATH_SEQUENCE),
+        ("icc_profile_absent", tags::ICC_PROFILE),
+        ("conversion_type_absent", tags::CONVERSION_TYPE),
+    ] {
+        check(
+            internal,
+            obj.element_opt(tag)
+                .map_err(|err| validation_error(path, err))?
+                .is_none(),
+            &format!("vl_single_frame_{name}"),
+            &format!("{family_name} locked optional content is absent."),
+            &format!("{family_name} contains forbidden optional content."),
+        );
+    }
+
+    Ok(())
 }
 
 pub(crate) fn validate_presentation_state_file(
@@ -17499,6 +17626,8 @@ fn standard_sop_class_validation_name(sop_class_uid: &str) -> &'static str {
             "digital_mammography_for_processing_sop_class"
         }
         uids::VL_PHOTOGRAPHIC_IMAGE_STORAGE => "vl_photographic_image_sop_class",
+        uids::VL_ENDOSCOPIC_IMAGE_STORAGE => "vl_endoscopic_image_sop_class",
+        uids::VL_MICROSCOPIC_IMAGE_STORAGE => "vl_microscopic_image_sop_class",
         "1.2.840.10008.5.1.4.1.1.11.1" => "grayscale_softcopy_presentation_state_sop_class",
         "1.2.840.10008.5.1.4.1.1.11.2" => "color_softcopy_presentation_state_sop_class",
         "1.2.840.10008.5.1.4.1.1.11.4" => "blending_softcopy_presentation_state_sop_class",
@@ -17562,6 +17691,12 @@ fn standard_sop_class_validation_message(sop_class_uid: &str) -> &'static str {
         }
         uids::VL_PHOTOGRAPHIC_IMAGE_STORAGE => {
             "SOP Class UID matches VL Photographic Image Storage in the 2026b reference."
+        }
+        uids::VL_ENDOSCOPIC_IMAGE_STORAGE => {
+            "SOP Class UID matches VL Endoscopic Image Storage in the 2026b reference."
+        }
+        uids::VL_MICROSCOPIC_IMAGE_STORAGE => {
+            "SOP Class UID matches VL Microscopic Image Storage in the 2026b reference."
         }
         "1.2.840.10008.5.1.4.1.1.11.1" => {
             "SOP Class UID matches Grayscale Softcopy Presentation State Storage in the 2026b reference."

@@ -1245,6 +1245,88 @@ fn general_ecg_source_note_locks_multigroup_contract_and_native_provider() {
 }
 
 #[test]
+fn linked_rt_plan_image_source_note_locks_meaningful_reference_graph() {
+    let source = fs::read_to_string("standards/source-notes/phase-3-rt-plan-image-linked.md")
+        .expect("linked RT Plan and RT Image source note must be readable");
+    for required in [
+        "non-image/rt/plan_linked",
+        "non-image/rt/image_linked",
+        "Recommended provider: `rust_native`",
+        "1.2.840.10008.5.1.4.1.1.481.5",
+        "1.2.840.10008.5.1.4.1.1.481.1",
+        "PS3.3 A.20 and Table A.20.3-1",
+        "PS3.3 A.17 and Table A.17.3-1",
+        "Enhanced CT -> existing RT Structure Set -> existing RT Dose",
+        "Dose remains\n`DoseSummationType=RECORD`",
+        "bytes, manifest contract, and references shall\nnot change",
+        "directly references exactly one existing RT Structure Set",
+        "standard-optional Referenced Dose Sequence with exactly one\nItem",
+        "Referenced Beam Number `1`, Referenced Fraction\nGroup Number `1`, and Fraction Number `1`",
+        "one fraction group and one beam, not a zero-beam\nPlan",
+        "Beam Type is `STATIC`",
+        "Radiation Type is `PHOTON`",
+        "Number of Wedges, Number of Compensators, Number of Boli, and Number of Blocks\nare all `0`",
+        "ordered Beam Limiting\nDevice Sequence has exactly two Items: `X` then `Y`",
+        "Control Point `0`",
+        "Cumulative Meterset Weight `0`",
+        "Control Point `1` contains its index and\nCumulative Meterset Weight `1`",
+        "Image Type `(0008,0008)` is `DERIVED\\\\SECONDARY\\\\DRR`",
+        "Conversion Type `(0008,0064)` is `WSD`",
+        "RT Image Plane `(3002,000C)` is `NORMAL`",
+        "exactly 4 rows by 4 columns",
+        "Photometric Interpretation `MONOCHROME2`",
+        "Native Pixel Data uses OB",
+        "00 11 22 33 44 55 66 77 88 99 aa bb cc dd ee ff",
+        "Equivalently, zero-based pixel `(r,c)` is `17 * (4*r + c)`",
+        "expected_rt_plan",
+        "expected_rt_image",
+        "No finding may be silently allowlisted",
+        "`uv`-locked `dicom-validator` 0.8.2",
+        "`dciodvfy -new`",
+        "`dcentvfy -f`",
+        "DCMTK `dcm2img`",
+        "4967dac55719ba63cbc7f404f444e00d4adf50c785c8353e89c94db0259ede05",
+        "ca5c4a56d05a57c6587d84fffc31a842e8e369b09f1186e6542a619b69dac683",
+        "trigger no Section 11\ndecision checkpoint",
+        "Evaluation of a current RT Radiation Set is a separate subsequent\ndecision",
+        "both cases are planned and `semantic_stable`",
+        "Current registry provider: external backend `dcmtk`",
+        "`backend_contract_unimplemented` and\n  `independent_iod_validator_unavailable`",
+        "This source-note commit\n  intentionally leaves the registry unchanged",
+        "Should become KB patch: yes",
+    ] {
+        assert!(
+            source.contains(required),
+            "linked RT Plan/Image note requires {required}"
+        );
+    }
+
+    let registry = read_json("cases/registry.json");
+    for case_id in ["non-image/rt/plan_linked", "non-image/rt/image_linked"] {
+        let case = registry_cases(&registry)
+            .into_iter()
+            .find(|case| case.get("case_id").and_then(Value::as_str) == Some(case_id))
+            .unwrap_or_else(|| panic!("registry must retain {case_id}"));
+        assert_eq!(case["status"], "planned");
+        assert_eq!(case["provider"]["kind"], "external_backend");
+        assert_eq!(case["provider"]["id"], "dcmtk");
+        assert_eq!(case["determinism"], "semantic_stable");
+        assert_eq!(
+            case["blockers"]
+                .as_array()
+                .expect("linked RT blockers must be an array")
+                .iter()
+                .map(|blocker| blocker["code"].as_str().unwrap())
+                .collect::<Vec<_>>(),
+            vec![
+                "backend_contract_unimplemented",
+                "independent_iod_validator_unavailable"
+            ]
+        );
+    }
+}
+
+#[test]
 fn twelve_lead_ecg_registry_promotes_complete_native_slice() {
     let source = fs::read_to_string("standards/source-notes/phase-3-twelve-lead-ecg-waveform.md")
         .expect("Twelve-lead ECG Waveform source note must be readable");

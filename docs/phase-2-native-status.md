@@ -542,12 +542,41 @@ file and manifest. Negative controls confirm that invalid `8/8/7` bit fields
 produce enumerated-value and length findings, while forbidden Planar
 Configuration produces normalized errors despite a zero tool exit code.
 
+## ICC input profile handling
+
+`vl/photo/rgb_icc_profile_explicit_le` completes the third Phase 2 pixel
+slice. It clones the 2 by 2 RGB planar-0 VL Photographic image and adds the
+optional ICC Profile Module: `(0028,2000)` is a 736-byte OB input-device
+profile and `(0028,2002)` declares `SRGB`. The profile is DCMTK 3.7.0's
+CC0 `DCMTK_SRGB_ICC_SAMPLE`, stored as reviewed source hex rather than a
+platform-discovered profile. Its exact SHA-256 is
+`8e069a3476b71a0e0ae7272d9278ba70540d1c4a0b19af1c7d52e56f49091fef`.
+
+The manifest, strict validator, JSON and Markdown reports, and schemas bind
+the declared and actual size, ICC 2.1.0 version, `scnr` device class, `RGB `
+input space, `XYZ ` connection space, `acsp` signature, perceptual intent,
+nine bounded tag records, `sRGB` description, `CC0` copyright, and DICOM
+Color Space. The generated Part 10 instance SHA-256 is
+`23680ffd511565f585430e9cd3e6ac397b7c36c60027f190bee86a03afdd7ef0`.
+Two seed-7 `extended` generations each produced 87 files and were recursively
+byte-identical; strict internal validation passed every file.
+
+The locked `dciodvfy -new` primary and isolated `dcentvfy` entity check are
+silent. Complete OB extraction uses locked DCMTK 3.7.0. The authorized
+case-scoped LittleCMS 2.19 composite lock covers `transicc` and
+`liblcms2.2`; it processes fixed red, green, blue, and white inputs through
+the extracted profile and reproduces four exact XYZ vectors. A fresh isolated
+run reported matched locks and zero strict conformance failures. Negative
+controls prove that dicom3tools alone does not reject corrupt profile headers
+or label mismatch, while the composite path rejects unavailable tools,
+profile/hash/header drift, and semantically relinked evidence.
+
 ## Milestone gate
 
 All planned Phase 2 geometry and series cases are implemented, and the UTF-8,
 ISO 2022, timezone, empty Type 2, string boundary, private creator, and sequence
 length metadata slices have passed their vertical gates. The latest seed-1
-`core` corpus contains 47 files; the seed-1 `extended` corpus contains 86
+`core` corpus contains 47 files; the seed-1 `extended` corpus contains 87
 files. The complete
 locked no-default-feature, all-target test suite passes, including byte-stable
 smoke, core, and extended regeneration. Each new CT slice and the temporal MR
@@ -558,5 +587,5 @@ ordered Phase 2 metadata and VR milestone is complete. The Nuclear Medicine
 STATIC multi-frame, PET rescaled-activity, timed Ultrasound multi-frame,
 XA monoplane, XRF monoplane, and Enhanced PET clinical-family representatives
 are complete. The dependency-ordered Phase 2 clinical-family milestone is
-closed. The unsigned 32-bit and one-bit native Pixel Data slices are complete;
-Phase 2 continues with ICC profile handling.
+closed. The unsigned 32-bit, one-bit, and ICC pixel slices are complete; Phase
+2 continues with the final non-square spacing/aspect-ratio slice.

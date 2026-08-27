@@ -203,14 +203,14 @@ fn u32_conformance_docs_preserve_the_independent_gate() {
         "85 files",
         "silent entity validation",
         "One-bit native Multi-frame Secondary Capture",
-        "continues with ICC profile handling",
+        "continues with the final non-square spacing/aspect-ratio slice",
     ] {
         assert!(phase.contains(required), "phase status requires {required}");
     }
     let plan = fs::read_to_string("docs/coverage-expansion-plan.md").unwrap();
     assert!(plan.contains("unsigned 32-bit native Secondary Capture"));
     assert!(plan.contains("1-bit native Multi-frame Secondary Capture slice is also"));
-    assert!(plan.contains("ICC profile handling is the next"));
+    assert!(plan.contains("ICC profile handling is complete"));
 }
 
 #[test]
@@ -325,6 +325,18 @@ fn icc_source_note_locks_dicom_input_profile_contract() {
         assert!(
             readme.contains(required),
             "ICC conformance docs require {required}"
+        );
+    }
+    let phase = fs::read_to_string("docs/phase-2-native-status.md").unwrap();
+    for required in [
+        "ICC input profile handling",
+        "87 files",
+        "23680ffd511565f585430e9cd3e6ac397b7c36c60027f190bee86a03afdd7ef0",
+        "zero strict conformance failures",
+    ] {
+        assert!(
+            phase.contains(required),
+            "ICC phase status requires {required}"
         );
     }
 }

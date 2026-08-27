@@ -84,6 +84,48 @@ passing IOD result or accepted finding. Whole-corpus conformance verification
 continues to report 229 unrelated failures and zero accepted findings. The
 registry now contains 147 implemented and 35 planned logical cases.
 
-Phase 4 milestone 4, an opt-in stress-profile multi-resolution pyramid with
-thumbnail and label companion instances, is next. A full-size pyramid will not
-be added to ordinary CI without the explicit checkpoint required by the plan.
+## Small multi-resolution WSI pyramid milestone
+
+`vl/wsi/pyramid_multiresolution` completes milestone 4 as a native byte-stable
+`stress` case. One logical case emits exactly three ordered VL Whole Slide
+Microscopy Image instances: a four-Frame VOLUME layer, a one-Frame THUMBNAIL
+apex layer, and a one-Frame LABEL companion. The two resolution layers share
+the deterministic Pyramid UID; LABEL shares the Study, Series, Frame of
+Reference, specimen, container, and optical-path identities but is correctly
+excluded from pyramid membership.
+
+Two independent seed-7 stress generations each wrote three files and six total
+Frames. Strict validation accepted all three files with zero failures in both
+roots, and the complete output trees compare byte-for-byte. Generation took
+0.55 and 0.59 seconds in parallel qualification, below the locked five-second
+ceiling. The group totals 8,694 DICOM bytes, below its 65,536-byte ceiling. Its
+manifest SHA-256 is
+`75c1ff84c0ab971f99308991308552640f593fcd199c652bd787908076ca6265`.
+The qualified members are:
+
+| Role | Bytes | SHA-256 |
+| --- | ---: | --- |
+| VOLUME | 2,934 | `fece75ee74a3e8d9902807b2c3ace1384e0896469c4b41358d3b2d6444de7b07` |
+| THUMBNAIL | 2,914 | `159cf9c96bbb205966ee924ac5f6c4385c1e4474f672fa8a7410bcacb998defb` |
+| LABEL | 2,846 | `aa6c79cb54c41cb1267425bc5602fa4c916bc91b9f3fa66fd9942be446f45438` |
+
+Locked `dciodvfy` and the authorized independent `uv`-locked
+dicom-validator each reported zero IOD errors for every role. The isolated
+`uv`-locked highdicom 0.28.1/pydicom 3.0.2 reconstruction adapter version
+0.3.0 derives roles from DICOM attributes rather than filenames and exactly
+reconstructs the two pyramid layers, deterministic reduction, LABEL pixels,
+and complete three-member identity and membership closure.
+
+Integrated conformance run
+`0188fc12678acf82e29f27c139d531dd060ec8e2f36363c9927d4d673d869f6d`
+has zero entity findings, passing independent pixel evidence, zero accepted
+findings, and zero verification failures against an empty exact-slice findings
+set. No unavailable route was silently omitted. The registry now contains 148
+implemented and 34 planned logical cases.
+
+Phase 4 milestone 4 is complete; milestone 5, multiple optical paths or focal
+planes, is next. Ordinary `all` remains unchanged: this bounded pyramid is
+selected only through the stress profile or explicit stress inclusion. A
+genuinely full-size pyramid remains a separate planned case and will not enter
+ordinary CI until the explicit dimensions, resource budgets, and scheduling
+checkpoint required by the coverage plan is decided.

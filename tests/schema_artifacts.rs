@@ -2313,12 +2313,13 @@ fn manifest_schema_requires_exclusive_blending_presentation_state_contract() {
                 == Some("derived/presentation-state/blending")
         })
         .expect("manifest schema should define the Blending Softcopy PR conditional");
-    assert!(rule
-        .pointer("/then/required")
-        .and_then(Value::as_array)
-        .is_some_and(|required| required
-            .iter()
-            .any(|field| field == "expected_blending_presentation_state")));
+    assert!(
+        rule.pointer("/then/required")
+            .and_then(Value::as_array)
+            .is_some_and(|required| required
+                .iter()
+                .any(|field| field == "expected_blending_presentation_state"))
+    );
     assert_eq!(
         rule.pointer("/then/properties/dicom/properties/sop_class_uid/const"),
         Some(&serde_json::json!("1.2.840.10008.5.1.4.1.1.11.4"))

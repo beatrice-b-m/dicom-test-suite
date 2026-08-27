@@ -1989,6 +1989,218 @@ fn tid1500_expectation() -> Value {
 }
 
 #[test]
+fn manifest_schema_types_comprehensive3d_scoord3d_expectations() {
+    let schema = read_json("schemas/manifest.schema.json");
+    let expectation_schema = serde_json::json!({
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$ref": "#/$defs/expected_scoord3d",
+        "$defs": schema["$defs"].clone(),
+    });
+    let validator = jsonschema::validator_for(&expectation_schema)
+        .expect("SCOORD3D expectation schema should compile");
+    let expectation = scoord3d_expectation();
+    assert!(
+        validator.is_valid(&expectation),
+        "the locked Comprehensive 3D SR semantic contract should pass"
+    );
+
+    let mut wrong_group_template = expectation.clone();
+    wrong_group_template["measurement_group"]["template"]["template_identifier"] =
+        serde_json::json!("1411");
+    assert!(!validator.is_valid(&wrong_group_template));
+
+    let mut wrong_distance = expectation.clone();
+    wrong_distance["measurement_group"]["measurement"]["numeric_value"] =
+        serde_json::json!("2.4");
+    assert!(!validator.is_valid(&wrong_distance));
+
+    let mut wrong_coordinate = expectation.clone();
+    wrong_coordinate["measurement_group"]["measurement"]["spatial_coordinates"]
+        ["graphic_data_mm"][5] = serde_json::json!(2.4);
+    assert!(!validator.is_valid(&wrong_coordinate));
+
+    let mut missing_fiducial = expectation.clone();
+    missing_fiducial["measurement_group"]["measurement"]["spatial_coordinates"]
+        .as_object_mut()
+        .expect("spatial coordinates should be an object")
+        .remove("fiducial_uid");
+    assert!(!validator.is_valid(&missing_fiducial));
+
+    let mut wrong_frames = expectation.clone();
+    wrong_frames["measurement_group"]["source_image"]["referenced_frame_numbers"] =
+        serde_json::json!([2, 1]);
+    assert!(!validator.is_valid(&wrong_frames));
+
+    let mut extra_evidence = expectation;
+    extra_evidence["evidence"]
+        .as_array_mut()
+        .expect("evidence should be an array")
+        .push(serde_json::json!({
+            "role": "source_image",
+            "source_case_id": "enhanced/ct/multiframe_shared_perframe_explicit_le",
+            "sop_class_uid": "1.2.840.10008.5.1.4.1.1.2.1",
+            "sop_instance_uid": "1.2.826.0.1.3680043.10.543.4",
+            "series_instance_uid": "1.2.826.0.1.3680043.10.543.40"
+        }));
+    assert!(
+        !validator.is_valid(&extra_evidence),
+        "the evidence closure must contain exactly the one referenced CT instance"
+    );
+}
+
+#[test]
+fn manifest_schema_requires_scoord3d_contract_for_comprehensive3d_case() {
+    let schema = read_json("schemas/manifest.schema.json");
+    let rule = schema
+        .pointer("/$defs/file/allOf")
+        .and_then(Value::as_array)
+        .expect("file schema should define case conditionals")
+        .iter()
+        .find(|rule| {
+            rule.pointer("/if/properties/case_id/const")
+                .and_then(Value::as_str)
+                == Some("derived/sr/comprehensive3d_scoord3d")
+        })
+        .expect("manifest schema should define the Comprehensive 3D SCOORD3D conditional");
+
+    let required = rule
+        .pointer("/then/required")
+        .and_then(Value::as_array)
+        .expect("SCOORD3D conditional should require specialized fields");
+    for field in ["generation_backend", "expected_scoord3d"] {
+        assert!(
+            required.iter().any(|value| value.as_str() == Some(field)),
+            "SCOORD3D conditional must require {field}"
+        );
+    }
+    for (pointer, expected) in [
+        (
+            "/then/properties/dicom/properties/sop_class_uid/const",
+            serde_json::json!("1.2.840.10008.5.1.4.1.1.88.34"),
+        ),
+        (
+            "/then/properties/dicom/properties/iod_name/const",
+            serde_json::json!("Comprehensive 3D SR"),
+        ),
+        (
+            "/then/properties/dicom/properties/modality/const",
+            serde_json::json!("SR"),
+        ),
+    ] {
+        assert_eq!(rule.pointer(pointer), Some(&expected));
+    }
+    assert_eq!(
+        rule.pointer("/then/properties/image/type")
+            .and_then(Value::as_str),
+        Some("null")
+    );
+    assert_eq!(
+        rule.pointer("/then/properties/pixel_data/type")
+            .and_then(Value::as_str),
+        Some("null")
+    );
+}
+
+fn scoord3d_expectation() -> Value {
+    serde_json::json!({
+        "completion_flag": "COMPLETE",
+        "preliminary_flag": "FINAL",
+        "verification_flag": "UNVERIFIED",
+        "root_template": {
+            "mapping_resource": "DCMR",
+            "template_identifier": "1500"
+        },
+        "document_title": {
+            "code_value": "126000",
+            "coding_scheme_designator": "DCM",
+            "code_meaning": "Imaging Measurement Report"
+        },
+        "observation_context": {
+            "observer_type": "DEVICE",
+            "device_observer_uid": "1.2.826.0.1.3680043.10.543.1"
+        },
+        "procedure_reported": {
+            "code_value": "25045-6",
+            "coding_scheme_designator": "LN",
+            "code_meaning": "CT unspecified body region"
+        },
+        "imaging_measurements": {
+            "code_value": "126010",
+            "coding_scheme_designator": "DCM",
+            "code_meaning": "Imaging Measurements"
+        },
+        "measurement_group": {
+            "template": {
+                "mapping_resource": "DCMR",
+                "template_identifier": "1501"
+            },
+            "container": {
+                "code_value": "125007",
+                "coding_scheme_designator": "DCM",
+                "code_meaning": "Measurement Group"
+            },
+            "tracking_identifier": "DTS-SCOORD3D-ROI-1",
+            "tracking_uid": "1.2.826.0.1.3680043.10.543.2",
+            "finding": {
+                "code_value": "123037004",
+                "coding_scheme_designator": "SCT",
+                "code_meaning": "Body structure"
+            },
+            "measurement": {
+                "name": {
+                    "code_value": "121206",
+                    "coding_scheme_designator": "DCM",
+                    "code_meaning": "Distance"
+                },
+                "numeric_value": "2.5",
+                "units": {
+                    "code_value": "mm",
+                    "coding_scheme_designator": "UCUM",
+                    "code_meaning": "millimeter"
+                },
+                "spatial_coordinates": {
+                    "relationship": "INFERRED FROM",
+                    "value_type": "SCOORD3D",
+                    "concept_name": {
+                        "code_value": "260753009",
+                        "coding_scheme_designator": "SCT",
+                        "code_meaning": "Source"
+                    },
+                    "graphic_type": "POLYLINE",
+                    "graphic_data_mm": [0.0, 0.0, 0.0, 0.0, 0.0, 2.5],
+                    "frame_of_reference_uid": "1.2.826.0.1.3680043.10.543.5",
+                    "fiducial_uid": "1.2.826.0.1.3680043.10.543.6"
+                }
+            },
+            "source_image": {
+                "relationship": "CONTAINS",
+                "value_type": "IMAGE",
+                "concept_name": {
+                    "code_value": "121112",
+                    "coding_scheme_designator": "DCM",
+                    "code_meaning": "Source of Measurement"
+                },
+                "source_case_id": "enhanced/ct/multiframe_shared_perframe_explicit_le",
+                "sop_class_uid": "1.2.840.10008.5.1.4.1.1.2.1",
+                "sop_instance_uid": "1.2.826.0.1.3680043.10.543.4",
+                "series_instance_uid": "1.2.826.0.1.3680043.10.543.40",
+                "referenced_frame_numbers": [1, 2]
+            }
+        },
+        "image_library_present": false,
+        "evidence": [
+            {
+                "role": "source_image",
+                "source_case_id": "enhanced/ct/multiframe_shared_perframe_explicit_le",
+                "sop_class_uid": "1.2.840.10008.5.1.4.1.1.2.1",
+                "sop_instance_uid": "1.2.826.0.1.3680043.10.543.4",
+                "series_instance_uid": "1.2.826.0.1.3680043.10.543.40"
+            }
+        ]
+    })
+}
+
+#[test]
 fn case_registry_schema_requires_the_specified_case_fields() {
     let schema = read_json("schemas/case-registry.schema.json");
     let required = schema

@@ -179,6 +179,7 @@ use crate::{
         validate_rt_plan_file, validate_rt_radiation_file, validate_rt_radiation_set_file,
         validate_rt_structure_set_file, validate_scoord3d_file, validate_spatial_registration_file,
         validate_tid1500_file, validate_twelve_lead_ecg_file, validate_wsi_tiled_full_file,
+        validate_wsi_tiled_sparse_file,
     },
     waveform_manifest::{general_ecg_expected_waveform, twelve_lead_ecg_expected_waveform},
 };
@@ -8235,7 +8236,7 @@ fn write_wsi_tiled_sparse_case(
         &specimen_uid,
         &dimension_organization_uid,
     );
-    let validated = validate_part10_file(
+    let validated = validate_wsi_tiled_sparse_file(
         &path,
         &Part10Expectations {
             sop_class_uid: WSI_TILED_SPARSE_STORAGE_UID,
@@ -8274,6 +8275,7 @@ fn write_wsi_tiled_sparse_case(
             mr_image: None,
             segmentation: None,
         },
+        &expected_wsi_tiled_sparse,
     )?;
 
     let standards_evidence = deduplicated_standards_evidence(standards_evidence_from_case(case));

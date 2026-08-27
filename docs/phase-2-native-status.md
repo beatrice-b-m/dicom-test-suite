@@ -39,6 +39,20 @@ tag with their expectations. It does not infer positions from the tilt tag or
 otherwise treat that metadata as a substitute for Image Position (Patient).
 Reports expose the tilt alongside the complete sorting contract.
 
+### Duplicate and empty Instance Number values
+
+`geometry/ct/duplicate_missing_instance_number` is an implemented `core` case
+with three geometrically ordered CT instances. The first two serialize the
+same numeric Instance Number, `1`; the third contains Instance Number
+`(0020,0013)` with IS VR and zero value length. The Type 2 element is present,
+not omitted.
+
+The manifest distinguishes `numeric` and `empty` states and records null for
+the empty numeric value. Instance Number rank and sorting-conflict expectations
+are null for every member because duplicates and an empty value do not define
+a total numeric order. Internal validation and reports preserve those nulls
+while continuing to enforce the complete geometric order.
+
 ## Verification evidence
 
 The following checks passed on 2026-08-26 for a seed-23 `core` corpus:
@@ -67,14 +81,25 @@ on all three tilted instances with no findings, isolated three-file
 `dcentvfy` with no findings, and DCMTK extraction of the declared tilt, axial
 orientation, positions, Instance Numbers, and five-millimetre spacing.
 
+The duplicate/empty slice additionally passed two byte-identical seed-31
+`core` runs, internal validation of all 33 files with zero failures,
+`dciodvfy -new` on all three instances without IOD errors, isolated
+three-file `dcentvfy` with no findings, and DCMTK extraction of the duplicate
+numeric values and exact zero-length IS. The locked `dciodvfy` emits one
+DICOMDIR-usability warning for the empty value. Its exact path, validator
+fingerprint, message fingerprint, Type 2 standards citation, rationale, and
+recheck condition are committed as a narrow `generator_intent_confirmed`
+disposition. A real conformance-framework run matched exactly that one new
+disposition. Older unrelated `core` findings remain unresolved and were not
+accepted or weakened.
+
 The two matching `core` corpora each occupy 480 KiB in the local filesystem.
 This measurement is implementation-environment evidence rather than a
 portable byte-size guarantee; tracked generated artifacts remain forbidden.
 
 ## Remaining work
 
-The geometry and series milestone still requires duplicate and empty Type 2
-Instance Number values, shared Frame of Reference across multiple series in
-one study, and its milestone-level regression and conformance run. The
-existing enhanced MR temporal case supplies the planned temporal/dynamic
-coverage and will be included in that final milestone audit.
+The geometry and series milestone still requires shared Frame of Reference
+across multiple series in one study and its milestone-level regression and
+conformance run. The existing enhanced MR temporal case supplies the planned
+temporal/dynamic coverage and will be included in that final milestone audit.

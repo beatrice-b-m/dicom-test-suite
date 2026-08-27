@@ -26,6 +26,10 @@ mod spatial_registration_tests;
 #[path = "validation_deformable_spatial_registration_tests.rs"]
 mod deformable_spatial_registration_tests;
 
+#[cfg(test)]
+#[path = "validation_color_softcopy_presentation_state_tests.rs"]
+mod color_softcopy_presentation_state_tests;
+
 #[cfg(feature = "deflate")]
 use crate::codecs::DicomRsDeflatedImageFrameEncoder;
 #[cfg(feature = "charls")]
@@ -104,6 +108,22 @@ pub(crate) struct PresentationStateExpectations<'a> {
     pub window_center: &'a str,
     pub window_width: &'a str,
     pub presentation_lut_shape: &'a str,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct ColorSoftcopyPresentationStateExpectations<'a> {
+    pub sop_class_uid: &'a str,
+    pub sop_instance_uid: &'a str,
+    pub transfer_syntax_uid: &'a str,
+    pub implementation_class_uid: &'a str,
+    pub synthetic_data: &'a str,
+    pub study_instance_uid: &'a str,
+    pub series_instance_uid: &'a str,
+    pub source_study_instance_uid: &'a str,
+    pub source_series_instance_uid: &'a str,
+    pub source_sop_class_uid: &'a str,
+    pub source_sop_instance_uid: &'a str,
+    pub icc_profile_sha256: &'a str,
 }
 
 #[derive(Debug, Clone)]
@@ -1478,6 +1498,726 @@ pub(crate) fn validate_presentation_state_file(
                     "name": "grayscale_softcopy_presentation_state_modules",
                     "status": "passed",
                     "message": "GSPS relationship, displayed area, softcopy VOI, and presentation LUT attributes match the recipe."
+                }
+            ],
+            "external": []
+        }),
+    })
+}
+
+pub(crate) fn validate_color_softcopy_presentation_state_file(
+    path: &Path,
+    expected: &ColorSoftcopyPresentationStateExpectations<'_>,
+) -> Result<ValidatedPart10, GenerateError> {
+    let bytes = fs::read(path).map_err(|source| GenerateError::ReadGeneratedFile {
+        path: path.to_path_buf(),
+        source,
+    })?;
+    let obj = open_file(path).map_err(|err| GenerateError::ValidateDicomFile {
+        path: path.to_path_buf(),
+        message: err.to_string(),
+    })?;
+
+    let mut internal = Vec::new();
+    check(
+        &mut internal,
+        bytes.len() >= 132 && &bytes[128..132] == b"DICM",
+        "color_softcopy_part10_preamble",
+        "File has a 128-byte preamble followed by the DICM marker.",
+        "File is missing the Part 10 DICM marker at byte offset 128.",
+    );
+    check_equal(
+        &mut internal,
+        "color_softcopy_file_meta_transfer_syntax",
+        "File Meta Transfer Syntax UID is Explicit VR Little Endian.",
+        "File Meta Transfer Syntax UID does not match the locked recipe.",
+        trim_uid(obj.meta().transfer_syntax()),
+        expected.transfer_syntax_uid.to_string(),
+    );
+
+    let dataset_sop_class = element_str(path, &obj, tags::SOP_CLASS_UID)?;
+    check_equal(
+        &mut internal,
+        "color_softcopy_sop_class_uid",
+        "Dataset SOP Class UID matches Color Softcopy Presentation State Storage.",
+        "Dataset SOP Class UID does not match Color Softcopy Presentation State Storage.",
+        dataset_sop_class.as_str(),
+        expected.sop_class_uid,
+    );
+    check_equal(
+        &mut internal,
+        "color_softcopy_media_storage_sop_class_uid",
+        "File Meta SOP Class UID matches the dataset SOP Class UID.",
+        "File Meta SOP Class UID does not match the dataset SOP Class UID.",
+        trim_uid(obj.meta().media_storage_sop_class_uid()),
+        dataset_sop_class,
+    );
+    let dataset_sop_instance = element_str(path, &obj, tags::SOP_INSTANCE_UID)?;
+    check_equal(
+        &mut internal,
+        "color_softcopy_sop_instance_uid",
+        "Dataset SOP Instance UID matches the deterministic manifest identity.",
+        "Dataset SOP Instance UID does not match the deterministic manifest identity.",
+        dataset_sop_instance.as_str(),
+        expected.sop_instance_uid,
+    );
+    check_equal(
+        &mut internal,
+        "color_softcopy_media_storage_sop_instance_uid",
+        "File Meta SOP Instance UID matches the dataset SOP Instance UID.",
+        "File Meta SOP Instance UID does not match the dataset SOP Instance UID.",
+        trim_uid(obj.meta().media_storage_sop_instance_uid()),
+        dataset_sop_instance,
+    );
+    check_equal(
+        &mut internal,
+        "color_softcopy_implementation_class_uid",
+        "File Meta Implementation Class UID matches the deterministic generator UID.",
+        "File Meta Implementation Class UID does not match the deterministic generator UID.",
+        trim_uid(obj.meta().implementation_class_uid()).as_str(),
+        expected.implementation_class_uid,
+    );
+
+    for (name, tag, actual_expected, passed, failed) in [
+        (
+            "color_softcopy_synthetic_data",
+            tags::SYNTHETIC_DATA,
+            expected.synthetic_data,
+            "Synthetic Data is YES.",
+            "Synthetic Data does not match the locked recipe.",
+        ),
+        (
+            "color_softcopy_patient_name",
+            tags::PATIENT_NAME,
+            "DICOMTEST^SMOKE",
+            "Patient Name matches the synthetic identity.",
+            "Patient Name does not match the synthetic identity.",
+        ),
+        (
+            "color_softcopy_patient_id",
+            tags::PATIENT_ID,
+            "DICOMTEST-SMOKE-001",
+            "Patient ID matches the synthetic identity.",
+            "Patient ID does not match the synthetic identity.",
+        ),
+        (
+            "color_softcopy_patient_birth_date",
+            tags::PATIENT_BIRTH_DATE,
+            "19700101",
+            "Patient Birth Date matches the synthetic identity.",
+            "Patient Birth Date does not match the synthetic identity.",
+        ),
+        (
+            "color_softcopy_patient_sex",
+            tags::PATIENT_SEX,
+            "O",
+            "Patient Sex matches the synthetic identity.",
+            "Patient Sex does not match the synthetic identity.",
+        ),
+        (
+            "color_softcopy_study_date",
+            tags::STUDY_DATE,
+            "20260101",
+            "Study Date matches the locked recipe.",
+            "Study Date does not match the locked recipe.",
+        ),
+        (
+            "color_softcopy_study_time",
+            tags::STUDY_TIME,
+            "000000",
+            "Study Time matches the locked recipe.",
+            "Study Time does not match the locked recipe.",
+        ),
+        (
+            "color_softcopy_referring_physician_name",
+            tags::REFERRING_PHYSICIAN_NAME,
+            "",
+            "Referring Physician Name is present with its locked empty value.",
+            "Referring Physician Name does not match the locked recipe.",
+        ),
+        (
+            "color_softcopy_study_id",
+            tags::STUDY_ID,
+            "SMOKE",
+            "Study ID matches the locked recipe.",
+            "Study ID does not match the locked recipe.",
+        ),
+        (
+            "color_softcopy_accession_number",
+            tags::ACCESSION_NUMBER,
+            "",
+            "Accession Number is present with its locked empty value.",
+            "Accession Number does not match the locked recipe.",
+        ),
+        (
+            "color_softcopy_modality",
+            tags::MODALITY,
+            "PR",
+            "Presentation Series Modality is PR.",
+            "Presentation Series Modality does not match the locked recipe.",
+        ),
+        (
+            "color_softcopy_series_number",
+            tags::SERIES_NUMBER,
+            "62",
+            "Series Number matches the locked recipe.",
+            "Series Number does not match the locked recipe.",
+        ),
+        (
+            "color_softcopy_body_part_examined",
+            tags::BODY_PART_EXAMINED,
+            "HAND",
+            "Body Part Examined is HAND.",
+            "Body Part Examined does not match the locked recipe.",
+        ),
+        (
+            "color_softcopy_laterality",
+            tags::LATERALITY,
+            "R",
+            "Laterality is R.",
+            "Laterality does not match the locked recipe.",
+        ),
+        (
+            "color_softcopy_manufacturer",
+            tags::MANUFACTURER,
+            "dicom-test-suite",
+            "Manufacturer matches the locked equipment identity.",
+            "Manufacturer does not match the locked equipment identity.",
+        ),
+        (
+            "color_softcopy_manufacturer_model_name",
+            tags::MANUFACTURER_MODEL_NAME,
+            "Native Color Softcopy Presentation State",
+            "Manufacturer Model Name matches the locked equipment identity.",
+            "Manufacturer Model Name does not match the locked equipment identity.",
+        ),
+        (
+            "color_softcopy_device_serial_number",
+            tags::DEVICE_SERIAL_NUMBER,
+            "DTS-COLOR-PR-0001",
+            "Device Serial Number matches the locked equipment identity.",
+            "Device Serial Number does not match the locked equipment identity.",
+        ),
+        (
+            "color_softcopy_software_versions",
+            tags::SOFTWARE_VERSIONS,
+            crate::PACKAGE_VERSION,
+            "Software Versions matches the running generator version.",
+            "Software Versions does not match the running generator version.",
+        ),
+        (
+            "color_softcopy_instance_number",
+            tags::INSTANCE_NUMBER,
+            "1",
+            "Instance Number matches the locked recipe.",
+            "Instance Number does not match the locked recipe.",
+        ),
+        (
+            "color_softcopy_content_date",
+            tags::CONTENT_DATE,
+            "20260101",
+            "Content Date matches the locked recipe.",
+            "Content Date does not match the locked recipe.",
+        ),
+        (
+            "color_softcopy_content_time",
+            tags::CONTENT_TIME,
+            "000000",
+            "Content Time matches the locked recipe.",
+            "Content Time does not match the locked recipe.",
+        ),
+        (
+            "color_softcopy_presentation_creation_date",
+            tags::PRESENTATION_CREATION_DATE,
+            "20260101",
+            "Presentation Creation Date matches the locked recipe.",
+            "Presentation Creation Date does not match the locked recipe.",
+        ),
+        (
+            "color_softcopy_presentation_creation_time",
+            tags::PRESENTATION_CREATION_TIME,
+            "000000",
+            "Presentation Creation Time matches the locked recipe.",
+            "Presentation Creation Time does not match the locked recipe.",
+        ),
+        (
+            "color_softcopy_content_label",
+            tags::CONTENT_LABEL,
+            "DTSCOLORPR",
+            "Content Label matches the locked recipe.",
+            "Content Label does not match the locked recipe.",
+        ),
+        (
+            "color_softcopy_content_description",
+            tags::CONTENT_DESCRIPTION,
+            "Synthetic RGB color presentation state",
+            "Content Description matches the locked recipe.",
+            "Content Description does not match the locked recipe.",
+        ),
+        (
+            "color_softcopy_content_creator_name",
+            tags::CONTENT_CREATOR_NAME,
+            "DTS^Generator",
+            "Content Creator Name matches the locked recipe.",
+            "Content Creator Name does not match the locked recipe.",
+        ),
+    ] {
+        check_equal(
+            &mut internal,
+            name,
+            passed,
+            failed,
+            element_str(path, &obj, tag)?.as_str(),
+            actual_expected,
+        );
+    }
+
+    let study_instance_uid = element_str(path, &obj, tags::STUDY_INSTANCE_UID)?;
+    check_equal(
+        &mut internal,
+        "color_softcopy_study_instance_uid",
+        "Presentation State Study Instance UID matches the source study.",
+        "Presentation State Study Instance UID does not match the source study.",
+        study_instance_uid.as_str(),
+        expected.study_instance_uid,
+    );
+    check_equal(
+        &mut internal,
+        "color_softcopy_same_study",
+        "Presentation State and source image share one Study Instance UID.",
+        "Presentation State and source image do not share one Study Instance UID.",
+        study_instance_uid.as_str(),
+        expected.source_study_instance_uid,
+    );
+    let series_instance_uid = element_str(path, &obj, tags::SERIES_INSTANCE_UID)?;
+    check_equal(
+        &mut internal,
+        "color_softcopy_series_instance_uid",
+        "Presentation State Series Instance UID matches the deterministic identity.",
+        "Presentation State Series Instance UID does not match the deterministic identity.",
+        series_instance_uid.as_str(),
+        expected.series_instance_uid,
+    );
+    check(
+        &mut internal,
+        series_instance_uid != expected.source_series_instance_uid,
+        "color_softcopy_different_series",
+        "Presentation State and source image use distinct Series Instance UIDs.",
+        "Presentation State and source image unexpectedly share a Series Instance UID.",
+    );
+
+    check_equal(
+        &mut internal,
+        "color_softcopy_referenced_series_items",
+        "Referenced Series Sequence contains exactly one item.",
+        "Referenced Series Sequence does not contain exactly one item.",
+        sequence_item_count(path, &obj, tags::REFERENCED_SERIES_SEQUENCE)?,
+        1,
+    );
+    let referenced_series =
+        top_level_sequence_item(path, &obj, tags::REFERENCED_SERIES_SEQUENCE, 0)?;
+    check_equal(
+        &mut internal,
+        "color_softcopy_referenced_series_uid",
+        "Referenced Series Sequence identifies the source series.",
+        "Referenced Series Sequence does not identify the source series.",
+        item_str(path, referenced_series, tags::SERIES_INSTANCE_UID)?.as_str(),
+        expected.source_series_instance_uid,
+    );
+    check_equal(
+        &mut internal,
+        "color_softcopy_referenced_image_items",
+        "Referenced Image Sequence contains exactly one item.",
+        "Referenced Image Sequence does not contain exactly one item.",
+        item_sequence_item_count(path, referenced_series, tags::REFERENCED_IMAGE_SEQUENCE)?,
+        1,
+    );
+    let referenced_image =
+        item_sequence_item(path, referenced_series, tags::REFERENCED_IMAGE_SEQUENCE, 0)?;
+    check_equal(
+        &mut internal,
+        "color_softcopy_referenced_sop_class_uid",
+        "Referenced SOP Class UID matches the source Secondary Capture image.",
+        "Referenced SOP Class UID does not match the source image.",
+        item_str(path, referenced_image, tags::REFERENCED_SOP_CLASS_UID)?.as_str(),
+        expected.source_sop_class_uid,
+    );
+    check_equal(
+        &mut internal,
+        "color_softcopy_referenced_sop_instance_uid",
+        "Referenced SOP Instance UID matches the source image.",
+        "Referenced SOP Instance UID does not match the source image.",
+        item_str(path, referenced_image, tags::REFERENCED_SOP_INSTANCE_UID)?.as_str(),
+        expected.source_sop_instance_uid,
+    );
+    check(
+        &mut internal,
+        referenced_image
+            .element_opt(tags::REFERENCED_FRAME_NUMBER)
+            .map_err(|err| validation_error(path, err))?
+            .is_none(),
+        "color_softcopy_referenced_frame_numbers_absent",
+        "The reference applies to the complete source instance.",
+        "Referenced Frame Number unexpectedly narrows the source reference.",
+    );
+
+    check_equal(
+        &mut internal,
+        "color_softcopy_displayed_area_items",
+        "Displayed Area Selection Sequence contains exactly one item.",
+        "Displayed Area Selection Sequence does not contain exactly one item.",
+        sequence_item_count(path, &obj, tags::DISPLAYED_AREA_SELECTION_SEQUENCE)?,
+        1,
+    );
+    let displayed_area =
+        top_level_sequence_item(path, &obj, tags::DISPLAYED_AREA_SELECTION_SEQUENCE, 0)?;
+    check(
+        &mut internal,
+        displayed_area
+            .element_opt(tags::REFERENCED_IMAGE_SEQUENCE)
+            .map_err(|err| validation_error(path, err))?
+            .is_none()
+            && displayed_area
+                .element_opt(tags::REFERENCED_FRAME_NUMBER)
+                .map_err(|err| validation_error(path, err))?
+                .is_none(),
+        "color_softcopy_displayed_area_global",
+        "Displayed Area applies globally to all referenced images.",
+        "Displayed Area unexpectedly narrows its applicability.",
+    );
+    check_equal(
+        &mut internal,
+        "color_softcopy_displayed_area_top_left_vr",
+        "Displayed Area top-left corner uses VR SL.",
+        "Displayed Area top-left corner does not use VR SL.",
+        displayed_area
+            .element(tags::DISPLAYED_AREA_TOP_LEFT_HAND_CORNER)
+            .map_err(|err| validation_error(path, err))?
+            .vr(),
+        VR::SL,
+    );
+    check_equal(
+        &mut internal,
+        "color_softcopy_displayed_area_top_left",
+        "Displayed Area top-left corner is [1, 1].",
+        "Displayed Area top-left corner does not match the 2x2 source geometry.",
+        item_i32_values(
+            path,
+            displayed_area,
+            tags::DISPLAYED_AREA_TOP_LEFT_HAND_CORNER,
+        )?,
+        vec![1, 1],
+    );
+    check_equal(
+        &mut internal,
+        "color_softcopy_displayed_area_bottom_right_vr",
+        "Displayed Area bottom-right corner uses VR SL.",
+        "Displayed Area bottom-right corner does not use VR SL.",
+        displayed_area
+            .element(tags::DISPLAYED_AREA_BOTTOM_RIGHT_HAND_CORNER)
+            .map_err(|err| validation_error(path, err))?
+            .vr(),
+        VR::SL,
+    );
+    check_equal(
+        &mut internal,
+        "color_softcopy_displayed_area_bottom_right",
+        "Displayed Area bottom-right corner is [2, 2].",
+        "Displayed Area bottom-right corner does not match the 2x2 source geometry.",
+        item_i32_values(
+            path,
+            displayed_area,
+            tags::DISPLAYED_AREA_BOTTOM_RIGHT_HAND_CORNER,
+        )?,
+        vec![2, 2],
+    );
+    check_equal(
+        &mut internal,
+        "color_softcopy_presentation_size_mode",
+        "Presentation Size Mode is SCALE TO FIT.",
+        "Presentation Size Mode does not match the locked recipe.",
+        item_str(path, displayed_area, tags::PRESENTATION_SIZE_MODE)?.as_str(),
+        "SCALE TO FIT",
+    );
+    check_equal(
+        &mut internal,
+        "color_softcopy_presentation_pixel_aspect_ratio_vr",
+        "Presentation Pixel Aspect Ratio uses VR IS.",
+        "Presentation Pixel Aspect Ratio does not use VR IS.",
+        displayed_area
+            .element(tags::PRESENTATION_PIXEL_ASPECT_RATIO)
+            .map_err(|err| validation_error(path, err))?
+            .vr(),
+        VR::IS,
+    );
+    check_equal(
+        &mut internal,
+        "color_softcopy_presentation_pixel_aspect_ratio",
+        "Presentation Pixel Aspect Ratio is [1, 1].",
+        "Presentation Pixel Aspect Ratio does not match the locked recipe.",
+        item_i32_values(path, displayed_area, tags::PRESENTATION_PIXEL_ASPECT_RATIO)?,
+        vec![1, 1],
+    );
+    for (name, tag) in [
+        (
+            "color_softcopy_presentation_pixel_spacing_absent",
+            tags::PRESENTATION_PIXEL_SPACING,
+        ),
+        (
+            "color_softcopy_presentation_pixel_magnification_ratio_absent",
+            tags::PRESENTATION_PIXEL_MAGNIFICATION_RATIO,
+        ),
+    ] {
+        check(
+            &mut internal,
+            displayed_area
+                .element_opt(tag)
+                .map_err(|err| validation_error(path, err))?
+                .is_none(),
+            name,
+            "Mutually exclusive Displayed Area sizing attribute is absent.",
+            "Displayed Area contains an unexpected mutually exclusive sizing attribute.",
+        );
+    }
+
+    let icc_element = obj
+        .element(tags::ICC_PROFILE)
+        .map_err(|err| validation_error(path, err))?;
+    check_equal(
+        &mut internal,
+        "color_softcopy_icc_profile_vr",
+        "ICC Profile uses VR OB.",
+        "ICC Profile does not use VR OB.",
+        icc_element.vr(),
+        VR::OB,
+    );
+    let icc_bytes = icc_element
+        .value()
+        .to_bytes()
+        .map_err(|err| validation_error(path, err))?;
+    let icc_profile = icc_bytes.as_ref();
+    check_equal(
+        &mut internal,
+        "color_softcopy_icc_profile_size",
+        "ICC Profile contains exactly 736 bytes.",
+        "ICC Profile length does not match the locked sRGB profile.",
+        icc_profile.len(),
+        736,
+    );
+    check_equal(
+        &mut internal,
+        "color_softcopy_icc_profile_sha256",
+        "ICC Profile SHA-256 matches the locked sRGB profile.",
+        "ICC Profile bytes do not match the locked sRGB profile.",
+        sha256_hex(icc_profile).as_str(),
+        expected.icc_profile_sha256,
+    );
+    check_equal(
+        &mut internal,
+        "color_softcopy_icc_declared_size",
+        "ICC header declares the exact profile size.",
+        "ICC header does not declare the exact profile size.",
+        icc_profile
+            .get(0..4)
+            .and_then(|value| <[u8; 4]>::try_from(value).ok())
+            .map(u32::from_be_bytes),
+        Some(736),
+    );
+    for (name, range, locked, passed, failed) in [
+        (
+            "color_softcopy_icc_device_class",
+            12..16,
+            &b"scnr"[..],
+            "ICC device class is scnr.",
+            "ICC device class does not match the locked profile.",
+        ),
+        (
+            "color_softcopy_icc_data_color_space",
+            16..20,
+            &b"RGB "[..],
+            "ICC data color space is RGB.",
+            "ICC data color space does not match the locked profile.",
+        ),
+        (
+            "color_softcopy_icc_profile_connection_space",
+            20..24,
+            &b"XYZ "[..],
+            "ICC profile connection space is XYZ.",
+            "ICC profile connection space does not match the locked profile.",
+        ),
+        (
+            "color_softcopy_icc_signature",
+            36..40,
+            &b"acsp"[..],
+            "ICC signature is acsp.",
+            "ICC signature does not match the locked profile.",
+        ),
+    ] {
+        check_equal(
+            &mut internal,
+            name,
+            passed,
+            failed,
+            icc_profile.get(range),
+            Some(locked),
+        );
+    }
+    let color_space = obj
+        .element(tags::COLOR_SPACE)
+        .map_err(|err| validation_error(path, err))?;
+    check_equal(
+        &mut internal,
+        "color_softcopy_color_space_vr",
+        "DICOM Color Space uses VR CS.",
+        "DICOM Color Space does not use VR CS.",
+        color_space.vr(),
+        VR::CS,
+    );
+    check_equal(
+        &mut internal,
+        "color_softcopy_color_space",
+        "DICOM Color Space is SRGB.",
+        "DICOM Color Space does not match the locked profile.",
+        color_space
+            .to_str()
+            .map_err(|err| validation_error(path, err))?
+            .trim_end_matches(['\0', ' ']),
+        "SRGB",
+    );
+
+    for (name, tag, passed, failed) in [
+        (
+            "color_softcopy_shutter_shape_absent",
+            tags::SHUTTER_SHAPE,
+            "Shutter Shape is absent.",
+            "Shutter Shape is unexpectedly present.",
+        ),
+        (
+            "color_softcopy_shutter_left_edge_absent",
+            tags::SHUTTER_LEFT_VERTICAL_EDGE,
+            "Shutter left edge is absent.",
+            "Shutter left edge is unexpectedly present.",
+        ),
+        (
+            "color_softcopy_shutter_right_edge_absent",
+            tags::SHUTTER_RIGHT_VERTICAL_EDGE,
+            "Shutter right edge is absent.",
+            "Shutter right edge is unexpectedly present.",
+        ),
+        (
+            "color_softcopy_shutter_upper_edge_absent",
+            tags::SHUTTER_UPPER_HORIZONTAL_EDGE,
+            "Shutter upper edge is absent.",
+            "Shutter upper edge is unexpectedly present.",
+        ),
+        (
+            "color_softcopy_shutter_lower_edge_absent",
+            tags::SHUTTER_LOWER_HORIZONTAL_EDGE,
+            "Shutter lower edge is absent.",
+            "Shutter lower edge is unexpectedly present.",
+        ),
+        (
+            "color_softcopy_circular_shutter_center_absent",
+            tags::CENTER_OF_CIRCULAR_SHUTTER,
+            "Circular shutter center is absent.",
+            "Circular shutter center is unexpectedly present.",
+        ),
+        (
+            "color_softcopy_circular_shutter_radius_absent",
+            tags::RADIUS_OF_CIRCULAR_SHUTTER,
+            "Circular shutter radius is absent.",
+            "Circular shutter radius is unexpectedly present.",
+        ),
+        (
+            "color_softcopy_polygonal_shutter_vertices_absent",
+            tags::VERTICES_OF_THE_POLYGONAL_SHUTTER,
+            "Polygonal shutter vertices are absent.",
+            "Polygonal shutter vertices are unexpectedly present.",
+        ),
+        (
+            "color_softcopy_shutter_presentation_value_absent",
+            tags::SHUTTER_PRESENTATION_VALUE,
+            "Shutter Presentation Value is absent.",
+            "Shutter Presentation Value is unexpectedly present.",
+        ),
+        (
+            "color_softcopy_shutter_presentation_color_absent",
+            tags::SHUTTER_PRESENTATION_COLOR_CIE_LAB_VALUE,
+            "Shutter Presentation Color is absent.",
+            "Shutter Presentation Color is unexpectedly present.",
+        ),
+        (
+            "color_softcopy_graphic_annotation_sequence_absent",
+            tags::GRAPHIC_ANNOTATION_SEQUENCE,
+            "Graphic Annotation Sequence is absent.",
+            "Graphic Annotation Sequence is unexpectedly present.",
+        ),
+        (
+            "color_softcopy_graphic_layer_sequence_absent",
+            tags::GRAPHIC_LAYER_SEQUENCE,
+            "Graphic Layer Sequence is absent.",
+            "Graphic Layer Sequence is unexpectedly present.",
+        ),
+        (
+            "color_softcopy_image_horizontal_flip_absent",
+            tags::IMAGE_HORIZONTAL_FLIP,
+            "Image Horizontal Flip is absent.",
+            "Image Horizontal Flip is unexpectedly present.",
+        ),
+        (
+            "color_softcopy_image_rotation_absent",
+            tags::IMAGE_ROTATION,
+            "Image Rotation is absent.",
+            "Image Rotation is unexpectedly present.",
+        ),
+        (
+            "color_softcopy_pixel_data_absent",
+            tags::PIXEL_DATA,
+            "Color Softcopy Presentation State contains no Pixel Data.",
+            "Color Softcopy Presentation State unexpectedly contains Pixel Data.",
+        ),
+    ] {
+        check(
+            &mut internal,
+            obj.element_opt(tag)
+                .map_err(|err| validation_error(path, err))?
+                .is_none(),
+            name,
+            passed,
+            failed,
+        );
+    }
+    check(
+        &mut internal,
+        !obj.tags()
+            .any(|tag| (0x6000..=0x60FE).contains(&tag.0) && tag.0 % 2 == 0),
+        "color_softcopy_overlay_items_absent",
+        "No overlay-group attributes are present.",
+        "An overlay-group attribute is unexpectedly present.",
+    );
+
+    fail_if_any_failed(path, &internal)?;
+
+    Ok(ValidatedPart10 {
+        bytes,
+        validation: serde_json::json!({
+            "status": "passed",
+            "internal": internal,
+            "standards": [
+                {
+                    "name": standard_sop_class_validation_name(expected.sop_class_uid),
+                    "status": "passed",
+                    "message": standard_sop_class_validation_message(expected.sop_class_uid)
+                },
+                {
+                    "name": standard_transfer_syntax_validation_name(expected.transfer_syntax_uid),
+                    "status": "passed",
+                    "message": standard_transfer_syntax_validation_message(expected.transfer_syntax_uid)
+                },
+                {
+                    "name": "color_softcopy_presentation_state_modules",
+                    "status": "passed",
+                    "message": "Color Softcopy relationship, global displayed area, locked ICC profile, and prohibited-content invariants match the recipe."
                 }
             ],
             "external": []
@@ -11219,6 +11959,7 @@ fn standard_sop_class_validation_name(sop_class_uid: &str) -> &'static str {
         }
         uids::VL_PHOTOGRAPHIC_IMAGE_STORAGE => "vl_photographic_image_sop_class",
         "1.2.840.10008.5.1.4.1.1.11.1" => "grayscale_softcopy_presentation_state_sop_class",
+        "1.2.840.10008.5.1.4.1.1.11.2" => "color_softcopy_presentation_state_sop_class",
         "1.2.840.10008.5.1.4.1.1.67" => "real_world_value_mapping_sop_class",
         uids::BASIC_TEXT_SR_STORAGE => "basic_text_sr_sop_class",
         uids::COMPREHENSIVE_SR_STORAGE => "comprehensive_sr_sop_class",
@@ -11280,6 +12021,9 @@ fn standard_sop_class_validation_message(sop_class_uid: &str) -> &'static str {
         }
         "1.2.840.10008.5.1.4.1.1.11.1" => {
             "SOP Class UID matches Grayscale Softcopy Presentation State Storage in the 2026b reference."
+        }
+        "1.2.840.10008.5.1.4.1.1.11.2" => {
+            "SOP Class UID matches Color Softcopy Presentation State Storage in the 2026b reference."
         }
         "1.2.840.10008.5.1.4.1.1.67" => {
             "SOP Class UID matches Real World Value Mapping Storage in the 2026b reference."

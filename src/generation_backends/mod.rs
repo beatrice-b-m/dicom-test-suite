@@ -149,6 +149,8 @@ pub fn validate_backend_lock(
 pub fn validate_request(request: &Value) -> Result<(), BackendContractError> {
     validate_schema("generation backend request", REQUEST_SCHEMA, request)?;
     let mut problems = Vec::new();
+    let mut source_paths = BTreeSet::new();
+    let mut source_sop_instance_uids = BTreeSet::new();
     for source in request["sources"]
         .as_array()
         .expect("schema checked sources")
@@ -163,6 +165,39 @@ pub fn validate_request(request: &Value) -> Result<(), BackendContractError> {
                 "source relative_path {} is unsafe",
                 relative.display()
             ));
+        }
+        if !source_paths.insert(relative.to_path_buf()) {
+            problems.push(format!(
+                "source relative_path {} is declared more than once",
+                relative.display()
+            ));
+        }
+        let sop_instance_uid = source["sop_instance_uid"]
+            .as_str()
+            .expect("schema checked source SOP Instance UID");
+        if !source_sop_instance_uids.insert(sop_instance_uid) {
+            problems.push(format!(
+                "source SOP Instance UID {sop_instance_uid} is declared more than once"
+            ));
+        }
+    }
+
+    let mut slot_keys = BTreeSet::new();
+    let mut slot_uids = BTreeSet::new();
+    for slot in request["identities"]["sop_instances"]
+        .as_array()
+        .expect("schema checked SOP slots")
+    {
+        let role = slot["role"].as_str().expect("schema checked slot role");
+        let index = slot["index"].as_u64().expect("schema checked slot index");
+        let uid = slot["uid"].as_str().expect("schema checked slot UID");
+        if !slot_keys.insert((role, index)) {
+            problems.push(format!(
+                "SOP slot role {role} index {index} is declared more than once"
+            ));
+        }
+        if !slot_uids.insert(uid) {
+            problems.push(format!("SOP slot UID {uid} is declared more than once"));
         }
     }
     invalid_if_any("generation backend request", problems)
@@ -183,6 +218,26 @@ pub fn validate_response_for_request(
 
     let mut paths = BTreeSet::new();
     let mut sop_instance_uids = BTreeSet::new();
+    let requested_slots = request["identities"]["sop_instances"]
+        .as_array()
+        .expect("request schema checked SOP slots");
+    let requested_sop_instance_uids = requested_slots
+        .iter()
+        .map(|slot| {
+            slot["uid"]
+                .as_str()
+                .expect("request schema checked slot UID")
+        })
+        .collect::<BTreeSet<_>>();
+    let expected_sop_class = request["case"]["expected_sop_class_uid"]
+        .as_str()
+        .expect("request schema checked expected SOP Class UID");
+    let expected_transfer_syntax = request["case"]["expected_transfer_syntax_uid"]
+        .as_str()
+        .expect("request schema checked expected Transfer Syntax UID");
+    let declared_sources = request["sources"]
+        .as_array()
+        .expect("request schema checked sources");
     for output in response["outputs"]
         .as_array()
         .expect("schema checked outputs")
@@ -209,8 +264,66 @@ pub fn validate_response_for_request(
                 "duplicate output SOP Instance UID {sop_instance_uid}"
             ));
         }
+        if !requested_sop_instance_uids.contains(sop_instance_uid) {
+            problems.push(format!(
+                "output SOP Instance UID {sop_instance_uid} does not match a requested SOP slot"
+            ));
+        }
+        let sop_class_uid = output["sop_class_uid"]
+            .as_str()
+            .expect("schema checked output SOP Class UID");
+        if sop_class_uid != expected_sop_class {
+            problems.push(format!(
+                "output SOP Class UID {sop_class_uid} does not match requested {expected_sop_class}"
+            ));
+        }
+        let transfer_syntax_uid = output["transfer_syntax_uid"]
+            .as_str()
+            .expect("schema checked output Transfer Syntax UID");
+        if transfer_syntax_uid != expected_transfer_syntax {
+            problems.push(format!(
+                "output Transfer Syntax UID {transfer_syntax_uid} does not match requested {expected_transfer_syntax}"
+            ));
+        }
+
+        for reference in output["references"]
+            .as_array()
+            .expect("schema checked output references")
+        {
+            let matches = declared_sources
+                .iter()
+                .filter(|source| reference_matches_source(reference, source))
+                .count();
+            match matches {
+                1 => {}
+                0 => problems.push(format!(
+                    "output {sop_instance_uid} invents reference to undeclared source SOP Instance UID {}",
+                    reference["sop_instance_uid"]
+                        .as_str()
+                        .expect("schema checked reference SOP Instance UID")
+                )),
+                count => problems.push(format!(
+                    "output {sop_instance_uid} reference matches {count} ambiguous request sources"
+                )),
+            }
+        }
+    }
+    if response["status"].as_str() == Some("generated") {
+        for missing in requested_sop_instance_uids.difference(&sop_instance_uids) {
+            problems.push(format!(
+                "requested SOP slot UID {missing} has no generated output"
+            ));
+        }
     }
     invalid_if_any("generation backend response", problems)
+}
+
+fn reference_matches_source(reference: &Value, source: &Value) -> bool {
+    reference["role"] == source["role"]
+        && reference["sop_class_uid"] == source["sop_class_uid"]
+        && reference["sop_instance_uid"] == source["sop_instance_uid"]
+        && reference["series_instance_uid"] == source["series_instance_uid"]
+        && reference["frame_numbers"] == source["frame_numbers"]
 }
 
 pub fn backend_policy<'a>(lock: &'a Value, backend_id: &str) -> Option<&'a Value> {
@@ -271,6 +384,7 @@ fn invalid_if_any(label: &str, problems: Vec<String>) -> Result<(), BackendContr
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::json;
 
     #[test]
     fn safe_relative_paths_reject_escape_and_ambiguous_components() {
@@ -283,5 +397,122 @@ mod tests {
         assert!(!is_safe_relative_path(Path::new("C:/object.dcm")));
         assert!(!is_safe_relative_path(Path::new("nested//object.dcm")));
         assert!(!is_safe_relative_path(Path::new("")));
+    }
+
+    #[test]
+    fn response_outputs_must_match_requested_sop_slots_class_and_transfer_syntax() {
+        let request = request_fixture();
+        let response = response_fixture();
+        validate_response_for_request(&request, &response).expect("fixtures should bind");
+
+        let mut wrong_slot = response.clone();
+        wrong_slot["outputs"][0]["sop_instance_uid"] = json!("1.2.826.0.1.3680043.10.543.999");
+        let error = validate_response_for_request(&request, &wrong_slot)
+            .expect_err("invented SOP Instance UID must fail");
+        assert!(error.to_string().contains("requested SOP slot"));
+
+        let mut wrong_class = response.clone();
+        wrong_class["outputs"][0]["sop_class_uid"] = json!("1.2.840.10008.5.1.4.1.1.4");
+        let error = validate_response_for_request(&request, &wrong_class)
+            .expect_err("wrong SOP Class UID must fail");
+        assert!(error.to_string().contains("SOP Class UID"));
+
+        let mut wrong_transfer_syntax = response;
+        wrong_transfer_syntax["outputs"][0]["transfer_syntax_uid"] = json!("1.2.840.10008.1.2");
+        let error = validate_response_for_request(&request, &wrong_transfer_syntax)
+            .expect_err("wrong Transfer Syntax UID must fail");
+        assert!(error.to_string().contains("Transfer Syntax UID"));
+    }
+
+    #[test]
+    fn generated_response_must_cover_every_requested_sop_slot() {
+        let mut request = request_fixture();
+        request["identities"]["sop_instances"]
+            .as_array_mut()
+            .expect("SOP slots")
+            .push(json!({
+                "role": "secondary",
+                "index": 1,
+                "uid": "1.2.826.0.1.3680043.10.543.5"
+            }));
+
+        let error = validate_response_for_request(&request, &response_fixture())
+            .expect_err("missing requested output must fail");
+        assert!(error.to_string().contains("has no generated output"));
+    }
+
+    #[test]
+    fn response_references_must_match_declared_request_sources() {
+        let mut request = request_fixture();
+        request["sources"] = json!([declared_source()]);
+        let mut response = response_fixture();
+        response["outputs"][0]["references"] = json!([declared_reference()]);
+        validate_response_for_request(&request, &response)
+            .expect("declared source reference should bind");
+
+        response["outputs"][0]["references"][0]["sop_instance_uid"] =
+            json!("1.2.826.0.1.3680043.10.543.888");
+        let error = validate_response_for_request(&request, &response)
+            .expect_err("invented source reference must fail");
+        assert!(error.to_string().contains("undeclared source"));
+    }
+
+    #[test]
+    fn request_rejects_ambiguous_source_and_sop_slot_declarations() {
+        let mut duplicate_source = request_fixture();
+        let source = declared_source();
+        let mut alias = source.clone();
+        alias["role"] = json!("alternate_source");
+        duplicate_source["sources"] = json!([source, alias]);
+        let error = validate_request(&duplicate_source).expect_err("duplicate source must fail");
+        assert!(error.to_string().contains("declared more than once"));
+
+        let mut duplicate_slot = request_fixture();
+        let mut slot = duplicate_slot["identities"]["sop_instances"][0].clone();
+        slot["uid"] = json!("1.2.826.0.1.3680043.10.543.5");
+        duplicate_slot["identities"]["sop_instances"]
+            .as_array_mut()
+            .expect("SOP slots")
+            .push(slot);
+        let error = validate_request(&duplicate_slot).expect_err("duplicate SOP slot must fail");
+        assert!(error.to_string().contains("declared more than once"));
+    }
+
+    fn request_fixture() -> Value {
+        serde_json::from_str(include_str!(
+            "../../tests/fixtures/generation-backend/request.json"
+        ))
+        .expect("request fixture")
+    }
+
+    fn response_fixture() -> Value {
+        serde_json::from_str(include_str!(
+            "../../tests/fixtures/generation-backend/response.json"
+        ))
+        .expect("response fixture")
+    }
+
+    fn declared_source() -> Value {
+        json!({
+            "role": "source_image",
+            "source_case_id": "geometry/ct/source",
+            "relative_path": "geometry/ct/source/instance.dcm",
+            "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "sop_class_uid": "1.2.840.10008.5.1.4.1.1.2",
+            "sop_instance_uid": "1.2.826.0.1.3680043.10.543.40",
+            "series_instance_uid": "1.2.826.0.1.3680043.10.543.20",
+            "frame_numbers": null
+        })
+    }
+
+    fn declared_reference() -> Value {
+        json!({
+            "role": "source_image",
+            "relationship": "source_image",
+            "sop_class_uid": "1.2.840.10008.5.1.4.1.1.2",
+            "sop_instance_uid": "1.2.826.0.1.3680043.10.543.40",
+            "series_instance_uid": "1.2.826.0.1.3680043.10.543.20",
+            "frame_numbers": null
+        })
     }
 }

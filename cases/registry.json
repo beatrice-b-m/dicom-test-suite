@@ -6079,7 +6079,7 @@
     {
       "case_id": "classic/sc/mono2_u32_explicit_le",
       "artifact_kind": "dicom_instance",
-      "status": "planned",
+      "status": "implemented",
       "provider": {
         "kind": "rust_native",
         "id": "rust_native"
@@ -6088,18 +6088,8 @@
       "compatibility_axes": [
         "pixels"
       ],
-      "roadmap": {
-        "priority": "next",
-        "delivery_phase": "phase-2",
-        "rationale": "Exercises permitted 32-bit integer native Pixel Data after an independent IOD validator can evaluate it."
-      },
-      "blockers": [
-        {
-          "code": "independent_iod_validator_unavailable",
-          "message": "The locked dciodvfy and dcentvfy builds abort on an internal 32-bit Pixel Data assertion, and the locked PixelMed validator does not recognize legacy Secondary Capture, so the mandatory independent IOD gate is unavailable.",
-          "recheck_phase": "phase-2"
-        }
-      ],
+      "roadmap": null,
+      "blockers": [],
       "profiles": [
         "extended"
       ],

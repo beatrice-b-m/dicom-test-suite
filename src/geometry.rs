@@ -395,15 +395,53 @@ fn read_series_organization_instance(
     let path = string_at(file, "/path")?;
     let object = open_file(root.join(path))
         .map_err(|error| format!("{path}: series_organization_open_file: {error}"))?;
+    let study_instance_uid = element_string(&object, tags::STUDY_INSTANCE_UID, path)?;
+    let series_instance_uid = element_string(&object, tags::SERIES_INSTANCE_UID, path)?;
+    let frame_of_reference_uid = element_string(&object, tags::FRAME_OF_REFERENCE_UID, path)?;
+    for (field, actual, pointer) in [
+        (
+            "study_instance_uid",
+            study_instance_uid.as_str(),
+            "/uids/study_instance_uid",
+        ),
+        (
+            "series_instance_uid",
+            series_instance_uid.as_str(),
+            "/uids/series_instance_uid",
+        ),
+        (
+            "frame_of_reference_uid",
+            frame_of_reference_uid.as_str(),
+            "/uids/frame_of_reference_uid",
+        ),
+    ] {
+        let manifest_uid = string_at(file, pointer)?;
+        if actual != manifest_uid {
+            return Err(format!(
+                "{path}: series_organization_{field}: dataset {actual}, manifest {manifest_uid}"
+            ));
+        }
+    }
+    let expected_series_ordinal = usize_at(expected, "/series_ordinal")?;
+    let series_number = object
+        .element(tags::SERIES_NUMBER)
+        .map_err(|error| format!("{path}: series_organization_series_number: {error}"))?
+        .to_int::<i64>()
+        .map_err(|error| format!("{path}: series_organization_series_number: {error}"))?;
+    if usize::try_from(series_number).ok() != Some(expected_series_ordinal) {
+        return Err(format!(
+            "{path}: series_organization_series_number: dataset {series_number}, declared ordinal {expected_series_ordinal}"
+        ));
+    }
     Ok(SeriesOrganizationInstance {
         path: path.to_string(),
         case_id: string_at(file, "/case_id")?.to_string(),
         group_id: string_at(expected, "/group_id")?.to_string(),
-        study_instance_uid: element_string(&object, tags::STUDY_INSTANCE_UID, path)?,
-        series_instance_uid: element_string(&object, tags::SERIES_INSTANCE_UID, path)?,
-        frame_of_reference_uid: element_string(&object, tags::FRAME_OF_REFERENCE_UID, path)?,
+        study_instance_uid,
+        series_instance_uid,
+        frame_of_reference_uid,
         expected_study_series_count: usize_at(expected, "/study_series_count")?,
-        expected_series_ordinal: usize_at(expected, "/series_ordinal")?,
+        expected_series_ordinal,
         expected_series_instance_count: usize_at(expected, "/series_instance_count")?,
         expected_shared_study: bool_at(expected, "/shared_study_instance_uid_expected")?,
         expected_shared_frame: bool_at(expected, "/shared_frame_of_reference_uid_expected")?,
@@ -695,6 +733,13 @@ fn optional_bool_at(value: &Value, pointer: &str) -> Result<Option<bool>, String
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
+    use std::path::PathBuf;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    use dicom_core::{DataElement, PrimitiveValue, VR};
+    use dicom_dictionary_std::uids;
+    use dicom_object::{FileMetaTableBuilder, InMemDicomObject};
 
     #[test]
     fn series_validator_rejects_a_false_geometric_rank() {
@@ -805,6 +850,82 @@ mod tests {
         );
     }
 
+    #[test]
+    fn organization_reader_accepts_matching_manifest_identity_and_series_number() {
+        let root = organization_test_root("matching-identity");
+        write_organization_test_file(&root, "1.2.3.1", "1.2.3.2", "1.2.3.3", Some("2"));
+        let (file, expected) = organization_test_metadata("1.2.3.1", "1.2.3.2", "1.2.3.3", 2);
+
+        let instance = read_series_organization_instance(&root, &file, &expected)
+            .expect("matching serialized and manifest organization should validate");
+        assert_eq!(instance.study_instance_uid, "1.2.3.1");
+        assert_eq!(instance.series_instance_uid, "1.2.3.2");
+        assert_eq!(instance.frame_of_reference_uid, "1.2.3.3");
+        assert_eq!(instance.expected_series_ordinal, 2);
+
+        fs::remove_dir_all(root).expect("organization test root must be removable");
+    }
+
+    #[test]
+    fn organization_reader_rejects_dataset_manifest_uid_mismatches() {
+        let root = organization_test_root("uid-mismatch");
+        write_organization_test_file(&root, "1.2.3.1", "1.2.3.2", "1.2.3.3", Some("1"));
+
+        for (pointer, expected_failure) in [
+            (
+                "/uids/study_instance_uid",
+                "series_organization_study_instance_uid",
+            ),
+            (
+                "/uids/series_instance_uid",
+                "series_organization_series_instance_uid",
+            ),
+            (
+                "/uids/frame_of_reference_uid",
+                "series_organization_frame_of_reference_uid",
+            ),
+        ] {
+            let (mut file, expected) =
+                organization_test_metadata("1.2.3.1", "1.2.3.2", "1.2.3.3", 1);
+            *file
+                .pointer_mut(pointer)
+                .expect("organization manifest UID pointer must exist") =
+                Value::String("1.2.3.999".to_string());
+            let failure = read_series_organization_instance(&root, &file, &expected)
+                .expect_err("dataset/manifest UID mismatch must be rejected");
+            assert!(
+                failure.contains(expected_failure),
+                "mismatch should identify {expected_failure}: {failure}"
+            );
+        }
+
+        fs::remove_dir_all(root).expect("organization test root must be removable");
+    }
+
+    #[test]
+    fn organization_reader_rejects_wrong_or_missing_series_number() {
+        let root = organization_test_root("series-number");
+        let (file, expected) = organization_test_metadata("1.2.3.1", "1.2.3.2", "1.2.3.3", 2);
+
+        write_organization_test_file(&root, "1.2.3.1", "1.2.3.2", "1.2.3.3", Some("9"));
+        let failure = read_series_organization_instance(&root, &file, &expected)
+            .expect_err("wrong serialized Series Number must be rejected");
+        assert!(
+            failure.contains("series_organization_series_number: dataset 9, declared ordinal 2"),
+            "wrong Series Number should identify the mismatch: {failure}"
+        );
+
+        write_organization_test_file(&root, "1.2.3.1", "1.2.3.2", "1.2.3.3", None);
+        let failure = read_series_organization_instance(&root, &file, &expected)
+            .expect_err("missing serialized Series Number must be rejected");
+        assert!(
+            failure.contains("series_organization_series_number"),
+            "missing Series Number should have a named failure: {failure}"
+        );
+
+        fs::remove_dir_all(root).expect("organization test root must be removable");
+    }
+
     fn instance(
         path: &str,
         position: f64,
@@ -853,5 +974,77 @@ mod tests {
             expected_shared_frame: true,
             expected_distinct_series: true,
         }
+    }
+
+    fn organization_test_metadata(
+        study_instance_uid: &str,
+        series_instance_uid: &str,
+        frame_of_reference_uid: &str,
+        series_ordinal: usize,
+    ) -> (Value, Value) {
+        (
+            serde_json::json!({
+                "path": "instance.dcm",
+                "case_id": "geometry/ct/multi",
+                "uids": {
+                    "study_instance_uid": study_instance_uid,
+                    "series_instance_uid": series_instance_uid,
+                    "frame_of_reference_uid": frame_of_reference_uid
+                }
+            }),
+            serde_json::json!({
+                "group_id": "study-a",
+                "study_series_count": 2,
+                "series_ordinal": series_ordinal,
+                "series_instance_count": 1,
+                "shared_study_instance_uid_expected": true,
+                "shared_frame_of_reference_uid_expected": true,
+                "distinct_series_instance_uids_expected": true
+            }),
+        )
+    }
+
+    fn write_organization_test_file(
+        root: &Path,
+        study_instance_uid: &str,
+        series_instance_uid: &str,
+        frame_of_reference_uid: &str,
+        series_number: Option<&str>,
+    ) {
+        fs::create_dir_all(root).expect("organization test root must be creatable");
+        let mut object = InMemDicomObject::new_empty();
+        for (tag, vr, value) in [
+            (tags::SOP_CLASS_UID, VR::UI, uids::CT_IMAGE_STORAGE),
+            (tags::SOP_INSTANCE_UID, VR::UI, "1.2.3.4"),
+            (tags::STUDY_INSTANCE_UID, VR::UI, study_instance_uid),
+            (tags::SERIES_INSTANCE_UID, VR::UI, series_instance_uid),
+            (tags::FRAME_OF_REFERENCE_UID, VR::UI, frame_of_reference_uid),
+        ] {
+            object.put(DataElement::new(tag, vr, PrimitiveValue::from(value)));
+        }
+        if let Some(series_number) = series_number {
+            object.put(DataElement::new(
+                tags::SERIES_NUMBER,
+                VR::IS,
+                PrimitiveValue::from(series_number),
+            ));
+        }
+        object
+            .with_meta(
+                FileMetaTableBuilder::new()
+                    .transfer_syntax("1.2.840.10008.1.2.1")
+                    .implementation_class_uid("1.2.826.0.1.3680043.10.1000.1"),
+            )
+            .expect("organization test object must accept file meta")
+            .write_to_file(root.join("instance.dcm"))
+            .expect("organization test object must be writable");
+    }
+
+    fn organization_test_root(label: &str) -> PathBuf {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock must follow Unix epoch")
+            .as_nanos();
+        std::env::temp_dir().join(format!("dicom-test-suite-organization-{label}-{nonce}"))
     }
 }

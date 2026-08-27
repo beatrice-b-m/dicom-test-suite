@@ -97,8 +97,12 @@ prototype, SHA-256
 uses Study ID `DTS-RTSTRUCT` to align with the existing Structure Set. Locked
 `dciodvfy -new` identified `RTPlan`; the uv-locked secondary selected the 2026b
 RT Plan IOD and returned `Passed` with zero errors; and `dcmdump +fo` parsed the
-exact file. RT Image valid-prototype and mutation qualification remains
-outstanding and is not covered by the Plan result.
+exact file. The separately qualified RT Image prototype has SHA-256
+`460d525ab06aaf74df963029f3ab39c2536e4e1c5bf4b75fcf16b500382db20c`.
+Both IOD validators accepted it with zero errors, `dcmdump +fo` parsed it, and
+the exact DCMTK pixel route proved one 4 by 4 P2 raster plus one 16-byte native
+OB value with decoded and raw SHA-256
+`a8faed6abbf35c12a4b26e40f6feb19d736d90045c83b9f9a31f638d323e6811`.
 
 The generated 2026b RT Plan definition does not provide a sufficiently
 trustworthy standalone condition for omission of the whole RT Beams Module
@@ -126,6 +130,26 @@ those two baseline diagnostics; it does not mean a silent `dcentvfy` run or a
 zero exit code. The secondary validator cannot replace `dciodvfy`, this exact
 entity-closure rule, strict Rust semantics, or the separate RT Image pixel
 decoder. No linked RT finding is allowlisted.
+
+Across all 20 locked Image mutations, `dciodvfy` detected 10, the uv-locked
+IOD adapter detected 6, and the exact DCMTK pixel route detected 6. Both IOD
+validators detected missing Image Type, Label, Plane, the `NON_NORMAL`
+orientation condition, Bits Stored, and Pixel Representation. `dciodvfy`
+alone also detected the `PORTAL` origin condition, High Bit, pixel length, and
+shape. The pixel route detected shape, length, Bits Stored, High Bit, Pixel
+Representation, and a changed payload byte. Isolated `dcentvfy` alone added a
+missing-SOP finding for the wrong Plan UID. Strict Rust owns wrong beam and
+fraction linkage, spacing, position, SAD, SID, Study, and Frame of Reference,
+as well as the complete exact contract. Every mutation parsed with `dcmdump`.
+
+The five-object baseline retains the same two visible Study ID diagnostics and
+no missing or dangling reference finding. Removing CT, Structure Set, Dose, or
+Plan adds missing-SOP evidence. Strict validation also rejects a syntactically
+valid but stale Plan source digest after reopening the generated Plan. The
+integrated qualification run ID is
+`d0d78ffccf44218a27944cf1b80dec63c8afa7162b0e085532feb51706a04714`;
+its RT Image IOD, parsing, and pixel routes are clean. Qualification does not
+promote the planned RT Image registry row.
 
 The waveform secondary adapter is exact-case-only for
 `non-image/waveform/twelve_lead_ecg` and

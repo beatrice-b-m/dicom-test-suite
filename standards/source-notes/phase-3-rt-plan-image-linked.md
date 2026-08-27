@@ -221,8 +221,8 @@ The corrected RT Plan prototype has instance SHA-256
 and Study ID `DTS-RTSTRUCT`. Locked `dciodvfy -new` identified `RTPlan` with
 exit code zero. The uv-locked `dicom-validator` 0.8.2 adapter selected the
 2026b RT Plan IOD and returned `Passed` with zero errors. DCMTK
-`dcmdump +fo` parsed the exact Part 10 file. RT Image qualification has not yet
-been performed and is not implied by these results.
+`dcmdump +fo` parsed the exact Part 10 file. These Plan results do not imply the
+separate RT Image qualification recorded below.
 
 All 20 Plan controls remained parseable by `dcmdump`; parsing is not semantic
 detection. The empirical detection boundary is:
@@ -260,6 +260,75 @@ finding beyond those two Study ID diagnostics. The dangling Structure Set SOP
 mutation added `Missing SOPInstanceUID that was referenced`; the valid Plan
 did not. A zero `dcentvfy` exit code is not claimed, and a run that omits files
 or supplies a directory where `-f` expects a file list is invalid evidence.
+
+### Corrected RT Image prototype qualification
+
+The corrected RT Image prototype has instance SHA-256
+`460d525ab06aaf74df963029f3ab39c2536e4e1c5bf4b75fcf16b500382db20c`
+and the containing generated manifest has SHA-256
+`b061e5f654eb426bbab0da9cce0ac945aadcf3cf506182eb6bf33acd3d7a3659`.
+Locked `dciodvfy -new` identified `RTImage` with exit code zero. The uv-locked
+`dicom-validator` 0.8.2 adapter selected the 2026b RT Image IOD and returned
+`Passed` with zero errors. `dcmdump +fo` parsed the exact 1,416-byte Part 10
+file.
+
+The locked `dcmtk-dcm2img-rt-image` route produced one P2 image with 4 rows,
+4 columns, maximum value 255, and the exact ordered samples `0, 17, ... 255`.
+Its separate `dcmdump +W` extraction produced exactly one 16-byte native OB
+value. The decoded samples and raw value both have SHA-256
+`a8faed6abbf35c12a4b26e40f6feb19d736d90045c83b9f9a31f638d323e6811`.
+Integrated conformance run ID
+`d0d78ffccf44218a27944cf1b80dec63c8afa7162b0e085532feb51706a04714`
+has run JSON SHA-256
+`87846c587a4f721b90624008a3f7abfc9ae70a31d83e28449e82528b408b3ce7`,
+stable instance key
+`146c7c29a15a573ab0348addd424b8e88547985f54d687bb6e793dcd88ac71d4`,
+and pixel sidecar SHA-256
+`071b32384d1648222424f77a0392e90ca11d6e51df0d5bd1fc0a241754bec1fc`.
+Strict verification reports 211 older or unrelated failures and zero accepted
+findings; the RT Image IOD, parser, and pixel routes themselves are clean.
+
+All 20 Image controls remained parseable by `dcmdump`; parsing is not semantic
+detection. The empirical detection boundary is:
+
+| RT Image mutation | `dciodvfy` | `dicom-validator` | DCMTK pixel route | `dcentvfy` additive reference finding | Required owner when missed |
+|---|---|---|---|---|---|
+| Missing Image Type | detected | detected | missed | no | IOD validators and strict Rust |
+| Missing RT Image Label | detected | detected | missed | no | IOD validators and strict Rust |
+| Missing RT Image Plane | detected | detected | missed | no | IOD validators and strict Rust |
+| `NON_NORMAL` without orientation | detected | detected | missed | no | IOD validators and strict Rust |
+| `PORTAL` without Reported Values Origin | detected | missed | missed | no | `dciodvfy` and strict Rust |
+| Wrong Plan SOP Instance UID | missed | missed | missed | detected | entity closure and strict Rust |
+| Wrong referenced Beam Number | missed | missed | missed | no | strict Rust |
+| Wrong referenced Fraction Group Number | missed | missed | missed | no | strict Rust |
+| Wrong pixel shape | detected | missed | detected | no | `dciodvfy`, pixel route, and strict Rust |
+| Wrong pixel length | detected | missed | detected | no | `dciodvfy`, pixel route, and strict Rust |
+| Wrong Bits Stored | detected | detected | detected | no | IOD validators, pixel route, and strict Rust |
+| Wrong High Bit | detected | missed | detected | no | `dciodvfy`, pixel route, and strict Rust |
+| Wrong Pixel Representation | detected | detected | detected | no | IOD validators, pixel route, and strict Rust |
+| Wrong spacing | missed | missed | missed | no | strict Rust |
+| Wrong position | missed | missed | missed | no | strict Rust |
+| Wrong SAD | missed | missed | missed | no | strict Rust |
+| Wrong SID | missed | missed | missed | no | strict Rust |
+| Changed Pixel Data byte | missed | missed | detected | no | pixel route and strict Rust |
+| Wrong Study Instance UID | missed | missed | missed | no new missing/dangling finding | strict Rust |
+| Wrong Frame of Reference UID | missed | missed | missed | no | strict Rust |
+
+Thus `dciodvfy` detected 10 of 20 mutations, the secondary IOD validator
+detected 6 of 20, and the exact pixel route detected 6 of 20. Isolated
+`dcentvfy` uniquely added missing-SOP evidence for the wrong Plan UID. Strict
+Rust retains the full exact contract, including every semantic value missed by
+the independent tools.
+
+The exact five-file CT/Structure Set/Dose/Plan/Image entity baseline retains
+the same two immutable Study ID diagnostics recorded above and no missing or
+dangling reference finding. Removing the CT, Structure Set, Dose, or Plan
+individually added the expected missing-SOP finding or findings. Changing only
+`expected_rt_image.plan_reference.source_sha256` to 64 lowercase zeroes was
+also rejected after checking all 105 files:
+`rt_image_plan_source_sha256: expected e9337a6c46fe85b56f1f563120dd3caf56ea1335355792db42386db959be6db2`.
+This qualification step did not itself change registry status; promotion is a
+separate dependency-ordered change.
 
 Qualification begins with exact valid prototypes, executes every mutation
 listed above in temporary storage, and records which tool detects each one.

@@ -50,11 +50,11 @@ fn report_command_writes_json_coverage_for_core_root() {
     );
     assert_eq!(
         report.pointer("/counts/generated").and_then(Value::as_u64),
-        Some(43)
+        Some(44)
     );
     assert_eq!(
         report.pointer("/counts/planned").and_then(Value::as_u64),
-        Some(5)
+        Some(4)
     );
     assert_eq!(
         report
@@ -571,7 +571,7 @@ fn report_command_writes_json_coverage_for_core_root() {
         report
             .pointer("/grouped_coverage/image_types/ORIGINAL\\PRIMARY")
             .and_then(Value::as_u64),
-        Some(7)
+        Some(8)
     );
     assert_eq!(
         report
@@ -679,13 +679,13 @@ fn report_command_writes_json_coverage_for_core_root() {
         report
             .pointer("/grouped_coverage/image_orientations_patient/1\\0\\0\\0\\1\\0")
             .and_then(Value::as_u64),
-        Some(17)
+        Some(18)
     );
     assert_eq!(
         report
             .pointer("/grouped_coverage/image_positions_patient/0\\0\\0")
             .and_then(Value::as_u64),
-        Some(7)
+        Some(8)
     );
     assert_eq!(
         report
@@ -853,19 +853,19 @@ fn report_command_writes_json_coverage_for_core_root() {
         report
             .pointer("/grouped_coverage/study_instance_uid_roots/2.25")
             .and_then(Value::as_u64),
-        Some(43)
+        Some(44)
     );
     assert_eq!(
         report
             .pointer("/grouped_coverage/series_instance_uid_roots/2.25")
             .and_then(Value::as_u64),
-        Some(43)
+        Some(44)
     );
     assert_eq!(
         report
             .pointer("/grouped_coverage/sop_instance_uid_roots/2.25")
             .and_then(Value::as_u64),
-        Some(43)
+        Some(44)
     );
     assert_eq!(
         report
@@ -2352,8 +2352,8 @@ fn report_command_writes_markdown_coverage_for_core_root() {
     );
     let stdout = String::from_utf8(output.stdout).expect("report stdout should be UTF-8");
     assert!(stdout.starts_with("# DICOM Test Suite Coverage Report"));
-    assert!(stdout.contains("| generated | 43 |"));
-    assert!(stdout.contains("| planned | 5 |"));
+    assert!(stdout.contains("| generated | 44 |"));
+    assert!(stdout.contains("| planned | 4 |"));
     assert!(stdout.contains("### Profile Memberships"));
     assert!(stdout.contains("| core | 48 |"));
     assert!(stdout.contains("### Transfer Syntax Names"));
@@ -2390,9 +2390,9 @@ fn report_command_writes_markdown_coverage_for_core_root() {
     assert!(stdout.contains("| 0.070\\0.070 | 2 |"));
     assert!(stdout.contains("| 0.150\\0.150 | 1 |"));
     assert!(stdout.contains("### Image Orientations Patient"));
-    assert!(stdout.contains("| 1\\0\\0\\0\\1\\0 | 17 |"));
+    assert!(stdout.contains("| 1\\0\\0\\0\\1\\0 | 18 |"));
     assert!(stdout.contains("### Image Positions Patient"));
-    assert!(stdout.contains("| 0\\0\\0 | 7 |"));
+    assert!(stdout.contains("| 0\\0\\0 | 8 |"));
     assert!(stdout.contains("### Slice Thicknesses"));
     assert!(stdout.contains("| 5 | 16 |"));
     assert!(stdout.contains("### Spacing Between Slices"));
@@ -2446,7 +2446,7 @@ fn report_command_writes_markdown_coverage_for_core_root() {
     assert!(stdout.contains("### Study Instance UID Roots"));
     assert!(stdout.contains("### Series Instance UID Roots"));
     assert!(stdout.contains("### SOP Instance UID Roots"));
-    assert!(stdout.contains("| 2.25 | 43 |"));
+    assert!(stdout.contains("| 2.25 | 44 |"));
     assert!(stdout.contains("### Derived Reference SOP Instance UID Roots"));
     assert!(stdout.contains("## Gaps"));
     assert!(

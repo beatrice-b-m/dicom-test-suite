@@ -278,11 +278,13 @@ fn waveform_secondary_iod_and_payload_validator_is_additive_and_locked() {
         adapter["supported_case_ids"],
         serde_json::json!(["non-image/waveform/twelve_lead_ecg"])
     );
-    assert!(adapter["waveform_arguments"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .any(|argument| argument == "--waveform"));
+    assert!(
+        adapter["waveform_arguments"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|argument| argument == "--waveform")
+    );
 
     let lock = read_json("conformance/validator-lock.json");
     let tool = lock["tools"]
@@ -305,7 +307,10 @@ fn waveform_secondary_iod_and_payload_validator_is_additive_and_locked() {
         "channel-then-sample interleave",
         "no waveform finding is allowlisted",
     ] {
-        assert!(readme.contains(required), "waveform route requires {required}");
+        assert!(
+            readme.contains(required),
+            "waveform route requires {required}"
+        );
     }
 }
 

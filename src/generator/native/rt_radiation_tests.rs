@@ -413,6 +413,13 @@ fn rt_radiation_builders_reject_wrong_malformed_and_reused_uid_roles() {
             .unwrap_err()
             .contains("plan SOP Class UID")
     );
+    let mut wrong_set_plan = set_input();
+    wrong_set_plan.plan_sop_class_uid = RT_RADIATION_SET_STORAGE_UID;
+    assert!(
+        build_rt_radiation_set(wrong_set_plan)
+            .unwrap_err()
+            .contains("plan SOP Class UID")
+    );
     let mut wrong_radiation = set_input();
     wrong_radiation.radiation_sop_class_uid = RT_RADIATION_SET_STORAGE_UID;
     assert!(
@@ -448,6 +455,22 @@ fn rt_radiation_builders_reject_wrong_malformed_and_reused_uid_roles() {
         },
     ] {
         assert!(build_rt_radiation(input).is_err());
+    }
+    for input in [
+        RtRadiationSetInput {
+            study_instance_uid: "",
+            ..set_input()
+        },
+        RtRadiationSetInput {
+            radiation_series_instance_uid: "1..2",
+            ..set_input()
+        },
+        RtRadiationSetInput {
+            treatment_position_group_uid: "1.02.3",
+            ..set_input()
+        },
+    ] {
+        assert!(build_rt_radiation_set(input).is_err());
     }
 
     let radiation_roles = [

@@ -6019,10 +6019,31 @@ fn validate_xrf_image_standard_elements(
 
     for (tag, expected_vr, name) in [
         (tags::IMAGE_TYPE, dicom_core::VR::CS, "xrf_image_type_vr"),
+        (tags::MODALITY, dicom_core::VR::CS, "xrf_modality_vr"),
+        (
+            tags::BODY_PART_EXAMINED,
+            dicom_core::VR::CS,
+            "xrf_body_part_examined_vr",
+        ),
         (
             tags::PATIENT_ORIENTATION,
             dicom_core::VR::CS,
             "xrf_patient_orientation_vr",
+        ),
+        (
+            tags::PIXEL_INTENSITY_RELATIONSHIP,
+            dicom_core::VR::CS,
+            "xrf_pixel_intensity_relationship_vr",
+        ),
+        (
+            tags::LOSSY_IMAGE_COMPRESSION,
+            dicom_core::VR::CS,
+            "xrf_lossy_image_compression_vr",
+        ),
+        (
+            tags::RADIATION_SETTING,
+            dicom_core::VR::CS,
+            "xrf_radiation_setting_vr",
         ),
         (tags::KVP, dicom_core::VR::DS, "xrf_kvp_vr"),
         (tags::EXPOSURE, dicom_core::VR::IS, "xrf_exposure_vr"),
@@ -6060,6 +6081,17 @@ fn validate_xrf_image_standard_elements(
 
     for (tag, name) in [
         (tags::LATERALITY, "xrf_laterality_absent"),
+        (tags::EXPOSURE_TIME_INU_S, "xrf_exposure_time_us_absent"),
+        (
+            tags::X_RAY_TUBE_CURRENT_INU_A,
+            "xrf_x_ray_tube_current_ua_absent",
+        ),
+        (tags::EXPOSURE_INU_AS, "xrf_exposure_uas_absent"),
+        (
+            dicom_core::Tag(0x0018, 0x1495),
+            "xrf_number_of_tomosynthesis_source_images_absent",
+        ),
+        (tags::POSITIONER_MOTION, "xrf_positioner_motion_absent"),
         (tags::NUMBER_OF_FRAMES, "xrf_number_of_frames_absent"),
         (
             tags::FRAME_INCREMENT_POINTER,
@@ -9696,6 +9728,102 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
     ] {
         append_count_map_section(&mut output, report, title, pointer);
     }
+    for (title, pointer) in [
+        ("XRF Image Types", "/grouped_coverage/xrf_image_types"),
+        ("XRF Frame Counts", "/grouped_coverage/xrf_frame_counts"),
+        (
+            "XRF Body Parts Examined",
+            "/grouped_coverage/xrf_body_parts_examined",
+        ),
+        (
+            "XRF Patient Orientation Empty States",
+            "/grouped_coverage/xrf_patient_orientation_empty_states",
+        ),
+        (
+            "XRF Laterality Present States",
+            "/grouped_coverage/xrf_laterality_present_states",
+        ),
+        (
+            "XRF Pixel Intensity Relationships",
+            "/grouped_coverage/xrf_pixel_intensity_relationships",
+        ),
+        (
+            "XRF Radiation Settings",
+            "/grouped_coverage/xrf_radiation_settings",
+        ),
+        ("XRF KVPs", "/grouped_coverage/xrf_kvps"),
+        ("XRF Exposures (mAs)", "/grouped_coverage/xrf_exposures_mas"),
+        (
+            "XRF Imager Pixel Spacings (mm)",
+            "/grouped_coverage/xrf_imager_pixel_spacings_mm",
+        ),
+        (
+            "XRF Source-to-Detector Distances (mm)",
+            "/grouped_coverage/xrf_distances_source_to_detector_mm",
+        ),
+        (
+            "XRF Source-to-Patient Distances (mm)",
+            "/grouped_coverage/xrf_distances_source_to_patient_mm",
+        ),
+        (
+            "XRF Estimated Radiographic Magnification Factors",
+            "/grouped_coverage/xrf_estimated_radiographic_magnification_factors",
+        ),
+        (
+            "XRF Column Angulations (degrees)",
+            "/grouped_coverage/xrf_column_angulations_degrees",
+        ),
+        (
+            "XRF Lossy Image Compression History",
+            "/grouped_coverage/xrf_lossy_image_compressions",
+        ),
+        (
+            "XRF Multi-frame Cine States",
+            "/grouped_coverage/xrf_multiframe_cine_states",
+        ),
+        (
+            "XRF Biplane Data Present States",
+            "/grouped_coverage/xrf_biplane_data_present_states",
+        ),
+        (
+            "XRF Contrast Used States",
+            "/grouped_coverage/xrf_contrast_used_states",
+        ),
+        (
+            "XRF Subtraction Applied States",
+            "/grouped_coverage/xrf_subtraction_applied_states",
+        ),
+        (
+            "XRF Table Position Present States",
+            "/grouped_coverage/xrf_table_position_present_states",
+        ),
+        (
+            "XRF Table Motion Present States",
+            "/grouped_coverage/xrf_table_motion_present_states",
+        ),
+        (
+            "XRF Table Tilt Present States",
+            "/grouped_coverage/xrf_table_tilt_present_states",
+        ),
+        (
+            "XRF Tomography Present States",
+            "/grouped_coverage/xrf_tomography_present_states",
+        ),
+        (
+            "XRF Patient-space Geometry Present States",
+            "/grouped_coverage/xrf_patient_space_geometry_present_states",
+        ),
+        (
+            "XRF Pixel Spacing Calibrated States",
+            "/grouped_coverage/xrf_pixel_spacing_calibrated_states",
+        ),
+        (
+            "XRF XA Positioner Angles Present States",
+            "/grouped_coverage/xrf_xa_positioner_angles_present_states",
+        ),
+    ] {
+        append_count_map_section(&mut output, report, title, pointer);
+    }
     append_count_map_section(
         &mut output,
         report,
@@ -10684,6 +10812,54 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
         output.push('\n');
     }
 
+    let xrf_rows = report
+        .get("coverage_matrix")
+        .and_then(Value::as_array)
+        .map(|rows| {
+            rows.iter()
+                .filter(|row| !row["xrf_image_type"].is_null())
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    if !xrf_rows.is_empty() {
+        output.push_str("## X-Ray Radiofluoroscopic Projection Expectations\n\n");
+        output.push_str("| Case ID | Image type | Frames | Body part | Patient orientation empty | Laterality present | Pixel intensity relationship | Radiation setting | KVP | Exposure (mAs) | Imager pixel spacing (mm) | SID (mm) | Source-to-patient distance (mm) | Estimated magnification | Column angulation (degrees) | Lossy compression | Multi-frame cine | Biplane data | Contrast used | Subtraction applied | Table position | Table motion | Table tilt | Tomography | Patient-space geometry | Pixel spacing calibrated | XA positioner angles |\n");
+        output.push_str("|---|---|---:|---|---|---|---|---|---:|---:|---|---:|---:|---:|---:|---|---|---|---|---|---|---|---|---|---|---|---|\n");
+        for row in xrf_rows {
+            output.push_str(&format!(
+                "| {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} |\n",
+                markdown_cell(row.get("case_id").and_then(Value::as_str)),
+                markdown_cell(row.get("xrf_image_type").and_then(Value::as_str)),
+                markdown_number(row.get("xrf_frame_count")),
+                markdown_cell(row.get("xrf_body_part_examined").and_then(Value::as_str)),
+                markdown_bool(row.get("xrf_patient_orientation_empty")),
+                markdown_bool(row.get("xrf_laterality_present")),
+                markdown_cell(row.get("xrf_pixel_intensity_relationship").and_then(Value::as_str)),
+                markdown_cell(row.get("xrf_radiation_setting").and_then(Value::as_str)),
+                markdown_number(row.get("xrf_kvp")),
+                markdown_number(row.get("xrf_exposure_mas")),
+                markdown_cell(row.get("xrf_imager_pixel_spacing_mm").and_then(Value::as_str)),
+                markdown_number(row.get("xrf_distance_source_to_detector_mm")),
+                markdown_number(row.get("xrf_distance_source_to_patient_mm")),
+                markdown_number(row.get("xrf_estimated_radiographic_magnification_factor")),
+                markdown_number(row.get("xrf_column_angulation_degrees")),
+                markdown_cell(row.get("xrf_lossy_image_compression").and_then(Value::as_str)),
+                markdown_bool(row.get("xrf_multiframe_cine")),
+                markdown_bool(row.get("xrf_biplane_data_present")),
+                markdown_bool(row.get("xrf_contrast_used")),
+                markdown_bool(row.get("xrf_subtraction_applied")),
+                markdown_bool(row.get("xrf_table_position_present")),
+                markdown_bool(row.get("xrf_table_motion_present")),
+                markdown_bool(row.get("xrf_table_tilt_present")),
+                markdown_bool(row.get("xrf_tomography_present")),
+                markdown_bool(row.get("xrf_patient_space_geometry_present")),
+                markdown_bool(row.get("xrf_pixel_spacing_calibrated")),
+                markdown_bool(row.get("xrf_xa_positioner_angles_present"))
+            ));
+        }
+        output.push('\n');
+    }
+
     let enhanced_mr_temporal_rows = report
         .get("coverage_matrix")
         .and_then(Value::as_array)
@@ -11073,6 +11249,7 @@ fn generated_coverage_row(
     let pet = pet_activity_report_fields(file);
     let us = us_multiframe_report_fields(manifest_path, file)?;
     let xa = xa_projection_report_fields(manifest_path, file)?;
+    let xrf = xrf_projection_report_fields(manifest_path, file)?;
     let mut row = serde_json::json!({
         "case_id": report_str(manifest_path, file, "/case_id", "file case_id must be a string")?,
         "profile": run_profile,
@@ -11336,6 +11513,97 @@ fn generated_coverage_row(
         (
             "xa_pixel_spacing_calibrated",
             xa.pixel_spacing_calibrated.map(Value::from),
+        ),
+    ] {
+        row_object.insert(field.to_string(), value.unwrap_or(Value::Null));
+    }
+    for (field, value) in [
+        ("xrf_image_type", xrf.image_type.map(Value::from)),
+        ("xrf_frame_count", xrf.frame_count.map(Value::from)),
+        (
+            "xrf_body_part_examined",
+            xrf.body_part_examined.map(Value::from),
+        ),
+        (
+            "xrf_patient_orientation_empty",
+            xrf.patient_orientation_empty.map(Value::from),
+        ),
+        (
+            "xrf_laterality_present",
+            xrf.laterality_present.map(Value::from),
+        ),
+        (
+            "xrf_pixel_intensity_relationship",
+            xrf.pixel_intensity_relationship.map(Value::from),
+        ),
+        (
+            "xrf_radiation_setting",
+            xrf.radiation_setting.map(Value::from),
+        ),
+        ("xrf_kvp", xrf.kvp.map(Value::from)),
+        ("xrf_exposure_mas", xrf.exposure_mas.map(Value::from)),
+        (
+            "xrf_imager_pixel_spacing_mm",
+            xrf.imager_pixel_spacing_mm.map(Value::from),
+        ),
+        (
+            "xrf_distance_source_to_detector_mm",
+            xrf.distance_source_to_detector_mm.map(Value::from),
+        ),
+        (
+            "xrf_distance_source_to_patient_mm",
+            xrf.distance_source_to_patient_mm.map(Value::from),
+        ),
+        (
+            "xrf_estimated_radiographic_magnification_factor",
+            xrf.estimated_radiographic_magnification_factor
+                .map(Value::from),
+        ),
+        (
+            "xrf_column_angulation_degrees",
+            xrf.column_angulation_degrees.map(Value::from),
+        ),
+        (
+            "xrf_lossy_image_compression",
+            xrf.lossy_image_compression.map(Value::from),
+        ),
+        ("xrf_multiframe_cine", xrf.multiframe_cine.map(Value::from)),
+        (
+            "xrf_biplane_data_present",
+            xrf.biplane_data_present.map(Value::from),
+        ),
+        ("xrf_contrast_used", xrf.contrast_used.map(Value::from)),
+        (
+            "xrf_subtraction_applied",
+            xrf.subtraction_applied.map(Value::from),
+        ),
+        (
+            "xrf_table_position_present",
+            xrf.table_position_present.map(Value::from),
+        ),
+        (
+            "xrf_table_motion_present",
+            xrf.table_motion_present.map(Value::from),
+        ),
+        (
+            "xrf_table_tilt_present",
+            xrf.table_tilt_present.map(Value::from),
+        ),
+        (
+            "xrf_tomography_present",
+            xrf.tomography_present.map(Value::from),
+        ),
+        (
+            "xrf_patient_space_geometry_present",
+            xrf.patient_space_geometry_present.map(Value::from),
+        ),
+        (
+            "xrf_pixel_spacing_calibrated",
+            xrf.pixel_spacing_calibrated.map(Value::from),
+        ),
+        (
+            "xrf_xa_positioner_angles_present",
+            xrf.xa_positioner_angles_present.map(Value::from),
         ),
     ] {
         row_object.insert(field.to_string(), value.unwrap_or(Value::Null));
@@ -12388,6 +12656,36 @@ struct XaProjectionReportFields {
     pixel_spacing_calibrated: Option<bool>,
 }
 
+#[derive(Debug, Default, PartialEq)]
+struct XrfProjectionReportFields {
+    image_type: Option<String>,
+    frame_count: Option<u64>,
+    body_part_examined: Option<String>,
+    patient_orientation_empty: Option<bool>,
+    laterality_present: Option<bool>,
+    pixel_intensity_relationship: Option<String>,
+    radiation_setting: Option<String>,
+    kvp: Option<f64>,
+    exposure_mas: Option<u64>,
+    imager_pixel_spacing_mm: Option<String>,
+    distance_source_to_detector_mm: Option<f64>,
+    distance_source_to_patient_mm: Option<f64>,
+    estimated_radiographic_magnification_factor: Option<f64>,
+    column_angulation_degrees: Option<f64>,
+    lossy_image_compression: Option<String>,
+    multiframe_cine: Option<bool>,
+    biplane_data_present: Option<bool>,
+    contrast_used: Option<bool>,
+    subtraction_applied: Option<bool>,
+    table_position_present: Option<bool>,
+    table_motion_present: Option<bool>,
+    table_tilt_present: Option<bool>,
+    tomography_present: Option<bool>,
+    patient_space_geometry_present: Option<bool>,
+    pixel_spacing_calibrated: Option<bool>,
+    xa_positioner_angles_present: Option<bool>,
+}
+
 #[derive(Debug, Default)]
 struct UsMultiframeReportFields {
     image_type: Option<String>,
@@ -12603,6 +12901,130 @@ fn xa_projection_report_fields(
         return Err(ReportError::MetadataShape {
             path: manifest_path.to_path_buf(),
             message: "expected_xa_projection must define the complete report contract",
+        });
+    }
+    Ok(fields)
+}
+
+fn xrf_projection_report_fields(
+    manifest_path: &Path,
+    file: &Value,
+) -> Result<XrfProjectionReportFields, ReportError> {
+    let Some(expected) = file.get("expected_xrf_projection") else {
+        if file.pointer("/dicom/modality").and_then(Value::as_str) == Some("RF") {
+            return Err(ReportError::MetadataShape {
+                path: manifest_path.to_path_buf(),
+                message: "RF file must define expected_xrf_projection",
+            });
+        }
+        return Ok(XrfProjectionReportFields::default());
+    };
+    let expected = expected.as_object().ok_or(ReportError::MetadataShape {
+        path: manifest_path.to_path_buf(),
+        message: "expected_xrf_projection must be an object",
+    })?;
+    let string_array = |field: &str| {
+        expected
+            .get(field)
+            .and_then(Value::as_array)
+            .and_then(|values| values.iter().map(Value::as_str).collect::<Option<Vec<_>>>())
+            .map(|values| values.join("; "))
+    };
+
+    let fields = XrfProjectionReportFields {
+        image_type: string_array("image_type"),
+        frame_count: expected.get("frame_count").and_then(Value::as_u64),
+        body_part_examined: expected
+            .get("body_part_examined")
+            .and_then(Value::as_str)
+            .map(str::to_string),
+        patient_orientation_empty: expected
+            .get("patient_orientation_empty")
+            .and_then(Value::as_bool),
+        laterality_present: expected.get("laterality_present").and_then(Value::as_bool),
+        pixel_intensity_relationship: expected
+            .get("pixel_intensity_relationship")
+            .and_then(Value::as_str)
+            .map(str::to_string),
+        radiation_setting: expected
+            .get("radiation_setting")
+            .and_then(Value::as_str)
+            .map(str::to_string),
+        kvp: expected.get("kvp").and_then(Value::as_f64),
+        exposure_mas: expected.get("exposure_mas").and_then(Value::as_u64),
+        imager_pixel_spacing_mm: expected
+            .get("imager_pixel_spacing_mm")
+            .and_then(report_value_array_label),
+        distance_source_to_detector_mm: expected
+            .get("distance_source_to_detector_mm")
+            .and_then(Value::as_f64),
+        distance_source_to_patient_mm: expected
+            .get("distance_source_to_patient_mm")
+            .and_then(Value::as_f64),
+        estimated_radiographic_magnification_factor: expected
+            .get("estimated_radiographic_magnification_factor")
+            .and_then(Value::as_f64),
+        column_angulation_degrees: expected
+            .get("column_angulation_degrees")
+            .and_then(Value::as_f64),
+        lossy_image_compression: expected
+            .get("lossy_image_compression")
+            .and_then(Value::as_str)
+            .map(str::to_string),
+        multiframe_cine: expected.get("multiframe_cine").and_then(Value::as_bool),
+        biplane_data_present: expected
+            .get("biplane_data_present")
+            .and_then(Value::as_bool),
+        contrast_used: expected.get("contrast_used").and_then(Value::as_bool),
+        subtraction_applied: expected.get("subtraction_applied").and_then(Value::as_bool),
+        table_position_present: expected
+            .get("table_position_present")
+            .and_then(Value::as_bool),
+        table_motion_present: expected
+            .get("table_motion_present")
+            .and_then(Value::as_bool),
+        table_tilt_present: expected.get("table_tilt_present").and_then(Value::as_bool),
+        tomography_present: expected.get("tomography_present").and_then(Value::as_bool),
+        patient_space_geometry_present: expected
+            .get("patient_space_geometry_present")
+            .and_then(Value::as_bool),
+        pixel_spacing_calibrated: expected
+            .get("pixel_spacing_calibrated")
+            .and_then(Value::as_bool),
+        xa_positioner_angles_present: expected
+            .get("xa_positioner_angles_present")
+            .and_then(Value::as_bool),
+    };
+    if fields.image_type.is_none()
+        || fields.frame_count.is_none()
+        || fields.body_part_examined.is_none()
+        || fields.patient_orientation_empty.is_none()
+        || fields.laterality_present.is_none()
+        || fields.pixel_intensity_relationship.is_none()
+        || fields.radiation_setting.is_none()
+        || fields.kvp.is_none()
+        || fields.exposure_mas.is_none()
+        || fields.imager_pixel_spacing_mm.is_none()
+        || fields.distance_source_to_detector_mm.is_none()
+        || fields.distance_source_to_patient_mm.is_none()
+        || fields.estimated_radiographic_magnification_factor.is_none()
+        || fields.column_angulation_degrees.is_none()
+        || fields.lossy_image_compression.is_none()
+        || fields.multiframe_cine.is_none()
+        || fields.biplane_data_present.is_none()
+        || fields.contrast_used.is_none()
+        || fields.subtraction_applied.is_none()
+        || fields.table_position_present.is_none()
+        || fields.table_motion_present.is_none()
+        || fields.table_tilt_present.is_none()
+        || fields.tomography_present.is_none()
+        || fields.patient_space_geometry_present.is_none()
+        || fields.pixel_spacing_calibrated.is_none()
+        || fields.xa_positioner_angles_present.is_none()
+    {
+        return Err(ReportError::MetadataShape {
+            path: manifest_path.to_path_buf(),
+            message: "expected_xrf_projection must define the complete report contract",
         });
     }
     Ok(fields)
@@ -13663,6 +14085,32 @@ fn skipped_coverage_row(
         "xa_table_motion_present",
         "xa_patient_space_geometry_present",
         "xa_pixel_spacing_calibrated",
+        "xrf_image_type",
+        "xrf_frame_count",
+        "xrf_body_part_examined",
+        "xrf_patient_orientation_empty",
+        "xrf_laterality_present",
+        "xrf_pixel_intensity_relationship",
+        "xrf_radiation_setting",
+        "xrf_kvp",
+        "xrf_exposure_mas",
+        "xrf_imager_pixel_spacing_mm",
+        "xrf_distance_source_to_detector_mm",
+        "xrf_distance_source_to_patient_mm",
+        "xrf_estimated_radiographic_magnification_factor",
+        "xrf_column_angulation_degrees",
+        "xrf_lossy_image_compression",
+        "xrf_multiframe_cine",
+        "xrf_biplane_data_present",
+        "xrf_contrast_used",
+        "xrf_subtraction_applied",
+        "xrf_table_position_present",
+        "xrf_table_motion_present",
+        "xrf_table_tilt_present",
+        "xrf_tomography_present",
+        "xrf_patient_space_geometry_present",
+        "xrf_pixel_spacing_calibrated",
+        "xrf_xa_positioner_angles_present",
     ] {
         row_object.insert(field.to_string(), Value::Null);
     }
@@ -14102,6 +14550,32 @@ struct GroupedCoverage {
     xa_table_motion_present_states: BTreeMap<String, usize>,
     xa_patient_space_geometry_present_states: BTreeMap<String, usize>,
     xa_pixel_spacing_calibrated_states: BTreeMap<String, usize>,
+    xrf_image_types: BTreeMap<String, usize>,
+    xrf_frame_counts: BTreeMap<String, usize>,
+    xrf_body_parts_examined: BTreeMap<String, usize>,
+    xrf_patient_orientation_empty_states: BTreeMap<String, usize>,
+    xrf_laterality_present_states: BTreeMap<String, usize>,
+    xrf_pixel_intensity_relationships: BTreeMap<String, usize>,
+    xrf_radiation_settings: BTreeMap<String, usize>,
+    xrf_kvps: BTreeMap<String, usize>,
+    xrf_exposures_mas: BTreeMap<String, usize>,
+    xrf_imager_pixel_spacings_mm: BTreeMap<String, usize>,
+    xrf_distances_source_to_detector_mm: BTreeMap<String, usize>,
+    xrf_distances_source_to_patient_mm: BTreeMap<String, usize>,
+    xrf_estimated_radiographic_magnification_factors: BTreeMap<String, usize>,
+    xrf_column_angulations_degrees: BTreeMap<String, usize>,
+    xrf_lossy_image_compressions: BTreeMap<String, usize>,
+    xrf_multiframe_cine_states: BTreeMap<String, usize>,
+    xrf_biplane_data_present_states: BTreeMap<String, usize>,
+    xrf_contrast_used_states: BTreeMap<String, usize>,
+    xrf_subtraction_applied_states: BTreeMap<String, usize>,
+    xrf_table_position_present_states: BTreeMap<String, usize>,
+    xrf_table_motion_present_states: BTreeMap<String, usize>,
+    xrf_table_tilt_present_states: BTreeMap<String, usize>,
+    xrf_tomography_present_states: BTreeMap<String, usize>,
+    xrf_patient_space_geometry_present_states: BTreeMap<String, usize>,
+    xrf_pixel_spacing_calibrated_states: BTreeMap<String, usize>,
+    xrf_xa_positioner_angles_present_states: BTreeMap<String, usize>,
     mr_scanning_sequences: BTreeMap<String, usize>,
     mr_sequence_variants: BTreeMap<String, usize>,
     mr_acquisition_types: BTreeMap<String, usize>,
@@ -14639,6 +15113,100 @@ impl GroupedCoverage {
             (
                 &mut self.xa_pixel_spacing_calibrated_states,
                 "xa_pixel_spacing_calibrated",
+            ),
+        ] {
+            if let Some(value) = row.get(field).and_then(Value::as_bool) {
+                *map.entry(value.to_string()).or_default() += 1;
+            }
+        }
+        for (map, field) in [
+            (&mut self.xrf_image_types, "xrf_image_type"),
+            (&mut self.xrf_body_parts_examined, "xrf_body_part_examined"),
+            (
+                &mut self.xrf_pixel_intensity_relationships,
+                "xrf_pixel_intensity_relationship",
+            ),
+            (&mut self.xrf_radiation_settings, "xrf_radiation_setting"),
+            (
+                &mut self.xrf_imager_pixel_spacings_mm,
+                "xrf_imager_pixel_spacing_mm",
+            ),
+            (
+                &mut self.xrf_lossy_image_compressions,
+                "xrf_lossy_image_compression",
+            ),
+        ] {
+            increment_map(map, row.get(field).and_then(Value::as_str));
+        }
+        for (map, field) in [
+            (&mut self.xrf_frame_counts, "xrf_frame_count"),
+            (&mut self.xrf_kvps, "xrf_kvp"),
+            (&mut self.xrf_exposures_mas, "xrf_exposure_mas"),
+            (
+                &mut self.xrf_distances_source_to_detector_mm,
+                "xrf_distance_source_to_detector_mm",
+            ),
+            (
+                &mut self.xrf_distances_source_to_patient_mm,
+                "xrf_distance_source_to_patient_mm",
+            ),
+            (
+                &mut self.xrf_estimated_radiographic_magnification_factors,
+                "xrf_estimated_radiographic_magnification_factor",
+            ),
+            (
+                &mut self.xrf_column_angulations_degrees,
+                "xrf_column_angulation_degrees",
+            ),
+        ] {
+            increment_scalar_map(map, row.get(field));
+        }
+        for (map, field) in [
+            (
+                &mut self.xrf_patient_orientation_empty_states,
+                "xrf_patient_orientation_empty",
+            ),
+            (
+                &mut self.xrf_laterality_present_states,
+                "xrf_laterality_present",
+            ),
+            (&mut self.xrf_multiframe_cine_states, "xrf_multiframe_cine"),
+            (
+                &mut self.xrf_biplane_data_present_states,
+                "xrf_biplane_data_present",
+            ),
+            (&mut self.xrf_contrast_used_states, "xrf_contrast_used"),
+            (
+                &mut self.xrf_subtraction_applied_states,
+                "xrf_subtraction_applied",
+            ),
+            (
+                &mut self.xrf_table_position_present_states,
+                "xrf_table_position_present",
+            ),
+            (
+                &mut self.xrf_table_motion_present_states,
+                "xrf_table_motion_present",
+            ),
+            (
+                &mut self.xrf_table_tilt_present_states,
+                "xrf_table_tilt_present",
+            ),
+            (
+                &mut self.xrf_tomography_present_states,
+                "xrf_tomography_present",
+            ),
+            (
+                &mut self.xrf_patient_space_geometry_present_states,
+                "xrf_patient_space_geometry_present",
+            ),
+            (
+                &mut self.xrf_pixel_spacing_calibrated_states,
+                "xrf_pixel_spacing_calibrated",
+            ),
+            (
+                &mut self.xrf_xa_positioner_angles_present_states,
+                "xrf_xa_positioner_angles_present",
             ),
         ] {
             if let Some(value) = row.get(field).and_then(Value::as_bool) {
@@ -15612,6 +16180,96 @@ impl GroupedCoverage {
             grouped_object.insert(
                 field.to_string(),
                 serde_json::to_value(map).expect("XA coverage count map must serialize"),
+            );
+        }
+        for (field, map) in [
+            ("xrf_image_types", &self.xrf_image_types),
+            ("xrf_frame_counts", &self.xrf_frame_counts),
+            ("xrf_body_parts_examined", &self.xrf_body_parts_examined),
+            (
+                "xrf_patient_orientation_empty_states",
+                &self.xrf_patient_orientation_empty_states,
+            ),
+            (
+                "xrf_laterality_present_states",
+                &self.xrf_laterality_present_states,
+            ),
+            (
+                "xrf_pixel_intensity_relationships",
+                &self.xrf_pixel_intensity_relationships,
+            ),
+            ("xrf_radiation_settings", &self.xrf_radiation_settings),
+            ("xrf_kvps", &self.xrf_kvps),
+            ("xrf_exposures_mas", &self.xrf_exposures_mas),
+            (
+                "xrf_imager_pixel_spacings_mm",
+                &self.xrf_imager_pixel_spacings_mm,
+            ),
+            (
+                "xrf_distances_source_to_detector_mm",
+                &self.xrf_distances_source_to_detector_mm,
+            ),
+            (
+                "xrf_distances_source_to_patient_mm",
+                &self.xrf_distances_source_to_patient_mm,
+            ),
+            (
+                "xrf_estimated_radiographic_magnification_factors",
+                &self.xrf_estimated_radiographic_magnification_factors,
+            ),
+            (
+                "xrf_column_angulations_degrees",
+                &self.xrf_column_angulations_degrees,
+            ),
+            (
+                "xrf_lossy_image_compressions",
+                &self.xrf_lossy_image_compressions,
+            ),
+            (
+                "xrf_multiframe_cine_states",
+                &self.xrf_multiframe_cine_states,
+            ),
+            (
+                "xrf_biplane_data_present_states",
+                &self.xrf_biplane_data_present_states,
+            ),
+            ("xrf_contrast_used_states", &self.xrf_contrast_used_states),
+            (
+                "xrf_subtraction_applied_states",
+                &self.xrf_subtraction_applied_states,
+            ),
+            (
+                "xrf_table_position_present_states",
+                &self.xrf_table_position_present_states,
+            ),
+            (
+                "xrf_table_motion_present_states",
+                &self.xrf_table_motion_present_states,
+            ),
+            (
+                "xrf_table_tilt_present_states",
+                &self.xrf_table_tilt_present_states,
+            ),
+            (
+                "xrf_tomography_present_states",
+                &self.xrf_tomography_present_states,
+            ),
+            (
+                "xrf_patient_space_geometry_present_states",
+                &self.xrf_patient_space_geometry_present_states,
+            ),
+            (
+                "xrf_pixel_spacing_calibrated_states",
+                &self.xrf_pixel_spacing_calibrated_states,
+            ),
+            (
+                "xrf_xa_positioner_angles_present_states",
+                &self.xrf_xa_positioner_angles_present_states,
+            ),
+        ] {
+            grouped_object.insert(
+                field.to_string(),
+                serde_json::to_value(map).expect("XRF coverage count map must serialize"),
             );
         }
         grouped_object.insert(
@@ -17730,6 +18388,132 @@ mod tests {
             xa_projection_report_fields(Path::new("manifest.json"), &non_xa)
                 .expect("non-XA files may omit the XA contract"),
             XaProjectionReportFields::default()
+        );
+    }
+
+    #[test]
+    fn xrf_projection_report_fields_are_complete_grouped_and_rendered() {
+        let file = serde_json::json!({
+            "expected_xrf_projection": {
+                "image_type": ["ORIGINAL", "PRIMARY", "SINGLE PLANE"],
+                "frame_count": 1,
+                "body_part_examined": "ABDOMEN",
+                "patient_orientation_empty": true,
+                "laterality_present": false,
+                "pixel_intensity_relationship": "LIN",
+                "radiation_setting": "SC",
+                "kvp": 70.0,
+                "exposure_mas": 1,
+                "imager_pixel_spacing_mm": [0.2, 0.2],
+                "distance_source_to_detector_mm": 1200.0,
+                "distance_source_to_patient_mm": 800.0,
+                "estimated_radiographic_magnification_factor": 1.5,
+                "column_angulation_degrees": 10.0,
+                "lossy_image_compression": "00",
+                "multiframe_cine": false,
+                "biplane_data_present": false,
+                "contrast_used": false,
+                "subtraction_applied": false,
+                "table_position_present": false,
+                "table_motion_present": false,
+                "table_tilt_present": false,
+                "tomography_present": false,
+                "patient_space_geometry_present": false,
+                "pixel_spacing_calibrated": false,
+                "xa_positioner_angles_present": false
+            }
+        });
+        let fields = xrf_projection_report_fields(Path::new("manifest.json"), &file)
+            .expect("complete XRF report contract must extract");
+        assert_eq!(
+            fields.image_type.as_deref(),
+            Some("ORIGINAL; PRIMARY; SINGLE PLANE")
+        );
+        assert_eq!(fields.body_part_examined.as_deref(), Some("ABDOMEN"));
+        assert_eq!(fields.column_angulation_degrees, Some(10.0));
+        assert_eq!(fields.table_position_present, Some(false));
+        assert_eq!(fields.tomography_present, Some(false));
+        assert_eq!(fields.xa_positioner_angles_present, Some(false));
+
+        let row = serde_json::json!({
+            "case_id": "classic/xrf/monoplane_explicit_le",
+            "xrf_image_type": fields.image_type,
+            "xrf_frame_count": fields.frame_count,
+            "xrf_body_part_examined": fields.body_part_examined,
+            "xrf_patient_orientation_empty": fields.patient_orientation_empty,
+            "xrf_laterality_present": fields.laterality_present,
+            "xrf_pixel_intensity_relationship": fields.pixel_intensity_relationship,
+            "xrf_radiation_setting": fields.radiation_setting,
+            "xrf_kvp": fields.kvp,
+            "xrf_exposure_mas": fields.exposure_mas,
+            "xrf_imager_pixel_spacing_mm": fields.imager_pixel_spacing_mm,
+            "xrf_distance_source_to_detector_mm": fields.distance_source_to_detector_mm,
+            "xrf_distance_source_to_patient_mm": fields.distance_source_to_patient_mm,
+            "xrf_estimated_radiographic_magnification_factor": fields.estimated_radiographic_magnification_factor,
+            "xrf_column_angulation_degrees": fields.column_angulation_degrees,
+            "xrf_lossy_image_compression": fields.lossy_image_compression,
+            "xrf_multiframe_cine": fields.multiframe_cine,
+            "xrf_biplane_data_present": fields.biplane_data_present,
+            "xrf_contrast_used": fields.contrast_used,
+            "xrf_subtraction_applied": fields.subtraction_applied,
+            "xrf_table_position_present": fields.table_position_present,
+            "xrf_table_motion_present": fields.table_motion_present,
+            "xrf_table_tilt_present": fields.table_tilt_present,
+            "xrf_tomography_present": fields.tomography_present,
+            "xrf_patient_space_geometry_present": fields.patient_space_geometry_present,
+            "xrf_pixel_spacing_calibrated": fields.pixel_spacing_calibrated,
+            "xrf_xa_positioner_angles_present": fields.xa_positioner_angles_present
+        });
+        let mut grouped = GroupedCoverage::default();
+        grouped.record(&row);
+        let grouped_json = grouped.to_json();
+        assert_eq!(
+            grouped_json.pointer("/xrf_column_angulations_degrees/10.0"),
+            Some(&Value::from(1))
+        );
+        assert_eq!(
+            grouped_json.pointer("/xrf_table_position_present_states/false"),
+            Some(&Value::from(1))
+        );
+
+        let markdown = render_coverage_report_markdown(&serde_json::json!({
+            "coverage_matrix": [row],
+            "grouped_coverage": grouped_json,
+            "gaps": []
+        }));
+        assert!(markdown.contains("## X-Ray Radiofluoroscopic Projection Expectations"));
+        assert!(markdown.contains("classic/xrf/monoplane_explicit_le"));
+        assert!(markdown.contains("## XRF Column Angulations (degrees)"));
+    }
+
+    #[test]
+    fn xrf_projection_report_rejects_partial_or_missing_rf_contract() {
+        let partial = serde_json::json!({
+            "expected_xrf_projection": {
+                "image_type": ["ORIGINAL", "PRIMARY", "SINGLE PLANE"]
+            }
+        });
+        assert!(matches!(
+            xrf_projection_report_fields(Path::new("manifest.json"), &partial),
+            Err(ReportError::MetadataShape {
+                message: "expected_xrf_projection must define the complete report contract",
+                ..
+            })
+        ));
+
+        let missing = serde_json::json!({"dicom": {"modality": "RF"}});
+        assert!(matches!(
+            xrf_projection_report_fields(Path::new("manifest.json"), &missing),
+            Err(ReportError::MetadataShape {
+                message: "RF file must define expected_xrf_projection",
+                ..
+            })
+        ));
+        let non_xrf = serde_json::json!({"dicom": {"modality": "CT"}});
+        assert_eq!(
+            xrf_projection_report_fields(Path::new("manifest.json"), &non_xrf)
+                .expect("non-XRF files may omit the XRF contract"),
+            XrfProjectionReportFields::default()
         );
     }
 

@@ -86,7 +86,10 @@ fn enhanced_pet_recipe_has_locked_identity_and_static_stack_geometry() {
     assert_eq!((recipe.rows, recipe.columns, recipe.frames), (2, 2, 2));
     assert_eq!(recipe.frame_pixel_count(), 4);
     assert_eq!(recipe.pixel_count(), 8);
-    assert_eq!(recipe.image_type, "DERIVED\\PRIMARY\\STATIC\\EMISSION");
+    assert_eq!(
+        recipe.image_type,
+        "DERIVED\\PRIMARY\\STATIC\\MULTIPLICATION"
+    );
     assert_eq!(recipe.frame_type, recipe.image_type);
     assert_eq!(recipe.pixel_spacing, "2\\2");
     assert_eq!(recipe.image_orientation_patient, "1\\0\\0\\0\\1\\0");

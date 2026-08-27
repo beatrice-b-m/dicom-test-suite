@@ -4070,6 +4070,36 @@ pub(crate) fn write_supported_cases(
     }
     if let Some(case) = registry_case(registry, ADVANCED_BLENDING_PRESENTATION_STATE_CASE_ID)? {
         if should_generate_case(case, run)? {
+            if context
+                .source_registry()
+                .first_for_case(ADVANCED_BLENDING_PRESENTATION_STATE_SOURCE_CASE_ID)
+                .is_none()
+            {
+                let source_case = registry_case(
+                    registry,
+                    ADVANCED_BLENDING_PRESENTATION_STATE_SOURCE_CASE_ID,
+                )?
+                .ok_or_else(|| GenerateError::MetadataShape {
+                    path: PathBuf::from(ADVANCED_BLENDING_PRESENTATION_STATE_CASE_ID),
+                    message: "Advanced Blending source CT registry row is missing",
+                })?;
+                let source_recipe = CLASSIC_CT_RECIPES
+                    .iter()
+                    .find(|recipe| {
+                        recipe.case_id == ADVANCED_BLENDING_PRESENTATION_STATE_SOURCE_CASE_ID
+                    })
+                    .copied()
+                    .ok_or_else(|| GenerateError::MetadataShape {
+                        path: PathBuf::from(ADVANCED_BLENDING_PRESENTATION_STATE_CASE_ID),
+                        message: "Advanced Blending source CT native recipe is missing",
+                    })?;
+                context.record_many(write_classic_ct_case(
+                    run,
+                    source_case,
+                    source_recipe,
+                    standards_lock_sha256,
+                )?)?;
+            }
             let sources = context
                 .source_registry()
                 .sources_for_case(ADVANCED_BLENDING_PRESENTATION_STATE_SOURCE_CASE_ID)

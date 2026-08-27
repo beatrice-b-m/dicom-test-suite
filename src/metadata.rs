@@ -42,6 +42,7 @@ pub(crate) fn validate_manifest_metadata(
     }
     validate_person_names(relative_path, bytes, expected, obj, failures);
     validate_temporal_metadata(relative_path, bytes, expected, obj, failures);
+    validate_empty_type2_attributes(relative_path, bytes, expected, obj, failures);
 }
 
 pub(crate) fn validate_manifest_metadata_corpus(files: &[Value], failures: &mut Vec<String>) {
@@ -124,6 +125,106 @@ fn validate_character_sets(
         None => failures.push(format!(
             "{relative_path}: metadata_specific_character_sets_raw: raw Specific Character Set element is missing"
         )),
+    }
+}
+
+fn validate_empty_type2_attributes(
+    relative_path: &str,
+    bytes: &[u8],
+    expected: &Value,
+    obj: &OpenedObject,
+    failures: &mut Vec<String>,
+) {
+    let Some(attributes) = expected
+        .get("empty_type2_attributes")
+        .and_then(Value::as_array)
+    else {
+        return;
+    };
+
+    let required = BTreeSet::from([
+        ("0008,0050", "AccessionNumber", "SH"),
+        ("0008,0090", "ReferringPhysicianName", "PN"),
+        ("0010,0010", "PatientName", "PN"),
+        ("0010,0030", "PatientBirthDate", "DA"),
+        ("0010,0040", "PatientSex", "CS"),
+    ]);
+    let declared = attributes
+        .iter()
+        .map(|attribute| {
+            (
+                attribute.get("tag").and_then(Value::as_str).unwrap_or(""),
+                attribute
+                    .get("keyword")
+                    .and_then(Value::as_str)
+                    .unwrap_or(""),
+                attribute.get("vr").and_then(Value::as_str).unwrap_or(""),
+            )
+        })
+        .collect::<BTreeSet<_>>();
+    if attributes.len() != required.len() || declared != required {
+        failures.push(format!(
+            "{relative_path}: metadata_empty_type2_attribute_set: manifest {declared:?}, expected {required:?}"
+        ));
+    }
+
+    for attribute in attributes {
+        let tag_text = attribute.get("tag").and_then(Value::as_str).unwrap_or("");
+        let keyword = attribute
+            .get("keyword")
+            .and_then(Value::as_str)
+            .unwrap_or(tag_text);
+        let expected_vr = attribute.get("vr").and_then(Value::as_str).unwrap_or("");
+        let Some(tag) = parse_tag(tag_text) else {
+            failures.push(format!(
+                "{relative_path}: metadata_empty_type2_tag: invalid manifest tag {tag_text}"
+            ));
+            continue;
+        };
+
+        match obj.element(tag) {
+            Ok(element) => {
+                if format!("{:?}", element.vr()) != expected_vr {
+                    failures.push(format!(
+                        "{relative_path}: metadata_empty_type2_vr: {keyword} dataset {:?}, manifest {expected_vr}",
+                        element.vr()
+                    ));
+                }
+                match element.to_bytes() {
+                    Ok(value) if value.is_empty() => {}
+                    Ok(value) => failures.push(format!(
+                        "{relative_path}: metadata_empty_type2_decoded_value: {keyword} decoded length {}, expected 0",
+                        value.len()
+                    )),
+                    Err(error) => failures.push(format!(
+                        "{relative_path}: metadata_empty_type2_decoded_value: {keyword} is unreadable: {error}"
+                    )),
+                }
+            }
+            Err(_) => failures.push(format!(
+                "{relative_path}: metadata_empty_type2_presence: {keyword} is missing"
+            )),
+        }
+
+        match find_raw_element(bytes, tag) {
+            Some(raw) => {
+                if raw.vr != expected_vr {
+                    failures.push(format!(
+                        "{relative_path}: metadata_empty_type2_raw_vr: {keyword} dataset {}, manifest {expected_vr}",
+                        raw.vr
+                    ));
+                }
+                if !raw.value.is_empty() {
+                    failures.push(format!(
+                        "{relative_path}: metadata_empty_type2_raw_value_length: {keyword} encoded length {}, expected 0",
+                        raw.value.len()
+                    ));
+                }
+            }
+            None => failures.push(format!(
+                "{relative_path}: metadata_empty_type2_raw_presence: raw {keyword} element is missing"
+            )),
+        }
     }
 }
 

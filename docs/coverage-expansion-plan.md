@@ -363,8 +363,15 @@ locked primary IOD validation and independent parsing, zero-error
 validation. Two seed-7 extended roots each contained 101 strictly valid files
 with byte-identical manifest and Blending instance hashes; integrated
 conformance kept `accepted_findings` at zero and Blending added no finding.
-Milestone 5's Twelve-lead ECG waveform is next, followed by one additional
-representative waveform.
+Milestone 5 is now in progress: Twelve-lead ECG Waveform Storage is complete
+as a byte-stable native extended-profile slice with one ordered 12-channel,
+500-sample, 500 Hz group, an exact deterministic 12,000-byte signed waveform
+payload, typed manifest semantics, strict formula and interleave validation,
+dedicated reports, and locked independent IOD and payload validation. Two
+seed-7 extended roots each contained 102 strictly valid files with
+byte-identical manifest and ECG instance hashes; integrated conformance kept
+`accepted_findings` at zero and the waveform added no finding. The additional
+representative General ECG waveform is next.
 
 ### Phase 4 — Pathology and tiled microscopy
 

@@ -315,7 +315,43 @@ silent. Full-corpus verification keeps `accepted_findings` at zero and
 reports 211 older or unrelated failures, including the two already documented
 Advanced Blending warnings; Blending adds no external finding.
 
+## Twelve-lead ECG Waveform
+
+`non-image/waveform/twelve_lead_ecg` is complete as a byte-stable native
+extended-profile slice using Twelve-lead ECG Waveform Storage. Its single
+waveform group contains the ordered I, II, III, aVR, aVL, aVF, and V1 through
+V6 channels, with 500 samples per channel at 500 Hz. Signed 16-bit `SS`
+samples are packed channel-then-sample into an `OW` payload of exactly 12,000
+bytes from the locked deterministic formula. The manifest carries the typed
+waveform, channel, storage, payload, and absence contract; strict validation
+owns the IOD modules, channel definitions, arithmetic, formula, interleave,
+hashes, extrema, and forbidden attributes; and JSON and Markdown reports
+expose the same contract and external-validator disposition.
+
+Two seed-7 extended generations each wrote 102 files. Their byte-identical
+manifests have SHA-256
+`898ccec3c6c8e09f91ddcc255a45e397ca19ae69c32b41c1aec4aa5240a9ba3d`;
+the byte-identical ECG instances have SHA-256
+`1a14c3f7097e8c7482deb6c5c228b9dd33dbbc97206a3c3f865d3118d713e4c6`.
+Both roots passed strict validation for all 102 files with zero failures.
+Locked `dciodvfy -new`, `dcmdump`, and isolated `dcentvfy` were clean. The
+independently implemented, `uv`-locked `dicom-validator` 0.8.2 IOD route
+reported `Passed` with zero errors, and its separate waveform payload route
+reproduced every locked length, value, and hash.
+
+Integrated conformance run
+`09391f4644f6ad827a2a635ccc0df6d74201e5d6cc45ee8b2d2144d9c0d8e232`
+produced run JSON SHA-256
+`aa9d4311ad176ab7c83b6abc2f98c1d8f97db347f07207884cf4b3c8f6396838`,
+recorded stable instance key
+`b28021744fc73da06f3b1c4af979eb2c61084102558ba0e6c3831bc77f705ce6`,
+and bound waveform sidecar SHA-256
+`6e0c8f5880ccf65ba78f031b4687c6ea33ca62560e883e78e487935b6c795faf`
+to the exact manifest contract and locked tool. Full-corpus verification keeps
+`accepted_findings` at zero and reports 211 older or unrelated failures; the
+Twelve-lead ECG adds no finding.
+
 ## Next dependency
 
-Phase 3 milestone 4 is complete. The next dependency is milestone 5's
-Twelve-lead ECG waveform, followed by one additional representative waveform.
+The first half of Phase 3 milestone 5 is complete. The additional
+representative General ECG waveform is next.

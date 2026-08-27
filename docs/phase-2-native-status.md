@@ -409,12 +409,42 @@ decodes the `(4, 4)` unsigned array, confirms the acquisition contract and
 declared absences, and produces a byte-identical Part 10 rewrite that retains
 the same clean validator results.
 
+### XRF monoplane abdominal projection
+
+`classic/xrf/monoplane_explicit_le` is an implemented `core` X-Ray
+Radiofluoroscopic Image Storage instance with one 4 by 4 native unsigned
+8-bit MONOCHROME2 frame. Image Type is
+`ORIGINAL\\PRIMARY\\SINGLE PLANE`, Body Part Examined is `ABDOMEN`, Patient
+Orientation is present with zero value length, and Laterality is absent. The
+locked acquisition declares `LIN` pixel intensity, `SC` low-dose radiation
+setting, 70 kVp, 1 mAs, and 0.2 by 0.2 mm receptor-housing spacing.
+
+The selected XRF Positioner geometry declares a 1200 mm source-to-detector
+distance, 800 mm source-to-patient distance, exact magnification 1.5, and
+positive 10-degree equipment-coordinate Column Angulation. The fixture does
+not reinterpret this as XA patient-relative primary or secondary angles. It
+also makes no cine, biplane, contrast, subtraction, table position or motion,
+tomography, calibrated Pixel Spacing, patient-space geometry, display,
+detector-characteristic, collimation, shutter, overlay, or dose-product claim.
+Typed manifest and report contracts expose every acquisition value and
+non-claim; both generation-time and manifest-driven validation enforce them.
+
+Two seed-1 `core` generations each produced 47 files and were byte-identical;
+strict corpus validation reported zero failures. The XRF fixture SHA-256 is
+`886e361ec277a5f5e5d34ff985aaaac13cee4d4d5733a6ea38b5fa1bdba966c2`.
+Locked `dciodvfy` identifies only `XRFImage`, `dcentvfy` is silent, and DCMTK
+extracts the exact 16-byte native payload with SHA-256
+`0b9c742cc3fafec4c1d0240048d27210f2da155b3574458ae26035ffa488c00e`.
+The frozen offline pydicom 3.0.2 environment managed by locked `uv` confirms
+the full acquisition and absence contract and produces a byte-identical Part
+10 rewrite that retains the same clean validator results.
+
 ## Milestone gate
 
 All planned Phase 2 geometry and series cases are implemented, and the UTF-8,
 ISO 2022, timezone, empty Type 2, string boundary, private creator, and sequence
 length metadata slices have passed their vertical gates. The latest seed-1
-`core` corpus contains 46 files; the seed-1 `extended` corpus contains 83
+`core` corpus contains 47 files; the seed-1 `extended` corpus contains 83
 files. The complete
 locked no-default-feature, all-target test suite passes, including byte-stable
 smoke, core, and extended regeneration. Each new CT slice and the temporal MR
@@ -422,6 +452,7 @@ slice has clean isolated IOD, entity, parser, and applicable independent pixel
 evidence, except for the one exact reviewed DICOMDIR-usability warning described
 above. Older corpus findings remain visible and unresolved. The dependency-
 ordered Phase 2 metadata and VR milestone is complete. The Nuclear Medicine
-STATIC multi-frame, PET rescaled-activity, and timed Ultrasound multi-frame
-and XA monoplane clinical-family representatives are also complete. Phase 2
-continues with XRF in registry dependency order.
+STATIC multi-frame, PET rescaled-activity, timed Ultrasound multi-frame,
+XA monoplane, and XRF monoplane clinical-family representatives are complete.
+Phase 2 continues with the additional enhanced-modality representative needed
+to close the clinical-family milestone before the pixel milestone.

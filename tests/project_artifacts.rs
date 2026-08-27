@@ -1086,7 +1086,7 @@ fn blending_source_note_locks_audited_contract_before_provider_selection() {
 }
 
 #[test]
-fn general_ecg_source_note_locks_multigroup_contract_before_provider_selection() {
+fn general_ecg_source_note_locks_multigroup_contract_and_native_provider() {
     let source = fs::read_to_string("standards/source-notes/phase-3-general-ecg-waveform.md")
         .expect("General ECG Waveform source note must be readable");
     for required in [
@@ -1138,9 +1138,9 @@ fn general_ecg_source_note_locks_multigroup_contract_before_provider_selection()
         })
         .expect("General ECG Waveform row must exist");
     assert_eq!(case["status"], "planned");
-    assert_eq!(case["provider"]["kind"], "external_backend");
-    assert_eq!(case["provider"]["id"], "dcmtk");
-    assert_eq!(case["determinism"], "semantic_stable");
+    assert_eq!(case["provider"]["kind"], "rust_native");
+    assert_eq!(case["provider"]["id"], "rust_native");
+    assert_eq!(case["determinism"], "byte_stable");
     assert_eq!(
         case["blockers"]
             .as_array()
@@ -1148,10 +1148,17 @@ fn general_ecg_source_note_locks_multigroup_contract_before_provider_selection()
             .iter()
             .map(|blocker| blocker["code"].as_str().unwrap())
             .collect::<Vec<_>>(),
-        vec![
-            "backend_contract_unimplemented",
-            "independent_payload_validator_unavailable"
-        ]
+        vec!["recipe_unimplemented"]
+    );
+    assert!(
+        case["standards_evidence"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|entry| {
+                entry["query"] == "standards/source-notes/phase-3-general-ecg-waveform.md"
+                    && entry["anchor"] == "table_A.34.4-1"
+            })
     );
 }
 

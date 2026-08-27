@@ -18,8 +18,41 @@ from dicom_validator.validator.error_handler import ValidationResultHandlerBase
 from dicom_validator.validator.validation_result import Status
 
 
-ADAPTER_VERSION = "0.3.0"
+ADAPTER_VERSION = "0.4.0"
 EDITION = "2026b"
+TWELVE_LEAD_ECG_STORAGE = "1.2.840.10008.5.1.4.1.1.9.1.1"
+WAVEFORM_PAYLOAD_SHA256 = (
+    "98b7a9b1be25d9d64ffa75bc6e16ea80f60deed1891aeed8dfb440c1c19e6713"
+)
+WAVEFORM_CHANNELS = (
+    ("I", "2:1", "Lead I", "7b4aee068e05c2bdff3896937c78a4c7a32f9ed2bde64d91b1d925913bf29476"),
+    ("II", "2:2", "Lead II", "bd775dc70f76ea153a25832ad622b0cc26fbe6a37cf3ec6548a30965c4d17fba"),
+    ("III", "2:61", "Lead III", "19d26b694df281209aa1296abbfa8f7d360e24a03a091422aba6f67663e2f3b1"),
+    (
+        "aVR",
+        "2:62",
+        "aVR, augmented voltage, right",
+        "bb4c99d7857dbfcee5ee620bcff09b7060b61c5f2432427affc6139cb8d3cf9b",
+    ),
+    (
+        "aVL",
+        "2:63",
+        "aVL, augmented voltage, left",
+        "230f52ed2ac57624a9a35214d7867711008dd56014f4176ce258623e5b596d3a",
+    ),
+    (
+        "aVF",
+        "2:64",
+        "aVF, augmented voltage, foot",
+        "60e167db3c081ba5bca957aba820afb519b790d048b660634d49566df88105f2",
+    ),
+    ("V1", "2:3", "Lead V1", "cf8c73bebf746b799b1fe8aa2c908ca69bc7acc72311c64cbf4131fc8976609f"),
+    ("V2", "2:4", "Lead V2", "0f11e5fb5105dac699fa4bcfc01c79fbe696a81db04606f39a719de57b4c7c30"),
+    ("V3", "2:5", "Lead V3", "a41d5962abceb6dbe25f8421091ce3df6a69202c45b24ab6b0736159d15e253b"),
+    ("V4", "2:6", "Lead V4", "d655e2cbb23d70e229ed52fedba9c45573e22729fed0a794ab690df8d7f33804"),
+    ("V5", "2:7", "Lead V5", "005c539f9f4256a86d9e0a212b3bfe73741f99942b0677fb483c0c48db9583cd"),
+    ("V6", "2:8", "Lead V6", "f448df95acb226c5c992363e27707a42efc3ffb974ebeff38e2a81522b57d82c"),
+)
 EXPECTED_DISTRIBUTIONS = {
     "dicom-validator": "0.8.2",
     "lxml": "6.1.2",
@@ -312,6 +345,155 @@ def extract_nonsquare_spacing(
     return 0
 
 
+def extract_waveform(input_path: Path, standard_root: Path, lock_path: Path) -> int:
+    """Extract and independently verify the locked Twelve-lead ECG payload."""
+    for name, version in EXPECTED_DISTRIBUTIONS.items():
+        verify_distribution(name, version)
+    verify_standard(standard_root, lock_path)
+    dataset = pydicom.dcmread(input_path)
+    transfer_syntax = str(dataset.file_meta.TransferSyntaxUID)
+    if transfer_syntax != "1.2.840.10008.1.2.1":
+        raise RuntimeError(
+            f"unsupported transfer syntax for waveform extraction: {transfer_syntax}"
+        )
+    if str(dataset.SOPClassUID) != TWELVE_LEAD_ECG_STORAGE:
+        raise RuntimeError("dataset is not Twelve-lead ECG Waveform Storage")
+    if str(dataset.Modality) != "ECG":
+        raise RuntimeError("Twelve-lead ECG Modality must be ECG")
+    if len(dataset.WaveformSequence) != 1:
+        raise RuntimeError("Twelve-lead ECG requires exactly one multiplex group")
+
+    group = dataset.WaveformSequence[0]
+    channel_count = int(group.NumberOfWaveformChannels)
+    sample_count = int(group.NumberOfWaveformSamples)
+    sampling_frequency = float(group.SamplingFrequency)
+    bits_allocated = int(group.WaveformBitsAllocated)
+    sample_interpretation = str(group.WaveformSampleInterpretation)
+    waveform_element = group[0x54001010]
+    payload = bytes(waveform_element.value)
+    if (
+        channel_count != 12
+        or sample_count != 500
+        or sampling_frequency != 500.0
+        or str(group.WaveformOriginality) != "ORIGINAL"
+        or str(group.MultiplexGroupLabel) != "RESTING_12_LEAD"
+        or bits_allocated != 16
+        or sample_interpretation != "SS"
+        or waveform_element.VR != "OW"
+    ):
+        raise RuntimeError("dataset does not satisfy the locked Twelve-lead waveform shape")
+    if len(payload) != channel_count * sample_count * 2:
+        raise RuntimeError("Waveform Data length does not match channels and samples")
+    if 0x5400100A in group:
+        raise RuntimeError("Waveform Padding Value must be absent")
+    if 0x7FE00010 in dataset:
+        raise RuntimeError("Pixel Data must be absent from a waveform object")
+
+    values = struct.unpack(f"<{channel_count * sample_count}h", payload)
+    expected_values = tuple(
+        ((sample * (channel + 1) * 37 + channel * 101) % 2001) - 1000
+        for sample in range(sample_count)
+        for channel in range(channel_count)
+    )
+    if values != expected_values:
+        raise RuntimeError("Waveform Data does not match the locked sample formula")
+    payload_hash = hashlib.sha256(payload).hexdigest()
+    if payload_hash != WAVEFORM_PAYLOAD_SHA256:
+        raise RuntimeError("Waveform Data hash does not match the locked payload")
+
+    definitions = list(group.ChannelDefinitionSequence)
+    if len(definitions) != channel_count:
+        raise RuntimeError("Channel Definition Sequence length does not match channels")
+    channel_results = []
+    channel_hashes = []
+    for channel, (definition, locked) in enumerate(
+        zip(definitions, WAVEFORM_CHANNELS, strict=True)
+    ):
+        label, code_value, code_meaning, expected_hash = locked
+        sources = list(definition.ChannelSourceSequence)
+        units = list(definition.ChannelSensitivityUnitsSequence)
+        if len(sources) != 1 or len(units) != 1:
+            raise RuntimeError(f"channel {channel + 1} coding sequences must have one item")
+        source = sources[0]
+        unit = units[0]
+        if (
+            int(definition.WaveformChannelNumber) != channel + 1
+            or str(definition.ChannelLabel) != label
+            or str(source.CodingSchemeDesignator) != "MDC"
+            or str(source.CodeValue) != code_value
+            or str(source.CodeMeaning) != code_meaning
+            or float(definition.ChannelSensitivity) != 1.0
+            or str(unit.CodingSchemeDesignator) != "UCUM"
+            or str(unit.CodeValue) != "uV"
+            or str(unit.CodeMeaning) != "microvolt"
+            or float(definition.ChannelSensitivityCorrectionFactor) != 1.0
+            or float(definition.ChannelBaseline) != 0.0
+            or int(definition.WaveformBitsStored) != 16
+            or float(definition.ChannelTimeSkew) != 0.0
+            or 0x003A0215 in definition
+        ):
+            raise RuntimeError(f"channel {channel + 1} metadata does not match the lock")
+        channel_values = values[channel::channel_count]
+        channel_bytes = struct.pack(f"<{sample_count}h", *channel_values)
+        channel_hash = hashlib.sha256(channel_bytes).hexdigest()
+        if channel_hash != expected_hash:
+            raise RuntimeError(f"channel {channel + 1} hash does not match the lock")
+        channel_hashes.append(channel_hash)
+        channel_results.append(
+            {
+                "baseline": 0,
+                "bits_stored": 16,
+                "channel_number": channel + 1,
+                "channel_sha256": channel_hash,
+                "correction_factor": 1,
+                "label": label,
+                "sample_skew_present": False,
+                "sensitivity": 1,
+                "sensitivity_unit": {
+                    "code_meaning": "microvolt",
+                    "code_value": "uV",
+                    "coding_scheme_designator": "UCUM",
+                },
+                "source": {
+                    "code_meaning": code_meaning,
+                    "code_value": code_value,
+                    "coding_scheme_designator": "MDC",
+                },
+                "time_skew": 0,
+            }
+        )
+
+    result = {
+        "adapter_id": "pydicom-dicom-validator-waveform",
+        "bits_allocated": bits_allocated,
+        "byte_order": "little_endian",
+        "channel_count": channel_count,
+        "channel_definitions": channel_results,
+        "channel_hashes": channel_hashes,
+        "duration_seconds": 1,
+        "formula_match": True,
+        "interleave_order": "channel_then_sample",
+        "modality": str(dataset.Modality),
+        "multiplex_group_count": 1,
+        "multiplex_group_label": str(group.MultiplexGroupLabel),
+        "originality": str(group.WaveformOriginality),
+        "pixel_data_present": False,
+        "sample_count": sample_count,
+        "sample_interpretation": sample_interpretation,
+        "sampling_frequency_hz": 500,
+        "sop_class_uid": str(dataset.SOPClassUID),
+        "stored_value_max": max(values),
+        "stored_value_min": min(values),
+        "transfer_syntax_uid": transfer_syntax,
+        "waveform_data_length": len(payload),
+        "waveform_data_sha256": payload_hash,
+        "waveform_data_vr": waveform_element.VR,
+        "waveform_padding_present": False,
+    }
+    print(json.dumps(result, sort_keys=True, separators=(",", ":")))
+    return 0
+
+
 def parser() -> argparse.ArgumentParser:
     result = argparse.ArgumentParser()
     result.add_argument("--version", action="store_true")
@@ -319,6 +501,7 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--lock-path", type=Path)
     result.add_argument("--pixel-u32", action="store_true")
     result.add_argument("--nonsquare-spacing", action="store_true")
+    result.add_argument("--waveform", action="store_true")
     result.add_argument("input", nargs="?", type=Path)
     return result
 
@@ -352,6 +535,8 @@ def main() -> None:
             raise SystemExit(
                 extract_nonsquare_spacing(args.input, standard_path, args.lock_path)
             )
+        if args.waveform:
+            raise SystemExit(extract_waveform(args.input, standard_path, args.lock_path))
         raise SystemExit(validate(args.input, standard_path, args.lock_path))
     except Exception as error:
         print(f"Error: dicom-validator adapter failure: {error}", file=sys.stderr)

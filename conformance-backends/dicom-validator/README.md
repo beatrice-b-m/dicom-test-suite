@@ -43,7 +43,7 @@ export DTS_DICOM_VALIDATOR_PYTHON="$PWD/conformance-backends/dicom-validator/.ve
 export DTS_DICOM_VALIDATOR_STANDARD_HOME=/path/to/locked/dicom-validator-cache
 ```
 
-Adapter version 0.3.0 exposes `--pixel-u32`. It reads the native OW value
+Adapter version 0.4.0 exposes `--pixel-u32`. It reads the native OW value
 through pydicom, requires the locked 32/32/31 unsigned MONOCHROME2 shape, and
 emits canonical JSON containing dimensions, attributes, exact stored values,
 the Pixel Data hash, and frame hashes. It does not use NumPy or a project pixel
@@ -57,6 +57,14 @@ declaration must be absent. Both variants must retain their exact DS/IS VR and
 VM 2, the 4x6 MONOCHROME2 native OB payload and hash, no calibration metadata,
 and no patient-space geometry. The canonical semantic result is linked to the
 same composite uv/runtime/standard fingerprint as the IOD result.
+
+The `--waveform` route independently reads the Twelve-lead ECG Waveform
+Storage OW value with pydicom and decodes signed little-endian samples with
+Python `struct`, without NumPy or generator code. It requires the locked
+12-channel, 500-sample, 500 Hz metadata and CID 3001 lead order, verifies the
+deterministic sample formula, and emits canonical JSON binding the full
+payload hash, deinterleaved per-channel hashes, metadata, value range, and
+channel-then-sample interleave.
 
 ## Locked Runtime Licenses
 

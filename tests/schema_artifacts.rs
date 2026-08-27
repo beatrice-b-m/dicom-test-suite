@@ -228,6 +228,59 @@ fn manifest_schema_types_cross_instance_geometry_expectations() {
 }
 
 #[test]
+fn manifest_schema_types_external_generation_and_float_pixels() {
+    let schema = read_json("schemas/manifest.schema.json");
+    let backend_required = schema
+        .pointer("/$defs/generation_backend/required")
+        .and_then(Value::as_array)
+        .expect("manifest schema must type generation backend provenance");
+    for field in [
+        "backend_id",
+        "protocol_version",
+        "dependency_lock_sha256",
+        "executable_fingerprint",
+        "entrypoint_fingerprint",
+        "environment_fingerprint",
+        "runtime_identity",
+        "determinism",
+    ] {
+        assert!(
+            backend_required
+                .iter()
+                .any(|value| value.as_str() == Some(field)),
+            "generation backend provenance must require {field}"
+        );
+    }
+
+    assert!(
+        schema
+            .pointer("/$defs/image/properties/sample_type/enum")
+            .and_then(Value::as_array)
+            .is_some_and(|values| values.iter().any(|value| value.as_str() == Some("float32"))),
+        "image metadata must distinguish float32 samples"
+    );
+    let image_required = schema
+        .pointer("/$defs/image/required")
+        .and_then(Value::as_array)
+        .expect("image schema must define required fields");
+    for integer_only in ["bits_stored", "high_bit", "pixel_representation"] {
+        assert!(
+            !image_required
+                .iter()
+                .any(|value| value.as_str() == Some(integer_only)),
+            "float image metadata must not globally require {integer_only}"
+        );
+    }
+    assert!(
+        schema
+            .pointer("/$defs/image/allOf")
+            .and_then(Value::as_array)
+            .is_some_and(|rules| !rules.is_empty()),
+        "image schema must conditionally preserve integer pixel requirements"
+    );
+}
+
+#[test]
 fn case_registry_schema_requires_the_specified_case_fields() {
     let schema = read_json("schemas/case-registry.schema.json");
     let required = schema

@@ -25,6 +25,14 @@ use native::advanced_blending_presentation_state::{
     ADVANCED_BLENDING_PRESENTATION_STATE_STORAGE_UID, AdvancedBlendingPresentationStateInput,
     AdvancedBlendingPresentationStateReference, build_advanced_blending_presentation_state,
 };
+use native::blending_presentation_state::{
+    BLENDING_PRESENTATION_STATE_CONTENT_DESCRIPTION, BLENDING_PRESENTATION_STATE_CONTENT_LABEL,
+    BLENDING_PRESENTATION_STATE_CREATION_DATE, BLENDING_PRESENTATION_STATE_CREATION_TIME,
+    BLENDING_PRESENTATION_STATE_OUTPUT_FILE, BLENDING_PRESENTATION_STATE_PALETTE_BYTES,
+    BLENDING_PRESENTATION_STATE_PALETTE_DESCRIPTOR, BLENDING_PRESENTATION_STATE_RELATIVE_OPACITY,
+    BLENDING_PRESENTATION_STATE_STORAGE_UID, BlendingPresentationStateInput,
+    BlendingPresentationStateReference, build_blending_presentation_state,
+};
 use native::color_softcopy_presentation_state::{
     COLOR_SOFTCOPY_PRESENTATION_STATE_CONTENT_DESCRIPTION,
     COLOR_SOFTCOPY_PRESENTATION_STATE_CONTENT_LABEL,
@@ -103,9 +111,10 @@ use crate::{
     sha256_hex,
     validation::{
         AdvancedBlendingPresentationStateExpectations, AdvancedBlendingSourceSeriesExpectations,
-        BasicTextSrExpectations, ColorSoftcopyPresentationStateExpectations, CrImageExpectations,
-        CtImageExpectations, DeformableSpatialRegistrationExpectations, DxImageExpectations,
-        EncapsulatedPdfExpectations, EnhancedCtConcatenationExpectations,
+        BasicTextSrExpectations, BlendingPresentationStateExpectations,
+        BlendingSourceSeriesExpectations, ColorSoftcopyPresentationStateExpectations,
+        CrImageExpectations, CtImageExpectations, DeformableSpatialRegistrationExpectations,
+        DxImageExpectations, EncapsulatedPdfExpectations, EnhancedCtConcatenationExpectations,
         EnhancedCtImageExpectations, EnhancedMrImageExpectations, EnhancedPetImageExpectations,
         MgImageExpectations, MrImageExpectations, NmDetectorExpectations,
         NmEnergyWindowExpectations, NmImageExpectations, Part10Expectations, PetImageExpectations,
@@ -115,12 +124,12 @@ use crate::{
         SpatialRegistrationReferenceExpectations, Tid1500Expectations, UsImageExpectations,
         UsMultiframeExpectations, XaImageExpectations, XrfImageExpectations,
         validate_advanced_blending_presentation_state_file, validate_basic_text_sr_file,
-        validate_color_softcopy_presentation_state_file, validate_comprehensive_sr_file,
-        validate_deformable_spatial_registration_file, validate_encapsulated_pdf_file,
-        validate_key_object_selection_file, validate_part10_file, validate_presentation_state_file,
-        validate_real_world_value_mapping_file, validate_rt_dose_file,
-        validate_rt_structure_set_file, validate_scoord3d_file, validate_spatial_registration_file,
-        validate_tid1500_file,
+        validate_blending_presentation_state_file, validate_color_softcopy_presentation_state_file,
+        validate_comprehensive_sr_file, validate_deformable_spatial_registration_file,
+        validate_encapsulated_pdf_file, validate_key_object_selection_file, validate_part10_file,
+        validate_presentation_state_file, validate_real_world_value_mapping_file,
+        validate_rt_dose_file, validate_rt_structure_set_file, validate_scoord3d_file,
+        validate_spatial_registration_file, validate_tid1500_file,
     },
 };
 
@@ -236,6 +245,13 @@ const ADVANCED_BLENDING_PRESENTATION_STATE_RECIPE_ID: &str =
 const ADVANCED_BLENDING_PRESENTATION_STATE_RECIPE_VERSION: &str = "0.1.0";
 const ADVANCED_BLENDING_PRESENTATION_STATE_SOURCE_CASE_ID: &str =
     "geometry/ct/multiseries_shared_frame_of_reference";
+const BLENDING_PRESENTATION_STATE_CASE_ID: &str = "derived/presentation-state/blending";
+const BLENDING_PRESENTATION_STATE_RECIPE_ID: &str = "derived_presentation_state_blending";
+const BLENDING_PRESENTATION_STATE_RECIPE_VERSION: &str = "0.1.0";
+const BLENDING_PRESENTATION_STATE_SOURCE_CASE_ID: &str =
+    "geometry/ct/multiseries_shared_frame_of_reference";
+const BLENDING_PRESENTATION_STATE_PALETTE_SHA256: &str =
+    "f393097e80ec38db493eb054a0886181eb2c0e8cf7b5cdf1de392fbe94b0d1f5";
 const DEFORMABLE_VECTOR_GRID_DATA_SHA256: &str =
     "d0673d2da1b415db6465047e607b7f16f1a886dfae4ede91764c71bf7df72f47";
 const DEFORMABLE_REGISTERED_POINTS_MM: [[f64; 3]; 4] = [
@@ -4123,6 +4139,59 @@ pub(crate) fn write_supported_cases(
             )?)?;
         }
     }
+    if let Some(case) = registry_case(registry, BLENDING_PRESENTATION_STATE_CASE_ID)? {
+        if should_generate_case(case, run)? {
+            if context
+                .source_registry()
+                .first_for_case(BLENDING_PRESENTATION_STATE_SOURCE_CASE_ID)
+                .is_none()
+            {
+                let source_case = registry_case(
+                    registry,
+                    BLENDING_PRESENTATION_STATE_SOURCE_CASE_ID,
+                )?
+                .ok_or_else(|| GenerateError::MetadataShape {
+                    path: PathBuf::from(BLENDING_PRESENTATION_STATE_CASE_ID),
+                    message: "Blending Presentation State source CT registry row is missing",
+                })?;
+                let source_recipe = CLASSIC_CT_RECIPES
+                    .iter()
+                    .find(|recipe| recipe.case_id == BLENDING_PRESENTATION_STATE_SOURCE_CASE_ID)
+                    .copied()
+                    .ok_or_else(|| GenerateError::MetadataShape {
+                        path: PathBuf::from(BLENDING_PRESENTATION_STATE_CASE_ID),
+                        message: "Blending Presentation State source CT native recipe is missing",
+                    })?;
+                context.record_many(write_classic_ct_case(
+                    run,
+                    source_case,
+                    source_recipe,
+                    standards_lock_sha256,
+                )?)?;
+            }
+            let sources = context
+                .source_registry()
+                .sources_for_case(BLENDING_PRESENTATION_STATE_SOURCE_CASE_ID)
+                .cloned()
+                .collect::<Vec<_>>();
+            let sources: [GeneratedSourceObject; 4] = sources.try_into().map_err(|sources: Vec<_>| {
+                GenerateError::MetadataShape {
+                    path: PathBuf::from(BLENDING_PRESENTATION_STATE_CASE_ID),
+                    message: if sources.len() < 4 {
+                        "Blending Presentation State requires all four source CT instances first"
+                    } else {
+                        "Blending Presentation State source CT case must contain exactly four instances"
+                    },
+                }
+            })?;
+            context.record_one(write_blending_presentation_state_case(
+                run,
+                case,
+                &sources,
+                standards_lock_sha256,
+            )?)?;
+        }
+    }
     for recipe in PRESENTATION_STATE_RECIPES {
         let Some(case) = registry_case(registry, recipe.case_id)? else {
             continue;
@@ -6758,6 +6827,269 @@ fn write_advanced_blending_presentation_state_case(
             "standards_evidence": deduplicated_standards_evidence(standards_evidence_from_case(case))
         }),
     })
+}
+
+fn write_blending_presentation_state_case(
+    run: &PreparedGenerationRun,
+    case: &Value,
+    sources: &[GeneratedSourceObject; 4],
+    standards_lock_sha256: &str,
+) -> Result<GeneratedFile, GenerateError> {
+    validate_advanced_blending_sources(&run.out_dir, sources)?;
+    let study_instance_uid = sources[0].study_instance_uid.as_str();
+    let source_series_uids = [
+        required_source_uid(
+            sources[0].series_instance_uid.as_deref(),
+            BLENDING_PRESENTATION_STATE_CASE_ID,
+            "Blending source series 1 UID is missing",
+        )?,
+        required_source_uid(
+            sources[2].series_instance_uid.as_deref(),
+            BLENDING_PRESENTATION_STATE_CASE_ID,
+            "Blending source series 2 UID is missing",
+        )?,
+    ];
+    let uid = |role| {
+        deterministic_uid(&DeterministicUidInput {
+            standards_lock_sha256,
+            case_id: BLENDING_PRESENTATION_STATE_CASE_ID,
+            recipe_version: BLENDING_PRESENTATION_STATE_RECIPE_VERSION,
+            run_seed: run.seed,
+            file_index: 0,
+            frame_index: None,
+            referenced_object_index: None,
+            role,
+        })
+    };
+    let series_instance_uid = uid(UidRole::SeriesInstance);
+    let sop_instance_uid = uid(UidRole::SopInstance);
+    if source_series_uids.contains(&series_instance_uid.as_str()) {
+        return Err(blending_source_error(
+            "Blending Presentation State Series UID must differ from both source Series UIDs",
+        ));
+    }
+    let implementation_class_uid = deterministic_implementation_uid(standards_lock_sha256);
+    let relative_path =
+        format!("{BLENDING_PRESENTATION_STATE_CASE_ID}/{BLENDING_PRESENTATION_STATE_OUTPUT_FILE}");
+    let path = run.out_dir.join(&relative_path);
+    let case_dir = path.parent().ok_or_else(|| GenerateError::MetadataShape {
+        path: PathBuf::from(&relative_path),
+        message: "Blending Presentation State output must have a parent directory",
+    })?;
+    fs::create_dir_all(case_dir).map_err(|source| GenerateError::CreateCaseOutputDir {
+        path: case_dir.to_path_buf(),
+        source,
+    })?;
+    let source_references = [
+        blending_reference(&sources[0])?,
+        blending_reference(&sources[1])?,
+        blending_reference(&sources[2])?,
+        blending_reference(&sources[3])?,
+    ];
+    let object = build_blending_presentation_state(BlendingPresentationStateInput {
+        sop_instance_uid: &sop_instance_uid,
+        series_instance_uid: &series_instance_uid,
+        sources: [
+            [source_references[0], source_references[1]],
+            [source_references[2], source_references[3]],
+        ],
+    })
+    .map_err(|message| GenerateError::WriteDicomFile {
+        path: path.clone(),
+        message,
+    })?;
+    object
+        .with_meta(
+            FileMetaTableBuilder::new()
+                .transfer_syntax(EXPLICIT_VR_LITTLE_ENDIAN.uid)
+                .implementation_class_uid(&implementation_class_uid)
+                .implementation_version_name(crate::IMPLEMENTATION_VERSION_NAME),
+        )
+        .map_err(|error| GenerateError::WriteDicomFile {
+            path: path.clone(),
+            message: error.to_string(),
+        })?
+        .write_to_file(&path)
+        .map_err(|error| GenerateError::WriteDicomFile {
+            path: path.clone(),
+            message: error.to_string(),
+        })?;
+
+    let validated = validate_blending_presentation_state_file(
+        &path,
+        &BlendingPresentationStateExpectations {
+            sop_class_uid: BLENDING_PRESENTATION_STATE_STORAGE_UID,
+            sop_instance_uid: &sop_instance_uid,
+            transfer_syntax_uid: EXPLICIT_VR_LITTLE_ENDIAN.uid,
+            implementation_class_uid: &implementation_class_uid,
+            synthetic_data: "YES",
+            study_instance_uid,
+            series_instance_uid: &series_instance_uid,
+            source_series: [
+                BlendingSourceSeriesExpectations {
+                    series_instance_uid: source_series_uids[0],
+                    sop_class_uid: &sources[0].sop_class_uid,
+                    sop_instance_uids: [&sources[0].sop_instance_uid, &sources[1].sop_instance_uid],
+                },
+                BlendingSourceSeriesExpectations {
+                    series_instance_uid: source_series_uids[1],
+                    sop_class_uid: &sources[2].sop_class_uid,
+                    sop_instance_uids: [&sources[2].sop_instance_uid, &sources[3].sop_instance_uid],
+                },
+            ],
+            palette_channel_sha256: BLENDING_PRESENTATION_STATE_PALETTE_SHA256,
+            icc_profile_sha256: ICC_PROFILE_SHA256,
+        },
+    )?;
+    let mut validation = validated.validation;
+    validation["internal"]
+        .as_array_mut()
+        .expect("Blending validation results must be an array")
+        .push(serde_json::json!({
+            "name": "blending_source_precheck",
+            "status": "passed",
+            "message": "Rust reopened and hashed all four source CT files and verified exact Study, Series, Frame of Reference, SOP, transfer syntax, geometry, and ordering before construction."
+        }));
+    let bytes = validated.bytes;
+    let source_manifest = sources
+        .iter()
+        .enumerate()
+        .map(|(index, source)| {
+            let series_order = index / 2 + 1;
+            let image_order = index % 2 + 1;
+            serde_json::json!({
+                "source_case_id": source.source_case_id,
+                "source_path": source.source_path,
+                "source_sha256": source.sha256,
+                "study_instance_uid": source.study_instance_uid,
+                "series_instance_uid": source.series_instance_uid,
+                "frame_of_reference_uid": source.frame_of_reference_uid,
+                "sop_class_uid": source.sop_class_uid,
+                "sop_instance_uid": source.sop_instance_uid,
+                "series_order": series_order,
+                "image_order": image_order,
+                "rows": 2,
+                "columns": 2,
+                "image_orientation_patient": [1, 0, 0, 0, 1, 0],
+                "image_position_patient_mm": [0, 0, if image_order == 1 { 0 } else { 5 }],
+                "referenced_frame_numbers": [],
+                "complete_instance": true
+            })
+        })
+        .collect::<Vec<_>>();
+    let palette_channel = |channel: &str| {
+        serde_json::json!({
+            "channel": channel,
+            "descriptor": BLENDING_PRESENTATION_STATE_PALETTE_DESCRIPTOR,
+            "data_vr": "OW",
+            "data_size_bytes": BLENDING_PRESENTATION_STATE_PALETTE_BYTES.len(),
+            "data_sha256": BLENDING_PRESENTATION_STATE_PALETTE_SHA256,
+            "storage": "identity_u16_little_endian"
+        })
+    };
+    let absent_modules = serde_json::json!({
+        "clinical_trial_subject": true,
+        "clinical_trial_study": true,
+        "clinical_trial_series": true,
+        "clinical_trial_equipment": true,
+        "patient_study": true,
+        "specimen": true,
+        "graphic_annotation": true,
+        "graphic_layer": true,
+        "graphic_group": true,
+        "spatial_transformation": true,
+        "frame_of_reference": true,
+        "common_instance_reference": true,
+        "softcopy_presentation_lut": true,
+        "voi_lut": true,
+        "softcopy_voi_lut": true,
+        "overlay_plane": true,
+        "overlay_activation": true,
+        "display_shutter": true,
+        "bitmap_display_shutter": true
+    });
+    let expected = serde_json::json!({
+        "presentation_state": {
+            "study_instance_uid": study_instance_uid,
+            "series_instance_uid": series_instance_uid,
+            "sop_instance_uid": sop_instance_uid,
+            "modality": "PR",
+            "laterality": "R",
+            "content_label": BLENDING_PRESENTATION_STATE_CONTENT_LABEL,
+            "content_description": BLENDING_PRESENTATION_STATE_CONTENT_DESCRIPTION,
+            "content_creator_name": "DTS^Generator",
+            "presentation_creation_date": BLENDING_PRESENTATION_STATE_CREATION_DATE,
+            "presentation_creation_time": BLENDING_PRESENTATION_STATE_CREATION_TIME,
+            "instance_number": 1,
+            "series_number": 81
+        },
+        "sources": source_manifest,
+        "same_study": true,
+        "shared_frame_of_reference": true,
+        "different_series": true,
+        "blending_items": [
+            {"blending_position": "UNDERLYING", "source_series_order": 1, "study_instance_uid": study_instance_uid, "series_instance_uid": source_series_uids[0], "referenced_source_indices": [1, 2], "referenced_frame_numbers": [], "rescale_intercept": -1024, "rescale_slope": 1, "rescale_type": "HU", "softcopy_voi_lut_items": 0, "referenced_spatial_registration_items": 0, "complete_instances": true},
+            {"blending_position": "SUPERIMPOSED", "source_series_order": 2, "study_instance_uid": study_instance_uid, "series_instance_uid": source_series_uids[1], "referenced_source_indices": [3, 4], "referenced_frame_numbers": [], "rescale_intercept": -1024, "rescale_slope": 1, "rescale_type": "HU", "softcopy_voi_lut_items": 0, "referenced_spatial_registration_items": 0, "complete_instances": true}
+        ],
+        "relative_opacity": BLENDING_PRESENTATION_STATE_RELATIVE_OPACITY,
+        "displayed_area": {"items": 1, "applies_to_all_references": true, "referenced_image_items": 0, "top_left": [1, 1], "bottom_right": [2, 2], "presentation_size_mode": "SCALE TO FIT", "presentation_pixel_aspect_ratio": [1, 1], "presentation_pixel_spacing": Value::Null, "presentation_pixel_magnification_ratio": Value::Null},
+        "palette_color_lut": {"channels": [palette_channel("red"), palette_channel("green"), palette_channel("blue")], "segmented_data_present": false, "palette_uid_present": false},
+        "icc_profile": {"vr": "OB", "size_bytes": ICC_PROFILE_SIZE, "sha256": ICC_PROFILE_SHA256, "device_class": "scnr", "data_color_space": "RGB ", "profile_connection_space": "XYZ ", "signature": "acsp", "dicom_color_space": ICC_COLOR_SPACE},
+        "absent_modules": absent_modules,
+        "pixel_data_absent": true
+    });
+
+    Ok(GeneratedFile {
+        case_id: BLENDING_PRESENTATION_STATE_CASE_ID.to_string(),
+        manifest_entry: serde_json::json!({
+            "case_id": BLENDING_PRESENTATION_STATE_CASE_ID,
+            "profile_membership": ["extended"],
+            "path": relative_path,
+            "sha256": sha256_hex(&bytes),
+            "size_bytes": bytes.len(),
+            "determinism": "byte_stable",
+            "recipe": {"recipe_id": BLENDING_PRESENTATION_STATE_RECIPE_ID, "recipe_version": BLENDING_PRESENTATION_STATE_RECIPE_VERSION, "recipe_parameters": {"source_case_id": BLENDING_PRESENTATION_STATE_SOURCE_CASE_ID, "blending_positions": ["UNDERLYING", "SUPERIMPOSED"], "relative_opacity": BLENDING_PRESENTATION_STATE_RELATIVE_OPACITY, "palette_channel_sha256": BLENDING_PRESENTATION_STATE_PALETTE_SHA256, "icc_profile_sha256": ICC_PROFILE_SHA256}},
+            "dicom": {"sop_class_uid": BLENDING_PRESENTATION_STATE_STORAGE_UID, "sop_class_name": "Blending Softcopy Presentation State Storage", "iod_name": "Blending Softcopy Presentation State", "modality": "PR", "transfer_syntax_uid": EXPLICIT_VR_LITTLE_ENDIAN.uid, "transfer_syntax_name": EXPLICIT_VR_LITTLE_ENDIAN.name},
+            "uids": {"study_instance_uid": study_instance_uid, "series_instance_uid": series_instance_uid, "sop_instance_uid": sop_instance_uid, "implementation_class_uid": implementation_class_uid, "implementation_version_name": crate::IMPLEMENTATION_VERSION_NAME},
+            "image": Value::Null,
+            "pixel_data": Value::Null,
+            "references": sources.iter().map(|source| source.to_manifest_reference("blending_source", None)).collect::<Vec<_>>(),
+            "expected_capabilities": ["open_file", "read_metadata", "resolve_references", "apply_blending_presentation_state", "render_palette_color_blend", "color_manage_icc_profile"],
+            "expected_semantics": {"synthetic_data": "YES", "same_study_as_sources": true, "shared_source_frame_of_reference": true, "underlying_superimposed_blend": true, "pixel_data_absent": true},
+            "expected_blending_presentation_state": expected,
+            "expected_visual_checks": {"pattern": "equal_opacity_identity_palette_blend_of_two_registered_ct_series"},
+            "validation": validation,
+            "known_stressors": ["blending_softcopy_presentation_state_storage", "two_source_series", "four_complete_instance_references", "underlying_superimposed_positions", "relative_opacity", "per_item_rescale", "global_displayed_area", "mandatory_palette_color_lut", "mandatory_exact_icc_profile", "optional_modules_absent"],
+            "standards_evidence": deduplicated_standards_evidence(standards_evidence_from_case(case))
+        }),
+    })
+}
+
+fn blending_reference(
+    source: &GeneratedSourceObject,
+) -> Result<BlendingPresentationStateReference<'_>, GenerateError> {
+    Ok(BlendingPresentationStateReference {
+        study_instance_uid: source.study_instance_uid.as_str(),
+        series_instance_uid: required_source_uid(
+            source.series_instance_uid.as_deref(),
+            BLENDING_PRESENTATION_STATE_CASE_ID,
+            "Blending source Series UID is missing",
+        )?,
+        sop_class_uid: source.sop_class_uid.as_str(),
+        sop_instance_uid: source.sop_instance_uid.as_str(),
+        frame_of_reference_uid: required_source_uid(
+            source.frame_of_reference_uid.as_deref(),
+            BLENDING_PRESENTATION_STATE_CASE_ID,
+            "Blending source Frame of Reference UID is missing",
+        )?,
+    })
+}
+
+fn blending_source_error(message: impl Into<String>) -> GenerateError {
+    GenerateError::ValidateDicomFile {
+        path: PathBuf::from(BLENDING_PRESENTATION_STATE_CASE_ID),
+        message: message.into(),
+    }
 }
 
 fn validate_advanced_blending_sources(
@@ -24439,6 +24771,115 @@ mod tests {
         assert!(
             validator.is_valid(&first.manifest_entry),
             "Advanced Blending manifest entry should satisfy schema: {:?}",
+            validator
+                .iter_errors(&first.manifest_entry)
+                .collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn blending_writer_reopens_all_sources_and_is_deterministic() {
+        let output = ParametricMapStagingGuard::new();
+        let run = PreparedGenerationRun {
+            profile: "extended".to_string(),
+            out_dir: output.path().to_path_buf(),
+            manifest_path: output.path().join("manifest.json"),
+            seed: 7,
+            include_stress: false,
+        };
+        let source_recipe = CLASSIC_CT_RECIPES
+            .iter()
+            .find(|recipe| recipe.case_id == BLENDING_PRESENTATION_STATE_SOURCE_CASE_ID)
+            .copied()
+            .expect("locked multiseries CT source recipe");
+        let source_case = serde_json::json!({
+            "case_id": BLENDING_PRESENTATION_STATE_SOURCE_CASE_ID,
+            "standards_evidence": []
+        });
+        let source_files = write_classic_ct_case(
+            &run,
+            &source_case,
+            source_recipe,
+            "0000000000000000000000000000000000000000000000000000000000000000",
+        )
+        .expect("four source CT files should write and validate");
+        let sources: [GeneratedSourceObject; 4] = source_files
+            .iter()
+            .map(GeneratedSourceObject::from_generated_file)
+            .collect::<Result<Vec<_>, _>>()
+            .expect("source manifests should register")
+            .try_into()
+            .expect("source recipe should produce exactly four CT files");
+        let blending_case = serde_json::json!({
+            "case_id": BLENDING_PRESENTATION_STATE_CASE_ID,
+            "standards_evidence": []
+        });
+
+        let first = write_blending_presentation_state_case(
+            &run,
+            &blending_case,
+            &sources,
+            "0000000000000000000000000000000000000000000000000000000000000000",
+        )
+        .expect("Blending object should write and validate");
+        let output_path = output
+            .path()
+            .join(BLENDING_PRESENTATION_STATE_CASE_ID)
+            .join(BLENDING_PRESENTATION_STATE_OUTPUT_FILE);
+        let first_bytes = fs::read(&output_path).expect("first Blending bytes");
+        let second = write_blending_presentation_state_case(
+            &run,
+            &blending_case,
+            &sources,
+            "0000000000000000000000000000000000000000000000000000000000000000",
+        )
+        .expect("repeated Blending object should validate");
+        let second_bytes = fs::read(&output_path).expect("second Blending bytes");
+
+        assert_eq!(first_bytes, second_bytes);
+        assert_eq!(
+            first.manifest_entry["sha256"],
+            second.manifest_entry["sha256"]
+        );
+        assert_eq!(
+            first.manifest_entry["references"].as_array().map(Vec::len),
+            Some(4)
+        );
+        assert_eq!(
+            first
+                .manifest_entry
+                .pointer("/expected_blending_presentation_state/relative_opacity"),
+            Some(&Value::from(0.5))
+        );
+        assert_eq!(
+            first.manifest_entry.pointer(
+                "/expected_blending_presentation_state/blending_items/1/blending_position"
+            ),
+            Some(&Value::from("SUPERIMPOSED"))
+        );
+        assert!(
+            first
+                .manifest_entry
+                .pointer("/validation/internal")
+                .and_then(Value::as_array)
+                .expect("internal validation evidence")
+                .iter()
+                .any(|check| check.get("name").and_then(Value::as_str)
+                    == Some("blending_source_precheck"))
+        );
+        let manifest_schema: Value =
+            serde_json::from_str(include_str!("../schemas/manifest.schema.json"))
+                .expect("manifest schema should parse");
+        let file_schema = serde_json::json!({
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$ref": "#/$defs/file",
+            "$defs": manifest_schema["$defs"].clone(),
+        });
+        let validator =
+            jsonschema::validator_for(&file_schema).expect("file manifest schema should compile");
+        assert!(
+            validator.is_valid(&first.manifest_entry),
+            "Blending manifest entry should satisfy schema: {:?}",
             validator
                 .iter_errors(&first.manifest_entry)
                 .collect::<Vec<_>>()

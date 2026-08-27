@@ -3430,6 +3430,18 @@ fn coverage_report_schema_requires_the_specified_matrix_fields() {
         "wsi_sentinel_matrix_sha256",
         "wsi_explicit_position_reconstruction",
         "wsi_reference_free",
+        "wsi_pyramid_role",
+        "wsi_pyramid_ordinal",
+        "wsi_pyramid_member_count",
+        "wsi_pyramid_ordered_roles",
+        "wsi_pyramid_apex_role",
+        "wsi_pyramid_pyramid_member",
+        "wsi_pyramid_group_closure",
+        "wsi_pyramid_member_binding_verified",
+        "wsi_pyramid_shared_identity_closure",
+        "wsi_pyramid_total_frame_count",
+        "wsi_pyramid_total_dicom_bytes",
+        "wsi_pyramid_member_matrix_sha256",
     ] {
         assert!(
             required.iter().any(|value| value.as_str() == Some(field)),
@@ -3676,6 +3688,12 @@ fn coverage_report_schema_requires_the_specified_matrix_fields() {
         "lossy_image_compression",
         "lossy_image_compression_ratios",
         "lossy_image_compression_methods",
+        "wsi_pyramid_roles",
+        "wsi_pyramid_ordinals",
+        "wsi_pyramid_membership_states",
+        "wsi_pyramid_group_closure_states",
+        "wsi_pyramid_member_binding_states",
+        "wsi_pyramid_shared_identity_closure_states",
     ] {
         assert!(
             schema
@@ -3684,6 +3702,21 @@ fn coverage_report_schema_requires_the_specified_matrix_fields() {
                 ))
                 .is_some(),
             "coverage report schema must define grouped {grouped_field} coverage"
+        );
+    }
+
+    for field in [
+        "wsi_pyramid_pyramid_member",
+        "wsi_pyramid_group_closure",
+        "wsi_pyramid_member_binding_verified",
+        "wsi_pyramid_shared_identity_closure",
+    ] {
+        assert_eq!(
+            schema
+                .pointer(&format!("/$defs/coverage_row/properties/{field}/type/0"))
+                .and_then(Value::as_str),
+            Some("boolean"),
+            "WSI pyramid report field {field} must be nullable boolean"
         );
     }
 }

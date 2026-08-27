@@ -15351,6 +15351,8 @@ pub fn build_coverage_report(root_dir: impl AsRef<Path>) -> Result<Value, Report
         "run profile must be a string",
     )?;
 
+    validate_wsi_pyramid_report_group(&manifest_path, files)?;
+
     let mut rows = Vec::new();
     let mut counts = CoverageCounts::default();
     let mut grouped = GroupedCoverage::default();
@@ -15399,6 +15401,18 @@ pub fn build_coverage_report(root_dir: impl AsRef<Path>) -> Result<Value, Report
         "grouped_coverage": grouped.to_json(),
         "gaps": gaps
     }))
+}
+
+fn validate_wsi_pyramid_report_group(
+    manifest_path: &Path,
+    files: &[Value],
+) -> Result<(), ReportError> {
+    validate_wsi_pyramid_manifest_group(manifest_path, files).map_err(|_| {
+        ReportError::MetadataShape {
+            path: manifest_path.to_path_buf(),
+            message: "WSI pyramid coverage requires one closed, ordered, cross-bound three-member group",
+        }
+    })
 }
 
 pub fn render_coverage_report_markdown(report: &Value) -> String {
@@ -15525,6 +15539,31 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
         "Unavailable Reasons",
         "/grouped_coverage/unavailable_reasons",
     );
+    for (title, pointer) in [
+        ("WSI Pyramid Roles", "/grouped_coverage/wsi_pyramid_roles"),
+        (
+            "WSI Pyramid Ordinals",
+            "/grouped_coverage/wsi_pyramid_ordinals",
+        ),
+        (
+            "WSI Pyramid Membership States",
+            "/grouped_coverage/wsi_pyramid_membership_states",
+        ),
+        (
+            "WSI Pyramid Group Closure States",
+            "/grouped_coverage/wsi_pyramid_group_closure_states",
+        ),
+        (
+            "WSI Pyramid Member Binding States",
+            "/grouped_coverage/wsi_pyramid_member_binding_states",
+        ),
+        (
+            "WSI Pyramid Shared Identity Closure States",
+            "/grouped_coverage/wsi_pyramid_shared_identity_closure_states",
+        ),
+    ] {
+        append_count_map_section(&mut output, report, title, pointer);
+    }
     append_count_map_section(
         &mut output,
         report,
@@ -18617,6 +18656,43 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
         output.push('\n');
     }
 
+    let wsi_pyramid_rows = report
+        .get("coverage_matrix")
+        .and_then(Value::as_array)
+        .map(|rows| {
+            rows.iter()
+                .filter(|row| !row["wsi_pyramid_role"].is_null())
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    if !wsi_pyramid_rows.is_empty() {
+        output.push_str("## WSI Pyramid Group Expectations\n\n");
+        output.push_str("| Case ID | Ordinal / role | Pyramid member / apex | Group members / ordered roles | Group frames / DICOM bytes | Group / member / shared-identity closure | Member matrix SHA-256 |\n");
+        output.push_str("|---|---|---|---|---|---|---|\n");
+        for row in wsi_pyramid_rows {
+            output.push_str(&format!(
+                "| {} | {} / {} | {} / {} | {} / {} | {} / {} | {} / {} / {} | {} |\n",
+                markdown_cell(row.get("case_id").and_then(Value::as_str)),
+                markdown_number(row.get("wsi_pyramid_ordinal")),
+                markdown_cell(row.get("wsi_pyramid_role").and_then(Value::as_str)),
+                markdown_bool(row.get("wsi_pyramid_pyramid_member")),
+                markdown_cell(row.get("wsi_pyramid_apex_role").and_then(Value::as_str)),
+                markdown_number(row.get("wsi_pyramid_member_count")),
+                markdown_cell(row.get("wsi_pyramid_ordered_roles").and_then(Value::as_str)),
+                markdown_number(row.get("wsi_pyramid_total_frame_count")),
+                markdown_number(row.get("wsi_pyramid_total_dicom_bytes")),
+                markdown_bool(row.get("wsi_pyramid_group_closure")),
+                markdown_bool(row.get("wsi_pyramid_member_binding_verified")),
+                markdown_bool(row.get("wsi_pyramid_shared_identity_closure")),
+                markdown_cell(
+                    row.get("wsi_pyramid_member_matrix_sha256")
+                        .and_then(Value::as_str)
+                ),
+            ));
+        }
+        output.push('\n');
+    }
+
     output.push_str("## Coverage Matrix\n\n");
     output.push_str("| Case ID | Status | Profile | IOD | Transfer Syntax | Photometric | Bits | Frames | Generation Backend | Backend Version | Backend Determinism | Validation |\n");
     output.push_str("|---|---|---|---|---|---|---:|---:|---|---|---|---|\n");
@@ -18827,6 +18903,89 @@ struct WsiTiledFullReportFields {
     reference_free: Option<bool>,
 }
 
+#[derive(Default)]
+struct WsiPyramidReportFields {
+    role: Option<String>,
+    ordinal: Option<u64>,
+    member_count: Option<u64>,
+    ordered_roles: Option<String>,
+    apex_role: Option<String>,
+    pyramid_member: Option<bool>,
+    group_closure: Option<bool>,
+    member_binding_verified: Option<bool>,
+    shared_identity_closure: Option<bool>,
+    total_frame_count: Option<u64>,
+    total_dicom_bytes: Option<u64>,
+    member_matrix_sha256: Option<String>,
+}
+
+fn wsi_pyramid_report_fields(
+    manifest_path: &Path,
+    file: &Value,
+) -> Result<WsiPyramidReportFields, ReportError> {
+    const CASE_ID: &str = "vl/wsi/pyramid_multiresolution";
+    let case_id = file.get("case_id").and_then(Value::as_str).unwrap_or("");
+    if case_id != CASE_ID {
+        return if [
+            "wsi_pyramid_role",
+            "wsi_pyramid_ordinal",
+            "expected_wsi_pyramid",
+        ]
+        .iter()
+        .any(|field| file.get(field).is_some())
+        {
+            Err(ReportError::MetadataShape {
+                path: manifest_path.to_path_buf(),
+                message: "WSI pyramid report fields are only valid for vl/wsi/pyramid_multiresolution",
+            })
+        } else {
+            Ok(WsiPyramidReportFields::default())
+        };
+    }
+
+    validate_wsi_pyramid_manifest_member(manifest_path, file).map_err(|_| {
+        ReportError::MetadataShape {
+            path: manifest_path.to_path_buf(),
+            message: "WSI pyramid coverage member must match the repeated locked group contract",
+        }
+    })?;
+    let expected = file
+        .get("expected_wsi_pyramid")
+        .expect("validated WSI pyramid member must have its group contract");
+    let ordinal = file
+        .get("wsi_pyramid_ordinal")
+        .and_then(Value::as_u64)
+        .expect("validated WSI pyramid member must have an ordinal");
+    let role = file
+        .get("wsi_pyramid_role")
+        .and_then(Value::as_str)
+        .expect("validated WSI pyramid member must have a role");
+    let member = &expected["members"][(ordinal - 1) as usize];
+    let total_dicom_bytes = expected["members"]
+        .as_array()
+        .expect("validated WSI pyramid contract must have members")
+        .iter()
+        .map(|member| member["size_bytes"].as_u64().unwrap_or(0))
+        .sum();
+
+    Ok(WsiPyramidReportFields {
+        role: Some(role.to_string()),
+        ordinal: Some(ordinal),
+        member_count: expected["member_count"].as_u64(),
+        ordered_roles: Some("volume; thumbnail; label".to_string()),
+        apex_role: expected["apex_role"].as_str().map(str::to_string),
+        pyramid_member: Some(member["pyramid_uid"].is_string()),
+        group_closure: Some(true),
+        member_binding_verified: Some(true),
+        shared_identity_closure: Some(true),
+        total_frame_count: expected
+            .pointer("/budget/total_frame_count")
+            .and_then(Value::as_u64),
+        total_dicom_bytes: Some(total_dicom_bytes),
+        member_matrix_sha256: member["matrix_sha256"].as_str().map(str::to_string),
+    })
+}
+
 fn locked_wsi_tiled_full_report_fields() -> WsiTiledFullReportFields {
     WsiTiledFullReportFields {
         iod_kind: Some("vl_wsi_tiled_full"),
@@ -19015,6 +19174,7 @@ fn generated_coverage_row(
     let vl_single_frame_laterality = vl_single_frame_report_laterality(manifest_path, file)?;
     let wsi_tiled_full = wsi_tiled_full_report_fields(manifest_path, file)?;
     let wsi_tiled_sparse = wsi_tiled_sparse_report_fields(manifest_path, file)?;
+    let wsi_pyramid = wsi_pyramid_report_fields(manifest_path, file)?;
     let wsi = if wsi_tiled_sparse.iod_kind.is_some() {
         &wsi_tiled_sparse
     } else {
@@ -19451,6 +19611,52 @@ fn generated_coverage_row(
             wsi.explicit_position_reconstruction.map(Value::from),
         ),
         ("wsi_reference_free", wsi.reference_free.map(Value::from)),
+    ] {
+        row_object.insert(field.to_string(), value.unwrap_or(Value::Null));
+    }
+    for (field, value) in [
+        ("wsi_pyramid_role", wsi_pyramid.role.map(Value::from)),
+        ("wsi_pyramid_ordinal", wsi_pyramid.ordinal.map(Value::from)),
+        (
+            "wsi_pyramid_member_count",
+            wsi_pyramid.member_count.map(Value::from),
+        ),
+        (
+            "wsi_pyramid_ordered_roles",
+            wsi_pyramid.ordered_roles.map(Value::from),
+        ),
+        (
+            "wsi_pyramid_apex_role",
+            wsi_pyramid.apex_role.map(Value::from),
+        ),
+        (
+            "wsi_pyramid_pyramid_member",
+            wsi_pyramid.pyramid_member.map(Value::from),
+        ),
+        (
+            "wsi_pyramid_group_closure",
+            wsi_pyramid.group_closure.map(Value::from),
+        ),
+        (
+            "wsi_pyramid_member_binding_verified",
+            wsi_pyramid.member_binding_verified.map(Value::from),
+        ),
+        (
+            "wsi_pyramid_shared_identity_closure",
+            wsi_pyramid.shared_identity_closure.map(Value::from),
+        ),
+        (
+            "wsi_pyramid_total_frame_count",
+            wsi_pyramid.total_frame_count.map(Value::from),
+        ),
+        (
+            "wsi_pyramid_total_dicom_bytes",
+            wsi_pyramid.total_dicom_bytes.map(Value::from),
+        ),
+        (
+            "wsi_pyramid_member_matrix_sha256",
+            wsi_pyramid.member_matrix_sha256.map(Value::from),
+        ),
     ] {
         row_object.insert(field.to_string(), value.unwrap_or(Value::Null));
     }
@@ -25099,6 +25305,18 @@ fn skipped_coverage_row(
         "wsi_sentinel_matrix_sha256",
         "wsi_explicit_position_reconstruction",
         "wsi_reference_free",
+        "wsi_pyramid_role",
+        "wsi_pyramid_ordinal",
+        "wsi_pyramid_member_count",
+        "wsi_pyramid_ordered_roles",
+        "wsi_pyramid_apex_role",
+        "wsi_pyramid_pyramid_member",
+        "wsi_pyramid_group_closure",
+        "wsi_pyramid_member_binding_verified",
+        "wsi_pyramid_shared_identity_closure",
+        "wsi_pyramid_total_frame_count",
+        "wsi_pyramid_total_dicom_bytes",
+        "wsi_pyramid_member_matrix_sha256",
         "waveform_iod_kind",
         "waveform_group_count",
         "waveform_group_shapes",
@@ -25928,6 +26146,12 @@ struct GroupedCoverage {
     waveform_simultaneous_sampling_states: BTreeMap<String, usize>,
     waveform_pixel_data_absent_states: BTreeMap<String, usize>,
     waveform_external_validator_dispositions: BTreeMap<String, usize>,
+    wsi_pyramid_roles: BTreeMap<String, usize>,
+    wsi_pyramid_ordinals: BTreeMap<String, usize>,
+    wsi_pyramid_membership_states: BTreeMap<String, usize>,
+    wsi_pyramid_group_closure_states: BTreeMap<String, usize>,
+    wsi_pyramid_member_binding_states: BTreeMap<String, usize>,
+    wsi_pyramid_shared_identity_closure_states: BTreeMap<String, usize>,
     synthetic_data: BTreeMap<String, usize>,
     image_types: BTreeMap<String, usize>,
     lateralities: BTreeMap<String, usize>,
@@ -26255,6 +26479,38 @@ impl GroupedCoverage {
             &mut self.validation_statuses,
             row.get("validation_status").and_then(Value::as_str),
         );
+        increment_map(
+            &mut self.wsi_pyramid_roles,
+            row.get("wsi_pyramid_role").and_then(Value::as_str),
+        );
+        if let Some(ordinal) = row.get("wsi_pyramid_ordinal").and_then(Value::as_u64) {
+            *self
+                .wsi_pyramid_ordinals
+                .entry(ordinal.to_string())
+                .or_default() += 1;
+        }
+        for (map, field) in [
+            (
+                &mut self.wsi_pyramid_membership_states,
+                "wsi_pyramid_pyramid_member",
+            ),
+            (
+                &mut self.wsi_pyramid_group_closure_states,
+                "wsi_pyramid_group_closure",
+            ),
+            (
+                &mut self.wsi_pyramid_member_binding_states,
+                "wsi_pyramid_member_binding_verified",
+            ),
+            (
+                &mut self.wsi_pyramid_shared_identity_closure_states,
+                "wsi_pyramid_shared_identity_closure",
+            ),
+        ] {
+            if let Some(value) = row.get(field).and_then(Value::as_bool) {
+                *map.entry(value.to_string()).or_default() += 1;
+            }
+        }
         if matches!(
             row.get("status").and_then(Value::as_str),
             Some("blocked" | "planned" | "skipped" | "unavailable")
@@ -28202,6 +28458,31 @@ impl GroupedCoverage {
         let grouped_object = grouped
             .as_object_mut()
             .expect("grouped coverage literal must be an object");
+        for (field, map) in [
+            ("wsi_pyramid_roles", &self.wsi_pyramid_roles),
+            ("wsi_pyramid_ordinals", &self.wsi_pyramid_ordinals),
+            (
+                "wsi_pyramid_membership_states",
+                &self.wsi_pyramid_membership_states,
+            ),
+            (
+                "wsi_pyramid_group_closure_states",
+                &self.wsi_pyramid_group_closure_states,
+            ),
+            (
+                "wsi_pyramid_member_binding_states",
+                &self.wsi_pyramid_member_binding_states,
+            ),
+            (
+                "wsi_pyramid_shared_identity_closure_states",
+                &self.wsi_pyramid_shared_identity_closure_states,
+            ),
+        ] {
+            grouped_object.insert(
+                field.to_string(),
+                serde_json::to_value(map).expect("WSI pyramid count map must serialize"),
+            );
+        }
         grouped_object.insert(
             "lateralities".to_string(),
             serde_json::to_value(&self.lateralities).expect("laterality count map must serialize"),
@@ -31404,6 +31685,125 @@ mod tests {
         });
         assert!(
             validate_wsi_pyramid_manifest_member(Path::new("manifest.json"), &misplaced).is_err()
+        );
+    }
+
+    #[test]
+    fn wsi_pyramid_report_preserves_membership_rows_and_group_closure() {
+        let mut files = wsi_pyramid_test_files();
+        for file in &mut files {
+            file["profile_membership"] = serde_json::json!(["stress"]);
+            file["dicom"]["sop_class_name"] =
+                Value::from("VL Whole Slide Microscopy Image Storage");
+            file["dicom"]["iod_name"] = Value::from("VL Whole Slide Microscopy Image");
+            file["dicom"]["modality"] = Value::from("SM");
+            file["dicom"]["transfer_syntax_uid"] = Value::from("1.2.840.10008.1.2.1");
+            file["dicom"]["transfer_syntax_name"] = Value::from("Explicit VR Little Endian");
+            file["image"]["photometric_interpretation"] = Value::from("RGB");
+            file["image"]["samples_per_pixel"] = Value::from(3);
+            file["image"]["planar_configuration"] = Value::from(0);
+            file["image"]["bits_allocated"] = Value::from(8);
+            file["image"]["bits_stored"] = Value::from(8);
+            file["image"]["high_bit"] = Value::from(7);
+            file["image"]["pixel_representation"] = Value::from(0);
+            file["pixel_data"]["vr"] = Value::from("OB");
+            file["pixel_data"]["native_or_encapsulated"] = Value::from("native");
+            file["determinism"] = Value::from("byte_stable");
+            file["validation"] = serde_json::json!({"status": "passed"});
+            file["known_stressors"] =
+                serde_json::json!(["multi_resolution_pyramid", "thumbnail_and_label_companions"]);
+        }
+
+        validate_wsi_pyramid_report_group(Path::new("manifest.json"), &files)
+            .expect("complete pyramid group must be reportable");
+        let rows = files
+            .iter()
+            .map(|file| generated_coverage_row(Path::new("manifest.json"), file, "stress"))
+            .collect::<Result<Vec<_>, _>>()
+            .expect("all pyramid members must produce coverage rows");
+        assert_eq!(rows.len(), 3, "same-case members must not collapse");
+        assert_eq!(
+            rows.iter()
+                .map(|row| row["case_id"].as_str().unwrap())
+                .collect::<Vec<_>>(),
+            vec![
+                "vl/wsi/pyramid_multiresolution",
+                "vl/wsi/pyramid_multiresolution",
+                "vl/wsi/pyramid_multiresolution"
+            ]
+        );
+        assert_eq!(
+            rows.iter()
+                .map(|row| row["wsi_pyramid_role"].as_str().unwrap())
+                .collect::<Vec<_>>(),
+            vec!["volume", "thumbnail", "label"]
+        );
+        assert_eq!(
+            rows.iter()
+                .map(|row| row["wsi_pyramid_pyramid_member"].as_bool().unwrap())
+                .collect::<Vec<_>>(),
+            vec![true, true, false]
+        );
+        assert!(rows.iter().all(|row| {
+            row["wsi_pyramid_group_closure"] == Value::Bool(true)
+                && row["wsi_pyramid_member_binding_verified"] == Value::Bool(true)
+                && row["wsi_pyramid_shared_identity_closure"] == Value::Bool(true)
+                && row["wsi_pyramid_total_frame_count"] == Value::from(6)
+                && row["wsi_pyramid_total_dicom_bytes"] == Value::from(8794)
+        }));
+
+        let mut grouped = GroupedCoverage::default();
+        for row in &rows {
+            grouped.record(row);
+        }
+        let grouped = grouped.to_json();
+        assert_eq!(
+            grouped["wsi_pyramid_roles"],
+            serde_json::json!({
+                "label": 1, "thumbnail": 1, "volume": 1
+            })
+        );
+        assert_eq!(
+            grouped["wsi_pyramid_membership_states"],
+            serde_json::json!({
+                "false": 1, "true": 2
+            })
+        );
+        assert_eq!(grouped["wsi_pyramid_group_closure_states"]["true"], 3);
+
+        let report = serde_json::json!({
+            "coverage_matrix": rows,
+            "grouped_coverage": grouped
+        });
+        let markdown = render_coverage_report_markdown(&report);
+        assert!(markdown.contains("## WSI Pyramid Group Expectations"));
+        assert!(markdown.contains("| 1 / volume | true / thumbnail |"));
+        assert!(markdown.contains("| 3 / label | false / thumbnail |"));
+    }
+
+    #[test]
+    fn wsi_pyramid_report_rejects_partial_and_crossed_groups() {
+        let files = wsi_pyramid_test_files();
+        assert!(
+            validate_wsi_pyramid_report_group(Path::new("manifest.json"), &files[..2]).is_err(),
+            "partial groups must not reach report rows"
+        );
+
+        let mut crossed = files.clone();
+        crossed[2]["expected_wsi_pyramid"]["shared_identity"]["series_instance_uid"] =
+            Value::from("1.2.826.0.1.3680043.10.543.999");
+        assert!(
+            validate_wsi_pyramid_report_group(Path::new("manifest.json"), &crossed).is_err(),
+            "divergent repeated group bindings must be rejected"
+        );
+
+        let mut wrong_membership = files;
+        wrong_membership[2]["expected_wsi_pyramid"]["members"][2]["pyramid_uid"] =
+            Value::from("1.2.826.0.1.3680043.10.543.35");
+        assert!(
+            validate_wsi_pyramid_report_group(Path::new("manifest.json"), &wrong_membership)
+                .is_err(),
+            "label must remain outside Pyramid UID membership"
         );
     }
 

@@ -83,6 +83,12 @@
         "unavailable_reasons": {
           "$ref": "#/$defs/count_map"
         },
+        "wsi_pyramid_roles": { "$ref": "#/$defs/count_map" },
+        "wsi_pyramid_ordinals": { "$ref": "#/$defs/count_map" },
+        "wsi_pyramid_membership_states": { "$ref": "#/$defs/count_map" },
+        "wsi_pyramid_group_closure_states": { "$ref": "#/$defs/count_map" },
+        "wsi_pyramid_member_binding_states": { "$ref": "#/$defs/count_map" },
+        "wsi_pyramid_shared_identity_closure_states": { "$ref": "#/$defs/count_map" },
         "metadata_specific_character_sets": {
           "$ref": "#/$defs/count_map"
         },
@@ -1214,6 +1220,18 @@
         "wsi_sentinel_matrix_sha256",
         "wsi_explicit_position_reconstruction",
         "wsi_reference_free",
+        "wsi_pyramid_role",
+        "wsi_pyramid_ordinal",
+        "wsi_pyramid_member_count",
+        "wsi_pyramid_ordered_roles",
+        "wsi_pyramid_apex_role",
+        "wsi_pyramid_pyramid_member",
+        "wsi_pyramid_group_closure",
+        "wsi_pyramid_member_binding_verified",
+        "wsi_pyramid_shared_identity_closure",
+        "wsi_pyramid_total_frame_count",
+        "wsi_pyramid_total_dicom_bytes",
+        "wsi_pyramid_member_matrix_sha256",
         "validation_status",
         "determinism",
         "object_type",
@@ -2204,6 +2222,20 @@
         },
         "wsi_explicit_position_reconstruction": { "type": ["boolean", "null"] },
         "wsi_reference_free": { "type": ["boolean", "null"] },
+        "wsi_pyramid_role": { "enum": ["volume", "thumbnail", "label", null] },
+        "wsi_pyramid_ordinal": { "type": ["integer", "null"], "minimum": 1, "maximum": 3 },
+        "wsi_pyramid_member_count": { "type": ["integer", "null"], "minimum": 3, "maximum": 3 },
+        "wsi_pyramid_ordered_roles": { "enum": ["volume; thumbnail; label", null] },
+        "wsi_pyramid_apex_role": { "enum": ["thumbnail", null] },
+        "wsi_pyramid_pyramid_member": { "type": ["boolean", "null"] },
+        "wsi_pyramid_group_closure": { "type": ["boolean", "null"] },
+        "wsi_pyramid_member_binding_verified": { "type": ["boolean", "null"] },
+        "wsi_pyramid_shared_identity_closure": { "type": ["boolean", "null"] },
+        "wsi_pyramid_total_frame_count": { "type": ["integer", "null"], "minimum": 6, "maximum": 6 },
+        "wsi_pyramid_total_dicom_bytes": { "type": ["integer", "null"], "minimum": 1, "maximum": 65536 },
+        "wsi_pyramid_member_matrix_sha256": {
+          "anyOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }]
+        },
         "validation_status": {
           "$ref": "#/$defs/validation_status"
         },
@@ -2911,6 +2943,92 @@
               "wsi_sentinel_matrix_sha256": { "const": "d10a587875f14a0b74a9e4935ce83cdb73377bd7357a172db8e9f7347c030eb3" },
               "wsi_explicit_position_reconstruction": { "const": true },
               "wsi_reference_free": { "const": true }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "case_id": { "const": "vl/wsi/pyramid_multiresolution" },
+              "status": { "const": "generated" }
+            },
+            "required": ["case_id", "status"]
+          },
+          "then": {
+            "properties": {
+              "wsi_pyramid_role": { "enum": ["volume", "thumbnail", "label"] },
+              "wsi_pyramid_ordinal": { "type": "integer" },
+              "wsi_pyramid_member_count": { "const": 3 },
+              "wsi_pyramid_ordered_roles": { "const": "volume; thumbnail; label" },
+              "wsi_pyramid_apex_role": { "const": "thumbnail" },
+              "wsi_pyramid_pyramid_member": { "type": "boolean" },
+              "wsi_pyramid_group_closure": { "const": true },
+              "wsi_pyramid_member_binding_verified": { "const": true },
+              "wsi_pyramid_shared_identity_closure": { "const": true },
+              "wsi_pyramid_total_frame_count": { "const": 6 },
+              "wsi_pyramid_total_dicom_bytes": { "type": "integer", "minimum": 1, "maximum": 65536 },
+              "wsi_pyramid_member_matrix_sha256": { "$ref": "#/$defs/sha256" }
+            }
+          },
+          "else": {
+            "properties": {
+              "wsi_pyramid_role": { "type": "null" },
+              "wsi_pyramid_ordinal": { "type": "null" },
+              "wsi_pyramid_member_count": { "type": "null" },
+              "wsi_pyramid_ordered_roles": { "type": "null" },
+              "wsi_pyramid_apex_role": { "type": "null" },
+              "wsi_pyramid_pyramid_member": { "type": "null" },
+              "wsi_pyramid_group_closure": { "type": "null" },
+              "wsi_pyramid_member_binding_verified": { "type": "null" },
+              "wsi_pyramid_shared_identity_closure": { "type": "null" },
+              "wsi_pyramid_total_frame_count": { "type": "null" },
+              "wsi_pyramid_total_dicom_bytes": { "type": "null" },
+              "wsi_pyramid_member_matrix_sha256": { "type": "null" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "wsi_pyramid_role": { "const": "volume" }
+            },
+            "required": ["wsi_pyramid_role"]
+          },
+          "then": {
+            "properties": {
+              "wsi_pyramid_ordinal": { "const": 1 },
+              "wsi_pyramid_pyramid_member": { "const": true },
+              "wsi_pyramid_member_matrix_sha256": { "const": "62d9532d46c3f71b045a1393d95c49c4757ef5e62bb043a61baf4fffed189a2a" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "wsi_pyramid_role": { "const": "thumbnail" }
+            },
+            "required": ["wsi_pyramid_role"]
+          },
+          "then": {
+            "properties": {
+              "wsi_pyramid_ordinal": { "const": 2 },
+              "wsi_pyramid_pyramid_member": { "const": true },
+              "wsi_pyramid_member_matrix_sha256": { "const": "6733cdd08e5c7ef0453e2759ef0d28fbd43ea2aa7883b55422a13dac38e23ecc" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "wsi_pyramid_role": { "const": "label" }
+            },
+            "required": ["wsi_pyramid_role"]
+          },
+          "then": {
+            "properties": {
+              "wsi_pyramid_ordinal": { "const": 3 },
+              "wsi_pyramid_pyramid_member": { "const": false },
+              "wsi_pyramid_member_matrix_sha256": { "const": "ad078f83d3ea66f075867d116c8c126e9c8a8a9dd873cd27280371c173d8ad02" }
             }
           }
         },

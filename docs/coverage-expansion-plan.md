@@ -456,10 +456,26 @@ strictly valid files and compare byte-for-byte. The authorized case-specific
 and the isolated `uv`-locked highdicom adapter independently reconstructs the
 exact sparse matrix. dicom3tools' incompatible full-grid cardinality result
 remains visible unallowlisted characterization, and the 229 unrelated
-whole-corpus failures remain visible. The registry now contains 147
-implemented and 35 planned cases. Milestone 4, the opt-in stress-profile
-multi-resolution pyramid with thumbnail and label companions, is next; adding
-a full-size pyramid job to ordinary CI remains an explicit decision checkpoint.
+whole-corpus failures remain visible. The registry then contained 147
+implemented and 35 planned cases. Milestone 4 is complete as the opt-in,
+native, byte-stable `vl/wsi/pyramid_multiresolution` stress slice. Its one
+logical case emits an ordered VOLUME, THUMBNAIL, and LABEL group totaling three
+instances, six Frames, and 8,694 bytes. Two seed-7 stress roots passed strict
+validation for all three instances and were byte-identical as complete trees;
+generation completed in 0.55 and 0.59 seconds, below the locked five-second
+ceiling. Locked `dciodvfy` and the independent `uv`-locked dicom-validator
+reported zero IOD errors for every role, while the isolated `uv`-locked
+highdicom 0.28.1/pydicom 3.0.2 adapter version 0.3.0 reconstructed and bound
+the exact three-member group. Integrated run
+`0188fc12678acf82e29f27c139d531dd060ec8e2f36363c9927d4d673d869f6d`
+records zero entity findings, passing independent pixel evidence, zero
+accepted findings, and zero verification failures against an empty
+exact-slice findings set. The registry now contains 148 implemented and 34
+planned cases. Ordinary `all` remains unchanged because stress cases require
+explicit selection. Phase 4 milestone 5, multiple optical paths or focal
+planes, is next. Selecting dimensions, budgets, and CI scheduling for a
+full-size pyramid remains the plan's explicit decision checkpoint, and this
+small-slice promotion does not authorize it for ordinary CI.
 
 ### Phase 5 — Encapsulation, lossy codecs, and video
 

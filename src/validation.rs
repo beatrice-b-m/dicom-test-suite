@@ -69,6 +69,10 @@ mod rt_radiation_tests;
 #[path = "validation_vl_single_frame_tests.rs"]
 mod vl_single_frame_tests;
 
+#[cfg(test)]
+#[path = "validation_wsi_tiled_full_tests.rs"]
+mod wsi_tiled_full_tests;
+
 #[cfg(feature = "deflate")]
 use crate::codecs::DicomRsDeflatedImageFrameEncoder;
 #[cfg(feature = "charls")]
@@ -1516,6 +1520,643 @@ fn validate_vl_single_frame(
     }
 
     Ok(())
+}
+
+/// Validate the complete, case-scoped Phase 4 TILED_FULL WSI contract.
+///
+/// The generic image validator owns Part 10 identity and Image Pixel invariants. This
+/// validator additionally binds the generated object to the canonical manifest contract,
+/// including implicit frame order and reconstruction of the total pixel matrix.
+pub(crate) fn validate_wsi_tiled_full_file(
+    path: &Path,
+    identity: &Part10Expectations<'_>,
+    expected_wsi_tiled_full: &Value,
+) -> Result<ValidatedPart10, GenerateError> {
+    let mut validated = validate_part10_file(path, identity)?;
+    let obj = open_file(path).map_err(|err| GenerateError::ValidateDicomFile {
+        path: path.to_path_buf(),
+        message: err.to_string(),
+    })?;
+    let mut internal = Vec::new();
+    validate_wsi_tiled_full(path, &obj, &mut internal, identity, expected_wsi_tiled_full)?;
+    fail_if_any_failed(path, &internal)?;
+
+    let validation_items = validated
+        .validation
+        .get_mut("internal")
+        .and_then(Value::as_array_mut)
+        .ok_or_else(|| GenerateError::ValidateDicomFile {
+            path: path.to_path_buf(),
+            message: "generic validation result has no internal findings array".to_string(),
+        })?;
+    validation_items.extend(internal);
+    if let Some(standards) = validated
+        .validation
+        .get_mut("standards")
+        .and_then(Value::as_array_mut)
+    {
+        standards.push(serde_json::json!({
+            "name": "vl_whole_slide_microscopy_image_sop_class",
+            "status": "passed",
+            "message": "TILED_FULL WSI identity, modules, implicit frame order, reconstructed matrix, specimen, optical path, ICC profile, and locked absences match the canonical manifest contract."
+        }));
+    }
+    Ok(validated)
+}
+
+fn validate_wsi_tiled_full(
+    path: &Path,
+    obj: &OpenedObject,
+    internal: &mut Vec<Value>,
+    identity: &Part10Expectations<'_>,
+    expected: &Value,
+) -> Result<(), GenerateError> {
+    const WSI_SOP_CLASS_UID: &str = "1.2.840.10008.5.1.4.1.1.77.1.6";
+    const FRAME_HASHES: [&str; 4] = [
+        "fcf067f6323bb42b8292a565a8f826ec5fdb1b142b7a69bf7f7721f0d5d46ef8",
+        "6c8f6d772829d493618e079a099cf4f20d8524ed3656f49db234f5bbf60a4e65",
+        "7263ad3fd60c6620abd423516d748baedf5e393b1fbdaaf780ff5803a443cc4f",
+        "8688d249e9d047b4fc2fb89ce05afe9ec89252ffccdd969de6eef260dd7ffb21",
+    ];
+    const MATRIX_HASH: &str = "62d9532d46c3f71b045a1393d95c49c4757ef5e62bb043a61baf4fffed189a2a";
+    const ICC_HASH: &str = "8e069a3476b71a0e0ae7272d9278ba70540d1c4a0b19af1c7d52e56f49091fef";
+
+    let expected_for = expected
+        .pointer("/frame_of_reference_uid")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let expected_specimen_uid = expected
+        .pointer("/specimen/specimen_uid")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    check_equal(
+        internal,
+        "wsi_expected_contract",
+        "Manifest-derived WSI expectation equals the canonical locked contract.",
+        "Manifest-derived WSI expectation differs from the canonical locked contract.",
+        expected,
+        &crate::wsi_tiled_full_locked_contract(expected_for, expected_specimen_uid),
+    );
+    check(
+        internal,
+        identity.sop_class_uid == WSI_SOP_CLASS_UID
+            && identity.transfer_syntax_uid == uids::EXPLICIT_VR_LITTLE_ENDIAN
+            && identity.rows == 2
+            && identity.columns == 2
+            && identity.frames == 4
+            && identity.samples_per_pixel == 3
+            && identity.photometric_interpretation == "RGB"
+            && identity.planar_configuration == Some(0)
+            && identity.bits_allocated == 8
+            && identity.bits_stored == 8
+            && identity.high_bit == 7
+            && identity.pixel_representation == 0
+            && identity.pixel_data_vr == VR::OB
+            && matches!(
+                identity.pixel_data_length_formula,
+                PixelDataLengthFormula::ContiguousSamples
+            ),
+        "wsi_identity_contract",
+        "Manifest image identity matches the locked native TILED_FULL WSI contract.",
+        "Manifest image identity differs from the locked native TILED_FULL WSI contract.",
+    );
+
+    for (name, tag, locked) in [
+        ("modality", tags::MODALITY, "SM"),
+        (
+            "frame_of_reference_uid",
+            tags::FRAME_OF_REFERENCE_UID,
+            expected_for,
+        ),
+        (
+            "position_reference_indicator",
+            tags::POSITION_REFERENCE_INDICATOR,
+            "SLIDE_CORNER",
+        ),
+        (
+            "image_type",
+            tags::IMAGE_TYPE,
+            "ORIGINAL\\PRIMARY\\VOLUME\\NONE",
+        ),
+        (
+            "acquisition_date_time",
+            tags::ACQUISITION_DATE_TIME,
+            "20260101000000",
+        ),
+        (
+            "volumetric_properties",
+            tags::VOLUMETRIC_PROPERTIES,
+            "VOLUME",
+        ),
+        (
+            "specimen_label_in_image",
+            tags::SPECIMEN_LABEL_IN_IMAGE,
+            "NO",
+        ),
+        ("burned_in_annotation", tags::BURNED_IN_ANNOTATION, "NO"),
+        ("focus_method", tags::FOCUS_METHOD, "AUTO"),
+        (
+            "extended_depth_of_field",
+            tags::EXTENDED_DEPTH_OF_FIELD,
+            "NO",
+        ),
+        (
+            "lossy_image_compression",
+            tags::LOSSY_IMAGE_COMPRESSION,
+            "00",
+        ),
+        (
+            "dimension_organization_type",
+            tags::DIMENSION_ORGANIZATION_TYPE,
+            "TILED_FULL",
+        ),
+        ("tiles_overlap", tags::TILES_OVERLAP, "NONE"),
+        ("label_text", tags::LABEL_TEXT, "DTS SYNTHETIC SLIDE 001"),
+        ("barcode_value", tags::BARCODE_VALUE, "DTS-SLIDE-001"),
+    ] {
+        check_equal(
+            internal,
+            &format!("wsi_{name}"),
+            "WSI string attribute matches the locked contract.",
+            "WSI string attribute does not match the locked contract.",
+            element_str(path, obj, tag)?.as_str(),
+            locked,
+        );
+    }
+    check_equal(
+        internal,
+        "wsi_acquisition_context_items",
+        "Acquisition Context Sequence is present and empty.",
+        "Acquisition Context Sequence is not present and empty.",
+        sequence_item_count(path, obj, tags::ACQUISITION_CONTEXT_SEQUENCE)?,
+        0,
+    );
+
+    for (name, tag, locked) in [
+        ("total_pixel_matrix_rows", tags::TOTAL_PIXEL_MATRIX_ROWS, 4),
+        (
+            "total_pixel_matrix_columns",
+            tags::TOTAL_PIXEL_MATRIX_COLUMNS,
+            4,
+        ),
+        ("number_of_optical_paths", tags::NUMBER_OF_OPTICAL_PATHS, 1),
+        (
+            "total_pixel_matrix_focal_planes",
+            tags::TOTAL_PIXEL_MATRIX_FOCAL_PLANES,
+            1,
+        ),
+    ] {
+        check_equal(
+            internal,
+            &format!("wsi_{name}"),
+            "WSI tiling cardinality matches the locked contract.",
+            "WSI tiling cardinality does not match the locked contract.",
+            element_u32(path, obj, tag)?,
+            locked,
+        );
+    }
+    for (name, tag, locked) in [
+        ("imaged_volume_width", tags::IMAGED_VOLUME_WIDTH, vec![2.0]),
+        (
+            "imaged_volume_height",
+            tags::IMAGED_VOLUME_HEIGHT,
+            vec![2.0],
+        ),
+        (
+            "imaged_volume_depth",
+            tags::IMAGED_VOLUME_DEPTH,
+            vec![0.001],
+        ),
+        (
+            "image_orientation_slide",
+            tags::IMAGE_ORIENTATION_SLIDE,
+            vec![1.0, 0.0, 0.0, 0.0, 1.0, 0.0],
+        ),
+    ] {
+        check_equal(
+            internal,
+            &format!("wsi_{name}"),
+            "WSI geometry matches the locked contract.",
+            "WSI geometry does not match the locked contract.",
+            element_f64_values(path, obj, tag)?,
+            locked,
+        );
+    }
+
+    check_equal(
+        internal,
+        "wsi_origin_items",
+        "Total Pixel Matrix Origin has one item.",
+        "Total Pixel Matrix Origin cardinality differs from the contract.",
+        sequence_item_count(path, obj, tags::TOTAL_PIXEL_MATRIX_ORIGIN_SEQUENCE)?,
+        1,
+    );
+    let origin = top_level_sequence_item(path, obj, tags::TOTAL_PIXEL_MATRIX_ORIGIN_SEQUENCE, 0)?;
+    for (name, tag) in [
+        ("x", tags::X_OFFSET_IN_SLIDE_COORDINATE_SYSTEM),
+        ("y", tags::Y_OFFSET_IN_SLIDE_COORDINATE_SYSTEM),
+        ("z", tags::Z_OFFSET_IN_SLIDE_COORDINATE_SYSTEM),
+    ] {
+        check_equal(
+            internal,
+            &format!("wsi_origin_{name}"),
+            "Total Pixel Matrix Origin component is zero.",
+            "Total Pixel Matrix Origin component is not zero.",
+            item_f64(path, origin, tag)?,
+            0.0,
+        );
+    }
+
+    check_equal(
+        internal,
+        "wsi_dimension_organization_items",
+        "Dimension Organization Sequence has one item.",
+        "Dimension Organization Sequence cardinality differs from the contract.",
+        sequence_item_count(path, obj, tags::DIMENSION_ORGANIZATION_SEQUENCE)?,
+        1,
+    );
+    let dimension = top_level_sequence_item(path, obj, tags::DIMENSION_ORGANIZATION_SEQUENCE, 0)?;
+    let dimension_uid = item_str(path, dimension, tags::DIMENSION_ORGANIZATION_UID)?;
+    check(
+        internal,
+        valid_dicom_uid(&dimension_uid),
+        "wsi_dimension_organization_uid",
+        "Dimension Organization UID is syntactically valid.",
+        "Dimension Organization UID is not syntactically valid.",
+    );
+
+    check_equal(
+        internal,
+        "wsi_shared_functional_groups_items",
+        "Shared Functional Groups Sequence has one item.",
+        "Shared Functional Groups Sequence cardinality differs from the contract.",
+        sequence_item_count(path, obj, tags::SHARED_FUNCTIONAL_GROUPS_SEQUENCE)?,
+        1,
+    );
+    let shared = top_level_sequence_item(path, obj, tags::SHARED_FUNCTIONAL_GROUPS_SEQUENCE, 0)?;
+    check_equal(
+        internal,
+        "wsi_pixel_measures_items",
+        "Shared Pixel Measures Sequence has one item.",
+        "Shared Pixel Measures Sequence cardinality differs from the contract.",
+        item_sequence_item_count(path, shared, tags::PIXEL_MEASURES_SEQUENCE)?,
+        1,
+    );
+    let measures = item_sequence_item(path, shared, tags::PIXEL_MEASURES_SEQUENCE, 0)?;
+    check_equal(
+        internal,
+        "wsi_pixel_spacing",
+        "Pixel Spacing matches the locked geometry.",
+        "Pixel Spacing does not match the locked geometry.",
+        item_f64_values(path, measures, tags::PIXEL_SPACING)?,
+        vec![0.5, 0.5],
+    );
+    check_equal(
+        internal,
+        "wsi_slice_thickness",
+        "Slice Thickness matches the locked geometry.",
+        "Slice Thickness does not match the locked geometry.",
+        item_f64(path, measures, tags::SLICE_THICKNESS)?,
+        0.001,
+    );
+    check_equal(
+        internal,
+        "wsi_frame_type_items",
+        "Shared WSI Frame Type Sequence has one item.",
+        "Shared WSI Frame Type Sequence cardinality differs from the contract.",
+        item_sequence_item_count(
+            path,
+            shared,
+            tags::WHOLE_SLIDE_MICROSCOPY_IMAGE_FRAME_TYPE_SEQUENCE,
+        )?,
+        1,
+    );
+    check_equal(
+        internal,
+        "wsi_frame_type",
+        "Shared Frame Type matches Image Type.",
+        "Shared Frame Type differs from the locked Image Type.",
+        nested_sequence_item_str(
+            path,
+            shared,
+            tags::WHOLE_SLIDE_MICROSCOPY_IMAGE_FRAME_TYPE_SEQUENCE,
+            0,
+            tags::FRAME_TYPE,
+        )?,
+        "ORIGINAL\\PRIMARY\\VOLUME\\NONE".to_string(),
+    );
+
+    validate_wsi_specimen(path, obj, internal, expected_specimen_uid)?;
+    validate_wsi_optical_path(path, obj, internal, ICC_HASH)?;
+
+    let pixel = obj
+        .element(tags::PIXEL_DATA)
+        .map_err(|err| validation_error(path, err))?;
+    let bytes = pixel
+        .value()
+        .to_bytes()
+        .map_err(|err| validation_error(path, err))?;
+    check_equal(
+        internal,
+        "wsi_pixel_vr",
+        "Pixel Data uses native OB storage.",
+        "Pixel Data does not use native OB storage.",
+        pixel.vr(),
+        VR::OB,
+    );
+    check_equal(
+        internal,
+        "wsi_pixel_length",
+        "Pixel Data contains four 2x2 RGB frames.",
+        "Pixel Data length differs from four 2x2 RGB frames.",
+        bytes.len(),
+        48,
+    );
+    for (index, locked) in FRAME_HASHES.iter().enumerate() {
+        let start = index * 12;
+        let actual = bytes.get(start..start + 12).map(sha256_hex);
+        check_equal(
+            internal,
+            &format!("wsi_frame_{}_sha256", index + 1),
+            "Implicitly ordered tile frame hash matches the contract.",
+            "Implicitly ordered tile frame hash does not match the contract.",
+            actual.as_deref(),
+            Some(*locked),
+        );
+    }
+    let matrix = reconstruct_tiled_full_matrix(bytes.as_ref());
+    check_equal(
+        internal,
+        "wsi_total_pixel_matrix_sha256",
+        "Implicit frame order reconstructs the locked 4x4 matrix.",
+        "Implicit frame order reconstructs a different 4x4 matrix.",
+        matrix.as_deref().map(sha256_hex).as_deref(),
+        Some(MATRIX_HASH),
+    );
+
+    for (name, tags_to_check) in [
+        (
+            "per_frame_functional_groups",
+            &[tags::PER_FRAME_FUNCTIONAL_GROUPS_SEQUENCE][..],
+        ),
+        ("dimension_index", &[tags::DIMENSION_INDEX_SEQUENCE][..]),
+        (
+            "references",
+            &[
+                tags::REFERENCED_SERIES_SEQUENCE,
+                tags::STUDIES_CONTAINING_OTHER_REFERENCED_INSTANCES_SEQUENCE,
+            ][..],
+        ),
+        (
+            "concatenation",
+            &[
+                tags::CONCATENATION_UID,
+                tags::IN_CONCATENATION_NUMBER,
+                tags::CONCATENATION_FRAME_OFFSET_NUMBER,
+                tags::SOP_INSTANCE_UID_OF_CONCATENATION_SOURCE,
+            ][..],
+        ),
+        ("multi_resolution_pyramid", &[tags::PYRAMID_UID][..]),
+        (
+            "extended_depth_of_field_detail",
+            &[
+                tags::NUMBER_OF_FOCAL_PLANES,
+                tags::DISTANCE_BETWEEN_FOCAL_PLANES,
+            ][..],
+        ),
+        (
+            "lossy_detail",
+            &[
+                tags::LOSSY_IMAGE_COMPRESSION_RATIO,
+                tags::LOSSY_IMAGE_COMPRESSION_METHOD,
+            ][..],
+        ),
+        (
+            "specimen_reference",
+            &[tags::SPECIMEN_REFERENCE_SEQUENCE][..],
+        ),
+    ] {
+        check(
+            internal,
+            tags_to_check
+                .iter()
+                .all(|tag| obj.element_opt(*tag).is_ok_and(|value| value.is_none())),
+            &format!("wsi_{name}_absent"),
+            "Locked optional content is absent.",
+            "Locked optional content is unexpectedly present.",
+        );
+    }
+    Ok(())
+}
+
+fn validate_wsi_specimen(
+    path: &Path,
+    obj: &OpenedObject,
+    internal: &mut Vec<Value>,
+    specimen_uid: &str,
+) -> Result<(), GenerateError> {
+    check_equal(
+        internal,
+        "wsi_container_identifier",
+        "Container Identifier matches the locked slide.",
+        "Container Identifier does not match the locked slide.",
+        element_str(path, obj, tags::CONTAINER_IDENTIFIER)?.as_str(),
+        "DTS-SLIDE-001",
+    );
+    for (name, tag) in [
+        (
+            "container_issuer",
+            tags::ISSUER_OF_THE_CONTAINER_IDENTIFIER_SEQUENCE,
+        ),
+        ("container_type", tags::CONTAINER_TYPE_CODE_SEQUENCE),
+    ] {
+        check_equal(
+            internal,
+            &format!("wsi_{name}_items"),
+            "Required Type 2 sequence is present and empty.",
+            "Required Type 2 sequence is not present and empty.",
+            sequence_item_count(path, obj, tag)?,
+            0,
+        );
+    }
+    check_equal(
+        internal,
+        "wsi_specimen_description_items",
+        "Specimen Description Sequence has one item.",
+        "Specimen Description Sequence cardinality differs from the contract.",
+        sequence_item_count(path, obj, tags::SPECIMEN_DESCRIPTION_SEQUENCE)?,
+        1,
+    );
+    let specimen = top_level_sequence_item(path, obj, tags::SPECIMEN_DESCRIPTION_SEQUENCE, 0)?;
+    check_equal(
+        internal,
+        "wsi_specimen_identifier",
+        "Specimen Identifier matches the locked specimen.",
+        "Specimen Identifier does not match the locked specimen.",
+        item_str(path, specimen, tags::SPECIMEN_IDENTIFIER)?.as_str(),
+        "DTS-SPECIMEN-001",
+    );
+    check_equal(
+        internal,
+        "wsi_specimen_uid",
+        "Specimen UID matches the manifest contract.",
+        "Specimen UID does not match the manifest contract.",
+        item_str(path, specimen, tags::SPECIMEN_UID)?.as_str(),
+        specimen_uid,
+    );
+    for (name, tag) in [
+        (
+            "specimen_issuer",
+            tags::ISSUER_OF_THE_SPECIMEN_IDENTIFIER_SEQUENCE,
+        ),
+        ("specimen_preparation", tags::SPECIMEN_PREPARATION_SEQUENCE),
+    ] {
+        check_equal(
+            internal,
+            &format!("wsi_{name}_items"),
+            "Required specimen Type 2 sequence is present and empty.",
+            "Required specimen Type 2 sequence is not present and empty.",
+            item_sequence_item_count(path, specimen, tag)?,
+            0,
+        );
+    }
+    Ok(())
+}
+
+fn validate_wsi_optical_path(
+    path: &Path,
+    obj: &OpenedObject,
+    internal: &mut Vec<Value>,
+    icc_hash: &str,
+) -> Result<(), GenerateError> {
+    check_equal(
+        internal,
+        "wsi_optical_path_items",
+        "Optical Path Sequence has one item.",
+        "Optical Path Sequence cardinality differs from the contract.",
+        sequence_item_count(path, obj, tags::OPTICAL_PATH_SEQUENCE)?,
+        1,
+    );
+    let optical = top_level_sequence_item(path, obj, tags::OPTICAL_PATH_SEQUENCE, 0)?;
+    check_equal(
+        internal,
+        "wsi_optical_path_identifier",
+        "Optical Path Identifier is RGB.",
+        "Optical Path Identifier is not RGB.",
+        item_str(path, optical, tags::OPTICAL_PATH_IDENTIFIER)?.as_str(),
+        "RGB",
+    );
+    check_equal(
+        internal,
+        "wsi_illumination_wavelength",
+        "Illumination Wave Length is 550 nm.",
+        "Illumination Wave Length is not 550 nm.",
+        item_f64(path, optical, tags::ILLUMINATION_WAVE_LENGTH)?,
+        550.0,
+    );
+    check_equal(
+        internal,
+        "wsi_color_space",
+        "Optical path DICOM Color Space is SRGB.",
+        "Optical path DICOM Color Space is not SRGB.",
+        item_str(path, optical, tags::COLOR_SPACE)?.as_str(),
+        "SRGB",
+    );
+    check_equal(
+        internal,
+        "wsi_illumination_code_items",
+        "Illumination Type Code Sequence has one item.",
+        "Illumination Type Code Sequence cardinality differs from the contract.",
+        item_sequence_item_count(path, optical, tags::ILLUMINATION_TYPE_CODE_SEQUENCE)?,
+        1,
+    );
+    let code = item_sequence_item(path, optical, tags::ILLUMINATION_TYPE_CODE_SEQUENCE, 0)?;
+    for (name, tag, locked) in [
+        ("value", tags::CODE_VALUE, "111744"),
+        ("scheme", tags::CODING_SCHEME_DESIGNATOR, "DCM"),
+        ("meaning", tags::CODE_MEANING, "Brightfield illumination"),
+    ] {
+        check_equal(
+            internal,
+            &format!("wsi_illumination_code_{name}"),
+            "Illumination code matches the locked contract.",
+            "Illumination code does not match the locked contract.",
+            item_str(path, code, tag)?.as_str(),
+            locked,
+        );
+    }
+    let icc = optical
+        .element(tags::ICC_PROFILE)
+        .map_err(|err| validation_error(path, err))?;
+    let bytes = icc
+        .value()
+        .to_bytes()
+        .map_err(|err| validation_error(path, err))?;
+    check_equal(
+        internal,
+        "wsi_icc_vr",
+        "ICC Profile uses OB storage.",
+        "ICC Profile does not use OB storage.",
+        icc.vr(),
+        VR::OB,
+    );
+    check_equal(
+        internal,
+        "wsi_icc_size",
+        "ICC Profile has the locked 736-byte size.",
+        "ICC Profile size differs from the locked size.",
+        bytes.len(),
+        736,
+    );
+    check_equal(
+        internal,
+        "wsi_icc_sha256",
+        "ICC Profile SHA-256 matches the locked profile.",
+        "ICC Profile SHA-256 differs from the locked profile.",
+        sha256_hex(bytes.as_ref()).as_str(),
+        icc_hash,
+    );
+    check(
+        internal,
+        bytes.len() >= 40
+            && &bytes[12..16] == b"scnr"
+            && &bytes[16..20] == b"RGB "
+            && &bytes[20..24] == b"XYZ "
+            && &bytes[36..40] == b"acsp",
+        "wsi_icc_header",
+        "ICC header declares scanner RGB to XYZ with acsp signature.",
+        "ICC header does not match the locked scanner RGB profile.",
+    );
+    Ok(())
+}
+
+fn reconstruct_tiled_full_matrix(pixel_bytes: &[u8]) -> Option<Vec<u8>> {
+    if pixel_bytes.len() != 48 {
+        return None;
+    }
+    let mut matrix = vec![0_u8; 48];
+    for frame in 0..4 {
+        let tile_row = frame / 2;
+        let tile_column = frame % 2;
+        for row in 0..2 {
+            let source = frame * 12 + row * 6;
+            let destination = ((tile_row * 2 + row) * 4 + tile_column * 2) * 3;
+            matrix[destination..destination + 6].copy_from_slice(&pixel_bytes[source..source + 6]);
+        }
+    }
+    Some(matrix)
+}
+
+fn valid_dicom_uid(value: &str) -> bool {
+    !value.is_empty()
+        && value.len() <= 64
+        && !value.starts_with('.')
+        && !value.ends_with('.')
+        && value.split('.').all(|part| {
+            !part.is_empty()
+                && part.bytes().all(|byte| byte.is_ascii_digit())
+                && (part.len() == 1 || !part.starts_with('0'))
+        })
 }
 
 pub(crate) fn validate_presentation_state_file(

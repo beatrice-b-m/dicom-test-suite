@@ -171,7 +171,7 @@ use crate::{
         validate_real_world_value_mapping_file, validate_rt_dose_file, validate_rt_image_file,
         validate_rt_plan_file, validate_rt_radiation_file, validate_rt_radiation_set_file,
         validate_rt_structure_set_file, validate_scoord3d_file, validate_spatial_registration_file,
-        validate_tid1500_file, validate_twelve_lead_ecg_file,
+        validate_tid1500_file, validate_twelve_lead_ecg_file, validate_wsi_tiled_full_file,
     },
     waveform_manifest::{general_ecg_expected_waveform, twelve_lead_ecg_expected_waveform},
 };
@@ -7995,7 +7995,9 @@ fn write_wsi_tiled_full_case(
         message: error.to_string(),
     })?;
 
-    let mut validated = validate_part10_file(
+    let expected_wsi_tiled_full =
+        crate::wsi_tiled_full_locked_contract(&frame_of_reference_uid, &specimen_uid);
+    let validated = validate_wsi_tiled_full_file(
         &path,
         &Part10Expectations {
             sop_class_uid: WSI_TILED_FULL_STORAGE_UID,
@@ -8034,15 +8036,10 @@ fn write_wsi_tiled_full_case(
             mr_image: None,
             segmentation: None,
         },
+        &expected_wsi_tiled_full,
     )?;
-    append_internal_validation(
-        &mut validated.validation,
-        validate_wsi_tiled_full_round_trip(&path, &dimension_organization_uid, &specimen_uid)?,
-    );
 
     let standards_evidence = deduplicated_standards_evidence(standards_evidence_from_case(case));
-    let expected_wsi_tiled_full =
-        crate::wsi_tiled_full_locked_contract(&frame_of_reference_uid, &specimen_uid);
     Ok(GeneratedFile {
         case_id: WSI_TILED_FULL_CASE_ID.to_string(),
         manifest_entry: serde_json::json!({
@@ -8134,72 +8131,6 @@ fn write_wsi_tiled_full_case(
             "standards_evidence": standards_evidence
         }),
     })
-}
-
-fn validate_wsi_tiled_full_round_trip(
-    path: &std::path::Path,
-    dimension_organization_uid: &str,
-    specimen_uid: &str,
-) -> Result<Value, GenerateError> {
-    let object = open_file(path).map_err(|error| GenerateError::ValidateDicomFile {
-        path: path.to_path_buf(),
-        message: error.to_string(),
-    })?;
-    let dimension_uid = object
-        .element(tags::DIMENSION_ORGANIZATION_SEQUENCE)
-        .ok()
-        .and_then(|element| element.items())
-        .and_then(|items| items.first())
-        .and_then(|item| item.element(tags::DIMENSION_ORGANIZATION_UID).ok())
-        .and_then(|element| element.to_str().ok())
-        .map(|value| value.trim_end_matches(['\0', ' ']).to_string());
-    let reopened_specimen_uid = object
-        .element(tags::SPECIMEN_DESCRIPTION_SEQUENCE)
-        .ok()
-        .and_then(|element| element.items())
-        .and_then(|items| items.first())
-        .and_then(|item| item.element(tags::SPECIMEN_UID).ok())
-        .and_then(|element| element.to_str().ok())
-        .map(|value| value.trim_end_matches(['\0', ' ']).to_string());
-    let optical_path = object
-        .element(tags::OPTICAL_PATH_SEQUENCE)
-        .ok()
-        .and_then(|element| element.items())
-        .and_then(|items| items.first());
-    let icc_hash = optical_path
-        .and_then(|item| item.element(tags::ICC_PROFILE).ok())
-        .and_then(|element| element.to_bytes().ok())
-        .map(|bytes| sha256_hex(bytes.as_ref()));
-    let pixel_hash = object
-        .element(tags::PIXEL_DATA)
-        .ok()
-        .and_then(|element| element.to_bytes().ok())
-        .map(|bytes| sha256_hex(bytes.as_ref()));
-    let tiled_full = object
-        .element(tags::DIMENSION_ORGANIZATION_TYPE)
-        .ok()
-        .and_then(|element| element.to_str().ok())
-        .is_some_and(|value| value.trim_end_matches(['\0', ' ']) == "TILED_FULL");
-    if dimension_uid.as_deref() != Some(dimension_organization_uid)
-        || reopened_specimen_uid.as_deref() != Some(specimen_uid)
-        || icc_hash.as_deref() != Some(ICC_PROFILE_SHA256)
-        || pixel_hash.as_deref() != Some(WSI_PIXEL_DATA_SHA256)
-        || !tiled_full
-        || object.element(tags::DIMENSION_INDEX_SEQUENCE).is_ok()
-        || object
-            .element(tags::PER_FRAME_FUNCTIONAL_GROUPS_SEQUENCE)
-            .is_ok()
-    {
-        return Err(GenerateError::ValidateDicomFile {
-            path: path.to_path_buf(),
-            message: "WSI round trip changed its TILED_FULL identity, specimen, ICC, pixels, or required absences".to_string(),
-        });
-    }
-    Ok(serde_json::json!({
-        "name": "wsi_tiled_full_round_trip",
-        "status": "passed",
-        "message": "TILED_FULL identity, specimen, nested ICC profile, native pixels, and implicit-order absences round-trip exactly."
-    }))
 }
 
 fn validate_spatial_registration_sources(

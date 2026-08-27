@@ -19,6 +19,7 @@ Source manifest SHA-256:
 - Recommended determinism: `byte_stable`
 - Profile: `stress`
 - Registry action during standards lock: remain `planned`
+- Final qualification disposition: `implemented`
 
 This milestone is one logical case with exactly three native DICOM instances:
 a highest-resolution VOLUME layer, a THUMBNAIL apex layer, and a LABEL
@@ -245,22 +246,36 @@ with zero warnings and zero errors; the six IOD invocations completed together
 in 0.5 seconds wall time. Locked DCMTK `dcmdump` parsed all three files.
 Prototype generation took 0.09 seconds wall time.
 
-The existing isolated highdicom adapter already reconstructs the VOLUME and
-reproduces its locked matrix hash. Extending that independent route to bind the
-one-Frame THUMBNAIL and LABEL, the deterministic reduction, and complete group
-closure remains required implementation work; prototype IOD success is not a
-substitute for that gate.
+The final native implementation completed the independent gate. Two
+independent seed-7 stress roots each contain exactly three instances and six
+total Frames, pass strict validation 3/3 with zero failures, and compare
+byte-for-byte as complete trees. Their manifest SHA-256 is
+`75c1ff84c0ab971f99308991308552640f593fcd199c652bd787908076ca6265`.
+The final member evidence is:
 
-Promotion requires locked `dciodvfy`, the authorized independently
-`uv`-locked 2026b dicom-validator, DCMTK parsing, and the isolated
-`uv`-locked highdicom/pydicom reconstruction route. The reconstruction route
-shall not import generator code. It shall reopen all three instances, derive
-the two pyramid layers and LABEL companion from attributes rather than
-filenames, reconstruct each stored matrix with display and ICC transforms
-disabled, and compare the VOLUME-to-THUMBNAIL reduction and every exact payload
-and matrix hash. Strict Rust validation separately owns the complete IOD,
-manifest, group, ICC, and absence contract. No validator finding may be
-silently dropped or converted into an accepted finding.
+| Role | Bytes | SHA-256 |
+| --- | ---: | --- |
+| VOLUME | 2,934 | `fece75ee74a3e8d9902807b2c3ace1384e0896469c4b41358d3b2d6444de7b07` |
+| THUMBNAIL | 2,914 | `159cf9c96bbb205966ee924ac5f6c4385c1e4474f672fa8a7410bcacb998defb` |
+| LABEL | 2,846 | `aa6c79cb54c41cb1267425bc5602fa4c916bc91b9f3fa66fd9942be446f45438` |
+
+The qualified native group totals 8,694 bytes. Parallel generation completed
+in 0.55 and 0.59 seconds, preserving the locked three-instance, six-Frame,
+65,536-byte, and five-second ceilings. Both locked `dciodvfy` and the
+independent `uv`-locked dicom-validator reported zero IOD errors for each role.
+
+The isolated `uv`-locked highdicom 0.28.1/pydicom 3.0.2 reconstruction route,
+adapter version 0.3.0, imports no generator code. It independently derived the
+VOLUME, THUMBNAIL, and LABEL roles from DICOM attributes and reproduced the
+exact payloads, matrices, VOLUME-to-THUMBNAIL reduction, identity sharing,
+pyramid membership, and LABEL exclusion. Integrated run
+`0188fc12678acf82e29f27c139d531dd060ec8e2f36363c9927d4d673d869f6d`
+records zero entity findings, passing independent pixel evidence, zero
+accepted findings, and zero verification failures against an empty exact-slice
+findings set. Strict Rust validation separately owns the complete IOD,
+manifest, group, ICC, and absence contract; no validator finding was silently
+dropped or converted into an accepted finding. The registry disposition is
+therefore 148 implemented and 34 planned cases.
 
 At minimum, qualification shall reject controls that:
 
@@ -294,24 +309,24 @@ generation-time requirement.
 The opt-in qualification ceiling is exactly three instances, six total
 Frames, no more than 65,536 total DICOM bytes, and no more than 5 seconds of
 generation wall time on the qualification host. These limits provide broad
-headroom over the measured 8,794 bytes and 0.09 seconds without pretending to
-define a large-slide workload. Any breach fails the slice rather than silently
-reducing its dimensions or membership.
+headroom over the qualified 8,694 bytes and 0.59-second maximum without
+pretending to define a large-slide workload. Any breach fails the slice rather
+than silently reducing its dimensions or membership.
 
-| Measure | Prototype result | Locked ceiling |
+| Measure | Qualified result | Locked ceiling |
 | --- | ---: | ---: |
 | Instance count | 3 | exactly 3 |
 | Total Frame count | 6 | exactly 6 |
-| Total DICOM bytes for the group | 8,794 | 65,536 |
-| Largest single instance bytes | 2,966 | included in total ceiling |
-| Generation wall time | 0.09 seconds | 5 seconds |
-| Six independent IOD validations | 0.5 seconds | evidence only |
+| Total DICOM bytes for the group | 8,694 | 65,536 |
+| Largest single instance bytes | 2,934 | included in total ceiling |
+| Generation wall time | 0.55 / 0.59 seconds | 5 seconds |
+| Prototype six IOD invocations | 0.5 seconds | evidence only |
 
 The instance, Frame, byte, and generation-time ceilings shall be enforced by
 an opt-in stress qualification test. No memory ceiling is asserted without a
 measurement, and no per-validator performance requirement is added. The
-registry remains planned until the implementation reproduces the prototype
-measurements and completes every semantic and independent-reconstruction gate.
+implementation reproduced the locked topology within every budget and
+completed the semantic and independent-reconstruction gates.
 
 This small three-instance group is distinct from
 `stress/wsi/large_pyramid`. It adds no full-size fixture or ordinary-CI job.
@@ -321,15 +336,14 @@ and is not authorized by promotion of this small opt-in slice.
 
 ## Qualification Disposition
 
-- Registry status remains planned until generation, manifests, strict group
-  validation, reports, independent reconstruction, both IOD opinions, DCMTK
-  parsing, negative controls, measured stress budgets, and two-run
-  reproducibility are complete.
-- Recommended promotion: provider `rust_native`, determinism `byte_stable`,
-  profile `stress`.
-- The milestone gate is satisfied only when independent reconstruction binds
-  both pyramid layers, the deterministic reduction, and the non-member LABEL
-  companion to the exact manifest closure.
+- Registry status is implemented after generation, manifests, strict group
+  validation, reports, independent reconstruction, both IOD opinions,
+  negative controls, measured stress budgets, and two-run reproducibility
+  completed without accepted findings.
+- Promoted provider: `rust_native`; determinism: `byte_stable`; profile:
+  `stress`.
+- Independent reconstruction binds both pyramid layers, the deterministic
+  reduction, and the non-member LABEL companion to the exact manifest closure.
 - Promotion of this bounded slice does not authorize a full-size pyramid in
   ordinary CI and does not resolve the separate large-pyramid registry case.
 - Should become KB patch: yes; expose Multi-Resolution Pyramid IE membership,

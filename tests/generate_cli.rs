@@ -7904,12 +7904,22 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
     file_entry_by_case_id(&manifest, "vl/microscopic/rgb_explicit_le");
     file_entry_by_case_id(&manifest, "vl/wsi/tiled_full_small");
     file_entry_by_case_id(&manifest, "vl/wsi/tiled_sparse_small");
+    assert!(
+        file_entries_by_case_id(&manifest, "vl/wsi/pyramid_multiresolution").is_empty(),
+        "normal all generation must exclude opt-in stress coverage"
+    );
     let expected_all_files =
         native_all_files + parametric_maps_generated + tid1500_generated + scoord3d_generated;
     assert!(stdout.contains(&format!("files_written\t{expected_all_files}")));
     assert_eq!(
         manifest.pointer("/run/profile").and_then(Value::as_str),
         Some("all")
+    );
+    assert_eq!(
+        manifest
+            .pointer("/run/include_stress")
+            .and_then(Value::as_bool),
+        Some(false)
     );
     assert_eq!(
         manifest
@@ -8243,7 +8253,73 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
         "all generation should not report implemented union cases as skipped"
     );
 
+    let stress_out_dir = unique_temp_dir("generate-all-with-stress-command");
+    let stress_output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args([
+            "generate",
+            "--profile",
+            "all",
+            "--include-stress",
+            "--out",
+            stress_out_dir
+                .to_str()
+                .expect("temp path should be valid UTF-8"),
+            "--seed",
+            "7",
+        ])
+        .output()
+        .expect("all plus stress generation must run");
+    assert!(
+        stress_output.status.success(),
+        "all plus stress generation should succeed: {}",
+        String::from_utf8_lossy(&stress_output.stderr)
+    );
+    let stress_manifest: Value = serde_json::from_str(
+        &fs::read_to_string(stress_out_dir.join("manifest.json"))
+            .expect("all plus stress manifest should be readable"),
+    )
+    .expect("all plus stress manifest should parse");
+    assert_manifest_matches_committed_schema(&stress_manifest);
+    assert_eq!(
+        stress_manifest.pointer("/run/include_stress"),
+        Some(&serde_json::json!(true))
+    );
+    assert_eq!(
+        stress_manifest["files"].as_array().map(Vec::len),
+        Some(expected_all_files + 3)
+    );
+    assert_eq!(
+        file_entries_by_case_id(&stress_manifest, "vl/wsi/pyramid_multiresolution").len(),
+        3,
+        "all --include-stress must add all three pyramid instances"
+    );
+    let ordinary_rows = manifest["files"]
+        .as_array()
+        .expect("ordinary all files")
+        .iter()
+        .map(|file| (file["case_id"].clone(), file["path"].clone()))
+        .collect::<Vec<_>>();
+    let opt_in_non_stress_rows = stress_manifest["files"]
+        .as_array()
+        .expect("all plus stress files")
+        .iter()
+        .filter(|file| file["case_id"] != "vl/wsi/pyramid_multiresolution")
+        .map(|file| (file["case_id"].clone(), file["path"].clone()))
+        .collect::<Vec<_>>();
+    assert_eq!(
+        opt_in_non_stress_rows, ordinary_rows,
+        "--include-stress must preserve the normal all-profile union"
+    );
+    assert_eq!(
+        stress_manifest["skipped_cases"].as_array().map(Vec::len),
+        manifest["skipped_cases"]
+            .as_array()
+            .map(|skipped| skipped.len() + 6),
+        "all --include-stress must expose the six remaining planned stress cases"
+    );
+
     fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
+    fs::remove_dir_all(stress_out_dir).expect("stress output root should be removable");
 }
 
 #[test]

@@ -337,6 +337,9 @@
         "expected_scoord3d": {
           "$ref": "#/$defs/expected_scoord3d"
         },
+        "expected_spatial_registration": {
+          "$ref": "#/$defs/expected_spatial_registration"
+        },
         "expected_geometry": {
           "anyOf": [
             { "$ref": "#/$defs/expected_geometry" },
@@ -587,6 +590,30 @@
                   "sop_class_name": { "const": "Comprehensive 3D SR Storage" },
                   "iod_name": { "const": "Comprehensive 3D SR" },
                   "modality": { "const": "SR" },
+                  "transfer_syntax_uid": { "const": "1.2.840.10008.1.2.1" }
+                }
+              },
+              "image": { "type": "null" },
+              "pixel_data": { "type": "null" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "case_id": { "const": "derived/registration/spatial_ct_pair" }
+            },
+            "required": ["case_id"]
+          },
+          "then": {
+            "required": ["expected_spatial_registration"],
+            "properties": {
+              "dicom": {
+                "properties": {
+                  "sop_class_uid": { "const": "1.2.840.10008.5.1.4.1.1.66.1" },
+                  "sop_class_name": { "const": "Spatial Registration Storage" },
+                  "iod_name": { "const": "Spatial Registration" },
+                  "modality": { "const": "REG" },
                   "transfer_syntax_uid": { "const": "1.2.840.10008.1.2.1" }
                 }
               },
@@ -1790,6 +1817,224 @@
           "minItems": 2,
           "maxItems": 2
         }
+      },
+      "additionalProperties": false
+    },
+    "spatial_registration_identity": {
+      "type": "object",
+      "required": [
+        "source_case_id",
+        "source_path",
+        "source_sha256",
+        "study_instance_uid",
+        "series_instance_uid",
+        "sop_class_uid",
+        "sop_instance_uid",
+        "frame_of_reference_uid"
+      ],
+      "properties": {
+        "source_case_id": { "type": "string", "minLength": 1 },
+        "source_path": { "type": "string", "minLength": 1 },
+        "source_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "study_instance_uid": { "type": "string", "pattern": "^[0-9]+(?:\\.[0-9]+)+$" },
+        "series_instance_uid": { "type": "string", "pattern": "^[0-9]+(?:\\.[0-9]+)+$" },
+        "sop_class_uid": { "type": "string", "pattern": "^[0-9]+(?:\\.[0-9]+)+$" },
+        "sop_instance_uid": { "type": "string", "pattern": "^[0-9]+(?:\\.[0-9]+)+$" },
+        "frame_of_reference_uid": { "type": "string", "pattern": "^[0-9]+(?:\\.[0-9]+)+$" }
+      },
+      "additionalProperties": false
+    },
+    "spatial_registration_matrix": {
+      "type": "object",
+      "required": ["type", "values"],
+      "properties": {
+        "type": { "const": "RIGID" },
+        "values": {
+          "type": "array",
+          "items": { "type": "number" },
+          "minItems": 16,
+          "maxItems": 16
+        }
+      },
+      "additionalProperties": false
+    },
+    "spatial_registration_item": {
+      "type": "object",
+      "required": [
+        "role",
+        "source",
+        "complete_instance",
+        "matrix_registration_items",
+        "registration_type_code_items",
+        "matrix_items",
+        "matrix"
+      ],
+      "properties": {
+        "role": { "enum": ["registered_target", "moving_source"] },
+        "source": { "$ref": "#/$defs/spatial_registration_identity" },
+        "complete_instance": { "const": true },
+        "matrix_registration_items": { "const": 1 },
+        "registration_type_code_items": { "const": 0 },
+        "matrix_items": { "const": 1 },
+        "matrix": { "$ref": "#/$defs/spatial_registration_matrix" }
+      },
+      "additionalProperties": false
+    },
+    "expected_spatial_registration": {
+      "type": "object",
+      "required": [
+        "registered_frame_of_reference_uid",
+        "matrix_direction",
+        "registration_items",
+        "rigid_tolerances",
+        "landmark",
+        "common_instance_reference",
+        "pixel_data_absent"
+      ],
+      "properties": {
+        "registered_frame_of_reference_uid": {
+          "type": "string",
+          "pattern": "^[0-9]+(?:\\.[0-9]+)+$"
+        },
+        "matrix_direction": { "const": "source_to_registered" },
+        "registration_items": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "allOf": [
+                { "$ref": "#/$defs/spatial_registration_item" },
+                {
+                  "properties": {
+                    "role": { "const": "registered_target" },
+                    "source": {
+                      "properties": {
+                        "source_case_id": { "const": "enhanced/ct/multiframe_shared_perframe_explicit_le" },
+                        "source_path": { "const": "enhanced/ct/multiframe_shared_perframe_explicit_le/instance.dcm" },
+                        "sop_class_uid": { "const": "1.2.840.10008.5.1.4.1.1.2.1" }
+                      }
+                    },
+                    "matrix": {
+                      "properties": {
+                        "values": {
+                          "prefixItems": [
+                            { "const": 1 }, { "const": 0 }, { "const": 0 }, { "const": 0 },
+                            { "const": 0 }, { "const": 1 }, { "const": 0 }, { "const": 0 },
+                            { "const": 0 }, { "const": 0 }, { "const": 1 }, { "const": 0 },
+                            { "const": 0 }, { "const": 0 }, { "const": 0 }, { "const": 1 }
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "allOf": [
+                { "$ref": "#/$defs/spatial_registration_item" },
+                {
+                  "properties": {
+                    "role": { "const": "moving_source" },
+                    "source": {
+                      "properties": {
+                        "source_case_id": { "const": "classic/ct/mono2_i16_rescale_12bit_explicit_le" },
+                        "source_path": { "const": "classic/ct/mono2_i16_rescale_12bit_explicit_le/instance.dcm" },
+                        "sop_class_uid": { "const": "1.2.840.10008.5.1.4.1.1.2" }
+                      }
+                    },
+                    "matrix": {
+                      "properties": {
+                        "values": {
+                          "prefixItems": [
+                            { "const": 1 }, { "const": 0 }, { "const": 0 }, { "const": 0 },
+                            { "const": 0 }, { "const": 1 }, { "const": 0 }, { "const": 0 },
+                            { "const": 0 }, { "const": 0 }, { "const": 1 }, { "const": 2.5 },
+                            { "const": 0 }, { "const": 0 }, { "const": 0 }, { "const": 1 }
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "rigid_tolerances": {
+          "type": "object",
+          "required": ["orthonormal_abs", "determinant_abs", "homogeneous_abs"],
+          "properties": {
+            "orthonormal_abs": { "const": 0.000001 },
+            "determinant_abs": { "const": 0.000001 },
+            "homogeneous_abs": { "const": 0.000001 }
+          },
+          "additionalProperties": false
+        },
+        "landmark": {
+          "type": "object",
+          "required": ["source_point_mm", "registered_point_mm", "tolerance_mm"],
+          "properties": {
+            "source_point_mm": {
+              "type": "array",
+              "prefixItems": [{ "const": 0 }, { "const": 0 }, { "const": 0 }],
+              "items": false,
+              "minItems": 3,
+              "maxItems": 3
+            },
+            "registered_point_mm": {
+              "type": "array",
+              "prefixItems": [{ "const": 0 }, { "const": 0 }, { "const": 2.5 }],
+              "items": false,
+              "minItems": 3,
+              "maxItems": 3
+            },
+            "tolerance_mm": { "const": 0.000001 }
+          },
+          "additionalProperties": false
+        },
+        "common_instance_reference": {
+          "type": "object",
+          "required": ["same_study", "other_studies"],
+          "properties": {
+            "same_study": {
+              "allOf": [
+                { "$ref": "#/$defs/spatial_registration_identity" },
+                {
+                  "properties": {
+                    "source_case_id": { "const": "enhanced/ct/multiframe_shared_perframe_explicit_le" },
+                    "source_path": { "const": "enhanced/ct/multiframe_shared_perframe_explicit_le/instance.dcm" },
+                    "sop_class_uid": { "const": "1.2.840.10008.5.1.4.1.1.2.1" }
+                  }
+                }
+              ]
+            },
+            "other_studies": {
+              "type": "array",
+              "prefixItems": [
+                {
+                  "allOf": [
+                    { "$ref": "#/$defs/spatial_registration_identity" },
+                    {
+                      "properties": {
+                        "source_case_id": { "const": "classic/ct/mono2_i16_rescale_12bit_explicit_le" },
+                        "source_path": { "const": "classic/ct/mono2_i16_rescale_12bit_explicit_le/instance.dcm" },
+                        "sop_class_uid": { "const": "1.2.840.10008.5.1.4.1.1.2" }
+                      }
+                    }
+                  ]
+                }
+              ],
+              "items": false,
+              "minItems": 1,
+              "maxItems": 1
+            }
+          },
+          "additionalProperties": false
+        },
+        "pixel_data_absent": { "const": true }
       },
       "additionalProperties": false
     },

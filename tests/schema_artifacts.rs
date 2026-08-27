@@ -2018,6 +2018,155 @@ fn tid1500_expectation() -> Value {
 }
 
 #[test]
+fn manifest_schema_types_spatial_registration_expectations() {
+    let schema = read_json("schemas/manifest.schema.json");
+    let expectation_schema = serde_json::json!({
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$ref": "#/$defs/expected_spatial_registration",
+        "$defs": schema["$defs"].clone(),
+    });
+    let validator = jsonschema::validator_for(&expectation_schema)
+        .expect("Spatial Registration expectation schema should compile");
+    let expectation = spatial_registration_expectation();
+    assert!(validator.is_valid(&expectation));
+
+    let mut reversed = expectation.clone();
+    reversed["matrix_direction"] = serde_json::json!("registered_to_source");
+    assert!(!validator.is_valid(&reversed));
+
+    let mut wrong_translation = expectation.clone();
+    wrong_translation["registration_items"][1]["matrix"]["values"][11] =
+        serde_json::json!(-2.5);
+    assert!(!validator.is_valid(&wrong_translation));
+
+    let mut wrong_order = expectation.clone();
+    wrong_order["registration_items"]
+        .as_array_mut()
+        .expect("registration items")
+        .swap(0, 1);
+    assert!(!validator.is_valid(&wrong_order));
+
+    let mut extra_other_study = expectation;
+    let duplicate = extra_other_study["common_instance_reference"]["other_studies"][0].clone();
+    extra_other_study["common_instance_reference"]["other_studies"]
+        .as_array_mut()
+        .expect("other studies")
+        .push(duplicate);
+    assert!(!validator.is_valid(&extra_other_study));
+}
+
+#[test]
+fn manifest_schema_requires_spatial_registration_contract() {
+    let schema = read_json("schemas/manifest.schema.json");
+    let rule = schema
+        .pointer("/$defs/file/allOf")
+        .and_then(Value::as_array)
+        .expect("file schema should define case conditionals")
+        .iter()
+        .find(|rule| {
+            rule.pointer("/if/properties/case_id/const")
+                .and_then(Value::as_str)
+                == Some("derived/registration/spatial_ct_pair")
+        })
+        .expect("manifest schema should define the Spatial Registration conditional");
+    assert!(
+        rule.pointer("/then/required")
+            .and_then(Value::as_array)
+            .is_some_and(|required| required
+                .iter()
+                .any(|field| field == "expected_spatial_registration"))
+    );
+    assert_eq!(
+        rule.pointer("/then/properties/dicom/properties/sop_class_uid/const"),
+        Some(&serde_json::json!("1.2.840.10008.5.1.4.1.1.66.1"))
+    );
+    assert_eq!(
+        rule.pointer("/then/properties/dicom/properties/modality/const"),
+        Some(&serde_json::json!("REG"))
+    );
+    assert_eq!(
+        rule.pointer("/then/properties/image/type"),
+        Some(&serde_json::json!("null"))
+    );
+    assert_eq!(
+        rule.pointer("/then/properties/pixel_data/type"),
+        Some(&serde_json::json!("null"))
+    );
+}
+
+fn spatial_registration_expectation() -> Value {
+    let identity = |case_id: &str, path: &str, sop_class_uid: &str, suffix: u8| {
+        serde_json::json!({
+            "source_case_id": case_id,
+            "source_path": path,
+            "source_sha256": format!("{:064x}", suffix),
+            "study_instance_uid": format!("1.2.826.0.1.3680043.10.543.{suffix}1"),
+            "series_instance_uid": format!("1.2.826.0.1.3680043.10.543.{suffix}2"),
+            "sop_class_uid": sop_class_uid,
+            "sop_instance_uid": format!("1.2.826.0.1.3680043.10.543.{suffix}3"),
+            "frame_of_reference_uid": format!("1.2.826.0.1.3680043.10.543.{suffix}4")
+        })
+    };
+    let target = identity(
+        "enhanced/ct/multiframe_shared_perframe_explicit_le",
+        "enhanced/ct/multiframe_shared_perframe_explicit_le/instance.dcm",
+        "1.2.840.10008.5.1.4.1.1.2.1",
+        1,
+    );
+    let source = identity(
+        "classic/ct/mono2_i16_rescale_12bit_explicit_le",
+        "classic/ct/mono2_i16_rescale_12bit_explicit_le/instance.dcm",
+        "1.2.840.10008.5.1.4.1.1.2",
+        2,
+    );
+    serde_json::json!({
+        "registered_frame_of_reference_uid": target["frame_of_reference_uid"],
+        "matrix_direction": "source_to_registered",
+        "registration_items": [
+            {
+                "role": "registered_target",
+                "source": target,
+                "complete_instance": true,
+                "matrix_registration_items": 1,
+                "registration_type_code_items": 0,
+                "matrix_items": 1,
+                "matrix": {
+                    "type": "RIGID",
+                    "values": [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1]
+                }
+            },
+            {
+                "role": "moving_source",
+                "source": source,
+                "complete_instance": true,
+                "matrix_registration_items": 1,
+                "registration_type_code_items": 0,
+                "matrix_items": 1,
+                "matrix": {
+                    "type": "RIGID",
+                    "values": [1,0,0,0, 0,1,0,0, 0,0,1,2.5, 0,0,0,1]
+                }
+            }
+        ],
+        "rigid_tolerances": {
+            "orthonormal_abs": 0.000001,
+            "determinant_abs": 0.000001,
+            "homogeneous_abs": 0.000001
+        },
+        "landmark": {
+            "source_point_mm": [0,0,0],
+            "registered_point_mm": [0,0,2.5],
+            "tolerance_mm": 0.000001
+        },
+        "common_instance_reference": {
+            "same_study": target,
+            "other_studies": [source]
+        },
+        "pixel_data_absent": true
+    })
+}
+
+#[test]
 fn manifest_schema_types_comprehensive3d_scoord3d_expectations() {
     let schema = read_json("schemas/manifest.schema.json");
     let expectation_schema = serde_json::json!({

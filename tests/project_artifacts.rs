@@ -4226,6 +4226,10 @@ fn generator_recipe_case_ids() -> BTreeSet<String> {
             &["case_id: \""][..],
         ),
         (
+            "src/generator/native/sc_nonsquare_spacing.rs",
+            &["case_id: \""][..],
+        ),
+        (
             "src/generator/native/sequence_length_sc.rs",
             &["case_id: \""][..],
         ),

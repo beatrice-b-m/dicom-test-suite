@@ -98,6 +98,20 @@
       "reviewer": "dicom-test-suite conformance review",
       "review_date": "2026-08-26",
       "recheck_condition": "Recheck if this recipe adopts a named root template or PixelMed changes template-less SR handling"
+    },
+    {
+      "validator_adapter_id": "dicom3tools-dciodvfy",
+      "validator_fingerprint": "1aeb75d6ccd3f193e3b322b6da77742cdce2e0604868eaf2a2669c786cbc27e5",
+      "case_id": "geometry/ct/duplicate_missing_instance_number",
+      "path": "geometry/ct/duplicate_missing_instance_number/slice-003.dcm",
+      "message_fingerprint": "f4b09de04adf3d01b5aecf441abd40d0f7882b561f0b4c99c3cee59493906423",
+      "original_severity": "warning",
+      "disposition": "generator_intent_confirmed",
+      "rationale": "The empty Instance Number is an intentional zero-length Type 2 value; dciodvfy reports only that such an instance would not supply a value needed when constructing a DICOMDIR.",
+      "citation": "DICOM PS3.3 2026b Table C.7-9, Instance Number (0020,0013) is Type 2 in the General Image Module",
+      "reviewer": "dicom-test-suite conformance review",
+      "review_date": "2026-08-26",
+      "recheck_condition": "Recheck if the recipe stops testing an empty Type 2 Instance Number or the locked dciodvfy warning changes"
     }
   ]
 }

@@ -48,6 +48,14 @@ exact template-less warnings observed on 2026-08-26. They confirm that those
 two generic recipes were not created from a named root template; they do not
 suppress SR IOD errors or findings from the TID 2010 Key Object Selection case.
 
+The committed dicom3tools disposition applies only to the zero-length
+Instance Number in
+`geometry/ct/duplicate_missing_instance_number/slice-003.dcm`, the locked
+`dciodvfy` fingerprint, and its exact DICOMDIR-usability warning. PS3.3 Table
+C.7-9 defines Instance Number as Type 2 for this CT Image, so an empty value is
+intentional and valid. The disposition does not accept omission of the element,
+an IOD error, or any other Instance Number warning.
+
 Generated bundles belong below ignored `reports/conformance/`. Every run is
 driven solely by `manifest.json` file entries and uses manifest-relative paths.
 

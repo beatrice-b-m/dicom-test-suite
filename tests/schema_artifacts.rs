@@ -352,6 +352,26 @@ fn manifest_schema_types_cross_series_organization_expectations() {
 }
 
 #[test]
+fn manifest_schema_types_enhanced_instance_uids() {
+    let schema = read_json("schemas/manifest.schema.json");
+    let uid_properties = schema
+        .pointer("/$defs/uids/properties")
+        .and_then(Value::as_object)
+        .expect("manifest UID properties should be an object");
+
+    for property in ["dimension_organization_uid", "irradiation_event_uid"] {
+        assert_eq!(
+            uid_properties
+                .get(property)
+                .and_then(|value| value.get("type"))
+                .and_then(Value::as_str),
+            Some("string"),
+            "{property} should be an optional typed UID"
+        );
+    }
+}
+
+#[test]
 fn manifest_schema_types_external_generation_and_float_pixels() {
     let schema = read_json("schemas/manifest.schema.json");
     let backend_required = schema

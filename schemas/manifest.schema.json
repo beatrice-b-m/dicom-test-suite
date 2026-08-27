@@ -523,6 +523,12 @@
         "frame_of_reference_uid": {
           "type": ["string", "null"]
         },
+        "dimension_organization_uid": {
+          "type": "string"
+        },
+        "irradiation_event_uid": {
+          "type": "string"
+        },
         "implementation_class_uid": {
           "type": "string"
         },

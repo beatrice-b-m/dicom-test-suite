@@ -373,6 +373,42 @@ fn nonsquare_source_note_locks_distinct_spacing_and_aspect_axes() {
 }
 
 #[test]
+fn integer_parametric_map_retains_explicit_provider_blocker() {
+    let registry = read_json("cases/registry.json");
+    let case = registry_cases(&registry)
+        .into_iter()
+        .find(|case| {
+            case.get("case_id").and_then(Value::as_str)
+                == Some("derived/parametric-map/integer_ct_derived_explicit_le")
+        })
+        .expect("integer Parametric Map row must exist");
+    assert_eq!(case["status"], "planned");
+    assert_eq!(case["provider"]["id"], "dcmqi");
+    assert_eq!(
+        case["blockers"],
+        serde_json::json!([{
+            "code": "provider_capability_unavailable",
+            "message": "Locked dcmqi v1.5.7 emits only the floating-point Parametric Map pixel module; the cross-implementation integer Image Pixel path is unavailable.",
+            "recheck_phase": "phase-3"
+        }])
+    );
+
+    let note =
+        fs::read_to_string("standards/source-notes/phase-3-integer-parametric-map-provider.md")
+            .expect("integer Parametric Map provider note must exist");
+    for required in [
+        "provider_capability_unavailable",
+        "dcmqi v1.5.7",
+        "506306a",
+        "ec17425d3eaa7b58db0924138569508c833e9774ef48052ca85d3e5a1b6cf9b9",
+        "IODFloatingPointImagePixelModule",
+        "Do not silently substitute",
+    ] {
+        assert!(note.contains(required), "provider note requires {required}");
+    }
+}
+
+#[test]
 fn u1_pixel_decoder_is_case_scoped_and_locked() {
     let validators = read_json("conformance/validators.json");
     let adapter = validators["adapters"]

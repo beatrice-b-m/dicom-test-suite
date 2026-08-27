@@ -9144,13 +9144,8 @@
       },
       "blockers": [
         {
-          "code": "backend_contract_unimplemented",
-          "message": "The external generation protocol is not implemented.",
-          "recheck_phase": "phase-1"
-        },
-        {
-          "code": "independent_iod_validator_unavailable",
-          "message": "The required independent validation path is not integrated.",
+          "code": "provider_capability_unavailable",
+          "message": "Locked dcmqi v1.5.7 emits only the floating-point Parametric Map pixel module; the cross-implementation integer Image Pixel path is unavailable.",
           "recheck_phase": "phase-3"
         }
       ],
@@ -9179,6 +9174,14 @@
           "covered": true,
           "part": "PS3.6",
           "anchor": "table_A-1"
+        },
+        {
+          "source": "local-source-note",
+          "edition": "2026b",
+          "query": "standards/source-notes/phase-3-integer-parametric-map-provider.md",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.75-1"
         }
       ]
     },

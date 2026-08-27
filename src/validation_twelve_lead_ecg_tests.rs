@@ -181,6 +181,101 @@ fn rejects_formula_interleave_hash_and_absent_module_mutations() {
     }
 }
 
+#[test]
+fn rejects_manifest_group_order_and_cardinality_mutations() {
+    let path = write_fixture("manifest-groups", Mutation::None);
+
+    let mut wrong_ordinal = twelve_lead_ecg_expected_waveform();
+    let mut ordinal_groups = [wrong_ordinal.multiplex_groups[0]];
+    ordinal_groups[0].ordinal = 2;
+    wrong_ordinal.multiplex_groups = &ordinal_groups;
+    assert_expected_rejects(&path, wrong_ordinal, "twelve_lead_ecg_group_1_ordinal");
+
+    let mut extra_group = twelve_lead_ecg_expected_waveform();
+    let duplicate_groups = [extra_group.multiplex_groups[0]; 2];
+    let duplicate_hashes = [
+        extra_group.multiplex_groups[0].storage.payload_sha256,
+        extra_group.multiplex_groups[0].storage.payload_sha256,
+    ];
+    extra_group.multiplex_groups = &duplicate_groups;
+    extra_group.aggregate.group_count = 2;
+    extra_group.aggregate.total_channel_count = 24;
+    extra_group.aggregate.total_payload_length_bytes = 24_000;
+    extra_group.aggregate.group_payload_sha256 = &duplicate_hashes;
+    assert_expected_rejects(&path, extra_group, "twelve_lead_ecg_group_count");
+
+    let mut wrong_channel_count = twelve_lead_ecg_expected_waveform();
+    let mut channel_count_groups = [wrong_channel_count.multiplex_groups[0]];
+    channel_count_groups[0].channel_count = 11;
+    wrong_channel_count.multiplex_groups = &channel_count_groups;
+    wrong_channel_count.aggregate.total_channel_count = 11;
+    assert_expected_rejects(
+        &path,
+        wrong_channel_count,
+        "twelve_lead_ecg_manifest_channel_count",
+    );
+
+    let mut missing_channel_hash = twelve_lead_ecg_expected_waveform();
+    let mut channel_hash_groups = [missing_channel_hash.multiplex_groups[0]];
+    channel_hash_groups[0].storage.channel_sha256 =
+        &channel_hash_groups[0].storage.channel_sha256[..11];
+    missing_channel_hash.multiplex_groups = &channel_hash_groups;
+    assert_expected_rejects(
+        &path,
+        missing_channel_hash,
+        "twelve_lead_ecg_channel_hash_count",
+    );
+
+    cleanup(path);
+}
+
+#[test]
+fn rejects_manifest_aggregate_mutations() {
+    let path = write_fixture("manifest-aggregate", Mutation::None);
+    for (finding, mutate) in [
+        ("twelve_lead_ecg_manifest_aggregate_group_count", 0_u8),
+        ("twelve_lead_ecg_manifest_aggregate_channel_count", 1_u8),
+        ("twelve_lead_ecg_manifest_aggregate_common_duration", 2_u8),
+    ] {
+        let mut waveform = twelve_lead_ecg_expected_waveform();
+        match mutate {
+            0 => waveform.aggregate.group_count = 2,
+            1 => waveform.aggregate.total_channel_count = 11,
+            2 => waveform.aggregate.common_duration_seconds = 2,
+            _ => unreachable!(),
+        }
+        assert_expected_rejects(&path, waveform, finding);
+    }
+
+    let mut wrong_length = twelve_lead_ecg_expected_waveform();
+    wrong_length.aggregate.total_payload_length_bytes = 11_998;
+    assert_expected_rejects(
+        &path,
+        wrong_length,
+        "twelve_lead_ecg_manifest_aggregate_payload_length",
+    );
+
+    let mut wrong_group_hash = twelve_lead_ecg_expected_waveform();
+    let hashes = ["0000000000000000000000000000000000000000000000000000000000000000"];
+    wrong_group_hash.aggregate.group_payload_sha256 = &hashes;
+    assert_expected_rejects(
+        &path,
+        wrong_group_hash,
+        "twelve_lead_ecg_manifest_aggregate_group_hashes",
+    );
+
+    let mut wrong_aggregate_hash = twelve_lead_ecg_expected_waveform();
+    wrong_aggregate_hash.aggregate.aggregate_payload_sha256 =
+        "0000000000000000000000000000000000000000000000000000000000000000";
+    assert_expected_rejects(
+        &path,
+        wrong_aggregate_hash,
+        "twelve_lead_ecg_aggregate_payload_sha256",
+    );
+
+    cleanup(path);
+}
+
 fn assert_rejects(label: &str, mutation: Mutation, finding: &str) {
     let path = write_fixture(label, mutation);
     let error = validate_twelve_lead_ecg_file(&path, &expectations())
@@ -191,6 +286,22 @@ fn assert_rejects(label: &str, mutation: Mutation, finding: &str) {
         "unexpected validation error: {error}"
     );
     cleanup(path);
+}
+
+fn assert_expected_rejects(
+    path: &std::path::Path,
+    waveform: crate::waveform_manifest::ExpectedWaveform<'_>,
+    finding: &str,
+) {
+    let mut expected = expectations();
+    expected.waveform = waveform;
+    let error = validate_twelve_lead_ecg_file(path, &expected)
+        .expect_err("mutated waveform expectation must fail")
+        .to_string();
+    assert!(
+        error.contains(finding),
+        "unexpected validation error: {error}"
+    );
 }
 
 fn expectations() -> TwelveLeadEcgExpectations<'static> {

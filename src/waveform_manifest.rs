@@ -28,23 +28,12 @@ pub(crate) struct ExpectedWaveform<'a> {
     pub acquisition_context_items: u8,
     pub multiplex_groups: &'a [ExpectedMultiplexGroup<'a>],
     pub aggregate: ExpectedWaveformAggregate<'a>,
-    // Transitional typed aliases keep the strict validator compiling while it
-    // migrates to ordered group iteration in the next dependency commit. They
-    // are deliberately absent from the serialized manifest contract.
-    #[serde(skip)]
-    pub multiplex_group: ExpectedMultiplexGroup<'a>,
-    #[serde(skip)]
-    pub channels: &'a [ExpectedWaveformChannel<'a>],
-    #[serde(skip)]
-    pub storage: ExpectedWaveformStorage<'a>,
     pub absent_content: ExpectedWaveformAbsentContent,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize)]
 pub(crate) struct ExpectedMultiplexGroup<'a> {
     pub ordinal: u8,
-    #[serde(skip)]
-    pub group_count: u8,
     pub originality: &'a str,
     pub label: &'a str,
     pub channel_count: u8,
@@ -139,7 +128,6 @@ const TWELVE_LEAD_ECG_GROUP_PAYLOAD_SHA256: [&str; 1] = [TWELVE_LEAD_ECG_PAYLOAD
 const TWELVE_LEAD_ECG_MULTIPLEX_GROUPS: [ExpectedMultiplexGroup<'static>; 1] =
     [ExpectedMultiplexGroup {
         ordinal: 1,
-        group_count: 1,
         originality: "ORIGINAL",
         label: "RESTING_12_LEAD",
         channel_count: 12,
@@ -206,9 +194,6 @@ pub(crate) fn twelve_lead_ecg_expected_waveform() -> ExpectedWaveform<'static> {
             group_payload_sha256: &TWELVE_LEAD_ECG_GROUP_PAYLOAD_SHA256,
             aggregate_payload_sha256: TWELVE_LEAD_ECG_PAYLOAD_SHA256,
         },
-        multiplex_group: TWELVE_LEAD_ECG_MULTIPLEX_GROUPS[0],
-        channels: &TWELVE_LEAD_ECG_CHANNELS,
-        storage: TWELVE_LEAD_ECG_MULTIPLEX_GROUPS[0].storage,
         absent_content: ExpectedWaveformAbsentContent {
             annotation_module: true,
             synchronization_module: true,

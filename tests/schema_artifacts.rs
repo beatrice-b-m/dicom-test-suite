@@ -753,6 +753,133 @@ fn manifest_schema_types_xa_projection_expectations() {
 }
 
 #[test]
+fn manifest_schema_types_xrf_projection_expectations() {
+    let schema = read_json("schemas/manifest.schema.json");
+    let xrf_schema = serde_json::json!({
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$ref": "#/$defs/expected_xrf_projection",
+        "$defs": schema["$defs"].clone(),
+    });
+    let validator =
+        jsonschema::validator_for(&xrf_schema).expect("XRF expectation schema should compile");
+    let mut expectations = xrf_projection_expectations();
+    assert!(validator.is_valid(&expectations));
+
+    expectations["image_type"][2] = serde_json::json!("BIPLANE A");
+    expectations["frame_count"] = serde_json::json!(2);
+    expectations["body_part_examined"] = serde_json::json!("CHEST");
+    expectations["patient_orientation_empty"] = serde_json::json!(false);
+    expectations["laterality_present"] = serde_json::json!(true);
+    expectations["pixel_intensity_relationship"] = serde_json::json!("LOG");
+    expectations["radiation_setting"] = serde_json::json!("GR");
+    expectations["kvp"] = serde_json::json!(71.0);
+    expectations["exposure_mas"] = serde_json::json!(2);
+    expectations["imager_pixel_spacing_mm"][1] = serde_json::json!(0.3);
+    expectations["distance_source_to_detector_mm"] = serde_json::json!(1201.0);
+    expectations["distance_source_to_patient_mm"] = serde_json::json!(801.0);
+    expectations["estimated_radiographic_magnification_factor"] = serde_json::json!(1.4);
+    expectations["column_angulation_degrees"] = serde_json::json!(11.0);
+    expectations["lossy_image_compression"] = serde_json::json!("01");
+    expectations["multiframe_cine"] = serde_json::json!(true);
+    expectations["biplane_data_present"] = serde_json::json!(true);
+    expectations["contrast_used"] = serde_json::json!(true);
+    expectations["subtraction_applied"] = serde_json::json!(true);
+    expectations["table_position_present"] = serde_json::json!(true);
+    expectations["table_motion_present"] = serde_json::json!(true);
+    expectations["table_tilt_present"] = serde_json::json!(true);
+    expectations["tomography_present"] = serde_json::json!(true);
+    expectations["patient_space_geometry_present"] = serde_json::json!(true);
+    expectations["pixel_spacing_calibrated"] = serde_json::json!(true);
+    expectations["xa_positioner_angles_present"] = serde_json::json!(true);
+    expectations["unexpected"] = serde_json::json!(true);
+    let errors = validator.iter_errors(&expectations).collect::<Vec<_>>();
+    assert!(
+        errors.len() >= 27,
+        "XRF identity, anatomy, acquisition, positioner geometry, explicit non-claims, and unknown fields must be rejected: {errors:?}"
+    );
+
+    assert_eq!(
+        schema.pointer("/$defs/file/properties/expected_xrf_projection/$ref"),
+        Some(&Value::String(
+            "#/$defs/expected_xrf_projection".to_string()
+        ))
+    );
+
+    let xrf_case_rule = schema
+        .pointer("/$defs/file/allOf")
+        .and_then(Value::as_array)
+        .and_then(|rules| {
+            rules.iter().find(|rule| {
+                rule.pointer("/if/properties/case_id/const")
+                    .and_then(Value::as_str)
+                    == Some("classic/xrf/monoplane_explicit_le")
+            })
+        })
+        .expect("XRF case must have a manifest schema conditional");
+    let required = xrf_case_rule
+        .pointer("/then/required")
+        .and_then(Value::as_array)
+        .expect("XRF case conditional must require manifest fields");
+    for field in ["image", "pixel_data", "expected_xrf_projection"] {
+        assert!(
+            required.iter().any(|value| value.as_str() == Some(field)),
+            "XRF case conditional must require {field}"
+        );
+    }
+    for (pointer, expected) in [
+        (
+            "/then/properties/dicom/properties/sop_class_uid/const",
+            Value::from("1.2.840.10008.5.1.4.1.1.12.2"),
+        ),
+        (
+            "/then/properties/dicom/properties/iod_name/const",
+            Value::from("X-Ray Radiofluoroscopic Image"),
+        ),
+        (
+            "/then/properties/dicom/properties/modality/const",
+            Value::from("RF"),
+        ),
+        (
+            "/then/properties/image/properties/frames/const",
+            Value::from(1),
+        ),
+        (
+            "/then/properties/image/properties/bits_allocated/const",
+            Value::from(8),
+        ),
+        (
+            "/then/properties/pixel_data/properties/vr/const",
+            Value::from("OB"),
+        ),
+        (
+            "/then/properties/pixel_data/properties/value_length/const",
+            Value::from(16),
+        ),
+        (
+            "/then/properties/recipe/properties/recipe_id/const",
+            Value::from("classic_xrf_monoplane_explicit_le"),
+        ),
+        (
+            "/then/properties/recipe/properties/recipe_version/const",
+            Value::from("0.1.0"),
+        ),
+    ] {
+        assert_eq!(xrf_case_rule.pointer(pointer), Some(&expected));
+    }
+    assert!(
+        xrf_case_rule
+            .pointer("/then/properties/recipe/properties/recipe_parameters/required")
+            .and_then(Value::as_array)
+            .is_some_and(|required| {
+                required
+                    .iter()
+                    .any(|value| value.as_str() == Some("xrf_projection"))
+            }),
+        "XRF case conditional must require xrf_projection recipe parameters"
+    );
+}
+
+#[test]
 fn manifest_schema_rejects_malformed_person_name_expectations() {
     let schema = read_json("schemas/manifest.schema.json");
     let metadata_schema = serde_json::json!({
@@ -1062,6 +1189,37 @@ fn xa_projection_expectations() -> Value {
         "table_motion_present": false,
         "patient_space_geometry_present": false,
         "pixel_spacing_calibrated": false
+    })
+}
+
+fn xrf_projection_expectations() -> Value {
+    serde_json::json!({
+        "image_type": ["ORIGINAL", "PRIMARY", "SINGLE PLANE"],
+        "frame_count": 1,
+        "body_part_examined": "ABDOMEN",
+        "patient_orientation_empty": true,
+        "laterality_present": false,
+        "pixel_intensity_relationship": "LIN",
+        "radiation_setting": "SC",
+        "kvp": 70.0,
+        "exposure_mas": 1,
+        "imager_pixel_spacing_mm": [0.2, 0.2],
+        "distance_source_to_detector_mm": 1200.0,
+        "distance_source_to_patient_mm": 800.0,
+        "estimated_radiographic_magnification_factor": 1.5,
+        "column_angulation_degrees": 10.0,
+        "lossy_image_compression": "00",
+        "multiframe_cine": false,
+        "biplane_data_present": false,
+        "contrast_used": false,
+        "subtraction_applied": false,
+        "table_position_present": false,
+        "table_motion_present": false,
+        "table_tilt_present": false,
+        "tomography_present": false,
+        "patient_space_geometry_present": false,
+        "pixel_spacing_calibrated": false,
+        "xa_positioner_angles_present": false
     })
 }
 

@@ -313,6 +313,9 @@
         "expected_xa_projection": {
           "$ref": "#/$defs/expected_xa_projection"
         },
+        "expected_xrf_projection": {
+          "$ref": "#/$defs/expected_xrf_projection"
+        },
         "expected_geometry": {
           "anyOf": [
             { "$ref": "#/$defs/expected_geometry" },
@@ -544,6 +547,72 @@
                 "properties": {
                   "recipe_parameters": {
                     "required": ["xa_projection"]
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "case_id": { "const": "classic/xrf/monoplane_explicit_le" }
+            },
+            "required": ["case_id"]
+          },
+          "then": {
+            "required": ["image", "pixel_data", "expected_xrf_projection"],
+            "properties": {
+              "dicom": {
+                "properties": {
+                  "sop_class_uid": { "const": "1.2.840.10008.5.1.4.1.1.12.2" },
+                  "iod_name": { "const": "X-Ray Radiofluoroscopic Image" },
+                  "modality": { "const": "RF" }
+                }
+              },
+              "image": {
+                "properties": {
+                  "rows": { "const": 4 },
+                  "columns": { "const": 4 },
+                  "frames": { "const": 1 },
+                  "samples_per_pixel": { "const": 1 },
+                  "photometric_interpretation": { "const": "MONOCHROME2" },
+                  "bits_allocated": { "const": 8 },
+                  "bits_stored": { "const": 8 },
+                  "high_bit": { "const": 7 },
+                  "pixel_representation": { "const": 0 }
+                }
+              },
+              "pixel_data": {
+                "properties": {
+                  "vr": { "const": "OB" },
+                  "native_or_encapsulated": { "const": "native" },
+                  "value_length": { "const": 16 },
+                  "frame_count": { "const": 1 },
+                  "frame_hashes": {
+                    "prefixItems": [
+                      { "const": "0b9c742cc3fafec4c1d0240048d27210f2da155b3574458ae26035ffa488c00e" }
+                    ],
+                    "items": false,
+                    "minItems": 1,
+                    "maxItems": 1
+                  }
+                }
+              },
+              "recipe": {
+                "properties": {
+                  "recipe_id": { "const": "classic_xrf_monoplane_explicit_le" },
+                  "recipe_version": { "const": "0.1.0" },
+                  "recipe_parameters": {
+                    "required": ["payload_sha256", "xrf_projection"],
+                    "properties": {
+                      "payload_sha256": {
+                        "const": "0b9c742cc3fafec4c1d0240048d27210f2da155b3574458ae26035ffa488c00e"
+                      },
+                      "xrf_projection": {
+                        "$ref": "#/$defs/expected_xrf_projection"
+                      }
+                    }
                   }
                 }
               }
@@ -1027,6 +1096,82 @@
         "table_motion_present": { "const": false },
         "patient_space_geometry_present": { "const": false },
         "pixel_spacing_calibrated": { "const": false }
+      },
+      "additionalProperties": false
+    },
+    "expected_xrf_projection": {
+      "type": "object",
+      "required": [
+        "image_type",
+        "frame_count",
+        "body_part_examined",
+        "patient_orientation_empty",
+        "laterality_present",
+        "pixel_intensity_relationship",
+        "radiation_setting",
+        "kvp",
+        "exposure_mas",
+        "imager_pixel_spacing_mm",
+        "distance_source_to_detector_mm",
+        "distance_source_to_patient_mm",
+        "estimated_radiographic_magnification_factor",
+        "column_angulation_degrees",
+        "lossy_image_compression",
+        "multiframe_cine",
+        "biplane_data_present",
+        "contrast_used",
+        "subtraction_applied",
+        "table_position_present",
+        "table_motion_present",
+        "table_tilt_present",
+        "tomography_present",
+        "patient_space_geometry_present",
+        "pixel_spacing_calibrated",
+        "xa_positioner_angles_present"
+      ],
+      "properties": {
+        "image_type": {
+          "type": "array",
+          "prefixItems": [
+            { "const": "ORIGINAL" },
+            { "const": "PRIMARY" },
+            { "const": "SINGLE PLANE" }
+          ],
+          "items": false,
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "frame_count": { "const": 1 },
+        "body_part_examined": { "const": "ABDOMEN" },
+        "patient_orientation_empty": { "const": true },
+        "laterality_present": { "const": false },
+        "pixel_intensity_relationship": { "const": "LIN" },
+        "radiation_setting": { "const": "SC" },
+        "kvp": { "const": 70.0 },
+        "exposure_mas": { "const": 1 },
+        "imager_pixel_spacing_mm": {
+          "type": "array",
+          "prefixItems": [{ "const": 0.2 }, { "const": 0.2 }],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "distance_source_to_detector_mm": { "const": 1200.0 },
+        "distance_source_to_patient_mm": { "const": 800.0 },
+        "estimated_radiographic_magnification_factor": { "const": 1.5 },
+        "column_angulation_degrees": { "const": 10.0 },
+        "lossy_image_compression": { "const": "00" },
+        "multiframe_cine": { "const": false },
+        "biplane_data_present": { "const": false },
+        "contrast_used": { "const": false },
+        "subtraction_applied": { "const": false },
+        "table_position_present": { "const": false },
+        "table_motion_present": { "const": false },
+        "table_tilt_present": { "const": false },
+        "tomography_present": { "const": false },
+        "patient_space_geometry_present": { "const": false },
+        "pixel_spacing_calibrated": { "const": false },
+        "xa_positioner_angles_present": { "const": false }
       },
       "additionalProperties": false
     },

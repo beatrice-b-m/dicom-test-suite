@@ -22,6 +22,9 @@ use native::ct_geometry::{
 };
 use native::empty_type2_sc::{EMPTY_TYPE2_SC_RECIPE, EmptyType2ScRecipe};
 use native::metadata_sc::{METADATA_SC_RECIPES, MetadataScRecipe};
+use native::nm::{
+    CLASSIC_NM_RECIPES, ClassicNmDetectorRecipe, ClassicNmEnergyWindowRecipe, ClassicNmRecipe,
+};
 use native::private_creator_sc::{
     PRIVATE_CREATOR_SC_RECIPE, PrivateCreatorBlockRecipe, PrivateCreatorScRecipe, PrivateValue,
 };
@@ -56,7 +59,8 @@ use crate::{
         BasicTextSrExpectations, CrImageExpectations, CtImageExpectations, DxImageExpectations,
         EncapsulatedPdfExpectations, EnhancedCtConcatenationExpectations,
         EnhancedCtImageExpectations, EnhancedMrImageExpectations, MgImageExpectations,
-        MrImageExpectations, Part10Expectations, PixelDataLengthFormula,
+        MrImageExpectations, NmDetectorExpectations, NmEnergyWindowExpectations,
+        NmImageExpectations, Part10Expectations, PixelDataLengthFormula,
         PresentationStateExpectations, RealWorldValueMappingExpectations, RtDoseExpectations,
         RtStructureSetExpectations, SegmentationExpectations, UsImageExpectations,
         validate_basic_text_sr_file, validate_comprehensive_sr_file,
@@ -110,6 +114,7 @@ const ENHANCED_MR_RECIPE_VERSION: &str = "0.1.0";
 const CLASSIC_MG_RECIPE_VERSION: &str = "0.1.0";
 const CLASSIC_DX_RECIPE_VERSION: &str = "0.1.0";
 const CLASSIC_US_RECIPE_VERSION: &str = "0.1.0";
+const CLASSIC_NM_RECIPE_VERSION: &str = "0.1.0";
 const CLASSIC_CR_RECIPE_VERSION: &str = "0.1.0";
 const CLASSIC_MR_RECIPE_VERSION: &str = "0.1.0";
 const SEGMENTATION_RECIPE_VERSION: &str = "0.1.0";
@@ -3934,6 +3939,20 @@ pub(crate) fn write_supported_cases(
             standards_lock_sha256,
         )?)?;
     }
+    for recipe in CLASSIC_NM_RECIPES {
+        let Some(case) = registry_case(registry, recipe.case_id)? else {
+            continue;
+        };
+        if !should_generate_case(case, run)? {
+            continue;
+        }
+        context.record_one(write_classic_nm_case(
+            run,
+            case,
+            *recipe,
+            standards_lock_sha256,
+        )?)?;
+    }
     for recipe in CLASSIC_US_RECIPES {
         let Some(case) = registry_case(registry, recipe.case_id)? else {
             continue;
@@ -5302,6 +5321,7 @@ fn write_pixel_case_with_metadata(
             mg_image: None,
             dx_image: None,
             us_image: None,
+            nm_image: None,
             cr_image: None,
             mr_image: None,
             segmentation: None,
@@ -7813,6 +7833,7 @@ fn write_classic_ct_case(
                     mg_image: None,
                     dx_image: None,
                     us_image: None,
+                    nm_image: None,
                     cr_image: None,
                     mr_image: None,
                     segmentation: None,
@@ -8638,6 +8659,7 @@ fn write_enhanced_ct_case(
             mg_image: None,
             dx_image: None,
             us_image: None,
+            nm_image: None,
             cr_image: None,
             mr_image: None,
             segmentation: None,
@@ -8982,6 +9004,7 @@ fn write_segmentation_case(
             mg_image: None,
             dx_image: None,
             us_image: None,
+            nm_image: None,
             cr_image: None,
             mr_image: None,
             segmentation: Some(SegmentationExpectations {
@@ -10883,6 +10906,7 @@ fn write_enhanced_ct_concatenation_case(
                 mg_image: None,
                 dx_image: None,
                 us_image: None,
+                nm_image: None,
                 cr_image: None,
                 mr_image: None,
                 segmentation: None,
@@ -13468,6 +13492,7 @@ fn write_enhanced_mr_case(
             mg_image: None,
             dx_image: None,
             us_image: None,
+            nm_image: None,
             cr_image: None,
             mr_image: None,
             segmentation: None,
@@ -14441,6 +14466,7 @@ fn write_classic_mg_case(
             }),
             dx_image: None,
             us_image: None,
+            nm_image: None,
             cr_image: None,
             mr_image: None,
             segmentation: None,
@@ -15141,6 +15167,7 @@ fn write_classic_dx_case(
                 shutter_presentation_value: recipe.shutter_presentation_value,
             }),
             us_image: None,
+            nm_image: None,
             cr_image: None,
             mr_image: None,
             segmentation: None,
@@ -15469,6 +15496,613 @@ fn classic_dx_known_stressors(recipe: ClassicDxRecipe) -> Vec<&'static str> {
     stressors
 }
 
+fn write_classic_nm_case(
+    run: &PreparedGenerationRun,
+    case: &Value,
+    recipe: ClassicNmRecipe,
+    standards_lock_sha256: &str,
+) -> Result<GeneratedFile, GenerateError> {
+    if !recipe.dimensions_are_consistent()
+        || recipe.computed_counts_accumulated() != recipe.counts_accumulated
+    {
+        return Err(GenerateError::MetadataShape {
+            path: PathBuf::from(recipe.case_id),
+            message: "NM frame dimensions or accumulated counts are inconsistent",
+        });
+    }
+
+    let study_instance_uid = deterministic_classic_nm_uid(
+        standards_lock_sha256,
+        recipe,
+        run.seed,
+        UidRole::StudyInstance,
+    );
+    let series_instance_uid = deterministic_classic_nm_uid(
+        standards_lock_sha256,
+        recipe,
+        run.seed,
+        UidRole::SeriesInstance,
+    );
+    let sop_instance_uid = deterministic_classic_nm_uid(
+        standards_lock_sha256,
+        recipe,
+        run.seed,
+        UidRole::SopInstance,
+    );
+    let implementation_class_uid = deterministic_implementation_uid(standards_lock_sha256);
+    let relative_path = format!("{}/instance.dcm", recipe.case_id);
+    let path = run.out_dir.join(&relative_path);
+    let case_dir = path.parent().ok_or_else(|| GenerateError::MetadataShape {
+        path: PathBuf::from(&relative_path),
+        message: "generated DICOM path must have a parent directory",
+    })?;
+    fs::create_dir_all(case_dir).map_err(|source| GenerateError::CreateCaseOutputDir {
+        path: case_dir.to_path_buf(),
+        source,
+    })?;
+
+    let mut obj = InMemDicomObject::new_empty();
+    put_str(
+        &mut obj,
+        tags::SOP_CLASS_UID,
+        VR::UI,
+        uids::NUCLEAR_MEDICINE_IMAGE_STORAGE,
+    );
+    put_str(&mut obj, tags::SOP_INSTANCE_UID, VR::UI, &sop_instance_uid);
+    put_str(&mut obj, tags::SYNTHETIC_DATA, VR::CS, "YES");
+
+    put_str(
+        &mut obj,
+        tags::PATIENT_NAME,
+        VR::PN,
+        "DTS^Synthetic^Patient001",
+    );
+    put_str(&mut obj, tags::PATIENT_ID, VR::LO, "DTS-PATIENT-001");
+    put_str(&mut obj, tags::PATIENT_BIRTH_DATE, VR::DA, "19700101");
+    put_str(&mut obj, tags::PATIENT_SEX, VR::CS, "O");
+
+    put_str(
+        &mut obj,
+        tags::STUDY_INSTANCE_UID,
+        VR::UI,
+        &study_instance_uid,
+    );
+    put_str(&mut obj, tags::STUDY_DATE, VR::DA, "20260101");
+    put_str(&mut obj, tags::STUDY_TIME, VR::TM, "000000");
+    put_str(&mut obj, tags::REFERRING_PHYSICIAN_NAME, VR::PN, "");
+    put_str(&mut obj, tags::STUDY_ID, VR::SH, "DTS-NM");
+    put_str(&mut obj, tags::ACCESSION_NUMBER, VR::SH, "");
+
+    put_str(&mut obj, tags::MODALITY, VR::CS, "NM");
+    put_str(
+        &mut obj,
+        tags::SERIES_INSTANCE_UID,
+        VR::UI,
+        &series_instance_uid,
+    );
+    put_str(&mut obj, tags::SERIES_NUMBER, VR::IS, "1");
+    put_str(&mut obj, tags::BODY_PART_EXAMINED, VR::CS, "HEAD");
+    put_empty_sequence(&mut obj, tags::PATIENT_ORIENTATION_CODE_SEQUENCE);
+    put_empty_sequence(&mut obj, tags::PATIENT_GANTRY_RELATIONSHIP_CODE_SEQUENCE);
+
+    put_str(&mut obj, tags::MANUFACTURER, VR::LO, "dicom-test-suite");
+    put_str(
+        &mut obj,
+        tags::MANUFACTURER_MODEL_NAME,
+        VR::LO,
+        recipe.recipe_id,
+    );
+    put_str(
+        &mut obj,
+        tags::SOFTWARE_VERSIONS,
+        VR::LO,
+        crate::PACKAGE_VERSION,
+    );
+
+    put_str(&mut obj, tags::ACQUISITION_NUMBER, VR::IS, "1");
+    put_str(&mut obj, tags::ACQUISITION_DATE, VR::DA, "20260101");
+    put_str(&mut obj, tags::ACQUISITION_TIME, VR::TM, "000000");
+    put_str(&mut obj, tags::IMAGE_TYPE, VR::CS, recipe.image_type);
+    put_str(&mut obj, tags::INSTANCE_NUMBER, VR::IS, "1");
+    put_str(&mut obj, tags::PATIENT_ORIENTATION, VR::CS, "");
+    put_str(&mut obj, tags::CONTENT_DATE, VR::DA, "20260101");
+    put_str(&mut obj, tags::CONTENT_TIME, VR::TM, "000000");
+
+    put_u16(&mut obj, tags::SAMPLES_PER_PIXEL, VR::US, 1);
+    put_str(
+        &mut obj,
+        tags::PHOTOMETRIC_INTERPRETATION,
+        VR::CS,
+        "MONOCHROME2",
+    );
+    put_u16(&mut obj, tags::ROWS, VR::US, recipe.rows);
+    put_u16(&mut obj, tags::COLUMNS, VR::US, recipe.columns);
+    put_u16(&mut obj, tags::BITS_ALLOCATED, VR::US, 16);
+    put_u16(&mut obj, tags::BITS_STORED, VR::US, 16);
+    put_u16(&mut obj, tags::HIGH_BIT, VR::US, 15);
+    put_u16(&mut obj, tags::PIXEL_REPRESENTATION, VR::US, 0);
+    put_str(&mut obj, tags::PIXEL_SPACING, VR::DS, "4\\4");
+    put_str(
+        &mut obj,
+        tags::NUMBER_OF_FRAMES,
+        VR::IS,
+        &recipe.frame_count().to_string(),
+    );
+    obj.put(DataElement::new(
+        tags::FRAME_INCREMENT_POINTER,
+        VR::AT,
+        PrimitiveValue::Tags(vec![tags::ENERGY_WINDOW_VECTOR, tags::DETECTOR_VECTOR].into()),
+    ));
+    obj.put(DataElement::new(
+        tags::ENERGY_WINDOW_VECTOR,
+        VR::US,
+        PrimitiveValue::U16(recipe.energy_window_vector.to_vec().into()),
+    ));
+    put_u16(
+        &mut obj,
+        tags::NUMBER_OF_ENERGY_WINDOWS,
+        VR::US,
+        recipe.energy_windows.len() as u16,
+    );
+    obj.put(DataElement::new(
+        tags::DETECTOR_VECTOR,
+        VR::US,
+        PrimitiveValue::U16(recipe.detector_vector.to_vec().into()),
+    ));
+    put_u16(
+        &mut obj,
+        tags::NUMBER_OF_DETECTORS,
+        VR::US,
+        recipe.detectors.len() as u16,
+    );
+    put_nm_energy_windows(&mut obj, recipe.energy_windows);
+    put_empty_sequence(&mut obj, tags::RADIOPHARMACEUTICAL_INFORMATION_SEQUENCE);
+    put_nm_detectors(&mut obj, recipe.detectors);
+    put_str(
+        &mut obj,
+        tags::ACTUAL_FRAME_DURATION,
+        VR::IS,
+        &recipe.actual_frame_duration_ms.to_string(),
+    );
+    put_str(
+        &mut obj,
+        tags::COUNTS_ACCUMULATED,
+        VR::IS,
+        &recipe.counts_accumulated.to_string(),
+    );
+
+    let pixel_bytes = recipe
+        .frames
+        .iter()
+        .flat_map(|frame| frame.pixel_bytes_le.iter().copied())
+        .collect::<Vec<_>>();
+    obj.put(DataElement::new(
+        tags::PIXEL_DATA,
+        VR::OW,
+        PrimitiveValue::from(pixel_bytes.clone()),
+    ));
+
+    let file_obj = obj
+        .with_meta(
+            FileMetaTableBuilder::new()
+                .transfer_syntax(uids::EXPLICIT_VR_LITTLE_ENDIAN)
+                .implementation_class_uid(&implementation_class_uid)
+                .implementation_version_name(crate::IMPLEMENTATION_VERSION_NAME),
+        )
+        .map_err(|err| GenerateError::WriteDicomFile {
+            path: path.clone(),
+            message: err.to_string(),
+        })?;
+    file_obj
+        .write_to_file(&path)
+        .map_err(|err| GenerateError::WriteDicomFile {
+            path: path.clone(),
+            message: err.to_string(),
+        })?;
+
+    let frame_hashes = recipe
+        .frames
+        .iter()
+        .map(|frame| frame.frame_sha256)
+        .collect::<Vec<_>>();
+    let energy_lower = recipe
+        .energy_windows
+        .iter()
+        .map(|window| classic_nm_ds_number(window.lower_limit_kev))
+        .collect::<Vec<_>>();
+    let energy_upper = recipe
+        .energy_windows
+        .iter()
+        .map(|window| classic_nm_ds_number(window.upper_limit_kev))
+        .collect::<Vec<_>>();
+    let energy_expectations = recipe
+        .energy_windows
+        .iter()
+        .zip(energy_lower.iter().zip(energy_upper.iter()))
+        .map(|(window, (lower, upper))| NmEnergyWindowExpectations {
+            name: window.name,
+            lower_limit_kev: lower,
+            upper_limit_kev: upper,
+        })
+        .collect::<Vec<_>>();
+    let detector_focal_distance = recipe
+        .detectors
+        .iter()
+        .map(|detector| classic_nm_ds_number(detector.focal_distance_mm))
+        .collect::<Vec<_>>();
+    let detector_start_angle = recipe
+        .detectors
+        .iter()
+        .map(|detector| classic_nm_ds_number(detector.start_angle_degrees))
+        .collect::<Vec<_>>();
+    let detector_orientation = recipe
+        .detectors
+        .iter()
+        .map(|detector| classic_nm_ds_values(&detector.image_orientation_patient))
+        .collect::<Vec<_>>();
+    let detector_position = recipe
+        .detectors
+        .iter()
+        .map(|detector| classic_nm_ds_values(&detector.image_position_patient))
+        .collect::<Vec<_>>();
+    let detector_expectations = recipe
+        .detectors
+        .iter()
+        .enumerate()
+        .map(|(index, detector)| NmDetectorExpectations {
+            collimator_type: detector.collimator_type,
+            focal_distance_mm: &detector_focal_distance[index],
+            start_angle_degrees: &detector_start_angle[index],
+            image_orientation_patient: &detector_orientation[index],
+            image_position_patient: &detector_position[index],
+        })
+        .collect::<Vec<_>>();
+    let actual_frame_duration_ms = recipe.actual_frame_duration_ms.to_string();
+    let counts_accumulated = recipe.counts_accumulated.to_string();
+    let validated = validate_part10_file(
+        &path,
+        &Part10Expectations {
+            sop_class_uid: uids::NUCLEAR_MEDICINE_IMAGE_STORAGE,
+            sop_instance_uid: &sop_instance_uid,
+            transfer_syntax_uid: uids::EXPLICIT_VR_LITTLE_ENDIAN,
+            implementation_class_uid: &implementation_class_uid,
+            synthetic_data: "YES",
+            rows: recipe.rows,
+            columns: recipe.columns,
+            frames: recipe.frame_count() as u16,
+            samples_per_pixel: 1,
+            photometric_interpretation: "MONOCHROME2",
+            bits_allocated: 16,
+            bits_stored: 16,
+            high_bit: 15,
+            pixel_representation: 0,
+            planar_configuration: None,
+            pixel_data_vr: VR::OW,
+            pixel_data_length_formula: PixelDataLengthFormula::ContiguousSamples,
+            decoded_frame_hashes: &frame_hashes,
+            palette: None,
+            padding: None,
+            ct_image: None,
+            enhanced_ct_image: None,
+            enhanced_mr_image: None,
+            mg_image: None,
+            dx_image: None,
+            us_image: None,
+            nm_image: Some(NmImageExpectations {
+                modality: "NM",
+                body_part_examined: "HEAD",
+                image_type: recipe.image_type,
+                pixel_spacing: "4\\4",
+                actual_frame_duration_ms: &actual_frame_duration_ms,
+                counts_accumulated: &counts_accumulated,
+                frame_increment_pointers: &[tags::ENERGY_WINDOW_VECTOR, tags::DETECTOR_VECTOR],
+                energy_window_vector: recipe.energy_window_vector,
+                detector_vector: recipe.detector_vector,
+                energy_windows: &energy_expectations,
+                detectors: &detector_expectations,
+            }),
+            cr_image: None,
+            mr_image: None,
+            segmentation: None,
+        },
+    )?;
+
+    Ok(GeneratedFile {
+        case_id: recipe.case_id.to_string(),
+        manifest_entry: classic_nm_manifest_entry(
+            case,
+            recipe,
+            &relative_path,
+            &study_instance_uid,
+            &series_instance_uid,
+            &sop_instance_uid,
+            &implementation_class_uid,
+            &validated.bytes,
+            validated.validation,
+            &pixel_bytes,
+        ),
+    })
+}
+
+fn put_nm_energy_windows(obj: &mut InMemDicomObject, windows: &[ClassicNmEnergyWindowRecipe]) {
+    let items = windows
+        .iter()
+        .map(|window| {
+            InMemDicomObject::from_element_iter([
+                DataElement::new(tags::ENERGY_WINDOW_NAME, VR::SH, window.name),
+                DataElement::new(
+                    tags::ENERGY_WINDOW_RANGE_SEQUENCE,
+                    VR::SQ,
+                    DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+                        DataElement::new(
+                            tags::ENERGY_WINDOW_LOWER_LIMIT,
+                            VR::DS,
+                            classic_nm_ds_number(window.lower_limit_kev),
+                        ),
+                        DataElement::new(
+                            tags::ENERGY_WINDOW_UPPER_LIMIT,
+                            VR::DS,
+                            classic_nm_ds_number(window.upper_limit_kev),
+                        ),
+                    ])]),
+                ),
+            ])
+        })
+        .collect::<Vec<_>>();
+    obj.put(DataElement::new(
+        tags::ENERGY_WINDOW_INFORMATION_SEQUENCE,
+        VR::SQ,
+        DataSetSequence::from(items),
+    ));
+}
+
+fn put_nm_detectors(obj: &mut InMemDicomObject, detectors: &[ClassicNmDetectorRecipe]) {
+    let items = detectors
+        .iter()
+        .map(|detector| {
+            InMemDicomObject::from_element_iter([
+                DataElement::new(tags::COLLIMATOR_TYPE, VR::CS, detector.collimator_type),
+                DataElement::new(
+                    tags::FOCAL_DISTANCE,
+                    VR::IS,
+                    classic_nm_ds_number(detector.focal_distance_mm),
+                ),
+                DataElement::new(
+                    tags::START_ANGLE,
+                    VR::DS,
+                    classic_nm_ds_number(detector.start_angle_degrees),
+                ),
+                DataElement::new(
+                    tags::IMAGE_ORIENTATION_PATIENT,
+                    VR::DS,
+                    classic_nm_ds_values(&detector.image_orientation_patient),
+                ),
+                DataElement::new(
+                    tags::IMAGE_POSITION_PATIENT,
+                    VR::DS,
+                    classic_nm_ds_values(&detector.image_position_patient),
+                ),
+            ])
+        })
+        .collect::<Vec<_>>();
+    obj.put(DataElement::new(
+        tags::DETECTOR_INFORMATION_SEQUENCE,
+        VR::SQ,
+        DataSetSequence::from(items),
+    ));
+}
+
+fn classic_nm_ds_number(value: f64) -> String {
+    if value.fract() == 0.0 {
+        format!("{value:.0}")
+    } else {
+        value.to_string()
+    }
+}
+
+fn classic_nm_ds_values(values: &[f64]) -> String {
+    values
+        .iter()
+        .map(|value| classic_nm_ds_number(*value))
+        .collect::<Vec<_>>()
+        .join("\\")
+}
+
+#[allow(clippy::too_many_arguments)]
+fn classic_nm_manifest_entry(
+    case: &Value,
+    recipe: ClassicNmRecipe,
+    relative_path: &str,
+    study_instance_uid: &str,
+    series_instance_uid: &str,
+    sop_instance_uid: &str,
+    implementation_class_uid: &str,
+    bytes: &[u8],
+    validation: Value,
+    pixel_bytes: &[u8],
+) -> Value {
+    let frame_hashes = recipe
+        .frames
+        .iter()
+        .map(|frame| frame.frame_sha256)
+        .collect::<Vec<_>>();
+    let frame_dimensions = recipe
+        .frames
+        .iter()
+        .map(|frame| {
+            serde_json::json!({
+                "frame_number": frame.frame_number,
+                "energy_window_index": frame.energy_window_index,
+                "detector_index": frame.detector_index,
+                "frame_sha256": frame.frame_sha256
+            })
+        })
+        .collect::<Vec<_>>();
+    let energy_windows = recipe
+        .energy_windows
+        .iter()
+        .map(|window| {
+            serde_json::json!({
+                "index": window.index,
+                "name": window.name,
+                "lower_limit_kev": window.lower_limit_kev,
+                "upper_limit_kev": window.upper_limit_kev
+            })
+        })
+        .collect::<Vec<_>>();
+    let detectors = recipe
+        .detectors
+        .iter()
+        .map(|detector| {
+            serde_json::json!({
+                "index": detector.index,
+                "collimator_type": detector.collimator_type,
+                "focal_distance_mm": detector.focal_distance_mm,
+                "start_angle_degrees": detector.start_angle_degrees,
+                "image_orientation_patient": detector.image_orientation_patient,
+                "image_position_patient": detector.image_position_patient
+            })
+        })
+        .collect::<Vec<_>>();
+    let nm_dimensions = serde_json::json!({
+        "frame_increment_pointers": ["0054,0010", "0054,0020"],
+        "energy_window_vector": recipe.energy_window_vector,
+        "detector_vector": recipe.detector_vector,
+        "number_of_energy_windows": recipe.energy_windows.len(),
+        "number_of_detectors": recipe.detectors.len()
+    });
+    let mut standards_evidence = standards_evidence_from_case(case);
+    standards_evidence.extend([
+        serde_json::json!({
+            "source": "dicom-standard-kb", "edition": "2026b",
+            "query": "list_modules_for_iod Nuclear Medicine Image", "covered": true,
+            "part": "PS3.3", "anchor": "table_A.5-1"
+        }),
+        serde_json::json!({
+            "source": "dicom-standard-kb", "edition": "2026b",
+            "query": "list_attributes_for_module NM Multi-frame", "covered": true,
+            "part": "PS3.3", "anchor": "table_C.8-7"
+        }),
+        serde_json::json!({
+            "source": "dicom-standard-kb", "edition": "2026b",
+            "query": "retrieve_standard_text PS3.3 sect_C.8.4.8.1.1", "covered": true,
+            "part": "PS3.3", "anchor": "table_C.8-8"
+        }),
+        serde_json::json!({
+            "source": "dicom-standard-kb", "edition": "2026b",
+            "query": "list_attributes_for_module NM Image Pixel", "covered": true,
+            "part": "PS3.3", "anchor": "table_C.8-6"
+        }),
+        serde_json::json!({
+            "source": "dicom-standard-kb", "edition": "2026b",
+            "query": "list_attributes_for_module NM Image", "covered": true,
+            "part": "PS3.3", "anchor": "table_C.8-9"
+        }),
+        serde_json::json!({
+            "source": "dicom-standard-kb", "edition": "2026b",
+            "query": "list_attributes_for_module NM Isotope", "covered": true,
+            "part": "PS3.3", "anchor": "table_C.8-10"
+        }),
+        serde_json::json!({
+            "source": "dicom-standard-kb", "edition": "2026b",
+            "query": "list_attributes_for_module NM Detector", "covered": true,
+            "part": "PS3.3", "anchor": "table_C.8-11"
+        }),
+        serde_json::json!({
+            "source": "local-source-note", "edition": "2026b",
+            "query": "standards/source-notes/phase-2-nm-multiframe.md", "covered": true,
+            "part": "PS3.3", "anchor": "sect_C.8.4"
+        }),
+    ]);
+
+    serde_json::json!({
+        "case_id": recipe.case_id,
+        "profile_membership": ["core"],
+        "path": relative_path,
+        "sha256": sha256_hex(bytes),
+        "size_bytes": bytes.len(),
+        "determinism": "byte_stable",
+        "recipe": {
+            "recipe_id": recipe.recipe_id,
+            "recipe_version": CLASSIC_NM_RECIPE_VERSION,
+            "recipe_parameters": {
+                "rows": recipe.rows,
+                "columns": recipe.columns,
+                "frames": recipe.frame_count(),
+                "samples_per_pixel": 1,
+                "photometric_interpretation": "MONOCHROME2",
+                "bits_allocated": 16,
+                "bits_stored": 16,
+                "high_bit": 15,
+                "pixel_representation": 0,
+                "pixel_values": recipe.frames.iter().map(|frame| frame.pixel_values).collect::<Vec<_>>(),
+                "nm_dimensions": nm_dimensions
+            }
+        },
+        "dicom": {
+            "sop_class_uid": uids::NUCLEAR_MEDICINE_IMAGE_STORAGE,
+            "sop_class_name": "Nuclear Medicine Image Storage",
+            "iod_name": "Nuclear Medicine Image",
+            "modality": "NM",
+            "transfer_syntax_uid": uids::EXPLICIT_VR_LITTLE_ENDIAN,
+            "transfer_syntax_name": "Explicit VR Little Endian"
+        },
+        "uids": {
+            "study_instance_uid": study_instance_uid,
+            "series_instance_uid": series_instance_uid,
+            "sop_instance_uid": sop_instance_uid,
+            "frame_of_reference_uid": Value::Null,
+            "implementation_class_uid": implementation_class_uid
+        },
+        "image": {
+            "rows": recipe.rows,
+            "columns": recipe.columns,
+            "frames": recipe.frame_count(),
+            "samples_per_pixel": 1,
+            "photometric_interpretation": "MONOCHROME2",
+            "bits_allocated": 16,
+            "bits_stored": 16,
+            "high_bit": 15,
+            "pixel_representation": 0,
+            "planar_configuration": Value::Null
+        },
+        "pixel_data": {
+            "vr": "OW",
+            "native_or_encapsulated": "native",
+            "value_length": pixel_bytes.len(),
+            "frame_count": recipe.frame_count(),
+            "frame_hashes": frame_hashes
+        },
+        "references": [],
+        "expected_capabilities": ["open_file", "read_metadata", "render_native_pixels", "navigate_multiframe", "interpret_nm_dimensions"],
+        "expected_semantics": {
+            "synthetic_data": "YES",
+            "body_part_examined": "HEAD",
+            "pixel_min": 0,
+            "pixel_max": 113
+        },
+        "expected_nm_multiframe": {
+            "image_type": recipe.image_type.split('\\').collect::<Vec<_>>(),
+            "frame_increment_pointers": ["0054,0010", "0054,0020"],
+            "energy_window_vector": recipe.energy_window_vector,
+            "detector_vector": recipe.detector_vector,
+            "number_of_energy_windows": recipe.energy_windows.len(),
+            "number_of_detectors": recipe.detectors.len(),
+            "energy_windows": energy_windows,
+            "detectors": detectors,
+            "actual_frame_duration_ms": recipe.actual_frame_duration_ms,
+            "counts_accumulated": recipe.counts_accumulated,
+            "frame_dimensions": frame_dimensions
+        },
+        "expected_visual_checks": {
+            "pattern": "four_frame_nm_two_energy_windows_two_detectors"
+        },
+        "validation": validation,
+        "known_stressors": ["nuclear_medicine_image_storage", "classic_multiframe", "multi_dimensional_frame_indexing", "energy_window_information", "detector_information", "native_u16_pixels"],
+        "standards_evidence": deduplicated_standards_evidence(standards_evidence)
+    })
+}
+
 fn write_classic_us_case(
     run: &PreparedGenerationRun,
     case: &Value,
@@ -15705,6 +16339,7 @@ fn write_classic_us_case(
                 lossy_image_compression: recipe.lossy_image_compression,
                 ultrasound_color_data_present: recipe.ultrasound_color_data_present,
             }),
+            nm_image: None,
             cr_image: None,
             mr_image: None,
             segmentation: None,
@@ -16253,6 +16888,7 @@ fn write_classic_cr_case(
             mg_image: None,
             dx_image: None,
             us_image: None,
+            nm_image: None,
             cr_image: Some(CrImageExpectations {
                 modality: "CR",
                 image_type: "ORIGINAL\\PRIMARY",
@@ -16860,6 +17496,7 @@ fn write_classic_mr_case(
                 mg_image: None,
                 dx_image: None,
                 us_image: None,
+                nm_image: None,
                 cr_image: None,
                 mr_image: Some(MrImageExpectations {
                     modality: "MR",
@@ -17522,6 +18159,24 @@ fn deterministic_classic_us_uid(
         standards_lock_sha256,
         case_id: recipe.case_id,
         recipe_version: CLASSIC_US_RECIPE_VERSION,
+        run_seed,
+        file_index: 0,
+        frame_index: None,
+        referenced_object_index: None,
+        role,
+    })
+}
+
+fn deterministic_classic_nm_uid(
+    standards_lock_sha256: &str,
+    recipe: ClassicNmRecipe,
+    run_seed: u64,
+    role: UidRole,
+) -> String {
+    deterministic_uid(&DeterministicUidInput {
+        standards_lock_sha256,
+        case_id: recipe.case_id,
+        recipe_version: CLASSIC_NM_RECIPE_VERSION,
         run_seed,
         file_index: 0,
         frame_index: None,

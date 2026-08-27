@@ -1,6 +1,7 @@
 pub(super) mod ct_geometry;
 pub(super) mod empty_type2_sc;
 pub(super) mod metadata_sc;
+pub(super) mod nm;
 pub(super) mod private_creator_sc;
 pub(super) mod sequence_length_sc;
 pub(super) mod string_boundary_sc;
@@ -10,6 +11,8 @@ pub(super) mod timezone_sc;
 mod empty_type2_sc_tests;
 #[cfg(test)]
 mod metadata_sc_tests;
+#[cfg(test)]
+mod nm_tests;
 #[cfg(test)]
 mod private_creator_sc_tests;
 #[cfg(test)]

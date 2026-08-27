@@ -66,6 +66,7 @@ pub(crate) struct Part10Expectations<'a> {
     pub mg_image: Option<MgImageExpectations<'a>>,
     pub dx_image: Option<DxImageExpectations<'a>>,
     pub us_image: Option<UsImageExpectations<'a>>,
+    pub nm_image: Option<NmImageExpectations<'a>>,
     pub cr_image: Option<CrImageExpectations<'a>>,
     pub mr_image: Option<MrImageExpectations<'a>>,
     pub segmentation: Option<SegmentationExpectations<'a>>,
@@ -479,6 +480,37 @@ pub(crate) struct UsImageExpectations<'a> {
 }
 
 #[derive(Debug, Clone)]
+pub(crate) struct NmEnergyWindowExpectations<'a> {
+    pub name: &'a str,
+    pub lower_limit_kev: &'a str,
+    pub upper_limit_kev: &'a str,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct NmDetectorExpectations<'a> {
+    pub collimator_type: &'a str,
+    pub focal_distance_mm: &'a str,
+    pub start_angle_degrees: &'a str,
+    pub image_orientation_patient: &'a str,
+    pub image_position_patient: &'a str,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct NmImageExpectations<'a> {
+    pub modality: &'a str,
+    pub body_part_examined: &'a str,
+    pub image_type: &'a str,
+    pub pixel_spacing: &'a str,
+    pub actual_frame_duration_ms: &'a str,
+    pub counts_accumulated: &'a str,
+    pub frame_increment_pointers: &'a [Tag],
+    pub energy_window_vector: &'a [u16],
+    pub detector_vector: &'a [u16],
+    pub energy_windows: &'a [NmEnergyWindowExpectations<'a>],
+    pub detectors: &'a [NmDetectorExpectations<'a>],
+}
+
+#[derive(Debug, Clone)]
 pub(crate) struct CrImageExpectations<'a> {
     pub modality: &'a str,
     pub image_type: &'a str,
@@ -877,6 +909,7 @@ pub(crate) fn validate_part10_file(
                 pixel_bytes.len(),
                 expected_pixel_data_length,
             );
+            validate_native_frame_hashes(expected, pixel_bytes.as_ref(), &mut internal);
         }
     }
     if let Some(palette) = &expected.palette {
@@ -902,6 +935,9 @@ pub(crate) fn validate_part10_file(
     }
     if let Some(us_image) = &expected.us_image {
         validate_us_image(path, &obj, &mut internal, us_image)?;
+    }
+    if let Some(nm_image) = &expected.nm_image {
+        validate_nm_image(path, &obj, &mut internal, nm_image)?;
     }
     if let Some(cr_image) = &expected.cr_image {
         validate_cr_image(path, &obj, &mut internal, cr_image)?;
@@ -3433,18 +3469,23 @@ fn element_u16(path: &Path, obj: &OpenedObject, tag: Tag) -> Result<u16, Generat
 }
 
 fn element_tag(path: &Path, obj: &OpenedObject, tag: Tag) -> Result<Tag, GenerateError> {
-    let tags = obj
-        .element(tag)
-        .map_err(|err| validation_error(path, err))?
-        .value()
-        .tags()
-        .map_err(|err| validation_error(path, err))?;
+    let tags = element_tags(path, obj, tag)?;
     tags.first()
         .copied()
         .ok_or_else(|| GenerateError::ValidateDicomFile {
             path: path.to_path_buf(),
             message: format!("{tag:?} is empty"),
         })
+}
+
+fn element_tags(path: &Path, obj: &OpenedObject, tag: Tag) -> Result<Vec<Tag>, GenerateError> {
+    let tags = obj
+        .element(tag)
+        .map_err(|err| validation_error(path, err))?
+        .value()
+        .tags()
+        .map_err(|err| validation_error(path, err))?;
+    Ok(tags.to_vec())
 }
 
 fn element_u32(path: &Path, obj: &OpenedObject, tag: Tag) -> Result<u32, GenerateError> {
@@ -3503,6 +3544,56 @@ fn expected_pixel_data_length(
             0,
         ),
     }
+}
+
+fn validate_native_frame_hashes(
+    expected: &Part10Expectations<'_>,
+    pixel_bytes: &[u8],
+    results: &mut Vec<Value>,
+) {
+    if expected.decoded_frame_hashes.is_empty() {
+        return;
+    }
+    let bytes_per_sample = usize::from(expected.bits_allocated).div_ceil(8);
+    let frame_length = usize::from(expected.rows)
+        * usize::from(expected.columns)
+        * usize::from(expected.samples_per_pixel)
+        * bytes_per_sample;
+    check_equal(
+        results,
+        "native_frame_hash_count",
+        "Native frame hash count matches Number of Frames.",
+        "Native frame hash count does not match Number of Frames.",
+        expected.decoded_frame_hashes.len(),
+        usize::from(expected.frames),
+    );
+    if frame_length == 0 || pixel_bytes.len() != frame_length * usize::from(expected.frames) {
+        check(
+            results,
+            false,
+            "native_frame_hashes",
+            "Every native frame hash matches the recipe.",
+            "Native frame bytes cannot be split according to the declared image shape.",
+        );
+        return;
+    }
+    let actual_hashes = pixel_bytes
+        .chunks_exact(frame_length)
+        .map(sha256_hex)
+        .collect::<Vec<_>>();
+    let expected_hashes = expected
+        .decoded_frame_hashes
+        .iter()
+        .map(|hash| (*hash).to_string())
+        .collect::<Vec<_>>();
+    check_equal(
+        results,
+        "native_frame_hashes",
+        "Every native frame hash matches the recipe.",
+        "One or more native frame hashes do not match the recipe.",
+        actual_hashes,
+        expected_hashes,
+    );
 }
 
 fn validate_rle_decoded_frame_hashes(
@@ -5841,6 +5932,210 @@ fn validate_us_image(
     Ok(())
 }
 
+fn validate_nm_image(
+    path: &Path,
+    obj: &OpenedObject,
+    results: &mut Vec<Value>,
+    expected: &NmImageExpectations<'_>,
+) -> Result<(), GenerateError> {
+    for (name, tag, expected_value) in [
+        ("nm_modality", tags::MODALITY, expected.modality),
+        (
+            "nm_body_part_examined",
+            tags::BODY_PART_EXAMINED,
+            expected.body_part_examined,
+        ),
+        ("nm_image_type", tags::IMAGE_TYPE, expected.image_type),
+        (
+            "nm_pixel_spacing",
+            tags::PIXEL_SPACING,
+            expected.pixel_spacing,
+        ),
+        (
+            "nm_actual_frame_duration",
+            tags::ACTUAL_FRAME_DURATION,
+            expected.actual_frame_duration_ms,
+        ),
+        (
+            "nm_counts_accumulated",
+            tags::COUNTS_ACCUMULATED,
+            expected.counts_accumulated,
+        ),
+    ] {
+        check_equal(
+            results,
+            name,
+            "Nuclear Medicine attribute matches the recipe.",
+            "Nuclear Medicine attribute does not match the recipe.",
+            element_str(path, obj, tag)?.as_str(),
+            expected_value,
+        );
+    }
+
+    check_equal(
+        results,
+        "nm_frame_increment_pointers",
+        "Frame Increment Pointer preserves the ordered NM dimensions.",
+        "Frame Increment Pointer does not preserve the ordered NM dimensions.",
+        element_tags(path, obj, tags::FRAME_INCREMENT_POINTER)?,
+        expected.frame_increment_pointers.to_vec(),
+    );
+    check_equal(
+        results,
+        "nm_energy_window_vector",
+        "Energy Window Vector matches every frame tuple.",
+        "Energy Window Vector does not match every frame tuple.",
+        element_u16_values(path, obj, tags::ENERGY_WINDOW_VECTOR)?,
+        expected.energy_window_vector.to_vec(),
+    );
+    check_equal(
+        results,
+        "nm_detector_vector",
+        "Detector Vector matches every frame tuple.",
+        "Detector Vector does not match every frame tuple.",
+        element_u16_values(path, obj, tags::DETECTOR_VECTOR)?,
+        expected.detector_vector.to_vec(),
+    );
+    check_equal(
+        results,
+        "nm_number_of_energy_windows",
+        "Number of Energy Windows matches the recipe.",
+        "Number of Energy Windows does not match the recipe.",
+        element_u16(path, obj, tags::NUMBER_OF_ENERGY_WINDOWS)?,
+        expected.energy_windows.len() as u16,
+    );
+    check_equal(
+        results,
+        "nm_energy_window_information_count",
+        "Energy Window Information Sequence cardinality matches its declared count.",
+        "Energy Window Information Sequence cardinality does not match its declared count.",
+        sequence_item_count(path, obj, tags::ENERGY_WINDOW_INFORMATION_SEQUENCE)?,
+        expected.energy_windows.len(),
+    );
+    for (index, window) in expected.energy_windows.iter().enumerate() {
+        let item =
+            top_level_sequence_item(path, obj, tags::ENERGY_WINDOW_INFORMATION_SEQUENCE, index)?;
+        check_equal(
+            results,
+            "nm_energy_window_name",
+            "Energy Window Name matches its one-based dimension index.",
+            "Energy Window Name does not match its one-based dimension index.",
+            item_str(path, item, tags::ENERGY_WINDOW_NAME)?.as_str(),
+            window.name,
+        );
+        check_equal(
+            results,
+            "nm_energy_window_range_count",
+            "Each Energy Window has one range Item.",
+            "An Energy Window does not have exactly one range Item.",
+            item_sequence_item_count(path, item, tags::ENERGY_WINDOW_RANGE_SEQUENCE)?,
+            1,
+        );
+        let range = item_sequence_item(path, item, tags::ENERGY_WINDOW_RANGE_SEQUENCE, 0)?;
+        check_equal(
+            results,
+            "nm_energy_window_lower_limit",
+            "Energy Window lower limit matches the recipe.",
+            "Energy Window lower limit does not match the recipe.",
+            item_str(path, range, tags::ENERGY_WINDOW_LOWER_LIMIT)?.as_str(),
+            window.lower_limit_kev,
+        );
+        check_equal(
+            results,
+            "nm_energy_window_upper_limit",
+            "Energy Window upper limit matches the recipe.",
+            "Energy Window upper limit does not match the recipe.",
+            item_str(path, range, tags::ENERGY_WINDOW_UPPER_LIMIT)?.as_str(),
+            window.upper_limit_kev,
+        );
+    }
+
+    check_equal(
+        results,
+        "nm_number_of_detectors",
+        "Number of Detectors matches the recipe.",
+        "Number of Detectors does not match the recipe.",
+        element_u16(path, obj, tags::NUMBER_OF_DETECTORS)?,
+        expected.detectors.len() as u16,
+    );
+    check_equal(
+        results,
+        "nm_detector_information_count",
+        "Detector Information Sequence cardinality matches its declared count.",
+        "Detector Information Sequence cardinality does not match its declared count.",
+        sequence_item_count(path, obj, tags::DETECTOR_INFORMATION_SEQUENCE)?,
+        expected.detectors.len(),
+    );
+    for (index, detector) in expected.detectors.iter().enumerate() {
+        let item = top_level_sequence_item(path, obj, tags::DETECTOR_INFORMATION_SEQUENCE, index)?;
+        for (name, tag, expected_value) in [
+            (
+                "nm_detector_collimator_type",
+                tags::COLLIMATOR_TYPE,
+                detector.collimator_type,
+            ),
+            (
+                "nm_detector_focal_distance",
+                tags::FOCAL_DISTANCE,
+                detector.focal_distance_mm,
+            ),
+            (
+                "nm_detector_start_angle",
+                tags::START_ANGLE,
+                detector.start_angle_degrees,
+            ),
+            (
+                "nm_detector_image_orientation_patient",
+                tags::IMAGE_ORIENTATION_PATIENT,
+                detector.image_orientation_patient,
+            ),
+            (
+                "nm_detector_image_position_patient",
+                tags::IMAGE_POSITION_PATIENT,
+                detector.image_position_patient,
+            ),
+        ] {
+            check_equal(
+                results,
+                name,
+                "Detector Information Item matches its one-based dimension index.",
+                "Detector Information Item does not match its one-based dimension index.",
+                item_str(path, item, tag)?.as_str(),
+                expected_value,
+            );
+        }
+    }
+
+    for (name, tag, expected_count) in [
+        (
+            "nm_radiopharmaceutical_information_empty",
+            tags::RADIOPHARMACEUTICAL_INFORMATION_SEQUENCE,
+            0,
+        ),
+        (
+            "nm_patient_orientation_code_empty",
+            tags::PATIENT_ORIENTATION_CODE_SEQUENCE,
+            0,
+        ),
+        (
+            "nm_patient_gantry_relationship_code_empty",
+            tags::PATIENT_GANTRY_RELATIONSHIP_CODE_SEQUENCE,
+            0,
+        ),
+    ] {
+        check_equal(
+            results,
+            name,
+            "Required Type 2 NM Sequence is present with the expected cardinality.",
+            "Required Type 2 NM Sequence is missing or has the wrong cardinality.",
+            sequence_item_count(path, obj, tag)?,
+            expected_count,
+        );
+    }
+
+    Ok(())
+}
+
 fn validate_cr_image(
     path: &Path,
     obj: &OpenedObject,
@@ -6416,6 +6711,7 @@ fn standard_sop_class_validation_name(sop_class_uid: &str) -> &'static str {
             "digital_x_ray_for_presentation_sop_class"
         }
         uids::ULTRASOUND_IMAGE_STORAGE => "ultrasound_image_sop_class",
+        uids::NUCLEAR_MEDICINE_IMAGE_STORAGE => "nuclear_medicine_image_sop_class",
         uids::DIGITAL_MAMMOGRAPHY_X_RAY_IMAGE_STORAGE_FOR_PRESENTATION => {
             "digital_mammography_for_presentation_sop_class"
         }
@@ -6456,6 +6752,9 @@ fn standard_sop_class_validation_message(sop_class_uid: &str) -> &'static str {
         }
         uids::ULTRASOUND_IMAGE_STORAGE => {
             "SOP Class UID matches Ultrasound Image Storage in the 2026b reference."
+        }
+        uids::NUCLEAR_MEDICINE_IMAGE_STORAGE => {
+            "SOP Class UID matches Nuclear Medicine Image Storage in the 2026b reference."
         }
         uids::DIGITAL_MAMMOGRAPHY_X_RAY_IMAGE_STORAGE_FOR_PRESENTATION => {
             "SOP Class UID matches Digital Mammography X-Ray Image Storage - For Presentation in the 2026b reference."

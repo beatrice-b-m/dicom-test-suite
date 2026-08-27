@@ -239,15 +239,25 @@ The uv-locked pydicom 3.0.2 read/write/read retains every original lexical
 string and reports offsets of +50,400 and -43,200 seconds. Those rewrites are
 byte-identical to the native inputs and also pass both dicom3tools validators.
 
+The empty Type 2 slice passed two byte-identical seed-1 `core` runs, each
+producing 41 files with zero strict validation failures. The fixture SHA-256 is
+`e70ce329e96932c6189e1bb31c39673456809036d169c243e3cbeeddb2be787d`.
+Locked `dciodvfy` reports only the normal `SCImage` identification and no
+finding, while isolated `dcentvfy` is silent. DCMTK 3.7.0 independently
+reports Patient Name, Patient Birth Date, Patient Sex, Referring Physician's
+Name, and Accession Number at PN, DA, CS, PN, and SH respectively, each with
+zero Value Length. The uv-locked pydicom 3.0.2 reader reports the same VRs,
+empty values, and VM 0 for all five attributes.
+
 The two matching `core` corpora each occupy 480 KiB in the local filesystem.
 This measurement is implementation-environment evidence rather than a
 portable byte-size guarantee; tracked generated artifacts remain forbidden.
 
 ## Milestone gate
 
-All planned Phase 2 geometry and series cases are implemented, and the UTF-8
-and ISO 2022 metadata slices have passed their vertical gates. The latest
-seed-37 `core` corpus contains 40 files; the seed-37 `extended` corpus contains
+All planned Phase 2 geometry and series cases are implemented, and the UTF-8,
+ISO 2022, timezone, and empty Type 2 metadata slices have passed their vertical
+gates. The latest seed-1 `core` corpus contains 41 files; the seed-37 `extended` corpus contains
 80 files and occupies 1.5 MiB on this host. The complete
 locked no-default-feature, all-target test suite passes, including byte-stable
 smoke, core, and extended regeneration. Each new CT slice and the temporal MR

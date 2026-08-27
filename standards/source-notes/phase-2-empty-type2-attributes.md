@@ -43,10 +43,24 @@ remains `R` to avoid conflating emptiness with optional clinical metadata.
 
 ## Project Action
 
-- Registry status: planned until the typed manifest contract, native recipe,
-  raw zero-length validation, reports, and independent conformance gates pass.
+- Registry status: implemented after the typed manifest contract, native
+  recipe, raw zero-length validation, reports, byte reproducibility,
+  dicom3tools, DCMTK, and uv-locked pydicom gates passed.
 - Manifest decision: record an exact typed list of tags, keywords, VRs, and
   zero Value Length expectations under `expected_metadata`.
 - Should become KB patch: no; the official module rows and data dictionary
   resolve the required definitions.
 - Expected cleanup after KB coverage exists: none.
+
+## Conformance Proof
+
+- Two seed-1 `core` generations were byte-identical and each produced 41 files;
+  strict validation checked all 41 with zero failures.
+- The fixture SHA-256 is
+  `e70ce329e96932c6189e1bb31c39673456809036d169c243e3cbeeddb2be787d`.
+- `dciodvfy` reported only the normal `SCImage` identification and no finding;
+  isolated `dcentvfy` was silent.
+- DCMTK `dcmdump` independently reported PN, DA, CS, PN, and SH with zero Value
+  Length for the five locked attributes.
+- The repository's locked `uv` environment selected pydicom 3.0.2, which read
+  all five attributes at their exact VRs with VM 0 and empty values.

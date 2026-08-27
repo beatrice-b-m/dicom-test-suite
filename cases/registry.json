@@ -12189,11 +12189,7 @@
       "compatibility_axes": [
         "metadata"
       ],
-      "roadmap": {
-        "priority": "next",
-        "delivery_phase": "phase-2",
-        "rationale": "Exercises UTF-8 Specific Character Set and synthetic Person Name decoding."
-      },
+      "roadmap": null,
       "blockers": [],
       "profiles": [
         "core"

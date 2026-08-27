@@ -1,6 +1,6 @@
 {
   "schema_version": "0.1.0",
-  "native_frame_convention": "Frame-order bytes before display transforms; little-endian samples, stored signed representation unchanged, manifest planar organization, per-frame bit packing, no container bytes.",
+  "native_frame_convention": "Frame-order samples before display transforms; little-endian multi-byte samples, stored signed representation unchanged, manifest planar organization, one-bit native frames packed continuously without per-frame padding, and no container bytes.",
   "transfer_syntaxes": [
     {
       "uid": "1.2.840.10008.1.2.5",
@@ -17,10 +17,10 @@
       "name": "Native and deflated datasets",
       "generator_encoder": "dicom-rs writer",
       "internal_decoder": "dicom-rs parser",
-      "external_decoder": "none selected",
-      "independence": "unresolved",
-      "supported_shapes": "none",
-      "status": "blocker: independent raw extraction and bit-packed frame normalization adapter not yet implemented"
+      "external_decoder": "case-scoped uv-locked pydicom raw U32 extractor; DCMTK 3.7.0 dcm2img plus dcmdump for Multi-frame Single Bit SC",
+      "independence": "independent for the explicitly supported U32 and U1 shapes; unresolved otherwise",
+      "supported_shapes": "classic/sc/mono2_u32_explicit_le and classic/sc/mono2_u1_native only",
+      "status": "partially implemented: every other native pixel shape remains an explicit unsupported result"
     },
     {
       "uid": "1.2.840.10008.1.2.4.80",

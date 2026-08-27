@@ -247,6 +247,17 @@ fn verify_completeness(evidence_root: &Path, evidence: &Value, failures: &mut Ve
                 .collect::<std::collections::BTreeSet<_>>()
         })
         .unwrap_or_default();
+    let required_u1_pixel_paths = manifest
+        .as_ref()
+        .and_then(|value| value["files"].as_array())
+        .map(|files| {
+            files
+                .iter()
+                .filter(|file| file["case_id"] == "classic/sc/mono2_u1_native")
+                .filter_map(|file| file["path"].as_str())
+                .collect::<std::collections::BTreeSet<_>>()
+        })
+        .unwrap_or_default();
     let evidence_paths = evidence["instances"]
         .as_array()
         .into_iter()
@@ -335,6 +346,31 @@ fn verify_completeness(evidence_root: &Path, evidence: &Value, failures: &mut Ve
                 .find(|file| file["path"] == path);
             if let Some(manifest_file) = manifest_file {
                 verify_u32_pixel_evidence(
+                    evidence_root,
+                    evidence,
+                    instance,
+                    manifest_file,
+                    failures,
+                );
+            }
+        }
+        if required_u1_pixel_paths.contains(path)
+            && (instance["pixel"]["status"] != "passed"
+                || instance["pixel"]["independence"] != "independent")
+        {
+            failures.push(format!(
+                "independent native u1 pixel evidence failed: {path}"
+            ));
+        }
+        if required_u1_pixel_paths.contains(path) {
+            let manifest_file = manifest
+                .as_ref()
+                .and_then(|value| value["files"].as_array())
+                .into_iter()
+                .flatten()
+                .find(|file| file["path"] == path);
+            if let Some(manifest_file) = manifest_file {
+                verify_u1_pixel_evidence(
                     evidence_root,
                     evidence,
                     instance,
@@ -557,6 +593,76 @@ fn verify_u32_pixel_evidence(
     if !semantically_linked {
         failures.push(format!(
             "u32 pixel evidence sidecar is not linked to its locked tool and source manifest: {path}"
+        ));
+    }
+}
+
+fn verify_u1_pixel_evidence(
+    evidence_root: &Path,
+    evidence: &Value,
+    instance: &Value,
+    manifest_file: &Value,
+    failures: &mut Vec<String>,
+) {
+    let path = instance["path"].as_str().unwrap_or("unknown");
+    let Some(relative) = instance
+        .pointer("/pixel/evidence/path")
+        .and_then(Value::as_str)
+    else {
+        failures.push(format!("u1 pixel evidence sidecar is missing: {path}"));
+        return;
+    };
+    if validate_relative_path(relative).is_err() {
+        failures.push(format!("u1 pixel evidence sidecar path is unsafe: {path}"));
+        return;
+    }
+    let Ok(bytes) = fs::read(evidence_root.join(relative)) else {
+        failures.push(format!("u1 pixel evidence sidecar is unavailable: {path}"));
+        return;
+    };
+    let Ok(sidecar) = serde_json::from_slice::<Value>(&bytes) else {
+        failures.push(format!("u1 pixel evidence sidecar is invalid JSON: {path}"));
+        return;
+    };
+    let adapter_id = "dcmtk-dcm2img-u1";
+    let tool = evidence["tools"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .find(|tool| tool["adapter_id"] == adapter_id);
+    let parser = evidence["tools"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .find(|tool| tool["role"] == "independent_parser");
+    let semantically_linked = sidecar["adapter_id"] == adapter_id
+        && sidecar["decoder_sha256"].as_str() == tool.and_then(|tool| tool["sha256"].as_str())
+        && sidecar["parser_sha256"].as_str() == parser.and_then(|tool| tool["sha256"].as_str())
+        && tool
+            .is_some_and(|tool| tool["status"] == "available" && tool["lock_status"] == "matched")
+        && parser
+            .is_some_and(|tool| tool["status"] == "available" && tool["lock_status"] == "matched")
+        && sidecar["independence"] == "independent"
+        && sidecar["extraction_method"] == "dcmtk_dcm2img_p2_and_dcmdump_raw"
+        && sidecar["status"] == "passed"
+        && sidecar["source_instance_sha256"] == manifest_file["sha256"]
+        && sidecar["source_pixel_data_sha256"]
+            == manifest_file["expected_u1_pixels"]["pixel_data_sha256"]
+        && sidecar["expected_frame_hashes"] == instance["pixel"]["expected_frame_hashes"]
+        && sidecar["actual_frame_hashes"] == instance["pixel"]["actual_frame_hashes"]
+        && sidecar["actual_frame_hashes"]
+            == manifest_file["expected_u1_pixels"]["decoded_frame_sha256"]
+        && sidecar["decoded_values"] == manifest_file["expected_u1_pixels"]["stored_values"]
+        && sidecar["rows"] == manifest_file["image"]["rows"]
+        && sidecar["columns"] == manifest_file["image"]["columns"]
+        && sidecar["frames"] == manifest_file["image"]["frames"]
+        && sidecar["max_value"] == 1
+        && sidecar["packing_order"] == manifest_file["expected_u1_pixels"]["packing_order"]
+        && sidecar["frame_boundary_policy"]
+            == manifest_file["expected_u1_pixels"]["frame_boundary_policy"];
+    if !semantically_linked {
+        failures.push(format!(
+            "u1 pixel evidence sidecar is not linked to its locked tools and source manifest: {path}"
         ));
     }
 }
@@ -989,6 +1095,18 @@ fn collect_pixel_result(
             expected,
         );
     }
+    if file.get("case_id").and_then(Value::as_str) == Some("classic/sc/mono2_u1_native") {
+        return collect_u1_pixel_result(
+            generated_root,
+            evidence_root,
+            file,
+            relative_input,
+            stable_key,
+            adapters,
+            tools,
+            expected,
+        );
+    }
     if file.pointer("/image/sample_type").and_then(Value::as_str) == Some("float32")
         || file.pointer("/pixel_data/vr").and_then(Value::as_str) == Some("OF")
     {
@@ -1151,6 +1269,223 @@ fn collect_pixel_result(
         "reason": if passed { "DCMTK RLE decode matched every expected native frame hash" } else { "DCMTK RLE decode or native frame hash comparison failed" },
         "evidence": { "path": relative, "sha256": sha256_hex(&encoded) }
     }))
+}
+
+#[allow(clippy::too_many_arguments)]
+fn collect_u1_pixel_result(
+    generated_root: &Path,
+    evidence_root: &Path,
+    file: &Value,
+    relative_input: &str,
+    stable_key: &str,
+    adapters: &[Value],
+    tools: &[Value],
+    expected: Vec<Value>,
+) -> Result<Value, String> {
+    let adapter_id = "dcmtk-dcm2img-u1";
+    let Some(adapter) = adapters.iter().find(|adapter| adapter["id"] == adapter_id) else {
+        return Ok(pixel_unsupported(
+            expected,
+            "independent",
+            "The independent DCMTK one-bit pixel decoder is not configured",
+        ));
+    };
+    let Some(tool) = tools.iter().find(|tool| tool["adapter_id"] == adapter_id) else {
+        return Ok(pixel_unsupported(
+            expected,
+            "independent",
+            "The independent DCMTK one-bit pixel decoder was not discovered",
+        ));
+    };
+    if tool["status"] != "available" {
+        return Ok(pixel_unsupported(
+            expected,
+            "independent",
+            "The independent DCMTK one-bit pixel decoder is unavailable",
+        ));
+    }
+    let parser_tool = tools
+        .iter()
+        .find(|tool| tool["role"] == "independent_parser" && tool["status"] == "available")
+        .ok_or_else(|| "one-bit pixel evidence requires the independent parser".to_string())?;
+    let decoder = tool["executable"]
+        .as_str()
+        .ok_or_else(|| "available one-bit decoder has no executable".to_string())?;
+    let dcmdump = parser_tool["executable"]
+        .as_str()
+        .ok_or_else(|| "available parser has no executable".to_string())?;
+    let input = generated_root.join(relative_input);
+    let work_dir =
+        std::env::temp_dir().join(format!("dts-u1-pixel-{}-{stable_key}", std::process::id()));
+    fs::create_dir_all(&work_dir).map_err(|error| error.to_string())?;
+    let output_base = work_dir.join("frame.pgm");
+    let arguments = string_array(adapter, "arguments")?
+        .into_iter()
+        .map(|argument| {
+            argument
+                .replace("{input}", &input.display().to_string())
+                .replace("{output}", &output_base.display().to_string())
+        })
+        .collect::<Vec<_>>();
+    let decode = run_with_timeout(
+        Path::new(decoder),
+        &arguments,
+        Duration::from_secs(adapter["timeout_seconds"].as_u64().unwrap_or(60)),
+    )?;
+    let extraction_args = vec![
+        "+W".to_string(),
+        work_dir.display().to_string(),
+        input.display().to_string(),
+    ];
+    let extraction = run_with_timeout(
+        Path::new(dcmdump),
+        &extraction_args,
+        Duration::from_secs(30),
+    )?;
+
+    let frame_count = file["image"]["frames"].as_u64().unwrap_or(0) as usize;
+    let mut decoded_frames = Vec::new();
+    let mut pgm_valid = decode.exit_code == Some(0) && !decode.timed_out;
+    for frame_number in 1..=frame_count {
+        let path = work_dir.join(format!("frame.pgm.f{frame_number}.pgm"));
+        match parse_ascii_pgm(&path) {
+            Ok((columns, rows, max_value, values)) => {
+                pgm_valid &= columns == file["image"]["columns"].as_u64().unwrap_or(0) as usize;
+                pgm_valid &= rows == file["image"]["rows"].as_u64().unwrap_or(0) as usize;
+                pgm_valid &= max_value == 1;
+                pgm_valid &= values.len() == rows * columns;
+                pgm_valid &= values.iter().all(|value| *value <= 1);
+                decoded_frames.push(values);
+            }
+            Err(_) => pgm_valid = false,
+        }
+    }
+    let unexpected_pgm = fs::read_dir(&work_dir)
+        .ok()
+        .into_iter()
+        .flatten()
+        .filter_map(Result::ok)
+        .map(|entry| entry.path())
+        .filter(|path| path.extension().and_then(|value| value.to_str()) == Some("pgm"))
+        .count()
+        != frame_count;
+    pgm_valid &= !unexpected_pgm && decoded_frames.len() == frame_count;
+
+    let raw_path = fs::read_dir(&work_dir)
+        .ok()
+        .into_iter()
+        .flatten()
+        .filter_map(Result::ok)
+        .map(|entry| entry.path())
+        .find(|path| path.extension().and_then(|value| value.to_str()) == Some("raw"));
+    let raw_pixel_bytes = raw_path.as_ref().and_then(|path| fs::read(path).ok());
+    let raw_pixel_sha256 = raw_pixel_bytes.as_ref().map(|bytes| sha256_hex(bytes));
+    let actual_hashes = decoded_frames
+        .iter()
+        .map(|frame| sha256_hex(frame))
+        .collect::<Vec<_>>();
+    let decoded_values = decoded_frames.iter().flatten().copied().collect::<Vec<_>>();
+    let expected_strings = expected
+        .iter()
+        .filter_map(Value::as_str)
+        .collect::<Vec<_>>();
+    let expected_values = file
+        .pointer("/expected_u1_pixels/stored_values")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(Value::as_u64)
+        .map(|value| value as u8)
+        .collect::<Vec<_>>();
+    let expected_pixel_hash = file
+        .pointer("/expected_u1_pixels/pixel_data_sha256")
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    let passed = pgm_valid
+        && extraction.exit_code == Some(0)
+        && !extraction.timed_out
+        && actual_hashes.iter().map(String::as_str).collect::<Vec<_>>() == expected_strings
+        && decoded_values == expected_values
+        && raw_pixel_sha256.as_deref() == Some(expected_pixel_hash);
+    let sidecar = json!({
+        "adapter_id": adapter_id,
+        "decoder_sha256": tool["sha256"],
+        "parser_sha256": parser_tool["sha256"],
+        "independence": "independent",
+        "extraction_method": "dcmtk_dcm2img_p2_and_dcmdump_raw",
+        "source_instance_sha256": file["sha256"],
+        "source_pixel_data_sha256": raw_pixel_sha256,
+        "invocation": std::iter::once(decoder.to_string()).chain(arguments.iter().cloned()).collect::<Vec<_>>(),
+        "decode_exit_code": decode.exit_code,
+        "decode_timed_out": decode.timed_out,
+        "extraction_exit_code": extraction.exit_code,
+        "extraction_timed_out": extraction.timed_out,
+        "rows": file["image"]["rows"],
+        "columns": file["image"]["columns"],
+        "frames": file["image"]["frames"],
+        "max_value": 1,
+        "packing_order": file["expected_u1_pixels"]["packing_order"],
+        "frame_boundary_policy": file["expected_u1_pixels"]["frame_boundary_policy"],
+        "expected_frame_hashes": expected,
+        "actual_frame_hashes": actual_hashes,
+        "decoded_values": decoded_values,
+        "status": if passed { "passed" } else { "failed" }
+    });
+    let relative = format!("pixels/dcmtk-dcm2img-u1/{stable_key}.json");
+    let target = evidence_root.join(&relative);
+    if let Some(parent) = target.parent() {
+        fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+    }
+    let encoded = serde_json::to_vec_pretty(&sidecar).map_err(|error| error.to_string())?;
+    fs::write(&target, &encoded).map_err(|error| error.to_string())?;
+    if let Ok(entries) = fs::read_dir(&work_dir) {
+        for path in entries.filter_map(Result::ok).map(|entry| entry.path()) {
+            if path.is_file() {
+                let _ = fs::remove_file(path);
+            }
+        }
+    }
+    let _ = fs::remove_dir(&work_dir);
+    Ok(json!({
+        "status": if passed { "passed" } else { "failed" },
+        "independence": "independent",
+        "expected_frame_hashes": sidecar["expected_frame_hashes"],
+        "actual_frame_hashes": sidecar["actual_frame_hashes"],
+        "reason": if passed { "DCMTK independently decoded continuous one-bit frames and extracted the exact raw payload" } else { "DCMTK one-bit decode or raw payload comparison failed" },
+        "evidence": { "path": relative, "sha256": sha256_hex(&encoded) }
+    }))
+}
+
+fn parse_ascii_pgm(path: &Path) -> Result<(usize, usize, u16, Vec<u8>), String> {
+    let source = fs::read_to_string(path).map_err(|error| error.to_string())?;
+    let normalized = source
+        .lines()
+        .map(|line| line.split('#').next().unwrap_or(""))
+        .collect::<Vec<_>>()
+        .join(" ");
+    let mut tokens = normalized.split_whitespace();
+    if tokens.next() != Some("P2") {
+        return Err("DCMTK one-bit output is not an ASCII PGM".to_string());
+    }
+    let columns = tokens
+        .next()
+        .ok_or_else(|| "PGM width is missing".to_string())?
+        .parse::<usize>()
+        .map_err(|error| error.to_string())?;
+    let rows = tokens
+        .next()
+        .ok_or_else(|| "PGM height is missing".to_string())?
+        .parse::<usize>()
+        .map_err(|error| error.to_string())?;
+    let max_value = tokens
+        .next()
+        .ok_or_else(|| "PGM max value is missing".to_string())?
+        .parse::<u16>()
+        .map_err(|error| error.to_string())?;
+    let values = tokens
+        .map(|token| token.parse::<u8>().map_err(|error| error.to_string()))
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok((columns, rows, max_value, values))
 }
 
 #[allow(clippy::too_many_arguments)]

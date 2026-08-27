@@ -153,6 +153,64 @@ fn strict_verification_rejects_semantically_relinked_u32_sidecar() {
     );
 }
 
+#[cfg(unix)]
+#[test]
+fn dcmtk_u1_adapter_matches_continuous_frames_and_raw_payload() {
+    let fixture = U1Fixture::new(false);
+    let pixel = &fixture.run["instances"][0]["pixel"];
+    assert_eq!(pixel["status"], "passed");
+    assert_eq!(pixel["actual_frame_hashes"], fixture.expected_hashes);
+    let relative = pixel["evidence"]["path"].as_str().unwrap();
+    let sidecar: Value =
+        serde_json::from_slice(&fs::read(fixture.evidence.join(relative)).unwrap()).unwrap();
+    assert_eq!(sidecar["adapter_id"], "dcmtk-dcm2img-u1");
+    assert_eq!(sidecar["source_pixel_data_sha256"], fixture.pixel_hash);
+    assert_eq!(
+        sidecar["decoded_values"],
+        json!([1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0])
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn strict_verification_rejects_semantically_relinked_u1_sidecar() {
+    let mut fixture = U1Fixture::new(false);
+    for tool in fixture.run["tools"].as_array_mut().unwrap() {
+        tool["lock_status"] = json!("matched");
+    }
+    let relative = fixture.run["instances"][0]["pixel"]["evidence"]["path"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    let target = fixture.evidence.join(&relative);
+    let mut sidecar: Value = serde_json::from_slice(&fs::read(&target).unwrap()).unwrap();
+    sidecar["decoded_values"][9] = json!(1);
+    let encoded = serde_json::to_vec_pretty(&sidecar).unwrap();
+    fs::write(&target, &encoded).unwrap();
+    fixture.run["instances"][0]["pixel"]["evidence"]["sha256"] =
+        json!(dicom_test_suite::sha256_hex(&encoded));
+    fs::write(
+        fixture.evidence.join("conformance-run.json"),
+        serde_json::to_vec_pretty(&fixture.run).unwrap(),
+    )
+    .unwrap();
+    let result =
+        dicom_test_suite::conformance::verify_conformance(&fixture.evidence, &fixture.allowlist)
+            .unwrap();
+    assert_eq!(result["valid"], false);
+    assert!(
+        result["failures"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|failure| {
+                failure.as_str().is_some_and(|failure| {
+                    failure.contains("u1 pixel evidence sidecar is not linked")
+                })
+            })
+    );
+}
+
 #[test]
 fn real_dcmtk_rle_adapter_matches_all_manifest_frame_hashes_when_enabled() {
     if std::env::var("DTS_REAL_CONFORMANCE").as_deref() != Ok("1") {
@@ -224,6 +282,116 @@ struct U32Fixture {
     allowlist: PathBuf,
     run: Value,
     expected_hashes: Value,
+}
+
+#[cfg(unix)]
+struct U1Fixture {
+    evidence: PathBuf,
+    allowlist: PathBuf,
+    run: Value,
+    expected_hashes: Value,
+    pixel_hash: String,
+}
+
+#[cfg(unix)]
+impl U1Fixture {
+    fn new(mismatch: bool) -> Self {
+        let root = temp_dir();
+        let generated = root.join("generated");
+        let evidence = root.join("evidence");
+        fs::create_dir_all(&generated).unwrap();
+        let source = b"u1 fixture bytes";
+        fs::write(generated.join("u1.dcm"), source).unwrap();
+        let frame_one = [1_u8, 0, 1, 0, 1, 0, 1, 0, 1];
+        let frame_two = [0_u8, 1, 0, 1, 0, 1, 0, 1, 0];
+        let expected_hashes = json!([
+            dicom_test_suite::sha256_hex(&frame_one),
+            if mismatch {
+                "0".repeat(64)
+            } else {
+                dicom_test_suite::sha256_hex(&frame_two)
+            }
+        ]);
+        let pixel_bytes = [0x55_u8, 0x55, 0x01, 0x00];
+        let pixel_hash = dicom_test_suite::sha256_hex(&pixel_bytes);
+        let manifest = json!({
+            "run": {"seed": 1, "profile": "test"},
+            "generator": {"name": "u1-fixture", "version": "1", "feature_flags": []},
+            "standards": {"standards_lock_sha256": "0".repeat(64)},
+            "files": [{
+                "case_id": "classic/sc/mono2_u1_native",
+                "path": "u1.dcm",
+                "sha256": dicom_test_suite::sha256_hex(source),
+                "dicom": {
+                    "sop_class_uid": "1.2.840.10008.5.1.4.1.1.7.1",
+                    "transfer_syntax_uid": "1.2.840.10008.1.2.1"
+                },
+                "image": {"rows": 3, "columns": 3, "frames": 2},
+                "pixel_data": {"frame_hashes": expected_hashes},
+                "expected_u1_pixels": {
+                    "packing_order": "least_significant_bit_first",
+                    "frame_boundary_policy": "continuous_without_per_frame_padding",
+                    "stored_values": [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0],
+                    "decoded_frame_sha256": [
+                        dicom_test_suite::sha256_hex(&frame_one),
+                        dicom_test_suite::sha256_hex(&frame_two)
+                    ],
+                    "pixel_data_sha256": pixel_hash
+                }
+            }]
+        });
+        fs::write(
+            generated.join("manifest.json"),
+            serde_json::to_vec_pretty(&manifest).unwrap(),
+        )
+        .unwrap();
+
+        let primary = fake_tool(&root, "primary", "exit 0");
+        let entity = fake_tool(&root, "entity", "exit 0");
+        let parser = fake_tool(
+            &root,
+            "dcmdump",
+            "if [ \"$1\" = \"+W\" ]; then printf '\\125\\125\\001\\000' > \"$2/pixel.raw\"; fi\nexit 0",
+        );
+        let decoder = fake_tool(
+            &root,
+            "dcm2img",
+            "if [ \"$1\" = \"--version\" ]; then printf 'fake dcm2img 1\\n'; exit 0; fi\nfor output; do :; done\nprintf 'P2\\n3 3\\n1\\n1 0 1 0 1 0 1 0 1\\n' > \"${output}.f1.pgm\"\nprintf 'P2\\n3 3\\n1\\n0 1 0 1 0 1 0 1 0\\n' > \"${output}.f2.pgm\"\nexit 0",
+        );
+        let mut decoder_adapter = adapter("dcmtk-dcm2img-u1", "pixel_decoder", &decoder);
+        decoder_adapter["arguments"] = json!(["{input}", "{output}"]);
+        decoder_adapter["supported_case_ids"] = json!(["classic/sc/mono2_u1_native"]);
+        let config = root.join("validators.json");
+        fs::write(
+            &config,
+            serde_json::to_vec_pretty(&json!({
+                "schema_version": "0.1.0",
+                "adapters": [
+                    adapter("primary", "primary_iod_validator", &primary),
+                    adapter("entity", "entity_validator", &entity),
+                    adapter("dcmtk-dcmdump", "independent_parser", &parser),
+                    decoder_adapter
+                ]
+            }))
+            .unwrap(),
+        )
+        .unwrap();
+        let run =
+            dicom_test_suite::conformance::run_conformance(&generated, &evidence, &config).unwrap();
+        let allowlist = root.join("allowlist.json");
+        fs::write(
+            &allowlist,
+            b"{\"schema_version\":\"0.1.0\",\"findings\":[]}",
+        )
+        .unwrap();
+        Self {
+            evidence,
+            allowlist,
+            run,
+            expected_hashes,
+            pixel_hash,
+        }
+    }
 }
 
 #[cfg(unix)]

@@ -233,6 +233,46 @@ fn u1_source_note_locks_cross_frame_bit_packing() {
 }
 
 #[test]
+fn u1_pixel_decoder_is_case_scoped_and_locked() {
+    let validators = read_json("conformance/validators.json");
+    let adapter = validators["adapters"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|adapter| adapter["id"] == "dcmtk-dcm2img-u1")
+        .expect("u1 pixel decoder must be configured");
+    assert_eq!(adapter["role"], "pixel_decoder");
+    assert_eq!(adapter["required"], false);
+    assert_eq!(
+        adapter["supported_case_ids"],
+        serde_json::json!(["classic/sc/mono2_u1_native"])
+    );
+    assert_eq!(
+        adapter["arguments"],
+        serde_json::json!([
+            "+Fa", "+Fn", "-M", "-W", "+Pid", "-O", "+opn", "1", "{input}", "{output}"
+        ])
+    );
+
+    let lock = read_json("conformance/validator-lock.json");
+    let tool = lock["tools"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|tool| tool["adapter_id"] == "dcmtk-dcm2img-u1")
+        .expect("u1 pixel decoder must have a lock entry");
+    assert_eq!(
+        tool["executable_sha256"],
+        "6a6103a7c516814b5eb44f53d198b111cbaf1678de5952ab7d31961732f112d5"
+    );
+    assert_eq!(tool["platforms"], serde_json::json!(["arm64-macos"]));
+
+    let decoders = fs::read_to_string("conformance/pixel-decoders.json").unwrap();
+    assert!(decoders.contains("one-bit native frames packed continuously"));
+    assert!(decoders.contains("every other native pixel shape remains"));
+}
+
+#[test]
 fn readme_documents_supported_commands_and_codec_features() {
     let readme = fs::read_to_string("README.md").expect("README must be readable");
 

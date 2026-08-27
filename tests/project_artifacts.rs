@@ -158,6 +158,48 @@ fn u32_iod_validator_is_case_scoped_and_fully_locked() {
 }
 
 #[test]
+fn u32_conformance_docs_preserve_the_independent_gate() {
+    let readme = fs::read_to_string("conformance/README.md").unwrap();
+    for required in [
+        "exact-case-first",
+        "DTS_DICOM_VALIDATOR_PYTHON",
+        "DTS_DICOM_VALIDATOR_STANDARD_HOME",
+        "terminal",
+        "untouched original",
+    ] {
+        assert!(
+            readme.contains(required),
+            "conformance docs require {required}"
+        );
+    }
+    let backend = fs::read_to_string("conformance-backends/dicom-validator/README.md").unwrap();
+    for required in [
+        "`uv`",
+        "Adapter version 0.2.0",
+        "`--pixel-u32`",
+        "does not use NumPy",
+    ] {
+        assert!(
+            backend.contains(required),
+            "backend docs require {required}"
+        );
+    }
+    let source = fs::read_to_string("standards/source-notes/phase-2-u32-native-pixels.md").unwrap();
+    for required in [
+        "Independent Validator Qualification",
+        "TagMissing",
+        "EnumValueNotAllowed",
+        "zero strict-verification failures",
+        "b078217dad7f87238cfa3042ace25ec4fcc974dc2ced472b9974623b0caa19a4",
+    ] {
+        assert!(
+            source.contains(required),
+            "u32 source note requires {required}"
+        );
+    }
+}
+
+#[test]
 fn readme_documents_supported_commands_and_codec_features() {
     let readme = fs::read_to_string("README.md").expect("README must be readable");
 

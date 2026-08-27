@@ -36,6 +36,19 @@ The prepared interpreter is normally
 `.venv\\Scripts\\python.exe` on Windows. Conformance discovery fingerprints the
 interpreter and committed adapter inputs before execution.
 
+Set both variables when running the case-specific conformance route:
+
+```sh
+export DTS_DICOM_VALIDATOR_PYTHON="$PWD/conformance-backends/dicom-validator/.venv/bin/python"
+export DTS_DICOM_VALIDATOR_STANDARD_HOME=/path/to/locked/dicom-validator-cache
+```
+
+Adapter version 0.2.0 also exposes `--pixel-u32`. It reads the native OW value
+through pydicom, requires the locked 32/32/31 unsigned MONOCHROME2 shape, and
+emits canonical JSON containing dimensions, attributes, exact stored values,
+the Pixel Data hash, and frame hashes. It does not use NumPy or a project pixel
+decoder.
+
 ## Locked Runtime Licenses
 
 | Distribution | Version | License |

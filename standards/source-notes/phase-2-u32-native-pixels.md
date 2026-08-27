@@ -60,15 +60,15 @@ words and span both sides of the signed 32-bit boundary.
 
 ## Project Action
 
-- Registry status: planned. Deterministic generation, typed manifest semantics,
-  exact internal validation, two-run byte identity, DCMTK extraction, and the
-  frozen offline `uv`/pydicom unsigned decode gate pass. Report and CLI coverage
-  remain intentionally incomplete because promotion stopped at the mandatory
-  independent IOD-validation checkpoint.
-- Registry reason or linked issue: `independent_iod_validator_unavailable`.
-  The locked dicom3tools validators abort on an internal assertion for this
-  standards-permitted pixel format, so the case must not be promoted merely
-  because structural parsers and pixel decoders accept it.
+- Registry status at qualification: planned and ready for promotion. The user
+  authorized selection and locking of another independent IOD validator at the
+  explicit checkpoint. Promotion still requires the registry/report/test commit
+  that follows this evidence record.
+- Resolved blocker: `independent_iod_validator_unavailable`. The selected
+  pydicom `dicom-validator` 0.8.2 engine recognizes Secondary Capture, evaluates
+  its 2026b IOD/module definitions, and passes the candidate with zero errors.
+  It runs through repository adapter 0.2.0 in an exact CPython 3.12.12 `uv`
+  environment and does not become a generation-profile dependency.
 - Should become KB patch: yes; the cross-part IOD-permission and native OW
   encoding decision should become a repeatable evidence query.
 - Expected cleanup after KB coverage exists: replace the local cross-part
@@ -109,3 +109,39 @@ words and span both sides of the signed 32-bit boundary.
   Secondary Capture comparator confirms that this PixelMed release does not
   provide the missing SC IOD coverage; it is not evidence against the u32
   fixture.
+
+## Independent Validator Qualification
+
+- The selected runtime is locked in
+  `conformance-backends/dicom-validator/uv.lock`. The accepted arm64 macOS
+  composite fingerprint is
+  `e0b445d4f4bc5b338f248251c7eff9416ffef9da079b4e1cd4c46924dc17539d`.
+  It binds the CPython executable, `.python-version`, `pyproject.toml`, exact
+  `uv.lock`, adapter sources, the standards lock, three official 2026b DocBook
+  parts, and all four derived validator-definition artifacts.
+- The clean candidate reports Secondary Capture SOP Class
+  `1.2.840.10008.5.1.4.1.1.7`, status `Passed`, and zero errors. A control with
+  required Conversion Type removed reports `TagMissing` Type 1. A second
+  control with Pixel Representation set to two reports `EnumValueNotAllowed`
+  with allowed values zero and one. These controls establish that a zero exit
+  is an IOD-validation result rather than a parse-only result.
+- The same locked adapter independently reads raw OW Pixel Data through pydicom
+  and little-endian unsigned unpacking without NumPy. It returns exact stored
+  values `[0, 65535, 2147483648, 4294967295]` and frame/Pixel Data SHA-256
+  `56bca1a85c2838126b1d1a5fbedfe731839496d972df2c6ab33e1a1183392b41`.
+  Strict verification cross-links every extracted attribute and value to the
+  manifest and rejects a sidecar whose hash is recomputed after semantic
+  tampering.
+- The original file still triggers the locked `dcentvfy` pixel-word assertion.
+  Entity validation therefore receives an evidence-bearing projection of this
+  case only: bytes zero through 929 are copied exactly and the terminal 28-byte
+  Pixel Data element at offset 930 is omitted. The source copy retains SHA-256
+  `bec7dfedcb7cec08426f38f46f6d5deead6294c2a4a6e4464ba972bb97592630`;
+  the projection has SHA-256
+  `b078217dad7f87238cfa3042ace25ec4fcc974dc2ced472b9974623b0caa19a4`.
+  `dcentvfy` is silent with exit zero on the isolated projection. The untouched
+  original remains the sole input to IOD and pixel validation.
+- A real isolated conformance run records the matched case-specific primary,
+  independent DCMTK parse, passed U32 payload comparison, completed entity
+  validation, and zero strict-verification failures. All run artifacts remain
+  under `/tmp` and are not committed.

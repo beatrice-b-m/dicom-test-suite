@@ -6704,6 +6704,22 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
             "Metadata Private Element Raw SHA-256 Values",
             "/grouped_coverage/metadata_private_element_raw_sha256_values",
         ),
+        (
+            "Metadata Sequence Length Variants",
+            "/grouped_coverage/metadata_sequence_length_variants",
+        ),
+        (
+            "Metadata Sequence Length Field Hex Values",
+            "/grouped_coverage/metadata_sequence_length_field_hex_values",
+        ),
+        (
+            "Metadata Sequence Delimitation States",
+            "/grouped_coverage/metadata_sequence_delimitation_states",
+        ),
+        (
+            "Metadata Sequence Item Length Encodings",
+            "/grouped_coverage/metadata_sequence_item_length_encodings",
+        ),
     ] {
         append_count_map_section(&mut output, report, title, pointer);
     }
@@ -7707,6 +7723,48 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
         output.push('\n');
     }
 
+    let sequence_rows = report
+        .get("coverage_matrix")
+        .and_then(Value::as_array)
+        .map(|rows| {
+            rows.iter()
+                .filter(|row| !row["metadata_sequence_length_variant"].is_null())
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    if !sequence_rows.is_empty() {
+        output.push_str("## Sequence Length Encoding Expectations\n\n");
+        output.push_str("| Case ID | Variant | Sequence tag | SQ VL | Length field | Sequence delimiter | Item length | Item delimiter | Decoded code |\n");
+        output.push_str("|---|---|---|---:|---|---|---|---|---|\n");
+        for row in sequence_rows {
+            output.push_str(&format!(
+                "| {} | {} | {} | {} | {} | {} | {} | {} | {} |\n",
+                markdown_cell(row.get("case_id").and_then(Value::as_str)),
+                markdown_cell(
+                    row.get("metadata_sequence_length_variant")
+                        .and_then(Value::as_str)
+                ),
+                markdown_cell(row.get("metadata_sequence_tag").and_then(Value::as_str)),
+                markdown_number(row.get("metadata_sequence_value_length")),
+                markdown_cell(
+                    row.get("metadata_sequence_length_field_hex")
+                        .and_then(Value::as_str)
+                ),
+                markdown_bool(row.get("metadata_sequence_delimitation_present")),
+                markdown_cell(
+                    row.get("metadata_sequence_item_length_encoding")
+                        .and_then(Value::as_str)
+                ),
+                markdown_bool(row.get("metadata_sequence_item_delimitation_present")),
+                markdown_cell(
+                    row.get("metadata_sequence_decoded_code")
+                        .and_then(Value::as_str)
+                ),
+            ));
+        }
+        output.push('\n');
+    }
+
     let geometry_rows = report
         .get("coverage_matrix")
         .and_then(Value::as_array)
@@ -7995,6 +8053,38 @@ fn generated_coverage_row(
         (
             "metadata_private_element_raw_sha256_values",
             metadata.private_element_raw_sha256_values.map(Value::from),
+        ),
+        (
+            "metadata_sequence_length_variant",
+            metadata.sequence_length_variant.map(Value::from),
+        ),
+        (
+            "metadata_sequence_tag",
+            metadata.sequence_tag.map(Value::from),
+        ),
+        (
+            "metadata_sequence_value_length",
+            metadata.sequence_value_length.map(Value::from),
+        ),
+        (
+            "metadata_sequence_length_field_hex",
+            metadata.sequence_length_field_hex.map(Value::from),
+        ),
+        (
+            "metadata_sequence_delimitation_present",
+            metadata.sequence_delimitation_present.map(Value::from),
+        ),
+        (
+            "metadata_sequence_item_length_encoding",
+            metadata.sequence_item_length_encoding.map(Value::from),
+        ),
+        (
+            "metadata_sequence_item_delimitation_present",
+            metadata.sequence_item_delimitation_present.map(Value::from),
+        ),
+        (
+            "metadata_sequence_decoded_code",
+            metadata.sequence_decoded_code.map(Value::from),
         ),
     ] {
         row_object.insert(field.to_string(), value.unwrap_or(Value::Null));
@@ -8930,6 +9020,14 @@ struct MetadataReportFields {
     private_element_tags: Option<Vec<String>>,
     private_element_vrs: Option<Vec<String>>,
     private_element_raw_sha256_values: Option<Vec<String>>,
+    sequence_length_variant: Option<String>,
+    sequence_tag: Option<String>,
+    sequence_value_length: Option<u64>,
+    sequence_length_field_hex: Option<String>,
+    sequence_delimitation_present: Option<bool>,
+    sequence_item_length_encoding: Option<String>,
+    sequence_item_delimitation_present: Option<bool>,
+    sequence_decoded_code: Option<String>,
 }
 
 fn metadata_report_fields(file: &Value) -> MetadataReportFields {
@@ -8992,6 +9090,7 @@ fn metadata_report_fields(file: &Value) -> MetadataReportFields {
         elements.sort_by_key(|element| element.get("tag").and_then(Value::as_str));
         elements
     });
+    let sequence = file.pointer("/expected_metadata/sequence_length_encoding");
 
     MetadataReportFields {
         specific_character_sets,
@@ -9088,6 +9187,41 @@ fn metadata_report_fields(file: &Value) -> MetadataReportFields {
             &private_elements,
             "raw_value_sha256",
         ),
+        sequence_length_variant: sequence
+            .and_then(|value| value.get("variant_id"))
+            .and_then(Value::as_str)
+            .map(str::to_string),
+        sequence_tag: sequence
+            .and_then(|value| value.get("sequence_tag"))
+            .and_then(Value::as_str)
+            .map(str::to_string),
+        sequence_value_length: sequence
+            .and_then(|value| value.get("sequence_value_length"))
+            .and_then(Value::as_u64),
+        sequence_length_field_hex: sequence
+            .and_then(|value| value.get("sequence_length_field_hex"))
+            .and_then(Value::as_str)
+            .map(str::to_string),
+        sequence_delimitation_present: sequence
+            .and_then(|value| value.get("sequence_delimitation_present"))
+            .and_then(Value::as_bool),
+        sequence_item_length_encoding: sequence
+            .and_then(|value| value.get("item_length_encoding"))
+            .and_then(Value::as_str)
+            .map(str::to_string),
+        sequence_item_delimitation_present: sequence
+            .and_then(|value| value.get("item_delimitation_present"))
+            .and_then(Value::as_bool),
+        sequence_decoded_code: sequence
+            .and_then(|value| value.pointer("/decoded_items/0"))
+            .and_then(|item| {
+                Some(format!(
+                    "{}|{}|{}",
+                    item.get("code_value")?.as_str()?,
+                    item.get("coding_scheme_designator")?.as_str()?,
+                    item.get("code_meaning")?.as_str()?
+                ))
+            }),
     }
 }
 
@@ -9738,6 +9872,14 @@ fn skipped_coverage_row(
         "metadata_private_element_tags",
         "metadata_private_element_vrs",
         "metadata_private_element_raw_sha256_values",
+        "metadata_sequence_length_variant",
+        "metadata_sequence_tag",
+        "metadata_sequence_value_length",
+        "metadata_sequence_length_field_hex",
+        "metadata_sequence_delimitation_present",
+        "metadata_sequence_item_length_encoding",
+        "metadata_sequence_item_delimitation_present",
+        "metadata_sequence_decoded_code",
     ] {
         row_object.insert(field.to_string(), Value::Null);
     }
@@ -10082,6 +10224,10 @@ struct GroupedCoverage {
     metadata_private_element_tags: BTreeMap<String, usize>,
     metadata_private_element_vrs: BTreeMap<String, usize>,
     metadata_private_element_raw_sha256_values: BTreeMap<String, usize>,
+    metadata_sequence_length_variants: BTreeMap<String, usize>,
+    metadata_sequence_length_field_hex_values: BTreeMap<String, usize>,
+    metadata_sequence_delimitation_states: BTreeMap<String, usize>,
+    metadata_sequence_item_length_encodings: BTreeMap<String, usize>,
     photometric_interpretations: BTreeMap<String, usize>,
     bit_depths: BTreeMap<String, usize>,
     bits_allocated: BTreeMap<String, usize>,
@@ -10365,6 +10511,30 @@ impl GroupedCoverage {
         ] {
             increment_string_array_map(map, row.get(field));
         }
+        increment_map(
+            &mut self.metadata_sequence_length_variants,
+            row.get("metadata_sequence_length_variant")
+                .and_then(Value::as_str),
+        );
+        increment_map(
+            &mut self.metadata_sequence_length_field_hex_values,
+            row.get("metadata_sequence_length_field_hex")
+                .and_then(Value::as_str),
+        );
+        if let Some(value) = row
+            .get("metadata_sequence_delimitation_present")
+            .and_then(Value::as_bool)
+        {
+            *self
+                .metadata_sequence_delimitation_states
+                .entry(value.to_string())
+                .or_default() += 1;
+        }
+        increment_map(
+            &mut self.metadata_sequence_item_length_encodings,
+            row.get("metadata_sequence_item_length_encoding")
+                .and_then(Value::as_str),
+        );
         increment_map(
             &mut self.metadata_person_name_encoded_sha256_values,
             row.get("metadata_person_name_encoded_sha256")
@@ -11190,6 +11360,22 @@ impl GroupedCoverage {
             (
                 "metadata_private_element_raw_sha256_values",
                 serde_json::to_value(&self.metadata_private_element_raw_sha256_values),
+            ),
+            (
+                "metadata_sequence_length_variants",
+                serde_json::to_value(&self.metadata_sequence_length_variants),
+            ),
+            (
+                "metadata_sequence_length_field_hex_values",
+                serde_json::to_value(&self.metadata_sequence_length_field_hex_values),
+            ),
+            (
+                "metadata_sequence_delimitation_states",
+                serde_json::to_value(&self.metadata_sequence_delimitation_states),
+            ),
+            (
+                "metadata_sequence_item_length_encodings",
+                serde_json::to_value(&self.metadata_sequence_item_length_encodings),
             ),
         ] {
             grouped_object.insert(

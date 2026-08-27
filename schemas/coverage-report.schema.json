@@ -152,6 +152,10 @@
         "metadata_private_element_raw_sha256_values": {
           "$ref": "#/$defs/count_map"
         },
+        "metadata_sequence_length_variants": { "$ref": "#/$defs/count_map" },
+        "metadata_sequence_length_field_hex_values": { "$ref": "#/$defs/count_map" },
+        "metadata_sequence_delimitation_states": { "$ref": "#/$defs/count_map" },
+        "metadata_sequence_item_length_encodings": { "$ref": "#/$defs/count_map" },
         "photometric_interpretations": {
           "$ref": "#/$defs/count_map"
         },
@@ -666,6 +670,14 @@
         "metadata_private_element_tags",
         "metadata_private_element_vrs",
         "metadata_private_element_raw_sha256_values",
+        "metadata_sequence_length_variant",
+        "metadata_sequence_tag",
+        "metadata_sequence_value_length",
+        "metadata_sequence_length_field_hex",
+        "metadata_sequence_delimitation_present",
+        "metadata_sequence_item_length_encoding",
+        "metadata_sequence_item_delimitation_present",
+        "metadata_sequence_decoded_code",
         "photometric",
         "bits",
         "bits_allocated",
@@ -997,6 +1009,29 @@
           "type": ["array", "null"],
           "items": { "$ref": "#/$defs/sha256" }
         },
+        "metadata_sequence_length_variant": {
+          "type": ["string", "null"],
+          "enum": ["defined", "undefined", null]
+        },
+        "metadata_sequence_tag": {
+          "type": ["string", "null"],
+          "pattern": "^[0-9A-F]{4},[0-9A-F]{4}$"
+        },
+        "metadata_sequence_value_length": {
+          "type": ["integer", "null"],
+          "minimum": 0
+        },
+        "metadata_sequence_length_field_hex": {
+          "type": ["string", "null"],
+          "pattern": "^[0-9A-F]{8}$"
+        },
+        "metadata_sequence_delimitation_present": { "type": ["boolean", "null"] },
+        "metadata_sequence_item_length_encoding": {
+          "type": ["string", "null"],
+          "enum": ["undefined", null]
+        },
+        "metadata_sequence_item_delimitation_present": { "type": ["boolean", "null"] },
+        "metadata_sequence_decoded_code": { "type": ["string", "null"] },
         "photometric": {
           "type": ["string", "null"]
         },

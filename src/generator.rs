@@ -12706,6 +12706,11 @@ fn enhanced_mr_manifest_entry(
         "image_position_patient": recipe.image_position_patient
     });
     per_frame_functional_groups[per_frame_dimension_name] = per_frame_dimension_values.clone();
+    if recipe.temporal_position_time_offsets.is_some() {
+        per_frame_functional_groups["temporal_position_index"] = serde_json::json!([1, 2]);
+        per_frame_functional_groups["dimension_index_values"] = serde_json::json!([1, 2]);
+        per_frame_functional_groups["frame_acquisition_number"] = serde_json::json!([1, 2]);
+    }
     if recipe.velocity_encoding_directions.is_some() {
         per_frame_functional_groups["velocity_encoding_minimum_value"] =
             serde_json::json!(recipe.velocity_encoding_minimum_value);
@@ -12729,6 +12734,11 @@ fn enhanced_mr_manifest_entry(
         "dimension_index_values": [1, 2]
     });
     expected_semantics[per_frame_dimension_name] = per_frame_dimension_values;
+    if recipe.temporal_position_time_offsets.is_some() {
+        expected_semantics["temporal_position_indices"] = serde_json::json!([1, 2]);
+        expected_semantics["frame_acquisition_numbers"] = serde_json::json!([1, 2]);
+        expected_semantics["temporal_position_time_offset_unit"] = serde_json::json!("seconds");
+    }
     if recipe.velocity_encoding_directions.is_some() {
         expected_semantics["velocity_encoding_minimum_value"] =
             serde_json::json!(recipe.velocity_encoding_minimum_value);

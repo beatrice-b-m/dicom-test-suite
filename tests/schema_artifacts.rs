@@ -2147,9 +2147,7 @@ fn deformable_registration_expectation() -> Value {
         "1.2.840.10008.5.1.4.1.1.2",
         2,
     );
-    let identity_matrix = [
-        1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1,
-    ];
+    let identity_matrix = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
     serde_json::json!({
         "registered_frame_of_reference_uid": target["frame_of_reference_uid"],
         "sampling_direction": "registered_to_source",

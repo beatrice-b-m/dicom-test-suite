@@ -188,9 +188,7 @@ fn deformable_registration_locks_grid_geometry_and_little_endian_of_payload() {
         .expect("grid dimensions");
     assert_eq!(dimensions.vr(), VR::UL);
     assert_eq!(
-        dimensions
-            .to_multi_int::<u32>()
-            .expect("UL values"),
+        dimensions.to_multi_int::<u32>().expect("UL values"),
         GRID_DIMENSIONS
     );
     let resolution = grid
@@ -198,9 +196,7 @@ fn deformable_registration_locks_grid_geometry_and_little_endian_of_payload() {
         .expect("grid resolution");
     assert_eq!(resolution.vr(), VR::FD);
     assert_eq!(
-        resolution
-            .to_multi_float64()
-            .expect("FD values"),
+        resolution.to_multi_float64().expect("FD values"),
         GRID_RESOLUTION
     );
 

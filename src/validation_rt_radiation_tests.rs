@@ -546,29 +546,32 @@ fn radiation_object() -> InMemDicomObject {
     );
     put_u16(&mut object, tags::NUMBER_OF_PATIENT_SUPPORT_DEVICES, 0);
     put_f64(&mut object, tags::RADIATION_SOURCE_AXIS_DISTANCE, 1000.0);
-    let mut position = InMemDicomObject::new_empty();
-    put_u16(&mut position, tags::TREATMENT_POSITION_INDEX, 1);
+    let mut orientation = InMemDicomObject::from_element_iter([
+        DataElement::new(tags::CODE_VALUE, VR::SH, "102538003"),
+        DataElement::new(tags::CODING_SCHEME_DESIGNATOR, VR::SH, "SCT"),
+        DataElement::new(tags::CODE_MEANING, VR::LO, "recumbent"),
+    ]);
     put_code(
-        &mut position,
-        tags::PATIENT_ORIENTATION_CODE_SEQUENCE,
-        "102538003",
-        "SCT",
-        "recumbent",
-    );
-    put_code(
-        &mut position,
+        &mut orientation,
         tags::PATIENT_ORIENTATION_MODIFIER_CODE_SEQUENCE,
         "40199007",
         "SCT",
         "supine",
     );
+    put_sequence(
+        &mut object,
+        tags::PATIENT_ORIENTATION_CODE_SEQUENCE,
+        vec![orientation],
+    );
     put_code(
-        &mut position,
+        &mut object,
         tags::PATIENT_EQUIPMENT_RELATIONSHIP_CODE_SEQUENCE,
         "102540008",
         "SCT",
         "headfirst",
     );
+    let mut position = InMemDicomObject::new_empty();
+    put_u16(&mut position, tags::TREATMENT_POSITION_INDEX, 1);
     put_str(
         &mut position,
         tags::IMAGE_TO_EQUIPMENT_MAPPING_MATRIX,

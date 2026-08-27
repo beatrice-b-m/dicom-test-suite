@@ -322,6 +322,9 @@
         "expected_u32_pixels": {
           "$ref": "#/$defs/expected_u32_pixels"
         },
+        "expected_u1_pixels": {
+          "$ref": "#/$defs/expected_u1_pixels"
+        },
         "expected_geometry": {
           "anyOf": [
             { "$ref": "#/$defs/expected_geometry" },
@@ -385,6 +388,41 @@
                   "native_or_encapsulated": { "const": "native" },
                   "value_length": { "const": 16 },
                   "frame_count": { "const": 1 }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "case_id": { "const": "classic/sc/mono2_u1_native" }
+            },
+            "required": ["case_id"]
+          },
+          "then": {
+            "required": ["image", "pixel_data", "expected_u1_pixels"],
+            "properties": {
+              "image": {
+                "properties": {
+                  "rows": { "const": 3 },
+                  "columns": { "const": 3 },
+                  "frames": { "const": 2 },
+                  "samples_per_pixel": { "const": 1 },
+                  "photometric_interpretation": { "const": "MONOCHROME2" },
+                  "bits_allocated": { "const": 1 },
+                  "bits_stored": { "const": 1 },
+                  "high_bit": { "const": 0 },
+                  "pixel_representation": { "const": 0 },
+                  "planar_configuration": { "type": "null" }
+                }
+              },
+              "pixel_data": {
+                "properties": {
+                  "vr": { "const": "OB" },
+                  "native_or_encapsulated": { "const": "native" },
+                  "value_length": { "const": 4 },
+                  "frame_count": { "const": 2 }
                 }
               }
             }
@@ -1076,6 +1114,58 @@
         },
         "word_byte_order": { "const": "little_endian" },
         "full_unsigned_range": { "const": true }
+      },
+      "additionalProperties": false
+    },
+    "expected_u1_pixels": {
+      "type": "object",
+      "required": [
+        "packing_order",
+        "frame_boundary_policy",
+        "stored_values",
+        "decoded_frame_sha256",
+        "pixel_data_sha256",
+        "significant_bits",
+        "significant_packed_bytes",
+        "unused_high_bits",
+        "value_field_padding_bytes",
+        "frame_two_bit_offset"
+      ],
+      "properties": {
+        "packing_order": { "const": "least_significant_bit_first" },
+        "frame_boundary_policy": { "const": "continuous_without_per_frame_padding" },
+        "stored_values": {
+          "type": "array",
+          "prefixItems": [
+            { "const": 1 }, { "const": 0 }, { "const": 1 },
+            { "const": 0 }, { "const": 1 }, { "const": 0 },
+            { "const": 1 }, { "const": 0 }, { "const": 1 },
+            { "const": 0 }, { "const": 1 }, { "const": 0 },
+            { "const": 1 }, { "const": 0 }, { "const": 1 },
+            { "const": 0 }, { "const": 1 }, { "const": 0 }
+          ],
+          "items": false,
+          "minItems": 18,
+          "maxItems": 18
+        },
+        "decoded_frame_sha256": {
+          "type": "array",
+          "prefixItems": [
+            { "const": "a6188710c09cfbc77383ee0588dec2f7affa6e03e78aa900e9ae597a8d8faba3" },
+            { "const": "c520efb8f894a1125bb1a513a9b64ef957f7c2cd63835fd7e130357c47f989ae" }
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "pixel_data_sha256": {
+          "const": "9d6baf87a79d40ef2b145f92945a05cf156a2741e2c2834a3a7721d52757594b"
+        },
+        "significant_bits": { "const": 18 },
+        "significant_packed_bytes": { "const": 3 },
+        "unused_high_bits": { "const": 6 },
+        "value_field_padding_bytes": { "const": 1 },
+        "frame_two_bit_offset": { "const": 9 }
       },
       "additionalProperties": false
     },

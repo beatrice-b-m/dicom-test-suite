@@ -1138,6 +1138,14 @@ fn validate_integer_manifest_image_pixel_data(
                 file,
                 pixel_bytes.as_ref(),
             )?;
+            validate_u1_sc_manifest_pixel_contract(
+                failures,
+                relative_path,
+                manifest_path,
+                file,
+                &obj,
+                pixel_bytes.as_ref(),
+            )?;
         }
         "encapsulated" => {
             let pixel_fragments = match pixel_element.value() {
@@ -1359,6 +1367,268 @@ fn validate_u32_sc_manifest_pixel_contract(
             decoded,
             VALUES.to_vec(),
         );
+    }
+
+    Ok(())
+}
+
+fn validate_u1_sc_manifest_pixel_contract(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    manifest_path: &Path,
+    file: &Value,
+    obj: &OpenedObject,
+    pixel_bytes: &[u8],
+) -> Result<(), ValidateError> {
+    const CASE_ID: &str = "classic/sc/mono2_u1_native";
+    const VALUES: [u64; 18] = [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0];
+    const FRAME_HASHES: [&str; 2] = [
+        "a6188710c09cfbc77383ee0588dec2f7affa6e03e78aa900e9ae597a8d8faba3",
+        "c520efb8f894a1125bb1a513a9b64ef957f7c2cd63835fd7e130357c47f989ae",
+    ];
+    const PIXEL_SHA256: &str = "9d6baf87a79d40ef2b145f92945a05cf156a2741e2c2834a3a7721d52757594b";
+
+    let case_id = manifest_str(manifest_path, file, "/case_id", "case_id must be a string")?;
+    let contract = file.get("expected_u1_pixels");
+    if case_id != CASE_ID {
+        if contract.is_some() {
+            failures.push(format!(
+                "{relative_path}: u1_pixel_contract_scope: expected_u1_pixels is reserved for {CASE_ID}"
+            ));
+        }
+        return Ok(());
+    }
+    let contract = contract.ok_or(ValidateError::ManifestShape {
+        path: manifest_path.to_path_buf(),
+        message: "one-bit SC file must define expected_u1_pixels",
+    })?;
+
+    for (pointer, expected, check) in [
+        ("/image/rows", 3, "u1_rows"),
+        ("/image/columns", 3, "u1_columns"),
+        ("/image/frames", 2, "u1_frames"),
+        ("/image/samples_per_pixel", 1, "u1_samples_per_pixel"),
+        ("/image/bits_allocated", 1, "u1_bits_allocated"),
+        ("/image/bits_stored", 1, "u1_bits_stored"),
+        ("/image/high_bit", 0, "u1_high_bit"),
+        ("/image/pixel_representation", 0, "u1_pixel_representation"),
+        (
+            "/pixel_data/value_length",
+            4,
+            "u1_pixel_data_length_manifest",
+        ),
+        ("/pixel_data/frame_count", 2, "u1_frame_count"),
+        ("/expected_semantics/pixel_min", 0, "u1_pixel_min"),
+        ("/expected_semantics/pixel_max", 1, "u1_pixel_max"),
+    ] {
+        validate_equal(
+            failures,
+            relative_path,
+            check,
+            manifest_u64(
+                manifest_path,
+                file,
+                pointer,
+                "u1 numeric field must be an integer",
+            )?,
+            expected,
+        );
+    }
+    for (pointer, expected, check) in [
+        (
+            "/image/photometric_interpretation",
+            "MONOCHROME2",
+            "u1_photometric_interpretation",
+        ),
+        ("/pixel_data/vr", "OB", "u1_pixel_data_vr"),
+        (
+            "/pixel_data/native_or_encapsulated",
+            "native",
+            "u1_pixel_data_layout",
+        ),
+    ] {
+        validate_equal(
+            failures,
+            relative_path,
+            check,
+            manifest_str(
+                manifest_path,
+                file,
+                pointer,
+                "u1 string field must be a string",
+            )?,
+            expected,
+        );
+    }
+    if !file
+        .pointer("/image/planar_configuration")
+        .is_some_and(Value::is_null)
+    {
+        failures.push(format!(
+            "{relative_path}: u1_planar_configuration_absent: expected null"
+        ));
+    }
+
+    let expected_values = manifest_array(
+        manifest_path,
+        contract,
+        "/stored_values",
+        "expected_u1_pixels stored_values must be an array",
+    )?;
+    let recipe_values = manifest_array(
+        manifest_path,
+        file,
+        "/recipe/recipe_parameters/pixel_values",
+        "u1 recipe pixel_values must be an array",
+    )?;
+    for (actual, check) in [
+        (expected_values, "u1_expected_stored_values"),
+        (recipe_values, "u1_recipe_pixel_values"),
+    ] {
+        validate_equal_debug(
+            failures,
+            relative_path,
+            check,
+            actual.iter().map(Value::as_u64).collect::<Option<Vec<_>>>(),
+            Some(VALUES.to_vec()),
+        );
+    }
+    for (pointer, expected, check) in [
+        (
+            "/packing_order",
+            "least_significant_bit_first",
+            "u1_packing_order",
+        ),
+        (
+            "/frame_boundary_policy",
+            "continuous_without_per_frame_padding",
+            "u1_frame_boundary_policy",
+        ),
+        (
+            "/pixel_data_sha256",
+            PIXEL_SHA256,
+            "u1_declared_pixel_sha256",
+        ),
+    ] {
+        validate_equal(
+            failures,
+            relative_path,
+            check,
+            manifest_str(
+                manifest_path,
+                contract,
+                pointer,
+                "u1 contract field must be a string",
+            )?,
+            expected,
+        );
+    }
+    for (pointer, expected, check) in [
+        ("/significant_bits", 18, "u1_significant_bits"),
+        (
+            "/significant_packed_bytes",
+            3,
+            "u1_significant_packed_bytes",
+        ),
+        ("/unused_high_bits", 6, "u1_unused_high_bits"),
+        (
+            "/value_field_padding_bytes",
+            1,
+            "u1_value_field_padding_bytes",
+        ),
+        ("/frame_two_bit_offset", 9, "u1_frame_two_bit_offset"),
+    ] {
+        validate_equal(
+            failures,
+            relative_path,
+            check,
+            manifest_u64(
+                manifest_path,
+                contract,
+                pointer,
+                "u1 packing field must be an integer",
+            )?,
+            expected,
+        );
+    }
+    let declared_frame_hashes = manifest_array(
+        manifest_path,
+        contract,
+        "/decoded_frame_sha256",
+        "expected_u1_pixels decoded_frame_sha256 must be an array",
+    )?;
+    validate_equal_debug(
+        failures,
+        relative_path,
+        "u1_decoded_frame_hashes",
+        declared_frame_hashes
+            .iter()
+            .map(Value::as_str)
+            .collect::<Option<Vec<_>>>(),
+        Some(FRAME_HASHES.to_vec()),
+    );
+
+    validate_equal(
+        failures,
+        relative_path,
+        "u1_pixel_data_length",
+        pixel_bytes.len(),
+        4,
+    );
+    validate_equal(
+        failures,
+        relative_path,
+        "u1_pixel_data_sha256",
+        sha256_hex(pixel_bytes),
+        PIXEL_SHA256.to_string(),
+    );
+    if pixel_bytes.len() == 4 {
+        let decoded = (0..18)
+            .map(|bit| u64::from((pixel_bytes[bit / 8] >> (bit % 8)) & 1))
+            .collect::<Vec<_>>();
+        validate_equal_debug(
+            failures,
+            relative_path,
+            "u1_decoded_stored_values",
+            decoded,
+            VALUES.to_vec(),
+        );
+        validate_equal(
+            failures,
+            relative_path,
+            "u1_unused_high_bits_zero",
+            pixel_bytes[2] & 0b1111_1100,
+            0,
+        );
+        validate_equal(
+            failures,
+            relative_path,
+            "u1_value_field_padding_zero",
+            pixel_bytes[3],
+            0,
+        );
+    }
+    match element_tags_for_validate(obj, tags::FRAME_INCREMENT_POINTER) {
+        Ok(actual_tags) => validate_equal_debug(
+            failures,
+            relative_path,
+            "u1_frame_increment_pointer",
+            actual_tags,
+            vec![tags::PAGE_NUMBER_VECTOR],
+        ),
+        Err(err) => failures.push(format!(
+            "{relative_path}: u1_frame_increment_pointer: {err}"
+        )),
+    }
+    match element_str_for_validate(obj, tags::PAGE_NUMBER_VECTOR) {
+        Ok(value) => validate_equal(
+            failures,
+            relative_path,
+            "u1_page_number_vector",
+            value,
+            "1\\2".to_string(),
+        ),
+        Err(err) => failures.push(format!("{relative_path}: u1_page_number_vector: {err}")),
     }
 
     Ok(())
@@ -1689,8 +1959,11 @@ fn validate_native_pixel_data_manifest(
     )?;
     let bytes_per_sample = usize::from(bits_allocated).div_ceil(8);
     let expected_native_length = if bits_allocated == 1 {
-        let frame_bits = usize::from(rows) * usize::from(columns) * usize::from(samples_per_pixel);
-        let value_length = usize::from(frames) * frame_bits.div_ceil(8);
+        let value_bits = usize::from(rows)
+            * usize::from(columns)
+            * usize::from(frames)
+            * usize::from(samples_per_pixel);
+        let value_length = value_bits.div_ceil(8);
         value_length + (value_length % 2)
     } else if photometric == "YBR_FULL_422" {
         usize::from(rows) * usize::from(columns) * usize::from(frames) * 2 * bytes_per_sample
@@ -21616,6 +21889,125 @@ mod tests {
         ] {
             assert!(joined.contains(check), "missing {check} failure:\n{joined}");
         }
+    }
+
+    #[test]
+    fn u1_sc_manifest_pixel_contract_accepts_continuous_frames_and_padding() {
+        let manifest = u1_sc_test_manifest();
+        let obj = u1_sc_test_object();
+        let bytes = vec![0x55, 0x55, 0x01, 0x00];
+        let mut failures = Vec::new();
+
+        validate_u1_sc_manifest_pixel_contract(
+            &mut failures,
+            "classic/sc/mono2_u1_native/instance.dcm",
+            Path::new("manifest.json"),
+            &manifest,
+            &obj,
+            &bytes,
+        )
+        .expect("well-formed one-bit contract should validate");
+
+        assert_eq!(failures, Vec::<String>::new());
+    }
+
+    #[test]
+    fn u1_sc_manifest_pixel_contract_rejects_per_frame_padding_and_tampering() {
+        let mut manifest = u1_sc_test_manifest();
+        manifest["expected_u1_pixels"]["packing_order"] = Value::from("most_significant_bit_first");
+        manifest["expected_u1_pixels"]["stored_values"][9] = Value::from(1);
+        manifest["expected_u1_pixels"]["pixel_data_sha256"] = Value::from("0".repeat(64));
+        manifest["expected_u1_pixels"]["value_field_padding_bytes"] = Value::from(0);
+        let obj = u1_sc_test_object();
+        let bytes = vec![0x55, 0x01, 0xaa, 0x00];
+        let mut failures = Vec::new();
+
+        validate_u1_sc_manifest_pixel_contract(
+            &mut failures,
+            "classic/sc/mono2_u1_native/instance.dcm",
+            Path::new("manifest.json"),
+            &manifest,
+            &obj,
+            &bytes,
+        )
+        .expect("one-bit semantic mismatches should be validation failures");
+
+        let joined = failures.join("\n");
+        for check in [
+            "u1_expected_stored_values",
+            "u1_packing_order",
+            "u1_declared_pixel_sha256",
+            "u1_value_field_padding_bytes",
+            "u1_pixel_data_sha256",
+            "u1_decoded_stored_values",
+        ] {
+            assert!(joined.contains(check), "missing {check} failure:\n{joined}");
+        }
+    }
+
+    fn u1_sc_test_object() -> OpenedObject {
+        let mut obj = InMemDicomObject::new_empty();
+        obj.put(DataElement::new(
+            tags::FRAME_INCREMENT_POINTER,
+            VR::AT,
+            PrimitiveValue::Tags(vec![tags::PAGE_NUMBER_VECTOR].into()),
+        ));
+        obj.put(DataElement::new(
+            tags::PAGE_NUMBER_VECTOR,
+            VR::IS,
+            PrimitiveValue::from("1\\2"),
+        ));
+        obj.with_meta(
+            FileMetaTableBuilder::new()
+                .transfer_syntax(uids::EXPLICIT_VR_LITTLE_ENDIAN)
+                .media_storage_sop_class_uid(
+                    uids::MULTI_FRAME_SINGLE_BIT_SECONDARY_CAPTURE_IMAGE_STORAGE,
+                )
+                .media_storage_sop_instance_uid("2.25.1")
+                .implementation_class_uid("2.25.2"),
+        )
+        .expect("u1 test object should have valid file metadata")
+    }
+
+    fn u1_sc_test_manifest() -> Value {
+        serde_json::json!({
+            "case_id": "classic/sc/mono2_u1_native",
+            "recipe": {"recipe_parameters": {"pixel_values": [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0]}},
+            "image": {
+                "rows": 3,
+                "columns": 3,
+                "frames": 2,
+                "samples_per_pixel": 1,
+                "photometric_interpretation": "MONOCHROME2",
+                "bits_allocated": 1,
+                "bits_stored": 1,
+                "high_bit": 0,
+                "pixel_representation": 0,
+                "planar_configuration": Value::Null
+            },
+            "pixel_data": {
+                "vr": "OB",
+                "native_or_encapsulated": "native",
+                "value_length": 4,
+                "frame_count": 2
+            },
+            "expected_semantics": {"pixel_min": 0, "pixel_max": 1},
+            "expected_u1_pixels": {
+                "packing_order": "least_significant_bit_first",
+                "frame_boundary_policy": "continuous_without_per_frame_padding",
+                "stored_values": [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0],
+                "decoded_frame_sha256": [
+                    "a6188710c09cfbc77383ee0588dec2f7affa6e03e78aa900e9ae597a8d8faba3",
+                    "c520efb8f894a1125bb1a513a9b64ef957f7c2cd63835fd7e130357c47f989ae"
+                ],
+                "pixel_data_sha256": "9d6baf87a79d40ef2b145f92945a05cf156a2741e2c2834a3a7721d52757594b",
+                "significant_bits": 18,
+                "significant_packed_bytes": 3,
+                "unused_high_bits": 6,
+                "value_field_padding_bytes": 1,
+                "frame_two_bit_offset": 9
+            }
+        })
     }
 
     fn u32_sc_test_bytes() -> Vec<u8> {

@@ -7156,6 +7156,441 @@ fn report_keeps_planned_rt_image_coverage_null() {
     fs::remove_dir_all(out_dir).expect("remove planned Image root");
 }
 
+#[test]
+fn report_locks_rt_radiation_pair_contracts_and_markdown() {
+    let out_dir = unique_temp_dir("report-rt-radiation-pair");
+    generate_extended(&out_dir);
+    let report = dicom_test_suite::build_coverage_report(&out_dir)
+        .expect("RT Radiation pair coverage report should build");
+    let schema: Value = serde_json::from_slice(
+        &fs::read("schemas/coverage-report.schema.json").expect("coverage schema"),
+    )
+    .expect("coverage schema JSON");
+    let validator = jsonschema::validator_for(&schema).expect("coverage schema compiles");
+    let errors = validator
+        .iter_errors(&report)
+        .map(|error| error.to_string())
+        .collect::<Vec<_>>();
+    assert!(
+        errors.is_empty(),
+        "RT Radiation coverage must match schema: {errors:?}"
+    );
+
+    let radiation = coverage_row(
+        &report,
+        "non-image/rt/carm_photon_electron_radiation_minimal",
+    );
+    assert_eq!(
+        radiation["rt_radiation_iod_kind"],
+        "carm_photon_electron_radiation"
+    );
+    assert_eq!(radiation["rt_radiation_label"], "DTS_RADIATION");
+    assert_eq!(radiation["rt_radiation_content_detail"], "IDENT_ONLY");
+    assert_eq!(radiation["rt_radiation_record_flag"], "NO");
+    assert_eq!(
+        radiation["rt_radiation_treatment_technique"],
+        "130102|DCM|Static Beam"
+    );
+    assert_eq!(radiation["rt_radiation_treatment_position_count"], 1);
+    assert_eq!(radiation["rt_radiation_control_point_count"], 2);
+    assert_eq!(radiation["rt_radiation_control_point_indices"], "1; 2");
+    assert_eq!(radiation["rt_radiation_meterset_range"], "0..100");
+    assert_eq!(radiation["rt_radiation_reference_closure"], true);
+    assert_eq!(radiation["rt_radiation_pixel_data_absent"], true);
+
+    let set = coverage_row(&report, "non-image/rt/radiation_set_minimal");
+    assert_eq!(set["rt_radiation_set_iod_kind"], "rt_radiation_set");
+    assert_eq!(set["rt_radiation_set_label"], "DTS_RADSET");
+    assert_eq!(set["rt_radiation_set_intent"], "TREATMENT");
+    assert_eq!(set["rt_radiation_set_intended_fraction_count"], 1);
+    assert_eq!(set["rt_radiation_set_treatment_position_group_count"], 1);
+    assert_eq!(
+        set["rt_radiation_set_treatment_position_group_labels"],
+        "DTS_TPG_1"
+    );
+    assert_eq!(set["rt_radiation_set_common_instance_reference_count"], 2);
+    assert_eq!(set["rt_radiation_set_reference_closure"], true);
+    assert_eq!(set["rt_radiation_set_dose_contribution_absent"], true);
+    assert_eq!(set["rt_radiation_set_pixel_data_absent"], true);
+
+    for (group, row, field) in [
+        ("rt_radiation_iod_kinds", radiation, "rt_radiation_iod_kind"),
+        ("rt_radiation_labels", radiation, "rt_radiation_label"),
+        (
+            "rt_radiation_content_details",
+            radiation,
+            "rt_radiation_content_detail",
+        ),
+        (
+            "rt_radiation_record_flags",
+            radiation,
+            "rt_radiation_record_flag",
+        ),
+        (
+            "rt_radiation_treatment_techniques",
+            radiation,
+            "rt_radiation_treatment_technique",
+        ),
+        (
+            "rt_radiation_device_identities",
+            radiation,
+            "rt_radiation_device_identity",
+        ),
+        (
+            "rt_radiation_dosimeter_units",
+            radiation,
+            "rt_radiation_dosimeter_unit",
+        ),
+        (
+            "rt_radiation_treatment_position_index_orders",
+            radiation,
+            "rt_radiation_treatment_position_indices",
+        ),
+        (
+            "rt_radiation_control_point_index_orders",
+            radiation,
+            "rt_radiation_control_point_indices",
+        ),
+        (
+            "rt_radiation_meterset_ranges",
+            radiation,
+            "rt_radiation_meterset_range",
+        ),
+        (
+            "rt_radiation_definition_source_identities",
+            radiation,
+            "rt_radiation_definition_source_identity",
+        ),
+        (
+            "rt_radiation_external_validator_dispositions",
+            radiation,
+            "rt_radiation_external_validator_disposition",
+        ),
+        (
+            "rt_radiation_set_iod_kinds",
+            set,
+            "rt_radiation_set_iod_kind",
+        ),
+        ("rt_radiation_set_labels", set, "rt_radiation_set_label"),
+        ("rt_radiation_set_intents", set, "rt_radiation_set_intent"),
+        (
+            "rt_radiation_set_device_identities",
+            set,
+            "rt_radiation_set_device_identity",
+        ),
+        (
+            "rt_radiation_set_definition_source_identities",
+            set,
+            "rt_radiation_set_definition_source_identity",
+        ),
+        (
+            "rt_radiation_set_radiation_reference_identity_orders",
+            set,
+            "rt_radiation_set_radiation_reference_identities",
+        ),
+        (
+            "rt_radiation_set_treatment_position_group_label_orders",
+            set,
+            "rt_radiation_set_treatment_position_group_labels",
+        ),
+        (
+            "rt_radiation_set_external_validator_dispositions",
+            set,
+            "rt_radiation_set_external_validator_disposition",
+        ),
+    ] {
+        let key = row[field].as_str().expect("grouped string field");
+        assert_eq!(report["grouped_coverage"][group][key], 1, "{group}");
+    }
+    for (group, row, field) in [
+        (
+            "rt_radiation_treatment_position_counts",
+            radiation,
+            "rt_radiation_treatment_position_count",
+        ),
+        (
+            "rt_radiation_control_point_counts",
+            radiation,
+            "rt_radiation_control_point_count",
+        ),
+        (
+            "rt_radiation_reference_closure_states",
+            radiation,
+            "rt_radiation_reference_closure",
+        ),
+        (
+            "rt_radiation_pixel_data_absent_states",
+            radiation,
+            "rt_radiation_pixel_data_absent",
+        ),
+        (
+            "rt_radiation_set_intended_fraction_counts",
+            set,
+            "rt_radiation_set_intended_fraction_count",
+        ),
+        (
+            "rt_radiation_set_treatment_position_group_counts",
+            set,
+            "rt_radiation_set_treatment_position_group_count",
+        ),
+        (
+            "rt_radiation_set_common_instance_reference_counts",
+            set,
+            "rt_radiation_set_common_instance_reference_count",
+        ),
+        (
+            "rt_radiation_set_reference_closure_states",
+            set,
+            "rt_radiation_set_reference_closure",
+        ),
+        (
+            "rt_radiation_set_dose_contribution_absent_states",
+            set,
+            "rt_radiation_set_dose_contribution_absent",
+        ),
+        (
+            "rt_radiation_set_pixel_data_absent_states",
+            set,
+            "rt_radiation_set_pixel_data_absent",
+        ),
+    ] {
+        let key = if let Some(value) = row[field].as_u64() {
+            value.to_string()
+        } else {
+            row[field]
+                .as_bool()
+                .expect("grouped bool field")
+                .to_string()
+        };
+        assert_eq!(report["grouped_coverage"][group][&key], 1, "{group}");
+    }
+
+    let markdown = dicom_test_suite::render_coverage_report_markdown(&report);
+    assert!(markdown.contains("## RT Radiation Expectations"));
+    assert!(markdown.contains("## RT Radiation Set Expectations"));
+    assert!(markdown.contains("DTS_RADIATION"));
+    assert!(markdown.contains("DTS_RADSET"));
+    for title in [
+        "RT Radiation IOD Kinds",
+        "RT Radiation Labels",
+        "RT Radiation Content Details",
+        "RT Radiation Record Flags",
+        "RT Radiation Treatment Techniques",
+        "RT Radiation Device Identities",
+        "RT Radiation Dosimeter Units",
+        "RT Radiation Treatment Position Counts",
+        "RT Radiation Treatment Position Index Orders",
+        "RT Radiation Control Point Counts",
+        "RT Radiation Control Point Index Orders",
+        "RT Radiation Meterset Ranges",
+        "RT Radiation Definition Source Identities",
+        "RT Radiation Reference Closure States",
+        "RT Radiation Pixel Data Absent States",
+        "RT Radiation External Validator Dispositions",
+        "RT Radiation Set IOD Kinds",
+        "RT Radiation Set Labels",
+        "RT Radiation Set Intents",
+        "RT Radiation Set Fraction Counts",
+        "RT Radiation Set Device Identities",
+        "RT Radiation Set Definition Source Identities",
+        "RT Radiation Set Radiation Reference Identity Orders",
+        "RT Radiation Set Position Group Counts",
+        "RT Radiation Set Position Group Label Orders",
+        "RT Radiation Set Common Instance Reference Counts",
+        "RT Radiation Set Reference Closure States",
+        "RT Radiation Set Dose Contribution Absent States",
+        "RT Radiation Set Pixel Data Absent States",
+        "RT Radiation Set External Validator Dispositions",
+    ] {
+        assert!(
+            markdown.contains(&format!("### {title}")),
+            "missing Markdown group {title}"
+        );
+    }
+
+    let mut partial = report.clone();
+    coverage_row_mut(
+        &mut partial,
+        "non-image/rt/carm_photon_electron_radiation_minimal",
+    )["rt_radiation_control_point_count"] = Value::Null;
+    assert!(
+        !validator.is_valid(&partial),
+        "schema must reject a partial Radiation contract"
+    );
+    let mut leaked = report.clone();
+    coverage_row_mut(&mut leaked, "non-image/rt/plan_linked")["rt_radiation_set_label"] =
+        Value::from("DTS_RADSET");
+    assert!(
+        !validator.is_valid(&leaked),
+        "schema must reject leaked Radiation Set fields"
+    );
+
+    fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
+}
+
+#[test]
+fn report_rejects_malformed_rt_radiation_pair_manifests() {
+    let out_dir = unique_temp_dir("report-rt-radiation-malformed");
+    generate_extended(&out_dir);
+    let manifest_path = out_dir.join("manifest.json");
+    let original: Value = serde_json::from_slice(&fs::read(&manifest_path).expect("manifest"))
+        .expect("manifest JSON");
+    fn file_mut<'a>(manifest: &'a mut Value, case_id: &str) -> &'a mut Value {
+        manifest["files"]
+            .as_array_mut()
+            .expect("files array")
+            .iter_mut()
+            .find(|file| file["case_id"] == case_id)
+            .expect("case file")
+    }
+    let reject = |label: &str, manifest: &Value| {
+        fs::write(
+            &manifest_path,
+            serde_json::to_vec_pretty(manifest).expect("serialize mutation"),
+        )
+        .expect("write mutated manifest");
+        assert!(
+            dicom_test_suite::build_coverage_report(&out_dir).is_err(),
+            "report must reject {label}"
+        );
+    };
+
+    let mut missing = original.clone();
+    file_mut(
+        &mut missing,
+        "non-image/rt/carm_photon_electron_radiation_minimal",
+    )
+    .as_object_mut()
+    .expect("Radiation file object")
+    .remove("expected_rt_radiation");
+    reject("missing Radiation expectation", &missing);
+
+    let mut missing_set = original.clone();
+    file_mut(&mut missing_set, "non-image/rt/radiation_set_minimal")
+        .as_object_mut()
+        .expect("Radiation Set file object")
+        .remove("expected_rt_radiation_set");
+    reject("missing Radiation Set expectation", &missing_set);
+
+    let mut wrong_case = original.clone();
+    let contract = file_mut(
+        &mut wrong_case,
+        "non-image/rt/carm_photon_electron_radiation_minimal",
+    )
+    .as_object_mut()
+    .expect("Radiation file object")
+    .remove("expected_rt_radiation")
+    .expect("Radiation contract");
+    file_mut(&mut wrong_case, "non-image/rt/plan_linked")["expected_rt_radiation"] = contract;
+    reject("Radiation expectation on wrong case", &wrong_case);
+
+    let mut wrong_set_case = original.clone();
+    let contract = file_mut(&mut wrong_set_case, "non-image/rt/radiation_set_minimal")
+        .as_object_mut()
+        .expect("Radiation Set file object")
+        .remove("expected_rt_radiation_set")
+        .expect("Radiation Set contract");
+    file_mut(&mut wrong_set_case, "non-image/rt/plan_linked")["expected_rt_radiation_set"] =
+        contract;
+    reject("Radiation Set expectation on wrong case", &wrong_set_case);
+
+    let mut radiation_device = original.clone();
+    file_mut(
+        &mut radiation_device,
+        "non-image/rt/carm_photon_electron_radiation_minimal",
+    )["expected_rt_radiation"]["device"]["model_name"] = Value::from("WRONG");
+    reject("wrong Radiation device identity", &radiation_device);
+
+    let mut set_device = original.clone();
+    file_mut(&mut set_device, "non-image/rt/radiation_set_minimal")["expected_rt_radiation_set"]
+        ["linked_radiation_device"]["serial_number"] = Value::from("WRONG");
+    reject("wrong Radiation Set device identity", &set_device);
+
+    let mut uppercase_hash = original.clone();
+    let hash = file_mut(
+        &mut uppercase_hash,
+        "non-image/rt/carm_photon_electron_radiation_minimal",
+    )["expected_rt_radiation"]["definition_source"]["source_sha256"]
+        .as_str()
+        .expect("source hash")
+        .to_ascii_uppercase();
+    file_mut(
+        &mut uppercase_hash,
+        "non-image/rt/carm_photon_electron_radiation_minimal",
+    )["expected_rt_radiation"]["definition_source"]["source_sha256"] = Value::from(hash);
+    reject("non-lowercase Radiation source hash", &uppercase_hash);
+
+    let mut set_uppercase_hash = original.clone();
+    let hash = file_mut(
+        &mut set_uppercase_hash,
+        "non-image/rt/radiation_set_minimal",
+    )["expected_rt_radiation_set"]["radiation_references"][0]["source_sha256"]
+        .as_str()
+        .expect("Set Radiation source hash")
+        .to_ascii_uppercase();
+    let set = file_mut(
+        &mut set_uppercase_hash,
+        "non-image/rt/radiation_set_minimal",
+    );
+    set["expected_rt_radiation_set"]["radiation_references"][0]["source_sha256"] =
+        Value::from(hash.clone());
+    set["expected_rt_radiation_set"]["treatment_position_groups"][0]["radiation_references"][0]["source_sha256"] =
+        Value::from(hash.clone());
+    set["expected_rt_radiation_set"]["common_instance_references"][1]["source_sha256"] =
+        Value::from(hash);
+    reject(
+        "consistently mirrored non-lowercase Set source hash",
+        &set_uppercase_hash,
+    );
+
+    let mut radiation_uid_binding = original.clone();
+    file_mut(
+        &mut radiation_uid_binding,
+        "non-image/rt/carm_photon_electron_radiation_minimal",
+    )["expected_rt_radiation"]["definition_source"]["study_instance_uid"] = Value::from("2.25.999");
+    reject(
+        "Radiation source Study UID outside containing contract",
+        &radiation_uid_binding,
+    );
+
+    let mut set_plan_uid_binding = original.clone();
+    let set = file_mut(
+        &mut set_plan_uid_binding,
+        "non-image/rt/radiation_set_minimal",
+    );
+    set["expected_rt_radiation_set"]["definition_source"]["study_instance_uid"] =
+        Value::from("2.25.997");
+    set["expected_rt_radiation_set"]["common_instance_references"][0]["study_instance_uid"] =
+        Value::from("2.25.997");
+    reject(
+        "consistently mirrored Set Plan source Study UID corruption",
+        &set_plan_uid_binding,
+    );
+
+    let mut set_uid_binding = original.clone();
+    let set = file_mut(&mut set_uid_binding, "non-image/rt/radiation_set_minimal");
+    set["expected_rt_radiation_set"]["radiation_references"][0]["frame_of_reference_uid"] =
+        Value::from("2.25.999");
+    set["expected_rt_radiation_set"]["treatment_position_groups"][0]["radiation_references"][0]["frame_of_reference_uid"] =
+        Value::from("2.25.999");
+    set["expected_rt_radiation_set"]["common_instance_references"][1]["frame_of_reference_uid"] =
+        Value::from("2.25.999");
+    reject(
+        "consistently mirrored Set source Frame UID corruption",
+        &set_uid_binding,
+    );
+
+    let mut mirrored = original.clone();
+    let set = file_mut(&mut mirrored, "non-image/rt/radiation_set_minimal");
+    set["expected_rt_radiation_set"]["treatment_position_groups"][0]["radiation_references"][0]["sop_instance_uid"] =
+        Value::from("2.25.998");
+    set["expected_rt_radiation_set"]["common_instance_references"][1]["sop_instance_uid"] =
+        Value::from("2.25.998");
+    reject("consistently corrupted Set reference mirrors", &mirrored);
+
+    fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
+}
+
 const RT_IMAGE_REPORT_FIELDS: &[&str] = &[
     "rt_image_type",
     "rt_image_label",

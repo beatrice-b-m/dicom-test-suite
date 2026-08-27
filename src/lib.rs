@@ -16018,6 +16018,130 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
         "/grouped_coverage/rt_dose_grid_scalings",
     );
     for (title, pointer) in [
+        (
+            "RT Radiation IOD Kinds",
+            "/grouped_coverage/rt_radiation_iod_kinds",
+        ),
+        (
+            "RT Radiation Labels",
+            "/grouped_coverage/rt_radiation_labels",
+        ),
+        (
+            "RT Radiation Content Details",
+            "/grouped_coverage/rt_radiation_content_details",
+        ),
+        (
+            "RT Radiation Record Flags",
+            "/grouped_coverage/rt_radiation_record_flags",
+        ),
+        (
+            "RT Radiation Treatment Techniques",
+            "/grouped_coverage/rt_radiation_treatment_techniques",
+        ),
+        (
+            "RT Radiation Device Identities",
+            "/grouped_coverage/rt_radiation_device_identities",
+        ),
+        (
+            "RT Radiation Dosimeter Units",
+            "/grouped_coverage/rt_radiation_dosimeter_units",
+        ),
+        (
+            "RT Radiation Treatment Position Counts",
+            "/grouped_coverage/rt_radiation_treatment_position_counts",
+        ),
+        (
+            "RT Radiation Treatment Position Index Orders",
+            "/grouped_coverage/rt_radiation_treatment_position_index_orders",
+        ),
+        (
+            "RT Radiation Control Point Counts",
+            "/grouped_coverage/rt_radiation_control_point_counts",
+        ),
+        (
+            "RT Radiation Control Point Index Orders",
+            "/grouped_coverage/rt_radiation_control_point_index_orders",
+        ),
+        (
+            "RT Radiation Meterset Ranges",
+            "/grouped_coverage/rt_radiation_meterset_ranges",
+        ),
+        (
+            "RT Radiation Definition Source Identities",
+            "/grouped_coverage/rt_radiation_definition_source_identities",
+        ),
+        (
+            "RT Radiation Reference Closure States",
+            "/grouped_coverage/rt_radiation_reference_closure_states",
+        ),
+        (
+            "RT Radiation Pixel Data Absent States",
+            "/grouped_coverage/rt_radiation_pixel_data_absent_states",
+        ),
+        (
+            "RT Radiation External Validator Dispositions",
+            "/grouped_coverage/rt_radiation_external_validator_dispositions",
+        ),
+        (
+            "RT Radiation Set IOD Kinds",
+            "/grouped_coverage/rt_radiation_set_iod_kinds",
+        ),
+        (
+            "RT Radiation Set Labels",
+            "/grouped_coverage/rt_radiation_set_labels",
+        ),
+        (
+            "RT Radiation Set Intents",
+            "/grouped_coverage/rt_radiation_set_intents",
+        ),
+        (
+            "RT Radiation Set Fraction Counts",
+            "/grouped_coverage/rt_radiation_set_intended_fraction_counts",
+        ),
+        (
+            "RT Radiation Set Device Identities",
+            "/grouped_coverage/rt_radiation_set_device_identities",
+        ),
+        (
+            "RT Radiation Set Definition Source Identities",
+            "/grouped_coverage/rt_radiation_set_definition_source_identities",
+        ),
+        (
+            "RT Radiation Set Radiation Reference Identity Orders",
+            "/grouped_coverage/rt_radiation_set_radiation_reference_identity_orders",
+        ),
+        (
+            "RT Radiation Set Position Group Counts",
+            "/grouped_coverage/rt_radiation_set_treatment_position_group_counts",
+        ),
+        (
+            "RT Radiation Set Position Group Label Orders",
+            "/grouped_coverage/rt_radiation_set_treatment_position_group_label_orders",
+        ),
+        (
+            "RT Radiation Set Common Instance Reference Counts",
+            "/grouped_coverage/rt_radiation_set_common_instance_reference_counts",
+        ),
+        (
+            "RT Radiation Set Reference Closure States",
+            "/grouped_coverage/rt_radiation_set_reference_closure_states",
+        ),
+        (
+            "RT Radiation Set Dose Contribution Absent States",
+            "/grouped_coverage/rt_radiation_set_dose_contribution_absent_states",
+        ),
+        (
+            "RT Radiation Set Pixel Data Absent States",
+            "/grouped_coverage/rt_radiation_set_pixel_data_absent_states",
+        ),
+        (
+            "RT Radiation Set External Validator Dispositions",
+            "/grouped_coverage/rt_radiation_set_external_validator_dispositions",
+        ),
+    ] {
+        append_count_map_section(&mut output, report, title, pointer);
+    }
+    for (title, pointer) in [
         ("RT Plan Labels", "/grouped_coverage/rt_plan_labels"),
         ("RT Plan Geometries", "/grouped_coverage/rt_plan_geometries"),
         (
@@ -17249,6 +17373,82 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
         output.push('\n');
     }
 
+    let rt_radiation_rows = report
+        .get("coverage_matrix")
+        .and_then(Value::as_array)
+        .map(|rows| {
+            rows.iter()
+                .filter(|row| !row["rt_radiation_iod_kind"].is_null())
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    if !rt_radiation_rows.is_empty() {
+        output.push_str("## RT Radiation Expectations\n\n");
+        output.push_str("| Case ID | IOD / label | Detail / record | Technique / device / dosimeter | Positions / order | Control points / order / meterset | Definition source | References closed | Pixel data absent | External-validator disposition |\n");
+        output.push_str("|---|---|---|---|---|---|---|---|---|---|\n");
+        for row in rt_radiation_rows {
+            output.push_str(&format!("| {} | {} / {} | {} / {} | {} / {} / {} | {} / {} | {} / {} / {} | {} | {} | {} | {} |\n",
+                markdown_cell(row.get("case_id").and_then(Value::as_str)), markdown_cell(row.get("rt_radiation_iod_kind").and_then(Value::as_str)), markdown_cell(row.get("rt_radiation_label").and_then(Value::as_str)),
+                markdown_cell(row.get("rt_radiation_content_detail").and_then(Value::as_str)), markdown_cell(row.get("rt_radiation_record_flag").and_then(Value::as_str)),
+                markdown_cell(row.get("rt_radiation_treatment_technique").and_then(Value::as_str)), markdown_cell(row.get("rt_radiation_device_identity").and_then(Value::as_str)), markdown_cell(row.get("rt_radiation_dosimeter_unit").and_then(Value::as_str)),
+                markdown_number(row.get("rt_radiation_treatment_position_count")), markdown_cell(row.get("rt_radiation_treatment_position_indices").and_then(Value::as_str)),
+                markdown_number(row.get("rt_radiation_control_point_count")), markdown_cell(row.get("rt_radiation_control_point_indices").and_then(Value::as_str)), markdown_cell(row.get("rt_radiation_meterset_range").and_then(Value::as_str)),
+                markdown_cell(row.get("rt_radiation_definition_source_identity").and_then(Value::as_str)), markdown_bool(row.get("rt_radiation_reference_closure")), markdown_bool(row.get("rt_radiation_pixel_data_absent")), markdown_cell(row.get("rt_radiation_external_validator_disposition").and_then(Value::as_str))));
+        }
+        output.push('\n');
+    }
+
+    let rt_set_rows = report
+        .get("coverage_matrix")
+        .and_then(Value::as_array)
+        .map(|rows| {
+            rows.iter()
+                .filter(|row| !row["rt_radiation_set_iod_kind"].is_null())
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    if !rt_set_rows.is_empty() {
+        output.push_str("## RT Radiation Set Expectations\n\n");
+        output.push_str("| Case ID | IOD / label / intent | Fractions | Device | Definition source | Radiation references | Position groups / labels | Common references | References closed | Dose contribution / pixel data absent | External-validator disposition |\n");
+        output.push_str("|---|---|---:|---|---|---|---|---:|---|---|---|\n");
+        for row in rt_set_rows {
+            output.push_str(&format!(
+                "| {} | {} / {} / {} | {} | {} | {} | {} | {} / {} | {} | {} | {} / {} | {} |\n",
+                markdown_cell(row.get("case_id").and_then(Value::as_str)),
+                markdown_cell(row.get("rt_radiation_set_iod_kind").and_then(Value::as_str)),
+                markdown_cell(row.get("rt_radiation_set_label").and_then(Value::as_str)),
+                markdown_cell(row.get("rt_radiation_set_intent").and_then(Value::as_str)),
+                markdown_number(row.get("rt_radiation_set_intended_fraction_count")),
+                markdown_cell(
+                    row.get("rt_radiation_set_device_identity")
+                        .and_then(Value::as_str)
+                ),
+                markdown_cell(
+                    row.get("rt_radiation_set_definition_source_identity")
+                        .and_then(Value::as_str)
+                ),
+                markdown_cell(
+                    row.get("rt_radiation_set_radiation_reference_identities")
+                        .and_then(Value::as_str)
+                ),
+                markdown_number(row.get("rt_radiation_set_treatment_position_group_count")),
+                markdown_cell(
+                    row.get("rt_radiation_set_treatment_position_group_labels")
+                        .and_then(Value::as_str)
+                ),
+                markdown_number(row.get("rt_radiation_set_common_instance_reference_count")),
+                markdown_bool(row.get("rt_radiation_set_reference_closure")),
+                markdown_bool(row.get("rt_radiation_set_dose_contribution_absent")),
+                markdown_bool(row.get("rt_radiation_set_pixel_data_absent")),
+                markdown_cell(
+                    row.get("rt_radiation_set_external_validator_disposition")
+                        .and_then(Value::as_str)
+                )
+            ));
+        }
+        output.push('\n');
+    }
+
     let rt_image_rows = report
         .get("coverage_matrix")
         .and_then(Value::as_array)
@@ -17412,6 +17612,8 @@ fn generated_coverage_row(
     let waveform = waveform_report_fields(manifest_path, file)?;
     let rt_plan = rt_plan_report_fields(manifest_path, file)?;
     let rt_image = rt_image_report_fields(manifest_path, file)?;
+    let rt_radiation = rt_radiation_report_fields(manifest_path, file)?;
+    let rt_radiation_set = rt_radiation_set_report_fields(manifest_path, file)?;
     let is_spatial_registration =
         file.get("case_id").and_then(Value::as_str) == Some("derived/registration/spatial_ct_pair");
     let is_deformable_registration = file.get("case_id").and_then(Value::as_str)
@@ -17875,6 +18077,137 @@ fn generated_coverage_row(
         (
             "waveform_external_validator_disposition",
             waveform.external_validator_disposition.map(Value::from),
+        ),
+    ] {
+        row_object.insert(field.to_string(), value.unwrap_or(Value::Null));
+    }
+    for (field, value) in [
+        (
+            "rt_radiation_iod_kind",
+            rt_radiation.iod_kind.map(Value::from),
+        ),
+        ("rt_radiation_label", rt_radiation.label.map(Value::from)),
+        (
+            "rt_radiation_content_detail",
+            rt_radiation.content_detail.map(Value::from),
+        ),
+        (
+            "rt_radiation_record_flag",
+            rt_radiation.record_flag.map(Value::from),
+        ),
+        (
+            "rt_radiation_treatment_technique",
+            rt_radiation.treatment_technique.map(Value::from),
+        ),
+        (
+            "rt_radiation_device_identity",
+            rt_radiation.device_identity.map(Value::from),
+        ),
+        (
+            "rt_radiation_dosimeter_unit",
+            rt_radiation.dosimeter_unit.map(Value::from),
+        ),
+        (
+            "rt_radiation_treatment_position_count",
+            rt_radiation.treatment_position_count.map(Value::from),
+        ),
+        (
+            "rt_radiation_treatment_position_indices",
+            rt_radiation.treatment_position_indices.map(Value::from),
+        ),
+        (
+            "rt_radiation_control_point_count",
+            rt_radiation.control_point_count.map(Value::from),
+        ),
+        (
+            "rt_radiation_control_point_indices",
+            rt_radiation.control_point_indices.map(Value::from),
+        ),
+        (
+            "rt_radiation_meterset_range",
+            rt_radiation.meterset_range.map(Value::from),
+        ),
+        (
+            "rt_radiation_definition_source_identity",
+            rt_radiation.definition_source_identity.map(Value::from),
+        ),
+        (
+            "rt_radiation_reference_closure",
+            rt_radiation.reference_closure.map(Value::from),
+        ),
+        (
+            "rt_radiation_pixel_data_absent",
+            rt_radiation.pixel_data_absent.map(Value::from),
+        ),
+        (
+            "rt_radiation_external_validator_disposition",
+            rt_radiation.external_validator_disposition.map(Value::from),
+        ),
+        (
+            "rt_radiation_set_iod_kind",
+            rt_radiation_set.iod_kind.map(Value::from),
+        ),
+        (
+            "rt_radiation_set_label",
+            rt_radiation_set.label.map(Value::from),
+        ),
+        (
+            "rt_radiation_set_intent",
+            rt_radiation_set.intent.map(Value::from),
+        ),
+        (
+            "rt_radiation_set_intended_fraction_count",
+            rt_radiation_set.intended_fraction_count.map(Value::from),
+        ),
+        (
+            "rt_radiation_set_device_identity",
+            rt_radiation_set.device_identity.map(Value::from),
+        ),
+        (
+            "rt_radiation_set_definition_source_identity",
+            rt_radiation_set.definition_source_identity.map(Value::from),
+        ),
+        (
+            "rt_radiation_set_radiation_reference_identities",
+            rt_radiation_set
+                .radiation_reference_identities
+                .map(Value::from),
+        ),
+        (
+            "rt_radiation_set_treatment_position_group_count",
+            rt_radiation_set
+                .treatment_position_group_count
+                .map(Value::from),
+        ),
+        (
+            "rt_radiation_set_treatment_position_group_labels",
+            rt_radiation_set
+                .treatment_position_group_labels
+                .map(Value::from),
+        ),
+        (
+            "rt_radiation_set_common_instance_reference_count",
+            rt_radiation_set
+                .common_instance_reference_count
+                .map(Value::from),
+        ),
+        (
+            "rt_radiation_set_reference_closure",
+            rt_radiation_set.reference_closure.map(Value::from),
+        ),
+        (
+            "rt_radiation_set_dose_contribution_absent",
+            rt_radiation_set.dose_contribution_absent.map(Value::from),
+        ),
+        (
+            "rt_radiation_set_pixel_data_absent",
+            rt_radiation_set.pixel_data_absent.map(Value::from),
+        ),
+        (
+            "rt_radiation_set_external_validator_disposition",
+            rt_radiation_set
+                .external_validator_disposition
+                .map(Value::from),
         ),
     ] {
         row_object.insert(field.to_string(), value.unwrap_or(Value::Null));
@@ -20539,6 +20872,390 @@ fn rt_image_report_fields(
     Ok(fields)
 }
 
+fn rt_reference_identity(reference: &Value) -> Option<String> {
+    Some(format!(
+        "{}|{}|{}|study={}|series={}|class={}|instance={}|for={}",
+        reference.get("source_case_id")?.as_str()?,
+        reference.get("source_path")?.as_str()?,
+        reference.get("source_sha256")?.as_str()?,
+        reference.get("study_instance_uid")?.as_str()?,
+        reference.get("series_instance_uid")?.as_str()?,
+        reference.get("sop_class_uid")?.as_str()?,
+        reference.get("sop_instance_uid")?.as_str()?,
+        reference.get("frame_of_reference_uid")?.as_str()?,
+    ))
+}
+
+fn rt_code_summary(code: Option<&Value>) -> Option<String> {
+    let code = code?;
+    Some(format!(
+        "{}|{}|{}",
+        code.get("code_value")?.as_str()?,
+        code.get("coding_scheme_designator")?.as_str()?,
+        code.get("code_meaning")?.as_str()?,
+    ))
+}
+
+fn rt_device_identity(device: Option<&Value>) -> Option<String> {
+    let device = device?;
+    Some(format!(
+        "{}|{}|{}|{}|{}",
+        device.get("manufacturer")?.as_str()?,
+        device.get("model_name")?.as_str()?,
+        device.get("device_label")?.as_str()?,
+        device.get("serial_number")?.as_str()?,
+        device.get("device_alternate_identifier")?.as_str()?,
+    ))
+}
+
+fn is_lowerhex_sha256(value: Option<&Value>) -> bool {
+    value.and_then(Value::as_str).is_some_and(|hash| {
+        hash.len() == 64
+            && hash
+                .bytes()
+                .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+    })
+}
+
+#[derive(Debug, Default, PartialEq)]
+struct RtRadiationReportFields {
+    iod_kind: Option<String>,
+    label: Option<String>,
+    content_detail: Option<String>,
+    record_flag: Option<String>,
+    treatment_technique: Option<String>,
+    device_identity: Option<String>,
+    dosimeter_unit: Option<String>,
+    treatment_position_count: Option<u64>,
+    treatment_position_indices: Option<String>,
+    control_point_count: Option<u64>,
+    control_point_indices: Option<String>,
+    meterset_range: Option<String>,
+    definition_source_identity: Option<String>,
+    reference_closure: Option<bool>,
+    pixel_data_absent: Option<bool>,
+    external_validator_disposition: Option<String>,
+}
+
+fn rt_radiation_report_fields(
+    manifest_path: &Path,
+    file: &Value,
+) -> Result<RtRadiationReportFields, ReportError> {
+    const CASE_ID: &str = "non-image/rt/carm_photon_electron_radiation_minimal";
+    let is_case = file.get("case_id").and_then(Value::as_str) == Some(CASE_ID);
+    let Some(expected) = file.get("expected_rt_radiation") else {
+        return if is_case {
+            Err(ReportError::MetadataShape {
+                path: manifest_path.to_path_buf(),
+                message: "generated C-Arm Photon-Electron Radiation must define expected_rt_radiation",
+            })
+        } else {
+            Ok(RtRadiationReportFields::default())
+        };
+    };
+    if !is_case {
+        return Err(ReportError::MetadataShape {
+            path: manifest_path.to_path_buf(),
+            message: "expected_rt_radiation is only valid for non-image/rt/carm_photon_electron_radiation_minimal",
+        });
+    }
+    let positions = expected
+        .get("treatment_positions")
+        .and_then(Value::as_array);
+    let control_points = expected.get("control_points").and_then(Value::as_array);
+    let join_indices = |items: Option<&Vec<Value>>, field: &str| {
+        items.and_then(|items| {
+            items
+                .iter()
+                .map(|item| item.get(field)?.as_u64().map(|n| n.to_string()))
+                .collect::<Option<Vec<_>>>()
+                .map(|v| v.join("; "))
+        })
+    };
+    let definition = expected.get("definition_source");
+    let study_uid = expected.get("study_instance_uid");
+    let frame_uid = expected.get("frame_of_reference_uid");
+    let fields = RtRadiationReportFields {
+        iod_kind: expected
+            .get("iod_kind")
+            .and_then(Value::as_str)
+            .map(str::to_string),
+        label: expected
+            .pointer("/content/user_content_label")
+            .and_then(Value::as_str)
+            .map(str::to_string),
+        content_detail: expected
+            .pointer("/content/physical_and_geometric_content_detail_flag")
+            .and_then(Value::as_str)
+            .map(str::to_string),
+        record_flag: expected
+            .pointer("/content/rt_record_flag")
+            .and_then(Value::as_str)
+            .map(str::to_string),
+        treatment_technique: rt_code_summary(expected.pointer("/content/treatment_technique")),
+        device_identity: rt_device_identity(expected.get("device")),
+        dosimeter_unit: rt_code_summary(expected.get("dosimeter_unit")),
+        treatment_position_count: positions.map(|items| items.len() as u64),
+        treatment_position_indices: join_indices(positions, "treatment_position_index"),
+        control_point_count: control_points.map(|items| items.len() as u64),
+        control_point_indices: join_indices(control_points, "rt_control_point_index"),
+        meterset_range: control_points.and_then(|items| {
+            Some(format!(
+                "{}..{}",
+                items.first()?.get("cumulative_meterset")?.as_u64()?,
+                items.last()?.get("cumulative_meterset")?.as_u64()?
+            ))
+        }),
+        definition_source_identity: definition.and_then(rt_reference_identity),
+        reference_closure: definition
+            .zip(file.get("references").and_then(Value::as_array))
+            .map(|(reference, manifest)| {
+                manifest.len() == 1
+                    && [
+                        "relationship",
+                        "source_case_id",
+                        "source_path",
+                        "series_instance_uid",
+                        "sop_class_uid",
+                        "sop_instance_uid",
+                    ]
+                    .iter()
+                    .all(|field| reference.get(field) == manifest[0].get(field))
+                    && is_lowerhex_sha256(reference.get("source_sha256"))
+                    && reference.get("study_instance_uid") == study_uid
+                    && reference.get("frame_of_reference_uid") == frame_uid
+            }),
+        pixel_data_absent: expected
+            .pointer("/absent_content/pixel_data")
+            .and_then(Value::as_bool),
+        external_validator_disposition: Some(
+            "external conformance evidence not embedded; run conformance separately".to_string(),
+        ),
+    };
+    let complete = fields.iod_kind.as_deref() == Some("carm_photon_electron_radiation")
+        && fields.label.as_deref() == Some("DTS_RADIATION")
+        && fields.content_detail.as_deref() == Some("IDENT_ONLY")
+        && fields.record_flag.as_deref() == Some("NO")
+        && fields.treatment_technique.as_deref() == Some("130102|DCM|Static Beam")
+        && fields.device_identity.as_deref()
+            == Some("dicom-test-suite|DTS C-Arm LINAC|DTS_LINAC|DTS-LINAC-001|")
+        && fields.dosimeter_unit.as_deref() == Some("{MU}|UCUM|Monitor Units")
+        && fields.treatment_position_count == Some(1)
+        && fields.treatment_position_indices.as_deref() == Some("1")
+        && fields.control_point_count == Some(2)
+        && fields.control_point_indices.as_deref() == Some("1; 2")
+        && fields.meterset_range.as_deref() == Some("0..100")
+        && fields.definition_source_identity.is_some()
+        && fields.reference_closure == Some(true)
+        && fields.pixel_data_absent == Some(true);
+    if !complete {
+        return Err(ReportError::MetadataShape {
+            path: manifest_path.to_path_buf(),
+            message: "expected_rt_radiation must define the complete C-Arm Radiation report contract",
+        });
+    }
+    Ok(fields)
+}
+
+#[derive(Debug, Default, PartialEq)]
+struct RtRadiationSetReportFields {
+    iod_kind: Option<String>,
+    label: Option<String>,
+    intent: Option<String>,
+    intended_fraction_count: Option<u64>,
+    device_identity: Option<String>,
+    definition_source_identity: Option<String>,
+    radiation_reference_identities: Option<String>,
+    treatment_position_group_count: Option<u64>,
+    treatment_position_group_labels: Option<String>,
+    common_instance_reference_count: Option<u64>,
+    reference_closure: Option<bool>,
+    dose_contribution_absent: Option<bool>,
+    pixel_data_absent: Option<bool>,
+    external_validator_disposition: Option<String>,
+}
+
+fn rt_radiation_set_report_fields(
+    manifest_path: &Path,
+    file: &Value,
+) -> Result<RtRadiationSetReportFields, ReportError> {
+    const CASE_ID: &str = "non-image/rt/radiation_set_minimal";
+    let is_case = file.get("case_id").and_then(Value::as_str) == Some(CASE_ID);
+    let Some(expected) = file.get("expected_rt_radiation_set") else {
+        return if is_case {
+            Err(ReportError::MetadataShape {
+                path: manifest_path.to_path_buf(),
+                message: "generated RT Radiation Set must define expected_rt_radiation_set",
+            })
+        } else {
+            Ok(RtRadiationSetReportFields::default())
+        };
+    };
+    if !is_case {
+        return Err(ReportError::MetadataShape {
+            path: manifest_path.to_path_buf(),
+            message: "expected_rt_radiation_set is only valid for non-image/rt/radiation_set_minimal",
+        });
+    }
+    let radiation_refs = expected
+        .get("radiation_references")
+        .and_then(Value::as_array);
+    let groups = expected
+        .get("treatment_position_groups")
+        .and_then(Value::as_array);
+    let common_refs = expected
+        .get("common_instance_references")
+        .and_then(Value::as_array);
+    let identities = |items: Option<&Vec<Value>>| {
+        items.and_then(|items| {
+            items
+                .iter()
+                .map(rt_reference_identity)
+                .collect::<Option<Vec<_>>>()
+                .map(|v| v.join("; "))
+        })
+    };
+    let manifest_refs = file.get("references").and_then(Value::as_array);
+    let study_uid = expected.get("study_instance_uid");
+    let frame_uid = expected.get("frame_of_reference_uid");
+    let fields = RtRadiationSetReportFields {
+        iod_kind: expected
+            .get("iod_kind")
+            .and_then(Value::as_str)
+            .map(str::to_string),
+        label: expected
+            .pointer("/content/user_content_label")
+            .and_then(Value::as_str)
+            .map(str::to_string),
+        intent: expected
+            .pointer("/content/intent")
+            .and_then(Value::as_str)
+            .map(str::to_string),
+        intended_fraction_count: expected
+            .pointer("/content/intended_number_of_fractions")
+            .and_then(Value::as_u64),
+        device_identity: rt_device_identity(expected.get("linked_radiation_device")),
+        definition_source_identity: expected
+            .get("definition_source")
+            .and_then(rt_reference_identity),
+        radiation_reference_identities: identities(radiation_refs),
+        treatment_position_group_count: groups.map(|items| items.len() as u64),
+        treatment_position_group_labels: groups.and_then(|items| {
+            items
+                .iter()
+                .map(|item| item.get("label")?.as_str().map(str::to_string))
+                .collect::<Option<Vec<_>>>()
+                .map(|v| v.join("; "))
+        }),
+        common_instance_reference_count: common_refs.map(|items| items.len() as u64),
+        reference_closure: expected
+            .get("definition_source")
+            .zip(radiation_refs)
+            .zip(manifest_refs)
+            .map(|((definition, radiation), manifest)| {
+                let expected_refs = std::iter::once(definition)
+                    .chain(radiation.iter())
+                    .collect::<Vec<_>>();
+                let locked_identity = |reference: &&Value| {
+                    is_lowerhex_sha256(reference.get("source_sha256"))
+                        && reference.get("study_instance_uid") == study_uid
+                        && reference.get("frame_of_reference_uid") == frame_uid
+                };
+                let source_identities_locked = expected_refs.iter().all(locked_identity);
+                let common_match = common_refs.is_some_and(|common| {
+                    common.len() == 2
+                        && expected_refs.iter().zip(common).all(|(locked, mirrored)| {
+                            [
+                                "relationship",
+                                "source_case_id",
+                                "source_path",
+                                "source_sha256",
+                                "study_instance_uid",
+                                "series_instance_uid",
+                                "sop_class_uid",
+                                "sop_instance_uid",
+                                "frame_of_reference_uid",
+                            ]
+                            .iter()
+                            .all(|field| locked.get(field) == mirrored.get(field))
+                        })
+                });
+                let group_match = groups.is_some_and(|groups| {
+                    groups.len() == 1
+                        && groups[0]
+                            .get("radiation_references")
+                            .and_then(Value::as_array)
+                            .is_some_and(|group_refs| {
+                                group_refs.len() == 1
+                                    && radiation.first().is_some_and(|locked| {
+                                        [
+                                            "relationship",
+                                            "source_case_id",
+                                            "source_path",
+                                            "source_sha256",
+                                            "study_instance_uid",
+                                            "series_instance_uid",
+                                            "sop_class_uid",
+                                            "sop_instance_uid",
+                                            "frame_of_reference_uid",
+                                        ]
+                                        .iter()
+                                        .all(|field| locked.get(field) == group_refs[0].get(field))
+                                    })
+                            })
+                });
+                source_identities_locked
+                    && common_match
+                    && group_match
+                    && expected_refs.len() == 2
+                    && manifest.len() == 2
+                    && expected_refs.iter().zip(manifest).all(|(locked, actual)| {
+                        [
+                            "relationship",
+                            "source_case_id",
+                            "source_path",
+                            "series_instance_uid",
+                            "sop_class_uid",
+                            "sop_instance_uid",
+                        ]
+                        .iter()
+                        .all(|field| locked.get(field) == actual.get(field))
+                            && is_lowerhex_sha256(locked.get("source_sha256"))
+                    })
+            }),
+        dose_contribution_absent: expected
+            .pointer("/absent_content/rt_dose_contribution_module")
+            .and_then(Value::as_bool),
+        pixel_data_absent: expected
+            .pointer("/absent_content/pixel_data")
+            .and_then(Value::as_bool),
+        external_validator_disposition: Some(
+            "external conformance evidence not embedded; run conformance separately".to_string(),
+        ),
+    };
+    let complete = fields.iod_kind.as_deref() == Some("rt_radiation_set")
+        && fields.label.as_deref() == Some("DTS_RADSET")
+        && fields.intent.as_deref() == Some("TREATMENT")
+        && fields.intended_fraction_count == Some(1)
+        && fields.device_identity.as_deref()
+            == Some("dicom-test-suite|DTS C-Arm LINAC|DTS_LINAC|DTS-LINAC-001|")
+        && fields.definition_source_identity.is_some()
+        && fields.radiation_reference_identities.is_some()
+        && fields.treatment_position_group_count == Some(1)
+        && fields.treatment_position_group_labels.as_deref() == Some("DTS_TPG_1")
+        && fields.common_instance_reference_count == Some(2)
+        && fields.reference_closure == Some(true)
+        && fields.dose_contribution_absent == Some(true)
+        && fields.pixel_data_absent == Some(true);
+    if !complete {
+        return Err(ReportError::MetadataShape {
+            path: manifest_path.to_path_buf(),
+            message: "expected_rt_radiation_set must define the complete RT Radiation Set report contract",
+        });
+    }
+    Ok(fields)
+}
+
 #[derive(Debug, Default, PartialEq)]
 struct RtPlanReportFields {
     label: Option<String>,
@@ -22740,6 +23457,36 @@ fn skipped_coverage_row(
         "waveform_simultaneous_sampling",
         "waveform_pixel_data_absent",
         "waveform_external_validator_disposition",
+        "rt_radiation_iod_kind",
+        "rt_radiation_label",
+        "rt_radiation_content_detail",
+        "rt_radiation_record_flag",
+        "rt_radiation_treatment_technique",
+        "rt_radiation_device_identity",
+        "rt_radiation_dosimeter_unit",
+        "rt_radiation_treatment_position_count",
+        "rt_radiation_treatment_position_indices",
+        "rt_radiation_control_point_count",
+        "rt_radiation_control_point_indices",
+        "rt_radiation_meterset_range",
+        "rt_radiation_definition_source_identity",
+        "rt_radiation_reference_closure",
+        "rt_radiation_pixel_data_absent",
+        "rt_radiation_external_validator_disposition",
+        "rt_radiation_set_iod_kind",
+        "rt_radiation_set_label",
+        "rt_radiation_set_intent",
+        "rt_radiation_set_intended_fraction_count",
+        "rt_radiation_set_device_identity",
+        "rt_radiation_set_definition_source_identity",
+        "rt_radiation_set_radiation_reference_identities",
+        "rt_radiation_set_treatment_position_group_count",
+        "rt_radiation_set_treatment_position_group_labels",
+        "rt_radiation_set_common_instance_reference_count",
+        "rt_radiation_set_reference_closure",
+        "rt_radiation_set_dose_contribution_absent",
+        "rt_radiation_set_pixel_data_absent",
+        "rt_radiation_set_external_validator_disposition",
         "rt_plan_label",
         "rt_plan_geometry",
         "rt_plan_fraction_group_count",
@@ -23650,6 +24397,36 @@ struct GroupedCoverage {
     rt_dose_types: BTreeMap<String, usize>,
     rt_dose_summation_types: BTreeMap<String, usize>,
     rt_dose_grid_scalings: BTreeMap<String, usize>,
+    rt_radiation_iod_kinds: BTreeMap<String, usize>,
+    rt_radiation_labels: BTreeMap<String, usize>,
+    rt_radiation_content_details: BTreeMap<String, usize>,
+    rt_radiation_record_flags: BTreeMap<String, usize>,
+    rt_radiation_treatment_techniques: BTreeMap<String, usize>,
+    rt_radiation_device_identities: BTreeMap<String, usize>,
+    rt_radiation_dosimeter_units: BTreeMap<String, usize>,
+    rt_radiation_treatment_position_counts: BTreeMap<String, usize>,
+    rt_radiation_treatment_position_index_orders: BTreeMap<String, usize>,
+    rt_radiation_control_point_counts: BTreeMap<String, usize>,
+    rt_radiation_control_point_index_orders: BTreeMap<String, usize>,
+    rt_radiation_meterset_ranges: BTreeMap<String, usize>,
+    rt_radiation_definition_source_identities: BTreeMap<String, usize>,
+    rt_radiation_reference_closure_states: BTreeMap<String, usize>,
+    rt_radiation_pixel_data_absent_states: BTreeMap<String, usize>,
+    rt_radiation_external_validator_dispositions: BTreeMap<String, usize>,
+    rt_radiation_set_iod_kinds: BTreeMap<String, usize>,
+    rt_radiation_set_labels: BTreeMap<String, usize>,
+    rt_radiation_set_intents: BTreeMap<String, usize>,
+    rt_radiation_set_intended_fraction_counts: BTreeMap<String, usize>,
+    rt_radiation_set_device_identities: BTreeMap<String, usize>,
+    rt_radiation_set_definition_source_identities: BTreeMap<String, usize>,
+    rt_radiation_set_radiation_reference_identity_orders: BTreeMap<String, usize>,
+    rt_radiation_set_treatment_position_group_counts: BTreeMap<String, usize>,
+    rt_radiation_set_treatment_position_group_label_orders: BTreeMap<String, usize>,
+    rt_radiation_set_common_instance_reference_counts: BTreeMap<String, usize>,
+    rt_radiation_set_reference_closure_states: BTreeMap<String, usize>,
+    rt_radiation_set_dose_contribution_absent_states: BTreeMap<String, usize>,
+    rt_radiation_set_pixel_data_absent_states: BTreeMap<String, usize>,
+    rt_radiation_set_external_validator_dispositions: BTreeMap<String, usize>,
     rt_plan_labels: BTreeMap<String, usize>,
     rt_plan_geometries: BTreeMap<String, usize>,
     rt_plan_fraction_group_counts: BTreeMap<String, usize>,
@@ -25232,6 +26009,131 @@ impl GroupedCoverage {
             row.get("rt_dose_grid_scaling").and_then(Value::as_str),
         );
         for (map, field) in [
+            (&mut self.rt_radiation_iod_kinds, "rt_radiation_iod_kind"),
+            (&mut self.rt_radiation_labels, "rt_radiation_label"),
+            (
+                &mut self.rt_radiation_content_details,
+                "rt_radiation_content_detail",
+            ),
+            (
+                &mut self.rt_radiation_record_flags,
+                "rt_radiation_record_flag",
+            ),
+            (
+                &mut self.rt_radiation_treatment_techniques,
+                "rt_radiation_treatment_technique",
+            ),
+            (
+                &mut self.rt_radiation_device_identities,
+                "rt_radiation_device_identity",
+            ),
+            (
+                &mut self.rt_radiation_dosimeter_units,
+                "rt_radiation_dosimeter_unit",
+            ),
+            (
+                &mut self.rt_radiation_treatment_position_index_orders,
+                "rt_radiation_treatment_position_indices",
+            ),
+            (
+                &mut self.rt_radiation_control_point_index_orders,
+                "rt_radiation_control_point_indices",
+            ),
+            (
+                &mut self.rt_radiation_meterset_ranges,
+                "rt_radiation_meterset_range",
+            ),
+            (
+                &mut self.rt_radiation_definition_source_identities,
+                "rt_radiation_definition_source_identity",
+            ),
+            (
+                &mut self.rt_radiation_external_validator_dispositions,
+                "rt_radiation_external_validator_disposition",
+            ),
+            (
+                &mut self.rt_radiation_set_iod_kinds,
+                "rt_radiation_set_iod_kind",
+            ),
+            (&mut self.rt_radiation_set_labels, "rt_radiation_set_label"),
+            (
+                &mut self.rt_radiation_set_intents,
+                "rt_radiation_set_intent",
+            ),
+            (
+                &mut self.rt_radiation_set_device_identities,
+                "rt_radiation_set_device_identity",
+            ),
+            (
+                &mut self.rt_radiation_set_definition_source_identities,
+                "rt_radiation_set_definition_source_identity",
+            ),
+            (
+                &mut self.rt_radiation_set_radiation_reference_identity_orders,
+                "rt_radiation_set_radiation_reference_identities",
+            ),
+            (
+                &mut self.rt_radiation_set_treatment_position_group_label_orders,
+                "rt_radiation_set_treatment_position_group_labels",
+            ),
+            (
+                &mut self.rt_radiation_set_external_validator_dispositions,
+                "rt_radiation_set_external_validator_disposition",
+            ),
+        ] {
+            increment_map(map, row.get(field).and_then(Value::as_str));
+        }
+        for (map, field) in [
+            (
+                &mut self.rt_radiation_treatment_position_counts,
+                "rt_radiation_treatment_position_count",
+            ),
+            (
+                &mut self.rt_radiation_control_point_counts,
+                "rt_radiation_control_point_count",
+            ),
+            (
+                &mut self.rt_radiation_set_intended_fraction_counts,
+                "rt_radiation_set_intended_fraction_count",
+            ),
+            (
+                &mut self.rt_radiation_set_treatment_position_group_counts,
+                "rt_radiation_set_treatment_position_group_count",
+            ),
+            (
+                &mut self.rt_radiation_set_common_instance_reference_counts,
+                "rt_radiation_set_common_instance_reference_count",
+            ),
+        ] {
+            increment_scalar_map(map, row.get(field));
+        }
+        for (map, field) in [
+            (
+                &mut self.rt_radiation_reference_closure_states,
+                "rt_radiation_reference_closure",
+            ),
+            (
+                &mut self.rt_radiation_pixel_data_absent_states,
+                "rt_radiation_pixel_data_absent",
+            ),
+            (
+                &mut self.rt_radiation_set_reference_closure_states,
+                "rt_radiation_set_reference_closure",
+            ),
+            (
+                &mut self.rt_radiation_set_dose_contribution_absent_states,
+                "rt_radiation_set_dose_contribution_absent",
+            ),
+            (
+                &mut self.rt_radiation_set_pixel_data_absent_states,
+                "rt_radiation_set_pixel_data_absent",
+            ),
+        ] {
+            if let Some(value) = row.get(field).and_then(Value::as_bool) {
+                *map.entry(value.to_string()).or_default() += 1;
+            }
+        }
+        for (map, field) in [
             (&mut self.rt_plan_labels, "rt_plan_label"),
             (&mut self.rt_plan_geometries, "rt_plan_geometry"),
             (
@@ -26774,6 +27676,118 @@ impl GroupedCoverage {
             serde_json::to_value(&self.rt_dose_grid_scalings)
                 .expect("RT Dose Grid Scaling count map must serialize"),
         );
+        for (field, map) in [
+            ("rt_radiation_iod_kinds", &self.rt_radiation_iod_kinds),
+            ("rt_radiation_labels", &self.rt_radiation_labels),
+            (
+                "rt_radiation_content_details",
+                &self.rt_radiation_content_details,
+            ),
+            ("rt_radiation_record_flags", &self.rt_radiation_record_flags),
+            (
+                "rt_radiation_treatment_techniques",
+                &self.rt_radiation_treatment_techniques,
+            ),
+            (
+                "rt_radiation_device_identities",
+                &self.rt_radiation_device_identities,
+            ),
+            (
+                "rt_radiation_dosimeter_units",
+                &self.rt_radiation_dosimeter_units,
+            ),
+            (
+                "rt_radiation_treatment_position_counts",
+                &self.rt_radiation_treatment_position_counts,
+            ),
+            (
+                "rt_radiation_treatment_position_index_orders",
+                &self.rt_radiation_treatment_position_index_orders,
+            ),
+            (
+                "rt_radiation_control_point_counts",
+                &self.rt_radiation_control_point_counts,
+            ),
+            (
+                "rt_radiation_control_point_index_orders",
+                &self.rt_radiation_control_point_index_orders,
+            ),
+            (
+                "rt_radiation_meterset_ranges",
+                &self.rt_radiation_meterset_ranges,
+            ),
+            (
+                "rt_radiation_definition_source_identities",
+                &self.rt_radiation_definition_source_identities,
+            ),
+            (
+                "rt_radiation_reference_closure_states",
+                &self.rt_radiation_reference_closure_states,
+            ),
+            (
+                "rt_radiation_pixel_data_absent_states",
+                &self.rt_radiation_pixel_data_absent_states,
+            ),
+            (
+                "rt_radiation_external_validator_dispositions",
+                &self.rt_radiation_external_validator_dispositions,
+            ),
+            (
+                "rt_radiation_set_iod_kinds",
+                &self.rt_radiation_set_iod_kinds,
+            ),
+            ("rt_radiation_set_labels", &self.rt_radiation_set_labels),
+            ("rt_radiation_set_intents", &self.rt_radiation_set_intents),
+            (
+                "rt_radiation_set_intended_fraction_counts",
+                &self.rt_radiation_set_intended_fraction_counts,
+            ),
+            (
+                "rt_radiation_set_device_identities",
+                &self.rt_radiation_set_device_identities,
+            ),
+            (
+                "rt_radiation_set_definition_source_identities",
+                &self.rt_radiation_set_definition_source_identities,
+            ),
+            (
+                "rt_radiation_set_radiation_reference_identity_orders",
+                &self.rt_radiation_set_radiation_reference_identity_orders,
+            ),
+            (
+                "rt_radiation_set_treatment_position_group_counts",
+                &self.rt_radiation_set_treatment_position_group_counts,
+            ),
+            (
+                "rt_radiation_set_treatment_position_group_label_orders",
+                &self.rt_radiation_set_treatment_position_group_label_orders,
+            ),
+            (
+                "rt_radiation_set_common_instance_reference_counts",
+                &self.rt_radiation_set_common_instance_reference_counts,
+            ),
+            (
+                "rt_radiation_set_reference_closure_states",
+                &self.rt_radiation_set_reference_closure_states,
+            ),
+            (
+                "rt_radiation_set_dose_contribution_absent_states",
+                &self.rt_radiation_set_dose_contribution_absent_states,
+            ),
+            (
+                "rt_radiation_set_pixel_data_absent_states",
+                &self.rt_radiation_set_pixel_data_absent_states,
+            ),
+            (
+                "rt_radiation_set_external_validator_dispositions",
+                &self.rt_radiation_set_external_validator_dispositions,
+            ),
+        ] {
+            grouped_object.insert(
+                field.to_string(),
+                serde_json::to_value(map).expect("RT Radiation coverage count map must serialize"),
+            );
+        }
         for (field, map) in [
             ("rt_plan_labels", &self.rt_plan_labels),
             ("rt_plan_geometries", &self.rt_plan_geometries),

@@ -11914,6 +11914,14 @@
           "covered": true,
           "part": "PS3.6",
           "anchor": "table_A-1"
+        },
+        {
+          "source": "local-source-note",
+          "edition": "2026b",
+          "query": "standards/source-notes/phase-2-sequence-length-encoding.md",
+          "covered": true,
+          "part": "PS3.5",
+          "anchor": "sect_7.5.1_sect_7.5.2"
         }
       ]
     },

@@ -1131,6 +1131,13 @@ fn validate_integer_manifest_image_pixel_data(
                 bits_allocated,
                 frame_hashes,
             )?;
+            validate_u32_sc_manifest_pixel_contract(
+                failures,
+                relative_path,
+                manifest_path,
+                file,
+                pixel_bytes.as_ref(),
+            )?;
         }
         "encapsulated" => {
             let pixel_fragments = match pixel_element.value() {
@@ -1159,6 +1166,199 @@ fn validate_integer_manifest_image_pixel_data(
         other => failures.push(format!(
             "{relative_path}: pixel_data_native_or_encapsulated: unsupported value {other}"
         )),
+    }
+
+    Ok(())
+}
+
+fn validate_u32_sc_manifest_pixel_contract(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    manifest_path: &Path,
+    file: &Value,
+    pixel_bytes: &[u8],
+) -> Result<(), ValidateError> {
+    const CASE_ID: &str = "classic/sc/mono2_u32_explicit_le";
+    const VALUES: [u64; 4] = [0, 65_535, 2_147_483_648, 4_294_967_295];
+    const PIXEL_SHA256: &str = "56bca1a85c2838126b1d1a5fbedfe731839496d972df2c6ab33e1a1183392b41";
+
+    let case_id = manifest_str(manifest_path, file, "/case_id", "case_id must be a string")?;
+    let contract = file.get("expected_u32_pixels");
+    if case_id != CASE_ID {
+        if contract.is_some() {
+            failures.push(format!(
+                "{relative_path}: u32_pixel_contract_scope: expected_u32_pixels is reserved for {CASE_ID}"
+            ));
+        }
+        return Ok(());
+    }
+    let contract = contract.ok_or(ValidateError::ManifestShape {
+        path: manifest_path.to_path_buf(),
+        message: "unsigned 32-bit SC file must define expected_u32_pixels",
+    })?;
+
+    for (pointer, expected, check) in [
+        ("/image/rows", 2_u64, "u32_rows"),
+        ("/image/columns", 2_u64, "u32_columns"),
+        ("/image/frames", 1_u64, "u32_frames"),
+        ("/image/samples_per_pixel", 1_u64, "u32_samples_per_pixel"),
+        ("/image/bits_allocated", 32_u64, "u32_bits_allocated"),
+        ("/image/bits_stored", 32_u64, "u32_bits_stored"),
+        ("/image/high_bit", 31_u64, "u32_high_bit"),
+        (
+            "/image/pixel_representation",
+            0_u64,
+            "u32_pixel_representation",
+        ),
+        (
+            "/pixel_data/value_length",
+            16_u64,
+            "u32_pixel_data_length_manifest",
+        ),
+        ("/pixel_data/frame_count", 1_u64, "u32_frame_count"),
+        ("/expected_semantics/pixel_min", 0_u64, "u32_pixel_min"),
+        (
+            "/expected_semantics/pixel_max",
+            4_294_967_295_u64,
+            "u32_pixel_max",
+        ),
+    ] {
+        validate_equal(
+            failures,
+            relative_path,
+            check,
+            manifest_u64(
+                manifest_path,
+                file,
+                pointer,
+                "unsigned 32-bit numeric contract field must be an integer",
+            )?,
+            expected,
+        );
+    }
+    for (pointer, expected, check) in [
+        (
+            "/image/photometric_interpretation",
+            "MONOCHROME2",
+            "u32_photometric_interpretation",
+        ),
+        ("/pixel_data/vr", "OW", "u32_pixel_data_vr"),
+        (
+            "/pixel_data/native_or_encapsulated",
+            "native",
+            "u32_pixel_data_layout",
+        ),
+    ] {
+        validate_equal(
+            failures,
+            relative_path,
+            check,
+            manifest_str(
+                manifest_path,
+                file,
+                pointer,
+                "unsigned 32-bit string contract field must be a string",
+            )?,
+            expected,
+        );
+    }
+    if !file
+        .pointer("/image/planar_configuration")
+        .is_some_and(Value::is_null)
+    {
+        failures.push(format!(
+            "{relative_path}: u32_planar_configuration_absent: expected null"
+        ));
+    }
+
+    let expected_values = manifest_array(
+        manifest_path,
+        contract,
+        "/stored_values",
+        "expected_u32_pixels stored_values must be an array",
+    )?;
+    let recipe_values = manifest_array(
+        manifest_path,
+        file,
+        "/recipe/recipe_parameters/pixel_values",
+        "unsigned 32-bit recipe pixel_values must be an array",
+    )?;
+    for (actual, check) in [
+        (expected_values, "u32_expected_stored_values"),
+        (recipe_values, "u32_recipe_pixel_values"),
+    ] {
+        let actual = actual.iter().map(Value::as_u64).collect::<Option<Vec<_>>>();
+        validate_equal_debug(
+            failures,
+            relative_path,
+            check,
+            actual,
+            Some(VALUES.to_vec()),
+        );
+    }
+    validate_equal(
+        failures,
+        relative_path,
+        "u32_word_byte_order",
+        manifest_str(
+            manifest_path,
+            contract,
+            "/word_byte_order",
+            "expected_u32_pixels word_byte_order must be a string",
+        )?,
+        "little_endian",
+    );
+    validate_equal(
+        failures,
+        relative_path,
+        "u32_full_unsigned_range",
+        manifest_bool(
+            manifest_path,
+            contract,
+            "/full_unsigned_range",
+            "expected_u32_pixels full_unsigned_range must be a boolean",
+        )?,
+        true,
+    );
+    let expected_hash = manifest_str(
+        manifest_path,
+        contract,
+        "/pixel_data_sha256",
+        "expected_u32_pixels pixel_data_sha256 must be a string",
+    )?;
+    validate_equal(
+        failures,
+        relative_path,
+        "u32_declared_pixel_sha256",
+        expected_hash,
+        PIXEL_SHA256,
+    );
+    validate_equal(
+        failures,
+        relative_path,
+        "u32_pixel_data_length",
+        pixel_bytes.len(),
+        16,
+    );
+    validate_equal(
+        failures,
+        relative_path,
+        "u32_pixel_data_sha256",
+        sha256_hex(pixel_bytes),
+        expected_hash,
+    );
+    if pixel_bytes.len() == 16 {
+        let decoded = pixel_bytes
+            .chunks_exact(4)
+            .map(|word| u32::from_le_bytes([word[0], word[1], word[2], word[3]]) as u64)
+            .collect::<Vec<_>>();
+        validate_equal_debug(
+            failures,
+            relative_path,
+            "u32_decoded_stored_values",
+            decoded,
+            VALUES.to_vec(),
+        );
     }
 
     Ok(())
@@ -21215,6 +21415,98 @@ mod tests {
         assert!(joined.contains("integer_pixel_data_absent"));
         assert!(joined.contains("double_float_pixel_data_absent"));
         assert!(joined.contains("float_pixel_data_frame_hash"));
+    }
+
+    #[test]
+    fn u32_sc_manifest_pixel_contract_accepts_exact_full_range_words() {
+        let manifest = u32_sc_test_manifest();
+        let bytes = u32_sc_test_bytes();
+        let mut failures = Vec::new();
+
+        validate_u32_sc_manifest_pixel_contract(
+            &mut failures,
+            "classic/sc/mono2_u32_explicit_le/instance.dcm",
+            Path::new("manifest.json"),
+            &manifest,
+            &bytes,
+        )
+        .expect("well-formed unsigned 32-bit contract should validate");
+
+        assert_eq!(failures, Vec::<String>::new());
+    }
+
+    #[test]
+    fn u32_sc_manifest_pixel_contract_rejects_tampered_words_and_metadata() {
+        let mut manifest = u32_sc_test_manifest();
+        manifest["expected_u32_pixels"]["stored_values"][3] = Value::from(0_u64);
+        manifest["expected_u32_pixels"]["pixel_data_sha256"] = Value::from("0".repeat(64));
+        manifest["expected_u32_pixels"]["word_byte_order"] = Value::from("big_endian");
+        manifest["expected_u32_pixels"]["full_unsigned_range"] = Value::from(false);
+        manifest["image"]["bits_stored"] = Value::from(31);
+        let mut bytes = u32_sc_test_bytes();
+        bytes[12] = 0;
+        let mut failures = Vec::new();
+
+        validate_u32_sc_manifest_pixel_contract(
+            &mut failures,
+            "classic/sc/mono2_u32_explicit_le/instance.dcm",
+            Path::new("manifest.json"),
+            &manifest,
+            &bytes,
+        )
+        .expect("semantic mismatches should be validation failures");
+
+        let joined = failures.join("\n");
+        for check in [
+            "u32_bits_stored",
+            "u32_expected_stored_values",
+            "u32_word_byte_order",
+            "u32_full_unsigned_range",
+            "u32_declared_pixel_sha256",
+            "u32_pixel_data_sha256",
+            "u32_decoded_stored_values",
+        ] {
+            assert!(joined.contains(check), "missing {check} failure:\n{joined}");
+        }
+    }
+
+    fn u32_sc_test_bytes() -> Vec<u8> {
+        [0_u32, 65_535, 2_147_483_648, 4_294_967_295]
+            .into_iter()
+            .flat_map(u32::to_le_bytes)
+            .collect()
+    }
+
+    fn u32_sc_test_manifest() -> Value {
+        serde_json::json!({
+            "case_id": "classic/sc/mono2_u32_explicit_le",
+            "recipe": {"recipe_parameters": {"pixel_values": [0_u64, 65_535_u64, 2_147_483_648_u64, 4_294_967_295_u64]}},
+            "image": {
+                "rows": 2,
+                "columns": 2,
+                "frames": 1,
+                "samples_per_pixel": 1,
+                "photometric_interpretation": "MONOCHROME2",
+                "bits_allocated": 32,
+                "bits_stored": 32,
+                "high_bit": 31,
+                "pixel_representation": 0,
+                "planar_configuration": Value::Null
+            },
+            "pixel_data": {
+                "vr": "OW",
+                "native_or_encapsulated": "native",
+                "value_length": 16,
+                "frame_count": 1
+            },
+            "expected_semantics": {"pixel_min": 0_u64, "pixel_max": 4_294_967_295_u64},
+            "expected_u32_pixels": {
+                "stored_values": [0_u64, 65_535_u64, 2_147_483_648_u64, 4_294_967_295_u64],
+                "pixel_data_sha256": "56bca1a85c2838126b1d1a5fbedfe731839496d972df2c6ab33e1a1183392b41",
+                "word_byte_order": "little_endian",
+                "full_unsigned_range": true
+            }
+        })
     }
 
     fn float32_test_object(values: &[f32], include_forbidden_fields: bool) -> OpenedObject {

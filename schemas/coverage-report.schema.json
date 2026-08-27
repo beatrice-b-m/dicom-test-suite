@@ -303,6 +303,48 @@
         "nm_frame_dimension_tuples": {
           "$ref": "#/$defs/count_map"
         },
+        "pet_units": {
+          "$ref": "#/$defs/count_map"
+        },
+        "pet_counts_sources": {
+          "$ref": "#/$defs/count_map"
+        },
+        "pet_series_types": {
+          "$ref": "#/$defs/count_map"
+        },
+        "pet_corrected_images": {
+          "$ref": "#/$defs/count_map"
+        },
+        "pet_decay_corrections": {
+          "$ref": "#/$defs/count_map"
+        },
+        "pet_dose_calibration_factors": {
+          "$ref": "#/$defs/count_map"
+        },
+        "pet_rescale_intercepts": {
+          "$ref": "#/$defs/count_map"
+        },
+        "pet_rescale_slopes": {
+          "$ref": "#/$defs/count_map"
+        },
+        "pet_stored_values": {
+          "$ref": "#/$defs/count_map"
+        },
+        "pet_activity_values_bqml": {
+          "$ref": "#/$defs/count_map"
+        },
+        "pet_frame_reference_times_ms": {
+          "$ref": "#/$defs/count_map"
+        },
+        "pet_actual_frame_durations_ms": {
+          "$ref": "#/$defs/count_map"
+        },
+        "pet_image_indices": {
+          "$ref": "#/$defs/count_map"
+        },
+        "pet_radiopharmaceutical_information_item_counts": {
+          "$ref": "#/$defs/count_map"
+        },
         "mr_scanning_sequences": {
           "$ref": "#/$defs/count_map"
         },
@@ -765,6 +807,20 @@
         "nm_energy_window_names",
         "nm_detector_start_angles_degrees",
         "nm_frame_dimension_tuples",
+        "pet_units",
+        "pet_counts_source",
+        "pet_series_type",
+        "pet_corrected_image",
+        "pet_decay_correction",
+        "pet_dose_calibration_factor",
+        "pet_rescale_intercept",
+        "pet_rescale_slope",
+        "pet_stored_values",
+        "pet_activity_values_bqml",
+        "pet_frame_reference_time_ms",
+        "pet_actual_frame_duration_ms",
+        "pet_image_index",
+        "pet_radiopharmaceutical_information_item_count",
         "mr_scanning_sequence",
         "mr_sequence_variant",
         "mr_acquisition_type",
@@ -1328,6 +1384,52 @@
         },
         "nm_frame_dimension_tuples": {
           "type": ["string", "null"]
+        },
+        "pet_units": {
+          "type": ["string", "null"]
+        },
+        "pet_counts_source": {
+          "type": ["string", "null"]
+        },
+        "pet_series_type": {
+          "type": ["string", "null"]
+        },
+        "pet_corrected_image": {
+          "type": ["string", "null"]
+        },
+        "pet_decay_correction": {
+          "type": ["string", "null"]
+        },
+        "pet_dose_calibration_factor": {
+          "type": ["number", "null"]
+        },
+        "pet_rescale_intercept": {
+          "type": ["number", "null"]
+        },
+        "pet_rescale_slope": {
+          "type": ["number", "null"]
+        },
+        "pet_stored_values": {
+          "type": ["string", "null"]
+        },
+        "pet_activity_values_bqml": {
+          "type": ["string", "null"]
+        },
+        "pet_frame_reference_time_ms": {
+          "type": ["number", "null"],
+          "minimum": 0
+        },
+        "pet_actual_frame_duration_ms": {
+          "type": ["integer", "null"],
+          "minimum": 1
+        },
+        "pet_image_index": {
+          "type": ["integer", "null"],
+          "minimum": 1
+        },
+        "pet_radiopharmaceutical_information_item_count": {
+          "type": ["integer", "null"],
+          "minimum": 0
         },
         "mr_scanning_sequence": {
           "type": ["string", "null"]

@@ -7938,6 +7938,48 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
     ] {
         append_count_map_section(&mut output, report, title, pointer);
     }
+    for (title, pointer) in [
+        ("PET Units", "/grouped_coverage/pet_units"),
+        ("PET Counts Sources", "/grouped_coverage/pet_counts_sources"),
+        ("PET Series Types", "/grouped_coverage/pet_series_types"),
+        (
+            "PET Corrected Images",
+            "/grouped_coverage/pet_corrected_images",
+        ),
+        (
+            "PET Decay Corrections",
+            "/grouped_coverage/pet_decay_corrections",
+        ),
+        (
+            "PET Dose Calibration Factors",
+            "/grouped_coverage/pet_dose_calibration_factors",
+        ),
+        (
+            "PET Rescale Intercepts",
+            "/grouped_coverage/pet_rescale_intercepts",
+        ),
+        ("PET Rescale Slopes", "/grouped_coverage/pet_rescale_slopes"),
+        ("PET Stored Values", "/grouped_coverage/pet_stored_values"),
+        (
+            "PET Activity Values (BQML)",
+            "/grouped_coverage/pet_activity_values_bqml",
+        ),
+        (
+            "PET Frame Reference Times (ms)",
+            "/grouped_coverage/pet_frame_reference_times_ms",
+        ),
+        (
+            "PET Actual Frame Durations (ms)",
+            "/grouped_coverage/pet_actual_frame_durations_ms",
+        ),
+        ("PET Image Indices", "/grouped_coverage/pet_image_indices"),
+        (
+            "PET Radiopharmaceutical Information Item Counts",
+            "/grouped_coverage/pet_radiopharmaceutical_information_item_counts",
+        ),
+    ] {
+        append_count_map_section(&mut output, report, title, pointer);
+    }
     append_count_map_section(
         &mut output,
         report,
@@ -8793,6 +8835,42 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
         output.push('\n');
     }
 
+    let pet_rows = report
+        .get("coverage_matrix")
+        .and_then(Value::as_array)
+        .map(|rows| {
+            rows.iter()
+                .filter(|row| !row["pet_units"].is_null())
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    if !pet_rows.is_empty() {
+        output.push_str("## PET Activity Expectations\n\n");
+        output.push_str("| Case ID | Units | Counts source | Series type | Corrected image | Decay correction | Dose calibration factor | Rescale intercept | Rescale slope | Stored values | Activity values (BQML) | Frame reference time (ms) | Actual frame duration (ms) | Image index | Radiopharmaceutical items |\n");
+        output.push_str("|---|---|---|---|---|---|---:|---:|---:|---|---|---:|---:|---:|---:|\n");
+        for row in pet_rows {
+            output.push_str(&format!(
+                "| {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} |\n",
+                markdown_cell(row.get("case_id").and_then(Value::as_str)),
+                markdown_cell(row.get("pet_units").and_then(Value::as_str)),
+                markdown_cell(row.get("pet_counts_source").and_then(Value::as_str)),
+                markdown_cell(row.get("pet_series_type").and_then(Value::as_str)),
+                markdown_cell(row.get("pet_corrected_image").and_then(Value::as_str)),
+                markdown_cell(row.get("pet_decay_correction").and_then(Value::as_str)),
+                markdown_number(row.get("pet_dose_calibration_factor")),
+                markdown_number(row.get("pet_rescale_intercept")),
+                markdown_number(row.get("pet_rescale_slope")),
+                markdown_cell(row.get("pet_stored_values").and_then(Value::as_str)),
+                markdown_cell(row.get("pet_activity_values_bqml").and_then(Value::as_str)),
+                markdown_number(row.get("pet_frame_reference_time_ms")),
+                markdown_number(row.get("pet_actual_frame_duration_ms")),
+                markdown_number(row.get("pet_image_index")),
+                markdown_number(row.get("pet_radiopharmaceutical_information_item_count"))
+            ));
+        }
+        output.push('\n');
+    }
+
     let enhanced_mr_temporal_rows = report
         .get("coverage_matrix")
         .and_then(Value::as_array)
@@ -9179,6 +9257,7 @@ fn generated_coverage_row(
     let generation_backend = file.pointer("/generation_backend");
     let metadata = metadata_report_fields(file);
     let nm = nm_multiframe_report_fields(file);
+    let pet = pet_activity_report_fields(file);
     let mut row = serde_json::json!({
         "case_id": report_str(manifest_path, file, "/case_id", "file case_id must be a string")?,
         "profile": run_profile,
@@ -9382,6 +9461,46 @@ fn generated_coverage_row(
             field.to_string(),
             value.map(Value::from).unwrap_or(Value::Null),
         );
+    }
+    for (field, value) in [
+        ("pet_units", pet.units.map(Value::from)),
+        ("pet_counts_source", pet.counts_source.map(Value::from)),
+        ("pet_series_type", pet.series_type.map(Value::from)),
+        ("pet_corrected_image", pet.corrected_image.map(Value::from)),
+        (
+            "pet_decay_correction",
+            pet.decay_correction.map(Value::from),
+        ),
+        (
+            "pet_dose_calibration_factor",
+            pet.dose_calibration_factor.map(Value::from),
+        ),
+        (
+            "pet_rescale_intercept",
+            pet.rescale_intercept.map(Value::from),
+        ),
+        ("pet_rescale_slope", pet.rescale_slope.map(Value::from)),
+        ("pet_stored_values", pet.stored_values.map(Value::from)),
+        (
+            "pet_activity_values_bqml",
+            pet.activity_values_bqml.map(Value::from),
+        ),
+        (
+            "pet_frame_reference_time_ms",
+            pet.frame_reference_time_ms.map(Value::from),
+        ),
+        (
+            "pet_actual_frame_duration_ms",
+            pet.actual_frame_duration_ms.map(Value::from),
+        ),
+        ("pet_image_index", pet.image_index.map(Value::from)),
+        (
+            "pet_radiopharmaceutical_information_item_count",
+            pet.radiopharmaceutical_information_item_count
+                .map(Value::from),
+        ),
+    ] {
+        row_object.insert(field.to_string(), value.unwrap_or(Value::Null));
     }
     for (field, backend_field) in [
         ("generation_backend_id", "backend_id"),
@@ -10293,6 +10412,65 @@ struct NmMultiframeReportFields {
     energy_window_names: Option<String>,
     detector_start_angles_degrees: Option<String>,
     frame_dimension_tuples: Option<String>,
+}
+
+#[derive(Default)]
+struct PetActivityReportFields {
+    units: Option<String>,
+    counts_source: Option<String>,
+    series_type: Option<String>,
+    corrected_image: Option<String>,
+    decay_correction: Option<String>,
+    dose_calibration_factor: Option<f64>,
+    rescale_intercept: Option<f64>,
+    rescale_slope: Option<f64>,
+    stored_values: Option<String>,
+    activity_values_bqml: Option<String>,
+    frame_reference_time_ms: Option<f64>,
+    actual_frame_duration_ms: Option<u64>,
+    image_index: Option<u64>,
+    radiopharmaceutical_information_item_count: Option<u64>,
+}
+
+fn pet_activity_report_fields(file: &Value) -> PetActivityReportFields {
+    let Some(expected) = file.get("expected_pet_activity") else {
+        return PetActivityReportFields::default();
+    };
+    let joined = |field: &str| expected.get(field).and_then(report_value_array_label);
+
+    PetActivityReportFields {
+        units: expected
+            .get("units")
+            .and_then(Value::as_str)
+            .map(str::to_string),
+        counts_source: expected
+            .get("counts_source")
+            .and_then(Value::as_str)
+            .map(str::to_string),
+        series_type: joined("series_type"),
+        corrected_image: joined("corrected_image"),
+        decay_correction: expected
+            .get("decay_correction")
+            .and_then(Value::as_str)
+            .map(str::to_string),
+        dose_calibration_factor: expected
+            .get("dose_calibration_factor")
+            .and_then(Value::as_f64),
+        rescale_intercept: expected.get("rescale_intercept").and_then(Value::as_f64),
+        rescale_slope: expected.get("rescale_slope").and_then(Value::as_f64),
+        stored_values: joined("stored_values"),
+        activity_values_bqml: joined("activity_values_bqml"),
+        frame_reference_time_ms: expected
+            .get("frame_reference_time_ms")
+            .and_then(Value::as_f64),
+        actual_frame_duration_ms: expected
+            .get("actual_frame_duration_ms")
+            .and_then(Value::as_u64),
+        image_index: expected.get("image_index").and_then(Value::as_u64),
+        radiopharmaceutical_information_item_count: expected
+            .get("radiopharmaceutical_information_item_count")
+            .and_then(Value::as_u64),
+    }
 }
 
 fn nm_multiframe_report_fields(file: &Value) -> NmMultiframeReportFields {
@@ -11262,6 +11440,20 @@ fn skipped_coverage_row(
         "nm_energy_window_names",
         "nm_detector_start_angles_degrees",
         "nm_frame_dimension_tuples",
+        "pet_units",
+        "pet_counts_source",
+        "pet_series_type",
+        "pet_corrected_image",
+        "pet_decay_correction",
+        "pet_dose_calibration_factor",
+        "pet_rescale_intercept",
+        "pet_rescale_slope",
+        "pet_stored_values",
+        "pet_activity_values_bqml",
+        "pet_frame_reference_time_ms",
+        "pet_actual_frame_duration_ms",
+        "pet_image_index",
+        "pet_radiopharmaceutical_information_item_count",
     ] {
         row_object.insert(field.to_string(), Value::Null);
     }
@@ -11656,6 +11848,20 @@ struct GroupedCoverage {
     nm_energy_window_names: BTreeMap<String, usize>,
     nm_detector_start_angles_degrees: BTreeMap<String, usize>,
     nm_frame_dimension_tuples: BTreeMap<String, usize>,
+    pet_units: BTreeMap<String, usize>,
+    pet_counts_sources: BTreeMap<String, usize>,
+    pet_series_types: BTreeMap<String, usize>,
+    pet_corrected_images: BTreeMap<String, usize>,
+    pet_decay_corrections: BTreeMap<String, usize>,
+    pet_dose_calibration_factors: BTreeMap<String, usize>,
+    pet_rescale_intercepts: BTreeMap<String, usize>,
+    pet_rescale_slopes: BTreeMap<String, usize>,
+    pet_stored_values: BTreeMap<String, usize>,
+    pet_activity_values_bqml: BTreeMap<String, usize>,
+    pet_frame_reference_times_ms: BTreeMap<String, usize>,
+    pet_actual_frame_durations_ms: BTreeMap<String, usize>,
+    pet_image_indices: BTreeMap<String, usize>,
+    pet_radiopharmaceutical_information_item_counts: BTreeMap<String, usize>,
     mr_scanning_sequences: BTreeMap<String, usize>,
     mr_sequence_variants: BTreeMap<String, usize>,
     mr_acquisition_types: BTreeMap<String, usize>,
@@ -12048,6 +12254,43 @@ impl GroupedCoverage {
             ),
         ] {
             increment_map(map, row.get(field).and_then(Value::as_str));
+        }
+        for (map, field) in [
+            (&mut self.pet_units, "pet_units"),
+            (&mut self.pet_counts_sources, "pet_counts_source"),
+            (&mut self.pet_series_types, "pet_series_type"),
+            (&mut self.pet_corrected_images, "pet_corrected_image"),
+            (&mut self.pet_decay_corrections, "pet_decay_correction"),
+            (&mut self.pet_stored_values, "pet_stored_values"),
+            (
+                &mut self.pet_activity_values_bqml,
+                "pet_activity_values_bqml",
+            ),
+        ] {
+            increment_map(map, row.get(field).and_then(Value::as_str));
+        }
+        for (map, field) in [
+            (
+                &mut self.pet_dose_calibration_factors,
+                "pet_dose_calibration_factor",
+            ),
+            (&mut self.pet_rescale_intercepts, "pet_rescale_intercept"),
+            (&mut self.pet_rescale_slopes, "pet_rescale_slope"),
+            (
+                &mut self.pet_frame_reference_times_ms,
+                "pet_frame_reference_time_ms",
+            ),
+            (
+                &mut self.pet_actual_frame_durations_ms,
+                "pet_actual_frame_duration_ms",
+            ),
+            (&mut self.pet_image_indices, "pet_image_index"),
+            (
+                &mut self.pet_radiopharmaceutical_information_item_counts,
+                "pet_radiopharmaceutical_information_item_count",
+            ),
+        ] {
+            increment_scalar_map(map, row.get(field));
         }
         increment_map(
             &mut self.pixel_spacings,
@@ -12886,6 +13129,39 @@ impl GroupedCoverage {
                 serde_json::to_value(map).expect("NM coverage count map must serialize"),
             );
         }
+        for (field, map) in [
+            ("pet_units", &self.pet_units),
+            ("pet_counts_sources", &self.pet_counts_sources),
+            ("pet_series_types", &self.pet_series_types),
+            ("pet_corrected_images", &self.pet_corrected_images),
+            ("pet_decay_corrections", &self.pet_decay_corrections),
+            (
+                "pet_dose_calibration_factors",
+                &self.pet_dose_calibration_factors,
+            ),
+            ("pet_rescale_intercepts", &self.pet_rescale_intercepts),
+            ("pet_rescale_slopes", &self.pet_rescale_slopes),
+            ("pet_stored_values", &self.pet_stored_values),
+            ("pet_activity_values_bqml", &self.pet_activity_values_bqml),
+            (
+                "pet_frame_reference_times_ms",
+                &self.pet_frame_reference_times_ms,
+            ),
+            (
+                "pet_actual_frame_durations_ms",
+                &self.pet_actual_frame_durations_ms,
+            ),
+            ("pet_image_indices", &self.pet_image_indices),
+            (
+                "pet_radiopharmaceutical_information_item_counts",
+                &self.pet_radiopharmaceutical_information_item_counts,
+            ),
+        ] {
+            grouped_object.insert(
+                field.to_string(),
+                serde_json::to_value(map).expect("PET coverage count map must serialize"),
+            );
+        }
         grouped_object.insert(
             "pixel_spacings".to_string(),
             serde_json::to_value(&self.pixel_spacings)
@@ -13383,6 +13659,12 @@ fn uid_root_bucket(uid: &str) -> Option<&'static str> {
 fn increment_map(map: &mut BTreeMap<String, usize>, key: Option<&str>) {
     if let Some(key) = key {
         *map.entry(key.to_string()).or_default() += 1;
+    }
+}
+
+fn increment_scalar_map(map: &mut BTreeMap<String, usize>, value: Option<&Value>) {
+    if let Some(key) = value.and_then(report_scalar_label) {
+        *map.entry(key).or_default() += 1;
     }
 }
 
@@ -14628,6 +14910,97 @@ mod tests {
         assert!(markdown.contains("0054,0010; 0054,0020"));
         assert!(markdown.contains("1:1:1; 2:1:2; 3:2:1; 4:2:2"));
         assert!(markdown.contains("## NM Energy Window Vectors"));
+    }
+
+    #[test]
+    fn pet_activity_report_fields_are_exact_grouped_and_rendered() {
+        let file = serde_json::json!({
+            "expected_pet_activity": {
+                "units": "BQML",
+                "counts_source": "EMISSION",
+                "series_type": ["STATIC", "IMAGE"],
+                "corrected_image": ["DCAL"],
+                "decay_correction": "NONE",
+                "dose_calibration_factor": 1.0,
+                "rescale_intercept": 0.0,
+                "rescale_slope": 2.5,
+                "stored_values": [0, 100, 200, 400],
+                "activity_values_bqml": [0.0, 250.0, 500.0, 1000.0],
+                "frame_reference_time_ms": 30000.0,
+                "actual_frame_duration_ms": 60000,
+                "image_index": 1,
+                "radiopharmaceutical_information_item_count": 0
+            }
+        });
+        let fields = pet_activity_report_fields(&file);
+        assert_eq!(fields.units.as_deref(), Some("BQML"));
+        assert_eq!(fields.counts_source.as_deref(), Some("EMISSION"));
+        assert_eq!(fields.series_type.as_deref(), Some("STATIC; IMAGE"));
+        assert_eq!(fields.corrected_image.as_deref(), Some("DCAL"));
+        assert_eq!(fields.decay_correction.as_deref(), Some("NONE"));
+        assert_eq!(fields.dose_calibration_factor, Some(1.0));
+        assert_eq!(fields.rescale_intercept, Some(0.0));
+        assert_eq!(fields.rescale_slope, Some(2.5));
+        assert_eq!(fields.stored_values.as_deref(), Some("0; 100; 200; 400"));
+        assert_eq!(
+            fields.activity_values_bqml.as_deref(),
+            Some("0.0; 250.0; 500.0; 1000.0")
+        );
+        assert_eq!(fields.frame_reference_time_ms, Some(30000.0));
+        assert_eq!(fields.actual_frame_duration_ms, Some(60000));
+        assert_eq!(fields.image_index, Some(1));
+        assert_eq!(fields.radiopharmaceutical_information_item_count, Some(0));
+
+        let row = serde_json::json!({
+            "case_id": "classic/pet/rescaled_activity_explicit_le",
+            "pet_units": fields.units,
+            "pet_counts_source": fields.counts_source,
+            "pet_series_type": fields.series_type,
+            "pet_corrected_image": fields.corrected_image,
+            "pet_decay_correction": fields.decay_correction,
+            "pet_dose_calibration_factor": fields.dose_calibration_factor,
+            "pet_rescale_intercept": fields.rescale_intercept,
+            "pet_rescale_slope": fields.rescale_slope,
+            "pet_stored_values": fields.stored_values,
+            "pet_activity_values_bqml": fields.activity_values_bqml,
+            "pet_frame_reference_time_ms": fields.frame_reference_time_ms,
+            "pet_actual_frame_duration_ms": fields.actual_frame_duration_ms,
+            "pet_image_index": fields.image_index,
+            "pet_radiopharmaceutical_information_item_count":
+                fields.radiopharmaceutical_information_item_count
+        });
+        let mut grouped = GroupedCoverage::default();
+        grouped.record(&row);
+        let grouped_json = grouped.to_json();
+        for (pointer, expected) in [
+            ("/pet_units/BQML", 1),
+            ("/pet_counts_sources/EMISSION", 1),
+            ("/pet_series_types/STATIC; IMAGE", 1),
+            ("/pet_corrected_images/DCAL", 1),
+            ("/pet_decay_corrections/NONE", 1),
+            ("/pet_dose_calibration_factors/1.0", 1),
+            ("/pet_rescale_intercepts/0.0", 1),
+            ("/pet_rescale_slopes/2.5", 1),
+            ("/pet_stored_values/0; 100; 200; 400", 1),
+            ("/pet_activity_values_bqml/0.0; 250.0; 500.0; 1000.0", 1),
+            ("/pet_frame_reference_times_ms/30000.0", 1),
+            ("/pet_actual_frame_durations_ms/60000", 1),
+            ("/pet_image_indices/1", 1),
+            ("/pet_radiopharmaceutical_information_item_counts/0", 1),
+        ] {
+            assert_eq!(grouped_json.pointer(pointer), Some(&Value::from(expected)));
+        }
+
+        let markdown = render_coverage_report_markdown(&serde_json::json!({
+            "coverage_matrix": [row],
+            "grouped_coverage": grouped_json,
+            "gaps": []
+        }));
+        assert!(markdown.contains("## PET Activity Expectations"));
+        assert!(markdown.contains("classic/pet/rescaled_activity_explicit_le"));
+        assert!(markdown.contains("0.0; 250.0; 500.0; 1000.0"));
+        assert!(markdown.contains("## PET Units"));
+        assert!(markdown.contains("## PET Activity Values (BQML)"));
     }
 
     #[test]

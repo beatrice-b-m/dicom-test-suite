@@ -42,13 +42,25 @@ fn list_cases_command_exposes_planned_provider_and_blockers() {
     );
     let stdout = String::from_utf8(output.stdout).expect("list-cases stdout must be utf-8");
     assert!(
-        stdout.contains("derived/parametric-map/float32_ct_derived_explicit_le\tplanned\textended\t1.2.840.10008.5.1.4.1.1.30\t1.2.840.10008.1.2.1\t1/1 covered\tdicom_instance\thighdicom_pydicom\tquantitative\tnow\tbackend_contract_unimplemented,independent_iod_validator_unavailable"),
+        stdout.contains("classic/dx/mono2_u12_jpeg_extended\tplanned\textended\t1.2.840.10008.5.1.4.1.1.1.1\t1.2.840.10008.1.2.4.51\t2/2 covered\tdicom_instance\tdcmtk\tclassic_image\tlater\tbackend_contract_unimplemented,independent_decoder_unavailable"),
         "planned rows must expose their provider, priority, and controlled blockers"
     );
     assert!(
         stdout.contains("protocol/dicomweb/stow_qido_wado\tplanned\t\t-\t-\t1/1 covered\ttransaction_scenario\tprotocol_harness\tprotocol\tlater\tprotocol_harness_unimplemented"),
         "transaction gaps must remain visible without pretending to be DICOM files"
     );
+}
+
+#[test]
+fn list_cases_command_exposes_implemented_parametric_map_provider() {
+    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args(["list-cases", "--status", "implemented"])
+        .output()
+        .expect("list-cases command must run");
+
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).expect("list-cases stdout must be utf-8");
+    assert!(stdout.contains("derived/parametric-map/float32_ct_derived_explicit_le\timplemented\textended\t1.2.840.10008.5.1.4.1.1.30\t1.2.840.10008.1.2.1\t2/2 covered\tdicom_instance\thighdicom_pydicom\tquantitative\t-\t"));
 }
 
 #[test]

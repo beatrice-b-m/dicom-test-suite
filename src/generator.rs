@@ -20,6 +20,14 @@ use native::ct_geometry::{
     CLASSIC_CT_RECIPES, ClassicCtInstanceNumber, ClassicCtRecipe, ClassicCtSeriesRecipe,
     ClassicCtSliceRecipe,
 };
+use native::deformable_spatial_registration::{
+    DEFORMABLE_SPATIAL_REGISTRATION_OUTPUT_FILE, DEFORMABLE_SPATIAL_REGISTRATION_STORAGE_UID,
+    DeformableRegistrationReference, DeformableSpatialRegistrationInput,
+    GRID_DIMENSIONS as DEFORMABLE_GRID_DIMENSIONS, GRID_RESOLUTION as DEFORMABLE_GRID_RESOLUTION,
+    IDENTITY_MATRIX as DEFORMABLE_IDENTITY_MATRIX,
+    VECTOR_GRID_BYTES as DEFORMABLE_VECTOR_GRID_BYTES,
+    VECTOR_GRID_VALUES as DEFORMABLE_VECTOR_GRID_VALUES, build_deformable_spatial_registration,
+};
 use native::empty_type2_sc::{EMPTY_TYPE2_SC_RECIPE, EmptyType2ScRecipe};
 use native::icc_profile::{
     ICC_CASE_ID, ICC_COLOR_SPACE, ICC_PROFILE_BYTES, ICC_PROFILE_SHA256, ICC_PROFILE_SIZE,
@@ -77,7 +85,8 @@ use crate::{
     },
     sha256_hex,
     validation::{
-        BasicTextSrExpectations, CrImageExpectations, CtImageExpectations, DxImageExpectations,
+        BasicTextSrExpectations, CrImageExpectations, CtImageExpectations,
+        DeformableSpatialRegistrationExpectations, DxImageExpectations,
         EncapsulatedPdfExpectations, EnhancedCtConcatenationExpectations,
         EnhancedCtImageExpectations, EnhancedMrImageExpectations, EnhancedPetImageExpectations,
         MgImageExpectations, MrImageExpectations, NmDetectorExpectations,
@@ -88,10 +97,11 @@ use crate::{
         SpatialRegistrationReferenceExpectations, Tid1500Expectations, UsImageExpectations,
         UsMultiframeExpectations, XaImageExpectations, XrfImageExpectations,
         validate_basic_text_sr_file, validate_comprehensive_sr_file,
-        validate_encapsulated_pdf_file, validate_key_object_selection_file, validate_part10_file,
-        validate_presentation_state_file, validate_real_world_value_mapping_file,
-        validate_rt_dose_file, validate_rt_structure_set_file, validate_scoord3d_file,
-        validate_spatial_registration_file, validate_tid1500_file,
+        validate_deformable_spatial_registration_file, validate_encapsulated_pdf_file,
+        validate_key_object_selection_file, validate_part10_file, validate_presentation_state_file,
+        validate_real_world_value_mapping_file, validate_rt_dose_file,
+        validate_rt_structure_set_file, validate_scoord3d_file, validate_spatial_registration_file,
+        validate_tid1500_file,
     },
 };
 
@@ -192,6 +202,23 @@ const SPATIAL_REGISTRATION_RECIPE_VERSION: &str = "0.1.0";
 const SPATIAL_REGISTRATION_TARGET_CASE_ID: &str =
     "enhanced/ct/multiframe_shared_perframe_explicit_le";
 const SPATIAL_REGISTRATION_SOURCE_CASE_ID: &str = "classic/ct/mono2_i16_rescale_12bit_explicit_le";
+const DEFORMABLE_SPATIAL_REGISTRATION_CASE_ID: &str = "derived/registration/deformable_ct_pair";
+const DEFORMABLE_SPATIAL_REGISTRATION_RECIPE_ID: &str = "derived_registration_deformable_ct_pair";
+const DEFORMABLE_SPATIAL_REGISTRATION_RECIPE_VERSION: &str = "0.1.0";
+const DEFORMABLE_VECTOR_GRID_DATA_SHA256: &str =
+    "d0673d2da1b415db6465047e607b7f16f1a886dfae4ede91764c71bf7df72f47";
+const DEFORMABLE_REGISTERED_POINTS_MM: [[f64; 3]; 4] = [
+    [0.0, 0.0, 2.5],
+    [0.75, 0.0, 2.5],
+    [0.0, 0.75, 2.5],
+    [0.75, 0.75, 2.5],
+];
+const DEFORMABLE_SOURCE_POINTS_MM: [[f64; 3]; 4] = [
+    [-0.625, -0.625, 0.0],
+    [0.0, -0.625, 0.0],
+    [-0.625, 0.0, 0.0],
+    [0.0, 0.0, 0.0],
+];
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct TransferSyntaxSpec {
     capability_keyword: &'static str,
@@ -3910,6 +3937,58 @@ pub(crate) fn write_supported_cases(
             )?)?;
         }
     }
+    if let Some(case) = registry_case(registry, DEFORMABLE_SPATIAL_REGISTRATION_CASE_ID)? {
+        if should_generate_case(case, run)? {
+            if context
+                .source_registry()
+                .first_for_case(SPATIAL_REGISTRATION_SOURCE_CASE_ID)
+                .is_none()
+            {
+                let source_case = registry_case(registry, SPATIAL_REGISTRATION_SOURCE_CASE_ID)?
+                    .ok_or_else(|| GenerateError::MetadataShape {
+                        path: PathBuf::from(DEFORMABLE_SPATIAL_REGISTRATION_CASE_ID),
+                        message: "Deformable Registration source CT registry row is missing",
+                    })?;
+                let source_recipe = CLASSIC_CT_RECIPES
+                    .iter()
+                    .find(|recipe| recipe.case_id == SPATIAL_REGISTRATION_SOURCE_CASE_ID)
+                    .copied()
+                    .ok_or_else(|| GenerateError::MetadataShape {
+                        path: PathBuf::from(DEFORMABLE_SPATIAL_REGISTRATION_CASE_ID),
+                        message: "Deformable Registration source CT native recipe is missing",
+                    })?;
+                context.record_many(write_classic_ct_case(
+                    run,
+                    source_case,
+                    source_recipe,
+                    standards_lock_sha256,
+                )?)?;
+            }
+            let target = context
+                .source_registry()
+                .first_for_case(SPATIAL_REGISTRATION_TARGET_CASE_ID)
+                .cloned()
+                .ok_or_else(|| GenerateError::MetadataShape {
+                    path: PathBuf::from(DEFORMABLE_SPATIAL_REGISTRATION_CASE_ID),
+                    message: "Deformable Registration target Enhanced CT must be generated first",
+                })?;
+            let source = context
+                .source_registry()
+                .first_for_case(SPATIAL_REGISTRATION_SOURCE_CASE_ID)
+                .cloned()
+                .ok_or_else(|| GenerateError::MetadataShape {
+                    path: PathBuf::from(DEFORMABLE_SPATIAL_REGISTRATION_CASE_ID),
+                    message: "Deformable Registration source classic CT must be generated first",
+                })?;
+            context.record_one(write_deformable_spatial_registration_case(
+                run,
+                case,
+                &target,
+                &source,
+                standards_lock_sha256,
+            )?)?;
+        }
+    }
     for recipe in PRESENTATION_STATE_RECIPES {
         let Some(case) = registry_case(registry, recipe.case_id)? else {
             continue;
@@ -5518,18 +5597,22 @@ fn write_spatial_registration_case(
     validate_spatial_registration_sources(&run.out_dir, target, source)?;
     let target_series = required_source_uid(
         target.series_instance_uid.as_deref(),
+        SPATIAL_REGISTRATION_CASE_ID,
         "Spatial Registration target Series Instance UID is missing",
     )?;
     let target_for = required_source_uid(
         target.frame_of_reference_uid.as_deref(),
+        SPATIAL_REGISTRATION_CASE_ID,
         "Spatial Registration target Frame of Reference UID is missing",
     )?;
     let source_series = required_source_uid(
         source.series_instance_uid.as_deref(),
+        SPATIAL_REGISTRATION_CASE_ID,
         "Spatial Registration source Series Instance UID is missing",
     )?;
     let source_for = required_source_uid(
         source.frame_of_reference_uid.as_deref(),
+        SPATIAL_REGISTRATION_CASE_ID,
         "Spatial Registration source Frame of Reference UID is missing",
     )?;
     let uid = |role| {
@@ -5785,12 +5868,313 @@ fn write_spatial_registration_case(
     })
 }
 
+fn write_deformable_spatial_registration_case(
+    run: &PreparedGenerationRun,
+    case: &Value,
+    target: &GeneratedSourceObject,
+    source: &GeneratedSourceObject,
+    standards_lock_sha256: &str,
+) -> Result<GeneratedFile, GenerateError> {
+    validate_spatial_registration_sources(&run.out_dir, target, source)?;
+    let target_series = required_source_uid(
+        target.series_instance_uid.as_deref(),
+        DEFORMABLE_SPATIAL_REGISTRATION_CASE_ID,
+        "Deformable Registration target Series Instance UID is missing",
+    )?;
+    let target_for = required_source_uid(
+        target.frame_of_reference_uid.as_deref(),
+        DEFORMABLE_SPATIAL_REGISTRATION_CASE_ID,
+        "Deformable Registration target Frame of Reference UID is missing",
+    )?;
+    let source_series = required_source_uid(
+        source.series_instance_uid.as_deref(),
+        DEFORMABLE_SPATIAL_REGISTRATION_CASE_ID,
+        "Deformable Registration source Series Instance UID is missing",
+    )?;
+    let source_for = required_source_uid(
+        source.frame_of_reference_uid.as_deref(),
+        DEFORMABLE_SPATIAL_REGISTRATION_CASE_ID,
+        "Deformable Registration source Frame of Reference UID is missing",
+    )?;
+    let uid = |role| {
+        deterministic_uid(&DeterministicUidInput {
+            standards_lock_sha256,
+            case_id: DEFORMABLE_SPATIAL_REGISTRATION_CASE_ID,
+            recipe_version: DEFORMABLE_SPATIAL_REGISTRATION_RECIPE_VERSION,
+            run_seed: run.seed,
+            file_index: 0,
+            frame_index: None,
+            referenced_object_index: None,
+            role,
+        })
+    };
+    let series_instance_uid = uid(UidRole::SeriesInstance);
+    let sop_instance_uid = uid(UidRole::SopInstance);
+    let implementation_class_uid = deterministic_implementation_uid(standards_lock_sha256);
+    let relative_path = format!(
+        "{DEFORMABLE_SPATIAL_REGISTRATION_CASE_ID}/{DEFORMABLE_SPATIAL_REGISTRATION_OUTPUT_FILE}"
+    );
+    let path = run.out_dir.join(&relative_path);
+    let case_dir = path.parent().ok_or_else(|| GenerateError::MetadataShape {
+        path: PathBuf::from(&relative_path),
+        message: "Deformable Spatial Registration output must have a parent directory",
+    })?;
+    fs::create_dir_all(case_dir).map_err(|source| GenerateError::CreateCaseOutputDir {
+        path: case_dir.to_path_buf(),
+        source,
+    })?;
+
+    let object = build_deformable_spatial_registration(DeformableSpatialRegistrationInput {
+        sop_instance_uid: &sop_instance_uid,
+        series_instance_uid: &series_instance_uid,
+        target: DeformableRegistrationReference {
+            study_instance_uid: &target.study_instance_uid,
+            series_instance_uid: target_series,
+            sop_class_uid: &target.sop_class_uid,
+            sop_instance_uid: &target.sop_instance_uid,
+            frame_of_reference_uid: target_for,
+        },
+        source: DeformableRegistrationReference {
+            study_instance_uid: &source.study_instance_uid,
+            series_instance_uid: source_series,
+            sop_class_uid: &source.sop_class_uid,
+            sop_instance_uid: &source.sop_instance_uid,
+            frame_of_reference_uid: source_for,
+        },
+    })
+    .map_err(|message| GenerateError::WriteDicomFile {
+        path: path.clone(),
+        message,
+    })?;
+    object
+        .with_meta(
+            FileMetaTableBuilder::new()
+                .transfer_syntax(EXPLICIT_VR_LITTLE_ENDIAN.uid)
+                .implementation_class_uid(&implementation_class_uid)
+                .implementation_version_name(crate::IMPLEMENTATION_VERSION_NAME),
+        )
+        .map_err(|error| GenerateError::WriteDicomFile {
+            path: path.clone(),
+            message: error.to_string(),
+        })?
+        .write_to_file(&path)
+        .map_err(|error| GenerateError::WriteDicomFile {
+            path: path.clone(),
+            message: error.to_string(),
+        })?;
+
+    let identity_matrix = DEFORMABLE_IDENTITY_MATRIX.map(|value| {
+        value
+            .parse::<f64>()
+            .expect("locked deformable identity matrix values are numeric")
+    });
+    let decoded_vectors = DEFORMABLE_VECTOR_GRID_VALUES
+        .chunks_exact(3)
+        .map(|values| [values[0], values[1], values[2]])
+        .collect::<Vec<_>>();
+    let validated = validate_deformable_spatial_registration_file(
+        &path,
+        &DeformableSpatialRegistrationExpectations {
+            sop_class_uid: DEFORMABLE_SPATIAL_REGISTRATION_STORAGE_UID,
+            sop_instance_uid: &sop_instance_uid,
+            transfer_syntax_uid: EXPLICIT_VR_LITTLE_ENDIAN.uid,
+            implementation_class_uid: &implementation_class_uid,
+            synthetic_data: "YES",
+            patient_id: "DTS-PATIENT-001",
+            study_instance_uid: &target.study_instance_uid,
+            study_id: "DTS-ECT",
+            series_instance_uid: &series_instance_uid,
+            series_number: "8004",
+            laterality: "R",
+            modality: "REG",
+            instance_number: "1",
+            content_date: "20260101",
+            content_time: "000000",
+            content_label: "DTS_DEFORM_REG",
+            content_description: "Deformable CT pair registration",
+            content_creator_name: "DTS^Generator",
+            manufacturer: "dicom-test-suite",
+            manufacturer_model_name: "Native Deformable Registration",
+            device_serial_number: "DTS-DEFREG-001",
+            software_versions: crate::PACKAGE_VERSION,
+            registered_frame_of_reference_uid: target_for,
+            target: SpatialRegistrationReferenceExpectations {
+                study_instance_uid: &target.study_instance_uid,
+                series_instance_uid: target_series,
+                sop_class_uid: &target.sop_class_uid,
+                sop_instance_uid: &target.sop_instance_uid,
+                frame_of_reference_uid: target_for,
+            },
+            source: SpatialRegistrationReferenceExpectations {
+                study_instance_uid: &source.study_instance_uid,
+                series_instance_uid: source_series,
+                sop_class_uid: &source.sop_class_uid,
+                sop_instance_uid: &source.sop_instance_uid,
+                frame_of_reference_uid: source_for,
+            },
+            pre_matrix: identity_matrix,
+            post_matrix: identity_matrix,
+            image_orientation_patient: [1.0, 0.0, 0.0, 0.0, 1.0, 0.0],
+            image_position_patient: [0.0, 0.0, 2.5],
+            grid_dimensions: DEFORMABLE_GRID_DIMENSIONS,
+            grid_resolution: DEFORMABLE_GRID_RESOLUTION,
+            vector_grid_data_sha256: DEFORMABLE_VECTOR_GRID_DATA_SHA256,
+            decoded_vectors_mm: &decoded_vectors,
+            registered_points_mm: &DEFORMABLE_REGISTERED_POINTS_MM,
+            source_points_mm: &DEFORMABLE_SOURCE_POINTS_MM,
+            tolerance: 0.000001,
+        },
+    )?;
+    let mut validation = validated.validation;
+    validation["internal"]
+        .as_array_mut()
+        .expect("Deformable Registration validation internal results are an array")
+        .push(serde_json::json!({
+            "name": "deformable_registration_source_geometry",
+            "status": "passed",
+            "message": "Rust reopened both CT sources and verified identities, hashes, Frames of Reference, and locked geometry before construction."
+        }));
+    let bytes = validated.bytes;
+    let source_identity = |object: &GeneratedSourceObject| {
+        serde_json::json!({
+            "source_case_id": object.source_case_id,
+            "source_path": object.source_path,
+            "source_sha256": object.sha256,
+            "study_instance_uid": object.study_instance_uid,
+            "series_instance_uid": object.series_instance_uid,
+            "sop_class_uid": object.sop_class_uid,
+            "sop_instance_uid": object.sop_instance_uid,
+            "frame_of_reference_uid": object.frame_of_reference_uid
+        })
+    };
+    let target_identity = source_identity(target);
+    let source_identity = source_identity(source);
+    let point_mappings = DEFORMABLE_REGISTERED_POINTS_MM
+        .iter()
+        .zip(DEFORMABLE_SOURCE_POINTS_MM.iter())
+        .map(|(registered, source)| {
+            serde_json::json!({
+                "registered_point_mm": registered,
+                "source_point_mm": source,
+                "tolerance_mm": 0.000001
+            })
+        })
+        .collect::<Vec<_>>();
+    let expected_deformable_spatial_registration = serde_json::json!({
+        "registered_frame_of_reference_uid": target_for,
+        "sampling_direction": "registered_to_source",
+        "source": source_identity,
+        "complete_instance": true,
+        "deformable_registration_items": 1,
+        "registration_type_code_items": 0,
+        "pre_deformation_matrix": {
+            "items": 1, "type": "RIGID", "values": identity_matrix
+        },
+        "post_deformation_matrix": {
+            "items": 1, "type": "RIGID", "values": identity_matrix
+        },
+        "grid": {
+            "items": 1,
+            "image_position_patient_mm": [0.0, 0.0, 2.5],
+            "image_orientation_patient": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0],
+            "dimensions": DEFORMABLE_GRID_DIMENSIONS,
+            "resolution_mm": DEFORMABLE_GRID_RESOLUTION,
+            "vector_data_vr": "OF",
+            "vector_data_vm": 1,
+            "vector_count": decoded_vectors.len(),
+            "component_count": DEFORMABLE_VECTOR_GRID_VALUES.len(),
+            "byte_length": DEFORMABLE_VECTOR_GRID_BYTES.len(),
+            "payload_sha256": DEFORMABLE_VECTOR_GRID_DATA_SHA256,
+            "byte_order": "little_endian_ieee754_binary32",
+            "index_order": "i_fastest_then_j_then_k",
+            "vectors_mm": decoded_vectors
+        },
+        "point_mappings": point_mappings,
+        "common_instance_reference": {
+            "same_study": target_identity,
+            "other_studies": [source_identity]
+        },
+        "pixel_data_absent": true
+    });
+
+    Ok(GeneratedFile {
+        case_id: DEFORMABLE_SPATIAL_REGISTRATION_CASE_ID.to_string(),
+        manifest_entry: serde_json::json!({
+            "case_id": DEFORMABLE_SPATIAL_REGISTRATION_CASE_ID,
+            "profile_membership": ["extended"],
+            "path": relative_path,
+            "sha256": sha256_hex(&bytes),
+            "size_bytes": bytes.len(),
+            "determinism": "byte_stable",
+            "recipe": {
+                "recipe_id": DEFORMABLE_SPATIAL_REGISTRATION_RECIPE_ID,
+                "recipe_version": DEFORMABLE_SPATIAL_REGISTRATION_RECIPE_VERSION,
+                "recipe_parameters": {
+                    "sampling_direction": "registered_to_source",
+                    "pre_deformation_matrix": identity_matrix,
+                    "post_deformation_matrix": identity_matrix,
+                    "grid_dimensions": DEFORMABLE_GRID_DIMENSIONS,
+                    "grid_resolution_mm": DEFORMABLE_GRID_RESOLUTION,
+                    "vector_grid_data_sha256": DEFORMABLE_VECTOR_GRID_DATA_SHA256,
+                    "vector_index_order": "i_fastest_then_j_then_k"
+                }
+            },
+            "dicom": {
+                "sop_class_uid": DEFORMABLE_SPATIAL_REGISTRATION_STORAGE_UID,
+                "sop_class_name": "Deformable Spatial Registration Storage",
+                "iod_name": "Deformable Spatial Registration",
+                "modality": "REG",
+                "transfer_syntax_uid": EXPLICIT_VR_LITTLE_ENDIAN.uid,
+                "transfer_syntax_name": EXPLICIT_VR_LITTLE_ENDIAN.name
+            },
+            "uids": {
+                "study_instance_uid": target.study_instance_uid,
+                "series_instance_uid": series_instance_uid,
+                "sop_instance_uid": sop_instance_uid,
+                "frame_of_reference_uid": target_for,
+                "implementation_class_uid": implementation_class_uid,
+                "implementation_version_name": crate::IMPLEMENTATION_VERSION_NAME
+            },
+            "image": Value::Null,
+            "pixel_data": Value::Null,
+            "references": [
+                target.to_manifest_reference("registered_target", None),
+                source.to_manifest_reference("deformation_source", None)
+            ],
+            "expected_capabilities": [
+                "open_file", "read_metadata", "resolve_references",
+                "read_deformable_spatial_registration", "apply_deformation_field",
+                "resample_registered_image"
+            ],
+            "expected_semantics": {
+                "synthetic_data": "YES",
+                "registered_frame_of_reference_uid": target_for,
+                "sampling_direction": "registered_to_source",
+                "pixel_data_absent": true
+            },
+            "expected_deformable_spatial_registration": expected_deformable_spatial_registration,
+            "expected_visual_checks": {
+                "pattern": "enhanced_ct_frame_2_grid_maps_to_classic_ct_pixel_centers"
+            },
+            "validation": validation,
+            "known_stressors": [
+                "deformable_spatial_registration_storage", "two_frames_of_reference",
+                "identity_pre_and_post_matrices", "registered_to_source_sampling",
+                "nonuniform_vector_grid", "of_little_endian_binary32",
+                "i_fastest_vector_order", "cross_study_references"
+            ],
+            "standards_evidence": deduplicated_standards_evidence(standards_evidence_from_case(case))
+        }),
+    })
+}
+
 fn required_source_uid<'a>(
     value: Option<&'a str>,
+    case_id: &'static str,
     message: &'static str,
 ) -> Result<&'a str, GenerateError> {
     value.ok_or(GenerateError::MetadataShape {
-        path: PathBuf::from(SPATIAL_REGISTRATION_CASE_ID),
+        path: PathBuf::from(case_id),
         message,
     })
 }

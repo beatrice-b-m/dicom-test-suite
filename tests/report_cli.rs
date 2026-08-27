@@ -50,11 +50,11 @@ fn report_command_writes_json_coverage_for_core_root() {
     );
     assert_eq!(
         report.pointer("/counts/generated").and_then(Value::as_u64),
-        Some(40)
+        Some(41)
     );
     assert_eq!(
         report.pointer("/counts/planned").and_then(Value::as_u64),
-        Some(8)
+        Some(7)
     );
     assert_eq!(
         report
@@ -69,23 +69,23 @@ fn report_command_writes_json_coverage_for_core_root() {
             .and_then(Value::as_str),
         Some("generated")
     );
-    let planned_metadata_row = coverage_row(&report, "metadata/sc/empty_type2_attributes");
-    for field in [
-        "metadata_specific_character_sets",
-        "metadata_person_name",
-        "metadata_person_name_component_groups",
-        "metadata_person_name_component_group_count",
-        "metadata_person_name_encoded_sha256",
-        "metadata_person_name_encoded_length_bytes",
-        "metadata_empty_type2_attributes",
-        "metadata_empty_type2_attribute_count",
-    ] {
-        assert_eq!(
-            planned_metadata_row.get(field),
-            Some(&Value::Null),
-            "planned metadata report field {field} must remain explicitly null"
-        );
-    }
+    let empty_type2_row = coverage_row(&report, "metadata/sc/empty_type2_attributes");
+    assert_eq!(
+        empty_type2_row.get("status").and_then(Value::as_str),
+        Some("generated")
+    );
+    assert_eq!(
+        empty_type2_row
+            .get("metadata_empty_type2_attribute_count")
+            .and_then(Value::as_u64),
+        Some(5)
+    );
+    assert!(
+        empty_type2_row
+            .get("metadata_empty_type2_attributes")
+            .and_then(Value::as_str)
+            .is_some_and(|value| value.contains("0010,0010 PatientName PN VL=0"))
+    );
     let native_row = coverage_row(&report, "metadata/sc/utf8_person_name");
     assert_eq!(
         native_row
@@ -583,7 +583,7 @@ fn report_command_writes_json_coverage_for_core_root() {
         report
             .pointer("/grouped_coverage/conversion_types/SYN")
             .and_then(Value::as_u64),
-        Some(13)
+        Some(14)
     );
     assert_eq!(
         report
@@ -853,19 +853,19 @@ fn report_command_writes_json_coverage_for_core_root() {
         report
             .pointer("/grouped_coverage/study_instance_uid_roots/2.25")
             .and_then(Value::as_u64),
-        Some(40)
+        Some(41)
     );
     assert_eq!(
         report
             .pointer("/grouped_coverage/series_instance_uid_roots/2.25")
             .and_then(Value::as_u64),
-        Some(40)
+        Some(41)
     );
     assert_eq!(
         report
             .pointer("/grouped_coverage/sop_instance_uid_roots/2.25")
             .and_then(Value::as_u64),
-        Some(40)
+        Some(41)
     );
     assert_eq!(
         report
@@ -2352,8 +2352,8 @@ fn report_command_writes_markdown_coverage_for_core_root() {
     );
     let stdout = String::from_utf8(output.stdout).expect("report stdout should be UTF-8");
     assert!(stdout.starts_with("# DICOM Test Suite Coverage Report"));
-    assert!(stdout.contains("| generated | 40 |"));
-    assert!(stdout.contains("| planned | 8 |"));
+    assert!(stdout.contains("| generated | 41 |"));
+    assert!(stdout.contains("| planned | 7 |"));
     assert!(stdout.contains("### Profile Memberships"));
     assert!(stdout.contains("| core | 48 |"));
     assert!(stdout.contains("### Transfer Syntax Names"));
@@ -2446,7 +2446,7 @@ fn report_command_writes_markdown_coverage_for_core_root() {
     assert!(stdout.contains("### Study Instance UID Roots"));
     assert!(stdout.contains("### Series Instance UID Roots"));
     assert!(stdout.contains("### SOP Instance UID Roots"));
-    assert!(stdout.contains("| 2.25 | 40 |"));
+    assert!(stdout.contains("| 2.25 | 41 |"));
     assert!(stdout.contains("### Derived Reference SOP Instance UID Roots"));
     assert!(stdout.contains("## Gaps"));
     assert!(

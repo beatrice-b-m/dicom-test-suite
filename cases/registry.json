@@ -10429,13 +10429,13 @@
       },
       "blockers": [
         {
-          "code": "backend_contract_unimplemented",
-          "message": "The external generation protocol is not implemented.",
-          "recheck_phase": "phase-1"
+          "code": "recipe_unimplemented",
+          "message": "The uv-locked highdicom TID 1500 operation and Rust acceptance contract are not implemented.",
+          "recheck_phase": "phase-3"
         },
         {
-          "code": "independent_payload_validator_unavailable",
-          "message": "The required independent validation path is not integrated.",
+          "code": "independent_iod_validator_unavailable",
+          "message": "Locked PixelMed supports Comprehensive 3D SR and TID 1500 but the case-scoped required route is not integrated or empirically qualified.",
           "recheck_phase": "phase-3"
         }
       ],
@@ -10464,6 +10464,15 @@
           "covered": true,
           "part": "PS3.6",
           "anchor": "table_A-1"
+        },
+        {
+          "source": "local-source-note",
+          "edition": "2026b",
+          "query": "standards/source-notes/phase-3-tid1500-measurement-report.md",
+          "covered": true,
+          "part": "PS3.3; PS3.16",
+          "anchor": "A.35.13; table_A.35.13-1; table_A.35.13-2; C.17.3; C.18.8; sect_TID_1500; table_TID_1500; sect_TID_1411; table_TID_1411; sect_TID_1419; sect_TID_300; sect_TID_1001",
+          "reason": "Locks the named TID 1500 root, TID 1411 SEG-linked volumetric group, exact numeric measurement, evidence closure, and independent template-validation gate."
         }
       ]
     },

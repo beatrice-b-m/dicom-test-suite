@@ -458,6 +458,42 @@ fn integer_parametric_map_retains_explicit_provider_blocker() {
 }
 
 #[test]
+fn tid1500_source_note_locks_template_measurement_and_validator_gate() {
+    let source = fs::read_to_string(
+        "standards/source-notes/phase-3-tid1500-measurement-report.md",
+    )
+    .expect("TID 1500 source note must be readable");
+    for required in [
+        "derived/sr/tid1500_ct_measurement_report",
+        "derived/seg/binary_multiframe_explicit_le",
+        "DCMR",
+        "Identifier `1500`",
+        "TID 1411",
+        "5.625",
+        "118565006",
+        "25045-6",
+        "121233",
+        "Source image for segmentation",
+        "PixelMed 20260608",
+        "DicomSRValidator -checktemplateid",
+        "Should become KB patch: yes",
+    ] {
+        assert!(source.contains(required), "TID 1500 note requires {required}");
+    }
+
+    let lock = read_json("standards.lock.json");
+    assert!(
+        lock["source_artifacts"]
+            .as_array()
+            .is_some_and(|artifacts| artifacts.iter().any(|artifact| {
+                artifact["part"] == "PS3.16"
+                    && artifact["status"] == "unavailable_not_downloaded"
+            })),
+        "standards lock must explicitly account for the reviewed PS3.16 source"
+    );
+}
+
+#[test]
 fn u1_pixel_decoder_is_case_scoped_and_locked() {
     let validators = read_json("conformance/validators.json");
     let adapter = validators["adapters"]

@@ -53,6 +53,13 @@
       "sha256": null,
       "status": "unavailable_not_downloaded",
       "unavailable_reason": "Official source artifacts have not been downloaded in this repository and must not be committed."
+    },
+    {
+      "part": "PS3.16",
+      "format": "chtml",
+      "sha256": null,
+      "status": "unavailable_not_downloaded",
+      "unavailable_reason": "Official 2026b CHTML templates and context groups were reviewed without downloading or committing the source artifact."
     }
   ],
   "verification_queries": [

@@ -12188,6 +12188,30 @@
           "covered": true,
           "part": "PS3.6",
           "anchor": "table_A-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom-kb search-standard-text 'DT VR timezone offset +1400 -1200' --part PS3.5 --edition 2026b",
+          "covered": true,
+          "part": "PS3.5",
+          "anchor": "table_6.2-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom-kb resolve-attribute-context TimezoneOffsetFromUTC --iod 'Secondary Capture Image' --edition 2026b",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.12-1"
+        },
+        {
+          "source": "local-source-note",
+          "edition": "2026b",
+          "query": "standards/source-notes/phase-2-timezone-boundaries.md",
+          "covered": true,
+          "part": "PS3.5",
+          "anchor": "table_6.2-1"
         }
       ]
     },

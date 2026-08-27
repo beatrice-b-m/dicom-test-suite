@@ -26996,16 +26996,14 @@ mod tests {
                 .pointer("/expected_wsi_tiled_full/presence/per_frame_functional_groups_sequence"),
             Some(&Value::Bool(false))
         );
-        assert!(
+        assert_eq!(
             first
                 .manifest_entry
                 .pointer("/validation/internal")
                 .and_then(Value::as_array)
-                .is_some_and(|entries| entries.iter().any(|entry| {
-                    entry["name"] == "wsi_sparse_sentinel_matrix_sha256"
-                        && entry["status"] == "passed"
-                })),
-            "writer must retain strict sparse reconstruction evidence"
+                .and_then(|entries| entries.last())
+                .and_then(|entry| entry.get("status")),
+            Some(&Value::from("passed"))
         );
     }
 
@@ -27068,14 +27066,16 @@ mod tests {
             ),
             Some(&serde_json::json!([2, 2]))
         );
-        assert_eq!(
+        assert!(
             first
                 .manifest_entry
                 .pointer("/validation/internal")
                 .and_then(Value::as_array)
-                .and_then(|entries| entries.last())
-                .and_then(|entry| entry.get("status")),
-            Some(&Value::from("passed"))
+                .is_some_and(|entries| entries.iter().any(|entry| {
+                    entry["name"] == "wsi_sparse_sentinel_matrix_sha256"
+                        && entry["status"] == "passed"
+                })),
+            "writer must retain strict sparse reconstruction evidence"
         );
     }
 

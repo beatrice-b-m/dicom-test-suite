@@ -345,8 +345,15 @@ byte-stable native vertical slice with automatic cross-profile RGB source
 materialization, exact reference/display/ICC closure, strict manifest-driven
 validation, report coverage, clean locked primary and `uv`-locked secondary
 IOD validation, independent parsing, and silent isolated entity-reference
-validation. Advanced Blending Presentation State is next, followed by Blending
-Presentation State.
+validation. Advanced Blending Presentation State is also complete as a
+byte-stable native vertical slice with automatic four-CT source
+materialization, exact two-input and final-display graph closure, mirrored
+Common Instance References, strict manifest-driven validation, report
+coverage, clean independent parsing, zero-error `uv`-locked secondary IOD
+validation, and silent isolated entity-reference validation. Its two
+contradictory `dciodvfy` Frame-of-Reference findings remain visible and
+unallowlisted against the locked mandatory module contract. Blending
+Presentation State is next and completes milestone 4 breadth.
 
 ### Phase 4 — Pathology and tiled microscopy
 

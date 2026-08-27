@@ -218,7 +218,52 @@ were removed and are now strictly absent rather than allowlisted. Full-corpus
 verification retains 213 older or unrelated findings with no new acceptance
 dispositions.
 
+## Advanced Blending Presentation State
+
+`derived/presentation-state/advanced_blending` is an implemented, byte-stable
+Advanced Blending Presentation State Storage case. An `extended` run
+materializes four single-frame CT Images as two ordered Series in one Study
+and shared Frame of Reference, reopens and hashes every source, and writes a
+distinct Presentation Series. The exact blending graph has two inputs in
+order `[1,2]`, complete two-Image references for each source Series,
+`FALSE/FALSE` time-series flags, `TRUE/FALSE` geometry-for-display flags, and
+one final `EQUAL` display operation consuming inputs `[1,2]`. It carries
+`TRUE_COLOR`, the exact 736-byte locked sRGB ICC profile, mirrored Common
+Instance Reference closure over all four CT Instances, no optional input
+transforms, and no Pixel Data.
+
+The manifest closes all source paths, hashes, Study/Series/Frame-of-Reference
+and SOP identities, source geometry and ordering, the two-input graph, final
+display operation, ICC identity, common-reference topology, and absence
+invariants. Strict Rust validation owns cardinality, ordering, uniqueness,
+graph integrity, complete source closure, geometry, ICC bytes, and absences.
+JSON and Markdown reports expose those source, graph, display, ICC,
+common-reference, optional-transform, pixel-absence, and unresolved external
+validator dimensions.
+
+Two seed-7 extended generations each wrote 100 files. Their byte-identical
+manifests have SHA-256
+`52ae3faf72563b66069cb9546396e9d291ae324ec7302012f2eaadf3c491786a`;
+the byte-identical Advanced Blending Presentation State instances have
+SHA-256
+`4bf58b3a29f168c6d24398603f98ebaa5b40ee62353eb30449e3c193b84ad75d`.
+Both roots passed strict validation for all 100 files with zero failures.
+
+Integrated conformance run
+`c6a017c46b7e489059dd3bc71b1be66e1ff70008af853aaf393880a4e4f69c73`
+recorded stable instance key
+`88b7a58c777e556f56aaa2c8fdaed070a094e35646079acd8a17ca9f559e1663`.
+DCMTK `dcmdump` was clean; the independently implemented, `uv`-locked
+`dicom-validator` 0.8.2 adapter passed with zero errors; and isolated
+four-CT-plus-Presentation-State `dcentvfy` was silent. `dciodvfy -new` emitted
+exactly two unresolved, contradictory warnings claiming that Frame of
+Reference UID and Position Reference Indicator are outside the standard IOD,
+despite the locked standard making the Frame of Reference Module mandatory.
+The attributes and warnings are retained and not allowlisted. Full-corpus
+verification reports 211 older or unrelated failures plus those two
+documented warnings, with `accepted_findings` remaining zero.
+
 ## Next dependency
 
-The next Phase 3 dependency is Advanced Blending Presentation State, followed
-by Blending Presentation State to complete milestone 4 breadth.
+The next Phase 3 dependency is Blending Presentation State, which completes
+milestone 4 breadth.

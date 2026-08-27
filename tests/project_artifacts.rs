@@ -4363,6 +4363,10 @@ fn generator_recipe_case_ids() -> BTreeSet<String> {
             "src/generation_backends/parametric_map.rs",
             &["CASE_ID: &str = \""][..],
         ),
+        (
+            "src/generation_backends/tid1500.rs",
+            &["CASE_ID: &str = \""][..],
+        ),
     ] {
         let source = fs::read_to_string(path).expect("generator source must be readable");
         for prefix in prefixes {

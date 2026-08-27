@@ -10411,7 +10411,7 @@
     {
       "case_id": "derived/sr/tid1500_ct_measurement_report",
       "artifact_kind": "dicom_instance",
-      "status": "planned",
+      "status": "implemented",
       "provider": {
         "kind": "external_backend",
         "id": "highdicom_pydicom"
@@ -10422,23 +10422,8 @@
         "references",
         "quantitative"
       ],
-      "roadmap": {
-        "priority": "next",
-        "delivery_phase": "phase-3",
-        "rationale": "Adds a template-driven measurement report linked to source images and derived results."
-      },
-      "blockers": [
-        {
-          "code": "recipe_unimplemented",
-          "message": "The uv-locked highdicom TID 1500 operation and Rust acceptance contract are not implemented.",
-          "recheck_phase": "phase-3"
-        },
-        {
-          "code": "independent_iod_validator_unavailable",
-          "message": "Locked PixelMed supports Comprehensive 3D SR and TID 1500 but the case-scoped required route is not integrated or empirically qualified.",
-          "recheck_phase": "phase-3"
-        }
-      ],
+      "roadmap": null,
+      "blockers": [],
       "profiles": [
         "extended"
       ],

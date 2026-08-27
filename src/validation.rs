@@ -22,6 +22,10 @@ use crate::{
 #[path = "validation_spatial_registration_tests.rs"]
 mod spatial_registration_tests;
 
+#[cfg(test)]
+#[path = "validation_deformable_spatial_registration_tests.rs"]
+mod deformable_spatial_registration_tests;
+
 #[cfg(feature = "deflate")]
 use crate::codecs::DicomRsDeflatedImageFrameEncoder;
 #[cfg(feature = "charls")]
@@ -277,6 +281,46 @@ pub(crate) struct SpatialRegistrationExpectations<'a> {
     pub source_landmark_mm: [f64; 3],
     pub registered_landmark_mm: [f64; 3],
     pub rigid_tolerance: f64,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct DeformableSpatialRegistrationExpectations<'a> {
+    pub sop_class_uid: &'a str,
+    pub sop_instance_uid: &'a str,
+    pub transfer_syntax_uid: &'a str,
+    pub implementation_class_uid: &'a str,
+    pub synthetic_data: &'a str,
+    pub patient_id: &'a str,
+    pub study_instance_uid: &'a str,
+    pub study_id: &'a str,
+    pub series_instance_uid: &'a str,
+    pub series_number: &'a str,
+    pub laterality: &'a str,
+    pub modality: &'a str,
+    pub instance_number: &'a str,
+    pub content_date: &'a str,
+    pub content_time: &'a str,
+    pub content_label: &'a str,
+    pub content_description: &'a str,
+    pub content_creator_name: &'a str,
+    pub manufacturer: &'a str,
+    pub manufacturer_model_name: &'a str,
+    pub device_serial_number: &'a str,
+    pub software_versions: &'a str,
+    pub registered_frame_of_reference_uid: &'a str,
+    pub target: SpatialRegistrationReferenceExpectations<'a>,
+    pub source: SpatialRegistrationReferenceExpectations<'a>,
+    pub pre_matrix: [f64; 16],
+    pub post_matrix: [f64; 16],
+    pub image_orientation_patient: [f64; 6],
+    pub image_position_patient: [f64; 3],
+    pub grid_dimensions: [u32; 3],
+    pub grid_resolution: [f64; 3],
+    pub vector_grid_data_sha256: &'a str,
+    pub decoded_vectors_mm: &'a [[f32; 3]],
+    pub registered_points_mm: &'a [[f64; 3]],
+    pub source_points_mm: &'a [[f64; 3]],
+    pub tolerance: f64,
 }
 
 #[derive(Debug, Clone)]
@@ -4245,6 +4289,813 @@ fn validate_common_reference_series(
 
 fn close(actual: f64, expected: f64, tolerance: f64) -> bool {
     actual.is_finite() && expected.is_finite() && (actual - expected).abs() <= tolerance
+}
+
+pub(crate) fn validate_deformable_spatial_registration_file(
+    path: &Path,
+    expected: &DeformableSpatialRegistrationExpectations<'_>,
+) -> Result<ValidatedPart10, GenerateError> {
+    let bytes = fs::read(path).map_err(|source| GenerateError::ReadGeneratedFile {
+        path: path.to_path_buf(),
+        source,
+    })?;
+    let obj = open_file(path).map_err(|err| validation_error(path, err))?;
+    let mut internal = Vec::new();
+
+    check(
+        &mut internal,
+        bytes.len() >= 132 && &bytes[128..132] == b"DICM",
+        "deformable_registration_part10_preamble",
+        "Deformable Spatial Registration has a Part 10 preamble and DICM marker.",
+        "Deformable Spatial Registration is missing its Part 10 preamble or DICM marker.",
+    );
+    check_equal(
+        &mut internal,
+        "deformable_registration_transfer_syntax",
+        "File Meta Transfer Syntax matches Explicit VR Little Endian.",
+        "File Meta Transfer Syntax does not match the recipe.",
+        trim_uid(obj.meta().transfer_syntax()).as_str(),
+        expected.transfer_syntax_uid,
+    );
+    let dataset_sop_class = element_str(path, &obj, tags::SOP_CLASS_UID)?;
+    check_equal(
+        &mut internal,
+        "deformable_registration_sop_class_uid",
+        "Dataset SOP Class UID matches the recipe.",
+        "Dataset SOP Class UID does not match the recipe.",
+        dataset_sop_class.as_str(),
+        expected.sop_class_uid,
+    );
+    check_equal(
+        &mut internal,
+        "deformable_registration_storage_uid",
+        "SOP Class is Deformable Spatial Registration Storage.",
+        "SOP Class is not Deformable Spatial Registration Storage.",
+        dataset_sop_class.as_str(),
+        "1.2.840.10008.5.1.4.1.1.66.3",
+    );
+    check_equal(
+        &mut internal,
+        "deformable_registration_media_sop_class_uid",
+        "File Meta and dataset SOP Class UIDs match.",
+        "File Meta and dataset SOP Class UIDs differ.",
+        trim_uid(obj.meta().media_storage_sop_class_uid()).as_str(),
+        dataset_sop_class.as_str(),
+    );
+    let dataset_sop_instance = element_str(path, &obj, tags::SOP_INSTANCE_UID)?;
+    check_equal(
+        &mut internal,
+        "deformable_registration_sop_instance_uid",
+        "Dataset SOP Instance UID matches the recipe.",
+        "Dataset SOP Instance UID does not match the recipe.",
+        dataset_sop_instance.as_str(),
+        expected.sop_instance_uid,
+    );
+    check_equal(
+        &mut internal,
+        "deformable_registration_media_sop_instance_uid",
+        "File Meta and dataset SOP Instance UIDs match.",
+        "File Meta and dataset SOP Instance UIDs differ.",
+        trim_uid(obj.meta().media_storage_sop_instance_uid()).as_str(),
+        dataset_sop_instance.as_str(),
+    );
+    check_equal(
+        &mut internal,
+        "deformable_registration_implementation_class_uid",
+        "Implementation Class UID matches the native generator.",
+        "Implementation Class UID does not match the native generator.",
+        trim_uid(obj.meta().implementation_class_uid()).as_str(),
+        expected.implementation_class_uid,
+    );
+
+    for (name, tag, value) in [
+        (
+            "synthetic_data",
+            tags::SYNTHETIC_DATA,
+            expected.synthetic_data,
+        ),
+        ("patient_id", tags::PATIENT_ID, expected.patient_id),
+        (
+            "study_instance_uid",
+            tags::STUDY_INSTANCE_UID,
+            expected.study_instance_uid,
+        ),
+        ("study_id", tags::STUDY_ID, expected.study_id),
+        (
+            "series_instance_uid",
+            tags::SERIES_INSTANCE_UID,
+            expected.series_instance_uid,
+        ),
+        ("series_number", tags::SERIES_NUMBER, expected.series_number),
+        ("laterality", tags::LATERALITY, expected.laterality),
+        ("modality", tags::MODALITY, expected.modality),
+        (
+            "instance_number",
+            tags::INSTANCE_NUMBER,
+            expected.instance_number,
+        ),
+        ("content_date", tags::CONTENT_DATE, expected.content_date),
+        ("content_time", tags::CONTENT_TIME, expected.content_time),
+        ("content_label", tags::CONTENT_LABEL, expected.content_label),
+        (
+            "content_description",
+            tags::CONTENT_DESCRIPTION,
+            expected.content_description,
+        ),
+        (
+            "content_creator_name",
+            tags::CONTENT_CREATOR_NAME,
+            expected.content_creator_name,
+        ),
+        ("manufacturer", tags::MANUFACTURER, expected.manufacturer),
+        (
+            "manufacturer_model_name",
+            tags::MANUFACTURER_MODEL_NAME,
+            expected.manufacturer_model_name,
+        ),
+        (
+            "device_serial_number",
+            tags::DEVICE_SERIAL_NUMBER,
+            expected.device_serial_number,
+        ),
+        (
+            "software_versions",
+            tags::SOFTWARE_VERSIONS,
+            expected.software_versions,
+        ),
+        (
+            "registered_frame_of_reference_uid",
+            tags::FRAME_OF_REFERENCE_UID,
+            expected.registered_frame_of_reference_uid,
+        ),
+    ] {
+        check_equal(
+            &mut internal,
+            &format!("deformable_registration_{name}"),
+            "Deformable Spatial Registration module attribute matches the recipe.",
+            "Deformable Spatial Registration module attribute does not match the recipe.",
+            element_str(path, &obj, tag)?.as_str(),
+            value,
+        );
+    }
+    check_equal(
+        &mut internal,
+        "deformable_registration_target_study_uid",
+        "Registered target belongs to the registration Study.",
+        "Registered target Study does not match the registration Study.",
+        expected.study_instance_uid,
+        expected.target.study_instance_uid,
+    );
+    check_equal(
+        &mut internal,
+        "deformable_registration_target_frame_of_reference_uid",
+        "Registered target Frame of Reference establishes the Registered RCS.",
+        "Registered target Frame of Reference does not establish the Registered RCS.",
+        expected.registered_frame_of_reference_uid,
+        expected.target.frame_of_reference_uid,
+    );
+    for (name, tag) in [
+        ("study_date", tags::STUDY_DATE),
+        ("study_time", tags::STUDY_TIME),
+        ("referring_physician", tags::REFERRING_PHYSICIAN_NAME),
+        ("accession_number", tags::ACCESSION_NUMBER),
+        (
+            "position_reference_indicator",
+            tags::POSITION_REFERENCE_INDICATOR,
+        ),
+    ] {
+        check(
+            &mut internal,
+            obj.element_opt(tag)
+                .map_err(|err| validation_error(path, err))?
+                .is_some(),
+            &format!("deformable_registration_{name}"),
+            "Required Type 1 or Type 2 module attribute is present.",
+            "Required Type 1 or Type 2 module attribute is absent.",
+        );
+    }
+
+    check_equal(
+        &mut internal,
+        "deformable_registration_item_count",
+        "Deformable Registration Sequence contains exactly one source item.",
+        "Deformable Registration Sequence does not contain exactly one source item.",
+        sequence_item_count(path, &obj, tags::DEFORMABLE_REGISTRATION_SEQUENCE)?,
+        1,
+    );
+    let registration =
+        top_level_sequence_item(path, &obj, tags::DEFORMABLE_REGISTRATION_SEQUENCE, 0)?;
+    check_equal(
+        &mut internal,
+        "deformable_registration_source_frame_of_reference_uid",
+        "Source Frame of Reference UID matches the referenced source image.",
+        "Source Frame of Reference UID is inconsistent with the referenced source image.",
+        item_str(path, registration, tags::SOURCE_FRAME_OF_REFERENCE_UID)?.as_str(),
+        expected.source.frame_of_reference_uid,
+    );
+    check(
+        &mut internal,
+        expected.source.frame_of_reference_uid != expected.registered_frame_of_reference_uid,
+        "deformable_registration_distinct_frames_of_reference",
+        "Source and Registered Frames of Reference are distinct.",
+        "Source and Registered Frames of Reference unexpectedly match.",
+    );
+    check_equal(
+        &mut internal,
+        "deformable_registration_referenced_image_count",
+        "The source item references exactly one complete image instance.",
+        "The source image reference cardinality differs from the contract.",
+        item_sequence_item_count(path, registration, tags::REFERENCED_IMAGE_SEQUENCE)?,
+        1,
+    );
+    let source_image = item_sequence_item(path, registration, tags::REFERENCED_IMAGE_SEQUENCE, 0)?;
+    validate_deformable_sop_reference(
+        &mut internal,
+        path,
+        source_image,
+        "deformable_registration_source",
+        &expected.source,
+    )?;
+    check(
+        &mut internal,
+        source_image
+            .element_opt(TAG_REFERENCED_FRAME_NUMBER)
+            .map_err(|err| validation_error(path, err))?
+            .is_none(),
+        "deformable_registration_complete_source_instance",
+        "Referenced Frame Number is absent, selecting the complete source instance.",
+        "Referenced Frame Number is present despite the complete-instance contract.",
+    );
+    check_equal(
+        &mut internal,
+        "deformable_registration_type_code_count",
+        "Type 2 Registration Type Code Sequence is present and empty.",
+        "Registration Type Code Sequence is absent or nonempty.",
+        item_sequence_item_count(path, registration, tags::REGISTRATION_TYPE_CODE_SEQUENCE)?,
+        0,
+    );
+    validate_deformation_matrix_sequence(
+        &mut internal,
+        path,
+        registration,
+        tags::PRE_DEFORMATION_MATRIX_REGISTRATION_SEQUENCE,
+        "deformable_registration_pre",
+        &expected.pre_matrix,
+    )?;
+    validate_deformation_matrix_sequence(
+        &mut internal,
+        path,
+        registration,
+        tags::POST_DEFORMATION_MATRIX_REGISTRATION_SEQUENCE,
+        "deformable_registration_post",
+        &expected.post_matrix,
+    )?;
+
+    check_equal(
+        &mut internal,
+        "deformable_registration_grid_count",
+        "Deformable Registration Grid Sequence contains exactly one item.",
+        "Deformable Registration Grid Sequence does not contain exactly one item.",
+        item_sequence_item_count(
+            path,
+            registration,
+            tags::DEFORMABLE_REGISTRATION_GRID_SEQUENCE,
+        )?,
+        1,
+    );
+    let grid = item_sequence_item(
+        path,
+        registration,
+        tags::DEFORMABLE_REGISTRATION_GRID_SEQUENCE,
+        0,
+    )?;
+    let orientation_element = grid
+        .element(tags::IMAGE_ORIENTATION_PATIENT)
+        .map_err(|err| validation_error(path, err))?;
+    let orientation = orientation_element
+        .value()
+        .to_multi_float64()
+        .map_err(|err| validation_error(path, err))?;
+    check_equal(
+        &mut internal,
+        "deformable_registration_grid_orientation_vr",
+        "Grid orientation has VR DS.",
+        "Grid orientation does not have VR DS.",
+        orientation_element.vr(),
+        VR::DS,
+    );
+    check_equal(
+        &mut internal,
+        "deformable_registration_grid_orientation_vm",
+        "Grid orientation has VM 6.",
+        "Grid orientation does not have VM 6.",
+        orientation.len(),
+        6,
+    );
+    check_equal(
+        &mut internal,
+        "deformable_registration_grid_orientation_exact",
+        "Grid orientation matches the locked axial direction.",
+        "Grid orientation differs from the locked axial direction.",
+        orientation.as_slice(),
+        expected.image_orientation_patient.as_slice(),
+    );
+    let position_element = grid
+        .element(tags::IMAGE_POSITION_PATIENT)
+        .map_err(|err| validation_error(path, err))?;
+    let position = position_element
+        .value()
+        .to_multi_float64()
+        .map_err(|err| validation_error(path, err))?;
+    check_equal(
+        &mut internal,
+        "deformable_registration_grid_origin_vr",
+        "Grid origin has VR DS.",
+        "Grid origin does not have VR DS.",
+        position_element.vr(),
+        VR::DS,
+    );
+    check_equal(
+        &mut internal,
+        "deformable_registration_grid_origin_vm",
+        "Grid origin has VM 3.",
+        "Grid origin does not have VM 3.",
+        position.len(),
+        3,
+    );
+    check_equal(
+        &mut internal,
+        "deformable_registration_grid_origin_exact",
+        "Grid origin matches the registered frame-2 origin.",
+        "Grid origin differs from the registered frame-2 origin.",
+        position.as_slice(),
+        expected.image_position_patient.as_slice(),
+    );
+
+    let dimensions_element = grid
+        .element(tags::GRID_DIMENSIONS)
+        .map_err(|err| validation_error(path, err))?;
+    let dimensions = dimensions_element
+        .value()
+        .to_multi_int::<u32>()
+        .map_err(|err| validation_error(path, err))?;
+    check_equal(
+        &mut internal,
+        "deformable_registration_grid_dimensions_vr",
+        "Grid Dimensions has VR UL.",
+        "Grid Dimensions does not have VR UL.",
+        dimensions_element.vr(),
+        VR::UL,
+    );
+    check_equal(
+        &mut internal,
+        "deformable_registration_grid_dimensions_vm",
+        "Grid Dimensions has VM 3.",
+        "Grid Dimensions does not have VM 3.",
+        dimensions.len(),
+        3,
+    );
+    check_equal(
+        &mut internal,
+        "deformable_registration_grid_dimensions_exact",
+        "Grid Dimensions match the recipe.",
+        "Grid Dimensions differ from the recipe.",
+        dimensions.as_slice(),
+        expected.grid_dimensions.as_slice(),
+    );
+    check(
+        &mut internal,
+        dimensions.len() == 3 && dimensions.iter().all(|value| *value > 0),
+        "deformable_registration_grid_dimensions_positive",
+        "Every Grid Dimension is positive.",
+        "At least one Grid Dimension is zero.",
+    );
+
+    let resolution_element = grid
+        .element(tags::GRID_RESOLUTION)
+        .map_err(|err| validation_error(path, err))?;
+    let resolution = resolution_element
+        .value()
+        .to_multi_float64()
+        .map_err(|err| validation_error(path, err))?;
+    check_equal(
+        &mut internal,
+        "deformable_registration_grid_resolution_vr",
+        "Grid Resolution has VR FD.",
+        "Grid Resolution does not have VR FD.",
+        resolution_element.vr(),
+        VR::FD,
+    );
+    check_equal(
+        &mut internal,
+        "deformable_registration_grid_resolution_vm",
+        "Grid Resolution has VM 3.",
+        "Grid Resolution does not have VM 3.",
+        resolution.len(),
+        3,
+    );
+    check_equal(
+        &mut internal,
+        "deformable_registration_grid_resolution_exact",
+        "Grid Resolution matches the recipe.",
+        "Grid Resolution differs from the recipe.",
+        resolution.as_slice(),
+        expected.grid_resolution.as_slice(),
+    );
+    check(
+        &mut internal,
+        resolution.len() == 3
+            && resolution
+                .iter()
+                .all(|value| value.is_finite() && *value > 0.0),
+        "deformable_registration_grid_resolution_positive",
+        "Every Grid Resolution value is finite and positive.",
+        "At least one Grid Resolution value is non-finite or non-positive.",
+    );
+
+    let vector_element = grid
+        .element(tags::VECTOR_GRID_DATA)
+        .map_err(|err| validation_error(path, err))?;
+    let vector_bytes = vector_element
+        .value()
+        .to_bytes()
+        .map_err(|err| validation_error(path, err))?;
+    check_equal(
+        &mut internal,
+        "deformable_registration_vector_grid_vr",
+        "Vector Grid Data has VR OF.",
+        "Vector Grid Data does not have VR OF.",
+        vector_element.vr(),
+        VR::OF,
+    );
+    check_equal(
+        &mut internal,
+        "deformable_registration_vector_grid_vm",
+        "Vector Grid Data has VM 1.",
+        "Vector Grid Data does not have VM 1.",
+        vector_element.vr(),
+        VR::OF,
+    );
+    let expected_byte_len = dimensions
+        .iter()
+        .try_fold(3_u64 * 4, |product, value| {
+            product.checked_mul(u64::from(*value))
+        })
+        .and_then(|value| usize::try_from(value).ok());
+    check_equal(
+        &mut internal,
+        "deformable_registration_vector_grid_byte_count_equation",
+        "Vector byte count equals X_D * Y_D * Z_D * 3 * 4.",
+        "Vector byte count violates X_D * Y_D * Z_D * 3 * 4.",
+        Some(vector_bytes.len()),
+        expected_byte_len,
+    );
+    check_equal(
+        &mut internal,
+        "deformable_registration_vector_grid_payload_sha256",
+        "Raw little-endian OF payload hash matches the recipe.",
+        "Raw OF payload bytes or byte order differ from the recipe.",
+        sha256_hex(vector_bytes.as_ref()).as_str(),
+        expected.vector_grid_data_sha256,
+    );
+    let decoded = vector_bytes
+        .chunks_exact(4)
+        .map(|chunk| f32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]))
+        .collect::<Vec<_>>();
+    check(
+        &mut internal,
+        vector_bytes.len() % 4 == 0,
+        "deformable_registration_vector_grid_binary32_alignment",
+        "OF payload contains complete binary32 values.",
+        "OF payload ends with a partial binary32 value.",
+    );
+    let expected_flat = expected
+        .decoded_vectors_mm
+        .iter()
+        .flatten()
+        .copied()
+        .collect::<Vec<_>>();
+    check_equal(
+        &mut internal,
+        "deformable_registration_vector_grid_decoded_values",
+        "Decoded vector triples and i/j/k order exactly match the recipe.",
+        "Decoded vector values or vector order differ from the recipe.",
+        decoded.as_slice(),
+        expected_flat.as_slice(),
+    );
+    let triples_well_formed = decoded.chunks_exact(3).all(|triple| {
+        triple.iter().all(|value| value.is_finite()) || triple.iter().all(|value| value.is_nan())
+    });
+    check(
+        &mut internal,
+        decoded.len() % 3 == 0 && triples_well_formed,
+        "deformable_registration_vector_grid_finite_or_all_nan",
+        "Every vector triple is wholly finite or wholly NaN.",
+        "A vector triple mixes NaN and finite components.",
+    );
+    check(
+        &mut internal,
+        decoded.iter().all(|value| value.is_finite()),
+        "deformable_registration_vector_grid_all_finite",
+        "Every recipe vector component is finite.",
+        "The recipe payload contains a NaN or infinite component.",
+    );
+
+    validate_deformable_point_mappings(&mut internal, expected, &decoded);
+
+    check_equal(
+        &mut internal,
+        "deformable_registration_same_study_series_count",
+        "Same-Study references contain only the registered target series.",
+        "Same-Study reference series count differs from the contract.",
+        sequence_item_count(path, &obj, tags::REFERENCED_SERIES_SEQUENCE)?,
+        1,
+    );
+    let same_study = top_level_sequence_item(path, &obj, tags::REFERENCED_SERIES_SEQUENCE, 0)?;
+    validate_common_reference_series(
+        &mut internal,
+        path,
+        same_study,
+        "deformable_registration_same_study",
+        &expected.target,
+    )?;
+    check_equal(
+        &mut internal,
+        "deformable_registration_other_study_count",
+        "Other-Study references contain only the source Study.",
+        "Other-Study reference count differs from the contract.",
+        sequence_item_count(
+            path,
+            &obj,
+            tags::STUDIES_CONTAINING_OTHER_REFERENCED_INSTANCES_SEQUENCE,
+        )?,
+        1,
+    );
+    let other_study = top_level_sequence_item(
+        path,
+        &obj,
+        tags::STUDIES_CONTAINING_OTHER_REFERENCED_INSTANCES_SEQUENCE,
+        0,
+    )?;
+    check_equal(
+        &mut internal,
+        "deformable_registration_other_study_uid",
+        "Other-Study reference identifies the source Study.",
+        "Other-Study reference does not identify the source Study.",
+        item_str(path, other_study, tags::STUDY_INSTANCE_UID)?.as_str(),
+        expected.source.study_instance_uid,
+    );
+    check_equal(
+        &mut internal,
+        "deformable_registration_other_study_series_count",
+        "Source Study contains exactly one referenced series.",
+        "Source Study reference series count differs from the contract.",
+        item_sequence_item_count(path, other_study, tags::REFERENCED_SERIES_SEQUENCE)?,
+        1,
+    );
+    let source_series = item_sequence_item(path, other_study, tags::REFERENCED_SERIES_SEQUENCE, 0)?;
+    validate_common_reference_series(
+        &mut internal,
+        path,
+        source_series,
+        "deformable_registration_other_study",
+        &expected.source,
+    )?;
+
+    for (name, tag) in [
+        ("pixel_data_absent", tags::PIXEL_DATA),
+        ("float_pixel_data_absent", tags::FLOAT_PIXEL_DATA),
+        (
+            "double_float_pixel_data_absent",
+            tags::DOUBLE_FLOAT_PIXEL_DATA,
+        ),
+    ] {
+        check(
+            &mut internal,
+            obj.element_opt(tag)
+                .map_err(|err| validation_error(path, err))?
+                .is_none(),
+            &format!("deformable_registration_{name}"),
+            "Deformable Spatial Registration contains no pixel payload.",
+            "Deformable Spatial Registration unexpectedly contains pixel payload.",
+        );
+    }
+
+    fail_if_any_failed(path, &internal)?;
+    Ok(ValidatedPart10 {
+        bytes,
+        validation: serde_json::json!({
+            "status": "passed",
+            "internal": internal,
+            "standards": [
+                {"name": standard_sop_class_validation_name(expected.sop_class_uid), "status": "passed", "message": standard_sop_class_validation_message(expected.sop_class_uid)},
+                {"name": standard_transfer_syntax_validation_name(expected.transfer_syntax_uid), "status": "passed", "message": standard_transfer_syntax_validation_message(expected.transfer_syntax_uid)},
+                {"name": "deformable_spatial_registration_contract", "status": "passed", "message": "Registered-to-source sampling, exact OF bytes and vector order, reference closure, and no-pixel invariants match the recipe."}
+            ],
+            "external": []
+        }),
+    })
+}
+
+fn validate_deformable_sop_reference(
+    results: &mut Vec<Value>,
+    path: &Path,
+    reference: &DatasetObject,
+    prefix: &str,
+    expected: &SpatialRegistrationReferenceExpectations<'_>,
+) -> Result<(), GenerateError> {
+    check_equal(
+        results,
+        &format!("{prefix}_sop_class_uid"),
+        "Referenced SOP Class UID matches the recipe.",
+        "Referenced SOP Class UID differs from the recipe.",
+        item_str(path, reference, tags::REFERENCED_SOP_CLASS_UID)?.as_str(),
+        expected.sop_class_uid,
+    );
+    check_equal(
+        results,
+        &format!("{prefix}_sop_instance_uid"),
+        "Referenced SOP Instance UID matches the recipe.",
+        "Referenced SOP Instance UID differs from the recipe.",
+        item_str(path, reference, tags::REFERENCED_SOP_INSTANCE_UID)?.as_str(),
+        expected.sop_instance_uid,
+    );
+    Ok(())
+}
+
+fn validate_deformation_matrix_sequence(
+    results: &mut Vec<Value>,
+    path: &Path,
+    registration: &DatasetObject,
+    sequence_tag: Tag,
+    prefix: &str,
+    expected: &[f64; 16],
+) -> Result<(), GenerateError> {
+    check_equal(
+        results,
+        &format!("{prefix}_matrix_count"),
+        "Deformation matrix sequence contains exactly one item.",
+        "Deformation matrix sequence cardinality differs from the contract.",
+        item_sequence_item_count(path, registration, sequence_tag)?,
+        1,
+    );
+    let item = item_sequence_item(path, registration, sequence_tag, 0)?;
+    check_equal(
+        results,
+        &format!("{prefix}_matrix_type"),
+        "Deformation matrix type is RIGID.",
+        "Deformation matrix type is not RIGID.",
+        item_str(
+            path,
+            item,
+            tags::FRAME_OF_REFERENCE_TRANSFORMATION_MATRIX_TYPE,
+        )?
+        .as_str(),
+        "RIGID",
+    );
+    let element = item
+        .element(tags::FRAME_OF_REFERENCE_TRANSFORMATION_MATRIX)
+        .map_err(|err| validation_error(path, err))?;
+    check_equal(
+        results,
+        &format!("{prefix}_matrix_vr"),
+        "Deformation matrix has VR DS.",
+        "Deformation matrix does not have VR DS.",
+        element.vr(),
+        VR::DS,
+    );
+    let values = element
+        .value()
+        .to_multi_float64()
+        .map_err(|err| validation_error(path, err))?;
+    check_equal(
+        results,
+        &format!("{prefix}_matrix_vm"),
+        "Deformation matrix has VM 16.",
+        "Deformation matrix does not have VM 16.",
+        values.len(),
+        16,
+    );
+    check(
+        results,
+        values.iter().all(|value| value.is_finite()),
+        &format!("{prefix}_matrix_finite"),
+        "Every deformation matrix value is finite.",
+        "Deformation matrix contains a non-finite value.",
+    );
+    check_equal(
+        results,
+        &format!("{prefix}_matrix_identity"),
+        "Deformation matrix is the exact row-major identity.",
+        "Deformation matrix is not the exact row-major identity.",
+        values.as_slice(),
+        expected.as_slice(),
+    );
+    Ok(())
+}
+
+fn validate_deformable_point_mappings(
+    results: &mut Vec<Value>,
+    expected: &DeformableSpatialRegistrationExpectations<'_>,
+    decoded: &[f32],
+) {
+    let mapping_count_matches = expected.registered_points_mm.len()
+        == expected.source_points_mm.len()
+        && expected.registered_points_mm.len() == expected.decoded_vectors_mm.len()
+        && decoded.len() == expected.registered_points_mm.len() * 3;
+    check(
+        results,
+        mapping_count_matches,
+        "deformable_registration_point_mapping_count",
+        "Point mappings cover every grid voxel.",
+        "Point mapping cardinality differs from the grid vector count.",
+    );
+    let derived_registered_points = deformable_grid_centers(expected);
+    let grid_centers_match = derived_registered_points.len() == expected.registered_points_mm.len()
+        && derived_registered_points
+            .iter()
+            .zip(expected.registered_points_mm)
+            .all(|(actual, locked)| {
+                actual
+                    .iter()
+                    .zip(locked)
+                    .all(|(actual, locked)| close(*actual, *locked, expected.tolerance))
+            });
+    check(
+        results,
+        grid_centers_match,
+        "deformable_registration_grid_center_order",
+        "Grid origin, orientation, dimensions, and resolution produce the locked i-fastest registered points.",
+        "Grid geometry does not produce the locked i/j/k point order.",
+    );
+    let mappings_match = mapping_count_matches
+        && expected
+            .registered_points_mm
+            .iter()
+            .zip(expected.source_points_mm)
+            .zip(decoded.chunks_exact(3))
+            .all(|((registered, source), vector)| {
+                let pre = apply_affine(&expected.pre_matrix, *registered);
+                let displaced = [
+                    pre[0] + f64::from(vector[0]),
+                    pre[1] + f64::from(vector[1]),
+                    pre[2] + f64::from(vector[2]),
+                ];
+                let actual = apply_affine(&expected.post_matrix, displaced);
+                actual
+                    .iter()
+                    .zip(source)
+                    .all(|(actual, locked)| close(*actual, *locked, expected.tolerance))
+            });
+    check(
+        results,
+        mappings_match,
+        "deformable_registration_registered_to_source_mappings",
+        "M_post(M_pre(P_registered)+D) maps every registered grid center to the locked source point.",
+        "Registered-to-source sampling direction, vector order, or point mapping differs from the contract.",
+    );
+}
+
+fn deformable_grid_centers(
+    expected: &DeformableSpatialRegistrationExpectations<'_>,
+) -> Vec<[f64; 3]> {
+    let row = &expected.image_orientation_patient[..3];
+    let column = &expected.image_orientation_patient[3..];
+    let normal = [
+        row[1] * column[2] - row[2] * column[1],
+        row[2] * column[0] - row[0] * column[2],
+        row[0] * column[1] - row[1] * column[0],
+    ];
+    let mut points = Vec::new();
+    for k in 0..expected.grid_dimensions[2] {
+        for j in 0..expected.grid_dimensions[1] {
+            for i in 0..expected.grid_dimensions[0] {
+                points.push([
+                    expected.image_position_patient[0]
+                        + f64::from(i) * expected.grid_resolution[0] * row[0]
+                        + f64::from(j) * expected.grid_resolution[1] * column[0]
+                        + f64::from(k) * expected.grid_resolution[2] * normal[0],
+                    expected.image_position_patient[1]
+                        + f64::from(i) * expected.grid_resolution[0] * row[1]
+                        + f64::from(j) * expected.grid_resolution[1] * column[1]
+                        + f64::from(k) * expected.grid_resolution[2] * normal[1],
+                    expected.image_position_patient[2]
+                        + f64::from(i) * expected.grid_resolution[0] * row[2]
+                        + f64::from(j) * expected.grid_resolution[1] * column[2]
+                        + f64::from(k) * expected.grid_resolution[2] * normal[2],
+                ]);
+            }
+        }
+    }
+    points
+}
+
+fn apply_affine(matrix: &[f64; 16], point: [f64; 3]) -> [f64; 3] {
+    [
+        matrix[0] * point[0] + matrix[1] * point[1] + matrix[2] * point[2] + matrix[3],
+        matrix[4] * point[0] + matrix[5] * point[1] + matrix[6] * point[2] + matrix[7],
+        matrix[8] * point[0] + matrix[9] * point[1] + matrix[10] * point[2] + matrix[11],
+    ]
 }
 
 pub(crate) fn validate_key_object_selection_file(
@@ -10376,6 +11227,7 @@ fn standard_sop_class_validation_name(sop_class_uid: &str) -> &'static str {
         uids::RT_DOSE_STORAGE => "rt_dose_sop_class",
         uids::ENCAPSULATED_PDF_STORAGE => "encapsulated_pdf_sop_class",
         "1.2.840.10008.5.1.4.1.1.66.1" => "spatial_registration_sop_class",
+        "1.2.840.10008.5.1.4.1.1.66.3" => "deformable_spatial_registration_sop_class",
         _ => "sop_class_uid",
     }
 }
@@ -10450,6 +11302,9 @@ fn standard_sop_class_validation_message(sop_class_uid: &str) -> &'static str {
         }
         "1.2.840.10008.5.1.4.1.1.66.1" => {
             "SOP Class UID matches Spatial Registration Storage in the 2026b reference."
+        }
+        "1.2.840.10008.5.1.4.1.1.66.3" => {
+            "SOP Class UID matches Deformable Spatial Registration Storage in the 2026b reference."
         }
         _ => "SOP Class UID matches the recipe.",
     }

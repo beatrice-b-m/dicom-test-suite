@@ -6063,6 +6063,202 @@ fn deformable_registration_report_exposes_exact_grid_contract() {
     fs::remove_dir_all(out_dir).expect("remove report root");
 }
 
+#[test]
+fn advanced_blending_report_exposes_exact_topology_and_unresolved_findings() {
+    let out_dir = unique_temp_dir("report-advanced-blending");
+    generate_extended(&out_dir);
+    let manifest_path = out_dir.join("manifest.json");
+    let mut manifest: Value =
+        serde_json::from_slice(&fs::read(&manifest_path).expect("generated manifest"))
+            .expect("manifest JSON");
+    if !manifest["files"].as_array().is_some_and(|files| {
+        files.iter().any(|file| {
+            file["case_id"] == Value::from("derived/presentation-state/advanced_blending")
+        })
+    }) {
+        let mut fixture = manifest["files"]
+            .as_array()
+            .and_then(|files| {
+                files.iter().find(|file| {
+                    file["case_id"] == Value::from("derived/presentation-state/color_softcopy")
+                })
+            })
+            .cloned()
+            .expect("Color Softcopy report fixture source");
+        fixture["case_id"] = json!("derived/presentation-state/advanced_blending");
+        fixture["dicom"]["iod_name"] = json!("Advanced Blending Presentation State");
+        fixture["dicom"]["sop_class_uid"] = json!("1.2.840.10008.5.1.4.1.1.11.8");
+        fixture["expected_advanced_blending_presentation_state"] = json!({
+            "same_study": true,
+            "shared_frame_of_reference": true,
+            "different_series": true,
+            "sources": [
+                {"complete_instance": true, "referenced_frame_numbers": []},
+                {"complete_instance": true, "referenced_frame_numbers": []},
+                {"complete_instance": true, "referenced_frame_numbers": []},
+                {"complete_instance": true, "referenced_frame_numbers": []}
+            ],
+            "blending_inputs": [
+                {"input_number": 1, "time_series_blending": "FALSE", "geometry_for_display": "TRUE"},
+                {"input_number": 2, "time_series_blending": "FALSE", "geometry_for_display": "FALSE"}
+            ],
+            "display_operation": {
+                "items": 1,
+                "input_numbers": [1, 2],
+                "blending_mode": "EQUAL",
+                "final_output": true
+            },
+            "icc_profile": {
+                "size_bytes": 736,
+                "sha256": "8e069a3476b71a0e0ae7272d9278ba70540d1c4a0b19af1c7d52e56f49091fef",
+                "dicom_color_space": "SRGB"
+            },
+            "common_instance_reference": {
+                "series": [
+                    {"referenced_source_indices": [1, 2]},
+                    {"referenced_source_indices": [3, 4]}
+                ],
+                "other_study_items": 0,
+                "mirrors_blending_inputs": true
+            },
+            "optional_transforms": {
+                "referenced_spatial_registration_items": 0,
+                "optical_path_selection_items": 0,
+                "softcopy_voi_lut_items": 0,
+                "palette_color_lut_items": 0,
+                "threshold_items": 0,
+                "displayed_area_items": 0,
+                "graphic_annotation_items": 0,
+                "graphic_group_items": 0,
+                "specimen_items": 0,
+                "spatial_transform_present": false,
+                "graphic_layer_items": 0
+            },
+            "pixel_data_absent": true
+        });
+        manifest["files"]
+            .as_array_mut()
+            .expect("manifest files")
+            .push(fixture);
+        manifest["skipped_cases"]
+            .as_array_mut()
+            .expect("manifest skipped cases")
+            .retain(|case| {
+                case["case_id"] != Value::from("derived/presentation-state/advanced_blending")
+            });
+        fs::write(
+            &manifest_path,
+            serde_json::to_vec_pretty(&manifest).expect("serialize report fixture manifest"),
+        )
+        .expect("write report fixture manifest");
+    }
+
+    let report = dicom_test_suite::build_coverage_report(&out_dir)
+        .expect("Advanced Blending coverage report should build");
+    let schema: Value = serde_json::from_slice(
+        &fs::read("schemas/coverage-report.schema.json").expect("coverage schema"),
+    )
+    .expect("coverage schema JSON");
+    let validator = jsonschema::validator_for(&schema).expect("coverage schema should compile");
+    let errors = validator
+        .iter_errors(&report)
+        .map(|error| error.to_string())
+        .collect::<Vec<_>>();
+    assert!(
+        errors.is_empty(),
+        "Advanced Blending report schema: {errors:?}"
+    );
+
+    let row = coverage_row(&report, "derived/presentation-state/advanced_blending");
+    for (field, expected) in [
+        (
+            "advanced_blending_presentation_state_kind",
+            json!("Advanced Blending Presentation State"),
+        ),
+        (
+            "advanced_blending_sop_class_uid",
+            json!("1.2.840.10008.5.1.4.1.1.11.8"),
+        ),
+        ("advanced_blending_source_series_count", json!(2)),
+        ("advanced_blending_source_image_count", json!(4)),
+        ("advanced_blending_source_closure", json!(true)),
+        ("advanced_blending_input_numbers", json!("1; 2")),
+        ("advanced_blending_time_series_flags", json!("FALSE; FALSE")),
+        (
+            "advanced_blending_geometry_for_display_flags",
+            json!("TRUE; FALSE"),
+        ),
+        ("advanced_blending_display_operation_count", json!(1)),
+        ("advanced_blending_display_input_order", json!("1; 2")),
+        ("advanced_blending_final_output", json!(true)),
+        ("advanced_blending_blending_mode", json!("EQUAL")),
+        ("advanced_blending_icc_profile_size_bytes", json!(736)),
+        ("advanced_blending_icc_color_space", json!("SRGB")),
+        ("advanced_blending_common_reference_closure", json!(true)),
+        ("advanced_blending_optional_transforms_absent", json!(true)),
+        ("advanced_blending_pixel_data_absent", json!(true)),
+    ] {
+        assert_eq!(row[field], expected, "{field}");
+    }
+    assert_eq!(
+        row["advanced_blending_icc_profile_sha256"],
+        "8e069a3476b71a0e0ae7272d9278ba70540d1c4a0b19af1c7d52e56f49091fef"
+    );
+    assert!(
+        row["advanced_blending_unresolved_external_validator_findings"]
+            .as_str()
+            .is_some_and(|finding| finding.contains("dciodvfy"))
+    );
+
+    for pointer in [
+        "/grouped_coverage/advanced_blending_source_series_counts/2",
+        "/grouped_coverage/advanced_blending_source_image_counts/4",
+        "/grouped_coverage/advanced_blending_source_closure_states/true",
+        "/grouped_coverage/advanced_blending_input_number_orders/1; 2",
+        "/grouped_coverage/advanced_blending_time_series_flags/FALSE; FALSE",
+        "/grouped_coverage/advanced_blending_geometry_for_display_flags/TRUE; FALSE",
+        "/grouped_coverage/advanced_blending_display_operation_counts/1",
+        "/grouped_coverage/advanced_blending_display_input_orders/1; 2",
+        "/grouped_coverage/advanced_blending_final_output_states/true",
+        "/grouped_coverage/advanced_blending_modes/EQUAL",
+        "/grouped_coverage/advanced_blending_icc_profile_size_byte_counts/736",
+        "/grouped_coverage/advanced_blending_common_reference_closure_states/true",
+        "/grouped_coverage/advanced_blending_optional_transforms_absent_states/true",
+        "/grouped_coverage/advanced_blending_pixel_data_absent_states/true",
+    ] {
+        assert_eq!(report.pointer(pointer), Some(&json!(1)), "{pointer}");
+    }
+
+    let mut incomplete = report.clone();
+    coverage_row_mut(
+        &mut incomplete,
+        "derived/presentation-state/advanced_blending",
+    )["advanced_blending_common_reference_closure"] = Value::Null;
+    assert!(!validator.is_valid(&incomplete));
+    let mut leaked = report.clone();
+    coverage_row_mut(
+        &mut leaked,
+        "classic/ct/mono2_i16_rescale_12bit_explicit_le",
+    )["advanced_blending_blending_mode"] = json!("EQUAL");
+    assert!(!validator.is_valid(&leaked));
+
+    let markdown = dicom_test_suite::render_coverage_report_markdown(&report);
+    for expected in [
+        "## Advanced Blending Presentation State Expectations",
+        "2 series / 4 images",
+        "FALSE; FALSE",
+        "TRUE; FALSE",
+        "dciodvfy",
+        "### Advanced Blending Input Number Orders",
+    ] {
+        assert!(
+            markdown.contains(expected),
+            "markdown should contain {expected}"
+        );
+    }
+    fs::remove_dir_all(out_dir).expect("remove report root");
+}
+
 fn generate_core(out_dir: &Path) {
     let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
         .args([

@@ -15485,6 +15485,82 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
             "Color Softcopy Pixel Data Absent States",
             "/grouped_coverage/color_softcopy_pixel_data_absent_states",
         ),
+        (
+            "Advanced Blending Presentation State Kinds",
+            "/grouped_coverage/advanced_blending_presentation_state_kinds",
+        ),
+        (
+            "Advanced Blending SOP Class UIDs",
+            "/grouped_coverage/advanced_blending_sop_class_uids",
+        ),
+        (
+            "Advanced Blending Source Series Counts",
+            "/grouped_coverage/advanced_blending_source_series_counts",
+        ),
+        (
+            "Advanced Blending Source Image Counts",
+            "/grouped_coverage/advanced_blending_source_image_counts",
+        ),
+        (
+            "Advanced Blending Source Closure States",
+            "/grouped_coverage/advanced_blending_source_closure_states",
+        ),
+        (
+            "Advanced Blending Input Number Orders",
+            "/grouped_coverage/advanced_blending_input_number_orders",
+        ),
+        (
+            "Advanced Blending Time Series Flags",
+            "/grouped_coverage/advanced_blending_time_series_flags",
+        ),
+        (
+            "Advanced Blending Geometry For Display Flags",
+            "/grouped_coverage/advanced_blending_geometry_for_display_flags",
+        ),
+        (
+            "Advanced Blending Display Operation Counts",
+            "/grouped_coverage/advanced_blending_display_operation_counts",
+        ),
+        (
+            "Advanced Blending Display Input Orders",
+            "/grouped_coverage/advanced_blending_display_input_orders",
+        ),
+        (
+            "Advanced Blending Final Output States",
+            "/grouped_coverage/advanced_blending_final_output_states",
+        ),
+        (
+            "Advanced Blending Modes",
+            "/grouped_coverage/advanced_blending_modes",
+        ),
+        (
+            "Advanced Blending ICC Profile SHA-256 Values",
+            "/grouped_coverage/advanced_blending_icc_profile_sha256_values",
+        ),
+        (
+            "Advanced Blending ICC Profile Size Byte Counts",
+            "/grouped_coverage/advanced_blending_icc_profile_size_byte_counts",
+        ),
+        (
+            "Advanced Blending DICOM Color Spaces",
+            "/grouped_coverage/advanced_blending_icc_color_spaces",
+        ),
+        (
+            "Advanced Blending Common Reference Closure States",
+            "/grouped_coverage/advanced_blending_common_reference_closure_states",
+        ),
+        (
+            "Advanced Blending Optional Transform Absence States",
+            "/grouped_coverage/advanced_blending_optional_transforms_absent_states",
+        ),
+        (
+            "Advanced Blending Pixel Data Absent States",
+            "/grouped_coverage/advanced_blending_pixel_data_absent_states",
+        ),
+        (
+            "Advanced Blending Unresolved External Validator Findings",
+            "/grouped_coverage/advanced_blending_unresolved_external_validator_findings",
+        ),
     ] {
         append_count_map_section(&mut output, report, title, pointer);
     }
@@ -16616,6 +16692,47 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
         output.push('\n');
     }
 
+    let advanced_blending_rows = report
+        .get("coverage_matrix")
+        .and_then(Value::as_array)
+        .map(|rows| {
+            rows.iter()
+                .filter(|row| !row["advanced_blending_presentation_state_kind"].is_null())
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    if !advanced_blending_rows.is_empty() {
+        output.push_str("## Advanced Blending Presentation State Expectations\n\n");
+        output.push_str("| Case ID | State kind / SOP Class UID | Sources | Source closure | Inputs / time-series / geometry | Display operations / inputs / mode / final | ICC bytes / SHA-256 / color space | Common refs closed | Optional transforms absent | Pixel data absent | Unresolved external-validator findings |\n");
+        output.push_str("|---|---|---:|---|---|---|---|---|---|---|---|\n");
+        for row in advanced_blending_rows {
+            output.push_str(&format!(
+                "| {} | {} / {} | {} series / {} images | {} | {} / {} / {} | {} / {} / {} / {} | {} / {} / {} | {} | {} | {} | {} |\n",
+                markdown_cell(row.get("case_id").and_then(Value::as_str)),
+                markdown_cell(row.get("advanced_blending_presentation_state_kind").and_then(Value::as_str)),
+                markdown_cell(row.get("advanced_blending_sop_class_uid").and_then(Value::as_str)),
+                markdown_number(row.get("advanced_blending_source_series_count")),
+                markdown_number(row.get("advanced_blending_source_image_count")),
+                markdown_bool(row.get("advanced_blending_source_closure")),
+                markdown_cell(row.get("advanced_blending_input_numbers").and_then(Value::as_str)),
+                markdown_cell(row.get("advanced_blending_time_series_flags").and_then(Value::as_str)),
+                markdown_cell(row.get("advanced_blending_geometry_for_display_flags").and_then(Value::as_str)),
+                markdown_number(row.get("advanced_blending_display_operation_count")),
+                markdown_cell(row.get("advanced_blending_display_input_order").and_then(Value::as_str)),
+                markdown_cell(row.get("advanced_blending_blending_mode").and_then(Value::as_str)),
+                markdown_bool(row.get("advanced_blending_final_output")),
+                markdown_number(row.get("advanced_blending_icc_profile_size_bytes")),
+                markdown_cell(row.get("advanced_blending_icc_profile_sha256").and_then(Value::as_str)),
+                markdown_cell(row.get("advanced_blending_icc_color_space").and_then(Value::as_str)),
+                markdown_bool(row.get("advanced_blending_common_reference_closure")),
+                markdown_bool(row.get("advanced_blending_optional_transforms_absent")),
+                markdown_bool(row.get("advanced_blending_pixel_data_absent")),
+                markdown_cell(row.get("advanced_blending_unresolved_external_validator_findings").and_then(Value::as_str)),
+            ));
+        }
+        output.push('\n');
+    }
+
     output.push_str("## Coverage Matrix\n\n");
     output.push_str("| Case ID | Status | Profile | IOD | Transfer Syntax | Photometric | Bits | Frames | Generation Backend | Backend Version | Backend Determinism | Validation |\n");
     output.push_str("|---|---|---|---|---|---|---:|---:|---|---|---|---|\n");
@@ -16762,6 +16879,102 @@ fn generated_coverage_row(
                     == Some(false)
         })
         .map(|_| "shutter+graphic_annotation+graphic_layer+overlay+spatial_transform");
+    let is_advanced_blending = file.get("case_id").and_then(Value::as_str)
+        == Some("derived/presentation-state/advanced_blending");
+    let advanced_blending_contract = is_advanced_blending
+        .then(|| file.pointer("/expected_advanced_blending_presentation_state"))
+        .flatten();
+    let advanced_blending_sources = advanced_blending_contract
+        .and_then(|contract| contract.get("sources"))
+        .and_then(Value::as_array);
+    let advanced_blending_inputs = advanced_blending_contract
+        .and_then(|contract| contract.get("blending_inputs"))
+        .and_then(Value::as_array);
+    let advanced_blending_source_closure = advanced_blending_contract.map(|contract| {
+        contract.get("same_study").and_then(Value::as_bool) == Some(true)
+            && contract
+                .get("shared_frame_of_reference")
+                .and_then(Value::as_bool)
+                == Some(true)
+            && contract.get("different_series").and_then(Value::as_bool) == Some(true)
+            && advanced_blending_sources.is_some_and(|sources| {
+                sources.len() == 4
+                    && sources.iter().all(|source| {
+                        source.get("complete_instance").and_then(Value::as_bool) == Some(true)
+                            && source
+                                .get("referenced_frame_numbers")
+                                .and_then(Value::as_array)
+                                .is_some_and(Vec::is_empty)
+                    })
+            })
+    });
+    let join_advanced_input_field = |field: &str| {
+        advanced_blending_inputs.map(|inputs| {
+            inputs
+                .iter()
+                .filter_map(|input| input.get(field))
+                .map(|value| {
+                    value
+                        .as_str()
+                        .map(str::to_string)
+                        .or_else(|| value.as_u64().map(|value| value.to_string()))
+                        .unwrap_or_default()
+                })
+                .collect::<Vec<_>>()
+                .join("; ")
+        })
+    };
+    let advanced_blending_common_reference_closure = advanced_blending_contract.map(|contract| {
+        contract
+            .pointer("/common_instance_reference/mirrors_blending_inputs")
+            .and_then(Value::as_bool)
+            == Some(true)
+            && contract
+                .pointer("/common_instance_reference/other_study_items")
+                .and_then(Value::as_u64)
+                == Some(0)
+            && contract
+                .pointer("/common_instance_reference/series")
+                .and_then(Value::as_array)
+                .is_some_and(|series| {
+                    series.len() == 2
+                        && series
+                            .iter()
+                            .map(|item| {
+                                item.get("referenced_source_indices")
+                                    .and_then(Value::as_array)
+                                    .map(Vec::len)
+                                    .unwrap_or(0)
+                            })
+                            .sum::<usize>()
+                            == 4
+                })
+    });
+    let advanced_blending_optional_transforms_absent = advanced_blending_contract.map(|contract| {
+        let transforms = contract.get("optional_transforms");
+        [
+            "referenced_spatial_registration_items",
+            "optical_path_selection_items",
+            "softcopy_voi_lut_items",
+            "palette_color_lut_items",
+            "threshold_items",
+            "displayed_area_items",
+            "graphic_annotation_items",
+            "graphic_group_items",
+            "specimen_items",
+            "graphic_layer_items",
+        ]
+        .iter()
+        .all(|field| {
+            transforms
+                .and_then(|value| value.get(field))
+                .and_then(Value::as_u64)
+                == Some(0)
+        }) && transforms
+            .and_then(|value| value.get("spatial_transform_present"))
+            .and_then(Value::as_bool)
+            == Some(false)
+    });
     let mut row = serde_json::json!({
         "case_id": report_str(manifest_path, file, "/case_id", "file case_id must be a string")?,
         "profile": run_profile,
@@ -17018,6 +17231,133 @@ fn generated_coverage_row(
         } else {
             Value::Null
         },
+    );
+    for (field, pointer) in [
+        (
+            "advanced_blending_presentation_state_kind",
+            "/dicom/iod_name",
+        ),
+        ("advanced_blending_sop_class_uid", "/dicom/sop_class_uid"),
+        (
+            "advanced_blending_blending_mode",
+            "/expected_advanced_blending_presentation_state/display_operation/blending_mode",
+        ),
+        (
+            "advanced_blending_icc_profile_sha256",
+            "/expected_advanced_blending_presentation_state/icc_profile/sha256",
+        ),
+        (
+            "advanced_blending_icc_color_space",
+            "/expected_advanced_blending_presentation_state/icc_profile/dicom_color_space",
+        ),
+    ] {
+        row_object.insert(
+            field.to_string(),
+            if is_advanced_blending {
+                file.pointer(pointer)
+                    .and_then(Value::as_str)
+                    .map(Value::from)
+                    .unwrap_or(Value::Null)
+            } else {
+                Value::Null
+            },
+        );
+    }
+    for (field, value) in [
+        (
+            "advanced_blending_source_series_count",
+            advanced_blending_inputs.map(|inputs| Value::from(inputs.len() as u64)),
+        ),
+        (
+            "advanced_blending_source_image_count",
+            advanced_blending_sources.map(|sources| Value::from(sources.len() as u64)),
+        ),
+        (
+            "advanced_blending_display_operation_count",
+            advanced_blending_contract
+                .and_then(|contract| contract.pointer("/display_operation/items"))
+                .and_then(Value::as_u64)
+                .map(Value::from),
+        ),
+        (
+            "advanced_blending_icc_profile_size_bytes",
+            advanced_blending_contract
+                .and_then(|contract| contract.pointer("/icc_profile/size_bytes"))
+                .and_then(Value::as_u64)
+                .map(Value::from),
+        ),
+    ] {
+        row_object.insert(field.to_string(), value.unwrap_or(Value::Null));
+    }
+    for (field, value) in [
+        (
+            "advanced_blending_source_closure",
+            advanced_blending_source_closure,
+        ),
+        (
+            "advanced_blending_final_output",
+            advanced_blending_contract
+                .and_then(|contract| contract.pointer("/display_operation/final_output"))
+                .and_then(Value::as_bool),
+        ),
+        (
+            "advanced_blending_common_reference_closure",
+            advanced_blending_common_reference_closure,
+        ),
+        (
+            "advanced_blending_optional_transforms_absent",
+            advanced_blending_optional_transforms_absent,
+        ),
+        (
+            "advanced_blending_pixel_data_absent",
+            advanced_blending_contract
+                .and_then(|contract| contract.get("pixel_data_absent"))
+                .and_then(Value::as_bool),
+        ),
+    ] {
+        row_object.insert(
+            field.to_string(),
+            value.map(Value::from).unwrap_or(Value::Null),
+        );
+    }
+    for (field, value) in [
+        (
+            "advanced_blending_input_numbers",
+            join_advanced_input_field("input_number"),
+        ),
+        (
+            "advanced_blending_time_series_flags",
+            join_advanced_input_field("time_series_blending"),
+        ),
+        (
+            "advanced_blending_geometry_for_display_flags",
+            join_advanced_input_field("geometry_for_display"),
+        ),
+        (
+            "advanced_blending_display_input_order",
+            advanced_blending_contract
+                .and_then(|contract| contract.pointer("/display_operation/input_numbers"))
+                .and_then(Value::as_array)
+                .map(|values| {
+                    values
+                        .iter()
+                        .filter_map(Value::as_u64)
+                        .map(|value| value.to_string())
+                        .collect::<Vec<_>>()
+                        .join("; ")
+                }),
+        ),
+    ] {
+        row_object.insert(
+            field.to_string(),
+            value.map(Value::from).unwrap_or(Value::Null),
+        );
+    }
+    row_object.insert(
+        "advanced_blending_unresolved_external_validator_findings".to_string(),
+        is_advanced_blending
+            .then(|| Value::from("dciodvfy: Frame of Reference UID and Position Reference Indicator reported outside standard IOD"))
+            .unwrap_or(Value::Null),
     );
     for (field, value) in [
         (
@@ -20704,6 +21044,25 @@ fn skipped_coverage_row(
         "color_softcopy_icc_color_space",
         "color_softcopy_optional_modules_absent",
         "color_softcopy_pixel_data_absent",
+        "advanced_blending_presentation_state_kind",
+        "advanced_blending_sop_class_uid",
+        "advanced_blending_source_series_count",
+        "advanced_blending_source_image_count",
+        "advanced_blending_source_closure",
+        "advanced_blending_input_numbers",
+        "advanced_blending_time_series_flags",
+        "advanced_blending_geometry_for_display_flags",
+        "advanced_blending_display_operation_count",
+        "advanced_blending_display_input_order",
+        "advanced_blending_final_output",
+        "advanced_blending_blending_mode",
+        "advanced_blending_icc_profile_sha256",
+        "advanced_blending_icc_profile_size_bytes",
+        "advanced_blending_icc_color_space",
+        "advanced_blending_common_reference_closure",
+        "advanced_blending_optional_transforms_absent",
+        "advanced_blending_pixel_data_absent",
+        "advanced_blending_unresolved_external_validator_findings",
     ] {
         row_object.insert(field.to_string(), Value::Null);
     }
@@ -21134,6 +21493,25 @@ struct GroupedCoverage {
     color_softcopy_icc_color_spaces: BTreeMap<String, usize>,
     color_softcopy_optional_module_absence_sets: BTreeMap<String, usize>,
     color_softcopy_pixel_data_absent_states: BTreeMap<String, usize>,
+    advanced_blending_presentation_state_kinds: BTreeMap<String, usize>,
+    advanced_blending_sop_class_uids: BTreeMap<String, usize>,
+    advanced_blending_source_series_counts: BTreeMap<String, usize>,
+    advanced_blending_source_image_counts: BTreeMap<String, usize>,
+    advanced_blending_source_closure_states: BTreeMap<String, usize>,
+    advanced_blending_input_number_orders: BTreeMap<String, usize>,
+    advanced_blending_time_series_flags: BTreeMap<String, usize>,
+    advanced_blending_geometry_for_display_flags: BTreeMap<String, usize>,
+    advanced_blending_display_operation_counts: BTreeMap<String, usize>,
+    advanced_blending_display_input_orders: BTreeMap<String, usize>,
+    advanced_blending_final_output_states: BTreeMap<String, usize>,
+    advanced_blending_modes: BTreeMap<String, usize>,
+    advanced_blending_icc_profile_sha256_values: BTreeMap<String, usize>,
+    advanced_blending_icc_profile_size_byte_counts: BTreeMap<String, usize>,
+    advanced_blending_icc_color_spaces: BTreeMap<String, usize>,
+    advanced_blending_common_reference_closure_states: BTreeMap<String, usize>,
+    advanced_blending_optional_transforms_absent_states: BTreeMap<String, usize>,
+    advanced_blending_pixel_data_absent_states: BTreeMap<String, usize>,
+    advanced_blending_unresolved_external_validator_findings: BTreeMap<String, usize>,
     synthetic_data: BTreeMap<String, usize>,
     image_types: BTreeMap<String, usize>,
     conversion_types: BTreeMap<String, usize>,
@@ -22274,6 +22652,96 @@ impl GroupedCoverage {
                 .entry(absent.to_string())
                 .or_default() += 1;
         }
+        for (map, field) in [
+            (
+                &mut self.advanced_blending_presentation_state_kinds,
+                "advanced_blending_presentation_state_kind",
+            ),
+            (
+                &mut self.advanced_blending_sop_class_uids,
+                "advanced_blending_sop_class_uid",
+            ),
+            (
+                &mut self.advanced_blending_input_number_orders,
+                "advanced_blending_input_numbers",
+            ),
+            (
+                &mut self.advanced_blending_time_series_flags,
+                "advanced_blending_time_series_flags",
+            ),
+            (
+                &mut self.advanced_blending_geometry_for_display_flags,
+                "advanced_blending_geometry_for_display_flags",
+            ),
+            (
+                &mut self.advanced_blending_display_input_orders,
+                "advanced_blending_display_input_order",
+            ),
+            (
+                &mut self.advanced_blending_modes,
+                "advanced_blending_blending_mode",
+            ),
+            (
+                &mut self.advanced_blending_icc_profile_sha256_values,
+                "advanced_blending_icc_profile_sha256",
+            ),
+            (
+                &mut self.advanced_blending_icc_color_spaces,
+                "advanced_blending_icc_color_space",
+            ),
+            (
+                &mut self.advanced_blending_unresolved_external_validator_findings,
+                "advanced_blending_unresolved_external_validator_findings",
+            ),
+        ] {
+            increment_map(map, row.get(field).and_then(Value::as_str));
+        }
+        for (map, field) in [
+            (
+                &mut self.advanced_blending_source_series_counts,
+                "advanced_blending_source_series_count",
+            ),
+            (
+                &mut self.advanced_blending_source_image_counts,
+                "advanced_blending_source_image_count",
+            ),
+            (
+                &mut self.advanced_blending_display_operation_counts,
+                "advanced_blending_display_operation_count",
+            ),
+            (
+                &mut self.advanced_blending_icc_profile_size_byte_counts,
+                "advanced_blending_icc_profile_size_bytes",
+            ),
+        ] {
+            increment_scalar_map(map, row.get(field));
+        }
+        for (map, field) in [
+            (
+                &mut self.advanced_blending_source_closure_states,
+                "advanced_blending_source_closure",
+            ),
+            (
+                &mut self.advanced_blending_final_output_states,
+                "advanced_blending_final_output",
+            ),
+            (
+                &mut self.advanced_blending_common_reference_closure_states,
+                "advanced_blending_common_reference_closure",
+            ),
+            (
+                &mut self.advanced_blending_optional_transforms_absent_states,
+                "advanced_blending_optional_transforms_absent",
+            ),
+            (
+                &mut self.advanced_blending_pixel_data_absent_states,
+                "advanced_blending_pixel_data_absent",
+            ),
+        ] {
+            if let Some(value) = row.get(field).and_then(Value::as_bool) {
+                *map.entry(value.to_string()).or_default() += 1;
+            }
+        }
         increment_map(
             &mut self.synthetic_data,
             row.get("synthetic_data").and_then(Value::as_str),
@@ -22894,6 +23362,79 @@ impl GroupedCoverage {
             (
                 "color_softcopy_pixel_data_absent_states",
                 &self.color_softcopy_pixel_data_absent_states,
+            ),
+            (
+                "advanced_blending_presentation_state_kinds",
+                &self.advanced_blending_presentation_state_kinds,
+            ),
+            (
+                "advanced_blending_sop_class_uids",
+                &self.advanced_blending_sop_class_uids,
+            ),
+            (
+                "advanced_blending_source_series_counts",
+                &self.advanced_blending_source_series_counts,
+            ),
+            (
+                "advanced_blending_source_image_counts",
+                &self.advanced_blending_source_image_counts,
+            ),
+            (
+                "advanced_blending_source_closure_states",
+                &self.advanced_blending_source_closure_states,
+            ),
+            (
+                "advanced_blending_input_number_orders",
+                &self.advanced_blending_input_number_orders,
+            ),
+            (
+                "advanced_blending_time_series_flags",
+                &self.advanced_blending_time_series_flags,
+            ),
+            (
+                "advanced_blending_geometry_for_display_flags",
+                &self.advanced_blending_geometry_for_display_flags,
+            ),
+            (
+                "advanced_blending_display_operation_counts",
+                &self.advanced_blending_display_operation_counts,
+            ),
+            (
+                "advanced_blending_display_input_orders",
+                &self.advanced_blending_display_input_orders,
+            ),
+            (
+                "advanced_blending_final_output_states",
+                &self.advanced_blending_final_output_states,
+            ),
+            ("advanced_blending_modes", &self.advanced_blending_modes),
+            (
+                "advanced_blending_icc_profile_sha256_values",
+                &self.advanced_blending_icc_profile_sha256_values,
+            ),
+            (
+                "advanced_blending_icc_profile_size_byte_counts",
+                &self.advanced_blending_icc_profile_size_byte_counts,
+            ),
+            (
+                "advanced_blending_icc_color_spaces",
+                &self.advanced_blending_icc_color_spaces,
+            ),
+            (
+                "advanced_blending_common_reference_closure_states",
+                &self.advanced_blending_common_reference_closure_states,
+            ),
+            (
+                "advanced_blending_optional_transforms_absent_states",
+                &self.advanced_blending_optional_transforms_absent_states,
+            ),
+            (
+                "advanced_blending_pixel_data_absent_states",
+                &self.advanced_blending_pixel_data_absent_states,
+            ),
+            (
+                "advanced_blending_unresolved_external_validator_findings",
+                &self.advanced_blending_unresolved_external_validator_findings,
             ),
         ] {
             grouped_object.insert(

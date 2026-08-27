@@ -8875,6 +8875,54 @@
           "covered": true,
           "part": "PS3.6",
           "anchor": "table_A-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_sop_class X-Ray Radiofluoroscopic Image Storage",
+          "covered": true,
+          "part": "PS3.4",
+          "anchor": "table_B.5-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_modules_for_iod X-Ray Radiofluoroscopic Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.16-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module X-Ray Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-26"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module X-Ray Acquisition",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-27"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module XRF Positioner",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-31"
+        },
+        {
+          "source": "local-source-note",
+          "edition": "2026b",
+          "query": "standards/source-notes/phase-2-xrf-monoplane.md",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.16-1"
         }
       ]
     },

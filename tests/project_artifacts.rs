@@ -3710,6 +3710,10 @@ fn generator_recipe_case_ids() -> BTreeSet<String> {
         ("src/generator/native/nm.rs", &["case_id: \""][..]),
         ("src/generator/native/pet.rs", &["case_id: \""][..]),
         (
+            "src/generator/native/us_multiframe.rs",
+            &["case_id: \""][..],
+        ),
+        (
             "src/generator/native/private_creator_sc.rs",
             &["case_id: \""][..],
         ),

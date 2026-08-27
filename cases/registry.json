@@ -8635,7 +8635,7 @@
     {
       "case_id": "classic/us/multiframe_explicit_le",
       "artifact_kind": "dicom_instance",
-      "status": "planned",
+      "status": "implemented",
       "provider": {
         "kind": "rust_native",
         "id": "rust_native"
@@ -8646,18 +8646,8 @@
         "geometry",
         "pixels"
       ],
-      "roadmap": {
-        "priority": "next",
-        "delivery_phase": "phase-2",
-        "rationale": "Adds classic multi-frame Ultrasound navigation and timing coverage."
-      },
-      "blockers": [
-        {
-          "code": "recipe_unimplemented",
-          "message": "The deterministic native recipe is not implemented.",
-          "recheck_phase": "phase-2"
-        }
-      ],
+      "roadmap": null,
+      "blockers": [],
       "profiles": [
         "core"
       ],
@@ -8683,6 +8673,62 @@
           "covered": true,
           "part": "PS3.6",
           "anchor": "table_A-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_sop_class Ultrasound Multi-frame Image Storage",
+          "covered": true,
+          "part": "PS3.4",
+          "anchor": "table_B.5-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_modules_for_iod Ultrasound Multi-frame Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.7-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module Multi-frame",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.7-14"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module Cine",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.7-13"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module US Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-18"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "resolve_attribute_context FrameTime --iod Ultrasound Multi-frame Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.7-13"
+        },
+        {
+          "source": "local-source-note",
+          "edition": "2026b",
+          "query": "standards/source-notes/phase-2-us-multiframe.md",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-18"
         }
       ]
     },

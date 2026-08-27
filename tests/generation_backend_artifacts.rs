@@ -43,7 +43,7 @@ fn committed_generation_backend_lock_validates_and_has_unique_ids() {
 }
 
 #[test]
-fn external_registry_providers_resolve_to_optional_planned_backends() {
+fn external_registry_providers_resolve_to_optional_locked_backends() {
     let lock = read_json("generation-backends.lock.json");
     let registry = read_json("cases/registry.json");
     let backends = lock
@@ -68,19 +68,31 @@ fn external_registry_providers_resolve_to_optional_planned_backends() {
             .find(|backend| backend.get("backend_id").and_then(Value::as_str) == Some(provider_id))
             .unwrap_or_else(|| panic!("external provider {provider_id} must be locked"));
         assert_eq!(
-            backend.get("state").and_then(Value::as_str),
-            Some("planned"),
-            "external providers must remain planned before runtime selection"
-        );
-        assert_eq!(
             backend.get("required_by_default").and_then(Value::as_bool),
             Some(false),
             "external providers must not become default dependencies"
         );
-        assert!(
-            backend.get("discovery").is_some_and(Value::is_null),
-            "planned providers must not imply a selected launcher"
-        );
+        if provider_id == "highdicom_pydicom" {
+            assert_eq!(
+                backend.get("state").and_then(Value::as_str),
+                Some("available"),
+                "the uv-managed proof provider should be available"
+            );
+            assert!(
+                backend.get("discovery").is_some_and(Value::is_object),
+                "the available provider must have portable discovery policy"
+            );
+        } else {
+            assert_eq!(
+                backend.get("state").and_then(Value::as_str),
+                Some("planned"),
+                "unselected external providers must remain planned"
+            );
+            assert!(
+                backend.get("discovery").is_some_and(Value::is_null),
+                "planned providers must not imply a selected launcher"
+            );
+        }
     }
 }
 

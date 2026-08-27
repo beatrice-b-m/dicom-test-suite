@@ -782,7 +782,7 @@ fn backend_discovery_schema_requires_portable_runtime_identity_inputs() {
         .and_then(Value::as_array)
         .expect("backend discovery must define required fields");
     for field in [
-        "default_relative_executable",
+        "default_relative_executables",
         "fixed_arguments",
         "version_arguments",
         "runtime_identity_arguments",

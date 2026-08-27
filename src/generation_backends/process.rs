@@ -61,20 +61,26 @@ pub fn invoke_backend(
     validate_request(&staged_request)?;
     write_json_exclusive(&request_path, &staged_request)?;
 
-    let executable =
+    if !invocation.executable.is_absolute() {
+        return Err(invalid(format!(
+            "backend executable {} must be an absolute prepared-runtime path",
+            invocation.executable.display()
+        )));
+    }
+    let canonical_executable =
         fs::canonicalize(&invocation.executable).map_err(|source| BackendContractError::Read {
             path: invocation.executable.clone(),
             source,
         })?;
-    if !executable.is_file() {
+    if !canonical_executable.is_file() {
         return Err(invalid(format!(
             "backend executable {} is not a regular file",
-            executable.display()
+            canonical_executable.display()
         )));
     }
-    let executable_fingerprint = executable_fingerprint(&executable)?;
+    let executable_fingerprint = executable_fingerprint(&canonical_executable)?;
 
-    let mut command = Command::new(&executable);
+    let mut command = Command::new(&invocation.executable);
     command
         .args(&invocation.fixed_arguments)
         .current_dir(staging_root)
@@ -98,9 +104,12 @@ pub fn invoke_backend(
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
 
-    let mut child = command
-        .spawn()
-        .map_err(|error| invalid(format!("spawn backend {}: {error}", executable.display())))?;
+    let mut child = command.spawn().map_err(|error| {
+        invalid(format!(
+            "spawn backend {}: {error}",
+            invocation.executable.display()
+        ))
+    })?;
     let stdout = child.stdout.take().expect("piped stdout");
     let stderr = child.stderr.take().expect("piped stderr");
     let stdout_limit = invocation.max_stdout_bytes;

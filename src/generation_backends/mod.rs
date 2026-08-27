@@ -114,15 +114,17 @@ pub fn validate_backend_lock(
             ));
         }
         if let Some(discovery) = backend["discovery"].as_object() {
-            let default_executable = Path::new(
-                discovery["default_relative_executable"]
-                    .as_str()
-                    .expect("schema checked default executable"),
-            );
-            if !is_safe_relative_path(default_executable) {
-                problems.push(format!(
-                    "backend {id} default runtime executable path is unsafe"
-                ));
+            for platform in ["linux", "macos", "windows"] {
+                let default_executable = Path::new(
+                    discovery["default_relative_executables"][platform]
+                        .as_str()
+                        .expect("schema checked platform executable"),
+                );
+                if !is_safe_relative_path(default_executable) {
+                    problems.push(format!(
+                        "backend {id} {platform} default runtime executable path is unsafe"
+                    ));
+                }
             }
             for entrypoint in discovery["entrypoint_paths"]
                 .as_array()

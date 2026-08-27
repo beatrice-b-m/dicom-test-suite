@@ -133,7 +133,7 @@
       "type": "object",
       "required": [
         "executable",
-        "default_relative_executable",
+        "default_relative_executables",
         "fixed_arguments",
         "version_arguments",
         "runtime_identity_arguments",
@@ -145,9 +145,24 @@
           "type": "string",
           "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
         },
-        "default_relative_executable": {
-          "type": "string",
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]*$"
+        "default_relative_executables": {
+          "type": "object",
+          "required": ["linux", "macos", "windows"],
+          "properties": {
+            "linux": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]*$"
+            },
+            "macos": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]*$"
+            },
+            "windows": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]*$"
+            }
+          },
+          "additionalProperties": false
         },
         "fixed_arguments": {
           "type": "array",

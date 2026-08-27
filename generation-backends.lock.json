@@ -61,11 +61,49 @@
     },
     {
       "backend_id": "highdicom_pydicom",
-      "state": "planned",
+      "state": "available",
       "protocol_version": "0.1.0",
       "implementation_kind": "python",
       "required_by_default": false,
-      "discovery": null,
+      "discovery": {
+        "executable": "python",
+        "default_relative_executables": {
+          "linux": "generation-backends/highdicom-pydicom/.venv/bin/python",
+          "macos": "generation-backends/highdicom-pydicom/.venv/bin/python",
+          "windows": "generation-backends/highdicom-pydicom/.venv/Scripts/python.exe"
+        },
+        "fixed_arguments": [
+          "-I",
+          "-X",
+          "utf8",
+          "-m",
+          "dts_highdicom_backend"
+        ],
+        "version_arguments": [
+          "-I",
+          "-X",
+          "utf8",
+          "-m",
+          "dts_highdicom_backend",
+          "--version"
+        ],
+        "runtime_identity_arguments": [
+          "-I",
+          "-X",
+          "utf8",
+          "-m",
+          "dts_highdicom_backend",
+          "--runtime-identity"
+        ],
+        "entrypoint_paths": [
+          "generation-backends/highdicom-pydicom/pyproject.toml",
+          "generation-backends/highdicom-pydicom/src/dts_highdicom_backend/__init__.py",
+          "generation-backends/highdicom-pydicom/src/dts_highdicom_backend/__main__.py",
+          "generation-backends/highdicom-pydicom/src/dts_highdicom_backend/parametric_map.py",
+          "generation-backends/highdicom-pydicom/src/dts_highdicom_backend/protocol.py"
+        ],
+        "environment_override": "DTS_HIGHDICOM_PYTHON"
+      },
       "dependency_lock": {
         "format": "uv-lock-v1",
         "path": "generation-backends/highdicom-pydicom/uv.lock",
@@ -124,10 +162,7 @@
         "redistribution": "permitted",
         "notes": "The optional uv environment is not vendored or redistributed. SPDX expressions were reviewed from the exact locked distributions: highdicom MIT; NumPy BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0; packaging Apache-2.0 OR BSD-2-Clause; Pillow MIT-CMU; pydicom MIT; pyjpegls MIT; typing-extensions PSF-2.0."
       },
-      "blockers": [
-        "The Rust generation orchestrator does not yet invoke the prepared backend.",
-        "The independent Parametric Map validation run is incomplete."
-      ]
+      "blockers": []
     },
     {
       "backend_id": "dcmqi",

@@ -15,7 +15,7 @@ fn committed_backend_lock_loads_with_dependency_verification() {
     );
     assert_eq!(
         backend_policy(&lock, "highdicom_pydicom").and_then(|backend| backend["state"].as_str()),
-        Some("planned")
+        Some("available")
     );
     let highdicom = backend_policy(&lock, "highdicom_pydicom")
         .expect("highdicom/pydicom policy must be present");
@@ -41,6 +41,12 @@ fn committed_backend_lock_loads_with_dependency_verification() {
                 .unwrap_or_default()
                 .contains("runtime manager")),
         "the explicit uv decision must remove the runtime-manager blocker"
+    );
+    assert_eq!(
+        highdicom
+            .pointer("/discovery/environment_override")
+            .and_then(Value::as_str),
+        Some("DTS_HIGHDICOM_PYTHON")
     );
 }
 

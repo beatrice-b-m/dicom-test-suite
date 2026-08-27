@@ -63,12 +63,23 @@ pub fn discover_prepared_backend(
         .and_then(std::env::var_os)
         .map(PathBuf::from)
         .unwrap_or_else(|| {
+            let platform = std::env::consts::OS;
             repository_root.join(
-                discovery["default_relative_executable"]
+                discovery["default_relative_executables"][platform]
                     .as_str()
-                    .expect("lock schema checked default executable"),
+                    .expect("lock schema checked platform executable"),
             )
         });
+    let executable = if executable.is_absolute() {
+        executable
+    } else {
+        std::env::current_dir()
+            .map_err(|source| BackendContractError::Read {
+                path: PathBuf::from("."),
+                source,
+            })?
+            .join(executable)
+    };
     if !executable.exists() {
         return Ok(BackendDiscovery::Unavailable {
             code: "dependency_unavailable".to_string(),
@@ -81,15 +92,15 @@ pub fn discover_prepared_backend(
             ),
         });
     }
-    let executable =
+    let canonical_executable =
         fs::canonicalize(&executable).map_err(|source| BackendContractError::Read {
             path: executable.clone(),
             source,
         })?;
-    if !executable.is_file() {
+    if !canonical_executable.is_file() {
         return Err(invalid(format!(
             "prepared backend executable {} is not a regular file",
-            executable.display()
+            canonical_executable.display()
         )));
     }
 
@@ -170,7 +181,7 @@ pub fn discover_prepared_backend(
 
     let entrypoint_paths = string_array(discovery, "/entrypoint_paths")?;
     let entrypoint_fingerprint = fingerprint_entrypoints(repository_root, &entrypoint_paths)?;
-    let executable_fingerprint = executable_fingerprint(&executable)?;
+    let executable_fingerprint = executable_fingerprint(&canonical_executable)?;
     let fixed_arguments = string_array(discovery, "/fixed_arguments")?;
     let environment_fingerprint = prepared_environment_fingerprint(
         backend_id,

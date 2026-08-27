@@ -386,9 +386,12 @@ Image, and manifest bytes. Both IODs pass locked `dciodvfy` and a separately
 implemented `uv`-locked secondary IOD route; the Image also passes exact
 independent native-pixel decoding. Strict validation closes the Image over the
 generated Plan digest and identity, and integrated conformance adds no linked
-RT finding or accepted finding. The next action is the explicit milestone-6
-decision checkpoint: evaluate whether to select and lock a minimal current RT
-Radiation Set slice before implementing it.
+RT finding or accepted finding. The explicit milestone-6 decision checkpoint
+is now authorized. Standards review requires the minimal RT Radiation Set to
+be implemented with a registered C-Arm Photon-Electron Radiation companion;
+both remain planned while their paired native generation, strict graph
+closure, and corrected `uv`-locked independent IOD route are implemented and
+qualified.
 
 ### Phase 4 — Pathology and tiled microscopy
 

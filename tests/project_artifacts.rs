@@ -831,9 +831,11 @@ fn phase3_status_records_completed_derived_vertical_gates() {
         "b061e5f654eb426bbab0da9cce0ac945aadcf3cf506182eb6bf33acd3d7a3659",
         "e9337a6c46fe85b56f1f563120dd3caf56ea1335355792db42386db959be6db2",
         "460d525ab06aaf74df963029f3ab39c2536e4e1c5bf4b75fcf16b500382db20c",
-        "141 implemented and 40 planned logical cases",
+        "141 implemented and 41 planned logical cases",
         "d0d78ffccf44218a27944cf1b80dec63c8afa7162b0e085532feb51706a04714",
-        "No Radiation Set\nimplementation starts without that decision",
+        "milestone-6 decision checkpoint authorized selecting and locking",
+        "registered second-generation\nC-Arm Photon-Electron Radiation companion",
+        "Both cases remain planned",
     ] {
         assert!(
             status.contains(required),
@@ -850,7 +852,8 @@ fn phase3_status_records_completed_derived_vertical_gates() {
         "103\nstrictly valid files",
         "linked\nRT Plan and RT Image are complete",
         "105 strictly valid files",
-        "explicit milestone-6\ndecision checkpoint",
+        "explicit milestone-6 decision checkpoint\nis now authorized",
+        "registered C-Arm Photon-Electron Radiation companion",
     ] {
         assert!(plan.contains(required), "coverage plan requires {required}");
     }
@@ -1545,6 +1548,44 @@ fn minimal_rt_radiation_set_source_note_locks_required_companion_graph() {
         assert!(
             source.contains(required),
             "minimal RT Radiation Set source note must contain {required:?}"
+        );
+    }
+
+    let registry: Value = serde_json::from_str(
+        &fs::read_to_string("cases/registry.json").expect("registry must be readable"),
+    )
+    .expect("registry must be valid JSON");
+    let cases = registry["cases"].as_array().unwrap();
+    for case_id in [
+        "non-image/rt/carm_photon_electron_radiation_minimal",
+        "non-image/rt/radiation_set_minimal",
+    ] {
+        let case = cases
+            .iter()
+            .find(|case| case.get("case_id").and_then(Value::as_str) == Some(case_id))
+            .unwrap_or_else(|| panic!("registry must retain {case_id}"));
+        assert_eq!(case["status"], "planned");
+        assert_eq!(case["provider"]["kind"], "rust_native");
+        assert_eq!(case["provider"]["id"], "rust_native");
+        assert_eq!(case["determinism"], "byte_stable");
+        assert_eq!(
+            case["blockers"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|blocker| blocker["code"].as_str().unwrap())
+                .collect::<Vec<_>>(),
+            vec!["recipe_unimplemented"]
+        );
+        assert!(
+            case["standards_evidence"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|entry| {
+                    entry["query"]
+                        == "standards/source-notes/phase-3-rt-radiation-set-minimal.md"
+                })
         );
     }
 }

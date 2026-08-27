@@ -13277,6 +13277,67 @@
       "artifact_kind": "dicom_instance"
     },
     {
+      "case_id": "non-image/rt/carm_photon_electron_radiation_minimal",
+      "artifact_kind": "dicom_instance",
+      "status": "planned",
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "object_family": "radiotherapy",
+      "compatibility_axes": [
+        "radiotherapy",
+        "references"
+      ],
+      "roadmap": {
+        "priority": "next",
+        "delivery_phase": "phase-3",
+        "rationale": "Provides the required second-generation RT Radiation referenced by the minimal RT Radiation Set."
+      },
+      "blockers": [
+        {
+          "code": "recipe_unimplemented",
+          "message": "The deterministic native recipe is not implemented.",
+          "recheck_phase": "phase-3"
+        }
+      ],
+      "profiles": [
+        "extended"
+      ],
+      "recipe_id": "non_image_rt_carm_photon_electron_radiation_minimal",
+      "recipe_version": "0.1.0",
+      "iod_name": "C-Arm Photon-Electron Radiation",
+      "sop_class_name": "C-Arm Photon-Electron Radiation Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.481.13",
+      "modality": "RTRAD",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "byte_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom-kb lookup uid CArmPhotonElectronRadiationStorage --edition 2026b",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        },
+        {
+          "source": "local-source-note",
+          "edition": "2026b",
+          "query": "standards/source-notes/phase-3-rt-radiation-set-minimal.md",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.86.1.5-1"
+        }
+      ]
+    },
+    {
       "case_id": "non-image/rt/image_linked",
       "artifact_kind": "dicom_instance",
       "status": "implemented",
@@ -13384,8 +13445,8 @@
       "artifact_kind": "dicom_instance",
       "status": "planned",
       "provider": {
-        "kind": "external_backend",
-        "id": "dcmtk"
+        "kind": "rust_native",
+        "id": "rust_native"
       },
       "object_family": "radiotherapy",
       "compatibility_axes": [
@@ -13399,13 +13460,8 @@
       },
       "blockers": [
         {
-          "code": "backend_contract_unimplemented",
-          "message": "The external generation protocol is not implemented.",
-          "recheck_phase": "phase-1"
-        },
-        {
-          "code": "independent_iod_validator_unavailable",
-          "message": "The required independent validation path is not integrated.",
+          "code": "recipe_unimplemented",
+          "message": "The deterministic native recipe is not implemented.",
           "recheck_phase": "phase-3"
         }
       ],
@@ -13419,7 +13475,7 @@
       "sop_class_uid": "1.2.840.10008.5.1.4.1.1.481.12",
       "modality": "RTRAD",
       "transfer_syntax_uid": "1.2.840.10008.1.2.1",
-      "determinism": "semantic_stable",
+      "determinism": "byte_stable",
       "requirements": {
         "features": [],
         "external_codecs": [],
@@ -13434,6 +13490,14 @@
           "covered": true,
           "part": "PS3.6",
           "anchor": "table_A-1"
+        },
+        {
+          "source": "local-source-note",
+          "edition": "2026b",
+          "query": "standards/source-notes/phase-3-rt-radiation-set-minimal.md",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.86.1.4-1"
         }
       ]
     },

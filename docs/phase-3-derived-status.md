@@ -408,7 +408,11 @@ The byte-identical Plan and Image instance SHA-256 values are respectively
 `e9337a6c46fe85b56f1f563120dd3caf56ea1335355792db42386db959be6db2`
 and
 `460d525ab06aaf74df963029f3ab39c2536e4e1c5bf4b75fcf16b500382db20c`.
-The registry now contains 141 implemented and 40 planned logical cases.
+The registry now contains 141 implemented and 41 planned logical cases. The
+milestone-6 decision checkpoint authorized a registered native C-Arm
+Photon-Electron Radiation companion followed by the minimal RT Radiation Set;
+both remain planned until their complete paired slice and corrected
+independent-validator route qualify.
 
 Locked `dciodvfy -new` and the separately implemented, `uv`-locked
 `dicom-validator` 0.8.2 route accept both IODs. The Image's DCMTK route proves
@@ -430,9 +434,13 @@ The linked RT routes add no finding and accept none. The two immutable upstream
 Study ID diagnostics remain visible and unallowlisted, while valid entity
 closure adds no missing or dangling reference finding.
 
-## Decision checkpoint
+## Authorized second-generation RT slice
 
-The dependency-ordered Plan and Image work is complete. The next milestone-6
-action is the plan's explicit decision checkpoint: evaluate whether to select,
-lock, and implement a minimal current RT Radiation Set slice. No Radiation Set
-implementation starts without that decision.
+The dependency-ordered Plan and Image work is complete. On 2026-08-27 the
+milestone-6 decision checkpoint authorized selecting and locking the minimal
+current RT Radiation Set slice and another independent IOD validator.
+Standards review proved that the Set requires a registered second-generation
+C-Arm Photon-Electron Radiation companion, so the authorized work is a paired
+two-IOD graph. Both cases remain planned until native generation, exact
+manifests, strict validation, corrected `uv`-locked IOD validation, reports,
+mutations, and two-run reproducibility qualify without a silent finding.

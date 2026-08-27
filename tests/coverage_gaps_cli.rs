@@ -17,7 +17,7 @@ fn report_gaps_counts_logical_cases_and_dimensions() {
         report
             .pointer("/counts/logical_cases")
             .and_then(Value::as_u64),
-        Some(181)
+        Some(182)
     );
     assert_eq!(
         report
@@ -29,7 +29,7 @@ fn report_gaps_counts_logical_cases_and_dimensions() {
         report
             .pointer("/counts/statuses/planned")
             .and_then(Value::as_u64),
-        Some(40)
+        Some(41)
     );
     assert!(
         report.pointer("/counts/priorities/now").is_none(),

@@ -97,11 +97,40 @@ must not be substituted at generation time.
   declared profile size, and mismatch Color Space. Acceptance is based on
   normalized findings and exact semantic evidence, not process exit alone.
 
+## Independent Validator Qualification
+
+The selected case-scoped validator is LittleCMS 2.19 `transicc`, calculator
+version 5.1. The executable SHA-256 is
+`44a0fe12b05c82c80ce04001a2a0abea737cf8cd3efc0c4f9fe8aa483913331f`;
+the linked `liblcms2.2.dylib` SHA-256 is
+`c74076bc75654249cd88fee91aa4413c9cf00d3708710cf652bef04eec1a9ad1`;
+their committed composite adapter fingerprint is
+`498f65088efa9f32a013a26232336348a3c195eb9cb8f487411f2fe51e085328`.
+The separately locked DCMTK `dcmdump` fingerprint remains
+`d2261944ea1ceb6743df9866f2237014b284fa39119c8a5eee226ae922ead45f`.
+
+Capability controls showed that `dciodvfy` rejects an empty selected ICC
+Profile but accepts corrupt `acsp`, monitor-class `mntr`, and a mismatched
+`ADOBERGB` label. The evaluated `uv`-locked pydicom `dicom-validator` likewise
+did not enforce those semantics. LittleCMS rejects the corrupt signature and
+an invalid required transform-tag offset, but accepts both input- and
+monitor-class profiles; the strict adapter must therefore enforce the DICOM
+`scnr` class and every other locked header/label invariant itself.
+
+On 2026-08-27 a fresh isolated generated instance passed `dciodvfy -new` and
+`dcentvfy` without findings. DCMTK reconstructed all 736 ICC bytes and
+LittleCMS produced XYZ vectors `43.6035 22.2443 1.3901`,
+`38.5101 71.6934 9.7076`, `14.3066 6.0623 71.3928`, and
+`96.4203 100.0000 82.4905` for red, green, blue, and white. The evidence tools
+were lock-matched and strict conformance verification reported zero failures.
+Automated controls reject unavailable tools and hash-corrected but
+semantically relinked evidence.
+
 ## Project Action
 
-- Registry status: planned until the complete vertical slice passes internal
-  and independent conformance validation.
-- Registry reason: deterministic recipe implementation remains outstanding.
+- Registry status: implemented after the deterministic recipe, strict
+  manifest contract, and independent conformance path passed.
+- Registry reason: no remaining implementation blocker.
 - Should become KB patch: yes; expose Color Space defined terms and the ICC
   header constraints as typed query results.
 - Expected cleanup after KB coverage exists: replace the local term/header

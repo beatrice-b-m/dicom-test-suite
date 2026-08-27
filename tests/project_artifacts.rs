@@ -275,6 +275,10 @@ fn icc_source_note_locks_dicom_input_profile_contract() {
         "Table C.11.15-1",
         "Section C.11.15.1.1",
         "1cc11d28abf1e6f4efa4b07a73d4a7c953b3b3101b4112865c7170ccdeb84728",
+        "Independent Validator Qualification",
+        "498f65088efa9f32a013a26232336348a3c195eb9cb8f487411f2fe51e085328",
+        "strict conformance verification reported zero failures",
+        "Registry status: implemented",
         "Should become KB patch: yes",
     ] {
         assert!(
@@ -312,6 +316,17 @@ fn icc_source_note_locks_dicom_input_profile_contract() {
         tool["supporting_artifacts"]["lib/liblcms2.2.dylib"],
         "c74076bc75654249cd88fee91aa4413c9cf00d3708710cf652bef04eec1a9ad1"
     );
+    let readme = fs::read_to_string("conformance/README.md").unwrap();
+    for required in [
+        "ICC profile processing",
+        "transicc -n -i<profile> -o*XYZ -t0",
+        "no ICC failure can be",
+    ] {
+        assert!(
+            readme.contains(required),
+            "ICC conformance docs require {required}"
+        );
+    }
 }
 
 #[test]

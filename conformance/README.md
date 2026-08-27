@@ -22,6 +22,8 @@ artifacts locked as one composite adapter identity.
 The pydicom `dicom-validator` 0.8.2 runtime is also locked through `uv` with
 official DICOM 2026b DocBook inputs and derived definitions for the unsigned
 32-bit Secondary Capture case that dicom3tools cannot evaluate.
+LittleCMS 2.19 is locked as a composite ICC adapter over `transicc` and its
+dynamically linked `liblcms2.2` implementation.
 
 ## Adapter decision matrix
 
@@ -30,6 +32,7 @@ official DICOM 2026b DocBook inputs and derived definitions for the unsigned
 | Per-instance IOD | `dicom3tools-dciodvfy` | `dciodvfy -new` | Required | dicom3tools BSD license; pin source snapshot/package and executable hash. Homebrew does not currently provide it on this host. Debian packages both validator commands; upstream publishes source and platform builds. Validator definitions evolve, so the snapshot/definition baseline must remain visible. |
 | U32 SC per-instance IOD | `pydicom-dicom-validator-u32` | `python -m dts_dicom_validator_adapter` | Required for its declared case only | `uv` locks CPython 3.12.12, `dicom-validator` 0.8.2, pydicom 3.0.2, and transitive packages. `DTS_DICOM_VALIDATOR_PYTHON` selects the prepared interpreter and `DTS_DICOM_VALIDATOR_STANDARD_HOME` selects the external hash-locked 2026b cache. It is not a generation-profile runtime. |
 | U1 SC independent pixels | `dcmtk-dcm2img-u1` | `dcm2img +Fa +Fn -M -W +Pid -O +opn 1` | Required when collecting evidence for its declared case | DCMTK 3.7.0 emits one PGM per frame. The collector requires P2, dimensions 3 by 3, maximum value one, exact samples, and exact frame hashes; `dcmdump +W` separately binds the packed Pixel Data bytes. Primary IOD validation remains `dciodvfy`. |
+| ICC profile processing | `littlecms-transicc-icc` | `transicc -n -i<profile> -o*XYZ -t0` | Required when collecting evidence for its declared case | Set `DTS_LCMS_HOME` to the immutable LittleCMS prefix. Locked DCMTK reconstructs the complete ICC OB value, strict checks enforce the DICOM input-profile header and `SRGB` label, and LittleCMS 2.19 must reproduce four fixed RGB-to-XYZ vectors. Primary IOD validation remains `dciodvfy`. |
 | Corpus entity consistency | `dicom3tools-dcentvfy` | `dcentvfy -f <file-list>` | Required | Same dicom3tools identity and acquisition decision as `dciodvfy`; pass files through its one-path-per-line file-list option to avoid argument limits. |
 | Independent parse | `dcmtk-dcmdump` | `dcmdump +fo` | Required | DCMTK is BSD-style licensed and cross-platform. Baseline is Homebrew DCMTK 3.7.0. Dictionary and character mapping data affect behavior and must be noted with the fingerprint. |
 | Independent lossless decode | `dcmtk-dcmdjpeg` | `dcmdjpeg` | Capability-based | Suitable for JPEG families supported by the installed DCMTK build. It is not independent for cases encoded by the project's DCMTK `dcmcjpeg` path. Raw native-byte normalization still needs a proven adapter. |
@@ -60,6 +63,15 @@ evaluated but did not reject an invalid `8/8/7` Bits
 Allocated/Stored/High Bit control, so it is not an acceptance oracle for U1.
 Normalized findings remain authoritative because `dciodvfy` reports forbidden
 Planar Configuration while returning zero for that control.
+
+The ICC VL Photographic case also stays on the unrestricted `dciodvfy` route.
+That validator enforces selection and non-empty presence of the ICC Profile
+Module but did not reject empirical `acsp`, `scnr`, or Color Space mismatch
+controls. The case-scoped composite therefore uses complete `dcmdump +L`
+extraction, exact bytes and header/tag-table checks, and an operational
+LittleCMS transform. Strict verification requires both external tools to be
+available and lock-matched and rejects relinked sidecars; no ICC failure can be
+converted to ordinary unsupported native-pixel coverage.
 
 The U32 payload path uses adapter version 0.2.0 to read raw OW bytes through
 pydicom and unpack exact little-endian unsigned 32-bit words without NumPy.

@@ -1,3 +1,4 @@
+pub(super) mod color_softcopy_presentation_state;
 pub(super) mod ct_geometry;
 pub(super) mod deformable_spatial_registration;
 pub(super) mod empty_type2_sc;
@@ -16,6 +17,8 @@ pub(super) mod us_multiframe;
 pub(super) mod xa;
 pub(super) mod xrf;
 
+#[cfg(test)]
+mod color_softcopy_presentation_state_tests;
 #[cfg(test)]
 mod deformable_spatial_registration_tests;
 #[cfg(test)]

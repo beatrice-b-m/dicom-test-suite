@@ -33,6 +33,9 @@ fn case_specific_primary_validator_uses_locked_environment_runtime_and_artifacts
         "root_env": "DTS_TEST_IOD_ARTIFACT_ROOT",
         "path": "definition.lock"
     }]);
+    let mut secondary_adapter =
+        adapter("registration-secondary", "secondary_iod_validator", &routed);
+    secondary_adapter["supported_case_ids"] = json!([ROUTED_CASE]);
     fs::write(
         &config,
         serde_json::to_vec(&json!({
@@ -40,6 +43,7 @@ fn case_specific_primary_validator_uses_locked_environment_runtime_and_artifacts
             "adapters": [
                 adapter("default-primary", "primary_iod_validator", &default),
                 routed_adapter,
+                secondary_adapter,
                 adapter("entity", "entity_validator", &quiet),
                 adapter("parser", "independent_parser", &quiet)
             ]
@@ -74,6 +78,16 @@ fn case_specific_primary_validator_uses_locked_environment_runtime_and_artifacts
             "default-primary"
         };
         assert_eq!(instance["results"][0]["adapter_id"], expected);
+        let secondary = instance["results"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|result| result["role"] == "secondary_iod_validator");
+        if instance["case_id"] == ROUTED_CASE {
+            assert_eq!(secondary.unwrap()["adapter_id"], "registration-secondary");
+        } else {
+            assert!(secondary.is_none());
+        }
     }
     let routed_tool = evidence["tools"]
         .as_array()

@@ -161,6 +161,61 @@ fn uv_iod_validator_is_case_scoped_and_fully_locked() {
 }
 
 #[test]
+fn registration_secondary_iod_validator_is_additive_and_locked() {
+    let validators = read_json("conformance/validators.json");
+    let adapter = validators["adapters"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|adapter| adapter["id"] == "pydicom-dicom-validator-registration")
+        .expect("registration secondary IOD validator must be configured");
+    assert_eq!(adapter["role"], "secondary_iod_validator");
+    assert_eq!(adapter["required"], false);
+    assert_eq!(
+        adapter["supported_case_ids"],
+        serde_json::json!([
+            "derived/registration/spatial_ct_pair",
+            "derived/registration/deformable_ct_pair"
+        ])
+    );
+
+    let primary = validators["adapters"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|adapter| adapter["id"] == "dicom3tools-dciodvfy")
+        .unwrap();
+    assert_eq!(primary["role"], "primary_iod_validator");
+    assert!(primary.get("supported_case_ids").is_none());
+
+    let lock = read_json("conformance/validator-lock.json");
+    let tool = lock["tools"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|tool| tool["adapter_id"] == "pydicom-dicom-validator-registration")
+        .expect("registration secondary validator must have an accepted lock entry");
+    assert_eq!(tool["role"], "secondary_iod_validator");
+    assert_eq!(
+        tool["adapter_sha256"],
+        "3f20de6ca7d310e2e9f2920f368912f97b6cf62bdfdf750e1417eb5dc4b335b6"
+    );
+
+    let readme = fs::read_to_string("conformance/README.md").unwrap();
+    for required in [
+        "Secondary IOD routing is additive",
+        "did not reject a VM 15 transformation matrix",
+        "cannot replace `dciodvfy`",
+        "no finding is allowlisted",
+    ] {
+        assert!(
+            readme.contains(required),
+            "registration route requires {required}"
+        );
+    }
+}
+
+#[test]
 fn uv_conformance_docs_preserve_the_independent_gate() {
     let readme = fs::read_to_string("conformance/README.md").unwrap();
     for required in [

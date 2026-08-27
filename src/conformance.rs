@@ -14,6 +14,7 @@ pub const DEFAULT_VALIDATOR_CONFIG: &str = "conformance/validators.json";
 pub const DEFAULT_VALIDATOR_LOCK: &str = "conformance/validator-lock.json";
 pub const DEFAULT_ACCEPTED_FINDINGS: &str = "conformance/accepted-findings.json";
 const PIXELMED_SR_VALIDATOR_ID: &str = "pixelmed-sr-validator";
+const REGISTRATION_SECONDARY_VALIDATOR_ID: &str = "pydicom-dicom-validator-registration";
 
 pub fn verify_conformance(
     evidence_root: impl AsRef<Path>,
@@ -358,6 +359,36 @@ fn verify_completeness(evidence_root: &Path, evidence: &Value, failures: &mut Ve
             failures.push(format!("independent parser incomplete: {path}"));
         }
         let case_id = instance["case_id"].as_str().unwrap_or("");
+        if requires_registration_secondary_validation(case_id) {
+            let secondary_tool = evidence["tools"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .find(|tool| tool["adapter_id"] == REGISTRATION_SECONDARY_VALIDATOR_ID);
+            if secondary_tool.is_none_or(|tool| tool["status"] != "available") {
+                failures.push(format!(
+                    "required registration secondary IOD validator is unavailable for {path}"
+                ));
+            }
+            if secondary_tool.is_none_or(|tool| tool["lock_status"] != "matched") {
+                failures.push(format!(
+                    "required registration secondary IOD validator is unlocked for {path}"
+                ));
+            }
+            let secondary = instance["results"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .find(|result| {
+                    result["role"] == "secondary_iod_validator"
+                        && result["adapter_id"] == REGISTRATION_SECONDARY_VALIDATOR_ID
+                });
+            if secondary.is_none_or(|result| result["status"] != "completed") {
+                failures.push(format!(
+                    "required registration secondary IOD validation incomplete: {path}"
+                ));
+            }
+        }
         if requires_pixelmed_sr_validation(case_id) {
             let pixelmed_tool = evidence["tools"]
                 .as_array()
@@ -1016,6 +1047,13 @@ fn requires_pixelmed_sr_validation(case_id: &str) -> bool {
     )
 }
 
+fn requires_registration_secondary_validation(case_id: &str) -> bool {
+    matches!(
+        case_id,
+        "derived/registration/spatial_ct_pair" | "derived/registration/deformable_ct_pair"
+    )
+}
+
 fn verify_findings(evidence: &Value, allowlist: &Value, failures: &mut Vec<String>) -> usize {
     let entries = allowlist["findings"]
         .as_array()
@@ -1326,6 +1364,15 @@ fn collect_instance(
         tools,
     )?;
     let mut results = vec![primary_result];
+    results.extend(collect_secondary_iod_results(
+        generated_root,
+        evidence_root,
+        case_id,
+        path,
+        &stable_key,
+        adapters,
+        tools,
+    )?);
     results.push(collect_parser_result(
         generated_root,
         evidence_root,
@@ -1370,6 +1417,76 @@ fn collect_instance(
         instance["icc"] = icc;
     }
     Ok(instance)
+}
+
+fn collect_secondary_iod_results(
+    generated_root: &Path,
+    evidence_root: &Path,
+    case_id: &str,
+    relative_input: &str,
+    stable_key: &str,
+    adapters: &[Value],
+    tools: &[Value],
+) -> Result<Vec<Value>, String> {
+    let mut results = Vec::new();
+    for adapter in adapters.iter().filter(|adapter| {
+        adapter.get("role").and_then(Value::as_str) == Some("secondary_iod_validator")
+            && adapter
+                .get("supported_case_ids")
+                .and_then(Value::as_array)
+                .is_some_and(|ids| ids.iter().any(|id| id.as_str() == Some(case_id)))
+    }) {
+        let adapter_id = required_string(adapter, "id")?;
+        let tool = tools
+            .iter()
+            .find(|tool| tool.get("adapter_id").and_then(Value::as_str) == Some(adapter_id))
+            .ok_or_else(|| {
+                format!("secondary validator discovery result is missing for {adapter_id}")
+            })?;
+        let raw_dir = evidence_root.join("raw").join(adapter_id);
+        fs::create_dir_all(&raw_dir).map_err(|error| error.to_string())?;
+        let stdout_relative = format!("raw/{adapter_id}/{stable_key}.stdout");
+        let stderr_relative = format!("raw/{adapter_id}/{stable_key}.stderr");
+        let stdout_path = evidence_root.join(&stdout_relative);
+        let stderr_path = evidence_root.join(&stderr_relative);
+        if tool.get("status").and_then(Value::as_str) != Some("available") {
+            fs::write(&stdout_path, []).map_err(|error| error.to_string())?;
+            fs::write(&stderr_path, []).map_err(|error| error.to_string())?;
+            results.push(unsupported_result(
+                adapter_id,
+                "secondary_iod_validator",
+                vec![required_string(adapter, "executable")?.to_string()],
+                &stdout_relative,
+                &stderr_relative,
+                "configured secondary IOD validator is unavailable",
+            ));
+            continue;
+        }
+        let executable = tool["executable"]
+            .as_str()
+            .ok_or_else(|| format!("available adapter {adapter_id} has no executable"))?;
+        let input = generated_root.join(relative_input);
+        let arguments = string_array(adapter, "arguments")?
+            .into_iter()
+            .map(|argument| argument.replace("{input}", &input.display().to_string()))
+            .collect::<Vec<_>>();
+        let timeout = Duration::from_secs(adapter["timeout_seconds"].as_u64().unwrap_or(60));
+        let output = run_with_timeout(Path::new(executable), &arguments, timeout)?;
+        fs::write(&stdout_path, &output.stdout).map_err(|error| error.to_string())?;
+        fs::write(&stderr_path, &output.stderr).map_err(|error| error.to_string())?;
+        results.push(execution_result(
+            adapter_id,
+            "secondary_iod_validator",
+            executable,
+            arguments,
+            output,
+            &stdout_relative,
+            &stderr_relative,
+            &input.display().to_string(),
+            relative_input,
+        ));
+    }
+    Ok(results)
 }
 
 fn select_primary_iod_validator<'a>(

@@ -77,6 +77,70 @@ fn verify_rejects_hash_corruption_tool_gaps_and_incomplete_results() {
 }
 
 #[test]
+fn verify_requires_locked_registration_secondary_iod_evidence() {
+    let fixture = Fixture::new("registration-secondary");
+    let mut evidence = fixture.evidence_json();
+    let path = evidence["instances"][0]["path"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    evidence["instances"][0]["case_id"] = json!("derived/registration/spatial_ct_pair");
+
+    let mut secondary_tool = evidence["tools"][0].clone();
+    secondary_tool["adapter_id"] = json!("pydicom-dicom-validator-registration");
+    secondary_tool["role"] = json!("secondary_iod_validator");
+    secondary_tool["required"] = json!(false);
+    evidence["tools"]
+        .as_array_mut()
+        .unwrap()
+        .push(secondary_tool);
+
+    let mut secondary_result = evidence["instances"][0]["results"][0].clone();
+    secondary_result["adapter_id"] = json!("pydicom-dicom-validator-registration");
+    secondary_result["role"] = json!("secondary_iod_validator");
+    evidence["instances"][0]["results"]
+        .as_array_mut()
+        .unwrap()
+        .push(secondary_result);
+
+    let mut manifest: Value = serde_json::from_slice(&fixture.source_manifest).unwrap();
+    let file = manifest["files"]
+        .as_array_mut()
+        .unwrap()
+        .iter_mut()
+        .find(|file| file["path"] == path)
+        .unwrap();
+    file["case_id"] = json!("derived/registration/spatial_ct_pair");
+    let manifest_bytes = serde_json::to_vec_pretty(&manifest).unwrap();
+    fs::write(
+        fixture.evidence.join("source/manifest.json"),
+        &manifest_bytes,
+    )
+    .unwrap();
+    evidence["source"]["manifest_sha256"] = json!(dicom_test_suite::sha256_hex(&manifest_bytes));
+    fixture.write_evidence(&evidence);
+    assert!(fixture.verify(&fixture.allowlist).status.success());
+
+    let mut missing = evidence.clone();
+    missing["instances"][0]["results"]
+        .as_array_mut()
+        .unwrap()
+        .retain(|result| result["role"] != "secondary_iod_validator");
+    fixture.write_evidence(&missing);
+    fixture.assert_failure("required registration secondary IOD validation incomplete");
+
+    let mut unlocked = evidence;
+    unlocked["tools"]
+        .as_array_mut()
+        .unwrap()
+        .iter_mut()
+        .find(|tool| tool["adapter_id"] == "pydicom-dicom-validator-registration")
+        .unwrap()["lock_status"] = json!("mismatched");
+    fixture.write_evidence(&unlocked);
+    fixture.assert_failure("required registration secondary IOD validator is unlocked");
+}
+
+#[test]
 fn verify_rejects_unknown_warnings_stale_dispositions_and_wildcards() {
     let fixture = Fixture::new("findings");
     let mut evidence = fixture.evidence_json();

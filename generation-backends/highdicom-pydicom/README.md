@@ -32,6 +32,23 @@ ABI, locked distribution versions and installed files, backend entrypoint bytes,
 and executable bytes before invocation. Absolute environment paths are not part
 of the deterministic identity.
 
+## Supported Recipes
+
+The backend supports the paired CT-derived Parametric Map recipes below. Both
+use three staged CT source images and Explicit VR Little Endian; Rust remains
+responsible for independently checking the emitted object and payload.
+
+| Case | Sample type | Pixel element | VR |
+| --- | --- | --- | --- |
+| `derived/parametric-map/float32_ct_derived_explicit_le` | binary32 | Float Pixel Data `(7FE0,0008)` | `OF` |
+| `derived/parametric-map/float64_ct_derived_explicit_le` | binary64 | Double Float Pixel Data `(7FE0,0009)` | `OD` |
+
+Requests select a recipe by case and recipe ID and may repeat the expected type
+in the `sample_type` parameter. A conflicting type is rejected. The float64
+recipe uses the exact spatial-rank increment `2^-30` so it retains distinctions
+below binary32 precision. Payload expectations contain the serialized
+little-endian IEEE 754 bit patterns and a SHA-256 digest for each frame.
+
 ## Locked Runtime Licenses
 
 The environment is downloaded from upstream package indexes and is not vendored

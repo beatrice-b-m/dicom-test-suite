@@ -1,11 +1,23 @@
 from __future__ import annotations
 
+import hashlib
 import unittest
 
 import numpy as np
 from pydicom.dataset import Dataset
 
-from dts_highdicom_backend.parametric_map import _float_pixel_array, _normalize_metadata
+from dts_highdicom_backend.parametric_map import (
+    FLOAT32_CASE_ID,
+    FLOAT32_RECIPE_ID,
+    FLOAT64_CASE_ID,
+    FLOAT64_RECIPE_ID,
+    FLOAT64_SPATIAL_RANK_INCREMENT,
+    _float64_pixel_array,
+    _float_pixel_array,
+    _normalize_metadata,
+    _recipe_for_request,
+)
+from dts_highdicom_backend.protocol import ProtocolError
 
 
 class _Source:
@@ -33,6 +45,115 @@ class FloatPixelFormulaTest(unittest.TestCase):
                 [3279912960, 1056964608, 1132478464, 1140854784],
             ],
         )
+
+    def test_float64_formula_has_exact_sub_float32_rank_distinctions(self) -> None:
+        sources = [
+            ({}, _Source([[-1024, 0], [1024, 2047]])),
+            ({}, _Source([[-1024, 0], [1024, 2047]])),
+            ({}, _Source([[-1024, 0], [1024, 2047]])),
+        ]
+        pixels = _float64_pixel_array(
+            sources,  # type: ignore[arg-type]
+            {
+                "stored_value_scale": 0.25,
+                "spatial_rank_increment": FLOAT64_SPATIAL_RANK_INCREMENT,
+            },
+        )
+
+        self.assertEqual(pixels.dtype, np.dtype("<f8"))
+        self.assertEqual(
+            pixels.view("<u8").reshape(3, 4).tolist(),
+            [
+                [
+                    13866583252673757184,
+                    0,
+                    4643211215818981376,
+                    4647710417399840768,
+                ],
+                [
+                    13866583252673724416,
+                    4472074429978902528,
+                    4643211215818997760,
+                    4647710417399857152,
+                ],
+                [
+                    13866583252673691648,
+                    4476578029606273024,
+                    4643211215819014144,
+                    4647710417399873536,
+                ],
+            ],
+        )
+        self.assertEqual(
+            [
+                hashlib.sha256(frame.tobytes(order="C")).hexdigest()
+                for frame in pixels
+            ],
+            [
+                "ce1600d46bb7468f4a0f60c2d58cf96430234a89e50f0cacdd56bfd86bc3ec90",
+                "be480ba76c1931f10052029005c539dd45b565f7020cc94a41a89825c3b6ea44",
+                "921a8e74cc86e767d5436be2a4eb0c6d383bf3f210ec4c32e8f8c43c239f8abe",
+            ],
+        )
+        self.assertNotEqual(pixels[0, 0, 0], pixels[1, 0, 0])
+        self.assertEqual(
+            np.float32(pixels[0, 0, 0]),
+            np.float32(pixels[1, 0, 0]),
+        )
+
+    def test_float64_formula_rejects_noncanonical_rank_increment(self) -> None:
+        sources = [
+            ({}, _Source([[0]])),
+            ({}, _Source([[0]])),
+            ({}, _Source([[0]])),
+        ]
+        with self.assertRaisesRegex(ProtocolError, "must be 2\\^-30"):
+            _float64_pixel_array(
+                sources,  # type: ignore[arg-type]
+                {"stored_value_scale": 0.25, "spatial_rank_increment": 0.25},
+            )
+
+    def test_recipe_dispatches_by_case_and_sample_type(self) -> None:
+        float32 = _recipe_for_request(
+            {
+                "case": {
+                    "case_id": FLOAT32_CASE_ID,
+                    "recipe_id": FLOAT32_RECIPE_ID,
+                },
+                "parameters": {"sample_type": "float32"},
+            }
+        )
+        float64 = _recipe_for_request(
+            {
+                "case": {
+                    "case_id": FLOAT64_CASE_ID,
+                    "recipe_id": FLOAT64_RECIPE_ID,
+                },
+                "parameters": {"sample_type": "float64"},
+            }
+        )
+
+        self.assertEqual(float32.pixel_data_keyword, "FloatPixelData")
+        self.assertEqual(float32.payload_vr, "OF")
+        self.assertEqual(float32.output_relative_path, "parametric-map.dcm")
+        self.assertEqual(float64.pixel_data_keyword, "DoubleFloatPixelData")
+        self.assertEqual(float64.payload_vr, "OD")
+        self.assertEqual(
+            float64.output_relative_path,
+            "parametric-map-float64.dcm",
+        )
+
+    def test_recipe_rejects_mismatched_sample_type(self) -> None:
+        with self.assertRaisesRegex(ProtocolError, "requires sample_type float64"):
+            _recipe_for_request(
+                {
+                    "case": {
+                        "case_id": FLOAT64_CASE_ID,
+                        "recipe_id": FLOAT64_RECIPE_ID,
+                    },
+                    "parameters": {"sample_type": "float32"},
+                }
+            )
 
     def test_normalized_series_laterality_is_valid_for_iod_validation(self) -> None:
         dataset = Dataset()

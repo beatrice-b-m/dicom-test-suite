@@ -1,6 +1,6 @@
 [project]
 name = "dicom-test-suite-highdicom-backend"
-version = "0.1.0"
+version = "0.2.0"
 description = "Locked optional highdicom/pydicom generation backend for dicom-test-suite"
 requires-python = "==3.12.12"
 dependencies = [

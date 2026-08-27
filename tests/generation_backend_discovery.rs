@@ -14,7 +14,7 @@ fn committed_highdicom_policy_discovers_or_explicitly_reports_absence() {
     {
         BackendDiscovery::Available(prepared) => {
             assert_eq!(prepared.backend_id, "highdicom_pydicom");
-            assert_eq!(prepared.version, "dts-highdicom-backend 0.2.0");
+            assert_eq!(prepared.version, "dts-highdicom-backend 0.3.0");
             assert_eq!(
                 prepared
                     .runtime_identity

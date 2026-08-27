@@ -98,16 +98,17 @@
         "entrypoint_paths": [
           "generation-backends/highdicom-pydicom/pyproject.toml",
           "generation-backends/highdicom-pydicom/src/dts_highdicom_backend/__init__.py",
-          "generation-backends/highdicom-pydicom/src/dts_highdicom_backend/__main__.py",
-          "generation-backends/highdicom-pydicom/src/dts_highdicom_backend/parametric_map.py",
-          "generation-backends/highdicom-pydicom/src/dts_highdicom_backend/protocol.py"
+        "generation-backends/highdicom-pydicom/src/dts_highdicom_backend/__main__.py",
+        "generation-backends/highdicom-pydicom/src/dts_highdicom_backend/parametric_map.py",
+        "generation-backends/highdicom-pydicom/src/dts_highdicom_backend/protocol.py",
+        "generation-backends/highdicom-pydicom/src/dts_highdicom_backend/tid1500.py"
         ],
         "environment_override": "DTS_HIGHDICOM_PYTHON"
       },
       "dependency_lock": {
         "format": "uv-lock-v1",
         "path": "generation-backends/highdicom-pydicom/uv.lock",
-        "sha256": "14dbb27f74f33da06e3775020d2e669af34860104ecba484e12fd735538a099f"
+        "sha256": "d36e8258e63eb0efdd9ef1b401ee36fca795cf2adb360e735b95a90a663073a0"
       },
       "fingerprint_components": [
         "canonical_executable_bytes",
@@ -145,6 +146,10 @@
         {
           "role": "part10_parse",
           "validator_ids": ["dcmtk-dcmdump"]
+        },
+        {
+          "role": "structured_report_validation",
+          "validator_ids": ["pixelmed-sr-validator"]
         }
       ],
       "license": {

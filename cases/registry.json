@@ -9514,7 +9514,7 @@
     {
       "case_id": "derived/registration/spatial_ct_pair",
       "artifact_kind": "dicom_instance",
-      "status": "planned",
+      "status": "implemented",
       "provider": {
         "kind": "rust_native",
         "id": "rust_native"
@@ -9525,18 +9525,8 @@
         "references",
         "geometry"
       ],
-      "roadmap": {
-        "priority": "next",
-        "delivery_phase": "phase-3",
-        "rationale": "Adds rigid spatial registration between generated CT series."
-      },
-      "blockers": [
-        {
-          "code": "recipe_unimplemented",
-          "message": "The deterministic native Spatial Registration recipe is not implemented.",
-          "recheck_phase": "phase-3"
-        }
-      ],
+      "roadmap": null,
+      "blockers": [],
       "profiles": [
         "extended"
       ],
@@ -9547,7 +9537,7 @@
       "sop_class_uid": "1.2.840.10008.5.1.4.1.1.66.1",
       "modality": "REG",
       "transfer_syntax_uid": "1.2.840.10008.1.2.1",
-      "determinism": "semantic_stable",
+      "determinism": "byte_stable",
       "requirements": {
         "features": [],
         "external_codecs": [],

@@ -662,17 +662,12 @@ fn spatial_registration_source_note_locks_native_rigid_contract() {
                 == Some("derived/registration/spatial_ct_pair")
         })
         .expect("Spatial Registration row must exist");
-    assert_eq!(case["status"], "planned");
+    assert_eq!(case["status"], "implemented");
     assert_eq!(case["provider"]["kind"], "rust_native");
     assert_eq!(case["provider"]["id"], "rust_native");
-    assert_eq!(
-        case["blockers"],
-        serde_json::json!([{
-            "code": "recipe_unimplemented",
-            "message": "The deterministic native Spatial Registration recipe is not implemented.",
-            "recheck_phase": "phase-3"
-        }])
-    );
+    assert_eq!(case["roadmap"], serde_json::Value::Null);
+    assert_eq!(case["blockers"], serde_json::json!([]));
+    assert_eq!(case["determinism"], "byte_stable");
 
     for (part, anchor) in [
         ("PS3.3", "A.39.1_C.20.1_C.20.2_C.12.2"),
@@ -4518,7 +4513,10 @@ fn registry_cases(registry: &Value) -> Vec<&Value> {
 fn generator_recipe_case_ids() -> BTreeSet<String> {
     let mut case_ids = BTreeSet::new();
     for (path, prefixes) in [
-        ("src/generator.rs", &["case_id: \""][..]),
+        (
+            "src/generator.rs",
+            &["case_id: \"", "SPATIAL_REGISTRATION_CASE_ID: &str = \""][..],
+        ),
         ("src/generator/native/ct_geometry.rs", &["case_id: \""][..]),
         (
             "src/generator/native/empty_type2_sc.rs",

@@ -104,8 +104,157 @@ pub(in crate::generator) const CLASSIC_PET_RECIPE: ClassicPetRecipe = ClassicPet
 
 pub(in crate::generator) const CLASSIC_PET_RECIPES: &[ClassicPetRecipe] = &[CLASSIC_PET_RECIPE];
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(in crate::generator) struct EnhancedPetRecipe {
+    pub(in crate::generator) case_id: &'static str,
+    pub(in crate::generator) recipe_id: &'static str,
+    pub(in crate::generator) rows: u16,
+    pub(in crate::generator) columns: u16,
+    pub(in crate::generator) frames: u16,
+    pub(in crate::generator) image_type: &'static str,
+    pub(in crate::generator) frame_type: &'static str,
+    pub(in crate::generator) pixel_values: &'static [u16; 8],
+    pub(in crate::generator) pixel_bytes_le: &'static [u8; 16],
+    pub(in crate::generator) frame_sha256: &'static [&'static str; 2],
+    pub(in crate::generator) pixel_data_sha256: &'static str,
+    pub(in crate::generator) rescale_intercept: &'static str,
+    pub(in crate::generator) rescale_slope: &'static str,
+    pub(in crate::generator) expected_activity_bqml: &'static [f64; 8],
+    pub(in crate::generator) units: &'static str,
+    pub(in crate::generator) counts_source: &'static str,
+    pub(in crate::generator) pixel_spacing: &'static str,
+    pub(in crate::generator) image_orientation_patient: &'static str,
+    pub(in crate::generator) image_position_patient: &'static [&'static str; 2],
+    pub(in crate::generator) slice_thickness: &'static str,
+    pub(in crate::generator) spacing_between_slices: &'static str,
+    pub(in crate::generator) dimension_index_values: &'static [u32; 2],
+    pub(in crate::generator) temporal_position_indices: &'static [u32; 2],
+    pub(in crate::generator) stack_id: &'static str,
+    pub(in crate::generator) in_stack_position_numbers: &'static [u32; 2],
+}
+
+impl EnhancedPetRecipe {
+    pub(in crate::generator) const fn frame_pixel_count(self) -> usize {
+        self.rows as usize * self.columns as usize
+    }
+
+    pub(in crate::generator) const fn pixel_count(self) -> usize {
+        self.frame_pixel_count() * self.frames as usize
+    }
+
+    pub(in crate::generator) const fn pixel_bytes_are_consistent(self) -> bool {
+        if self.pixel_count() != self.pixel_values.len()
+            || self.pixel_bytes_le.len() != self.pixel_values.len() * 2
+        {
+            return false;
+        }
+
+        let mut index = 0;
+        while index < self.pixel_values.len() {
+            let bytes = self.pixel_values[index].to_le_bytes();
+            if self.pixel_bytes_le[index * 2] != bytes[0]
+                || self.pixel_bytes_le[index * 2 + 1] != bytes[1]
+            {
+                return false;
+            }
+            index += 1;
+        }
+        true
+    }
+
+    pub(in crate::generator) const fn frames_are_identical(self) -> bool {
+        if self.frames != 2 || self.frame_pixel_count() * 2 != self.pixel_values.len() {
+            return false;
+        }
+
+        let mut index = 0;
+        while index < self.frame_pixel_count() {
+            if self.pixel_values[index] != self.pixel_values[index + self.frame_pixel_count()] {
+                return false;
+            }
+            index += 1;
+        }
+        true
+    }
+
+    pub(in crate::generator) const fn activity_mapping_is_consistent(self) -> bool {
+        if self.pixel_values.len() != self.expected_activity_bqml.len() {
+            return false;
+        }
+
+        let mut index = 0;
+        while index < self.pixel_values.len() {
+            let expected = self.pixel_values[index] as f64 * RESCALE_SLOPE_VALUE;
+            if self.expected_activity_bqml[index] != expected {
+                return false;
+            }
+            index += 1;
+        }
+        true
+    }
+
+    pub(in crate::generator) const fn frame_metadata_is_consistent(self) -> bool {
+        let frames = self.frames as usize;
+        frames == self.frame_sha256.len()
+            && frames == self.image_position_patient.len()
+            && frames == self.dimension_index_values.len()
+            && frames == self.temporal_position_indices.len()
+            && frames == self.in_stack_position_numbers.len()
+    }
+}
+
+const ENHANCED_PIXEL_VALUES: [u16; 8] = [0, 100, 200, 400, 0, 100, 200, 400];
+const ENHANCED_PIXEL_BYTES_LE: [u8; 16] =
+    [0, 0, 100, 0, 200, 0, 144, 1, 0, 0, 100, 0, 200, 0, 144, 1];
+const ENHANCED_EXPECTED_ACTIVITY_BQML: [f64; 8] =
+    [0.0, 250.0, 500.0, 1_000.0, 0.0, 250.0, 500.0, 1_000.0];
+const ENHANCED_FRAME_SHA256: [&str; 2] = [
+    "03ec353fd2407afb09c8d65712ef9aa30f03c8243f6f3f1675dca7ea5f6a4784",
+    "03ec353fd2407afb09c8d65712ef9aa30f03c8243f6f3f1675dca7ea5f6a4784",
+];
+const ENHANCED_IMAGE_POSITIONS: [&str; 2] = ["0\\0\\0", "0\\0\\5"];
+const ENHANCED_DIMENSION_INDEX_VALUES: [u32; 2] = [1, 2];
+const ENHANCED_TEMPORAL_POSITION_INDICES: [u32; 2] = [1, 1];
+const ENHANCED_IN_STACK_POSITION_NUMBERS: [u32; 2] = [1, 2];
+
+pub(in crate::generator) const ENHANCED_PET_RECIPE: EnhancedPetRecipe = EnhancedPetRecipe {
+    case_id: "enhanced/pet/multiframe_explicit_le",
+    recipe_id: "enhanced_pet_multiframe_explicit_le",
+    rows: 2,
+    columns: 2,
+    frames: 2,
+    image_type: "DERIVED\\PRIMARY\\STATIC\\EMISSION",
+    frame_type: "DERIVED\\PRIMARY\\STATIC\\EMISSION",
+    pixel_values: &ENHANCED_PIXEL_VALUES,
+    pixel_bytes_le: &ENHANCED_PIXEL_BYTES_LE,
+    frame_sha256: &ENHANCED_FRAME_SHA256,
+    pixel_data_sha256: "3a43b45e2f6d4d04fe4fc357dfc0efaa21caa5415ffc5db96fc19428d34a7bb5",
+    rescale_intercept: "0",
+    rescale_slope: "2.5",
+    expected_activity_bqml: &ENHANCED_EXPECTED_ACTIVITY_BQML,
+    units: "BQML",
+    counts_source: "EMISSION",
+    pixel_spacing: "2\\2",
+    image_orientation_patient: "1\\0\\0\\0\\1\\0",
+    image_position_patient: &ENHANCED_IMAGE_POSITIONS,
+    slice_thickness: "5",
+    spacing_between_slices: "5",
+    dimension_index_values: &ENHANCED_DIMENSION_INDEX_VALUES,
+    temporal_position_indices: &ENHANCED_TEMPORAL_POSITION_INDICES,
+    stack_id: "1",
+    in_stack_position_numbers: &ENHANCED_IN_STACK_POSITION_NUMBERS,
+};
+
+pub(in crate::generator) const ENHANCED_PET_RECIPES: &[EnhancedPetRecipe] = &[ENHANCED_PET_RECIPE];
+
 const _: () = assert!(CLASSIC_PET_RECIPE.pixel_count() == 4);
 const _: () = assert!(CLASSIC_PET_RECIPE.pixel_bytes_are_consistent());
 const _: () = assert!(CLASSIC_PET_RECIPE.activity_mapping_is_consistent());
 const _: () = assert!(CLASSIC_PET_RECIPE.number_of_slices == 1);
 const _: () = assert!(CLASSIC_PET_RECIPE.image_index == 1);
+const _: () = assert!(ENHANCED_PET_RECIPE.frame_pixel_count() == 4);
+const _: () = assert!(ENHANCED_PET_RECIPE.pixel_count() == 8);
+const _: () = assert!(ENHANCED_PET_RECIPE.pixel_bytes_are_consistent());
+const _: () = assert!(ENHANCED_PET_RECIPE.frames_are_identical());
+const _: () = assert!(ENHANCED_PET_RECIPE.activity_mapping_is_consistent());
+const _: () = assert!(ENHANCED_PET_RECIPE.frame_metadata_is_consistent());

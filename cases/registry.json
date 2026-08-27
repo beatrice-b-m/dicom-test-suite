@@ -1835,7 +1835,7 @@
     {
       "case_id": "classic/nm/multiframe_explicit_le",
       "artifact_kind": "dicom_instance",
-      "status": "planned",
+      "status": "implemented",
       "provider": {
         "kind": "rust_native",
         "id": "rust_native"
@@ -1846,18 +1846,8 @@
         "geometry",
         "pixels"
       ],
-      "roadmap": {
-        "priority": "next",
-        "delivery_phase": "phase-2",
-        "rationale": "Adds representative Nuclear Medicine frame and dimension semantics."
-      },
-      "blockers": [
-        {
-          "code": "recipe_unimplemented",
-          "message": "The deterministic native recipe is not implemented.",
-          "recheck_phase": "phase-2"
-        }
-      ],
+      "roadmap": null,
+      "blockers": [],
       "profiles": [
         "core"
       ],
@@ -1883,6 +1873,70 @@
           "covered": true,
           "part": "PS3.6",
           "anchor": "table_A-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_modules_for_iod Nuclear Medicine Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.5-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module NM Multi-frame",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-7"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "retrieve_standard_text PS3.3 sect_C.8.4.8.1.1",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-8"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module NM Image Pixel",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-6"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module NM Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-9"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module NM Isotope",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-10"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module NM Detector",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-11"
+        },
+        {
+          "source": "local-source-note",
+          "edition": "2026b",
+          "query": "standards/source-notes/phase-2-nm-multiframe.md",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "sect_C.8.4"
         }
       ]
     },

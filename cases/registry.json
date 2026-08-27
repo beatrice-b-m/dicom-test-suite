@@ -14307,7 +14307,7 @@
     {
       "case_id": "vl/endoscopic/rgb_explicit_le",
       "artifact_kind": "dicom_instance",
-      "status": "planned",
+      "status": "implemented",
       "provider": {
         "kind": "rust_native",
         "id": "rust_native"
@@ -14318,18 +14318,8 @@
         "pixels",
         "modality"
       ],
-      "roadmap": {
-        "priority": "later",
-        "delivery_phase": "phase-4",
-        "rationale": "Adds representative endoscopic color image semantics."
-      },
-      "blockers": [
-        {
-          "code": "recipe_unimplemented",
-          "message": "The deterministic native recipe is not implemented.",
-          "recheck_phase": "phase-4"
-        }
-      ],
+      "roadmap": null,
+      "blockers": [],
       "profiles": [
         "extended"
       ],
@@ -14369,7 +14359,7 @@
     {
       "case_id": "vl/microscopic/rgb_explicit_le",
       "artifact_kind": "dicom_instance",
-      "status": "planned",
+      "status": "implemented",
       "provider": {
         "kind": "rust_native",
         "id": "rust_native"
@@ -14380,18 +14370,8 @@
         "pixels",
         "modality"
       ],
-      "roadmap": {
-        "priority": "later",
-        "delivery_phase": "phase-4",
-        "rationale": "Adds representative microscopic color image semantics."
-      },
-      "blockers": [
-        {
-          "code": "recipe_unimplemented",
-          "message": "The deterministic native recipe is not implemented.",
-          "recheck_phase": "phase-4"
-        }
-      ],
+      "roadmap": null,
+      "blockers": [],
       "profiles": [
         "extended"
       ],

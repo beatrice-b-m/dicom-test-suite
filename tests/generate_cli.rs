@@ -2035,13 +2035,23 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
     )
     .expect("manifest should parse");
     assert_manifest_matches_committed_schema(&manifest);
-    let parametric_map_generated = manifest["files"].as_array().is_some_and(|files| {
-        files.iter().any(|file| {
-            file["case_id"].as_str()
-                == Some("derived/parametric-map/float32_ct_derived_explicit_le")
+    let parametric_maps_generated = manifest["files"]
+        .as_array()
+        .map(|files| {
+            files
+                .iter()
+                .filter(|file| {
+                    matches!(
+                        file["case_id"].as_str(),
+                        Some("derived/parametric-map/float32_ct_derived_explicit_le")
+                            | Some("derived/parametric-map/float64_ct_derived_explicit_le")
+                    )
+                })
+                .count()
         })
-    });
-    let expected_extended_files = native_extended_files + usize::from(parametric_map_generated);
+        .unwrap_or(0);
+    assert!(matches!(parametric_maps_generated, 0 | 2));
+    let expected_extended_files = native_extended_files + parametric_maps_generated;
     assert!(stdout.contains(&format!("files_written\t{expected_extended_files}")));
     assert_eq!(
         manifest
@@ -2050,15 +2060,17 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
             .map(Vec::len),
         Some(expected_extended_files)
     );
-    if !parametric_map_generated {
-        let unavailable = skipped_case_by_id(
-            &manifest,
+    if parametric_maps_generated == 0 {
+        for case_id in [
             "derived/parametric-map/float32_ct_derived_explicit_le",
-        );
-        assert_eq!(
-            unavailable.get("reason_code").and_then(Value::as_str),
-            Some("external_backend_unavailable")
-        );
+            "derived/parametric-map/float64_ct_derived_explicit_le",
+        ] {
+            let unavailable = skipped_case_by_id(&manifest, case_id);
+            assert_eq!(
+                unavailable.get("reason_code").and_then(Value::as_str),
+                Some("external_backend_unavailable")
+            );
+        }
     }
     let u32_file = file_entry_by_case_id(&manifest, "classic/sc/mono2_u32_explicit_le");
     assert_eq!(
@@ -6124,7 +6136,7 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
         .expect("manifest should contain skipped cases");
     assert_eq!(
         skipped_cases.len(),
-        41 - usize::from(parametric_map_generated)
+        41 - parametric_maps_generated
             - if cfg!(feature = "deflate") { 2 } else { 0 }
             - if cfg!(feature = "jpeg") { 1 } else { 0 }
             - if cfg!(feature = "charls") { 1 } else { 0 }
@@ -7758,13 +7770,23 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
     )
     .expect("manifest should parse");
     assert_manifest_matches_committed_schema(&manifest);
-    let parametric_map_generated = manifest["files"].as_array().is_some_and(|files| {
-        files.iter().any(|file| {
-            file["case_id"].as_str()
-                == Some("derived/parametric-map/float32_ct_derived_explicit_le")
+    let parametric_maps_generated = manifest["files"]
+        .as_array()
+        .map(|files| {
+            files
+                .iter()
+                .filter(|file| {
+                    matches!(
+                        file["case_id"].as_str(),
+                        Some("derived/parametric-map/float32_ct_derived_explicit_le")
+                            | Some("derived/parametric-map/float64_ct_derived_explicit_le")
+                    )
+                })
+                .count()
         })
-    });
-    let expected_all_files = native_all_files + usize::from(parametric_map_generated);
+        .unwrap_or(0);
+    assert!(matches!(parametric_maps_generated, 0 | 2));
+    let expected_all_files = native_all_files + parametric_maps_generated;
     assert!(stdout.contains(&format!("files_written\t{expected_all_files}")));
     assert_eq!(
         manifest.pointer("/run/profile").and_then(Value::as_str),
@@ -7932,7 +7954,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
         .expect("manifest should contain skipped cases");
     assert_eq!(
         skipped_cases.len(),
-        41 - usize::from(parametric_map_generated)
+        41 - parametric_maps_generated
             - if cfg!(feature = "deflate") { 2 } else { 0 }
             - if cfg!(feature = "jpeg") { 1 } else { 0 }
             - if cfg!(feature = "charls") { 1 } else { 0 }
@@ -7950,15 +7972,17 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
             },
         "all generation should report planned rows and unavailable cases according to active features"
     );
-    if !parametric_map_generated {
-        let unavailable = skipped_case_by_id(
-            &manifest,
+    if parametric_maps_generated == 0 {
+        for case_id in [
             "derived/parametric-map/float32_ct_derived_explicit_le",
-        );
-        assert_eq!(
-            unavailable.get("reason_code").and_then(Value::as_str),
-            Some("external_backend_unavailable")
-        );
+            "derived/parametric-map/float64_ct_derived_explicit_le",
+        ] {
+            let unavailable = skipped_case_by_id(&manifest, case_id);
+            assert_eq!(
+                unavailable.get("reason_code").and_then(Value::as_str),
+                Some("external_backend_unavailable")
+            );
+        }
     }
     if !cfg!(feature = "htj2k_openjph") {
         let skipped = skipped_case_by_id(&manifest, "classic/sc/mono2_u16_htj2k_lossless");

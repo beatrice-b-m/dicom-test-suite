@@ -8957,10 +8957,10 @@
     {
       "case_id": "derived/mesh/surface_segmentation",
       "artifact_kind": "dicom_instance",
-      "status": "implemented",
+      "status": "planned",
       "provider": {
-        "kind": "rust_native",
-        "id": "rust_native"
+        "kind": "external_backend",
+        "id": "highdicom_pydicom"
       },
       "object_family": "mesh",
       "compatibility_axes": [
@@ -15183,10 +15183,10 @@
     {
       "case_id": "vl/wsi/tiled_sparse_small",
       "artifact_kind": "dicom_instance",
-      "status": "planned",
+      "status": "implemented",
       "provider": {
-        "kind": "external_backend",
-        "id": "highdicom_pydicom"
+        "kind": "rust_native",
+        "id": "rust_native"
       },
       "object_family": "visible_light",
       "compatibility_axes": [

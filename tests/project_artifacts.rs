@@ -3725,6 +3725,48 @@ fn xa_monoplane_registry_evidence_resolves_to_a_source_note() {
     );
 }
 
+#[test]
+fn xrf_monoplane_registry_evidence_resolves_to_a_source_note() {
+    let registry = read_json("cases/registry.json");
+    let cases = registry_cases(&registry);
+    let case = cases
+        .iter()
+        .find(|case| {
+            case.get("case_id").and_then(Value::as_str) == Some("classic/xrf/monoplane_explicit_le")
+        })
+        .expect("registry must contain the XRF monoplane case");
+
+    assert_eq!(
+        case.get("status").and_then(Value::as_str),
+        Some("implemented")
+    );
+    assert!(
+        case.get("blockers")
+            .and_then(Value::as_array)
+            .is_some_and(Vec::is_empty),
+        "promoted XRF monoplane coverage must not retain controlled blockers"
+    );
+    let source_note = case
+        .get("standards_evidence")
+        .and_then(Value::as_array)
+        .and_then(|evidence| {
+            evidence.iter().find_map(|entry| {
+                (entry.get("source").and_then(Value::as_str) == Some("local-source-note"))
+                    .then(|| entry.get("query").and_then(Value::as_str))
+                    .flatten()
+            })
+        })
+        .expect("XRF monoplane standards evidence must name its local source note");
+    assert_eq!(
+        source_note,
+        "standards/source-notes/phase-2-xrf-monoplane.md"
+    );
+    assert!(
+        std::path::Path::new(source_note).is_file(),
+        "XRF monoplane local source-note evidence must resolve to a tracked artifact"
+    );
+}
+
 fn read_json(path: &str) -> Value {
     let contents =
         fs::read_to_string(path).unwrap_or_else(|err| panic!("failed to read {path}: {err}"));
@@ -3757,6 +3799,7 @@ fn generator_recipe_case_ids() -> BTreeSet<String> {
             &["case_id: \""][..],
         ),
         ("src/generator/native/xa.rs", &["case_id: \""][..]),
+        ("src/generator/native/xrf.rs", &["case_id: \""][..]),
         (
             "src/generator/native/private_creator_sc.rs",
             &["case_id: \""][..],

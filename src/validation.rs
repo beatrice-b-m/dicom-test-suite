@@ -16,6 +16,7 @@ use crate::{
         NativeRleLosslessEncoder, RLE_LOSSLESS_TRANSFER_SYNTAX_UID,
     },
     sha256_hex,
+    waveform_manifest::ExpectedWaveform,
 };
 
 #[cfg(test)]
@@ -37,6 +38,10 @@ mod advanced_blending_presentation_state_tests;
 #[cfg(test)]
 #[path = "validation_blending_presentation_state_tests.rs"]
 mod blending_presentation_state_tests;
+
+#[cfg(test)]
+#[path = "validation_twelve_lead_ecg_tests.rs"]
+mod twelve_lead_ecg_tests;
 
 #[cfg(feature = "deflate")]
 use crate::codecs::DicomRsDeflatedImageFrameEncoder;
@@ -174,6 +179,15 @@ pub(crate) struct BlendingPresentationStateExpectations<'a> {
     pub source_series: [BlendingSourceSeriesExpectations<'a>; 2],
     pub palette_channel_sha256: &'a str,
     pub icc_profile_sha256: &'a str,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct TwelveLeadEcgExpectations<'a> {
+    pub sop_instance_uid: &'a str,
+    pub implementation_class_uid: &'a str,
+    pub study_instance_uid: &'a str,
+    pub series_instance_uid: &'a str,
+    pub waveform: ExpectedWaveform<'a>,
 }
 
 #[derive(Debug, Clone)]
@@ -3541,6 +3555,601 @@ pub(crate) fn validate_advanced_blending_presentation_state_file(
             "external": []
         }),
     })
+}
+
+pub(crate) fn validate_twelve_lead_ecg_file(
+    path: &Path,
+    expected: &TwelveLeadEcgExpectations<'_>,
+) -> Result<ValidatedPart10, GenerateError> {
+    let bytes = fs::read(path).map_err(|source| GenerateError::ReadGeneratedFile {
+        path: path.to_path_buf(),
+        source,
+    })?;
+    let obj = open_file(path).map_err(|err| GenerateError::ValidateDicomFile {
+        path: path.to_path_buf(),
+        message: err.to_string(),
+    })?;
+    let waveform = expected.waveform;
+    let group_expected = waveform.multiplex_group;
+    let storage = waveform.storage;
+    let mut internal = Vec::new();
+
+    check(
+        &mut internal,
+        bytes.len() >= 132 && &bytes[128..132] == b"DICM",
+        "twelve_lead_ecg_part10_preamble",
+        "File has a Part 10 preamble and DICM marker.",
+        "File is missing the Part 10 DICM marker.",
+    );
+    check_equal(
+        &mut internal,
+        "twelve_lead_ecg_transfer_syntax",
+        "Transfer Syntax matches the locked recipe.",
+        "Transfer Syntax does not match the locked recipe.",
+        trim_uid(obj.meta().transfer_syntax()),
+        waveform.transfer_syntax_uid.to_string(),
+    );
+    let sop_class_uid = element_str(path, &obj, tags::SOP_CLASS_UID)?;
+    let sop_instance_uid = element_str(path, &obj, tags::SOP_INSTANCE_UID)?;
+    for (name, actual, locked) in [
+        (
+            "twelve_lead_ecg_sop_class_uid",
+            sop_class_uid.as_str(),
+            waveform.sop_class_uid,
+        ),
+        (
+            "twelve_lead_ecg_sop_instance_uid",
+            sop_instance_uid.as_str(),
+            expected.sop_instance_uid,
+        ),
+        (
+            "twelve_lead_ecg_synthetic_data",
+            element_str(path, &obj, tags::SYNTHETIC_DATA)?.as_str(),
+            "YES",
+        ),
+        (
+            "twelve_lead_ecg_study_instance_uid",
+            element_str(path, &obj, tags::STUDY_INSTANCE_UID)?.as_str(),
+            expected.study_instance_uid,
+        ),
+        (
+            "twelve_lead_ecg_series_instance_uid",
+            element_str(path, &obj, tags::SERIES_INSTANCE_UID)?.as_str(),
+            expected.series_instance_uid,
+        ),
+    ] {
+        check_equal(
+            &mut internal,
+            name,
+            "Identity matches the locked recipe.",
+            "Identity does not match the locked recipe.",
+            actual,
+            locked,
+        );
+    }
+    check_equal(
+        &mut internal,
+        "twelve_lead_ecg_media_storage_sop_class_uid",
+        "File Meta SOP Class matches the dataset.",
+        "File Meta SOP Class does not match the dataset.",
+        trim_uid(obj.meta().media_storage_sop_class_uid()),
+        sop_class_uid,
+    );
+    check_equal(
+        &mut internal,
+        "twelve_lead_ecg_media_storage_sop_instance_uid",
+        "File Meta SOP Instance matches the dataset.",
+        "File Meta SOP Instance does not match the dataset.",
+        trim_uid(obj.meta().media_storage_sop_instance_uid()),
+        sop_instance_uid,
+    );
+    check_equal(
+        &mut internal,
+        "twelve_lead_ecg_implementation_class_uid",
+        "Implementation Class UID matches the deterministic generator.",
+        "Implementation Class UID does not match the deterministic generator.",
+        trim_uid(obj.meta().implementation_class_uid()).as_str(),
+        expected.implementation_class_uid,
+    );
+
+    for (name, tag, locked) in [
+        (
+            "patient_name",
+            tags::PATIENT_NAME,
+            "DTS^Synthetic^Patient001",
+        ),
+        ("patient_id", tags::PATIENT_ID, "DTS-PATIENT-001"),
+        ("patient_birth_date", tags::PATIENT_BIRTH_DATE, "19700101"),
+        ("patient_sex", tags::PATIENT_SEX, "O"),
+        ("study_date", tags::STUDY_DATE, "20260101"),
+        ("study_time", tags::STUDY_TIME, "000000"),
+        ("referring_physician", tags::REFERRING_PHYSICIAN_NAME, ""),
+        ("study_id", tags::STUDY_ID, "DTS-ECG"),
+        ("accession_number", tags::ACCESSION_NUMBER, ""),
+        ("modality", tags::MODALITY, waveform.modality),
+        ("series_number", tags::SERIES_NUMBER, "90"),
+        ("manufacturer", tags::MANUFACTURER, "dicom-test-suite"),
+        ("institution_name", tags::INSTITUTION_NAME, ""),
+        ("institution_address", tags::INSTITUTION_ADDRESS, ""),
+        (
+            "manufacturer_model_name",
+            tags::MANUFACTURER_MODEL_NAME,
+            "Native Twelve-lead ECG",
+        ),
+        (
+            "device_serial_number",
+            tags::DEVICE_SERIAL_NUMBER,
+            "DTS-ECG-001",
+        ),
+        (
+            "software_versions",
+            tags::SOFTWARE_VERSIONS,
+            crate::PACKAGE_VERSION,
+        ),
+        ("instance_number", tags::INSTANCE_NUMBER, "1"),
+        ("content_date", tags::CONTENT_DATE, "20260101"),
+        ("content_time", tags::CONTENT_TIME, "000000"),
+        (
+            "acquisition_date_time",
+            tags::ACQUISITION_DATE_TIME,
+            "20260101000000",
+        ),
+    ] {
+        check_equal(
+            &mut internal,
+            &format!("twelve_lead_ecg_{name}"),
+            "Required IOD attribute matches the locked recipe.",
+            "Required IOD attribute does not match the locked recipe.",
+            element_str(path, &obj, tag)?.as_str(),
+            locked,
+        );
+    }
+    check_equal(
+        &mut internal,
+        "twelve_lead_ecg_acquisition_context_count",
+        "Acquisition Context Sequence is present and empty.",
+        "Acquisition Context Sequence is missing or non-empty.",
+        sequence_item_count(path, &obj, tags::ACQUISITION_CONTEXT_SEQUENCE)?,
+        usize::from(waveform.acquisition_context_items),
+    );
+
+    check_equal(
+        &mut internal,
+        "twelve_lead_ecg_group_count",
+        "Waveform Sequence has exactly one multiplex group.",
+        "Waveform Sequence does not have exactly one multiplex group.",
+        sequence_item_count(path, &obj, tags::WAVEFORM_SEQUENCE)?,
+        usize::from(group_expected.group_count),
+    );
+    let group = top_level_sequence_item(path, &obj, tags::WAVEFORM_SEQUENCE, 0)?;
+    for (name, tag, locked) in [
+        (
+            "originality",
+            tags::WAVEFORM_ORIGINALITY,
+            group_expected.originality,
+        ),
+        ("label", tags::MULTIPLEX_GROUP_LABEL, group_expected.label),
+        (
+            "sample_interpretation",
+            tags::WAVEFORM_SAMPLE_INTERPRETATION,
+            storage.sample_interpretation,
+        ),
+    ] {
+        check_equal(
+            &mut internal,
+            &format!("twelve_lead_ecg_{name}"),
+            "Waveform attribute matches the locked recipe.",
+            "Waveform attribute does not match the locked recipe.",
+            item_str(path, group, tag)?.as_str(),
+            locked,
+        );
+    }
+    let channel_count = item_u16(path, group, tags::NUMBER_OF_WAVEFORM_CHANNELS)?;
+    let sample_count = item_u32(path, group, tags::NUMBER_OF_WAVEFORM_SAMPLES)?;
+    let bits_allocated = item_u16(path, group, tags::WAVEFORM_BITS_ALLOCATED)?;
+    check_equal(
+        &mut internal,
+        "twelve_lead_ecg_sample_interpretation_vr",
+        "Waveform Sample Interpretation uses VR CS.",
+        "Waveform Sample Interpretation does not use VR CS.",
+        group
+            .element(tags::WAVEFORM_SAMPLE_INTERPRETATION)
+            .map_err(|err| validation_error(path, err))?
+            .vr(),
+        VR::CS,
+    );
+    check_equal(
+        &mut internal,
+        "twelve_lead_ecg_channel_count",
+        "Number of Waveform Channels is exactly twelve.",
+        "Number of Waveform Channels is not exactly twelve.",
+        channel_count,
+        u16::from(group_expected.channel_count),
+    );
+    check_equal(
+        &mut internal,
+        "twelve_lead_ecg_sample_count",
+        "Number of Waveform Samples matches the locked one-second trace.",
+        "Number of Waveform Samples does not match the locked trace.",
+        sample_count,
+        u32::from(group_expected.samples_per_channel),
+    );
+    check_equal(
+        &mut internal,
+        "twelve_lead_ecg_sampling_frequency",
+        "Sampling Frequency is 500 Hz.",
+        "Sampling Frequency is not 500 Hz.",
+        item_f64(path, group, tags::SAMPLING_FREQUENCY)?,
+        f64::from(group_expected.sampling_frequency_hz),
+    );
+    check_equal(
+        &mut internal,
+        "twelve_lead_ecg_duration",
+        "Sample count and frequency encode the locked duration.",
+        "Sample count and frequency do not encode the locked duration.",
+        f64::from(sample_count) / item_f64(path, group, tags::SAMPLING_FREQUENCY)?,
+        f64::from(group_expected.duration_seconds),
+    );
+    check_equal(
+        &mut internal,
+        "twelve_lead_ecg_bits_allocated",
+        "Waveform Bits Allocated is 16.",
+        "Waveform Bits Allocated is not 16.",
+        bits_allocated,
+        u16::from(storage.bits_allocated),
+    );
+    check_equal(
+        &mut internal,
+        "twelve_lead_ecg_channel_definition_count",
+        "Channel Definition Sequence contains the twelve ordered leads.",
+        "Channel Definition Sequence does not contain exactly twelve leads.",
+        item_sequence_item_count(path, group, tags::CHANNEL_DEFINITION_SEQUENCE)?,
+        waveform.channels.len(),
+    );
+
+    for (index, channel_expected) in waveform.channels.iter().enumerate() {
+        let channel = item_sequence_item(path, group, tags::CHANNEL_DEFINITION_SEQUENCE, index)?;
+        let prefix = format!("twelve_lead_ecg_channel_{}", index + 1);
+        check_equal(
+            &mut internal,
+            &format!("{prefix}_ordinal"),
+            "Waveform Channel Number is the one-based channel ordinal.",
+            "Waveform Channel Number is missing, duplicated, or reordered.",
+            item_str(path, channel, tags::WAVEFORM_CHANNEL_NUMBER)?.as_str(),
+            channel_expected.ordinal.to_string().as_str(),
+        );
+        check_equal(
+            &mut internal,
+            &format!("{prefix}_label"),
+            "Channel Label matches the locked lead order.",
+            "Channel Label does not match the locked lead order.",
+            item_str(path, channel, tags::CHANNEL_LABEL)?.as_str(),
+            channel_expected.label,
+        );
+        validate_waveform_code(
+            &mut internal,
+            path,
+            channel,
+            tags::CHANNEL_SOURCE_SEQUENCE,
+            &format!("{prefix}_source"),
+            channel_expected.source,
+        )?;
+        check_equal(
+            &mut internal,
+            &format!("{prefix}_sensitivity"),
+            "Channel Sensitivity matches the locked recipe.",
+            "Channel Sensitivity does not match the locked recipe.",
+            item_f64(path, channel, tags::CHANNEL_SENSITIVITY)?,
+            f64::from(channel_expected.sensitivity),
+        );
+        validate_waveform_code(
+            &mut internal,
+            path,
+            channel,
+            tags::CHANNEL_SENSITIVITY_UNITS_SEQUENCE,
+            &format!("{prefix}_sensitivity_units"),
+            channel_expected.sensitivity_units,
+        )?;
+        for (suffix, tag, locked) in [
+            (
+                "sensitivity_correction_factor",
+                tags::CHANNEL_SENSITIVITY_CORRECTION_FACTOR,
+                f64::from(channel_expected.sensitivity_correction_factor),
+            ),
+            (
+                "baseline",
+                tags::CHANNEL_BASELINE,
+                f64::from(channel_expected.baseline),
+            ),
+            (
+                "time_skew",
+                tags::CHANNEL_TIME_SKEW,
+                f64::from(channel_expected.time_skew_seconds),
+            ),
+        ] {
+            check_equal(
+                &mut internal,
+                &format!("{prefix}_{suffix}"),
+                "Channel numeric metadata matches the locked recipe.",
+                "Channel numeric metadata does not match the locked recipe.",
+                item_f64(path, channel, tag)?,
+                locked,
+            );
+        }
+        check_equal(
+            &mut internal,
+            &format!("{prefix}_bits_stored"),
+            "Waveform Bits Stored is 16 for every channel.",
+            "Waveform Bits Stored is not 16 for every channel.",
+            item_u16(path, channel, tags::WAVEFORM_BITS_STORED)?,
+            u16::from(channel_expected.bits_stored),
+        );
+        check(
+            &mut internal,
+            channel
+                .element_opt(tags::CHANNEL_SAMPLE_SKEW)
+                .map_err(|err| validation_error(path, err))?
+                .is_none()
+                == channel_expected.sample_skew_absent,
+            &format!("{prefix}_sample_skew_absent"),
+            "Channel Sample Skew is absent while explicit Time Skew is zero.",
+            "Channel Sample Skew is unexpectedly present.",
+        );
+    }
+
+    let waveform_data = group
+        .element(tags::WAVEFORM_DATA)
+        .map_err(|err| validation_error(path, err))?;
+    check_equal(
+        &mut internal,
+        "twelve_lead_ecg_waveform_data_vr",
+        "Waveform Data uses OW storage.",
+        "Waveform Data does not use OW storage.",
+        waveform_data.vr(),
+        VR::OW,
+    );
+    let payload = waveform_data
+        .to_bytes()
+        .map_err(|err| validation_error(path, err))?;
+    let arithmetic_length = usize::from(channel_count)
+        * usize::try_from(sample_count).unwrap_or(usize::MAX)
+        * usize::from(bits_allocated).div_ceil(8);
+    check_equal(
+        &mut internal,
+        "twelve_lead_ecg_payload_byte_arithmetic",
+        "Waveform byte length equals channels times samples times bytes per signed sample.",
+        "Waveform byte length does not match channel/sample/bit arithmetic.",
+        payload.len(),
+        arithmetic_length,
+    );
+    check_equal(
+        &mut internal,
+        "twelve_lead_ecg_payload_length",
+        "Waveform Data has the locked 12,000-byte length with no padding.",
+        "Waveform Data length or value-field padding does not match the locked recipe.",
+        payload.len(),
+        usize::from(storage.payload_length_bytes) + usize::from(storage.value_field_padding_bytes),
+    );
+    check_equal(
+        &mut internal,
+        "twelve_lead_ecg_payload_sha256",
+        "Waveform payload hash matches the locked recipe.",
+        "Waveform payload hash does not match the locked recipe.",
+        sha256_hex(payload.as_ref()),
+        storage.payload_sha256.to_string(),
+    );
+    check(
+        &mut internal,
+        payload.len() % 2 == 0,
+        "twelve_lead_ecg_signed_sample_width",
+        "Waveform payload is composed of complete signed 16-bit values.",
+        "Waveform payload ends with a partial signed 16-bit value.",
+    );
+    let samples = payload
+        .chunks_exact(2)
+        .map(|pair| i16::from_le_bytes([pair[0], pair[1]]))
+        .collect::<Vec<_>>();
+    check_equal(
+        &mut internal,
+        "twelve_lead_ecg_sample_min",
+        "Decoded signed sample minimum matches the locked range.",
+        "Decoded signed sample minimum does not match the locked range.",
+        samples.iter().copied().min(),
+        Some(storage.sample_min),
+    );
+    check_equal(
+        &mut internal,
+        "twelve_lead_ecg_sample_max",
+        "Decoded signed sample maximum matches the locked range.",
+        "Decoded signed sample maximum does not match the locked range.",
+        samples.iter().copied().max(),
+        Some(storage.sample_max),
+    );
+    let locked_formula = "((s * (c + 1) * 37 + c * 101) mod 2001) - 1000";
+    check_equal(
+        &mut internal,
+        "twelve_lead_ecg_formula_contract",
+        "Manifest sample formula is the locked deterministic formula.",
+        "Manifest sample formula is not the locked deterministic formula.",
+        storage.sample_value_formula,
+        locked_formula,
+    );
+    check_equal(
+        &mut internal,
+        "twelve_lead_ecg_interleave_contract",
+        "Manifest interleave is channel-then-sample.",
+        "Manifest interleave is not channel-then-sample.",
+        storage.interleave_order,
+        "channel_then_sample",
+    );
+    check_equal(
+        &mut internal,
+        "twelve_lead_ecg_byte_order_contract",
+        "Manifest byte order is little endian.",
+        "Manifest byte order is not little endian.",
+        storage.byte_order,
+        "little_endian",
+    );
+    let mut formula_matches = samples.len() == waveform.channels.len() * sample_count as usize;
+    let mut channel_bytes =
+        vec![Vec::with_capacity(sample_count as usize * 2); waveform.channels.len()];
+    if formula_matches {
+        for sample in 0..sample_count as usize {
+            for (channel, bytes) in channel_bytes.iter_mut().enumerate() {
+                let value = samples[sample * waveform.channels.len() + channel];
+                let expected_value =
+                    (((sample * (channel + 1) * 37 + channel * 101) % 2001) as i32 - 1000) as i16;
+                formula_matches &= value == expected_value;
+                bytes.extend_from_slice(&value.to_le_bytes());
+            }
+        }
+    }
+    check(
+        &mut internal,
+        formula_matches,
+        "twelve_lead_ecg_formula_and_interleave",
+        "Every signed sample matches the deterministic formula in channel-then-sample order.",
+        "A sample differs from the formula or the waveform is not channel-then-sample interleaved.",
+    );
+    check_equal(
+        &mut internal,
+        "twelve_lead_ecg_channel_hash_count",
+        "Manifest contains one deinterleaved hash per channel.",
+        "Manifest channel hash count does not match the channel count.",
+        storage.channel_sha256.len(),
+        waveform.channels.len(),
+    );
+    for (index, (actual, locked)) in channel_bytes
+        .iter()
+        .map(|bytes| sha256_hex(bytes))
+        .zip(storage.channel_sha256.iter())
+        .enumerate()
+    {
+        check_equal(
+            &mut internal,
+            &format!("twelve_lead_ecg_channel_{}_sha256", index + 1),
+            "Deinterleaved channel hash matches the locked recipe.",
+            "Deinterleaved channel hash does not match the locked recipe.",
+            actual,
+            (*locked).to_string(),
+        );
+    }
+
+    check(
+        &mut internal,
+        group
+            .element_opt(tags::WAVEFORM_PADDING_VALUE)
+            .map_err(|err| validation_error(path, err))?
+            .is_none()
+            == storage.waveform_padding_value_absent,
+        "twelve_lead_ecg_waveform_padding_absent",
+        "Waveform Padding Value is absent.",
+        "Waveform Padding Value is unexpectedly present.",
+    );
+    for (name, tag) in [
+        ("waveform_annotation", tags::WAVEFORM_ANNOTATION_SEQUENCE),
+        (
+            "structured_waveform_annotation",
+            tags::STRUCTURED_WAVEFORM_ANNOTATION_SEQUENCE,
+        ),
+        (
+            "synchronization_frame_of_reference",
+            tags::SYNCHRONIZATION_FRAME_OF_REFERENCE_UID,
+        ),
+        ("synchronization_trigger", tags::SYNCHRONIZATION_TRIGGER),
+        ("synchronization_channel", tags::SYNCHRONIZATION_CHANNEL),
+        (
+            "acquisition_time_synchronized",
+            tags::ACQUISITION_TIME_SYNCHRONIZED,
+        ),
+        ("time_source", tags::TIME_SOURCE),
+        (
+            "time_distribution_protocol",
+            tags::TIME_DISTRIBUTION_PROTOCOL,
+        ),
+        ("ntp_source_address", tags::NTP_SOURCE_ADDRESS),
+        ("referenced_study", tags::REFERENCED_STUDY_SEQUENCE),
+        ("referenced_series", tags::REFERENCED_SERIES_SEQUENCE),
+        ("referenced_waveform", tags::REFERENCED_WAVEFORM_SEQUENCE),
+        ("referenced_image", tags::REFERENCED_IMAGE_SEQUENCE),
+        ("referenced_instance", tags::REFERENCED_INSTANCE_SEQUENCE),
+        ("source_image", tags::SOURCE_IMAGE_SEQUENCE),
+        ("rows", tags::ROWS),
+        ("columns", tags::COLUMNS),
+        ("samples_per_pixel", tags::SAMPLES_PER_PIXEL),
+        (
+            "photometric_interpretation",
+            tags::PHOTOMETRIC_INTERPRETATION,
+        ),
+        ("bits_allocated", tags::BITS_ALLOCATED),
+        ("bits_stored", tags::BITS_STORED),
+        ("high_bit", tags::HIGH_BIT),
+        ("pixel_representation", tags::PIXEL_REPRESENTATION),
+        ("pixel_data", tags::PIXEL_DATA),
+    ] {
+        check(
+            &mut internal,
+            obj.element_opt(tag)
+                .map_err(|err| validation_error(path, err))?
+                .is_none(),
+            &format!("twelve_lead_ecg_{name}_absent"),
+            "Optional or forbidden content is absent.",
+            "Optional or forbidden content is unexpectedly present.",
+        );
+    }
+
+    fail_if_any_failed(path, &internal)?;
+    Ok(ValidatedPart10 {
+        bytes,
+        validation: serde_json::json!({
+            "status": "passed",
+            "internal": internal,
+            "standards": [
+                {"name": standard_sop_class_validation_name(waveform.sop_class_uid), "status": "passed", "message": standard_sop_class_validation_message(waveform.sop_class_uid)},
+                {"name": standard_transfer_syntax_validation_name(waveform.transfer_syntax_uid), "status": "passed", "message": standard_transfer_syntax_validation_message(waveform.transfer_syntax_uid)},
+                {"name": "twelve_lead_ecg_waveform_modules", "status": "passed", "message": "Twelve-lead ECG IOD, channel definitions, signed OW storage, deterministic interleave and absence invariants match the locked recipe."}
+            ],
+            "external": []
+        }),
+    })
+}
+
+fn validate_waveform_code(
+    results: &mut Vec<Value>,
+    path: &Path,
+    item: &DatasetObject,
+    sequence_tag: Tag,
+    prefix: &str,
+    expected: crate::waveform_manifest::ExpectedWaveformCode<'_>,
+) -> Result<(), GenerateError> {
+    check_equal(
+        results,
+        &format!("{prefix}_item_count"),
+        "Code Sequence contains exactly one Item.",
+        "Code Sequence does not contain exactly one Item.",
+        item_sequence_item_count(path, item, sequence_tag)?,
+        1,
+    );
+    let code = item_sequence_item(path, item, sequence_tag, 0)?;
+    for (suffix, tag, locked) in [
+        ("value", tags::CODE_VALUE, expected.code_value),
+        (
+            "scheme",
+            tags::CODING_SCHEME_DESIGNATOR,
+            expected.coding_scheme_designator,
+        ),
+        ("meaning", tags::CODE_MEANING, expected.code_meaning),
+    ] {
+        check_equal(
+            results,
+            &format!("{prefix}_{suffix}"),
+            "Coded value matches the locked recipe.",
+            "Coded value does not match the locked recipe.",
+            item_str(path, code, tag)?.as_str(),
+            locked,
+        );
+    }
+    Ok(())
 }
 
 pub(crate) fn validate_real_world_value_mapping_file(
@@ -13279,6 +13888,7 @@ fn standard_sop_class_validation_name(sop_class_uid: &str) -> &'static str {
         "1.2.840.10008.5.1.4.1.1.11.1" => "grayscale_softcopy_presentation_state_sop_class",
         "1.2.840.10008.5.1.4.1.1.11.2" => "color_softcopy_presentation_state_sop_class",
         "1.2.840.10008.5.1.4.1.1.11.4" => "blending_softcopy_presentation_state_sop_class",
+        "1.2.840.10008.5.1.4.1.1.9.1.1" => "twelve_lead_ecg_waveform_sop_class",
         "1.2.840.10008.5.1.4.1.1.67" => "real_world_value_mapping_sop_class",
         uids::BASIC_TEXT_SR_STORAGE => "basic_text_sr_sop_class",
         uids::COMPREHENSIVE_SR_STORAGE => "comprehensive_sr_sop_class",
@@ -13346,6 +13956,9 @@ fn standard_sop_class_validation_message(sop_class_uid: &str) -> &'static str {
         }
         "1.2.840.10008.5.1.4.1.1.11.4" => {
             "SOP Class UID matches Blending Softcopy Presentation State Storage in the 2026b reference."
+        }
+        "1.2.840.10008.5.1.4.1.1.9.1.1" => {
+            "SOP Class UID matches 12-lead ECG Waveform Storage in the 2026b reference."
         }
         "1.2.840.10008.5.1.4.1.1.67" => {
             "SOP Class UID matches Real World Value Mapping Storage in the 2026b reference."

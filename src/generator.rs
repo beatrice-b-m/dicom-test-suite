@@ -54,6 +54,11 @@ use native::deformable_spatial_registration::{
     VECTOR_GRID_VALUES as DEFORMABLE_VECTOR_GRID_VALUES, build_deformable_spatial_registration,
 };
 use native::empty_type2_sc::{EMPTY_TYPE2_SC_RECIPE, EmptyType2ScRecipe};
+use native::general_ecg::{
+    GENERAL_ECG_AGGREGATE_SHA256, GENERAL_ECG_OUTPUT_FILE, GENERAL_ECG_STORAGE_UID,
+    GENERAL_ECG_TOTAL_CHANNEL_COUNT, GENERAL_ECG_TOTAL_PAYLOAD_LENGTH, GeneralEcgInput,
+    build_general_ecg,
+};
 use native::icc_profile::{
     ICC_CASE_ID, ICC_COLOR_SPACE, ICC_PROFILE_BYTES, ICC_PROFILE_SHA256, ICC_PROFILE_SIZE,
     ICC_RECIPE_ID, validate_locked_icc_profile,
@@ -120,7 +125,7 @@ use crate::{
         CrImageExpectations, CtImageExpectations, DeformableSpatialRegistrationExpectations,
         DxImageExpectations, EncapsulatedPdfExpectations, EnhancedCtConcatenationExpectations,
         EnhancedCtImageExpectations, EnhancedMrImageExpectations, EnhancedPetImageExpectations,
-        MgImageExpectations, MrImageExpectations, NmDetectorExpectations,
+        GeneralEcgExpectations, MgImageExpectations, MrImageExpectations, NmDetectorExpectations,
         NmEnergyWindowExpectations, NmImageExpectations, Part10Expectations, PetImageExpectations,
         PixelDataLengthFormula, PresentationStateExpectations, RealWorldValueMappingExpectations,
         RtDoseExpectations, RtStructureSetExpectations, Scoord3dExpectations,
@@ -130,12 +135,13 @@ use crate::{
         validate_advanced_blending_presentation_state_file, validate_basic_text_sr_file,
         validate_blending_presentation_state_file, validate_color_softcopy_presentation_state_file,
         validate_comprehensive_sr_file, validate_deformable_spatial_registration_file,
-        validate_encapsulated_pdf_file, validate_key_object_selection_file, validate_part10_file,
-        validate_presentation_state_file, validate_real_world_value_mapping_file,
-        validate_rt_dose_file, validate_rt_structure_set_file, validate_scoord3d_file,
-        validate_spatial_registration_file, validate_tid1500_file, validate_twelve_lead_ecg_file,
+        validate_encapsulated_pdf_file, validate_general_ecg_file,
+        validate_key_object_selection_file, validate_part10_file, validate_presentation_state_file,
+        validate_real_world_value_mapping_file, validate_rt_dose_file,
+        validate_rt_structure_set_file, validate_scoord3d_file, validate_spatial_registration_file,
+        validate_tid1500_file, validate_twelve_lead_ecg_file,
     },
-    waveform_manifest::twelve_lead_ecg_expected_waveform,
+    waveform_manifest::{general_ecg_expected_waveform, twelve_lead_ecg_expected_waveform},
 };
 
 #[cfg(feature = "jpeg")]
@@ -260,6 +266,9 @@ const BLENDING_PRESENTATION_STATE_PALETTE_SHA256: &str =
 const TWELVE_LEAD_ECG_CASE_ID: &str = "non-image/waveform/twelve_lead_ecg";
 const TWELVE_LEAD_ECG_RECIPE_ID: &str = "non_image_waveform_twelve_lead_ecg";
 const TWELVE_LEAD_ECG_RECIPE_VERSION: &str = "0.1.0";
+const GENERAL_ECG_CASE_ID: &str = "non-image/waveform/general_ecg";
+const GENERAL_ECG_RECIPE_ID: &str = "non_image_waveform_general_ecg";
+const GENERAL_ECG_RECIPE_VERSION: &str = "0.1.0";
 const DEFORMABLE_VECTOR_GRID_DATA_SHA256: &str =
     "d0673d2da1b415db6465047e607b7f16f1a886dfae4ede91764c71bf7df72f47";
 const DEFORMABLE_REGISTERED_POINTS_MM: [[f64; 3]; 4] = [
@@ -4209,6 +4218,11 @@ pub(crate) fn write_supported_cases(
             )?)?;
         }
     }
+    if let Some(case) = registry_case(registry, GENERAL_ECG_CASE_ID)? {
+        if should_generate_case(case, run)? {
+            context.record_one(write_general_ecg_case(run, case, standards_lock_sha256)?)?;
+        }
+    }
     for recipe in PRESENTATION_STATE_RECIPES {
         let Some(case) = registry_case(registry, recipe.case_id)? else {
             continue;
@@ -7214,6 +7228,161 @@ fn write_twelve_lead_ecg_case(
                 "twelve_simultaneous_channels",
                 "signed_16_bit_ow_payload",
                 "channel_then_sample_interleave",
+                "cid_3001_channel_sources"
+            ],
+            "standards_evidence": deduplicated_standards_evidence(standards_evidence_from_case(case))
+        }),
+    })
+}
+
+fn write_general_ecg_case(
+    run: &PreparedGenerationRun,
+    case: &Value,
+    standards_lock_sha256: &str,
+) -> Result<GeneratedFile, GenerateError> {
+    let uid = |role| {
+        deterministic_uid(&DeterministicUidInput {
+            standards_lock_sha256,
+            case_id: GENERAL_ECG_CASE_ID,
+            recipe_version: GENERAL_ECG_RECIPE_VERSION,
+            run_seed: run.seed,
+            file_index: 0,
+            frame_index: None,
+            referenced_object_index: None,
+            role,
+        })
+    };
+    let study_instance_uid = uid(UidRole::StudyInstance);
+    let series_instance_uid = uid(UidRole::SeriesInstance);
+    let sop_instance_uid = uid(UidRole::SopInstance);
+    let implementation_class_uid = deterministic_implementation_uid(standards_lock_sha256);
+    let relative_path = format!("{GENERAL_ECG_CASE_ID}/{GENERAL_ECG_OUTPUT_FILE}");
+    let path = run.out_dir.join(&relative_path);
+    let case_dir = path.parent().ok_or_else(|| GenerateError::MetadataShape {
+        path: PathBuf::from(&relative_path),
+        message: "General ECG output must have a parent directory",
+    })?;
+    fs::create_dir_all(case_dir).map_err(|source| GenerateError::CreateCaseOutputDir {
+        path: case_dir.to_path_buf(),
+        source,
+    })?;
+
+    let object = build_general_ecg(GeneralEcgInput {
+        study_instance_uid: &study_instance_uid,
+        series_instance_uid: &series_instance_uid,
+        sop_instance_uid: &sop_instance_uid,
+    })
+    .map_err(|message| GenerateError::WriteDicomFile {
+        path: path.clone(),
+        message,
+    })?;
+    object
+        .with_meta(
+            FileMetaTableBuilder::new()
+                .transfer_syntax(EXPLICIT_VR_LITTLE_ENDIAN.uid)
+                .implementation_class_uid(&implementation_class_uid)
+                .implementation_version_name(crate::IMPLEMENTATION_VERSION_NAME),
+        )
+        .map_err(|error| GenerateError::WriteDicomFile {
+            path: path.clone(),
+            message: error.to_string(),
+        })?
+        .write_to_file(&path)
+        .map_err(|error| GenerateError::WriteDicomFile {
+            path: path.clone(),
+            message: error.to_string(),
+        })?;
+
+    let expected_waveform = general_ecg_expected_waveform();
+    let validated = validate_general_ecg_file(
+        &path,
+        &GeneralEcgExpectations {
+            sop_instance_uid: &sop_instance_uid,
+            implementation_class_uid: &implementation_class_uid,
+            study_instance_uid: &study_instance_uid,
+            series_instance_uid: &series_instance_uid,
+            waveform: expected_waveform,
+        },
+    )?;
+    let bytes = validated.bytes;
+    let validation = validated.validation;
+    let expected_waveform = serde_json::to_value(expected_waveform)
+        .expect("General ECG expectation serialization is infallible");
+
+    Ok(GeneratedFile {
+        case_id: GENERAL_ECG_CASE_ID.to_string(),
+        manifest_entry: serde_json::json!({
+            "case_id": GENERAL_ECG_CASE_ID,
+            "profile_membership": ["extended"],
+            "path": relative_path,
+            "sha256": sha256_hex(&bytes),
+            "size_bytes": bytes.len(),
+            "determinism": "byte_stable",
+            "recipe": {
+                "recipe_id": GENERAL_ECG_RECIPE_ID,
+                "recipe_version": GENERAL_ECG_RECIPE_VERSION,
+                "recipe_parameters": {
+                    "multiplex_groups": [
+                        {
+                            "label": "STD12_250HZ",
+                            "channel_count": 12,
+                            "samples_per_channel": 1000,
+                            "sampling_frequency_hz": 250
+                        },
+                        {
+                            "label": "AUX4_1000HZ",
+                            "channel_count": 4,
+                            "samples_per_channel": 4000,
+                            "sampling_frequency_hz": 1000
+                        }
+                    ],
+                    "total_channel_count": GENERAL_ECG_TOTAL_CHANNEL_COUNT,
+                    "total_payload_length_bytes": GENERAL_ECG_TOTAL_PAYLOAD_LENGTH,
+                    "aggregate_payload_sha256": GENERAL_ECG_AGGREGATE_SHA256,
+                    "sample_formula": "((s * (c + 1) * (g + 1) * 37 + c * 101 + g * 307) mod 2001) - 1000"
+                }
+            },
+            "dicom": {
+                "sop_class_uid": GENERAL_ECG_STORAGE_UID,
+                "sop_class_name": "General ECG Waveform Storage",
+                "iod_name": "General ECG Waveform",
+                "modality": "ECG",
+                "transfer_syntax_uid": EXPLICIT_VR_LITTLE_ENDIAN.uid,
+                "transfer_syntax_name": EXPLICIT_VR_LITTLE_ENDIAN.name
+            },
+            "uids": {
+                "study_instance_uid": study_instance_uid,
+                "series_instance_uid": series_instance_uid,
+                "sop_instance_uid": sop_instance_uid,
+                "implementation_class_uid": implementation_class_uid,
+                "implementation_version_name": crate::IMPLEMENTATION_VERSION_NAME
+            },
+            "image": Value::Null,
+            "pixel_data": Value::Null,
+            "references": [],
+            "expected_capabilities": [
+                "open_file", "read_metadata", "read_waveform", "display_general_ecg"
+            ],
+            "expected_semantics": {
+                "synthetic_data": "YES",
+                "simultaneous_sampling_within_groups": true,
+                "common_duration_seconds": 4,
+                "cross_group_synchronization_asserted": false,
+                "pixel_data_absent": true,
+                "diagnostic_use": false
+            },
+            "expected_waveform": expected_waveform,
+            "expected_visual_checks": {
+                "pattern": "two_group_deterministic_general_ecg_trace"
+            },
+            "validation": validation,
+            "known_stressors": [
+                "general_ecg_waveform_storage",
+                "two_heterogeneous_multiplex_groups",
+                "sixteen_total_channels",
+                "different_group_sampling_frequencies",
+                "signed_16_bit_ow_payloads",
+                "separate_channel_then_sample_interleave",
                 "cid_3001_channel_sources"
             ],
             "standards_evidence": deduplicated_standards_evidence(standards_evidence_from_case(case))
@@ -25116,6 +25285,131 @@ mod tests {
         assert!(
             validator.is_valid(&first.manifest_entry),
             "Twelve-lead ECG manifest entry should satisfy schema: {:?}",
+            validator
+                .iter_errors(&first.manifest_entry)
+                .collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn general_ecg_writer_is_byte_deterministic_and_schema_valid() {
+        let output = ParametricMapStagingGuard::new();
+        let run = PreparedGenerationRun {
+            profile: "extended".to_string(),
+            out_dir: output.path().to_path_buf(),
+            manifest_path: output.path().join("manifest.json"),
+            seed: 7,
+            include_stress: false,
+        };
+        let case = serde_json::json!({
+            "case_id": GENERAL_ECG_CASE_ID,
+            "profiles": ["extended"],
+            "status": "planned",
+            "requirements": {"features": []},
+            "standards_evidence": []
+        });
+        let standards_lock = "0000000000000000000000000000000000000000000000000000000000000000";
+
+        assert!(
+            !should_generate_case(&case, &run).expect("planned case should be well formed"),
+            "General ECG must remain excluded from profile generation until registry promotion"
+        );
+
+        let first = write_general_ecg_case(&run, &case, standards_lock)
+            .expect("General ECG should write and validate directly");
+        let output_path = output
+            .path()
+            .join(GENERAL_ECG_CASE_ID)
+            .join(GENERAL_ECG_OUTPUT_FILE);
+        let first_bytes = fs::read(&output_path).expect("first General ECG bytes");
+        let second = write_general_ecg_case(&run, &case, standards_lock)
+            .expect("repeated General ECG should validate");
+        let second_bytes = fs::read(&output_path).expect("second General ECG bytes");
+
+        assert_eq!(first_bytes, second_bytes);
+        assert_eq!(
+            first.manifest_entry["sha256"],
+            Value::from(sha256_hex(&first_bytes))
+        );
+        assert_eq!(
+            first.manifest_entry["sha256"],
+            second.manifest_entry["sha256"]
+        );
+        assert_eq!(first.manifest_entry["image"], Value::Null);
+        assert_eq!(first.manifest_entry["pixel_data"], Value::Null);
+
+        let groups = first
+            .manifest_entry
+            .pointer("/expected_waveform/multiplex_groups")
+            .and_then(Value::as_array)
+            .expect("General ECG ordered multiplex groups");
+        assert_eq!(groups.len(), 2);
+        assert_eq!(groups[0]["label"], "STD12_250HZ");
+        assert_eq!(groups[0]["channel_count"], 12);
+        assert_eq!(groups[0]["samples_per_channel"], 1_000);
+        assert_eq!(groups[0]["sampling_frequency_hz"], 250);
+        assert_eq!(groups[0]["storage"]["payload_length_bytes"], 24_000);
+        assert_eq!(
+            groups[0]["storage"]["payload_sha256"],
+            "e4bfb8a3290d9057fa5f5935fa6960ce2a44a07f18991d28c190522739008dbb"
+        );
+        assert_eq!(groups[1]["label"], "AUX4_1000HZ");
+        assert_eq!(groups[1]["channel_count"], 4);
+        assert_eq!(groups[1]["samples_per_channel"], 4_000);
+        assert_eq!(groups[1]["sampling_frequency_hz"], 1_000);
+        assert_eq!(groups[1]["storage"]["payload_length_bytes"], 32_000);
+        assert_eq!(
+            groups[1]["storage"]["payload_sha256"],
+            "5b201d4fa7274ba36d6f7387c3d0217e1b5da161a915f983c2b63b995dde7bbe"
+        );
+        assert_eq!(
+            first.manifest_entry.pointer("/expected_waveform/aggregate"),
+            Some(&serde_json::json!({
+                "group_count": 2,
+                "total_channel_count": GENERAL_ECG_TOTAL_CHANNEL_COUNT,
+                "common_duration_seconds": 4,
+                "total_payload_length_bytes": GENERAL_ECG_TOTAL_PAYLOAD_LENGTH,
+                "group_payload_sha256": [
+                    "e4bfb8a3290d9057fa5f5935fa6960ce2a44a07f18991d28c190522739008dbb",
+                    "5b201d4fa7274ba36d6f7387c3d0217e1b5da161a915f983c2b63b995dde7bbe"
+                ],
+                "aggregate_payload_sha256": GENERAL_ECG_AGGREGATE_SHA256
+            }))
+        );
+        assert!(
+            first
+                .manifest_entry
+                .pointer("/validation/internal")
+                .and_then(Value::as_array)
+                .expect("internal General ECG validation evidence")
+                .iter()
+                .any(|check| check.get("name").and_then(Value::as_str)
+                    == Some("general_ecg_formula_and_interleave"))
+        );
+        assert!(
+            first
+                .manifest_entry
+                .pointer("/validation/internal")
+                .and_then(Value::as_array)
+                .expect("internal General ECG validation evidence")
+                .iter()
+                .any(|check| check.get("name").and_then(Value::as_str)
+                    == Some("general_ecg_aggregate_payload_sha256"))
+        );
+
+        let manifest_schema: Value =
+            serde_json::from_str(include_str!("../schemas/manifest.schema.json"))
+                .expect("manifest schema 0.2 should parse");
+        let file_schema = serde_json::json!({
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$ref": "#/$defs/file",
+            "$defs": manifest_schema["$defs"].clone(),
+        });
+        let validator =
+            jsonschema::validator_for(&file_schema).expect("file manifest schema should compile");
+        assert!(
+            validator.is_valid(&first.manifest_entry),
+            "General ECG manifest entry should satisfy schema 0.2: {:?}",
             validator
                 .iter_errors(&first.manifest_entry)
                 .collect::<Vec<_>>()

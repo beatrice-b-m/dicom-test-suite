@@ -52,10 +52,26 @@ The US value is emitted as typed little-endian binary, not a string surrogate.
 
 ## Project Action
 
-- Registry status: planned until the typed manifest contract, native recipe,
-  exact raw validation, reports, and independent conformance gates pass.
+- Registry status: implemented after the typed manifest contract, native
+  recipe, exact raw validation, reports, and independent conformance gates
+  passed.
 - Manifest decision: record each group, creator tag/value, reserved block, and
   typed private payload with exact raw Value Length and SHA-256.
 - Should become KB patch: no; the required allocation algorithm is a narrow
   PS3.5 recipe decision rather than a missing dictionary row.
 - Expected cleanup after KB coverage exists: none.
+
+## Promotion Evidence
+
+- Two seed-1 `core` generations produced 42 byte-identical files and zero
+  strict validation failures. The private fixture SHA-256 is
+  `cd7e529698c8716890da44045faaef6b218d35e18e91543103877971fe82a56c`.
+- `dciodvfy` accepted the Secondary Capture IOD and emitted only its expected
+  informational warnings that the four private data tags are unrecognized;
+  `dcentvfy` was silent.
+- DCMTK `dcmdump` independently recovered all three LO creator reservations,
+  the three private LO values, and private US value `4660` at their exact
+  tags and VRs.
+- Pydicom 3.0.2 from the repository's locked offline `uv` environment
+  recovered all seven typed values. Its rewrite was byte-identical to the
+  native fixture and passed the same dicom3tools and DCMTK checks.

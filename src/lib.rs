@@ -13152,6 +13152,34 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
             "ICC Source Identities",
             "/grouped_coverage/icc_source_identities",
         ),
+        (
+            "Non-square Spatial Variant IDs",
+            "/grouped_coverage/nonsquare_variant_ids",
+        ),
+        (
+            "Non-square Pixel Spacings",
+            "/grouped_coverage/nonsquare_pixel_spacings",
+        ),
+        (
+            "Non-square Nominal Scanned Pixel Spacings",
+            "/grouped_coverage/nonsquare_nominal_scanned_pixel_spacings",
+        ),
+        (
+            "Non-square Pixel Aspect Ratios",
+            "/grouped_coverage/nonsquare_pixel_aspect_ratios",
+        ),
+        (
+            "Non-square Uncalibrated States",
+            "/grouped_coverage/nonsquare_uncalibrated_states",
+        ),
+        (
+            "Non-square Patient-space Geometry Present States",
+            "/grouped_coverage/nonsquare_patient_space_geometry_present_states",
+        ),
+        (
+            "Non-square Pixel Data SHA-256 Values",
+            "/grouped_coverage/nonsquare_pixel_data_sha256_values",
+        ),
     ] {
         append_count_map_section(&mut output, report, title, pointer);
     }
@@ -13893,6 +13921,44 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
         "/grouped_coverage/known_stressors",
     );
 
+    let nonsquare_rows = report
+        .get("coverage_matrix")
+        .and_then(Value::as_array)
+        .map(|rows| {
+            rows.iter()
+                .filter(|row| !row["nonsquare_variant_id"].is_null())
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    if !nonsquare_rows.is_empty() {
+        output.push_str("## Non-square Spatial Expectations\n\n");
+        output.push_str("| Case ID | Variant | Pixel Spacing | Nominal Scanned Pixel Spacing | Pixel Aspect Ratio | Uncalibrated | Patient-space geometry | Pixel Data SHA-256 |\n");
+        output.push_str("|---|---|---|---|---|---|---|---|\n");
+        for row in nonsquare_rows {
+            output.push_str(&format!(
+                "| {} | {} | {} | {} | {} | {} | {} | {} |\n",
+                markdown_cell(row.get("case_id").and_then(Value::as_str)),
+                markdown_cell(row.get("nonsquare_variant_id").and_then(Value::as_str)),
+                markdown_cell(row.get("nonsquare_pixel_spacing").and_then(Value::as_str)),
+                markdown_cell(
+                    row.get("nonsquare_nominal_scanned_pixel_spacing")
+                        .and_then(Value::as_str)
+                ),
+                markdown_cell(
+                    row.get("nonsquare_pixel_aspect_ratio")
+                        .and_then(Value::as_str)
+                ),
+                markdown_bool(row.get("nonsquare_uncalibrated")),
+                markdown_bool(row.get("nonsquare_patient_space_geometry_present")),
+                markdown_cell(
+                    row.get("nonsquare_pixel_data_sha256")
+                        .and_then(Value::as_str)
+                ),
+            ));
+        }
+        output.push('\n');
+    }
+
     output.push_str("## Gaps\n\n");
     let gaps = report
         .get("gaps")
@@ -14579,6 +14645,7 @@ fn generated_coverage_row(
     let u32_pixels = u32_pixel_report_fields(manifest_path, file)?;
     let u1_pixels = u1_pixel_report_fields(manifest_path, file)?;
     let icc_profile = icc_profile_report_fields(manifest_path, file)?;
+    let nonsquare_spacing = nonsquare_spacing_report_fields(manifest_path, file)?;
     let mut row = serde_json::json!({
         "case_id": report_str(manifest_path, file, "/case_id", "file case_id must be a string")?,
         "profile": run_profile,
@@ -14703,6 +14770,42 @@ fn generated_coverage_row(
         (
             "icc_source_identity",
             icc_profile.source_identity.map(Value::from),
+        ),
+    ] {
+        row_object.insert(field.to_string(), value.unwrap_or(Value::Null));
+    }
+    for (field, value) in [
+        (
+            "nonsquare_variant_id",
+            nonsquare_spacing.variant_id.map(Value::from),
+        ),
+        (
+            "nonsquare_pixel_spacing",
+            nonsquare_spacing.pixel_spacing.map(Value::from),
+        ),
+        (
+            "nonsquare_nominal_scanned_pixel_spacing",
+            nonsquare_spacing
+                .nominal_scanned_pixel_spacing
+                .map(Value::from),
+        ),
+        (
+            "nonsquare_pixel_aspect_ratio",
+            nonsquare_spacing.pixel_aspect_ratio.map(Value::from),
+        ),
+        (
+            "nonsquare_uncalibrated",
+            nonsquare_spacing.uncalibrated.map(Value::from),
+        ),
+        (
+            "nonsquare_patient_space_geometry_present",
+            nonsquare_spacing
+                .patient_space_geometry_present
+                .map(Value::from),
+        ),
+        (
+            "nonsquare_pixel_data_sha256",
+            nonsquare_spacing.pixel_data_sha256.map(Value::from),
         ),
     ] {
         row_object.insert(field.to_string(), value.unwrap_or(Value::Null));
@@ -17392,6 +17495,17 @@ struct IccProfileReportFields {
     source_identity: Option<String>,
 }
 
+#[derive(Default)]
+struct NonsquareSpacingReportFields {
+    variant_id: Option<String>,
+    pixel_spacing: Option<String>,
+    nominal_scanned_pixel_spacing: Option<String>,
+    pixel_aspect_ratio: Option<String>,
+    uncalibrated: Option<bool>,
+    patient_space_geometry_present: Option<bool>,
+    pixel_data_sha256: Option<String>,
+}
+
 fn u32_pixel_report_fields(
     manifest_path: &Path,
     file: &Value,
@@ -17643,6 +17757,118 @@ fn icc_profile_report_fields(
             "DCMTK 3.7.0 DCMTK_SRGB_ICC_SAMPLE",
             "ICC coverage row requires the locked source identity",
         )?),
+    })
+}
+
+fn nonsquare_spacing_report_fields(
+    manifest_path: &Path,
+    file: &Value,
+) -> Result<NonsquareSpacingReportFields, ReportError> {
+    const CASE_ID: &str = "classic/sc/nonsquare_pixel_spacing";
+    const PIXEL_SHA256: &str = "e89b23efeade0dc3de624fc8982ea8b99adb35a3bb9a2fbf8b8ce675e10581a6";
+    if file.get("case_id").and_then(Value::as_str) != Some(CASE_ID) {
+        return Ok(NonsquareSpacingReportFields::default());
+    }
+    let expected = file
+        .get("expected_nonsquare_spacing")
+        .ok_or(ReportError::MetadataShape {
+            path: manifest_path.to_path_buf(),
+            message: "non-square coverage row requires expected_nonsquare_spacing",
+        })?;
+    if expected.get("uncalibrated").and_then(Value::as_bool) != Some(true) {
+        return Err(ReportError::MetadataShape {
+            path: manifest_path.to_path_buf(),
+            message: "non-square coverage row requires uncalibrated true",
+        });
+    }
+    if expected
+        .get("patient_space_geometry_present")
+        .and_then(Value::as_bool)
+        != Some(false)
+    {
+        return Err(ReportError::MetadataShape {
+            path: manifest_path.to_path_buf(),
+            message: "non-square coverage row requires absent patient-space geometry",
+        });
+    }
+    let pixel_data_sha256 = expected
+        .get("pixel_data_sha256")
+        .and_then(Value::as_str)
+        .filter(|value| *value == PIXEL_SHA256)
+        .ok_or(ReportError::MetadataShape {
+            path: manifest_path.to_path_buf(),
+            message: "non-square coverage row requires the locked pixel data SHA-256",
+        })?;
+
+    let spacing = serde_json::json!({
+        "tag": "0028,0030",
+        "keyword": "PixelSpacing",
+        "vr": "DS",
+        "vm": 2,
+        "lexical_value": "0.6\\0.3",
+        "row_spacing_mm": 0.6,
+        "column_spacing_mm": 0.3
+    });
+    let nominal = serde_json::json!({
+        "tag": "0018,2010",
+        "keyword": "NominalScannedPixelSpacing",
+        "vr": "DS",
+        "vm": 2,
+        "lexical_value": "0.6\\0.3",
+        "row_spacing_mm": 0.6,
+        "column_spacing_mm": 0.3
+    });
+    let aspect = serde_json::json!({
+        "tag": "0028,0034",
+        "keyword": "PixelAspectRatio",
+        "vr": "IS",
+        "vm": 2,
+        "lexical_value": "2\\1",
+        "vertical_extent": 2,
+        "horizontal_extent": 1
+    });
+
+    let (variant_id, pixel_spacing, nominal_scanned_pixel_spacing, pixel_aspect_ratio) =
+        match expected.get("variant_id").and_then(Value::as_str) {
+            Some("pixel_spacing")
+                if expected.get("pixel_spacing") == Some(&spacing)
+                    && expected.get("nominal_scanned_pixel_spacing") == Some(&nominal)
+                    && expected
+                        .get("pixel_aspect_ratio")
+                        .is_some_and(Value::is_null) =>
+            {
+                (
+                    "pixel_spacing",
+                    Some("0.6\\0.3".to_string()),
+                    Some("0.6\\0.3".to_string()),
+                    None,
+                )
+            }
+            Some("pixel_aspect_ratio")
+                if expected.get("pixel_spacing").is_some_and(Value::is_null)
+                    && expected
+                        .get("nominal_scanned_pixel_spacing")
+                        .is_some_and(Value::is_null)
+                    && expected.get("pixel_aspect_ratio") == Some(&aspect) =>
+            {
+                ("pixel_aspect_ratio", None, None, Some("2\\1".to_string()))
+            }
+            _ => {
+                return Err(ReportError::MetadataShape {
+                    path: manifest_path.to_path_buf(),
+                    message: "non-square coverage row requires one exact spatial variant",
+                });
+            }
+        };
+
+    Ok(NonsquareSpacingReportFields {
+        variant_id: Some(variant_id.to_string()),
+        pixel_spacing,
+        nominal_scanned_pixel_spacing,
+        pixel_aspect_ratio,
+        uncalibrated: Some(true),
+        patient_space_geometry_present: Some(false),
+        pixel_data_sha256: Some(pixel_data_sha256.to_string()),
     })
 }
 
@@ -18011,6 +18237,13 @@ fn skipped_coverage_row(
         "icc_profile_description",
         "icc_copyright",
         "icc_source_identity",
+        "nonsquare_variant_id",
+        "nonsquare_pixel_spacing",
+        "nonsquare_nominal_scanned_pixel_spacing",
+        "nonsquare_pixel_aspect_ratio",
+        "nonsquare_uncalibrated",
+        "nonsquare_patient_space_geometry_present",
+        "nonsquare_pixel_data_sha256",
         "nm_frame_increment_pointers",
         "nm_energy_window_vector",
         "nm_detector_vector",
@@ -18490,6 +18723,13 @@ struct GroupedCoverage {
     icc_profile_descriptions: BTreeMap<String, usize>,
     icc_copyrights: BTreeMap<String, usize>,
     icc_source_identities: BTreeMap<String, usize>,
+    nonsquare_variant_ids: BTreeMap<String, usize>,
+    nonsquare_pixel_spacings: BTreeMap<String, usize>,
+    nonsquare_nominal_scanned_pixel_spacings: BTreeMap<String, usize>,
+    nonsquare_pixel_aspect_ratios: BTreeMap<String, usize>,
+    nonsquare_uncalibrated_states: BTreeMap<String, usize>,
+    nonsquare_patient_space_geometry_present_states: BTreeMap<String, usize>,
+    nonsquare_pixel_data_sha256_values: BTreeMap<String, usize>,
     frame_counts: BTreeMap<String, usize>,
     geometries: BTreeMap<String, usize>,
     pixel_spacings: BTreeMap<String, usize>,
@@ -19047,6 +19287,41 @@ impl GroupedCoverage {
             (&mut self.icc_tag_counts, "icc_tag_count"),
         ] {
             if let Some(value) = row.get(field).and_then(Value::as_u64) {
+                *map.entry(value.to_string()).or_default() += 1;
+            }
+        }
+        for (map, field) in [
+            (&mut self.nonsquare_variant_ids, "nonsquare_variant_id"),
+            (
+                &mut self.nonsquare_pixel_spacings,
+                "nonsquare_pixel_spacing",
+            ),
+            (
+                &mut self.nonsquare_nominal_scanned_pixel_spacings,
+                "nonsquare_nominal_scanned_pixel_spacing",
+            ),
+            (
+                &mut self.nonsquare_pixel_aspect_ratios,
+                "nonsquare_pixel_aspect_ratio",
+            ),
+            (
+                &mut self.nonsquare_pixel_data_sha256_values,
+                "nonsquare_pixel_data_sha256",
+            ),
+        ] {
+            increment_map(map, row.get(field).and_then(Value::as_str));
+        }
+        for (map, field) in [
+            (
+                &mut self.nonsquare_uncalibrated_states,
+                "nonsquare_uncalibrated",
+            ),
+            (
+                &mut self.nonsquare_patient_space_geometry_present_states,
+                "nonsquare_patient_space_geometry_present",
+            ),
+        ] {
+            if let Some(value) = row.get(field).and_then(Value::as_bool) {
                 *map.entry(value.to_string()).or_default() += 1;
             }
         }
@@ -20069,6 +20344,28 @@ impl GroupedCoverage {
             ("icc_profile_descriptions", &self.icc_profile_descriptions),
             ("icc_copyrights", &self.icc_copyrights),
             ("icc_source_identities", &self.icc_source_identities),
+            ("nonsquare_variant_ids", &self.nonsquare_variant_ids),
+            ("nonsquare_pixel_spacings", &self.nonsquare_pixel_spacings),
+            (
+                "nonsquare_nominal_scanned_pixel_spacings",
+                &self.nonsquare_nominal_scanned_pixel_spacings,
+            ),
+            (
+                "nonsquare_pixel_aspect_ratios",
+                &self.nonsquare_pixel_aspect_ratios,
+            ),
+            (
+                "nonsquare_uncalibrated_states",
+                &self.nonsquare_uncalibrated_states,
+            ),
+            (
+                "nonsquare_patient_space_geometry_present_states",
+                &self.nonsquare_patient_space_geometry_present_states,
+            ),
+            (
+                "nonsquare_pixel_data_sha256_values",
+                &self.nonsquare_pixel_data_sha256_values,
+            ),
         ] {
             grouped_object.insert(
                 field.to_string(),

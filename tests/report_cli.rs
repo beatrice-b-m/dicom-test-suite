@@ -2,8 +2,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use serde_json::Value;
 use serde_json::json;
+use serde_json::Value;
 
 #[test]
 fn report_command_writes_json_coverage_for_core_root() {
@@ -43,8 +43,8 @@ fn report_command_writes_json_coverage_for_core_root() {
         "metadata coverage report must match its schema: {report_errors:?}"
     );
     let mut partial_xa_report = report.clone();
-    coverage_row_mut(&mut partial_xa_report, "classic/xa/monoplane_explicit_le")["xa_frame_count"] =
-        Value::Null;
+    coverage_row_mut(&mut partial_xa_report, "classic/xa/monoplane_explicit_le")
+        ["xa_frame_count"] = Value::Null;
     assert!(
         !report_validator.is_valid(&partial_xa_report),
         "coverage schema must reject a partial non-null XA contract"
@@ -66,18 +66,18 @@ fn report_command_writes_json_coverage_for_core_root() {
     );
     assert_eq!(
         report.pointer("/counts/generated").and_then(Value::as_u64),
-        Some(47)
+        Some(49)
     );
     assert_eq!(
         report.pointer("/counts/planned").and_then(Value::as_u64),
-        Some(1)
+        Some(0)
     );
     assert_eq!(
         report
             .pointer("/coverage_matrix")
             .and_then(Value::as_array)
             .map(Vec::len),
-        Some(48)
+        Some(49)
     );
     assert_eq!(
         coverage_row(&report, "classic/ct/mono2_i16_rescale_12bit_explicit_le")
@@ -125,12 +125,10 @@ fn report_command_writes_json_coverage_for_core_root() {
             .and_then(Value::as_u64),
         Some(5)
     );
-    assert!(
-        empty_type2_row
-            .get("metadata_empty_type2_attributes")
-            .and_then(Value::as_str)
-            .is_some_and(|value| value.contains("0010,0010 PatientName PN VL=0"))
-    );
+    assert!(empty_type2_row
+        .get("metadata_empty_type2_attributes")
+        .and_then(Value::as_str)
+        .is_some_and(|value| value.contains("0010,0010 PatientName PN VL=0")));
     let native_row = coverage_row(&report, "metadata/sc/utf8_person_name");
     assert_eq!(
         native_row
@@ -586,13 +584,13 @@ fn report_command_writes_json_coverage_for_core_root() {
         report
             .pointer("/grouped_coverage/profiles/core")
             .and_then(Value::as_u64),
-        Some(48)
+        Some(49)
     );
     assert_eq!(
         report
             .pointer("/grouped_coverage/profile_memberships/core")
             .and_then(Value::as_u64),
-        Some(48)
+        Some(49)
     );
     assert_eq!(
         report
@@ -604,7 +602,7 @@ fn report_command_writes_json_coverage_for_core_root() {
         report
             .pointer("/grouped_coverage/transfer_syntax_names/Explicit VR Little Endian")
             .and_then(Value::as_u64),
-        Some(47)
+        Some(48)
     );
     assert_eq!(
         report
@@ -628,7 +626,7 @@ fn report_command_writes_json_coverage_for_core_root() {
         report
             .pointer("/grouped_coverage/conversion_types/SYN")
             .and_then(Value::as_u64),
-        Some(15)
+        Some(17)
     );
     assert_eq!(
         report
@@ -898,19 +896,19 @@ fn report_command_writes_json_coverage_for_core_root() {
         report
             .pointer("/grouped_coverage/study_instance_uid_roots/2.25")
             .and_then(Value::as_u64),
-        Some(47)
+        Some(49)
     );
     assert_eq!(
         report
             .pointer("/grouped_coverage/series_instance_uid_roots/2.25")
             .and_then(Value::as_u64),
-        Some(47)
+        Some(49)
     );
     assert_eq!(
         report
             .pointer("/grouped_coverage/sop_instance_uid_roots/2.25")
             .and_then(Value::as_u64),
-        Some(47)
+        Some(49)
     );
     assert_eq!(
         report
@@ -2253,11 +2251,9 @@ fn report_command_writes_structured_report_content_coverage_for_extended_root() 
             .and_then(Value::as_str),
         Some("Synthetic Basic Text SR observation for Enhanced CT source images.")
     );
-    assert!(
-        basic_text_row
-            .get("sr_measurement_numeric_value")
-            .is_some_and(Value::is_null)
-    );
+    assert!(basic_text_row
+        .get("sr_measurement_numeric_value")
+        .is_some_and(Value::is_null));
 
     let comprehensive_row =
         coverage_row(&report, "derived/sr/comprehensive_measurement_explicit_le");
@@ -2273,11 +2269,9 @@ fn report_command_writes_structured_report_content_coverage_for_extended_root() 
             .and_then(Value::as_str),
         Some("12.5")
     );
-    assert!(
-        comprehensive_row
-            .get("sr_observation_text")
-            .is_some_and(Value::is_null)
-    );
+    assert!(comprehensive_row
+        .get("sr_observation_text")
+        .is_some_and(Value::is_null));
 
     let kos_row = coverage_row(&report, "derived/sr/key_object_selection_explicit_le");
     assert_eq!(
@@ -2365,10 +2359,8 @@ fn report_command_writes_structured_report_content_coverage_for_extended_root() 
     assert!(markdown.contains("### SR Content Sequence Item Counts"));
     assert!(markdown.contains("| 2 | 2 |"));
     assert!(markdown.contains("### SR Observation Texts"));
-    assert!(
-        markdown
-            .contains("| Synthetic Basic Text SR observation for Enhanced CT source images. | 1 |")
-    );
+    assert!(markdown
+        .contains("| Synthetic Basic Text SR observation for Enhanced CT source images. | 1 |"));
     assert!(markdown.contains("### SR Measurement Numeric Values"));
     assert!(markdown.contains("| 12.5 | 1 |"));
 
@@ -2397,12 +2389,12 @@ fn report_command_writes_markdown_coverage_for_core_root() {
     );
     let stdout = String::from_utf8(output.stdout).expect("report stdout should be UTF-8");
     assert!(stdout.starts_with("# DICOM Test Suite Coverage Report"));
-    assert!(stdout.contains("| generated | 47 |"));
-    assert!(stdout.contains("| planned | 1 |"));
+    assert!(stdout.contains("| generated | 49 |"));
+    assert!(stdout.contains("| planned | 0 |"));
     assert!(stdout.contains("### Profile Memberships"));
-    assert!(stdout.contains("| core | 48 |"));
+    assert!(stdout.contains("| core | 49 |"));
     assert!(stdout.contains("### Transfer Syntax Names"));
-    assert!(stdout.contains("| Explicit VR Little Endian | 47 |"));
+    assert!(stdout.contains("| Explicit VR Little Endian | 48 |"));
     assert!(stdout.contains("| Implicit VR Little Endian | 1 |"));
     assert!(stdout.contains("### SOP Class Names"));
     assert!(stdout.contains("| CT Image Storage | 17 |"));
@@ -2491,7 +2483,7 @@ fn report_command_writes_markdown_coverage_for_core_root() {
     assert!(stdout.contains("### Study Instance UID Roots"));
     assert!(stdout.contains("### Series Instance UID Roots"));
     assert!(stdout.contains("### SOP Instance UID Roots"));
-    assert!(stdout.contains("| 2.25 | 47 |"));
+    assert!(stdout.contains("| 2.25 | 49 |"));
     assert!(stdout.contains("## Ultrasound Multi-frame Expectations"));
     assert!(stdout.contains("classic/us/multiframe_explicit_le"));
     assert!(stdout.contains("0.0; 100.0; 200.0; 300.0"));
@@ -5179,11 +5171,8 @@ fn report_surfaces_complete_unsigned_u32_pixel_contract() {
     );
     let schema: Value =
         serde_json::from_slice(&fs::read("schemas/coverage-report.schema.json").unwrap()).unwrap();
-    assert!(
-        jsonschema::validator_for(&schema)
-            .unwrap()
-            .is_valid(&report)
-    );
+    let report_validator = jsonschema::validator_for(&schema).unwrap();
+    assert!(report_validator.is_valid(&report));
 
     let markdown_output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
         .args(["report"])
@@ -5268,11 +5257,8 @@ fn report_surfaces_complete_one_bit_pixel_contract() {
     );
     let schema: Value =
         serde_json::from_slice(&fs::read("schemas/coverage-report.schema.json").unwrap()).unwrap();
-    assert!(
-        jsonschema::validator_for(&schema)
-            .unwrap()
-            .is_valid(&report)
-    );
+    let report_validator = jsonschema::validator_for(&schema).unwrap();
+    assert!(report_validator.is_valid(&report));
 
     let markdown_output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
         .args(["report"])
@@ -5364,12 +5350,8 @@ fn report_surfaces_complete_icc_profile_contract() {
     );
     let schema: Value =
         serde_json::from_slice(&fs::read("schemas/coverage-report.schema.json").unwrap()).unwrap();
-    assert!(
-        jsonschema::validator_for(&schema)
-            .unwrap()
-            .is_valid(&report)
-    );
-
+    let report_validator = jsonschema::validator_for(&schema).unwrap();
+    assert!(report_validator.is_valid(&report));
     let markdown_output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
         .args(["report"])
         .arg(&out_dir)
@@ -5435,6 +5417,154 @@ fn report_surfaces_complete_icc_profile_contract() {
     fs::remove_dir_all(out_dir).unwrap();
 }
 
+#[test]
+fn report_surfaces_both_nonsquare_spatial_variants() {
+    let out_dir = unique_temp_dir("report-nonsquare-spacing");
+    generate_core(&out_dir);
+    let json_output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args(["report"])
+        .arg(&out_dir)
+        .args(["--format", "json"])
+        .output()
+        .unwrap();
+    assert!(
+        json_output.status.success(),
+        "report should accept non-square variants: {}",
+        String::from_utf8_lossy(&json_output.stderr)
+    );
+    let report: Value = serde_json::from_slice(&json_output.stdout).unwrap();
+    let rows = coverage_rows(&report, "classic/sc/nonsquare_pixel_spacing");
+    assert_eq!(rows.len(), 2);
+    let spacing = rows
+        .iter()
+        .find(|row| row["nonsquare_variant_id"] == "pixel_spacing")
+        .expect("report should contain the physical-spacing variant");
+    assert_eq!(spacing["nonsquare_pixel_spacing"], "0.6\\0.3");
+    assert_eq!(
+        spacing["nonsquare_nominal_scanned_pixel_spacing"],
+        "0.6\\0.3"
+    );
+    assert!(spacing["nonsquare_pixel_aspect_ratio"].is_null());
+    let aspect = rows
+        .iter()
+        .find(|row| row["nonsquare_variant_id"] == "pixel_aspect_ratio")
+        .expect("report should contain the aspect-ratio variant");
+    assert!(aspect["nonsquare_pixel_spacing"].is_null());
+    assert!(aspect["nonsquare_nominal_scanned_pixel_spacing"].is_null());
+    assert_eq!(aspect["nonsquare_pixel_aspect_ratio"], "2\\1");
+    for row in rows {
+        assert_eq!(row["nonsquare_uncalibrated"], true);
+        assert_eq!(row["nonsquare_patient_space_geometry_present"], false);
+        assert_eq!(
+            row["nonsquare_pixel_data_sha256"],
+            "e89b23efeade0dc3de624fc8982ea8b99adb35a3bb9a2fbf8b8ce675e10581a6"
+        );
+    }
+    assert_eq!(
+        report.pointer("/grouped_coverage/nonsquare_variant_ids/pixel_spacing"),
+        Some(&json!(1))
+    );
+    assert_eq!(
+        report.pointer("/grouped_coverage/nonsquare_variant_ids/pixel_aspect_ratio"),
+        Some(&json!(1))
+    );
+    assert_eq!(
+        report.pointer("/grouped_coverage/nonsquare_uncalibrated_states/true"),
+        Some(&json!(2))
+    );
+    assert_eq!(
+        report.pointer("/grouped_coverage/nonsquare_patient_space_geometry_present_states/false"),
+        Some(&json!(2))
+    );
+    assert_eq!(
+        report.pointer(&format!(
+            "/grouped_coverage/nonsquare_pixel_data_sha256_values/{}",
+            "e89b23efeade0dc3de624fc8982ea8b99adb35a3bb9a2fbf8b8ce675e10581a6"
+        )),
+        Some(&json!(2))
+    );
+    let schema: Value =
+        serde_json::from_slice(&fs::read("schemas/coverage-report.schema.json").unwrap()).unwrap();
+    let report_validator = jsonschema::validator_for(&schema).unwrap();
+    assert!(report_validator.is_valid(&report));
+    let mut crossed_report = report.clone();
+    crossed_report["coverage_matrix"]
+        .as_array_mut()
+        .unwrap()
+        .iter_mut()
+        .find(|row| {
+            row["case_id"] == "classic/sc/nonsquare_pixel_spacing"
+                && row["nonsquare_variant_id"] == "pixel_aspect_ratio"
+        })
+        .unwrap()["nonsquare_pixel_spacing"] = json!("0.6\\0.3");
+    assert!(
+        !report_validator.is_valid(&crossed_report),
+        "coverage schema must reject crossed non-square axes"
+    );
+    let mut hidden_report = report.clone();
+    coverage_row_mut(
+        &mut hidden_report,
+        "classic/ct/mono2_i16_rescale_12bit_explicit_le",
+    )["nonsquare_variant_id"] = json!("pixel_spacing");
+    assert!(
+        !report_validator.is_valid(&hidden_report),
+        "coverage schema must reject non-square fields on another case"
+    );
+
+    let markdown_output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args(["report"])
+        .arg(&out_dir)
+        .args(["--format", "markdown"])
+        .output()
+        .unwrap();
+    assert!(markdown_output.status.success());
+    let markdown = String::from_utf8(markdown_output.stdout).unwrap();
+    for expected in [
+        "### Non-square Spatial Variant IDs",
+        "## Non-square Spatial Expectations",
+        "pixel_spacing",
+        "pixel_aspect_ratio",
+        "0.6\\0.3",
+        "2\\1",
+        "e89b23efeade0dc3de624fc8982ea8b99adb35a3bb9a2fbf8b8ce675e10581a6",
+    ] {
+        assert!(
+            markdown.contains(expected),
+            "markdown should contain {expected}"
+        );
+    }
+
+    let manifest_path = out_dir.join("manifest.json");
+    let mut manifest: Value = serde_json::from_slice(&fs::read(&manifest_path).unwrap()).unwrap();
+    manifest["files"]
+        .as_array_mut()
+        .unwrap()
+        .iter_mut()
+        .find(|file| {
+            file["case_id"] == "classic/sc/nonsquare_pixel_spacing"
+                && file["expected_nonsquare_spacing"]["variant_id"] == "pixel_aspect_ratio"
+        })
+        .unwrap()["expected_nonsquare_spacing"]["pixel_aspect_ratio"]["lexical_value"] =
+        json!("1\\2");
+    fs::write(
+        &manifest_path,
+        serde_json::to_vec_pretty(&manifest).unwrap(),
+    )
+    .unwrap();
+    let rejected = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args(["report"])
+        .arg(&out_dir)
+        .args(["--format", "json"])
+        .output()
+        .unwrap();
+    assert!(!rejected.status.success());
+    assert!(
+        String::from_utf8_lossy(&rejected.stderr).contains("requires one exact spatial variant")
+    );
+
+    fs::remove_dir_all(out_dir).unwrap();
+}
+
 fn generate_core(out_dir: &Path) {
     let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
         .args([
@@ -5485,6 +5615,16 @@ fn coverage_row<'a>(report: &'a Value, case_id: &str) -> &'a Value {
         .iter()
         .find(|row| row.get("case_id").and_then(Value::as_str) == Some(case_id))
         .unwrap_or_else(|| panic!("coverage matrix should contain {case_id}"))
+}
+
+fn coverage_rows<'a>(report: &'a Value, case_id: &str) -> Vec<&'a Value> {
+    report
+        .pointer("/coverage_matrix")
+        .and_then(Value::as_array)
+        .expect("coverage matrix should be an array")
+        .iter()
+        .filter(|row| row.get("case_id").and_then(Value::as_str) == Some(case_id))
+        .collect()
 }
 
 fn coverage_row_mut<'a>(report: &'a mut Value, case_id: &str) -> &'a mut Value {

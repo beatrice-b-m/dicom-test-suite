@@ -212,6 +212,13 @@
         "icc_profile_descriptions": { "$ref": "#/$defs/count_map" },
         "icc_copyrights": { "$ref": "#/$defs/count_map" },
         "icc_source_identities": { "$ref": "#/$defs/count_map" },
+        "nonsquare_variant_ids": { "$ref": "#/$defs/count_map" },
+        "nonsquare_pixel_spacings": { "$ref": "#/$defs/count_map" },
+        "nonsquare_nominal_scanned_pixel_spacings": { "$ref": "#/$defs/count_map" },
+        "nonsquare_pixel_aspect_ratios": { "$ref": "#/$defs/count_map" },
+        "nonsquare_uncalibrated_states": { "$ref": "#/$defs/count_map" },
+        "nonsquare_patient_space_geometry_present_states": { "$ref": "#/$defs/count_map" },
+        "nonsquare_pixel_data_sha256_values": { "$ref": "#/$defs/count_map" },
         "basic_offset_tables": {
           "$ref": "#/$defs/count_map"
         },
@@ -892,6 +899,13 @@
         "icc_profile_description",
         "icc_copyright",
         "icc_source_identity",
+        "nonsquare_variant_id",
+        "nonsquare_pixel_spacing",
+        "nonsquare_nominal_scanned_pixel_spacing",
+        "nonsquare_pixel_aspect_ratio",
+        "nonsquare_uncalibrated",
+        "nonsquare_patient_space_geometry_present",
+        "nonsquare_pixel_data_sha256",
         "basic_offset_table",
         "encapsulated_fragment_layout",
         "extended_offset_table",
@@ -1441,6 +1455,28 @@
         "icc_profile_description": { "type": ["string", "null"] },
         "icc_copyright": { "type": ["string", "null"] },
         "icc_source_identity": { "type": ["string", "null"] },
+        "nonsquare_variant_id": {
+          "enum": ["pixel_spacing", "pixel_aspect_ratio", null]
+        },
+        "nonsquare_pixel_spacing": {
+          "enum": ["0.6\\0.3", null]
+        },
+        "nonsquare_nominal_scanned_pixel_spacing": {
+          "enum": ["0.6\\0.3", null]
+        },
+        "nonsquare_pixel_aspect_ratio": {
+          "enum": ["2\\1", null]
+        },
+        "nonsquare_uncalibrated": { "type": ["boolean", "null"] },
+        "nonsquare_patient_space_geometry_present": {
+          "type": ["boolean", "null"]
+        },
+        "nonsquare_pixel_data_sha256": {
+          "anyOf": [
+            { "$ref": "#/$defs/sha256" },
+            { "type": "null" }
+          ]
+        },
         "basic_offset_table": {
           "type": ["string", "null"],
           "enum": ["populated", "empty", null]
@@ -2219,6 +2255,66 @@
               "icc_profile_description": { "type": "null" },
               "icc_copyright": { "type": "null" },
               "icc_source_identity": { "type": "null" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "case_id": { "const": "classic/sc/nonsquare_pixel_spacing" }
+            }
+          },
+          "then": {
+            "properties": {
+              "nonsquare_variant_id": {
+                "enum": ["pixel_spacing", "pixel_aspect_ratio"]
+              },
+              "nonsquare_uncalibrated": { "const": true },
+              "nonsquare_patient_space_geometry_present": { "const": false },
+              "nonsquare_pixel_data_sha256": {
+                "const": "e89b23efeade0dc3de624fc8982ea8b99adb35a3bb9a2fbf8b8ce675e10581a6"
+              }
+            },
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "nonsquare_variant_id": { "const": "pixel_spacing" }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "nonsquare_pixel_spacing": { "const": "0.6\\0.3" },
+                    "nonsquare_nominal_scanned_pixel_spacing": { "const": "0.6\\0.3" },
+                    "nonsquare_pixel_aspect_ratio": { "type": "null" }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "nonsquare_variant_id": { "const": "pixel_aspect_ratio" }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "nonsquare_pixel_spacing": { "type": "null" },
+                    "nonsquare_nominal_scanned_pixel_spacing": { "type": "null" },
+                    "nonsquare_pixel_aspect_ratio": { "const": "2\\1" }
+                  }
+                }
+              }
+            ]
+          },
+          "else": {
+            "properties": {
+              "nonsquare_variant_id": { "type": "null" },
+              "nonsquare_pixel_spacing": { "type": "null" },
+              "nonsquare_nominal_scanned_pixel_spacing": { "type": "null" },
+              "nonsquare_pixel_aspect_ratio": { "type": "null" },
+              "nonsquare_uncalibrated": { "type": "null" },
+              "nonsquare_patient_space_geometry_present": { "type": "null" },
+              "nonsquare_pixel_data_sha256": { "type": "null" }
             }
           }
         },

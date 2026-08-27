@@ -68,6 +68,23 @@ Series, and Frame of Reference UIDs to the manifest, requires serialized Series
 Number to equal the declared ordinal, and then checks the cross-series group.
 This prevents organization metadata from validating only its own claims.
 
+### Temporal Enhanced MR frames
+
+`enhanced/mr/multiframe_temporal_position_explicit_le` is an implemented
+`extended` case with two frames at the same patient-space plane and Temporal
+Position Time Offsets 0.0 and 1.5 seconds. Temporal Position Index, Dimension
+Index Values, and Frame Acquisition Number are 1 and 2. The dimension pointers
+name Temporal Position Time Offset and Temporal Position Sequence explicitly.
+
+The repaired non-legacy Enhanced MR object now records the required image- and
+frame-level `MAGNITUDE`/`UNKNOWN` semantics, `RESEARCH` content qualification,
+IEC safety agency, current `(69536005, SCT, Head)` anatomy coding, no burned-in
+annotation, never-lossy history, identity presentation LUT, head SAR, and three
+IEC-normal operating modes. Existing MR timing coverage is retained. Internal
+validation binds these top-level and nested values to the manifest, and JSON
+and Markdown reports expose every temporal index, pointer, offset, and seconds
+unit with strict companion-field checks.
+
 ## Verification evidence
 
 The following checks passed on 2026-08-26 for a seed-23 `core` corpus:
@@ -115,13 +132,30 @@ findings, and DCMTK extraction confirming one Study UID, one Frame of Reference
 UID, two Series UIDs and Series Numbers, reset Instance Numbers, and overlapping
 positions.
 
+The temporal slice passed two byte-identical seed-43 `extended` runs, each
+generating 79 files in approximately 1.5 seconds and occupying 1.5 MiB on this
+host. Internal validation reported zero failures. The locked `dciodvfy -new`
+validator now reports no findings for the temporal, echo, or phase-velocity
+Enhanced MR siblings, and isolated three-file `dcentvfy` is silent. DCMTK
+independently extracted the temporal 16-byte native Pixel Data; splitting it
+into two 8-byte frames produced SHA-256 values
+`451ba3600c2b6ddbcb4fa8164e18ec217b5dc1eb04f48588a99dd21a3cf55bc9`
+and `0335fbafa06dc1f6264cb86d8d1d668d2f92f928dee11232f202bdb54bc60338`,
+exactly matching the manifest, with decoded unsigned samples
+`[0,25,50,75]` and `[150,175,200,225]`.
+
 The two matching `core` corpora each occupy 480 KiB in the local filesystem.
 This measurement is implementation-environment evidence rather than a
 portable byte-size guarantee; tracked generated artifacts remain forbidden.
 
-## Remaining work
+## Milestone gate
 
-All newly planned CT cases in the geometry and series milestone are now
-implemented. The existing enhanced MR temporal case supplies the planned
-temporal/dynamic coverage. Milestone completion still requires the combined
-regression, runtime/size, and conformance audit described below.
+All planned Phase 2 geometry and series cases are implemented. The final
+seed-37 `core` corpus contains 37 files and occupies 680 KiB on this host; the
+seed-43 `extended` corpus contains 79 files and occupies 1.5 MiB. The complete
+locked no-default-feature, all-target test suite passes, including byte-stable
+smoke, core, and extended regeneration. Each new CT slice and the temporal MR
+slice has clean isolated IOD, entity, parser, and applicable independent pixel
+evidence, except for the one exact reviewed DICOMDIR-usability warning described
+above. Older corpus findings remain visible and unresolved. The dependency-
+ordered Phase 2 metadata and VR milestone may proceed.

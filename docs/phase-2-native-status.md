@@ -23,6 +23,22 @@ rank, Instance Number state and rank, and `spacing_uniform: false`. Internal
 validation reopens the files and derives these values from the serialized
 objects. JSON and Markdown reports expose the same expectations.
 
+### Gantry-tilted CT series
+
+`geometry/ct/gantry_tilt_series` is an implemented `core` case containing
+three CT instances with Gantry/Detector Tilt `(0018,1120)` equal to
+11.30993247 degrees. Image Orientation (Patient) remains axial, while Image
+Position (Patient) changes from `0\\0\\0` through `0\\-1\\5` to
+`0\\-2\\10`. This makes the one-millimetre in-plane displacement per
+five-millimetre normal interval explicit in patient coordinates.
+
+The manifest records the exact positions, orientation, normal projections,
+uniform adjacent spacing, numeric Instance Number ordering, and tilt. Internal
+validation compares both the serialized patient-space geometry and the tilt
+tag with their expectations. It does not infer positions from the tilt tag or
+otherwise treat that metadata as a substitute for Image Position (Patient).
+Reports expose the tilt alongside the complete sorting contract.
+
 ## Verification evidence
 
 The following checks passed on 2026-08-26 for a seed-23 `core` corpus:
@@ -45,14 +61,20 @@ The following checks passed on 2026-08-26 for a seed-23 `core` corpus:
 - independent DCMTK extraction of positions 0, 4, and 10, axial orientation,
   Instance Numbers 1, 2, and 3, and absence of Spacing Between Slices.
 
+The gantry-tilt slice additionally passed two byte-identical seed-29 `core`
+runs, internal validation of all 30 files with zero failures, `dciodvfy -new`
+on all three tilted instances with no findings, isolated three-file
+`dcentvfy` with no findings, and DCMTK extraction of the declared tilt, axial
+orientation, positions, Instance Numbers, and five-millimetre spacing.
+
 The two matching `core` corpora each occupy 480 KiB in the local filesystem.
 This measurement is implementation-environment evidence rather than a
 portable byte-size guarantee; tracked generated artifacts remain forbidden.
 
 ## Remaining work
 
-The geometry and series milestone still requires gantry tilt, duplicate and
-empty Type 2 Instance Number values, shared Frame of Reference across multiple
-series in one study, and its milestone-level regression and conformance run.
-The existing enhanced MR temporal case supplies the planned temporal/dynamic
+The geometry and series milestone still requires duplicate and empty Type 2
+Instance Number values, shared Frame of Reference across multiple series in
+one study, and its milestone-level regression and conformance run. The
+existing enhanced MR temporal case supplies the planned temporal/dynamic
 coverage and will be included in that final milestone audit.

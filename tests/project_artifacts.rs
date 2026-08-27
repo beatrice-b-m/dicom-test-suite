@@ -995,10 +995,10 @@ fn blending_source_note_locks_audited_contract_before_provider_selection() {
                 == Some("derived/presentation-state/blending")
         })
         .expect("Blending Softcopy Presentation State row must exist");
-    assert_eq!(case["status"], "planned");
+    assert_eq!(case["status"], "implemented");
     assert_eq!(case["provider"]["kind"], "rust_native");
     assert_eq!(case["provider"]["id"], "rust_native");
-    assert_eq!(case["determinism"], "semantic_stable");
+    assert_eq!(case["determinism"], "byte_stable");
     assert_eq!(
         case["blockers"]
             .as_array()
@@ -1006,7 +1006,7 @@ fn blending_source_note_locks_audited_contract_before_provider_selection() {
             .iter()
             .map(|blocker| blocker["code"].as_str().unwrap())
             .collect::<Vec<_>>(),
-        vec!["recipe_unimplemented"]
+        Vec::<&str>::new()
     );
 }
 
@@ -4843,6 +4843,7 @@ fn generator_recipe_case_ids() -> BTreeSet<String> {
                 "SPATIAL_REGISTRATION_CASE_ID: &str = \"",
                 "COLOR_SOFTCOPY_PRESENTATION_STATE_CASE_ID: &str = \"",
                 "ADVANCED_BLENDING_PRESENTATION_STATE_CASE_ID: &str =\n    \"",
+                "BLENDING_PRESENTATION_STATE_CASE_ID: &str = \"",
             ][..],
         ),
         ("src/generator/native/ct_geometry.rs", &["case_id: \""][..]),

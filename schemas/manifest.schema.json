@@ -346,6 +346,9 @@
         "expected_color_softcopy_presentation_state": {
           "$ref": "#/$defs/expected_color_softcopy_presentation_state"
         },
+        "expected_blending_presentation_state": {
+          "$ref": "#/$defs/expected_blending_presentation_state"
+        },
         "expected_advanced_blending_presentation_state": {
           "$ref": "#/$defs/expected_advanced_blending_presentation_state"
         },
@@ -677,6 +680,33 @@
               "image": { "type": "null" },
               "pixel_data": { "type": "null" }
             }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "case_id": { "const": "derived/presentation-state/blending" }
+            },
+            "required": ["case_id"]
+          },
+          "then": {
+            "required": ["expected_blending_presentation_state"],
+            "properties": {
+              "dicom": {
+                "properties": {
+                  "sop_class_uid": { "const": "1.2.840.10008.5.1.4.1.1.11.4" },
+                  "sop_class_name": { "const": "Blending Softcopy Presentation State Storage" },
+                  "iod_name": { "const": "Blending Softcopy Presentation State" },
+                  "modality": { "const": "PR" },
+                  "transfer_syntax_uid": { "const": "1.2.840.10008.1.2.1" }
+                }
+              },
+              "image": { "type": "null" },
+              "pixel_data": { "type": "null" }
+            }
+          },
+          "else": {
+            "not": { "required": ["expected_blending_presentation_state"] }
           }
         },
         {
@@ -2447,6 +2477,299 @@
         "pixel_data_absent": { "const": true }
       },
       "additionalProperties": false
+    },
+    "expected_blending_presentation_state": {
+      "type": "object",
+      "required": [
+        "presentation_state",
+        "sources",
+        "same_study",
+        "shared_frame_of_reference",
+        "different_series",
+        "blending_items",
+        "relative_opacity",
+        "displayed_area",
+        "palette_color_lut",
+        "icc_profile",
+        "absent_modules",
+        "pixel_data_absent"
+      ],
+      "properties": {
+        "presentation_state": {
+          "type": "object",
+          "required": [
+            "study_instance_uid",
+            "series_instance_uid",
+            "sop_instance_uid",
+            "modality",
+            "laterality",
+            "content_label",
+            "content_description",
+            "content_creator_name",
+            "presentation_creation_date",
+            "presentation_creation_time",
+            "instance_number",
+            "series_number"
+          ],
+          "properties": {
+            "study_instance_uid": { "$ref": "#/$defs/dicom_uid" },
+            "series_instance_uid": { "$ref": "#/$defs/dicom_uid" },
+            "sop_instance_uid": { "$ref": "#/$defs/dicom_uid" },
+            "modality": { "const": "PR" },
+            "laterality": { "const": "R" },
+            "content_label": { "const": "DTSBLEND" },
+            "content_description": { "const": "Synthetic DTSBLEND presentation state" },
+            "content_creator_name": { "const": "DTS^Generator" },
+            "presentation_creation_date": { "const": "20260101" },
+            "presentation_creation_time": { "const": "000000" },
+            "instance_number": { "const": 1 },
+            "series_number": { "const": 81 }
+          },
+          "additionalProperties": false
+        },
+        "sources": {
+          "type": "array",
+          "prefixItems": [
+            { "$ref": "#/$defs/advanced_blending_source_1" },
+            { "$ref": "#/$defs/advanced_blending_source_2" },
+            { "$ref": "#/$defs/advanced_blending_source_3" },
+            { "$ref": "#/$defs/advanced_blending_source_4" }
+          ],
+          "items": false,
+          "minItems": 4,
+          "maxItems": 4
+        },
+        "same_study": { "const": true },
+        "shared_frame_of_reference": { "const": true },
+        "different_series": { "const": true },
+        "blending_items": {
+          "type": "array",
+          "prefixItems": [
+            { "$ref": "#/$defs/blending_presentation_item_1" },
+            { "$ref": "#/$defs/blending_presentation_item_2" }
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "relative_opacity": { "const": 0.5 },
+        "displayed_area": {
+          "type": "object",
+          "required": [
+            "items",
+            "applies_to_all_references",
+            "referenced_image_items",
+            "top_left",
+            "bottom_right",
+            "presentation_size_mode",
+            "presentation_pixel_aspect_ratio",
+            "presentation_pixel_spacing",
+            "presentation_pixel_magnification_ratio"
+          ],
+          "properties": {
+            "items": { "const": 1 },
+            "applies_to_all_references": { "const": true },
+            "referenced_image_items": { "const": 0 },
+            "top_left": {
+              "type": "array",
+              "prefixItems": [{ "const": 1 }, { "const": 1 }],
+              "items": false,
+              "minItems": 2,
+              "maxItems": 2
+            },
+            "bottom_right": {
+              "type": "array",
+              "prefixItems": [{ "const": 2 }, { "const": 2 }],
+              "items": false,
+              "minItems": 2,
+              "maxItems": 2
+            },
+            "presentation_size_mode": { "const": "SCALE TO FIT" },
+            "presentation_pixel_aspect_ratio": {
+              "type": "array",
+              "prefixItems": [{ "const": 1 }, { "const": 1 }],
+              "items": false,
+              "minItems": 2,
+              "maxItems": 2
+            },
+            "presentation_pixel_spacing": { "type": "null" },
+            "presentation_pixel_magnification_ratio": { "type": "null" }
+          },
+          "additionalProperties": false
+        },
+        "palette_color_lut": {
+          "type": "object",
+          "required": ["channels", "segmented_data_present", "palette_uid_present"],
+          "properties": {
+            "channels": {
+              "type": "array",
+              "prefixItems": [
+                { "$ref": "#/$defs/blending_palette_red" },
+                { "$ref": "#/$defs/blending_palette_green" },
+                { "$ref": "#/$defs/blending_palette_blue" }
+              ],
+              "items": false,
+              "minItems": 3,
+              "maxItems": 3
+            },
+            "segmented_data_present": { "const": false },
+            "palette_uid_present": { "const": false }
+          },
+          "additionalProperties": false
+        },
+        "icc_profile": { "$ref": "#/$defs/advanced_blending_icc_profile" },
+        "absent_modules": {
+          "type": "object",
+          "required": [
+            "clinical_trial_subject",
+            "clinical_trial_study",
+            "clinical_trial_series",
+            "clinical_trial_equipment",
+            "patient_study",
+            "specimen",
+            "graphic_annotation",
+            "graphic_layer",
+            "graphic_group",
+            "spatial_transformation",
+            "frame_of_reference",
+            "common_instance_reference",
+            "softcopy_presentation_lut",
+            "voi_lut",
+            "softcopy_voi_lut",
+            "overlay_plane",
+            "overlay_activation",
+            "display_shutter",
+            "bitmap_display_shutter"
+          ],
+          "properties": {
+            "clinical_trial_subject": { "const": true },
+            "clinical_trial_study": { "const": true },
+            "clinical_trial_series": { "const": true },
+            "clinical_trial_equipment": { "const": true },
+            "patient_study": { "const": true },
+            "specimen": { "const": true },
+            "graphic_annotation": { "const": true },
+            "graphic_layer": { "const": true },
+            "graphic_group": { "const": true },
+            "spatial_transformation": { "const": true },
+            "frame_of_reference": { "const": true },
+            "common_instance_reference": { "const": true },
+            "softcopy_presentation_lut": { "const": true },
+            "voi_lut": { "const": true },
+            "softcopy_voi_lut": { "const": true },
+            "overlay_plane": { "const": true },
+            "overlay_activation": { "const": true },
+            "display_shutter": { "const": true },
+            "bitmap_display_shutter": { "const": true }
+          },
+          "additionalProperties": false
+        },
+        "pixel_data_absent": { "const": true }
+      },
+      "additionalProperties": false
+    },
+    "blending_presentation_item": {
+      "type": "object",
+      "required": [
+        "blending_position",
+        "source_series_order",
+        "study_instance_uid",
+        "series_instance_uid",
+        "referenced_source_indices",
+        "referenced_frame_numbers",
+        "rescale_intercept",
+        "rescale_slope",
+        "rescale_type",
+        "softcopy_voi_lut_items",
+        "referenced_spatial_registration_items",
+        "complete_instances"
+      ],
+      "properties": {
+        "blending_position": { "enum": ["UNDERLYING", "SUPERIMPOSED"] },
+        "source_series_order": { "type": "integer" },
+        "study_instance_uid": { "$ref": "#/$defs/dicom_uid" },
+        "series_instance_uid": { "$ref": "#/$defs/dicom_uid" },
+        "referenced_source_indices": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "referenced_frame_numbers": { "type": "array", "maxItems": 0 },
+        "rescale_intercept": { "const": -1024 },
+        "rescale_slope": { "const": 1 },
+        "rescale_type": { "const": "HU" },
+        "softcopy_voi_lut_items": { "const": 0 },
+        "referenced_spatial_registration_items": { "const": 0 },
+        "complete_instances": { "const": true }
+      },
+      "additionalProperties": false
+    },
+    "blending_presentation_item_1": {
+      "allOf": [
+        { "$ref": "#/$defs/blending_presentation_item" },
+        {
+          "properties": {
+            "blending_position": { "const": "UNDERLYING" },
+            "source_series_order": { "const": 1 },
+            "referenced_source_indices": {
+              "prefixItems": [{ "const": 1 }, { "const": 2 }],
+              "items": false
+            }
+          }
+        }
+      ]
+    },
+    "blending_presentation_item_2": {
+      "allOf": [
+        { "$ref": "#/$defs/blending_presentation_item" },
+        {
+          "properties": {
+            "blending_position": { "const": "SUPERIMPOSED" },
+            "source_series_order": { "const": 2 },
+            "referenced_source_indices": {
+              "prefixItems": [{ "const": 3 }, { "const": 4 }],
+              "items": false
+            }
+          }
+        }
+      ]
+    },
+    "blending_palette_channel": {
+      "type": "object",
+      "required": ["channel", "descriptor", "data_vr", "data_size_bytes", "data_sha256", "storage"],
+      "properties": {
+        "channel": { "enum": ["red", "green", "blue"] },
+        "descriptor": {
+          "type": "array",
+          "prefixItems": [{ "const": 256 }, { "const": 0 }, { "const": 16 }],
+          "items": false,
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "data_vr": { "const": "OW" },
+        "data_size_bytes": { "const": 512 },
+        "data_sha256": { "const": "f393097e80ec38db493eb054a0886181eb2c0e8cf7b5cdf1de392fbe94b0d1f5" },
+        "storage": { "const": "identity_u16_little_endian" }
+      },
+      "additionalProperties": false
+    },
+    "blending_palette_red": {
+      "allOf": [
+        { "$ref": "#/$defs/blending_palette_channel" },
+        { "properties": { "channel": { "const": "red" } } }
+      ]
+    },
+    "blending_palette_green": {
+      "allOf": [
+        { "$ref": "#/$defs/blending_palette_channel" },
+        { "properties": { "channel": { "const": "green" } } }
+      ]
+    },
+    "blending_palette_blue": {
+      "allOf": [
+        { "$ref": "#/$defs/blending_palette_channel" },
+        { "properties": { "channel": { "const": "blue" } } }
+      ]
     },
     "expected_advanced_blending_presentation_state": {
       "type": "object",

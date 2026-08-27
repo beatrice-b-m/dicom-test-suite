@@ -2238,6 +2238,249 @@ fn color_softcopy_presentation_state_expectation() -> Value {
 }
 
 #[test]
+fn manifest_schema_types_blending_presentation_state_expectations() {
+    let schema = read_json("schemas/manifest.schema.json");
+    let expectation_schema = serde_json::json!({
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$ref": "#/$defs/expected_blending_presentation_state",
+        "$defs": schema["$defs"].clone(),
+    });
+    let validator = jsonschema::validator_for(&expectation_schema)
+        .expect("Blending Softcopy Presentation State expectation schema should compile");
+    let expectation = blending_presentation_state_expectation();
+    assert!(validator.is_valid(&expectation));
+
+    let mut reordered_sources = expectation.clone();
+    reordered_sources["sources"]
+        .as_array_mut()
+        .expect("sources")
+        .swap(0, 1);
+    assert!(!validator.is_valid(&reordered_sources));
+
+    let mut duplicate_position = expectation.clone();
+    duplicate_position["blending_items"][1]["blending_position"] = serde_json::json!("UNDERLYING");
+    assert!(!validator.is_valid(&duplicate_position));
+
+    let mut reordered_images = expectation.clone();
+    reordered_images["blending_items"][0]["referenced_source_indices"] = serde_json::json!([2, 1]);
+    assert!(!validator.is_valid(&reordered_images));
+
+    let mut wrong_rescale = expectation.clone();
+    wrong_rescale["blending_items"][0]["rescale_intercept"] = serde_json::json!(0);
+    assert!(!validator.is_valid(&wrong_rescale));
+
+    let mut unexpected_voi = expectation.clone();
+    unexpected_voi["blending_items"][1]["softcopy_voi_lut_items"] = serde_json::json!(1);
+    assert!(!validator.is_valid(&unexpected_voi));
+
+    let mut wrong_opacity = expectation.clone();
+    wrong_opacity["relative_opacity"] = serde_json::json!(0.75);
+    assert!(!validator.is_valid(&wrong_opacity));
+
+    let mut scoped_displayed_area = expectation.clone();
+    scoped_displayed_area["displayed_area"]["referenced_image_items"] = serde_json::json!(4);
+    assert!(!validator.is_valid(&scoped_displayed_area));
+
+    let mut corrupt_palette = expectation.clone();
+    corrupt_palette["palette_color_lut"]["channels"][2]["data_sha256"] =
+        serde_json::json!(format!("{:064x}", 1));
+    assert!(!validator.is_valid(&corrupt_palette));
+
+    let mut corrupt_icc = expectation.clone();
+    corrupt_icc["icc_profile"]["sha256"] = serde_json::json!(format!("{:064x}", 1));
+    assert!(!validator.is_valid(&corrupt_icc));
+
+    let mut forbidden_module = expectation.clone();
+    forbidden_module["absent_modules"]["frame_of_reference"] = serde_json::json!(false);
+    assert!(!validator.is_valid(&forbidden_module));
+
+    let mut unexpected_pixels = expectation;
+    unexpected_pixels["pixel_data_absent"] = serde_json::json!(false);
+    assert!(!validator.is_valid(&unexpected_pixels));
+}
+
+#[test]
+fn manifest_schema_requires_exclusive_blending_presentation_state_contract() {
+    let schema = read_json("schemas/manifest.schema.json");
+    let rule = schema
+        .pointer("/$defs/file/allOf")
+        .and_then(Value::as_array)
+        .expect("file schema should define case conditionals")
+        .iter()
+        .find(|rule| {
+            rule.pointer("/if/properties/case_id/const")
+                .and_then(Value::as_str)
+                == Some("derived/presentation-state/blending")
+        })
+        .expect("manifest schema should define the Blending Softcopy PR conditional");
+    assert!(rule
+        .pointer("/then/required")
+        .and_then(Value::as_array)
+        .is_some_and(|required| required
+            .iter()
+            .any(|field| field == "expected_blending_presentation_state")));
+    assert_eq!(
+        rule.pointer("/then/properties/dicom/properties/sop_class_uid/const"),
+        Some(&serde_json::json!("1.2.840.10008.5.1.4.1.1.11.4"))
+    );
+    assert_eq!(
+        rule.pointer("/then/properties/dicom/properties/modality/const"),
+        Some(&serde_json::json!("PR"))
+    );
+    assert_eq!(
+        rule.pointer("/then/properties/image/type"),
+        Some(&serde_json::json!("null"))
+    );
+    assert_eq!(
+        rule.pointer("/then/properties/pixel_data/type"),
+        Some(&serde_json::json!("null"))
+    );
+    assert_eq!(
+        rule.pointer("/else/not/required"),
+        Some(&serde_json::json!(["expected_blending_presentation_state"]))
+    );
+}
+
+fn blending_presentation_state_expectation() -> Value {
+    let study_uid = "1.2.826.0.1.3680043.10.543.10";
+    let series_uids = [
+        "1.2.826.0.1.3680043.10.543.31",
+        "1.2.826.0.1.3680043.10.543.32",
+    ];
+    let sop_uids = [
+        "1.2.826.0.1.3680043.10.543.41",
+        "1.2.826.0.1.3680043.10.543.42",
+        "1.2.826.0.1.3680043.10.543.43",
+        "1.2.826.0.1.3680043.10.543.44",
+    ];
+    let source = |path: &str, series_order: usize, image_order: usize, z: f64, index: usize| {
+        serde_json::json!({
+            "source_case_id": "geometry/ct/multiseries_shared_frame_of_reference",
+            "source_path": path,
+            "source_sha256": format!("{:064x}", index + 1),
+            "study_instance_uid": study_uid,
+            "series_instance_uid": series_uids[series_order - 1],
+            "frame_of_reference_uid": "1.2.826.0.1.3680043.10.543.20",
+            "sop_class_uid": "1.2.840.10008.5.1.4.1.1.2",
+            "sop_instance_uid": sop_uids[index],
+            "series_order": series_order,
+            "image_order": image_order,
+            "rows": 2,
+            "columns": 2,
+            "image_orientation_patient": [1, 0, 0, 0, 1, 0],
+            "image_position_patient_mm": [0, 0, z],
+            "referenced_frame_numbers": [],
+            "complete_instance": true
+        })
+    };
+    let blending_item = |position: &str, series_order: usize, indices: [usize; 2]| {
+        serde_json::json!({
+            "blending_position": position,
+            "source_series_order": series_order,
+            "study_instance_uid": study_uid,
+            "series_instance_uid": series_uids[series_order - 1],
+            "referenced_source_indices": indices,
+            "referenced_frame_numbers": [],
+            "rescale_intercept": -1024,
+            "rescale_slope": 1,
+            "rescale_type": "HU",
+            "softcopy_voi_lut_items": 0,
+            "referenced_spatial_registration_items": 0,
+            "complete_instances": true
+        })
+    };
+    let palette_channel = |channel: &str| {
+        serde_json::json!({
+            "channel": channel,
+            "descriptor": [256, 0, 16],
+            "data_vr": "OW",
+            "data_size_bytes": 512,
+            "data_sha256": "f393097e80ec38db493eb054a0886181eb2c0e8cf7b5cdf1de392fbe94b0d1f5",
+            "storage": "identity_u16_little_endian"
+        })
+    };
+
+    serde_json::json!({
+        "presentation_state": {
+            "study_instance_uid": study_uid,
+            "series_instance_uid": "1.2.826.0.1.3680043.10.543.50",
+            "sop_instance_uid": "1.2.826.0.1.3680043.10.543.51",
+            "modality": "PR",
+            "laterality": "R",
+            "content_label": "DTSBLEND",
+            "content_description": "Synthetic DTSBLEND presentation state",
+            "content_creator_name": "DTS^Generator",
+            "presentation_creation_date": "20260101",
+            "presentation_creation_time": "000000",
+            "instance_number": 1,
+            "series_number": 81
+        },
+        "sources": [
+            source("geometry/ct/multiseries_shared_frame_of_reference/series-001/slice-001.dcm", 1, 1, 0.0, 0),
+            source("geometry/ct/multiseries_shared_frame_of_reference/series-001/slice-002.dcm", 1, 2, 5.0, 1),
+            source("geometry/ct/multiseries_shared_frame_of_reference/series-002/slice-001.dcm", 2, 1, 0.0, 2),
+            source("geometry/ct/multiseries_shared_frame_of_reference/series-002/slice-002.dcm", 2, 2, 5.0, 3)
+        ],
+        "same_study": true,
+        "shared_frame_of_reference": true,
+        "different_series": true,
+        "blending_items": [
+            blending_item("UNDERLYING", 1, [1, 2]),
+            blending_item("SUPERIMPOSED", 2, [3, 4])
+        ],
+        "relative_opacity": 0.5,
+        "displayed_area": {
+            "items": 1,
+            "applies_to_all_references": true,
+            "referenced_image_items": 0,
+            "top_left": [1, 1],
+            "bottom_right": [2, 2],
+            "presentation_size_mode": "SCALE TO FIT",
+            "presentation_pixel_aspect_ratio": [1, 1],
+            "presentation_pixel_spacing": null,
+            "presentation_pixel_magnification_ratio": null
+        },
+        "palette_color_lut": {
+            "channels": [palette_channel("red"), palette_channel("green"), palette_channel("blue")],
+            "segmented_data_present": false,
+            "palette_uid_present": false
+        },
+        "icc_profile": {
+            "vr": "OB",
+            "size_bytes": 736,
+            "sha256": "8e069a3476b71a0e0ae7272d9278ba70540d1c4a0b19af1c7d52e56f49091fef",
+            "device_class": "scnr",
+            "data_color_space": "RGB ",
+            "profile_connection_space": "XYZ ",
+            "signature": "acsp",
+            "dicom_color_space": "SRGB"
+        },
+        "absent_modules": {
+            "clinical_trial_subject": true,
+            "clinical_trial_study": true,
+            "clinical_trial_series": true,
+            "clinical_trial_equipment": true,
+            "patient_study": true,
+            "specimen": true,
+            "graphic_annotation": true,
+            "graphic_layer": true,
+            "graphic_group": true,
+            "spatial_transformation": true,
+            "frame_of_reference": true,
+            "common_instance_reference": true,
+            "softcopy_presentation_lut": true,
+            "voi_lut": true,
+            "softcopy_voi_lut": true,
+            "overlay_plane": true,
+            "overlay_activation": true,
+            "display_shutter": true,
+            "bitmap_display_shutter": true
+        },
+        "pixel_data_absent": true
+    })
+}
+
+#[test]
 fn manifest_schema_types_advanced_blending_presentation_state_expectations() {
     let schema = read_json("schemas/manifest.schema.json");
     let expectation_schema = serde_json::json!({

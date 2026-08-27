@@ -2150,7 +2150,7 @@ fn report_command_writes_rwvm_content_coverage_for_extended_root() {
             report
                 .pointer("/grouped_coverage/generation_backends/highdicom_pydicom")
                 .and_then(Value::as_u64),
-            Some(2)
+            Some(3)
         );
     }
     assert_eq!(
@@ -2333,29 +2333,48 @@ fn report_command_writes_structured_report_content_coverage_for_extended_root() 
             .and_then(Value::as_u64),
         Some(2)
     );
+    let tid1500_row = coverage_row(&report, "derived/sr/tid1500_ct_measurement_report");
+    assert_eq!(
+        tid1500_row
+            .get("sr_content_sequence_items")
+            .and_then(Value::as_u64),
+        Some(8)
+    );
+    assert_eq!(
+        tid1500_row
+            .get("sr_measurement_numeric_value")
+            .and_then(Value::as_str),
+        Some("5.625")
+    );
     assert_eq!(
         report
             .pointer("/grouped_coverage/sr_completion_flags/COMPLETE")
             .and_then(Value::as_u64),
-        Some(3)
+        Some(4)
     );
     assert_eq!(
         report
             .pointer("/grouped_coverage/sr_verification_flags/UNVERIFIED")
             .and_then(Value::as_u64),
-        Some(3)
+        Some(4)
     );
     assert_eq!(
         report
             .pointer("/grouped_coverage/sr_root_value_types/CONTAINER")
             .and_then(Value::as_u64),
-        Some(3)
+        Some(4)
     );
     assert_eq!(
         report
             .pointer("/grouped_coverage/sr_root_continuity_of_content/SEPARATE")
             .and_then(Value::as_u64),
         Some(3)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/sr_root_continuity_of_content/CONTINUOUS")
+            .and_then(Value::as_u64),
+        Some(1)
     );
     assert_eq!(
         report
@@ -2371,6 +2390,12 @@ fn report_command_writes_structured_report_content_coverage_for_extended_root() 
     );
     assert_eq!(
         report
+            .pointer("/grouped_coverage/sr_content_sequence_item_counts/8")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
             .pointer(
                 "/grouped_coverage/sr_observation_texts/Synthetic Basic Text SR observation for Enhanced CT source images."
             )
@@ -2380,6 +2405,12 @@ fn report_command_writes_structured_report_content_coverage_for_extended_root() 
     assert_eq!(
         report
             .pointer("/grouped_coverage/sr_measurement_numeric_values/12.5")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/sr_measurement_numeric_values/5.625")
             .and_then(Value::as_u64),
         Some(1)
     );
@@ -2402,20 +2433,23 @@ fn report_command_writes_structured_report_content_coverage_for_extended_root() 
     let markdown =
         String::from_utf8(markdown_output.stdout).expect("markdown stdout should be UTF-8");
     assert!(markdown.contains("### SR Completion Flags"));
-    assert!(markdown.contains("| COMPLETE | 3 |"));
+    assert!(markdown.contains("| COMPLETE | 4 |"));
     assert!(markdown.contains("### SR Verification Flags"));
-    assert!(markdown.contains("| UNVERIFIED | 3 |"));
+    assert!(markdown.contains("| UNVERIFIED | 4 |"));
     assert!(markdown.contains("### SR Root Value Types"));
-    assert!(markdown.contains("| CONTAINER | 3 |"));
+    assert!(markdown.contains("| CONTAINER | 4 |"));
     assert!(markdown.contains("### SR Root Continuity Of Content"));
     assert!(markdown.contains("| SEPARATE | 3 |"));
+    assert!(markdown.contains("| CONTINUOUS | 1 |"));
     assert!(markdown.contains("### SR Content Sequence Item Counts"));
     assert!(markdown.contains("| 2 | 2 |"));
+    assert!(markdown.contains("| 8 | 1 |"));
     assert!(markdown.contains("### SR Observation Texts"));
     assert!(markdown
         .contains("| Synthetic Basic Text SR observation for Enhanced CT source images. | 1 |"));
     assert!(markdown.contains("### SR Measurement Numeric Values"));
     assert!(markdown.contains("| 12.5 | 1 |"));
+    assert!(markdown.contains("| 5.625 | 1 |"));
 
     fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
 }

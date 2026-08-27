@@ -16251,6 +16251,9 @@ fn generated_coverage_row(
     row_object.insert(
         "sr_measurement_numeric_value".to_string(),
         file.pointer("/expected_semantics/structured_report/measurement/numeric_value")
+            .or_else(|| {
+                file.pointer("/expected_tid1500/measurement_group/measurement/numeric_value")
+            })
             .and_then(Value::as_str)
             .map(Value::from)
             .unwrap_or(Value::Null),

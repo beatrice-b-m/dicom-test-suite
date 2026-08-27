@@ -23,13 +23,13 @@ fn report_gaps_counts_logical_cases_and_dimensions() {
         report
             .pointer("/counts/statuses/implemented")
             .and_then(Value::as_u64),
-        Some(130)
+        Some(131)
     );
     assert_eq!(
         report
             .pointer("/counts/statuses/planned")
             .and_then(Value::as_u64),
-        Some(51)
+        Some(50)
     );
     assert!(
         report.pointer("/counts/priorities/now").is_none(),
@@ -104,6 +104,16 @@ fn report_gaps_counts_logical_cases_and_dimensions() {
             })),
         "promoted Enhanced PET coverage must not remain a gap"
     );
+    assert!(
+        report
+            .get("gaps")
+            .and_then(Value::as_array)
+            .is_some_and(|gaps| !gaps.iter().any(|gap| {
+                gap.get("case_id").and_then(Value::as_str)
+                    == Some("derived/sr/tid1500_ct_measurement_report")
+            })),
+        "promoted TID 1500 measurement coverage must not remain a gap"
+    );
     for pointer in [
         "/dimensions/sop_classes",
         "/dimensions/modalities",
@@ -149,6 +159,7 @@ fn report_gaps_renders_markdown_from_the_same_model() {
     assert!(!markdown.contains("| now |"));
     assert!(!markdown.contains("derived/parametric-map/float32_ct_derived_explicit_le"));
     assert!(!markdown.contains("derived/parametric-map/float64_ct_derived_explicit_le"));
+    assert!(!markdown.contains("derived/sr/tid1500_ct_measurement_report"));
     assert!(markdown.contains("protocol/dicomweb/stow_qido_wado"));
 }
 

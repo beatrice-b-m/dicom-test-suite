@@ -867,6 +867,81 @@ fn color_softcopy_source_note_locks_native_color_contract() {
 }
 
 #[test]
+fn advanced_blending_source_note_locks_native_two_input_contract() {
+    let source = fs::read_to_string(
+        "standards/source-notes/phase-3-advanced-blending-presentation-state.md",
+    )
+    .expect("Advanced Blending Presentation State source note must be readable");
+    for required in [
+        "derived/presentation-state/advanced_blending",
+        "Selected provider: `rust_native`",
+        "geometry/ct/multiseries_shared_frame_of_reference",
+        "geometry/ct/multiseries_shared_frame_of_reference/series-001/slice-001.dcm",
+        "geometry/ct/multiseries_shared_frame_of_reference/series-002/slice-002.dcm",
+        "UIDs and whole-file hashes remain deterministic functions of the selected run",
+        "1.2.840.10008.5.1.4.1.1.11.8",
+        "PS3.3 Table A.33.7-1",
+        "Advanced Blending Sequence `(0070,1B01)` is SQ VM 1 with exactly two Items",
+        "Blending Input Number `(0070,1B02)` US VM 1 value `1`",
+        "Time Series Blending `(0070,1B07)` CS VM 1 is `FALSE`",
+        "Display `(0070,1B08)` CS VM 1 is `TRUE`",
+        "Geometry for Display `TRUE`",
+        "Pixel Presentation `(0008,9205)` is CS VM 1 value `TRUE_COLOR`",
+        "Display Sequence `(0070,1B04)` is SQ VM 1 with exactly one Item",
+        "Blending Mode `(0070,1B06)` is CS VM 1 value `EQUAL`",
+        "Relative Opacity `(0070,0403)` is absent",
+        "8e069a3476b71a0e0ae7272d9278ba70540d1c4a0b19af1c7d52e56f49091fef",
+        "Referenced Series Sequence\n`(0008,1115)` contains exactly two Items",
+        "expected_advanced_blending_presentation_state",
+        "3e3f753545385fb448f3c5eb8618977663c7230158736fc943b9708ed62320d1",
+        "Frame of Reference UID `(0020,0052)` and\nPosition Reference Indicator",
+        "warnings remain unresolved independent-conformance findings",
+        "They are not\nallowlisted",
+        "Both IOD validators accepted duplicate Advanced Blending Input Numbers",
+        "Strict Rust validation owns all cardinality, ordering, uniqueness, graph",
+        "No new finding may be silently allowlisted",
+        "Registry status: planned",
+        "Registry provider: `rust_native`",
+        "Registry blocker: exactly `recipe_unimplemented`",
+        "Should become KB patch: yes",
+    ] {
+        assert!(
+            source.contains(required),
+            "Advanced Blending Presentation State note requires {required}"
+        );
+    }
+
+    let registry = read_json("cases/registry.json");
+    let case = registry_cases(&registry)
+        .into_iter()
+        .find(|case| {
+            case.get("case_id").and_then(Value::as_str)
+                == Some("derived/presentation-state/advanced_blending")
+        })
+        .expect("Advanced Blending Presentation State row must exist");
+    assert_eq!(case["status"], "planned");
+    assert_eq!(case["provider"]["kind"], "rust_native");
+    assert_eq!(case["provider"]["id"], "rust_native");
+    assert_eq!(
+        case["blockers"],
+        serde_json::json!([{
+            "code": "recipe_unimplemented",
+            "message": "The deterministic native recipe is not implemented.",
+            "recheck_phase": "phase-3"
+        }])
+    );
+    assert_eq!(case["determinism"], "semantic_stable");
+    assert!(
+        case["standards_evidence"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|evidence| evidence["query"]
+                == "standards/source-notes/phase-3-advanced-blending-presentation-state.md")
+    );
+}
+
+#[test]
 fn u1_pixel_decoder_is_case_scoped_and_locked() {
     let validators = read_json("conformance/validators.json");
     let adapter = validators["adapters"]

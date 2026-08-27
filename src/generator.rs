@@ -694,6 +694,52 @@ const PIXEL_RECIPES: &[PixelRecipe] = &[
         padding: None,
     },
     PixelRecipe {
+        case_id: "vl/endoscopic/rgb_explicit_le",
+        recipe_id: "vl_endoscopic_rgb_explicit_le",
+        rows: 2,
+        columns: 2,
+        photometric_interpretation: "RGB",
+        samples_per_pixel: 3,
+        planar_configuration: Some(0),
+        bits_allocated: 8,
+        bits_stored: 8,
+        high_bit: 7,
+        pixel_representation: 0,
+        pixel_vr: VR::OB,
+        transfer_syntax: EXPLICIT_VR_LITTLE_ENDIAN,
+        pixel_bytes: &RGB_PLANAR0_PIXELS,
+        pixel_values: &[255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 255, 255],
+        pixel_min: 0,
+        pixel_max: 255,
+        visual_pattern: "2x2_vl_endoscopic_rgb_red_green_blue_white",
+        semantic_note: "VL Endoscopic RGB samples are interleaved color-by-pixel",
+        palette: None,
+        padding: None,
+    },
+    PixelRecipe {
+        case_id: "vl/microscopic/rgb_explicit_le",
+        recipe_id: "vl_microscopic_rgb_explicit_le",
+        rows: 2,
+        columns: 2,
+        photometric_interpretation: "RGB",
+        samples_per_pixel: 3,
+        planar_configuration: Some(0),
+        bits_allocated: 8,
+        bits_stored: 8,
+        high_bit: 7,
+        pixel_representation: 0,
+        pixel_vr: VR::OB,
+        transfer_syntax: EXPLICIT_VR_LITTLE_ENDIAN,
+        pixel_bytes: &RGB_PLANAR0_PIXELS,
+        pixel_values: &[255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 255, 255],
+        pixel_min: 0,
+        pixel_max: 255,
+        visual_pattern: "2x2_vl_microscopic_rgb_red_green_blue_white",
+        semantic_note: "VL Microscopic RGB samples are interleaved color-by-pixel",
+        palette: None,
+        padding: None,
+    },
+    PixelRecipe {
         case_id: ICC_CASE_ID,
         recipe_id: ICC_RECIPE_ID,
         rows: 2,
@@ -8281,7 +8327,7 @@ fn write_pixel_case_with_metadata(
 
     let mut obj = InMemDicomObject::new_empty();
     let sop_class_uid = pixel_sop_class_uid(recipe);
-    let is_vl_photographic = pixel_is_vl_photographic(recipe);
+    let is_single_frame_vl = pixel_single_frame_vl_kind(recipe).is_some();
     let is_u1_sc = recipe.case_id == U1_SC_RECIPE.case_id;
     put_str(&mut obj, tags::SOP_CLASS_UID, VR::UI, sop_class_uid);
     put_str(&mut obj, tags::SOP_INSTANCE_UID, VR::UI, &sop_instance_uid);
@@ -8437,7 +8483,7 @@ fn write_pixel_case_with_metadata(
         put_str(&mut obj, tags::LATERALITY, VR::CS, "R");
     }
 
-    if !is_vl_photographic {
+    if !is_single_frame_vl {
         put_str(&mut obj, tags::CONVERSION_TYPE, VR::CS, "SYN");
     }
     put_str(&mut obj, tags::MANUFACTURER, VR::LO, "dicom-test-suite");
@@ -8472,10 +8518,19 @@ fn write_pixel_case_with_metadata(
         put_str(&mut obj, tags::BURNED_IN_ANNOTATION, VR::CS, "NO");
         put_str(&mut obj, tags::LOSSY_IMAGE_COMPRESSION, VR::CS, "00");
     }
-    if is_vl_photographic {
+    if is_single_frame_vl {
         put_str(&mut obj, tags::IMAGE_TYPE, VR::CS, "ORIGINAL\\PRIMARY");
         put_str(&mut obj, tags::LOSSY_IMAGE_COMPRESSION, VR::CS, "00");
         put_empty_sequence(&mut obj, tags::ACQUISITION_CONTEXT_SEQUENCE);
+    }
+    if let Some((body_part_examined, laterality)) = pixel_vl_anatomy(recipe) {
+        put_str(
+            &mut obj,
+            tags::BODY_PART_EXAMINED,
+            VR::CS,
+            body_part_examined,
+        );
+        put_str(&mut obj, tags::LATERALITY, VR::CS, laterality);
     }
     if pixel_has_icc_profile(recipe) {
         put_str(&mut obj, tags::LATERALITY, VR::CS, "R");
@@ -10380,6 +10435,78 @@ fn pixel_manifest_entry(
                 "anchor": "sect_8.1.1"
             }),
         ]);
+    } else if matches!(
+        pixel_single_frame_vl_kind(recipe),
+        Some(SingleFrameVlKind::Endoscopic | SingleFrameVlKind::Microscopic)
+    ) {
+        let (iod_name, iod_table, modality_section) =
+            match pixel_single_frame_vl_kind(recipe).expect("matched VL kind") {
+                SingleFrameVlKind::Endoscopic => {
+                    ("VL Endoscopic Image", "table_A.32.1-1", "sect_A.32.1.4.1")
+                }
+                SingleFrameVlKind::Microscopic => {
+                    ("VL Microscopic Image", "table_A.32.1-2", "sect_A.32.2.4.1")
+                }
+                SingleFrameVlKind::Photographic => unreachable!("excluded above"),
+            };
+        standards_evidence.extend([
+            serde_json::json!({
+                "source": "dicom-standard-kb",
+                "edition": "2026b",
+                "query": format!("lookup_sop_class {}", pixel_sop_class_name(recipe)),
+                "covered": true,
+                "part": "PS3.4",
+                "anchor": "table_B.5-1"
+            }),
+            serde_json::json!({
+                "source": "dicom-standard-kb",
+                "edition": "2026b",
+                "query": format!("lookup_iod {iod_name}"),
+                "covered": true,
+                "part": "PS3.3",
+                "anchor": iod_table
+            }),
+            serde_json::json!({
+                "source": "dicom-standard-kb",
+                "edition": "2026b",
+                "query": format!("list_modules_for_iod {iod_name}"),
+                "covered": true,
+                "part": "PS3.3",
+                "anchor": iod_table
+            }),
+            serde_json::json!({
+                "source": "dicom-standard-kb",
+                "edition": "2026b",
+                "query": "list_attributes_for_module VL Image --expand-macros",
+                "covered": true,
+                "part": "PS3.3",
+                "anchor": "table_C.8-77"
+            }),
+            serde_json::json!({
+                "source": "dicom-standard-kb",
+                "edition": "2026b",
+                "query": "list_attributes_for_module General Series --expand-macros",
+                "covered": true,
+                "part": "PS3.3",
+                "anchor": "table_C.7-5a"
+            }),
+            serde_json::json!({
+                "source": "dicom-standard-kb",
+                "edition": "2026b",
+                "query": format!("retrieve_standard_text {modality_section}"),
+                "covered": true,
+                "part": "PS3.3",
+                "anchor": modality_section
+            }),
+            serde_json::json!({
+                "source": "local-source-note",
+                "edition": "2026b",
+                "query": "standards/source-notes/phase-4-vl-single-frame.md",
+                "covered": true,
+                "part": "PS3.3",
+                "anchor": iod_table
+            }),
+        ]);
     } else if pixel_is_vl_photographic(recipe) {
         standards_evidence.extend([
             serde_json::json!({
@@ -10824,6 +10951,7 @@ fn pixel_manifest_entry(
     } else {
         serde_json::json!(recipe.pixel_values)
     };
+    let vl_anatomy = pixel_vl_anatomy(recipe);
     let mut manifest = serde_json::json!({
         "case_id": recipe.case_id,
         "profile_membership": pixel_profile_membership(recipe),
@@ -10896,6 +11024,47 @@ fn pixel_manifest_entry(
         "known_stressors": pixel_known_stressors(recipe),
         "standards_evidence": deduplicated_standards_evidence(standards_evidence)
     });
+    if let Some((body_part_examined, laterality)) = vl_anatomy {
+        manifest["recipe"]["recipe_parameters"]["body_part_examined"] =
+            Value::from(body_part_examined);
+        manifest["recipe"]["recipe_parameters"]["laterality"] = Value::from(laterality);
+        manifest["expected_semantics"]["body_part_examined"] = Value::from(body_part_examined);
+        manifest["expected_semantics"]["laterality"] = Value::from(laterality);
+        manifest["expected_vl_single_frame"] = serde_json::json!({
+            "iod_kind": match pixel_single_frame_vl_kind(recipe) {
+                Some(SingleFrameVlKind::Endoscopic) => "vl_endoscopic_single_frame",
+                Some(SingleFrameVlKind::Microscopic) => "vl_microscopic_single_frame",
+                _ => unreachable!("VL anatomy is only defined for milestone-1 VL kinds"),
+            },
+            "sop_class_uid": pixel_sop_class_uid(recipe),
+            "sop_class_name": pixel_sop_class_name(recipe),
+            "iod_name": pixel_iod_name(recipe),
+            "modality": pixel_modality(recipe),
+            "transfer_syntax_uid": recipe.transfer_syntax.uid,
+            "body_part_examined": body_part_examined,
+            "laterality": laterality,
+            "image_type": ["ORIGINAL", "PRIMARY"],
+            "acquisition_context_items": 0,
+            "image": {
+                "rows": recipe.rows,
+                "columns": recipe.columns,
+                "samples_per_pixel": recipe.samples_per_pixel,
+                "photometric_interpretation": recipe.photometric_interpretation,
+                "planar_configuration": recipe.planar_configuration,
+                "bits_allocated": recipe.bits_allocated,
+                "bits_stored": recipe.bits_stored,
+                "high_bit": recipe.high_bit,
+                "pixel_representation": recipe.pixel_representation
+            },
+            "absent_content": [
+                "number_of_frames",
+                "frame_of_reference_uid",
+                "specimen_module",
+                "optical_path_module",
+                "icc_profile_module"
+            ]
+        });
+    }
     if recipe.case_id == U32_SC_RECIPE.case_id {
         manifest["expected_u32_pixels"] = serde_json::json!({
             "stored_values": U32_SC_RECIPE.pixel_values,
@@ -11240,16 +11409,21 @@ fn pixel_lossy_image_compression_method(recipe: PixelRecipe) -> Option<&'static 
 }
 
 fn pixel_known_stressors(recipe: PixelRecipe) -> Vec<&'static str> {
-    let mut stressors = if pixel_is_vl_photographic(recipe) {
-        let mut stressors = vec!["vl_photographic_image_storage"];
-        if recipe.palette.is_some() {
-            stressors.push("vl_palette_color_pixels");
-        } else if recipe.samples_per_pixel > 1 {
-            stressors.push("vl_rgb_pixels");
+    let mut stressors = match pixel_single_frame_vl_kind(recipe) {
+        Some(kind) => {
+            let mut stressors = vec![match kind {
+                SingleFrameVlKind::Endoscopic => "vl_endoscopic_image_storage",
+                SingleFrameVlKind::Microscopic => "vl_microscopic_image_storage",
+                SingleFrameVlKind::Photographic => "vl_photographic_image_storage",
+            }];
+            if recipe.palette.is_some() {
+                stressors.push("vl_palette_color_pixels");
+            } else if recipe.samples_per_pixel > 1 {
+                stressors.push("vl_rgb_pixels");
+            }
+            stressors
         }
-        stressors
-    } else {
-        vec!["minimal_secondary_capture"]
+        None => vec!["minimal_secondary_capture"],
     };
     if recipe.transfer_syntax == RLE_LOSSLESS {
         stressors.push("encapsulated_pixel_data");
@@ -11384,6 +11558,8 @@ fn pixel_profile_membership(recipe: PixelRecipe) -> &'static [&'static str] {
         | "classic/sc/mono2_u16_jpeg_lossless_sv1"
         | "classic/sc/mono2_u32_explicit_le"
         | "classic/sc/mono2_u1_native"
+        | "vl/endoscopic/rgb_explicit_le"
+        | "vl/microscopic/rgb_explicit_le"
         | ICC_CASE_ID => &["extended"],
         _ => &["core"],
     }
@@ -11481,8 +11657,32 @@ fn pixel_expected_capabilities(recipe: PixelRecipe) -> Vec<&'static str> {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SingleFrameVlKind {
+    Endoscopic,
+    Microscopic,
+    Photographic,
+}
+
+fn pixel_single_frame_vl_kind(recipe: PixelRecipe) -> Option<SingleFrameVlKind> {
+    match recipe.case_id {
+        "vl/endoscopic/rgb_explicit_le" => Some(SingleFrameVlKind::Endoscopic),
+        "vl/microscopic/rgb_explicit_le" => Some(SingleFrameVlKind::Microscopic),
+        case_id if case_id.starts_with("vl/photo/") => Some(SingleFrameVlKind::Photographic),
+        _ => None,
+    }
+}
+
 fn pixel_is_vl_photographic(recipe: PixelRecipe) -> bool {
-    recipe.case_id.starts_with("vl/photo/")
+    pixel_single_frame_vl_kind(recipe) == Some(SingleFrameVlKind::Photographic)
+}
+
+fn pixel_vl_anatomy(recipe: PixelRecipe) -> Option<(&'static str, &'static str)> {
+    match pixel_single_frame_vl_kind(recipe) {
+        Some(SingleFrameVlKind::Endoscopic) => Some(("LUNG", "R")),
+        Some(SingleFrameVlKind::Microscopic) => Some(("EYE", "R")),
+        _ => None,
+    }
 }
 
 fn pixel_has_icc_profile(recipe: PixelRecipe) -> bool {
@@ -11492,43 +11692,53 @@ fn pixel_has_icc_profile(recipe: PixelRecipe) -> bool {
 fn pixel_sop_class_uid(recipe: PixelRecipe) -> &'static str {
     if recipe.case_id == U1_SC_RECIPE.case_id {
         uids::MULTI_FRAME_SINGLE_BIT_SECONDARY_CAPTURE_IMAGE_STORAGE
-    } else if pixel_is_vl_photographic(recipe) {
-        uids::VL_PHOTOGRAPHIC_IMAGE_STORAGE
     } else {
-        uids::SECONDARY_CAPTURE_IMAGE_STORAGE
+        match pixel_single_frame_vl_kind(recipe) {
+            Some(SingleFrameVlKind::Endoscopic) => uids::VL_ENDOSCOPIC_IMAGE_STORAGE,
+            Some(SingleFrameVlKind::Microscopic) => uids::VL_MICROSCOPIC_IMAGE_STORAGE,
+            Some(SingleFrameVlKind::Photographic) => uids::VL_PHOTOGRAPHIC_IMAGE_STORAGE,
+            None => uids::SECONDARY_CAPTURE_IMAGE_STORAGE,
+        }
     }
 }
 
 fn pixel_sop_class_name(recipe: PixelRecipe) -> &'static str {
     if recipe.case_id == U1_SC_RECIPE.case_id {
         "Multi-frame Single Bit Secondary Capture Image Storage"
-    } else if pixel_is_vl_photographic(recipe) {
-        "VL Photographic Image Storage"
     } else {
-        "Secondary Capture Image Storage"
+        match pixel_single_frame_vl_kind(recipe) {
+            Some(SingleFrameVlKind::Endoscopic) => "VL Endoscopic Image Storage",
+            Some(SingleFrameVlKind::Microscopic) => "VL Microscopic Image Storage",
+            Some(SingleFrameVlKind::Photographic) => "VL Photographic Image Storage",
+            None => "Secondary Capture Image Storage",
+        }
     }
 }
 
 fn pixel_iod_name(recipe: PixelRecipe) -> &'static str {
     if recipe.case_id == U1_SC_RECIPE.case_id {
         "Multi-frame Single Bit Secondary Capture Image"
-    } else if pixel_is_vl_photographic(recipe) {
-        "VL Photographic Image"
     } else {
-        "Secondary Capture Image"
+        match pixel_single_frame_vl_kind(recipe) {
+            Some(SingleFrameVlKind::Endoscopic) => "VL Endoscopic Image",
+            Some(SingleFrameVlKind::Microscopic) => "VL Microscopic Image",
+            Some(SingleFrameVlKind::Photographic) => "VL Photographic Image",
+            None => "Secondary Capture Image",
+        }
     }
 }
 
 fn pixel_modality(recipe: PixelRecipe) -> &'static str {
-    if pixel_is_vl_photographic(recipe) {
-        "XC"
-    } else {
-        "OT"
+    match pixel_single_frame_vl_kind(recipe) {
+        Some(SingleFrameVlKind::Endoscopic) => "ES",
+        Some(SingleFrameVlKind::Microscopic) => "GM",
+        Some(SingleFrameVlKind::Photographic) => "XC",
+        None => "OT",
     }
 }
 
 fn pixel_conversion_type(recipe: PixelRecipe) -> Value {
-    if pixel_is_vl_photographic(recipe) {
+    if pixel_single_frame_vl_kind(recipe).is_some() {
         Value::Null
     } else {
         Value::String("SYN".to_string())
@@ -11536,7 +11746,7 @@ fn pixel_conversion_type(recipe: PixelRecipe) -> Value {
 }
 
 fn pixel_image_type(recipe: PixelRecipe) -> Value {
-    if pixel_is_vl_photographic(recipe) {
+    if pixel_single_frame_vl_kind(recipe).is_some() {
         Value::String("ORIGINAL\\PRIMARY".to_string())
     } else {
         Value::Null
@@ -27036,6 +27246,200 @@ mod tests {
         let error = write_rt_image_case(&run, &case, RT_IMAGE_RECIPES[0], &wrong_class, lock)
             .expect_err("non-Plan source must fail");
         assert!(error.to_string().contains("identity topology"));
+    }
+
+    #[test]
+    fn single_frame_vl_writers_preserve_family_contracts_and_are_deterministic() {
+        let output = ParametricMapStagingGuard::new();
+        let run = PreparedGenerationRun {
+            profile: "extended".to_string(),
+            out_dir: output.path().to_path_buf(),
+            manifest_path: output.path().join("manifest.json"),
+            seed: 7,
+            include_stress: false,
+        };
+        let lock = sha256_hex(&fs::read("standards.lock.json").expect("standards lock"));
+
+        for (case_id, expected_uid, expected_modality, expected_body_part) in [
+            (
+                "vl/endoscopic/rgb_explicit_le",
+                uids::VL_ENDOSCOPIC_IMAGE_STORAGE,
+                "ES",
+                "LUNG",
+            ),
+            (
+                "vl/microscopic/rgb_explicit_le",
+                uids::VL_MICROSCOPIC_IMAGE_STORAGE,
+                "GM",
+                "EYE",
+            ),
+        ] {
+            let recipe = PIXEL_RECIPES
+                .iter()
+                .copied()
+                .find(|recipe| recipe.case_id == case_id)
+                .expect("single-frame VL recipe must be dispatched");
+            let case = serde_json::json!({
+                "case_id": case_id,
+                "standards_evidence": []
+            });
+            let first = write_pixel_case(&run, &case, recipe, &lock)
+                .expect("single-frame VL fixture should write and validate");
+            let path = output.path().join(case_id).join("instance.dcm");
+            let first_bytes = fs::read(&path).expect("first VL bytes");
+            let second = write_pixel_case(&run, &case, recipe, &lock)
+                .expect("repeated single-frame VL fixture should validate");
+            let second_bytes = fs::read(&path).expect("second VL bytes");
+            assert_eq!(first_bytes, second_bytes);
+            assert_eq!(
+                first.manifest_entry["sha256"],
+                second.manifest_entry["sha256"]
+            );
+
+            let reopened = open_file(&path).expect("single-frame VL object should reopen");
+            assert_eq!(
+                reopened
+                    .element(tags::SOP_CLASS_UID)
+                    .expect("SOP Class UID")
+                    .to_str()
+                    .expect("SOP Class UID string")
+                    .trim_end_matches('\0'),
+                expected_uid
+            );
+            assert_eq!(
+                reopened
+                    .element(tags::MODALITY)
+                    .expect("Modality")
+                    .to_str()
+                    .expect("Modality string"),
+                expected_modality
+            );
+            assert_eq!(
+                reopened
+                    .element(tags::BODY_PART_EXAMINED)
+                    .expect("Body Part Examined")
+                    .to_str()
+                    .expect("Body Part Examined string"),
+                expected_body_part
+            );
+            assert_eq!(
+                reopened
+                    .element(tags::LATERALITY)
+                    .expect("Laterality")
+                    .to_str()
+                    .expect("Laterality string"),
+                "R"
+            );
+            assert_eq!(
+                reopened
+                    .element(tags::IMAGE_TYPE)
+                    .expect("Image Type")
+                    .to_multi_str()
+                    .expect("Image Type values")
+                    .as_ref(),
+                &["ORIGINAL", "PRIMARY"]
+            );
+            assert_eq!(
+                reopened
+                    .element(tags::ACQUISITION_CONTEXT_SEQUENCE)
+                    .expect("Acquisition Context Sequence")
+                    .items()
+                    .expect("Acquisition Context items")
+                    .len(),
+                0
+            );
+            assert_eq!(
+                reopened
+                    .element(tags::LOSSY_IMAGE_COMPRESSION)
+                    .expect("Lossy Image Compression")
+                    .to_str()
+                    .expect("Lossy Image Compression string"),
+                "00"
+            );
+            assert_eq!(
+                reopened
+                    .element(tags::PIXEL_DATA)
+                    .expect("Pixel Data")
+                    .to_bytes()
+                    .expect("native RGB bytes")
+                    .as_ref(),
+                RGB_PLANAR0_PIXELS.as_slice()
+            );
+            assert!(reopened.element(tags::NUMBER_OF_FRAMES).is_err());
+            assert!(reopened.element(tags::FRAME_OF_REFERENCE_UID).is_err());
+            assert!(reopened.element(tags::CONVERSION_TYPE).is_err());
+            assert!(
+                reopened
+                    .element(tags::SPECIMEN_DESCRIPTION_SEQUENCE)
+                    .is_err()
+            );
+            assert!(reopened.element(tags::OPTICAL_PATH_SEQUENCE).is_err());
+            assert!(reopened.element(tags::ICC_PROFILE).is_err());
+            assert_eq!(
+                first
+                    .manifest_entry
+                    .pointer("/expected_vl_single_frame/sop_class_uid")
+                    .and_then(Value::as_str),
+                Some(expected_uid)
+            );
+            assert_eq!(
+                first
+                    .manifest_entry
+                    .pointer("/expected_vl_single_frame/body_part_examined")
+                    .and_then(Value::as_str),
+                Some(expected_body_part)
+            );
+            assert_eq!(
+                first
+                    .manifest_entry
+                    .pointer("/expected_vl_single_frame/acquisition_context_items")
+                    .and_then(Value::as_u64),
+                Some(0)
+            );
+            assert_eq!(
+                first.manifest_entry.pointer("/profile_membership"),
+                Some(&serde_json::json!(["extended"]))
+            );
+            let manifest_schema: Value =
+                serde_json::from_str(include_str!("../schemas/manifest.schema.json"))
+                    .expect("manifest schema should parse");
+            let file_schema = serde_json::json!({
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "$ref": "#/$defs/file",
+                "$defs": manifest_schema["$defs"].clone(),
+            });
+            let validator =
+                jsonschema::validator_for(&file_schema).expect("file schema should compile");
+            let mut schema_entry = first.manifest_entry.clone();
+            schema_entry["references"] = serde_json::json!([]);
+            assert!(
+                validator.is_valid(&schema_entry),
+                "single-frame VL manifest schema errors: {:?}",
+                validator.iter_errors(&schema_entry).collect::<Vec<_>>()
+            );
+        }
+
+        let photo_recipe = PIXEL_RECIPES
+            .iter()
+            .copied()
+            .find(|recipe| recipe.case_id == "vl/photo/rgb_planar0_explicit_le")
+            .expect("VL Photographic recipe");
+        let photo_case = serde_json::json!({
+            "case_id": photo_recipe.case_id,
+            "standards_evidence": []
+        });
+        let photo = write_pixel_case(&run, &photo_case, photo_recipe, &lock)
+            .expect("existing VL Photographic fixture should remain valid");
+        assert_eq!(
+            photo.manifest_entry["sha256"],
+            Value::from("12257eaf1771825e5cc073e7f8ab26cabd1bec170ac5ff4bd836af7448a62d7b")
+        );
+        assert!(
+            photo
+                .manifest_entry
+                .get("expected_vl_single_frame")
+                .is_none()
+        );
     }
 
     #[test]

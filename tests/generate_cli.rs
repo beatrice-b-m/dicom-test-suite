@@ -7275,7 +7275,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\tall"));
-    let native_all_files = 130
+    let native_all_files = 131
         + if cfg!(feature = "deflate") { 2 } else { 0 }
         + if cfg!(feature = "jpeg") { 1 } else { 0 }
         + if cfg!(feature = "charls") { 1 } else { 0 }
@@ -7318,6 +7318,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
     );
 
     file_entry_by_case_id(&manifest, "classic/sc/mono2_u8_explicit_le");
+    file_entry_by_case_id(&manifest, "classic/sc/mono2_u32_explicit_le");
     file_entry_by_case_id(&manifest, "classic/sc/mono2_u8_rle_lossless");
     file_entry_by_case_id(&manifest, "classic/sc/mono1_u8_rle_lossless");
     file_entry_by_case_id(&manifest, "classic/sc/mono2_u16_rle_lossless");
@@ -7463,7 +7464,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
         .expect("manifest should contain skipped cases");
     assert_eq!(
         skipped_cases.len(),
-        45 - usize::from(parametric_map_generated)
+        44 - usize::from(parametric_map_generated)
             - if cfg!(feature = "deflate") { 2 } else { 0 }
             - if cfg!(feature = "jpeg") { 1 } else { 0 }
             - if cfg!(feature = "charls") { 1 } else { 0 }

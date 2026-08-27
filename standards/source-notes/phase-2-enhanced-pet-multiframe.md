@@ -179,11 +179,11 @@ recomputes `0, 250, 500, 1000` Bq/ml per frame from the `2.5` mapping.
 
 ## Project Action
 
-- Registry status: planned until generation, typed manifest and report
+- Registry status: implemented after generation, typed manifest and report
   contracts, internal and manifest-driven validation, two-run determinism,
-  exact direct reopened native Pixel Data extraction, independent arithmetic
-  recomputation, and independent IOD gates pass.
-- Registry reason or linked issue: `recipe_unimplemented`.
+  exact independent native Pixel Data extraction, arithmetic recomputation,
+  and independent IOD gates passed.
+- Registry reason or linked issue: none; `recipe_unimplemented` was removed.
 - Should become KB patch: yes; macro and context-specific value-term coverage
   should become structured KB data.
 - Expected cleanup after KB coverage exists: replace standard-text fallbacks

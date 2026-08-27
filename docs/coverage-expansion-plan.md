@@ -283,6 +283,10 @@ Implement these groups as separate milestones:
 4. **Pixels:** 32-bit integer pixels, 1-bit native pixels where permitted, ICC
    profile handling, and non-square spacing/aspect-ratio cases.
 
+Status on 2026-08-27: milestones 1 through 3 are complete. The clinical-family
+milestone closes with the independently conformant Enhanced PET multi-frame
+representative; milestone 4 is the next dependency-ordered work.
+
 Gate:
 
 - every group has focused internal tests and at least one independently

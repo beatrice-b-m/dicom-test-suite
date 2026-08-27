@@ -439,12 +439,42 @@ The frozen offline pydicom 3.0.2 environment managed by locked `uv` confirms
 the full acquisition and absence contract and produces a byte-identical Part
 10 rewrite that retains the same clean validator results.
 
+### Enhanced PET quantitative multi-frame
+
+`enhanced/pet/multiframe_explicit_le` is an implemented `extended` Enhanced
+PET Image Storage instance with two 2 by 2 native unsigned 16-bit axial frames.
+Image Type and PET Frame Type are
+`DERIVED\\PRIMARY\\STATIC\\MULTIPLICATION`; the mandatory View Code is
+`(24422004, SCT, "Axial")`. View Modifier Code Sequence and Slice Progression
+Direction are absent because their conditions are false. Unknown administered
+Total Dose remains present with zero value length as required by its Type 2
+contract rather than asserting a numeric clinical dose.
+
+Shared and per-frame functional groups expose pixel measures, anatomy,
+orientation, positions, dimension indices, and the PET quantitative mapping.
+Both frames contain stored values `0, 100, 200, 400`; intercept `0` and slope
+`2.5` map them to `0, 250, 500, 1000` Bq/ml. The fixture makes no SUV,
+clinical calibration, decay correction, gating, motion, or reconstruction
+claim. Typed manifests, coverage reports, reopen validation, strict
+manifest-driven validation, and focused DICOM/manifest tamper tests enforce
+the complete contract.
+
+Two seed-1 `extended` generations each produced 84 files and were recursively
+byte-identical; strict validation checked all 84 with zero failures. The
+Enhanced PET instance SHA-256 is
+`93bda38274c6bafe510d8dc1764ee68463bbdba42723d5f44b31793fefe21228`.
+Locked `dciodvfy` identifies only `EnhancedPETImage`, `dcentvfy` is silent,
+and DCMTK extracts the exact view, zero-length dose, and 16-byte Pixel Data.
+The frozen offline pydicom 3.0.2 environment managed by locked `uv`
+independently decodes both frames, reproduces their hashes, and recomputes the
+declared Bq/ml values.
+
 ## Milestone gate
 
 All planned Phase 2 geometry and series cases are implemented, and the UTF-8,
 ISO 2022, timezone, empty Type 2, string boundary, private creator, and sequence
 length metadata slices have passed their vertical gates. The latest seed-1
-`core` corpus contains 47 files; the seed-1 `extended` corpus contains 83
+`core` corpus contains 47 files; the seed-1 `extended` corpus contains 84
 files. The complete
 locked no-default-feature, all-target test suite passes, including byte-stable
 smoke, core, and extended regeneration. Each new CT slice and the temporal MR
@@ -453,6 +483,6 @@ evidence, except for the one exact reviewed DICOMDIR-usability warning described
 above. Older corpus findings remain visible and unresolved. The dependency-
 ordered Phase 2 metadata and VR milestone is complete. The Nuclear Medicine
 STATIC multi-frame, PET rescaled-activity, timed Ultrasound multi-frame,
-XA monoplane, and XRF monoplane clinical-family representatives are complete.
-Phase 2 continues with the additional enhanced-modality representative needed
-to close the clinical-family milestone before the pixel milestone.
+XA monoplane, XRF monoplane, and Enhanced PET clinical-family representatives
+are complete. The dependency-ordered Phase 2 clinical-family milestone is
+closed; Phase 2 continues with the pixel milestone.

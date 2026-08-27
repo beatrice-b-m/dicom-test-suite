@@ -5015,7 +5015,7 @@ fn tid1500_generated_file(
                     "preliminary_flag": "FINAL",
                     "verification_flag": "UNVERIFIED",
                     "root_value_type": "CONTAINER",
-                    "root_continuity_of_content": "SEPARATE"
+                    "root_continuity_of_content": "CONTINUOUS"
                 }
             },
             "expected_tid1500": expected_tid1500,

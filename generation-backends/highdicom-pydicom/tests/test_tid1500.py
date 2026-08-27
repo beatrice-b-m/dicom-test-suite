@@ -205,6 +205,13 @@ class Tid1500GenerationTest(unittest.TestCase):
             self.assertEqual(document.ContentTemplateSequence[0].TemplateIdentifier, "1500")
             self.assertEqual(document.InstanceCreationDate, "20260101")
             self.assertEqual(document.InstanceCreationTime, "000000")
+            self.assertEqual(
+                {
+                    str(item.ContributionDateTime)
+                    for item in document.ContributingEquipmentSequence
+                },
+                {"20260101000000+0000"},
+            )
 
             items = _content_items(document)
             volume = next(

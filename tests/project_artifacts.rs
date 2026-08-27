@@ -1086,6 +1086,76 @@ fn blending_source_note_locks_audited_contract_before_provider_selection() {
 }
 
 #[test]
+fn general_ecg_source_note_locks_multigroup_contract_before_provider_selection() {
+    let source = fs::read_to_string("standards/source-notes/phase-3-general-ecg-waveform.md")
+        .expect("General ECG Waveform source note must be readable");
+    for required in [
+        "non-image/waveform/general_ecg",
+        "Recommended provider: `rust_native`",
+        "1.2.840.10008.5.1.4.1.1.9.1.2",
+        "PS3.3 A.34.4 and Table A.34.4-1",
+        "Acquisition Context Sequence `(0040,0555)` is the required Type",
+        "one through four\nItems",
+        "one through twenty-four channels",
+        "200 through 1,000 Hz inclusive",
+        "| 1 | `STD12_250HZ` | 12 | 1,000 | 250 Hz | 4 s |",
+        "| 2 | `AUX4_1000HZ` | 4 | 4,000 | 1,000 Hz | 4 s |",
+        "Group 1 therefore contains exactly 24,000 bytes and Group\n2 exactly 32,000 bytes; their ordered aggregate is 56,000 bytes",
+        "| 2 | 1 | A1 | `2:75` | Auxiliary unipolar lead 1 |",
+        "| 2 | 4 | A4 | `2:78` | Auxiliary unipolar lead 4 |",
+        "sixteen distinct sources deliberately exceed the 12-lead ECG IOD's\nthirteen-channel total",
+        "Channel Time\nSkew `(003A,0214)` is `0`",
+        "f8ee9bcd0797f85bc1a9fc3a47b828328931562fef6d8c645b4c85aae9b3f227",
+        "((s * (c + 1) * (g + 1) * 37 + c * 101 + g * 307) mod 2001) - 1000",
+        "Each Item owns a separate OW payload",
+        "generalized `expected_waveform`",
+        "ordered `multiplex_groups` array",
+        "12x1000@250Hz; 4x4000@1000Hz",
+        "4967dac55719ba63cbc7f404f444e00d4adf50c785c8353e89c94db0259ede05",
+        "ca5c4a56d05a57c6587d84fffc31a842e8e369b09f1186e6542a619b69dac683",
+        "five Waveform Sequence Items; twenty-five channels",
+        "Sampling\nFrequency `199` and `1001`",
+        "No\nfinding may be silently allowlisted",
+        "triggers no Section 11 decision checkpoint",
+        "user has adopted `uv`",
+        "Current registry status: planned and `semantic_stable`",
+        "Current registry provider: external backend `dcmtk`",
+        "`backend_contract_unimplemented` and\n  `independent_payload_validator_unavailable`",
+        "this evidence commit\n  intentionally does not change registry state",
+        "Should become KB patch: yes",
+    ] {
+        assert!(
+            source.contains(required),
+            "General ECG Waveform note requires {required}"
+        );
+    }
+
+    let registry = read_json("cases/registry.json");
+    let case = registry_cases(&registry)
+        .into_iter()
+        .find(|case| {
+            case.get("case_id").and_then(Value::as_str) == Some("non-image/waveform/general_ecg")
+        })
+        .expect("General ECG Waveform row must exist");
+    assert_eq!(case["status"], "planned");
+    assert_eq!(case["provider"]["kind"], "external_backend");
+    assert_eq!(case["provider"]["id"], "dcmtk");
+    assert_eq!(case["determinism"], "semantic_stable");
+    assert_eq!(
+        case["blockers"]
+            .as_array()
+            .expect("planned General ECG blockers must be an array")
+            .iter()
+            .map(|blocker| blocker["code"].as_str().unwrap())
+            .collect::<Vec<_>>(),
+        vec![
+            "backend_contract_unimplemented",
+            "independent_payload_validator_unavailable"
+        ]
+    );
+}
+
+#[test]
 fn twelve_lead_ecg_registry_promotes_complete_native_slice() {
     let source = fs::read_to_string("standards/source-notes/phase-3-twelve-lead-ecg-waveform.md")
         .expect("Twelve-lead ECG Waveform source note must be readable");

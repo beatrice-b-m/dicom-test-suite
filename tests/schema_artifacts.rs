@@ -832,12 +832,24 @@ fn manifest_schema_types_xrf_projection_expectations() {
             Value::from("1.2.840.10008.5.1.4.1.1.12.2"),
         ),
         (
+            "/then/properties/dicom/properties/sop_class_name/const",
+            Value::from("X-Ray Radiofluoroscopic Image Storage"),
+        ),
+        (
             "/then/properties/dicom/properties/iod_name/const",
             Value::from("X-Ray Radiofluoroscopic Image"),
         ),
         (
             "/then/properties/dicom/properties/modality/const",
             Value::from("RF"),
+        ),
+        (
+            "/then/properties/dicom/properties/transfer_syntax_uid/const",
+            Value::from("1.2.840.10008.1.2.1"),
+        ),
+        (
+            "/then/properties/dicom/properties/transfer_syntax_name/const",
+            Value::from("Explicit VR Little Endian"),
         ),
         (
             "/then/properties/image/properties/frames/const",

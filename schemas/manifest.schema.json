@@ -566,8 +566,11 @@
               "dicom": {
                 "properties": {
                   "sop_class_uid": { "const": "1.2.840.10008.5.1.4.1.1.12.2" },
+                  "sop_class_name": { "const": "X-Ray Radiofluoroscopic Image Storage" },
                   "iod_name": { "const": "X-Ray Radiofluoroscopic Image" },
-                  "modality": { "const": "RF" }
+                  "modality": { "const": "RF" },
+                  "transfer_syntax_uid": { "const": "1.2.840.10008.1.2.1" },
+                  "transfer_syntax_name": { "const": "Explicit VR Little Endian" }
                 }
               },
               "image": {

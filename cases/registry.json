@@ -139,13 +139,7 @@
         "id": "rust_native"
       },
       "roadmap": null,
-      "blockers": [
-        {
-          "code": "recipe_unimplemented",
-          "message": "The deterministic native Spatial Registration recipe is not implemented.",
-          "recheck_phase": "phase-3"
-        }
-      ],
+      "blockers": [],
       "modality": "CR",
       "object_family": "classic_image",
       "compatibility_axes": [
@@ -9536,7 +9530,13 @@
         "delivery_phase": "phase-3",
         "rationale": "Adds rigid spatial registration between generated CT series."
       },
-      "blockers": [],
+      "blockers": [
+        {
+          "code": "recipe_unimplemented",
+          "message": "The deterministic native Spatial Registration recipe is not implemented.",
+          "recheck_phase": "phase-3"
+        }
+      ],
       "profiles": [
         "extended"
       ],

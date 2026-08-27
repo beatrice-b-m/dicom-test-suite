@@ -43,6 +43,10 @@ mod blending_presentation_state_tests;
 #[path = "validation_twelve_lead_ecg_tests.rs"]
 mod twelve_lead_ecg_tests;
 
+#[cfg(test)]
+#[path = "validation_general_ecg_tests.rs"]
+mod general_ecg_tests;
+
 #[cfg(feature = "deflate")]
 use crate::codecs::DicomRsDeflatedImageFrameEncoder;
 #[cfg(feature = "charls")]
@@ -183,6 +187,15 @@ pub(crate) struct BlendingPresentationStateExpectations<'a> {
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct TwelveLeadEcgExpectations<'a> {
+    pub sop_instance_uid: &'a str,
+    pub implementation_class_uid: &'a str,
+    pub study_instance_uid: &'a str,
+    pub series_instance_uid: &'a str,
+    pub waveform: ExpectedWaveform<'a>,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct GeneralEcgExpectations<'a> {
     pub sop_instance_uid: &'a str,
     pub implementation_class_uid: &'a str,
     pub study_instance_uid: &'a str,
@@ -3557,9 +3570,92 @@ pub(crate) fn validate_advanced_blending_presentation_state_file(
     })
 }
 
+#[derive(Debug, Clone, Copy)]
+struct WaveformEcgValidationRecipe<'a> {
+    finding_prefix: &'a str,
+    series_number: &'a str,
+    manufacturer_model_name: &'a str,
+    device_serial_number: &'a str,
+    module_validation_name: &'a str,
+    module_validation_message: &'a str,
+    qualify_channel_findings_by_group: bool,
+    sample_formula: fn(usize, usize, usize) -> i16,
+    sample_formula_contract: &'a str,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct WaveformEcgValidationExpectations<'a> {
+    sop_instance_uid: &'a str,
+    implementation_class_uid: &'a str,
+    study_instance_uid: &'a str,
+    series_instance_uid: &'a str,
+    waveform: ExpectedWaveform<'a>,
+}
+
 pub(crate) fn validate_twelve_lead_ecg_file(
     path: &Path,
     expected: &TwelveLeadEcgExpectations<'_>,
+) -> Result<ValidatedPart10, GenerateError> {
+    validate_waveform_ecg_file(
+        path,
+        WaveformEcgValidationExpectations {
+            sop_instance_uid: expected.sop_instance_uid,
+            implementation_class_uid: expected.implementation_class_uid,
+            study_instance_uid: expected.study_instance_uid,
+            series_instance_uid: expected.series_instance_uid,
+            waveform: expected.waveform,
+        },
+        WaveformEcgValidationRecipe {
+            finding_prefix: "twelve_lead_ecg",
+            series_number: "90",
+            manufacturer_model_name: "Native Twelve-lead ECG",
+            device_serial_number: "DTS-ECG-001",
+            module_validation_name: "twelve_lead_ecg_waveform_modules",
+            module_validation_message: "Twelve-lead ECG IOD, channel definitions, signed OW storage, deterministic interleave and absence invariants match the locked recipe.",
+            qualify_channel_findings_by_group: false,
+            sample_formula: |_group, sample, channel| {
+                (((sample * (channel + 1) * 37 + channel * 101) % 2001) as i32 - 1000) as i16
+            },
+            sample_formula_contract: "((s * (c + 1) * 37 + c * 101) mod 2001) - 1000",
+        },
+    )
+}
+
+pub(crate) fn validate_general_ecg_file(
+    path: &Path,
+    expected: &GeneralEcgExpectations<'_>,
+) -> Result<ValidatedPart10, GenerateError> {
+    validate_waveform_ecg_file(
+        path,
+        WaveformEcgValidationExpectations {
+            sop_instance_uid: expected.sop_instance_uid,
+            implementation_class_uid: expected.implementation_class_uid,
+            study_instance_uid: expected.study_instance_uid,
+            series_instance_uid: expected.series_instance_uid,
+            waveform: expected.waveform,
+        },
+        WaveformEcgValidationRecipe {
+            finding_prefix: "general_ecg",
+            series_number: "91",
+            manufacturer_model_name: "Native General ECG",
+            device_serial_number: "DTS-GECG-001",
+            module_validation_name: "general_ecg_waveform_modules",
+            module_validation_message: "General ECG IOD, two ordered heterogeneous groups, channel definitions, signed OW storage, deterministic interleave, aggregate closure, and absence invariants match the locked recipe.",
+            qualify_channel_findings_by_group: true,
+            sample_formula: |group, sample, channel| {
+                (((sample * (channel + 1) * (group + 1) * 37 + channel * 101 + group * 307) % 2001)
+                    as i32
+                    - 1000) as i16
+            },
+            sample_formula_contract: "((s * (c + 1) * (g + 1) * 37 + c * 101 + g * 307) mod 2001) - 1000",
+        },
+    )
+}
+
+fn validate_waveform_ecg_file(
+    path: &Path,
+    expected: WaveformEcgValidationExpectations<'_>,
+    recipe: WaveformEcgValidationRecipe<'_>,
 ) -> Result<ValidatedPart10, GenerateError> {
     let bytes = fs::read(path).map_err(|source| GenerateError::ReadGeneratedFile {
         path: path.to_path_buf(),
@@ -3573,17 +3669,18 @@ pub(crate) fn validate_twelve_lead_ecg_file(
     let groups_expected = waveform.multiplex_groups;
     let aggregate_expected = waveform.aggregate;
     let mut internal = Vec::new();
+    let finding = |suffix: &str| format!("{}_{suffix}", recipe.finding_prefix);
 
     check(
         &mut internal,
         bytes.len() >= 132 && &bytes[128..132] == b"DICM",
-        "twelve_lead_ecg_part10_preamble",
+        &finding("part10_preamble"),
         "File has a Part 10 preamble and DICM marker.",
         "File is missing the Part 10 DICM marker.",
     );
     check_equal(
         &mut internal,
-        "twelve_lead_ecg_transfer_syntax",
+        &finding("transfer_syntax"),
         "Transfer Syntax matches the locked recipe.",
         "Transfer Syntax does not match the locked recipe.",
         trim_uid(obj.meta().transfer_syntax()),
@@ -3593,34 +3690,34 @@ pub(crate) fn validate_twelve_lead_ecg_file(
     let sop_instance_uid = element_str(path, &obj, tags::SOP_INSTANCE_UID)?;
     for (name, actual, locked) in [
         (
-            "twelve_lead_ecg_sop_class_uid",
+            "sop_class_uid",
             sop_class_uid.as_str(),
             waveform.sop_class_uid,
         ),
         (
-            "twelve_lead_ecg_sop_instance_uid",
+            "sop_instance_uid",
             sop_instance_uid.as_str(),
             expected.sop_instance_uid,
         ),
         (
-            "twelve_lead_ecg_synthetic_data",
+            "synthetic_data",
             element_str(path, &obj, tags::SYNTHETIC_DATA)?.as_str(),
             "YES",
         ),
         (
-            "twelve_lead_ecg_study_instance_uid",
+            "study_instance_uid",
             element_str(path, &obj, tags::STUDY_INSTANCE_UID)?.as_str(),
             expected.study_instance_uid,
         ),
         (
-            "twelve_lead_ecg_series_instance_uid",
+            "series_instance_uid",
             element_str(path, &obj, tags::SERIES_INSTANCE_UID)?.as_str(),
             expected.series_instance_uid,
         ),
     ] {
         check_equal(
             &mut internal,
-            name,
+            &finding(name),
             "Identity matches the locked recipe.",
             "Identity does not match the locked recipe.",
             actual,
@@ -3629,7 +3726,7 @@ pub(crate) fn validate_twelve_lead_ecg_file(
     }
     check_equal(
         &mut internal,
-        "twelve_lead_ecg_media_storage_sop_class_uid",
+        &finding("media_storage_sop_class_uid"),
         "File Meta SOP Class matches the dataset.",
         "File Meta SOP Class does not match the dataset.",
         trim_uid(obj.meta().media_storage_sop_class_uid()),
@@ -3637,7 +3734,7 @@ pub(crate) fn validate_twelve_lead_ecg_file(
     );
     check_equal(
         &mut internal,
-        "twelve_lead_ecg_media_storage_sop_instance_uid",
+        &finding("media_storage_sop_instance_uid"),
         "File Meta SOP Instance matches the dataset.",
         "File Meta SOP Instance does not match the dataset.",
         trim_uid(obj.meta().media_storage_sop_instance_uid()),
@@ -3645,7 +3742,7 @@ pub(crate) fn validate_twelve_lead_ecg_file(
     );
     check_equal(
         &mut internal,
-        "twelve_lead_ecg_implementation_class_uid",
+        &finding("implementation_class_uid"),
         "Implementation Class UID matches the deterministic generator.",
         "Implementation Class UID does not match the deterministic generator.",
         trim_uid(obj.meta().implementation_class_uid()).as_str(),
@@ -3667,19 +3764,19 @@ pub(crate) fn validate_twelve_lead_ecg_file(
         ("study_id", tags::STUDY_ID, "DTS-ECG"),
         ("accession_number", tags::ACCESSION_NUMBER, ""),
         ("modality", tags::MODALITY, waveform.modality),
-        ("series_number", tags::SERIES_NUMBER, "90"),
+        ("series_number", tags::SERIES_NUMBER, recipe.series_number),
         ("manufacturer", tags::MANUFACTURER, "dicom-test-suite"),
         ("institution_name", tags::INSTITUTION_NAME, ""),
         ("institution_address", tags::INSTITUTION_ADDRESS, ""),
         (
             "manufacturer_model_name",
             tags::MANUFACTURER_MODEL_NAME,
-            "Native Twelve-lead ECG",
+            recipe.manufacturer_model_name,
         ),
         (
             "device_serial_number",
             tags::DEVICE_SERIAL_NUMBER,
-            "DTS-ECG-001",
+            recipe.device_serial_number,
         ),
         (
             "software_versions",
@@ -3697,7 +3794,7 @@ pub(crate) fn validate_twelve_lead_ecg_file(
     ] {
         check_equal(
             &mut internal,
-            &format!("twelve_lead_ecg_{name}"),
+            &finding(name),
             "Required IOD attribute matches the locked recipe.",
             "Required IOD attribute does not match the locked recipe.",
             element_str(path, &obj, tag)?.as_str(),
@@ -3706,7 +3803,7 @@ pub(crate) fn validate_twelve_lead_ecg_file(
     }
     check_equal(
         &mut internal,
-        "twelve_lead_ecg_acquisition_context_count",
+        &finding("acquisition_context_count"),
         "Acquisition Context Sequence is present and empty.",
         "Acquisition Context Sequence is missing or non-empty.",
         sequence_item_count(path, &obj, tags::ACQUISITION_CONTEXT_SEQUENCE)?,
@@ -3717,7 +3814,7 @@ pub(crate) fn validate_twelve_lead_ecg_file(
     let actual_group_count = sequence_item_count(path, &obj, tags::WAVEFORM_SEQUENCE)?;
     check_equal(
         &mut internal,
-        "twelve_lead_ecg_manifest_aggregate_group_count",
+        &finding("manifest_aggregate_group_count"),
         "Manifest aggregate group count matches the ordered group array.",
         "Manifest aggregate group count does not match the ordered group array.",
         usize::from(aggregate_expected.group_count),
@@ -3725,7 +3822,7 @@ pub(crate) fn validate_twelve_lead_ecg_file(
     );
     check_equal(
         &mut internal,
-        "twelve_lead_ecg_group_count",
+        &finding("group_count"),
         "Waveform Sequence cardinality matches the ordered manifest groups.",
         "Waveform Sequence cardinality does not match the ordered manifest groups.",
         actual_group_count,
@@ -3741,7 +3838,7 @@ pub(crate) fn validate_twelve_lead_ecg_file(
         .sum::<usize>();
     check_equal(
         &mut internal,
-        "twelve_lead_ecg_manifest_aggregate_channel_count",
+        &finding("manifest_aggregate_channel_count"),
         "Manifest aggregate channel count matches its ordered groups.",
         "Manifest aggregate channel count does not match its ordered groups.",
         usize::from(aggregate_expected.total_channel_count),
@@ -3749,7 +3846,7 @@ pub(crate) fn validate_twelve_lead_ecg_file(
     );
     check_equal(
         &mut internal,
-        "twelve_lead_ecg_manifest_aggregate_payload_length",
+        &finding("manifest_aggregate_payload_length"),
         "Manifest aggregate payload length matches its ordered groups.",
         "Manifest aggregate payload length does not match its ordered groups.",
         usize::from(aggregate_expected.total_payload_length_bytes),
@@ -3757,7 +3854,7 @@ pub(crate) fn validate_twelve_lead_ecg_file(
     );
     check_equal(
         &mut internal,
-        "twelve_lead_ecg_manifest_aggregate_group_hash_count",
+        &finding("manifest_aggregate_group_hash_count"),
         "Manifest aggregate contains one ordered payload hash per group.",
         "Manifest aggregate group hash cardinality does not match its ordered groups.",
         aggregate_expected.group_payload_sha256.len(),
@@ -3769,7 +3866,7 @@ pub(crate) fn validate_twelve_lead_ecg_file(
     check(
         &mut internal,
         common_duration_matches,
-        "twelve_lead_ecg_manifest_aggregate_common_duration",
+        &finding("manifest_aggregate_common_duration"),
         "Every ordered group matches the manifest aggregate common duration.",
         "A group duration does not match the manifest aggregate common duration.",
     );
@@ -3780,7 +3877,7 @@ pub(crate) fn validate_twelve_lead_ecg_file(
     check(
         &mut internal,
         aggregate_expected.group_payload_sha256.len() == expected_group_count && group_hashes_match,
-        "twelve_lead_ecg_manifest_aggregate_group_hashes",
+        &finding("manifest_aggregate_group_hashes"),
         "Manifest aggregate preserves the ordered group payload hashes.",
         "Manifest aggregate group hashes are missing, reordered, or changed.",
     );
@@ -3794,7 +3891,7 @@ pub(crate) fn validate_twelve_lead_ecg_file(
         let storage = group_expected.storage;
         check_equal(
             &mut internal,
-            &format!("twelve_lead_ecg_group_{expected_ordinal}_ordinal"),
+            &format!("{}_group_{expected_ordinal}_ordinal", recipe.finding_prefix),
             "Manifest multiplex-group ordinal is one-based and ordered.",
             "Manifest multiplex-group ordinal is missing, duplicated, or reordered.",
             usize::from(group_expected.ordinal),
@@ -3816,7 +3913,7 @@ pub(crate) fn validate_twelve_lead_ecg_file(
         ] {
             check_equal(
                 &mut internal,
-                &format!("twelve_lead_ecg_{name}"),
+                &finding(name),
                 "Waveform attribute matches the locked recipe.",
                 "Waveform attribute does not match the locked recipe.",
                 item_str(path, group, tag)?.as_str(),
@@ -3828,7 +3925,7 @@ pub(crate) fn validate_twelve_lead_ecg_file(
         let bits_allocated = item_u16(path, group, tags::WAVEFORM_BITS_ALLOCATED)?;
         check_equal(
             &mut internal,
-            "twelve_lead_ecg_sample_interpretation_vr",
+            &finding("sample_interpretation_vr"),
             "Waveform Sample Interpretation uses VR CS.",
             "Waveform Sample Interpretation does not use VR CS.",
             group
@@ -3839,7 +3936,7 @@ pub(crate) fn validate_twelve_lead_ecg_file(
         );
         check_equal(
             &mut internal,
-            "twelve_lead_ecg_manifest_channel_count",
+            &finding("manifest_channel_count"),
             "Manifest group channel count matches its channel definitions.",
             "Manifest group channel count does not match its channel definitions.",
             usize::from(group_expected.channel_count),
@@ -3847,7 +3944,7 @@ pub(crate) fn validate_twelve_lead_ecg_file(
         );
         check_equal(
             &mut internal,
-            "twelve_lead_ecg_channel_count",
+            &finding("channel_count"),
             "Number of Waveform Channels is exactly twelve.",
             "Number of Waveform Channels is not exactly twelve.",
             channel_count,
@@ -3855,7 +3952,7 @@ pub(crate) fn validate_twelve_lead_ecg_file(
         );
         check_equal(
             &mut internal,
-            "twelve_lead_ecg_sample_count",
+            &finding("sample_count"),
             "Number of Waveform Samples matches the locked one-second trace.",
             "Number of Waveform Samples does not match the locked trace.",
             sample_count,
@@ -3863,7 +3960,7 @@ pub(crate) fn validate_twelve_lead_ecg_file(
         );
         check_equal(
             &mut internal,
-            "twelve_lead_ecg_sampling_frequency",
+            &finding("sampling_frequency"),
             "Sampling Frequency is 500 Hz.",
             "Sampling Frequency is not 500 Hz.",
             item_f64(path, group, tags::SAMPLING_FREQUENCY)?,
@@ -3871,7 +3968,7 @@ pub(crate) fn validate_twelve_lead_ecg_file(
         );
         check_equal(
             &mut internal,
-            "twelve_lead_ecg_duration",
+            &finding("duration"),
             "Sample count and frequency encode the locked duration.",
             "Sample count and frequency do not encode the locked duration.",
             f64::from(sample_count) / item_f64(path, group, tags::SAMPLING_FREQUENCY)?,
@@ -3879,7 +3976,7 @@ pub(crate) fn validate_twelve_lead_ecg_file(
         );
         check_equal(
             &mut internal,
-            "twelve_lead_ecg_bits_allocated",
+            &finding("bits_allocated"),
             "Waveform Bits Allocated is 16.",
             "Waveform Bits Allocated is not 16.",
             bits_allocated,
@@ -3887,7 +3984,7 @@ pub(crate) fn validate_twelve_lead_ecg_file(
         );
         check_equal(
             &mut internal,
-            "twelve_lead_ecg_channel_definition_count",
+            &finding("channel_definition_count"),
             "Channel Definition Sequence contains the twelve ordered leads.",
             "Channel Definition Sequence does not contain exactly twelve leads.",
             item_sequence_item_count(path, group, tags::CHANNEL_DEFINITION_SEQUENCE)?,
@@ -3899,7 +3996,16 @@ pub(crate) fn validate_twelve_lead_ecg_file(
         for (index, channel_expected) in group_expected.channels.iter().enumerate() {
             let channel =
                 item_sequence_item(path, group, tags::CHANNEL_DEFINITION_SEQUENCE, index)?;
-            let prefix = format!("twelve_lead_ecg_channel_{}", index + 1);
+            let prefix = if recipe.qualify_channel_findings_by_group {
+                format!(
+                    "{}_group_{}_channel_{}",
+                    recipe.finding_prefix,
+                    expected_ordinal,
+                    index + 1
+                )
+            } else {
+                format!("{}_channel_{}", recipe.finding_prefix, index + 1)
+            };
             check_equal(
                 &mut internal,
                 &format!("{prefix}_ordinal"),
@@ -3951,11 +4057,6 @@ pub(crate) fn validate_twelve_lead_ecg_file(
                     tags::CHANNEL_BASELINE,
                     f64::from(channel_expected.baseline),
                 ),
-                (
-                    "time_skew",
-                    tags::CHANNEL_TIME_SKEW,
-                    f64::from(channel_expected.time_skew_seconds),
-                ),
             ] {
                 check_equal(
                     &mut internal,
@@ -3966,6 +4067,25 @@ pub(crate) fn validate_twelve_lead_ecg_file(
                     locked,
                 );
             }
+            check(
+                &mut internal,
+                channel
+                    .element_opt(tags::CHANNEL_TIME_SKEW)
+                    .map_err(|err| validation_error(path, err))?
+                    .is_some(),
+                &format!("{prefix}_time_skew_present"),
+                "Channel Time Skew is explicitly present.",
+                "Channel Time Skew and Channel Sample Skew may not both be absent.",
+            );
+            fail_if_any_failed(path, &internal)?;
+            check_equal(
+                &mut internal,
+                &format!("{prefix}_time_skew"),
+                "Channel Time Skew matches the locked recipe.",
+                "Channel Time Skew does not match the locked recipe.",
+                item_f64(path, channel, tags::CHANNEL_TIME_SKEW)?,
+                f64::from(channel_expected.time_skew_seconds),
+            );
             check_equal(
                 &mut internal,
                 &format!("{prefix}_bits_stored"),
@@ -3992,7 +4112,7 @@ pub(crate) fn validate_twelve_lead_ecg_file(
             .map_err(|err| validation_error(path, err))?;
         check_equal(
             &mut internal,
-            "twelve_lead_ecg_waveform_data_vr",
+            &finding("waveform_data_vr"),
             "Waveform Data uses OW storage.",
             "Waveform Data does not use OW storage.",
             waveform_data.vr(),
@@ -4007,7 +4127,7 @@ pub(crate) fn validate_twelve_lead_ecg_file(
             * usize::from(bits_allocated).div_ceil(8);
         check_equal(
             &mut internal,
-            "twelve_lead_ecg_payload_byte_arithmetic",
+            &finding("payload_byte_arithmetic"),
             "Waveform byte length equals channels times samples times bytes per signed sample.",
             "Waveform byte length does not match channel/sample/bit arithmetic.",
             payload.len(),
@@ -4015,7 +4135,7 @@ pub(crate) fn validate_twelve_lead_ecg_file(
         );
         check_equal(
             &mut internal,
-            "twelve_lead_ecg_payload_length",
+            &finding("payload_length"),
             "Waveform Data has the locked 12,000-byte length with no padding.",
             "Waveform Data length or value-field padding does not match the locked recipe.",
             payload.len(),
@@ -4024,7 +4144,7 @@ pub(crate) fn validate_twelve_lead_ecg_file(
         );
         check_equal(
             &mut internal,
-            "twelve_lead_ecg_payload_sha256",
+            &finding("payload_sha256"),
             "Waveform payload hash matches the locked recipe.",
             "Waveform payload hash does not match the locked recipe.",
             payload_sha256.as_str(),
@@ -4033,7 +4153,7 @@ pub(crate) fn validate_twelve_lead_ecg_file(
         check(
             &mut internal,
             payload.len() % 2 == 0,
-            "twelve_lead_ecg_signed_sample_width",
+            &finding("signed_sample_width"),
             "Waveform payload is composed of complete signed 16-bit values.",
             "Waveform payload ends with a partial signed 16-bit value.",
         );
@@ -4043,7 +4163,7 @@ pub(crate) fn validate_twelve_lead_ecg_file(
             .collect::<Vec<_>>();
         check_equal(
             &mut internal,
-            "twelve_lead_ecg_sample_min",
+            &finding("sample_min"),
             "Decoded signed sample minimum matches the locked range.",
             "Decoded signed sample minimum does not match the locked range.",
             samples.iter().copied().min(),
@@ -4051,24 +4171,23 @@ pub(crate) fn validate_twelve_lead_ecg_file(
         );
         check_equal(
             &mut internal,
-            "twelve_lead_ecg_sample_max",
+            &finding("sample_max"),
             "Decoded signed sample maximum matches the locked range.",
             "Decoded signed sample maximum does not match the locked range.",
             samples.iter().copied().max(),
             Some(storage.sample_max),
         );
-        let locked_formula = "((s * (c + 1) * 37 + c * 101) mod 2001) - 1000";
         check_equal(
             &mut internal,
-            "twelve_lead_ecg_formula_contract",
+            &finding("formula_contract"),
             "Manifest sample formula is the locked deterministic formula.",
             "Manifest sample formula is not the locked deterministic formula.",
             storage.sample_value_formula,
-            locked_formula,
+            recipe.sample_formula_contract,
         );
         check_equal(
             &mut internal,
-            "twelve_lead_ecg_interleave_contract",
+            &finding("interleave_contract"),
             "Manifest interleave is channel-then-sample.",
             "Manifest interleave is not channel-then-sample.",
             storage.interleave_order,
@@ -4076,7 +4195,7 @@ pub(crate) fn validate_twelve_lead_ecg_file(
         );
         check_equal(
             &mut internal,
-            "twelve_lead_ecg_byte_order_contract",
+            &finding("byte_order_contract"),
             "Manifest byte order is little endian.",
             "Manifest byte order is not little endian.",
             storage.byte_order,
@@ -4090,9 +4209,7 @@ pub(crate) fn validate_twelve_lead_ecg_file(
             for sample in 0..sample_count as usize {
                 for (channel, bytes) in channel_bytes.iter_mut().enumerate() {
                     let value = samples[sample * group_expected.channels.len() + channel];
-                    let expected_value = (((sample * (channel + 1) * 37 + channel * 101) % 2001)
-                        as i32
-                        - 1000) as i16;
+                    let expected_value = (recipe.sample_formula)(group_index, sample, channel);
                     formula_matches &= value == expected_value;
                     bytes.extend_from_slice(&value.to_le_bytes());
                 }
@@ -4101,13 +4218,13 @@ pub(crate) fn validate_twelve_lead_ecg_file(
         check(
             &mut internal,
             formula_matches,
-            "twelve_lead_ecg_formula_and_interleave",
+            &finding("formula_and_interleave"),
             "Every signed sample matches the deterministic formula in channel-then-sample order.",
             "A sample differs from the formula or the waveform is not channel-then-sample interleaved.",
         );
         check_equal(
             &mut internal,
-            "twelve_lead_ecg_channel_hash_count",
+            &finding("channel_hash_count"),
             "Manifest contains one deinterleaved hash per channel.",
             "Manifest channel hash count does not match the channel count.",
             storage.channel_sha256.len(),
@@ -4122,7 +4239,16 @@ pub(crate) fn validate_twelve_lead_ecg_file(
         {
             check_equal(
                 &mut internal,
-                &format!("twelve_lead_ecg_channel_{}_sha256", index + 1),
+                &if recipe.qualify_channel_findings_by_group {
+                    format!(
+                        "{}_group_{}_channel_{}_sha256",
+                        recipe.finding_prefix,
+                        expected_ordinal,
+                        index + 1
+                    )
+                } else {
+                    format!("{}_channel_{}_sha256", recipe.finding_prefix, index + 1)
+                },
                 "Deinterleaved channel hash matches the locked recipe.",
                 "Deinterleaved channel hash does not match the locked recipe.",
                 actual,
@@ -4137,7 +4263,7 @@ pub(crate) fn validate_twelve_lead_ecg_file(
                 .map_err(|err| validation_error(path, err))?
                 .is_none()
                 == storage.waveform_padding_value_absent,
-            "twelve_lead_ecg_waveform_padding_absent",
+            &finding("waveform_padding_absent"),
             "Waveform Padding Value is absent.",
             "Waveform Padding Value is unexpectedly present.",
         );
@@ -4147,7 +4273,7 @@ pub(crate) fn validate_twelve_lead_ecg_file(
 
     check_equal(
         &mut internal,
-        "twelve_lead_ecg_aggregate_channel_count",
+        &finding("aggregate_channel_count"),
         "Decoded group channel counts match the manifest aggregate.",
         "Decoded group channel counts do not match the manifest aggregate.",
         actual_total_channels,
@@ -4155,7 +4281,7 @@ pub(crate) fn validate_twelve_lead_ecg_file(
     );
     check_equal(
         &mut internal,
-        "twelve_lead_ecg_aggregate_payload_length",
+        &finding("aggregate_payload_length"),
         "Concatenated ordered group payload length matches the manifest aggregate.",
         "Concatenated ordered group payload length does not match the manifest aggregate.",
         aggregate_payload.len(),
@@ -4168,13 +4294,13 @@ pub(crate) fn validate_twelve_lead_ecg_file(
                 .iter()
                 .map(String::as_str)
                 .eq(aggregate_expected.group_payload_sha256.iter().copied()),
-        "twelve_lead_ecg_aggregate_group_hashes",
+        &finding("aggregate_group_hashes"),
         "Actual payload hashes preserve manifest group order.",
         "Actual payload hashes are missing, reordered, or changed.",
     );
     check_equal(
         &mut internal,
-        "twelve_lead_ecg_aggregate_payload_sha256",
+        &finding("aggregate_payload_sha256"),
         "Concatenated ordered group payload hash matches the manifest aggregate.",
         "Concatenated ordered group payload hash does not match the manifest aggregate.",
         sha256_hex(&aggregate_payload),
@@ -4226,7 +4352,7 @@ pub(crate) fn validate_twelve_lead_ecg_file(
             obj.element_opt(tag)
                 .map_err(|err| validation_error(path, err))?
                 .is_none(),
-            &format!("twelve_lead_ecg_{name}_absent"),
+            &format!("{}_{name}_absent", recipe.finding_prefix),
             "Optional or forbidden content is absent.",
             "Optional or forbidden content is unexpectedly present.",
         );
@@ -4241,7 +4367,7 @@ pub(crate) fn validate_twelve_lead_ecg_file(
             "standards": [
                 {"name": standard_sop_class_validation_name(waveform.sop_class_uid), "status": "passed", "message": standard_sop_class_validation_message(waveform.sop_class_uid)},
                 {"name": standard_transfer_syntax_validation_name(waveform.transfer_syntax_uid), "status": "passed", "message": standard_transfer_syntax_validation_message(waveform.transfer_syntax_uid)},
-                {"name": "twelve_lead_ecg_waveform_modules", "status": "passed", "message": "Twelve-lead ECG IOD, channel definitions, signed OW storage, deterministic interleave and absence invariants match the locked recipe."}
+                {"name": recipe.module_validation_name, "status": "passed", "message": recipe.module_validation_message}
             ],
             "external": []
         }),
@@ -14023,6 +14149,7 @@ fn standard_sop_class_validation_name(sop_class_uid: &str) -> &'static str {
         "1.2.840.10008.5.1.4.1.1.11.2" => "color_softcopy_presentation_state_sop_class",
         "1.2.840.10008.5.1.4.1.1.11.4" => "blending_softcopy_presentation_state_sop_class",
         "1.2.840.10008.5.1.4.1.1.9.1.1" => "twelve_lead_ecg_waveform_sop_class",
+        "1.2.840.10008.5.1.4.1.1.9.1.2" => "general_ecg_waveform_sop_class",
         "1.2.840.10008.5.1.4.1.1.67" => "real_world_value_mapping_sop_class",
         uids::BASIC_TEXT_SR_STORAGE => "basic_text_sr_sop_class",
         uids::COMPREHENSIVE_SR_STORAGE => "comprehensive_sr_sop_class",
@@ -14093,6 +14220,9 @@ fn standard_sop_class_validation_message(sop_class_uid: &str) -> &'static str {
         }
         "1.2.840.10008.5.1.4.1.1.9.1.1" => {
             "SOP Class UID matches 12-lead ECG Waveform Storage in the 2026b reference."
+        }
+        "1.2.840.10008.5.1.4.1.1.9.1.2" => {
+            "SOP Class UID matches General ECG Waveform Storage in the 2026b reference."
         }
         "1.2.840.10008.5.1.4.1.1.67" => {
             "SOP Class UID matches Real World Value Mapping Storage in the 2026b reference."

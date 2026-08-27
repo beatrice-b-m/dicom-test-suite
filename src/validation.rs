@@ -15,7 +15,7 @@ use crate::{
         JPEG_LS_LOSSLESS_TRANSFER_SYNTAX_UID, JPEG_XL_LOSSLESS_TRANSFER_SYNTAX_UID,
         NativeRleLosslessEncoder, RLE_LOSSLESS_TRANSFER_SYNTAX_UID,
     },
-    rt_manifest::ExpectedRtPlan,
+    rt_manifest::{ExpectedRtImage, ExpectedRtPlan},
     sha256_hex,
     waveform_manifest::ExpectedWaveform,
 };
@@ -51,6 +51,10 @@ mod general_ecg_tests;
 #[cfg(test)]
 #[path = "validation_rt_plan_tests.rs"]
 mod rt_plan_tests;
+
+#[cfg(test)]
+#[path = "validation_rt_image_tests.rs"]
+mod rt_image_tests;
 
 #[cfg(feature = "deflate")]
 use crate::codecs::DicomRsDeflatedImageFrameEncoder;
@@ -518,6 +522,13 @@ pub(crate) struct RtPlanExpectations<'a> {
     pub implementation_class_uid: &'a str,
     pub synthetic_data: &'a str,
     pub expected_rt_plan: ExpectedRtPlan<'a>,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct RtImageExpectations<'a> {
+    pub implementation_class_uid: &'a str,
+    pub synthetic_data: &'a str,
+    pub expected_rt_image: ExpectedRtImage<'a>,
 }
 
 #[derive(Debug, Clone)]
@@ -8362,6 +8373,616 @@ pub(crate) fn validate_key_object_selection_file(
                     "message": "KOS document flags, evidence, and IMAGE content items match the recipe."
                 }
             ],
+            "external": []
+        }),
+    })
+}
+
+pub(crate) fn validate_rt_image_file(
+    path: &Path,
+    expected: &RtImageExpectations<'_>,
+) -> Result<ValidatedPart10, GenerateError> {
+    let bytes = fs::read(path).map_err(|source| GenerateError::ReadGeneratedFile {
+        path: path.to_path_buf(),
+        source,
+    })?;
+    let obj = open_file(path).map_err(|err| GenerateError::ValidateDicomFile {
+        path: path.to_path_buf(),
+        message: err.to_string(),
+    })?;
+    let image_expected = expected.expected_rt_image;
+    let storage = image_expected.storage;
+    let image = image_expected.image;
+    let reference = image_expected.plan_reference;
+    let linkage = image_expected.linkage;
+    let absent = image_expected.absent_content;
+    let mut internal = Vec::new();
+
+    let shape_length = usize::from(storage.rows)
+        .checked_mul(usize::from(storage.columns))
+        .and_then(|value| value.checked_mul(usize::from(storage.frames)))
+        .and_then(|value| value.checked_mul(usize::from(storage.samples_per_pixel)));
+    check(
+        &mut internal,
+        shape_length == Some(16)
+            && storage.pixel_values.len() == 16
+            && usize::from(storage.payload_length_bytes) == 16,
+        "rt_image_manifest_pixel_cardinality",
+        "Manifest pixel shape and payload contain exactly sixteen samples.",
+        "Manifest pixel shape or payload cardinality is invalid.",
+    );
+    check(
+        &mut internal,
+        image_expected.iod_kind == "rt_image"
+            && image_expected.sop_class_uid == "1.2.840.10008.5.1.4.1.1.481.1"
+            && image_expected.iod_name == "RT Image"
+            && image_expected.modality == "RTIMAGE"
+            && image_expected.transfer_syntax_uid == uids::EXPLICIT_VR_LITTLE_ENDIAN
+            && reference.relationship == "referenced_rt_plan"
+            && reference.source_case_id == "non-image/rt/plan_linked"
+            && reference.source_path == "non-image/rt/plan_linked/instance.dcm"
+            && reference.sop_class_uid == "1.2.840.10008.5.1.4.1.1.481.5",
+        "rt_image_manifest_identity_contract",
+        "Manifest identity and Plan reference match the validator-owned recipe.",
+        "Manifest identity or Plan reference does not match the validator-owned recipe.",
+    );
+    check(
+        &mut internal,
+        reference.study_instance_uid == image_expected.study_instance_uid
+            && reference.frame_of_reference_uid == image_expected.frame_of_reference_uid,
+        "rt_image_manifest_shared_identity",
+        "Manifest RT Image and Plan share Study and Frame of Reference identities.",
+        "Manifest RT Image and Plan do not share Study and Frame of Reference identities.",
+    );
+    check(
+        &mut internal,
+        reference.source_sha256.len() == 64
+            && reference
+                .source_sha256
+                .bytes()
+                .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte)),
+        "rt_image_manifest_source_hash",
+        "Manifest Plan source identity is a lowercase SHA-256 digest.",
+        "Manifest Plan source identity is malformed.",
+    );
+    check(
+        &mut internal,
+        image.image_type == ["DERIVED", "SECONDARY", "DRR"]
+            && image.conversion_type == "WSD"
+            && image.label == "DTS_DRR"
+            && image.plane == "NORMAL"
+            && image.xray_image_receptor_angle_degrees == 0
+            && image.image_plane_pixel_spacing_mm == [1, 1]
+            && image.position_mm == [-1.5, 1.5]
+            && image.radiation_machine_name == "DTS_LINAC"
+            && image.radiation_machine_sad_mm == 1000
+            && image.rt_image_sid_mm == 1500
+            && image.primary_dosimeter_unit == "MU"
+            && linkage.referenced_beam_number == 1
+            && linkage.referenced_fraction_group_number == 1,
+        "rt_image_manifest_geometry_contract",
+        "Manifest RT Image geometry and linkage match the locked recipe.",
+        "Manifest RT Image geometry or linkage weakens the locked recipe.",
+    );
+    let formula_pixels = (0_u8..16).map(|index| 17 * index).collect::<Vec<_>>();
+    check(
+        &mut internal,
+        storage.rows == 4
+            && storage.columns == 4
+            && storage.frames == 1
+            && storage.samples_per_pixel == 1
+            && storage.photometric_interpretation == "MONOCHROME2"
+            && storage.bits_allocated == 8
+            && storage.bits_stored == 8
+            && storage.high_bit == 7
+            && storage.pixel_representation == 0
+            && storage.data_vr == "OB"
+            && storage.encoding == "native"
+            && storage.value_field_padding_bytes == 0
+            && storage.pixel_value_formula == "17 * (4 * r + c)"
+            && storage.pixel_values == formula_pixels
+            && storage.pixel_min == 0
+            && storage.pixel_max == 255
+            && storage.payload_sha256
+                == "a8faed6abbf35c12a4b26e40f6feb19d736d90045c83b9f9a31f638d323e6811"
+            && storage.decoded_pixels_sha256 == storage.payload_sha256,
+        "rt_image_manifest_storage_contract",
+        "Manifest storage and deterministic pixel formula match the locked recipe.",
+        "Manifest storage or deterministic pixel formula weakens the locked recipe.",
+    );
+    check(
+        &mut internal,
+        absent.patient_study_module
+            && absent.contrast_bolus_module
+            && absent.cine_module
+            && absent.multi_frame_module
+            && absent.modality_lut_module
+            && absent.voi_lut_module
+            && absent.approval_module
+            && absent.clinical_trial_module
+            && absent.frame_extraction_module
+            && absent.common_instance_reference_module
+            && absent.reported_values_origin
+            && absent.rt_image_orientation
+            && absent.isocenter_position
+            && absent.patient_position
+            && absent.fluence_map_sequence
+            && absent.exposure_sequence
+            && absent.overlays
+            && absent.encapsulated_pixel_data
+            && absent.lossy_pixel_attributes,
+        "rt_image_manifest_absence_contract",
+        "Manifest records every locked RT Image absence.",
+        "Manifest weakens a locked RT Image absence.",
+    );
+    fail_if_any_failed(path, &internal)?;
+
+    check(
+        &mut internal,
+        bytes.len() >= 132 && &bytes[128..132] == b"DICM",
+        "rt_image_part10_preamble",
+        "File has a Part 10 preamble and DICM marker.",
+        "File is missing the Part 10 DICM marker.",
+    );
+    let dataset_sop_class = element_str(path, &obj, tags::SOP_CLASS_UID)?;
+    let dataset_sop_instance = element_str(path, &obj, tags::SOP_INSTANCE_UID)?;
+    for (name, actual, locked) in [
+        (
+            "sop_class_uid",
+            dataset_sop_class.as_str(),
+            image_expected.sop_class_uid,
+        ),
+        (
+            "sop_instance_uid",
+            dataset_sop_instance.as_str(),
+            image_expected.sop_instance_uid,
+        ),
+        (
+            "synthetic_data",
+            element_str(path, &obj, tags::SYNTHETIC_DATA)?.as_str(),
+            expected.synthetic_data,
+        ),
+        (
+            "study_instance_uid",
+            element_str(path, &obj, tags::STUDY_INSTANCE_UID)?.as_str(),
+            image_expected.study_instance_uid,
+        ),
+        (
+            "series_instance_uid",
+            element_str(path, &obj, tags::SERIES_INSTANCE_UID)?.as_str(),
+            image_expected.series_instance_uid,
+        ),
+        (
+            "frame_of_reference_uid",
+            element_str(path, &obj, tags::FRAME_OF_REFERENCE_UID)?.as_str(),
+            image_expected.frame_of_reference_uid,
+        ),
+    ] {
+        check_equal(
+            &mut internal,
+            &format!("rt_image_{name}"),
+            "RT Image identity matches the locked recipe.",
+            "RT Image identity does not match the locked recipe.",
+            actual,
+            locked,
+        );
+    }
+    for (name, actual, locked) in [
+        (
+            "media_storage_sop_class_uid",
+            trim_uid(obj.meta().media_storage_sop_class_uid()),
+            dataset_sop_class.clone(),
+        ),
+        (
+            "media_storage_sop_instance_uid",
+            trim_uid(obj.meta().media_storage_sop_instance_uid()),
+            dataset_sop_instance.clone(),
+        ),
+        (
+            "transfer_syntax",
+            trim_uid(obj.meta().transfer_syntax()),
+            image_expected.transfer_syntax_uid.to_string(),
+        ),
+        (
+            "implementation_class_uid",
+            trim_uid(obj.meta().implementation_class_uid()),
+            expected.implementation_class_uid.to_string(),
+        ),
+    ] {
+        check_equal(
+            &mut internal,
+            &format!("rt_image_{name}"),
+            "File Meta identity matches the locked RT Image recipe.",
+            "File Meta identity does not match the locked RT Image recipe.",
+            actual,
+            locked,
+        );
+    }
+    for (name, tag, locked) in [
+        (
+            "patient_name",
+            tags::PATIENT_NAME,
+            "DTS^Synthetic^Patient001",
+        ),
+        ("patient_id", tags::PATIENT_ID, "DTS-PATIENT-001"),
+        ("patient_birth_date", tags::PATIENT_BIRTH_DATE, "19700101"),
+        ("patient_sex", tags::PATIENT_SEX, "O"),
+        ("study_date", tags::STUDY_DATE, "20260101"),
+        ("study_time", tags::STUDY_TIME, "000000"),
+        ("referring_physician", tags::REFERRING_PHYSICIAN_NAME, ""),
+        ("study_id", tags::STUDY_ID, "DTS-RT"),
+        ("accession_number", tags::ACCESSION_NUMBER, ""),
+        ("modality", tags::MODALITY, "RTIMAGE"),
+        ("series_number", tags::SERIES_NUMBER, "73"),
+        ("operators_name", tags::OPERATORS_NAME, ""),
+        (
+            "position_reference_indicator",
+            tags::POSITION_REFERENCE_INDICATOR,
+            "",
+        ),
+        ("manufacturer", tags::MANUFACTURER, "dicom-test-suite"),
+        ("institution_name", tags::INSTITUTION_NAME, ""),
+        ("institution_address", tags::INSTITUTION_ADDRESS, ""),
+        (
+            "manufacturer_model_name",
+            tags::MANUFACTURER_MODEL_NAME,
+            "Native Linked RT Image",
+        ),
+        (
+            "device_serial_number",
+            tags::DEVICE_SERIAL_NUMBER,
+            "DTS-RTIMAGE-001",
+        ),
+        (
+            "software_versions",
+            tags::SOFTWARE_VERSIONS,
+            crate::PACKAGE_VERSION,
+        ),
+        ("acquisition_date", tags::ACQUISITION_DATE, "20260101"),
+        ("acquisition_time", tags::ACQUISITION_TIME, "000000"),
+        ("image_type", tags::IMAGE_TYPE, "DERIVED\\SECONDARY\\DRR"),
+        ("conversion_type", tags::CONVERSION_TYPE, "WSD"),
+        ("instance_number", tags::INSTANCE_NUMBER, "1"),
+        ("content_date", tags::CONTENT_DATE, "20260101"),
+        ("content_time", tags::CONTENT_TIME, "000000"),
+        ("label", tags::RT_IMAGE_LABEL, image.label),
+        ("plane", tags::RT_IMAGE_PLANE, image.plane),
+        (
+            "machine",
+            tags::RADIATION_MACHINE_NAME,
+            image.radiation_machine_name,
+        ),
+        (
+            "dosimeter_unit",
+            tags::PRIMARY_DOSIMETER_UNIT,
+            image.primary_dosimeter_unit,
+        ),
+    ] {
+        check_equal(
+            &mut internal,
+            &format!("rt_image_{name}"),
+            "RT Image attribute matches the locked recipe.",
+            "RT Image attribute does not match the locked recipe.",
+            element_str(path, &obj, tag)?.as_str(),
+            locked,
+        );
+    }
+    for (name, tag, locked) in [
+        (
+            "samples_per_pixel",
+            tags::SAMPLES_PER_PIXEL,
+            storage.samples_per_pixel,
+        ),
+        ("rows", tags::ROWS, storage.rows),
+        ("columns", tags::COLUMNS, storage.columns),
+        (
+            "bits_allocated",
+            tags::BITS_ALLOCATED,
+            storage.bits_allocated,
+        ),
+        ("bits_stored", tags::BITS_STORED, storage.bits_stored),
+        ("high_bit", tags::HIGH_BIT, storage.high_bit),
+        (
+            "pixel_representation",
+            tags::PIXEL_REPRESENTATION,
+            storage.pixel_representation,
+        ),
+    ] {
+        check_equal(
+            &mut internal,
+            &format!("rt_image_{name}"),
+            "RT Image integer storage attribute matches the locked recipe.",
+            "RT Image integer storage attribute does not match the locked recipe.",
+            element_u16(path, &obj, tag)?,
+            u16::from(locked),
+        );
+    }
+    check_equal(
+        &mut internal,
+        "rt_image_photometric_interpretation",
+        "Photometric Interpretation matches the locked recipe.",
+        "Photometric Interpretation does not match the locked recipe.",
+        element_str(path, &obj, tags::PHOTOMETRIC_INTERPRETATION)?.as_str(),
+        storage.photometric_interpretation,
+    );
+    for (name, tag, locked) in [
+        (
+            "receptor_angle",
+            tags::X_RAY_IMAGE_RECEPTOR_ANGLE,
+            vec![f64::from(image.xray_image_receptor_angle_degrees)],
+        ),
+        (
+            "pixel_spacing",
+            tags::IMAGE_PLANE_PIXEL_SPACING,
+            image.image_plane_pixel_spacing_mm.map(f64::from).to_vec(),
+        ),
+        (
+            "position",
+            tags::RT_IMAGE_POSITION,
+            image.position_mm.map(f64::from).to_vec(),
+        ),
+        (
+            "sad",
+            tags::RADIATION_MACHINE_SAD,
+            vec![f64::from(image.radiation_machine_sad_mm)],
+        ),
+        (
+            "sid",
+            tags::RT_IMAGE_SID,
+            vec![f64::from(image.rt_image_sid_mm)],
+        ),
+    ] {
+        check_equal(
+            &mut internal,
+            &format!("rt_image_{name}"),
+            "RT Image geometry matches the locked recipe.",
+            "RT Image geometry does not match the locked recipe.",
+            element_f64_values(path, &obj, tag)?,
+            locked,
+        );
+    }
+
+    let actual_plane = element_str(path, &obj, tags::RT_IMAGE_PLANE)?;
+    check(
+        &mut internal,
+        actual_plane == "NORMAL"
+            || obj
+                .element_opt(tags::RT_IMAGE_ORIENTATION)
+                .map_err(|err| validation_error(path, err))?
+                .is_some(),
+        "rt_image_non_normal_orientation",
+        "Non-NORMAL images provide orientation, or the image is NORMAL.",
+        "A non-NORMAL RT Image omits RT Image Orientation.",
+    );
+    let actual_type = element_str(path, &obj, tags::IMAGE_TYPE)?;
+    check(
+        &mut internal,
+        !actual_type.split('\\').any(|value| value == "PORTAL")
+            || obj
+                .element_opt(tags::REPORTED_VALUES_ORIGIN)
+                .map_err(|err| validation_error(path, err))?
+                .is_some(),
+        "rt_image_portal_reported_values_origin",
+        "PORTAL images provide Reported Values Origin, or the image is not PORTAL.",
+        "A PORTAL RT Image omits Reported Values Origin.",
+    );
+
+    check_equal(
+        &mut internal,
+        "rt_image_plan_reference_count",
+        "RT Image contains exactly one Plan reference.",
+        "RT Image Plan reference cardinality is invalid.",
+        sequence_item_count(path, &obj, tags::REFERENCED_RT_PLAN_SEQUENCE)?,
+        1,
+    );
+    fail_if_any_failed(path, &internal)?;
+    let plan_item = top_level_sequence_item(path, &obj, tags::REFERENCED_RT_PLAN_SEQUENCE, 0)?;
+    for (name, tag, locked) in [
+        (
+            "plan_sop_class_uid",
+            tags::REFERENCED_SOP_CLASS_UID,
+            reference.sop_class_uid,
+        ),
+        (
+            "plan_sop_instance_uid",
+            tags::REFERENCED_SOP_INSTANCE_UID,
+            reference.sop_instance_uid,
+        ),
+    ] {
+        check_equal(
+            &mut internal,
+            &format!("rt_image_{name}"),
+            "RT Image Plan reference matches the exact upstream identity.",
+            "RT Image Plan reference does not match the exact upstream identity.",
+            item_str(path, plan_item, tag)?.as_str(),
+            locked,
+        );
+    }
+    for (name, tag, locked) in [
+        (
+            "referenced_beam_number",
+            tags::REFERENCED_BEAM_NUMBER,
+            linkage.referenced_beam_number,
+        ),
+        (
+            "referenced_fraction_group_number",
+            tags::REFERENCED_FRACTION_GROUP_NUMBER,
+            linkage.referenced_fraction_group_number,
+        ),
+    ] {
+        check_equal(
+            &mut internal,
+            &format!("rt_image_{name}"),
+            "RT Image reference selects the locked Plan member.",
+            "RT Image reference selects the wrong Plan member.",
+            item_u16(path, plan_item, tag)?,
+            u16::from(locked),
+        );
+    }
+    check_equal(
+        &mut internal,
+        "rt_image_fraction_number",
+        "RT Image Fraction Number matches the locked fraction.",
+        "RT Image Fraction Number does not match the locked fraction.",
+        element_u16(path, &obj, tags::FRACTION_NUMBER)?,
+        u16::from(linkage.referenced_fraction_group_number),
+    );
+
+    let pixel_element = obj
+        .element(tags::PIXEL_DATA)
+        .map_err(|err| validation_error(path, err))?;
+    let pixel_bytes = pixel_element
+        .value()
+        .to_bytes()
+        .map_err(|err| validation_error(path, err))?;
+    check_equal(
+        &mut internal,
+        "rt_image_pixel_vr",
+        "Pixel Data uses native OB storage.",
+        "Pixel Data does not use native OB storage.",
+        pixel_element.vr(),
+        VR::OB,
+    );
+    check_equal(
+        &mut internal,
+        "rt_image_pixel_length",
+        "Pixel Data contains exactly sixteen bytes.",
+        "Pixel Data byte length does not match the image shape.",
+        pixel_bytes.len(),
+        usize::from(storage.payload_length_bytes),
+    );
+    check_equal(
+        &mut internal,
+        "rt_image_pixel_values",
+        "Pixel Data matches the deterministic gradient.",
+        "Pixel Data does not match the deterministic gradient.",
+        pixel_bytes.as_ref(),
+        storage.pixel_values,
+    );
+    check_equal(
+        &mut internal,
+        "rt_image_pixel_formula",
+        "Pixel Data satisfies 17 * (4 * r + c).",
+        "Pixel Data violates the locked pixel formula.",
+        pixel_bytes.as_ref(),
+        formula_pixels.as_slice(),
+    );
+    check_equal(
+        &mut internal,
+        "rt_image_pixel_sha256",
+        "Pixel payload SHA-256 matches the manifest.",
+        "Pixel payload SHA-256 does not match the manifest.",
+        sha256_hex(pixel_bytes.as_ref()),
+        storage.payload_sha256.to_string(),
+    );
+    check_equal(
+        &mut internal,
+        "rt_image_pixel_minimum",
+        "Pixel minimum matches the manifest.",
+        "Pixel minimum does not match the manifest.",
+        pixel_bytes.iter().copied().min(),
+        Some(storage.pixel_min),
+    );
+    check_equal(
+        &mut internal,
+        "rt_image_pixel_maximum",
+        "Pixel maximum matches the manifest.",
+        "Pixel maximum does not match the manifest.",
+        pixel_bytes.iter().copied().max(),
+        Some(storage.pixel_max),
+    );
+
+    for (name, tags_to_check) in [
+        ("patient_study_module", &[tags::PATIENT_AGE][..]),
+        ("contrast_bolus_module", &[tags::CONTRAST_BOLUS_AGENT][..]),
+        ("cine_module", &[tags::CINE_RATE][..]),
+        (
+            "multi_frame_module",
+            &[tags::NUMBER_OF_FRAMES, tags::FRAME_INCREMENT_POINTER][..],
+        ),
+        ("modality_lut_module", &[tags::MODALITY_LUT_SEQUENCE][..]),
+        (
+            "voi_lut_module",
+            &[
+                tags::VOILUT_SEQUENCE,
+                tags::WINDOW_CENTER,
+                tags::WINDOW_WIDTH,
+            ][..],
+        ),
+        (
+            "approval_module",
+            &[
+                tags::APPROVAL_STATUS,
+                tags::REVIEW_DATE,
+                tags::REVIEW_TIME,
+                tags::REVIEWER_NAME,
+            ][..],
+        ),
+        (
+            "clinical_trial_module",
+            &[tags::CLINICAL_TRIAL_SPONSOR_NAME][..],
+        ),
+        (
+            "frame_extraction_module",
+            &[tags::FRAME_EXTRACTION_SEQUENCE][..],
+        ),
+        (
+            "common_instance_reference_module",
+            &[
+                tags::STUDIES_CONTAINING_OTHER_REFERENCED_INSTANCES_SEQUENCE,
+                tags::REFERENCED_SERIES_SEQUENCE,
+            ][..],
+        ),
+        (
+            "reported_values_origin",
+            &[tags::REPORTED_VALUES_ORIGIN][..],
+        ),
+        ("rt_image_orientation", &[tags::RT_IMAGE_ORIENTATION][..]),
+        ("isocenter_position", &[tags::ISOCENTER_POSITION][..]),
+        ("patient_position", &[tags::PATIENT_POSITION][..]),
+        ("fluence_map_sequence", &[tags::FLUENCE_MAP_SEQUENCE][..]),
+        ("exposure_sequence", &[tags::EXPOSURE_SEQUENCE][..]),
+        (
+            "lossy_pixel_attributes",
+            &[
+                tags::LOSSY_IMAGE_COMPRESSION,
+                tags::LOSSY_IMAGE_COMPRESSION_RATIO,
+                tags::LOSSY_IMAGE_COMPRESSION_METHOD,
+            ][..],
+        ),
+    ] {
+        check(
+            &mut internal,
+            tags_to_check.iter().all(|tag| {
+                obj.element_opt(*tag)
+                    .map(|value| value.is_none())
+                    .unwrap_or(false)
+            }),
+            &format!("rt_image_{name}_absent"),
+            "Locked optional content is absent.",
+            "Locked optional content is unexpectedly present.",
+        );
+    }
+    check(
+        &mut internal,
+        !obj.iter()
+            .any(|element| element.tag().group() & 0xff00 == 0x6000),
+        "rt_image_overlays_absent",
+        "No overlay groups are present.",
+        "An overlay group is unexpectedly present.",
+    );
+
+    fail_if_any_failed(path, &internal)?;
+    Ok(ValidatedPart10 {
+        bytes,
+        validation: serde_json::json!({
+            "status": "passed",
+            "internal": internal,
+            "standards": [{
+                "name": "rt_image_sop_class",
+                "status": "passed",
+                "message": "RT Image modules, linked Plan identity, geometry, native pixels, and locked absences match the recipe."
+            }],
             "external": []
         }),
     })

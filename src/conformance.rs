@@ -17,6 +17,7 @@ const PIXELMED_SR_VALIDATOR_ID: &str = "pixelmed-sr-validator";
 const REGISTRATION_SECONDARY_VALIDATOR_ID: &str = "pydicom-dicom-validator-registration";
 const PRESENTATION_STATE_SECONDARY_VALIDATOR_ID: &str =
     "pydicom-dicom-validator-presentation-state";
+const LINKED_RT_SECONDARY_VALIDATOR_ID: &str = "pydicom-dicom-validator-rt";
 const WAVEFORM_VALIDATOR_ID: &str = "pydicom-dicom-validator-waveform";
 
 pub fn verify_conformance(
@@ -434,6 +435,52 @@ fn verify_completeness(evidence_root: &Path, evidence: &Value, failures: &mut Ve
             if secondary.is_none_or(|result| result["status"] != "completed") {
                 failures.push(format!(
                     "required presentation-state secondary IOD validation incomplete: {path}"
+                ));
+            }
+        }
+        if requires_linked_rt_secondary_validation(case_id) {
+            let secondary_tool = evidence["tools"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .find(|tool| tool["adapter_id"] == LINKED_RT_SECONDARY_VALIDATOR_ID);
+            if secondary_tool.is_none_or(|tool| tool["status"] != "available") {
+                failures.push(format!(
+                    "required linked RT secondary IOD validator is unavailable for {path}"
+                ));
+            }
+            if secondary_tool.is_none_or(|tool| tool["lock_status"] != "matched") {
+                failures.push(format!(
+                    "required linked RT secondary IOD validator is unlocked for {path}"
+                ));
+            }
+            let secondary = instance["results"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .find(|result| {
+                    result["role"] == "secondary_iod_validator"
+                        && result["adapter_id"] == LINKED_RT_SECONDARY_VALIDATOR_ID
+                });
+            if secondary.is_none_or(|result| result["status"] != "completed") {
+                failures.push(format!(
+                    "required linked RT secondary IOD validation incomplete: {path}"
+                ));
+            }
+            if secondary.is_some_and(|result| result["exit_code"].as_i64() != Some(0)) {
+                failures.push(format!(
+                    "required linked RT secondary IOD validation did not exit successfully: {path}"
+                ));
+            }
+            if secondary.is_some_and(|result| {
+                result["findings"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .any(|finding| finding["severity"] == "error")
+            }) {
+                failures.push(format!(
+                    "required linked RT secondary IOD validation reported error findings: {path}"
                 ));
             }
         }
@@ -1405,6 +1452,13 @@ fn requires_presentation_state_secondary_validation(case_id: &str) -> bool {
         "derived/presentation-state/color_softcopy"
             | "derived/presentation-state/advanced_blending"
             | "derived/presentation-state/blending"
+    )
+}
+
+fn requires_linked_rt_secondary_validation(case_id: &str) -> bool {
+    matches!(
+        case_id,
+        "non-image/rt/plan_linked" | "non-image/rt/image_linked"
     )
 }
 

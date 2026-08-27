@@ -270,3 +270,31 @@ native DICOM serialization, not a reason to make Python a generation-time
 dependency of the `extended` profile. Python remains optional and independent
 conformance infrastructure. This provider choice does not trigger a Phase 4
 decision checkpoint.
+
+## Qualification And Promotion Result
+
+The locked contract is now implemented and promoted. Two independent seed-7
+`extended` generations each wrote 111 DICOM files, passed strict validation
+with zero failures, and compared byte-for-byte across the complete output
+trees. Their manifest SHA-256 is
+`456d571b7121bb67ece6593870dc4d6ef103b83c1488ccb74e84627f347186df`.
+The 3,546-byte sparse instance SHA-256 is
+`84251b2108b6cacb39c18de12c628bc00e0ab3d166310bcf5b82b6291955ceb3`.
+
+Integrated conformance run
+`0c347e699e40876d0fdd4ae20e8bbb76ecdb2859a10f596019202a8acefa26b1`
+records the case-specific `uv`-locked dicom-validator 0.8.2 route as passed
+with zero IOD errors and records clean DCMTK parsing. The separately locked
+highdicom reconstruction adapter is version 0.2.0 with composite SHA-256
+`a89f55577263f84a27291a6d3adf6659ccebedb76e68dd8b9c06f8b0b3ce7f4e`.
+It reproduced the two stored Frame hashes, payload SHA-256, explicit positions,
+occupancy mask, absent positions, and sentinel-matrix SHA-256 exactly with all
+pixel transforms disabled.
+
+The exact dicom3tools full-grid cardinality error remains visible as an
+unallowlisted `iod_characterization` result. It is neither selected as the
+case's primary IOD authority nor converted into an accepted finding. The
+integrated whole-corpus verifier still reports 229 unrelated failures and zero
+accepted findings; none was suppressed to qualify this slice. The registry
+entry is consequently `implemented` with provider `rust_native` and
+determinism `byte_stable`.

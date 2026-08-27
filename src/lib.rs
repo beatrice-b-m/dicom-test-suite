@@ -11525,6 +11525,229 @@ fn validate_spatial_registration_standard_elements(
     Ok(())
 }
 
+fn validate_deformable_spatial_registration_standard_elements(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    path: &Path,
+    manifest_path: &Path,
+    file: &Value,
+) -> Result<(), ValidateError> {
+    let expected = file
+        .get("expected_deformable_spatial_registration")
+        .ok_or(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "Deformable Spatial Registration must declare expected_deformable_spatial_registration",
+        })?;
+    let source = expected.get("source").ok_or(ValidateError::ManifestShape {
+        path: manifest_path.to_path_buf(),
+        message: "Deformable Spatial Registration source must be an object",
+    })?;
+    let target = expected
+        .pointer("/common_instance_reference/same_study")
+        .ok_or(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "Deformable Spatial Registration same-Study target must be an object",
+        })?;
+    let grid_dimensions: [u32; 3] = manifest_u32_array(
+        manifest_path,
+        expected,
+        "/grid/dimensions",
+        "Deformable Spatial Registration grid dimensions must contain three integers",
+    )?
+    .try_into()
+    .map_err(|_| ValidateError::ManifestShape {
+        path: manifest_path.to_path_buf(),
+        message: "Deformable Spatial Registration grid dimensions must contain three integers",
+    })?;
+    let vectors = manifest_array(
+        manifest_path,
+        expected,
+        "/grid/vectors_mm",
+        "Deformable Spatial Registration vectors must be an array",
+    )?;
+    let decoded_vectors_mm = vectors
+        .iter()
+        .map(|vector| {
+            let values = manifest_f64_array(
+                manifest_path,
+                vector,
+                "",
+                "Deformable Spatial Registration vector must contain three numbers",
+            )?;
+            let values: [f64; 3] = values
+                .try_into()
+                .map_err(|_| ValidateError::ManifestShape {
+                    path: manifest_path.to_path_buf(),
+                    message: "Deformable Spatial Registration vector must contain three numbers",
+                })?;
+            Ok(values.map(|value| value as f32))
+        })
+        .collect::<Result<Vec<[f32; 3]>, ValidateError>>()?;
+    let mappings = manifest_array(
+        manifest_path,
+        expected,
+        "/point_mappings",
+        "Deformable Spatial Registration point mappings must be an array",
+    )?;
+    let registered_points_mm = mappings
+        .iter()
+        .map(|mapping| {
+            manifest_fixed_f64_array(
+                manifest_path,
+                mapping,
+                "/registered_point_mm",
+                "Deformable Spatial Registration registered point must contain three numbers",
+            )
+        })
+        .collect::<Result<Vec<[f64; 3]>, ValidateError>>()?;
+    let source_points_mm = mappings
+        .iter()
+        .map(|mapping| {
+            manifest_fixed_f64_array(
+                manifest_path,
+                mapping,
+                "/source_point_mm",
+                "Deformable Spatial Registration source point must contain three numbers",
+            )
+        })
+        .collect::<Result<Vec<[f64; 3]>, ValidateError>>()?;
+    let tolerance = mappings
+        .first()
+        .ok_or(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "Deformable Spatial Registration must declare point mappings",
+        })
+        .and_then(|mapping| {
+            manifest_f64(
+                manifest_path,
+                mapping,
+                "/tolerance_mm",
+                "Deformable Spatial Registration mapping tolerance must be a number",
+            )
+        })?;
+    let expectations = validation::DeformableSpatialRegistrationExpectations {
+        sop_class_uid: manifest_str(
+            manifest_path,
+            file,
+            "/dicom/sop_class_uid",
+            "Deformable Spatial Registration SOP Class UID must be a string",
+        )?,
+        sop_instance_uid: manifest_str(
+            manifest_path,
+            file,
+            "/uids/sop_instance_uid",
+            "Deformable Spatial Registration SOP Instance UID must be a string",
+        )?,
+        transfer_syntax_uid: manifest_str(
+            manifest_path,
+            file,
+            "/dicom/transfer_syntax_uid",
+            "Deformable Spatial Registration transfer syntax UID must be a string",
+        )?,
+        implementation_class_uid: manifest_str(
+            manifest_path,
+            file,
+            "/uids/implementation_class_uid",
+            "Deformable Spatial Registration implementation class UID must be a string",
+        )?,
+        synthetic_data: manifest_str(
+            manifest_path,
+            file,
+            "/expected_semantics/synthetic_data",
+            "Deformable Spatial Registration Synthetic Data expectation must be a string",
+        )?,
+        patient_id: "DTS-PATIENT-001",
+        study_instance_uid: manifest_str(
+            manifest_path,
+            file,
+            "/uids/study_instance_uid",
+            "Deformable Spatial Registration Study UID must be a string",
+        )?,
+        study_id: "DTS-ECT",
+        series_instance_uid: manifest_str(
+            manifest_path,
+            file,
+            "/uids/series_instance_uid",
+            "Deformable Spatial Registration Series UID must be a string",
+        )?,
+        series_number: "8004",
+        laterality: "R",
+        modality: manifest_str(
+            manifest_path,
+            file,
+            "/dicom/modality",
+            "Deformable Spatial Registration modality must be a string",
+        )?,
+        instance_number: "1",
+        content_date: "20260101",
+        content_time: "000000",
+        content_label: "DTS_DEFORM_REG",
+        content_description: "Deformable CT pair registration",
+        content_creator_name: "DTS^Generator",
+        manufacturer: "dicom-test-suite",
+        manufacturer_model_name: "Native Deformable Registration",
+        device_serial_number: "DTS-DEFREG-001",
+        software_versions: PACKAGE_VERSION,
+        registered_frame_of_reference_uid: manifest_str(
+            manifest_path,
+            expected,
+            "/registered_frame_of_reference_uid",
+            "Deformable Spatial Registration registered Frame of Reference UID must be a string",
+        )?,
+        target: manifest_deformable_registration_reference(manifest_path, target)?,
+        source: manifest_deformable_registration_reference(manifest_path, source)?,
+        pre_matrix: manifest_fixed_f64_array(
+            manifest_path,
+            expected,
+            "/pre_deformation_matrix/values",
+            "Deformable Spatial Registration pre-deformation matrix must contain 16 numbers",
+        )?,
+        post_matrix: manifest_fixed_f64_array(
+            manifest_path,
+            expected,
+            "/post_deformation_matrix/values",
+            "Deformable Spatial Registration post-deformation matrix must contain 16 numbers",
+        )?,
+        image_orientation_patient: manifest_fixed_f64_array(
+            manifest_path,
+            expected,
+            "/grid/image_orientation_patient",
+            "Deformable Spatial Registration grid orientation must contain six numbers",
+        )?,
+        image_position_patient: manifest_fixed_f64_array(
+            manifest_path,
+            expected,
+            "/grid/image_position_patient_mm",
+            "Deformable Spatial Registration grid origin must contain three numbers",
+        )?,
+        grid_dimensions,
+        grid_resolution: manifest_fixed_f64_array(
+            manifest_path,
+            expected,
+            "/grid/resolution_mm",
+            "Deformable Spatial Registration grid resolution must contain three numbers",
+        )?,
+        vector_grid_data_sha256: manifest_str(
+            manifest_path,
+            expected,
+            "/grid/payload_sha256",
+            "Deformable Spatial Registration grid payload SHA-256 must be a string",
+        )?,
+        decoded_vectors_mm: &decoded_vectors_mm,
+        registered_points_mm: &registered_points_mm,
+        source_points_mm: &source_points_mm,
+        tolerance,
+    };
+    if let Err(error) =
+        validation::validate_deformable_spatial_registration_file(path, &expectations)
+    {
+        failures.push(format!(
+            "{relative_path}: deformable_spatial_registration_content_contract: {error}"
+        ));
+    }
+    Ok(())
+}
+
 fn validate_structured_report_standard_elements(
     failures: &mut Vec<String>,
     relative_path: &str,
@@ -11796,229 +12019,6 @@ fn validate_comprehensive_sr_content_items(
             failures,
             relative_path,
             "sr_measurement_relationship_type",
-fn validate_deformable_spatial_registration_standard_elements(
-    failures: &mut Vec<String>,
-    relative_path: &str,
-    path: &Path,
-    manifest_path: &Path,
-    file: &Value,
-) -> Result<(), ValidateError> {
-    let expected = file
-        .get("expected_deformable_spatial_registration")
-        .ok_or(ValidateError::ManifestShape {
-            path: manifest_path.to_path_buf(),
-            message: "Deformable Spatial Registration must declare expected_deformable_spatial_registration",
-        })?;
-    let source = expected.get("source").ok_or(ValidateError::ManifestShape {
-        path: manifest_path.to_path_buf(),
-        message: "Deformable Spatial Registration source must be an object",
-    })?;
-    let target = expected
-        .pointer("/common_instance_reference/same_study")
-        .ok_or(ValidateError::ManifestShape {
-            path: manifest_path.to_path_buf(),
-            message: "Deformable Spatial Registration same-Study target must be an object",
-        })?;
-    let grid_dimensions: [u32; 3] = manifest_u32_array(
-        manifest_path,
-        expected,
-        "/grid/dimensions",
-        "Deformable Spatial Registration grid dimensions must contain three integers",
-    )?
-    .try_into()
-    .map_err(|_| ValidateError::ManifestShape {
-        path: manifest_path.to_path_buf(),
-        message: "Deformable Spatial Registration grid dimensions must contain three integers",
-    })?;
-    let vectors = manifest_array(
-        manifest_path,
-        expected,
-        "/grid/vectors_mm",
-        "Deformable Spatial Registration vectors must be an array",
-    )?;
-    let decoded_vectors_mm = vectors
-        .iter()
-        .map(|vector| {
-            let values = manifest_f64_array(
-                manifest_path,
-                vector,
-                "",
-                "Deformable Spatial Registration vector must contain three numbers",
-            )?;
-            let values: [f64; 3] = values
-                .try_into()
-                .map_err(|_| ValidateError::ManifestShape {
-                    path: manifest_path.to_path_buf(),
-                    message: "Deformable Spatial Registration vector must contain three numbers",
-                })?;
-            Ok(values.map(|value| value as f32))
-        })
-        .collect::<Result<Vec<[f32; 3]>, ValidateError>>()?;
-    let mappings = manifest_array(
-        manifest_path,
-        expected,
-        "/point_mappings",
-        "Deformable Spatial Registration point mappings must be an array",
-    )?;
-    let registered_points_mm = mappings
-        .iter()
-        .map(|mapping| {
-            manifest_fixed_f64_array(
-                manifest_path,
-                mapping,
-                "/registered_point_mm",
-                "Deformable Spatial Registration registered point must contain three numbers",
-            )
-        })
-        .collect::<Result<Vec<[f64; 3]>, ValidateError>>()?;
-    let source_points_mm = mappings
-        .iter()
-        .map(|mapping| {
-            manifest_fixed_f64_array(
-                manifest_path,
-                mapping,
-                "/source_point_mm",
-                "Deformable Spatial Registration source point must contain three numbers",
-            )
-        })
-        .collect::<Result<Vec<[f64; 3]>, ValidateError>>()?;
-    let tolerance = mappings
-        .first()
-        .ok_or(ValidateError::ManifestShape {
-            path: manifest_path.to_path_buf(),
-            message: "Deformable Spatial Registration must declare point mappings",
-        })
-        .and_then(|mapping| {
-            manifest_f64(
-                manifest_path,
-                mapping,
-                "/tolerance_mm",
-                "Deformable Spatial Registration mapping tolerance must be a number",
-            )
-        })?;
-    let expectations = validation::DeformableSpatialRegistrationExpectations {
-        sop_class_uid: manifest_str(
-            manifest_path,
-            file,
-            "/dicom/sop_class_uid",
-            "Deformable Spatial Registration SOP Class UID must be a string",
-        )?,
-        sop_instance_uid: manifest_str(
-            manifest_path,
-            file,
-            "/uids/sop_instance_uid",
-            "Deformable Spatial Registration SOP Instance UID must be a string",
-        )?,
-        transfer_syntax_uid: manifest_str(
-            manifest_path,
-            file,
-            "/dicom/transfer_syntax_uid",
-            "Deformable Spatial Registration transfer syntax UID must be a string",
-        )?,
-        implementation_class_uid: manifest_str(
-            manifest_path,
-            file,
-            "/uids/implementation_class_uid",
-            "Deformable Spatial Registration implementation class UID must be a string",
-        )?,
-        synthetic_data: manifest_str(
-            manifest_path,
-            file,
-            "/expected_semantics/synthetic_data",
-            "Deformable Spatial Registration Synthetic Data expectation must be a string",
-        )?,
-        patient_id: "DTS-PATIENT-001",
-        study_instance_uid: manifest_str(
-            manifest_path,
-            file,
-            "/uids/study_instance_uid",
-            "Deformable Spatial Registration Study UID must be a string",
-        )?,
-        study_id: "DTS-ECT",
-        series_instance_uid: manifest_str(
-            manifest_path,
-            file,
-            "/uids/series_instance_uid",
-            "Deformable Spatial Registration Series UID must be a string",
-        )?,
-        series_number: "8004",
-        laterality: "R",
-        modality: manifest_str(
-            manifest_path,
-            file,
-            "/dicom/modality",
-            "Deformable Spatial Registration modality must be a string",
-        )?,
-        instance_number: "1",
-        content_date: "20260101",
-        content_time: "000000",
-        content_label: "DTS_DEFORM_REG",
-        content_description: "Deformable CT pair registration",
-        content_creator_name: "DTS^Generator",
-        manufacturer: "dicom-test-suite",
-        manufacturer_model_name: "Native Deformable Registration",
-        device_serial_number: "DTS-DEFREG-001",
-        software_versions: PACKAGE_VERSION,
-        registered_frame_of_reference_uid: manifest_str(
-            manifest_path,
-            expected,
-            "/registered_frame_of_reference_uid",
-            "Deformable Spatial Registration registered Frame of Reference UID must be a string",
-        )?,
-        target: manifest_deformable_registration_reference(manifest_path, target)?,
-        source: manifest_deformable_registration_reference(manifest_path, source)?,
-        pre_matrix: manifest_fixed_f64_array(
-            manifest_path,
-            expected,
-            "/pre_deformation_matrix/values",
-            "Deformable Spatial Registration pre-deformation matrix must contain 16 numbers",
-        )?,
-        post_matrix: manifest_fixed_f64_array(
-            manifest_path,
-            expected,
-            "/post_deformation_matrix/values",
-            "Deformable Spatial Registration post-deformation matrix must contain 16 numbers",
-        )?,
-        image_orientation_patient: manifest_fixed_f64_array(
-            manifest_path,
-            expected,
-            "/grid/image_orientation_patient",
-            "Deformable Spatial Registration grid orientation must contain six numbers",
-        )?,
-        image_position_patient: manifest_fixed_f64_array(
-            manifest_path,
-            expected,
-            "/grid/image_position_patient_mm",
-            "Deformable Spatial Registration grid origin must contain three numbers",
-        )?,
-        grid_dimensions,
-        grid_resolution: manifest_fixed_f64_array(
-            manifest_path,
-            expected,
-            "/grid/resolution_mm",
-            "Deformable Spatial Registration grid resolution must contain three numbers",
-        )?,
-        vector_grid_data_sha256: manifest_str(
-            manifest_path,
-            expected,
-            "/grid/payload_sha256",
-            "Deformable Spatial Registration grid payload SHA-256 must be a string",
-        )?,
-        decoded_vectors_mm: &decoded_vectors_mm,
-        registered_points_mm: &registered_points_mm,
-        source_points_mm: &source_points_mm,
-        tolerance,
-    };
-    if let Err(error) =
-        validation::validate_deformable_spatial_registration_file(path, &expectations)
-    {
-        failures.push(format!(
-            "{relative_path}: deformable_spatial_registration_content_contract: {error}"
-        ));
-    }
-    Ok(())
-}
-
             actual,
             manifest_str(
                 manifest_path,

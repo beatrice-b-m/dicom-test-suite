@@ -1,6 +1,6 @@
 # Phase 2 Long and Multi-valued String Evidence
 
-Checked: 2026-08-26  
+Checked: 2026-08-27
 Standards baseline: 2026b, `standards.lock.json`
 
 ## Affected Project Surface
@@ -50,11 +50,30 @@ even length and receive no padding.
 
 ## Project Action
 
-- Registry status: planned until the typed manifest contract, native recipe,
-  exact raw validation, reports, and independent conformance gates pass.
+- Registry status: implemented after the typed manifest contract, native
+  recipe, exact raw validation, reports, byte reproducibility, dicom3tools,
+  DCMTK, and uv-locked pydicom gates passed.
 - Manifest decision: record typed per-element VR, VM, decoded values and
   lengths, raw Value Length and SHA-256, and padding semantics without
   duplicating the 10,240-byte LT payload as manifest hex.
 - Should become KB patch: no; the official VR table and data dictionary resolve
   the required limits and multiplicities.
 - Expected cleanup after KB coverage exists: none.
+
+## Conformance Proof
+
+- Two seed-1 `extended` generations were byte-identical and each produced 81
+  files; strict validation checked all 81 with zero failures.
+- The fixture SHA-256 is
+  `f8ff4f8df83534f26c8193206ca8b2b1407a61a8ab1a909660da438743dd61ac`.
+- `dciodvfy` reported only the normal `SCImage` identification and no finding;
+  isolated `dcentvfy` was silent.
+- DCMTK `dcmdump` independently reported VL/VM pairs 10240/1, 130/2, 34/2,
+  and 12/1 for LT, LO, DS, and IS respectively.
+- The uv-locked pydicom 3.0.2 reader preserved all component strings and
+  numeric lexemes, and its rewrite was byte-identical and clean under both
+  dicom3tools validators. Pydicom emitted a boundary warning because it counts
+  the legal trailing space pad against the second 64-character LO component;
+  the warning is retained here rather than weakening the two-max-component
+  fixture. The raw contract, DCMTK VM 2 parse, and both conformance validators
+  independently confirm the encoding.

@@ -249,6 +249,19 @@ Name, and Accession Number at PN, DA, CS, PN, and SH respectively, each with
 zero Value Length. The uv-locked pydicom 3.0.2 reader reports the same VRs,
 empty values, and VM 0 for all five attributes.
 
+The long and multi-valued string slice passed two byte-identical seed-1
+`extended` runs, each producing 81 files with zero strict validation failures.
+The fixture SHA-256 is
+`f8ff4f8df83534f26c8193206ca8b2b1407a61a8ab1a909660da438743dd61ac`.
+Locked `dciodvfy` reports only the normal `SCImage` identification and no
+finding, and isolated `dcentvfy` is silent. DCMTK 3.7.0 independently reports
+the locked LT, LO, DS, and IS VRs with VL/VM pairs 10240/1, 130/2, 34/2, and
+12/1. The uv-locked pydicom 3.0.2 reader preserves the exact values and numeric
+lexemes, and its rewrite is byte-identical and clean under both dicom3tools
+validators. Pydicom warns that the padded second LO component has length 65
+because it counts the legal trailing pad; this reviewed tool behavior remains
+visible and does not replace the clean independent conformance evidence.
+
 The two matching `core` corpora each occupy 480 KiB in the local filesystem.
 This measurement is implementation-environment evidence rather than a
 portable byte-size guarantee; tracked generated artifacts remain forbidden.
@@ -256,9 +269,9 @@ portable byte-size guarantee; tracked generated artifacts remain forbidden.
 ## Milestone gate
 
 All planned Phase 2 geometry and series cases are implemented, and the UTF-8,
-ISO 2022, timezone, and empty Type 2 metadata slices have passed their vertical
-gates. The latest seed-1 `core` corpus contains 41 files; the seed-37 `extended` corpus contains
-80 files and occupies 1.5 MiB on this host. The complete
+ISO 2022, timezone, empty Type 2, and string boundary metadata slices have
+passed their vertical gates. The latest seed-1 `core` corpus contains 41 files;
+the seed-1 `extended` corpus contains 81 files. The complete
 locked no-default-feature, all-target test suite passes, including byte-stable
 smoke, core, and extended regeneration. Each new CT slice and the temporal MR
 slice has clean isolated IOD, entity, parser, and applicable independent pixel

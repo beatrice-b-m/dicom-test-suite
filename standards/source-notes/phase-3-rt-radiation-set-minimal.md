@@ -308,13 +308,20 @@ their hashes, and both corrections remain visible in the composite adapter
 fingerprint and qualification record. Any definition that no longer matches
 the expected input fails closed. These standards-aligned corrections do not
 use generator code or weaken the external engine's findings.
-DCMTK `dcmdump +fo` remains required independent parsing, and isolated
-`dcentvfy -f` evidence must prove that removing the Plan or Radiation adds a
-missing-reference finding without hiding any immutable upstream diagnostic.
+DCMTK `dcmdump +fo` remains required independent parsing. Empirical
+`dcentvfy -f` evaluation reports both current SOP Classes as unrecognized, so
+it cannot provide a dependable missing-reference opinion for this graph. That
+limitation remains visible and unallowlisted; strict Rust owns exact Plan and
+Radiation graph closure rather than presenting the entity tool as coverage it
+does not supply.
 
 Promotion additionally requires two complete seed-7 extended roots with
 byte-identical Radiation, Set, and manifest bytes; exact source hashes and
 graph closure; strict Rust mutation coverage for every externally missed
 semantic; schema and report tests; and integrated conformance with no silent
-or accepted finding. Until all evidence exists, both registry cases remain
-planned with an explicit recipe blocker.
+or accepted finding. Those gates are now complete: two seed-7 roots wrote 107
+strictly valid files with byte-identical manifest, Radiation, and Set bytes;
+both selected IOD routes and DCMTK parsing passed; integrated run
+`574fa1caa3248a75b8c19f754a2ce70eb6452addb037f6fe9f5c8a9d1fc62d43`
+accepted no finding. Both registry cases are implemented with no roadmap or
+blocker.

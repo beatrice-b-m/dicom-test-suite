@@ -1623,7 +1623,9 @@ fn minimal_rt_radiation_set_source_note_locks_required_companion_graph() {
         "Patient Orientation Macro is invoked at the RT Treatment Position Macro\nscope",
         "engine's `NotEmpty`\noperator also returns true for an empty string",
         "Any definition that no longer matches\nthe expected input fails closed",
-        "both registry cases remain\nplanned with an explicit recipe blocker",
+        "Both registry cases are implemented with no roadmap or\nblocker",
+        "dcentvfy -f` evaluation reports both current SOP Classes as unrecognized",
+        "574fa1caa3248a75b8c19f754a2ce70eb6452addb037f6fe9f5c8a9d1fc62d43",
         "4967dac55719ba63cbc7f404f444e00d4adf50c785c8353e89c94db0259ede05",
         "9f4853924ef520dd9b97ada0f14abd206fb15e6d8622e4d24a90f8b404a3e8c3",
     ] {

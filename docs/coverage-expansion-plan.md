@@ -389,9 +389,14 @@ generated Plan digest and identity, and integrated conformance adds no linked
 RT finding or accepted finding. The explicit milestone-6 decision checkpoint
 is now authorized. Standards review requires the minimal RT Radiation Set to
 be implemented with a registered C-Arm Photon-Electron Radiation companion;
-both remain planned while their paired native generation, strict graph
-closure, and corrected `uv`-locked independent IOD route are implemented and
-qualified.
+their paired native generation, strict graph closure, and corrected
+`uv`-locked independent IOD route are now qualified. Two seed-7 extended
+roots each contain 107 strictly valid files with byte-identical Radiation,
+Set, and manifest bytes. Both exact IOD routes report zero errors, DCMTK parses
+both files, integrated conformance accepts no finding, and the registry now
+contains 143 implemented and 39 planned cases. `dcentvfy` visibly reports the
+current SOP Classes as unrecognized, so strict Rust retains graph ownership.
+Phase 3 milestone 6 is complete.
 
 ### Phase 4 — Pathology and tiled microscopy
 

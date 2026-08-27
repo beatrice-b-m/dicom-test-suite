@@ -408,11 +408,10 @@ The byte-identical Plan and Image instance SHA-256 values are respectively
 `e9337a6c46fe85b56f1f563120dd3caf56ea1335355792db42386db959be6db2`
 and
 `460d525ab06aaf74df963029f3ab39c2536e4e1c5bf4b75fcf16b500382db20c`.
-The registry now contains 141 implemented and 41 planned logical cases. The
-milestone-6 decision checkpoint authorized a registered native C-Arm
-Photon-Electron Radiation companion followed by the minimal RT Radiation Set;
-both remain planned until their complete paired slice and corrected
-independent-validator route qualify.
+At this intermediate checkpoint the registry contained 141 implemented and 41
+planned logical cases. The milestone-6 decision checkpoint then authorized a
+registered native C-Arm Photon-Electron Radiation companion followed by the
+minimal RT Radiation Set; their completed qualification is recorded below.
 
 Locked `dciodvfy -new` and the separately implemented, `uv`-locked
 `dicom-validator` 0.8.2 route accept both IODs. The Image's DCMTK route proves
@@ -434,13 +433,38 @@ The linked RT routes add no finding and accept none. The two immutable upstream
 Study ID diagnostics remain visible and unallowlisted, while valid entity
 closure adds no missing or dangling reference finding.
 
-## Authorized second-generation RT slice
+## C-Arm Photon-Electron Radiation and RT Radiation Set
 
 The dependency-ordered Plan and Image work is complete. On 2026-08-27 the
 milestone-6 decision checkpoint authorized selecting and locking the minimal
 current RT Radiation Set slice and another independent IOD validator.
 Standards review proved that the Set requires a registered second-generation
-C-Arm Photon-Electron Radiation companion, so the authorized work is a paired
-two-IOD graph. Both cases remain planned until native generation, exact
-manifests, strict validation, corrected `uv`-locked IOD validation, reports,
-mutations, and two-run reproducibility qualify without a silent finding.
+C-Arm Photon-Electron Radiation companion, so the authorized work became a
+paired two-IOD graph. Both cases are now implemented as byte-stable native
+extended-profile slices. The Radiation references the existing Plan definition
+source; the Set closes over both objects with exact Treatment Position Group,
+direct Radiation, and Common Instance references.
+
+Two seed-7 extended generations each wrote 107 files and passed strict
+validation with zero failures. Their manifests are byte-identical with SHA-256
+`9f3d9f4a56918b8dc8acea0e2285dca924c0a621828c2c294e2ee62c1690d41b`.
+The byte-identical Radiation and Set instance SHA-256 values are respectively
+`f0fa4fb17cf78e7c1127bb60367e34b8d9cf28bc515f99118a87a78991d4d998`
+and
+`ac67664893936ce5d32ba39da7c1f74de5a8f2920a210dce60712097b5c7fb75`.
+The registry now contains 143 implemented and 39 planned logical cases.
+
+The selected `uv`-locked `dicom-validator` 0.8.2 adapter 0.7.0 reports
+`Passed`, zero errors, for both exact SOP Classes. Its fail-closed corrections
+retain both Recorded RT Control Point branches and both Device Alternate
+Identifier branches: empty/companions-absent and non-empty/companions-present
+pass, while a non-empty identifier missing either companion fails. DCMTK 3.7.0
+parses both files cleanly. Integrated conformance run
+`574fa1caa3248a75b8c19f754a2ce70eb6452addb037f6fe9f5c8a9d1fc62d43`
+contains passing exact-case IOD and parser results and zero accepted findings.
+Whole-corpus strict conformance verification still reports 229 visible failures,
+including older unavailable-tool and unrelated corpus findings. `dcentvfy`
+also identifies the two current SOP Classes as unrecognized and therefore does
+not provide graph semantics for them; those warnings remain visible and
+unallowlisted, while strict Rust owns exact graph closure and every semantic
+absence. Phase 3 milestone 6 is complete.

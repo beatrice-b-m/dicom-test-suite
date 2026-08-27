@@ -46,8 +46,14 @@ IR 87 invocation and IR 6 reset before the `^` and `=` delimiters.
 
 ## Project Action
 
-- Registry status: planned until exact raw bytes, two independent reader
-  round-trips, deterministic generation, and IOD/entity gates pass.
-- Registry reason: the deterministic ISO 2022 recipe is not yet implemented.
+- Registry status: implemented after exact raw-byte validation, byte-identical
+  same-seed generation, DCMTK decoding and conversion, uv-locked pydicom
+  read/write/read, and clean dicom3tools IOD/entity gates.
+- Generation decision: encode the standards-locked PN octets natively with a
+  `PrimitiveValue::U8`; do not add Python to the deterministic generator and
+  do not post-process the Part 10 file.
+- Semantic validation decision: dicom-rs remains the structural and raw-byte
+  reader, while DCMTK and pydicom are the independent Unicode oracles because
+  dicom-rs does not decode the multi-repertoire PN.
 - Should become KB patch: no; direct retrieval covers the required anchors.
 - Expected cleanup after KB coverage exists: none.

@@ -101,6 +101,24 @@ and VR Expectations table expose the same contract. The synthetic General
 Series carries `Laterality = R`, which satisfies the independent Type 2C IOD
 check without a warning.
 
+### ISO 2022 Person Name component groups
+
+`metadata/sc/iso2022_person_name_component_groups` is an implemented
+`extended` Secondary Capture instance using the exact PS3.5 H.3.1 Japanese
+Example 1 contract. Specific Character Set has an empty first value for the
+default ISO-IR 6 repertoire followed by `ISO 2022 IR 87`. Patient Name decodes
+as `Yamada^Tarou=山田^太郎=やまだ^たろう` in alphabetic, ideographic, and
+phonetic group order.
+
+The native writer receives the controlled 60-byte PN value directly. The
+manifest records its uppercase hexadecimal representation and SHA-256
+`b206df163ce0b4d071469834428bf0b87b241931c81110362ce480d73d7490af`
+alongside every group and component. Native validation requires the exact
+charset declaration, PN VR, length, bytes, digest, and group structure.
+Because dicom-rs does not semantically decode this multi-repertoire value, it
+is not used as the Unicode oracle; independent DCMTK and uv-locked pydicom
+reads provide that proof.
+
 ## Verification evidence
 
 The following checks passed on 2026-08-26 for a seed-23 `core` corpus:
@@ -173,18 +191,35 @@ both dicom3tools checks. The locked DCMTK `dcmconv` SHA-256 is
 `beae7cc9a01e780a4137e282436848b1349e209bb40365a76dfc599c51c14964`;
 the other validator fingerprints remain those recorded above.
 
+The ISO 2022 slice passed two byte-identical seed-37 `extended` runs, each
+producing 80 files and a 1.5 MiB local corpus with zero internal validation
+failures. The native ISO 2022 file is 1,040 bytes with SHA-256
+`7815cf3bf2124f32c3240149c29e500a18c4894132a001b0016d2f424d8aff45`.
+Locked `dciodvfy -new` reports only its normal `SCImage` identification and
+no finding; isolated `dcentvfy` is silent. DCMTK 3.7.0 `dcmdump` confirms the
+original `\\ISO 2022 IR 87` declaration and 60-byte escape-coded PN, while
+`dcmdump +U8` recovers all three Unicode groups. `dcmconv +U8` produces a
+conformant UTF-8 rewrite with SHA-256
+`2b9dea60d495d59c5b4827f1591609653fe92894071b5f70e7cad27c36e573cb`.
+The repository's `uv 0.11.26` lock selects CPython 3.12.12 and pydicom 3.0.2;
+its read/write/read proof preserved both charset values and all three named
+groups. That rewrite is byte-identical to the native input, and both rewritten
+files pass `dciodvfy` and `dcentvfy`.
+
 The two matching `core` corpora each occupy 480 KiB in the local filesystem.
 This measurement is implementation-environment evidence rather than a
 portable byte-size guarantee; tracked generated artifacts remain forbidden.
 
 ## Milestone gate
 
-All planned Phase 2 geometry and series cases are implemented. The final
-seed-37 `core` corpus contains 37 files and occupies 680 KiB on this host; the
-seed-43 `extended` corpus contains 79 files and occupies 1.5 MiB. The complete
+All planned Phase 2 geometry and series cases are implemented, and the UTF-8
+and ISO 2022 metadata slices have passed their vertical gates. The latest
+seed-37 `core` corpus contains 38 files; the seed-37 `extended` corpus contains
+80 files and occupies 1.5 MiB on this host. The complete
 locked no-default-feature, all-target test suite passes, including byte-stable
 smoke, core, and extended regeneration. Each new CT slice and the temporal MR
 slice has clean isolated IOD, entity, parser, and applicable independent pixel
 evidence, except for the one exact reviewed DICOMDIR-usability warning described
 above. Older corpus findings remain visible and unresolved. The dependency-
-ordered Phase 2 metadata and VR milestone may proceed.
+ordered Phase 2 metadata and VR milestone continues with the remaining
+registry cases.

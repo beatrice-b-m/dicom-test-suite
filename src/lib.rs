@@ -6903,8 +6903,44 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
     append_count_map_section(
         &mut output,
         report,
-        "Enhanced MR Temporal Position Time Offsets",
+        "Enhanced MR Temporal Position Time Offsets (seconds)",
         "/grouped_coverage/enhanced_mr_temporal_position_time_offsets",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "Enhanced MR Temporal Position Indices",
+        "/grouped_coverage/enhanced_mr_temporal_position_indices",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "Enhanced MR Dimension Index Values",
+        "/grouped_coverage/enhanced_mr_dimension_index_values",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "Enhanced MR Frame Acquisition Numbers",
+        "/grouped_coverage/enhanced_mr_frame_acquisition_numbers",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "Enhanced MR Dimension Index Pointers",
+        "/grouped_coverage/enhanced_mr_dimension_index_pointers",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "Enhanced MR Functional Group Pointers",
+        "/grouped_coverage/enhanced_mr_functional_group_pointers",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "Enhanced MR Temporal Position Time Offset Units",
+        "/grouped_coverage/enhanced_mr_temporal_position_time_offset_units",
     );
     append_count_map_section(
         &mut output,
@@ -7333,6 +7369,52 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
                 markdown_cell(gap.get("value").and_then(Value::as_str)),
                 markdown_cell(gap.get("reason").and_then(Value::as_str)),
                 markdown_cell(gap.get("recommended_case_id").and_then(Value::as_str))
+            ));
+        }
+        output.push('\n');
+    }
+
+    let enhanced_mr_temporal_rows = report
+        .get("coverage_matrix")
+        .and_then(Value::as_array)
+        .map(|rows| {
+            rows.iter()
+                .filter(|row| !row["enhanced_mr_temporal_position_time_offsets"].is_null())
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    if !enhanced_mr_temporal_rows.is_empty() {
+        output.push_str("## Enhanced MR Temporal Expectations\n\n");
+        output.push_str("| Case ID | Temporal indices | Dimension indices | Frame acquisition numbers | Time offsets (s) | Dimension pointer | Functional-group pointer |\n");
+        output.push_str("|---|---|---|---|---|---|---|\n");
+        for row in enhanced_mr_temporal_rows {
+            output.push_str(&format!(
+                "| {} | {} | {} | {} | {} | {} | {} |\n",
+                markdown_cell(row.get("case_id").and_then(Value::as_str)),
+                markdown_cell(
+                    row.get("enhanced_mr_temporal_position_indices")
+                        .and_then(Value::as_str)
+                ),
+                markdown_cell(
+                    row.get("enhanced_mr_dimension_index_values")
+                        .and_then(Value::as_str)
+                ),
+                markdown_cell(
+                    row.get("enhanced_mr_frame_acquisition_numbers")
+                        .and_then(Value::as_str)
+                ),
+                markdown_cell(
+                    row.get("enhanced_mr_temporal_position_time_offsets")
+                        .and_then(Value::as_str)
+                ),
+                markdown_cell(
+                    row.get("enhanced_mr_dimension_index_pointer")
+                        .and_then(Value::as_str)
+                ),
+                markdown_cell(
+                    row.get("enhanced_mr_functional_group_pointer")
+                        .and_then(Value::as_str)
+                )
             ));
         }
         output.push('\n');
@@ -7862,15 +7944,46 @@ fn generated_coverage_row(
         .map(Value::from)
         .unwrap_or(Value::Null),
     );
+    let enhanced_mr_temporal = enhanced_mr_temporal_report_fields(manifest_path, file)?;
     row_object.insert(
         "enhanced_mr_temporal_position_time_offsets".to_string(),
-        report_string_or_number_array(
-            file,
-            "/recipe/recipe_parameters/per_frame_functional_groups/temporal_position_time_offset",
-        )
-        .map(Value::from)
-        .unwrap_or(Value::Null),
+        enhanced_mr_temporal
+            .time_offsets
+            .clone()
+            .map(Value::from)
+            .unwrap_or(Value::Null),
     );
+    for (field, value) in [
+        (
+            "enhanced_mr_temporal_position_indices",
+            enhanced_mr_temporal.temporal_position_indices,
+        ),
+        (
+            "enhanced_mr_dimension_index_values",
+            enhanced_mr_temporal.dimension_index_values,
+        ),
+        (
+            "enhanced_mr_frame_acquisition_numbers",
+            enhanced_mr_temporal.frame_acquisition_numbers,
+        ),
+        (
+            "enhanced_mr_dimension_index_pointer",
+            enhanced_mr_temporal.dimension_index_pointer,
+        ),
+        (
+            "enhanced_mr_functional_group_pointer",
+            enhanced_mr_temporal.functional_group_pointer,
+        ),
+        (
+            "enhanced_mr_temporal_position_time_offset_unit",
+            enhanced_mr_temporal.time_offset_unit,
+        ),
+    ] {
+        row_object.insert(
+            field.to_string(),
+            value.map(Value::from).unwrap_or(Value::Null),
+        );
+    }
     row_object.insert(
         "enhanced_mr_velocity_encoding_minimum_value".to_string(),
         file.pointer(
@@ -8487,6 +8600,175 @@ fn report_string_or_number_array(file: &Value, pointer: &str) -> Option<String> 
     }
 }
 
+#[derive(Default)]
+struct EnhancedMrTemporalReportFields {
+    time_offsets: Option<String>,
+    temporal_position_indices: Option<String>,
+    dimension_index_values: Option<String>,
+    frame_acquisition_numbers: Option<String>,
+    dimension_index_pointer: Option<String>,
+    functional_group_pointer: Option<String>,
+    time_offset_unit: Option<String>,
+}
+
+fn enhanced_mr_temporal_report_fields(
+    manifest_path: &Path,
+    file: &Value,
+) -> Result<EnhancedMrTemporalReportFields, ReportError> {
+    const OFFSETS: &str = "/expected_semantics/temporal_position_time_offset";
+    const TEMPORAL_INDICES: &str = "/expected_semantics/temporal_position_indices";
+    const DIMENSION_INDICES: &str = "/expected_semantics/dimension_index_values";
+    const ACQUISITION_NUMBERS: &str = "/expected_semantics/frame_acquisition_numbers";
+    const DIMENSION_POINTER: &str =
+        "/recipe/recipe_parameters/dimension_index/dimension_index_pointer";
+    const FUNCTIONAL_GROUP_POINTER: &str =
+        "/recipe/recipe_parameters/dimension_index/functional_group_pointer";
+    const UNIT: &str = "/expected_semantics/temporal_position_time_offset_unit";
+
+    let is_temporal = [
+        OFFSETS,
+        TEMPORAL_INDICES,
+        ACQUISITION_NUMBERS,
+        UNIT,
+        "/recipe/recipe_parameters/per_frame_functional_groups/temporal_position_time_offset",
+    ]
+    .iter()
+    .any(|pointer| file.pointer(pointer).is_some())
+        || file.pointer(DIMENSION_POINTER).and_then(Value::as_str)
+            == Some("TemporalPositionTimeOffset")
+        || file
+            .pointer(FUNCTIONAL_GROUP_POINTER)
+            .and_then(Value::as_str)
+            == Some("TemporalPositionSequence");
+    if !is_temporal {
+        return Ok(EnhancedMrTemporalReportFields::default());
+    }
+
+    let offsets = strict_number_array(
+        manifest_path,
+        file,
+        OFFSETS,
+        "temporal expected semantics must define a numeric temporal_position_time_offset array",
+        false,
+    )?;
+    let temporal_indices = strict_number_array(
+        manifest_path,
+        file,
+        TEMPORAL_INDICES,
+        "temporal expected semantics must define an integer temporal_position_indices array",
+        true,
+    )?;
+    let dimension_indices = strict_number_array(
+        manifest_path,
+        file,
+        DIMENSION_INDICES,
+        "temporal expected semantics must define an integer dimension_index_values array",
+        true,
+    )?;
+    let acquisition_numbers = strict_number_array(
+        manifest_path,
+        file,
+        ACQUISITION_NUMBERS,
+        "temporal expected semantics must define an integer frame_acquisition_numbers array",
+        true,
+    )?;
+    if offsets.0 == 0
+        || offsets.0 != temporal_indices.0
+        || offsets.0 != dimension_indices.0
+        || offsets.0 != acquisition_numbers.0
+    {
+        return Err(ReportError::MetadataShape {
+            path: manifest_path.to_path_buf(),
+            message: "temporal offsets, indices, dimension values, and acquisition numbers must be non-empty arrays of equal length",
+        });
+    }
+    let dimension_index_pointer = report_str(
+        manifest_path,
+        file,
+        DIMENSION_POINTER,
+        "temporal dimension_index_pointer must be TemporalPositionTimeOffset",
+    )?;
+    if dimension_index_pointer != "TemporalPositionTimeOffset" {
+        return Err(ReportError::MetadataShape {
+            path: manifest_path.to_path_buf(),
+            message: "temporal dimension_index_pointer must be TemporalPositionTimeOffset",
+        });
+    }
+    let functional_group_pointer = report_str(
+        manifest_path,
+        file,
+        FUNCTIONAL_GROUP_POINTER,
+        "temporal functional_group_pointer must be TemporalPositionSequence",
+    )?;
+    if functional_group_pointer != "TemporalPositionSequence" {
+        return Err(ReportError::MetadataShape {
+            path: manifest_path.to_path_buf(),
+            message: "temporal functional_group_pointer must be TemporalPositionSequence",
+        });
+    }
+    let unit = report_str(
+        manifest_path,
+        file,
+        UNIT,
+        "temporal_position_time_offset_unit must be seconds",
+    )?;
+    if unit != "seconds" {
+        return Err(ReportError::MetadataShape {
+            path: manifest_path.to_path_buf(),
+            message: "temporal_position_time_offset_unit must be seconds",
+        });
+    }
+
+    Ok(EnhancedMrTemporalReportFields {
+        time_offsets: Some(offsets.1),
+        temporal_position_indices: Some(temporal_indices.1),
+        dimension_index_values: Some(dimension_indices.1),
+        frame_acquisition_numbers: Some(acquisition_numbers.1),
+        dimension_index_pointer: Some(dimension_index_pointer.to_string()),
+        functional_group_pointer: Some(functional_group_pointer.to_string()),
+        time_offset_unit: Some(unit.to_string()),
+    })
+}
+
+fn strict_number_array(
+    path: &Path,
+    value: &Value,
+    pointer: &str,
+    message: &'static str,
+    integers_only: bool,
+) -> Result<(usize, String), ReportError> {
+    let values =
+        value
+            .pointer(pointer)
+            .and_then(Value::as_array)
+            .ok_or(ReportError::MetadataShape {
+                path: path.to_path_buf(),
+                message,
+            })?;
+    if values
+        .iter()
+        .any(|value| !value.is_number() || (integers_only && value.as_u64().is_none()))
+    {
+        return Err(ReportError::MetadataShape {
+            path: path.to_path_buf(),
+            message,
+        });
+    }
+    Ok((
+        values.len(),
+        values
+            .iter()
+            .map(|value| {
+                value
+                    .as_number()
+                    .expect("numbers checked above")
+                    .to_string()
+            })
+            .collect::<Vec<_>>()
+            .join("; "),
+    ))
+}
+
 fn report_object_array_string_values(file: &Value, pointer: &str, field: &str) -> Option<String> {
     let labels = file
         .pointer(pointer)?
@@ -8875,6 +9157,16 @@ fn skipped_coverage_row(
         "enhanced_mr_temporal_position_time_offsets".to_string(),
         Value::Null,
     );
+    for field in [
+        "enhanced_mr_temporal_position_indices",
+        "enhanced_mr_dimension_index_values",
+        "enhanced_mr_frame_acquisition_numbers",
+        "enhanced_mr_dimension_index_pointer",
+        "enhanced_mr_functional_group_pointer",
+        "enhanced_mr_temporal_position_time_offset_unit",
+    ] {
+        row_object.insert(field.to_string(), Value::Null);
+    }
     row_object.insert(
         "enhanced_mr_velocity_encoding_minimum_value".to_string(),
         Value::Null,
@@ -9181,6 +9473,12 @@ struct GroupedCoverage {
     mr_magnetic_field_strengths: BTreeMap<String, usize>,
     enhanced_mr_effective_echo_times: BTreeMap<String, usize>,
     enhanced_mr_temporal_position_time_offsets: BTreeMap<String, usize>,
+    enhanced_mr_temporal_position_indices: BTreeMap<String, usize>,
+    enhanced_mr_dimension_index_values: BTreeMap<String, usize>,
+    enhanced_mr_frame_acquisition_numbers: BTreeMap<String, usize>,
+    enhanced_mr_dimension_index_pointers: BTreeMap<String, usize>,
+    enhanced_mr_functional_group_pointers: BTreeMap<String, usize>,
+    enhanced_mr_temporal_position_time_offset_units: BTreeMap<String, usize>,
     enhanced_mr_velocity_encoding_minimum_values: BTreeMap<String, usize>,
     enhanced_mr_velocity_encoding_maximum_values: BTreeMap<String, usize>,
     segmentation_types: BTreeMap<String, usize>,
@@ -9590,6 +9888,36 @@ impl GroupedCoverage {
         increment_map(
             &mut self.enhanced_mr_temporal_position_time_offsets,
             row.get("enhanced_mr_temporal_position_time_offsets")
+                .and_then(Value::as_str),
+        );
+        increment_map(
+            &mut self.enhanced_mr_temporal_position_indices,
+            row.get("enhanced_mr_temporal_position_indices")
+                .and_then(Value::as_str),
+        );
+        increment_map(
+            &mut self.enhanced_mr_dimension_index_values,
+            row.get("enhanced_mr_dimension_index_values")
+                .and_then(Value::as_str),
+        );
+        increment_map(
+            &mut self.enhanced_mr_frame_acquisition_numbers,
+            row.get("enhanced_mr_frame_acquisition_numbers")
+                .and_then(Value::as_str),
+        );
+        increment_map(
+            &mut self.enhanced_mr_dimension_index_pointers,
+            row.get("enhanced_mr_dimension_index_pointer")
+                .and_then(Value::as_str),
+        );
+        increment_map(
+            &mut self.enhanced_mr_functional_group_pointers,
+            row.get("enhanced_mr_functional_group_pointer")
+                .and_then(Value::as_str),
+        );
+        increment_map(
+            &mut self.enhanced_mr_temporal_position_time_offset_units,
+            row.get("enhanced_mr_temporal_position_time_offset_unit")
                 .and_then(Value::as_str),
         );
         increment_map(
@@ -10138,6 +10466,36 @@ impl GroupedCoverage {
             "enhanced_mr_temporal_position_time_offsets".to_string(),
             serde_json::to_value(&self.enhanced_mr_temporal_position_time_offsets)
                 .expect("Enhanced MR temporal position time offset count map must serialize"),
+        );
+        grouped_object.insert(
+            "enhanced_mr_temporal_position_indices".to_string(),
+            serde_json::to_value(&self.enhanced_mr_temporal_position_indices)
+                .expect("Enhanced MR temporal position index count map must serialize"),
+        );
+        grouped_object.insert(
+            "enhanced_mr_dimension_index_values".to_string(),
+            serde_json::to_value(&self.enhanced_mr_dimension_index_values)
+                .expect("Enhanced MR dimension index value count map must serialize"),
+        );
+        grouped_object.insert(
+            "enhanced_mr_frame_acquisition_numbers".to_string(),
+            serde_json::to_value(&self.enhanced_mr_frame_acquisition_numbers)
+                .expect("Enhanced MR frame acquisition number count map must serialize"),
+        );
+        grouped_object.insert(
+            "enhanced_mr_dimension_index_pointers".to_string(),
+            serde_json::to_value(&self.enhanced_mr_dimension_index_pointers)
+                .expect("Enhanced MR dimension index pointer count map must serialize"),
+        );
+        grouped_object.insert(
+            "enhanced_mr_functional_group_pointers".to_string(),
+            serde_json::to_value(&self.enhanced_mr_functional_group_pointers)
+                .expect("Enhanced MR functional group pointer count map must serialize"),
+        );
+        grouped_object.insert(
+            "enhanced_mr_temporal_position_time_offset_units".to_string(),
+            serde_json::to_value(&self.enhanced_mr_temporal_position_time_offset_units)
+                .expect("Enhanced MR temporal position time offset unit count map must serialize"),
         );
         grouped_object.insert(
             "enhanced_mr_velocity_encoding_minimum_values".to_string(),

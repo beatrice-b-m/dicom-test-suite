@@ -419,6 +419,12 @@ fn report_command_writes_json_coverage_for_core_root() {
         "shared_study_instance_uid_expected",
         "shared_frame_of_reference_uid_expected",
         "distinct_series_instance_uids_expected",
+        "enhanced_mr_temporal_position_indices",
+        "enhanced_mr_dimension_index_values",
+        "enhanced_mr_frame_acquisition_numbers",
+        "enhanced_mr_dimension_index_pointer",
+        "enhanced_mr_functional_group_pointer",
+        "enhanced_mr_temporal_position_time_offset_unit",
     ] {
         assert_eq!(
             spatial_sort_row.get(field),
@@ -868,15 +874,31 @@ fn report_command_writes_enhanced_mr_per_frame_coverage_for_extended_root() {
             .and_then(Value::as_str),
         Some("12.5; 24.5")
     );
-    assert_eq!(
-        coverage_row(
-            &report,
-            "enhanced/mr/multiframe_temporal_position_explicit_le"
-        )
-        .get("enhanced_mr_temporal_position_time_offsets")
-        .and_then(Value::as_str),
-        Some("0.0; 1.5")
+    let temporal_row = coverage_row(
+        &report,
+        "enhanced/mr/multiframe_temporal_position_explicit_le",
     );
+    for (field, expected) in [
+        ("enhanced_mr_temporal_position_time_offsets", "0.0; 1.5"),
+        ("enhanced_mr_temporal_position_indices", "1; 2"),
+        ("enhanced_mr_dimension_index_values", "1; 2"),
+        ("enhanced_mr_frame_acquisition_numbers", "1; 2"),
+        (
+            "enhanced_mr_dimension_index_pointer",
+            "TemporalPositionTimeOffset",
+        ),
+        (
+            "enhanced_mr_functional_group_pointer",
+            "TemporalPositionSequence",
+        ),
+        ("enhanced_mr_temporal_position_time_offset_unit", "seconds"),
+    ] {
+        assert_eq!(
+            temporal_row.get(field).and_then(Value::as_str),
+            Some(expected),
+            "temporal report field {field}"
+        );
+    }
     let phase_row = coverage_row(
         &report,
         "enhanced/mr/multiframe_phase_velocity_encoding_explicit_le",
@@ -905,6 +927,38 @@ fn report_command_writes_enhanced_mr_per_frame_coverage_for_extended_root() {
             .and_then(Value::as_u64),
         Some(1)
     );
+    for (pointer, expected) in [
+        (
+            "/grouped_coverage/enhanced_mr_temporal_position_indices/1; 2",
+            1,
+        ),
+        (
+            "/grouped_coverage/enhanced_mr_dimension_index_values/1; 2",
+            1,
+        ),
+        (
+            "/grouped_coverage/enhanced_mr_frame_acquisition_numbers/1; 2",
+            1,
+        ),
+        (
+            "/grouped_coverage/enhanced_mr_dimension_index_pointers/TemporalPositionTimeOffset",
+            1,
+        ),
+        (
+            "/grouped_coverage/enhanced_mr_functional_group_pointers/TemporalPositionSequence",
+            1,
+        ),
+        (
+            "/grouped_coverage/enhanced_mr_temporal_position_time_offset_units/seconds",
+            1,
+        ),
+    ] {
+        assert_eq!(
+            report.pointer(pointer).and_then(Value::as_u64),
+            Some(expected),
+            "grouped temporal field {pointer}"
+        );
+    }
     assert_eq!(
         report
             .pointer("/grouped_coverage/enhanced_mr_velocity_encoding_minimum_values/-150.0")
@@ -937,12 +991,89 @@ fn report_command_writes_enhanced_mr_per_frame_coverage_for_extended_root() {
         String::from_utf8(markdown_output.stdout).expect("markdown stdout should be UTF-8");
     assert!(markdown.contains("### Enhanced MR Effective Echo Times"));
     assert!(markdown.contains("| 12.5; 24.5 | 1 |"));
-    assert!(markdown.contains("### Enhanced MR Temporal Position Time Offsets"));
+    assert!(markdown.contains("### Enhanced MR Temporal Position Time Offsets (seconds)"));
     assert!(markdown.contains("| 0.0; 1.5 | 1 |"));
+    assert!(markdown.contains("## Enhanced MR Temporal Expectations"));
+    assert!(markdown.contains("Time offsets (s)"));
+    assert!(markdown.contains("| enhanced/mr/multiframe_temporal_position_explicit_le | 1; 2 | 1; 2 | 1; 2 | 0.0; 1.5 | TemporalPositionTimeOffset | TemporalPositionSequence |"));
     assert!(markdown.contains("### Enhanced MR Velocity Encoding Minimum Values"));
     assert!(markdown.contains("| -150.0 | 1 |"));
     assert!(markdown.contains("### Enhanced MR Velocity Encoding Maximum Values"));
     assert!(markdown.contains("| 150.0 | 1 |"));
+
+    fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
+}
+
+#[test]
+fn report_rejects_incomplete_or_inconsistent_enhanced_mr_temporal_contracts() {
+    let out_dir = unique_temp_dir("report-enhanced-mr-temporal-malformed");
+    generate_extended(&out_dir);
+    let manifest_path = out_dir.join("manifest.json");
+    let original: Value = serde_json::from_slice(
+        &fs::read(&manifest_path).expect("generated manifest should be readable"),
+    )
+    .expect("generated manifest should be JSON");
+
+    let cases = [
+        (
+            "/expected_semantics/temporal_position_indices",
+            Value::Null,
+            "temporal expected semantics must define an integer temporal_position_indices array",
+        ),
+        (
+            "/expected_semantics/dimension_index_values",
+            json!([1]),
+            "must be non-empty arrays of equal length",
+        ),
+        (
+            "/recipe/recipe_parameters/dimension_index/dimension_index_pointer",
+            json!("EffectiveEchoTime"),
+            "temporal dimension_index_pointer must be TemporalPositionTimeOffset",
+        ),
+        (
+            "/expected_semantics/temporal_position_time_offset_unit",
+            json!("milliseconds"),
+            "temporal_position_time_offset_unit must be seconds",
+        ),
+    ];
+    for (pointer, replacement, expected_error) in cases {
+        let mut manifest = original.clone();
+        let temporal_file = manifest
+            .get_mut("files")
+            .and_then(Value::as_array_mut)
+            .expect("manifest files should be an array")
+            .iter_mut()
+            .find(|file| {
+                file.get("case_id").and_then(Value::as_str)
+                    == Some("enhanced/mr/multiframe_temporal_position_explicit_le")
+            })
+            .expect("temporal Enhanced MR file should be generated");
+        if replacement.is_null() {
+            temporal_file
+                .pointer_mut("/expected_semantics")
+                .and_then(Value::as_object_mut)
+                .expect("temporal expected semantics should be an object")
+                .remove("temporal_position_indices");
+        } else {
+            *temporal_file
+                .pointer_mut(pointer)
+                .unwrap_or_else(|| panic!("temporal manifest should contain {pointer}")) =
+                replacement;
+        }
+        fs::write(
+            &manifest_path,
+            serde_json::to_string_pretty(&manifest).expect("manifest should serialize"),
+        )
+        .expect("malformed manifest fixture should be writable");
+
+        let error = dicom_test_suite::build_coverage_report(&out_dir)
+            .expect_err("malformed temporal report contract should be rejected")
+            .to_string();
+        assert!(
+            error.contains(expected_error),
+            "unexpected error for {pointer}: {error}"
+        );
+    }
 
     fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
 }

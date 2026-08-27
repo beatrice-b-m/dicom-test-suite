@@ -239,6 +239,24 @@
         "enhanced_mr_temporal_position_time_offsets": {
           "$ref": "#/$defs/count_map"
         },
+        "enhanced_mr_temporal_position_indices": {
+          "$ref": "#/$defs/count_map"
+        },
+        "enhanced_mr_dimension_index_values": {
+          "$ref": "#/$defs/count_map"
+        },
+        "enhanced_mr_frame_acquisition_numbers": {
+          "$ref": "#/$defs/count_map"
+        },
+        "enhanced_mr_dimension_index_pointers": {
+          "$ref": "#/$defs/count_map"
+        },
+        "enhanced_mr_functional_group_pointers": {
+          "$ref": "#/$defs/count_map"
+        },
+        "enhanced_mr_temporal_position_time_offset_units": {
+          "$ref": "#/$defs/count_map"
+        },
         "enhanced_mr_velocity_encoding_minimum_values": {
           "$ref": "#/$defs/count_map"
         },
@@ -624,6 +642,12 @@
         "mr_magnetic_field_strength",
         "enhanced_mr_effective_echo_times",
         "enhanced_mr_temporal_position_time_offsets",
+        "enhanced_mr_temporal_position_indices",
+        "enhanced_mr_dimension_index_values",
+        "enhanced_mr_frame_acquisition_numbers",
+        "enhanced_mr_dimension_index_pointer",
+        "enhanced_mr_functional_group_pointer",
+        "enhanced_mr_temporal_position_time_offset_unit",
         "enhanced_mr_velocity_encoding_minimum_value",
         "enhanced_mr_velocity_encoding_maximum_value",
         "segmentation_type",
@@ -1039,6 +1063,24 @@
         },
         "enhanced_mr_temporal_position_time_offsets": {
           "type": ["string", "null"]
+        },
+        "enhanced_mr_temporal_position_indices": {
+          "type": ["string", "null"]
+        },
+        "enhanced_mr_dimension_index_values": {
+          "type": ["string", "null"]
+        },
+        "enhanced_mr_frame_acquisition_numbers": {
+          "type": ["string", "null"]
+        },
+        "enhanced_mr_dimension_index_pointer": {
+          "enum": ["TemporalPositionTimeOffset", null]
+        },
+        "enhanced_mr_functional_group_pointer": {
+          "enum": ["TemporalPositionSequence", null]
+        },
+        "enhanced_mr_temporal_position_time_offset_unit": {
+          "enum": ["seconds", null]
         },
         "enhanced_mr_velocity_encoding_minimum_value": {
           "type": ["string", "null"]

@@ -614,6 +614,12 @@ fn coverage_report_schema_requires_the_specified_matrix_fields() {
         "mr_magnetic_field_strength",
         "enhanced_mr_effective_echo_times",
         "enhanced_mr_temporal_position_time_offsets",
+        "enhanced_mr_temporal_position_indices",
+        "enhanced_mr_dimension_index_values",
+        "enhanced_mr_frame_acquisition_numbers",
+        "enhanced_mr_dimension_index_pointer",
+        "enhanced_mr_functional_group_pointer",
+        "enhanced_mr_temporal_position_time_offset_unit",
         "enhanced_mr_velocity_encoding_minimum_value",
         "enhanced_mr_velocity_encoding_maximum_value",
         "segmentation_type",
@@ -702,6 +708,26 @@ fn coverage_report_schema_requires_the_specified_matrix_fields() {
                 .and_then(Value::as_str),
             Some("boolean"),
             "coverage row {field} must be nullable boolean"
+        );
+    }
+    for (field, values) in [
+        (
+            "enhanced_mr_dimension_index_pointer",
+            serde_json::json!(["TemporalPositionTimeOffset", null]),
+        ),
+        (
+            "enhanced_mr_functional_group_pointer",
+            serde_json::json!(["TemporalPositionSequence", null]),
+        ),
+        (
+            "enhanced_mr_temporal_position_time_offset_unit",
+            serde_json::json!(["seconds", null]),
+        ),
+    ] {
+        assert_eq!(
+            schema.pointer(&format!("/$defs/coverage_row/properties/{field}/enum")),
+            Some(&values),
+            "coverage row {field} must use its strict nullable vocabulary"
         );
     }
     for field in [
@@ -799,6 +825,12 @@ fn coverage_report_schema_requires_the_specified_matrix_fields() {
         "mr_magnetic_field_strengths",
         "enhanced_mr_effective_echo_times",
         "enhanced_mr_temporal_position_time_offsets",
+        "enhanced_mr_temporal_position_indices",
+        "enhanced_mr_dimension_index_values",
+        "enhanced_mr_frame_acquisition_numbers",
+        "enhanced_mr_dimension_index_pointers",
+        "enhanced_mr_functional_group_pointers",
+        "enhanced_mr_temporal_position_time_offset_units",
         "enhanced_mr_velocity_encoding_minimum_values",
         "enhanced_mr_velocity_encoding_maximum_values",
         "segmentation_types",

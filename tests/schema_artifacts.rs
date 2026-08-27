@@ -686,6 +686,73 @@ fn manifest_schema_types_ultrasound_multiframe_expectations() {
 }
 
 #[test]
+fn manifest_schema_types_xa_projection_expectations() {
+    let schema = read_json("schemas/manifest.schema.json");
+    let xa_schema = serde_json::json!({
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$ref": "#/$defs/expected_xa_projection",
+        "$defs": schema["$defs"].clone(),
+    });
+    let validator =
+        jsonschema::validator_for(&xa_schema).expect("XA expectation schema should compile");
+    let mut expectations = xa_projection_expectations();
+    assert!(validator.is_valid(&expectations));
+
+    expectations["image_type"][2] = serde_json::json!("BIPLANE A");
+    expectations["body_part_examined"] = serde_json::json!("CHEST");
+    expectations["patient_orientation_empty"] = serde_json::json!(false);
+    expectations["pixel_intensity_relationship"] = serde_json::json!("LOG");
+    expectations["radiation_setting"] = serde_json::json!("SC");
+    expectations["exposure_mas"] = serde_json::json!(5);
+    expectations["imager_pixel_spacing_mm"][1] = serde_json::json!(0.3);
+    expectations["estimated_radiographic_magnification_factor"] = serde_json::json!(1.4);
+    expectations["multiframe_cine"] = serde_json::json!(true);
+    expectations["biplane_data_present"] = serde_json::json!(true);
+    expectations["patient_space_geometry_present"] = serde_json::json!(true);
+    expectations["unexpected"] = serde_json::json!(true);
+    let errors = validator.iter_errors(&expectations).collect::<Vec<_>>();
+    assert!(
+        errors.len() >= 12,
+        "XA plane, anatomy, acquisition, geometry, explicit non-claims, and unknown fields must be rejected: {errors:?}"
+    );
+
+    assert_eq!(
+        schema.pointer("/$defs/file/properties/expected_xa_projection/$ref"),
+        Some(&Value::String("#/$defs/expected_xa_projection".to_string()))
+    );
+
+    let xa_case_rule = schema
+        .pointer("/$defs/file/allOf")
+        .and_then(Value::as_array)
+        .and_then(|rules| {
+            rules.iter().find(|rule| {
+                rule.pointer("/if/properties/case_id/const")
+                    .and_then(Value::as_str)
+                    == Some("classic/xa/monoplane_explicit_le")
+            })
+        })
+        .expect("XA case must have a manifest schema conditional");
+    let required = xa_case_rule
+        .pointer("/then/required")
+        .and_then(Value::as_array)
+        .expect("XA case conditional must require manifest fields");
+    for field in ["image", "pixel_data", "expected_xa_projection"] {
+        assert!(
+            required.iter().any(|value| value.as_str() == Some(field)),
+            "XA case conditional must require {field}"
+        );
+    }
+    assert_eq!(
+        xa_case_rule.pointer("/then/properties/image/properties/frames/const"),
+        Some(&Value::from(1))
+    );
+    assert_eq!(
+        xa_case_rule.pointer("/then/properties/image/properties/bits_allocated/const"),
+        Some(&Value::from(8))
+    );
+}
+
+#[test]
 fn manifest_schema_rejects_malformed_person_name_expectations() {
     let schema = read_json("schemas/manifest.schema.json");
     let metadata_schema = serde_json::json!({
@@ -967,6 +1034,34 @@ fn ultrasound_multiframe_expectations() -> Value {
         "color_data_present": false,
         "region_calibrated": false,
         "lossy_image_compression": "00"
+    })
+}
+
+fn xa_projection_expectations() -> Value {
+    serde_json::json!({
+        "image_type": ["ORIGINAL", "PRIMARY", "SINGLE PLANE"],
+        "frame_count": 1,
+        "body_part_examined": "HEART",
+        "patient_orientation_empty": true,
+        "laterality_present": false,
+        "pixel_intensity_relationship": "LIN",
+        "radiation_setting": "GR",
+        "kvp": 80.0,
+        "exposure_mas": 4,
+        "imager_pixel_spacing_mm": [0.2, 0.2],
+        "positioner_primary_angle_degrees": 15.0,
+        "positioner_secondary_angle_degrees": -10.0,
+        "distance_source_to_detector_mm": 1200.0,
+        "distance_source_to_patient_mm": 800.0,
+        "estimated_radiographic_magnification_factor": 1.5,
+        "lossy_image_compression": "00",
+        "multiframe_cine": false,
+        "biplane_data_present": false,
+        "contrast_used": false,
+        "subtraction_applied": false,
+        "table_motion_present": false,
+        "patient_space_geometry_present": false,
+        "pixel_spacing_calibrated": false
     })
 }
 

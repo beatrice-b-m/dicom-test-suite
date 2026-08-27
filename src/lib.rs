@@ -6651,6 +6651,34 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
         "Metadata Empty Type 2 Attribute Counts",
         "/grouped_coverage/metadata_empty_type2_attribute_counts",
     );
+    for (title, pointer) in [
+        (
+            "Metadata String Tags",
+            "/grouped_coverage/metadata_string_tags",
+        ),
+        (
+            "Metadata String VRs",
+            "/grouped_coverage/metadata_string_vrs",
+        ),
+        (
+            "Metadata String Value Multiplicities",
+            "/grouped_coverage/metadata_string_value_multiplicities",
+        ),
+        (
+            "Metadata String Maximum Component Encoded Byte Lengths",
+            "/grouped_coverage/metadata_string_max_component_encoded_length_bytes",
+        ),
+        (
+            "Metadata String Raw Value Lengths",
+            "/grouped_coverage/metadata_string_raw_value_lengths",
+        ),
+        (
+            "Metadata String Raw SHA-256 Values",
+            "/grouped_coverage/metadata_string_raw_sha256_values",
+        ),
+    ] {
+        append_count_map_section(&mut output, report, title, pointer);
+    }
     append_count_map_section(
         &mut output,
         report,
@@ -7592,6 +7620,36 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
         output.push('\n');
     }
 
+    let string_rows = report
+        .get("coverage_matrix")
+        .and_then(Value::as_array)
+        .map(|rows| {
+            rows.iter()
+                .filter(|row| !row["metadata_string_tags"].is_null())
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    if !string_rows.is_empty() {
+        output.push_str("## String VR Boundary Expectations\n\n");
+        output.push_str(
+            "| Case ID | Tags | VRs | VMs | Max component bytes | Raw VLs | Raw SHA-256 values |\n",
+        );
+        output.push_str("|---|---|---|---|---|---|---|\n");
+        for row in string_rows {
+            output.push_str(&format!(
+                "| {} | {} | {} | {} | {} | {} | {} |\n",
+                markdown_cell(row.get("case_id").and_then(Value::as_str)),
+                markdown_value_array(row.get("metadata_string_tags")),
+                markdown_value_array(row.get("metadata_string_vrs")),
+                markdown_value_array(row.get("metadata_string_value_multiplicities")),
+                markdown_value_array(row.get("metadata_string_max_component_encoded_length_bytes")),
+                markdown_value_array(row.get("metadata_string_raw_value_lengths")),
+                markdown_value_array(row.get("metadata_string_raw_sha256_values")),
+            ));
+        }
+        output.push('\n');
+    }
+
     let geometry_rows = report
         .get("coverage_matrix")
         .and_then(Value::as_array)
@@ -7829,6 +7887,29 @@ fn generated_coverage_row(
         (
             "metadata_empty_type2_attribute_count",
             metadata.empty_type2_attribute_count.map(Value::from),
+        ),
+        (
+            "metadata_string_tags",
+            metadata.string_tags.map(Value::from),
+        ),
+        ("metadata_string_vrs", metadata.string_vrs.map(Value::from)),
+        (
+            "metadata_string_value_multiplicities",
+            metadata.string_value_multiplicities.map(Value::from),
+        ),
+        (
+            "metadata_string_max_component_encoded_length_bytes",
+            metadata
+                .string_max_component_encoded_length_bytes
+                .map(Value::from),
+        ),
+        (
+            "metadata_string_raw_value_lengths",
+            metadata.string_raw_value_lengths.map(Value::from),
+        ),
+        (
+            "metadata_string_raw_sha256_values",
+            metadata.string_raw_sha256_values.map(Value::from),
         ),
     ] {
         row_object.insert(field.to_string(), value.unwrap_or(Value::Null));
@@ -8751,6 +8832,12 @@ struct MetadataReportFields {
     temporal_normalized_utc: Option<String>,
     empty_type2_attributes: Option<String>,
     empty_type2_attribute_count: Option<u64>,
+    string_tags: Option<Vec<String>>,
+    string_vrs: Option<Vec<String>>,
+    string_value_multiplicities: Option<Vec<u64>>,
+    string_max_component_encoded_length_bytes: Option<Vec<u64>>,
+    string_raw_value_lengths: Option<Vec<u64>>,
+    string_raw_sha256_values: Option<Vec<String>>,
 }
 
 fn metadata_report_fields(file: &Value) -> MetadataReportFields {
@@ -8785,6 +8872,13 @@ fn metadata_report_fields(file: &Value) -> MetadataReportFields {
     let empty_type2_attributes = file
         .pointer("/expected_metadata/empty_type2_attributes")
         .and_then(Value::as_array);
+    let mut string_elements = file
+        .pointer("/expected_metadata/string_elements")
+        .and_then(Value::as_array)
+        .map(|elements| elements.iter().collect::<Vec<_>>());
+    if let Some(elements) = string_elements.as_mut() {
+        elements.sort_by_key(|element| element.get("tag").and_then(Value::as_str));
+    }
 
     MetadataReportFields {
         specific_character_sets,
@@ -8839,7 +8933,41 @@ fn metadata_report_fields(file: &Value) -> MetadataReportFields {
         }),
         empty_type2_attribute_count: empty_type2_attributes
             .map(|attributes| attributes.len() as u64),
+        string_tags: metadata_string_field(&string_elements, "tag"),
+        string_vrs: metadata_string_field(&string_elements, "vr"),
+        string_value_multiplicities: metadata_u64_field(&string_elements, "value_multiplicity"),
+        string_max_component_encoded_length_bytes: string_elements.as_ref().and_then(|elements| {
+            elements
+                .iter()
+                .map(|element| {
+                    element
+                        .get("decoded_value_lengths")?
+                        .as_array()?
+                        .iter()
+                        .filter_map(Value::as_u64)
+                        .max()
+                })
+                .collect::<Option<Vec<_>>>()
+        }),
+        string_raw_value_lengths: metadata_u64_field(&string_elements, "raw_value_byte_length"),
+        string_raw_sha256_values: metadata_string_field(&string_elements, "raw_value_sha256"),
     }
+}
+
+fn metadata_string_field(elements: &Option<Vec<&Value>>, field: &str) -> Option<Vec<String>> {
+    elements
+        .as_ref()?
+        .iter()
+        .map(|element| element.get(field)?.as_str().map(str::to_string))
+        .collect()
+}
+
+fn metadata_u64_field(elements: &Option<Vec<&Value>>, field: &str) -> Option<Vec<u64>> {
+    elements
+        .as_ref()?
+        .iter()
+        .map(|element| element.get(field)?.as_u64())
+        .collect()
 }
 
 fn metadata_decoded_values(values: &Value) -> Option<String> {
@@ -9460,6 +9588,12 @@ fn skipped_coverage_row(
         "metadata_temporal_normalized_utc",
         "metadata_empty_type2_attributes",
         "metadata_empty_type2_attribute_count",
+        "metadata_string_tags",
+        "metadata_string_vrs",
+        "metadata_string_value_multiplicities",
+        "metadata_string_max_component_encoded_length_bytes",
+        "metadata_string_raw_value_lengths",
+        "metadata_string_raw_sha256_values",
     ] {
         row_object.insert(field.to_string(), Value::Null);
     }
@@ -9791,6 +9925,12 @@ struct GroupedCoverage {
     metadata_timezone_offsets_from_utc: BTreeMap<String, usize>,
     metadata_empty_type2_attributes: BTreeMap<String, usize>,
     metadata_empty_type2_attribute_counts: BTreeMap<String, usize>,
+    metadata_string_tags: BTreeMap<String, usize>,
+    metadata_string_vrs: BTreeMap<String, usize>,
+    metadata_string_value_multiplicities: BTreeMap<String, usize>,
+    metadata_string_max_component_encoded_length_bytes: BTreeMap<String, usize>,
+    metadata_string_raw_value_lengths: BTreeMap<String, usize>,
+    metadata_string_raw_sha256_values: BTreeMap<String, usize>,
     photometric_interpretations: BTreeMap<String, usize>,
     bit_depths: BTreeMap<String, usize>,
     bits_allocated: BTreeMap<String, usize>,
@@ -10018,6 +10158,30 @@ impl GroupedCoverage {
                 .entry(count.to_string())
                 .or_default() += 1;
         }
+        increment_string_array_map(
+            &mut self.metadata_string_tags,
+            row.get("metadata_string_tags"),
+        );
+        increment_string_array_map(
+            &mut self.metadata_string_vrs,
+            row.get("metadata_string_vrs"),
+        );
+        increment_u64_array_map(
+            &mut self.metadata_string_value_multiplicities,
+            row.get("metadata_string_value_multiplicities"),
+        );
+        increment_u64_array_map(
+            &mut self.metadata_string_max_component_encoded_length_bytes,
+            row.get("metadata_string_max_component_encoded_length_bytes"),
+        );
+        increment_u64_array_map(
+            &mut self.metadata_string_raw_value_lengths,
+            row.get("metadata_string_raw_value_lengths"),
+        );
+        increment_string_array_map(
+            &mut self.metadata_string_raw_sha256_values,
+            row.get("metadata_string_raw_sha256_values"),
+        );
         increment_map(
             &mut self.metadata_person_name_encoded_sha256_values,
             row.get("metadata_person_name_encoded_sha256")
@@ -10791,6 +10955,37 @@ impl GroupedCoverage {
             serde_json::to_value(&self.metadata_empty_type2_attribute_counts)
                 .expect("metadata empty Type 2 attribute total map must serialize"),
         );
+        for (field, value) in [
+            (
+                "metadata_string_tags",
+                serde_json::to_value(&self.metadata_string_tags),
+            ),
+            (
+                "metadata_string_vrs",
+                serde_json::to_value(&self.metadata_string_vrs),
+            ),
+            (
+                "metadata_string_value_multiplicities",
+                serde_json::to_value(&self.metadata_string_value_multiplicities),
+            ),
+            (
+                "metadata_string_max_component_encoded_length_bytes",
+                serde_json::to_value(&self.metadata_string_max_component_encoded_length_bytes),
+            ),
+            (
+                "metadata_string_raw_value_lengths",
+                serde_json::to_value(&self.metadata_string_raw_value_lengths),
+            ),
+            (
+                "metadata_string_raw_sha256_values",
+                serde_json::to_value(&self.metadata_string_raw_sha256_values),
+            ),
+        ] {
+            grouped_object.insert(
+                field.to_string(),
+                value.expect("metadata string boundary count map must serialize"),
+            );
+        }
         grouped_object.insert(
             "window_centers".to_string(),
             serde_json::to_value(&self.window_centers)
@@ -11365,6 +11560,28 @@ fn increment_map(map: &mut BTreeMap<String, usize>, key: Option<&str>) {
     }
 }
 
+fn increment_string_array_map(map: &mut BTreeMap<String, usize>, value: Option<&Value>) {
+    for key in value
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(Value::as_str)
+    {
+        *map.entry(key.to_string()).or_default() += 1;
+    }
+}
+
+fn increment_u64_array_map(map: &mut BTreeMap<String, usize>, value: Option<&Value>) {
+    for key in value
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(Value::as_u64)
+    {
+        *map.entry(key.to_string()).or_default() += 1;
+    }
+}
+
 fn append_count_map_section(output: &mut String, report: &Value, title: &str, pointer: &str) {
     output.push_str(&format!("### {title}\n\n"));
     output.push_str("| Value | Count |\n");
@@ -11406,6 +11623,20 @@ fn markdown_number_list(value: Option<&Value>) -> String {
                 .join(", ")
         })
         .unwrap_or_default()
+}
+
+fn markdown_value_array(value: Option<&Value>) -> String {
+    let joined = value
+        .and_then(Value::as_array)
+        .map(|values| {
+            values
+                .iter()
+                .filter_map(report_scalar_label)
+                .collect::<Vec<_>>()
+                .join("; ")
+        })
+        .unwrap_or_default();
+    markdown_cell(Some(&joined))
 }
 
 fn markdown_bool(value: Option<&Value>) -> String {

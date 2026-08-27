@@ -113,6 +113,24 @@
         "metadata_empty_type2_attribute_counts": {
           "$ref": "#/$defs/count_map"
         },
+        "metadata_string_tags": {
+          "$ref": "#/$defs/count_map"
+        },
+        "metadata_string_vrs": {
+          "$ref": "#/$defs/count_map"
+        },
+        "metadata_string_value_multiplicities": {
+          "$ref": "#/$defs/count_map"
+        },
+        "metadata_string_max_component_encoded_length_bytes": {
+          "$ref": "#/$defs/count_map"
+        },
+        "metadata_string_raw_value_lengths": {
+          "$ref": "#/$defs/count_map"
+        },
+        "metadata_string_raw_sha256_values": {
+          "$ref": "#/$defs/count_map"
+        },
         "photometric_interpretations": {
           "$ref": "#/$defs/count_map"
         },
@@ -614,6 +632,12 @@
         "metadata_temporal_normalized_utc",
         "metadata_empty_type2_attributes",
         "metadata_empty_type2_attribute_count",
+        "metadata_string_tags",
+        "metadata_string_vrs",
+        "metadata_string_value_multiplicities",
+        "metadata_string_max_component_encoded_length_bytes",
+        "metadata_string_raw_value_lengths",
+        "metadata_string_raw_sha256_values",
         "photometric",
         "bits",
         "bits_allocated",
@@ -876,6 +900,34 @@
         "metadata_empty_type2_attribute_count": {
           "type": ["integer", "null"],
           "minimum": 1
+        },
+        "metadata_string_tags": {
+          "type": ["array", "null"],
+          "items": {
+            "type": "string",
+            "pattern": "^[0-9A-F]{4},[0-9A-F]{4}$"
+          },
+          "uniqueItems": true
+        },
+        "metadata_string_vrs": {
+          "type": ["array", "null"],
+          "items": { "enum": ["DS", "IS", "LO", "LT"] }
+        },
+        "metadata_string_value_multiplicities": {
+          "type": ["array", "null"],
+          "items": { "type": "integer", "minimum": 1 }
+        },
+        "metadata_string_max_component_encoded_length_bytes": {
+          "type": ["array", "null"],
+          "items": { "type": "integer", "minimum": 1 }
+        },
+        "metadata_string_raw_value_lengths": {
+          "type": ["array", "null"],
+          "items": { "type": "integer", "minimum": 1 }
+        },
+        "metadata_string_raw_sha256_values": {
+          "type": ["array", "null"],
+          "items": { "$ref": "#/$defs/sha256" }
         },
         "photometric": {
           "type": ["string", "null"]

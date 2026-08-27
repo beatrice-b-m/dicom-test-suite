@@ -66,6 +66,7 @@ pub(crate) struct Part10Expectations<'a> {
     pub mg_image: Option<MgImageExpectations<'a>>,
     pub dx_image: Option<DxImageExpectations<'a>>,
     pub xa_image: Option<XaImageExpectations<'a>>,
+    pub xrf_image: Option<XrfImageExpectations<'a>>,
     pub us_image: Option<UsImageExpectations<'a>>,
     pub us_multiframe: Option<UsMultiframeExpectations<'a>>,
     pub nm_image: Option<NmImageExpectations<'a>>,
@@ -491,6 +492,24 @@ pub(crate) struct XaImageExpectations<'a> {
     pub distance_source_to_detector_mm: &'a str,
     pub distance_source_to_patient_mm: &'a str,
     pub estimated_radiographic_magnification_factor: &'a str,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct XrfImageExpectations<'a> {
+    pub modality: &'a str,
+    pub body_part_examined: &'a str,
+    pub image_type: &'a str,
+    pub patient_orientation: &'a str,
+    pub pixel_intensity_relationship: &'a str,
+    pub lossy_image_compression: &'a str,
+    pub radiation_setting: &'a str,
+    pub kvp: &'a str,
+    pub exposure_mas: &'a str,
+    pub imager_pixel_spacing_mm: &'a str,
+    pub distance_source_to_detector_mm: &'a str,
+    pub distance_source_to_patient_mm: &'a str,
+    pub estimated_radiographic_magnification_factor: &'a str,
+    pub column_angulation_degrees: &'a str,
 }
 
 #[derive(Debug, Clone)]
@@ -1004,6 +1023,9 @@ pub(crate) fn validate_part10_file(
     }
     if let Some(xa_image) = &expected.xa_image {
         validate_xa_image(path, &obj, &mut internal, xa_image)?;
+    }
+    if let Some(xrf_image) = &expected.xrf_image {
+        validate_xrf_image(path, &obj, &mut internal, xrf_image)?;
     }
     if let Some(us_image) = &expected.us_image {
         validate_us_image(path, &obj, &mut internal, us_image)?;
@@ -6158,6 +6180,214 @@ fn validate_xa_image(
     Ok(())
 }
 
+fn validate_xrf_image(
+    path: &Path,
+    obj: &OpenedObject,
+    results: &mut Vec<Value>,
+    expected: &XrfImageExpectations<'_>,
+) -> Result<(), GenerateError> {
+    for (name, tag, expected_value) in [
+        ("xrf_modality", tags::MODALITY, expected.modality),
+        (
+            "xrf_body_part_examined",
+            tags::BODY_PART_EXAMINED,
+            expected.body_part_examined,
+        ),
+        ("xrf_image_type", tags::IMAGE_TYPE, expected.image_type),
+        (
+            "xrf_patient_orientation_empty",
+            tags::PATIENT_ORIENTATION,
+            expected.patient_orientation,
+        ),
+        (
+            "xrf_pixel_intensity_relationship",
+            tags::PIXEL_INTENSITY_RELATIONSHIP,
+            expected.pixel_intensity_relationship,
+        ),
+        (
+            "xrf_lossy_image_compression",
+            tags::LOSSY_IMAGE_COMPRESSION,
+            expected.lossy_image_compression,
+        ),
+        (
+            "xrf_radiation_setting",
+            tags::RADIATION_SETTING,
+            expected.radiation_setting,
+        ),
+        ("xrf_kvp", tags::KVP, expected.kvp),
+        ("xrf_exposure", tags::EXPOSURE, expected.exposure_mas),
+        (
+            "xrf_imager_pixel_spacing",
+            tags::IMAGER_PIXEL_SPACING,
+            expected.imager_pixel_spacing_mm,
+        ),
+        (
+            "xrf_distance_source_to_detector",
+            tags::DISTANCE_SOURCE_TO_DETECTOR,
+            expected.distance_source_to_detector_mm,
+        ),
+        (
+            "xrf_distance_source_to_patient",
+            tags::DISTANCE_SOURCE_TO_PATIENT,
+            expected.distance_source_to_patient_mm,
+        ),
+        (
+            "xrf_estimated_magnification",
+            tags::ESTIMATED_RADIOGRAPHIC_MAGNIFICATION_FACTOR,
+            expected.estimated_radiographic_magnification_factor,
+        ),
+        (
+            "xrf_column_angulation",
+            tags::COLUMN_ANGULATION,
+            expected.column_angulation_degrees,
+        ),
+    ] {
+        check_equal(
+            results,
+            name,
+            "XRF acquisition or projection attribute matches the recipe.",
+            "XRF acquisition or projection attribute does not match the recipe.",
+            element_str(path, obj, tag)?.as_str(),
+            expected_value,
+        );
+    }
+
+    for (name, tag, expected_vr) in [
+        ("xrf_image_type_vr", tags::IMAGE_TYPE, VR::CS),
+        (
+            "xrf_patient_orientation_vr",
+            tags::PATIENT_ORIENTATION,
+            VR::CS,
+        ),
+        ("xrf_kvp_vr", tags::KVP, VR::DS),
+        ("xrf_exposure_vr", tags::EXPOSURE, VR::IS),
+        (
+            "xrf_imager_pixel_spacing_vr",
+            tags::IMAGER_PIXEL_SPACING,
+            VR::DS,
+        ),
+        ("xrf_column_angulation_vr", tags::COLUMN_ANGULATION, VR::DS),
+    ] {
+        let actual_vr = obj
+            .element(tag)
+            .map_err(|err| validation_error(path, err))?
+            .vr();
+        check_equal(
+            results,
+            name,
+            "XRF attribute VR matches the 2026b data dictionary.",
+            "XRF attribute VR does not match the 2026b data dictionary.",
+            actual_vr,
+            expected_vr,
+        );
+    }
+
+    let sid = element_f64_values(path, obj, tags::DISTANCE_SOURCE_TO_DETECTOR)?[0];
+    let sod = element_f64_values(path, obj, tags::DISTANCE_SOURCE_TO_PATIENT)?[0];
+    let magnification =
+        element_f64_values(path, obj, tags::ESTIMATED_RADIOGRAPHIC_MAGNIFICATION_FACTOR)?[0];
+    check(
+        results,
+        (sid / sod - magnification).abs() <= f64::EPSILON,
+        "xrf_sid_sod_magnification_relation",
+        "Estimated magnification equals the serialized XRF SID/SOD ratio.",
+        "Estimated magnification does not equal the serialized XRF SID/SOD ratio.",
+    );
+
+    for (name, tag) in [
+        ("xrf_laterality_absent", tags::LATERALITY),
+        ("xrf_exposure_time_absent", tags::EXPOSURE_TIME),
+        ("xrf_exposure_time_in_us_absent", tags::EXPOSURE_TIME_INU_S),
+        ("xrf_x_ray_tube_current_absent", tags::X_RAY_TUBE_CURRENT),
+        (
+            "xrf_x_ray_tube_current_in_ua_absent",
+            tags::X_RAY_TUBE_CURRENT_INU_A,
+        ),
+        ("xrf_exposure_in_uas_absent", tags::EXPOSURE_INU_AS),
+        ("xrf_radiation_mode_absent", tags::RADIATION_MODE),
+        ("xrf_average_pulse_width_absent", tags::AVERAGE_PULSE_WIDTH),
+        (
+            "xrf_positioner_primary_angle_absent",
+            tags::POSITIONER_PRIMARY_ANGLE,
+        ),
+        (
+            "xrf_positioner_secondary_angle_absent",
+            tags::POSITIONER_SECONDARY_ANGLE,
+        ),
+        ("xrf_number_of_frames_absent", tags::NUMBER_OF_FRAMES),
+        (
+            "xrf_frame_increment_pointer_absent",
+            tags::FRAME_INCREMENT_POINTER,
+        ),
+        ("xrf_frame_time_absent", tags::FRAME_TIME),
+        ("xrf_frame_time_vector_absent", tags::FRAME_TIME_VECTOR),
+        (
+            "xrf_biplane_reference_absent",
+            tags::REFERENCED_IMAGE_SEQUENCE,
+        ),
+        ("xrf_contrast_agent_absent", tags::CONTRAST_BOLUS_AGENT),
+        (
+            "xrf_mask_subtraction_absent",
+            tags::MASK_SUBTRACTION_SEQUENCE,
+        ),
+        ("xrf_table_height_absent", tags::TABLE_HEIGHT),
+        ("xrf_table_traverse_absent", tags::TABLE_TRAVERSE),
+        ("xrf_table_position_absent", tags::TABLE_POSITION),
+        ("xrf_table_motion_absent", tags::TABLE_MOTION),
+        ("xrf_table_tilt_absent", tags::TABLE_ANGLE),
+        ("xrf_scan_options_absent", tags::SCAN_OPTIONS),
+        ("xrf_tomo_layer_height_absent", tags::TOMO_LAYER_HEIGHT),
+        ("xrf_tomo_angle_absent", tags::TOMO_ANGLE),
+        ("xrf_tomo_time_absent", tags::TOMO_TIME),
+        ("xrf_tomo_type_absent", tags::TOMO_TYPE),
+        ("xrf_tomo_class_absent", tags::TOMO_CLASS),
+        (
+            "xrf_frame_of_reference_absent",
+            tags::FRAME_OF_REFERENCE_UID,
+        ),
+        (
+            "xrf_image_orientation_patient_absent",
+            tags::IMAGE_ORIENTATION_PATIENT,
+        ),
+        (
+            "xrf_image_position_patient_absent",
+            tags::IMAGE_POSITION_PATIENT,
+        ),
+        ("xrf_pixel_spacing_absent", tags::PIXEL_SPACING),
+        ("xrf_modality_lut_absent", tags::MODALITY_LUT_SEQUENCE),
+        ("xrf_voi_lut_absent", tags::VOILUT_SEQUENCE),
+        ("xrf_calibration_image_absent", tags::CALIBRATION_IMAGE),
+        (
+            "xrf_lossy_image_compression_ratio_absent",
+            tags::LOSSY_IMAGE_COMPRESSION_RATIO,
+        ),
+        (
+            "xrf_lossy_image_compression_method_absent",
+            tags::LOSSY_IMAGE_COMPRESSION_METHOD,
+        ),
+        ("xrf_detector_type_absent", tags::DETECTOR_TYPE),
+        (
+            "xrf_detector_configuration_absent",
+            tags::DETECTOR_CONFIGURATION,
+        ),
+        ("xrf_detector_id_absent", tags::DETECTOR_ID),
+    ] {
+        let present = obj
+            .element_opt(tag)
+            .map_err(|err| validation_error(path, err))?
+            .is_some();
+        check(
+            results,
+            !present,
+            name,
+            "Excluded XRF conditional or optional claim is absent.",
+            "An excluded XRF conditional or optional claim is unexpectedly present.",
+        );
+    }
+
+    Ok(())
+}
+
 fn validate_us_image(
     path: &Path,
     obj: &OpenedObject,
@@ -7300,6 +7530,7 @@ fn standard_sop_class_validation_name(sop_class_uid: &str) -> &'static str {
         uids::ULTRASOUND_IMAGE_STORAGE => "ultrasound_image_sop_class",
         uids::ULTRASOUND_MULTI_FRAME_IMAGE_STORAGE => "ultrasound_multiframe_image_sop_class",
         uids::X_RAY_ANGIOGRAPHIC_IMAGE_STORAGE => "x_ray_angiographic_image_sop_class",
+        uids::X_RAY_RADIOFLUOROSCOPIC_IMAGE_STORAGE => "x_ray_radiofluoroscopic_image_sop_class",
         uids::NUCLEAR_MEDICINE_IMAGE_STORAGE => "nuclear_medicine_image_sop_class",
         uids::DIGITAL_MAMMOGRAPHY_X_RAY_IMAGE_STORAGE_FOR_PRESENTATION => {
             "digital_mammography_for_presentation_sop_class"
@@ -7347,6 +7578,9 @@ fn standard_sop_class_validation_message(sop_class_uid: &str) -> &'static str {
         }
         uids::X_RAY_ANGIOGRAPHIC_IMAGE_STORAGE => {
             "SOP Class UID matches X-Ray Angiographic Image Storage in the 2026b reference."
+        }
+        uids::X_RAY_RADIOFLUOROSCOPIC_IMAGE_STORAGE => {
+            "SOP Class UID matches X-Ray Radiofluoroscopic Image Storage in the 2026b reference."
         }
         uids::NUCLEAR_MEDICINE_IMAGE_STORAGE => {
             "SOP Class UID matches Nuclear Medicine Image Storage in the 2026b reference."

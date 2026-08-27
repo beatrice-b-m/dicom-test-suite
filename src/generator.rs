@@ -39,6 +39,7 @@ use native::string_boundary_sc::{STRING_BOUNDARY_SC_RECIPE, StringBoundaryScReci
 use native::timezone_sc::{TIMEZONE_SC_RECIPE, TimezoneBoundary, TimezoneScRecipe};
 use native::us_multiframe::{CLASSIC_US_MULTIFRAME_RECIPES, ClassicUsMultiframeRecipe};
 use native::xa::{CLASSIC_XA_RECIPES, ClassicXaRecipe};
+use native::xrf::{CLASSIC_XRF_RECIPES, ClassicXrfRecipe};
 
 use crate::{
     DeterministicUidInput, GenerateError, PreparedGenerationRun, UidRole,
@@ -66,11 +67,11 @@ use crate::{
         NmImageExpectations, Part10Expectations, PetImageExpectations, PixelDataLengthFormula,
         PresentationStateExpectations, RealWorldValueMappingExpectations, RtDoseExpectations,
         RtStructureSetExpectations, SegmentationExpectations, UsImageExpectations,
-        UsMultiframeExpectations, XaImageExpectations, validate_basic_text_sr_file,
-        validate_comprehensive_sr_file, validate_encapsulated_pdf_file,
-        validate_key_object_selection_file, validate_part10_file, validate_presentation_state_file,
-        validate_real_world_value_mapping_file, validate_rt_dose_file,
-        validate_rt_structure_set_file,
+        UsMultiframeExpectations, XaImageExpectations, XrfImageExpectations,
+        validate_basic_text_sr_file, validate_comprehensive_sr_file,
+        validate_encapsulated_pdf_file, validate_key_object_selection_file, validate_part10_file,
+        validate_presentation_state_file, validate_real_world_value_mapping_file,
+        validate_rt_dose_file, validate_rt_structure_set_file,
     },
 };
 
@@ -120,6 +121,7 @@ const CLASSIC_DX_RECIPE_VERSION: &str = "0.1.0";
 const CLASSIC_US_RECIPE_VERSION: &str = "0.1.0";
 const CLASSIC_US_MULTIFRAME_RECIPE_VERSION: &str = "0.1.0";
 const CLASSIC_XA_RECIPE_VERSION: &str = "0.1.0";
+const CLASSIC_XRF_RECIPE_VERSION: &str = "0.1.0";
 const CLASSIC_NM_RECIPE_VERSION: &str = "0.1.0";
 const CLASSIC_PET_RECIPE_VERSION: &str = "0.1.0";
 const CLASSIC_CR_RECIPE_VERSION: &str = "0.1.0";
@@ -4005,6 +4007,20 @@ pub(crate) fn write_supported_cases(
             standards_lock_sha256,
         )?)?;
     }
+    for recipe in CLASSIC_XRF_RECIPES {
+        let Some(case) = registry_case(registry, recipe.case_id)? else {
+            continue;
+        };
+        if !should_generate_case(case, run)? {
+            continue;
+        }
+        context.record_one(write_classic_xrf_case(
+            run,
+            case,
+            *recipe,
+            standards_lock_sha256,
+        )?)?;
+    }
     for recipe in CLASSIC_US_RECIPES {
         let Some(case) = registry_case(registry, recipe.case_id)? else {
             continue;
@@ -5373,6 +5389,7 @@ fn write_pixel_case_with_metadata(
             mg_image: None,
             dx_image: None,
             xa_image: None,
+            xrf_image: None,
             us_image: None,
             us_multiframe: None,
             nm_image: None,
@@ -7888,6 +7905,7 @@ fn write_classic_ct_case(
                     mg_image: None,
                     dx_image: None,
                     xa_image: None,
+                    xrf_image: None,
                     us_image: None,
                     us_multiframe: None,
                     nm_image: None,
@@ -8717,6 +8735,7 @@ fn write_enhanced_ct_case(
             mg_image: None,
             dx_image: None,
             xa_image: None,
+            xrf_image: None,
             us_image: None,
             us_multiframe: None,
             nm_image: None,
@@ -9065,6 +9084,7 @@ fn write_segmentation_case(
             mg_image: None,
             dx_image: None,
             xa_image: None,
+            xrf_image: None,
             us_image: None,
             us_multiframe: None,
             nm_image: None,
@@ -10970,6 +10990,7 @@ fn write_enhanced_ct_concatenation_case(
                 mg_image: None,
                 dx_image: None,
                 xa_image: None,
+                xrf_image: None,
                 us_image: None,
                 us_multiframe: None,
                 nm_image: None,
@@ -13559,6 +13580,7 @@ fn write_enhanced_mr_case(
             mg_image: None,
             dx_image: None,
             xa_image: None,
+            xrf_image: None,
             us_image: None,
             us_multiframe: None,
             nm_image: None,
@@ -14536,6 +14558,7 @@ fn write_classic_mg_case(
             }),
             dx_image: None,
             xa_image: None,
+            xrf_image: None,
             us_image: None,
             us_multiframe: None,
             nm_image: None,
@@ -15240,6 +15263,7 @@ fn write_classic_dx_case(
                 shutter_presentation_value: recipe.shutter_presentation_value,
             }),
             xa_image: None,
+            xrf_image: None,
             us_image: None,
             us_multiframe: None,
             nm_image: None,
@@ -15864,6 +15888,7 @@ fn write_classic_nm_case(
             mg_image: None,
             dx_image: None,
             xa_image: None,
+            xrf_image: None,
             us_image: None,
             us_multiframe: None,
             nm_image: Some(NmImageExpectations {
@@ -16446,6 +16471,7 @@ fn write_classic_pet_case(
             mg_image: None,
             dx_image: None,
             xa_image: None,
+            xrf_image: None,
             us_image: None,
             us_multiframe: None,
             nm_image: None,
@@ -16937,6 +16963,7 @@ fn write_classic_xa_case(
                 distance_source_to_patient_mm: "800",
                 estimated_radiographic_magnification_factor: "1.5",
             }),
+            xrf_image: None,
             us_image: None,
             us_multiframe: None,
             nm_image: None,
@@ -17095,6 +17122,423 @@ fn classic_xa_manifest_entry(
         "expected_visual_checks": { "pattern": "single_plane_synthetic_angiographic_projection" },
         "validation": validation,
         "known_stressors": ["x_ray_angiographic_image_storage", "single_plane_projection", "xa_positioner_geometry", "native_u8_pixels"],
+        "standards_evidence": deduplicated_standards_evidence(standards_evidence)
+    })
+}
+
+fn write_classic_xrf_case(
+    run: &PreparedGenerationRun,
+    case: &Value,
+    recipe: ClassicXrfRecipe,
+    standards_lock_sha256: &str,
+) -> Result<GeneratedFile, GenerateError> {
+    if !recipe.pixels_are_consistent()
+        || !recipe.geometry_is_consistent()
+        || !recipe.non_claims_are_consistent()
+        || sha256_hex(recipe.pixel_bytes) != recipe.payload_sha256
+    {
+        return Err(GenerateError::MetadataShape {
+            path: PathBuf::from(recipe.case_id),
+            message: "XRF recipe pixels, geometry, non-claims, or hashes are inconsistent",
+        });
+    }
+
+    let study_instance_uid = deterministic_classic_xrf_uid(
+        standards_lock_sha256,
+        recipe,
+        run.seed,
+        UidRole::StudyInstance,
+    );
+    let series_instance_uid = deterministic_classic_xrf_uid(
+        standards_lock_sha256,
+        recipe,
+        run.seed,
+        UidRole::SeriesInstance,
+    );
+    let sop_instance_uid = deterministic_classic_xrf_uid(
+        standards_lock_sha256,
+        recipe,
+        run.seed,
+        UidRole::SopInstance,
+    );
+    let implementation_class_uid = deterministic_implementation_uid(standards_lock_sha256);
+    let relative_path = format!("{}/instance.dcm", recipe.case_id);
+    let path = run.out_dir.join(&relative_path);
+    let case_dir = path.parent().ok_or_else(|| GenerateError::MetadataShape {
+        path: PathBuf::from(&relative_path),
+        message: "generated DICOM path must have a parent directory",
+    })?;
+    fs::create_dir_all(case_dir).map_err(|source| GenerateError::CreateCaseOutputDir {
+        path: case_dir.to_path_buf(),
+        source,
+    })?;
+
+    let mut obj = InMemDicomObject::new_empty();
+    put_str(
+        &mut obj,
+        tags::SOP_CLASS_UID,
+        VR::UI,
+        uids::X_RAY_RADIOFLUOROSCOPIC_IMAGE_STORAGE,
+    );
+    put_str(&mut obj, tags::SOP_INSTANCE_UID, VR::UI, &sop_instance_uid);
+    put_str(&mut obj, tags::SYNTHETIC_DATA, VR::CS, "YES");
+    put_str(
+        &mut obj,
+        tags::PATIENT_NAME,
+        VR::PN,
+        "DTS^Synthetic^Patient001",
+    );
+    put_str(&mut obj, tags::PATIENT_ID, VR::LO, "DTS-PATIENT-001");
+    put_str(&mut obj, tags::PATIENT_BIRTH_DATE, VR::DA, "19700101");
+    put_str(&mut obj, tags::PATIENT_SEX, VR::CS, "O");
+    put_str(
+        &mut obj,
+        tags::STUDY_INSTANCE_UID,
+        VR::UI,
+        &study_instance_uid,
+    );
+    put_str(&mut obj, tags::STUDY_DATE, VR::DA, "20260101");
+    put_str(&mut obj, tags::STUDY_TIME, VR::TM, "000000");
+    put_str(&mut obj, tags::REFERRING_PHYSICIAN_NAME, VR::PN, "");
+    put_str(&mut obj, tags::STUDY_ID, VR::SH, "DTS-XRF");
+    put_str(&mut obj, tags::ACCESSION_NUMBER, VR::SH, "");
+    put_str(&mut obj, tags::MODALITY, VR::CS, "RF");
+    put_str(
+        &mut obj,
+        tags::SERIES_INSTANCE_UID,
+        VR::UI,
+        &series_instance_uid,
+    );
+    put_str(&mut obj, tags::SERIES_NUMBER, VR::IS, "1");
+    put_str(
+        &mut obj,
+        tags::BODY_PART_EXAMINED,
+        VR::CS,
+        recipe.body_part_examined,
+    );
+    put_str(&mut obj, tags::MANUFACTURER, VR::LO, "dicom-test-suite");
+    put_str(
+        &mut obj,
+        tags::MANUFACTURER_MODEL_NAME,
+        VR::LO,
+        recipe.recipe_id,
+    );
+    put_str(
+        &mut obj,
+        tags::SOFTWARE_VERSIONS,
+        VR::LO,
+        crate::PACKAGE_VERSION,
+    );
+    put_str(&mut obj, tags::ACQUISITION_NUMBER, VR::IS, "1");
+    put_str(&mut obj, tags::ACQUISITION_DATE, VR::DA, "20260101");
+    put_str(&mut obj, tags::ACQUISITION_TIME, VR::TM, "000000");
+    put_str(&mut obj, tags::IMAGE_TYPE, VR::CS, recipe.image_type);
+    put_str(&mut obj, tags::INSTANCE_NUMBER, VR::IS, "1");
+    put_str(
+        &mut obj,
+        tags::PATIENT_ORIENTATION,
+        VR::CS,
+        recipe.patient_orientation,
+    );
+    put_str(&mut obj, tags::CONTENT_DATE, VR::DA, "20260101");
+    put_str(&mut obj, tags::CONTENT_TIME, VR::TM, "000000");
+    put_str(
+        &mut obj,
+        tags::PIXEL_INTENSITY_RELATIONSHIP,
+        VR::CS,
+        recipe.pixel_intensity_relationship,
+    );
+    put_str(
+        &mut obj,
+        tags::LOSSY_IMAGE_COMPRESSION,
+        VR::CS,
+        recipe.lossy_image_compression,
+    );
+    put_str(&mut obj, tags::KVP, VR::DS, &recipe.kvp.to_string());
+    put_str(
+        &mut obj,
+        tags::RADIATION_SETTING,
+        VR::CS,
+        recipe.radiation_setting,
+    );
+    put_str(
+        &mut obj,
+        tags::EXPOSURE,
+        VR::IS,
+        &recipe.exposure_mas.to_string(),
+    );
+    put_str(
+        &mut obj,
+        tags::IMAGER_PIXEL_SPACING,
+        VR::DS,
+        &format!(
+            "{}\\{}",
+            recipe.imager_pixel_spacing_mm[0], recipe.imager_pixel_spacing_mm[1]
+        ),
+    );
+    put_str(
+        &mut obj,
+        tags::DISTANCE_SOURCE_TO_DETECTOR,
+        VR::DS,
+        &recipe.distance_source_to_detector_mm.to_string(),
+    );
+    put_str(
+        &mut obj,
+        tags::DISTANCE_SOURCE_TO_PATIENT,
+        VR::DS,
+        &recipe.distance_source_to_patient_mm.to_string(),
+    );
+    put_str(
+        &mut obj,
+        tags::ESTIMATED_RADIOGRAPHIC_MAGNIFICATION_FACTOR,
+        VR::DS,
+        &recipe
+            .estimated_radiographic_magnification_factor
+            .to_string(),
+    );
+    put_str(
+        &mut obj,
+        tags::COLUMN_ANGULATION,
+        VR::DS,
+        &recipe.column_angulation_degrees.to_string(),
+    );
+    put_u16(&mut obj, tags::SAMPLES_PER_PIXEL, VR::US, 1);
+    put_str(
+        &mut obj,
+        tags::PHOTOMETRIC_INTERPRETATION,
+        VR::CS,
+        "MONOCHROME2",
+    );
+    put_u16(&mut obj, tags::ROWS, VR::US, recipe.rows);
+    put_u16(&mut obj, tags::COLUMNS, VR::US, recipe.columns);
+    put_u16(&mut obj, tags::BITS_ALLOCATED, VR::US, 8);
+    put_u16(&mut obj, tags::BITS_STORED, VR::US, 8);
+    put_u16(&mut obj, tags::HIGH_BIT, VR::US, 7);
+    put_u16(&mut obj, tags::PIXEL_REPRESENTATION, VR::US, 0);
+    obj.put(DataElement::new(
+        tags::PIXEL_DATA,
+        VR::OB,
+        PrimitiveValue::from(recipe.pixel_bytes.to_vec()),
+    ));
+
+    obj.with_meta(
+        FileMetaTableBuilder::new()
+            .transfer_syntax(uids::EXPLICIT_VR_LITTLE_ENDIAN)
+            .implementation_class_uid(&implementation_class_uid)
+            .implementation_version_name(crate::IMPLEMENTATION_VERSION_NAME),
+    )
+    .map_err(|err| GenerateError::WriteDicomFile {
+        path: path.clone(),
+        message: err.to_string(),
+    })?
+    .write_to_file(&path)
+    .map_err(|err| GenerateError::WriteDicomFile {
+        path: path.clone(),
+        message: err.to_string(),
+    })?;
+
+    let frame_hashes = [recipe.frame_sha256];
+    let validated = validate_part10_file(
+        &path,
+        &Part10Expectations {
+            sop_class_uid: uids::X_RAY_RADIOFLUOROSCOPIC_IMAGE_STORAGE,
+            sop_instance_uid: &sop_instance_uid,
+            transfer_syntax_uid: uids::EXPLICIT_VR_LITTLE_ENDIAN,
+            implementation_class_uid: &implementation_class_uid,
+            synthetic_data: "YES",
+            rows: recipe.rows,
+            columns: recipe.columns,
+            frames: 1,
+            samples_per_pixel: 1,
+            photometric_interpretation: "MONOCHROME2",
+            bits_allocated: 8,
+            bits_stored: 8,
+            high_bit: 7,
+            pixel_representation: 0,
+            planar_configuration: None,
+            pixel_data_vr: VR::OB,
+            pixel_data_length_formula: PixelDataLengthFormula::ContiguousSamples,
+            decoded_frame_hashes: &frame_hashes,
+            palette: None,
+            padding: None,
+            ct_image: None,
+            enhanced_ct_image: None,
+            enhanced_mr_image: None,
+            mg_image: None,
+            dx_image: None,
+            xa_image: None,
+            xrf_image: Some(XrfImageExpectations {
+                modality: "RF",
+                body_part_examined: recipe.body_part_examined,
+                image_type: recipe.image_type,
+                patient_orientation: recipe.patient_orientation,
+                pixel_intensity_relationship: recipe.pixel_intensity_relationship,
+                lossy_image_compression: recipe.lossy_image_compression,
+                radiation_setting: recipe.radiation_setting,
+                kvp: "70",
+                exposure_mas: "1",
+                imager_pixel_spacing_mm: "0.2\\0.2",
+                distance_source_to_detector_mm: "1200",
+                distance_source_to_patient_mm: "800",
+                estimated_radiographic_magnification_factor: "1.5",
+                column_angulation_degrees: "10",
+            }),
+            us_image: None,
+            us_multiframe: None,
+            nm_image: None,
+            pet_image: None,
+            cr_image: None,
+            mr_image: None,
+            segmentation: None,
+        },
+    )?;
+
+    Ok(GeneratedFile {
+        case_id: recipe.case_id.to_string(),
+        manifest_entry: classic_xrf_manifest_entry(
+            case,
+            recipe,
+            &relative_path,
+            &study_instance_uid,
+            &series_instance_uid,
+            &sop_instance_uid,
+            &implementation_class_uid,
+            &validated.bytes,
+            validated.validation,
+        ),
+    })
+}
+
+#[allow(clippy::too_many_arguments)]
+fn classic_xrf_manifest_entry(
+    case: &Value,
+    recipe: ClassicXrfRecipe,
+    relative_path: &str,
+    study_instance_uid: &str,
+    series_instance_uid: &str,
+    sop_instance_uid: &str,
+    implementation_class_uid: &str,
+    bytes: &[u8],
+    validation: Value,
+) -> Value {
+    let mut standards_evidence = standards_evidence_from_case(case);
+    standards_evidence.extend([
+        serde_json::json!({
+            "source": "dicom-standard-kb", "edition": "2026b",
+            "query": "lookup_sop_class X-Ray Radiofluoroscopic Image Storage",
+            "covered": true, "part": "PS3.4", "anchor": "table_B.5-1"
+        }),
+        serde_json::json!({
+            "source": "dicom-standard-kb", "edition": "2026b",
+            "query": "list_modules_for_iod X-Ray Radiofluoroscopic Image",
+            "covered": true, "part": "PS3.3", "anchor": "table_A.16-1"
+        }),
+        serde_json::json!({
+            "source": "dicom-standard-kb", "edition": "2026b",
+            "query": "list_attributes_for_module X-Ray Image; X-Ray Acquisition; XRF Positioner",
+            "covered": true, "part": "PS3.3", "anchor": "table_C.8-26"
+        }),
+    ]);
+    let xrf_projection = serde_json::json!({
+        "image_type": recipe.image_type.split('\\').collect::<Vec<_>>(),
+        "frame_count": 1,
+        "body_part_examined": recipe.body_part_examined,
+        "patient_orientation_empty": recipe.patient_orientation.is_empty(),
+        "laterality_present": recipe.laterality_present,
+        "pixel_intensity_relationship": recipe.pixel_intensity_relationship,
+        "radiation_setting": recipe.radiation_setting,
+        "kvp": f64::from(recipe.kvp),
+        "exposure_mas": recipe.exposure_mas,
+        "imager_pixel_spacing_mm": recipe.imager_pixel_spacing_mm,
+        "distance_source_to_detector_mm": f64::from(recipe.distance_source_to_detector_mm),
+        "distance_source_to_patient_mm": f64::from(recipe.distance_source_to_patient_mm),
+        "estimated_radiographic_magnification_factor": recipe.estimated_radiographic_magnification_factor,
+        "column_angulation_degrees": f64::from(recipe.column_angulation_degrees),
+        "lossy_image_compression": recipe.lossy_image_compression,
+        "multiframe_cine": recipe.multiframe_cine,
+        "biplane_data_present": recipe.biplane_data_present,
+        "contrast_used": recipe.contrast_used,
+        "subtraction_applied": recipe.subtraction_applied,
+        "table_position_present": recipe.table_position_present,
+        "table_motion_present": recipe.table_motion_present,
+        "table_tilt_present": recipe.table_tilt_present,
+        "tomography_present": recipe.tomography_present,
+        "patient_space_geometry_present": recipe.patient_space_geometry_present,
+        "pixel_spacing_calibrated": recipe.pixel_spacing_calibrated,
+        "xa_positioner_angles_present": recipe.xa_positioner_angles_present
+    });
+
+    serde_json::json!({
+        "case_id": recipe.case_id,
+        "profile_membership": ["core"],
+        "path": relative_path,
+        "sha256": sha256_hex(bytes),
+        "size_bytes": bytes.len(),
+        "determinism": "byte_stable",
+        "recipe": {
+            "recipe_id": recipe.recipe_id,
+            "recipe_version": CLASSIC_XRF_RECIPE_VERSION,
+            "recipe_parameters": {
+                "rows": recipe.rows,
+                "columns": recipe.columns,
+                "frames": 1,
+                "samples_per_pixel": 1,
+                "photometric_interpretation": "MONOCHROME2",
+                "bits_allocated": 8,
+                "bits_stored": 8,
+                "high_bit": 7,
+                "pixel_representation": 0,
+                "payload_sha256": recipe.payload_sha256,
+                "xrf_projection": xrf_projection.clone()
+            }
+        },
+        "dicom": {
+            "sop_class_uid": uids::X_RAY_RADIOFLUOROSCOPIC_IMAGE_STORAGE,
+            "sop_class_name": "X-Ray Radiofluoroscopic Image Storage",
+            "iod_name": "X-Ray Radiofluoroscopic Image",
+            "modality": "RF",
+            "transfer_syntax_uid": uids::EXPLICIT_VR_LITTLE_ENDIAN,
+            "transfer_syntax_name": "Explicit VR Little Endian"
+        },
+        "uids": {
+            "study_instance_uid": study_instance_uid,
+            "series_instance_uid": series_instance_uid,
+            "sop_instance_uid": sop_instance_uid,
+            "frame_of_reference_uid": Value::Null,
+            "implementation_class_uid": implementation_class_uid
+        },
+        "image": {
+            "rows": recipe.rows,
+            "columns": recipe.columns,
+            "frames": 1,
+            "samples_per_pixel": 1,
+            "photometric_interpretation": "MONOCHROME2",
+            "bits_allocated": 8,
+            "bits_stored": 8,
+            "high_bit": 7,
+            "pixel_representation": 0,
+            "planar_configuration": Value::Null
+        },
+        "pixel_data": {
+            "vr": "OB",
+            "native_or_encapsulated": "native",
+            "value_length": recipe.pixel_count(),
+            "frame_count": 1,
+            "frame_hashes": [recipe.frame_sha256]
+        },
+        "references": [],
+        "expected_capabilities": ["open_file", "read_metadata", "render_native_pixels", "interpret_projection_geometry"],
+        "expected_semantics": {
+            "synthetic_data": "YES",
+            "image_type": recipe.image_type,
+            "body_part_examined": recipe.body_part_examined,
+            "pixel_min": 0,
+            "pixel_max": 255
+        },
+        "expected_xrf_projection": xrf_projection,
+        "expected_visual_checks": { "pattern": "single_plane_synthetic_radiofluoroscopic_projection" },
+        "validation": validation,
+        "known_stressors": ["x_ray_radiofluoroscopic_image_storage", "single_plane_projection", "xrf_column_angulation", "native_u8_pixels"],
         "standards_evidence": deduplicated_standards_evidence(standards_evidence)
     })
 }
@@ -17315,6 +17759,7 @@ fn write_classic_us_multiframe_case(
             mg_image: None,
             dx_image: None,
             xa_image: None,
+            xrf_image: None,
             us_image: None,
             us_multiframe: Some(UsMultiframeExpectations {
                 modality: "US",
@@ -17721,6 +18166,7 @@ fn write_classic_us_case(
             mg_image: None,
             dx_image: None,
             xa_image: None,
+            xrf_image: None,
             us_image: Some(UsImageExpectations {
                 modality: "US",
                 image_type: "ORIGINAL\\PRIMARY",
@@ -18278,6 +18724,7 @@ fn write_classic_cr_case(
             mg_image: None,
             dx_image: None,
             xa_image: None,
+            xrf_image: None,
             us_image: None,
             us_multiframe: None,
             nm_image: None,
@@ -18889,6 +19336,7 @@ fn write_classic_mr_case(
                 mg_image: None,
                 dx_image: None,
                 xa_image: None,
+                xrf_image: None,
                 us_image: None,
                 us_multiframe: None,
                 nm_image: None,
@@ -19599,6 +20047,24 @@ fn deterministic_classic_xa_uid(
     })
 }
 
+fn deterministic_classic_xrf_uid(
+    standards_lock_sha256: &str,
+    recipe: ClassicXrfRecipe,
+    run_seed: u64,
+    role: UidRole,
+) -> String {
+    deterministic_uid(&DeterministicUidInput {
+        standards_lock_sha256,
+        case_id: recipe.case_id,
+        recipe_version: CLASSIC_XRF_RECIPE_VERSION,
+        run_seed,
+        file_index: 0,
+        frame_index: None,
+        referenced_object_index: None,
+        role,
+    })
+}
+
 fn deterministic_classic_nm_uid(
     standards_lock_sha256: &str,
     recipe: ClassicNmRecipe,
@@ -20057,6 +20523,122 @@ mod tests {
             output
                 .path()
                 .join("classic/xa/monoplane_explicit_le/instance.dcm")
+                .is_file()
+        );
+    }
+
+    #[test]
+    fn classic_xrf_writer_reopens_and_validates_native_projection() {
+        let output = ParametricMapStagingGuard::new();
+        let run = PreparedGenerationRun {
+            profile: "core".to_string(),
+            out_dir: output.path().to_path_buf(),
+            manifest_path: output.path().join("manifest.json"),
+            seed: 1,
+            include_stress: false,
+        };
+        let case = serde_json::json!({
+            "case_id": "classic/xrf/monoplane_explicit_le",
+            "standards_evidence": []
+        });
+
+        let generated = write_classic_xrf_case(
+            &run,
+            &case,
+            CLASSIC_XRF_RECIPES[0],
+            "0000000000000000000000000000000000000000000000000000000000000000",
+        )
+        .expect("XRF Part 10 fixture should write, reopen, and validate");
+
+        assert_eq!(generated.case_id, "classic/xrf/monoplane_explicit_le");
+        assert_eq!(
+            generated.manifest_entry.pointer("/expected_xrf_projection"),
+            generated
+                .manifest_entry
+                .pointer("/recipe/recipe_parameters/xrf_projection")
+        );
+        assert_eq!(
+            generated
+                .manifest_entry
+                .pointer("/expected_xrf_projection/column_angulation_degrees"),
+            Some(&Value::from(10.0))
+        );
+        assert_eq!(
+            generated
+                .manifest_entry
+                .pointer("/expected_xrf_projection/table_position_present"),
+            Some(&Value::Bool(false))
+        );
+        assert_eq!(
+            generated.manifest_entry.pointer("/pixel_data/value_length"),
+            Some(&Value::from(16))
+        );
+        let validation_names = generated
+            .manifest_entry
+            .pointer("/validation/internal")
+            .and_then(Value::as_array)
+            .expect("internal validation checks should be present")
+            .iter()
+            .filter_map(|check| check.get("name").and_then(Value::as_str))
+            .collect::<BTreeSet<_>>();
+        for name in [
+            "native_frame_hashes",
+            "xrf_modality",
+            "xrf_body_part_examined",
+            "xrf_patient_orientation_empty",
+            "xrf_radiation_setting",
+            "xrf_kvp",
+            "xrf_exposure",
+            "xrf_imager_pixel_spacing",
+            "xrf_column_angulation",
+            "xrf_sid_sod_magnification_relation",
+            "xrf_positioner_primary_angle_absent",
+            "xrf_number_of_frames_absent",
+            "xrf_table_position_absent",
+            "xrf_table_motion_absent",
+            "xrf_table_tilt_absent",
+            "xrf_scan_options_absent",
+            "xrf_tomo_type_absent",
+            "xrf_frame_of_reference_absent",
+            "xrf_pixel_spacing_absent",
+            "xrf_detector_type_absent",
+        ] {
+            assert!(
+                validation_names.contains(name),
+                "missing internal check {name}"
+            );
+        }
+        assert!(
+            generated
+                .manifest_entry
+                .pointer("/validation/standards")
+                .and_then(Value::as_array)
+                .expect("standards validation checks should be present")
+                .iter()
+                .any(|check| check.get("name").and_then(Value::as_str)
+                    == Some("x_ray_radiofluoroscopic_image_sop_class"))
+        );
+        let manifest_schema: Value =
+            serde_json::from_str(include_str!("../schemas/manifest.schema.json"))
+                .expect("manifest schema should parse");
+        let file_schema = serde_json::json!({
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$ref": "#/$defs/file",
+            "$defs": manifest_schema["$defs"].clone(),
+        });
+        let validator =
+            jsonschema::validator_for(&file_schema).expect("file manifest schema should compile");
+        assert!(
+            validator.is_valid(&generated.manifest_entry),
+            "XRF manifest entry should satisfy the committed file schema: {:?}",
+            validator
+                .iter_errors(&generated.manifest_entry)
+                .collect::<Vec<_>>()
+        );
+        assert!(
+            output
+                .path()
+                .join("classic/xrf/monoplane_explicit_le/instance.dcm")
                 .is_file()
         );
     }

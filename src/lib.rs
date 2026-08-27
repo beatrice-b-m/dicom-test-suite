@@ -3213,6 +3213,21 @@ fn manifest_u64(
         })
 }
 
+fn manifest_f64(
+    manifest_path: &Path,
+    value: &Value,
+    pointer: &str,
+    message: &'static str,
+) -> Result<f64, ValidateError> {
+    value
+        .pointer(pointer)
+        .and_then(Value::as_f64)
+        .ok_or(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message,
+        })
+}
+
 fn manifest_bool(
     manifest_path: &Path,
     value: &Value,
@@ -3241,6 +3256,77 @@ fn manifest_array<'a>(
             path: manifest_path.to_path_buf(),
             message,
         })
+}
+
+fn manifest_string_array(
+    manifest_path: &Path,
+    value: &Value,
+    pointer: &str,
+    message: &'static str,
+) -> Result<Vec<String>, ValidateError> {
+    manifest_array(manifest_path, value, pointer, message)?
+        .iter()
+        .map(|item| {
+            item.as_str()
+                .map(ToOwned::to_owned)
+                .ok_or(ValidateError::ManifestShape {
+                    path: manifest_path.to_path_buf(),
+                    message,
+                })
+        })
+        .collect()
+}
+
+fn manifest_u16_array(
+    manifest_path: &Path,
+    value: &Value,
+    pointer: &str,
+    message: &'static str,
+) -> Result<Vec<u16>, ValidateError> {
+    manifest_array(manifest_path, value, pointer, message)?
+        .iter()
+        .map(|item| {
+            item.as_u64()
+                .and_then(|number| u16::try_from(number).ok())
+                .ok_or(ValidateError::ManifestShape {
+                    path: manifest_path.to_path_buf(),
+                    message,
+                })
+        })
+        .collect()
+}
+
+fn manifest_f64_array(
+    manifest_path: &Path,
+    value: &Value,
+    pointer: &str,
+    message: &'static str,
+) -> Result<Vec<f64>, ValidateError> {
+    manifest_array(manifest_path, value, pointer, message)?
+        .iter()
+        .map(|item| {
+            item.as_f64().ok_or(ValidateError::ManifestShape {
+                path: manifest_path.to_path_buf(),
+                message,
+            })
+        })
+        .collect()
+}
+
+fn parse_manifest_tag(manifest_path: &Path, value: &str) -> Result<dicom_core::Tag, ValidateError> {
+    let (group, element) = value.split_once(',').ok_or(ValidateError::ManifestShape {
+        path: manifest_path.to_path_buf(),
+        message: "NM frame increment pointer must use GGGG,EEEE form",
+    })?;
+    let group = u16::from_str_radix(group, 16).map_err(|_| ValidateError::ManifestShape {
+        path: manifest_path.to_path_buf(),
+        message: "NM frame increment pointer group must be hexadecimal",
+    })?;
+    let element = u16::from_str_radix(element, 16).map_err(|_| ValidateError::ManifestShape {
+        path: manifest_path.to_path_buf(),
+        message: "NM frame increment pointer element must be hexadecimal",
+    })?;
+    Ok(dicom_core::Tag(group, element))
 }
 
 fn validate_u16_from_manifest_and_dataset(
@@ -3472,6 +3558,13 @@ fn validate_family_standard_elements(
             validate_dx_image_standard_elements(failures, relative_path, manifest_path, file, obj)?
         }
         "Ultrasound Image" => validate_ultrasound_image_standard_elements(
+            failures,
+            relative_path,
+            manifest_path,
+            file,
+            obj,
+        )?,
+        "Nuclear Medicine Image" => validate_nuclear_medicine_standard_elements(
             failures,
             relative_path,
             manifest_path,
@@ -3873,6 +3966,582 @@ fn validate_ultrasound_image_standard_elements(
         )?,
     );
 
+    Ok(())
+}
+
+fn validate_nuclear_medicine_standard_elements(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    manifest_path: &Path,
+    file: &Value,
+    obj: &OpenedObject,
+) -> Result<(), ValidateError> {
+    let expected = file
+        .pointer("/expected_nm_multiframe")
+        .ok_or(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "Nuclear Medicine file must define expected_nm_multiframe",
+        })?;
+    let image_type = manifest_string_array(
+        manifest_path,
+        expected,
+        "/image_type",
+        "NM image_type must be a string array",
+    )?;
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::IMAGE_TYPE,
+        "nm_image_type_type1",
+        &image_type.join("\\"),
+    );
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::BODY_PART_EXAMINED,
+        "nm_body_part_examined",
+        manifest_str(
+            manifest_path,
+            file,
+            "/expected_semantics/body_part_examined",
+            "NM body_part_examined must be a string",
+        )?,
+    );
+    validate_element_absent(
+        failures,
+        relative_path,
+        obj,
+        tags::LATERALITY,
+        "nm_laterality_absent_for_unpaired_head",
+    );
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::ACTUAL_FRAME_DURATION,
+        "nm_actual_frame_duration_type1c",
+        &manifest_u64(
+            manifest_path,
+            expected,
+            "/actual_frame_duration_ms",
+            "NM actual_frame_duration_ms must be an integer",
+        )?
+        .to_string(),
+    );
+    validate_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::COUNTS_ACCUMULATED,
+        "nm_counts_accumulated_type2",
+        &manifest_u64(
+            manifest_path,
+            expected,
+            "/counts_accumulated",
+            "NM counts_accumulated must be an integer",
+        )?
+        .to_string(),
+    );
+    validate_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::PIXEL_SPACING,
+        "nm_pixel_spacing_type2",
+        "4\\4",
+    );
+
+    let pointer_strings = manifest_string_array(
+        manifest_path,
+        expected,
+        "/frame_increment_pointers",
+        "NM frame_increment_pointers must be a string array",
+    )?;
+    let expected_pointers = pointer_strings
+        .iter()
+        .map(|tag| parse_manifest_tag(manifest_path, tag))
+        .collect::<Result<Vec<_>, _>>()?;
+    match element_tags_for_validate(obj, tags::FRAME_INCREMENT_POINTER) {
+        Ok(actual) => validate_equal_debug(
+            failures,
+            relative_path,
+            "nm_frame_increment_pointers",
+            actual,
+            expected_pointers,
+        ),
+        Err(err) => failures.push(format!(
+            "{relative_path}: nm_frame_increment_pointers: {err}"
+        )),
+    }
+
+    let energy_vector = validate_nm_index_vector(
+        failures,
+        relative_path,
+        manifest_path,
+        expected,
+        obj,
+        "/energy_window_vector",
+        tags::ENERGY_WINDOW_VECTOR,
+        "nm_energy_window_vector",
+        manifest_u64(
+            manifest_path,
+            expected,
+            "/number_of_energy_windows",
+            "NM number_of_energy_windows must be an integer",
+        )? as u16,
+    )?;
+    let detector_vector = validate_nm_index_vector(
+        failures,
+        relative_path,
+        manifest_path,
+        expected,
+        obj,
+        "/detector_vector",
+        tags::DETECTOR_VECTOR,
+        "nm_detector_vector",
+        manifest_u64(
+            manifest_path,
+            expected,
+            "/number_of_detectors",
+            "NM number_of_detectors must be an integer",
+        )? as u16,
+    )?;
+    let frames = manifest_u64(
+        manifest_path,
+        file,
+        "/image/frames",
+        "NM image frames must be an integer",
+    )? as usize;
+    validate_equal(
+        failures,
+        relative_path,
+        "nm_energy_window_vector_frame_count",
+        energy_vector.len(),
+        frames,
+    );
+    validate_equal(
+        failures,
+        relative_path,
+        "nm_detector_vector_frame_count",
+        detector_vector.len(),
+        frames,
+    );
+
+    validate_nm_energy_windows(failures, relative_path, manifest_path, expected, obj)?;
+    validate_nm_detectors(failures, relative_path, manifest_path, expected, obj)?;
+    for (name, tag) in [
+        (
+            "nm_radiopharmaceutical_information_empty",
+            tags::RADIOPHARMACEUTICAL_INFORMATION_SEQUENCE,
+        ),
+        (
+            "nm_patient_orientation_code_empty",
+            tags::PATIENT_ORIENTATION_CODE_SEQUENCE,
+        ),
+        (
+            "nm_patient_gantry_relationship_code_empty",
+            tags::PATIENT_GANTRY_RELATIONSHIP_CODE_SEQUENCE,
+        ),
+    ] {
+        match sequence_item_count_for_validate(obj, tag) {
+            Ok(count) => validate_equal(failures, relative_path, name, count, 0),
+            Err(err) => failures.push(format!("{relative_path}: {name}: {err}")),
+        }
+    }
+
+    let frame_dimensions = manifest_array(
+        manifest_path,
+        expected,
+        "/frame_dimensions",
+        "NM frame_dimensions must be an array",
+    )?;
+    let frame_hashes = manifest_array(
+        manifest_path,
+        file,
+        "/pixel_data/frame_hashes",
+        "NM pixel_data frame_hashes must be an array",
+    )?;
+    validate_equal(
+        failures,
+        relative_path,
+        "nm_frame_dimension_count",
+        frame_dimensions.len(),
+        frames,
+    );
+    for (index, dimension) in frame_dimensions.iter().enumerate() {
+        let frame_number = manifest_u64(
+            manifest_path,
+            dimension,
+            "/frame_number",
+            "NM frame_number must be an integer",
+        )? as usize;
+        let energy_index = manifest_u64(
+            manifest_path,
+            dimension,
+            "/energy_window_index",
+            "NM energy_window_index must be an integer",
+        )? as u16;
+        let detector_index = manifest_u64(
+            manifest_path,
+            dimension,
+            "/detector_index",
+            "NM detector_index must be an integer",
+        )? as u16;
+        validate_equal(
+            failures,
+            relative_path,
+            "nm_frame_number_order",
+            frame_number,
+            index + 1,
+        );
+        if let Some(actual) = energy_vector.get(index) {
+            validate_equal(
+                failures,
+                relative_path,
+                "nm_frame_energy_window_index",
+                energy_index,
+                *actual,
+            );
+        }
+        if let Some(actual) = detector_vector.get(index) {
+            validate_equal(
+                failures,
+                relative_path,
+                "nm_frame_detector_index",
+                detector_index,
+                *actual,
+            );
+        }
+        validate_equal(
+            failures,
+            relative_path,
+            "nm_frame_dimension_hash",
+            manifest_str(
+                manifest_path,
+                dimension,
+                "/frame_sha256",
+                "NM frame_sha256 must be a string",
+            )?,
+            frame_hashes.get(index).and_then(Value::as_str).ok_or(
+                ValidateError::ManifestShape {
+                    path: manifest_path.to_path_buf(),
+                    message: "NM pixel_data frame_hashes items must be strings",
+                },
+            )?,
+        );
+    }
+
+    Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
+fn validate_nm_index_vector(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    manifest_path: &Path,
+    expected: &Value,
+    obj: &OpenedObject,
+    manifest_pointer: &str,
+    tag: dicom_core::Tag,
+    name: &str,
+    declared_count: u16,
+) -> Result<Vec<u16>, ValidateError> {
+    let expected_vector = manifest_u16_array(
+        manifest_path,
+        expected,
+        manifest_pointer,
+        "NM dimension vector must be an unsigned integer array",
+    )?;
+    match element_u16_values_for_validate(obj, tag) {
+        Ok(actual) => validate_equal_debug(
+            failures,
+            relative_path,
+            name,
+            actual,
+            expected_vector.clone(),
+        ),
+        Err(err) => failures.push(format!("{relative_path}: {name}: {err}")),
+    }
+    for value in &expected_vector {
+        if *value == 0 || *value > declared_count {
+            failures.push(format!(
+                "{relative_path}: {name}_bounds: index {value} is outside 1..={declared_count}"
+            ));
+        }
+    }
+    Ok(expected_vector)
+}
+
+fn validate_nm_energy_windows(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    manifest_path: &Path,
+    expected: &Value,
+    obj: &OpenedObject,
+) -> Result<(), ValidateError> {
+    let declared = manifest_u64(
+        manifest_path,
+        expected,
+        "/number_of_energy_windows",
+        "NM number_of_energy_windows must be an integer",
+    )? as usize;
+    match element_u16_for_validate(obj, tags::NUMBER_OF_ENERGY_WINDOWS) {
+        Ok(actual) => validate_equal(
+            failures,
+            relative_path,
+            "nm_number_of_energy_windows",
+            usize::from(actual),
+            declared,
+        ),
+        Err(err) => failures.push(format!(
+            "{relative_path}: nm_number_of_energy_windows: {err}"
+        )),
+    }
+    match sequence_item_count_for_validate(obj, tags::ENERGY_WINDOW_INFORMATION_SEQUENCE) {
+        Ok(actual) => validate_equal(
+            failures,
+            relative_path,
+            "nm_energy_window_information_count",
+            actual,
+            declared,
+        ),
+        Err(err) => failures.push(format!(
+            "{relative_path}: nm_energy_window_information_count: {err}"
+        )),
+    }
+    let windows = manifest_array(
+        manifest_path,
+        expected,
+        "/energy_windows",
+        "NM energy_windows must be an array",
+    )?;
+    validate_equal(
+        failures,
+        relative_path,
+        "nm_energy_window_manifest_count",
+        windows.len(),
+        declared,
+    );
+    for (index, window) in windows.iter().enumerate() {
+        validate_equal(
+            failures,
+            relative_path,
+            "nm_energy_window_index_order",
+            manifest_u64(
+                manifest_path,
+                window,
+                "/index",
+                "NM energy window index must be an integer",
+            )? as usize,
+            index + 1,
+        );
+        let Ok(item) = top_level_sequence_item_for_validate(
+            obj,
+            tags::ENERGY_WINDOW_INFORMATION_SEQUENCE,
+            index,
+        ) else {
+            continue;
+        };
+        validate_item_type1_str_element(
+            failures,
+            relative_path,
+            item,
+            tags::ENERGY_WINDOW_NAME,
+            "nm_energy_window_name",
+            manifest_str(
+                manifest_path,
+                window,
+                "/name",
+                "NM energy window name must be a string",
+            )?,
+        );
+        match item_sequence_item_count_for_validate(item, tags::ENERGY_WINDOW_RANGE_SEQUENCE) {
+            Ok(actual) => validate_equal(
+                failures,
+                relative_path,
+                "nm_energy_window_range_count",
+                actual,
+                1,
+            ),
+            Err(err) => failures.push(format!(
+                "{relative_path}: nm_energy_window_range_count: {err}"
+            )),
+        }
+        let Ok(range) =
+            item_sequence_item_for_validate(item, tags::ENERGY_WINDOW_RANGE_SEQUENCE, 0)
+        else {
+            continue;
+        };
+        for (name, tag, pointer) in [
+            (
+                "nm_energy_window_lower_limit",
+                tags::ENERGY_WINDOW_LOWER_LIMIT,
+                "/lower_limit_kev",
+            ),
+            (
+                "nm_energy_window_upper_limit",
+                tags::ENERGY_WINDOW_UPPER_LIMIT,
+                "/upper_limit_kev",
+            ),
+        ] {
+            match item_f64_for_validate(range, tag) {
+                Ok(actual) => validate_equal_debug(
+                    failures,
+                    relative_path,
+                    name,
+                    actual,
+                    manifest_f64(
+                        manifest_path,
+                        window,
+                        pointer,
+                        "NM energy window limit must be numeric",
+                    )?,
+                ),
+                Err(err) => failures.push(format!("{relative_path}: {name}: {err}")),
+            }
+        }
+    }
+    Ok(())
+}
+
+fn validate_nm_detectors(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    manifest_path: &Path,
+    expected: &Value,
+    obj: &OpenedObject,
+) -> Result<(), ValidateError> {
+    let declared = manifest_u64(
+        manifest_path,
+        expected,
+        "/number_of_detectors",
+        "NM number_of_detectors must be an integer",
+    )? as usize;
+    match element_u16_for_validate(obj, tags::NUMBER_OF_DETECTORS) {
+        Ok(actual) => validate_equal(
+            failures,
+            relative_path,
+            "nm_number_of_detectors",
+            usize::from(actual),
+            declared,
+        ),
+        Err(err) => failures.push(format!("{relative_path}: nm_number_of_detectors: {err}")),
+    }
+    match sequence_item_count_for_validate(obj, tags::DETECTOR_INFORMATION_SEQUENCE) {
+        Ok(actual) => validate_equal(
+            failures,
+            relative_path,
+            "nm_detector_information_count",
+            actual,
+            declared,
+        ),
+        Err(err) => failures.push(format!(
+            "{relative_path}: nm_detector_information_count: {err}"
+        )),
+    }
+    let detectors = manifest_array(
+        manifest_path,
+        expected,
+        "/detectors",
+        "NM detectors must be an array",
+    )?;
+    validate_equal(
+        failures,
+        relative_path,
+        "nm_detector_manifest_count",
+        detectors.len(),
+        declared,
+    );
+    for (index, detector) in detectors.iter().enumerate() {
+        validate_equal(
+            failures,
+            relative_path,
+            "nm_detector_index_order",
+            manifest_u64(
+                manifest_path,
+                detector,
+                "/index",
+                "NM detector index must be an integer",
+            )? as usize,
+            index + 1,
+        );
+        let Ok(item) =
+            top_level_sequence_item_for_validate(obj, tags::DETECTOR_INFORMATION_SEQUENCE, index)
+        else {
+            continue;
+        };
+        validate_item_type1_str_element(
+            failures,
+            relative_path,
+            item,
+            tags::COLLIMATOR_TYPE,
+            "nm_detector_collimator_type",
+            manifest_str(
+                manifest_path,
+                detector,
+                "/collimator_type",
+                "NM detector collimator_type must be a string",
+            )?,
+        );
+        for (name, tag, pointer) in [
+            (
+                "nm_detector_focal_distance",
+                tags::FOCAL_DISTANCE,
+                "/focal_distance_mm",
+            ),
+            (
+                "nm_detector_start_angle",
+                tags::START_ANGLE,
+                "/start_angle_degrees",
+            ),
+        ] {
+            match item_f64_for_validate(item, tag) {
+                Ok(actual) => validate_equal_debug(
+                    failures,
+                    relative_path,
+                    name,
+                    actual,
+                    manifest_f64(
+                        manifest_path,
+                        detector,
+                        pointer,
+                        "NM detector scalar must be numeric",
+                    )?,
+                ),
+                Err(err) => failures.push(format!("{relative_path}: {name}: {err}")),
+            }
+        }
+        for (name, tag, pointer) in [
+            (
+                "nm_detector_image_orientation_patient",
+                tags::IMAGE_ORIENTATION_PATIENT,
+                "/image_orientation_patient",
+            ),
+            (
+                "nm_detector_image_position_patient",
+                tags::IMAGE_POSITION_PATIENT,
+                "/image_position_patient",
+            ),
+        ] {
+            match item_f64_values_for_validate(item, tag) {
+                Ok(actual) => validate_equal_debug(
+                    failures,
+                    relative_path,
+                    name,
+                    actual,
+                    manifest_f64_array(
+                        manifest_path,
+                        detector,
+                        pointer,
+                        "NM detector geometry must be a numeric array",
+                    )?,
+                ),
+                Err(err) => failures.push(format!("{relative_path}: {name}: {err}")),
+            }
+        }
+    }
     Ok(())
 }
 
@@ -6310,6 +6979,28 @@ fn item_sequence_item_for_validate(
         .ok_or_else(|| format!("sequence {tag} has no item at index {index}"))
 }
 
+fn sequence_item_count_for_validate(
+    obj: &OpenedObject,
+    tag: dicom_core::Tag,
+) -> Result<usize, String> {
+    obj.element(tag)
+        .map_err(|err| err.to_string())?
+        .items()
+        .map(|items| items.len())
+        .ok_or_else(|| format!("attribute {tag} is not a sequence"))
+}
+
+fn item_sequence_item_count_for_validate(
+    obj: &DatasetObject,
+    tag: dicom_core::Tag,
+) -> Result<usize, String> {
+    obj.element(tag)
+        .map_err(|err| err.to_string())?
+        .items()
+        .map(|items| items.len())
+        .ok_or_else(|| format!("attribute {tag} is not a sequence"))
+}
+
 fn nested_sequence_item_u16_for_validate(
     obj: &DatasetObject,
     sequence_tag: dicom_core::Tag,
@@ -6341,6 +7032,17 @@ fn item_f64_for_validate(obj: &DatasetObject, tag: dicom_core::Tag) -> Result<f6
         .map_err(|err| err.to_string())
 }
 
+fn item_f64_values_for_validate(
+    obj: &DatasetObject,
+    tag: dicom_core::Tag,
+) -> Result<Vec<f64>, String> {
+    obj.element(tag)
+        .map_err(|err| err.to_string())?
+        .value()
+        .to_multi_float64()
+        .map_err(|err| err.to_string())
+}
+
 fn element_str_for_validate(obj: &OpenedObject, tag: dicom_core::Tag) -> Result<String, String> {
     obj.element(tag)
         .map_err(|err| err.to_string())?
@@ -6355,6 +7057,29 @@ fn element_u16_for_validate(obj: &OpenedObject, tag: dicom_core::Tag) -> Result<
         .map_err(|err| err.to_string())?
         .value()
         .to_int::<u16>()
+        .map_err(|err| err.to_string())
+}
+
+fn element_u16_values_for_validate(
+    obj: &OpenedObject,
+    tag: dicom_core::Tag,
+) -> Result<Vec<u16>, String> {
+    obj.element(tag)
+        .map_err(|err| err.to_string())?
+        .value()
+        .to_multi_int::<u16>()
+        .map_err(|err| err.to_string())
+}
+
+fn element_tags_for_validate(
+    obj: &OpenedObject,
+    tag: dicom_core::Tag,
+) -> Result<Vec<dicom_core::Tag>, String> {
+    obj.element(tag)
+        .map_err(|err| err.to_string())?
+        .value()
+        .tags()
+        .map(|tags| tags.to_vec())
         .map_err(|err| err.to_string())
 }
 
@@ -6378,6 +7103,20 @@ fn element_tag_for_validate(
         .first()
         .copied()
         .ok_or_else(|| "element is empty".to_string())
+}
+
+fn validate_equal_debug<A: fmt::Debug + PartialEq>(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    name: &str,
+    actual: A,
+    expected: A,
+) {
+    if actual != expected {
+        failures.push(format!(
+            "{relative_path}: {name}: actual {actual:?}, expected {expected:?}"
+        ));
+    }
 }
 
 fn validate_equal<A: fmt::Display, E: fmt::Display>(

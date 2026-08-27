@@ -4,6 +4,7 @@ pub(super) mod color_softcopy_presentation_state;
 pub(super) mod ct_geometry;
 pub(super) mod deformable_spatial_registration;
 pub(super) mod empty_type2_sc;
+pub(super) mod general_ecg;
 pub(super) mod icc_profile;
 pub(super) mod metadata_sc;
 pub(super) mod nm;
@@ -30,6 +31,8 @@ mod color_softcopy_presentation_state_tests;
 mod deformable_spatial_registration_tests;
 #[cfg(test)]
 mod empty_type2_sc_tests;
+#[cfg(test)]
+mod general_ecg_tests;
 #[cfg(test)]
 mod icc_profile_tests;
 #[cfg(test)]

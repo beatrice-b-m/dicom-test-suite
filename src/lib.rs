@@ -4845,53 +4845,6 @@ fn validate_pet_image_standard_elements(
         );
         validate_type1_str_element(failures, relative_path, obj, tag, name, manifest_value);
     }
-    for (tag, name) in [
-        (tags::IMAGE_TYPE, "enhanced_pet_image_type"),
-        (tags::MODALITY, "enhanced_pet_modality"),
-        (tags::PIXEL_PRESENTATION, "enhanced_pet_pixel_presentation"),
-        (
-            tags::VOLUMETRIC_PROPERTIES,
-            "enhanced_pet_volumetric_properties",
-        ),
-        (
-            tags::VOLUME_BASED_CALCULATION_TECHNIQUE,
-            "enhanced_pet_volume_based_calculation_technique",
-        ),
-        (
-            tags::CONTENT_QUALIFICATION,
-            "enhanced_pet_content_qualification",
-        ),
-        (
-            tags::BURNED_IN_ANNOTATION,
-            "enhanced_pet_burned_in_annotation",
-        ),
-        (
-            tags::LOSSY_IMAGE_COMPRESSION,
-            "enhanced_pet_lossy_image_compression",
-        ),
-        (
-            tags::PRESENTATION_LUT_SHAPE,
-            "enhanced_pet_presentation_lut_shape",
-        ),
-        (tags::TABLE_MOTION, "enhanced_pet_table_motion"),
-        (
-            tags::TIME_OF_FLIGHT_INFORMATION_USED,
-            "enhanced_pet_time_of_flight_information_used",
-        ),
-        (tags::COUNTS_SOURCE, "enhanced_pet_counts_source"),
-    ] {
-        match obj.element(tag) {
-            Ok(element) => validate_equal(
-                failures,
-                relative_path,
-                &format!("{name}_vr"),
-                element.vr(),
-                dicom_core::VR::CS,
-            ),
-            Err(err) => failures.push(format!("{relative_path}: {name}_vr: {err}")),
-        }
-    }
-
     let series_type = manifest_string_array(
         manifest_path,
         expected,
@@ -7197,6 +7150,52 @@ fn validate_enhanced_pet_image_standard_elements(
             locked,
         );
         validate_type1_str_element(failures, relative_path, obj, tag, name, manifest_value);
+    }
+    for (tag, name) in [
+        (tags::IMAGE_TYPE, "enhanced_pet_image_type"),
+        (tags::MODALITY, "enhanced_pet_modality"),
+        (tags::PIXEL_PRESENTATION, "enhanced_pet_pixel_presentation"),
+        (
+            tags::VOLUMETRIC_PROPERTIES,
+            "enhanced_pet_volumetric_properties",
+        ),
+        (
+            tags::VOLUME_BASED_CALCULATION_TECHNIQUE,
+            "enhanced_pet_volume_based_calculation_technique",
+        ),
+        (
+            tags::CONTENT_QUALIFICATION,
+            "enhanced_pet_content_qualification",
+        ),
+        (
+            tags::BURNED_IN_ANNOTATION,
+            "enhanced_pet_burned_in_annotation",
+        ),
+        (
+            tags::LOSSY_IMAGE_COMPRESSION,
+            "enhanced_pet_lossy_image_compression",
+        ),
+        (
+            tags::PRESENTATION_LUT_SHAPE,
+            "enhanced_pet_presentation_lut_shape",
+        ),
+        (tags::TABLE_MOTION, "enhanced_pet_table_motion"),
+        (
+            tags::TIME_OF_FLIGHT_INFORMATION_USED,
+            "enhanced_pet_time_of_flight_information_used",
+        ),
+        (tags::COUNTS_SOURCE, "enhanced_pet_counts_source"),
+    ] {
+        match obj.element(tag) {
+            Ok(element) => validate_equal(
+                failures,
+                relative_path,
+                &format!("{name}_vr"),
+                element.vr(),
+                dicom_core::VR::CS,
+            ),
+            Err(err) => failures.push(format!("{relative_path}: {name}_vr: {err}")),
+        }
     }
 
     validate_enhanced_pet_code(

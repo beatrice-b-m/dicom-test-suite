@@ -11966,6 +11966,22 @@
           "covered": true,
           "part": "PS3.6",
           "anchor": "table_A-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom-kb resolve PatientName PatientBirthDate PatientSex ReferringPhysicianName AccessionNumber in SecondaryCaptureImageStorage --edition 2026b",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "tables_C.7-1_C.7-3"
+        },
+        {
+          "source": "local-source-note",
+          "edition": "2026b",
+          "query": "standards/source-notes/phase-2-empty-type2-attributes.md",
+          "covered": true,
+          "part": "PS3.5",
+          "anchor": "sect_7.4"
         }
       ]
     },

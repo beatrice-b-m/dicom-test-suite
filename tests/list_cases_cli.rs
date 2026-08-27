@@ -138,6 +138,12 @@ fn list_cases_command_shows_core_case_status_and_evidence() {
     );
     assert!(
         stdout.contains(
+            "classic/xa/monoplane_explicit_le\timplemented\tcore\t1.2.840.10008.5.1.4.1.1.12.1\t1.2.840.10008.1.2.1\t7/7 covered"
+        ),
+        "list-cases must include implemented XA monoplane core coverage with standards evidence"
+    );
+    assert!(
+        stdout.contains(
             "vl/photo/rgb_planar0_explicit_le\timplemented\tcore\t1.2.840.10008.5.1.4.1.1.77.1.4\t1.2.840.10008.1.2.1\t5/5 covered"
         ),
         "list-cases must include implemented VL Photographic RGB core cases with standards evidence"

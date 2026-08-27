@@ -10,10 +10,13 @@ pub(in crate::generator) const TWELVE_LEAD_ECG_SAMPLE_COUNT: u32 = 500;
 pub(in crate::generator) const TWELVE_LEAD_ECG_SAMPLING_FREQUENCY_HZ: &str = "500";
 pub(in crate::generator) const TWELVE_LEAD_ECG_BITS_ALLOCATED: u16 = 16;
 pub(in crate::generator) const TWELVE_LEAD_ECG_SAMPLE_INTERPRETATION: &str = "SS";
+#[cfg(test)]
 pub(in crate::generator) const TWELVE_LEAD_ECG_INTERLEAVE: &str = "channel_then_sample";
 pub(in crate::generator) const TWELVE_LEAD_ECG_PAYLOAD_LENGTH: usize = 12_000;
+#[cfg(test)]
 pub(in crate::generator) const TWELVE_LEAD_ECG_PAYLOAD_SHA256: &str =
     "98b7a9b1be25d9d64ffa75bc6e16ea80f60deed1891aeed8dfb440c1c19e6713";
+#[cfg(test)]
 pub(in crate::generator) const TWELVE_LEAD_ECG_CHANNEL_SHA256: [&str; 12] = [
     "7b4aee068e05c2bdff3896937c78a4c7a32f9ed2bde64d91b1d925913bf29476",
     "bd775dc70f76ea153a25832ad622b0cc26fbe6a37cf3ec6548a30965c4d17fba",

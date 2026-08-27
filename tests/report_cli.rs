@@ -7376,7 +7376,7 @@ fn report_exposes_locked_tiled_full_wsi_plan_without_claiming_generation() {
     let row = coverage_row(&report, "vl/wsi/tiled_full_small");
     assert_eq!(row["status"], "planned");
     assert_eq!(row["validation_status"], "unavailable");
-    assert_eq!(row["determinism"], "semantic_stable");
+    assert_eq!(row["determinism"], "byte_stable");
     assert_eq!(row["wsi_iod_kind"], "vl_wsi_tiled_full");
     assert_eq!(row["wsi_dimension_organization_type"], "TILED_FULL");
     assert_eq!(

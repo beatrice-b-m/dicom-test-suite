@@ -50,11 +50,11 @@ fn report_command_writes_json_coverage_for_core_root() {
     );
     assert_eq!(
         report.pointer("/counts/generated").and_then(Value::as_u64),
-        Some(44)
+        Some(45)
     );
     assert_eq!(
         report.pointer("/counts/planned").and_then(Value::as_u64),
-        Some(4)
+        Some(3)
     );
     assert_eq!(
         report
@@ -69,6 +69,35 @@ fn report_command_writes_json_coverage_for_core_root() {
             .and_then(Value::as_str),
         Some("generated")
     );
+    let us_multiframe_row = coverage_row(&report, "classic/us/multiframe_explicit_le");
+    assert_eq!(us_multiframe_row["status"], "generated");
+    assert_eq!(
+        us_multiframe_row["us_image_type"],
+        "ORIGINAL; PRIMARY; ABDOMINAL; 0001"
+    );
+    assert_eq!(us_multiframe_row["us_frame_increment_pointer"], "0018,1063");
+    assert_eq!(us_multiframe_row["us_frame_time_ms"], 100.0);
+    assert_eq!(
+        us_multiframe_row["us_frame_relative_times_ms"],
+        "0.0; 100.0; 200.0; 300.0"
+    );
+    assert_eq!(us_multiframe_row["us_frame_count"], 4);
+    assert_eq!(us_multiframe_row["us_spatially_related_frames"], false);
+    assert_eq!(us_multiframe_row["us_color_data_present"], false);
+    assert_eq!(us_multiframe_row["us_region_calibrated"], false);
+    assert_eq!(us_multiframe_row["us_lossy_image_compression"], "00");
+    for pointer in [
+        "/grouped_coverage/us_image_types/ORIGINAL; PRIMARY; ABDOMINAL; 0001",
+        "/grouped_coverage/us_frame_increment_pointers/0018,1063",
+        "/grouped_coverage/us_frame_times_ms/100.0",
+        "/grouped_coverage/us_frame_counts/4",
+        "/grouped_coverage/us_spatially_related_frames/false",
+        "/grouped_coverage/us_color_data_present/false",
+        "/grouped_coverage/us_region_calibrated/false",
+        "/grouped_coverage/us_lossy_image_compressions/00",
+    ] {
+        assert_eq!(report.pointer(pointer), Some(&Value::from(1)), "{pointer}");
+    }
     let empty_type2_row = coverage_row(&report, "metadata/sc/empty_type2_attributes");
     assert_eq!(
         empty_type2_row.get("status").and_then(Value::as_str),
@@ -853,19 +882,19 @@ fn report_command_writes_json_coverage_for_core_root() {
         report
             .pointer("/grouped_coverage/study_instance_uid_roots/2.25")
             .and_then(Value::as_u64),
-        Some(44)
+        Some(45)
     );
     assert_eq!(
         report
             .pointer("/grouped_coverage/series_instance_uid_roots/2.25")
             .and_then(Value::as_u64),
-        Some(44)
+        Some(45)
     );
     assert_eq!(
         report
             .pointer("/grouped_coverage/sop_instance_uid_roots/2.25")
             .and_then(Value::as_u64),
-        Some(44)
+        Some(45)
     );
     assert_eq!(
         report
@@ -2352,8 +2381,8 @@ fn report_command_writes_markdown_coverage_for_core_root() {
     );
     let stdout = String::from_utf8(output.stdout).expect("report stdout should be UTF-8");
     assert!(stdout.starts_with("# DICOM Test Suite Coverage Report"));
-    assert!(stdout.contains("| generated | 44 |"));
-    assert!(stdout.contains("| planned | 4 |"));
+    assert!(stdout.contains("| generated | 45 |"));
+    assert!(stdout.contains("| planned | 3 |"));
     assert!(stdout.contains("### Profile Memberships"));
     assert!(stdout.contains("| core | 48 |"));
     assert!(stdout.contains("### Transfer Syntax Names"));
@@ -2446,7 +2475,12 @@ fn report_command_writes_markdown_coverage_for_core_root() {
     assert!(stdout.contains("### Study Instance UID Roots"));
     assert!(stdout.contains("### Series Instance UID Roots"));
     assert!(stdout.contains("### SOP Instance UID Roots"));
-    assert!(stdout.contains("| 2.25 | 44 |"));
+    assert!(stdout.contains("| 2.25 | 45 |"));
+    assert!(stdout.contains("## Ultrasound Multi-frame Expectations"));
+    assert!(stdout.contains("classic/us/multiframe_explicit_le"));
+    assert!(stdout.contains("0.0; 100.0; 200.0; 300.0"));
+    assert!(stdout.contains("### US Frame Increment Pointers"));
+    assert!(stdout.contains("### US Lossy Image Compression History"));
     assert!(stdout.contains("### Derived Reference SOP Instance UID Roots"));
     assert!(stdout.contains("## Gaps"));
     assert!(

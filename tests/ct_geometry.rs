@@ -1,4 +1,4 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
@@ -14,6 +14,7 @@ const NONUNIFORM_CASE_ID: &str = "geometry/ct/nonuniform_slice_spacing";
 const GANTRY_TILT_CASE_ID: &str = "geometry/ct/gantry_tilt_series";
 const DUPLICATE_EMPTY_INSTANCE_NUMBER_CASE_ID: &str =
     "geometry/ct/duplicate_missing_instance_number";
+const MULTISERIES_CASE_ID: &str = "geometry/ct/multiseries_shared_frame_of_reference";
 const GANTRY_TILT_DEGREES: f64 = 11.309_932_47;
 
 #[test]
@@ -663,6 +664,216 @@ fn core_generates_duplicate_and_empty_type2_instance_numbers() {
             .iter()
             .any(|failure| failure.contains("geometry_instance_number")),
         "a false numeric claim for an empty Type 2 value must be rejected: {:?}",
+        validation.failures
+    );
+
+    fs::remove_dir_all(out_dir).expect("temporary output must be removable");
+}
+
+#[test]
+fn core_generates_two_series_in_one_study_and_frame_of_reference() {
+    let out_dir = unique_temp_dir("ct-multiseries-shared-frame-of-reference");
+    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args(["generate", "--profile", "core", "--out"])
+        .arg(&out_dir)
+        .args(["--seed", "37"])
+        .output()
+        .expect("generate command must run");
+    assert!(
+        output.status.success(),
+        "generate should succeed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let manifest: Value = serde_json::from_slice(
+        &fs::read(out_dir.join("manifest.json")).expect("manifest must be readable"),
+    )
+    .expect("manifest must contain JSON");
+    let manifest_schema: Value = serde_json::from_slice(
+        &fs::read("schemas/manifest.schema.json").expect("manifest schema must be readable"),
+    )
+    .expect("manifest schema must contain JSON");
+    let manifest_validator =
+        jsonschema::validator_for(&manifest_schema).expect("manifest schema must compile");
+    let manifest_errors = manifest_validator
+        .iter_errors(&manifest)
+        .map(|error| error.to_string())
+        .collect::<Vec<_>>();
+    assert!(
+        manifest_errors.is_empty(),
+        "multiseries manifest must match schema: {manifest_errors:?}"
+    );
+    let files = manifest["files"]
+        .as_array()
+        .expect("manifest files must be an array")
+        .iter()
+        .filter(|file| file["case_id"].as_str() == Some(MULTISERIES_CASE_ID))
+        .collect::<Vec<_>>();
+    assert_eq!(files.len(), 4);
+
+    let expected_paths = [
+        format!("{MULTISERIES_CASE_ID}/series-001/slice-001.dcm"),
+        format!("{MULTISERIES_CASE_ID}/series-001/slice-002.dcm"),
+        format!("{MULTISERIES_CASE_ID}/series-002/slice-001.dcm"),
+        format!("{MULTISERIES_CASE_ID}/series-002/slice-002.dcm"),
+    ];
+    let mut study_uids = BTreeSet::new();
+    let mut frame_uids = BTreeSet::new();
+    let mut sop_uids = BTreeSet::new();
+    let mut series_members = BTreeMap::<String, usize>::new();
+
+    for (file_index, file) in files.iter().enumerate() {
+        let series_index = file_index / 2;
+        let slice_index = file_index % 2;
+        let series_ordinal = series_index as u64 + 1;
+        let instance_number = slice_index as u64 + 1;
+        let position = slice_index as f64 * 5.0;
+
+        assert_eq!(
+            file["path"].as_str(),
+            Some(expected_paths[file_index].as_str())
+        );
+        assert_eq!(
+            file.pointer("/expected_geometry/series_instance_count")
+                .and_then(Value::as_u64),
+            Some(2)
+        );
+        assert_eq!(
+            file.pointer("/expected_geometry/geometric_order_index")
+                .and_then(Value::as_u64),
+            Some(instance_number)
+        );
+        assert_eq!(
+            file.pointer("/expected_geometry/position_along_normal_mm")
+                .and_then(Value::as_f64),
+            Some(position)
+        );
+        assert_eq!(
+            file.pointer("/expected_geometry/adjacent_spacing_mm"),
+            Some(&serde_json::json!([5.0]))
+        );
+        assert_eq!(file["expected_geometry"]["spacing_uniform"], true);
+        assert_eq!(
+            file["expected_geometry"]["instance_number_state"],
+            "numeric"
+        );
+        assert_eq!(
+            file.pointer("/expected_geometry/instance_number")
+                .and_then(Value::as_u64),
+            Some(instance_number)
+        );
+        assert_eq!(
+            file.pointer("/expected_geometry/instance_number_order_index")
+                .and_then(Value::as_u64),
+            Some(instance_number)
+        );
+        assert_eq!(
+            file["expected_geometry"]["sorting_conflict_expected"],
+            false
+        );
+
+        let organization = &file["expected_series_organization"];
+        assert_eq!(
+            organization["group_id"].as_str(),
+            Some("shared-study-frame-of-reference")
+        );
+        assert_eq!(organization["study_series_count"].as_u64(), Some(2));
+        assert_eq!(
+            organization["series_ordinal"].as_u64(),
+            Some(series_ordinal)
+        );
+        assert_eq!(organization["series_instance_count"].as_u64(), Some(2));
+        assert_eq!(organization["shared_study_instance_uid_expected"], true);
+        assert_eq!(organization["shared_frame_of_reference_uid_expected"], true);
+        assert_eq!(organization["distinct_series_instance_uids_expected"], true);
+        assert_eq!(
+            file.pointer("/recipe/recipe_parameters/series_number")
+                .and_then(Value::as_str),
+            Some(if series_index == 0 { "1" } else { "2" })
+        );
+        assert_eq!(
+            file.pointer("/recipe/recipe_parameters/acquisition_number")
+                .and_then(Value::as_str),
+            Some(if series_index == 0 { "1" } else { "2" })
+        );
+        for stressor in [
+            "multiple_series_one_study",
+            "shared_frame_of_reference_across_series",
+        ] {
+            assert!(
+                file["known_stressors"]
+                    .as_array()
+                    .is_some_and(|values| values.iter().any(|value| value == stressor)),
+                "multiseries manifest should record {stressor}"
+            );
+        }
+
+        let study_uid = file["uids"]["study_instance_uid"]
+            .as_str()
+            .expect("Study UID must be text");
+        let series_uid = file["uids"]["series_instance_uid"]
+            .as_str()
+            .expect("Series UID must be text");
+        let frame_uid = file["uids"]["frame_of_reference_uid"]
+            .as_str()
+            .expect("Frame of Reference UID must be text");
+        study_uids.insert(study_uid);
+        frame_uids.insert(frame_uid);
+        sop_uids.insert(
+            file["uids"]["sop_instance_uid"]
+                .as_str()
+                .expect("SOP UID must be text"),
+        );
+        *series_members.entry(series_uid.to_string()).or_default() += 1;
+
+        let object = open_file(out_dir.join(&expected_paths[file_index]))
+            .expect("multiseries CT slice must parse");
+        assert_eq!(
+            object
+                .element(tags::SERIES_NUMBER)
+                .expect("Series Number must be present")
+                .to_int::<u64>()
+                .expect("Series Number must be numeric"),
+            series_ordinal
+        );
+        assert_eq!(
+            object
+                .element(tags::ACQUISITION_NUMBER)
+                .expect("Acquisition Number must be present")
+                .to_int::<u64>()
+                .expect("Acquisition Number must be numeric"),
+            series_ordinal
+        );
+        assert_eq!(
+            object
+                .element(tags::INSTANCE_NUMBER)
+                .expect("Instance Number must be present")
+                .to_int::<u64>()
+                .expect("Instance Number must be numeric"),
+            instance_number
+        );
+        assert_eq!(
+            object
+                .element(tags::IMAGE_POSITION_PATIENT)
+                .expect("Image Position Patient must be present")
+                .value()
+                .to_multi_float64()
+                .expect("Image Position Patient must be numeric"),
+            vec![0.0, 0.0, position]
+        );
+    }
+
+    assert_eq!(study_uids.len(), 1);
+    assert_eq!(frame_uids.len(), 1);
+    assert_eq!(sop_uids.len(), 4);
+    assert_eq!(series_members.len(), 2);
+    assert!(series_members.values().all(|count| *count == 2));
+
+    let validation = dicom_test_suite::validate_generated_root(&out_dir)
+        .expect("generated multiseries CT corpus must be validatable");
+    assert!(
+        validation.failures.is_empty(),
+        "multiseries CT organization validation must pass: {:?}",
         validation.failures
     );
 

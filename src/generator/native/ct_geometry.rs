@@ -11,6 +11,8 @@ pub(in crate::generator) struct ClassicCtRecipe {
     pub(in crate::generator) rows: u16,
     pub(in crate::generator) columns: u16,
     pub(in crate::generator) slices: &'static [ClassicCtSliceRecipe],
+    pub(in crate::generator) series: &'static [ClassicCtSeriesRecipe],
+    pub(in crate::generator) series_organization: Option<ClassicCtSeriesOrganizationRecipe>,
     pub(in crate::generator) rescale_intercept: &'static str,
     pub(in crate::generator) rescale_slope: &'static str,
     pub(in crate::generator) rescale_type: &'static str,
@@ -23,6 +25,18 @@ pub(in crate::generator) struct ClassicCtRecipe {
     pub(in crate::generator) gantry_detector_tilt_degrees: Option<&'static str>,
     pub(in crate::generator) sorting_conflict_expected: Option<bool>,
     pub(in crate::generator) kvp: &'static str,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub(in crate::generator) struct ClassicCtSeriesRecipe {
+    pub(in crate::generator) series_number: &'static str,
+    pub(in crate::generator) acquisition_number: &'static str,
+    pub(in crate::generator) slices: &'static [ClassicCtSliceRecipe],
+}
+
+#[derive(Debug, Clone, Copy)]
+pub(in crate::generator) struct ClassicCtSeriesOrganizationRecipe {
+    pub(in crate::generator) group_id: &'static str,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -172,6 +186,40 @@ const CLASSIC_CT_DUPLICATE_EMPTY_INSTANCE_NUMBER_SLICES: &[ClassicCtSliceRecipe]
     },
 ];
 
+const CLASSIC_CT_MULTISERIES_SLICES: &[ClassicCtSliceRecipe] = &[
+    ClassicCtSliceRecipe {
+        instance_number: ClassicCtInstanceNumber::Numeric("1"),
+        image_position_patient: "0\\0\\0",
+        position_along_normal: 0.0,
+        pixel_bytes: &CT_I16_12BIT_PIXELS,
+        pixel_values: &CT_I16_12BIT_VALUES,
+        pixel_min: -1024,
+        pixel_max: 2047,
+    },
+    ClassicCtSliceRecipe {
+        instance_number: ClassicCtInstanceNumber::Numeric("2"),
+        image_position_patient: "0\\0\\5",
+        position_along_normal: 5.0,
+        pixel_bytes: &CT_I16_12BIT_PIXELS,
+        pixel_values: &CT_I16_12BIT_VALUES,
+        pixel_min: -1024,
+        pixel_max: 2047,
+    },
+];
+
+const CLASSIC_CT_SHARED_FRAME_OF_REFERENCE_SERIES: &[ClassicCtSeriesRecipe] = &[
+    ClassicCtSeriesRecipe {
+        series_number: "1",
+        acquisition_number: "1",
+        slices: CLASSIC_CT_MULTISERIES_SLICES,
+    },
+    ClassicCtSeriesRecipe {
+        series_number: "2",
+        acquisition_number: "2",
+        slices: CLASSIC_CT_MULTISERIES_SLICES,
+    },
+];
+
 pub(in crate::generator) const CLASSIC_CT_RECIPES: &[ClassicCtRecipe] = &[
     ClassicCtRecipe {
         case_id: "classic/ct/mono2_i16_rescale_12bit_explicit_le",
@@ -180,6 +228,8 @@ pub(in crate::generator) const CLASSIC_CT_RECIPES: &[ClassicCtRecipe] = &[
         rows: 2,
         columns: 2,
         slices: CLASSIC_CT_SINGLE_SLICE,
+        series: &[],
+        series_organization: None,
         rescale_intercept: "-1024",
         rescale_slope: "1",
         rescale_type: "HU",
@@ -200,6 +250,8 @@ pub(in crate::generator) const CLASSIC_CT_RECIPES: &[ClassicCtRecipe] = &[
         rows: 2,
         columns: 2,
         slices: CLASSIC_CT_SINGLE_SLICE,
+        series: &[],
+        series_organization: None,
         rescale_intercept: "-1024",
         rescale_slope: "1",
         rescale_type: "HU",
@@ -220,6 +272,8 @@ pub(in crate::generator) const CLASSIC_CT_RECIPES: &[ClassicCtRecipe] = &[
         rows: 2,
         columns: 2,
         slices: CLASSIC_CT_SORT_CONFLICT_SLICES,
+        series: &[],
+        series_organization: None,
         rescale_intercept: "-1024",
         rescale_slope: "1",
         rescale_type: "HU",
@@ -240,6 +294,8 @@ pub(in crate::generator) const CLASSIC_CT_RECIPES: &[ClassicCtRecipe] = &[
         rows: 2,
         columns: 2,
         slices: CLASSIC_CT_NONUNIFORM_SPACING_SLICES,
+        series: &[],
+        series_organization: None,
         rescale_intercept: "-1024",
         rescale_slope: "1",
         rescale_type: "HU",
@@ -260,6 +316,8 @@ pub(in crate::generator) const CLASSIC_CT_RECIPES: &[ClassicCtRecipe] = &[
         rows: 2,
         columns: 2,
         slices: CLASSIC_CT_GANTRY_TILT_SLICES,
+        series: &[],
+        series_organization: None,
         rescale_intercept: "-1024",
         rescale_slope: "1",
         rescale_type: "HU",
@@ -280,6 +338,8 @@ pub(in crate::generator) const CLASSIC_CT_RECIPES: &[ClassicCtRecipe] = &[
         rows: 2,
         columns: 2,
         slices: CLASSIC_CT_DUPLICATE_EMPTY_INSTANCE_NUMBER_SLICES,
+        series: &[],
+        series_organization: None,
         rescale_intercept: "-1024",
         rescale_slope: "1",
         rescale_type: "HU",
@@ -291,6 +351,30 @@ pub(in crate::generator) const CLASSIC_CT_RECIPES: &[ClassicCtRecipe] = &[
         spacing_between_slices: Some("5"),
         gantry_detector_tilt_degrees: None,
         sorting_conflict_expected: None,
+        kvp: "120",
+    },
+    ClassicCtRecipe {
+        case_id: "geometry/ct/multiseries_shared_frame_of_reference",
+        recipe_id: "geometry_ct_multiseries_shared_frame_of_reference",
+        transfer_syntax: EXPLICIT_VR_LITTLE_ENDIAN,
+        rows: 2,
+        columns: 2,
+        slices: &[],
+        series: CLASSIC_CT_SHARED_FRAME_OF_REFERENCE_SERIES,
+        series_organization: Some(ClassicCtSeriesOrganizationRecipe {
+            group_id: "shared-study-frame-of-reference",
+        }),
+        rescale_intercept: "-1024",
+        rescale_slope: "1",
+        rescale_type: "HU",
+        window_center: "40",
+        window_width: "400",
+        pixel_spacing: "0.625\\0.625",
+        image_orientation_patient: "1\\0\\0\\0\\1\\0",
+        slice_thickness: "5",
+        spacing_between_slices: Some("5"),
+        gantry_detector_tilt_degrees: None,
+        sorting_conflict_expected: Some(false),
         kvp: "120",
     },
 ];

@@ -35,18 +35,18 @@ fn report_command_writes_json_coverage_for_core_root() {
     );
     assert_eq!(
         report.pointer("/counts/generated").and_then(Value::as_u64),
-        Some(33)
+        Some(37)
     );
     assert_eq!(
         report.pointer("/counts/planned").and_then(Value::as_u64),
-        Some(10)
+        Some(9)
     );
     assert_eq!(
         report
             .pointer("/coverage_matrix")
             .and_then(Value::as_array)
             .map(Vec::len),
-        Some(43)
+        Some(46)
     );
     assert_eq!(
         coverage_row(&report, "classic/ct/mono2_i16_rescale_12bit_explicit_le")
@@ -467,13 +467,13 @@ fn report_command_writes_json_coverage_for_core_root() {
         report
             .pointer("/grouped_coverage/profiles/core")
             .and_then(Value::as_u64),
-        Some(43)
+        Some(46)
     );
     assert_eq!(
         report
             .pointer("/grouped_coverage/profile_memberships/core")
             .and_then(Value::as_u64),
-        Some(43)
+        Some(46)
     );
     assert_eq!(
         report
@@ -485,7 +485,7 @@ fn report_command_writes_json_coverage_for_core_root() {
         report
             .pointer("/grouped_coverage/transfer_syntax_names/Explicit VR Little Endian")
             .and_then(Value::as_u64),
-        Some(42)
+        Some(45)
     );
     assert_eq!(
         report
@@ -503,7 +503,7 @@ fn report_command_writes_json_coverage_for_core_root() {
         report
             .pointer("/grouped_coverage/image_types/ORIGINAL\\PRIMARY\\AXIAL")
             .and_then(Value::as_u64),
-        Some(13)
+        Some(17)
     );
     assert_eq!(
         report
@@ -527,7 +527,7 @@ fn report_command_writes_json_coverage_for_core_root() {
         report
             .pointer("/grouped_coverage/window_centers/40")
             .and_then(Value::as_u64),
-        Some(13)
+        Some(17)
     );
     assert_eq!(
         report
@@ -539,7 +539,7 @@ fn report_command_writes_json_coverage_for_core_root() {
         report
             .pointer("/grouped_coverage/window_widths/400")
             .and_then(Value::as_u64),
-        Some(13)
+        Some(17)
     );
     assert_eq!(
         report
@@ -551,37 +551,37 @@ fn report_command_writes_json_coverage_for_core_root() {
         report
             .pointer("/grouped_coverage/kvps/120")
             .and_then(Value::as_u64),
-        Some(13)
+        Some(17)
     );
     assert_eq!(
         report
             .pointer("/grouped_coverage/ct_acquisition_numbers/1")
             .and_then(Value::as_u64),
-        Some(13)
+        Some(15)
     );
     assert_eq!(
         report
             .pointer("/grouped_coverage/ct_rescale_intercepts/-1024")
             .and_then(Value::as_u64),
-        Some(13)
+        Some(17)
     );
     assert_eq!(
         report
             .pointer("/grouped_coverage/ct_rescale_slopes/1")
             .and_then(Value::as_u64),
-        Some(13)
+        Some(17)
     );
     assert_eq!(
         report
             .pointer("/grouped_coverage/ct_rescale_types/HU")
             .and_then(Value::as_u64),
-        Some(13)
+        Some(17)
     );
     assert_eq!(
         report
             .pointer("/grouped_coverage/pixel_spacings/0.625\\0.625")
             .and_then(Value::as_u64),
-        Some(13)
+        Some(17)
     );
     assert_eq!(
         report
@@ -605,25 +605,25 @@ fn report_command_writes_json_coverage_for_core_root() {
         report
             .pointer("/grouped_coverage/image_orientations_patient/1\\0\\0\\0\\1\\0")
             .and_then(Value::as_u64),
-        Some(13)
+        Some(17)
     );
     assert_eq!(
         report
             .pointer("/grouped_coverage/image_positions_patient/0\\0\\0")
             .and_then(Value::as_u64),
-        Some(5)
+        Some(7)
     );
     assert_eq!(
         report
             .pointer("/grouped_coverage/slice_thicknesses/5")
             .and_then(Value::as_u64),
-        Some(12)
+        Some(16)
     );
     assert_eq!(
         report
             .pointer("/grouped_coverage/spacing_between_slices/5")
             .and_then(Value::as_u64),
-        Some(12)
+        Some(16)
     );
     assert_eq!(
         report
@@ -779,25 +779,25 @@ fn report_command_writes_json_coverage_for_core_root() {
         report
             .pointer("/grouped_coverage/study_instance_uid_roots/2.25")
             .and_then(Value::as_u64),
-        Some(33)
+        Some(37)
     );
     assert_eq!(
         report
             .pointer("/grouped_coverage/series_instance_uid_roots/2.25")
             .and_then(Value::as_u64),
-        Some(33)
+        Some(37)
     );
     assert_eq!(
         report
             .pointer("/grouped_coverage/sop_instance_uid_roots/2.25")
             .and_then(Value::as_u64),
-        Some(33)
+        Some(37)
     );
     assert_eq!(
         report
             .pointer("/grouped_coverage/sop_class_names/CT Image Storage")
             .and_then(Value::as_u64),
-        Some(14)
+        Some(17)
     );
     assert_eq!(
         report

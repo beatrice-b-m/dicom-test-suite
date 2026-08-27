@@ -14,7 +14,8 @@ use serde_json::Value;
 mod native;
 
 use native::ct_geometry::{
-    CLASSIC_CT_RECIPES, ClassicCtInstanceNumber, ClassicCtRecipe, ClassicCtSliceRecipe,
+    CLASSIC_CT_RECIPES, ClassicCtInstanceNumber, ClassicCtRecipe, ClassicCtSeriesRecipe,
+    ClassicCtSliceRecipe,
 };
 
 use crate::{
@@ -6211,13 +6212,6 @@ fn write_classic_ct_case(
         UidRole::StudyInstance,
         0,
     );
-    let series_instance_uid = deterministic_classic_ct_uid(
-        standards_lock_sha256,
-        recipe,
-        run.seed,
-        UidRole::SeriesInstance,
-        0,
-    );
     let frame_of_reference_uid = deterministic_classic_ct_uid(
         standards_lock_sha256,
         recipe,
@@ -6227,329 +6221,375 @@ fn write_classic_ct_case(
     );
     let implementation_class_uid = deterministic_implementation_uid(standards_lock_sha256);
 
-    let mut generated_files = Vec::with_capacity(recipe.slices.len());
-    for (slice_index, slice) in recipe.slices.iter().enumerate() {
-        let sop_instance_uid = deterministic_classic_ct_uid(
+    let series_recipes = classic_ct_series_recipes(recipe);
+    let total_instance_count = series_recipes
+        .iter()
+        .map(|series| series.slices.len())
+        .sum();
+    let mut generated_files = Vec::with_capacity(total_instance_count);
+    let mut file_index = 0_u32;
+    for (series_index, series) in series_recipes.iter().enumerate() {
+        let series_instance_uid = deterministic_classic_ct_uid(
             standards_lock_sha256,
             recipe,
             run.seed,
-            UidRole::SopInstance,
-            slice_index as u32,
+            UidRole::SeriesInstance,
+            series_index as u32,
         );
-        let relative_path = if recipe.slices.len() == 1 {
-            format!("{}/instance.dcm", recipe.case_id)
-        } else {
-            format!("{}/slice-{:03}.dcm", recipe.case_id, slice_index + 1)
-        };
-        let path = run.out_dir.join(&relative_path);
-        let case_dir = path.parent().ok_or_else(|| GenerateError::MetadataShape {
-            path: PathBuf::from(&relative_path),
-            message: "generated DICOM path must have a parent directory",
-        })?;
-        fs::create_dir_all(case_dir).map_err(|source| GenerateError::CreateCaseOutputDir {
-            path: case_dir.to_path_buf(),
-            source,
-        })?;
+        for (slice_index, slice) in series.slices.iter().enumerate() {
+            let sop_instance_uid = deterministic_classic_ct_uid(
+                standards_lock_sha256,
+                recipe,
+                run.seed,
+                UidRole::SopInstance,
+                file_index,
+            );
+            file_index += 1;
+            let relative_path = if series_recipes.len() > 1 {
+                format!(
+                    "{}/series-{:03}/slice-{:03}.dcm",
+                    recipe.case_id,
+                    series_index + 1,
+                    slice_index + 1
+                )
+            } else if series.slices.len() == 1 {
+                format!("{}/instance.dcm", recipe.case_id)
+            } else {
+                format!("{}/slice-{:03}.dcm", recipe.case_id, slice_index + 1)
+            };
+            let path = run.out_dir.join(&relative_path);
+            let case_dir = path.parent().ok_or_else(|| GenerateError::MetadataShape {
+                path: PathBuf::from(&relative_path),
+                message: "generated DICOM path must have a parent directory",
+            })?;
+            fs::create_dir_all(case_dir).map_err(|source| GenerateError::CreateCaseOutputDir {
+                path: case_dir.to_path_buf(),
+                source,
+            })?;
 
-        let mut obj = InMemDicomObject::new_empty();
-        put_str(
-            &mut obj,
-            tags::SOP_CLASS_UID,
-            VR::UI,
-            uids::CT_IMAGE_STORAGE,
-        );
-        put_str(&mut obj, tags::SOP_INSTANCE_UID, VR::UI, &sop_instance_uid);
-        put_str(&mut obj, tags::SYNTHETIC_DATA, VR::CS, "YES");
-
-        put_str(
-            &mut obj,
-            tags::PATIENT_NAME,
-            VR::PN,
-            "DTS^Synthetic^Patient001",
-        );
-        put_str(&mut obj, tags::PATIENT_ID, VR::LO, "DTS-PATIENT-001");
-        put_str(&mut obj, tags::PATIENT_BIRTH_DATE, VR::DA, "19700101");
-        put_str(&mut obj, tags::PATIENT_SEX, VR::CS, "O");
-
-        put_str(
-            &mut obj,
-            tags::STUDY_INSTANCE_UID,
-            VR::UI,
-            &study_instance_uid,
-        );
-        put_str(&mut obj, tags::STUDY_DATE, VR::DA, "20260101");
-        put_str(&mut obj, tags::STUDY_TIME, VR::TM, "000000");
-        put_str(&mut obj, tags::REFERRING_PHYSICIAN_NAME, VR::PN, "");
-        put_str(&mut obj, tags::STUDY_ID, VR::SH, "DTS-CT");
-        put_str(&mut obj, tags::ACCESSION_NUMBER, VR::SH, "");
-
-        put_str(&mut obj, tags::MODALITY, VR::CS, "CT");
-        put_str(
-            &mut obj,
-            tags::SERIES_INSTANCE_UID,
-            VR::UI,
-            &series_instance_uid,
-        );
-        put_str(&mut obj, tags::SERIES_NUMBER, VR::IS, "1");
-        if recipe.slices.len() > 1 {
-            put_str(&mut obj, tags::PATIENT_POSITION, VR::CS, "");
-            put_str(&mut obj, tags::IMAGE_LATERALITY, VR::CS, "U");
-        }
-        put_str(
-            &mut obj,
-            tags::FRAME_OF_REFERENCE_UID,
-            VR::UI,
-            &frame_of_reference_uid,
-        );
-        put_str(&mut obj, tags::POSITION_REFERENCE_INDICATOR, VR::LO, "");
-
-        put_str(&mut obj, tags::MANUFACTURER, VR::LO, "dicom-test-suite");
-        put_str(
-            &mut obj,
-            tags::MANUFACTURER_MODEL_NAME,
-            VR::LO,
-            recipe.recipe_id,
-        );
-        put_str(
-            &mut obj,
-            tags::SOFTWARE_VERSIONS,
-            VR::LO,
-            crate::PACKAGE_VERSION,
-        );
-
-        put_str(&mut obj, tags::ACQUISITION_NUMBER, VR::IS, "1");
-        put_str(&mut obj, tags::ACQUISITION_DATE, VR::DA, "20260101");
-        put_str(&mut obj, tags::ACQUISITION_TIME, VR::TM, "000000");
-
-        put_str(
-            &mut obj,
-            tags::IMAGE_TYPE,
-            VR::CS,
-            "ORIGINAL\\PRIMARY\\AXIAL",
-        );
-        match slice.instance_number {
-            ClassicCtInstanceNumber::Numeric(value) => {
-                put_str(&mut obj, tags::INSTANCE_NUMBER, VR::IS, value);
-            }
-            ClassicCtInstanceNumber::Empty => {
-                obj.put(DataElement::empty(tags::INSTANCE_NUMBER, VR::IS));
-            }
-        }
-        put_str(&mut obj, tags::PATIENT_ORIENTATION, VR::CS, "");
-        put_str(&mut obj, tags::CONTENT_DATE, VR::DA, "20260101");
-        put_str(&mut obj, tags::CONTENT_TIME, VR::TM, "000000");
-
-        put_str(&mut obj, tags::PIXEL_SPACING, VR::DS, recipe.pixel_spacing);
-        put_str(
-            &mut obj,
-            tags::IMAGE_ORIENTATION_PATIENT,
-            VR::DS,
-            recipe.image_orientation_patient,
-        );
-        put_str(
-            &mut obj,
-            tags::IMAGE_POSITION_PATIENT,
-            VR::DS,
-            slice.image_position_patient,
-        );
-        put_str(
-            &mut obj,
-            tags::SLICE_THICKNESS,
-            VR::DS,
-            recipe.slice_thickness,
-        );
-        if let Some(spacing_between_slices) = recipe.spacing_between_slices {
+            let mut obj = InMemDicomObject::new_empty();
             put_str(
                 &mut obj,
-                tags::SPACING_BETWEEN_SLICES,
-                VR::DS,
-                spacing_between_slices,
+                tags::SOP_CLASS_UID,
+                VR::UI,
+                uids::CT_IMAGE_STORAGE,
             );
-        }
-        if let Some(gantry_detector_tilt_degrees) = recipe.gantry_detector_tilt_degrees {
+            put_str(&mut obj, tags::SOP_INSTANCE_UID, VR::UI, &sop_instance_uid);
+            put_str(&mut obj, tags::SYNTHETIC_DATA, VR::CS, "YES");
+
             put_str(
                 &mut obj,
-                tags::GANTRY_DETECTOR_TILT,
-                VR::DS,
-                gantry_detector_tilt_degrees,
+                tags::PATIENT_NAME,
+                VR::PN,
+                "DTS^Synthetic^Patient001",
             );
-        }
+            put_str(&mut obj, tags::PATIENT_ID, VR::LO, "DTS-PATIENT-001");
+            put_str(&mut obj, tags::PATIENT_BIRTH_DATE, VR::DA, "19700101");
+            put_str(&mut obj, tags::PATIENT_SEX, VR::CS, "O");
 
-        put_u16(&mut obj, tags::SAMPLES_PER_PIXEL, VR::US, 1);
-        put_str(
-            &mut obj,
-            tags::PHOTOMETRIC_INTERPRETATION,
-            VR::CS,
-            "MONOCHROME2",
-        );
-        put_u16(&mut obj, tags::ROWS, VR::US, recipe.rows);
-        put_u16(&mut obj, tags::COLUMNS, VR::US, recipe.columns);
-        put_u16(&mut obj, tags::BITS_ALLOCATED, VR::US, 16);
-        put_u16(&mut obj, tags::BITS_STORED, VR::US, 12);
-        put_u16(&mut obj, tags::HIGH_BIT, VR::US, 11);
-        put_u16(&mut obj, tags::PIXEL_REPRESENTATION, VR::US, 1);
+            put_str(
+                &mut obj,
+                tags::STUDY_INSTANCE_UID,
+                VR::UI,
+                &study_instance_uid,
+            );
+            put_str(&mut obj, tags::STUDY_DATE, VR::DA, "20260101");
+            put_str(&mut obj, tags::STUDY_TIME, VR::TM, "000000");
+            put_str(&mut obj, tags::REFERRING_PHYSICIAN_NAME, VR::PN, "");
+            put_str(&mut obj, tags::STUDY_ID, VR::SH, "DTS-CT");
+            put_str(&mut obj, tags::ACCESSION_NUMBER, VR::SH, "");
 
-        put_str(&mut obj, tags::KVP, VR::DS, recipe.kvp);
-        put_str(
-            &mut obj,
-            tags::RESCALE_INTERCEPT,
-            VR::DS,
-            recipe.rescale_intercept,
-        );
-        put_str(&mut obj, tags::RESCALE_SLOPE, VR::DS, recipe.rescale_slope);
-        put_str(&mut obj, tags::RESCALE_TYPE, VR::LO, recipe.rescale_type);
-        put_str(&mut obj, tags::WINDOW_CENTER, VR::DS, recipe.window_center);
-        put_str(&mut obj, tags::WINDOW_WIDTH, VR::DS, recipe.window_width);
+            put_str(&mut obj, tags::MODALITY, VR::CS, "CT");
+            put_str(
+                &mut obj,
+                tags::SERIES_INSTANCE_UID,
+                VR::UI,
+                &series_instance_uid,
+            );
+            put_str(&mut obj, tags::SERIES_NUMBER, VR::IS, series.series_number);
+            if series.slices.len() > 1 {
+                put_str(&mut obj, tags::PATIENT_POSITION, VR::CS, "");
+                put_str(&mut obj, tags::IMAGE_LATERALITY, VR::CS, "U");
+            }
+            put_str(
+                &mut obj,
+                tags::FRAME_OF_REFERENCE_UID,
+                VR::UI,
+                &frame_of_reference_uid,
+            );
+            put_str(&mut obj, tags::POSITION_REFERENCE_INDICATOR, VR::LO, "");
 
-        let compressed_pixel_data = if recipe.transfer_syntax == RLE_LOSSLESS {
-            let rle_encoder = NativeRleLosslessEncoder::new();
-            let encoded_frame = rle_encoder
-                .encode_frame(FrameEncodeInput {
-                    native_frame: slice.pixel_bytes,
-                    rows: recipe.rows,
-                    columns: recipe.columns,
-                    samples_per_pixel: 1,
-                    bits_allocated: 16,
-                    bits_stored: 12,
-                    photometric_interpretation: "MONOCHROME2",
-                })
+            put_str(&mut obj, tags::MANUFACTURER, VR::LO, "dicom-test-suite");
+            put_str(
+                &mut obj,
+                tags::MANUFACTURER_MODEL_NAME,
+                VR::LO,
+                recipe.recipe_id,
+            );
+            put_str(
+                &mut obj,
+                tags::SOFTWARE_VERSIONS,
+                VR::LO,
+                crate::PACKAGE_VERSION,
+            );
+
+            put_str(
+                &mut obj,
+                tags::ACQUISITION_NUMBER,
+                VR::IS,
+                series.acquisition_number,
+            );
+            put_str(&mut obj, tags::ACQUISITION_DATE, VR::DA, "20260101");
+            put_str(&mut obj, tags::ACQUISITION_TIME, VR::TM, "000000");
+
+            put_str(
+                &mut obj,
+                tags::IMAGE_TYPE,
+                VR::CS,
+                "ORIGINAL\\PRIMARY\\AXIAL",
+            );
+            match slice.instance_number {
+                ClassicCtInstanceNumber::Numeric(value) => {
+                    put_str(&mut obj, tags::INSTANCE_NUMBER, VR::IS, value);
+                }
+                ClassicCtInstanceNumber::Empty => {
+                    obj.put(DataElement::empty(tags::INSTANCE_NUMBER, VR::IS));
+                }
+            }
+            put_str(&mut obj, tags::PATIENT_ORIENTATION, VR::CS, "");
+            put_str(&mut obj, tags::CONTENT_DATE, VR::DA, "20260101");
+            put_str(&mut obj, tags::CONTENT_TIME, VR::TM, "000000");
+
+            put_str(&mut obj, tags::PIXEL_SPACING, VR::DS, recipe.pixel_spacing);
+            put_str(
+                &mut obj,
+                tags::IMAGE_ORIENTATION_PATIENT,
+                VR::DS,
+                recipe.image_orientation_patient,
+            );
+            put_str(
+                &mut obj,
+                tags::IMAGE_POSITION_PATIENT,
+                VR::DS,
+                slice.image_position_patient,
+            );
+            put_str(
+                &mut obj,
+                tags::SLICE_THICKNESS,
+                VR::DS,
+                recipe.slice_thickness,
+            );
+            if let Some(spacing_between_slices) = recipe.spacing_between_slices {
+                put_str(
+                    &mut obj,
+                    tags::SPACING_BETWEEN_SLICES,
+                    VR::DS,
+                    spacing_between_slices,
+                );
+            }
+            if let Some(gantry_detector_tilt_degrees) = recipe.gantry_detector_tilt_degrees {
+                put_str(
+                    &mut obj,
+                    tags::GANTRY_DETECTOR_TILT,
+                    VR::DS,
+                    gantry_detector_tilt_degrees,
+                );
+            }
+
+            put_u16(&mut obj, tags::SAMPLES_PER_PIXEL, VR::US, 1);
+            put_str(
+                &mut obj,
+                tags::PHOTOMETRIC_INTERPRETATION,
+                VR::CS,
+                "MONOCHROME2",
+            );
+            put_u16(&mut obj, tags::ROWS, VR::US, recipe.rows);
+            put_u16(&mut obj, tags::COLUMNS, VR::US, recipe.columns);
+            put_u16(&mut obj, tags::BITS_ALLOCATED, VR::US, 16);
+            put_u16(&mut obj, tags::BITS_STORED, VR::US, 12);
+            put_u16(&mut obj, tags::HIGH_BIT, VR::US, 11);
+            put_u16(&mut obj, tags::PIXEL_REPRESENTATION, VR::US, 1);
+
+            put_str(&mut obj, tags::KVP, VR::DS, recipe.kvp);
+            put_str(
+                &mut obj,
+                tags::RESCALE_INTERCEPT,
+                VR::DS,
+                recipe.rescale_intercept,
+            );
+            put_str(&mut obj, tags::RESCALE_SLOPE, VR::DS, recipe.rescale_slope);
+            put_str(&mut obj, tags::RESCALE_TYPE, VR::LO, recipe.rescale_type);
+            put_str(&mut obj, tags::WINDOW_CENTER, VR::DS, recipe.window_center);
+            put_str(&mut obj, tags::WINDOW_WIDTH, VR::DS, recipe.window_width);
+
+            let compressed_pixel_data = if recipe.transfer_syntax == RLE_LOSSLESS {
+                let rle_encoder = NativeRleLosslessEncoder::new();
+                let encoded_frame = rle_encoder
+                    .encode_frame(FrameEncodeInput {
+                        native_frame: slice.pixel_bytes,
+                        rows: recipe.rows,
+                        columns: recipe.columns,
+                        samples_per_pixel: 1,
+                        bits_allocated: 16,
+                        bits_stored: 12,
+                        photometric_interpretation: "MONOCHROME2",
+                    })
+                    .map_err(|err| GenerateError::WriteDicomFile {
+                        path: path.clone(),
+                        message: err.to_string(),
+                    })?;
+                let compressed_frames = vec![encoded_frame.bytes];
+                let encapsulated = EncapsulatedPixelData::one_fragment_per_frame(
+                    &compressed_frames,
+                    BasicOffsetTablePolicy::Populated,
+                )
                 .map_err(|err| GenerateError::WriteDicomFile {
                     path: path.clone(),
                     message: err.to_string(),
                 })?;
-            let compressed_frames = vec![encoded_frame.bytes];
-            let encapsulated = EncapsulatedPixelData::one_fragment_per_frame(
-                &compressed_frames,
-                BasicOffsetTablePolicy::Populated,
-            )
-            .map_err(|err| GenerateError::WriteDicomFile {
-                path: path.clone(),
-                message: err.to_string(),
-            })?;
-            obj.put(DataElement::new(
-                tags::PIXEL_DATA,
-                VR::OB,
-                PixelFragmentSequence::new(
-                    encapsulated.basic_offset_table.offsets.clone(),
-                    compressed_frames,
+                obj.put(DataElement::new(
+                    tags::PIXEL_DATA,
+                    VR::OB,
+                    PixelFragmentSequence::new(
+                        encapsulated.basic_offset_table.offsets.clone(),
+                        compressed_frames,
+                    ),
+                ));
+                Some((FrameEncoder::backend(&rle_encoder), encapsulated))
+            } else {
+                obj.put(DataElement::new(
+                    tags::PIXEL_DATA,
+                    VR::OW,
+                    PrimitiveValue::from(slice.pixel_bytes),
+                ));
+                None
+            };
+
+            let file_obj = obj
+                .with_meta(
+                    FileMetaTableBuilder::new()
+                        .transfer_syntax(recipe.transfer_syntax.uid)
+                        .implementation_class_uid(&implementation_class_uid)
+                        .implementation_version_name(crate::IMPLEMENTATION_VERSION_NAME),
+                )
+                .map_err(|err| GenerateError::WriteDicomFile {
+                    path: path.clone(),
+                    message: err.to_string(),
+                })?;
+
+            file_obj
+                .write_to_file(&path)
+                .map_err(|err| GenerateError::WriteDicomFile {
+                    path: path.clone(),
+                    message: err.to_string(),
+                })?;
+
+            let decoded_frame_hash = sha256_hex(slice.pixel_bytes);
+            let decoded_frame_hashes = [decoded_frame_hash.as_str()];
+            let validated = validate_part10_file(
+                &path,
+                &Part10Expectations {
+                    sop_class_uid: uids::CT_IMAGE_STORAGE,
+                    sop_instance_uid: &sop_instance_uid,
+                    transfer_syntax_uid: recipe.transfer_syntax.uid,
+                    implementation_class_uid: &implementation_class_uid,
+                    synthetic_data: "YES",
+                    rows: recipe.rows,
+                    columns: recipe.columns,
+                    frames: 1,
+                    samples_per_pixel: 1,
+                    photometric_interpretation: "MONOCHROME2",
+                    bits_allocated: 16,
+                    bits_stored: 12,
+                    high_bit: 11,
+                    pixel_representation: 1,
+                    planar_configuration: None,
+                    pixel_data_vr: if compressed_pixel_data.is_some() {
+                        VR::OB
+                    } else {
+                        VR::OW
+                    },
+                    pixel_data_length_formula: compressed_pixel_data
+                        .as_ref()
+                        .map(|(_, encapsulated)| PixelDataLengthFormula::Encapsulated {
+                            fragments: encapsulated.fragments.len(),
+                            basic_offset_table_offsets: encapsulated
+                                .basic_offset_table
+                                .offsets
+                                .len(),
+                        })
+                        .unwrap_or(PixelDataLengthFormula::ContiguousSamples),
+                    decoded_frame_hashes: if compressed_pixel_data.is_some() {
+                        &decoded_frame_hashes
+                    } else {
+                        &[]
+                    },
+                    palette: None,
+                    padding: None,
+                    ct_image: Some(CtImageExpectations {
+                        modality: "CT",
+                        frame_of_reference_uid: &frame_of_reference_uid,
+                        image_type: "ORIGINAL\\PRIMARY\\AXIAL",
+                        pixel_spacing: recipe.pixel_spacing,
+                        image_orientation_patient: recipe.image_orientation_patient,
+                        image_position_patient: slice.image_position_patient,
+                        slice_thickness: recipe.slice_thickness,
+                        kvp: recipe.kvp,
+                        acquisition_number: series.acquisition_number,
+                        rescale_intercept: recipe.rescale_intercept,
+                        rescale_slope: recipe.rescale_slope,
+                        rescale_type: recipe.rescale_type,
+                        window_center: recipe.window_center,
+                        window_width: recipe.window_width,
+                    }),
+                    enhanced_ct_image: None,
+                    enhanced_mr_image: None,
+                    mg_image: None,
+                    dx_image: None,
+                    us_image: None,
+                    cr_image: None,
+                    mr_image: None,
+                    segmentation: None,
+                },
+            )?;
+
+            generated_files.push(GeneratedFile {
+                case_id: recipe.case_id.to_string(),
+                manifest_entry: classic_ct_manifest_entry(
+                    case,
+                    recipe,
+                    *slice,
+                    &relative_path,
+                    &study_instance_uid,
+                    &series_instance_uid,
+                    &sop_instance_uid,
+                    &frame_of_reference_uid,
+                    &implementation_class_uid,
+                    &validated.bytes,
+                    validated.validation,
+                    slice_index,
+                    *series,
+                    series_index,
+                    series_recipes.len(),
+                    compressed_pixel_data.as_ref(),
                 ),
-            ));
-            Some((FrameEncoder::backend(&rle_encoder), encapsulated))
-        } else {
-            obj.put(DataElement::new(
-                tags::PIXEL_DATA,
-                VR::OW,
-                PrimitiveValue::from(slice.pixel_bytes),
-            ));
-            None
-        };
-
-        let file_obj = obj
-            .with_meta(
-                FileMetaTableBuilder::new()
-                    .transfer_syntax(recipe.transfer_syntax.uid)
-                    .implementation_class_uid(&implementation_class_uid)
-                    .implementation_version_name(crate::IMPLEMENTATION_VERSION_NAME),
-            )
-            .map_err(|err| GenerateError::WriteDicomFile {
-                path: path.clone(),
-                message: err.to_string(),
-            })?;
-
-        file_obj
-            .write_to_file(&path)
-            .map_err(|err| GenerateError::WriteDicomFile {
-                path: path.clone(),
-                message: err.to_string(),
-            })?;
-
-        let decoded_frame_hash = sha256_hex(slice.pixel_bytes);
-        let decoded_frame_hashes = [decoded_frame_hash.as_str()];
-        let validated = validate_part10_file(
-            &path,
-            &Part10Expectations {
-                sop_class_uid: uids::CT_IMAGE_STORAGE,
-                sop_instance_uid: &sop_instance_uid,
-                transfer_syntax_uid: recipe.transfer_syntax.uid,
-                implementation_class_uid: &implementation_class_uid,
-                synthetic_data: "YES",
-                rows: recipe.rows,
-                columns: recipe.columns,
-                frames: 1,
-                samples_per_pixel: 1,
-                photometric_interpretation: "MONOCHROME2",
-                bits_allocated: 16,
-                bits_stored: 12,
-                high_bit: 11,
-                pixel_representation: 1,
-                planar_configuration: None,
-                pixel_data_vr: if compressed_pixel_data.is_some() {
-                    VR::OB
-                } else {
-                    VR::OW
-                },
-                pixel_data_length_formula: compressed_pixel_data
-                    .as_ref()
-                    .map(|(_, encapsulated)| PixelDataLengthFormula::Encapsulated {
-                        fragments: encapsulated.fragments.len(),
-                        basic_offset_table_offsets: encapsulated.basic_offset_table.offsets.len(),
-                    })
-                    .unwrap_or(PixelDataLengthFormula::ContiguousSamples),
-                decoded_frame_hashes: if compressed_pixel_data.is_some() {
-                    &decoded_frame_hashes
-                } else {
-                    &[]
-                },
-                palette: None,
-                padding: None,
-                ct_image: Some(CtImageExpectations {
-                    modality: "CT",
-                    frame_of_reference_uid: &frame_of_reference_uid,
-                    image_type: "ORIGINAL\\PRIMARY\\AXIAL",
-                    pixel_spacing: recipe.pixel_spacing,
-                    image_orientation_patient: recipe.image_orientation_patient,
-                    image_position_patient: slice.image_position_patient,
-                    slice_thickness: recipe.slice_thickness,
-                    kvp: recipe.kvp,
-                    acquisition_number: "1",
-                    rescale_intercept: recipe.rescale_intercept,
-                    rescale_slope: recipe.rescale_slope,
-                    rescale_type: recipe.rescale_type,
-                    window_center: recipe.window_center,
-                    window_width: recipe.window_width,
-                }),
-                enhanced_ct_image: None,
-                enhanced_mr_image: None,
-                mg_image: None,
-                dx_image: None,
-                us_image: None,
-                cr_image: None,
-                mr_image: None,
-                segmentation: None,
-            },
-        )?;
-
-        generated_files.push(GeneratedFile {
-            case_id: recipe.case_id.to_string(),
-            manifest_entry: classic_ct_manifest_entry(
-                case,
-                recipe,
-                *slice,
-                &relative_path,
-                &study_instance_uid,
-                &series_instance_uid,
-                &sop_instance_uid,
-                &frame_of_reference_uid,
-                &implementation_class_uid,
-                &validated.bytes,
-                validated.validation,
-                slice_index,
-                compressed_pixel_data.as_ref(),
-            ),
-        });
+            });
+        }
     }
 
     Ok(generated_files)
+}
+
+fn classic_ct_series_recipes(recipe: ClassicCtRecipe) -> Vec<ClassicCtSeriesRecipe> {
+    if recipe.series.is_empty() {
+        vec![ClassicCtSeriesRecipe {
+            series_number: "1",
+            acquisition_number: "1",
+            slices: recipe.slices,
+        }]
+    } else {
+        recipe.series.to_vec()
+    }
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -6566,6 +6606,9 @@ fn classic_ct_manifest_entry(
     bytes: &[u8],
     validation: Value,
     slice_index: usize,
+    series: ClassicCtSeriesRecipe,
+    series_index: usize,
+    study_series_count: usize,
     compressed_pixel_data: Option<&(crate::codecs::CodecBackendInfo, EncapsulatedPixelData)>,
 ) -> Value {
     let mut standards_evidence = standards_evidence_from_case(case);
@@ -6748,7 +6791,7 @@ fn classic_ct_manifest_entry(
             "width": recipe.window_width
         }
     });
-    if recipe.slices.len() > 1 {
+    if series.slices.len() > 1 {
         let geometry = recipe_geometry
             .as_object_mut()
             .expect("CT recipe geometry must be an object");
@@ -6772,19 +6815,31 @@ fn classic_ct_manifest_entry(
             "slice_order_index".to_string(),
             Value::from(slice_index + 1),
         );
-        geometry.insert("slice_count".to_string(), Value::from(recipe.slices.len()));
+        geometry.insert("slice_count".to_string(), Value::from(series.slices.len()));
+        geometry.insert("series_ordinal".to_string(), Value::from(series_index + 1));
+        geometry.insert(
+            "study_series_count".to_string(),
+            Value::from(study_series_count),
+        );
 
         let semantics = expected_semantics
             .as_object_mut()
             .expect("CT expected semantics must be an object");
         semantics.insert(
             "series_instance_count".to_string(),
-            Value::from(recipe.slices.len()),
+            Value::from(series.slices.len()),
         );
         semantics.insert(
             "shared_study_series_frame_of_reference".to_string(),
             Value::Bool(true),
         );
+        if recipe.series_organization.is_some() {
+            semantics.insert(
+                "study_series_count".to_string(),
+                Value::from(study_series_count),
+            );
+            semantics.insert("series_ordinal".to_string(), Value::from(series_index + 1));
+        }
         semantics.insert(
             "geometry_sort_key".to_string(),
             serde_json::json!({
@@ -6825,7 +6880,8 @@ fn classic_ct_manifest_entry(
                     "width": recipe.window_width
                 },
                 "kvp": recipe.kvp,
-                "acquisition_number": "1",
+                "acquisition_number": series.acquisition_number,
+                "series_number": series.series_number,
                 "geometry": recipe_geometry
             }
         },
@@ -6866,22 +6922,22 @@ fn classic_ct_manifest_entry(
         "known_stressors": classic_ct_known_stressors(recipe),
         "standards_evidence": deduplicated_standards_evidence(standards_evidence)
     });
-    if recipe.slices.len() > 1 {
+    if series.slices.len() > 1 {
         let mut expected_geometry = serde_json::json!({
             "sort_basis": "image_position_patient_projected_on_slice_normal",
             "sort_direction": "ascending",
             "position_tolerance_mm": 0.00001,
             "spacing_tolerance_mm": 0.00001,
-            "series_instance_count": recipe.slices.len(),
+            "series_instance_count": series.slices.len(),
             "geometric_order_index": slice_index + 1,
             "position_along_normal_mm": slice.position_along_normal,
             "image_position_patient": classic_ct_ds_values::<3>(slice.image_position_patient),
             "image_orientation_patient": classic_ct_ds_values::<6>(recipe.image_orientation_patient),
-            "adjacent_spacing_mm": classic_ct_adjacent_spacing(recipe),
-            "spacing_uniform": classic_ct_spacing_is_uniform(recipe),
+            "adjacent_spacing_mm": classic_ct_adjacent_spacing(series.slices),
+            "spacing_uniform": classic_ct_spacing_is_uniform(series.slices),
             "instance_number_state": classic_ct_instance_number_state(slice.instance_number),
             "instance_number": classic_ct_instance_number_value(slice.instance_number),
-            "instance_number_order_index": classic_ct_instance_number_order_index(recipe, slice.instance_number),
+            "instance_number_order_index": classic_ct_instance_number_order_index(series.slices, slice.instance_number),
             "sorting_conflict_expected": recipe.sorting_conflict_expected
         });
         if let Some(gantry_detector_tilt_degrees) = recipe.gantry_detector_tilt_degrees {
@@ -6897,6 +6953,23 @@ fn classic_ct_manifest_entry(
             .as_object_mut()
             .expect("CT manifest entry must be an object")
             .insert("expected_geometry".to_string(), expected_geometry);
+    }
+    if let Some(organization) = recipe.series_organization {
+        manifest_entry
+            .as_object_mut()
+            .expect("CT manifest entry must be an object")
+            .insert(
+                "expected_series_organization".to_string(),
+                serde_json::json!({
+                    "group_id": organization.group_id,
+                    "study_series_count": study_series_count,
+                    "series_ordinal": series_index + 1,
+                    "series_instance_count": series.slices.len(),
+                    "shared_study_instance_uid_expected": true,
+                    "shared_frame_of_reference_uid_expected": true,
+                    "distinct_series_instance_uids_expected": true
+                }),
+            );
     }
     manifest_entry
 }
@@ -6925,9 +6998,8 @@ fn classic_ct_ds_values<const N: usize>(encoded: &str) -> [f64; N] {
         })
 }
 
-fn classic_ct_adjacent_spacing(recipe: ClassicCtRecipe) -> Vec<f64> {
-    let mut positions = recipe
-        .slices
+fn classic_ct_adjacent_spacing(slices: &[ClassicCtSliceRecipe]) -> Vec<f64> {
+    let mut positions = slices
         .iter()
         .map(|slice| slice.position_along_normal)
         .collect::<Vec<_>>();
@@ -6938,8 +7010,8 @@ fn classic_ct_adjacent_spacing(recipe: ClassicCtRecipe) -> Vec<f64> {
         .collect()
 }
 
-fn classic_ct_spacing_is_uniform(recipe: ClassicCtRecipe) -> bool {
-    let spacing = classic_ct_adjacent_spacing(recipe);
+fn classic_ct_spacing_is_uniform(slices: &[ClassicCtSliceRecipe]) -> bool {
+    let spacing = classic_ct_adjacent_spacing(slices);
     spacing.first().is_none_or(|first| {
         spacing
             .iter()
@@ -6966,12 +7038,11 @@ fn classic_ct_instance_number_value(instance_number: ClassicCtInstanceNumber) ->
 }
 
 fn classic_ct_instance_number_order_index(
-    recipe: ClassicCtRecipe,
+    slices: &[ClassicCtSliceRecipe],
     instance_number: ClassicCtInstanceNumber,
 ) -> Option<usize> {
     let instance_number = classic_ct_instance_number_value(instance_number)?;
-    let mut instance_numbers = recipe
-        .slices
+    let mut instance_numbers = slices
         .iter()
         .map(|slice| classic_ct_instance_number_value(slice.instance_number))
         .collect::<Option<Vec<_>>>()?;
@@ -7003,8 +7074,14 @@ fn classic_ct_expected_capabilities(recipe: ClassicCtRecipe) -> Vec<&'static str
         capabilities.push("render_native_pixels");
     }
     capabilities.extend(["apply_modality_rescale", "apply_window"]);
-    if recipe.slices.len() > 1 {
+    if classic_ct_series_recipes(recipe)
+        .iter()
+        .any(|series| series.slices.len() > 1)
+    {
         capabilities.push("sort_series_by_geometry");
+    }
+    if recipe.series_organization.is_some() {
+        capabilities.push("organize_series_by_study_and_frame_of_reference");
     }
     if recipe.gantry_detector_tilt_degrees.is_some() {
         capabilities.push("interpret_gantry_tilt");
@@ -7024,7 +7101,10 @@ fn classic_ct_known_stressors(recipe: ClassicCtRecipe) -> Vec<&'static str> {
         stressors.push("rle_lossless_transfer_syntax");
         stressors.push("compressed_modality_pixels");
     }
-    if recipe.slices.len() > 1 {
+    if classic_ct_series_recipes(recipe)
+        .iter()
+        .any(|series| series.slices.len() > 1)
+    {
         stressors.extend(["multi_instance_series", "geometry_slice_sorting"]);
     }
     if recipe.case_id == "geometry/ct/nonuniform_slice_spacing" {
@@ -7035,6 +7115,12 @@ fn classic_ct_known_stressors(recipe: ClassicCtRecipe) -> Vec<&'static str> {
     }
     if recipe.case_id == "geometry/ct/duplicate_missing_instance_number" {
         stressors.extend(["duplicate_instance_number", "empty_type2_instance_number"]);
+    }
+    if recipe.series_organization.is_some() {
+        stressors.extend([
+            "multiple_series_one_study",
+            "shared_frame_of_reference_across_series",
+        ]);
     }
     stressors
 }

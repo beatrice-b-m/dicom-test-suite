@@ -11574,7 +11574,7 @@
     {
       "case_id": "geometry/ct/multiseries_shared_frame_of_reference",
       "artifact_kind": "dicom_instance",
-      "status": "planned",
+      "status": "implemented",
       "provider": {
         "kind": "rust_native",
         "id": "rust_native"
@@ -11585,18 +11585,8 @@
         "references",
         "modality"
       ],
-      "roadmap": {
-        "priority": "next",
-        "delivery_phase": "phase-2",
-        "rationale": "Proves cross-series identity and a shared Frame of Reference within one study."
-      },
-      "blockers": [
-        {
-          "code": "recipe_unimplemented",
-          "message": "The deterministic native recipe is not implemented.",
-          "recheck_phase": "phase-2"
-        }
-      ],
+      "roadmap": null,
+      "blockers": [],
       "profiles": [
         "core"
       ],

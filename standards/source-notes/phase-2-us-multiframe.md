@@ -33,6 +33,10 @@ Lossy Image Compression is `00`, and Ultrasound Color Data Present is zero.
 The fixture is a synthetic navigation and constant-timing contract, not a
 diagnostic image.
 
+Laterality `(0020,0060)` is present with CS VR and zero Value Length. This
+satisfies the General Series Type 2C element contract without asserting right,
+left, bilateral, or median anatomy for the synthetic abdominal loop.
+
 The case makes no claim about patient-space geometry, spatially related
 frames, Frame of Reference, ultrasound region calibration, measurement units,
 color flow, contrast, gating, IVUS synchronization, volume acquisition, or
@@ -50,7 +54,8 @@ single timing authority.
 - Input: Ultrasound Multi-frame Image Storage and Ultrasound Multi-frame Image;
   Multi-frame, Cine, and US Image modules; Number of Frames, Frame Increment
   Pointer, Frame Time, Photometric Interpretation, Bits Allocated, Image Type,
-  Lossy Image Compression, and Ultrasound Color Data Present contexts
+  Lossy Image Compression, Ultrasound Color Data Present, and Laterality
+  contexts
 - Edition returned: 2026b
 - Source manifest SHA-256:
   `1cc11d28abf1e6f4efa4b07a73d4a7c953b3b3101b4112865c7170ccdeb84728`
@@ -75,6 +80,10 @@ single timing authority.
 - PS3.3 Table C.7-13 makes Frame Time Type 1C when Frame Increment Pointer names
   it and defines its units as milliseconds per frame. Frame Time Vector is the
   alternative conditional timing attribute and is not present here.
+- PS3.3 Table C.7-5a defines Laterality as Type 2C for a paired body part when
+  no image-, frame-, or measurement-level laterality is present. The explicit
+  zero-length value satisfies Type 2 semantics while avoiding an unsupported
+  anatomic-side claim.
 - PS3.3 Table C.8-18 specializes the US Image pixel contract. For this
   monochrome case, Samples per Pixel is one, Photometric Interpretation is
   MONOCHROME2, Bits Allocated and Bits Stored are eight, High Bit is seven, and

@@ -3809,6 +3809,7 @@ fn validate_waveform_ecg_file(
         ("instance_number", tags::INSTANCE_NUMBER, "1"),
         ("content_date", tags::CONTENT_DATE, "20260101"),
         ("content_time", tags::CONTENT_TIME, "000000"),
+        ("patient_orientation", tags::PATIENT_ORIENTATION, ""),
         (
             "acquisition_date_time",
             tags::ACQUISITION_DATE_TIME,
@@ -8815,7 +8816,7 @@ pub(crate) fn validate_rt_image_file(
             &format!("rt_image_{name}"),
             "RT Image reference selects the locked Plan member.",
             "RT Image reference selects the wrong Plan member.",
-            item_u16(path, plan_item, tag)?,
+            element_u16(path, &obj, tag)?,
             u16::from(locked),
         );
     }

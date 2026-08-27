@@ -120,6 +120,7 @@ pub(in crate::generator) fn build_rt_image(
     put_str(&mut object, tags::INSTANCE_NUMBER, VR::IS, "1");
     put_str(&mut object, tags::CONTENT_DATE, VR::DA, "20260101");
     put_str(&mut object, tags::CONTENT_TIME, VR::TM, "000000");
+    put_str(&mut object, tags::PATIENT_ORIENTATION, VR::CS, "");
 
     put_u16(&mut object, tags::SAMPLES_PER_PIXEL, 1);
     put_str(
@@ -149,6 +150,13 @@ pub(in crate::generator) fn build_rt_image(
     put_str(&mut object, tags::RADIATION_MACHINE_SAD, VR::DS, "1000");
     put_str(&mut object, tags::RT_IMAGE_SID, VR::DS, "1500");
     put_str(&mut object, tags::PRIMARY_DOSIMETER_UNIT, VR::CS, "MU");
+    put_str(&mut object, tags::REFERENCED_BEAM_NUMBER, VR::IS, "1");
+    put_str(
+        &mut object,
+        tags::REFERENCED_FRACTION_GROUP_NUMBER,
+        VR::IS,
+        "1",
+    );
     put_str(&mut object, tags::FRACTION_NUMBER, VR::IS, "1");
     put_plan_reference(&mut object, input);
 
@@ -176,13 +184,6 @@ const fn rt_image_pixels() -> [u8; 16] {
 
 fn put_plan_reference(object: &mut InMemDicomObject, input: RtImageInput<'_>) {
     let mut item = InMemDicomObject::new_empty();
-    put_str(&mut item, tags::REFERENCED_BEAM_NUMBER, VR::IS, "1");
-    put_str(
-        &mut item,
-        tags::REFERENCED_FRACTION_GROUP_NUMBER,
-        VR::IS,
-        "1",
-    );
     put_str(
         &mut item,
         tags::REFERENCED_SOP_CLASS_UID,

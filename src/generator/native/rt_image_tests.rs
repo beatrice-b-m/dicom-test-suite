@@ -67,6 +67,7 @@ fn rt_image_builds_locked_identity_and_mandatory_metadata() {
         (tags::INSTANCE_NUMBER, VR::IS, "1"),
         (tags::CONTENT_DATE, VR::DA, "20260101"),
         (tags::CONTENT_TIME, VR::TM, "000000"),
+        (tags::PATIENT_ORIENTATION, VR::CS, ""),
     ] {
         assert_text(&object, tag, vr, expected);
     }
@@ -76,15 +77,15 @@ fn rt_image_builds_locked_identity_and_mandatory_metadata() {
 fn rt_image_links_exact_plan_beam_and_fraction_once() {
     let object = build_rt_image(locked_input()).expect("locked RT Image input");
     let references = sequence(&object, tags::REFERENCED_RT_PLAN_SEQUENCE, 1);
-    assert_eq!(references[0].iter().count(), 4);
+    assert_eq!(references[0].iter().count(), 2);
     for (tag, vr, expected) in [
         (tags::REFERENCED_SOP_CLASS_UID, VR::UI, RT_PLAN_STORAGE_UID),
         (tags::REFERENCED_SOP_INSTANCE_UID, VR::UI, PLAN_SOP_UID),
-        (tags::REFERENCED_BEAM_NUMBER, VR::IS, "1"),
-        (tags::REFERENCED_FRACTION_GROUP_NUMBER, VR::IS, "1"),
     ] {
         assert_text(&references[0], tag, vr, expected);
     }
+    assert_text(&object, tags::REFERENCED_BEAM_NUMBER, VR::IS, "1");
+    assert_text(&object, tags::REFERENCED_FRACTION_GROUP_NUMBER, VR::IS, "1");
     assert_text(&object, tags::FRACTION_NUMBER, VR::IS, "1");
 }
 

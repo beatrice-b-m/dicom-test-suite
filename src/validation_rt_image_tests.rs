@@ -418,6 +418,7 @@ fn valid_object() -> InMemDicomObject {
         (tags::INSTANCE_NUMBER, VR::IS, "1"),
         (tags::CONTENT_DATE, VR::DA, "20260101"),
         (tags::CONTENT_TIME, VR::TM, "000000"),
+        (tags::PATIENT_ORIENTATION, VR::CS, ""),
         (tags::PHOTOMETRIC_INTERPRETATION, VR::CS, "MONOCHROME2"),
         (tags::RT_IMAGE_LABEL, VR::SH, "DTS_DRR"),
         (tags::RT_IMAGE_PLANE, VR::CS, "NORMAL"),
@@ -428,6 +429,8 @@ fn valid_object() -> InMemDicomObject {
         (tags::RADIATION_MACHINE_SAD, VR::DS, "1000"),
         (tags::RT_IMAGE_SID, VR::DS, "1500"),
         (tags::PRIMARY_DOSIMETER_UNIT, VR::CS, "MU"),
+        (tags::REFERENCED_BEAM_NUMBER, VR::IS, "1"),
+        (tags::REFERENCED_FRACTION_GROUP_NUMBER, VR::IS, "1"),
         (tags::FRACTION_NUMBER, VR::IS, "1"),
     ] {
         put_str(&mut object, tag, vr, value);
@@ -445,8 +448,6 @@ fn valid_object() -> InMemDicomObject {
     }
     let mut plan = InMemDicomObject::new_empty();
     for (tag, vr, value) in [
-        (tags::REFERENCED_BEAM_NUMBER, VR::IS, "1"),
-        (tags::REFERENCED_FRACTION_GROUP_NUMBER, VR::IS, "1"),
         (tags::REFERENCED_SOP_CLASS_UID, VR::UI, PLAN_CLASS),
         (tags::REFERENCED_SOP_INSTANCE_UID, VR::UI, PLAN_SOP_UID),
     ] {
@@ -491,9 +492,9 @@ fn apply_mutation(object: &mut InMemDicomObject, mutation: Mutation) {
             VR::UI,
             "2.25.800",
         ),
-        Mutation::WrongBeam => mutate_plan(object, tags::REFERENCED_BEAM_NUMBER, VR::IS, "2"),
+        Mutation::WrongBeam => put_str(object, tags::REFERENCED_BEAM_NUMBER, VR::IS, "2"),
         Mutation::WrongReferencedFraction => {
-            mutate_plan(object, tags::REFERENCED_FRACTION_GROUP_NUMBER, VR::IS, "2")
+            put_str(object, tags::REFERENCED_FRACTION_GROUP_NUMBER, VR::IS, "2")
         }
         Mutation::WrongFractionNumber => put_str(object, tags::FRACTION_NUMBER, VR::IS, "2"),
         Mutation::DuplicatePlanReference => {

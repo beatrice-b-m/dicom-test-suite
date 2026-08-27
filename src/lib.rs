@@ -781,6 +781,112 @@ fn validate_manifest_references(
             source_objects,
             failures,
         )?;
+    } else if file.get("case_id").and_then(Value::as_str) == Some("non-image/rt/image_linked") {
+        validate_rt_image_manifest_closure(manifest_path, file, source_objects, failures)?;
+    }
+
+    Ok(())
+}
+
+fn validate_rt_image_manifest_closure(
+    manifest_path: &Path,
+    file: &Value,
+    source_objects: &HashMap<String, ManifestSourceObject>,
+    failures: &mut Vec<String>,
+) -> Result<(), ValidateError> {
+    const CASE_ID: &str = "non-image/rt/image_linked";
+    const PLAN_PATH: &str = "non-image/rt/plan_linked/instance.dcm";
+
+    let expected =
+        file.pointer("/expected_rt_image/plan_reference")
+            .ok_or(ValidateError::ManifestShape {
+                path: manifest_path.to_path_buf(),
+                message: "linked RT Image must declare its expected Plan reference",
+            })?;
+    let source = source_objects
+        .get(PLAN_PATH)
+        .ok_or(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "linked RT Image Plan source is missing from the manifest",
+        })?;
+    let expected_str = |pointer, message| manifest_str(manifest_path, expected, pointer, message);
+
+    for (name, actual, locked) in [
+        (
+            "source_case_id",
+            expected_str("/source_case_id", "Plan source_case_id must be a string")?,
+            source.case_id.as_str(),
+        ),
+        (
+            "source_path",
+            expected_str("/source_path", "Plan source_path must be a string")?,
+            PLAN_PATH,
+        ),
+        (
+            "source_sha256",
+            expected_str("/source_sha256", "Plan source_sha256 must be a string")?,
+            source.sha256.as_str(),
+        ),
+        (
+            "study_instance_uid",
+            expected_str(
+                "/study_instance_uid",
+                "Plan study_instance_uid must be a string",
+            )?,
+            source.study_instance_uid.as_str(),
+        ),
+        (
+            "sop_class_uid",
+            expected_str("/sop_class_uid", "Plan sop_class_uid must be a string")?,
+            source.sop_class_uid.as_str(),
+        ),
+        (
+            "sop_instance_uid",
+            expected_str(
+                "/sop_instance_uid",
+                "Plan sop_instance_uid must be a string",
+            )?,
+            source.sop_instance_uid.as_str(),
+        ),
+    ] {
+        validate_equal(
+            failures,
+            CASE_ID,
+            &format!("rt_image_plan_{name}"),
+            actual,
+            locked,
+        );
+    }
+
+    match source.series_instance_uid.as_deref() {
+        Some(locked) => validate_equal(
+            failures,
+            CASE_ID,
+            "rt_image_plan_series_instance_uid",
+            expected_str(
+                "/series_instance_uid",
+                "Plan series_instance_uid must be a string",
+            )?,
+            locked,
+        ),
+        None => failures.push(format!(
+            "{CASE_ID}: rt_image_plan_series_instance_uid: source has no Series Instance UID"
+        )),
+    }
+    match source.frame_of_reference_uid.as_deref() {
+        Some(locked) => validate_equal(
+            failures,
+            CASE_ID,
+            "rt_image_plan_frame_of_reference_uid",
+            expected_str(
+                "/frame_of_reference_uid",
+                "Plan frame_of_reference_uid must be a string",
+            )?,
+            locked,
+        ),
+        None => failures.push(format!(
+            "{CASE_ID}: rt_image_plan_frame_of_reference_uid: source has no Frame of Reference UID"
+        )),
     }
 
     Ok(())
@@ -30718,6 +30824,44 @@ mod tests {
     }
 
     #[test]
+    fn rt_image_manifest_closure_binds_the_locked_plan_hash_and_identity() {
+        let mut file = rt_image_manifest_fixture();
+        let sources = rt_image_source_objects();
+        let mut failures = Vec::new();
+        validate_rt_image_manifest_closure(
+            Path::new("manifest.json"),
+            &file,
+            &sources,
+            &mut failures,
+        )
+        .expect("valid linked RT Image closure");
+        assert!(failures.is_empty(), "valid closure failed: {failures:#?}");
+
+        file["expected_rt_image"]["plan_reference"]["source_sha256"] = Value::from("0".repeat(64));
+        file["expected_rt_image"]["plan_reference"]["frame_of_reference_uid"] =
+            Value::from("1.2.840.999.404");
+        validate_rt_image_manifest_closure(
+            Path::new("manifest.json"),
+            &file,
+            &sources,
+            &mut failures,
+        )
+        .expect("semantic corruption remains reportable");
+        assert!(
+            failures
+                .iter()
+                .any(|failure| failure.contains("rt_image_plan_source_sha256")),
+            "stale Plan hash was accepted: {failures:#?}"
+        );
+        assert!(
+            failures
+                .iter()
+                .any(|failure| failure.contains("rt_image_plan_frame_of_reference_uid")),
+            "wrong Plan Frame of Reference was accepted: {failures:#?}"
+        );
+    }
+
+    #[test]
     fn sha256_hex_matches_known_digest() {
         assert_eq!(
             sha256_hex(b"abc"),
@@ -30791,6 +30935,46 @@ mod tests {
                 }
             }
         })
+    }
+
+    fn rt_image_manifest_fixture() -> Value {
+        serde_json::json!({
+            "case_id": "non-image/rt/image_linked",
+            "expected_rt_image": {
+                "plan_reference": {
+                    "source_case_id": "non-image/rt/plan_linked",
+                    "source_path": "non-image/rt/plan_linked/instance.dcm",
+                    "source_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                    "study_instance_uid": "1.2.840.999.1",
+                    "series_instance_uid": "1.2.840.999.2",
+                    "sop_class_uid": "1.2.840.10008.5.1.4.1.1.481.5",
+                    "sop_instance_uid": "1.2.840.999.3",
+                    "frame_of_reference_uid": "1.2.840.999.4"
+                }
+            }
+        })
+    }
+
+    fn rt_image_source_objects() -> HashMap<String, ManifestSourceObject> {
+        HashMap::from([(
+            "non-image/rt/plan_linked/instance.dcm".to_string(),
+            ManifestSourceObject {
+                case_id: "non-image/rt/plan_linked".to_string(),
+                sha256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                    .to_string(),
+                study_instance_uid: "1.2.840.999.1".to_string(),
+                sop_class_uid: "1.2.840.10008.5.1.4.1.1.481.5".to_string(),
+                sop_instance_uid: "1.2.840.999.3".to_string(),
+                series_instance_uid: Some("1.2.840.999.2".to_string()),
+                frame_of_reference_uid: Some("1.2.840.999.4".to_string()),
+                frames: None,
+                rows: None,
+                columns: None,
+                photometric_interpretation: None,
+                samples_per_pixel: None,
+                planar_configuration: None,
+            },
+        )])
     }
 
     fn color_softcopy_source_objects() -> HashMap<String, ManifestSourceObject> {

@@ -446,7 +446,7 @@
         {"path": "conformance-backends/wsi-reconstruction/src/dts_wsi_reconstruction/__init__.py"},
         {"path": "conformance-backends/wsi-reconstruction/src/dts_wsi_reconstruction/__main__.py"}
       ],
-      "capabilities": ["tiled_full_implicit_positions", "tiled_sparse_explicit_positions", "dimension_index_validation", "exact_stored_frame_hashes", "pixel_data_payload_hash", "sparse_occupancy_and_absent_positions", "zero_sentinel_reconstruction", "total_pixel_matrix_reconstruction", "transforms_disabled"]
+      "capabilities": ["tiled_full_implicit_positions", "tiled_sparse_explicit_positions", "dimension_index_validation", "exact_stored_frame_hashes", "pixel_data_payload_hash", "sparse_occupancy_and_absent_positions", "zero_sentinel_reconstruction", "total_pixel_matrix_reconstruction", "pyramid_group_role_derivation", "pyramid_uid_membership", "thumbnail_reduction", "label_companion_exclusion", "transforms_disabled"]
     },
     {
       "id": "dcmtk-dcmdump",

@@ -70,6 +70,10 @@ fn wsi_iod_and_reconstruction_routes_are_exact_uv_locked_and_additive() {
             "sparse_occupancy_and_absent_positions",
             "zero_sentinel_reconstruction",
             "total_pixel_matrix_reconstruction",
+            "pyramid_group_role_derivation",
+            "pyramid_uid_membership",
+            "thumbnail_reduction",
+            "label_companion_exclusion",
             "transforms_disabled"
         ])
     );
@@ -82,21 +86,21 @@ fn wsi_iod_and_reconstruction_routes_are_exact_uv_locked_and_additive() {
         .expect("WSI reconstruction lock");
     assert_eq!(
         locked["adapter_sha256"],
-        "a89f55577263f84a27291a6d3adf6659ccebedb76e68dd8b9c06f8b0b3ce7f4e"
+        "9822f1672f41288e81725b4f9cd58ae3c4861e595c320514dcd827d8b045d4c8"
     );
     assert_eq!(
         locked["supporting_artifacts"]["uv.lock"],
-        "3f0b7299b7c11fb8086d7eb5f54f2341f2c9a92f27baded4be45fce36b3c3e55"
+        "9e4b7c03d240f549c9e0032c7f143d17c4dfb8bc9ae76dcf54f550f39842f238"
     );
     assert_eq!(
         locked["supporting_artifacts"]["adapter/__main__.py"],
-        "f2ce4504e4f9463e959fc8b051e669cd25b5455d4ff82978f257ac7ebdba988e"
+        "20a43469d14a6a972830add077320a842259b5d8d81784380937fdcab5d798a5"
     );
     assert!(
         locked["version"]
             .as_str()
             .unwrap()
-            .contains("adapter 0.2.0")
+            .contains("adapter 0.3.0")
     );
 }
 

@@ -6584,6 +6584,42 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
     append_count_map_section(
         &mut output,
         report,
+        "Metadata Specific Character Sets",
+        "/grouped_coverage/metadata_specific_character_sets",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "Metadata Person Names",
+        "/grouped_coverage/metadata_person_names",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "Metadata Person Name Component Groups",
+        "/grouped_coverage/metadata_person_name_component_groups",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "Metadata Person Name Component Group Counts",
+        "/grouped_coverage/metadata_person_name_component_group_counts",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "Metadata Person Name Encoded SHA-256 Values",
+        "/grouped_coverage/metadata_person_name_encoded_sha256_values",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "Metadata Person Name Encoded Byte Lengths",
+        "/grouped_coverage/metadata_person_name_encoded_length_bytes",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
         "Photometric Interpretations",
         "/grouped_coverage/photometric_interpretations",
     );
@@ -7420,6 +7456,43 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
         output.push('\n');
     }
 
+    let metadata_rows = report
+        .get("coverage_matrix")
+        .and_then(Value::as_array)
+        .map(|rows| {
+            rows.iter()
+                .filter(|row| !row["metadata_specific_character_sets"].is_null())
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    if !metadata_rows.is_empty() {
+        output.push_str("## Metadata and VR Expectations\n\n");
+        output.push_str("| Case ID | Specific Character Set | Person Name | Component groups | Group count | Encoded SHA-256 | Encoded bytes |\n");
+        output.push_str("|---|---|---|---|---:|---|---:|\n");
+        for row in metadata_rows {
+            output.push_str(&format!(
+                "| {} | {} | {} | {} | {} | {} | {} |\n",
+                markdown_cell(row.get("case_id").and_then(Value::as_str)),
+                markdown_cell(
+                    row.get("metadata_specific_character_sets")
+                        .and_then(Value::as_str)
+                ),
+                markdown_cell(row.get("metadata_person_name").and_then(Value::as_str)),
+                markdown_cell(
+                    row.get("metadata_person_name_component_groups")
+                        .and_then(Value::as_str)
+                ),
+                markdown_number(row.get("metadata_person_name_component_group_count")),
+                markdown_cell(
+                    row.get("metadata_person_name_encoded_sha256")
+                        .and_then(Value::as_str)
+                ),
+                markdown_number(row.get("metadata_person_name_encoded_length_bytes")),
+            ));
+        }
+        output.push('\n');
+    }
+
     let geometry_rows = report
         .get("coverage_matrix")
         .and_then(Value::as_array)
@@ -7555,6 +7628,7 @@ fn generated_coverage_row(
     )?;
     let codec = file.pointer("/pixel_data/codec");
     let generation_backend = file.pointer("/generation_backend");
+    let metadata = metadata_report_fields(file);
     let mut row = serde_json::json!({
         "case_id": report_str(manifest_path, file, "/case_id", "file case_id must be a string")?,
         "profile": run_profile,
@@ -7606,6 +7680,34 @@ fn generated_coverage_row(
     let row_object = row
         .as_object_mut()
         .expect("generated coverage row literal must be an object");
+    for (field, value) in [
+        (
+            "metadata_specific_character_sets",
+            metadata.specific_character_sets.map(Value::from),
+        ),
+        (
+            "metadata_person_name",
+            metadata.person_name.map(Value::from),
+        ),
+        (
+            "metadata_person_name_component_groups",
+            metadata.person_name_component_groups.map(Value::from),
+        ),
+        (
+            "metadata_person_name_component_group_count",
+            metadata.person_name_component_group_count.map(Value::from),
+        ),
+        (
+            "metadata_person_name_encoded_sha256",
+            metadata.person_name_encoded_sha256.map(Value::from),
+        ),
+        (
+            "metadata_person_name_encoded_length_bytes",
+            metadata.person_name_encoded_length_bytes.map(Value::from),
+        ),
+    ] {
+        row_object.insert(field.to_string(), value.unwrap_or(Value::Null));
+    }
     for (field, backend_field) in [
         ("generation_backend_id", "backend_id"),
         ("generation_backend_version", "version"),
@@ -8508,6 +8610,63 @@ fn generated_coverage_row(
     Ok(row)
 }
 
+#[derive(Default)]
+struct MetadataReportFields {
+    specific_character_sets: Option<String>,
+    person_name: Option<String>,
+    person_name_component_groups: Option<String>,
+    person_name_component_group_count: Option<u64>,
+    person_name_encoded_sha256: Option<String>,
+    person_name_encoded_length_bytes: Option<u64>,
+}
+
+fn metadata_report_fields(file: &Value) -> MetadataReportFields {
+    let specific_character_sets = file
+        .pointer("/expected_metadata/specific_character_sets")
+        .and_then(Value::as_array)
+        .and_then(|values| {
+            values
+                .iter()
+                .map(|value| value.as_str())
+                .collect::<Option<Vec<_>>>()
+        })
+        .map(|values| values.join("\\"));
+    let person_name = file.pointer("/expected_metadata/person_names/0");
+    let component_groups = person_name
+        .and_then(|person_name| person_name.get("component_groups"))
+        .and_then(Value::as_array);
+    let person_name_component_groups = component_groups.and_then(|groups| {
+        groups
+            .iter()
+            .map(|group| {
+                Some(format!(
+                    "{}:{}",
+                    group.get("kind")?.as_str()?,
+                    group.get("decoded_value")?.as_str()?
+                ))
+            })
+            .collect::<Option<Vec<_>>>()
+            .map(|groups| groups.join(" | "))
+    });
+
+    MetadataReportFields {
+        specific_character_sets,
+        person_name: person_name
+            .and_then(|value| value.get("decoded_value"))
+            .and_then(Value::as_str)
+            .map(str::to_string),
+        person_name_component_groups,
+        person_name_component_group_count: component_groups.map(|groups| groups.len() as u64),
+        person_name_encoded_sha256: person_name
+            .and_then(|value| value.get("raw_value_sha256"))
+            .and_then(Value::as_str)
+            .map(str::to_string),
+        person_name_encoded_length_bytes: person_name
+            .and_then(|value| value.get("raw_value_byte_length"))
+            .and_then(Value::as_u64),
+    }
+}
+
 fn report_lut_descriptor(file: &Value, pointer: &str) -> Option<String> {
     let descriptor = file.pointer(pointer)?.as_array()?;
     let values = descriptor
@@ -9103,6 +9262,12 @@ fn skipped_coverage_row(
         "generation_backend_id",
         "generation_backend_version",
         "generation_backend_determinism",
+        "metadata_specific_character_sets",
+        "metadata_person_name",
+        "metadata_person_name_component_groups",
+        "metadata_person_name_component_group_count",
+        "metadata_person_name_encoded_sha256",
+        "metadata_person_name_encoded_length_bytes",
     ] {
         row_object.insert(field.to_string(), Value::Null);
     }
@@ -9424,6 +9589,12 @@ struct GroupedCoverage {
     determinism: BTreeMap<String, usize>,
     validation_statuses: BTreeMap<String, usize>,
     unavailable_reasons: BTreeMap<String, usize>,
+    metadata_specific_character_sets: BTreeMap<String, usize>,
+    metadata_person_names: BTreeMap<String, usize>,
+    metadata_person_name_component_groups: BTreeMap<String, usize>,
+    metadata_person_name_component_group_counts: BTreeMap<String, usize>,
+    metadata_person_name_encoded_sha256_values: BTreeMap<String, usize>,
+    metadata_person_name_encoded_length_bytes: BTreeMap<String, usize>,
     photometric_interpretations: BTreeMap<String, usize>,
     bit_depths: BTreeMap<String, usize>,
     bits_allocated: BTreeMap<String, usize>,
@@ -9627,6 +9798,43 @@ impl GroupedCoverage {
                 &mut self.unavailable_reasons,
                 row.get("reason_code").and_then(Value::as_str),
             );
+        }
+        increment_map(
+            &mut self.metadata_specific_character_sets,
+            row.get("metadata_specific_character_sets")
+                .and_then(Value::as_str),
+        );
+        increment_map(
+            &mut self.metadata_person_names,
+            row.get("metadata_person_name").and_then(Value::as_str),
+        );
+        increment_map(
+            &mut self.metadata_person_name_component_groups,
+            row.get("metadata_person_name_component_groups")
+                .and_then(Value::as_str),
+        );
+        if let Some(count) = row
+            .get("metadata_person_name_component_group_count")
+            .and_then(Value::as_u64)
+        {
+            *self
+                .metadata_person_name_component_group_counts
+                .entry(count.to_string())
+                .or_default() += 1;
+        }
+        increment_map(
+            &mut self.metadata_person_name_encoded_sha256_values,
+            row.get("metadata_person_name_encoded_sha256")
+                .and_then(Value::as_str),
+        );
+        if let Some(length) = row
+            .get("metadata_person_name_encoded_length_bytes")
+            .and_then(Value::as_u64)
+        {
+            *self
+                .metadata_person_name_encoded_length_bytes
+                .entry(length.to_string())
+                .or_default() += 1;
         }
         increment_map(
             &mut self.photometric_interpretations,
@@ -10312,6 +10520,36 @@ impl GroupedCoverage {
             "generation_backends".to_string(),
             serde_json::to_value(&self.generation_backends)
                 .expect("generation backend count map must serialize"),
+        );
+        grouped_object.insert(
+            "metadata_specific_character_sets".to_string(),
+            serde_json::to_value(&self.metadata_specific_character_sets)
+                .expect("metadata Specific Character Set count map must serialize"),
+        );
+        grouped_object.insert(
+            "metadata_person_names".to_string(),
+            serde_json::to_value(&self.metadata_person_names)
+                .expect("metadata Person Name count map must serialize"),
+        );
+        grouped_object.insert(
+            "metadata_person_name_component_groups".to_string(),
+            serde_json::to_value(&self.metadata_person_name_component_groups)
+                .expect("metadata Person Name component group count map must serialize"),
+        );
+        grouped_object.insert(
+            "metadata_person_name_component_group_counts".to_string(),
+            serde_json::to_value(&self.metadata_person_name_component_group_counts)
+                .expect("metadata Person Name component group total map must serialize"),
+        );
+        grouped_object.insert(
+            "metadata_person_name_encoded_sha256_values".to_string(),
+            serde_json::to_value(&self.metadata_person_name_encoded_sha256_values)
+                .expect("metadata Person Name encoded SHA-256 count map must serialize"),
+        );
+        grouped_object.insert(
+            "metadata_person_name_encoded_length_bytes".to_string(),
+            serde_json::to_value(&self.metadata_person_name_encoded_length_bytes)
+                .expect("metadata Person Name encoded byte length count map must serialize"),
         );
         grouped_object.insert(
             "window_centers".to_string(),

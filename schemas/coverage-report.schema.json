@@ -83,6 +83,24 @@
         "unavailable_reasons": {
           "$ref": "#/$defs/count_map"
         },
+        "metadata_specific_character_sets": {
+          "$ref": "#/$defs/count_map"
+        },
+        "metadata_person_names": {
+          "$ref": "#/$defs/count_map"
+        },
+        "metadata_person_name_component_groups": {
+          "$ref": "#/$defs/count_map"
+        },
+        "metadata_person_name_component_group_counts": {
+          "$ref": "#/$defs/count_map"
+        },
+        "metadata_person_name_encoded_sha256_values": {
+          "$ref": "#/$defs/count_map"
+        },
+        "metadata_person_name_encoded_length_bytes": {
+          "$ref": "#/$defs/count_map"
+        },
         "photometric_interpretations": {
           "$ref": "#/$defs/count_map"
         },
@@ -570,6 +588,12 @@
         "generation_backend_version",
         "generation_backend_determinism",
         "reason_code",
+        "metadata_specific_character_sets",
+        "metadata_person_name",
+        "metadata_person_name_component_groups",
+        "metadata_person_name_component_group_count",
+        "metadata_person_name_encoded_sha256",
+        "metadata_person_name_encoded_length_bytes",
         "photometric",
         "bits",
         "bits_allocated",
@@ -781,6 +805,29 @@
         },
         "reason_code": {
           "type": ["string", "null"]
+        },
+        "metadata_specific_character_sets": {
+          "type": ["string", "null"]
+        },
+        "metadata_person_name": {
+          "type": ["string", "null"]
+        },
+        "metadata_person_name_component_groups": {
+          "type": ["string", "null"]
+        },
+        "metadata_person_name_component_group_count": {
+          "type": ["integer", "null"],
+          "minimum": 1
+        },
+        "metadata_person_name_encoded_sha256": {
+          "anyOf": [
+            { "$ref": "#/$defs/sha256" },
+            { "type": "null" }
+          ]
+        },
+        "metadata_person_name_encoded_length_bytes": {
+          "type": ["integer", "null"],
+          "minimum": 1
         },
         "photometric": {
           "type": ["string", "null"]

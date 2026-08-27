@@ -9,6 +9,47 @@ use serde_json::json;
 fn report_command_writes_json_coverage_for_core_root() {
     let out_dir = unique_temp_dir("report-core-json");
     generate_core(&out_dir);
+    let manifest_path = out_dir.join("manifest.json");
+    let mut manifest: Value = serde_json::from_slice(
+        &fs::read(&manifest_path).expect("generated manifest should be readable"),
+    )
+    .expect("generated manifest should be JSON");
+    let metadata_fixture = manifest
+        .get_mut("files")
+        .and_then(Value::as_array_mut)
+        .expect("generated manifest should have files")
+        .iter_mut()
+        .find(|file| {
+            file.get("case_id").and_then(Value::as_str)
+                == Some("classic/ct/mono2_i16_rescale_12bit_explicit_le")
+        })
+        .expect("generated manifest should contain the CT fixture");
+    metadata_fixture
+        .as_object_mut()
+        .expect("manifest file should be an object")
+        .insert(
+            "expected_metadata".to_string(),
+            json!({
+                "specific_character_sets": ["ISO_IR 192"],
+                "person_names": [{
+                    "tag": "00100010",
+                    "keyword": "PatientName",
+                    "vr": "PN",
+                    "decoded_value": "Wang^XiaoDong=王^小東",
+                    "raw_value_sha256": "6d3ef01e6f20a77c1457c4561427b2638e3da732e8f52ff7a18202ea004603b5",
+                    "raw_value_byte_length": 29,
+                    "component_groups": [
+                        {"position": 1, "kind": "alphabetic", "decoded_value": "Wang^XiaoDong"},
+                        {"position": 2, "kind": "ideographic", "decoded_value": "王^小東"}
+                    ]
+                }]
+            }),
+        );
+    fs::write(
+        &manifest_path,
+        serde_json::to_vec_pretty(&manifest).expect("metadata fixture should serialize"),
+    )
+    .expect("metadata fixture manifest should be writable");
 
     let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
         .args([
@@ -27,6 +68,21 @@ fn report_command_writes_json_coverage_for_core_root() {
     );
     let report: Value =
         serde_json::from_slice(&output.stdout).expect("report stdout should be JSON");
+    let report_schema: Value = serde_json::from_slice(
+        &fs::read("schemas/coverage-report.schema.json")
+            .expect("coverage report schema should be readable"),
+    )
+    .expect("coverage report schema should be JSON");
+    let report_validator =
+        jsonschema::validator_for(&report_schema).expect("coverage schema should compile");
+    let report_errors = report_validator
+        .iter_errors(&report)
+        .map(|error| error.to_string())
+        .collect::<Vec<_>>();
+    assert!(
+        report_errors.is_empty(),
+        "metadata coverage report must match its schema: {report_errors:?}"
+    );
     assert_eq!(
         report
             .get("coverage_report_schema_version")
@@ -39,14 +95,14 @@ fn report_command_writes_json_coverage_for_core_root() {
     );
     assert_eq!(
         report.pointer("/counts/planned").and_then(Value::as_u64),
-        Some(9)
+        Some(10)
     );
     assert_eq!(
         report
             .pointer("/coverage_matrix")
             .and_then(Value::as_array)
             .map(Vec::len),
-        Some(46)
+        Some(47)
     );
     assert_eq!(
         coverage_row(&report, "classic/ct/mono2_i16_rescale_12bit_explicit_le")
@@ -54,7 +110,58 @@ fn report_command_writes_json_coverage_for_core_root() {
             .and_then(Value::as_str),
         Some("generated")
     );
+    let planned_metadata_row = coverage_row(&report, "metadata/sc/empty_type2_attributes");
+    for field in [
+        "metadata_specific_character_sets",
+        "metadata_person_name",
+        "metadata_person_name_component_groups",
+        "metadata_person_name_component_group_count",
+        "metadata_person_name_encoded_sha256",
+        "metadata_person_name_encoded_length_bytes",
+    ] {
+        assert_eq!(
+            planned_metadata_row.get(field),
+            Some(&Value::Null),
+            "planned metadata report field {field} must remain explicitly null"
+        );
+    }
     let native_row = coverage_row(&report, "classic/ct/mono2_i16_rescale_12bit_explicit_le");
+    assert_eq!(
+        native_row
+            .get("metadata_specific_character_sets")
+            .and_then(Value::as_str),
+        Some("ISO_IR 192")
+    );
+    assert_eq!(
+        native_row
+            .get("metadata_person_name")
+            .and_then(Value::as_str),
+        Some("Wang^XiaoDong=王^小東")
+    );
+    assert_eq!(
+        native_row
+            .get("metadata_person_name_component_groups")
+            .and_then(Value::as_str),
+        Some("alphabetic:Wang^XiaoDong | ideographic:王^小東")
+    );
+    assert_eq!(
+        native_row
+            .get("metadata_person_name_component_group_count")
+            .and_then(Value::as_u64),
+        Some(2)
+    );
+    assert_eq!(
+        native_row
+            .get("metadata_person_name_encoded_sha256")
+            .and_then(Value::as_str),
+        Some("6d3ef01e6f20a77c1457c4561427b2638e3da732e8f52ff7a18202ea004603b5")
+    );
+    assert_eq!(
+        native_row
+            .get("metadata_person_name_encoded_length_bytes")
+            .and_then(Value::as_u64),
+        Some(29)
+    );
     assert_eq!(native_row.get("generation_backend_id"), Some(&Value::Null));
     assert_eq!(
         native_row.get("generation_backend_version"),
@@ -473,13 +580,13 @@ fn report_command_writes_json_coverage_for_core_root() {
         report
             .pointer("/grouped_coverage/profiles/core")
             .and_then(Value::as_u64),
-        Some(46)
+        Some(47)
     );
     assert_eq!(
         report
             .pointer("/grouped_coverage/profile_memberships/core")
             .and_then(Value::as_u64),
-        Some(46)
+        Some(47)
     );
     assert_eq!(
         report
@@ -491,7 +598,7 @@ fn report_command_writes_json_coverage_for_core_root() {
         report
             .pointer("/grouped_coverage/transfer_syntax_names/Explicit VR Little Endian")
             .and_then(Value::as_u64),
-        Some(45)
+        Some(46)
     );
     assert_eq!(
         report
@@ -811,6 +918,30 @@ fn report_command_writes_json_coverage_for_core_root() {
             .and_then(Value::as_u64),
         Some(2)
     );
+    for (pointer, expected) in [
+        (
+            "/grouped_coverage/metadata_specific_character_sets/ISO_IR 192",
+            1,
+        ),
+        (
+            "/grouped_coverage/metadata_person_names/Wang^XiaoDong=王^小東",
+            1,
+        ),
+        (
+            "/grouped_coverage/metadata_person_name_component_group_counts/2",
+            1,
+        ),
+        (
+            "/grouped_coverage/metadata_person_name_encoded_length_bytes/29",
+            1,
+        ),
+    ] {
+        assert_eq!(
+            report.pointer(pointer).and_then(Value::as_u64),
+            Some(expected),
+            "grouped metadata field {pointer}"
+        );
+    }
 
     let markdown = dicom_test_suite::render_coverage_report_markdown(&report);
     assert!(markdown.contains("## Geometry Sorting Expectations"));
@@ -844,6 +975,30 @@ fn markdown_report_renders_cross_series_organization_expectations() {
     assert!(markdown.contains(
         "| geometry/ct/multiseries_shared_frame_of_reference | shared-study-frame-of-reference | 2 | 1 | 3 | true | true | true |"
     ));
+}
+
+#[test]
+fn markdown_report_renders_metadata_and_vr_expectations() {
+    let report = json!({
+        "coverage_matrix": [{
+            "case_id": "metadata/sc/utf8_person_name",
+            "metadata_specific_character_sets": "ISO_IR 192",
+            "metadata_person_name": "Wang^XiaoDong=王^小東",
+            "metadata_person_name_component_groups": "alphabetic:Wang^XiaoDong | ideographic:王^小東",
+            "metadata_person_name_component_group_count": 2,
+            "metadata_person_name_encoded_sha256": "6d3ef01e6f20a77c1457c4561427b2638e3da732e8f52ff7a18202ea004603b5",
+            "metadata_person_name_encoded_length_bytes": 29
+        }],
+        "gaps": []
+    });
+
+    let markdown = dicom_test_suite::render_coverage_report_markdown(&report);
+    assert!(markdown.contains("## Metadata and VR Expectations"));
+    assert!(markdown.contains("Specific Character Set"));
+    assert!(markdown.contains("alphabetic:Wang^XiaoDong \\| ideographic:王^小東"));
+    assert!(markdown.contains("6d3ef01e6f20a77c1457c4561427b2638e3da732e8f52ff7a18202ea004603b5"));
+    assert!(markdown.contains("| 2 |"));
+    assert!(markdown.contains("| 29 |"));
 }
 
 #[test]
@@ -2237,11 +2392,11 @@ fn report_command_writes_markdown_coverage_for_core_root() {
     let stdout = String::from_utf8(output.stdout).expect("report stdout should be UTF-8");
     assert!(stdout.starts_with("# DICOM Test Suite Coverage Report"));
     assert!(stdout.contains("| generated | 37 |"));
-    assert!(stdout.contains("| planned | 9 |"));
+    assert!(stdout.contains("| planned | 10 |"));
     assert!(stdout.contains("### Profile Memberships"));
-    assert!(stdout.contains("| core | 46 |"));
+    assert!(stdout.contains("| core | 47 |"));
     assert!(stdout.contains("### Transfer Syntax Names"));
-    assert!(stdout.contains("| Explicit VR Little Endian | 45 |"));
+    assert!(stdout.contains("| Explicit VR Little Endian | 46 |"));
     assert!(stdout.contains("| Implicit VR Little Endian | 1 |"));
     assert!(stdout.contains("### SOP Class Names"));
     assert!(stdout.contains("| CT Image Storage | 17 |"));

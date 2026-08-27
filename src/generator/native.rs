@@ -1,4 +1,5 @@
 pub(super) mod advanced_blending_presentation_state;
+pub(super) mod blending_presentation_state;
 pub(super) mod color_softcopy_presentation_state;
 pub(super) mod ct_geometry;
 pub(super) mod deformable_spatial_registration;
@@ -20,6 +21,8 @@ pub(super) mod xrf;
 
 #[cfg(test)]
 mod advanced_blending_presentation_state_tests;
+#[cfg(test)]
+mod blending_presentation_state_tests;
 #[cfg(test)]
 mod color_softcopy_presentation_state_tests;
 #[cfg(test)]

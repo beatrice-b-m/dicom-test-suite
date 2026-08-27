@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::env;
 use std::fs;
 use std::io::Write;
@@ -24,6 +25,7 @@ const VISIBLE_LIGHT_PIXEL_DECODER_ID: &str = "dcmtk-dcm2img-visible-light";
 const WSI_RECONSTRUCTION_ID: &str = "highdicom-wsi-reconstruction";
 const WSI_CASE_ID: &str = "vl/wsi/tiled_full_small";
 const WSI_SPARSE_CASE_ID: &str = "vl/wsi/tiled_sparse_small";
+const WSI_PYRAMID_CASE_ID: &str = "vl/wsi/pyramid_multiresolution";
 const WSI_SPARSE_PRIMARY_VALIDATOR_ID: &str = "pydicom-dicom-validator-wsi-sparse";
 const WSI_SPARSE_CHARACTERIZATION_ID: &str = "dicom3tools-dciodvfy-wsi-sparse-characterization";
 const WSI_SPARSE_CHARACTERIZATION_MESSAGE: &str = "Error - </NumberOfFrames(0028,0008)> - NumberOfFrames does not match expected value for tiled total pixel matrix = <2 > - expected 4 for 1 optical paths, 1 focal planes, 2 rows of tiles, 2 columns of tiles";
@@ -349,7 +351,9 @@ fn verify_completeness(evidence_root: &Path, evidence: &Value, failures: &mut Ve
             files
                 .iter()
                 .filter(|file| {
-                    file["case_id"] == WSI_CASE_ID || file["case_id"] == WSI_SPARSE_CASE_ID
+                    file["case_id"] == WSI_CASE_ID
+                        || file["case_id"] == WSI_SPARSE_CASE_ID
+                        || file["case_id"] == WSI_PYRAMID_CASE_ID
                 })
                 .filter_map(|file| file["path"].as_str())
                 .collect::<std::collections::BTreeSet<_>>()
@@ -810,13 +814,26 @@ fn verify_completeness(evidence_root: &Path, evidence: &Value, failures: &mut Ve
                 .flatten()
                 .find(|file| file["path"] == path);
             if let Some(manifest_file) = manifest_file {
-                verify_wsi_reconstruction_evidence(
-                    evidence_root,
-                    evidence,
-                    instance,
-                    manifest_file,
-                    failures,
-                );
+                if case_id == WSI_PYRAMID_CASE_ID {
+                    if let Some(manifest) = manifest.as_ref() {
+                        verify_wsi_pyramid_group_evidence(
+                            evidence_root,
+                            evidence,
+                            instance,
+                            manifest_file,
+                            manifest,
+                            failures,
+                        );
+                    }
+                } else {
+                    verify_wsi_reconstruction_evidence(
+                        evidence_root,
+                        evidence,
+                        instance,
+                        manifest_file,
+                        failures,
+                    );
+                }
             }
         }
         if required_nonsquare_spacing_paths.contains(path)
@@ -1527,7 +1544,7 @@ fn verify_wsi_reconstruction_evidence(
         && manifest_file["path"] == instance["path"]
         && sidecar["expected_contract"] == *contract
         && sidecar["backend"] == "dts-wsi-reconstruct"
-        && sidecar["backend_version"] == "0.2.0"
+        && sidecar["backend_version"] == "0.3.0"
         && sidecar["runtime"]
             == json!({"highdicom": "0.28.1", "numpy": "2.5.2", "pydicom": "3.0.2"})
         && sidecar["frame_hashes"] == contract["pixel_data"]["frame_hashes"]
@@ -1556,6 +1573,107 @@ fn verify_wsi_reconstruction_evidence(
     if !linked {
         failures.push(format!(
             "WSI reconstruction evidence sidecar is not linked to its locked tool and exact source manifest contract: {path}"
+        ));
+    }
+}
+
+fn verify_wsi_pyramid_group_evidence(
+    evidence_root: &Path,
+    evidence: &Value,
+    instance: &Value,
+    manifest_file: &Value,
+    manifest: &Value,
+    failures: &mut Vec<String>,
+) {
+    let path = instance["path"].as_str().unwrap_or("unknown");
+    let Some(relative) = instance
+        .pointer("/pixel/evidence/path")
+        .and_then(Value::as_str)
+    else {
+        failures.push(format!(
+            "WSI pyramid group evidence sidecar is missing: {path}"
+        ));
+        return;
+    };
+    if validate_relative_path(relative).is_err() {
+        failures.push(format!("WSI pyramid group evidence path is unsafe: {path}"));
+        return;
+    }
+    let Ok(bytes) = fs::read(evidence_root.join(relative)) else {
+        failures.push(format!("WSI pyramid group evidence is unavailable: {path}"));
+        return;
+    };
+    let Ok(sidecar) = serde_json::from_slice::<Value>(&bytes) else {
+        failures.push(format!(
+            "WSI pyramid group evidence is invalid JSON: {path}"
+        ));
+        return;
+    };
+    let tool = evidence["tools"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .find(|tool| tool["adapter_id"] == WSI_RECONSTRUCTION_ID);
+    let contract = &manifest_file["expected_wsi_pyramid"];
+    let group_files = manifest["files"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter(|file| file["case_id"] == WSI_PYRAMID_CASE_ID)
+        .collect::<Vec<_>>();
+    let expected_source_members = contract["members"]
+        .as_array()
+        .map(|members| {
+            members
+                .iter()
+                .map(|member| {
+                    json!({
+                        "ordinal": member["ordinal"], "role": member["role"],
+                        "path": member["path"], "sha256": member["sha256"],
+                        "sop_instance_uid": member["sop_instance_uid"]
+                    })
+                })
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    let rows_bound = group_files.len() == 3
+        && group_files
+            .iter()
+            .all(|file| file["expected_wsi_pyramid"] == *contract)
+        && expected_source_members.iter().all(|member| {
+            group_files.iter().any(|file| {
+                file["wsi_pyramid_role"] == member["role"]
+                    && file["wsi_pyramid_ordinal"] == member["ordinal"]
+                    && file["path"] == member["path"]
+                    && file["sha256"] == member["sha256"]
+                    && file.pointer("/uids/sop_instance_uid") == Some(&member["sop_instance_uid"])
+            })
+        });
+    let current_member = contract["members"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .find(|member| member["path"] == manifest_file["path"]);
+    let linked = tool
+        .is_some_and(|tool| tool["status"] == "available" && tool["lock_status"] == "matched")
+        && sidecar["adapter_id"] == WSI_RECONSTRUCTION_ID
+        && sidecar["adapter_sha256"].as_str() == tool.and_then(|tool| tool["sha256"].as_str())
+        && sidecar["independence"] == "independent"
+        && sidecar["extraction_method"] == "uv_locked_highdicom_three_instance_pyramid_group"
+        && sidecar["status"] == "passed"
+        && sidecar["source_manifest_sha256"] == evidence["source"]["manifest_sha256"]
+        && sidecar["source_members"] == json!(expected_source_members)
+        && sidecar["expected_contract"] == *contract
+        && rows_bound
+        && current_member.is_some_and(|member| {
+            manifest_file["wsi_pyramid_role"] == member["role"]
+                && instance["pixel"]["expected_frame_hashes"] == member["frame_hashes"]
+                && instance["pixel"]["actual_frame_hashes"] == member["frame_hashes"]
+        })
+        && wsi_pyramid_actual_matches_contract(&sidecar["actual"], contract);
+    if !linked {
+        failures.push(format!(
+            "WSI pyramid group evidence is not bound to its locked tool and complete exact source group: {path}"
         ));
     }
 }
@@ -1948,7 +2066,10 @@ fn requires_waveform_validation(case_id: &str) -> bool {
 fn requires_visible_light_validation(case_id: &str) -> bool {
     matches!(
         case_id,
-        "vl/endoscopic/rgb_explicit_le" | "vl/microscopic/rgb_explicit_le" | WSI_CASE_ID
+        "vl/endoscopic/rgb_explicit_le"
+            | "vl/microscopic/rgb_explicit_le"
+            | WSI_CASE_ID
+            | WSI_PYRAMID_CASE_ID
     )
 }
 
@@ -2292,6 +2413,14 @@ pub fn run_conformance(
         .map_err(|error| format!("failed to preserve source manifest: {error}"))?;
     let mut sorted_files = files.iter().collect::<Vec<_>>();
     sorted_files.sort_by_key(|file| file.get("path").and_then(Value::as_str).unwrap_or(""));
+    let pyramid_pixels = collect_wsi_pyramid_group_results(
+        generated_root,
+        evidence_root,
+        &sorted_files,
+        &manifest_sha256,
+        adapters,
+        &tools,
+    )?;
     let mut instances = Vec::with_capacity(sorted_files.len());
     for file in &sorted_files {
         instances.push(collect_instance(
@@ -2301,6 +2430,7 @@ pub fn run_conformance(
             &manifest_sha256,
             adapters,
             &tools,
+            &pyramid_pixels,
         )?);
     }
 
@@ -2391,6 +2521,7 @@ fn collect_instance(
     manifest_sha256: &str,
     adapters: &[Value],
     tools: &[Value],
+    pyramid_pixels: &BTreeMap<String, Value>,
 ) -> Result<Value, String> {
     let path = file
         .get("path")
@@ -2457,16 +2588,23 @@ fn collect_instance(
             path,
         )
     };
-    let pixel = collect_pixel_result(
-        generated_root,
-        evidence_root,
-        file,
-        manifest_sha256,
-        path,
-        &stable_key,
-        adapters,
-        tools,
-    )?;
+    let pixel = if case_id == WSI_PYRAMID_CASE_ID {
+        pyramid_pixels
+            .get(path)
+            .cloned()
+            .ok_or_else(|| format!("WSI pyramid group evidence is incomplete for {path}"))?
+    } else {
+        collect_pixel_result(
+            generated_root,
+            evidence_root,
+            file,
+            manifest_sha256,
+            path,
+            &stable_key,
+            adapters,
+            tools,
+        )?
+    };
     let mut results = vec![primary_result];
     results.extend(collect_secondary_iod_results(
         generated_root,
@@ -3613,6 +3751,284 @@ fn parse_binary_ppm(path: &Path) -> Result<(usize, usize, u16, Vec<u8>), String>
     Ok((columns, rows, max_value, source[index..].to_vec()))
 }
 
+fn wsi_pyramid_actual_matches_contract(actual: &Value, contract: &Value) -> bool {
+    let identity = &contract["shared_identity"];
+    let actual_identity = &actual["group_identity"];
+    let shared_identity_matches = [
+        "patient_id",
+        "study_instance_uid",
+        "series_instance_uid",
+        "frame_of_reference_uid",
+        "container_identifier",
+        "specimen_identifier",
+        "specimen_uid",
+        "optical_path_identifier",
+        "icc_profile_sha256",
+    ]
+    .iter()
+    .all(|field| actual_identity[*field] == identity[*field]);
+    let members_match = actual["members"]
+        .as_array()
+        .zip(contract["members"].as_array())
+        .is_some_and(|(actual_members, expected_members)| {
+            actual_members.len() == 3
+                && expected_members.len() == 3
+                && actual_members
+                    .iter()
+                    .zip(expected_members)
+                    .all(|(member, expected)| {
+                        member["role"] == expected["role"]
+                            && member["sop_instance_uid"] == expected["sop_instance_uid"]
+                            && member["image_type"] == expected["image_type"]
+                            && member["frame_type"] == expected["frame_type"]
+                            && member["frame_count"] == expected["frames"]
+                            && member["stored_frame_shape"] == json!([2, 2, 3])
+                            && member["frame_hashes"] == expected["frame_hashes"]
+                            && member["pixel_data_sha256"] == expected["payload_sha256"]
+                            && member["total_pixel_matrix_shape"]
+                                == json!([
+                                    expected["total_pixel_matrix_rows"],
+                                    expected["total_pixel_matrix_columns"],
+                                    3
+                                ])
+                            && member["total_pixel_matrix_sha256"] == expected["matrix_sha256"]
+                            && member["pyramid_member"] == json!(!expected["pyramid_uid"].is_null())
+                            && member["pyramid_uid"] == expected["pyramid_uid"]
+                            && member["specimen_label_in_image"]
+                                == expected["specimen_label_in_image"]
+                            && member["burned_in_annotation"] == "NO"
+                            && member["transforms_applied"] == false
+                    })
+        });
+    actual["status"] == "passed"
+        && actual["backend"] == "dts-wsi-reconstruct"
+        && actual["backend_version"] == "0.3.0"
+        && actual["runtime"] == json!({"highdicom": "0.28.1", "numpy": "2.5.2", "pydicom": "3.0.2"})
+        && actual["ordered_roles"] == contract["ordered_roles"]
+        && shared_identity_matches
+        && actual["pyramid_uid"] == contract["pyramid_membership"]["pyramid_uid"]
+        && actual["pyramid_roles"] == contract["pyramid_membership"]["member_roles"]
+        && actual["apex_role"] == contract["apex_role"]
+        && actual["label_excluded_from_pyramid"] == true
+        && actual["thumbnail_reduction"] == "volume_quadrant_top_left_pixels"
+        && actual["thumbnail_reduction_sha256"] == contract["members"][1]["matrix_sha256"]
+        && members_match
+        && actual["transforms_applied"] == false
+}
+
+#[allow(clippy::too_many_arguments)]
+fn collect_wsi_pyramid_group_results(
+    generated_root: &Path,
+    evidence_root: &Path,
+    files: &[&Value],
+    manifest_sha256: &str,
+    adapters: &[Value],
+    tools: &[Value],
+) -> Result<BTreeMap<String, Value>, String> {
+    let pyramid_files = files
+        .iter()
+        .copied()
+        .filter(|file| file["case_id"] == WSI_PYRAMID_CASE_ID)
+        .collect::<Vec<_>>();
+    if pyramid_files.is_empty() {
+        return Ok(BTreeMap::new());
+    }
+    if pyramid_files.len() != 3 {
+        return Err(format!(
+            "case {WSI_PYRAMID_CASE_ID} requires exactly three manifest members"
+        ));
+    }
+    let contract = &pyramid_files[0]["expected_wsi_pyramid"];
+    if contract.is_null()
+        || pyramid_files
+            .iter()
+            .any(|file| file["expected_wsi_pyramid"] != *contract)
+    {
+        return Err("WSI pyramid members do not repeat one exact group contract".to_string());
+    }
+    let expected_members = contract["members"]
+        .as_array()
+        .ok_or_else(|| "WSI pyramid contract requires members".to_string())?;
+    let mut ordered_files = Vec::with_capacity(3);
+    for expected_member in expected_members {
+        let role = expected_member["role"]
+            .as_str()
+            .ok_or_else(|| "WSI pyramid contract member requires role".to_string())?;
+        let matching = pyramid_files
+            .iter()
+            .copied()
+            .filter(|file| file["wsi_pyramid_role"] == role)
+            .collect::<Vec<_>>();
+        let [file] = matching.as_slice() else {
+            return Err(format!(
+                "WSI pyramid group requires exactly one {role} member"
+            ));
+        };
+        if file["path"] != expected_member["path"]
+            || file["sha256"] != expected_member["sha256"]
+            || file["size_bytes"] != expected_member["size_bytes"]
+            || file.pointer("/uids/sop_instance_uid") != Some(&expected_member["sop_instance_uid"])
+        {
+            return Err(format!(
+                "WSI pyramid {role} manifest row is not bound to its group contract"
+            ));
+        }
+        ordered_files.push(*file);
+    }
+    let expected_by_path = ordered_files
+        .iter()
+        .map(|file| {
+            let path = file["path"].as_str().unwrap_or_default().to_string();
+            let hashes = file["pixel_data"]["frame_hashes"]
+                .as_array()
+                .cloned()
+                .unwrap_or_default();
+            (path, hashes)
+        })
+        .collect::<Vec<_>>();
+    let unsupported = |reason: &str| {
+        expected_by_path
+            .iter()
+            .map(|(path, hashes)| {
+                (
+                    path.clone(),
+                    pixel_unsupported(hashes.clone(), "independent", reason),
+                )
+            })
+            .collect::<BTreeMap<_, _>>()
+    };
+    let Some(adapter) = adapters
+        .iter()
+        .find(|adapter| adapter["id"] == WSI_RECONSTRUCTION_ID)
+    else {
+        return Ok(unsupported(
+            "The independent WSI pyramid reconstruction adapter is not configured",
+        ));
+    };
+    if !adapter["supported_case_ids"]
+        .as_array()
+        .is_some_and(|ids| ids.iter().any(|id| id == WSI_PYRAMID_CASE_ID))
+    {
+        return Err(
+            "WSI reconstruction adapter does not explicitly support the pyramid case".to_string(),
+        );
+    }
+    let Some(tool) = tools
+        .iter()
+        .find(|tool| tool["adapter_id"] == WSI_RECONSTRUCTION_ID)
+    else {
+        return Ok(unsupported(
+            "The independent WSI pyramid reconstruction adapter was not discovered",
+        ));
+    };
+    if tool["status"] != "available" || tool["lock_status"] != "matched" {
+        return Ok(unsupported(
+            "The independent WSI pyramid reconstruction adapter is unavailable or unlocked",
+        ));
+    }
+    let executable = tool["executable"]
+        .as_str()
+        .ok_or_else(|| "available WSI pyramid adapter has no executable".to_string())?;
+    let inputs = ordered_files
+        .iter()
+        .map(|file| generated_root.join(file["path"].as_str().unwrap_or_default()))
+        .collect::<Vec<_>>();
+    if inputs.iter().any(|path| !path.is_file()) {
+        return Err("WSI pyramid manifest member does not exist".to_string());
+    }
+    let arguments = string_array(adapter, "group_arguments")?
+        .into_iter()
+        .map(|argument| {
+            inputs
+                .iter()
+                .enumerate()
+                .fold(argument, |value, (index, input)| {
+                    value.replace(
+                        &format!("{{group_input_{}}}", index + 1),
+                        &input.display().to_string(),
+                    )
+                })
+        })
+        .collect::<Vec<_>>();
+    if arguments
+        .iter()
+        .any(|argument| argument.contains("{group_input_"))
+    {
+        return Err("WSI pyramid group argument template is incomplete".to_string());
+    }
+    let output = run_with_timeout(
+        Path::new(executable),
+        &arguments,
+        Duration::from_secs(adapter["timeout_seconds"].as_u64().unwrap_or(60)),
+    )?;
+    let actual = serde_json::from_slice::<Value>(&output.stdout).unwrap_or(Value::Null);
+    let passed = output.exit_code == Some(0)
+        && !output.timed_out
+        && wsi_pyramid_actual_matches_contract(&actual, contract);
+    let source_members = expected_members
+        .iter()
+        .map(|member| {
+            json!({
+                "ordinal": member["ordinal"], "role": member["role"],
+                "path": member["path"], "sha256": member["sha256"],
+                "sop_instance_uid": member["sop_instance_uid"]
+            })
+        })
+        .collect::<Vec<_>>();
+    let sidecar = json!({
+        "adapter_id": WSI_RECONSTRUCTION_ID,
+        "adapter_sha256": tool["sha256"],
+        "independence": "independent",
+        "extraction_method": "uv_locked_highdicom_three_instance_pyramid_group",
+        "source_manifest_sha256": manifest_sha256,
+        "source_members": source_members,
+        "expected_contract": contract,
+        "invocation": std::iter::once(executable.to_string()).chain(arguments.iter().cloned()).collect::<Vec<_>>(),
+        "exit_code": output.exit_code,
+        "timed_out": output.timed_out,
+        "stderr_sha256": sha256_hex(&output.stderr),
+        "actual": actual,
+        "status": if passed { "passed" } else { "failed" }
+    });
+    let group_material = serde_json::to_vec(&json!({
+        "source_manifest_sha256": manifest_sha256,
+        "source_members": source_members
+    }))
+    .map_err(|error| error.to_string())?;
+    let relative = format!(
+        "pixels/{WSI_RECONSTRUCTION_ID}/pyramid-{}.json",
+        sha256_hex(&group_material)
+    );
+    let target = evidence_root.join(&relative);
+    if let Some(parent) = target.parent() {
+        fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+    }
+    let encoded = serde_json::to_vec_pretty(&sidecar).map_err(|error| error.to_string())?;
+    fs::write(&target, &encoded).map_err(|error| error.to_string())?;
+    Ok(expected_by_path
+        .into_iter()
+        .map(|(path, hashes)| {
+            let actual_hashes = contract["members"]
+                .as_array()
+                .and_then(|members| members.iter().find(|member| member["path"] == path))
+                .map(|member| member["frame_hashes"].clone())
+                .unwrap_or_else(|| json!([]));
+            (path, json!({
+                "status": if passed { "passed" } else { "failed" },
+                "independence": "independent",
+                "expected_frame_hashes": hashes,
+                "actual_frame_hashes": if passed { actual_hashes } else { json!([]) },
+                "reason": if passed {
+                    "The uv-locked highdicom adapter independently validated the exact three-instance WSI pyramid group"
+                } else {
+                    "The independent WSI pyramid group reconstruction or exact manifest-contract comparison failed"
+                },
+                "evidence": {"path": relative, "sha256": sha256_hex(&encoded)}
+            }))
+        })
+        .collect())
+}
+
 #[allow(clippy::too_many_arguments)]
 fn collect_wsi_reconstruction_result(
     generated_root: &Path,
@@ -3679,7 +4095,7 @@ fn collect_wsi_reconstruction_result(
         && contract["pixel_data"]["frame_hashes"].as_array() == Some(&expected);
     let common_matches = actual["status"] == "passed"
         && actual["backend"] == "dts-wsi-reconstruct"
-        && actual["backend_version"] == "0.2.0"
+        && actual["backend_version"] == "0.3.0"
         && actual["runtime"]
             == json!({"highdicom": "0.28.1", "numpy": "2.5.2", "pydicom": "3.0.2"})
         && actual["frame_hashes"] == contract["pixel_data"]["frame_hashes"]
@@ -5162,7 +5578,7 @@ mod wsi_reconstruction_tests {
             "source_path": "vl/wsi/tiled_full_small.dcm",
             "expected_contract": contract,
             "backend": "dts-wsi-reconstruct",
-            "backend_version": "0.2.0",
+            "backend_version": "0.3.0",
             "runtime": {"highdicom": "0.28.1", "numpy": "2.5.2", "pydicom": "3.0.2"},
             "frame_hashes": contract["pixel_data"]["frame_hashes"],
             "implicit_frame_positions": contract["tiling"]["implicit_frame_positions"],
@@ -5275,7 +5691,7 @@ mod wsi_reconstruction_tests {
             "source_path": "vl/wsi/tiled_sparse_small.dcm",
             "expected_contract": contract,
             "backend": "dts-wsi-reconstruct",
-            "backend_version": "0.2.0",
+            "backend_version": "0.3.0",
             "runtime": {"highdicom": "0.28.1", "numpy": "2.5.2", "pydicom": "3.0.2"},
             "dimension_organization_type": "TILED_SPARSE",
             "dimension_organization_uid": contract["dimension_organization_uid"],
@@ -5395,9 +5811,188 @@ mod wsi_reconstruction_tests {
         fs::remove_dir_all(root).unwrap();
     }
 
+    fn pyramid_fixture() -> (Value, Value, Value, Value, Value) {
+        let paths = [
+            "vl/wsi/pyramid_multiresolution/volume.dcm",
+            "vl/wsi/pyramid_multiresolution/thumbnail.dcm",
+            "vl/wsi/pyramid_multiresolution/label.dcm",
+        ];
+        let hashes = ["1".repeat(64), "2".repeat(64), "3".repeat(64)];
+        let uids = ["2.25.21", "2.25.22", "2.25.23"];
+        let contract = crate::wsi_pyramid_locked_contract(crate::WsiPyramidLockedInputs {
+            study_instance_uid: "2.25.11",
+            series_instance_uid: "2.25.12",
+            frame_of_reference_uid: "2.25.13",
+            specimen_uid: "2.25.14",
+            pyramid_uid: "2.25.15",
+            members: [
+                crate::WsiPyramidMemberIdentity {
+                    role: crate::WsiPyramidRole::Volume,
+                    path: paths[0],
+                    sha256: &hashes[0],
+                    size_bytes: 3000,
+                    sop_instance_uid: uids[0],
+                },
+                crate::WsiPyramidMemberIdentity {
+                    role: crate::WsiPyramidRole::Thumbnail,
+                    path: paths[1],
+                    sha256: &hashes[1],
+                    size_bytes: 2900,
+                    sop_instance_uid: uids[1],
+                },
+                crate::WsiPyramidMemberIdentity {
+                    role: crate::WsiPyramidRole::Label,
+                    path: paths[2],
+                    sha256: &hashes[2],
+                    size_bytes: 2800,
+                    sop_instance_uid: uids[2],
+                },
+            ],
+        });
+        let files = contract["members"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|member| {
+                json!({
+                    "case_id": WSI_PYRAMID_CASE_ID,
+                    "path": member["path"], "sha256": member["sha256"],
+                    "size_bytes": member["size_bytes"],
+                    "wsi_pyramid_role": member["role"],
+                    "wsi_pyramid_ordinal": member["ordinal"],
+                    "uids": {"sop_instance_uid": member["sop_instance_uid"]},
+                    "pixel_data": {"frame_hashes": member["frame_hashes"]},
+                    "expected_wsi_pyramid": contract
+                })
+            })
+            .collect::<Vec<_>>();
+        let actual_members = contract["members"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|member| {
+                json!({
+                    "role": member["role"], "sop_instance_uid": member["sop_instance_uid"],
+                    "image_type": member["image_type"], "frame_type": member["frame_type"],
+                    "frame_count": member["frames"], "stored_frame_shape": [2, 2, 3],
+                    "frame_hashes": member["frame_hashes"],
+                    "pixel_data_sha256": member["payload_sha256"],
+                    "total_pixel_matrix_shape": [member["total_pixel_matrix_rows"], member["total_pixel_matrix_columns"], 3],
+                    "total_pixel_matrix_sha256": member["matrix_sha256"],
+                    "pyramid_member": !member["pyramid_uid"].is_null(),
+                    "pyramid_uid": member["pyramid_uid"],
+                    "specimen_label_in_image": member["specimen_label_in_image"],
+                    "burned_in_annotation": "NO", "transforms_applied": false
+                })
+            })
+            .collect::<Vec<_>>();
+        let actual = json!({
+            "status": "passed", "backend": "dts-wsi-reconstruct", "backend_version": "0.3.0",
+            "runtime": {"highdicom": "0.28.1", "numpy": "2.5.2", "pydicom": "3.0.2"},
+            "ordered_roles": contract["ordered_roles"],
+            "group_identity": contract["shared_identity"],
+            "pyramid_uid": contract["pyramid_membership"]["pyramid_uid"],
+            "pyramid_roles": contract["pyramid_membership"]["member_roles"],
+            "apex_role": "thumbnail", "label_excluded_from_pyramid": true,
+            "thumbnail_reduction": "volume_quadrant_top_left_pixels",
+            "thumbnail_reduction_sha256": contract["members"][1]["matrix_sha256"],
+            "members": actual_members, "transforms_applied": false
+        });
+        let source_members = contract["members"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|member| {
+                json!({
+                    "ordinal": member["ordinal"], "role": member["role"],
+                    "path": member["path"], "sha256": member["sha256"],
+                    "sop_instance_uid": member["sop_instance_uid"]
+                })
+            })
+            .collect::<Vec<_>>();
+        let sidecar = json!({
+            "adapter_id": WSI_RECONSTRUCTION_ID, "adapter_sha256": "adapter-hash",
+            "independence": "independent",
+            "extraction_method": "uv_locked_highdicom_three_instance_pyramid_group",
+            "source_manifest_sha256": "manifest-hash", "source_members": source_members,
+            "expected_contract": contract, "actual": actual, "status": "passed"
+        });
+        let evidence = json!({
+            "source": {"manifest_sha256": "manifest-hash"},
+            "tools": [{"adapter_id": WSI_RECONSTRUCTION_ID, "status": "available", "lock_status": "matched", "sha256": "adapter-hash"}]
+        });
+        let instance = json!({
+            "path": paths[0],
+            "pixel": {"expected_frame_hashes": contract["members"][0]["frame_hashes"],
+                "actual_frame_hashes": contract["members"][0]["frame_hashes"],
+                "evidence": {"path": "pixels/pyramid.json"}}
+        });
+        let manifest = json!({"files": files});
+        (
+            evidence,
+            instance,
+            manifest["files"][0].clone(),
+            manifest,
+            sidecar,
+        )
+    }
+
+    #[test]
+    fn pyramid_group_sidecar_rejects_incomplete_mutated_and_misbound_evidence() {
+        let root = std::env::temp_dir().join(format!(
+            "dts-wsi-pyramid-sidecar-{}-{:?}",
+            std::process::id(),
+            std::thread::current().id()
+        ));
+        fs::create_dir_all(root.join("pixels")).unwrap();
+        let (evidence, instance, manifest_file, manifest, valid) = pyramid_fixture();
+        let sidecar_path = root.join("pixels/pyramid.json");
+        fs::write(&sidecar_path, serde_json::to_vec(&valid).unwrap()).unwrap();
+        let mut failures = Vec::new();
+        verify_wsi_pyramid_group_evidence(
+            &root,
+            &evidence,
+            &instance,
+            &manifest_file,
+            &manifest,
+            &mut failures,
+        );
+        assert!(failures.is_empty(), "{failures:?}");
+
+        let mut incomplete = manifest.clone();
+        incomplete["files"].as_array_mut().unwrap().pop();
+        verify_wsi_pyramid_group_evidence(
+            &root,
+            &evidence,
+            &instance,
+            &manifest_file,
+            &incomplete,
+            &mut failures,
+        );
+        assert_eq!(failures.len(), 1);
+
+        for pointer in ["/source_members/1/path", "/actual/pyramid_uid"] {
+            let mut corrupt = valid.clone();
+            *corrupt.pointer_mut(pointer).unwrap() = json!("misbound");
+            fs::write(&sidecar_path, serde_json::to_vec(&corrupt).unwrap()).unwrap();
+            let mut failures = Vec::new();
+            verify_wsi_pyramid_group_evidence(
+                &root,
+                &evidence,
+                &instance,
+                &manifest_file,
+                &manifest,
+                &mut failures,
+            );
+            assert_eq!(failures.len(), 1, "mutation {pointer}");
+        }
+        fs::remove_dir_all(root).unwrap();
+    }
+
     #[test]
     fn wsi_is_exactly_scoped_into_the_visible_light_iod_route() {
         assert!(requires_visible_light_validation(WSI_CASE_ID));
+        assert!(requires_visible_light_validation(WSI_PYRAMID_CASE_ID));
         assert!(!requires_visible_light_validation("vl/wsi/tiled_sparse"));
     }
 }

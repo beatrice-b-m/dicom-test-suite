@@ -409,7 +409,7 @@
       "timeout_seconds": 60,
       "required": false,
       "platforms": ["linux", "macos", "windows"],
-      "supported_case_ids": ["vl/endoscopic/rgb_explicit_le", "vl/microscopic/rgb_explicit_le", "vl/wsi/tiled_full_small"],
+      "supported_case_ids": ["vl/endoscopic/rgb_explicit_le", "vl/microscopic/rgb_explicit_le", "vl/wsi/tiled_full_small", "vl/wsi/pyramid_multiresolution"],
       "artifacts": [
         {"path": "conformance-backends/dicom-validator/.python-version"},
         {"path": "conformance-backends/dicom-validator/pyproject.toml"},
@@ -434,11 +434,12 @@
       "executable": "python",
       "executable_env": "DTS_WSI_RECONSTRUCTION_PYTHON",
       "arguments": ["-m", "dts_wsi_reconstruction", "--input", "{input}"],
+      "group_arguments": ["-m", "dts_wsi_reconstruction", "--group-input", "{group_input_1}", "--group-input", "{group_input_2}", "--group-input", "{group_input_3}"],
       "version_arguments": ["-m", "dts_wsi_reconstruction", "--version"],
       "timeout_seconds": 60,
       "required": false,
       "platforms": ["linux", "macos", "windows"],
-      "supported_case_ids": ["vl/wsi/tiled_full_small", "vl/wsi/tiled_sparse_small"],
+      "supported_case_ids": ["vl/wsi/tiled_full_small", "vl/wsi/tiled_sparse_small", "vl/wsi/pyramid_multiresolution"],
       "artifacts": [
         {"path": "conformance-backends/wsi-reconstruction/.python-version"},
         {"path": "conformance-backends/wsi-reconstruction/pyproject.toml"},

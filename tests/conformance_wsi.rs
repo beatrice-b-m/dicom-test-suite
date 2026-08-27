@@ -4,6 +4,7 @@ use serde_json::{Value, json};
 
 const WSI_CASE_ID: &str = "vl/wsi/tiled_full_small";
 const WSI_SPARSE_CASE_ID: &str = "vl/wsi/tiled_sparse_small";
+const WSI_PYRAMID_CASE_ID: &str = "vl/wsi/pyramid_multiresolution";
 
 fn read_json(path: &str) -> Value {
     serde_json::from_slice(&fs::read(path).expect("read JSON artifact"))
@@ -25,7 +26,8 @@ fn wsi_iod_and_reconstruction_routes_are_exact_uv_locked_and_additive() {
         json!([
             "vl/endoscopic/rgb_explicit_le",
             "vl/microscopic/rgb_explicit_le",
-            WSI_CASE_ID
+            WSI_CASE_ID,
+            WSI_PYRAMID_CASE_ID
         ])
     );
     assert!(adapters.iter().any(|adapter| {
@@ -39,7 +41,7 @@ fn wsi_iod_and_reconstruction_routes_are_exact_uv_locked_and_additive() {
     assert_eq!(reconstruction["role"], "pixel_decoder");
     assert_eq!(
         reconstruction["supported_case_ids"],
-        json!([WSI_CASE_ID, WSI_SPARSE_CASE_ID])
+        json!([WSI_CASE_ID, WSI_SPARSE_CASE_ID, WSI_PYRAMID_CASE_ID])
     );
     assert_eq!(
         reconstruction["executable_env"],
@@ -48,6 +50,19 @@ fn wsi_iod_and_reconstruction_routes_are_exact_uv_locked_and_additive() {
     assert_eq!(
         reconstruction["arguments"],
         json!(["-m", "dts_wsi_reconstruction", "--input", "{input}"])
+    );
+    assert_eq!(
+        reconstruction["group_arguments"],
+        json!([
+            "-m",
+            "dts_wsi_reconstruction",
+            "--group-input",
+            "{group_input_1}",
+            "--group-input",
+            "{group_input_2}",
+            "--group-input",
+            "{group_input_3}"
+        ])
     );
     assert_eq!(
         reconstruction["artifacts"],

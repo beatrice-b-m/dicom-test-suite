@@ -196,27 +196,41 @@ fn rt_radiation_builds_locked_device_codes_and_position() {
     let positions = sequence(&object, tags::TREATMENT_POSITION_SEQUENCE, 1);
     let position = &positions[0];
     assert_u16(position, tags::TREATMENT_POSITION_INDEX, 1);
+    let orientations = sequence(&object, tags::PATIENT_ORIENTATION_CODE_SEQUENCE, 1);
+    let orientation = &orientations[0];
+    assert_eq!(orientation.iter().count(), 4);
+    assert_text(orientation, tags::CODE_VALUE, VR::SH, "102538003");
+    assert_text(orientation, tags::CODING_SCHEME_DESIGNATOR, VR::SH, "SCT");
+    assert_text(orientation, tags::CODE_MEANING, VR::LO, "recumbent");
     assert_code(
-        position,
-        tags::PATIENT_ORIENTATION_CODE_SEQUENCE,
-        "102538003",
-        "SCT",
-        "recumbent",
-    );
-    assert_code(
-        position,
+        orientation,
         tags::PATIENT_ORIENTATION_MODIFIER_CODE_SEQUENCE,
         "40199007",
         "SCT",
         "supine",
     );
+    assert!(
+        object
+            .element(tags::PATIENT_ORIENTATION_MODIFIER_CODE_SEQUENCE)
+            .is_err(),
+        "orientation modifier must remain within the orientation code item"
+    );
     assert_code(
-        position,
+        &object,
         tags::PATIENT_EQUIPMENT_RELATIONSHIP_CODE_SEQUENCE,
         "102540008",
         "SCT",
         "headfirst",
     );
+    for tag in [
+        tags::PATIENT_ORIENTATION_CODE_SEQUENCE,
+        tags::PATIENT_EQUIPMENT_RELATIONSHIP_CODE_SEQUENCE,
+    ] {
+        assert!(
+            position.element(tag).is_err(),
+            "patient-orientation macro attribute {tag} must remain at the RT macro invocation scope"
+        );
+    }
     assert_text(
         position,
         tags::IMAGE_TO_EQUIPMENT_MAPPING_MATRIX,

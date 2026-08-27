@@ -120,6 +120,26 @@ pub(in crate::generator) fn build_rt_radiation(
             input.plan_sop_instance_uid,
         )],
     );
+    let mut orientation = code_item("102538003", "SCT", "recumbent");
+    put_code_sequence(
+        &mut orientation,
+        tags::PATIENT_ORIENTATION_MODIFIER_CODE_SEQUENCE,
+        "40199007",
+        "SCT",
+        "supine",
+    );
+    put_sequence(
+        &mut object,
+        tags::PATIENT_ORIENTATION_CODE_SEQUENCE,
+        vec![orientation],
+    );
+    put_code_sequence(
+        &mut object,
+        tags::PATIENT_EQUIPMENT_RELATIONSHIP_CODE_SEQUENCE,
+        "102540008",
+        "SCT",
+        "headfirst",
+    );
     put_treatment_position(&mut object);
     put_control_points(&mut object);
 
@@ -348,27 +368,6 @@ fn put_treatment_device(object: &mut InMemDicomObject) {
 fn put_treatment_position(object: &mut InMemDicomObject) {
     let mut position = InMemDicomObject::new_empty();
     put_u16(&mut position, tags::TREATMENT_POSITION_INDEX, 1);
-    put_code_sequence(
-        &mut position,
-        tags::PATIENT_ORIENTATION_CODE_SEQUENCE,
-        "102538003",
-        "SCT",
-        "recumbent",
-    );
-    put_code_sequence(
-        &mut position,
-        tags::PATIENT_ORIENTATION_MODIFIER_CODE_SEQUENCE,
-        "40199007",
-        "SCT",
-        "supine",
-    );
-    put_code_sequence(
-        &mut position,
-        tags::PATIENT_EQUIPMENT_RELATIONSHIP_CODE_SEQUENCE,
-        "102540008",
-        "SCT",
-        "headfirst",
-    );
     put_str(
         &mut position,
         tags::IMAGE_TO_EQUIPMENT_MAPPING_MATRIX,

@@ -8541,6 +8541,32 @@ pub(crate) fn validate_rt_radiation_file(
         tags::RT_DEVICE_DISTANCE_REFERENCE_LOCATION_CODE_SEQUENCE,
         contract.distance_reference_location,
     )?;
+    validate_rt_top_code(
+        path,
+        &obj,
+        &mut internal,
+        "rt_radiation_patient_orientation",
+        tags::PATIENT_ORIENTATION_CODE_SEQUENCE,
+        contract.patient_orientation,
+    )?;
+    let orientation =
+        top_level_sequence_item(path, &obj, tags::PATIENT_ORIENTATION_CODE_SEQUENCE, 0)?;
+    validate_rt_item_code(
+        path,
+        orientation,
+        &mut internal,
+        "rt_radiation_orientation_modifier",
+        tags::PATIENT_ORIENTATION_MODIFIER_CODE_SEQUENCE,
+        contract.patient_orientation_modifier,
+    )?;
+    validate_rt_top_code(
+        path,
+        &obj,
+        &mut internal,
+        "rt_radiation_patient_equipment_relationship",
+        tags::PATIENT_EQUIPMENT_RELATIONSHIP_CODE_SEQUENCE,
+        contract.patient_equipment_relationship,
+    )?;
 
     rt_check_top_sequence_count(
         path,
@@ -8623,30 +8649,6 @@ pub(crate) fn validate_rt_radiation_file(
         "rt_radiation_position_index",
         tags::TREATMENT_POSITION_INDEX,
         locked_position.treatment_position_index.into(),
-    )?;
-    validate_rt_item_code(
-        path,
-        position,
-        &mut internal,
-        "rt_radiation_patient_orientation",
-        tags::PATIENT_ORIENTATION_CODE_SEQUENCE,
-        locked_position.patient_orientation,
-    )?;
-    validate_rt_item_code(
-        path,
-        position,
-        &mut internal,
-        "rt_radiation_orientation_modifier",
-        tags::PATIENT_ORIENTATION_MODIFIER_CODE_SEQUENCE,
-        locked_position.patient_orientation_modifier,
-    )?;
-    validate_rt_item_code(
-        path,
-        position,
-        &mut internal,
-        "rt_radiation_patient_equipment_relationship",
-        tags::PATIENT_EQUIPMENT_RELATIONSHIP_CODE_SEQUENCE,
-        locked_position.patient_equipment_relationship,
     )?;
     rt_check_item_f64_values(
         path,

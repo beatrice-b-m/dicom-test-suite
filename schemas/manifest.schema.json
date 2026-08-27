@@ -3126,7 +3126,7 @@
     },
     "expected_rt_radiation": {
       "type": "object",
-      "required": ["iod_kind", "sop_class_uid", "iod_name", "modality", "transfer_syntax_uid", "sop_instance_uid", "study_instance_uid", "series_instance_uid", "frame_of_reference_uid", "instance", "definition_source", "content", "device", "dosimeter_unit", "distance_reference_location", "equipment_frame_of_reference_uid", "rt_beam_modifier_definition_distance_mm", "equipment_reference_point_coordinates_sequence_present_empty", "number_of_patient_support_devices", "radiation_source_axis_distance_mm", "treatment_positions", "control_points", "absent_content"],
+      "required": ["iod_kind", "sop_class_uid", "iod_name", "modality", "transfer_syntax_uid", "sop_instance_uid", "study_instance_uid", "series_instance_uid", "frame_of_reference_uid", "instance", "definition_source", "content", "device", "dosimeter_unit", "distance_reference_location", "equipment_frame_of_reference_uid", "rt_beam_modifier_definition_distance_mm", "equipment_reference_point_coordinates_sequence_present_empty", "number_of_patient_support_devices", "radiation_source_axis_distance_mm", "patient_orientation", "patient_orientation_modifier", "patient_equipment_relationship", "treatment_positions", "control_points", "absent_content"],
       "properties": {
         "iod_kind": { "const": "carm_photon_electron_radiation" },
         "sop_class_uid": { "const": "1.2.840.10008.5.1.4.1.1.481.13" },
@@ -3187,20 +3187,20 @@
         "equipment_reference_point_coordinates_sequence_present_empty": { "const": true },
         "number_of_patient_support_devices": { "const": 0 },
         "radiation_source_axis_distance_mm": { "const": 1000 },
+        "patient_orientation": { "$ref": "#/$defs/rt_radiation_code", "properties": { "code_value": { "const": "102538003" }, "coding_scheme_designator": { "const": "SCT" }, "code_meaning": { "const": "recumbent" } } },
+        "patient_orientation_modifier": { "$ref": "#/$defs/rt_radiation_code", "properties": { "code_value": { "const": "40199007" }, "coding_scheme_designator": { "const": "SCT" }, "code_meaning": { "const": "supine" } } },
+        "patient_equipment_relationship": { "$ref": "#/$defs/rt_radiation_code", "properties": { "code_value": { "const": "102540008" }, "coding_scheme_designator": { "const": "SCT" }, "code_meaning": { "const": "headfirst" } } },
         "treatment_positions": {
           "type": "array",
           "prefixItems": [{
             "type": "object",
-            "required": ["ordinal", "treatment_position_index", "image_to_equipment_mapping_matrix", "patient_location_coordinates_present_empty", "patient_support_position_sequence_present_empty", "patient_orientation", "patient_orientation_modifier", "patient_equipment_relationship"],
+            "required": ["ordinal", "treatment_position_index", "image_to_equipment_mapping_matrix", "patient_location_coordinates_present_empty", "patient_support_position_sequence_present_empty"],
             "properties": {
               "ordinal": { "const": 1 },
               "treatment_position_index": { "const": 1 },
               "image_to_equipment_mapping_matrix": { "const": [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1] },
               "patient_location_coordinates_present_empty": { "const": true },
-              "patient_support_position_sequence_present_empty": { "const": true },
-              "patient_orientation": { "$ref": "#/$defs/rt_radiation_code", "properties": { "code_value": { "const": "102538003" }, "coding_scheme_designator": { "const": "SCT" }, "code_meaning": { "const": "recumbent" } } },
-              "patient_orientation_modifier": { "$ref": "#/$defs/rt_radiation_code", "properties": { "code_value": { "const": "40199007" }, "coding_scheme_designator": { "const": "SCT" }, "code_meaning": { "const": "supine" } } },
-              "patient_equipment_relationship": { "$ref": "#/$defs/rt_radiation_code", "properties": { "code_value": { "const": "102540008" }, "coding_scheme_designator": { "const": "SCT" }, "code_meaning": { "const": "headfirst" } } }
+              "patient_support_position_sequence_present_empty": { "const": true }
             },
             "additionalProperties": false
           }],

@@ -58,7 +58,10 @@ pub(crate) struct ExpectedRtRadiation<'a> {
     pub equipment_reference_point_coordinates_sequence_present_empty: bool,
     pub number_of_patient_support_devices: u8,
     pub radiation_source_axis_distance_mm: u16,
-    pub treatment_positions: &'a [ExpectedRtTreatmentPosition<'a>],
+    pub patient_orientation: ExpectedRtCode<'a>,
+    pub patient_orientation_modifier: ExpectedRtCode<'a>,
+    pub patient_equipment_relationship: ExpectedRtCode<'a>,
+    pub treatment_positions: &'a [ExpectedRtTreatmentPosition],
     pub control_points: &'a [ExpectedRtRadiationControlPoint],
     pub absent_content: ExpectedRtRadiationAbsentContent,
 }
@@ -135,15 +138,12 @@ pub(crate) struct ExpectedRtTreatmentDevice<'a> {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-pub(crate) struct ExpectedRtTreatmentPosition<'a> {
+pub(crate) struct ExpectedRtTreatmentPosition {
     pub ordinal: u8,
     pub treatment_position_index: u8,
     pub image_to_equipment_mapping_matrix: [i8; 16],
     pub patient_location_coordinates_present_empty: bool,
     pub patient_support_position_sequence_present_empty: bool,
-    pub patient_orientation: ExpectedRtCode<'a>,
-    pub patient_orientation_modifier: ExpectedRtCode<'a>,
-    pub patient_equipment_relationship: ExpectedRtCode<'a>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -266,29 +266,13 @@ pub(crate) struct ExpectedRtRadiationSetAbsentContent {
 
 const IDENTITY_MATRIX: [i8; 16] = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
 
-const TREATMENT_POSITIONS: [ExpectedRtTreatmentPosition<'static>; 1] =
-    [ExpectedRtTreatmentPosition {
-        ordinal: 1,
-        treatment_position_index: 1,
-        image_to_equipment_mapping_matrix: IDENTITY_MATRIX,
-        patient_location_coordinates_present_empty: true,
-        patient_support_position_sequence_present_empty: true,
-        patient_orientation: ExpectedRtCode {
-            code_value: "102538003",
-            coding_scheme_designator: "SCT",
-            code_meaning: "recumbent",
-        },
-        patient_orientation_modifier: ExpectedRtCode {
-            code_value: "40199007",
-            coding_scheme_designator: "SCT",
-            code_meaning: "supine",
-        },
-        patient_equipment_relationship: ExpectedRtCode {
-            code_value: "102540008",
-            coding_scheme_designator: "SCT",
-            code_meaning: "headfirst",
-        },
-    }];
+const TREATMENT_POSITIONS: [ExpectedRtTreatmentPosition; 1] = [ExpectedRtTreatmentPosition {
+    ordinal: 1,
+    treatment_position_index: 1,
+    image_to_equipment_mapping_matrix: IDENTITY_MATRIX,
+    patient_location_coordinates_present_empty: true,
+    patient_support_position_sequence_present_empty: true,
+}];
 
 const CONTROL_POINTS: [ExpectedRtRadiationControlPoint; 2] = [
     ExpectedRtRadiationControlPoint {
@@ -423,6 +407,21 @@ pub(crate) fn minimal_carm_rt_radiation_expected(
         equipment_reference_point_coordinates_sequence_present_empty: true,
         number_of_patient_support_devices: 0,
         radiation_source_axis_distance_mm: 1_000,
+        patient_orientation: ExpectedRtCode {
+            code_value: "102538003",
+            coding_scheme_designator: "SCT",
+            code_meaning: "recumbent",
+        },
+        patient_orientation_modifier: ExpectedRtCode {
+            code_value: "40199007",
+            coding_scheme_designator: "SCT",
+            code_meaning: "supine",
+        },
+        patient_equipment_relationship: ExpectedRtCode {
+            code_value: "102540008",
+            coding_scheme_designator: "SCT",
+            code_meaning: "headfirst",
+        },
         treatment_positions: &TREATMENT_POSITIONS,
         control_points: &CONTROL_POINTS,
         absent_content: ExpectedRtRadiationAbsentContent {

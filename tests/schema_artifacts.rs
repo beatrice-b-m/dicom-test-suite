@@ -4765,15 +4765,15 @@ fn minimal_carm_rt_radiation_expectation() -> Value {
         "equipment_reference_point_coordinates_sequence_present_empty": true,
         "number_of_patient_support_devices": 0,
         "radiation_source_axis_distance_mm": 1000,
+        "patient_orientation": rt_code("102538003", "SCT", "recumbent"),
+        "patient_orientation_modifier": rt_code("40199007", "SCT", "supine"),
+        "patient_equipment_relationship": rt_code("102540008", "SCT", "headfirst"),
         "treatment_positions": [{
             "ordinal": 1,
             "treatment_position_index": 1,
             "image_to_equipment_mapping_matrix": [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
             "patient_location_coordinates_present_empty": true,
-            "patient_support_position_sequence_present_empty": true,
-            "patient_orientation": rt_code("102538003", "SCT", "recumbent"),
-            "patient_orientation_modifier": rt_code("40199007", "SCT", "supine"),
-            "patient_equipment_relationship": rt_code("102540008", "SCT", "headfirst")
+            "patient_support_position_sequence_present_empty": true
         }],
         "control_points": [
             {

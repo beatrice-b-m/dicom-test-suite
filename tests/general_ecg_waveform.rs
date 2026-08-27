@@ -18,7 +18,7 @@ const GROUP_PAYLOAD_SHA256: [&str; 2] = [
 const AGGREGATE_PAYLOAD_SHA256: &str =
     "c450f55360d6c07394600e4c0f71f951565cd0e1699edfbbb52f660221c6abea";
 const SEED_7_MANIFEST_SHA256: &str =
-    "b061e5f654eb426bbab0da9cce0ac945aadcf3cf506182eb6bf33acd3d7a3659";
+    "169ed3a7878986cb289420cef935c6f8598467f240c9a8ce88bf960d30fb1958";
 const SEED_7_FILE_SHA256: &str = "a656720538672c95aacdf068ba89b0c6d6f78042610f3a665d55065d0a4ab40c";
 const STANDARD_CHANNELS: [(&str, &str, &str); 12] = [
     ("I", "2:1", "Lead I"),
@@ -95,7 +95,7 @@ fn general_ecg_vertical_slice_is_byte_deterministic_and_closed() {
     assert_eq!(first["sha256"], dicom_test_suite::sha256_hex(&first_bytes));
     assert_eq!(first["determinism"], "byte_stable");
     assert_eq!(first_manifest["manifest_schema_version"], "0.2.0");
-    assert_eq!(first_manifest["files"].as_array().map(Vec::len), Some(105));
+    assert_eq!(first_manifest["files"].as_array().map(Vec::len), Some(109));
 
     assert_schema_valid("schemas/manifest.schema.json", &first_manifest);
     assert_manifest_contract(first);
@@ -105,7 +105,7 @@ fn general_ecg_vertical_slice_is_byte_deterministic_and_closed() {
         let validation = dicom_test_suite::validate_generated_root(root)
             .expect("generated extended root should validate");
         assert!(validation.failures.is_empty(), "{:?}", validation.failures);
-        assert_eq!(validation.files_checked, 105);
+        assert_eq!(validation.files_checked, 109);
     }
 
     let report =

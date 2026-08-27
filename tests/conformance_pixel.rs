@@ -335,6 +335,120 @@ fn strict_verification_rejects_semantically_relinked_u1_sidecar() {
     );
 }
 
+#[cfg(unix)]
+#[test]
+fn dcmtk_rt_image_adapter_matches_exact_pgm_and_single_native_ob_value() {
+    let fixture = RtImageFixture::new();
+    let pixel = &fixture.run["instances"][0]["pixel"];
+    assert_eq!(pixel["status"], "passed");
+    assert_eq!(pixel["independence"], "independent");
+    assert_eq!(pixel["actual_frame_hashes"], json!([fixture.pixel_hash]));
+    let relative = pixel["evidence"]["path"].as_str().unwrap();
+    let sidecar: Value =
+        serde_json::from_slice(&fs::read(fixture.evidence.join(relative)).unwrap()).unwrap();
+    assert_eq!(sidecar["adapter_id"], "dcmtk-dcm2img-rt-image");
+    assert_eq!(
+        sidecar["decoded_values"],
+        json!([
+            0, 17, 34, 51, 68, 85, 102, 119, 136, 153, 170, 187, 204, 221, 238, 255
+        ])
+    );
+    assert_eq!(sidecar["max_value"], 255);
+    assert_eq!(sidecar["raw_value_file_count"], 1);
+    assert_eq!(sidecar["raw_value_length_bytes"], 16);
+    assert_eq!(sidecar["raw_value_vr"], "OB");
+    assert_eq!(sidecar["raw_value_sha256"], fixture.pixel_hash);
+}
+
+#[cfg(unix)]
+#[test]
+fn strict_verification_binds_rt_image_pixels_to_tools_and_manifest() {
+    let mut fixture = RtImageFixture::new();
+    for tool in fixture.run["tools"].as_array_mut().unwrap() {
+        tool["lock_status"] = json!("matched");
+    }
+    fs::write(
+        fixture.evidence.join("conformance-run.json"),
+        serde_json::to_vec_pretty(&fixture.run).unwrap(),
+    )
+    .unwrap();
+    let clean =
+        dicom_test_suite::conformance::verify_conformance(&fixture.evidence, &fixture.allowlist)
+            .unwrap();
+    assert_eq!(clean["valid"], true, "{}", clean["failures"]);
+
+    let relative = fixture.run["instances"][0]["pixel"]["evidence"]["path"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    let target = fixture.evidence.join(&relative);
+    let mut sidecar: Value = serde_json::from_slice(&fs::read(&target).unwrap()).unwrap();
+    sidecar["raw_value_file_count"] = json!(2);
+    let encoded = serde_json::to_vec_pretty(&sidecar).unwrap();
+    fs::write(&target, &encoded).unwrap();
+    fixture.run["instances"][0]["pixel"]["evidence"]["sha256"] =
+        json!(dicom_test_suite::sha256_hex(&encoded));
+    fs::write(
+        fixture.evidence.join("conformance-run.json"),
+        serde_json::to_vec_pretty(&fixture.run).unwrap(),
+    )
+    .unwrap();
+    let tampered =
+        dicom_test_suite::conformance::verify_conformance(&fixture.evidence, &fixture.allowlist)
+            .unwrap();
+    assert_eq!(tampered["valid"], false);
+    assert!(
+        tampered["failures"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|failure| {
+                failure.as_str().is_some_and(|failure| {
+                    failure.contains("linked RT Image pixel evidence sidecar is not linked")
+                })
+            })
+    );
+}
+
+#[test]
+fn rt_image_decoder_policy_is_exact_case_scoped_and_reuses_locked_dcmtk() {
+    let validators: Value = serde_json::from_slice(
+        &fs::read("conformance/validators.json").expect("validator config must be readable"),
+    )
+    .unwrap();
+    let adapter = validators["adapters"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|adapter| adapter["id"] == "dcmtk-dcm2img-rt-image")
+        .expect("linked RT Image pixel decoder must be configured");
+    assert_eq!(
+        adapter["supported_case_ids"],
+        json!(["non-image/rt/image_linked"])
+    );
+    assert_eq!(
+        adapter["arguments"],
+        json!([
+            "+F", "1", "-S", "-bs", "-M", "-W", "+Pid", "-O", "+opn", "8", "{input}", "{output}"
+        ])
+    );
+    let lock: Value = serde_json::from_slice(
+        &fs::read("conformance/validator-lock.json").expect("validator lock must be readable"),
+    )
+    .unwrap();
+    let tool = lock["tools"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|tool| tool["adapter_id"] == "dcmtk-dcm2img-rt-image")
+        .expect("linked RT Image decoder must be locked");
+    assert_eq!(tool["version"], "3.7.0 (2025-12-15)");
+    assert_eq!(
+        tool["executable_sha256"],
+        "6a6103a7c516814b5eb44f53d198b111cbaf1678de5952ab7d31961732f112d5"
+    );
+}
+
 #[test]
 fn real_dcmtk_rle_adapter_matches_all_manifest_frame_hashes_when_enabled() {
     if std::env::var("DTS_REAL_CONFORMANCE").as_deref() != Ok("1") {
@@ -427,6 +541,124 @@ struct U1Fixture {
     run: Value,
     expected_hashes: Value,
     pixel_hash: String,
+}
+
+#[cfg(unix)]
+struct RtImageFixture {
+    evidence: PathBuf,
+    allowlist: PathBuf,
+    run: Value,
+    pixel_hash: String,
+}
+
+#[cfg(unix)]
+impl RtImageFixture {
+    fn new() -> Self {
+        let root = temp_dir();
+        let generated = root.join("generated");
+        let evidence = root.join("evidence");
+        fs::create_dir_all(&generated).unwrap();
+        let source = b"linked RT Image fixture bytes";
+        fs::write(generated.join("rt-image.dcm"), source).unwrap();
+        let pixels = [
+            0_u8, 17, 34, 51, 68, 85, 102, 119, 136, 153, 170, 187, 204, 221, 238, 255,
+        ];
+        let pixel_hash = dicom_test_suite::sha256_hex(&pixels);
+        assert_eq!(
+            pixel_hash,
+            "a8faed6abbf35c12a4b26e40f6feb19d736d90045c83b9f9a31f638d323e6811"
+        );
+        let manifest = json!({
+            "run": {"seed": 1, "profile": "test"},
+            "generator": {"name": "rt-image-fixture", "version": "1", "feature_flags": []},
+            "standards": {"standards_lock_sha256": "0".repeat(64)},
+            "files": [{
+                "case_id": "non-image/rt/image_linked",
+                "path": "rt-image.dcm",
+                "sha256": dicom_test_suite::sha256_hex(source),
+                "dicom": {
+                    "sop_class_uid": "1.2.840.10008.5.1.4.1.1.481.1",
+                    "transfer_syntax_uid": "1.2.840.10008.1.2.1"
+                },
+                "image": {
+                    "rows": 4, "columns": 4, "frames": 1, "samples_per_pixel": 1,
+                    "photometric_interpretation": "MONOCHROME2", "bits_allocated": 8,
+                    "bits_stored": 8, "high_bit": 7, "pixel_representation": 0
+                },
+                "pixel_data": {
+                    "vr": "OB", "native_or_encapsulated": "native", "value_length": 16,
+                    "frame_count": 1, "frame_hashes": [pixel_hash]
+                },
+                "expected_rt_image": {
+                    "storage": {
+                        "pixel_values": pixels,
+                        "payload_sha256": pixel_hash,
+                        "decoded_pixels_sha256": pixel_hash
+                    }
+                }
+            }]
+        });
+        fs::write(
+            generated.join("manifest.json"),
+            serde_json::to_vec_pretty(&manifest).unwrap(),
+        )
+        .unwrap();
+
+        let primary = fake_tool(&root, "primary", "exit 0");
+        let entity = fake_tool(&root, "entity", "exit 0");
+        let secondary = fake_tool(&root, "secondary", "exit 0");
+        let parser = fake_tool(
+            &root,
+            "dcmdump",
+            "if [ \"$1\" = \"+W\" ]; then printf '\\000\\021\\042\\063\\104\\125\\146\\167\\210\\231\\252\\273\\314\\335\\356\\377' > \"$2/pixel.raw\"; fi\nexit 0",
+        );
+        let decoder = fake_tool(
+            &root,
+            "dcm2img",
+            "if [ \"$1\" = \"--version\" ]; then printf 'fake dcm2img 3.7.0\\n'; exit 0; fi\nfor output; do :; done\nprintf 'P2\\n4 4\\n255\\n0 17 34 51 68 85 102 119 136 153 170 187 204 221 238 255\\n' > \"$output\"\nexit 0",
+        );
+        let mut secondary_adapter = adapter(
+            "pydicom-dicom-validator-rt",
+            "secondary_iod_validator",
+            &secondary,
+        );
+        secondary_adapter["supported_case_ids"] = json!(["non-image/rt/image_linked"]);
+        let mut decoder_adapter = adapter("dcmtk-dcm2img-rt-image", "pixel_decoder", &decoder);
+        decoder_adapter["arguments"] = json!([
+            "+F", "1", "-S", "-bs", "-M", "-W", "+Pid", "-O", "+opn", "8", "{input}", "{output}"
+        ]);
+        decoder_adapter["supported_case_ids"] = json!(["non-image/rt/image_linked"]);
+        let config = root.join("validators.json");
+        fs::write(
+            &config,
+            serde_json::to_vec_pretty(&json!({
+                "schema_version": "0.1.0",
+                "adapters": [
+                    adapter("primary", "primary_iod_validator", &primary),
+                    secondary_adapter,
+                    adapter("entity", "entity_validator", &entity),
+                    adapter("dcmtk-dcmdump", "independent_parser", &parser),
+                    decoder_adapter
+                ]
+            }))
+            .unwrap(),
+        )
+        .unwrap();
+        let run =
+            dicom_test_suite::conformance::run_conformance(&generated, &evidence, &config).unwrap();
+        let allowlist = root.join("allowlist.json");
+        fs::write(
+            &allowlist,
+            b"{\"schema_version\":\"0.1.0\",\"findings\":[]}",
+        )
+        .unwrap();
+        Self {
+            evidence,
+            allowlist,
+            run,
+            pixel_hash,
+        }
+    }
 }
 
 #[cfg(unix)]

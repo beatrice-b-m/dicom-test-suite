@@ -36,6 +36,7 @@ dynamically linked `liblcms2.2` implementation.
 | Linked RT second IOD opinion | `pydicom-dicom-validator-rt` | `python -m dts_dicom_validator_adapter` | Required for its declared cases only | Runs additively for the linked RT Plan and RT Image. It reuses the unchanged `uv`-locked adapter and exact 2026b definitions under a separate qualification identity; primary IOD validation remains locked `dciodvfy`. |
 | Waveform second IOD and payload opinion | `pydicom-dicom-validator-waveform` | `python -m dts_dicom_validator_adapter` / `--waveform` | Required for its declared cases only | Runs additively for Twelve-lead and General ECG. The normal route validates the 2026b IOD; the waveform route independently extracts each ordered raw OW group with pydicom and decodes signed samples with Python `struct`, without NumPy or generator code. |
 | U1 SC independent pixels | `dcmtk-dcm2img-u1` | `dcm2img +Fa +Fn -M -W +Pid -O +opn 1` | Required when collecting evidence for its declared case | DCMTK 3.7.0 emits one PGM per frame. The collector requires P2, dimensions 3 by 3, maximum value one, exact samples, and exact frame hashes; `dcmdump +W` separately binds the packed Pixel Data bytes. Primary IOD validation remains `dciodvfy`. |
+| Linked RT Image independent pixels | `dcmtk-dcm2img-rt-image` | `dcm2img +F 1 -S -bs -M -W +Pid -O +opn 8` | Required when collecting evidence for its declared case | DCMTK 3.7.0 emits one P2 PGM. The collector requires the exact 4 by 4 gradient, maximum value 255, and decoded SHA-256 `a8faed6abbf35c12a4b26e40f6feb19d736d90045c83b9f9a31f638d323e6811`; isolated `dcmdump +W` must emit exactly one 16-byte native OB value with the same hash. Primary IOD validation remains `dciodvfy`. |
 | ICC profile processing | `littlecms-transicc-icc` | `transicc -n -i<profile> -o*XYZ -t0` | Required when collecting evidence for its declared case | Set `DTS_LCMS_HOME` to the immutable LittleCMS prefix. Locked DCMTK reconstructs the complete ICC OB value, strict checks enforce the DICOM input-profile header and `SRGB` label, and LittleCMS 2.19 must reproduce four fixed RGB-to-XYZ vectors. Primary IOD validation remains `dciodvfy`. |
 | Corpus entity consistency | `dicom3tools-dcentvfy` | `dcentvfy -f <file-list>` | Required | Same dicom3tools identity and acquisition decision as `dciodvfy`; pass files through its one-path-per-line file-list option to avoid argument limits. |
 | Independent parse | `dcmtk-dcmdump` | `dcmdump +fo` | Required | DCMTK is BSD-style licensed and cross-platform. Baseline is Homebrew DCMTK 3.7.0. Dictionary and character mapping data affect behavior and must be noted with the fingerprint. |
@@ -235,6 +236,14 @@ four-byte Value Field. Strict verification rejects a missing frame, any PGM
 shape/maxval/sample mismatch, manifest relinking, payload mismatch, lock
 mismatch, or policy mismatch. Every other native shape remains explicitly
 unsupported in `pixel-decoders.json`.
+
+The linked RT Image uses a separate `dcmtk-dcm2img-rt-image` route over that
+same locked DCMTK 3.7.0 executable. The exact `+F 1 -S -bs -M -W +Pid -O +opn
+8` policy produces a P2 raster whose 16 samples must be `0, 17, ... 255` and
+hash to `a8faed6abbf35c12a4b26e40f6feb19d736d90045c83b9f9a31f638d323e6811`.
+A separate `dcmdump +W` invocation must produce exactly one raw file containing
+the same 16-byte native OB value. This evidence is additive to both the primary
+IOD validator and the linked-RT secondary validator.
 
 ## Installation identity
 

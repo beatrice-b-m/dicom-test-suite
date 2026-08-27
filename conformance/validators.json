@@ -374,6 +374,18 @@
       "capabilities": ["native_single_bit_decode", "continuous_cross_frame_bit_packing", "pgm_sample_evidence"]
     },
     {
+      "id": "dcmtk-dcm2img-rt-image",
+      "role": "pixel_decoder",
+      "executable": "dcm2img",
+      "arguments": ["+F", "1", "-S", "-bs", "-M", "-W", "+Pid", "-O", "+opn", "8", "{input}", "{output}"],
+      "version_arguments": ["--version"],
+      "timeout_seconds": 60,
+      "required": false,
+      "platforms": ["linux", "macos", "windows"],
+      "supported_case_ids": ["non-image/rt/image_linked"],
+      "capabilities": ["native_rt_image_decode", "ascii_pgm_sample_evidence", "exact_native_ob_extraction"]
+    },
+    {
       "id": "dcmtk-dcmdjpeg",
       "role": "pixel_decoder",
       "executable": "dcmdjpeg",

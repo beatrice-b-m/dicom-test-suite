@@ -308,6 +308,17 @@ fn verify_completeness(evidence_root: &Path, evidence: &Value, failures: &mut Ve
                 .collect::<std::collections::BTreeSet<_>>()
         })
         .unwrap_or_default();
+    let required_rt_image_pixel_paths = manifest
+        .as_ref()
+        .and_then(|value| value["files"].as_array())
+        .map(|files| {
+            files
+                .iter()
+                .filter(|file| file["case_id"] == "non-image/rt/image_linked")
+                .filter_map(|file| file["path"].as_str())
+                .collect::<std::collections::BTreeSet<_>>()
+        })
+        .unwrap_or_default();
     let required_icc_paths = manifest
         .as_ref()
         .and_then(|value| value["files"].as_array())
@@ -635,6 +646,31 @@ fn verify_completeness(evidence_root: &Path, evidence: &Value, failures: &mut Ve
                 .find(|file| file["path"] == path);
             if let Some(manifest_file) = manifest_file {
                 verify_u1_pixel_evidence(
+                    evidence_root,
+                    evidence,
+                    instance,
+                    manifest_file,
+                    failures,
+                );
+            }
+        }
+        if required_rt_image_pixel_paths.contains(path)
+            && (instance["pixel"]["status"] != "passed"
+                || instance["pixel"]["independence"] != "independent")
+        {
+            failures.push(format!(
+                "independent linked RT Image pixel evidence failed: {path}"
+            ));
+        }
+        if required_rt_image_pixel_paths.contains(path) {
+            let manifest_file = manifest
+                .as_ref()
+                .and_then(|value| value["files"].as_array())
+                .into_iter()
+                .flatten()
+                .find(|file| file["path"] == path);
+            if let Some(manifest_file) = manifest_file {
+                verify_rt_image_pixel_evidence(
                     evidence_root,
                     evidence,
                     instance,
@@ -1080,6 +1116,109 @@ fn verify_u1_pixel_evidence(
     if !semantically_linked {
         failures.push(format!(
             "u1 pixel evidence sidecar is not linked to its locked tools and source manifest: {path}"
+        ));
+    }
+}
+
+fn verify_rt_image_pixel_evidence(
+    evidence_root: &Path,
+    evidence: &Value,
+    instance: &Value,
+    manifest_file: &Value,
+    failures: &mut Vec<String>,
+) {
+    let path = instance["path"].as_str().unwrap_or("unknown");
+    let Some(relative) = instance
+        .pointer("/pixel/evidence/path")
+        .and_then(Value::as_str)
+    else {
+        failures.push(format!(
+            "linked RT Image pixel evidence sidecar is missing: {path}"
+        ));
+        return;
+    };
+    if validate_relative_path(relative).is_err() {
+        failures.push(format!(
+            "linked RT Image pixel evidence sidecar path is unsafe: {path}"
+        ));
+        return;
+    }
+    let Ok(bytes) = fs::read(evidence_root.join(relative)) else {
+        failures.push(format!(
+            "linked RT Image pixel evidence sidecar is unavailable: {path}"
+        ));
+        return;
+    };
+    let Ok(sidecar) = serde_json::from_slice::<Value>(&bytes) else {
+        failures.push(format!(
+            "linked RT Image pixel evidence sidecar is invalid JSON: {path}"
+        ));
+        return;
+    };
+    let adapter_id = "dcmtk-dcm2img-rt-image";
+    let tool = evidence["tools"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .find(|tool| tool["adapter_id"] == adapter_id);
+    let parser = evidence["tools"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .find(|tool| tool["adapter_id"] == "dcmtk-dcmdump");
+    let expected_values = json!([
+        0, 17, 34, 51, 68, 85, 102, 119, 136, 153, 170, 187, 204, 221, 238, 255
+    ]);
+    let expected_hash = "a8faed6abbf35c12a4b26e40f6feb19d736d90045c83b9f9a31f638d323e6811";
+    let linked = sidecar["adapter_id"] == adapter_id
+        && sidecar["decoder_sha256"].as_str() == tool.and_then(|tool| tool["sha256"].as_str())
+        && sidecar["parser_sha256"].as_str() == parser.and_then(|tool| tool["sha256"].as_str())
+        && tool
+            .is_some_and(|tool| tool["status"] == "available" && tool["lock_status"] == "matched")
+        && parser
+            .is_some_and(|tool| tool["status"] == "available" && tool["lock_status"] == "matched")
+        && sidecar["independence"] == "independent"
+        && sidecar["extraction_method"] == "dcmtk_dcm2img_p2_and_dcmdump_single_native_ob"
+        && sidecar["status"] == "passed"
+        && sidecar["source_instance_sha256"] == manifest_file["sha256"]
+        && sidecar["rows"] == 4
+        && sidecar["columns"] == 4
+        && sidecar["frames"] == 1
+        && sidecar["max_value"] == 255
+        && sidecar["decoded_values"] == expected_values
+        && sidecar["decoded_pixels_sha256"] == expected_hash
+        && sidecar["expected_frame_hashes"] == instance["pixel"]["expected_frame_hashes"]
+        && sidecar["actual_frame_hashes"] == instance["pixel"]["actual_frame_hashes"]
+        && sidecar["actual_frame_hashes"] == json!([expected_hash])
+        && sidecar["raw_value_file_count"] == 1
+        && sidecar["raw_value_length_bytes"] == 16
+        && sidecar["raw_value_vr"] == "OB"
+        && sidecar["raw_value_sha256"] == expected_hash
+        && manifest_file
+            .pointer("/pixel_data/vr")
+            .and_then(Value::as_str)
+            == Some("OB")
+        && manifest_file
+            .pointer("/pixel_data/native_or_encapsulated")
+            .and_then(Value::as_str)
+            == Some("native")
+        && manifest_file
+            .pointer("/pixel_data/value_length")
+            .and_then(Value::as_u64)
+            == Some(16)
+        && manifest_file.pointer("/expected_rt_image/storage/pixel_values")
+            == Some(&expected_values)
+        && manifest_file
+            .pointer("/expected_rt_image/storage/payload_sha256")
+            .and_then(Value::as_str)
+            == Some(expected_hash)
+        && manifest_file
+            .pointer("/expected_rt_image/storage/decoded_pixels_sha256")
+            .and_then(Value::as_str)
+            == Some(expected_hash);
+    if !linked {
+        failures.push(format!(
+            "linked RT Image pixel evidence sidecar is not linked to its locked tools and source manifest: {path}"
         ));
     }
 }
@@ -2136,6 +2275,18 @@ fn collect_pixel_result(
             expected,
         );
     }
+    if file.get("case_id").and_then(Value::as_str) == Some("non-image/rt/image_linked") {
+        return collect_rt_image_pixel_result(
+            generated_root,
+            evidence_root,
+            file,
+            relative_input,
+            stable_key,
+            adapters,
+            tools,
+            expected,
+        );
+    }
     if file.get("case_id").and_then(Value::as_str) == Some("classic/sc/nonsquare_pixel_spacing") {
         return collect_nonsquare_spacing_result(
             generated_root,
@@ -2540,6 +2691,190 @@ fn parse_ascii_pgm(path: &Path) -> Result<(usize, usize, u16, Vec<u8>), String> 
         .map(|token| token.parse::<u8>().map_err(|error| error.to_string()))
         .collect::<Result<Vec<_>, _>>()?;
     Ok((columns, rows, max_value, values))
+}
+
+#[allow(clippy::too_many_arguments)]
+fn collect_rt_image_pixel_result(
+    generated_root: &Path,
+    evidence_root: &Path,
+    file: &Value,
+    relative_input: &str,
+    stable_key: &str,
+    adapters: &[Value],
+    tools: &[Value],
+    expected: Vec<Value>,
+) -> Result<Value, String> {
+    let adapter_id = "dcmtk-dcm2img-rt-image";
+    let unsupported = |reason: &str| pixel_unsupported(expected.clone(), "independent", reason);
+    let Some(adapter) = adapters.iter().find(|adapter| adapter["id"] == adapter_id) else {
+        return Ok(unsupported(
+            "The independent DCMTK linked RT Image decoder is not configured",
+        ));
+    };
+    let Some(tool) = tools.iter().find(|tool| tool["adapter_id"] == adapter_id) else {
+        return Ok(unsupported(
+            "The independent DCMTK linked RT Image decoder was not discovered",
+        ));
+    };
+    if tool["status"] != "available" {
+        return Ok(unsupported(
+            "The independent DCMTK linked RT Image decoder is unavailable",
+        ));
+    }
+    let parser_tool = tools
+        .iter()
+        .find(|tool| tool["adapter_id"] == "dcmtk-dcmdump" && tool["status"] == "available")
+        .ok_or_else(|| "linked RT Image pixel evidence requires locked dcmdump".to_string())?;
+    let decoder = tool["executable"]
+        .as_str()
+        .ok_or_else(|| "available linked RT Image decoder has no executable".to_string())?;
+    let dcmdump = parser_tool["executable"]
+        .as_str()
+        .ok_or_else(|| "available dcmdump parser has no executable".to_string())?;
+    let input = generated_root.join(relative_input);
+    let work_dir = conformance_work_dir("dts-rt-image-pixel", evidence_root, stable_key);
+    fs::create_dir_all(&work_dir).map_err(|error| error.to_string())?;
+    let output = work_dir.join("image.pgm");
+    let arguments = string_array(adapter, "arguments")?
+        .into_iter()
+        .map(|argument| {
+            argument
+                .replace("{input}", &input.display().to_string())
+                .replace("{output}", &output.display().to_string())
+        })
+        .collect::<Vec<_>>();
+    let decode = run_with_timeout(
+        Path::new(decoder),
+        &arguments,
+        Duration::from_secs(adapter["timeout_seconds"].as_u64().unwrap_or(60)),
+    )?;
+    let extraction_args = vec![
+        "+W".to_string(),
+        work_dir.display().to_string(),
+        input.display().to_string(),
+    ];
+    let extraction = run_with_timeout(
+        Path::new(dcmdump),
+        &extraction_args,
+        Duration::from_secs(30),
+    )?;
+
+    let expected_values = vec![
+        0_u8, 17, 34, 51, 68, 85, 102, 119, 136, 153, 170, 187, 204, 221, 238, 255,
+    ];
+    let expected_hash = "a8faed6abbf35c12a4b26e40f6feb19d736d90045c83b9f9a31f638d323e6811";
+    let parsed = parse_ascii_pgm(&output).ok();
+    let pgm_valid = parsed
+        .as_ref()
+        .is_some_and(|(columns, rows, max_value, values)| {
+            *columns == 4 && *rows == 4 && *max_value == 255 && values == &expected_values
+        });
+    let decoded_values = parsed
+        .as_ref()
+        .map(|(_, _, _, values)| values.clone())
+        .unwrap_or_default();
+    let decoded_pixels_sha256 = pgm_valid.then(|| sha256_hex(&decoded_values));
+    let raw_paths = fs::read_dir(&work_dir)
+        .ok()
+        .into_iter()
+        .flatten()
+        .filter_map(Result::ok)
+        .map(|entry| entry.path())
+        .filter(|path| path.extension().and_then(|value| value.to_str()) == Some("raw"))
+        .collect::<Vec<_>>();
+    let raw_bytes = if raw_paths.len() == 1 {
+        fs::read(&raw_paths[0]).ok()
+    } else {
+        None
+    };
+    let raw_value_sha256 = raw_bytes.as_ref().map(|bytes| sha256_hex(bytes));
+    let raw_value_length_bytes = raw_bytes.as_ref().map(Vec::len);
+    let actual_hashes = decoded_pixels_sha256.iter().cloned().collect::<Vec<_>>();
+    let expected_strings = expected
+        .iter()
+        .filter_map(Value::as_str)
+        .collect::<Vec<_>>();
+    let manifest_eligible = file.pointer("/image/rows").and_then(Value::as_u64) == Some(4)
+        && file.pointer("/image/columns").and_then(Value::as_u64) == Some(4)
+        && file.pointer("/image/frames").and_then(Value::as_u64) == Some(1)
+        && file
+            .pointer("/image/bits_allocated")
+            .and_then(Value::as_u64)
+            == Some(8)
+        && file.pointer("/pixel_data/vr").and_then(Value::as_str) == Some("OB")
+        && file
+            .pointer("/pixel_data/native_or_encapsulated")
+            .and_then(Value::as_str)
+            == Some("native")
+        && file
+            .pointer("/pixel_data/value_length")
+            .and_then(Value::as_u64)
+            == Some(16)
+        && file
+            .pointer("/expected_rt_image/storage/payload_sha256")
+            .and_then(Value::as_str)
+            == Some(expected_hash);
+    let passed = manifest_eligible
+        && decode.exit_code == Some(0)
+        && !decode.timed_out
+        && extraction.exit_code == Some(0)
+        && !extraction.timed_out
+        && pgm_valid
+        && decoded_pixels_sha256.as_deref() == Some(expected_hash)
+        && actual_hashes.iter().map(String::as_str).collect::<Vec<_>>() == expected_strings
+        && raw_paths.len() == 1
+        && raw_value_length_bytes == Some(16)
+        && raw_value_sha256.as_deref() == Some(expected_hash);
+    let sidecar = json!({
+        "adapter_id": adapter_id,
+        "decoder_sha256": tool["sha256"],
+        "parser_sha256": parser_tool["sha256"],
+        "independence": "independent",
+        "extraction_method": "dcmtk_dcm2img_p2_and_dcmdump_single_native_ob",
+        "source_instance_sha256": file["sha256"],
+        "invocation": std::iter::once(decoder.to_string()).chain(arguments.iter().cloned()).collect::<Vec<_>>(),
+        "decode_exit_code": decode.exit_code,
+        "decode_timed_out": decode.timed_out,
+        "extraction_invocation": std::iter::once(dcmdump.to_string()).chain(extraction_args.iter().cloned()).collect::<Vec<_>>(),
+        "extraction_exit_code": extraction.exit_code,
+        "extraction_timed_out": extraction.timed_out,
+        "rows": 4,
+        "columns": 4,
+        "frames": 1,
+        "max_value": 255,
+        "expected_frame_hashes": expected,
+        "actual_frame_hashes": actual_hashes,
+        "decoded_values": decoded_values,
+        "decoded_pixels_sha256": decoded_pixels_sha256,
+        "raw_value_file_count": raw_paths.len(),
+        "raw_value_length_bytes": raw_value_length_bytes,
+        "raw_value_vr": "OB",
+        "raw_value_sha256": raw_value_sha256,
+        "status": if passed { "passed" } else { "failed" }
+    });
+    let relative = format!("pixels/{adapter_id}/{stable_key}.json");
+    let target = evidence_root.join(&relative);
+    if let Some(parent) = target.parent() {
+        fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+    }
+    let encoded = serde_json::to_vec_pretty(&sidecar).map_err(|error| error.to_string())?;
+    fs::write(&target, &encoded).map_err(|error| error.to_string())?;
+    if let Ok(entries) = fs::read_dir(&work_dir) {
+        for path in entries.filter_map(Result::ok).map(|entry| entry.path()) {
+            if path.is_file() {
+                let _ = fs::remove_file(path);
+            }
+        }
+    }
+    let _ = fs::remove_dir(&work_dir);
+    Ok(json!({
+        "status": if passed { "passed" } else { "failed" },
+        "independence": "independent",
+        "expected_frame_hashes": sidecar["expected_frame_hashes"],
+        "actual_frame_hashes": sidecar["actual_frame_hashes"],
+        "reason": if passed { "DCMTK independently decoded the linked RT Image and extracted its single exact native OB value" } else { "DCMTK linked RT Image decode or native OB extraction failed" },
+        "evidence": { "path": relative, "sha256": sha256_hex(&encoded) }
+    }))
 }
 
 #[allow(clippy::too_many_arguments)]

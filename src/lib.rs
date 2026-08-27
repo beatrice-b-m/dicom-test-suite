@@ -4762,7 +4762,25 @@ fn validate_family_standard_elements(
             )?
         }
         "Comprehensive 3D SR" => {
-            validate_tid1500_standard_elements(failures, relative_path, path, manifest_path, file)?
+            if file.get("case_id").and_then(Value::as_str)
+                == Some("derived/sr/comprehensive3d_scoord3d")
+            {
+                validate_scoord3d_standard_elements(
+                    failures,
+                    relative_path,
+                    path,
+                    manifest_path,
+                    file,
+                )?
+            } else {
+                validate_tid1500_standard_elements(
+                    failures,
+                    relative_path,
+                    path,
+                    manifest_path,
+                    file,
+                )?
+            }
         }
         "RT Structure Set" => validate_rt_structure_set_standard_elements(
             failures,
@@ -10711,6 +10729,130 @@ fn validate_tid1500_standard_elements(
     Ok(())
 }
 
+fn validate_scoord3d_standard_elements(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    path: &Path,
+    manifest_path: &Path,
+    file: &Value,
+) -> Result<(), ValidateError> {
+    file.get("expected_scoord3d")
+        .ok_or(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "Comprehensive 3D SCOORD3D SR must declare expected_scoord3d",
+        })?;
+    let references = file
+        .get("references")
+        .and_then(Value::as_array)
+        .ok_or(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "SCOORD3D references must be an array",
+        })?;
+    if references.len() != 1 {
+        return Err(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "SCOORD3D references must contain exactly one Enhanced CT entry",
+        });
+    }
+    let source_frames = references[0]
+        .get("frame_numbers")
+        .and_then(Value::as_array)
+        .ok_or(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "SCOORD3D source frame_numbers must be an array",
+        })?
+        .iter()
+        .map(|value| {
+            value
+                .as_u64()
+                .and_then(|value| u16::try_from(value).ok())
+                .ok_or(ValidateError::ManifestShape {
+                    path: manifest_path.to_path_buf(),
+                    message: "SCOORD3D source frame number must fit u16",
+                })
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    let required = |pointer, message| manifest_str(manifest_path, file, pointer, message);
+    let expectations = validation::Scoord3dExpectations {
+        sop_class_uid: required(
+            "/dicom/sop_class_uid",
+            "SCOORD3D SOP Class UID must be a string",
+        )?,
+        sop_instance_uid: required(
+            "/uids/sop_instance_uid",
+            "SCOORD3D SOP Instance UID must be a string",
+        )?,
+        transfer_syntax_uid: required(
+            "/dicom/transfer_syntax_uid",
+            "SCOORD3D transfer syntax UID must be a string",
+        )?,
+        implementation_class_uid: required(
+            "/uids/implementation_class_uid",
+            "SCOORD3D implementation class UID must be a string",
+        )?,
+        synthetic_data: required(
+            "/expected_semantics/synthetic_data",
+            "SCOORD3D Synthetic Data expectation must be a string",
+        )?,
+        modality: required("/dicom/modality", "SCOORD3D modality must be a string")?,
+        completion_flag: required(
+            "/expected_scoord3d/completion_flag",
+            "SCOORD3D completion flag must be a string",
+        )?,
+        verification_flag: required(
+            "/expected_scoord3d/verification_flag",
+            "SCOORD3D verification flag must be a string",
+        )?,
+        preliminary_flag: required(
+            "/expected_scoord3d/preliminary_flag",
+            "SCOORD3D preliminary flag must be a string",
+        )?,
+        referenced_study_instance_uid: required(
+            "/uids/study_instance_uid",
+            "SCOORD3D study UID must be a string",
+        )?,
+        observer_uid: required(
+            "/expected_scoord3d/observation_context/device_observer_uid",
+            "SCOORD3D device observer UID must be a string",
+        )?,
+        tracking_identifier: required(
+            "/expected_scoord3d/measurement_group/tracking_identifier",
+            "SCOORD3D tracking identifier must be a string",
+        )?,
+        tracking_uid: required(
+            "/expected_scoord3d/measurement_group/tracking_uid",
+            "SCOORD3D tracking UID must be a string",
+        )?,
+        frame_of_reference_uid: required(
+            "/expected_scoord3d/measurement_group/measurement/spatial_coordinates/frame_of_reference_uid",
+            "SCOORD3D Frame of Reference UID must be a string",
+        )?,
+        fiducial_uid: required(
+            "/expected_scoord3d/measurement_group/measurement/spatial_coordinates/fiducial_uid",
+            "SCOORD3D Fiducial UID must be a string",
+        )?,
+        source_series_instance_uid: required(
+            "/expected_scoord3d/measurement_group/source_image/series_instance_uid",
+            "SCOORD3D source series UID must be a string",
+        )?,
+        source_sop_class_uid: required(
+            "/expected_scoord3d/measurement_group/source_image/sop_class_uid",
+            "SCOORD3D source SOP Class UID must be a string",
+        )?,
+        source_sop_instance_uid: required(
+            "/expected_scoord3d/measurement_group/source_image/sop_instance_uid",
+            "SCOORD3D source SOP Instance UID must be a string",
+        )?,
+        source_frame_numbers: &source_frames,
+    };
+    if let Err(error) = validation::validate_scoord3d_file(path, &expectations) {
+        failures.push(format!(
+            "{relative_path}: scoord3d_content_contract: {error}"
+        ));
+    }
+    Ok(())
+}
+
 fn validate_structured_report_standard_elements(
     failures: &mut Vec<String>,
     relative_path: &str,
@@ -16241,6 +16383,9 @@ fn generated_coverage_row(
         file.pointer("/expected_semantics/structured_report/measurement/numeric_value")
             .or_else(|| {
                 file.pointer("/expected_tid1500/measurement_group/measurement/numeric_value")
+            })
+            .or_else(|| {
+                file.pointer("/expected_scoord3d/measurement_group/measurement/numeric_value")
             })
             .and_then(Value::as_str)
             .map(Value::from)

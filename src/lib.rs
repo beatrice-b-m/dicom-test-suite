@@ -12218,6 +12218,30 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
     append_count_map_section(
         &mut output,
         report,
+        "Unsigned 32-bit Stored Value Sets",
+        "/grouped_coverage/u32_stored_value_sets",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "Unsigned 32-bit Pixel Data SHA-256 Values",
+        "/grouped_coverage/u32_pixel_data_sha256_values",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "Unsigned 32-bit Word Byte Orders",
+        "/grouped_coverage/u32_word_byte_orders",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "Unsigned 32-bit Full-range States",
+        "/grouped_coverage/u32_full_unsigned_range_states",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
         "Basic Offset Tables",
         "/grouped_coverage/basic_offset_tables",
     );
@@ -13636,6 +13660,7 @@ fn generated_coverage_row(
     let us = us_multiframe_report_fields(manifest_path, file)?;
     let xa = xa_projection_report_fields(manifest_path, file)?;
     let xrf = xrf_projection_report_fields(manifest_path, file)?;
+    let u32_pixels = u32_pixel_report_fields(manifest_path, file)?;
     let mut row = serde_json::json!({
         "case_id": report_str(manifest_path, file, "/case_id", "file case_id must be a string")?,
         "profile": run_profile,
@@ -13687,6 +13712,26 @@ fn generated_coverage_row(
     let row_object = row
         .as_object_mut()
         .expect("generated coverage row literal must be an object");
+    for (field, value) in [
+        (
+            "u32_stored_values",
+            u32_pixels.stored_values.map(Value::from),
+        ),
+        (
+            "u32_pixel_data_sha256",
+            u32_pixels.pixel_data_sha256.map(Value::from),
+        ),
+        (
+            "u32_word_byte_order",
+            u32_pixels.word_byte_order.map(Value::from),
+        ),
+        (
+            "u32_full_unsigned_range",
+            u32_pixels.full_unsigned_range.map(Value::from),
+        ),
+    ] {
+        row_object.insert(field.to_string(), value.unwrap_or(Value::Null));
+    }
     for (field, value) in [
         (
             "metadata_specific_character_sets",
@@ -16301,6 +16346,66 @@ fn report_value_array_label(value: &Value) -> Option<String> {
         .map(|values| values.join("; "))
 }
 
+#[derive(Default)]
+struct U32PixelReportFields {
+    stored_values: Option<String>,
+    pixel_data_sha256: Option<String>,
+    word_byte_order: Option<String>,
+    full_unsigned_range: Option<bool>,
+}
+
+fn u32_pixel_report_fields(
+    manifest_path: &Path,
+    file: &Value,
+) -> Result<U32PixelReportFields, ReportError> {
+    if file.get("case_id").and_then(Value::as_str) != Some("classic/sc/mono2_u32_explicit_le") {
+        return Ok(U32PixelReportFields::default());
+    }
+    let expected = file
+        .get("expected_u32_pixels")
+        .ok_or(ReportError::MetadataShape {
+            path: manifest_path.to_path_buf(),
+            message: "u32 coverage row requires expected_u32_pixels",
+        })?;
+    let stored_values = report_value_array_label(&expected["stored_values"])
+        .filter(|value| value == "0; 65535; 2147483648; 4294967295")
+        .ok_or(ReportError::MetadataShape {
+            path: manifest_path.to_path_buf(),
+            message: "u32 coverage row requires the four locked unsigned boundary values",
+        })?;
+    let pixel_data_sha256 = expected["pixel_data_sha256"]
+        .as_str()
+        .filter(|value| {
+            value.len() == 64
+                && value
+                    .bytes()
+                    .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+        })
+        .ok_or(ReportError::MetadataShape {
+            path: manifest_path.to_path_buf(),
+            message: "u32 coverage row requires a lowercase SHA-256 pixel hash",
+        })?;
+    let word_byte_order = expected["word_byte_order"]
+        .as_str()
+        .filter(|value| *value == "little_endian")
+        .ok_or(ReportError::MetadataShape {
+            path: manifest_path.to_path_buf(),
+            message: "u32 coverage row requires little-endian word order",
+        })?;
+    if expected["full_unsigned_range"].as_bool() != Some(true) {
+        return Err(ReportError::MetadataShape {
+            path: manifest_path.to_path_buf(),
+            message: "u32 coverage row requires full_unsigned_range true",
+        });
+    }
+    Ok(U32PixelReportFields {
+        stored_values: Some(stored_values),
+        pixel_data_sha256: Some(pixel_data_sha256.to_string()),
+        word_byte_order: Some(word_byte_order.to_string()),
+        full_unsigned_range: Some(true),
+    })
+}
+
 fn report_scalar_label(value: &Value) -> Option<String> {
     match value {
         Value::String(value) => Some(value.clone()),
@@ -16637,6 +16742,10 @@ fn skipped_coverage_row(
         "metadata_sequence_item_length_encoding",
         "metadata_sequence_item_delimitation_present",
         "metadata_sequence_decoded_code",
+        "u32_stored_values",
+        "u32_pixel_data_sha256",
+        "u32_word_byte_order",
+        "u32_full_unsigned_range",
         "nm_frame_increment_pointers",
         "nm_energy_window_vector",
         "nm_detector_vector",
@@ -17090,6 +17199,10 @@ struct GroupedCoverage {
     planar_configurations: BTreeMap<String, usize>,
     pixel_data_vrs: BTreeMap<String, usize>,
     pixel_data_layouts: BTreeMap<String, usize>,
+    u32_stored_value_sets: BTreeMap<String, usize>,
+    u32_pixel_data_sha256_values: BTreeMap<String, usize>,
+    u32_word_byte_orders: BTreeMap<String, usize>,
+    u32_full_unsigned_range_states: BTreeMap<String, usize>,
     frame_counts: BTreeMap<String, usize>,
     geometries: BTreeMap<String, usize>,
     pixel_spacings: BTreeMap<String, usize>,
@@ -17565,6 +17678,24 @@ impl GroupedCoverage {
             &mut self.pixel_data_layouts,
             row.get("pixel_data_layout").and_then(Value::as_str),
         );
+        increment_map(
+            &mut self.u32_stored_value_sets,
+            row.get("u32_stored_values").and_then(Value::as_str),
+        );
+        increment_map(
+            &mut self.u32_pixel_data_sha256_values,
+            row.get("u32_pixel_data_sha256").and_then(Value::as_str),
+        );
+        increment_map(
+            &mut self.u32_word_byte_orders,
+            row.get("u32_word_byte_order").and_then(Value::as_str),
+        );
+        if let Some(value) = row.get("u32_full_unsigned_range").and_then(Value::as_bool) {
+            *self
+                .u32_full_unsigned_range_states
+                .entry(value.to_string())
+                .or_default() += 1;
+        }
         increment_map(
             &mut self.basic_offset_tables,
             row.get("basic_offset_table").and_then(Value::as_str),
@@ -18530,6 +18661,23 @@ impl GroupedCoverage {
         let grouped_object = grouped
             .as_object_mut()
             .expect("grouped coverage literal must be an object");
+        for (field, map) in [
+            ("u32_stored_value_sets", &self.u32_stored_value_sets),
+            (
+                "u32_pixel_data_sha256_values",
+                &self.u32_pixel_data_sha256_values,
+            ),
+            ("u32_word_byte_orders", &self.u32_word_byte_orders),
+            (
+                "u32_full_unsigned_range_states",
+                &self.u32_full_unsigned_range_states,
+            ),
+        ] {
+            grouped_object.insert(
+                field.to_string(),
+                serde_json::to_value(map).expect("u32 coverage count map must serialize"),
+            );
+        }
         grouped_object.insert(
             "generation_backends".to_string(),
             serde_json::to_value(&self.generation_backends)

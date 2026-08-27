@@ -5149,6 +5149,82 @@ fn report_command_rejects_missing_manifest() {
     fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
 }
 
+#[test]
+fn report_surfaces_complete_unsigned_u32_pixel_contract() {
+    let out_dir = unique_temp_dir("report-u32-pixels");
+    generate_extended(&out_dir);
+    let json_output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args(["report"])
+        .arg(&out_dir)
+        .args(["--format", "json"])
+        .output()
+        .unwrap();
+    assert!(json_output.status.success());
+    let report: Value = serde_json::from_slice(&json_output.stdout).unwrap();
+    let row = coverage_row(&report, "classic/sc/mono2_u32_explicit_le");
+    assert_eq!(row["u32_stored_values"], "0; 65535; 2147483648; 4294967295");
+    assert_eq!(
+        row["u32_pixel_data_sha256"],
+        "56bca1a85c2838126b1d1a5fbedfe731839496d972df2c6ab33e1a1183392b41"
+    );
+    assert_eq!(row["u32_word_byte_order"], "little_endian");
+    assert_eq!(row["u32_full_unsigned_range"], true);
+    assert_eq!(
+        report.pointer("/grouped_coverage/u32_stored_value_sets/0; 65535; 2147483648; 4294967295"),
+        Some(&json!(1))
+    );
+    assert_eq!(
+        report.pointer("/grouped_coverage/u32_full_unsigned_range_states/true"),
+        Some(&json!(1))
+    );
+    let schema: Value =
+        serde_json::from_slice(&fs::read("schemas/coverage-report.schema.json").unwrap()).unwrap();
+    assert!(
+        jsonschema::validator_for(&schema)
+            .unwrap()
+            .is_valid(&report)
+    );
+
+    let markdown_output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args(["report"])
+        .arg(&out_dir)
+        .args(["--format", "markdown"])
+        .output()
+        .unwrap();
+    assert!(markdown_output.status.success());
+    let markdown = String::from_utf8(markdown_output.stdout).unwrap();
+    assert!(markdown.contains("### Unsigned 32-bit Stored Value Sets"));
+    assert!(markdown.contains("0; 65535; 2147483648; 4294967295"));
+    assert!(markdown.contains("56bca1a85c2838126b1d1a5fbedfe731839496d972df2c6ab33e1a1183392b41"));
+
+    let manifest_path = out_dir.join("manifest.json");
+    let mut manifest: Value = serde_json::from_slice(&fs::read(&manifest_path).unwrap()).unwrap();
+    manifest["files"]
+        .as_array_mut()
+        .unwrap()
+        .iter_mut()
+        .find(|file| file["case_id"] == "classic/sc/mono2_u32_explicit_le")
+        .unwrap()
+        .as_object_mut()
+        .unwrap()
+        .remove("expected_u32_pixels");
+    fs::write(
+        &manifest_path,
+        serde_json::to_vec_pretty(&manifest).unwrap(),
+    )
+    .unwrap();
+    let rejected = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args(["report"])
+        .arg(&out_dir)
+        .args(["--format", "json"])
+        .output()
+        .unwrap();
+    assert!(!rejected.status.success());
+    assert!(String::from_utf8_lossy(&rejected.stderr).contains("requires expected_u32_pixels"));
+
+    fs::remove_dir_all(out_dir).unwrap();
+}
+
 fn generate_core(out_dir: &Path) {
     let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
         .args([

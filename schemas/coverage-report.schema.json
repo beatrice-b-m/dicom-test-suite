@@ -186,6 +186,10 @@
         "pixel_data_layouts": {
           "$ref": "#/$defs/count_map"
         },
+        "u32_stored_value_sets": { "$ref": "#/$defs/count_map" },
+        "u32_pixel_data_sha256_values": { "$ref": "#/$defs/count_map" },
+        "u32_word_byte_orders": { "$ref": "#/$defs/count_map" },
+        "u32_full_unsigned_range_states": { "$ref": "#/$defs/count_map" },
         "basic_offset_tables": {
           "$ref": "#/$defs/count_map"
         },
@@ -837,6 +841,10 @@
         "planar_configuration",
         "pixel_data_vr",
         "pixel_data_layout",
+        "u32_stored_values",
+        "u32_pixel_data_sha256",
+        "u32_word_byte_order",
+        "u32_full_unsigned_range",
         "basic_offset_table",
         "encapsulated_fragment_layout",
         "extended_offset_table",
@@ -1314,6 +1322,22 @@
         "pixel_data_layout": {
           "type": ["string", "null"],
           "enum": ["native", "encapsulated", "absent", null]
+        },
+        "u32_stored_values": {
+          "type": ["string", "null"]
+        },
+        "u32_pixel_data_sha256": {
+          "anyOf": [
+            { "$ref": "#/$defs/sha256" },
+            { "type": "null" }
+          ]
+        },
+        "u32_word_byte_order": {
+          "type": ["string", "null"],
+          "enum": ["little_endian", null]
+        },
+        "u32_full_unsigned_range": {
+          "type": ["boolean", "null"]
         },
         "basic_offset_table": {
           "type": ["string", "null"],
@@ -1993,6 +2017,29 @@
         }
       },
       "allOf": [
+        {
+          "if": {
+            "properties": {
+              "case_id": { "const": "classic/sc/mono2_u32_explicit_le" }
+            }
+          },
+          "then": {
+            "properties": {
+              "u32_stored_values": { "const": "0; 65535; 2147483648; 4294967295" },
+              "u32_pixel_data_sha256": { "const": "56bca1a85c2838126b1d1a5fbedfe731839496d972df2c6ab33e1a1183392b41" },
+              "u32_word_byte_order": { "const": "little_endian" },
+              "u32_full_unsigned_range": { "const": true }
+            }
+          },
+          "else": {
+            "properties": {
+              "u32_stored_values": { "type": "null" },
+              "u32_pixel_data_sha256": { "type": "null" },
+              "u32_word_byte_order": { "type": "null" },
+              "u32_full_unsigned_range": { "type": "null" }
+            }
+          }
+        },
         {
           "if": {
             "properties": { "xa_image_type": { "type": "null" } }

@@ -6864,6 +6864,11 @@ fn classic_ct_manifest_entry(
                     "series_instance_count": recipe.slices.len(),
                     "geometric_order_index": slice_index + 1,
                     "position_along_normal_mm": slice.position_along_normal,
+                    "image_position_patient": classic_ct_ds_values::<3>(slice.image_position_patient),
+                    "image_orientation_patient": classic_ct_ds_values::<6>(recipe.image_orientation_patient),
+                    "adjacent_spacing_mm": classic_ct_adjacent_spacing(recipe),
+                    "spacing_uniform": classic_ct_spacing_is_uniform(recipe),
+                    "instance_number_state": "numeric",
                     "instance_number": slice.instance_number.parse::<i64>().expect("CT Instance Number recipe must be numeric"),
                     "instance_number_order_index": classic_ct_instance_number_order_index(recipe, slice.instance_number),
                     "sorting_conflict_expected": true
@@ -6871,6 +6876,46 @@ fn classic_ct_manifest_entry(
             );
     }
     manifest_entry
+}
+
+fn classic_ct_ds_values<const N: usize>(encoded: &str) -> [f64; N] {
+    encoded
+        .split('\\')
+        .map(|value| {
+            value
+                .parse::<f64>()
+                .expect("classic CT geometry DS recipe value must be numeric")
+        })
+        .collect::<Vec<_>>()
+        .try_into()
+        .unwrap_or_else(|values: Vec<f64>| {
+            panic!(
+                "classic CT geometry DS recipe must contain {N} values, got {}",
+                values.len()
+            )
+        })
+}
+
+fn classic_ct_adjacent_spacing(recipe: ClassicCtRecipe) -> Vec<f64> {
+    let mut positions = recipe
+        .slices
+        .iter()
+        .map(|slice| slice.position_along_normal)
+        .collect::<Vec<_>>();
+    positions.sort_by(f64::total_cmp);
+    positions
+        .windows(2)
+        .map(|pair| (pair[1] - pair[0]).abs())
+        .collect()
+}
+
+fn classic_ct_spacing_is_uniform(recipe: ClassicCtRecipe) -> bool {
+    let spacing = classic_ct_adjacent_spacing(recipe);
+    spacing.first().is_none_or(|first| {
+        spacing
+            .iter()
+            .all(|value| (value - first).abs() <= 0.000_01)
+    })
 }
 
 fn classic_ct_instance_number_order_index(recipe: ClassicCtRecipe, instance_number: &str) -> usize {

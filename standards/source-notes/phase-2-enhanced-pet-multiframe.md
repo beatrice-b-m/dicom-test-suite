@@ -15,8 +15,9 @@ Standards baseline: 2026b, `standards.lock.json`
 Generate one Enhanced PET Image Storage instance using Explicit VR Little
 Endian. It contains two 2 by 2 native unsigned 16-bit MONOCHROME2 frames at
 patient positions `0\\0\\0` and `0\\0\\5` mm. Both frames use stored values
-`0, 100, 200, 400`, with ordered per-frame SHA-256
-`03ec353fd2407afb09c8d65712ef9aa30f03c8243f6f3f1675dca7ea5f6a4784`.
+`0, 100, 200, 400`, with ordered per-frame SHA-256 values
+`[03ec353fd2407afb09c8d65712ef9aa30f03c8243f6f3f1675dca7ea5f6a4784,
+03ec353fd2407afb09c8d65712ef9aa30f03c8243f6f3f1675dca7ea5f6a4784]`.
 The whole 16-byte Pixel Data SHA-256 is
 `3a43b45e2f6d4d04fe4fc357dfc0efaa21caa5415ffc5db96fc19428d34a7bb5`.
 
@@ -25,10 +26,10 @@ Image Type and PET Frame Type are
 the acquisition start and termination conditions, detector geometry, energy
 window, PET acquisition, detector-motion, position, correction-factor,
 reconstruction, and table-dynamics functional groups outside this slice. The
-required Derivation Image Sequence is present with zero Items, as explicitly
-permitted by its Type 2 macro, because this synthetic quantitative fixture has
-no source SOP Instance. It therefore makes no unresolved cross-profile
-reference claim.
+optional Derivation Image Sequence is explicitly present with zero Items, as
+permitted when the macro is included, because this synthetic quantitative
+fixture has no source SOP Instance. It therefore makes no unresolved
+cross-profile reference claim.
 
 The Image and common frame-description contract is PT modality, Pixel
 Presentation `MONOCHROME`, Volumetric Properties `VOLUME`, Volume Based
@@ -77,11 +78,12 @@ not SUV, body-weight, body-surface-area, decay-corrected, or clinically
 calibrated quantitative data.
 
 Dimension Organization and Dimension Index Sequences contain one deterministic
-organization and one index pointing to Image Position (Patient) through Plane
-Position Sequence. Per-Frame Functional Groups contains exactly two Items.
-Each has a Frame Content Item with Dimension Index Value `1` or `2` and the
-mandatory Enhanced PET Temporal Position Index `1`, plus a Plane Position
-Item at the ordered z location. Frame Content is never shared.
+organization and one index pointing to In-Stack Position Number through Frame
+Content Sequence. Per-Frame Functional Groups contains exactly two Items.
+Each has a Frame Content Item with Stack ID `1`, In-Stack Position Number and
+Dimension Index Value `1` or `2`, and the mandatory Enhanced PET Temporal
+Position Index `1`, plus a Plane Position Item at the ordered z location.
+Frame Content is never shared.
 
 ## KB Query
 
@@ -138,8 +140,8 @@ Item at the ordered z location. Frame Content is never shared.
 
 - Registry status: planned until generation, typed manifest and report
   contracts, internal and manifest-driven validation, two-run determinism,
-  exact independent native pixel extraction and quantitative recomputation,
-  and independent IOD gates pass.
+  exact direct reopened native Pixel Data extraction, independent arithmetic
+  recomputation, and independent IOD gates pass.
 - Registry reason or linked issue: `recipe_unimplemented`.
 - Should become KB patch: yes; macro and context-specific value-term coverage
   should become structured KB data.

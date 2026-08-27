@@ -53,6 +53,21 @@ are null for every member because duplicates and an empty value do not define
 a total numeric order. Internal validation and reports preserve those nulls
 while continuing to enforce the complete geometric order.
 
+### Multiple series with one shared Frame of Reference
+
+`geometry/ct/multiseries_shared_frame_of_reference` is an implemented `core`
+case with two two-slice CT series in one study. Both series occupy the same
+positions at 0 and 5 mm and share one Frame of Reference UID, but they have
+distinct Series Instance UIDs and Series Numbers. Instance Number resets to 1
+and 2 within each series, while all four SOP Instance UIDs remain unique.
+
+Every manifest row declares the organization group, study series count,
+series ordinal, per-series instance count, and expected shared/distinct UID
+relationships. Corpus validation reopens the files, binds dataset Study,
+Series, and Frame of Reference UIDs to the manifest, requires serialized Series
+Number to equal the declared ordinal, and then checks the cross-series group.
+This prevents organization metadata from validating only its own claims.
+
 ## Verification evidence
 
 The following checks passed on 2026-08-26 for a seed-23 `core` corpus:
@@ -93,13 +108,20 @@ disposition. A real conformance-framework run matched exactly that one new
 disposition. Older unrelated `core` findings remain unresolved and were not
 accepted or weakened.
 
+The shared-Frame slice additionally passed two byte-identical seed-37 `core`
+runs, internal validation of all 37 files with zero failures, `dciodvfy -new`
+on all four instances with no findings, isolated four-file `dcentvfy` with no
+findings, and DCMTK extraction confirming one Study UID, one Frame of Reference
+UID, two Series UIDs and Series Numbers, reset Instance Numbers, and overlapping
+positions.
+
 The two matching `core` corpora each occupy 480 KiB in the local filesystem.
 This measurement is implementation-environment evidence rather than a
 portable byte-size guarantee; tracked generated artifacts remain forbidden.
 
 ## Remaining work
 
-The geometry and series milestone still requires shared Frame of Reference
-across multiple series in one study and its milestone-level regression and
-conformance run. The existing enhanced MR temporal case supplies the planned
-temporal/dynamic coverage and will be included in that final milestone audit.
+All newly planned CT cases in the geometry and series milestone are now
+implemented. The existing enhanced MR temporal case supplies the planned
+temporal/dynamic coverage. Milestone completion still requires the combined
+regression, runtime/size, and conformance audit described below.

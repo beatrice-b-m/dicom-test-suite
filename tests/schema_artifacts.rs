@@ -4311,6 +4311,210 @@ fn manifest_schema_scopes_linked_rt_image_expectation_to_its_case() {
     );
 }
 
+#[test]
+fn manifest_schema_types_exact_carm_rt_radiation_expectations() {
+    let schema = read_json("schemas/manifest.schema.json");
+    let expectation_schema = serde_json::json!({
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$ref": "#/$defs/expected_rt_radiation",
+        "$defs": schema["$defs"].clone(),
+    });
+    let validator = jsonschema::validator_for(&expectation_schema)
+        .expect("C-Arm RT Radiation expectation schema should compile");
+    let expectation = minimal_carm_rt_radiation_expectation();
+    assert!(validator.is_valid(&expectation));
+
+    for (pointer, value) in [
+        ("/iod_kind", serde_json::json!("rt_radiation")),
+        (
+            "/definition_source/relationship",
+            serde_json::json!("referenced_rt_plan"),
+        ),
+        (
+            "/definition_source/referenced_beam_number",
+            serde_json::json!(2),
+        ),
+        ("/content/rt_record_flag", serde_json::json!("YES")),
+        (
+            "/content/treatment_technique/code_value",
+            serde_json::json!("wrong"),
+        ),
+        ("/device/serial_number", serde_json::json!("OTHER")),
+        (
+            "/dosimeter_unit/coding_scheme_designator",
+            serde_json::json!("DCM"),
+        ),
+        (
+            "/equipment_frame_of_reference_uid",
+            serde_json::json!("2.25.999"),
+        ),
+        (
+            "/treatment_positions/0/image_to_equipment_mapping_matrix/1",
+            serde_json::json!(1),
+        ),
+        (
+            "/control_points/0/cumulative_meterset",
+            serde_json::json!(1),
+        ),
+        ("/control_points/1/geometry", serde_json::json!({})),
+        (
+            "/control_points/1/inherits_geometry_from_control_point",
+            serde_json::json!(2),
+        ),
+        (
+            "/absent_content/recorded_control_point_attributes",
+            serde_json::json!(false),
+        ),
+    ] {
+        let mut mutated = expectation.clone();
+        *mutated.pointer_mut(pointer).expect("mutation pointer") = value;
+        assert!(!validator.is_valid(&mutated), "must reject {pointer}");
+    }
+
+    for pointer in ["/treatment_positions", "/control_points"] {
+        let mut missing = expectation.clone();
+        missing
+            .pointer_mut(pointer)
+            .expect("array pointer")
+            .as_array_mut()
+            .expect("array")
+            .pop();
+        assert!(
+            !validator.is_valid(&missing),
+            "must reject cardinality {pointer}"
+        );
+    }
+
+    let mut reversed = expectation;
+    reversed["control_points"]
+        .as_array_mut()
+        .unwrap()
+        .swap(0, 1);
+    assert!(!validator.is_valid(&reversed));
+}
+
+#[test]
+fn manifest_schema_types_exact_rt_radiation_set_expectations() {
+    let schema = read_json("schemas/manifest.schema.json");
+    let expectation_schema = serde_json::json!({
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$ref": "#/$defs/expected_rt_radiation_set",
+        "$defs": schema["$defs"].clone(),
+    });
+    let validator = jsonschema::validator_for(&expectation_schema)
+        .expect("RT Radiation Set expectation schema should compile");
+    let expectation = minimal_rt_radiation_set_expectation();
+    assert!(validator.is_valid(&expectation));
+
+    for (pointer, value) in [
+        ("/content/intent", serde_json::json!("SIMULATION")),
+        (
+            "/content/intended_number_of_fractions",
+            serde_json::json!(2),
+        ),
+        (
+            "/definition_source/source_case_id",
+            serde_json::json!("wrong/case"),
+        ),
+        ("/radiation_references/0/ordinal", serde_json::json!(2)),
+        (
+            "/radiation_references/0/sop_class_uid",
+            serde_json::json!("1.2.840.10008.5.1.4.1.1.481.5"),
+        ),
+        (
+            "/treatment_position_groups/0/label",
+            serde_json::json!("OTHER"),
+        ),
+        (
+            "/treatment_position_groups/0/radiation_references/0/relationship",
+            serde_json::json!("definition_source"),
+        ),
+        (
+            "/common_instance_references/1/ordinal",
+            serde_json::json!(1),
+        ),
+        (
+            "/absent_content/rt_dose_contribution_module",
+            serde_json::json!(false),
+        ),
+    ] {
+        let mut mutated = expectation.clone();
+        *mutated.pointer_mut(pointer).expect("mutation pointer") = value;
+        assert!(!validator.is_valid(&mutated), "must reject {pointer}");
+    }
+
+    for pointer in [
+        "/radiation_references",
+        "/treatment_position_groups",
+        "/treatment_position_groups/0/radiation_references",
+        "/common_instance_references",
+    ] {
+        let mut missing = expectation.clone();
+        missing
+            .pointer_mut(pointer)
+            .expect("array pointer")
+            .as_array_mut()
+            .expect("array")
+            .pop();
+        assert!(
+            !validator.is_valid(&missing),
+            "must reject cardinality {pointer}"
+        );
+    }
+
+    let mut reversed = expectation;
+    reversed["common_instance_references"]
+        .as_array_mut()
+        .unwrap()
+        .swap(0, 1);
+    assert!(!validator.is_valid(&reversed));
+}
+
+#[test]
+fn manifest_schema_scopes_second_generation_rt_expectations_to_their_cases() {
+    let schema = read_json("schemas/manifest.schema.json");
+    let rules = schema
+        .pointer("/$defs/file/allOf")
+        .and_then(Value::as_array)
+        .expect("file conditions");
+
+    for (case_id, field, reference_count) in [
+        (
+            "non-image/rt/carm_photon_electron_radiation_minimal",
+            "expected_rt_radiation",
+            1,
+        ),
+        (
+            "non-image/rt/radiation_set_minimal",
+            "expected_rt_radiation_set",
+            2,
+        ),
+    ] {
+        let rule = rules
+            .iter()
+            .find(|rule| {
+                rule.pointer("/if/properties/case_id/const") == Some(&serde_json::json!(case_id))
+            })
+            .unwrap_or_else(|| panic!("missing rule for {case_id}"));
+        assert_eq!(
+            rule.pointer("/then/required"),
+            Some(&serde_json::json!([field]))
+        );
+        assert_eq!(
+            rule.pointer("/then/properties/references/minItems"),
+            Some(&serde_json::json!(reference_count))
+        );
+        assert_eq!(
+            rule.pointer("/then/properties/references/maxItems"),
+            Some(&serde_json::json!(reference_count))
+        );
+        assert_eq!(
+            rule.pointer("/else/not/required"),
+            Some(&serde_json::json!([field]))
+        );
+    }
+}
+
 fn twelve_lead_ecg_waveform_expectation() -> Value {
     let leads = [
         (1, "I", "2:1", "Lead I"),
@@ -4518,6 +4722,233 @@ fn general_ecg_waveform_expectation() -> Value {
         "aggregate_payload_sha256": "c450f55360d6c07394600e4c0f71f951565cd0e1699edfbbb52f660221c6abea"
     });
     expectation
+}
+
+fn minimal_carm_rt_radiation_expectation() -> Value {
+    serde_json::json!({
+        "iod_kind": "carm_photon_electron_radiation",
+        "sop_class_uid": "1.2.840.10008.5.1.4.1.1.481.13",
+        "iod_name": "C-Arm Photon-Electron Radiation",
+        "modality": "RTRAD",
+        "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+        "sop_instance_uid": "2.25.301",
+        "study_instance_uid": "2.25.302",
+        "series_instance_uid": "2.25.303",
+        "frame_of_reference_uid": "2.25.304",
+        "instance": rt_radiation_instance(74, "Native C-Arm Photon-Electron Radiation"),
+        "definition_source": {
+            "relationship": "definition_source",
+            "source_case_id": "non-image/rt/plan_linked",
+            "source_path": "non-image/rt/plan_linked/instance.dcm",
+            "source_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "study_instance_uid": "2.25.302",
+            "series_instance_uid": "2.25.305",
+            "sop_class_uid": "1.2.840.10008.5.1.4.1.1.481.5",
+            "sop_instance_uid": "2.25.306",
+            "frame_of_reference_uid": "2.25.304",
+            "referenced_beam_number": 1,
+            "common_instance_reference_ordinal": 1
+        },
+        "content": {
+            "user_content_label": "DTS_RADIATION",
+            "content_description": "",
+            "physical_and_geometric_content_detail_flag": "IDENT_ONLY",
+            "rt_record_flag": "NO",
+            "treatment_technique": rt_code("130102", "DCM", "Static Beam"),
+            "number_of_rt_control_points": 2
+        },
+        "device": rt_treatment_device(),
+        "dosimeter_unit": rt_code("{MU}", "UCUM", "Monitor Units"),
+        "distance_reference_location": rt_code("130358", "DCM", "Nominal Radiation Source Location"),
+        "equipment_frame_of_reference_uid": "1.2.840.10008.1.4.3.1",
+        "rt_beam_modifier_definition_distance_mm": 500,
+        "equipment_reference_point_coordinates_sequence_present_empty": true,
+        "number_of_patient_support_devices": 0,
+        "radiation_source_axis_distance_mm": 1000,
+        "treatment_positions": [{
+            "ordinal": 1,
+            "treatment_position_index": 1,
+            "image_to_equipment_mapping_matrix": [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
+            "patient_location_coordinates_present_empty": true,
+            "patient_support_position_sequence_present_empty": true,
+            "patient_orientation": rt_code("102538003", "SCT", "recumbent"),
+            "patient_orientation_modifier": rt_code("40199007", "SCT", "supine"),
+            "patient_equipment_relationship": rt_code("102540008", "SCT", "headfirst")
+        }],
+        "control_points": [
+            {
+                "ordinal": 1,
+                "rt_control_point_index": 1,
+                "cumulative_meterset": 0,
+                "geometry": {
+                    "referenced_treatment_position_index": 1,
+                    "source_roll_angle_degrees": 0,
+                    "rt_beam_limiting_device_angle_degrees": 0,
+                    "delivery_rate_present_empty": true,
+                    "source_to_patient_surface_distance_present_empty": true,
+                    "source_to_external_contour_distance_present_empty": true,
+                    "delivery_rate_unit_sequence_absent": true
+                },
+                "inherits_geometry_from_control_point": null
+            },
+            {
+                "ordinal": 2,
+                "rt_control_point_index": 2,
+                "cumulative_meterset": 100,
+                "geometry": null,
+                "inherits_geometry_from_control_point": 1
+            }
+        ],
+        "absent_content": {
+            "patient_study_module": true,
+            "clinical_trial_modules": true,
+            "referenced_performed_procedure_step_sequences": true,
+            "treatment_session_uid": true,
+            "treatment_machine_special_mode": true,
+            "rt_tolerance_set": true,
+            "treatment_time_limit": true,
+            "device_alternate_identifier_type": true,
+            "device_alternate_identifier_format": true,
+            "unique_device_identifier_sequence": true,
+            "device_manufacture_date": true,
+            "device_expiration_date": true,
+            "device_institution_content": true,
+            "long_device_description": true,
+            "patient_support_devices_sequence": true,
+            "radiation_generation_mode": true,
+            "beam_limiting_device_definition_and_opening": true,
+            "wedge": true,
+            "compensator": true,
+            "block": true,
+            "accessory_holder": true,
+            "general_accessory": true,
+            "bolus": true,
+            "beam_area_limit": true,
+            "recorded_control_point_attributes": true,
+            "image": true,
+            "pixel_data": true,
+            "synchronization": true
+        }
+    })
+}
+
+fn minimal_rt_radiation_set_expectation() -> Value {
+    let plan_reference = serde_json::json!({
+        "ordinal": 1,
+        "relationship": "definition_source",
+        "source_case_id": "non-image/rt/plan_linked",
+        "source_path": "non-image/rt/plan_linked/instance.dcm",
+        "source_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "study_instance_uid": "2.25.302",
+        "series_instance_uid": "2.25.305",
+        "sop_class_uid": "1.2.840.10008.5.1.4.1.1.481.5",
+        "sop_instance_uid": "2.25.306",
+        "frame_of_reference_uid": "2.25.304"
+    });
+    let radiation_reference = serde_json::json!({
+        "ordinal": 1,
+        "relationship": "referenced_rt_radiation",
+        "source_case_id": "non-image/rt/carm_photon_electron_radiation_minimal",
+        "source_path": "non-image/rt/carm_photon_electron_radiation_minimal/instance.dcm",
+        "source_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "study_instance_uid": "2.25.302",
+        "series_instance_uid": "2.25.303",
+        "sop_class_uid": "1.2.840.10008.5.1.4.1.1.481.13",
+        "sop_instance_uid": "2.25.301",
+        "frame_of_reference_uid": "2.25.304"
+    });
+    let mut common_radiation_reference = radiation_reference.clone();
+    common_radiation_reference["ordinal"] = serde_json::json!(2);
+
+    serde_json::json!({
+        "iod_kind": "rt_radiation_set",
+        "sop_class_uid": "1.2.840.10008.5.1.4.1.1.481.12",
+        "iod_name": "RT Radiation Set",
+        "modality": "RTRAD",
+        "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+        "sop_instance_uid": "2.25.307",
+        "study_instance_uid": "2.25.302",
+        "series_instance_uid": "2.25.308",
+        "frame_of_reference_uid": "2.25.304",
+        "instance": rt_radiation_instance(75, "Native RT Radiation Set"),
+        "content": {
+            "user_content_label": "DTS_RADSET",
+            "content_description": "",
+            "intent": "TREATMENT",
+            "intended_number_of_fractions": 1,
+            "referenced_rt_physician_intent_sequence_present_empty": true,
+            "author_identification_sequence_present_empty": true
+        },
+        "linked_radiation_device": rt_treatment_device(),
+        "definition_source": plan_reference.clone(),
+        "radiation_references": [radiation_reference.clone()],
+        "treatment_position_groups": [{
+            "ordinal": 1,
+            "treatment_position_group_uid": "2.25.309",
+            "label": "DTS_TPG_1",
+            "radiation_references": [radiation_reference]
+        }],
+        "common_instance_references": [plan_reference, common_radiation_reference],
+        "absent_content": {
+            "patient_study_module": true,
+            "clinical_trial_modules": true,
+            "referenced_performed_procedure_step_sequences": true,
+            "treatment_session_uid": true,
+            "synchronization": true,
+            "rt_dose_contribution_module": true,
+            "fraction_pattern_sequence": true,
+            "image": true,
+            "pixel_data": true
+        }
+    })
+}
+
+fn rt_radiation_instance(series_number: u8, equipment_model_name: &str) -> Value {
+    serde_json::json!({
+        "series_number": series_number,
+        "series_date": "20260101",
+        "series_time": "000000",
+        "instance_creation_date": "20260101",
+        "instance_creation_time": "000000",
+        "content_date": "20260101",
+        "content_time": "000000",
+        "patient_name": "DTS^Synthetic^Patient001",
+        "patient_id": "DTS-PATIENT-001",
+        "patient_birth_date": "19700101",
+        "patient_sex": "O",
+        "study_id": "DTS-RTSTRUCT",
+        "referring_physician_name": "",
+        "accession_number": "",
+        "position_reference_indicator": "",
+        "equipment_manufacturer": "dicom-test-suite",
+        "equipment_model_name": equipment_model_name,
+        "equipment_serial_number": "DTS-LINAC-001",
+        "software_versions": "0.1.0",
+        "author_identification_sequence_present_empty": true
+    })
+}
+
+fn rt_treatment_device() -> Value {
+    serde_json::json!({
+        "manufacturer": "dicom-test-suite",
+        "model_name": "DTS C-Arm LINAC",
+        "model_version": "1",
+        "device_label": "DTS_LINAC",
+        "serial_number": "DTS-LINAC-001",
+        "software_versions": "0.1.0",
+        "manufacturer_device_identifier": "DTS-LINAC-001",
+        "manufacturer_device_class_uid": "",
+        "device_alternate_identifier": "",
+        "device_type": rt_code("130361", "DCM", "Radiotherapy Treatment Device")
+    })
+}
+
+fn rt_code(value: &str, scheme: &str, meaning: &str) -> Value {
+    serde_json::json!({
+        "code_value": value,
+        "coding_scheme_designator": scheme,
+        "code_meaning": meaning
+    })
 }
 
 fn linked_rt_plan_expectation() -> Value {

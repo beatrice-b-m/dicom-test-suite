@@ -361,6 +361,12 @@
         "expected_rt_image": {
           "$ref": "#/$defs/expected_rt_image"
         },
+        "expected_rt_radiation": {
+          "$ref": "#/$defs/expected_rt_radiation"
+        },
+        "expected_rt_radiation_set": {
+          "$ref": "#/$defs/expected_rt_radiation_set"
+        },
         "expected_geometry": {
           "anyOf": [
             { "$ref": "#/$defs/expected_geometry" },
@@ -851,6 +857,62 @@
           },
           "else": {
             "not": { "required": ["expected_rt_image"] }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "case_id": { "const": "non-image/rt/carm_photon_electron_radiation_minimal" }
+            },
+            "required": ["case_id"]
+          },
+          "then": {
+            "required": ["expected_rt_radiation"],
+            "properties": {
+              "dicom": {
+                "properties": {
+                  "sop_class_uid": { "const": "1.2.840.10008.5.1.4.1.1.481.13" },
+                  "sop_class_name": { "const": "C-Arm Photon-Electron Radiation Storage" },
+                  "iod_name": { "const": "C-Arm Photon-Electron Radiation" },
+                  "modality": { "const": "RTRAD" },
+                  "transfer_syntax_uid": { "const": "1.2.840.10008.1.2.1" }
+                }
+              },
+              "image": { "type": "null" },
+              "pixel_data": { "type": "null" },
+              "references": { "minItems": 1, "maxItems": 1 }
+            }
+          },
+          "else": {
+            "not": { "required": ["expected_rt_radiation"] }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "case_id": { "const": "non-image/rt/radiation_set_minimal" }
+            },
+            "required": ["case_id"]
+          },
+          "then": {
+            "required": ["expected_rt_radiation_set"],
+            "properties": {
+              "dicom": {
+                "properties": {
+                  "sop_class_uid": { "const": "1.2.840.10008.5.1.4.1.1.481.12" },
+                  "sop_class_name": { "const": "RT Radiation Set Storage" },
+                  "iod_name": { "const": "RT Radiation Set" },
+                  "modality": { "const": "RTRAD" },
+                  "transfer_syntax_uid": { "const": "1.2.840.10008.1.2.1" }
+                }
+              },
+              "image": { "type": "null" },
+              "pixel_data": { "type": "null" },
+              "references": { "minItems": 2, "maxItems": 2 }
+            }
+          },
+          "else": {
+            "not": { "required": ["expected_rt_radiation_set"] }
           }
         },
         {
@@ -2976,6 +3038,315 @@
             "common_instance_reference_module": { "const": true },
             "image": { "const": true },
             "pixel_data": { "const": true }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "rt_radiation_code": {
+      "type": "object",
+      "required": ["code_value", "coding_scheme_designator", "code_meaning"],
+      "properties": {
+        "code_value": { "type": "string" },
+        "coding_scheme_designator": { "type": "string" },
+        "code_meaning": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "rt_radiation_instance": {
+      "type": "object",
+      "required": ["series_number", "series_date", "series_time", "instance_creation_date", "instance_creation_time", "content_date", "content_time", "patient_name", "patient_id", "patient_birth_date", "patient_sex", "study_id", "referring_physician_name", "accession_number", "position_reference_indicator", "equipment_manufacturer", "equipment_model_name", "equipment_serial_number", "software_versions", "author_identification_sequence_present_empty"],
+      "properties": {
+        "series_number": { "enum": [74, 75] },
+        "series_date": { "const": "20260101" },
+        "series_time": { "const": "000000" },
+        "instance_creation_date": { "const": "20260101" },
+        "instance_creation_time": { "const": "000000" },
+        "content_date": { "const": "20260101" },
+        "content_time": { "const": "000000" },
+        "patient_name": { "const": "DTS^Synthetic^Patient001" },
+        "patient_id": { "const": "DTS-PATIENT-001" },
+        "patient_birth_date": { "const": "19700101" },
+        "patient_sex": { "const": "O" },
+        "study_id": { "const": "DTS-RTSTRUCT" },
+        "referring_physician_name": { "const": "" },
+        "accession_number": { "const": "" },
+        "position_reference_indicator": { "const": "" },
+        "equipment_manufacturer": { "const": "dicom-test-suite" },
+        "equipment_model_name": { "enum": ["Native C-Arm Photon-Electron Radiation", "Native RT Radiation Set"] },
+        "equipment_serial_number": { "const": "DTS-LINAC-001" },
+        "software_versions": { "type": "string", "minLength": 1 },
+        "author_identification_sequence_present_empty": { "const": true }
+      },
+      "additionalProperties": false
+    },
+    "rt_treatment_device": {
+      "type": "object",
+      "required": ["manufacturer", "model_name", "model_version", "device_label", "serial_number", "software_versions", "manufacturer_device_identifier", "manufacturer_device_class_uid", "device_alternate_identifier", "device_type"],
+      "properties": {
+        "manufacturer": { "const": "dicom-test-suite" },
+        "model_name": { "const": "DTS C-Arm LINAC" },
+        "model_version": { "const": "1" },
+        "device_label": { "const": "DTS_LINAC" },
+        "serial_number": { "const": "DTS-LINAC-001" },
+        "software_versions": { "type": "string", "minLength": 1 },
+        "manufacturer_device_identifier": { "const": "DTS-LINAC-001" },
+        "manufacturer_device_class_uid": { "const": "" },
+        "device_alternate_identifier": { "const": "" },
+        "device_type": {
+          "$ref": "#/$defs/rt_radiation_code",
+          "properties": {
+            "code_value": { "const": "130361" },
+            "coding_scheme_designator": { "const": "DCM" },
+            "code_meaning": { "const": "Radiotherapy Treatment Device" }
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "rt_radiation_source_reference": {
+      "type": "object",
+      "required": ["relationship", "source_case_id", "source_path", "source_sha256", "study_instance_uid", "series_instance_uid", "sop_class_uid", "sop_instance_uid", "frame_of_reference_uid", "referenced_beam_number", "common_instance_reference_ordinal"],
+      "properties": {
+        "relationship": { "const": "definition_source" },
+        "source_case_id": { "const": "non-image/rt/plan_linked" },
+        "source_path": { "const": "non-image/rt/plan_linked/instance.dcm" },
+        "source_sha256": { "$ref": "#/$defs/sha256" },
+        "study_instance_uid": { "type": "string", "pattern": "^[0-9]+(\\.[0-9]+)+$" },
+        "series_instance_uid": { "type": "string", "pattern": "^[0-9]+(\\.[0-9]+)+$" },
+        "sop_class_uid": { "const": "1.2.840.10008.5.1.4.1.1.481.5" },
+        "sop_instance_uid": { "type": "string", "pattern": "^[0-9]+(\\.[0-9]+)+$" },
+        "frame_of_reference_uid": { "type": "string", "pattern": "^[0-9]+(\\.[0-9]+)+$" },
+        "referenced_beam_number": { "const": 1 },
+        "common_instance_reference_ordinal": { "const": 1 }
+      },
+      "additionalProperties": false
+    },
+    "expected_rt_radiation": {
+      "type": "object",
+      "required": ["iod_kind", "sop_class_uid", "iod_name", "modality", "transfer_syntax_uid", "sop_instance_uid", "study_instance_uid", "series_instance_uid", "frame_of_reference_uid", "instance", "definition_source", "content", "device", "dosimeter_unit", "distance_reference_location", "equipment_frame_of_reference_uid", "rt_beam_modifier_definition_distance_mm", "equipment_reference_point_coordinates_sequence_present_empty", "number_of_patient_support_devices", "radiation_source_axis_distance_mm", "treatment_positions", "control_points", "absent_content"],
+      "properties": {
+        "iod_kind": { "const": "carm_photon_electron_radiation" },
+        "sop_class_uid": { "const": "1.2.840.10008.5.1.4.1.1.481.13" },
+        "iod_name": { "const": "C-Arm Photon-Electron Radiation" },
+        "modality": { "const": "RTRAD" },
+        "transfer_syntax_uid": { "const": "1.2.840.10008.1.2.1" },
+        "sop_instance_uid": { "type": "string", "pattern": "^[0-9]+(\\.[0-9]+)+$" },
+        "study_instance_uid": { "type": "string", "pattern": "^[0-9]+(\\.[0-9]+)+$" },
+        "series_instance_uid": { "type": "string", "pattern": "^[0-9]+(\\.[0-9]+)+$" },
+        "frame_of_reference_uid": { "type": "string", "pattern": "^[0-9]+(\\.[0-9]+)+$" },
+        "instance": {
+          "$ref": "#/$defs/rt_radiation_instance",
+          "properties": {
+            "series_number": { "const": 74 },
+            "equipment_model_name": { "const": "Native C-Arm Photon-Electron Radiation" }
+          }
+        },
+        "definition_source": { "$ref": "#/$defs/rt_radiation_source_reference" },
+        "content": {
+          "type": "object",
+          "required": ["user_content_label", "content_description", "physical_and_geometric_content_detail_flag", "rt_record_flag", "treatment_technique", "number_of_rt_control_points"],
+          "properties": {
+            "user_content_label": { "const": "DTS_RADIATION" },
+            "content_description": { "const": "" },
+            "physical_and_geometric_content_detail_flag": { "const": "IDENT_ONLY" },
+            "rt_record_flag": { "const": "NO" },
+            "treatment_technique": {
+              "$ref": "#/$defs/rt_radiation_code",
+              "properties": {
+                "code_value": { "const": "130102" },
+                "coding_scheme_designator": { "const": "DCM" },
+                "code_meaning": { "const": "Static Beam" }
+              }
+            },
+            "number_of_rt_control_points": { "const": 2 }
+          },
+          "additionalProperties": false
+        },
+        "device": { "$ref": "#/$defs/rt_treatment_device" },
+        "dosimeter_unit": {
+          "$ref": "#/$defs/rt_radiation_code",
+          "properties": {
+            "code_value": { "const": "{MU}" },
+            "coding_scheme_designator": { "const": "UCUM" },
+            "code_meaning": { "const": "Monitor Units" }
+          }
+        },
+        "distance_reference_location": {
+          "$ref": "#/$defs/rt_radiation_code",
+          "properties": {
+            "code_value": { "const": "130358" },
+            "coding_scheme_designator": { "const": "DCM" },
+            "code_meaning": { "const": "Nominal Radiation Source Location" }
+          }
+        },
+        "equipment_frame_of_reference_uid": { "const": "1.2.840.10008.1.4.3.1" },
+        "rt_beam_modifier_definition_distance_mm": { "const": 500 },
+        "equipment_reference_point_coordinates_sequence_present_empty": { "const": true },
+        "number_of_patient_support_devices": { "const": 0 },
+        "radiation_source_axis_distance_mm": { "const": 1000 },
+        "treatment_positions": {
+          "type": "array",
+          "prefixItems": [{
+            "type": "object",
+            "required": ["ordinal", "treatment_position_index", "image_to_equipment_mapping_matrix", "patient_location_coordinates_present_empty", "patient_support_position_sequence_present_empty", "patient_orientation", "patient_orientation_modifier", "patient_equipment_relationship"],
+            "properties": {
+              "ordinal": { "const": 1 },
+              "treatment_position_index": { "const": 1 },
+              "image_to_equipment_mapping_matrix": { "const": [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1] },
+              "patient_location_coordinates_present_empty": { "const": true },
+              "patient_support_position_sequence_present_empty": { "const": true },
+              "patient_orientation": { "$ref": "#/$defs/rt_radiation_code", "properties": { "code_value": { "const": "102538003" }, "coding_scheme_designator": { "const": "SCT" }, "code_meaning": { "const": "recumbent" } } },
+              "patient_orientation_modifier": { "$ref": "#/$defs/rt_radiation_code", "properties": { "code_value": { "const": "40199007" }, "coding_scheme_designator": { "const": "SCT" }, "code_meaning": { "const": "supine" } } },
+              "patient_equipment_relationship": { "$ref": "#/$defs/rt_radiation_code", "properties": { "code_value": { "const": "102540008" }, "coding_scheme_designator": { "const": "SCT" }, "code_meaning": { "const": "headfirst" } } }
+            },
+            "additionalProperties": false
+          }],
+          "items": false,
+          "minItems": 1,
+          "maxItems": 1
+        },
+        "control_points": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "object",
+              "required": ["ordinal", "rt_control_point_index", "cumulative_meterset", "geometry", "inherits_geometry_from_control_point"],
+              "properties": {
+                "ordinal": { "const": 1 },
+                "rt_control_point_index": { "const": 1 },
+                "cumulative_meterset": { "const": 0 },
+                "geometry": {
+                  "type": "object",
+                  "required": ["referenced_treatment_position_index", "source_roll_angle_degrees", "rt_beam_limiting_device_angle_degrees", "delivery_rate_present_empty", "source_to_patient_surface_distance_present_empty", "source_to_external_contour_distance_present_empty", "delivery_rate_unit_sequence_absent"],
+                  "properties": {
+                    "referenced_treatment_position_index": { "const": 1 },
+                    "source_roll_angle_degrees": { "const": 0 },
+                    "rt_beam_limiting_device_angle_degrees": { "const": 0 },
+                    "delivery_rate_present_empty": { "const": true },
+                    "source_to_patient_surface_distance_present_empty": { "const": true },
+                    "source_to_external_contour_distance_present_empty": { "const": true },
+                    "delivery_rate_unit_sequence_absent": { "const": true }
+                  },
+                  "additionalProperties": false
+                },
+                "inherits_geometry_from_control_point": { "type": "null" }
+              },
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "required": ["ordinal", "rt_control_point_index", "cumulative_meterset", "geometry", "inherits_geometry_from_control_point"],
+              "properties": {
+                "ordinal": { "const": 2 },
+                "rt_control_point_index": { "const": 2 },
+                "cumulative_meterset": { "const": 100 },
+                "geometry": { "type": "null" },
+                "inherits_geometry_from_control_point": { "const": 1 }
+              },
+              "additionalProperties": false
+            }
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "absent_content": {
+          "type": "object",
+          "required": ["patient_study_module", "clinical_trial_modules", "referenced_performed_procedure_step_sequences", "treatment_session_uid", "treatment_machine_special_mode", "rt_tolerance_set", "treatment_time_limit", "device_alternate_identifier_type", "device_alternate_identifier_format", "unique_device_identifier_sequence", "device_manufacture_date", "device_expiration_date", "device_institution_content", "long_device_description", "patient_support_devices_sequence", "radiation_generation_mode", "beam_limiting_device_definition_and_opening", "wedge", "compensator", "block", "accessory_holder", "general_accessory", "bolus", "beam_area_limit", "recorded_control_point_attributes", "image", "pixel_data", "synchronization"],
+          "properties": {
+            "patient_study_module": { "const": true }, "clinical_trial_modules": { "const": true }, "referenced_performed_procedure_step_sequences": { "const": true }, "treatment_session_uid": { "const": true }, "treatment_machine_special_mode": { "const": true }, "rt_tolerance_set": { "const": true }, "treatment_time_limit": { "const": true }, "device_alternate_identifier_type": { "const": true }, "device_alternate_identifier_format": { "const": true }, "unique_device_identifier_sequence": { "const": true }, "device_manufacture_date": { "const": true }, "device_expiration_date": { "const": true }, "device_institution_content": { "const": true }, "long_device_description": { "const": true }, "patient_support_devices_sequence": { "const": true }, "radiation_generation_mode": { "const": true }, "beam_limiting_device_definition_and_opening": { "const": true }, "wedge": { "const": true }, "compensator": { "const": true }, "block": { "const": true }, "accessory_holder": { "const": true }, "general_accessory": { "const": true }, "bolus": { "const": true }, "beam_area_limit": { "const": true }, "recorded_control_point_attributes": { "const": true }, "image": { "const": true }, "pixel_data": { "const": true }, "synchronization": { "const": true }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "rt_radiation_set_reference": {
+      "type": "object",
+      "required": ["ordinal", "relationship", "source_case_id", "source_path", "source_sha256", "study_instance_uid", "series_instance_uid", "sop_class_uid", "sop_instance_uid", "frame_of_reference_uid"],
+      "properties": {
+        "ordinal": { "type": "integer", "minimum": 1, "maximum": 2 },
+        "relationship": { "enum": ["definition_source", "referenced_rt_radiation"] },
+        "source_case_id": { "enum": ["non-image/rt/plan_linked", "non-image/rt/carm_photon_electron_radiation_minimal"] },
+        "source_path": { "enum": ["non-image/rt/plan_linked/instance.dcm", "non-image/rt/carm_photon_electron_radiation_minimal/instance.dcm"] },
+        "source_sha256": { "$ref": "#/$defs/sha256" },
+        "study_instance_uid": { "type": "string", "pattern": "^[0-9]+(\\.[0-9]+)+$" },
+        "series_instance_uid": { "type": "string", "pattern": "^[0-9]+(\\.[0-9]+)+$" },
+        "sop_class_uid": { "enum": ["1.2.840.10008.5.1.4.1.1.481.5", "1.2.840.10008.5.1.4.1.1.481.13"] },
+        "sop_instance_uid": { "type": "string", "pattern": "^[0-9]+(\\.[0-9]+)+$" },
+        "frame_of_reference_uid": { "type": "string", "pattern": "^[0-9]+(\\.[0-9]+)+$" }
+      },
+      "additionalProperties": false
+    },
+    "rt_radiation_set_plan_reference": {
+      "$ref": "#/$defs/rt_radiation_set_reference",
+      "properties": {
+        "ordinal": { "const": 1 }, "relationship": { "const": "definition_source" }, "source_case_id": { "const": "non-image/rt/plan_linked" }, "source_path": { "const": "non-image/rt/plan_linked/instance.dcm" }, "sop_class_uid": { "const": "1.2.840.10008.5.1.4.1.1.481.5" }
+      }
+    },
+    "rt_radiation_set_radiation_reference": {
+      "$ref": "#/$defs/rt_radiation_set_reference",
+      "properties": {
+        "ordinal": { "const": 1 }, "relationship": { "const": "referenced_rt_radiation" }, "source_case_id": { "const": "non-image/rt/carm_photon_electron_radiation_minimal" }, "source_path": { "const": "non-image/rt/carm_photon_electron_radiation_minimal/instance.dcm" }, "sop_class_uid": { "const": "1.2.840.10008.5.1.4.1.1.481.13" }
+      }
+    },
+    "expected_rt_radiation_set": {
+      "type": "object",
+      "required": ["iod_kind", "sop_class_uid", "iod_name", "modality", "transfer_syntax_uid", "sop_instance_uid", "study_instance_uid", "series_instance_uid", "frame_of_reference_uid", "instance", "content", "linked_radiation_device", "definition_source", "radiation_references", "treatment_position_groups", "common_instance_references", "absent_content"],
+      "properties": {
+        "iod_kind": { "const": "rt_radiation_set" },
+        "sop_class_uid": { "const": "1.2.840.10008.5.1.4.1.1.481.12" },
+        "iod_name": { "const": "RT Radiation Set" },
+        "modality": { "const": "RTRAD" },
+        "transfer_syntax_uid": { "const": "1.2.840.10008.1.2.1" },
+        "sop_instance_uid": { "type": "string", "pattern": "^[0-9]+(\\.[0-9]+)+$" },
+        "study_instance_uid": { "type": "string", "pattern": "^[0-9]+(\\.[0-9]+)+$" },
+        "series_instance_uid": { "type": "string", "pattern": "^[0-9]+(\\.[0-9]+)+$" },
+        "frame_of_reference_uid": { "type": "string", "pattern": "^[0-9]+(\\.[0-9]+)+$" },
+        "instance": { "$ref": "#/$defs/rt_radiation_instance", "properties": { "series_number": { "const": 75 }, "equipment_model_name": { "const": "Native RT Radiation Set" } } },
+        "content": {
+          "type": "object",
+          "required": ["user_content_label", "content_description", "intent", "intended_number_of_fractions", "referenced_rt_physician_intent_sequence_present_empty", "author_identification_sequence_present_empty"],
+          "properties": {
+            "user_content_label": { "const": "DTS_RADSET" }, "content_description": { "const": "" }, "intent": { "const": "TREATMENT" }, "intended_number_of_fractions": { "const": 1 }, "referenced_rt_physician_intent_sequence_present_empty": { "const": true }, "author_identification_sequence_present_empty": { "const": true }
+          },
+          "additionalProperties": false
+        },
+        "linked_radiation_device": { "$ref": "#/$defs/rt_treatment_device" },
+        "definition_source": { "$ref": "#/$defs/rt_radiation_set_plan_reference" },
+        "radiation_references": {
+          "type": "array", "prefixItems": [{ "$ref": "#/$defs/rt_radiation_set_radiation_reference" }], "items": false, "minItems": 1, "maxItems": 1
+        },
+        "treatment_position_groups": {
+          "type": "array",
+          "prefixItems": [{
+            "type": "object",
+            "required": ["ordinal", "treatment_position_group_uid", "label", "radiation_references"],
+            "properties": {
+              "ordinal": { "const": 1 },
+              "treatment_position_group_uid": { "type": "string", "pattern": "^[0-9]+(\\.[0-9]+)+$" },
+              "label": { "const": "DTS_TPG_1" },
+              "radiation_references": { "type": "array", "prefixItems": [{ "$ref": "#/$defs/rt_radiation_set_radiation_reference" }], "items": false, "minItems": 1, "maxItems": 1 }
+            },
+            "additionalProperties": false
+          }],
+          "items": false, "minItems": 1, "maxItems": 1
+        },
+        "common_instance_references": {
+          "type": "array",
+          "prefixItems": [
+            { "$ref": "#/$defs/rt_radiation_set_plan_reference" },
+            { "$ref": "#/$defs/rt_radiation_set_reference", "properties": { "ordinal": { "const": 2 }, "relationship": { "const": "referenced_rt_radiation" }, "source_case_id": { "const": "non-image/rt/carm_photon_electron_radiation_minimal" }, "source_path": { "const": "non-image/rt/carm_photon_electron_radiation_minimal/instance.dcm" }, "sop_class_uid": { "const": "1.2.840.10008.5.1.4.1.1.481.13" } } }
+          ],
+          "items": false, "minItems": 2, "maxItems": 2
+        },
+        "absent_content": {
+          "type": "object",
+          "required": ["patient_study_module", "clinical_trial_modules", "referenced_performed_procedure_step_sequences", "treatment_session_uid", "synchronization", "rt_dose_contribution_module", "fraction_pattern_sequence", "image", "pixel_data"],
+          "properties": {
+            "patient_study_module": { "const": true }, "clinical_trial_modules": { "const": true }, "referenced_performed_procedure_step_sequences": { "const": true }, "treatment_session_uid": { "const": true }, "synchronization": { "const": true }, "rt_dose_contribution_module": { "const": true }, "fraction_pattern_sequence": { "const": true }, "image": { "const": true }, "pixel_data": { "const": true }
           },
           "additionalProperties": false
         }

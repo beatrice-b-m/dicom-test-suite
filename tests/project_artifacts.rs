@@ -212,6 +212,27 @@ fn u32_conformance_docs_preserve_the_independent_gate() {
 }
 
 #[test]
+fn u1_source_note_locks_cross_frame_bit_packing() {
+    let source = fs::read_to_string("standards/source-notes/phase-2-u1-native-pixels.md")
+        .expect("u1 source note must be readable");
+    for required in [
+        "classic/sc/mono2_u1_native",
+        "Multi-frame Single Bit Secondary Capture",
+        "middle of a byte",
+        "`aa aa 5e 07`",
+        "least significant bit",
+        "without per-frame padding",
+        "1.2.840.10008.5.1.4.1.1.7.1",
+        "1cc11d28abf1e6f4efa4b07a73d4a7c953b3b3101b4112865c7170ccdeb84728",
+    ] {
+        assert!(
+            source.contains(required),
+            "u1 source note requires {required}"
+        );
+    }
+}
+
+#[test]
 fn readme_documents_supported_commands_and_codec_features() {
     let readme = fs::read_to_string("README.md").expect("README must be readable");
 

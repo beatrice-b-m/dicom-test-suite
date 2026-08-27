@@ -7447,29 +7447,12 @@ fn report_exposes_locked_tiled_full_wsi_plan_without_claiming_generation() {
 }
 
 #[test]
-fn report_exposes_locked_tiled_sparse_wsi_plan_and_rejects_field_leakage() {
-    let out_dir = unique_temp_dir("report-wsi-tiled-sparse-planned");
-    fs::create_dir_all(&out_dir).expect("create planned sparse WSI report root");
-    fs::write(
-        out_dir.join("manifest.json"),
-        serde_json::to_vec_pretty(&json!({
-            "generated_at": "20260101000000.000000+0000",
-            "standards": { "standards_lock_sha256": "0".repeat(64) },
-            "run": { "profile": "extended" },
-            "files": [],
-            "skipped_cases": [{
-                "case_id": "vl/wsi/tiled_sparse_small",
-                "status": "unavailable",
-                "reason_code": "case_planned",
-                "message": "recipe_unimplemented"
-            }]
-        }))
-        .expect("serialize planned sparse WSI manifest"),
-    )
-    .expect("write planned sparse WSI manifest");
+fn report_exposes_generated_tiled_sparse_wsi_and_rejects_field_leakage() {
+    let out_dir = unique_temp_dir("report-wsi-tiled-sparse-generated");
+    generate_extended(&out_dir);
 
     let report = dicom_test_suite::build_coverage_report(&out_dir)
-        .expect("planned sparse WSI coverage report should build");
+        .expect("generated sparse WSI coverage report should build");
     let schema: Value = serde_json::from_slice(
         &fs::read("schemas/coverage-report.schema.json").expect("coverage schema"),
     )
@@ -7477,7 +7460,7 @@ fn report_exposes_locked_tiled_sparse_wsi_plan_and_rejects_field_leakage() {
     let validator = jsonschema::validator_for(&schema).expect("coverage schema compiles");
     assert!(
         validator.is_valid(&report),
-        "planned sparse WSI coverage report must match its schema: {:?}",
+        "generated sparse WSI coverage report must match its schema: {:?}",
         validator
             .iter_errors(&report)
             .map(|error| error.to_string())
@@ -7485,8 +7468,8 @@ fn report_exposes_locked_tiled_sparse_wsi_plan_and_rejects_field_leakage() {
     );
 
     let row = coverage_row(&report, "vl/wsi/tiled_sparse_small");
-    assert_eq!(row["status"], "planned");
-    assert_eq!(row["validation_status"], "unavailable");
+    assert_eq!(row["status"], "generated");
+    assert_eq!(row["validation_status"], "passed");
     assert_eq!(row["frames"], 2);
     assert_eq!(row["wsi_iod_kind"], "vl_wsi_tiled_sparse");
     assert_eq!(row["wsi_dimension_organization_type"], "TILED_SPARSE");

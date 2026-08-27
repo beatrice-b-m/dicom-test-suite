@@ -109,6 +109,13 @@ use native::twelve_lead_ecg::{
     build_twelve_lead_ecg,
 };
 use native::us_multiframe::{CLASSIC_US_MULTIFRAME_RECIPES, ClassicUsMultiframeRecipe};
+use native::wsi_tiled_full::{
+    WSI_FRAME_SHA256, WSI_NUMBER_OF_FRAMES, WSI_PIXEL_BYTES, WSI_PIXEL_DATA_SHA256,
+    WSI_TILE_COLUMNS, WSI_TILE_ROWS, WSI_TILED_FULL_CASE_ID, WSI_TILED_FULL_OUTPUT_FILE,
+    WSI_TILED_FULL_RECIPE_ID, WSI_TILED_FULL_RECIPE_VERSION, WSI_TILED_FULL_STORAGE_UID,
+    WSI_TOTAL_PIXEL_MATRIX_COLUMNS, WSI_TOTAL_PIXEL_MATRIX_ROWS, WSI_TOTAL_PIXEL_MATRIX_SHA256,
+    WsiTiledFullInput, build_wsi_tiled_full, reconstructed_total_pixel_matrix,
+};
 use native::xa::{CLASSIC_XA_RECIPES, ClassicXaRecipe};
 use native::xrf::{CLASSIC_XRF_RECIPES, ClassicXrfRecipe};
 
@@ -3902,6 +3909,11 @@ pub(crate) fn write_supported_cases(
     standards_lock_sha256: &str,
 ) -> Result<GenerationOutput, GenerateError> {
     let mut context = GenerationContext::default();
+    if let Some(case) = registry_case(registry, WSI_TILED_FULL_CASE_ID)? {
+        if should_generate_case(case, run)? {
+            context.record_one(write_wsi_tiled_full_case(run, case, standards_lock_sha256)?)?;
+        }
+    }
     for recipe in PIXEL_RECIPES {
         let Some(case) = registry_case(registry, recipe.case_id)? else {
             continue;
@@ -7902,6 +7914,292 @@ fn required_source_uid<'a>(
         path: PathBuf::from(case_id),
         message,
     })
+}
+
+fn write_wsi_tiled_full_case(
+    run: &PreparedGenerationRun,
+    case: &Value,
+    standards_lock_sha256: &str,
+) -> Result<GeneratedFile, GenerateError> {
+    let uid = |role, referenced_object_index| {
+        deterministic_uid(&DeterministicUidInput {
+            standards_lock_sha256,
+            case_id: WSI_TILED_FULL_CASE_ID,
+            recipe_version: WSI_TILED_FULL_RECIPE_VERSION,
+            run_seed: run.seed,
+            file_index: 0,
+            frame_index: None,
+            referenced_object_index,
+            role,
+        })
+    };
+    let study_instance_uid = uid(UidRole::StudyInstance, None);
+    let series_instance_uid = uid(UidRole::SeriesInstance, None);
+    let sop_instance_uid = uid(UidRole::SopInstance, None);
+    let frame_of_reference_uid = uid(UidRole::FrameOfReference, None);
+    let dimension_organization_uid = uid(UidRole::DimensionOrganization, None);
+    let specimen_uid = uid(UidRole::DerivedReference, Some(0));
+    let implementation_class_uid = deterministic_implementation_uid(standards_lock_sha256);
+
+    if validate_locked_icc_profile(&ICC_PROFILE_BYTES).is_err()
+        || sha256_hex(&ICC_PROFILE_BYTES) != ICC_PROFILE_SHA256
+        || sha256_hex(&WSI_PIXEL_BYTES) != WSI_PIXEL_DATA_SHA256
+        || sha256_hex(&reconstructed_total_pixel_matrix()) != WSI_TOTAL_PIXEL_MATRIX_SHA256
+        || WSI_PIXEL_BYTES
+            .chunks_exact(12)
+            .zip(WSI_FRAME_SHA256)
+            .any(|(frame, expected)| sha256_hex(frame) != expected)
+    {
+        return Err(GenerateError::MetadataShape {
+            path: PathBuf::from(WSI_TILED_FULL_CASE_ID),
+            message: "WSI source pixels, reconstructed matrix, or ICC profile differ from their locked hashes",
+        });
+    }
+
+    let relative_path = format!("{WSI_TILED_FULL_CASE_ID}/{WSI_TILED_FULL_OUTPUT_FILE}");
+    let path = run.out_dir.join(&relative_path);
+    let case_dir = path.parent().ok_or_else(|| GenerateError::MetadataShape {
+        path: PathBuf::from(&relative_path),
+        message: "WSI output must have a parent directory",
+    })?;
+    fs::create_dir_all(case_dir).map_err(|source| GenerateError::CreateCaseOutputDir {
+        path: case_dir.to_path_buf(),
+        source,
+    })?;
+
+    build_wsi_tiled_full(WsiTiledFullInput {
+        study_instance_uid: &study_instance_uid,
+        series_instance_uid: &series_instance_uid,
+        sop_instance_uid: &sop_instance_uid,
+        frame_of_reference_uid: &frame_of_reference_uid,
+        dimension_organization_uid: &dimension_organization_uid,
+        specimen_uid: &specimen_uid,
+    })
+    .map_err(|message| GenerateError::WriteDicomFile {
+        path: path.clone(),
+        message,
+    })?
+    .with_meta(
+        FileMetaTableBuilder::new()
+            .transfer_syntax(EXPLICIT_VR_LITTLE_ENDIAN.uid)
+            .implementation_class_uid(&implementation_class_uid)
+            .implementation_version_name(crate::IMPLEMENTATION_VERSION_NAME),
+    )
+    .map_err(|error| GenerateError::WriteDicomFile {
+        path: path.clone(),
+        message: error.to_string(),
+    })?
+    .write_to_file(&path)
+    .map_err(|error| GenerateError::WriteDicomFile {
+        path: path.clone(),
+        message: error.to_string(),
+    })?;
+
+    let mut validated = validate_part10_file(
+        &path,
+        &Part10Expectations {
+            sop_class_uid: WSI_TILED_FULL_STORAGE_UID,
+            sop_instance_uid: &sop_instance_uid,
+            transfer_syntax_uid: EXPLICIT_VR_LITTLE_ENDIAN.uid,
+            implementation_class_uid: &implementation_class_uid,
+            synthetic_data: "YES",
+            rows: WSI_TILE_ROWS,
+            columns: WSI_TILE_COLUMNS,
+            frames: WSI_NUMBER_OF_FRAMES,
+            samples_per_pixel: 3,
+            photometric_interpretation: "RGB",
+            bits_allocated: 8,
+            bits_stored: 8,
+            high_bit: 7,
+            pixel_representation: 0,
+            planar_configuration: Some(0),
+            pixel_data_vr: VR::OB,
+            pixel_data_length_formula: PixelDataLengthFormula::ContiguousSamples,
+            decoded_frame_hashes: &[],
+            palette: None,
+            padding: None,
+            ct_image: None,
+            enhanced_ct_image: None,
+            enhanced_mr_image: None,
+            enhanced_pet_image: None,
+            mg_image: None,
+            dx_image: None,
+            xa_image: None,
+            xrf_image: None,
+            us_image: None,
+            us_multiframe: None,
+            nm_image: None,
+            pet_image: None,
+            cr_image: None,
+            mr_image: None,
+            segmentation: None,
+        },
+    )?;
+    append_internal_validation(
+        &mut validated.validation,
+        validate_wsi_tiled_full_round_trip(&path, &dimension_organization_uid, &specimen_uid)?,
+    );
+
+    let standards_evidence = deduplicated_standards_evidence(standards_evidence_from_case(case));
+    let expected_wsi_tiled_full =
+        crate::wsi_tiled_full_locked_contract(&frame_of_reference_uid, &specimen_uid);
+    Ok(GeneratedFile {
+        case_id: WSI_TILED_FULL_CASE_ID.to_string(),
+        manifest_entry: serde_json::json!({
+            "case_id": WSI_TILED_FULL_CASE_ID,
+            "profile_membership": ["extended"],
+            "path": relative_path,
+            "sha256": sha256_hex(&validated.bytes),
+            "size_bytes": validated.bytes.len(),
+            "determinism": "byte_stable",
+            "recipe": {
+                "recipe_id": WSI_TILED_FULL_RECIPE_ID,
+                "recipe_version": WSI_TILED_FULL_RECIPE_VERSION,
+                "recipe_parameters": {
+                    "dimension_organization_type": "TILED_FULL",
+                    "tile_rows": WSI_TILE_ROWS,
+                    "tile_columns": WSI_TILE_COLUMNS,
+                    "total_pixel_matrix_rows": WSI_TOTAL_PIXEL_MATRIX_ROWS,
+                    "total_pixel_matrix_columns": WSI_TOTAL_PIXEL_MATRIX_COLUMNS,
+                    "frame_order": "row_then_column_then_depth_then_optical_path_then_segment",
+                    "tile_colors": ["red", "green", "blue", "white"],
+                    "icc_profile_sha256": ICC_PROFILE_SHA256
+                }
+            },
+            "dicom": {
+                "sop_class_uid": WSI_TILED_FULL_STORAGE_UID,
+                "sop_class_name": "VL Whole Slide Microscopy Image Storage",
+                "iod_name": "VL Whole Slide Microscopy Image",
+                "modality": "SM",
+                "transfer_syntax_uid": EXPLICIT_VR_LITTLE_ENDIAN.uid,
+                "transfer_syntax_name": EXPLICIT_VR_LITTLE_ENDIAN.name
+            },
+            "uids": {
+                "study_instance_uid": study_instance_uid,
+                "series_instance_uid": series_instance_uid,
+                "sop_instance_uid": sop_instance_uid,
+                "frame_of_reference_uid": frame_of_reference_uid,
+                "dimension_organization_uid": dimension_organization_uid,
+                "implementation_class_uid": implementation_class_uid,
+                "implementation_version_name": crate::IMPLEMENTATION_VERSION_NAME
+            },
+            "image": {
+                "rows": WSI_TILE_ROWS,
+                "columns": WSI_TILE_COLUMNS,
+                "frames": WSI_NUMBER_OF_FRAMES,
+                "samples_per_pixel": 3,
+                "photometric_interpretation": "RGB",
+                "bits_allocated": 8,
+                "bits_stored": 8,
+                "high_bit": 7,
+                "pixel_representation": 0,
+                "planar_configuration": 0
+            },
+            "pixel_data": {
+                "vr": "OB",
+                "native_or_encapsulated": "native",
+                "value_length": WSI_PIXEL_BYTES.len(),
+                "frame_count": WSI_NUMBER_OF_FRAMES,
+                "frame_hashes": WSI_FRAME_SHA256
+            },
+            "references": [],
+            "expected_capabilities": [
+                "open_file", "read_metadata", "render_native_pixels",
+                "navigate_multiframe", "reconstruct_total_pixel_matrix"
+            ],
+            "expected_semantics": {
+                "synthetic_data": "YES",
+                "image_type": ["ORIGINAL", "PRIMARY", "VOLUME", "NONE"],
+                "lossy_image_compression": "00",
+                "one_specimen": true,
+                "one_optical_path": true,
+                "one_focal_plane": true,
+                "slide_label_present": true,
+                "per_frame_functional_groups_absent": true,
+                "dimension_index_sequence_absent": true
+            },
+            "expected_wsi_tiled_full": expected_wsi_tiled_full,
+            "expected_visual_checks": {
+                "pattern": "4x4_tiled_full_red_green_blue_white_quadrants"
+            },
+            "validation": validated.validation,
+            "known_stressors": [
+                "vl_whole_slide_microscopy_image_storage",
+                "tiled_full_implicit_frame_order",
+                "total_pixel_matrix_reconstruction",
+                "specimen_and_optical_path_metadata",
+                "nested_icc_profile",
+                "absent_per_frame_functional_groups"
+            ],
+            "standards_evidence": standards_evidence
+        }),
+    })
+}
+
+fn validate_wsi_tiled_full_round_trip(
+    path: &std::path::Path,
+    dimension_organization_uid: &str,
+    specimen_uid: &str,
+) -> Result<Value, GenerateError> {
+    let object = open_file(path).map_err(|error| GenerateError::ValidateDicomFile {
+        path: path.to_path_buf(),
+        message: error.to_string(),
+    })?;
+    let dimension_uid = object
+        .element(tags::DIMENSION_ORGANIZATION_SEQUENCE)
+        .ok()
+        .and_then(|element| element.items())
+        .and_then(|items| items.first())
+        .and_then(|item| item.element(tags::DIMENSION_ORGANIZATION_UID).ok())
+        .and_then(|element| element.to_str().ok())
+        .map(|value| value.trim_end_matches(['\0', ' ']).to_string());
+    let reopened_specimen_uid = object
+        .element(tags::SPECIMEN_DESCRIPTION_SEQUENCE)
+        .ok()
+        .and_then(|element| element.items())
+        .and_then(|items| items.first())
+        .and_then(|item| item.element(tags::SPECIMEN_UID).ok())
+        .and_then(|element| element.to_str().ok())
+        .map(|value| value.trim_end_matches(['\0', ' ']).to_string());
+    let optical_path = object
+        .element(tags::OPTICAL_PATH_SEQUENCE)
+        .ok()
+        .and_then(|element| element.items())
+        .and_then(|items| items.first());
+    let icc_hash = optical_path
+        .and_then(|item| item.element(tags::ICC_PROFILE).ok())
+        .and_then(|element| element.to_bytes().ok())
+        .map(|bytes| sha256_hex(bytes.as_ref()));
+    let pixel_hash = object
+        .element(tags::PIXEL_DATA)
+        .ok()
+        .and_then(|element| element.to_bytes().ok())
+        .map(|bytes| sha256_hex(bytes.as_ref()));
+    let tiled_full = object
+        .element(tags::DIMENSION_ORGANIZATION_TYPE)
+        .ok()
+        .and_then(|element| element.to_str().ok())
+        .is_some_and(|value| value.trim_end_matches(['\0', ' ']) == "TILED_FULL");
+    if dimension_uid.as_deref() != Some(dimension_organization_uid)
+        || reopened_specimen_uid.as_deref() != Some(specimen_uid)
+        || icc_hash.as_deref() != Some(ICC_PROFILE_SHA256)
+        || pixel_hash.as_deref() != Some(WSI_PIXEL_DATA_SHA256)
+        || !tiled_full
+        || object.element(tags::DIMENSION_INDEX_SEQUENCE).is_ok()
+        || object
+            .element(tags::PER_FRAME_FUNCTIONAL_GROUPS_SEQUENCE)
+            .is_ok()
+    {
+        return Err(GenerateError::ValidateDicomFile {
+            path: path.to_path_buf(),
+            message: "WSI round trip changed its TILED_FULL identity, specimen, ICC, pixels, or required absences".to_string(),
+        });
+    }
+    Ok(serde_json::json!({
+        "name": "wsi_tiled_full_round_trip",
+        "status": "passed",
+        "message": "TILED_FULL identity, specimen, nested ICC profile, native pixels, and implicit-order absences round-trip exactly."
+    }))
 }
 
 fn validate_spatial_registration_sources(
@@ -26468,6 +26766,74 @@ fn case_matches_profile(profiles: &[String], requested: &str, include_stress: bo
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn wsi_tiled_full_writer_reopens_validates_manifest_and_is_deterministic() {
+        let output = ParametricMapStagingGuard::new();
+        let run = PreparedGenerationRun {
+            profile: "extended".to_string(),
+            out_dir: output.path().to_path_buf(),
+            manifest_path: output.path().join("manifest.json"),
+            seed: 7,
+            include_stress: false,
+        };
+        let case = serde_json::json!({
+            "case_id": WSI_TILED_FULL_CASE_ID,
+            "profiles": ["extended"],
+            "status": "implemented",
+            "requirements": {"features": []},
+            "standards_evidence": []
+        });
+        let standards_lock = "0000000000000000000000000000000000000000000000000000000000000000";
+
+        let first = write_wsi_tiled_full_case(&run, &case, standards_lock)
+            .expect("WSI should write and validate");
+        let output_path = output
+            .path()
+            .join(WSI_TILED_FULL_CASE_ID)
+            .join(WSI_TILED_FULL_OUTPUT_FILE);
+        let first_bytes = fs::read(&output_path).expect("first WSI bytes");
+        let second = write_wsi_tiled_full_case(&run, &case, standards_lock)
+            .expect("repeated WSI should write and validate");
+        let second_bytes = fs::read(&output_path).expect("second WSI bytes");
+
+        assert_eq!(first_bytes, second_bytes);
+        assert_eq!(
+            first.manifest_entry["sha256"],
+            Value::from(sha256_hex(&first_bytes))
+        );
+        assert_eq!(
+            first.manifest_entry["sha256"],
+            second.manifest_entry["sha256"]
+        );
+        assert_eq!(
+            first
+                .manifest_entry
+                .pointer("/expected_wsi_tiled_full/tiling/total_pixel_matrix_sha256"),
+            Some(&Value::from(WSI_TOTAL_PIXEL_MATRIX_SHA256))
+        );
+        assert_eq!(
+            first
+                .manifest_entry
+                .pointer("/expected_wsi_tiled_full/pixel_data/frame_hashes"),
+            Some(&serde_json::json!(WSI_FRAME_SHA256))
+        );
+        assert_eq!(
+            first
+                .manifest_entry
+                .pointer("/expected_wsi_tiled_full/presence/per_frame_functional_groups_sequence"),
+            Some(&Value::Bool(false))
+        );
+        assert_eq!(
+            first
+                .manifest_entry
+                .pointer("/validation/internal")
+                .and_then(Value::as_array)
+                .and_then(|entries| entries.last())
+                .and_then(|entry| entry.get("status")),
+            Some(&Value::from("passed"))
+        );
+    }
 
     #[test]
     fn advanced_blending_writer_reopens_all_sources_and_is_deterministic() {

@@ -21,6 +21,7 @@ pub(super) mod string_boundary_sc;
 pub(super) mod timezone_sc;
 pub(super) mod twelve_lead_ecg;
 pub(super) mod us_multiframe;
+pub(super) mod wsi_tiled_full;
 pub(super) mod xa;
 pub(super) mod xrf;
 
@@ -66,6 +67,8 @@ mod string_boundary_sc_tests;
 mod twelve_lead_ecg_tests;
 #[cfg(test)]
 mod us_multiframe_tests;
+#[cfg(test)]
+mod wsi_tiled_full_tests;
 #[cfg(test)]
 mod xa_tests;
 #[cfg(test)]

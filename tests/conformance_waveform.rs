@@ -8,21 +8,155 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde_json::{Value, json};
 
-const CASE_ID: &str = "non-image/waveform/twelve_lead_ecg";
+const TWELVE_CASE_ID: &str = "non-image/waveform/twelve_lead_ecg";
+const GENERAL_CASE_ID: &str = "non-image/waveform/general_ecg";
 const ADAPTER_ID: &str = "pydicom-dicom-validator-waveform";
 
-#[test]
-fn waveform_route_requires_locked_iod_and_hash_linked_payload_evidence() {
-    let root = temp_dir("waveform");
-    let generated = root.join("generated");
-    write_waveform_manifest(&generated);
+struct Fixture {
+    evidence_root: PathBuf,
+    evidence_path: PathBuf,
+    allowlist: PathBuf,
+    baseline: Value,
+    sidecar_path: PathBuf,
+    baseline_sidecar: Value,
+}
 
+#[test]
+fn waveform_routes_bind_twelve_and_general_ordered_group_evidence() {
+    for (label, case_id, expected) in [
+        ("twelve", TWELVE_CASE_ID, twelve_expectation()),
+        ("general", GENERAL_CASE_ID, general_expectation()),
+    ] {
+        let fixture = run_fixture(label, case_id, expected);
+        assert!(
+            verify(&fixture.evidence_root, &fixture.allowlist)
+                .status
+                .success(),
+            "{case_id}"
+        );
+        let waveform = &fixture.baseline["instances"][0]["waveform"];
+        assert_eq!(waveform["status"], "passed");
+        assert_eq!(
+            waveform["expected_group_payload_sha256"],
+            fixture.baseline_sidecar["expected_contract"]["aggregate"]["group_payload_sha256"]
+        );
+        assert_eq!(
+            waveform["actual_aggregate_payload_sha256"],
+            fixture.baseline_sidecar["actual"]["aggregate"]["aggregate_payload_sha256"]
+        );
+    }
+}
+
+#[test]
+fn waveform_route_requires_locked_secondary_iod_and_payload_evidence() {
+    let fixture = run_fixture("required", TWELVE_CASE_ID, twelve_expectation());
+
+    let mut missing_iod = fixture.baseline.clone();
+    missing_iod["instances"][0]["results"]
+        .as_array_mut()
+        .unwrap()
+        .retain(|result| result["adapter_id"] != ADAPTER_ID);
+    write_json(&fixture.evidence_path, &missing_iod);
+    assert_failure(
+        &fixture.evidence_root,
+        &fixture.allowlist,
+        "required waveform secondary IOD validation incomplete",
+    );
+
+    let mut unlocked = fixture.baseline.clone();
+    unlocked["tools"]
+        .as_array_mut()
+        .unwrap()
+        .iter_mut()
+        .find(|tool| tool["adapter_id"] == ADAPTER_ID)
+        .unwrap()["lock_status"] = json!("mismatched");
+    write_json(&fixture.evidence_path, &unlocked);
+    assert_failure(
+        &fixture.evidence_root,
+        &fixture.allowlist,
+        "required waveform secondary IOD validator is unlocked",
+    );
+
+    let mut missing_payload = fixture.baseline.clone();
+    missing_payload["instances"][0]
+        .as_object_mut()
+        .unwrap()
+        .remove("waveform");
+    write_json(&fixture.evidence_path, &missing_payload);
+    assert_failure(
+        &fixture.evidence_root,
+        &fixture.allowlist,
+        "evidence schema",
+    );
+}
+
+#[test]
+fn general_waveform_sidecar_rejects_group_and_aggregate_tampering() {
+    let fixture = run_fixture("tamper", GENERAL_CASE_ID, general_expectation());
+    let mutations: Vec<Box<dyn Fn(&mut Value)>> = vec![
+        Box::new(|sidecar| {
+            sidecar["actual"]["multiplex_groups"]
+                .as_array_mut()
+                .unwrap()
+                .pop();
+        }),
+        Box::new(|sidecar| {
+            sidecar["actual"]["multiplex_groups"]
+                .as_array_mut()
+                .unwrap()
+                .swap(0, 1);
+        }),
+        Box::new(|sidecar| {
+            sidecar["actual"]["multiplex_groups"][1]["storage"]["payload_sha256"] =
+                json!("0".repeat(64));
+        }),
+        Box::new(|sidecar| {
+            sidecar["actual"]["multiplex_groups"][1]["channels"][3]["channel_sha256"] =
+                json!("0".repeat(64));
+        }),
+        Box::new(|sidecar| {
+            sidecar["actual"]["multiplex_groups"][1]["channels"][3]["label"] = json!("A5");
+        }),
+        Box::new(|sidecar| {
+            sidecar["actual"]["aggregate"]["total_payload_length_bytes"] = json!(56_002);
+        }),
+        Box::new(|sidecar| {
+            sidecar["actual"]["aggregate"]["aggregate_payload_sha256"] = json!("0".repeat(64));
+        }),
+        Box::new(|sidecar| {
+            sidecar["source_instance_sha256"] = json!("0".repeat(64));
+        }),
+        Box::new(|sidecar| {
+            sidecar["adapter_sha256"] = json!("0".repeat(64));
+        }),
+        Box::new(|sidecar| {
+            sidecar["expected_contract"]["multiplex_groups"][1]["label"] = json!("ALTERED");
+        }),
+    ];
+    for mutate in mutations {
+        let mut sidecar = fixture.baseline_sidecar.clone();
+        mutate(&mut sidecar);
+        write_sidecar_and_link(&fixture, &sidecar);
+        assert_failure(
+            &fixture.evidence_root,
+            &fixture.allowlist,
+            "waveform payload evidence sidecar is not linked",
+        );
+    }
+}
+
+fn run_fixture(label: &str, case_id: &str, expected: Value) -> Fixture {
+    let root = temp_dir(label);
+    let generated = root.join("generated");
+    write_waveform_manifest(&generated, case_id, expected);
     let manifest = read_json(generated.join("manifest.json"));
-    let expected = &manifest["files"][0]["expected_waveform"];
     let payload = root.join("waveform.json");
     fs::write(
         &payload,
-        serde_json::to_vec(&waveform_payload(expected)).unwrap(),
+        serde_json::to_vec(&waveform_payload(
+            &manifest["files"][0]["expected_waveform"],
+        ))
+        .unwrap(),
     )
     .unwrap();
     let primary = fake_tool(&root, "primary", "exit 0");
@@ -38,7 +172,7 @@ fn waveform_route_requires_locked_iod_and_hash_linked_payload_evidence() {
     );
     let config = root.join("validators.json");
     let mut waveform_adapter = adapter(ADAPTER_ID, "secondary_iod_validator", &waveform);
-    waveform_adapter["supported_case_ids"] = json!([CASE_ID]);
+    waveform_adapter["supported_case_ids"] = json!([TWELVE_CASE_ID, GENERAL_CASE_ID]);
     waveform_adapter["waveform_arguments"] = json!(["--waveform", "{input}"]);
     fs::write(
         &config,
@@ -70,124 +204,282 @@ fn waveform_route_requires_locked_iod_and_hash_linked_payload_evidence() {
         String::from_utf8_lossy(&run.stderr)
     );
     let evidence_path = evidence_root.join("conformance-run.json");
-    let mut evidence = read_json(&evidence_path);
-    for tool in evidence["tools"].as_array_mut().unwrap() {
+    let mut baseline = read_json(&evidence_path);
+    for tool in baseline["tools"].as_array_mut().unwrap() {
         tool["lock_status"] = json!("matched");
     }
-    write_json(&evidence_path, &evidence);
+    write_json(&evidence_path, &baseline);
     let allowlist = root.join("allowlist.json");
     write_json(
         &allowlist,
         &json!({"schema_version": "0.1.0", "findings": []}),
     );
-    assert!(verify(&evidence_root, &allowlist).status.success());
-
-    let baseline = evidence.clone();
     let sidecar_relative = baseline["instances"][0]["waveform"]["evidence"]["path"]
         .as_str()
         .unwrap();
     let sidecar_path = evidence_root.join(sidecar_relative);
-    let baseline_sidecar = fs::read(&sidecar_path).unwrap();
+    let baseline_sidecar = read_json(&sidecar_path);
+    Fixture {
+        evidence_root,
+        evidence_path,
+        allowlist,
+        baseline,
+        sidecar_path,
+        baseline_sidecar,
+    }
+}
 
-    let mut missing_iod = baseline.clone();
-    missing_iod["instances"][0]["results"]
-        .as_array_mut()
-        .unwrap()
-        .retain(|result| result["adapter_id"] != ADAPTER_ID);
-    write_json(&evidence_path, &missing_iod);
-    assert_failure(
-        &evidence_root,
-        &allowlist,
-        "required waveform secondary IOD validation incomplete",
-    );
-
-    let mut unlocked = baseline.clone();
-    unlocked["tools"]
-        .as_array_mut()
-        .unwrap()
-        .iter_mut()
-        .find(|tool| tool["adapter_id"] == ADAPTER_ID)
-        .unwrap()["lock_status"] = json!("mismatched");
-    write_json(&evidence_path, &unlocked);
-    assert_failure(
-        &evidence_root,
-        &allowlist,
-        "required waveform secondary IOD validator is unlocked",
-    );
-
-    let mut missing_payload = baseline.clone();
-    missing_payload["instances"][0]
-        .as_object_mut()
-        .unwrap()
-        .remove("waveform");
-    write_json(&evidence_path, &missing_payload);
-    assert_failure(&evidence_root, &allowlist, "evidence schema");
-
-    let mut tampered_sidecar: Value = serde_json::from_slice(&baseline_sidecar).unwrap();
-    tampered_sidecar["expected_contract"]["storage"]["payload_sha256"] = json!("0".repeat(64));
-    let tampered_bytes = serde_json::to_vec_pretty(&tampered_sidecar).unwrap();
-    fs::write(&sidecar_path, &tampered_bytes).unwrap();
-    let mut tampered_evidence = baseline;
-    tampered_evidence["instances"][0]["waveform"]["evidence"]["sha256"] =
-        json!(dicom_test_suite::sha256_hex(&tampered_bytes));
-    write_json(&evidence_path, &tampered_evidence);
-    assert_failure(
-        &evidence_root,
-        &allowlist,
-        "waveform payload evidence sidecar is not linked",
-    );
+fn write_sidecar_and_link(fixture: &Fixture, sidecar: &Value) {
+    let bytes = serde_json::to_vec_pretty(sidecar).unwrap();
+    fs::write(&fixture.sidecar_path, &bytes).unwrap();
+    let mut evidence = fixture.baseline.clone();
+    evidence["instances"][0]["waveform"]["evidence"]["sha256"] =
+        json!(dicom_test_suite::sha256_hex(&bytes));
+    write_json(&fixture.evidence_path, &evidence);
 }
 
 fn waveform_payload(expected: &Value) -> Value {
-    let hashes = expected["storage"]["channel_sha256"].as_array().unwrap();
-    let channels = expected["channels"]
+    let groups = expected["multiplex_groups"]
         .as_array()
         .unwrap()
         .iter()
-        .zip(hashes)
-        .map(|(channel, hash)| {
+        .map(|group| {
+            let hashes = group["storage"]["channel_sha256"].as_array().unwrap();
+            let expected_channels = group["channels"].as_array().unwrap();
+            assert_eq!(expected_channels.len(), hashes.len());
+            let channels = (0..expected_channels.len())
+                .map(|index| {
+                    let channel = &expected_channels[index];
+                    json!({
+                        "baseline": channel["baseline"],
+                        "bits_stored": channel["bits_stored"],
+                        "channel_number": channel["ordinal"],
+                        "channel_sha256": hashes[index],
+                        "correction_factor": channel["sensitivity_correction_factor"],
+                        "label": channel["label"],
+                        "sample_skew_present": false,
+                        "sensitivity": channel["sensitivity"],
+                        "sensitivity_unit": channel["sensitivity_units"],
+                        "source": channel["source"],
+                        "time_skew": channel["time_skew_seconds"]
+                    })
+                })
+                .collect::<Vec<_>>();
+            let mut storage = group["storage"].clone();
+            storage["formula_match"] = json!(true);
             json!({
-                "baseline": channel["baseline"],
-                "bits_stored": channel["bits_stored"],
-                "channel_number": channel["ordinal"],
-                "channel_sha256": hash,
-                "correction_factor": channel["sensitivity_correction_factor"],
-                "label": channel["label"],
-                "sample_skew_present": false,
-                "sensitivity": channel["sensitivity"],
-                "sensitivity_unit": channel["sensitivity_units"],
-                "source": channel["source"],
-                "time_skew": channel["time_skew_seconds"]
+                "ordinal": group["ordinal"],
+                "originality": group["originality"],
+                "label": group["label"],
+                "channel_count": group["channel_count"],
+                "samples_per_channel": group["samples_per_channel"],
+                "sampling_frequency_hz": group["sampling_frequency_hz"],
+                "duration_seconds": group["duration_seconds"],
+                "simultaneous_sampling": group["simultaneous_sampling"],
+                "channels": channels,
+                "storage": storage
             })
         })
         .collect::<Vec<_>>();
     json!({
         "adapter_id": ADAPTER_ID,
-        "bits_allocated": expected["storage"]["bits_allocated"],
-        "byte_order": expected["storage"]["byte_order"],
-        "channel_count": expected["multiplex_group"]["channel_count"],
-        "channel_definitions": channels,
-        "channel_hashes": hashes,
-        "duration_seconds": expected["multiplex_group"]["duration_seconds"],
-        "formula_match": true,
-        "interleave_order": expected["storage"]["interleave_order"],
+        "acquisition_context_items": expected["acquisition_context_items"],
+        "absent_content": expected["absent_content"],
         "modality": expected["modality"],
-        "multiplex_group_count": expected["multiplex_group"]["group_count"],
-        "multiplex_group_label": expected["multiplex_group"]["label"],
-        "originality": expected["multiplex_group"]["originality"],
+        "multiplex_groups": groups,
         "pixel_data_present": false,
-        "sample_count": expected["multiplex_group"]["samples_per_channel"],
-        "sample_interpretation": expected["storage"]["sample_interpretation"],
-        "sampling_frequency_hz": expected["multiplex_group"]["sampling_frequency_hz"],
         "sop_class_uid": expected["sop_class_uid"],
-        "stored_value_max": expected["storage"]["sample_max"],
-        "stored_value_min": expected["storage"]["sample_min"],
         "transfer_syntax_uid": expected["transfer_syntax_uid"],
-        "waveform_data_length": expected["storage"]["payload_length_bytes"],
-        "waveform_data_sha256": expected["storage"]["payload_sha256"],
-        "waveform_data_vr": expected["storage"]["data_vr"],
-        "waveform_padding_present": false
+        "aggregate": expected["aggregate"]
     })
+}
+
+fn twelve_expectation() -> Value {
+    let leads = standard_leads();
+    let hashes = (0..12).map(|index| hex_hash(index + 1)).collect::<Vec<_>>();
+    let group = expected_group(
+        1,
+        "RESTING_12_LEAD",
+        500,
+        500,
+        1,
+        leads,
+        hashes.clone(),
+        12_000,
+        hex_hash(13),
+        "((s * (c + 1) * 37 + c * 101) mod 2001) - 1000",
+    );
+    expectation(
+        "twelve_lead_ecg",
+        "1.2.840.10008.5.1.4.1.1.9.1.1",
+        "12-lead ECG Waveform",
+        vec![group],
+        json!({
+            "group_count": 1,
+            "total_channel_count": 12,
+            "common_duration_seconds": 1,
+            "total_payload_length_bytes": 12000,
+            "group_payload_sha256": [hex_hash(13)],
+            "aggregate_payload_sha256": hex_hash(13)
+        }),
+    )
+}
+
+fn general_expectation() -> Value {
+    let first_hashes = (0..12).map(|index| hex_hash(index + 1)).collect::<Vec<_>>();
+    let second_hashes = (0..4).map(|index| hex_hash(index + 17)).collect::<Vec<_>>();
+    let formula = "((s * (c + 1) * (g + 1) * 37 + c * 101 + g * 307) mod 2001) - 1000";
+    let first = expected_group(
+        1,
+        "STD12_250HZ",
+        1000,
+        250,
+        4,
+        standard_leads(),
+        first_hashes,
+        24_000,
+        hex_hash(14),
+        formula,
+    );
+    let auxiliary = [
+        ("A1", "2:75", "Auxiliary unipolar lead 1"),
+        ("A2", "2:76", "Auxiliary unipolar lead 2"),
+        ("A3", "2:77", "Auxiliary unipolar lead 3"),
+        ("A4", "2:78", "Auxiliary unipolar lead 4"),
+    ];
+    let second = expected_group(
+        2,
+        "AUX4_1000HZ",
+        4000,
+        1000,
+        4,
+        auxiliary.to_vec(),
+        second_hashes,
+        32_000,
+        hex_hash(15),
+        formula,
+    );
+    expectation(
+        "general_ecg",
+        "1.2.840.10008.5.1.4.1.1.9.1.2",
+        "General ECG Waveform",
+        vec![first, second],
+        json!({
+            "group_count": 2,
+            "total_channel_count": 16,
+            "common_duration_seconds": 4,
+            "total_payload_length_bytes": 56000,
+            "group_payload_sha256": [hex_hash(14), hex_hash(15)],
+            "aggregate_payload_sha256": hex_hash(16)
+        }),
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn expected_group(
+    ordinal: usize,
+    label: &str,
+    samples: usize,
+    frequency: usize,
+    duration: usize,
+    leads: Vec<(&str, &str, &str)>,
+    hashes: Vec<String>,
+    payload_length: usize,
+    payload_hash: String,
+    formula: &str,
+) -> Value {
+    assert_eq!(leads.len(), hashes.len());
+    let channels = leads
+        .iter()
+        .enumerate()
+        .map(|(index, (label, code_value, code_meaning))| {
+            json!({
+                "ordinal": index + 1,
+                "label": label,
+                "source": {"code_value": code_value, "coding_scheme_designator": "MDC", "code_meaning": code_meaning},
+                "sensitivity": 1,
+                "sensitivity_units": {"code_value": "uV", "coding_scheme_designator": "UCUM", "code_meaning": "microvolt"},
+                "sensitivity_correction_factor": 1,
+                "baseline": 0,
+                "bits_stored": 16,
+                "time_skew_seconds": 0,
+                "sample_skew_absent": true
+            })
+        })
+        .collect::<Vec<_>>();
+    json!({
+        "ordinal": ordinal,
+        "originality": "ORIGINAL",
+        "label": label,
+        "channel_count": channels.len(),
+        "samples_per_channel": samples,
+        "sampling_frequency_hz": frequency,
+        "duration_seconds": duration,
+        "simultaneous_sampling": true,
+        "channels": channels,
+        "storage": {
+            "bits_allocated": 16,
+            "sample_interpretation": "SS",
+            "data_vr": "OW",
+            "byte_order": "little_endian",
+            "interleave_order": "channel_then_sample",
+            "payload_length_bytes": payload_length,
+            "payload_sha256": payload_hash,
+            "channel_sha256": hashes,
+            "sample_value_formula": formula,
+            "sample_min": -1000,
+            "sample_max": 1000,
+            "waveform_padding_value_absent": true,
+            "value_field_padding_bytes": 0
+        }
+    })
+}
+
+fn expectation(
+    iod_kind: &str,
+    sop_class_uid: &str,
+    iod_name: &str,
+    groups: Vec<Value>,
+    aggregate: Value,
+) -> Value {
+    json!({
+        "iod_kind": iod_kind,
+        "sop_class_uid": sop_class_uid,
+        "iod_name": iod_name,
+        "modality": "ECG",
+        "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+        "acquisition_context_items": 0,
+        "multiplex_groups": groups,
+        "aggregate": aggregate,
+        "absent_content": {
+            "annotation_module": true,
+            "synchronization_module": true,
+            "references": true,
+            "image": true,
+            "pixel_data": true
+        }
+    })
+}
+
+fn standard_leads() -> Vec<(&'static str, &'static str, &'static str)> {
+    vec![
+        ("I", "2:1", "Lead I"),
+        ("II", "2:2", "Lead II"),
+        ("III", "2:61", "Lead III"),
+        ("aVR", "2:62", "aVR, augmented voltage, right"),
+        ("aVL", "2:63", "aVL, augmented voltage, left"),
+        ("aVF", "2:64", "aVF, augmented voltage, foot"),
+        ("V1", "2:3", "Lead V1"),
+        ("V2", "2:4", "Lead V2"),
+        ("V3", "2:5", "Lead V3"),
+        ("V4", "2:6", "Lead V4"),
+        ("V5", "2:7", "Lead V5"),
+        ("V6", "2:8", "Lead V6"),
+    ]
+}
+
+fn hex_hash(index: usize) -> String {
+    format!("{:064x}", index)
 }
 
 fn adapter(id: &str, role: &str, executable: &Path) -> Value {
@@ -204,13 +496,12 @@ fn adapter(id: &str, role: &str, executable: &Path) -> Value {
     })
 }
 
-fn write_waveform_manifest(root: &Path) {
-    let relative = "non-image/waveform/twelve_lead_ecg/instance.dcm";
-    let instance = root.join(relative);
+fn write_waveform_manifest(root: &Path, case_id: &str, expected: Value) {
+    let relative = format!("{case_id}/instance.dcm");
+    let instance = root.join(&relative);
     fs::create_dir_all(instance.parent().unwrap()).unwrap();
     let bytes = b"synthetic waveform fixture";
     fs::write(&instance, bytes).unwrap();
-    let expected = waveform_expectation();
     write_json(
         root.join("manifest.json"),
         &json!({
@@ -218,11 +509,11 @@ fn write_waveform_manifest(root: &Path) {
             "run": {"seed": 1, "profile": "extended"},
             "standards": {"standards_lock_sha256": "1".repeat(64)},
             "files": [{
-                "case_id": CASE_ID,
+                "case_id": case_id,
                 "path": relative,
                 "sha256": dicom_test_suite::sha256_hex(bytes),
                 "dicom": {
-                    "sop_class_uid": "1.2.840.10008.5.1.4.1.1.9.1.1",
+                    "sop_class_uid": expected["sop_class_uid"],
                     "transfer_syntax_uid": "1.2.840.10008.1.2.1"
                 },
                 "image": null,
@@ -231,127 +522,6 @@ fn write_waveform_manifest(root: &Path) {
             }]
         }),
     );
-}
-
-fn waveform_expectation() -> Value {
-    let leads = [
-        (
-            "I",
-            "2:1",
-            "Lead I",
-            "7b4aee068e05c2bdff3896937c78a4c7a32f9ed2bde64d91b1d925913bf29476",
-        ),
-        (
-            "II",
-            "2:2",
-            "Lead II",
-            "bd775dc70f76ea153a25832ad622b0cc26fbe6a37cf3ec6548a30965c4d17fba",
-        ),
-        (
-            "III",
-            "2:61",
-            "Lead III",
-            "19d26b694df281209aa1296abbfa8f7d360e24a03a091422aba6f67663e2f3b1",
-        ),
-        (
-            "aVR",
-            "2:62",
-            "aVR, augmented voltage, right",
-            "bb4c99d7857dbfcee5ee620bcff09b7060b61c5f2432427affc6139cb8d3cf9b",
-        ),
-        (
-            "aVL",
-            "2:63",
-            "aVL, augmented voltage, left",
-            "230f52ed2ac57624a9a35214d7867711008dd56014f4176ce258623e5b596d3a",
-        ),
-        (
-            "aVF",
-            "2:64",
-            "aVF, augmented voltage, foot",
-            "60e167db3c081ba5bca957aba820afb519b790d048b660634d49566df88105f2",
-        ),
-        (
-            "V1",
-            "2:3",
-            "Lead V1",
-            "cf8c73bebf746b799b1fe8aa2c908ca69bc7acc72311c64cbf4131fc8976609f",
-        ),
-        (
-            "V2",
-            "2:4",
-            "Lead V2",
-            "0f11e5fb5105dac699fa4bcfc01c79fbe696a81db04606f39a719de57b4c7c30",
-        ),
-        (
-            "V3",
-            "2:5",
-            "Lead V3",
-            "a41d5962abceb6dbe25f8421091ce3df6a69202c45b24ab6b0736159d15e253b",
-        ),
-        (
-            "V4",
-            "2:6",
-            "Lead V4",
-            "d655e2cbb23d70e229ed52fedba9c45573e22729fed0a794ab690df8d7f33804",
-        ),
-        (
-            "V5",
-            "2:7",
-            "Lead V5",
-            "005c539f9f4256a86d9e0a212b3bfe73741f99942b0677fb483c0c48db9583cd",
-        ),
-        (
-            "V6",
-            "2:8",
-            "Lead V6",
-            "f448df95acb226c5c992363e27707a42efc3ffb974ebeff38e2a81522b57d82c",
-        ),
-    ];
-    let channels = leads
-        .iter()
-        .enumerate()
-        .map(|(index, (label, code_value, code_meaning, _))| json!({
-            "ordinal": index + 1,
-            "label": label,
-            "source": {"code_value": code_value, "coding_scheme_designator": "MDC", "code_meaning": code_meaning},
-            "sensitivity": 1,
-            "sensitivity_units": {"code_value": "uV", "coding_scheme_designator": "UCUM", "code_meaning": "microvolt"},
-            "sensitivity_correction_factor": 1,
-            "baseline": 0,
-            "bits_stored": 16,
-            "time_skew_seconds": 0,
-            "sample_skew_absent": true
-        }))
-        .collect::<Vec<_>>();
-    json!({
-        "iod_kind": "twelve_lead_ecg",
-        "sop_class_uid": "1.2.840.10008.5.1.4.1.1.9.1.1",
-        "iod_name": "12-lead ECG Waveform",
-        "modality": "ECG",
-        "transfer_syntax_uid": "1.2.840.10008.1.2.1",
-        "acquisition_context_items": 0,
-        "multiplex_group": {
-            "group_count": 1, "originality": "ORIGINAL", "label": "RESTING_12_LEAD",
-            "channel_count": 12, "samples_per_channel": 500, "sampling_frequency_hz": 500,
-            "duration_seconds": 1, "simultaneous_sampling": true
-        },
-        "channels": channels,
-        "storage": {
-            "bits_allocated": 16, "sample_interpretation": "SS", "data_vr": "OW",
-            "byte_order": "little_endian", "interleave_order": "channel_then_sample",
-            "payload_length_bytes": 12000,
-            "payload_sha256": "98b7a9b1be25d9d64ffa75bc6e16ea80f60deed1891aeed8dfb440c1c19e6713",
-            "channel_sha256": leads.iter().map(|lead| lead.3).collect::<Vec<_>>(),
-            "sample_value_formula": "((s * (c + 1) * 37 + c * 101) mod 2001) - 1000",
-            "sample_min": -1000, "sample_max": 1000,
-            "waveform_padding_value_absent": true, "value_field_padding_bytes": 0
-        },
-        "absent_content": {
-            "annotation_module": true, "synchronization_module": true, "references": true,
-            "image": true, "pixel_data": true
-        }
-    })
 }
 
 fn verify(evidence: &Path, allowlist: &Path) -> Output {

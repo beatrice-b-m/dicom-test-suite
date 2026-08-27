@@ -1176,92 +1176,203 @@ fn verify_waveform_evidence(
         .find(|tool| tool["adapter_id"] == WAVEFORM_VALIDATOR_ID);
     let expected = &manifest_file["expected_waveform"];
     let actual = &sidecar["actual"];
-    let expected_channels = expected["channels"].as_array().cloned().unwrap_or_default();
-    let actual_channels = actual["channel_definitions"]
-        .as_array()
-        .cloned()
-        .unwrap_or_default();
-    let expected_hashes = expected["storage"]["channel_sha256"]
-        .as_array()
-        .cloned()
-        .unwrap_or_default();
-    let channels_match = expected_channels.len() == actual_channels.len()
-        && expected_channels.len() == expected_hashes.len()
-        && expected_channels
-            .iter()
-            .zip(&actual_channels)
-            .zip(&expected_hashes)
-            .all(|((expected, actual), expected_hash)| {
-                actual["channel_number"] == expected["ordinal"]
-                    && actual["label"] == expected["label"]
-                    && actual["source"] == expected["source"]
-                    && actual["sensitivity"] == expected["sensitivity"]
-                    && actual["sensitivity_unit"] == expected["sensitivity_units"]
-                    && actual["correction_factor"] == expected["sensitivity_correction_factor"]
-                    && actual["baseline"] == expected["baseline"]
-                    && actual["bits_stored"] == expected["bits_stored"]
-                    && actual["time_skew"] == expected["time_skew_seconds"]
-                    && actual["sample_skew_present"].as_bool()
-                        == expected["sample_skew_absent"].as_bool().map(|value| !value)
-                    && actual["channel_sha256"] == *expected_hash
-            });
-    let expected_storage = &expected["storage"];
-    let expected_group = &expected["multiplex_group"];
-    let actual_channel_hashes = actual["channel_hashes"].clone();
-    let semantic_match = actual["adapter_id"] == WAVEFORM_VALIDATOR_ID
-        && actual["sop_class_uid"] == expected["sop_class_uid"]
-        && actual["modality"] == expected["modality"]
-        && actual["transfer_syntax_uid"] == expected["transfer_syntax_uid"]
-        && actual["multiplex_group_count"] == expected_group["group_count"]
-        && actual["originality"] == expected_group["originality"]
-        && actual["multiplex_group_label"] == expected_group["label"]
-        && actual["channel_count"] == expected_group["channel_count"]
-        && actual["sample_count"] == expected_group["samples_per_channel"]
-        && actual["sampling_frequency_hz"] == expected_group["sampling_frequency_hz"]
-        && actual["duration_seconds"] == expected_group["duration_seconds"]
-        && actual["bits_allocated"] == expected_storage["bits_allocated"]
-        && actual["sample_interpretation"] == expected_storage["sample_interpretation"]
-        && actual["waveform_data_vr"] == expected_storage["data_vr"]
-        && actual["byte_order"] == expected_storage["byte_order"]
-        && actual["interleave_order"] == expected_storage["interleave_order"]
-        && actual["waveform_data_length"] == expected_storage["payload_length_bytes"]
-        && actual["waveform_data_sha256"] == expected_storage["payload_sha256"]
-        && actual_channel_hashes == expected_storage["channel_sha256"]
-        && actual["stored_value_min"] == expected_storage["sample_min"]
-        && actual["stored_value_max"] == expected_storage["sample_max"]
-        && actual["formula_match"] == true
-        && actual["waveform_padding_present"].as_bool()
-            == expected_storage["waveform_padding_value_absent"]
-                .as_bool()
-                .map(|value| !value)
-        && actual["pixel_data_present"].as_bool()
-            == expected
-                .pointer("/absent_content/pixel_data")
-                .and_then(Value::as_bool)
-                .map(|value| !value)
-        && channels_match;
+    let semantic_match = waveform_actual_matches_expected(expected, actual);
+    let expected_aggregate = &expected["aggregate"];
+    let actual_aggregate = &actual["aggregate"];
     let linked = sidecar["adapter_id"] == WAVEFORM_VALIDATOR_ID
         && sidecar["adapter_sha256"].as_str() == tool.and_then(|tool| tool["sha256"].as_str())
         && tool
             .is_some_and(|tool| tool["status"] == "available" && tool["lock_status"] == "matched")
         && sidecar["independence"] == "independent"
-        && sidecar["extraction_method"] == "uv_locked_pydicom_raw_ow_struct_unpack_i16_le"
+        && sidecar["extraction_method"]
+            == "uv_locked_pydicom_raw_ow_struct_unpack_i16_le_ordered_groups"
         && sidecar["source_manifest_sha256"] == evidence["source"]["manifest_sha256"]
         && sidecar["source_instance_sha256"] == manifest_file["sha256"]
         && sidecar["source_path"] == instance["path"]
         && sidecar.get("expected_contract") == Some(expected)
         && sidecar["status"] == "passed"
         && waveform["adapter_id"] == WAVEFORM_VALIDATOR_ID
-        && waveform["expected_payload_sha256"] == expected_storage["payload_sha256"]
-        && waveform["actual_payload_sha256"] == actual["waveform_data_sha256"]
-        && waveform["expected_channel_sha256"] == expected_storage["channel_sha256"]
-        && waveform["actual_channel_sha256"] == actual_channel_hashes
+        && waveform["expected_group_payload_sha256"] == expected_aggregate["group_payload_sha256"]
+        && waveform["actual_group_payload_sha256"] == actual_aggregate["group_payload_sha256"]
+        && waveform["expected_group_channel_sha256"] == expected_group_channel_hashes(expected)
+        && waveform["actual_group_channel_sha256"] == actual_group_channel_hashes(actual)
+        && waveform["expected_aggregate_payload_sha256"]
+            == expected_aggregate["aggregate_payload_sha256"]
+        && waveform["actual_aggregate_payload_sha256"]
+            == actual_aggregate["aggregate_payload_sha256"]
         && semantic_match;
     if !linked {
         failures.push(format!(
             "waveform payload evidence sidecar is not linked to its locked tool and exact source manifest contract: {path}"
         ));
     }
+}
+
+fn expected_group_channel_hashes(expected: &Value) -> Value {
+    Value::Array(
+        expected["multiplex_groups"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .map(|group| group["storage"]["channel_sha256"].clone())
+            .collect(),
+    )
+}
+
+fn actual_group_channel_hashes(actual: &Value) -> Value {
+    Value::Array(
+        actual["multiplex_groups"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .map(|group| group["storage"]["channel_sha256"].clone())
+            .collect(),
+    )
+}
+
+fn waveform_actual_matches_expected(expected: &Value, actual: &Value) -> bool {
+    let Some(expected_groups) = expected["multiplex_groups"].as_array() else {
+        return false;
+    };
+    let Some(actual_groups) = actual["multiplex_groups"].as_array() else {
+        return false;
+    };
+    let Some(expected_group_payload_hashes) =
+        expected["aggregate"]["group_payload_sha256"].as_array()
+    else {
+        return false;
+    };
+    if expected_groups.len() != actual_groups.len()
+        || expected["aggregate"]["group_count"].as_u64() != Some(expected_groups.len() as u64)
+        || expected_group_payload_hashes.len() != expected_groups.len()
+    {
+        return false;
+    }
+    let mut expected_total_channel_count = 0_u64;
+    let mut expected_total_payload_length_bytes = 0_u64;
+    let mut expected_common_duration_seconds = None;
+    for group_index in 0..expected_groups.len() {
+        let expected_group = &expected_groups[group_index];
+        let actual_group = &actual_groups[group_index];
+        let Some(expected_channels) = expected_group["channels"].as_array() else {
+            return false;
+        };
+        let Some(actual_channels) = actual_group["channels"].as_array() else {
+            return false;
+        };
+        let Some(expected_hashes) = expected_group["storage"]["channel_sha256"].as_array() else {
+            return false;
+        };
+        let Some(actual_hashes) = actual_group["storage"]["channel_sha256"].as_array() else {
+            return false;
+        };
+        let Some(expected_channel_count) = expected_group["channel_count"].as_u64() else {
+            return false;
+        };
+        let Some(expected_payload_length_bytes) =
+            expected_group["storage"]["payload_length_bytes"].as_u64()
+        else {
+            return false;
+        };
+        if expected_channels.len() != actual_channels.len()
+            || expected_channels.len() != expected_hashes.len()
+            || expected_channels.len() != actual_hashes.len()
+            || Some(expected_channels.len() as u64) != Some(expected_channel_count)
+        {
+            return false;
+        }
+        let Some(total_channel_count) =
+            expected_total_channel_count.checked_add(expected_channel_count)
+        else {
+            return false;
+        };
+        expected_total_channel_count = total_channel_count;
+        let Some(total_payload_length_bytes) =
+            expected_total_payload_length_bytes.checked_add(expected_payload_length_bytes)
+        else {
+            return false;
+        };
+        expected_total_payload_length_bytes = total_payload_length_bytes;
+        match &expected_common_duration_seconds {
+            Some(duration) if duration != &expected_group["duration_seconds"] => return false,
+            None => {
+                expected_common_duration_seconds = Some(expected_group["duration_seconds"].clone())
+            }
+            Some(_) => {}
+        }
+        for channel_index in 0..expected_channels.len() {
+            let expected_channel = &expected_channels[channel_index];
+            let actual_channel = &actual_channels[channel_index];
+            if actual_channel["channel_number"] != expected_channel["ordinal"]
+                || actual_channel["label"] != expected_channel["label"]
+                || actual_channel["source"] != expected_channel["source"]
+                || actual_channel["sensitivity"] != expected_channel["sensitivity"]
+                || actual_channel["sensitivity_unit"] != expected_channel["sensitivity_units"]
+                || actual_channel["correction_factor"]
+                    != expected_channel["sensitivity_correction_factor"]
+                || actual_channel["baseline"] != expected_channel["baseline"]
+                || actual_channel["bits_stored"] != expected_channel["bits_stored"]
+                || actual_channel["time_skew"] != expected_channel["time_skew_seconds"]
+                || actual_channel["sample_skew_present"].as_bool()
+                    != expected_channel["sample_skew_absent"]
+                        .as_bool()
+                        .map(|value| !value)
+                || actual_channel["channel_sha256"] != expected_hashes[channel_index]
+                || actual_hashes[channel_index] != expected_hashes[channel_index]
+            {
+                return false;
+            }
+        }
+        let expected_storage = &expected_group["storage"];
+        let actual_storage = &actual_group["storage"];
+        if actual_group["ordinal"] != expected_group["ordinal"]
+            || actual_group["ordinal"].as_u64() != Some((group_index + 1) as u64)
+            || actual_group["originality"] != expected_group["originality"]
+            || actual_group["label"] != expected_group["label"]
+            || actual_group["channel_count"] != expected_group["channel_count"]
+            || actual_group["samples_per_channel"] != expected_group["samples_per_channel"]
+            || actual_group["sampling_frequency_hz"] != expected_group["sampling_frequency_hz"]
+            || actual_group["duration_seconds"] != expected_group["duration_seconds"]
+            || actual_group["simultaneous_sampling"] != expected_group["simultaneous_sampling"]
+            || actual_storage["bits_allocated"] != expected_storage["bits_allocated"]
+            || actual_storage["sample_interpretation"] != expected_storage["sample_interpretation"]
+            || actual_storage["data_vr"] != expected_storage["data_vr"]
+            || actual_storage["byte_order"] != expected_storage["byte_order"]
+            || actual_storage["interleave_order"] != expected_storage["interleave_order"]
+            || actual_storage["payload_length_bytes"] != expected_storage["payload_length_bytes"]
+            || actual_storage["payload_sha256"] != expected_storage["payload_sha256"]
+            || expected_storage["payload_sha256"] != expected_group_payload_hashes[group_index]
+            || actual_storage["sample_value_formula"] != expected_storage["sample_value_formula"]
+            || actual_storage["sample_min"] != expected_storage["sample_min"]
+            || actual_storage["sample_max"] != expected_storage["sample_max"]
+            || actual_storage["waveform_padding_value_absent"]
+                != expected_storage["waveform_padding_value_absent"]
+            || actual_storage["value_field_padding_bytes"]
+                != expected_storage["value_field_padding_bytes"]
+            || actual_storage["formula_match"] != true
+        {
+            return false;
+        }
+    }
+    if expected["aggregate"]["total_channel_count"].as_u64() != Some(expected_total_channel_count)
+        || expected["aggregate"]["total_payload_length_bytes"].as_u64()
+            != Some(expected_total_payload_length_bytes)
+        || expected["aggregate"]["common_duration_seconds"]
+            != expected_common_duration_seconds.unwrap_or(Value::Null)
+    {
+        return false;
+    }
+    actual["adapter_id"] == WAVEFORM_VALIDATOR_ID
+        && actual["sop_class_uid"] == expected["sop_class_uid"]
+        && actual["modality"] == expected["modality"]
+        && actual["transfer_syntax_uid"] == expected["transfer_syntax_uid"]
+        && actual["acquisition_context_items"] == expected["acquisition_context_items"]
+        && actual["absent_content"] == expected["absent_content"]
+        && actual["pixel_data_present"].as_bool()
+            == expected["absent_content"]["pixel_data"]
+                .as_bool()
+                .map(|value| !value)
+        && actual["aggregate"] == expected["aggregate"]
 }
 
 fn is_supported_sr_sop_class(uid: &str) -> bool {
@@ -1298,7 +1409,10 @@ fn requires_presentation_state_secondary_validation(case_id: &str) -> bool {
 }
 
 fn requires_waveform_validation(case_id: &str) -> bool {
-    case_id == "non-image/waveform/twelve_lead_ecg"
+    matches!(
+        case_id,
+        "non-image/waveform/twelve_lead_ecg" | "non-image/waveform/general_ecg"
+    )
 }
 
 fn verify_findings(evidence: &Value, allowlist: &Value, failures: &mut Vec<String>) -> usize {
@@ -1697,10 +1811,12 @@ fn collect_waveform_result(
             "adapter_id": WAVEFORM_VALIDATOR_ID,
             "status": "unsupported",
             "independence": "independent",
-            "expected_payload_sha256": expected.pointer("/storage/payload_sha256").cloned().unwrap_or(Value::Null),
-            "actual_payload_sha256": null,
-            "expected_channel_sha256": expected.pointer("/storage/channel_sha256").cloned().unwrap_or_else(|| json!([])),
-            "actual_channel_sha256": [],
+            "expected_group_payload_sha256": expected.pointer("/aggregate/group_payload_sha256").cloned().unwrap_or_else(|| json!([])),
+            "actual_group_payload_sha256": [],
+            "expected_group_channel_sha256": expected_group_channel_hashes(expected),
+            "actual_group_channel_sha256": [],
+            "expected_aggregate_payload_sha256": expected.pointer("/aggregate/aggregate_payload_sha256").cloned().unwrap_or(Value::Null),
+            "actual_aggregate_payload_sha256": null,
             "reason": reason,
             "evidence": null
         })
@@ -1744,28 +1860,31 @@ fn collect_waveform_result(
     } else {
         None
     };
-    let expected_payload_sha256 = expected.pointer("/storage/payload_sha256");
-    let expected_channel_sha256 = expected.pointer("/storage/channel_sha256");
-    let actual_payload_sha256 = actual
+    let expected_group_payload_sha256 = expected.pointer("/aggregate/group_payload_sha256");
+    let expected_aggregate_payload_sha256 = expected.pointer("/aggregate/aggregate_payload_sha256");
+    let actual_group_payload_sha256 = actual
         .as_ref()
-        .and_then(|value| value.get("waveform_data_sha256"))
-        .cloned()
-        .unwrap_or(Value::Null);
-    let actual_channel_sha256 = actual
-        .as_ref()
-        .and_then(|value| value.get("channel_hashes"))
+        .and_then(|value| value.pointer("/aggregate/group_payload_sha256"))
         .cloned()
         .unwrap_or_else(|| json!([]));
-    let passed = actual.as_ref().is_some_and(|value| {
-        value["adapter_id"] == WAVEFORM_VALIDATOR_ID
-            && Some(&value["waveform_data_sha256"]) == expected_payload_sha256
-            && Some(&value["channel_hashes"]) == expected_channel_sha256
-    });
+    let actual_aggregate_payload_sha256 = actual
+        .as_ref()
+        .and_then(|value| value.pointer("/aggregate/aggregate_payload_sha256"))
+        .cloned()
+        .unwrap_or(Value::Null);
+    let expected_group_channel_sha256 = expected_group_channel_hashes(expected);
+    let actual_group_channel_sha256 = actual
+        .as_ref()
+        .map(actual_group_channel_hashes)
+        .unwrap_or_else(|| json!([]));
+    let passed = actual
+        .as_ref()
+        .is_some_and(|value| waveform_actual_matches_expected(expected, value));
     let sidecar = json!({
         "adapter_id": WAVEFORM_VALIDATOR_ID,
         "adapter_sha256": tool["sha256"],
         "independence": "independent",
-        "extraction_method": "uv_locked_pydicom_raw_ow_struct_unpack_i16_le",
+        "extraction_method": "uv_locked_pydicom_raw_ow_struct_unpack_i16_le_ordered_groups",
         "source_manifest_sha256": manifest_sha256,
         "source_instance_sha256": file["sha256"],
         "source_path": relative_input,
@@ -1787,14 +1906,16 @@ fn collect_waveform_result(
         "adapter_id": WAVEFORM_VALIDATOR_ID,
         "status": if passed { "passed" } else { "failed" },
         "independence": "independent",
-        "expected_payload_sha256": expected_payload_sha256.cloned().unwrap_or(Value::Null),
-        "actual_payload_sha256": actual_payload_sha256,
-        "expected_channel_sha256": expected_channel_sha256.cloned().unwrap_or_else(|| json!([])),
-        "actual_channel_sha256": actual_channel_sha256,
+        "expected_group_payload_sha256": expected_group_payload_sha256.cloned().unwrap_or_else(|| json!([])),
+        "actual_group_payload_sha256": actual_group_payload_sha256,
+        "expected_group_channel_sha256": expected_group_channel_sha256,
+        "actual_group_channel_sha256": actual_group_channel_sha256,
+        "expected_aggregate_payload_sha256": expected_aggregate_payload_sha256.cloned().unwrap_or(Value::Null),
+        "actual_aggregate_payload_sha256": actual_aggregate_payload_sha256,
         "reason": if passed {
-            "uv-locked pydicom independently extracted and matched the exact signed waveform payload"
+            "uv-locked pydicom independently extracted and matched every ordered signed waveform group"
         } else {
-            "pydicom waveform extraction or exact manifest comparison failed"
+            "pydicom ordered waveform extraction or exact manifest comparison failed"
         },
         "evidence": { "path": relative, "sha256": sha256_hex(&encoded) }
     }))

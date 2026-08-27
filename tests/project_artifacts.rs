@@ -422,6 +422,25 @@ fn float64_parametric_map_note_locks_od_and_binary64_contract() {
 }
 
 #[test]
+fn phase3_status_records_tid1500_vertical_gate() {
+    let status = fs::read_to_string("docs/phase-3-derived-status.md")
+        .expect("Phase 3 derived status must be readable");
+    for required in [
+        "derived/sr/tid1500_ct_measurement_report",
+        "DCMR TID 1500",
+        "TID 1411",
+        "5.625 mm3",
+        "89 files",
+        "defa75675e4c28e369323d22b1ed3e0dc427caa8034ff549c76c539a74f4e0e0",
+        "PixelMed 20260608",
+        "no findings",
+        "derived/sr/comprehensive3d_scoord3d",
+    ] {
+        assert!(status.contains(required), "Phase 3 status requires {required}");
+    }
+}
+
+#[test]
 fn integer_parametric_map_retains_explicit_provider_blocker() {
     let registry = read_json("cases/registry.json");
     let case = registry_cases(&registry)

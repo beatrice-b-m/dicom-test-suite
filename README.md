@@ -11,8 +11,8 @@ Generated DICOM files are intentionally not committed. The repository should con
 - Rust 1.85.0, selected automatically by `rust-toolchain.toml`.
 - `jq` for the same JSON artifact checks used by CI.
 - Optional external codec commands only when enabling their features.
-- Optional `uv` 0.11.26 and managed CPython 3.12.12 for the float32
-  Parametric Map proof.
+- Optional `uv` 0.11.26 and managed CPython 3.12.12 for float32/float64
+  Parametric Maps and the TID 1500 Measurement Report.
 
 ## Commands
 
@@ -35,10 +35,10 @@ default build requires no external codec tools. Cases whose Cargo features are
 disabled remain visible in manifests and reports as feature-gated unavailable
 coverage.
 
-The `extended` profile always generates and manifests the three native CT
-sources for the Parametric Map proof. If its prepared `uv` environment is
-absent, the derived case is retained as an explicit
-`external_backend_unavailable` row. To enable it:
+The `extended` profile always generates and manifests the native CT and SEG
+dependencies for the external Parametric Map and TID 1500 recipes. If the
+prepared `uv` environment is absent, each derived case is retained as an
+explicit `external_backend_unavailable` row. To enable them:
 
 ```sh
 uv python install 3.12.12
@@ -51,6 +51,8 @@ cargo run --locked -- generate \
 Generation never invokes `uv` or performs network access. Runtime preparation,
 exact versions, fingerprints, and licenses are documented in
 [generation-backends/highdicom-pydicom/README.md](generation-backends/highdicom-pydicom/README.md).
+The current quantitative and SR gate evidence is recorded in
+[docs/phase-3-derived-status.md](docs/phase-3-derived-status.md).
 
 ## Profiles
 

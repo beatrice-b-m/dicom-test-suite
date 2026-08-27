@@ -110,13 +110,23 @@
         }
       ],
       "license": {
-        "spdx": ["BSD-3-Clause", "MIT"],
-        "redistribution": "unreviewed",
-        "notes": "The optional uv environment is locked but not vendored. Complete the transitive dependency license review before marking the backend available."
+        "spdx": [
+          "0BSD",
+          "Apache-2.0",
+          "BSD-2-Clause",
+          "BSD-3-Clause",
+          "CC0-1.0",
+          "MIT",
+          "MIT-CMU",
+          "PSF-2.0",
+          "Zlib"
+        ],
+        "redistribution": "permitted",
+        "notes": "The optional uv environment is not vendored or redistributed. SPDX expressions were reviewed from the exact locked distributions: highdicom MIT; NumPy BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0; packaging Apache-2.0 OR BSD-2-Clause; Pillow MIT-CMU; pydicom MIT; pyjpegls MIT; typing-extensions PSF-2.0."
       },
       "blockers": [
-        "The uv-managed backend entrypoint, isolated runtime discovery, and installed-environment fingerprint are not implemented.",
-        "The transitive dependency license review and independent Parametric Map validation run are incomplete."
+        "The Rust generation orchestrator does not yet invoke the prepared backend.",
+        "The independent Parametric Map validation run is incomplete."
       ]
     },
     {

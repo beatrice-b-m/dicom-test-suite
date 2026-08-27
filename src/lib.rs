@@ -863,6 +863,14 @@ fn validate_manifest_file(
         failures,
     );
 
+    if file
+        .pointer("/pixel_data/native_or_encapsulated")
+        .and_then(Value::as_str)
+        != Some("native")
+    {
+        validate_nonsquare_spacing_non_native_scope(failures, relative_path, manifest_path, file)?;
+    }
+
     validate_str_element(
         failures,
         relative_path,
@@ -889,6 +897,32 @@ fn validate_manifest_file(
             Ok(())
         }
     }
+}
+
+fn validate_nonsquare_spacing_non_native_scope(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    manifest_path: &Path,
+    file: &Value,
+) -> Result<(), ValidateError> {
+    const CASE_ID: &str = "classic/sc/nonsquare_pixel_spacing";
+    let case_id = manifest_str(manifest_path, file, "/case_id", "case_id must be a string")?;
+    match (case_id == CASE_ID, file.get("expected_nonsquare_spacing")) {
+        (false, Some(_)) => failures.push(format!(
+            "{relative_path}: nonsquare_spacing_contract_scope: expected_nonsquare_spacing is reserved for {CASE_ID}"
+        )),
+        (true, None) => {
+            return Err(ValidateError::ManifestShape {
+                path: manifest_path.to_path_buf(),
+                message: "non-square spacing SC file must define expected_nonsquare_spacing",
+            });
+        }
+        (true, Some(_)) => failures.push(format!(
+            "{relative_path}: nonsquare_pixel_data_layout: non-square spacing SC variants must use native Pixel Data"
+        )),
+        (false, None) => {}
+    }
+    Ok(())
 }
 
 fn validate_manifest_image_pixel_data(
@@ -1152,6 +1186,14 @@ fn validate_integer_manifest_image_pixel_data(
                 manifest_path,
                 file,
                 &obj,
+            )?;
+            validate_nonsquare_spacing_manifest_contract(
+                failures,
+                relative_path,
+                manifest_path,
+                file,
+                &obj,
+                pixel_bytes.as_ref(),
             )?;
         }
         "encapsulated" => {
@@ -1858,6 +1900,297 @@ fn icc_be_u32(bytes: &[u8], offset: usize) -> Option<u32> {
     Some(u32::from_be_bytes(
         bytes.get(offset..offset + 4)?.try_into().ok()?,
     ))
+}
+
+fn validate_nonsquare_spacing_manifest_contract(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    manifest_path: &Path,
+    file: &Value,
+    obj: &OpenedObject,
+    pixel_bytes: &[u8],
+) -> Result<(), ValidateError> {
+    const CASE_ID: &str = "classic/sc/nonsquare_pixel_spacing";
+    const PIXEL_SHA256: &str = "e89b23efeade0dc3de624fc8982ea8b99adb35a3bb9a2fbf8b8ce675e10581a6";
+
+    let case_id = manifest_str(manifest_path, file, "/case_id", "case_id must be a string")?;
+    let contract = file.get("expected_nonsquare_spacing");
+    if case_id != CASE_ID {
+        if contract.is_some() {
+            failures.push(format!(
+                "{relative_path}: nonsquare_spacing_contract_scope: expected_nonsquare_spacing is reserved for {CASE_ID}"
+            ));
+        }
+        return Ok(());
+    }
+    let contract = contract.ok_or(ValidateError::ManifestShape {
+        path: manifest_path.to_path_buf(),
+        message: "non-square spacing SC file must define expected_nonsquare_spacing",
+    })?;
+    let variant_id = manifest_str(
+        manifest_path,
+        contract,
+        "/variant_id",
+        "expected_nonsquare_spacing variant_id must be a string",
+    )?;
+
+    let spacing_contract = serde_json::json!({
+        "variant_id": "pixel_spacing",
+        "pixel_spacing": {
+            "tag": "0028,0030",
+            "keyword": "PixelSpacing",
+            "vr": "DS",
+            "vm": 2,
+            "lexical_value": "0.6\\0.3",
+            "row_spacing_mm": 0.6,
+            "column_spacing_mm": 0.3
+        },
+        "nominal_scanned_pixel_spacing": {
+            "tag": "0018,2010",
+            "keyword": "NominalScannedPixelSpacing",
+            "vr": "DS",
+            "vm": 2,
+            "lexical_value": "0.6\\0.3",
+            "row_spacing_mm": 0.6,
+            "column_spacing_mm": 0.3
+        },
+        "pixel_aspect_ratio": Value::Null,
+        "uncalibrated": true,
+        "patient_space_geometry_present": false,
+        "pixel_data_sha256": PIXEL_SHA256
+    });
+    let aspect_contract = serde_json::json!({
+        "variant_id": "pixel_aspect_ratio",
+        "pixel_spacing": Value::Null,
+        "nominal_scanned_pixel_spacing": Value::Null,
+        "pixel_aspect_ratio": {
+            "tag": "0028,0034",
+            "keyword": "PixelAspectRatio",
+            "vr": "IS",
+            "vm": 2,
+            "lexical_value": "2\\1",
+            "vertical_extent": 2,
+            "horizontal_extent": 1
+        },
+        "uncalibrated": true,
+        "patient_space_geometry_present": false,
+        "pixel_data_sha256": PIXEL_SHA256
+    });
+    let expected_contract = match variant_id {
+        "pixel_spacing" => &spacing_contract,
+        "pixel_aspect_ratio" => &aspect_contract,
+        other => {
+            failures.push(format!(
+                "{relative_path}: nonsquare_variant_id: unsupported value {other}"
+            ));
+            &spacing_contract
+        }
+    };
+    validate_equal_debug(
+        failures,
+        relative_path,
+        "nonsquare_manifest_contract",
+        contract,
+        expected_contract,
+    );
+
+    for (pointer, expected, check) in [
+        ("/image/rows", 4, "nonsquare_rows"),
+        ("/image/columns", 6, "nonsquare_columns"),
+        ("/image/frames", 1, "nonsquare_frames"),
+        ("/image/samples_per_pixel", 1, "nonsquare_samples_per_pixel"),
+        ("/image/bits_allocated", 8, "nonsquare_bits_allocated"),
+        ("/image/bits_stored", 8, "nonsquare_bits_stored"),
+        ("/image/high_bit", 7, "nonsquare_high_bit"),
+        (
+            "/image/pixel_representation",
+            0,
+            "nonsquare_pixel_representation",
+        ),
+        (
+            "/pixel_data/value_length",
+            24,
+            "nonsquare_pixel_data_length_manifest",
+        ),
+        ("/pixel_data/frame_count", 1, "nonsquare_frame_count"),
+    ] {
+        validate_equal(
+            failures,
+            relative_path,
+            check,
+            manifest_u64(
+                manifest_path,
+                file,
+                pointer,
+                "non-square image field must be an integer",
+            )?,
+            expected,
+        );
+    }
+    for (pointer, expected, check) in [
+        (
+            "/image/photometric_interpretation",
+            "MONOCHROME2",
+            "nonsquare_photometric_interpretation",
+        ),
+        ("/pixel_data/vr", "OB", "nonsquare_pixel_data_vr"),
+        (
+            "/pixel_data/native_or_encapsulated",
+            "native",
+            "nonsquare_pixel_data_layout",
+        ),
+    ] {
+        validate_equal(
+            failures,
+            relative_path,
+            check,
+            manifest_str(
+                manifest_path,
+                file,
+                pointer,
+                "non-square image field must be a string",
+            )?,
+            expected,
+        );
+    }
+    if !file
+        .pointer("/image/planar_configuration")
+        .is_some_and(Value::is_null)
+    {
+        failures.push(format!(
+            "{relative_path}: nonsquare_planar_configuration_absent: expected null"
+        ));
+    }
+    validate_equal(
+        failures,
+        relative_path,
+        "nonsquare_pixel_data_length",
+        pixel_bytes.len(),
+        24,
+    );
+    validate_equal(
+        failures,
+        relative_path,
+        "nonsquare_pixel_data_sha256",
+        sha256_hex(pixel_bytes),
+        PIXEL_SHA256.to_string(),
+    );
+
+    let validate_values = |failures: &mut Vec<String>,
+                           tag: dicom_core::Tag,
+                           expected_vr: VR,
+                           expected: &[&str],
+                           check: &str| {
+        match obj.element(tag) {
+            Ok(element) => {
+                validate_equal(
+                    failures,
+                    relative_path,
+                    &format!("{check}_vr"),
+                    element.vr(),
+                    expected_vr,
+                );
+                match element.to_multi_str() {
+                    Ok(values) => {
+                        let actual = values
+                            .iter()
+                            .flat_map(|value| value.split('\\'))
+                            .map(ToString::to_string)
+                            .collect::<Vec<_>>();
+                        validate_equal_debug(
+                            failures,
+                            relative_path,
+                            &format!("{check}_values"),
+                            actual,
+                            expected.iter().map(ToString::to_string).collect::<Vec<_>>(),
+                        );
+                    }
+                    Err(err) => failures.push(format!("{relative_path}: {check}_values: {err}")),
+                }
+            }
+            Err(err) => failures.push(format!("{relative_path}: {check}: {err}")),
+        }
+    };
+
+    match variant_id {
+        "pixel_spacing" => {
+            validate_values(
+                failures,
+                tags::PIXEL_SPACING,
+                VR::DS,
+                &["0.6", "0.3"],
+                "nonsquare_pixel_spacing",
+            );
+            validate_values(
+                failures,
+                tags::NOMINAL_SCANNED_PIXEL_SPACING,
+                VR::DS,
+                &["0.6", "0.3"],
+                "nonsquare_nominal_scanned_pixel_spacing",
+            );
+            validate_element_absent(
+                failures,
+                relative_path,
+                obj,
+                tags::PIXEL_ASPECT_RATIO,
+                "nonsquare_pixel_aspect_ratio_absent",
+            );
+        }
+        "pixel_aspect_ratio" => {
+            validate_values(
+                failures,
+                tags::PIXEL_ASPECT_RATIO,
+                VR::IS,
+                &["2", "1"],
+                "nonsquare_pixel_aspect_ratio",
+            );
+            validate_element_absent(
+                failures,
+                relative_path,
+                obj,
+                tags::PIXEL_SPACING,
+                "nonsquare_pixel_spacing_absent",
+            );
+            validate_element_absent(
+                failures,
+                relative_path,
+                obj,
+                tags::NOMINAL_SCANNED_PIXEL_SPACING,
+                "nonsquare_nominal_scanned_pixel_spacing_absent",
+            );
+        }
+        _ => {}
+    }
+    for (tag, check) in [
+        (
+            tags::IMAGER_PIXEL_SPACING,
+            "nonsquare_imager_pixel_spacing_absent",
+        ),
+        (
+            tags::PIXEL_SPACING_CALIBRATION_TYPE,
+            "nonsquare_calibration_type_absent",
+        ),
+        (
+            tags::PIXEL_SPACING_CALIBRATION_DESCRIPTION,
+            "nonsquare_calibration_description_absent",
+        ),
+        (
+            tags::IMAGE_POSITION_PATIENT,
+            "nonsquare_image_position_patient_absent",
+        ),
+        (
+            tags::IMAGE_ORIENTATION_PATIENT,
+            "nonsquare_image_orientation_patient_absent",
+        ),
+        (
+            tags::FRAME_OF_REFERENCE_UID,
+            "nonsquare_frame_of_reference_uid_absent",
+        ),
+    ] {
+        validate_element_absent(failures, relative_path, obj, tag, check);
+    }
+
+    Ok(())
 }
 
 fn validate_float32_manifest_image_pixel_data(
@@ -22781,6 +23114,195 @@ mod tests {
         ] {
             assert!(joined.contains(check), "missing {check} failure:\n{joined}");
         }
+    }
+
+    #[test]
+    fn nonsquare_spacing_contract_accepts_both_exclusive_variants() {
+        for variant_id in ["pixel_spacing", "pixel_aspect_ratio"] {
+            let manifest = nonsquare_spacing_test_manifest(variant_id);
+            let obj = nonsquare_spacing_test_object(variant_id);
+            let mut failures = Vec::new();
+
+            validate_nonsquare_spacing_manifest_contract(
+                &mut failures,
+                &format!("classic/sc/nonsquare_pixel_spacing/{variant_id}.dcm"),
+                Path::new("manifest.json"),
+                &manifest,
+                &obj,
+                &nonsquare_spacing_test_bytes(),
+            )
+            .expect("well-formed non-square spatial contract should validate");
+
+            assert_eq!(failures, Vec::<String>::new(), "{variant_id}");
+        }
+    }
+
+    #[test]
+    fn nonsquare_spacing_contract_rejects_crossed_metadata_and_pixels() {
+        let mut manifest = nonsquare_spacing_test_manifest("pixel_spacing");
+        manifest["expected_nonsquare_spacing"]["pixel_aspect_ratio"] = serde_json::json!({
+            "tag": "0028,0034",
+            "keyword": "PixelAspectRatio",
+            "vr": "IS",
+            "vm": 2,
+            "lexical_value": "2\\1",
+            "vertical_extent": 2,
+            "horizontal_extent": 1
+        });
+        manifest["image"]["columns"] = Value::from(5);
+        let mut obj = nonsquare_spacing_test_object("pixel_spacing");
+        obj.put(DataElement::new(
+            tags::PIXEL_ASPECT_RATIO,
+            VR::IS,
+            PrimitiveValue::from("2\\1"),
+        ));
+        obj.put(DataElement::new(
+            tags::PIXEL_SPACING_CALIBRATION_TYPE,
+            VR::CS,
+            PrimitiveValue::from("GEOMETRY"),
+        ));
+        obj.put(DataElement::new(
+            tags::FRAME_OF_REFERENCE_UID,
+            VR::UI,
+            PrimitiveValue::from("2.25.9"),
+        ));
+        let mut bytes = nonsquare_spacing_test_bytes();
+        bytes[0] = 0xff;
+        let mut failures = Vec::new();
+
+        validate_nonsquare_spacing_manifest_contract(
+            &mut failures,
+            "classic/sc/nonsquare_pixel_spacing/pixel-spacing.dcm",
+            Path::new("manifest.json"),
+            &manifest,
+            &obj,
+            &bytes,
+        )
+        .expect("semantic mismatches should be validation failures");
+
+        let joined = failures.join("\n");
+        for check in [
+            "nonsquare_manifest_contract",
+            "nonsquare_columns",
+            "nonsquare_pixel_data_sha256",
+            "nonsquare_pixel_aspect_ratio_absent",
+            "nonsquare_calibration_type_absent",
+            "nonsquare_frame_of_reference_uid_absent",
+        ] {
+            assert!(joined.contains(check), "missing {check} failure:\n{joined}");
+        }
+    }
+
+    #[test]
+    fn nonsquare_spacing_contract_rejects_contract_on_another_case() {
+        let mut manifest = nonsquare_spacing_test_manifest("pixel_aspect_ratio");
+        manifest["case_id"] = Value::from("classic/sc/mono2_u8_explicit_le");
+        let obj = nonsquare_spacing_test_object("pixel_aspect_ratio");
+        let mut failures = Vec::new();
+
+        validate_nonsquare_spacing_manifest_contract(
+            &mut failures,
+            "classic/sc/mono2_u8_explicit_le/instance.dcm",
+            Path::new("manifest.json"),
+            &manifest,
+            &obj,
+            &nonsquare_spacing_test_bytes(),
+        )
+        .expect("out-of-scope contract should be a validation failure");
+
+        assert!(
+            failures
+                .join("\n")
+                .contains("nonsquare_spacing_contract_scope")
+        );
+    }
+
+    fn nonsquare_spacing_test_object(variant_id: &str) -> OpenedObject {
+        let mut obj = InMemDicomObject::new_empty();
+        match variant_id {
+            "pixel_spacing" => {
+                obj.put(DataElement::new(
+                    tags::PIXEL_SPACING,
+                    VR::DS,
+                    PrimitiveValue::from("0.6\\0.3"),
+                ));
+                obj.put(DataElement::new(
+                    tags::NOMINAL_SCANNED_PIXEL_SPACING,
+                    VR::DS,
+                    PrimitiveValue::from("0.6\\0.3"),
+                ));
+            }
+            "pixel_aspect_ratio" => {
+                obj.put(DataElement::new(
+                    tags::PIXEL_ASPECT_RATIO,
+                    VR::IS,
+                    PrimitiveValue::from("2\\1"),
+                ));
+            }
+            other => panic!("unsupported test variant {other}"),
+        }
+        obj.with_meta(
+            FileMetaTableBuilder::new()
+                .transfer_syntax(uids::EXPLICIT_VR_LITTLE_ENDIAN)
+                .media_storage_sop_class_uid(uids::SECONDARY_CAPTURE_IMAGE_STORAGE)
+                .media_storage_sop_instance_uid("2.25.1")
+                .implementation_class_uid("2.25.2"),
+        )
+        .expect("non-square test object should have valid file metadata")
+    }
+
+    fn nonsquare_spacing_test_bytes() -> Vec<u8> {
+        vec![
+            0x00, 0xff, 0x00, 0xff, 0x00, 0xff, 0xff, 0x00, 0xff, 0x00, 0xff, 0x00, 0x00, 0xff,
+            0x00, 0xff, 0x00, 0xff, 0xff, 0x00, 0xff, 0x00, 0xff, 0x00,
+        ]
+    }
+
+    fn nonsquare_spacing_test_manifest(variant_id: &str) -> Value {
+        let (pixel_spacing, nominal_spacing, pixel_aspect_ratio) = match variant_id {
+            "pixel_spacing" => (
+                serde_json::json!({
+                    "tag": "0028,0030", "keyword": "PixelSpacing", "vr": "DS", "vm": 2,
+                    "lexical_value": "0.6\\0.3", "row_spacing_mm": 0.6, "column_spacing_mm": 0.3
+                }),
+                serde_json::json!({
+                    "tag": "0018,2010", "keyword": "NominalScannedPixelSpacing", "vr": "DS", "vm": 2,
+                    "lexical_value": "0.6\\0.3", "row_spacing_mm": 0.6, "column_spacing_mm": 0.3
+                }),
+                Value::Null,
+            ),
+            "pixel_aspect_ratio" => (
+                Value::Null,
+                Value::Null,
+                serde_json::json!({
+                    "tag": "0028,0034", "keyword": "PixelAspectRatio", "vr": "IS", "vm": 2,
+                    "lexical_value": "2\\1", "vertical_extent": 2, "horizontal_extent": 1
+                }),
+            ),
+            other => panic!("unsupported test variant {other}"),
+        };
+        serde_json::json!({
+            "case_id": "classic/sc/nonsquare_pixel_spacing",
+            "image": {
+                "rows": 4, "columns": 6, "frames": 1, "samples_per_pixel": 1,
+                "photometric_interpretation": "MONOCHROME2", "bits_allocated": 8,
+                "bits_stored": 8, "high_bit": 7, "pixel_representation": 0,
+                "planar_configuration": Value::Null
+            },
+            "pixel_data": {
+                "vr": "OB", "native_or_encapsulated": "native", "value_length": 24,
+                "frame_count": 1
+            },
+            "expected_nonsquare_spacing": {
+                "variant_id": variant_id,
+                "pixel_spacing": pixel_spacing,
+                "nominal_scanned_pixel_spacing": nominal_spacing,
+                "pixel_aspect_ratio": pixel_aspect_ratio,
+                "uncalibrated": true,
+                "patient_space_geometry_present": false,
+                "pixel_data_sha256": "e89b23efeade0dc3de624fc8982ea8b99adb35a3bb9a2fbf8b8ce675e10581a6"
+            }
+        })
     }
 
     fn icc_profile_test_object(profile: Vec<u8>, color_space: &str) -> OpenedObject {

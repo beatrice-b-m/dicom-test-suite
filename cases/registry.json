@@ -11579,6 +11579,94 @@
           "covered": true,
           "part": "PS3.6",
           "anchor": "table_A-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_sop_class Enhanced PET Image Storage",
+          "covered": true,
+          "part": "PS3.4",
+          "anchor": "table_B.5-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_iod Enhanced PET Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.56-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_modules_for_iod Enhanced PET Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.56-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module Enhanced PET Isotope",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8.22-9"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module Enhanced PET Acquisition",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8.22-2"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module Enhanced PET Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8.22-3"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module Enhanced PET Corrections",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8.22-19"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "retrieve_standard_text PS3.3 table_A.56-2",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.56-2"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "retrieve_standard_text PS3.3 table_C.7.6.16-7",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.7.6.16-7"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "search_standard_text PS3.16 CID 11 84 4020 4021",
+          "covered": true,
+          "part": "PS3.16",
+          "anchor": "sect_CID_4020"
+        },
+        {
+          "source": "local-source-note",
+          "edition": "2026b",
+          "query": "standards/source-notes/phase-2-enhanced-pet-multiframe.md",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.56-1"
         }
       ]
     },

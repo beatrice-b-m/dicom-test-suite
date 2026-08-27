@@ -4312,7 +4312,7 @@ fn write_metadata_sc_case(
         case,
         recipe.pixel,
         standards_lock_sha256,
-        Some((recipe.specific_character_set, recipe.patient_name)),
+        Some(recipe),
     )
 }
 
@@ -4321,7 +4321,7 @@ fn write_pixel_case_with_text_metadata(
     case: &Value,
     recipe: PixelRecipe,
     standards_lock_sha256: &str,
-    text_metadata: Option<(&str, &str)>,
+    text_metadata: Option<MetadataScRecipe>,
 ) -> Result<GeneratedFile, GenerateError> {
     let study_instance_uid = deterministic_case_uid(
         standards_lock_sha256,
@@ -4361,22 +4361,23 @@ fn write_pixel_case_with_text_metadata(
     put_str(&mut obj, tags::SOP_INSTANCE_UID, VR::UI, &sop_instance_uid);
     put_str(&mut obj, tags::SYNTHETIC_DATA, VR::CS, "YES");
 
-    if let Some((specific_character_set, _)) = text_metadata {
+    if let Some(metadata) = text_metadata {
         put_str(
             &mut obj,
             tags::SPECIFIC_CHARACTER_SET,
             VR::CS,
-            specific_character_set,
+            &metadata.specific_character_sets.join("\\"),
         );
     }
-    put_str(
-        &mut obj,
-        tags::PATIENT_NAME,
-        VR::PN,
-        text_metadata
-            .map(|(_, patient_name)| patient_name)
-            .unwrap_or("DICOMTEST^SMOKE"),
-    );
+    if let Some(metadata) = text_metadata {
+        obj.put(DataElement::new(
+            tags::PATIENT_NAME,
+            VR::PN,
+            PrimitiveValue::U8(metadata.patient_name_raw.into()),
+        ));
+    } else {
+        put_str(&mut obj, tags::PATIENT_NAME, VR::PN, "DICOMTEST^SMOKE");
+    }
     put_str(&mut obj, tags::PATIENT_ID, VR::LO, "DICOMTEST-SMOKE-001");
     put_str(&mut obj, tags::PATIENT_BIRTH_DATE, VR::DA, "19700101");
     put_str(&mut obj, tags::PATIENT_SEX, VR::CS, "O");
@@ -5039,10 +5040,10 @@ fn write_pixel_case_with_text_metadata(
     for result in codec_internal_validation {
         append_internal_validation(&mut validated.validation, result);
     }
-    if let Some((specific_character_set, patient_name)) = text_metadata {
+    if let Some(metadata) = text_metadata {
         append_internal_validation(
             &mut validated.validation,
-            validate_text_metadata_round_trip(&path, specific_character_set, patient_name)?,
+            validate_text_metadata_round_trip(&path, metadata)?,
         );
     }
 
@@ -5069,47 +5070,81 @@ fn write_pixel_case_with_text_metadata(
 
 fn validate_text_metadata_round_trip(
     path: &std::path::Path,
-    expected_character_set: &str,
-    expected_patient_name: &str,
+    recipe: MetadataScRecipe,
 ) -> Result<Value, GenerateError> {
     let obj = open_file(path).map_err(|error| GenerateError::ValidateDicomFile {
         path: path.to_path_buf(),
         message: format!("reopen metadata SC fixture: {error}"),
     })?;
-    for (tag, label, expected) in [
-        (
-            tags::SPECIFIC_CHARACTER_SET,
-            "Specific Character Set",
-            expected_character_set,
-        ),
-        (tags::PATIENT_NAME, "Patient Name", expected_patient_name),
-    ] {
-        let element = obj
-            .element(tag)
+    let character_set = obj.element(tags::SPECIFIC_CHARACTER_SET).map_err(|error| {
+        GenerateError::ValidateDicomFile {
+            path: path.to_path_buf(),
+            message: format!("read Specific Character Set from metadata SC fixture: {error}"),
+        }
+    })?;
+    let actual_character_sets =
+        character_set
+            .to_multi_str()
             .map_err(|error| GenerateError::ValidateDicomFile {
                 path: path.to_path_buf(),
-                message: format!("read {label} from metadata SC fixture: {error}"),
+                message: format!("decode Specific Character Set from metadata SC fixture: {error}"),
             })?;
-        let actual = element
+    let actual_character_sets = actual_character_sets
+        .iter()
+        .map(|value| value.trim().to_string())
+        .collect::<Vec<_>>();
+    if actual_character_sets != recipe.specific_character_sets {
+        return Err(GenerateError::ValidateDicomFile {
+            path: path.to_path_buf(),
+            message: format!(
+                "metadata SC character sets decoded as {actual_character_sets:?}, expected {:?}",
+                recipe.specific_character_sets
+            ),
+        });
+    }
+
+    let patient_name =
+        obj.element(tags::PATIENT_NAME)
+            .map_err(|error| GenerateError::ValidateDicomFile {
+                path: path.to_path_buf(),
+                message: format!("read Patient Name from metadata SC fixture: {error}"),
+            })?;
+    let actual_bytes =
+        patient_name
+            .value()
+            .to_bytes()
+            .map_err(|error| GenerateError::ValidateDicomFile {
+                path: path.to_path_buf(),
+                message: format!("read encoded Patient Name bytes: {error}"),
+            })?;
+    if actual_bytes.as_ref() != recipe.patient_name_raw {
+        return Err(GenerateError::ValidateDicomFile {
+            path: path.to_path_buf(),
+            message: "metadata SC Patient Name bytes changed during write/reopen".to_string(),
+        });
+    }
+    if recipe.native_unicode_round_trip {
+        let actual = patient_name
             .to_str()
             .map_err(|error| GenerateError::ValidateDicomFile {
                 path: path.to_path_buf(),
-                message: format!("decode {label} from metadata SC fixture: {error}"),
+                message: format!("decode Patient Name from metadata SC fixture: {error}"),
             })?;
-        if actual.trim_end_matches([' ', '\0']) != expected {
+        if actual.trim_end_matches([' ', '\0']) != recipe.patient_name_decoded {
             return Err(GenerateError::ValidateDicomFile {
                 path: path.to_path_buf(),
                 message: format!(
-                    "metadata SC {label} decoded as {:?}, expected {expected:?}",
-                    actual.trim_end_matches([' ', '\0'])
+                    "metadata SC Patient Name decoded as {:?}, expected {:?}",
+                    actual.trim_end_matches([' ', '\0']),
+                    recipe.patient_name_decoded
                 ),
             });
         }
     }
     Ok(serde_json::json!({
-        "name": "utf8_person_name_round_trip",
+        "name": recipe.validation_name,
         "status": "passed",
-        "message": "The native writer output reopened with the exact declared UTF-8 character set and decoded Person Name."
+        "message": recipe.validation_message
     }))
 }
 
@@ -5523,7 +5558,7 @@ fn pixel_manifest_entry(
     )>,
     lossy_image_compression_ratio: Option<&str>,
     frame_hashes: &[&str],
-    text_metadata: Option<(&str, &str)>,
+    text_metadata: Option<MetadataScRecipe>,
 ) -> Value {
     let mut standards_evidence = standards_evidence_from_case(case);
     if pixel_is_vl_photographic(recipe) {
@@ -6009,52 +6044,52 @@ fn pixel_manifest_entry(
         "known_stressors": pixel_known_stressors(recipe),
         "standards_evidence": deduplicated_standards_evidence(standards_evidence)
     });
-    if let Some((specific_character_set, patient_name)) = text_metadata {
-        let mut raw_value = patient_name.as_bytes().to_vec();
+    if let Some(metadata) = text_metadata {
+        let mut raw_value = metadata.patient_name_raw.to_vec();
         if raw_value.len() % 2 == 1 {
             raw_value.push(b' ');
         }
+        let component_groups = metadata
+            .component_groups
+            .iter()
+            .enumerate()
+            .map(|(group_index, group)| {
+                let components = group
+                    .components
+                    .iter()
+                    .enumerate()
+                    .map(|(component_index, decoded_value)| {
+                        serde_json::json!({
+                            "position": component_index + 1,
+                            "decoded_value": decoded_value
+                        })
+                    })
+                    .collect::<Vec<_>>();
+                serde_json::json!({
+                    "position": group_index + 1,
+                    "kind": group.kind,
+                    "decoded_value": group.decoded_value,
+                    "components": components
+                })
+            })
+            .collect::<Vec<_>>();
         manifest["expected_metadata"] = serde_json::json!({
-            "specific_character_sets": [specific_character_set],
+            "specific_character_sets": metadata.specific_character_sets,
             "person_names": [{
                 "tag": "0010,0010",
                 "keyword": "PatientName",
                 "vr": "PN",
-                "decoded_value": patient_name,
+                "decoded_value": metadata.patient_name_decoded,
                 "raw_value_hex": uppercase_hex(&raw_value),
                 "raw_value_sha256": sha256_hex(&raw_value),
                 "raw_value_byte_length": raw_value.len(),
-                "component_groups": [
-                    {
-                        "position": 1,
-                        "kind": "alphabetic",
-                        "decoded_value": "Wang^XiaoDong",
-                        "components": [
-                            {"position": 1, "decoded_value": "Wang"},
-                            {"position": 2, "decoded_value": "XiaoDong"},
-                            {"position": 3, "decoded_value": ""},
-                            {"position": 4, "decoded_value": ""},
-                            {"position": 5, "decoded_value": ""}
-                        ]
-                    },
-                    {
-                        "position": 2,
-                        "kind": "ideographic",
-                        "decoded_value": "王^小東",
-                        "components": [
-                            {"position": 1, "decoded_value": "王"},
-                            {"position": 2, "decoded_value": "小東"},
-                            {"position": 3, "decoded_value": ""},
-                            {"position": 4, "decoded_value": ""},
-                            {"position": 5, "decoded_value": ""}
-                        ]
-                    }
-                ]
+                "component_groups": component_groups
             }]
         });
-        manifest["recipe"]["recipe_parameters"]["specific_character_set"] =
-            Value::from(specific_character_set);
-        manifest["recipe"]["recipe_parameters"]["patient_name"] = Value::from(patient_name);
+        manifest["recipe"]["recipe_parameters"]["specific_character_sets"] =
+            serde_json::json!(metadata.specific_character_sets);
+        manifest["recipe"]["recipe_parameters"]["patient_name"] =
+            Value::from(metadata.patient_name_decoded);
     }
     manifest
 }

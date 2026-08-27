@@ -22,6 +22,7 @@ pub(super) mod timezone_sc;
 pub(super) mod twelve_lead_ecg;
 pub(super) mod us_multiframe;
 pub(super) mod wsi_tiled_full;
+pub(super) mod wsi_tiled_sparse;
 pub(super) mod xa;
 pub(super) mod xrf;
 
@@ -69,6 +70,8 @@ mod twelve_lead_ecg_tests;
 mod us_multiframe_tests;
 #[cfg(test)]
 mod wsi_tiled_full_tests;
+#[cfg(test)]
+mod wsi_tiled_sparse_tests;
 #[cfg(test)]
 mod xa_tests;
 #[cfg(test)]

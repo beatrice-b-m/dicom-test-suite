@@ -5366,6 +5366,7 @@ fn generator_recipe_case_ids() -> BTreeSet<String> {
                 "BLENDING_PRESENTATION_STATE_CASE_ID: &str = \"",
                 "TWELVE_LEAD_ECG_CASE_ID: &str = \"",
                 "GENERAL_ECG_CASE_ID: &str = \"",
+                "RT_PLAN_CASE_ID: &str = \"",
             ][..],
         ),
         ("src/generator/native/ct_geometry.rs", &["case_id: \""][..]),

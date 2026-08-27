@@ -13,7 +13,7 @@ const IMPLEMENTATION_UID: &str = "2.25.8899";
 const PIXELS: [u8; 48] = tiled_pixels();
 
 #[derive(Clone, Copy)]
-enum Mutation {
+pub(super) enum Mutation {
     None,
     WrongMatrixRows,
     SwappedFrames,
@@ -158,7 +158,7 @@ fn write_fixture(label: &str, mutation: Mutation) -> PathBuf {
     path
 }
 
-fn valid_object(mutation: Mutation) -> InMemDicomObject {
+pub(super) fn valid_object(mutation: Mutation) -> InMemDicomObject {
     let mut obj = InMemDicomObject::new_empty();
     for (tag, vr, value) in [
         (

@@ -73,6 +73,10 @@ mod vl_single_frame_tests;
 #[path = "validation_wsi_tiled_full_tests.rs"]
 mod wsi_tiled_full_tests;
 
+#[cfg(test)]
+#[path = "validation_wsi_tiled_sparse_tests.rs"]
+mod wsi_tiled_sparse_tests;
+
 #[cfg(feature = "deflate")]
 use crate::codecs::DicomRsDeflatedImageFrameEncoder;
 #[cfg(feature = "charls")]
@@ -2145,6 +2149,803 @@ fn reconstruct_tiled_full_matrix(pixel_bytes: &[u8]) -> Option<Vec<u8>> {
         }
     }
     Some(matrix)
+}
+
+/// Validate the complete, case-scoped Phase 4 TILED_SPARSE WSI contract.
+pub(crate) fn validate_wsi_tiled_sparse_file(
+    path: &Path,
+    identity: &Part10Expectations<'_>,
+    expected_wsi_tiled_sparse: &Value,
+) -> Result<ValidatedPart10, GenerateError> {
+    let mut validated = validate_part10_file(path, identity)?;
+    let obj = open_file(path).map_err(|err| GenerateError::ValidateDicomFile {
+        path: path.to_path_buf(),
+        message: err.to_string(),
+    })?;
+    let mut internal = Vec::new();
+    validate_wsi_tiled_sparse(
+        path,
+        &obj,
+        &mut internal,
+        identity,
+        expected_wsi_tiled_sparse,
+    )?;
+    fail_if_any_failed(path, &internal)?;
+
+    let validation_items = validated
+        .validation
+        .get_mut("internal")
+        .and_then(Value::as_array_mut)
+        .ok_or_else(|| GenerateError::ValidateDicomFile {
+            path: path.to_path_buf(),
+            message: "generic validation result has no internal findings array".to_string(),
+        })?;
+    validation_items.extend(internal);
+    if let Some(standards) = validated
+        .validation
+        .get_mut("standards")
+        .and_then(Value::as_array_mut)
+    {
+        standards.push(serde_json::json!({
+            "name": "vl_whole_slide_microscopy_tiled_sparse_contract",
+            "status": "passed",
+            "message": "TILED_SPARSE WSI dimension indices, explicit per-frame positions, optical-path references, pixels, occupancy, sentinel reconstruction, specimen, ICC profile, and locked absences match the canonical manifest contract."
+        }));
+    }
+    Ok(validated)
+}
+
+fn validate_wsi_tiled_sparse(
+    path: &Path,
+    obj: &OpenedObject,
+    internal: &mut Vec<Value>,
+    identity: &Part10Expectations<'_>,
+    expected: &Value,
+) -> Result<(), GenerateError> {
+    const WSI_SOP_CLASS_UID: &str = "1.2.840.10008.5.1.4.1.1.77.1.6";
+    const FRAME_HASHES: [&str; 2] = [
+        "fcf067f6323bb42b8292a565a8f826ec5fdb1b142b7a69bf7f7721f0d5d46ef8",
+        "8688d249e9d047b4fc2fb89ce05afe9ec89252ffccdd969de6eef260dd7ffb21",
+    ];
+    const PAYLOAD_HASH: &str = "94a57aca44c4a97d424e8e546b2673fa91f711694de1ccb36f062aabbc9b55ee";
+    const MATRIX_HASH: &str = "d10a587875f14a0b74a9e4935ce83cdb73377bd7357a172db8e9f7347c030eb3";
+    const ICC_HASH: &str = "8e069a3476b71a0e0ae7272d9278ba70540d1c4a0b19af1c7d52e56f49091fef";
+
+    let expected_for = expected
+        .pointer("/frame_of_reference_uid")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let expected_dimension_uid = expected
+        .pointer("/dimension_organization_uid")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let expected_specimen_uid = expected
+        .pointer("/specimen/specimen_uid")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    check_equal(
+        internal,
+        "wsi_sparse_expected_contract",
+        "Manifest-derived sparse WSI expectation equals the canonical locked contract.",
+        "Manifest-derived sparse WSI expectation differs from the canonical locked contract.",
+        expected,
+        &crate::wsi_tiled_sparse_locked_contract(
+            expected_for,
+            expected_specimen_uid,
+            expected_dimension_uid,
+        ),
+    );
+    check(
+        internal,
+        identity.sop_class_uid == WSI_SOP_CLASS_UID
+            && identity.transfer_syntax_uid == uids::EXPLICIT_VR_LITTLE_ENDIAN
+            && identity.rows == 2
+            && identity.columns == 2
+            && identity.frames == 2
+            && identity.samples_per_pixel == 3
+            && identity.photometric_interpretation == "RGB"
+            && identity.planar_configuration == Some(0)
+            && identity.bits_allocated == 8
+            && identity.bits_stored == 8
+            && identity.high_bit == 7
+            && identity.pixel_representation == 0
+            && identity.pixel_data_vr == VR::OB
+            && matches!(
+                identity.pixel_data_length_formula,
+                PixelDataLengthFormula::ContiguousSamples
+            ),
+        "wsi_sparse_identity_contract",
+        "Manifest image identity matches the locked native TILED_SPARSE WSI contract.",
+        "Manifest image identity differs from the locked native TILED_SPARSE WSI contract.",
+    );
+
+    for (name, tag, locked) in [
+        ("modality", tags::MODALITY, "SM"),
+        (
+            "frame_of_reference_uid",
+            tags::FRAME_OF_REFERENCE_UID,
+            expected_for,
+        ),
+        (
+            "position_reference_indicator",
+            tags::POSITION_REFERENCE_INDICATOR,
+            "SLIDE_CORNER",
+        ),
+        (
+            "image_type",
+            tags::IMAGE_TYPE,
+            "ORIGINAL\\PRIMARY\\VOLUME\\NONE",
+        ),
+        (
+            "acquisition_date_time",
+            tags::ACQUISITION_DATE_TIME,
+            "20260101000000",
+        ),
+        (
+            "volumetric_properties",
+            tags::VOLUMETRIC_PROPERTIES,
+            "VOLUME",
+        ),
+        (
+            "specimen_label_in_image",
+            tags::SPECIMEN_LABEL_IN_IMAGE,
+            "NO",
+        ),
+        ("burned_in_annotation", tags::BURNED_IN_ANNOTATION, "NO"),
+        ("focus_method", tags::FOCUS_METHOD, "AUTO"),
+        (
+            "extended_depth_of_field",
+            tags::EXTENDED_DEPTH_OF_FIELD,
+            "NO",
+        ),
+        (
+            "lossy_image_compression",
+            tags::LOSSY_IMAGE_COMPRESSION,
+            "00",
+        ),
+        (
+            "dimension_organization_type",
+            tags::DIMENSION_ORGANIZATION_TYPE,
+            "TILED_SPARSE",
+        ),
+        ("tiles_overlap", tags::TILES_OVERLAP, "NONE"),
+        ("label_text", tags::LABEL_TEXT, "DTS SYNTHETIC SLIDE 001"),
+        ("barcode_value", tags::BARCODE_VALUE, "DTS-SLIDE-001"),
+    ] {
+        check_equal(
+            internal,
+            &format!("wsi_sparse_{name}"),
+            "Sparse WSI string attribute matches the locked contract.",
+            "Sparse WSI string attribute does not match the locked contract.",
+            element_str(path, obj, tag)?.as_str(),
+            locked,
+        );
+    }
+    check_equal(
+        internal,
+        "wsi_sparse_acquisition_context_items",
+        "Acquisition Context Sequence is present and empty.",
+        "Acquisition Context Sequence is not present and empty.",
+        sequence_item_count(path, obj, tags::ACQUISITION_CONTEXT_SEQUENCE)?,
+        0,
+    );
+
+    for (name, tag, locked) in [
+        ("total_pixel_matrix_rows", tags::TOTAL_PIXEL_MATRIX_ROWS, 4),
+        (
+            "total_pixel_matrix_columns",
+            tags::TOTAL_PIXEL_MATRIX_COLUMNS,
+            4,
+        ),
+        ("number_of_optical_paths", tags::NUMBER_OF_OPTICAL_PATHS, 1),
+        (
+            "total_pixel_matrix_focal_planes",
+            tags::TOTAL_PIXEL_MATRIX_FOCAL_PLANES,
+            1,
+        ),
+    ] {
+        check_equal(
+            internal,
+            &format!("wsi_sparse_{name}"),
+            "Sparse WSI tiling cardinality matches the locked contract.",
+            "Sparse WSI tiling cardinality does not match the locked contract.",
+            element_u32(path, obj, tag)?,
+            locked,
+        );
+    }
+    for (name, tag, locked) in [
+        ("imaged_volume_width", tags::IMAGED_VOLUME_WIDTH, vec![2.0]),
+        (
+            "imaged_volume_height",
+            tags::IMAGED_VOLUME_HEIGHT,
+            vec![2.0],
+        ),
+        (
+            "imaged_volume_depth",
+            tags::IMAGED_VOLUME_DEPTH,
+            vec![0.001],
+        ),
+        (
+            "image_orientation_slide",
+            tags::IMAGE_ORIENTATION_SLIDE,
+            vec![1.0, 0.0, 0.0, 0.0, 1.0, 0.0],
+        ),
+    ] {
+        check_equal(
+            internal,
+            &format!("wsi_sparse_{name}"),
+            "Sparse WSI geometry matches the locked contract.",
+            "Sparse WSI geometry does not match the locked contract.",
+            element_f64_values(path, obj, tag)?,
+            locked,
+        );
+    }
+
+    check_equal(
+        internal,
+        "wsi_sparse_origin_items",
+        "Total Pixel Matrix Origin has one item.",
+        "Total Pixel Matrix Origin cardinality differs from the contract.",
+        sequence_item_count(path, obj, tags::TOTAL_PIXEL_MATRIX_ORIGIN_SEQUENCE)?,
+        1,
+    );
+    let origin = top_level_sequence_item(path, obj, tags::TOTAL_PIXEL_MATRIX_ORIGIN_SEQUENCE, 0)?;
+    for (name, tag) in [
+        ("x", tags::X_OFFSET_IN_SLIDE_COORDINATE_SYSTEM),
+        ("y", tags::Y_OFFSET_IN_SLIDE_COORDINATE_SYSTEM),
+        ("z", tags::Z_OFFSET_IN_SLIDE_COORDINATE_SYSTEM),
+    ] {
+        check_equal(
+            internal,
+            &format!("wsi_sparse_origin_{name}"),
+            "Sparse WSI origin component is zero.",
+            "Sparse WSI origin component is not zero.",
+            item_f64(path, origin, tag)?,
+            0.0,
+        );
+    }
+
+    check_equal(
+        internal,
+        "wsi_sparse_dimension_organization_items",
+        "Dimension Organization Sequence has one item.",
+        "Dimension Organization Sequence cardinality differs from the contract.",
+        sequence_item_count(path, obj, tags::DIMENSION_ORGANIZATION_SEQUENCE)?,
+        1,
+    );
+    let organization =
+        top_level_sequence_item(path, obj, tags::DIMENSION_ORGANIZATION_SEQUENCE, 0)?;
+    check_equal(
+        internal,
+        "wsi_sparse_dimension_organization_uid",
+        "Dimension Organization UID matches the manifest contract.",
+        "Dimension Organization UID does not match the manifest contract.",
+        item_str(path, organization, tags::DIMENSION_ORGANIZATION_UID)?.as_str(),
+        expected_dimension_uid,
+    );
+    check(
+        internal,
+        valid_dicom_uid(expected_dimension_uid),
+        "wsi_sparse_expected_dimension_uid",
+        "Manifest Dimension Organization UID is syntactically valid.",
+        "Manifest Dimension Organization UID is not syntactically valid.",
+    );
+
+    check_equal(
+        internal,
+        "wsi_sparse_dimension_index_items",
+        "Dimension Index Sequence has exactly two ordered items.",
+        "Dimension Index Sequence does not have exactly two ordered items.",
+        sequence_item_count(path, obj, tags::DIMENSION_INDEX_SEQUENCE)?,
+        2,
+    );
+    for (index, pointer, label) in [
+        (
+            0,
+            tags::COLUMN_POSITION_IN_TOTAL_IMAGE_PIXEL_MATRIX,
+            "Column Position",
+        ),
+        (
+            1,
+            tags::ROW_POSITION_IN_TOTAL_IMAGE_PIXEL_MATRIX,
+            "Row Position",
+        ),
+    ] {
+        let item = top_level_sequence_item(path, obj, tags::DIMENSION_INDEX_SEQUENCE, index)?;
+        check(
+            internal,
+            item.iter().count() == 4
+                && item.iter().all(|element| {
+                    matches!(
+                        element.tag(),
+                        tags::DIMENSION_INDEX_POINTER
+                            | tags::FUNCTIONAL_GROUP_POINTER
+                            | tags::DIMENSION_ORGANIZATION_UID
+                            | tags::DIMENSION_DESCRIPTION_LABEL
+                    )
+                }),
+            &format!("wsi_sparse_dimension_index_{}_attributes", index + 1),
+            "Dimension index item contains exactly the four locked attributes.",
+            "Dimension index item contains an unexpected or missing attribute.",
+        );
+        check_equal(
+            internal,
+            &format!("wsi_sparse_dimension_index_{}_pointer_vr", index + 1),
+            "Dimension Index Pointer uses AT VR.",
+            "Dimension Index Pointer does not use AT VR.",
+            item.element(tags::DIMENSION_INDEX_POINTER)
+                .map_err(|err| validation_error(path, err))?
+                .vr(),
+            VR::AT,
+        );
+        check_equal(
+            internal,
+            &format!("wsi_sparse_dimension_index_{}_pointer", index + 1),
+            "Dimension Index Pointer matches the locked ordered dimension.",
+            "Dimension Index Pointer does not match the locked ordered dimension.",
+            item_tag(path, item, tags::DIMENSION_INDEX_POINTER)?,
+            pointer,
+        );
+        check_equal(
+            internal,
+            &format!(
+                "wsi_sparse_dimension_index_{}_functional_group_vr",
+                index + 1
+            ),
+            "Functional Group Pointer uses AT VR.",
+            "Functional Group Pointer does not use AT VR.",
+            item.element(tags::FUNCTIONAL_GROUP_POINTER)
+                .map_err(|err| validation_error(path, err))?
+                .vr(),
+            VR::AT,
+        );
+        check_equal(
+            internal,
+            &format!("wsi_sparse_dimension_index_{}_functional_group", index + 1),
+            "Functional Group Pointer identifies Plane Position (Slide).",
+            "Functional Group Pointer does not identify Plane Position (Slide).",
+            item_tag(path, item, tags::FUNCTIONAL_GROUP_POINTER)?,
+            tags::PLANE_POSITION_SLIDE_SEQUENCE,
+        );
+        check_equal(
+            internal,
+            &format!("wsi_sparse_dimension_index_{}_organization_uid", index + 1),
+            "Dimension index references the locked organization UID.",
+            "Dimension index references a different organization UID.",
+            item_str(path, item, tags::DIMENSION_ORGANIZATION_UID)?.as_str(),
+            expected_dimension_uid,
+        );
+        check_equal(
+            internal,
+            &format!("wsi_sparse_dimension_index_{}_label", index + 1),
+            "Dimension Description Label matches the locked dimension.",
+            "Dimension Description Label does not match the locked dimension.",
+            item_str(path, item, tags::DIMENSION_DESCRIPTION_LABEL)?.as_str(),
+            label,
+        );
+        check(
+            internal,
+            item.element_opt(tags::DIMENSION_INDEX_PRIVATE_CREATOR)
+                .is_ok_and(|value| value.is_none())
+                && item
+                    .element_opt(tags::FUNCTIONAL_GROUP_PRIVATE_CREATOR)
+                    .is_ok_and(|value| value.is_none()),
+            &format!(
+                "wsi_sparse_dimension_index_{}_private_creators_absent",
+                index + 1
+            ),
+            "Dimension index private-creator attributes are absent.",
+            "Dimension index unexpectedly contains private-creator attributes.",
+        );
+    }
+
+    validate_wsi_sparse_shared_groups(path, obj, internal)?;
+    validate_wsi_specimen(path, obj, internal, expected_specimen_uid)?;
+    validate_wsi_optical_path(path, obj, internal, ICC_HASH)?;
+
+    let positions = validate_wsi_sparse_per_frame(path, obj, internal)?;
+    let pixel = obj
+        .element(tags::PIXEL_DATA)
+        .map_err(|err| validation_error(path, err))?;
+    let bytes = pixel
+        .value()
+        .to_bytes()
+        .map_err(|err| validation_error(path, err))?;
+    check_equal(
+        internal,
+        "wsi_sparse_pixel_vr",
+        "Pixel Data uses native OB storage.",
+        "Pixel Data does not use native OB storage.",
+        pixel.vr(),
+        VR::OB,
+    );
+    check_equal(
+        internal,
+        "wsi_sparse_pixel_length",
+        "Pixel Data contains two 2x2 RGB frames.",
+        "Pixel Data length differs from two 2x2 RGB frames.",
+        bytes.len(),
+        24,
+    );
+    check_equal(
+        internal,
+        "wsi_sparse_payload_sha256",
+        "Stored sparse payload hash matches.",
+        "Stored sparse payload hash differs.",
+        sha256_hex(bytes.as_ref()).as_str(),
+        PAYLOAD_HASH,
+    );
+    for (index, locked) in FRAME_HASHES.iter().enumerate() {
+        let start = index * 12;
+        let actual = bytes.get(start..start + 12).map(sha256_hex);
+        check_equal(
+            internal,
+            &format!("wsi_sparse_frame_{}_sha256", index + 1),
+            "Sparse tile frame hash matches the contract.",
+            "Sparse tile frame hash does not match the contract.",
+            actual.as_deref(),
+            Some(*locked),
+        );
+    }
+    let reconstructed = reconstruct_tiled_sparse_matrix(bytes.as_ref(), &positions);
+    check_equal(
+        internal,
+        "wsi_sparse_occupancy_mask",
+        "Explicit positions reconstruct the locked present/absent occupancy mask.",
+        "Explicit positions reconstruct a different occupancy mask.",
+        reconstructed
+            .as_ref()
+            .map(|(_, occupancy)| occupancy.as_slice()),
+        Some([true, false, false, true].as_slice()),
+    );
+    check_equal(
+        internal,
+        "wsi_sparse_sentinel_matrix_sha256",
+        "Explicit positions reconstruct the locked black-sentinel matrix.",
+        "Explicit positions reconstruct a different black-sentinel matrix.",
+        reconstructed
+            .as_ref()
+            .map(|(matrix, _)| sha256_hex(matrix))
+            .as_deref(),
+        Some(MATRIX_HASH),
+    );
+
+    for (name, tags_to_check) in [
+        (
+            "references",
+            &[
+                tags::REFERENCED_SERIES_SEQUENCE,
+                tags::STUDIES_CONTAINING_OTHER_REFERENCED_INSTANCES_SEQUENCE,
+            ][..],
+        ),
+        (
+            "concatenation",
+            &[
+                tags::CONCATENATION_UID,
+                tags::IN_CONCATENATION_NUMBER,
+                tags::CONCATENATION_FRAME_OFFSET_NUMBER,
+                tags::SOP_INSTANCE_UID_OF_CONCATENATION_SOURCE,
+            ][..],
+        ),
+        ("multi_resolution_pyramid", &[tags::PYRAMID_UID][..]),
+        (
+            "extended_depth_of_field_detail",
+            &[
+                tags::NUMBER_OF_FOCAL_PLANES,
+                tags::DISTANCE_BETWEEN_FOCAL_PLANES,
+            ][..],
+        ),
+        (
+            "lossy_detail",
+            &[
+                tags::LOSSY_IMAGE_COMPRESSION_RATIO,
+                tags::LOSSY_IMAGE_COMPRESSION_METHOD,
+            ][..],
+        ),
+        (
+            "specimen_reference",
+            &[tags::SPECIMEN_REFERENCE_SEQUENCE][..],
+        ),
+        ("top_level_icc_profile", &[tags::ICC_PROFILE][..]),
+    ] {
+        check(
+            internal,
+            tags_to_check
+                .iter()
+                .all(|tag| obj.element_opt(*tag).is_ok_and(|value| value.is_none())),
+            &format!("wsi_sparse_{name}_absent"),
+            "Locked optional content is absent.",
+            "Locked optional content is unexpectedly present.",
+        );
+    }
+    Ok(())
+}
+
+fn validate_wsi_sparse_shared_groups(
+    path: &Path,
+    obj: &OpenedObject,
+    internal: &mut Vec<Value>,
+) -> Result<(), GenerateError> {
+    check_equal(
+        internal,
+        "wsi_sparse_shared_functional_groups_items",
+        "Shared Functional Groups Sequence has one item.",
+        "Shared Functional Groups Sequence cardinality differs.",
+        sequence_item_count(path, obj, tags::SHARED_FUNCTIONAL_GROUPS_SEQUENCE)?,
+        1,
+    );
+    let shared = top_level_sequence_item(path, obj, tags::SHARED_FUNCTIONAL_GROUPS_SEQUENCE, 0)?;
+    check(
+        internal,
+        shared.iter().count() == 2
+            && shared.iter().all(|element| {
+                matches!(
+                    element.tag(),
+                    tags::PIXEL_MEASURES_SEQUENCE
+                        | tags::WHOLE_SLIDE_MICROSCOPY_IMAGE_FRAME_TYPE_SEQUENCE
+                )
+            }),
+        "wsi_sparse_shared_macro_set",
+        "Shared Functional Groups contain exactly Pixel Measures and WSI Frame Type.",
+        "Shared Functional Groups contain an unexpected or missing Macro.",
+    );
+    let measures = item_sequence_item(path, shared, tags::PIXEL_MEASURES_SEQUENCE, 0)?;
+    check_equal(
+        internal,
+        "wsi_sparse_pixel_measures_items",
+        "Pixel Measures has one item.",
+        "Pixel Measures item count differs.",
+        item_sequence_item_count(path, shared, tags::PIXEL_MEASURES_SEQUENCE)?,
+        1,
+    );
+    check_equal(
+        internal,
+        "wsi_sparse_pixel_spacing",
+        "Pixel Spacing matches.",
+        "Pixel Spacing differs.",
+        item_f64_values(path, measures, tags::PIXEL_SPACING)?,
+        vec![0.5, 0.5],
+    );
+    check_equal(
+        internal,
+        "wsi_sparse_slice_thickness",
+        "Slice Thickness matches.",
+        "Slice Thickness differs.",
+        item_f64(path, measures, tags::SLICE_THICKNESS)?,
+        0.001,
+    );
+    check_equal(
+        internal,
+        "wsi_sparse_frame_type_items",
+        "Shared WSI Frame Type has one item.",
+        "Shared WSI Frame Type count differs.",
+        item_sequence_item_count(
+            path,
+            shared,
+            tags::WHOLE_SLIDE_MICROSCOPY_IMAGE_FRAME_TYPE_SEQUENCE,
+        )?,
+        1,
+    );
+    check_equal(
+        internal,
+        "wsi_sparse_frame_type",
+        "Shared Frame Type matches Image Type.",
+        "Shared Frame Type differs.",
+        nested_sequence_item_str(
+            path,
+            shared,
+            tags::WHOLE_SLIDE_MICROSCOPY_IMAGE_FRAME_TYPE_SEQUENCE,
+            0,
+            tags::FRAME_TYPE,
+        )?,
+        "ORIGINAL\\PRIMARY\\VOLUME\\NONE".to_string(),
+    );
+    Ok(())
+}
+
+fn validate_wsi_sparse_per_frame(
+    path: &Path,
+    obj: &OpenedObject,
+    internal: &mut Vec<Value>,
+) -> Result<Vec<(usize, usize)>, GenerateError> {
+    const LOCKED: [([u32; 2], usize, usize, f64, f64); 2] =
+        [([1, 1], 1, 1, 0.0, 0.0), ([2, 2], 3, 3, 1.0, 1.0)];
+    check_equal(
+        internal,
+        "wsi_sparse_per_frame_items",
+        "Per-Frame Functional Groups has two items.",
+        "Per-Frame Functional Groups count differs.",
+        sequence_item_count(path, obj, tags::PER_FRAME_FUNCTIONAL_GROUPS_SEQUENCE)?,
+        2,
+    );
+    let mut positions = Vec::with_capacity(2);
+    for (index, (dimension_values, column, row, x, y)) in LOCKED.into_iter().enumerate() {
+        let frame =
+            top_level_sequence_item(path, obj, tags::PER_FRAME_FUNCTIONAL_GROUPS_SEQUENCE, index)?;
+        check(
+            internal,
+            frame.iter().count() == 3
+                && frame.iter().all(|element| {
+                    matches!(
+                        element.tag(),
+                        tags::FRAME_CONTENT_SEQUENCE
+                            | tags::PLANE_POSITION_SLIDE_SEQUENCE
+                            | tags::OPTICAL_PATH_IDENTIFICATION_SEQUENCE
+                    )
+                }),
+            &format!("wsi_sparse_frame_{}_macro_set", index + 1),
+            "Per-frame item contains exactly the three locked Macros.",
+            "Per-frame item contains an unexpected or missing Macro.",
+        );
+        for (name, tag) in [
+            ("frame_content", tags::FRAME_CONTENT_SEQUENCE),
+            ("plane_position", tags::PLANE_POSITION_SLIDE_SEQUENCE),
+            ("optical_path", tags::OPTICAL_PATH_IDENTIFICATION_SEQUENCE),
+        ] {
+            check_equal(
+                internal,
+                &format!("wsi_sparse_frame_{}_{}_items", index + 1, name),
+                "Per-frame Macro has one item.",
+                "Per-frame Macro count differs.",
+                item_sequence_item_count(path, frame, tag)?,
+                1,
+            );
+        }
+        let content = item_sequence_item(path, frame, tags::FRAME_CONTENT_SEQUENCE, 0)?;
+        check(
+            internal,
+            content.iter().count() == 1
+                && content
+                    .iter()
+                    .all(|element| element.tag() == tags::DIMENSION_INDEX_VALUES),
+            &format!("wsi_sparse_frame_{}_content_attributes", index + 1),
+            "Frame Content contains exactly Dimension Index Values.",
+            "Frame Content contains an unexpected or missing attribute.",
+        );
+        check_equal(
+            internal,
+            &format!("wsi_sparse_frame_{}_dimension_index_vr", index + 1),
+            "Dimension Index Values use UL VR.",
+            "Dimension Index Values do not use UL VR.",
+            content
+                .element(tags::DIMENSION_INDEX_VALUES)
+                .map_err(|err| validation_error(path, err))?
+                .vr(),
+            VR::UL,
+        );
+        check_equal(
+            internal,
+            &format!("wsi_sparse_frame_{}_dimension_index_values", index + 1),
+            "Dimension Index Values match the locked ordinals.",
+            "Dimension Index Values differ from the locked ordinals.",
+            item_u32_values(path, content, tags::DIMENSION_INDEX_VALUES)?,
+            dimension_values.to_vec(),
+        );
+        let plane = item_sequence_item(path, frame, tags::PLANE_POSITION_SLIDE_SEQUENCE, 0)?;
+        check(
+            internal,
+            plane.iter().count() == 5
+                && plane.iter().all(|element| {
+                    matches!(
+                        element.tag(),
+                        tags::COLUMN_POSITION_IN_TOTAL_IMAGE_PIXEL_MATRIX
+                            | tags::ROW_POSITION_IN_TOTAL_IMAGE_PIXEL_MATRIX
+                            | tags::X_OFFSET_IN_SLIDE_COORDINATE_SYSTEM
+                            | tags::Y_OFFSET_IN_SLIDE_COORDINATE_SYSTEM
+                            | tags::Z_OFFSET_IN_SLIDE_COORDINATE_SYSTEM
+                    )
+                }),
+            &format!("wsi_sparse_frame_{}_plane_attributes", index + 1),
+            "Plane Position (Slide) contains exactly the locked position attributes.",
+            "Plane Position (Slide) contains an unexpected or missing attribute.",
+        );
+        check(
+            internal,
+            [
+                tags::COLUMN_POSITION_IN_TOTAL_IMAGE_PIXEL_MATRIX,
+                tags::ROW_POSITION_IN_TOTAL_IMAGE_PIXEL_MATRIX,
+            ]
+            .iter()
+            .all(|tag| {
+                plane
+                    .element(*tag)
+                    .is_ok_and(|element| element.vr() == VR::SL)
+            }),
+            &format!("wsi_sparse_frame_{}_position_vrs", index + 1),
+            "Matrix row and column positions use SL VR.",
+            "Matrix row or column position does not use SL VR.",
+        );
+        let actual_column = item_u32(
+            path,
+            plane,
+            tags::COLUMN_POSITION_IN_TOTAL_IMAGE_PIXEL_MATRIX,
+        )? as usize;
+        let actual_row =
+            item_u32(path, plane, tags::ROW_POSITION_IN_TOTAL_IMAGE_PIXEL_MATRIX)? as usize;
+        for (name, actual, locked) in [("column", actual_column, column), ("row", actual_row, row)]
+        {
+            check_equal(
+                internal,
+                &format!("wsi_sparse_frame_{}_{}_position", index + 1, name),
+                "Tile matrix position matches.",
+                "Tile matrix position differs.",
+                actual,
+                locked,
+            );
+        }
+        for (name, tag, locked) in [
+            ("x", tags::X_OFFSET_IN_SLIDE_COORDINATE_SYSTEM, x),
+            ("y", tags::Y_OFFSET_IN_SLIDE_COORDINATE_SYSTEM, y),
+            ("z", tags::Z_OFFSET_IN_SLIDE_COORDINATE_SYSTEM, 0.0),
+        ] {
+            check_equal(
+                internal,
+                &format!("wsi_sparse_frame_{}_{}_offset", index + 1, name),
+                "Slide-coordinate offset matches geometry.",
+                "Slide-coordinate offset differs from geometry.",
+                item_f64(path, plane, tag)?,
+                locked,
+            );
+        }
+        check_equal(
+            internal,
+            &format!("wsi_sparse_frame_{}_optical_path_identifier", index + 1),
+            "Frame references the RGB optical path.",
+            "Frame references a different optical path.",
+            nested_sequence_item_str(
+                path,
+                frame,
+                tags::OPTICAL_PATH_IDENTIFICATION_SEQUENCE,
+                0,
+                tags::OPTICAL_PATH_IDENTIFIER,
+            )?
+            .as_str(),
+            "RGB",
+        );
+        let optical =
+            item_sequence_item(path, frame, tags::OPTICAL_PATH_IDENTIFICATION_SEQUENCE, 0)?;
+        check(
+            internal,
+            optical.iter().count() == 1
+                && optical
+                    .iter()
+                    .all(|element| element.tag() == tags::OPTICAL_PATH_IDENTIFIER),
+            &format!("wsi_sparse_frame_{}_optical_path_attributes", index + 1),
+            "Optical Path Identification contains exactly the locked identifier.",
+            "Optical Path Identification contains an unexpected or missing attribute.",
+        );
+        positions.push((actual_column, actual_row));
+    }
+    Ok(positions)
+}
+
+fn reconstruct_tiled_sparse_matrix(
+    pixel_bytes: &[u8],
+    positions: &[(usize, usize)],
+) -> Option<(Vec<u8>, [bool; 4])> {
+    if pixel_bytes.len() != positions.len() * 12 || positions.len() != 2 {
+        return None;
+    }
+    let mut matrix = vec![0_u8; 48];
+    let mut occupancy = [false; 4];
+    for (frame, &(column, row)) in positions.iter().enumerate() {
+        if !matches!(column, 1 | 3) || !matches!(row, 1 | 3) {
+            return None;
+        }
+        let tile_column = (column - 1) / 2;
+        let tile_row = (row - 1) / 2;
+        let occupancy_index = tile_row * 2 + tile_column;
+        if occupancy[occupancy_index] {
+            return None;
+        }
+        occupancy[occupancy_index] = true;
+        for tile_pixel_row in 0..2 {
+            let source = frame * 12 + tile_pixel_row * 6;
+            let destination = ((tile_row * 2 + tile_pixel_row) * 4 + tile_column * 2) * 3;
+            matrix[destination..destination + 6].copy_from_slice(&pixel_bytes[source..source + 6]);
+        }
+    }
+    Some((matrix, occupancy))
 }
 
 fn valid_dicom_uid(value: &str) -> bool {
@@ -18195,6 +18996,22 @@ fn item_u32(path: &Path, obj: &DatasetObject, tag: Tag) -> Result<u32, GenerateE
         .map_err(|err| validation_error(path, err))?
         .value()
         .to_int::<u32>()
+        .map_err(|err| validation_error(path, err))
+}
+
+fn item_u32_values(path: &Path, obj: &DatasetObject, tag: Tag) -> Result<Vec<u32>, GenerateError> {
+    obj.element(tag)
+        .map_err(|err| validation_error(path, err))?
+        .value()
+        .to_multi_int::<u32>()
+        .map_err(|err| validation_error(path, err))
+}
+
+fn item_tag(path: &Path, obj: &DatasetObject, tag: Tag) -> Result<Tag, GenerateError> {
+    obj.element(tag)
+        .map_err(|err| validation_error(path, err))?
+        .value()
+        .to_tag()
         .map_err(|err| validation_error(path, err))
 }
 

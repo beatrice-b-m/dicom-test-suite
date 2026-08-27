@@ -43,6 +43,11 @@ use native::sequence_length_sc::{
     SEQUENCE_LENGTH_SC_RECIPE, SequenceLengthScRecipe, SequenceLengthVariant,
     SequenceLengthVariantId, UNDEFINED_ITEM_ENCODED_LENGTH,
 };
+use native::spatial_registration::{
+    SOURCE_TO_TARGET_MATRIX, SPATIAL_REGISTRATION_OUTPUT_FILE, SPATIAL_REGISTRATION_STORAGE_UID,
+    SpatialRegistrationInput, SpatialRegistrationReference, TARGET_IDENTITY_MATRIX,
+    build_spatial_registration,
+};
 use native::string_boundary_sc::{STRING_BOUNDARY_SC_RECIPE, StringBoundaryScRecipe};
 use native::timezone_sc::{TIMEZONE_SC_RECIPE, TimezoneBoundary, TimezoneScRecipe};
 use native::us_multiframe::{CLASSIC_US_MULTIFRAME_RECIPES, ClassicUsMultiframeRecipe};
@@ -79,13 +84,14 @@ use crate::{
         NmEnergyWindowExpectations, NmImageExpectations, Part10Expectations, PetImageExpectations,
         PixelDataLengthFormula, PresentationStateExpectations, RealWorldValueMappingExpectations,
         RtDoseExpectations, RtStructureSetExpectations, Scoord3dExpectations,
-        SegmentationExpectations, Tid1500Expectations, UsImageExpectations,
+        SegmentationExpectations, SpatialRegistrationExpectations,
+        SpatialRegistrationReferenceExpectations, Tid1500Expectations, UsImageExpectations,
         UsMultiframeExpectations, XaImageExpectations, XrfImageExpectations,
         validate_basic_text_sr_file, validate_comprehensive_sr_file,
         validate_encapsulated_pdf_file, validate_key_object_selection_file, validate_part10_file,
         validate_presentation_state_file, validate_real_world_value_mapping_file,
         validate_rt_dose_file, validate_rt_structure_set_file, validate_scoord3d_file,
-        validate_tid1500_file,
+        validate_spatial_registration_file, validate_tid1500_file,
     },
 };
 
@@ -180,6 +186,12 @@ const SCOORD3D_RECIPE_VERSION: &str = "0.1.0";
 const SCOORD3D_OUTPUT_FILE: &str = "scoord3d-report.dcm";
 const SCOORD3D_SOP_CLASS_UID: &str = "1.2.840.10008.5.1.4.1.1.88.34";
 const SCOORD3D_CT_SOURCE_CASE_ID: &str = "enhanced/ct/multiframe_shared_perframe_explicit_le";
+const SPATIAL_REGISTRATION_CASE_ID: &str = "derived/registration/spatial_ct_pair";
+const SPATIAL_REGISTRATION_RECIPE_ID: &str = "derived_registration_spatial_ct_pair";
+const SPATIAL_REGISTRATION_RECIPE_VERSION: &str = "0.1.0";
+const SPATIAL_REGISTRATION_TARGET_CASE_ID: &str =
+    "enhanced/ct/multiframe_shared_perframe_explicit_le";
+const SPATIAL_REGISTRATION_SOURCE_CASE_ID: &str = "classic/ct/mono2_i16_rescale_12bit_explicit_le";
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct TransferSyntaxSpec {
     capability_keyword: &'static str,
@@ -3846,6 +3858,58 @@ pub(crate) fn write_supported_cases(
             }
         }
     }
+    if let Some(case) = registry_case(registry, SPATIAL_REGISTRATION_CASE_ID)? {
+        if should_generate_case(case, run)? {
+            if context
+                .source_registry()
+                .first_for_case(SPATIAL_REGISTRATION_SOURCE_CASE_ID)
+                .is_none()
+            {
+                let source_case = registry_case(registry, SPATIAL_REGISTRATION_SOURCE_CASE_ID)?
+                    .ok_or_else(|| GenerateError::MetadataShape {
+                        path: PathBuf::from(SPATIAL_REGISTRATION_CASE_ID),
+                        message: "Spatial Registration moving CT registry row is missing",
+                    })?;
+                let source_recipe = CLASSIC_CT_RECIPES
+                    .iter()
+                    .find(|recipe| recipe.case_id == SPATIAL_REGISTRATION_SOURCE_CASE_ID)
+                    .copied()
+                    .ok_or_else(|| GenerateError::MetadataShape {
+                        path: PathBuf::from(SPATIAL_REGISTRATION_CASE_ID),
+                        message: "Spatial Registration moving CT native recipe is missing",
+                    })?;
+                context.record_many(write_classic_ct_case(
+                    run,
+                    source_case,
+                    source_recipe,
+                    standards_lock_sha256,
+                )?)?;
+            }
+            let target = context
+                .source_registry()
+                .first_for_case(SPATIAL_REGISTRATION_TARGET_CASE_ID)
+                .cloned()
+                .ok_or_else(|| GenerateError::MetadataShape {
+                    path: PathBuf::from(SPATIAL_REGISTRATION_CASE_ID),
+                    message: "Spatial Registration target Enhanced CT must be generated first",
+                })?;
+            let source = context
+                .source_registry()
+                .first_for_case(SPATIAL_REGISTRATION_SOURCE_CASE_ID)
+                .cloned()
+                .ok_or_else(|| GenerateError::MetadataShape {
+                    path: PathBuf::from(SPATIAL_REGISTRATION_CASE_ID),
+                    message: "Spatial Registration moving classic CT must be generated first",
+                })?;
+            context.record_one(write_spatial_registration_case(
+                run,
+                case,
+                &target,
+                &source,
+                standards_lock_sha256,
+            )?)?;
+        }
+    }
     for recipe in PRESENTATION_STATE_RECIPES {
         let Some(case) = registry_case(registry, recipe.case_id)? else {
             continue;
@@ -5442,6 +5506,474 @@ fn scoord3d_generated_file(
             "standards_evidence": deduplicated_standards_evidence(standards_evidence_from_case(case))
         }),
     })
+}
+
+fn write_spatial_registration_case(
+    run: &PreparedGenerationRun,
+    case: &Value,
+    target: &GeneratedSourceObject,
+    source: &GeneratedSourceObject,
+    standards_lock_sha256: &str,
+) -> Result<GeneratedFile, GenerateError> {
+    validate_spatial_registration_sources(&run.out_dir, target, source)?;
+    let target_series = required_source_uid(
+        target.series_instance_uid.as_deref(),
+        "Spatial Registration target Series Instance UID is missing",
+    )?;
+    let target_for = required_source_uid(
+        target.frame_of_reference_uid.as_deref(),
+        "Spatial Registration target Frame of Reference UID is missing",
+    )?;
+    let source_series = required_source_uid(
+        source.series_instance_uid.as_deref(),
+        "Spatial Registration source Series Instance UID is missing",
+    )?;
+    let source_for = required_source_uid(
+        source.frame_of_reference_uid.as_deref(),
+        "Spatial Registration source Frame of Reference UID is missing",
+    )?;
+    let uid = |role| {
+        deterministic_uid(&DeterministicUidInput {
+            standards_lock_sha256,
+            case_id: SPATIAL_REGISTRATION_CASE_ID,
+            recipe_version: SPATIAL_REGISTRATION_RECIPE_VERSION,
+            run_seed: run.seed,
+            file_index: 0,
+            frame_index: None,
+            referenced_object_index: None,
+            role,
+        })
+    };
+    let series_instance_uid = uid(UidRole::SeriesInstance);
+    let sop_instance_uid = uid(UidRole::SopInstance);
+    let implementation_class_uid = deterministic_implementation_uid(standards_lock_sha256);
+    let relative_path =
+        format!("{SPATIAL_REGISTRATION_CASE_ID}/{SPATIAL_REGISTRATION_OUTPUT_FILE}");
+    let path = run.out_dir.join(&relative_path);
+    let case_dir = path.parent().ok_or_else(|| GenerateError::MetadataShape {
+        path: PathBuf::from(&relative_path),
+        message: "Spatial Registration output must have a parent directory",
+    })?;
+    fs::create_dir_all(case_dir).map_err(|source| GenerateError::CreateCaseOutputDir {
+        path: case_dir.to_path_buf(),
+        source,
+    })?;
+
+    let object = build_spatial_registration(SpatialRegistrationInput {
+        sop_instance_uid: &sop_instance_uid,
+        series_instance_uid: &series_instance_uid,
+        target: SpatialRegistrationReference {
+            study_instance_uid: &target.study_instance_uid,
+            series_instance_uid: target_series,
+            sop_class_uid: &target.sop_class_uid,
+            sop_instance_uid: &target.sop_instance_uid,
+            frame_of_reference_uid: target_for,
+        },
+        source: SpatialRegistrationReference {
+            study_instance_uid: &source.study_instance_uid,
+            series_instance_uid: source_series,
+            sop_class_uid: &source.sop_class_uid,
+            sop_instance_uid: &source.sop_instance_uid,
+            frame_of_reference_uid: source_for,
+        },
+    })
+    .map_err(|message| GenerateError::WriteDicomFile {
+        path: path.clone(),
+        message,
+    })?;
+    object
+        .with_meta(
+            FileMetaTableBuilder::new()
+                .transfer_syntax(EXPLICIT_VR_LITTLE_ENDIAN.uid)
+                .implementation_class_uid(&implementation_class_uid)
+                .implementation_version_name(crate::IMPLEMENTATION_VERSION_NAME),
+        )
+        .map_err(|error| GenerateError::WriteDicomFile {
+            path: path.clone(),
+            message: error.to_string(),
+        })?
+        .write_to_file(&path)
+        .map_err(|error| GenerateError::WriteDicomFile {
+            path: path.clone(),
+            message: error.to_string(),
+        })?;
+    let target_matrix = TARGET_IDENTITY_MATRIX.map(|value| {
+        value
+            .parse::<f64>()
+            .expect("locked target matrix values are numeric")
+    });
+    let source_matrix = SOURCE_TO_TARGET_MATRIX.map(|value| {
+        value
+            .parse::<f64>()
+            .expect("locked source matrix values are numeric")
+    });
+    let validated = validate_spatial_registration_file(
+        &path,
+        &SpatialRegistrationExpectations {
+            sop_class_uid: SPATIAL_REGISTRATION_STORAGE_UID,
+            sop_instance_uid: &sop_instance_uid,
+            transfer_syntax_uid: EXPLICIT_VR_LITTLE_ENDIAN.uid,
+            implementation_class_uid: &implementation_class_uid,
+            synthetic_data: "YES",
+            patient_id: "DTS-PATIENT-001",
+            study_instance_uid: &target.study_instance_uid,
+            study_id: "DTS-ECT",
+            series_instance_uid: &series_instance_uid,
+            series_number: "8003",
+            laterality: "R",
+            modality: "REG",
+            instance_number: "1",
+            content_date: "20260101",
+            content_time: "000000",
+            content_label: "DTS_RIGID_REG",
+            content_description: "Rigid CT pair registration",
+            content_creator_name: "DTS^Generator",
+            manufacturer: "dicom-test-suite",
+            manufacturer_model_name: "Native Spatial Registration",
+            device_serial_number: "DTS-REG-001",
+            software_versions: crate::PACKAGE_VERSION,
+            registered_frame_of_reference_uid: target_for,
+            target: SpatialRegistrationReferenceExpectations {
+                study_instance_uid: &target.study_instance_uid,
+                series_instance_uid: target_series,
+                sop_class_uid: &target.sop_class_uid,
+                sop_instance_uid: &target.sop_instance_uid,
+                frame_of_reference_uid: target_for,
+            },
+            source: SpatialRegistrationReferenceExpectations {
+                study_instance_uid: &source.study_instance_uid,
+                series_instance_uid: source_series,
+                sop_class_uid: &source.sop_class_uid,
+                sop_instance_uid: &source.sop_instance_uid,
+                frame_of_reference_uid: source_for,
+            },
+            target_matrix,
+            source_to_registered_matrix: source_matrix,
+            source_landmark_mm: [-0.625, -0.625, 0.0],
+            registered_landmark_mm: [0.0, 0.0, 2.5],
+            rigid_tolerance: 0.000001,
+        },
+    )?;
+    let mut validation = validated.validation;
+    validation["internal"]
+        .as_array_mut()
+        .expect("Spatial Registration validation internal results are an array")
+        .push(serde_json::json!({
+            "name": "spatial_registration_source_geometry",
+            "status": "passed",
+            "message": "Rust reopened both CT sources and verified identities, hashes, Frames of Reference, and locked geometry before construction."
+        }));
+    let bytes = validated.bytes;
+    let source_identity = |object: &GeneratedSourceObject| {
+        serde_json::json!({
+            "source_case_id": object.source_case_id,
+            "source_path": object.source_path,
+            "source_sha256": object.sha256,
+            "study_instance_uid": object.study_instance_uid,
+            "series_instance_uid": object.series_instance_uid,
+            "sop_class_uid": object.sop_class_uid,
+            "sop_instance_uid": object.sop_instance_uid,
+            "frame_of_reference_uid": object.frame_of_reference_uid
+        })
+    };
+    let target_identity = source_identity(target);
+    let source_identity = source_identity(source);
+    let expected_spatial_registration = serde_json::json!({
+        "registered_frame_of_reference_uid": target_for,
+        "matrix_direction": "source_to_registered",
+        "registration_items": [
+            {
+                "role": "registered_target",
+                "source": target_identity,
+                "complete_instance": true,
+                "matrix_registration_items": 1,
+                "registration_type_code_items": 0,
+                "matrix_items": 1,
+                "matrix": {"type": "RIGID", "values": target_matrix}
+            },
+            {
+                "role": "moving_source",
+                "source": source_identity,
+                "complete_instance": true,
+                "matrix_registration_items": 1,
+                "registration_type_code_items": 0,
+                "matrix_items": 1,
+                "matrix": {"type": "RIGID", "values": source_matrix}
+            }
+        ],
+        "rigid_tolerances": {
+            "orthonormal_abs": 0.000001,
+            "determinant_abs": 0.000001,
+            "homogeneous_abs": 0.000001
+        },
+        "landmark": {
+            "source_point_mm": [-0.625, -0.625, 0.0],
+            "registered_point_mm": [0.0, 0.0, 2.5],
+            "tolerance_mm": 0.000001
+        },
+        "common_instance_reference": {
+            "same_study": target_identity,
+            "other_studies": [source_identity]
+        },
+        "pixel_data_absent": true
+    });
+    Ok(GeneratedFile {
+        case_id: SPATIAL_REGISTRATION_CASE_ID.to_string(),
+        manifest_entry: serde_json::json!({
+            "case_id": SPATIAL_REGISTRATION_CASE_ID,
+            "profile_membership": ["extended"],
+            "path": relative_path,
+            "sha256": sha256_hex(&bytes),
+            "size_bytes": bytes.len(),
+            "determinism": "byte_stable",
+            "recipe": {
+                "recipe_id": SPATIAL_REGISTRATION_RECIPE_ID,
+                "recipe_version": SPATIAL_REGISTRATION_RECIPE_VERSION,
+                "recipe_parameters": {
+                    "matrix_direction": "source_to_registered",
+                    "target_identity_matrix": target_matrix,
+                    "source_to_registered_matrix": source_matrix,
+                    "landmark_source_mm": [-0.625, -0.625, 0.0],
+                    "landmark_registered_mm": [0.0, 0.0, 2.5]
+                }
+            },
+            "dicom": {
+                "sop_class_uid": SPATIAL_REGISTRATION_STORAGE_UID,
+                "sop_class_name": "Spatial Registration Storage",
+                "iod_name": "Spatial Registration",
+                "modality": "REG",
+                "transfer_syntax_uid": EXPLICIT_VR_LITTLE_ENDIAN.uid,
+                "transfer_syntax_name": EXPLICIT_VR_LITTLE_ENDIAN.name
+            },
+            "uids": {
+                "study_instance_uid": target.study_instance_uid,
+                "series_instance_uid": series_instance_uid,
+                "sop_instance_uid": sop_instance_uid,
+                "frame_of_reference_uid": target_for,
+                "implementation_class_uid": implementation_class_uid,
+                "implementation_version_name": crate::IMPLEMENTATION_VERSION_NAME
+            },
+            "image": Value::Null,
+            "pixel_data": Value::Null,
+            "references": [
+                target.to_manifest_reference("registered_target", None),
+                source.to_manifest_reference("moving_source", None)
+            ],
+            "expected_capabilities": [
+                "open_file", "read_metadata", "resolve_references",
+                "read_spatial_registration", "apply_rigid_transform",
+                "fuse_registered_images"
+            ],
+            "expected_semantics": {
+                "synthetic_data": "YES",
+                "registered_frame_of_reference_uid": target_for,
+                "matrix_direction": "source_to_registered",
+                "pixel_data_absent": true
+            },
+            "expected_spatial_registration": expected_spatial_registration,
+            "expected_visual_checks": {
+                "pattern": "moving_ct_origin_maps_to_enhanced_ct_frame_2_origin"
+            },
+            "validation": validation,
+            "known_stressors": [
+                "spatial_registration_storage", "two_frames_of_reference",
+                "identity_and_nonidentity_rigid_matrices", "matrix_directionality",
+                "cross_study_references", "landmark_transform"
+            ],
+            "standards_evidence": deduplicated_standards_evidence(standards_evidence_from_case(case))
+        }),
+    })
+}
+
+fn required_source_uid<'a>(
+    value: Option<&'a str>,
+    message: &'static str,
+) -> Result<&'a str, GenerateError> {
+    value.ok_or(GenerateError::MetadataShape {
+        path: PathBuf::from(SPATIAL_REGISTRATION_CASE_ID),
+        message,
+    })
+}
+
+fn validate_spatial_registration_sources(
+    generated_root: &std::path::Path,
+    target: &GeneratedSourceObject,
+    source: &GeneratedSourceObject,
+) -> Result<(), GenerateError> {
+    let target_path = generated_root.join(&target.source_path);
+    let source_path = generated_root.join(&source.source_path);
+    let target_bytes = fs::read(&target_path).map_err(|error| GenerateError::ReadMetadata {
+        path: target_path.clone(),
+        source: error,
+    })?;
+    let source_bytes = fs::read(&source_path).map_err(|error| GenerateError::ReadMetadata {
+        path: source_path.clone(),
+        source: error,
+    })?;
+    if sha256_hex(&target_bytes) != target.sha256 || sha256_hex(&source_bytes) != source.sha256 {
+        return Err(spatial_registration_source_error(
+            "Spatial Registration source bytes differ from their manifest hashes",
+        ));
+    }
+    let target_object =
+        open_file(&target_path).map_err(|error| GenerateError::ValidateDicomFile {
+            path: target_path.clone(),
+            message: error.to_string(),
+        })?;
+    let source_object =
+        open_file(&source_path).map_err(|error| GenerateError::ValidateDicomFile {
+            path: source_path.clone(),
+            message: error.to_string(),
+        })?;
+    validate_spatial_registration_source_identity(&target_object, target, 2)?;
+    validate_spatial_registration_source_identity(&source_object, source, 1)?;
+    if target.source_case_id != SPATIAL_REGISTRATION_TARGET_CASE_ID
+        || target.sop_class_uid != uids::ENHANCED_CT_IMAGE_STORAGE
+        || source.source_case_id != SPATIAL_REGISTRATION_SOURCE_CASE_ID
+        || source.sop_class_uid != uids::CT_IMAGE_STORAGE
+        || target.study_instance_uid == source.study_instance_uid
+        || target.frame_of_reference_uid == source.frame_of_reference_uid
+    {
+        return Err(spatial_registration_source_error(
+            "Spatial Registration requires the locked distinct-study, distinct-Frame-of-Reference CT pair",
+        ));
+    }
+
+    let shared_element = target_object
+        .element(tags::SHARED_FUNCTIONAL_GROUPS_SEQUENCE)
+        .map_err(|error| spatial_registration_source_error(error.to_string()))?;
+    let shared = shared_element.items().ok_or_else(|| {
+        spatial_registration_source_error("Enhanced CT Shared Functional Groups is not a sequence")
+    })?;
+    let orientation = shared
+        .first()
+        .and_then(|item| item.element(tags::PLANE_ORIENTATION_SEQUENCE).ok())
+        .and_then(|element| element.items())
+        .and_then(|items| items.first())
+        .and_then(|item| item.element(tags::IMAGE_ORIENTATION_PATIENT).ok())
+        .and_then(|element| element.to_multi_float64().ok())
+        .ok_or_else(|| spatial_registration_source_error("Enhanced CT orientation is missing"))?;
+    if orientation != [1.0, 0.0, 0.0, 0.0, 1.0, 0.0] {
+        return Err(spatial_registration_source_error(
+            "Enhanced CT orientation differs from the locked axial geometry",
+        ));
+    }
+    let pixel_measures = shared
+        .first()
+        .and_then(|item| item.element(tags::PIXEL_MEASURES_SEQUENCE).ok())
+        .and_then(|element| element.items())
+        .and_then(|items| items.first())
+        .ok_or_else(|| {
+            spatial_registration_source_error("Enhanced CT Pixel Measures is missing")
+        })?;
+    let pixel_spacing = pixel_measures
+        .element(tags::PIXEL_SPACING)
+        .ok()
+        .and_then(|element| element.to_multi_float64().ok());
+    let slice_thickness = pixel_measures
+        .element(tags::SLICE_THICKNESS)
+        .ok()
+        .and_then(|element| element.to_multi_float64().ok());
+    let spacing_between_slices = pixel_measures
+        .element(tags::SPACING_BETWEEN_SLICES)
+        .ok()
+        .and_then(|element| element.to_multi_float64().ok());
+    if pixel_spacing.as_deref() != Some(&[0.75, 0.75])
+        || slice_thickness.as_deref() != Some(&[2.5])
+        || spacing_between_slices.as_deref() != Some(&[2.5])
+    {
+        return Err(spatial_registration_source_error(
+            "Enhanced CT Pixel Measures differ from the locked registration geometry",
+        ));
+    }
+    let per_frame_element = target_object
+        .element(tags::PER_FRAME_FUNCTIONAL_GROUPS_SEQUENCE)
+        .map_err(|error| spatial_registration_source_error(error.to_string()))?;
+    let per_frame = per_frame_element.items().ok_or_else(|| {
+        spatial_registration_source_error(
+            "Enhanced CT Per-frame Functional Groups is not a sequence",
+        )
+    })?;
+    let positions = per_frame
+        .iter()
+        .map(|item| {
+            item.element(tags::PLANE_POSITION_SEQUENCE)
+                .ok()
+                .and_then(|element| element.items())
+                .and_then(|items| items.first())
+                .and_then(|item| item.element(tags::IMAGE_POSITION_PATIENT).ok())
+                .and_then(|element| element.to_multi_float64().ok())
+        })
+        .collect::<Option<Vec<_>>>()
+        .ok_or_else(|| {
+            spatial_registration_source_error("Enhanced CT frame positions are missing")
+        })?;
+    if positions != [[0.0, 0.0, 0.0], [0.0, 0.0, 2.5]] {
+        return Err(spatial_registration_source_error(
+            "Enhanced CT frame positions differ from the locked registration landmark",
+        ));
+    }
+    let source_orientation = source_object
+        .element(tags::IMAGE_ORIENTATION_PATIENT)
+        .map_err(|error| spatial_registration_source_error(error.to_string()))?
+        .to_multi_float64()
+        .map_err(|error| spatial_registration_source_error(error.to_string()))?;
+    let source_position = source_object
+        .element(tags::IMAGE_POSITION_PATIENT)
+        .map_err(|error| spatial_registration_source_error(error.to_string()))?
+        .to_multi_float64()
+        .map_err(|error| spatial_registration_source_error(error.to_string()))?;
+    if source_orientation != [1.0, 0.0, 0.0, 0.0, 1.0, 0.0]
+        || source_position != [-0.625, -0.625, 0.0]
+    {
+        return Err(spatial_registration_source_error(
+            "Classic CT source geometry differs from the locked first-pixel center",
+        ));
+    }
+    Ok(())
+}
+
+fn validate_spatial_registration_source_identity(
+    object: &dicom_object::FileDicomObject<InMemDicomObject>,
+    source: &GeneratedSourceObject,
+    expected_frames: u64,
+) -> Result<(), GenerateError> {
+    let text = |tag| {
+        object
+            .element(tag)
+            .map_err(|error| spatial_registration_source_error(error.to_string()))?
+            .to_str()
+            .map(|value| value.trim_end_matches(['\0', ' ']).to_string())
+            .map_err(|error| spatial_registration_source_error(error.to_string()))
+    };
+    let frames = object
+        .element(tags::NUMBER_OF_FRAMES)
+        .ok()
+        .and_then(|element| element.to_int::<u64>().ok())
+        .unwrap_or(1);
+    if object.meta().media_storage_sop_class_uid() != source.sop_class_uid
+        || object.meta().media_storage_sop_instance_uid() != source.sop_instance_uid
+        || text(tags::SOP_CLASS_UID)? != source.sop_class_uid
+        || text(tags::SOP_INSTANCE_UID)? != source.sop_instance_uid
+        || text(tags::STUDY_INSTANCE_UID)? != source.study_instance_uid
+        || text(tags::SERIES_INSTANCE_UID)?
+            != source.series_instance_uid.as_deref().unwrap_or_default()
+        || text(tags::FRAME_OF_REFERENCE_UID)?
+            != source.frame_of_reference_uid.as_deref().unwrap_or_default()
+        || frames != expected_frames
+    {
+        return Err(spatial_registration_source_error(
+            "Spatial Registration source DICOM identity differs from the generated-source registry",
+        ));
+    }
+    Ok(())
+}
+
+fn spatial_registration_source_error(message: impl Into<String>) -> GenerateError {
+    GenerateError::ValidateDicomFile {
+        path: PathBuf::from(SPATIAL_REGISTRATION_CASE_ID),
+        message: message.into(),
+    }
 }
 
 fn write_pixel_case(

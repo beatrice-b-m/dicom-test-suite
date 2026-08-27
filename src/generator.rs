@@ -19,6 +19,9 @@ use native::ct_geometry::{
 };
 use native::empty_type2_sc::{EMPTY_TYPE2_SC_RECIPE, EmptyType2ScRecipe};
 use native::metadata_sc::{METADATA_SC_RECIPES, MetadataScRecipe};
+use native::private_creator_sc::{
+    PRIVATE_CREATOR_SC_RECIPE, PrivateCreatorBlockRecipe, PrivateCreatorScRecipe, PrivateValue,
+};
 use native::string_boundary_sc::{STRING_BOUNDARY_SC_RECIPE, StringBoundaryScRecipe};
 use native::timezone_sc::{TIMEZONE_SC_RECIPE, TimezoneBoundary, TimezoneScRecipe};
 
@@ -3588,6 +3591,16 @@ pub(crate) fn write_supported_cases(
             )?)?;
         }
     }
+    if let Some(case) = registry_case(registry, PRIVATE_CREATOR_SC_RECIPE.pixel.case_id)? {
+        if should_generate_case(case, run)? {
+            context.record_one(write_private_creator_sc_case(
+                run,
+                case,
+                PRIVATE_CREATOR_SC_RECIPE,
+                standards_lock_sha256,
+            )?)?;
+        }
+    }
     for recipe in CLASSIC_CT_RECIPES {
         let Some(case) = registry_case(registry, recipe.case_id)? else {
             continue;
@@ -4348,6 +4361,7 @@ enum ScMetadataPayload {
     Temporal(TimezoneBoundary),
     EmptyType2(EmptyType2ScRecipe),
     StringBoundary(StringBoundaryScRecipe),
+    PrivateCreator(PrivateCreatorScRecipe),
 }
 
 fn write_metadata_sc_case(
@@ -4420,6 +4434,23 @@ fn write_string_boundary_sc_case(
         recipe.pixel,
         standards_lock_sha256,
         Some(ScMetadataPayload::StringBoundary(recipe)),
+        0,
+        "instance.dcm",
+    )
+}
+
+fn write_private_creator_sc_case(
+    run: &PreparedGenerationRun,
+    case: &Value,
+    recipe: PrivateCreatorScRecipe,
+    standards_lock_sha256: &str,
+) -> Result<GeneratedFile, GenerateError> {
+    write_pixel_case_with_metadata(
+        run,
+        case,
+        recipe.pixel,
+        standards_lock_sha256,
+        Some(ScMetadataPayload::PrivateCreator(recipe)),
         0,
         "instance.dcm",
     )
@@ -4560,6 +4591,14 @@ fn write_pixel_case_with_metadata(
             VR::DS,
             &metadata.pixel_spacing.join("\\"),
         );
+    }
+    if let Some(ScMetadataPayload::PrivateCreator(metadata)) = metadata {
+        put_private_creator_blocks(&mut obj, metadata).map_err(|message| {
+            GenerateError::WriteDicomFile {
+                path: path.clone(),
+                message,
+            }
+        })?;
     }
 
     put_str(&mut obj, tags::MODALITY, VR::CS, pixel_modality(recipe));
@@ -5231,6 +5270,9 @@ fn write_pixel_case_with_metadata(
             ScMetadataPayload::StringBoundary(recipe) => {
                 validate_string_boundary_metadata_round_trip(&path, recipe)?
             }
+            ScMetadataPayload::PrivateCreator(recipe) => {
+                validate_private_creator_metadata_round_trip(&path, recipe)?
+            }
         };
         append_internal_validation(&mut validated.validation, result);
     }
@@ -5495,6 +5537,158 @@ fn validate_string_boundary_metadata_round_trip(
         "name": "string_boundary_round_trip",
         "status": "passed",
         "message": "The LT, LO, DS, and IS boundary values reopened with exact VRs and lexical components."
+    }))
+}
+
+fn put_private_creator_blocks(
+    obj: &mut InMemDicomObject,
+    recipe: PrivateCreatorScRecipe,
+) -> Result<(), String> {
+    let mut planned_tags = BTreeSet::new();
+    let mut scoped_creator_ids = BTreeSet::new();
+    let mut previous_creator_tag = None;
+    for block in recipe.blocks {
+        if previous_creator_tag.is_some_and(|tag| tag >= block.creator_tag) {
+            return Err("private creator blocks must use ascending creator tags".to_string());
+        }
+        previous_creator_tag = Some(block.creator_tag);
+        let Tag(group, creator_element) = block.creator_tag;
+        if group % 2 == 0 || !(0x0010..=0x00FF).contains(&creator_element) {
+            return Err(format!(
+                "{} is not a valid private creator tag",
+                block.creator_tag_text
+            ));
+        }
+        if !block
+            .creator_id
+            .bytes()
+            .all(|byte| (0x20..=0x7E).contains(&byte))
+            || block.creator_id.contains(['\\', '~'])
+        {
+            return Err(format!(
+                "private creator {:?} is outside the permitted repertoire",
+                block.creator_id
+            ));
+        }
+        if !scoped_creator_ids.insert((group, block.creator_id)) {
+            return Err(format!(
+                "private creator {:?} is duplicated in group {group:04X}",
+                block.creator_id
+            ));
+        }
+        for slot in 0x0010..=0x00FF {
+            if let Ok(existing) = obj.element(Tag(group, slot)) {
+                if existing.to_str().ok().as_deref() == Some(block.creator_id) {
+                    return Err(format!(
+                        "private creator {:?} already exists in group {group:04X}",
+                        block.creator_id
+                    ));
+                }
+            }
+        }
+        if obj.element(block.creator_tag).is_ok() || !planned_tags.insert(block.creator_tag) {
+            return Err(format!(
+                "private creator tag {} is already occupied",
+                block.creator_tag_text
+            ));
+        }
+
+        let expected_high = creator_element << 8;
+        let expected_start = format!("{group:04X},{expected_high:04X}");
+        let expected_end = format!("{group:04X},{:04X}", expected_high | 0x00FF);
+        if block.block_start_tag != expected_start || block.block_end_tag != expected_end {
+            return Err(format!(
+                "private creator {} declares the wrong block range",
+                block.creator_tag_text
+            ));
+        }
+        let mut previous_element = None;
+        for element in block.elements {
+            if element.tag.0 != group || element.tag.1 & 0xFF00 != expected_high {
+                return Err(format!(
+                    "private element {} is outside its creator block",
+                    element.tag_text
+                ));
+            }
+            if previous_element.is_some_and(|tag| tag >= element.tag) {
+                return Err(format!(
+                    "private elements in {} must use ascending tags",
+                    block.creator_tag_text
+                ));
+            }
+            previous_element = Some(element.tag);
+            if obj.element(element.tag).is_ok() || !planned_tags.insert(element.tag) {
+                return Err(format!(
+                    "private element tag {} is already occupied",
+                    element.tag_text
+                ));
+            }
+        }
+    }
+
+    for block in recipe.blocks {
+        put_str(obj, block.creator_tag, VR::LO, block.creator_id);
+        for element in block.elements {
+            match element.value {
+                PrivateValue::Lo(value) => put_str(obj, element.tag, VR::LO, value),
+                PrivateValue::Us(value) => put_u16(obj, element.tag, VR::US, value),
+            }
+        }
+    }
+    Ok(())
+}
+
+fn validate_private_creator_metadata_round_trip(
+    path: &std::path::Path,
+    recipe: PrivateCreatorScRecipe,
+) -> Result<Value, GenerateError> {
+    let obj = open_file(path).map_err(|error| GenerateError::ValidateDicomFile {
+        path: path.to_path_buf(),
+        message: format!("reopen private creator SC fixture: {error}"),
+    })?;
+    for block in recipe.blocks {
+        let creator =
+            obj.element(block.creator_tag)
+                .map_err(|error| GenerateError::ValidateDicomFile {
+                    path: path.to_path_buf(),
+                    message: format!("read private creator {}: {error}", block.creator_tag_text),
+                })?;
+        if creator.vr() != VR::LO || creator.to_str().ok().as_deref() != Some(block.creator_id) {
+            return Err(GenerateError::ValidateDicomFile {
+                path: path.to_path_buf(),
+                message: format!(
+                    "private creator {} did not round-trip",
+                    block.creator_tag_text
+                ),
+            });
+        }
+        for element in block.elements {
+            let actual =
+                obj.element(element.tag)
+                    .map_err(|error| GenerateError::ValidateDicomFile {
+                        path: path.to_path_buf(),
+                        message: format!("read private element {}: {error}", element.tag_text),
+                    })?;
+            let matches = match element.value {
+                PrivateValue::Lo(value) => {
+                    actual.vr() == VR::LO && actual.to_str().ok().as_deref() == Some(value)
+                }
+                PrivateValue::Us(value) => {
+                    actual.vr() == VR::US && actual.to_int::<u16>().ok() == Some(value)
+                }
+            };
+            if !matches {
+                return Err(GenerateError::ValidateDicomFile {
+                    path: path.to_path_buf(),
+                    message: format!("private element {} did not round-trip", element.tag_text),
+                });
+            }
+        }
+    }
+    Ok(serde_json::json!({
+        "name": "private_creator_block_round_trip",
+        "status": "passed",
+        "message": "All private creators and typed block elements reopened at their exact tags, VRs, and values."
     }))
 }
 
@@ -6506,8 +6700,59 @@ fn pixel_manifest_entry(
             ]
         });
         manifest["recipe"]["recipe_parameters"]["string_boundary_element_count"] = Value::from(4);
+    } else if let Some(ScMetadataPayload::PrivateCreator(metadata)) = metadata {
+        manifest["expected_metadata"] = serde_json::json!({
+            "private_creator_blocks": metadata
+                .blocks
+                .iter()
+                .map(|block| private_creator_manifest_block(block))
+                .collect::<Vec<_>>()
+        });
+        manifest["recipe"]["recipe_parameters"]["private_creator_block_count"] =
+            Value::from(metadata.blocks.len() as u64);
     }
     manifest
+}
+
+fn private_creator_manifest_block(block: &PrivateCreatorBlockRecipe) -> Value {
+    let creator_raw = padded_text_bytes(block.creator_id);
+    let elements = block
+        .elements
+        .iter()
+        .map(|element| {
+            let (vr, decoded_value, raw_value) = match element.value {
+                PrivateValue::Lo(value) => ("LO", Value::from(value), padded_text_bytes(value)),
+                PrivateValue::Us(value) => ("US", Value::from(value), value.to_le_bytes().to_vec()),
+            };
+            serde_json::json!({
+                "tag": element.tag_text,
+                "vr": vr,
+                "decoded_value": decoded_value,
+                "raw_value_hex": uppercase_hex(&raw_value),
+                "raw_value_sha256": sha256_hex(&raw_value),
+                "raw_value_byte_length": raw_value.len()
+            })
+        })
+        .collect::<Vec<_>>();
+    serde_json::json!({
+        "creator_tag": block.creator_tag_text,
+        "creator_id": block.creator_id,
+        "vr": "LO",
+        "raw_value_hex": uppercase_hex(&creator_raw),
+        "raw_value_sha256": sha256_hex(&creator_raw),
+        "raw_value_byte_length": creator_raw.len(),
+        "block_start_tag": block.block_start_tag,
+        "block_end_tag": block.block_end_tag,
+        "elements": elements
+    })
+}
+
+fn padded_text_bytes(value: &str) -> Vec<u8> {
+    let mut raw = value.as_bytes().to_vec();
+    if raw.len() % 2 == 1 {
+        raw.push(b' ');
+    }
+    raw
 }
 
 fn encoded_temporal_value(tag: &str, keyword: &str, vr: &str, decoded_value: &str) -> Value {

@@ -34,6 +34,9 @@ use native::private_creator_sc::{
     PRIVATE_CREATOR_SC_RECIPE, PrivateCreatorBlockRecipe, PrivateCreatorScRecipe, PrivateValue,
 };
 use native::sc_integer_pixels::{U1_SC_RECIPE, U32_SC_RECIPE};
+use native::sc_nonsquare_spacing::{
+    NONSQUARE_SPACING_SC_RECIPE, NonsquareGeometryVariant, NonsquareSpacingScRecipe,
+};
 use native::sequence_length_sc::{
     CODE_MEANING as SEQUENCE_CODE_MEANING, CODE_VALUE as SEQUENCE_CODE_VALUE,
     CODING_SCHEME_DESIGNATOR as SEQUENCE_CODING_SCHEME_DESIGNATOR, ITEM_DATASET_ENCODED_LENGTH,
@@ -3708,6 +3711,16 @@ pub(crate) fn write_supported_cases(
             )?)?;
         }
     }
+    if let Some(case) = registry_case(registry, NONSQUARE_SPACING_SC_RECIPE.pixel.case_id)? {
+        if should_generate_case(case, run)? {
+            context.record_many(write_nonsquare_spacing_sc_case(
+                run,
+                case,
+                NONSQUARE_SPACING_SC_RECIPE,
+                standards_lock_sha256,
+            )?)?;
+        }
+    }
     for recipe in CLASSIC_CT_RECIPES {
         let Some(case) = registry_case(registry, recipe.case_id)? else {
             continue;
@@ -4557,6 +4570,7 @@ enum ScMetadataPayload {
     StringBoundary(StringBoundaryScRecipe),
     PrivateCreator(PrivateCreatorScRecipe),
     SequenceLength(SequenceLengthVariant),
+    Nonsquare(NonsquareGeometryVariant),
 }
 
 fn write_metadata_sc_case(
@@ -4668,6 +4682,41 @@ fn write_sequence_length_sc_case(
                 recipe.pixel,
                 standards_lock_sha256,
                 Some(ScMetadataPayload::SequenceLength(*variant)),
+                index as u32,
+                variant.file_name,
+            )
+        })
+        .collect()
+}
+
+fn write_nonsquare_spacing_sc_case(
+    run: &PreparedGenerationRun,
+    case: &Value,
+    recipe: NonsquareSpacingScRecipe,
+    standards_lock_sha256: &str,
+) -> Result<Vec<GeneratedFile>, GenerateError> {
+    if sha256_hex(recipe.pixel.pixel_bytes) != recipe.pixel_data_sha256
+        || recipe
+            .variants
+            .iter()
+            .any(|variant| !variant.uses_physical_spacing() && !variant.uses_pixel_aspect_ratio())
+    {
+        return Err(GenerateError::MetadataShape {
+            path: PathBuf::from(recipe.pixel.case_id),
+            message: "non-square geometry recipe does not match its locked pixels or exclusive variants",
+        });
+    }
+    recipe
+        .variants
+        .iter()
+        .enumerate()
+        .map(|(index, variant)| {
+            write_pixel_case_with_metadata(
+                run,
+                case,
+                recipe.pixel,
+                standards_lock_sha256,
+                Some(ScMetadataPayload::Nonsquare(*variant)),
                 index as u32,
                 variant.file_name,
             )
@@ -4854,6 +4903,32 @@ fn write_pixel_case_with_metadata(
                 message,
             }
         })?;
+    }
+    if let Some(ScMetadataPayload::Nonsquare(variant)) = metadata {
+        if let Some(pixel_spacing) = variant.pixel_spacing_mm {
+            put_str(
+                &mut obj,
+                tags::PIXEL_SPACING,
+                VR::DS,
+                &pixel_spacing.join("\\"),
+            );
+        }
+        if let Some(nominal_spacing) = variant.nominal_scanned_pixel_spacing_mm {
+            put_str(
+                &mut obj,
+                tags::NOMINAL_SCANNED_PIXEL_SPACING,
+                VR::DS,
+                &nominal_spacing.join("\\"),
+            );
+        }
+        if let Some([vertical, horizontal]) = variant.pixel_aspect_ratio {
+            put_str(
+                &mut obj,
+                tags::PIXEL_ASPECT_RATIO,
+                VR::IS,
+                &format!("{vertical}\\{horizontal}"),
+            );
+        }
     }
 
     put_str(&mut obj, tags::MODALITY, VR::CS, pixel_modality(recipe));
@@ -5567,6 +5642,9 @@ fn write_pixel_case_with_metadata(
             ScMetadataPayload::SequenceLength(variant) => {
                 validate_sequence_length_metadata_round_trip(&path, variant)?
             }
+            ScMetadataPayload::Nonsquare(variant) => {
+                validate_nonsquare_geometry_round_trip(&path, variant)?
+            }
         };
         append_internal_validation(&mut validated.validation, result);
     }
@@ -5590,6 +5668,58 @@ fn write_pixel_case_with_metadata(
             metadata,
         ),
     })
+}
+
+fn validate_nonsquare_geometry_round_trip(
+    path: &std::path::Path,
+    variant: NonsquareGeometryVariant,
+) -> Result<Value, GenerateError> {
+    let file = open_file(path).map_err(|err| GenerateError::ValidateDicomFile {
+        path: path.to_path_buf(),
+        message: err.to_string(),
+    })?;
+    let values = |tag: Tag| {
+        file.element(tag)
+            .ok()
+            .and_then(|element| element.to_multi_str().ok())
+            .map(|values| values.iter().map(ToString::to_string).collect::<Vec<_>>())
+    };
+    let pixel_spacing = values(tags::PIXEL_SPACING);
+    let nominal_spacing = values(tags::NOMINAL_SCANNED_PIXEL_SPACING);
+    let pixel_aspect_ratio = values(tags::PIXEL_ASPECT_RATIO);
+    let expected_spacing = variant
+        .pixel_spacing_mm
+        .map(|spacing| spacing.iter().map(ToString::to_string).collect::<Vec<_>>());
+    let expected_nominal = variant
+        .nominal_scanned_pixel_spacing_mm
+        .map(|spacing| spacing.iter().map(ToString::to_string).collect::<Vec<_>>());
+    let expected_aspect = variant
+        .pixel_aspect_ratio
+        .map(|[vertical, horizontal]| vec![vertical.to_string(), horizontal.to_string()]);
+    let forbidden_geometry_absent = file.element(tags::IMAGE_POSITION_PATIENT).is_err()
+        && file.element(tags::IMAGE_ORIENTATION_PATIENT).is_err()
+        && file.element(tags::FRAME_OF_REFERENCE_UID).is_err();
+    if pixel_spacing != expected_spacing
+        || nominal_spacing != expected_nominal
+        || pixel_aspect_ratio != expected_aspect
+        || !forbidden_geometry_absent
+    {
+        return Err(GenerateError::ValidateDicomFile {
+            path: path.to_path_buf(),
+            message: format!(
+                "{} spatial metadata did not preserve its exclusive row/column geometry contract",
+                variant.variant_id.as_str()
+            ),
+        });
+    }
+    Ok(serde_json::json!({
+        "name": "nonsquare_geometry_round_trip",
+        "status": "passed",
+        "message": format!(
+            "The {} variant preserved exclusive 2:1 row-to-column geometry without patient-space geometry.",
+            variant.variant_id.as_str()
+        )
+    }))
 }
 
 fn validate_icc_profile_round_trip(path: &std::path::Path) -> Result<Value, GenerateError> {
@@ -21521,6 +21651,65 @@ fn case_matches_profile(profiles: &[String], requested: &str, include_stress: bo
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn nonsquare_sc_writer_emits_and_reopens_independent_geometry_variants() {
+        let output = ParametricMapStagingGuard::new();
+        let run = PreparedGenerationRun {
+            profile: "core".to_string(),
+            out_dir: output.path().to_path_buf(),
+            manifest_path: output.path().join("manifest.json"),
+            seed: 1,
+            include_stress: false,
+        };
+        let case = serde_json::json!({
+            "case_id": NONSQUARE_SPACING_SC_RECIPE.pixel.case_id,
+            "standards_evidence": []
+        });
+
+        let generated = write_nonsquare_spacing_sc_case(
+            &run,
+            &case,
+            NONSQUARE_SPACING_SC_RECIPE,
+            "0000000000000000000000000000000000000000000000000000000000000000",
+        )
+        .expect("non-square SC variants should write, reopen, and validate");
+
+        assert_eq!(generated.len(), 2);
+        let spacing = open_file(
+            output
+                .path()
+                .join("classic/sc/nonsquare_pixel_spacing/pixel-spacing.dcm"),
+        )
+        .expect("Pixel Spacing variant should reopen");
+        assert_eq!(
+            spacing
+                .element(tags::PIXEL_SPACING)
+                .expect("Pixel Spacing should exist")
+                .to_multi_str()
+                .expect("Pixel Spacing should decode")
+                .as_ref(),
+            &["0.6", "0.3"]
+        );
+        assert!(spacing.element(tags::PIXEL_ASPECT_RATIO).is_err());
+
+        let aspect = open_file(
+            output
+                .path()
+                .join("classic/sc/nonsquare_pixel_spacing/pixel-aspect-ratio.dcm"),
+        )
+        .expect("Pixel Aspect Ratio variant should reopen");
+        assert_eq!(
+            aspect
+                .element(tags::PIXEL_ASPECT_RATIO)
+                .expect("Pixel Aspect Ratio should exist")
+                .to_multi_str()
+                .expect("Pixel Aspect Ratio should decode")
+                .as_ref(),
+            &["2", "1"]
+        );
+        assert!(aspect.element(tags::PIXEL_SPACING).is_err());
+    }
 
     #[test]
     fn u32_sc_writer_reopens_and_preserves_full_unsigned_range() {

@@ -157,13 +157,20 @@ def generate(request: dict[str, Any], output_root: Path) -> dict[str, Any]:
     )
     _normalize_metadata(parametric_map, request)
 
+    # highdicom normalizes source images into DICOM spatial dimension order.
+    # Report the serialized frame order, not the caller's input-array order.
+    serialized_pixels = np.frombuffer(
+        parametric_map.FloatPixelData,
+        dtype="<f4",
+    ).reshape(pixels.shape)
+
     output_root.mkdir(parents=True, exist_ok=True)
     output_path = output_root / OUTPUT_RELATIVE_PATH
     parametric_map.save_as(output_path, enforce_file_format=True)
 
     frame_hashes: list[str] = []
     frame_bits: list[list[int]] = []
-    for frame in pixels:
+    for frame in serialized_pixels:
         frame_bytes = frame.astype("<f4", copy=False).tobytes(order="C")
         frame_hashes.append(_sha256(frame_bytes))
         frame_bits.append(frame.view("<u4").reshape(-1).astype(np.uint64).tolist())

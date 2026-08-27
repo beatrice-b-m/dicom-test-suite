@@ -376,6 +376,20 @@ fn recompute_float_payload(
         bytes.extend_from_slice(&frame_bytes);
         all_bits.push(frame_bits);
     }
+    // highdicom 0.28.1 emits this axial source stack in DICOM spatial
+    // dimension order, which is the reverse of the ascending source-path
+    // order used to assign the deterministic spatial rank.
+    let frame_length = usize::from(rows.expect("three sources"))
+        * usize::from(columns.expect("three sources"))
+        * 4;
+    bytes = bytes
+        .chunks_exact(frame_length)
+        .rev()
+        .flatten()
+        .copied()
+        .collect();
+    all_bits.reverse();
+    hashes.reverse();
     Ok(ParametricMapFloatPayload {
         rows: rows.expect("three sources"),
         columns: columns.expect("three sources"),

@@ -4694,7 +4694,11 @@ fn generator_recipe_case_ids() -> BTreeSet<String> {
     for (path, prefixes) in [
         (
             "src/generator.rs",
-            &["case_id: \"", "SPATIAL_REGISTRATION_CASE_ID: &str = \""][..],
+            &[
+                "case_id: \"",
+                "SPATIAL_REGISTRATION_CASE_ID: &str = \"",
+                "COLOR_SOFTCOPY_PRESENTATION_STATE_CASE_ID: &str = \"",
+            ][..],
         ),
         ("src/generator/native/ct_geometry.rs", &["case_id: \""][..]),
         (

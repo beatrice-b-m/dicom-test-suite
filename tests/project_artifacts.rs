@@ -1646,19 +1646,12 @@ fn minimal_rt_radiation_set_source_note_locks_required_companion_graph() {
             .iter()
             .find(|case| case.get("case_id").and_then(Value::as_str) == Some(case_id))
             .unwrap_or_else(|| panic!("registry must retain {case_id}"));
-        assert_eq!(case["status"], "planned");
+        assert_eq!(case["status"], "implemented");
         assert_eq!(case["provider"]["kind"], "rust_native");
         assert_eq!(case["provider"]["id"], "rust_native");
         assert_eq!(case["determinism"], "byte_stable");
-        assert_eq!(
-            case["blockers"]
-                .as_array()
-                .unwrap()
-                .iter()
-                .map(|blocker| blocker["code"].as_str().unwrap())
-                .collect::<Vec<_>>(),
-            vec!["recipe_unimplemented"]
-        );
+        assert_eq!(case["roadmap"], Value::Null);
+        assert_eq!(case["blockers"], serde_json::json!([]));
         assert!(
             case["standards_evidence"]
                 .as_array()
@@ -5586,6 +5579,8 @@ fn generator_recipe_case_ids() -> BTreeSet<String> {
                 "GENERAL_ECG_CASE_ID: &str = \"",
                 "RT_PLAN_CASE_ID: &str = \"",
                 "RT_IMAGE_CASE_ID: &str = \"",
+                "RT_RADIATION_CASE_ID: &str = \"",
+                "RT_RADIATION_SET_CASE_ID: &str = \"",
             ][..],
         ),
         ("src/generator/native/ct_geometry.rs", &["case_id: \""][..]),

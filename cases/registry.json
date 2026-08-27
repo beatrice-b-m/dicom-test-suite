@@ -13279,7 +13279,7 @@
     {
       "case_id": "non-image/rt/carm_photon_electron_radiation_minimal",
       "artifact_kind": "dicom_instance",
-      "status": "planned",
+      "status": "implemented",
       "provider": {
         "kind": "rust_native",
         "id": "rust_native"
@@ -13289,18 +13289,8 @@
         "radiotherapy",
         "references"
       ],
-      "roadmap": {
-        "priority": "next",
-        "delivery_phase": "phase-3",
-        "rationale": "Provides the required second-generation RT Radiation referenced by the minimal RT Radiation Set."
-      },
-      "blockers": [
-        {
-          "code": "recipe_unimplemented",
-          "message": "The deterministic native recipe is not implemented.",
-          "recheck_phase": "phase-3"
-        }
-      ],
+      "roadmap": null,
+      "blockers": [],
       "profiles": [
         "extended"
       ],
@@ -13443,7 +13433,7 @@
     {
       "case_id": "non-image/rt/radiation_set_minimal",
       "artifact_kind": "dicom_instance",
-      "status": "planned",
+      "status": "implemented",
       "provider": {
         "kind": "rust_native",
         "id": "rust_native"
@@ -13453,18 +13443,8 @@
         "radiotherapy",
         "references"
       ],
-      "roadmap": {
-        "priority": "next",
-        "delivery_phase": "phase-3",
-        "rationale": "Evaluates a minimal current RT Radiation Set after legacy RT links are proven."
-      },
-      "blockers": [
-        {
-          "code": "recipe_unimplemented",
-          "message": "The deterministic native recipe is not implemented.",
-          "recheck_phase": "phase-3"
-        }
-      ],
+      "roadmap": null,
+      "blockers": [],
       "profiles": [
         "extended"
       ],

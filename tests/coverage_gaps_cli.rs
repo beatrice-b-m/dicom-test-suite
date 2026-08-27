@@ -23,13 +23,13 @@ fn report_gaps_counts_logical_cases_and_dimensions() {
         report
             .pointer("/counts/statuses/implemented")
             .and_then(Value::as_u64),
-        Some(141)
+        Some(143)
     );
     assert_eq!(
         report
             .pointer("/counts/statuses/planned")
             .and_then(Value::as_u64),
-        Some(41)
+        Some(39)
     );
     assert!(
         report.pointer("/counts/priorities/now").is_none(),
@@ -74,6 +74,20 @@ fn report_gaps_counts_logical_cases_and_dimensions() {
             })),
         "promoted General ECG coverage must not remain a gap"
     );
+    for case_id in [
+        "non-image/rt/carm_photon_electron_radiation_minimal",
+        "non-image/rt/radiation_set_minimal",
+    ] {
+        assert!(
+            report
+                .get("gaps")
+                .and_then(Value::as_array)
+                .is_some_and(|gaps| !gaps
+                    .iter()
+                    .any(|gap| { gap.get("case_id").and_then(Value::as_str) == Some(case_id) })),
+            "promoted {case_id} coverage must not remain a gap"
+        );
+    }
     for (case_id, label) in [
         ("non-image/rt/plan_linked", "linked RT Plan"),
         ("non-image/rt/image_linked", "linked RT Image"),

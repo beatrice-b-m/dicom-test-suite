@@ -342,6 +342,32 @@ fn icc_source_note_locks_dicom_input_profile_contract() {
 }
 
 #[test]
+fn nonsquare_source_note_locks_distinct_spacing_and_aspect_axes() {
+    let source =
+        fs::read_to_string("standards/source-notes/phase-2-nonsquare-spacing-aspect-ratio.md")
+            .expect("non-square source note must be readable");
+    for required in [
+        "classic/sc/nonsquare_pixel_spacing",
+        "pixel-spacing.dcm",
+        "pixel-aspect-ratio.dcm",
+        "`0.6\\\\0.3`",
+        "`2\\\\1`",
+        "C.7.6.3.1.7",
+        "Table C.7-11c",
+        "Section 10.7.1.1",
+        "e89b23efeade0dc3de624fc8982ea8b99adb35a3bb9a2fbf8b8ce675e10581a6",
+        "1cc11d28abf1e6f4efa4b07a73d4a7c953b3b3101b4112865c7170ccdeb84728",
+        "Registry status: planned",
+        "Should become KB patch: yes",
+    ] {
+        assert!(
+            source.contains(required),
+            "non-square source note requires {required}"
+        );
+    }
+}
+
+#[test]
 fn u1_pixel_decoder_is_case_scoped_and_locked() {
     let validators = read_json("conformance/validators.json");
     let adapter = validators["adapters"]

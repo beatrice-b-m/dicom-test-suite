@@ -488,7 +488,8 @@
         { "required": ["temporal"] },
         { "required": ["empty_type2_attributes"] },
         { "required": ["string_elements"] },
-        { "required": ["private_creator_blocks"] }
+        { "required": ["private_creator_blocks"] },
+        { "required": ["sequence_length_encoding"] }
       ],
       "dependentRequired": {
         "person_names": ["specific_character_sets"]
@@ -527,6 +528,9 @@
           "items": { "$ref": "#/$defs/expected_private_creator_block" },
           "minItems": 3,
           "maxItems": 3
+        },
+        "sequence_length_encoding": {
+          "$ref": "#/$defs/expected_sequence_length_encoding"
         }
       },
       "additionalProperties": false
@@ -629,6 +633,77 @@
         }
       },
       "additionalProperties": false
+    },
+    "expected_sequence_length_encoding": {
+      "type": "object",
+      "required": [
+        "variant_id",
+        "sequence_tag",
+        "keyword",
+        "vr",
+        "sequence_value_length",
+        "sequence_length_field_hex",
+        "sequence_delimitation_present",
+        "item_count",
+        "item_length_encoding",
+        "item_length_field_hex",
+        "item_delimitation_present",
+        "decoded_items"
+      ],
+      "properties": {
+        "variant_id": { "enum": ["defined", "undefined"] },
+        "sequence_tag": { "const": "0008,2218" },
+        "keyword": { "const": "AnatomicRegionSequence" },
+        "vr": { "const": "SQ" },
+        "sequence_value_length": { "type": ["integer", "null"], "minimum": 0 },
+        "sequence_length_field_hex": {
+          "type": "string",
+          "pattern": "^[0-9A-F]{8}$"
+        },
+        "sequence_delimitation_present": { "type": "boolean" },
+        "item_count": { "const": 1 },
+        "item_length_encoding": { "const": "undefined" },
+        "item_length_field_hex": { "const": "FFFFFFFF" },
+        "item_delimitation_present": { "const": true },
+        "decoded_items": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["code_value", "coding_scheme_designator", "code_meaning"],
+            "properties": {
+              "code_value": { "const": "69536005" },
+              "coding_scheme_designator": { "const": "SCT" },
+              "code_meaning": { "const": "Head" }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": { "variant_id": { "const": "defined" } },
+            "required": ["variant_id"]
+          },
+          "then": {
+            "properties": {
+              "sequence_value_length": { "const": 56 },
+              "sequence_length_field_hex": { "const": "38000000" },
+              "sequence_delimitation_present": { "const": false }
+            }
+          },
+          "else": {
+            "properties": {
+              "sequence_value_length": { "type": "null" },
+              "sequence_length_field_hex": { "const": "FFFFFFFF" },
+              "sequence_delimitation_present": { "const": true }
+            }
+          }
+        }
+      ]
     },
     "expected_private_element": {
       "oneOf": [

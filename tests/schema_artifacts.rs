@@ -530,6 +530,35 @@ fn manifest_schema_types_private_creator_block_expectations() {
 }
 
 #[test]
+fn manifest_schema_types_sequence_length_encoding_expectations() {
+    let schema = read_json("schemas/manifest.schema.json");
+    let metadata_schema = serde_json::json!({
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$ref": "#/$defs/expected_metadata",
+        "$defs": schema["$defs"].clone(),
+    });
+    let validator =
+        jsonschema::validator_for(&metadata_schema).expect("metadata schema should compile");
+    let defined = sequence_length_expectations("defined");
+    let undefined = sequence_length_expectations("undefined");
+    assert!(validator.is_valid(&defined));
+    assert!(validator.is_valid(&undefined));
+
+    let mut malformed = defined;
+    malformed["sequence_length_encoding"]["sequence_value_length"] = serde_json::json!(57);
+    malformed["sequence_length_encoding"]["sequence_delimitation_present"] =
+        serde_json::json!(true);
+    malformed["sequence_length_encoding"]["decoded_items"][0]["coding_scheme_designator"] =
+        serde_json::json!("SRT");
+    malformed["sequence_length_encoding"]["unexpected"] = serde_json::json!(true);
+    let errors = validator.iter_errors(&malformed).collect::<Vec<_>>();
+    assert!(
+        errors.len() >= 4,
+        "defined VL, delimiter state, semantic code, and unknown fields must be rejected: {errors:?}"
+    );
+}
+
+#[test]
 fn manifest_schema_rejects_malformed_person_name_expectations() {
     let schema = read_json("schemas/manifest.schema.json");
     let metadata_schema = serde_json::json!({
@@ -684,6 +713,34 @@ fn private_creator_expectations() -> Value {
                 ]
             }
         ]
+    })
+}
+
+fn sequence_length_expectations(variant: &str) -> Value {
+    let (value_length, length_hex, sequence_delimiter) = match variant {
+        "defined" => (serde_json::json!(56), "38000000", false),
+        "undefined" => (Value::Null, "FFFFFFFF", true),
+        _ => panic!("unsupported sequence length fixture variant"),
+    };
+    serde_json::json!({
+        "sequence_length_encoding": {
+            "variant_id": variant,
+            "sequence_tag": "0008,2218",
+            "keyword": "AnatomicRegionSequence",
+            "vr": "SQ",
+            "sequence_value_length": value_length,
+            "sequence_length_field_hex": length_hex,
+            "sequence_delimitation_present": sequence_delimiter,
+            "item_count": 1,
+            "item_length_encoding": "undefined",
+            "item_length_field_hex": "FFFFFFFF",
+            "item_delimitation_present": true,
+            "decoded_items": [{
+                "code_value": "69536005",
+                "coding_scheme_designator": "SCT",
+                "code_meaning": "Head"
+            }]
+        }
     })
 }
 

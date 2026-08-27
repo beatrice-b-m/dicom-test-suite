@@ -959,6 +959,121 @@ fn validate_command_reports_missing_enhanced_mr_dimension_organization() {
 }
 
 #[test]
+fn validate_command_reports_missing_enhanced_mr_conformance_elements() {
+    let out_dir = unique_temp_dir("validate-missing-enhanced-mr-conformance-elements");
+    generate_profile(&out_dir, "extended");
+    let dcm_path =
+        out_dir.join("enhanced/mr/multiframe_temporal_position_explicit_le/instance.dcm");
+    mutate_dicom(&dcm_path, |bytes| {
+        for (group, element) in [
+            (0x0018, 0x5100), // Patient Position
+            (0x0018, 0x9004), // Content Qualification
+            (0x0018, 0x9174), // Applicable Safety Standard Agency
+            (0x0008, 0x9208), // Complex Image Component (image and frame levels)
+            (0x0008, 0x9209), // Acquisition Contrast (image and frame levels)
+            (0x0028, 0x0301), // Burned In Annotation
+            (0x0028, 0x2110), // Lossy Image Compression
+            (0x2050, 0x0020), // Presentation LUT Shape
+            (0x0018, 0x9239), // Specific Absorption Rate Sequence
+            (0x0018, 0x9176), // Operating Mode Sequence
+        ] {
+            let offsets = find_tag_offsets(bytes, group, element);
+            assert!(
+                !offsets.is_empty(),
+                "generated Enhanced MR should contain ({group:04X},{element:04X})"
+            );
+            for offset in offsets {
+                bytes[offset] ^= 0x01;
+            }
+        }
+    });
+
+    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args([
+            "validate",
+            out_dir.to_str().expect("temp path should be valid UTF-8"),
+        ])
+        .output()
+        .expect("validate command must run");
+
+    assert!(
+        !output.status.success(),
+        "validate should reject missing Enhanced MR conformance elements"
+    );
+    let stdout = String::from_utf8(output.stdout).expect("validate stdout must be UTF-8");
+    for failure in [
+        "enhanced_mr_patient_position_type2c",
+        "enhanced_mr_content_qualification_type1c",
+        "enhanced_mr_applicable_safety_standard_agency_type1c",
+        "enhanced_mr_complex_image_component_image_level_type1c",
+        "enhanced_mr_acquisition_contrast_image_level_type1c",
+        "enhanced_mr_burned_in_annotation_type1c",
+        "enhanced_mr_lossy_image_compression_type1c",
+        "enhanced_mr_presentation_lut_shape_type1c",
+        "enhanced_mr_complex_image_component_frame_level_type1c",
+        "enhanced_mr_acquisition_contrast_frame_level_type1c",
+        "enhanced_mr_specific_absorption_rate_sequence_type1c",
+        "enhanced_mr_operating_mode_sequence_type1c",
+    ] {
+        assert!(
+            stdout.contains(failure),
+            "missing failure {failure}: {stdout}"
+        );
+    }
+
+    fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
+}
+
+#[test]
+fn validate_command_reports_tampered_enhanced_mr_manifest_semantics() {
+    let out_dir = unique_temp_dir("validate-tampered-enhanced-mr-manifest-semantics");
+    generate_profile(&out_dir, "extended");
+    mutate_case_manifest(
+        &out_dir,
+        "enhanced/mr/multiframe_temporal_position_explicit_le",
+        |file| {
+            file["expected_semantics"]["content_qualification"] = json!("PRODUCT");
+            file["expected_semantics"]["complex_image_component"] = json!("PHASE");
+            file["expected_semantics"]["acquisition_contrast"] = json!("T1");
+            file["recipe"]["recipe_parameters"]["shared_functional_groups"]["mr_timing"]["specific_absorption_rate"]
+                ["value"] = json!(9.5);
+            file["recipe"]["recipe_parameters"]["shared_functional_groups"]["mr_timing"]["operating_modes"]
+                [0]["mode"] = json!("RESEARCH");
+        },
+    );
+
+    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args([
+            "validate",
+            out_dir.to_str().expect("temp path should be valid UTF-8"),
+        ])
+        .output()
+        .expect("validate command must run");
+
+    assert!(
+        !output.status.success(),
+        "validate should reject tampered Enhanced MR manifest semantics"
+    );
+    let stdout = String::from_utf8(output.stdout).expect("validate stdout must be UTF-8");
+    for failure in [
+        "enhanced_mr_content_qualification_type1c",
+        "enhanced_mr_complex_image_component_image_level_type1c",
+        "enhanced_mr_complex_image_component_frame_level_type1c",
+        "enhanced_mr_acquisition_contrast_image_level_type1c",
+        "enhanced_mr_acquisition_contrast_frame_level_type1c",
+        "enhanced_mr_specific_absorption_rate_value_type1",
+        "enhanced_mr_operating_mode_type1[0]",
+    ] {
+        assert!(
+            stdout.contains(failure),
+            "missing failure {failure}: {stdout}"
+        );
+    }
+
+    fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
+}
+
+#[test]
 fn validate_command_reports_missing_rt_structure_set_roi_sequence() {
     let out_dir = unique_temp_dir("validate-missing-rt-structure-set-roi");
     generate_profile(&out_dir, "extended");
@@ -1223,12 +1338,47 @@ fn mutate_dicom(path: &Path, mutate: impl FnOnce(&mut Vec<u8>)) {
     fs::write(path, bytes).expect("generated DICOM should be writable");
 }
 
+fn mutate_case_manifest(out_dir: &Path, case_id: &str, mutate: impl FnOnce(&mut Value)) {
+    let manifest_path = out_dir.join("manifest.json");
+    let mut manifest: Value = serde_json::from_str(
+        &fs::read_to_string(&manifest_path).expect("manifest should be readable"),
+    )
+    .expect("manifest should parse");
+    let file = manifest
+        .get_mut("files")
+        .and_then(Value::as_array_mut)
+        .and_then(|files| {
+            files
+                .iter_mut()
+                .find(|file| file.get("case_id").and_then(Value::as_str) == Some(case_id))
+        })
+        .expect("case should be present in manifest");
+    mutate(file);
+    fs::write(
+        manifest_path,
+        serde_json::to_string_pretty(&manifest).expect("manifest should serialize"),
+    )
+    .expect("manifest should be writable");
+}
+
 fn find_tag(bytes: &[u8], group: u16, element: u16) -> Option<usize> {
     let group = group.to_le_bytes();
     let element = element.to_le_bytes();
     bytes
         .windows(4)
         .position(|window| window == [group[0], group[1], element[0], element[1]])
+}
+
+fn find_tag_offsets(bytes: &[u8], group: u16, element: u16) -> Vec<usize> {
+    let group = group.to_le_bytes();
+    let element = element.to_le_bytes();
+    bytes
+        .windows(4)
+        .enumerate()
+        .filter_map(|(offset, window)| {
+            (window == [group[0], group[1], element[0], element[1]]).then_some(offset)
+        })
+        .collect()
 }
 
 fn unique_temp_dir(name: &str) -> PathBuf {

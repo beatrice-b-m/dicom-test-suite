@@ -4045,6 +4045,276 @@ fn validate_enhanced_mr_image_standard_elements(
         "enhanced_mr",
     )?;
 
+    for (tag, name, pointer, message, type1) in [
+        (
+            tags::PATIENT_POSITION,
+            "enhanced_mr_patient_position_type2c",
+            "/expected_semantics/patient_position",
+            "expected Enhanced MR patient position must be a string",
+            false,
+        ),
+        (
+            tags::CONTENT_QUALIFICATION,
+            "enhanced_mr_content_qualification_type1c",
+            "/expected_semantics/content_qualification",
+            "expected Enhanced MR content qualification must be a string",
+            true,
+        ),
+        (
+            tags::APPLICABLE_SAFETY_STANDARD_AGENCY,
+            "enhanced_mr_applicable_safety_standard_agency_type1c",
+            "/expected_semantics/applicable_safety_standard_agency",
+            "expected Enhanced MR safety standard agency must be a string",
+            true,
+        ),
+        (
+            tags::COMPLEX_IMAGE_COMPONENT,
+            "enhanced_mr_complex_image_component_image_level_type1c",
+            "/expected_semantics/complex_image_component",
+            "expected Enhanced MR complex image component must be a string",
+            true,
+        ),
+        (
+            tags::ACQUISITION_CONTRAST,
+            "enhanced_mr_acquisition_contrast_image_level_type1c",
+            "/expected_semantics/acquisition_contrast",
+            "expected Enhanced MR acquisition contrast must be a string",
+            true,
+        ),
+        (
+            tags::BURNED_IN_ANNOTATION,
+            "enhanced_mr_burned_in_annotation_type1c",
+            "/expected_semantics/burned_in_annotation",
+            "expected Enhanced MR burned-in annotation state must be a string",
+            true,
+        ),
+        (
+            tags::LOSSY_IMAGE_COMPRESSION,
+            "enhanced_mr_lossy_image_compression_type1c",
+            "/expected_semantics/lossy_image_compression",
+            "expected Enhanced MR lossy compression state must be a string",
+            true,
+        ),
+        (
+            tags::PRESENTATION_LUT_SHAPE,
+            "enhanced_mr_presentation_lut_shape_type1c",
+            "/expected_semantics/presentation_lut_shape",
+            "expected Enhanced MR presentation LUT shape must be a string",
+            true,
+        ),
+    ] {
+        let expected = manifest_str(manifest_path, file, pointer, message)?;
+        if type1 {
+            validate_type1_str_element(failures, relative_path, obj, tag, name, expected);
+        } else {
+            validate_str_element(failures, relative_path, obj, tag, name, expected);
+        }
+    }
+
+    let shared =
+        match top_level_sequence_item_for_validate(obj, tags::SHARED_FUNCTIONAL_GROUPS_SEQUENCE, 0)
+        {
+            Ok(shared) => shared,
+            Err(err) => {
+                failures.push(format!(
+                    "{relative_path}: enhanced_mr_shared_functional_groups_content: {err}"
+                ));
+                return Ok(());
+            }
+        };
+    let frame_type =
+        match item_sequence_item_for_validate(shared, tags::MR_IMAGE_FRAME_TYPE_SEQUENCE, 0) {
+            Ok(frame_type) => frame_type,
+            Err(err) => {
+                failures.push(format!(
+                    "{relative_path}: enhanced_mr_image_frame_type_sequence_type1: {err}"
+                ));
+                return Ok(());
+            }
+        };
+    for (tag, name, pointer, message) in [
+        (
+            tags::COMPLEX_IMAGE_COMPONENT,
+            "enhanced_mr_complex_image_component_frame_level_type1c",
+            "/expected_semantics/complex_image_component",
+            "expected Enhanced MR complex image component must be a string",
+        ),
+        (
+            tags::ACQUISITION_CONTRAST,
+            "enhanced_mr_acquisition_contrast_frame_level_type1c",
+            "/expected_semantics/acquisition_contrast",
+            "expected Enhanced MR acquisition contrast must be a string",
+        ),
+    ] {
+        validate_item_type1_str_element(
+            failures,
+            relative_path,
+            frame_type,
+            tag,
+            name,
+            manifest_str(manifest_path, file, pointer, message)?,
+        );
+    }
+
+    validate_enhanced_mr_timing_safety(failures, relative_path, manifest_path, file, shared)?;
+
+    Ok(())
+}
+
+fn validate_enhanced_mr_timing_safety(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    manifest_path: &Path,
+    file: &Value,
+    shared: &DatasetObject,
+) -> Result<(), ValidateError> {
+    let timing_pointer = "/recipe/recipe_parameters/shared_functional_groups/mr_timing";
+    let Some(expected_timing) = file.pointer(timing_pointer) else {
+        return Ok(());
+    };
+    let timing = match item_sequence_item_for_validate(
+        shared,
+        tags::MR_TIMING_AND_RELATED_PARAMETERS_SEQUENCE,
+        0,
+    ) {
+        Ok(timing) => timing,
+        Err(err) => {
+            failures.push(format!(
+                "{relative_path}: enhanced_mr_timing_sequence_type1c: {err}"
+            ));
+            return Ok(());
+        }
+    };
+
+    if let Some(expected_sar) = expected_timing.get("specific_absorption_rate") {
+        let sar = match item_sequence_item_for_validate(
+            timing,
+            tags::SPECIFIC_ABSORPTION_RATE_SEQUENCE,
+            0,
+        ) {
+            Ok(sar) => sar,
+            Err(err) => {
+                failures.push(format!(
+                    "{relative_path}: enhanced_mr_specific_absorption_rate_sequence_type1c: {err}"
+                ));
+                // Keep checking the independently required Operating Mode Sequence.
+                return validate_enhanced_mr_operating_modes(
+                    failures,
+                    relative_path,
+                    manifest_path,
+                    expected_timing,
+                    timing,
+                );
+            }
+        };
+        validate_item_type1_str_element(
+            failures,
+            relative_path,
+            sar,
+            tags::SPECIFIC_ABSORPTION_RATE_DEFINITION,
+            "enhanced_mr_specific_absorption_rate_definition_type1",
+            manifest_str(
+                manifest_path,
+                expected_sar,
+                "/definition",
+                "expected Enhanced MR SAR definition must be a string",
+            )?,
+        );
+        let expected_value = expected_sar.get("value").and_then(Value::as_f64).ok_or(
+            ValidateError::ManifestShape {
+                path: manifest_path.to_path_buf(),
+                message: "expected Enhanced MR SAR value must be a number",
+            },
+        )?;
+        match item_f64_for_validate(sar, tags::SPECIFIC_ABSORPTION_RATE_VALUE) {
+            Ok(actual) => validate_equal(
+                failures,
+                relative_path,
+                "enhanced_mr_specific_absorption_rate_value_type1",
+                actual,
+                expected_value,
+            ),
+            Err(err) => failures.push(format!(
+                "{relative_path}: enhanced_mr_specific_absorption_rate_value_type1: {err}"
+            )),
+        }
+    }
+
+    validate_enhanced_mr_operating_modes(
+        failures,
+        relative_path,
+        manifest_path,
+        expected_timing,
+        timing,
+    )
+}
+
+fn validate_enhanced_mr_operating_modes(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    manifest_path: &Path,
+    expected_timing: &Value,
+    timing: &DatasetObject,
+) -> Result<(), ValidateError> {
+    if let Some(expected_modes) = expected_timing
+        .get("operating_modes")
+        .and_then(Value::as_array)
+    {
+        let actual_modes = match timing.element(tags::OPERATING_MODE_SEQUENCE) {
+            Ok(element) => match element.items() {
+                Some(items) => items,
+                None => {
+                    failures.push(format!(
+                        "{relative_path}: enhanced_mr_operating_mode_sequence_type1c: element is not a sequence"
+                    ));
+                    return Ok(());
+                }
+            },
+            Err(err) => {
+                failures.push(format!(
+                    "{relative_path}: enhanced_mr_operating_mode_sequence_type1c: {err}"
+                ));
+                return Ok(());
+            }
+        };
+        validate_equal(
+            failures,
+            relative_path,
+            "enhanced_mr_operating_mode_sequence_type1c",
+            actual_modes.len(),
+            expected_modes.len(),
+        );
+        for (index, (actual, expected)) in actual_modes.iter().zip(expected_modes).enumerate() {
+            for (tag, field, name) in [
+                (
+                    tags::OPERATING_MODE_TYPE,
+                    "type",
+                    "enhanced_mr_operating_mode_type_type1",
+                ),
+                (
+                    tags::OPERATING_MODE,
+                    "mode",
+                    "enhanced_mr_operating_mode_type1",
+                ),
+            ] {
+                let expected = manifest_str(
+                    manifest_path,
+                    expected,
+                    &format!("/{field}"),
+                    "expected Enhanced MR operating mode field must be a string",
+                )?;
+                validate_item_type1_str_element(
+                    failures,
+                    relative_path,
+                    actual,
+                    tag,
+                    &format!("{name}[{index}]"),
+                    expected,
+                );
+            }
+        }
+    }
+
     Ok(())
 }
 
@@ -5933,6 +6203,27 @@ fn validate_type1_str_element(
     }
 }
 
+fn validate_item_type1_str_element(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    obj: &DatasetObject,
+    tag: dicom_core::Tag,
+    name: &str,
+    expected: &str,
+) {
+    match item_str_for_validate(obj, tag) {
+        Ok(actual) => {
+            if actual.is_empty() {
+                failures.push(format!(
+                    "{relative_path}: {name}: Type 1 element must not be empty"
+                ));
+            }
+            validate_equal(failures, relative_path, name, actual, expected);
+        }
+        Err(err) => failures.push(format!("{relative_path}: {name}: {err}")),
+    }
+}
+
 fn validate_type1_u16_element(
     failures: &mut Vec<String>,
     relative_path: &str,
@@ -6008,6 +6299,14 @@ fn item_str_for_validate(obj: &DatasetObject, tag: dicom_core::Tag) -> Result<St
         .to_str()
         .map_err(|err| err.to_string())
         .map(|value| value.trim_matches('\0').trim().to_string())
+}
+
+fn item_f64_for_validate(obj: &DatasetObject, tag: dicom_core::Tag) -> Result<f64, String> {
+    obj.element(tag)
+        .map_err(|err| err.to_string())?
+        .value()
+        .to_float64()
+        .map_err(|err| err.to_string())
 }
 
 fn element_str_for_validate(obj: &OpenedObject, tag: dicom_core::Tag) -> Result<String, String> {

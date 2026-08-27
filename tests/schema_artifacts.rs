@@ -387,6 +387,31 @@ fn manifest_schema_accepts_strict_utf8_person_name_expectations() {
 }
 
 #[test]
+fn manifest_schema_allows_default_iso2022_repertoire_but_not_all_empty() {
+    let schema = read_json("schemas/manifest.schema.json");
+    let metadata_schema = serde_json::json!({
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$ref": "#/$defs/expected_metadata",
+        "$defs": schema["$defs"].clone(),
+    });
+    let validator =
+        jsonschema::validator_for(&metadata_schema).expect("metadata schema should compile");
+
+    let mut iso2022 = utf8_person_name_expectations();
+    iso2022["specific_character_sets"] = serde_json::json!(["", "ISO 2022 IR 87"]);
+    assert!(
+        validator.is_valid(&iso2022),
+        "an empty first value denotes the default ISO-IR 6 repertoire"
+    );
+
+    iso2022["specific_character_sets"] = serde_json::json!([""]);
+    assert!(
+        !validator.is_valid(&iso2022),
+        "the charset contract must still declare a non-default extension"
+    );
+}
+
+#[test]
 fn manifest_schema_rejects_malformed_person_name_expectations() {
     let schema = read_json("schemas/manifest.schema.json");
     let metadata_schema = serde_json::json!({

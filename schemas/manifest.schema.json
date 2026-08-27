@@ -462,8 +462,10 @@
       "properties": {
         "specific_character_sets": {
           "type": "array",
-          "items": { "type": "string", "minLength": 1 },
+          "items": { "type": "string" },
           "minItems": 1,
+          "contains": { "type": "string", "minLength": 1 },
+          "minContains": 1,
           "uniqueItems": true
         },
         "person_names": {

@@ -1068,7 +1068,7 @@ fn blending_source_note_locks_audited_contract_before_provider_selection() {
 }
 
 #[test]
-fn twelve_lead_ecg_registry_selects_audited_native_provider() {
+fn twelve_lead_ecg_registry_promotes_complete_native_slice() {
     let source = fs::read_to_string("standards/source-notes/phase-3-twelve-lead-ecg-waveform.md")
         .expect("Twelve-lead ECG Waveform source note must be readable");
     for required in [
@@ -1119,10 +1119,10 @@ fn twelve_lead_ecg_registry_selects_audited_native_provider() {
                 == Some("non-image/waveform/twelve_lead_ecg")
         })
         .expect("Twelve-lead ECG Waveform row must exist");
-    assert_eq!(case["status"], "planned");
+    assert_eq!(case["status"], "implemented");
     assert_eq!(case["provider"]["kind"], "rust_native");
     assert_eq!(case["provider"]["id"], "rust_native");
-    assert_eq!(case["determinism"], "semantic_stable");
+    assert_eq!(case["determinism"], "byte_stable");
     assert_eq!(
         case["blockers"]
             .as_array()
@@ -1130,7 +1130,17 @@ fn twelve_lead_ecg_registry_selects_audited_native_provider() {
             .iter()
             .map(|blocker| blocker["code"].as_str().unwrap())
             .collect::<Vec<_>>(),
-        vec!["recipe_unimplemented"]
+        Vec::<&str>::new()
+    );
+    assert!(
+        case["standards_evidence"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|entry| {
+                entry["query"] == "standards/source-notes/phase-3-twelve-lead-ecg-waveform.md"
+                    && entry["anchor"] == "table_A.34.3-1"
+            })
     );
 }
 

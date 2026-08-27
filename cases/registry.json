@@ -13580,7 +13580,7 @@
     {
       "case_id": "non-image/waveform/twelve_lead_ecg",
       "artifact_kind": "dicom_instance",
-      "status": "planned",
+      "status": "implemented",
       "provider": {
         "kind": "rust_native",
         "id": "rust_native"
@@ -13589,18 +13589,8 @@
       "compatibility_axes": [
         "waveform"
       ],
-      "roadmap": {
-        "priority": "next",
-        "delivery_phase": "phase-3",
-        "rationale": "Adds common twelve-lead ECG waveform parsing and metadata coverage."
-      },
-      "blockers": [
-        {
-          "code": "recipe_unimplemented",
-          "message": "The deterministic native recipe is not implemented.",
-          "recheck_phase": "phase-3"
-        }
-      ],
+      "roadmap": null,
+      "blockers": [],
       "profiles": [
         "extended"
       ],
@@ -13611,7 +13601,7 @@
       "sop_class_uid": "1.2.840.10008.5.1.4.1.1.9.1.1",
       "modality": "ECG",
       "transfer_syntax_uid": "1.2.840.10008.1.2.1",
-      "determinism": "semantic_stable",
+      "determinism": "byte_stable",
       "requirements": {
         "features": [],
         "external_codecs": [],
@@ -13626,6 +13616,14 @@
           "covered": true,
           "part": "PS3.6",
           "anchor": "table_A-1"
+        },
+        {
+          "source": "local-source-note",
+          "edition": "2026b",
+          "query": "standards/source-notes/phase-3-twelve-lead-ecg-waveform.md",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.34.3-1"
         }
       ]
     },

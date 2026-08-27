@@ -211,15 +211,38 @@ presentation-state adapter as additive secondary IOD evidence.
 No new finding may be silently allowlisted; validation must not be weakened and
 unavailable coverage must not be reclassified to make this case pass.
 
+Promotion evidence on 2026-08-27 used two seed-7 `extended` generations of 95
+files. The manifests were byte-identical with SHA-256
+`99832aaabe9ca4e36e4c108db44974de352b113ca1ccf0e4a41df74e88ced62a`;
+the 2,036-byte Presentation State instances were byte-identical with SHA-256
+`4e737e1429b7b2463bc412e4c6ff330411259f321070b32d9ce68cdef0bc0543`;
+and the materialized RGB source instances were byte-identical with SHA-256
+`53208a21ccd2153118b20a5c6da2cbf9ba0d92c70475fbf4ae74add140b0de55`.
+Strict internal validation passed all 95 files in both runs.
+
+Integrated conformance run
+`b1e494962d40634300fb488fdf95c92ad80bad9b2d1e0f0be6bff9b4e8503b0a`
+recorded stable instance key
+`3dad35670aba58140d84cd326fd2624348b8f6215cd72e30d3ca76d35eae1801`.
+Locked `dciodvfy -new` and DCMTK `dcmdump` completed without findings; the
+`uv`-locked `dicom-validator` 0.8.2 secondary adapter completed with zero
+errors; and isolated `dcentvfy` over the RGB source and Presentation State was
+silent. An initial evidence run found that generic Content Date and Content
+Time were not members of this IOD, so they were removed and their absence is
+now enforced rather than allowlisted. Full-corpus verification retains 213
+older or unrelated unavailable-validator, IOD, ICC, entity, and stale-
+disposition failures; none was hidden or accepted for this promotion.
+
 ## Project Action
 
-- Registry status: planned; retain `semantic_stable` until two generated runs
-  prove byte identity.
+- Registry status: implemented and byte-stable after two generated runs proved
+  exact manifest, source, and Presentation State identity.
 - Registry provider: `rust_native`. DICOM-rs can write the mandatory nested
   Sequences and exact ICC OB payload directly and deterministically while
   preserving pydicom/dicom-validator as an independent implementation.
-- Registry blocker: exactly `recipe_unimplemented`; the standards contract,
-  source dependency, and independent IOD route are selected and locked.
+- Registry blocker: none; the deterministic recipe, cross-profile source
+  dependency, strict validator, reports, and independent IOD routes are
+  implemented and locked.
 - Should become KB patch: yes; expose the Color Softcopy Presentation State
   module table, same-Study relationship, reference topology, displayed-area
   semantics, and ICC requirements as structured 2026b queries.

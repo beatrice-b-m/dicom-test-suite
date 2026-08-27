@@ -9297,7 +9297,7 @@
     {
       "case_id": "derived/presentation-state/color_softcopy",
       "artifact_kind": "dicom_instance",
-      "status": "planned",
+      "status": "implemented",
       "provider": {
         "kind": "rust_native",
         "id": "rust_native"
@@ -9307,18 +9307,8 @@
         "presentation",
         "references"
       ],
-      "roadmap": {
-        "priority": "next",
-        "delivery_phase": "phase-3",
-        "rationale": "Adds color presentation-state recognition and source references."
-      },
-      "blockers": [
-        {
-          "code": "recipe_unimplemented",
-          "message": "The deterministic native recipe is not implemented.",
-          "recheck_phase": "phase-3"
-        }
-      ],
+      "roadmap": null,
+      "blockers": [],
       "profiles": [
         "extended"
       ],
@@ -9329,7 +9319,7 @@
       "sop_class_uid": "1.2.840.10008.5.1.4.1.1.11.2",
       "modality": "PR",
       "transfer_syntax_uid": "1.2.840.10008.1.2.1",
-      "determinism": "semantic_stable",
+      "determinism": "byte_stable",
       "requirements": {
         "features": [],
         "external_codecs": [],
@@ -9344,6 +9334,14 @@
           "covered": true,
           "part": "PS3.6",
           "anchor": "table_A-1"
+        },
+        {
+          "source": "local-source-note",
+          "edition": "2026b",
+          "query": "standards/source-notes/phase-3-color-softcopy-presentation-state.md",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.33-8"
         }
       ]
     },

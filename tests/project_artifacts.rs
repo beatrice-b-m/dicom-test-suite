@@ -836,9 +836,13 @@ fn color_softcopy_source_note_locks_native_color_contract() {
         "Isolated `dcentvfy` detected a dangling referenced SOP Instance UID",
         "Strict Rust validation owns every exact semantic invariant",
         "No new finding may be silently allowlisted",
-        "Registry status: planned",
+        "99832aaabe9ca4e36e4c108db44974de352b113ca1ccf0e4a41df74e88ced62a",
+        "4e737e1429b7b2463bc412e4c6ff330411259f321070b32d9ce68cdef0bc0543",
+        "b1e494962d40634300fb488fdf95c92ad80bad9b2d1e0f0be6bff9b4e8503b0a",
+        "3dad35670aba58140d84cd326fd2624348b8f6215cd72e30d3ca76d35eae1801",
+        "Registry status: implemented and byte-stable",
         "Registry provider: `rust_native`",
-        "Registry blocker: exactly `recipe_unimplemented`",
+        "Registry blocker: none",
         "Should become KB patch: yes",
     ] {
         assert!(
@@ -855,18 +859,11 @@ fn color_softcopy_source_note_locks_native_color_contract() {
                 == Some("derived/presentation-state/color_softcopy")
         })
         .expect("Color Softcopy Presentation State row must exist");
-    assert_eq!(case["status"], "planned");
+    assert_eq!(case["status"], "implemented");
     assert_eq!(case["provider"]["kind"], "rust_native");
     assert_eq!(case["provider"]["id"], "rust_native");
-    assert_eq!(
-        case["blockers"],
-        serde_json::json!([{
-            "code": "recipe_unimplemented",
-            "message": "The deterministic native recipe is not implemented.",
-            "recheck_phase": "phase-3"
-        }])
-    );
-    assert_eq!(case["determinism"], "semantic_stable");
+    assert_eq!(case["blockers"], serde_json::json!([]));
+    assert_eq!(case["determinism"], "byte_stable");
 }
 
 #[test]

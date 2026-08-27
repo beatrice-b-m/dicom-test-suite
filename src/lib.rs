@@ -7045,7 +7045,7 @@ fn validate_enhanced_pet_image_standard_elements(
         "/frame_type",
         "Enhanced PET frame_type must be a string array",
     )?;
-    let locked_type = vec!["DERIVED", "PRIMARY", "STATIC", "EMISSION"];
+    let locked_type = vec!["DERIVED", "PRIMARY", "STATIC", "MULTIPLICATION"];
     validate_equal_debug(
         failures,
         relative_path,
@@ -7198,6 +7198,64 @@ fn validate_enhanced_pet_image_standard_elements(
         );
         validate_type1_str_element(failures, relative_path, obj, tag, name, manifest_value);
     }
+
+    validate_enhanced_pet_code(
+        failures,
+        relative_path,
+        manifest_path,
+        expected
+            .pointer("/view_code")
+            .ok_or(ValidateError::ManifestShape {
+                path: manifest_path.to_path_buf(),
+                message: "Enhanced PET view_code must be an object",
+            })?,
+        obj,
+        tags::VIEW_CODE_SEQUENCE,
+        "enhanced_pet_view_code",
+        ("24422004", "SCT", "Axial"),
+    )?;
+    let modifier_count = manifest_u64(
+        manifest_path,
+        expected,
+        "/view_modifier_item_count",
+        "Enhanced PET view_modifier_item_count must be an integer",
+    )?;
+    validate_equal(
+        failures,
+        relative_path,
+        "enhanced_pet_view_modifier_count_manifest_contract",
+        modifier_count,
+        0,
+    );
+    if let Ok(view) = top_level_sequence_item_for_validate(obj, tags::VIEW_CODE_SEQUENCE, 0) {
+        validate_item_absent(
+            failures,
+            relative_path,
+            view,
+            tags::VIEW_MODIFIER_CODE_SEQUENCE,
+            "enhanced_pet_view_modifier_absent",
+        );
+    }
+    let slice_progression_present = manifest_bool(
+        manifest_path,
+        expected,
+        "/slice_progression_direction_present",
+        "Enhanced PET slice_progression_direction_present must be a boolean",
+    )?;
+    validate_equal(
+        failures,
+        relative_path,
+        "enhanced_pet_slice_progression_manifest_contract",
+        slice_progression_present,
+        false,
+    );
+    validate_item_absent(
+        failures,
+        relative_path,
+        obj,
+        tags::SLICE_PROGRESSION_DIRECTION,
+        "enhanced_pet_slice_progression_direction_absent",
+    );
 
     let frame_count = manifest_u64(
         manifest_path,
@@ -8415,13 +8473,40 @@ fn validate_enhanced_pet_isotope_and_corrections(
             "enhanced_pet_start_datetime",
             dicom_core::VR::DT,
         );
-        for (pointer, tag, name, locked) in [
-            (
-                "/total_dose_mbq",
-                tags::RADIONUCLIDE_TOTAL_DOSE,
-                "enhanced_pet_total_dose",
-                0.0,
+        let total_dose_present_empty = manifest_bool(
+            manifest_path,
+            isotope_expected,
+            "/total_dose_present_empty",
+            "Enhanced PET total_dose_present_empty must be a boolean",
+        )?;
+        validate_equal(
+            failures,
+            relative_path,
+            "enhanced_pet_total_dose_manifest_contract",
+            total_dose_present_empty,
+            true,
+        );
+        validate_item_vr(
+            failures,
+            relative_path,
+            item,
+            tags::RADIONUCLIDE_TOTAL_DOSE,
+            "enhanced_pet_total_dose_present_empty",
+            dicom_core::VR::DS,
+        );
+        match item_str_for_validate(item, tags::RADIONUCLIDE_TOTAL_DOSE) {
+            Ok(actual) => validate_equal(
+                failures,
+                relative_path,
+                "enhanced_pet_total_dose_present_empty",
+                actual,
+                String::new(),
             ),
+            Err(err) => failures.push(format!(
+                "{relative_path}: enhanced_pet_total_dose_present_empty: {err}"
+            )),
+        }
+        for (pointer, tag, name, locked) in [
             (
                 "/half_life_seconds",
                 tags::RADIONUCLIDE_HALF_LIFE,

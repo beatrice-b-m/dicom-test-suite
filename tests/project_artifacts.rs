@@ -996,8 +996,8 @@ fn blending_source_note_locks_audited_contract_before_provider_selection() {
         })
         .expect("Blending Softcopy Presentation State row must exist");
     assert_eq!(case["status"], "planned");
-    assert_eq!(case["provider"]["kind"], "external_backend");
-    assert_eq!(case["provider"]["id"], "dcmtk");
+    assert_eq!(case["provider"]["kind"], "rust_native");
+    assert_eq!(case["provider"]["id"], "rust_native");
     assert_eq!(case["determinism"], "semantic_stable");
     assert_eq!(
         case["blockers"]
@@ -1006,10 +1006,7 @@ fn blending_source_note_locks_audited_contract_before_provider_selection() {
             .iter()
             .map(|blocker| blocker["code"].as_str().unwrap())
             .collect::<Vec<_>>(),
-        vec![
-            "backend_contract_unimplemented",
-            "independent_iod_validator_unavailable"
-        ]
+        vec!["recipe_unimplemented"]
     );
 }
 

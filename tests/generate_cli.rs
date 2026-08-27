@@ -1719,7 +1719,7 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\textended"));
-    let native_extended_files = 84
+    let native_extended_files = 85
         + if cfg!(feature = "deflate") { 2 } else { 0 }
         + if cfg!(feature = "jpeg") { 1 } else { 0 }
         + if cfg!(feature = "charls") { 1 } else { 0 }
@@ -1831,6 +1831,98 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
             .map(|word| u32::from_le_bytes(word.try_into().unwrap()))
             .collect::<Vec<_>>(),
         vec![0, 65_535, 2_147_483_648, 4_294_967_295]
+    );
+    let u1_file = file_entry_by_case_id(&manifest, "classic/sc/mono2_u1_native");
+    assert_eq!(
+        u1_file
+            .pointer("/dicom/sop_class_uid")
+            .and_then(Value::as_str),
+        Some(uids::MULTI_FRAME_SINGLE_BIT_SECONDARY_CAPTURE_IMAGE_STORAGE)
+    );
+    for (pointer, expected) in [
+        ("/image/rows", 3),
+        ("/image/columns", 3),
+        ("/image/frames", 2),
+        ("/image/bits_allocated", 1),
+        ("/image/bits_stored", 1),
+        ("/image/high_bit", 0),
+        ("/image/pixel_representation", 0),
+        ("/pixel_data/value_length", 4),
+    ] {
+        assert_eq!(
+            u1_file.pointer(pointer).and_then(Value::as_u64),
+            Some(expected)
+        );
+    }
+    assert_eq!(
+        u1_file.pointer("/image/planar_configuration"),
+        Some(&Value::Null)
+    );
+    assert_eq!(
+        u1_file.pointer("/expected_u1_pixels/stored_values"),
+        Some(&serde_json::json!([
+            1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0
+        ]))
+    );
+    assert_eq!(
+        u1_file.pointer("/expected_u1_pixels/decoded_frame_sha256"),
+        Some(&serde_json::json!([
+            "a6188710c09cfbc77383ee0588dec2f7affa6e03e78aa900e9ae597a8d8faba3",
+            "c520efb8f894a1125bb1a513a9b64ef957f7c2cd63835fd7e130357c47f989ae"
+        ]))
+    );
+    assert_eq!(
+        u1_file
+            .pointer("/expected_u1_pixels/pixel_data_sha256")
+            .and_then(Value::as_str),
+        Some("9d6baf87a79d40ef2b145f92945a05cf156a2741e2c2834a3a7721d52757594b")
+    );
+    assert_eq!(
+        u1_file
+            .pointer("/expected_u1_pixels/frame_boundary_policy")
+            .and_then(Value::as_str),
+        Some("continuous_without_per_frame_padding")
+    );
+    assert_eq!(
+        u1_file
+            .pointer("/validation/status")
+            .and_then(Value::as_str),
+        Some("passed")
+    );
+    let u1_path = out_dir.join("classic/sc/mono2_u1_native/instance.dcm");
+    let u1_object = open_file(&u1_path).expect("one-bit DICOM file should parse");
+    assert!(
+        u1_object
+            .element_opt(tags::PLANAR_CONFIGURATION)
+            .expect("Planar Configuration lookup should succeed")
+            .is_none()
+    );
+    assert_eq!(
+        u1_object
+            .element(tags::FRAME_INCREMENT_POINTER)
+            .expect("one-bit SC should contain Frame Increment Pointer")
+            .value()
+            .tags()
+            .expect("Frame Increment Pointer should be AT"),
+        &[tags::PAGE_NUMBER_VECTOR]
+    );
+    assert_eq!(
+        u1_object
+            .element(tags::PAGE_NUMBER_VECTOR)
+            .expect("one-bit SC should contain Page Number Vector")
+            .to_multi_int::<u16>()
+            .expect("Page Number Vector should contain two IS values"),
+        vec![1, 2]
+    );
+    let u1_pixel_element = u1_object
+        .element(tags::PIXEL_DATA)
+        .expect("one-bit Pixel Data must exist");
+    assert_eq!(format!("{:?}", u1_pixel_element.vr()), "OB");
+    let u1_pixel_bytes = u1_pixel_element.value().to_bytes().unwrap();
+    assert_eq!(u1_pixel_bytes.as_ref(), &[0x55, 0x55, 0x01, 0x00]);
+    assert_eq!(
+        dicom_test_suite::sha256_hex(u1_pixel_bytes.as_ref()),
+        "9d6baf87a79d40ef2b145f92945a05cf156a2741e2c2834a3a7721d52757594b"
     );
     let enhanced_ct_file = file_entry_by_case_id(
         &manifest,
@@ -5663,7 +5755,7 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
         .expect("manifest should contain skipped cases");
     assert_eq!(
         skipped_cases.len(),
-        43 - usize::from(parametric_map_generated)
+        42 - usize::from(parametric_map_generated)
             - if cfg!(feature = "deflate") { 2 } else { 0 }
             - if cfg!(feature = "jpeg") { 1 } else { 0 }
             - if cfg!(feature = "charls") { 1 } else { 0 }
@@ -7275,7 +7367,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\tall"));
-    let native_all_files = 131
+    let native_all_files = 132
         + if cfg!(feature = "deflate") { 2 } else { 0 }
         + if cfg!(feature = "jpeg") { 1 } else { 0 }
         + if cfg!(feature = "charls") { 1 } else { 0 }
@@ -7319,6 +7411,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
 
     file_entry_by_case_id(&manifest, "classic/sc/mono2_u8_explicit_le");
     file_entry_by_case_id(&manifest, "classic/sc/mono2_u32_explicit_le");
+    file_entry_by_case_id(&manifest, "classic/sc/mono2_u1_native");
     file_entry_by_case_id(&manifest, "classic/sc/mono2_u8_rle_lossless");
     file_entry_by_case_id(&manifest, "classic/sc/mono1_u8_rle_lossless");
     file_entry_by_case_id(&manifest, "classic/sc/mono2_u16_rle_lossless");
@@ -7464,7 +7557,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
         .expect("manifest should contain skipped cases");
     assert_eq!(
         skipped_cases.len(),
-        44 - usize::from(parametric_map_generated)
+        43 - usize::from(parametric_map_generated)
             - if cfg!(feature = "deflate") { 2 } else { 0 }
             - if cfg!(feature = "jpeg") { 1 } else { 0 }
             - if cfg!(feature = "charls") { 1 } else { 0 }

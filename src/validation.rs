@@ -3809,7 +3809,6 @@ fn validate_waveform_ecg_file(
         ("instance_number", tags::INSTANCE_NUMBER, "1"),
         ("content_date", tags::CONTENT_DATE, "20260101"),
         ("content_time", tags::CONTENT_TIME, "000000"),
-        ("patient_orientation", tags::PATIENT_ORIENTATION, ""),
         (
             "acquisition_date_time",
             tags::ACQUISITION_DATE_TIME,
@@ -8646,6 +8645,7 @@ pub(crate) fn validate_rt_image_file(
         ("instance_number", tags::INSTANCE_NUMBER, "1"),
         ("content_date", tags::CONTENT_DATE, "20260101"),
         ("content_time", tags::CONTENT_TIME, "000000"),
+        ("patient_orientation", tags::PATIENT_ORIENTATION, ""),
         ("label", tags::RT_IMAGE_LABEL, image.label),
         ("plane", tags::RT_IMAGE_PLANE, image.plane),
         (

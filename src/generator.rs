@@ -7049,6 +7049,14 @@ fn pixel_manifest_entry(
         "known_stressors": pixel_known_stressors(recipe),
         "standards_evidence": deduplicated_standards_evidence(standards_evidence)
     });
+    if recipe.case_id == U32_SC_RECIPE.case_id {
+        manifest["expected_u32_pixels"] = serde_json::json!({
+            "stored_values": U32_SC_RECIPE.pixel_values,
+            "pixel_data_sha256": U32_SC_RECIPE.pixel_data_sha256,
+            "word_byte_order": "little_endian",
+            "full_unsigned_range": true
+        });
+    }
     if let Some(ScMetadataPayload::PersonName(metadata)) = metadata {
         let mut raw_value = metadata.patient_name_raw.to_vec();
         if raw_value.len() % 2 == 1 {
@@ -21255,6 +21263,17 @@ mod tests {
             Some(&Value::from("OW"))
         );
         assert_eq!(
+            generated
+                .manifest_entry
+                .pointer("/expected_u32_pixels/stored_values"),
+            Some(&serde_json::json!([
+                0_u64,
+                65_535_u64,
+                2_147_483_648_u64,
+                4_294_967_295_u64
+            ]))
+        );
+        assert_eq!(
             generated.manifest_entry.pointer("/validation/status"),
             Some(&Value::from("passed"))
         );
@@ -21272,6 +21291,23 @@ mod tests {
                 .to_bytes()
                 .expect("Pixel Data should be bytes"),
             U32_SC_RECIPE.pixel_bytes_le.as_slice()
+        );
+        let manifest_schema: Value =
+            serde_json::from_str(include_str!("../schemas/manifest.schema.json"))
+                .expect("manifest schema should parse");
+        let file_schema = serde_json::json!({
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$ref": "#/$defs/file",
+            "$defs": manifest_schema["$defs"].clone(),
+        });
+        let validator =
+            jsonschema::validator_for(&file_schema).expect("file manifest schema should compile");
+        let mut schema_entry = generated.manifest_entry.clone();
+        schema_entry["references"] = serde_json::json!([]);
+        assert!(
+            validator.is_valid(&schema_entry),
+            "u32 manifest entry should satisfy schema: {:?}",
+            validator.iter_errors(&schema_entry).collect::<Vec<_>>()
         );
     }
 

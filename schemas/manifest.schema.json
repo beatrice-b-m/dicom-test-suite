@@ -319,6 +319,9 @@
         "expected_xrf_projection": {
           "$ref": "#/$defs/expected_xrf_projection"
         },
+        "expected_u32_pixels": {
+          "$ref": "#/$defs/expected_u32_pixels"
+        },
         "expected_geometry": {
           "anyOf": [
             { "$ref": "#/$defs/expected_geometry" },
@@ -354,6 +357,39 @@
       },
       "additionalProperties": false,
       "allOf": [
+        {
+          "if": {
+            "properties": {
+              "case_id": { "const": "classic/sc/mono2_u32_explicit_le" }
+            },
+            "required": ["case_id"]
+          },
+          "then": {
+            "required": ["image", "pixel_data", "expected_u32_pixels"],
+            "properties": {
+              "image": {
+                "properties": {
+                  "frames": { "const": 1 },
+                  "samples_per_pixel": { "const": 1 },
+                  "photometric_interpretation": { "const": "MONOCHROME2" },
+                  "bits_allocated": { "const": 32 },
+                  "bits_stored": { "const": 32 },
+                  "high_bit": { "const": 31 },
+                  "pixel_representation": { "const": 0 },
+                  "planar_configuration": { "type": "null" }
+                }
+              },
+              "pixel_data": {
+                "properties": {
+                  "vr": { "const": "OW" },
+                  "native_or_encapsulated": { "const": "native" },
+                  "value_length": { "const": 16 },
+                  "frame_count": { "const": 1 }
+                }
+              }
+            }
+          }
+        },
         {
           "if": {
             "properties": {
@@ -1011,6 +1047,35 @@
         "actual_frame_duration_ms": { "const": 60000 },
         "image_index": { "const": 1 },
         "radiopharmaceutical_information_item_count": { "const": 0 }
+      },
+      "additionalProperties": false
+    },
+    "expected_u32_pixels": {
+      "type": "object",
+      "required": [
+        "stored_values",
+        "pixel_data_sha256",
+        "word_byte_order",
+        "full_unsigned_range"
+      ],
+      "properties": {
+        "stored_values": {
+          "type": "array",
+          "prefixItems": [
+            { "const": 0 },
+            { "const": 65535 },
+            { "const": 2147483648 },
+            { "const": 4294967295 }
+          ],
+          "items": false,
+          "minItems": 4,
+          "maxItems": 4
+        },
+        "pixel_data_sha256": {
+          "const": "56bca1a85c2838126b1d1a5fbedfe731839496d972df2c6ab33e1a1183392b41"
+        },
+        "word_byte_order": { "const": "little_endian" },
+        "full_unsigned_range": { "const": true }
       },
       "additionalProperties": false
     },

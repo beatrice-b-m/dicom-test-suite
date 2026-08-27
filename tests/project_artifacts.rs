@@ -571,7 +571,13 @@ fn phase3_status_records_completed_derived_vertical_gates() {
         "4bf58b3a29f168c6d24398603f98ebaa5b40ee62353eb30449e3c193b84ad75d",
         "c6a017c46b7e489059dd3bc71b1be66e1ff70008af853aaf393880a4e4f69c73",
         "211 older or unrelated failures",
-        "next Phase 3 dependency is Blending Presentation State",
+        "derived/presentation-state/blending",
+        "101 files",
+        "0e5a934186cdba5667b4cef14ad7475d0d222f8e0286b8a49a29bb3106b5a200",
+        "d6fd50ea537157dea62e878e6c455d69f8bb239ce7456c3d7bb5a2893f159918",
+        "5df5c921ae704341109f1c095258b0f99ebf856e0b91a2eb60deab6531a4a1e3",
+        "Blending adds no external finding",
+        "next dependency is milestone 5's\nTwelve-lead ECG waveform",
     ] {
         assert!(
             status.contains(required),

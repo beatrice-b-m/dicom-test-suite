@@ -1719,7 +1719,7 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\textended"));
-    let native_extended_files = 85
+    let native_extended_files = 86
         + if cfg!(feature = "deflate") { 2 } else { 0 }
         + if cfg!(feature = "jpeg") { 1 } else { 0 }
         + if cfg!(feature = "charls") { 1 } else { 0 }
@@ -1923,6 +1923,72 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
     assert_eq!(
         dicom_test_suite::sha256_hex(u1_pixel_bytes.as_ref()),
         "9d6baf87a79d40ef2b145f92945a05cf156a2741e2c2834a3a7721d52757594b"
+    );
+    let icc_file = file_entry_by_case_id(&manifest, "vl/photo/rgb_icc_profile_explicit_le");
+    assert_eq!(
+        icc_file
+            .pointer("/dicom/sop_class_uid")
+            .and_then(Value::as_str),
+        Some(uids::VL_PHOTOGRAPHIC_IMAGE_STORAGE)
+    );
+    assert_eq!(
+        icc_file
+            .pointer("/image/photometric_interpretation")
+            .and_then(Value::as_str),
+        Some("RGB")
+    );
+    assert_eq!(
+        icc_file
+            .pointer("/image/planar_configuration")
+            .and_then(Value::as_u64),
+        Some(0)
+    );
+    assert_eq!(
+        icc_file
+            .pointer("/expected_icc_profile/profile_sha256")
+            .and_then(Value::as_str),
+        Some("8e069a3476b71a0e0ae7272d9278ba70540d1c4a0b19af1c7d52e56f49091fef")
+    );
+    assert_eq!(
+        icc_file
+            .pointer("/expected_icc_profile/device_class")
+            .and_then(Value::as_str),
+        Some("scnr")
+    );
+    assert_eq!(
+        icc_file
+            .pointer("/expected_icc_profile/color_space")
+            .and_then(Value::as_str),
+        Some("SRGB")
+    );
+    assert_eq!(
+        icc_file
+            .pointer("/validation/status")
+            .and_then(Value::as_str),
+        Some("passed")
+    );
+    let icc_path = out_dir.join("vl/photo/rgb_icc_profile_explicit_le/instance.dcm");
+    let icc_object = open_file(&icc_path).expect("ICC VL Photographic DICOM file should parse");
+    assert_eq!(
+        icc_object
+            .element(tags::COLOR_SPACE)
+            .expect("ICC file should declare Color Space")
+            .to_str()
+            .expect("Color Space should be a string")
+            .as_ref(),
+        "SRGB"
+    );
+    let icc_element = icc_object
+        .element(tags::ICC_PROFILE)
+        .expect("ICC Profile must exist");
+    assert_eq!(format!("{:?}", icc_element.vr()), "OB");
+    let icc_bytes = icc_element.value().to_bytes().unwrap();
+    assert_eq!(icc_bytes.len(), 736);
+    assert_eq!(&icc_bytes[12..24], b"scnrRGB XYZ ");
+    assert_eq!(&icc_bytes[36..40], b"acsp");
+    assert_eq!(
+        dicom_test_suite::sha256_hex(icc_bytes.as_ref()),
+        "8e069a3476b71a0e0ae7272d9278ba70540d1c4a0b19af1c7d52e56f49091fef"
     );
     let enhanced_ct_file = file_entry_by_case_id(
         &manifest,
@@ -5755,7 +5821,7 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
         .expect("manifest should contain skipped cases");
     assert_eq!(
         skipped_cases.len(),
-        42 - usize::from(parametric_map_generated)
+        41 - usize::from(parametric_map_generated)
             - if cfg!(feature = "deflate") { 2 } else { 0 }
             - if cfg!(feature = "jpeg") { 1 } else { 0 }
             - if cfg!(feature = "charls") { 1 } else { 0 }
@@ -7367,7 +7433,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\tall"));
-    let native_all_files = 132
+    let native_all_files = 133
         + if cfg!(feature = "deflate") { 2 } else { 0 }
         + if cfg!(feature = "jpeg") { 1 } else { 0 }
         + if cfg!(feature = "charls") { 1 } else { 0 }
@@ -7504,6 +7570,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
     file_entry_by_case_id(&manifest, "vl/photo/rgb_planar1_rle_lossless");
     file_entry_by_case_id(&manifest, "vl/photo/palette_color_rle_lossless");
     file_entry_by_case_id(&manifest, "vl/photo/rgb_planar0_explicit_le");
+    file_entry_by_case_id(&manifest, "vl/photo/rgb_icc_profile_explicit_le");
     file_entry_by_case_id(&manifest, "vl/photo/palette_color_explicit_le");
     file_entry_by_case_id(&manifest, "classic/ct/mono2_i16_rescale_12bit_rle_lossless");
     file_entry_by_case_id(&manifest, "classic/mr/mono2_u16_rle_lossless");
@@ -7557,7 +7624,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
         .expect("manifest should contain skipped cases");
     assert_eq!(
         skipped_cases.len(),
-        43 - usize::from(parametric_map_generated)
+        42 - usize::from(parametric_map_generated)
             - if cfg!(feature = "deflate") { 2 } else { 0 }
             - if cfg!(feature = "jpeg") { 1 } else { 0 }
             - if cfg!(feature = "charls") { 1 } else { 0 }

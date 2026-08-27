@@ -472,10 +472,11 @@ pub fn write_generation_run(
     let cargo_lock = read_bytes_metadata(cargo_lock_path)?;
     let registry = read_json_metadata(registry_path)?;
 
-    let generated_files =
+    let generated =
         generator::write_supported_cases(run, &registry, &sha256_hex(&standards_lock_bytes))?;
-    let files_written = generated_files.len();
-    let generated_case_ids: Vec<String> = generated_files
+    let files_written = generated.files.len();
+    let generated_case_ids: Vec<String> = generated
+        .files
         .iter()
         .map(|file| file.case_id.clone())
         .collect();
@@ -485,8 +486,9 @@ pub fn write_generation_run(
         &standards_lock_bytes,
         &cargo_lock,
         &registry,
-        generated_files,
+        generated.files,
         &generated_case_ids,
+        &generated.unavailable_cases,
     )?;
     let mut contents = serde_json::to_string_pretty(&manifest).map_err(|source| {
         GenerateError::SerializeManifest {
@@ -10157,8 +10159,10 @@ fn build_generation_manifest(
     registry: &Value,
     generated_files: Vec<generator::GeneratedFile>,
     generated_case_ids: &[String],
+    unavailable_cases: &[Value],
 ) -> Result<Value, GenerateError> {
-    let skipped_cases = skipped_cases_for_run(registry, run, generated_case_ids)?;
+    let skipped_cases =
+        skipped_cases_for_run(registry, run, generated_case_ids, unavailable_cases)?;
     let dicom_standard_kb = standards_lock
         .get("dicom_standard_kb")
         .cloned()
@@ -10223,6 +10227,7 @@ fn skipped_cases_for_run(
     registry: &Value,
     run: &PreparedGenerationRun,
     generated_case_ids: &[String],
+    unavailable_cases: &[Value],
 ) -> Result<Vec<Value>, GenerateError> {
     let cases =
         registry
@@ -10251,6 +10256,13 @@ fn skipped_cases_for_run(
             .iter()
             .any(|generated_case_id| generated_case_id == case_id)
         {
+            continue;
+        }
+        if let Some(unavailable) = unavailable_cases
+            .iter()
+            .find(|unavailable| unavailable.get("case_id").and_then(Value::as_str) == Some(case_id))
+        {
+            skipped.push(unavailable.clone());
             continue;
         }
 
@@ -11642,7 +11654,7 @@ mod tests {
         });
         let generated_case_ids = vec!["classic/sc/generated_explicit_le".to_string()];
 
-        let skipped = skipped_cases_for_run(&registry, &run, &generated_case_ids)
+        let skipped = skipped_cases_for_run(&registry, &run, &generated_case_ids, &[])
             .expect("registry statuses should build skipped rows");
 
         assert_eq!(
@@ -11790,7 +11802,7 @@ mod tests {
         .expect("blocked registry case should not fail generation");
 
         assert!(
-            generated.is_empty(),
+            generated.files.is_empty(),
             "blocked registry status must prevent matching recipes from writing files"
         );
         assert!(
@@ -11801,6 +11813,48 @@ mod tests {
         );
 
         fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
+    }
+
+    #[test]
+    fn backend_unavailability_overrides_generic_missing_generator_status() {
+        let run = PreparedGenerationRun {
+            profile: "extended".to_string(),
+            out_dir: unique_temp_dir("backend_unavailable"),
+            manifest_path: unique_temp_dir("backend_unavailable").join("manifest.json"),
+            seed: 1,
+            include_stress: false,
+        };
+        let case_id = "derived/parametric-map/float32_ct_derived_explicit_le";
+        let registry = serde_json::json!({
+            "cases": [{
+                "case_id": case_id,
+                "status": "implemented",
+                "profiles": ["extended"],
+                "requirements": {
+                    "features": [],
+                    "external_codecs": [],
+                    "external_validators": []
+                },
+                "skip": null,
+                "standards_evidence": []
+            }]
+        });
+        let unavailable = serde_json::json!({
+            "case_id": case_id,
+            "status": "unavailable",
+            "reason_code": "external_backend_unavailable",
+            "message": "The prepared uv runtime is absent.",
+            "recheck_phase": "phase-1",
+            "standards_evidence": []
+        });
+
+        let skipped = skipped_cases_for_run(&registry, &run, &[], &[unavailable])
+            .expect("backend availability should build a skipped row");
+        assert_eq!(skipped.len(), 1);
+        assert_eq!(
+            skipped[0].get("reason_code").and_then(Value::as_str),
+            Some("external_backend_unavailable")
+        );
     }
 
     #[test]

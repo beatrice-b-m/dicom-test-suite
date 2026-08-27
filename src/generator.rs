@@ -3410,6 +3410,12 @@ pub(crate) struct GeneratedFile {
     pub manifest_entry: Value,
 }
 
+#[derive(Debug, Default)]
+pub(crate) struct GenerationOutput {
+    pub files: Vec<GeneratedFile>,
+    pub unavailable_cases: Vec<Value>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct GeneratedSourceObject {
     pub source_case_id: String,
@@ -3569,6 +3575,7 @@ impl GeneratedSourceRegistry {
 struct GenerationContext {
     generated_files: Vec<GeneratedFile>,
     source_registry: GeneratedSourceRegistry,
+    unavailable_cases: Vec<Value>,
 }
 
 impl GenerationContext {
@@ -3590,8 +3597,11 @@ impl GenerationContext {
         &self.source_registry
     }
 
-    fn into_generated_files(self) -> Vec<GeneratedFile> {
-        self.generated_files
+    fn into_output(self) -> GenerationOutput {
+        GenerationOutput {
+            files: self.generated_files,
+            unavailable_cases: self.unavailable_cases,
+        }
     }
 }
 
@@ -3599,7 +3609,7 @@ pub(crate) fn write_supported_cases(
     run: &PreparedGenerationRun,
     registry: &Value,
     standards_lock_sha256: &str,
-) -> Result<Vec<GeneratedFile>, GenerateError> {
+) -> Result<GenerationOutput, GenerateError> {
     let mut context = GenerationContext::default();
     for recipe in PIXEL_RECIPES {
         let Some(case) = registry_case(registry, recipe.case_id)? else {
@@ -3952,7 +3962,7 @@ pub(crate) fn write_supported_cases(
             standards_lock_sha256,
         )?)?;
     }
-    Ok(context.into_generated_files())
+    Ok(context.into_output())
 }
 
 fn generated_manifest_str<'a>(
@@ -16115,7 +16125,7 @@ mod tests {
             source_paths,
             vec!["enhanced/ct/multiframe_shared_perframe_explicit_le/instance.dcm"]
         );
-        assert_eq!(context.into_generated_files().len(), 2);
+        assert_eq!(context.into_output().files.len(), 2);
     }
 
     #[test]

@@ -71,6 +71,10 @@ use native::pet::{CLASSIC_PET_RECIPES, ClassicPetRecipe, ENHANCED_PET_RECIPES, E
 use native::private_creator_sc::{
     PRIVATE_CREATOR_SC_RECIPE, PrivateCreatorBlockRecipe, PrivateCreatorScRecipe, PrivateValue,
 };
+use native::rt_image::{
+    RT_IMAGE_OUTPUT_FILE, RT_IMAGE_PIXEL_BYTES, RT_IMAGE_PIXEL_SHA256, RT_IMAGE_STORAGE_UID,
+    RT_PLAN_STORAGE_UID as RT_IMAGE_REFERENCED_PLAN_STORAGE_UID, RtImageInput, build_rt_image,
+};
 use native::rt_plan::{
     RT_DOSE_STORAGE_UID as RT_PLAN_REFERENCED_DOSE_STORAGE_UID, RT_PLAN_OUTPUT_FILE,
     RT_PLAN_STORAGE_UID,
@@ -123,7 +127,9 @@ use crate::{
         Tid1500GenerationInput, Tid1500Identities, Tid1500Outcome,
         generate_parametric_map_for_spec, generate_scoord3d, generate_tid1500,
     },
-    rt_manifest::{LinkedRtPlanInput, linked_rt_plan_expected},
+    rt_manifest::{
+        LinkedRtImageInput, LinkedRtPlanInput, linked_rt_image_expected, linked_rt_plan_expected,
+    },
     sha256_hex,
     validation::{
         AdvancedBlendingPresentationStateExpectations, AdvancedBlendingSourceSeriesExpectations,
@@ -135,8 +141,8 @@ use crate::{
         GeneralEcgExpectations, MgImageExpectations, MrImageExpectations, NmDetectorExpectations,
         NmEnergyWindowExpectations, NmImageExpectations, Part10Expectations, PetImageExpectations,
         PixelDataLengthFormula, PresentationStateExpectations, RealWorldValueMappingExpectations,
-        RtDoseExpectations, RtPlanExpectations, RtStructureSetExpectations, Scoord3dExpectations,
-        SegmentationExpectations, SpatialRegistrationExpectations,
+        RtDoseExpectations, RtImageExpectations, RtPlanExpectations, RtStructureSetExpectations,
+        Scoord3dExpectations, SegmentationExpectations, SpatialRegistrationExpectations,
         SpatialRegistrationReferenceExpectations, Tid1500Expectations, TwelveLeadEcgExpectations,
         UsImageExpectations, UsMultiframeExpectations, XaImageExpectations, XrfImageExpectations,
         validate_advanced_blending_presentation_state_file, validate_basic_text_sr_file,
@@ -144,9 +150,9 @@ use crate::{
         validate_comprehensive_sr_file, validate_deformable_spatial_registration_file,
         validate_encapsulated_pdf_file, validate_general_ecg_file,
         validate_key_object_selection_file, validate_part10_file, validate_presentation_state_file,
-        validate_real_world_value_mapping_file, validate_rt_dose_file, validate_rt_plan_file,
-        validate_rt_structure_set_file, validate_scoord3d_file, validate_spatial_registration_file,
-        validate_tid1500_file, validate_twelve_lead_ecg_file,
+        validate_real_world_value_mapping_file, validate_rt_dose_file, validate_rt_image_file,
+        validate_rt_plan_file, validate_rt_structure_set_file, validate_scoord3d_file,
+        validate_spatial_registration_file, validate_tid1500_file, validate_twelve_lead_ecg_file,
     },
     waveform_manifest::{general_ecg_expected_waveform, twelve_lead_ecg_expected_waveform},
 };
@@ -211,6 +217,7 @@ const KEY_OBJECT_SELECTION_RECIPE_VERSION: &str = "0.2.0";
 const RT_STRUCTURE_SET_RECIPE_VERSION: &str = "0.1.0";
 const RT_DOSE_RECIPE_VERSION: &str = "0.1.0";
 const RT_PLAN_RECIPE_VERSION: &str = "0.1.0";
+const RT_IMAGE_RECIPE_VERSION: &str = "0.1.0";
 const ENCAPSULATED_PDF_RECIPE_VERSION: &str = "0.1.0";
 const SEGMENTATION_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.66.4";
 const LABEL_MAP_SEGMENTATION_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.66.7";
@@ -394,6 +401,9 @@ const RT_PLAN_RECIPE_ID: &str = "non_image_rt_plan_linked";
 const RT_PLAN_STRUCTURE_SET_SOURCE_CASE_ID: &str =
     "non-image/rt/structure_set_single_roi_explicit_le";
 const RT_PLAN_DOSE_SOURCE_CASE_ID: &str = "non-image/rt/dose_grid_u16_explicit_le";
+const RT_IMAGE_CASE_ID: &str = "non-image/rt/image_linked";
+const RT_IMAGE_RECIPE_ID: &str = "non_image_rt_image_linked";
+const RT_IMAGE_PLAN_SOURCE_CASE_ID: &str = RT_PLAN_CASE_ID;
 const MONO_PIXELS: [u8; 4] = [0, 85, 170, 255];
 const MONO_MULTIFRAME_PIXELS: [u8; 8] = [0, 85, 170, 255, 255, 170, 85, 0];
 const MONO_MULTIFRAME_VALUES: [i32; 8] = [0, 85, 170, 255, 255, 170, 85, 0];
@@ -3025,6 +3035,19 @@ const RT_PLAN_RECIPES: &[RtPlanRecipe] = &[RtPlanRecipe {
 }];
 
 #[derive(Debug, Clone, Copy)]
+struct RtImageRecipe {
+    case_id: &'static str,
+    recipe_id: &'static str,
+    plan_source_case_id: &'static str,
+}
+
+const RT_IMAGE_RECIPES: &[RtImageRecipe] = &[RtImageRecipe {
+    case_id: RT_IMAGE_CASE_ID,
+    recipe_id: RT_IMAGE_RECIPE_ID,
+    plan_source_case_id: RT_IMAGE_PLAN_SOURCE_CASE_ID,
+}];
+
+#[derive(Debug, Clone, Copy)]
 struct EncapsulatedPdfRecipe {
     case_id: &'static str,
     recipe_id: &'static str,
@@ -4462,6 +4485,29 @@ pub(crate) fn write_supported_cases(
             *recipe,
             &structure_set_source,
             &dose_source,
+            standards_lock_sha256,
+        )?)?;
+    }
+    for recipe in RT_IMAGE_RECIPES {
+        let Some(case) = registry_case(registry, recipe.case_id)? else {
+            continue;
+        };
+        if !should_generate_case(case, run)? {
+            continue;
+        }
+        let plan_source = context
+            .source_registry()
+            .first_for_case(recipe.plan_source_case_id)
+            .cloned()
+            .ok_or_else(|| GenerateError::MetadataShape {
+                path: PathBuf::from(recipe.case_id),
+                message: "RT Image Plan source object must be generated before the derived recipe",
+            })?;
+        context.record_one(write_rt_image_case(
+            run,
+            case,
+            *recipe,
+            &plan_source,
             standards_lock_sha256,
         )?)?;
     }
@@ -14642,6 +14688,261 @@ fn rt_plan_source_error(message: impl Into<String>) -> GenerateError {
     }
 }
 
+fn write_rt_image_case(
+    run: &PreparedGenerationRun,
+    case: &Value,
+    recipe: RtImageRecipe,
+    plan_source: &GeneratedSourceObject,
+    standards_lock_sha256: &str,
+) -> Result<GeneratedFile, GenerateError> {
+    validate_rt_image_plan_source(&run.out_dir, recipe, plan_source)?;
+    let plan_series_instance_uid = required_source_uid(
+        plan_source.series_instance_uid.as_deref(),
+        RT_IMAGE_CASE_ID,
+        "RT Image Plan source Series Instance UID is missing",
+    )?;
+    let frame_of_reference_uid = required_source_uid(
+        plan_source.frame_of_reference_uid.as_deref(),
+        RT_IMAGE_CASE_ID,
+        "RT Image Plan source Frame of Reference UID is missing",
+    )?;
+    let series_instance_uid = deterministic_rt_image_uid(
+        standards_lock_sha256,
+        recipe,
+        run.seed,
+        UidRole::SeriesInstance,
+    );
+    let sop_instance_uid = deterministic_rt_image_uid(
+        standards_lock_sha256,
+        recipe,
+        run.seed,
+        UidRole::SopInstance,
+    );
+    let implementation_class_uid = deterministic_implementation_uid(standards_lock_sha256);
+    let relative_path = format!("{}/{RT_IMAGE_OUTPUT_FILE}", recipe.case_id);
+    let path = run.out_dir.join(&relative_path);
+    let case_dir = path.parent().ok_or_else(|| GenerateError::MetadataShape {
+        path: PathBuf::from(&relative_path),
+        message: "RT Image output must have a parent directory",
+    })?;
+    fs::create_dir_all(case_dir).map_err(|source| GenerateError::CreateCaseOutputDir {
+        path: case_dir.to_path_buf(),
+        source,
+    })?;
+
+    let object = build_rt_image(RtImageInput {
+        study_instance_uid: &plan_source.study_instance_uid,
+        frame_of_reference_uid,
+        series_instance_uid: &series_instance_uid,
+        sop_instance_uid: &sop_instance_uid,
+        plan_sop_class_uid: &plan_source.sop_class_uid,
+        plan_sop_instance_uid: &plan_source.sop_instance_uid,
+    })
+    .map_err(|message| GenerateError::WriteDicomFile {
+        path: path.clone(),
+        message,
+    })?;
+    object
+        .with_meta(
+            FileMetaTableBuilder::new()
+                .transfer_syntax(EXPLICIT_VR_LITTLE_ENDIAN.uid)
+                .implementation_class_uid(&implementation_class_uid)
+                .implementation_version_name(crate::IMPLEMENTATION_VERSION_NAME),
+        )
+        .map_err(|error| GenerateError::WriteDicomFile {
+            path: path.clone(),
+            message: error.to_string(),
+        })?
+        .write_to_file(&path)
+        .map_err(|error| GenerateError::WriteDicomFile {
+            path: path.clone(),
+            message: error.to_string(),
+        })?;
+
+    let expected_rt_image = linked_rt_image_expected(LinkedRtImageInput {
+        sop_instance_uid: &sop_instance_uid,
+        study_instance_uid: &plan_source.study_instance_uid,
+        series_instance_uid: &series_instance_uid,
+        frame_of_reference_uid,
+        plan_series_instance_uid,
+        plan_sop_instance_uid: &plan_source.sop_instance_uid,
+        plan_sha256: &plan_source.sha256,
+    });
+    let validated = validate_rt_image_file(
+        &path,
+        &RtImageExpectations {
+            implementation_class_uid: &implementation_class_uid,
+            synthetic_data: "YES",
+            expected_rt_image,
+        },
+    )?;
+    let mut validation = validated.validation;
+    validation["internal"]
+        .as_array_mut()
+        .expect("RT Image validation internal results are an array")
+        .push(serde_json::json!({
+            "name": "rt_image_plan_source_precheck",
+            "status": "passed",
+            "message": "Rust reopened and hashed the linked RT Plan, then verified its generated-source identity and shared Study and Frame of Reference before construction."
+        }));
+    let expected_rt_image = serde_json::to_value(expected_rt_image)
+        .expect("RT Image expectation serialization is infallible");
+    let bytes = validated.bytes;
+
+    Ok(GeneratedFile {
+        case_id: recipe.case_id.to_string(),
+        manifest_entry: serde_json::json!({
+            "case_id": recipe.case_id,
+            "profile_membership": ["extended"],
+            "path": relative_path,
+            "sha256": sha256_hex(&bytes),
+            "size_bytes": bytes.len(),
+            "determinism": "byte_stable",
+            "recipe": {
+                "recipe_id": recipe.recipe_id,
+                "recipe_version": RT_IMAGE_RECIPE_VERSION,
+                "recipe_parameters": {
+                    "plan_source_case_id": recipe.plan_source_case_id,
+                    "referenced_fraction_group_number": 1,
+                    "referenced_beam_number": 1,
+                    "pixel_value_formula": "17 * (4 * r + c)",
+                    "payload_sha256": RT_IMAGE_PIXEL_SHA256
+                }
+            },
+            "dicom": {
+                "sop_class_uid": RT_IMAGE_STORAGE_UID,
+                "sop_class_name": "RT Image Storage",
+                "iod_name": "RT Image",
+                "modality": "RTIMAGE",
+                "transfer_syntax_uid": EXPLICIT_VR_LITTLE_ENDIAN.uid,
+                "transfer_syntax_name": EXPLICIT_VR_LITTLE_ENDIAN.name
+            },
+            "uids": {
+                "study_instance_uid": plan_source.study_instance_uid,
+                "series_instance_uid": series_instance_uid,
+                "sop_instance_uid": sop_instance_uid,
+                "frame_of_reference_uid": frame_of_reference_uid,
+                "implementation_class_uid": implementation_class_uid,
+                "implementation_version_name": crate::IMPLEMENTATION_VERSION_NAME
+            },
+            "image": {
+                "sample_type": "integer",
+                "rows": 4,
+                "columns": 4,
+                "frames": 1,
+                "samples_per_pixel": 1,
+                "photometric_interpretation": "MONOCHROME2",
+                "bits_allocated": 8,
+                "bits_stored": 8,
+                "high_bit": 7,
+                "pixel_representation": 0,
+                "planar_configuration": Value::Null
+            },
+            "pixel_data": {
+                "vr": "OB",
+                "native_or_encapsulated": "native",
+                "value_length": RT_IMAGE_PIXEL_BYTES.len(),
+                "frame_count": 1,
+                "frame_hashes": [RT_IMAGE_PIXEL_SHA256]
+            },
+            "references": [plan_source.to_manifest_reference("referenced_rt_plan", None)],
+            "expected_capabilities": [
+                "open_file", "read_metadata", "resolve_references", "read_rt_image", "decode_native_pixels"
+            ],
+            "expected_semantics": {
+                "synthetic_data": "YES",
+                "linked_plan_sop_instance_uid": plan_source.sop_instance_uid,
+                "referenced_fraction_group_number": 1,
+                "referenced_beam_number": 1,
+                "image_type": ["DERIVED", "SECONDARY", "DRR"],
+                "conversion_type": "WSD",
+                "rt_image_plane": "NORMAL",
+                "pixel_value_formula": "17 * (4 * r + c)",
+                "payload_sha256": RT_IMAGE_PIXEL_SHA256
+            },
+            "expected_rt_image": expected_rt_image,
+            "expected_visual_checks": {
+                "pattern": "4x4_monochrome_gradient",
+                "minimum_displays_black": true,
+                "maximum_displays_white": true
+            },
+            "validation": validation,
+            "known_stressors": [
+                "rt_image_storage", "linked_rt_plan", "beam_and_fraction_linkage",
+                "native_ob_pixels", "drr_geometry", "pixel_data_present"
+            ],
+            "standards_evidence": deduplicated_standards_evidence(standards_evidence_from_case(case))
+        }),
+    })
+}
+
+fn validate_rt_image_plan_source(
+    generated_root: &std::path::Path,
+    recipe: RtImageRecipe,
+    plan_source: &GeneratedSourceObject,
+) -> Result<(), GenerateError> {
+    let plan_series = required_source_uid(
+        plan_source.series_instance_uid.as_deref(),
+        RT_IMAGE_CASE_ID,
+        "RT Image Plan source Series Instance UID is missing",
+    )?;
+    let plan_frame = required_source_uid(
+        plan_source.frame_of_reference_uid.as_deref(),
+        RT_IMAGE_CASE_ID,
+        "RT Image Plan source Frame of Reference UID is missing",
+    )?;
+    if plan_source.source_case_id != recipe.plan_source_case_id
+        || plan_source.source_path != format!("{}/instance.dcm", recipe.plan_source_case_id)
+        || plan_source.sop_class_uid != RT_IMAGE_REFERENCED_PLAN_STORAGE_UID
+        || plan_source.study_instance_uid.is_empty()
+        || plan_series.is_empty()
+        || plan_frame.is_empty()
+    {
+        return Err(rt_image_source_error(
+            "RT Image source differs from the locked linked Plan identity topology",
+        ));
+    }
+    let path = generated_root.join(&plan_source.source_path);
+    let bytes = fs::read(&path).map_err(|error| GenerateError::ReadMetadata {
+        path: path.clone(),
+        source: error,
+    })?;
+    let object = open_file(&path).map_err(|error| GenerateError::ValidateDicomFile {
+        path: path.clone(),
+        message: error.to_string(),
+    })?;
+    let text = |tag| {
+        object
+            .element(tag)
+            .map_err(|error| rt_image_source_error(error.to_string()))?
+            .to_str()
+            .map(|value| value.trim_end_matches(['\0', ' ']).to_string())
+            .map_err(|error| rt_image_source_error(error.to_string()))
+    };
+    if sha256_hex(&bytes) != plan_source.sha256
+        || object.meta().media_storage_sop_class_uid() != plan_source.sop_class_uid
+        || object.meta().media_storage_sop_instance_uid() != plan_source.sop_instance_uid
+        || object.meta().transfer_syntax() != EXPLICIT_VR_LITTLE_ENDIAN.uid
+        || text(tags::SOP_CLASS_UID)? != plan_source.sop_class_uid
+        || text(tags::SOP_INSTANCE_UID)? != plan_source.sop_instance_uid
+        || text(tags::STUDY_INSTANCE_UID)? != plan_source.study_instance_uid
+        || text(tags::SERIES_INSTANCE_UID)? != plan_series
+        || text(tags::FRAME_OF_REFERENCE_UID)? != plan_frame
+    {
+        return Err(rt_image_source_error(
+            "RT Image Plan source bytes or DICOM identity differ from the generated-source registry",
+        ));
+    }
+    Ok(())
+}
+
+fn rt_image_source_error(message: impl Into<String>) -> GenerateError {
+    GenerateError::ValidateDicomFile {
+        path: PathBuf::from(RT_IMAGE_CASE_ID),
+        message: message.into(),
+    }
+}
+
 fn write_encapsulated_pdf_case(
     run: &PreparedGenerationRun,
     case: &Value,
@@ -24803,6 +25104,24 @@ fn deterministic_rt_plan_uid(
     })
 }
 
+fn deterministic_rt_image_uid(
+    standards_lock_sha256: &str,
+    recipe: RtImageRecipe,
+    run_seed: u64,
+    role: UidRole,
+) -> String {
+    deterministic_uid(&DeterministicUidInput {
+        standards_lock_sha256,
+        case_id: recipe.case_id,
+        recipe_version: RT_IMAGE_RECIPE_VERSION,
+        run_seed,
+        file_index: 0,
+        frame_index: None,
+        referenced_object_index: Some(0),
+        role,
+    })
+}
+
 fn deterministic_encapsulated_pdf_uid(
     standards_lock_sha256: &str,
     recipe: EncapsulatedPdfRecipe,
@@ -25945,6 +26264,176 @@ mod tests {
         )
         .expect_err("RT Plan writer must reject stale linked-source hashes");
         assert!(error.to_string().contains("source bytes or DICOM identity"));
+    }
+
+    #[test]
+    fn rt_image_writer_links_plan_and_is_byte_deterministic() {
+        let output = ParametricMapStagingGuard::new();
+        let run = PreparedGenerationRun {
+            profile: "extended".to_string(),
+            out_dir: output.path().to_path_buf(),
+            manifest_path: output.path().join("manifest.json"),
+            seed: 7,
+            include_stress: false,
+        };
+        let lock = "0000000000000000000000000000000000000000000000000000000000000000";
+        let image_case = serde_json::json!({"case_id": RT_STRUCTURE_SET_SOURCE_CASE_ID, "standards_evidence": []});
+        let image_file = write_enhanced_ct_case(&run, &image_case, ENHANCED_CT_RECIPES[0], lock)
+            .expect("Enhanced CT source");
+        let image_source = GeneratedSourceObject::from_generated_file(&image_file).unwrap();
+        let structure_case = serde_json::json!({"case_id": RT_PLAN_STRUCTURE_SET_SOURCE_CASE_ID, "standards_evidence": []});
+        let structure_file = write_rt_structure_set_case(
+            &run,
+            &structure_case,
+            RT_STRUCTURE_SET_RECIPES[0],
+            &image_source,
+            lock,
+        )
+        .expect("Structure Set source");
+        let structure_source = GeneratedSourceObject::from_generated_file(&structure_file).unwrap();
+        let dose_case =
+            serde_json::json!({"case_id": RT_PLAN_DOSE_SOURCE_CASE_ID, "standards_evidence": []});
+        let dose_file = write_rt_dose_case(
+            &run,
+            &dose_case,
+            RT_DOSE_RECIPES[0],
+            &image_source,
+            &structure_source,
+            lock,
+        )
+        .expect("Dose source");
+        let dose_source = GeneratedSourceObject::from_generated_file(&dose_file).unwrap();
+        let plan_case = serde_json::json!({"case_id": RT_PLAN_CASE_ID, "standards_evidence": []});
+        let plan_file = write_rt_plan_case(
+            &run,
+            &plan_case,
+            RT_PLAN_RECIPES[0],
+            &structure_source,
+            &dose_source,
+            lock,
+        )
+        .expect("Plan source");
+        let plan_source = GeneratedSourceObject::from_generated_file(&plan_file).unwrap();
+        let case = serde_json::json!({
+            "case_id": RT_IMAGE_CASE_ID,
+            "profiles": ["extended"],
+            "status": "implemented",
+            "requirements": {"features": []},
+            "standards_evidence": []
+        });
+        let committed: Value =
+            serde_json::from_str(include_str!("../cases/registry.json")).unwrap();
+        let planned = registry_case(&committed, RT_IMAGE_CASE_ID)
+            .unwrap()
+            .unwrap();
+        assert!(
+            !should_generate_case(planned, &run).unwrap(),
+            "wired Image branch must remain dormant until promotion"
+        );
+
+        let first = write_rt_image_case(&run, &case, RT_IMAGE_RECIPES[0], &plan_source, lock)
+            .expect("RT Image write");
+        let path = output
+            .path()
+            .join(RT_IMAGE_CASE_ID)
+            .join(RT_IMAGE_OUTPUT_FILE);
+        let first_bytes = fs::read(&path).unwrap();
+        let second = write_rt_image_case(&run, &case, RT_IMAGE_RECIPES[0], &plan_source, lock)
+            .expect("repeat RT Image write");
+        let second_bytes = fs::read(&path).unwrap();
+        assert_eq!(first_bytes, second_bytes);
+        assert_eq!(
+            sha256_hex(&first_bytes),
+            "3650b7fc789cd5b70554963a84accd16b0b56dde8e7e01de8e289ce3546c7d23"
+        );
+        assert_eq!(
+            first.manifest_entry["sha256"],
+            second.manifest_entry["sha256"]
+        );
+        assert_eq!(
+            first
+                .manifest_entry
+                .pointer("/expected_rt_image/plan_reference/source_sha256"),
+            Some(&Value::from(plan_source.sha256.as_str()))
+        );
+        assert_eq!(
+            first.manifest_entry.pointer("/expected_rt_image/linkage"),
+            Some(
+                &serde_json::json!({"referenced_fraction_group_number": 1, "referenced_beam_number": 1})
+            )
+        );
+        assert_eq!(
+            first
+                .manifest_entry
+                .pointer("/expected_rt_image/storage/pixel_values"),
+            Some(&serde_json::json!(RT_IMAGE_PIXEL_BYTES))
+        );
+        assert_eq!(
+            first.manifest_entry.pointer("/pixel_data/frame_hashes/0"),
+            Some(&Value::from(RT_IMAGE_PIXEL_SHA256))
+        );
+        assert_eq!(
+            first.manifest_entry.pointer("/uids/study_instance_uid"),
+            Some(&Value::from(plan_source.study_instance_uid.as_str()))
+        );
+        assert_eq!(
+            first
+                .manifest_entry
+                .pointer("/uids/frame_of_reference_uid")
+                .and_then(Value::as_str),
+            plan_source.frame_of_reference_uid.as_deref()
+        );
+        assert!(
+            first
+                .manifest_entry
+                .pointer("/validation/internal")
+                .and_then(Value::as_array)
+                .unwrap()
+                .iter()
+                .any(|check| check.get("name").and_then(Value::as_str)
+                    == Some("rt_image_plan_source_precheck"))
+        );
+
+        let schema: Value =
+            serde_json::from_str(include_str!("../schemas/manifest.schema.json")).unwrap();
+        let file_schema = serde_json::json!({"$schema": "https://json-schema.org/draft/2020-12/schema", "$ref": "#/$defs/file", "$defs": schema["$defs"].clone()});
+        let validator = jsonschema::validator_for(&file_schema).unwrap();
+        assert!(
+            validator.is_valid(&first.manifest_entry),
+            "RT Image manifest schema errors: {:?}",
+            validator
+                .iter_errors(&first.manifest_entry)
+                .collect::<Vec<_>>()
+        );
+
+        let mut sources = GeneratedSourceRegistry::default();
+        sources.register(&first).expect("register RT Image");
+        let registered = sources.first_for_case(RT_IMAGE_CASE_ID).unwrap();
+        assert_eq!(registered.sha256, sha256_hex(&first_bytes));
+        assert_eq!(
+            registered.study_instance_uid,
+            plan_source.study_instance_uid
+        );
+        assert_eq!(
+            registered.frame_of_reference_uid,
+            plan_source.frame_of_reference_uid
+        );
+
+        let mut stale_hash = plan_source.clone();
+        stale_hash.sha256 = "0".repeat(64);
+        let error = write_rt_image_case(&run, &case, RT_IMAGE_RECIPES[0], &stale_hash, lock)
+            .expect_err("stale Plan hash must fail");
+        assert!(error.to_string().contains("source bytes or DICOM identity"));
+        let mut wrong_frame = plan_source.clone();
+        wrong_frame.frame_of_reference_uid = Some("2.25.99999".to_string());
+        let error = write_rt_image_case(&run, &case, RT_IMAGE_RECIPES[0], &wrong_frame, lock)
+            .expect_err("Plan Frame of Reference drift must fail");
+        assert!(error.to_string().contains("source bytes or DICOM identity"));
+        let mut wrong_class = plan_source.clone();
+        wrong_class.sop_class_uid = RT_IMAGE_STORAGE_UID.to_string();
+        let error = write_rt_image_case(&run, &case, RT_IMAGE_RECIPES[0], &wrong_class, lock)
+            .expect_err("non-Plan source must fail");
+        assert!(error.to_string().contains("identity topology"));
     }
 
     #[test]

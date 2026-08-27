@@ -366,6 +366,7 @@ pub(crate) struct EnhancedCtConcatenationExpectations<'a> {
 #[derive(Debug, Clone)]
 pub(crate) struct EnhancedMrImageExpectations<'a> {
     pub modality: &'a str,
+    pub patient_position: &'a str,
     pub frame_of_reference_uid: &'a str,
     pub image_type: &'a str,
     pub number_of_frames: u16,
@@ -380,6 +381,16 @@ pub(crate) struct EnhancedMrImageExpectations<'a> {
     pub pixel_presentation: &'a str,
     pub volumetric_properties: &'a str,
     pub volume_based_calculation_technique: &'a str,
+    pub content_qualification: &'a str,
+    pub applicable_safety_standard_agency: &'a str,
+    pub complex_image_component: &'a str,
+    pub acquisition_contrast: &'a str,
+    pub burned_in_annotation: &'a str,
+    pub lossy_image_compression: &'a str,
+    pub presentation_lut_shape: &'a str,
+    pub anatomic_region_code_value: &'a str,
+    pub anatomic_region_coding_scheme: &'a str,
+    pub anatomic_region_code_meaning: &'a str,
     pub rescale_intercept: &'a str,
     pub rescale_slope: &'a str,
     pub rescale_type: &'a str,
@@ -388,6 +399,9 @@ pub(crate) struct EnhancedMrImageExpectations<'a> {
     pub echo_train_length: &'a str,
     pub rf_echo_train_length: u16,
     pub gradient_echo_train_length: u16,
+    pub specific_absorption_rate_definition: &'a str,
+    pub specific_absorption_rate_value: f64,
+    pub operating_modes: &'a [(&'a str, &'a str)],
     pub effective_echo_times: Option<&'a [f64]>,
     pub temporal_position_time_offsets: Option<&'a [f64]>,
     pub velocity_encoding_directions: Option<&'a [[f64; 3]]>,
@@ -4902,6 +4916,11 @@ fn validate_enhanced_mr_image(
     for (name, tag, expected_value) in [
         ("enhanced_mr_modality", tags::MODALITY, expected.modality),
         (
+            "enhanced_mr_patient_position",
+            tags::PATIENT_POSITION,
+            expected.patient_position,
+        ),
+        (
             "enhanced_mr_frame_of_reference_uid",
             tags::FRAME_OF_REFERENCE_UID,
             expected.frame_of_reference_uid,
@@ -4925,6 +4944,41 @@ fn validate_enhanced_mr_image(
             "enhanced_mr_volume_based_calculation_technique",
             tags::VOLUME_BASED_CALCULATION_TECHNIQUE,
             expected.volume_based_calculation_technique,
+        ),
+        (
+            "enhanced_mr_content_qualification",
+            tags::CONTENT_QUALIFICATION,
+            expected.content_qualification,
+        ),
+        (
+            "enhanced_mr_applicable_safety_standard_agency",
+            tags::APPLICABLE_SAFETY_STANDARD_AGENCY,
+            expected.applicable_safety_standard_agency,
+        ),
+        (
+            "enhanced_mr_complex_image_component",
+            tags::COMPLEX_IMAGE_COMPONENT,
+            expected.complex_image_component,
+        ),
+        (
+            "enhanced_mr_acquisition_contrast",
+            tags::ACQUISITION_CONTRAST,
+            expected.acquisition_contrast,
+        ),
+        (
+            "enhanced_mr_burned_in_annotation",
+            tags::BURNED_IN_ANNOTATION,
+            expected.burned_in_annotation,
+        ),
+        (
+            "enhanced_mr_lossy_image_compression",
+            tags::LOSSY_IMAGE_COMPRESSION,
+            expected.lossy_image_compression,
+        ),
+        (
+            "enhanced_mr_presentation_lut_shape",
+            tags::PRESENTATION_LUT_SHAPE,
+            expected.presentation_lut_shape,
         ),
     ] {
         check_equal(
@@ -5033,6 +5087,35 @@ fn validate_enhanced_mr_image(
         .as_str(),
         expected.image_orientation_patient,
     );
+    let frame_anatomy = item_sequence_item(path, shared, tags::FRAME_ANATOMY_SEQUENCE, 0)?;
+    let anatomic_region =
+        item_sequence_item(path, frame_anatomy, tags::ANATOMIC_REGION_SEQUENCE, 0)?;
+    for (name, tag, expected_value) in [
+        (
+            "enhanced_mr_anatomic_region_code_value",
+            tags::CODE_VALUE,
+            expected.anatomic_region_code_value,
+        ),
+        (
+            "enhanced_mr_anatomic_region_coding_scheme",
+            tags::CODING_SCHEME_DESIGNATOR,
+            expected.anatomic_region_coding_scheme,
+        ),
+        (
+            "enhanced_mr_anatomic_region_code_meaning",
+            tags::CODE_MEANING,
+            expected.anatomic_region_code_meaning,
+        ),
+    ] {
+        check_equal(
+            results,
+            name,
+            "Enhanced MR Frame Anatomy code matches the recipe.",
+            "Enhanced MR Frame Anatomy code does not match the recipe.",
+            item_str(path, anatomic_region, tag)?.as_str(),
+            expected_value,
+        );
+    }
     check_equal(
         results,
         "enhanced_mr_frame_type",
@@ -5048,6 +5131,28 @@ fn validate_enhanced_mr_image(
         .as_str(),
         expected.frame_type,
     );
+    for (name, tag, expected_value) in [
+        (
+            "enhanced_mr_frame_complex_image_component",
+            tags::COMPLEX_IMAGE_COMPONENT,
+            expected.complex_image_component,
+        ),
+        (
+            "enhanced_mr_frame_acquisition_contrast",
+            tags::ACQUISITION_CONTRAST,
+            expected.acquisition_contrast,
+        ),
+    ] {
+        check_equal(
+            results,
+            name,
+            "Enhanced MR frame-level image description matches the recipe.",
+            "Enhanced MR frame-level image description does not match the recipe.",
+            nested_sequence_item_str(path, shared, tags::MR_IMAGE_FRAME_TYPE_SEQUENCE, 0, tag)?
+                .as_str(),
+            expected_value,
+        );
+    }
     check_equal(
         results,
         "enhanced_mr_rescale_intercept",
@@ -5166,6 +5271,65 @@ fn validate_enhanced_mr_image(
         )?,
         expected.gradient_echo_train_length,
     );
+    let timing = item_sequence_item(
+        path,
+        shared,
+        tags::MR_TIMING_AND_RELATED_PARAMETERS_SEQUENCE,
+        0,
+    )?;
+    check_equal(
+        results,
+        "enhanced_mr_specific_absorption_rate_sequence_items",
+        "Specific Absorption Rate Sequence has one item.",
+        "Specific Absorption Rate Sequence item count does not match the recipe.",
+        item_sequence_item_count(path, timing, tags::SPECIFIC_ABSORPTION_RATE_SEQUENCE)?,
+        1,
+    );
+    let sar = item_sequence_item(path, timing, tags::SPECIFIC_ABSORPTION_RATE_SEQUENCE, 0)?;
+    check_equal(
+        results,
+        "enhanced_mr_specific_absorption_rate_definition",
+        "Specific Absorption Rate Definition matches the recipe.",
+        "Specific Absorption Rate Definition does not match the recipe.",
+        item_str(path, sar, tags::SPECIFIC_ABSORPTION_RATE_DEFINITION)?.as_str(),
+        expected.specific_absorption_rate_definition,
+    );
+    check_equal(
+        results,
+        "enhanced_mr_specific_absorption_rate_value",
+        "Specific Absorption Rate Value matches the recipe.",
+        "Specific Absorption Rate Value does not match the recipe.",
+        item_f64(path, sar, tags::SPECIFIC_ABSORPTION_RATE_VALUE)?,
+        expected.specific_absorption_rate_value,
+    );
+    check_equal(
+        results,
+        "enhanced_mr_operating_mode_sequence_items",
+        "Operating Mode Sequence item count matches the recipe.",
+        "Operating Mode Sequence item count does not match the recipe.",
+        item_sequence_item_count(path, timing, tags::OPERATING_MODE_SEQUENCE)?,
+        expected.operating_modes.len(),
+    );
+    for (index, (expected_type, expected_mode)) in expected.operating_modes.iter().enumerate() {
+        let operating_mode =
+            item_sequence_item(path, timing, tags::OPERATING_MODE_SEQUENCE, index)?;
+        check_equal(
+            results,
+            "enhanced_mr_operating_mode_type",
+            "Operating Mode Type matches the recipe.",
+            "Operating Mode Type does not match the recipe.",
+            item_str(path, operating_mode, tags::OPERATING_MODE_TYPE)?.as_str(),
+            *expected_type,
+        );
+        check_equal(
+            results,
+            "enhanced_mr_operating_mode",
+            "Operating Mode matches the recipe.",
+            "Operating Mode does not match the recipe.",
+            item_str(path, operating_mode, tags::OPERATING_MODE)?.as_str(),
+            *expected_mode,
+        );
+    }
 
     for (index, expected_position) in expected.image_position_patient.iter().enumerate() {
         let frame =

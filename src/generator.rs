@@ -2831,6 +2831,24 @@ const ENHANCED_MR_TEMPORAL_IMAGE_POSITIONS: &[&str] = &["0\\0\\0", "0\\0\\0"];
 const ENHANCED_MR_TEMPORAL_POSITION_TIME_OFFSETS: &[f64] = &[0.0, 1.5];
 const ENHANCED_MR_PHASE_IMAGE_POSITIONS: &[&str] = &["0\\0\\0", "0\\0\\0"];
 const ENHANCED_MR_VELOCITY_ENCODING_DIRECTIONS: &[[f64; 3]] = &[[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]];
+const ENHANCED_MR_PATIENT_POSITION: &str = "";
+const ENHANCED_MR_ANATOMIC_REGION_CODE_VALUE: &str = "69536005";
+const ENHANCED_MR_ANATOMIC_REGION_CODING_SCHEME: &str = "SCT";
+const ENHANCED_MR_ANATOMIC_REGION_CODE_MEANING: &str = "Head";
+const ENHANCED_MR_COMPLEX_IMAGE_COMPONENT: &str = "MAGNITUDE";
+const ENHANCED_MR_ACQUISITION_CONTRAST: &str = "UNKNOWN";
+const ENHANCED_MR_CONTENT_QUALIFICATION: &str = "RESEARCH";
+const ENHANCED_MR_SAFETY_STANDARD_AGENCY: &str = "IEC";
+const ENHANCED_MR_BURNED_IN_ANNOTATION: &str = "NO";
+const ENHANCED_MR_LOSSY_IMAGE_COMPRESSION: &str = "00";
+const ENHANCED_MR_PRESENTATION_LUT_SHAPE: &str = "IDENTITY";
+const ENHANCED_MR_SAR_DEFINITION: &str = "IEC_HEAD";
+const ENHANCED_MR_SAR_VALUE: f64 = 0.1;
+const ENHANCED_MR_OPERATING_MODES: &[(&str, &str)] = &[
+    ("STATIC FIELD", "IEC_NORMAL"),
+    ("RF", "IEC_NORMAL"),
+    ("GRADIENT", "IEC_NORMAL"),
+];
 
 const ENHANCED_MR_RECIPES: &[EnhancedMrRecipe] = &[
     EnhancedMrRecipe {
@@ -11989,6 +12007,12 @@ fn write_enhanced_mr_case(
     put_str(&mut obj, tags::SERIES_NUMBER, VR::IS, "1");
     put_str(
         &mut obj,
+        tags::PATIENT_POSITION,
+        VR::CS,
+        ENHANCED_MR_PATIENT_POSITION,
+    );
+    put_str(
+        &mut obj,
         tags::FRAME_OF_REFERENCE_UID,
         VR::UI,
         &frame_of_reference_uid,
@@ -12032,6 +12056,48 @@ fn write_enhanced_mr_case(
         tags::VOLUME_BASED_CALCULATION_TECHNIQUE,
         VR::CS,
         recipe.volume_based_calculation_technique,
+    );
+    put_str(
+        &mut obj,
+        tags::CONTENT_QUALIFICATION,
+        VR::CS,
+        ENHANCED_MR_CONTENT_QUALIFICATION,
+    );
+    put_str(
+        &mut obj,
+        tags::APPLICABLE_SAFETY_STANDARD_AGENCY,
+        VR::CS,
+        ENHANCED_MR_SAFETY_STANDARD_AGENCY,
+    );
+    put_str(
+        &mut obj,
+        tags::COMPLEX_IMAGE_COMPONENT,
+        VR::CS,
+        ENHANCED_MR_COMPLEX_IMAGE_COMPONENT,
+    );
+    put_str(
+        &mut obj,
+        tags::ACQUISITION_CONTRAST,
+        VR::CS,
+        ENHANCED_MR_ACQUISITION_CONTRAST,
+    );
+    put_str(
+        &mut obj,
+        tags::BURNED_IN_ANNOTATION,
+        VR::CS,
+        ENHANCED_MR_BURNED_IN_ANNOTATION,
+    );
+    put_str(
+        &mut obj,
+        tags::LOSSY_IMAGE_COMPRESSION,
+        VR::CS,
+        ENHANCED_MR_LOSSY_IMAGE_COMPRESSION,
+    );
+    put_str(
+        &mut obj,
+        tags::PRESENTATION_LUT_SHAPE,
+        VR::CS,
+        ENHANCED_MR_PRESENTATION_LUT_SHAPE,
     );
 
     put_u16(&mut obj, tags::SAMPLES_PER_PIXEL, VR::US, 1);
@@ -12109,6 +12175,7 @@ fn write_enhanced_mr_case(
             enhanced_ct_image: None,
             enhanced_mr_image: Some(EnhancedMrImageExpectations {
                 modality: "MR",
+                patient_position: ENHANCED_MR_PATIENT_POSITION,
                 frame_of_reference_uid: &frame_of_reference_uid,
                 image_type: recipe.frame_type,
                 number_of_frames: recipe.frames,
@@ -12123,6 +12190,16 @@ fn write_enhanced_mr_case(
                 pixel_presentation: recipe.pixel_presentation,
                 volumetric_properties: recipe.volumetric_properties,
                 volume_based_calculation_technique: recipe.volume_based_calculation_technique,
+                content_qualification: ENHANCED_MR_CONTENT_QUALIFICATION,
+                applicable_safety_standard_agency: ENHANCED_MR_SAFETY_STANDARD_AGENCY,
+                complex_image_component: ENHANCED_MR_COMPLEX_IMAGE_COMPONENT,
+                acquisition_contrast: ENHANCED_MR_ACQUISITION_CONTRAST,
+                burned_in_annotation: ENHANCED_MR_BURNED_IN_ANNOTATION,
+                lossy_image_compression: ENHANCED_MR_LOSSY_IMAGE_COMPRESSION,
+                presentation_lut_shape: ENHANCED_MR_PRESENTATION_LUT_SHAPE,
+                anatomic_region_code_value: ENHANCED_MR_ANATOMIC_REGION_CODE_VALUE,
+                anatomic_region_coding_scheme: ENHANCED_MR_ANATOMIC_REGION_CODING_SCHEME,
+                anatomic_region_code_meaning: ENHANCED_MR_ANATOMIC_REGION_CODE_MEANING,
                 rescale_intercept: recipe.rescale_intercept,
                 rescale_slope: recipe.rescale_slope,
                 rescale_type: recipe.rescale_type,
@@ -12131,6 +12208,9 @@ fn write_enhanced_mr_case(
                 echo_train_length: recipe.echo_train_length,
                 rf_echo_train_length: recipe.rf_echo_train_length,
                 gradient_echo_train_length: recipe.gradient_echo_train_length,
+                specific_absorption_rate_definition: ENHANCED_MR_SAR_DEFINITION,
+                specific_absorption_rate_value: ENHANCED_MR_SAR_VALUE,
+                operating_modes: ENHANCED_MR_OPERATING_MODES,
                 effective_echo_times: recipe.effective_echo_times,
                 temporal_position_time_offsets: recipe.temporal_position_time_offsets,
                 velocity_encoding_directions: recipe.velocity_encoding_directions,
@@ -12266,9 +12346,21 @@ fn put_enhanced_mr_functional_groups(obj: &mut InMemDicomObject, recipe: Enhance
                         tags::ANATOMIC_REGION_SEQUENCE,
                         VR::SQ,
                         DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
-                            DataElement::new(tags::CODE_VALUE, VR::SH, "T-D1100"),
-                            DataElement::new(tags::CODING_SCHEME_DESIGNATOR, VR::SH, "SRT"),
-                            DataElement::new(tags::CODE_MEANING, VR::LO, "Head"),
+                            DataElement::new(
+                                tags::CODE_VALUE,
+                                VR::SH,
+                                ENHANCED_MR_ANATOMIC_REGION_CODE_VALUE,
+                            ),
+                            DataElement::new(
+                                tags::CODING_SCHEME_DESIGNATOR,
+                                VR::SH,
+                                ENHANCED_MR_ANATOMIC_REGION_CODING_SCHEME,
+                            ),
+                            DataElement::new(
+                                tags::CODE_MEANING,
+                                VR::LO,
+                                ENHANCED_MR_ANATOMIC_REGION_CODE_MEANING,
+                            ),
                         ])]),
                     ),
                 ])]),
@@ -12288,6 +12380,16 @@ fn put_enhanced_mr_functional_groups(obj: &mut InMemDicomObject, recipe: Enhance
                         tags::VOLUME_BASED_CALCULATION_TECHNIQUE,
                         VR::CS,
                         recipe.volume_based_calculation_technique,
+                    ),
+                    DataElement::new(
+                        tags::COMPLEX_IMAGE_COMPONENT,
+                        VR::CS,
+                        ENHANCED_MR_COMPLEX_IMAGE_COMPONENT,
+                    ),
+                    DataElement::new(
+                        tags::ACQUISITION_CONTRAST,
+                        VR::CS,
+                        ENHANCED_MR_ACQUISITION_CONTRAST,
                     ),
                 ])]),
             ),
@@ -12316,6 +12418,41 @@ fn put_enhanced_mr_functional_groups(obj: &mut InMemDicomObject, recipe: Enhance
                         tags::GRADIENT_ECHO_TRAIN_LENGTH,
                         VR::US,
                         PrimitiveValue::from(recipe.gradient_echo_train_length),
+                    ),
+                    DataElement::new(
+                        tags::SPECIFIC_ABSORPTION_RATE_SEQUENCE,
+                        VR::SQ,
+                        DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+                            DataElement::new(
+                                tags::SPECIFIC_ABSORPTION_RATE_DEFINITION,
+                                VR::CS,
+                                ENHANCED_MR_SAR_DEFINITION,
+                            ),
+                            DataElement::new(
+                                tags::SPECIFIC_ABSORPTION_RATE_VALUE,
+                                VR::FD,
+                                PrimitiveValue::from(ENHANCED_MR_SAR_VALUE),
+                            ),
+                        ])]),
+                    ),
+                    DataElement::new(
+                        tags::OPERATING_MODE_SEQUENCE,
+                        VR::SQ,
+                        DataSetSequence::from(
+                            ENHANCED_MR_OPERATING_MODES
+                                .iter()
+                                .map(|(mode_type, mode)| {
+                                    InMemDicomObject::from_element_iter([
+                                        DataElement::new(
+                                            tags::OPERATING_MODE_TYPE,
+                                            VR::CS,
+                                            *mode_type,
+                                        ),
+                                        DataElement::new(tags::OPERATING_MODE, VR::CS, *mode),
+                                    ])
+                                })
+                                .collect::<Vec<_>>(),
+                        ),
                     ),
                 ])]),
             ),
@@ -12522,6 +12659,10 @@ fn enhanced_mr_manifest_entry(
     validation: Value,
 ) -> Value {
     let standards_evidence = standards_evidence_from_case(case);
+    let operating_modes = ENHANCED_MR_OPERATING_MODES
+        .iter()
+        .map(|(mode_type, mode)| serde_json::json!({"type": mode_type, "mode": mode}))
+        .collect::<Vec<_>>();
     let (
         dimension_index_pointer,
         functional_group_pointer,
@@ -12573,6 +12714,14 @@ fn enhanced_mr_manifest_entry(
     }
     let mut expected_semantics = serde_json::json!({
         "synthetic_data": "YES",
+        "patient_position": ENHANCED_MR_PATIENT_POSITION,
+        "content_qualification": ENHANCED_MR_CONTENT_QUALIFICATION,
+        "applicable_safety_standard_agency": ENHANCED_MR_SAFETY_STANDARD_AGENCY,
+        "complex_image_component": ENHANCED_MR_COMPLEX_IMAGE_COMPONENT,
+        "acquisition_contrast": ENHANCED_MR_ACQUISITION_CONTRAST,
+        "burned_in_annotation": ENHANCED_MR_BURNED_IN_ANNOTATION,
+        "lossy_image_compression": ENHANCED_MR_LOSSY_IMAGE_COMPRESSION,
+        "presentation_lut_shape": ENHANCED_MR_PRESENTATION_LUT_SHAPE,
         "pixel_min": recipe.pixel_min,
         "pixel_max": recipe.pixel_max,
         "shared_functional_groups_sequence_items": 1,
@@ -12616,6 +12765,7 @@ fn enhanced_mr_manifest_entry(
                 "pixel_representation": 0,
                 "pixel_values": recipe.pixel_values,
                 "frame_type": recipe.frame_type,
+                "presentation_lut_shape": ENHANCED_MR_PRESENTATION_LUT_SHAPE,
                 "dimension_index": {
                     "dimension_organization_uid": dimension_organization_uid,
                     "dimension_index_pointer": dimension_index_pointer,
@@ -12630,14 +12780,25 @@ fn enhanced_mr_manifest_entry(
                     "plane_orientation_patient": recipe.image_orientation_patient,
                     "frame_anatomy": {
                         "frame_laterality": "U",
-                        "anatomic_region_code_value": "T-D1100"
+                        "anatomic_region_code_value": ENHANCED_MR_ANATOMIC_REGION_CODE_VALUE,
+                        "anatomic_region_coding_scheme": ENHANCED_MR_ANATOMIC_REGION_CODING_SCHEME,
+                        "anatomic_region_code_meaning": ENHANCED_MR_ANATOMIC_REGION_CODE_MEANING
+                    },
+                    "mr_image_frame_type": {
+                        "complex_image_component": ENHANCED_MR_COMPLEX_IMAGE_COMPONENT,
+                        "acquisition_contrast": ENHANCED_MR_ACQUISITION_CONTRAST
                     },
                     "mr_timing": {
                         "repetition_time": recipe.repetition_time,
                         "flip_angle": recipe.flip_angle,
                         "echo_train_length": recipe.echo_train_length,
                         "rf_echo_train_length": recipe.rf_echo_train_length,
-                        "gradient_echo_train_length": recipe.gradient_echo_train_length
+                        "gradient_echo_train_length": recipe.gradient_echo_train_length,
+                        "specific_absorption_rate": {
+                            "definition": ENHANCED_MR_SAR_DEFINITION,
+                            "value": ENHANCED_MR_SAR_VALUE
+                        },
+                        "operating_modes": operating_modes
                     },
                     "pixel_value_transformation": {
                         "intercept": recipe.rescale_intercept,

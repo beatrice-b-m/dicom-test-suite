@@ -6642,6 +6642,18 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
     append_count_map_section(
         &mut output,
         report,
+        "Metadata Empty Type 2 Attributes",
+        "/grouped_coverage/metadata_empty_type2_attributes",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "Metadata Empty Type 2 Attribute Counts",
+        "/grouped_coverage/metadata_empty_type2_attribute_counts",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
         "Photometric Interpretations",
         "/grouped_coverage/photometric_interpretations",
     );
@@ -7553,6 +7565,33 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
         output.push('\n');
     }
 
+    let empty_type2_rows = report
+        .get("coverage_matrix")
+        .and_then(Value::as_array)
+        .map(|rows| {
+            rows.iter()
+                .filter(|row| !row["metadata_empty_type2_attributes"].is_null())
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    if !empty_type2_rows.is_empty() {
+        output.push_str("## Empty Type 2 Metadata Expectations\n\n");
+        output.push_str("| Case ID | Attributes | Count |\n");
+        output.push_str("|---|---|---:|\n");
+        for row in empty_type2_rows {
+            output.push_str(&format!(
+                "| {} | {} | {} |\n",
+                markdown_cell(row.get("case_id").and_then(Value::as_str)),
+                markdown_cell(
+                    row.get("metadata_empty_type2_attributes")
+                        .and_then(Value::as_str)
+                ),
+                markdown_number(row.get("metadata_empty_type2_attribute_count")),
+            ));
+        }
+        output.push('\n');
+    }
+
     let geometry_rows = report
         .get("coverage_matrix")
         .and_then(Value::as_array)
@@ -7782,6 +7821,14 @@ fn generated_coverage_row(
         (
             "metadata_temporal_normalized_utc",
             metadata.temporal_normalized_utc.map(Value::from),
+        ),
+        (
+            "metadata_empty_type2_attributes",
+            metadata.empty_type2_attributes.map(Value::from),
+        ),
+        (
+            "metadata_empty_type2_attribute_count",
+            metadata.empty_type2_attribute_count.map(Value::from),
         ),
     ] {
         row_object.insert(field.to_string(), value.unwrap_or(Value::Null));
@@ -8702,6 +8749,8 @@ struct MetadataReportFields {
     time_values: Option<String>,
     date_time_values: Option<String>,
     temporal_normalized_utc: Option<String>,
+    empty_type2_attributes: Option<String>,
+    empty_type2_attribute_count: Option<u64>,
 }
 
 fn metadata_report_fields(file: &Value) -> MetadataReportFields {
@@ -8733,6 +8782,9 @@ fn metadata_report_fields(file: &Value) -> MetadataReportFields {
             .map(|groups| groups.join(" | "))
     });
     let temporal = file.pointer("/expected_metadata/temporal");
+    let empty_type2_attributes = file
+        .pointer("/expected_metadata/empty_type2_attributes")
+        .and_then(Value::as_array);
 
     MetadataReportFields {
         specific_character_sets,
@@ -8770,6 +8822,23 @@ fn metadata_report_fields(file: &Value) -> MetadataReportFields {
             .and_then(|value| value.get("combined_da_tm_utc"))
             .and_then(Value::as_str)
             .map(str::to_string),
+        empty_type2_attributes: empty_type2_attributes.and_then(|attributes| {
+            attributes
+                .iter()
+                .map(|attribute| {
+                    Some(format!(
+                        "{} {} {} VL={}",
+                        attribute.get("tag")?.as_str()?,
+                        attribute.get("keyword")?.as_str()?,
+                        attribute.get("vr")?.as_str()?,
+                        attribute.get("value_length")?.as_u64()?
+                    ))
+                })
+                .collect::<Option<Vec<_>>>()
+                .map(|attributes| attributes.join("; "))
+        }),
+        empty_type2_attribute_count: empty_type2_attributes
+            .map(|attributes| attributes.len() as u64),
     }
 }
 
@@ -9389,6 +9458,8 @@ fn skipped_coverage_row(
         "metadata_tm_values",
         "metadata_dt_values",
         "metadata_temporal_normalized_utc",
+        "metadata_empty_type2_attributes",
+        "metadata_empty_type2_attribute_count",
     ] {
         row_object.insert(field.to_string(), Value::Null);
     }
@@ -9718,6 +9789,8 @@ struct GroupedCoverage {
     metadata_person_name_encoded_length_bytes: BTreeMap<String, usize>,
     metadata_temporal_boundary_ids: BTreeMap<String, usize>,
     metadata_timezone_offsets_from_utc: BTreeMap<String, usize>,
+    metadata_empty_type2_attributes: BTreeMap<String, usize>,
+    metadata_empty_type2_attribute_counts: BTreeMap<String, usize>,
     photometric_interpretations: BTreeMap<String, usize>,
     bit_depths: BTreeMap<String, usize>,
     bits_allocated: BTreeMap<String, usize>,
@@ -9969,6 +10042,20 @@ impl GroupedCoverage {
             row.get("metadata_timezone_offset_from_utc")
                 .and_then(Value::as_str),
         );
+        increment_map(
+            &mut self.metadata_empty_type2_attributes,
+            row.get("metadata_empty_type2_attributes")
+                .and_then(Value::as_str),
+        );
+        if let Some(count) = row
+            .get("metadata_empty_type2_attribute_count")
+            .and_then(Value::as_u64)
+        {
+            *self
+                .metadata_empty_type2_attribute_counts
+                .entry(count.to_string())
+                .or_default() += 1;
+        }
         increment_map(
             &mut self.photometric_interpretations,
             row.get("photometric").and_then(Value::as_str),
@@ -10693,6 +10780,16 @@ impl GroupedCoverage {
             "metadata_timezone_offsets_from_utc".to_string(),
             serde_json::to_value(&self.metadata_timezone_offsets_from_utc)
                 .expect("metadata timezone offset count map must serialize"),
+        );
+        grouped_object.insert(
+            "metadata_empty_type2_attributes".to_string(),
+            serde_json::to_value(&self.metadata_empty_type2_attributes)
+                .expect("metadata empty Type 2 attribute count map must serialize"),
+        );
+        grouped_object.insert(
+            "metadata_empty_type2_attribute_counts".to_string(),
+            serde_json::to_value(&self.metadata_empty_type2_attribute_counts)
+                .expect("metadata empty Type 2 attribute total map must serialize"),
         );
         grouped_object.insert(
             "window_centers".to_string(),

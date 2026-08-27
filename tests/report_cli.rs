@@ -77,6 +77,8 @@ fn report_command_writes_json_coverage_for_core_root() {
         "metadata_person_name_component_group_count",
         "metadata_person_name_encoded_sha256",
         "metadata_person_name_encoded_length_bytes",
+        "metadata_empty_type2_attributes",
+        "metadata_empty_type2_attribute_count",
     ] {
         assert_eq!(
             planned_metadata_row.get(field),

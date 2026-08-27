@@ -107,6 +107,12 @@
         "metadata_timezone_offsets_from_utc": {
           "$ref": "#/$defs/count_map"
         },
+        "metadata_empty_type2_attributes": {
+          "$ref": "#/$defs/count_map"
+        },
+        "metadata_empty_type2_attribute_counts": {
+          "$ref": "#/$defs/count_map"
+        },
         "photometric_interpretations": {
           "$ref": "#/$defs/count_map"
         },
@@ -606,6 +612,8 @@
         "metadata_tm_values",
         "metadata_dt_values",
         "metadata_temporal_normalized_utc",
+        "metadata_empty_type2_attributes",
+        "metadata_empty_type2_attribute_count",
         "photometric",
         "bits",
         "bits_allocated",
@@ -861,6 +869,13 @@
         "metadata_temporal_normalized_utc": {
           "type": ["string", "null"],
           "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{6}Z$"
+        },
+        "metadata_empty_type2_attributes": {
+          "type": ["string", "null"]
+        },
+        "metadata_empty_type2_attribute_count": {
+          "type": ["integer", "null"],
+          "minimum": 1
         },
         "photometric": {
           "type": ["string", "null"]

@@ -101,6 +101,12 @@
         "metadata_person_name_encoded_length_bytes": {
           "$ref": "#/$defs/count_map"
         },
+        "metadata_temporal_boundary_ids": {
+          "$ref": "#/$defs/count_map"
+        },
+        "metadata_timezone_offsets_from_utc": {
+          "$ref": "#/$defs/count_map"
+        },
         "photometric_interpretations": {
           "$ref": "#/$defs/count_map"
         },
@@ -594,6 +600,12 @@
         "metadata_person_name_component_group_count",
         "metadata_person_name_encoded_sha256",
         "metadata_person_name_encoded_length_bytes",
+        "metadata_temporal_boundary_id",
+        "metadata_timezone_offset_from_utc",
+        "metadata_da_values",
+        "metadata_tm_values",
+        "metadata_dt_values",
+        "metadata_temporal_normalized_utc",
         "photometric",
         "bits",
         "bits_allocated",
@@ -828,6 +840,27 @@
         "metadata_person_name_encoded_length_bytes": {
           "type": ["integer", "null"],
           "minimum": 1
+        },
+        "metadata_temporal_boundary_id": {
+          "type": ["string", "null"],
+          "enum": ["positive_max", "negative_min", null]
+        },
+        "metadata_timezone_offset_from_utc": {
+          "type": ["string", "null"],
+          "pattern": "^[+-][0-9]{4}$"
+        },
+        "metadata_da_values": {
+          "type": ["string", "null"]
+        },
+        "metadata_tm_values": {
+          "type": ["string", "null"]
+        },
+        "metadata_dt_values": {
+          "type": ["string", "null"]
+        },
+        "metadata_temporal_normalized_utc": {
+          "type": ["string", "null"],
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{6}Z$"
         },
         "photometric": {
           "type": ["string", "null"]

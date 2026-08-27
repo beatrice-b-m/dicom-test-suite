@@ -6630,6 +6630,18 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
     append_count_map_section(
         &mut output,
         report,
+        "Metadata Temporal Boundary IDs",
+        "/grouped_coverage/metadata_temporal_boundary_ids",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
+        "Metadata Timezone Offsets From UTC",
+        "/grouped_coverage/metadata_timezone_offsets_from_utc",
+    );
+    append_count_map_section(
+        &mut output,
+        report,
         "Photometric Interpretations",
         "/grouped_coverage/photometric_interpretations",
     );
@@ -7503,6 +7515,44 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
         output.push('\n');
     }
 
+    let temporal_rows = report
+        .get("coverage_matrix")
+        .and_then(Value::as_array)
+        .map(|rows| {
+            rows.iter()
+                .filter(|row| !row["metadata_temporal_boundary_id"].is_null())
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    if !temporal_rows.is_empty() {
+        output.push_str("## Temporal Metadata Expectations\n\n");
+        output
+            .push_str("| Case ID | Boundary | DA | TM | DT | Timezone offset | Normalized UTC |\n");
+        output.push_str("|---|---|---|---|---|---|---|\n");
+        for row in temporal_rows {
+            output.push_str(&format!(
+                "| {} | {} | {} | {} | {} | {} | {} |\n",
+                markdown_cell(row.get("case_id").and_then(Value::as_str)),
+                markdown_cell(
+                    row.get("metadata_temporal_boundary_id")
+                        .and_then(Value::as_str)
+                ),
+                markdown_cell(row.get("metadata_da_values").and_then(Value::as_str)),
+                markdown_cell(row.get("metadata_tm_values").and_then(Value::as_str)),
+                markdown_cell(row.get("metadata_dt_values").and_then(Value::as_str)),
+                markdown_cell(
+                    row.get("metadata_timezone_offset_from_utc")
+                        .and_then(Value::as_str)
+                ),
+                markdown_cell(
+                    row.get("metadata_temporal_normalized_utc")
+                        .and_then(Value::as_str)
+                ),
+            ));
+        }
+        output.push('\n');
+    }
+
     let geometry_rows = report
         .get("coverage_matrix")
         .and_then(Value::as_array)
@@ -7714,6 +7764,24 @@ fn generated_coverage_row(
         (
             "metadata_person_name_encoded_length_bytes",
             metadata.person_name_encoded_length_bytes.map(Value::from),
+        ),
+        (
+            "metadata_temporal_boundary_id",
+            metadata.temporal_boundary_id.map(Value::from),
+        ),
+        (
+            "metadata_timezone_offset_from_utc",
+            metadata.timezone_offset_from_utc.map(Value::from),
+        ),
+        ("metadata_da_values", metadata.date_values.map(Value::from)),
+        ("metadata_tm_values", metadata.time_values.map(Value::from)),
+        (
+            "metadata_dt_values",
+            metadata.date_time_values.map(Value::from),
+        ),
+        (
+            "metadata_temporal_normalized_utc",
+            metadata.temporal_normalized_utc.map(Value::from),
         ),
     ] {
         row_object.insert(field.to_string(), value.unwrap_or(Value::Null));
@@ -8628,6 +8696,12 @@ struct MetadataReportFields {
     person_name_component_group_count: Option<u64>,
     person_name_encoded_sha256: Option<String>,
     person_name_encoded_length_bytes: Option<u64>,
+    temporal_boundary_id: Option<String>,
+    timezone_offset_from_utc: Option<String>,
+    date_values: Option<String>,
+    time_values: Option<String>,
+    date_time_values: Option<String>,
+    temporal_normalized_utc: Option<String>,
 }
 
 fn metadata_report_fields(file: &Value) -> MetadataReportFields {
@@ -8658,6 +8732,7 @@ fn metadata_report_fields(file: &Value) -> MetadataReportFields {
             .collect::<Option<Vec<_>>>()
             .map(|groups| groups.join(" | "))
     });
+    let temporal = file.pointer("/expected_metadata/temporal");
 
     MetadataReportFields {
         specific_character_sets,
@@ -8674,7 +8749,37 @@ fn metadata_report_fields(file: &Value) -> MetadataReportFields {
         person_name_encoded_length_bytes: person_name
             .and_then(|value| value.get("raw_value_byte_length"))
             .and_then(Value::as_u64),
+        temporal_boundary_id: temporal
+            .and_then(|value| value.get("boundary_id"))
+            .and_then(Value::as_str)
+            .map(str::to_string),
+        timezone_offset_from_utc: temporal
+            .and_then(|value| value.pointer("/timezone_offset_from_utc/decoded_value"))
+            .and_then(Value::as_str)
+            .map(str::to_string),
+        date_values: temporal
+            .and_then(|value| value.get("date_values"))
+            .and_then(metadata_decoded_values),
+        time_values: temporal
+            .and_then(|value| value.get("time_values"))
+            .and_then(metadata_decoded_values),
+        date_time_values: temporal
+            .and_then(|value| value.get("date_time_values"))
+            .and_then(metadata_decoded_values),
+        temporal_normalized_utc: temporal
+            .and_then(|value| value.get("combined_da_tm_utc"))
+            .and_then(Value::as_str)
+            .map(str::to_string),
     }
+}
+
+fn metadata_decoded_values(values: &Value) -> Option<String> {
+    values
+        .as_array()?
+        .iter()
+        .map(|value| value.get("decoded_value")?.as_str())
+        .collect::<Option<Vec<_>>>()
+        .map(|values| values.join("\\"))
 }
 
 fn report_lut_descriptor(file: &Value, pointer: &str) -> Option<String> {
@@ -9278,6 +9383,12 @@ fn skipped_coverage_row(
         "metadata_person_name_component_group_count",
         "metadata_person_name_encoded_sha256",
         "metadata_person_name_encoded_length_bytes",
+        "metadata_temporal_boundary_id",
+        "metadata_timezone_offset_from_utc",
+        "metadata_da_values",
+        "metadata_tm_values",
+        "metadata_dt_values",
+        "metadata_temporal_normalized_utc",
     ] {
         row_object.insert(field.to_string(), Value::Null);
     }
@@ -9605,6 +9716,8 @@ struct GroupedCoverage {
     metadata_person_name_component_group_counts: BTreeMap<String, usize>,
     metadata_person_name_encoded_sha256_values: BTreeMap<String, usize>,
     metadata_person_name_encoded_length_bytes: BTreeMap<String, usize>,
+    metadata_temporal_boundary_ids: BTreeMap<String, usize>,
+    metadata_timezone_offsets_from_utc: BTreeMap<String, usize>,
     photometric_interpretations: BTreeMap<String, usize>,
     bit_depths: BTreeMap<String, usize>,
     bits_allocated: BTreeMap<String, usize>,
@@ -9846,6 +9959,16 @@ impl GroupedCoverage {
                 .entry(length.to_string())
                 .or_default() += 1;
         }
+        increment_map(
+            &mut self.metadata_temporal_boundary_ids,
+            row.get("metadata_temporal_boundary_id")
+                .and_then(Value::as_str),
+        );
+        increment_map(
+            &mut self.metadata_timezone_offsets_from_utc,
+            row.get("metadata_timezone_offset_from_utc")
+                .and_then(Value::as_str),
+        );
         increment_map(
             &mut self.photometric_interpretations,
             row.get("photometric").and_then(Value::as_str),
@@ -10560,6 +10683,16 @@ impl GroupedCoverage {
             "metadata_person_name_encoded_length_bytes".to_string(),
             serde_json::to_value(&self.metadata_person_name_encoded_length_bytes)
                 .expect("metadata Person Name encoded byte length count map must serialize"),
+        );
+        grouped_object.insert(
+            "metadata_temporal_boundary_ids".to_string(),
+            serde_json::to_value(&self.metadata_temporal_boundary_ids)
+                .expect("metadata temporal boundary ID count map must serialize"),
+        );
+        grouped_object.insert(
+            "metadata_timezone_offsets_from_utc".to_string(),
+            serde_json::to_value(&self.metadata_timezone_offsets_from_utc)
+                .expect("metadata timezone offset count map must serialize"),
         );
         grouped_object.insert(
             "window_centers".to_string(),

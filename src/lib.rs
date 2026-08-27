@@ -5612,6 +5612,33 @@ fn validate_xa_image_standard_elements(
         ));
     }
 
+    let payload_hash = manifest_str(
+        manifest_path,
+        file,
+        "/recipe/recipe_parameters/payload_sha256",
+        "XA payload_sha256 must be a string",
+    )?;
+    validate_equal(
+        failures,
+        relative_path,
+        "xa_payload_hash_manifest_contract",
+        payload_hash,
+        "0b9c742cc3fafec4c1d0240048d27210f2da155b3574458ae26035ffa488c00e",
+    );
+    match obj.element(tags::PIXEL_DATA) {
+        Ok(element) => match element.value().to_bytes() {
+            Ok(bytes) => validate_equal(
+                failures,
+                relative_path,
+                "xa_payload_hash",
+                sha256_hex(bytes.as_ref()),
+                payload_hash,
+            ),
+            Err(err) => failures.push(format!("{relative_path}: xa_payload_hash: {err}")),
+        },
+        Err(err) => failures.push(format!("{relative_path}: xa_payload_hash: {err}")),
+    }
+
     Ok(())
 }
 

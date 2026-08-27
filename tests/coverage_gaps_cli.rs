@@ -23,13 +23,13 @@ fn report_gaps_counts_logical_cases_and_dimensions() {
         report
             .pointer("/counts/statuses/implemented")
             .and_then(Value::as_u64),
-        Some(136)
+        Some(137)
     );
     assert_eq!(
         report
             .pointer("/counts/statuses/planned")
             .and_then(Value::as_u64),
-        Some(45)
+        Some(44)
     );
     assert!(
         report.pointer("/counts/priorities/now").is_none(),
@@ -64,6 +64,16 @@ fn report_gaps_counts_logical_cases_and_dimensions() {
                     == Some("derived/presentation-state/advanced_blending")
             })),
         "promoted Advanced Blending Presentation State coverage must not remain a gap"
+    );
+    assert!(
+        report
+            .get("gaps")
+            .and_then(Value::as_array)
+            .is_some_and(|gaps| !gaps.iter().any(|gap| {
+                gap.get("case_id").and_then(Value::as_str)
+                    == Some("derived/presentation-state/blending")
+            })),
+        "promoted Blending Presentation State coverage must not remain a gap"
     );
     assert!(
         report

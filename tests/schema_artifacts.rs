@@ -401,14 +401,15 @@ fn manifest_schema_rejects_malformed_person_name_expectations() {
     malformed["person_names"][0]["tag"] = serde_json::json!("00100010");
     malformed["person_names"][0]["vr"] = serde_json::json!("LO");
     malformed["person_names"][0]["raw_value_sha256"] = serde_json::json!("not-a-hash");
+    malformed["person_names"][0]["raw_value_hex"] = serde_json::json!("1b2442");
     malformed["person_names"][0]["component_groups"][0]["components"][0]["position"] =
         serde_json::json!(2);
     malformed["unexpected"] = serde_json::json!(true);
 
     let errors = validator.iter_errors(&malformed).collect::<Vec<_>>();
     assert!(
-        errors.len() >= 5,
-        "malformed tag, VR, hash, component order, and unknown field must each be rejected; got {errors:?}"
+        errors.len() >= 6,
+        "malformed tag, VR, raw hex, hash, component order, and unknown field must each be rejected; got {errors:?}"
     );
 }
 
@@ -430,6 +431,7 @@ fn utf8_person_name_expectations() -> Value {
             "keyword": "PatientName",
             "vr": "PN",
             "decoded_value": "Müller^Zoë^^Dr.^III=山田^太郎=やまだ^たろう",
+            "raw_value_hex": "4D756C6C65725E5A6F65",
             "raw_value_sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
             "raw_value_byte_length": 61,
             "component_groups": [

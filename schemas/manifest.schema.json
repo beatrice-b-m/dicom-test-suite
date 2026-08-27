@@ -481,6 +481,7 @@
         "keyword",
         "vr",
         "decoded_value",
+        "raw_value_hex",
         "raw_value_sha256",
         "raw_value_byte_length",
         "component_groups"
@@ -496,6 +497,10 @@
         },
         "vr": { "const": "PN" },
         "decoded_value": { "type": "string" },
+        "raw_value_hex": {
+          "type": "string",
+          "pattern": "^(?:[0-9A-F]{2})+$"
+        },
         "raw_value_sha256": { "$ref": "#/$defs/sha256" },
         "raw_value_byte_length": { "type": "integer", "minimum": 1 },
         "component_groups": {

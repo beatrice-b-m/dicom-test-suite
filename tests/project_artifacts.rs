@@ -723,7 +723,8 @@ fn deformable_registration_source_note_locks_grid_sampling_contract() {
         "OF byte-count equation",
         "Only isolated `dcentvfy` detected a dangling SOP",
         "Registry status: planned",
-        "replace the planned `highdicom_pydicom`",
+        "Registry provider: `rust_native`",
+        "Registry blocker: `recipe_unimplemented`",
         "No new finding may be silently allowlisted",
         "Should become KB patch: yes",
     ] {
@@ -742,13 +743,16 @@ fn deformable_registration_source_note_locks_grid_sampling_contract() {
         })
         .expect("Deformable Spatial Registration row must exist");
     assert_eq!(case["status"], "planned");
-    assert_eq!(case["provider"]["id"], "highdicom_pydicom");
+    assert_eq!(case["provider"]["kind"], "rust_native");
+    assert_eq!(case["provider"]["id"], "rust_native");
     assert_eq!(case["roadmap"]["delivery_phase"], "phase-3");
-    assert!(
-        case["blockers"]
-            .as_array()
-            .is_some_and(|blockers| !blockers.is_empty()),
-        "Deformable Spatial Registration blockers stay visible until promotion"
+    assert_eq!(
+        case["blockers"],
+        serde_json::json!([{
+            "code": "recipe_unimplemented",
+            "message": "The deterministic native Deformable Spatial Registration recipe is not implemented.",
+            "recheck_phase": "phase-3"
+        }])
     );
 }
 

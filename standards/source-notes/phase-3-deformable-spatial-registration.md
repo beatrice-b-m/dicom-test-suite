@@ -191,14 +191,15 @@ responsibilities; they are not accepted findings.
 
 ## Project Action
 
-- Registry status: planned; this note does not promote or edit the registry.
-- Provider recommendation: replace the planned `highdicom_pydicom` generation
-  provider with `rust_native` when implementation begins. DICOM-rs can write
-  the required nested Sequences and OF payload directly, allows a byte-stable
-  little-endian contract, and preserves Python/pydicom as an independent
-  secondary validation implementation.
-- Existing blockers remain visible until the complete vertical gate proves the
-  native writer, strict payload validator, reference closure, deterministic
+- Registry status: planned; this note does not promote the case.
+- Registry provider: `rust_native`. DICOM-rs can write the required nested
+  Sequences and OF payload directly, allows a byte-stable little-endian
+  contract, and preserves Python/pydicom as an independent secondary
+  validation implementation.
+- Registry blocker: `recipe_unimplemented`. The stale external-backend and
+  unavailable-validator blockers are removed because the native construction
+  path and locked additive validator are both proven. Promotion still requires
+  the writer, strict payload validator, reference closure, deterministic
   manifests, report surfaces, and mutation tests.
 - Should become KB patch: yes; expose the Deformable Spatial Registration
   module table, sampling direction, sequence cardinalities, grid semantics,

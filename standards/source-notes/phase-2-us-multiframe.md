@@ -97,12 +97,33 @@ single timing authority.
 
 ## Project Action
 
-- Registry status: planned until generation, typed manifest and report
+- Registry status: implemented after generation, typed manifest and report
   contracts, internal and manifest-driven validation, determinism, exact
-  independent native frame extraction, and independent IOD gates pass.
-- Registry reason or linked issue: `recipe_unimplemented`.
+  independent native frame extraction, and independent IOD gates passed.
+- Registry reason or linked issue: none.
 - Should become KB patch: yes; the missing context-specific value-term results
   are systematic parser coverage gaps.
 - Expected cleanup after KB coverage exists: replace local value-term fallbacks
   with normal KB evidence while retaining this case-specific timing and
   non-claim decision.
+
+## Promotion Evidence
+
+- Two fresh seed-1 `core` generations each produced 45 files and were
+  byte-for-byte identical. Strict native validation checked all 45 files with
+  zero failures.
+- The fixture SHA-256 is
+  `76803d95757f9a2b4edb6ca2d1acc88f814f60f003140c88fbf9b05e754a24c1`.
+  DCMTK independently extracted the 64-byte Pixel Data value with SHA-256
+  `060e2c56c9728f787339515ef16bc8c1adfbfb4fb85b2d2c18f115c17b439bc9`
+  and confirmed the SOP Class, Image Type, modality, abdominal anatomy,
+  four-frame count, Frame Time pointer, 100 ms Frame Time, no-lossy history,
+  and zero color-data declaration.
+- Locked `dciodvfy -new` reported only its normal `USMultiFrameImage`
+  identification and no finding. Isolated `dcentvfy` was silent.
+- The repository's frozen `uv 0.11.26` environment selected pydicom 3.0.2.
+  Its independent decode produced a `(4, 4, 4)` unsigned 8-bit array, matched
+  every ordered frame and frame hash, confirmed absent Laterality and all
+  declared non-claims, and reproduced the exact payload hash. Its
+  read/write/read output was byte-identical to the native fixture and passed
+  both dicom3tools validators with the same clean results.

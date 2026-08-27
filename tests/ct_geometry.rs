@@ -9,6 +9,7 @@ use dicom_object::open_file;
 use serde_json::Value;
 
 const CASE_ID: &str = "geometry/ct/spatial_sort_conflicts_instance_number";
+const NONUNIFORM_CASE_ID: &str = "geometry/ct/nonuniform_slice_spacing";
 
 #[test]
 fn core_generates_ct_series_with_conflicting_instance_number_order() {
@@ -188,7 +189,115 @@ fn core_generates_ct_series_with_conflicting_instance_number_order() {
     assert_eq!(geometry_rows[0]["geometry_sorting_conflict_expected"], true);
     let markdown = dicom_test_suite::render_coverage_report_markdown(&report);
     assert!(markdown.contains("## Geometry Sorting Expectations"));
-    assert!(markdown.contains("| 0.0 | 1 | 30 | 3 |"));
+    assert!(markdown.contains("| 0.0 | 1 | numeric | 30 | 3 | 5.0, 5.0 | true |"));
+
+    fs::remove_dir_all(out_dir).expect("temporary output must be removable");
+}
+
+#[test]
+fn core_generates_nonuniform_ct_spacing_without_scalar_spacing_claim() {
+    let out_dir = unique_temp_dir("ct-nonuniform-spacing");
+    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args(["generate", "--profile", "core", "--out"])
+        .arg(&out_dir)
+        .args(["--seed", "23"])
+        .output()
+        .expect("generate command must run");
+    assert!(
+        output.status.success(),
+        "generate should succeed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let manifest: Value = serde_json::from_slice(
+        &fs::read(out_dir.join("manifest.json")).expect("manifest must be readable"),
+    )
+    .expect("manifest must contain JSON");
+    let files = manifest["files"]
+        .as_array()
+        .expect("manifest files must be an array")
+        .iter()
+        .filter(|file| file["case_id"].as_str() == Some(NONUNIFORM_CASE_ID))
+        .collect::<Vec<_>>();
+    assert_eq!(files.len(), 3);
+
+    let expected_positions = [0.0_f64, 4.0, 10.0];
+    for (index, file) in files.iter().enumerate() {
+        assert_eq!(
+            file.pointer("/expected_geometry/position_along_normal_mm")
+                .and_then(Value::as_f64),
+            Some(expected_positions[index])
+        );
+        assert_eq!(
+            file.pointer("/expected_geometry/adjacent_spacing_mm"),
+            Some(&serde_json::json!([4.0, 6.0]))
+        );
+        assert_eq!(
+            file.pointer("/expected_geometry/spacing_uniform")
+                .and_then(Value::as_bool),
+            Some(false)
+        );
+        assert_eq!(
+            file.pointer("/expected_geometry/instance_number_state")
+                .and_then(Value::as_str),
+            Some("numeric")
+        );
+        assert_eq!(
+            file.pointer("/expected_geometry/sorting_conflict_expected")
+                .and_then(Value::as_bool),
+            Some(false)
+        );
+        assert!(
+            file.pointer("/recipe/recipe_parameters/geometry/spacing_between_slices")
+                .is_none(),
+            "nonuniform recipe must not claim one scalar spacing"
+        );
+
+        let object =
+            open_file(out_dir.join(file["path"].as_str().expect("manifest path must be text")))
+                .expect("nonuniform CT slice must parse");
+        assert!(
+            object.element(tags::SPACING_BETWEEN_SLICES).is_err(),
+            "optional Spacing Between Slices must be absent for unequal intervals"
+        );
+        assert_eq!(
+            object
+                .element(tags::IMAGE_POSITION_PATIENT)
+                .expect("Image Position Patient must be present")
+                .value()
+                .to_multi_float64()
+                .expect("Image Position Patient must be numeric"),
+            vec![0.0, 0.0, expected_positions[index]]
+        );
+    }
+
+    let validation = dicom_test_suite::validate_generated_root(&out_dir)
+        .expect("generated nonuniform CT corpus must be validatable");
+    assert!(
+        validation.failures.is_empty(),
+        "nonuniform CT geometry validation must pass: {:?}",
+        validation.failures
+    );
+
+    let report = dicom_test_suite::build_coverage_report(&out_dir)
+        .expect("coverage report should include nonuniform spacing expectations");
+    let rows = report["coverage_matrix"]
+        .as_array()
+        .expect("coverage matrix")
+        .iter()
+        .filter(|row| row["case_id"].as_str() == Some(NONUNIFORM_CASE_ID))
+        .collect::<Vec<_>>();
+    assert_eq!(rows.len(), 3);
+    assert_eq!(
+        rows[0]["geometry_adjacent_spacing_mm"],
+        serde_json::json!([4.0, 6.0])
+    );
+    assert_eq!(rows[0]["geometry_spacing_uniform"], false);
+    assert_eq!(rows[0]["geometry_instance_number_state"], "numeric");
+    let markdown = dicom_test_suite::render_coverage_report_markdown(&report);
+    assert!(markdown.contains(NONUNIFORM_CASE_ID));
+    assert!(markdown.contains("4.0, 6.0"));
+    assert!(markdown.contains("false"));
 
     fs::remove_dir_all(out_dir).expect("temporary output must be removable");
 }

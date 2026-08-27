@@ -6740,14 +6740,12 @@ fn classic_ct_manifest_entry(
         let geometry = recipe_geometry
             .as_object_mut()
             .expect("CT recipe geometry must be an object");
-        geometry.insert(
-            "spacing_between_slices".to_string(),
-            Value::from(
-                recipe
-                    .spacing_between_slices
-                    .expect("CT series spacing is required"),
-            ),
-        );
+        if let Some(spacing_between_slices) = recipe.spacing_between_slices {
+            geometry.insert(
+                "spacing_between_slices".to_string(),
+                Value::from(spacing_between_slices),
+            );
+        }
         geometry.insert(
             "position_along_normal".to_string(),
             Value::from(slice.position_along_normal),
@@ -6871,7 +6869,7 @@ fn classic_ct_manifest_entry(
                     "instance_number_state": "numeric",
                     "instance_number": slice.instance_number.parse::<i64>().expect("CT Instance Number recipe must be numeric"),
                     "instance_number_order_index": classic_ct_instance_number_order_index(recipe, slice.instance_number),
-                    "sorting_conflict_expected": true
+                    "sorting_conflict_expected": recipe.sorting_conflict_expected
                 }),
             );
     }
@@ -6958,6 +6956,9 @@ fn classic_ct_expected_capabilities(recipe: ClassicCtRecipe) -> Vec<&'static str
         capabilities.push("render_native_pixels");
     }
     capabilities.extend(["apply_modality_rescale", "apply_window"]);
+    if recipe.slices.len() > 1 {
+        capabilities.push("sort_series_by_geometry");
+    }
     capabilities
 }
 
@@ -6972,6 +6973,12 @@ fn classic_ct_known_stressors(recipe: ClassicCtRecipe) -> Vec<&'static str> {
         stressors.push("encapsulated_pixel_data");
         stressors.push("rle_lossless_transfer_syntax");
         stressors.push("compressed_modality_pixels");
+    }
+    if recipe.slices.len() > 1 {
+        stressors.extend(["multi_instance_series", "geometry_slice_sorting"]);
+    }
+    if recipe.case_id == "geometry/ct/nonuniform_slice_spacing" {
+        stressors.push("nonuniform_slice_spacing");
     }
     stressors
 }

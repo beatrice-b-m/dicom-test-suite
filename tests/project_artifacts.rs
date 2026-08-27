@@ -3699,6 +3699,7 @@ fn generator_recipe_case_ids() -> BTreeSet<String> {
     let mut case_ids = BTreeSet::new();
     for (path, prefixes) in [
         ("src/generator.rs", &["case_id: \""][..]),
+        ("src/generator/native/ct_geometry.rs", &["case_id: \""][..]),
         (
             "src/generation_backends/parametric_map.rs",
             &["CASE_ID: &str = \""][..],

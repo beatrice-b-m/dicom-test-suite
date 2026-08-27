@@ -20,6 +20,7 @@ pub(in crate::generator) struct ClassicCtRecipe {
     pub(in crate::generator) image_orientation_patient: &'static str,
     pub(in crate::generator) slice_thickness: &'static str,
     pub(in crate::generator) spacing_between_slices: Option<&'static str>,
+    pub(in crate::generator) sorting_conflict_expected: bool,
     pub(in crate::generator) kvp: &'static str,
 }
 
@@ -74,6 +75,36 @@ const CLASSIC_CT_SORT_CONFLICT_SLICES: &[ClassicCtSliceRecipe] = &[
     },
 ];
 
+const CLASSIC_CT_NONUNIFORM_SPACING_SLICES: &[ClassicCtSliceRecipe] = &[
+    ClassicCtSliceRecipe {
+        instance_number: "1",
+        image_position_patient: "0\\0\\0",
+        position_along_normal: 0.0,
+        pixel_bytes: &CT_I16_12BIT_PIXELS,
+        pixel_values: &CT_I16_12BIT_VALUES,
+        pixel_min: -1024,
+        pixel_max: 2047,
+    },
+    ClassicCtSliceRecipe {
+        instance_number: "2",
+        image_position_patient: "0\\0\\4",
+        position_along_normal: 4.0,
+        pixel_bytes: &CT_I16_12BIT_PIXELS,
+        pixel_values: &CT_I16_12BIT_VALUES,
+        pixel_min: -1024,
+        pixel_max: 2047,
+    },
+    ClassicCtSliceRecipe {
+        instance_number: "3",
+        image_position_patient: "0\\0\\10",
+        position_along_normal: 10.0,
+        pixel_bytes: &CT_I16_12BIT_PIXELS,
+        pixel_values: &CT_I16_12BIT_VALUES,
+        pixel_min: -1024,
+        pixel_max: 2047,
+    },
+];
+
 pub(in crate::generator) const CLASSIC_CT_RECIPES: &[ClassicCtRecipe] = &[
     ClassicCtRecipe {
         case_id: "classic/ct/mono2_i16_rescale_12bit_explicit_le",
@@ -91,6 +122,7 @@ pub(in crate::generator) const CLASSIC_CT_RECIPES: &[ClassicCtRecipe] = &[
         image_orientation_patient: "1\\0\\0\\0\\1\\0",
         slice_thickness: "1",
         spacing_between_slices: None,
+        sorting_conflict_expected: false,
         kvp: "120",
     },
     ClassicCtRecipe {
@@ -109,6 +141,7 @@ pub(in crate::generator) const CLASSIC_CT_RECIPES: &[ClassicCtRecipe] = &[
         image_orientation_patient: "1\\0\\0\\0\\1\\0",
         slice_thickness: "1",
         spacing_between_slices: None,
+        sorting_conflict_expected: false,
         kvp: "120",
     },
     ClassicCtRecipe {
@@ -127,6 +160,26 @@ pub(in crate::generator) const CLASSIC_CT_RECIPES: &[ClassicCtRecipe] = &[
         image_orientation_patient: "1\\0\\0\\0\\1\\0",
         slice_thickness: "5",
         spacing_between_slices: Some("5"),
+        sorting_conflict_expected: true,
+        kvp: "120",
+    },
+    ClassicCtRecipe {
+        case_id: "geometry/ct/nonuniform_slice_spacing",
+        recipe_id: "geometry_ct_nonuniform_slice_spacing",
+        transfer_syntax: EXPLICIT_VR_LITTLE_ENDIAN,
+        rows: 2,
+        columns: 2,
+        slices: CLASSIC_CT_NONUNIFORM_SPACING_SLICES,
+        rescale_intercept: "-1024",
+        rescale_slope: "1",
+        rescale_type: "HU",
+        window_center: "40",
+        window_width: "400",
+        pixel_spacing: "0.625\\0.625",
+        image_orientation_patient: "1\\0\\0\\0\\1\\0",
+        slice_thickness: "3",
+        spacing_between_slices: None,
+        sorting_conflict_expected: false,
         kvp: "120",
     },
 ];

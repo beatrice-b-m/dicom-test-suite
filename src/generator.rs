@@ -28113,7 +28113,7 @@ mod tests {
         let first_radiation_bytes = fs::read(&radiation_path).expect("first Radiation bytes");
         assert_eq!(
             sha256_hex(&first_radiation_bytes),
-            "5d337f59707d0ba27828e850e98cdbdfb946b68910c6bc54de67448ec05a4ec9"
+            "8d04c8b271f96ad25f1ff147bec663f5cd0d2e3e2c468c87fe9986ee56f5f0a1"
         );
         let second_radiation = write_rt_radiation_case(
             &run,

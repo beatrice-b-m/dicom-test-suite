@@ -348,7 +348,9 @@ fn verify_completeness(evidence_root: &Path, evidence: &Value, failures: &mut Ve
         .map(|files| {
             files
                 .iter()
-                .filter(|file| file["case_id"] == WSI_CASE_ID)
+                .filter(|file| {
+                    file["case_id"] == WSI_CASE_ID || file["case_id"] == WSI_SPARSE_CASE_ID
+                })
                 .filter_map(|file| file["path"].as_str())
                 .collect::<std::collections::BTreeSet<_>>()
         })
@@ -1507,28 +1509,50 @@ fn verify_wsi_reconstruction_evidence(
         .into_iter()
         .flatten()
         .find(|tool| tool["adapter_id"] == WSI_RECONSTRUCTION_ID);
-    let contract = &manifest_file["expected_wsi_tiled_full"];
-    let linked = tool
+    let case_id = manifest_file["case_id"].as_str();
+    let contract = match case_id {
+        Some(WSI_CASE_ID) => &manifest_file["expected_wsi_tiled_full"],
+        Some(WSI_SPARSE_CASE_ID) => &manifest_file["expected_wsi_tiled_sparse"],
+        _ => &Value::Null,
+    };
+    let common_linked = tool
         .is_some_and(|tool| tool["status"] == "available" && tool["lock_status"] == "matched")
         && sidecar["adapter_id"] == WSI_RECONSTRUCTION_ID
         && sidecar["adapter_sha256"].as_str() == tool.and_then(|tool| tool["sha256"].as_str())
         && sidecar["independence"] == "independent"
-        && sidecar["extraction_method"]
-            == "uv_locked_highdicom_tiled_full_implicit_total_pixel_matrix"
         && sidecar["status"] == "passed"
         && sidecar["source_manifest_sha256"] == evidence["source"]["manifest_sha256"]
         && sidecar["source_instance_sha256"] == manifest_file["sha256"]
         && sidecar["source_path"] == instance["path"]
+        && manifest_file["path"] == instance["path"]
         && sidecar["expected_contract"] == *contract
+        && sidecar["backend"] == "dts-wsi-reconstruct"
+        && sidecar["backend_version"] == "0.2.0"
         && sidecar["runtime"]
             == json!({"highdicom": "0.28.1", "numpy": "2.5.2", "pydicom": "3.0.2"})
         && sidecar["frame_hashes"] == contract["pixel_data"]["frame_hashes"]
-        && sidecar["implicit_frame_positions"] == contract["tiling"]["implicit_frame_positions"]
-        && sidecar["total_pixel_matrix_shape"] == json!([4, 4, 3])
-        && sidecar["total_pixel_matrix_sha256"] == contract["tiling"]["total_pixel_matrix_sha256"]
         && sidecar["transforms_applied"] == false
         && instance["pixel"]["expected_frame_hashes"] == contract["pixel_data"]["frame_hashes"]
         && instance["pixel"]["actual_frame_hashes"] == contract["pixel_data"]["frame_hashes"];
+    let case_linked = match case_id {
+        Some(WSI_CASE_ID) => {
+            sidecar["extraction_method"]
+                == "uv_locked_highdicom_tiled_full_implicit_total_pixel_matrix"
+                && sidecar["frame_hashes"] == contract["pixel_data"]["frame_hashes"]
+                && sidecar["implicit_frame_positions"]
+                    == contract["tiling"]["implicit_frame_positions"]
+                && sidecar["total_pixel_matrix_shape"] == json!([4, 4, 3])
+                && sidecar["total_pixel_matrix_sha256"]
+                    == contract["tiling"]["total_pixel_matrix_sha256"]
+        }
+        Some(WSI_SPARSE_CASE_ID) => {
+            sidecar["extraction_method"]
+                == "uv_locked_highdicom_tiled_sparse_explicit_sentinel_total_pixel_matrix"
+                && sparse_reconstruction_fields_match(&sidecar, contract)
+        }
+        _ => false,
+    };
+    let linked = common_linked && case_linked;
     if !linked {
         failures.push(format!(
             "WSI reconstruction evidence sidecar is not linked to its locked tool and exact source manifest contract: {path}"
@@ -2926,7 +2950,11 @@ fn collect_pixel_result(
             expected,
         );
     }
-    if file.get("case_id").and_then(Value::as_str) == Some(WSI_CASE_ID) {
+    if file
+        .get("case_id")
+        .and_then(Value::as_str)
+        .is_some_and(|id| id == WSI_CASE_ID || id == WSI_SPARSE_CASE_ID)
+    {
         return collect_wsi_reconstruction_result(
             generated_root,
             evidence_root,
@@ -3633,8 +3661,13 @@ fn collect_wsi_reconstruction_result(
         Duration::from_secs(adapter["timeout_seconds"].as_u64().unwrap_or(60)),
     )?;
     let actual = serde_json::from_slice::<Value>(&output.stdout).unwrap_or(Value::Null);
-    let contract = &file["expected_wsi_tiled_full"];
-    let manifest_eligible = file["case_id"] == WSI_CASE_ID
+    let sparse = file["case_id"] == WSI_SPARSE_CASE_ID;
+    let contract = if sparse {
+        &file["expected_wsi_tiled_sparse"]
+    } else {
+        &file["expected_wsi_tiled_full"]
+    };
+    let manifest_eligible = (file["case_id"] == WSI_CASE_ID || sparse)
         && file.pointer("/dicom/sop_class_uid").and_then(Value::as_str)
             == Some("1.2.840.10008.5.1.4.1.1.77.1.6")
         && file
@@ -3644,26 +3677,36 @@ fn collect_wsi_reconstruction_result(
         && file["image"] == contract["image"]
         && file["pixel_data"] == contract["pixel_data"]
         && contract["pixel_data"]["frame_hashes"].as_array() == Some(&expected);
-    let reconstruction_matches = actual["status"] == "passed"
+    let common_matches = actual["status"] == "passed"
         && actual["backend"] == "dts-wsi-reconstruct"
-        && actual["backend_version"] == "0.1.0"
+        && actual["backend_version"] == "0.2.0"
         && actual["runtime"]
             == json!({"highdicom": "0.28.1", "numpy": "2.5.2", "pydicom": "3.0.2"})
         && actual["frame_hashes"] == contract["pixel_data"]["frame_hashes"]
-        && actual["implicit_frame_positions"] == contract["tiling"]["implicit_frame_positions"]
         && actual["total_pixel_matrix_shape"] == json!([4, 4, 3])
-        && actual["total_pixel_matrix_sha256"] == contract["tiling"]["total_pixel_matrix_sha256"]
         && actual["transforms_applied"] == false;
+    let reconstruction_matches = common_matches
+        && if sparse {
+            sparse_reconstruction_fields_match(&actual, contract)
+        } else {
+            actual["implicit_frame_positions"] == contract["tiling"]["implicit_frame_positions"]
+                && actual["total_pixel_matrix_sha256"]
+                    == contract["tiling"]["total_pixel_matrix_sha256"]
+        };
     let passed = tool["lock_status"] == "matched"
         && manifest_eligible
         && output.exit_code == Some(0)
         && !output.timed_out
         && reconstruction_matches;
-    let sidecar = json!({
+    let mut sidecar = json!({
         "adapter_id": WSI_RECONSTRUCTION_ID,
         "adapter_sha256": tool["sha256"],
         "independence": "independent",
-        "extraction_method": "uv_locked_highdicom_tiled_full_implicit_total_pixel_matrix",
+        "extraction_method": if sparse {
+            "uv_locked_highdicom_tiled_sparse_explicit_sentinel_total_pixel_matrix"
+        } else {
+            "uv_locked_highdicom_tiled_full_implicit_total_pixel_matrix"
+        },
         "source_manifest_sha256": manifest_sha256,
         "source_instance_sha256": file["sha256"],
         "source_path": relative_input,
@@ -3675,12 +3718,28 @@ fn collect_wsi_reconstruction_result(
         "backend_version": actual["backend_version"],
         "runtime": actual["runtime"],
         "frame_hashes": actual["frame_hashes"],
-        "implicit_frame_positions": actual["implicit_frame_positions"],
         "total_pixel_matrix_shape": actual["total_pixel_matrix_shape"],
         "total_pixel_matrix_sha256": actual["total_pixel_matrix_sha256"],
         "transforms_applied": actual["transforms_applied"],
         "status": if passed { "passed" } else { "failed" }
     });
+    if sparse {
+        for field in [
+            "dimension_organization_type",
+            "dimension_organization_uid",
+            "dimension_index_pointers",
+            "functional_group_pointer",
+            "explicit_frame_positions",
+            "occupancy_mask",
+            "absent_tile_positions",
+            "pixel_data_sha256",
+            "missing_pixel_sentinel",
+        ] {
+            sidecar[field] = actual[field].clone();
+        }
+    } else {
+        sidecar["implicit_frame_positions"] = actual["implicit_frame_positions"].clone();
+    }
     let relative = format!("pixels/{WSI_RECONSTRUCTION_ID}/{stable_key}.json");
     let target = evidence_root.join(&relative);
     if let Some(parent) = target.parent() {
@@ -3694,12 +3753,68 @@ fn collect_wsi_reconstruction_result(
         "expected_frame_hashes": expected,
         "actual_frame_hashes": actual["frame_hashes"],
         "reason": if passed {
-            "The uv-locked highdicom adapter independently reconstructed exact implicit positions, stored frames, and total pixel matrix with transforms disabled"
+            if sparse {
+                "The uv-locked highdicom adapter independently validated explicit positions, sparse occupancy, stored frames, payload, and the zero-sentinel total pixel matrix with transforms disabled"
+            } else {
+                "The uv-locked highdicom adapter independently reconstructed exact implicit positions, stored frames, and total pixel matrix with transforms disabled"
+            }
         } else {
             "The independent WSI reconstruction or exact manifest-contract comparison failed"
         },
         "evidence": {"path": relative, "sha256": sha256_hex(&encoded)}
     }))
+}
+
+fn sparse_reconstruction_fields_match(actual: &Value, contract: &Value) -> bool {
+    let expected_positions = contract["per_frame_functional_groups"]
+        .as_array()
+        .map(|positions| {
+            positions
+                .iter()
+                .map(|position| {
+                    json!({
+                        "frame_number": position["frame_number"],
+                        "optical_path_identifier": position["optical_path_identifier"],
+                        "column_position": position["column_position"],
+                        "row_position": position["row_position"],
+                        "x_mm": position["x_mm"],
+                        "y_mm": position["y_mm"],
+                        "z_mm": position["z_mm"],
+                        "dimension_index_values": position["dimension_index_values"]
+                    })
+                })
+                .collect::<Vec<_>>()
+        });
+    let expected_pointers = contract["dimension_indices"].as_array().map(|indices| {
+        indices
+            .iter()
+            .map(|index| {
+                index["dimension_index_pointer"]
+                    .as_str()
+                    .unwrap_or_default()
+                    .replace(['(', ')', ','], "")
+            })
+            .collect::<Vec<_>>()
+    });
+    let expected_functional_group = contract["dimension_indices"]
+        .get(0)
+        .and_then(|index| index["functional_group_pointer"].as_str())
+        .map(|pointer| pointer.replace(['(', ')', ','], ""));
+    let expected_occupancy = contract["tiling"]["occupancy_mask"].as_array().map(|mask| {
+        mask.iter()
+            .map(|entry| entry == "present")
+            .collect::<Vec<_>>()
+    });
+    actual["dimension_organization_type"] == contract["dimension_organization_type"]
+        && actual["dimension_organization_uid"] == contract["dimension_organization_uid"]
+        && actual["dimension_index_pointers"] == json!(expected_pointers)
+        && actual["functional_group_pointer"] == json!(expected_functional_group)
+        && actual["explicit_frame_positions"] == json!(expected_positions)
+        && actual["occupancy_mask"] == json!(expected_occupancy)
+        && actual["absent_tile_positions"] == contract["tiling"]["absent_tile_positions"]
+        && actual["pixel_data_sha256"] == contract["pixel_data"]["payload_sha256"]
+        && actual["missing_pixel_sentinel"] == contract["tiling"]["sentinel_fill_rgb"]
+        && actual["total_pixel_matrix_sha256"] == contract["tiling"]["sentinel_matrix_sha256"]
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -5011,6 +5126,7 @@ mod wsi_reconstruction_tests {
             }
         });
         let manifest_file = json!({
+            "case_id": WSI_CASE_ID,
             "path": "vl/wsi/tiled_full_small.dcm",
             "sha256": "instance-hash",
             "expected_wsi_tiled_full": contract
@@ -5030,6 +5146,8 @@ mod wsi_reconstruction_tests {
             "source_instance_sha256": "instance-hash",
             "source_path": "vl/wsi/tiled_full_small.dcm",
             "expected_contract": contract,
+            "backend": "dts-wsi-reconstruct",
+            "backend_version": "0.2.0",
             "runtime": {"highdicom": "0.28.1", "numpy": "2.5.2", "pydicom": "3.0.2"},
             "frame_hashes": contract["pixel_data"]["frame_hashes"],
             "implicit_frame_positions": contract["tiling"]["implicit_frame_positions"],
@@ -5065,7 +5183,11 @@ mod wsi_reconstruction_tests {
         assert!(failures.is_empty(), "{failures:?}");
 
         for (pointer, mutation) in [
+            ("/adapter_sha256", json!("other-adapter-hash")),
             ("/source_manifest_sha256", json!("other-manifest-hash")),
+            ("/source_instance_sha256", json!("other-instance-hash")),
+            ("/source_path", json!("vl/wsi/other.dcm")),
+            ("/backend_version", json!("0.1.0")),
             (
                 "/frame_hashes/0",
                 json!("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
@@ -5084,6 +5206,144 @@ mod wsi_reconstruction_tests {
                 serde_json::to_vec(&corrupt).unwrap(),
             )
             .unwrap();
+            let mut failures = Vec::new();
+            verify_wsi_reconstruction_evidence(
+                &root,
+                &evidence,
+                &instance,
+                &manifest_file,
+                &mut failures,
+            );
+            assert_eq!(failures.len(), 1, "mutation {pointer}");
+        }
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    fn sparse_fixture() -> (Value, Value, Value) {
+        let contract = crate::wsi_tiled_sparse_locked_contract("2.25.21", "2.25.22", "2.25.23");
+        let evidence = json!({
+            "source": {"manifest_sha256": "sparse-manifest-hash"},
+            "tools": [{
+                "adapter_id": WSI_RECONSTRUCTION_ID,
+                "status": "available",
+                "lock_status": "matched",
+                "sha256": "sparse-adapter-hash"
+            }]
+        });
+        let instance = json!({
+            "path": "vl/wsi/tiled_sparse_small.dcm",
+            "pixel": {
+                "expected_frame_hashes": contract["pixel_data"]["frame_hashes"],
+                "actual_frame_hashes": contract["pixel_data"]["frame_hashes"],
+                "evidence": {"path": "pixels/wsi-sparse.json"}
+            }
+        });
+        let manifest_file = json!({
+            "case_id": WSI_SPARSE_CASE_ID,
+            "path": "vl/wsi/tiled_sparse_small.dcm",
+            "sha256": "sparse-instance-hash",
+            "expected_wsi_tiled_sparse": contract
+        });
+        (evidence, instance, manifest_file)
+    }
+
+    fn sparse_sidecar(manifest_file: &Value) -> Value {
+        let contract = &manifest_file["expected_wsi_tiled_sparse"];
+        json!({
+            "adapter_id": WSI_RECONSTRUCTION_ID,
+            "adapter_sha256": "sparse-adapter-hash",
+            "independence": "independent",
+            "extraction_method": "uv_locked_highdicom_tiled_sparse_explicit_sentinel_total_pixel_matrix",
+            "status": "passed",
+            "source_manifest_sha256": "sparse-manifest-hash",
+            "source_instance_sha256": "sparse-instance-hash",
+            "source_path": "vl/wsi/tiled_sparse_small.dcm",
+            "expected_contract": contract,
+            "backend": "dts-wsi-reconstruct",
+            "backend_version": "0.2.0",
+            "runtime": {"highdicom": "0.28.1", "numpy": "2.5.2", "pydicom": "3.0.2"},
+            "dimension_organization_type": "TILED_SPARSE",
+            "dimension_organization_uid": contract["dimension_organization_uid"],
+            "dimension_index_pointers": ["0048021E", "0048021F"],
+            "functional_group_pointer": "0048021A",
+            "frame_hashes": contract["pixel_data"]["frame_hashes"],
+            "explicit_frame_positions": [
+                {
+                    "frame_number": 1, "optical_path_identifier": "RGB",
+                    "column_position": 1, "row_position": 1,
+                    "x_mm": 0.0, "y_mm": 0.0, "z_mm": 0.0,
+                    "dimension_index_values": [1, 1]
+                },
+                {
+                    "frame_number": 2, "optical_path_identifier": "RGB",
+                    "column_position": 3, "row_position": 3,
+                    "x_mm": 1.0, "y_mm": 1.0, "z_mm": 0.0,
+                    "dimension_index_values": [2, 2]
+                }
+            ],
+            "occupancy_mask": [true, false, false, true],
+            "absent_tile_positions": contract["tiling"]["absent_tile_positions"],
+            "pixel_data_sha256": contract["pixel_data"]["payload_sha256"],
+            "total_pixel_matrix_shape": [4, 4, 3],
+            "total_pixel_matrix_sha256": contract["tiling"]["sentinel_matrix_sha256"],
+            "missing_pixel_sentinel": contract["tiling"]["sentinel_fill_rgb"],
+            "transforms_applied": false
+        })
+    }
+
+    #[test]
+    fn sparse_wsi_sidecar_is_bound_to_dimensions_positions_occupancy_and_payload() {
+        let root = std::env::temp_dir().join(format!(
+            "dts-wsi-sparse-sidecar-{}-{:?}",
+            std::process::id(),
+            std::thread::current().id()
+        ));
+        fs::create_dir_all(root.join("pixels")).expect("create sparse fixture");
+        let (evidence, instance, manifest_file) = sparse_fixture();
+        let valid = sparse_sidecar(&manifest_file);
+        let sidecar_path = root.join("pixels/wsi-sparse.json");
+        fs::write(&sidecar_path, serde_json::to_vec(&valid).unwrap()).unwrap();
+        let mut failures = Vec::new();
+        verify_wsi_reconstruction_evidence(
+            &root,
+            &evidence,
+            &instance,
+            &manifest_file,
+            &mut failures,
+        );
+        assert!(failures.is_empty(), "{failures:?}");
+
+        for (pointer, mutation) in [
+            ("/adapter_sha256", json!("other-adapter-hash")),
+            ("/source_manifest_sha256", json!("other-manifest-hash")),
+            ("/source_instance_sha256", json!("other-instance-hash")),
+            ("/source_path", json!("vl/wsi/other.dcm")),
+            (
+                "/expected_contract/tiling/occupancy_mask/1",
+                json!("present"),
+            ),
+            ("/dimension_organization_type", json!("TILED_FULL")),
+            ("/dimension_organization_uid", json!("2.25.999")),
+            ("/dimension_index_pointers/0", json!("0048021F")),
+            ("/functional_group_pointer", json!("0048021B")),
+            ("/frame_hashes/1", json!("bad-frame-hash")),
+            (
+                "/explicit_frame_positions/1/dimension_index_values/0",
+                json!(1),
+            ),
+            ("/explicit_frame_positions/1/column_position", json!(1)),
+            ("/occupancy_mask/1", json!(true)),
+            ("/absent_tile_positions/0/column_position", json!(1)),
+            ("/pixel_data_sha256", json!("bad-payload-hash")),
+            ("/missing_pixel_sentinel/0", json!(255)),
+            ("/total_pixel_matrix_sha256", json!("bad-matrix-hash")),
+            ("/transforms_applied", json!(true)),
+        ] {
+            let mut corrupt = valid.clone();
+            *corrupt
+                .pointer_mut(pointer)
+                .expect("sparse mutation pointer") = mutation;
+            fs::write(&sidecar_path, serde_json::to_vec(&corrupt).unwrap()).unwrap();
             let mut failures = Vec::new();
             verify_wsi_reconstruction_evidence(
                 &root,

@@ -323,23 +323,23 @@
       "adapter_id": "highdicom-wsi-reconstruction",
       "role": "pixel_decoder",
       "tool_name": "highdicom WSI reconstruction adapter",
-      "version": "highdicom 0.28.1; numpy 2.5.2; pydicom 3.0.2; adapter 0.1.0; CPython 3.12.12",
+      "version": "highdicom 0.28.1; numpy 2.5.2; pydicom 3.0.2; adapter 0.2.0; CPython 3.12.12",
       "source_repository": "https://github.com/ImagingDataCommons/highdicom",
       "source_revision": "v0.28.1",
-      "package_identity": "uv.lock sha256 0f7a560ec5a875c5a5bbc8bfcfd1f5223c4b770043319ebd15aa3cf0705d8882; highdicom-0.28.1 wheel sha256 76d4b2ad2e104ad5d29c2901ff9a6eab52ce31f49d366bf77f36b48da82c152f; pydicom-3.0.2 wheel sha256 abf971a5440f84dbaf42c4b6758e30e62480902584f8b270b9a5d146e278a07b; exact transitive versions and platform wheels are committed in the uv lock",
+      "package_identity": "uv.lock sha256 3f0b7299b7c11fb8086d7eb5f54f2341f2c9a92f27baded4be45fce36b3c3e55; highdicom-0.28.1 wheel sha256 76d4b2ad2e104ad5d29c2901ff9a6eab52ce31f49d366bf77f36b48da82c152f; pydicom-3.0.2 wheel sha256 abf971a5440f84dbaf42c4b6758e30e62480902584f8b270b9a5d146e278a07b; exact transitive dependency versions and platform wheels remain unchanged and are committed in the uv lock",
       "executable_sha256": "cf450e6bc0b00adecd12b7b13024de7000c7350801addc802bd3b45782104e79",
-      "adapter_sha256": "6b3f67bfc1aae4609ba7ccc399d78119e326556a64613621403b3b7b7a788716",
+      "adapter_sha256": "a89f55577263f84a27291a6d3adf6659ccebedb76e68dd8b9c06f8b0b3ce7f4e",
       "supporting_artifacts": {
         ".python-version": "f01d748a75eb195e6fd73201279bfb23f09036ddd360eb3e9ff40ef042acbc8a",
-        "pyproject.toml": "bb0c429a761a1b51bb3887ea4212cd3d19c7fe03cb17d6f146d0d4aeb1f51f7a",
-        "uv.lock": "0f7a560ec5a875c5a5bbc8bfcfd1f5223c4b770043319ebd15aa3cf0705d8882",
-        "adapter/__init__.py": "2eb431f1214453edb7c7cc81de4561b0507a44a3598e123fc7eaeb81a0f1d2cf",
-        "adapter/__main__.py": "5a06fab2ce499598cdff78adce3be355b4f03c8cdea7050f6f85f0bb3811fc94"
+        "pyproject.toml": "8e71b4f3f2d212e508d664036a3739228937bdd4440db773f1d93b6a03902ce2",
+        "uv.lock": "3f0b7299b7c11fb8086d7eb5f54f2341f2c9a92f27baded4be45fce36b3c3e55",
+        "adapter/__init__.py": "28019f6391a580d660a1b48dc4e4c7ffc1afea88c7894a2e6a508e6d2cc8e710",
+        "adapter/__main__.py": "f2ce4504e4f9463e959fc8b051e669cd25b5455d4ff82978f257ac7ebdba988e"
       },
-      "definition_version": "Exact small TILED_FULL reconstruction contract locked from DICOM 2026b; highdicom stored-frame and total-pixel-matrix APIs run with all transforms disabled",
+      "definition_version": "Exact small TILED_FULL implicit-order and TILED_SPARSE explicit-position reconstruction contracts locked from DICOM 2026b; highdicom stored-frame APIs run with all transforms disabled",
       "platforms": ["arm64-macos"],
       "verified_at": "2026-08-27",
-      "notes": "Case-scoped independent payload reconstruction for vl/wsi/tiled_full_small. The adapter derives implicit TILED_FULL positions separately, hashes all four stored frames and the reconstructed 4x4 RGB total pixel matrix, and cross-checks highdicom with modality, VOI, palette, presentation, real-world, and ICC transforms disabled. Set DTS_WSI_RECONSTRUCTION_PYTHON to the uv-locked interpreter; every runtime and adapter input contributes to the composite fingerprint."
+      "notes": "Case-scoped independent payload reconstruction for vl/wsi/tiled_full_small and vl/wsi/tiled_sparse_small. The full branch preserves independently derived implicit order and its highdicom total-matrix cross-check. The sparse branch validates the dimension organization UID and ordered pointers, explicit per-frame positions and index values, exact native payload and stored-frame hashes, present/absent occupancy, and the zero-sentinel 4x4 RGB matrix. No pixel transforms are applied. Set DTS_WSI_RECONSTRUCTION_PYTHON to the uv-locked interpreter; every runtime and adapter input contributes to the composite fingerprint."
     },
     {
       "adapter_id": "littlecms-transicc-icc",

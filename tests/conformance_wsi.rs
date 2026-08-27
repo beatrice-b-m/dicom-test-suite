@@ -37,7 +37,10 @@ fn wsi_iod_and_reconstruction_routes_are_exact_uv_locked_and_additive() {
         .find(|adapter| adapter["id"] == "highdicom-wsi-reconstruction")
         .expect("WSI reconstruction adapter");
     assert_eq!(reconstruction["role"], "pixel_decoder");
-    assert_eq!(reconstruction["supported_case_ids"], json!([WSI_CASE_ID]));
+    assert_eq!(
+        reconstruction["supported_case_ids"],
+        json!([WSI_CASE_ID, WSI_SPARSE_CASE_ID])
+    );
     assert_eq!(
         reconstruction["executable_env"],
         "DTS_WSI_RECONSTRUCTION_PYTHON"
@@ -56,6 +59,20 @@ fn wsi_iod_and_reconstruction_routes_are_exact_uv_locked_and_additive() {
             {"path": "conformance-backends/wsi-reconstruction/src/dts_wsi_reconstruction/__main__.py"}
         ])
     );
+    assert_eq!(
+        reconstruction["capabilities"],
+        json!([
+            "tiled_full_implicit_positions",
+            "tiled_sparse_explicit_positions",
+            "dimension_index_validation",
+            "exact_stored_frame_hashes",
+            "pixel_data_payload_hash",
+            "sparse_occupancy_and_absent_positions",
+            "zero_sentinel_reconstruction",
+            "total_pixel_matrix_reconstruction",
+            "transforms_disabled"
+        ])
+    );
 
     let locked = lock["tools"]
         .as_array()
@@ -65,15 +82,21 @@ fn wsi_iod_and_reconstruction_routes_are_exact_uv_locked_and_additive() {
         .expect("WSI reconstruction lock");
     assert_eq!(
         locked["adapter_sha256"],
-        "6b3f67bfc1aae4609ba7ccc399d78119e326556a64613621403b3b7b7a788716"
+        "a89f55577263f84a27291a6d3adf6659ccebedb76e68dd8b9c06f8b0b3ce7f4e"
     );
     assert_eq!(
         locked["supporting_artifacts"]["uv.lock"],
-        "0f7a560ec5a875c5a5bbc8bfcfd1f5223c4b770043319ebd15aa3cf0705d8882"
+        "3f0b7299b7c11fb8086d7eb5f54f2341f2c9a92f27baded4be45fce36b3c3e55"
     );
     assert_eq!(
         locked["supporting_artifacts"]["adapter/__main__.py"],
-        "5a06fab2ce499598cdff78adce3be355b4f03c8cdea7050f6f85f0bb3811fc94"
+        "f2ce4504e4f9463e959fc8b051e669cd25b5455d4ff82978f257ac7ebdba988e"
+    );
+    assert!(
+        locked["version"]
+            .as_str()
+            .unwrap()
+            .contains("adapter 0.2.0")
     );
 }
 

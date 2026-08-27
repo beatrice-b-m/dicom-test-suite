@@ -285,7 +285,9 @@ Implement these groups as separate milestones:
 
 Status on 2026-08-27: milestones 1 through 3 are complete. The clinical-family
 milestone closes with the independently conformant Enhanced PET multi-frame
-representative; milestone 4 is the next dependency-ordered work.
+representative. In milestone 4, the unsigned 32-bit native Secondary Capture
+slice is complete with a case-specific `uv`-locked independent IOD/payload
+validator; 1-bit native pixels are the next dependency-ordered slice.
 
 Gate:
 

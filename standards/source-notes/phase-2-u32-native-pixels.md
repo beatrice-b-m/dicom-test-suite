@@ -60,10 +60,9 @@ words and span both sides of the signed 32-bit boundary.
 
 ## Project Action
 
-- Registry status at qualification: planned and ready for promotion. The user
-  authorized selection and locking of another independent IOD validator at the
-  explicit checkpoint. Promotion still requires the registry/report/test commit
-  that follows this evidence record.
+- Registry status: implemented. At qualification it remained planned until the
+  user authorized selection and locking of another independent IOD validator
+  at the explicit checkpoint and every report/test/conformance gate completed.
 - Resolved blocker: `independent_iod_validator_unavailable`. The selected
   pydicom `dicom-validator` 0.8.2 engine recognizes Secondary Capture, evaluates
   its 2026b IOD/module definitions, and passes the candidate with zero errors.

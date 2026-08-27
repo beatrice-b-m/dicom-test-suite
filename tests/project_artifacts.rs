@@ -197,6 +197,18 @@ fn u32_conformance_docs_preserve_the_independent_gate() {
             "u32 source note requires {required}"
         );
     }
+    let phase = fs::read_to_string("docs/phase-2-native-status.md").unwrap();
+    for required in [
+        "Unsigned 32-bit native Secondary Capture",
+        "85 files",
+        "silent entity validation",
+        "continues with 1-bit native pixels",
+    ] {
+        assert!(phase.contains(required), "phase status requires {required}");
+    }
+    let plan = fs::read_to_string("docs/coverage-expansion-plan.md").unwrap();
+    assert!(plan.contains("unsigned 32-bit native Secondary Capture"));
+    assert!(plan.contains("1-bit native pixels are the next"));
 }
 
 #[test]

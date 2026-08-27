@@ -469,12 +469,47 @@ The frozen offline pydicom 3.0.2 environment managed by locked `uv`
 independently decodes both frames, reproduces their hashes, and recomputes the
 declared Bq/ml values.
 
+## Unsigned 32-bit native Secondary Capture
+
+`classic/sc/mono2_u32_explicit_le` is the first completed Phase 2 pixel
+milestone slice. It emits a 2 by 2 MONOCHROME2 Secondary Capture instance with
+Bits Allocated/Stored/High Bit `32/32/31`, unsigned Pixel Representation, and
+native OW Pixel Data. The exact little-endian stored values are `0`, `65535`,
+`2147483648`, and `4294967295`, covering both sides of the signed boundary and
+the full unsigned range.
+
+Two seed-1 `extended` generations each produced 85 files and were recursively
+byte-identical. Strict manifest-driven validation checked all 85 with zero
+failures. The U32 instance SHA-256 is
+`bec7dfedcb7cec08426f38f46f6d5deead6294c2a4a6e4464ba972bb97592630`;
+its 16-byte Pixel Data and frame SHA-256 is
+`56bca1a85c2838126b1d1a5fbedfe731839496d972df2c6ab33e1a1183392b41`.
+JSON and Markdown reports expose the exact values, hash, little-endian word
+order, and full-range state.
+
+The locked dicom3tools IOD validator aborts on this standards-permitted format,
+so the explicitly authorized alternative is pydicom `dicom-validator` 0.8.2 in
+adapter 0.2.0. Its CPython 3.12.12 environment, exact dependencies, adapter,
+official DICOM 2026b DocBook sources, and derived definitions are locked as a
+single fingerprint. The clean candidate passes with zero IOD errors; missing
+Conversion Type and invalid Pixel Representation controls are detected. The
+same adapter independently extracts all unsigned values and hashes without
+NumPy or a project decoder.
+
+For entity consistency only, `dcentvfy` receives a hash-linked projection that
+preserves bytes zero through 929 and omits the terminal Pixel Data element. The
+untouched original remains the only IOD and payload input. An isolated real
+conformance run has matched tools, silent entity validation, and zero strict
+verification failures. Python remains optional for ordinary profile generation
+and becomes required only when collecting conformance evidence for this one
+declared case.
+
 ## Milestone gate
 
 All planned Phase 2 geometry and series cases are implemented, and the UTF-8,
 ISO 2022, timezone, empty Type 2, string boundary, private creator, and sequence
 length metadata slices have passed their vertical gates. The latest seed-1
-`core` corpus contains 47 files; the seed-1 `extended` corpus contains 84
+`core` corpus contains 47 files; the seed-1 `extended` corpus contains 85
 files. The complete
 locked no-default-feature, all-target test suite passes, including byte-stable
 smoke, core, and extended regeneration. Each new CT slice and the temporal MR
@@ -485,4 +520,5 @@ ordered Phase 2 metadata and VR milestone is complete. The Nuclear Medicine
 STATIC multi-frame, PET rescaled-activity, timed Ultrasound multi-frame,
 XA monoplane, XRF monoplane, and Enhanced PET clinical-family representatives
 are complete. The dependency-ordered Phase 2 clinical-family milestone is
-closed; Phase 2 continues with the pixel milestone.
+closed. The first pixel slice, unsigned 32-bit native Pixel Data, is complete;
+Phase 2 continues with 1-bit native pixels.

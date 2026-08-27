@@ -34,7 +34,7 @@ dynamically linked `liblcms2.2` implementation.
 | Registration second IOD opinion | `pydicom-dicom-validator-registration` | `python -m dts_dicom_validator_adapter` | Required for its declared cases only | Runs in addition to, never instead of, locked `dciodvfy` for Spatial Registration and Deformable Spatial Registration. The same `uv` runtime and exact 2026b definitions are independently fingerprinted under the case-scoped secondary adapter. |
 | Presentation-state second IOD opinion | `pydicom-dicom-validator-presentation-state` | `python -m dts_dicom_validator_adapter` | Required for its declared cases only | Runs additively for Color Softcopy, Advanced Blending, and Blending Softcopy Presentation States. It reuses the independently implemented, `uv`-locked runtime and hash-locked 2026b definitions under a separate case-scoped adapter identity. |
 | Linked RT second IOD opinion | `pydicom-dicom-validator-rt` | `python -m dts_dicom_validator_adapter` | Required for its declared cases only | Runs additively for the linked RT Plan and RT Image. It reuses the unchanged `uv`-locked adapter and exact 2026b definitions under a separate qualification identity; primary IOD validation remains locked `dciodvfy`. |
-| Second-generation RT per-instance IOD | `pydicom-dicom-validator-rt-radiation` | `python -m dts_dicom_validator_adapter` | Required for its declared cases only | Exact-case primary for C-Arm Photon-Electron Radiation and RT Radiation Set, which locked dicom3tools and PixelMed do not recognize. The adapter applies one fail-closed correction to the hash-locked 2026b generated condition for recorded control-point content. |
+| Second-generation RT per-instance IOD | `pydicom-dicom-validator-rt-radiation` | `python -m dts_dicom_validator_adapter` | Required for its declared cases only | Exact-case primary for C-Arm Photon-Electron Radiation and RT Radiation Set, which locked dicom3tools and PixelMed do not recognize. The adapter applies fail-closed corrections to the hash-locked recorded-control-point condition and the engine's empty-string `NotEmpty` incompatibility. |
 | Waveform second IOD and payload opinion | `pydicom-dicom-validator-waveform` | `python -m dts_dicom_validator_adapter` / `--waveform` | Required for its declared cases only | Runs additively for Twelve-lead and General ECG. The normal route validates the 2026b IOD; the waveform route independently extracts each ordered raw OW group with pydicom and decodes signed samples with Python `struct`, without NumPy or generator code. |
 | U1 SC independent pixels | `dcmtk-dcm2img-u1` | `dcm2img +Fa +Fn -M -W +Pid -O +opn 1` | Required when collecting evidence for its declared case | DCMTK 3.7.0 emits one PGM per frame. The collector requires P2, dimensions 3 by 3, maximum value one, exact samples, and exact frame hashes; `dcmdump +W` separately binds the packed Pixel Data bytes. Primary IOD validation remains `dciodvfy`. |
 | Linked RT Image independent pixels | `dcmtk-dcm2img-rt-image` | `dcm2img +F 1 -S -bs -M -W +Pid -O +opn 8` | Required when collecting evidence for its declared case | DCMTK 3.7.0 emits one P2 PGM. The collector requires the exact 4 by 4 gradient, maximum value 255, and decoded SHA-256 `a8faed6abbf35c12a4b26e40f6feb19d736d90045c83b9f9a31f638d323e6811`; isolated `dcmdump +W` must emit exactly one 16-byte native OB value with the same hash. Primary IOD validation remains `dciodvfy`. |
@@ -70,10 +70,16 @@ neither current IOD, so their unsupported result cannot serve as an IOD
 opinion. The uv-locked 2026b definitions select both exact SOP Classes. The
 generated definition omitted the alternative condition needed to evaluate
 Recorded RT Control Point DateTime when RT Record Flag is inherited from the
-parent dataset; adapter 0.6.0 verifies the entire locked module/include/tag
+parent dataset; adapter 0.7.0 verifies the entire locked module/include/tag
 shape before injecting only that standard condition and fails closed on any
-drift. Qualification accepted the `NO`/recorded-absent and `YES`/recorded-present
-branches, rejected both complementary mutations, and accepted the linked Set.
+drift. The same adapter verifies both Device Alternate Identifier conditional
+attributes and their full include path before replacing the engine's broken
+empty-string `NotEmpty` operation with the equivalent not-equal-empty condition.
+Qualification accepted the `NO`/recorded-absent and `YES`/recorded-present
+branches and rejected both complementary mutations. It accepted an empty
+alternate identifier with both companions absent and a non-empty identifier
+with both present, while rejecting a non-empty identifier with either missing.
+The standards-correct Patient Orientation Macro scope and linked Set also passed.
 Strict Rust and `dcentvfy` still own graph closure and exact semantics; no
 finding is allowlisted and qualification does not promote either registry case.
 
@@ -211,7 +217,7 @@ LittleCMS transform. Strict verification requires both external tools to be
 available and lock-matched and rejects relinked sidecars; no ICC failure can be
 converted to ordinary unsupported native-pixel coverage.
 
-The U32 payload path uses adapter version 0.6.0 to read raw OW bytes through
+The U32 payload path uses adapter version 0.7.0 to read raw OW bytes through
 pydicom and unpack exact little-endian unsigned 32-bit words without NumPy.
 Its deterministic sidecar is cross-linked to the locked adapter, all image
 attributes, the four expected values, and every manifest frame hash.

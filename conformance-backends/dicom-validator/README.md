@@ -12,6 +12,14 @@ DocBook input and derived JSON definition is checked against
 cannot silently follow a newer standard edition. Installed wheel contents are
 also checked against their RECORD hashes on every invocation.
 
+Adapter 0.7.0 applies two RT-only, fail-closed compatibility corrections after
+verifying the complete locked module/include/tag shapes. It restores the
+generated alternative branch for Recorded RT Control Point DateTime and maps
+the two Device Alternate Identifier "has a Value" conditions to an equivalent
+not-equal-empty operation because dicom-validator 0.8.2 treats an empty string
+as `NotEmpty`. The original standard artifacts remain unchanged and contribute
+to the composite fingerprint; no finding is allowlisted.
+
 ## Provisioning
 
 The committed environment is resolved with `uv` and CPython 3.12.12:

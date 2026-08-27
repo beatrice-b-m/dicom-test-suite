@@ -143,7 +143,7 @@ fn uv_iod_validator_is_case_scoped_and_fully_locked() {
         .expect("u32 IOD validator must have an accepted lock entry");
     assert_eq!(
         tool["adapter_sha256"],
-        "636d64bf315a658742fa1d4b9e3d8cc1b6a1294ae75973da5989d06c2ef23e97"
+        "2813c20e61cd625955429a999de42c52c9b1fec25f3e2a3b168dc0b41b46b72c"
     );
     assert_eq!(tool["platforms"], serde_json::json!(["arm64-macos"]));
     assert!(
@@ -198,7 +198,7 @@ fn registration_secondary_iod_validator_is_additive_and_locked() {
     assert_eq!(tool["role"], "secondary_iod_validator");
     assert_eq!(
         tool["adapter_sha256"],
-        "636d64bf315a658742fa1d4b9e3d8cc1b6a1294ae75973da5989d06c2ef23e97"
+        "2813c20e61cd625955429a999de42c52c9b1fec25f3e2a3b168dc0b41b46b72c"
     );
 
     let readme = fs::read_to_string("conformance/README.md").unwrap();
@@ -245,7 +245,7 @@ fn presentation_state_secondary_iod_validator_is_additive_and_locked() {
     assert_eq!(tool["role"], "secondary_iod_validator");
     assert_eq!(
         tool["adapter_sha256"],
-        "636d64bf315a658742fa1d4b9e3d8cc1b6a1294ae75973da5989d06c2ef23e97"
+        "2813c20e61cd625955429a999de42c52c9b1fec25f3e2a3b168dc0b41b46b72c"
     );
 
     let readme = fs::read_to_string("conformance/README.md").unwrap();
@@ -301,11 +301,11 @@ fn linked_rt_secondary_iod_validator_is_additive_and_locked() {
     assert_eq!(tool["role"], "secondary_iod_validator");
     assert_eq!(
         tool["version"],
-        "dicom-validator 0.8.2; adapter 0.6.0; CPython 3.12.12"
+        "dicom-validator 0.8.2; adapter 0.7.0; CPython 3.12.12"
     );
     assert_eq!(
         tool["adapter_sha256"],
-        "636d64bf315a658742fa1d4b9e3d8cc1b6a1294ae75973da5989d06c2ef23e97"
+        "2813c20e61cd625955429a999de42c52c9b1fec25f3e2a3b168dc0b41b46b72c"
     );
     let shared = lock["tools"]
         .as_array()
@@ -397,6 +397,7 @@ fn second_generation_rt_primary_iod_validator_is_exact_case_locked() {
         "carm_photon_electron_radiation_iod_validation",
         "rt_radiation_set_iod_validation",
         "guarded_rt_record_condition_correction",
+        "guarded_rt_device_not_empty_condition_correction",
     ] {
         assert!(
             adapter["capabilities"]
@@ -418,11 +419,11 @@ fn second_generation_rt_primary_iod_validator_is_exact_case_locked() {
     assert_eq!(tool["role"], "primary_iod_validator");
     assert_eq!(
         tool["version"],
-        "dicom-validator 0.8.2; adapter 0.6.0; CPython 3.12.12"
+        "dicom-validator 0.8.2; adapter 0.7.0; CPython 3.12.12"
     );
     assert_eq!(
         tool["adapter_sha256"],
-        "636d64bf315a658742fa1d4b9e3d8cc1b6a1294ae75973da5989d06c2ef23e97"
+        "2813c20e61cd625955429a999de42c52c9b1fec25f3e2a3b168dc0b41b46b72c"
     );
     let shared = lock["tools"]
         .as_array()
@@ -436,7 +437,11 @@ fn second_generation_rt_primary_iod_validator_is_exact_case_locked() {
     for required in [
         "do not recognize these current IODs",
         "missing other_cond branch",
-        "fails closed",
+        "has-a-Value semantics",
+        "empty Device Alternate Identifier",
+        "either companion missing",
+        "Patient Orientation Macro scope",
+        "fail-closed definition drift",
         "NO with recorded content absent",
         "YES/absent mutations",
         "No finding is allowlisted",
@@ -499,11 +504,11 @@ fn waveform_secondary_iod_and_payload_validator_is_additive_and_locked() {
     assert_eq!(tool["role"], "secondary_iod_validator");
     assert_eq!(
         tool["version"],
-        "dicom-validator 0.8.2; adapter 0.6.0; CPython 3.12.12"
+        "dicom-validator 0.8.2; adapter 0.7.0; CPython 3.12.12"
     );
     assert_eq!(
         tool["adapter_sha256"],
-        "636d64bf315a658742fa1d4b9e3d8cc1b6a1294ae75973da5989d06c2ef23e97"
+        "2813c20e61cd625955429a999de42c52c9b1fec25f3e2a3b168dc0b41b46b72c"
     );
     assert_eq!(
         tool["supporting_artifacts"]["pyproject.toml"],
@@ -515,7 +520,7 @@ fn waveform_secondary_iod_and_payload_validator_is_additive_and_locked() {
     );
     assert_eq!(
         tool["supporting_artifacts"]["adapter/__main__.py"],
-        "991598d92c5660e7edb8e1e64d1e9a6ec0c6bcf5d9308b3b661c6b3b148f0331"
+        "66899beb38d34ac1cbb97b9a587c77f4b385aaac14ef2e6b421d3c1a1ba582af"
     );
     for shared_adapter in [
         "pydicom-dicom-validator-u32",
@@ -1614,8 +1619,10 @@ fn minimal_rt_radiation_set_source_note_locks_required_companion_graph() {
         "selected as the required primary IOD\nvalidator for exactly these two cases, subject to the locked defect correction",
         "KeyError: 'other_cond'",
         "Changing RT Record Flag to `YES` makes the validator pass but\nviolates A.86.1.5.4.3 and is forbidden",
-        "narrowly guarded adapter correction",
-        "No other condition may be rewritten",
+        "narrowly guarded adapter corrections",
+        "Patient Orientation Macro is invoked at the RT Treatment Position Macro\nscope",
+        "engine's `NotEmpty`\noperator also returns true for an empty string",
+        "Any definition that no longer matches\nthe expected input fails closed",
         "both registry cases remain\nplanned with an explicit recipe blocker",
         "4967dac55719ba63cbc7f404f444e00d4adf50c785c8353e89c94db0259ede05",
         "9f4853924ef520dd9b97ada0f14abd206fb15e6d8622e4d24a90f8b404a3e8c3",

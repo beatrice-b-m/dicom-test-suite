@@ -276,7 +276,8 @@
         "dicom_2026b_definitions",
         "carm_photon_electron_radiation_iod_validation",
         "rt_radiation_set_iod_validation",
-        "guarded_rt_record_condition_correction"
+        "guarded_rt_record_condition_correction",
+        "guarded_rt_device_not_empty_condition_correction"
       ]
     },
     {

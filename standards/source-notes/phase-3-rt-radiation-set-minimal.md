@@ -118,15 +118,20 @@ Coordinates Sequence is present empty. Number of Patient Support Devices is
 `0`, and Patient Support Devices Sequence is absent. Radiation Source-Axis
 Distance is `1000`.
 
-Treatment Position Sequence has exactly one Item with index `1`, an identity
-Image to Equipment Mapping Matrix, empty Patient Location Coordinates and
-Patient Support Position Sequences, and these 2026b coded concepts:
+The Patient Orientation Macro is invoked at the RT Treatment Position Macro
+scope, beside Treatment Position Sequence. Patient Orientation Code Sequence
+therefore occurs at the Radiation dataset root; its Modifier Code Sequence is
+nested in the orientation code Item, and Patient Equipment Relationship Code
+Sequence is again at the Radiation root. The exact 2026b coded concepts are:
 
 - Patient Orientation: `(102538003, SCT, "recumbent")`, CID 19;
 - Patient Orientation Modifier: `(40199007, SCT, "supine")`, CID 20;
 - Patient Equipment Relationship: `(102540008, SCT, "headfirst")`, CID 21.
 
 This is the coded equivalent of the existing head-first-supine topology.
+Treatment Position Sequence separately has exactly one Item with index `1`, an
+identity Image to Equipment Mapping Matrix, and empty Patient Location
+Coordinates and Patient Support Position Sequences.
 
 ### Identification-level static-beam control points
 
@@ -281,7 +286,7 @@ below. This selection does not qualify a prototype or change registry status.
 Promotion requires empirical zero-error valid prototypes plus a recorded
 mutation detection boundary for both IODs.
 
-Prototype testing found one deterministic validator-definition defect. For
+Prototype testing found two deterministic validator compatibility defects. For
 Recorded RT Control Point DateTime `(300A,073A)` inside C-Arm Control Point
 Sequence, the generated 2026b JSON serializes a `MandatoryOrConditional`
 condition for RT Record Flag `YES` without its required `other_cond`. The
@@ -290,15 +295,19 @@ required C-Arm value is `NO`, causing `KeyError: 'other_cond'` instead of an
 IOD result. Changing RT Record Flag to `YES` makes the validator pass but
 violates A.86.1.5.4.3 and is forbidden.
 
-The selected route shall therefore add a narrowly guarded adapter correction
+The selected route shall therefore add narrowly guarded adapter corrections
 before qualification: verify the locked original definition shape, then supply
 the omitted alternative condition that permits Recorded RT Control Point
-DateTime only while RT Record Flag is `YES`. The original official artifacts,
-their hashes, and the correction must remain visible in the composite adapter
-fingerprint and qualification record. No other condition may be rewritten,
-and a definition that no longer matches the expected malformed input must
-fail closed. This standards-aligned crash correction does not use generator
-code or weaken the external engine's findings.
+DateTime only while RT Record Flag is `YES`. The 0.8.2 engine's `NotEmpty`
+operator also returns true for an empty string, contrary to the PS3.3
+"has a Value" condition on Device Alternate Identifier `(3010,001B)`. After
+verifying the full C.36.12, C.36.2.2.1-1, and 10.36-1 include path and both
+original 1C attribute definitions, the adapter maps only those two conditions
+to the equivalent not-equal-empty operation. The original official artifacts,
+their hashes, and both corrections remain visible in the composite adapter
+fingerprint and qualification record. Any definition that no longer matches
+the expected input fails closed. These standards-aligned corrections do not
+use generator code or weaken the external engine's findings.
 DCMTK `dcmdump +fo` remains required independent parsing, and isolated
 `dcentvfy -f` evidence must prove that removing the Plan or Radiation adds a
 missing-reference finding without hiding any immutable upstream diagnostic.

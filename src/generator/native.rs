@@ -9,6 +9,7 @@ pub(super) mod string_boundary_sc;
 pub(super) mod timezone_sc;
 pub(super) mod us_multiframe;
 pub(super) mod xa;
+pub(super) mod xrf;
 
 #[cfg(test)]
 mod empty_type2_sc_tests;
@@ -28,3 +29,5 @@ mod string_boundary_sc_tests;
 mod us_multiframe_tests;
 #[cfg(test)]
 mod xa_tests;
+#[cfg(test)]
+mod xrf_tests;

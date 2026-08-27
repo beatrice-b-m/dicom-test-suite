@@ -1,5 +1,6 @@
 use std::env;
 use std::fs;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::thread;
@@ -150,6 +151,16 @@ fn verify_artifacts(evidence_root: &Path, evidence: &Value, failures: &mut Vec<S
             Err(error) => failures.push(format!("pixel evidence unavailable {relative}: {error}")),
         }
     }
+    for instance in evidence["instances"].as_array().into_iter().flatten() {
+        let Some(artifact) = instance
+            .get("icc")
+            .and_then(|icc| icc.get("evidence"))
+            .filter(|value| !value.is_null())
+        else {
+            continue;
+        };
+        verify_hash_linked_artifact(evidence_root, artifact, "ICC profile evidence", failures);
+    }
     if let Some(projection) = evidence["entity"].get("input_projection") {
         verify_hash_linked_artifact(
             evidence_root,
@@ -254,6 +265,17 @@ fn verify_completeness(evidence_root: &Path, evidence: &Value, failures: &mut Ve
             files
                 .iter()
                 .filter(|file| file["case_id"] == "classic/sc/mono2_u1_native")
+                .filter_map(|file| file["path"].as_str())
+                .collect::<std::collections::BTreeSet<_>>()
+        })
+        .unwrap_or_default();
+    let required_icc_paths = manifest
+        .as_ref()
+        .and_then(|value| value["files"].as_array())
+        .map(|files| {
+            files
+                .iter()
+                .filter(|file| file["case_id"] == "vl/photo/rgb_icc_profile_explicit_le")
                 .filter_map(|file| file["path"].as_str())
                 .collect::<std::collections::BTreeSet<_>>()
         })
@@ -378,6 +400,39 @@ fn verify_completeness(evidence_root: &Path, evidence: &Value, failures: &mut Ve
                     failures,
                 );
             }
+        }
+        if required_icc_paths.contains(path) {
+            let icc_result = instance["results"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .find(|result| result["role"] == "icc_validator");
+            if instance
+                .get("icc")
+                .is_none_or(|icc| icc["status"] != "passed" || icc["independence"] != "independent")
+            {
+                failures.push(format!("independent ICC profile evidence failed: {path}"));
+            }
+            if icc_result.is_none_or(|result| result["status"] != "completed") {
+                failures.push(format!("ICC validation incomplete: {path}"));
+            }
+            let manifest_file = manifest
+                .as_ref()
+                .and_then(|value| value["files"].as_array())
+                .into_iter()
+                .flatten()
+                .find(|file| file["path"] == path);
+            if let Some(manifest_file) = manifest_file {
+                verify_icc_profile_evidence(
+                    evidence_root,
+                    evidence,
+                    instance,
+                    manifest_file,
+                    failures,
+                );
+            }
+        } else if instance.get("icc").is_some() {
+            failures.push(format!("ICC profile evidence is out of scope: {path}"));
         }
     }
     if evidence["entity"]["status"] != "completed" {
@@ -663,6 +718,94 @@ fn verify_u1_pixel_evidence(
     if !semantically_linked {
         failures.push(format!(
             "u1 pixel evidence sidecar is not linked to its locked tools and source manifest: {path}"
+        ));
+    }
+}
+
+fn verify_icc_profile_evidence(
+    evidence_root: &Path,
+    evidence: &Value,
+    instance: &Value,
+    manifest_file: &Value,
+    failures: &mut Vec<String>,
+) {
+    let path = instance["path"].as_str().unwrap_or("unknown");
+    let Some(relative) = instance
+        .pointer("/icc/evidence/path")
+        .and_then(Value::as_str)
+    else {
+        failures.push(format!("ICC profile evidence sidecar is missing: {path}"));
+        return;
+    };
+    if validate_relative_path(relative).is_err() {
+        failures.push(format!(
+            "ICC profile evidence sidecar path is unsafe: {path}"
+        ));
+        return;
+    }
+    let Ok(bytes) = fs::read(evidence_root.join(relative)) else {
+        failures.push(format!(
+            "ICC profile evidence sidecar is unavailable: {path}"
+        ));
+        return;
+    };
+    let Ok(sidecar) = serde_json::from_slice::<Value>(&bytes) else {
+        failures.push(format!(
+            "ICC profile evidence sidecar is invalid JSON: {path}"
+        ));
+        return;
+    };
+    let validator = evidence["tools"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .find(|tool| tool["adapter_id"] == "littlecms-transicc-icc");
+    let extractor = evidence["tools"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .find(|tool| tool["role"] == "independent_parser");
+    let expected_transforms = json!([
+        {"rgb": [255, 0, 0], "xyz": [43.6035, 22.2443, 1.3901]},
+        {"rgb": [0, 255, 0], "xyz": [38.5101, 71.6934, 9.7076]},
+        {"rgb": [0, 0, 255], "xyz": [14.3066, 6.0623, 71.3928]},
+        {"rgb": [255, 255, 255], "xyz": [96.4203, 100.0, 82.4905]}
+    ]);
+    let linked = instance["icc"]["adapter_id"] == "littlecms-transicc-icc"
+        && instance["icc"]["status"] == "passed"
+        && instance["icc"]["independence"] == "independent"
+        && sidecar["adapter_id"] == "littlecms-transicc-icc"
+        && sidecar["validator_sha256"].as_str()
+            == validator.and_then(|tool| tool["sha256"].as_str())
+        && sidecar["extractor_adapter_id"].as_str()
+            == extractor.and_then(|tool| tool["adapter_id"].as_str())
+        && sidecar["extractor_sha256"].as_str()
+            == extractor.and_then(|tool| tool["sha256"].as_str())
+        && validator
+            .is_some_and(|tool| tool["status"] == "available" && tool["lock_status"] == "matched")
+        && extractor
+            .is_some_and(|tool| tool["status"] == "available" && tool["lock_status"] == "matched")
+        && sidecar["independence"] == "independent"
+        && sidecar["extraction_method"] == "dcmtk_dcmdump_complete_ob_hex"
+        && sidecar["status"] == "passed"
+        && sidecar["source_instance_sha256"] == manifest_file["sha256"]
+        && sidecar["source_profile_sha256"]
+            == manifest_file["expected_icc_profile"]["profile_sha256"]
+        && sidecar["manifest_profile_sha256"]
+            == manifest_file["expected_icc_profile"]["profile_sha256"]
+        && sidecar["profile_size_bytes"] == 736
+        && sidecar["declared_profile_size_bytes"] == 736
+        && sidecar["dicom_color_space"] == manifest_file["expected_icc_profile"]["color_space"]
+        && sidecar["header"]["device_class"] == "scnr"
+        && sidecar["header"]["data_color_space"] == "RGB "
+        && sidecar["header"]["profile_connection_space"] == "XYZ "
+        && sidecar["header"]["signature"] == "acsp"
+        && sidecar["header"]["rendering_intent"] == 0
+        && sidecar["tag_count"] == 9
+        && sidecar["transforms"] == expected_transforms;
+    if !linked {
+        failures.push(format!(
+            "ICC profile evidence sidecar is not linked to its locked tools and source manifest: {path}"
         ));
     }
 }
@@ -1005,7 +1148,19 @@ fn collect_instance(
     )? {
         results.push(result);
     }
-    Ok(json!({
+    let icc = collect_icc_result(
+        generated_root,
+        evidence_root,
+        file,
+        path,
+        &stable_key,
+        adapters,
+        tools,
+    )?;
+    if let Some((result, _)) = icc.as_ref() {
+        results.push(result.clone());
+    }
+    let mut instance = json!({
         "stable_instance_key": stable_key,
         "case_id": case_id,
         "path": path,
@@ -1013,7 +1168,11 @@ fn collect_instance(
         "transfer_syntax_uid": file.pointer("/dicom/transfer_syntax_uid").and_then(Value::as_str).unwrap_or("0.0"),
         "results": results,
         "pixel": pixel
-    }))
+    });
+    if let Some((_, icc)) = icc {
+        instance["icc"] = icc;
+    }
+    Ok(instance)
 }
 
 fn select_primary_iod_validator<'a>(
@@ -2004,6 +2163,279 @@ fn execution_result(
     result
 }
 
+#[allow(clippy::too_many_arguments)]
+fn collect_icc_result(
+    generated_root: &Path,
+    evidence_root: &Path,
+    file: &Value,
+    relative_input: &str,
+    stable_key: &str,
+    adapters: &[Value],
+    tools: &[Value],
+) -> Result<Option<(Value, Value)>, String> {
+    const CASE_ID: &str = "vl/photo/rgb_icc_profile_explicit_le";
+    const ADAPTER_ID: &str = "littlecms-transicc-icc";
+    const PROFILE_SHA256: &str = "8e069a3476b71a0e0ae7272d9278ba70540d1c4a0b19af1c7d52e56f49091fef";
+    const TRANSFORM_INPUT: &[u8] = b"255 0 0\n0 255 0\n0 0 255\n255 255 255\nq\n";
+
+    if file.get("case_id").and_then(Value::as_str) != Some(CASE_ID) {
+        return Ok(None);
+    }
+    let adapter = adapters
+        .iter()
+        .find(|adapter| adapter["id"] == ADAPTER_ID)
+        .ok_or_else(|| "ICC case requires the LittleCMS validator adapter".to_string())?;
+    let tool = tools
+        .iter()
+        .find(|tool| tool["adapter_id"] == ADAPTER_ID)
+        .ok_or_else(|| "ICC validator discovery result is missing".to_string())?;
+    let parser_tool = tools
+        .iter()
+        .find(|tool| tool["role"] == "independent_parser")
+        .ok_or_else(|| "ICC validation requires the independent DICOM parser".to_string())?;
+    let raw_dir = evidence_root.join("raw").join(ADAPTER_ID);
+    fs::create_dir_all(&raw_dir).map_err(|error| error.to_string())?;
+    let stdout_relative = format!("raw/{ADAPTER_ID}/{stable_key}.stdout");
+    let stderr_relative = format!("raw/{ADAPTER_ID}/{stable_key}.stderr");
+    let stdout_path = evidence_root.join(&stdout_relative);
+    let stderr_path = evidence_root.join(&stderr_relative);
+    if tool["status"] != "available" || parser_tool["status"] != "available" {
+        fs::write(&stdout_path, []).map_err(|error| error.to_string())?;
+        fs::write(&stderr_path, []).map_err(|error| error.to_string())?;
+        let result = unsupported_result(
+            ADAPTER_ID,
+            "icc_validator",
+            vec![required_string(adapter, "executable")?.to_string()],
+            &stdout_relative,
+            &stderr_relative,
+            "configured ICC validator or independent DICOM extractor is unavailable",
+        );
+        return Ok(Some((
+            result,
+            json!({
+                "adapter_id": ADAPTER_ID,
+                "status": "unsupported",
+                "independence": "independent",
+                "evidence": Value::Null
+            }),
+        )));
+    }
+
+    let executable = tool["executable"]
+        .as_str()
+        .ok_or_else(|| "available ICC validator has no executable".to_string())?;
+    let parser = parser_tool["executable"]
+        .as_str()
+        .ok_or_else(|| "available independent parser has no executable".to_string())?;
+    let input = generated_root.join(relative_input);
+    let work_key = sha256_hex(evidence_root.display().to_string().as_bytes());
+    let work_dir = std::env::temp_dir().join(format!(
+        "dts-icc-{}-{stable_key}-{work_key}",
+        std::process::id()
+    ));
+    fs::create_dir_all(&work_dir).map_err(|error| error.to_string())?;
+    let extraction_arguments = vec![
+        "+W".to_string(),
+        work_dir.display().to_string(),
+        "+L".to_string(),
+        "+P".to_string(),
+        "0028,2000".to_string(),
+        "+P".to_string(),
+        "0028,2002".to_string(),
+        input.display().to_string(),
+    ];
+    let extraction = run_with_timeout(
+        Path::new(parser),
+        &extraction_arguments,
+        Duration::from_secs(30),
+    )?;
+    let (mut profile, mut color_space) = parse_dcmdump_icc(&extraction.stdout);
+    if profile.is_empty() {
+        if let Ok(entries) = fs::read_dir(&work_dir) {
+            if let Some(bytes) = entries
+                .filter_map(Result::ok)
+                .filter_map(|entry| fs::read(entry.path()).ok())
+                .find(|bytes| bytes.len() == 736 && sha256_hex(bytes) == PROFILE_SHA256)
+            {
+                profile = bytes;
+                color_space = "SRGB".to_string();
+            }
+        }
+    }
+    let profile_path = work_dir.join("extracted.icc");
+    fs::write(&profile_path, &profile).map_err(|error| error.to_string())?;
+    let arguments = string_array(adapter, "arguments")?
+        .into_iter()
+        .map(|argument| argument.replace("{profile}", &profile_path.display().to_string()))
+        .collect::<Vec<_>>();
+    let transform = run_with_timeout_input(
+        Path::new(executable),
+        &arguments,
+        Duration::from_secs(adapter["timeout_seconds"].as_u64().unwrap_or(60)),
+        Some(TRANSFORM_INPUT),
+    )?;
+    fs::write(&stdout_path, &transform.stdout).map_err(|error| error.to_string())?;
+    let mut combined_stderr = extraction.stderr.clone();
+    combined_stderr.extend_from_slice(&transform.stderr);
+    fs::write(&stderr_path, &combined_stderr).map_err(|error| error.to_string())?;
+
+    let profile_sha256 = sha256_hex(&profile);
+    let declared_size = icc_u32(&profile, 0).unwrap_or(u32::MAX);
+    let rendering_intent = icc_u32(&profile, 64).unwrap_or(u32::MAX);
+    let tag_count = icc_u32(&profile, 128).unwrap_or(u32::MAX);
+    let header = json!({
+        "device_class": icc_ascii(&profile, 12),
+        "data_color_space": icc_ascii(&profile, 16),
+        "profile_connection_space": icc_ascii(&profile, 20),
+        "signature": icc_ascii(&profile, 36),
+        "rendering_intent": rendering_intent
+    });
+    let transforms = parse_transicc_xyz(&transform.stdout)
+        .into_iter()
+        .zip([[255, 0, 0], [0, 255, 0], [0, 0, 255], [255, 255, 255]])
+        .map(|(xyz, rgb)| json!({"rgb": rgb, "xyz": xyz}))
+        .collect::<Vec<_>>();
+    let expected_transforms = json!([
+        {"rgb": [255, 0, 0], "xyz": [43.6035, 22.2443, 1.3901]},
+        {"rgb": [0, 255, 0], "xyz": [38.5101, 71.6934, 9.7076]},
+        {"rgb": [0, 0, 255], "xyz": [14.3066, 6.0623, 71.3928]},
+        {"rgb": [255, 255, 255], "xyz": [96.4203, 100.0, 82.4905]}
+    ]);
+    let manifest_profile_sha256 = file
+        .pointer("/expected_icc_profile/profile_sha256")
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    let passed = extraction.exit_code == Some(0)
+        && !extraction.timed_out
+        && transform.exit_code == Some(0)
+        && !transform.timed_out
+        && profile.len() == 736
+        && declared_size == 736
+        && profile_sha256 == PROFILE_SHA256
+        && manifest_profile_sha256 == PROFILE_SHA256
+        && color_space == "SRGB"
+        && header["device_class"] == "scnr"
+        && header["data_color_space"] == "RGB "
+        && header["profile_connection_space"] == "XYZ "
+        && header["signature"] == "acsp"
+        && rendering_intent == 0
+        && tag_count == 9
+        && Value::Array(transforms.clone()) == expected_transforms;
+    let sidecar = json!({
+        "adapter_id": ADAPTER_ID,
+        "validator_sha256": tool["sha256"],
+        "extractor_adapter_id": parser_tool["adapter_id"],
+        "extractor_sha256": parser_tool["sha256"],
+        "independence": "independent",
+        "extraction_method": "dcmtk_dcmdump_complete_ob_hex",
+        "source_instance_sha256": file["sha256"],
+        "source_profile_sha256": profile_sha256,
+        "manifest_profile_sha256": manifest_profile_sha256,
+        "profile_size_bytes": profile.len(),
+        "declared_profile_size_bytes": declared_size,
+        "dicom_color_space": color_space,
+        "header": header,
+        "tag_count": tag_count,
+        "extractor_invocation": std::iter::once(parser.to_string()).chain(extraction_arguments.iter().cloned()).collect::<Vec<_>>(),
+        "extractor_exit_code": extraction.exit_code,
+        "validator_invocation": std::iter::once(executable.to_string()).chain(arguments.iter().cloned()).collect::<Vec<_>>(),
+        "validator_exit_code": transform.exit_code,
+        "transforms": transforms,
+        "status": if passed { "passed" } else { "failed" }
+    });
+    let relative = format!("icc/{ADAPTER_ID}/{stable_key}.json");
+    let target = evidence_root.join(&relative);
+    if let Some(parent) = target.parent() {
+        fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+    }
+    let encoded = serde_json::to_vec_pretty(&sidecar).map_err(|error| error.to_string())?;
+    fs::write(&target, &encoded).map_err(|error| error.to_string())?;
+    if let Ok(entries) = fs::read_dir(&work_dir) {
+        for path in entries.filter_map(Result::ok).map(|entry| entry.path()) {
+            if path.is_file() {
+                let _ = fs::remove_file(path);
+            }
+        }
+    }
+    let _ = fs::remove_dir(&work_dir);
+    let result = json!({
+        "adapter_id": ADAPTER_ID,
+        "role": "icc_validator",
+        "status": if passed { "completed" } else { "tool_failure" },
+        "invocation": sidecar["validator_invocation"],
+        "stdout": {"path": stdout_relative, "sha256": sha256_hex(&transform.stdout)},
+        "stderr": {"path": stderr_relative, "sha256": sha256_hex(&combined_stderr)},
+        "exit_code": transform.exit_code,
+        "duration_ms": transform.duration_ms,
+        "timed_out": transform.timed_out,
+        "findings": if passed { json!([]) } else { json!([finding("tool_failure", "independent ICC profile validation failed")]) }
+    });
+    Ok(Some((
+        result,
+        json!({
+            "adapter_id": ADAPTER_ID,
+            "status": if passed { "passed" } else { "failed" },
+            "independence": "independent",
+            "evidence": {"path": relative, "sha256": sha256_hex(&encoded)}
+        }),
+    )))
+}
+
+fn parse_dcmdump_icc(output: &[u8]) -> (Vec<u8>, String) {
+    let output = String::from_utf8_lossy(output);
+    let mut profile = Vec::new();
+    let mut color_space = String::new();
+    for line in output.lines() {
+        if line.starts_with("(0028,2000) OB ") {
+            let value = line
+                .strip_prefix("(0028,2000) OB ")
+                .unwrap_or("")
+                .split(" #")
+                .next()
+                .unwrap_or("");
+            profile = value
+                .split('\\')
+                .filter_map(|byte| u8::from_str_radix(byte.trim(), 16).ok())
+                .collect();
+        } else if line.starts_with("(0028,2002) CS [") {
+            color_space = line
+                .strip_prefix("(0028,2002) CS [")
+                .and_then(|value| value.split(']').next())
+                .unwrap_or("")
+                .to_string();
+        }
+    }
+    (profile, color_space)
+}
+
+fn parse_transicc_xyz(output: &[u8]) -> Vec<Vec<f64>> {
+    String::from_utf8_lossy(output)
+        .lines()
+        .filter_map(|line| {
+            let values = line
+                .split_ascii_whitespace()
+                .map(str::parse::<f64>)
+                .collect::<Result<Vec<_>, _>>()
+                .ok()?;
+            (values.len() == 3).then_some(values)
+        })
+        .collect()
+}
+
+fn icc_u32(bytes: &[u8], offset: usize) -> Option<u32> {
+    Some(u32::from_be_bytes(
+        bytes.get(offset..offset + 4)?.try_into().ok()?,
+    ))
+}
+
+fn icc_ascii(bytes: &[u8], offset: usize) -> String {
+    bytes
+        .get(offset..offset + 4)
+        .and_then(|value| std::str::from_utf8(value).ok())
+        .unwrap_or("")
+        .to_string()
+}
+
 fn normalize_findings(bytes: &[u8], absolute_input: &str, relative_input: &str) -> Vec<Value> {
     String::from_utf8_lossy(bytes)
         .lines()
@@ -2762,14 +3194,37 @@ pub(crate) fn run_with_timeout(
     arguments: &[String],
     timeout: Duration,
 ) -> Result<CommandOutput, String> {
+    run_with_timeout_input(executable, arguments, timeout, None)
+}
+
+fn run_with_timeout_input(
+    executable: &Path,
+    arguments: &[String],
+    timeout: Duration,
+    input: Option<&[u8]>,
+) -> Result<CommandOutput, String> {
     let started = Instant::now();
     let mut child = Command::new(executable)
         .args(arguments)
-        .stdin(Stdio::null())
+        .stdin(if input.is_some() {
+            Stdio::piped()
+        } else {
+            Stdio::null()
+        })
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
         .map_err(|error| format!("failed to execute {}: {error}", executable.display()))?;
+
+    if let Some(input) = input {
+        let mut stdin = child
+            .stdin
+            .take()
+            .ok_or_else(|| format!("failed to open {} stdin", executable.display()))?;
+        stdin
+            .write_all(input)
+            .map_err(|error| format!("failed writing {} stdin: {error}", executable.display()))?;
+    }
 
     let mut timed_out = false;
     loop {

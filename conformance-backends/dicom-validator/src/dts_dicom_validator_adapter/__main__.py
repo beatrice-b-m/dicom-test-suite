@@ -18,9 +18,10 @@ from dicom_validator.validator.error_handler import ValidationResultHandlerBase
 from dicom_validator.validator.validation_result import Status
 
 
-ADAPTER_VERSION = "0.4.0"
+ADAPTER_VERSION = "0.5.0"
 EDITION = "2026b"
 TWELVE_LEAD_ECG_STORAGE = "1.2.840.10008.5.1.4.1.1.9.1.1"
+GENERAL_ECG_STORAGE = "1.2.840.10008.5.1.4.1.1.9.1.2"
 WAVEFORM_PAYLOAD_SHA256 = (
     "98b7a9b1be25d9d64ffa75bc6e16ea80f60deed1891aeed8dfb440c1c19e6713"
 )
@@ -52,6 +53,60 @@ WAVEFORM_CHANNELS = (
     ("V4", "2:6", "Lead V4", "d655e2cbb23d70e229ed52fedba9c45573e22729fed0a794ab690df8d7f33804"),
     ("V5", "2:7", "Lead V5", "005c539f9f4256a86d9e0a212b3bfe73741f99942b0677fb483c0c48db9583cd"),
     ("V6", "2:8", "Lead V6", "f448df95acb226c5c992363e27707a42efc3ffb974ebeff38e2a81522b57d82c"),
+)
+GENERAL_STANDARD_CHANNELS = tuple(
+    (*channel[:3], channel_hash)
+    for channel, channel_hash in zip(
+        WAVEFORM_CHANNELS,
+        (
+            "3211bada5580e8bd9c5a2934deb231122706b00aa92f8cdc78480c03b2352197",
+            "8f66471e35940851acdd9ea55b422c738bf50ea7971822deed0edca1980e1ea2",
+            "9652eb91f4f73f2654c922048a1a8c8731a08062eecd6f5b373256831d0e82b0",
+            "97fb26e75907437a705e4e28eb6492d51020570a23265bdf765aca3c4e7b2708",
+            "c9776b85b3bda6adef798d33d3c7c95d64a1a7d5bf525866ccf7b0cf5fc3209e",
+            "95871f48d729a001eeb1543b36a27059916df360e04838fd322d006661bafb44",
+            "04513ee1f1d5803f3f53093f016a606a7fa874c5af8d2651749b909b93392366",
+            "c12790f5b1f233662a0a1c3f266cd2abb15af5a75b39258ff961e9b4afaf7913",
+            "750913ccad5eb7ec8d8199451e6eb9aa41357eb21d2a0dac6ba75dce4e5708bd",
+            "218d5f967ef253722359fee1846485331c63de9330af1f9fad183d779a196cca",
+            "9027ec7a0fc7fea3d8236a16a5aa6f265ff20e18a2575f99e61807e102fb3d81",
+            "9280ad35672b82a7847d3ccabadd4d85a94be3d39d0a836191384571f0a23ab6",
+        ),
+        strict=True,
+    )
+)
+GENERAL_AUXILIARY_CHANNELS = (
+    (
+        "A1",
+        "2:75",
+        "Auxiliary unipolar lead 1",
+        "5da46776ad84a78eb0c16066cb8ac7d5e05ca6ad87170264b227c71261def284",
+    ),
+    (
+        "A2",
+        "2:76",
+        "Auxiliary unipolar lead 2",
+        "7bd73425422f4e79504b55932040e481ccdfafecabe1dba613ee36074a51b9e3",
+    ),
+    (
+        "A3",
+        "2:77",
+        "Auxiliary unipolar lead 3",
+        "e56dad9647dfa50a10b40d244e29eaedbf23d97a558901f46fbccc07ad1a1766",
+    ),
+    (
+        "A4",
+        "2:78",
+        "Auxiliary unipolar lead 4",
+        "e1b68207c92fe2cc4c6765fc097668f2600eeda152eb5a1d6f0444f4c9e36fbc",
+    ),
+)
+GENERAL_GROUP_PAYLOAD_SHA256 = (
+    "e4bfb8a3290d9057fa5f5935fa6960ce2a44a07f18991d28c190522739008dbb",
+    "5b201d4fa7274ba36d6f7387c3d0217e1b5da161a915f983c2b63b995dde7bbe",
+)
+GENERAL_AGGREGATE_PAYLOAD_SHA256 = (
+    "c450f55360d6c07394600e4c0f71f951565cd0e1699edfbbb52f660221c6abea"
 )
 EXPECTED_DISTRIBUTIONS = {
     "dicom-validator": "0.8.2",
@@ -346,7 +401,7 @@ def extract_nonsquare_spacing(
 
 
 def extract_waveform(input_path: Path, standard_root: Path, lock_path: Path) -> int:
-    """Extract and independently verify the locked Twelve-lead ECG payload."""
+    """Extract and independently verify an ordered locked ECG waveform."""
     for name, version in EXPECTED_DISTRIBUTIONS.items():
         verify_distribution(name, version)
     verify_standard(standard_root, lock_path)
@@ -356,139 +411,284 @@ def extract_waveform(input_path: Path, standard_root: Path, lock_path: Path) -> 
         raise RuntimeError(
             f"unsupported transfer syntax for waveform extraction: {transfer_syntax}"
         )
-    if str(dataset.SOPClassUID) != TWELVE_LEAD_ECG_STORAGE:
-        raise RuntimeError("dataset is not Twelve-lead ECG Waveform Storage")
+    sop_class_uid = str(dataset.SOPClassUID)
+    if sop_class_uid == TWELVE_LEAD_ECG_STORAGE:
+        group_specs = (
+            {
+                "label": "RESTING_12_LEAD",
+                "channel_count": 12,
+                "sample_count": 500,
+                "sampling_frequency_hz": 500,
+                "duration_seconds": 1,
+                "channels": WAVEFORM_CHANNELS,
+                "payload_sha256": WAVEFORM_PAYLOAD_SHA256,
+                "sample_value_formula": (
+                    "((s * (c + 1) * 37 + c * 101) mod 2001) - 1000"
+                ),
+            },
+        )
+    elif sop_class_uid == GENERAL_ECG_STORAGE:
+        group_specs = (
+            {
+                "label": "STD12_250HZ",
+                "channel_count": 12,
+                "sample_count": 1000,
+                "sampling_frequency_hz": 250,
+                "duration_seconds": 4,
+                "channels": GENERAL_STANDARD_CHANNELS,
+                "payload_sha256": GENERAL_GROUP_PAYLOAD_SHA256[0],
+                "sample_value_formula": (
+                    "((s * (c + 1) * (g + 1) * 37 + c * 101 + g * 307) "
+                    "mod 2001) - 1000"
+                ),
+            },
+            {
+                "label": "AUX4_1000HZ",
+                "channel_count": 4,
+                "sample_count": 4000,
+                "sampling_frequency_hz": 1000,
+                "duration_seconds": 4,
+                "channels": GENERAL_AUXILIARY_CHANNELS,
+                "payload_sha256": GENERAL_GROUP_PAYLOAD_SHA256[1],
+                "sample_value_formula": (
+                    "((s * (c + 1) * (g + 1) * 37 + c * 101 + g * 307) "
+                    "mod 2001) - 1000"
+                ),
+            },
+        )
+    else:
+        raise RuntimeError(f"unsupported waveform SOP Class UID: {sop_class_uid}")
     if str(dataset.Modality) != "ECG":
-        raise RuntimeError("Twelve-lead ECG Modality must be ECG")
-    if len(dataset.WaveformSequence) != 1:
-        raise RuntimeError("Twelve-lead ECG requires exactly one multiplex group")
-
-    group = dataset.WaveformSequence[0]
-    channel_count = int(group.NumberOfWaveformChannels)
-    sample_count = int(group.NumberOfWaveformSamples)
-    sampling_frequency = float(group.SamplingFrequency)
-    bits_allocated = int(group.WaveformBitsAllocated)
-    sample_interpretation = str(group.WaveformSampleInterpretation)
-    waveform_element = group[0x54001010]
-    payload = bytes(waveform_element.value)
-    if (
-        channel_count != 12
-        or sample_count != 500
-        or sampling_frequency != 500.0
-        or str(group.WaveformOriginality) != "ORIGINAL"
-        or str(group.MultiplexGroupLabel) != "RESTING_12_LEAD"
-        or bits_allocated != 16
-        or sample_interpretation != "SS"
-        or waveform_element.VR != "OW"
-    ):
-        raise RuntimeError("dataset does not satisfy the locked Twelve-lead waveform shape")
-    if len(payload) != channel_count * sample_count * 2:
-        raise RuntimeError("Waveform Data length does not match channels and samples")
-    if 0x5400100A in group:
-        raise RuntimeError("Waveform Padding Value must be absent")
+        raise RuntimeError("ECG waveform Modality must be ECG")
+    if 0x00400555 not in dataset or len(dataset.AcquisitionContextSequence) != 0:
+        raise RuntimeError("Acquisition Context Sequence must be present and empty")
+    groups = list(dataset.WaveformSequence)
+    if len(groups) != len(group_specs):
+        raise RuntimeError(
+            f"locked ECG waveform requires exactly {len(group_specs)} multiplex groups"
+        )
     if 0x7FE00010 in dataset:
         raise RuntimeError("Pixel Data must be absent from a waveform object")
+    absent_content_tags = {
+        "annotation_module": (0x0040B020,),
+        "synchronization_module": (
+            0x0018106A,
+            0x00181800,
+            0x00181801,
+            0x00181802,
+            0x00181803,
+            0x00200200,
+        ),
+        "references": (0x00081140, 0x0008114A, 0x00082112),
+        "image": (0x00280010, 0x00280011, 0x00280004),
+        "pixel_data": (0x7FE00010,),
+    }
+    for name, tags in absent_content_tags.items():
+        if any(tag in dataset for tag in tags):
+            raise RuntimeError(f"forbidden waveform {name} content is present")
 
-    values = struct.unpack(f"<{channel_count * sample_count}h", payload)
-    expected_values = tuple(
-        ((sample * (channel + 1) * 37 + channel * 101) % 2001) - 1000
-        for sample in range(sample_count)
-        for channel in range(channel_count)
-    )
-    if values != expected_values:
-        raise RuntimeError("Waveform Data does not match the locked sample formula")
-    payload_hash = hashlib.sha256(payload).hexdigest()
-    if payload_hash != WAVEFORM_PAYLOAD_SHA256:
-        raise RuntimeError("Waveform Data hash does not match the locked payload")
-
-    definitions = list(group.ChannelDefinitionSequence)
-    if len(definitions) != channel_count:
-        raise RuntimeError("Channel Definition Sequence length does not match channels")
-    channel_results = []
-    channel_hashes = []
-    for channel, (definition, locked) in enumerate(
-        zip(definitions, WAVEFORM_CHANNELS, strict=True)
+    group_results = []
+    ordered_payloads = []
+    for group_index, (group, spec) in enumerate(
+        zip(groups, group_specs, strict=True)
     ):
-        label, code_value, code_meaning, expected_hash = locked
-        sources = list(definition.ChannelSourceSequence)
-        units = list(definition.ChannelSensitivityUnitsSequence)
-        if len(sources) != 1 or len(units) != 1:
-            raise RuntimeError(f"channel {channel + 1} coding sequences must have one item")
-        source = sources[0]
-        unit = units[0]
+        ordinal = group_index + 1
+        channel_count = int(group.NumberOfWaveformChannels)
+        sample_count = int(group.NumberOfWaveformSamples)
+        sampling_frequency = float(group.SamplingFrequency)
+        bits_allocated = int(group.WaveformBitsAllocated)
+        sample_interpretation = str(group.WaveformSampleInterpretation)
+        waveform_element = group[0x54001010]
+        payload = bytes(waveform_element.value)
         if (
-            int(definition.WaveformChannelNumber) != channel + 1
-            or str(definition.ChannelLabel) != label
-            or str(source.CodingSchemeDesignator) != "MDC"
-            or str(source.CodeValue) != code_value
-            or str(source.CodeMeaning) != code_meaning
-            or float(definition.ChannelSensitivity) != 1.0
-            or str(unit.CodingSchemeDesignator) != "UCUM"
-            or str(unit.CodeValue) != "uV"
-            or str(unit.CodeMeaning) != "microvolt"
-            or float(definition.ChannelSensitivityCorrectionFactor) != 1.0
-            or float(definition.ChannelBaseline) != 0.0
-            or int(definition.WaveformBitsStored) != 16
-            or float(definition.ChannelTimeSkew) != 0.0
-            or 0x003A0215 in definition
+            channel_count != spec["channel_count"]
+            or sample_count != spec["sample_count"]
+            or sampling_frequency != float(spec["sampling_frequency_hz"])
+            or str(group.WaveformOriginality) != "ORIGINAL"
+            or str(group.MultiplexGroupLabel) != spec["label"]
+            or bits_allocated != 16
+            or sample_interpretation != "SS"
+            or waveform_element.VR != "OW"
         ):
-            raise RuntimeError(f"channel {channel + 1} metadata does not match the lock")
-        channel_values = values[channel::channel_count]
-        channel_bytes = struct.pack(f"<{sample_count}h", *channel_values)
-        channel_hash = hashlib.sha256(channel_bytes).hexdigest()
-        if channel_hash != expected_hash:
-            raise RuntimeError(f"channel {channel + 1} hash does not match the lock")
-        channel_hashes.append(channel_hash)
-        channel_results.append(
+            raise RuntimeError(
+                f"multiplex group {ordinal} does not satisfy the locked waveform shape"
+            )
+        if any(tag in group for tag in (0x00181068, 0x00181069, 0x0018106E)):
+            raise RuntimeError(
+                f"multiplex group {ordinal} contains forbidden timing attributes"
+            )
+        if 0x5400100A in group:
+            raise RuntimeError(
+                f"multiplex group {ordinal} Waveform Padding Value must be absent"
+            )
+        if len(payload) != channel_count * sample_count * 2:
+            raise RuntimeError(
+                f"multiplex group {ordinal} Waveform Data length does not match channels and samples"
+            )
+
+        values = struct.unpack(f"<{channel_count * sample_count}h", payload)
+        if sop_class_uid == TWELVE_LEAD_ECG_STORAGE:
+            expected_values = tuple(
+                ((sample * (channel + 1) * 37 + channel * 101) % 2001) - 1000
+                for sample in range(sample_count)
+                for channel in range(channel_count)
+            )
+        else:
+            expected_values = tuple(
+                (
+                    (
+                        sample
+                        * (channel + 1)
+                        * (group_index + 1)
+                        * 37
+                        + channel * 101
+                        + group_index * 307
+                    )
+                    % 2001
+                )
+                - 1000
+                for sample in range(sample_count)
+                for channel in range(channel_count)
+            )
+        if values != expected_values:
+            raise RuntimeError(
+                f"multiplex group {ordinal} Waveform Data does not match the locked sample formula"
+            )
+        payload_hash = hashlib.sha256(payload).hexdigest()
+        if payload_hash != spec["payload_sha256"]:
+            raise RuntimeError(
+                f"multiplex group {ordinal} Waveform Data hash does not match the lock"
+            )
+
+        definitions = list(group.ChannelDefinitionSequence)
+        if len(definitions) != channel_count:
+            raise RuntimeError(
+                f"multiplex group {ordinal} Channel Definition Sequence length does not match channels"
+            )
+        channel_results = []
+        channel_hashes = []
+        for channel, (definition, locked) in enumerate(
+            zip(definitions, spec["channels"], strict=True)
+        ):
+            label, code_value, code_meaning, expected_hash = locked
+            sources = list(definition.ChannelSourceSequence)
+            units = list(definition.ChannelSensitivityUnitsSequence)
+            if len(sources) != 1 or len(units) != 1:
+                raise RuntimeError(
+                    f"multiplex group {ordinal} channel {channel + 1} coding sequences must have one item"
+                )
+            source = sources[0]
+            unit = units[0]
+            if (
+                int(definition.WaveformChannelNumber) != channel + 1
+                or str(definition.ChannelLabel) != label
+                or str(source.CodingSchemeDesignator) != "MDC"
+                or str(source.CodeValue) != code_value
+                or str(source.CodeMeaning) != code_meaning
+                or float(definition.ChannelSensitivity) != 1.0
+                or str(unit.CodingSchemeDesignator) != "UCUM"
+                or str(unit.CodeValue) != "uV"
+                or str(unit.CodeMeaning) != "microvolt"
+                or float(definition.ChannelSensitivityCorrectionFactor) != 1.0
+                or float(definition.ChannelBaseline) != 0.0
+                or int(definition.WaveformBitsStored) != 16
+                or float(definition.ChannelTimeSkew) != 0.0
+                or 0x003A0215 in definition
+            ):
+                raise RuntimeError(
+                    f"multiplex group {ordinal} channel {channel + 1} metadata does not match the lock"
+                )
+            channel_values = values[channel::channel_count]
+            channel_bytes = struct.pack(f"<{sample_count}h", *channel_values)
+            channel_hash = hashlib.sha256(channel_bytes).hexdigest()
+            if channel_hash != expected_hash:
+                raise RuntimeError(
+                    f"multiplex group {ordinal} channel {channel + 1} hash does not match the lock"
+                )
+            channel_hashes.append(channel_hash)
+            channel_results.append(
+                {
+                    "baseline": 0,
+                    "bits_stored": 16,
+                    "channel_number": channel + 1,
+                    "channel_sha256": channel_hash,
+                    "correction_factor": 1,
+                    "label": label,
+                    "sample_skew_present": False,
+                    "sensitivity": 1,
+                    "sensitivity_unit": {
+                        "code_meaning": "microvolt",
+                        "code_value": "uV",
+                        "coding_scheme_designator": "UCUM",
+                    },
+                    "source": {
+                        "code_meaning": code_meaning,
+                        "code_value": code_value,
+                        "coding_scheme_designator": "MDC",
+                    },
+                    "time_skew": 0,
+                }
+            )
+
+        ordered_payloads.append(payload)
+        group_results.append(
             {
-                "baseline": 0,
-                "bits_stored": 16,
-                "channel_number": channel + 1,
-                "channel_sha256": channel_hash,
-                "correction_factor": 1,
-                "label": label,
-                "sample_skew_present": False,
-                "sensitivity": 1,
-                "sensitivity_unit": {
-                    "code_meaning": "microvolt",
-                    "code_value": "uV",
-                    "coding_scheme_designator": "UCUM",
+                "ordinal": ordinal,
+                "originality": "ORIGINAL",
+                "label": spec["label"],
+                "channel_count": channel_count,
+                "samples_per_channel": sample_count,
+                "sampling_frequency_hz": spec["sampling_frequency_hz"],
+                "duration_seconds": spec["duration_seconds"],
+                "simultaneous_sampling": True,
+                "channels": channel_results,
+                "storage": {
+                    "bits_allocated": bits_allocated,
+                    "sample_interpretation": sample_interpretation,
+                    "data_vr": waveform_element.VR,
+                    "byte_order": "little_endian",
+                    "interleave_order": "channel_then_sample",
+                    "payload_length_bytes": len(payload),
+                    "payload_sha256": payload_hash,
+                    "channel_sha256": channel_hashes,
+                    "sample_value_formula": spec["sample_value_formula"],
+                    "sample_min": min(values),
+                    "sample_max": max(values),
+                    "waveform_padding_value_absent": True,
+                    "value_field_padding_bytes": 0,
+                    "formula_match": True,
                 },
-                "source": {
-                    "code_meaning": code_meaning,
-                    "code_value": code_value,
-                    "coding_scheme_designator": "MDC",
-                },
-                "time_skew": 0,
             }
         )
 
+    aggregate_payload = b"".join(ordered_payloads)
+    aggregate_hash = hashlib.sha256(aggregate_payload).hexdigest()
+    if (
+        sop_class_uid == GENERAL_ECG_STORAGE
+        and aggregate_hash != GENERAL_AGGREGATE_PAYLOAD_SHA256
+    ):
+        raise RuntimeError("ordered General ECG aggregate payload hash does not match the lock")
     result = {
         "adapter_id": "pydicom-dicom-validator-waveform",
-        "bits_allocated": bits_allocated,
-        "byte_order": "little_endian",
-        "channel_count": channel_count,
-        "channel_definitions": channel_results,
-        "channel_hashes": channel_hashes,
-        "duration_seconds": 1,
-        "formula_match": True,
-        "interleave_order": "channel_then_sample",
+        "acquisition_context_items": 0,
+        "absent_content": {name: True for name in absent_content_tags},
         "modality": str(dataset.Modality),
-        "multiplex_group_count": 1,
-        "multiplex_group_label": str(group.MultiplexGroupLabel),
-        "originality": str(group.WaveformOriginality),
+        "multiplex_groups": group_results,
         "pixel_data_present": False,
-        "sample_count": sample_count,
-        "sample_interpretation": sample_interpretation,
-        "sampling_frequency_hz": 500,
-        "sop_class_uid": str(dataset.SOPClassUID),
-        "stored_value_max": max(values),
-        "stored_value_min": min(values),
+        "sop_class_uid": sop_class_uid,
         "transfer_syntax_uid": transfer_syntax,
-        "waveform_data_length": len(payload),
-        "waveform_data_sha256": payload_hash,
-        "waveform_data_vr": waveform_element.VR,
-        "waveform_padding_present": False,
+        "aggregate": {
+            "group_count": len(group_results),
+            "total_channel_count": sum(
+                group["channel_count"] for group in group_results
+            ),
+            "common_duration_seconds": group_results[0]["duration_seconds"],
+            "total_payload_length_bytes": len(aggregate_payload),
+            "group_payload_sha256": [
+                group["storage"]["payload_sha256"] for group in group_results
+            ],
+            "aggregate_payload_sha256": aggregate_hash,
+        },
     }
     print(json.dumps(result, sort_keys=True, separators=(",", ":")))
     return 0

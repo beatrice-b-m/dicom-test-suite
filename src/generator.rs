@@ -25,7 +25,7 @@ use native::metadata_sc::{METADATA_SC_RECIPES, MetadataScRecipe};
 use native::nm::{
     CLASSIC_NM_RECIPES, ClassicNmDetectorRecipe, ClassicNmEnergyWindowRecipe, ClassicNmRecipe,
 };
-use native::pet::{CLASSIC_PET_RECIPES, ClassicPetRecipe};
+use native::pet::{CLASSIC_PET_RECIPES, ClassicPetRecipe, ENHANCED_PET_RECIPES, EnhancedPetRecipe};
 use native::private_creator_sc::{
     PRIVATE_CREATOR_SC_RECIPE, PrivateCreatorBlockRecipe, PrivateCreatorScRecipe, PrivateValue,
 };
@@ -62,12 +62,12 @@ use crate::{
     validation::{
         BasicTextSrExpectations, CrImageExpectations, CtImageExpectations, DxImageExpectations,
         EncapsulatedPdfExpectations, EnhancedCtConcatenationExpectations,
-        EnhancedCtImageExpectations, EnhancedMrImageExpectations, MgImageExpectations,
-        MrImageExpectations, NmDetectorExpectations, NmEnergyWindowExpectations,
-        NmImageExpectations, Part10Expectations, PetImageExpectations, PixelDataLengthFormula,
-        PresentationStateExpectations, RealWorldValueMappingExpectations, RtDoseExpectations,
-        RtStructureSetExpectations, SegmentationExpectations, UsImageExpectations,
-        UsMultiframeExpectations, XaImageExpectations, XrfImageExpectations,
+        EnhancedCtImageExpectations, EnhancedMrImageExpectations, EnhancedPetImageExpectations,
+        MgImageExpectations, MrImageExpectations, NmDetectorExpectations,
+        NmEnergyWindowExpectations, NmImageExpectations, Part10Expectations, PetImageExpectations,
+        PixelDataLengthFormula, PresentationStateExpectations, RealWorldValueMappingExpectations,
+        RtDoseExpectations, RtStructureSetExpectations, SegmentationExpectations,
+        UsImageExpectations, UsMultiframeExpectations, XaImageExpectations, XrfImageExpectations,
         validate_basic_text_sr_file, validate_comprehensive_sr_file,
         validate_encapsulated_pdf_file, validate_key_object_selection_file, validate_part10_file,
         validate_presentation_state_file, validate_real_world_value_mapping_file,
@@ -116,6 +116,7 @@ const PIXEL_RECIPE_VERSION: &str = "0.1.0";
 const CLASSIC_CT_RECIPE_VERSION: &str = "0.1.0";
 const ENHANCED_CT_RECIPE_VERSION: &str = "0.1.0";
 const ENHANCED_MR_RECIPE_VERSION: &str = "0.1.0";
+const ENHANCED_PET_RECIPE_VERSION: &str = "0.1.0";
 const CLASSIC_MG_RECIPE_VERSION: &str = "0.1.0";
 const CLASSIC_DX_RECIPE_VERSION: &str = "0.1.0";
 const CLASSIC_US_RECIPE_VERSION: &str = "0.1.0";
@@ -3978,6 +3979,20 @@ pub(crate) fn write_supported_cases(
             standards_lock_sha256,
         )?)?;
     }
+    for recipe in ENHANCED_PET_RECIPES {
+        let Some(case) = registry_case(registry, recipe.case_id)? else {
+            continue;
+        };
+        if !should_generate_case(case, run)? {
+            continue;
+        }
+        context.record_one(write_enhanced_pet_case(
+            run,
+            case,
+            *recipe,
+            standards_lock_sha256,
+        )?)?;
+    }
     for recipe in CLASSIC_US_MULTIFRAME_RECIPES {
         let Some(case) = registry_case(registry, recipe.case_id)? else {
             continue;
@@ -5385,6 +5400,7 @@ fn write_pixel_case_with_metadata(
             ct_image: None,
             enhanced_ct_image: None,
             enhanced_mr_image: None,
+            enhanced_pet_image: None,
             mg_image: None,
             dx_image: None,
             xa_image: None,
@@ -7901,6 +7917,7 @@ fn write_classic_ct_case(
                     }),
                     enhanced_ct_image: None,
                     enhanced_mr_image: None,
+                    enhanced_pet_image: None,
                     mg_image: None,
                     dx_image: None,
                     xa_image: None,
@@ -8731,6 +8748,7 @@ fn write_enhanced_ct_case(
                 concatenation: None,
             }),
             enhanced_mr_image: None,
+            enhanced_pet_image: None,
             mg_image: None,
             dx_image: None,
             xa_image: None,
@@ -9080,6 +9098,7 @@ fn write_segmentation_case(
             ct_image: None,
             enhanced_ct_image: None,
             enhanced_mr_image: None,
+            enhanced_pet_image: None,
             mg_image: None,
             dx_image: None,
             xa_image: None,
@@ -10986,6 +11005,7 @@ fn write_enhanced_ct_concatenation_case(
                     }),
                 }),
                 enhanced_mr_image: None,
+                enhanced_pet_image: None,
                 mg_image: None,
                 dx_image: None,
                 xa_image: None,
@@ -13576,6 +13596,7 @@ fn write_enhanced_mr_case(
                 velocity_encoding_minimum_value: recipe.velocity_encoding_minimum_value,
                 velocity_encoding_maximum_value: recipe.velocity_encoding_maximum_value,
             }),
+            enhanced_pet_image: None,
             mg_image: None,
             dx_image: None,
             xa_image: None,
@@ -14527,6 +14548,7 @@ fn write_classic_mg_case(
             ct_image: None,
             enhanced_ct_image: None,
             enhanced_mr_image: None,
+            enhanced_pet_image: None,
             mg_image: Some(MgImageExpectations {
                 modality: "MG",
                 presentation_intent_type: recipe.presentation_intent_type,
@@ -15231,6 +15253,7 @@ fn write_classic_dx_case(
             ct_image: None,
             enhanced_ct_image: None,
             enhanced_mr_image: None,
+            enhanced_pet_image: None,
             mg_image: None,
             dx_image: Some(DxImageExpectations {
                 modality: "DX",
@@ -15884,6 +15907,7 @@ fn write_classic_nm_case(
             ct_image: None,
             enhanced_ct_image: None,
             enhanced_mr_image: None,
+            enhanced_pet_image: None,
             mg_image: None,
             dx_image: None,
             xa_image: None,
@@ -16467,6 +16491,7 @@ fn write_classic_pet_case(
             ct_image: None,
             enhanced_ct_image: None,
             enhanced_mr_image: None,
+            enhanced_pet_image: None,
             mg_image: None,
             dx_image: None,
             xa_image: None,
@@ -16527,6 +16552,689 @@ fn write_classic_pet_case(
             &validated.bytes,
             validated.validation,
         ),
+    })
+}
+
+fn write_enhanced_pet_case(
+    run: &PreparedGenerationRun,
+    case: &Value,
+    recipe: EnhancedPetRecipe,
+    standards_lock_sha256: &str,
+) -> Result<GeneratedFile, GenerateError> {
+    if !recipe.pixel_bytes_are_consistent()
+        || !recipe.frames_are_identical()
+        || !recipe.activity_mapping_is_consistent()
+        || !recipe.frame_metadata_is_consistent()
+        || sha256_hex(recipe.pixel_bytes_le) != recipe.pixel_data_sha256
+    {
+        return Err(GenerateError::MetadataShape {
+            path: PathBuf::from(recipe.case_id),
+            message: "Enhanced PET recipe pixels, frame metadata, mapping, or hashes are inconsistent",
+        });
+    }
+    let study_instance_uid = deterministic_enhanced_pet_uid(
+        standards_lock_sha256,
+        recipe,
+        run.seed,
+        UidRole::StudyInstance,
+    );
+    let series_instance_uid = deterministic_enhanced_pet_uid(
+        standards_lock_sha256,
+        recipe,
+        run.seed,
+        UidRole::SeriesInstance,
+    );
+    let sop_instance_uid = deterministic_enhanced_pet_uid(
+        standards_lock_sha256,
+        recipe,
+        run.seed,
+        UidRole::SopInstance,
+    );
+    let frame_of_reference_uid = deterministic_enhanced_pet_uid(
+        standards_lock_sha256,
+        recipe,
+        run.seed,
+        UidRole::FrameOfReference,
+    );
+    let dimension_organization_uid = deterministic_enhanced_pet_uid(
+        standards_lock_sha256,
+        recipe,
+        run.seed,
+        UidRole::DimensionOrganization,
+    );
+    let implementation_class_uid = deterministic_implementation_uid(standards_lock_sha256);
+    let relative_path = format!("{}/instance.dcm", recipe.case_id);
+    let path = run.out_dir.join(&relative_path);
+    let case_dir = path.parent().ok_or_else(|| GenerateError::MetadataShape {
+        path: PathBuf::from(&relative_path),
+        message: "generated DICOM path must have a parent directory",
+    })?;
+    fs::create_dir_all(case_dir).map_err(|source| GenerateError::CreateCaseOutputDir {
+        path: case_dir.to_path_buf(),
+        source,
+    })?;
+
+    let mut obj = InMemDicomObject::new_empty();
+    put_str(
+        &mut obj,
+        tags::SOP_CLASS_UID,
+        VR::UI,
+        uids::ENHANCED_PET_IMAGE_STORAGE,
+    );
+    put_str(&mut obj, tags::SOP_INSTANCE_UID, VR::UI, &sop_instance_uid);
+    put_str(&mut obj, tags::SYNTHETIC_DATA, VR::CS, "YES");
+    put_str(
+        &mut obj,
+        tags::PATIENT_NAME,
+        VR::PN,
+        "DTS^Synthetic^Patient001",
+    );
+    put_str(&mut obj, tags::PATIENT_ID, VR::LO, "DTS-PATIENT-001");
+    put_str(&mut obj, tags::PATIENT_BIRTH_DATE, VR::DA, "19700101");
+    put_str(&mut obj, tags::PATIENT_SEX, VR::CS, "O");
+    put_str(
+        &mut obj,
+        tags::STUDY_INSTANCE_UID,
+        VR::UI,
+        &study_instance_uid,
+    );
+    put_str(&mut obj, tags::STUDY_DATE, VR::DA, "20260101");
+    put_str(&mut obj, tags::STUDY_TIME, VR::TM, "000000");
+    put_str(&mut obj, tags::REFERRING_PHYSICIAN_NAME, VR::PN, "");
+    put_str(&mut obj, tags::STUDY_ID, VR::SH, "DTS-EPET");
+    put_str(&mut obj, tags::ACCESSION_NUMBER, VR::SH, "");
+    put_str(&mut obj, tags::MODALITY, VR::CS, "PT");
+    put_str(
+        &mut obj,
+        tags::SERIES_INSTANCE_UID,
+        VR::UI,
+        &series_instance_uid,
+    );
+    put_str(&mut obj, tags::SERIES_NUMBER, VR::IS, "1");
+    put_str(&mut obj, tags::SERIES_DATE, VR::DA, "20260101");
+    put_str(&mut obj, tags::SERIES_TIME, VR::TM, "000000");
+    put_str(
+        &mut obj,
+        tags::FRAME_OF_REFERENCE_UID,
+        VR::UI,
+        &frame_of_reference_uid,
+    );
+    put_str(&mut obj, tags::POSITION_REFERENCE_INDICATOR, VR::LO, "");
+    put_str(&mut obj, tags::MANUFACTURER, VR::LO, "dicom-test-suite");
+    put_str(
+        &mut obj,
+        tags::MANUFACTURER_MODEL_NAME,
+        VR::LO,
+        recipe.recipe_id,
+    );
+    put_str(
+        &mut obj,
+        tags::DEVICE_SERIAL_NUMBER,
+        VR::LO,
+        "DTS-EPET-0001",
+    );
+    put_str(
+        &mut obj,
+        tags::SOFTWARE_VERSIONS,
+        VR::LO,
+        crate::PACKAGE_VERSION,
+    );
+    put_str(&mut obj, tags::IMAGE_TYPE, VR::CS, recipe.image_type);
+    put_str(&mut obj, tags::INSTANCE_NUMBER, VR::IS, "1");
+    put_str(&mut obj, tags::CONTENT_DATE, VR::DA, "20260101");
+    put_str(&mut obj, tags::CONTENT_TIME, VR::TM, "000000");
+    put_empty_sequence(&mut obj, tags::ACQUISITION_CONTEXT_SEQUENCE);
+    put_str(&mut obj, tags::PIXEL_PRESENTATION, VR::CS, "MONOCHROME");
+    put_str(&mut obj, tags::VOLUMETRIC_PROPERTIES, VR::CS, "VOLUME");
+    put_str(
+        &mut obj,
+        tags::VOLUME_BASED_CALCULATION_TECHNIQUE,
+        VR::CS,
+        "NONE",
+    );
+    put_str(&mut obj, tags::CONTENT_QUALIFICATION, VR::CS, "RESEARCH");
+    put_str(&mut obj, tags::BURNED_IN_ANNOTATION, VR::CS, "NO");
+    put_str(&mut obj, tags::LOSSY_IMAGE_COMPRESSION, VR::CS, "00");
+    put_str(&mut obj, tags::PRESENTATION_LUT_SHAPE, VR::CS, "IDENTITY");
+    put_str(&mut obj, tags::BODY_PART_EXAMINED, VR::CS, "HEAD");
+    put_str(&mut obj, tags::TABLE_MOTION, VR::CS, "STATIC");
+    put_str(
+        &mut obj,
+        tags::TIME_OF_FLIGHT_INFORMATION_USED,
+        VR::CS,
+        "FALSE",
+    );
+    put_str(&mut obj, tags::COUNTS_SOURCE, VR::CS, recipe.counts_source);
+    for tag in [
+        tags::DECAY_CORRECTED,
+        tags::ATTENUATION_CORRECTED,
+        tags::SCATTER_CORRECTED,
+        tags::DEAD_TIME_CORRECTED,
+        tags::GANTRY_MOTION_CORRECTED,
+        tags::PATIENT_MOTION_CORRECTED,
+        tags::COUNT_LOSS_NORMALIZATION_CORRECTED,
+        tags::RANDOMS_CORRECTED,
+        tags::NON_UNIFORM_RADIAL_SAMPLING_CORRECTED,
+        tags::SENSITIVITY_CALIBRATED,
+        tags::DETECTOR_NORMALIZATION_CORRECTION,
+    ] {
+        put_str(&mut obj, tag, VR::CS, "NO");
+    }
+    put_enhanced_pet_radiopharmaceutical_information(&mut obj);
+    put_u16(&mut obj, tags::SAMPLES_PER_PIXEL, VR::US, 1);
+    put_str(
+        &mut obj,
+        tags::PHOTOMETRIC_INTERPRETATION,
+        VR::CS,
+        "MONOCHROME2",
+    );
+    put_u16(&mut obj, tags::ROWS, VR::US, recipe.rows);
+    put_u16(&mut obj, tags::COLUMNS, VR::US, recipe.columns);
+    put_u16(&mut obj, tags::BITS_ALLOCATED, VR::US, 16);
+    put_u16(&mut obj, tags::BITS_STORED, VR::US, 16);
+    put_u16(&mut obj, tags::HIGH_BIT, VR::US, 15);
+    put_u16(&mut obj, tags::PIXEL_REPRESENTATION, VR::US, 0);
+    put_str(
+        &mut obj,
+        tags::NUMBER_OF_FRAMES,
+        VR::IS,
+        &recipe.frames.to_string(),
+    );
+    put_enhanced_pet_dimension_sequences(&mut obj, &dimension_organization_uid);
+    put_enhanced_pet_functional_groups(&mut obj, recipe);
+    obj.put(DataElement::new(
+        tags::PIXEL_DATA,
+        VR::OW,
+        PrimitiveValue::from(recipe.pixel_bytes_le.as_slice()),
+    ));
+
+    let file_obj = obj
+        .with_meta(
+            FileMetaTableBuilder::new()
+                .transfer_syntax(EXPLICIT_VR_LITTLE_ENDIAN.uid)
+                .implementation_class_uid(&implementation_class_uid)
+                .implementation_version_name(crate::IMPLEMENTATION_VERSION_NAME),
+        )
+        .map_err(|err| GenerateError::WriteDicomFile {
+            path: path.clone(),
+            message: err.to_string(),
+        })?;
+    file_obj
+        .write_to_file(&path)
+        .map_err(|err| GenerateError::WriteDicomFile {
+            path: path.clone(),
+            message: err.to_string(),
+        })?;
+
+    let validated = validate_part10_file(
+        &path,
+        &Part10Expectations {
+            sop_class_uid: uids::ENHANCED_PET_IMAGE_STORAGE,
+            sop_instance_uid: &sop_instance_uid,
+            transfer_syntax_uid: EXPLICIT_VR_LITTLE_ENDIAN.uid,
+            implementation_class_uid: &implementation_class_uid,
+            synthetic_data: "YES",
+            rows: recipe.rows,
+            columns: recipe.columns,
+            frames: recipe.frames,
+            samples_per_pixel: 1,
+            photometric_interpretation: "MONOCHROME2",
+            bits_allocated: 16,
+            bits_stored: 16,
+            high_bit: 15,
+            pixel_representation: 0,
+            planar_configuration: None,
+            pixel_data_vr: VR::OW,
+            pixel_data_length_formula: PixelDataLengthFormula::ContiguousSamples,
+            decoded_frame_hashes: recipe.frame_sha256,
+            palette: None,
+            padding: None,
+            ct_image: None,
+            enhanced_ct_image: None,
+            enhanced_mr_image: None,
+            enhanced_pet_image: Some(EnhancedPetImageExpectations {
+                modality: "PT",
+                frame_of_reference_uid: &frame_of_reference_uid,
+                image_type: recipe.image_type,
+                frame_type: recipe.frame_type,
+                number_of_frames: recipe.frames,
+                dimension_organization_uid: &dimension_organization_uid,
+                pixel_spacing: recipe.pixel_spacing,
+                image_orientation_patient: recipe.image_orientation_patient,
+                image_position_patient: recipe.image_position_patient,
+                dimension_index_values: recipe.dimension_index_values,
+                temporal_position_indices: recipe.temporal_position_indices,
+                in_stack_position_numbers: recipe.in_stack_position_numbers,
+                stack_id: recipe.stack_id,
+                rescale_intercept: recipe.rescale_intercept,
+                rescale_slope: recipe.rescale_slope,
+                stored_values: recipe.pixel_values,
+                activity_values_bqml: recipe.expected_activity_bqml,
+            }),
+            mg_image: None,
+            dx_image: None,
+            xa_image: None,
+            xrf_image: None,
+            us_image: None,
+            us_multiframe: None,
+            nm_image: None,
+            pet_image: None,
+            cr_image: None,
+            mr_image: None,
+            segmentation: None,
+        },
+    )?;
+    Ok(GeneratedFile {
+        case_id: recipe.case_id.to_string(),
+        manifest_entry: enhanced_pet_manifest_entry(
+            case,
+            recipe,
+            &relative_path,
+            &study_instance_uid,
+            &series_instance_uid,
+            &sop_instance_uid,
+            &frame_of_reference_uid,
+            &dimension_organization_uid,
+            &implementation_class_uid,
+            &validated.bytes,
+            validated.validation,
+        ),
+    })
+}
+
+fn put_enhanced_pet_radiopharmaceutical_information(obj: &mut InMemDicomObject) {
+    let code = |tag, value, meaning| {
+        DataElement::new(
+            tag,
+            VR::SQ,
+            DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+                DataElement::new(tags::CODE_VALUE, VR::SH, value),
+                DataElement::new(tags::CODING_SCHEME_DESIGNATOR, VR::SH, "SCT"),
+                DataElement::new(tags::CODE_MEANING, VR::LO, meaning),
+            ])]),
+        )
+    };
+    obj.put(DataElement::new(
+        tags::RADIOPHARMACEUTICAL_INFORMATION_SEQUENCE,
+        VR::SQ,
+        DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+            DataElement::new(
+                tags::RADIOPHARMACEUTICAL_AGENT_NUMBER,
+                VR::US,
+                PrimitiveValue::from(1_u16),
+            ),
+            code(tags::RADIONUCLIDE_CODE_SEQUENCE, "77004003", "^18^Fluorine"),
+            code(
+                tags::ADMINISTRATION_ROUTE_CODE_SEQUENCE,
+                "47625008",
+                "Intravenous route",
+            ),
+            DataElement::new(
+                tags::RADIOPHARMACEUTICAL_START_DATE_TIME,
+                VR::DT,
+                "20260101000000",
+            ),
+            DataElement::new(tags::RADIONUCLIDE_TOTAL_DOSE, VR::DS, "0"),
+            DataElement::new(tags::RADIONUCLIDE_HALF_LIFE, VR::DS, "6586.2"),
+            DataElement::new(tags::RADIONUCLIDE_POSITRON_FRACTION, VR::DS, "0.967"),
+            code(
+                tags::RADIOPHARMACEUTICAL_CODE_SEQUENCE,
+                "35321007",
+                "Fluorodeoxyglucose F^18^",
+            ),
+        ])]),
+    ));
+}
+
+fn put_enhanced_pet_dimension_sequences(obj: &mut InMemDicomObject, uid: &str) {
+    obj.put(DataElement::new(
+        tags::DIMENSION_ORGANIZATION_SEQUENCE,
+        VR::SQ,
+        DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+            DataElement::new(tags::DIMENSION_ORGANIZATION_UID, VR::UI, uid),
+        ])]),
+    ));
+    obj.put(DataElement::new(
+        tags::DIMENSION_INDEX_SEQUENCE,
+        VR::SQ,
+        DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+            DataElement::new(
+                tags::DIMENSION_INDEX_POINTER,
+                VR::AT,
+                PrimitiveValue::Tags(vec![tags::IN_STACK_POSITION_NUMBER].into()),
+            ),
+            DataElement::new(
+                tags::FUNCTIONAL_GROUP_POINTER,
+                VR::AT,
+                PrimitiveValue::Tags(vec![tags::FRAME_CONTENT_SEQUENCE].into()),
+            ),
+            DataElement::new(tags::DIMENSION_ORGANIZATION_UID, VR::UI, uid),
+            DataElement::new(tags::DIMENSION_DESCRIPTION_LABEL, VR::LO, "InStackPosition"),
+        ])]),
+    ));
+}
+
+fn put_enhanced_pet_functional_groups(obj: &mut InMemDicomObject, recipe: EnhancedPetRecipe) {
+    let code_item = |value, scheme, meaning| {
+        InMemDicomObject::from_element_iter([
+            DataElement::new(tags::CODE_VALUE, VR::SH, value),
+            DataElement::new(tags::CODING_SCHEME_DESIGNATOR, VR::SH, scheme),
+            DataElement::new(tags::CODE_MEANING, VR::LO, meaning),
+        ])
+    };
+    let rwvm = InMemDicomObject::from_element_iter([
+        DataElement::new(
+            tags::REAL_WORLD_VALUE_FIRST_VALUE_MAPPED,
+            VR::US,
+            PrimitiveValue::from(0_u16),
+        ),
+        DataElement::new(
+            tags::REAL_WORLD_VALUE_LAST_VALUE_MAPPED,
+            VR::US,
+            PrimitiveValue::from(400_u16),
+        ),
+        DataElement::new(
+            tags::REAL_WORLD_VALUE_INTERCEPT,
+            VR::FD,
+            PrimitiveValue::from(0.0_f64),
+        ),
+        DataElement::new(
+            tags::REAL_WORLD_VALUE_SLOPE,
+            VR::FD,
+            PrimitiveValue::from(2.5_f64),
+        ),
+        DataElement::new(tags::LUT_LABEL, VR::SH, "BQML"),
+        DataElement::new(tags::LUT_EXPLANATION, VR::LO, "Activity concentration"),
+        DataElement::new(
+            tags::MEASUREMENT_UNITS_CODE_SEQUENCE,
+            VR::SQ,
+            DataSetSequence::from(vec![code_item("Bq/ml", "UCUM", "Becquerels/milliliter")]),
+        ),
+    ]);
+    let shared = InMemDicomObject::from_element_iter([
+        DataElement::new(
+            tags::PIXEL_MEASURES_SEQUENCE,
+            VR::SQ,
+            DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+                DataElement::new(tags::PIXEL_SPACING, VR::DS, recipe.pixel_spacing),
+                DataElement::new(tags::SLICE_THICKNESS, VR::DS, recipe.slice_thickness),
+                DataElement::new(
+                    tags::SPACING_BETWEEN_SLICES,
+                    VR::DS,
+                    recipe.spacing_between_slices,
+                ),
+            ])]),
+        ),
+        DataElement::new(
+            tags::PLANE_ORIENTATION_SEQUENCE,
+            VR::SQ,
+            DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+                DataElement::new(
+                    tags::IMAGE_ORIENTATION_PATIENT,
+                    VR::DS,
+                    recipe.image_orientation_patient,
+                ),
+            ])]),
+        ),
+        DataElement::new(
+            tags::FRAME_ANATOMY_SEQUENCE,
+            VR::SQ,
+            DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+                DataElement::new(tags::FRAME_LATERALITY, VR::CS, "U"),
+                DataElement::new(
+                    tags::ANATOMIC_REGION_SEQUENCE,
+                    VR::SQ,
+                    DataSetSequence::from(vec![code_item("69536005", "SCT", "Head")]),
+                ),
+            ])]),
+        ),
+        DataElement::new(
+            tags::PIXEL_VALUE_TRANSFORMATION_SEQUENCE,
+            VR::SQ,
+            DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+                DataElement::new(tags::RESCALE_INTERCEPT, VR::DS, recipe.rescale_intercept),
+                DataElement::new(tags::RESCALE_SLOPE, VR::DS, recipe.rescale_slope),
+                DataElement::new(tags::RESCALE_TYPE, VR::LO, "US"),
+            ])]),
+        ),
+        DataElement::new(
+            tags::FRAME_VOILUT_SEQUENCE,
+            VR::SQ,
+            DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+                DataElement::new(tags::WINDOW_CENTER, VR::DS, "500"),
+                DataElement::new(tags::WINDOW_WIDTH, VR::DS, "1000"),
+            ])]),
+        ),
+        DataElement::new(
+            tags::REAL_WORLD_VALUE_MAPPING_SEQUENCE,
+            VR::SQ,
+            DataSetSequence::from(vec![rwvm]),
+        ),
+        DataElement::new(
+            tags::RADIOPHARMACEUTICAL_USAGE_SEQUENCE,
+            VR::SQ,
+            DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+                DataElement::new(
+                    tags::RADIOPHARMACEUTICAL_AGENT_NUMBER,
+                    VR::US,
+                    PrimitiveValue::from(1_u16),
+                ),
+            ])]),
+        ),
+        DataElement::new(
+            tags::PET_FRAME_TYPE_SEQUENCE,
+            VR::SQ,
+            DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+                DataElement::new(tags::FRAME_TYPE, VR::CS, recipe.frame_type),
+                DataElement::new(tags::PIXEL_PRESENTATION, VR::CS, "MONOCHROME"),
+                DataElement::new(tags::VOLUMETRIC_PROPERTIES, VR::CS, "VOLUME"),
+                DataElement::new(tags::VOLUME_BASED_CALCULATION_TECHNIQUE, VR::CS, "NONE"),
+            ])]),
+        ),
+        DataElement::new(
+            tags::DERIVATION_IMAGE_SEQUENCE,
+            VR::SQ,
+            DataSetSequence::empty(),
+        ),
+    ]);
+    obj.put(DataElement::new(
+        tags::SHARED_FUNCTIONAL_GROUPS_SEQUENCE,
+        VR::SQ,
+        DataSetSequence::from(vec![shared]),
+    ));
+    let frames = (0..recipe.frames as usize)
+        .map(|index| {
+            InMemDicomObject::from_element_iter([
+                DataElement::new(
+                    tags::FRAME_CONTENT_SEQUENCE,
+                    VR::SQ,
+                    DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+                        DataElement::new(
+                            tags::DIMENSION_INDEX_VALUES,
+                            VR::UL,
+                            PrimitiveValue::from(recipe.dimension_index_values[index]),
+                        ),
+                        DataElement::new(
+                            tags::TEMPORAL_POSITION_INDEX,
+                            VR::UL,
+                            PrimitiveValue::from(recipe.temporal_position_indices[index]),
+                        ),
+                        DataElement::new(tags::STACK_ID, VR::SH, recipe.stack_id),
+                        DataElement::new(
+                            tags::IN_STACK_POSITION_NUMBER,
+                            VR::UL,
+                            PrimitiveValue::from(recipe.in_stack_position_numbers[index]),
+                        ),
+                    ])]),
+                ),
+                DataElement::new(
+                    tags::PLANE_POSITION_SEQUENCE,
+                    VR::SQ,
+                    DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
+                        DataElement::new(
+                            tags::IMAGE_POSITION_PATIENT,
+                            VR::DS,
+                            recipe.image_position_patient[index],
+                        ),
+                    ])]),
+                ),
+            ])
+        })
+        .collect::<Vec<_>>();
+    obj.put(DataElement::new(
+        tags::PER_FRAME_FUNCTIONAL_GROUPS_SEQUENCE,
+        VR::SQ,
+        DataSetSequence::from(frames),
+    ));
+}
+
+#[allow(clippy::too_many_arguments)]
+fn enhanced_pet_manifest_entry(
+    case: &Value,
+    recipe: EnhancedPetRecipe,
+    relative_path: &str,
+    study_uid: &str,
+    series_uid: &str,
+    sop_uid: &str,
+    frame_uid: &str,
+    dimension_uid: &str,
+    implementation_uid: &str,
+    bytes: &[u8],
+    validation: Value,
+) -> Value {
+    let anatomic_region = serde_json::json!({
+        "code_value": "69536005", "coding_scheme_designator": "SCT", "code_meaning": "Head"
+    });
+    let real_world_value_mapping = serde_json::json!({
+        "first_value_mapped": 0, "last_value_mapped": 400, "intercept": 0.0,
+        "slope": 2.5, "lut_label": "BQML", "lut_explanation": "Activity concentration",
+        "measurement_units": { "code_value": "Bq/ml", "coding_scheme_designator": "UCUM", "code_meaning": "Becquerels/milliliter" }
+    });
+    let radiopharmaceutical_information = serde_json::json!({
+        "item_count": 1, "agent_number": 1,
+        "radionuclide": { "code_value": "77004003", "coding_scheme_designator": "SCT", "code_meaning": "^18^Fluorine" },
+        "administration_route": { "code_value": "47625008", "coding_scheme_designator": "SCT", "code_meaning": "Intravenous route" },
+        "start_datetime": "20260101000000", "total_dose_mbq": 0.0,
+        "half_life_seconds": 6586.2, "positron_fraction": 0.967,
+        "radiopharmaceutical": { "code_value": "35321007", "coding_scheme_designator": "SCT", "code_meaning": "Fluorodeoxyglucose F^18^" }
+    });
+    let corrections = serde_json::json!({
+        "decay": "NO", "attenuation": "NO", "scatter": "NO", "dead_time": "NO",
+        "gantry_motion": "NO", "patient_motion": "NO", "count_loss_normalization": "NO",
+        "randoms": "NO", "non_uniform_radial_sampling": "NO", "sensitivity_calibration": "NO",
+        "detector_normalization": "NO"
+    });
+    let nonclaims = serde_json::json!({
+        "suv": false, "body_weight_normalization": false,
+        "body_surface_area_normalization": false, "decay_corrected": false,
+        "clinically_calibrated": false, "acquisition_counts": false,
+        "actual_clinical_dose": false, "gating": false, "detector_motion": false,
+        "time_of_flight_processing": false, "reconstruction": false
+    });
+    let identity = serde_json::json!({
+        "image_type": recipe.image_type.split('\\').collect::<Vec<_>>(),
+        "frame_type": recipe.frame_type.split('\\').collect::<Vec<_>>(),
+        "pixel_presentation": "MONOCHROME",
+        "volumetric_properties": "VOLUME",
+        "volume_based_calculation_technique": "NONE",
+        "content_qualification": "RESEARCH",
+        "burned_in_annotation": "NO",
+        "lossy_image_compression": "00",
+        "presentation_lut_shape": "IDENTITY",
+        "frame_count": recipe.frames
+    });
+    let dimensions = serde_json::json!({
+        "shared_functional_groups_item_count": 1,
+        "per_frame_functional_groups_item_count": recipe.frames,
+        "dimension_organization_item_count": 1,
+        "dimension_index_item_count": 1,
+        "dimension_index_pointer": "0020,9057",
+        "functional_group_pointer": "0020,9111",
+        "stack_ids": [recipe.stack_id, recipe.stack_id],
+        "in_stack_position_numbers": recipe.in_stack_position_numbers,
+        "dimension_index_values": recipe.dimension_index_values,
+        "temporal_position_indices": recipe.temporal_position_indices
+    });
+    let geometry = serde_json::json!({
+        "image_positions_patient_mm": [[0.0, 0.0, 0.0], [0.0, 0.0, 5.0]],
+        "pixel_spacing_mm": [2.0, 2.0],
+        "slice_thickness_mm": 5.0,
+        "spacing_between_slices_mm": 5.0,
+        "image_orientation_patient": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0],
+        "frame_laterality": "U",
+        "anatomic_region": anatomic_region
+    });
+    let quantitative = serde_json::json!({
+        "rescale_intercept": 0.0,
+        "rescale_slope": 2.5,
+        "rescale_type": "US",
+        "window_center": 500.0,
+        "window_width": 1000.0,
+        "real_world_value_mapping": real_world_value_mapping,
+        "radiopharmaceutical_information": radiopharmaceutical_information,
+        "radiopharmaceutical_usage_agent_number": 1
+    });
+    let acquisition = serde_json::json!({
+        "table_motion": "STATIC", "time_of_flight_information_used": "FALSE",
+        "counts_source": recipe.counts_source,
+        "corrections": corrections,
+        "derivation_image_item_count": 0,
+        "acquisition_context_item_count": 0,
+        "stored_values_by_frame": [[0, 100, 200, 400], [0, 100, 200, 400]],
+        "activity_values_bqml_by_frame": [[0.0, 250.0, 500.0, 1000.0], [0.0, 250.0, 500.0, 1000.0]],
+        "frame_sha256": recipe.frame_sha256,
+        "pixel_data_sha256": recipe.pixel_data_sha256,
+        "nonclaims": nonclaims
+    });
+    let mut expected_enhanced_pet = serde_json::Map::new();
+    for part in [identity, dimensions, geometry, quantitative, acquisition] {
+        expected_enhanced_pet.extend(
+            part.as_object()
+                .expect("Enhanced PET manifest fragment must be an object")
+                .clone(),
+        );
+    }
+    let expected_enhanced_pet = Value::Object(expected_enhanced_pet);
+    let mut standards_evidence = standards_evidence_from_case(case);
+    standards_evidence.push(serde_json::json!({
+        "source": "local-source-note", "edition": "2026b",
+        "query": "standards/source-notes/phase-2-enhanced-pet-multiframe.md",
+        "covered": true, "part": "PS3.3", "anchor": "tables_A.56-1_A.56-2"
+    }));
+    serde_json::json!({
+        "case_id": recipe.case_id, "profile_membership": ["extended"], "path": relative_path,
+        "sha256": sha256_hex(bytes), "size_bytes": bytes.len(), "determinism": "byte_stable",
+        "recipe": { "recipe_id": recipe.recipe_id, "recipe_version": ENHANCED_PET_RECIPE_VERSION,
+            "recipe_parameters": { "rows": recipe.rows, "columns": recipe.columns, "frames": recipe.frames,
+                "pixel_values": recipe.pixel_values, "image_positions": recipe.image_position_patient,
+                "dimension_index_values": recipe.dimension_index_values,
+                "enhanced_pet": expected_enhanced_pet.clone() } },
+        "dicom": { "sop_class_uid": uids::ENHANCED_PET_IMAGE_STORAGE,
+            "sop_class_name": "Enhanced PET Image Storage", "iod_name": "Enhanced PET Image",
+            "modality": "PT", "transfer_syntax_uid": EXPLICIT_VR_LITTLE_ENDIAN.uid,
+            "transfer_syntax_name": "Explicit VR Little Endian" },
+        "uids": { "study_instance_uid": study_uid, "series_instance_uid": series_uid,
+            "sop_instance_uid": sop_uid, "frame_of_reference_uid": frame_uid,
+            "dimension_organization_uid": dimension_uid, "implementation_class_uid": implementation_uid },
+        "image": { "rows": recipe.rows, "columns": recipe.columns, "frames": recipe.frames,
+            "samples_per_pixel": 1, "photometric_interpretation": "MONOCHROME2", "bits_allocated": 16,
+            "bits_stored": 16, "high_bit": 15, "pixel_representation": 0, "planar_configuration": Value::Null },
+        "pixel_data": { "vr": "OW", "native_or_encapsulated": "native",
+            "value_length": recipe.pixel_bytes_le.len(), "frame_count": recipe.frames,
+            "frame_hashes": recipe.frame_sha256 },
+        "references": [], "expected_capabilities": ["open_file", "render_native_pixels", "apply_real_world_value_mapping"],
+        "expected_semantics": {
+            "synthetic_data": "YES", "pixel_min": 0, "pixel_max": 400,
+            "shared_functional_groups_item_count": 1,
+            "per_frame_functional_groups_item_count": recipe.frames,
+            "dimension_index_values": recipe.dimension_index_values,
+            "temporal_position_indices": recipe.temporal_position_indices,
+            "quantitative_mapping": "synthetic_bqml_not_suv_or_clinically_calibrated"
+        },
+        "expected_enhanced_pet": expected_enhanced_pet,
+        "expected_visual_checks": { "pattern": "two_identical_pet_activity_frames_at_distinct_z_positions" },
+        "validation": validation, "known_stressors": ["enhanced_pet_image_storage", "shared_per_frame_functional_groups", "native_multiframe_u16", "bqml_rwvm"],
+        "standards_evidence": deduplicated_standards_evidence(standards_evidence)
     })
 }
 
@@ -16943,6 +17651,7 @@ fn write_classic_xa_case(
             ct_image: None,
             enhanced_ct_image: None,
             enhanced_mr_image: None,
+            enhanced_pet_image: None,
             mg_image: None,
             dx_image: None,
             xa_image: Some(XaImageExpectations {
@@ -17363,6 +18072,7 @@ fn write_classic_xrf_case(
             ct_image: None,
             enhanced_ct_image: None,
             enhanced_mr_image: None,
+            enhanced_pet_image: None,
             mg_image: None,
             dx_image: None,
             xa_image: None,
@@ -17765,6 +18475,7 @@ fn write_classic_us_multiframe_case(
             ct_image: None,
             enhanced_ct_image: None,
             enhanced_mr_image: None,
+            enhanced_pet_image: None,
             mg_image: None,
             dx_image: None,
             xa_image: None,
@@ -18172,6 +18883,7 @@ fn write_classic_us_case(
             ct_image: None,
             enhanced_ct_image: None,
             enhanced_mr_image: None,
+            enhanced_pet_image: None,
             mg_image: None,
             dx_image: None,
             xa_image: None,
@@ -18730,6 +19442,7 @@ fn write_classic_cr_case(
             ct_image: None,
             enhanced_ct_image: None,
             enhanced_mr_image: None,
+            enhanced_pet_image: None,
             mg_image: None,
             dx_image: None,
             xa_image: None,
@@ -19342,6 +20055,7 @@ fn write_classic_mr_case(
                 ct_image: None,
                 enhanced_ct_image: None,
                 enhanced_mr_image: None,
+                enhanced_pet_image: None,
                 mg_image: None,
                 dx_image: None,
                 xa_image: None,
@@ -20110,6 +20824,24 @@ fn deterministic_classic_pet_uid(
     })
 }
 
+fn deterministic_enhanced_pet_uid(
+    standards_lock_sha256: &str,
+    recipe: EnhancedPetRecipe,
+    run_seed: u64,
+    role: UidRole,
+) -> String {
+    deterministic_uid(&DeterministicUidInput {
+        standards_lock_sha256,
+        case_id: recipe.case_id,
+        recipe_version: ENHANCED_PET_RECIPE_VERSION,
+        run_seed,
+        file_index: 0,
+        frame_index: None,
+        referenced_object_index: None,
+        role,
+    })
+}
+
 fn deterministic_classic_cr_uid(
     standards_lock_sha256: &str,
     recipe: ClassicCrRecipe,
@@ -20823,6 +21555,120 @@ mod tests {
                 .path()
                 .join("classic/pet/rescaled_activity_explicit_le/instance.dcm")
                 .is_file()
+        );
+    }
+
+    #[test]
+    fn enhanced_pet_writer_reopens_and_validates_multiframe_quantitative_fixture() {
+        let output = ParametricMapStagingGuard::new();
+        let run = PreparedGenerationRun {
+            profile: "extended".to_string(),
+            out_dir: output.path().to_path_buf(),
+            manifest_path: output.path().join("manifest.json"),
+            seed: 1,
+            include_stress: false,
+        };
+        let case = serde_json::json!({
+            "case_id": "enhanced/pet/multiframe_explicit_le",
+            "standards_evidence": []
+        });
+        let generated = write_enhanced_pet_case(
+            &run,
+            &case,
+            ENHANCED_PET_RECIPES[0],
+            "0000000000000000000000000000000000000000000000000000000000000000",
+        )
+        .expect("Enhanced PET fixture should write, reopen, and validate");
+
+        assert_eq!(generated.case_id, "enhanced/pet/multiframe_explicit_le");
+        assert_eq!(
+            generated.manifest_entry.pointer("/dicom/sop_class_uid"),
+            Some(&Value::from(uids::ENHANCED_PET_IMAGE_STORAGE))
+        );
+        assert_eq!(
+            generated.manifest_entry.pointer("/pixel_data/frame_hashes"),
+            Some(&serde_json::json!([
+                "03ec353fd2407afb09c8d65712ef9aa30f03c8243f6f3f1675dca7ea5f6a4784",
+                "03ec353fd2407afb09c8d65712ef9aa30f03c8243f6f3f1675dca7ea5f6a4784"
+            ]))
+        );
+        assert_eq!(
+            generated
+                .manifest_entry
+                .pointer("/expected_enhanced_pet/activity_values_bqml_by_frame"),
+            Some(&serde_json::json!([
+                [0.0, 250.0, 500.0, 1000.0],
+                [0.0, 250.0, 500.0, 1000.0]
+            ]))
+        );
+        assert_eq!(
+            generated
+                .manifest_entry
+                .pointer("/validation/status")
+                .and_then(Value::as_str),
+            Some("passed")
+        );
+        let names = generated
+            .manifest_entry
+            .pointer("/validation/internal")
+            .and_then(Value::as_array)
+            .expect("internal checks should exist")
+            .iter()
+            .filter_map(|check| check.get("name").and_then(Value::as_str))
+            .collect::<BTreeSet<_>>();
+        for name in [
+            "native_frame_hashes",
+            "enhanced_pet_shared_functional_groups",
+            "enhanced_pet_per_frame_functional_groups",
+            "enhanced_pet_derivation_image_sequence_empty",
+            "enhanced_pet_rwvm_arithmetic",
+            "enhanced_pet_temporal_position",
+            "enhanced_pet_in_stack_position",
+            "enhanced_pet_decay_corrected",
+            "enhanced_pet_attenuation_method_absent",
+        ] {
+            assert!(names.contains(name), "missing internal check {name}");
+        }
+        assert!(
+            generated
+                .manifest_entry
+                .pointer("/validation/standards")
+                .and_then(Value::as_array)
+                .expect("standards checks should exist")
+                .iter()
+                .any(|check| check.get("name").and_then(Value::as_str)
+                    == Some("enhanced_pet_image_sop_class"))
+        );
+        let path = output
+            .path()
+            .join("enhanced/pet/multiframe_explicit_le/instance.dcm");
+        assert!(path.is_file());
+        let reopened = dicom_object::open_file(&path).expect("Enhanced PET fixture should reopen");
+        assert_eq!(
+            reopened
+                .element(tags::NUMBER_OF_FRAMES)
+                .unwrap()
+                .to_str()
+                .unwrap()
+                .trim(),
+            "2"
+        );
+        let manifest_schema: Value =
+            serde_json::from_str(include_str!("../schemas/manifest.schema.json"))
+                .expect("manifest schema should parse");
+        let file_schema = serde_json::json!({
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$ref": "#/$defs/file",
+            "$defs": manifest_schema["$defs"].clone(),
+        });
+        let validator =
+            jsonschema::validator_for(&file_schema).expect("file manifest schema should compile");
+        assert!(
+            validator.is_valid(&generated.manifest_entry),
+            "Enhanced PET manifest entry should satisfy the committed schema: {:?}",
+            validator
+                .iter_errors(&generated.manifest_entry)
+                .collect::<Vec<_>>()
         );
     }
 

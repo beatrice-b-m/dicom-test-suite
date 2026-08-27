@@ -63,6 +63,7 @@ pub(crate) struct Part10Expectations<'a> {
     pub ct_image: Option<CtImageExpectations<'a>>,
     pub enhanced_ct_image: Option<EnhancedCtImageExpectations<'a>>,
     pub enhanced_mr_image: Option<EnhancedMrImageExpectations<'a>>,
+    pub enhanced_pet_image: Option<EnhancedPetImageExpectations<'a>>,
     pub mg_image: Option<MgImageExpectations<'a>>,
     pub dx_image: Option<DxImageExpectations<'a>>,
     pub xa_image: Option<XaImageExpectations<'a>>,
@@ -412,6 +413,27 @@ pub(crate) struct EnhancedMrImageExpectations<'a> {
     pub velocity_encoding_directions: Option<&'a [[f64; 3]]>,
     pub velocity_encoding_minimum_value: Option<f64>,
     pub velocity_encoding_maximum_value: Option<f64>,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct EnhancedPetImageExpectations<'a> {
+    pub modality: &'a str,
+    pub frame_of_reference_uid: &'a str,
+    pub image_type: &'a str,
+    pub frame_type: &'a str,
+    pub number_of_frames: u16,
+    pub dimension_organization_uid: &'a str,
+    pub pixel_spacing: &'a str,
+    pub image_orientation_patient: &'a str,
+    pub image_position_patient: &'a [&'a str],
+    pub dimension_index_values: &'a [u32],
+    pub temporal_position_indices: &'a [u32],
+    pub in_stack_position_numbers: &'a [u32],
+    pub stack_id: &'a str,
+    pub rescale_intercept: &'a str,
+    pub rescale_slope: &'a str,
+    pub stored_values: &'a [u16],
+    pub activity_values_bqml: &'a [f64],
 }
 
 #[derive(Debug, Clone)]
@@ -1014,6 +1036,9 @@ pub(crate) fn validate_part10_file(
     }
     if let Some(enhanced_mr_image) = &expected.enhanced_mr_image {
         validate_enhanced_mr_image(path, &obj, &mut internal, enhanced_mr_image)?;
+    }
+    if let Some(enhanced_pet_image) = &expected.enhanced_pet_image {
+        validate_enhanced_pet_image(path, &obj, &mut internal, enhanced_pet_image)?;
     }
     if let Some(mg_image) = &expected.mg_image {
         validate_mg_image(path, &obj, &mut internal, mg_image)?;
@@ -5653,6 +5678,556 @@ fn validate_enhanced_mr_image(
     Ok(())
 }
 
+fn validate_enhanced_pet_image(
+    path: &Path,
+    obj: &OpenedObject,
+    results: &mut Vec<Value>,
+    expected: &EnhancedPetImageExpectations<'_>,
+) -> Result<(), GenerateError> {
+    for (name, tag, value) in [
+        ("enhanced_pet_modality", tags::MODALITY, expected.modality),
+        (
+            "enhanced_pet_frame_of_reference_uid",
+            tags::FRAME_OF_REFERENCE_UID,
+            expected.frame_of_reference_uid,
+        ),
+        (
+            "enhanced_pet_image_type",
+            tags::IMAGE_TYPE,
+            expected.image_type,
+        ),
+        ("enhanced_pet_table_motion", tags::TABLE_MOTION, "STATIC"),
+        (
+            "enhanced_pet_time_of_flight_information_used",
+            tags::TIME_OF_FLIGHT_INFORMATION_USED,
+            "FALSE",
+        ),
+        (
+            "enhanced_pet_counts_source",
+            tags::COUNTS_SOURCE,
+            "EMISSION",
+        ),
+        (
+            "enhanced_pet_pixel_presentation",
+            tags::PIXEL_PRESENTATION,
+            "MONOCHROME",
+        ),
+        (
+            "enhanced_pet_volumetric_properties",
+            tags::VOLUMETRIC_PROPERTIES,
+            "VOLUME",
+        ),
+        (
+            "enhanced_pet_volume_calculation",
+            tags::VOLUME_BASED_CALCULATION_TECHNIQUE,
+            "NONE",
+        ),
+        (
+            "enhanced_pet_content_qualification",
+            tags::CONTENT_QUALIFICATION,
+            "RESEARCH",
+        ),
+        (
+            "enhanced_pet_burned_in_annotation",
+            tags::BURNED_IN_ANNOTATION,
+            "NO",
+        ),
+        (
+            "enhanced_pet_lossy_image_compression",
+            tags::LOSSY_IMAGE_COMPRESSION,
+            "00",
+        ),
+        (
+            "enhanced_pet_presentation_lut_shape",
+            tags::PRESENTATION_LUT_SHAPE,
+            "IDENTITY",
+        ),
+    ] {
+        check_equal(
+            results,
+            name,
+            "Enhanced PET attribute matches the recipe.",
+            "Enhanced PET attribute does not match the recipe.",
+            element_str(path, obj, tag)?.as_str(),
+            value,
+        );
+    }
+    for (name, tag) in [
+        ("enhanced_pet_decay_corrected", tags::DECAY_CORRECTED),
+        (
+            "enhanced_pet_attenuation_corrected",
+            tags::ATTENUATION_CORRECTED,
+        ),
+        ("enhanced_pet_scatter_corrected", tags::SCATTER_CORRECTED),
+        (
+            "enhanced_pet_dead_time_corrected",
+            tags::DEAD_TIME_CORRECTED,
+        ),
+        (
+            "enhanced_pet_gantry_motion_corrected",
+            tags::GANTRY_MOTION_CORRECTED,
+        ),
+        (
+            "enhanced_pet_patient_motion_corrected",
+            tags::PATIENT_MOTION_CORRECTED,
+        ),
+        (
+            "enhanced_pet_count_loss_normalization_corrected",
+            tags::COUNT_LOSS_NORMALIZATION_CORRECTED,
+        ),
+        ("enhanced_pet_randoms_corrected", tags::RANDOMS_CORRECTED),
+        (
+            "enhanced_pet_non_uniform_radial_sampling_corrected",
+            tags::NON_UNIFORM_RADIAL_SAMPLING_CORRECTED,
+        ),
+        (
+            "enhanced_pet_sensitivity_calibrated",
+            tags::SENSITIVITY_CALIBRATED,
+        ),
+        (
+            "enhanced_pet_detector_normalization_correction",
+            tags::DETECTOR_NORMALIZATION_CORRECTION,
+        ),
+    ] {
+        check_equal(
+            results,
+            name,
+            "Enhanced PET correction flag is NO.",
+            "Enhanced PET correction flag is not NO.",
+            element_str(path, obj, tag)?.as_str(),
+            "NO",
+        );
+    }
+    for (name, tag) in [
+        (
+            "enhanced_pet_attenuation_method_absent",
+            tags::ATTENUATION_CORRECTION_METHOD,
+        ),
+        (
+            "enhanced_pet_scatter_method_absent",
+            tags::SCATTER_CORRECTION_METHOD,
+        ),
+        (
+            "enhanced_pet_randoms_method_absent",
+            tags::RANDOMS_CORRECTION_METHOD,
+        ),
+        (
+            "enhanced_pet_attenuation_source_absent",
+            tags::ATTENUATION_CORRECTION_SOURCE,
+        ),
+        (
+            "enhanced_pet_decay_datetime_absent",
+            tags::DECAY_CORRECTION_DATE_TIME,
+        ),
+        (
+            "enhanced_pet_attenuation_relationship_absent",
+            tags::ATTENUATION_CORRECTION_TEMPORAL_RELATIONSHIP,
+        ),
+    ] {
+        check(
+            results,
+            obj.element_opt(tag)
+                .map_err(|err| validation_error(path, err))?
+                .is_none(),
+            name,
+            "Unclaimed Enhanced PET correction detail is absent.",
+            "Enhanced PET contains an unclaimed correction detail.",
+        );
+    }
+    check_equal(
+        results,
+        "enhanced_pet_number_of_frames",
+        "Number of Frames matches.",
+        "Number of Frames does not match.",
+        element_str(path, obj, tags::NUMBER_OF_FRAMES)?.as_str(),
+        expected.number_of_frames.to_string().as_str(),
+    );
+    for (name, tag, count) in [
+        (
+            "enhanced_pet_shared_functional_groups",
+            tags::SHARED_FUNCTIONAL_GROUPS_SEQUENCE,
+            1,
+        ),
+        (
+            "enhanced_pet_per_frame_functional_groups",
+            tags::PER_FRAME_FUNCTIONAL_GROUPS_SEQUENCE,
+            expected.number_of_frames as usize,
+        ),
+        (
+            "enhanced_pet_dimension_organization",
+            tags::DIMENSION_ORGANIZATION_SEQUENCE,
+            1,
+        ),
+        (
+            "enhanced_pet_dimension_index",
+            tags::DIMENSION_INDEX_SEQUENCE,
+            1,
+        ),
+        (
+            "enhanced_pet_radiopharmaceutical_information",
+            tags::RADIOPHARMACEUTICAL_INFORMATION_SEQUENCE,
+            1,
+        ),
+    ] {
+        check_equal(
+            results,
+            name,
+            "Enhanced PET sequence item count matches.",
+            "Enhanced PET sequence item count does not match.",
+            sequence_item_count(path, obj, tag)?,
+            count,
+        );
+    }
+    check_equal(
+        results,
+        "enhanced_pet_dimension_organization_uid",
+        "Dimension UID matches.",
+        "Dimension UID does not match.",
+        top_level_sequence_item_str(
+            path,
+            obj,
+            tags::DIMENSION_ORGANIZATION_SEQUENCE,
+            0,
+            tags::DIMENSION_ORGANIZATION_UID,
+        )?
+        .as_str(),
+        expected.dimension_organization_uid,
+    );
+    let isotope =
+        top_level_sequence_item(path, obj, tags::RADIOPHARMACEUTICAL_INFORMATION_SEQUENCE, 0)?;
+    check_equal(
+        results,
+        "enhanced_pet_radiopharmaceutical_agent",
+        "Agent Number is 1.",
+        "Agent Number is not 1.",
+        item_u16(path, isotope, tags::RADIOPHARMACEUTICAL_AGENT_NUMBER)?,
+        1,
+    );
+    for (name, tag, value) in [
+        (
+            "enhanced_pet_radiopharmaceutical_start",
+            tags::RADIOPHARMACEUTICAL_START_DATE_TIME,
+            "20260101000000",
+        ),
+        (
+            "enhanced_pet_total_dose",
+            tags::RADIONUCLIDE_TOTAL_DOSE,
+            "0",
+        ),
+        (
+            "enhanced_pet_half_life",
+            tags::RADIONUCLIDE_HALF_LIFE,
+            "6586.2",
+        ),
+        (
+            "enhanced_pet_positron_fraction",
+            tags::RADIONUCLIDE_POSITRON_FRACTION,
+            "0.967",
+        ),
+    ] {
+        check_equal(
+            results,
+            name,
+            "Isotope value matches.",
+            "Isotope value does not match.",
+            item_str(path, isotope, tag)?.as_str(),
+            value,
+        );
+    }
+    for (name, sequence, code) in [
+        (
+            "enhanced_pet_radionuclide_code",
+            tags::RADIONUCLIDE_CODE_SEQUENCE,
+            "77004003",
+        ),
+        (
+            "enhanced_pet_route_code",
+            tags::ADMINISTRATION_ROUTE_CODE_SEQUENCE,
+            "47625008",
+        ),
+        (
+            "enhanced_pet_radiopharmaceutical_code",
+            tags::RADIOPHARMACEUTICAL_CODE_SEQUENCE,
+            "35321007",
+        ),
+    ] {
+        check_equal(
+            results,
+            name,
+            "Isotope code matches.",
+            "Isotope code does not match.",
+            nested_sequence_item_str(path, isotope, sequence, 0, tags::CODE_VALUE)?.as_str(),
+            code,
+        );
+    }
+
+    let shared = top_level_sequence_item(path, obj, tags::SHARED_FUNCTIONAL_GROUPS_SEQUENCE, 0)?;
+    for (name, tag, count) in [
+        (
+            "enhanced_pet_pixel_measures_sequence",
+            tags::PIXEL_MEASURES_SEQUENCE,
+            1,
+        ),
+        (
+            "enhanced_pet_plane_orientation_sequence",
+            tags::PLANE_ORIENTATION_SEQUENCE,
+            1,
+        ),
+        (
+            "enhanced_pet_frame_anatomy_sequence",
+            tags::FRAME_ANATOMY_SEQUENCE,
+            1,
+        ),
+        (
+            "enhanced_pet_pixel_value_transformation_sequence",
+            tags::PIXEL_VALUE_TRANSFORMATION_SEQUENCE,
+            1,
+        ),
+        (
+            "enhanced_pet_frame_voi_sequence",
+            tags::FRAME_VOILUT_SEQUENCE,
+            1,
+        ),
+        (
+            "enhanced_pet_rwvm_sequence",
+            tags::REAL_WORLD_VALUE_MAPPING_SEQUENCE,
+            1,
+        ),
+        (
+            "enhanced_pet_radiopharmaceutical_usage_sequence",
+            tags::RADIOPHARMACEUTICAL_USAGE_SEQUENCE,
+            1,
+        ),
+        (
+            "enhanced_pet_frame_type_sequence",
+            tags::PET_FRAME_TYPE_SEQUENCE,
+            1,
+        ),
+        (
+            "enhanced_pet_derivation_image_sequence_empty",
+            tags::DERIVATION_IMAGE_SEQUENCE,
+            0,
+        ),
+    ] {
+        check_equal(
+            results,
+            name,
+            "Shared macro item count matches.",
+            "Shared macro item count does not match.",
+            item_sequence_item_count(path, shared, tag)?,
+            count,
+        );
+    }
+    check_equal(
+        results,
+        "enhanced_pet_pixel_spacing",
+        "Pixel Spacing matches.",
+        "Pixel Spacing does not match.",
+        nested_sequence_item_str(
+            path,
+            shared,
+            tags::PIXEL_MEASURES_SEQUENCE,
+            0,
+            tags::PIXEL_SPACING,
+        )?
+        .as_str(),
+        expected.pixel_spacing,
+    );
+    check_equal(
+        results,
+        "enhanced_pet_orientation",
+        "Orientation matches.",
+        "Orientation does not match.",
+        nested_sequence_item_str(
+            path,
+            shared,
+            tags::PLANE_ORIENTATION_SEQUENCE,
+            0,
+            tags::IMAGE_ORIENTATION_PATIENT,
+        )?
+        .as_str(),
+        expected.image_orientation_patient,
+    );
+    check_equal(
+        results,
+        "enhanced_pet_frame_type",
+        "Frame Type matches.",
+        "Frame Type does not match.",
+        nested_sequence_item_str(
+            path,
+            shared,
+            tags::PET_FRAME_TYPE_SEQUENCE,
+            0,
+            tags::FRAME_TYPE,
+        )?
+        .as_str(),
+        expected.frame_type,
+    );
+    check_equal(
+        results,
+        "enhanced_pet_rescale_intercept",
+        "Rescale Intercept matches.",
+        "Rescale Intercept does not match.",
+        nested_sequence_item_str(
+            path,
+            shared,
+            tags::PIXEL_VALUE_TRANSFORMATION_SEQUENCE,
+            0,
+            tags::RESCALE_INTERCEPT,
+        )?
+        .as_str(),
+        expected.rescale_intercept,
+    );
+    check_equal(
+        results,
+        "enhanced_pet_rescale_slope",
+        "Rescale Slope matches.",
+        "Rescale Slope does not match.",
+        nested_sequence_item_str(
+            path,
+            shared,
+            tags::PIXEL_VALUE_TRANSFORMATION_SEQUENCE,
+            0,
+            tags::RESCALE_SLOPE,
+        )?
+        .as_str(),
+        expected.rescale_slope,
+    );
+    let rwvm = item_sequence_item(path, shared, tags::REAL_WORLD_VALUE_MAPPING_SEQUENCE, 0)?;
+    check_equal(
+        results,
+        "enhanced_pet_rwvm_first",
+        "RWVM first value is 0.",
+        "RWVM first value differs.",
+        item_u16(path, rwvm, tags::REAL_WORLD_VALUE_FIRST_VALUE_MAPPED)?,
+        0,
+    );
+    check_equal(
+        results,
+        "enhanced_pet_rwvm_last",
+        "RWVM last value is 400.",
+        "RWVM last value differs.",
+        item_u16(path, rwvm, tags::REAL_WORLD_VALUE_LAST_VALUE_MAPPED)?,
+        400,
+    );
+    let rwvm_intercept = item_f64(path, rwvm, tags::REAL_WORLD_VALUE_INTERCEPT)?;
+    let rwvm_slope = item_f64(path, rwvm, tags::REAL_WORLD_VALUE_SLOPE)?;
+    check_equal(
+        results,
+        "enhanced_pet_rwvm_intercept",
+        "RWVM intercept is 0.",
+        "RWVM intercept differs.",
+        rwvm_intercept,
+        0.0,
+    );
+    check_equal(
+        results,
+        "enhanced_pet_rwvm_slope",
+        "RWVM slope is 2.5.",
+        "RWVM slope differs.",
+        rwvm_slope,
+        2.5,
+    );
+    check_equal(
+        results,
+        "enhanced_pet_rwvm_lut_label",
+        "RWVM LUT Label is BQML.",
+        "RWVM LUT Label differs.",
+        item_str(path, rwvm, tags::LUT_LABEL)?.as_str(),
+        "BQML",
+    );
+    check_equal(
+        results,
+        "enhanced_pet_rwvm_unit",
+        "RWVM unit is Bq/ml UCUM.",
+        "RWVM unit differs.",
+        nested_sequence_item_str(
+            path,
+            rwvm,
+            tags::MEASUREMENT_UNITS_CODE_SEQUENCE,
+            0,
+            tags::CODE_VALUE,
+        )?
+        .as_str(),
+        "Bq/ml",
+    );
+    let mapped = expected
+        .stored_values
+        .iter()
+        .map(|value| f64::from(*value) * rwvm_slope + rwvm_intercept)
+        .collect::<Vec<_>>();
+    check_equal(
+        results,
+        "enhanced_pet_rwvm_arithmetic",
+        "RWVM arithmetic independently matches expected BQML values.",
+        "RWVM arithmetic does not match expected BQML values.",
+        mapped.as_slice(),
+        expected.activity_values_bqml,
+    );
+
+    for frame in 0..expected.number_of_frames as usize {
+        let item =
+            top_level_sequence_item(path, obj, tags::PER_FRAME_FUNCTIONAL_GROUPS_SEQUENCE, frame)?;
+        check_equal(
+            results,
+            "enhanced_pet_per_frame_content_count",
+            "Frame Content has one item.",
+            "Frame Content count differs.",
+            item_sequence_item_count(path, item, tags::FRAME_CONTENT_SEQUENCE)?,
+            1,
+        );
+        let content = item_sequence_item(path, item, tags::FRAME_CONTENT_SEQUENCE, 0)?;
+        check_equal(
+            results,
+            "enhanced_pet_stack_id",
+            "Stack ID matches.",
+            "Stack ID differs.",
+            item_str(path, content, tags::STACK_ID)?.as_str(),
+            expected.stack_id,
+        );
+        check_equal(
+            results,
+            "enhanced_pet_in_stack_position",
+            "In-stack position matches.",
+            "In-stack position differs.",
+            item_u32(path, content, tags::IN_STACK_POSITION_NUMBER)?,
+            expected.in_stack_position_numbers[frame],
+        );
+        check_equal(
+            results,
+            "enhanced_pet_temporal_position",
+            "Temporal Position Index matches.",
+            "Temporal Position Index differs.",
+            item_u32(path, content, tags::TEMPORAL_POSITION_INDEX)?,
+            expected.temporal_position_indices[frame],
+        );
+        check_equal(
+            results,
+            "enhanced_pet_dimension_index_value",
+            "Dimension Index Value matches.",
+            "Dimension Index Value differs.",
+            item_u32(path, content, tags::DIMENSION_INDEX_VALUES)?,
+            expected.dimension_index_values[frame],
+        );
+        check_equal(
+            results,
+            "enhanced_pet_plane_position",
+            "Plane Position matches.",
+            "Plane Position differs.",
+            nested_sequence_item_str(
+                path,
+                item,
+                tags::PLANE_POSITION_SEQUENCE,
+                0,
+                tags::IMAGE_POSITION_PATIENT,
+            )?
+            .as_str(),
+            expected.image_position_patient[frame],
+        );
+    }
+    Ok(())
+}
+
 fn validate_mg_image(
     path: &Path,
     obj: &OpenedObject,
@@ -7602,6 +8177,14 @@ fn item_u16(path: &Path, obj: &DatasetObject, tag: Tag) -> Result<u16, GenerateE
         .map_err(|err| validation_error(path, err))
 }
 
+fn item_u32(path: &Path, obj: &DatasetObject, tag: Tag) -> Result<u32, GenerateError> {
+    obj.element(tag)
+        .map_err(|err| validation_error(path, err))?
+        .value()
+        .to_int::<u32>()
+        .map_err(|err| validation_error(path, err))
+}
+
 fn item_f64(path: &Path, obj: &DatasetObject, tag: Tag) -> Result<f64, GenerateError> {
     obj.element(tag)
         .map_err(|err| validation_error(path, err))?
@@ -7639,6 +8222,7 @@ fn standard_sop_class_validation_name(sop_class_uid: &str) -> &'static str {
         uids::COMPUTED_RADIOGRAPHY_IMAGE_STORAGE => "computed_radiography_image_sop_class",
         uids::MR_IMAGE_STORAGE => "mr_image_sop_class",
         uids::ENHANCED_MR_IMAGE_STORAGE => "enhanced_mr_image_sop_class",
+        uids::ENHANCED_PET_IMAGE_STORAGE => "enhanced_pet_image_sop_class",
         uids::DIGITAL_X_RAY_IMAGE_STORAGE_FOR_PRESENTATION => {
             "digital_x_ray_for_presentation_sop_class"
         }
@@ -7681,6 +8265,9 @@ fn standard_sop_class_validation_message(sop_class_uid: &str) -> &'static str {
         uids::MR_IMAGE_STORAGE => "SOP Class UID matches MR Image Storage in the 2026b reference.",
         uids::ENHANCED_MR_IMAGE_STORAGE => {
             "SOP Class UID matches Enhanced MR Image Storage in the 2026b reference."
+        }
+        uids::ENHANCED_PET_IMAGE_STORAGE => {
+            "SOP Class UID matches Enhanced PET Image Storage in the 2026b reference."
         }
         uids::DIGITAL_X_RAY_IMAGE_STORAGE_FOR_PRESENTATION => {
             "SOP Class UID matches Digital X-Ray Image Storage - For Presentation in the 2026b reference."

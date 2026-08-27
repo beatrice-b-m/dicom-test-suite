@@ -4661,7 +4661,7 @@ fn write_pixel_case_with_metadata(
         &series_instance_uid,
     );
     put_str(&mut obj, tags::SERIES_NUMBER, VR::IS, "1");
-    if metadata.is_some() {
+    if metadata.is_some() && !matches!(metadata, Some(ScMetadataPayload::SequenceLength(_))) {
         put_str(&mut obj, tags::LATERALITY, VR::CS, "R");
     }
 

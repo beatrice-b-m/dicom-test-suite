@@ -30,7 +30,7 @@ dynamically linked `liblcms2.2` implementation.
 | Role | Adapter | Initial command | Requirement | Acquisition and constraints |
 | --- | --- | --- | --- | --- |
 | Per-instance IOD | `dicom3tools-dciodvfy` | `dciodvfy -new` | Required | dicom3tools BSD license; pin source snapshot/package and executable hash. Homebrew does not currently provide it on this host. Debian packages both validator commands; upstream publishes source and platform builds. Validator definitions evolve, so the snapshot/definition baseline must remain visible. |
-| U32 SC per-instance IOD | `pydicom-dicom-validator-u32` | `python -m dts_dicom_validator_adapter` | Required for its declared case only | `uv` locks CPython 3.12.12, `dicom-validator` 0.8.2, pydicom 3.0.2, and transitive packages. `DTS_DICOM_VALIDATOR_PYTHON` selects the prepared interpreter and `DTS_DICOM_VALIDATOR_STANDARD_HOME` selects the external hash-locked 2026b cache. It is not a generation-profile runtime. |
+| U32 and non-square SC per-instance IOD | `pydicom-dicom-validator-u32` | `python -m dts_dicom_validator_adapter` | Required for its declared cases only | `uv` locks CPython 3.12.12, `dicom-validator` 0.8.2, pydicom 3.0.2, and transitive packages. `DTS_DICOM_VALIDATOR_PYTHON` selects the prepared interpreter and `DTS_DICOM_VALIDATOR_STANDARD_HOME` selects the external hash-locked 2026b cache. It is not a generation-profile runtime. |
 | U1 SC independent pixels | `dcmtk-dcm2img-u1` | `dcm2img +Fa +Fn -M -W +Pid -O +opn 1` | Required when collecting evidence for its declared case | DCMTK 3.7.0 emits one PGM per frame. The collector requires P2, dimensions 3 by 3, maximum value one, exact samples, and exact frame hashes; `dcmdump +W` separately binds the packed Pixel Data bytes. Primary IOD validation remains `dciodvfy`. |
 | ICC profile processing | `littlecms-transicc-icc` | `transicc -n -i<profile> -o*XYZ -t0` | Required when collecting evidence for its declared case | Set `DTS_LCMS_HOME` to the immutable LittleCMS prefix. Locked DCMTK reconstructs the complete ICC OB value, strict checks enforce the DICOM input-profile header and `SRGB` label, and LittleCMS 2.19 must reproduce four fixed RGB-to-XYZ vectors. Primary IOD validation remains `dciodvfy`. |
 | Corpus entity consistency | `dicom3tools-dcentvfy` | `dcentvfy -f <file-list>` | Required | Same dicom3tools identity and acquisition decision as `dciodvfy`; pass files through its one-path-per-line file-list option to avoid argument limits. |
@@ -52,7 +52,7 @@ once acquired. `accepted-findings.json` contains only exact, reviewed findings.
 
 Primary IOD routing is exact-case-first. A validator with
 `supported_case_ids` supersedes the unrestricted primary only for those IDs;
-overlapping declarations are rejected. The U32 route therefore cannot alter
+overlapping declarations are rejected. The U32 and non-square routes therefore cannot alter
 acceptance for existing cases, and strict verification requires the optional
 tool to be available and lock-matched whenever it produced evidence.
 
@@ -73,10 +73,17 @@ LittleCMS transform. Strict verification requires both external tools to be
 available and lock-matched and rejects relinked sidecars; no ICC failure can be
 converted to ordinary unsupported native-pixel coverage.
 
-The U32 payload path uses adapter version 0.2.0 to read raw OW bytes through
+The U32 payload path uses adapter version 0.3.0 to read raw OW bytes through
 pydicom and unpack exact little-endian unsigned 32-bit words without NumPy.
 Its deterministic sidecar is cross-linked to the locked adapter, all image
 attributes, the four expected values, and every manifest frame hash.
+
+For `classic/sc/nonsquare_pixel_spacing`, adapter version 0.3.0 also performs
+case-scoped semantic extraction with pydicom. It proves that the two files use
+mutually exclusive physical-spacing and integer-aspect-ratio declarations,
+checks exact VR, VM, lexical values and required absences, and binds the 4x6
+native OB payload to the manifest hash. Strict verification requires one
+independent, hash-linked sidecar for each variant.
 
 The locked dicom3tools entity checker asserts if it reads the original U32
 Pixel Data element. For entity consistency only, the runner creates a

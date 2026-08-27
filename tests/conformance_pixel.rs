@@ -156,6 +156,76 @@ fn strict_verification_rejects_semantically_relinked_u32_sidecar() {
 
 #[cfg(unix)]
 #[test]
+fn pydicom_nonsquare_adapter_matches_both_exclusive_spatial_variants() {
+    let fixture = NonsquareFixture::new();
+    for instance in fixture.run["instances"].as_array().unwrap() {
+        assert_eq!(instance["case_id"], "classic/sc/nonsquare_pixel_spacing");
+        assert_eq!(instance["pixel"]["status"], "passed");
+        assert_eq!(instance["pixel"]["independence"], "independent");
+        let relative = instance["pixel"]["evidence"]["path"].as_str().unwrap();
+        let sidecar: Value =
+            serde_json::from_slice(&fs::read(fixture.evidence.join(relative)).unwrap()).unwrap();
+        assert_eq!(
+            sidecar["extraction_method"],
+            "uv_locked_pydicom_nonsquare_spatial_semantic_extraction"
+        );
+        assert_eq!(
+            sidecar["actual"]["variant_id"],
+            sidecar["expected_contract"]["variant_id"]
+        );
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn strict_verification_rejects_relinked_nonsquare_spatial_sidecar() {
+    let mut fixture = NonsquareFixture::new();
+    for tool in fixture.run["tools"].as_array_mut().unwrap() {
+        tool["lock_status"] = json!("matched");
+    }
+    fs::write(
+        fixture.evidence.join("conformance-run.json"),
+        serde_json::to_vec_pretty(&fixture.run).unwrap(),
+    )
+    .unwrap();
+    let clean =
+        dicom_test_suite::conformance::verify_conformance(&fixture.evidence, &fixture.allowlist)
+            .unwrap();
+    assert_eq!(clean["valid"], true, "{}", clean["failures"]);
+
+    let relative = fixture.run["instances"][0]["pixel"]["evidence"]["path"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    let target = fixture.evidence.join(&relative);
+    let mut sidecar: Value = serde_json::from_slice(&fs::read(&target).unwrap()).unwrap();
+    sidecar["actual"]["pixel_spacing"]["lexical_value"] = json!("0.3\\0.6");
+    let encoded = serde_json::to_vec_pretty(&sidecar).unwrap();
+    fs::write(&target, &encoded).unwrap();
+    fixture.run["instances"][0]["pixel"]["evidence"]["sha256"] =
+        json!(dicom_test_suite::sha256_hex(&encoded));
+    fs::write(
+        fixture.evidence.join("conformance-run.json"),
+        serde_json::to_vec_pretty(&fixture.run).unwrap(),
+    )
+    .unwrap();
+
+    let verified =
+        dicom_test_suite::conformance::verify_conformance(&fixture.evidence, &fixture.allowlist)
+            .unwrap();
+    assert_eq!(verified["valid"], false);
+    assert!(
+        verified["failures"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(Value::as_str)
+            .any(|failure| failure.contains("non-square spacing evidence sidecar is not linked"))
+    );
+}
+
+#[cfg(unix)]
+#[test]
 fn dcmtk_u1_adapter_matches_continuous_frames_and_raw_payload() {
     let fixture = U1Fixture::new(false);
     let pixel = &fixture.run["instances"][0]["pixel"];
@@ -291,6 +361,13 @@ struct U32Fixture {
 }
 
 #[cfg(unix)]
+struct NonsquareFixture {
+    evidence: PathBuf,
+    allowlist: PathBuf,
+    run: Value,
+}
+
+#[cfg(unix)]
 struct U1Fixture {
     evidence: PathBuf,
     allowlist: PathBuf,
@@ -398,6 +475,127 @@ impl U1Fixture {
             pixel_hash,
         }
     }
+}
+
+#[cfg(unix)]
+impl NonsquareFixture {
+    fn new() -> Self {
+        let root = temp_dir();
+        let generated = root.join("generated");
+        let evidence = root.join("evidence");
+        fs::create_dir_all(&generated).unwrap();
+        let pixels = [
+            0_u8, 255, 0, 255, 0, 255, 255, 0, 255, 0, 255, 0, 0, 255, 0, 255, 0, 255, 255, 0,
+            255, 0, 255, 0,
+        ];
+        let pixel_hash = dicom_test_suite::sha256_hex(&pixels);
+        let spacing_contract = json!({
+            "variant_id": "pixel_spacing",
+            "pixel_spacing": {"tag":"0028,0030","keyword":"PixelSpacing","vr":"DS","vm":2,"lexical_value":"0.6\\0.3","row_spacing_mm":0.6,"column_spacing_mm":0.3},
+            "nominal_scanned_pixel_spacing": {"tag":"0018,2010","keyword":"NominalScannedPixelSpacing","vr":"DS","vm":2,"lexical_value":"0.6\\0.3","row_spacing_mm":0.6,"column_spacing_mm":0.3},
+            "pixel_aspect_ratio": null, "uncalibrated": true,
+            "patient_space_geometry_present": false, "pixel_data_sha256": pixel_hash
+        });
+        let aspect_contract = json!({
+            "variant_id": "pixel_aspect_ratio", "pixel_spacing": null,
+            "nominal_scanned_pixel_spacing": null,
+            "pixel_aspect_ratio": {"tag":"0028,0034","keyword":"PixelAspectRatio","vr":"IS","vm":2,"lexical_value":"2\\1","vertical_extent":2,"horizontal_extent":1},
+            "uncalibrated": true, "patient_space_geometry_present": false,
+            "pixel_data_sha256": pixel_hash
+        });
+        let spacing_payload = nonsquare_payload(&spacing_contract, &pixel_hash);
+        let aspect_payload = nonsquare_payload(&aspect_contract, &pixel_hash);
+        let files = [
+            ("pixel-spacing.dcm", &spacing_contract),
+            ("pixel-aspect-ratio.dcm", &aspect_contract),
+        ]
+        .into_iter()
+        .map(|(path, contract)| {
+            let source = format!("independent fixture {path}");
+            fs::write(generated.join(path), source.as_bytes()).unwrap();
+            json!({
+                "case_id": "classic/sc/nonsquare_pixel_spacing", "path": path,
+                "sha256": dicom_test_suite::sha256_hex(source.as_bytes()),
+                "dicom": {"sop_class_uid":"1.2.840.10008.5.1.4.1.1.7","transfer_syntax_uid":"1.2.840.10008.1.2.1"},
+                "image": {"rows":4,"columns":6,"frames":1,"samples_per_pixel":1,"photometric_interpretation":"MONOCHROME2","bits_allocated":8,"bits_stored":8,"high_bit":7,"pixel_representation":0},
+                "pixel_data": {"vr":"OB","native_or_encapsulated":"native","value_length":24,"frame_count":1,"frame_hashes":[pixel_hash]},
+                "expected_nonsquare_spacing": contract
+            })
+        })
+        .collect::<Vec<_>>();
+        let manifest = json!({
+            "run":{"seed":1,"profile":"test"},
+            "generator":{"name":"nonsquare-fixture","version":"1","feature_flags":[]},
+            "standards":{"standards_lock_sha256":"0".repeat(64)}, "files":files
+        });
+        fs::write(
+            generated.join("manifest.json"),
+            serde_json::to_vec_pretty(&manifest).unwrap(),
+        )
+        .unwrap();
+        let default_primary = fake_tool(&root, "default-primary", "exit 0");
+        let specialized = fake_tool(
+            &root,
+            "nonsquare-adapter",
+            &format!(
+                "if [ \"$1\" = \"--nonsquare-spacing\" ]; then case \"$2\" in *pixel-spacing.dcm) printf '%s\\n' '{}' ;; *) printf '%s\\n' '{}' ;; esac; fi\nexit 0",
+                spacing_payload, aspect_payload
+            ),
+        );
+        let entity = fake_tool(&root, "entity", "exit 0");
+        let parser = fake_tool(&root, "parser", "exit 0");
+        let mut specialized_adapter = adapter(
+            "pydicom-dicom-validator-u32",
+            "primary_iod_validator",
+            &specialized,
+        );
+        specialized_adapter["supported_case_ids"] = json!(["classic/sc/nonsquare_pixel_spacing"]);
+        specialized_adapter["spatial_arguments"] = json!(["--nonsquare-spacing", "{input}"]);
+        let config = root.join("validators.json");
+        fs::write(
+            &config,
+            serde_json::to_vec_pretty(&json!({"schema_version":"0.1.0","adapters":[
+                adapter("default","primary_iod_validator",&default_primary), specialized_adapter,
+                adapter("entity","entity_validator",&entity), adapter("parser","independent_parser",&parser)
+            ]}))
+            .unwrap(),
+        )
+        .unwrap();
+        let run =
+            dicom_test_suite::conformance::run_conformance(&generated, &evidence, &config).unwrap();
+        let allowlist = root.join("allowlist.json");
+        fs::write(
+            &allowlist,
+            b"{\"schema_version\":\"0.1.0\",\"findings\":[]}",
+        )
+        .unwrap();
+        Self {
+            evidence,
+            allowlist,
+            run,
+        }
+    }
+}
+
+#[cfg(unix)]
+fn nonsquare_payload(contract: &Value, pixel_hash: &str) -> Value {
+    let semantic = |value: &Value| {
+        if value.is_null() {
+            Value::Null
+        } else {
+            json!({"tag":value["tag"],"vr":value["vr"],"vm":value["vm"],"lexical_value":value["lexical_value"]})
+        }
+    };
+    json!({
+        "adapter_id":"pydicom-dicom-validator-u32","bits_allocated":8,"bits_stored":8,
+        "columns":6,"frame_hashes":[pixel_hash],"frames":1,"high_bit":7,
+        "nominal_scanned_pixel_spacing":semantic(&contract["nominal_scanned_pixel_spacing"]),
+        "patient_space_geometry_present":false,"photometric_interpretation":"MONOCHROME2",
+        "pixel_aspect_ratio":semantic(&contract["pixel_aspect_ratio"]),"pixel_data_sha256":pixel_hash,
+        "pixel_data_vr":"OB","pixel_representation":0,"pixel_spacing":semantic(&contract["pixel_spacing"]),
+        "rows":4,"samples_per_pixel":1,"transfer_syntax_uid":"1.2.840.10008.1.2.1",
+        "uncalibrated":true,"variant_id":contract["variant_id"]
+    })
 }
 
 #[cfg(unix)]

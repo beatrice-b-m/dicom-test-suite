@@ -43,11 +43,20 @@ export DTS_DICOM_VALIDATOR_PYTHON="$PWD/conformance-backends/dicom-validator/.ve
 export DTS_DICOM_VALIDATOR_STANDARD_HOME=/path/to/locked/dicom-validator-cache
 ```
 
-Adapter version 0.2.0 also exposes `--pixel-u32`. It reads the native OW value
+Adapter version 0.3.0 exposes `--pixel-u32`. It reads the native OW value
 through pydicom, requires the locked 32/32/31 unsigned MONOCHROME2 shape, and
 emits canonical JSON containing dimensions, attributes, exact stored values,
 the Pixel Data hash, and frame hashes. It does not use NumPy or a project pixel
 decoder.
+
+The same locked runtime exposes `--nonsquare-spacing` for
+`classic/sc/nonsquare_pixel_spacing`. It requires exactly one of the two
+independent spatial declarations: Pixel Spacing `0.6\\0.3` with matching
+Nominal Scanned Pixel Spacing, or Pixel Aspect Ratio `2\\1`. The other
+declaration must be absent. Both variants must retain their exact DS/IS VR and
+VM 2, the 4x6 MONOCHROME2 native OB payload and hash, no calibration metadata,
+and no patient-space geometry. The canonical semantic result is linked to the
+same composite uv/runtime/standard fingerprint as the IOD result.
 
 ## Locked Runtime Licenses
 

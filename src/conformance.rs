@@ -280,6 +280,17 @@ fn verify_completeness(evidence_root: &Path, evidence: &Value, failures: &mut Ve
                 .collect::<std::collections::BTreeSet<_>>()
         })
         .unwrap_or_default();
+    let required_nonsquare_spacing_paths = manifest
+        .as_ref()
+        .and_then(|value| value["files"].as_array())
+        .map(|files| {
+            files
+                .iter()
+                .filter(|file| file["case_id"] == "classic/sc/nonsquare_pixel_spacing")
+                .filter_map(|file| file["path"].as_str())
+                .collect::<std::collections::BTreeSet<_>>()
+        })
+        .unwrap_or_default();
     let evidence_paths = evidence["instances"]
         .as_array()
         .into_iter()
@@ -393,6 +404,31 @@ fn verify_completeness(evidence_root: &Path, evidence: &Value, failures: &mut Ve
                 .find(|file| file["path"] == path);
             if let Some(manifest_file) = manifest_file {
                 verify_u1_pixel_evidence(
+                    evidence_root,
+                    evidence,
+                    instance,
+                    manifest_file,
+                    failures,
+                );
+            }
+        }
+        if required_nonsquare_spacing_paths.contains(path)
+            && (instance["pixel"]["status"] != "passed"
+                || instance["pixel"]["independence"] != "independent")
+        {
+            failures.push(format!(
+                "independent non-square spacing evidence failed: {path}"
+            ));
+        }
+        if required_nonsquare_spacing_paths.contains(path) {
+            let manifest_file = manifest
+                .as_ref()
+                .and_then(|value| value["files"].as_array())
+                .into_iter()
+                .flatten()
+                .find(|file| file["path"] == path);
+            if let Some(manifest_file) = manifest_file {
+                verify_nonsquare_spacing_evidence(
                     evidence_root,
                     evidence,
                     instance,
@@ -650,6 +686,74 @@ fn verify_u32_pixel_evidence(
             "u32 pixel evidence sidecar is not linked to its locked tool and source manifest: {path}"
         ));
     }
+}
+
+fn verify_nonsquare_spacing_evidence(
+    evidence_root: &Path,
+    evidence: &Value,
+    instance: &Value,
+    manifest_file: &Value,
+    failures: &mut Vec<String>,
+) {
+    let path = instance["path"].as_str().unwrap_or("unknown");
+    let Some(relative) = instance.pointer("/pixel/evidence/path").and_then(Value::as_str) else {
+        failures.push(format!("non-square spacing evidence sidecar is missing: {path}"));
+        return;
+    };
+    if validate_relative_path(relative).is_err() {
+        failures.push(format!("non-square spacing evidence sidecar path is unsafe: {path}"));
+        return;
+    }
+    let Ok(bytes) = fs::read(evidence_root.join(relative)) else {
+        failures.push(format!("non-square spacing evidence sidecar is unavailable: {path}"));
+        return;
+    };
+    let Ok(sidecar) = serde_json::from_slice::<Value>(&bytes) else {
+        failures.push(format!("non-square spacing evidence sidecar is invalid JSON: {path}"));
+        return;
+    };
+    let adapter_id = "pydicom-dicom-validator-u32";
+    let tool = evidence["tools"].as_array().into_iter().flatten()
+        .find(|tool| tool["adapter_id"] == adapter_id);
+    let actual = &sidecar["actual"];
+    let contract = &manifest_file["expected_nonsquare_spacing"];
+    let linked = sidecar["adapter_id"] == adapter_id
+        && sidecar["adapter_sha256"].as_str() == tool.and_then(|tool| tool["sha256"].as_str())
+        && tool.is_some_and(|tool| tool["status"] == "available" && tool["lock_status"] == "matched")
+        && sidecar["independence"] == "independent"
+        && sidecar["extraction_method"] == "uv_locked_pydicom_nonsquare_spatial_semantic_extraction"
+        && sidecar["status"] == "passed"
+        && sidecar["expected_contract"] == *contract
+        && sidecar["expected_frame_hashes"] == instance["pixel"]["expected_frame_hashes"]
+        && sidecar["actual_frame_hashes"] == instance["pixel"]["actual_frame_hashes"]
+        && actual["frame_hashes"] == instance["pixel"]["actual_frame_hashes"]
+        && actual["variant_id"] == contract["variant_id"]
+        && spatial_element_matches(&actual["pixel_spacing"], &contract["pixel_spacing"])
+        && spatial_element_matches(&actual["nominal_scanned_pixel_spacing"], &contract["nominal_scanned_pixel_spacing"])
+        && spatial_element_matches(&actual["pixel_aspect_ratio"], &contract["pixel_aspect_ratio"])
+        && actual["uncalibrated"] == contract["uncalibrated"]
+        && actual["patient_space_geometry_present"] == contract["patient_space_geometry_present"]
+        && actual["pixel_data_sha256"] == contract["pixel_data_sha256"]
+        && actual["rows"] == manifest_file["image"]["rows"]
+        && actual["columns"] == manifest_file["image"]["columns"]
+        && actual["frames"] == manifest_file["image"]["frames"]
+        && actual["samples_per_pixel"] == manifest_file["image"]["samples_per_pixel"]
+        && actual["bits_allocated"] == manifest_file["image"]["bits_allocated"]
+        && actual["bits_stored"] == manifest_file["image"]["bits_stored"]
+        && actual["high_bit"] == manifest_file["image"]["high_bit"]
+        && actual["pixel_representation"] == manifest_file["image"]["pixel_representation"]
+        && actual["photometric_interpretation"] == manifest_file["image"]["photometric_interpretation"]
+        && actual["pixel_data_vr"] == manifest_file["pixel_data"]["vr"]
+        && actual["transfer_syntax_uid"] == manifest_file["dicom"]["transfer_syntax_uid"];
+    if !linked {
+        failures.push(format!("non-square spacing evidence sidecar is not linked to its locked tool and source manifest: {path}"));
+    }
+}
+
+fn spatial_element_matches(actual: &Value, expected: &Value) -> bool {
+    if expected.is_null() { return actual.is_null(); }
+    actual["tag"] == expected["tag"] && actual["vr"] == expected["vr"]
+        && actual["vm"] == expected["vm"] && actual["lexical_value"] == expected["lexical_value"]
 }
 
 fn verify_u1_pixel_evidence(
@@ -1266,6 +1370,18 @@ fn collect_pixel_result(
             expected,
         );
     }
+    if file.get("case_id").and_then(Value::as_str) == Some("classic/sc/nonsquare_pixel_spacing") {
+        return collect_nonsquare_spacing_result(
+            generated_root,
+            evidence_root,
+            file,
+            relative_input,
+            stable_key,
+            adapters,
+            tools,
+            expected,
+        );
+    }
     if file.pointer("/image/sample_type").and_then(Value::as_str) == Some("float32")
         || file.pointer("/pixel_data/vr").and_then(Value::as_str) == Some("OF")
     {
@@ -1643,6 +1759,122 @@ fn parse_ascii_pgm(path: &Path) -> Result<(usize, usize, u16, Vec<u8>), String> 
         .map(|token| token.parse::<u8>().map_err(|error| error.to_string()))
         .collect::<Result<Vec<_>, _>>()?;
     Ok((columns, rows, max_value, values))
+}
+
+#[allow(clippy::too_many_arguments)]
+fn collect_nonsquare_spacing_result(
+    generated_root: &Path,
+    evidence_root: &Path,
+    file: &Value,
+    relative_input: &str,
+    stable_key: &str,
+    adapters: &[Value],
+    tools: &[Value],
+    expected: Vec<Value>,
+) -> Result<Value, String> {
+    let adapter_id = "pydicom-dicom-validator-u32";
+    let Some(adapter) = adapters.iter().find(|adapter| adapter["id"] == adapter_id) else {
+        return Ok(pixel_unsupported(
+            expected,
+            "independent",
+            "The independent pydicom non-square spacing adapter is not configured",
+        ));
+    };
+    let Some(tool) = tools.iter().find(|tool| tool["adapter_id"] == adapter_id) else {
+        return Ok(pixel_unsupported(
+            expected,
+            "independent",
+            "The independent pydicom non-square spacing adapter was not discovered",
+        ));
+    };
+    if tool["status"] != "available" {
+        return Ok(pixel_unsupported(
+            expected,
+            "independent",
+            "The independent pydicom non-square spacing adapter is unavailable",
+        ));
+    }
+    let executable = tool["executable"]
+        .as_str()
+        .ok_or_else(|| "available pydicom non-square adapter has no executable".to_string())?;
+    let input = generated_root.join(relative_input);
+    let arguments = string_array(adapter, "spatial_arguments")?
+        .into_iter()
+        .map(|argument| argument.replace("{input}", &input.display().to_string()))
+        .collect::<Vec<_>>();
+    let output = run_with_timeout(
+        Path::new(executable),
+        &arguments,
+        Duration::from_secs(adapter["timeout_seconds"].as_u64().unwrap_or(60)),
+    )?;
+    let payload = if output.exit_code == Some(0) && !output.timed_out {
+        serde_json::from_slice::<Value>(&output.stdout).ok()
+    } else {
+        None
+    };
+    let actual_hashes = payload
+        .as_ref()
+        .and_then(|value| value["frame_hashes"].as_array())
+        .cloned()
+        .unwrap_or_default();
+    let contract = &file["expected_nonsquare_spacing"];
+    let passed = payload.as_ref().is_some_and(|actual| {
+        actual_hashes == expected
+            && actual["variant_id"] == contract["variant_id"]
+            && spatial_element_matches(&actual["pixel_spacing"], &contract["pixel_spacing"])
+            && spatial_element_matches(
+                &actual["nominal_scanned_pixel_spacing"],
+                &contract["nominal_scanned_pixel_spacing"],
+            )
+            && spatial_element_matches(
+                &actual["pixel_aspect_ratio"],
+                &contract["pixel_aspect_ratio"],
+            )
+            && actual["uncalibrated"] == contract["uncalibrated"]
+            && actual["patient_space_geometry_present"]
+                == contract["patient_space_geometry_present"]
+            && actual["pixel_data_sha256"] == contract["pixel_data_sha256"]
+            && actual["rows"] == file["image"]["rows"]
+            && actual["columns"] == file["image"]["columns"]
+            && actual["frames"] == file["image"]["frames"]
+            && actual["samples_per_pixel"] == file["image"]["samples_per_pixel"]
+            && actual["bits_allocated"] == file["image"]["bits_allocated"]
+            && actual["bits_stored"] == file["image"]["bits_stored"]
+            && actual["high_bit"] == file["image"]["high_bit"]
+            && actual["pixel_representation"] == file["image"]["pixel_representation"]
+            && actual["photometric_interpretation"] == file["image"]["photometric_interpretation"]
+            && actual["pixel_data_vr"] == file["pixel_data"]["vr"]
+            && actual["transfer_syntax_uid"] == file["dicom"]["transfer_syntax_uid"]
+    });
+    let sidecar = json!({
+        "adapter_id": adapter_id,
+        "adapter_sha256": tool["sha256"],
+        "independence": "independent",
+        "extraction_method": "uv_locked_pydicom_nonsquare_spatial_semantic_extraction",
+        "exit_code": output.exit_code,
+        "timed_out": output.timed_out,
+        "expected_frame_hashes": expected,
+        "actual_frame_hashes": actual_hashes,
+        "expected_contract": contract,
+        "actual": payload,
+        "stderr_sha256": sha256_hex(&output.stderr),
+        "status": if passed { "passed" } else { "failed" }
+    });
+    let relative = format!("pixels/pydicom-dicom-validator-nonsquare/{stable_key}.json");
+    let target = evidence_root.join(&relative);
+    if let Some(parent) = target.parent() {
+        fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+    }
+    let encoded = serde_json::to_vec_pretty(&sidecar).map_err(|error| error.to_string())?;
+    fs::write(&target, &encoded).map_err(|error| error.to_string())?;
+    Ok(json!({
+        "status": if passed { "passed" } else { "failed" },
+        "independence": "independent",
+        "expected_frame_hashes": sidecar["expected_frame_hashes"],
+        "actual_frame_hashes": sidecar["actual_frame_hashes"],
+        "reason": if passed { "uv-locked pydicom independently matched the exclusive non-square spatial contract and native pixel payload" } else { "pydicom non-square spatial extraction or manifest comparison failed" },
+        "evidence": { "path": relative, "sha256": sha256_hex(&encoded) }
+    }))
 }
 
 #[allow(clippy::too_many_arguments)]

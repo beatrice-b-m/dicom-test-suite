@@ -99,7 +99,7 @@ fn coverage_baseline_records_the_phase_zero_comparison_point() {
 }
 
 #[test]
-fn u32_iod_validator_is_case_scoped_and_fully_locked() {
+fn uv_iod_validator_is_case_scoped_and_fully_locked() {
     let validators = read_json("conformance/validators.json");
     let adapter = validators["adapters"]
         .as_array()
@@ -112,7 +112,10 @@ fn u32_iod_validator_is_case_scoped_and_fully_locked() {
     assert_eq!(adapter["executable_env"], "DTS_DICOM_VALIDATOR_PYTHON");
     assert_eq!(
         adapter["supported_case_ids"],
-        serde_json::json!(["classic/sc/mono2_u32_explicit_le"])
+        serde_json::json!([
+            "classic/sc/mono2_u32_explicit_le",
+            "classic/sc/nonsquare_pixel_spacing"
+        ])
     );
     let artifacts = adapter["artifacts"].as_array().unwrap();
     assert_eq!(artifacts.len(), 14);
@@ -140,7 +143,7 @@ fn u32_iod_validator_is_case_scoped_and_fully_locked() {
         .expect("u32 IOD validator must have an accepted lock entry");
     assert_eq!(
         tool["adapter_sha256"],
-        "e0b445d4f4bc5b338f248251c7eff9416ffef9da079b4e1cd4c46924dc17539d"
+        "3f20de6ca7d310e2e9f2920f368912f97b6cf62bdfdf750e1417eb5dc4b335b6"
     );
     assert_eq!(tool["platforms"], serde_json::json!(["arm64-macos"]));
     assert!(
@@ -158,7 +161,7 @@ fn u32_iod_validator_is_case_scoped_and_fully_locked() {
 }
 
 #[test]
-fn u32_conformance_docs_preserve_the_independent_gate() {
+fn uv_conformance_docs_preserve_the_independent_gate() {
     let readme = fs::read_to_string("conformance/README.md").unwrap();
     for required in [
         "exact-case-first",
@@ -175,8 +178,9 @@ fn u32_conformance_docs_preserve_the_independent_gate() {
     let backend = fs::read_to_string("conformance-backends/dicom-validator/README.md").unwrap();
     for required in [
         "`uv`",
-        "Adapter version 0.2.0",
+        "Adapter version 0.3.0",
         "`--pixel-u32`",
+        "`--nonsquare-spacing`",
         "does not use NumPy",
     ] {
         assert!(

@@ -1,6 +1,6 @@
 [project]
 name = "dicom-test-suite-dicom-validator-adapter"
-version = "0.2.0"
+version = "0.3.0"
 description = "Locked independent IOD validation adapter for dicom-test-suite"
 requires-python = "==3.12.12"
 dependencies = [

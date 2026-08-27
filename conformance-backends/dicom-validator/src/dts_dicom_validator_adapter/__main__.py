@@ -18,7 +18,7 @@ from dicom_validator.validator.error_handler import ValidationResultHandlerBase
 from dicom_validator.validator.validation_result import Status
 
 
-ADAPTER_VERSION = "0.2.0"
+ADAPTER_VERSION = "0.3.0"
 EDITION = "2026b"
 EXPECTED_DISTRIBUTIONS = {
     "dicom-validator": "0.8.2",
@@ -193,12 +193,132 @@ def extract_u32_pixels(input_path: Path, standard_root: Path, lock_path: Path) -
     return 0
 
 
+def extract_nonsquare_spacing(
+    input_path: Path, standard_root: Path, lock_path: Path
+) -> int:
+    for name, version in EXPECTED_DISTRIBUTIONS.items():
+        verify_distribution(name, version)
+    verify_standard(standard_root, lock_path)
+    dataset = pydicom.dcmread(input_path)
+    transfer_syntax = str(dataset.file_meta.TransferSyntaxUID)
+    if transfer_syntax != "1.2.840.10008.1.2.1":
+        raise RuntimeError(
+            f"unsupported transfer syntax for non-square extraction: {transfer_syntax}"
+        )
+
+    rows = int(dataset.Rows)
+    columns = int(dataset.Columns)
+    frames = int(getattr(dataset, "NumberOfFrames", 1))
+    samples = int(dataset.SamplesPerPixel)
+    bits_allocated = int(dataset.BitsAllocated)
+    bits_stored = int(dataset.BitsStored)
+    high_bit = int(dataset.HighBit)
+    pixel_representation = int(dataset.PixelRepresentation)
+    pixel_element = dataset[0x7FE00010]
+    pixel_bytes = bytes(pixel_element.value)
+    if (
+        rows != 4
+        or columns != 6
+        or frames != 1
+        or samples != 1
+        or bits_allocated != 8
+        or bits_stored != 8
+        or high_bit != 7
+        or pixel_representation != 0
+        or str(dataset.PhotometricInterpretation) != "MONOCHROME2"
+        or pixel_element.VR != "OB"
+        or len(pixel_bytes) != 24
+    ):
+        raise RuntimeError("dataset does not satisfy the locked non-square pixel shape")
+
+    def semantic_element(tag: int, expected_vr: str) -> dict | None:
+        if tag not in dataset:
+            return None
+        element = dataset[tag]
+        values = list(element.value) if isinstance(element.value, pydicom.multival.MultiValue) else [element.value]
+        lexical_values = [str(value) for value in values]
+        if element.VR != expected_vr or element.VM != 2:
+            raise RuntimeError(
+                f"tag {element.tag} has VR/VM {element.VR}/{element.VM}, expected {expected_vr}/2"
+            )
+        return {
+            "tag": f"{element.tag.group:04X},{element.tag.element:04X}",
+            "vr": element.VR,
+            "vm": element.VM,
+            "lexical_value": "\\".join(lexical_values),
+            "values": lexical_values,
+        }
+
+    pixel_spacing = semantic_element(0x00280030, "DS")
+    nominal_spacing = semantic_element(0x00182010, "DS")
+    pixel_aspect_ratio = semantic_element(0x00280034, "IS")
+    spacing_variant = (
+        pixel_spacing is not None
+        and nominal_spacing is not None
+        and pixel_aspect_ratio is None
+        and pixel_spacing["values"] == ["0.6", "0.3"]
+        and nominal_spacing["values"] == ["0.6", "0.3"]
+    )
+    aspect_variant = (
+        pixel_spacing is None
+        and nominal_spacing is None
+        and pixel_aspect_ratio is not None
+        and pixel_aspect_ratio["values"] == ["2", "1"]
+    )
+    if spacing_variant == aspect_variant:
+        raise RuntimeError(
+            "dataset does not contain exactly one locked non-square spatial variant"
+        )
+
+    forbidden = {
+        "imager_pixel_spacing": 0x00181164,
+        "pixel_spacing_calibration_type": 0x00280A02,
+        "pixel_spacing_calibration_description": 0x00280A04,
+        "image_position_patient": 0x00200032,
+        "image_orientation_patient": 0x00200037,
+        "frame_of_reference_uid": 0x00200052,
+    }
+    present_forbidden = sorted(name for name, tag in forbidden.items() if tag in dataset)
+    if present_forbidden:
+        raise RuntimeError(
+            "forbidden non-square spatial attributes are present: "
+            + ", ".join(present_forbidden)
+        )
+
+    frame_hash = hashlib.sha256(pixel_bytes).hexdigest()
+    result = {
+        "adapter_id": "pydicom-dicom-validator-u32",
+        "bits_allocated": bits_allocated,
+        "bits_stored": bits_stored,
+        "columns": columns,
+        "frame_hashes": [frame_hash],
+        "frames": frames,
+        "high_bit": high_bit,
+        "nominal_scanned_pixel_spacing": nominal_spacing,
+        "patient_space_geometry_present": False,
+        "photometric_interpretation": str(dataset.PhotometricInterpretation),
+        "pixel_aspect_ratio": pixel_aspect_ratio,
+        "pixel_data_sha256": frame_hash,
+        "pixel_data_vr": pixel_element.VR,
+        "pixel_representation": pixel_representation,
+        "pixel_spacing": pixel_spacing,
+        "rows": rows,
+        "samples_per_pixel": samples,
+        "transfer_syntax_uid": transfer_syntax,
+        "uncalibrated": True,
+        "variant_id": "pixel_spacing" if spacing_variant else "pixel_aspect_ratio",
+    }
+    print(json.dumps(result, sort_keys=True, separators=(",", ":")))
+    return 0
+
+
 def parser() -> argparse.ArgumentParser:
     result = argparse.ArgumentParser()
     result.add_argument("--version", action="store_true")
     result.add_argument("--standard-path", type=Path)
     result.add_argument("--lock-path", type=Path)
     result.add_argument("--pixel-u32", action="store_true")
+    result.add_argument("--nonsquare-spacing", action="store_true")
     result.add_argument("input", nargs="?", type=Path)
     return result
 
@@ -228,6 +348,10 @@ def main() -> None:
     try:
         if args.pixel_u32:
             raise SystemExit(extract_u32_pixels(args.input, standard_path, args.lock_path))
+        if args.nonsquare_spacing:
+            raise SystemExit(
+                extract_nonsquare_spacing(args.input, standard_path, args.lock_path)
+            )
         raise SystemExit(validate(args.input, standard_path, args.lock_path))
     except Exception as error:
         print(f"Error: dicom-validator adapter failure: {error}", file=sys.stderr)

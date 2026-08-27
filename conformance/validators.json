@@ -37,10 +37,21 @@
         "conformance-backends/dicom-validator/standard-lock.json",
         "{input}"
       ],
+      "spatial_arguments": [
+        "-m",
+        "dts_dicom_validator_adapter",
+        "--nonsquare-spacing",
+        "--lock-path",
+        "conformance-backends/dicom-validator/standard-lock.json",
+        "{input}"
+      ],
       "timeout_seconds": 60,
       "required": false,
       "platforms": ["linux", "macos", "windows"],
-      "supported_case_ids": ["classic/sc/mono2_u32_explicit_le"],
+      "supported_case_ids": [
+        "classic/sc/mono2_u32_explicit_le",
+        "classic/sc/nonsquare_pixel_spacing"
+      ],
       "artifacts": [
         {"path": "conformance-backends/dicom-validator/.python-version"},
         {"path": "conformance-backends/dicom-validator/pyproject.toml"},
@@ -61,7 +72,8 @@
         "iod_validation",
         "normalized_findings",
         "dicom_2026b_definitions",
-        "u32_native_pixel_module"
+        "u32_native_pixel_module",
+        "nonsquare_spacing_semantics"
       ]
     },
     {

@@ -14577,6 +14577,38 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
             "Registration Landmark Mappings",
             "/grouped_coverage/registration_landmark_mappings",
         ),
+        (
+            "Deformable Registration Sampling Directions",
+            "/grouped_coverage/deformable_registration_sampling_directions",
+        ),
+        (
+            "Deformable Registration Grid Dimensions",
+            "/grouped_coverage/deformable_registration_grid_dimensions",
+        ),
+        (
+            "Deformable Registration Grid Resolutions",
+            "/grouped_coverage/deformable_registration_grid_resolutions",
+        ),
+        (
+            "Deformable Registration Vector Counts",
+            "/grouped_coverage/deformable_registration_vector_counts",
+        ),
+        (
+            "Deformable Registration Payload SHA-256 Values",
+            "/grouped_coverage/deformable_registration_payload_sha256_values",
+        ),
+        (
+            "Deformable Registration Matrix Types",
+            "/grouped_coverage/deformable_registration_matrix_types",
+        ),
+        (
+            "Deformable Registration Reference Topologies",
+            "/grouped_coverage/deformable_registration_reference_topologies",
+        ),
+        (
+            "Deformable Registration Mapping Summaries",
+            "/grouped_coverage/deformable_registration_mapping_summaries",
+        ),
     ] {
         append_count_map_section(&mut output, report, title, pointer);
     }
@@ -15898,6 +15930,57 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
         output.push('\n');
     }
 
+    let deformable_registration_rows = report
+        .get("coverage_matrix")
+        .and_then(Value::as_array)
+        .map(|rows| {
+            rows.iter()
+                .filter(|row| !row["deformable_registration_sampling_direction"].is_null())
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    if !deformable_registration_rows.is_empty() {
+        output.push_str("## Deformable Spatial Registration Expectations\n\n");
+        output.push_str("| Case ID | Sampling direction | Grid dimensions | Resolution (mm) | Vectors | Payload SHA-256 | Matrix types | Reference topology | Mapping summary |\n");
+        output.push_str("|---|---|---|---|---:|---|---|---|---|\n");
+        for row in deformable_registration_rows {
+            output.push_str(&format!(
+                "| {} | {} | {} | {} | {} | {} | {} | {} | {} |\n",
+                markdown_cell(row.get("case_id").and_then(Value::as_str)),
+                markdown_cell(
+                    row.get("deformable_registration_sampling_direction")
+                        .and_then(Value::as_str)
+                ),
+                markdown_cell(
+                    row.get("deformable_registration_grid_dimensions")
+                        .and_then(Value::as_str)
+                ),
+                markdown_cell(
+                    row.get("deformable_registration_grid_resolution_mm")
+                        .and_then(Value::as_str)
+                ),
+                markdown_number(row.get("deformable_registration_vector_count")),
+                markdown_cell(
+                    row.get("deformable_registration_payload_sha256")
+                        .and_then(Value::as_str)
+                ),
+                markdown_cell(
+                    row.get("deformable_registration_matrix_types")
+                        .and_then(Value::as_str)
+                ),
+                markdown_cell(
+                    row.get("deformable_registration_reference_topology")
+                        .and_then(Value::as_str)
+                ),
+                markdown_cell(
+                    row.get("deformable_registration_mapping_summary")
+                        .and_then(Value::as_str)
+                ),
+            ));
+        }
+        output.push('\n');
+    }
+
     output.push_str("## Coverage Matrix\n\n");
     output.push_str("| Case ID | Status | Profile | IOD | Transfer Syntax | Photometric | Bits | Frames | Generation Backend | Backend Version | Backend Determinism | Validation |\n");
     output.push_str("|---|---|---|---|---|---|---:|---:|---|---|---|---|\n");
@@ -15978,6 +16061,8 @@ fn generated_coverage_row(
     let nonsquare_spacing = nonsquare_spacing_report_fields(manifest_path, file)?;
     let is_spatial_registration =
         file.get("case_id").and_then(Value::as_str) == Some("derived/registration/spatial_ct_pair");
+    let is_deformable_registration = file.get("case_id").and_then(Value::as_str)
+        == Some("derived/registration/deformable_ct_pair");
     let mut row = serde_json::json!({
         "case_id": report_str(manifest_path, file, "/case_id", "file case_id must be a string")?,
         "profile": run_profile,
@@ -16094,6 +16179,82 @@ fn generated_coverage_row(
             Value::Null
         },
     );
+    for (field, pointer) in [
+        (
+            "deformable_registration_sampling_direction",
+            "/expected_deformable_spatial_registration/sampling_direction",
+        ),
+        (
+            "deformable_registration_payload_sha256",
+            "/expected_deformable_spatial_registration/grid/payload_sha256",
+        ),
+    ] {
+        row_object.insert(
+            field.to_string(),
+            if is_deformable_registration {
+                file.pointer(pointer)
+                    .and_then(Value::as_str)
+                    .map(Value::from)
+                    .unwrap_or(Value::Null)
+            } else {
+                Value::Null
+            },
+        );
+    }
+    row_object.insert(
+        "deformable_registration_grid_dimensions".to_string(),
+        if is_deformable_registration {
+            report_number_array_compact(
+                file.pointer("/expected_deformable_spatial_registration/grid/dimensions"),
+                "x",
+            )
+        } else {
+            Value::Null
+        },
+    );
+    row_object.insert(
+        "deformable_registration_grid_resolution_mm".to_string(),
+        if is_deformable_registration {
+            report_number_array_compact(
+                file.pointer("/expected_deformable_spatial_registration/grid/resolution_mm"),
+                "\\",
+            )
+        } else {
+            Value::Null
+        },
+    );
+    row_object.insert(
+        "deformable_registration_vector_count".to_string(),
+        if is_deformable_registration {
+            file.pointer("/expected_deformable_spatial_registration/grid/vector_count")
+                .and_then(Value::as_u64)
+                .map(Value::from)
+                .unwrap_or(Value::Null)
+        } else {
+            Value::Null
+        },
+    );
+    for (field, value) in [
+        (
+            "deformable_registration_matrix_types",
+            "pre:RIGID; post:RIGID",
+        ),
+        (
+            "deformable_registration_reference_topology",
+            "same_study_target+other_study_source",
+        ),
+        (
+            "deformable_registration_mapping_summary",
+            "4 registered_to_source point mappings",
+        ),
+    ] {
+        row_object.insert(
+            field.to_string(),
+            is_deformable_registration
+                .then(|| Value::from(value))
+                .unwrap_or(Value::Null),
+        );
+    }
     for (field, value) in [
         (
             "u32_stored_values",
@@ -18583,6 +18744,19 @@ fn report_i64_array(file: &Value, pointer: &str) -> Option<String> {
     Some(values.join("\\"))
 }
 
+fn report_number_array_compact(value: Option<&Value>, separator: &str) -> Value {
+    value
+        .and_then(Value::as_array)
+        .and_then(|values| {
+            values
+                .iter()
+                .map(|value| value.as_number().map(ToString::to_string))
+                .collect::<Option<Vec<_>>>()
+        })
+        .map(|values| Value::from(values.join(separator)))
+        .unwrap_or(Value::Null)
+}
+
 fn report_backslash_number_values(value: &str) -> Option<Vec<f64>> {
     value.split('\\').map(|part| part.parse().ok()).collect()
 }
@@ -19749,6 +19923,14 @@ fn skipped_coverage_row(
         "registration_reference_relationships",
         "registration_pixel_data_absent",
         "registration_landmark_mapping",
+        "deformable_registration_sampling_direction",
+        "deformable_registration_grid_dimensions",
+        "deformable_registration_grid_resolution_mm",
+        "deformable_registration_vector_count",
+        "deformable_registration_payload_sha256",
+        "deformable_registration_matrix_types",
+        "deformable_registration_reference_topology",
+        "deformable_registration_mapping_summary",
     ] {
         row_object.insert(field.to_string(), Value::Null);
     }
@@ -20162,6 +20344,14 @@ struct GroupedCoverage {
     registration_reference_relationships: BTreeMap<String, usize>,
     registration_pixel_data_absent_states: BTreeMap<String, usize>,
     registration_landmark_mappings: BTreeMap<String, usize>,
+    deformable_registration_sampling_directions: BTreeMap<String, usize>,
+    deformable_registration_grid_dimensions: BTreeMap<String, usize>,
+    deformable_registration_grid_resolutions: BTreeMap<String, usize>,
+    deformable_registration_vector_counts: BTreeMap<String, usize>,
+    deformable_registration_payload_sha256_values: BTreeMap<String, usize>,
+    deformable_registration_matrix_types: BTreeMap<String, usize>,
+    deformable_registration_reference_topologies: BTreeMap<String, usize>,
+    deformable_registration_mapping_summaries: BTreeMap<String, usize>,
     synthetic_data: BTreeMap<String, usize>,
     image_types: BTreeMap<String, usize>,
     conversion_types: BTreeMap<String, usize>,
@@ -21216,6 +21406,47 @@ impl GroupedCoverage {
                 .entry(absent.to_string())
                 .or_default() += 1;
         }
+        for (map, field) in [
+            (
+                &mut self.deformable_registration_sampling_directions,
+                "deformable_registration_sampling_direction",
+            ),
+            (
+                &mut self.deformable_registration_grid_dimensions,
+                "deformable_registration_grid_dimensions",
+            ),
+            (
+                &mut self.deformable_registration_grid_resolutions,
+                "deformable_registration_grid_resolution_mm",
+            ),
+            (
+                &mut self.deformable_registration_payload_sha256_values,
+                "deformable_registration_payload_sha256",
+            ),
+            (
+                &mut self.deformable_registration_matrix_types,
+                "deformable_registration_matrix_types",
+            ),
+            (
+                &mut self.deformable_registration_reference_topologies,
+                "deformable_registration_reference_topology",
+            ),
+            (
+                &mut self.deformable_registration_mapping_summaries,
+                "deformable_registration_mapping_summary",
+            ),
+        ] {
+            increment_map(map, row.get(field).and_then(Value::as_str));
+        }
+        if let Some(count) = row
+            .get("deformable_registration_vector_count")
+            .and_then(Value::as_u64)
+        {
+            *self
+                .deformable_registration_vector_counts
+                .entry(count.to_string())
+                .or_default() += 1;
+        }
         increment_map(
             &mut self.synthetic_data,
             row.get("synthetic_data").and_then(Value::as_str),
@@ -21768,6 +21999,38 @@ impl GroupedCoverage {
             (
                 "registration_landmark_mappings",
                 &self.registration_landmark_mappings,
+            ),
+            (
+                "deformable_registration_sampling_directions",
+                &self.deformable_registration_sampling_directions,
+            ),
+            (
+                "deformable_registration_grid_dimensions",
+                &self.deformable_registration_grid_dimensions,
+            ),
+            (
+                "deformable_registration_grid_resolutions",
+                &self.deformable_registration_grid_resolutions,
+            ),
+            (
+                "deformable_registration_vector_counts",
+                &self.deformable_registration_vector_counts,
+            ),
+            (
+                "deformable_registration_payload_sha256_values",
+                &self.deformable_registration_payload_sha256_values,
+            ),
+            (
+                "deformable_registration_matrix_types",
+                &self.deformable_registration_matrix_types,
+            ),
+            (
+                "deformable_registration_reference_topologies",
+                &self.deformable_registration_reference_topologies,
+            ),
+            (
+                "deformable_registration_mapping_summaries",
+                &self.deformable_registration_mapping_summaries,
             ),
         ] {
             grouped_object.insert(

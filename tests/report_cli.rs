@@ -5756,6 +5756,148 @@ fn spatial_registration_report_exposes_strict_json_groups_and_compact_markdown()
     fs::remove_dir_all(out_dir).expect("remove report root");
 }
 
+#[test]
+fn deformable_registration_report_exposes_exact_grid_contract() {
+    let out_dir = unique_temp_dir("report-deformable-registration");
+    generate_extended(&out_dir);
+    let manifest_path = out_dir.join("manifest.json");
+    let mut manifest: Value =
+        serde_json::from_slice(&fs::read(&manifest_path).expect("generated manifest"))
+            .expect("manifest JSON");
+    let deformable_generated = manifest["files"].as_array().is_some_and(|files| {
+        files
+            .iter()
+            .any(|file| file["case_id"] == Value::from("derived/registration/deformable_ct_pair"))
+    });
+    if !deformable_generated {
+        let mut fixture = manifest["files"]
+            .as_array()
+            .and_then(|files| {
+                files.iter().find(|file| {
+                    file["case_id"] == Value::from("derived/registration/spatial_ct_pair")
+                })
+            })
+            .cloned()
+            .expect("Spatial Registration fixture source");
+        fixture["case_id"] = json!("derived/registration/deformable_ct_pair");
+        fixture["expected_deformable_spatial_registration"] = json!({
+            "sampling_direction": "registered_to_source",
+            "grid": {
+                "dimensions": [2, 2, 1],
+                "resolution_mm": [0.75, 0.75, 2.5],
+                "vector_count": 4,
+                "payload_sha256": "d0673d2da1b415db6465047e607b7f16f1a886dfae4ede91764c71bf7df72f47"
+            }
+        });
+        manifest["files"]
+            .as_array_mut()
+            .expect("manifest files")
+            .push(fixture);
+        manifest["skipped_cases"]
+            .as_array_mut()
+            .expect("manifest skipped cases")
+            .retain(|case| {
+                case["case_id"] != Value::from("derived/registration/deformable_ct_pair")
+            });
+        fs::write(
+            &manifest_path,
+            serde_json::to_vec_pretty(&manifest).expect("serialize report fixture manifest"),
+        )
+        .expect("write report fixture manifest");
+    }
+
+    let report = dicom_test_suite::build_coverage_report(&out_dir)
+        .expect("Deformable Spatial Registration coverage report should build");
+    let schema: Value = serde_json::from_slice(
+        &fs::read("schemas/coverage-report.schema.json").expect("coverage schema"),
+    )
+    .expect("coverage schema JSON");
+    let validator = jsonschema::validator_for(&schema).expect("coverage schema should compile");
+    let errors = validator
+        .iter_errors(&report)
+        .map(|error| error.to_string())
+        .collect::<Vec<_>>();
+    assert!(
+        errors.is_empty(),
+        "deformable registration report must match schema: {errors:?}"
+    );
+
+    let row = coverage_row(&report, "derived/registration/deformable_ct_pair");
+    assert_eq!(
+        row["deformable_registration_sampling_direction"],
+        "registered_to_source"
+    );
+    assert_eq!(row["deformable_registration_grid_dimensions"], "2x2x1");
+    assert_eq!(
+        row["deformable_registration_grid_resolution_mm"],
+        "0.75\\0.75\\2.5"
+    );
+    assert_eq!(row["deformable_registration_vector_count"], 4);
+    assert_eq!(
+        row["deformable_registration_payload_sha256"],
+        "d0673d2da1b415db6465047e607b7f16f1a886dfae4ede91764c71bf7df72f47"
+    );
+    assert_eq!(
+        row["deformable_registration_matrix_types"],
+        "pre:RIGID; post:RIGID"
+    );
+    assert_eq!(
+        row["deformable_registration_reference_topology"],
+        "same_study_target+other_study_source"
+    );
+    assert_eq!(
+        row["deformable_registration_mapping_summary"],
+        "4 registered_to_source point mappings"
+    );
+    for pointer in [
+        "/grouped_coverage/deformable_registration_sampling_directions/registered_to_source",
+        "/grouped_coverage/deformable_registration_grid_dimensions/2x2x1",
+        "/grouped_coverage/deformable_registration_grid_resolutions/0.75\\0.75\\2.5",
+        "/grouped_coverage/deformable_registration_vector_counts/4",
+        "/grouped_coverage/deformable_registration_matrix_types/pre:RIGID; post:RIGID",
+        "/grouped_coverage/deformable_registration_reference_topologies/same_study_target+other_study_source",
+        "/grouped_coverage/deformable_registration_mapping_summaries/4 registered_to_source point mappings",
+    ] {
+        assert_eq!(report.pointer(pointer), Some(&Value::from(1)), "{pointer}");
+    }
+    assert_eq!(
+        report
+            .pointer("/grouped_coverage/deformable_registration_payload_sha256_values")
+            .and_then(Value::as_object)
+            .and_then(|hashes| hashes
+                .get("d0673d2da1b415db6465047e607b7f16f1a886dfae4ede91764c71bf7df72f47")),
+        Some(&Value::from(1))
+    );
+
+    let mut incomplete = report.clone();
+    coverage_row_mut(&mut incomplete, "derived/registration/deformable_ct_pair")["deformable_registration_vector_count"] =
+        Value::Null;
+    assert!(
+        !validator.is_valid(&incomplete),
+        "schema must reject a partial deformable registration report contract"
+    );
+    let mut leaked = report.clone();
+    coverage_row_mut(
+        &mut leaked,
+        "classic/ct/mono2_i16_rescale_12bit_explicit_le",
+    )["deformable_registration_grid_dimensions"] = json!("2x2x1");
+    assert!(
+        !validator.is_valid(&leaked),
+        "schema must reject deformable registration fields on unrelated rows"
+    );
+
+    let markdown = dicom_test_suite::render_coverage_report_markdown(&report);
+    assert!(markdown.contains("## Deformable Spatial Registration Expectations"));
+    assert!(markdown.contains("registered_to_source"));
+    assert!(markdown.contains("0.75\\0.75\\2.5"));
+    assert!(markdown.contains("pre:RIGID; post:RIGID"));
+    assert!(markdown.contains("4 registered_to_source point mappings"));
+    assert!(markdown.contains("### Deformable Registration Grid Dimensions"));
+    assert!(markdown.contains("| 2x2x1 | 1 |"));
+
+    fs::remove_dir_all(out_dir).expect("remove report root");
+}
+
 fn generate_core(out_dir: &Path) {
     let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
         .args([

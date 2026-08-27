@@ -280,6 +280,14 @@
         "registration_reference_relationships": { "$ref": "#/$defs/count_map" },
         "registration_pixel_data_absent_states": { "$ref": "#/$defs/count_map" },
         "registration_landmark_mappings": { "$ref": "#/$defs/count_map" },
+        "deformable_registration_sampling_directions": { "$ref": "#/$defs/count_map" },
+        "deformable_registration_grid_dimensions": { "$ref": "#/$defs/count_map" },
+        "deformable_registration_grid_resolutions": { "$ref": "#/$defs/count_map" },
+        "deformable_registration_vector_counts": { "$ref": "#/$defs/count_map" },
+        "deformable_registration_payload_sha256_values": { "$ref": "#/$defs/count_map" },
+        "deformable_registration_matrix_types": { "$ref": "#/$defs/count_map" },
+        "deformable_registration_reference_topologies": { "$ref": "#/$defs/count_map" },
+        "deformable_registration_mapping_summaries": { "$ref": "#/$defs/count_map" },
         "synthetic_data": {
           "$ref": "#/$defs/count_map"
         },
@@ -955,6 +963,14 @@
         "registration_reference_relationships",
         "registration_pixel_data_absent",
         "registration_landmark_mapping",
+        "deformable_registration_sampling_direction",
+        "deformable_registration_grid_dimensions",
+        "deformable_registration_grid_resolution_mm",
+        "deformable_registration_vector_count",
+        "deformable_registration_payload_sha256",
+        "deformable_registration_matrix_types",
+        "deformable_registration_reference_topology",
+        "deformable_registration_mapping_summary",
         "validation_status",
         "determinism",
         "object_type",
@@ -1672,6 +1688,31 @@
         "registration_landmark_mapping": {
           "enum": ["[-0.625, -0.625, 0] -> [0, 0, 2.5]", null]
         },
+        "deformable_registration_sampling_direction": {
+          "enum": ["registered_to_source", null]
+        },
+        "deformable_registration_grid_dimensions": {
+          "enum": ["2x2x1", null]
+        },
+        "deformable_registration_grid_resolution_mm": {
+          "enum": ["0.75\\0.75\\2.5", null]
+        },
+        "deformable_registration_vector_count": {
+          "type": ["integer", "null"],
+          "minimum": 1
+        },
+        "deformable_registration_payload_sha256": {
+          "anyOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }]
+        },
+        "deformable_registration_matrix_types": {
+          "enum": ["pre:RIGID; post:RIGID", null]
+        },
+        "deformable_registration_reference_topology": {
+          "enum": ["same_study_target+other_study_source", null]
+        },
+        "deformable_registration_mapping_summary": {
+          "enum": ["4 registered_to_source point mappings", null]
+        },
         "validation_status": {
           "$ref": "#/$defs/validation_status"
         },
@@ -2380,6 +2421,39 @@
               "registration_reference_relationships": { "type": "null" },
               "registration_pixel_data_absent": { "type": "null" },
               "registration_landmark_mapping": { "type": "null" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "case_id": { "const": "derived/registration/deformable_ct_pair" },
+              "status": { "const": "generated" }
+            },
+            "required": ["case_id", "status"]
+          },
+          "then": {
+            "properties": {
+              "deformable_registration_sampling_direction": { "const": "registered_to_source" },
+              "deformable_registration_grid_dimensions": { "const": "2x2x1" },
+              "deformable_registration_grid_resolution_mm": { "const": "0.75\\0.75\\2.5" },
+              "deformable_registration_vector_count": { "const": 4 },
+              "deformable_registration_payload_sha256": { "const": "d0673d2da1b415db6465047e607b7f16f1a886dfae4ede91764c71bf7df72f47" },
+              "deformable_registration_matrix_types": { "const": "pre:RIGID; post:RIGID" },
+              "deformable_registration_reference_topology": { "const": "same_study_target+other_study_source" },
+              "deformable_registration_mapping_summary": { "const": "4 registered_to_source point mappings" }
+            }
+          },
+          "else": {
+            "properties": {
+              "deformable_registration_sampling_direction": { "type": "null" },
+              "deformable_registration_grid_dimensions": { "type": "null" },
+              "deformable_registration_grid_resolution_mm": { "type": "null" },
+              "deformable_registration_vector_count": { "type": "null" },
+              "deformable_registration_payload_sha256": { "type": "null" },
+              "deformable_registration_matrix_types": { "type": "null" },
+              "deformable_registration_reference_topology": { "type": "null" },
+              "deformable_registration_mapping_summary": { "type": "null" }
             }
           }
         },

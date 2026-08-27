@@ -339,6 +339,35 @@
       ]
     },
     {
+      "id": "pydicom-dicom-validator-visible-light",
+      "role": "secondary_iod_validator",
+      "executable": "python",
+      "executable_env": "DTS_DICOM_VALIDATOR_PYTHON",
+      "arguments": ["-m", "dts_dicom_validator_adapter", "--lock-path", "conformance-backends/dicom-validator/standard-lock.json", "{input}"],
+      "version_arguments": ["-m", "dts_dicom_validator_adapter", "--version"],
+      "timeout_seconds": 60,
+      "required": false,
+      "platforms": ["linux", "macos", "windows"],
+      "supported_case_ids": ["vl/endoscopic/rgb_explicit_le", "vl/microscopic/rgb_explicit_le"],
+      "artifacts": [
+        {"path": "conformance-backends/dicom-validator/.python-version"},
+        {"path": "conformance-backends/dicom-validator/pyproject.toml"},
+        {"path": "conformance-backends/dicom-validator/uv.lock"},
+        {"path": "conformance-backends/dicom-validator/standard-lock.json"},
+        {"path": "conformance-backends/dicom-validator/src/dts_dicom_validator_adapter/__init__.py"},
+        {"path": "conformance-backends/dicom-validator/src/dts_dicom_validator_adapter/__main__.py"},
+        {"path": "2026b/docbook/part03.xml", "root_env": "DTS_DICOM_VALIDATOR_STANDARD_HOME"},
+        {"path": "2026b/docbook/part04.xml", "root_env": "DTS_DICOM_VALIDATOR_STANDARD_HOME"},
+        {"path": "2026b/docbook/part06.xml", "root_env": "DTS_DICOM_VALIDATOR_STANDARD_HOME"},
+        {"path": "2026b/json/dict_info.json", "root_env": "DTS_DICOM_VALIDATOR_STANDARD_HOME"},
+        {"path": "2026b/json/iod_info.json", "root_env": "DTS_DICOM_VALIDATOR_STANDARD_HOME"},
+        {"path": "2026b/json/module_info.json", "root_env": "DTS_DICOM_VALIDATOR_STANDARD_HOME"},
+        {"path": "2026b/json/uid_info.json", "root_env": "DTS_DICOM_VALIDATOR_STANDARD_HOME"},
+        {"path": "2026b/json/version", "root_env": "DTS_DICOM_VALIDATOR_STANDARD_HOME"}
+      ],
+      "capabilities": ["iod_validation", "normalized_findings", "dicom_2026b_definitions", "vl_endoscopic_iod_validation", "vl_microscopic_iod_validation"]
+    },
+    {
       "id": "dcmtk-dcmdump",
       "role": "independent_parser",
       "executable": "dcmdump",
@@ -434,6 +463,18 @@
       "platforms": ["linux", "macos", "windows"],
       "supported_case_ids": ["non-image/rt/image_linked"],
       "capabilities": ["native_rt_image_decode", "ascii_pgm_sample_evidence", "exact_native_ob_extraction"]
+    },
+    {
+      "id": "dcmtk-dcm2img-visible-light",
+      "role": "pixel_decoder",
+      "executable": "dcm2img",
+      "arguments": ["+F", "1", "-S", "-bs", "-M", "-W", "+Pid", "-O", "+opn", "8", "{input}", "{output}"],
+      "version_arguments": ["--version"],
+      "timeout_seconds": 60,
+      "required": false,
+      "platforms": ["linux", "macos", "windows"],
+      "supported_case_ids": ["vl/endoscopic/rgb_explicit_le", "vl/microscopic/rgb_explicit_le"],
+      "capabilities": ["native_rgb_planar0_decode", "binary_ppm_sample_evidence", "exact_native_ob_extraction"]
     },
     {
       "id": "dcmtk-dcmdjpeg",

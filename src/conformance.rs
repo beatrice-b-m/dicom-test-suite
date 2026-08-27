@@ -19,6 +19,8 @@ const PRESENTATION_STATE_SECONDARY_VALIDATOR_ID: &str =
     "pydicom-dicom-validator-presentation-state";
 const LINKED_RT_SECONDARY_VALIDATOR_ID: &str = "pydicom-dicom-validator-rt";
 const WAVEFORM_VALIDATOR_ID: &str = "pydicom-dicom-validator-waveform";
+const VISIBLE_LIGHT_SECONDARY_VALIDATOR_ID: &str = "pydicom-dicom-validator-visible-light";
+const VISIBLE_LIGHT_PIXEL_DECODER_ID: &str = "dcmtk-dcm2img-visible-light";
 
 pub fn verify_conformance(
     evidence_root: impl AsRef<Path>,
@@ -319,6 +321,20 @@ fn verify_completeness(evidence_root: &Path, evidence: &Value, failures: &mut Ve
                 .collect::<std::collections::BTreeSet<_>>()
         })
         .unwrap_or_default();
+    let required_visible_light_pixel_paths = manifest
+        .as_ref()
+        .and_then(|value| value["files"].as_array())
+        .map(|files| {
+            files
+                .iter()
+                .filter(|file| {
+                    file["case_id"] == "vl/endoscopic/rgb_explicit_le"
+                        || file["case_id"] == "vl/microscopic/rgb_explicit_le"
+                })
+                .filter_map(|file| file["path"].as_str())
+                .collect::<std::collections::BTreeSet<_>>()
+        })
+        .unwrap_or_default();
     let required_icc_paths = manifest
         .as_ref()
         .and_then(|value| value["files"].as_array())
@@ -542,6 +558,46 @@ fn verify_completeness(evidence_root: &Path, evidence: &Value, failures: &mut Ve
         } else if instance.get("waveform").is_some() {
             failures.push(format!("waveform payload evidence is out of scope: {path}"));
         }
+        if requires_visible_light_validation(case_id) {
+            let secondary_tool = evidence["tools"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .find(|tool| tool["adapter_id"] == VISIBLE_LIGHT_SECONDARY_VALIDATOR_ID);
+            if secondary_tool.is_none_or(|tool| {
+                tool["status"] != "available" || tool["lock_status"] != "matched"
+            }) {
+                failures.push(format!(
+                    "required visible-light secondary IOD validator is unavailable or unlocked for {path}"
+                ));
+            }
+            let secondary = instance["results"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .find(|result| {
+                    result["role"] == "secondary_iod_validator"
+                        && result["adapter_id"] == VISIBLE_LIGHT_SECONDARY_VALIDATOR_ID
+                });
+            if secondary.is_none_or(|result| {
+                result["status"] != "completed" || result["exit_code"].as_i64() != Some(0)
+            }) {
+                failures.push(format!(
+                    "required visible-light secondary IOD validation incomplete: {path}"
+                ));
+            }
+            if secondary.is_some_and(|result| {
+                result["findings"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .any(|finding| finding["severity"] == "error")
+            }) {
+                failures.push(format!(
+                    "required visible-light secondary IOD validation reported errors: {path}"
+                ));
+            }
+        }
         if requires_pixelmed_sr_validation(case_id) {
             let pixelmed_tool = evidence["tools"]
                 .as_array()
@@ -671,6 +727,31 @@ fn verify_completeness(evidence_root: &Path, evidence: &Value, failures: &mut Ve
                 .find(|file| file["path"] == path);
             if let Some(manifest_file) = manifest_file {
                 verify_rt_image_pixel_evidence(
+                    evidence_root,
+                    evidence,
+                    instance,
+                    manifest_file,
+                    failures,
+                );
+            }
+        }
+        if required_visible_light_pixel_paths.contains(path)
+            && (instance["pixel"]["status"] != "passed"
+                || instance["pixel"]["independence"] != "independent")
+        {
+            failures.push(format!(
+                "independent visible-light RGB pixel evidence failed: {path}"
+            ));
+        }
+        if required_visible_light_pixel_paths.contains(path) {
+            let manifest_file = manifest
+                .as_ref()
+                .and_then(|value| value["files"].as_array())
+                .into_iter()
+                .flatten()
+                .find(|file| file["path"] == path);
+            if let Some(manifest_file) = manifest_file {
+                verify_visible_light_pixel_evidence(
                     evidence_root,
                     evidence,
                     instance,
@@ -1223,6 +1304,112 @@ fn verify_rt_image_pixel_evidence(
     }
 }
 
+fn verify_visible_light_pixel_evidence(
+    evidence_root: &Path,
+    evidence: &Value,
+    instance: &Value,
+    manifest_file: &Value,
+    failures: &mut Vec<String>,
+) {
+    let path = instance["path"].as_str().unwrap_or("unknown");
+    let Some(relative) = instance
+        .pointer("/pixel/evidence/path")
+        .and_then(Value::as_str)
+    else {
+        failures.push(format!(
+            "visible-light pixel evidence sidecar is missing: {path}"
+        ));
+        return;
+    };
+    if validate_relative_path(relative).is_err() {
+        failures.push(format!(
+            "visible-light pixel evidence sidecar path is unsafe: {path}"
+        ));
+        return;
+    }
+    let Ok(bytes) = fs::read(evidence_root.join(relative)) else {
+        failures.push(format!(
+            "visible-light pixel evidence sidecar is unavailable: {path}"
+        ));
+        return;
+    };
+    let Ok(sidecar) = serde_json::from_slice::<Value>(&bytes) else {
+        failures.push(format!(
+            "visible-light pixel evidence sidecar is invalid JSON: {path}"
+        ));
+        return;
+    };
+    let decoder = evidence["tools"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .find(|tool| tool["adapter_id"] == VISIBLE_LIGHT_PIXEL_DECODER_ID);
+    let parser = evidence["tools"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .find(|tool| tool["adapter_id"] == "dcmtk-dcmdump");
+    let expected_hashes = manifest_file
+        .pointer("/pixel_data/frame_hashes")
+        .cloned()
+        .unwrap_or(Value::Null);
+    let expected_hash = expected_hashes
+        .as_array()
+        .and_then(|hashes| hashes.first())
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    let linked = sidecar["adapter_id"] == VISIBLE_LIGHT_PIXEL_DECODER_ID
+        && sidecar["decoder_sha256"].as_str() == decoder.and_then(|tool| tool["sha256"].as_str())
+        && sidecar["parser_sha256"].as_str() == parser.and_then(|tool| tool["sha256"].as_str())
+        && decoder
+            .is_some_and(|tool| tool["status"] == "available" && tool["lock_status"] == "matched")
+        && parser
+            .is_some_and(|tool| tool["status"] == "available" && tool["lock_status"] == "matched")
+        && sidecar["independence"] == "independent"
+        && sidecar["extraction_method"] == "dcmtk_dcm2img_p6_and_dcmdump_single_native_rgb_ob"
+        && sidecar["status"] == "passed"
+        && sidecar["source_instance_sha256"] == manifest_file["sha256"]
+        && sidecar["expected_frame_hashes"] == expected_hashes
+        && sidecar["actual_frame_hashes"] == instance["pixel"]["actual_frame_hashes"]
+        && sidecar["actual_frame_hashes"] == expected_hashes
+        && sidecar["rows"] == 2
+        && sidecar["columns"] == 2
+        && sidecar["frames"] == 1
+        && sidecar["samples_per_pixel"] == 3
+        && sidecar["photometric_interpretation"] == "RGB"
+        && sidecar["planar_configuration"] == 0
+        && sidecar["bits_allocated"] == 8
+        && sidecar["bits_stored"] == 8
+        && sidecar["high_bit"] == 7
+        && sidecar["pixel_representation"] == 0
+        && sidecar["max_value"] == 255
+        && sidecar["decoded_length_bytes"] == 12
+        && sidecar["decoded_pixels_sha256"] == expected_hash
+        && sidecar["raw_value_file_count"] == 1
+        && sidecar["raw_value_length_bytes"] == 12
+        && sidecar["raw_value_vr"] == "OB"
+        && sidecar["raw_value_sha256"] == expected_hash
+        && manifest_file
+            .pointer("/pixel_data/value_length")
+            .and_then(Value::as_u64)
+            == Some(12)
+        && manifest_file
+            .pointer("/expected_vl_single_frame/image/rows")
+            .and_then(Value::as_u64)
+            == Some(2)
+        && manifest_file
+            .pointer("/expected_vl_single_frame/image/columns")
+            .and_then(Value::as_u64)
+            == Some(2)
+        && manifest_file
+            .pointer("/expected_vl_single_frame/image/planar_configuration")
+            .and_then(Value::as_u64)
+            == Some(0);
+    if !linked {
+        failures.push(format!("visible-light pixel evidence sidecar is not linked to its locked tools and source manifest: {path}"));
+    }
+}
+
 fn verify_icc_profile_evidence(
     evidence_root: &Path,
     evidence: &Value,
@@ -1605,6 +1792,13 @@ fn requires_waveform_validation(case_id: &str) -> bool {
     matches!(
         case_id,
         "non-image/waveform/twelve_lead_ecg" | "non-image/waveform/general_ecg"
+    )
+}
+
+fn requires_visible_light_validation(case_id: &str) -> bool {
+    matches!(
+        case_id,
+        "vl/endoscopic/rgb_explicit_le" | "vl/microscopic/rgb_explicit_le"
     )
 }
 
@@ -2287,6 +2481,22 @@ fn collect_pixel_result(
             expected,
         );
     }
+    if file
+        .get("case_id")
+        .and_then(Value::as_str)
+        .is_some_and(requires_visible_light_validation)
+    {
+        return collect_visible_light_pixel_result(
+            generated_root,
+            evidence_root,
+            file,
+            relative_input,
+            stable_key,
+            adapters,
+            tools,
+            expected,
+        );
+    }
     if file.get("case_id").and_then(Value::as_str) == Some("classic/sc/nonsquare_pixel_spacing") {
         return collect_nonsquare_spacing_result(
             generated_root,
@@ -2873,6 +3083,221 @@ fn collect_rt_image_pixel_result(
         "expected_frame_hashes": sidecar["expected_frame_hashes"],
         "actual_frame_hashes": sidecar["actual_frame_hashes"],
         "reason": if passed { "DCMTK independently decoded the linked RT Image and extracted its single exact native OB value" } else { "DCMTK linked RT Image decode or native OB extraction failed" },
+        "evidence": { "path": relative, "sha256": sha256_hex(&encoded) }
+    }))
+}
+
+fn parse_binary_ppm(path: &Path) -> Result<(usize, usize, u16, Vec<u8>), String> {
+    let source = fs::read(path).map_err(|error| error.to_string())?;
+    let mut index = 0usize;
+    let mut tokens = Vec::new();
+    while tokens.len() < 4 {
+        while index < source.len() && source[index].is_ascii_whitespace() {
+            index += 1;
+        }
+        if index < source.len() && source[index] == b'#' {
+            while index < source.len() && source[index] != b'\n' {
+                index += 1;
+            }
+            continue;
+        }
+        let start = index;
+        while index < source.len() && !source[index].is_ascii_whitespace() {
+            index += 1;
+        }
+        if start == index {
+            return Err("binary PPM header is incomplete".to_string());
+        }
+        tokens.push(std::str::from_utf8(&source[start..index]).map_err(|e| e.to_string())?);
+    }
+    if tokens[0] != "P6" {
+        return Err("DCMTK visible-light output is not a binary P6 PPM".to_string());
+    }
+    let columns = tokens[1].parse::<usize>().map_err(|e| e.to_string())?;
+    let rows = tokens[2].parse::<usize>().map_err(|e| e.to_string())?;
+    let max_value = tokens[3].parse::<u16>().map_err(|e| e.to_string())?;
+    if index >= source.len() || !source[index].is_ascii_whitespace() {
+        return Err("binary PPM header has no payload separator".to_string());
+    }
+    if source[index] == b'\r' && source.get(index + 1) == Some(&b'\n') {
+        index += 2;
+    } else {
+        index += 1;
+    }
+    Ok((columns, rows, max_value, source[index..].to_vec()))
+}
+
+#[allow(clippy::too_many_arguments)]
+fn collect_visible_light_pixel_result(
+    generated_root: &Path,
+    evidence_root: &Path,
+    file: &Value,
+    relative_input: &str,
+    stable_key: &str,
+    adapters: &[Value],
+    tools: &[Value],
+    expected: Vec<Value>,
+) -> Result<Value, String> {
+    let adapter_id = VISIBLE_LIGHT_PIXEL_DECODER_ID;
+    let unsupported = |reason: &str| pixel_unsupported(expected.clone(), "independent", reason);
+    let Some(adapter) = adapters.iter().find(|adapter| adapter["id"] == adapter_id) else {
+        return Ok(unsupported(
+            "The independent DCMTK visible-light decoder is not configured",
+        ));
+    };
+    let Some(tool) = tools.iter().find(|tool| tool["adapter_id"] == adapter_id) else {
+        return Ok(unsupported(
+            "The independent DCMTK visible-light decoder was not discovered",
+        ));
+    };
+    if tool["status"] != "available" {
+        return Ok(unsupported(
+            "The independent DCMTK visible-light decoder is unavailable",
+        ));
+    }
+    let parser_tool = tools
+        .iter()
+        .find(|tool| tool["adapter_id"] == "dcmtk-dcmdump" && tool["status"] == "available")
+        .ok_or_else(|| "visible-light pixel evidence requires locked dcmdump".to_string())?;
+    let decoder = tool["executable"]
+        .as_str()
+        .ok_or_else(|| "available visible-light decoder has no executable".to_string())?;
+    let dcmdump = parser_tool["executable"]
+        .as_str()
+        .ok_or_else(|| "available dcmdump parser has no executable".to_string())?;
+    let input = generated_root.join(relative_input);
+    let work_dir = conformance_work_dir("dts-visible-light-pixel", evidence_root, stable_key);
+    fs::create_dir_all(&work_dir).map_err(|error| error.to_string())?;
+    let output = work_dir.join("image.ppm");
+    let arguments = string_array(adapter, "arguments")?
+        .into_iter()
+        .map(|argument| {
+            argument
+                .replace("{input}", &input.display().to_string())
+                .replace("{output}", &output.display().to_string())
+        })
+        .collect::<Vec<_>>();
+    let decode = run_with_timeout(
+        Path::new(decoder),
+        &arguments,
+        Duration::from_secs(adapter["timeout_seconds"].as_u64().unwrap_or(60)),
+    )?;
+    let extraction_args = vec![
+        "+W".to_string(),
+        work_dir.display().to_string(),
+        input.display().to_string(),
+    ];
+    let extraction = run_with_timeout(
+        Path::new(dcmdump),
+        &extraction_args,
+        Duration::from_secs(30),
+    )?;
+    let parsed = parse_binary_ppm(&output).ok();
+    let decoded = parsed
+        .as_ref()
+        .map(|(_, _, _, bytes)| bytes.clone())
+        .unwrap_or_default();
+    let decoded_hash = (!decoded.is_empty()).then(|| sha256_hex(&decoded));
+    let expected_hash = expected.first().and_then(Value::as_str).unwrap_or("");
+    let ppm_valid = parsed
+        .as_ref()
+        .is_some_and(|(columns, rows, max_value, bytes)| {
+            *columns == 2 && *rows == 2 && *max_value == 255 && bytes.len() == 12
+        });
+    let raw_paths = fs::read_dir(&work_dir)
+        .ok()
+        .into_iter()
+        .flatten()
+        .filter_map(Result::ok)
+        .map(|entry| entry.path())
+        .filter(|path| path.extension().and_then(|v| v.to_str()) == Some("raw"))
+        .collect::<Vec<_>>();
+    let raw = (raw_paths.len() == 1)
+        .then(|| fs::read(&raw_paths[0]).ok())
+        .flatten();
+    let raw_hash = raw.as_ref().map(|bytes| sha256_hex(bytes));
+    let actual_hashes = decoded_hash.iter().cloned().collect::<Vec<_>>();
+    let manifest_eligible =
+        requires_visible_light_validation(file["case_id"].as_str().unwrap_or(""))
+            && file.pointer("/image/rows").and_then(Value::as_u64) == Some(2)
+            && file.pointer("/image/columns").and_then(Value::as_u64) == Some(2)
+            && file.pointer("/image/frames").and_then(Value::as_u64) == Some(1)
+            && file
+                .pointer("/image/samples_per_pixel")
+                .and_then(Value::as_u64)
+                == Some(3)
+            && file
+                .pointer("/image/photometric_interpretation")
+                .and_then(Value::as_str)
+                == Some("RGB")
+            && file
+                .pointer("/image/planar_configuration")
+                .and_then(Value::as_u64)
+                == Some(0)
+            && file
+                .pointer("/image/bits_allocated")
+                .and_then(Value::as_u64)
+                == Some(8)
+            && file.pointer("/image/bits_stored").and_then(Value::as_u64) == Some(8)
+            && file.pointer("/image/high_bit").and_then(Value::as_u64) == Some(7)
+            && file
+                .pointer("/image/pixel_representation")
+                .and_then(Value::as_u64)
+                == Some(0)
+            && file.pointer("/pixel_data/vr").and_then(Value::as_str) == Some("OB")
+            && file
+                .pointer("/pixel_data/native_or_encapsulated")
+                .and_then(Value::as_str)
+                == Some("native")
+            && file
+                .pointer("/pixel_data/value_length")
+                .and_then(Value::as_u64)
+                == Some(12)
+            && expected.len() == 1
+            && !expected_hash.is_empty();
+    let passed = manifest_eligible
+        && decode.exit_code == Some(0)
+        && !decode.timed_out
+        && extraction.exit_code == Some(0)
+        && !extraction.timed_out
+        && ppm_valid
+        && decoded_hash.as_deref() == Some(expected_hash)
+        && raw_paths.len() == 1
+        && raw.as_ref().is_some_and(|bytes| bytes.len() == 12)
+        && raw_hash.as_deref() == Some(expected_hash);
+    let sidecar = json!({
+        "adapter_id": adapter_id, "decoder_sha256": tool["sha256"], "parser_sha256": parser_tool["sha256"],
+        "independence": "independent", "extraction_method": "dcmtk_dcm2img_p6_and_dcmdump_single_native_rgb_ob",
+        "source_instance_sha256": file["sha256"], "invocation": std::iter::once(decoder.to_string()).chain(arguments.iter().cloned()).collect::<Vec<_>>(),
+        "decode_exit_code": decode.exit_code, "decode_timed_out": decode.timed_out,
+        "extraction_invocation": std::iter::once(dcmdump.to_string()).chain(extraction_args.iter().cloned()).collect::<Vec<_>>(),
+        "extraction_exit_code": extraction.exit_code, "extraction_timed_out": extraction.timed_out,
+        "rows": 2, "columns": 2, "frames": 1, "samples_per_pixel": 3, "photometric_interpretation": "RGB",
+        "planar_configuration": 0, "bits_allocated": 8, "bits_stored": 8, "high_bit": 7, "pixel_representation": 0,
+        "max_value": 255, "decoded_length_bytes": decoded.len(), "decoded_pixels_sha256": decoded_hash,
+        "raw_value_file_count": raw_paths.len(), "raw_value_length_bytes": raw.as_ref().map(Vec::len), "raw_value_vr": "OB", "raw_value_sha256": raw_hash,
+        "expected_frame_hashes": expected, "actual_frame_hashes": actual_hashes,
+        "status": if passed { "passed" } else { "failed" }
+    });
+    let relative = format!("pixels/{adapter_id}/{stable_key}.json");
+    let target = evidence_root.join(&relative);
+    if let Some(parent) = target.parent() {
+        fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
+    let encoded = serde_json::to_vec_pretty(&sidecar).map_err(|e| e.to_string())?;
+    fs::write(&target, &encoded).map_err(|e| e.to_string())?;
+    if let Ok(entries) = fs::read_dir(&work_dir) {
+        for path in entries.filter_map(Result::ok).map(|entry| entry.path()) {
+            if path.is_file() {
+                let _ = fs::remove_file(path);
+            }
+        }
+    }
+    let _ = fs::remove_dir(&work_dir);
+    Ok(json!({
+        "status": if passed { "passed" } else { "failed" }, "independence": "independent",
+        "expected_frame_hashes": sidecar["expected_frame_hashes"], "actual_frame_hashes": sidecar["actual_frame_hashes"],
+        "reason": if passed { "DCMTK independently reconstructed the exact P6 RGB samples and native OB value" } else { "DCMTK visible-light P6 decode or native OB extraction failed" },
         "evidence": { "path": relative, "sha256": sha256_hex(&encoded) }
     }))
 }
@@ -3843,6 +4268,142 @@ fn parse_dcmdump_icc(output: &[u8]) -> (Vec<u8>, String) {
         }
     }
     (profile, color_space)
+}
+
+#[cfg(test)]
+mod visible_light_tests {
+    use super::*;
+
+    #[test]
+    fn visible_light_routes_are_exact_case_scoped() {
+        assert!(requires_visible_light_validation(
+            "vl/endoscopic/rgb_explicit_le"
+        ));
+        assert!(requires_visible_light_validation(
+            "vl/microscopic/rgb_explicit_le"
+        ));
+        for unrelated in [
+            "vl/photo/rgb_planar0_explicit_le",
+            "classic/sc/rgb_planar0_explicit_le",
+            "vl/wsi/tiled_full",
+        ] {
+            assert!(!requires_visible_light_validation(unrelated));
+        }
+    }
+
+    #[test]
+    fn binary_ppm_parser_preserves_exact_rgb_bytes() {
+        let root = std::env::temp_dir().join(format!("dts-p6-{}", std::process::id()));
+        let pixels = [0_u8, 1, 2, 10, 20, 30, 40, 50, 60, 253, 254, 255];
+        let mut ppm = b"P6\n# dcmtk fixture\n2 2\n255\n".to_vec();
+        ppm.extend_from_slice(&pixels);
+        fs::write(&root, ppm).expect("write P6 fixture");
+        let parsed = parse_binary_ppm(&root).expect("valid P6");
+        assert_eq!((parsed.0, parsed.1, parsed.2), (2, 2, 255));
+        assert_eq!(parsed.3, pixels);
+        let _ = fs::remove_file(root);
+    }
+
+    #[test]
+    fn binary_ppm_parser_rejects_ascii_or_truncated_headers() {
+        let root = std::env::temp_dir().join(format!("dts-p6-bad-{}", std::process::id()));
+        fs::write(&root, b"P3\n2 2\n255\n0 0 0").expect("write P3 fixture");
+        assert!(parse_binary_ppm(&root).is_err());
+        fs::write(&root, b"P6\n2").expect("write truncated fixture");
+        assert!(parse_binary_ppm(&root).is_err());
+        let _ = fs::remove_file(root);
+    }
+
+    #[test]
+    fn visible_light_pixel_evidence_is_bound_to_both_tools_and_manifest() {
+        let root = std::env::temp_dir().join(format!(
+            "dts-vl-sidecar-{}-{:?}",
+            std::process::id(),
+            std::thread::current().id()
+        ));
+        fs::create_dir_all(root.join("pixels")).expect("create evidence fixture");
+        let frame_hash = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+        let sidecar = json!({
+            "adapter_id": VISIBLE_LIGHT_PIXEL_DECODER_ID,
+            "decoder_sha256": "decoder-hash",
+            "parser_sha256": "parser-hash",
+            "independence": "independent",
+            "extraction_method": "dcmtk_dcm2img_p6_and_dcmdump_single_native_rgb_ob",
+            "status": "passed",
+            "source_instance_sha256": "source-hash",
+            "expected_frame_hashes": [frame_hash],
+            "actual_frame_hashes": [frame_hash],
+            "rows": 2,
+            "columns": 2,
+            "frames": 1,
+            "samples_per_pixel": 3,
+            "photometric_interpretation": "RGB",
+            "planar_configuration": 0,
+            "bits_allocated": 8,
+            "bits_stored": 8,
+            "high_bit": 7,
+            "pixel_representation": 0,
+            "max_value": 255,
+            "decoded_length_bytes": 12,
+            "decoded_pixels_sha256": frame_hash,
+            "raw_value_file_count": 1,
+            "raw_value_length_bytes": 12,
+            "raw_value_vr": "OB",
+            "raw_value_sha256": frame_hash
+        });
+        fs::write(
+            root.join("pixels/vl.json"),
+            serde_json::to_vec(&sidecar).unwrap(),
+        )
+        .expect("write sidecar fixture");
+        let evidence = json!({
+            "tools": [
+                {"adapter_id": VISIBLE_LIGHT_PIXEL_DECODER_ID, "status": "available", "lock_status": "matched", "sha256": "decoder-hash"},
+                {"adapter_id": "dcmtk-dcmdump", "status": "available", "lock_status": "matched", "sha256": "parser-hash"}
+            ]
+        });
+        let instance = json!({
+            "path": "vl/endoscopic/rgb_explicit_le.dcm",
+            "pixel": {
+                "actual_frame_hashes": [frame_hash],
+                "evidence": {"path": "pixels/vl.json"}
+            }
+        });
+        let manifest_file = json!({
+            "sha256": "source-hash",
+            "pixel_data": {"value_length": 12, "frame_hashes": [frame_hash]},
+            "expected_vl_single_frame": {"image": {"rows": 2, "columns": 2, "planar_configuration": 0}}
+        });
+        let mut failures = Vec::new();
+        verify_visible_light_pixel_evidence(
+            &root,
+            &evidence,
+            &instance,
+            &manifest_file,
+            &mut failures,
+        );
+        assert_eq!(failures, Vec::<String>::new());
+
+        let mut corrupt = sidecar;
+        corrupt["raw_value_sha256"] =
+            json!("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
+        fs::write(
+            root.join("pixels/vl.json"),
+            serde_json::to_vec(&corrupt).unwrap(),
+        )
+        .expect("write corrupt sidecar fixture");
+        verify_visible_light_pixel_evidence(
+            &root,
+            &evidence,
+            &instance,
+            &manifest_file,
+            &mut failures,
+        );
+        assert_eq!(failures.len(), 1);
+        let _ = fs::remove_file(root.join("pixels/vl.json"));
+        let _ = fs::remove_dir(root.join("pixels"));
+        let _ = fs::remove_dir(root);
+    }
 }
 
 fn parse_transicc_xyz(output: &[u8]) -> Vec<Vec<f64>> {

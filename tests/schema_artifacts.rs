@@ -1796,6 +1796,199 @@ fn manifest_schema_locks_float64_parametric_map_pixel_contract() {
 }
 
 #[test]
+fn manifest_schema_types_tid1500_expectations() {
+    let schema = read_json("schemas/manifest.schema.json");
+    let expectation_schema = serde_json::json!({
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$ref": "#/$defs/expected_tid1500",
+        "$defs": schema["$defs"].clone(),
+    });
+    let validator = jsonschema::validator_for(&expectation_schema)
+        .expect("TID 1500 expectation schema should compile");
+    let expectation = tid1500_expectation();
+    assert!(
+        validator.is_valid(&expectation),
+        "the locked TID 1500 semantic contract should pass"
+    );
+
+    let mut wrong_template = expectation.clone();
+    wrong_template["root_template"]["template_identifier"] = serde_json::json!("1501");
+    assert!(!validator.is_valid(&wrong_template));
+
+    let mut wrong_measurement = expectation.clone();
+    wrong_measurement["measurement_group"]["measurement"]["numeric_value"] =
+        serde_json::json!("5.624");
+    assert!(!validator.is_valid(&wrong_measurement));
+
+    let mut segment_frames = expectation.clone();
+    segment_frames["measurement_group"]["referenced_segment"]
+        ["referenced_frame_numbers"] = serde_json::json!([1, 2]);
+    assert!(
+        !validator.is_valid(&segment_frames),
+        "the all-frames segment reference must omit Referenced Frame Number"
+    );
+
+    let mut reversed_evidence = expectation.clone();
+    reversed_evidence["evidence"]
+        .as_array_mut()
+        .expect("evidence should be an array")
+        .reverse();
+    assert!(
+        !validator.is_valid(&reversed_evidence),
+        "evidence order must remain CT then SEG"
+    );
+
+    let mut unexpected = expectation;
+    unexpected["image_library"] = serde_json::json!(true);
+    assert!(
+        !validator.is_valid(&unexpected),
+        "the deliberately omitted image library must not enter the contract"
+    );
+}
+
+#[test]
+fn manifest_schema_requires_tid1500_contract_for_tid1500_case() {
+    let schema = read_json("schemas/manifest.schema.json");
+    let rule = schema
+        .pointer("/$defs/file/allOf")
+        .and_then(Value::as_array)
+        .expect("file schema should define case conditionals")
+        .iter()
+        .find(|rule| {
+            rule.pointer("/if/properties/case_id/const")
+                .and_then(Value::as_str)
+                == Some("derived/sr/tid1500_ct_measurement_report")
+        })
+        .expect("manifest schema should define the TID 1500 case conditional");
+
+    let required = rule
+        .pointer("/then/required")
+        .and_then(Value::as_array)
+        .expect("TID 1500 conditional should require specialized fields");
+    for field in ["generation_backend", "expected_tid1500"] {
+        assert!(
+            required.iter().any(|value| value.as_str() == Some(field)),
+            "TID 1500 conditional must require {field}"
+        );
+    }
+    for (pointer, expected) in [
+        (
+            "/then/properties/dicom/properties/sop_class_uid/const",
+            serde_json::json!("1.2.840.10008.5.1.4.1.1.88.34"),
+        ),
+        (
+            "/then/properties/dicom/properties/iod_name/const",
+            serde_json::json!("Comprehensive 3D SR"),
+        ),
+        (
+            "/then/properties/dicom/properties/modality/const",
+            serde_json::json!("SR"),
+        ),
+    ] {
+        assert_eq!(rule.pointer(pointer), Some(&expected));
+    }
+    assert_eq!(
+        rule.pointer("/then/properties/image/type")
+            .and_then(Value::as_str),
+        Some("null")
+    );
+    assert_eq!(
+        rule.pointer("/then/properties/pixel_data/type")
+            .and_then(Value::as_str),
+        Some("null")
+    );
+}
+
+fn tid1500_expectation() -> Value {
+    serde_json::json!({
+        "completion_flag": "COMPLETE",
+        "preliminary_flag": "FINAL",
+        "verification_flag": "UNVERIFIED",
+        "root_template": {
+            "mapping_resource": "DCMR",
+            "template_identifier": "1500"
+        },
+        "document_title": {
+            "code_value": "126000",
+            "coding_scheme_designator": "DCM",
+            "code_meaning": "Imaging Measurement Report"
+        },
+        "observation_context": {
+            "observer_type": "DEVICE",
+            "device_observer_uid": "1.2.826.0.1.3680043.10.543.1"
+        },
+        "procedure_reported": {
+            "code_value": "25045-6",
+            "coding_scheme_designator": "LN",
+            "code_meaning": "CT unspecified body region"
+        },
+        "imaging_measurements": {
+            "code_value": "126010",
+            "coding_scheme_designator": "DCM",
+            "code_meaning": "Imaging Measurements"
+        },
+        "measurement_group": {
+            "container": {
+                "code_value": "125007",
+                "coding_scheme_designator": "DCM",
+                "code_meaning": "Measurement Group"
+            },
+            "tracking_identifier": "DTS-TID1500-ROI-1",
+            "tracking_uid": "1.2.826.0.1.3680043.10.543.2",
+            "finding": {
+                "code_value": "123037004",
+                "coding_scheme_designator": "SCT",
+                "code_meaning": "Body structure"
+            },
+            "referenced_segment": {
+                "source_case_id": "derived/seg/binary_multiframe_explicit_le",
+                "sop_class_uid": "1.2.840.10008.5.1.4.1.1.66.4",
+                "sop_instance_uid": "1.2.826.0.1.3680043.10.543.3",
+                "series_instance_uid": "1.2.826.0.1.3680043.10.543.30",
+                "segment_number": 1,
+                "referenced_frame_numbers": null,
+                "source_image": {
+                    "source_case_id": "enhanced/ct/multiframe_shared_perframe_explicit_le",
+                    "sop_class_uid": "1.2.840.10008.5.1.4.1.1.2.1",
+                    "sop_instance_uid": "1.2.826.0.1.3680043.10.543.4",
+                    "series_instance_uid": "1.2.826.0.1.3680043.10.543.40",
+                    "referenced_frame_numbers": [1, 2]
+                }
+            },
+            "measurement": {
+                "name": {
+                    "code_value": "118565006",
+                    "coding_scheme_designator": "SCT",
+                    "code_meaning": "Volume"
+                },
+                "numeric_value": "5.625",
+                "units": {
+                    "code_value": "mm3",
+                    "coding_scheme_designator": "UCUM",
+                    "code_meaning": "cubic millimeter"
+                }
+            }
+        },
+        "evidence": [
+            {
+                "role": "source_image",
+                "source_case_id": "enhanced/ct/multiframe_shared_perframe_explicit_le",
+                "sop_class_uid": "1.2.840.10008.5.1.4.1.1.2.1",
+                "sop_instance_uid": "1.2.826.0.1.3680043.10.543.4",
+                "series_instance_uid": "1.2.826.0.1.3680043.10.543.40"
+            },
+            {
+                "role": "referenced_segmentation",
+                "source_case_id": "derived/seg/binary_multiframe_explicit_le",
+                "sop_class_uid": "1.2.840.10008.5.1.4.1.1.66.4",
+                "sop_instance_uid": "1.2.826.0.1.3680043.10.543.3",
+                "series_instance_uid": "1.2.826.0.1.3680043.10.543.30"
+            }
+        ]
+    })
+}
+
+#[test]
 fn case_registry_schema_requires_the_specified_case_fields() {
     let schema = read_json("schemas/case-registry.schema.json");
     let required = schema

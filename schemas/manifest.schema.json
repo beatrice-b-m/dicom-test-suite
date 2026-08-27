@@ -331,6 +331,9 @@
         "expected_nonsquare_spacing": {
           "$ref": "#/$defs/expected_nonsquare_spacing"
         },
+        "expected_tid1500": {
+          "$ref": "#/$defs/expected_tid1500"
+        },
         "expected_geometry": {
           "anyOf": [
             { "$ref": "#/$defs/expected_geometry" },
@@ -538,6 +541,30 @@
                   "frame_count": { "const": 3 }
                 }
               }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "case_id": { "const": "derived/sr/tid1500_ct_measurement_report" }
+            },
+            "required": ["case_id"]
+          },
+          "then": {
+            "required": ["generation_backend", "expected_tid1500"],
+            "properties": {
+              "dicom": {
+                "properties": {
+                  "sop_class_uid": { "const": "1.2.840.10008.5.1.4.1.1.88.34" },
+                  "sop_class_name": { "const": "Comprehensive 3D SR Storage" },
+                  "iod_name": { "const": "Comprehensive 3D SR" },
+                  "modality": { "const": "SR" },
+                  "transfer_syntax_uid": { "const": "1.2.840.10008.1.2.1" }
+                }
+              },
+              "image": { "type": "null" },
+              "pixel_data": { "type": "null" }
             }
           }
         },
@@ -1460,6 +1487,282 @@
         "code_value": { "type": "string" },
         "coding_scheme_designator": { "type": "string" },
         "code_meaning": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "expected_tid1500_code": {
+      "type": "object",
+      "required": ["code_value", "coding_scheme_designator", "code_meaning"],
+      "properties": {
+        "code_value": { "type": "string", "minLength": 1 },
+        "coding_scheme_designator": { "type": "string", "minLength": 1 },
+        "code_meaning": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "expected_tid1500": {
+      "type": "object",
+      "required": [
+        "completion_flag",
+        "preliminary_flag",
+        "verification_flag",
+        "root_template",
+        "document_title",
+        "observation_context",
+        "procedure_reported",
+        "imaging_measurements",
+        "measurement_group",
+        "evidence"
+      ],
+      "properties": {
+        "completion_flag": { "const": "COMPLETE" },
+        "preliminary_flag": { "const": "FINAL" },
+        "verification_flag": { "const": "UNVERIFIED" },
+        "root_template": {
+          "type": "object",
+          "required": ["mapping_resource", "template_identifier"],
+          "properties": {
+            "mapping_resource": { "const": "DCMR" },
+            "template_identifier": { "const": "1500" }
+          },
+          "additionalProperties": false
+        },
+        "document_title": {
+          "allOf": [
+            { "$ref": "#/$defs/expected_tid1500_code" },
+            {
+              "properties": {
+                "code_value": { "const": "126000" },
+                "coding_scheme_designator": { "const": "DCM" },
+                "code_meaning": { "const": "Imaging Measurement Report" }
+              }
+            }
+          ]
+        },
+        "observation_context": {
+          "type": "object",
+          "required": ["observer_type", "device_observer_uid"],
+          "properties": {
+            "observer_type": { "const": "DEVICE" },
+            "device_observer_uid": {
+              "type": "string",
+              "pattern": "^[0-9]+(?:\\.[0-9]+)+$"
+            }
+          },
+          "additionalProperties": false
+        },
+        "procedure_reported": {
+          "allOf": [
+            { "$ref": "#/$defs/expected_tid1500_code" },
+            {
+              "properties": {
+                "code_value": { "const": "25045-6" },
+                "coding_scheme_designator": { "const": "LN" },
+                "code_meaning": { "const": "CT unspecified body region" }
+              }
+            }
+          ]
+        },
+        "imaging_measurements": {
+          "allOf": [
+            { "$ref": "#/$defs/expected_tid1500_code" },
+            {
+              "properties": {
+                "code_value": { "const": "126010" },
+                "coding_scheme_designator": { "const": "DCM" },
+                "code_meaning": { "const": "Imaging Measurements" }
+              }
+            }
+          ]
+        },
+        "measurement_group": {
+          "type": "object",
+          "required": [
+            "container",
+            "tracking_identifier",
+            "tracking_uid",
+            "finding",
+            "referenced_segment",
+            "measurement"
+          ],
+          "properties": {
+            "container": {
+              "allOf": [
+                { "$ref": "#/$defs/expected_tid1500_code" },
+                {
+                  "properties": {
+                    "code_value": { "const": "125007" },
+                    "coding_scheme_designator": { "const": "DCM" },
+                    "code_meaning": { "const": "Measurement Group" }
+                  }
+                }
+              ]
+            },
+            "tracking_identifier": { "const": "DTS-TID1500-ROI-1" },
+            "tracking_uid": {
+              "type": "string",
+              "pattern": "^[0-9]+(?:\\.[0-9]+)+$"
+            },
+            "finding": {
+              "allOf": [
+                { "$ref": "#/$defs/expected_tid1500_code" },
+                {
+                  "properties": {
+                    "code_value": { "const": "123037004" },
+                    "coding_scheme_designator": { "const": "SCT" },
+                    "code_meaning": { "const": "Body structure" }
+                  }
+                }
+              ]
+            },
+            "referenced_segment": {
+              "type": "object",
+              "required": [
+                "source_case_id",
+                "sop_class_uid",
+                "sop_instance_uid",
+                "series_instance_uid",
+                "segment_number",
+                "referenced_frame_numbers",
+                "source_image"
+              ],
+              "properties": {
+                "source_case_id": { "const": "derived/seg/binary_multiframe_explicit_le" },
+                "sop_class_uid": { "const": "1.2.840.10008.5.1.4.1.1.66.4" },
+                "sop_instance_uid": {
+                  "type": "string",
+                  "pattern": "^[0-9]+(?:\\.[0-9]+)+$"
+                },
+                "series_instance_uid": {
+                  "type": "string",
+                  "pattern": "^[0-9]+(?:\\.[0-9]+)+$"
+                },
+                "segment_number": { "const": 1 },
+                "referenced_frame_numbers": { "type": "null" },
+                "source_image": {
+                  "type": "object",
+                  "required": [
+                    "source_case_id",
+                    "sop_class_uid",
+                    "sop_instance_uid",
+                    "series_instance_uid",
+                    "referenced_frame_numbers"
+                  ],
+                  "properties": {
+                    "source_case_id": { "const": "enhanced/ct/multiframe_shared_perframe_explicit_le" },
+                    "sop_class_uid": { "const": "1.2.840.10008.5.1.4.1.1.2.1" },
+                    "sop_instance_uid": {
+                      "type": "string",
+                      "pattern": "^[0-9]+(?:\\.[0-9]+)+$"
+                    },
+                    "series_instance_uid": {
+                      "type": "string",
+                      "pattern": "^[0-9]+(?:\\.[0-9]+)+$"
+                    },
+                    "referenced_frame_numbers": {
+                      "type": "array",
+                      "prefixItems": [{ "const": 1 }, { "const": 2 }],
+                      "items": false,
+                      "minItems": 2,
+                      "maxItems": 2
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
+            },
+            "measurement": {
+              "type": "object",
+              "required": ["name", "numeric_value", "units"],
+              "properties": {
+                "name": {
+                  "allOf": [
+                    { "$ref": "#/$defs/expected_tid1500_code" },
+                    {
+                      "properties": {
+                        "code_value": { "const": "118565006" },
+                        "coding_scheme_designator": { "const": "SCT" },
+                        "code_meaning": { "const": "Volume" }
+                      }
+                    }
+                  ]
+                },
+                "numeric_value": { "const": "5.625" },
+                "units": {
+                  "allOf": [
+                    { "$ref": "#/$defs/expected_tid1500_code" },
+                    {
+                      "properties": {
+                        "code_value": { "const": "mm3" },
+                        "coding_scheme_designator": { "const": "UCUM" },
+                        "code_meaning": { "const": "cubic millimeter" }
+                      }
+                    }
+                  ]
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "evidence": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "object",
+              "required": [
+                "role",
+                "source_case_id",
+                "sop_class_uid",
+                "sop_instance_uid",
+                "series_instance_uid"
+              ],
+              "properties": {
+                "role": { "const": "source_image" },
+                "source_case_id": { "const": "enhanced/ct/multiframe_shared_perframe_explicit_le" },
+                "sop_class_uid": { "const": "1.2.840.10008.5.1.4.1.1.2.1" },
+                "sop_instance_uid": {
+                  "type": "string",
+                  "pattern": "^[0-9]+(?:\\.[0-9]+)+$"
+                },
+                "series_instance_uid": {
+                  "type": "string",
+                  "pattern": "^[0-9]+(?:\\.[0-9]+)+$"
+                }
+              },
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "required": [
+                "role",
+                "source_case_id",
+                "sop_class_uid",
+                "sop_instance_uid",
+                "series_instance_uid"
+              ],
+              "properties": {
+                "role": { "const": "referenced_segmentation" },
+                "source_case_id": { "const": "derived/seg/binary_multiframe_explicit_le" },
+                "sop_class_uid": { "const": "1.2.840.10008.5.1.4.1.1.66.4" },
+                "sop_instance_uid": {
+                  "type": "string",
+                  "pattern": "^[0-9]+(?:\\.[0-9]+)+$"
+                },
+                "series_instance_uid": {
+                  "type": "string",
+                  "pattern": "^[0-9]+(?:\\.[0-9]+)+$"
+                }
+              },
+              "additionalProperties": false
+            }
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        }
       },
       "additionalProperties": false
     },

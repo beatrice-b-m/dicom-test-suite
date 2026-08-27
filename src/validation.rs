@@ -18,6 +18,10 @@ use crate::{
     sha256_hex,
 };
 
+#[cfg(test)]
+#[path = "validation_spatial_registration_tests.rs"]
+mod spatial_registration_tests;
+
 #[cfg(feature = "deflate")]
 use crate::codecs::DicomRsDeflatedImageFrameEncoder;
 #[cfg(feature = "charls")]
@@ -230,6 +234,49 @@ pub(crate) struct Scoord3dExpectations<'a> {
     pub source_sop_class_uid: &'a str,
     pub source_sop_instance_uid: &'a str,
     pub source_frame_numbers: &'a [u16],
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct SpatialRegistrationReferenceExpectations<'a> {
+    pub study_instance_uid: &'a str,
+    pub series_instance_uid: &'a str,
+    pub sop_class_uid: &'a str,
+    pub sop_instance_uid: &'a str,
+    pub frame_of_reference_uid: &'a str,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct SpatialRegistrationExpectations<'a> {
+    pub sop_class_uid: &'a str,
+    pub sop_instance_uid: &'a str,
+    pub transfer_syntax_uid: &'a str,
+    pub implementation_class_uid: &'a str,
+    pub synthetic_data: &'a str,
+    pub patient_id: &'a str,
+    pub study_instance_uid: &'a str,
+    pub study_id: &'a str,
+    pub series_instance_uid: &'a str,
+    pub series_number: &'a str,
+    pub laterality: &'a str,
+    pub modality: &'a str,
+    pub instance_number: &'a str,
+    pub content_date: &'a str,
+    pub content_time: &'a str,
+    pub content_label: &'a str,
+    pub content_description: &'a str,
+    pub content_creator_name: &'a str,
+    pub manufacturer: &'a str,
+    pub manufacturer_model_name: &'a str,
+    pub device_serial_number: &'a str,
+    pub software_versions: &'a str,
+    pub registered_frame_of_reference_uid: &'a str,
+    pub target: SpatialRegistrationReferenceExpectations<'a>,
+    pub source: SpatialRegistrationReferenceExpectations<'a>,
+    pub target_matrix: [f64; 16],
+    pub source_to_registered_matrix: [f64; 16],
+    pub source_landmark_mm: [f64; 3],
+    pub registered_landmark_mm: [f64; 3],
+    pub rigid_tolerance: f64,
 }
 
 #[derive(Debug, Clone)]
@@ -3578,6 +3625,625 @@ pub(crate) fn validate_scoord3d_file(
             "external": []
         }),
     })
+}
+
+pub(crate) fn validate_spatial_registration_file(
+    path: &Path,
+    expected: &SpatialRegistrationExpectations<'_>,
+) -> Result<ValidatedPart10, GenerateError> {
+    let bytes = fs::read(path).map_err(|source| GenerateError::ReadGeneratedFile {
+        path: path.to_path_buf(),
+        source,
+    })?;
+    let obj = open_file(path).map_err(|err| validation_error(path, err))?;
+    let mut internal = Vec::new();
+
+    check(
+        &mut internal,
+        bytes.len() >= 132 && &bytes[128..132] == b"DICM",
+        "spatial_registration_part10_preamble",
+        "Spatial Registration has a Part 10 preamble and DICM marker.",
+        "Spatial Registration is missing its Part 10 preamble or DICM marker.",
+    );
+    check_equal(
+        &mut internal,
+        "spatial_registration_transfer_syntax",
+        "File Meta Transfer Syntax matches the recipe.",
+        "File Meta Transfer Syntax does not match the recipe.",
+        trim_uid(obj.meta().transfer_syntax()).as_str(),
+        expected.transfer_syntax_uid,
+    );
+    let dataset_sop_class = element_str(path, &obj, tags::SOP_CLASS_UID)?;
+    check_equal(
+        &mut internal,
+        "spatial_registration_sop_class_uid",
+        "Dataset SOP Class UID identifies Spatial Registration Storage.",
+        "Dataset SOP Class UID does not identify Spatial Registration Storage.",
+        dataset_sop_class.as_str(),
+        expected.sop_class_uid,
+    );
+    check_equal(
+        &mut internal,
+        "spatial_registration_storage_uid",
+        "SOP Class UID is the standard Spatial Registration Storage UID.",
+        "SOP Class UID is not the standard Spatial Registration Storage UID.",
+        dataset_sop_class.as_str(),
+        "1.2.840.10008.5.1.4.1.1.66.1",
+    );
+    check_equal(
+        &mut internal,
+        "spatial_registration_media_sop_class_uid",
+        "File Meta and dataset SOP Class UIDs match.",
+        "File Meta and dataset SOP Class UIDs differ.",
+        trim_uid(obj.meta().media_storage_sop_class_uid()).as_str(),
+        dataset_sop_class.as_str(),
+    );
+    let dataset_sop_instance = element_str(path, &obj, tags::SOP_INSTANCE_UID)?;
+    check_equal(
+        &mut internal,
+        "spatial_registration_sop_instance_uid",
+        "Dataset SOP Instance UID matches the recipe.",
+        "Dataset SOP Instance UID does not match the recipe.",
+        dataset_sop_instance.as_str(),
+        expected.sop_instance_uid,
+    );
+    check_equal(
+        &mut internal,
+        "spatial_registration_media_sop_instance_uid",
+        "File Meta and dataset SOP Instance UIDs match.",
+        "File Meta and dataset SOP Instance UIDs differ.",
+        trim_uid(obj.meta().media_storage_sop_instance_uid()).as_str(),
+        dataset_sop_instance.as_str(),
+    );
+    check_equal(
+        &mut internal,
+        "spatial_registration_implementation_class_uid",
+        "Implementation Class UID matches the native generator.",
+        "Implementation Class UID does not match the native generator.",
+        trim_uid(obj.meta().implementation_class_uid()).as_str(),
+        expected.implementation_class_uid,
+    );
+
+    for (name, tag, value) in [
+        (
+            "spatial_registration_synthetic_data",
+            tags::SYNTHETIC_DATA,
+            expected.synthetic_data,
+        ),
+        (
+            "spatial_registration_patient_id",
+            tags::PATIENT_ID,
+            expected.patient_id,
+        ),
+        (
+            "spatial_registration_study_instance_uid",
+            tags::STUDY_INSTANCE_UID,
+            expected.study_instance_uid,
+        ),
+        (
+            "spatial_registration_study_id",
+            tags::STUDY_ID,
+            expected.study_id,
+        ),
+        (
+            "spatial_registration_series_instance_uid",
+            tags::SERIES_INSTANCE_UID,
+            expected.series_instance_uid,
+        ),
+        (
+            "spatial_registration_series_number",
+            tags::SERIES_NUMBER,
+            expected.series_number,
+        ),
+        (
+            "spatial_registration_laterality",
+            tags::LATERALITY,
+            expected.laterality,
+        ),
+        (
+            "spatial_registration_modality",
+            tags::MODALITY,
+            expected.modality,
+        ),
+        (
+            "spatial_registration_instance_number",
+            tags::INSTANCE_NUMBER,
+            expected.instance_number,
+        ),
+        (
+            "spatial_registration_content_date",
+            tags::CONTENT_DATE,
+            expected.content_date,
+        ),
+        (
+            "spatial_registration_content_time",
+            tags::CONTENT_TIME,
+            expected.content_time,
+        ),
+        (
+            "spatial_registration_content_label",
+            tags::CONTENT_LABEL,
+            expected.content_label,
+        ),
+        (
+            "spatial_registration_content_description",
+            tags::CONTENT_DESCRIPTION,
+            expected.content_description,
+        ),
+        (
+            "spatial_registration_content_creator_name",
+            tags::CONTENT_CREATOR_NAME,
+            expected.content_creator_name,
+        ),
+        (
+            "spatial_registration_manufacturer",
+            tags::MANUFACTURER,
+            expected.manufacturer,
+        ),
+        (
+            "spatial_registration_manufacturer_model_name",
+            tags::MANUFACTURER_MODEL_NAME,
+            expected.manufacturer_model_name,
+        ),
+        (
+            "spatial_registration_device_serial_number",
+            tags::DEVICE_SERIAL_NUMBER,
+            expected.device_serial_number,
+        ),
+        (
+            "spatial_registration_software_versions",
+            tags::SOFTWARE_VERSIONS,
+            expected.software_versions,
+        ),
+        (
+            "spatial_registration_registered_frame_of_reference_uid",
+            tags::FRAME_OF_REFERENCE_UID,
+            expected.registered_frame_of_reference_uid,
+        ),
+    ] {
+        check_equal(
+            &mut internal,
+            name,
+            "Spatial Registration module attribute matches the recipe.",
+            "Spatial Registration module attribute does not match the recipe.",
+            element_str(path, &obj, tag)?.as_str(),
+            value,
+        );
+    }
+    check_equal(
+        &mut internal,
+        "spatial_registration_target_study_uid",
+        "Registered target belongs to the Spatial Registration Study.",
+        "Registered target Study does not match the Spatial Registration Study.",
+        element_str(path, &obj, tags::STUDY_INSTANCE_UID)?.as_str(),
+        expected.target.study_instance_uid,
+    );
+    check_equal(
+        &mut internal,
+        "spatial_registration_target_registered_frame",
+        "Registered target Frame of Reference establishes the Registered RCS.",
+        "Registered target Frame of Reference does not establish the Registered RCS.",
+        element_str(path, &obj, tags::FRAME_OF_REFERENCE_UID)?.as_str(),
+        expected.target.frame_of_reference_uid,
+    );
+    for (name, tag) in [
+        ("spatial_registration_study_date", tags::STUDY_DATE),
+        ("spatial_registration_study_time", tags::STUDY_TIME),
+        (
+            "spatial_registration_referring_physician",
+            tags::REFERRING_PHYSICIAN_NAME,
+        ),
+        ("spatial_registration_accession_number", tags::ACCESSION_NUMBER),
+        (
+            "spatial_registration_position_reference_indicator",
+            tags::POSITION_REFERENCE_INDICATOR,
+        ),
+    ] {
+        check(
+            &mut internal,
+            obj.element_opt(tag)
+                .map_err(|err| validation_error(path, err))?
+                .is_some(),
+            name,
+            "Required module attribute is present.",
+            "Required module attribute is absent.",
+        );
+    }
+
+    check_equal(
+        &mut internal,
+        "spatial_registration_registration_count",
+        "Registration Sequence has the exact target and source items.",
+        "Registration Sequence does not have exactly two items.",
+        sequence_item_count(path, &obj, tags::REGISTRATION_SEQUENCE)?,
+        2,
+    );
+    let target_item = top_level_sequence_item(path, &obj, tags::REGISTRATION_SEQUENCE, 0)?;
+    validate_spatial_registration_item(
+        &mut internal,
+        path,
+        target_item,
+        "spatial_registration_target",
+        &expected.target,
+        &expected.target_matrix,
+        expected.source_landmark_mm,
+        expected.source_landmark_mm,
+        expected.rigid_tolerance,
+    )?;
+    let source_item = top_level_sequence_item(path, &obj, tags::REGISTRATION_SEQUENCE, 1)?;
+    validate_spatial_registration_item(
+        &mut internal,
+        path,
+        source_item,
+        "spatial_registration_source",
+        &expected.source,
+        &expected.source_to_registered_matrix,
+        expected.source_landmark_mm,
+        expected.registered_landmark_mm,
+        expected.rigid_tolerance,
+    )?;
+
+    check_equal(
+        &mut internal,
+        "spatial_registration_same_study_series_count",
+        "Same-Study references contain only the registered target series.",
+        "Same-Study reference series count differs from the contract.",
+        sequence_item_count(path, &obj, tags::REFERENCED_SERIES_SEQUENCE)?,
+        1,
+    );
+    let same_study = top_level_sequence_item(path, &obj, tags::REFERENCED_SERIES_SEQUENCE, 0)?;
+    validate_common_reference_series(
+        &mut internal,
+        path,
+        same_study,
+        "spatial_registration_same_study",
+        &expected.target,
+    )?;
+
+    check_equal(
+        &mut internal,
+        "spatial_registration_other_study_count",
+        "Other-Study references contain only the moving source study.",
+        "Other-Study reference count differs from the contract.",
+        sequence_item_count(
+            path,
+            &obj,
+            tags::STUDIES_CONTAINING_OTHER_REFERENCED_INSTANCES_SEQUENCE,
+        )?,
+        1,
+    );
+    let other_study = top_level_sequence_item(
+        path,
+        &obj,
+        tags::STUDIES_CONTAINING_OTHER_REFERENCED_INSTANCES_SEQUENCE,
+        0,
+    )?;
+    check_equal(
+        &mut internal,
+        "spatial_registration_other_study_uid",
+        "Other-Study reference identifies the moving source Study.",
+        "Other-Study reference does not identify the moving source Study.",
+        item_str(path, other_study, tags::STUDY_INSTANCE_UID)?.as_str(),
+        expected.source.study_instance_uid,
+    );
+    check_equal(
+        &mut internal,
+        "spatial_registration_other_study_series_count",
+        "Moving source Study contains exactly one referenced series.",
+        "Moving source Study reference series count differs from the contract.",
+        item_sequence_item_count(path, other_study, tags::REFERENCED_SERIES_SEQUENCE)?,
+        1,
+    );
+    let other_series = item_sequence_item(path, other_study, tags::REFERENCED_SERIES_SEQUENCE, 0)?;
+    validate_common_reference_series(
+        &mut internal,
+        path,
+        other_series,
+        "spatial_registration_other_study",
+        &expected.source,
+    )?;
+
+    for (name, tag) in [
+        ("spatial_registration_pixel_data_absent", tags::PIXEL_DATA),
+        (
+            "spatial_registration_float_pixel_data_absent",
+            tags::FLOAT_PIXEL_DATA,
+        ),
+        (
+            "spatial_registration_double_float_pixel_data_absent",
+            tags::DOUBLE_FLOAT_PIXEL_DATA,
+        ),
+    ] {
+        check(
+            &mut internal,
+            obj.element_opt(tag)
+                .map_err(|err| validation_error(path, err))?
+                .is_none(),
+            name,
+            "Spatial Registration contains no pixel payload.",
+            "Spatial Registration unexpectedly contains pixel payload.",
+        );
+    }
+
+    fail_if_any_failed(path, &internal)?;
+    Ok(ValidatedPart10 {
+        bytes,
+        validation: serde_json::json!({
+            "status": "passed",
+            "internal": internal,
+            "standards": [
+                {
+                    "name": standard_sop_class_validation_name(expected.sop_class_uid),
+                    "status": "passed",
+                    "message": standard_sop_class_validation_message(expected.sop_class_uid)
+                },
+                {
+                    "name": standard_transfer_syntax_validation_name(expected.transfer_syntax_uid),
+                    "status": "passed",
+                    "message": standard_transfer_syntax_validation_message(expected.transfer_syntax_uid)
+                },
+                {
+                    "name": "spatial_registration_rigid_contract",
+                    "status": "passed",
+                    "message": "Ordered references, exact rigid matrices, landmark mapping, Common Instance References, and no-pixel invariants match the recipe."
+                }
+            ],
+            "external": []
+        }),
+    })
+}
+
+#[allow(clippy::too_many_arguments)]
+fn validate_spatial_registration_item(
+    results: &mut Vec<Value>,
+    path: &Path,
+    item: &DatasetObject,
+    prefix: &str,
+    expected_reference: &SpatialRegistrationReferenceExpectations<'_>,
+    expected_matrix: &[f64; 16],
+    input_landmark: [f64; 3],
+    output_landmark: [f64; 3],
+    tolerance: f64,
+) -> Result<(), GenerateError> {
+    check_equal(
+        results,
+        &format!("{prefix}_frame_of_reference_uid"),
+        "Registration item Frame of Reference matches the recipe.",
+        "Registration item Frame of Reference does not match the recipe.",
+        item_str(path, item, tags::FRAME_OF_REFERENCE_UID)?.as_str(),
+        expected_reference.frame_of_reference_uid,
+    );
+    check_equal(
+        results,
+        &format!("{prefix}_referenced_image_count"),
+        "Registration item references exactly one complete image instance.",
+        "Registration item image-reference cardinality differs from the contract.",
+        item_sequence_item_count(path, item, tags::REFERENCED_IMAGE_SEQUENCE)?,
+        1,
+    );
+    let image = item_sequence_item(path, item, tags::REFERENCED_IMAGE_SEQUENCE, 0)?;
+    check_equal(
+        results,
+        &format!("{prefix}_referenced_sop_class_uid"),
+        "Referenced image SOP Class UID matches the recipe.",
+        "Referenced image SOP Class UID does not match the recipe.",
+        item_str(path, image, tags::REFERENCED_SOP_CLASS_UID)?.as_str(),
+        expected_reference.sop_class_uid,
+    );
+    check_equal(
+        results,
+        &format!("{prefix}_referenced_sop_instance_uid"),
+        "Referenced image SOP Instance UID matches the recipe.",
+        "Referenced image SOP Instance UID does not match the recipe.",
+        item_str(path, image, tags::REFERENCED_SOP_INSTANCE_UID)?.as_str(),
+        expected_reference.sop_instance_uid,
+    );
+    check(
+        results,
+        image
+            .element_opt(TAG_REFERENCED_FRAME_NUMBER)
+            .map_err(|err| validation_error(path, err))?
+            .is_none(),
+        &format!("{prefix}_complete_instance_reference"),
+        "Referenced Frame Number is absent, selecting the complete instance.",
+        "Referenced Frame Number is present despite the complete-instance contract.",
+    );
+    check_equal(
+        results,
+        &format!("{prefix}_matrix_registration_count"),
+        "Matrix Registration Sequence contains exactly one item.",
+        "Matrix Registration Sequence cardinality differs from the contract.",
+        item_sequence_item_count(path, item, tags::MATRIX_REGISTRATION_SEQUENCE)?,
+        1,
+    );
+    let registration = item_sequence_item(path, item, tags::MATRIX_REGISTRATION_SEQUENCE, 0)?;
+    check_equal(
+        results,
+        &format!("{prefix}_registration_type_code_count"),
+        "Type 2 Registration Type Code Sequence is present and empty.",
+        "Registration Type Code Sequence is absent or nonempty.",
+        item_sequence_item_count(path, registration, tags::REGISTRATION_TYPE_CODE_SEQUENCE)?,
+        0,
+    );
+    check_equal(
+        results,
+        &format!("{prefix}_matrix_sequence_count"),
+        "Matrix Sequence contains exactly one item.",
+        "Matrix Sequence cardinality differs from the contract.",
+        item_sequence_item_count(path, registration, tags::MATRIX_SEQUENCE)?,
+        1,
+    );
+    let matrix_item = item_sequence_item(path, registration, tags::MATRIX_SEQUENCE, 0)?;
+    check_equal(
+        results,
+        &format!("{prefix}_matrix_type"),
+        "Frame of Reference Transformation Matrix Type is RIGID.",
+        "Frame of Reference Transformation Matrix Type is not RIGID.",
+        item_str(
+            path,
+            matrix_item,
+            tags::FRAME_OF_REFERENCE_TRANSFORMATION_MATRIX_TYPE,
+        )?
+        .as_str(),
+        "RIGID",
+    );
+    let matrix_element = matrix_item
+        .element(tags::FRAME_OF_REFERENCE_TRANSFORMATION_MATRIX)
+        .map_err(|err| validation_error(path, err))?;
+    check_equal(
+        results,
+        &format!("{prefix}_matrix_vr"),
+        "Frame of Reference Transformation Matrix has VR DS.",
+        "Frame of Reference Transformation Matrix does not have VR DS.",
+        matrix_element.vr(),
+        VR::DS,
+    );
+    let matrix = matrix_element
+        .value()
+        .to_multi_float64()
+        .map_err(|err| validation_error(path, err))?;
+    check_equal(
+        results,
+        &format!("{prefix}_matrix_vm"),
+        "Frame of Reference Transformation Matrix has VM 16.",
+        "Frame of Reference Transformation Matrix does not have VM 16.",
+        matrix.len(),
+        16,
+    );
+    if matrix.len() != 16 {
+        return fail_if_any_failed(path, results);
+    }
+    check(
+        results,
+        matrix.iter().all(|value| value.is_finite()),
+        &format!("{prefix}_matrix_finite"),
+        "Every matrix value is finite.",
+        "The matrix contains a non-finite value.",
+    );
+    check_equal(
+        results,
+        &format!("{prefix}_matrix_exact"),
+        "Matrix values and row-major order exactly match the recipe.",
+        "Matrix values or row-major order differ from the recipe.",
+        matrix.as_slice(),
+        expected_matrix.as_slice(),
+    );
+    let homogeneous = close(matrix[12], 0.0, tolerance)
+        && close(matrix[13], 0.0, tolerance)
+        && close(matrix[14], 0.0, tolerance)
+        && close(matrix[15], 1.0, tolerance);
+    check(
+        results,
+        homogeneous,
+        &format!("{prefix}_matrix_homogeneous_row"),
+        "Homogeneous matrix final row is [0,0,0,1].",
+        "Homogeneous matrix final row is not [0,0,0,1].",
+    );
+    let rotation = [
+        [matrix[0], matrix[1], matrix[2]],
+        [matrix[4], matrix[5], matrix[6]],
+        [matrix[8], matrix[9], matrix[10]],
+    ];
+    let orthonormal = (0..3).all(|row| {
+        (0..3).all(|other| {
+            let dot = (0..3)
+                .map(|column| rotation[row][column] * rotation[other][column])
+                .sum::<f64>();
+            close(dot, if row == other { 1.0 } else { 0.0 }, tolerance)
+        })
+    });
+    check(
+        results,
+        orthonormal,
+        &format!("{prefix}_matrix_orthonormal"),
+        "RIGID rotation submatrix is orthonormal.",
+        "RIGID rotation submatrix is not orthonormal.",
+    );
+    let determinant = rotation[0][0]
+        * (rotation[1][1] * rotation[2][2] - rotation[1][2] * rotation[2][1])
+        - rotation[0][1]
+            * (rotation[1][0] * rotation[2][2] - rotation[1][2] * rotation[2][0])
+        + rotation[0][2]
+            * (rotation[1][0] * rotation[2][1] - rotation[1][1] * rotation[2][0]);
+    check(
+        results,
+        close(determinant, 1.0, tolerance),
+        &format!("{prefix}_matrix_determinant"),
+        "RIGID rotation determinant is +1.",
+        "RIGID rotation determinant is not +1.",
+    );
+    let transformed = [
+        matrix[0] * input_landmark[0]
+            + matrix[1] * input_landmark[1]
+            + matrix[2] * input_landmark[2]
+            + matrix[3],
+        matrix[4] * input_landmark[0]
+            + matrix[5] * input_landmark[1]
+            + matrix[6] * input_landmark[2]
+            + matrix[7],
+        matrix[8] * input_landmark[0]
+            + matrix[9] * input_landmark[1]
+            + matrix[10] * input_landmark[2]
+            + matrix[11],
+    ];
+    check(
+        results,
+        transformed
+            .iter()
+            .zip(output_landmark)
+            .all(|(actual, expected)| close(*actual, expected, tolerance)),
+        &format!("{prefix}_landmark"),
+        "Matrix maps the locked landmark to the expected registered point.",
+        "Matrix does not map the locked landmark to the expected registered point.",
+    );
+    Ok(())
+}
+
+fn validate_common_reference_series(
+    results: &mut Vec<Value>,
+    path: &Path,
+    series: &DatasetObject,
+    prefix: &str,
+    expected: &SpatialRegistrationReferenceExpectations<'_>,
+) -> Result<(), GenerateError> {
+    check_equal(
+        results,
+        &format!("{prefix}_series_instance_uid"),
+        "Common Instance Reference Series UID matches the recipe.",
+        "Common Instance Reference Series UID does not match the recipe.",
+        item_str(path, series, tags::SERIES_INSTANCE_UID)?.as_str(),
+        expected.series_instance_uid,
+    );
+    check_equal(
+        results,
+        &format!("{prefix}_instance_count"),
+        "Referenced series contains exactly one instance.",
+        "Referenced series instance count differs from the contract.",
+        item_sequence_item_count(path, series, tags::REFERENCED_INSTANCE_SEQUENCE)?,
+        1,
+    );
+    let instance = item_sequence_item(path, series, tags::REFERENCED_INSTANCE_SEQUENCE, 0)?;
+    check_equal(
+        results,
+        &format!("{prefix}_sop_class_uid"),
+        "Common Instance Reference SOP Class UID matches the recipe.",
+        "Common Instance Reference SOP Class UID does not match the recipe.",
+        item_str(path, instance, tags::REFERENCED_SOP_CLASS_UID)?.as_str(),
+        expected.sop_class_uid,
+    );
+    check_equal(
+        results,
+        &format!("{prefix}_sop_instance_uid"),
+        "Common Instance Reference SOP Instance UID matches the recipe.",
+        "Common Instance Reference SOP Instance UID does not match the recipe.",
+        item_str(path, instance, tags::REFERENCED_SOP_INSTANCE_UID)?.as_str(),
+        expected.sop_instance_uid,
+    );
+    Ok(())
+}
+
+fn close(actual: f64, expected: f64, tolerance: f64) -> bool {
+    actual.is_finite() && expected.is_finite() && (actual - expected).abs() <= tolerance
 }
 
 pub(crate) fn validate_key_object_selection_file(
@@ -9708,6 +10374,7 @@ fn standard_sop_class_validation_name(sop_class_uid: &str) -> &'static str {
         uids::RT_STRUCTURE_SET_STORAGE => "rt_structure_set_sop_class",
         uids::RT_DOSE_STORAGE => "rt_dose_sop_class",
         uids::ENCAPSULATED_PDF_STORAGE => "encapsulated_pdf_sop_class",
+        "1.2.840.10008.5.1.4.1.1.66.1" => "spatial_registration_sop_class",
         _ => "sop_class_uid",
     }
 }
@@ -9779,6 +10446,9 @@ fn standard_sop_class_validation_message(sop_class_uid: &str) -> &'static str {
         uids::RT_DOSE_STORAGE => "SOP Class UID matches RT Dose Storage in the 2026b reference.",
         uids::ENCAPSULATED_PDF_STORAGE => {
             "SOP Class UID matches Encapsulated PDF Storage in the 2026b reference."
+        }
+        "1.2.840.10008.5.1.4.1.1.66.1" => {
+            "SOP Class UID matches Spatial Registration Storage in the 2026b reference."
         }
         _ => "SOP Class UID matches the recipe.",
     }

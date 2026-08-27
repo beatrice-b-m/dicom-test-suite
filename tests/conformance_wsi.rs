@@ -3,6 +3,7 @@ use std::fs;
 use serde_json::{Value, json};
 
 const WSI_CASE_ID: &str = "vl/wsi/tiled_full_small";
+const WSI_SPARSE_CASE_ID: &str = "vl/wsi/tiled_sparse_small";
 
 fn read_json(path: &str) -> Value {
     serde_json::from_slice(&fs::read(path).expect("read JSON artifact"))
@@ -74,4 +75,73 @@ fn wsi_iod_and_reconstruction_routes_are_exact_uv_locked_and_additive() {
         locked["supporting_artifacts"]["adapter/__main__.py"],
         "5a06fab2ce499598cdff78adce3be355b4f03c8cdea7050f6f85f0bb3811fc94"
     );
+}
+
+#[test]
+fn sparse_wsi_uses_locked_primary_authority_and_visible_characterization() {
+    let config = read_json("conformance/validators.json");
+    let lock = read_json("conformance/validator-lock.json");
+    let adapters = config["adapters"].as_array().unwrap();
+
+    let primary = adapters
+        .iter()
+        .find(|adapter| adapter["id"] == "pydicom-dicom-validator-wsi-sparse")
+        .expect("sparse WSI primary adapter");
+    assert_eq!(primary["role"], "primary_iod_validator");
+    assert_eq!(primary["supported_case_ids"], json!([WSI_SPARSE_CASE_ID]));
+    assert_eq!(primary["executable_env"], "DTS_DICOM_VALIDATOR_PYTHON");
+    assert_eq!(primary["artifacts"].as_array().unwrap().len(), 14);
+
+    let characterization = adapters
+        .iter()
+        .find(|adapter| adapter["id"] == "dicom3tools-dciodvfy-wsi-sparse-characterization")
+        .expect("sparse WSI characterization adapter");
+    assert_eq!(characterization["role"], "iod_characterization");
+    assert_eq!(
+        characterization["supported_case_ids"],
+        json!([WSI_SPARSE_CASE_ID])
+    );
+    assert_eq!(characterization["expected_exit_code"], 1);
+    assert_eq!(
+        characterization["expected_findings"],
+        json!([{
+            "severity": "error",
+            "message": "Error - </NumberOfFrames(0028,0008)> - NumberOfFrames does not match expected value for tiled total pixel matrix = <2 > - expected 4 for 1 optical paths, 1 focal planes, 2 rows of tiles, 2 columns of tiles"
+        }])
+    );
+
+    let sparse_lock = lock["tools"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|tool| tool["adapter_id"] == "pydicom-dicom-validator-wsi-sparse")
+        .expect("sparse WSI primary lock");
+    assert_eq!(sparse_lock["role"], "primary_iod_validator");
+    assert_eq!(
+        sparse_lock["adapter_sha256"],
+        "2813c20e61cd625955429a999de42c52c9b1fec25f3e2a3b168dc0b41b46b72c"
+    );
+    assert_eq!(
+        sparse_lock["supporting_artifacts"]["2026b/json/iod_info.json"],
+        "ca5c4a56d05a57c6587d84fffc31a842e8e369b09f1186e6542a619b69dac683"
+    );
+
+    let characterization_lock = lock["tools"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|tool| tool["adapter_id"] == "dicom3tools-dciodvfy-wsi-sparse-characterization")
+        .expect("sparse WSI characterization lock");
+    assert_eq!(characterization_lock["role"], "iod_characterization");
+    assert_eq!(
+        characterization_lock["executable_sha256"],
+        "1aeb75d6ccd3f193e3b322b6da77742cdce2e0604868eaf2a2669c786cbc27e5"
+    );
+
+    assert!(!adapters.iter().any(|adapter| {
+        adapter["id"] == "pydicom-dicom-validator-visible-light"
+            && adapter["supported_case_ids"]
+                .as_array()
+                .is_some_and(|ids| ids.iter().any(|id| id == WSI_SPARSE_CASE_ID))
+    }));
 }

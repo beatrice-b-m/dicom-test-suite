@@ -37,6 +37,8 @@ dynamically linked `liblcms2.2` implementation.
 | Second-generation RT per-instance IOD | `pydicom-dicom-validator-rt-radiation` | `python -m dts_dicom_validator_adapter` | Required for its declared cases only | Exact-case primary for C-Arm Photon-Electron Radiation and RT Radiation Set, which locked dicom3tools and PixelMed do not recognize. The adapter applies fail-closed corrections to the hash-locked recorded-control-point condition and the engine's empty-string `NotEmpty` incompatibility. |
 | Waveform second IOD and payload opinion | `pydicom-dicom-validator-waveform` | `python -m dts_dicom_validator_adapter` / `--waveform` | Required for its declared cases only | Runs additively for Twelve-lead and General ECG. The normal route validates the 2026b IOD; the waveform route independently extracts each ordered raw OW group with pydicom and decodes signed samples with Python `struct`, without NumPy or generator code. |
 | Visible-light second IOD opinion | `pydicom-dicom-validator-visible-light` | `python -m dts_dicom_validator_adapter` | Required for its declared cases only | Runs additively for the exact VL Endoscopic and VL Microscopic single-frame cases. It reuses the unchanged `uv` runtime and exact hash-locked 2026b definitions; primary validation remains `dciodvfy`. |
+| Sparse WSI per-instance IOD | `pydicom-dicom-validator-wsi-sparse` | `python -m dts_dicom_validator_adapter` | Required for its exact case only | Sole primary IOD authority for `vl/wsi/tiled_sparse_small`. It reuses the unchanged `uv`-locked dicom-validator 0.8.2 runtime and exact hash-locked 2026b definitions and must report zero errors. It cannot fall back to `dciodvfy`. |
+| Sparse WSI dicom3tools characterization | `dicom3tools-dciodvfy-wsi-sparse-characterization` | `dciodvfy -new` | Required evidence for its exact case only | Re-runs the locked dicom3tools executable and preserves its exact known full-grid-cardinality error. The error is explicitly verified as characterization, is never accepted or allowlisted, and does not make dicom3tools an IOD authority for the sparse case. |
 | U1 SC independent pixels | `dcmtk-dcm2img-u1` | `dcm2img +Fa +Fn -M -W +Pid -O +opn 1` | Required when collecting evidence for its declared case | DCMTK 3.7.0 emits one PGM per frame. The collector requires P2, dimensions 3 by 3, maximum value one, exact samples, and exact frame hashes; `dcmdump +W` separately binds the packed Pixel Data bytes. Primary IOD validation remains `dciodvfy`. |
 | Linked RT Image independent pixels | `dcmtk-dcm2img-rt-image` | `dcm2img +F 1 -S -bs -M -W +Pid -O +opn 8` | Required when collecting evidence for its declared case | DCMTK 3.7.0 emits one P2 PGM. The collector requires the exact 4 by 4 gradient, maximum value 255, and decoded SHA-256 `a8faed6abbf35c12a4b26e40f6feb19d736d90045c83b9f9a31f638d323e6811`; isolated `dcmdump +W` must emit exactly one 16-byte native OB value with the same hash. Primary IOD validation remains `dciodvfy`. |
 | Visible-light independent pixels | `dcmtk-dcm2img-visible-light` | `dcm2img +F 1 -S -bs -M -W +Pid -O +op` | Required when collecting evidence for its declared cases | DCMTK 3.7.0 emits one binary P6 PPM. The collector requires 2 by 2 RGB, maximum value 255, exactly 12 decoded bytes matching the manifest frame hash, and an isolated `dcmdump +W` extraction of exactly one 12-byte native OB value with the same hash. |
@@ -64,6 +66,22 @@ Primary IOD routing is exact-case-first. A validator with
 overlapping declarations are rejected. The U32 and non-square routes therefore cannot alter
 acceptance for existing cases, and strict verification requires the optional
 tool to be available and lock-matched whenever it produced evidence.
+
+The sparse whole-slide route is exact-case-only for
+`vl/wsi/tiled_sparse_small`. Its selected primary must be
+`pydicom-dicom-validator-wsi-sparse`, must be available and lock-matched, and
+must complete with exit code zero and no error findings. Selection and
+verification reject fallback to the unrestricted dicom3tools primary. The
+same instance is separately passed to the locked
+`dicom3tools-dciodvfy-wsi-sparse-characterization` adapter. That result must
+contain exactly the single unresolved Number of Frames error, including DICOM
+path `</NumberOfFrames(0028,0008)>`, actual value `2`, and the expected
+four-frame grid cardinality for one optical path, one focal plane, and a 2 by 2
+tile grid, with the matching full-message fingerprint and exit code one.
+Verification handles that result only after
+checking every field exactly; it is not a passing opinion, an accepted finding,
+or an allowlist entry. Any missing, extra, or changed characterization finding
+fails qualification.
 
 The second-generation RT primary route is exact-case-only for
 `non-image/rt/carm_photon_electron_radiation_minimal` and

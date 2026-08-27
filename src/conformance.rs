@@ -23,6 +23,11 @@ const VISIBLE_LIGHT_SECONDARY_VALIDATOR_ID: &str = "pydicom-dicom-validator-visi
 const VISIBLE_LIGHT_PIXEL_DECODER_ID: &str = "dcmtk-dcm2img-visible-light";
 const WSI_RECONSTRUCTION_ID: &str = "highdicom-wsi-reconstruction";
 const WSI_CASE_ID: &str = "vl/wsi/tiled_full_small";
+const WSI_SPARSE_CASE_ID: &str = "vl/wsi/tiled_sparse_small";
+const WSI_SPARSE_PRIMARY_VALIDATOR_ID: &str = "pydicom-dicom-validator-wsi-sparse";
+const WSI_SPARSE_CHARACTERIZATION_ID: &str = "dicom3tools-dciodvfy-wsi-sparse-characterization";
+const WSI_SPARSE_CHARACTERIZATION_MESSAGE: &str = "Error - </NumberOfFrames(0028,0008)> - NumberOfFrames does not match expected value for tiled total pixel matrix = <2 > - expected 4 for 1 optical paths, 1 focal planes, 2 rows of tiles, 2 columns of tiles";
+const WSI_SPARSE_CHARACTERIZATION_DICOM_PATH: &str = "</NumberOfFrames(0028,0008)>";
 
 pub fn verify_conformance(
     evidence_root: impl AsRef<Path>,
@@ -386,6 +391,7 @@ fn verify_completeness(evidence_root: &Path, evidence: &Value, failures: &mut Ve
         .any(|tool| tool["role"] == "sr_validator" && tool["status"] == "available");
     for instance in evidence["instances"].as_array().into_iter().flatten() {
         let path = instance["path"].as_str().unwrap_or("unknown");
+        let case_id = instance["case_id"].as_str().unwrap_or("");
         let primary = instance["results"]
             .as_array()
             .into_iter()
@@ -409,6 +415,9 @@ fn verify_completeness(evidence_root: &Path, evidence: &Value, failures: &mut Ve
                 ));
             }
         }
+        if case_id == WSI_SPARSE_CASE_ID {
+            verify_sparse_wsi_iod_evidence(&evidence, instance, path, failures);
+        }
         let parser = instance["results"]
             .as_array()
             .into_iter()
@@ -417,7 +426,6 @@ fn verify_completeness(evidence_root: &Path, evidence: &Value, failures: &mut Ve
         if parser.is_none_or(|result| result["status"] != "completed") {
             failures.push(format!("independent parser incomplete: {path}"));
         }
-        let case_id = instance["case_id"].as_str().unwrap_or("");
         if requires_registration_secondary_validation(case_id) {
             let secondary_tool = evidence["tools"]
                 .as_array()
@@ -1920,6 +1928,200 @@ fn requires_visible_light_validation(case_id: &str) -> bool {
     )
 }
 
+fn verify_sparse_wsi_iod_evidence(
+    evidence: &Value,
+    instance: &Value,
+    path: &str,
+    failures: &mut Vec<String>,
+) {
+    let tools = evidence["tools"].as_array().into_iter().flatten();
+    for (adapter_id, label) in [
+        (WSI_SPARSE_PRIMARY_VALIDATOR_ID, "primary IOD authority"),
+        (
+            WSI_SPARSE_CHARACTERIZATION_ID,
+            "dicom3tools characterization",
+        ),
+    ] {
+        let tool = tools.clone().find(|tool| tool["adapter_id"] == adapter_id);
+        if tool.is_none_or(|tool| tool["status"] != "available" || tool["lock_status"] != "matched")
+        {
+            failures.push(format!(
+                "required sparse WSI {label} is unavailable or unlocked for {path}"
+            ));
+        }
+    }
+
+    let results = instance["results"].as_array().into_iter().flatten();
+    let primaries = results
+        .clone()
+        .filter(|result| result["role"] == "primary_iod_validator")
+        .collect::<Vec<_>>();
+    if primaries.len() != 1
+        || primaries[0]["adapter_id"] != WSI_SPARSE_PRIMARY_VALIDATOR_ID
+        || primaries[0]["status"] != "completed"
+        || primaries[0]["exit_code"].as_i64() != Some(0)
+        || primaries[0]["timed_out"] != false
+        || primaries[0]["findings"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .any(|finding| finding["severity"] == "error")
+    {
+        failures.push(format!(
+            "sparse WSI requires the clean locked pydicom primary IOD authority for {path}"
+        ));
+    }
+
+    let characterizations = results
+        .filter(|result| result["role"] == "iod_characterization")
+        .collect::<Vec<_>>();
+    let expected_fingerprint = sha256_hex(WSI_SPARSE_CHARACTERIZATION_MESSAGE.as_bytes());
+    let valid_characterization = characterizations.len() == 1
+        && characterizations.first().is_some_and(|result| {
+            result["adapter_id"] == WSI_SPARSE_CHARACTERIZATION_ID
+                && result["status"] == "completed"
+                && result["exit_code"].as_i64() == Some(1)
+                && result["timed_out"] == false
+                && result["findings"].as_array().is_some_and(|findings| {
+                    findings.len() == 1
+                        && findings[0]["severity"] == "error"
+                        && findings[0]["message"] == WSI_SPARSE_CHARACTERIZATION_MESSAGE
+                        && findings[0]["message_fingerprint"] == expected_fingerprint
+                        && findings[0]["rule_id"].is_null()
+                        && findings[0]["dicom_path"] == WSI_SPARSE_CHARACTERIZATION_DICOM_PATH
+                        && findings[0]["disposition"] == "unresolved"
+                })
+        });
+    if !valid_characterization {
+        failures.push(format!(
+            "sparse WSI requires the exact visible dicom3tools cardinality characterization for {path}"
+        ));
+    }
+}
+
+#[cfg(test)]
+mod sparse_wsi_iod_tests {
+    use super::*;
+
+    fn fixture() -> (Value, Value) {
+        let message_fingerprint = sha256_hex(WSI_SPARSE_CHARACTERIZATION_MESSAGE.as_bytes());
+        let evidence = json!({
+            "tools": [
+                {"adapter_id": WSI_SPARSE_PRIMARY_VALIDATOR_ID, "status": "available", "lock_status": "matched"},
+                {"adapter_id": WSI_SPARSE_CHARACTERIZATION_ID, "status": "available", "lock_status": "matched"}
+            ]
+        });
+        let instance = json!({
+            "case_id": WSI_SPARSE_CASE_ID,
+            "path": "vl/wsi/tiled_sparse_small/instance.dcm",
+            "results": [
+                {
+                    "adapter_id": WSI_SPARSE_PRIMARY_VALIDATOR_ID,
+                    "role": "primary_iod_validator", "status": "completed",
+                    "exit_code": 0, "timed_out": false, "findings": []
+                },
+                {
+                    "adapter_id": WSI_SPARSE_CHARACTERIZATION_ID,
+                    "role": "iod_characterization", "status": "completed",
+                    "exit_code": 1, "timed_out": false,
+                    "findings": [{
+                        "severity": "error", "rule_id": null,
+                        "message": WSI_SPARSE_CHARACTERIZATION_MESSAGE,
+                        "message_fingerprint": message_fingerprint,
+                        "dicom_path": WSI_SPARSE_CHARACTERIZATION_DICOM_PATH,
+                        "disposition": "unresolved"
+                    }]
+                }
+            ]
+        });
+        (evidence, instance)
+    }
+
+    #[test]
+    fn sparse_wsi_requires_clean_primary_and_exact_nonaccepted_characterization() {
+        let (evidence, instance) = fixture();
+        let mut failures = Vec::new();
+        verify_sparse_wsi_iod_evidence(
+            &evidence,
+            &instance,
+            "vl/wsi/tiled_sparse_small/instance.dcm",
+            &mut failures,
+        );
+        assert!(failures.is_empty(), "{failures:?}");
+        let run = json!({"instances": [instance.clone()]});
+        assert!(instance_findings(&run).is_empty());
+
+        for (pointer, mutation) in [
+            ("/results/0/adapter_id", json!("dicom3tools-dciodvfy")),
+            ("/results/0/exit_code", json!(1)),
+            ("/results/1/exit_code", json!(0)),
+            ("/results/1/findings/0/severity", json!("warning")),
+            ("/results/1/findings/0/message", json!("different")),
+            ("/results/1/findings/0/disposition", json!("accepted")),
+        ] {
+            let mut malformed = instance.clone();
+            *malformed.pointer_mut(pointer).expect("mutation pointer") = mutation;
+            let mut failures = Vec::new();
+            verify_sparse_wsi_iod_evidence(
+                &evidence,
+                &malformed,
+                "vl/wsi/tiled_sparse_small/instance.dcm",
+                &mut failures,
+            );
+            assert!(!failures.is_empty(), "mutation {pointer} must fail");
+        }
+    }
+
+    #[test]
+    fn sparse_wsi_real_dicom3tools_line_normalizes_to_the_locked_characterization() {
+        let raw = format!("{WSI_SPARSE_CHARACTERIZATION_MESSAGE}\nVLWholeSlideMicroscopyImage\n");
+        let findings = normalize_findings(raw.as_bytes(), "/tmp/instance.dcm", "instance.dcm");
+        assert_eq!(findings.len(), 1);
+        assert_eq!(findings[0]["severity"], "error");
+        assert_eq!(findings[0]["message"], WSI_SPARSE_CHARACTERIZATION_MESSAGE);
+        assert_eq!(
+            findings[0]["dicom_path"],
+            WSI_SPARSE_CHARACTERIZATION_DICOM_PATH
+        );
+        assert_eq!(
+            findings[0]["message_fingerprint"],
+            sha256_hex(WSI_SPARSE_CHARACTERIZATION_MESSAGE.as_bytes())
+        );
+    }
+
+    #[test]
+    fn sparse_wsi_primary_selection_cannot_fall_back_to_dicom3tools() {
+        let adapters = json!([
+            {"id": "dicom3tools-dciodvfy", "role": "primary_iod_validator"},
+            {"id": WSI_SPARSE_PRIMARY_VALIDATOR_ID, "role": "primary_iod_validator", "supported_case_ids": [WSI_SPARSE_CASE_ID]}
+        ]);
+        let tools = json!([
+            {"adapter_id": "dicom3tools-dciodvfy"},
+            {"adapter_id": WSI_SPARSE_PRIMARY_VALIDATOR_ID}
+        ]);
+        let (selected, _) = select_primary_iod_validator(
+            WSI_SPARSE_CASE_ID,
+            adapters.as_array().unwrap(),
+            tools.as_array().unwrap(),
+        )
+        .expect("exact sparse primary");
+        assert_eq!(selected["id"], WSI_SPARSE_PRIMARY_VALIDATOR_ID);
+
+        let fallback_only = json!([{
+            "id": "dicom3tools-dciodvfy", "role": "primary_iod_validator"
+        }]);
+        assert!(
+            select_primary_iod_validator(
+                WSI_SPARSE_CASE_ID,
+                fallback_only.as_array().unwrap(),
+                &tools.as_array().unwrap()[..1],
+            )
+            .unwrap_err()
+            .contains("requires primary IOD validator")
+        );
+    }
+}
+
 fn verify_findings(evidence: &Value, allowlist: &Value, failures: &mut Vec<String>) -> usize {
     let entries = allowlist["findings"]
         .as_array()
@@ -2008,6 +2210,15 @@ fn instance_findings(evidence: &Value) -> Vec<(&Value, &Value, &Value)> {
     let mut findings = Vec::new();
     for instance in evidence["instances"].as_array().into_iter().flatten() {
         for result in instance["results"].as_array().into_iter().flatten() {
+            if instance["case_id"] == WSI_SPARSE_CASE_ID
+                && result["adapter_id"] == WSI_SPARSE_CHARACTERIZATION_ID
+                && result["role"] == "iod_characterization"
+            {
+                // This one known error is verified exactly by
+                // verify_sparse_wsi_iod_evidence. It is characterization, not
+                // an accepted conformance finding.
+                continue;
+            }
             for finding in result["findings"].as_array().into_iter().flatten() {
                 findings.push((instance, result, finding));
             }
@@ -2242,6 +2453,17 @@ fn collect_instance(
         adapters,
         tools,
     )?);
+    if let Some(characterization) = collect_sparse_wsi_characterization(
+        generated_root,
+        evidence_root,
+        case_id,
+        path,
+        &stable_key,
+        adapters,
+        tools,
+    )? {
+        results.push(characterization);
+    }
     results.push(collect_parser_result(
         generated_root,
         evidence_root,
@@ -2497,6 +2719,104 @@ fn collect_secondary_iod_results(
     Ok(results)
 }
 
+#[allow(clippy::too_many_arguments)]
+fn collect_sparse_wsi_characterization(
+    generated_root: &Path,
+    evidence_root: &Path,
+    case_id: &str,
+    relative_input: &str,
+    stable_key: &str,
+    adapters: &[Value],
+    tools: &[Value],
+) -> Result<Option<Value>, String> {
+    if case_id != WSI_SPARSE_CASE_ID {
+        return Ok(None);
+    }
+    let matching = adapters
+        .iter()
+        .filter(|adapter| {
+            adapter["role"] == "iod_characterization"
+                && adapter["supported_case_ids"] == json!([WSI_SPARSE_CASE_ID])
+        })
+        .collect::<Vec<_>>();
+    let adapter = match matching.as_slice() {
+        [adapter] if adapter["id"] == WSI_SPARSE_CHARACTERIZATION_ID => *adapter,
+        [] => {
+            return Err(
+                "configuration requires the sparse WSI dicom3tools characterization adapter"
+                    .to_string(),
+            );
+        }
+        _ => {
+            return Err(
+                "configuration must define exactly one sparse WSI dicom3tools characterization adapter"
+                    .to_string(),
+            );
+        }
+    };
+    if adapter["expected_exit_code"].as_i64() != Some(1)
+        || adapter["expected_findings"]
+            != json!([{
+                "severity": "error",
+                "message": WSI_SPARSE_CHARACTERIZATION_MESSAGE
+            }])
+    {
+        return Err(
+            "sparse WSI characterization expectation does not match the locked outcome".to_string(),
+        );
+    }
+    let tool = tools
+        .iter()
+        .find(|tool| tool["adapter_id"] == WSI_SPARSE_CHARACTERIZATION_ID)
+        .ok_or_else(|| "sparse WSI characterization discovery result is missing".to_string())?;
+    let raw_dir = evidence_root
+        .join("raw")
+        .join(WSI_SPARSE_CHARACTERIZATION_ID);
+    fs::create_dir_all(&raw_dir).map_err(|error| error.to_string())?;
+    let stdout_relative = format!("raw/{WSI_SPARSE_CHARACTERIZATION_ID}/{stable_key}.stdout");
+    let stderr_relative = format!("raw/{WSI_SPARSE_CHARACTERIZATION_ID}/{stable_key}.stderr");
+    if tool["status"] != "available" {
+        fs::write(evidence_root.join(&stdout_relative), []).map_err(|error| error.to_string())?;
+        fs::write(evidence_root.join(&stderr_relative), []).map_err(|error| error.to_string())?;
+        return Ok(Some(unsupported_result(
+            WSI_SPARSE_CHARACTERIZATION_ID,
+            "iod_characterization",
+            vec![required_string(adapter, "executable")?.to_string()],
+            &stdout_relative,
+            &stderr_relative,
+            "configured sparse WSI dicom3tools characterization is unavailable",
+        )));
+    }
+    let executable = tool["executable"]
+        .as_str()
+        .ok_or_else(|| "available sparse WSI characterization has no executable".to_string())?;
+    let input = generated_root.join(relative_input);
+    let arguments = string_array(adapter, "arguments")?
+        .into_iter()
+        .map(|argument| argument.replace("{input}", &input.display().to_string()))
+        .collect::<Vec<_>>();
+    let output = run_with_timeout(
+        Path::new(executable),
+        &arguments,
+        Duration::from_secs(adapter["timeout_seconds"].as_u64().unwrap_or(30)),
+    )?;
+    fs::write(evidence_root.join(&stdout_relative), &output.stdout)
+        .map_err(|error| error.to_string())?;
+    fs::write(evidence_root.join(&stderr_relative), &output.stderr)
+        .map_err(|error| error.to_string())?;
+    Ok(Some(execution_result(
+        WSI_SPARSE_CHARACTERIZATION_ID,
+        "iod_characterization",
+        executable,
+        arguments,
+        output,
+        &stdout_relative,
+        &stderr_relative,
+        &input.display().to_string(),
+        relative_input,
+    )))
+}
+
 fn select_primary_iod_validator<'a>(
     case_id: &str,
     adapters: &'a [Value],
@@ -2515,6 +2835,11 @@ fn select_primary_iod_validator<'a>(
         })
         .collect::<Vec<_>>();
     let adapter = match matching.as_slice() {
+        [] if case_id == WSI_SPARSE_CASE_ID => {
+            return Err(format!(
+                "case {WSI_SPARSE_CASE_ID} requires primary IOD validator {WSI_SPARSE_PRIMARY_VALIDATOR_ID}"
+            ));
+        }
         [] => adapters
             .iter()
             .find(|adapter| {

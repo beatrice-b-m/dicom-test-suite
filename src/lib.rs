@@ -1663,6 +1663,7 @@ fn validate_manifest_file(
 ) -> Result<(), ValidateError> {
     let relative_path = manifest_str(manifest_path, file, "/path", "file path must be a string")?;
     validate_vl_single_frame_manifest_contract(manifest_path, file)?;
+    validate_wsi_tiled_full_manifest_contract(manifest_path, file)?;
     let path = root_dir.join(relative_path);
     let bytes = match fs::read(&path) {
         Ok(bytes) => bytes,
@@ -1932,6 +1933,225 @@ fn validate_vl_single_frame_manifest_contract(
         });
     }
     Ok(())
+}
+
+fn validate_wsi_tiled_full_manifest_contract(
+    manifest_path: &Path,
+    file: &Value,
+) -> Result<(), ValidateError> {
+    const CASE_ID: &str = "vl/wsi/tiled_full_small";
+    if file.get("case_id").and_then(Value::as_str) != Some(CASE_ID) {
+        return if file.get("expected_wsi_tiled_full").is_some() {
+            Err(ValidateError::ManifestShape {
+                path: manifest_path.to_path_buf(),
+                message: "expected_wsi_tiled_full is only valid for vl/wsi/tiled_full_small",
+            })
+        } else {
+            Ok(())
+        };
+    }
+    let expected = file
+        .get("expected_wsi_tiled_full")
+        .ok_or(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "vl/wsi/tiled_full_small must define expected_wsi_tiled_full",
+        })?;
+    let frame_of_reference_uid = expected
+        .get("frame_of_reference_uid")
+        .and_then(Value::as_str)
+        .filter(|uid| is_manifest_uid(uid))
+        .ok_or(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "expected_wsi_tiled_full frame_of_reference_uid must be a valid UID",
+        })?;
+    let specimen_uid = expected
+        .pointer("/specimen/specimen_uid")
+        .and_then(Value::as_str)
+        .filter(|uid| is_manifest_uid(uid))
+        .ok_or(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "expected_wsi_tiled_full specimen_uid must be a valid UID",
+        })?;
+    let locked = wsi_tiled_full_locked_contract(frame_of_reference_uid, specimen_uid);
+    if expected != &locked {
+        return Err(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "expected_wsi_tiled_full must equal the exact locked case contract",
+        });
+    }
+    for (pointer, locked_value) in [
+        (
+            "/dicom/sop_class_uid",
+            Value::from("1.2.840.10008.5.1.4.1.1.77.1.6"),
+        ),
+        (
+            "/dicom/sop_class_name",
+            Value::from("VL Whole Slide Microscopy Image Storage"),
+        ),
+        (
+            "/dicom/iod_name",
+            Value::from("VL Whole Slide Microscopy Image"),
+        ),
+        ("/dicom/modality", Value::from("SM")),
+        (
+            "/dicom/transfer_syntax_uid",
+            Value::from("1.2.840.10008.1.2.1"),
+        ),
+        (
+            "/uids/frame_of_reference_uid",
+            Value::from(frame_of_reference_uid),
+        ),
+        ("/image/rows", Value::from(2)),
+        ("/image/columns", Value::from(2)),
+        ("/image/frames", Value::from(4)),
+        ("/image/samples_per_pixel", Value::from(3)),
+        ("/image/photometric_interpretation", Value::from("RGB")),
+        ("/image/planar_configuration", Value::from(0)),
+        ("/image/bits_allocated", Value::from(8)),
+        ("/image/bits_stored", Value::from(8)),
+        ("/image/high_bit", Value::from(7)),
+        ("/image/pixel_representation", Value::from(0)),
+        ("/pixel_data/vr", Value::from("OB")),
+        ("/pixel_data/native_or_encapsulated", Value::from("native")),
+        ("/pixel_data/value_length", Value::from(48)),
+        ("/pixel_data/frame_count", Value::from(4)),
+    ] {
+        if file.pointer(pointer) != Some(&locked_value) {
+            return Err(ValidateError::ManifestShape {
+                path: manifest_path.to_path_buf(),
+                message: "WSI manifest identity and pixel metadata must match expected_wsi_tiled_full",
+            });
+        }
+    }
+    if file.pointer("/pixel_data/frame_hashes") != expected.pointer("/pixel_data/frame_hashes") {
+        return Err(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "WSI manifest frame hashes must match expected_wsi_tiled_full",
+        });
+    }
+    if file
+        .get("references")
+        .and_then(Value::as_array)
+        .is_none_or(|references| !references.is_empty())
+    {
+        return Err(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "TILED_FULL WSI references must be an empty array",
+        });
+    }
+    Ok(())
+}
+
+fn is_manifest_uid(uid: &str) -> bool {
+    !uid.is_empty()
+        && uid.len() <= 64
+        && uid.split('.').count() >= 2
+        && uid.split('.').all(|component| {
+            !component.is_empty() && component.bytes().all(|byte| byte.is_ascii_digit())
+        })
+}
+
+pub(crate) fn wsi_tiled_full_locked_contract(
+    frame_of_reference_uid: &str,
+    specimen_uid: &str,
+) -> Value {
+    let image = serde_json::json!({
+        "rows": 2, "columns": 2, "frames": 4, "samples_per_pixel": 3,
+        "photometric_interpretation": "RGB", "planar_configuration": 0,
+        "bits_allocated": 8, "bits_stored": 8, "high_bit": 7, "pixel_representation": 0
+    });
+    let pixel_data = serde_json::json!({
+        "vr": "OB", "native_or_encapsulated": "native", "value_length": 48, "frame_count": 4,
+        "frame_hashes": [
+            "fcf067f6323bb42b8292a565a8f826ec5fdb1b142b7a69bf7f7721f0d5d46ef8",
+            "6c8f6d772829d493618e079a099cf4f20d8524ed3656f49db234f5bbf60a4e65",
+            "7263ad3fd60c6620abd423516d748baedf5e393b1fbdaaf780ff5803a443cc4f",
+            "8688d249e9d047b4fc2fb89ce05afe9ec89252ffccdd969de6eef260dd7ffb21"
+        ]
+    });
+    let implicit_frame_positions = serde_json::json!([
+        { "frame_number": 1, "optical_path_identifier": "RGB", "focal_plane": 1, "column_position": 1, "row_position": 1, "x_mm": 0.0, "y_mm": 0.0, "z_mm": 0.0 },
+        { "frame_number": 2, "optical_path_identifier": "RGB", "focal_plane": 1, "column_position": 3, "row_position": 1, "x_mm": 1.0, "y_mm": 0.0, "z_mm": 0.0 },
+        { "frame_number": 3, "optical_path_identifier": "RGB", "focal_plane": 1, "column_position": 1, "row_position": 3, "x_mm": 0.0, "y_mm": 1.0, "z_mm": 0.0 },
+        { "frame_number": 4, "optical_path_identifier": "RGB", "focal_plane": 1, "column_position": 3, "row_position": 3, "x_mm": 1.0, "y_mm": 1.0, "z_mm": 0.0 }
+    ]);
+    let tiling = serde_json::json!({
+        "total_pixel_matrix_rows": 4, "total_pixel_matrix_columns": 4,
+        "tiles_per_row": 2, "tiles_per_column": 2,
+        "number_of_optical_paths": 1, "total_pixel_matrix_focal_planes": 1,
+        "total_pixel_matrix_origin_mm": [0.0, 0.0, 0.0],
+        "image_orientation_slide": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0],
+        "pixel_spacing_mm": [0.5, 0.5], "slice_thickness_mm": 0.001,
+        "imaged_volume": { "width_mm": 2.0, "height_mm": 2.0, "depth_micrometers": 1.0 },
+        "implicit_frame_positions": implicit_frame_positions,
+        "total_pixel_matrix_sha256": "62d9532d46c3f71b045a1393d95c49c4757ef5e62bb043a61baf4fffed189a2a"
+    });
+    let specimen = serde_json::json!({
+        "container_identifier": "DTS-SLIDE-001", "container_issuer_items": 0,
+        "container_type_code_items": 0, "description_items": 1,
+        "specimen_identifier": "DTS-SPECIMEN-001", "specimen_uid": specimen_uid,
+        "specimen_issuer_items": 0, "specimen_preparation_items": 0
+    });
+    let optical_path = serde_json::json!({
+        "items": 1, "identifier": "RGB", "illumination_wavelength_nm": 550,
+        "illumination_type": {
+            "code_value": "111744", "coding_scheme_designator": "DCM",
+            "code_meaning": "Brightfield illumination"
+        },
+        "icc_profile": {
+            "size_bytes": 736,
+            "sha256": "8e069a3476b71a0e0ae7272d9278ba70540d1c4a0b19af1c7d52e56f49091fef",
+            "dicom_color_space": "SRGB", "device_class": "scnr", "data_color_space": "RGB ",
+            "profile_connection_space": "XYZ ", "signature": "acsp"
+        }
+    });
+    let presence = serde_json::json!({
+        "shared_functional_groups_sequence": true,
+        "per_frame_functional_groups_sequence": false,
+        "dimension_index_sequence": false,
+        "references": false,
+        "concatenation": false,
+        "multi_resolution_pyramid": false
+    });
+    let absent_content = serde_json::json!([
+        "per_frame_functional_groups_sequence",
+        "dimension_index_sequence",
+        "referenced_series_sequence",
+        "concatenation_attributes",
+        "multi_resolution_pyramid",
+        "extended_depth_of_field_number_of_focal_planes",
+        "extended_depth_of_field_distance_between_focal_planes",
+        "lossy_image_compression_ratio",
+        "lossy_image_compression_method",
+        "specimen_reference_sequence"
+    ]);
+    serde_json::json!({
+        "iod_kind": "vl_wsi_tiled_full",
+        "sop_class_uid": "1.2.840.10008.5.1.4.1.1.77.1.6",
+        "sop_class_name": "VL Whole Slide Microscopy Image Storage",
+        "iod_name": "VL Whole Slide Microscopy Image",
+        "modality": "SM",
+        "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+        "frame_of_reference_uid": frame_of_reference_uid,
+        "image_type": ["ORIGINAL", "PRIMARY", "VOLUME", "NONE"],
+        "dimension_organization_type": "TILED_FULL",
+        "position_reference_indicator": "SLIDE_CORNER",
+        "acquisition_context_items": 0,
+        "volumetric_properties": "VOLUME",
+        "specimen_label_in_image": "NO",
+        "burned_in_annotation": "NO",
+        "focus_method": "AUTO",
+        "extended_depth_of_field": "NO",
+        "lossy_image_compression": "00",
+        "image": image,
+        "pixel_data": pixel_data,
+        "tiling": tiling,
+        "specimen": specimen,
+        "slide_label": { "barcode_value": "DTS-SLIDE-001", "label_text": "DTS SYNTHETIC SLIDE 001" },
+        "optical_path": optical_path,
+        "presence": presence,
+        "absent_content": absent_content
+    })
 }
 
 fn validate_nonsquare_spacing_non_native_scope(
@@ -29711,6 +29931,86 @@ mod tests {
             vl_manifest("vl/endoscopic/rgb_explicit_le")["expected_vl_single_frame"].clone();
         assert!(
             validate_vl_single_frame_manifest_contract(Path::new("manifest.json"), &misplaced)
+                .is_err()
+        );
+    }
+
+    fn wsi_manifest() -> Value {
+        let frame_of_reference_uid = "1.2.826.0.1.3680043.10.543.1";
+        serde_json::json!({
+            "case_id": "vl/wsi/tiled_full_small",
+            "dicom": {
+                "sop_class_uid": "1.2.840.10008.5.1.4.1.1.77.1.6",
+                "sop_class_name": "VL Whole Slide Microscopy Image Storage",
+                "iod_name": "VL Whole Slide Microscopy Image",
+                "modality": "SM",
+                "transfer_syntax_uid": "1.2.840.10008.1.2.1"
+            },
+            "uids": { "frame_of_reference_uid": frame_of_reference_uid },
+            "image": {
+                "rows": 2, "columns": 2, "frames": 4, "samples_per_pixel": 3,
+                "photometric_interpretation": "RGB", "planar_configuration": 0,
+                "bits_allocated": 8, "bits_stored": 8, "high_bit": 7, "pixel_representation": 0
+            },
+            "pixel_data": {
+                "vr": "OB", "native_or_encapsulated": "native", "value_length": 48, "frame_count": 4,
+                "frame_hashes": [
+                    "fcf067f6323bb42b8292a565a8f826ec5fdb1b142b7a69bf7f7721f0d5d46ef8",
+                    "6c8f6d772829d493618e079a099cf4f20d8524ed3656f49db234f5bbf60a4e65",
+                    "7263ad3fd60c6620abd423516d748baedf5e393b1fbdaaf780ff5803a443cc4f",
+                    "8688d249e9d047b4fc2fb89ce05afe9ec89252ffccdd969de6eef260dd7ffb21"
+                ]
+            },
+            "references": [],
+            "expected_wsi_tiled_full": wsi_tiled_full_locked_contract(
+                frame_of_reference_uid,
+                "1.2.826.0.1.3680043.10.543.2"
+            )
+        })
+    }
+
+    #[test]
+    fn wsi_tiled_full_manifest_contract_is_exact_case_scoped_and_cross_bound() {
+        validate_wsi_tiled_full_manifest_contract(Path::new("manifest.json"), &wsi_manifest())
+            .expect("locked WSI contract");
+
+        let mut wrong_hash = wsi_manifest();
+        wrong_hash["expected_wsi_tiled_full"]["pixel_data"]["frame_hashes"][0] =
+            Value::from("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+        assert!(
+            validate_wsi_tiled_full_manifest_contract(Path::new("manifest.json"), &wrong_hash)
+                .is_err()
+        );
+
+        let mut wrong_position = wsi_manifest();
+        wrong_position["expected_wsi_tiled_full"]["tiling"]["implicit_frame_positions"][1]["column_position"] =
+            Value::from(1);
+        assert!(
+            validate_wsi_tiled_full_manifest_contract(Path::new("manifest.json"), &wrong_position)
+                .is_err()
+        );
+
+        let mut crossed_generic = wsi_manifest();
+        crossed_generic["pixel_data"]["frame_count"] = Value::from(3);
+        assert!(
+            validate_wsi_tiled_full_manifest_contract(Path::new("manifest.json"), &crossed_generic)
+                .is_err()
+        );
+
+        let mut missing = wsi_manifest();
+        missing
+            .as_object_mut()
+            .unwrap()
+            .remove("expected_wsi_tiled_full");
+        assert!(
+            validate_wsi_tiled_full_manifest_contract(Path::new("manifest.json"), &missing)
+                .is_err()
+        );
+
+        let mut misplaced = serde_json::json!({"case_id": "vl/wsi/tiled_sparse_small"});
+        misplaced["expected_wsi_tiled_full"] = wsi_manifest()["expected_wsi_tiled_full"].clone();
+        assert!(
+            validate_wsi_tiled_full_manifest_contract(Path::new("manifest.json"), &misplaced)
                 .is_err()
         );
     }

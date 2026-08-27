@@ -6626,7 +6626,9 @@ fn classic_ct_instance_number_order_index(recipe: ClassicCtRecipe, instance_numb
 }
 
 fn classic_ct_profile_membership(recipe: ClassicCtRecipe) -> &'static [&'static str] {
-    if recipe.transfer_syntax == RLE_LOSSLESS {
+    if recipe.case_id == "geometry/ct/spatial_sort_conflicts_instance_number" {
+        &["core", "extended"]
+    } else if recipe.transfer_syntax == RLE_LOSSLESS {
         &["extended"]
     } else {
         &["core"]

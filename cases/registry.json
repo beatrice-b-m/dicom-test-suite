@@ -11644,7 +11644,8 @@
       "roadmap": null,
       "blockers": [],
       "profiles": [
-        "core"
+        "core",
+        "extended"
       ],
       "recipe_id": "geometry_ct_spatial_sort_conflicts_instance_number",
       "recipe_version": "0.1.0",

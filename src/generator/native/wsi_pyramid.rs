@@ -12,6 +12,7 @@ use super::{
 pub(in crate::generator) const WSI_PYRAMID_CASE_ID: &str = "vl/wsi/pyramid_multiresolution";
 pub(in crate::generator) const WSI_PYRAMID_RECIPE_ID: &str = "vl_wsi_pyramid_multiresolution";
 pub(in crate::generator) const WSI_PYRAMID_RECIPE_VERSION: &str = "0.1.0";
+const WSI_PYRAMID_MANUFACTURER_MODEL_NAME: &str = "Native WSI Pyramid";
 pub(in crate::generator) const WSI_PYRAMID_STORAGE_UID: &str = WSI_TILED_FULL_STORAGE_UID;
 pub(in crate::generator) const WSI_PYRAMID_VOLUME_OUTPUT_FILE: &str = "volume.dcm";
 pub(in crate::generator) const WSI_PYRAMID_THUMBNAIL_OUTPUT_FILE: &str = "thumbnail.dcm";
@@ -117,14 +118,6 @@ impl WsiPyramidRole {
         }
     }
 
-    fn model_name(self) -> &'static str {
-        match self {
-            Self::Volume => "Native Pyramid VOLUME WSI",
-            Self::Thumbnail => "Native Pyramid THUMBNAIL WSI",
-            Self::Label => "Native Pyramid LABEL WSI",
-        }
-    }
-
     fn spacing(self) -> &'static str {
         match self {
             Self::Thumbnail => r"1.0\1.0",
@@ -170,7 +163,7 @@ fn configure_role(object: &mut InMemDicomObject, role: WsiPyramidRole, pyramid_u
         object,
         tags::MANUFACTURER_MODEL_NAME,
         VR::LO,
-        role.model_name(),
+        WSI_PYRAMID_MANUFACTURER_MODEL_NAME,
     );
     put_str(
         object,
@@ -470,6 +463,14 @@ mod tests {
             assert_eq!(
                 object.element(tags::IMAGE_TYPE).unwrap().to_str().unwrap(),
                 image_type
+            );
+            assert_eq!(
+                object
+                    .element(tags::MANUFACTURER_MODEL_NAME)
+                    .unwrap()
+                    .to_str()
+                    .unwrap(),
+                WSI_PYRAMID_MANUFACTURER_MODEL_NAME
             );
             assert_eq!(
                 object

@@ -30,6 +30,7 @@ static FIXTURE_ORDINAL: AtomicU64 = AtomicU64::new(1);
 enum Mutation {
     None,
     Patient,
+    Equipment,
     PyramidMembership,
     ImageType,
     LabelFlag,
@@ -77,6 +78,12 @@ fn rejects_shared_role_membership_geometry_icc_pixel_and_absence_mutations() {
             WsiPyramidRole::Volume,
             Mutation::Patient,
             "wsi_pyramid_patient_id",
+        ),
+        (
+            "equipment",
+            WsiPyramidRole::Thumbnail,
+            Mutation::Equipment,
+            "wsi_pyramid_manufacturer_model_name",
         ),
         (
             "membership",
@@ -278,6 +285,11 @@ fn write_fixture(role: WsiPyramidRole, mutation: Mutation) -> PathBuf {
         (tags::STUDY_INSTANCE_UID, VR::UI, STUDY_UID),
         (tags::SERIES_INSTANCE_UID, VR::UI, SERIES_UID),
         (tags::FRAME_OF_REFERENCE_UID, VR::UI, FOR_UID),
+        (
+            tags::MANUFACTURER_MODEL_NAME,
+            VR::LO,
+            "Native WSI Pyramid",
+        ),
         (tags::IMAGE_TYPE, VR::CS, image_type),
         (tags::SPECIMEN_LABEL_IN_IMAGE, VR::CS, flag),
         (
@@ -306,6 +318,12 @@ fn write_fixture(role: WsiPyramidRole, mutation: Mutation) -> PathBuf {
     match mutation {
         Mutation::None | Mutation::Icc => {}
         Mutation::Patient => put_str(&mut obj, tags::PATIENT_ID, VR::LO, "OTHER"),
+        Mutation::Equipment => put_str(
+            &mut obj,
+            tags::MANUFACTURER_MODEL_NAME,
+            VR::LO,
+            "CROSSED-EQUIPMENT",
+        ),
         Mutation::PyramidMembership => put_str(&mut obj, tags::PYRAMID_UID, VR::UI, "2.25.9991"),
         Mutation::ImageType => put_str(
             &mut obj,

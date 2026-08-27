@@ -3155,6 +3155,11 @@ fn validate_wsi_pyramid(
             tags::FRAME_OF_REFERENCE_UID,
             shared_string("/shared_identity/frame_of_reference_uid"),
         ),
+        (
+            "manufacturer_model_name",
+            tags::MANUFACTURER_MODEL_NAME,
+            "Native WSI Pyramid",
+        ),
         ("image_type", tags::IMAGE_TYPE, image_type.as_str()),
         (
             "specimen_label_in_image",

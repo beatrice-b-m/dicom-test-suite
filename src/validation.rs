@@ -30,6 +30,10 @@ mod deformable_spatial_registration_tests;
 #[path = "validation_color_softcopy_presentation_state_tests.rs"]
 mod color_softcopy_presentation_state_tests;
 
+#[cfg(test)]
+#[path = "validation_advanced_blending_presentation_state_tests.rs"]
+mod advanced_blending_presentation_state_tests;
+
 #[cfg(feature = "deflate")]
 use crate::codecs::DicomRsDeflatedImageFrameEncoder;
 #[cfg(feature = "charls")]
@@ -123,6 +127,27 @@ pub(crate) struct ColorSoftcopyPresentationStateExpectations<'a> {
     pub source_series_instance_uid: &'a str,
     pub source_sop_class_uid: &'a str,
     pub source_sop_instance_uid: &'a str,
+    pub icc_profile_sha256: &'a str,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct AdvancedBlendingSourceSeriesExpectations<'a> {
+    pub series_instance_uid: &'a str,
+    pub sop_class_uid: &'a str,
+    pub sop_instance_uids: [&'a str; 2],
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct AdvancedBlendingPresentationStateExpectations<'a> {
+    pub sop_class_uid: &'a str,
+    pub sop_instance_uid: &'a str,
+    pub transfer_syntax_uid: &'a str,
+    pub implementation_class_uid: &'a str,
+    pub synthetic_data: &'a str,
+    pub study_instance_uid: &'a str,
+    pub series_instance_uid: &'a str,
+    pub frame_of_reference_uid: &'a str,
+    pub source_series: [AdvancedBlendingSourceSeriesExpectations<'a>; 2],
     pub icc_profile_sha256: &'a str,
 }
 
@@ -2216,6 +2241,648 @@ pub(crate) fn validate_color_softcopy_presentation_state_file(
                     "name": "color_softcopy_presentation_state_modules",
                     "status": "passed",
                     "message": "Color Softcopy relationship, global displayed area, locked ICC profile, and prohibited-content invariants match the recipe."
+                }
+            ],
+            "external": []
+        }),
+    })
+}
+
+pub(crate) fn validate_advanced_blending_presentation_state_file(
+    path: &Path,
+    expected: &AdvancedBlendingPresentationStateExpectations<'_>,
+) -> Result<ValidatedPart10, GenerateError> {
+    let bytes = fs::read(path).map_err(|source| GenerateError::ReadGeneratedFile {
+        path: path.to_path_buf(),
+        source,
+    })?;
+    let obj = open_file(path).map_err(|err| GenerateError::ValidateDicomFile {
+        path: path.to_path_buf(),
+        message: err.to_string(),
+    })?;
+    let mut internal = Vec::new();
+
+    check(
+        &mut internal,
+        bytes.len() >= 132 && &bytes[128..132] == b"DICM",
+        "advanced_blending_part10_preamble",
+        "File has a Part 10 preamble and DICM marker.",
+        "File is missing the Part 10 DICM marker.",
+    );
+    check_equal(
+        &mut internal,
+        "advanced_blending_transfer_syntax",
+        "Transfer Syntax matches the locked recipe.",
+        "Transfer Syntax does not match the locked recipe.",
+        trim_uid(obj.meta().transfer_syntax()),
+        expected.transfer_syntax_uid.to_string(),
+    );
+    let sop_class_uid = element_str(path, &obj, tags::SOP_CLASS_UID)?;
+    let sop_instance_uid = element_str(path, &obj, tags::SOP_INSTANCE_UID)?;
+    for (name, actual, locked) in [
+        (
+            "advanced_blending_sop_class_uid",
+            sop_class_uid.as_str(),
+            expected.sop_class_uid,
+        ),
+        (
+            "advanced_blending_sop_instance_uid",
+            sop_instance_uid.as_str(),
+            expected.sop_instance_uid,
+        ),
+        (
+            "advanced_blending_synthetic_data",
+            element_str(path, &obj, tags::SYNTHETIC_DATA)?.as_str(),
+            expected.synthetic_data,
+        ),
+        (
+            "advanced_blending_study_instance_uid",
+            element_str(path, &obj, tags::STUDY_INSTANCE_UID)?.as_str(),
+            expected.study_instance_uid,
+        ),
+        (
+            "advanced_blending_series_instance_uid",
+            element_str(path, &obj, tags::SERIES_INSTANCE_UID)?.as_str(),
+            expected.series_instance_uid,
+        ),
+        (
+            "advanced_blending_frame_of_reference_uid",
+            element_str(path, &obj, tags::FRAME_OF_REFERENCE_UID)?.as_str(),
+            expected.frame_of_reference_uid,
+        ),
+    ] {
+        check_equal(
+            &mut internal,
+            name,
+            "Identity matches the locked recipe.",
+            "Identity does not match the locked recipe.",
+            actual,
+            locked,
+        );
+    }
+    check_equal(
+        &mut internal,
+        "advanced_blending_media_storage_sop_class_uid",
+        "File Meta SOP Class matches the dataset.",
+        "File Meta SOP Class does not match the dataset.",
+        trim_uid(obj.meta().media_storage_sop_class_uid()),
+        sop_class_uid,
+    );
+    check_equal(
+        &mut internal,
+        "advanced_blending_media_storage_sop_instance_uid",
+        "File Meta SOP Instance matches the dataset.",
+        "File Meta SOP Instance does not match the dataset.",
+        trim_uid(obj.meta().media_storage_sop_instance_uid()),
+        sop_instance_uid,
+    );
+    check_equal(
+        &mut internal,
+        "advanced_blending_implementation_class_uid",
+        "Implementation Class UID matches the generator.",
+        "Implementation Class UID does not match the generator.",
+        trim_uid(obj.meta().implementation_class_uid()).as_str(),
+        expected.implementation_class_uid,
+    );
+    for (name, tag, locked) in [
+        (
+            "advanced_blending_patient_name",
+            tags::PATIENT_NAME,
+            "DTS^Synthetic^Patient001",
+        ),
+        (
+            "advanced_blending_patient_id",
+            tags::PATIENT_ID,
+            "DTS-PATIENT-001",
+        ),
+        (
+            "advanced_blending_patient_birth_date",
+            tags::PATIENT_BIRTH_DATE,
+            "19700101",
+        ),
+        ("advanced_blending_patient_sex", tags::PATIENT_SEX, "O"),
+        ("advanced_blending_study_date", tags::STUDY_DATE, "20260101"),
+        ("advanced_blending_study_time", tags::STUDY_TIME, "000000"),
+        (
+            "advanced_blending_referring_physician",
+            tags::REFERRING_PHYSICIAN_NAME,
+            "",
+        ),
+        ("advanced_blending_study_id", tags::STUDY_ID, "DTS-CT"),
+        (
+            "advanced_blending_accession_number",
+            tags::ACCESSION_NUMBER,
+            "",
+        ),
+        ("advanced_blending_modality", tags::MODALITY, "PR"),
+        ("advanced_blending_series_number", tags::SERIES_NUMBER, "80"),
+        ("advanced_blending_laterality", tags::LATERALITY, "R"),
+        (
+            "advanced_blending_manufacturer",
+            tags::MANUFACTURER,
+            "dicom-test-suite",
+        ),
+        (
+            "advanced_blending_institution_name",
+            tags::INSTITUTION_NAME,
+            "",
+        ),
+        (
+            "advanced_blending_institution_address",
+            tags::INSTITUTION_ADDRESS,
+            "",
+        ),
+        (
+            "advanced_blending_manufacturer_model_name",
+            tags::MANUFACTURER_MODEL_NAME,
+            "Native Advanced Blending Presentation State",
+        ),
+        (
+            "advanced_blending_device_serial_number",
+            tags::DEVICE_SERIAL_NUMBER,
+            "DTS-ADVBLEND-001",
+        ),
+        (
+            "advanced_blending_software_versions",
+            tags::SOFTWARE_VERSIONS,
+            crate::PACKAGE_VERSION,
+        ),
+        (
+            "advanced_blending_instance_number",
+            tags::INSTANCE_NUMBER,
+            "1",
+        ),
+        (
+            "advanced_blending_creation_date",
+            tags::PRESENTATION_CREATION_DATE,
+            "20260101",
+        ),
+        (
+            "advanced_blending_creation_time",
+            tags::PRESENTATION_CREATION_TIME,
+            "000000",
+        ),
+        (
+            "advanced_blending_content_label",
+            tags::CONTENT_LABEL,
+            "DTSADVBLEND",
+        ),
+        (
+            "advanced_blending_content_description",
+            tags::CONTENT_DESCRIPTION,
+            "Synthetic DTSADVBLEND presentation state",
+        ),
+        (
+            "advanced_blending_content_creator",
+            tags::CONTENT_CREATOR_NAME,
+            "DTS^Generator",
+        ),
+        (
+            "advanced_blending_pixel_presentation",
+            tags::PIXEL_PRESENTATION,
+            "TRUE_COLOR",
+        ),
+    ] {
+        check_equal(
+            &mut internal,
+            name,
+            "Attribute matches the locked recipe.",
+            "Attribute does not match the locked recipe.",
+            element_str(path, &obj, tag)?.as_str(),
+            locked,
+        );
+    }
+    check_equal(
+        &mut internal,
+        "advanced_blending_position_reference_indicator",
+        "Position Reference Indicator is present and empty.",
+        "Position Reference Indicator is missing or non-empty.",
+        element_str(path, &obj, tags::POSITION_REFERENCE_INDICATOR)?.as_str(),
+        "",
+    );
+    check(
+        &mut internal,
+        expected
+            .source_series
+            .iter()
+            .all(|source| source.series_instance_uid != expected.series_instance_uid),
+        "advanced_blending_distinct_presentation_series",
+        "Presentation Series is distinct from both source Series.",
+        "Presentation Series unexpectedly reuses a source Series UID.",
+    );
+
+    check_equal(
+        &mut internal,
+        "advanced_blending_input_count",
+        "Advanced Blending Sequence has exactly two inputs.",
+        "Advanced Blending Sequence does not have exactly two inputs.",
+        sequence_item_count(path, &obj, tags::ADVANCED_BLENDING_SEQUENCE)?,
+        2,
+    );
+    let mut geometry_source_count = 0;
+    for (input_index, source) in expected.source_series.iter().enumerate() {
+        let input =
+            top_level_sequence_item(path, &obj, tags::ADVANCED_BLENDING_SEQUENCE, input_index)?;
+        let ordinal = (input_index + 1) as u16;
+        let input_number_element = input
+            .element(tags::BLENDING_INPUT_NUMBER)
+            .map_err(|err| validation_error(path, err))?;
+        check_equal(
+            &mut internal,
+            &format!("advanced_blending_input_{}_number_vr", ordinal),
+            "Blending Input Number uses VR US.",
+            "Blending Input Number does not use VR US.",
+            input_number_element.vr(),
+            VR::US,
+        );
+        check_equal(
+            &mut internal,
+            &format!("advanced_blending_input_{}_number_vm", ordinal),
+            "Blending Input Number has VM 1.",
+            "Blending Input Number does not have VM 1.",
+            input_number_element.value().multiplicity(),
+            1,
+        );
+        check_equal(
+            &mut internal,
+            &format!("advanced_blending_input_{}_number", ordinal),
+            "Blending Input Number is the ordered ordinal.",
+            "Blending Input Number is missing, duplicated, or non-ordinal.",
+            item_u16(path, input, tags::BLENDING_INPUT_NUMBER)?,
+            ordinal,
+        );
+        check_equal(
+            &mut internal,
+            &format!("advanced_blending_input_{}_study", ordinal),
+            "Input references the source Study.",
+            "Input redirects to another Study.",
+            item_str(path, input, tags::STUDY_INSTANCE_UID)?.as_str(),
+            expected.study_instance_uid,
+        );
+        check_equal(
+            &mut internal,
+            &format!("advanced_blending_input_{}_series", ordinal),
+            "Input references the ordered source Series.",
+            "Input redirects to or reorders a source Series.",
+            item_str(path, input, tags::SERIES_INSTANCE_UID)?.as_str(),
+            source.series_instance_uid,
+        );
+        check_equal(
+            &mut internal,
+            &format!("advanced_blending_input_{}_image_count", ordinal),
+            "Input references exactly two source Images.",
+            "Input omits, duplicates, or adds a source Image.",
+            item_sequence_item_count(path, input, tags::REFERENCED_IMAGE_SEQUENCE)?,
+            2,
+        );
+        for (image_index, expected_sop_uid) in source.sop_instance_uids.iter().enumerate() {
+            let image =
+                item_sequence_item(path, input, tags::REFERENCED_IMAGE_SEQUENCE, image_index)?;
+            check_equal(
+                &mut internal,
+                &format!(
+                    "advanced_blending_input_{}_image_{}_sop_class",
+                    ordinal,
+                    image_index + 1
+                ),
+                "Source SOP Class matches the locked CT identity.",
+                "Source SOP Class is redirected.",
+                item_str(path, image, tags::REFERENCED_SOP_CLASS_UID)?.as_str(),
+                source.sop_class_uid,
+            );
+            check_equal(
+                &mut internal,
+                &format!(
+                    "advanced_blending_input_{}_image_{}_sop_instance",
+                    ordinal,
+                    image_index + 1
+                ),
+                "Source SOP Instance matches the locked slice order.",
+                "Source SOP Instance is dangling, duplicated, or reordered.",
+                item_str(path, image, tags::REFERENCED_SOP_INSTANCE_UID)?.as_str(),
+                *expected_sop_uid,
+            );
+            check(
+                &mut internal,
+                image
+                    .element_opt(tags::REFERENCED_FRAME_NUMBER)
+                    .map_err(|err| validation_error(path, err))?
+                    .is_none(),
+                &format!(
+                    "advanced_blending_input_{}_image_{}_complete_instance",
+                    ordinal,
+                    image_index + 1
+                ),
+                "Reference selects the complete source Instance.",
+                "Referenced Frame Number unexpectedly narrows the source Instance.",
+            );
+        }
+        check_equal(
+            &mut internal,
+            &format!("advanced_blending_input_{}_time_series", ordinal),
+            "Time Series Blending is FALSE.",
+            "Time Series Blending does not match the locked recipe.",
+            item_str(path, input, tags::TIME_SERIES_BLENDING)?.as_str(),
+            "FALSE",
+        );
+        let geometry = item_str(path, input, tags::GEOMETRY_FOR_DISPLAY)?;
+        if geometry == "TRUE" {
+            geometry_source_count += 1;
+        }
+        check_equal(
+            &mut internal,
+            &format!("advanced_blending_input_{}_geometry", ordinal),
+            "Geometry for Display matches the locked source selection.",
+            "Geometry for Display does not match the locked source selection.",
+            geometry.as_str(),
+            if ordinal == 1 { "TRUE" } else { "FALSE" },
+        );
+        for (name, tag) in [
+            (
+                "spatial_registration",
+                tags::REFERENCED_SPATIAL_REGISTRATION_SEQUENCE,
+            ),
+            ("optical_path", tags::OPTICAL_PATH_IDENTIFICATION_SEQUENCE),
+            ("softcopy_voi", tags::SOFTCOPY_VOILUT_SEQUENCE),
+            (
+                "palette_color_lut",
+                tags::PALETTE_COLOR_LOOKUP_TABLE_SEQUENCE,
+            ),
+            ("threshold", tags::THRESHOLD_SEQUENCE),
+        ] {
+            check(
+                &mut internal,
+                input
+                    .element_opt(tag)
+                    .map_err(|err| validation_error(path, err))?
+                    .is_none(),
+                &format!("advanced_blending_input_{}_{}_absent", ordinal, name),
+                "Optional input transform is absent.",
+                "A forbidden optional input transform is present.",
+            );
+        }
+    }
+    check_equal(
+        &mut internal,
+        "advanced_blending_single_geometry_source",
+        "Exactly one input supplies display geometry.",
+        "Display geometry has zero or multiple sources.",
+        geometry_source_count,
+        1,
+    );
+
+    check_equal(
+        &mut internal,
+        "advanced_blending_display_operation_count",
+        "Exactly one display operation is present.",
+        "Display operation cardinality does not match the locked recipe.",
+        sequence_item_count(path, &obj, tags::BLENDING_DISPLAY_SEQUENCE)?,
+        1,
+    );
+    let display = top_level_sequence_item(path, &obj, tags::BLENDING_DISPLAY_SEQUENCE, 0)?;
+    check_equal(
+        &mut internal,
+        "advanced_blending_display_input_count",
+        "Display operation consumes exactly two inputs.",
+        "Display operation input cardinality is invalid.",
+        item_sequence_item_count(path, display, tags::BLENDING_DISPLAY_INPUT_SEQUENCE)?,
+        2,
+    );
+    for (index, ordinal) in [1_u16, 2].iter().enumerate() {
+        let display_input =
+            item_sequence_item(path, display, tags::BLENDING_DISPLAY_INPUT_SEQUENCE, index)?;
+        let display_input_number = display_input
+            .element(tags::BLENDING_INPUT_NUMBER)
+            .map_err(|err| validation_error(path, err))?;
+        check_equal(
+            &mut internal,
+            &format!("advanced_blending_display_input_{}_vr", index + 1),
+            "Display Blending Input Number uses VR US.",
+            "Display Blending Input Number does not use VR US.",
+            display_input_number.vr(),
+            VR::US,
+        );
+        check_equal(
+            &mut internal,
+            &format!("advanced_blending_display_input_{}_vm", index + 1),
+            "Display Blending Input Number has VM 1.",
+            "Display Blending Input Number does not have VM 1.",
+            display_input_number.value().multiplicity(),
+            1,
+        );
+        check_equal(
+            &mut internal,
+            &format!("advanced_blending_display_input_{}_order", index + 1),
+            "Display input identifies the locked ordered input.",
+            "Display input is dangling, duplicated, missing, or reordered.",
+            item_u16(path, display_input, tags::BLENDING_INPUT_NUMBER)?,
+            *ordinal,
+        );
+    }
+    check_equal(
+        &mut internal,
+        "advanced_blending_mode",
+        "Blending Mode is EQUAL.",
+        "Blending Mode does not match the locked recipe.",
+        item_str(path, display, tags::BLENDING_MODE)?.as_str(),
+        "EQUAL",
+    );
+    for (name, tag) in [
+        ("relative_opacity", tags::RELATIVE_OPACITY),
+        ("output_input_number", tags::BLENDING_INPUT_NUMBER),
+    ] {
+        check(
+            &mut internal,
+            display
+                .element_opt(tag)
+                .map_err(|err| validation_error(path, err))?
+                .is_none(),
+            &format!("advanced_blending_display_{}_absent", name),
+            "Optional display output attribute is absent.",
+            "Sole display operation is not the locked final EQUAL operation.",
+        );
+    }
+
+    let icc_element = obj
+        .element(tags::ICC_PROFILE)
+        .map_err(|err| validation_error(path, err))?;
+    let icc_bytes = icc_element
+        .value()
+        .to_bytes()
+        .map_err(|err| validation_error(path, err))?;
+    let icc = icc_bytes.as_ref();
+    check_equal(
+        &mut internal,
+        "advanced_blending_icc_vr",
+        "ICC Profile uses OB.",
+        "ICC Profile does not use OB.",
+        icc_element.vr(),
+        VR::OB,
+    );
+    check_equal(
+        &mut internal,
+        "advanced_blending_icc_size",
+        "ICC Profile has 736 bytes.",
+        "ICC Profile size is invalid.",
+        icc.len(),
+        736,
+    );
+    check_equal(
+        &mut internal,
+        "advanced_blending_icc_sha256",
+        "ICC bytes match the locked profile.",
+        "ICC bytes do not match the locked profile.",
+        sha256_hex(icc).as_str(),
+        expected.icc_profile_sha256,
+    );
+    check_equal(
+        &mut internal,
+        "advanced_blending_icc_declared_size",
+        "ICC header declares the exact profile size.",
+        "ICC header does not declare the exact profile size.",
+        icc.get(0..4)
+            .and_then(|bytes| <[u8; 4]>::try_from(bytes).ok())
+            .map(u32::from_be_bytes),
+        Some(736),
+    );
+    for (name, range, locked) in [
+        ("device_class", 12..16, &b"scnr"[..]),
+        ("data_color_space", 16..20, &b"RGB "[..]),
+        ("connection_space", 20..24, &b"XYZ "[..]),
+        ("signature", 36..40, &b"acsp"[..]),
+    ] {
+        check_equal(
+            &mut internal,
+            &format!("advanced_blending_icc_{name}"),
+            "ICC header matches the locked profile.",
+            "ICC header does not match the locked profile.",
+            icc.get(range),
+            Some(locked),
+        );
+    }
+    check_equal(
+        &mut internal,
+        "advanced_blending_color_space",
+        "DICOM Color Space is SRGB.",
+        "DICOM Color Space is not SRGB.",
+        element_str(path, &obj, tags::COLOR_SPACE)?.as_str(),
+        "SRGB",
+    );
+
+    check_equal(
+        &mut internal,
+        "advanced_blending_common_series_count",
+        "Common Instance Reference contains exactly two Series.",
+        "Common Instance Reference Series cardinality is invalid.",
+        sequence_item_count(path, &obj, tags::REFERENCED_SERIES_SEQUENCE)?,
+        2,
+    );
+    for (series_index, source) in expected.source_series.iter().enumerate() {
+        let series =
+            top_level_sequence_item(path, &obj, tags::REFERENCED_SERIES_SEQUENCE, series_index)?;
+        check_equal(
+            &mut internal,
+            &format!("advanced_blending_common_series_{}_uid", series_index + 1),
+            "Common reference preserves source Series order.",
+            "Common reference redirects or reorders a source Series.",
+            item_str(path, series, tags::SERIES_INSTANCE_UID)?.as_str(),
+            source.series_instance_uid,
+        );
+        let common_instance_count =
+            item_sequence_item_count(path, series, tags::REFERENCED_INSTANCE_SEQUENCE)?;
+        check_equal(
+            &mut internal,
+            &format!(
+                "advanced_blending_common_series_{}_instance_count",
+                series_index + 1
+            ),
+            "Common reference contains both source Instances.",
+            "Common reference omits, duplicates, or adds an Instance.",
+            common_instance_count,
+            2,
+        );
+        for (image_index, expected_sop_uid) in source
+            .sop_instance_uids
+            .iter()
+            .take(common_instance_count)
+            .enumerate()
+        {
+            let image = item_sequence_item(
+                path,
+                series,
+                tags::REFERENCED_INSTANCE_SEQUENCE,
+                image_index,
+            )?;
+            check_equal(
+                &mut internal,
+                &format!(
+                    "advanced_blending_common_series_{}_image_{}_sop_class",
+                    series_index + 1,
+                    image_index + 1
+                ),
+                "Common reference SOP Class mirrors the blending input.",
+                "Common reference SOP Class does not mirror the blending input.",
+                item_str(path, image, tags::REFERENCED_SOP_CLASS_UID)?.as_str(),
+                source.sop_class_uid,
+            );
+            check_equal(
+                &mut internal,
+                &format!(
+                    "advanced_blending_common_series_{}_image_{}_sop_instance",
+                    series_index + 1,
+                    image_index + 1
+                ),
+                "Common reference SOP Instance mirrors the blending input.",
+                "Common reference is dangling, omitted, duplicated, or reordered.",
+                item_str(path, image, tags::REFERENCED_SOP_INSTANCE_UID)?.as_str(),
+                *expected_sop_uid,
+            );
+        }
+    }
+    for (name, tag) in [
+        (
+            "other_studies",
+            tags::STUDIES_CONTAINING_OTHER_REFERENCED_INSTANCES_SEQUENCE,
+        ),
+        ("displayed_area", tags::DISPLAYED_AREA_SELECTION_SEQUENCE),
+        ("graphic_annotation", tags::GRAPHIC_ANNOTATION_SEQUENCE),
+        ("graphic_layer", tags::GRAPHIC_LAYER_SEQUENCE),
+        ("spatial_transform_flip", tags::IMAGE_HORIZONTAL_FLIP),
+        ("spatial_transform_rotation", tags::IMAGE_ROTATION),
+        ("pixel_data", tags::PIXEL_DATA),
+    ] {
+        check(
+            &mut internal,
+            obj.element_opt(tag)
+                .map_err(|err| validation_error(path, err))?
+                .is_none(),
+            &format!("advanced_blending_{name}_absent"),
+            "Forbidden optional content is absent.",
+            "Forbidden optional content is present.",
+        );
+    }
+
+    fail_if_any_failed(path, &internal)?;
+    Ok(ValidatedPart10 {
+        bytes,
+        validation: serde_json::json!({
+            "status": "passed",
+            "internal": internal,
+            "standards": [
+                {
+                    "name": standard_sop_class_validation_name(expected.sop_class_uid),
+                    "status": "passed",
+                    "message": standard_sop_class_validation_message(expected.sop_class_uid)
+                },
+                {
+                    "name": standard_transfer_syntax_validation_name(expected.transfer_syntax_uid),
+                    "status": "passed",
+                    "message": standard_transfer_syntax_validation_message(expected.transfer_syntax_uid)
+                },
+                {
+                    "name": "advanced_blending_presentation_state_modules",
+                    "status": "passed",
+                    "message": "Advanced Blending input topology, display graph, ICC identity, common-reference closure, and absence invariants match the locked recipe."
                 }
             ],
             "external": []

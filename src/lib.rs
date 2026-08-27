@@ -120,9 +120,12 @@ pub struct ValidationSummary {
 #[derive(Debug, Clone)]
 struct ManifestSourceObject {
     case_id: String,
+    sha256: String,
+    study_instance_uid: String,
     sop_class_uid: String,
     sop_instance_uid: String,
     series_instance_uid: Option<String>,
+    frame_of_reference_uid: Option<String>,
     frames: Option<u64>,
 }
 
@@ -559,6 +562,13 @@ fn build_manifest_source_object_map(
     for file in files {
         let path = manifest_str(manifest_path, file, "/path", "file path must be a string")?;
         let case_id = manifest_str(manifest_path, file, "/case_id", "case_id must be a string")?;
+        let sha256 = manifest_str(manifest_path, file, "/sha256", "sha256 must be a string")?;
+        let study_instance_uid = manifest_str(
+            manifest_path,
+            file,
+            "/uids/study_instance_uid",
+            "uids study_instance_uid must be a string",
+        )?;
         let sop_class_uid = manifest_str(
             manifest_path,
             file,
@@ -581,9 +591,15 @@ fn build_manifest_source_object_map(
             path.to_string(),
             ManifestSourceObject {
                 case_id: case_id.to_string(),
+                sha256: sha256.to_string(),
+                study_instance_uid: study_instance_uid.to_string(),
                 sop_class_uid: sop_class_uid.to_string(),
                 sop_instance_uid: sop_instance_uid.to_string(),
                 series_instance_uid,
+                frame_of_reference_uid: file
+                    .pointer("/uids/frame_of_reference_uid")
+                    .and_then(Value::as_str)
+                    .map(ToOwned::to_owned),
                 frames,
             },
         );
@@ -721,6 +737,169 @@ fn validate_manifest_references(
         }
     }
 
+    if file.get("case_id").and_then(Value::as_str) == Some("derived/registration/spatial_ct_pair") {
+        validate_spatial_registration_manifest_closure(
+            manifest_path,
+            file,
+            source_objects,
+            failures,
+        )?;
+    }
+
+    Ok(())
+}
+
+fn validate_spatial_registration_manifest_closure(
+    manifest_path: &Path,
+    file: &Value,
+    source_objects: &HashMap<String, ManifestSourceObject>,
+    failures: &mut Vec<String>,
+) -> Result<(), ValidateError> {
+    let relative_path = manifest_str(manifest_path, file, "/path", "file path must be a string")?;
+    let items = manifest_array(
+        manifest_path,
+        file,
+        "/expected_spatial_registration/registration_items",
+        "Spatial Registration registration_items must be an array",
+    )?;
+    if items.len() != 2 {
+        failures.push(format!(
+            "{relative_path}: spatial_registration_manifest_closure: expected exactly two registration items"
+        ));
+        return Ok(());
+    }
+    let references = manifest_array(
+        manifest_path,
+        file,
+        "/references",
+        "Spatial Registration references must be an array",
+    )?;
+    if references.len() != 2 {
+        failures.push(format!(
+            "{relative_path}: spatial_registration_manifest_closure: expected exactly two ordinary references"
+        ));
+    }
+    for (index, item) in items.iter().enumerate() {
+        let source = item.get("source").ok_or(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "Spatial Registration item source must be an object",
+        })?;
+        let source_path = manifest_str(
+            manifest_path,
+            source,
+            "/source_path",
+            "Spatial Registration source_path must be a string",
+        )?;
+        let Some(actual) = source_objects.get(source_path) else {
+            failures.push(format!(
+                "{relative_path}: spatial_registration_manifest_closure: {source_path} is not generated in this run"
+            ));
+            continue;
+        };
+        for (name, expected, actual) in [
+            (
+                "source_case_id",
+                manifest_str(
+                    manifest_path,
+                    source,
+                    "/source_case_id",
+                    "Spatial Registration source_case_id must be a string",
+                )?,
+                actual.case_id.as_str(),
+            ),
+            (
+                "source_sha256",
+                manifest_str(
+                    manifest_path,
+                    source,
+                    "/source_sha256",
+                    "Spatial Registration source_sha256 must be a string",
+                )?,
+                actual.sha256.as_str(),
+            ),
+            (
+                "study_instance_uid",
+                manifest_str(
+                    manifest_path,
+                    source,
+                    "/study_instance_uid",
+                    "Spatial Registration source Study UID must be a string",
+                )?,
+                actual.study_instance_uid.as_str(),
+            ),
+            (
+                "sop_class_uid",
+                manifest_str(
+                    manifest_path,
+                    source,
+                    "/sop_class_uid",
+                    "Spatial Registration source SOP Class UID must be a string",
+                )?,
+                actual.sop_class_uid.as_str(),
+            ),
+            (
+                "sop_instance_uid",
+                manifest_str(
+                    manifest_path,
+                    source,
+                    "/sop_instance_uid",
+                    "Spatial Registration source SOP Instance UID must be a string",
+                )?,
+                actual.sop_instance_uid.as_str(),
+            ),
+        ] {
+            validate_equal(
+                failures,
+                relative_path,
+                &format!("spatial_registration_{index}_{name}"),
+                expected,
+                actual,
+            );
+        }
+        let expected_series = manifest_str(
+            manifest_path,
+            source,
+            "/series_instance_uid",
+            "Spatial Registration source Series UID must be a string",
+        )?;
+        validate_equal(
+            failures,
+            relative_path,
+            &format!("spatial_registration_{index}_series_instance_uid"),
+            expected_series,
+            actual.series_instance_uid.as_deref().unwrap_or(""),
+        );
+        let expected_frame = manifest_str(
+            manifest_path,
+            source,
+            "/frame_of_reference_uid",
+            "Spatial Registration source Frame of Reference UID must be a string",
+        )?;
+        validate_equal(
+            failures,
+            relative_path,
+            &format!("spatial_registration_{index}_frame_of_reference_uid"),
+            expected_frame,
+            actual.frame_of_reference_uid.as_deref().unwrap_or(""),
+        );
+        if let Some(reference) = references.get(index) {
+            for field in [
+                "source_case_id",
+                "source_path",
+                "series_instance_uid",
+                "sop_class_uid",
+                "sop_instance_uid",
+            ] {
+                validate_equal_debug(
+                    failures,
+                    relative_path,
+                    &format!("spatial_registration_{index}_reference_{field}"),
+                    source.get(field),
+                    reference.get(field),
+                );
+            }
+        }
+    }
     Ok(())
 }
 
@@ -4792,6 +4971,13 @@ fn validate_family_standard_elements(
         "RT Dose" => {
             validate_rt_dose_standard_elements(failures, relative_path, manifest_path, file, obj)?
         }
+        "Spatial Registration" => validate_spatial_registration_standard_elements(
+            failures,
+            relative_path,
+            path,
+            manifest_path,
+            file,
+        )?,
         "Encapsulated PDF" => validate_encapsulated_pdf_standard_elements(
             failures,
             relative_path,
@@ -10848,6 +11034,221 @@ fn validate_scoord3d_standard_elements(
     if let Err(error) = validation::validate_scoord3d_file(path, &expectations) {
         failures.push(format!(
             "{relative_path}: scoord3d_content_contract: {error}"
+        ));
+    }
+    Ok(())
+}
+
+fn validate_spatial_registration_standard_elements(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    path: &Path,
+    manifest_path: &Path,
+    file: &Value,
+) -> Result<(), ValidateError> {
+    let expected =
+        file.get("expected_spatial_registration")
+            .ok_or(ValidateError::ManifestShape {
+                path: manifest_path.to_path_buf(),
+                message: "Spatial Registration must declare expected_spatial_registration",
+            })?;
+    let items = manifest_array(
+        manifest_path,
+        expected,
+        "/registration_items",
+        "Spatial Registration registration_items must be an array",
+    )?;
+    if items.len() != 2 {
+        return Err(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "Spatial Registration must declare exactly two registration items",
+        });
+    }
+    let target_source = items[0].get("source").ok_or(ValidateError::ManifestShape {
+        path: manifest_path.to_path_buf(),
+        message: "Spatial Registration target source must be an object",
+    })?;
+    let moving_source = items[1].get("source").ok_or(ValidateError::ManifestShape {
+        path: manifest_path.to_path_buf(),
+        message: "Spatial Registration moving source must be an object",
+    })?;
+    let fixed_matrix = |value: &Value, pointer, message| {
+        manifest_f64_array(manifest_path, value, pointer, message)?
+            .try_into()
+            .map_err(|_| ValidateError::ManifestShape {
+                path: manifest_path.to_path_buf(),
+                message,
+            })
+    };
+    let fixed_point = |pointer, message| {
+        manifest_f64_array(manifest_path, expected, pointer, message)?
+            .try_into()
+            .map_err(|_| ValidateError::ManifestShape {
+                path: manifest_path.to_path_buf(),
+                message,
+            })
+    };
+    let expectations = validation::SpatialRegistrationExpectations {
+        sop_class_uid: manifest_str(
+            manifest_path,
+            file,
+            "/dicom/sop_class_uid",
+            "Spatial Registration SOP Class UID must be a string",
+        )?,
+        sop_instance_uid: manifest_str(
+            manifest_path,
+            file,
+            "/uids/sop_instance_uid",
+            "Spatial Registration SOP Instance UID must be a string",
+        )?,
+        transfer_syntax_uid: manifest_str(
+            manifest_path,
+            file,
+            "/dicom/transfer_syntax_uid",
+            "Spatial Registration transfer syntax UID must be a string",
+        )?,
+        implementation_class_uid: manifest_str(
+            manifest_path,
+            file,
+            "/uids/implementation_class_uid",
+            "Spatial Registration implementation class UID must be a string",
+        )?,
+        synthetic_data: manifest_str(
+            manifest_path,
+            file,
+            "/expected_semantics/synthetic_data",
+            "Spatial Registration Synthetic Data expectation must be a string",
+        )?,
+        patient_id: "DTS-PATIENT-001",
+        study_instance_uid: manifest_str(
+            manifest_path,
+            file,
+            "/uids/study_instance_uid",
+            "Spatial Registration Study UID must be a string",
+        )?,
+        study_id: "DTS-ECT",
+        series_instance_uid: manifest_str(
+            manifest_path,
+            file,
+            "/uids/series_instance_uid",
+            "Spatial Registration Series UID must be a string",
+        )?,
+        series_number: "8003",
+        laterality: "R",
+        modality: manifest_str(
+            manifest_path,
+            file,
+            "/dicom/modality",
+            "Spatial Registration modality must be a string",
+        )?,
+        instance_number: "1",
+        content_date: "20260101",
+        content_time: "000000",
+        content_label: "DTS_RIGID_REG",
+        content_description: "Rigid CT pair registration",
+        content_creator_name: "DTS^Generator",
+        manufacturer: "dicom-test-suite",
+        manufacturer_model_name: "Native Spatial Registration",
+        device_serial_number: "DTS-REG-001",
+        software_versions: PACKAGE_VERSION,
+        registered_frame_of_reference_uid: manifest_str(
+            manifest_path,
+            expected,
+            "/registered_frame_of_reference_uid",
+            "Spatial Registration registered Frame of Reference UID must be a string",
+        )?,
+        target: validation::SpatialRegistrationReferenceExpectations {
+            study_instance_uid: manifest_str(
+                manifest_path,
+                target_source,
+                "/study_instance_uid",
+                "Spatial Registration target Study UID must be a string",
+            )?,
+            series_instance_uid: manifest_str(
+                manifest_path,
+                target_source,
+                "/series_instance_uid",
+                "Spatial Registration target Series UID must be a string",
+            )?,
+            sop_class_uid: manifest_str(
+                manifest_path,
+                target_source,
+                "/sop_class_uid",
+                "Spatial Registration target SOP Class UID must be a string",
+            )?,
+            sop_instance_uid: manifest_str(
+                manifest_path,
+                target_source,
+                "/sop_instance_uid",
+                "Spatial Registration target SOP Instance UID must be a string",
+            )?,
+            frame_of_reference_uid: manifest_str(
+                manifest_path,
+                target_source,
+                "/frame_of_reference_uid",
+                "Spatial Registration target Frame of Reference UID must be a string",
+            )?,
+        },
+        source: validation::SpatialRegistrationReferenceExpectations {
+            study_instance_uid: manifest_str(
+                manifest_path,
+                moving_source,
+                "/study_instance_uid",
+                "Spatial Registration source Study UID must be a string",
+            )?,
+            series_instance_uid: manifest_str(
+                manifest_path,
+                moving_source,
+                "/series_instance_uid",
+                "Spatial Registration source Series UID must be a string",
+            )?,
+            sop_class_uid: manifest_str(
+                manifest_path,
+                moving_source,
+                "/sop_class_uid",
+                "Spatial Registration source SOP Class UID must be a string",
+            )?,
+            sop_instance_uid: manifest_str(
+                manifest_path,
+                moving_source,
+                "/sop_instance_uid",
+                "Spatial Registration source SOP Instance UID must be a string",
+            )?,
+            frame_of_reference_uid: manifest_str(
+                manifest_path,
+                moving_source,
+                "/frame_of_reference_uid",
+                "Spatial Registration source Frame of Reference UID must be a string",
+            )?,
+        },
+        target_matrix: fixed_matrix(
+            &items[0],
+            "/matrix/values",
+            "Spatial Registration target matrix must contain 16 numbers",
+        )?,
+        source_to_registered_matrix: fixed_matrix(
+            &items[1],
+            "/matrix/values",
+            "Spatial Registration source matrix must contain 16 numbers",
+        )?,
+        source_landmark_mm: fixed_point(
+            "/landmark/source_point_mm",
+            "Spatial Registration source landmark must contain three numbers",
+        )?,
+        registered_landmark_mm: fixed_point(
+            "/landmark/registered_point_mm",
+            "Spatial Registration registered landmark must contain three numbers",
+        )?,
+        rigid_tolerance: manifest_f64(
+            manifest_path,
+            expected,
+            "/rigid_tolerances/orthonormal_abs",
+            "Spatial Registration rigid tolerance must be a number",
+        )?,
+    };
+    if let Err(error) = validation::validate_spatial_registration_file(path, &expectations) {
+        failures.push(format!(
+            "{relative_path}: spatial_registration_content_contract: {error}"
         ));
     }
     Ok(())

@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use dicom_core::VR;
 use dicom_dictionary_std::tags;
 use dicom_object::open_file;
 use serde_json::Value;
@@ -11,6 +12,8 @@ use serde_json::Value;
 const CASE_ID: &str = "geometry/ct/spatial_sort_conflicts_instance_number";
 const NONUNIFORM_CASE_ID: &str = "geometry/ct/nonuniform_slice_spacing";
 const GANTRY_TILT_CASE_ID: &str = "geometry/ct/gantry_tilt_series";
+const DUPLICATE_EMPTY_INSTANCE_NUMBER_CASE_ID: &str =
+    "geometry/ct/duplicate_missing_instance_number";
 const GANTRY_TILT_DEGREES: f64 = 11.309_932_47;
 
 #[test]
@@ -502,6 +505,164 @@ fn core_generates_gantry_tilt_with_independent_sheared_geometry() {
             .iter()
             .any(|failure| failure.contains("geometry_gantry_detector_tilt")),
         "false tilt expectations must be rejected: {:?}",
+        validation.failures
+    );
+
+    fs::remove_dir_all(out_dir).expect("temporary output must be removable");
+}
+
+#[test]
+fn core_generates_duplicate_and_empty_type2_instance_numbers() {
+    let out_dir = unique_temp_dir("ct-duplicate-empty-instance-number");
+    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args(["generate", "--profile", "core", "--out"])
+        .arg(&out_dir)
+        .args(["--seed", "31"])
+        .output()
+        .expect("generate command must run");
+    assert!(
+        output.status.success(),
+        "generate should succeed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let manifest_path = out_dir.join("manifest.json");
+    let manifest: Value =
+        serde_json::from_slice(&fs::read(&manifest_path).expect("manifest must be readable"))
+            .expect("manifest must contain JSON");
+    let files = manifest["files"]
+        .as_array()
+        .expect("manifest files must be an array")
+        .iter()
+        .filter(|file| file["case_id"].as_str() == Some(DUPLICATE_EMPTY_INSTANCE_NUMBER_CASE_ID))
+        .collect::<Vec<_>>();
+    assert_eq!(files.len(), 3);
+
+    let expected_states = ["numeric", "numeric", "empty"];
+    let expected_numbers = [Some(1_i64), Some(1), None];
+    for (index, file) in files.iter().enumerate() {
+        let expected_geometry = &file["expected_geometry"];
+        assert_eq!(
+            expected_geometry["instance_number_state"].as_str(),
+            Some(expected_states[index])
+        );
+        assert_eq!(
+            expected_geometry["instance_number"].as_i64(),
+            expected_numbers[index]
+        );
+        assert!(expected_geometry["instance_number_order_index"].is_null());
+        assert!(expected_geometry["sorting_conflict_expected"].is_null());
+        assert_eq!(
+            expected_geometry["geometric_order_index"].as_u64(),
+            Some(index as u64 + 1)
+        );
+        assert_eq!(
+            expected_geometry["position_along_normal_mm"].as_f64(),
+            Some(index as f64 * 5.0)
+        );
+        assert_eq!(
+            expected_geometry["adjacent_spacing_mm"],
+            serde_json::json!([5.0, 5.0])
+        );
+        assert_eq!(expected_geometry["spacing_uniform"], true);
+        for stressor in ["duplicate_instance_number", "empty_type2_instance_number"] {
+            assert!(
+                file["known_stressors"]
+                    .as_array()
+                    .is_some_and(|values| values.iter().any(|value| value == stressor)),
+                "Instance Number manifest should record {stressor}"
+            );
+        }
+
+        let object = open_file(
+            out_dir.join(
+                file["path"]
+                    .as_str()
+                    .expect("Instance Number manifest path must be text"),
+            ),
+        )
+        .expect("Instance Number CT slice must parse");
+        let element = object
+            .element(tags::INSTANCE_NUMBER)
+            .expect("Type 2 Instance Number element must be present");
+        assert_eq!(element.vr(), VR::IS);
+        if let Some(expected_number) = expected_numbers[index] {
+            assert_eq!(
+                element
+                    .to_int::<i64>()
+                    .expect("numeric Instance Number must parse"),
+                expected_number
+            );
+        } else {
+            assert_eq!(
+                element.header().len.0,
+                0,
+                "empty Type 2 Instance Number must serialize with zero value length"
+            );
+            assert_eq!(
+                element
+                    .to_str()
+                    .expect("empty Instance Number must remain textual"),
+                ""
+            );
+        }
+    }
+
+    let validation = dicom_test_suite::validate_generated_root(&out_dir)
+        .expect("generated duplicate/empty Instance Number corpus must be validatable");
+    assert!(
+        validation.failures.is_empty(),
+        "duplicate/empty Instance Number geometry validation must pass: {:?}",
+        validation.failures
+    );
+
+    let report = dicom_test_suite::build_coverage_report(&out_dir)
+        .expect("coverage report should include Instance Number states");
+    let rows = report["coverage_matrix"]
+        .as_array()
+        .expect("coverage matrix")
+        .iter()
+        .filter(|row| row["case_id"].as_str() == Some(DUPLICATE_EMPTY_INSTANCE_NUMBER_CASE_ID))
+        .collect::<Vec<_>>();
+    assert_eq!(rows.len(), 3);
+    assert_eq!(rows[0]["geometry_instance_number_state"], "numeric");
+    assert_eq!(rows[0]["geometry_instance_number"], 1);
+    assert!(rows[0]["geometry_instance_number_order_index"].is_null());
+    assert_eq!(rows[2]["geometry_instance_number_state"], "empty");
+    assert!(rows[2]["geometry_instance_number"].is_null());
+    assert!(rows[2]["geometry_instance_number_order_index"].is_null());
+    assert!(rows[2]["geometry_sorting_conflict_expected"].is_null());
+    let markdown = dicom_test_suite::render_coverage_report_markdown(&report);
+    assert!(markdown.contains(DUPLICATE_EMPTY_INSTANCE_NUMBER_CASE_ID));
+    assert!(markdown.contains("| empty |  |  | 5.0, 5.0 | true |"));
+
+    let mut tampered_manifest = manifest;
+    let empty_row = tampered_manifest["files"]
+        .as_array_mut()
+        .expect("manifest files must be an array")
+        .iter_mut()
+        .find(|file| {
+            file["case_id"].as_str() == Some(DUPLICATE_EMPTY_INSTANCE_NUMBER_CASE_ID)
+                && file
+                    .pointer("/expected_geometry/instance_number_state")
+                    .and_then(Value::as_str)
+                    == Some("empty")
+        })
+        .expect("empty Instance Number row must exist");
+    empty_row["expected_geometry"]["instance_number_state"] = Value::from("numeric");
+    fs::write(
+        &manifest_path,
+        serde_json::to_vec_pretty(&tampered_manifest).expect("tampered manifest must serialize"),
+    )
+    .expect("tampered manifest must be writable");
+    let validation = dicom_test_suite::validate_generated_root(&out_dir)
+        .expect("tampered Instance Number corpus must remain inspectable");
+    assert!(
+        validation
+            .failures
+            .iter()
+            .any(|failure| failure.contains("geometry_instance_number")),
+        "a false numeric claim for an empty Type 2 value must be rejected: {:?}",
         validation.failures
     );
 

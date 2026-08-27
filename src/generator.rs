@@ -13,7 +13,9 @@ use serde_json::Value;
 
 mod native;
 
-use native::ct_geometry::{CLASSIC_CT_RECIPES, ClassicCtRecipe, ClassicCtSliceRecipe};
+use native::ct_geometry::{
+    CLASSIC_CT_RECIPES, ClassicCtInstanceNumber, ClassicCtRecipe, ClassicCtSliceRecipe,
+};
 
 use crate::{
     DeterministicUidInput, GenerateError, PreparedGenerationRun, UidRole,
@@ -6325,12 +6327,14 @@ fn write_classic_ct_case(
             VR::CS,
             "ORIGINAL\\PRIMARY\\AXIAL",
         );
-        put_str(
-            &mut obj,
-            tags::INSTANCE_NUMBER,
-            VR::IS,
-            slice.instance_number,
-        );
+        match slice.instance_number {
+            ClassicCtInstanceNumber::Numeric(value) => {
+                put_str(&mut obj, tags::INSTANCE_NUMBER, VR::IS, value);
+            }
+            ClassicCtInstanceNumber::Empty => {
+                obj.put(DataElement::empty(tags::INSTANCE_NUMBER, VR::IS));
+            }
+        }
         put_str(&mut obj, tags::PATIENT_ORIENTATION, VR::CS, "");
         put_str(&mut obj, tags::CONTENT_DATE, VR::DA, "20260101");
         put_str(&mut obj, tags::CONTENT_TIME, VR::TM, "000000");
@@ -6875,8 +6879,8 @@ fn classic_ct_manifest_entry(
             "image_orientation_patient": classic_ct_ds_values::<6>(recipe.image_orientation_patient),
             "adjacent_spacing_mm": classic_ct_adjacent_spacing(recipe),
             "spacing_uniform": classic_ct_spacing_is_uniform(recipe),
-            "instance_number_state": "numeric",
-            "instance_number": slice.instance_number.parse::<i64>().expect("CT Instance Number recipe must be numeric"),
+            "instance_number_state": classic_ct_instance_number_state(slice.instance_number),
+            "instance_number": classic_ct_instance_number_value(slice.instance_number),
             "instance_number_order_index": classic_ct_instance_number_order_index(recipe, slice.instance_number),
             "sorting_conflict_expected": recipe.sorting_conflict_expected
         });
@@ -6943,26 +6947,42 @@ fn classic_ct_spacing_is_uniform(recipe: ClassicCtRecipe) -> bool {
     })
 }
 
-fn classic_ct_instance_number_order_index(recipe: ClassicCtRecipe, instance_number: &str) -> usize {
-    let instance_number = instance_number
-        .parse::<i64>()
-        .expect("CT Instance Number recipe must be numeric");
+fn classic_ct_instance_number_state(instance_number: ClassicCtInstanceNumber) -> &'static str {
+    match instance_number {
+        ClassicCtInstanceNumber::Numeric(_) => "numeric",
+        ClassicCtInstanceNumber::Empty => "empty",
+    }
+}
+
+fn classic_ct_instance_number_value(instance_number: ClassicCtInstanceNumber) -> Option<i64> {
+    match instance_number {
+        ClassicCtInstanceNumber::Numeric(value) => Some(
+            value
+                .parse::<i64>()
+                .expect("numeric CT Instance Number recipe must contain an integer"),
+        ),
+        ClassicCtInstanceNumber::Empty => None,
+    }
+}
+
+fn classic_ct_instance_number_order_index(
+    recipe: ClassicCtRecipe,
+    instance_number: ClassicCtInstanceNumber,
+) -> Option<usize> {
+    let instance_number = classic_ct_instance_number_value(instance_number)?;
     let mut instance_numbers = recipe
         .slices
         .iter()
-        .map(|slice| {
-            slice
-                .instance_number
-                .parse::<i64>()
-                .expect("CT Instance Number recipe must be numeric")
-        })
-        .collect::<Vec<_>>();
+        .map(|slice| classic_ct_instance_number_value(slice.instance_number))
+        .collect::<Option<Vec<_>>>()?;
     instance_numbers.sort_unstable();
+    if instance_numbers.windows(2).any(|pair| pair[0] == pair[1]) {
+        return None;
+    }
     instance_numbers
         .iter()
         .position(|candidate| *candidate == instance_number)
-        .expect("CT Instance Number recipe must be present")
-        + 1
+        .map(|index| index + 1)
 }
 
 fn classic_ct_profile_membership(recipe: ClassicCtRecipe) -> &'static [&'static str] {
@@ -7012,6 +7032,9 @@ fn classic_ct_known_stressors(recipe: ClassicCtRecipe) -> Vec<&'static str> {
     }
     if recipe.gantry_detector_tilt_degrees.is_some() {
         stressors.extend(["gantry_detector_tilt", "sheared_slice_origins"]);
+    }
+    if recipe.case_id == "geometry/ct/duplicate_missing_instance_number" {
+        stressors.extend(["duplicate_instance_number", "empty_type2_instance_number"]);
     }
     stressors
 }

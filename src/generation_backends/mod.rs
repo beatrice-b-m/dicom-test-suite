@@ -18,9 +18,12 @@ pub use process::{
 };
 mod parametric_map;
 pub use parametric_map::{
-    ControlledMetadata, ParametricMapFloatPayload, ParametricMapGenerated,
-    ParametricMapGenerationInput, ParametricMapIdentities, ParametricMapOutcome,
-    ParametricMapSource, StandardsProvenance, generate_parametric_map,
+    ControlledMetadata, FLOAT32_SPEC, FLOAT64_SPEC, ParametricMapDoublePayload,
+    ParametricMapFloatPayload, ParametricMapGenerated, ParametricMapGenerationInput,
+    ParametricMapIdentities, ParametricMapOutcome, ParametricMapPayload, ParametricMapSampleKind,
+    ParametricMapSource, ParametricMapSpec, ParametricMapVariantGenerated,
+    ParametricMapVariantOutcome, StandardsProvenance, generate_parametric_map,
+    generate_parametric_map_for_spec,
 };
 mod staging;
 pub use staging::{

@@ -1,4 +1,4 @@
-//! Rust-side orchestration for the external float32 Parametric Map proof case.
+//! Rust-side orchestration for external floating-point Parametric Map cases.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -16,12 +16,64 @@ use super::{
 };
 
 pub const BACKEND_ID: &str = "highdicom_pydicom";
-pub const CASE_ID: &str = "derived/parametric-map/float32_ct_derived_explicit_le";
-pub const RECIPE_ID: &str = "derived_parametric_map_float32_ct_derived_explicit_le";
 pub const RECIPE_VERSION: &str = "0.1.0";
 pub const SOP_CLASS_UID: &str = "1.2.840.10008.5.1.4.1.1.30";
 pub const TRANSFER_SYNTAX_UID: &str = "1.2.840.10008.1.2.1";
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ParametricMapSampleKind {
+    Float32,
+    Float64,
+}
+
+impl ParametricMapSampleKind {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Float32 => "float32",
+            Self::Float64 => "float64",
+        }
+    }
+
+    const fn value_representation(self) -> &'static str {
+        match self {
+            Self::Float32 => "OF",
+            Self::Float64 => "OD",
+        }
+    }
+
+    const fn bit_expectation_key(self) -> &'static str {
+        match self {
+            Self::Float32 => "little_endian_float32_bits",
+            Self::Float64 => "little_endian_float64_bits",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ParametricMapSpec {
+    pub sample_kind: ParametricMapSampleKind,
+    pub case_id: &'static str,
+    pub recipe_id: &'static str,
+    pub output_file: &'static str,
+}
+
+pub const CASE_ID: &str = "derived/parametric-map/float32_ct_derived_explicit_le";
+pub const RECIPE_ID: &str = "derived_parametric_map_float32_ct_derived_explicit_le";
 pub const OUTPUT_FILE: &str = "parametric-map.dcm";
+
+pub const FLOAT32_SPEC: ParametricMapSpec = ParametricMapSpec {
+    sample_kind: ParametricMapSampleKind::Float32,
+    case_id: CASE_ID,
+    recipe_id: RECIPE_ID,
+    output_file: OUTPUT_FILE,
+};
+
+pub const FLOAT64_SPEC: ParametricMapSpec = ParametricMapSpec {
+    sample_kind: ParametricMapSampleKind::Float64,
+    case_id: "derived/parametric-map/float64_ct_derived_explicit_le",
+    recipe_id: "derived_parametric_map_float64_ct_derived_explicit_le",
+    output_file: "parametric-map-float64.dcm",
+};
 
 #[derive(Debug, Clone)]
 pub struct StandardsProvenance {
@@ -94,6 +146,24 @@ pub struct ParametricMapFloatPayload {
     pub maximum: f32,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct ParametricMapDoublePayload {
+    pub rows: u16,
+    pub columns: u16,
+    pub frames: usize,
+    pub little_endian_bytes: Vec<u8>,
+    pub little_endian_float64_bits: Vec<Vec<u64>>,
+    pub frame_sha256: Vec<String>,
+    pub minimum: f64,
+    pub maximum: f64,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum ParametricMapPayload {
+    Float32(ParametricMapFloatPayload),
+    Float64(ParametricMapDoublePayload),
+}
+
 #[derive(Debug)]
 pub struct ParametricMapGenerated {
     pub output_path: PathBuf,
@@ -110,9 +180,52 @@ pub enum ParametricMapOutcome {
     Unavailable { code: String, message: String },
 }
 
+#[derive(Debug)]
+pub struct ParametricMapVariantGenerated {
+    pub output_path: PathBuf,
+    pub output_bytes: Vec<u8>,
+    pub payload: ParametricMapPayload,
+    pub response: Value,
+    pub backend: PreparedBackend,
+    pub identities: ParametricMapIdentities,
+    pub spec: ParametricMapSpec,
+}
+
+#[derive(Debug)]
+pub enum ParametricMapVariantOutcome {
+    Generated(ParametricMapVariantGenerated),
+    Unavailable { code: String, message: String },
+}
+
 pub fn generate_parametric_map(
     input: &ParametricMapGenerationInput,
 ) -> Result<ParametricMapOutcome, BackendContractError> {
+    match generate_parametric_map_for_spec(input, FLOAT32_SPEC)? {
+        ParametricMapVariantOutcome::Unavailable { code, message } => {
+            Ok(ParametricMapOutcome::Unavailable { code, message })
+        }
+        ParametricMapVariantOutcome::Generated(generated) => {
+            let ParametricMapPayload::Float32(payload) = generated.payload else {
+                return Err(invalid(
+                    "float32 Parametric Map produced a non-float32 payload",
+                ));
+            };
+            Ok(ParametricMapOutcome::Generated(ParametricMapGenerated {
+                output_path: generated.output_path,
+                output_bytes: generated.output_bytes,
+                payload,
+                response: generated.response,
+                backend: generated.backend,
+                identities: generated.identities,
+            }))
+        }
+    }
+}
+
+pub fn generate_parametric_map_for_spec(
+    input: &ParametricMapGenerationInput,
+    spec: ParametricMapSpec,
+) -> Result<ParametricMapVariantOutcome, BackendContractError> {
     validate_input(input)?;
     let lock = load_backend_lock(&input.repository_root)?;
     let policy = backend_policy(&lock, BACKEND_ID)
@@ -120,10 +233,10 @@ pub fn generate_parametric_map(
     let backend = match discover_prepared_backend(&input.repository_root, policy)? {
         BackendDiscovery::Available(backend) => backend,
         BackendDiscovery::Unavailable { code, message } => {
-            return Ok(ParametricMapOutcome::Unavailable { code, message });
+            return Ok(ParametricMapVariantOutcome::Unavailable { code, message });
         }
     };
-    let request = build_request(input)?;
+    let request = build_request(input, spec)?;
     let invocation = BackendInvocation {
         executable: backend.executable.clone(),
         fixed_arguments: backend.fixed_arguments.clone(),
@@ -147,7 +260,7 @@ pub fn generate_parametric_map(
     {
         "unavailable" => {
             let failure = &run.response["failure"];
-            Ok(ParametricMapOutcome::Unavailable {
+            Ok(ParametricMapVariantOutcome::Unavailable {
                 code: failure["code"]
                     .as_str()
                     .expect("schema checked code")
@@ -165,29 +278,33 @@ pub fn generate_parametric_map(
                 .expect("schema checked failure message")
         ))),
         "generated" => {
-            let payload = recompute_float_payload(
+            let payload = recompute_payload(
                 &run.staging_root.join("inputs"),
                 &input.sources,
                 input.stored_value_scale,
                 input.spatial_rank_increment,
+                spec.sample_kind,
             )?;
-            let output = single_output(&run.response)?;
-            verify_backend_expectations(output, &payload, &input.identities)?;
-            let staged_path = run.staging_root.join("outputs").join(OUTPUT_FILE);
+            let output = single_output(&run.response, spec)?;
+            verify_backend_expectations(output, &payload, &input.identities, spec.sample_kind)?;
+            let staged_path = run.staging_root.join("outputs").join(spec.output_file);
             let output_bytes =
                 fs::read(&staged_path).map_err(|source| BackendContractError::Read {
                     path: staged_path,
                     source,
                 })?;
             promote_staged_outputs(&run.staging_root.join("outputs"), &input.destination_root)?;
-            Ok(ParametricMapOutcome::Generated(ParametricMapGenerated {
-                output_path: input.destination_root.join(OUTPUT_FILE),
-                output_bytes,
-                payload,
-                response: run.response,
-                backend,
-                identities: input.identities.clone(),
-            }))
+            Ok(ParametricMapVariantOutcome::Generated(
+                ParametricMapVariantGenerated {
+                    output_path: input.destination_root.join(spec.output_file),
+                    output_bytes,
+                    payload,
+                    response: run.response,
+                    backend,
+                    identities: input.identities.clone(),
+                    spec,
+                },
+            ))
         }
         status => Err(invalid(format!("unexpected backend status {status}"))),
     }
@@ -205,7 +322,10 @@ fn validate_input(input: &ParametricMapGenerationInput) -> Result<(), BackendCon
     Ok(())
 }
 
-fn build_request(input: &ParametricMapGenerationInput) -> Result<Value, BackendContractError> {
+fn build_request(
+    input: &ParametricMapGenerationInput,
+    spec: ParametricMapSpec,
+) -> Result<Value, BackendContractError> {
     let sources = input
         .sources
         .iter()
@@ -228,8 +348,8 @@ fn build_request(input: &ParametricMapGenerationInput) -> Result<Value, BackendC
         "request_id": "0".repeat(64),
         "backend_id": BACKEND_ID,
         "case": {
-            "case_id": CASE_ID,
-            "recipe_id": RECIPE_ID,
+            "case_id": spec.case_id,
+            "recipe_id": spec.recipe_id,
             "recipe_version": RECIPE_VERSION,
             "profile": "extended",
             "expected_sop_class_uid": SOP_CLASS_UID,
@@ -263,6 +383,7 @@ fn build_request(input: &ParametricMapGenerationInput) -> Result<Value, BackendC
         },
         "sources": sources,
         "parameters": {
+            "sample_type": spec.sample_kind.as_str(),
             "stored_value_scale": input.stored_value_scale,
             "spatial_rank_increment": input.spatial_rank_increment,
             "dimension_organization_uid": input.identities.dimension_organization_uid,
@@ -402,7 +523,151 @@ fn recompute_float_payload(
     })
 }
 
-fn single_output(response: &Value) -> Result<&Value, BackendContractError> {
+fn recompute_payload(
+    staged_inputs: &Path,
+    sources: &[ParametricMapSource],
+    scale: f32,
+    increment: f32,
+    sample_kind: ParametricMapSampleKind,
+) -> Result<ParametricMapPayload, BackendContractError> {
+    match sample_kind {
+        ParametricMapSampleKind::Float32 => {
+            recompute_float_payload(staged_inputs, sources, scale, increment)
+                .map(ParametricMapPayload::Float32)
+        }
+        ParametricMapSampleKind::Float64 => recompute_double_payload(
+            staged_inputs,
+            sources,
+            f64::from(scale),
+            f64::from(increment),
+        )
+        .map(ParametricMapPayload::Float64),
+    }
+}
+
+fn recompute_double_payload(
+    staged_inputs: &Path,
+    sources: &[ParametricMapSource],
+    scale: f64,
+    increment: f64,
+) -> Result<ParametricMapDoublePayload, BackendContractError> {
+    let mut rows = None;
+    let mut columns = None;
+    let mut bytes = Vec::new();
+    let mut all_bits = Vec::new();
+    let mut hashes = Vec::new();
+    let mut minimum = f64::INFINITY;
+    let mut maximum = f64::NEG_INFINITY;
+    for (rank, source) in sources.iter().enumerate() {
+        let path = staged_inputs.join(&source.relative_path);
+        let object = open_file(&path).map_err(|error| {
+            invalid(format!(
+                "reopen staged Parametric Map source {}: {error}",
+                path.display()
+            ))
+        })?;
+        if object.meta().transfer_syntax() != TRANSFER_SYNTAX_UID {
+            return Err(invalid(format!(
+                "source {} must use Explicit VR Little Endian",
+                path.display()
+            )));
+        }
+        let current_rows = element_u16(&object, tags::ROWS, "Rows")?;
+        let current_columns = element_u16(&object, tags::COLUMNS, "Columns")?;
+        if rows
+            .replace(current_rows)
+            .is_some_and(|value| value != current_rows)
+            || columns
+                .replace(current_columns)
+                .is_some_and(|value| value != current_columns)
+        {
+            return Err(invalid("Parametric Map source dimensions differ"));
+        }
+        if element_u16(&object, tags::SAMPLES_PER_PIXEL, "Samples per Pixel")? != 1
+            || element_u16(&object, tags::BITS_ALLOCATED, "Bits Allocated")? != 16
+        {
+            return Err(invalid(
+                "Parametric Map sources must be monochrome 16-bit pixels",
+            ));
+        }
+        let bits_stored = element_u16(&object, tags::BITS_STORED, "Bits Stored")?;
+        let high_bit = element_u16(&object, tags::HIGH_BIT, "High Bit")?;
+        let signed = element_u16(&object, tags::PIXEL_REPRESENTATION, "Pixel Representation")?;
+        if !(1..=16).contains(&bits_stored) || high_bit + 1 != bits_stored || signed > 1 {
+            return Err(invalid(
+                "Parametric Map source stored-pixel encoding is unsupported",
+            ));
+        }
+        let pixel_bytes = object
+            .element(tags::PIXEL_DATA)
+            .map_err(|error| invalid(format!("read source Pixel Data: {error}")))?
+            .value()
+            .to_bytes()
+            .map_err(|error| invalid(format!("decode source Pixel Data: {error}")))?;
+        let expected = usize::from(current_rows) * usize::from(current_columns) * 2;
+        if pixel_bytes.len() != expected {
+            return Err(invalid(format!(
+                "source {} Pixel Data length is {}, expected {expected}",
+                path.display(),
+                pixel_bytes.len()
+            )));
+        }
+        let mask = if bits_stored == 16 {
+            u16::MAX
+        } else {
+            (1_u16 << bits_stored) - 1
+        };
+        let sign_bit = 1_u16 << (bits_stored - 1);
+        let mut frame_bytes = Vec::with_capacity(expected * 4);
+        let mut frame_bits = Vec::with_capacity(expected / 2);
+        for pair in pixel_bytes.chunks_exact(2) {
+            let raw = u16::from_le_bytes([pair[0], pair[1]]) & mask;
+            let stored = if signed == 1 && raw & sign_bit != 0 {
+                f64::from(i32::from(raw) - (1_i32 << bits_stored))
+            } else {
+                f64::from(raw)
+            };
+            let value = stored * scale + (rank as f64) * increment;
+            if !value.is_finite() {
+                return Err(invalid("derived Parametric Map value is not finite"));
+            }
+            minimum = minimum.min(value);
+            maximum = maximum.max(value);
+            let bits = value.to_bits();
+            frame_bits.push(bits);
+            frame_bytes.extend_from_slice(&bits.to_le_bytes());
+        }
+        hashes.push(sha256_hex(&frame_bytes));
+        bytes.extend_from_slice(&frame_bytes);
+        all_bits.push(frame_bits);
+    }
+    let frame_length = usize::from(rows.expect("three sources"))
+        * usize::from(columns.expect("three sources"))
+        * 8;
+    bytes = bytes
+        .chunks_exact(frame_length)
+        .rev()
+        .flatten()
+        .copied()
+        .collect();
+    all_bits.reverse();
+    hashes.reverse();
+    Ok(ParametricMapDoublePayload {
+        rows: rows.expect("three sources"),
+        columns: columns.expect("three sources"),
+        frames: sources.len(),
+        little_endian_bytes: bytes,
+        little_endian_float64_bits: all_bits,
+        frame_sha256: hashes,
+        minimum,
+        maximum,
+    })
+}
+
+fn single_output(
+    response: &Value,
+    spec: ParametricMapSpec,
+) -> Result<&Value, BackendContractError> {
     let outputs = response["outputs"]
         .as_array()
         .expect("response schema checked outputs");
@@ -411,9 +676,10 @@ fn single_output(response: &Value) -> Result<&Value, BackendContractError> {
             "Parametric Map backend must produce exactly one output",
         ));
     }
-    if outputs[0]["relative_path"].as_str() != Some(OUTPUT_FILE) {
+    if outputs[0]["relative_path"].as_str() != Some(spec.output_file) {
         return Err(invalid(format!(
-            "Parametric Map output must be named {OUTPUT_FILE}"
+            "Parametric Map output must be named {}",
+            spec.output_file
         )));
     }
     Ok(&outputs[0])
@@ -421,21 +687,48 @@ fn single_output(response: &Value) -> Result<&Value, BackendContractError> {
 
 fn verify_backend_expectations(
     output: &Value,
-    payload: &ParametricMapFloatPayload,
+    payload: &ParametricMapPayload,
     identities: &ParametricMapIdentities,
+    sample_kind: ParametricMapSampleKind,
 ) -> Result<(), BackendContractError> {
-    let expected_bits =
-        serde_json::to_value(&payload.little_endian_float32_bits).expect("u32 arrays serialize");
-    let expected_hashes = serde_json::to_value(&payload.frame_sha256).expect("strings serialize");
+    let (expected_bits, expected_hashes, value_length, rows, columns, frames, minimum, maximum) =
+        match payload {
+            ParametricMapPayload::Float32(payload) => (
+                serde_json::to_value(&payload.little_endian_float32_bits)
+                    .expect("u32 arrays serialize"),
+                serde_json::to_value(&payload.frame_sha256).expect("strings serialize"),
+                payload.little_endian_bytes.len(),
+                payload.rows,
+                payload.columns,
+                payload.frames,
+                f64::from(payload.minimum),
+                f64::from(payload.maximum),
+            ),
+            ParametricMapPayload::Float64(payload) => (
+                serde_json::to_value(&payload.little_endian_float64_bits)
+                    .expect("u64 arrays serialize"),
+                serde_json::to_value(&payload.frame_sha256).expect("strings serialize"),
+                payload.little_endian_bytes.len(),
+                payload.rows,
+                payload.columns,
+                payload.frames,
+                payload.minimum,
+                payload.maximum,
+            ),
+        };
+    let bit_pointer = format!(
+        "/payload_expectations/{}",
+        sample_kind.bit_expectation_key()
+    );
     let checks = [
         (
             "payload VR",
-            output.pointer("/payload_expectations/vr") == Some(&json!("OF")),
+            output.pointer("/payload_expectations/vr")
+                == Some(&json!(sample_kind.value_representation())),
         ),
         (
             "payload float bits",
-            output.pointer("/payload_expectations/little_endian_float32_bits")
-                == Some(&expected_bits),
+            output.pointer(&bit_pointer) == Some(&expected_bits),
         ),
         (
             "payload frame hashes",
@@ -446,42 +739,49 @@ fn verify_backend_expectations(
             output
                 .pointer("/payload_expectations/value_length")
                 .and_then(Value::as_u64)
-                == Some(payload.little_endian_bytes.len() as u64),
+                == Some(value_length as u64),
+        ),
+        (
+            "semantic sample type",
+            output
+                .pointer("/expected_semantics/sample_type")
+                .and_then(Value::as_str)
+                == Some(sample_kind.as_str()),
         ),
         (
             "semantic rows",
             output
                 .pointer("/expected_semantics/rows")
                 .and_then(Value::as_u64)
-                == Some(u64::from(payload.rows)),
+                == Some(u64::from(rows)),
         ),
         (
             "semantic columns",
             output
                 .pointer("/expected_semantics/columns")
                 .and_then(Value::as_u64)
-                == Some(u64::from(payload.columns)),
+                == Some(u64::from(columns)),
         ),
         (
             "semantic frames",
             output
                 .pointer("/expected_semantics/frames")
                 .and_then(Value::as_u64)
-                == Some(payload.frames as u64),
+                == Some(frames as u64),
         ),
         (
             "semantic minimum",
             output
                 .pointer("/expected_semantics/minimum")
                 .and_then(Value::as_f64)
-                == Some(f64::from(payload.minimum)),
+                == Some(minimum),
         ),
         (
             "semantic maximum",
             output
                 .pointer("/expected_semantics/maximum")
                 .and_then(Value::as_f64)
-                == Some(f64::from(payload.maximum)),
+                == Some(maximum),
         ),
         (
             "dimension organization UID",
@@ -578,7 +878,7 @@ mod tests {
 
     #[test]
     fn request_identity_ignores_machine_specific_paths() {
-        let first = build_request(&input()).expect("request should build");
+        let first = build_request(&input(), FLOAT32_SPEC).expect("request should build");
         super::super::validate_request(&first).expect("request should satisfy protocol");
 
         let mut moved = input();
@@ -586,11 +886,27 @@ mod tests {
         moved.generated_root = PathBuf::from("other-generated");
         moved.staging_root = PathBuf::from("other-staging");
         moved.destination_root = PathBuf::from("other-destination");
-        let second = build_request(&moved).expect("moved request should build");
+        let second = build_request(&moved, FLOAT32_SPEC).expect("moved request should build");
 
         assert_eq!(first["request_id"], second["request_id"]);
         assert_eq!(first["staging"], second["staging"]);
         assert_eq!(first["case"]["recipe_version"], RECIPE_VERSION);
+        assert_eq!(first["parameters"]["sample_type"], "float32");
+        assert_eq!(first["case"]["case_id"], CASE_ID);
+        assert_eq!(first["case"]["recipe_id"], RECIPE_ID);
+    }
+
+    #[test]
+    fn float64_request_has_distinct_case_recipe_output_and_identity() {
+        let float32 = build_request(&input(), FLOAT32_SPEC).expect("float32 request should build");
+        let float64 = build_request(&input(), FLOAT64_SPEC).expect("float64 request should build");
+        super::super::validate_request(&float64).expect("float64 request should satisfy protocol");
+
+        assert_eq!(float64["parameters"]["sample_type"], "float64");
+        assert_eq!(float64["case"]["case_id"], FLOAT64_SPEC.case_id);
+        assert_eq!(float64["case"]["recipe_id"], FLOAT64_SPEC.recipe_id);
+        assert_ne!(FLOAT64_SPEC.output_file, FLOAT32_SPEC.output_file);
+        assert_ne!(float64["request_id"], float32["request_id"]);
     }
 
     #[test]
@@ -614,6 +930,7 @@ mod tests {
                 "value_length": 4,
             },
             "expected_semantics": {
+                "sample_type": "float32",
                 "rows": 1,
                 "columns": 1,
                 "frames": 1,
@@ -624,8 +941,65 @@ mod tests {
         });
         output["payload_expectations"]["little_endian_float32_bits"][0][0] = json!(0);
 
-        let error = verify_backend_expectations(&output, &payload, &identities)
-            .expect_err("forged backend expectation must fail");
+        let payload = ParametricMapPayload::Float32(payload);
+        let error = verify_backend_expectations(
+            &output,
+            &payload,
+            &identities,
+            ParametricMapSampleKind::Float32,
+        )
+        .expect_err("forged backend expectation must fail");
+        assert!(error.to_string().contains("payload float bits"));
+    }
+
+    #[test]
+    fn float64_expectations_bind_od_and_exact_u64_bits() {
+        let value = 1.5_f64;
+        let payload = ParametricMapDoublePayload {
+            rows: 1,
+            columns: 1,
+            frames: 1,
+            little_endian_bytes: value.to_le_bytes().to_vec(),
+            little_endian_float64_bits: vec![vec![value.to_bits()]],
+            frame_sha256: vec![sha256_hex(&value.to_le_bytes())],
+            minimum: value,
+            maximum: value,
+        };
+        let identities = input().identities;
+        let mut output = json!({
+            "payload_expectations": {
+                "vr": "OD",
+                "little_endian_float64_bits": payload.little_endian_float64_bits,
+                "frame_sha256": payload.frame_sha256,
+                "value_length": 8,
+            },
+            "expected_semantics": {
+                "sample_type": "float64",
+                "rows": 1,
+                "columns": 1,
+                "frames": 1,
+                "minimum": value,
+                "maximum": value,
+                "dimension_organization_uid": identities.dimension_organization_uid,
+            }
+        });
+        let payload = ParametricMapPayload::Float64(payload);
+        verify_backend_expectations(
+            &output,
+            &payload,
+            &identities,
+            ParametricMapSampleKind::Float64,
+        )
+        .expect("exact float64 backend expectations should pass");
+
+        output["payload_expectations"]["little_endian_float64_bits"][0][0] = json!(0);
+        let error = verify_backend_expectations(
+            &output,
+            &payload,
+            &identities,
+            ParametricMapSampleKind::Float64,
+        )
+        .expect_err("forged float64 bits must fail");
         assert!(error.to_string().contains("payload float bits"));
     }
 }

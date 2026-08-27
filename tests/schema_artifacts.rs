@@ -559,6 +559,36 @@ fn manifest_schema_types_sequence_length_encoding_expectations() {
 }
 
 #[test]
+fn manifest_schema_types_nuclear_medicine_multiframe_expectations() {
+    let schema = read_json("schemas/manifest.schema.json");
+    let nm_schema = serde_json::json!({
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$ref": "#/$defs/expected_nm_multiframe",
+        "$defs": schema["$defs"].clone(),
+    });
+    let validator =
+        jsonschema::validator_for(&nm_schema).expect("NM expectation schema should compile");
+    let mut expectations = nuclear_medicine_multiframe_expectations();
+    assert!(validator.is_valid(&expectations));
+
+    expectations["frame_increment_pointers"][1] = serde_json::json!("0054,0070");
+    expectations["energy_window_vector"][2] = serde_json::json!(1);
+    expectations["detectors"][0]["collimator_type"] = serde_json::json!("INVALID");
+    expectations["frame_dimensions"][3]["detector_index"] = serde_json::json!(1);
+    expectations["unexpected"] = serde_json::json!(true);
+    let errors = validator.iter_errors(&expectations).collect::<Vec<_>>();
+    assert!(
+        errors.len() >= 5,
+        "pointer order, dimension vectors, detector terms, frame tuples, and unknown fields must be rejected: {errors:?}"
+    );
+
+    assert_eq!(
+        schema.pointer("/$defs/file/properties/expected_nm_multiframe/$ref"),
+        Some(&Value::String("#/$defs/expected_nm_multiframe".to_string()))
+    );
+}
+
+#[test]
 fn manifest_schema_rejects_malformed_person_name_expectations() {
     let schema = read_json("schemas/manifest.schema.json");
     let metadata_schema = serde_json::json!({
@@ -741,6 +771,48 @@ fn sequence_length_expectations(variant: &str) -> Value {
                 "code_meaning": "Head"
             }]
         }
+    })
+}
+
+fn nuclear_medicine_multiframe_expectations() -> Value {
+    let hash = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+    serde_json::json!({
+        "image_type": ["ORIGINAL", "PRIMARY", "STATIC", "EMISSION"],
+        "frame_increment_pointers": ["0054,0010", "0054,0020"],
+        "energy_window_vector": [1, 1, 2, 2],
+        "detector_vector": [1, 2, 1, 2],
+        "number_of_energy_windows": 2,
+        "number_of_detectors": 2,
+        "energy_windows": [
+            { "index": 1, "name": "Tc99m Photopeak", "lower_limit_kev": 126.0, "upper_limit_kev": 154.0 },
+            { "index": 2, "name": "Tc99m Scatter", "lower_limit_kev": 100.0, "upper_limit_kev": 120.0 }
+        ],
+        "detectors": [
+            {
+                "index": 1,
+                "collimator_type": "PARA",
+                "focal_distance_mm": 0.0,
+                "start_angle_degrees": 0.0,
+                "image_orientation_patient": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0],
+                "image_position_patient": [0.0, 0.0, 0.0]
+            },
+            {
+                "index": 2,
+                "collimator_type": "PARA",
+                "focal_distance_mm": 0.0,
+                "start_angle_degrees": 180.0,
+                "image_orientation_patient": [-1.0, 0.0, 0.0, 0.0, 1.0, 0.0],
+                "image_position_patient": [0.0, 0.0, 0.0]
+            }
+        ],
+        "actual_frame_duration_ms": 1000,
+        "counts_accumulated": 904,
+        "frame_dimensions": [
+            { "frame_number": 1, "energy_window_index": 1, "detector_index": 1, "frame_sha256": hash },
+            { "frame_number": 2, "energy_window_index": 1, "detector_index": 2, "frame_sha256": hash },
+            { "frame_number": 3, "energy_window_index": 2, "detector_index": 1, "frame_sha256": hash },
+            { "frame_number": 4, "energy_window_index": 2, "detector_index": 2, "frame_sha256": hash }
+        ]
     })
 }
 

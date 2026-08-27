@@ -1713,13 +1713,18 @@ fn manifest_schema_types_external_generation_and_float_pixels() {
         );
     }
 
-    assert!(
-        schema
-            .pointer("/$defs/image/properties/sample_type/enum")
-            .and_then(Value::as_array)
-            .is_some_and(|values| values.iter().any(|value| value.as_str() == Some("float32"))),
-        "image metadata must distinguish float32 samples"
-    );
+    let sample_types = schema
+        .pointer("/$defs/image/properties/sample_type/enum")
+        .and_then(Value::as_array)
+        .expect("image metadata must enumerate sample types");
+    for sample_type in ["float32", "float64"] {
+        assert!(
+            sample_types
+                .iter()
+                .any(|value| value.as_str() == Some(sample_type)),
+            "image metadata must distinguish {sample_type} samples"
+        );
+    }
     let image_required = schema
         .pointer("/$defs/image/required")
         .and_then(Value::as_array)
@@ -1739,6 +1744,55 @@ fn manifest_schema_types_external_generation_and_float_pixels() {
             .is_some_and(|rules| !rules.is_empty()),
         "image schema must conditionally preserve integer pixel requirements"
     );
+}
+
+#[test]
+fn manifest_schema_locks_float64_parametric_map_pixel_contract() {
+    let schema = read_json("schemas/manifest.schema.json");
+    let file_rules = schema
+        .pointer("/$defs/file/allOf")
+        .and_then(Value::as_array)
+        .expect("manifest files must define conditional contracts");
+    let rule = file_rules
+        .iter()
+        .find(|rule| {
+            rule.pointer("/if/properties/case_id/const").and_then(Value::as_str)
+                == Some("derived/parametric-map/float64_ct_derived_explicit_le")
+        })
+        .expect("float64 Parametric Map must have a case-specific manifest contract");
+
+    for (pointer, expected) in [
+        ("/then/properties/image/properties/sample_type/const", serde_json::json!("float64")),
+        ("/then/properties/image/properties/rows/const", serde_json::json!(2)),
+        ("/then/properties/image/properties/columns/const", serde_json::json!(2)),
+        ("/then/properties/image/properties/frames/const", serde_json::json!(3)),
+        ("/then/properties/image/properties/bits_allocated/const", serde_json::json!(64)),
+        ("/then/properties/pixel_data/properties/vr/const", serde_json::json!("OD")),
+        ("/then/properties/pixel_data/properties/value_length/const", serde_json::json!(96)),
+        ("/then/properties/pixel_data/properties/frame_count/const", serde_json::json!(3)),
+    ] {
+        assert_eq!(rule.pointer(pointer), Some(&expected), "unexpected contract at {pointer}");
+    }
+
+    let image_rules = schema
+        .pointer("/$defs/image/allOf")
+        .and_then(Value::as_array)
+        .expect("image metadata must define conditional contracts");
+    for (sample_type, bits_allocated) in [("float32", 32), ("float64", 64)] {
+        let rule = image_rules
+            .iter()
+            .find(|rule| {
+                rule.pointer("/if/properties/sample_type/const")
+                    .and_then(Value::as_str)
+                    == Some(sample_type)
+            })
+            .unwrap_or_else(|| panic!("missing {sample_type} width rule"));
+        assert_eq!(
+            rule.pointer("/then/properties/bits_allocated/const")
+                .and_then(Value::as_u64),
+            Some(bits_allocated)
+        );
+    }
 }
 
 #[test]

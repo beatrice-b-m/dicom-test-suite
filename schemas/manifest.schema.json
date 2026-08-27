@@ -509,6 +509,41 @@
         {
           "if": {
             "properties": {
+              "case_id": { "const": "derived/parametric-map/float64_ct_derived_explicit_le" }
+            },
+            "required": ["case_id"]
+          },
+          "then": {
+            "required": ["image", "pixel_data", "generation_backend"],
+            "properties": {
+              "image": {
+                "type": "object",
+                "properties": {
+                  "sample_type": { "const": "float64" },
+                  "rows": { "const": 2 },
+                  "columns": { "const": 2 },
+                  "frames": { "const": 3 },
+                  "samples_per_pixel": { "const": 1 },
+                  "photometric_interpretation": { "const": "MONOCHROME2" },
+                  "bits_allocated": { "const": 64 },
+                  "planar_configuration": { "type": "null" }
+                }
+              },
+              "pixel_data": {
+                "type": "object",
+                "properties": {
+                  "vr": { "const": "OD" },
+                  "native_or_encapsulated": { "const": "native" },
+                  "value_length": { "const": 96 },
+                  "frame_count": { "const": 3 }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
               "case_id": { "const": "metadata/sc/private_creator_blocks" }
             },
             "required": ["case_id"]
@@ -2849,6 +2884,24 @@
           },
           "else": {
             "required": ["bits_stored", "high_bit", "pixel_representation"]
+          }
+        },
+        {
+          "if": {
+            "properties": { "sample_type": { "const": "float32" } },
+            "required": ["sample_type"]
+          },
+          "then": {
+            "properties": { "bits_allocated": { "const": 32 } }
+          }
+        },
+        {
+          "if": {
+            "properties": { "sample_type": { "const": "float64" } },
+            "required": ["sample_type"]
+          },
+          "then": {
+            "properties": { "bits_allocated": { "const": 64 } }
           }
         }
       ]

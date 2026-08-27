@@ -29,6 +29,11 @@ mod staging;
 pub use staging::{
     OutputLimits, promote_staged_outputs, stage_declared_sources, verify_staged_outputs,
 };
+mod tid1500;
+pub use tid1500::{
+    Tid1500Generated, Tid1500GenerationInput, Tid1500Identities, Tid1500Outcome,
+    generate_tid1500,
+};
 
 pub const PROTOCOL_VERSION: &str = "0.1.0";
 pub const BACKEND_LOCK_FILE: &str = "generation-backends.lock.json";

@@ -143,7 +143,7 @@ fn uv_iod_validator_is_case_scoped_and_fully_locked() {
         .expect("u32 IOD validator must have an accepted lock entry");
     assert_eq!(
         tool["adapter_sha256"],
-        "039252ab1aa5ea5d795b559e6e573b0f7baed9c1d7d2d554beb86b1a418f22b8"
+        "636d64bf315a658742fa1d4b9e3d8cc1b6a1294ae75973da5989d06c2ef23e97"
     );
     assert_eq!(tool["platforms"], serde_json::json!(["arm64-macos"]));
     assert!(
@@ -198,7 +198,7 @@ fn registration_secondary_iod_validator_is_additive_and_locked() {
     assert_eq!(tool["role"], "secondary_iod_validator");
     assert_eq!(
         tool["adapter_sha256"],
-        "039252ab1aa5ea5d795b559e6e573b0f7baed9c1d7d2d554beb86b1a418f22b8"
+        "636d64bf315a658742fa1d4b9e3d8cc1b6a1294ae75973da5989d06c2ef23e97"
     );
 
     let readme = fs::read_to_string("conformance/README.md").unwrap();
@@ -245,7 +245,7 @@ fn presentation_state_secondary_iod_validator_is_additive_and_locked() {
     assert_eq!(tool["role"], "secondary_iod_validator");
     assert_eq!(
         tool["adapter_sha256"],
-        "039252ab1aa5ea5d795b559e6e573b0f7baed9c1d7d2d554beb86b1a418f22b8"
+        "636d64bf315a658742fa1d4b9e3d8cc1b6a1294ae75973da5989d06c2ef23e97"
     );
 
     let readme = fs::read_to_string("conformance/README.md").unwrap();
@@ -301,11 +301,11 @@ fn linked_rt_secondary_iod_validator_is_additive_and_locked() {
     assert_eq!(tool["role"], "secondary_iod_validator");
     assert_eq!(
         tool["version"],
-        "dicom-validator 0.8.2; adapter 0.5.0; CPython 3.12.12"
+        "dicom-validator 0.8.2; adapter 0.6.0; CPython 3.12.12"
     );
     assert_eq!(
         tool["adapter_sha256"],
-        "039252ab1aa5ea5d795b559e6e573b0f7baed9c1d7d2d554beb86b1a418f22b8"
+        "636d64bf315a658742fa1d4b9e3d8cc1b6a1294ae75973da5989d06c2ef23e97"
     );
     let shared = lock["tools"]
         .as_array()
@@ -423,11 +423,11 @@ fn waveform_secondary_iod_and_payload_validator_is_additive_and_locked() {
     assert_eq!(tool["role"], "secondary_iod_validator");
     assert_eq!(
         tool["version"],
-        "dicom-validator 0.8.2; adapter 0.5.0; CPython 3.12.12"
+        "dicom-validator 0.8.2; adapter 0.6.0; CPython 3.12.12"
     );
     assert_eq!(
         tool["adapter_sha256"],
-        "039252ab1aa5ea5d795b559e6e573b0f7baed9c1d7d2d554beb86b1a418f22b8"
+        "636d64bf315a658742fa1d4b9e3d8cc1b6a1294ae75973da5989d06c2ef23e97"
     );
     assert_eq!(
         tool["supporting_artifacts"]["pyproject.toml"],
@@ -439,7 +439,7 @@ fn waveform_secondary_iod_and_payload_validator_is_additive_and_locked() {
     );
     assert_eq!(
         tool["supporting_artifacts"]["adapter/__main__.py"],
-        "4c5ab5e285a5d85bd35b51586fa21679963156f4c4fa8593e032f8d0ec27f80f"
+        "991598d92c5660e7edb8e1e64d1e9a6ec0c6bcf5d9308b3b661c6b3b148f0331"
     );
     for shared_adapter in [
         "pydicom-dicom-validator-u32",

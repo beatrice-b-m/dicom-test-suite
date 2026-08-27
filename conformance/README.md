@@ -196,7 +196,7 @@ LittleCMS transform. Strict verification requires both external tools to be
 available and lock-matched and rejects relinked sidecars; no ICC failure can be
 converted to ordinary unsupported native-pixel coverage.
 
-The U32 payload path uses adapter version 0.5.0 to read raw OW bytes through
+The U32 payload path uses adapter version 0.6.0 to read raw OW bytes through
 pydicom and unpack exact little-endian unsigned 32-bit words without NumPy.
 Its deterministic sidecar is cross-linked to the locked adapter, all image
 attributes, the four expected values, and every manifest frame hash.

@@ -65,7 +65,8 @@ use crate::{
         ControlledMetadata, FLOAT32_SPEC, FLOAT64_SPEC, ParametricMapGenerationInput,
         ParametricMapIdentities, ParametricMapPayload, ParametricMapSampleKind, ParametricMapSource,
         ParametricMapSpec, ParametricMapVariantGenerated, ParametricMapVariantOutcome,
-        StandardsProvenance, generate_parametric_map_for_spec,
+        StandardsProvenance, Tid1500Generated, Tid1500GenerationInput, Tid1500Identities,
+        Tid1500Outcome, generate_parametric_map_for_spec, generate_tid1500,
     },
     sha256_hex,
     validation::{
@@ -162,6 +163,14 @@ const PARAMETRIC_MAP_STORED_VALUE_SCALE: f32 = 0.25;
 const PARAMETRIC_MAP_FLOAT32_SPATIAL_RANK_INCREMENT: f32 = 0.25;
 const PARAMETRIC_MAP_FLOAT64_SPATIAL_RANK_INCREMENT: f32 = 9.313_226e-10;
 static PARAMETRIC_MAP_STAGING_COUNTER: AtomicU64 = AtomicU64::new(0);
+const TID1500_CASE_ID: &str = "derived/sr/tid1500_ct_measurement_report";
+const TID1500_RECIPE_ID: &str = "derived_sr_tid1500_ct_measurement_report";
+const TID1500_RECIPE_VERSION: &str = "0.1.0";
+const TID1500_OUTPUT_FILE: &str = "measurement-report.dcm";
+const TID1500_SOP_CLASS_UID: &str = "1.2.840.10008.5.1.4.1.1.88.34";
+const TID1500_CT_SOURCE_CASE_ID: &str =
+    "enhanced/ct/multiframe_shared_perframe_explicit_le";
+const TID1500_SEG_SOURCE_CASE_ID: &str = "derived/seg/binary_multiframe_explicit_le";
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct TransferSyntaxSpec {
     capability_keyword: &'static str,
@@ -3788,6 +3797,36 @@ pub(crate) fn write_supported_cases(
             standards_lock_sha256,
         )?)?;
     }
+    if let Some(case) = registry_case(registry, TID1500_CASE_ID)? {
+        if should_generate_case(case, run)? {
+            let ct_source = context
+                .source_registry()
+                .first_for_case(TID1500_CT_SOURCE_CASE_ID)
+                .cloned()
+                .ok_or_else(|| GenerateError::MetadataShape {
+                    path: PathBuf::from(TID1500_CASE_ID),
+                    message: "TID 1500 Enhanced CT source must be generated before the report",
+                })?;
+            let seg_source = context
+                .source_registry()
+                .first_for_case(TID1500_SEG_SOURCE_CASE_ID)
+                .cloned()
+                .ok_or_else(|| GenerateError::MetadataShape {
+                    path: PathBuf::from(TID1500_CASE_ID),
+                    message: "TID 1500 SEG source must be generated before the report",
+                })?;
+            match write_tid1500_case(
+                run,
+                case,
+                &ct_source,
+                &seg_source,
+                standards_lock_sha256,
+            )? {
+                Tid1500CaseOutcome::Generated(file) => context.record_one(file)?,
+                Tid1500CaseOutcome::Unavailable(row) => context.unavailable_cases.push(row),
+            }
+        }
+    }
     for recipe in PRESENTATION_STATE_RECIPES {
         let Some(case) = registry_case(registry, recipe.case_id)? else {
             continue;
@@ -4637,6 +4676,367 @@ fn parametric_map_generated_file(
             "expected_visual_checks": {"pattern": visual_pattern},
             "validation": validation,
             "known_stressors": known_stressors,
+            "standards_evidence": deduplicated_standards_evidence(standards_evidence_from_case(case))
+        }),
+    })
+}
+
+enum Tid1500CaseOutcome {
+    Generated(GeneratedFile),
+    Unavailable(Value),
+}
+
+fn write_tid1500_case(
+    run: &PreparedGenerationRun,
+    case: &Value,
+    ct_source: &GeneratedSourceObject,
+    seg_source: &GeneratedSourceObject,
+    standards_lock_sha256: &str,
+) -> Result<Tid1500CaseOutcome, GenerateError> {
+    let ct_series_instance_uid = ct_source
+        .series_instance_uid
+        .as_deref()
+        .ok_or(GenerateError::MetadataShape {
+            path: PathBuf::from(TID1500_CASE_ID),
+            message: "TID 1500 Enhanced CT source must record a Series Instance UID",
+        })?;
+    let seg_series_instance_uid = seg_source
+        .series_instance_uid
+        .as_deref()
+        .ok_or(GenerateError::MetadataShape {
+            path: PathBuf::from(TID1500_CASE_ID),
+            message: "TID 1500 SEG source must record a Series Instance UID",
+        })?;
+    let frame_of_reference_uid = ct_source
+        .frame_of_reference_uid
+        .as_deref()
+        .ok_or(GenerateError::MetadataShape {
+            path: PathBuf::from(TID1500_CASE_ID),
+            message: "TID 1500 Enhanced CT source must record a Frame of Reference UID",
+        })?;
+    if ct_source.study_instance_uid != seg_source.study_instance_uid
+        || seg_source.frame_of_reference_uid.as_deref() != Some(frame_of_reference_uid)
+        || ct_source.frame_count != Some(2)
+        || seg_source.frame_count != Some(2)
+    {
+        return Err(GenerateError::MetadataShape {
+            path: PathBuf::from(TID1500_CASE_ID),
+            message: "TID 1500 sources must share Study and Frame of Reference identity and contain two frames",
+        });
+    }
+
+    let uid = |role, referenced_object_index| {
+        deterministic_uid(&DeterministicUidInput {
+            standards_lock_sha256,
+            case_id: TID1500_CASE_ID,
+            recipe_version: TID1500_RECIPE_VERSION,
+            run_seed: run.seed,
+            file_index: 0,
+            frame_index: None,
+            referenced_object_index,
+            role,
+        })
+    };
+    let identities = Tid1500Identities {
+        study_instance_uid: ct_source.study_instance_uid.clone(),
+        series_instance_uid: uid(UidRole::SeriesInstance, None),
+        frame_of_reference_uid: frame_of_reference_uid.to_string(),
+        sop_instance_uid: uid(UidRole::SopInstance, None),
+        tracking_uid: uid(UidRole::DerivedReference, Some(0)),
+        observer_uid: uid(UidRole::DerivedReference, Some(1)),
+    };
+    let standards_lock_path = PathBuf::from("standards.lock.json");
+    let standards_lock_bytes =
+        fs::read(&standards_lock_path).map_err(|source| GenerateError::ReadMetadata {
+            path: standards_lock_path.clone(),
+            source,
+        })?;
+    let standards_lock: Value =
+        serde_json::from_slice(&standards_lock_bytes).map_err(|source| {
+            GenerateError::ParseMetadata {
+                path: standards_lock_path,
+                source,
+            }
+        })?;
+    let staging = ParametricMapStagingGuard::new();
+    let sources = vec![
+        ParametricMapSource {
+            role: "source_image".to_string(),
+            source_case_id: ct_source.source_case_id.clone(),
+            relative_path: ct_source.source_path.clone(),
+            sha256: ct_source.sha256.clone(),
+            sop_class_uid: ct_source.sop_class_uid.clone(),
+            sop_instance_uid: ct_source.sop_instance_uid.clone(),
+            series_instance_uid: Some(ct_series_instance_uid.to_string()),
+            frame_numbers: Some(vec![1, 2]),
+        },
+        ParametricMapSource {
+            role: "segmentation".to_string(),
+            source_case_id: seg_source.source_case_id.clone(),
+            relative_path: seg_source.source_path.clone(),
+            sha256: seg_source.sha256.clone(),
+            sop_class_uid: seg_source.sop_class_uid.clone(),
+            sop_instance_uid: seg_source.sop_instance_uid.clone(),
+            series_instance_uid: Some(seg_series_instance_uid.to_string()),
+            frame_numbers: None,
+        },
+    ];
+    let input = Tid1500GenerationInput {
+        repository_root: PathBuf::from("."),
+        generated_root: run.out_dir.clone(),
+        staging_root: staging.path().to_path_buf(),
+        destination_root: run.out_dir.join(TID1500_CASE_ID),
+        seed: run.seed,
+        standards: StandardsProvenance {
+            standards_lock_sha256: standards_lock_sha256.to_string(),
+            dicom_base_edition: standards_lock["dicom_base_edition"]
+                .as_str()
+                .ok_or(GenerateError::MetadataShape {
+                    path: PathBuf::from("standards.lock.json"),
+                    message: "standards lock dicom_base_edition must be a string",
+                })?
+                .to_string(),
+            kb_source_manifest_sha256: standards_lock
+                .pointer("/dicom_standard_kb/source_manifest_sha256")
+                .and_then(Value::as_str)
+                .map(ToOwned::to_owned),
+        },
+        controlled_metadata: ControlledMetadata {
+            patient_name: "DTS^Synthetic^Patient001".to_string(),
+            patient_id: "DTS-PATIENT-001".to_string(),
+            manufacturer: "dicom-test-suite".to_string(),
+            model_name: TID1500_RECIPE_ID.to_string(),
+            software_versions: env!("CARGO_PKG_VERSION").to_string(),
+            study_date: "20260101".to_string(),
+            study_time: "000000".to_string(),
+            content_date: "20260101".to_string(),
+            content_time: "000000".to_string(),
+            timezone_offset_from_utc: "+0000".to_string(),
+        },
+        identities,
+        sources,
+    };
+    match generate_tid1500(&input).map_err(|error| GenerateError::WriteDicomFile {
+        path: PathBuf::from(TID1500_CASE_ID),
+        message: error.to_string(),
+    })? {
+        Tid1500Outcome::Unavailable { code, message } => {
+            Ok(Tid1500CaseOutcome::Unavailable(serde_json::json!({
+                "case_id": TID1500_CASE_ID,
+                "status": "unavailable",
+                "reason_code": "external_backend_unavailable",
+                "message": format!("{code}: {message}"),
+                "recheck_phase": "phase-3",
+                "standards_evidence": standards_evidence_from_case(case)
+            })))
+        }
+        Tid1500Outcome::Generated(generated) => Ok(Tid1500CaseOutcome::Generated(
+            tid1500_generated_file(case, ct_source, seg_source, generated)?,
+        )),
+    }
+}
+
+fn tid1500_code(value: &str, scheme: &str, meaning: &str) -> Value {
+    serde_json::json!({
+        "code_value": value,
+        "coding_scheme_designator": scheme,
+        "code_meaning": meaning
+    })
+}
+
+fn tid1500_generated_file(
+    case: &Value,
+    ct_source: &GeneratedSourceObject,
+    seg_source: &GeneratedSourceObject,
+    generated: Tid1500Generated,
+) -> Result<GeneratedFile, GenerateError> {
+    let object = open_file(&generated.output_path).map_err(|error| {
+        GenerateError::ValidateDicomFile {
+            path: generated.output_path.clone(),
+            message: format!("reopen promoted TID 1500 report: {error}"),
+        }
+    })?;
+    if object.element_opt(tags::PIXEL_DATA).ok().flatten().is_some()
+        || object
+            .element_opt(tags::FLOAT_PIXEL_DATA)
+            .ok()
+            .flatten()
+            .is_some()
+        || object
+            .element_opt(tags::DOUBLE_FLOAT_PIXEL_DATA)
+            .ok()
+            .flatten()
+            .is_some()
+    {
+        return Err(GenerateError::ValidateDicomFile {
+            path: generated.output_path,
+            message: "promoted TID 1500 report unexpectedly contains pixel data".to_string(),
+        });
+    }
+    let meta = object.meta();
+    let implementation_version_name = meta
+        .implementation_version_name
+        .clone()
+        .map(|value| value.trim().to_string())
+        .unwrap_or_else(|| "UNKNOWN".to_string());
+    let response_backend = &generated.response["backend"];
+    let warnings = generated.response["warnings"].clone();
+    let ct_series = ct_source.series_instance_uid.as_deref().ok_or(
+        GenerateError::MetadataShape {
+            path: generated.output_path.clone(),
+            message: "TID 1500 CT source series UID is missing",
+        },
+    )?;
+    let seg_series = seg_source.series_instance_uid.as_deref().ok_or(
+        GenerateError::MetadataShape {
+            path: generated.output_path.clone(),
+            message: "TID 1500 SEG source series UID is missing",
+        },
+    )?;
+    let expected_tid1500 = serde_json::json!({
+        "completion_flag": "COMPLETE",
+        "preliminary_flag": "FINAL",
+        "verification_flag": "UNVERIFIED",
+        "root_template": {"mapping_resource": "DCMR", "template_identifier": "1500"},
+        "document_title": tid1500_code("126000", "DCM", "Imaging Measurement Report"),
+        "observation_context": {
+            "observer_type": "DEVICE",
+            "device_observer_uid": generated.identities.observer_uid
+        },
+        "procedure_reported": tid1500_code("25045-6", "LN", "CT unspecified body region"),
+        "imaging_measurements": tid1500_code("126010", "DCM", "Imaging Measurements"),
+        "measurement_group": {
+            "container": tid1500_code("125007", "DCM", "Measurement Group"),
+            "tracking_identifier": "DTS-TID1500-ROI-1",
+            "tracking_uid": generated.identities.tracking_uid,
+            "finding": tid1500_code("123037004", "SCT", "Body structure"),
+            "referenced_segment": {
+                "source_case_id": seg_source.source_case_id,
+                "sop_class_uid": seg_source.sop_class_uid,
+                "sop_instance_uid": seg_source.sop_instance_uid,
+                "series_instance_uid": seg_series,
+                "segment_number": 1,
+                "referenced_frame_numbers": Value::Null,
+                "source_image": {
+                    "source_case_id": ct_source.source_case_id,
+                    "sop_class_uid": ct_source.sop_class_uid,
+                    "sop_instance_uid": ct_source.sop_instance_uid,
+                    "series_instance_uid": ct_series,
+                    "referenced_frame_numbers": [1, 2]
+                }
+            },
+            "measurement": {
+                "name": tid1500_code("118565006", "SCT", "Volume"),
+                "numeric_value": "5.625",
+                "units": tid1500_code("mm3", "UCUM", "cubic millimeter")
+            }
+        },
+        "evidence": [
+            {
+                "role": "source_image",
+                "source_case_id": ct_source.source_case_id,
+                "sop_class_uid": ct_source.sop_class_uid,
+                "sop_instance_uid": ct_source.sop_instance_uid,
+                "series_instance_uid": ct_series
+            },
+            {
+                "role": "referenced_segmentation",
+                "source_case_id": seg_source.source_case_id,
+                "sop_class_uid": seg_source.sop_class_uid,
+                "sop_instance_uid": seg_source.sop_instance_uid,
+                "series_instance_uid": seg_series
+            }
+        ]
+    });
+    let references = vec![
+        ct_source.to_manifest_reference("source_image_for_segmentation", Some(vec![1, 2])),
+        seg_source.to_manifest_reference("referenced_segment", None),
+    ];
+    Ok(GeneratedFile {
+        case_id: TID1500_CASE_ID.to_string(),
+        manifest_entry: serde_json::json!({
+            "case_id": TID1500_CASE_ID,
+            "profile_membership": ["extended"],
+            "path": format!("{TID1500_CASE_ID}/{TID1500_OUTPUT_FILE}"),
+            "sha256": sha256_hex(&generated.output_bytes),
+            "size_bytes": generated.output_bytes.len(),
+            "determinism": "semantic_stable",
+            "recipe": {
+                "recipe_id": TID1500_RECIPE_ID,
+                "recipe_version": TID1500_RECIPE_VERSION,
+                "recipe_parameters": {
+                    "segment_number": 1,
+                    "measurement_value_mm3": 5.625,
+                    "tracking_identifier": "DTS-TID1500-ROI-1",
+                    "source_frame_numbers": [1, 2]
+                }
+            },
+            "dicom": {
+                "sop_class_uid": TID1500_SOP_CLASS_UID,
+                "sop_class_name": "Comprehensive 3D SR Storage",
+                "iod_name": "Comprehensive 3D SR",
+                "modality": "SR",
+                "transfer_syntax_uid": PARAMETRIC_MAP_TRANSFER_SYNTAX_UID,
+                "transfer_syntax_name": "Explicit VR Little Endian"
+            },
+            "uids": {
+                "study_instance_uid": generated.identities.study_instance_uid,
+                "series_instance_uid": generated.identities.series_instance_uid,
+                "sop_instance_uid": generated.identities.sop_instance_uid,
+                "frame_of_reference_uid": generated.identities.frame_of_reference_uid,
+                "implementation_class_uid": meta.implementation_class_uid,
+                "implementation_version_name": implementation_version_name
+            },
+            "image": Value::Null,
+            "pixel_data": Value::Null,
+            "generation_backend": {
+                "backend_id": generated.backend.backend_id,
+                "protocol_version": crate::generation_backends::PROTOCOL_VERSION,
+                "name": response_backend["name"],
+                "version": response_backend["version"],
+                "dependency_lock_sha256": generated.backend.dependency_lock_sha256,
+                "executable_fingerprint": generated.backend.executable_fingerprint,
+                "entrypoint_fingerprint": generated.backend.entrypoint_fingerprint,
+                "environment_fingerprint": generated.backend.environment_fingerprint,
+                "runtime_identity": generated.backend.runtime_identity,
+                "determinism": "semantic_stable",
+                "warnings": warnings
+            },
+            "references": references,
+            "expected_capabilities": [
+                "open_file", "read_metadata", "parse_structured_report",
+                "resolve_references", "interpret_tid1500_measurements"
+            ],
+            "expected_semantics": {
+                "synthetic_data": "YES",
+                "source_sop_instance_uid": ct_source.sop_instance_uid,
+                "structured_report": {
+                    "completion_flag": "COMPLETE",
+                    "preliminary_flag": "FINAL",
+                    "verification_flag": "UNVERIFIED",
+                    "root_value_type": "CONTAINER",
+                    "root_continuity_of_content": "SEPARATE"
+                }
+            },
+            "expected_tid1500": expected_tid1500,
+            "expected_visual_checks": {"pattern": "tid1500_volume_measurement_from_binary_segmentation"},
+            "validation": {
+                "status": "passed",
+                "internal": [
+                    {"name": "external_backend_contract", "status": "passed", "message": "The locked backend response and provenance satisfied protocol 0.1.0."},
+                    {"name": "promoted_part10_reopened", "status": "passed", "message": "The promoted Comprehensive 3D SR reopened without pixel payload."}
+                ],
+                "standards": [
+                    {"name": "comprehensive_3d_sr_storage_sop_class", "status": "passed", "message": "The output uses Comprehensive 3D SR Storage."},
+                    {"name": "tid1500_measurement_report", "status": "passed", "message": "The manifest locks the TID 1500 and TID 1411 content contract."}
+                ],
+                "external": []
+            },
+            "known_stressors": [
+                "comprehensive_3d_sr_storage", "tid1500_measurement_report",
+                "tid1411_measurement_group", "referenced_segment",
+                "cross_instance_references", "external_generation_backend"
+            ],
             "standards_evidence": deduplicated_standards_evidence(standards_evidence_from_case(case))
         }),
     })

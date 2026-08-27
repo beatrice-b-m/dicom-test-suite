@@ -44,6 +44,7 @@ pub(crate) fn validate_manifest_metadata(
     validate_temporal_metadata(relative_path, bytes, expected, obj, failures);
     validate_empty_type2_attributes(relative_path, bytes, expected, obj, failures);
     validate_string_elements(relative_path, bytes, expected, obj, failures);
+    validate_private_creator_blocks(relative_path, bytes, expected, obj, failures);
 }
 
 pub(crate) fn validate_manifest_metadata_corpus(files: &[Value], failures: &mut Vec<String>) {
@@ -472,6 +473,347 @@ fn validate_string_elements(
                 spec.keyword
             )),
         }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+enum PrivateDecodedValue {
+    Lo(&'static str),
+    Us(u16),
+}
+
+#[derive(Debug, Clone, Copy)]
+struct PrivateElementSpec {
+    tag: &'static str,
+    vr: &'static str,
+    value: PrivateDecodedValue,
+    raw_value_hex: &'static str,
+    raw_value_sha256: &'static str,
+    raw_value_byte_length: usize,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct PrivateCreatorSpec {
+    creator_tag: &'static str,
+    creator_id: &'static str,
+    raw_value_hex: &'static str,
+    raw_value_sha256: &'static str,
+    raw_value_byte_length: usize,
+    block_start_tag: &'static str,
+    block_end_tag: &'static str,
+    elements: &'static [PrivateElementSpec],
+}
+
+const PRIVATE_ALPHA_0011_ELEMENTS: &[PrivateElementSpec] = &[
+    PrivateElementSpec {
+        tag: "0011,1001",
+        vr: "LO",
+        value: PrivateDecodedValue::Lo("ALPHA-GROUP-0011"),
+        raw_value_hex: "414C5048412D47524F55502D30303131",
+        raw_value_sha256: "6b95b0cd9835f0ab50173c42a37511a7e8a547af8837f67e0a9bd0d6ff0da1ae",
+        raw_value_byte_length: 16,
+    },
+    PrivateElementSpec {
+        tag: "0011,10F0",
+        vr: "US",
+        value: PrivateDecodedValue::Us(0x1234),
+        raw_value_hex: "3412",
+        raw_value_sha256: "e74d0e44a658ffcdc0ee7266ebd171413b8fcf182c97a27254d9f48abaea6266",
+        raw_value_byte_length: 2,
+    },
+];
+const PRIVATE_BETA_0011_ELEMENTS: &[PrivateElementSpec] = &[PrivateElementSpec {
+    tag: "0011,1201",
+    vr: "LO",
+    value: PrivateDecodedValue::Lo("BETA-BLOCK-12"),
+    raw_value_hex: "424554412D424C4F434B2D313220",
+    raw_value_sha256: "3329e2d8d73e62f294fd73110474122239fd4d75a8a2aefbe16c117f0265b328",
+    raw_value_byte_length: 14,
+}];
+const PRIVATE_ALPHA_0013_ELEMENTS: &[PrivateElementSpec] = &[PrivateElementSpec {
+    tag: "0013,1101",
+    vr: "LO",
+    value: PrivateDecodedValue::Lo("ALPHA-GROUP-0013"),
+    raw_value_hex: "414C5048412D47524F55502D30303133",
+    raw_value_sha256: "6374ee55ea117a6d46b516c6ca6f2550d95c849a16221c58bfea5c054b9e6919",
+    raw_value_byte_length: 16,
+}];
+const PRIVATE_CREATOR_SPECS: &[PrivateCreatorSpec] = &[
+    PrivateCreatorSpec {
+        creator_tag: "0011,0010",
+        creator_id: "DTS_PRIVATE_ALPHA",
+        raw_value_hex: "4454535F505249564154455F414C50484120",
+        raw_value_sha256: "02a7ccdec62f131efea4bb7c0954d15df2b1efd67abec69123ff0afcb197f8c3",
+        raw_value_byte_length: 18,
+        block_start_tag: "0011,1000",
+        block_end_tag: "0011,10FF",
+        elements: PRIVATE_ALPHA_0011_ELEMENTS,
+    },
+    PrivateCreatorSpec {
+        creator_tag: "0011,0012",
+        creator_id: "DTS_PRIVATE_BETA",
+        raw_value_hex: "4454535F505249564154455F42455441",
+        raw_value_sha256: "df2316ffa7d764760e6c7f6174d3b15a2d59687834a90474b7446ff323df073d",
+        raw_value_byte_length: 16,
+        block_start_tag: "0011,1200",
+        block_end_tag: "0011,12FF",
+        elements: PRIVATE_BETA_0011_ELEMENTS,
+    },
+    PrivateCreatorSpec {
+        creator_tag: "0013,0011",
+        creator_id: "DTS_PRIVATE_ALPHA",
+        raw_value_hex: "4454535F505249564154455F414C50484120",
+        raw_value_sha256: "02a7ccdec62f131efea4bb7c0954d15df2b1efd67abec69123ff0afcb197f8c3",
+        raw_value_byte_length: 18,
+        block_start_tag: "0013,1100",
+        block_end_tag: "0013,11FF",
+        elements: PRIVATE_ALPHA_0013_ELEMENTS,
+    },
+];
+
+fn validate_private_creator_blocks(
+    relative_path: &str,
+    bytes: &[u8],
+    expected: &Value,
+    obj: &OpenedObject,
+    failures: &mut Vec<String>,
+) {
+    let Some(blocks) = expected
+        .get("private_creator_blocks")
+        .and_then(Value::as_array)
+    else {
+        return;
+    };
+    let declared_tags = blocks
+        .iter()
+        .filter_map(|block| block.get("creator_tag").and_then(Value::as_str))
+        .collect::<Vec<_>>();
+    let required_tags = PRIVATE_CREATOR_SPECS
+        .iter()
+        .map(|spec| spec.creator_tag)
+        .collect::<Vec<_>>();
+    if blocks.len() != PRIVATE_CREATOR_SPECS.len() || declared_tags != required_tags {
+        failures.push(format!(
+            "{relative_path}: metadata_private_creator_set: manifest {declared_tags:?}, expected {required_tags:?}"
+        ));
+    }
+
+    let mut scoped_ids = BTreeSet::new();
+    for block in blocks {
+        let creator_tag_text = block
+            .get("creator_tag")
+            .and_then(Value::as_str)
+            .unwrap_or("");
+        let Some(spec) = PRIVATE_CREATOR_SPECS
+            .iter()
+            .find(|spec| spec.creator_tag == creator_tag_text)
+        else {
+            continue;
+        };
+        let Some(creator_tag) = parse_tag(creator_tag_text) else {
+            continue;
+        };
+        let Tag(group, creator_slot) = creator_tag;
+        let creator_id = block
+            .get("creator_id")
+            .and_then(Value::as_str)
+            .unwrap_or("");
+        if group % 2 == 0
+            || !(0x0010..=0x00FF).contains(&creator_slot)
+            || !creator_id.bytes().all(|byte| (0x20..=0x7E).contains(&byte))
+            || creator_id.contains(['\\', '~'])
+        {
+            failures.push(format!(
+                "{relative_path}: metadata_private_creator_repertoire: invalid creator {creator_id:?} at {creator_tag_text}"
+            ));
+        }
+        if !scoped_ids.insert((group, creator_id)) {
+            failures.push(format!(
+                "{relative_path}: metadata_private_creator_scope: duplicate creator {creator_id:?} in group {group:04X}"
+            ));
+        }
+        let derived_start = format!("{group:04X},{:04X}", creator_slot << 8);
+        let derived_end = format!("{group:04X},{:04X}", (creator_slot << 8) | 0x00FF);
+        if block.get("block_start_tag").and_then(Value::as_str) != Some(derived_start.as_str())
+            || block.get("block_end_tag").and_then(Value::as_str) != Some(derived_end.as_str())
+            || derived_start != spec.block_start_tag
+            || derived_end != spec.block_end_tag
+        {
+            failures.push(format!(
+                "{relative_path}: metadata_private_block_range: creator {creator_tag_text} must own {} through {}",
+                spec.block_start_tag, spec.block_end_tag
+            ));
+        }
+        if creator_id != spec.creator_id || block.get("vr").and_then(Value::as_str) != Some("LO") {
+            failures.push(format!(
+                "{relative_path}: metadata_private_creator_contract: {creator_tag_text} manifest creator {creator_id:?}, expected {:?} LO",
+                spec.creator_id
+            ));
+        }
+        validate_private_raw_contract(
+            relative_path,
+            "creator",
+            creator_tag_text,
+            block,
+            "LO",
+            spec.raw_value_hex,
+            spec.raw_value_sha256,
+            spec.raw_value_byte_length,
+            bytes,
+            failures,
+        );
+        match obj.element(creator_tag) {
+            Ok(element)
+                if element.vr() == VR::LO
+                    && element.to_str().ok().as_deref() == Some(spec.creator_id) => {}
+            Ok(element) => failures.push(format!(
+                "{relative_path}: metadata_private_creator_value: {creator_tag_text} dataset {:?} {:?}, expected LO {:?}",
+                element.vr(),
+                element.to_str().ok(),
+                spec.creator_id
+            )),
+            Err(error) => failures.push(format!(
+                "{relative_path}: metadata_private_creator_presence: {creator_tag_text} is missing: {error}"
+            )),
+        }
+
+        let elements = block
+            .get("elements")
+            .and_then(Value::as_array)
+            .map(Vec::as_slice)
+            .unwrap_or_default();
+        let element_tags = elements
+            .iter()
+            .filter_map(|element| element.get("tag").and_then(Value::as_str))
+            .collect::<Vec<_>>();
+        let required_element_tags = spec
+            .elements
+            .iter()
+            .map(|element| element.tag)
+            .collect::<Vec<_>>();
+        if elements.len() != spec.elements.len() || element_tags != required_element_tags {
+            failures.push(format!(
+                "{relative_path}: metadata_private_element_set: creator {creator_tag_text} manifest {element_tags:?}, expected {required_element_tags:?}"
+            ));
+        }
+        for element in elements {
+            let tag_text = element.get("tag").and_then(Value::as_str).unwrap_or("");
+            let Some(element_spec) = spec.elements.iter().find(|spec| spec.tag == tag_text) else {
+                continue;
+            };
+            let Some(tag) = parse_tag(tag_text) else {
+                continue;
+            };
+            if tag.0 != group || tag.1 & 0xFF00 != creator_slot << 8 {
+                failures.push(format!(
+                    "{relative_path}: metadata_private_element_ownership: {tag_text} is outside creator {creator_tag_text}"
+                ));
+            }
+            if element.get("vr").and_then(Value::as_str) != Some(element_spec.vr) {
+                failures.push(format!(
+                    "{relative_path}: metadata_private_element_vr: {tag_text} manifest VR differs from {}",
+                    element_spec.vr
+                ));
+            }
+            let manifest_value_matches = match element_spec.value {
+                PrivateDecodedValue::Lo(value) => {
+                    element.get("decoded_value").and_then(Value::as_str) == Some(value)
+                }
+                PrivateDecodedValue::Us(value) => {
+                    element.get("decoded_value").and_then(Value::as_u64) == Some(u64::from(value))
+                }
+            };
+            if !manifest_value_matches {
+                failures.push(format!(
+                    "{relative_path}: metadata_private_element_manifest_value: {tag_text} decoded value differs from the locked contract"
+                ));
+            }
+            validate_private_raw_contract(
+                relative_path,
+                "element",
+                tag_text,
+                element,
+                element_spec.vr,
+                element_spec.raw_value_hex,
+                element_spec.raw_value_sha256,
+                element_spec.raw_value_byte_length,
+                bytes,
+                failures,
+            );
+            let dataset_matches = obj
+                .element(tag)
+                .is_ok_and(|actual| match element_spec.value {
+                    PrivateDecodedValue::Lo(value) => {
+                        actual.vr() == VR::LO && actual.to_str().ok().as_deref() == Some(value)
+                    }
+                    PrivateDecodedValue::Us(value) => {
+                        actual.vr() == VR::US && actual.to_int::<u16>().ok() == Some(value)
+                    }
+                });
+            if !dataset_matches {
+                failures.push(format!(
+                    "{relative_path}: metadata_private_element_value: {tag_text} dataset VR or value differs from the locked contract"
+                ));
+            }
+        }
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn validate_private_raw_contract(
+    relative_path: &str,
+    kind: &str,
+    tag_text: &str,
+    manifest: &Value,
+    expected_vr: &str,
+    expected_hex: &str,
+    expected_hash: &str,
+    expected_length: usize,
+    bytes: &[u8],
+    failures: &mut Vec<String>,
+) {
+    let manifest_hex = manifest
+        .get("raw_value_hex")
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    let manifest_hash = manifest
+        .get("raw_value_sha256")
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    let manifest_length = manifest
+        .get("raw_value_byte_length")
+        .and_then(Value::as_u64)
+        .unwrap_or_default() as usize;
+    if manifest_hex != expected_hex
+        || manifest_hash != expected_hash
+        || manifest_length != expected_length
+    {
+        failures.push(format!(
+            "{relative_path}: metadata_private_{kind}_raw_contract: {tag_text} manifest VL {manifest_length} hash {manifest_hash} hex {manifest_hex}, expected VL {expected_length} hash {expected_hash} hex {expected_hex}"
+        ));
+    }
+    let Some(tag) = parse_tag(tag_text) else {
+        return;
+    };
+    match find_raw_element(bytes, tag) {
+        Some(raw) => {
+            let actual_hex = uppercase_hex(raw.value);
+            let actual_hash = sha256_hex(raw.value);
+            if raw.vr != expected_vr
+                || actual_hex != manifest_hex
+                || actual_hash != manifest_hash
+                || raw.value.len() != manifest_length
+            {
+                failures.push(format!(
+                    "{relative_path}: metadata_private_{kind}_raw_value: {tag_text} dataset VR {} VL {} hash {actual_hash} hex {actual_hex}, manifest VL {manifest_length} hash {manifest_hash} hex {manifest_hex}",
+                    raw.vr,
+                    raw.value.len()
+                ));
+            }
+        }
+        None => failures.push(format!(
+            "{relative_path}: metadata_private_{kind}_raw_presence: {tag_text} is missing"
+        )),
     }
 }
 

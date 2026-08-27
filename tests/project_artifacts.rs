@@ -3710,6 +3710,10 @@ fn generator_recipe_case_ids() -> BTreeSet<String> {
             &["case_id: \""][..],
         ),
         (
+            "src/generator/native/sequence_length_sc.rs",
+            &["case_id: \""][..],
+        ),
+        (
             "src/generator/native/string_boundary_sc.rs",
             &["case_id: \""][..],
         ),

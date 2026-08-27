@@ -14693,7 +14693,7 @@
     {
       "case_id": "vl/photo/rgb_icc_profile_explicit_le",
       "artifact_kind": "dicom_instance",
-      "status": "planned",
+      "status": "implemented",
       "provider": {
         "kind": "rust_native",
         "id": "rust_native"
@@ -14704,18 +14704,8 @@
         "pixels",
         "metadata"
       ],
-      "roadmap": {
-        "priority": "next",
-        "delivery_phase": "phase-2",
-        "rationale": "Exercises ICC profile signaling for deterministic synthetic color."
-      },
-      "blockers": [
-        {
-          "code": "recipe_unimplemented",
-          "message": "The deterministic native recipe is not implemented.",
-          "recheck_phase": "phase-2"
-        }
-      ],
+      "roadmap": null,
+      "blockers": [],
       "profiles": [
         "extended"
       ],
@@ -14741,6 +14731,22 @@
           "covered": true,
           "part": "PS3.6",
           "anchor": "table_A-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "retrieve_standard_text sect_C.11.15.1.1",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "sect_C.11.15.1.1"
+        },
+        {
+          "source": "local-source-note",
+          "edition": "2026b",
+          "query": "standards/source-notes/phase-2-icc-profile.md",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.11.15-1"
         }
       ]
     },

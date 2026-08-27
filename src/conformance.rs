@@ -136,6 +136,10 @@ fn verify_artifacts(evidence_root: &Path, evidence: &Value, failures: &mut Vec<S
         let Some(relative) = artifact["path"].as_str() else {
             continue;
         };
+        if validate_relative_path(relative).is_err() {
+            failures.push(format!("unsafe pixel evidence path: {relative}"));
+            continue;
+        }
         match fs::read(evidence_root.join(relative)) {
             Ok(bytes) => {
                 let actual = sha256_hex(&bytes);
@@ -182,6 +186,17 @@ fn verify_completeness(evidence_root: &Path, evidence: &Value, failures: &mut Ve
                             .and_then(Value::as_str)
                             == Some("native")
                 })
+                .filter_map(|file| file["path"].as_str())
+                .collect::<std::collections::BTreeSet<_>>()
+        })
+        .unwrap_or_default();
+    let required_u32_pixel_paths = manifest
+        .as_ref()
+        .and_then(|value| value["files"].as_array())
+        .map(|files| {
+            files
+                .iter()
+                .filter(|file| file["case_id"] == "classic/sc/mono2_u32_explicit_le")
                 .filter_map(|file| file["path"].as_str())
                 .collect::<std::collections::BTreeSet<_>>()
         })
@@ -257,9 +272,104 @@ fn verify_completeness(evidence_root: &Path, evidence: &Value, failures: &mut Ve
                 "independent native float32 pixel evidence failed: {path}"
             ));
         }
+        if required_u32_pixel_paths.contains(path)
+            && (instance["pixel"]["status"] != "passed"
+                || instance["pixel"]["independence"] != "independent")
+        {
+            failures.push(format!(
+                "independent native u32 pixel evidence failed: {path}"
+            ));
+        }
+        if required_u32_pixel_paths.contains(path) {
+            let manifest_file = manifest
+                .as_ref()
+                .and_then(|value| value["files"].as_array())
+                .into_iter()
+                .flatten()
+                .find(|file| file["path"] == path);
+            if let Some(manifest_file) = manifest_file {
+                verify_u32_pixel_evidence(
+                    evidence_root,
+                    evidence,
+                    instance,
+                    manifest_file,
+                    failures,
+                );
+            }
+        }
     }
     if evidence["entity"]["status"] != "completed" {
         failures.push("corpus entity validation is incomplete".to_string());
+    }
+}
+
+fn verify_u32_pixel_evidence(
+    evidence_root: &Path,
+    evidence: &Value,
+    instance: &Value,
+    manifest_file: &Value,
+    failures: &mut Vec<String>,
+) {
+    let path = instance["path"].as_str().unwrap_or("unknown");
+    let Some(relative) = instance
+        .pointer("/pixel/evidence/path")
+        .and_then(Value::as_str)
+    else {
+        failures.push(format!("u32 pixel evidence sidecar is missing: {path}"));
+        return;
+    };
+    if validate_relative_path(relative).is_err() {
+        failures.push(format!("u32 pixel evidence sidecar path is unsafe: {path}"));
+        return;
+    }
+    let Ok(bytes) = fs::read(evidence_root.join(relative)) else {
+        failures.push(format!("u32 pixel evidence sidecar is unavailable: {path}"));
+        return;
+    };
+    let Ok(sidecar) = serde_json::from_slice::<Value>(&bytes) else {
+        failures.push(format!(
+            "u32 pixel evidence sidecar is invalid JSON: {path}"
+        ));
+        return;
+    };
+    let adapter_id = "pydicom-dicom-validator-u32";
+    let tool = evidence["tools"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .find(|tool| tool["adapter_id"] == adapter_id);
+    let actual = &sidecar["actual"];
+    let semantically_linked = sidecar["adapter_id"] == adapter_id
+        && sidecar["adapter_sha256"].as_str() == tool.and_then(|tool| tool["sha256"].as_str())
+        && tool
+            .is_some_and(|tool| tool["status"] == "available" && tool["lock_status"] == "matched")
+        && sidecar["independence"] == "independent"
+        && sidecar["extraction_method"] == "uv_locked_pydicom_raw_ow_struct_unpack_u32_le"
+        && sidecar["status"] == "passed"
+        && sidecar["expected_frame_hashes"] == instance["pixel"]["expected_frame_hashes"]
+        && sidecar["actual_frame_hashes"] == instance["pixel"]["actual_frame_hashes"]
+        && sidecar["expected_stored_values"]
+            == manifest_file["expected_u32_pixels"]["stored_values"]
+        && actual["frame_hashes"] == instance["pixel"]["actual_frame_hashes"]
+        && actual["stored_values"] == manifest_file["expected_u32_pixels"]["stored_values"]
+        && actual["pixel_data_sha256"] == manifest_file["expected_u32_pixels"]["pixel_data_sha256"]
+        && actual["rows"] == manifest_file["image"]["rows"]
+        && actual["columns"] == manifest_file["image"]["columns"]
+        && actual["frames"] == manifest_file["image"]["frames"]
+        && actual["samples_per_pixel"] == manifest_file["image"]["samples_per_pixel"]
+        && actual["bits_allocated"] == manifest_file["image"]["bits_allocated"]
+        && actual["bits_stored"] == manifest_file["image"]["bits_stored"]
+        && actual["high_bit"] == manifest_file["image"]["high_bit"]
+        && actual["pixel_representation"] == manifest_file["image"]["pixel_representation"]
+        && actual["photometric_interpretation"]
+            == manifest_file["image"]["photometric_interpretation"]
+        && actual["pixel_data_vr"] == manifest_file["pixel_data"]["vr"]
+        && actual["transfer_syntax_uid"] == manifest_file["dicom"]["transfer_syntax_uid"]
+        && actual["byte_order"] == "little_endian";
+    if !semantically_linked {
+        failures.push(format!(
+            "u32 pixel evidence sidecar is not linked to its locked tool and source manifest: {path}"
+        ));
     }
 }
 
@@ -679,6 +789,18 @@ fn collect_pixel_result(
         .pointer("/dicom/transfer_syntax_uid")
         .and_then(Value::as_str)
         .unwrap_or("");
+    if file.get("case_id").and_then(Value::as_str) == Some("classic/sc/mono2_u32_explicit_le") {
+        return collect_u32_pixel_result(
+            generated_root,
+            evidence_root,
+            file,
+            relative_input,
+            stable_key,
+            adapters,
+            tools,
+            expected,
+        );
+    }
     if file.pointer("/image/sample_type").and_then(Value::as_str) == Some("float32")
         || file.pointer("/pixel_data/vr").and_then(Value::as_str) == Some("OF")
     {
@@ -839,6 +961,118 @@ fn collect_pixel_result(
         "expected_frame_hashes": sidecar["expected_frame_hashes"],
         "actual_frame_hashes": sidecar["actual_frame_hashes"],
         "reason": if passed { "DCMTK RLE decode matched every expected native frame hash" } else { "DCMTK RLE decode or native frame hash comparison failed" },
+        "evidence": { "path": relative, "sha256": sha256_hex(&encoded) }
+    }))
+}
+
+#[allow(clippy::too_many_arguments)]
+fn collect_u32_pixel_result(
+    generated_root: &Path,
+    evidence_root: &Path,
+    file: &Value,
+    relative_input: &str,
+    stable_key: &str,
+    adapters: &[Value],
+    tools: &[Value],
+    expected: Vec<Value>,
+) -> Result<Value, String> {
+    let adapter_id = "pydicom-dicom-validator-u32";
+    let Some(adapter) = adapters.iter().find(|adapter| adapter["id"] == adapter_id) else {
+        return Ok(pixel_unsupported(
+            expected,
+            "independent",
+            "The independent pydicom u32 pixel adapter is not configured",
+        ));
+    };
+    let Some(tool) = tools.iter().find(|tool| tool["adapter_id"] == adapter_id) else {
+        return Ok(pixel_unsupported(
+            expected,
+            "independent",
+            "The independent pydicom u32 pixel adapter was not discovered",
+        ));
+    };
+    if tool["status"] != "available" {
+        return Ok(pixel_unsupported(
+            expected,
+            "independent",
+            "The independent pydicom u32 pixel adapter is unavailable",
+        ));
+    }
+    let executable = tool["executable"]
+        .as_str()
+        .ok_or_else(|| "available pydicom u32 adapter has no executable".to_string())?;
+    let input = generated_root.join(relative_input);
+    let arguments = string_array(adapter, "pixel_arguments")?
+        .into_iter()
+        .map(|argument| argument.replace("{input}", &input.display().to_string()))
+        .collect::<Vec<_>>();
+    let output = run_with_timeout(
+        Path::new(executable),
+        &arguments,
+        Duration::from_secs(adapter["timeout_seconds"].as_u64().unwrap_or(60)),
+    )?;
+    let payload = if output.exit_code == Some(0) && !output.timed_out {
+        serde_json::from_slice::<Value>(&output.stdout).ok()
+    } else {
+        None
+    };
+    let actual_hashes = payload
+        .as_ref()
+        .and_then(|value| value["frame_hashes"].as_array())
+        .cloned()
+        .unwrap_or_default();
+    let expected_values = file
+        .pointer("/expected_u32_pixels/stored_values")
+        .cloned()
+        .unwrap_or(Value::Null);
+    let expected_pixel_hash = file
+        .pointer("/expected_u32_pixels/pixel_data_sha256")
+        .cloned()
+        .unwrap_or(Value::Null);
+    let passed = payload.as_ref().is_some_and(|value| {
+        actual_hashes == expected
+            && value["stored_values"] == expected_values
+            && value["pixel_data_sha256"] == expected_pixel_hash
+            && value["rows"] == file["image"]["rows"]
+            && value["columns"] == file["image"]["columns"]
+            && value["frames"] == file["image"]["frames"]
+            && value["samples_per_pixel"] == file["image"]["samples_per_pixel"]
+            && value["bits_allocated"] == file["image"]["bits_allocated"]
+            && value["bits_stored"] == file["image"]["bits_stored"]
+            && value["high_bit"] == file["image"]["high_bit"]
+            && value["pixel_representation"] == file["image"]["pixel_representation"]
+            && value["photometric_interpretation"] == file["image"]["photometric_interpretation"]
+            && value["pixel_data_vr"] == file["pixel_data"]["vr"]
+            && value["transfer_syntax_uid"] == file["dicom"]["transfer_syntax_uid"]
+            && value["byte_order"] == "little_endian"
+    });
+    let sidecar = json!({
+        "adapter_id": adapter_id,
+        "adapter_sha256": tool["sha256"],
+        "independence": "independent",
+        "extraction_method": "uv_locked_pydicom_raw_ow_struct_unpack_u32_le",
+        "exit_code": output.exit_code,
+        "timed_out": output.timed_out,
+        "expected_frame_hashes": expected,
+        "actual_frame_hashes": actual_hashes,
+        "expected_stored_values": expected_values,
+        "actual": payload,
+        "stderr_sha256": sha256_hex(&output.stderr),
+        "status": if passed { "passed" } else { "failed" }
+    });
+    let relative = format!("pixels/pydicom-dicom-validator-u32/{stable_key}.json");
+    let target = evidence_root.join(&relative);
+    if let Some(parent) = target.parent() {
+        fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+    }
+    let encoded = serde_json::to_vec_pretty(&sidecar).map_err(|error| error.to_string())?;
+    fs::write(&target, &encoded).map_err(|error| error.to_string())?;
+    Ok(json!({
+        "status": if passed { "passed" } else { "failed" },
+        "independence": "independent",
+        "expected_frame_hashes": sidecar["expected_frame_hashes"],
+        "actual_frame_hashes": sidecar["actual_frame_hashes"],
+        "reason": if passed { "uv-locked pydicom extraction matched unsigned values, metadata, and every native frame hash" } else { "pydicom u32 extraction or manifest comparison failed" },
         "evidence": { "path": relative, "sha256": sha256_hex(&encoded) }
     }))
 }

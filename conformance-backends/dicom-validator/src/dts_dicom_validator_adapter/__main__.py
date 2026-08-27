@@ -7,16 +7,18 @@ import hashlib
 import importlib.metadata
 import json
 import os
+import struct
 import sys
 from pathlib import Path
 
+import pydicom
 from dicom_validator.spec_reader.edition_reader import EditionReader
 from dicom_validator.validator.dicom_file_validator import DicomFileValidator
 from dicom_validator.validator.error_handler import ValidationResultHandlerBase
 from dicom_validator.validator.validation_result import Status
 
 
-ADAPTER_VERSION = "0.1.0"
+ADAPTER_VERSION = "0.2.0"
 EDITION = "2026b"
 EXPECTED_DISTRIBUTIONS = {
     "dicom-validator": "0.8.2",
@@ -127,11 +129,76 @@ def validate(input_path: Path, standard_root: Path, lock_path: Path) -> int:
     return exit_code
 
 
+def extract_u32_pixels(input_path: Path, standard_root: Path, lock_path: Path) -> int:
+    for name, version in EXPECTED_DISTRIBUTIONS.items():
+        verify_distribution(name, version)
+    verify_standard(standard_root, lock_path)
+    dataset = pydicom.dcmread(input_path)
+    transfer_syntax = str(dataset.file_meta.TransferSyntaxUID)
+    if transfer_syntax != "1.2.840.10008.1.2.1":
+        raise RuntimeError(f"unsupported transfer syntax for u32 extraction: {transfer_syntax}")
+    rows = int(dataset.Rows)
+    columns = int(dataset.Columns)
+    frames = int(getattr(dataset, "NumberOfFrames", 1))
+    samples = int(dataset.SamplesPerPixel)
+    bits_allocated = int(dataset.BitsAllocated)
+    bits_stored = int(dataset.BitsStored)
+    high_bit = int(dataset.HighBit)
+    pixel_representation = int(dataset.PixelRepresentation)
+    pixel_element = dataset[0x7FE00010]
+    pixel_bytes = bytes(pixel_element.value)
+    frame_size = rows * columns * samples * 4
+    if rows <= 0 or columns <= 0 or frames <= 0:
+        raise RuntimeError("u32 extraction requires positive image dimensions")
+    if (
+        bits_allocated != 32
+        or bits_stored != 32
+        or high_bit != 31
+        or pixel_representation != 0
+        or samples != 1
+        or str(dataset.PhotometricInterpretation) != "MONOCHROME2"
+        or pixel_element.VR != "OW"
+    ):
+        raise RuntimeError("dataset does not satisfy the locked unsigned u32 pixel shape")
+    if len(pixel_bytes) != frame_size * frames:
+        raise RuntimeError(
+            "u32 Pixel Data length does not match rows, columns, samples, and frames"
+        )
+    values = list(struct.unpack(f"<{len(pixel_bytes) // 4}I", pixel_bytes))
+    result = {
+        "adapter_id": "pydicom-dicom-validator-u32",
+        "bits_allocated": bits_allocated,
+        "bits_stored": bits_stored,
+        "byte_order": "little_endian",
+        "columns": columns,
+        "frame_hashes": [
+            hashlib.sha256(frame).hexdigest()
+            for frame in (
+                pixel_bytes[offset : offset + frame_size]
+                for offset in range(0, len(pixel_bytes), frame_size)
+            )
+        ],
+        "frames": frames,
+        "high_bit": high_bit,
+        "photometric_interpretation": str(dataset.PhotometricInterpretation),
+        "pixel_data_sha256": hashlib.sha256(pixel_bytes).hexdigest(),
+        "pixel_data_vr": pixel_element.VR,
+        "pixel_representation": pixel_representation,
+        "rows": rows,
+        "samples_per_pixel": samples,
+        "stored_values": values,
+        "transfer_syntax_uid": transfer_syntax,
+    }
+    print(json.dumps(result, sort_keys=True, separators=(",", ":")))
+    return 0
+
+
 def parser() -> argparse.ArgumentParser:
     result = argparse.ArgumentParser()
     result.add_argument("--version", action="store_true")
     result.add_argument("--standard-path", type=Path)
     result.add_argument("--lock-path", type=Path)
+    result.add_argument("--pixel-u32", action="store_true")
     result.add_argument("input", nargs="?", type=Path)
     return result
 
@@ -159,6 +226,8 @@ def main() -> None:
             raise SystemExit("DTS_DICOM_VALIDATOR_STANDARD_HOME is required")
         standard_path = Path(configured)
     try:
+        if args.pixel_u32:
+            raise SystemExit(extract_u32_pixels(args.input, standard_path, args.lock_path))
         raise SystemExit(validate(args.input, standard_path, args.lock_path))
     except Exception as error:
         print(f"Error: dicom-validator adapter failure: {error}", file=sys.stderr)

@@ -29,6 +29,14 @@
         "dts_dicom_validator_adapter",
         "--version"
       ],
+      "pixel_arguments": [
+        "-m",
+        "dts_dicom_validator_adapter",
+        "--pixel-u32",
+        "--lock-path",
+        "conformance-backends/dicom-validator/standard-lock.json",
+        "{input}"
+      ],
       "timeout_seconds": 60,
       "required": false,
       "platforms": ["linux", "macos", "windows"],

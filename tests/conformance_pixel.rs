@@ -59,6 +59,100 @@ fn strict_verification_rejects_native_float32_hash_mismatch() {
     );
 }
 
+#[cfg(unix)]
+#[test]
+fn pydicom_u32_adapter_matches_unsigned_values_metadata_and_frame_hash() {
+    let fixture = U32Fixture::new(false);
+    let repeat = U32Fixture::new(false);
+    let pixel = &fixture.run["instances"][0]["pixel"];
+    assert_eq!(pixel["status"], "passed");
+    assert_eq!(pixel["independence"], "independent");
+    assert_eq!(pixel["actual_frame_hashes"], fixture.expected_hashes);
+
+    let sidecar_path = pixel["evidence"]["path"].as_str().unwrap();
+    let sidecar: Value =
+        serde_json::from_slice(&fs::read(fixture.evidence.join(sidecar_path)).unwrap()).unwrap();
+    assert_eq!(sidecar["adapter_id"], "pydicom-dicom-validator-u32");
+    assert_eq!(
+        sidecar["actual"]["stored_values"],
+        json!([0_u64, 65_535, 2_147_483_648_u64, 4_294_967_295_u64])
+    );
+    assert_eq!(sidecar["actual"]["pixel_data_vr"], "OW");
+    assert_eq!(sidecar["actual"]["byte_order"], "little_endian");
+    let repeat_path = repeat.run["instances"][0]["pixel"]["evidence"]["path"]
+        .as_str()
+        .unwrap();
+    assert_eq!(
+        fs::read(fixture.evidence.join(sidecar_path)).unwrap(),
+        fs::read(repeat.evidence.join(repeat_path)).unwrap(),
+        "u32 pixel evidence must not depend on temporary paths"
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn strict_verification_rejects_native_u32_hash_mismatch() {
+    let mut fixture = U32Fixture::new(true);
+    assert_eq!(fixture.run["instances"][0]["pixel"]["status"], "failed");
+    for tool in fixture.run["tools"].as_array_mut().unwrap() {
+        tool["lock_status"] = json!("matched");
+    }
+    fs::write(
+        fixture.evidence.join("conformance-run.json"),
+        serde_json::to_vec_pretty(&fixture.run).unwrap(),
+    )
+    .unwrap();
+    let result =
+        dicom_test_suite::conformance::verify_conformance(&fixture.evidence, &fixture.allowlist)
+            .unwrap();
+    assert_eq!(result["valid"], false);
+    assert!(
+        result["failures"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(Value::as_str)
+            .any(|failure| failure.contains("independent native u32 pixel evidence failed"))
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn strict_verification_rejects_semantically_relinked_u32_sidecar() {
+    let mut fixture = U32Fixture::new(false);
+    for tool in fixture.run["tools"].as_array_mut().unwrap() {
+        tool["lock_status"] = json!("matched");
+    }
+    let relative = fixture.run["instances"][0]["pixel"]["evidence"]["path"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    let target = fixture.evidence.join(&relative);
+    let mut sidecar: Value = serde_json::from_slice(&fs::read(&target).unwrap()).unwrap();
+    sidecar["actual"]["bits_stored"] = json!(31);
+    let encoded = serde_json::to_vec_pretty(&sidecar).unwrap();
+    fs::write(&target, &encoded).unwrap();
+    fixture.run["instances"][0]["pixel"]["evidence"]["sha256"] =
+        json!(dicom_test_suite::sha256_hex(&encoded));
+    fs::write(
+        fixture.evidence.join("conformance-run.json"),
+        serde_json::to_vec_pretty(&fixture.run).unwrap(),
+    )
+    .unwrap();
+    let result =
+        dicom_test_suite::conformance::verify_conformance(&fixture.evidence, &fixture.allowlist)
+            .unwrap();
+    assert_eq!(result["valid"], false);
+    assert!(
+        result["failures"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(Value::as_str)
+            .any(|failure| failure.contains("sidecar is not linked"))
+    );
+}
+
 #[test]
 fn real_dcmtk_rle_adapter_matches_all_manifest_frame_hashes_when_enabled() {
     if std::env::var("DTS_REAL_CONFORMANCE").as_deref() != Ok("1") {
@@ -122,6 +216,129 @@ struct FloatFixture {
     allowlist: PathBuf,
     run: Value,
     expected_hashes: Value,
+}
+
+#[cfg(unix)]
+struct U32Fixture {
+    evidence: PathBuf,
+    allowlist: PathBuf,
+    run: Value,
+    expected_hashes: Value,
+}
+
+#[cfg(unix)]
+impl U32Fixture {
+    fn new(mismatch: bool) -> Self {
+        let root = temp_dir();
+        let generated = root.join("generated");
+        let evidence = root.join("evidence");
+        fs::create_dir_all(&generated).unwrap();
+        fs::write(
+            generated.join("u32.dcm"),
+            b"independent adapter owns parsing",
+        )
+        .unwrap();
+
+        let raw_bytes = [
+            0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80, 0xff, 0xff,
+            0xff, 0xff,
+        ];
+        let pixel_hash = dicom_test_suite::sha256_hex(&raw_bytes);
+        let expected_hashes = json!([pixel_hash]);
+        let mut manifest_hashes = expected_hashes.clone();
+        if mismatch {
+            manifest_hashes[0] = json!("0".repeat(64));
+        }
+        let manifest = json!({
+            "run": { "seed": 1, "profile": "test" },
+            "generator": { "name": "u32-fixture", "version": "1", "feature_flags": [] },
+            "standards": { "standards_lock_sha256": "0".repeat(64) },
+            "files": [{
+                "case_id": "classic/sc/mono2_u32_explicit_le",
+                "path": "u32.dcm",
+                "dicom": {
+                    "sop_class_uid": "1.2.840.10008.5.1.4.1.1.7",
+                    "transfer_syntax_uid": "1.2.840.10008.1.2.1"
+                },
+                "image": {
+                    "rows": 2, "columns": 2, "frames": 1, "samples_per_pixel": 1,
+                    "photometric_interpretation": "MONOCHROME2", "bits_allocated": 32,
+                    "bits_stored": 32, "high_bit": 31, "pixel_representation": 0
+                },
+                "pixel_data": {
+                    "vr": "OW", "native_or_encapsulated": "native", "value_length": 16,
+                    "frame_count": 1, "frame_hashes": manifest_hashes
+                },
+                "expected_u32_pixels": {
+                    "pixel_data_sha256": pixel_hash,
+                    "stored_values": [0_u64, 65_535, 2_147_483_648_u64, 4_294_967_295_u64]
+                }
+            }]
+        });
+        fs::write(
+            generated.join("manifest.json"),
+            serde_json::to_vec_pretty(&manifest).unwrap(),
+        )
+        .unwrap();
+
+        let default_primary = fake_tool(&root, "default-primary", "exit 0");
+        let u32_payload = json!({
+            "adapter_id": "pydicom-dicom-validator-u32",
+            "bits_allocated": 32, "bits_stored": 32, "byte_order": "little_endian",
+            "columns": 2, "frame_hashes": [pixel_hash], "frames": 1, "high_bit": 31,
+            "photometric_interpretation": "MONOCHROME2", "pixel_data_sha256": pixel_hash,
+            "pixel_data_vr": "OW", "pixel_representation": 0, "rows": 2,
+            "samples_per_pixel": 1,
+            "stored_values": [0_u64, 65_535, 2_147_483_648_u64, 4_294_967_295_u64],
+            "transfer_syntax_uid": "1.2.840.10008.1.2.1"
+        });
+        let specialized = fake_tool(
+            &root,
+            "u32-adapter",
+            &format!(
+                "if [ \"$1\" = \"--pixel-u32\" ]; then printf '%s\\n' '{}'; fi\nexit 0",
+                u32_payload
+            ),
+        );
+        let entity = fake_tool(&root, "entity", "exit 0");
+        let parser = fake_tool(&root, "parser", "exit 0");
+        let mut specialized_adapter = adapter(
+            "pydicom-dicom-validator-u32",
+            "primary_iod_validator",
+            &specialized,
+        );
+        specialized_adapter["supported_case_ids"] = json!(["classic/sc/mono2_u32_explicit_le"]);
+        specialized_adapter["pixel_arguments"] = json!(["--pixel-u32", "{input}"]);
+        let config = root.join("validators.json");
+        fs::write(
+            &config,
+            serde_json::to_vec_pretty(&json!({
+                "schema_version": "0.1.0",
+                "adapters": [
+                    adapter("default", "primary_iod_validator", &default_primary),
+                    specialized_adapter,
+                    adapter("entity", "entity_validator", &entity),
+                    adapter("parser", "independent_parser", &parser)
+                ]
+            }))
+            .unwrap(),
+        )
+        .unwrap();
+        let run =
+            dicom_test_suite::conformance::run_conformance(&generated, &evidence, &config).unwrap();
+        let allowlist = root.join("allowlist.json");
+        fs::write(
+            &allowlist,
+            b"{\"schema_version\":\"0.1.0\",\"findings\":[]}",
+        )
+        .unwrap();
+        Self {
+            evidence,
+            allowlist,
+            run,
+            expected_hashes,
+        }
+    }
 }
 
 #[cfg(unix)]

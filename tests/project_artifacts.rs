@@ -140,7 +140,7 @@ fn u32_iod_validator_is_case_scoped_and_fully_locked() {
         .expect("u32 IOD validator must have an accepted lock entry");
     assert_eq!(
         tool["adapter_sha256"],
-        "26008ba55bf98d35165b570442e73f388d453f43355d0f508538a4924ec161c1"
+        "e0b445d4f4bc5b338f248251c7eff9416ffef9da079b4e1cd4c46924dc17539d"
     );
     assert_eq!(tool["platforms"], serde_json::json!(["arm64-macos"]));
     assert!(

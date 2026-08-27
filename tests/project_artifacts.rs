@@ -258,6 +258,33 @@ fn u1_source_note_locks_cross_frame_bit_packing() {
 }
 
 #[test]
+fn icc_source_note_locks_dicom_input_profile_contract() {
+    let source = fs::read_to_string("standards/source-notes/phase-2-icc-profile.md")
+        .expect("ICC source note must be readable");
+    for required in [
+        "vl/photo/rgb_icc_profile_explicit_le",
+        "DCMTK_SRGB_ICC_SAMPLE",
+        "CC0",
+        "`736`",
+        "8e069a3476b71a0e0ae7272d9278ba70540d1c4a0b19af1c7d52e56f49091fef",
+        "`scnr`",
+        "`RGB `",
+        "`XYZ `",
+        "`acsp`",
+        "`SRGB`",
+        "Table C.11.15-1",
+        "Section C.11.15.1.1",
+        "1cc11d28abf1e6f4efa4b07a73d4a7c953b3b3101b4112865c7170ccdeb84728",
+        "Should become KB patch: yes",
+    ] {
+        assert!(
+            source.contains(required),
+            "ICC source note requires {required}"
+        );
+    }
+}
+
+#[test]
 fn u1_pixel_decoder_is_case_scoped_and_locked() {
     let validators = read_json("conformance/validators.json");
     let adapter = validators["adapters"]

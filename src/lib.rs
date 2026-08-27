@@ -10741,13 +10741,13 @@ fn validate_scoord3d_standard_elements(
             path: manifest_path.to_path_buf(),
             message: "Comprehensive 3D SCOORD3D SR must declare expected_scoord3d",
         })?;
-    let references = file
-        .get("references")
-        .and_then(Value::as_array)
-        .ok_or(ValidateError::ManifestShape {
-            path: manifest_path.to_path_buf(),
-            message: "SCOORD3D references must be an array",
-        })?;
+    let references =
+        file.get("references")
+            .and_then(Value::as_array)
+            .ok_or(ValidateError::ManifestShape {
+                path: manifest_path.to_path_buf(),
+                message: "SCOORD3D references must be an array",
+            })?;
     if references.len() != 1 {
         return Err(ValidateError::ManifestShape {
             path: manifest_path.to_path_buf(),

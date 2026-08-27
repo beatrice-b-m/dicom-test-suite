@@ -65,10 +65,10 @@ use crate::{
         ControlledMetadata, FLOAT32_SPEC, FLOAT64_SPEC, ParametricMapGenerationInput,
         ParametricMapIdentities, ParametricMapPayload, ParametricMapSampleKind,
         ParametricMapSource, ParametricMapSpec, ParametricMapVariantGenerated,
-        ParametricMapVariantOutcome, StandardsProvenance, Tid1500Generated, Tid1500GenerationInput,
-        Tid1500Identities, Tid1500Outcome, Scoord3dGenerated, Scoord3dGenerationInput,
-        Scoord3dIdentities, Scoord3dOutcome, generate_parametric_map_for_spec, generate_scoord3d,
-        generate_tid1500,
+        ParametricMapVariantOutcome, Scoord3dGenerated, Scoord3dGenerationInput,
+        Scoord3dIdentities, Scoord3dOutcome, StandardsProvenance, Tid1500Generated,
+        Tid1500GenerationInput, Tid1500Identities, Tid1500Outcome,
+        generate_parametric_map_for_spec, generate_scoord3d, generate_tid1500,
     },
     sha256_hex,
     validation::{
@@ -78,10 +78,10 @@ use crate::{
         MgImageExpectations, MrImageExpectations, NmDetectorExpectations,
         NmEnergyWindowExpectations, NmImageExpectations, Part10Expectations, PetImageExpectations,
         PixelDataLengthFormula, PresentationStateExpectations, RealWorldValueMappingExpectations,
-        RtDoseExpectations, RtStructureSetExpectations, SegmentationExpectations,
-        Scoord3dExpectations, Tid1500Expectations, UsImageExpectations, UsMultiframeExpectations,
-        XaImageExpectations, XrfImageExpectations, validate_basic_text_sr_file,
-        validate_comprehensive_sr_file,
+        RtDoseExpectations, RtStructureSetExpectations, Scoord3dExpectations,
+        SegmentationExpectations, Tid1500Expectations, UsImageExpectations,
+        UsMultiframeExpectations, XaImageExpectations, XrfImageExpectations,
+        validate_basic_text_sr_file, validate_comprehensive_sr_file,
         validate_encapsulated_pdf_file, validate_key_object_selection_file, validate_part10_file,
         validate_presentation_state_file, validate_real_world_value_mapping_file,
         validate_rt_dose_file, validate_rt_structure_set_file, validate_scoord3d_file,
@@ -5115,18 +5115,22 @@ fn write_scoord3d_case(
     ct_source: &GeneratedSourceObject,
     standards_lock_sha256: &str,
 ) -> Result<Scoord3dCaseOutcome, GenerateError> {
-    let ct_series_instance_uid = ct_source.series_instance_uid.as_deref().ok_or(
-        GenerateError::MetadataShape {
-            path: PathBuf::from(SCOORD3D_CASE_ID),
-            message: "SCOORD3D Enhanced CT source must record a Series Instance UID",
-        },
-    )?;
-    let frame_of_reference_uid = ct_source.frame_of_reference_uid.as_deref().ok_or(
-        GenerateError::MetadataShape {
-            path: PathBuf::from(SCOORD3D_CASE_ID),
-            message: "SCOORD3D Enhanced CT source must record a Frame of Reference UID",
-        },
-    )?;
+    let ct_series_instance_uid =
+        ct_source
+            .series_instance_uid
+            .as_deref()
+            .ok_or(GenerateError::MetadataShape {
+                path: PathBuf::from(SCOORD3D_CASE_ID),
+                message: "SCOORD3D Enhanced CT source must record a Series Instance UID",
+            })?;
+    let frame_of_reference_uid =
+        ct_source
+            .frame_of_reference_uid
+            .as_deref()
+            .ok_or(GenerateError::MetadataShape {
+                path: PathBuf::from(SCOORD3D_CASE_ID),
+                message: "SCOORD3D Enhanced CT source must record a Frame of Reference UID",
+            })?;
     if ct_source.frame_count != Some(2) {
         return Err(GenerateError::MetadataShape {
             path: PathBuf::from(SCOORD3D_CASE_ID),
@@ -5161,12 +5165,13 @@ fn write_scoord3d_case(
             path: standards_lock_path.clone(),
             source,
         })?;
-    let standards_lock: Value = serde_json::from_slice(&standards_lock_bytes).map_err(|source| {
-        GenerateError::ParseMetadata {
-            path: standards_lock_path,
-            source,
-        }
-    })?;
+    let standards_lock: Value =
+        serde_json::from_slice(&standards_lock_bytes).map_err(|source| {
+            GenerateError::ParseMetadata {
+                path: standards_lock_path,
+                source,
+            }
+        })?;
     let staging = ParametricMapStagingGuard::new();
     let input = Scoord3dGenerationInput {
         repository_root: PathBuf::from("."),
@@ -5237,24 +5242,25 @@ fn scoord3d_generated_file(
     ct_source: &GeneratedSourceObject,
     generated: Scoord3dGenerated,
 ) -> Result<GeneratedFile, GenerateError> {
-    let object = open_file(&generated.output_path).map_err(|error| {
-        GenerateError::ValidateDicomFile {
+    let object =
+        open_file(&generated.output_path).map_err(|error| GenerateError::ValidateDicomFile {
             path: generated.output_path.clone(),
             message: format!("reopen promoted SCOORD3D report: {error}"),
-        }
-    })?;
+        })?;
     let meta = object.meta();
     let implementation_version_name = meta
         .implementation_version_name
         .clone()
         .map(|value| value.trim().to_string())
         .unwrap_or_else(|| "UNKNOWN".to_string());
-    let ct_series = ct_source.series_instance_uid.as_deref().ok_or(
-        GenerateError::MetadataShape {
-            path: generated.output_path.clone(),
-            message: "SCOORD3D CT source series UID is missing",
-        },
-    )?;
+    let ct_series =
+        ct_source
+            .series_instance_uid
+            .as_deref()
+            .ok_or(GenerateError::MetadataShape {
+                path: generated.output_path.clone(),
+                message: "SCOORD3D CT source series UID is missing",
+            })?;
     let source_frame_numbers = [1, 2];
     let validated = validate_scoord3d_file(
         &generated.output_path,

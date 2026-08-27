@@ -2085,10 +2085,8 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
         })
         .unwrap_or(0);
     assert!(matches!(scoord3d_generated, 0 | 1));
-    let expected_extended_files = native_extended_files
-        + parametric_maps_generated
-        + tid1500_generated
-        + scoord3d_generated;
+    let expected_extended_files =
+        native_extended_files + parametric_maps_generated + tid1500_generated + scoord3d_generated;
     assert!(stdout.contains(&format!("files_written\t{expected_extended_files}")));
     assert_eq!(
         manifest

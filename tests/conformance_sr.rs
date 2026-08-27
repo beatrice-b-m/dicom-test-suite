@@ -36,6 +36,11 @@ fn sr_adapter_runs_only_for_supported_sop_classes_and_hashes_its_classpath() {
     )
     .unwrap();
     let quiet = fake_tool(&root, "quiet", "exit 0");
+    let sparse_characterization = fake_tool(
+        &root,
+        "sparse-characterization",
+        "echo 'Error - </NumberOfFrames(0028,0008)> - NumberOfFrames does not match expected value for tiled total pixel matrix = <2 > - expected 4 for 1 optical paths, 1 focal planes, 2 rows of tiles, 2 columns of tiles' >&2; echo VLWholeSlideMicroscopyImage; exit 1",
+    );
     let pixelmed = fake_tool(
         &root,
         "pixelmed",
@@ -54,6 +59,35 @@ esac"#,
             "schema_version": "0.1.0",
             "adapters": [
                 adapter("primary", "primary_iod_validator", &quiet),
+                {
+                    "id": "pydicom-dicom-validator-wsi-sparse",
+                    "role": "primary_iod_validator",
+                    "executable": quiet,
+                    "arguments": [],
+                    "version_arguments": ["--version"],
+                    "timeout_seconds": 2,
+                    "required": false,
+                    "platforms": ["macos"],
+                    "supported_case_ids": ["vl/wsi/tiled_sparse_small"],
+                    "capabilities": ["test"]
+                },
+                {
+                    "id": "dicom3tools-dciodvfy-wsi-sparse-characterization",
+                    "role": "iod_characterization",
+                    "executable": sparse_characterization,
+                    "arguments": [],
+                    "version_arguments": ["--version"],
+                    "timeout_seconds": 2,
+                    "required": false,
+                    "platforms": ["macos"],
+                    "supported_case_ids": ["vl/wsi/tiled_sparse_small"],
+                    "expected_exit_code": 1,
+                    "expected_findings": [{
+                        "severity": "error",
+                        "message": "Error - </NumberOfFrames(0028,0008)> - NumberOfFrames does not match expected value for tiled total pixel matrix = <2 > - expected 4 for 1 optical paths, 1 focal planes, 2 rows of tiles, 2 columns of tiles"
+                    }],
+                    "capabilities": ["test"]
+                },
                 adapter("entity", "entity_validator", &quiet),
                 adapter("parser", "independent_parser", &quiet),
                 {

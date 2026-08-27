@@ -360,6 +360,7 @@
         "standards_verification_pending",
         "backend_contract_unimplemented",
         "backend_unavailable",
+        "provider_capability_unavailable",
         "independent_iod_validator_unavailable",
         "independent_payload_validator_unavailable",
         "independent_decoder_unavailable",

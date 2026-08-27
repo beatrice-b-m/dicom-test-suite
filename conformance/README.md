@@ -90,20 +90,41 @@ The linked RT secondary adapter is exact-case-only for
 `non-image/rt/plan_linked` and `non-image/rt/image_linked`. Feasibility probes
 using the exact SOP Class UIDs selected the locked 2026b `RT Plan IOD` and
 `RT Image IOD` definitions and produced the corresponding mandatory RT module
-findings rather than an unsupported-SOP result. Those UID-substitution probes
-are not valid-instance qualification. Before promotion, the exact generated
-prototypes and every mutation in the linked RT source note must be run through
-both IOD validators and the results recorded without an allowlist.
+findings rather than an unsupported-SOP result. The corrected RT Plan
+prototype, SHA-256
+`e9337a6c46fe85b56f1f563120dd3caf56ea1335355792db42386db959be6db2`,
+uses Study ID `DTS-RTSTRUCT` to align with the existing Structure Set. Locked
+`dciodvfy -new` identified `RTPlan`; the uv-locked secondary selected the 2026b
+RT Plan IOD and returned `Passed` with zero errors; and `dcmdump +fo` parsed the
+exact file. RT Image valid-prototype and mutation qualification remains
+outstanding and is not covered by the Plan result.
 
 The generated 2026b RT Plan definition does not provide a sufficiently
 trustworthy standalone condition for omission of the whole RT Beams Module
 when Number of Beams is one. Strict Rust therefore owns that conditional
 presence, exact fraction/beam/control-point semantics, cardinality, and order.
-The secondary validator also cannot replace `dciodvfy`, isolated `dcentvfy`
-reference closure, or the separate RT Image pixel decoder. Strict verification
-requires the additive RT tool to be available and lock-matched and its result
-to complete with exit code zero and no error findings. No linked RT finding is
-allowlisted.
+Across all 20 locked Plan mutations, both IOD validators detected missing Plan
+Label, `PATIENT` geometry without the Structure Set, and all four missing zero
+accessory counts. `dciodvfy` alone detected a one-item Control Point Sequence.
+Isolated `dcentvfy` alone added a missing-referenced-SOP finding for the
+dangling Structure Set UID. Both IOD validators missed the wrong Structure SOP
+Class; dangling, duplicated, or swapped Structure/Dose identities; fraction
+and beam mismatch; dangling or duplicate Beam Number; device order; jaw
+positions; control-point index or order; isocenter; first or final meterset;
+and wrong Study or Frame of Reference. The secondary validator also missed the
+wrong control-point count. Strict Rust owns every semantic miss; `dcentvfy`
+owns dangling instance closure. All mutations parsed with `dcmdump`, which is
+not semantic detection.
+
+The exact CT/Structure Set/Dose/Plan entity run retains two immutable upstream
+Study ID diagnostics: Dose `DTS-RTDOSE` versus Plan/Structure
+`DTS-RTSTRUCT`, and enhanced CT `DTS-ECT` versus Plan/Structure
+`DTS-RTSTRUCT`. They remain visible and unallowlisted. RT Plan entity
+acceptance means no additive missing or dangling reference finding beyond
+those two baseline diagnostics; it does not mean a silent `dcentvfy` run or a
+zero exit code. The secondary validator cannot replace `dciodvfy`, this exact
+entity-closure rule, strict Rust semantics, or the separate RT Image pixel
+decoder. No linked RT finding is allowlisted.
 
 The waveform secondary adapter is exact-case-only for
 `non-image/waveform/twelve_lead_ecg` and

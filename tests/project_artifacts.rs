@@ -315,6 +315,23 @@ fn linked_rt_secondary_iod_validator_is_additive_and_locked() {
         .unwrap();
     assert_eq!(tool["supporting_artifacts"], shared["supporting_artifacts"]);
     assert_eq!(tool["package_identity"], shared["package_identity"]);
+    let notes = tool["notes"].as_str().expect("linked RT lock notes");
+    for required in [
+        "e9337a6c46fe85b56f1f563120dd3caf56ea1335355792db42386db959be6db2",
+        "Study ID DTS-RTSTRUCT",
+        "Of 20 Plan mutations",
+        "dciodvfy alone caught wrong control-point count",
+        "dcentvfy alone added missing-SOP evidence",
+        "Strict Rust owns the other 15 misses",
+        "Dose DTS-RTDOSE and enhanced CT DTS-ECT",
+        "no additive missing/dangling reference finding",
+        "RT Image qualification remains outstanding",
+    ] {
+        assert!(
+            notes.contains(required),
+            "linked RT lock notes require {required}"
+        );
+    }
 
     let readme = fs::read_to_string("conformance/README.md").unwrap();
     for required in [
@@ -322,11 +339,20 @@ fn linked_rt_secondary_iod_validator_is_additive_and_locked() {
         "non-image/rt/plan_linked",
         "non-image/rt/image_linked",
         "exact SOP Class UIDs selected the locked 2026b `RT Plan IOD` and\n`RT Image IOD`",
-        "UID-substitution probes\nare not valid-instance qualification",
+        "e9337a6c46fe85b56f1f563120dd3caf56ea1335355792db42386db959be6db2",
+        "Study ID `DTS-RTSTRUCT`",
+        "RT Image valid-prototype and mutation qualification remains\noutstanding",
         "omission of the whole RT Beams Module",
-        "cannot replace `dciodvfy`, isolated `dcentvfy`\nreference closure",
-        "exit code zero and no error findings",
-        "No linked RT finding is\nallowlisted",
+        "Across all 20 locked Plan mutations",
+        "`dciodvfy` alone detected a one-item Control Point Sequence",
+        "Isolated `dcentvfy` alone added a missing-referenced-SOP finding",
+        "Both IOD validators missed the wrong Structure SOP\nClass",
+        "Strict Rust owns every semantic miss",
+        "Dose `DTS-RTDOSE` versus Plan/Structure\n`DTS-RTSTRUCT`",
+        "enhanced CT `DTS-ECT` versus Plan/Structure\n`DTS-RTSTRUCT`",
+        "no additive missing or dangling reference finding",
+        "does not mean a silent `dcentvfy` run or a\nzero exit code",
+        "No linked RT finding is allowlisted",
     ] {
         assert!(
             readme.contains(required),
@@ -1358,6 +1384,17 @@ fn linked_rt_plan_image_source_note_and_native_providers_are_locked() {
         "`dciodvfy -new`",
         "`dcentvfy -f`",
         "DCMTK `dcm2img`",
+        "Plan Study ID is `DTS-RTSTRUCT`",
+        "immutable enhanced CT and\nDose retain their historical Study IDs `DTS-ECT` and `DTS-RTDOSE`",
+        "e9337a6c46fe85b56f1f563120dd3caf56ea1335355792db42386db959be6db2",
+        "returned `Passed` with zero errors",
+        "RT Image qualification has not yet\nbeen performed",
+        "All 20 Plan controls remained parseable by `dcmdump`",
+        "Wrong control-point count | detected | missed",
+        "Wrong Frame of Reference UID | missed | missed",
+        "These two immutable upstream diagnostics remain visible\nand unallowlisted",
+        "no *additive* missing or dangling reference\nfinding",
+        "where `-f` expects a file list is invalid evidence",
         "4967dac55719ba63cbc7f404f444e00d4adf50c785c8353e89c94db0259ede05",
         "ca5c4a56d05a57c6587d84fffc31a842e8e369b09f1186e6542a619b69dac683",
         "trigger no Section 11\ndecision checkpoint",
@@ -1375,12 +1412,23 @@ fn linked_rt_plan_image_source_note_and_native_providers_are_locked() {
     }
 
     let registry = read_json("cases/registry.json");
-    for case_id in ["non-image/rt/plan_linked", "non-image/rt/image_linked"] {
+    for (case_id, status, blocker_codes) in [
+        (
+            "non-image/rt/plan_linked",
+            "implemented",
+            Vec::<&str>::new(),
+        ),
+        (
+            "non-image/rt/image_linked",
+            "planned",
+            vec!["recipe_unimplemented"],
+        ),
+    ] {
         let case = registry_cases(&registry)
             .into_iter()
             .find(|case| case.get("case_id").and_then(Value::as_str) == Some(case_id))
             .unwrap_or_else(|| panic!("registry must retain {case_id}"));
-        assert_eq!(case["status"], "planned");
+        assert_eq!(case["status"], status);
         assert_eq!(case["provider"]["kind"], "rust_native");
         assert_eq!(case["provider"]["id"], "rust_native");
         assert_eq!(case["determinism"], "byte_stable");
@@ -1391,7 +1439,7 @@ fn linked_rt_plan_image_source_note_and_native_providers_are_locked() {
                 .iter()
                 .map(|blocker| blocker["code"].as_str().unwrap())
                 .collect::<Vec<_>>(),
-            vec!["recipe_unimplemented"]
+            blocker_codes
         );
         assert!(
             case["standards_evidence"]

@@ -45,6 +45,12 @@ Item identifying the existing RT Dose. The Dose remains
 `DoseSummationType=RECORD`; its bytes, manifest contract, and references shall
 not change and it shall not acquire a reverse Plan reference.
 
+The Plan Study ID is `DTS-RTSTRUCT`, matching the existing Structure Set
+rather than introducing a new Study-level value. The immutable enhanced CT and
+Dose retain their historical Study IDs `DTS-ECT` and `DTS-RTDOSE`; those
+differences are visible in the entity-verification evidence below and are not
+normalized during qualification.
+
 The new Image is generated only after the Plan identity is registered. It
 shares the same Patient, Study, and Frame of Reference, directly references
 that exact Plan, and identifies Referenced Beam Number `1`, Referenced Fraction
@@ -203,20 +209,69 @@ existing independently implemented `uv`-locked `dicom-validator` 0.8.2 with
 hash-locked official 2026b definitions shall be empirically qualified and run
 additively as a case-scoped secondary IOD opinion. Locked DCMTK `dcmdump +fo`
 provides independent parsing. Locked dicom3tools `dcentvfy -f` runs on an
-isolated directory containing exactly the CT, Structure Set, Dose, Plan, and
+isolated file list containing exactly the CT, Structure Set, Dose, Plan, and
 Image to prove reference closure. A new exact-case independent image decoder,
 preferably locked DCMTK `dcm2img` producing 8-bit PGM, shall prove the 4 by 4
 shape and exact ordered pixels; parsing alone is not pixel-decode evidence.
+
+### Corrected RT Plan prototype qualification
+
+The corrected RT Plan prototype has instance SHA-256
+`e9337a6c46fe85b56f1f563120dd3caf56ea1335355792db42386db959be6db2`
+and Study ID `DTS-RTSTRUCT`. Locked `dciodvfy -new` identified `RTPlan` with
+exit code zero. The uv-locked `dicom-validator` 0.8.2 adapter selected the
+2026b RT Plan IOD and returned `Passed` with zero errors. DCMTK
+`dcmdump +fo` parsed the exact Part 10 file. RT Image qualification has not yet
+been performed and is not implied by these results.
+
+All 20 Plan controls remained parseable by `dcmdump`; parsing is not semantic
+detection. The empirical detection boundary is:
+
+| RT Plan mutation | `dciodvfy` | `dicom-validator` | `dcentvfy` additive reference finding | Required owner when missed |
+|---|---|---|---|---|
+| Missing Plan Label | detected | detected | no | IOD validators |
+| `PATIENT` without Structure Set | detected | detected | no | IOD validators |
+| Wrong Structure reference SOP Class | missed | missed | no | strict Rust |
+| Dangling Structure reference SOP Instance | missed | missed | detected | entity closure |
+| Duplicated Structure/Dose references | missed | missed | no | strict Rust |
+| Reordered Structure/Dose identities | missed | missed | no | strict Rust |
+| Fraction/beam cardinality mismatch | missed | missed | no | strict Rust |
+| Dangling Beam Number | missed | missed | no | strict Rust |
+| Duplicate Beam Number | missed | missed | no | strict Rust |
+| Missing all four zero accessory counts | detected | detected | no | IOD validators |
+| Reversed X/Y device order | missed | missed | no | strict Rust |
+| Changed jaw positions | missed | missed | no | strict Rust |
+| Wrong control-point count | detected | missed | no | `dciodvfy` and strict Rust |
+| Wrong control-point index | missed | missed | no | strict Rust |
+| Reversed control-point order | missed | missed | no | strict Rust |
+| Wrong isocenter | missed | missed | no | strict Rust |
+| Wrong first meterset | missed | missed | no | strict Rust |
+| Wrong final meterset | missed | missed | no | strict Rust |
+| Wrong Study Instance UID | missed | missed | no | strict Rust |
+| Wrong Frame of Reference UID | missed | missed | no | strict Rust |
+
+The exact four-file CT/Structure Set/Dose/Plan `dcentvfy -f` baseline is not
+silent or clean: it reports Dose Study ID `DTS-RTDOSE` versus Plan/Structure
+Set `DTS-RTSTRUCT`, and enhanced CT Study ID `DTS-ECT` versus Plan/Structure
+Set `DTS-RTSTRUCT`. These two immutable upstream diagnostics remain visible
+and unallowlisted. For the RT Plan reference-closure control, acceptance means
+that an exact isolated run produces no *additive* missing or dangling reference
+finding beyond those two Study ID diagnostics. The dangling Structure Set SOP
+mutation added `Missing SOPInstanceUID that was referenced`; the valid Plan
+did not. A zero `dcentvfy` exit code is not claimed, and a run that omits files
+or supplies a directory where `-f` expects a file list is invalid evidence.
 
 Qualification begins with exact valid prototypes, executes every mutation
 listed above in temporary storage, and records which tool detects each one.
 IOD-validator misses remain explicit gaps owned by strict Rust validation,
 `dcentvfy`, or the independent decoder; they are not accepted findings.
-Promotion requires both objects to pass strict validation, clean required
-independent routes, isolated entity closure, integrated conformance
-verification, two-run byte and manifest reproducibility, report tests, and
-documentation. Unavailable tooling remains explicit and cannot silently
-reduce either case contract.
+Promotion requires both objects to pass strict validation, the required
+independent routes under their recorded acceptance rules, isolated entity
+closure with no additive missing/dangling reference finding, integrated
+conformance verification, two-run byte and manifest reproducibility, report
+tests, and documentation. The immutable Study ID diagnostics do not authorize
+an allowlist and cannot be hidden. Unavailable tooling remains explicit and
+cannot silently reduce either case contract.
 
 ## Decision Checkpoint Audit
 

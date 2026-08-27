@@ -1662,6 +1662,7 @@ fn validate_manifest_file(
     failures: &mut Vec<String>,
 ) -> Result<(), ValidateError> {
     let relative_path = manifest_str(manifest_path, file, "/path", "file path must be a string")?;
+    validate_vl_single_frame_manifest_contract(manifest_path, file)?;
     let path = root_dir.join(relative_path);
     let bytes = match fs::read(&path) {
         Ok(bytes) => bytes,
@@ -1828,6 +1829,109 @@ fn validate_manifest_file(
             Ok(())
         }
     }
+}
+
+fn validate_vl_single_frame_manifest_contract(
+    manifest_path: &Path,
+    file: &Value,
+) -> Result<(), ValidateError> {
+    let case_id = file.get("case_id").and_then(Value::as_str);
+    let locked = match case_id {
+        Some("vl/endoscopic/rgb_explicit_le") => Some((
+            "vl_endoscopic_single_frame",
+            "1.2.840.10008.5.1.4.1.1.77.1.1",
+            "VL Endoscopic Image Storage",
+            "VL Endoscopic Image",
+            "ES",
+            "LUNG",
+        )),
+        Some("vl/microscopic/rgb_explicit_le") => Some((
+            "vl_microscopic_single_frame",
+            "1.2.840.10008.5.1.4.1.1.77.1.2",
+            "VL Microscopic Image Storage",
+            "VL Microscopic Image",
+            "GM",
+            "EYE",
+        )),
+        _ => None,
+    };
+    let Some((iod_kind, sop_uid, sop_name, iod_name, modality, body_part)) = locked else {
+        return if file.get("expected_vl_single_frame").is_some() {
+            Err(ValidateError::ManifestShape {
+                path: manifest_path.to_path_buf(),
+                message: "expected_vl_single_frame is only valid for the two locked Phase 4 single-frame VL cases",
+            })
+        } else {
+            Ok(())
+        };
+    };
+    let expected = file
+        .get("expected_vl_single_frame")
+        .ok_or(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "Phase 4 single-frame VL case must define expected_vl_single_frame",
+        })?;
+    let locked_expected = serde_json::json!({
+        "iod_kind": iod_kind,
+        "sop_class_uid": sop_uid,
+        "sop_class_name": sop_name,
+        "iod_name": iod_name,
+        "modality": modality,
+        "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+        "body_part_examined": body_part,
+        "laterality": "R",
+        "image_type": ["ORIGINAL", "PRIMARY"],
+        "acquisition_context_items": 0,
+        "image": {
+            "rows": 2, "columns": 2, "samples_per_pixel": 3,
+            "photometric_interpretation": "RGB", "planar_configuration": 0,
+            "bits_allocated": 8, "bits_stored": 8, "high_bit": 7, "pixel_representation": 0
+        },
+        "absent_content": ["number_of_frames", "frame_of_reference_uid", "specimen_module", "optical_path_module", "icc_profile_module"]
+    });
+    if expected != &locked_expected {
+        return Err(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "expected_vl_single_frame must equal the exact locked case contract",
+        });
+    }
+    for (pointer, locked_value) in [
+        ("/dicom/sop_class_uid", Value::from(sop_uid)),
+        ("/dicom/sop_class_name", Value::from(sop_name)),
+        ("/dicom/iod_name", Value::from(iod_name)),
+        ("/dicom/modality", Value::from(modality)),
+        (
+            "/dicom/transfer_syntax_uid",
+            Value::from("1.2.840.10008.1.2.1"),
+        ),
+        ("/image/rows", Value::from(2)),
+        ("/image/columns", Value::from(2)),
+        ("/image/frames", Value::from(1)),
+        ("/image/samples_per_pixel", Value::from(3)),
+        ("/image/photometric_interpretation", Value::from("RGB")),
+        ("/image/planar_configuration", Value::from(0)),
+        ("/image/bits_allocated", Value::from(8)),
+        ("/image/bits_stored", Value::from(8)),
+        ("/image/high_bit", Value::from(7)),
+        ("/image/pixel_representation", Value::from(0)),
+        ("/pixel_data/vr", Value::from("OB")),
+        ("/pixel_data/native_or_encapsulated", Value::from("native")),
+        ("/pixel_data/frame_count", Value::from(1)),
+    ] {
+        if file.pointer(pointer) != Some(&locked_value) {
+            return Err(ValidateError::ManifestShape {
+                path: manifest_path.to_path_buf(),
+                message: "single-frame VL manifest identity and pixel metadata must match expected_vl_single_frame",
+            });
+        }
+    }
+    if file.pointer("/uids/frame_of_reference_uid") != Some(&Value::Null) {
+        return Err(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "single-frame VL manifest must declare frame_of_reference_uid null",
+        });
+    }
+    Ok(())
 }
 
 fn validate_nonsquare_spacing_non_native_scope(
@@ -29330,6 +29434,85 @@ mod tests {
     use dicom_dictionary_std::uids;
     use dicom_object::{InMemDicomObject, meta::FileMetaTableBuilder};
     use dicom_transfer_syntax_registry::{TransferSyntaxIndex, TransferSyntaxRegistry};
+
+    fn vl_manifest(case_id: &str) -> Value {
+        let (kind, sop_uid, sop_name, iod_name, modality, body_part) =
+            if case_id == "vl/endoscopic/rgb_explicit_le" {
+                (
+                    "vl_endoscopic_single_frame",
+                    "1.2.840.10008.5.1.4.1.1.77.1.1",
+                    "VL Endoscopic Image Storage",
+                    "VL Endoscopic Image",
+                    "ES",
+                    "LUNG",
+                )
+            } else {
+                (
+                    "vl_microscopic_single_frame",
+                    "1.2.840.10008.5.1.4.1.1.77.1.2",
+                    "VL Microscopic Image Storage",
+                    "VL Microscopic Image",
+                    "GM",
+                    "EYE",
+                )
+            };
+        serde_json::json!({
+            "case_id": case_id,
+            "dicom": { "sop_class_uid": sop_uid, "sop_class_name": sop_name, "iod_name": iod_name, "modality": modality, "transfer_syntax_uid": "1.2.840.10008.1.2.1" },
+            "uids": { "frame_of_reference_uid": null },
+            "image": { "rows": 2, "columns": 2, "frames": 1, "samples_per_pixel": 3, "photometric_interpretation": "RGB", "planar_configuration": 0, "bits_allocated": 8, "bits_stored": 8, "high_bit": 7, "pixel_representation": 0 },
+            "pixel_data": { "vr": "OB", "native_or_encapsulated": "native", "frame_count": 1 },
+            "expected_vl_single_frame": {
+                "iod_kind": kind, "sop_class_uid": sop_uid, "sop_class_name": sop_name, "iod_name": iod_name,
+                "modality": modality, "transfer_syntax_uid": "1.2.840.10008.1.2.1", "body_part_examined": body_part,
+                "laterality": "R", "image_type": ["ORIGINAL", "PRIMARY"], "acquisition_context_items": 0,
+                "image": { "rows": 2, "columns": 2, "samples_per_pixel": 3, "photometric_interpretation": "RGB", "planar_configuration": 0, "bits_allocated": 8, "bits_stored": 8, "high_bit": 7, "pixel_representation": 0 },
+                "absent_content": ["number_of_frames", "frame_of_reference_uid", "specimen_module", "optical_path_module", "icc_profile_module"]
+            }
+        })
+    }
+
+    #[test]
+    fn vl_single_frame_manifest_contract_is_exact_and_case_scoped() {
+        for case_id in [
+            "vl/endoscopic/rgb_explicit_le",
+            "vl/microscopic/rgb_explicit_le",
+        ] {
+            validate_vl_single_frame_manifest_contract(
+                Path::new("manifest.json"),
+                &vl_manifest(case_id),
+            )
+            .expect("locked VL contract");
+        }
+        let mut wrong_anatomy = vl_manifest("vl/endoscopic/rgb_explicit_le");
+        wrong_anatomy["expected_vl_single_frame"]["body_part_examined"] = Value::from("EYE");
+        assert!(
+            validate_vl_single_frame_manifest_contract(Path::new("manifest.json"), &wrong_anatomy)
+                .is_err()
+        );
+        let mut crossed_pixels = vl_manifest("vl/microscopic/rgb_explicit_le");
+        crossed_pixels["image"]["planar_configuration"] = Value::from(1);
+        assert!(
+            validate_vl_single_frame_manifest_contract(Path::new("manifest.json"), &crossed_pixels)
+                .is_err()
+        );
+        let mut missing = vl_manifest("vl/endoscopic/rgb_explicit_le");
+        missing
+            .as_object_mut()
+            .expect("file object")
+            .remove("expected_vl_single_frame");
+        assert!(
+            validate_vl_single_frame_manifest_contract(Path::new("manifest.json"), &missing)
+                .is_err()
+        );
+        let mut misplaced = serde_json::json!({"case_id": "classic/sc/rgb_planar0_explicit_le"});
+        misplaced["expected_vl_single_frame"] =
+            vl_manifest("vl/endoscopic/rgb_explicit_le")["expected_vl_single_frame"].clone();
+        assert!(
+            validate_vl_single_frame_manifest_contract(Path::new("manifest.json"), &misplaced)
+                .is_err()
+        );
+    }
 
     #[test]
     fn nuclear_medicine_report_fields_are_exact_grouped_and_rendered() {

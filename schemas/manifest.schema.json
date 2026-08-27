@@ -367,6 +367,9 @@
         "expected_rt_radiation_set": {
           "$ref": "#/$defs/expected_rt_radiation_set"
         },
+        "expected_vl_single_frame": {
+          "$ref": "#/$defs/expected_vl_single_frame"
+        },
         "expected_geometry": {
           "anyOf": [
             { "$ref": "#/$defs/expected_geometry" },
@@ -790,6 +793,53 @@
               "not": { "required": ["expected_waveform"] }
             }
           }
+        },
+        {
+          "if": {
+            "properties": {
+              "case_id": { "enum": ["vl/endoscopic/rgb_explicit_le", "vl/microscopic/rgb_explicit_le"] }
+            },
+            "required": ["case_id"]
+          },
+          "then": {
+            "required": ["image", "pixel_data", "expected_vl_single_frame"],
+            "properties": {
+              "dicom": { "properties": { "transfer_syntax_uid": { "const": "1.2.840.10008.1.2.1" } } },
+              "image": { "properties": {
+                "rows": { "const": 2 }, "columns": { "const": 2 }, "frames": { "const": 1 },
+                "samples_per_pixel": { "const": 3 }, "photometric_interpretation": { "const": "RGB" },
+                "planar_configuration": { "const": 0 }, "bits_allocated": { "const": 8 },
+                "bits_stored": { "const": 8 }, "high_bit": { "const": 7 }, "pixel_representation": { "const": 0 }
+              } },
+              "pixel_data": { "properties": {
+                "vr": { "const": "OB" }, "native_or_encapsulated": { "const": "native" }, "frame_count": { "const": 1 }
+              } },
+              "references": { "maxItems": 0 }
+            }
+          },
+          "else": { "not": { "required": ["expected_vl_single_frame"] } }
+        },
+        {
+          "if": { "properties": { "case_id": { "const": "vl/endoscopic/rgb_explicit_le" } }, "required": ["case_id"] },
+          "then": { "properties": {
+            "dicom": { "properties": {
+              "sop_class_uid": { "const": "1.2.840.10008.5.1.4.1.1.77.1.1" },
+              "sop_class_name": { "const": "VL Endoscopic Image Storage" },
+              "iod_name": { "const": "VL Endoscopic Image" }, "modality": { "const": "ES" }
+            } },
+            "expected_vl_single_frame": { "$ref": "#/$defs/expected_vl_endoscopic_single_frame" }
+          } }
+        },
+        {
+          "if": { "properties": { "case_id": { "const": "vl/microscopic/rgb_explicit_le" } }, "required": ["case_id"] },
+          "then": { "properties": {
+            "dicom": { "properties": {
+              "sop_class_uid": { "const": "1.2.840.10008.5.1.4.1.1.77.1.2" },
+              "sop_class_name": { "const": "VL Microscopic Image Storage" },
+              "iod_name": { "const": "VL Microscopic Image" }, "modality": { "const": "GM" }
+            } },
+            "expected_vl_single_frame": { "$ref": "#/$defs/expected_vl_microscopic_single_frame" }
+          } }
         },
         {
           "if": {
@@ -2868,6 +2918,64 @@
         "isocenter_position_mm": { "const": [0, 0, 0] }
       },
       "additionalProperties": false
+    },
+    "expected_vl_single_frame": {
+      "type": "object",
+      "required": ["iod_kind", "sop_class_uid", "sop_class_name", "iod_name", "modality", "transfer_syntax_uid", "body_part_examined", "laterality", "image_type", "acquisition_context_items", "image", "absent_content"],
+      "properties": {
+        "iod_kind": { "enum": ["vl_endoscopic_single_frame", "vl_microscopic_single_frame"] },
+        "sop_class_uid": { "enum": ["1.2.840.10008.5.1.4.1.1.77.1.1", "1.2.840.10008.5.1.4.1.1.77.1.2"] },
+        "sop_class_name": { "enum": ["VL Endoscopic Image Storage", "VL Microscopic Image Storage"] },
+        "iod_name": { "enum": ["VL Endoscopic Image", "VL Microscopic Image"] },
+        "modality": { "enum": ["ES", "GM"] },
+        "transfer_syntax_uid": { "const": "1.2.840.10008.1.2.1" },
+        "body_part_examined": { "enum": ["LUNG", "EYE"] },
+        "laterality": { "const": "R" },
+        "image_type": { "const": ["ORIGINAL", "PRIMARY"] },
+        "acquisition_context_items": { "const": 0 },
+        "image": {
+          "type": "object",
+          "required": ["rows", "columns", "samples_per_pixel", "photometric_interpretation", "planar_configuration", "bits_allocated", "bits_stored", "high_bit", "pixel_representation"],
+          "properties": {
+            "rows": { "const": 2 }, "columns": { "const": 2 }, "samples_per_pixel": { "const": 3 },
+            "photometric_interpretation": { "const": "RGB" }, "planar_configuration": { "const": 0 },
+            "bits_allocated": { "const": 8 }, "bits_stored": { "const": 8 }, "high_bit": { "const": 7 },
+            "pixel_representation": { "const": 0 }
+          },
+          "additionalProperties": false
+        },
+        "absent_content": {
+          "type": "array",
+          "prefixItems": [
+            { "const": "number_of_frames" }, { "const": "frame_of_reference_uid" },
+            { "const": "specimen_module" }, { "const": "optical_path_module" }, { "const": "icc_profile_module" }
+          ],
+          "items": false,
+          "minItems": 5,
+          "maxItems": 5
+        }
+      },
+      "additionalProperties": false
+    },
+    "expected_vl_endoscopic_single_frame": {
+      "$ref": "#/$defs/expected_vl_single_frame",
+      "properties": {
+        "iod_kind": { "const": "vl_endoscopic_single_frame" },
+        "sop_class_uid": { "const": "1.2.840.10008.5.1.4.1.1.77.1.1" },
+        "sop_class_name": { "const": "VL Endoscopic Image Storage" },
+        "iod_name": { "const": "VL Endoscopic Image" }, "modality": { "const": "ES" },
+        "body_part_examined": { "const": "LUNG" }
+      }
+    },
+    "expected_vl_microscopic_single_frame": {
+      "$ref": "#/$defs/expected_vl_single_frame",
+      "properties": {
+        "iod_kind": { "const": "vl_microscopic_single_frame" },
+        "sop_class_uid": { "const": "1.2.840.10008.5.1.4.1.1.77.1.2" },
+        "sop_class_name": { "const": "VL Microscopic Image Storage" },
+        "iod_name": { "const": "VL Microscopic Image" }, "modality": { "const": "GM" },
+        "body_part_examined": { "const": "EYE" }
+      }
     },
     "expected_rt_plan": {
       "type": "object",

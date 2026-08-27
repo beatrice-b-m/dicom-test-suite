@@ -3888,6 +3888,122 @@ fn manifest_schema_types_twelve_lead_ecg_waveform_expectations() {
 }
 
 #[test]
+fn manifest_schema_locks_phase4_single_frame_vl_expectations() {
+    let schema = read_json("schemas/manifest.schema.json");
+    let expectation_schema = serde_json::json!({
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$ref": "#/$defs/expected_vl_endoscopic_single_frame",
+        "$defs": schema["$defs"].clone(),
+    });
+    let validator = jsonschema::validator_for(&expectation_schema)
+        .expect("single-frame VL expectation schema should compile");
+    let expectation = serde_json::json!({
+        "iod_kind": "vl_endoscopic_single_frame",
+        "sop_class_uid": "1.2.840.10008.5.1.4.1.1.77.1.1",
+        "sop_class_name": "VL Endoscopic Image Storage",
+        "iod_name": "VL Endoscopic Image",
+        "modality": "ES",
+        "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+        "body_part_examined": "LUNG",
+        "laterality": "R",
+        "image_type": ["ORIGINAL", "PRIMARY"],
+        "acquisition_context_items": 0,
+        "image": { "rows": 2, "columns": 2, "samples_per_pixel": 3, "photometric_interpretation": "RGB", "planar_configuration": 0, "bits_allocated": 8, "bits_stored": 8, "high_bit": 7, "pixel_representation": 0 },
+        "absent_content": ["number_of_frames", "frame_of_reference_uid", "specimen_module", "optical_path_module", "icc_profile_module"]
+    });
+    assert!(validator.is_valid(&expectation));
+    let mut microscopic = expectation.clone();
+    for (field, value) in [
+        ("iod_kind", serde_json::json!("vl_microscopic_single_frame")),
+        (
+            "sop_class_uid",
+            serde_json::json!("1.2.840.10008.5.1.4.1.1.77.1.2"),
+        ),
+        (
+            "sop_class_name",
+            serde_json::json!("VL Microscopic Image Storage"),
+        ),
+        ("iod_name", serde_json::json!("VL Microscopic Image")),
+        ("modality", serde_json::json!("GM")),
+        ("body_part_examined", serde_json::json!("EYE")),
+    ] {
+        microscopic[field] = value;
+    }
+    let microscopic_schema = serde_json::json!({
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$ref": "#/$defs/expected_vl_microscopic_single_frame",
+        "$defs": schema["$defs"].clone(),
+    });
+    assert!(
+        jsonschema::validator_for(&microscopic_schema)
+            .expect("microscopic VL schema")
+            .is_valid(&microscopic)
+    );
+    for (pointer, bad) in [
+        (
+            "/sop_class_name",
+            serde_json::json!("VL Microscopic Image Storage"),
+        ),
+        ("/laterality", serde_json::json!("")),
+        ("/image_type", serde_json::json!(["DERIVED", "PRIMARY"])),
+        ("/acquisition_context_items", serde_json::json!(1)),
+        ("/image/rows", serde_json::json!(3)),
+        ("/image/planar_configuration", serde_json::json!(1)),
+        ("/image/bits_stored", serde_json::json!(7)),
+        (
+            "/absent_content/3",
+            serde_json::json!("specimen_description"),
+        ),
+    ] {
+        let mut malformed = expectation.clone();
+        *malformed.pointer_mut(pointer).expect("mutation pointer") = bad;
+        assert!(
+            !validator.is_valid(&malformed),
+            "schema must reject {pointer}"
+        );
+    }
+    let mut missing = expectation;
+    missing
+        .as_object_mut()
+        .expect("expectation object")
+        .remove("sop_class_name");
+    assert!(!validator.is_valid(&missing));
+
+    let rules = schema
+        .pointer("/$defs/file/allOf")
+        .and_then(Value::as_array)
+        .expect("file rules");
+    let common = rules
+        .iter()
+        .find(|rule| {
+            rule.pointer("/if/properties/case_id/enum")
+                .and_then(Value::as_array)
+                .is_some_and(|ids| ids.iter().any(|id| id == "vl/endoscopic/rgb_explicit_le"))
+        })
+        .expect("VL common exact-case rule");
+    assert_eq!(
+        common.pointer("/then/required"),
+        Some(&serde_json::json!([
+            "image",
+            "pixel_data",
+            "expected_vl_single_frame"
+        ]))
+    );
+    assert_eq!(
+        common.pointer("/else/not/required"),
+        Some(&serde_json::json!(["expected_vl_single_frame"]))
+    );
+    assert_eq!(
+        common.pointer("/then/properties/pixel_data/properties/vr/const"),
+        Some(&serde_json::json!("OB"))
+    );
+    assert_eq!(
+        common.pointer("/then/properties/image/properties/frames/const"),
+        Some(&serde_json::json!(1))
+    );
+}
+
+#[test]
 fn manifest_schema_requires_exclusive_twelve_lead_ecg_waveform_contract() {
     let schema = read_json("schemas/manifest.schema.json");
     let rule = schema

@@ -27260,18 +27260,20 @@ mod tests {
         };
         let lock = sha256_hex(&fs::read("standards.lock.json").expect("standards lock"));
 
-        for (case_id, expected_uid, expected_modality, expected_body_part) in [
+        for (case_id, expected_uid, expected_modality, expected_body_part, expected_sha256) in [
             (
                 "vl/endoscopic/rgb_explicit_le",
                 uids::VL_ENDOSCOPIC_IMAGE_STORAGE,
                 "ES",
                 "LUNG",
+                "dc3b2e155c9be0b728412df6fed7432a238a150512b176305fc6104c63bd6a3e",
             ),
             (
                 "vl/microscopic/rgb_explicit_le",
                 uids::VL_MICROSCOPIC_IMAGE_STORAGE,
                 "GM",
                 "EYE",
+                "5785f387d79f79e4b168390bb1def6520d165ac7279374b141beb2c2804f41e3",
             ),
         ] {
             let recipe = PIXEL_RECIPES
@@ -27295,6 +27297,7 @@ mod tests {
                 first.manifest_entry["sha256"],
                 second.manifest_entry["sha256"]
             );
+            assert_eq!(first.manifest_entry["sha256"], expected_sha256);
 
             let reopened = open_file(&path).expect("single-frame VL object should reopen");
             assert_eq!(

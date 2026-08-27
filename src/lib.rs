@@ -1129,6 +1129,7 @@ fn validate_integer_manifest_image_pixel_data(
                 frames,
                 samples_per_pixel,
                 bits_allocated,
+                frame_hashes,
             )?;
         }
         "encapsulated" => {
@@ -1443,6 +1444,7 @@ fn validate_native_pixel_data_manifest(
     frames: u16,
     samples_per_pixel: u16,
     bits_allocated: u16,
+    frame_hashes: &[Value],
 ) -> Result<(), ValidateError> {
     if let Some(encapsulated) = file
         .pointer("/pixel_data/encapsulated_pixel_data")
@@ -1506,6 +1508,26 @@ fn validate_native_pixel_data_manifest(
         pixel_bytes.len(),
         expected_native_length,
     );
+
+    if bits_allocated != 1 && expected_native_length == pixel_bytes.len() && frames > 0 {
+        let frame_length = expected_native_length / usize::from(frames);
+        for (frame_index, frame) in pixel_bytes.chunks_exact(frame_length).enumerate() {
+            let expected_hash = frame_hashes
+                .get(frame_index)
+                .and_then(Value::as_str)
+                .ok_or(ValidateError::ManifestShape {
+                    path: manifest_path.to_path_buf(),
+                    message: "pixel_data frame_hashes items must be strings",
+                })?;
+            validate_equal(
+                failures,
+                relative_path,
+                "native_pixel_data_frame_hash",
+                sha256_hex(frame),
+                expected_hash,
+            );
+        }
+    }
 
     Ok(())
 }

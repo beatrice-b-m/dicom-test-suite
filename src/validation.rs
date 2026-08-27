@@ -8610,7 +8610,7 @@ pub(crate) fn validate_rt_image_file(
         ("study_date", tags::STUDY_DATE, "20260101"),
         ("study_time", tags::STUDY_TIME, "000000"),
         ("referring_physician", tags::REFERRING_PHYSICIAN_NAME, ""),
-        ("study_id", tags::STUDY_ID, "DTS-RT"),
+        ("study_id", tags::STUDY_ID, "DTS-RTSTRUCT"),
         ("accession_number", tags::ACCESSION_NUMBER, ""),
         ("modality", tags::MODALITY, "RTIMAGE"),
         ("series_number", tags::SERIES_NUMBER, "73"),

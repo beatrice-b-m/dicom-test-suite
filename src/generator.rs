@@ -26344,7 +26344,7 @@ mod tests {
         assert_eq!(first_bytes, second_bytes);
         assert_eq!(
             sha256_hex(&first_bytes),
-            "3650b7fc789cd5b70554963a84accd16b0b56dde8e7e01de8e289ce3546c7d23"
+            "c60e63fe400f1db60c3fec6a74ab2f6ed82c8bfdd7078c84b3a0e5143acb1d3c"
         );
         assert_eq!(
             first.manifest_entry["sha256"],

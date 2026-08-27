@@ -42,6 +42,22 @@ fn report_command_writes_json_coverage_for_core_root() {
         report_errors.is_empty(),
         "metadata coverage report must match its schema: {report_errors:?}"
     );
+    let mut partial_xa_report = report.clone();
+    coverage_row_mut(&mut partial_xa_report, "classic/xa/monoplane_explicit_le")["xa_frame_count"] =
+        Value::Null;
+    assert!(
+        !report_validator.is_valid(&partial_xa_report),
+        "coverage schema must reject a partial non-null XA contract"
+    );
+    let mut hidden_xa_report = report.clone();
+    coverage_row_mut(
+        &mut hidden_xa_report,
+        "classic/ct/mono2_i16_rescale_12bit_explicit_le",
+    )["xa_frame_count"] = Value::from(1);
+    assert!(
+        !report_validator.is_valid(&hidden_xa_report),
+        "coverage schema must reject XA fields hidden behind a null XA image type"
+    );
     assert_eq!(
         report
             .get("coverage_report_schema_version")
@@ -50,11 +66,11 @@ fn report_command_writes_json_coverage_for_core_root() {
     );
     assert_eq!(
         report.pointer("/counts/generated").and_then(Value::as_u64),
-        Some(45)
+        Some(46)
     );
     assert_eq!(
         report.pointer("/counts/planned").and_then(Value::as_u64),
-        Some(3)
+        Some(2)
     );
     assert_eq!(
         report
@@ -882,19 +898,19 @@ fn report_command_writes_json_coverage_for_core_root() {
         report
             .pointer("/grouped_coverage/study_instance_uid_roots/2.25")
             .and_then(Value::as_u64),
-        Some(45)
+        Some(46)
     );
     assert_eq!(
         report
             .pointer("/grouped_coverage/series_instance_uid_roots/2.25")
             .and_then(Value::as_u64),
-        Some(45)
+        Some(46)
     );
     assert_eq!(
         report
             .pointer("/grouped_coverage/sop_instance_uid_roots/2.25")
             .and_then(Value::as_u64),
-        Some(45)
+        Some(46)
     );
     assert_eq!(
         report
@@ -2381,8 +2397,8 @@ fn report_command_writes_markdown_coverage_for_core_root() {
     );
     let stdout = String::from_utf8(output.stdout).expect("report stdout should be UTF-8");
     assert!(stdout.starts_with("# DICOM Test Suite Coverage Report"));
-    assert!(stdout.contains("| generated | 45 |"));
-    assert!(stdout.contains("| planned | 3 |"));
+    assert!(stdout.contains("| generated | 46 |"));
+    assert!(stdout.contains("| planned | 2 |"));
     assert!(stdout.contains("### Profile Memberships"));
     assert!(stdout.contains("| core | 48 |"));
     assert!(stdout.contains("### Transfer Syntax Names"));
@@ -2475,7 +2491,7 @@ fn report_command_writes_markdown_coverage_for_core_root() {
     assert!(stdout.contains("### Study Instance UID Roots"));
     assert!(stdout.contains("### Series Instance UID Roots"));
     assert!(stdout.contains("### SOP Instance UID Roots"));
-    assert!(stdout.contains("| 2.25 | 45 |"));
+    assert!(stdout.contains("| 2.25 | 46 |"));
     assert!(stdout.contains("## Ultrasound Multi-frame Expectations"));
     assert!(stdout.contains("classic/us/multiframe_explicit_le"));
     assert!(stdout.contains("0.0; 100.0; 200.0; 300.0"));
@@ -5181,6 +5197,16 @@ fn coverage_row<'a>(report: &'a Value, case_id: &str) -> &'a Value {
         .and_then(Value::as_array)
         .expect("coverage matrix should be an array")
         .iter()
+        .find(|row| row.get("case_id").and_then(Value::as_str) == Some(case_id))
+        .unwrap_or_else(|| panic!("coverage matrix should contain {case_id}"))
+}
+
+fn coverage_row_mut<'a>(report: &'a mut Value, case_id: &str) -> &'a mut Value {
+    report
+        .get_mut("coverage_matrix")
+        .and_then(Value::as_array_mut)
+        .expect("coverage matrix should be an array")
+        .iter_mut()
         .find(|row| row.get("case_id").and_then(Value::as_str) == Some(case_id))
         .unwrap_or_else(|| panic!("coverage matrix should contain {case_id}"))
 }

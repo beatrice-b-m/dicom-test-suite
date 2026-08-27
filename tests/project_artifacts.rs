@@ -1017,6 +1017,76 @@ fn blending_source_note_locks_audited_contract_before_provider_selection() {
 }
 
 #[test]
+fn twelve_lead_ecg_source_note_locks_audited_contract_before_provider_selection() {
+    let source = fs::read_to_string("standards/source-notes/phase-3-twelve-lead-ecg-waveform.md")
+        .expect("Twelve-lead ECG Waveform source note must be readable");
+    for required in [
+        "non-image/waveform/twelve_lead_ecg",
+        "Recommended provider: `rust_native`",
+        "1.2.840.10008.5.1.4.1.1.9.1.1",
+        "PS3.3 A.34.3 and Table A.34.3-1",
+        "Acquisition Context Sequence `(0040,0555)` is the required\nType 2 empty Sequence",
+        "Waveform Sequence `(5400,0100)` is SQ VM 1 with exactly one multiplex",
+        "Number of\nWaveform Channels `(003A,0005)` `12`",
+        "Number of Waveform Samples\n`(003A,0010)` `500`",
+        "Sampling Frequency `(003A,001A)` `500`",
+        "Waveform Sample Interpretation `(5400,1006)` is `SS`",
+        "Waveform Data `(5400,1010)` is OW with exactly 12,000 little-endian bytes",
+        "| 1 | I | `2:1` | Lead I |",
+        "| 6 | aVF | `2:64` | aVF, augmented voltage, foot |",
+        "| 12 | V6 | `2:8` | Lead V6 |",
+        "Coding Scheme Designator `MDC`",
+        "Channel Time Skew\n`(003A,0214)` is `0`",
+        "f8ee9bcd0797f85bc1a9fc3a47b828328931562fef6d8c645b4c85aae9b3f227",
+        "((s * (c + 1) * 37 + c * 101) mod 2001) - 1000",
+        "98b7a9b1be25d9d64ffa75bc6e16ea80f60deed1891aeed8dfb440c1c19e6713",
+        "expected_waveform",
+        "9ce36490d6da3628223b1d18fe3157d040412e183e28015fde5a62d815b1ab80",
+        "emitted no\nerrors or warnings",
+        "`Passed` with zero errors",
+        "Both accepted Sampling Frequency `199`",
+        "Number of Waveform Samples `501` with the unchanged 12,000-byte",
+        "Strict Rust validation therefore owns all IOD content constraints",
+        "triggers no Section 11 decision checkpoint",
+        "Current registry status: planned and `semantic_stable`",
+        "Current registry provider: external backend `dcmtk`",
+        "`backend_contract_unimplemented` and\n  `independent_payload_validator_unavailable`",
+        "this evidence\n  commit intentionally does not change registry state",
+        "Should become KB patch: yes",
+    ] {
+        assert!(
+            source.contains(required),
+            "Twelve-lead ECG Waveform note requires {required}"
+        );
+    }
+
+    let registry = read_json("cases/registry.json");
+    let case = registry_cases(&registry)
+        .into_iter()
+        .find(|case| {
+            case.get("case_id").and_then(Value::as_str)
+                == Some("non-image/waveform/twelve_lead_ecg")
+        })
+        .expect("Twelve-lead ECG Waveform row must exist");
+    assert_eq!(case["status"], "planned");
+    assert_eq!(case["provider"]["kind"], "external_backend");
+    assert_eq!(case["provider"]["id"], "dcmtk");
+    assert_eq!(case["determinism"], "semantic_stable");
+    assert_eq!(
+        case["blockers"]
+            .as_array()
+            .expect("planned waveform blockers must be an array")
+            .iter()
+            .map(|blocker| blocker["code"].as_str().unwrap())
+            .collect::<Vec<_>>(),
+        vec![
+            "backend_contract_unimplemented",
+            "independent_payload_validator_unavailable"
+        ]
+    );
+}
+
+#[test]
 fn u1_pixel_decoder_is_case_scoped_and_locked() {
     let validators = read_json("conformance/validators.json");
     let adapter = validators["adapters"]

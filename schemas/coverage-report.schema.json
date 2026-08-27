@@ -1206,6 +1206,13 @@
         "wsi_image_orientation_slide",
         "wsi_implicit_position_reconstruction",
         "wsi_sparse_dimension_metadata_absent",
+        "wsi_explicit_frame_positions",
+        "wsi_dimension_index_values",
+        "wsi_occupancy_mask",
+        "wsi_absent_tile_positions",
+        "wsi_pixel_payload_sha256",
+        "wsi_sentinel_matrix_sha256",
+        "wsi_explicit_position_reconstruction",
         "wsi_reference_free",
         "validation_status",
         "determinism",
@@ -2146,10 +2153,14 @@
         "waveform_external_validator_disposition": {
           "enum": ["external conformance evidence not embedded; run conformance separately", null]
         },
-        "wsi_iod_kind": { "enum": ["vl_wsi_tiled_full", null] },
-        "wsi_dimension_organization_type": { "enum": ["TILED_FULL", null] },
+        "wsi_iod_kind": { "enum": ["vl_wsi_tiled_full", "vl_wsi_tiled_sparse", null] },
+        "wsi_dimension_organization_type": { "enum": ["TILED_FULL", "TILED_SPARSE", null] },
         "wsi_tile_geometry": {
-          "enum": ["2x2 tiles; 4x4 total matrix; 2x2 tile grid; 4 frames", null]
+          "enum": [
+            "2x2 tiles; 4x4 total matrix; 2x2 tile grid; 4 frames",
+            "2x2 tiles; 4x4 total matrix; 2 stored frames",
+            null
+          ]
         },
         "wsi_implicit_frame_order": {
           "enum": ["1:(1,1); 2:(3,1); 3:(1,3); 4:(3,3)", null]
@@ -2173,6 +2184,25 @@
         "wsi_image_orientation_slide": { "enum": ["1\\0\\0\\0\\1\\0", null] },
         "wsi_implicit_position_reconstruction": { "type": ["boolean", "null"] },
         "wsi_sparse_dimension_metadata_absent": { "type": ["boolean", "null"] },
+        "wsi_explicit_frame_positions": {
+          "enum": ["1:(1,1); 2:(3,3)", null]
+        },
+        "wsi_dimension_index_values": {
+          "enum": ["1:[1,1]; 2:[2,2]", null]
+        },
+        "wsi_occupancy_mask": {
+          "enum": ["present,absent,absent,present", null]
+        },
+        "wsi_absent_tile_positions": {
+          "enum": ["(3,1); (1,3)", null]
+        },
+        "wsi_pixel_payload_sha256": {
+          "anyOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }]
+        },
+        "wsi_sentinel_matrix_sha256": {
+          "anyOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }]
+        },
+        "wsi_explicit_position_reconstruction": { "type": ["boolean", "null"] },
         "wsi_reference_free": { "type": ["boolean", "null"] },
         "validation_status": {
           "$ref": "#/$defs/validation_status"
@@ -2785,6 +2815,42 @@
         {
           "if": {
             "properties": {
+              "case_id": {
+                "enum": ["vl/wsi/tiled_full_small", "vl/wsi/tiled_sparse_small"]
+              }
+            },
+            "required": ["case_id"]
+          },
+          "then": {},
+          "else": {
+            "properties": {
+              "wsi_iod_kind": { "type": "null" },
+              "wsi_dimension_organization_type": { "type": "null" },
+              "wsi_tile_geometry": { "type": "null" },
+              "wsi_implicit_frame_order": { "type": "null" },
+              "wsi_total_pixel_matrix_sha256": { "type": "null" },
+              "wsi_specimen_identity": { "type": "null" },
+              "wsi_slide_label_identity": { "type": "null" },
+              "wsi_optical_path_identity": { "type": "null" },
+              "wsi_optical_path_icc_sha256": { "type": "null" },
+              "wsi_pixel_spacing_mm": { "type": "null" },
+              "wsi_image_orientation_slide": { "type": "null" },
+              "wsi_implicit_position_reconstruction": { "type": "null" },
+              "wsi_sparse_dimension_metadata_absent": { "type": "null" },
+              "wsi_explicit_frame_positions": { "type": "null" },
+              "wsi_dimension_index_values": { "type": "null" },
+              "wsi_occupancy_mask": { "type": "null" },
+              "wsi_absent_tile_positions": { "type": "null" },
+              "wsi_pixel_payload_sha256": { "type": "null" },
+              "wsi_sentinel_matrix_sha256": { "type": "null" },
+              "wsi_explicit_position_reconstruction": { "type": "null" },
+              "wsi_reference_free": { "type": "null" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
               "case_id": { "const": "vl/wsi/tiled_full_small" }
             },
             "required": ["case_id"]
@@ -2804,25 +2870,47 @@
               "wsi_image_orientation_slide": { "const": "1\\0\\0\\0\\1\\0" },
               "wsi_implicit_position_reconstruction": { "const": true },
               "wsi_sparse_dimension_metadata_absent": { "const": true },
+              "wsi_explicit_frame_positions": { "type": "null" },
+              "wsi_dimension_index_values": { "type": "null" },
+              "wsi_occupancy_mask": { "type": "null" },
+              "wsi_absent_tile_positions": { "type": "null" },
+              "wsi_pixel_payload_sha256": { "type": "null" },
+              "wsi_sentinel_matrix_sha256": { "type": "null" },
+              "wsi_explicit_position_reconstruction": { "type": "null" },
               "wsi_reference_free": { "const": true }
             }
-          },
-          "else": {
+          }
+        },
+        {
+          "if": {
             "properties": {
-              "wsi_iod_kind": { "type": "null" },
-              "wsi_dimension_organization_type": { "type": "null" },
-              "wsi_tile_geometry": { "type": "null" },
+              "case_id": { "const": "vl/wsi/tiled_sparse_small" }
+            },
+            "required": ["case_id"]
+          },
+          "then": {
+            "properties": {
+              "wsi_iod_kind": { "const": "vl_wsi_tiled_sparse" },
+              "wsi_dimension_organization_type": { "const": "TILED_SPARSE" },
+              "wsi_tile_geometry": { "const": "2x2 tiles; 4x4 total matrix; 2 stored frames" },
               "wsi_implicit_frame_order": { "type": "null" },
               "wsi_total_pixel_matrix_sha256": { "type": "null" },
-              "wsi_specimen_identity": { "type": "null" },
-              "wsi_slide_label_identity": { "type": "null" },
-              "wsi_optical_path_identity": { "type": "null" },
-              "wsi_optical_path_icc_sha256": { "type": "null" },
-              "wsi_pixel_spacing_mm": { "type": "null" },
-              "wsi_image_orientation_slide": { "type": "null" },
-              "wsi_implicit_position_reconstruction": { "type": "null" },
-              "wsi_sparse_dimension_metadata_absent": { "type": "null" },
-              "wsi_reference_free": { "type": "null" }
+              "wsi_specimen_identity": { "const": "DTS-SLIDE-001/DTS-SPECIMEN-001" },
+              "wsi_slide_label_identity": { "const": "DTS-SLIDE-001/DTS SYNTHETIC SLIDE 001" },
+              "wsi_optical_path_identity": { "const": "RGB/550nm/111744^DCM^Brightfield illumination" },
+              "wsi_optical_path_icc_sha256": { "const": "8e069a3476b71a0e0ae7272d9278ba70540d1c4a0b19af1c7d52e56f49091fef" },
+              "wsi_pixel_spacing_mm": { "const": "0.5\\0.5" },
+              "wsi_image_orientation_slide": { "const": "1\\0\\0\\0\\1\\0" },
+              "wsi_implicit_position_reconstruction": { "const": false },
+              "wsi_sparse_dimension_metadata_absent": { "const": false },
+              "wsi_explicit_frame_positions": { "const": "1:(1,1); 2:(3,3)" },
+              "wsi_dimension_index_values": { "const": "1:[1,1]; 2:[2,2]" },
+              "wsi_occupancy_mask": { "const": "present,absent,absent,present" },
+              "wsi_absent_tile_positions": { "const": "(3,1); (1,3)" },
+              "wsi_pixel_payload_sha256": { "const": "94a57aca44c4a97d424e8e546b2673fa91f711694de1ccb36f062aabbc9b55ee" },
+              "wsi_sentinel_matrix_sha256": { "const": "d10a587875f14a0b74a9e4935ce83cdb73377bd7357a172db8e9f7347c030eb3" },
+              "wsi_explicit_position_reconstruction": { "const": true },
+              "wsi_reference_free": { "const": true }
             }
           }
         },

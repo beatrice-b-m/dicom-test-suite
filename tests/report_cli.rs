@@ -7447,6 +7447,107 @@ fn report_exposes_locked_tiled_full_wsi_plan_without_claiming_generation() {
 }
 
 #[test]
+fn report_exposes_locked_tiled_sparse_wsi_plan_and_rejects_field_leakage() {
+    let out_dir = unique_temp_dir("report-wsi-tiled-sparse-planned");
+    fs::create_dir_all(&out_dir).expect("create planned sparse WSI report root");
+    fs::write(
+        out_dir.join("manifest.json"),
+        serde_json::to_vec_pretty(&json!({
+            "generated_at": "20260101000000.000000+0000",
+            "standards": { "standards_lock_sha256": "0".repeat(64) },
+            "run": { "profile": "extended" },
+            "files": [],
+            "skipped_cases": [{
+                "case_id": "vl/wsi/tiled_sparse_small",
+                "status": "unavailable",
+                "reason_code": "case_planned",
+                "message": "recipe_unimplemented"
+            }]
+        }))
+        .expect("serialize planned sparse WSI manifest"),
+    )
+    .expect("write planned sparse WSI manifest");
+
+    let report = dicom_test_suite::build_coverage_report(&out_dir)
+        .expect("planned sparse WSI coverage report should build");
+    let schema: Value = serde_json::from_slice(
+        &fs::read("schemas/coverage-report.schema.json").expect("coverage schema"),
+    )
+    .expect("coverage schema JSON");
+    let validator = jsonschema::validator_for(&schema).expect("coverage schema compiles");
+    assert!(
+        validator.is_valid(&report),
+        "planned sparse WSI coverage report must match its schema: {:?}",
+        validator
+            .iter_errors(&report)
+            .map(|error| error.to_string())
+            .collect::<Vec<_>>()
+    );
+
+    let row = coverage_row(&report, "vl/wsi/tiled_sparse_small");
+    assert_eq!(row["status"], "planned");
+    assert_eq!(row["validation_status"], "unavailable");
+    assert_eq!(row["frames"], 2);
+    assert_eq!(row["wsi_iod_kind"], "vl_wsi_tiled_sparse");
+    assert_eq!(row["wsi_dimension_organization_type"], "TILED_SPARSE");
+    assert_eq!(row["wsi_explicit_frame_positions"], "1:(1,1); 2:(3,3)");
+    assert_eq!(row["wsi_dimension_index_values"], "1:[1,1]; 2:[2,2]");
+    assert_eq!(row["wsi_occupancy_mask"], "present,absent,absent,present");
+    assert_eq!(row["wsi_absent_tile_positions"], "(3,1); (1,3)");
+    assert_eq!(
+        row["wsi_pixel_payload_sha256"],
+        "94a57aca44c4a97d424e8e546b2673fa91f711694de1ccb36f062aabbc9b55ee"
+    );
+    assert_eq!(
+        row["wsi_sentinel_matrix_sha256"],
+        "d10a587875f14a0b74a9e4935ce83cdb73377bd7357a172db8e9f7347c030eb3"
+    );
+    assert_eq!(row["wsi_implicit_position_reconstruction"], false);
+    assert_eq!(row["wsi_explicit_position_reconstruction"], true);
+    assert_eq!(row["wsi_sparse_dimension_metadata_absent"], false);
+    assert_eq!(row["wsi_reference_free"], true);
+    assert_eq!(
+        row["wsi_specimen_identity"],
+        "DTS-SLIDE-001/DTS-SPECIMEN-001"
+    );
+    assert_eq!(
+        row["wsi_optical_path_icc_sha256"],
+        "8e069a3476b71a0e0ae7272d9278ba70540d1c4a0b19af1c7d52e56f49091fef"
+    );
+
+    let mut corrupted = report.clone();
+    coverage_row_mut(&mut corrupted, "vl/wsi/tiled_sparse_small")["wsi_sentinel_matrix_sha256"] =
+        Value::from("a".repeat(64));
+    assert!(
+        !validator.is_valid(&corrupted),
+        "schema must reject a corrupted sparse sentinel reconstruction hash"
+    );
+    let mut leaked = report.clone();
+    coverage_row_mut(&mut leaked, "vl/wsi/tiled_sparse_small")["case_id"] =
+        Value::from("vl/wsi/tiled_full_small");
+    assert!(
+        !validator.is_valid(&leaked),
+        "schema must reject sparse WSI report fields on the tiled-full case"
+    );
+
+    let markdown = dicom_test_suite::render_coverage_report_markdown(&report);
+    for expected in [
+        "vl/wsi/tiled_sparse_small",
+        "TILED_SPARSE",
+        "present,absent,absent,present",
+        "94a57aca44c4a97d424e8e546b2673fa91f711694de1ccb36f062aabbc9b55ee",
+        "d10a587875f14a0b74a9e4935ce83cdb73377bd7357a172db8e9f7347c030eb3",
+    ] {
+        assert!(
+            markdown.contains(expected),
+            "Markdown must contain {expected}"
+        );
+    }
+
+    fs::remove_dir_all(out_dir).expect("remove planned sparse WSI report root");
+}
+
+#[test]
 fn report_rejects_partial_and_wrong_case_single_frame_vl_contracts() {
     let out_dir = unique_temp_dir("report-vl-single-frame-malformed");
     fs::create_dir_all(&out_dir).expect("create malformed VL report root");

@@ -3422,6 +3422,13 @@ fn coverage_report_schema_requires_the_specified_matrix_fields() {
         "wsi_image_orientation_slide",
         "wsi_implicit_position_reconstruction",
         "wsi_sparse_dimension_metadata_absent",
+        "wsi_explicit_frame_positions",
+        "wsi_dimension_index_values",
+        "wsi_occupancy_mask",
+        "wsi_absent_tile_positions",
+        "wsi_pixel_payload_sha256",
+        "wsi_sentinel_matrix_sha256",
+        "wsi_explicit_position_reconstruction",
         "wsi_reference_free",
     ] {
         assert!(
@@ -3464,12 +3471,13 @@ fn coverage_report_schema_requires_the_specified_matrix_fields() {
     );
     assert_eq!(
         schema.pointer("/$defs/coverage_row/properties/wsi_dimension_organization_type/enum"),
-        Some(&serde_json::json!(["TILED_FULL", null])),
+        Some(&serde_json::json!(["TILED_FULL", "TILED_SPARSE", null])),
         "WSI dimension organization must use the locked nullable vocabulary"
     );
     for field in [
         "wsi_implicit_position_reconstruction",
         "wsi_sparse_dimension_metadata_absent",
+        "wsi_explicit_position_reconstruction",
         "wsi_reference_free",
     ] {
         assert_eq!(

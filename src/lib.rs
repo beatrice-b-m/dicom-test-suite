@@ -3571,6 +3571,9 @@ fn validate_family_standard_elements(
             file,
             obj,
         )?,
+        "PET Image" => {
+            validate_pet_image_standard_elements(failures, relative_path, manifest_path, file, obj)?
+        }
         "Computed Radiography Image" => {
             validate_computed_radiography_standard_elements(failures, relative_path, obj)
         }
@@ -4232,6 +4235,457 @@ fn validate_nuclear_medicine_standard_elements(
             )?,
         );
     }
+
+    Ok(())
+}
+
+fn validate_pet_image_standard_elements(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    manifest_path: &Path,
+    file: &Value,
+    obj: &OpenedObject,
+) -> Result<(), ValidateError> {
+    let expected = file
+        .pointer("/expected_pet_activity")
+        .ok_or(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "PET Image file must define expected_pet_activity",
+        })?;
+
+    let image_type = manifest_string_array(
+        manifest_path,
+        expected,
+        "/image_type",
+        "PET image_type must be a string array",
+    )?;
+    validate_equal_debug(
+        failures,
+        relative_path,
+        "pet_image_type_manifest_contract",
+        image_type.clone(),
+        vec!["ORIGINAL".to_string(), "PRIMARY".to_string()],
+    );
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::IMAGE_TYPE,
+        "pet_image_type",
+        &image_type.join("\\"),
+    );
+
+    for (pointer, tag, name, locked) in [
+        ("/units", tags::UNITS, "pet_units", "BQML"),
+        (
+            "/counts_source",
+            tags::COUNTS_SOURCE,
+            "pet_counts_source",
+            "EMISSION",
+        ),
+        (
+            "/decay_correction",
+            tags::DECAY_CORRECTION,
+            "pet_decay_correction",
+            "NONE",
+        ),
+    ] {
+        let manifest_value = manifest_str(
+            manifest_path,
+            expected,
+            pointer,
+            "PET coded scalar must be a string",
+        )?;
+        validate_equal(
+            failures,
+            relative_path,
+            &format!("{name}_manifest_contract"),
+            manifest_value,
+            locked,
+        );
+        validate_type1_str_element(failures, relative_path, obj, tag, name, manifest_value);
+    }
+
+    let series_type = manifest_string_array(
+        manifest_path,
+        expected,
+        "/series_type",
+        "PET series_type must be a string array",
+    )?;
+    validate_equal_debug(
+        failures,
+        relative_path,
+        "pet_series_type_manifest_contract",
+        series_type.clone(),
+        vec!["STATIC".to_string(), "IMAGE".to_string()],
+    );
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::SERIES_TYPE,
+        "pet_series_type",
+        &series_type.join("\\"),
+    );
+
+    let corrected_image = manifest_string_array(
+        manifest_path,
+        expected,
+        "/corrected_image",
+        "PET corrected_image must be a string array",
+    )?;
+    validate_equal_debug(
+        failures,
+        relative_path,
+        "pet_corrected_image_manifest_contract",
+        corrected_image.clone(),
+        vec!["DCAL".to_string()],
+    );
+    validate_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::CORRECTED_IMAGE,
+        "pet_corrected_image",
+        &corrected_image.join("\\"),
+    );
+
+    let number_of_slices = manifest_u64(
+        manifest_path,
+        expected,
+        "/number_of_slices",
+        "PET number_of_slices must be an integer",
+    )?;
+    validate_equal(
+        failures,
+        relative_path,
+        "pet_number_of_slices_manifest_contract",
+        number_of_slices,
+        1,
+    );
+    validate_type1_u16_element(
+        failures,
+        relative_path,
+        obj,
+        tags::NUMBER_OF_SLICES,
+        "pet_number_of_slices",
+        number_of_slices as u16,
+    );
+
+    for (pointer, tag, name, locked_number, locked_encoded) in [
+        (
+            "/dose_calibration_factor",
+            tags::DOSE_CALIBRATION_FACTOR,
+            "pet_dose_calibration_factor",
+            1.0,
+            "1",
+        ),
+        (
+            "/rescale_intercept",
+            tags::RESCALE_INTERCEPT,
+            "pet_rescale_intercept",
+            0.0,
+            "0",
+        ),
+        (
+            "/rescale_slope",
+            tags::RESCALE_SLOPE,
+            "pet_rescale_slope",
+            2.5,
+            "2.5",
+        ),
+        (
+            "/frame_reference_time_ms",
+            tags::FRAME_REFERENCE_TIME,
+            "pet_frame_reference_time",
+            30_000.0,
+            "30000",
+        ),
+    ] {
+        let manifest_value = manifest_f64(
+            manifest_path,
+            expected,
+            pointer,
+            "PET quantitative scalar must be numeric",
+        )?;
+        validate_equal(
+            failures,
+            relative_path,
+            &format!("{name}_manifest_contract"),
+            manifest_value,
+            locked_number,
+        );
+        validate_type1_str_element(failures, relative_path, obj, tag, name, locked_encoded);
+    }
+
+    let actual_frame_duration = manifest_u64(
+        manifest_path,
+        expected,
+        "/actual_frame_duration_ms",
+        "PET actual_frame_duration_ms must be an integer",
+    )?;
+    validate_equal(
+        failures,
+        relative_path,
+        "pet_actual_frame_duration_manifest_contract",
+        actual_frame_duration,
+        60_000,
+    );
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::ACTUAL_FRAME_DURATION,
+        "pet_actual_frame_duration",
+        &actual_frame_duration.to_string(),
+    );
+
+    let image_index = manifest_u64(
+        manifest_path,
+        expected,
+        "/image_index",
+        "PET image_index must be an integer",
+    )?;
+    validate_equal(
+        failures,
+        relative_path,
+        "pet_image_index_manifest_contract",
+        image_index,
+        1,
+    );
+    validate_type1_u16_element(
+        failures,
+        relative_path,
+        obj,
+        tags::IMAGE_INDEX,
+        "pet_image_index",
+        image_index as u16,
+    );
+
+    for (name, tag, expected_count) in [
+        (
+            "pet_radiopharmaceutical_information_empty",
+            tags::RADIOPHARMACEUTICAL_INFORMATION_SEQUENCE,
+            manifest_u64(
+                manifest_path,
+                expected,
+                "/radiopharmaceutical_information_item_count",
+                "PET radiopharmaceutical item count must be an integer",
+            )? as usize,
+        ),
+        (
+            "pet_patient_orientation_code_empty",
+            tags::PATIENT_ORIENTATION_CODE_SEQUENCE,
+            0,
+        ),
+        (
+            "pet_patient_gantry_relationship_code_empty",
+            tags::PATIENT_GANTRY_RELATIONSHIP_CODE_SEQUENCE,
+            0,
+        ),
+    ] {
+        validate_equal(
+            failures,
+            relative_path,
+            &format!("{name}_manifest_contract"),
+            expected_count,
+            0,
+        );
+        match sequence_item_count_for_validate(obj, tag) {
+            Ok(actual) => validate_equal(failures, relative_path, name, actual, expected_count),
+            Err(err) => failures.push(format!("{relative_path}: {name}: {err}")),
+        }
+    }
+
+    for (tag, name, locked) in [
+        (tags::PIXEL_SPACING, "pet_pixel_spacing", "4\\4"),
+        (
+            tags::IMAGE_ORIENTATION_PATIENT,
+            "pet_image_orientation_patient",
+            "1\\0\\0\\0\\1\\0",
+        ),
+        (
+            tags::IMAGE_POSITION_PATIENT,
+            "pet_image_position_patient",
+            "0\\0\\0",
+        ),
+        (tags::SLICE_THICKNESS, "pet_slice_thickness", "4"),
+    ] {
+        validate_type1_str_element(failures, relative_path, obj, tag, name, locked);
+    }
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::FRAME_OF_REFERENCE_UID,
+        "pet_frame_of_reference_uid",
+        manifest_str(
+            manifest_path,
+            file,
+            "/uids/frame_of_reference_uid",
+            "PET frame_of_reference_uid must be a string",
+        )?,
+    );
+    validate_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::POSITION_REFERENCE_INDICATOR,
+        "pet_position_reference_indicator",
+        "",
+    );
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::BODY_PART_EXAMINED,
+        "pet_body_part_examined",
+        "HEAD",
+    );
+    validate_element_absent(
+        failures,
+        relative_path,
+        obj,
+        tags::LATERALITY,
+        "pet_laterality_absent_for_unpaired_head",
+    );
+
+    let stored_values = manifest_u16_array(
+        manifest_path,
+        expected,
+        "/stored_values",
+        "PET stored_values must be an unsigned integer array",
+    )?;
+    validate_equal_debug(
+        failures,
+        relative_path,
+        "pet_stored_values_manifest_contract",
+        stored_values.clone(),
+        vec![0, 100, 200, 400],
+    );
+    let activity_values = manifest_f64_array(
+        manifest_path,
+        expected,
+        "/activity_values_bqml",
+        "PET activity_values_bqml must be a numeric array",
+    )?;
+    validate_equal_debug(
+        failures,
+        relative_path,
+        "pet_activity_values_bqml_manifest_contract",
+        activity_values.clone(),
+        vec![0.0, 250.0, 500.0, 1_000.0],
+    );
+
+    validate_equal(
+        failures,
+        relative_path,
+        "pet_native_pixel_encoding",
+        manifest_str(
+            manifest_path,
+            file,
+            "/pixel_data/native_or_encapsulated",
+            "PET pixel_data native_or_encapsulated must be a string",
+        )?,
+        "native",
+    );
+    validate_equal(
+        failures,
+        relative_path,
+        "pet_pixel_data_vr",
+        manifest_str(
+            manifest_path,
+            file,
+            "/pixel_data/vr",
+            "PET pixel_data vr must be a string",
+        )?,
+        "OW",
+    );
+
+    let pixel_bytes = match obj.element(tags::PIXEL_DATA) {
+        Ok(element) => match element.value().to_bytes() {
+            Ok(bytes) => bytes,
+            Err(err) => {
+                failures.push(format!("{relative_path}: pet_pixel_bytes: {err}"));
+                return Ok(());
+            }
+        },
+        Err(err) => {
+            failures.push(format!("{relative_path}: pet_pixel_bytes: {err}"));
+            return Ok(());
+        }
+    };
+    validate_equal(
+        failures,
+        relative_path,
+        "pet_native_pixel_byte_length",
+        pixel_bytes.len(),
+        stored_values.len() * 2,
+    );
+    let decoded_stored = pixel_bytes
+        .chunks_exact(2)
+        .map(|bytes| u16::from_le_bytes([bytes[0], bytes[1]]))
+        .collect::<Vec<_>>();
+    validate_equal_debug(
+        failures,
+        relative_path,
+        "pet_stored_values",
+        decoded_stored.clone(),
+        stored_values,
+    );
+
+    let intercept = manifest_f64(
+        manifest_path,
+        expected,
+        "/rescale_intercept",
+        "PET rescale_intercept must be numeric",
+    )?;
+    let slope = manifest_f64(
+        manifest_path,
+        expected,
+        "/rescale_slope",
+        "PET rescale_slope must be numeric",
+    )?;
+    let derived_activity = decoded_stored
+        .iter()
+        .map(|stored| f64::from(*stored) * slope + intercept)
+        .collect::<Vec<_>>();
+    validate_equal_debug(
+        failures,
+        relative_path,
+        "pet_activity_values_bqml",
+        derived_activity,
+        activity_values,
+    );
+
+    let frame_hashes = manifest_array(
+        manifest_path,
+        file,
+        "/pixel_data/frame_hashes",
+        "PET pixel_data frame_hashes must be an array",
+    )?;
+    validate_equal(
+        failures,
+        relative_path,
+        "pet_pixel_frame_hash_count",
+        frame_hashes.len(),
+        1,
+    );
+    let expected_hash =
+        frame_hashes
+            .first()
+            .and_then(Value::as_str)
+            .ok_or(ValidateError::ManifestShape {
+                path: manifest_path.to_path_buf(),
+                message: "PET pixel_data frame_hashes must contain one string",
+            })?;
+    validate_equal(
+        failures,
+        relative_path,
+        "pet_pixel_frame_hash",
+        sha256_hex(pixel_bytes.as_ref()),
+        expected_hash,
+    );
 
     Ok(())
 }

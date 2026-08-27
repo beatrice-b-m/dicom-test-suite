@@ -6027,7 +6027,7 @@
     {
       "case_id": "classic/sc/mono2_u1_native",
       "artifact_kind": "dicom_instance",
-      "status": "planned",
+      "status": "implemented",
       "provider": {
         "kind": "rust_native",
         "id": "rust_native"
@@ -6036,18 +6036,8 @@
       "compatibility_axes": [
         "pixels"
       ],
-      "roadmap": {
-        "priority": "next",
-        "delivery_phase": "phase-2",
-        "rationale": "Exercises packed one-bit native pixels in the single-bit Secondary Capture IOD."
-      },
-      "blockers": [
-        {
-          "code": "recipe_unimplemented",
-          "message": "The deterministic native recipe is not implemented.",
-          "recheck_phase": "phase-2"
-        }
-      ],
+      "roadmap": null,
+      "blockers": [],
       "profiles": [
         "extended"
       ],
@@ -6073,6 +6063,22 @@
           "covered": true,
           "part": "PS3.6",
           "anchor": "table_A-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "retrieve_standard_text sect_A.8.2.4",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "sect_A.8.2.4"
+        },
+        {
+          "source": "local-source-note",
+          "edition": "2026b",
+          "query": "standards/source-notes/phase-2-u1-native-pixels.md",
+          "covered": true,
+          "part": "PS3.5",
+          "anchor": "sect_8.1.1"
         }
       ]
     },

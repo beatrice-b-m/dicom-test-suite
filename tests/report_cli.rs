@@ -9,47 +9,6 @@ use serde_json::json;
 fn report_command_writes_json_coverage_for_core_root() {
     let out_dir = unique_temp_dir("report-core-json");
     generate_core(&out_dir);
-    let manifest_path = out_dir.join("manifest.json");
-    let mut manifest: Value = serde_json::from_slice(
-        &fs::read(&manifest_path).expect("generated manifest should be readable"),
-    )
-    .expect("generated manifest should be JSON");
-    let metadata_fixture = manifest
-        .get_mut("files")
-        .and_then(Value::as_array_mut)
-        .expect("generated manifest should have files")
-        .iter_mut()
-        .find(|file| {
-            file.get("case_id").and_then(Value::as_str)
-                == Some("classic/ct/mono2_i16_rescale_12bit_explicit_le")
-        })
-        .expect("generated manifest should contain the CT fixture");
-    metadata_fixture
-        .as_object_mut()
-        .expect("manifest file should be an object")
-        .insert(
-            "expected_metadata".to_string(),
-            json!({
-                "specific_character_sets": ["ISO_IR 192"],
-                "person_names": [{
-                    "tag": "00100010",
-                    "keyword": "PatientName",
-                    "vr": "PN",
-                    "decoded_value": "Wang^XiaoDong=王^小東",
-                    "raw_value_sha256": "6d3ef01e6f20a77c1457c4561427b2638e3da732e8f52ff7a18202ea004603b5",
-                    "raw_value_byte_length": 29,
-                    "component_groups": [
-                        {"position": 1, "kind": "alphabetic", "decoded_value": "Wang^XiaoDong"},
-                        {"position": 2, "kind": "ideographic", "decoded_value": "王^小東"}
-                    ]
-                }]
-            }),
-        );
-    fs::write(
-        &manifest_path,
-        serde_json::to_vec_pretty(&manifest).expect("metadata fixture should serialize"),
-    )
-    .expect("metadata fixture manifest should be writable");
 
     let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
         .args([
@@ -91,11 +50,11 @@ fn report_command_writes_json_coverage_for_core_root() {
     );
     assert_eq!(
         report.pointer("/counts/generated").and_then(Value::as_u64),
-        Some(37)
+        Some(38)
     );
     assert_eq!(
         report.pointer("/counts/planned").and_then(Value::as_u64),
-        Some(10)
+        Some(9)
     );
     assert_eq!(
         report
@@ -125,7 +84,7 @@ fn report_command_writes_json_coverage_for_core_root() {
             "planned metadata report field {field} must remain explicitly null"
         );
     }
-    let native_row = coverage_row(&report, "classic/ct/mono2_i16_rescale_12bit_explicit_le");
+    let native_row = coverage_row(&report, "metadata/sc/utf8_person_name");
     assert_eq!(
         native_row
             .get("metadata_specific_character_sets")
@@ -154,13 +113,13 @@ fn report_command_writes_json_coverage_for_core_root() {
         native_row
             .get("metadata_person_name_encoded_sha256")
             .and_then(Value::as_str),
-        Some("6d3ef01e6f20a77c1457c4561427b2638e3da732e8f52ff7a18202ea004603b5")
+        Some("64a9d3d6b55142162489a8679e8643caa94efcff26dd30bf24650ac5186c1382")
     );
     assert_eq!(
         native_row
             .get("metadata_person_name_encoded_length_bytes")
             .and_then(Value::as_u64),
-        Some(29)
+        Some(24)
     );
     assert_eq!(native_row.get("generation_backend_id"), Some(&Value::Null));
     assert_eq!(
@@ -622,7 +581,7 @@ fn report_command_writes_json_coverage_for_core_root() {
         report
             .pointer("/grouped_coverage/conversion_types/SYN")
             .and_then(Value::as_u64),
-        Some(10)
+        Some(11)
     );
     assert_eq!(
         report
@@ -892,19 +851,19 @@ fn report_command_writes_json_coverage_for_core_root() {
         report
             .pointer("/grouped_coverage/study_instance_uid_roots/2.25")
             .and_then(Value::as_u64),
-        Some(37)
+        Some(38)
     );
     assert_eq!(
         report
             .pointer("/grouped_coverage/series_instance_uid_roots/2.25")
             .and_then(Value::as_u64),
-        Some(37)
+        Some(38)
     );
     assert_eq!(
         report
             .pointer("/grouped_coverage/sop_instance_uid_roots/2.25")
             .and_then(Value::as_u64),
-        Some(37)
+        Some(38)
     );
     assert_eq!(
         report
@@ -932,7 +891,7 @@ fn report_command_writes_json_coverage_for_core_root() {
             1,
         ),
         (
-            "/grouped_coverage/metadata_person_name_encoded_length_bytes/29",
+            "/grouped_coverage/metadata_person_name_encoded_length_bytes/24",
             1,
         ),
     ] {
@@ -2391,8 +2350,8 @@ fn report_command_writes_markdown_coverage_for_core_root() {
     );
     let stdout = String::from_utf8(output.stdout).expect("report stdout should be UTF-8");
     assert!(stdout.starts_with("# DICOM Test Suite Coverage Report"));
-    assert!(stdout.contains("| generated | 37 |"));
-    assert!(stdout.contains("| planned | 10 |"));
+    assert!(stdout.contains("| generated | 38 |"));
+    assert!(stdout.contains("| planned | 9 |"));
     assert!(stdout.contains("### Profile Memberships"));
     assert!(stdout.contains("| core | 47 |"));
     assert!(stdout.contains("### Transfer Syntax Names"));
@@ -2485,7 +2444,7 @@ fn report_command_writes_markdown_coverage_for_core_root() {
     assert!(stdout.contains("### Study Instance UID Roots"));
     assert!(stdout.contains("### Series Instance UID Roots"));
     assert!(stdout.contains("### SOP Instance UID Roots"));
-    assert!(stdout.contains("| 2.25 | 37 |"));
+    assert!(stdout.contains("| 2.25 | 38 |"));
     assert!(stdout.contains("### Derived Reference SOP Instance UID Roots"));
     assert!(stdout.contains("## Gaps"));
     assert!(

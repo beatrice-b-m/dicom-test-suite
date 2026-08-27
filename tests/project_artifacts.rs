@@ -3700,6 +3700,7 @@ fn generator_recipe_case_ids() -> BTreeSet<String> {
     for (path, prefixes) in [
         ("src/generator.rs", &["case_id: \""][..]),
         ("src/generator/native/ct_geometry.rs", &["case_id: \""][..]),
+        ("src/generator/native/metadata_sc.rs", &["case_id: \""][..]),
         (
             "src/generation_backends/parametric_map.rs",
             &["CASE_ID: &str = \""][..],
@@ -3731,7 +3732,7 @@ fn generator_recipe_case_ids() -> BTreeSet<String> {
 fn is_suite_case_id(case_id: &str) -> bool {
     matches!(
         case_id.split('/').next(),
-        Some("classic" | "enhanced" | "derived" | "geometry" | "non-image" | "vl")
+        Some("classic" | "enhanced" | "derived" | "geometry" | "metadata" | "non-image" | "vl")
     )
 }
 

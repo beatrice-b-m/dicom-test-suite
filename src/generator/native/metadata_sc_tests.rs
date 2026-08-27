@@ -56,6 +56,15 @@ fn utf8_person_name_dataset_is_exact_and_byte_stable() {
     );
     assert_eq!(
         object
+            .element(tags::LATERALITY)
+            .expect("Laterality should be present")
+            .to_str()
+            .expect("Laterality should decode")
+            .as_ref(),
+        "R"
+    );
+    assert_eq!(
+        object
             .element(tags::PIXEL_DATA)
             .expect("Pixel Data should be present")
             .to_bytes()

@@ -279,7 +279,7 @@ fn generate_command_writes_core_u16_native_pixel_case() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\tcore"));
-    assert!(stdout.contains("files_written\t47"));
+    assert!(stdout.contains("files_written\t49"));
 
     let manifest_path = out_dir.join("manifest.json");
     let manifest: Value = serde_json::from_str(
@@ -296,7 +296,7 @@ fn generate_command_writes_core_u16_native_pixel_case() {
             .pointer("/files")
             .and_then(Value::as_array)
             .map(Vec::len),
-        Some(47)
+        Some(49)
     );
     let u16_file = file_entry_by_case_id(&manifest, "classic/sc/mono2_u16_explicit_le");
     assert_eq!(
@@ -1038,7 +1038,7 @@ fn generate_command_writes_core_u16_native_pixel_case() {
         .expect("manifest should contain skipped cases");
     assert_eq!(
         skipped_cases.len(),
-        1,
+        0,
         "core generation should report the remaining planned rows without reducing generated coverage"
     );
 
@@ -1693,6 +1693,300 @@ fn generate_command_writes_core_u16_native_pixel_case() {
     );
 
     fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
+}
+
+#[test]
+fn generate_command_writes_deterministic_nonsquare_spatial_variants() {
+    const CASE_ID: &str = "classic/sc/nonsquare_pixel_spacing";
+    const PIXEL_SHA256: &str = "e89b23efeade0dc3de624fc8982ea8b99adb35a3bb9a2fbf8b8ce675e10581a6";
+    const SPACING_FILE_SHA256: &str =
+        "3b389bfd9eefeb9883c5edc2730d8fbde8304e0ab3f621aa3ce3a41d67bbfd73";
+    const ASPECT_FILE_SHA256: &str =
+        "ce8c5c17fd6fb427b8dcd0934c0049a191c6fd0125bd3a2cb6e13eb531e96609";
+
+    let first_out = unique_temp_dir("generate-nonsquare-first");
+    let second_out = unique_temp_dir("generate-nonsquare-second");
+    for out_dir in [&first_out, &second_out] {
+        let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+            .args([
+                "generate",
+                "--profile",
+                "core",
+                "--out",
+                out_dir.to_str().expect("temp path should be valid UTF-8"),
+                "--seed",
+                "7",
+            ])
+            .output()
+            .expect("generate command must run");
+        assert!(
+            output.status.success(),
+            "core generation should succeed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+
+    let manifest = read_json(first_out.join("manifest.json").to_str().unwrap());
+    let repeated_manifest = read_json(second_out.join("manifest.json").to_str().unwrap());
+    assert_manifest_matches_committed_schema(&manifest);
+    assert_manifest_matches_committed_schema(&repeated_manifest);
+
+    let variants = file_entries_by_case_id(&manifest, CASE_ID);
+    assert_eq!(variants.len(), 2, "one logical case must emit two files");
+    assert_eq!(
+        variants
+            .iter()
+            .filter_map(|file| file.pointer("/path").and_then(Value::as_str))
+            .collect::<Vec<_>>(),
+        vec![
+            "classic/sc/nonsquare_pixel_spacing/pixel-spacing.dcm",
+            "classic/sc/nonsquare_pixel_spacing/pixel-aspect-ratio.dcm",
+        ]
+    );
+
+    for (path, variant_id, file_sha256) in [
+        (
+            "classic/sc/nonsquare_pixel_spacing/pixel-spacing.dcm",
+            "pixel_spacing",
+            SPACING_FILE_SHA256,
+        ),
+        (
+            "classic/sc/nonsquare_pixel_spacing/pixel-aspect-ratio.dcm",
+            "pixel_aspect_ratio",
+            ASPECT_FILE_SHA256,
+        ),
+    ] {
+        let entry = variants
+            .iter()
+            .copied()
+            .find(|file| file.pointer("/path").and_then(Value::as_str) == Some(path))
+            .unwrap_or_else(|| panic!("manifest should contain {path}"));
+        assert_eq!(
+            entry
+                .pointer("/expected_nonsquare_spacing/variant_id")
+                .and_then(Value::as_str),
+            Some(variant_id)
+        );
+        assert_eq!(
+            entry
+                .pointer("/expected_nonsquare_spacing/pixel_data_sha256")
+                .and_then(Value::as_str),
+            Some(PIXEL_SHA256)
+        );
+        assert_eq!(
+            entry
+                .pointer("/pixel_data/frame_hashes/0")
+                .and_then(Value::as_str),
+            Some(PIXEL_SHA256)
+        );
+        assert_eq!(
+            entry.pointer("/sha256").and_then(Value::as_str),
+            Some(file_sha256)
+        );
+        for (pointer, expected) in [
+            ("/image/rows", 4),
+            ("/image/columns", 6),
+            ("/image/bits_allocated", 8),
+            ("/image/bits_stored", 8),
+            ("/image/high_bit", 7),
+            ("/pixel_data/value_length", 24),
+        ] {
+            assert_eq!(
+                entry.pointer(pointer).and_then(Value::as_u64),
+                Some(expected)
+            );
+        }
+        assert_eq!(
+            entry
+                .pointer("/expected_nonsquare_spacing/patient_space_geometry_present")
+                .and_then(Value::as_bool),
+            Some(false)
+        );
+        assert_eq!(
+            entry
+                .pointer("/expected_nonsquare_spacing/uncalibrated")
+                .and_then(Value::as_bool),
+            Some(true)
+        );
+        assert_eq!(
+            entry.pointer("/validation/status").and_then(Value::as_str),
+            Some("passed")
+        );
+        assert!(
+            validation_result_names(entry.pointer("/validation/internal"))
+                .contains(&"nonsquare_geometry_round_trip")
+        );
+
+        let first_bytes = fs::read(first_out.join(path)).expect("first DICOM should be readable");
+        let second_bytes =
+            fs::read(second_out.join(path)).expect("repeated DICOM should be readable");
+        assert_eq!(first_bytes, second_bytes, "{path} must be byte stable");
+        assert_eq!(dicom_test_suite::sha256_hex(&first_bytes), file_sha256);
+
+        let object = open_file(first_out.join(path)).expect("non-square DICOM should parse");
+        assert_eq!(
+            object
+                .element(tags::PIXEL_DATA)
+                .expect("Pixel Data must exist")
+                .value()
+                .to_bytes()
+                .map(|bytes| dicom_test_suite::sha256_hex(bytes.as_ref()))
+                .unwrap(),
+            PIXEL_SHA256
+        );
+        for absent in [
+            tags::PIXEL_SPACING_CALIBRATION_TYPE,
+            tags::PIXEL_SPACING_CALIBRATION_DESCRIPTION,
+            tags::IMAGE_POSITION_PATIENT,
+            tags::IMAGE_ORIENTATION_PATIENT,
+            tags::FRAME_OF_REFERENCE_UID,
+        ] {
+            assert!(
+                object.element_opt(absent).unwrap().is_none(),
+                "{absent} must be absent"
+            );
+        }
+
+        if variant_id == "pixel_spacing" {
+            for (field, tag) in [
+                ("pixel_spacing", "0028,0030"),
+                ("nominal_scanned_pixel_spacing", "0018,2010"),
+            ] {
+                assert_eq!(
+                    entry
+                        .pointer(&format!("/expected_nonsquare_spacing/{field}/tag"))
+                        .and_then(Value::as_str),
+                    Some(tag)
+                );
+                assert_eq!(
+                    entry
+                        .pointer(&format!("/expected_nonsquare_spacing/{field}/vr"))
+                        .and_then(Value::as_str),
+                    Some("DS")
+                );
+                assert_eq!(
+                    entry
+                        .pointer(&format!("/expected_nonsquare_spacing/{field}/vm"))
+                        .and_then(Value::as_u64),
+                    Some(2)
+                );
+            }
+            assert_eq!(
+                entry
+                    .pointer("/expected_nonsquare_spacing/pixel_spacing/lexical_value")
+                    .and_then(Value::as_str),
+                Some("0.6\\0.3")
+            );
+            assert_eq!(
+                entry
+                    .pointer(
+                        "/expected_nonsquare_spacing/nominal_scanned_pixel_spacing/lexical_value"
+                    )
+                    .and_then(Value::as_str),
+                Some("0.6\\0.3")
+            );
+            assert!(entry
+                .pointer("/expected_nonsquare_spacing/pixel_aspect_ratio")
+                .is_some_and(Value::is_null));
+            assert_eq!(
+                object
+                    .element(tags::PIXEL_SPACING)
+                    .unwrap()
+                    .to_multi_float64()
+                    .unwrap(),
+                vec![0.6, 0.3]
+            );
+            assert_eq!(
+                format!("{:?}", object.element(tags::PIXEL_SPACING).unwrap().vr()),
+                "DS"
+            );
+            assert_eq!(
+                object
+                    .element(tags::NOMINAL_SCANNED_PIXEL_SPACING)
+                    .unwrap()
+                    .to_multi_float64()
+                    .unwrap(),
+                vec![0.6, 0.3]
+            );
+            assert_eq!(
+                format!(
+                    "{:?}",
+                    object
+                        .element(tags::NOMINAL_SCANNED_PIXEL_SPACING)
+                        .unwrap()
+                        .vr()
+                ),
+                "DS"
+            );
+            assert!(object
+                .element_opt(tags::PIXEL_ASPECT_RATIO)
+                .unwrap()
+                .is_none());
+            assert!(object
+                .element_opt(tags::IMAGER_PIXEL_SPACING)
+                .unwrap()
+                .is_none());
+        } else {
+            assert!(entry
+                .pointer("/expected_nonsquare_spacing/pixel_spacing")
+                .is_some_and(Value::is_null));
+            assert!(entry
+                .pointer("/expected_nonsquare_spacing/nominal_scanned_pixel_spacing")
+                .is_some_and(Value::is_null));
+            assert_eq!(
+                entry
+                    .pointer("/expected_nonsquare_spacing/pixel_aspect_ratio/lexical_value")
+                    .and_then(Value::as_str),
+                Some("2\\1")
+            );
+            assert_eq!(
+                entry
+                    .pointer("/expected_nonsquare_spacing/pixel_aspect_ratio/tag")
+                    .and_then(Value::as_str),
+                Some("0028,0034")
+            );
+            assert_eq!(
+                entry
+                    .pointer("/expected_nonsquare_spacing/pixel_aspect_ratio/vr")
+                    .and_then(Value::as_str),
+                Some("IS")
+            );
+            assert_eq!(
+                entry
+                    .pointer("/expected_nonsquare_spacing/pixel_aspect_ratio/vm")
+                    .and_then(Value::as_u64),
+                Some(2)
+            );
+            assert_eq!(
+                object
+                    .element(tags::PIXEL_ASPECT_RATIO)
+                    .unwrap()
+                    .to_multi_int::<u16>()
+                    .unwrap(),
+                vec![2, 1]
+            );
+            assert_eq!(
+                format!(
+                    "{:?}",
+                    object.element(tags::PIXEL_ASPECT_RATIO).unwrap().vr()
+                ),
+                "IS"
+            );
+            for absent in [
+                tags::PIXEL_SPACING,
+                tags::NOMINAL_SCANNED_PIXEL_SPACING,
+                tags::IMAGER_PIXEL_SPACING,
+            ] {
+                assert!(
+                    object.element_opt(absent).unwrap().is_none(),
+                    "{absent} must be absent"
+                );
+            }
+        }
+    }
+
+    fs::remove_dir_all(first_out).expect("first output root should be removable");
+    fs::remove_dir_all(second_out).expect("second output root should be removable");
 }
 
 #[test]
@@ -7442,7 +7736,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\tall"));
-    let native_all_files = 133
+    let native_all_files = 135
         + if cfg!(feature = "deflate") { 2 } else { 0 }
         + if cfg!(feature = "jpeg") { 1 } else { 0 }
         + if cfg!(feature = "charls") { 1 } else { 0 }
@@ -7487,6 +7781,11 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
     file_entry_by_case_id(&manifest, "classic/sc/mono2_u8_explicit_le");
     file_entry_by_case_id(&manifest, "classic/sc/mono2_u32_explicit_le");
     file_entry_by_case_id(&manifest, "classic/sc/mono2_u1_native");
+    assert_eq!(
+        file_entries_by_case_id(&manifest, "classic/sc/nonsquare_pixel_spacing").len(),
+        2,
+        "all profile should include both non-square spatial variants"
+    );
     file_entry_by_case_id(&manifest, "classic/sc/mono2_u8_rle_lossless");
     file_entry_by_case_id(&manifest, "classic/sc/mono1_u8_rle_lossless");
     file_entry_by_case_id(&manifest, "classic/sc/mono2_u16_rle_lossless");
@@ -7633,7 +7932,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
         .expect("manifest should contain skipped cases");
     assert_eq!(
         skipped_cases.len(),
-        42 - usize::from(parametric_map_generated)
+        41 - usize::from(parametric_map_generated)
             - if cfg!(feature = "deflate") { 2 } else { 0 }
             - if cfg!(feature = "jpeg") { 1 } else { 0 }
             - if cfg!(feature = "charls") { 1 } else { 0 }

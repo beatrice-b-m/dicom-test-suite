@@ -172,6 +172,9 @@ impl Fixture {
             .iter_mut()
             .find(|file| file["path"] == instance_path)
             .unwrap()["case_id"] = json!(case_id);
+        if case_id == IMAGE_CASE_ID {
+            add_rt_image_pixel_evidence(&evidence, &mut baseline, &mut manifest);
+        }
         let manifest_bytes = serde_json::to_vec_pretty(&manifest).unwrap();
         fs::write(&manifest_path, &manifest_bytes).unwrap();
         baseline["source"]["manifest_sha256"] =
@@ -213,6 +216,87 @@ impl Fixture {
             String::from_utf8_lossy(&output.stdout)
         );
     }
+}
+
+fn add_rt_image_pixel_evidence(evidence: &Path, baseline: &mut Value, manifest: &mut Value) {
+    const PIXEL_HASH: &str = "a8faed6abbf35c12a4b26e40f6feb19d736d90045c83b9f9a31f638d323e6811";
+    const PIXEL_SIDECAR: &str = "pixels/dcmtk-dcm2img-rt-image/fixture.json";
+
+    let instance_path = baseline["instances"][0]["path"].clone();
+    let manifest_file = manifest["files"]
+        .as_array_mut()
+        .unwrap()
+        .iter_mut()
+        .find(|file| file["path"] == instance_path)
+        .unwrap();
+    let source_sha256 = manifest_file["sha256"].clone();
+    let pixel_values = json!([
+        0, 17, 34, 51, 68, 85, 102, 119, 136, 153, 170, 187, 204, 221, 238, 255
+    ]);
+    manifest_file["pixel_data"] = json!({
+        "vr": "OB",
+        "native_or_encapsulated": "native",
+        "value_length": 16
+    });
+    manifest_file["expected_rt_image"] = json!({
+        "storage": {
+            "pixel_values": pixel_values,
+            "payload_sha256": PIXEL_HASH,
+            "decoded_pixels_sha256": PIXEL_HASH
+        }
+    });
+
+    let tools = baseline["tools"].as_array_mut().unwrap();
+    let parser = tools
+        .iter_mut()
+        .find(|tool| tool["adapter_id"] == "parser")
+        .unwrap();
+    parser["adapter_id"] = json!("dcmtk-dcmdump");
+    let parser_sha256 = parser["sha256"].clone();
+    let mut decoder = parser.clone();
+    decoder["adapter_id"] = json!("dcmtk-dcm2img-rt-image");
+    decoder["role"] = json!("pixel_decoder");
+    decoder["required"] = json!(false);
+    let decoder_sha256 = decoder["sha256"].clone();
+    tools.push(decoder);
+
+    baseline["instances"][0]["pixel"] = json!({
+        "status": "passed",
+        "independence": "independent",
+        "expected_frame_hashes": [PIXEL_HASH],
+        "actual_frame_hashes": [PIXEL_HASH],
+        "evidence": {
+            "path": PIXEL_SIDECAR,
+            "sha256": "pending"
+        }
+    });
+    let sidecar = json!({
+        "adapter_id": "dcmtk-dcm2img-rt-image",
+        "decoder_sha256": decoder_sha256,
+        "parser_sha256": parser_sha256,
+        "independence": "independent",
+        "extraction_method": "dcmtk_dcm2img_p2_and_dcmdump_single_native_ob",
+        "source_instance_sha256": source_sha256,
+        "rows": 4,
+        "columns": 4,
+        "frames": 1,
+        "max_value": 255,
+        "decoded_values": pixel_values,
+        "decoded_pixels_sha256": PIXEL_HASH,
+        "expected_frame_hashes": [PIXEL_HASH],
+        "actual_frame_hashes": [PIXEL_HASH],
+        "raw_value_file_count": 1,
+        "raw_value_length_bytes": 16,
+        "raw_value_vr": "OB",
+        "raw_value_sha256": PIXEL_HASH,
+        "status": "passed"
+    });
+    let sidecar_bytes = serde_json::to_vec_pretty(&sidecar).unwrap();
+    let sidecar_path = evidence.join(PIXEL_SIDECAR);
+    fs::create_dir_all(sidecar_path.parent().unwrap()).unwrap();
+    fs::write(sidecar_path, &sidecar_bytes).unwrap();
+    baseline["instances"][0]["pixel"]["evidence"]["sha256"] =
+        json!(dicom_test_suite::sha256_hex(&sidecar_bytes));
 }
 
 fn adapter(id: &str, role: &str, path: &Path) -> Value {

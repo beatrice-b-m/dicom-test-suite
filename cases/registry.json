@@ -15079,8 +15079,8 @@
       "artifact_kind": "dicom_instance",
       "status": "planned",
       "provider": {
-        "kind": "external_backend",
-        "id": "highdicom_pydicom"
+        "kind": "rust_native",
+        "id": "rust_native"
       },
       "object_family": "visible_light",
       "compatibility_axes": [
@@ -15091,19 +15091,14 @@
         "references"
       ],
       "roadmap": {
-        "priority": "later",
+        "priority": "next",
         "delivery_phase": "phase-4",
         "rationale": "Exercises pyramid, thumbnail, and label instance relationships."
       },
       "blockers": [
         {
-          "code": "backend_contract_unimplemented",
-          "message": "The external generation contract is not implemented.",
-          "recheck_phase": "phase-1"
-        },
-        {
-          "code": "stress_budget_policy_pending",
-          "message": "Measured pyramid size and runtime budgets are not established.",
+          "code": "recipe_unimplemented",
+          "message": "The standards-locked three-instance native recipe is not implemented.",
           "recheck_phase": "phase-4"
         }
       ],
@@ -15117,7 +15112,7 @@
       "sop_class_uid": "1.2.840.10008.5.1.4.1.1.77.1.6",
       "modality": "SM",
       "transfer_syntax_uid": "1.2.840.10008.1.2.1",
-      "determinism": "semantic_stable",
+      "determinism": "byte_stable",
       "requirements": {
         "features": [],
         "external_codecs": [],
@@ -15132,6 +15127,14 @@
           "covered": true,
           "part": "PS3.6",
           "anchor": "table_A-1"
+        },
+        {
+          "source": "local-source-note",
+          "edition": "2026b",
+          "query": "standards/source-notes/phase-4-wsi-pyramid.md",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "sect_A.1.2.30"
         }
       ]
     },

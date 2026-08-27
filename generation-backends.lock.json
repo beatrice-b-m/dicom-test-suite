@@ -101,6 +101,7 @@
         "generation-backends/highdicom-pydicom/src/dts_highdicom_backend/__main__.py",
         "generation-backends/highdicom-pydicom/src/dts_highdicom_backend/parametric_map.py",
         "generation-backends/highdicom-pydicom/src/dts_highdicom_backend/protocol.py",
+        "generation-backends/highdicom-pydicom/src/dts_highdicom_backend/scoord3d.py",
         "generation-backends/highdicom-pydicom/src/dts_highdicom_backend/tid1500.py"
         ],
         "environment_override": "DTS_HIGHDICOM_PYTHON"
@@ -108,7 +109,7 @@
       "dependency_lock": {
         "format": "uv-lock-v1",
         "path": "generation-backends/highdicom-pydicom/uv.lock",
-        "sha256": "d36e8258e63eb0efdd9ef1b401ee36fca795cf2adb360e735b95a90a663073a0"
+        "sha256": "8623ce132cf886ce43bc7f9022df126ad754a02fd8b9b91c1e0d5355308e7e35"
       },
       "fingerprint_components": [
         "canonical_executable_bytes",

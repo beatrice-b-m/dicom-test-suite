@@ -49,6 +49,13 @@ recipe uses the exact spatial-rank increment `2^-30` so it retains distinctions
 below binary32 precision. Payload expectations contain the serialized
 little-endian IEEE 754 bit patterns and a SHA-256 digest for each frame.
 
+The backend also supports two Comprehensive 3D SR recipes. The TID 1500 volume
+report links an Enhanced CT and binary SEG through a TID 1411 measurement
+group. The SCOORD3D report uses TID 1501 with a 2.5 mm Distance NUM whose
+`INFERRED FROM` POLYLINE joins the patient-space positions of Enhanced CT
+frames 1 and 2. Rust supplies every UID and verifies the source geometry before
+invocation; PixelMed is the mandatory independent template validator.
+
 ## Locked Runtime Licenses
 
 The environment is downloaded from upstream package indexes and is not vendored

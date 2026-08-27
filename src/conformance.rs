@@ -1334,8 +1334,7 @@ fn collect_pixel_result(
         .ok_or_else(|| "available parser has no executable".to_string())?;
     let pixel_dir = evidence_root.join("pixels/dcmtk-dcmdrle");
     fs::create_dir_all(&pixel_dir).map_err(|error| error.to_string())?;
-    let work_dir =
-        std::env::temp_dir().join(format!("dts-pixel-{}-{stable_key}", std::process::id()));
+    let work_dir = conformance_work_dir("dts-pixel", evidence_root, stable_key);
     fs::create_dir_all(&work_dir).map_err(|error| error.to_string())?;
     let decoded = work_dir.join("decoded.dcm");
     let input = generated_root.join(relative_input);
@@ -1474,8 +1473,7 @@ fn collect_u1_pixel_result(
         .as_str()
         .ok_or_else(|| "available parser has no executable".to_string())?;
     let input = generated_root.join(relative_input);
-    let work_dir =
-        std::env::temp_dir().join(format!("dts-u1-pixel-{}-{stable_key}", std::process::id()));
+    let work_dir = conformance_work_dir("dts-u1-pixel", evidence_root, stable_key);
     fs::create_dir_all(&work_dir).map_err(|error| error.to_string())?;
     let output_base = work_dir.join("frame.pgm");
     let arguments = string_array(adapter, "arguments")?
@@ -2232,11 +2230,7 @@ fn collect_icc_result(
         .as_str()
         .ok_or_else(|| "available independent parser has no executable".to_string())?;
     let input = generated_root.join(relative_input);
-    let work_key = sha256_hex(evidence_root.display().to_string().as_bytes());
-    let work_dir = std::env::temp_dir().join(format!(
-        "dts-icc-{}-{stable_key}-{work_key}",
-        std::process::id()
-    ));
+    let work_dir = conformance_work_dir("dts-icc", evidence_root, stable_key);
     fs::create_dir_all(&work_dir).map_err(|error| error.to_string())?;
     let extraction_arguments = vec![
         "+W".to_string(),
@@ -2438,6 +2432,14 @@ fn icc_ascii(bytes: &[u8], offset: usize) -> String {
         .and_then(|value| std::str::from_utf8(value).ok())
         .unwrap_or("")
         .to_string()
+}
+
+fn conformance_work_dir(prefix: &str, evidence_root: &Path, stable_key: &str) -> PathBuf {
+    let run_key = sha256_hex(evidence_root.display().to_string().as_bytes());
+    std::env::temp_dir().join(format!(
+        "{prefix}-{}-{stable_key}-{run_key}",
+        std::process::id()
+    ))
 }
 
 fn normalize_findings(bytes: &[u8], absolute_input: &str, relative_input: &str) -> Vec<Value> {

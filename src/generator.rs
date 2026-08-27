@@ -6362,6 +6362,14 @@ fn write_classic_ct_case(
                 spacing_between_slices,
             );
         }
+        if let Some(gantry_detector_tilt_degrees) = recipe.gantry_detector_tilt_degrees {
+            put_str(
+                &mut obj,
+                tags::GANTRY_DETECTOR_TILT,
+                VR::DS,
+                gantry_detector_tilt_degrees,
+            );
+        }
 
         put_u16(&mut obj, tags::SAMPLES_PER_PIXEL, VR::US, 1);
         put_str(
@@ -6746,6 +6754,12 @@ fn classic_ct_manifest_entry(
                 Value::from(spacing_between_slices),
             );
         }
+        if let Some(gantry_detector_tilt_degrees) = recipe.gantry_detector_tilt_degrees {
+            geometry.insert(
+                "gantry_detector_tilt_degrees".to_string(),
+                Value::from(classic_ct_ds_number(gantry_detector_tilt_degrees)),
+            );
+        }
         geometry.insert(
             "position_along_normal".to_string(),
             Value::from(slice.position_along_normal),
@@ -6849,31 +6863,44 @@ fn classic_ct_manifest_entry(
         "standards_evidence": deduplicated_standards_evidence(standards_evidence)
     });
     if recipe.slices.len() > 1 {
+        let mut expected_geometry = serde_json::json!({
+            "sort_basis": "image_position_patient_projected_on_slice_normal",
+            "sort_direction": "ascending",
+            "position_tolerance_mm": 0.00001,
+            "spacing_tolerance_mm": 0.00001,
+            "series_instance_count": recipe.slices.len(),
+            "geometric_order_index": slice_index + 1,
+            "position_along_normal_mm": slice.position_along_normal,
+            "image_position_patient": classic_ct_ds_values::<3>(slice.image_position_patient),
+            "image_orientation_patient": classic_ct_ds_values::<6>(recipe.image_orientation_patient),
+            "adjacent_spacing_mm": classic_ct_adjacent_spacing(recipe),
+            "spacing_uniform": classic_ct_spacing_is_uniform(recipe),
+            "instance_number_state": "numeric",
+            "instance_number": slice.instance_number.parse::<i64>().expect("CT Instance Number recipe must be numeric"),
+            "instance_number_order_index": classic_ct_instance_number_order_index(recipe, slice.instance_number),
+            "sorting_conflict_expected": recipe.sorting_conflict_expected
+        });
+        if let Some(gantry_detector_tilt_degrees) = recipe.gantry_detector_tilt_degrees {
+            expected_geometry
+                .as_object_mut()
+                .expect("CT expected geometry must be an object")
+                .insert(
+                    "gantry_detector_tilt_degrees".to_string(),
+                    Value::from(classic_ct_ds_number(gantry_detector_tilt_degrees)),
+                );
+        }
         manifest_entry
             .as_object_mut()
             .expect("CT manifest entry must be an object")
-            .insert(
-                "expected_geometry".to_string(),
-                serde_json::json!({
-                    "sort_basis": "image_position_patient_projected_on_slice_normal",
-                    "sort_direction": "ascending",
-                    "position_tolerance_mm": 0.00001,
-                    "spacing_tolerance_mm": 0.00001,
-                    "series_instance_count": recipe.slices.len(),
-                    "geometric_order_index": slice_index + 1,
-                    "position_along_normal_mm": slice.position_along_normal,
-                    "image_position_patient": classic_ct_ds_values::<3>(slice.image_position_patient),
-                    "image_orientation_patient": classic_ct_ds_values::<6>(recipe.image_orientation_patient),
-                    "adjacent_spacing_mm": classic_ct_adjacent_spacing(recipe),
-                    "spacing_uniform": classic_ct_spacing_is_uniform(recipe),
-                    "instance_number_state": "numeric",
-                    "instance_number": slice.instance_number.parse::<i64>().expect("CT Instance Number recipe must be numeric"),
-                    "instance_number_order_index": classic_ct_instance_number_order_index(recipe, slice.instance_number),
-                    "sorting_conflict_expected": recipe.sorting_conflict_expected
-                }),
-            );
+            .insert("expected_geometry".to_string(), expected_geometry);
     }
     manifest_entry
+}
+
+fn classic_ct_ds_number(encoded: &str) -> f64 {
+    encoded
+        .parse::<f64>()
+        .expect("classic CT DS recipe value must be numeric")
 }
 
 fn classic_ct_ds_values<const N: usize>(encoded: &str) -> [f64; N] {
@@ -6959,6 +6986,9 @@ fn classic_ct_expected_capabilities(recipe: ClassicCtRecipe) -> Vec<&'static str
     if recipe.slices.len() > 1 {
         capabilities.push("sort_series_by_geometry");
     }
+    if recipe.gantry_detector_tilt_degrees.is_some() {
+        capabilities.push("interpret_gantry_tilt");
+    }
     capabilities
 }
 
@@ -6979,6 +7009,9 @@ fn classic_ct_known_stressors(recipe: ClassicCtRecipe) -> Vec<&'static str> {
     }
     if recipe.case_id == "geometry/ct/nonuniform_slice_spacing" {
         stressors.push("nonuniform_slice_spacing");
+    }
+    if recipe.gantry_detector_tilt_degrees.is_some() {
+        stressors.extend(["gantry_detector_tilt", "sheared_slice_origins"]);
     }
     stressors
 }

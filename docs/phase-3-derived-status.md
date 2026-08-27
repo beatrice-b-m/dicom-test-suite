@@ -263,7 +263,59 @@ The attributes and warnings are retained and not allowlisted. Full-corpus
 verification reports 211 older or unrelated failures plus those two
 documented warnings, with `accepted_findings` remaining zero.
 
+## Blending Softcopy Presentation State
+
+`derived/presentation-state/blending` is an implemented, byte-stable
+Blending Softcopy Presentation State Storage case. An `extended` run
+materializes four 2 by 2 single-frame CT Images as two ordered Series in one
+Study and shared Frame of Reference, with matching Image Position (Patient)
+values `[0,0,0]` and `[0,0,5]` in each Series. Generation reopens and hashes
+every source and writes a distinct Presentation Series without copying Frame
+of Reference attributes into the Presentation State. Its exact two-item
+blending topology binds Series 1 as `UNDERLYING` and Series 2 as
+`SUPERIMPOSED`, references both complete Images in slice order, applies
+per-item rescale intercept `-1024`, slope `1`, and type `HU`, and locks
+Relative Opacity to `0.5`.
+
+One global displayed area selects `[1,1]` through `[2,2]` with `SCALE TO FIT`
+and aspect ratio `[1,1]`. The mandatory palette has three `[256,0,16]`
+descriptors and exact 512-byte 16-bit identity-ramp data per channel, while
+the ICC module carries the exact 736-byte locked sRGB profile. Pixel Data,
+standalone VOI transformations, registration references, spatial transforms,
+graphics, overlays, shutters, segmented palette data, and Palette Color LUT
+UID are absent.
+
+The manifest closes all four source paths, hashes, Study/Series/Frame-of-
+Reference and SOP identities, geometry and ordering, blending positions,
+complete-instance references, rescale, opacity, displayed-area semantics,
+palette and ICC byte identities, and absence invariants. Strict Rust
+validation owns their cardinality, order, uniqueness, exact values, reference
+closure, byte payloads, and absences, including gaps observed in the
+independent validators. JSON and Markdown reports expose the source topology,
+positions, rescale and opacity, displayed area, palette descriptors and
+hashes, ICC identity, forbidden-module absence, Pixel Data absence, and
+external-validator disposition.
+
+Two seed-7 extended generations each wrote 101 files. Their byte-identical
+manifests have SHA-256
+`0e5a934186cdba5667b4cef14ad7475d0d222f8e0286b8a49a29bb3106b5a200`;
+the byte-identical Blending Softcopy Presentation State instances have
+SHA-256
+`d6fd50ea537157dea62e878e6c455d69f8bb239ce7456c3d7bb5a2893f159918`.
+Both roots passed strict validation for all 101 files with zero failures.
+
+Integrated conformance run
+`5df5c921ae704341109f1c095258b0f99ebf856e0b91a2eb60deab6531a4a1e3`
+recorded stable instance key
+`a35121ba42d4f1ad15a46aeefa6d95d2b8c0603ccc1ebc0f2a48f9284756ae8a`.
+Locked `dciodvfy -new` and DCMTK `dcmdump` were clean; the independently
+implemented, `uv`-locked `dicom-validator` 0.8.2 adapter reported `Passed`
+with zero errors; and isolated four-CT-plus-Presentation-State `dcentvfy` was
+silent. Full-corpus verification keeps `accepted_findings` at zero and
+reports 211 older or unrelated failures, including the two already documented
+Advanced Blending warnings; Blending adds no external finding.
+
 ## Next dependency
 
-The next Phase 3 dependency is Blending Presentation State, which completes
-milestone 4 breadth.
+Phase 3 milestone 4 is complete. The next dependency is milestone 5's
+Twelve-lead ECG waveform, followed by one additional representative waveform.

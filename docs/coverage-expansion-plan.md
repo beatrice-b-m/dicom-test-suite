@@ -334,7 +334,7 @@ Gate:
 - reports distinguish renderable, metadata-only, annotation, and recognized-
   unsupported expectations.
 
-Status on 2026-08-27: Phase 3 milestones 1, 2, and 3 are complete. Spatial and
+Status on 2026-08-27: Phase 3 milestones 1 through 4 are complete. Spatial and
 Deformable Spatial Registration are byte-stable native vertical slices with
 two-run reproducibility, exact source/transform/grid/reference closure, strict
 manifest-driven validation, registration-specific reports, clean locked
@@ -352,8 +352,19 @@ Common Instance References, strict manifest-driven validation, report
 coverage, clean independent parsing, zero-error `uv`-locked secondary IOD
 validation, and silent isolated entity-reference validation. Its two
 contradictory `dciodvfy` Frame-of-Reference findings remain visible and
-unallowlisted against the locked mandatory module contract. Blending
-Presentation State is next and completes milestone 4 breadth.
+unallowlisted against the locked mandatory module contract. Blending Softcopy
+Presentation State completes milestone 4 as a byte-stable native vertical
+slice over four CT sources in two registered Series, with exact
+underlying/superimposed positions, complete ordered references, per-item
+rescale, relative opacity, global displayed area, mandatory palette and ICC
+payloads, strict manifest-driven validation, dedicated report coverage, clean
+locked primary IOD validation and independent parsing, zero-error
+`uv`-locked secondary IOD validation, and silent isolated entity-reference
+validation. Two seed-7 extended roots each contained 101 strictly valid files
+with byte-identical manifest and Blending instance hashes; integrated
+conformance kept `accepted_findings` at zero and Blending added no finding.
+Milestone 5's Twelve-lead ECG waveform is next, followed by one additional
+representative waveform.
 
 ### Phase 4 — Pathology and tiled microscopy
 

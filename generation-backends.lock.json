@@ -12,7 +12,7 @@
       "dependency_lock": {
         "format": "cargo-lock-v4",
         "path": "Cargo.lock",
-        "sha256": "ce15f12a8ddc4b7c5a1c581b428a439490c251b75c56766252d3a80a0d5193b4"
+        "sha256": "83d05b5fd7a38a66b59239c53d7ef0fedf94d74530299e0a9e5cdeef1fa22fab"
       },
       "fingerprint_components": [
         "dependency_lock_bytes",

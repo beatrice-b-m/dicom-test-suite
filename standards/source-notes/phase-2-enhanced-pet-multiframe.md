@@ -65,9 +65,9 @@ Transformation, Frame VOI LUT, Real World Value Mapping,
 Radiopharmaceutical Usage, PET Frame Type, and the empty Derivation Image
 Sequence. Pixel Spacing is `2\\2` mm; Slice Thickness and Spacing Between
 Slices are `5` mm; orientation is `1\\0\\0\\0\\1\\0`; anatomy is HEAD with
-Frame Laterality `U`. Pixel Value Transformation uses intercept `0`, slope
-`2.5`, and Rescale Type `US`, as required for PT by that macro. Frame VOI uses
-center `500` and width `1000`.
+Anatomic Region `(69536005, SCT, "Head")` and Frame Laterality `U`. Pixel
+Value Transformation uses intercept `0`, slope `2.5`, and Rescale Type `US`,
+as required for PT by that macro. Frame VOI uses center `500` and width `1000`.
 
 The Real World Value Mapping covers stored values 0 through 400 with FD
 intercept `0` and slope `2.5`. LUT Label is `BQML`, explanation is

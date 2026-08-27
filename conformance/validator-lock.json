@@ -89,6 +89,20 @@
       "notes": "Independent of the project-owned native RLE encoder."
     },
     {
+      "adapter_id": "dcmtk-dcm2img-u1",
+      "role": "pixel_decoder",
+      "tool_name": "DCMTK dcm2img",
+      "version": "3.7.0 (2025-12-15)",
+      "source_repository": "https://github.com/DCMTK/dcmtk",
+      "source_revision": "DCMTK-3.7.0",
+      "package_identity": "Homebrew dcmtk 3.7.0",
+      "executable_sha256": "6a6103a7c516814b5eb44f53d198b111cbaf1678de5952ab7d31961732f112d5",
+      "definition_version": "DCMTK dcmimgle single-bit image pipeline 3.7.0",
+      "platforms": ["arm64-macos"],
+      "verified_at": "2026-08-27",
+      "notes": "Case-scoped independent PGM decoder for native Multi-frame Single Bit Secondary Capture pixels."
+    },
+    {
       "adapter_id": "pixelmed-sr-validator",
       "role": "sr_validator",
       "tool_name": "PixelMed DicomSRValidator",

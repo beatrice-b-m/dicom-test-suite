@@ -130,6 +130,18 @@
       "capabilities": ["1.2.840.10008.1.2.5", "exact_native_frames", "independent_of_project_rle_encoder"]
     },
     {
+      "id": "dcmtk-dcm2img-u1",
+      "role": "pixel_decoder",
+      "executable": "dcm2img",
+      "arguments": ["+Fa", "+Fn", "-M", "-W", "+Pid", "-O", "+opn", "1", "{input}", "{output}"],
+      "version_arguments": ["--version"],
+      "timeout_seconds": 60,
+      "required": false,
+      "platforms": ["linux", "macos", "windows"],
+      "supported_case_ids": ["classic/sc/mono2_u1_native"],
+      "capabilities": ["native_single_bit_decode", "continuous_cross_frame_bit_packing", "pgm_sample_evidence"]
+    },
+    {
       "id": "dcmtk-dcmdjpeg",
       "role": "pixel_decoder",
       "executable": "dcmdjpeg",

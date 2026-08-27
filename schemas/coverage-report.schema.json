@@ -303,6 +303,22 @@
         "nm_frame_dimension_tuples": {
           "$ref": "#/$defs/count_map"
         },
+        "enhanced_pet_image_types": { "$ref": "#/$defs/count_map" },
+        "enhanced_pet_frame_types": { "$ref": "#/$defs/count_map" },
+        "enhanced_pet_view_codes": { "$ref": "#/$defs/count_map" },
+        "enhanced_pet_view_modifier_item_counts": { "$ref": "#/$defs/count_map" },
+        "enhanced_pet_slice_progression_direction_states": { "$ref": "#/$defs/count_map" },
+        "enhanced_pet_stack_ids": { "$ref": "#/$defs/count_map" },
+        "enhanced_pet_in_stack_position_numbers": { "$ref": "#/$defs/count_map" },
+        "enhanced_pet_dimension_index_values": { "$ref": "#/$defs/count_map" },
+        "enhanced_pet_temporal_position_indices": { "$ref": "#/$defs/count_map" },
+        "enhanced_pet_image_positions_patient_mm": { "$ref": "#/$defs/count_map" },
+        "enhanced_pet_stored_values_by_frame": { "$ref": "#/$defs/count_map" },
+        "enhanced_pet_activity_values_bqml_by_frame": { "$ref": "#/$defs/count_map" },
+        "enhanced_pet_rwvm_intercepts": { "$ref": "#/$defs/count_map" },
+        "enhanced_pet_rwvm_slopes": { "$ref": "#/$defs/count_map" },
+        "enhanced_pet_rwvm_measurement_units": { "$ref": "#/$defs/count_map" },
+        "enhanced_pet_corrections": { "$ref": "#/$defs/count_map" },
         "pet_units": {
           "$ref": "#/$defs/count_map"
         },
@@ -880,6 +896,22 @@
         "nm_energy_window_names",
         "nm_detector_start_angles_degrees",
         "nm_frame_dimension_tuples",
+        "enhanced_pet_image_type",
+        "enhanced_pet_frame_type",
+        "enhanced_pet_view_code",
+        "enhanced_pet_view_modifier_item_count",
+        "enhanced_pet_slice_progression_direction_present",
+        "enhanced_pet_stack_ids",
+        "enhanced_pet_in_stack_position_numbers",
+        "enhanced_pet_dimension_index_values",
+        "enhanced_pet_temporal_position_indices",
+        "enhanced_pet_image_positions_patient_mm",
+        "enhanced_pet_stored_values_by_frame",
+        "enhanced_pet_activity_values_bqml_by_frame",
+        "enhanced_pet_rwvm_intercept",
+        "enhanced_pet_rwvm_slope",
+        "enhanced_pet_rwvm_measurement_units",
+        "enhanced_pet_corrections",
         "pet_units",
         "pet_counts_source",
         "pet_series_type",
@@ -1517,6 +1549,27 @@
         "nm_frame_dimension_tuples": {
           "type": ["string", "null"]
         },
+        "enhanced_pet_image_type": { "type": ["string", "null"] },
+        "enhanced_pet_frame_type": { "type": ["string", "null"] },
+        "enhanced_pet_view_code": { "type": ["string", "null"] },
+        "enhanced_pet_view_modifier_item_count": {
+          "type": ["integer", "null"],
+          "minimum": 0
+        },
+        "enhanced_pet_slice_progression_direction_present": {
+          "type": ["boolean", "null"]
+        },
+        "enhanced_pet_stack_ids": { "type": ["string", "null"] },
+        "enhanced_pet_in_stack_position_numbers": { "type": ["string", "null"] },
+        "enhanced_pet_dimension_index_values": { "type": ["string", "null"] },
+        "enhanced_pet_temporal_position_indices": { "type": ["string", "null"] },
+        "enhanced_pet_image_positions_patient_mm": { "type": ["string", "null"] },
+        "enhanced_pet_stored_values_by_frame": { "type": ["string", "null"] },
+        "enhanced_pet_activity_values_bqml_by_frame": { "type": ["string", "null"] },
+        "enhanced_pet_rwvm_intercept": { "type": ["number", "null"] },
+        "enhanced_pet_rwvm_slope": { "type": ["number", "null"] },
+        "enhanced_pet_rwvm_measurement_units": { "type": ["string", "null"] },
+        "enhanced_pet_corrections": { "type": ["string", "null"] },
         "pet_units": {
           "type": ["string", "null"]
         },

@@ -93,7 +93,8 @@ Promotion requires all of the following with no pre-authorized findings:
 2. locked PixelMed 20260608 `DicomSRValidator -checktemplateid` recognizes and
    validates TID 1500, TID 1501, TID 300, relationships, and context groups;
 3. locked DCMTK `dcmdump` completes as an independent parser;
-4. locked `dcentvfy -f` is silent over the CT and SR reference closure;
+4. locked `dcentvfy -f` resolves the CT and SR reference closure, with every
+   finding retained for review rather than silently allowlisted;
 5. Rust independently validates the exact tree, codes, numeric value, geometry,
    Frame of Reference, fiducial, source frames, evidence, flags, and no pixels;
 6. strict conformance requires lock-matched PixelMed evidence for this case.
@@ -104,9 +105,15 @@ POLYLINE point cardinality. No new allowlist entry is permitted.
 
 ## Project Action
 
-- Keep the registry row planned only while the recipe is unimplemented.
+- Registry status: implemented after the complete vertical gate passed.
 - The backend protocol and independent IOD/template validator are already
   locked, so their obsolete blockers must not remain attached to this row.
 - Should become KB patch: yes; expose PS3.16 template-row queries.
 - Do not commit generated DICOM files, validator output, or official standards
   artifacts.
+
+The isolated post-implementation `dcentvfy` run found no missing reference but
+reported its empty-AccessionNumber Study-versus-Series information-entity
+classification warning. That diagnostic remains visible and is not added to
+the accepted-findings allowlist. Primary `dciodvfy`, independent `dcmdump`, and
+mandatory PixelMed template/IOD validation remain clean.

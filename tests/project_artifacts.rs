@@ -438,6 +438,14 @@ fn phase3_status_records_tid1500_vertical_gate() {
         "PixelMed 20260608",
         "no findings",
         "derived/sr/comprehensive3d_scoord3d",
+        "TID 1501",
+        "2.5 mm",
+        "90 files",
+        "b13ec046baf600f1b47a918b80dc450b86e1f6eb7d79a7cbe274b48935c86379",
+        "2601144c7df81cc9b5999b67c707ed747b66e2b76e35c2e55e76216ed70f95d1",
+        "68bc95709add383d0f6cb06c2607e29046c22b83c56354bf6a6897abc2d87f32",
+        "195 unresolved older failures",
+        "Spatial Registration",
     ] {
         assert!(
             status.contains(required),

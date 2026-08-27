@@ -62,8 +62,54 @@ visible and were not allowlisted or weakened for this slice. The TID 1500 case
 itself has completed clean primary IOD, independent parser, and mandatory
 PixelMed template-validation results.
 
+## Comprehensive 3D SCOORD3D
+
+`derived/sr/comprehensive3d_scoord3d` is an implemented `extended`
+Comprehensive 3D SR case derived from frames 1 and 2 of
+`enhanced/ct/multiframe_shared_perframe_explicit_le`. A DCMR TID 1500 root
+contains one TID 1501 Measurement Group with a `2.5 mm` Distance NUM. Its
+single `INFERRED FROM` SCOORD3D POLYLINE has patient-space endpoints
+`[0,0,0]` and `[0,0,2.5]`, the source Frame of Reference UID, and a
+deterministic Fiducial UID. A direct Source of Measurement IMAGE selects CT
+frames 1 and 2, and the evidence hierarchy contains exactly that CT instance.
+
+Generation uses highdicom/pydicom backend 0.4.0 through protocol `0.1.0` and
+the uv dependency lock SHA-256
+`8623ce132cf886ce43bc7f9022df126ad754a02fd8b9b91c1e0d5355308e7e35`.
+Rust independently reopens the Enhanced CT and checks its SOP, study, series,
+Frame of Reference, two-frame count, `0.75 x 0.75` mm Pixel Spacing, `2.5` mm
+slice thickness and spacing, axial orientation, and the two patient-space
+positions before invoking Python.
+
+Two seed-7 `extended` generations each produced 90 files and passed strict
+validation with zero failures. Their 4,696-byte SCOORD3D reports were
+byte-identical with SHA-256
+`b13ec046baf600f1b47a918b80dc450b86e1f6eb7d79a7cbe274b48935c86379`.
+The strict recursive validator checks the ordered TID 1500/TID 1501 tree,
+tracking and observer context, NUM DS and FD values, SCOORD3D relationship,
+code, FL coordinates, Frame of Reference and Fiducial UIDs, source frames,
+evidence closure, and absence of all pixel payload elements. A hash-repaired
+Graphic Data mutation is rejected.
+
+Integrated conformance run
+`2601144c7df81cc9b5999b67c707ed747b66e2b76e35c2e55e76216ed70f95d1`
+recorded stable instance key
+`68bc95709add383d0f6cb06c2607e29046c22b83c56354bf6a6897abc2d87f32`.
+Locked `dciodvfy -new`, DCMTK `dcmdump`, and PixelMed 20260608
+`DicomSRValidator -checktemplateid` all completed with exit code 0 and no
+findings; PixelMed identified Comprehensive3DSR, TID 1500, and completed root
+template and IOD validation.
+
+An isolated CT/SR `dcentvfy` run resolved the reference closure but emitted its
+existing empty-AccessionNumber information-entity classification warning. The
+warning is not allowlisted or hidden. Full-corpus conformance verification
+reported 195 unresolved older failures, including unavailable independent
+payload tools and existing IOD/entity findings; none was reclassified for this
+slice.
+
 ## Next dependency
 
-The next Phase 3 slice is `derived/sr/comprehensive3d_scoord3d`. It remains
-planned until its SCOORD3D geometry contract, generator path, strict validator,
-independent PixelMed evidence, reports, tests, and documentation are complete.
+The next Phase 3 dependency milestone is Spatial Registration followed by
+Deformable Spatial Registration. Both remain planned until their reference and
+transformation semantics, generators, manifests, strict validators,
+independent evidence, reports, tests, and documentation are complete.

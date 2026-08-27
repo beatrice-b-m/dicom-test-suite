@@ -99,6 +99,65 @@ fn coverage_baseline_records_the_phase_zero_comparison_point() {
 }
 
 #[test]
+fn u32_iod_validator_is_case_scoped_and_fully_locked() {
+    let validators = read_json("conformance/validators.json");
+    let adapter = validators["adapters"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|adapter| adapter["id"] == "pydicom-dicom-validator-u32")
+        .expect("u32 IOD validator adapter must be configured");
+    assert_eq!(adapter["role"], "primary_iod_validator");
+    assert_eq!(adapter["required"], false);
+    assert_eq!(adapter["executable_env"], "DTS_DICOM_VALIDATOR_PYTHON");
+    assert_eq!(
+        adapter["supported_case_ids"],
+        serde_json::json!(["classic/sc/mono2_u32_explicit_le"])
+    );
+    let artifacts = adapter["artifacts"].as_array().unwrap();
+    assert_eq!(artifacts.len(), 14);
+    assert_eq!(
+        artifacts
+            .iter()
+            .filter(|artifact| artifact.get("root_env").is_some())
+            .count(),
+        8
+    );
+    for artifact in &artifacts[..6] {
+        let path = artifact["path"].as_str().unwrap();
+        assert!(
+            fs::metadata(path).is_ok(),
+            "committed validator input must exist: {path}"
+        );
+    }
+
+    let lock = read_json("conformance/validator-lock.json");
+    let tool = lock["tools"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|tool| tool["adapter_id"] == "pydicom-dicom-validator-u32")
+        .expect("u32 IOD validator must have an accepted lock entry");
+    assert_eq!(
+        tool["adapter_sha256"],
+        "26008ba55bf98d35165b570442e73f388d453f43355d0f508538a4924ec161c1"
+    );
+    assert_eq!(tool["platforms"], serde_json::json!(["arm64-macos"]));
+    assert!(
+        tool["package_identity"]
+            .as_str()
+            .unwrap()
+            .contains("uv.lock sha256")
+    );
+    assert!(
+        tool["definition_version"]
+            .as_str()
+            .unwrap()
+            .contains("DICOM 2026b")
+    );
+}
+
+#[test]
 fn readme_documents_supported_commands_and_codec_features() {
     let readme = fs::read_to_string("README.md").expect("README must be readable");
 

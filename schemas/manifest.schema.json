@@ -355,6 +355,9 @@
         "expected_waveform": {
           "$ref": "#/$defs/expected_waveform"
         },
+        "expected_rt_plan": {
+          "$ref": "#/$defs/expected_rt_plan"
+        },
         "expected_geometry": {
           "anyOf": [
             { "$ref": "#/$defs/expected_geometry" },
@@ -777,6 +780,34 @@
             "else": {
               "not": { "required": ["expected_waveform"] }
             }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "case_id": { "const": "non-image/rt/plan_linked" }
+            },
+            "required": ["case_id"]
+          },
+          "then": {
+            "required": ["expected_rt_plan"],
+            "properties": {
+              "dicom": {
+                "properties": {
+                  "sop_class_uid": { "const": "1.2.840.10008.5.1.4.1.1.481.5" },
+                  "sop_class_name": { "const": "RT Plan Storage" },
+                  "iod_name": { "const": "RT Plan" },
+                  "modality": { "const": "RTPLAN" },
+                  "transfer_syntax_uid": { "const": "1.2.840.10008.1.2.1" }
+                }
+              },
+              "image": { "type": "null" },
+              "pixel_data": { "type": "null" },
+              "references": { "minItems": 2, "maxItems": 2 }
+            }
+          },
+          "else": {
+            "not": { "required": ["expected_rt_plan"] }
           }
         },
         {
@@ -2692,6 +2723,221 @@
         { "$ref": "#/$defs/expected_twelve_lead_ecg_waveform" },
         { "$ref": "#/$defs/expected_general_ecg_waveform" }
       ]
+    },
+    "rt_plan_reference_identity": {
+      "type": "object",
+      "required": ["ordinal", "relationship", "source_case_id", "source_path", "source_sha256", "study_instance_uid", "series_instance_uid", "sop_class_uid", "sop_instance_uid", "frame_of_reference_uid"],
+      "properties": {
+        "ordinal": { "type": "integer" },
+        "relationship": { "type": "string" },
+        "source_case_id": { "type": "string" },
+        "source_path": { "type": "string" },
+        "source_sha256": { "$ref": "#/$defs/sha256" },
+        "study_instance_uid": { "type": "string", "pattern": "^[0-9]+(\\.[0-9]+)+$" },
+        "series_instance_uid": { "type": "string", "pattern": "^[0-9]+(\\.[0-9]+)+$" },
+        "sop_class_uid": { "type": "string" },
+        "sop_instance_uid": { "type": "string", "pattern": "^[0-9]+(\\.[0-9]+)+$" },
+        "frame_of_reference_uid": { "type": "string", "pattern": "^[0-9]+(\\.[0-9]+)+$" }
+      },
+      "additionalProperties": false
+    },
+    "rt_plan_control_point_geometry": {
+      "type": "object",
+      "required": ["nominal_beam_energy_mev", "jaw_positions_mm", "gantry_angle_degrees", "gantry_rotation_direction", "beam_limiting_device_angle_degrees", "beam_limiting_device_rotation_direction", "patient_support_angle_degrees", "patient_support_rotation_direction", "table_top_vertical_position_mm", "table_top_longitudinal_position_mm", "table_top_lateral_position_mm", "table_top_pitch_angle_degrees", "table_top_pitch_rotation_direction", "table_top_roll_angle_degrees", "table_top_roll_rotation_direction", "isocenter_position_mm"],
+      "properties": {
+        "nominal_beam_energy_mev": { "const": 6 },
+        "jaw_positions_mm": { "const": [[-50, 50], [-50, 50]] },
+        "gantry_angle_degrees": { "const": 0 },
+        "gantry_rotation_direction": { "const": "NONE" },
+        "beam_limiting_device_angle_degrees": { "const": 0 },
+        "beam_limiting_device_rotation_direction": { "const": "NONE" },
+        "patient_support_angle_degrees": { "const": 0 },
+        "patient_support_rotation_direction": { "const": "NONE" },
+        "table_top_vertical_position_mm": { "const": 0 },
+        "table_top_longitudinal_position_mm": { "const": 0 },
+        "table_top_lateral_position_mm": { "const": 0 },
+        "table_top_pitch_angle_degrees": { "const": 0 },
+        "table_top_pitch_rotation_direction": { "const": "NONE" },
+        "table_top_roll_angle_degrees": { "const": 0 },
+        "table_top_roll_rotation_direction": { "const": "NONE" },
+        "isocenter_position_mm": { "const": [0, 0, 0] }
+      },
+      "additionalProperties": false
+    },
+    "expected_rt_plan": {
+      "type": "object",
+      "required": ["iod_kind", "sop_class_uid", "iod_name", "modality", "transfer_syntax_uid", "sop_instance_uid", "study_instance_uid", "series_instance_uid", "frame_of_reference_uid", "references", "plan", "fraction_groups", "beams", "absent_content"],
+      "properties": {
+        "iod_kind": { "const": "rt_plan" },
+        "sop_class_uid": { "const": "1.2.840.10008.5.1.4.1.1.481.5" },
+        "iod_name": { "const": "RT Plan" },
+        "modality": { "const": "RTPLAN" },
+        "transfer_syntax_uid": { "const": "1.2.840.10008.1.2.1" },
+        "sop_instance_uid": { "type": "string", "pattern": "^[0-9]+(\\.[0-9]+)+$" },
+        "study_instance_uid": { "type": "string", "pattern": "^[0-9]+(\\.[0-9]+)+$" },
+        "series_instance_uid": { "type": "string", "pattern": "^[0-9]+(\\.[0-9]+)+$" },
+        "frame_of_reference_uid": { "type": "string", "pattern": "^[0-9]+(\\.[0-9]+)+$" },
+        "references": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "$ref": "#/$defs/rt_plan_reference_identity",
+              "properties": {
+                "ordinal": { "const": 1 },
+                "relationship": { "const": "referenced_structure_set" },
+                "source_case_id": { "const": "non-image/rt/structure_set_single_roi_explicit_le" },
+                "source_path": { "const": "non-image/rt/structure_set_single_roi_explicit_le/instance.dcm" },
+                "sop_class_uid": { "const": "1.2.840.10008.5.1.4.1.1.481.3" }
+              }
+            },
+            {
+              "$ref": "#/$defs/rt_plan_reference_identity",
+              "properties": {
+                "ordinal": { "const": 2 },
+                "relationship": { "const": "referenced_dose" },
+                "source_case_id": { "const": "non-image/rt/dose_grid_u16_explicit_le" },
+                "source_path": { "const": "non-image/rt/dose_grid_u16_explicit_le/instance.dcm" },
+                "sop_class_uid": { "const": "1.2.840.10008.5.1.4.1.1.481.2" }
+              }
+            }
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "plan": {
+          "type": "object",
+          "required": ["label", "date", "time", "geometry"],
+          "properties": {
+            "label": { "const": "DTS_PLAN" },
+            "date": { "const": "20260101" },
+            "time": { "const": "000000" },
+            "geometry": { "const": "PATIENT" }
+          },
+          "additionalProperties": false
+        },
+        "fraction_groups": {
+          "type": "array",
+          "prefixItems": [{
+            "type": "object",
+            "required": ["ordinal", "fraction_group_number", "number_of_fractions_planned", "number_of_beams", "number_of_brachy_application_setups", "referenced_beams"],
+            "properties": {
+              "ordinal": { "const": 1 },
+              "fraction_group_number": { "const": 1 },
+              "number_of_fractions_planned": { "const": 1 },
+              "number_of_beams": { "const": 1 },
+              "number_of_brachy_application_setups": { "const": 0 },
+              "referenced_beams": {
+                "type": "array",
+                "prefixItems": [{
+                  "type": "object",
+                  "required": ["ordinal", "referenced_beam_number"],
+                  "properties": { "ordinal": { "const": 1 }, "referenced_beam_number": { "const": 1 } },
+                  "additionalProperties": false
+                }],
+                "items": false,
+                "minItems": 1,
+                "maxItems": 1
+              }
+            },
+            "additionalProperties": false
+          }],
+          "items": false,
+          "minItems": 1,
+          "maxItems": 1
+        },
+        "beams": {
+          "type": "array",
+          "prefixItems": [{
+            "type": "object",
+            "required": ["ordinal", "treatment_machine_name", "primary_dosimeter_unit", "source_axis_distance_mm", "beam_number", "beam_name", "beam_type", "radiation_type", "treatment_delivery_type", "accessories", "beam_limiting_devices", "number_of_control_points", "final_cumulative_meterset_weight", "control_points"],
+            "properties": {
+              "ordinal": { "const": 1 },
+              "treatment_machine_name": { "const": "DTS_LINAC" },
+              "primary_dosimeter_unit": { "const": "MU" },
+              "source_axis_distance_mm": { "const": 1000 },
+              "beam_number": { "const": 1 },
+              "beam_name": { "const": "DTS_STATIC_AP" },
+              "beam_type": { "const": "STATIC" },
+              "radiation_type": { "const": "PHOTON" },
+              "treatment_delivery_type": { "const": "TREATMENT" },
+              "accessories": {
+                "type": "object",
+                "required": ["number_of_wedges", "wedge_sequence_absent", "number_of_compensators", "compensator_sequence_absent", "number_of_boli", "bolus_sequence_absent", "number_of_blocks", "block_sequence_absent"],
+                "properties": {
+                  "number_of_wedges": { "const": 0 }, "wedge_sequence_absent": { "const": true },
+                  "number_of_compensators": { "const": 0 }, "compensator_sequence_absent": { "const": true },
+                  "number_of_boli": { "const": 0 }, "bolus_sequence_absent": { "const": true },
+                  "number_of_blocks": { "const": 0 }, "block_sequence_absent": { "const": true }
+                },
+                "additionalProperties": false
+              },
+              "beam_limiting_devices": {
+                "type": "array",
+                "prefixItems": [
+                  { "type": "object", "required": ["ordinal", "device_type", "number_of_leaf_jaw_pairs", "source_to_device_distance_mm"], "properties": { "ordinal": { "const": 1 }, "device_type": { "const": "X" }, "number_of_leaf_jaw_pairs": { "const": 1 }, "source_to_device_distance_mm": { "const": 500 } }, "additionalProperties": false },
+                  { "type": "object", "required": ["ordinal", "device_type", "number_of_leaf_jaw_pairs", "source_to_device_distance_mm"], "properties": { "ordinal": { "const": 2 }, "device_type": { "const": "Y" }, "number_of_leaf_jaw_pairs": { "const": 1 }, "source_to_device_distance_mm": { "const": 500 } }, "additionalProperties": false }
+                ],
+                "items": false,
+                "minItems": 2,
+                "maxItems": 2
+              },
+              "number_of_control_points": { "const": 2 },
+              "final_cumulative_meterset_weight": { "const": 1 },
+              "control_points": {
+                "type": "array",
+                "prefixItems": [
+                  {
+                    "type": "object",
+                    "required": ["ordinal", "control_point_index", "cumulative_meterset_weight", "geometry", "inherits_geometry_from_control_point"],
+                    "properties": {
+                      "ordinal": { "const": 1 }, "control_point_index": { "const": 0 }, "cumulative_meterset_weight": { "const": 0 },
+                      "geometry": { "$ref": "#/$defs/rt_plan_control_point_geometry" },
+                      "inherits_geometry_from_control_point": { "type": "null" }
+                    },
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "required": ["ordinal", "control_point_index", "cumulative_meterset_weight", "geometry", "inherits_geometry_from_control_point"],
+                    "properties": {
+                      "ordinal": { "const": 2 }, "control_point_index": { "const": 1 }, "cumulative_meterset_weight": { "const": 1 },
+                      "geometry": { "type": "null" },
+                      "inherits_geometry_from_control_point": { "const": 0 }
+                    },
+                    "additionalProperties": false
+                  }
+                ],
+                "items": false,
+                "minItems": 2,
+                "maxItems": 2
+              }
+            },
+            "additionalProperties": false
+          }],
+          "items": false,
+          "minItems": 1,
+          "maxItems": 1
+        },
+        "absent_content": {
+          "type": "object",
+          "required": ["referenced_rt_plan_sequence", "rt_prescription_module", "rt_tolerance_tables_module", "rt_patient_setup_module", "rt_brachy_application_setups_module", "approval_module", "clinical_trial_module", "common_instance_reference_module", "image", "pixel_data"],
+          "properties": {
+            "referenced_rt_plan_sequence": { "const": true },
+            "rt_prescription_module": { "const": true },
+            "rt_tolerance_tables_module": { "const": true },
+            "rt_patient_setup_module": { "const": true },
+            "rt_brachy_application_setups_module": { "const": true },
+            "approval_module": { "const": true },
+            "clinical_trial_module": { "const": true },
+            "common_instance_reference_module": { "const": true },
+            "image": { "const": true },
+            "pixel_data": { "const": true }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
     },
     "expected_color_softcopy_presentation_state": {
       "type": "object",

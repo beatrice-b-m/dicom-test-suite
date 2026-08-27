@@ -45,6 +45,7 @@ pub mod generation_backends;
 mod generator;
 mod geometry;
 mod metadata;
+pub(crate) mod rt_manifest;
 pub mod uid;
 mod validation;
 pub(crate) mod waveform_manifest;

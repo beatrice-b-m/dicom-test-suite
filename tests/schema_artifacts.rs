@@ -4053,6 +4053,140 @@ fn manifest_schema_types_exact_general_ecg_waveform_expectations() {
     assert!(!validator.is_valid(&reversed_group_hashes));
 }
 
+#[test]
+fn manifest_schema_types_exact_linked_rt_plan_expectations() {
+    let schema = read_json("schemas/manifest.schema.json");
+    let expectation_schema = serde_json::json!({
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$ref": "#/$defs/expected_rt_plan",
+        "$defs": schema["$defs"].clone(),
+    });
+    let validator = jsonschema::validator_for(&expectation_schema)
+        .expect("linked RT Plan expectation schema should compile");
+    let expectation = linked_rt_plan_expectation();
+    assert!(validator.is_valid(&expectation));
+
+    for (pointer, value) in [
+        ("/references/0/ordinal", serde_json::json!(2)),
+        (
+            "/references/0/source_path",
+            serde_json::json!("non-image/rt/dose_grid_u16_explicit_le/instance.dcm"),
+        ),
+        ("/references/1/source_sha256", serde_json::json!("bad-hash")),
+        ("/plan/geometry", serde_json::json!("TREATMENT_DEVICE")),
+        ("/fraction_groups/0/number_of_beams", serde_json::json!(0)),
+        (
+            "/fraction_groups/0/referenced_beams/0/referenced_beam_number",
+            serde_json::json!(2),
+        ),
+        ("/beams/0/beam_type", serde_json::json!("DYNAMIC")),
+        (
+            "/beams/0/accessories/number_of_wedges",
+            serde_json::json!(1),
+        ),
+        (
+            "/beams/0/accessories/wedge_sequence_absent",
+            serde_json::json!(false),
+        ),
+        (
+            "/beams/0/beam_limiting_devices/0/device_type",
+            serde_json::json!("Y"),
+        ),
+        (
+            "/beams/0/control_points/0/geometry/jaw_positions_mm/0/0",
+            serde_json::json!(-49),
+        ),
+        (
+            "/beams/0/control_points/0/cumulative_meterset_weight",
+            serde_json::json!(1),
+        ),
+        (
+            "/beams/0/control_points/1/control_point_index",
+            serde_json::json!(0),
+        ),
+        ("/beams/0/control_points/1/geometry", serde_json::json!({})),
+        (
+            "/beams/0/final_cumulative_meterset_weight",
+            serde_json::json!(0),
+        ),
+        (
+            "/absent_content/common_instance_reference_module",
+            serde_json::json!(false),
+        ),
+    ] {
+        let mut mutated = expectation.clone();
+        *mutated.pointer_mut(pointer).expect("mutation pointer") = value;
+        assert!(!validator.is_valid(&mutated), "must reject {pointer}");
+    }
+
+    for pointer in [
+        "/references",
+        "/fraction_groups",
+        "/fraction_groups/0/referenced_beams",
+        "/beams",
+        "/beams/0/beam_limiting_devices",
+        "/beams/0/control_points",
+    ] {
+        let mut missing = expectation.clone();
+        missing
+            .pointer_mut(pointer)
+            .expect("array pointer")
+            .as_array_mut()
+            .expect("array")
+            .pop();
+        assert!(
+            !validator.is_valid(&missing),
+            "must reject cardinality {pointer}"
+        );
+    }
+
+    for pointer in [
+        "/references",
+        "/beams/0/beam_limiting_devices",
+        "/beams/0/control_points",
+    ] {
+        let mut reordered = expectation.clone();
+        reordered
+            .pointer_mut(pointer)
+            .expect("array pointer")
+            .as_array_mut()
+            .expect("array")
+            .swap(0, 1);
+        assert!(
+            !validator.is_valid(&reordered),
+            "must reject order {pointer}"
+        );
+    }
+}
+
+#[test]
+fn manifest_schema_scopes_linked_rt_plan_expectation_to_its_case() {
+    let schema = read_json("schemas/manifest.schema.json");
+    let rules = schema
+        .pointer("/$defs/file/allOf")
+        .and_then(Value::as_array)
+        .expect("file conditions");
+    let rule = rules
+        .iter()
+        .find(|rule| {
+            rule.pointer("/if/properties/case_id/const")
+                == Some(&serde_json::json!("non-image/rt/plan_linked"))
+        })
+        .expect("linked RT Plan rule");
+    assert_eq!(
+        rule.pointer("/then/required"),
+        Some(&serde_json::json!(["expected_rt_plan"]))
+    );
+    assert_eq!(
+        rule.pointer("/then/properties/references/minItems"),
+        Some(&serde_json::json!(2))
+    );
+    assert_eq!(
+        rule.pointer("/else/not/required"),
+        Some(&serde_json::json!(["expected_rt_plan"]))
+    );
+}
+
 fn twelve_lead_ecg_waveform_expectation() -> Value {
     let leads = [
         (1, "I", "2:1", "Lead I"),
@@ -4260,6 +4394,123 @@ fn general_ecg_waveform_expectation() -> Value {
         "aggregate_payload_sha256": "c450f55360d6c07394600e4c0f71f951565cd0e1699edfbbb52f660221c6abea"
     });
     expectation
+}
+
+fn linked_rt_plan_expectation() -> Value {
+    serde_json::json!({
+        "iod_kind": "rt_plan",
+        "sop_class_uid": "1.2.840.10008.5.1.4.1.1.481.5",
+        "iod_name": "RT Plan",
+        "modality": "RTPLAN",
+        "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+        "sop_instance_uid": "2.25.101",
+        "study_instance_uid": "2.25.102",
+        "series_instance_uid": "2.25.103",
+        "frame_of_reference_uid": "2.25.104",
+        "references": [
+            {
+                "ordinal": 1,
+                "relationship": "referenced_structure_set",
+                "source_case_id": "non-image/rt/structure_set_single_roi_explicit_le",
+                "source_path": "non-image/rt/structure_set_single_roi_explicit_le/instance.dcm",
+                "source_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "study_instance_uid": "2.25.102",
+                "series_instance_uid": "2.25.105",
+                "sop_class_uid": "1.2.840.10008.5.1.4.1.1.481.3",
+                "sop_instance_uid": "2.25.106",
+                "frame_of_reference_uid": "2.25.104"
+            },
+            {
+                "ordinal": 2,
+                "relationship": "referenced_dose",
+                "source_case_id": "non-image/rt/dose_grid_u16_explicit_le",
+                "source_path": "non-image/rt/dose_grid_u16_explicit_le/instance.dcm",
+                "source_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "study_instance_uid": "2.25.102",
+                "series_instance_uid": "2.25.107",
+                "sop_class_uid": "1.2.840.10008.5.1.4.1.1.481.2",
+                "sop_instance_uid": "2.25.108",
+                "frame_of_reference_uid": "2.25.104"
+            }
+        ],
+        "plan": { "label": "DTS_PLAN", "date": "20260101", "time": "000000", "geometry": "PATIENT" },
+        "fraction_groups": [{
+            "ordinal": 1,
+            "fraction_group_number": 1,
+            "number_of_fractions_planned": 1,
+            "number_of_beams": 1,
+            "number_of_brachy_application_setups": 0,
+            "referenced_beams": [{ "ordinal": 1, "referenced_beam_number": 1 }]
+        }],
+        "beams": [{
+            "ordinal": 1,
+            "treatment_machine_name": "DTS_LINAC",
+            "primary_dosimeter_unit": "MU",
+            "source_axis_distance_mm": 1000,
+            "beam_number": 1,
+            "beam_name": "DTS_STATIC_AP",
+            "beam_type": "STATIC",
+            "radiation_type": "PHOTON",
+            "treatment_delivery_type": "TREATMENT",
+            "accessories": {
+                "number_of_wedges": 0, "wedge_sequence_absent": true,
+                "number_of_compensators": 0, "compensator_sequence_absent": true,
+                "number_of_boli": 0, "bolus_sequence_absent": true,
+                "number_of_blocks": 0, "block_sequence_absent": true
+            },
+            "beam_limiting_devices": [
+                { "ordinal": 1, "device_type": "X", "number_of_leaf_jaw_pairs": 1, "source_to_device_distance_mm": 500 },
+                { "ordinal": 2, "device_type": "Y", "number_of_leaf_jaw_pairs": 1, "source_to_device_distance_mm": 500 }
+            ],
+            "number_of_control_points": 2,
+            "final_cumulative_meterset_weight": 1,
+            "control_points": [
+                {
+                    "ordinal": 1,
+                    "control_point_index": 0,
+                    "cumulative_meterset_weight": 0,
+                    "geometry": {
+                        "nominal_beam_energy_mev": 6,
+                        "jaw_positions_mm": [[-50, 50], [-50, 50]],
+                        "gantry_angle_degrees": 0,
+                        "gantry_rotation_direction": "NONE",
+                        "beam_limiting_device_angle_degrees": 0,
+                        "beam_limiting_device_rotation_direction": "NONE",
+                        "patient_support_angle_degrees": 0,
+                        "patient_support_rotation_direction": "NONE",
+                        "table_top_vertical_position_mm": 0,
+                        "table_top_longitudinal_position_mm": 0,
+                        "table_top_lateral_position_mm": 0,
+                        "table_top_pitch_angle_degrees": 0,
+                        "table_top_pitch_rotation_direction": "NONE",
+                        "table_top_roll_angle_degrees": 0,
+                        "table_top_roll_rotation_direction": "NONE",
+                        "isocenter_position_mm": [0, 0, 0]
+                    },
+                    "inherits_geometry_from_control_point": null
+                },
+                {
+                    "ordinal": 2,
+                    "control_point_index": 1,
+                    "cumulative_meterset_weight": 1,
+                    "geometry": null,
+                    "inherits_geometry_from_control_point": 0
+                }
+            ]
+        }],
+        "absent_content": {
+            "referenced_rt_plan_sequence": true,
+            "rt_prescription_module": true,
+            "rt_tolerance_tables_module": true,
+            "rt_patient_setup_module": true,
+            "rt_brachy_application_setups_module": true,
+            "approval_module": true,
+            "clinical_trial_module": true,
+            "common_instance_reference_module": true,
+            "image": true,
+            "pixel_data": true
+        }
+    })
 }
 
 fn read_json(path: impl AsRef<Path>) -> Value {

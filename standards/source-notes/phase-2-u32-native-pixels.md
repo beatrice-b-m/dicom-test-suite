@@ -60,14 +60,42 @@ words and span both sides of the signed 32-bit boundary.
 
 ## Project Action
 
-- Registry status: planned until deterministic generation, typed manifest and
-  report contracts, internal and manifest-driven validation, two-run byte
-  identity, locked independent IOD validation, DCMTK raw extraction, and the
-  frozen offline `uv`/pydicom unsigned decode gates all pass.
-- Registry reason or linked issue: retain `recipe_unimplemented`; do not
-  promote based only on generic Image Pixel validation.
+- Registry status: planned. Deterministic generation, typed manifest semantics,
+  exact internal validation, two-run byte identity, DCMTK extraction, and the
+  frozen offline `uv`/pydicom unsigned decode gate pass. Report and CLI coverage
+  remain intentionally incomplete because promotion stopped at the mandatory
+  independent IOD-validation checkpoint.
+- Registry reason or linked issue: `independent_iod_validator_unsupported`.
+  The locked dicom3tools validators abort on an internal assertion for this
+  standards-permitted pixel format, so the case must not be promoted merely
+  because structural parsers and pixel decoders accept it.
 - Should become KB patch: yes; the cross-part IOD-permission and native OW
   encoding decision should become a repeatable evidence query.
 - Expected cleanup after KB coverage exists: replace the local cross-part
   fallback with linked KB evidence while retaining the exact case recipe and
   promotion record.
+
+## Preliminary Implementation Evidence
+
+- Two clean extended generations with seed 1 each emitted 85 DICOM files and
+  were recursively byte-identical. Internal strict validation checked all 85
+  manifest entries with zero failures.
+- The candidate instance SHA-256 is
+  `bec7dfedcb7cec08426f38f46f6d5deead6294c2a4a6e4464ba972bb97592630`.
+  Its native Pixel Data SHA-256 is
+  `56bca1a85c2838126b1d1a5fbedfe731839496d972df2c6ab33e1a1183392b41`.
+- DCMTK 3.7.0 `dcmdump` independently reports Rows 2, Columns 2, Bits
+  Allocated 32, Bits Stored 32, High Bit 31, Pixel Representation 0, Pixel
+  Data VR OW, and the exact 16-byte word sequence.
+- The repository's frozen offline `uv` environment ran pydicom 3.0.2 with
+  NumPy 2.5.2. It independently decoded a `(2, 2)` `uint32` array containing
+  `[[0, 65535], [2147483648, 4294967295]]` and reproduced the exact Pixel Data
+  hash above.
+- Locked `dciodvfy` SHA-256:
+  `1aeb75d6ccd3f193e3b322b6da77742cdce2e0604868eaf2a2669c786cbc27e5`.
+  Locked `dcentvfy` SHA-256:
+  `1b96e598f28f66deee1bfc1cb52ff460c316ab6b0625dae575d701f20c836e2c`.
+  Both abort while evaluating the candidate with the dicom3tools assertion
+  `bitsallocated <= bytesinword*8u` in `Proposal14EncodingRules`; neither
+  produces an IOD conformance result. This is an unavailable required gate,
+  not an accepted warning and not grounds to reduce the planned coverage.

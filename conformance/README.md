@@ -33,6 +33,7 @@ dynamically linked `liblcms2.2` implementation.
 | U32 and non-square SC per-instance IOD | `pydicom-dicom-validator-u32` | `python -m dts_dicom_validator_adapter` | Required for its declared cases only | `uv` locks CPython 3.12.12, `dicom-validator` 0.8.2, pydicom 3.0.2, and transitive packages. `DTS_DICOM_VALIDATOR_PYTHON` selects the prepared interpreter and `DTS_DICOM_VALIDATOR_STANDARD_HOME` selects the external hash-locked 2026b cache. It is not a generation-profile runtime. |
 | Registration second IOD opinion | `pydicom-dicom-validator-registration` | `python -m dts_dicom_validator_adapter` | Required for its declared cases only | Runs in addition to, never instead of, locked `dciodvfy` for Spatial Registration and Deformable Spatial Registration. The same `uv` runtime and exact 2026b definitions are independently fingerprinted under the case-scoped secondary adapter. |
 | Presentation-state second IOD opinion | `pydicom-dicom-validator-presentation-state` | `python -m dts_dicom_validator_adapter` | Required for its declared cases only | Runs additively for Color Softcopy, Advanced Blending, and Blending Softcopy Presentation States. It reuses the independently implemented, `uv`-locked runtime and hash-locked 2026b definitions under a separate case-scoped adapter identity. |
+| Linked RT second IOD opinion | `pydicom-dicom-validator-rt` | `python -m dts_dicom_validator_adapter` | Required for its declared cases only | Runs additively for the linked RT Plan and RT Image. It reuses the unchanged `uv`-locked adapter and exact 2026b definitions under a separate qualification identity; primary IOD validation remains locked `dciodvfy`. |
 | Waveform second IOD and payload opinion | `pydicom-dicom-validator-waveform` | `python -m dts_dicom_validator_adapter` / `--waveform` | Required for its declared cases only | Runs additively for Twelve-lead and General ECG. The normal route validates the 2026b IOD; the waveform route independently extracts each ordered raw OW group with pydicom and decodes signed samples with Python `struct`, without NumPy or generator code. |
 | U1 SC independent pixels | `dcmtk-dcm2img-u1` | `dcm2img +Fa +Fn -M -W +Pid -O +opn 1` | Required when collecting evidence for its declared case | DCMTK 3.7.0 emits one PGM per frame. The collector requires P2, dimensions 3 by 3, maximum value one, exact samples, and exact frame hashes; `dcmdump +W` separately binds the packed Pixel Data bytes. Primary IOD validation remains `dciodvfy`. |
 | ICC profile processing | `littlecms-transicc-icc` | `transicc -n -i<profile> -o*XYZ -t0` | Required when collecting evidence for its declared case | Set `DTS_LCMS_HOME` to the immutable LittleCMS prefix. Locked DCMTK reconstructs the complete ICC OB value, strict checks enforce the DICOM input-profile header and `SRGB` label, and LittleCMS 2.19 must reproduce four fixed RGB-to-XYZ vectors. Primary IOD validation remains `dciodvfy`. |
@@ -84,6 +85,25 @@ that `dciodvfy` reported for the Blending probe. Strict verification therefore
 requires this additive evidence without replacing `dciodvfy`, project-owned
 presentation semantics, or `dcentvfy` reference closure; no finding is
 allowlisted for this route.
+
+The linked RT secondary adapter is exact-case-only for
+`non-image/rt/plan_linked` and `non-image/rt/image_linked`. Feasibility probes
+using the exact SOP Class UIDs selected the locked 2026b `RT Plan IOD` and
+`RT Image IOD` definitions and produced the corresponding mandatory RT module
+findings rather than an unsupported-SOP result. Those UID-substitution probes
+are not valid-instance qualification. Before promotion, the exact generated
+prototypes and every mutation in the linked RT source note must be run through
+both IOD validators and the results recorded without an allowlist.
+
+The generated 2026b RT Plan definition does not provide a sufficiently
+trustworthy standalone condition for omission of the whole RT Beams Module
+when Number of Beams is one. Strict Rust therefore owns that conditional
+presence, exact fraction/beam/control-point semantics, cardinality, and order.
+The secondary validator also cannot replace `dciodvfy`, isolated `dcentvfy`
+reference closure, or the separate RT Image pixel decoder. Strict verification
+requires the additive RT tool to be available and lock-matched and its result
+to complete with exit code zero and no error findings. No linked RT finding is
+allowlisted.
 
 The waveform secondary adapter is exact-case-only for
 `non-image/waveform/twelve_lead_ecg` and

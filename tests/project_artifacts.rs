@@ -264,6 +264,78 @@ fn presentation_state_secondary_iod_validator_is_additive_and_locked() {
 }
 
 #[test]
+fn linked_rt_secondary_iod_validator_is_additive_and_locked() {
+    let validators = read_json("conformance/validators.json");
+    let adapter = validators["adapters"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|adapter| adapter["id"] == "pydicom-dicom-validator-rt")
+        .expect("linked RT secondary IOD validator must be configured");
+    assert_eq!(adapter["role"], "secondary_iod_validator");
+    assert_eq!(adapter["required"], false);
+    assert_eq!(adapter["executable_env"], "DTS_DICOM_VALIDATOR_PYTHON");
+    assert_eq!(
+        adapter["supported_case_ids"],
+        serde_json::json!(["non-image/rt/plan_linked", "non-image/rt/image_linked"])
+    );
+    assert_eq!(adapter["artifacts"].as_array().unwrap().len(), 14);
+    for capability in ["rt_plan_iod_validation", "rt_image_iod_validation"] {
+        assert!(
+            adapter["capabilities"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|value| value == capability),
+            "linked RT adapter requires {capability}"
+        );
+    }
+
+    let lock = read_json("conformance/validator-lock.json");
+    let tool = lock["tools"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|tool| tool["adapter_id"] == "pydicom-dicom-validator-rt")
+        .expect("linked RT secondary IOD validator must have an accepted lock entry");
+    assert_eq!(tool["role"], "secondary_iod_validator");
+    assert_eq!(
+        tool["version"],
+        "dicom-validator 0.8.2; adapter 0.5.0; CPython 3.12.12"
+    );
+    assert_eq!(
+        tool["adapter_sha256"],
+        "039252ab1aa5ea5d795b559e6e573b0f7baed9c1d7d2d554beb86b1a418f22b8"
+    );
+    let shared = lock["tools"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|tool| tool["adapter_id"] == "pydicom-dicom-validator-waveform")
+        .unwrap();
+    assert_eq!(tool["supporting_artifacts"], shared["supporting_artifacts"]);
+    assert_eq!(tool["package_identity"], shared["package_identity"]);
+
+    let readme = fs::read_to_string("conformance/README.md").unwrap();
+    for required in [
+        "pydicom-dicom-validator-rt",
+        "non-image/rt/plan_linked",
+        "non-image/rt/image_linked",
+        "exact SOP Class UIDs selected the locked 2026b `RT Plan IOD` and\n`RT Image IOD`",
+        "UID-substitution probes\nare not valid-instance qualification",
+        "omission of the whole RT Beams Module",
+        "cannot replace `dciodvfy`, isolated `dcentvfy`\nreference closure",
+        "exit code zero and no error findings",
+        "No linked RT finding is\nallowlisted",
+    ] {
+        assert!(
+            readme.contains(required),
+            "linked RT route requires {required}"
+        );
+    }
+}
+
+#[test]
 fn waveform_secondary_iod_and_payload_validator_is_additive_and_locked() {
     let validators = read_json("conformance/validators.json");
     let adapter = validators["adapters"]
@@ -335,6 +407,7 @@ fn waveform_secondary_iod_and_payload_validator_is_additive_and_locked() {
         "pydicom-dicom-validator-u32",
         "pydicom-dicom-validator-registration",
         "pydicom-dicom-validator-presentation-state",
+        "pydicom-dicom-validator-rt",
         "pydicom-dicom-validator-waveform",
     ] {
         let shared = lock["tools"]

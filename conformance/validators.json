@@ -126,6 +126,7 @@
       "supported_sop_class_uids": [
         "1.2.840.10008.5.1.4.1.1.88.11",
         "1.2.840.10008.5.1.4.1.1.88.33",
+        "1.2.840.10008.5.1.4.1.1.88.34",
         "1.2.840.10008.5.1.4.1.1.88.59"
       ],
       "capabilities": ["sr_iod_validation", "sr_template_validation", "context_group_validation"]

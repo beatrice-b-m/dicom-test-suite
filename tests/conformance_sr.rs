@@ -21,6 +21,22 @@ fn sr_adapter_runs_only_for_supported_sop_classes_and_hashes_its_classpath() {
             .unwrap()
             .success()
     );
+    let manifest_path = generated.join("manifest.json");
+    let mut manifest: Value =
+        serde_json::from_slice(&fs::read(&manifest_path).unwrap()).unwrap();
+    let comprehensive_sr = manifest["files"]
+        .as_array_mut()
+        .unwrap()
+        .iter_mut()
+        .find(|file| file["case_id"] == "derived/sr/comprehensive_measurement_explicit_le")
+        .unwrap();
+    comprehensive_sr["dicom"]["sop_class_uid"] =
+        json!("1.2.840.10008.5.1.4.1.1.88.34");
+    fs::write(
+        &manifest_path,
+        serde_json::to_vec_pretty(&manifest).unwrap(),
+    )
+    .unwrap();
     let quiet = fake_tool(&root, "quiet", "exit 0");
     let pixelmed = fake_tool(
         &root,
@@ -43,7 +59,7 @@ esac"#,
                 adapter("entity", "entity_validator", &quiet),
                 adapter("parser", "independent_parser", &quiet),
                 {
-                    "id": "fake-pixelmed",
+                    "id": "pixelmed-sr-validator",
                     "role": "sr_validator",
                     "executable": pixelmed,
                     "arguments": ["{classpath}", "{input}"],
@@ -56,6 +72,7 @@ esac"#,
                     "supported_sop_class_uids": [
                         "1.2.840.10008.5.1.4.1.1.88.11",
                         "1.2.840.10008.5.1.4.1.1.88.33",
+                        "1.2.840.10008.5.1.4.1.1.88.34",
                         "1.2.840.10008.5.1.4.1.1.88.59"
                     ],
                     "capabilities": ["sr_validation"]
@@ -88,7 +105,7 @@ esac"#,
         .as_array()
         .unwrap()
         .iter()
-        .find(|tool| tool["adapter_id"] == "fake-pixelmed")
+        .find(|tool| tool["adapter_id"] == "pixelmed-sr-validator")
         .unwrap();
     assert_eq!(tool["status"], "available");
     assert_eq!(tool["artifacts"].as_array().unwrap().len(), 1);
@@ -108,6 +125,10 @@ esac"#,
         })
         .collect::<Vec<_>>();
     assert_eq!(sr_results.len(), 3);
+    assert!(sr_results.iter().any(|(instance, _)| {
+        instance["case_id"] == "derived/sr/comprehensive_measurement_explicit_le"
+            && instance["sop_class_uid"] == "1.2.840.10008.5.1.4.1.1.88.34"
+    }));
     assert!(
         sr_results
             .iter()
@@ -165,6 +186,86 @@ esac"#,
         .unwrap();
     assert!(!verify.status.success());
     assert!(String::from_utf8_lossy(&verify.stdout).contains("SR validation incomplete"));
+
+    let mut optional = evidence.clone();
+    for instance in optional["instances"].as_array_mut().unwrap() {
+        instance["results"]
+            .as_array_mut()
+            .unwrap()
+            .retain(|result| result["role"] != "sr_validator");
+    }
+    for tool in optional["tools"].as_array_mut().unwrap() {
+        if tool["required"] == true {
+            tool["lock_status"] = json!("matched");
+        }
+        if tool["role"] == "sr_validator" {
+            tool["status"] = json!("absent");
+            tool["lock_status"] = json!("unavailable");
+            tool["executable"] = Value::Null;
+            tool["sha256"] = Value::Null;
+        }
+    }
+    fs::write(
+        evidence_root.join("conformance-run.json"),
+        serde_json::to_vec_pretty(&optional).unwrap(),
+    )
+    .unwrap();
+    let verify = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args(["conformance", "verify"])
+        .arg(&evidence_root)
+        .args(["--allowlist"])
+        .arg(&allowlist)
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8_lossy(&verify.stdout);
+    assert!(!stdout.contains("SR validation incomplete"));
+    assert!(!stdout.contains("required PixelMed SR validator"));
+
+    let mut required = evidence.clone();
+    for tool in required["tools"].as_array_mut().unwrap() {
+        if tool["required"] == true || tool["role"] == "sr_validator" {
+            tool["lock_status"] = json!("matched");
+        }
+    }
+    let required_instance = required["instances"]
+        .as_array_mut()
+        .unwrap()
+        .iter_mut()
+        .find(|instance| instance["case_id"] == "derived/sr/comprehensive_measurement_explicit_le")
+        .unwrap();
+    required_instance["case_id"] = json!("derived/sr/tid1500_ct_measurement_report");
+    required_instance["sop_class_uid"] = json!("1.2.840.10008.5.1.4.1.1.88.34");
+    required_instance["results"]
+        .as_array_mut()
+        .unwrap()
+        .retain(|result| result["role"] != "sr_validator");
+    let pixelmed_tool = required["tools"]
+        .as_array_mut()
+        .unwrap()
+        .iter_mut()
+        .find(|tool| tool["adapter_id"] == "pixelmed-sr-validator")
+        .unwrap();
+    pixelmed_tool["status"] = json!("absent");
+    pixelmed_tool["lock_status"] = json!("unavailable");
+    pixelmed_tool["executable"] = Value::Null;
+    pixelmed_tool["sha256"] = Value::Null;
+    fs::write(
+        evidence_root.join("conformance-run.json"),
+        serde_json::to_vec_pretty(&required).unwrap(),
+    )
+    .unwrap();
+    let verify = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args(["conformance", "verify"])
+        .arg(&evidence_root)
+        .args(["--allowlist"])
+        .arg(&allowlist)
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8_lossy(&verify.stdout);
+    assert!(!verify.status.success());
+    assert!(stdout.contains("required PixelMed SR validator is unavailable"));
+    assert!(stdout.contains("required PixelMed SR validator is unlocked"));
+    assert!(stdout.contains("required PixelMed SR validation incomplete"));
 }
 
 fn adapter(id: &str, role: &str, path: &Path) -> Value {

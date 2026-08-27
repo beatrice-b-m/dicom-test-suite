@@ -13,6 +13,7 @@ use crate::sha256_hex;
 pub const DEFAULT_VALIDATOR_CONFIG: &str = "conformance/validators.json";
 pub const DEFAULT_VALIDATOR_LOCK: &str = "conformance/validator-lock.json";
 pub const DEFAULT_ACCEPTED_FINDINGS: &str = "conformance/accepted-findings.json";
+const PIXELMED_SR_VALIDATOR_ID: &str = "pixelmed-sr-validator";
 
 pub fn verify_conformance(
     evidence_root: impl AsRef<Path>,
@@ -356,7 +357,36 @@ fn verify_completeness(evidence_root: &Path, evidence: &Value, failures: &mut Ve
         if parser.is_none_or(|result| result["status"] != "completed") {
             failures.push(format!("independent parser incomplete: {path}"));
         }
-        if require_sr && is_supported_sr_sop_class(instance["sop_class_uid"].as_str().unwrap_or(""))
+        let case_id = instance["case_id"].as_str().unwrap_or("");
+        if requires_pixelmed_sr_validation(case_id) {
+            let pixelmed_tool = evidence["tools"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .find(|tool| tool["adapter_id"] == PIXELMED_SR_VALIDATOR_ID);
+            if pixelmed_tool.is_none_or(|tool| tool["status"] != "available") {
+                failures.push(format!(
+                    "required PixelMed SR validator is unavailable for {path}"
+                ));
+            }
+            if pixelmed_tool.is_none_or(|tool| tool["lock_status"] != "matched") {
+                failures.push(format!(
+                    "required PixelMed SR validator is unlocked for {path}"
+                ));
+            }
+            let sr = instance["results"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .find(|result| {
+                    result["role"] == "sr_validator"
+                        && result["adapter_id"] == PIXELMED_SR_VALIDATOR_ID
+                });
+            if sr.is_none_or(|result| result["status"] != "completed") {
+                failures.push(format!("required PixelMed SR validation incomplete: {path}"));
+            }
+        } else if require_sr
+            && is_supported_sr_sop_class(instance["sop_class_uid"].as_str().unwrap_or(""))
         {
             let sr = instance["results"]
                 .as_array()
@@ -945,7 +975,15 @@ fn is_supported_sr_sop_class(uid: &str) -> bool {
         uid,
         "1.2.840.10008.5.1.4.1.1.88.11"
             | "1.2.840.10008.5.1.4.1.1.88.33"
+            | "1.2.840.10008.5.1.4.1.1.88.34"
             | "1.2.840.10008.5.1.4.1.1.88.59"
+    )
+}
+
+fn requires_pixelmed_sr_validation(case_id: &str) -> bool {
+    matches!(
+        case_id,
+        "derived/sr/tid1500_ct_measurement_report" | "derived/sr/comprehensive3d_scoord3d"
     )
 }
 

@@ -358,6 +358,29 @@
               }
             }
           }
+        },
+        {
+          "if": {
+            "properties": {
+              "case_id": { "const": "metadata/sc/defined_undefined_sequence_lengths" }
+            },
+            "required": ["case_id"]
+          },
+          "then": {
+            "required": ["expected_metadata"],
+            "properties": {
+              "recipe": {
+                "properties": {
+                  "recipe_parameters": {
+                    "required": ["sequence_length_variant"],
+                    "properties": {
+                      "sequence_length_variant": { "enum": ["defined", "undefined"] }
+                    }
+                  }
+                }
+              }
+            }
+          }
         }
       ]
     },

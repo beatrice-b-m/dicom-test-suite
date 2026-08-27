@@ -26,11 +26,15 @@ pub(crate) fn validate_manifest_metadata(
     let expected = file
         .get("expected_metadata")
         .filter(|value| !value.is_null());
-    if file.get("case_id").and_then(Value::as_str) == Some("metadata/sc/private_creator_blocks")
-        && expected.is_none()
-    {
+    let metadata_required = matches!(
+        file.get("case_id").and_then(Value::as_str),
+        Some(
+            "metadata/sc/private_creator_blocks" | "metadata/sc/defined_undefined_sequence_lengths"
+        )
+    );
+    if metadata_required && expected.is_none() {
         failures.push(format!(
-            "{relative_path}: metadata_private_expected_metadata: private creator expectations are required"
+            "{relative_path}: metadata_expected_metadata: metadata expectations are required for this case"
         ));
         return;
     }
@@ -53,6 +57,7 @@ pub(crate) fn validate_manifest_metadata(
     validate_empty_type2_attributes(relative_path, bytes, expected, obj, failures);
     validate_string_elements(relative_path, bytes, expected, obj, failures);
     validate_private_creator_blocks(relative_path, bytes, file, expected, obj, failures);
+    validate_sequence_length_encoding(relative_path, bytes, file, expected, obj, failures);
 }
 
 pub(crate) fn validate_manifest_metadata_corpus(files: &[Value], failures: &mut Vec<String>) {
@@ -63,6 +68,7 @@ pub(crate) fn validate_manifest_metadata_corpus(files: &[Value], failures: &mut 
         })
         .collect::<Vec<_>>();
     if temporal_files.is_empty() {
+        validate_sequence_length_variant_set(files, failures);
         return;
     }
 
@@ -76,6 +82,34 @@ pub(crate) fn validate_manifest_metadata_corpus(files: &[Value], failures: &mut 
         failures.push(format!(
             "metadata/sc/timezone_boundaries: metadata_temporal_boundary_set: expected exactly one negative_min and one positive_max instance, found {} files and {boundary_ids:?}",
             temporal_files.len()
+        ));
+    }
+    validate_sequence_length_variant_set(files, failures);
+}
+
+fn validate_sequence_length_variant_set(files: &[Value], failures: &mut Vec<String>) {
+    let sequence_files = files
+        .iter()
+        .filter(|file| {
+            file.get("case_id").and_then(Value::as_str)
+                == Some("metadata/sc/defined_undefined_sequence_lengths")
+        })
+        .collect::<Vec<_>>();
+    if sequence_files.is_empty() {
+        return;
+    }
+    let variants = sequence_files
+        .iter()
+        .filter_map(|file| {
+            file.pointer("/expected_metadata/sequence_length_encoding/variant_id")
+                .and_then(Value::as_str)
+        })
+        .collect::<BTreeSet<_>>();
+    let expected = BTreeSet::from(["defined", "undefined"]);
+    if sequence_files.len() != 2 || variants != expected {
+        failures.push(format!(
+            "metadata/sc/defined_undefined_sequence_lengths: metadata_sequence_length_variant_set: expected exactly one defined and one undefined instance, found {} files and {variants:?}",
+            sequence_files.len()
         ));
     }
 }
@@ -835,6 +869,175 @@ fn validate_private_raw_contract(
         None => failures.push(format!(
             "{relative_path}: metadata_private_{kind}_raw_presence: {tag_text} is missing"
         )),
+    }
+}
+
+fn validate_sequence_length_encoding(
+    relative_path: &str,
+    bytes: &[u8],
+    file: &Value,
+    expected: &Value,
+    obj: &OpenedObject,
+    failures: &mut Vec<String>,
+) {
+    let Some(contract) = expected.get("sequence_length_encoding") else {
+        return;
+    };
+    let variant = contract
+        .get("variant_id")
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    let recipe_variant = file
+        .pointer("/recipe/recipe_parameters/sequence_length_variant")
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    if !matches!(variant, "defined" | "undefined") || recipe_variant != variant {
+        failures.push(format!(
+            "{relative_path}: metadata_sequence_length_variant: manifest {variant:?}, recipe {recipe_variant:?}"
+        ));
+    }
+    let defined = variant == "defined";
+    let expected_value_length = if defined { Some(56) } else { None };
+    let manifest_value_length = contract
+        .get("sequence_value_length")
+        .and_then(Value::as_u64);
+    let expected_length_hex = if defined { "38000000" } else { "FFFFFFFF" };
+    let decoded_items = contract
+        .get("decoded_items")
+        .and_then(Value::as_array)
+        .map(Vec::as_slice)
+        .unwrap_or_default();
+    let manifest_contract_matches = contract.get("sequence_tag").and_then(Value::as_str)
+        == Some("0008,2218")
+        && contract.get("keyword").and_then(Value::as_str) == Some("AnatomicRegionSequence")
+        && contract.get("vr").and_then(Value::as_str) == Some("SQ")
+        && manifest_value_length == expected_value_length
+        && contract
+            .get("sequence_length_field_hex")
+            .and_then(Value::as_str)
+            == Some(expected_length_hex)
+        && contract
+            .get("sequence_delimitation_present")
+            .and_then(Value::as_bool)
+            == Some(!defined)
+        && contract.get("item_count").and_then(Value::as_u64) == Some(1)
+        && contract.get("item_length_encoding").and_then(Value::as_str) == Some("undefined")
+        && contract
+            .get("item_length_field_hex")
+            .and_then(Value::as_str)
+            == Some("FFFFFFFF")
+        && contract
+            .get("item_delimitation_present")
+            .and_then(Value::as_bool)
+            == Some(true)
+        && decoded_items.len() == 1
+        && decoded_items[0].get("code_value").and_then(Value::as_str) == Some("69536005")
+        && decoded_items[0]
+            .get("coding_scheme_designator")
+            .and_then(Value::as_str)
+            == Some("SCT")
+        && decoded_items[0].get("code_meaning").and_then(Value::as_str) == Some("Head");
+    if !manifest_contract_matches {
+        failures.push(format!(
+            "{relative_path}: metadata_sequence_length_manifest_contract: {variant:?} expectations differ from the locked sequence contract"
+        ));
+    }
+
+    match obj.element(tags::ANATOMIC_REGION_SEQUENCE) {
+        Ok(element) => match element.items() {
+            Some(items) if items.len() == 1 => {
+                for (tag, value) in [
+                    (tags::CODE_VALUE, "69536005"),
+                    (tags::CODING_SCHEME_DESIGNATOR, "SCT"),
+                    (tags::CODE_MEANING, "Head"),
+                ] {
+                    let actual = items[0]
+                        .element(tag)
+                        .ok()
+                        .and_then(|element| element.to_str().ok())
+                        .map(|value| value.into_owned());
+                    if actual.as_deref() != Some(value) {
+                        failures.push(format!(
+                            "{relative_path}: metadata_sequence_length_decoded_content: {tag:?} dataset {actual:?}, expected {value:?}"
+                        ));
+                    }
+                }
+            }
+            Some(items) => failures.push(format!(
+                "{relative_path}: metadata_sequence_length_item_count: dataset {}, expected 1",
+                items.len()
+            )),
+            None => failures.push(format!(
+                "{relative_path}: metadata_sequence_length_decoded_sequence: Anatomic Region Sequence is not an SQ"
+            )),
+        },
+        Err(error) => failures.push(format!(
+            "{relative_path}: metadata_sequence_length_presence: Anatomic Region Sequence is missing: {error}"
+        )),
+    }
+
+    let Some((raw_vr, raw_length, value_offset)) =
+        find_raw_top_level_header(bytes, Tag(0x0008, 0x2218))
+    else {
+        failures.push(format!(
+            "{relative_path}: metadata_sequence_length_raw_presence: raw Anatomic Region Sequence is missing"
+        ));
+        return;
+    };
+    let expected_raw_length = if defined { 56 } else { u32::MAX };
+    if raw_vr != "SQ" || raw_length != expected_raw_length {
+        failures.push(format!(
+            "{relative_path}: metadata_sequence_length_raw_header: dataset VR {raw_vr} VL {raw_length:#010X}, expected SQ {expected_raw_length:#010X}"
+        ));
+    }
+    let item_header = bytes.get(value_offset..value_offset + 8);
+    if item_header != Some(&[0xFE, 0xFF, 0x00, 0xE0, 0xFF, 0xFF, 0xFF, 0xFF]) {
+        failures.push(format!(
+            "{relative_path}: metadata_sequence_length_item_header: expected one undefined-length Item"
+        ));
+    }
+    let item_delimiter_offset = value_offset + 48;
+    if bytes.get(item_delimiter_offset..item_delimiter_offset + 8)
+        != Some(&[0xFE, 0xFF, 0x0D, 0xE0, 0, 0, 0, 0])
+    {
+        failures.push(format!(
+            "{relative_path}: metadata_sequence_length_item_delimiter: expected Item Delimitation at the locked byte boundary"
+        ));
+    }
+    let sequence_delimiter_offset = value_offset + 56;
+    let sequence_delimiter_present = bytes
+        .get(sequence_delimiter_offset..sequence_delimiter_offset + 8)
+        == Some(&[0xFE, 0xFF, 0xDD, 0xE0, 0, 0, 0, 0]);
+    if sequence_delimiter_present != !defined {
+        failures.push(format!(
+            "{relative_path}: metadata_sequence_length_sequence_delimiter: dataset {sequence_delimiter_present}, expected {}",
+            !defined
+        ));
+    }
+}
+
+fn find_raw_top_level_header(bytes: &[u8], wanted: Tag) -> Option<(&str, u32, usize)> {
+    let mut offset = dataset_start(bytes)?;
+    loop {
+        let group = read_u16(bytes, offset)?;
+        let element = read_u16(bytes, offset + 2)?;
+        let vr = std::str::from_utf8(bytes.get(offset + 4..offset + 6)?).ok()?;
+        let long_vr = matches!(
+            vr,
+            "OB" | "OD" | "OF" | "OL" | "OV" | "OW" | "SQ" | "UC" | "UR" | "UT" | "UN"
+        );
+        let (length, value_offset) = if long_vr {
+            (read_u32(bytes, offset + 8)?, offset + 12)
+        } else {
+            (u32::from(read_u16(bytes, offset + 6)?), offset + 8)
+        };
+        if Tag(group, element) == wanted {
+            return Some((vr, length, value_offset));
+        }
+        if length == u32::MAX {
+            return None;
+        }
+        offset = value_offset.checked_add(length as usize)?;
     }
 }
 

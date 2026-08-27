@@ -236,7 +236,7 @@ fn schema_and_validator_require_private_metadata_and_block_count() {
         summary
             .failures
             .iter()
-            .any(|failure| failure.contains("metadata_private_expected_metadata")),
+            .any(|failure| failure.contains("metadata_expected_metadata")),
         "{:?}",
         summary.failures
     );

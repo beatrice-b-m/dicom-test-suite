@@ -10218,13 +10218,8 @@
       },
       "blockers": [
         {
-          "code": "backend_contract_unimplemented",
-          "message": "The external generation protocol is not implemented.",
-          "recheck_phase": "phase-1"
-        },
-        {
-          "code": "independent_payload_validator_unavailable",
-          "message": "The required independent validation path is not integrated.",
+          "code": "recipe_unimplemented",
+          "message": "The locked TID 1501 distance and SCOORD3D POLYLINE recipe is not implemented.",
           "recheck_phase": "phase-3"
         }
       ],
@@ -10253,6 +10248,22 @@
           "covered": true,
           "part": "PS3.6",
           "anchor": "table_A-1"
+        },
+        {
+          "source": "local-source-note",
+          "edition": "2026b",
+          "query": "standards/source-notes/phase-3-comprehensive3d-scoord3d.md",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "A.35.13_C.18.8_C.18.9"
+        },
+        {
+          "source": "local-source-note",
+          "edition": "2026b",
+          "query": "standards/source-notes/phase-3-comprehensive3d-scoord3d.md",
+          "covered": true,
+          "part": "PS3.16",
+          "anchor": "TID_1500_TID_1501_TID_300"
         }
       ]
     },

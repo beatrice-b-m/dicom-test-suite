@@ -513,6 +513,53 @@ fn tid1500_source_note_locks_template_measurement_and_validator_gate() {
 }
 
 #[test]
+fn comprehensive3d_scoord3d_source_note_locks_geometry_and_validator_gate() {
+    let source = fs::read_to_string(
+        "standards/source-notes/phase-3-comprehensive3d-scoord3d.md",
+    )
+    .expect("Comprehensive 3D SCOORD3D source note must be readable");
+    for required in [
+        "derived/sr/comprehensive3d_scoord3d",
+        "Identifier `1500`",
+        "TID 1501",
+        "TID 300",
+        "POLYLINE",
+        "[0.0, 0.0, 0.0, 0.0, 0.0, 2.5]",
+        "Referenced Frame of Reference UID",
+        "Source of Measurement",
+        "PixelMed 20260608",
+        "DicomSRValidator -checktemplateid",
+        "No new allowlist entry",
+        "Should become KB patch: yes",
+    ] {
+        assert!(source.contains(required), "SCOORD3D note requires {required}");
+    }
+
+    let registry = read_json("cases/registry.json");
+    let case = registry_cases(&registry)
+        .into_iter()
+        .find(|case| {
+            case.get("case_id").and_then(Value::as_str)
+                == Some("derived/sr/comprehensive3d_scoord3d")
+        })
+        .expect("Comprehensive 3D SCOORD3D row must exist");
+    assert_eq!(
+        case["blockers"],
+        serde_json::json!([{
+            "code": "recipe_unimplemented",
+            "message": "The locked TID 1501 distance and SCOORD3D POLYLINE recipe is not implemented.",
+            "recheck_phase": "phase-3"
+        }])
+    );
+    assert!(case["standards_evidence"]
+        .as_array()
+        .is_some_and(|evidence| evidence.iter().any(|entry| {
+            entry["part"] == "PS3.16"
+                && entry["anchor"] == "TID_1500_TID_1501_TID_300"
+        })));
+}
+
+#[test]
 fn u1_pixel_decoder_is_case_scoped_and_locked() {
     let validators = read_json("conformance/validators.json");
     let adapter = validators["adapters"]

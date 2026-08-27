@@ -3564,6 +3564,13 @@ fn validate_family_standard_elements(
             file,
             obj,
         )?,
+        "Ultrasound Multi-frame Image" => validate_ultrasound_multiframe_standard_elements(
+            failures,
+            relative_path,
+            manifest_path,
+            file,
+            obj,
+        )?,
         "Nuclear Medicine Image" => validate_nuclear_medicine_standard_elements(
             failures,
             relative_path,
@@ -3967,6 +3974,474 @@ fn validate_ultrasound_image_standard_elements(
             "/expected_semantics/image_type",
             "expected image_type must be a string",
         )?,
+    );
+
+    Ok(())
+}
+
+fn validate_ultrasound_multiframe_standard_elements(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    manifest_path: &Path,
+    file: &Value,
+    obj: &OpenedObject,
+) -> Result<(), ValidateError> {
+    const LOCKED_IMAGE_TYPE: [&str; 4] = ["ORIGINAL", "PRIMARY", "ABDOMINAL", "0001"];
+    const LOCKED_FRAME_HASHES: [&str; 4] = [
+        "be422fa58b70ec0d940f28a4dba3dadac62d4583b9ecba1e73d65b37ee9733e7",
+        "303d53edfa9bf6eeeb81dba8a6a4c1a9c2e1cb0ea773f90afb583d1132d88eee",
+        "7f8a6e2fa2665b2465075b9e0cf86dfb0646f6f21a2a647525476e5bb6e489bb",
+        "8c213da26d1c57661b68238ac5c1f1d9417f661e0ab578846bf84040e753f650",
+    ];
+    const LOCKED_FRAMES: [[u16; 16]; 4] = [
+        [
+            0, 16, 32, 48, 16, 64, 80, 64, 32, 80, 255, 80, 48, 64, 80, 64,
+        ],
+        [
+            0, 16, 32, 48, 16, 64, 80, 64, 32, 80, 80, 255, 48, 64, 80, 80,
+        ],
+        [
+            0, 16, 32, 48, 16, 64, 80, 64, 32, 80, 80, 80, 48, 64, 255, 80,
+        ],
+        [
+            0, 16, 32, 48, 16, 64, 80, 64, 32, 80, 80, 80, 48, 255, 80, 64,
+        ],
+    ];
+
+    let expected = file
+        .pointer("/expected_us_multiframe")
+        .ok_or(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "Ultrasound Multi-frame Image must define expected_us_multiframe",
+        })?;
+
+    let image_type = manifest_string_array(
+        manifest_path,
+        expected,
+        "/image_type",
+        "US multi-frame image_type must be a string array",
+    )?;
+    validate_equal_debug(
+        failures,
+        relative_path,
+        "us_multiframe_image_type_manifest_contract",
+        image_type.clone(),
+        LOCKED_IMAGE_TYPE.map(str::to_string).to_vec(),
+    );
+    let image_type_string = image_type.join("\\");
+    validate_equal(
+        failures,
+        relative_path,
+        "us_multiframe_image_type_semantics_manifest_contract",
+        manifest_str(
+            manifest_path,
+            file,
+            "/expected_semantics/image_type",
+            "US multi-frame expected_semantics image_type must be a string",
+        )?,
+        image_type_string.as_str(),
+    );
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::IMAGE_TYPE,
+        "us_multiframe_image_type",
+        &image_type_string,
+    );
+
+    let frame_count = manifest_u64(
+        manifest_path,
+        expected,
+        "/frame_count",
+        "US multi-frame frame_count must be an integer",
+    )?;
+    validate_equal(
+        failures,
+        relative_path,
+        "us_multiframe_frame_count_manifest_contract",
+        frame_count,
+        4,
+    );
+    for (pointer, name) in [
+        (
+            "/image/frames",
+            "us_multiframe_image_frame_count_manifest_contract",
+        ),
+        (
+            "/pixel_data/frame_count",
+            "us_multiframe_pixel_data_frame_count_manifest_contract",
+        ),
+    ] {
+        validate_equal(
+            failures,
+            relative_path,
+            name,
+            manifest_u64(
+                manifest_path,
+                file,
+                pointer,
+                "US multi-frame frame count must be an integer",
+            )?,
+            frame_count,
+        );
+    }
+    validate_type1_u16_element(
+        failures,
+        relative_path,
+        obj,
+        tags::NUMBER_OF_FRAMES,
+        "us_multiframe_number_of_frames",
+        frame_count as u16,
+    );
+
+    let pointer = manifest_str(
+        manifest_path,
+        expected,
+        "/frame_increment_pointer",
+        "US multi-frame frame_increment_pointer must be a string",
+    )?;
+    validate_equal(
+        failures,
+        relative_path,
+        "us_multiframe_frame_increment_pointer_manifest_contract",
+        pointer,
+        "0018,1063",
+    );
+    match element_tags_for_validate(obj, tags::FRAME_INCREMENT_POINTER) {
+        Ok(actual) => validate_equal_debug(
+            failures,
+            relative_path,
+            "us_multiframe_frame_increment_pointer",
+            actual,
+            vec![tags::FRAME_TIME],
+        ),
+        Err(err) => failures.push(format!(
+            "{relative_path}: us_multiframe_frame_increment_pointer: {err}"
+        )),
+    }
+    validate_element_absent(
+        failures,
+        relative_path,
+        obj,
+        tags::FRAME_TIME_VECTOR,
+        "us_multiframe_frame_time_vector_absent",
+    );
+
+    let frame_time = manifest_f64(
+        manifest_path,
+        expected,
+        "/frame_time_ms",
+        "US multi-frame frame_time_ms must be numeric",
+    )?;
+    validate_equal(
+        failures,
+        relative_path,
+        "us_multiframe_frame_time_manifest_contract",
+        frame_time,
+        100.0,
+    );
+    match element_f64_for_validate(obj, tags::FRAME_TIME) {
+        Ok(actual) => validate_equal(
+            failures,
+            relative_path,
+            "us_multiframe_frame_time",
+            actual,
+            frame_time,
+        ),
+        Err(err) => failures.push(format!("{relative_path}: us_multiframe_frame_time: {err}")),
+    }
+    let relative_times = manifest_f64_array(
+        manifest_path,
+        expected,
+        "/frame_relative_times_ms",
+        "US multi-frame frame_relative_times_ms must be numeric",
+    )?;
+    let derived_times = (0..frame_count)
+        .map(|index| index as f64 * frame_time)
+        .collect::<Vec<_>>();
+    validate_equal_debug(
+        failures,
+        relative_path,
+        "us_multiframe_relative_times_manifest_contract",
+        relative_times,
+        derived_times,
+    );
+
+    let lossy = manifest_str(
+        manifest_path,
+        expected,
+        "/lossy_image_compression",
+        "US multi-frame lossy_image_compression must be a string",
+    )?;
+    validate_equal(
+        failures,
+        relative_path,
+        "us_multiframe_lossy_image_compression_manifest_contract",
+        lossy,
+        "00",
+    );
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::LOSSY_IMAGE_COMPRESSION,
+        "us_multiframe_lossy_image_compression",
+        lossy,
+    );
+    validate_element_absent(
+        failures,
+        relative_path,
+        obj,
+        tags::LOSSY_IMAGE_COMPRESSION_RATIO,
+        "us_multiframe_lossy_image_compression_ratio_absent",
+    );
+    validate_element_absent(
+        failures,
+        relative_path,
+        obj,
+        tags::LOSSY_IMAGE_COMPRESSION_METHOD,
+        "us_multiframe_lossy_image_compression_method_absent",
+    );
+
+    for (pointer, name) in [
+        (
+            "/color_data_present",
+            "us_multiframe_color_data_present_manifest_contract",
+        ),
+        (
+            "/spatially_related_frames",
+            "us_multiframe_spatially_related_frames_manifest_contract",
+        ),
+        (
+            "/region_calibrated",
+            "us_multiframe_region_calibrated_manifest_contract",
+        ),
+    ] {
+        validate_equal(
+            failures,
+            relative_path,
+            name,
+            manifest_bool(
+                manifest_path,
+                expected,
+                pointer,
+                "US multi-frame boolean contract must be a boolean",
+            )?,
+            false,
+        );
+    }
+    validate_type1_u16_element(
+        failures,
+        relative_path,
+        obj,
+        tags::ULTRASOUND_COLOR_DATA_PRESENT,
+        "us_multiframe_color_data_present",
+        0,
+    );
+    for (tag, name) in [
+        (
+            tags::FRAME_OF_REFERENCE_UID,
+            "us_multiframe_frame_of_reference_absent",
+        ),
+        (
+            tags::SEQUENCE_OF_ULTRASOUND_REGIONS,
+            "us_multiframe_region_calibration_absent",
+        ),
+    ] {
+        validate_element_absent(failures, relative_path, obj, tag, name);
+    }
+    if !file
+        .pointer("/uids/frame_of_reference_uid")
+        .is_some_and(Value::is_null)
+    {
+        failures.push(format!(
+            "{relative_path}: us_multiframe_frame_of_reference_manifest_contract: expected null"
+        ));
+    }
+
+    for (pointer, name, locked) in [
+        ("/image/rows", "us_multiframe_rows_manifest_contract", 4),
+        (
+            "/image/columns",
+            "us_multiframe_columns_manifest_contract",
+            4,
+        ),
+        (
+            "/pixel_data/value_length",
+            "us_multiframe_value_length_manifest_contract",
+            64,
+        ),
+    ] {
+        validate_equal(
+            failures,
+            relative_path,
+            name,
+            manifest_u64(
+                manifest_path,
+                file,
+                pointer,
+                "US multi-frame image contract must be an integer",
+            )?,
+            locked,
+        );
+    }
+    validate_equal(
+        failures,
+        relative_path,
+        "us_multiframe_native_encoding_manifest_contract",
+        manifest_str(
+            manifest_path,
+            file,
+            "/pixel_data/native_or_encapsulated",
+            "US multi-frame native_or_encapsulated must be a string",
+        )?,
+        "native",
+    );
+    validate_equal(
+        failures,
+        relative_path,
+        "us_multiframe_pixel_vr_manifest_contract",
+        manifest_str(
+            manifest_path,
+            file,
+            "/pixel_data/vr",
+            "US multi-frame pixel_data vr must be a string",
+        )?,
+        "OB",
+    );
+
+    let manifest_hashes = manifest_string_array(
+        manifest_path,
+        file,
+        "/pixel_data/frame_hashes",
+        "US multi-frame pixel_data frame_hashes must be strings",
+    )?;
+    validate_equal_debug(
+        failures,
+        relative_path,
+        "us_multiframe_frame_hashes_manifest_contract",
+        manifest_hashes.clone(),
+        LOCKED_FRAME_HASHES.map(str::to_string).to_vec(),
+    );
+    let frames = manifest_array(
+        manifest_path,
+        expected,
+        "/frames",
+        "US multi-frame frames must be an array",
+    )?;
+    validate_equal(
+        failures,
+        relative_path,
+        "us_multiframe_frames_manifest_contract",
+        frames.len(),
+        frame_count as usize,
+    );
+
+    let pixel_bytes = match obj.element(tags::PIXEL_DATA) {
+        Ok(element) => match element.value().to_bytes() {
+            Ok(bytes) => bytes,
+            Err(err) => {
+                failures.push(format!("{relative_path}: us_multiframe_pixel_bytes: {err}"));
+                return Ok(());
+            }
+        },
+        Err(err) => {
+            failures.push(format!("{relative_path}: us_multiframe_pixel_bytes: {err}"));
+            return Ok(());
+        }
+    };
+    validate_equal(
+        failures,
+        relative_path,
+        "us_multiframe_pixel_byte_length",
+        pixel_bytes.len(),
+        64,
+    );
+    for (index, frame) in frames.iter().enumerate() {
+        validate_equal(
+            failures,
+            relative_path,
+            "us_multiframe_frame_number_manifest_contract",
+            manifest_u64(
+                manifest_path,
+                frame,
+                "/frame_number",
+                "US multi-frame frame_number must be an integer",
+            )?,
+            (index + 1) as u64,
+        );
+        let values = manifest_u16_array(
+            manifest_path,
+            frame,
+            "/pixel_values",
+            "US multi-frame pixel_values must be unsigned integers",
+        )?;
+        let locked_values = LOCKED_FRAMES
+            .get(index)
+            .map(|values| values.to_vec())
+            .unwrap_or_default();
+        validate_equal_debug(
+            failures,
+            relative_path,
+            "us_multiframe_pixel_values_manifest_contract",
+            values.clone(),
+            locked_values,
+        );
+        let frame_hash = manifest_str(
+            manifest_path,
+            frame,
+            "/frame_sha256",
+            "US multi-frame frame_sha256 must be a string",
+        )?;
+        if let Some(pixel_hash) = manifest_hashes.get(index) {
+            validate_equal(
+                failures,
+                relative_path,
+                "us_multiframe_frame_hash_manifest_contract",
+                frame_hash,
+                pixel_hash,
+            );
+        }
+        if let Some(actual) = pixel_bytes.chunks_exact(16).nth(index) {
+            validate_equal_debug(
+                failures,
+                relative_path,
+                "us_multiframe_pixel_values",
+                actual
+                    .iter()
+                    .map(|value| u16::from(*value))
+                    .collect::<Vec<_>>(),
+                values,
+            );
+            validate_equal(
+                failures,
+                relative_path,
+                "us_multiframe_frame_hash",
+                sha256_hex(actual),
+                frame_hash,
+            );
+        }
+    }
+
+    validate_equal(
+        failures,
+        relative_path,
+        "us_multiframe_payload_hash_manifest_contract",
+        manifest_str(
+            manifest_path,
+            file,
+            "/recipe/recipe_parameters/payload_sha256",
+            "US multi-frame payload_sha256 must be a string",
+        )?,
+        "060e2c56c9728f787339515ef16bc8c1adfbfb4fb85b2d2c18f115c17b439bc9",
+    );
+    validate_equal(
+        failures,
+        relative_path,
+        "us_multiframe_payload_hash",
+        sha256_hex(pixel_bytes.as_ref()),
+        "060e2c56c9728f787339515ef16bc8c1adfbfb4fb85b2d2c18f115c17b439bc9",
     );
 
     Ok(())
@@ -7504,6 +7979,14 @@ fn element_str_for_validate(obj: &OpenedObject, tag: dicom_core::Tag) -> Result<
         .to_str()
         .map_err(|err| err.to_string())
         .map(|value| value.trim_matches('\0').trim().to_string())
+}
+
+fn element_f64_for_validate(obj: &OpenedObject, tag: dicom_core::Tag) -> Result<f64, String> {
+    obj.element(tag)
+        .map_err(|err| err.to_string())?
+        .value()
+        .to_float64()
+        .map_err(|err| err.to_string())
 }
 
 fn element_u16_for_validate(obj: &OpenedObject, tag: dicom_core::Tag) -> Result<u16, String> {

@@ -107,9 +107,45 @@ reported 195 unresolved older failures, including unavailable independent
 payload tools and existing IOD/entity findings; none was reclassified for this
 slice.
 
+## Spatial Registration
+
+`derived/registration/spatial_ct_pair` is an implemented, byte-stable
+`extended` Spatial Registration Storage case. Rust constructs an identity
+registration for the Enhanced CT target and a geometry-derived rigid transform
+from the classic CT source Frame of Reference into the target Frame of
+Reference. The moving first-pixel center `[-0.625,-0.625,0]` maps exactly to
+Enhanced CT frame 2 at `[0,0,2.5]`. Same-Study and other-Study Common Instance
+References close both whole-instance references.
+
+The manifest binds both source hashes and identities, ordered registration
+items, exact row-major matrices, rigid tolerances, landmark mapping, reference
+topology, and absence of pixel payloads. Rust reopens both CT sources before
+construction and the corpus validator reconstructs the strict REG contract
+from the manifest. Focused tests reject a hash-repaired non-rigid matrix and a
+source-hash closure mutation. JSON and Markdown reports expose matrix
+direction/type, item count, reference topology and relationships, landmark
+mapping, and pixel absence.
+
+Two seed-7 extended generations each wrote 92 files. Their full manifests were
+identical with SHA-256
+`f45a347517d43c1e810a0f6866aa4468478ff1f403edc0cbe39323045a82079e`;
+the 2,328-byte REG instances were identical with SHA-256
+`8b3b8498c3e90dc13e52cceb9c584fbb41d5898e28c2f3d3f86baf4a1654ac8`.
+Both roots passed strict validation with zero failures.
+
+Integrated conformance run
+`522f2627658dd11ae6e5b88ad5e673659cacfdb2abf45fe4cb43adfb90feb7ea`
+recorded stable instance key
+`4c484723f1de25edb5830e18eb8447bbdc7ee53785dd35109f711b9bc0f6e06b`.
+Locked dicom3tools `dciodvfy -new`, DCMTK 3.7.0 `dcmdump`, and the independently
+implemented `uv`-locked `dicom-validator` 0.8.2 adapter completed cleanly.
+Isolated `dcentvfy` reference closure was silent and successful. Full-corpus
+verification still exposes 207 older or unrelated findings; none was
+allowlisted for this slice.
+
 ## Next dependency
 
-The next Phase 3 dependency milestone is Spatial Registration followed by
-Deformable Spatial Registration. Both remain planned until their reference and
-transformation semantics, generators, manifests, strict validators,
-independent evidence, reports, tests, and documentation are complete.
+The next Phase 3 dependency milestone is Deformable Spatial Registration. It
+remains planned until its opposite matrix/grid sampling direction, vector-grid
+geometry, source closure, independent evidence, reports, tests, and
+documentation are complete.

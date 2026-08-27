@@ -480,7 +480,7 @@ fn float64_parametric_map_note_locks_od_and_binary64_contract() {
 }
 
 #[test]
-fn phase3_status_records_tid1500_vertical_gate() {
+fn phase3_status_records_completed_derived_vertical_gates() {
     let status = fs::read_to_string("docs/phase-3-derived-status.md")
         .expect("Phase 3 derived status must be readable");
     for required in [
@@ -500,7 +500,13 @@ fn phase3_status_records_tid1500_vertical_gate() {
         "2601144c7df81cc9b5999b67c707ed747b66e2b76e35c2e55e76216ed70f95d1",
         "68bc95709add383d0f6cb06c2607e29046c22b83c56354bf6a6897abc2d87f32",
         "195 unresolved older failures",
-        "Spatial Registration",
+        "derived/registration/spatial_ct_pair",
+        "92 files",
+        "8b3b8498c3e90dc13e52cceb9c584fbb41d5898e28c2f3d3f86baf4a1654ac8",
+        "522f2627658dd11ae6e5b88ad5e673659cacfdb2abf45fe4cb43adfb90feb7ea",
+        "dicom-validator` 0.8.2",
+        "207 older or unrelated findings",
+        "next Phase 3 dependency milestone is Deformable Spatial Registration",
     ] {
         assert!(
             status.contains(required),
@@ -646,6 +652,10 @@ fn spatial_registration_source_note_locks_native_rigid_contract() {
         "strict Rust validation owns rigid",
         "owns reference closure",
         "must not be silently allowlisted",
+        "Registry status: implemented",
+        "522f2627658dd11ae6e5b88ad5e673659cacfdb2abf45fe4cb43adfb90feb7ea",
+        "8b3b8498c3e90dc13e52cceb9c584fbb41d5898e28c2f3d3f86baf4a1654ac8",
+        "Full-corpus conformance verification still reports 207",
         "Should become KB patch: yes",
     ] {
         assert!(

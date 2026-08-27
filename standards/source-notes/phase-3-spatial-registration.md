@@ -110,7 +110,7 @@ source hashes and identities.
 Before writing the Registration instance, Rust reopens both source files and
 verifies their hashes and identities. It verifies the Enhanced CT's two axial
 frames, positions `[0,0,0]` and `[0,0,2.5]`, orientation, and Registered Frame
-of Reference, plus the classic CT's origin, orientation, and distinct source
+of Reference, plus the classic CT's first-pixel center, orientation, and distinct source
 Frame of Reference. Strict output validation independently checks all locked
 module, reference, matrix, geometry, and no-pixel invariants.
 
@@ -142,14 +142,39 @@ they are not accepted findings and must not be silently allowlisted.
 
 ## Project Action
 
-- Registry status: planned until the complete vertical gate passes.
+- Registry status: implemented after the complete vertical gate passed.
 - Registry provider: `rust_native`; generic DICOM-rs sequence construction is
   sufficient and avoids an unnecessary external generation dependency.
-- Registry blocker: `recipe_unimplemented`. The native writer and
-  independent-validator selection workflow are available, so only completion
-  of the deterministic native recipe remains; the stale external-backend and
-  unavailable-validator blockers are removed.
+- Registry blockers: none. The deterministic native writer, exact manifest
+  contract, strict validator, report surface, focused mutations, and locked
+  independent-validator route are complete.
 - Should become KB patch: yes; expose structured Spatial Registration module,
   matrix-direction, and Common Instance Reference queries.
 - Do not commit generated DICOM files, validator output, or official standards
   artifacts.
+
+## Promotion Evidence
+
+Two seed-7 `extended` generations each wrote 92 files and produced identical
+manifests with SHA-256
+`f45a347517d43c1e810a0f6866aa4468478ff1f403edc0cbe39323045a82079e`.
+The 2,328-byte Spatial Registration instances were byte-identical with SHA-256
+`8b3b8498c3e90dc13e52cceb9c584fbb41d5898e28c2f3d3f86baf4a1654ac8`.
+Both generated roots passed strict validation with zero failures.
+
+Integrated conformance run
+`522f2627658dd11ae6e5b88ad5e673659cacfdb2abf45fe4cb43adfb90feb7ea`
+recorded stable instance key
+`4c484723f1de25edb5830e18eb8447bbdc7ee53785dd35109f711b9bc0f6e06b`.
+Locked `dciodvfy -new`, DCMTK 3.7.0 `dcmdump`, and the `uv`-locked
+`dicom-validator` 0.8.2 secondary IOD adapter all completed with exit code 0;
+the two IOD validators reported no errors. An isolated `dcentvfy` invocation
+over the REG and its two referenced CT instances completed silently with exit
+code 0. The Python dependency lock SHA-256 is
+`8e977ab4b75f24373e3039a2bdd2ba8dc299432d0fcbcb49f2be41df9381c8fc`,
+and the independent 2026b definition lock SHA-256 is
+`95574ed005a8ff84fe9834fee65ba82c3cadbd6f433fd4b11bc54b5ce71e9f9b`.
+
+Full-corpus conformance verification still reports 207 older or unrelated
+validator-availability, IOD, and entity findings. They remain visible and were
+not allowlisted or weakened for this promotion.

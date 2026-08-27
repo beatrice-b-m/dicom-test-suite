@@ -15138,10 +15138,10 @@
     {
       "case_id": "vl/wsi/tiled_full_small",
       "artifact_kind": "dicom_instance",
-      "status": "planned",
+      "status": "implemented",
       "provider": {
-        "kind": "external_backend",
-        "id": "highdicom_pydicom"
+        "kind": "rust_native",
+        "id": "rust_native"
       },
       "object_family": "visible_light",
       "compatibility_axes": [
@@ -15150,23 +15150,8 @@
         "pixels",
         "scale"
       ],
-      "roadmap": {
-        "priority": "later",
-        "delivery_phase": "phase-4",
-        "rationale": "Adds a small semantically complete TILED_FULL whole-slide volume."
-      },
-      "blockers": [
-        {
-          "code": "backend_contract_unimplemented",
-          "message": "The external generation contract is not implemented.",
-          "recheck_phase": "phase-1"
-        },
-        {
-          "code": "independent_payload_validator_unavailable",
-          "message": "Independent tile-to-total-matrix reconstruction is not integrated.",
-          "recheck_phase": "phase-4"
-        }
-      ],
+      "roadmap": null,
+      "blockers": [],
       "profiles": [
         "extended"
       ],
@@ -15177,7 +15162,7 @@
       "sop_class_uid": "1.2.840.10008.5.1.4.1.1.77.1.6",
       "modality": "SM",
       "transfer_syntax_uid": "1.2.840.10008.1.2.1",
-      "determinism": "semantic_stable",
+      "determinism": "byte_stable",
       "requirements": {
         "features": [],
         "external_codecs": [],

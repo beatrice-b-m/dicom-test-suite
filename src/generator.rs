@@ -19,6 +19,7 @@ use native::ct_geometry::{
 };
 use native::empty_type2_sc::{EMPTY_TYPE2_SC_RECIPE, EmptyType2ScRecipe};
 use native::metadata_sc::{METADATA_SC_RECIPES, MetadataScRecipe};
+use native::string_boundary_sc::{STRING_BOUNDARY_SC_RECIPE, StringBoundaryScRecipe};
 use native::timezone_sc::{TIMEZONE_SC_RECIPE, TimezoneBoundary, TimezoneScRecipe};
 
 use crate::{
@@ -3577,6 +3578,16 @@ pub(crate) fn write_supported_cases(
             )?)?;
         }
     }
+    if let Some(case) = registry_case(registry, STRING_BOUNDARY_SC_RECIPE.pixel.case_id)? {
+        if should_generate_case(case, run)? {
+            context.record_one(write_string_boundary_sc_case(
+                run,
+                case,
+                STRING_BOUNDARY_SC_RECIPE,
+                standards_lock_sha256,
+            )?)?;
+        }
+    }
     for recipe in CLASSIC_CT_RECIPES {
         let Some(case) = registry_case(registry, recipe.case_id)? else {
             continue;
@@ -4336,6 +4347,7 @@ enum ScMetadataPayload {
     PersonName(MetadataScRecipe),
     Temporal(TimezoneBoundary),
     EmptyType2(EmptyType2ScRecipe),
+    StringBoundary(StringBoundaryScRecipe),
 }
 
 fn write_metadata_sc_case(
@@ -4391,6 +4403,23 @@ fn write_empty_type2_sc_case(
         recipe.pixel,
         standards_lock_sha256,
         Some(ScMetadataPayload::EmptyType2(recipe)),
+        0,
+        "instance.dcm",
+    )
+}
+
+fn write_string_boundary_sc_case(
+    run: &PreparedGenerationRun,
+    case: &Value,
+    recipe: StringBoundaryScRecipe,
+    standards_lock_sha256: &str,
+) -> Result<GeneratedFile, GenerateError> {
+    write_pixel_case_with_metadata(
+        run,
+        case,
+        recipe.pixel,
+        standards_lock_sha256,
+        Some(ScMetadataPayload::StringBoundary(recipe)),
         0,
         "instance.dcm",
     )
@@ -4510,6 +4539,29 @@ fn write_pixel_case_with_metadata(
     put_str(&mut obj, tags::STUDY_ID, VR::SH, "SMOKE");
     put_str(&mut obj, tags::ACCESSION_NUMBER, VR::SH, "");
 
+    if let Some(ScMetadataPayload::StringBoundary(metadata)) = metadata {
+        put_str(
+            &mut obj,
+            tags::IMAGE_COMMENTS,
+            VR::LT,
+            &metadata
+                .image_comments_pattern
+                .repeat(metadata.image_comments_repetitions),
+        );
+        put_str(
+            &mut obj,
+            tags::ACQUISITION_NUMBER,
+            VR::IS,
+            metadata.acquisition_number,
+        );
+        put_str(
+            &mut obj,
+            tags::PIXEL_SPACING,
+            VR::DS,
+            &metadata.pixel_spacing.join("\\"),
+        );
+    }
+
     put_str(&mut obj, tags::MODALITY, VR::CS, pixel_modality(recipe));
     put_str(
         &mut obj,
@@ -4532,12 +4584,21 @@ fn write_pixel_case_with_metadata(
         VR::LO,
         recipe.recipe_id,
     );
-    put_str(
-        &mut obj,
-        tags::SOFTWARE_VERSIONS,
-        VR::LO,
-        crate::PACKAGE_VERSION,
-    );
+    if let Some(ScMetadataPayload::StringBoundary(metadata)) = metadata {
+        put_str(
+            &mut obj,
+            tags::SOFTWARE_VERSIONS,
+            VR::LO,
+            &metadata.software_versions.join("\\"),
+        );
+    } else {
+        put_str(
+            &mut obj,
+            tags::SOFTWARE_VERSIONS,
+            VR::LO,
+            crate::PACKAGE_VERSION,
+        );
+    }
 
     put_str(&mut obj, tags::INSTANCE_NUMBER, VR::IS, "1");
     put_str(&mut obj, tags::PATIENT_ORIENTATION, VR::CS, "");
@@ -5167,6 +5228,9 @@ fn write_pixel_case_with_metadata(
             ScMetadataPayload::EmptyType2(recipe) => {
                 validate_empty_type2_metadata_round_trip(&path, recipe)?
             }
+            ScMetadataPayload::StringBoundary(recipe) => {
+                validate_string_boundary_metadata_round_trip(&path, recipe)?
+            }
         };
         append_internal_validation(&mut validated.validation, result);
     }
@@ -5369,6 +5433,68 @@ fn validate_empty_type2_metadata_round_trip(
         "name": "empty_type2_round_trip",
         "status": "passed",
         "message": "The five required Type 2 attributes reopened at their declared VRs with empty values."
+    }))
+}
+
+fn validate_string_boundary_metadata_round_trip(
+    path: &std::path::Path,
+    recipe: StringBoundaryScRecipe,
+) -> Result<Value, GenerateError> {
+    let obj = open_file(path).map_err(|error| GenerateError::ValidateDicomFile {
+        path: path.to_path_buf(),
+        message: format!("reopen string boundary SC fixture: {error}"),
+    })?;
+    let comments = recipe
+        .image_comments_pattern
+        .repeat(recipe.image_comments_repetitions);
+    for (tag, keyword, vr, expected) in [
+        (tags::IMAGE_COMMENTS, "ImageComments", VR::LT, comments),
+        (
+            tags::SOFTWARE_VERSIONS,
+            "SoftwareVersions",
+            VR::LO,
+            recipe.software_versions.join("\\"),
+        ),
+        (
+            tags::PIXEL_SPACING,
+            "PixelSpacing",
+            VR::DS,
+            recipe.pixel_spacing.join("\\"),
+        ),
+        (
+            tags::ACQUISITION_NUMBER,
+            "AcquisitionNumber",
+            VR::IS,
+            recipe.acquisition_number.to_string(),
+        ),
+    ] {
+        let element = obj
+            .element(tag)
+            .map_err(|error| GenerateError::ValidateDicomFile {
+                path: path.to_path_buf(),
+                message: format!("read {keyword} from string boundary SC fixture: {error}"),
+            })?;
+        let actual = element
+            .to_multi_str()
+            .map_err(|error| GenerateError::ValidateDicomFile {
+                path: path.to_path_buf(),
+                message: format!("decode {keyword} from string boundary SC fixture: {error}"),
+            })?
+            .join("\\");
+        if element.vr() != vr || actual != expected {
+            return Err(GenerateError::ValidateDicomFile {
+                path: path.to_path_buf(),
+                message: format!(
+                    "{keyword} reopened as {:?} {actual:?}, expected {vr:?} {expected:?}",
+                    element.vr()
+                ),
+            });
+        }
+    }
+    Ok(serde_json::json!({
+        "name": "string_boundary_round_trip",
+        "status": "passed",
+        "message": "The LT, LO, DS, and IS boundary values reopened with exact VRs and lexical components."
     }))
 }
 
@@ -6367,6 +6493,19 @@ fn pixel_manifest_entry(
         });
         manifest["recipe"]["recipe_parameters"]["empty_type2_attribute_count"] =
             Value::from(metadata.attributes.len() as u64);
+    } else if let Some(ScMetadataPayload::StringBoundary(metadata)) = metadata {
+        let comments = metadata
+            .image_comments_pattern
+            .repeat(metadata.image_comments_repetitions);
+        manifest["expected_metadata"] = serde_json::json!({
+            "string_elements": [
+                encoded_string_element("0020,4000", "ImageComments", "LT", &[comments.as_str()]),
+                encoded_string_element("0018,1020", "SoftwareVersions", "LO", &metadata.software_versions),
+                encoded_string_element("0028,0030", "PixelSpacing", "DS", &metadata.pixel_spacing),
+                encoded_string_element("0020,0012", "AcquisitionNumber", "IS", &[metadata.acquisition_number])
+            ]
+        });
+        manifest["recipe"]["recipe_parameters"]["string_boundary_element_count"] = Value::from(4);
     }
     manifest
 }
@@ -6384,6 +6523,28 @@ fn encoded_temporal_value(tag: &str, keyword: &str, vr: &str, decoded_value: &st
         "raw_value_hex": uppercase_hex(&raw_value),
         "raw_value_sha256": sha256_hex(&raw_value),
         "raw_value_byte_length": raw_value.len()
+    })
+}
+
+fn encoded_string_element(tag: &str, keyword: &str, vr: &str, values: &[&str]) -> Value {
+    let joined = values.join("\\");
+    let mut raw_value = joined.as_bytes().to_vec();
+    let padding = if raw_value.len() % 2 == 1 {
+        raw_value.push(b' ');
+        "space"
+    } else {
+        "none"
+    };
+    serde_json::json!({
+        "tag": tag,
+        "keyword": keyword,
+        "vr": vr,
+        "decoded_values": values,
+        "value_multiplicity": values.len(),
+        "decoded_value_lengths": values.iter().map(|value| value.len()).collect::<Vec<_>>(),
+        "raw_value_byte_length": raw_value.len(),
+        "raw_value_sha256": sha256_hex(&raw_value),
+        "padding": padding
     })
 }
 

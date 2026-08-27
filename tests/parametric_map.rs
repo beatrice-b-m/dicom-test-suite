@@ -11,6 +11,9 @@ use serde_json::Value;
 const CASE_ID: &str = "derived/parametric-map/float32_ct_derived_explicit_le";
 const RELATIVE_PATH: &str =
     "derived/parametric-map/float32_ct_derived_explicit_le/parametric-map.dcm";
+const FLOAT64_CASE_ID: &str = "derived/parametric-map/float64_ct_derived_explicit_le";
+const FLOAT64_RELATIVE_PATH: &str =
+    "derived/parametric-map/float64_ct_derived_explicit_le/parametric-map-float64.dcm";
 const PARAMETRIC_MAP_STORAGE: &str = "1.2.840.10008.5.1.4.1.1.30";
 const TAG_DERIVATION_IMAGE_SEQUENCE: Tag = Tag(0x0008, 0x9124);
 const TAG_SOURCE_IMAGE_SEQUENCE: Tag = Tag(0x0008, 0x2112);
@@ -24,8 +27,8 @@ fn promoted_float32_parametric_map_satisfies_external_proof_contract() {
     let first = generate_extended(&first_root);
     let second = generate_extended(&second_root);
 
-    let first_file = file_for_case(&first);
-    let second_file = file_for_case(&second);
+    let first_file = file_for_case(&first, CASE_ID);
+    let second_file = file_for_case(&second, CASE_ID);
     match (first_file, second_file) {
         (None, None) => {
             assert_explicitly_unavailable(&first, &first_root);
@@ -56,6 +59,18 @@ fn promoted_float32_parametric_map_satisfies_external_proof_contract() {
                 "the derived float payload itself must remain semantically stable"
             );
 
+            let first_float64 = file_for_case(&first, FLOAT64_CASE_ID)
+                .expect("implemented float64 Parametric Map must be generated");
+            let second_float64 = file_for_case(&second, FLOAT64_CASE_ID)
+                .expect("implemented float64 Parametric Map must be generated twice");
+            assert_generated_float64_contract(&first_root, first_float64);
+            assert_generated_float64_contract(&second_root, second_float64);
+            assert_eq!(
+                double_float_bytes(&first_root.join(FLOAT64_RELATIVE_PATH)),
+                double_float_bytes(&second_root.join(FLOAT64_RELATIVE_PATH)),
+                "the derived binary64 payload must remain semantically stable"
+            );
+
             for root in [&first_root, &second_root] {
                 let validation = dicom_test_suite::validate_generated_root(root)
                     .expect("generated extended root should validate");
@@ -71,6 +86,68 @@ fn promoted_float32_parametric_map_satisfies_external_proof_contract() {
 
     fs::remove_dir_all(first_root).expect("first temporary root should be removable");
     fs::remove_dir_all(second_root).expect("second temporary root should be removable");
+}
+
+fn assert_generated_float64_contract(root: &Path, file: &Value) {
+    assert_eq!(file["path"].as_str(), Some(FLOAT64_RELATIVE_PATH));
+    assert_eq!(
+        file.pointer("/image/sample_type").and_then(Value::as_str),
+        Some("float64")
+    );
+    assert_eq!(
+        file.pointer("/image/bits_allocated").and_then(Value::as_u64),
+        Some(64)
+    );
+    assert_eq!(
+        file.pointer("/pixel_data/vr").and_then(Value::as_str),
+        Some("OD")
+    );
+    assert_eq!(
+        file.pointer("/pixel_data/value_length").and_then(Value::as_u64),
+        Some(96)
+    );
+
+    let path = root.join(FLOAT64_RELATIVE_PATH);
+    let object = open_file(&path).expect("float64 Parametric Map should reopen");
+    let element = object
+        .element(tags::DOUBLE_FLOAT_PIXEL_DATA)
+        .expect("Double Float Pixel Data must exist");
+    assert_eq!(element.vr(), VR::OD);
+    for forbidden in [
+        tags::PIXEL_DATA,
+        tags::FLOAT_PIXEL_DATA,
+        tags::BITS_STORED,
+        tags::HIGH_BIT,
+        tags::PIXEL_REPRESENTATION,
+    ] {
+        assert!(object.element_opt(forbidden).unwrap().is_none());
+    }
+
+    let bytes = element.value().to_bytes().expect("native OD bytes");
+    assert_eq!(bytes.len(), 96);
+    let bits = bits64_by_frame(&bytes, 4);
+    assert_eq!(
+        bits,
+        nested_u64_frames(&file["expected_semantics"]["little_endian_float64_bits"])
+    );
+    assert_eq!(
+        bits,
+        nested_u64_frames(
+            &file["recipe"]["recipe_parameters"]["little_endian_float64_bits"]
+        )
+    );
+    let hashes = bytes
+        .chunks_exact(32)
+        .map(dicom_test_suite::sha256_hex)
+        .collect::<Vec<_>>();
+    let expected_hashes = file["pixel_data"]["frame_hashes"]
+        .as_array()
+        .expect("frame hashes")
+        .iter()
+        .map(|value| value.as_str().expect("frame hash").to_string())
+        .collect::<Vec<_>>();
+    assert_eq!(hashes, expected_hashes);
+    assert_functional_groups_and_references(root, file, &object);
 }
 
 fn assert_explicitly_unavailable(manifest: &Value, root: &Path) {
@@ -271,7 +348,12 @@ fn assert_functional_groups_and_references(
         .expect("RWVM must be a sequence");
     assert_eq!(mappings.len(), 1);
     let mapping = &mappings[0];
-    assert_eq!(text(mapping, tags::LUT_LABEL), "DTS_FLOAT32");
+    assert_eq!(
+        text(mapping, tags::LUT_LABEL),
+        file["expected_semantics"]["real_world_value_mapping"]["lut_label"]
+            .as_str()
+            .expect("manifest LUT label")
+    );
     assert_eq!(number(mapping, tags::REAL_WORLD_VALUE_SLOPE), 1.0);
     assert_eq!(number(mapping, tags::REAL_WORLD_VALUE_INTERCEPT), 0.0);
     assert_eq!(
@@ -279,14 +361,18 @@ fn assert_functional_groups_and_references(
             mapping,
             tags::DOUBLE_FLOAT_REAL_WORLD_VALUE_FIRST_VALUE_MAPPED
         ),
-        -256.0
+        file["expected_semantics"]["pixel_min"]
+            .as_f64()
+            .expect("pixel minimum")
     );
     assert_eq!(
         number(
             mapping,
             tags::DOUBLE_FLOAT_REAL_WORLD_VALUE_LAST_VALUE_MAPPED
         ),
-        512.25
+        file["expected_semantics"]["pixel_max"]
+            .as_f64()
+            .expect("pixel maximum")
     );
     assert_code(
         mapping,
@@ -530,6 +616,22 @@ fn nested_u32_frames(value: &Value) -> Vec<Vec<u32>> {
         .collect()
 }
 
+fn nested_u64_frames(value: &Value) -> Vec<Vec<u64>> {
+    value
+        .as_array()
+        .expect("frames array")
+        .iter()
+        .map(|frame| {
+            frame
+                .as_array()
+                .expect("frame array")
+                .iter()
+                .map(|bit| bit.as_u64().expect("u64 bit pattern"))
+                .collect()
+        })
+        .collect()
+}
+
 fn bits_by_frame(bytes: &[u8], values_per_frame: usize) -> Vec<Vec<u32>> {
     bytes
         .chunks_exact(values_per_frame * 4)
@@ -537,6 +639,18 @@ fn bits_by_frame(bytes: &[u8], values_per_frame: usize) -> Vec<Vec<u32>> {
             frame
                 .chunks_exact(4)
                 .map(|word| u32::from_le_bytes(word.try_into().expect("four bytes")))
+                .collect()
+        })
+        .collect()
+}
+
+fn bits64_by_frame(bytes: &[u8], values_per_frame: usize) -> Vec<Vec<u64>> {
+    bytes
+        .chunks_exact(values_per_frame * 8)
+        .map(|frame| {
+            frame
+                .chunks_exact(8)
+                .map(|word| u64::from_le_bytes(word.try_into().expect("eight bytes")))
                 .collect()
         })
         .collect()
@@ -550,6 +664,17 @@ fn float_bytes(path: &Path) -> Vec<u8> {
         .value()
         .to_bytes()
         .expect("native float bytes")
+        .into_owned()
+}
+
+fn double_float_bytes(path: &Path) -> Vec<u8> {
+    open_file(path)
+        .expect("Parametric Map should reopen")
+        .element(tags::DOUBLE_FLOAT_PIXEL_DATA)
+        .expect("Double Float Pixel Data")
+        .value()
+        .to_bytes()
+        .expect("native double float bytes")
         .into_owned()
 }
 
@@ -575,11 +700,11 @@ fn generate_extended(root: &Path) -> Value {
         .expect("manifest should parse")
 }
 
-fn file_for_case(manifest: &Value) -> Option<&Value> {
+fn file_for_case<'a>(manifest: &'a Value, case_id: &str) -> Option<&'a Value> {
     manifest["files"]
         .as_array()?
         .iter()
-        .find(|file| file["case_id"].as_str() == Some(CASE_ID))
+        .find(|file| file["case_id"].as_str() == Some(case_id))
 }
 
 fn skipped_for_case(manifest: &Value) -> &Value {

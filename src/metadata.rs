@@ -127,6 +127,25 @@ fn validate_person_names(
             .and_then(Value::as_str)
             .unwrap_or(tag_text);
 
+        let manifest_requires_independent_decode = expected
+            .get("specific_character_sets")
+            .and_then(Value::as_array)
+            .is_some_and(|values| {
+                values
+                    .iter()
+                    .filter_map(Value::as_str)
+                    .any(|value| value.starts_with("ISO 2022 ") && value != "ISO 2022 IR 6")
+            });
+        let dataset_requires_independent_decode = find_raw_element(bytes, Tag(0x0008, 0x0005))
+            .is_some_and(|element| {
+                String::from_utf8_lossy(element.value)
+                    .trim_end_matches([' ', '\0'])
+                    .split('\\')
+                    .any(|value| value.starts_with("ISO 2022 ") && value != "ISO 2022 IR 6")
+            });
+        let requires_independent_decode =
+            manifest_requires_independent_decode && dataset_requires_independent_decode;
+
         match obj.element(tag) {
             Ok(element) => {
                 if element.vr() != VR::PN {
@@ -135,16 +154,18 @@ fn validate_person_names(
                         element.vr()
                     ));
                 }
-                match element.to_str() {
-                    Ok(actual) if actual.trim_end_matches([' ', '\0']) == expected_value => {}
-                    Ok(actual) => failures.push(format!(
-                        "{relative_path}: metadata_person_name_decoded: {keyword} dataset {:?}, manifest {:?}",
-                        actual.trim_end_matches([' ', '\0']),
-                        expected_value
-                    )),
-                    Err(err) => failures.push(format!(
-                        "{relative_path}: metadata_person_name_decoded: {keyword} is unreadable: {err}"
-                    )),
+                if !requires_independent_decode {
+                    match element.to_str() {
+                        Ok(actual) if actual.trim_end_matches([' ', '\0']) == expected_value => {}
+                        Ok(actual) => failures.push(format!(
+                            "{relative_path}: metadata_person_name_decoded: {keyword} dataset {:?}, manifest {:?}",
+                            actual.trim_end_matches([' ', '\0']),
+                            expected_value
+                        )),
+                        Err(err) => failures.push(format!(
+                            "{relative_path}: metadata_person_name_decoded: {keyword} is unreadable: {err}"
+                        )),
+                    }
                 }
             }
             Err(err) => failures.push(format!(

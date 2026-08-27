@@ -628,12 +628,30 @@ fn phase3_status_records_completed_derived_vertical_gates() {
         "d6fd50ea537157dea62e878e6c455d69f8bb239ce7456c3d7bb5a2893f159918",
         "5df5c921ae704341109f1c095258b0f99ebf856e0b91a2eb60deab6531a4a1e3",
         "Blending adds no external finding",
-        "next dependency is milestone 5's\nTwelve-lead ECG waveform",
+        "non-image/waveform/twelve_lead_ecg",
+        "102 files",
+        "898ccec3c6c8e09f91ddcc255a45e397ca19ae69c32b41c1aec4aa5240a9ba3d",
+        "1a14c3f7097e8c7482deb6c5c228b9dd33dbbc97206a3c3f865d3118d713e4c6",
+        "09391f4644f6ad827a2a635ccc0df6d74201e5d6cc45ee8b2d2144d9c0d8e232",
+        "b28021744fc73da06f3b1c4af979eb2c61084102558ba0e6c3831bc77f705ce6",
+        "6e0c8f5880ccf65ba78f031b4687c6ea33ca62560e883e78e487935b6c795faf",
+        "211 older or unrelated failures",
+        "accepted_findings",
+        "representative General ECG waveform is next",
     ] {
         assert!(
             status.contains(required),
             "Phase 3 status requires {required}"
         );
+    }
+
+    let plan = fs::read_to_string("docs/coverage-expansion-plan.md")
+        .expect("coverage expansion plan must be readable");
+    for required in [
+        "Twelve-lead ECG Waveform Storage is complete",
+        "representative General ECG waveform is next",
+    ] {
+        assert!(plan.contains(required), "coverage plan requires {required}");
     }
 }
 

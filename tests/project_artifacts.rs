@@ -207,7 +207,7 @@ fn uv_conformance_docs_preserve_the_independent_gate() {
         "85 files",
         "silent entity validation",
         "One-bit native Multi-frame Secondary Capture",
-        "continues with the final non-square spacing/aspect-ratio slice",
+        "All dependency-ordered Phase 2 milestones are closed",
     ] {
         assert!(phase.contains(required), "phase status requires {required}");
     }
@@ -361,7 +361,8 @@ fn nonsquare_source_note_locks_distinct_spacing_and_aspect_axes() {
         "Section 10.7.1.1",
         "e89b23efeade0dc3de624fc8982ea8b99adb35a3bb9a2fbf8b8ce675e10581a6",
         "1cc11d28abf1e6f4efa4b07a73d4a7c953b3b3101b4112865c7170ccdeb84728",
-        "Registry status: planned",
+        "Registry status: implemented",
+        "adapter fingerprint",
         "Should become KB patch: yes",
     ] {
         assert!(

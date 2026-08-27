@@ -84,18 +84,20 @@ when every physical-spacing attribute is absent.
   reopens every DICOM attribute and payload. Swapped ratios, zero or missing
   components, mismatched Pixel and Nominal spacing, injected off-variant tags,
   and missing variants are failures.
-- Locked `dciodvfy` remains the primary IOD validator and `dcentvfy` the entity
-  checker. The existing `uv`-locked pydicom/dicom-validator runtime will gain a
-  case-scoped semantic mode that independently reads the exact tags, VM,
-  positivity, ratio equivalence, image dimensions, and pixel hash. Generic IOD
-  success alone cannot prove an intentional absence.
+- The `uv`-locked pydicom/dicom-validator adapter is the case-scoped primary
+  IOD validator and `dcentvfy` remains the entity checker. Adapter 0.3.0 also
+  independently reads the exact tags, VM, positivity, ratio equivalence, image
+  dimensions, and pixel hash. Generic IOD success alone cannot prove an
+  intentional absence.
 
 ## Project Action
 
-- Registry status: planned until both files complete generation, strict
+- Registry status: implemented. Both files complete generation, strict
   validation, reporting, deterministic regeneration, and independent
   conformance.
-- Registry reason: deterministic two-variant implementation is outstanding.
+- Qualification result: both variants pass the locked 2026b IOD validator
+  with zero errors. Their semantic evidence is linked to adapter fingerprint
+  `3f20de6ca7d310e2e9f2920f368912f97b6cf62bdfdf750e1417eb5dc4b335b6`.
 - Should become KB patch: yes; expose the conditional Pixel Aspect Ratio
   alternatives and calibration equality rule as typed context.
 - Expected cleanup after KB coverage exists: replace local condition

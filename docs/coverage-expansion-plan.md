@@ -291,8 +291,9 @@ validator. The 1-bit native Multi-frame Secondary Capture slice is also
 complete with clean dicom3tools IOD/entity results and a locked DCMTK
 independent frame decoder. ICC profile handling is complete with exact profile
 bytes, strict DICOM header and label checks, and an operational LittleCMS
-transform. Non-square spacing/aspect-ratio is the final dependency-ordered
-Phase 2 slice.
+transform. Non-square spacing/aspect-ratio is complete as two mutually
+exclusive Secondary Capture variants with `uv`-locked IOD and semantic
+validation. All four dependency-ordered Phase 2 milestones are complete.
 
 Gate:
 

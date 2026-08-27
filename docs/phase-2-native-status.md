@@ -571,12 +571,40 @@ controls prove that dicom3tools alone does not reject corrupt profile headers
 or label mismatch, while the composite path rejects unavailable tools,
 profile/hash/header drift, and semantically relinked evidence.
 
+## Non-square spacing and aspect ratio
+
+`classic/sc/nonsquare_pixel_spacing` closes the Phase 2 pixel milestone with
+two files over the same 4 by 6 MONOCHROME2 checkerboard. The physical-spacing
+variant records Pixel Spacing and Nominal Scanned Pixel Spacing as exact DS VM
+2 values `0.6\\0.3`; the independent aspect-ratio variant records only Pixel
+Aspect Ratio as IS VM 2 `2\\1`. Both express a 2:1 row-to-column ratio without
+patient-space geometry or a calibration correction. Their common 24-byte
+Pixel Data SHA-256 is
+`e89b23efeade0dc3de624fc8982ea8b99adb35a3bb9a2fbf8b8ce675e10581a6`.
+
+The manifest schema, strict validator, JSON and Markdown reports, and CLI tests
+enforce exact values, mutual exclusivity, required absences, payload shape,
+and both file paths. Two seed-7 `core` generations each produced 49 files and
+were recursively byte-identical; strict corpus validation passed all 49. The
+two instance SHA-256 values are
+`3b389bfd9eefeb9883c5edc2730d8fbde8304e0ab3f621aa3ce3a41d67bbfd73`
+and
+`ce8c5c17fd6fb427b8dcd0934c0049a191c6fd0125bd3a2cb6e13eb531e96609`.
+
+The authorized `uv`-locked adapter 0.3.0 binds CPython 3.12.12,
+dicom-validator 0.8.2, pydicom 3.0.2, the 2026b definition cache, and every
+adapter input under composite fingerprint
+`3f20de6ca7d310e2e9f2920f368912f97b6cf62bdfdf750e1417eb5dc4b335b6`.
+Both files pass independent IOD validation with zero errors and case-scoped
+semantic extraction of the exact VR, VM, values, absences, dimensions, and
+pixel hash. Negative tests reject crossed axes and relinked evidence.
+
 ## Milestone gate
 
 All planned Phase 2 geometry and series cases are implemented, and the UTF-8,
 ISO 2022, timezone, empty Type 2, string boundary, private creator, and sequence
 length metadata slices have passed their vertical gates. The latest seed-1
-`core` corpus contains 47 files; the seed-1 `extended` corpus contains 87
+`core` corpus contains 49 files; the seed-1 `extended` corpus contains 87
 files. The complete
 locked no-default-feature, all-target test suite passes, including byte-stable
 smoke, core, and extended regeneration. Each new CT slice and the temporal MR
@@ -587,5 +615,5 @@ ordered Phase 2 metadata and VR milestone is complete. The Nuclear Medicine
 STATIC multi-frame, PET rescaled-activity, timed Ultrasound multi-frame,
 XA monoplane, XRF monoplane, and Enhanced PET clinical-family representatives
 are complete. The dependency-ordered Phase 2 clinical-family milestone is
-closed. The unsigned 32-bit, one-bit, and ICC pixel slices are complete; Phase
-2 continues with the final non-square spacing/aspect-ratio slice.
+closed. The unsigned 32-bit, one-bit, ICC, and non-square spatial pixel slices
+are complete. All dependency-ordered Phase 2 milestones are closed.

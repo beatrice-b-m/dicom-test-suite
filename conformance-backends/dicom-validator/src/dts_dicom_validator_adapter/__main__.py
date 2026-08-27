@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import copy
 import csv
 import hashlib
 import importlib.metadata
@@ -18,8 +19,32 @@ from dicom_validator.validator.error_handler import ValidationResultHandlerBase
 from dicom_validator.validator.validation_result import Status
 
 
-ADAPTER_VERSION = "0.5.0"
+ADAPTER_VERSION = "0.6.0"
 EDITION = "2026b"
+DEFINITION_CORRECTION_ID = "rt-recorded-control-point-mc-other-cond-v1"
+RT_CONTROL_POINT_MODULE = "C.36.2.2.5-1"
+RT_DELIVERY_CONTROL_POINT_MODULE = "C.36.2.2.6-1"
+C_ARM_PHOTON_ELECTRON_BEAM_MODULE = "C.36.15"
+C_ARM_CONTROL_POINT_SEQUENCE = "(300A,062F)"
+RECORDED_RT_CONTROL_POINT_DATETIME = "(300A,073A)"
+LOCKED_MALFORMED_RECORDED_DATETIME = {
+    "cond": {
+        "index": 0,
+        "op": "=",
+        "tag": "(300A,0639)",
+        "type": "MC",
+        "values": ["YES"],
+    },
+    "name": "Recorded RT Control Point DateTime",
+    "type": "1C",
+}
+RT_RECORD_FLAG_YES_ALTERNATIVE = {
+    "index": 0,
+    "op": "=",
+    "tag": "(300A,0639)",
+    "type": "MU",
+    "values": ["YES"],
+}
 TWELVE_LEAD_ECG_STORAGE = "1.2.840.10008.5.1.4.1.1.9.1.1"
 GENERAL_ECG_STORAGE = "1.2.840.10008.5.1.4.1.1.9.1.2"
 WAVEFORM_PAYLOAD_SHA256 = (
@@ -168,6 +193,59 @@ def verify_standard(standard_root: Path, lock_path: Path) -> None:
             raise RuntimeError(f"locked standard artifact hash mismatch: {artifact['path']}")
 
 
+def correct_locked_definition(dicom_info: object) -> None:
+    """Repair one verified 2026b generator omission, failing closed on drift."""
+    modules = getattr(dicom_info, "modules", None)
+    if not isinstance(modules, dict):
+        raise RuntimeError(
+            f"definition correction {DEFINITION_CORRECTION_ID} module shape mismatch"
+        )
+    beam_module = modules.get(C_ARM_PHOTON_ELECTRON_BEAM_MODULE)
+    control_point = (
+        beam_module.get(C_ARM_CONTROL_POINT_SEQUENCE)
+        if isinstance(beam_module, dict)
+        else None
+    )
+    control_point_items = (
+        control_point.get("items") if isinstance(control_point, dict) else None
+    )
+    if (
+        not isinstance(control_point_items, dict)
+        or control_point.get("name")
+        != "C-Arm Photon-Electron Control Point Sequence"
+        or control_point.get("type") != "1"
+        or control_point_items.get("include")
+        != [
+            {"ref": RT_DELIVERY_CONTROL_POINT_MODULE},
+            {"ref": "C.36.2.2.9-1"},
+            {"ref": "C.36.2.2.11-1"},
+        ]
+    ):
+        raise RuntimeError(
+            f"definition correction {DEFINITION_CORRECTION_ID} path shape mismatch"
+        )
+    delivery_module = modules.get(RT_DELIVERY_CONTROL_POINT_MODULE)
+    if not isinstance(delivery_module, dict) or delivery_module.get("include") != [
+        {"ref": RT_CONTROL_POINT_MODULE}
+    ]:
+        raise RuntimeError(
+            f"definition correction {DEFINITION_CORRECTION_ID} path shape mismatch"
+        )
+    module = modules.get(RT_CONTROL_POINT_MODULE)
+    if not isinstance(module, dict):
+        raise RuntimeError(
+            f"definition correction {DEFINITION_CORRECTION_ID} module shape mismatch"
+        )
+    attribute = module.get(RECORDED_RT_CONTROL_POINT_DATETIME)
+    if attribute != LOCKED_MALFORMED_RECORDED_DATETIME:
+        raise RuntimeError(
+            f"definition correction {DEFINITION_CORRECTION_ID} attribute shape mismatch"
+        )
+    corrected = copy.deepcopy(LOCKED_MALFORMED_RECORDED_DATETIME)
+    corrected["cond"]["other_cond"] = copy.deepcopy(RT_RECORD_FLAG_YES_ALTERNATIVE)
+    module[RECORDED_RT_CONTROL_POINT_DATETIME] = corrected
+
+
 def stable_context(context: dict | None) -> str:
     return json.dumps(context or {}, sort_keys=True, separators=(",", ":"), default=str)
 
@@ -181,6 +259,7 @@ def validate(input_path: Path, standard_root: Path, lock_path: Path) -> int:
         verify_distribution(name, version)
     verify_standard(standard_root, lock_path)
     dicom_info = EditionReader(standard_root).load_dicom_info(EDITION)
+    correct_locked_definition(dicom_info)
     validator = DicomFileValidator(
         dicom_info,
         suppress_vr_warnings=False,
@@ -715,6 +794,7 @@ def main() -> None:
         )
         print(
             f"dts-dicom-validator {ADAPTER_VERSION} edition={EDITION} "
+            f"definition_correction={DEFINITION_CORRECTION_ID} "
             f"python={sys.version.split()[0]} {versions}"
         )
         return

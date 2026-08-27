@@ -6471,8 +6471,8 @@ fn blending_report_exposes_palette_rescale_and_source_closure() {
 }
 
 #[test]
-fn report_command_exposes_twelve_lead_waveform_contract_and_preserves_planned_rows() {
-    let out_dir = unique_temp_dir("report-twelve-lead-waveform-json");
+fn report_command_exposes_promoted_ecg_waveform_contracts() {
+    let out_dir = unique_temp_dir("report-ecg-waveform-json");
     fs::create_dir_all(&out_dir).expect("create report fixture root");
     fs::write(
         out_dir.join("manifest.json"),
@@ -6572,23 +6572,42 @@ fn report_command_exposes_twelve_lead_waveform_contract_and_preserves_planned_ro
         "/grouped_coverage/waveform_total_payload_lengths_bytes/12000",
         "/grouped_coverage/waveform_aggregate_payload_sha256_values/98b7a9b1be25d9d64ffa75bc6e16ea80f60deed1891aeed8dfb440c1c19e6713",
         "/grouped_coverage/waveform_total_channel_hash_counts/12",
-        "/grouped_coverage/waveform_all_groups_simultaneous_sampling_states/true",
         "/grouped_coverage/waveform_common_durations_seconds/1",
         "/grouped_coverage/waveform_channel_counts/12",
         "/grouped_coverage/waveform_sampling_frequencies_hz/500",
         "/grouped_coverage/waveform_payload_length_bytes/12000",
         "/grouped_coverage/waveform_channel_hash_counts/12",
         "/grouped_coverage/waveform_simultaneous_sampling_states/true",
+    ] {
+        assert_eq!(report.pointer(pointer), Some(&Value::from(1)), "{pointer}");
+    }
+    for pointer in [
+        "/grouped_coverage/waveform_all_groups_simultaneous_sampling_states/true",
         "/grouped_coverage/waveform_pixel_data_absent_states/true",
+    ] {
+        assert_eq!(report.pointer(pointer), Some(&Value::from(2)), "{pointer}");
+    }
+
+    let general = coverage_row(&report, "non-image/waveform/general_ecg");
+    assert_general_ecg_waveform_row(general);
+    for pointer in [
+        "/grouped_coverage/waveform_iod_kinds/general_ecg",
+        "/grouped_coverage/waveform_group_counts/2",
+        "/grouped_coverage/waveform_group_shape_orders/12x1000@250Hz; 4x4000@1000Hz",
+        "/grouped_coverage/waveform_total_channel_counts/16",
+        "/grouped_coverage/waveform_total_channel_hash_counts/16",
+        "/grouped_coverage/waveform_total_payload_lengths_bytes/56000",
+        "/grouped_coverage/waveform_aggregate_payload_sha256_values/c450f55360d6c07394600e4c0f71f951565cd0e1699edfbbb52f660221c6abea",
+        "/grouped_coverage/waveform_common_durations_seconds/4",
     ] {
         assert_eq!(report.pointer(pointer), Some(&Value::from(1)), "{pointer}");
     }
 
-    let planned = coverage_row(&report, "non-image/waveform/general_ecg");
+    let planned = coverage_row(&report, "non-image/rt/dose_grid_u16_explicit_le");
     assert_eq!(planned["status"], "planned");
-    assert!(planned["waveform_iod_kind"].is_null());
-    assert!(planned["waveform_payload_sha256"].is_null());
     for field in [
+        "waveform_iod_kind",
+        "waveform_payload_sha256",
         "waveform_group_shapes",
         "waveform_group_channel_labels",
         "waveform_group_channel_source_codes",
@@ -6603,7 +6622,7 @@ fn report_command_exposes_twelve_lead_waveform_contract_and_preserves_planned_ro
     ] {
         assert!(
             planned[field].is_null(),
-            "planned General must not leak {field}"
+            "a truly planned non-waveform case must not leak {field}"
         );
     }
 
@@ -6629,6 +6648,10 @@ fn report_command_exposes_twelve_lead_waveform_contract_and_preserves_planned_ro
         "RESTING_12_LEAD[I, II, III, aVR, aVL, aVF, V1, V2, V3, V4, V5, V6]",
         "I; II; III; aVR; aVL; aVF; V1; V2; V3; V4; V5; V6",
         "98b7a9b1be25d9d64ffa75bc6e16ea80f60deed1891aeed8dfb440c1c19e6713",
+        "12x1000@250Hz; 4x4000@1000Hz",
+        "STD12_250HZ[I, II, III, aVR, aVL, aVF, V1, V2, V3, V4, V5, V6]",
+        "AUX4_1000HZ[A1, A2, A3, A4]",
+        "c450f55360d6c07394600e4c0f71f951565cd0e1699edfbbb52f660221c6abea",
         "### Waveform IOD Kinds",
         "### Waveform External Validator Dispositions",
     ] {
@@ -6640,8 +6663,65 @@ fn report_command_exposes_twelve_lead_waveform_contract_and_preserves_planned_ro
     fs::remove_dir_all(out_dir).expect("remove report root");
 }
 
+fn assert_general_ecg_waveform_row(row: &Value) {
+    assert_eq!(row["status"], "generated");
+    assert_eq!(row["waveform_iod_kind"], "general_ecg");
+    assert_eq!(row["waveform_group_count"], 2);
+    assert_eq!(row["waveform_group_shapes"], "12x1000@250Hz; 4x4000@1000Hz");
+    assert_eq!(
+        row["waveform_group_channel_labels"],
+        "STD12_250HZ[I, II, III, aVR, aVL, aVF, V1, V2, V3, V4, V5, V6]; AUX4_1000HZ[A1, A2, A3, A4]"
+    );
+    assert!(
+        row["waveform_group_channel_source_codes"]
+            .as_str()
+            .is_some_and(|value| {
+                value.starts_with("STD12_250HZ[2:1|MDC|Lead I")
+                    && value.contains("; AUX4_1000HZ[2:75|MDC|Auxiliary unipolar lead 1")
+                    && value.ends_with("2:78|MDC|Auxiliary unipolar lead 4]")
+            })
+    );
+    assert_eq!(row["waveform_group_payload_lengths_bytes"], "24000; 32000");
+    assert_eq!(
+        row["waveform_group_payload_sha256_values"],
+        "e4bfb8a3290d9057fa5f5935fa6960ce2a44a07f18991d28c190522739008dbb; 5b201d4fa7274ba36d6f7387c3d0217e1b5da161a915f983c2b63b995dde7bbe"
+    );
+    assert_eq!(row["waveform_total_channel_count"], 16);
+    assert_eq!(row["waveform_total_channel_hash_count"], 16);
+    assert_eq!(row["waveform_total_payload_length_bytes"], 56_000);
+    assert_eq!(
+        row["waveform_aggregate_payload_sha256"],
+        "c450f55360d6c07394600e4c0f71f951565cd0e1699edfbbb52f660221c6abea"
+    );
+    assert_eq!(row["waveform_all_groups_simultaneous_sampling"], true);
+    assert_eq!(row["waveform_common_duration_seconds"], 4);
+    assert_eq!(row["waveform_pixel_data_absent"], true);
+    for field in [
+        "waveform_channel_count",
+        "waveform_samples_per_channel",
+        "waveform_sampling_frequency_hz",
+        "waveform_duration_seconds",
+        "waveform_channel_labels",
+        "waveform_channel_source_codes",
+        "waveform_bits_allocated",
+        "waveform_bits_stored",
+        "waveform_sample_interpretation",
+        "waveform_storage_vr",
+        "waveform_payload_length_bytes",
+        "waveform_payload_sha256",
+        "waveform_interleave_order",
+        "waveform_channel_hash_count",
+        "waveform_simultaneous_sampling",
+    ] {
+        assert!(
+            row[field].is_null(),
+            "heterogeneous groups must not expose {field}"
+        );
+    }
+}
+
 #[test]
-fn report_locks_general_ecg_group_contract_without_promoting_planned_registry() {
+fn report_locks_general_ecg_group_contract() {
     let out_dir = unique_temp_dir("report-general-ecg-groups");
     fs::create_dir_all(&out_dir).expect("create report fixture root");
     fs::write(
@@ -6745,12 +6825,12 @@ fn report_locks_general_ecg_group_contract_without_promoting_planned_registry() 
         !validator.is_valid(&tampered),
         "tampered aggregate hash must fail"
     );
-    let mut leaked = report.clone();
-    coverage_row_mut(&mut leaked, "non-image/waveform/general_ecg")["status"] =
-        Value::from("planned");
+    let mut wrong_iod = report.clone();
+    coverage_row_mut(&mut wrong_iod, "non-image/waveform/general_ecg")["waveform_iod_kind"] =
+        Value::from("twelve_lead_ecg");
     assert!(
-        !validator.is_valid(&leaked),
-        "General waveform fields must not leak onto a planned row"
+        !validator.is_valid(&wrong_iod),
+        "General waveform fields require the General ECG IOD kind"
     );
 
     let markdown = dicom_test_suite::render_coverage_report_markdown(&report);
@@ -6991,7 +7071,7 @@ fn waveform_report_manifest() -> Value {
             })
         })
         .collect::<Vec<_>>();
-    json!({
+    let mut twelve_manifest = json!({
         "generated_at": "20260101000000.000000+0000",
         "standards": {
             "standards_lock_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
@@ -7048,12 +7128,25 @@ fn waveform_report_manifest() -> Value {
             "known_stressors": []
         }],
         "skipped_cases": [{
-            "case_id": "non-image/waveform/general_ecg",
+            "case_id": "non-image/rt/dose_grid_u16_explicit_le",
             "status": "unavailable",
             "reason_code": "case_planned",
             "message": "recipe_unimplemented"
         }]
-    })
+    });
+    let twelve = twelve_manifest["files"]
+        .as_array_mut()
+        .expect("Twelve-lead fixture files")
+        .pop()
+        .expect("Twelve-lead fixture file");
+    let skipped = twelve_manifest["skipped_cases"].clone();
+    let mut manifest = general_ecg_report_manifest();
+    manifest["files"]
+        .as_array_mut()
+        .expect("General ECG fixture files")
+        .insert(0, twelve);
+    manifest["skipped_cases"] = skipped;
+    manifest
 }
 
 fn generate_core(out_dir: &Path) {

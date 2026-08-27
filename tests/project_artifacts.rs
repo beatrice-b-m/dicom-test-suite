@@ -3705,6 +3705,10 @@ fn generator_recipe_case_ids() -> BTreeSet<String> {
             &["case_id: \""][..],
         ),
         ("src/generator/native/metadata_sc.rs", &["case_id: \""][..]),
+        (
+            "src/generator/native/string_boundary_sc.rs",
+            &["case_id: \""][..],
+        ),
         ("src/generator/native/timezone_sc.rs", &["case_id: \""][..]),
         (
             "src/generation_backends/parametric_map.rs",

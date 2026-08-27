@@ -1,14 +1,17 @@
 use std::collections::{BTreeMap, BTreeSet};
-use std::fs;
+use std::fs::{self, File};
+use std::io::{BufWriter, Write};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use dicom_core::{
-    DataElement, PrimitiveValue, Tag, VR,
+    DataElement, Length, PrimitiveValue, Tag, VR,
     value::{DataSetSequence, PixelFragmentSequence},
 };
 use dicom_dictionary_std::{tags, uids};
 use dicom_object::{FileMetaTableBuilder, InMemDicomObject, open_file};
+use dicom_parser::dataset::write::{DataSetWriterOptions, ExplicitLengthSqItemStrategy};
+use dicom_transfer_syntax_registry::{TransferSyntaxIndex, TransferSyntaxRegistry};
 use serde_json::Value;
 
 mod native;
@@ -21,6 +24,12 @@ use native::empty_type2_sc::{EMPTY_TYPE2_SC_RECIPE, EmptyType2ScRecipe};
 use native::metadata_sc::{METADATA_SC_RECIPES, MetadataScRecipe};
 use native::private_creator_sc::{
     PRIVATE_CREATOR_SC_RECIPE, PrivateCreatorBlockRecipe, PrivateCreatorScRecipe, PrivateValue,
+};
+use native::sequence_length_sc::{
+    CODE_MEANING as SEQUENCE_CODE_MEANING, CODE_VALUE as SEQUENCE_CODE_VALUE,
+    CODING_SCHEME_DESIGNATOR as SEQUENCE_CODING_SCHEME_DESIGNATOR, ITEM_DATASET_ENCODED_LENGTH,
+    SEQUENCE_LENGTH_SC_RECIPE, SequenceLengthScRecipe, SequenceLengthVariant,
+    SequenceLengthVariantId, UNDEFINED_ITEM_ENCODED_LENGTH,
 };
 use native::string_boundary_sc::{STRING_BOUNDARY_SC_RECIPE, StringBoundaryScRecipe};
 use native::timezone_sc::{TIMEZONE_SC_RECIPE, TimezoneBoundary, TimezoneScRecipe};
@@ -3601,6 +3610,16 @@ pub(crate) fn write_supported_cases(
             )?)?;
         }
     }
+    if let Some(case) = registry_case(registry, SEQUENCE_LENGTH_SC_RECIPE.pixel.case_id)? {
+        if should_generate_case(case, run)? {
+            context.record_many(write_sequence_length_sc_case(
+                run,
+                case,
+                SEQUENCE_LENGTH_SC_RECIPE,
+                standards_lock_sha256,
+            )?)?;
+        }
+    }
     for recipe in CLASSIC_CT_RECIPES {
         let Some(case) = registry_case(registry, recipe.case_id)? else {
             continue;
@@ -4362,6 +4381,7 @@ enum ScMetadataPayload {
     EmptyType2(EmptyType2ScRecipe),
     StringBoundary(StringBoundaryScRecipe),
     PrivateCreator(PrivateCreatorScRecipe),
+    SequenceLength(SequenceLengthVariant),
 }
 
 fn write_metadata_sc_case(
@@ -4454,6 +4474,30 @@ fn write_private_creator_sc_case(
         0,
         "instance.dcm",
     )
+}
+
+fn write_sequence_length_sc_case(
+    run: &PreparedGenerationRun,
+    case: &Value,
+    recipe: SequenceLengthScRecipe,
+    standards_lock_sha256: &str,
+) -> Result<Vec<GeneratedFile>, GenerateError> {
+    recipe
+        .variants
+        .iter()
+        .enumerate()
+        .map(|(index, variant)| {
+            write_pixel_case_with_metadata(
+                run,
+                case,
+                recipe.pixel,
+                standards_lock_sha256,
+                Some(ScMetadataPayload::SequenceLength(*variant)),
+                index as u32,
+                variant.file_name,
+            )
+        })
+        .collect()
 }
 
 fn write_pixel_case_with_metadata(
@@ -4594,6 +4638,14 @@ fn write_pixel_case_with_metadata(
     }
     if let Some(ScMetadataPayload::PrivateCreator(metadata)) = metadata {
         put_private_creator_blocks(&mut obj, metadata).map_err(|message| {
+            GenerateError::WriteDicomFile {
+                path: path.clone(),
+                message,
+            }
+        })?;
+    }
+    if let Some(ScMetadataPayload::SequenceLength(variant)) = metadata {
+        put_sequence_length_metadata(&mut obj, variant).map_err(|message| {
             GenerateError::WriteDicomFile {
                 path: path.clone(),
                 message,
@@ -5190,6 +5242,8 @@ fn write_pixel_case_with_metadata(
                 ),
             });
         }
+    } else if matches!(metadata, Some(ScMetadataPayload::SequenceLength(_))) {
+        write_part10_preserving_sequence_lengths(&file_obj, &path)?;
     } else {
         file_obj
             .write_to_file(&path)
@@ -5272,6 +5326,9 @@ fn write_pixel_case_with_metadata(
             }
             ScMetadataPayload::PrivateCreator(recipe) => {
                 validate_private_creator_metadata_round_trip(&path, recipe)?
+            }
+            ScMetadataPayload::SequenceLength(variant) => {
+                validate_sequence_length_metadata_round_trip(&path, variant)?
             }
         };
         append_internal_validation(&mut validated.validation, result);
@@ -5690,6 +5747,265 @@ fn validate_private_creator_metadata_round_trip(
         "status": "passed",
         "message": "All private creators and typed block elements reopened at their exact tags, VRs, and values."
     }))
+}
+
+fn sequence_code_item() -> InMemDicomObject {
+    InMemDicomObject::from_element_iter([
+        DataElement::new(tags::CODE_VALUE, VR::SH, SEQUENCE_CODE_VALUE),
+        DataElement::new(
+            tags::CODING_SCHEME_DESIGNATOR,
+            VR::SH,
+            SEQUENCE_CODING_SCHEME_DESIGNATOR,
+        ),
+        DataElement::new(tags::CODE_MEANING, VR::LO, SEQUENCE_CODE_MEANING),
+    ])
+}
+
+fn sequence_writer_options() -> DataSetWriterOptions {
+    DataSetWriterOptions::default()
+        .explicit_length_sq_item_strategy(ExplicitLengthSqItemStrategy::NoChange)
+}
+
+fn explicit_vr_little_endian_transfer_syntax()
+-> Result<&'static dicom_encoding::TransferSyntax, String> {
+    TransferSyntaxRegistry
+        .get(EXPLICIT_VR_LITTLE_ENDIAN.uid)
+        .ok_or_else(|| "Explicit VR Little Endian transfer syntax is unavailable".to_string())
+}
+
+fn put_sequence_length_metadata(
+    obj: &mut InMemDicomObject,
+    variant: SequenceLengthVariant,
+) -> Result<(), String> {
+    let item = sequence_code_item();
+    let transfer_syntax = explicit_vr_little_endian_transfer_syntax()?;
+    let mut encoded_item = Vec::new();
+    item.write_dataset_with_ts_options(
+        &mut encoded_item,
+        transfer_syntax,
+        sequence_writer_options(),
+    )
+    .map_err(|error| format!("encode Anatomic Region Sequence item: {error}"))?;
+    if encoded_item.len() != ITEM_DATASET_ENCODED_LENGTH as usize {
+        return Err(format!(
+            "Anatomic Region Sequence item encoded to {} bytes, expected {ITEM_DATASET_ENCODED_LENGTH}",
+            encoded_item.len()
+        ));
+    }
+    let declared_defined_length = ITEM_DATASET_ENCODED_LENGTH
+        .checked_add(8)
+        .and_then(|length| length.checked_add(8))
+        .ok_or_else(|| "Anatomic Region Sequence length overflow".to_string())?;
+    if declared_defined_length != UNDEFINED_ITEM_ENCODED_LENGTH {
+        return Err(format!(
+            "computed defined SQ length {declared_defined_length}, expected {UNDEFINED_ITEM_ENCODED_LENGTH}"
+        ));
+    }
+    let sequence_length = match variant.variant_id {
+        SequenceLengthVariantId::Defined => Length(declared_defined_length),
+        SequenceLengthVariantId::Undefined => Length::UNDEFINED,
+    };
+    obj.put(DataElement::new(
+        tags::ANATOMIC_REGION_SEQUENCE,
+        VR::SQ,
+        DataSetSequence::new(vec![item], sequence_length),
+    ));
+    Ok(())
+}
+
+fn write_part10_preserving_sequence_lengths(
+    file_obj: &dicom_object::FileDicomObject<InMemDicomObject>,
+    path: &std::path::Path,
+) -> Result<(), GenerateError> {
+    let transfer_syntax = explicit_vr_little_endian_transfer_syntax().map_err(|message| {
+        GenerateError::WriteDicomFile {
+            path: path.to_path_buf(),
+            message,
+        }
+    })?;
+    let file = File::create(path).map_err(|error| GenerateError::WriteDicomFile {
+        path: path.to_path_buf(),
+        message: error.to_string(),
+    })?;
+    let mut writer = BufWriter::new(file);
+    writer
+        .write_all(&[0_u8; 128])
+        .and_then(|_| writer.write_all(b"DICM"))
+        .map_err(|error| GenerateError::WriteDicomFile {
+            path: path.to_path_buf(),
+            message: error.to_string(),
+        })?;
+    file_obj
+        .write_meta(&mut writer)
+        .map_err(|error| GenerateError::WriteDicomFile {
+            path: path.to_path_buf(),
+            message: error.to_string(),
+        })?;
+    file_obj
+        .write_dataset_with_ts_options(&mut writer, transfer_syntax, sequence_writer_options())
+        .map_err(|error| GenerateError::WriteDicomFile {
+            path: path.to_path_buf(),
+            message: error.to_string(),
+        })?;
+    writer
+        .flush()
+        .map_err(|error| GenerateError::WriteDicomFile {
+            path: path.to_path_buf(),
+            message: error.to_string(),
+        })
+}
+
+fn validate_sequence_length_metadata_round_trip(
+    path: &std::path::Path,
+    variant: SequenceLengthVariant,
+) -> Result<Value, GenerateError> {
+    let obj = open_file(path).map_err(|error| GenerateError::ValidateDicomFile {
+        path: path.to_path_buf(),
+        message: format!("reopen sequence length SC fixture: {error}"),
+    })?;
+    let sequence_element = obj
+        .element(tags::ANATOMIC_REGION_SEQUENCE)
+        .map_err(|error| GenerateError::ValidateDicomFile {
+            path: path.to_path_buf(),
+            message: format!("read Anatomic Region Sequence: {error}"),
+        })?;
+    let sequence = sequence_element
+        .items()
+        .ok_or_else(|| GenerateError::ValidateDicomFile {
+            path: path.to_path_buf(),
+            message: "Anatomic Region Sequence does not decode as SQ items".to_string(),
+        })?;
+    if sequence.len() != 1 {
+        return Err(GenerateError::ValidateDicomFile {
+            path: path.to_path_buf(),
+            message: format!(
+                "Anatomic Region Sequence has {} items, expected 1",
+                sequence.len()
+            ),
+        });
+    }
+    for (tag, expected) in [
+        (tags::CODE_VALUE, SEQUENCE_CODE_VALUE),
+        (
+            tags::CODING_SCHEME_DESIGNATOR,
+            SEQUENCE_CODING_SCHEME_DESIGNATOR,
+        ),
+        (tags::CODE_MEANING, SEQUENCE_CODE_MEANING),
+    ] {
+        let element =
+            sequence[0]
+                .element(tag)
+                .map_err(|error| GenerateError::ValidateDicomFile {
+                    path: path.to_path_buf(),
+                    message: format!("read sequence code field {tag:?}: {error}"),
+                })?;
+        let actual = element
+            .to_str()
+            .map_err(|error| GenerateError::ValidateDicomFile {
+                path: path.to_path_buf(),
+                message: format!("decode sequence code field {tag:?}: {error}"),
+            })?;
+        if actual.as_ref() != expected {
+            return Err(GenerateError::ValidateDicomFile {
+                path: path.to_path_buf(),
+                message: format!(
+                    "sequence code field {tag:?} is {actual:?}, expected {expected:?}"
+                ),
+            });
+        }
+    }
+
+    let bytes = fs::read(path).map_err(|error| GenerateError::ValidateDicomFile {
+        path: path.to_path_buf(),
+        message: format!("read sequence length SC bytes: {error}"),
+    })?;
+    let offset = find_top_level_explicit_vr_element(&bytes, tags::ANATOMIC_REGION_SEQUENCE)
+        .ok_or_else(|| GenerateError::ValidateDicomFile {
+            path: path.to_path_buf(),
+            message: "raw Anatomic Region Sequence header is missing".to_string(),
+        })?;
+    if bytes.get(offset + 4..offset + 6) != Some(b"SQ") {
+        return Err(GenerateError::ValidateDicomFile {
+            path: path.to_path_buf(),
+            message: "Anatomic Region Sequence raw VR is not SQ".to_string(),
+        });
+    }
+    let raw_length = u32::from_le_bytes(
+        bytes
+            .get(offset + 8..offset + 12)
+            .and_then(|value| value.try_into().ok())
+            .ok_or_else(|| GenerateError::ValidateDicomFile {
+                path: path.to_path_buf(),
+                message: "Anatomic Region Sequence raw length field is truncated".to_string(),
+            })?,
+    );
+    let value_offset = offset + 12;
+    let item_delimiter_offset = value_offset + 8 + ITEM_DATASET_ENCODED_LENGTH as usize;
+    let item_header_matches = bytes.get(value_offset..value_offset + 8)
+        == Some(&[0xFE, 0xFF, 0x00, 0xE0, 0xFF, 0xFF, 0xFF, 0xFF]);
+    let item_delimiter_matches = bytes.get(item_delimiter_offset..item_delimiter_offset + 8)
+        == Some(&[0xFE, 0xFF, 0x0D, 0xE0, 0, 0, 0, 0]);
+    let sequence_delimiter_offset = item_delimiter_offset + 8;
+    let sequence_delimiter_present = bytes
+        .get(sequence_delimiter_offset..sequence_delimiter_offset + 8)
+        == Some(&[0xFE, 0xFF, 0xDD, 0xE0, 0, 0, 0, 0]);
+    let expected_raw_length = match variant.variant_id {
+        SequenceLengthVariantId::Defined => UNDEFINED_ITEM_ENCODED_LENGTH,
+        SequenceLengthVariantId::Undefined => u32::MAX,
+    };
+    let expected_sequence_delimiter = variant.variant_id == SequenceLengthVariantId::Undefined;
+    if !item_header_matches
+        || !item_delimiter_matches
+        || raw_length != expected_raw_length
+        || sequence_delimiter_present != expected_sequence_delimiter
+    {
+        return Err(GenerateError::ValidateDicomFile {
+            path: path.to_path_buf(),
+            message: format!(
+                "{} sequence encoding has VL {raw_length:#010X}, item header {item_header_matches}, item delimiter {item_delimiter_matches}, sequence delimiter {sequence_delimiter_present}",
+                variant.variant_id.as_str()
+            ),
+        });
+    }
+    Ok(serde_json::json!({
+        "name": "sequence_length_encoding_round_trip",
+        "status": "passed",
+        "message": format!("The {} SQ length variant preserved exact raw delimiters and decoded code content.", variant.variant_id.as_str())
+    }))
+}
+
+fn find_top_level_explicit_vr_element(bytes: &[u8], wanted: Tag) -> Option<usize> {
+    if bytes.get(128..132)? != b"DICM" {
+        return None;
+    }
+    let mut offset = 132;
+    loop {
+        let group = u16::from_le_bytes(bytes.get(offset..offset + 2)?.try_into().ok()?);
+        let element = u16::from_le_bytes(bytes.get(offset + 2..offset + 4)?.try_into().ok()?);
+        let vr = std::str::from_utf8(bytes.get(offset + 4..offset + 6)?).ok()?;
+        let long_vr = matches!(
+            vr,
+            "OB" | "OD" | "OF" | "OL" | "OV" | "OW" | "SQ" | "UC" | "UR" | "UT" | "UN"
+        );
+        let (length, value_offset) = if long_vr {
+            (
+                u32::from_le_bytes(bytes.get(offset + 8..offset + 12)?.try_into().ok()?),
+                offset + 12,
+            )
+        } else {
+            (
+                u16::from_le_bytes(bytes.get(offset + 6..offset + 8)?.try_into().ok()?) as u32,
+                offset + 8,
+            )
+        };
+        if Tag(group, element) == wanted {
+            return Some(offset);
+        }
+        if length == u32::MAX {
+            return None;
+        }
+        offset = value_offset.checked_add(length as usize)?;
+    }
 }
 
 fn append_internal_validation(validation: &mut Value, result: Value) {
@@ -6710,6 +7026,34 @@ fn pixel_manifest_entry(
         });
         manifest["recipe"]["recipe_parameters"]["private_creator_block_count"] =
             Value::from(metadata.blocks.len() as u64);
+    } else if let Some(ScMetadataPayload::SequenceLength(variant)) = metadata {
+        let defined = variant.variant_id == SequenceLengthVariantId::Defined;
+        manifest["expected_metadata"] = serde_json::json!({
+            "sequence_length_encoding": {
+                "variant_id": variant.variant_id.as_str(),
+                "sequence_tag": "0008,2218",
+                "keyword": "AnatomicRegionSequence",
+                "vr": "SQ",
+                "sequence_value_length": if defined {
+                    Value::from(UNDEFINED_ITEM_ENCODED_LENGTH)
+                } else {
+                    Value::Null
+                },
+                "sequence_length_field_hex": if defined { "38000000" } else { "FFFFFFFF" },
+                "sequence_delimitation_present": !defined,
+                "item_count": 1,
+                "item_length_encoding": "undefined",
+                "item_length_field_hex": "FFFFFFFF",
+                "item_delimitation_present": true,
+                "decoded_items": [{
+                    "code_value": SEQUENCE_CODE_VALUE,
+                    "coding_scheme_designator": SEQUENCE_CODING_SCHEME_DESIGNATOR,
+                    "code_meaning": SEQUENCE_CODE_MEANING
+                }]
+            }
+        });
+        manifest["recipe"]["recipe_parameters"]["sequence_length_variant"] =
+            Value::from(variant.variant_id.as_str());
     }
     manifest
 }

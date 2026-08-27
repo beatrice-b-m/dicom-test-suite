@@ -36,6 +36,7 @@ class FloatPixelFormulaTest(unittest.TestCase):
 
     def test_normalized_series_laterality_is_valid_for_iod_validation(self) -> None:
         dataset = Dataset()
+        dataset.ContributingEquipmentSequence = [Dataset()]
         _normalize_metadata(
             dataset,
             {
@@ -56,6 +57,10 @@ class FloatPixelFormulaTest(unittest.TestCase):
 
         self.assertEqual(dataset.Laterality, "R")
         self.assertEqual(dataset.SyntheticData, "YES")
+        self.assertEqual(
+            dataset.ContributingEquipmentSequence[0].ContributionDateTime,
+            "20260101000000+0000",
+        )
 
 
 if __name__ == "__main__":

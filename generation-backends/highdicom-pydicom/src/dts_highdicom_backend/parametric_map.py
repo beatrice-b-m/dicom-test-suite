@@ -88,6 +88,13 @@ def _normalize_metadata(dataset: Dataset, request: dict[str, Any]) -> None:
         ("InstanceCreationTime", "content_time"),
     ):
         setattr(dataset, keyword, controlled[field])
+    contribution_datetime = (
+        controlled["content_date"]
+        + controlled["content_time"]
+        + controlled["timezone_offset_from_utc"]
+    )
+    for item in dataset.ContributingEquipmentSequence:
+        item.ContributionDateTime = contribution_datetime
 
 
 def generate(request: dict[str, Any], output_root: Path) -> dict[str, Any]:

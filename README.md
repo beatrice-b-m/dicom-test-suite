@@ -106,6 +106,9 @@ pathology, codec, stress, robustness, media, and protocol coverage is in
 The completed backend platform, native CT proof, external float32 Parametric
 Map proof, and independent validation evidence are in
 [docs/phase-1-proof-status.md](docs/phase-1-proof-status.md).
+Independently verified Phase 2 native slices and their remaining milestone work
+are tracked in
+[docs/phase-2-native-status.md](docs/phase-2-native-status.md).
 
 ## Verification
 

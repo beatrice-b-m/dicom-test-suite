@@ -17813,7 +17813,8 @@ fn vl_single_frame_report_laterality(
     let stressors_match = file.get("known_stressors")
         == Some(&serde_json::json!([
             contract.storage_stressor,
-            "vl_rgb_pixels"
+            "vl_rgb_pixels",
+            "native_ob_pixel_data"
         ]));
     if !generic_contract_matches || !stressors_match {
         return Err(ReportError::MetadataShape {

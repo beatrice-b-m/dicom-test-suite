@@ -7214,7 +7214,10 @@ fn report_exposes_locked_single_frame_vl_rows_and_markdown() {
         assert_eq!(row["frames"], 1);
         assert_eq!(row.pointer("/geometry/rows"), Some(&Value::from(2)));
         assert_eq!(row.pointer("/geometry/columns"), Some(&Value::from(2)));
-        assert_eq!(row["known_stressors"], json!([stressor, "vl_rgb_pixels"]));
+        assert_eq!(
+            row["known_stressors"],
+            json!([stressor, "vl_rgb_pixels", "native_ob_pixel_data"])
+        );
     }
     assert_eq!(
         report.pointer("/grouped_coverage/lateralities/R"),
@@ -8007,7 +8010,7 @@ fn vl_single_frame_report_manifest() -> Value {
                 ]
             },
             "validation": { "status": "passed" },
-            "known_stressors": [storage_stressor, "vl_rgb_pixels"]
+            "known_stressors": [storage_stressor, "vl_rgb_pixels", "native_ob_pixel_data"]
         })
     };
     json!({

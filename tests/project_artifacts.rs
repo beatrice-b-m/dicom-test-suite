@@ -698,6 +698,61 @@ fn spatial_registration_source_note_locks_native_rigid_contract() {
 }
 
 #[test]
+fn deformable_registration_source_note_locks_grid_sampling_contract() {
+    let source =
+        fs::read_to_string("standards/source-notes/phase-3-deformable-spatial-registration.md")
+            .expect("Deformable Spatial Registration source note must be readable");
+    for required in [
+        "derived/registration/deformable_ct_pair",
+        "Recommended provider: `rust_native`",
+        "1.2.840.10008.5.1.4.1.1.66.3",
+        "Registered RCS to Source RCS sampling",
+        "M_post(M_pre(P_registered) + D)",
+        "Grid Dimensions `(0064,0007)`: UL VM 3, `[2,2,1]`",
+        "Grid Resolution `(0064,0008)`: FD VM 3, `[0.75,0.75,2.5]` mm",
+        "Vector Grid Data `(0064,0009)`: OF VM 1, 48 bytes",
+        "`i` (left to right) varying",
+        "[-0.625, -0.625, -2.5]",
+        "[-0.75,  -0.75,  -2.5]",
+        "d0673d2da1b415db6465047e607b7f16f1a886dfae4ede91764c71bf7df72f47",
+        "Pre Deformation Matrix Registration Sequence",
+        "Post Deformation Matrix Registration Sequence",
+        "Studies Containing Other Referenced Instances Sequence",
+        "expected_deformable_spatial_registration",
+        "926ab093e7f66bc9d7fb75ddaded704274325e19a878d3999d5ebd17de583672",
+        "OF byte-count equation",
+        "Only isolated `dcentvfy` detected a dangling SOP",
+        "Registry status: planned",
+        "replace the planned `highdicom_pydicom`",
+        "No new finding may be silently allowlisted",
+        "Should become KB patch: yes",
+    ] {
+        assert!(
+            source.contains(required),
+            "Deformable Spatial Registration note requires {required}"
+        );
+    }
+
+    let registry = read_json("cases/registry.json");
+    let case = registry_cases(&registry)
+        .into_iter()
+        .find(|case| {
+            case.get("case_id").and_then(Value::as_str)
+                == Some("derived/registration/deformable_ct_pair")
+        })
+        .expect("Deformable Spatial Registration row must exist");
+    assert_eq!(case["status"], "planned");
+    assert_eq!(case["provider"]["id"], "highdicom_pydicom");
+    assert_eq!(case["roadmap"]["delivery_phase"], "phase-3");
+    assert!(
+        case["blockers"]
+            .as_array()
+            .is_some_and(|blockers| !blockers.is_empty()),
+        "Deformable Spatial Registration blockers stay visible until promotion"
+    );
+}
+
+#[test]
 fn u1_pixel_decoder_is_case_scoped_and_locked() {
     let validators = read_json("conformance/validators.json");
     let adapter = validators["adapters"]

@@ -343,6 +343,9 @@
         "expected_deformable_spatial_registration": {
           "$ref": "#/$defs/expected_deformable_spatial_registration"
         },
+        "expected_color_softcopy_presentation_state": {
+          "$ref": "#/$defs/expected_color_softcopy_presentation_state"
+        },
         "expected_geometry": {
           "anyOf": [
             { "$ref": "#/$defs/expected_geometry" },
@@ -641,6 +644,30 @@
                   "sop_class_name": { "const": "Deformable Spatial Registration Storage" },
                   "iod_name": { "const": "Deformable Spatial Registration" },
                   "modality": { "const": "REG" },
+                  "transfer_syntax_uid": { "const": "1.2.840.10008.1.2.1" }
+                }
+              },
+              "image": { "type": "null" },
+              "pixel_data": { "type": "null" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "case_id": { "const": "derived/presentation-state/color_softcopy" }
+            },
+            "required": ["case_id"]
+          },
+          "then": {
+            "required": ["expected_color_softcopy_presentation_state"],
+            "properties": {
+              "dicom": {
+                "properties": {
+                  "sop_class_uid": { "const": "1.2.840.10008.5.1.4.1.1.11.2" },
+                  "sop_class_name": { "const": "Color Softcopy Presentation State Storage" },
+                  "iod_name": { "const": "Color Softcopy Presentation State" },
+                  "modality": { "const": "PR" },
                   "transfer_syntax_uid": { "const": "1.2.840.10008.1.2.1" }
                 }
               },
@@ -2216,6 +2243,180 @@
           },
           "additionalProperties": false
         },
+        "pixel_data_absent": { "const": true }
+      },
+      "additionalProperties": false
+    },
+    "expected_color_softcopy_presentation_state": {
+      "type": "object",
+      "required": [
+        "presentation_state",
+        "source",
+        "same_study",
+        "different_series",
+        "relationship",
+        "displayed_area",
+        "icc_profile",
+        "shutter_items",
+        "graphic_annotation_items",
+        "graphic_layer_items",
+        "overlay_items",
+        "spatial_transform_present",
+        "pixel_data_absent"
+      ],
+      "properties": {
+        "presentation_state": {
+          "type": "object",
+          "required": [
+            "modality",
+            "body_part_examined",
+            "laterality",
+            "content_label",
+            "content_description",
+            "presentation_creation_date",
+            "presentation_creation_time",
+            "instance_number",
+            "series_number"
+          ],
+          "properties": {
+            "modality": { "const": "PR" },
+            "body_part_examined": { "const": "HAND" },
+            "laterality": { "const": "R" },
+            "content_label": { "const": "DTSCOLORPR" },
+            "content_description": { "const": "Synthetic RGB color presentation state" },
+            "presentation_creation_date": { "const": "20260101" },
+            "presentation_creation_time": { "const": "000000" },
+            "instance_number": { "const": 1 },
+            "series_number": { "const": 62 }
+          },
+          "additionalProperties": false
+        },
+        "source": {
+          "type": "object",
+          "required": [
+            "source_case_id",
+            "source_path",
+            "source_sha256",
+            "study_instance_uid",
+            "series_instance_uid",
+            "sop_class_uid",
+            "sop_instance_uid",
+            "rows",
+            "columns",
+            "photometric_interpretation",
+            "samples_per_pixel",
+            "planar_configuration",
+            "complete_instance"
+          ],
+          "properties": {
+            "source_case_id": { "const": "classic/sc/rgb_planar0_explicit_le" },
+            "source_path": { "const": "classic/sc/rgb_planar0_explicit_le/instance.dcm" },
+            "source_sha256": { "$ref": "#/$defs/sha256" },
+            "study_instance_uid": { "type": "string", "pattern": "^[0-9]+(?:\\.[0-9]+)+$" },
+            "series_instance_uid": { "type": "string", "pattern": "^[0-9]+(?:\\.[0-9]+)+$" },
+            "sop_class_uid": { "const": "1.2.840.10008.5.1.4.1.1.7" },
+            "sop_instance_uid": { "type": "string", "pattern": "^[0-9]+(?:\\.[0-9]+)+$" },
+            "rows": { "const": 2 },
+            "columns": { "const": 2 },
+            "photometric_interpretation": { "const": "RGB" },
+            "samples_per_pixel": { "const": 3 },
+            "planar_configuration": { "const": 0 },
+            "complete_instance": { "const": true }
+          },
+          "additionalProperties": false
+        },
+        "same_study": { "const": true },
+        "different_series": { "const": true },
+        "relationship": {
+          "type": "object",
+          "required": [
+            "referenced_series_items",
+            "referenced_image_items",
+            "referenced_frame_numbers",
+            "applies_to_complete_instance"
+          ],
+          "properties": {
+            "referenced_series_items": { "const": 1 },
+            "referenced_image_items": { "const": 1 },
+            "referenced_frame_numbers": {
+              "type": "array",
+              "maxItems": 0
+            },
+            "applies_to_complete_instance": { "const": true }
+          },
+          "additionalProperties": false
+        },
+        "displayed_area": {
+          "type": "object",
+          "required": [
+            "items",
+            "applies_to_all_references",
+            "top_left",
+            "bottom_right",
+            "presentation_size_mode",
+            "presentation_pixel_aspect_ratio",
+            "presentation_pixel_spacing",
+            "presentation_pixel_magnification_ratio"
+          ],
+          "properties": {
+            "items": { "const": 1 },
+            "applies_to_all_references": { "const": true },
+            "top_left": {
+              "type": "array",
+              "prefixItems": [{ "const": 1 }, { "const": 1 }],
+              "items": false,
+              "minItems": 2,
+              "maxItems": 2
+            },
+            "bottom_right": {
+              "type": "array",
+              "prefixItems": [{ "const": 2 }, { "const": 2 }],
+              "items": false,
+              "minItems": 2,
+              "maxItems": 2
+            },
+            "presentation_size_mode": { "const": "SCALE TO FIT" },
+            "presentation_pixel_aspect_ratio": {
+              "type": "array",
+              "prefixItems": [{ "const": 1 }, { "const": 1 }],
+              "items": false,
+              "minItems": 2,
+              "maxItems": 2
+            },
+            "presentation_pixel_spacing": { "type": "null" },
+            "presentation_pixel_magnification_ratio": { "type": "null" }
+          },
+          "additionalProperties": false
+        },
+        "icc_profile": {
+          "type": "object",
+          "required": [
+            "vr",
+            "size_bytes",
+            "sha256",
+            "device_class",
+            "data_color_space",
+            "profile_connection_space",
+            "signature",
+            "dicom_color_space"
+          ],
+          "properties": {
+            "vr": { "const": "OB" },
+            "size_bytes": { "const": 736 },
+            "sha256": { "const": "8e069a3476b71a0e0ae7272d9278ba70540d1c4a0b19af1c7d52e56f49091fef" },
+            "device_class": { "const": "scnr" },
+            "data_color_space": { "const": "RGB " },
+            "profile_connection_space": { "const": "XYZ " },
+            "signature": { "const": "acsp" },
+            "dicom_color_space": { "const": "SRGB" }
+          },
+          "additionalProperties": false
+        },
+        "shutter_items": { "const": 0 },
+        "graphic_annotation_items": { "const": 0 },
+        "graphic_layer_items": { "const": 0 },
+        "overlay_items": { "const": 0 },
+        "spatial_transform_present": { "const": false },
         "pixel_data_absent": { "const": true }
       },
       "additionalProperties": false

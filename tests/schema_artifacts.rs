@@ -2088,6 +2088,156 @@ fn manifest_schema_types_deformable_registration_expectations() {
 }
 
 #[test]
+fn manifest_schema_types_color_softcopy_presentation_state_expectations() {
+    let schema = read_json("schemas/manifest.schema.json");
+    let expectation_schema = serde_json::json!({
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$ref": "#/$defs/expected_color_softcopy_presentation_state",
+        "$defs": schema["$defs"].clone(),
+    });
+    let validator = jsonschema::validator_for(&expectation_schema)
+        .expect("Color Softcopy Presentation State expectation schema should compile");
+    let expectation = color_softcopy_presentation_state_expectation();
+    assert!(validator.is_valid(&expectation));
+
+    let mut wrong_presentation_identity = expectation.clone();
+    wrong_presentation_identity["presentation_state"]["laterality"] = serde_json::json!("L");
+    assert!(!validator.is_valid(&wrong_presentation_identity));
+
+    let mut wrong_source_shape = expectation.clone();
+    wrong_source_shape["source"]["columns"] = serde_json::json!(3);
+    assert!(!validator.is_valid(&wrong_source_shape));
+
+    let mut frame_scoped = expectation.clone();
+    frame_scoped["relationship"]["referenced_frame_numbers"] = serde_json::json!([1]);
+    assert!(!validator.is_valid(&frame_scoped));
+
+    let mut incomplete_displayed_area = expectation.clone();
+    incomplete_displayed_area["displayed_area"]["bottom_right"] = serde_json::json!([1, 2]);
+    assert!(!validator.is_valid(&incomplete_displayed_area));
+
+    let mut wrong_icc_header = expectation.clone();
+    wrong_icc_header["icc_profile"]["data_color_space"] = serde_json::json!("RGB");
+    assert!(!validator.is_valid(&wrong_icc_header));
+
+    let mut wrong_icc_hash = expectation.clone();
+    wrong_icc_hash["icc_profile"]["sha256"] = serde_json::json!(format!("{:064x}", 1));
+    assert!(!validator.is_valid(&wrong_icc_hash));
+
+    let mut unexpected_graphics = expectation.clone();
+    unexpected_graphics["graphic_layer_items"] = serde_json::json!(1);
+    assert!(!validator.is_valid(&unexpected_graphics));
+
+    let mut unexpected_pixels = expectation;
+    unexpected_pixels["pixel_data_absent"] = serde_json::json!(false);
+    assert!(!validator.is_valid(&unexpected_pixels));
+}
+
+#[test]
+fn manifest_schema_requires_color_softcopy_presentation_state_contract() {
+    let schema = read_json("schemas/manifest.schema.json");
+    let rule = schema
+        .pointer("/$defs/file/allOf")
+        .and_then(Value::as_array)
+        .expect("file schema should define case conditionals")
+        .iter()
+        .find(|rule| {
+            rule.pointer("/if/properties/case_id/const")
+                .and_then(Value::as_str)
+                == Some("derived/presentation-state/color_softcopy")
+        })
+        .expect("manifest schema should define the Color Softcopy PR conditional");
+    assert!(
+        rule.pointer("/then/required")
+            .and_then(Value::as_array)
+            .is_some_and(|required| required
+                .iter()
+                .any(|field| field == "expected_color_softcopy_presentation_state"))
+    );
+    assert_eq!(
+        rule.pointer("/then/properties/dicom/properties/sop_class_uid/const"),
+        Some(&serde_json::json!("1.2.840.10008.5.1.4.1.1.11.2"))
+    );
+    assert_eq!(
+        rule.pointer("/then/properties/dicom/properties/modality/const"),
+        Some(&serde_json::json!("PR"))
+    );
+    assert_eq!(
+        rule.pointer("/then/properties/image/type"),
+        Some(&serde_json::json!("null"))
+    );
+    assert_eq!(
+        rule.pointer("/then/properties/pixel_data/type"),
+        Some(&serde_json::json!("null"))
+    );
+}
+
+fn color_softcopy_presentation_state_expectation() -> Value {
+    serde_json::json!({
+        "presentation_state": {
+            "modality": "PR",
+            "body_part_examined": "HAND",
+            "laterality": "R",
+            "content_label": "DTSCOLORPR",
+            "content_description": "Synthetic RGB color presentation state",
+            "presentation_creation_date": "20260101",
+            "presentation_creation_time": "000000",
+            "instance_number": 1,
+            "series_number": 62
+        },
+        "source": {
+            "source_case_id": "classic/sc/rgb_planar0_explicit_le",
+            "source_path": "classic/sc/rgb_planar0_explicit_le/instance.dcm",
+            "source_sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+            "study_instance_uid": "1.2.826.0.1.3680043.10.543.11",
+            "series_instance_uid": "1.2.826.0.1.3680043.10.543.12",
+            "sop_class_uid": "1.2.840.10008.5.1.4.1.1.7",
+            "sop_instance_uid": "1.2.826.0.1.3680043.10.543.13",
+            "rows": 2,
+            "columns": 2,
+            "photometric_interpretation": "RGB",
+            "samples_per_pixel": 3,
+            "planar_configuration": 0,
+            "complete_instance": true
+        },
+        "same_study": true,
+        "different_series": true,
+        "relationship": {
+            "referenced_series_items": 1,
+            "referenced_image_items": 1,
+            "referenced_frame_numbers": [],
+            "applies_to_complete_instance": true
+        },
+        "displayed_area": {
+            "items": 1,
+            "applies_to_all_references": true,
+            "top_left": [1, 1],
+            "bottom_right": [2, 2],
+            "presentation_size_mode": "SCALE TO FIT",
+            "presentation_pixel_aspect_ratio": [1, 1],
+            "presentation_pixel_spacing": null,
+            "presentation_pixel_magnification_ratio": null
+        },
+        "icc_profile": {
+            "vr": "OB",
+            "size_bytes": 736,
+            "sha256": "8e069a3476b71a0e0ae7272d9278ba70540d1c4a0b19af1c7d52e56f49091fef",
+            "device_class": "scnr",
+            "data_color_space": "RGB ",
+            "profile_connection_space": "XYZ ",
+            "signature": "acsp",
+            "dicom_color_space": "SRGB"
+        },
+        "shutter_items": 0,
+        "graphic_annotation_items": 0,
+        "graphic_layer_items": 0,
+        "overlay_items": 0,
+        "spatial_transform_present": false,
+        "pixel_data_absent": true
+    })
+}
+
+#[test]
 fn manifest_schema_requires_deformable_registration_contract() {
     let schema = read_json("schemas/manifest.schema.json");
     let rule = schema

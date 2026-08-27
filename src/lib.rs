@@ -3581,6 +3581,9 @@ fn validate_family_standard_elements(
         "PET Image" => {
             validate_pet_image_standard_elements(failures, relative_path, manifest_path, file, obj)?
         }
+        "X-Ray Angiographic Image" => {
+            validate_xa_image_standard_elements(failures, relative_path, manifest_path, file, obj)?
+        }
         "Computed Radiography Image" => {
             validate_computed_radiography_standard_elements(failures, relative_path, obj)
         }
@@ -5194,6 +5197,420 @@ fn validate_pet_image_standard_elements(
         sha256_hex(pixel_bytes.as_ref()),
         expected_hash,
     );
+
+    Ok(())
+}
+
+fn validate_xa_image_standard_elements(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    manifest_path: &Path,
+    file: &Value,
+    obj: &OpenedObject,
+) -> Result<(), ValidateError> {
+    let expected = file
+        .pointer("/expected_xa_projection")
+        .ok_or(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "X-Ray Angiographic Image must define expected_xa_projection",
+        })?;
+    let recipe_expected = file
+        .pointer("/recipe/recipe_parameters/xa_projection")
+        .ok_or(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "XA recipe parameters must define xa_projection",
+        })?;
+    validate_equal_debug(
+        failures,
+        relative_path,
+        "xa_projection_recipe_manifest_contract",
+        recipe_expected,
+        expected,
+    );
+
+    let image_type = manifest_string_array(
+        manifest_path,
+        expected,
+        "/image_type",
+        "XA image_type must be a string array",
+    )?;
+    validate_equal_debug(
+        failures,
+        relative_path,
+        "xa_image_type_manifest_contract",
+        image_type.clone(),
+        vec![
+            "ORIGINAL".to_string(),
+            "PRIMARY".to_string(),
+            "SINGLE PLANE".to_string(),
+        ],
+    );
+    let image_type_string = image_type.join("\\");
+    validate_equal(
+        failures,
+        relative_path,
+        "xa_image_type_semantics_manifest_contract",
+        manifest_str(
+            manifest_path,
+            file,
+            "/expected_semantics/image_type",
+            "XA expected_semantics image_type must be a string",
+        )?,
+        image_type_string.as_str(),
+    );
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::IMAGE_TYPE,
+        "xa_image_type",
+        &image_type_string,
+    );
+
+    let body_part = manifest_str(
+        manifest_path,
+        expected,
+        "/body_part_examined",
+        "XA body_part_examined must be a string",
+    )?;
+    validate_equal(
+        failures,
+        relative_path,
+        "xa_body_part_examined_manifest_contract",
+        body_part,
+        "HEART",
+    );
+    validate_equal(
+        failures,
+        relative_path,
+        "xa_body_part_semantics_manifest_contract",
+        manifest_str(
+            manifest_path,
+            file,
+            "/expected_semantics/body_part_examined",
+            "XA expected_semantics body_part_examined must be a string",
+        )?,
+        body_part,
+    );
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::BODY_PART_EXAMINED,
+        "xa_body_part_examined",
+        body_part,
+    );
+
+    for (pointer, name, locked) in [
+        (
+            "/patient_orientation_empty",
+            "xa_patient_orientation_empty_manifest_contract",
+            true,
+        ),
+        (
+            "/laterality_present",
+            "xa_laterality_present_manifest_contract",
+            false,
+        ),
+        (
+            "/multiframe_cine",
+            "xa_multiframe_cine_manifest_contract",
+            false,
+        ),
+        (
+            "/biplane_data_present",
+            "xa_biplane_data_present_manifest_contract",
+            false,
+        ),
+        (
+            "/contrast_used",
+            "xa_contrast_used_manifest_contract",
+            false,
+        ),
+        (
+            "/subtraction_applied",
+            "xa_subtraction_applied_manifest_contract",
+            false,
+        ),
+        (
+            "/table_motion_present",
+            "xa_table_motion_present_manifest_contract",
+            false,
+        ),
+        (
+            "/patient_space_geometry_present",
+            "xa_patient_space_geometry_present_manifest_contract",
+            false,
+        ),
+        (
+            "/pixel_spacing_calibrated",
+            "xa_pixel_spacing_calibrated_manifest_contract",
+            false,
+        ),
+    ] {
+        validate_equal(
+            failures,
+            relative_path,
+            name,
+            manifest_bool(
+                manifest_path,
+                expected,
+                pointer,
+                "XA projection flag must be a boolean",
+            )?,
+            locked,
+        );
+    }
+    validate_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::PATIENT_ORIENTATION,
+        "xa_patient_orientation_empty",
+        "",
+    );
+
+    for (pointer, tag, name, locked) in [
+        (
+            "/pixel_intensity_relationship",
+            tags::PIXEL_INTENSITY_RELATIONSHIP,
+            "xa_pixel_intensity_relationship",
+            "LIN",
+        ),
+        (
+            "/radiation_setting",
+            tags::RADIATION_SETTING,
+            "xa_radiation_setting",
+            "GR",
+        ),
+        (
+            "/lossy_image_compression",
+            tags::LOSSY_IMAGE_COMPRESSION,
+            "xa_lossy_image_compression",
+            "00",
+        ),
+    ] {
+        let manifest_value = manifest_str(
+            manifest_path,
+            expected,
+            pointer,
+            "XA coded projection value must be a string",
+        )?;
+        validate_equal(
+            failures,
+            relative_path,
+            &format!("{name}_manifest_contract"),
+            manifest_value,
+            locked,
+        );
+        validate_type1_str_element(failures, relative_path, obj, tag, name, manifest_value);
+    }
+
+    for (pointer, tag, name, locked) in [
+        ("/kvp", tags::KVP, "xa_kvp", 80.0),
+        (
+            "/positioner_primary_angle_degrees",
+            tags::POSITIONER_PRIMARY_ANGLE,
+            "xa_positioner_primary_angle",
+            15.0,
+        ),
+        (
+            "/positioner_secondary_angle_degrees",
+            tags::POSITIONER_SECONDARY_ANGLE,
+            "xa_positioner_secondary_angle",
+            -10.0,
+        ),
+        (
+            "/distance_source_to_detector_mm",
+            tags::DISTANCE_SOURCE_TO_DETECTOR,
+            "xa_distance_source_to_detector",
+            1200.0,
+        ),
+        (
+            "/distance_source_to_patient_mm",
+            tags::DISTANCE_SOURCE_TO_PATIENT,
+            "xa_distance_source_to_patient",
+            800.0,
+        ),
+        (
+            "/estimated_radiographic_magnification_factor",
+            tags::ESTIMATED_RADIOGRAPHIC_MAGNIFICATION_FACTOR,
+            "xa_estimated_magnification",
+            1.5,
+        ),
+    ] {
+        let manifest_value = manifest_f64(
+            manifest_path,
+            expected,
+            pointer,
+            "XA projection scalar must be numeric",
+        )?;
+        validate_equal(
+            failures,
+            relative_path,
+            &format!("{name}_manifest_contract"),
+            manifest_value,
+            locked,
+        );
+        match element_f64_for_validate(obj, tag) {
+            Ok(actual) => validate_equal(failures, relative_path, name, actual, manifest_value),
+            Err(err) => failures.push(format!("{relative_path}: {name}: {err}")),
+        }
+    }
+
+    let exposure = manifest_u64(
+        manifest_path,
+        expected,
+        "/exposure_mas",
+        "XA exposure_mas must be an integer",
+    )?;
+    validate_equal(
+        failures,
+        relative_path,
+        "xa_exposure_manifest_contract",
+        exposure,
+        4,
+    );
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
+        tags::EXPOSURE,
+        "xa_exposure",
+        &exposure.to_string(),
+    );
+
+    let imager_spacing = manifest_f64_array(
+        manifest_path,
+        expected,
+        "/imager_pixel_spacing_mm",
+        "XA imager_pixel_spacing_mm must be numeric",
+    )?;
+    validate_equal_debug(
+        failures,
+        relative_path,
+        "xa_imager_pixel_spacing_manifest_contract",
+        imager_spacing.clone(),
+        vec![0.2, 0.2],
+    );
+    match element_f64_values_for_validate(obj, tags::IMAGER_PIXEL_SPACING) {
+        Ok(actual) => validate_equal_debug(
+            failures,
+            relative_path,
+            "xa_imager_pixel_spacing",
+            actual,
+            imager_spacing,
+        ),
+        Err(err) => failures.push(format!("{relative_path}: xa_imager_pixel_spacing: {err}")),
+    }
+
+    validate_equal(
+        failures,
+        relative_path,
+        "xa_frame_count_manifest_contract",
+        manifest_u64(
+            manifest_path,
+            expected,
+            "/frame_count",
+            "XA frame_count must be an integer",
+        )?,
+        1,
+    );
+    for (pointer, name) in [
+        ("/image/frames", "xa_image_frame_count_manifest_contract"),
+        (
+            "/pixel_data/frame_count",
+            "xa_pixel_frame_count_manifest_contract",
+        ),
+    ] {
+        validate_equal(
+            failures,
+            relative_path,
+            name,
+            manifest_u64(
+                manifest_path,
+                file,
+                pointer,
+                "XA frame count must be an integer",
+            )?,
+            1,
+        );
+    }
+
+    let sid = element_f64_for_validate(obj, tags::DISTANCE_SOURCE_TO_DETECTOR);
+    let sod = element_f64_for_validate(obj, tags::DISTANCE_SOURCE_TO_PATIENT);
+    let magnification =
+        element_f64_for_validate(obj, tags::ESTIMATED_RADIOGRAPHIC_MAGNIFICATION_FACTOR);
+    if let (Ok(sid), Ok(sod), Ok(magnification)) = (sid, sod, magnification) {
+        validate_equal(
+            failures,
+            relative_path,
+            "xa_sid_sod_magnification_relation",
+            sid / sod,
+            magnification,
+        );
+    }
+
+    for (tag, name) in [
+        (tags::LATERALITY, "xa_laterality_absent"),
+        (tags::NUMBER_OF_FRAMES, "xa_number_of_frames_absent"),
+        (
+            tags::FRAME_INCREMENT_POINTER,
+            "xa_frame_increment_pointer_absent",
+        ),
+        (tags::FRAME_TIME, "xa_frame_time_absent"),
+        (tags::FRAME_TIME_VECTOR, "xa_frame_time_vector_absent"),
+        (tags::POSITIONER_MOTION, "xa_positioner_motion_absent"),
+        (
+            tags::POSITIONER_PRIMARY_ANGLE_INCREMENT,
+            "xa_primary_angle_increment_absent",
+        ),
+        (
+            tags::POSITIONER_SECONDARY_ANGLE_INCREMENT,
+            "xa_secondary_angle_increment_absent",
+        ),
+        (
+            tags::REFERENCED_IMAGE_SEQUENCE,
+            "xa_biplane_reference_absent",
+        ),
+        (tags::CONTRAST_BOLUS_AGENT, "xa_contrast_agent_absent"),
+        (
+            tags::MASK_SUBTRACTION_SEQUENCE,
+            "xa_mask_subtraction_absent",
+        ),
+        (tags::TABLE_MOTION, "xa_table_motion_absent"),
+        (tags::FRAME_OF_REFERENCE_UID, "xa_frame_of_reference_absent"),
+        (
+            tags::IMAGE_ORIENTATION_PATIENT,
+            "xa_image_orientation_patient_absent",
+        ),
+        (
+            tags::IMAGE_POSITION_PATIENT,
+            "xa_image_position_patient_absent",
+        ),
+        (tags::PIXEL_SPACING, "xa_pixel_spacing_absent"),
+        (tags::MODALITY_LUT_SEQUENCE, "xa_modality_lut_absent"),
+        (tags::VOILUT_SEQUENCE, "xa_voi_lut_absent"),
+        (tags::CALIBRATION_IMAGE, "xa_calibration_image_absent"),
+        (
+            tags::LOSSY_IMAGE_COMPRESSION_RATIO,
+            "xa_lossy_image_compression_ratio_absent",
+        ),
+        (
+            tags::LOSSY_IMAGE_COMPRESSION_METHOD,
+            "xa_lossy_image_compression_method_absent",
+        ),
+    ] {
+        validate_element_absent(failures, relative_path, obj, tag, name);
+    }
+    if !file
+        .pointer("/uids/frame_of_reference_uid")
+        .is_some_and(Value::is_null)
+    {
+        failures.push(format!(
+            "{relative_path}: xa_frame_of_reference_manifest_contract: expected null"
+        ));
+    }
 
     Ok(())
 }
@@ -8019,6 +8436,17 @@ fn element_f64_for_validate(obj: &OpenedObject, tag: dicom_core::Tag) -> Result<
         .map_err(|err| err.to_string())?
         .value()
         .to_float64()
+        .map_err(|err| err.to_string())
+}
+
+fn element_f64_values_for_validate(
+    obj: &OpenedObject,
+    tag: dicom_core::Tag,
+) -> Result<Vec<f64>, String> {
+    obj.element(tag)
+        .map_err(|err| err.to_string())?
+        .value()
+        .to_multi_float64()
         .map_err(|err| err.to_string())
 }
 

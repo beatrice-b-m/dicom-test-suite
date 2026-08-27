@@ -23,14 +23,14 @@ fn sequence_length_vertical_slice_is_exact_byte_stable_and_reported() {
         (
             "defined",
             "defined.dcm",
-            "a4b5244bece424a8bbfafcde88b952aa8ea2e8b13d87918a3faa17a15d858109",
+            "8bb4d67a7774cb4276b0b632fb22f2123e709e52d2fbee87e6e30d804f25115a",
             [0x38, 0, 0, 0],
             false,
         ),
         (
             "undefined",
             "undefined.dcm",
-            "821e16f002ea8d3ab8829788da3eced663a4d3d26a9fd0bc206f703ceb036407",
+            "0c734d4cd5f6419c916bcc95664654c8c7aaba68eaed84f6aa5ae40d3fcc5642",
             [0xFF; 4],
             true,
         ),

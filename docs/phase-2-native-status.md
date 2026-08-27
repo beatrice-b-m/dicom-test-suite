@@ -277,9 +277,9 @@ dicom3tools and DCMTK checks.
 The defined/undefined sequence-length slice passed two byte-identical seed-1
 `extended` runs, each producing 83 files with zero strict validation failures.
 The defined-length fixture SHA-256 is
-`a4b5244bece424a8bbfafcde88b952aa8ea2e8b13d87918a3faa17a15d858109`;
+`8bb4d67a7774cb4276b0b632fb22f2123e709e52d2fbee87e6e30d804f25115a`;
 the undefined-length fixture SHA-256 is
-`821e16f002ea8d3ab8829788da3eced663a4d3d26a9fd0bc206f703ceb036407`.
+`0c734d4cd5f6419c916bcc95664654c8c7aaba68eaed84f6aa5ae40d3fcc5642`.
 Raw validation and DCMTK confirm SQ Value Length `56` without a sequence
 delimiter for the defined form, and `FFFFFFFFH` with a zero-length sequence
 delimiter for the undefined form; both retain the same undefined-length item

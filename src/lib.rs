@@ -1146,6 +1146,13 @@ fn validate_integer_manifest_image_pixel_data(
                 &obj,
                 pixel_bytes.as_ref(),
             )?;
+            validate_icc_profile_manifest_contract(
+                failures,
+                relative_path,
+                manifest_path,
+                file,
+                &obj,
+            )?;
         }
         "encapsulated" => {
             let pixel_fragments = match pixel_element.value() {
@@ -1632,6 +1639,225 @@ fn validate_u1_sc_manifest_pixel_contract(
     }
 
     Ok(())
+}
+
+fn validate_icc_profile_manifest_contract(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    manifest_path: &Path,
+    file: &Value,
+    obj: &OpenedObject,
+) -> Result<(), ValidateError> {
+    const CASE_ID: &str = "vl/photo/rgb_icc_profile_explicit_le";
+    const PROFILE_SHA256: &str = "8e069a3476b71a0e0ae7272d9278ba70540d1c4a0b19af1c7d52e56f49091fef";
+    const REQUIRED_TAGS: [&[u8; 4]; 9] = [
+        b"desc", b"cprt", b"wtpt", b"rXYZ", b"gXYZ", b"bXYZ", b"rTRC", b"gTRC", b"bTRC",
+    ];
+
+    let case_id = manifest_str(manifest_path, file, "/case_id", "case_id must be a string")?;
+    let contract = file.get("expected_icc_profile");
+    if case_id != CASE_ID {
+        if contract.is_some() {
+            failures.push(format!(
+                "{relative_path}: icc_profile_contract_scope: expected_icc_profile is reserved for {CASE_ID}"
+            ));
+        }
+        return Ok(());
+    }
+    let contract = contract.ok_or(ValidateError::ManifestShape {
+        path: manifest_path.to_path_buf(),
+        message: "ICC VL Photographic file must define expected_icc_profile",
+    })?;
+
+    let expected_fields = [
+        ("tag", Value::from("(0028,2000)")),
+        ("vr", Value::from("OB")),
+        ("profile_sha256", Value::from(PROFILE_SHA256)),
+        ("profile_size_bytes", Value::from(736_u64)),
+        ("declared_profile_size_bytes", Value::from(736_u64)),
+        ("profile_version", Value::from("2.1.0")),
+        ("device_class", Value::from("scnr")),
+        ("data_color_space", Value::from("RGB")),
+        ("profile_connection_space", Value::from("XYZ")),
+        ("profile_signature", Value::from("acsp")),
+        ("rendering_intent", Value::from("perceptual")),
+        ("rendering_intent_code", Value::from(0_u64)),
+        ("tag_count", Value::from(9_u64)),
+        ("color_space", Value::from("SRGB")),
+        ("profile_description", Value::from("sRGB")),
+        ("copyright", Value::from("CC0")),
+        (
+            "source_identity",
+            Value::from("DCMTK 3.7.0 DCMTK_SRGB_ICC_SAMPLE"),
+        ),
+    ];
+    for (field, expected) in expected_fields {
+        validate_equal_debug(
+            failures,
+            relative_path,
+            &format!("icc_manifest_{field}"),
+            contract.get(field),
+            Some(&expected),
+        );
+    }
+    for (pointer, expected, check) in [
+        ("/image/rows", 2, "icc_rows"),
+        ("/image/columns", 2, "icc_columns"),
+        ("/image/frames", 1, "icc_frames"),
+        ("/image/samples_per_pixel", 3, "icc_samples_per_pixel"),
+        ("/image/bits_allocated", 8, "icc_bits_allocated"),
+        ("/image/bits_stored", 8, "icc_bits_stored"),
+        ("/image/high_bit", 7, "icc_high_bit"),
+        ("/image/pixel_representation", 0, "icc_pixel_representation"),
+        ("/image/planar_configuration", 0, "icc_planar_configuration"),
+        ("/pixel_data/value_length", 12, "icc_pixel_data_length"),
+    ] {
+        validate_equal(
+            failures,
+            relative_path,
+            check,
+            manifest_u64(
+                manifest_path,
+                file,
+                pointer,
+                "ICC image field must be an integer",
+            )?,
+            expected,
+        );
+    }
+    validate_equal(
+        failures,
+        relative_path,
+        "icc_photometric_interpretation",
+        manifest_str(
+            manifest_path,
+            file,
+            "/image/photometric_interpretation",
+            "ICC photometric interpretation must be a string",
+        )?,
+        "RGB",
+    );
+
+    match element_str_for_validate(obj, tags::COLOR_SPACE) {
+        Ok(value) => validate_equal(
+            failures,
+            relative_path,
+            "icc_color_space",
+            value,
+            "SRGB".to_string(),
+        ),
+        Err(err) => failures.push(format!("{relative_path}: icc_color_space: {err}")),
+    }
+    let profile = match obj.element(tags::ICC_PROFILE) {
+        Ok(profile) => profile,
+        Err(err) => {
+            failures.push(format!("{relative_path}: icc_profile: {err}"));
+            return Ok(());
+        }
+    };
+    validate_equal(
+        failures,
+        relative_path,
+        "icc_profile_vr",
+        vr_name(profile.vr()),
+        "OB",
+    );
+    let bytes = match profile.value().to_bytes() {
+        Ok(bytes) => bytes,
+        Err(err) => {
+            failures.push(format!("{relative_path}: icc_profile_bytes: {err}"));
+            return Ok(());
+        }
+    };
+    validate_equal(
+        failures,
+        relative_path,
+        "icc_profile_size",
+        bytes.len(),
+        736,
+    );
+    validate_equal(
+        failures,
+        relative_path,
+        "icc_profile_sha256",
+        sha256_hex(bytes.as_ref()),
+        PROFILE_SHA256.to_string(),
+    );
+    let bytes = bytes.as_ref();
+    if bytes.len() < 240 {
+        failures.push(format!(
+            "{relative_path}: icc_profile_header: profile is too short"
+        ));
+        return Ok(());
+    }
+    for (offset, expected, check) in [
+        (8, &b"\x02\x10\x00\x00"[..], "icc_profile_version"),
+        (12, &b"scnr"[..], "icc_device_class"),
+        (16, &b"RGB "[..], "icc_data_color_space"),
+        (20, &b"XYZ "[..], "icc_profile_connection_space"),
+        (36, &b"acsp"[..], "icc_profile_signature"),
+    ] {
+        validate_equal_debug(
+            failures,
+            relative_path,
+            check,
+            bytes.get(offset..offset + expected.len()),
+            Some(expected),
+        );
+    }
+    validate_equal_debug(
+        failures,
+        relative_path,
+        "icc_declared_profile_size",
+        icc_be_u32(bytes, 0),
+        Some(736),
+    );
+    validate_equal_debug(
+        failures,
+        relative_path,
+        "icc_rendering_intent",
+        icc_be_u32(bytes, 64),
+        Some(0),
+    );
+    validate_equal_debug(
+        failures,
+        relative_path,
+        "icc_tag_count",
+        icc_be_u32(bytes, 128),
+        Some(9),
+    );
+    for (index, expected_signature) in REQUIRED_TAGS.into_iter().enumerate() {
+        let record = 132 + index * 12;
+        validate_equal_debug(
+            failures,
+            relative_path,
+            &format!("icc_tag_{index}_signature"),
+            bytes.get(record..record + 4),
+            Some(expected_signature.as_slice()),
+        );
+        let offset = icc_be_u32(bytes, record + 4).map(|value| value as usize);
+        let size = icc_be_u32(bytes, record + 8).map(|value| value as usize);
+        match (offset, size) {
+            (Some(offset), Some(size)) => {
+                if offset % 4 != 0 || offset < 240 || offset.saturating_add(size) > bytes.len() {
+                    failures.push(format!(
+                        "{relative_path}: icc_tag_{index}_bounds: offset {offset}, size {size}"
+                    ));
+                }
+            }
+            _ => failures.push(format!(
+                "{relative_path}: icc_tag_{index}_bounds: truncated record"
+            )),
+        }
+    }
+
+    Ok(())
+}
+
+fn icc_be_u32(bytes: &[u8], offset: usize) -> Option<u32> {
+    Some(u32::from_be_bytes(
+        bytes.get(offset..offset + 4)?.try_into().ok()?,
+    ))
 }
 
 fn validate_float32_manifest_image_pixel_data(
@@ -22148,6 +22374,125 @@ mod tests {
         ] {
             assert!(joined.contains(check), "missing {check} failure:\n{joined}");
         }
+    }
+
+    #[test]
+    fn icc_profile_manifest_contract_accepts_locked_input_profile() {
+        let manifest = icc_profile_test_manifest();
+        let obj = icc_profile_test_object(icc_profile_test_bytes(), "SRGB");
+        let mut failures = Vec::new();
+
+        validate_icc_profile_manifest_contract(
+            &mut failures,
+            "vl/photo/rgb_icc_profile_explicit_le/instance.dcm",
+            Path::new("manifest.json"),
+            &manifest,
+            &obj,
+        )
+        .expect("well-formed ICC contract should validate");
+
+        assert_eq!(failures, Vec::<String>::new());
+    }
+
+    #[test]
+    fn icc_profile_manifest_contract_rejects_tampered_profile_and_metadata() {
+        let mut manifest = icc_profile_test_manifest();
+        manifest["expected_icc_profile"]["color_space"] = Value::from("ADOBERGB");
+        let mut profile = icc_profile_test_bytes();
+        profile[36..40].copy_from_slice(b"zzzz");
+        let obj = icc_profile_test_object(profile, "ADOBERGB");
+        let mut failures = Vec::new();
+
+        validate_icc_profile_manifest_contract(
+            &mut failures,
+            "vl/photo/rgb_icc_profile_explicit_le/instance.dcm",
+            Path::new("manifest.json"),
+            &manifest,
+            &obj,
+        )
+        .expect("ICC semantic mismatches should be validation failures");
+
+        let joined = failures.join("\n");
+        for check in [
+            "icc_manifest_color_space",
+            "icc_color_space",
+            "icc_profile_sha256",
+            "icc_profile_signature",
+        ] {
+            assert!(joined.contains(check), "missing {check} failure:\n{joined}");
+        }
+    }
+
+    fn icc_profile_test_object(profile: Vec<u8>, color_space: &str) -> OpenedObject {
+        let mut obj = InMemDicomObject::new_empty();
+        obj.put(DataElement::new(
+            tags::COLOR_SPACE,
+            VR::CS,
+            PrimitiveValue::from(color_space),
+        ));
+        obj.put(DataElement::new(
+            tags::ICC_PROFILE,
+            VR::OB,
+            PrimitiveValue::U8(profile.into()),
+        ));
+        obj.with_meta(
+            FileMetaTableBuilder::new()
+                .transfer_syntax(uids::EXPLICIT_VR_LITTLE_ENDIAN)
+                .media_storage_sop_class_uid(uids::VL_PHOTOGRAPHIC_IMAGE_STORAGE)
+                .media_storage_sop_instance_uid("2.25.1")
+                .implementation_class_uid("2.25.2"),
+        )
+        .expect("ICC test object should have valid file metadata")
+    }
+
+    fn icc_profile_test_bytes() -> Vec<u8> {
+        include_str!("generator/native/dcmtk_srgb_input_profile.hex")
+            .split_ascii_whitespace()
+            .flat_map(|word| {
+                word.as_bytes().chunks_exact(2).map(|pair| {
+                    let text = std::str::from_utf8(pair).expect("profile source must be ASCII");
+                    u8::from_str_radix(text, 16).expect("profile source must be hexadecimal")
+                })
+            })
+            .collect()
+    }
+
+    fn icc_profile_test_manifest() -> Value {
+        serde_json::json!({
+            "case_id": "vl/photo/rgb_icc_profile_explicit_le",
+            "image": {
+                "rows": 2,
+                "columns": 2,
+                "frames": 1,
+                "samples_per_pixel": 3,
+                "photometric_interpretation": "RGB",
+                "bits_allocated": 8,
+                "bits_stored": 8,
+                "high_bit": 7,
+                "pixel_representation": 0,
+                "planar_configuration": 0
+            },
+            "pixel_data": {"value_length": 12},
+            "expected_icc_profile": {
+                "tag": "(0028,2000)",
+                "vr": "OB",
+                "profile_sha256": "8e069a3476b71a0e0ae7272d9278ba70540d1c4a0b19af1c7d52e56f49091fef",
+                "profile_size_bytes": 736,
+                "declared_profile_size_bytes": 736,
+                "profile_version": "2.1.0",
+                "device_class": "scnr",
+                "data_color_space": "RGB",
+                "profile_connection_space": "XYZ",
+                "profile_signature": "acsp",
+                "rendering_intent": "perceptual",
+                "rendering_intent_code": 0,
+                "tag_count": 9,
+                "color_space": "SRGB",
+                "profile_description": "sRGB",
+                "copyright": "CC0",
+                "source_identity": "DCMTK 3.7.0 DCMTK_SRGB_ICC_SAMPLE"
+            }
+        })
     }
 
     fn u1_sc_test_object() -> OpenedObject {

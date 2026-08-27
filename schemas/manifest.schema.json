@@ -325,6 +325,9 @@
         "expected_u1_pixels": {
           "$ref": "#/$defs/expected_u1_pixels"
         },
+        "expected_icc_profile": {
+          "$ref": "#/$defs/expected_icc_profile"
+        },
         "expected_geometry": {
           "anyOf": [
             { "$ref": "#/$defs/expected_geometry" },
@@ -387,6 +390,41 @@
                   "vr": { "const": "OW" },
                   "native_or_encapsulated": { "const": "native" },
                   "value_length": { "const": 16 },
+                  "frame_count": { "const": 1 }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "case_id": { "const": "vl/photo/rgb_icc_profile_explicit_le" }
+            },
+            "required": ["case_id"]
+          },
+          "then": {
+            "required": ["image", "pixel_data", "expected_icc_profile"],
+            "properties": {
+              "image": {
+                "properties": {
+                  "rows": { "const": 2 },
+                  "columns": { "const": 2 },
+                  "frames": { "const": 1 },
+                  "samples_per_pixel": { "const": 3 },
+                  "photometric_interpretation": { "const": "RGB" },
+                  "bits_allocated": { "const": 8 },
+                  "bits_stored": { "const": 8 },
+                  "high_bit": { "const": 7 },
+                  "pixel_representation": { "const": 0 },
+                  "planar_configuration": { "const": 0 }
+                }
+              },
+              "pixel_data": {
+                "properties": {
+                  "vr": { "const": "OB" },
+                  "native_or_encapsulated": { "const": "native" },
+                  "value_length": { "const": 12 },
                   "frame_count": { "const": 1 }
                 }
               }
@@ -1166,6 +1204,48 @@
         "unused_high_bits": { "const": 6 },
         "value_field_padding_bytes": { "const": 1 },
         "frame_two_bit_offset": { "const": 9 }
+      },
+      "additionalProperties": false
+    },
+    "expected_icc_profile": {
+      "type": "object",
+      "required": [
+        "tag",
+        "vr",
+        "profile_sha256",
+        "profile_size_bytes",
+        "declared_profile_size_bytes",
+        "profile_version",
+        "device_class",
+        "data_color_space",
+        "profile_connection_space",
+        "profile_signature",
+        "rendering_intent",
+        "rendering_intent_code",
+        "tag_count",
+        "color_space",
+        "profile_description",
+        "copyright",
+        "source_identity"
+      ],
+      "properties": {
+        "tag": { "const": "(0028,2000)" },
+        "vr": { "const": "OB" },
+        "profile_sha256": { "const": "8e069a3476b71a0e0ae7272d9278ba70540d1c4a0b19af1c7d52e56f49091fef" },
+        "profile_size_bytes": { "const": 736 },
+        "declared_profile_size_bytes": { "const": 736 },
+        "profile_version": { "const": "2.1.0" },
+        "device_class": { "const": "scnr" },
+        "data_color_space": { "const": "RGB" },
+        "profile_connection_space": { "const": "XYZ" },
+        "profile_signature": { "const": "acsp" },
+        "rendering_intent": { "const": "perceptual" },
+        "rendering_intent_code": { "const": 0 },
+        "tag_count": { "const": 9 },
+        "color_space": { "const": "SRGB" },
+        "profile_description": { "const": "sRGB" },
+        "copyright": { "const": "CC0" },
+        "source_identity": { "const": "DCMTK 3.7.0 DCMTK_SRGB_ICC_SAMPLE" }
       },
       "additionalProperties": false
     },

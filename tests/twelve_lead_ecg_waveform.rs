@@ -304,7 +304,6 @@ fn assert_report_contract(report: &Value) {
         "/grouped_coverage/waveform_total_payload_lengths_bytes/12000",
         "/grouped_coverage/waveform_aggregate_payload_sha256_values/98b7a9b1be25d9d64ffa75bc6e16ea80f60deed1891aeed8dfb440c1c19e6713",
         "/grouped_coverage/waveform_total_channel_hash_counts/12",
-        "/grouped_coverage/waveform_all_groups_simultaneous_sampling_states/true",
         "/grouped_coverage/waveform_common_durations_seconds/1",
         "/grouped_coverage/waveform_channel_counts/12",
         "/grouped_coverage/waveform_samples_per_channel/500",
@@ -317,9 +316,14 @@ fn assert_report_contract(report: &Value) {
         "/grouped_coverage/waveform_interleave_orders/channel_then_sample",
         "/grouped_coverage/waveform_channel_hash_counts/12",
         "/grouped_coverage/waveform_simultaneous_sampling_states/true",
-        "/grouped_coverage/waveform_pixel_data_absent_states/true",
     ] {
         assert_eq!(report.pointer(pointer), Some(&Value::from(1)), "{pointer}");
+    }
+    for pointer in [
+        "/grouped_coverage/waveform_all_groups_simultaneous_sampling_states/true",
+        "/grouped_coverage/waveform_pixel_data_absent_states/true",
+    ] {
+        assert_eq!(report.pointer(pointer), Some(&Value::from(2)), "{pointer}");
     }
 }
 

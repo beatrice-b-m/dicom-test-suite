@@ -49,5 +49,41 @@ Whole-corpus conformance verification still reports 229 unrelated visible and
 unallowlisted failures. This milestone does not reduce, accept, or conceal
 them. The registry now contains 146 implemented and 36 planned logical cases.
 
-Phase 4 milestone 3, the `TILED_SPARSE` counterpart with deliberately absent
-tiles and explicit per-frame positions, is next.
+## Small TILED_SPARSE WSI milestone
+
+`vl/wsi/tiled_sparse_small` completes milestone 3 as a native byte-stable
+`extended` case. Its two native 2 by 2 RGB Frames occupy the top-left and
+bottom-right positions of a 4 by 4 total pixel matrix. The top-right and
+bottom-left tiles are deliberately absent. Strict validation binds
+`TILED_SPARSE`, the ordered dimension pointers and organization UID, the two
+per-frame positions and dimension ordinals, physical slide coordinates,
+occupancy, specimen and optical-path identities, nested ICC profile, exact
+stored payload, and the zero-sentinel reconstruction oracle.
+
+Two independent seed-7 extended generations each wrote 111 files and passed
+strict validation with zero failures. Their complete output trees are
+byte-identical. The manifest SHA-256 is
+`456d571b7121bb67ece6593870dc4d6ef103b83c1488ccb74e84627f347186df`;
+the 3,546-byte sparse instance SHA-256 is
+`84251b2108b6cacb39c18de12c628bc00e0ab3d166310bcf5b82b6291955ceb3`.
+
+Integrated conformance run
+`0c347e699e40876d0fdd4ae20e8bbb76ecdb2859a10f596019202a8acefa26b1`
+records zero errors from the authorized case-specific `uv`-locked
+dicom-validator 0.8.2 authority and clean `dcmdump` parsing. The isolated
+highdicom 0.28.1 reconstruction adapter is version 0.2.0 with composite
+SHA-256
+`a89f55577263f84a27291a6d3adf6659ccebedb76e68dd8b9c06f8b0b3ce7f4e`.
+It independently reproduced the two Frame hashes, exact 24-byte payload hash,
+explicit positions, `[present, absent, absent, present]` occupancy, and
+sentinel-filled 4 by 4 matrix hash with transforms disabled.
+
+Locked dicom3tools still reports its known full-grid Number of Frames error.
+That result remains visible, unallowlisted characterization rather than a
+passing IOD result or accepted finding. Whole-corpus conformance verification
+continues to report 229 unrelated failures and zero accepted findings. The
+registry now contains 147 implemented and 35 planned logical cases.
+
+Phase 4 milestone 4, an opt-in stress-profile multi-resolution pyramid with
+thumbnail and label companion instances, is next. A full-size pyramid will not
+be added to ordinary CI without the explicit checkpoint required by the plan.

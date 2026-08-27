@@ -17,6 +17,7 @@ use native::ct_geometry::{
     CLASSIC_CT_RECIPES, ClassicCtInstanceNumber, ClassicCtRecipe, ClassicCtSeriesRecipe,
     ClassicCtSliceRecipe,
 };
+use native::empty_type2_sc::{EMPTY_TYPE2_SC_RECIPE, EmptyType2ScRecipe};
 use native::metadata_sc::{METADATA_SC_RECIPES, MetadataScRecipe};
 use native::timezone_sc::{TIMEZONE_SC_RECIPE, TimezoneBoundary, TimezoneScRecipe};
 
@@ -3566,6 +3567,16 @@ pub(crate) fn write_supported_cases(
             )?)?;
         }
     }
+    if let Some(case) = registry_case(registry, EMPTY_TYPE2_SC_RECIPE.pixel.case_id)? {
+        if should_generate_case(case, run)? {
+            context.record_one(write_empty_type2_sc_case(
+                run,
+                case,
+                EMPTY_TYPE2_SC_RECIPE,
+                standards_lock_sha256,
+            )?)?;
+        }
+    }
     for recipe in CLASSIC_CT_RECIPES {
         let Some(case) = registry_case(registry, recipe.case_id)? else {
             continue;
@@ -4324,6 +4335,7 @@ fn write_pixel_case(
 enum ScMetadataPayload {
     PersonName(MetadataScRecipe),
     Temporal(TimezoneBoundary),
+    EmptyType2(EmptyType2ScRecipe),
 }
 
 fn write_metadata_sc_case(
@@ -4365,6 +4377,23 @@ fn write_timezone_sc_case(
             )
         })
         .collect()
+}
+
+fn write_empty_type2_sc_case(
+    run: &PreparedGenerationRun,
+    case: &Value,
+    recipe: EmptyType2ScRecipe,
+    standards_lock_sha256: &str,
+) -> Result<GeneratedFile, GenerateError> {
+    write_pixel_case_with_metadata(
+        run,
+        case,
+        recipe.pixel,
+        standards_lock_sha256,
+        Some(ScMetadataPayload::EmptyType2(recipe)),
+        0,
+        "instance.dcm",
+    )
 }
 
 fn write_pixel_case_with_metadata(
@@ -4431,12 +4460,25 @@ fn write_pixel_case_with_metadata(
             VR::PN,
             PrimitiveValue::U8(metadata.patient_name_raw.into()),
         ));
-    } else {
+    } else if !matches!(metadata, Some(ScMetadataPayload::EmptyType2(_))) {
         put_str(&mut obj, tags::PATIENT_NAME, VR::PN, "DICOMTEST^SMOKE");
+    } else {
+        put_str(&mut obj, tags::PATIENT_NAME, VR::PN, "");
     }
     put_str(&mut obj, tags::PATIENT_ID, VR::LO, "DICOMTEST-SMOKE-001");
-    put_str(&mut obj, tags::PATIENT_BIRTH_DATE, VR::DA, "19700101");
-    put_str(&mut obj, tags::PATIENT_SEX, VR::CS, "O");
+    let empty_type2 = matches!(metadata, Some(ScMetadataPayload::EmptyType2(_)));
+    put_str(
+        &mut obj,
+        tags::PATIENT_BIRTH_DATE,
+        VR::DA,
+        if empty_type2 { "" } else { "19700101" },
+    );
+    put_str(
+        &mut obj,
+        tags::PATIENT_SEX,
+        VR::CS,
+        if empty_type2 { "" } else { "O" },
+    );
 
     put_str(
         &mut obj,
@@ -5122,6 +5164,9 @@ fn write_pixel_case_with_metadata(
             ScMetadataPayload::Temporal(boundary) => {
                 validate_temporal_metadata_round_trip(&path, boundary)?
             }
+            ScMetadataPayload::EmptyType2(recipe) => {
+                validate_empty_type2_metadata_round_trip(&path, recipe)?
+            }
         };
         append_internal_validation(&mut validated.validation, result);
     }
@@ -5277,6 +5322,53 @@ fn validate_temporal_metadata_round_trip(
             "The {} fixture reopened with exact DA, TM, DT, and Timezone Offset values.",
             boundary.boundary_id
         )
+    }))
+}
+
+fn validate_empty_type2_metadata_round_trip(
+    path: &std::path::Path,
+    recipe: EmptyType2ScRecipe,
+) -> Result<Value, GenerateError> {
+    let obj = open_file(path).map_err(|error| GenerateError::ValidateDicomFile {
+        path: path.to_path_buf(),
+        message: format!("reopen empty Type 2 SC fixture: {error}"),
+    })?;
+    for attribute in recipe.attributes {
+        let element =
+            obj.element(attribute.tag)
+                .map_err(|error| GenerateError::ValidateDicomFile {
+                    path: path.to_path_buf(),
+                    message: format!(
+                        "read {} from empty Type 2 SC fixture: {error}",
+                        attribute.keyword
+                    ),
+                })?;
+        if element.vr() != attribute.vr
+            || element
+                .to_bytes()
+                .map_err(|error| GenerateError::ValidateDicomFile {
+                    path: path.to_path_buf(),
+                    message: format!(
+                        "decode {} from empty Type 2 SC fixture: {error}",
+                        attribute.keyword
+                    ),
+                })?
+                .len()
+                != 0
+        {
+            return Err(GenerateError::ValidateDicomFile {
+                path: path.to_path_buf(),
+                message: format!(
+                    "{} must reopen as {:?} with an empty value",
+                    attribute.keyword, attribute.vr
+                ),
+            });
+        }
+    }
+    Ok(serde_json::json!({
+        "name": "empty_type2_round_trip",
+        "status": "passed",
+        "message": "The five required Type 2 attributes reopened at their declared VRs with empty values."
     }))
 }
 
@@ -6262,6 +6354,19 @@ fn pixel_manifest_entry(
             Value::from(boundary.boundary_id);
         manifest["recipe"]["recipe_parameters"]["timezone_offset_from_utc"] =
             Value::from(boundary.timezone_offset);
+    } else if let Some(ScMetadataPayload::EmptyType2(metadata)) = metadata {
+        manifest["expected_metadata"] = serde_json::json!({
+            "empty_type2_attributes": metadata.attributes.iter().map(|attribute| {
+                serde_json::json!({
+                    "tag": attribute.tag_text,
+                    "keyword": attribute.keyword,
+                    "vr": format!("{:?}", attribute.vr),
+                    "value_length": 0
+                })
+            }).collect::<Vec<_>>()
+        });
+        manifest["recipe"]["recipe_parameters"]["empty_type2_attribute_count"] =
+            Value::from(metadata.attributes.len() as u64);
     }
     manifest
 }

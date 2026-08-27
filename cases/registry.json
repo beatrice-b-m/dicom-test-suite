@@ -8959,8 +8959,8 @@
       "artifact_kind": "dicom_instance",
       "status": "planned",
       "provider": {
-        "kind": "external_backend",
-        "id": "highdicom_pydicom"
+        "kind": "rust_native",
+        "id": "rust_native"
       },
       "object_family": "mesh",
       "compatibility_axes": [
@@ -14325,13 +14325,8 @@
       },
       "blockers": [
         {
-          "code": "backend_contract_unimplemented",
-          "message": "The external generation contract is not implemented.",
-          "recheck_phase": "phase-1"
-        },
-        {
-          "code": "independent_iod_validator_unavailable",
-          "message": "Independent VL Endoscopic validation is not integrated.",
+          "code": "recipe_unimplemented",
+          "message": "The deterministic native recipe is not implemented.",
           "recheck_phase": "phase-4"
         }
       ],
@@ -14345,7 +14340,7 @@
       "sop_class_uid": "1.2.840.10008.5.1.4.1.1.77.1.1",
       "modality": "ES",
       "transfer_syntax_uid": "1.2.840.10008.1.2.1",
-      "determinism": "semantic_stable",
+      "determinism": "byte_stable",
       "requirements": {
         "features": [],
         "external_codecs": [],
@@ -14360,6 +14355,14 @@
           "covered": true,
           "part": "PS3.6",
           "anchor": "table_A-1"
+        },
+        {
+          "source": "local-source-note",
+          "edition": "2026b",
+          "query": "standards/source-notes/phase-4-vl-single-frame.md",
+          "covered": true,
+          "part": "PS3.3; PS3.4; PS3.6",
+          "anchor": "A.32.1; table_A.32.1-1; C.8.12.1; table_C.8-77; table_B.5-1; table_A-1"
         }
       ]
     },
@@ -14368,8 +14371,8 @@
       "artifact_kind": "dicom_instance",
       "status": "planned",
       "provider": {
-        "kind": "external_backend",
-        "id": "highdicom_pydicom"
+        "kind": "rust_native",
+        "id": "rust_native"
       },
       "object_family": "visible_light",
       "compatibility_axes": [
@@ -14384,13 +14387,8 @@
       },
       "blockers": [
         {
-          "code": "backend_contract_unimplemented",
-          "message": "The external generation contract is not implemented.",
-          "recheck_phase": "phase-1"
-        },
-        {
-          "code": "independent_iod_validator_unavailable",
-          "message": "Independent VL Microscopic validation is not integrated.",
+          "code": "recipe_unimplemented",
+          "message": "The deterministic native recipe is not implemented.",
           "recheck_phase": "phase-4"
         }
       ],
@@ -14404,7 +14402,7 @@
       "sop_class_uid": "1.2.840.10008.5.1.4.1.1.77.1.2",
       "modality": "GM",
       "transfer_syntax_uid": "1.2.840.10008.1.2.1",
-      "determinism": "semantic_stable",
+      "determinism": "byte_stable",
       "requirements": {
         "features": [],
         "external_codecs": [],
@@ -14419,6 +14417,14 @@
           "covered": true,
           "part": "PS3.6",
           "anchor": "table_A-1"
+        },
+        {
+          "source": "local-source-note",
+          "edition": "2026b",
+          "query": "standards/source-notes/phase-4-vl-single-frame.md",
+          "covered": true,
+          "part": "PS3.3; PS3.4; PS3.6",
+          "anchor": "A.32.2; table_A.32.1-2; C.8.12.1; table_C.8-77; table_B.5-1; table_A-1"
         }
       ]
     },

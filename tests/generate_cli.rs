@@ -1704,7 +1704,7 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\textended"));
-    let expected_extended_files = 78
+    let native_extended_files = 78
         + if cfg!(feature = "deflate") { 2 } else { 0 }
         + if cfg!(feature = "jpeg") { 1 } else { 0 }
         + if cfg!(feature = "charls") { 1 } else { 0 }
@@ -1720,14 +1720,20 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
         } else {
             0
         };
-    assert!(stdout.contains(&format!("files_written\t{expected_extended_files}")));
-
     let manifest_path = out_dir.join("manifest.json");
     let manifest: Value = serde_json::from_str(
         &fs::read_to_string(&manifest_path).expect("manifest should be readable"),
     )
     .expect("manifest should parse");
     assert_manifest_matches_committed_schema(&manifest);
+    let parametric_map_generated = manifest["files"].as_array().is_some_and(|files| {
+        files.iter().any(|file| {
+            file["case_id"].as_str()
+                == Some("derived/parametric-map/float32_ct_derived_explicit_le")
+        })
+    });
+    let expected_extended_files = native_extended_files + usize::from(parametric_map_generated);
+    assert!(stdout.contains(&format!("files_written\t{expected_extended_files}")));
     assert_eq!(
         manifest
             .pointer("/files")
@@ -1735,6 +1741,16 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
             .map(Vec::len),
         Some(expected_extended_files)
     );
+    if !parametric_map_generated {
+        let unavailable = skipped_case_by_id(
+            &manifest,
+            "derived/parametric-map/float32_ct_derived_explicit_le",
+        );
+        assert_eq!(
+            unavailable.get("reason_code").and_then(Value::as_str),
+            Some("external_backend_unavailable")
+        );
+    }
     let enhanced_ct_file = file_entry_by_case_id(
         &manifest,
         "enhanced/ct/multiframe_shared_perframe_explicit_le",
@@ -5565,7 +5581,8 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
         .expect("manifest should contain skipped cases");
     assert_eq!(
         skipped_cases.len(),
-        47 - if cfg!(feature = "deflate") { 2 } else { 0 }
+        47 - usize::from(parametric_map_generated)
+            - if cfg!(feature = "deflate") { 2 } else { 0 }
             - if cfg!(feature = "jpeg") { 1 } else { 0 }
             - if cfg!(feature = "charls") { 1 } else { 0 }
             - if cfg!(feature = "jpegxl") { 1 } else { 0 }

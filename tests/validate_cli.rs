@@ -52,22 +52,18 @@ fn validate_command_accepts_generated_extended_root() {
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8(output.stdout).expect("validate stdout must be UTF-8");
-    let expected_files = 78
-        + if cfg!(feature = "deflate") { 2 } else { 0 }
-        + if cfg!(feature = "jpeg") { 1 } else { 0 }
-        + if cfg!(feature = "charls") { 1 } else { 0 }
-        + if cfg!(feature = "jpegxl") { 1 } else { 0 }
-        + if cfg!(feature = "jpeg2000") { 1 } else { 0 }
-        + if cfg!(feature = "htj2k_openjph") {
-            1
-        } else {
-            0
-        }
-        + if cfg!(feature = "legacy_jpeg_dcmtk") {
-            2
-        } else {
-            0
-        };
+    let manifest: Value = serde_json::from_slice(
+        &fs::read(out_dir.join("manifest.json")).expect("manifest must be readable"),
+    )
+    .expect("manifest must be JSON");
+    let expected_files = manifest["files"]
+        .as_array()
+        .expect("manifest files must be an array")
+        .len();
+    assert!(
+        expected_files >= 78,
+        "the extended native baseline must not be silently reduced"
+    );
     assert!(stdout.contains(&format!("files_checked\t{expected_files}")));
     assert!(stdout.contains("validation_failures\t0"));
 

@@ -67,8 +67,7 @@ fn report_gaps_counts_logical_cases_and_dimensions() {
             .get("gaps")
             .and_then(Value::as_array)
             .is_some_and(|gaps| !gaps.iter().any(|gap| {
-                gap.get("case_id").and_then(Value::as_str)
-                    == Some("derived/mesh/encapsulated_stl")
+                gap.get("case_id").and_then(Value::as_str) == Some("derived/mesh/encapsulated_stl")
             })),
         "promoted Encapsulated STL coverage must not remain a gap"
     );

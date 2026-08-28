@@ -8967,11 +8967,7 @@
         "mesh",
         "metadata"
       ],
-      "roadmap": {
-        "priority": "next",
-        "delivery_phase": "phase-3",
-        "rationale": "Adds the first mesh-oriented object through a deterministic manufacturing-model payload with independently checkable topology."
-      },
+      "roadmap": null,
       "blockers": [],
       "profiles": [
         "extended"

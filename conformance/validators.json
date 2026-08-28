@@ -409,7 +409,7 @@
       "timeout_seconds": 60,
       "required": false,
       "platforms": ["linux", "macos", "windows"],
-      "supported_case_ids": ["vl/endoscopic/rgb_explicit_le", "vl/microscopic/rgb_explicit_le", "vl/wsi/tiled_full_small", "vl/wsi/pyramid_multiresolution"],
+      "supported_case_ids": ["vl/endoscopic/rgb_explicit_le", "vl/microscopic/rgb_explicit_le", "vl/wsi/tiled_full_small", "vl/wsi/pyramid_multiresolution", "vl/wsi/multiple_optical_paths"],
       "artifacts": [
         {"path": "conformance-backends/dicom-validator/.python-version"},
         {"path": "conformance-backends/dicom-validator/pyproject.toml"},

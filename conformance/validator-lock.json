@@ -317,7 +317,7 @@
       "definition_version": "DICOM 2026b official DocBook parts 3, 4, and 6 transformed into locked dicom-validator JSON definitions",
       "platforms": ["arm64-macos"],
       "verified_at": "2026-08-27",
-      "notes": "Case-scoped additive IOD opinion for VL Endoscopic, VL Microscopic, and the small TILED_FULL VL Whole Slide Microscopy case. It reuses the unchanged uv-locked runtime and exact 2026b definitions; primary IOD validation remains locked dciodvfy."
+      "notes": "Case-scoped additive IOD opinion for VL Endoscopic, VL Microscopic, the small TILED_FULL VL Whole Slide Microscopy case, every role of the three-instance WSI pyramid, and the exact two-path TILED_FULL WSI case. The unchanged uv-locked dicom-validator 0.8.2 adapter and hash-locked 2026b definitions selected the exact IOD and reported zero errors for the qualified multiple-optical-path prototype. Primary IOD validation remains locked dciodvfy; this secondary route does not own optical-path order, identifiers, pixel payloads, or matrix reconstruction."
     },
     {
       "adapter_id": "highdicom-wsi-reconstruction",

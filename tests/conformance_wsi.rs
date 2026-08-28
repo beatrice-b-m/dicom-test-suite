@@ -5,6 +5,7 @@ use serde_json::{Value, json};
 const WSI_CASE_ID: &str = "vl/wsi/tiled_full_small";
 const WSI_SPARSE_CASE_ID: &str = "vl/wsi/tiled_sparse_small";
 const WSI_PYRAMID_CASE_ID: &str = "vl/wsi/pyramid_multiresolution";
+const WSI_MULTI_PATH_CASE_ID: &str = "vl/wsi/multiple_optical_paths";
 
 fn read_json(path: &str) -> Value {
     serde_json::from_slice(&fs::read(path).expect("read JSON artifact"))
@@ -27,7 +28,8 @@ fn wsi_iod_and_reconstruction_routes_are_exact_uv_locked_and_additive() {
             "vl/endoscopic/rgb_explicit_le",
             "vl/microscopic/rgb_explicit_le",
             WSI_CASE_ID,
-            WSI_PYRAMID_CASE_ID
+            WSI_PYRAMID_CASE_ID,
+            WSI_MULTI_PATH_CASE_ID
         ])
     );
     assert!(adapters.iter().any(|adapter| {

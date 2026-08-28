@@ -53,10 +53,13 @@ export DTS_DICOM_VALIDATOR_STANDARD_HOME=/path/to/locked/dicom-validator-cache
 
 The unchanged normal IOD entry point is also registered as
 `pydicom-dicom-validator-visible-light` for exactly
-`vl/endoscopic/rgb_explicit_le` and `vl/microscopic/rgb_explicit_le`. This is
+`vl/endoscopic/rgb_explicit_le`, `vl/microscopic/rgb_explicit_le`,
+`vl/wsi/tiled_full_small`, every instance of
+`vl/wsi/pyramid_multiresolution`, and `vl/wsi/multiple_optical_paths`. This is
 an additive second IOD opinion over the same locked runtime and 2026b
-definitions; `dciodvfy` remains the primary validator and `dcmdump` remains
-the independent parser.
+definitions; `dciodvfy` remains the primary validator and strict validation
+and the WSI reconstruction adapter retain ownership of optical-path order and
+pixels.
 
 Adapter version 0.4.0 exposes `--pixel-u32`. It reads the native OW value
 through pydicom, requires the locked 32/32/31 unsigned MONOCHROME2 shape, and

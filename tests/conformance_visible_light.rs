@@ -7,6 +7,7 @@ const IOD_CASE_IDS: &[&str] = &[
     "vl/microscopic/rgb_explicit_le",
     "vl/wsi/tiled_full_small",
     "vl/wsi/pyramid_multiresolution",
+    "vl/wsi/multiple_optical_paths",
 ];
 const PIXEL_CASE_IDS: &[&str] = &[
     "vl/endoscopic/rgb_explicit_le",

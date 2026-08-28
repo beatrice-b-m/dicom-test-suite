@@ -15,6 +15,7 @@ pub enum BasicOffsetTablePolicy {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EncapsulatedPixelData {
     pub basic_offset_table: BasicOffsetTable,
+    pub extended_offset_table: Option<ExtendedOffsetTable>,
     pub fragments: Vec<EncapsulatedFragment>,
     pub fragment_payloads: Vec<Vec<u8>>,
     pub fragments_per_frame: Vec<usize>,
@@ -25,6 +26,28 @@ pub struct EncapsulatedPixelData {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BasicOffsetTable {
     pub offsets: Vec<u32>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ExtendedOffsetTable {
+    pub offsets: Vec<u64>,
+    pub lengths: Vec<u64>,
+    pub offset_value_bytes: Vec<u8>,
+    pub length_value_bytes: Vec<u8>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FrameOffsetLayout {
+    pub compressed_lengths: Vec<u64>,
+    pub padded_item_lengths: Vec<u64>,
+    pub offsets: Vec<u64>,
+    pub first_non_representable_basic_offset_frame: Option<usize>,
+}
+
+impl FrameOffsetLayout {
+    pub fn basic_offset_table_is_representable(&self) -> bool {
+        self.first_non_representable_basic_offset_frame.is_none()
+    }
 }
 
 impl BasicOffsetTable {
@@ -49,6 +72,25 @@ impl EncapsulatedPixelData {
         let fragments_per_frame = vec![1; frames.len()];
         encapsulate_frames(frames, &fragments_per_frame, basic_offset_table_policy)
     }
+
+    pub fn one_fragment_per_frame_with_extended_offset_table(
+        frames: &[Vec<u8>],
+    ) -> Result<Self, EncapsulationError> {
+        let mut encapsulated = Self::one_fragment_per_frame(frames, BasicOffsetTablePolicy::Empty)?;
+        let compressed_lengths = frames
+            .iter()
+            .map(|frame| u64::try_from(frame.len()).map_err(|_| EncapsulationError::OffsetOverflow))
+            .collect::<Result<Vec<_>, _>>()?;
+        let layout = calculate_frame_offset_layout(&compressed_lengths)?;
+
+        encapsulated.extended_offset_table = Some(ExtendedOffsetTable {
+            offset_value_bytes: serialize_ov_words_little_endian(&layout.offsets),
+            length_value_bytes: serialize_ov_words_little_endian(&layout.compressed_lengths),
+            offsets: layout.offsets,
+            lengths: layout.compressed_lengths,
+        });
+        Ok(encapsulated)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -69,6 +111,9 @@ pub enum EncapsulationError {
     OffsetOverflow,
     ItemLengthOverflow {
         length: usize,
+    },
+    ExtendedOffsetArithmeticOverflow {
+        frame_index: usize,
     },
 }
 
@@ -98,6 +143,10 @@ impl fmt::Display for EncapsulationError {
             Self::ItemLengthOverflow { length } => write!(
                 f,
                 "encapsulated Pixel Data item length {length} exceeded u32"
+            ),
+            Self::ExtendedOffsetArithmeticOverflow { frame_index } => write!(
+                f,
+                "extended offset calculation overflowed u64 at frame {frame_index}"
             ),
         }
     }
@@ -188,12 +237,54 @@ pub fn encapsulate_frames(
         basic_offset_table: BasicOffsetTable {
             offsets: basic_offsets,
         },
+        extended_offset_table: None,
         fragments,
         fragment_payloads,
         fragments_per_frame: fragments_per_frame.to_vec(),
         compressed_frame_hashes,
         value_bytes,
     })
+}
+
+pub fn calculate_frame_offset_layout(
+    compressed_lengths: &[u64],
+) -> Result<FrameOffsetLayout, EncapsulationError> {
+    let mut padded_item_lengths = Vec::with_capacity(compressed_lengths.len());
+    let mut offsets = Vec::with_capacity(compressed_lengths.len());
+    let mut next_offset = 0u64;
+
+    for (frame_index, &compressed_length) in compressed_lengths.iter().enumerate() {
+        offsets.push(next_offset);
+        let padded_item_length = compressed_length
+            .checked_add(compressed_length % 2)
+            .ok_or(EncapsulationError::ExtendedOffsetArithmeticOverflow { frame_index })?;
+        padded_item_lengths.push(padded_item_length);
+        let item_span = 8u64
+            .checked_add(padded_item_length)
+            .ok_or(EncapsulationError::ExtendedOffsetArithmeticOverflow { frame_index })?;
+        next_offset = next_offset
+            .checked_add(item_span)
+            .ok_or(EncapsulationError::ExtendedOffsetArithmeticOverflow { frame_index })?;
+    }
+
+    let first_non_representable_basic_offset_frame = offsets
+        .iter()
+        .position(|&offset| offset > u64::from(u32::MAX));
+
+    Ok(FrameOffsetLayout {
+        compressed_lengths: compressed_lengths.to_vec(),
+        padded_item_lengths,
+        offsets,
+        first_non_representable_basic_offset_frame,
+    })
+}
+
+pub fn serialize_ov_words_little_endian(words: &[u64]) -> Vec<u8> {
+    let mut bytes = Vec::with_capacity(words.len().saturating_mul(8));
+    for word in words {
+        bytes.extend_from_slice(&word.to_le_bytes());
+    }
+    bytes
 }
 
 fn split_frame_at_even_boundaries(

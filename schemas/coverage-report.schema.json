@@ -1220,6 +1220,20 @@
         "wsi_sentinel_matrix_sha256",
         "wsi_explicit_position_reconstruction",
         "wsi_reference_free",
+        "wsi_tile_seg_source_identity",
+        "wsi_tile_seg_source_frame_mapping",
+        "wsi_tile_seg_sparse_geometry",
+        "wsi_tile_seg_payload_sha256",
+        "wsi_tile_seg_reconstructed_matrix_sha256",
+        "wsi_tile_seg_reference_closure",
+        "wsi_tile_seg_internal_validation_closure",
+        "wsi_tile_seg_budget_instance_count",
+        "wsi_tile_seg_budget_frame_count",
+        "wsi_tile_seg_actual_dicom_bytes",
+        "wsi_tile_seg_max_dicom_bytes",
+        "wsi_tile_seg_observed_generation_milliseconds",
+        "wsi_tile_seg_max_generation_milliseconds",
+        "wsi_tile_seg_budget_closure",
         "wsi_multiple_optical_paths_expectation_present",
         "wsi_multiple_optical_paths_count",
         "wsi_multiple_optical_paths_ordered_identifiers",
@@ -2232,6 +2246,27 @@
         },
         "wsi_explicit_position_reconstruction": { "type": ["boolean", "null"] },
         "wsi_reference_free": { "type": ["boolean", "null"] },
+        "wsi_tile_seg_source_identity": {
+          "type": ["string", "null"],
+          "pattern": "^vl/wsi/tiled_full_small \\| .+ \\| 1\\.2\\.840\\.10008\\.5\\.1\\.4\\.1\\.1\\.77\\.1\\.6 \\| [0-9]+(\\.[0-9]+)+$"
+        },
+        "wsi_tile_seg_source_frame_mapping": { "enum": ["SEG1->WSI1; SEG2->WSI4", null] },
+        "wsi_tile_seg_sparse_geometry": { "enum": ["TILED_SPARSE; 2x2 tiles; 4x4 total matrix; (1,1),(3,3)", null] },
+        "wsi_tile_seg_payload_sha256": {
+          "anyOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }]
+        },
+        "wsi_tile_seg_reconstructed_matrix_sha256": {
+          "anyOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }]
+        },
+        "wsi_tile_seg_reference_closure": { "type": ["boolean", "null"] },
+        "wsi_tile_seg_internal_validation_closure": { "type": ["boolean", "null"] },
+        "wsi_tile_seg_budget_instance_count": { "type": ["integer", "null"], "minimum": 1, "maximum": 1 },
+        "wsi_tile_seg_budget_frame_count": { "type": ["integer", "null"], "minimum": 2, "maximum": 2 },
+        "wsi_tile_seg_actual_dicom_bytes": { "type": ["integer", "null"], "minimum": 1, "maximum": 16384 },
+        "wsi_tile_seg_max_dicom_bytes": { "type": ["integer", "null"], "minimum": 16384, "maximum": 16384 },
+        "wsi_tile_seg_observed_generation_milliseconds": { "type": ["integer", "null"], "minimum": 0, "maximum": 5000 },
+        "wsi_tile_seg_max_generation_milliseconds": { "type": ["integer", "null"], "minimum": 5000, "maximum": 5000 },
+        "wsi_tile_seg_budget_closure": { "type": ["boolean", "null"] },
         "wsi_multiple_optical_paths_expectation_present": { "type": ["boolean", "null"] },
         "wsi_multiple_optical_paths_count": { "type": ["integer", "null"], "minimum": 2, "maximum": 2 },
         "wsi_multiple_optical_paths_ordered_identifiers": { "enum": ["BRIGHTFIELD; ALTERNATE", null] },
@@ -2973,6 +3008,51 @@
               "wsi_sentinel_matrix_sha256": { "const": "d10a587875f14a0b74a9e4935ce83cdb73377bd7357a172db8e9f7347c030eb3" },
               "wsi_explicit_position_reconstruction": { "const": true },
               "wsi_reference_free": { "const": true }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "case_id": { "const": "derived/seg/wsi_tile_reference" },
+              "status": { "const": "generated" }
+            },
+            "required": ["case_id", "status"]
+          },
+          "then": {
+            "properties": {
+              "wsi_tile_seg_source_identity": { "type": "string" },
+              "wsi_tile_seg_source_frame_mapping": { "const": "SEG1->WSI1; SEG2->WSI4" },
+              "wsi_tile_seg_sparse_geometry": { "const": "TILED_SPARSE; 2x2 tiles; 4x4 total matrix; (1,1),(3,3)" },
+              "wsi_tile_seg_payload_sha256": { "const": "74fa7cbb10160e0eb1f16f35fa9ad0e7f2712af56019996e88cf1034be92635e" },
+              "wsi_tile_seg_reconstructed_matrix_sha256": { "const": "a8ec6f910c0fb02685163a3251bed92517d1016c9173f1e4f021e6b4194f2467" },
+              "wsi_tile_seg_reference_closure": { "const": true },
+              "wsi_tile_seg_internal_validation_closure": { "const": true },
+              "wsi_tile_seg_budget_instance_count": { "const": 1 },
+              "wsi_tile_seg_budget_frame_count": { "const": 2 },
+              "wsi_tile_seg_actual_dicom_bytes": { "type": "integer", "minimum": 1, "maximum": 16384 },
+              "wsi_tile_seg_max_dicom_bytes": { "const": 16384 },
+              "wsi_tile_seg_observed_generation_milliseconds": { "type": "integer", "minimum": 0, "maximum": 5000 },
+              "wsi_tile_seg_max_generation_milliseconds": { "const": 5000 },
+              "wsi_tile_seg_budget_closure": { "const": true }
+            }
+          },
+          "else": {
+            "properties": {
+              "wsi_tile_seg_source_identity": { "type": "null" },
+              "wsi_tile_seg_source_frame_mapping": { "type": "null" },
+              "wsi_tile_seg_sparse_geometry": { "type": "null" },
+              "wsi_tile_seg_payload_sha256": { "type": "null" },
+              "wsi_tile_seg_reconstructed_matrix_sha256": { "type": "null" },
+              "wsi_tile_seg_reference_closure": { "type": "null" },
+              "wsi_tile_seg_internal_validation_closure": { "type": "null" },
+              "wsi_tile_seg_budget_instance_count": { "type": "null" },
+              "wsi_tile_seg_budget_frame_count": { "type": "null" },
+              "wsi_tile_seg_actual_dicom_bytes": { "type": "null" },
+              "wsi_tile_seg_max_dicom_bytes": { "type": "null" },
+              "wsi_tile_seg_observed_generation_milliseconds": { "type": "null" },
+              "wsi_tile_seg_max_generation_milliseconds": { "type": "null" },
+              "wsi_tile_seg_budget_closure": { "type": "null" }
             }
           }
         },

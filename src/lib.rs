@@ -19312,6 +19312,57 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
         output.push('\n');
     }
 
+    let wsi_tile_segmentation_rows = report
+        .get("coverage_matrix")
+        .and_then(Value::as_array)
+        .map(|rows| {
+            rows.iter()
+                .filter(|row| !row["wsi_tile_seg_source_identity"].is_null())
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    if !wsi_tile_segmentation_rows.is_empty() {
+        output.push_str("## WSI Tile Segmentation Expectations\n\n");
+        output.push_str("| Case ID | Source identity | Frame mapping | Sparse geometry | Payload SHA-256 | Reconstructed matrix SHA-256 | Reference / internal validation closure | Budget evidence / closed |\n");
+        output.push_str("|---|---|---|---|---|---|---|---|\n");
+        for row in wsi_tile_segmentation_rows {
+            output.push_str(&format!(
+                "| {} | {} | {} | {} | {} | {} | {} / {} | {} instance / {} frames / {} of {} bytes / {} of {} ms / {} |\n",
+                markdown_cell(row.get("case_id").and_then(Value::as_str)),
+                markdown_cell(
+                    row.get("wsi_tile_seg_source_identity")
+                        .and_then(Value::as_str)
+                ),
+                markdown_cell(
+                    row.get("wsi_tile_seg_source_frame_mapping")
+                        .and_then(Value::as_str)
+                ),
+                markdown_cell(
+                    row.get("wsi_tile_seg_sparse_geometry")
+                        .and_then(Value::as_str)
+                ),
+                markdown_cell(
+                    row.get("wsi_tile_seg_payload_sha256")
+                        .and_then(Value::as_str)
+                ),
+                markdown_cell(
+                    row.get("wsi_tile_seg_reconstructed_matrix_sha256")
+                        .and_then(Value::as_str)
+                ),
+                markdown_bool(row.get("wsi_tile_seg_reference_closure")),
+                markdown_bool(row.get("wsi_tile_seg_internal_validation_closure")),
+                markdown_number(row.get("wsi_tile_seg_budget_instance_count")),
+                markdown_number(row.get("wsi_tile_seg_budget_frame_count")),
+                markdown_number(row.get("wsi_tile_seg_actual_dicom_bytes")),
+                markdown_number(row.get("wsi_tile_seg_max_dicom_bytes")),
+                markdown_number(row.get("wsi_tile_seg_observed_generation_milliseconds")),
+                markdown_number(row.get("wsi_tile_seg_max_generation_milliseconds")),
+                markdown_bool(row.get("wsi_tile_seg_budget_closure")),
+            ));
+        }
+        output.push('\n');
+    }
+
     let multiple_optical_path_rows = report
         .get("coverage_matrix")
         .and_then(Value::as_array)
@@ -19612,6 +19663,152 @@ struct WsiTiledFullReportFields {
     sentinel_matrix_sha256: Option<&'static str>,
     explicit_position_reconstruction: Option<bool>,
     reference_free: Option<bool>,
+}
+
+#[derive(Default)]
+struct WsiTileSegmentationReportFields {
+    source_identity: Option<String>,
+    source_frame_mapping: Option<&'static str>,
+    sparse_geometry: Option<&'static str>,
+    payload_sha256: Option<&'static str>,
+    reconstructed_matrix_sha256: Option<&'static str>,
+    reference_closure: Option<bool>,
+    internal_validation_closure: Option<bool>,
+    budget_instance_count: Option<u64>,
+    budget_frame_count: Option<u64>,
+    actual_dicom_bytes: Option<u64>,
+    max_dicom_bytes: Option<u64>,
+    observed_generation_milliseconds: Option<u64>,
+    max_generation_milliseconds: Option<u64>,
+    budget_closure: Option<bool>,
+}
+
+fn wsi_tile_segmentation_report_fields(
+    manifest_path: &Path,
+    file: &Value,
+) -> Result<WsiTileSegmentationReportFields, ReportError> {
+    const CASE_ID: &str = "derived/seg/wsi_tile_reference";
+    if file.get("case_id").and_then(Value::as_str) != Some(CASE_ID) {
+        return if file.get("expected_wsi_tile_segmentation").is_some() {
+            Err(ReportError::MetadataShape {
+                path: manifest_path.to_path_buf(),
+                message: "WSI tile segmentation report fields are case-scoped",
+            })
+        } else {
+            Ok(WsiTileSegmentationReportFields::default())
+        };
+    }
+    validate_wsi_tile_segmentation_manifest_contract(manifest_path, file).map_err(|_| {
+        ReportError::MetadataShape {
+            path: manifest_path.to_path_buf(),
+            message: "WSI tile segmentation coverage requires the exact locked expectation",
+        }
+    })?;
+    let expected_stressors = serde_json::json!([
+        "segmentation_storage",
+        "fractional_occupancy_pixel_data",
+        "tiled_sparse",
+        "wsi_tile_references",
+        "slide_coordinate_system",
+        "external_generation_backend"
+    ]);
+    if file.get("known_stressors") != Some(&expected_stressors) {
+        return Err(ReportError::MetadataShape {
+            path: manifest_path.to_path_buf(),
+            message: "WSI tile segmentation coverage requires the exact locked stressor set",
+        });
+    }
+    let expected = &file["expected_wsi_tile_segmentation"];
+    let internal = file
+        .pointer("/validation/internal")
+        .and_then(Value::as_array)
+        .ok_or(ReportError::MetadataShape {
+            path: manifest_path.to_path_buf(),
+            message: "WSI tile segmentation coverage requires internal validation evidence",
+        })?;
+    let internal_validation_closure = file.pointer("/validation/status").and_then(Value::as_str)
+        == Some("passed")
+        && !internal.is_empty()
+        && internal
+            .iter()
+            .all(|result| result.get("status").and_then(Value::as_str) == Some("passed"))
+        && internal.iter().any(|result| {
+            result.get("name").and_then(Value::as_str) == Some("external_backend_contract")
+        });
+    if !internal_validation_closure {
+        return Err(ReportError::MetadataShape {
+            path: manifest_path.to_path_buf(),
+            message: "WSI tile segmentation report requires closed internal validation evidence",
+        });
+    }
+    let actual_dicom_bytes =
+        file.get("size_bytes")
+            .and_then(Value::as_u64)
+            .ok_or(ReportError::MetadataShape {
+                path: manifest_path.to_path_buf(),
+                message: "WSI tile segmentation report requires generated file size evidence",
+            })?;
+    let max_dicom_bytes = expected
+        .pointer("/budget/max_total_dicom_bytes")
+        .and_then(Value::as_u64)
+        .expect("validated WSI tile SEG budget");
+    let budget_instance_count = expected
+        .pointer("/budget/instance_count")
+        .and_then(Value::as_u64)
+        .expect("validated WSI tile SEG instance budget");
+    let budget_frame_count = expected
+        .pointer("/budget/total_frame_count")
+        .and_then(Value::as_u64)
+        .expect("validated WSI tile SEG frame budget");
+    let max_generation_seconds = expected
+        .pointer("/budget/max_generation_wall_time_seconds")
+        .and_then(Value::as_u64)
+        .expect("validated WSI tile SEG time budget");
+    let observed_generation_milliseconds = file
+        .pointer("/generation_backend/invocation_elapsed_milliseconds")
+        .and_then(Value::as_u64)
+        .ok_or(ReportError::MetadataShape {
+            path: manifest_path.to_path_buf(),
+            message: "WSI tile segmentation report requires observed backend timing evidence",
+        })?;
+    let max_generation_milliseconds = max_generation_seconds * 1_000;
+    let budget_closure = actual_dicom_bytes > 0
+        && actual_dicom_bytes <= max_dicom_bytes
+        && budget_instance_count == 1
+        && Some(budget_frame_count) == file.pointer("/image/frames").and_then(Value::as_u64)
+        && observed_generation_milliseconds <= max_generation_milliseconds;
+    if !budget_closure {
+        return Err(ReportError::MetadataShape {
+            path: manifest_path.to_path_buf(),
+            message: "WSI tile segmentation generated artifact exceeds its locked budget",
+        });
+    }
+    let source = &expected["source"];
+    let source_identity = format!(
+        "{} | {} | {} | {}",
+        source["case_id"].as_str().unwrap_or_default(),
+        source["path"].as_str().unwrap_or_default(),
+        source["sop_class_uid"].as_str().unwrap_or_default(),
+        source["sop_instance_uid"].as_str().unwrap_or_default(),
+    );
+    Ok(WsiTileSegmentationReportFields {
+        source_identity: Some(source_identity),
+        source_frame_mapping: Some("SEG1->WSI1; SEG2->WSI4"),
+        sparse_geometry: Some("TILED_SPARSE; 2x2 tiles; 4x4 total matrix; (1,1),(3,3)"),
+        payload_sha256: Some("74fa7cbb10160e0eb1f16f35fa9ad0e7f2712af56019996e88cf1034be92635e"),
+        reconstructed_matrix_sha256: Some(
+            "a8ec6f910c0fb02685163a3251bed92517d1016c9173f1e4f021e6b4194f2467",
+        ),
+        reference_closure: Some(true),
+        internal_validation_closure: Some(true),
+        budget_instance_count: Some(budget_instance_count),
+        budget_frame_count: Some(budget_frame_count),
+        actual_dicom_bytes: Some(actual_dicom_bytes),
+        max_dicom_bytes: Some(max_dicom_bytes),
+        observed_generation_milliseconds: Some(observed_generation_milliseconds),
+        max_generation_milliseconds: Some(max_generation_milliseconds),
+        budget_closure: Some(true),
+    })
 }
 
 #[derive(Default)]
@@ -19943,6 +20140,7 @@ fn generated_coverage_row(
     let vl_single_frame_laterality = vl_single_frame_report_laterality(manifest_path, file)?;
     let wsi_tiled_full = wsi_tiled_full_report_fields(manifest_path, file)?;
     let wsi_tiled_sparse = wsi_tiled_sparse_report_fields(manifest_path, file)?;
+    let wsi_tile_segmentation = wsi_tile_segmentation_report_fields(manifest_path, file)?;
     let wsi_multiple_optical_paths = wsi_multiple_optical_paths_report_fields(manifest_path, file)?;
     let wsi_pyramid = wsi_pyramid_report_fields(manifest_path, file)?;
     let wsi = if wsi_tiled_sparse.iod_kind.is_some() {
@@ -20381,6 +20579,74 @@ fn generated_coverage_row(
             wsi.explicit_position_reconstruction.map(Value::from),
         ),
         ("wsi_reference_free", wsi.reference_free.map(Value::from)),
+    ] {
+        row_object.insert(field.to_string(), value.unwrap_or(Value::Null));
+    }
+    for (field, value) in [
+        (
+            "wsi_tile_seg_source_identity",
+            wsi_tile_segmentation.source_identity.map(Value::from),
+        ),
+        (
+            "wsi_tile_seg_source_frame_mapping",
+            wsi_tile_segmentation.source_frame_mapping.map(Value::from),
+        ),
+        (
+            "wsi_tile_seg_sparse_geometry",
+            wsi_tile_segmentation.sparse_geometry.map(Value::from),
+        ),
+        (
+            "wsi_tile_seg_payload_sha256",
+            wsi_tile_segmentation.payload_sha256.map(Value::from),
+        ),
+        (
+            "wsi_tile_seg_reconstructed_matrix_sha256",
+            wsi_tile_segmentation
+                .reconstructed_matrix_sha256
+                .map(Value::from),
+        ),
+        (
+            "wsi_tile_seg_reference_closure",
+            wsi_tile_segmentation.reference_closure.map(Value::from),
+        ),
+        (
+            "wsi_tile_seg_internal_validation_closure",
+            wsi_tile_segmentation
+                .internal_validation_closure
+                .map(Value::from),
+        ),
+        (
+            "wsi_tile_seg_budget_instance_count",
+            wsi_tile_segmentation.budget_instance_count.map(Value::from),
+        ),
+        (
+            "wsi_tile_seg_budget_frame_count",
+            wsi_tile_segmentation.budget_frame_count.map(Value::from),
+        ),
+        (
+            "wsi_tile_seg_actual_dicom_bytes",
+            wsi_tile_segmentation.actual_dicom_bytes.map(Value::from),
+        ),
+        (
+            "wsi_tile_seg_max_dicom_bytes",
+            wsi_tile_segmentation.max_dicom_bytes.map(Value::from),
+        ),
+        (
+            "wsi_tile_seg_observed_generation_milliseconds",
+            wsi_tile_segmentation
+                .observed_generation_milliseconds
+                .map(Value::from),
+        ),
+        (
+            "wsi_tile_seg_max_generation_milliseconds",
+            wsi_tile_segmentation
+                .max_generation_milliseconds
+                .map(Value::from),
+        ),
+        (
+            "wsi_tile_seg_budget_closure",
+            wsi_tile_segmentation.budget_closure.map(Value::from),
+        ),
     ] {
         row_object.insert(field.to_string(), value.unwrap_or(Value::Null));
     }
@@ -26137,6 +26403,20 @@ fn skipped_coverage_row(
         "wsi_sentinel_matrix_sha256",
         "wsi_explicit_position_reconstruction",
         "wsi_reference_free",
+        "wsi_tile_seg_source_identity",
+        "wsi_tile_seg_source_frame_mapping",
+        "wsi_tile_seg_sparse_geometry",
+        "wsi_tile_seg_payload_sha256",
+        "wsi_tile_seg_reconstructed_matrix_sha256",
+        "wsi_tile_seg_reference_closure",
+        "wsi_tile_seg_internal_validation_closure",
+        "wsi_tile_seg_budget_instance_count",
+        "wsi_tile_seg_budget_frame_count",
+        "wsi_tile_seg_actual_dicom_bytes",
+        "wsi_tile_seg_max_dicom_bytes",
+        "wsi_tile_seg_observed_generation_milliseconds",
+        "wsi_tile_seg_max_generation_milliseconds",
+        "wsi_tile_seg_budget_closure",
         "wsi_multiple_optical_paths_expectation_present",
         "wsi_multiple_optical_paths_count",
         "wsi_multiple_optical_paths_ordered_identifiers",
@@ -32418,6 +32698,130 @@ mod tests {
                 &misplaced
             )
             .is_err()
+        );
+    }
+
+    #[test]
+    fn wsi_tile_segmentation_report_exposes_closed_reference_validation_and_budget_evidence() {
+        let mut file = wsi_tile_segmentation_manifest();
+        file["profile_membership"] = serde_json::json!(["extended"]);
+        file["size_bytes"] = Value::from(4096);
+        file["determinism"] = Value::from("semantic_stable");
+        file["generation_backend"] = serde_json::json!({
+            "invocation_elapsed_milliseconds": 812
+        });
+        file["dicom"]["transfer_syntax_name"] = Value::from("Explicit VR Little Endian");
+        file["validation"] = serde_json::json!({
+            "status": "passed",
+            "internal": [
+                {"name": "part10", "status": "passed"},
+                {"name": "external_backend_contract", "status": "passed"}
+            ],
+            "standards": [],
+            "external": []
+        });
+        file["known_stressors"] = serde_json::json!([
+            "segmentation_storage",
+            "fractional_occupancy_pixel_data",
+            "tiled_sparse",
+            "wsi_tile_references",
+            "slide_coordinate_system",
+            "external_generation_backend"
+        ]);
+
+        let row = generated_coverage_row(Path::new("manifest.json"), &file, "extended")
+            .expect("locked WSI tile segmentation must produce a coverage row");
+        assert!(row["wsi_iod_kind"].is_null());
+        assert!(
+            row["wsi_tile_seg_source_identity"]
+                .as_str()
+                .unwrap()
+                .contains("1.2.826.0.1.3680043.10.543.23")
+        );
+        assert_eq!(
+            row["wsi_tile_seg_source_frame_mapping"],
+            "SEG1->WSI1; SEG2->WSI4"
+        );
+        assert_eq!(
+            row["wsi_tile_seg_sparse_geometry"],
+            "TILED_SPARSE; 2x2 tiles; 4x4 total matrix; (1,1),(3,3)"
+        );
+        assert_eq!(
+            row["wsi_tile_seg_payload_sha256"],
+            "74fa7cbb10160e0eb1f16f35fa9ad0e7f2712af56019996e88cf1034be92635e"
+        );
+        assert_eq!(
+            row["wsi_tile_seg_reconstructed_matrix_sha256"],
+            "a8ec6f910c0fb02685163a3251bed92517d1016c9173f1e4f021e6b4194f2467"
+        );
+        assert_eq!(row["wsi_tile_seg_reference_closure"], true);
+        assert_eq!(row["wsi_tile_seg_internal_validation_closure"], true);
+        assert_eq!(row["wsi_tile_seg_budget_instance_count"], 1);
+        assert_eq!(row["wsi_tile_seg_budget_frame_count"], 2);
+        assert_eq!(row["wsi_tile_seg_actual_dicom_bytes"], 4096);
+        assert_eq!(row["wsi_tile_seg_max_dicom_bytes"], 16384);
+        assert_eq!(row["wsi_tile_seg_observed_generation_milliseconds"], 812);
+        assert_eq!(row["wsi_tile_seg_max_generation_milliseconds"], 5000);
+        assert_eq!(row["wsi_tile_seg_budget_closure"], true);
+
+        let coverage_schema: Value =
+            serde_json::from_str(include_str!("../schemas/coverage-report.schema.json"))
+                .expect("coverage schema JSON");
+        let row_schema = serde_json::json!({
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$ref": "#/$defs/coverage_row",
+            "$defs": coverage_schema["$defs"].clone()
+        });
+        let row_validator =
+            jsonschema::validator_for(&row_schema).expect("coverage row schema compiles");
+        let errors = row_validator
+            .iter_errors(&row)
+            .map(|error| error.to_string())
+            .collect::<Vec<_>>();
+        assert!(
+            errors.is_empty(),
+            "WSI tile segmentation coverage row must satisfy its schema: {errors:?}"
+        );
+
+        let report = serde_json::json!({"coverage_matrix": [row]});
+        let markdown = render_coverage_report_markdown(&report);
+        assert!(markdown.contains("## WSI Tile Segmentation Expectations"));
+        assert!(markdown.contains("SEG1->WSI1; SEG2->WSI4"));
+        assert!(markdown.contains("4096 of 16384 bytes / 812 of 5000 ms"));
+
+        let mut failed_validation = file.clone();
+        failed_validation["validation"]["internal"][0]["status"] = Value::from("failed");
+        assert!(
+            wsi_tile_segmentation_report_fields(Path::new("manifest.json"), &failed_validation)
+                .is_err()
+        );
+        let mut missing_timing = file.clone();
+        missing_timing
+            .get_mut("generation_backend")
+            .and_then(Value::as_object_mut)
+            .unwrap()
+            .remove("invocation_elapsed_milliseconds");
+        assert!(
+            wsi_tile_segmentation_report_fields(Path::new("manifest.json"), &missing_timing)
+                .is_err()
+        );
+        let mut oversized = file;
+        oversized["size_bytes"] = Value::from(16385);
+        assert!(
+            wsi_tile_segmentation_report_fields(Path::new("manifest.json"), &oversized).is_err()
+        );
+        let mut too_slow = oversized;
+        too_slow["size_bytes"] = Value::from(4096);
+        too_slow["generation_backend"]["invocation_elapsed_milliseconds"] = Value::from(5001);
+        assert!(
+            wsi_tile_segmentation_report_fields(Path::new("manifest.json"), &too_slow).is_err()
+        );
+        let unrelated = serde_json::json!({"case_id": "classic/sc/rgb_planar0_explicit_le"});
+        assert!(
+            wsi_tile_segmentation_report_fields(Path::new("manifest.json"), &unrelated)
+                .unwrap()
+                .source_identity
+                .is_none()
         );
     }
 

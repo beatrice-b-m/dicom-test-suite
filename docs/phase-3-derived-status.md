@@ -468,3 +468,48 @@ also identifies the two current SOP Classes as unrecognized and therefore does
 not provide graph semantics for them; those warnings remain visible and
 unallowlisted, while strict Rust owns exact graph closure and every semantic
 absence. Phase 3 milestone 6 is complete.
+
+## Encapsulated STL Mesh Representative
+
+`derived/mesh/encapsulated_stl` completes Phase 3 milestone 7 as a native,
+byte-stable Encapsulated STL Storage slice. The selected representative is a
+standalone binary-STL manufacturing model rather than Surface Segmentation:
+locked highdicom 0.28.1 exposes no Surface Segmentation domain constructor,
+while the Encapsulated STL IOD provides a smaller independently checkable mesh
+contract without claiming segmentation-overlay semantics.
+
+The payload is a closed tetrahedron with four outward-wound, nondegenerate
+triangles, six manifold edges, four vertices, millimetre UCUM units, bounds
+`[0,0,0]` through `[10,10,10]`, and positive signed volume
+`166.66666666666666`. Its exact 284-byte binary STL SHA-256 is
+`3c3049d231f8e98c0d2fe7cb81cf6805141bcac39dd04b9cf7f8063ec44bbfb2`.
+The generated 1,692-byte Part 10 instance SHA-256 is
+`d624f6392186cf505dfe38d5790008dc11af09a233ab4f7cb65b6de08954811a`.
+
+Two seed-7 extended generations each wrote 114 files and produced identical
+Encapsulated STL bytes and identical canonical manifest entries. The complete
+manifests differ only in an existing semantic-stable external WSI SEG backend
+elapsed-time field, so reproducibility is asserted at the byte-stable mesh
+case boundary rather than by deleting provenance. Strict CLI validation
+checked all 114 files with zero failures. JSON and Markdown reporting expose
+the payload identity, units, geometry, topology states, and required
+independent-validator disposition.
+
+Locked `dciodvfy -new` recognized the exact object as `EncapsulatedSTL` and
+reported no finding. The separately implemented, `uv`-locked
+`pydicom-encapsulated-stl-payload` adapter extracted the OB value using
+Encapsulated Document Length, independently parsed every binary record, and
+confirmed finite geometry, unit normals agreeing with winding, outward
+orientation, nondegenerate faces, opposite directed incidence on every closed
+manifold edge, exact bounds, triangle count, signed volume, and payload hash.
+Its mutation suite rejects count/length drift, non-finite values, non-zero
+attributes, degeneracy, wrong normals or winding, open/non-manifold edges,
+bounds drift, and payload drift.
+
+The registry now contains 151 implemented and 40 planned logical cases. The
+integer Parametric Map variant remains an explicit
+`provider_capability_unavailable` row under the Phase 3 acceptance rule rather
+than being silently omitted or generated without a qualified provider. With
+that unavailable coverage visible and milestone 7 qualified, Phase 3 is
+closed. The next dependency-ordered valid-file work is Phase 5 Extended Offset
+Table infrastructure.

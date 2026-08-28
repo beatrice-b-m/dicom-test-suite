@@ -81,6 +81,10 @@ mod wsi_tiled_sparse_tests;
 #[path = "validation_wsi_pyramid_tests.rs"]
 mod wsi_pyramid_tests;
 
+#[cfg(test)]
+#[path = "validation_wsi_multiple_optical_paths_tests.rs"]
+mod wsi_multiple_optical_paths_tests;
+
 #[cfg(feature = "deflate")]
 use crate::codecs::DicomRsDeflatedImageFrameEncoder;
 #[cfg(feature = "charls")]
@@ -2153,6 +2157,731 @@ fn reconstruct_tiled_full_matrix(pixel_bytes: &[u8]) -> Option<Vec<u8>> {
         }
     }
     Some(matrix)
+}
+
+/// Validate the complete Phase 4 multiple-optical-path TILED_FULL WSI contract.
+pub(crate) fn validate_wsi_multiple_optical_paths_file(
+    path: &Path,
+    identity: &Part10Expectations<'_>,
+    expected_wsi_multiple_optical_paths: &Value,
+) -> Result<ValidatedPart10, GenerateError> {
+    let mut validated = validate_part10_file(path, identity)?;
+    let obj = open_file(path).map_err(|err| GenerateError::ValidateDicomFile {
+        path: path.to_path_buf(),
+        message: err.to_string(),
+    })?;
+    let mut internal = Vec::new();
+    validate_wsi_multiple_optical_paths(
+        path,
+        &obj,
+        &mut internal,
+        identity,
+        expected_wsi_multiple_optical_paths,
+        validated.bytes.len(),
+    )?;
+    fail_if_any_failed(path, &internal)?;
+
+    let validation_items = validated
+        .validation
+        .get_mut("internal")
+        .and_then(Value::as_array_mut)
+        .ok_or_else(|| GenerateError::ValidateDicomFile {
+            path: path.to_path_buf(),
+            message: "generic validation result has no internal findings array".to_string(),
+        })?;
+    validation_items.extend(internal);
+    if let Some(standards) = validated
+        .validation
+        .get_mut("standards")
+        .and_then(Value::as_array_mut)
+    {
+        standards.push(serde_json::json!({
+            "name": "vl_whole_slide_microscopy_multiple_optical_paths_contract",
+            "status": "passed",
+            "message": "The ordered BRIGHTFIELD and ALTERNATE TILED_FULL optical paths, nested ICC profiles, eight path-outermost Frames, two reconstructed matrices, inherited WSI modules, and locked absences match the canonical contract."
+        }));
+    }
+    Ok(validated)
+}
+
+fn validate_wsi_multiple_optical_paths(
+    path: &Path,
+    obj: &OpenedObject,
+    internal: &mut Vec<Value>,
+    identity: &Part10Expectations<'_>,
+    expected: &Value,
+    instance_size: usize,
+) -> Result<(), GenerateError> {
+    const WSI_SOP_CLASS_UID: &str = "1.2.840.10008.5.1.4.1.1.77.1.6";
+    const FRAME_HASHES: [&str; 8] = [
+        "fcf067f6323bb42b8292a565a8f826ec5fdb1b142b7a69bf7f7721f0d5d46ef8",
+        "6c8f6d772829d493618e079a099cf4f20d8524ed3656f49db234f5bbf60a4e65",
+        "7263ad3fd60c6620abd423516d748baedf5e393b1fbdaaf780ff5803a443cc4f",
+        "8688d249e9d047b4fc2fb89ce05afe9ec89252ffccdd969de6eef260dd7ffb21",
+        "f7606fde280d9577c963618cc2a8fa52b15315ff63ec185029cf66bda64435ab",
+        "81fd180e1f66d28018580f37d46188c02fd6709f875b3b620090718a8847c282",
+        "745598fdcfa2650299b59b42f40c0750087e117d6bc236c66486087cd264ebd8",
+        "15ec7bf0b50732b49f8228e07d24365338f9e3ab994b00af08e5a3bffe55fd8b",
+    ];
+    const PATH_PAYLOAD_HASHES: [&str; 2] = [
+        "b40b0afc9b180d5ebfb54a7db428e13fe09a33dcc9a8f76220f395ba2c68d2db",
+        "1f7ee233e83aebb2127b56d5d728f9ca2df9170ec4eb24e929dca261f9badbed",
+    ];
+    const MATRIX_HASHES: [&str; 2] = [
+        "62d9532d46c3f71b045a1393d95c49c4757ef5e62bb043a61baf4fffed189a2a",
+        "caa1a1abb84ec283bbf92a0f00d5bd89650420d0b1fa911e191ddb368f50e09f",
+    ];
+    const PAYLOAD_HASH: &str = "831fe6e50cbc3f3d82e3f57c984d3c273cdb18dd3bd3ab511b3633dc293f708f";
+    const ICC_HASH: &str = "8e069a3476b71a0e0ae7272d9278ba70540d1c4a0b19af1c7d52e56f49091fef";
+
+    let expected_for = expected
+        .pointer("/frame_of_reference_uid")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let expected_specimen_uid = expected
+        .pointer("/specimen/specimen_uid")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let expected_dimension_uid = expected
+        .pointer("/dimension_organization_uid")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    check_equal(
+        internal,
+        "wsi_multiple_paths_expected_contract",
+        "Manifest-derived multiple-path expectation equals the canonical contract.",
+        "Manifest-derived multiple-path expectation differs from the canonical contract.",
+        expected,
+        &crate::wsi_multiple_optical_paths_locked_contract(
+            expected_for,
+            expected_specimen_uid,
+            expected_dimension_uid,
+        ),
+    );
+    check(
+        internal,
+        identity.sop_class_uid == WSI_SOP_CLASS_UID
+            && identity.transfer_syntax_uid == uids::EXPLICIT_VR_LITTLE_ENDIAN
+            && identity.rows == 2
+            && identity.columns == 2
+            && identity.frames == 8
+            && identity.samples_per_pixel == 3
+            && identity.photometric_interpretation == "RGB"
+            && identity.planar_configuration == Some(0)
+            && identity.bits_allocated == 8
+            && identity.bits_stored == 8
+            && identity.high_bit == 7
+            && identity.pixel_representation == 0
+            && identity.pixel_data_vr == VR::OB
+            && matches!(
+                identity.pixel_data_length_formula,
+                PixelDataLengthFormula::ContiguousSamples
+            ),
+        "wsi_multiple_paths_identity_contract",
+        "Part 10 and Image Pixel identity match the eight-Frame multiple-path contract.",
+        "Part 10 or Image Pixel identity differs from the multiple-path contract.",
+    );
+    check(
+        internal,
+        instance_size <= 16_384,
+        "wsi_multiple_paths_instance_budget",
+        "The instance is within the locked 16,384-byte ceiling.",
+        "The instance exceeds the locked 16,384-byte ceiling.",
+    );
+
+    for (name, tag, locked) in [
+        ("modality", tags::MODALITY, "SM"),
+        (
+            "frame_of_reference_uid",
+            tags::FRAME_OF_REFERENCE_UID,
+            expected_for,
+        ),
+        (
+            "position_reference_indicator",
+            tags::POSITION_REFERENCE_INDICATOR,
+            "SLIDE_CORNER",
+        ),
+        (
+            "image_type",
+            tags::IMAGE_TYPE,
+            "ORIGINAL\\PRIMARY\\VOLUME\\NONE",
+        ),
+        (
+            "acquisition_date_time",
+            tags::ACQUISITION_DATE_TIME,
+            "20260101000000",
+        ),
+        (
+            "volumetric_properties",
+            tags::VOLUMETRIC_PROPERTIES,
+            "VOLUME",
+        ),
+        (
+            "specimen_label_in_image",
+            tags::SPECIMEN_LABEL_IN_IMAGE,
+            "NO",
+        ),
+        ("burned_in_annotation", tags::BURNED_IN_ANNOTATION, "NO"),
+        ("focus_method", tags::FOCUS_METHOD, "AUTO"),
+        (
+            "extended_depth_of_field",
+            tags::EXTENDED_DEPTH_OF_FIELD,
+            "NO",
+        ),
+        (
+            "lossy_image_compression",
+            tags::LOSSY_IMAGE_COMPRESSION,
+            "00",
+        ),
+        (
+            "dimension_organization_type",
+            tags::DIMENSION_ORGANIZATION_TYPE,
+            "TILED_FULL",
+        ),
+        ("tiles_overlap", tags::TILES_OVERLAP, "NONE"),
+        ("label_text", tags::LABEL_TEXT, "DTS SYNTHETIC SLIDE 001"),
+        ("barcode_value", tags::BARCODE_VALUE, "DTS-SLIDE-001"),
+    ] {
+        check_equal(
+            internal,
+            &format!("wsi_multiple_paths_{name}"),
+            "Multiple-path WSI string attribute matches the locked contract.",
+            "Multiple-path WSI string attribute differs from the locked contract.",
+            element_str(path, obj, tag)?.as_str(),
+            locked,
+        );
+    }
+    check_equal(
+        internal,
+        "wsi_multiple_paths_acquisition_context_items",
+        "Acquisition Context Sequence is present and empty.",
+        "Acquisition Context Sequence is not present and empty.",
+        sequence_item_count(path, obj, tags::ACQUISITION_CONTEXT_SEQUENCE)?,
+        0,
+    );
+
+    for (name, tag, locked) in [
+        ("number_of_frames", tags::NUMBER_OF_FRAMES, 8),
+        ("total_pixel_matrix_rows", tags::TOTAL_PIXEL_MATRIX_ROWS, 4),
+        (
+            "total_pixel_matrix_columns",
+            tags::TOTAL_PIXEL_MATRIX_COLUMNS,
+            4,
+        ),
+        ("number_of_optical_paths", tags::NUMBER_OF_OPTICAL_PATHS, 2),
+        (
+            "total_pixel_matrix_focal_planes",
+            tags::TOTAL_PIXEL_MATRIX_FOCAL_PLANES,
+            1,
+        ),
+    ] {
+        check_equal(
+            internal,
+            &format!("wsi_multiple_paths_{name}"),
+            "Multiple-path WSI cardinality matches the locked contract.",
+            "Multiple-path WSI cardinality differs from the locked contract.",
+            element_u32(path, obj, tag)?,
+            locked,
+        );
+    }
+    check(
+        internal,
+        identity.frames == 2 * 1 * 2 * 2,
+        "wsi_multiple_paths_tiled_full_cardinality",
+        "Eight Frames exactly cover two paths, one focal plane, and a 2x2 tile grid.",
+        "Frame cardinality does not cover the locked path/focal-plane/tile product.",
+    );
+    for (name, tag, locked) in [
+        ("imaged_volume_width", tags::IMAGED_VOLUME_WIDTH, vec![2.0]),
+        (
+            "imaged_volume_height",
+            tags::IMAGED_VOLUME_HEIGHT,
+            vec![2.0],
+        ),
+        (
+            "imaged_volume_depth",
+            tags::IMAGED_VOLUME_DEPTH,
+            vec![0.001],
+        ),
+        (
+            "image_orientation_slide",
+            tags::IMAGE_ORIENTATION_SLIDE,
+            vec![1.0, 0.0, 0.0, 0.0, 1.0, 0.0],
+        ),
+    ] {
+        check_equal(
+            internal,
+            &format!("wsi_multiple_paths_{name}"),
+            "Multiple-path WSI geometry matches the locked contract.",
+            "Multiple-path WSI geometry differs from the locked contract.",
+            element_f64_values(path, obj, tag)?,
+            locked,
+        );
+    }
+
+    check_equal(
+        internal,
+        "wsi_multiple_paths_origin_items",
+        "Total Pixel Matrix Origin has one item.",
+        "Total Pixel Matrix Origin cardinality differs from the contract.",
+        sequence_item_count(path, obj, tags::TOTAL_PIXEL_MATRIX_ORIGIN_SEQUENCE)?,
+        1,
+    );
+    let origin = top_level_sequence_item(path, obj, tags::TOTAL_PIXEL_MATRIX_ORIGIN_SEQUENCE, 0)?;
+    for (name, tag) in [
+        ("x", tags::X_OFFSET_IN_SLIDE_COORDINATE_SYSTEM),
+        ("y", tags::Y_OFFSET_IN_SLIDE_COORDINATE_SYSTEM),
+        ("z", tags::Z_OFFSET_IN_SLIDE_COORDINATE_SYSTEM),
+    ] {
+        check_equal(
+            internal,
+            &format!("wsi_multiple_paths_origin_{name}"),
+            "Total Pixel Matrix Origin component is zero.",
+            "Total Pixel Matrix Origin component is not zero.",
+            item_f64(path, origin, tag)?,
+            0.0,
+        );
+    }
+
+    check_equal(
+        internal,
+        "wsi_multiple_paths_dimension_organization_items",
+        "Dimension Organization Sequence has one item.",
+        "Dimension Organization Sequence cardinality differs from the contract.",
+        sequence_item_count(path, obj, tags::DIMENSION_ORGANIZATION_SEQUENCE)?,
+        1,
+    );
+    let organization =
+        top_level_sequence_item(path, obj, tags::DIMENSION_ORGANIZATION_SEQUENCE, 0)?;
+    let organization_uid = item_str(path, organization, tags::DIMENSION_ORGANIZATION_UID)?;
+    check(
+        internal,
+        valid_dicom_uid(&organization_uid) && organization_uid == expected_dimension_uid,
+        "wsi_multiple_paths_dimension_organization_uid",
+        "Dimension Organization UID is valid and matches the manifest contract.",
+        "Dimension Organization UID is invalid or differs from the manifest contract.",
+    );
+
+    check_equal(
+        internal,
+        "wsi_multiple_paths_shared_functional_groups_items",
+        "Shared Functional Groups Sequence has one item.",
+        "Shared Functional Groups Sequence cardinality differs from the contract.",
+        sequence_item_count(path, obj, tags::SHARED_FUNCTIONAL_GROUPS_SEQUENCE)?,
+        1,
+    );
+    let shared = top_level_sequence_item(path, obj, tags::SHARED_FUNCTIONAL_GROUPS_SEQUENCE, 0)?;
+    check_equal(
+        internal,
+        "wsi_multiple_paths_shared_macro_count",
+        "The shared item contains exactly Pixel Measures and WSI Frame Type.",
+        "The shared item does not contain exactly the two locked macros.",
+        shared.iter().count(),
+        2,
+    );
+    check_equal(
+        internal,
+        "wsi_multiple_paths_pixel_measures_items",
+        "Shared Pixel Measures Sequence has one item.",
+        "Shared Pixel Measures Sequence cardinality differs from the contract.",
+        item_sequence_item_count(path, shared, tags::PIXEL_MEASURES_SEQUENCE)?,
+        1,
+    );
+    let measures = item_sequence_item(path, shared, tags::PIXEL_MEASURES_SEQUENCE, 0)?;
+    check_equal(
+        internal,
+        "wsi_multiple_paths_pixel_measures_attribute_count",
+        "Pixel Measures contains exactly Pixel Spacing and Slice Thickness.",
+        "Pixel Measures contains content outside the locked contract.",
+        measures.iter().count(),
+        2,
+    );
+    check_equal(
+        internal,
+        "wsi_multiple_paths_pixel_spacing",
+        "Pixel Spacing matches the locked geometry.",
+        "Pixel Spacing differs from the locked geometry.",
+        item_f64_values(path, measures, tags::PIXEL_SPACING)?,
+        vec![0.5, 0.5],
+    );
+    check_equal(
+        internal,
+        "wsi_multiple_paths_slice_thickness",
+        "Slice Thickness matches the locked geometry.",
+        "Slice Thickness differs from the locked geometry.",
+        item_f64(path, measures, tags::SLICE_THICKNESS)?,
+        0.001,
+    );
+    check_equal(
+        internal,
+        "wsi_multiple_paths_frame_type_items",
+        "Shared WSI Frame Type Sequence has one item.",
+        "Shared WSI Frame Type Sequence cardinality differs from the contract.",
+        item_sequence_item_count(
+            path,
+            shared,
+            tags::WHOLE_SLIDE_MICROSCOPY_IMAGE_FRAME_TYPE_SEQUENCE,
+        )?,
+        1,
+    );
+    check_equal(
+        internal,
+        "wsi_multiple_paths_frame_type",
+        "Shared Frame Type matches Image Type.",
+        "Shared Frame Type differs from the locked Image Type.",
+        nested_sequence_item_str(
+            path,
+            shared,
+            tags::WHOLE_SLIDE_MICROSCOPY_IMAGE_FRAME_TYPE_SEQUENCE,
+            0,
+            tags::FRAME_TYPE,
+        )?,
+        "ORIGINAL\\PRIMARY\\VOLUME\\NONE".to_string(),
+    );
+
+    validate_wsi_specimen(path, obj, internal, expected_specimen_uid)?;
+    validate_wsi_multiple_optical_path_sequence(path, obj, internal, ICC_HASH)?;
+
+    let pixel = obj
+        .element(tags::PIXEL_DATA)
+        .map_err(|err| validation_error(path, err))?;
+    let bytes = pixel
+        .value()
+        .to_bytes()
+        .map_err(|err| validation_error(path, err))?;
+    check_equal(
+        internal,
+        "wsi_multiple_paths_pixel_vr",
+        "Pixel Data uses native OB storage.",
+        "Pixel Data does not use native OB storage.",
+        pixel.vr(),
+        VR::OB,
+    );
+    check_equal(
+        internal,
+        "wsi_multiple_paths_pixel_length",
+        "Pixel Data contains eight 2x2 RGB Frames.",
+        "Pixel Data length differs from eight 2x2 RGB Frames.",
+        bytes.len(),
+        96,
+    );
+    check_equal(
+        internal,
+        "wsi_multiple_paths_payload_sha256",
+        "The ordered 96-byte Pixel Data payload matches the locked hash.",
+        "The ordered Pixel Data payload differs from the locked hash.",
+        sha256_hex(bytes.as_ref()).as_str(),
+        PAYLOAD_HASH,
+    );
+    for (index, locked) in FRAME_HASHES.iter().enumerate() {
+        let start = index * 12;
+        let actual = bytes.get(start..start + 12).map(sha256_hex);
+        check_equal(
+            internal,
+            &format!("wsi_multiple_paths_frame_{}_sha256", index + 1),
+            "Path-outermost Frame hash matches the locked implicit order.",
+            "Frame hash differs from the locked path-outermost implicit order.",
+            actual.as_deref(),
+            Some(*locked),
+        );
+    }
+    for (path_index, locked) in PATH_PAYLOAD_HASHES.iter().enumerate() {
+        let start = path_index * 48;
+        let actual = bytes.get(start..start + 48).map(sha256_hex);
+        check_equal(
+            internal,
+            &format!("wsi_multiple_paths_path_{}_payload_sha256", path_index + 1),
+            "The path-specific four-Frame payload matches the locked hash.",
+            "The path-specific payload differs from the locked path order.",
+            actual.as_deref(),
+            Some(*locked),
+        );
+    }
+    let matrices = reconstruct_tiled_full_path_matrices(bytes.as_ref());
+    for (path_index, locked) in MATRIX_HASHES.iter().enumerate() {
+        let actual = matrices
+            .as_ref()
+            .map(|matrices| sha256_hex(&matrices[path_index]));
+        check_equal(
+            internal,
+            &format!("wsi_multiple_paths_path_{}_matrix_sha256", path_index + 1),
+            "The path-specific implicit positions reconstruct the locked 4x4 RGB matrix.",
+            "Path-specific reconstruction differs from the locked matrix or path order.",
+            actual.as_deref(),
+            Some(*locked),
+        );
+    }
+    check(
+        internal,
+        matrices.is_some(),
+        "wsi_multiple_paths_implicit_path_outermost_order",
+        "Frames reconstruct as two separate path-outermost 4x4 matrices.",
+        "Frames cannot be reconstructed as two path-outermost matrices.",
+    );
+
+    for (name, tags_to_check) in [
+        (
+            "per_frame_functional_groups",
+            &[tags::PER_FRAME_FUNCTIONAL_GROUPS_SEQUENCE][..],
+        ),
+        ("dimension_index", &[tags::DIMENSION_INDEX_SEQUENCE][..]),
+        (
+            "references",
+            &[
+                tags::REFERENCED_SERIES_SEQUENCE,
+                tags::STUDIES_CONTAINING_OTHER_REFERENCED_INSTANCES_SEQUENCE,
+            ][..],
+        ),
+        (
+            "concatenation",
+            &[
+                tags::CONCATENATION_UID,
+                tags::IN_CONCATENATION_NUMBER,
+                tags::CONCATENATION_FRAME_OFFSET_NUMBER,
+                tags::SOP_INSTANCE_UID_OF_CONCATENATION_SOURCE,
+            ][..],
+        ),
+        (
+            "multi_resolution_pyramid",
+            &[
+                tags::PYRAMID_UID,
+                tags::PYRAMID_LABEL,
+                tags::PYRAMID_DESCRIPTION,
+            ][..],
+        ),
+        (
+            "focal_plane_detail",
+            &[
+                tags::NUMBER_OF_FOCAL_PLANES,
+                tags::DISTANCE_BETWEEN_FOCAL_PLANES,
+                tags::SPACING_BETWEEN_SLICES,
+            ][..],
+        ),
+        (
+            "lossy_detail",
+            &[
+                tags::LOSSY_IMAGE_COMPRESSION_RATIO,
+                tags::LOSSY_IMAGE_COMPRESSION_METHOD,
+            ][..],
+        ),
+        (
+            "specimen_reference",
+            &[tags::SPECIMEN_REFERENCE_SEQUENCE][..],
+        ),
+        ("top_level_icc", &[tags::ICC_PROFILE][..]),
+    ] {
+        check(
+            internal,
+            tags_to_check
+                .iter()
+                .all(|tag| obj.element_opt(*tag).is_ok_and(|value| value.is_none())),
+            &format!("wsi_multiple_paths_{name}_absent"),
+            "Locked optional content is absent.",
+            "Locked optional content is unexpectedly present.",
+        );
+    }
+    check(
+        internal,
+        true,
+        "vl_whole_slide_microscopy_multiple_optical_paths_contract",
+        "The complete locked multiple-optical-path WSI instance contract is satisfied.",
+        "The complete locked multiple-optical-path WSI instance contract is not satisfied.",
+    );
+    Ok(())
+}
+
+fn validate_wsi_multiple_optical_path_sequence(
+    path: &Path,
+    obj: &OpenedObject,
+    internal: &mut Vec<Value>,
+    icc_hash: &str,
+) -> Result<(), GenerateError> {
+    const IDENTIFIERS: [&str; 2] = ["BRIGHTFIELD", "ALTERNATE"];
+    const DESCRIPTIONS: [&str; 2] = [
+        "Deterministic brightfield path",
+        "Deterministic alternate path",
+    ];
+    const WAVELENGTHS: [f64; 2] = [550.0, 650.0];
+
+    check_equal(
+        internal,
+        "wsi_multiple_paths_optical_path_items",
+        "Optical Path Sequence has exactly two ordered items.",
+        "Optical Path Sequence does not have exactly two items.",
+        sequence_item_count(path, obj, tags::OPTICAL_PATH_SEQUENCE)?,
+        2,
+    );
+    let mut profiles = Vec::with_capacity(2);
+    for index in 0..2 {
+        let optical = top_level_sequence_item(path, obj, tags::OPTICAL_PATH_SEQUENCE, index)?;
+        check_equal(
+            internal,
+            &format!(
+                "wsi_multiple_paths_optical_path_{}_attribute_count",
+                index + 1
+            ),
+            "Optical path contains exactly the locked six attributes.",
+            "Optical path contains missing or unexpected attributes.",
+            optical.iter().count(),
+            6,
+        );
+        for (name, tag, locked) in [
+            (
+                "identifier",
+                tags::OPTICAL_PATH_IDENTIFIER,
+                IDENTIFIERS[index],
+            ),
+            (
+                "description",
+                tags::OPTICAL_PATH_DESCRIPTION,
+                DESCRIPTIONS[index],
+            ),
+            ("color_space", tags::COLOR_SPACE, "SRGB"),
+        ] {
+            check_equal(
+                internal,
+                &format!("wsi_multiple_paths_optical_path_{}_{}", index + 1, name),
+                "Ordered optical-path attribute matches the locked contract.",
+                "Ordered optical-path attribute differs from the locked contract.",
+                item_str(path, optical, tag)?.as_str(),
+                locked,
+            );
+        }
+        check_equal(
+            internal,
+            &format!("wsi_multiple_paths_optical_path_{}_wavelength", index + 1),
+            "Illumination Wave Length matches the ordered path contract.",
+            "Illumination Wave Length differs from the ordered path contract.",
+            item_f64(path, optical, tags::ILLUMINATION_WAVE_LENGTH)?,
+            WAVELENGTHS[index],
+        );
+        check_equal(
+            internal,
+            &format!(
+                "wsi_multiple_paths_optical_path_{}_illumination_items",
+                index + 1
+            ),
+            "Illumination Type Code Sequence has one item.",
+            "Illumination Type Code Sequence cardinality differs from the contract.",
+            item_sequence_item_count(path, optical, tags::ILLUMINATION_TYPE_CODE_SEQUENCE)?,
+            1,
+        );
+        let code = item_sequence_item(path, optical, tags::ILLUMINATION_TYPE_CODE_SEQUENCE, 0)?;
+        check_equal(
+            internal,
+            &format!(
+                "wsi_multiple_paths_optical_path_{}_code_attribute_count",
+                index + 1
+            ),
+            "Illumination code contains exactly three attributes.",
+            "Illumination code contains missing or unexpected attributes.",
+            code.iter().count(),
+            3,
+        );
+        for (name, tag, locked) in [
+            ("value", tags::CODE_VALUE, "111744"),
+            ("scheme", tags::CODING_SCHEME_DESIGNATOR, "DCM"),
+            ("meaning", tags::CODE_MEANING, "Brightfield illumination"),
+        ] {
+            check_equal(
+                internal,
+                &format!("wsi_multiple_paths_optical_path_{}_code_{name}", index + 1),
+                "Illumination code matches the locked contract.",
+                "Illumination code differs from the locked contract.",
+                item_str(path, code, tag)?.as_str(),
+                locked,
+            );
+        }
+        let icc = optical
+            .element(tags::ICC_PROFILE)
+            .map_err(|err| validation_error(path, err))?;
+        let bytes = icc
+            .value()
+            .to_bytes()
+            .map_err(|err| validation_error(path, err))?;
+        check_equal(
+            internal,
+            &format!("wsi_multiple_paths_optical_path_{}_icc_vr", index + 1),
+            "Nested ICC Profile uses OB storage.",
+            "Nested ICC Profile does not use OB storage.",
+            icc.vr(),
+            VR::OB,
+        );
+        check_equal(
+            internal,
+            &format!("wsi_multiple_paths_optical_path_{}_icc_size", index + 1),
+            "Nested ICC Profile has the locked 736-byte size.",
+            "Nested ICC Profile size differs from the locked size.",
+            bytes.len(),
+            736,
+        );
+        check_equal(
+            internal,
+            &format!("wsi_multiple_paths_optical_path_{}_icc_sha256", index + 1),
+            "Nested ICC Profile matches the locked profile.",
+            "Nested ICC Profile differs from the locked profile.",
+            sha256_hex(bytes.as_ref()).as_str(),
+            icc_hash,
+        );
+        check(
+            internal,
+            bytes.len() >= 40
+                && &bytes[12..16] == b"scnr"
+                && &bytes[16..20] == b"RGB "
+                && &bytes[20..24] == b"XYZ "
+                && &bytes[36..40] == b"acsp",
+            &format!("wsi_multiple_paths_optical_path_{}_icc_header", index + 1),
+            "ICC header declares the locked scanner RGB-to-XYZ input profile.",
+            "ICC header differs from the locked scanner RGB input profile.",
+        );
+        profiles.push(bytes.into_owned());
+    }
+    check_equal(
+        internal,
+        "wsi_multiple_paths_identifiers_distinct",
+        "The two ordered Optical Path Identifiers are distinct.",
+        "Optical Path Identifiers are duplicated.",
+        item_str(
+            path,
+            top_level_sequence_item(path, obj, tags::OPTICAL_PATH_SEQUENCE, 0)?,
+            tags::OPTICAL_PATH_IDENTIFIER,
+        )? != item_str(
+            path,
+            top_level_sequence_item(path, obj, tags::OPTICAL_PATH_SEQUENCE, 1)?,
+            tags::OPTICAL_PATH_IDENTIFIER,
+        )?,
+        true,
+    );
+    check_equal(
+        internal,
+        "wsi_multiple_paths_nested_icc_identical",
+        "Both optical paths use the identical locked input profile.",
+        "The two nested ICC Profiles differ.",
+        profiles.first(),
+        profiles.get(1),
+    );
+    Ok(())
+}
+
+fn reconstruct_tiled_full_path_matrices(pixel_bytes: &[u8]) -> Option<[Vec<u8>; 2]> {
+    if pixel_bytes.len() != 96 {
+        return None;
+    }
+    let mut matrices = [vec![0_u8; 48], vec![0_u8; 48]];
+    for (path_index, matrix) in matrices.iter_mut().enumerate() {
+        for tile_index in 0..4 {
+            let frame = path_index * 4 + tile_index;
+            let tile_row = tile_index / 2;
+            let tile_column = tile_index % 2;
+            for row in 0..2 {
+                let source = frame * 12 + row * 6;
+                let destination = ((tile_row * 2 + row) * 4 + tile_column * 2) * 3;
+                matrix[destination..destination + 6]
+                    .copy_from_slice(&pixel_bytes[source..source + 6]);
+            }
+        }
+    }
+    Some(matrices)
 }
 
 /// Validate the complete, case-scoped Phase 4 TILED_SPARSE WSI contract.

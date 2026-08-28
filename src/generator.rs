@@ -15795,6 +15795,7 @@ fn base_stress_sc_object(
         &identity.series_instance_uid,
     );
     put_str(&mut obj, tags::SERIES_NUMBER, VR::IS, "1");
+    put_str(&mut obj, tags::LATERALITY, VR::CS, "");
     put_str(&mut obj, tags::CONVERSION_TYPE, VR::CS, "SYN");
     put_str(&mut obj, tags::MANUFACTURER, VR::LO, "dicom-test-suite");
     put_str(&mut obj, tags::MANUFACTURER_MODEL_NAME, VR::LO, recipe_id);
@@ -16243,7 +16244,7 @@ fn write_stress_encapsulated_case(
     );
     put_str(&mut obj, tags::ACQUISITION_NUMBER, VR::IS, "1");
     put_str(&mut obj, tags::LATERALITY, VR::CS, "");
-    put_str(&mut obj, tags::BODY_PART_EXAMINED, VR::CS, "CHEST");
+    obj.remove_element(tags::BODY_PART_EXAMINED);
     put_str(&mut obj, tags::BURNED_IN_ANNOTATION, VR::CS, "NO");
     put_str(&mut obj, tags::LOSSY_IMAGE_COMPRESSION, VR::CS, "00");
     put_u16(&mut obj, tags::SAMPLES_PER_PIXEL, VR::US, 1);
@@ -17130,6 +17131,7 @@ fn write_enhanced_ct_case(
         &series_instance_uid,
     );
     put_str(&mut obj, tags::SERIES_NUMBER, VR::IS, "1");
+    put_str(&mut obj, tags::PATIENT_POSITION, VR::CS, "");
     put_str(
         &mut obj,
         tags::FRAME_OF_REFERENCE_UID,
@@ -17154,6 +17156,10 @@ fn write_enhanced_ct_case(
     );
 
     put_str(&mut obj, tags::IMAGE_TYPE, VR::CS, recipe.frame_type);
+    put_str(&mut obj, tags::CONTENT_QUALIFICATION, VR::CS, "RESEARCH");
+    put_str(&mut obj, tags::BURNED_IN_ANNOTATION, VR::CS, "NO");
+    put_str(&mut obj, tags::LOSSY_IMAGE_COMPRESSION, VR::CS, "00");
+    put_str(&mut obj, tags::PRESENTATION_LUT_SHAPE, VR::CS, "IDENTITY");
     put_str(&mut obj, tags::INSTANCE_NUMBER, VR::IS, "1");
     put_str(&mut obj, tags::CONTENT_DATE, VR::DA, "20260101");
     put_str(&mut obj, tags::CONTENT_TIME, VR::TM, "000000");
@@ -17358,7 +17364,7 @@ fn write_stress_enhanced_ct_case(
         dimension_index_values: Box::leak(dimension_indices.into_boxed_slice()),
         slice_thickness: "2.5",
         spacing_between_slices: "2.5",
-        frame_type: "DERIVED\\PRIMARY\\AXIAL\\NONE",
+        frame_type: "DERIVED\\PRIMARY\\VOLUME\\NONE",
         pixel_presentation: "MONOCHROME",
         volumetric_properties: "VOLUME",
         volume_based_calculation_technique: "NONE",

@@ -31,6 +31,12 @@ pub(in crate::generator) const WSI_PYRAMID_THUMBNAIL_PIXEL_BYTES: [u8; 12] =
     [255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 255, 255];
 pub(in crate::generator) const WSI_PYRAMID_LABEL_PIXEL_BYTES: [u8; 12] =
     [0, 32, 96, 255, 255, 255, 0, 32, 96, 255, 255, 255];
+pub(in crate::generator) const STRESS_WSI_TILE_ROWS: u16 = 256;
+pub(in crate::generator) const STRESS_WSI_TILE_COLUMNS: u16 = 256;
+pub(in crate::generator) const STRESS_WSI_TOTAL_MATRIX_EDGES: [u32; 3] = [1024, 512, 256];
+pub(in crate::generator) const STRESS_WSI_FRAME_COUNTS: [u16; 3] = [16, 4, 1];
+pub(in crate::generator) const STRESS_WSI_PIXEL_SPACINGS: [&str; 3] =
+    [r"0.0005\0.0005", r"0.001\0.001", r"0.002\0.002"];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(in crate::generator) struct WsiPyramidInput<'a> {
@@ -55,6 +61,16 @@ pub(in crate::generator) struct WsiPyramidObjects {
     pub(in crate::generator) volume: InMemDicomObject,
     pub(in crate::generator) thumbnail: InMemDicomObject,
     pub(in crate::generator) label: InMemDicomObject,
+}
+
+#[derive(Debug)]
+pub(in crate::generator) struct StressWsiPyramidLevel {
+    pub(in crate::generator) level_index: usize,
+    pub(in crate::generator) total_matrix_edge: u32,
+    pub(in crate::generator) frame_count: u16,
+    pub(in crate::generator) pixel_spacing: &'static str,
+    pub(in crate::generator) pixel_bytes: Vec<u8>,
+    pub(in crate::generator) object: InMemDicomObject,
 }
 
 pub(in crate::generator) fn build_wsi_pyramid(
@@ -92,6 +108,136 @@ pub(in crate::generator) fn build_wsi_pyramid(
         thumbnail,
         label,
     })
+}
+
+pub(in crate::generator) fn build_stress_wsi_pyramid(
+    input: WsiPyramidInput<'_>,
+) -> Result<Vec<StressWsiPyramidLevel>, String> {
+    validate_input(input)?;
+    let sop_instance_uids = [
+        input.volume_sop_instance_uid,
+        input.thumbnail_sop_instance_uid,
+        input.label_sop_instance_uid,
+    ];
+    let dimension_organization_uids = [
+        input.volume_dimension_organization_uid,
+        input.thumbnail_dimension_organization_uid,
+        input.label_dimension_organization_uid,
+    ];
+    let mut levels = Vec::with_capacity(3);
+    for level_index in 0..3 {
+        let mut object = build_base(
+            input,
+            sop_instance_uids[level_index],
+            dimension_organization_uids[level_index],
+        )?;
+        let total_matrix_edge = STRESS_WSI_TOTAL_MATRIX_EDGES[level_index];
+        let frame_count = STRESS_WSI_FRAME_COUNTS[level_index];
+        let pixel_spacing = STRESS_WSI_PIXEL_SPACINGS[level_index];
+        let pixel_bytes = stress_level_pixel_bytes(level_index, total_matrix_edge)?;
+        configure_stress_level(
+            &mut object,
+            level_index,
+            input.pyramid_uid,
+            total_matrix_edge,
+            frame_count,
+            pixel_spacing,
+            &pixel_bytes,
+        );
+        levels.push(StressWsiPyramidLevel {
+            level_index,
+            total_matrix_edge,
+            frame_count,
+            pixel_spacing,
+            pixel_bytes,
+            object,
+        });
+    }
+    Ok(levels)
+}
+
+fn configure_stress_level(
+    object: &mut InMemDicomObject,
+    level_index: usize,
+    pyramid_uid: &str,
+    total_matrix_edge: u32,
+    frame_count: u16,
+    pixel_spacing: &str,
+    pixel_bytes: &[u8],
+) {
+    put_str(object, tags::SERIES_NUMBER, VR::IS, "143");
+    put_str(
+        object,
+        tags::MANUFACTURER_MODEL_NAME,
+        VR::LO,
+        "Native Reduced Stress WSI Pyramid",
+    );
+    put_str(
+        object,
+        tags::INSTANCE_NUMBER,
+        VR::IS,
+        &(level_index + 1).to_string(),
+    );
+    put_str(
+        object,
+        tags::IMAGE_TYPE,
+        VR::CS,
+        WSI_PYRAMID_VOLUME_IMAGE_TYPE,
+    );
+    put_str(object, tags::PYRAMID_UID, VR::UI, pyramid_uid);
+    put_u16(object, tags::ROWS, STRESS_WSI_TILE_ROWS);
+    put_u16(object, tags::COLUMNS, STRESS_WSI_TILE_COLUMNS);
+    put_str(
+        object,
+        tags::NUMBER_OF_FRAMES,
+        VR::IS,
+        &frame_count.to_string(),
+    );
+    put_u32(object, tags::TOTAL_PIXEL_MATRIX_ROWS, total_matrix_edge);
+    put_u32(object, tags::TOTAL_PIXEL_MATRIX_COLUMNS, total_matrix_edge);
+    put_f32(object, tags::IMAGED_VOLUME_WIDTH, 0.512);
+    put_f32(object, tags::IMAGED_VOLUME_HEIGHT, 0.512);
+    put_shared_functional_groups(object, WSI_PYRAMID_VOLUME_IMAGE_TYPE, pixel_spacing);
+    object.put(DataElement::new(
+        tags::PIXEL_DATA,
+        VR::OB,
+        PrimitiveValue::from(pixel_bytes),
+    ));
+}
+
+fn stress_level_pixel_bytes(level_index: usize, total_matrix_edge: u32) -> Result<Vec<u8>, String> {
+    let edge = usize::try_from(total_matrix_edge)
+        .map_err(|_| "stress WSI matrix edge does not fit usize".to_string())?;
+    let tile_edge = usize::from(STRESS_WSI_TILE_ROWS);
+    if edge % tile_edge != 0 {
+        return Err("stress WSI matrix edge must be divisible by tile edge".to_string());
+    }
+    let tiles_per_edge = edge / tile_edge;
+    let byte_count = edge
+        .checked_mul(edge)
+        .and_then(|pixels| pixels.checked_mul(3))
+        .ok_or_else(|| "stress WSI pixel byte count overflowed".to_string())?;
+    let mut bytes = Vec::with_capacity(byte_count);
+    let scale = 1_usize << level_index;
+    for tile_row in 0..tiles_per_edge {
+        for tile_column in 0..tiles_per_edge {
+            for row in 0..tile_edge {
+                let y = (tile_row * tile_edge + row) * scale;
+                for column in 0..tile_edge {
+                    let x = (tile_column * tile_edge + column) * scale;
+                    let red = ((x * 255) / 1023) as u8;
+                    let green = ((y * 255) / 1023) as u8;
+                    let blue = if ((x / 64) + (y / 64)) % 2 == 0 {
+                        24
+                    } else {
+                        232
+                    };
+                    bytes.extend_from_slice(&[red, green, blue]);
+                }
+            }
+        }
+    }
+    Ok(bytes)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -381,6 +527,10 @@ fn put_str(object: &mut InMemDicomObject, tag: dicom_core::Tag, vr: VR, value: &
     object.put(DataElement::new(tag, vr, value));
 }
 
+fn put_u16(object: &mut InMemDicomObject, tag: dicom_core::Tag, value: u16) {
+    object.put(DataElement::new(tag, VR::US, PrimitiveValue::from(value)));
+}
+
 fn put_u32(object: &mut InMemDicomObject, tag: dicom_core::Tag, value: u32) {
     object.put(DataElement::new(tag, VR::UL, PrimitiveValue::from(value)));
 }
@@ -555,6 +705,66 @@ mod tests {
             input().pyramid_uid
         );
         assert!(objects.label.element(tags::PYRAMID_UID).is_err());
+    }
+
+    #[test]
+    fn builds_reduced_stress_three_level_tiled_full_pyramid() {
+        let first = build_stress_wsi_pyramid(input()).unwrap();
+        let second = build_stress_wsi_pyramid(input()).unwrap();
+        assert_eq!(first.len(), 3);
+        assert_eq!(second.len(), 3);
+        for (index, (first, second)) in first.iter().zip(&second).enumerate() {
+            assert_eq!(first.level_index, index);
+            assert_eq!(
+                first.total_matrix_edge,
+                STRESS_WSI_TOTAL_MATRIX_EDGES[index]
+            );
+            assert_eq!(first.frame_count, STRESS_WSI_FRAME_COUNTS[index]);
+            assert_eq!(first.pixel_spacing, STRESS_WSI_PIXEL_SPACINGS[index]);
+            assert_eq!(first.pixel_bytes, second.pixel_bytes);
+            assert_eq!(
+                first.pixel_bytes.len(),
+                usize::from(STRESS_WSI_FRAME_COUNTS[index])
+                    * usize::from(STRESS_WSI_TILE_ROWS)
+                    * usize::from(STRESS_WSI_TILE_COLUMNS)
+                    * 3
+            );
+            assert_eq!(
+                first
+                    .object
+                    .element(tags::ROWS)
+                    .unwrap()
+                    .to_int::<u16>()
+                    .unwrap(),
+                STRESS_WSI_TILE_ROWS
+            );
+            assert_eq!(
+                first
+                    .object
+                    .element(tags::TOTAL_PIXEL_MATRIX_ROWS)
+                    .unwrap()
+                    .to_int::<u32>()
+                    .unwrap(),
+                STRESS_WSI_TOTAL_MATRIX_EDGES[index]
+            );
+            assert_eq!(
+                first
+                    .object
+                    .element(tags::NUMBER_OF_FRAMES)
+                    .unwrap()
+                    .to_int::<u16>()
+                    .unwrap(),
+                STRESS_WSI_FRAME_COUNTS[index]
+            );
+            assert_eq!(first.pixel_bytes[0..3], [0, 0, 24]);
+        }
+        assert_eq!(
+            first
+                .iter()
+                .map(|level| level.pixel_bytes.len())
+                .sum::<usize>(),
+            4_128_768
+        );
     }
 
     #[test]

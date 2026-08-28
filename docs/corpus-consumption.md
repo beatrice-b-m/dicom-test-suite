@@ -5,6 +5,10 @@ and traceable corpus from `dicom-test-suite`. It does not define how a viewer
 must render the files, how a user interface must behave, or how downstream
 results must be graded.
 
+Read [generation-guide.md](generation-guide.md) first for the capability model,
+profile-selection guidance, optional runtime setup, and output interpretation.
+This document focuses on producing and preserving a review handoff.
+
 ## Profile Contract
 
 Profiles are explicit case selections:
@@ -32,17 +36,22 @@ corpus.
 Every run requires:
 
 - Rust 1.85.0, selected by `rust-toolchain.toml`;
-- the committed `Cargo.lock`, enforced with `--locked`; and
-- `jq` for convenient manifest inspection.
+- the committed `Cargo.lock`, enforced with `--locked`.
+
+`jq` is recommended for the inspection examples below but is not used by the
+generator itself.
 
 The default build needs no external codec command. A complete all-features run
 also requires these commands on `PATH`:
 
 - `ojph_compress` for the `htj2k_openjph` feature;
-- `dcmcjpeg` for the `legacy_jpeg_dcmtk` feature.
+- `dcmcjpeg` for the `legacy_jpeg_dcmtk` feature; and
+- `cjxl` 0.11.2 for the lossy case enabled by `jpegxl`.
 
-The implemented float32 Parametric Map is a separate optional runtime
-capability, not a Cargo feature. Prepare its exact environment with:
+The highdicom/pydicom recipes are a separate optional runtime capability, not a
+Cargo feature. They generate float32 and float64 Parametric Maps, TID 1500 and
+SCOORD3D Structured Reports, and WSI tile-referencing Segmentation. Prepare the
+exact environment with:
 
 ```sh
 uv python install 3.12.12
@@ -51,16 +60,19 @@ uv sync --project generation-backends/highdicom-pydicom \
 ```
 
 If that runtime is absent, generation succeeds but records
-`external_backend_unavailable` for the case. A handoff claiming complete
-implemented quantitative coverage must prepare the runtime and confirm that
-the Parametric Map appears in `files`, not `skipped_cases`.
+`external_backend_unavailable` for each selected backend case. A handoff
+claiming complete implemented derived and quantitative coverage must prepare
+the runtime and confirm that all five backend cases appear in `files`, not
+`skipped_cases`.
 
 Confirm the external commands before generation:
 
 ```sh
 command -v ojph_compress
 command -v dcmcjpeg
+command -v cjxl
 dcmcjpeg --version
+cjxl --version
 ```
 
 OpenJPH's `ojph_compress` does not expose a portable version flag. The
@@ -72,11 +84,13 @@ runtime fingerprint and verification policy for these commands.
 
 ## Choose A Corpus Level
 
-### Complete current corpus
+### Broadest valid file corpus
 
-Use this for a comprehensive review against every currently implemented case.
-Use fresh output directories so evidence from an older run cannot be mistaken
-for the new corpus.
+Use this for a comprehensive review against the currently implemented ordinary
+and legacy valid-file cases. It does not include the specialized stress,
+expected-invalid negative, or payload-free fuzz scopes. Use fresh output
+directories so evidence from an older run cannot be mistaken for the new
+corpus.
 
 ```sh
 cargo run --locked --all-features -- list-cases --profile all
@@ -93,7 +107,9 @@ cargo run --locked --all-features -- validate generated/review-legacy
 
 Both validation commands must finish successfully with
 `validation_failures\t0`. Generation is not a complete handoff if either
-manifest contains an unexplained skipped case.
+manifest contains an unexplained skipped case. Planned registry rows are
+expected coverage gaps; feature- or runtime-unavailable implemented rows must be
+explained in the handoff.
 
 Inspect the run identities and counts:
 
@@ -103,6 +119,29 @@ jq '{run, generator, files: (.files | length), skipped_cases}' \
 jq '{run, generator, files: (.files | length), skipped_cases}' \
   generated/review-legacy/manifest.json
 ```
+
+### Specialized robustness and scale corpora
+
+Generate these only when the receiving system is prepared to interpret and
+bound them correctly:
+
+```sh
+cargo run --locked -- generate \
+  --profile stress --out generated/review-stress --seed 1
+cargo run --locked -- generate \
+  --profile negative --out generated/review-negative --seed 1
+cargo run --locked -- generate \
+  --profile fuzz --out generated/review-fuzz --seed 1
+
+cargo run --locked -- validate generated/review-stress
+cargo run --locked -- validate generated/review-negative
+cargo run --locked -- validate generated/review-fuzz
+```
+
+The negative root contains deliberately malformed DICOM instances. The fuzz
+root contains no DICOM payloads; its manifest records a bounded runtime
+qualification. The reduced stress root can be large or expensive relative to
+ordinary profiles. Keep all three roots separate from valid conformance input.
 
 ### Portable default corpus
 
@@ -151,6 +190,11 @@ Review at least:
 - derived references and known stressors; and
 - validation status.
 
+Create separate reports for legacy, stress, negative, and fuzz roots when those
+profiles are included in the handoff. The negative and fuzz sections have
+profile-specific outcome semantics and must not be merged into valid generated
+coverage counts.
+
 ## Manifest Contract
 
 `manifest.json` is the primary handoff artifact. A consumer should use its
@@ -176,8 +220,9 @@ algorithm, or result schema.
 
 Preserve these items together for every downstream review:
 
-1. The exact repository commit used for generation.
-2. Both complete-corpus `manifest.json` files.
+1. The exact repository commit used for generation and whether the worktree was
+   dirty.
+2. Every profile root's `manifest.json` file.
 3. The SHA-256 of each manifest.
 4. The Rust and Cargo versions.
 5. Active Cargo features.
@@ -187,6 +232,8 @@ Preserve these items together for every downstream review:
 9. JSON coverage reports.
 10. Any independent conformance-validation evidence, including exact float
     payload hashes for quantitative cases.
+11. The consumer name, version, platform, and outcome vocabulary used to grade
+    load, decode, render, reference, and unsupported behavior.
 
 Do not rename case directories or edit generated instances. Downstream findings
 should identify both `case_id` and manifest-relative `path`, because a logical
@@ -194,12 +241,14 @@ case may generate more than one SOP Instance.
 
 ## Scope Boundary
 
-“Complete” means complete for the currently implemented registry, not complete
-coverage of the DICOM Standard. Current deferred areas include full-scale
-stress execution, video transfer syntaxes, a genuine greater-than-4-GiB
-Extended Offset Table stress object, and several lossy or legacy codec
-variants. Negative results and payload-free fuzz qualifications are separate
-from the valid corpus. Media and protocol qualifications use their own opt-in
-commands and reports; they never become ordinary file-conformance rows.
-Consult the registry, transfer-syntax capability matrix, and generated coverage
-report before describing the scope of a downstream review.
+“Complete” must always name its boundary: selected profiles, implemented
+registry cases, active features, and available external runtimes. It never
+means complete coverage of the DICOM Standard. Current deferred areas include
+full-scale stress execution, video transfer syntaxes, a genuine
+greater-than-4-GiB Extended Offset Table stress object, and several lossy or
+legacy codec variants. Negative results and payload-free fuzz qualifications
+are separate from the valid corpus. Media and protocol qualifications use their
+own opt-in commands and reports; they never become ordinary file-conformance
+rows. Consult the registry, transfer-syntax capability matrix, manifest
+`skipped_cases`, and generated coverage report before describing the scope of a
+downstream review.

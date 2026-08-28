@@ -194,7 +194,12 @@ pub fn invoke_backend(
         &executable_fingerprint,
         &invocation.environment_fingerprint,
     )?;
-    verify_staged_outputs(&response, &outputs, invocation.output_limits)?;
+    verify_staged_outputs(
+        &staged_request,
+        &response,
+        &outputs,
+        invocation.output_limits,
+    )?;
 
     Ok(BackendRun {
         response,

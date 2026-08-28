@@ -121,6 +121,7 @@ pub fn stage_declared_sources(
 }
 
 pub fn verify_staged_outputs(
+    request: &Value,
     response: &Value,
     output_root: &Path,
     limits: OutputLimits,
@@ -196,7 +197,7 @@ pub fn verify_staged_outputs(
                 limits.max_total_output_bytes
             )));
         }
-        verify_part10_identity(&path, output)?;
+        verify_part10_identity(&path, output, &request["identities"])?;
     }
     Ok(actual_paths)
 }
@@ -420,7 +421,11 @@ fn required_dataset_uid(
         .map_err(|error| invalid(format!("decode source dataset {label}: {error}")))
 }
 
-fn verify_part10_identity(path: &Path, expected: &Value) -> Result<(), BackendContractError> {
+fn verify_part10_identity(
+    path: &Path,
+    expected: &Value,
+    identities: &Value,
+) -> Result<(), BackendContractError> {
     let object = open_file(path).map_err(|error| {
         invalid(format!(
             "reopen staged Part 10 file {}: {error}",
@@ -476,7 +481,39 @@ fn verify_part10_identity(path: &Path, expected: &Value) -> Result<(), BackendCo
         "dataset SOP Instance UID",
         &dataset_sop_instance,
         expected_sop_instance,
-    )
+    )?;
+
+    for (tag, label, field) in [
+        (tags::STUDY_INSTANCE_UID, "Study Instance UID", "study_instance_uid"),
+        (tags::SERIES_INSTANCE_UID, "Series Instance UID", "series_instance_uid"),
+    ] {
+        let expected_uid = identities[field]
+            .as_str()
+            .ok_or_else(|| invalid(format!("request {label} must be a string")))?;
+        let actual_uid = required_dataset_uid(&object, tag, label)?;
+        compare_uid(path, &format!("dataset {label}"), &actual_uid, expected_uid)?;
+    }
+
+    let expected_frame_of_reference = identities["frame_of_reference_uid"].as_str();
+    let actual_frame_of_reference = object
+        .element(tags::FRAME_OF_REFERENCE_UID)
+        .ok()
+        .map(|element| {
+            element
+                .to_str()
+                .map(|value| value.trim_end_matches(['\0', ' ']).to_string())
+                .map_err(|error| invalid(format!("decode Frame of Reference UID: {error}")))
+        })
+        .transpose()?;
+    if actual_frame_of_reference.as_deref() != expected_frame_of_reference {
+        return Err(invalid(format!(
+            "{} dataset Frame of Reference UID is {}, expected {}",
+            path.display(),
+            actual_frame_of_reference.as_deref().unwrap_or("absent"),
+            expected_frame_of_reference.unwrap_or("absent")
+        )));
+    }
+    Ok(())
 }
 
 fn compare_uid(
@@ -632,7 +669,12 @@ mod tests {
     fn undeclared_regular_output_is_rejected() {
         let root = temporary_directory("undeclared");
         fs::write(root.join("rogue.dcm"), b"not trusted").expect("write rogue output");
-        let error = verify_staged_outputs(&json!({"outputs": []}), &root, limits())
+        let error = verify_staged_outputs(
+            &request_identities(),
+            &json!({"outputs": []}),
+            &root,
+            limits(),
+        )
             .expect_err("undeclared output must fail");
         assert!(error.to_string().contains("undeclared"));
         fs::remove_dir_all(root).expect("remove staging fixture");
@@ -645,7 +687,12 @@ mod tests {
 
         let root = temporary_directory("symlink");
         symlink("missing-target", root.join("linked.dcm")).expect("create staged symlink");
-        let error = verify_staged_outputs(&json!({"outputs": []}), &root, limits())
+        let error = verify_staged_outputs(
+            &request_identities(),
+            &json!({"outputs": []}),
+            &root,
+            limits(),
+        )
             .expect_err("staged symlink must fail");
         assert!(error.to_string().contains("symbolic link"));
         fs::remove_dir_all(root).expect("remove staging fixture");
@@ -662,7 +709,12 @@ mod tests {
         let output_root = root.join("outputs");
         symlink(&external, &output_root).expect("create output-root symlink");
 
-        let error = verify_staged_outputs(&json!({"outputs": []}), &output_root, limits())
+        let error = verify_staged_outputs(
+            &request_identities(),
+            &json!({"outputs": []}),
+            &output_root,
+            limits(),
+        )
             .expect_err("output-root symlink must fail verification");
         assert!(error.to_string().contains("output root"));
 
@@ -671,6 +723,35 @@ mod tests {
             .expect_err("output-root symlink must fail promotion");
         assert!(error.to_string().contains("promotion source root"));
         assert!(!destination.exists());
+        fs::remove_dir_all(root).expect("remove staging fixture");
+    }
+
+    #[test]
+    fn staged_output_must_match_prederived_study_series_and_frame_of_reference() {
+        let root = temporary_directory("output-identities");
+        let output_path = root.join("output.dcm");
+        write_source_dicom(&output_path);
+        let response = json!({
+            "outputs": [{
+                "relative_path": "output.dcm",
+                "sop_class_uid": uids::CT_IMAGE_STORAGE,
+                "sop_instance_uid": "1.2.826.0.1.3680043.10.543.4",
+                "transfer_syntax_uid": uids::EXPLICIT_VR_LITTLE_ENDIAN,
+                "references": [],
+                "expected_semantics": {},
+                "payload_expectations": {}
+            }]
+        });
+
+        verify_staged_outputs(&request_identities(), &response, &root, limits())
+            .expect("matching output identities should pass");
+
+        let mut wrong_series = request_identities();
+        wrong_series["identities"]["series_instance_uid"] =
+            json!("1.2.826.0.1.3680043.10.543.999");
+        let error = verify_staged_outputs(&wrong_series, &response, &root, limits())
+            .expect_err("different Series Instance UID must fail");
+        assert!(error.to_string().contains("Series Instance UID"));
         fs::remove_dir_all(root).expect("remove staging fixture");
     }
 
@@ -684,6 +765,16 @@ mod tests {
 
     fn request_with_sources(sources: Vec<Value>) -> Value {
         json!({"sources": sources})
+    }
+
+    fn request_identities() -> Value {
+        json!({
+            "identities": {
+                "study_instance_uid": "1.2.826.0.1.3680043.10.543.1",
+                "series_instance_uid": "1.2.826.0.1.3680043.10.543.2",
+                "frame_of_reference_uid": null
+            }
+        })
     }
 
     fn source_declaration(source_path: &Path) -> Value {

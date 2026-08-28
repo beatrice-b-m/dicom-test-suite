@@ -10,6 +10,11 @@ dependencies = [
     "pyparsing==3.3.2",
 ]
 
+[dependency-groups]
+dev = [
+    "pytest==9.1.1",
+]
+
 [project.scripts]
 dts-dicom-validator = "dts_dicom_validator_adapter.__main__:main"
 

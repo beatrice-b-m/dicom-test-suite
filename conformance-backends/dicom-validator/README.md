@@ -51,6 +51,18 @@ export DTS_DICOM_VALIDATOR_PYTHON="$PWD/conformance-backends/dicom-validator/.ve
 export DTS_DICOM_VALIDATOR_STANDARD_HOME=/path/to/locked/dicom-validator-cache
 ```
 
+## Tests
+
+The adapter test suite uses the exact pytest version in `uv.lock`:
+
+```sh
+uv run \
+  --project conformance-backends/dicom-validator \
+  --locked \
+  --offline \
+  pytest -q conformance-backends/dicom-validator/tests
+```
+
 The unchanged normal IOD entry point is also registered as
 `pydicom-dicom-validator-visible-light` for exactly
 `vl/endoscopic/rgb_explicit_le`, `vl/microscopic/rgb_explicit_le`,

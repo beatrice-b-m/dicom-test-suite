@@ -24,6 +24,8 @@
 /generation-backends/**/__pycache__/
 /generation-backends/**/*.egg-info/
 /generation-backends/**/build/
+/conformance-backends/**/__pycache__/
+/conformance-backends/**/*.egg-info/
 /standards/cache/
 /standards/generated/
 *.sqlite

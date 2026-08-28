@@ -1,6 +1,7 @@
 # DICOM Coverage Expansion Implementation Plan
 
-**Status:** implemented through Phase 8; unavailable coverage remains explicit
+**Status:** execution closed through Phase 8 at the approved capability and
+independent-validation boundaries; unavailable coverage remains explicit
 
 **Prepared:** 2026-08-26
 
@@ -398,6 +399,17 @@ contains 143 implemented and 39 planned cases. `dcentvfy` visibly reports the
 current SOP Classes as unrecognized, so strict Rust retains graph ownership.
 Phase 3 milestone 6 is complete.
 
+Milestone 7 is complete as the native, byte-stable
+`derived/mesh/encapsulated_stl` extended slice. Its closed tetrahedral binary
+STL payload has exact geometry, topology, units, bounds, volume, and hash
+contracts. Locked `dciodvfy` reports no finding, and a separately implemented
+`uv`-locked payload adapter independently checks every binary record and the
+closed-manifold invariants. Two seed-7 generations produced identical instance
+bytes and canonical case manifest entries, and strict validation reported no
+failure. Surface Segmentation remains outside this representative's semantics,
+and the integer Parametric Map remains explicit unavailable coverage under its
+provider-capability blocker. With milestone 7 qualified, Phase 3 is closed.
+
 ### Phase 4 — Pathology and tiled microscopy
 
 **Purpose:** establish a small but semantically complete WSI corpus before
@@ -549,15 +561,17 @@ Status on 2026-08-28: milestone 1 is complete for both EOT evidence forms that
 do not require a large allocation. The promoted RLE instance has exact EOT
 Values `[0, 78, 152]` and Lengths `[69, 66, 69]`; the virtual
 `0x1_0000_0006` crossing remains an honest non-file qualification fixture.
-Milestone 2 is complete for the selected JPEG XL and HTJ2K lossy cases. Their
-fixed encoders, executable fingerprints, independent full-frame decoders,
-numeric metrics, lossy metadata, manifest validation, and report projections
-are locked. A feature-enabled 120-file extended corpus passed strict validation
-with zero failures. JPEG-LS Near-Lossless, JPEG 2000 lossy, JPEG Extended
-12-bit, and all three video families remain explicit unavailable coverage under
-their independent-tool blockers. A genuine large EOT object remains stress-
-only. See `docs/phase-5-encapsulation-status.md` and
-`docs/phase-5-lossy-status.md`.
+The JPEG XL portion of milestone 3 and the selected HTJ2K variant from
+milestone 5 are complete. Their fixed encoders, executable fingerprints,
+independent full-frame decoders, numeric metrics, lossy metadata, manifest
+validation, and report projections are locked. A feature-enabled 120-file
+extended corpus passed strict validation with zero failures. JPEG-LS
+Near-Lossless (milestone 2), JPEG 2000 lossy (the remaining milestone 3
+variant), JPEG Extended 12-bit (milestone 4), and all three video families
+(milestone 6) remain explicit unavailable coverage under their independent-tool
+blockers. A genuine large EOT object remains stress-only. Phase 5 is closed at
+this selected capability boundary. See `docs/phase-5-encapsulation-status.md`
+and `docs/phase-5-lossy-status.md`.
 
 Decision update on 2026-08-28: the shared lossy thresholds, reduced/full stress
 envelopes, optional DCMTK-first media/protocol baseline, dcm4che independent-
@@ -808,18 +822,19 @@ Pause for an explicit project decision at these points:
 - before changing the meaning or inclusion rules of `all`;
 - before treating protocol conformance as part of file-corpus completion.
 
-## 12. First Execution Milestone
+## 12. Completion And Remaining Coverage
 
-The next implementation milestone should be Phase 0 followed by the two Phase 1
-proof slices. Its concrete deliverables are:
+The original Phase 0 and Phase 1 execution milestone is complete. It delivered
+the planned coverage inventory and gap reporting, the external-backend schema
+and lock format, safe staging and invocation with adversarial contract tests,
+the native CT sorting-conflict series, and external floating-point Parametric
+Maps referencing that source series. Both proof lanes use the shared manifest,
+validation, reporting, and reproducibility contracts that support the later
+phase slices.
 
-- planned coverage inventory and coverage-gap reporting;
-- external backend schema and lock format;
-- safe backend staging/invocation with fake-backend contract tests;
-- one native CT sorting-conflict series;
-- one external floating-point Parametric Map referencing that source series;
-- independent validation, reports, and reproducibility evidence for both.
-
-This milestone tests the architectural assumptions at low corpus volume. If it
-succeeds, the remaining phases can add object families in parallel without
-reworking identity, provenance, manifest, or validation contracts.
+The roadmap is closed at the approved capability and independent-validation
+boundaries rather than at universal implementation of every planned row.
+Remaining rows stay planned with specific provider, independent-validator, or
+toolchain blockers. Work on one of those rows begins only when its blocker is
+resolved and the resulting slice can satisfy Section 8 without weakening the
+profile, validation, or reporting contracts.

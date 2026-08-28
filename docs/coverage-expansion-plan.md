@@ -634,8 +634,13 @@ are reported separately and the built-in classifier is labeled same-project.
 Bounded DCMTK and dicom3tools exercises produced no timeout, crash, or signal.
 DCMTK safely ignored the corrupt Extended Offset Table in one case, an explicit
 interoperability result recorded without treating that tool as independent
-proof of the suite's classifier. The bounded `fuzz` profile is the remaining
-Phase 7 milestone. See `docs/phase-7-negative-status.md`.
+proof of the suite's classifier. The bounded `fuzz` profile is also complete:
+two committed seed descriptions resolve to private generated sources, 64
+seed-7 candidates produce deterministic outcome and minimization evidence, and
+the promoted root retains no DICOM payloads. Strict validation and separate
+JSON/Markdown reporting keep fuzz evidence out of both valid and negative
+coverage. Phase 7 is complete. See `docs/phase-7-negative-status.md` and
+`docs/phase-7-fuzz-status.md`.
 
 ### Phase 8 — Media and protocol interoperability
 

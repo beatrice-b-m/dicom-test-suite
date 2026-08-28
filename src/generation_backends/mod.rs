@@ -38,6 +38,18 @@ mod tid1500;
 pub use tid1500::{
     Tid1500Generated, Tid1500GenerationInput, Tid1500Identities, Tid1500Outcome, generate_tid1500,
 };
+mod wsi_tile_segmentation;
+pub use wsi_tile_segmentation::{
+    CASE_ID as WSI_TILE_SEGMENTATION_CASE_ID, FRAME_SHA256 as WSI_TILE_SEGMENTATION_FRAME_SHA256,
+    FRAME_VALUES as WSI_TILE_SEGMENTATION_FRAME_VALUES,
+    MATRIX_SHA256 as WSI_TILE_SEGMENTATION_MATRIX_SHA256,
+    OUTPUT_FILE as WSI_TILE_SEGMENTATION_OUTPUT_FILE,
+    PAYLOAD_SHA256 as WSI_TILE_SEGMENTATION_PAYLOAD_SHA256,
+    SOURCE_CASE_ID as WSI_TILE_SEGMENTATION_SOURCE_CASE_ID,
+    SOURCE_FRAME_NUMBERS as WSI_TILE_SEGMENTATION_SOURCE_FRAME_NUMBERS,
+    WsiTileSegmentationGenerated, WsiTileSegmentationGenerationInput,
+    WsiTileSegmentationIdentities, WsiTileSegmentationOutcome, generate_wsi_tile_segmentation,
+};
 
 pub const PROTOCOL_VERSION: &str = "0.1.0";
 pub const BACKEND_LOCK_FILE: &str = "generation-backends.lock.json";

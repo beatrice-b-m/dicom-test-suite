@@ -2,12 +2,20 @@
 
 use std::fs;
 use std::path::PathBuf;
+use std::time::{Duration, Instant};
 
+use dicom_core::VR;
 use dicom_dictionary_std::tags;
 use dicom_object::open_file;
 use serde_json::{Value, json};
 
-use crate::sha256_hex;
+use crate::{
+    sha256_hex,
+    validation::{
+        Part10Expectations, PixelDataLengthFormula, WsiTileSegmentationExpectations,
+        validate_wsi_tile_segmentation_file,
+    },
+};
 
 use super::{
     BackendContractError, BackendDiscovery, BackendInvocation, ControlledMetadata,
@@ -32,6 +40,8 @@ pub const FRAME_SHA256: [&str; 2] = [
 ];
 pub const PAYLOAD_SHA256: &str = "74fa7cbb10160e0eb1f16f35fa9ad0e7f2712af56019996e88cf1034be92635e";
 pub const MATRIX_SHA256: &str = "a8ec6f910c0fb02685163a3251bed92517d1016c9173f1e4f021e6b4194f2467";
+pub const MAX_OUTPUT_BYTES: usize = 16 * 1024;
+pub const MAX_INVOCATION_SECONDS: f64 = 5.0;
 
 #[derive(Debug, Clone)]
 pub struct WsiTileSegmentationIdentities {
@@ -62,6 +72,7 @@ pub struct WsiTileSegmentationGenerated {
     pub response: Value,
     pub backend: PreparedBackend,
     pub identities: WsiTileSegmentationIdentities,
+    pub invocation_elapsed_seconds: f64,
 }
 
 #[derive(Debug)]
@@ -95,12 +106,14 @@ pub fn generate_wsi_tile_segmentation(
         dependency_lock_sha256: backend.dependency_lock_sha256.clone(),
         environment_fingerprint: backend.environment_fingerprint.clone(),
     };
+    let invocation_started = Instant::now();
     let run = invoke_backend(
         &invocation,
         &request,
         &input.generated_root,
         &input.staging_root,
     )?;
+    let invocation_elapsed = invocation_started.elapsed();
     match run.response["status"]
         .as_str()
         .expect("response schema checked status")
@@ -132,8 +145,13 @@ pub fn generate_wsi_tile_segmentation(
                     path: staged_path.clone(),
                     source,
                 })?;
+            verify_resource_ceiling(output_bytes.len(), invocation_elapsed)?;
             verify_dicom_payload(&staged_path, input)?;
-            promote_staged_outputs(&run.staging_root.join("outputs"), &input.destination_root)?;
+            validate_and_promote_staged_output(
+                &staged_path,
+                &run.staging_root.join("outputs"),
+                input,
+            )?;
             Ok(WsiTileSegmentationOutcome::Generated(
                 WsiTileSegmentationGenerated {
                     output_path: input.destination_root.join(OUTPUT_FILE),
@@ -141,11 +159,129 @@ pub fn generate_wsi_tile_segmentation(
                     response: run.response,
                     backend,
                     identities: input.identities.clone(),
+                    invocation_elapsed_seconds: invocation_elapsed.as_secs_f64(),
                 },
             ))
         }
         status => Err(invalid(format!("unexpected backend status {status}"))),
     }
+}
+
+fn validate_and_promote_staged_output(
+    staged_path: &std::path::Path,
+    staged_output_root: &std::path::Path,
+    input: &WsiTileSegmentationGenerationInput,
+) -> Result<(), BackendContractError> {
+    strict_validate_staged_output(staged_path, input)?;
+    promote_staged_outputs(staged_output_root, &input.destination_root)
+}
+
+fn verify_resource_ceiling(
+    output_bytes: usize,
+    invocation_elapsed: Duration,
+) -> Result<(), BackendContractError> {
+    if output_bytes > MAX_OUTPUT_BYTES {
+        return Err(invalid(format!(
+            "WSI tile segmentation output is {output_bytes} bytes; ceiling is {MAX_OUTPUT_BYTES} bytes"
+        )));
+    }
+    if invocation_elapsed.as_secs_f64() > MAX_INVOCATION_SECONDS {
+        return Err(invalid(format!(
+            "WSI tile segmentation backend invocation took {:.6} seconds; ceiling is {MAX_INVOCATION_SECONDS} seconds",
+            invocation_elapsed.as_secs_f64()
+        )));
+    }
+    Ok(())
+}
+
+fn strict_validate_staged_output(
+    path: &std::path::Path,
+    input: &WsiTileSegmentationGenerationInput,
+) -> Result<(), BackendContractError> {
+    let object = open_file(path)
+        .map_err(|error| invalid(format!("reopen staged WSI tile segmentation: {error}")))?;
+    let implementation_class_uid = object.meta().implementation_class_uid().to_string();
+    let source_path = input.generated_root.join(&input.source.relative_path);
+    let source = open_file(&source_path)
+        .map_err(|error| invalid(format!("reopen WSI source for staged validation: {error}")))?;
+    let specimen = source
+        .element(tags::SPECIMEN_DESCRIPTION_SEQUENCE)
+        .ok()
+        .and_then(|element| element.items())
+        .and_then(|items| items.first())
+        .ok_or_else(|| invalid("WSI source has no Specimen Description item"))?;
+    let specimen_uid = specimen
+        .element(tags::SPECIMEN_UID)
+        .map_err(|error| invalid(format!("read source Specimen UID: {error}")))?
+        .to_str()
+        .map_err(|error| invalid(format!("decode source Specimen UID: {error}")))?
+        .trim_end_matches([' ', '\0'])
+        .to_string();
+    let container_identifier = source
+        .element(tags::CONTAINER_IDENTIFIER)
+        .map_err(|error| invalid(format!("read source Container Identifier: {error}")))?
+        .to_str()
+        .map_err(|error| invalid(format!("decode source Container Identifier: {error}")))?
+        .trim_end_matches([' ', '\0'])
+        .to_string();
+    let source_series = input
+        .source
+        .series_instance_uid
+        .as_deref()
+        .expect("input validation requires source series UID");
+    let frame_hashes = FRAME_SHA256;
+    let identity = Part10Expectations {
+        sop_class_uid: SOP_CLASS_UID,
+        sop_instance_uid: &input.identities.sop_instance_uid,
+        transfer_syntax_uid: TRANSFER_SYNTAX_UID,
+        implementation_class_uid: &implementation_class_uid,
+        synthetic_data: "YES",
+        rows: 2,
+        columns: 2,
+        frames: 2,
+        samples_per_pixel: 1,
+        photometric_interpretation: "MONOCHROME2",
+        bits_allocated: 8,
+        bits_stored: 8,
+        high_bit: 7,
+        pixel_representation: 0,
+        planar_configuration: None,
+        pixel_data_vr: VR::OB,
+        pixel_data_length_formula: PixelDataLengthFormula::ContiguousSamples,
+        decoded_frame_hashes: &frame_hashes,
+        palette: None,
+        padding: None,
+        ct_image: None,
+        enhanced_ct_image: None,
+        enhanced_mr_image: None,
+        enhanced_pet_image: None,
+        mg_image: None,
+        dx_image: None,
+        xa_image: None,
+        xrf_image: None,
+        us_image: None,
+        us_multiframe: None,
+        nm_image: None,
+        pet_image: None,
+        cr_image: None,
+        mr_image: None,
+        segmentation: None,
+    };
+    let strict = WsiTileSegmentationExpectations {
+        source_path: &source_path,
+        source_sha256: &input.source.sha256,
+        source_study_instance_uid: &input.identities.study_instance_uid,
+        source_series_instance_uid: source_series,
+        source_sop_class_uid: &input.source.sop_class_uid,
+        source_sop_instance_uid: &input.source.sop_instance_uid,
+        frame_of_reference_uid: &input.identities.frame_of_reference_uid,
+        dimension_organization_uid: &input.identities.dimension_organization_uid,
+        specimen_uid: &specimen_uid,
+        container_identifier: &container_identifier,
+    };
+    validate_wsi_tile_segmentation_file(path, &identity, &strict)
+        .map(|_| ())
+        .map_err(|error| invalid(format!("staged WSI tile segmentation failed strict validation: {error}")))
 }
 
 fn validate_input(input: &WsiTileSegmentationGenerationInput) -> Result<(), BackendContractError> {
@@ -358,6 +494,29 @@ fn invalid(message: impl Into<String>) -> BackendContractError {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    static NEXT_TEST_DIRECTORY: AtomicU64 = AtomicU64::new(0);
+
+    struct TestDirectory(PathBuf);
+
+    impl TestDirectory {
+        fn new() -> Self {
+            let serial = NEXT_TEST_DIRECTORY.fetch_add(1, Ordering::Relaxed);
+            let path = std::env::temp_dir().join(format!(
+                "dts-wsi-seg-backend-{}-{serial}",
+                std::process::id()
+            ));
+            fs::create_dir_all(&path).expect("create test directory");
+            Self(path)
+        }
+    }
+
+    impl Drop for TestDirectory {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.0);
+        }
+    }
 
     fn input() -> WsiTileSegmentationGenerationInput {
         WsiTileSegmentationGenerationInput {
@@ -422,5 +581,49 @@ mod tests {
         input.source.frame_numbers = Some(vec![1, 3]);
         let error = validate_input(&input).expect_err("wrong source frames must fail");
         assert!(error.to_string().contains("exact tiled-full source"));
+    }
+
+    #[test]
+    fn resource_ceiling_accepts_exact_bounds() {
+        verify_resource_ceiling(
+            MAX_OUTPUT_BYTES,
+            Duration::from_secs_f64(MAX_INVOCATION_SECONDS),
+        )
+        .expect("exact byte and time ceilings are inclusive");
+    }
+
+    #[test]
+    fn resource_ceiling_rejects_one_byte_or_one_nanosecond_over() {
+        let bytes = verify_resource_ceiling(MAX_OUTPUT_BYTES + 1, Duration::ZERO)
+            .expect_err("one byte over must fail");
+        assert!(bytes.to_string().contains("ceiling is 16384 bytes"));
+
+        let elapsed = verify_resource_ceiling(
+            0,
+            Duration::from_secs(5) + Duration::from_nanos(1),
+        )
+        .expect_err("one nanosecond over must fail");
+        assert!(elapsed.to_string().contains("ceiling is 5 seconds"));
+    }
+
+    #[test]
+    fn malformed_staged_dicom_is_not_promoted() {
+        let directory = TestDirectory::new();
+        let output_root = directory.0.join("staging/outputs");
+        fs::create_dir_all(&output_root).expect("create staged output root");
+        let staged_path = output_root.join(OUTPUT_FILE);
+        fs::write(&staged_path, b"not a DICOM Part 10 file").expect("write malformed staged file");
+        let mut input = input();
+        input.generated_root = directory.0.join("generated");
+        input.destination_root = directory.0.join("promoted");
+
+        let error = validate_and_promote_staged_output(&staged_path, &output_root, &input)
+            .expect_err("malformed staged DICOM must fail before promotion");
+        assert!(error.to_string().contains("staged WSI tile segmentation"));
+        assert!(staged_path.exists(), "failed output remains recoverable in staging");
+        assert!(
+            !input.destination_root.exists(),
+            "failed strict validation must not create the promotion destination"
+        );
     }
 }

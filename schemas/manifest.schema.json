@@ -946,6 +946,16 @@
                 }],
                 "items": false
               },
+              "generation_backend": {
+                "required": ["invocation_elapsed_milliseconds"],
+                "properties": {
+                  "invocation_elapsed_milliseconds": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 5000
+                  }
+                }
+              },
               "expected_wsi_tile_segmentation": { "$ref": "#/$defs/expected_wsi_tile_segmentation" }
             }
           },
@@ -7334,6 +7344,10 @@
           "additionalProperties": true
         },
         "determinism": { "$ref": "#/$defs/determinism" },
+        "invocation_elapsed_milliseconds": {
+          "type": "integer",
+          "minimum": 0
+        },
         "warnings": {
           "type": "array",
           "items": {

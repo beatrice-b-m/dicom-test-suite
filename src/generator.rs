@@ -5689,6 +5689,8 @@ fn wsi_tile_segmentation_generated_file(
             specimen_uid,
             dimension_organization_uid: &generated.identities.dimension_organization_uid,
         });
+    let invocation_elapsed_milliseconds =
+        (generated.invocation_elapsed_seconds * 1_000.0).ceil() as u64;
     let response_backend = &generated.response["backend"];
     let warnings = generated.response["warnings"].clone();
     Ok(GeneratedFile {
@@ -5705,7 +5707,7 @@ fn wsi_tile_segmentation_generated_file(
             "uids": {"study_instance_uid": generated.identities.study_instance_uid, "series_instance_uid": generated.identities.series_instance_uid, "sop_instance_uid": generated.identities.sop_instance_uid, "frame_of_reference_uid": generated.identities.frame_of_reference_uid, "dimension_organization_uid": generated.identities.dimension_organization_uid, "implementation_class_uid": implementation_class_uid, "implementation_version_name": implementation_version_name},
             "image": {"rows": 2, "columns": 2, "frames": 2, "samples_per_pixel": 1, "photometric_interpretation": "MONOCHROME2", "bits_allocated": 8, "bits_stored": 8, "high_bit": 7, "pixel_representation": 0, "planar_configuration": Value::Null},
             "pixel_data": {"vr": "OB", "native_or_encapsulated": "native", "value_length": 8, "frame_count": 2, "frame_hashes": WSI_TILE_SEGMENTATION_FRAME_SHA256},
-            "generation_backend": {"backend_id": generated.backend.backend_id, "protocol_version": crate::generation_backends::PROTOCOL_VERSION, "name": response_backend["name"], "version": response_backend["version"], "dependency_lock_sha256": generated.backend.dependency_lock_sha256, "executable_fingerprint": generated.backend.executable_fingerprint, "entrypoint_fingerprint": generated.backend.entrypoint_fingerprint, "environment_fingerprint": generated.backend.environment_fingerprint, "runtime_identity": generated.backend.runtime_identity, "determinism": "semantic_stable", "warnings": warnings},
+            "generation_backend": {"backend_id": generated.backend.backend_id, "protocol_version": crate::generation_backends::PROTOCOL_VERSION, "name": response_backend["name"], "version": response_backend["version"], "dependency_lock_sha256": generated.backend.dependency_lock_sha256, "executable_fingerprint": generated.backend.executable_fingerprint, "entrypoint_fingerprint": generated.backend.entrypoint_fingerprint, "environment_fingerprint": generated.backend.environment_fingerprint, "runtime_identity": generated.backend.runtime_identity, "determinism": "semantic_stable", "invocation_elapsed_milliseconds": invocation_elapsed_milliseconds, "warnings": warnings},
             "references": [source.to_manifest_reference("source_image_for_segmentation", Some(WSI_TILE_SEGMENTATION_SOURCE_FRAME_NUMBERS.to_vec()))],
             "expected_capabilities": ["open_file", "read_metadata", "parse_segmentation", "reconstruct_wsi_tile_segmentation", "resolve_frame_references"],
             "expected_semantics": {"synthetic_data": "YES", "pixel_min": 0, "pixel_max": 255, "segmentation_type": "FRACTIONAL", "segmentation_fractional_type": "OCCUPANCY", "maximum_fractional_value": 255, "segment_sequence_items": 1, "shared_functional_groups_sequence_items": 1, "per_frame_functional_groups_sequence_items": 2, "source_case_id": source.source_case_id, "source_sop_instance_uid": source.sop_instance_uid, "referenced_frame_numbers": WSI_TILE_SEGMENTATION_SOURCE_FRAME_NUMBERS},
@@ -28007,6 +28009,13 @@ mod tests {
             generated.manifest_entry["size_bytes"]
                 .as_u64()
                 .is_some_and(|size| size <= 16_384)
+        );
+        assert!(
+            generated
+                .manifest_entry
+                .pointer("/generation_backend/invocation_elapsed_milliseconds")
+                .and_then(Value::as_u64)
+                .is_some_and(|milliseconds| milliseconds <= 5_000)
         );
         assert!(
             output

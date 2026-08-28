@@ -6,7 +6,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 use dicom_core::{
     DataElement, Length, PrimitiveValue, Tag, VR,
-    value::{DataSetSequence, PixelFragmentSequence},
+    value::{DataSetSequence, PixelFragmentSequence, Value as DicomValue},
 };
 use dicom_dictionary_std::{tags, uids};
 use dicom_object::{FileMetaTableBuilder, InMemDicomObject, open_file};
@@ -476,6 +476,11 @@ const RT_RADIATION_SET_RECIPE_ID: &str = "non_image_rt_radiation_set_minimal";
 const MONO_PIXELS: [u8; 4] = [0, 85, 170, 255];
 const MONO_MULTIFRAME_PIXELS: [u8; 8] = [0, 85, 170, 255, 255, 170, 85, 0];
 const MONO_MULTIFRAME_VALUES: [i32; 8] = [0, 85, 170, 255, 255, 170, 85, 0];
+const EOT_CASE_ID: &str = "encapsulation/sc/eot_single_fragment_multiframe";
+const EOT_MULTIFRAME_PIXELS: [u8; 12] = [0, 85, 170, 255, 17, 17, 17, 17, 255, 170, 85, 0];
+const EOT_MULTIFRAME_VALUES: [i32; 12] = [0, 85, 170, 255, 17, 17, 17, 17, 255, 170, 85, 0];
+const EOT_ENCODED_LENGTHS: [u64; 3] = [69, 66, 69];
+const EOT_OFFSETS: [u64; 3] = [0, 78, 152];
 const MONO_ODD_RLE_PIXELS: [u8; 2] = [0, 255];
 const MONO_ODD_RLE_VALUES: [i32; 2] = [0, 255];
 const RGB_PLANAR0_PIXELS: [u8; 12] = [255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 255, 255];
@@ -1628,6 +1633,29 @@ const PIXEL_RECIPES: &[PixelRecipe] = &[
         pixel_max: 255,
         visual_pattern: "2x2x2_monochrome_rle_lossless_gradient_reversed",
         semantic_note: "two MONOCHROME2 frames decode from separate RLE Lossless fragments",
+        palette: None,
+        padding: None,
+    },
+    PixelRecipe {
+        case_id: EOT_CASE_ID,
+        recipe_id: "encapsulation_sc_eot_single_fragment_multiframe",
+        rows: 2,
+        columns: 2,
+        photometric_interpretation: "MONOCHROME2",
+        samples_per_pixel: 1,
+        planar_configuration: None,
+        bits_allocated: 8,
+        bits_stored: 8,
+        high_bit: 7,
+        pixel_representation: 0,
+        pixel_vr: VR::OB,
+        transfer_syntax: RLE_LOSSLESS,
+        pixel_bytes: &EOT_MULTIFRAME_PIXELS,
+        pixel_values: &EOT_MULTIFRAME_VALUES,
+        pixel_min: 0,
+        pixel_max: 255,
+        visual_pattern: "2x2x3_monochrome_rle_lossless_literal_repeat_reverse",
+        semantic_note: "three MONOCHROME2 frames use exact Extended Offset Table frame boundaries",
         palette: None,
         padding: None,
     },
@@ -9747,6 +9775,7 @@ fn write_pixel_case_with_metadata(
     let sop_class_uid = pixel_sop_class_uid(recipe);
     let is_single_frame_vl = pixel_single_frame_vl_kind(recipe).is_some();
     let is_u1_sc = recipe.case_id == U1_SC_RECIPE.case_id;
+    let is_multiframe_sc = is_u1_sc || recipe.case_id == EOT_CASE_ID;
     put_str(&mut obj, tags::SOP_CLASS_UID, VR::UI, sop_class_uid);
     put_str(&mut obj, tags::SOP_INSTANCE_UID, VR::UI, &sop_instance_uid);
     put_str(&mut obj, tags::SYNTHETIC_DATA, VR::CS, "YES");
@@ -9811,7 +9840,7 @@ fn write_pixel_case_with_metadata(
             boundary.timezone_offset,
         );
     }
-    if is_u1_sc {
+    if is_multiframe_sc {
         put_str(
             &mut obj,
             tags::ACQUISITION_DATE_TIME,
@@ -9931,7 +9960,7 @@ fn write_pixel_case_with_metadata(
     put_str(&mut obj, tags::PATIENT_ORIENTATION, VR::CS, "");
     put_str(&mut obj, tags::CONTENT_DATE, VR::DA, "20260101");
     put_str(&mut obj, tags::CONTENT_TIME, VR::TM, "000000");
-    if is_u1_sc {
+    if is_multiframe_sc {
         put_str(&mut obj, tags::BODY_PART_EXAMINED, VR::CS, "CHEST");
         put_str(&mut obj, tags::BURNED_IN_ANNOTATION, VR::CS, "NO");
         put_str(&mut obj, tags::LOSSY_IMAGE_COMPRESSION, VR::CS, "00");
@@ -10000,7 +10029,7 @@ fn write_pixel_case_with_metadata(
             &frame_count.to_string(),
         );
     }
-    if is_u1_sc {
+    if is_multiframe_sc {
         obj.put(DataElement::new(
             tags::FRAME_INCREMENT_POINTER,
             VR::AT,
@@ -10059,7 +10088,7 @@ fn write_pixel_case_with_metadata(
         feature = "jpeg2000",
         feature = "legacy_jpeg_dcmtk"
     )))]
-    let codec_internal_validation = Vec::new();
+    let mut codec_internal_validation = Vec::new();
     #[allow(unused_mut)]
     let mut lossy_image_compression_ratio: Option<String> = None;
     #[allow(unused_mut)]
@@ -10085,20 +10114,55 @@ fn write_pixel_case_with_metadata(
                 path: path.clone(),
                 message: err.to_string(),
             })?;
-        let basic_offset_table_policy =
-            if recipe.case_id == "classic/sc/mono2_u8_multiframe_rle_lossless" {
-                BasicOffsetTablePolicy::Empty
-            } else {
-                BasicOffsetTablePolicy::Populated
-            };
-        let encapsulated = EncapsulatedPixelData::one_fragment_per_frame(
-            &compressed_frames,
-            basic_offset_table_policy,
-        )
-        .map_err(|err| GenerateError::WriteDicomFile {
-            path: path.clone(),
-            message: err.to_string(),
-        })?;
+        let encapsulated = if recipe.case_id == EOT_CASE_ID {
+            let encapsulated =
+                EncapsulatedPixelData::one_fragment_per_frame_with_extended_offset_table(
+                    &compressed_frames,
+                )
+                .map_err(|err| GenerateError::WriteDicomFile {
+                    path: path.clone(),
+                    message: err.to_string(),
+                })?;
+            let extended = encapsulated
+                .extended_offset_table
+                .as_ref()
+                .expect("EOT constructor must attach its table");
+            if extended.lengths != EOT_ENCODED_LENGTHS || extended.offsets != EOT_OFFSETS {
+                return Err(GenerateError::WriteDicomFile {
+                    path: path.clone(),
+                    message: format!(
+                        "EOT RLE oracle changed: offsets {:?}, lengths {:?}",
+                        extended.offsets, extended.lengths
+                    ),
+                });
+            }
+            obj.put(DataElement::new(
+                tags::EXTENDED_OFFSET_TABLE,
+                VR::OV,
+                PrimitiveValue::U8(extended.offset_value_bytes.clone().into()),
+            ));
+            obj.put(DataElement::new(
+                tags::EXTENDED_OFFSET_TABLE_LENGTHS,
+                VR::OV,
+                PrimitiveValue::U8(extended.length_value_bytes.clone().into()),
+            ));
+            encapsulated
+        } else {
+            let basic_offset_table_policy =
+                if recipe.case_id == "classic/sc/mono2_u8_multiframe_rle_lossless" {
+                    BasicOffsetTablePolicy::Empty
+                } else {
+                    BasicOffsetTablePolicy::Populated
+                };
+            EncapsulatedPixelData::one_fragment_per_frame(
+                &compressed_frames,
+                basic_offset_table_policy,
+            )
+            .map_err(|err| GenerateError::WriteDicomFile {
+                path: path.clone(),
+                message: err.to_string(),
+            })?
+        };
         obj.put(DataElement::new(
             tags::PIXEL_DATA,
             recipe.pixel_vr,
@@ -10520,6 +10584,10 @@ fn write_pixel_case_with_metadata(
             })?;
     }
 
+    if recipe.case_id == EOT_CASE_ID {
+        codec_internal_validation.push(validate_extended_offset_table_round_trip(&path)?);
+    }
+
     let decoded_frame_hashes = frame_bytes
         .iter()
         .map(|frame| sha256_hex(frame))
@@ -10635,6 +10703,93 @@ fn write_pixel_case_with_metadata(
             metadata,
         ),
     })
+}
+
+fn validate_extended_offset_table_round_trip(
+    path: &std::path::Path,
+) -> Result<Value, GenerateError> {
+    let obj = open_file(path).map_err(|error| GenerateError::ValidateDicomFile {
+        path: path.to_path_buf(),
+        message: format!("reopen Extended Offset Table fixture: {error}"),
+    })?;
+    let expected_offsets = EOT_OFFSETS
+        .iter()
+        .flat_map(|word| word.to_le_bytes())
+        .collect::<Vec<_>>();
+    let expected_lengths = EOT_ENCODED_LENGTHS
+        .iter()
+        .flat_map(|word| word.to_le_bytes())
+        .collect::<Vec<_>>();
+    for (tag, label, expected) in [
+        (
+            tags::EXTENDED_OFFSET_TABLE,
+            "Extended Offset Table",
+            expected_offsets.as_slice(),
+        ),
+        (
+            tags::EXTENDED_OFFSET_TABLE_LENGTHS,
+            "Extended Offset Table Lengths",
+            expected_lengths.as_slice(),
+        ),
+    ] {
+        let element = obj
+            .element(tag)
+            .map_err(|error| GenerateError::ValidateDicomFile {
+                path: path.to_path_buf(),
+                message: format!("read {label}: {error}"),
+            })?;
+        let actual =
+            element
+                .value()
+                .to_bytes()
+                .map_err(|error| GenerateError::ValidateDicomFile {
+                    path: path.to_path_buf(),
+                    message: format!("decode {label}: {error}"),
+                })?;
+        if element.vr() != VR::OV || actual.as_ref() != expected {
+            return Err(GenerateError::ValidateDicomFile {
+                path: path.to_path_buf(),
+                message: format!("{label} did not preserve its exact OV words"),
+            });
+        }
+    }
+    let pixel_data =
+        obj.element(tags::PIXEL_DATA)
+            .map_err(|error| GenerateError::ValidateDicomFile {
+                path: path.to_path_buf(),
+                message: format!("read EOT Pixel Data: {error}"),
+            })?;
+    let DicomValue::PixelSequence(sequence) = pixel_data.value() else {
+        return Err(GenerateError::ValidateDicomFile {
+            path: path.to_path_buf(),
+            message: "EOT fixture Pixel Data is not encapsulated".to_string(),
+        });
+    };
+    let fragment_lengths = sequence
+        .fragments()
+        .iter()
+        .map(|fragment| fragment.len() as u64)
+        .collect::<Vec<_>>();
+    let padded_fragment_lengths = [70_u64, 66, 70];
+    if !sequence.offset_table().is_empty()
+        || sequence.fragments().len() != EOT_ENCODED_LENGTHS.len()
+        || fragment_lengths != padded_fragment_lengths
+        || sequence.fragments()[0].last() != Some(&0)
+        || sequence.fragments()[2].last() != Some(&0)
+    {
+        return Err(GenerateError::ValidateDicomFile {
+            path: path.to_path_buf(),
+            message: format!(
+                "EOT Pixel Data expected an empty BOT and padded item lengths {:?}, found {:?}",
+                padded_fragment_lengths, fragment_lengths
+            ),
+        });
+    }
+    Ok(serde_json::json!({
+        "name": "extended_offset_table_round_trip",
+        "status": "passed",
+        "message": "Exact OV offsets and lengths reopened with an empty Basic Offset Table and one RLE fragment per frame."
+    }))
 }
 
 fn validate_nonsquare_geometry_round_trip(
@@ -12321,6 +12476,26 @@ fn pixel_manifest_entry(
         }
         codec
     });
+    let extended_offset_table_manifest = compressed_pixel_data
+        .and_then(|(_, encapsulated, _)| encapsulated.extended_offset_table.as_ref())
+        .map(|extended| {
+            serde_json::json!({
+                "present": true,
+                "lengths_present": true,
+                "offset_count": extended.offsets.len(),
+                "length_count": extended.lengths.len(),
+                "offsets": extended.offsets,
+                "lengths": extended.lengths
+            })
+        })
+        .unwrap_or_else(|| {
+            serde_json::json!({
+                "present": false,
+                "lengths_present": false,
+                "offset_count": 0,
+                "length_count": 0
+            })
+        });
     let pixel_data_manifest = if let Some((_, encapsulated, _)) = compressed_pixel_data {
         serde_json::json!({
             "vr": pixel_vr_name(recipe.pixel_vr),
@@ -12345,12 +12520,7 @@ fn pixel_manifest_entry(
                         "padded_length": fragment.padded_length
                     })
                 }).collect::<Vec<_>>(),
-                "extended_offset_table": {
-                    "present": false,
-                    "lengths_present": false,
-                    "offset_count": 0,
-                    "length_count": 0
-                },
+                "extended_offset_table": extended_offset_table_manifest,
                 "compressed_frame_hashes": encapsulated.compressed_frame_hashes.clone()
             }
         })
@@ -12503,6 +12673,15 @@ fn pixel_manifest_entry(
             "unused_high_bits": 6,
             "value_field_padding_bytes": 1,
             "frame_two_bit_offset": 9
+        });
+    }
+    if recipe.case_id == EOT_CASE_ID {
+        manifest["expected_eot"] = serde_json::json!({
+            "origin": "first_fragment_item_tag",
+            "item_header_bytes": 8,
+            "frame_encoded_lengths": EOT_ENCODED_LENGTHS,
+            "offsets": EOT_OFFSETS,
+            "lengths": EOT_ENCODED_LENGTHS
         });
     }
     if pixel_has_icc_profile(recipe) {
@@ -12908,6 +13087,11 @@ fn pixel_known_stressors(recipe: PixelRecipe) -> Vec<&'static str> {
     if recipe.case_id == "classic/sc/mono2_u8_multiframe_rle_lossless" {
         stressors.push("empty_basic_offset_table");
     }
+    if recipe.case_id == EOT_CASE_ID {
+        stressors.push("empty_basic_offset_table");
+        stressors.push("extended_offset_table");
+        stressors.push("one_fragment_per_frame");
+    }
     if recipe.palette.is_some() {
         stressors.push("palette_color_pixels");
     }
@@ -12976,6 +13160,7 @@ fn pixel_profile_membership(recipe: PixelRecipe) -> &'static [&'static str] {
         | "classic/sc/mono2_u16_jpeg_lossless_sv1"
         | "classic/sc/mono2_u32_explicit_le"
         | "classic/sc/mono2_u1_native"
+        | EOT_CASE_ID
         | "vl/endoscopic/rgb_explicit_le"
         | "vl/microscopic/rgb_explicit_le"
         | ICC_CASE_ID => &["extended"],
@@ -13110,6 +13295,8 @@ fn pixel_has_icc_profile(recipe: PixelRecipe) -> bool {
 fn pixel_sop_class_uid(recipe: PixelRecipe) -> &'static str {
     if recipe.case_id == U1_SC_RECIPE.case_id {
         uids::MULTI_FRAME_SINGLE_BIT_SECONDARY_CAPTURE_IMAGE_STORAGE
+    } else if recipe.case_id == EOT_CASE_ID {
+        uids::MULTI_FRAME_GRAYSCALE_BYTE_SECONDARY_CAPTURE_IMAGE_STORAGE
     } else {
         match pixel_single_frame_vl_kind(recipe) {
             Some(SingleFrameVlKind::Endoscopic) => uids::VL_ENDOSCOPIC_IMAGE_STORAGE,
@@ -13123,6 +13310,8 @@ fn pixel_sop_class_uid(recipe: PixelRecipe) -> &'static str {
 fn pixel_sop_class_name(recipe: PixelRecipe) -> &'static str {
     if recipe.case_id == U1_SC_RECIPE.case_id {
         "Multi-frame Single Bit Secondary Capture Image Storage"
+    } else if recipe.case_id == EOT_CASE_ID {
+        "Multi-frame Grayscale Byte Secondary Capture Image Storage"
     } else {
         match pixel_single_frame_vl_kind(recipe) {
             Some(SingleFrameVlKind::Endoscopic) => "VL Endoscopic Image Storage",
@@ -13136,6 +13325,8 @@ fn pixel_sop_class_name(recipe: PixelRecipe) -> &'static str {
 fn pixel_iod_name(recipe: PixelRecipe) -> &'static str {
     if recipe.case_id == U1_SC_RECIPE.case_id {
         "Multi-frame Single Bit Secondary Capture Image"
+    } else if recipe.case_id == EOT_CASE_ID {
+        "Multi-frame Grayscale Byte Secondary Capture Image"
     } else {
         match pixel_single_frame_vl_kind(recipe) {
             Some(SingleFrameVlKind::Endoscopic) => "VL Endoscopic Image",
@@ -31177,6 +31368,83 @@ mod tests {
                     .join("derived/mesh/encapsulated_stl/instance.dcm")
             )
             .unwrap()
+        );
+    }
+
+    #[test]
+    fn eot_sc_writer_reopens_exact_tables_and_empty_basic_offset_table() {
+        let output = ParametricMapStagingGuard::new();
+        let run = PreparedGenerationRun {
+            profile: "extended".to_string(),
+            out_dir: output.path().to_path_buf(),
+            manifest_path: output.path().join("manifest.json"),
+            seed: 7,
+            include_stress: false,
+        };
+        let case = serde_json::json!({
+            "case_id": EOT_CASE_ID,
+            "profiles": ["extended"],
+            "status": "implemented",
+            "requirements": {"features": []},
+            "standards_evidence": []
+        });
+        let recipe = PIXEL_RECIPES
+            .iter()
+            .copied()
+            .find(|recipe| recipe.case_id == EOT_CASE_ID)
+            .expect("EOT SC recipe must be dispatched");
+
+        let generated = write_pixel_case(
+            &run,
+            &case,
+            recipe,
+            "0000000000000000000000000000000000000000000000000000000000000000",
+        )
+        .expect("EOT SC fixture should write, reopen, decode, and validate");
+
+        assert_eq!(
+            generated
+                .manifest_entry
+                .pointer("/pixel_data/encapsulated_pixel_data/extended_offset_table/offsets"),
+            Some(&serde_json::json!([0, 78, 152]))
+        );
+        assert_eq!(
+            generated
+                .manifest_entry
+                .pointer("/pixel_data/encapsulated_pixel_data/extended_offset_table/lengths"),
+            Some(&serde_json::json!([69, 66, 69]))
+        );
+        assert_eq!(
+            generated
+                .manifest_entry
+                .pointer("/pixel_data/encapsulated_pixel_data/basic_offset_table/offsets"),
+            Some(&serde_json::json!([]))
+        );
+        assert_eq!(
+            generated.manifest_entry.pointer("/expected_eot"),
+            Some(&serde_json::json!({
+                "origin": "first_fragment_item_tag",
+                "item_header_bytes": 8,
+                "frame_encoded_lengths": [69, 66, 69],
+                "offsets": [0, 78, 152],
+                "lengths": [69, 66, 69]
+            }))
+        );
+        assert_eq!(
+            generated.manifest_entry.pointer("/dicom/sop_class_uid"),
+            Some(&Value::from(
+                uids::MULTI_FRAME_GRAYSCALE_BYTE_SECONDARY_CAPTURE_IMAGE_STORAGE
+            ))
+        );
+        assert_eq!(
+            generated
+                .manifest_entry
+                .pointer("/dicom/transfer_syntax_uid"),
+            Some(&Value::from(RLE_LOSSLESS.uid))
+        );
+        assert_eq!(
+            generated.manifest_entry.pointer("/validation/status"),
+            Some(&Value::from("passed"))
         );
     }
 

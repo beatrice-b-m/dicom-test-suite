@@ -315,3 +315,40 @@ Proceeding with this milestone triggers no explicit decision checkpoint in
 selecting dimensions, budgets, and CI scheduling for a future full-size
 pyramid. This small multiple-optical-path slice neither authorizes nor
 prejudges that decision.
+
+## Final Native Qualification
+
+The promoted Rust-native recipe was qualified from two independent seed-7
+`extended` roots. Each root contained exactly 112 DICOM files and passed
+strict validation with 112 files checked and zero failures. The complete
+directory trees, including manifests, compared byte-for-byte. The two full
+extended generations completed in 4.50 and 4.54 seconds on the qualification
+host, below the locked five-second ceiling even when measured as whole-corpus
+runs.
+
+The final manifest SHA-256 is
+`473e822fe1b82b7217635a980757a1a88f77f3e2448b0e02964122d888a16bf3`.
+The promoted multiple-optical-path instance is 3,916 bytes with SHA-256
+`a2099a90b53b4ecb9c76f895f02d4f7f62ff8655adcb54d8654e8e80507bea48`.
+Its 96-byte payload, eight ordered Frame hashes, two per-path payload hashes,
+two distinct 4 by 4 by 3 matrix hashes, and both nested ICC hashes match the
+locked contract above.
+
+Locked `dciodvfy` and the authorized `uv`-locked dicom-validator 0.8.2 route
+both selected the VL Whole Slide Microscopy Image IOD and reported zero
+errors. `dcmdump` parsed the file cleanly. The isolated highdicom
+0.28.1/pydicom 3.0.2 adapter is version 0.4.0 with composite SHA-256
+`fa838f3b3c398913f2f05e71cad2515cf038fba65dc8f1a30484f88164c48167`.
+It derived the exact implicit path-major positions, reproduced every aggregate
+and per-path hash, reconstructed both matrices separately, validated the
+nested ICC evidence, and required ambiguous unfiltered matrix access to be
+rejected.
+
+Exact-slice conformance run
+`c2203223e9d8ce0b716175329769b7f3bb947ac48da44a510843d5a82d8b3dcc`
+has one instance, silent entity validation, passing independent pixel
+evidence, zero accepted findings, and zero verification failures against an
+empty findings set. Whole-corpus run
+`de37a863ce96d60d9c97818a04bcd7778428b4862b4d4b5c7049bc89b249122a`
+retains the existing 229 unrelated visible failures with zero accepted
+findings; no unavailable or failing coverage was hidden to qualify this case.

@@ -1101,6 +1101,10 @@ fn phase4_multiple_optical_path_wsi_is_native_and_standards_locked() {
         "16,384 total DICOM bytes",
         "5 seconds",
         "triggers no explicit decision checkpoint",
+        "473e822fe1b82b7217635a980757a1a88f77f3e2448b0e02964122d888a16bf3",
+        "a2099a90b53b4ecb9c76f895f02d4f7f62ff8655adcb54d8654e8e80507bea48",
+        "c2203223e9d8ce0b716175329769b7f3bb947ac48da44a510843d5a82d8b3dcc",
+        "fa838f3b3c398913f2f05e71cad2515cf038fba65dc8f1a30484f88164c48167",
     ] {
         assert!(note.contains(required), "source note requires {required}");
     }

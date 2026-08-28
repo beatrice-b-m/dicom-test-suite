@@ -1436,10 +1436,15 @@ impl FrameEncoder for NativeRleLosslessEncoder {
         let mut segment_payloads = Vec::with_capacity(segments);
         for sample in 0..samples_per_pixel {
             for byte_plane in 0..bytes_per_sample {
+                // Annex G orders each sample's byte planes from most to least
+                // significant. Native frames use DICOM's little-endian sample
+                // representation, so the corresponding native byte index runs
+                // in the opposite direction.
+                let native_byte = bytes_per_sample - 1 - byte_plane;
                 let mut segment = Vec::with_capacity(pixels);
                 for pixel in 0..pixels {
                     let offset =
-                        ((pixel * samples_per_pixel + sample) * bytes_per_sample) + byte_plane;
+                        ((pixel * samples_per_pixel + sample) * bytes_per_sample) + native_byte;
                     segment.push(input.native_frame[offset]);
                 }
                 segment_payloads.push(encode_packbits_segment(&segment));
@@ -1550,9 +1555,10 @@ impl FrameDecoder for NativeRleLosslessEncoder {
         for sample in 0..samples_per_pixel {
             for byte_plane in 0..bytes_per_sample {
                 let segment_index = sample * bytes_per_sample + byte_plane;
+                let native_byte = bytes_per_sample - 1 - byte_plane;
                 for pixel in 0..pixels {
                     let offset =
-                        ((pixel * samples_per_pixel + sample) * bytes_per_sample) + byte_plane;
+                        ((pixel * samples_per_pixel + sample) * bytes_per_sample) + native_byte;
                     native_bytes[offset] = decoded_segments[segment_index][pixel];
                 }
             }
@@ -2265,28 +2271,24 @@ mod tests {
         assert_eq!(&encoded.bytes[0..4], &2u32.to_le_bytes());
         assert_eq!(&encoded.bytes[4..8], &64u32.to_le_bytes());
         assert_eq!(&encoded.bytes[8..12], &67u32.to_le_bytes());
-        assert_eq!(&encoded.bytes[64..67], &[1, 0x34, 0xcd]);
-        assert_eq!(&encoded.bytes[67..70], &[1, 0x12, 0xab]);
+        assert_eq!(&encoded.bytes[64..67], &[1, 0x12, 0xab]);
+        assert_eq!(&encoded.bytes[67..70], &[1, 0x34, 0xcd]);
     }
 
     #[test]
     fn native_rle_decodes_byte_planes_into_native_sample_order() {
         let codec = NativeRleLosslessEncoder::new();
-        let encoded = codec
-            .encode_frame(FrameEncodeInput {
-                native_frame: &[0x34, 0x12, 0xcd, 0xab],
-                rows: 1,
-                columns: 2,
-                samples_per_pixel: 1,
-                bits_allocated: 16,
-                bits_stored: 16,
-                photometric_interpretation: "MONOCHROME2",
-            })
-            .expect("RLE should encode 16-bit byte planes");
+        let encoded = [2, 0, 0, 0, 64, 0, 0, 0, 67, 0, 0, 0]
+            .iter()
+            .copied()
+            .chain([0; 52])
+            .chain([1, 0x12, 0xab])
+            .chain([1, 0x34, 0xcd])
+            .collect::<Vec<_>>();
 
         let decoded = codec
             .decode_frame(FrameDecodeInput {
-                encoded_frame: &encoded.bytes,
+                encoded_frame: &encoded,
                 rows: 1,
                 columns: 2,
                 samples_per_pixel: 1,

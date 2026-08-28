@@ -54,6 +54,7 @@ pub mod mutation;
 pub mod negative;
 pub mod part10_locator;
 pub mod protocol;
+pub mod protocol_baseline;
 pub(crate) mod rt_manifest;
 pub(crate) mod rt_radiation_manifest;
 pub mod stress;

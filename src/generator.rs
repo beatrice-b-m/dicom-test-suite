@@ -4591,6 +4591,9 @@ pub(crate) fn write_supported_cases(
     if run.profile == "negative" {
         return write_negative_cases(run, registry, standards_lock_sha256);
     }
+    if run.profile == "fuzz" {
+        return write_fuzz_cases(run, registry, standards_lock_sha256);
+    }
     let mut context = GenerationContext::default();
     if let Some(case) = registry_case(registry, WSI_TILED_FULL_CASE_ID)? {
         if should_generate_case(case, run)? {
@@ -5606,6 +5609,279 @@ pub(crate) fn write_supported_cases(
         )?)?;
     }
     Ok(context.into_output())
+}
+
+struct FuzzSourceStagingGuard(PathBuf);
+
+impl Drop for FuzzSourceStagingGuard {
+    fn drop(&mut self) {
+        if self.0.exists() {
+            let _ = fs::remove_dir_all(&self.0);
+        }
+    }
+}
+
+fn write_fuzz_cases(
+    run: &PreparedGenerationRun,
+    registry: &Value,
+    standards_lock_sha256: &str,
+) -> Result<GenerationOutput, GenerateError> {
+    const CASE_ID: &str = "fuzz/parser/bounded_seed_corpus";
+    let Some(case) = registry_case(registry, CASE_ID)? else {
+        return Ok(GenerationOutput::default());
+    };
+    if !should_generate_case(case, run)? {
+        return Ok(GenerationOutput::default());
+    }
+
+    let source_staging = FuzzSourceStagingGuard(run.out_dir.join(".fuzz-private-sources"));
+    let source_run = PreparedGenerationRun {
+        profile: "fuzz-private-source".to_string(),
+        out_dir: source_staging.0.clone(),
+        manifest_path: source_staging.0.join("manifest.json"),
+        seed: 7,
+        include_stress: false,
+    };
+    let sources = write_negative_source_artifacts(
+        &source_run,
+        registry,
+        standards_lock_sha256,
+        &source_staging.0,
+    )?;
+
+    let budget = crate::fuzz::FuzzBudget {
+        max_iterations: 64,
+        max_candidates: 64,
+        max_mutations_per_candidate: 8,
+        max_total_mutations: 512,
+        max_bytes_per_mutation: 64,
+        max_input_bytes: 8 * 1024 * 1024,
+        max_output_bytes: 8 * 1024 * 1024,
+        max_minimization_attempts: 256,
+        max_total_target_operations: 100_000_000,
+        max_target_operations: 1_000_000,
+    };
+    let mut seed_records = Vec::new();
+    let mut outcome_counts = BTreeMap::<&'static str, u64>::from([
+        ("accepted", 0),
+        ("clean_rejection", 0),
+        ("parse_failure", 0),
+        ("validation_failure", 0),
+        ("decode_failure", 0),
+        ("crash", 0),
+        ("hang", 0),
+        ("timeout", 0),
+        ("resource_limit", 0),
+    ]);
+    let mut total_iterations = 0_u64;
+    let mut total_candidates = 0_u64;
+    let mut total_mutations = 0_u64;
+    let mut total_target_operations = 0_u64;
+    let mut minimizations = Vec::new();
+
+    for description in crate::fuzz::INITIAL_SEED_DESCRIPTIONS {
+        let source = sources.get(description.source_case_id).ok_or_else(|| {
+            GenerateError::MetadataShape {
+                path: PathBuf::from(description.source_case_id),
+                message: "fuzz seed source was not generated in private staging",
+            }
+        })?;
+        seed_records.push(serde_json::json!({
+            "id": description.id,
+            "source_case_id": description.source_case_id,
+            "source_recipe_id": description.source_recipe_id,
+            "source_recipe_version": description.source_recipe_version,
+            "source_generation_seed": description.source_generation_seed,
+            "source_sha256": super::sha256_hex(&source.bytes),
+            "source_size_bytes": source.bytes.len(),
+            "surfaces": description.surfaces.iter().map(fuzz_surface_name).collect::<Vec<_>>()
+        }));
+
+        let mut session = crate::fuzz::FuzzSession::new(*description, run.seed, budget)
+            .map_err(|error| fuzz_generation_error(CASE_ID, error))?;
+        let mut first_rejection = None;
+        for _ in 0..32 {
+            let candidate = session
+                .next_candidate(&source.bytes)
+                .map_err(|error| fuzz_generation_error(CASE_ID, error))?;
+            let observation =
+                fuzz_target_observation(&candidate.bytes, budget.max_target_operations);
+            total_target_operations = total_target_operations
+                .checked_add(observation.operations)
+                .ok_or_else(|| GenerateError::MetadataShape {
+                    path: PathBuf::from(CASE_ID),
+                    message: "fuzz target operation counter overflowed",
+                })?;
+            *outcome_counts
+                .get_mut(fuzz_outcome_name(observation.outcome.class()))
+                .expect("all fuzz outcomes have initialized counters") += 1;
+            if first_rejection.is_none()
+                && matches!(
+                    observation.outcome.class(),
+                    crate::fuzz::TargetOutcomeClass::CleanRejection
+                        | crate::fuzz::TargetOutcomeClass::ParseFailure
+                )
+            {
+                first_rejection = Some((candidate, observation.outcome.class()));
+            }
+        }
+        let counters = session.counters();
+        total_iterations += counters.iterations;
+        total_candidates += counters.candidates;
+        total_mutations += counters.mutations;
+
+        if let Some((candidate, outcome)) = first_rejection {
+            let minimized = crate::fuzz::minimize_candidate(
+                &candidate.bytes,
+                outcome,
+                budget,
+                fuzz_target_observation,
+            )
+            .map_err(|error| fuzz_generation_error(CASE_ID, error))?;
+            total_target_operations = total_target_operations
+                .checked_add(minimized.target_operations)
+                .ok_or_else(|| GenerateError::MetadataShape {
+                    path: PathBuf::from(CASE_ID),
+                    message: "fuzz minimization operation counter overflowed",
+                })?;
+            minimizations.push(serde_json::json!({
+                "seed_description_id": description.id,
+                "candidate_iteration": candidate.iteration,
+                "candidate_seed": candidate.candidate_seed,
+                "outcome": fuzz_outcome_name(outcome),
+                "original_size": candidate.bytes.len(),
+                "minimized_size": minimized.bytes.len(),
+                "attempts": minimized.attempts,
+                "target_operations": minimized.target_operations,
+                "minimized_fingerprint": fuzz_payload_fingerprint(&minimized.bytes)
+            }));
+        }
+    }
+    drop(source_staging);
+    if run.out_dir.join(".fuzz-private-sources").exists() {
+        return Err(GenerateError::MetadataShape {
+            path: run.out_dir.clone(),
+            message: "private fuzz sources survived cleanup",
+        });
+    }
+
+    let unacceptable = ["crash", "hang", "timeout", "resource_limit"]
+        .iter()
+        .map(|name| outcome_counts[name])
+        .sum::<u64>();
+    let qualification = serde_json::json!({
+        "case_id": CASE_ID,
+        "kind": "bounded_fuzz_run",
+        "contract_version": crate::fuzz::FUZZ_CONTRACT_VERSION,
+        "profile": "fuzz",
+        "run_seed": run.seed,
+        "provider": {"kind": "mutation_layer", "id": "bounded_deterministic_fuzz"},
+        "target": {
+            "kind": "same_project_bounded_part10_probe",
+            "independence": "same_project",
+            "operation_unit": "input_byte"
+        },
+        "budget": {
+            "max_iterations": budget.max_iterations,
+            "max_candidates": budget.max_candidates,
+            "max_mutations_per_candidate": budget.max_mutations_per_candidate,
+            "max_total_mutations": budget.max_total_mutations,
+            "max_bytes_per_mutation": budget.max_bytes_per_mutation,
+            "max_input_bytes": budget.max_input_bytes,
+            "max_output_bytes": budget.max_output_bytes,
+            "max_minimization_attempts": budget.max_minimization_attempts,
+            "max_total_target_operations": budget.max_total_target_operations,
+            "max_target_operations": budget.max_target_operations
+        },
+        "seeds": seed_records,
+        "counters": {
+            "iterations": total_iterations,
+            "candidates": total_candidates,
+            "mutations": total_mutations,
+            "target_operations": total_target_operations
+        },
+        "outcomes": outcome_counts,
+        "minimizations": minimizations,
+        "unacceptable_outcomes": ["crash", "hang", "timeout", "resource_limit"],
+        "payload_policy": "generated_payloads_uncommitted",
+        "status": if unacceptable == 0 { "passed" } else { "failed" }
+    });
+    Ok(GenerationOutput {
+        files: Vec::new(),
+        unavailable_cases: Vec::new(),
+        qualifications: vec![qualification],
+        completed_case_ids: vec![CASE_ID.to_string()],
+    })
+}
+
+fn fuzz_generation_error(case_id: &str, error: crate::fuzz::FuzzError) -> GenerateError {
+    GenerateError::MetadataShape {
+        path: PathBuf::from(case_id),
+        message: error.to_string().leak(),
+    }
+}
+
+fn fuzz_target_observation(bytes: &[u8], operation_limit: u64) -> crate::fuzz::TargetObservation {
+    let operations = u64::try_from(bytes.len()).unwrap_or(u64::MAX).max(1);
+    if operations > operation_limit {
+        return crate::fuzz::TargetObservation {
+            outcome: crate::fuzz::TargetOutcome::ResourceLimit,
+            operations: operation_limit,
+        };
+    }
+    let outcome = match crate::part10_locator::locate_explicit_vr_le_part10(
+        bytes,
+        crate::part10_locator::LocatorLimits {
+            max_elements: 100_000,
+            max_depth: 32,
+            max_items: 100_000,
+            max_fragments: 100_000,
+        },
+    ) {
+        Ok(_) => crate::fuzz::TargetOutcome::Accepted,
+        Err(crate::part10_locator::LocatorError::NotPart10) => {
+            crate::fuzz::TargetOutcome::CleanRejection
+        }
+        Err(_) => crate::fuzz::TargetOutcome::ParseFailure,
+    };
+    crate::fuzz::TargetObservation {
+        outcome,
+        operations,
+    }
+}
+
+fn fuzz_surface_name(surface: &crate::fuzz::MutationSurface) -> &'static str {
+    match surface {
+        crate::fuzz::MutationSurface::FileMeta => "file_meta",
+        crate::fuzz::MutationSurface::DatasetHeaders => "dataset_headers",
+        crate::fuzz::MutationSurface::SequenceStructure => "sequence_structure",
+        crate::fuzz::MutationSurface::Encapsulation => "encapsulation",
+        crate::fuzz::MutationSurface::PixelData => "pixel_data",
+        crate::fuzz::MutationSurface::TextValues => "text_values",
+    }
+}
+
+fn fuzz_outcome_name(outcome: crate::fuzz::TargetOutcomeClass) -> &'static str {
+    match outcome {
+        crate::fuzz::TargetOutcomeClass::Accepted => "accepted",
+        crate::fuzz::TargetOutcomeClass::CleanRejection => "clean_rejection",
+        crate::fuzz::TargetOutcomeClass::ParseFailure => "parse_failure",
+        crate::fuzz::TargetOutcomeClass::ValidationFailure => "validation_failure",
+        crate::fuzz::TargetOutcomeClass::DecodeFailure => "decode_failure",
+        crate::fuzz::TargetOutcomeClass::Crash => "crash",
+        crate::fuzz::TargetOutcomeClass::Hang => "hang",
+        crate::fuzz::TargetOutcomeClass::Timeout => "timeout",
+        crate::fuzz::TargetOutcomeClass::ResourceLimit => "resource_limit",
+    }
+}
+
+fn fuzz_payload_fingerprint(bytes: &[u8]) -> String {
+    let mut hash = 0xcbf29ce484222325_u64;
+    for byte in bytes {
+        hash ^= u64::from(*byte);
+        hash = hash.wrapping_mul(0x100000001b3);
+    }
+    format!("fnv1a64:{hash:016x}")
 }
 
 fn generated_manifest_str<'a>(
@@ -32710,6 +32986,72 @@ mod tests {
         .expect("all profile should ignore negative-only rows");
         assert!(all.files.is_empty());
         assert!(all.unavailable_cases.is_empty());
+    }
+
+    #[test]
+    fn fuzz_profile_emits_reproducible_payload_free_qualification() {
+        let mut registry: Value =
+            serde_json::from_str(include_str!("../cases/registry.json")).unwrap();
+        let fuzz_case = registry["cases"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|case| case["case_id"] == "fuzz/parser/bounded_seed_corpus")
+            .expect("fuzz registry row");
+        fuzz_case["status"] = Value::String("implemented".to_string());
+        fuzz_case["roadmap"] = Value::Null;
+        fuzz_case["blockers"] = serde_json::json!([]);
+        fuzz_case["determinism"] = Value::String("semantic_stable".to_string());
+
+        let first_root = ParametricMapStagingGuard::new();
+        let second_root = ParametricMapStagingGuard::new();
+        let run = |root: &ParametricMapStagingGuard| PreparedGenerationRun {
+            profile: "fuzz".to_string(),
+            out_dir: root.path().to_path_buf(),
+            manifest_path: root.path().join("manifest.json"),
+            seed: 7,
+            include_stress: false,
+        };
+        let standards_lock = "0000000000000000000000000000000000000000000000000000000000000000";
+        let first = write_supported_cases(&run(&first_root), &registry, standards_lock)
+            .expect("first bounded fuzz run");
+        let second = write_supported_cases(&run(&second_root), &registry, standards_lock)
+            .expect("second bounded fuzz run");
+
+        assert!(first.files.is_empty());
+        assert!(second.files.is_empty());
+        assert_eq!(
+            first.completed_case_ids,
+            vec!["fuzz/parser/bounded_seed_corpus"]
+        );
+        assert_eq!(first.qualifications, second.qualifications);
+        assert_eq!(first.qualifications.len(), 1);
+        let qualification = &first.qualifications[0];
+        assert_eq!(qualification["status"], "passed");
+        assert_eq!(qualification["counters"]["candidates"], 64);
+        assert_eq!(qualification["seeds"].as_array().unwrap().len(), 2);
+        assert_eq!(qualification["minimizations"].as_array().unwrap().len(), 2);
+        for outcome in ["crash", "hang", "timeout", "resource_limit"] {
+            assert_eq!(qualification["outcomes"][outcome], 0);
+        }
+        assert!(qualification.get("path").is_none());
+        assert!(qualification.get("bytes").is_none());
+        assert!(!first_root.path().join(".fuzz-private-sources").exists());
+        assert!(!second_root.path().join(".fuzz-private-sources").exists());
+
+        let manifest_schema: Value =
+            serde_json::from_str(include_str!("../schemas/manifest.schema.json")).unwrap();
+        let qualification_schema = serde_json::json!({
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$ref": "#/$defs/fuzz_qualification",
+            "$defs": manifest_schema["$defs"].clone()
+        });
+        let validator = jsonschema::validator_for(&qualification_schema).unwrap();
+        assert!(
+            validator.is_valid(qualification),
+            "qualification errors: {:?}",
+            validator.iter_errors(qualification).collect::<Vec<_>>()
+        );
     }
 
     fn generated_source_fixture(

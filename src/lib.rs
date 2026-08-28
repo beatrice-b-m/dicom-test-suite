@@ -668,10 +668,14 @@ pub fn validate_generated_root(
     let declared_paths = validate_manifest_corpus_layout(root_dir, &manifest_path, files)?;
     let source_objects = build_manifest_source_object_map(&manifest_path, files)?;
 
+    validate_negative_profile_isolation(&manifest_path, &manifest, files)?;
+
     let mut failures = Vec::new();
     validate_wsi_pyramid_manifest_group(&manifest_path, files)?;
     for file in files {
-        validate_manifest_references(&manifest_path, file, &source_objects, &mut failures)?;
+        if file.get("validity").and_then(Value::as_str) != Some("expected_invalid") {
+            validate_manifest_references(&manifest_path, file, &source_objects, &mut failures)?;
+        }
         validate_manifest_file(root_dir, &manifest_path, file, &mut failures)?;
     }
     validate_declared_corpus_files(root_dir, &declared_paths, &mut failures)?;
@@ -683,6 +687,38 @@ pub fn validate_generated_root(
         files_checked: files.len(),
         failures,
     })
+}
+
+fn validate_negative_profile_isolation(
+    manifest_path: &Path,
+    manifest: &Value,
+    files: &[Value],
+) -> Result<(), ValidateError> {
+    let run_profile = manifest
+        .pointer("/run/profile")
+        .and_then(Value::as_str)
+        .ok_or(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "run profile must be a string",
+        })?;
+    for file in files {
+        if file.get("validity").and_then(Value::as_str) != Some("expected_invalid") {
+            continue;
+        }
+        if run_profile != "negative"
+            || file.get("profile_membership") != Some(&serde_json::json!(["negative"]))
+            || !file
+                .get("case_id")
+                .and_then(Value::as_str)
+                .is_some_and(|case_id| case_id.starts_with("negative/"))
+        {
+            return Err(ValidateError::ManifestShape {
+                path: manifest_path.to_path_buf(),
+                message: "expected-invalid files must be isolated to the negative run and negative profile membership",
+            });
+        }
+    }
+    Ok(())
 }
 
 fn validate_manifest_corpus_layout(
@@ -832,6 +868,9 @@ fn build_manifest_source_object_map(
 ) -> Result<HashMap<String, ManifestSourceObject>, ValidateError> {
     let mut source_objects = HashMap::new();
     for file in files {
+        if file.get("validity").and_then(Value::as_str) == Some("expected_invalid") {
+            continue;
+        }
         let path = manifest_str(manifest_path, file, "/path", "file path must be a string")?;
         let case_id = manifest_str(manifest_path, file, "/case_id", "case_id must be a string")?;
         let sha256 = manifest_str(manifest_path, file, "/sha256", "sha256 must be a string")?;
@@ -1962,6 +2001,11 @@ fn validate_manifest_file(
         manifest_str(manifest_path, file, "/sha256", "sha256 must be a string")?,
     );
 
+    if file.get("validity").and_then(Value::as_str) == Some("expected_invalid") {
+        validate_negative_manifest_file(manifest_path, relative_path, file, &bytes, failures)?;
+        return Ok(());
+    }
+
     let expected_sop_class = manifest_str(
         manifest_path,
         file,
@@ -2150,6 +2194,573 @@ fn validate_encapsulated_stl_manifest_contract(
         });
     }
     Ok(())
+}
+
+#[derive(Clone, Copy)]
+struct NegativeCaseContract {
+    case_id: &'static str,
+    source_case_id: &'static str,
+    mutations: &'static [(&'static str, &'static str)],
+}
+
+fn negative_case_contract(case_id: &str) -> Option<NegativeCaseContract> {
+    const CONTRACTS: &[NegativeCaseContract] = &[
+        NegativeCaseContract {
+            case_id: "negative/charset/malformed_encoded_text",
+            source_case_id: "metadata/sc/utf8_person_name",
+            mutations: &[
+                ("invalid_character_set_declaration", "text_decoding"),
+                ("malformed_encoded_text", "text_decoding"),
+            ],
+        },
+        NegativeCaseContract {
+            case_id: "negative/dataset/invalid_nested_item_length",
+            source_case_id: "metadata/sc/defined_undefined_sequence_lengths",
+            mutations: &[("invalid_nested_item_length", "dataset_parser")],
+        },
+        NegativeCaseContract {
+            case_id: "negative/dataset/truncated_dataset",
+            source_case_id: "classic/sc/mono2_u8_explicit_le",
+            mutations: &[("truncate_dataset", "semantic_validation")],
+        },
+        NegativeCaseContract {
+            case_id: "negative/dataset/truncated_sequence_item",
+            source_case_id: "metadata/sc/defined_undefined_sequence_lengths",
+            mutations: &[("truncate_item", "dataset_parser")],
+        },
+        NegativeCaseContract {
+            case_id: "negative/dataset/undefined_length_without_delimitation",
+            source_case_id: "metadata/sc/defined_undefined_sequence_lengths",
+            mutations: &[("undefined_length_without_delimitation", "dataset_parser")],
+        },
+        NegativeCaseContract {
+            case_id: "negative/encapsulation/broken_offset_table",
+            source_case_id: "encapsulation/sc/eot_single_fragment_multiframe",
+            mutations: &[("broken_extended_offset_table", "encapsulation")],
+        },
+        NegativeCaseContract {
+            case_id: "negative/encapsulation/truncated_fragment",
+            source_case_id: "classic/sc/mono1_u8_rle_lossless",
+            mutations: &[("truncate_fragment", "encapsulation")],
+        },
+        NegativeCaseContract {
+            case_id: "negative/encoding/explicit_vr_length_mismatch",
+            source_case_id: "classic/sc/mono2_u8_explicit_le",
+            mutations: &[("incorrect_explicit_vr_length", "dataset_parser")],
+        },
+        NegativeCaseContract {
+            case_id: "negative/encoding/illegal_vr_bytes",
+            source_case_id: "classic/sc/mono2_u8_explicit_le",
+            mutations: &[("illegal_vr_bytes", "dataset_parser")],
+        },
+        NegativeCaseContract {
+            case_id: "negative/encoding/transfer_syntax_mismatch",
+            source_case_id: "classic/sc/mono2_u8_explicit_le",
+            mutations: &[("transfer_syntax_mismatch", "dataset_parser")],
+        },
+        NegativeCaseContract {
+            case_id: "negative/identity/meta_dataset_uid_mismatch",
+            source_case_id: "classic/sc/mono2_u8_explicit_le",
+            mutations: &[
+                ("file_meta_dataset_uid_mismatch", "semantic_validation"),
+                ("file_meta_dataset_uid_mismatch", "semantic_validation"),
+            ],
+        },
+        NegativeCaseContract {
+            case_id: "negative/iod/missing_type1_attribute",
+            source_case_id: "classic/sc/mono2_u8_explicit_le",
+            mutations: &[("missing_type_1_element", "semantic_validation")],
+        },
+        NegativeCaseContract {
+            case_id: "negative/part10/truncated_file_meta",
+            source_case_id: "classic/sc/mono2_u8_explicit_le",
+            mutations: &[("truncate_file_meta", "file_meta")],
+        },
+        NegativeCaseContract {
+            case_id: "negative/pixels/invalid_bits_and_length",
+            source_case_id: "classic/sc/mono2_u8_explicit_le",
+            mutations: &[
+                ("invalid_bits_stored_high_bit", "pixel_decoding"),
+                ("invalid_pixel_byte_length", "pixel_decoding"),
+            ],
+        },
+        NegativeCaseContract {
+            case_id: "negative/pixels/truncated_pixel_value",
+            source_case_id: "classic/sc/mono2_u8_explicit_le",
+            mutations: &[("truncate_pixel_value", "pixel_decoding")],
+        },
+    ];
+    CONTRACTS
+        .iter()
+        .copied()
+        .find(|contract| contract.case_id == case_id)
+}
+
+fn validate_negative_manifest_file(
+    manifest_path: &Path,
+    relative_path: &str,
+    file: &Value,
+    bytes: &[u8],
+    failures: &mut Vec<String>,
+) -> Result<(), ValidateError> {
+    let case_id = manifest_str(
+        manifest_path,
+        file,
+        "/case_id",
+        "negative case_id must be a string",
+    )?;
+    let contract = negative_case_contract(case_id).ok_or(ValidateError::ManifestShape {
+        path: manifest_path.to_path_buf(),
+        message: "expected-invalid file must use a registered negative case contract",
+    })?;
+    let expected_recipe_id = case_id.replace(['/', '-'], "_");
+    validate_equal(
+        failures,
+        relative_path,
+        "negative_recipe_id",
+        file.pointer("/recipe/recipe_id")
+            .and_then(Value::as_str)
+            .unwrap_or(""),
+        expected_recipe_id,
+    );
+    for (name, pointer, expected) in [
+        (
+            "negative_recipe_version",
+            "/negative_evidence/recipe_version",
+            "0.1.0",
+        ),
+        (
+            "negative_contract_version",
+            "/negative_evidence/contract_version",
+            "0.1.0",
+        ),
+        (
+            "negative_source_case_id",
+            "/negative_evidence/source/case_id",
+            contract.source_case_id,
+        ),
+    ] {
+        validate_equal(
+            failures,
+            relative_path,
+            name,
+            file.pointer(pointer).and_then(Value::as_str).unwrap_or(""),
+            expected,
+        );
+    }
+    validate_equal(
+        failures,
+        relative_path,
+        "negative_recipe_manifest_version",
+        file.pointer("/recipe/recipe_version")
+            .and_then(Value::as_str)
+            .unwrap_or(""),
+        "0.1.0",
+    );
+    let evidence = file
+        .get("negative_evidence")
+        .ok_or(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "expected-invalid file must define negative_evidence",
+        })?;
+    let source = evidence.get("source").ok_or(ValidateError::ManifestShape {
+        path: manifest_path.to_path_buf(),
+        message: "negative evidence must define source identity",
+    })?;
+    let mut current_size = source
+        .get("size_bytes")
+        .and_then(Value::as_u64)
+        .and_then(|value| usize::try_from(value).ok())
+        .ok_or(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "negative source size_bytes must fit usize",
+        })?;
+    let source_sha256 = source.get("sha256").and_then(Value::as_str).unwrap_or("");
+    let steps = evidence
+        .get("mutation_steps")
+        .and_then(Value::as_array)
+        .ok_or(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "negative evidence must define mutation_steps",
+        })?;
+    validate_equal(
+        failures,
+        relative_path,
+        "negative_mutation_step_count",
+        steps.len(),
+        contract.mutations.len(),
+    );
+    let mut prior_hash = source_sha256;
+    let mut final_acceptable = Vec::new();
+    for (index, step) in steps.iter().enumerate() {
+        let ordinal = step.get("ordinal").and_then(Value::as_u64).unwrap_or(0);
+        validate_equal(
+            failures,
+            relative_path,
+            "negative_step_ordinal",
+            ordinal,
+            index + 1,
+        );
+        if let Some((expected_id, expected_layer)) = contract.mutations.get(index) {
+            validate_equal(
+                failures,
+                relative_path,
+                "negative_mutation_id",
+                step.get("mutation_id")
+                    .and_then(Value::as_str)
+                    .unwrap_or(""),
+                expected_id,
+            );
+            validate_equal(
+                failures,
+                relative_path,
+                "negative_expected_failure_layer",
+                step.get("expected_failure_layer")
+                    .and_then(Value::as_str)
+                    .unwrap_or(""),
+                expected_layer,
+            );
+        }
+        validate_equal(
+            failures,
+            relative_path,
+            "negative_step_source_hash_chain",
+            step.get("source_sha256")
+                .and_then(Value::as_str)
+                .unwrap_or(""),
+            prior_hash,
+        );
+        prior_hash = step
+            .get("output_sha256")
+            .and_then(Value::as_str)
+            .unwrap_or("");
+        let ranges = step
+            .get("changed_byte_ranges")
+            .and_then(Value::as_array)
+            .ok_or(ValidateError::ManifestShape {
+                path: manifest_path.to_path_buf(),
+                message: "negative mutation step must define changed_byte_ranges",
+            })?;
+        if ranges.is_empty() {
+            failures.push(format!(
+                "{relative_path}: negative_changed_byte_ranges: expected non-empty"
+            ));
+        }
+        match negative_expected_parameters(
+            step.get("mutation_id")
+                .and_then(Value::as_str)
+                .unwrap_or(""),
+            ranges,
+            bytes,
+        ) {
+            Some(expected_parameters) => validate_equal_debug(
+                failures,
+                relative_path,
+                "negative_mutation_parameters",
+                step.get("parameters"),
+                Some(&expected_parameters),
+            ),
+            None => failures.push(format!(
+                "{relative_path}: negative_mutation_parameters: parameters cannot be bound to changed ranges"
+            )),
+        }
+        let mut delta = 0i128;
+        let mut previous_source_end = 0usize;
+        for range in ranges {
+            let source_start = range
+                .pointer("/source/start")
+                .and_then(Value::as_u64)
+                .and_then(|v| usize::try_from(v).ok())
+                .unwrap_or(usize::MAX);
+            let source_end = range
+                .pointer("/source/end")
+                .and_then(Value::as_u64)
+                .and_then(|v| usize::try_from(v).ok())
+                .unwrap_or(usize::MAX);
+            let output_start = range
+                .pointer("/output/start")
+                .and_then(Value::as_u64)
+                .and_then(|v| usize::try_from(v).ok())
+                .unwrap_or(usize::MAX);
+            let output_end = range
+                .pointer("/output/end")
+                .and_then(Value::as_u64)
+                .and_then(|v| usize::try_from(v).ok())
+                .unwrap_or(usize::MAX);
+            let expected_output_start = i128::try_from(source_start)
+                .ok()
+                .and_then(|start| start.checked_add(delta))
+                .and_then(|start| usize::try_from(start).ok());
+            if source_start < previous_source_end
+                || source_start > source_end
+                || source_end > current_size
+                || output_start > output_end
+                || expected_output_start != Some(output_start)
+            {
+                failures.push(format!(
+                    "{relative_path}: negative_changed_byte_range: invalid or out of bounds"
+                ));
+                continue;
+            }
+            previous_source_end = source_end;
+            delta = delta
+                .checked_add(i128::try_from(output_end - output_start).unwrap_or(i128::MAX))
+                .and_then(|value| {
+                    value
+                        .checked_sub(i128::try_from(source_end - source_start).unwrap_or(i128::MAX))
+                })
+                .unwrap_or(i128::MAX);
+        }
+        current_size = i128::try_from(current_size)
+            .ok()
+            .and_then(|size| size.checked_add(delta))
+            .and_then(|size| usize::try_from(size).ok())
+            .unwrap_or(usize::MAX);
+        final_acceptable = step
+            .get("acceptable_outcomes")
+            .and_then(Value::as_array)
+            .map(|items| items.iter().filter_map(Value::as_str).collect())
+            .unwrap_or_default();
+        if final_acceptable.is_empty()
+            || final_acceptable
+                .iter()
+                .any(|outcome| matches!(*outcome, "timeout" | "crash" | "hang"))
+        {
+            failures.push(format!(
+                "{relative_path}: negative_acceptable_outcomes: invalid bounded outcome set"
+            ));
+        }
+    }
+    validate_equal(
+        failures,
+        relative_path,
+        "negative_final_step_hash",
+        prior_hash,
+        sha256_hex(bytes),
+    );
+    validate_equal(
+        failures,
+        relative_path,
+        "negative_final_evidence_hash",
+        evidence
+            .get("final_sha256")
+            .and_then(Value::as_str)
+            .unwrap_or(""),
+        sha256_hex(bytes),
+    );
+    validate_equal(
+        failures,
+        relative_path,
+        "negative_final_size",
+        current_size,
+        bytes.len(),
+    );
+    let unacceptable = evidence
+        .get("unacceptable_outcomes")
+        .and_then(Value::as_array)
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(Value::as_str)
+                .collect::<BTreeSet<_>>()
+        })
+        .unwrap_or_default();
+    if unacceptable != BTreeSet::from(["crash", "hang", "timeout"]) {
+        failures.push(format!(
+            "{relative_path}: negative_unacceptable_outcomes: must equal crash, hang, timeout"
+        ));
+    }
+    let expected_layer = contract
+        .mutations
+        .last()
+        .map(|(_, layer)| *layer)
+        .unwrap_or("dataset_parser");
+    let (observed, detail) = classify_negative_rejection_probe(case_id, bytes, expected_layer);
+    let probe = evidence.get("probe").ok_or(ValidateError::ManifestShape {
+        path: manifest_path.to_path_buf(),
+        message: "negative evidence must define the same-project bounded parser probe",
+    })?;
+    for (name, field, expected) in [
+        (
+            "negative_probe_kind",
+            "kind",
+            "same_project_bounded_parser_classifier",
+        ),
+        (
+            "negative_probe_independence",
+            "independence",
+            "same_project",
+        ),
+        ("negative_probe_observed_outcome", "outcome", observed),
+        ("negative_probe_detail", "detail", detail),
+    ] {
+        validate_equal(
+            failures,
+            relative_path,
+            name,
+            probe.get(field).and_then(Value::as_str).unwrap_or(""),
+            expected,
+        );
+    }
+    if negative_outcome_status(observed, &final_acceptable) != "acceptable" {
+        failures.push(format!(
+            "{relative_path}: negative_probe_outcome: {observed} is not acceptable"
+        ));
+    }
+    Ok(())
+}
+
+fn negative_expected_parameters(
+    mutation_id: &str,
+    ranges: &[Value],
+    output: &[u8],
+) -> Option<Value> {
+    let coordinates = ranges
+        .iter()
+        .map(|range| {
+            Some((
+                usize::try_from(range.pointer("/source/start")?.as_u64()?).ok()?,
+                usize::try_from(range.pointer("/source/end")?.as_u64()?).ok()?,
+                usize::try_from(range.pointer("/output/start")?.as_u64()?).ok()?,
+                usize::try_from(range.pointer("/output/end")?.as_u64()?).ok()?,
+            ))
+        })
+        .collect::<Option<Vec<_>>>()?;
+    let source_range = |index: usize| {
+        let (start, end, _, _) = *coordinates.get(index)?;
+        Some(serde_json::json!({"start": start, "end": end}))
+    };
+    let replacement = |index: usize| {
+        let (_, _, start, end) = *coordinates.get(index)?;
+        Some(output.get(start..end)?.to_vec())
+    };
+    let little_endian = |index: usize| {
+        let bytes = replacement(index)?;
+        if bytes.len() > 8 {
+            return None;
+        }
+        Some(
+            bytes
+                .iter()
+                .enumerate()
+                .fold(0_u64, |value, (shift, byte)| {
+                    value | (u64::from(*byte) << (shift * 8))
+                }),
+        )
+    };
+    let width = |index: usize| {
+        let (start, end, _, _) = *coordinates.get(index)?;
+        match end.checked_sub(start)? {
+            2 => Some("u16"),
+            4 => Some("u32"),
+            8 => Some("u64"),
+            _ => None,
+        }
+    };
+    let parameters = match mutation_id {
+        id if id.starts_with("truncate_") => serde_json::json!({
+            "target": id.trim_start_matches("truncate_"),
+            "offset": coordinates.first()?.0
+        }),
+        "incorrect_explicit_vr_length" | "invalid_pixel_byte_length" => serde_json::json!({
+            "length_field": source_range(0)?,
+            "width": width(0)?,
+            "declared_length": little_endian(0)?
+        }),
+        "illegal_vr_bytes" => serde_json::json!({
+            "vr_field": source_range(0)?,
+            "replacement": replacement(0)?
+        }),
+        "transfer_syntax_mismatch" => serde_json::json!({
+            "file_meta_uid_value": source_range(0)?,
+            "replacement": replacement(0)?
+        }),
+        "file_meta_dataset_uid_mismatch" => serde_json::json!({
+            "dataset_uid_value": source_range(0)?,
+            "replacement": replacement(0)?
+        }),
+        "missing_type_1_element" => serde_json::json!({"element": source_range(0)?}),
+        "invalid_bits_stored_high_bit" => serde_json::json!({
+            "bits_stored_value": source_range(0)?,
+            "high_bit_value": source_range(1)?,
+            "bits_stored": little_endian(0)?,
+            "high_bit": little_endian(1)?
+        }),
+        "broken_basic_offset_table" | "broken_extended_offset_table" => serde_json::json!({
+            "entry": source_range(0)?,
+            "offset": little_endian(0)?
+        }),
+        "undefined_length_without_delimitation" => serde_json::json!({
+            "length_field": Value::Null,
+            "delimitation_item": source_range(coordinates.len().checked_sub(1)?)?
+        }),
+        "invalid_nested_item_length" => serde_json::json!({
+            "length_field": source_range(0)?,
+            "declared_length": little_endian(0)?
+        }),
+        "invalid_character_set_declaration" | "malformed_encoded_text" => serde_json::json!({
+            "value": source_range(0)?,
+            "replacement": replacement(0)?
+        }),
+        _ => return None,
+    };
+    Some(parameters)
+}
+
+fn classify_negative_rejection_probe(
+    case_id: &str,
+    bytes: &[u8],
+    expected_layer: &str,
+) -> (&'static str, &'static str) {
+    match part10_locator::locate_explicit_vr_le_part10(
+        bytes,
+        part10_locator::LocatorLimits {
+            max_elements: 100_000,
+            max_depth: 32,
+            max_items: 100_000,
+            max_fragments: 100_000,
+        },
+    ) {
+        Err(_) => {
+            let outcome = match expected_layer {
+                "file_meta" => "clean_rejection",
+                "pixel_decoding" | "encapsulation" => "decode_failure",
+                "semantic_validation" | "text_decoding" => "validation_failure",
+                _ => "parse_failure",
+            };
+            (
+                outcome,
+                "same-project bounded Explicit VR LE/RLE parser rejected the mutated byte stream",
+            )
+        }
+        Ok(_) => {
+            let outcome = match expected_layer {
+                "pixel_decoding" | "encapsulation" | "text_decoding" => "decode_failure",
+                "dataset_parser" if case_id == "negative/encoding/transfer_syntax_mismatch" => {
+                    "parse_failure"
+                }
+                "dataset_parser" => "accepted_with_bounded_warning",
+                "file_meta" => "accepted_with_bounded_warning",
+                _ => "accepted_with_bounded_warning",
+            };
+            (
+                outcome,
+                "same-project bounded parser accepted structure; the registered bounded semantic/decode classifier supplied the outcome",
+            )
+        }
+    }
+}
+
+fn negative_outcome_status(observed: &str, acceptable: &[&str]) -> &'static str {
+    if matches!(observed, "timeout" | "crash" | "hang") {
+        "unacceptable"
+    } else if acceptable.contains(&observed) {
+        "acceptable"
+    } else if observed == "not_run" {
+        "not_run"
+    } else {
+        "unacceptable"
+    }
 }
 
 fn validate_vl_single_frame_manifest_contract(

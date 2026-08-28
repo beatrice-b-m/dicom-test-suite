@@ -674,6 +674,7 @@ pub fn validate_generated_root(
 
     validate_negative_profile_isolation(&manifest_path, &manifest, files)?;
     validate_fuzz_profile_qualification(&manifest_path, &manifest, files)?;
+    validate_stress_profile_qualifications(&manifest_path, &manifest, files)?;
 
     let mut failures = Vec::new();
     validate_wsi_pyramid_manifest_group(&manifest_path, files)?;
@@ -846,6 +847,214 @@ fn validate_fuzz_profile_qualification(
         });
     }
     Ok(())
+}
+
+fn validate_stress_profile_qualifications(
+    manifest_path: &Path,
+    manifest: &Value,
+    files: &[Value],
+) -> Result<(), ValidateError> {
+    let run_profile = manifest
+        .pointer("/run/profile")
+        .and_then(Value::as_str)
+        .ok_or(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "run profile must be a string",
+        })?;
+    let qualifications = manifest
+        .get("qualifications")
+        .and_then(Value::as_array)
+        .ok_or(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "qualifications must be an array",
+        })?;
+    let stress_qualifications = qualifications
+        .iter()
+        .filter(|qualification| {
+            qualification.get("kind").and_then(Value::as_str) == Some("stress_case_run")
+        })
+        .collect::<Vec<_>>();
+
+    if run_profile != "stress" {
+        if !stress_qualifications.is_empty() {
+            return Err(ValidateError::ManifestShape {
+                path: manifest_path.to_path_buf(),
+                message: "stress qualifications must be isolated to the stress profile",
+            });
+        }
+        return Ok(());
+    }
+
+    let mut qualified_case_ids = BTreeSet::new();
+    for qualification in stress_qualifications {
+        let case_id = qualification.get("case_id").and_then(Value::as_str).ok_or(
+            ValidateError::ManifestShape {
+                path: manifest_path.to_path_buf(),
+                message: "stress qualification case_id must be a string",
+            },
+        )?;
+        if !qualified_case_ids.insert(case_id) {
+            return Err(ValidateError::ManifestShape {
+                path: manifest_path.to_path_buf(),
+                message: "stress qualification case_id values must be unique",
+            });
+        }
+        let Some((recipe, requested)) = stress_qualification_contract(case_id) else {
+            return Err(ValidateError::ManifestShape {
+                path: manifest_path.to_path_buf(),
+                message: "stress qualification case_id is not an approved reduced recipe",
+            });
+        };
+        if qualification.get("profile").and_then(Value::as_str) != Some("stress")
+            || qualification
+                .get("contract_version")
+                .and_then(Value::as_str)
+                != Some("0.1.0")
+            || qualification.get("recipe").and_then(Value::as_str) != Some(recipe)
+            || qualification.get("scale").and_then(Value::as_str) != Some("reduced")
+            || qualification.get("outcome").and_then(Value::as_str) != Some("completed")
+            || qualification.get("status").and_then(Value::as_str) != Some("passed")
+            || qualification.get("payload_policy").and_then(Value::as_str)
+                != Some("generated_payloads_uncommitted")
+            || qualification.get("requested") != Some(&requested)
+        {
+            return Err(ValidateError::ManifestShape {
+                path: manifest_path.to_path_buf(),
+                message: "stress qualification identity, reduced request, or outcome is invalid",
+            });
+        }
+        let actual = qualification
+            .get("actual")
+            .ok_or(ValidateError::ManifestShape {
+                path: manifest_path.to_path_buf(),
+                message: "stress qualification actual scale is missing",
+            })?;
+        for field in [
+            "instances",
+            "frames",
+            "fragments",
+            "payload_bytes",
+            "rows",
+            "columns",
+            "tile_rows",
+            "tile_columns",
+            "pyramid_levels",
+            "sequence_depth",
+            "metadata_values",
+        ] {
+            if actual.get(field) != requested.get(field) {
+                return Err(ValidateError::ManifestShape {
+                    path: manifest_path.to_path_buf(),
+                    message: "stress qualification actual scale does not equal its approved request",
+                });
+            }
+        }
+        let output_bytes = files
+            .iter()
+            .filter(|file| file.get("case_id").and_then(Value::as_str) == Some(case_id))
+            .map(|file| file.get("size_bytes").and_then(Value::as_u64).unwrap_or(0))
+            .sum::<u64>();
+        if output_bytes == 0
+            || actual.get("output_bytes").and_then(Value::as_u64) != Some(output_bytes)
+            || qualification
+                .pointer("/observation/output_bytes")
+                .and_then(Value::as_u64)
+                != Some(output_bytes)
+        {
+            return Err(ValidateError::ManifestShape {
+                path: manifest_path.to_path_buf(),
+                message: "stress qualification output bytes must equal its generated files",
+            });
+        }
+        let output_ceiling = qualification
+            .pointer("/resource_envelope/output_bytes")
+            .and_then(Value::as_u64)
+            .unwrap_or(0);
+        let elapsed = qualification
+            .pointer("/observation/elapsed_milliseconds")
+            .and_then(Value::as_u64)
+            .unwrap_or(u64::MAX);
+        let wall_ceiling = qualification
+            .pointer("/resource_envelope/case_wall_milliseconds")
+            .and_then(Value::as_u64)
+            .unwrap_or(0);
+        if output_bytes > output_ceiling || elapsed > wall_ceiling {
+            return Err(ValidateError::ManifestShape {
+                path: manifest_path.to_path_buf(),
+                message: "stress qualification exceeds its declared resource envelope",
+            });
+        }
+    }
+
+    for case_id in files.iter().filter_map(|file| {
+        file.get("case_id")
+            .and_then(Value::as_str)
+            .filter(|case_id| case_id.starts_with("stress/"))
+    }) {
+        if !qualified_case_ids.contains(case_id) {
+            return Err(ValidateError::ManifestShape {
+                path: manifest_path.to_path_buf(),
+                message: "every generated stress case must have qualification evidence",
+            });
+        }
+    }
+    Ok(())
+}
+
+fn stress_qualification_contract(case_id: &str) -> Option<(&'static str, Value)> {
+    let mib = 1024_u64 * 1024;
+    let (recipe, parameters) = match case_id {
+        "stress/sc/large_encapsulated_multifragment" => (
+            "encapsulated_eot",
+            (0, 256, 64, 64 * mib, 0, 0, 0, 0, 0, 0, 0),
+        ),
+        "stress/enhanced-ct/many_frames" => ("enhanced_ct", (1, 256, 0, 0, 64, 64, 0, 0, 0, 0, 0)),
+        "stress/study/high_instance_count_ct" => {
+            ("ct_study", (128, 128, 0, 0, 64, 64, 0, 0, 0, 0, 0))
+        }
+        "stress/sc/large_bulk_data" => {
+            ("native_bulk_data", (0, 0, 0, 64 * mib, 0, 0, 0, 0, 0, 0, 0))
+        }
+        "stress/sc/deep_nested_sequences" => (
+            "nested_sequences",
+            (0, 0, 0, 16 * mib, 0, 0, 0, 0, 0, 32, 0),
+        ),
+        "stress/sc/long_value_metadata" => {
+            ("long_metadata", (0, 0, 0, mib, 0, 0, 0, 0, 0, 0, 1024))
+        }
+        "stress/wsi/large_pyramid" => ("wsi_pyramid", (3, 0, 0, 0, 1024, 1024, 256, 256, 3, 0, 0)),
+        _ => return None,
+    };
+    let (
+        instances,
+        frames,
+        fragments,
+        payload_bytes,
+        rows,
+        columns,
+        tile_rows,
+        tile_columns,
+        pyramid_levels,
+        sequence_depth,
+        metadata_values,
+    ) = parameters;
+    Some((
+        recipe,
+        serde_json::json!({
+            "instances": instances,
+            "frames": frames,
+            "fragments": fragments,
+            "payload_bytes": payload_bytes,
+            "output_bytes": 0,
+            "rows": rows,
+            "columns": columns,
+            "tile_rows": tile_rows,
+            "tile_columns": tile_columns,
+            "pyramid_levels": pyramid_levels,
+            "sequence_depth": sequence_depth,
+            "metadata_values": metadata_values
+        }),
+    ))
 }
 
 fn validate_manifest_corpus_layout(
@@ -38559,6 +38768,83 @@ mod tests {
                 Path::new("manifest.json"),
                 &manifest,
                 &[serde_json::json!({"path": "uncommitted.dcm"})],
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn stress_validation_binds_reduced_scale_to_generated_artifacts() {
+        let requested = stress_qualification_contract("stress/enhanced-ct/many_frames")
+            .unwrap()
+            .1;
+        let mut actual = requested.clone();
+        actual["output_bytes"] = Value::from(123);
+        let qualification = serde_json::json!({
+            "case_id": "stress/enhanced-ct/many_frames",
+            "kind": "stress_case_run",
+            "contract_version": "0.1.0",
+            "profile": "stress",
+            "recipe": "enhanced_ct",
+            "scale": "reduced",
+            "requested": requested,
+            "actual": actual,
+            "resource_envelope": {
+                "output_bytes": 268435456,
+                "peak_rss_bytes": 536870912,
+                "case_wall_milliseconds": 120000,
+                "job_wall_milliseconds": 600000,
+                "recipe_output_bytes": null
+            },
+            "observation": {
+                "output_bytes": 123,
+                "elapsed_milliseconds": 100,
+                "peak_rss_bytes": null
+            },
+            "outcome": "completed",
+            "payload_policy": "generated_payloads_uncommitted",
+            "status": "passed"
+        });
+        let file = serde_json::json!({
+            "case_id": "stress/enhanced-ct/many_frames",
+            "size_bytes": 123
+        });
+        let manifest = serde_json::json!({
+            "run": {"profile": "stress"},
+            "qualifications": [qualification]
+        });
+        validate_stress_profile_qualifications(
+            Path::new("manifest.json"),
+            &manifest,
+            std::slice::from_ref(&file),
+        )
+        .expect("exact reduced stress evidence should pass");
+
+        let mut forged = manifest.clone();
+        forged["qualifications"][0]["actual"]["frames"] = Value::from(255);
+        assert!(
+            validate_stress_profile_qualifications(
+                Path::new("manifest.json"),
+                &forged,
+                std::slice::from_ref(&file),
+            )
+            .is_err()
+        );
+        let mut wrong_bytes = manifest.clone();
+        wrong_bytes["qualifications"][0]["observation"]["output_bytes"] = Value::from(122);
+        assert!(
+            validate_stress_profile_qualifications(
+                Path::new("manifest.json"),
+                &wrong_bytes,
+                std::slice::from_ref(&file),
+            )
+            .is_err()
+        );
+        assert!(
+            validate_stress_profile_qualifications(
+                Path::new("manifest.json"),
+                &serde_json::json!({"run": {"profile": "stress"}, "qualifications": []}),
+                &[file],
             )
             .is_err()
         );

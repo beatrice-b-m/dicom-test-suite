@@ -1,13 +1,13 @@
 const HEADER_LEN: usize = 80;
 const TRIANGLE_RECORD_LEN: usize = 50;
 
-pub(super) const TRIANGLE_COUNT: u32 = 4;
-pub(super) const PAYLOAD_LEN: usize =
+pub(crate) const TRIANGLE_COUNT: u32 = 4;
+pub(crate) const PAYLOAD_LEN: usize =
     HEADER_LEN + 4 + TRIANGLE_RECORD_LEN * TRIANGLE_COUNT as usize;
-pub(super) const MIME_TYPE: &str = "model/stl";
-pub(super) const UNIT_CODE_VALUE: &str = "mm";
-pub(super) const UNIT_CODING_SCHEME: &str = "UCUM";
-pub(super) const UNIT_CODE_MEANING: &str = "millimeter";
+pub(crate) const MIME_TYPE: &str = "model/stl";
+pub(crate) const UNIT_CODE_VALUE: &str = "mm";
+pub(crate) const UNIT_CODING_SCHEME: &str = "UCUM";
+pub(crate) const UNIT_CODE_MEANING: &str = "millimeter";
 
 const HEADER: &[u8] = b"dicom-test-suite synthetic closed tetrahedron";
 const ROOT_THREE_RECIPROCAL: f32 = 0.577_350_26;
@@ -47,7 +47,7 @@ const TRIANGLES: [Triangle; TRIANGLE_COUNT as usize] = [
     },
 ];
 
-pub(super) fn closed_tetrahedron_binary_stl() -> Vec<u8> {
+pub(crate) fn closed_tetrahedron_binary_stl() -> Vec<u8> {
     let mut payload = Vec::with_capacity(PAYLOAD_LEN);
     payload.extend_from_slice(HEADER);
     payload.resize(HEADER_LEN, 0);

@@ -54,6 +54,12 @@ use native::deformable_spatial_registration::{
     VECTOR_GRID_VALUES as DEFORMABLE_VECTOR_GRID_VALUES, build_deformable_spatial_registration,
 };
 use native::empty_type2_sc::{EMPTY_TYPE2_SC_RECIPE, EmptyType2ScRecipe};
+use native::encapsulated_stl::{
+    MIME_TYPE as STL_MIME_TYPE, PAYLOAD_LEN as STL_PAYLOAD_LEN,
+    TRIANGLE_COUNT as STL_TRIANGLE_COUNT, UNIT_CODE_MEANING as STL_UNIT_CODE_MEANING,
+    UNIT_CODE_VALUE as STL_UNIT_CODE_VALUE, UNIT_CODING_SCHEME as STL_UNIT_CODING_SCHEME,
+    closed_tetrahedron_binary_stl,
+};
 use native::general_ecg::{
     GENERAL_ECG_AGGREGATE_SHA256, GENERAL_ECG_OUTPUT_FILE, GENERAL_ECG_STORAGE_UID,
     GENERAL_ECG_TOTAL_CHANNEL_COUNT, GENERAL_ECG_TOTAL_PAYLOAD_LENGTH, GeneralEcgInput,
@@ -275,6 +281,7 @@ const RT_IMAGE_RECIPE_VERSION: &str = "0.1.0";
 const RT_RADIATION_RECIPE_VERSION: &str = "0.1.0";
 const RT_RADIATION_SET_RECIPE_VERSION: &str = "0.1.0";
 const ENCAPSULATED_PDF_RECIPE_VERSION: &str = "0.1.0";
+const ENCAPSULATED_STL_RECIPE_VERSION: &str = "0.1.0";
 const SEGMENTATION_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.66.4";
 const LABEL_MAP_SEGMENTATION_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.66.7";
 const GRAYSCALE_SOFTCOPY_PRESENTATION_STATE_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.11.1";
@@ -285,6 +292,7 @@ const KEY_OBJECT_SELECTION_DOCUMENT_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1
 const RT_STRUCTURE_SET_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.481.3";
 const RT_DOSE_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.481.2";
 const ENCAPSULATED_PDF_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.104.1";
+const ENCAPSULATED_STL_STORAGE_UID: &str = "1.2.840.10008.5.1.4.1.1.104.3";
 const PARAMETRIC_MAP_RECIPE_VERSION: &str = "0.1.0";
 const PARAMETRIC_MAP_SOP_CLASS_UID: &str = "1.2.840.10008.5.1.4.1.1.30";
 const PARAMETRIC_MAP_TRANSFER_SYNTAX_UID: &str = "1.2.840.10008.1.2.1";
@@ -3205,6 +3213,21 @@ const ENCAPSULATED_PDF_RECIPES: &[EncapsulatedPdfRecipe] = &[EncapsulatedPdfReci
 }];
 
 #[derive(Debug, Clone, Copy)]
+struct EncapsulatedStlRecipe {
+    case_id: &'static str,
+    recipe_id: &'static str,
+    document_title: &'static str,
+    content_description: &'static str,
+}
+
+const ENCAPSULATED_STL_RECIPES: &[EncapsulatedStlRecipe] = &[EncapsulatedStlRecipe {
+    case_id: "derived/mesh/encapsulated_stl",
+    recipe_id: "derived_mesh_encapsulated_stl",
+    document_title: "DTS Synthetic Closed Tetrahedron",
+    content_description: "Deterministic closed tetrahedron manufacturing model",
+}];
+
+#[derive(Debug, Clone, Copy)]
 struct EnhancedMrRecipe {
     case_id: &'static str,
     recipe_id: &'static str,
@@ -4770,6 +4793,20 @@ pub(crate) fn write_supported_cases(
             continue;
         }
         context.record_one(write_encapsulated_pdf_case(
+            run,
+            case,
+            *recipe,
+            standards_lock_sha256,
+        )?)?;
+    }
+    for recipe in ENCAPSULATED_STL_RECIPES {
+        let Some(case) = registry_case(registry, recipe.case_id)? else {
+            continue;
+        };
+        if !should_generate_case(case, run)? {
+            continue;
+        }
+        context.record_one(write_encapsulated_stl_case(
             run,
             case,
             *recipe,
@@ -17306,6 +17343,322 @@ fn write_encapsulated_pdf_case(
     })
 }
 
+fn write_encapsulated_stl_case(
+    run: &PreparedGenerationRun,
+    case: &Value,
+    recipe: EncapsulatedStlRecipe,
+    standards_lock_sha256: &str,
+) -> Result<GeneratedFile, GenerateError> {
+    let study_instance_uid = deterministic_encapsulated_stl_uid(
+        standards_lock_sha256,
+        recipe,
+        run.seed,
+        UidRole::StudyInstance,
+    );
+    let series_instance_uid = deterministic_encapsulated_stl_uid(
+        standards_lock_sha256,
+        recipe,
+        run.seed,
+        UidRole::SeriesInstance,
+    );
+    let sop_instance_uid = deterministic_encapsulated_stl_uid(
+        standards_lock_sha256,
+        recipe,
+        run.seed,
+        UidRole::SopInstance,
+    );
+    let frame_of_reference_uid = deterministic_encapsulated_stl_uid(
+        standards_lock_sha256,
+        recipe,
+        run.seed,
+        UidRole::FrameOfReference,
+    );
+    let implementation_class_uid = deterministic_implementation_uid(standards_lock_sha256);
+    let document_bytes = closed_tetrahedron_binary_stl();
+
+    let relative_path = format!("{}/instance.dcm", recipe.case_id);
+    let path = run.out_dir.join(&relative_path);
+    let case_dir = path.parent().ok_or_else(|| GenerateError::MetadataShape {
+        path: PathBuf::from(&relative_path),
+        message: "generated Encapsulated STL path must have a parent directory",
+    })?;
+    fs::create_dir_all(case_dir).map_err(|source| GenerateError::CreateCaseOutputDir {
+        path: case_dir.to_path_buf(),
+        source,
+    })?;
+
+    let mut obj = InMemDicomObject::new_empty();
+    put_str(&mut obj, tags::SPECIFIC_CHARACTER_SET, VR::CS, "ISO_IR 192");
+    put_str(
+        &mut obj,
+        tags::SOP_CLASS_UID,
+        VR::UI,
+        ENCAPSULATED_STL_STORAGE_UID,
+    );
+    put_str(&mut obj, tags::SOP_INSTANCE_UID, VR::UI, &sop_instance_uid);
+    put_str(&mut obj, tags::SYNTHETIC_DATA, VR::CS, "YES");
+    put_str(&mut obj, tags::INSTANCE_CREATION_DATE, VR::DA, "20260101");
+    put_str(&mut obj, tags::INSTANCE_CREATION_TIME, VR::TM, "000000");
+    put_str(
+        &mut obj,
+        tags::INSTANCE_CREATOR_UID,
+        VR::UI,
+        &implementation_class_uid,
+    );
+
+    put_str(&mut obj, tags::PATIENT_NAME, VR::PN, "DTS^Synthetic^Mesh");
+    put_str(&mut obj, tags::PATIENT_ID, VR::LO, "DTS-MESH-001");
+    put_str(&mut obj, tags::PATIENT_BIRTH_DATE, VR::DA, "");
+    put_str(&mut obj, tags::PATIENT_SEX, VR::CS, "");
+
+    put_str(
+        &mut obj,
+        tags::STUDY_INSTANCE_UID,
+        VR::UI,
+        &study_instance_uid,
+    );
+    put_str(&mut obj, tags::STUDY_DATE, VR::DA, "20260101");
+    put_str(&mut obj, tags::STUDY_TIME, VR::TM, "000000");
+    put_str(&mut obj, tags::REFERRING_PHYSICIAN_NAME, VR::PN, "");
+    put_str(&mut obj, tags::STUDY_ID, VR::SH, "DTS-MESH");
+    put_str(&mut obj, tags::ACCESSION_NUMBER, VR::SH, "");
+
+    put_str(&mut obj, tags::MODALITY, VR::CS, "M3D");
+    put_str(
+        &mut obj,
+        tags::SERIES_INSTANCE_UID,
+        VR::UI,
+        &series_instance_uid,
+    );
+    put_str(&mut obj, tags::SERIES_NUMBER, VR::IS, "82");
+    put_str(
+        &mut obj,
+        tags::SERIES_DESCRIPTION,
+        VR::LO,
+        "DTS synthetic manufacturing model",
+    );
+
+    put_str(
+        &mut obj,
+        tags::FRAME_OF_REFERENCE_UID,
+        VR::UI,
+        &frame_of_reference_uid,
+    );
+    put_str(&mut obj, tags::POSITION_REFERENCE_INDICATOR, VR::LO, "");
+
+    put_str(&mut obj, tags::MANUFACTURER, VR::LO, "dicom-test-suite");
+    put_str(
+        &mut obj,
+        tags::MANUFACTURER_MODEL_NAME,
+        VR::LO,
+        recipe.recipe_id,
+    );
+    put_str(&mut obj, tags::DEVICE_SERIAL_NUMBER, VR::LO, "DTS-STL-0001");
+    put_str(
+        &mut obj,
+        tags::SOFTWARE_VERSIONS,
+        VR::LO,
+        crate::PACKAGE_VERSION,
+    );
+
+    put_str(&mut obj, tags::INSTANCE_NUMBER, VR::IS, "1");
+    put_str(&mut obj, tags::CONTENT_DATE, VR::DA, "20260101");
+    put_str(&mut obj, tags::CONTENT_TIME, VR::TM, "000000");
+    put_str(
+        &mut obj,
+        tags::ACQUISITION_DATE_TIME,
+        VR::DT,
+        "20260101000000+0000",
+    );
+    put_str(&mut obj, tags::BURNED_IN_ANNOTATION, VR::CS, "NO");
+    put_str(&mut obj, tags::RECOGNIZABLE_VISUAL_FEATURES, VR::CS, "NO");
+    put_code_sequence(
+        &mut obj,
+        tags::CONCEPT_NAME_CODE_SEQUENCE,
+        "129006",
+        "DCM",
+        "Anatomical Model",
+    );
+    put_str(
+        &mut obj,
+        tags::DOCUMENT_TITLE,
+        VR::ST,
+        recipe.document_title,
+    );
+    put_str(
+        &mut obj,
+        tags::MIME_TYPE_OF_ENCAPSULATED_DOCUMENT,
+        VR::LO,
+        STL_MIME_TYPE,
+    );
+    put_u32(
+        &mut obj,
+        tags::ENCAPSULATED_DOCUMENT_LENGTH,
+        VR::UL,
+        document_bytes.len() as u32,
+    );
+    obj.put(DataElement::new(
+        tags::ENCAPSULATED_DOCUMENT,
+        VR::OB,
+        PrimitiveValue::from(document_bytes.as_slice()),
+    ));
+    put_code_sequence(
+        &mut obj,
+        tags::MEASUREMENT_UNITS_CODE_SEQUENCE,
+        STL_UNIT_CODE_VALUE,
+        STL_UNIT_CODING_SCHEME,
+        STL_UNIT_CODE_MEANING,
+    );
+    put_str(&mut obj, tags::MODEL_MODIFICATION, VR::CS, "NO");
+    put_str(&mut obj, tags::MODEL_MIRRORING, VR::CS, "NO");
+    put_str(
+        &mut obj,
+        tags::CONTENT_DESCRIPTION,
+        VR::LO,
+        recipe.content_description,
+    );
+
+    let file_obj = obj
+        .with_meta(
+            FileMetaTableBuilder::new()
+                .transfer_syntax(EXPLICIT_VR_LITTLE_ENDIAN.uid)
+                .implementation_class_uid(&implementation_class_uid)
+                .implementation_version_name(crate::IMPLEMENTATION_VERSION_NAME),
+        )
+        .map_err(|err| GenerateError::WriteDicomFile {
+            path: path.clone(),
+            message: err.to_string(),
+        })?;
+    file_obj
+        .write_to_file(&path)
+        .map_err(|err| GenerateError::WriteDicomFile {
+            path: path.clone(),
+            message: err.to_string(),
+        })?;
+
+    let validated = reopen_and_validate_encapsulated_stl(
+        &path,
+        &sop_instance_uid,
+        &frame_of_reference_uid,
+        &implementation_class_uid,
+        &document_bytes,
+    )?;
+
+    Ok(GeneratedFile {
+        case_id: recipe.case_id.to_string(),
+        manifest_entry: encapsulated_stl_manifest_entry(
+            case,
+            recipe,
+            &relative_path,
+            &study_instance_uid,
+            &series_instance_uid,
+            &sop_instance_uid,
+            &frame_of_reference_uid,
+            &implementation_class_uid,
+            &document_bytes,
+            &validated.0,
+            validated.1,
+        ),
+    })
+}
+
+fn reopen_and_validate_encapsulated_stl(
+    path: &Path,
+    sop_instance_uid: &str,
+    frame_of_reference_uid: &str,
+    implementation_class_uid: &str,
+    document_bytes: &[u8],
+) -> Result<(Vec<u8>, Value), GenerateError> {
+    let bytes = fs::read(path).map_err(|source| GenerateError::ReadGeneratedFile {
+        path: path.to_path_buf(),
+        source,
+    })?;
+    let obj = open_file(path).map_err(|error| GenerateError::ValidateDicomFile {
+        path: path.to_path_buf(),
+        message: format!("reopen Encapsulated STL: {error}"),
+    })?;
+    let text = |tag| {
+        obj.element(tag)
+            .map_err(|error| GenerateError::ValidateDicomFile {
+                path: path.to_path_buf(),
+                message: error.to_string(),
+            })?
+            .to_str()
+            .map(|value| value.trim_end_matches(['\0', ' ']).to_string())
+            .map_err(|error| GenerateError::ValidateDicomFile {
+                path: path.to_path_buf(),
+                message: error.to_string(),
+            })
+    };
+    let payload_element = obj.element(tags::ENCAPSULATED_DOCUMENT).map_err(|error| {
+        GenerateError::ValidateDicomFile {
+            path: path.to_path_buf(),
+            message: error.to_string(),
+        }
+    })?;
+    let payload = payload_element
+        .to_bytes()
+        .map_err(|error| GenerateError::ValidateDicomFile {
+            path: path.to_path_buf(),
+            message: error.to_string(),
+        })?;
+    let document_length_element =
+        obj.element(tags::ENCAPSULATED_DOCUMENT_LENGTH)
+            .map_err(|error| GenerateError::ValidateDicomFile {
+                path: path.to_path_buf(),
+                message: error.to_string(),
+            })?;
+    let document_length = document_length_element.to_int::<u32>().map_err(|error| {
+        GenerateError::ValidateDicomFile {
+            path: path.to_path_buf(),
+            message: error.to_string(),
+        }
+    })?;
+
+    let valid = bytes.len() >= 132
+        && &bytes[128..132] == b"DICM"
+        && obj.meta().transfer_syntax() == EXPLICIT_VR_LITTLE_ENDIAN.uid
+        && obj.meta().media_storage_sop_class_uid() == ENCAPSULATED_STL_STORAGE_UID
+        && obj.meta().media_storage_sop_instance_uid() == sop_instance_uid
+        && obj.meta().implementation_class_uid() == implementation_class_uid
+        && text(tags::SOP_CLASS_UID)? == ENCAPSULATED_STL_STORAGE_UID
+        && text(tags::SOP_INSTANCE_UID)? == sop_instance_uid
+        && text(tags::SYNTHETIC_DATA)? == "YES"
+        && text(tags::MODALITY)? == "M3D"
+        && text(tags::FRAME_OF_REFERENCE_UID)? == frame_of_reference_uid
+        && text(tags::MIME_TYPE_OF_ENCAPSULATED_DOCUMENT)? == STL_MIME_TYPE
+        && text(tags::MODEL_MODIFICATION)? == "NO"
+        && text(tags::MODEL_MIRRORING)? == "NO"
+        && document_length as usize == document_bytes.len()
+        && payload.as_ref() == document_bytes
+        && obj.element(tags::PIXEL_DATA).is_err();
+    if !valid {
+        return Err(GenerateError::ValidateDicomFile {
+            path: path.to_path_buf(),
+            message: "Encapsulated STL identity, modules, or payload differ from the locked native recipe"
+                .to_string(),
+        });
+    }
+
+    Ok((
+        bytes,
+        serde_json::json!({
+            "status": "passed",
+            "internal": [
+                {"name": "part10_identity", "status": "passed", "message": "Part 10, SOP, transfer syntax, and deterministic implementation identity match."},
+                {"name": "encapsulated_stl_modules", "status": "passed", "message": "M3D modality, Frame of Reference, manufacturing-model flags, units, and MIME type match."},
+                {"name": "encapsulated_stl_payload", "status": "passed", "message": "Encapsulated Document Length and exact binary STL bytes match the locked payload."},
+                {"name": "pixel_data_absent", "status": "passed", "message": "Encapsulated STL contains no Pixel Data."}
+            ],
+            "standards": [
+                {"name": "sop_class_encapsulated_stl", "status": "passed", "message": "SOP Class UID is Encapsulated STL Storage."},
+                {"name": "transfer_syntax_explicit_vr_little_endian", "status": "passed", "message": "Transfer Syntax is Explicit VR Little Endian."}
+            ],
+            "external": []
+        }),
+    ))
+}
+
 fn write_enhanced_ct_concatenation_case(
     run: &PreparedGenerationRun,
     case: &Value,
@@ -19755,6 +20108,112 @@ fn encapsulated_pdf_manifest_entry(
         },
         "validation": validation,
         "known_stressors": ["encapsulated_pdf_storage", "encapsulated_document_ob", "non_image_object", "document_extraction"],
+        "standards_evidence": deduplicated_standards_evidence(standards_evidence)
+    })
+}
+
+#[allow(clippy::too_many_arguments)]
+fn encapsulated_stl_manifest_entry(
+    case: &Value,
+    recipe: EncapsulatedStlRecipe,
+    relative_path: &str,
+    study_instance_uid: &str,
+    series_instance_uid: &str,
+    sop_instance_uid: &str,
+    frame_of_reference_uid: &str,
+    implementation_class_uid: &str,
+    document_bytes: &[u8],
+    bytes: &[u8],
+    validation: Value,
+) -> Value {
+    let standards_evidence = standards_evidence_from_case(case);
+    let payload_sha256 = sha256_hex(document_bytes);
+    serde_json::json!({
+        "case_id": recipe.case_id,
+        "profile_membership": ["extended"],
+        "path": relative_path,
+        "sha256": sha256_hex(bytes),
+        "size_bytes": bytes.len(),
+        "determinism": "byte_stable",
+        "recipe": {
+            "recipe_id": recipe.recipe_id,
+            "recipe_version": ENCAPSULATED_STL_RECIPE_VERSION,
+            "recipe_parameters": {
+                "document_title": recipe.document_title,
+                "content_description": recipe.content_description,
+                "payload_format": "binary_stl",
+                "payload_length": document_bytes.len(),
+                "payload_sha256": payload_sha256,
+                "triangle_count": STL_TRIANGLE_COUNT,
+                "bounds_min": [0.0, 0.0, 0.0],
+                "bounds_max": [10.0, 10.0, 10.0]
+            }
+        },
+        "dicom": {
+            "sop_class_uid": ENCAPSULATED_STL_STORAGE_UID,
+            "sop_class_name": "Encapsulated STL Storage",
+            "iod_name": "Encapsulated STL",
+            "modality": "M3D",
+            "transfer_syntax_uid": EXPLICIT_VR_LITTLE_ENDIAN.uid,
+            "transfer_syntax_name": EXPLICIT_VR_LITTLE_ENDIAN.name
+        },
+        "uids": {
+            "study_instance_uid": study_instance_uid,
+            "series_instance_uid": series_instance_uid,
+            "sop_instance_uid": sop_instance_uid,
+            "frame_of_reference_uid": frame_of_reference_uid,
+            "implementation_class_uid": implementation_class_uid
+        },
+        "image": Value::Null,
+        "pixel_data": Value::Null,
+        "references": [],
+        "expected_capabilities": [
+            "open_file", "read_metadata", "show_unsupported_but_recognized",
+            "extract_encapsulated_document", "parse_binary_stl"
+        ],
+        "expected_semantics": {
+            "synthetic_data": "YES",
+            "encapsulated_document": {
+                "document_title": recipe.document_title,
+                "mime_type": STL_MIME_TYPE,
+                "document_length": document_bytes.len(),
+                "document_sha256": payload_sha256,
+                "burned_in_annotation": "NO",
+                "recognizable_visual_features": "NO"
+            }
+        },
+        "expected_encapsulated_stl": {
+            "iod_kind": "encapsulated_stl",
+            "profile": "extended",
+            "payload": {
+                "format": "binary_stl",
+                "mime_type": STL_MIME_TYPE,
+                "length": STL_PAYLOAD_LEN,
+                "sha256": payload_sha256,
+                "triangle_count": STL_TRIANGLE_COUNT
+            },
+            "units": {
+                "code_value": STL_UNIT_CODE_VALUE,
+                "coding_scheme_designator": STL_UNIT_CODING_SCHEME,
+                "code_meaning": STL_UNIT_CODE_MEANING
+            },
+            "geometry": {
+                "bounds_min": [0.0, 0.0, 0.0],
+                "bounds_max": [10.0, 10.0, 10.0],
+                "closed_manifold": true,
+                "outward_winding": true,
+                "nondegenerate_faces": true
+            },
+            "independent_validator_disposition": "required"
+        },
+        "expected_visual_checks": {
+            "pattern": "recognized_unsupported_closed_tetrahedron_manufacturing_model"
+        },
+        "validation": validation,
+        "known_stressors": [
+            "encapsulated_stl_storage", "binary_stl_payload", "closed_manifold_mesh",
+            "non_image_object", "recognized_unsupported"
+        ],
         "standards_evidence": deduplicated_standards_evidence(standards_evidence)
     })
 }
@@ -27351,6 +27810,24 @@ fn deterministic_encapsulated_pdf_uid(
     })
 }
 
+fn deterministic_encapsulated_stl_uid(
+    standards_lock_sha256: &str,
+    recipe: EncapsulatedStlRecipe,
+    run_seed: u64,
+    role: UidRole,
+) -> String {
+    deterministic_uid(&DeterministicUidInput {
+        standards_lock_sha256,
+        case_id: recipe.case_id,
+        recipe_version: ENCAPSULATED_STL_RECIPE_VERSION,
+        run_seed,
+        file_index: 0,
+        frame_index: None,
+        referenced_object_index: None,
+        role,
+    })
+}
+
 fn deterministic_enhanced_ct_indexed_uid(
     standards_lock_sha256: &str,
     recipe: EnhancedCtRecipe,
@@ -30631,6 +31108,76 @@ mod tests {
         )
         .expect("RT Plan source should write");
         GeneratedSourceObject::from_generated_file(&plan_file).expect("RT Plan should register")
+    }
+
+    #[test]
+    fn encapsulated_stl_writer_reopens_exact_mesh_and_is_byte_stable() {
+        let first_root = ParametricMapStagingGuard::new();
+        let second_root = ParametricMapStagingGuard::new();
+        let run = |root: &ParametricMapStagingGuard| PreparedGenerationRun {
+            profile: "extended".to_string(),
+            out_dir: root.path().to_path_buf(),
+            manifest_path: root.path().join("manifest.json"),
+            seed: 7,
+            include_stress: false,
+        };
+        let case = serde_json::json!({
+            "case_id": "derived/mesh/encapsulated_stl",
+            "standards_evidence": []
+        });
+        let lock = "0000000000000000000000000000000000000000000000000000000000000000";
+
+        let first = write_encapsulated_stl_case(
+            &run(&first_root),
+            &case,
+            ENCAPSULATED_STL_RECIPES[0],
+            lock,
+        )
+        .expect("first Encapsulated STL should write and reopen");
+        let second = write_encapsulated_stl_case(
+            &run(&second_root),
+            &case,
+            ENCAPSULATED_STL_RECIPES[0],
+            lock,
+        )
+        .expect("second Encapsulated STL should write and reopen");
+
+        assert_eq!(
+            first.manifest_entry["sha256"],
+            second.manifest_entry["sha256"]
+        );
+        assert_eq!(
+            first.manifest_entry["expected_encapsulated_stl"],
+            second.manifest_entry["expected_encapsulated_stl"]
+        );
+        assert_eq!(
+            first
+                .manifest_entry
+                .pointer("/expected_encapsulated_stl/payload/sha256"),
+            Some(&Value::String(
+                "3c3049d231f8e98c0d2fe7cb81cf6805141bcac39dd04b9cf7f8063ec44bbfb2".to_string()
+            ))
+        );
+        assert_eq!(
+            first
+                .manifest_entry
+                .pointer("/expected_encapsulated_stl/payload/triangle_count"),
+            Some(&Value::from(4))
+        );
+        assert_eq!(
+            fs::read(
+                first_root
+                    .path()
+                    .join("derived/mesh/encapsulated_stl/instance.dcm")
+            )
+            .unwrap(),
+            fs::read(
+                second_root
+                    .path()
+                    .join("derived/mesh/encapsulated_stl/instance.dcm")
+            )
+            .unwrap()
+        );
     }
 
     fn generated_source_fixture(

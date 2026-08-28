@@ -4,7 +4,6 @@ pub(super) mod color_softcopy_presentation_state;
 pub(super) mod ct_geometry;
 pub(super) mod deformable_spatial_registration;
 pub(super) mod empty_type2_sc;
-#[allow(dead_code)]
 pub(super) mod encapsulated_stl;
 pub(super) mod general_ecg;
 pub(super) mod icc_profile;

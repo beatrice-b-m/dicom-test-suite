@@ -156,10 +156,11 @@ use crate::{
     WsiPyramidMemberIdentity, WsiPyramidRole,
     codecs::{
         DEFLATED_IMAGE_FRAME_TRANSFER_SYNTAX_UID, FrameEncodeInput, FrameEncoder,
-        HTJ2K_LOSSLESS_TRANSFER_SYNTAX_UID, JPEG_2000_LOSSLESS_TRANSFER_SYNTAX_UID,
-        JPEG_BASELINE_8BIT_TRANSFER_SYNTAX_UID, JPEG_LOSSLESS_PROCESS_14_TRANSFER_SYNTAX_UID,
-        JPEG_LOSSLESS_SV1_TRANSFER_SYNTAX_UID, JPEG_LS_LOSSLESS_TRANSFER_SYNTAX_UID,
-        JPEG_XL_LOSSLESS_TRANSFER_SYNTAX_UID, NativeRleLosslessEncoder,
+        HTJ2K_LOSSLESS_TRANSFER_SYNTAX_UID, HTJ2K_LOSSY_TRANSFER_SYNTAX_UID,
+        JPEG_2000_LOSSLESS_TRANSFER_SYNTAX_UID, JPEG_BASELINE_8BIT_TRANSFER_SYNTAX_UID,
+        JPEG_LOSSLESS_PROCESS_14_TRANSFER_SYNTAX_UID, JPEG_LOSSLESS_SV1_TRANSFER_SYNTAX_UID,
+        JPEG_LS_LOSSLESS_TRANSFER_SYNTAX_UID, JPEG_XL_LOSSLESS_TRANSFER_SYNTAX_UID,
+        JPEG_XL_LOSSY_TRANSFER_SYNTAX_UID, NativeRleLosslessEncoder,
         RLE_LOSSLESS_TRANSFER_SYNTAX_UID,
     },
     deterministic_uid,
@@ -230,12 +231,10 @@ use crate::codecs::DicomRsDeflatedImageFrameEncoder;
 use crate::codecs::DicomRsJpegBaselineEncoder;
 #[cfg(feature = "charls")]
 use crate::codecs::DicomRsJpegLsLosslessEncoder;
-#[cfg(feature = "jpegxl")]
-use crate::codecs::DicomRsJpegXlLosslessEncoder;
 #[cfg(feature = "jpeg2000")]
 use crate::codecs::OpenJp2Jpeg2000LosslessEncoder;
-#[cfg(feature = "htj2k_openjph")]
-use crate::codecs::OpenJphHtj2kLosslessEncoder;
+#[cfg(feature = "jpegxl")]
+use crate::codecs::{CjxlJpegXlLossyEncoder, DicomRsJpegXlLosslessEncoder};
 #[cfg(feature = "legacy_jpeg_dcmtk")]
 use crate::codecs::{DcmtkDcmcjpegLosslessProcess, DcmtkDcmcjpegLosslessSv1Encoder};
 #[cfg(any(
@@ -246,7 +245,9 @@ use crate::codecs::{DcmtkDcmcjpegLosslessProcess, DcmtkDcmcjpegLosslessSv1Encode
     feature = "jpegxl",
     feature = "jpeg2000"
 ))]
-use crate::codecs::{FrameDecodeInput, FrameDecoder};
+use crate::codecs::{FrameDecodeInput, FrameDecoder, calculate_lossy_frame_metrics};
+#[cfg(feature = "htj2k_openjph")]
+use crate::codecs::{OpenJphHtj2kLosslessEncoder, OpenJphHtj2kLossyEncoder};
 #[cfg(feature = "legacy_jpeg_dcmtk")]
 use dicom_encoding::{Codec, adapters::PixelDataReader};
 #[cfg(feature = "legacy_jpeg_dcmtk")]
@@ -418,6 +419,12 @@ const JPEG_XL_LOSSLESS: TransferSyntaxSpec = TransferSyntaxSpec {
     uid: JPEG_XL_LOSSLESS_TRANSFER_SYNTAX_UID,
     name: "JPEG XL Lossless",
 };
+const JPEG_XL_LOSSY: TransferSyntaxSpec = TransferSyntaxSpec {
+    capability_keyword: "JPEGXL",
+    capability_name: "JPEG XL",
+    uid: JPEG_XL_LOSSY_TRANSFER_SYNTAX_UID,
+    name: "JPEG XL",
+};
 const JPEG_2000_LOSSLESS: TransferSyntaxSpec = TransferSyntaxSpec {
     capability_keyword: "JPEG2000Lossless",
     capability_name: "JPEG 2000 Image Compression (Lossless Only)",
@@ -429,6 +436,12 @@ const HTJ2K_LOSSLESS: TransferSyntaxSpec = TransferSyntaxSpec {
     capability_name: "High-Throughput JPEG 2000 Image Compression (Lossless Only)",
     uid: HTJ2K_LOSSLESS_TRANSFER_SYNTAX_UID,
     name: "HTJ2K Lossless",
+};
+const HTJ2K_LOSSY: TransferSyntaxSpec = TransferSyntaxSpec {
+    capability_keyword: "HTJ2K",
+    capability_name: "High-Throughput JPEG 2000 Image Compression",
+    uid: HTJ2K_LOSSY_TRANSFER_SYNTAX_UID,
+    name: "HTJ2K",
 };
 const JPEG_LOSSLESS_PROCESS_14: TransferSyntaxSpec = TransferSyntaxSpec {
     capability_keyword: "JPEGLossless",
@@ -484,6 +497,67 @@ const EOT_OFFSETS: [u64; 3] = [0, 78, 152];
 const MONO_ODD_RLE_PIXELS: [u8; 2] = [0, 255];
 const MONO_ODD_RLE_VALUES: [i32; 2] = [0, 255];
 const RGB_PLANAR0_PIXELS: [u8; 12] = [255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 255, 255];
+const LOSSY_DIAGNOSTIC_ROWS: u16 = 32;
+const LOSSY_DIAGNOSTIC_COLUMNS: u16 = 32;
+const JPEG_XL_LOSSY_PIXELS: [u8; 32 * 32 * 3] = jpeg_xl_lossy_diagnostic_pixels();
+const HTJ2K_LOSSY_PIXELS: [u8; 32 * 32 * 2] = htj2k_lossy_diagnostic_pixels();
+
+const fn jpeg_xl_lossy_diagnostic_pixels() -> [u8; 32 * 32 * 3] {
+    let mut pixels = [0; 32 * 32 * 3];
+    let mut row = 0_u16;
+    while row < 32 {
+        let mut column = 0_u16;
+        while column < 32 {
+            let bar = (column / 4) as u8;
+            let offset = ((row as usize) * 32 + column as usize) * 3;
+            pixels[offset] = if row < 16 {
+                (column * 8) as u8
+            } else {
+                bar * 32
+            };
+            pixels[offset + 1] = if column < 16 {
+                (row * 8) as u8
+            } else {
+                255 - bar * 32
+            };
+            pixels[offset + 2] = if (row / 4 + column / 4) % 2 == 0 {
+                16
+            } else {
+                240
+            };
+            column += 1;
+        }
+        row += 1;
+    }
+    pixels
+}
+
+const fn htj2k_lossy_diagnostic_pixels() -> [u8; 32 * 32 * 2] {
+    let mut pixels = [0; 32 * 32 * 2];
+    let mut row = 0_u32;
+    while row < 32 {
+        let mut column = 0_u32;
+        while column < 32 {
+            let sample = if row < 8 {
+                let value = column * 2048;
+                if value < 65535 { value } else { 65535 }
+            } else if row < 16 {
+                if column < 16 { 0 } else { 65535 }
+            } else if (row / 4 + column / 4) % 2 == 0 {
+                4096
+            } else {
+                61440
+            } as u16;
+            let bytes = sample.to_le_bytes();
+            let offset = ((row as usize) * 32 + column as usize) * 2;
+            pixels[offset] = bytes[0];
+            pixels[offset + 1] = bytes[1];
+            column += 1;
+        }
+        row += 1;
+    }
+    pixels
+}
 const RGB_PLANAR0_MULTIFRAME_PIXELS: [u8; 24] = [
     255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 255, 255, 0, 255, 255, 255, 0, 255, 255, 255, 0, 0, 0, 0,
 ];
@@ -2189,6 +2263,29 @@ const PIXEL_RECIPES: &[PixelRecipe] = &[
         padding: None,
     },
     PixelRecipe {
+        case_id: "classic/sc/rgb_jpegxl_lossy",
+        recipe_id: "classic_sc_rgb_jpegxl_lossy",
+        rows: LOSSY_DIAGNOSTIC_ROWS,
+        columns: LOSSY_DIAGNOSTIC_COLUMNS,
+        photometric_interpretation: "RGB",
+        samples_per_pixel: 3,
+        planar_configuration: Some(0),
+        bits_allocated: 8,
+        bits_stored: 8,
+        high_bit: 7,
+        pixel_representation: 0,
+        pixel_vr: VR::OB,
+        transfer_syntax: JPEG_XL_LOSSY,
+        pixel_bytes: &JPEG_XL_LOSSY_PIXELS,
+        pixel_values: &[],
+        pixel_min: 0,
+        pixel_max: 248,
+        visual_pattern: "32x32_rgb_gradients_bars_checkerboard",
+        semantic_note: "interleaved RGB diagnostic samples are decoded within the approved JPEG XL lossy error bounds",
+        palette: None,
+        padding: None,
+    },
+    PixelRecipe {
         case_id: "classic/sc/mono2_u16_jpeg2000_lossless",
         recipe_id: "sc_mono2_u16_jpeg2000_lossless",
         rows: 2,
@@ -2231,6 +2328,29 @@ const PIXEL_RECIPES: &[PixelRecipe] = &[
         pixel_max: 65535,
         visual_pattern: "2x2_monochrome_u16_gradient",
         semantic_note: "16-bit unsigned MONOCHROME2 samples span the full stored range after HTJ2K Lossless decode",
+        palette: None,
+        padding: None,
+    },
+    PixelRecipe {
+        case_id: "classic/sc/mono2_u16_htj2k_lossy",
+        recipe_id: "classic_sc_mono2_u16_htj2k_lossy",
+        rows: LOSSY_DIAGNOSTIC_ROWS,
+        columns: LOSSY_DIAGNOSTIC_COLUMNS,
+        photometric_interpretation: "MONOCHROME2",
+        samples_per_pixel: 1,
+        planar_configuration: None,
+        bits_allocated: 16,
+        bits_stored: 16,
+        high_bit: 15,
+        pixel_representation: 0,
+        pixel_vr: VR::OB,
+        transfer_syntax: HTJ2K_LOSSY,
+        pixel_bytes: &HTJ2K_LOSSY_PIXELS,
+        pixel_values: &[],
+        pixel_min: 0,
+        pixel_max: 65535,
+        visual_pattern: "32x32_monochrome_gradient_edges_checkerboard",
+        semantic_note: "unsigned MONOCHROME2 diagnostic samples are decoded within the approved HTJ2K lossy error bounds",
         palette: None,
         padding: None,
     },
@@ -10563,6 +10683,8 @@ fn write_pixel_case_with_metadata(
     #[allow(unused_mut)]
     let mut lossy_image_compression_ratio: Option<String> = None;
     #[allow(unused_mut)]
+    let mut expected_lossy_metrics: Option<Value> = None;
+    #[allow(unused_mut)]
     let mut compressed_pixel_data = if recipe.transfer_syntax == RLE_LOSSLESS {
         let rle_encoder = NativeRleLosslessEncoder::new();
         let compressed_frames = frame_bytes
@@ -10809,6 +10931,140 @@ fn write_pixel_case_with_metadata(
                     .to_string(),
             });
         }
+    } else if recipe.transfer_syntax == JPEG_XL_LOSSY {
+        #[cfg(feature = "jpegxl")]
+        {
+            let encoder = CjxlJpegXlLossyEncoder::new();
+            let identity = encoder.discover_backend_identity().map_err(|err| {
+                GenerateError::WriteDicomFile {
+                    path: path.clone(),
+                    message: err.to_string(),
+                }
+            })?;
+            let encoded = encoder
+                .encode_frame(FrameEncodeInput {
+                    native_frame: recipe.pixel_bytes,
+                    rows: recipe.rows,
+                    columns: recipe.columns,
+                    samples_per_pixel: recipe.samples_per_pixel,
+                    bits_allocated: recipe.bits_allocated,
+                    bits_stored: recipe.bits_stored,
+                    photometric_interpretation: recipe.photometric_interpretation,
+                })
+                .map_err(|err| GenerateError::WriteDicomFile {
+                    path: path.clone(),
+                    message: err.to_string(),
+                })?;
+            let decoded = encoder
+                .decode_frame(FrameDecodeInput {
+                    encoded_frame: &encoded.bytes,
+                    rows: recipe.rows,
+                    columns: recipe.columns,
+                    samples_per_pixel: recipe.samples_per_pixel,
+                    bits_allocated: recipe.bits_allocated,
+                    bits_stored: recipe.bits_stored,
+                    photometric_interpretation: recipe.photometric_interpretation,
+                })
+                .map_err(|err| GenerateError::ValidateDicomFile {
+                    path: path.clone(),
+                    message: err.to_string(),
+                })?;
+            let metrics = calculate_lossy_frame_metrics(
+                recipe.pixel_bytes,
+                &decoded.native_bytes,
+                recipe.rows,
+                recipe.columns,
+                recipe.samples_per_pixel,
+                recipe.bits_allocated,
+            )
+            .map_err(|err| GenerateError::ValidateDicomFile {
+                path: path.clone(),
+                message: err.to_string(),
+            })?;
+            if metrics
+                .channels
+                .iter()
+                .any(|channel| channel.max_absolute_error > 8)
+                || metrics.overall_rmse > 3.0
+            {
+                return Err(GenerateError::ValidateDicomFile {
+                    path: path.clone(),
+                    message: format!("JPEG XL lossy metrics exceeded approved limits: {metrics:?}"),
+                });
+            }
+            let options = serde_json::json!({
+                "input_format": "binary_ppm_rgb8",
+                "argument_vector": CjxlJpegXlLossyEncoder::fixed_option_arguments(),
+                "distance": 0.05,
+                "effort": 7,
+                "num_threads": 0,
+                "container": false,
+                "modular": false
+            });
+            let compression_ratio = format!(
+                "{:.6}",
+                recipe.pixel_bytes.len() as f64 / encoded.bytes.len() as f64
+            );
+            expected_lossy_metrics = Some(lossy_metrics_manifest(
+                recipe,
+                &metrics,
+                &encoded.bytes,
+                &compression_ratio,
+                ["R", "G", "B"].as_slice(),
+                8,
+                3.0,
+                "cjxl_jpegxl_lossy_encoder",
+                "0.11.2",
+                &identity.executable_sha256,
+                options.clone(),
+                CjxlJpegXlLossyEncoder::LOSSY_IMAGE_COMPRESSION_METHOD,
+                CjxlJpegXlLossyEncoder::DECODER_ID,
+                CjxlJpegXlLossyEncoder::DECODER_VERSION,
+                CjxlJpegXlLossyEncoder::DECODER_INDEPENDENCE,
+            ));
+            codec_internal_validation.push(lossy_metrics_validation("jpeg_xl_lossy", &metrics));
+            put_str(&mut obj, tags::LOSSY_IMAGE_COMPRESSION, VR::CS, "01");
+            put_str(
+                &mut obj,
+                tags::LOSSY_IMAGE_COMPRESSION_RATIO,
+                VR::DS,
+                &compression_ratio,
+            );
+            put_str(
+                &mut obj,
+                tags::LOSSY_IMAGE_COMPRESSION_METHOD,
+                VR::CS,
+                CjxlJpegXlLossyEncoder::LOSSY_IMAGE_COMPRESSION_METHOD,
+            );
+            lossy_image_compression_ratio = Some(compression_ratio);
+            let compressed_frames = vec![encoded.bytes];
+            let encapsulated = EncapsulatedPixelData::one_fragment_per_frame(
+                &compressed_frames,
+                BasicOffsetTablePolicy::Populated,
+            )
+            .map_err(|err| GenerateError::WriteDicomFile {
+                path: path.clone(),
+                message: err.to_string(),
+            })?;
+            obj.put(DataElement::new(
+                tags::PIXEL_DATA,
+                recipe.pixel_vr,
+                PixelFragmentSequence::new(
+                    encapsulated.basic_offset_table.offsets.clone(),
+                    compressed_frames,
+                ),
+            ));
+            Some((FrameEncoder::backend(&encoder), encapsulated, None))
+        }
+        #[cfg(not(feature = "jpegxl"))]
+        {
+            return Err(GenerateError::WriteDicomFile {
+                path: path.clone(),
+                message:
+                    "JPEG XL lossy generation requires the jpegxl Cargo feature and cjxl 0.11.2"
+                        .to_string(),
+            });
+        }
     } else if recipe.transfer_syntax == JPEG_2000_LOSSLESS {
         #[cfg(feature = "jpeg2000")]
         {
@@ -10933,6 +11189,133 @@ fn write_pixel_case_with_metadata(
                 path: path.clone(),
                 message: "HTJ2K Lossless generation requires the htj2k_openjph Cargo feature"
                     .to_string(),
+            });
+        }
+    } else if recipe.transfer_syntax == HTJ2K_LOSSY {
+        #[cfg(feature = "htj2k_openjph")]
+        {
+            let encoder = OpenJphHtj2kLossyEncoder::new();
+            let identity = encoder.discover_backend_identity().map_err(|err| {
+                GenerateError::WriteDicomFile {
+                    path: path.clone(),
+                    message: err.to_string(),
+                }
+            })?;
+            let encoded = encoder
+                .encode_frame(FrameEncodeInput {
+                    native_frame: recipe.pixel_bytes,
+                    rows: recipe.rows,
+                    columns: recipe.columns,
+                    samples_per_pixel: recipe.samples_per_pixel,
+                    bits_allocated: recipe.bits_allocated,
+                    bits_stored: recipe.bits_stored,
+                    photometric_interpretation: recipe.photometric_interpretation,
+                })
+                .map_err(|err| GenerateError::WriteDicomFile {
+                    path: path.clone(),
+                    message: err.to_string(),
+                })?;
+            let decoded = encoder
+                .decode_frame(FrameDecodeInput {
+                    encoded_frame: &encoded.bytes,
+                    rows: recipe.rows,
+                    columns: recipe.columns,
+                    samples_per_pixel: recipe.samples_per_pixel,
+                    bits_allocated: recipe.bits_allocated,
+                    bits_stored: recipe.bits_stored,
+                    photometric_interpretation: recipe.photometric_interpretation,
+                })
+                .map_err(|err| GenerateError::ValidateDicomFile {
+                    path: path.clone(),
+                    message: err.to_string(),
+                })?;
+            let metrics = calculate_lossy_frame_metrics(
+                recipe.pixel_bytes,
+                &decoded.native_bytes,
+                recipe.rows,
+                recipe.columns,
+                recipe.samples_per_pixel,
+                recipe.bits_allocated,
+            )
+            .map_err(|err| GenerateError::ValidateDicomFile {
+                path: path.clone(),
+                message: err.to_string(),
+            })?;
+            if metrics.channels[0].max_absolute_error > 64 || metrics.overall_rmse > 16.0 {
+                return Err(GenerateError::ValidateDicomFile {
+                    path: path.clone(),
+                    message: format!("HTJ2K lossy metrics exceeded approved limits: {metrics:?}"),
+                });
+            }
+            let options = serde_json::json!({
+                "input_format": "binary_pgm_u16_big_endian",
+                "argument_vector": OpenJphHtj2kLossyEncoder::fixed_option_arguments(),
+                "qstep": 0.00025,
+                "reversible": false,
+                "num_decompositions": 2,
+                "colour_transform": false,
+                "progression": "LRCP"
+            });
+            let compression_ratio = format!(
+                "{:.6}",
+                recipe.pixel_bytes.len() as f64 / encoded.bytes.len() as f64
+            );
+            expected_lossy_metrics = Some(lossy_metrics_manifest(
+                recipe,
+                &metrics,
+                &encoded.bytes,
+                &compression_ratio,
+                ["MONOCHROME2"].as_slice(),
+                64,
+                16.0,
+                "openjph_htj2k_lossy_command_encoder",
+                "OpenJPH 0.27.3",
+                &identity.executable_sha256,
+                options.clone(),
+                OpenJphHtj2kLossyEncoder::LOSSY_IMAGE_COMPRESSION_METHOD,
+                OpenJphHtj2kLossyEncoder::DECODER_ID,
+                OpenJphHtj2kLossyEncoder::DECODER_VERSION,
+                OpenJphHtj2kLossyEncoder::DECODER_INDEPENDENCE,
+            ));
+            codec_internal_validation.push(lossy_metrics_validation("htj2k_lossy", &metrics));
+            put_str(&mut obj, tags::LOSSY_IMAGE_COMPRESSION, VR::CS, "01");
+            put_str(
+                &mut obj,
+                tags::LOSSY_IMAGE_COMPRESSION_RATIO,
+                VR::DS,
+                &compression_ratio,
+            );
+            put_str(
+                &mut obj,
+                tags::LOSSY_IMAGE_COMPRESSION_METHOD,
+                VR::CS,
+                OpenJphHtj2kLossyEncoder::LOSSY_IMAGE_COMPRESSION_METHOD,
+            );
+            lossy_image_compression_ratio = Some(compression_ratio);
+            let compressed_frames = vec![encoded.bytes];
+            let encapsulated = EncapsulatedPixelData::one_fragment_per_frame(
+                &compressed_frames,
+                BasicOffsetTablePolicy::Populated,
+            )
+            .map_err(|err| GenerateError::WriteDicomFile {
+                path: path.clone(),
+                message: err.to_string(),
+            })?;
+            obj.put(DataElement::new(
+                tags::PIXEL_DATA,
+                recipe.pixel_vr,
+                PixelFragmentSequence::new(
+                    encapsulated.basic_offset_table.offsets.clone(),
+                    compressed_frames,
+                ),
+            ));
+            Some((FrameEncoder::backend(&encoder), encapsulated, None))
+        }
+        #[cfg(not(feature = "htj2k_openjph"))]
+        {
+            return Err(GenerateError::WriteDicomFile {
+                path: path.clone(),
+                message: "HTJ2K lossy generation requires the htj2k_openjph Cargo feature and ojph_compress 0.27.3".to_string(),
             });
         }
     } else {
@@ -11170,9 +11553,95 @@ fn write_pixel_case_with_metadata(
             validated.validation,
             compressed_pixel_data.as_ref(),
             lossy_image_compression_ratio.as_deref(),
+            expected_lossy_metrics,
             &decoded_frame_hash_refs,
             metadata,
         ),
+    })
+}
+
+#[allow(clippy::too_many_arguments)]
+#[cfg(any(feature = "jpegxl", feature = "htj2k_openjph"))]
+fn lossy_metrics_manifest(
+    recipe: PixelRecipe,
+    metrics: &crate::codecs::LossyFrameMetrics,
+    encoded_frame: &[u8],
+    dicom_compression_ratio: &str,
+    channel_names: &[&str],
+    max_absolute_error_limit: u64,
+    rmse_limit: f64,
+    encoder_id: &str,
+    encoder_version: &str,
+    executable_sha256: &str,
+    encoder_options: Value,
+    compression_method: &str,
+    decoder_id: &str,
+    decoder_version: &str,
+    decoder_independence: &str,
+) -> Value {
+    let options_fingerprint = sha256_hex(
+        &serde_json::to_vec(&encoder_options)
+            .expect("serializing a JSON encoder options object cannot fail"),
+    );
+    serde_json::json!({
+        "sample_domain": metrics.sample_domain.as_str(),
+        "sample_order": if recipe.samples_per_pixel == 1 { "monochrome" } else { "interleaved_by_pixel" },
+        "sample_count": metrics.sample_count,
+        "dimensions": { "rows": recipe.rows, "columns": recipe.columns, "frames": 1 },
+        "channels": metrics.channels.iter().zip(channel_names).map(|(channel, name)| serde_json::json!({
+            "index": channel.channel_index,
+            "name": name,
+            "sample_count": channel.sample_count,
+            "max_absolute_error": {
+                "observed": channel.max_absolute_error,
+                "limit": max_absolute_error_limit
+            },
+            "rmse": {
+                "observed": round_lossy_metric(channel.rmse),
+                "limit": rmse_limit
+            }
+        })).collect::<Vec<_>>(),
+        "encoder": {
+            "id": encoder_id,
+            "version": encoder_version,
+            "executable_sha256": executable_sha256,
+            "options": encoder_options,
+            "options_fingerprint": options_fingerprint
+        },
+        "overall_rmse": { "observed": round_lossy_metric(metrics.overall_rmse), "limit": rmse_limit },
+        "uncompressed_bytes": recipe.pixel_bytes.len(),
+        "compressed_bytes": encoded_frame.len(),
+        "compression_ratio": {
+            "numerator": recipe.pixel_bytes.len(),
+            "denominator": encoded_frame.len(),
+            "computed": recipe.pixel_bytes.len() as f64 / encoded_frame.len() as f64,
+            "dicom_value": dicom_compression_ratio
+        },
+        "lossy_image_compression": "01",
+        "lossy_image_compression_method": compression_method,
+        "decoder": {
+            "id": decoder_id,
+            "version": decoder_version,
+            "independence": decoder_independence
+        }
+    })
+}
+
+#[cfg(any(feature = "jpegxl", feature = "htj2k_openjph"))]
+fn round_lossy_metric(value: f64) -> f64 {
+    (value * 10_000_000_000.0).round() / 10_000_000_000.0
+}
+
+#[cfg(any(feature = "jpegxl", feature = "htj2k_openjph"))]
+fn lossy_metrics_validation(codec_name: &str, metrics: &crate::codecs::LossyFrameMetrics) -> Value {
+    serde_json::json!({
+        "name": format!("{codec_name}_independent_decode_metrics"),
+        "status": "passed",
+        "message": format!(
+            "An independent decoder reproduced the complete frame within approved bounds (maximum channel error {}, overall RMSE {:.10}).",
+            metrics.channels.iter().map(|channel| channel.max_absolute_error).max().unwrap_or(0),
+            metrics.overall_rmse
+        )
     })
 }
 
@@ -12480,6 +12949,7 @@ fn pixel_manifest_entry(
         Option<Value>,
     )>,
     lossy_image_compression_ratio: Option<&str>,
+    expected_lossy_metrics: Option<Value>,
     frame_hashes: &[&str],
     metadata: Option<ScMetadataPayload>,
 ) -> Value {
@@ -13111,7 +13581,7 @@ fn pixel_manifest_entry(
             "pixel_min": recipe.pixel_min,
             "pixel_max": recipe.pixel_max,
             "pixel_padding": padding_manifest,
-            "lossy_image_compression": if recipe.transfer_syntax == JPEG_BASELINE_8BIT { "01" } else { "00" },
+            "lossy_image_compression": if matches!(recipe.transfer_syntax, JPEG_BASELINE_8BIT | JPEG_XL_LOSSY | HTJ2K_LOSSY) { "01" } else { "00" },
             "lossy_image_compression_ratio": lossy_image_compression_ratio,
             "lossy_image_compression_method": pixel_lossy_image_compression_method(recipe),
             "photometric_semantics": recipe.semantic_note
@@ -13194,6 +13664,9 @@ fn pixel_manifest_entry(
             "offsets": EOT_OFFSETS,
             "lengths": EOT_ENCODED_LENGTHS
         });
+    }
+    if let Some(expected_lossy_metrics) = expected_lossy_metrics {
+        manifest["expected_lossy_metrics"] = expected_lossy_metrics;
     }
     if pixel_has_icc_profile(recipe) {
         manifest["expected_icc_profile"] = serde_json::json!({
@@ -13511,6 +13984,10 @@ fn uppercase_hex(bytes: &[u8]) -> String {
 fn pixel_lossy_image_compression_method(recipe: PixelRecipe) -> Option<&'static str> {
     if recipe.transfer_syntax == JPEG_BASELINE_8BIT {
         Some("ISO_10918_1")
+    } else if recipe.transfer_syntax == JPEG_XL_LOSSY {
+        Some("ISO_18181_1")
+    } else if recipe.transfer_syntax == HTJ2K_LOSSY {
+        Some("ISO_15444_15")
     } else {
         None
     }
@@ -13547,12 +14024,22 @@ fn pixel_known_stressors(recipe: PixelRecipe) -> Vec<&'static str> {
     } else if recipe.transfer_syntax == JPEG_XL_LOSSLESS {
         stressors.push("encapsulated_pixel_data");
         stressors.push("jpeg_xl_lossless_transfer_syntax");
+    } else if recipe.transfer_syntax == JPEG_XL_LOSSY {
+        stressors.push("encapsulated_pixel_data");
+        stressors.push("jpeg_xl_lossy_transfer_syntax");
+        stressors.push("lossy_image_compression");
+        stressors.push("external_command_codec");
     } else if recipe.transfer_syntax == JPEG_2000_LOSSLESS {
         stressors.push("encapsulated_pixel_data");
         stressors.push("jpeg_2000_lossless_transfer_syntax");
     } else if recipe.transfer_syntax == HTJ2K_LOSSLESS {
         stressors.push("encapsulated_pixel_data");
         stressors.push("htj2k_lossless_transfer_syntax");
+    } else if recipe.transfer_syntax == HTJ2K_LOSSY {
+        stressors.push("encapsulated_pixel_data");
+        stressors.push("htj2k_lossy_transfer_syntax");
+        stressors.push("lossy_image_compression");
+        stressors.push("external_command_codec");
     } else if recipe.transfer_syntax == JPEG_LOSSLESS_PROCESS_14 {
         stressors.push("encapsulated_pixel_data");
         stressors.push("jpeg_lossless_process_14_transfer_syntax");
@@ -13665,8 +14152,10 @@ fn pixel_profile_membership(recipe: PixelRecipe) -> &'static [&'static str] {
         | "classic/sc/rgb_planar0_jpeg_baseline_8bit"
         | "classic/sc/mono2_u8_jpeg_ls_lossless"
         | "classic/sc/rgb_planar0_jpegxl_lossless"
+        | "classic/sc/rgb_jpegxl_lossy"
         | "classic/sc/mono2_u16_jpeg2000_lossless"
         | "classic/sc/mono2_u16_htj2k_lossless"
+        | "classic/sc/mono2_u16_htj2k_lossy"
         | "classic/sc/mono2_u16_jpeg_lossless_process_14"
         | "classic/sc/mono2_u16_jpeg_lossless_sv1"
         | "classic/sc/mono2_u32_explicit_le"
@@ -13738,6 +14227,13 @@ fn pixel_expected_capabilities(recipe: PixelRecipe) -> Vec<&'static str> {
             "decode_jpeg_xl_lossless_pixels",
             "render_color",
         ]
+    } else if recipe.transfer_syntax == JPEG_XL_LOSSY {
+        vec![
+            "open_file",
+            "read_metadata",
+            "decode_jpeg_xl_lossy_pixels",
+            "render_color",
+        ]
     } else if recipe.transfer_syntax == JPEG_2000_LOSSLESS {
         vec![
             "open_file",
@@ -13750,6 +14246,13 @@ fn pixel_expected_capabilities(recipe: PixelRecipe) -> Vec<&'static str> {
             "open_file",
             "read_metadata",
             "decode_htj2k_lossless_pixels",
+            "render_grayscale",
+        ]
+    } else if recipe.transfer_syntax == HTJ2K_LOSSY {
+        vec![
+            "open_file",
+            "read_metadata",
+            "decode_htj2k_lossy_pixels",
             "render_grayscale",
         ]
     } else if recipe.transfer_syntax == JPEG_LOSSLESS_PROCESS_14 {
@@ -13877,8 +14380,10 @@ fn pixel_determinism(recipe: PixelRecipe) -> &'static str {
     if recipe.transfer_syntax == JPEG_BASELINE_8BIT
         || recipe.transfer_syntax == JPEG_LS_LOSSLESS
         || recipe.transfer_syntax == JPEG_XL_LOSSLESS
+        || recipe.transfer_syntax == JPEG_XL_LOSSY
         || recipe.transfer_syntax == JPEG_2000_LOSSLESS
         || recipe.transfer_syntax == HTJ2K_LOSSLESS
+        || recipe.transfer_syntax == HTJ2K_LOSSY
         || recipe.transfer_syntax == JPEG_LOSSLESS_PROCESS_14
         || recipe.transfer_syntax == JPEG_LOSSLESS_SV1
     {
@@ -29046,6 +29551,116 @@ fn case_matches_profile(profiles: &[String], requested: &str, include_stress: bo
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(feature = "jpegxl")]
+    #[test]
+    fn jpeg_xl_lossy_writer_records_independent_bounded_metrics() {
+        assert_lossy_pixel_writer(
+            "classic/sc/rgb_jpegxl_lossy",
+            JPEG_XL_LOSSY_TRANSFER_SYNTAX_UID,
+            1_185,
+            0.7918037162,
+            &[8, 2, 7],
+        );
+    }
+
+    #[cfg(feature = "htj2k_openjph")]
+    #[test]
+    fn htj2k_lossy_writer_records_independent_bounded_metrics() {
+        assert_lossy_pixel_writer(
+            "classic/sc/mono2_u16_htj2k_lossy",
+            HTJ2K_LOSSY_TRANSFER_SYNTAX_UID,
+            1_476,
+            4.3548643779,
+            &[19],
+        );
+    }
+
+    #[cfg(any(feature = "jpegxl", feature = "htj2k_openjph"))]
+    fn assert_lossy_pixel_writer(
+        case_id: &str,
+        transfer_syntax_uid: &str,
+        compressed_bytes: u64,
+        overall_rmse: f64,
+        channel_maxima: &[u64],
+    ) {
+        let output = ParametricMapStagingGuard::new();
+        let run = PreparedGenerationRun {
+            profile: "extended".to_string(),
+            out_dir: output.path().to_path_buf(),
+            manifest_path: output.path().join("manifest.json"),
+            seed: 7,
+            include_stress: false,
+        };
+        let recipe = PIXEL_RECIPES
+            .iter()
+            .copied()
+            .find(|recipe| recipe.case_id == case_id)
+            .expect("lossy recipe must be dispatched");
+        let case = serde_json::json!({ "case_id": case_id, "standards_evidence": [] });
+        let lock = sha256_hex(&fs::read("standards.lock.json").expect("standards lock"));
+
+        let first = write_pixel_case(&run, &case, recipe, &lock)
+            .expect("lossy fixture should write and independently validate");
+        let output_path = output.path().join(case_id).join("instance.dcm");
+        let first_bytes = fs::read(&output_path).expect("first lossy DICOM bytes");
+        let second = write_pixel_case(&run, &case, recipe, &lock)
+            .expect("repeated lossy fixture should write and independently validate");
+        assert_eq!(
+            first_bytes,
+            fs::read(&output_path).expect("second lossy DICOM bytes")
+        );
+        assert_eq!(
+            first.manifest_entry["sha256"],
+            second.manifest_entry["sha256"]
+        );
+
+        let metrics = &first.manifest_entry["expected_lossy_metrics"];
+        assert_eq!(metrics["compressed_bytes"], compressed_bytes);
+        assert_eq!(metrics["overall_rmse"]["observed"], overall_rmse);
+        assert_eq!(metrics["decoder"]["independence"], "independent");
+        assert_eq!(
+            metrics["channels"]
+                .as_array()
+                .expect("lossy channels")
+                .iter()
+                .map(|channel| channel["max_absolute_error"]["observed"]
+                    .as_u64()
+                    .expect("maximum error"))
+                .collect::<Vec<_>>(),
+            channel_maxima
+        );
+        let reopened = open_file(&output_path).expect("lossy DICOM should reopen");
+        assert_eq!(reopened.meta().transfer_syntax(), transfer_syntax_uid);
+        assert_eq!(
+            reopened
+                .element(tags::LOSSY_IMAGE_COMPRESSION)
+                .expect("Lossy Image Compression")
+                .to_str()
+                .expect("Lossy Image Compression string"),
+            "01"
+        );
+        let manifest_schema: Value = serde_json::from_slice(
+            &fs::read("schemas/manifest.schema.json").expect("manifest schema"),
+        )
+        .expect("manifest schema JSON");
+        let file_schema = serde_json::json!({
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$defs": manifest_schema["$defs"].clone(),
+            "$ref": "#/$defs/file"
+        });
+        let validator = jsonschema::validator_for(&file_schema).expect("file schema compiles");
+        let mut schema_entry = first.manifest_entry.clone();
+        schema_entry["references"] = serde_json::json!([]);
+        let errors = validator
+            .iter_errors(&schema_entry)
+            .map(|error| error.to_string())
+            .collect::<Vec<_>>();
+        assert!(
+            errors.is_empty(),
+            "lossy manifest schema errors: {errors:#?}"
+        );
+    }
 
     #[test]
     fn wsi_tiled_full_writer_reopens_validates_manifest_and_is_deterministic() {

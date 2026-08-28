@@ -123,6 +123,11 @@ findings, and zero verification failures against an empty exact-slice findings
 set. No unavailable route was silently omitted. The registry now contains 148
 implemented and 34 planned logical cases.
 
+The post-promotion repository gate
+`cargo test --locked --all-targets --no-default-features --quiet` passes in
+full, including generator, manifest, report, registry, conformance-routing,
+and legacy planned-WSI compatibility regressions.
+
 Phase 4 milestone 4 is complete; milestone 5, multiple optical paths or focal
 planes, is next. Ordinary `all` remains unchanged: this bounded pyramid is
 selected only through the stress profile or explicit stress inclusion. A

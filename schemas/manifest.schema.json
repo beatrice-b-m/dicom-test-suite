@@ -44,6 +44,12 @@
       "items": {
         "$ref": "#/$defs/skipped_case"
       }
+    },
+    "qualifications": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/qualification"
+      }
     }
   },
   "additionalProperties": false,
@@ -193,6 +199,243 @@
         "include_stress": {
           "type": "boolean"
         }
+      },
+      "additionalProperties": false
+    },
+    "qualification": {
+      "oneOf": [
+        { "$ref": "#/$defs/fuzz_qualification" }
+      ]
+    },
+    "fuzz_qualification": {
+      "type": "object",
+      "required": [
+        "case_id",
+        "kind",
+        "contract_version",
+        "profile",
+        "run_seed",
+        "provider",
+        "target",
+        "budget",
+        "seeds",
+        "counters",
+        "outcomes",
+        "minimizations",
+        "unacceptable_outcomes",
+        "payload_policy",
+        "status"
+      ],
+      "properties": {
+        "case_id": { "const": "fuzz/parser/bounded_seed_corpus" },
+        "kind": { "const": "bounded_fuzz_run" },
+        "contract_version": { "const": "0.1.0" },
+        "profile": { "const": "fuzz" },
+        "run_seed": { "type": "integer", "minimum": 0 },
+        "provider": {
+          "type": "object",
+          "required": ["kind", "id"],
+          "properties": {
+            "kind": { "const": "mutation_layer" },
+            "id": { "const": "bounded_deterministic_fuzz" }
+          },
+          "additionalProperties": false
+        },
+        "target": {
+          "type": "object",
+          "required": ["kind", "independence", "operation_unit"],
+          "properties": {
+            "kind": { "const": "same_project_bounded_part10_probe" },
+            "independence": { "const": "same_project" },
+            "operation_unit": { "const": "input_byte" }
+          },
+          "additionalProperties": false
+        },
+        "budget": {
+          "type": "object",
+          "required": [
+            "max_iterations",
+            "max_candidates",
+            "max_mutations_per_candidate",
+            "max_total_mutations",
+            "max_bytes_per_mutation",
+            "max_input_bytes",
+            "max_output_bytes",
+            "max_minimization_attempts",
+            "max_total_target_operations",
+            "max_target_operations"
+          ],
+          "properties": {
+            "max_iterations": { "type": "integer", "minimum": 1 },
+            "max_candidates": { "type": "integer", "minimum": 1 },
+            "max_mutations_per_candidate": { "type": "integer", "minimum": 1 },
+            "max_total_mutations": { "type": "integer", "minimum": 1 },
+            "max_bytes_per_mutation": { "type": "integer", "minimum": 1 },
+            "max_input_bytes": { "type": "integer", "minimum": 1 },
+            "max_output_bytes": { "type": "integer", "minimum": 1 },
+            "max_minimization_attempts": { "type": "integer", "minimum": 1 },
+            "max_total_target_operations": { "type": "integer", "minimum": 1 },
+            "max_target_operations": { "type": "integer", "minimum": 1 }
+          },
+          "additionalProperties": false
+        },
+        "seeds": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": [
+              "id",
+              "source_case_id",
+              "source_recipe_id",
+              "source_recipe_version",
+              "source_generation_seed",
+              "source_sha256",
+              "source_size_bytes",
+              "surfaces"
+            ],
+            "properties": {
+              "id": { "type": "string", "minLength": 1 },
+              "source_case_id": { "type": "string", "minLength": 1 },
+              "source_recipe_id": { "type": "string", "minLength": 1 },
+              "source_recipe_version": { "type": "string", "minLength": 1 },
+              "source_generation_seed": { "type": "integer", "minimum": 0 },
+              "source_sha256": { "$ref": "#/$defs/sha256" },
+              "source_size_bytes": { "type": "integer", "minimum": 1 },
+              "surfaces": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": {
+                  "enum": [
+                    "file_meta",
+                    "dataset_headers",
+                    "sequence_structure",
+                    "encapsulation",
+                    "pixel_data",
+                    "text_values"
+                  ]
+                }
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "counters": {
+          "$ref": "#/$defs/fuzz_counters"
+        },
+        "outcomes": {
+          "$ref": "#/$defs/fuzz_outcomes"
+        },
+        "minimizations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "seed_description_id",
+              "candidate_iteration",
+              "candidate_seed",
+              "outcome",
+              "original_size",
+              "minimized_size",
+              "attempts",
+              "target_operations",
+              "minimized_fingerprint"
+            ],
+            "properties": {
+              "seed_description_id": { "type": "string", "minLength": 1 },
+              "candidate_iteration": { "type": "integer", "minimum": 0 },
+              "candidate_seed": { "type": "integer", "minimum": 0 },
+              "outcome": { "$ref": "#/$defs/fuzz_outcome" },
+              "original_size": { "type": "integer", "minimum": 0 },
+              "minimized_size": { "type": "integer", "minimum": 0 },
+              "attempts": { "type": "integer", "minimum": 1 },
+              "target_operations": { "type": "integer", "minimum": 1 },
+              "minimized_fingerprint": {
+                "type": "string",
+                "pattern": "^fnv1a64:[0-9a-f]{16}$"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "unacceptable_outcomes": {
+          "const": ["crash", "hang", "timeout", "resource_limit"]
+        },
+        "payload_policy": { "const": "generated_payloads_uncommitted" },
+        "status": { "enum": ["passed", "failed"] }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": { "const": "passed" }
+            },
+            "required": ["status"]
+          },
+          "then": {
+            "properties": {
+              "outcomes": {
+                "properties": {
+                  "crash": { "const": 0 },
+                  "hang": { "const": 0 },
+                  "timeout": { "const": 0 },
+                  "resource_limit": { "const": 0 }
+                }
+              }
+            }
+          }
+        }
+      ],
+      "additionalProperties": false
+    },
+    "fuzz_counters": {
+      "type": "object",
+      "required": ["iterations", "candidates", "mutations", "target_operations"],
+      "properties": {
+        "iterations": { "type": "integer", "minimum": 0 },
+        "candidates": { "type": "integer", "minimum": 0 },
+        "mutations": { "type": "integer", "minimum": 0 },
+        "target_operations": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "fuzz_outcome": {
+      "enum": [
+        "accepted",
+        "clean_rejection",
+        "parse_failure",
+        "validation_failure",
+        "decode_failure",
+        "crash",
+        "hang",
+        "timeout",
+        "resource_limit"
+      ]
+    },
+    "fuzz_outcomes": {
+      "type": "object",
+      "required": [
+        "accepted",
+        "clean_rejection",
+        "parse_failure",
+        "validation_failure",
+        "decode_failure",
+        "crash",
+        "hang",
+        "timeout",
+        "resource_limit"
+      ],
+      "properties": {
+        "accepted": { "type": "integer", "minimum": 0 },
+        "clean_rejection": { "type": "integer", "minimum": 0 },
+        "parse_failure": { "type": "integer", "minimum": 0 },
+        "validation_failure": { "type": "integer", "minimum": 0 },
+        "decode_failure": { "type": "integer", "minimum": 0 },
+        "crash": { "type": "integer", "minimum": 0 },
+        "hang": { "type": "integer", "minimum": 0 },
+        "timeout": { "type": "integer", "minimum": 0 },
+        "resource_limit": { "type": "integer", "minimum": 0 }
       },
       "additionalProperties": false
     },

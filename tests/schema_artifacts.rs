@@ -565,6 +565,98 @@ fn coverage_report_schema_projects_negative_outcomes_separately() {
 }
 
 #[test]
+fn manifest_schema_types_payload_free_bounded_fuzz_qualification() {
+    let schema = read_json("schemas/manifest.schema.json");
+    let fuzz_schema = serde_json::json!({
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$ref": "#/$defs/fuzz_qualification",
+        "$defs": schema["$defs"].clone()
+    });
+    let validator = jsonschema::validator_for(&fuzz_schema)
+        .expect("bounded fuzz qualification schema should compile");
+    let mut qualification = serde_json::json!({
+        "case_id": "fuzz/parser/bounded_seed_corpus",
+        "kind": "bounded_fuzz_run",
+        "contract_version": "0.1.0",
+        "profile": "fuzz",
+        "run_seed": 7,
+        "provider": {
+            "kind": "mutation_layer",
+            "id": "bounded_deterministic_fuzz"
+        },
+        "target": {
+            "kind": "same_project_bounded_part10_probe",
+            "independence": "same_project",
+            "operation_unit": "input_byte"
+        },
+        "budget": {
+            "max_iterations": 64,
+            "max_candidates": 64,
+            "max_mutations_per_candidate": 8,
+            "max_total_mutations": 512,
+            "max_bytes_per_mutation": 64,
+            "max_input_bytes": 8388608,
+            "max_output_bytes": 8388608,
+            "max_minimization_attempts": 256,
+            "max_total_target_operations": 100000000,
+            "max_target_operations": 1000000
+        },
+        "seeds": [{
+            "id": "part10-explicit-vr-le-v1",
+            "source_case_id": "classic/sc/mono2_u8_explicit_le",
+            "source_recipe_id": "sc_mono2_u8",
+            "source_recipe_version": "0.1.0",
+            "source_generation_seed": 7,
+            "source_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "source_size_bytes": 512,
+            "surfaces": ["file_meta", "dataset_headers", "pixel_data"]
+        }],
+        "counters": {
+            "iterations": 64,
+            "candidates": 64,
+            "mutations": 300,
+            "target_operations": 32000
+        },
+        "outcomes": {
+            "accepted": 8,
+            "clean_rejection": 56,
+            "parse_failure": 0,
+            "validation_failure": 0,
+            "decode_failure": 0,
+            "crash": 0,
+            "hang": 0,
+            "timeout": 0,
+            "resource_limit": 0
+        },
+        "minimizations": [{
+            "seed_description_id": "part10-explicit-vr-le-v1",
+            "candidate_iteration": 0,
+            "candidate_seed": 42,
+            "outcome": "clean_rejection",
+            "original_size": 512,
+            "minimized_size": 1,
+            "attempts": 10,
+            "target_operations": 1024,
+            "minimized_fingerprint": "fnv1a64:0000000000000000"
+        }],
+        "unacceptable_outcomes": ["crash", "hang", "timeout", "resource_limit"],
+        "payload_policy": "generated_payloads_uncommitted",
+        "status": "passed"
+    });
+    assert!(validator.is_valid(&qualification));
+
+    qualification["outcomes"]["timeout"] = Value::from(1);
+    assert!(
+        !validator.is_valid(&qualification),
+        "a passing fuzz qualification cannot hide a timeout"
+    );
+    qualification["status"] = Value::String("failed".to_string());
+    assert!(validator.is_valid(&qualification));
+    assert!(qualification.get("path").is_none());
+    assert!(qualification.get("bytes").is_none());
+}
+
+#[test]
 fn manifest_schema_types_cross_instance_geometry_expectations() {
     let schema = read_json("schemas/manifest.schema.json");
     assert_eq!(

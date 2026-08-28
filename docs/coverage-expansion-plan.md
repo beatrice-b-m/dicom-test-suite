@@ -626,6 +626,17 @@ Gate:
 - timeouts and crashes are reported distinctly from clean rejection;
 - every promoted regression is reproducible from recipe plus seed.
 
+Status on 2026-08-28: the deterministic mutation milestone is complete. All
+15 registered negative cases generate only under `negative`, two seed-7 roots
+were byte-identical, and strict validation checked 15 files with zero contract
+failures. Normal coverage rows remain empty for the profile; negative outcomes
+are reported separately and the built-in classifier is labeled same-project.
+Bounded DCMTK and dicom3tools exercises produced no timeout, crash, or signal.
+DCMTK safely ignored the corrupt Extended Offset Table in one case, an explicit
+interoperability result recorded without treating that tool as independent
+proof of the suite's classifier. The bounded `fuzz` profile is the remaining
+Phase 7 milestone. See `docs/phase-7-negative-status.md`.
+
 ### Phase 8 — Media and protocol interoperability
 
 **Purpose:** supplement file compatibility with interchange behavior while

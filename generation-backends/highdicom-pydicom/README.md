@@ -56,6 +56,14 @@ group. The SCOORD3D report uses TID 1501 with a 2.5 mm Distance NUM whose
 frames 1 and 2. Rust supplies every UID and verifies the source geometry before
 invocation; PixelMed is the mandatory independent template validator.
 
+The WSI tile-reference recipe emits one FRACTIONAL/OCCUPANCY Segmentation from
+the staged `vl/wsi/tiled_full_small` source. It stores only the two non-empty
+diagonal 2 by 2 masks as a `TILED_SPARSE` 4 by 4 total pixel matrix and binds
+them to source Frames 1 and 4. highdicom performs the fractional pixel encoding
+and tile selection; the backend then installs the locked shared Segment
+Identification and exact per-frame Derivation Image references. Rust remains
+the independent authority for payload reconstruction and graph closure.
+
 ## Locked Runtime Licenses
 
 The environment is downloaded from upstream package indexes and is not vendored

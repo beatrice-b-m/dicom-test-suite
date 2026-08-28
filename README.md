@@ -111,6 +111,10 @@ Map proof, and independent validation evidence are in
 Independently verified Phase 2 native slices and their remaining milestone work
 are tracked in
 [docs/phase-2-native-status.md](docs/phase-2-native-status.md).
+The completed dependency-ordered pathology and tiled-microscopy slices,
+including WSI tile-referencing segmentation and the next explicit full-size
+pyramid checkpoint, are recorded in
+[docs/phase-4-pathology-status.md](docs/phase-4-pathology-status.md).
 
 ## Verification
 

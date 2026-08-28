@@ -206,14 +206,6 @@
         "size_bytes",
         "determinism",
         "recipe",
-        "dicom",
-        "uids",
-        "references",
-        "expected_capabilities",
-        "expected_semantics",
-        "expected_visual_checks",
-        "validation",
-        "known_stressors",
         "standards_evidence"
       ],
       "properties": {
@@ -248,8 +240,17 @@
         "determinism": {
           "$ref": "#/$defs/determinism"
         },
+        "validity": {
+          "enum": ["valid", "expected_invalid"]
+        },
+        "provider": {
+          "$ref": "#/$defs/file_provider"
+        },
         "recipe": {
           "$ref": "#/$defs/recipe"
+        },
+        "negative_evidence": {
+          "$ref": "#/$defs/negative_evidence"
         },
         "dicom": {
           "$ref": "#/$defs/dicom"
@@ -440,6 +441,45 @@
       },
       "additionalProperties": false,
       "allOf": [
+        {
+          "if": {
+            "properties": {
+              "validity": { "const": "expected_invalid" }
+            },
+            "required": ["validity"]
+          },
+          "then": {
+            "required": ["provider", "negative_evidence"],
+            "not": {
+              "anyOf": [
+                { "required": ["dicom"] },
+                { "required": ["uids"] },
+                { "required": ["image"] },
+                { "required": ["pixel_data"] },
+                { "required": ["generation_backend"] },
+                { "required": ["references"] },
+                { "required": ["expected_capabilities"] },
+                { "required": ["expected_semantics"] },
+                { "required": ["expected_visual_checks"] },
+                { "required": ["validation"] },
+                { "required": ["known_stressors"] }
+              ]
+            }
+          },
+          "else": {
+            "required": [
+              "dicom",
+              "uids",
+              "references",
+              "expected_capabilities",
+              "expected_semantics",
+              "expected_visual_checks",
+              "validation",
+              "known_stressors"
+            ],
+            "not": { "required": ["negative_evidence"] }
+          }
+        },
         {
           "if": {
             "properties": {
@@ -7244,6 +7284,190 @@
       "properties": {
         "position": { "type": "integer", "minimum": 1, "maximum": 5 },
         "decoded_value": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "file_provider": {
+      "type": "object",
+      "required": ["kind", "id"],
+      "properties": {
+        "kind": {
+          "enum": [
+            "rust_native",
+            "external_backend",
+            "mutation_layer",
+            "protocol_harness"
+          ]
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9_-]*$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "negative_byte_range": {
+      "type": "object",
+      "description": "A zero-based half-open byte range [start, end).",
+      "required": ["start", "end"],
+      "properties": {
+        "start": { "type": "integer", "minimum": 0 },
+        "end": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "negative_changed_byte_range": {
+      "type": "object",
+      "required": ["source", "output"],
+      "properties": {
+        "source": { "$ref": "#/$defs/negative_byte_range" },
+        "output": { "$ref": "#/$defs/negative_byte_range" }
+      },
+      "additionalProperties": false
+    },
+    "negative_failure_layer": {
+      "enum": [
+        "file_meta",
+        "dataset_parser",
+        "value_decoding",
+        "semantic_validation",
+        "pixel_decoding",
+        "encapsulation",
+        "text_decoding"
+      ]
+    },
+    "negative_acceptable_outcome": {
+      "enum": [
+        "clean_rejection",
+        "parse_failure",
+        "validation_failure",
+        "decode_failure",
+        "accepted_with_bounded_warning"
+      ]
+    },
+    "negative_mutation_step": {
+      "type": "object",
+      "required": [
+        "ordinal",
+        "mutation_id",
+        "parameters",
+        "changed_byte_ranges",
+        "source_sha256",
+        "output_sha256",
+        "expected_failure_layer",
+        "acceptable_outcomes"
+      ],
+      "properties": {
+        "ordinal": { "type": "integer", "minimum": 1 },
+        "mutation_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9_]*$"
+        },
+        "parameters": {
+          "type": "object",
+          "minProperties": 1,
+          "propertyNames": {
+            "enum": [
+              "target",
+              "offset",
+              "length_field",
+              "width",
+              "declared_length",
+              "vr_field",
+              "replacement",
+              "file_meta_uid_value",
+              "dataset_uid_value",
+              "element",
+              "bits_stored_value",
+              "high_bit_value",
+              "bits_stored",
+              "high_bit",
+              "entry",
+              "delimitation_item",
+              "value"
+            ]
+          },
+          "additionalProperties": true
+        },
+        "changed_byte_ranges": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/negative_changed_byte_range" }
+        },
+        "source_sha256": { "$ref": "#/$defs/sha256" },
+        "output_sha256": { "$ref": "#/$defs/sha256" },
+        "expected_failure_layer": {
+          "$ref": "#/$defs/negative_failure_layer"
+        },
+        "acceptable_outcomes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/negative_acceptable_outcome" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "negative_evidence": {
+      "type": "object",
+      "required": [
+        "contract_version",
+        "recipe_version",
+        "source",
+        "source_shape",
+        "mutation_steps",
+        "probe",
+        "unacceptable_outcomes",
+        "final_sha256"
+      ],
+      "properties": {
+        "contract_version": { "const": "0.1.0" },
+        "recipe_version": { "const": "0.1.0" },
+        "source": {
+          "type": "object",
+          "required": [
+            "case_id",
+            "sha256",
+            "transfer_syntax_uid",
+            "size_bytes"
+          ],
+          "properties": {
+            "case_id": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9_-]*(/[a-z0-9][a-z0-9_-]*)+$"
+            },
+            "sha256": { "$ref": "#/$defs/sha256" },
+            "transfer_syntax_uid": {
+              "type": "string",
+              "pattern": "^[0-9]+(\\.[0-9]+)+$",
+              "maxLength": 64
+            },
+            "size_bytes": { "type": "integer", "minimum": 1 }
+          },
+          "additionalProperties": false
+        },
+        "source_shape": { "type": "string", "minLength": 1 },
+        "mutation_steps": {
+          "type": "array",
+          "description": "Mutation evidence in application order; ordinals are contiguous and one-based.",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/negative_mutation_step" }
+        },
+        "probe": {
+          "type": "object",
+          "required": ["kind", "independence", "outcome", "detail"],
+          "properties": {
+            "kind": { "const": "same_project_bounded_parser_classifier" },
+            "independence": { "const": "same_project" },
+            "outcome": { "$ref": "#/$defs/negative_acceptable_outcome" },
+            "detail": { "type": "string", "minLength": 1 }
+          },
+          "additionalProperties": false
+        },
+        "unacceptable_outcomes": {
+          "const": ["timeout", "crash", "hang"]
+        },
+        "final_sha256": { "$ref": "#/$defs/sha256" }
       },
       "additionalProperties": false
     },

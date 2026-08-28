@@ -112,11 +112,15 @@ fn manifest_schema_allows_non_image_files_and_requires_references() {
         .and_then(Value::as_array)
         .expect("manifest schema must define required file fields");
 
+    let valid_file_required = schema
+        .pointer("/$defs/file/allOf/0/else/required")
+        .and_then(Value::as_array)
+        .expect("valid manifest files must retain their conditional requirements");
     assert!(
-        file_required
+        valid_file_required
             .iter()
             .any(|value| value.as_str() == Some("references")),
-        "manifest file entries must include references"
+        "valid manifest file entries must include references"
     );
     for optional_field in ["image", "pixel_data"] {
         assert!(
@@ -273,6 +277,124 @@ fn manifest_schema_requires_exact_extended_offset_table_arrays() {
         "offsets": [0, 78, 152],
         "lengths": [69, 66, 69]
     })));
+}
+
+fn negative_manifest_file_fixture() -> Value {
+    serde_json::json!({
+        "case_id": "negative/encoding/illegal_vr_bytes",
+        "profile_membership": ["negative"],
+        "path": "negative/encoding/illegal_vr_bytes/instance.dcm",
+        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "size_bytes": 511,
+        "determinism": "byte_stable",
+        "validity": "expected_invalid",
+        "provider": { "kind": "mutation_layer", "id": "checked_part10_mutation" },
+        "recipe": {
+            "recipe_id": "negative_encoding_illegal_vr_bytes",
+            "recipe_version": "0.1.0",
+            "recipe_parameters": {}
+        },
+        "negative_evidence": {
+            "contract_version": "0.1.0",
+            "recipe_version": "0.1.0",
+            "source": {
+                "case_id": "classic/sc/mono2_u8_explicit_le",
+                "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+                "size_bytes": 512
+            },
+            "source_shape": "Explicit VR Little Endian Part 10 with a located short-VR field",
+            "mutation_steps": [{
+                "ordinal": 1,
+                "mutation_id": "illegal_vr_bytes",
+                "parameters": {
+                    "vr_field": { "start": 300, "end": 302 },
+                    "replacement": [90, 90],
+                    "length_field": null
+                },
+                "changed_byte_ranges": [{
+                    "source": { "start": 300, "end": 302 },
+                    "output": { "start": 300, "end": 302 }
+                }],
+                "source_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "output_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "expected_failure_layer": "dataset_parser",
+                "acceptable_outcomes": ["clean_rejection", "parse_failure"]
+            }],
+            "probe": {
+                "kind": "same_project_bounded_parser_classifier",
+                "independence": "same_project",
+                "outcome": "parse_failure",
+                "detail": "The bounded Part 10 locator rejected illegal VR bytes."
+            },
+            "unacceptable_outcomes": ["timeout", "crash", "hang"],
+            "final_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        },
+        "standards_evidence": []
+    })
+}
+
+#[test]
+fn manifest_schema_separates_expected_invalid_files_from_valid_dicom_contracts() {
+    let schema = read_json("schemas/manifest.schema.json");
+    let file_schema = serde_json::json!({
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$ref": "#/$defs/file",
+        "$defs": schema["$defs"].clone()
+    });
+    let validator =
+        jsonschema::validator_for(&file_schema).expect("manifest file schema should compile");
+    let negative = negative_manifest_file_fixture();
+    let errors = validator
+        .iter_errors(&negative)
+        .map(|error| error.to_string())
+        .collect::<Vec<_>>();
+    assert!(
+        errors.is_empty(),
+        "expected-invalid files must validate from mutation evidence without valid-DICOM fields:\n{}",
+        errors.join("\n")
+    );
+
+    let mut missing_validity = negative.clone();
+    missing_validity
+        .as_object_mut()
+        .expect("fixture object")
+        .remove("validity");
+    assert!(
+        !validator.is_valid(&missing_validity),
+        "validity absent must retain the legacy valid-DICOM requirements"
+    );
+
+    let mut false_dicom_claim = negative.clone();
+    false_dicom_claim["dicom"] = serde_json::json!({});
+    assert!(
+        !validator.is_valid(&false_dicom_claim),
+        "expected-invalid files must not carry valid-DICOM identity claims"
+    );
+
+    let mut unsafe_outcomes = negative.clone();
+    unsafe_outcomes["negative_evidence"]["unacceptable_outcomes"] =
+        serde_json::json!(["timeout", "crash"]);
+    assert!(
+        !validator.is_valid(&unsafe_outcomes),
+        "timeout, crash, and hang must all remain explicitly unacceptable"
+    );
+
+    let mut incomplete_ranges = negative;
+    incomplete_ranges["negative_evidence"]["mutation_steps"][0]["changed_byte_ranges"][0]["output"] =
+        Value::Null;
+    assert!(
+        !validator.is_valid(&incomplete_ranges),
+        "each changed range must preserve exact source and output half-open ranges"
+    );
+
+    let mut empty_parameters = negative_manifest_file_fixture();
+    empty_parameters["negative_evidence"]["mutation_steps"][0]["parameters"] =
+        serde_json::json!({});
+    assert!(
+        !validator.is_valid(&empty_parameters),
+        "mutation parameters must identify the exact bounded operation"
+    );
 }
 
 #[test]

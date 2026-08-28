@@ -12,6 +12,11 @@ from pydicom.sequence import Sequence
 from dts_wsi_reconstruction.__main__ import (
     LABEL_HASH,
     MATRIX_HASH,
+    MULTI_PATH_AGGREGATE_HASH,
+    MULTI_PATH_FRAME_HASHES,
+    MULTI_PATH_IDENTIFIERS,
+    MULTI_PATH_MATRIX_HASHES,
+    MULTI_PATH_PAYLOAD_HASHES,
     SPARSE_MATRIX_HASH,
     SPARSE_OCCUPANCY_MASK,
     THUMBNAIL_HASH,
@@ -197,6 +202,60 @@ def _group_dataset(path: Path, role: str) -> FileDataset:
     return ds
 
 
+def _multiple_optical_path_dataset(path: Path) -> FileDataset:
+    ds = _dataset(path)
+    ds.NumberOfFrames = 8
+    ds.NumberOfOpticalPaths = 2
+    ds.BurnedInAnnotation = "NO"
+    ds.SpecimenLabelInImage = "NO"
+    ds.FocusMethod = "AUTO"
+    ds.ExtendedDepthOfField = "NO"
+    ds.PositionReferenceIndicator = "SLIDE_CORNER"
+    paths = []
+    for identifier, description, wavelength in (
+        (
+            "BRIGHTFIELD",
+            "Deterministic brightfield path",
+            550.0,
+        ),
+        (
+            "ALTERNATE",
+            "Deterministic alternate path",
+            650.0,
+        ),
+    ):
+        optical = Dataset()
+        optical.OpticalPathIdentifier = identifier
+        optical.OpticalPathDescription = description
+        optical.IlluminationWaveLength = wavelength
+        illumination = Dataset()
+        illumination.CodeValue = "111744"
+        illumination.CodingSchemeDesignator = "DCM"
+        illumination.CodeMeaning = "Brightfield illumination"
+        optical.IlluminationTypeCodeSequence = Sequence([illumination])
+        optical.ICCProfile = _icc_profile()
+        optical.ColorSpace = "SRGB"
+        paths.append(optical)
+    ds.OpticalPathSequence = Sequence(paths)
+    first_colors = (
+        [255, 0, 0],
+        [0, 255, 0],
+        [0, 0, 255],
+        [255, 255, 255],
+    )
+    second_colors = (
+        [0, 255, 255],
+        [255, 0, 255],
+        [255, 255, 0],
+        [0, 0, 0],
+    )
+    frames = np.asarray(
+        [[color] * 4 for color in first_colors + second_colors], dtype=np.uint8
+    ).reshape(8, 2, 2, 3)
+    ds.PixelData = frames.tobytes()
+    return ds
+
+
 class ReconstructionTest(unittest.TestCase):
     def setUp(self) -> None:
         self.temp = tempfile.TemporaryDirectory()
@@ -250,6 +309,126 @@ class ReconstructionTest(unittest.TestCase):
         ]
         ds.save_as(self.path, enforce_file_format=True)
         with self.assertRaisesRegex(ReconstructionError, "pixel spacing"):
+            reconstruct(self.path)
+
+
+class MultipleOpticalPathReconstructionTest(unittest.TestCase):
+    def setUp(self) -> None:
+        self.temp = tempfile.TemporaryDirectory()
+        self.path = Path(self.temp.name) / "wsi-multiple-optical-paths.dcm"
+        _multiple_optical_path_dataset(self.path).save_as(
+            self.path, enforce_file_format=True
+        )
+
+    def tearDown(self) -> None:
+        self.temp.cleanup()
+
+    def test_reconstructs_exact_matrix_for_each_ordered_optical_path(self) -> None:
+        result = reconstruct(self.path)
+        self.assertEqual(result["status"], "passed")
+        self.assertEqual(result["backend_version"], "0.4.0")
+        self.assertEqual(result["number_of_frames"], 8)
+        self.assertEqual(result["number_of_optical_paths"], 2)
+        self.assertEqual(result["total_pixel_matrix_focal_planes"], 1)
+        self.assertEqual(result["optical_path_identifiers"], MULTI_PATH_IDENTIFIERS)
+        self.assertEqual(result["frame_hashes"], sum(MULTI_PATH_FRAME_HASHES, []))
+        self.assertEqual(result["pixel_data_sha256"], MULTI_PATH_AGGREGATE_HASH)
+        self.assertEqual(
+            [path["pixel_data_sha256"] for path in result["optical_paths"]],
+            MULTI_PATH_PAYLOAD_HASHES,
+        )
+        self.assertEqual(
+            [
+                path["total_pixel_matrix_sha256"]
+                for path in result["optical_paths"]
+            ],
+            MULTI_PATH_MATRIX_HASHES,
+        )
+        self.assertEqual(
+            [
+                position["optical_path_ordinal"]
+                for position in result["implicit_frame_positions"]
+            ],
+            [1, 1, 1, 1, 2, 2, 2, 2],
+        )
+        self.assertEqual(
+            [
+                (position["column_position"], position["row_position"])
+                for position in result["implicit_frame_positions"]
+            ],
+            [(1, 1), (3, 1), (1, 3), (3, 3)] * 2,
+        )
+        self.assertEqual(
+            result["unfiltered_total_pixel_matrix"],
+            "rejected_ambiguous_optical_path_dimension",
+        )
+        self.assertEqual(
+            result["reconstruction_scope"], "separate_matrix_per_optical_path"
+        )
+        self.assertTrue(all(not present for present in result["presence"].values()))
+        self.assertFalse(result["transforms_applied"])
+
+    def test_rejects_duplicate_optical_path_identifier(self) -> None:
+        dataset = _multiple_optical_path_dataset(self.path)
+        dataset.OpticalPathSequence[1].OpticalPathIdentifier = "BRIGHTFIELD"
+        dataset.save_as(self.path, enforce_file_format=True)
+        with self.assertRaisesRegex(
+            ReconstructionError, "optical path item 2 identifier"
+        ):
+            reconstruct(self.path)
+
+    def test_rejects_reordered_optical_path_identifiers(self) -> None:
+        dataset = _multiple_optical_path_dataset(self.path)
+        first = dataset.OpticalPathSequence[0].OpticalPathIdentifier
+        dataset.OpticalPathSequence[0].OpticalPathIdentifier = (
+            dataset.OpticalPathSequence[1].OpticalPathIdentifier
+        )
+        dataset.OpticalPathSequence[1].OpticalPathIdentifier = first
+        dataset.save_as(self.path, enforce_file_format=True)
+        with self.assertRaisesRegex(
+            ReconstructionError, "optical path item 1 identifier"
+        ):
+            reconstruct(self.path)
+
+    def test_rejects_swapped_path_payload_blocks(self) -> None:
+        dataset = _multiple_optical_path_dataset(self.path)
+        frames = np.frombuffer(dataset.PixelData, dtype=np.uint8).reshape(
+            8, 2, 2, 3
+        )
+        dataset.PixelData = np.concatenate((frames[4:], frames[:4])).tobytes()
+        dataset.save_as(self.path, enforce_file_format=True)
+        with self.assertRaisesRegex(
+            ReconstructionError, "multiple-optical-path Pixel Data aggregate hash"
+        ):
+            reconstruct(self.path)
+
+    def test_rejects_frame_reordering_within_path(self) -> None:
+        dataset = _multiple_optical_path_dataset(self.path)
+        frames = (
+            np.frombuffer(dataset.PixelData, dtype=np.uint8)
+            .reshape(8, 2, 2, 3)
+            .copy()
+        )
+        frames[[0, 1]] = frames[[1, 0]]
+        dataset.PixelData = frames.tobytes()
+        dataset.save_as(self.path, enforce_file_format=True)
+        with self.assertRaisesRegex(
+            ReconstructionError, "multiple-optical-path Pixel Data aggregate hash"
+        ):
+            reconstruct(self.path)
+
+    def test_rejects_wrong_path_count_even_when_frame_count_is_eight(self) -> None:
+        dataset = _multiple_optical_path_dataset(self.path)
+        dataset.NumberOfOpticalPaths = 1
+        dataset.save_as(self.path, enforce_file_format=True)
+        with self.assertRaisesRegex(ReconstructionError, "NumberOfOpticalPaths"):
+            reconstruct(self.path)
+
+    def test_rejects_top_level_icc_profile(self) -> None:
+        dataset = _multiple_optical_path_dataset(self.path)
+        dataset.ICCProfile = _icc_profile()
+        dataset.save_as(self.path, enforce_file_format=True)
+        with self.assertRaisesRegex(ReconstructionError, "top-level ICCProfile"):
             reconstruct(self.path)
 
 

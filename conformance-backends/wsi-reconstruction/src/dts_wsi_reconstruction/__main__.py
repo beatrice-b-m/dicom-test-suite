@@ -1,4 +1,4 @@
-"""Fail-closed independent reconstruction of the locked small WSI cases."""
+"""Fail-closed independent reconstruction of the locked WSI cases."""
 
 from __future__ import annotations
 
@@ -12,6 +12,7 @@ from typing import Any
 import highdicom as hd
 import numpy as np
 import pydicom
+from highdicom.spatial import iter_tiled_full_frame_data
 from pydicom.tag import Tag
 
 from . import __version__
@@ -33,6 +34,32 @@ VOLUME_PAYLOAD_HASH = "b40b0afc9b180d5ebfb54a7db428e13fe09a33dcc9a8f76220f395ba2
 THUMBNAIL_HASH = "6733cdd08e5c7ef0453e2759ef0d28fbd43ea2aa7883b55422a13dac38e23ecc"
 LABEL_HASH = "ad078f83d3ea66f075867d116c8c126e9c8a8a9dd873cd27280371c173d8ad02"
 ICC_PROFILE_HASH = "8e069a3476b71a0e0ae7272d9278ba70540d1c4a0b19af1c7d52e56f49091fef"
+MULTI_PATH_IDENTIFIERS = ["BRIGHTFIELD", "ALTERNATE"]
+MULTI_PATH_DESCRIPTIONS = [
+    "Deterministic brightfield path",
+    "Deterministic alternate path",
+]
+MULTI_PATH_WAVELENGTHS = [550.0, 650.0]
+MULTI_PATH_FRAME_HASHES = [
+    FRAME_HASHES,
+    [
+        "f7606fde280d9577c963618cc2a8fa52b15315ff63ec185029cf66bda64435ab",
+        "81fd180e1f66d28018580f37d46188c02fd6709f875b3b620090718a8847c282",
+        "745598fdcfa2650299b59b42f40c0750087e117d6bc236c66486087cd264ebd8",
+        "15ec7bf0b50732b49f8228e07d24365338f9e3ab994b00af08e5a3bffe55fd8b",
+    ],
+]
+MULTI_PATH_PAYLOAD_HASHES = [
+    VOLUME_PAYLOAD_HASH,
+    "1f7ee233e83aebb2127b56d5d728f9ca2df9170ec4eb24e929dca261f9badbed",
+]
+MULTI_PATH_MATRIX_HASHES = [
+    MATRIX_HASH,
+    "caa1a1abb84ec283bbf92a0f00d5bd89650420d0b1fa911e191ddb368f50e09f",
+]
+MULTI_PATH_AGGREGATE_HASH = (
+    "831fe6e50cbc3f3d82e3f57c984d3c273cdb18dd3bd3ab511b3633dc293f708f"
+)
 GROUP_ROLES = ("volume", "thumbnail", "label")
 ROLE_IMAGE_TYPES = {
     "volume": ["ORIGINAL", "PRIMARY", "VOLUME", "NONE"],
@@ -67,6 +94,7 @@ def _validate_common(
     dataset: pydicom.Dataset,
     dimension_organization_type: str,
     number_of_frames: int,
+    number_of_optical_paths: int = 1,
 ) -> tuple[list[float], list[float], list[float]]:
     _require_equal(str(dataset.SOPClassUID), WSI_STORAGE, "SOP Class UID")
     _require_equal(
@@ -87,7 +115,7 @@ def _validate_common(
         ("NumberOfFrames", number_of_frames),
         ("TotalPixelMatrixRows", 4),
         ("TotalPixelMatrixColumns", 4),
-        ("NumberOfOpticalPaths", 1),
+        ("NumberOfOpticalPaths", number_of_optical_paths),
         ("TotalPixelMatrixFocalPlanes", 1),
         ("SamplesPerPixel", 3),
         ("PlanarConfiguration", 0),
@@ -103,12 +131,17 @@ def _validate_common(
         "dimension organization item count",
     )
     _require_equal(len(dataset.SpecimenDescriptionSequence), 1, "specimen item count")
-    _require_equal(len(dataset.OpticalPathSequence), 1, "optical path item count")
     _require_equal(
-        str(dataset.OpticalPathSequence[0].OpticalPathIdentifier),
-        "RGB",
-        "optical path identifier",
+        len(dataset.OpticalPathSequence),
+        number_of_optical_paths,
+        "optical path item count",
     )
+    if number_of_optical_paths == 1:
+        _require_equal(
+            str(dataset.OpticalPathSequence[0].OpticalPathIdentifier),
+            "RGB",
+            "optical path identifier",
+        )
     _require_equal(
         len(dataset.SharedFunctionalGroupsSequence),
         1,
@@ -384,6 +417,334 @@ def _reconstruct_tiled_full(dataset: pydicom.Dataset) -> dict[str, Any]:
     }
 
 
+def _validate_multiple_optical_path_structure(
+    dataset: pydicom.Dataset,
+) -> tuple[list[float], list[float], list[float]]:
+    geometry = _validate_common(dataset, "TILED_FULL", 8, 2)
+    if (
+        "DimensionIndexSequence" in dataset
+        or "PerFrameFunctionalGroupsSequence" in dataset
+    ):
+        raise ReconstructionError(
+            "multiple-optical-path TILED_FULL input must use implicit positions "
+            "without per-frame or dimension-index sequences"
+        )
+    for keyword in (
+        "SpacingBetweenSlices",
+        "NumberOfFocalPlanes",
+        "DistanceBetweenFocalPlanes",
+        "PyramidUID",
+        "ConcatenationUID",
+        "ReferencedSeriesSequence",
+        "ICCProfile",
+    ):
+        if keyword in dataset:
+            raise ReconstructionError(f"top-level {keyword} must be absent")
+    for keyword, expected in (
+        ("ImageType", ROLE_IMAGE_TYPES["volume"]),
+        ("BurnedInAnnotation", "NO"),
+        ("SpecimenLabelInImage", "NO"),
+        ("FocusMethod", "AUTO"),
+        ("ExtendedDepthOfField", "NO"),
+        ("PositionReferenceIndicator", "SLIDE_CORNER"),
+    ):
+        actual = getattr(dataset, keyword)
+        if keyword == "ImageType":
+            actual = [str(value) for value in actual]
+        else:
+            actual = str(actual)
+        _require_equal(actual, expected, keyword)
+    for keyword, expected in (
+        ("ImagedVolumeWidth", 2.0),
+        ("ImagedVolumeHeight", 2.0),
+        ("ImagedVolumeDepth", 0.001),
+    ):
+        _require_float_close(float(getattr(dataset, keyword)), expected, keyword)
+    shared = dataset.SharedFunctionalGroupsSequence[0]
+    _require_keywords(
+        shared,
+        {"PixelMeasuresSequence", "WholeSlideMicroscopyImageFrameTypeSequence"},
+        "shared functional groups item",
+    )
+    _require_equal(
+        [
+            str(value)
+            for value in shared.WholeSlideMicroscopyImageFrameTypeSequence[0].FrameType
+        ],
+        ROLE_IMAGE_TYPES["volume"],
+        "shared WSI FrameType",
+    )
+    _require_float_close(
+        float(shared.PixelMeasuresSequence[0].SliceThickness),
+        0.001,
+        "SliceThickness",
+    )
+
+    actual_identifiers: list[str] = []
+    for ordinal, (item, identifier, description, wavelength) in enumerate(
+        zip(
+            dataset.OpticalPathSequence,
+            MULTI_PATH_IDENTIFIERS,
+            MULTI_PATH_DESCRIPTIONS,
+            MULTI_PATH_WAVELENGTHS,
+            strict=True,
+        ),
+        start=1,
+    ):
+        _require_keywords(
+            item,
+            {
+                "OpticalPathIdentifier",
+                "OpticalPathDescription",
+                "IlluminationWaveLength",
+                "IlluminationTypeCodeSequence",
+                "ICCProfile",
+                "ColorSpace",
+            },
+            f"optical path item {ordinal}",
+        )
+        actual_identifier = str(item.OpticalPathIdentifier)
+        actual_description = str(item.OpticalPathDescription)
+        actual_wavelength = float(item.IlluminationWaveLength)
+        _require_equal(
+            actual_identifier, identifier, f"optical path item {ordinal} identifier"
+        )
+        _require_equal(
+            actual_description,
+            description,
+            f"optical path item {ordinal} description",
+        )
+        _require_float_close(
+            actual_wavelength,
+            wavelength,
+            f"optical path item {ordinal} illumination wavelength",
+        )
+        _require_equal(
+            len(item.IlluminationTypeCodeSequence),
+            1,
+            f"optical path item {ordinal} illumination type count",
+        )
+        illumination = item.IlluminationTypeCodeSequence[0]
+        _require_equal(
+            [
+                str(illumination.CodeValue),
+                str(illumination.CodingSchemeDesignator),
+                str(illumination.CodeMeaning),
+            ],
+            ["111744", "DCM", "Brightfield illumination"],
+            f"optical path item {ordinal} illumination type",
+        )
+        icc_hash = hashlib.sha256(bytes(item.ICCProfile)).hexdigest()
+        _require_equal(
+            icc_hash, ICC_PROFILE_HASH, f"optical path item {ordinal} ICC Profile hash"
+        )
+        _require_equal(
+            str(item.ColorSpace),
+            "SRGB",
+            f"optical path item {ordinal} ColorSpace",
+        )
+        actual_identifiers.append(actual_identifier)
+    _require_equal(
+        len(set(actual_identifiers)),
+        len(actual_identifiers),
+        "unique optical path identifier count",
+    )
+    return geometry
+
+
+def _reconstruct_multiple_optical_paths(
+    dataset: pydicom.Dataset,
+) -> dict[str, Any]:
+    _validate_multiple_optical_path_structure(dataset)
+    aggregate_hash = hashlib.sha256(bytes(dataset.PixelData)).hexdigest()
+    _require_equal(
+        aggregate_hash,
+        MULTI_PATH_AGGREGATE_HASH,
+        "multiple-optical-path Pixel Data aggregate hash",
+    )
+
+    image = hd.Image.from_dataset(dataset, copy=True)
+    frames = [
+        image.get_stored_frame(number, as_index=False).astype(np.uint8, copy=False)
+        for number in range(1, 9)
+    ]
+    for number, frame in enumerate(frames, start=1):
+        _require_equal(list(frame.shape), [2, 2, 3], f"frame {number} shape")
+    frame_hashes = [_sha256(frame) for frame in frames]
+    expected_frame_hashes = [
+        frame_hash
+        for path_hashes in MULTI_PATH_FRAME_HASHES
+        for frame_hash in path_hashes
+    ]
+    _require_equal(frame_hashes, expected_frame_hashes, "stored frame hashes")
+
+    implicit = list(iter_tiled_full_frame_data(dataset))
+    _require_equal(len(implicit), 8, "implicit frame position count")
+    matrices = [np.empty((4, 4, 3), dtype=np.uint8) for _ in range(2)]
+    occupancy = [[False, False, False, False] for _ in range(2)]
+    positions: list[dict[str, int | float | str]] = []
+    per_path_frames: list[list[np.ndarray]] = [[], []]
+    for frame_number, (frame, position) in enumerate(
+        zip(frames, implicit, strict=True), start=1
+    ):
+        channel, focal_plane, column, row, x_mm, y_mm, z_mm = position
+        if channel is None:
+            raise ReconstructionError(
+                f"frame {frame_number} optical path ordinal must not be absent"
+            )
+        path_index = int(channel) - 1
+        if path_index not in (0, 1):
+            raise ReconstructionError(
+                f"frame {frame_number} optical path ordinal is out of range: {channel}"
+            )
+        expected_path_index = (frame_number - 1) // 4
+        _require_equal(
+            path_index,
+            expected_path_index,
+            f"frame {frame_number} optical path order",
+        )
+        _require_equal(int(focal_plane), 1, f"frame {frame_number} focal plane")
+        tile_index = (frame_number - 1) % 4
+        expected_column = 1 + (tile_index % 2) * 2
+        expected_row = 1 + (tile_index // 2) * 2
+        _require_equal(int(column), expected_column, f"frame {frame_number} column")
+        _require_equal(int(row), expected_row, f"frame {frame_number} row")
+        expected_x = float(expected_column - 1) * 0.5
+        expected_y = float(expected_row - 1) * 0.5
+        _require_float_close(float(x_mm), expected_x, f"frame {frame_number} X")
+        _require_float_close(float(y_mm), expected_y, f"frame {frame_number} Y")
+        _require_float_close(float(z_mm), 0.0, f"frame {frame_number} Z")
+        if occupancy[path_index][tile_index]:
+            raise ReconstructionError(
+                f"duplicate tile {tile_index + 1} for optical path {channel}"
+            )
+        occupancy[path_index][tile_index] = True
+        zero_row = expected_row - 1
+        zero_column = expected_column - 1
+        matrices[path_index][
+            zero_row : zero_row + 2, zero_column : zero_column + 2
+        ] = frame
+        per_path_frames[path_index].append(frame)
+        positions.append(
+            {
+                "frame_number": frame_number,
+                "optical_path_ordinal": int(channel),
+                "optical_path_identifier": MULTI_PATH_IDENTIFIERS[path_index],
+                "focal_plane": int(focal_plane),
+                "column_position": int(column),
+                "row_position": int(row),
+                "x_mm": float(x_mm),
+                "y_mm": float(y_mm),
+                "z_mm": float(z_mm),
+            }
+        )
+    _require_equal(occupancy, [[True] * 4, [True] * 4], "per-path occupancy")
+
+    path_results: list[dict[str, Any]] = []
+    for index, identifier in enumerate(MULTI_PATH_IDENTIFIERS):
+        path_frame_hashes = [_sha256(frame) for frame in per_path_frames[index]]
+        _require_equal(
+            path_frame_hashes,
+            MULTI_PATH_FRAME_HASHES[index],
+            f"{identifier} frame hashes",
+        )
+        path_payload_hash = hashlib.sha256(
+            b"".join(
+                np.ascontiguousarray(frame).tobytes()
+                for frame in per_path_frames[index]
+            )
+        ).hexdigest()
+        _require_equal(
+            path_payload_hash,
+            MULTI_PATH_PAYLOAD_HASHES[index],
+            f"{identifier} payload hash",
+        )
+        matrix_hash = _sha256(matrices[index])
+        _require_equal(
+            matrix_hash,
+            MULTI_PATH_MATRIX_HASHES[index],
+            f"{identifier} reconstructed matrix hash",
+        )
+        optical = dataset.OpticalPathSequence[index]
+        path_results.append(
+            {
+                "ordinal": index + 1,
+                "identifier": identifier,
+                "description": str(optical.OpticalPathDescription),
+                "illumination_wavelength_nm": float(optical.IlluminationWaveLength),
+                "illumination_type": {
+                    "code_value": "111744",
+                    "coding_scheme_designator": "DCM",
+                    "code_meaning": "Brightfield illumination",
+                },
+                "icc_profile_sha256": hashlib.sha256(
+                    bytes(optical.ICCProfile)
+                ).hexdigest(),
+                "color_space": str(optical.ColorSpace),
+                "frame_numbers": list(range(index * 4 + 1, index * 4 + 5)),
+                "frame_hashes": path_frame_hashes,
+                "pixel_data_sha256": path_payload_hash,
+                "total_pixel_matrix_shape": [4, 4, 3],
+                "total_pixel_matrix_sha256": matrix_hash,
+            }
+        )
+
+    try:
+        image.get_total_pixel_matrix(
+            dtype=np.uint8,
+            apply_real_world_transform=False,
+            apply_modality_transform=False,
+            apply_voi_transform=False,
+            apply_presentation_lut=False,
+            apply_palette_color_lut=False,
+            apply_icc_profile=False,
+        )
+    except RuntimeError as error:
+        if "do not uniquely identify frames" not in str(error):
+            raise ReconstructionError(
+                f"unexpected unfiltered total pixel matrix rejection: {error}"
+            ) from error
+    else:
+        raise ReconstructionError(
+            "unfiltered total pixel matrix unexpectedly collapsed the optical-path dimension"
+        )
+
+    return {
+        "status": "passed",
+        "backend": "dts-wsi-reconstruct",
+        "backend_version": __version__,
+        "runtime": {
+            "highdicom": version("highdicom"),
+            "numpy": version("numpy"),
+            "pydicom": version("pydicom"),
+        },
+        "dimension_organization_type": "TILED_FULL",
+        "number_of_frames": 8,
+        "number_of_optical_paths": 2,
+        "total_pixel_matrix_focal_planes": 1,
+        "optical_path_identifiers": MULTI_PATH_IDENTIFIERS,
+        "frame_hashes": frame_hashes,
+        "pixel_data_sha256": aggregate_hash,
+        "implicit_frame_positions": positions,
+        "optical_paths": path_results,
+        "presence": {
+            "dimension_index_sequence": False,
+            "per_frame_functional_groups_sequence": False,
+            "spacing_between_slices": False,
+            "number_of_focal_planes": False,
+            "distance_between_focal_planes": False,
+            "pyramid_uid": False,
+            "concatenation_uid": False,
+            "referenced_series_sequence": False,
+            "top_level_icc_profile": False,
+        },
+        "extended_depth_of_field": "NO",
+        "unfiltered_total_pixel_matrix": "rejected_ambiguous_optical_path_dimension",
+        "reconstruction_scope": "separate_matrix_per_optical_path",
+        "transforms_applied": False,
+    }
+
+
 def _reconstruct_tiled_sparse(dataset: pydicom.Dataset) -> dict[str, Any]:
     spacing, orientation, origin = _validate_common(dataset, "TILED_SPARSE", 2)
     organization_uid = _validate_sparse_dimensions(dataset)
@@ -456,6 +817,13 @@ def reconstruct(path: Path) -> dict[str, Any]:
     dataset = pydicom.dcmread(path)
     dimension_type = str(getattr(dataset, "DimensionOrganizationType", ""))
     if dimension_type == "TILED_FULL":
+        optical_path_count = len(getattr(dataset, "OpticalPathSequence", []))
+        if (
+            optical_path_count == 2
+            or int(getattr(dataset, "NumberOfOpticalPaths", 0)) == 2
+            or int(getattr(dataset, "NumberOfFrames", 0)) == 8
+        ):
+            return _reconstruct_multiple_optical_paths(dataset)
         return _reconstruct_tiled_full(dataset)
     if dimension_type == "TILED_SPARSE":
         return _reconstruct_tiled_sparse(dataset)

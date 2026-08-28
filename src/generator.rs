@@ -244,8 +244,6 @@ use dicom_core::value::Value as DicomValue;
 #[cfg(feature = "legacy_jpeg_dcmtk")]
 use dicom_encoding::{Codec, adapters::PixelDataReader};
 #[cfg(feature = "legacy_jpeg_dcmtk")]
-use dicom_object::open_file;
-#[cfg(feature = "legacy_jpeg_dcmtk")]
 use dicom_transfer_syntax_registry::entries::{
     JPEG_LOSSLESS_NON_HIERARCHICAL, JPEG_LOSSLESS_NON_HIERARCHICAL_FIRST_ORDER_PREDICTION,
 };

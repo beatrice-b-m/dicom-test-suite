@@ -461,7 +461,7 @@ mod tests {
         let staging = unique_staging("grandchild");
         let started = Instant::now();
         let error = invoke_backend(
-            &fake_invocation(Duration::from_millis(500)),
+            &fake_pipe_holder_invocation(Duration::from_millis(500)),
             &request(),
             Path::new("."),
             &staging,
@@ -613,6 +613,39 @@ mod tests {
             },
             dependency_lock_sha256:
                 "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd".to_string(),
+            environment_fingerprint,
+        }
+    }
+
+    fn fake_pipe_holder_invocation(timeout: Duration) -> BackendInvocation {
+        #[cfg(unix)]
+        let (executable, fixed_arguments) = (
+            PathBuf::from("/bin/sh"),
+            vec!["-c".to_string(), "/bin/sleep 10 &".to_string()],
+        );
+        #[cfg(windows)]
+        let (executable, fixed_arguments) = (
+            std::env::current_exe().expect("current test executable"),
+            vec![
+                "--ignored".to_string(),
+                "--exact".to_string(),
+                "generation_backends::process::tests::fake_backend_process".to_string(),
+            ],
+        );
+        let environment_fingerprint = environment_fingerprint(&fixed_arguments);
+        BackendInvocation {
+            executable,
+            fixed_arguments,
+            timeout,
+            max_response_bytes: 4096,
+            max_stdout_bytes: 4096,
+            max_stderr_bytes: 4096,
+            output_limits: OutputLimits {
+                max_output_files: 8,
+                max_file_bytes: 1024 * 1024,
+                max_total_output_bytes: 4 * 1024 * 1024,
+            },
+            dependency_lock_sha256: "d".repeat(64),
             environment_fingerprint,
         }
     }

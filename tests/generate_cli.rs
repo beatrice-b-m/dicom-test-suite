@@ -6571,8 +6571,9 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
             .value()
             .to_bytes()
             .expect("Pixel Data should be byte-backed")
-            .len(),
-        2
+            .as_ref(),
+        &[0b0110_1001, 0],
+        "native one-bit SEG frames must share one continuous bit stream"
     );
     let fractional_segmentation_path =
         out_dir.join("derived/seg/fractional_probability_multiframe_explicit_le/instance.dcm");

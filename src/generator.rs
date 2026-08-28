@@ -557,7 +557,8 @@ const ENHANCED_CT_U16_PIXELS: [u8; 16] = [
     0, 0, 0x64, 0, 0xc8, 0, 0x2c, 1, 0x90, 1, 0xf4, 1, 0x58, 2, 0xbc, 2,
 ];
 const ENHANCED_CT_U16_VALUES: [i32; 8] = [0, 100, 200, 300, 400, 500, 600, 700];
-const SEG_BINARY_PIXELS: [u8; 2] = [0b0000_1001, 0b0000_0110];
+const SEG_BINARY_CONTINUOUS_PIXELS: [u8; 2] = [0b0110_1001, 0];
+const SEG_BINARY_ENCAPSULATED_FRAMES: [u8; 2] = [0b0000_1001, 0b0000_0110];
 const SEG_BINARY_VALUES: [i32; 8] = [1, 0, 0, 1, 0, 1, 1, 0];
 const SEG_FRACTIONAL_PROBABILITY_PIXELS: [u8; 8] = [0, 64, 128, 255, 255, 128, 64, 0];
 const SEG_FRACTIONAL_PROBABILITY_VALUES: [i32; 8] = [0, 64, 128, 255, 255, 128, 64, 0];
@@ -2734,8 +2735,8 @@ const SEGMENTATION_RECIPES: &[SegmentationRecipe] = &[
         bits_allocated: 1,
         bits_stored: 1,
         high_bit: 0,
-        pixel_data_length_formula: PixelDataLengthFormula::BitPackedFrames,
-        pixel_bytes: &SEG_BINARY_PIXELS,
+        pixel_data_length_formula: PixelDataLengthFormula::BitPackedContinuousFrames,
+        pixel_bytes: &SEG_BINARY_CONTINUOUS_PIXELS,
         pixel_values: &SEG_BINARY_VALUES,
         pixel_min: 0,
         pixel_max: 1,
@@ -2761,7 +2762,7 @@ const SEGMENTATION_RECIPES: &[SegmentationRecipe] = &[
         bits_stored: 1,
         high_bit: 0,
         pixel_data_length_formula: PixelDataLengthFormula::BitPackedFrames,
-        pixel_bytes: &SEG_BINARY_PIXELS,
+        pixel_bytes: &SEG_BINARY_ENCAPSULATED_FRAMES,
         pixel_values: &SEG_BINARY_VALUES,
         pixel_min: 0,
         pixel_max: 1,
@@ -14264,11 +14265,15 @@ fn write_segmentation_case(
     put_segmentation_functional_groups(&mut obj, recipe, source);
     put_common_instance_reference(&mut obj, source);
 
-    let frame_byte_len = segmentation_frame_byte_len(recipe);
-    let native_frames = recipe
-        .pixel_bytes
-        .chunks(frame_byte_len)
-        .collect::<Vec<_>>();
+    let native_frames = if recipe.transfer_syntax == DEFLATED_IMAGE_FRAME {
+        let frame_byte_len = segmentation_frame_byte_len(recipe);
+        recipe
+            .pixel_bytes
+            .chunks(frame_byte_len)
+            .collect::<Vec<_>>()
+    } else {
+        Vec::new()
+    };
     let decoded_frame_hash_values = native_frames
         .iter()
         .map(|frame| sha256_hex(frame))
@@ -18452,6 +18457,30 @@ fn segmentation_frame_byte_len(recipe: SegmentationRecipe) -> usize {
     }
 }
 
+fn segmentation_manifest_frame_hashes(recipe: SegmentationRecipe) -> Vec<String> {
+    if matches!(
+        recipe.pixel_data_length_formula,
+        PixelDataLengthFormula::BitPackedContinuousFrames
+    ) {
+        let frame_samples = usize::from(recipe.rows) * usize::from(recipe.columns);
+        return recipe
+            .pixel_values
+            .chunks_exact(frame_samples)
+            .map(|frame| {
+                let decoded = frame.iter().map(|value| *value as u8).collect::<Vec<_>>();
+                sha256_hex(&decoded)
+            })
+            .collect();
+    }
+
+    let frame_byte_len = segmentation_frame_byte_len(recipe);
+    recipe
+        .pixel_bytes
+        .chunks(frame_byte_len)
+        .map(sha256_hex)
+        .collect()
+}
+
 #[allow(clippy::too_many_arguments)]
 fn segmentation_manifest_entry(
     case: &Value,
@@ -18469,12 +18498,7 @@ fn segmentation_manifest_entry(
     compressed_pixel_data: Option<(crate::codecs::CodecBackendInfo, &EncapsulatedPixelData)>,
 ) -> Value {
     let standards_evidence = standards_evidence_from_case(case);
-    let frame_byte_len = segmentation_frame_byte_len(recipe);
-    let frame_hashes = recipe
-        .pixel_bytes
-        .chunks(frame_byte_len)
-        .map(sha256_hex)
-        .collect::<Vec<_>>();
+    let frame_hashes = segmentation_manifest_frame_hashes(recipe);
     let known_stressors = std::iter::once("segmentation_storage")
         .chain(recipe.stressors.iter().copied())
         .chain([

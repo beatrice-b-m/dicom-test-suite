@@ -364,6 +364,9 @@
         "expected_encapsulated_stl": {
           "$ref": "#/$defs/expected_encapsulated_stl"
         },
+        "expected_eot": {
+          "$ref": "#/$defs/expected_eot"
+        },
         "expected_rt_plan": {
           "$ref": "#/$defs/expected_rt_plan"
         },
@@ -437,6 +440,37 @@
       },
       "additionalProperties": false,
       "allOf": [
+        {
+          "if": {
+            "properties": {
+              "case_id": { "const": "encapsulation/sc/eot_single_fragment_multiframe" }
+            },
+            "required": ["case_id"]
+          },
+          "then": {
+            "required": ["image", "pixel_data", "expected_eot"],
+            "properties": {
+              "expected_eot": {
+                "properties": {
+                  "origin": { "const": "first_fragment_item_tag" },
+                  "item_header_bytes": { "const": 8 },
+                  "frame_encoded_lengths": {
+                    "const": [69, 66, 69]
+                  },
+                  "offsets": {
+                    "const": [0, 78, 152]
+                  },
+                  "lengths": {
+                    "const": [69, 66, 69]
+                  }
+                }
+              }
+            }
+          },
+          "else": {
+            "not": { "required": ["expected_eot"] }
+          }
+        },
         {
           "if": {
             "properties": {
@@ -7580,15 +7614,87 @@
             "length_count": {
               "type": "integer",
               "minimum": 0
+            },
+            "offsets": {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "lengths": {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "minimum": 0
+              }
             }
           },
-          "additionalProperties": false
+          "additionalProperties": false,
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "present": { "const": true }
+                },
+                "required": ["present"]
+              },
+              "then": {
+                "required": ["offsets", "lengths"],
+                "properties": {
+                  "lengths_present": { "const": true },
+                  "offset_count": { "minimum": 1 },
+                  "length_count": { "minimum": 1 }
+                }
+              },
+              "else": {
+                "properties": {
+                  "lengths_present": { "const": false },
+                  "offset_count": { "const": 0 },
+                  "length_count": { "const": 0 }
+                },
+                "not": {
+                  "anyOf": [
+                    { "required": ["offsets"] },
+                    { "required": ["lengths"] }
+                  ]
+                }
+              }
+            }
+          ]
         },
         "compressed_frame_hashes": {
           "type": "array",
           "items": {
             "$ref": "#/$defs/sha256"
           }
+        }
+      },
+      "additionalProperties": false
+    },
+    "expected_eot": {
+      "type": "object",
+      "required": [
+        "origin",
+        "item_header_bytes",
+        "frame_encoded_lengths",
+        "offsets",
+        "lengths"
+      ],
+      "properties": {
+        "origin": { "const": "first_fragment_item_tag" },
+        "item_header_bytes": { "const": 8 },
+        "frame_encoded_lengths": {
+          "type": "array",
+          "items": { "type": "integer", "minimum": 0 }
+        },
+        "offsets": {
+          "type": "array",
+          "items": { "type": "integer", "minimum": 0 }
+        },
+        "lengths": {
+          "type": "array",
+          "items": { "type": "integer", "minimum": 0 }
         }
       },
       "additionalProperties": false

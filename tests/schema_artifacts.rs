@@ -230,6 +230,52 @@ fn manifest_schema_defines_encapsulated_pixel_data_layout_metadata() {
 }
 
 #[test]
+fn manifest_schema_requires_exact_extended_offset_table_arrays() {
+    let schema = read_json("schemas/manifest.schema.json");
+    let eot_schema = schema
+        .pointer("/$defs/encapsulated_pixel_data/properties/extended_offset_table")
+        .expect("manifest schema must define Extended Offset Table metadata");
+    let validator = jsonschema::validator_for(eot_schema)
+        .expect("Extended Offset Table metadata schema must compile");
+
+    assert!(validator.is_valid(&serde_json::json!({
+        "present": true,
+        "lengths_present": true,
+        "offset_count": 3,
+        "length_count": 3,
+        "offsets": [0, 78, 152],
+        "lengths": [69, 66, 69]
+    })));
+    assert!(!validator.is_valid(&serde_json::json!({
+        "present": true,
+        "lengths_present": true,
+        "offset_count": 3,
+        "length_count": 3
+    })));
+    assert!(!validator.is_valid(&serde_json::json!({
+        "present": false,
+        "lengths_present": false,
+        "offset_count": 0,
+        "length_count": 0,
+        "offsets": [],
+        "lengths": []
+    })));
+
+    let expected_eot = schema
+        .pointer("/$defs/expected_eot")
+        .expect("manifest schema must define the exact EOT oracle");
+    let validator =
+        jsonschema::validator_for(expected_eot).expect("expected EOT schema must compile");
+    assert!(validator.is_valid(&serde_json::json!({
+        "origin": "first_fragment_item_tag",
+        "item_header_bytes": 8,
+        "frame_encoded_lengths": [69, 66, 69],
+        "offsets": [0, 78, 152],
+        "lengths": [69, 66, 69]
+    })));
+}
+
+#[test]
 fn manifest_schema_types_cross_instance_geometry_expectations() {
     let schema = read_json("schemas/manifest.schema.json");
     assert_eq!(

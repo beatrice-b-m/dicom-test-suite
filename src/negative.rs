@@ -363,10 +363,31 @@ fn recipe_plan(
             }
         }
         "negative/dataset/undefined_length_without_delimitation" => {
-            return Err(NegativeError::Capability {
+            let sequence = located
+                .sequences
+                .iter()
+                .find(|sequence| sequence.delimitation.is_some())
+                .ok_or_else(|| {
+                    missing(case_id, "an undefined-length Sequence with delimitation")
+                })?;
+            RecipePlan {
                 case_id: NEGATIVE_CASE_IDS[4],
-                reason: "the current mutation primitive rewrites a defined length and removes a delimiter, but a valid source cannot contain both on the same Sequence or Item",
-            });
+                expected_source_case_id: NESTED_SOURCE,
+                expected_transfer_syntax: EXPLICIT_VR_LITTLE_ENDIAN_UID,
+                source_shape: "Explicit VR LE SC with a delimited undefined-length Sequence",
+                requests: vec![request(
+                    MutationParameters::UndefinedLengthWithoutDelimitation {
+                        length_field: None,
+                        delimitation_item: mutation_range(
+                            sequence
+                                .delimitation
+                                .expect("selected Sequence has delimitation"),
+                        ),
+                    },
+                    FailureLayer::DatasetParser,
+                    clean_reject(),
+                )],
+            }
         }
         "negative/encapsulation/broken_offset_table" => {
             let entry = located
@@ -791,6 +812,9 @@ mod tests {
         );
         let item = control(Tag(0xfffe, 0xe000), nested.len() as u32, &nested);
         dataset.extend(long(Tag(0x0008, 0x1115), b"SQ", &item, false));
+        let mut undefined_value = item;
+        undefined_value.extend(control(Tag(0xfffe, 0xe0dd), 0, &[]));
+        dataset.extend(long(Tag(0x0008, 0x1140), b"SQ", &undefined_value, true));
         dataset.extend(long(PIXEL_DATA, b"OB", &[1, 2, 3, 4], false));
         wrap(EXPLICIT_VR_LITTLE_ENDIAN_UID, &dataset)
     }
@@ -821,7 +845,8 @@ mod tests {
     fn source_for(case_id: &str) -> Vec<u8> {
         match case_id {
             "negative/dataset/invalid_nested_item_length"
-            | "negative/dataset/truncated_sequence_item" => nested_source(),
+            | "negative/dataset/truncated_sequence_item"
+            | "negative/dataset/undefined_length_without_delimitation" => nested_source(),
             "negative/encapsulation/broken_offset_table" => rle_source(true),
             "negative/encapsulation/truncated_fragment" => rle_source(false),
             _ => native_source(),
@@ -841,9 +866,6 @@ mod tests {
     #[test]
     fn every_current_producible_recipe_is_deterministic_and_evidence_complete() {
         for case_id in NEGATIVE_CASE_IDS {
-            if *case_id == "negative/dataset/undefined_length_without_delimitation" {
-                continue;
-            }
             let source = source_for(case_id);
             let first = build_negative_case(case_id, &source).expect(case_id);
             let second = build_negative_case(case_id, &source).expect("repeat recipe");
@@ -888,14 +910,19 @@ mod tests {
     }
 
     #[test]
-    fn undefined_length_row_reports_the_honest_primitive_capability_gap() {
-        assert!(matches!(
-            build_negative_case(
-                "negative/dataset/undefined_length_without_delimitation",
-                &nested_source()
-            ),
-            Err(NegativeError::Capability { .. })
-        ));
+    fn undefined_length_row_removes_the_existing_sequence_delimiter() {
+        let source = nested_source();
+        let output = build_negative_case(
+            "negative/dataset/undefined_length_without_delimitation",
+            &source,
+        )
+        .expect("undefined-length source should be mutated");
+        assert_eq!(output.evidence.steps.len(), 1);
+        assert_eq!(
+            output.evidence.steps[0].mutation_id,
+            "undefined_length_without_delimitation"
+        );
+        assert_eq!(output.bytes.len() + 8, source.len());
     }
 
     #[test]

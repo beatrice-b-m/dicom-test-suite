@@ -102,7 +102,8 @@ pub enum MutationParameters {
         offset: u64,
     },
     UndefinedLengthWithoutDelimitation {
-        length_field: ByteRange,
+        /// `None` when the valid source is already undefined length.
+        length_field: Option<ByteRange>,
         delimitation_item: ByteRange,
     },
     InvalidNestedItemLength {
@@ -406,17 +407,21 @@ fn edits_for(source: &[u8], parameters: &MutationParameters) -> Result<Vec<Edit>
         MutationParameters::UndefinedLengthWithoutDelimitation {
             length_field,
             delimitation_item,
-        } => vec![
-            exact_width_edit(
-                *length_field,
-                "undefined length field",
-                &u32::MAX.to_le_bytes(),
-            )?,
-            Edit {
+        } => {
+            let mut edits = Vec::with_capacity(2);
+            if let Some(length_field) = length_field {
+                edits.push(exact_width_edit(
+                    *length_field,
+                    "undefined length field",
+                    &u32::MAX.to_le_bytes(),
+                )?);
+            }
+            edits.push(Edit {
                 range: *delimitation_item,
                 replacement: Vec::new(),
-            },
-        ],
+            });
+            edits
+        }
         MutationParameters::InvalidNestedItemLength {
             length_field,
             declared_length,
@@ -686,7 +691,7 @@ mod tests {
             ),
             request(
                 MutationParameters::UndefinedLengthWithoutDelimitation {
-                    length_field: ByteRange::new(192, 196),
+                    length_field: Some(ByteRange::new(192, 196)),
                     delimitation_item: ByteRange::new(220, 228),
                 },
                 FailureLayer::DatasetParser,
@@ -769,7 +774,7 @@ mod tests {
             &source,
             request(
                 MutationParameters::UndefinedLengthWithoutDelimitation {
-                    length_field: ByteRange::new(180, 184),
+                    length_field: Some(ByteRange::new(180, 184)),
                     delimitation_item: ByteRange::new(240, 248),
                 },
                 FailureLayer::DatasetParser,

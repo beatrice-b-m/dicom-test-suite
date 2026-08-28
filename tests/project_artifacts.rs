@@ -6,6 +6,52 @@ use dicom_transfer_syntax_registry::{TransferSyntaxIndex, TransferSyntaxRegistry
 use serde_json::Value;
 
 #[test]
+fn synthetic_pki_lock_matches_intentionally_public_fixture_bytes() {
+    let root = std::path::Path::new("security/fixtures");
+    let lock: Value = serde_json::from_slice(
+        &fs::read(root.join("fixtures.lock.json")).expect("PKI fixture lock must be readable"),
+    )
+    .expect("PKI fixture lock must be JSON");
+    let identities = lock["identities"]
+        .as_array()
+        .expect("PKI lock must contain identities");
+    assert_eq!(identities.len(), 4);
+
+    for identity in identities {
+        for (path_field, hash_field, marker) in [
+            ("certificate_path", "certificate_sha256", "BEGIN CERTIFICATE"),
+            ("private_key_path", "private_key_sha256", "BEGIN PRIVATE KEY"),
+        ] {
+            let relative = identity[path_field]
+                .as_str()
+                .expect("fixture path must be a string");
+            let bytes = fs::read(root.join(relative)).expect("locked fixture must be readable");
+            assert_eq!(
+                dicom_test_suite::sha256_hex(&bytes),
+                identity[hash_field]
+                    .as_str()
+                    .expect("fixture SHA-256 must be a string")
+            );
+            assert!(
+                String::from_utf8(bytes)
+                    .expect("PEM fixture must be UTF-8")
+                    .contains(marker),
+                "{relative} must contain its PEM marker"
+            );
+        }
+    }
+
+    let warning = fs::read_to_string(root.join("README.md")).expect("fixture warning must exist");
+    for required in [
+        "intentionally public test fixtures",
+        "trusted by no production system",
+        "Never add a real key",
+    ] {
+        assert!(warning.contains(required));
+    }
+}
+
+#[test]
 fn ci_verifies_default_and_feature_gated_codec_paths() {
     let workflow =
         fs::read_to_string(".github/workflows/ci.yml").expect("CI workflow must be readable");

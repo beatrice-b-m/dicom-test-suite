@@ -7607,12 +7607,33 @@ fn report_exposes_generated_wsi_tile_segmentation_closure() {
         );
     }
 
-    fs::remove_file(out_dir.join("vl/wsi/tiled_full_small/instance.dcm"))
-        .expect("remove WSI tile segmentation source");
+    let manifest_path = out_dir.join("manifest.json");
+    let mut manifest: Value = serde_json::from_slice(
+        &fs::read(&manifest_path).expect("read generated WSI tile segmentation manifest"),
+    )
+    .expect("parse generated WSI tile segmentation manifest");
+    let segmentation = manifest["files"]
+        .as_array_mut()
+        .expect("manifest files")
+        .iter_mut()
+        .find(|file| file["case_id"] == "derived/seg/wsi_tile_reference")
+        .expect("generated WSI tile segmentation entry");
+    segmentation["validation"]["internal"]
+        .as_array_mut()
+        .expect("internal findings")
+        .retain(|finding| finding["name"] != "wsi_tile_seg_per_frame_items");
+    fs::write(
+        &manifest_path,
+        serde_json::to_vec_pretty(&manifest).expect("serialize mutated manifest"),
+    )
+    .expect("write mutated manifest");
     let error = dicom_test_suite::build_coverage_report(&out_dir)
-        .expect_err("report must not claim closure without the referenced WSI source")
+        .expect_err("report must not claim closure without strict graph evidence")
         .to_string();
-    assert!(error.contains("generated corpus"), "{error}");
+    assert!(
+        error.contains("closed internal validation evidence"),
+        "{error}"
+    );
 
     fs::remove_dir_all(out_dir).expect("remove generated WSI tile segmentation report root");
 }

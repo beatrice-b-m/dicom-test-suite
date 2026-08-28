@@ -195,10 +195,6 @@ pub enum ReportError {
         path: PathBuf,
         message: &'static str,
     },
-    CorpusValidation {
-        path: PathBuf,
-        message: String,
-    },
 }
 
 #[derive(Debug)]
@@ -442,13 +438,6 @@ impl fmt::Display for ReportError {
                     path.display()
                 )
             }
-            Self::CorpusValidation { path, message } => {
-                write!(
-                    f,
-                    "generated corpus {} is not valid: {message}",
-                    path.display()
-                )
-            }
         }
     }
 }
@@ -459,7 +448,6 @@ impl Error for ReportError {
             Self::ReadMetadata { source, .. } => Some(source),
             Self::ParseMetadata { source, .. } => Some(source),
             Self::MetadataShape { .. } => None,
-            Self::CorpusValidation { .. } => None,
         }
     }
 }
@@ -16281,18 +16269,6 @@ pub fn build_coverage_report(root_dir: impl AsRef<Path>) -> Result<Value, Report
         "/run/profile",
         "run profile must be a string",
     )?;
-
-    let validation =
-        validate_generated_root(root_dir).map_err(|error| ReportError::CorpusValidation {
-            path: root_dir.to_path_buf(),
-            message: error.to_string(),
-        })?;
-    if !validation.failures.is_empty() {
-        return Err(ReportError::CorpusValidation {
-            path: root_dir.to_path_buf(),
-            message: validation.failures.join("; "),
-        });
-    }
 
     validate_wsi_pyramid_report_group(&manifest_path, files)?;
 

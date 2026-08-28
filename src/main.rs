@@ -211,6 +211,169 @@ fn run() -> Result<(), String> {
             println!("manifest_written\t{}", summary.manifest_written);
             Ok(())
         }
+        "interoperate" => {
+            let subcommand = args
+                .next()
+                .ok_or_else(|| "interoperate requires a subcommand".to_string())?;
+            match subcommand.as_str() {
+                "media-dicomdir" => {
+                    let generated_root = args.next().ok_or_else(|| {
+                        "interoperate media-dicomdir requires a generated root path".to_string()
+                    })?;
+                    let mut dcmmkdir = None;
+                    let mut dcmdump = None;
+                    let mut dciodvfy = None;
+                    let mut dcentvfy = None;
+                    let mut format = None;
+                    let mut timeout_seconds = 30_u64;
+                    while let Some(argument) = args.next() {
+                        match argument.as_str() {
+                            "--dcmmkdir" => {
+                                dcmmkdir = Some(required_value(&mut args, "--dcmmkdir")?)
+                            }
+                            "--dcmdump" => dcmdump = Some(required_value(&mut args, "--dcmdump")?),
+                            "--dciodvfy" => {
+                                dciodvfy = Some(required_value(&mut args, "--dciodvfy")?)
+                            }
+                            "--dcentvfy" => {
+                                dcentvfy = Some(required_value(&mut args, "--dcentvfy")?)
+                            }
+                            "--format" => format = Some(required_value(&mut args, "--format")?),
+                            "--timeout-seconds" => {
+                                timeout_seconds = required_value(&mut args, "--timeout-seconds")?
+                                    .parse()
+                                    .map_err(|_| {
+                                        "--timeout-seconds requires an integer".to_string()
+                                    })?;
+                            }
+                            "--help" | "-h" => {
+                                print_interoperate_usage();
+                                return Ok(());
+                            }
+                            unknown => {
+                                return Err(format!("unknown media-dicomdir argument: {unknown}"));
+                            }
+                        }
+                    }
+                    if timeout_seconds == 0 {
+                        return Err("--timeout-seconds must be non-zero".to_string());
+                    }
+                    let sources =
+                        dicom_test_suite::media_sources::load_mixed_media_sources(&generated_root)
+                            .map_err(|error| error.to_string())?;
+                    let qualification = dicom_test_suite::media_runner::run_dicomdir_qualification(
+                        &dicom_test_suite::media_runner::DicomDirRunRequest {
+                            tools: dicom_test_suite::media_runner::MediaToolPaths {
+                                dcmmkdir: required_path(dcmmkdir, "--dcmmkdir")?,
+                                dcmdump: required_path(dcmdump, "--dcmdump")?,
+                                dciodvfy: required_path(dciodvfy, "--dciodvfy")?,
+                                dcentvfy: dcentvfy.map(Into::into),
+                            },
+                            sources,
+                            timeout: std::time::Duration::from_secs(timeout_seconds),
+                            staging_parent: None,
+                        },
+                    )
+                    .map_err(|error| error.to_string())?;
+                    let format = required_format(format)?;
+                    match format.as_str() {
+                        "json" => println!(
+                            "{}",
+                            serde_json::to_string_pretty(&qualification)
+                                .map_err(|error| error.to_string())?
+                        ),
+                        "markdown" => print_media_qualification_markdown(&qualification),
+                        other => return Err(format!("unsupported interoperate format: {other}")),
+                    }
+                    Ok(())
+                }
+                "protocol-baseline" => {
+                    let generated_root = args.next().ok_or_else(|| {
+                        "interoperate protocol-baseline requires a generated root path".to_string()
+                    })?;
+                    let mut format = None;
+                    let mut seed = 1_u64;
+                    let mut fixtures = String::from("security/fixtures/fixtures.lock.json");
+                    while let Some(argument) = args.next() {
+                        match argument.as_str() {
+                            "--format" => format = Some(required_value(&mut args, "--format")?),
+                            "--seed" => seed = parse_seed(required_value(&mut args, "--seed")?)?,
+                            "--fixtures" => fixtures = required_value(&mut args, "--fixtures")?,
+                            "--help" | "-h" => {
+                                print_interoperate_usage();
+                                return Ok(());
+                            }
+                            unknown => {
+                                return Err(format!(
+                                    "unknown protocol-baseline argument: {unknown}"
+                                ));
+                            }
+                        }
+                    }
+                    let selected =
+                        dicom_test_suite::media_sources::load_mixed_media_sources(&generated_root)
+                            .map_err(|error| error.to_string())?;
+                    let source_links = selected
+                        .into_iter()
+                        .map(|source| {
+                            let path =
+                                source
+                                    .source_path
+                                    .strip_prefix(&generated_root)
+                                    .map_err(|_| {
+                                        "selected protocol source escaped generated root"
+                                            .to_string()
+                                    })?;
+                            Ok(dicom_test_suite::protocol::SourceCaseLink {
+                                case_id: source.member.case_id,
+                                path: path.to_string_lossy().replace('\\', "/"),
+                                sha256: source.member.sha256,
+                                sop_instance_uid: source.member.sop_instance_uid,
+                            })
+                        })
+                        .collect::<Result<Vec<_>, String>>()?;
+                    let executable = std::env::current_exe()
+                        .map_err(|error| format!("resolve current executable: {error}"))?;
+                    let executable_bytes = std::fs::read(&executable)
+                        .map_err(|error| format!("read {}: {error}", executable.display()))?;
+                    let report =
+                        dicom_test_suite::protocol_baseline::build_unavailable_protocol_baseline(
+                            dicom_test_suite::protocol_baseline::ProtocolBaselineInput {
+                                run_seed: seed,
+                                harness: dicom_test_suite::protocol::ToolFingerprint {
+                                    id: "dicom-test-suite-protocol-baseline".to_string(),
+                                    version: env!("CARGO_PKG_VERSION").to_string(),
+                                    executable_sha256: dicom_test_suite::sha256_hex(
+                                        &executable_bytes,
+                                    ),
+                                },
+                                sources: source_links,
+                            },
+                            std::path::Path::new(&fixtures),
+                        )
+                        .map_err(|error| error.to_string())?;
+                    let format = required_format(format)?;
+                    match format.as_str() {
+                        "json" => println!(
+                            "{}",
+                            serde_json::to_string_pretty(&report)
+                                .map_err(|error| error.to_string())?
+                        ),
+                        "markdown" => print!(
+                            "{}",
+                            dicom_test_suite::protocol_baseline::protocol_report_markdown(&report)
+                        ),
+                        other => return Err(format!("unsupported interoperate format: {other}")),
+                    }
+                    Ok(())
+                }
+                "--help" | "-h" => {
+                    print_interoperate_usage();
+                    Ok(())
+                }
+                unknown => Err(format!("unknown interoperate subcommand: {unknown}")),
+            }
+        }
         "list-cases" => {
             let mut registry_path = String::from("cases/registry.json");
             let mut profile_filter = None;
@@ -491,11 +654,64 @@ fn print_usage() {
     println!(
         "  dicom-test-suite list-cases [--profile PROFILE] [--status STATUS] [--registry PATH]"
     );
+    println!("  dicom-test-suite interoperate <media-dicomdir|protocol-baseline> ...");
     println!("  dicom-test-suite validate GENERATED_ROOT");
     println!("  dicom-test-suite report GENERATED_ROOT --format json|markdown");
     println!("  dicom-test-suite standards check-lock [--lock PATH]");
     println!("  dicom-test-suite standards gaps --profile PROFILE [--registry PATH]");
     println!("  dicom-test-suite standards verify-kb --edition 2026b");
+}
+
+fn print_interoperate_usage() {
+    println!("usage:");
+    println!(
+        "  dicom-test-suite interoperate media-dicomdir GENERATED_ROOT --dcmmkdir PATH --dcmdump PATH --dciodvfy PATH [--dcentvfy PATH] --format json|markdown [--timeout-seconds N]"
+    );
+    println!(
+        "  dicom-test-suite interoperate protocol-baseline GENERATED_ROOT --format json|markdown [--seed SEED] [--fixtures PATH]"
+    );
+}
+
+fn required_value(
+    arguments: &mut impl Iterator<Item = String>,
+    option: &str,
+) -> Result<String, String> {
+    arguments
+        .next()
+        .ok_or_else(|| format!("{option} requires a value"))
+}
+
+fn required_path(value: Option<String>, option: &str) -> Result<std::path::PathBuf, String> {
+    value
+        .map(Into::into)
+        .ok_or_else(|| format!("media-dicomdir requires {option}"))
+}
+
+fn required_format(value: Option<String>) -> Result<String, String> {
+    value.ok_or_else(|| "interoperate requires --format".to_string())
+}
+
+fn print_media_qualification_markdown(
+    qualification: &dicom_test_suite::media::DicomDirQualification,
+) {
+    println!("# DICOMDIR interoperability qualification\n");
+    println!("- File-set ID: `{}`", qualification.file_set_id);
+    println!("- Members: {}", qualification.member_count);
+    println!(
+        "- Provider: `{}` `{}`",
+        qualification.provider.provider_id, qualification.provider.version
+    );
+    println!(
+        "- Independent interoperability proven: {}",
+        qualification.independent_interoperability_proven
+    );
+    println!(
+        "- Independent dcm4che peer: `{:?}`",
+        qualification.evidence.dcm4che_independent_peer
+    );
+    println!(
+        "\nA same-provider DCMTK parser pass is baseline evidence, not independent promotion."
+    );
 }
 
 fn print_generate_usage() {

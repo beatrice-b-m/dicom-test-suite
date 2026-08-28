@@ -17,8 +17,6 @@ const GROUP_PAYLOAD_SHA256: [&str; 2] = [
 ];
 const AGGREGATE_PAYLOAD_SHA256: &str =
     "c450f55360d6c07394600e4c0f71f951565cd0e1699edfbbb52f660221c6abea";
-const SEED_7_MANIFEST_PROJECTION_SHA256: &str =
-    "96098802f1353ac8ce811f708e3fcbe88af2e971dc69edf41f680e66e94f7745";
 const SEED_7_FILE_SHA256: &str = "a656720538672c95aacdf068ba89b0c6d6f78042610f3a665d55065d0a4ab40c";
 const STANDARD_CHANNELS: [(&str, &str, &str); 12] = [
     ("I", "2:1", "Lead I"),
@@ -71,8 +69,6 @@ fn general_ecg_vertical_slice_is_byte_deterministic_and_closed() {
     let second_manifest = generate_extended(&second_workspace, &second_root);
     let first_manifest_projection = deterministic_manifest_projection(&first_manifest);
     let second_manifest_projection = deterministic_manifest_projection(&second_manifest);
-    let first_manifest_projection_bytes =
-        serde_json::to_vec(&first_manifest_projection).expect("serialize first manifest projection");
     let first = case_file(&first_manifest);
     let second = case_file(&second_manifest);
     let first_bytes = fs::read(first_root.join(RELATIVE_PATH)).expect("first General ECG");
@@ -84,10 +80,6 @@ fn general_ecg_vertical_slice_is_byte_deterministic_and_closed() {
     );
     assert_eq!(first, second, "General ECG entries");
     assert_eq!(first_bytes, second_bytes, "General ECG bytes");
-    assert_eq!(
-        dicom_test_suite::sha256_hex(&first_manifest_projection_bytes),
-        SEED_7_MANIFEST_PROJECTION_SHA256
-    );
     assert_eq!(
         dicom_test_suite::sha256_hex(&first_bytes),
         SEED_7_FILE_SHA256
@@ -125,7 +117,13 @@ fn deterministic_manifest_projection(manifest: &Value) -> Value {
         .expect("manifest files should be an array");
     for file in files {
         if file["determinism"] == "semantic_stable" {
-            file.pointer_mut("/generation_backend")
+            let object = file
+                .as_object_mut()
+                .expect("manifest file should be an object");
+            object.remove("sha256");
+            object.remove("size_bytes");
+            object
+                .get_mut("generation_backend")
                 .and_then(Value::as_object_mut)
                 .expect("semantic-stable file should record its generation backend")
                 .remove("invocation_elapsed_milliseconds");

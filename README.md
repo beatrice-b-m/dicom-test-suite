@@ -1,140 +1,208 @@
 # dicom-test-suite
 
-`dicom-test-suite` is a Rust project for generating a comprehensive local corpus of synthetic DICOM files for viewer compatibility testing.
+`dicom-test-suite` deterministically generates synthetic DICOM corpora for
+viewer, parser, decoder, and interoperability testing. It produces DICOM Part
+10 files together with a machine-readable manifest that states what each file
+is intended to exercise, how it was generated, what it references, and which
+checks passed.
 
-The suite is standard-first: it is not designed around the current behavior of any one viewer. Its generated files should expose compatibility gaps in DICOM parsers and viewers across legacy single-frame images, enhanced multi-frame images, mammography, color and palette images, overlays, presentation states, segmentations, structured reports, and relevant transfer syntaxes.
+The suite is standard-first and viewer-neutral. It deliberately combines common
+clinical objects with compatibility boundaries that are easy for a narrow test
+set to miss: classic and enhanced images, native and encapsulated pixels,
+geometry and metadata variations, presentation and quantitative objects,
+cross-instance reference graphs, pathology, waveforms, radiotherapy, malformed
+inputs, and bounded scale cases.
 
-Generated DICOM files are intentionally not committed. The repository should contain deterministic generation code, case recipes, validation rules, manifests, and reports. Local output belongs under ignored paths such as `generated/`, `out/`, or `target/`.
+Generated DICOM files are synthetic, deterministic, and non-PHI. They are not
+committed; write them beneath an ignored path such as `generated/` or `out/`.
 
-## Requirements
+## Quick Start
 
-- Rust 1.85.0, selected automatically by `rust-toolchain.toml`.
-- `jq` for the same JSON artifact checks used by CI.
-- Optional external codec commands only when enabling their features.
-- Optional `uv` 0.11.26 and managed CPython 3.12.12 for float32/float64
-  Parametric Maps and the TID 1500 Measurement Report.
+Rust 1.85.0 is selected by `rust-toolchain.toml`. A default build needs no
+external codec executable or Python environment.
 
-## Commands
+```sh
+# Inspect the cases selected by a profile.
+cargo run --locked -- list-cases --profile smoke
+
+# Generate a small, byte-stable corpus into a new directory.
+cargo run --locked -- generate \
+  --profile smoke --out generated/smoke --seed 1
+
+# Verify the files against their manifest contracts.
+cargo run --locked -- validate generated/smoke
+
+# Summarize exactly what was generated and skipped.
+cargo run --locked -- report \
+  generated/smoke --format markdown > generated/smoke/coverage.md
+```
+
+The output directory must not already exist. Generation is staged and promoted
+as a complete directory, and the result always includes `manifest.json`.
+
+For profile selection, optional codecs, negative/fuzz/stress workflows,
+manifest consumption, validation levels, and troubleshooting, read the
+[generation and usage guide](docs/generation-guide.md). For handing a generated
+corpus to another project, read the
+[corpus consumption guide](docs/corpus-consumption.md).
+
+## What It Can Generate
+
+The implemented registry covers these representative families:
+
+- classic CR, CT, MR, mammography, DX, PET, NM, ultrasound, XA, XRF, and
+  Secondary Capture images;
+- Enhanced CT, MR, and PET multi-frame objects, including dimensions,
+  concatenations, temporal information, and functional groups;
+- native monochrome, color, palette, signed, unsigned, one-bit, 8/16/32-bit,
+  planar, multi-frame, padding, overlay, LUT, ICC, spacing, and character-set
+  variations;
+- RLE Lossless, JPEG Baseline, JPEG-LS Lossless, JPEG XL, JPEG 2000, HTJ2K,
+  legacy JPEG Lossless, Deflated Explicit VR, and Deflated Image Frame cases,
+  subject to the feature/runtime requirements below;
+- binary, fractional, labelmap, and WSI-referencing Segmentations; Parametric
+  Maps; Real World Value Mapping; registration; presentation states; Key Object
+  Selection; and multiple Structured Report forms;
+- linked RT objects, ECG waveforms, Encapsulated PDF and STL, visible-light
+  images, tiled WSI, sparse WSI, multi-resolution pyramids, and multiple optical
+  paths;
+- deterministic malformed instances in the isolated `negative` profile;
+- reduced, resource-bounded large-object cases in the `stress` profile; and
+- a bounded, payload-free parser robustness qualification in the `fuzz`
+  profile.
+
+The authoritative inventory is `cases/registry.json`, not this summary:
 
 ```sh
 cargo run --locked -- list-cases
-cargo run --locked -- list-cases --profile smoke
-cargo run --locked -- generate --profile smoke --out generated/smoke --seed 1
-cargo run --locked -- generate --profile core --out generated/core --seed 1
-cargo run --locked -- generate --profile extended --out generated/extended --seed 1
-cargo run --locked -- validate generated/extended
-cargo run --locked -- report generated/extended --format markdown
-cargo run --locked -- standards check-lock
-cargo run --locked -- conformance check-tools
-cargo run --locked -- conformance run generated/extended --out reports/conformance/extended
-cargo run --locked -- conformance verify reports/conformance/extended
+cargo run --locked -- list-cases --profile all
+cargo run --locked -- list-cases --profile extended --status planned
+cargo run --locked -- report gaps --format markdown
 ```
 
-Generation writes DICOM Part 10 files plus a versioned `manifest.json`. The
-default build requires no external codec tools. Cases whose Cargo features are
-disabled remain visible in manifests and reports as feature-gated unavailable
-coverage.
+Planned and unavailable cases stay visible in manifests and reports. This is an
+intentional coverage signal: the suite never silently treats a missing feature,
+external backend, validator, media peer, or protocol peer as a passing case.
 
-The `extended` profile always generates and manifests the native CT and SEG
-dependencies for the external Parametric Map and TID 1500 recipes. If the
-prepared `uv` environment is absent, each derived case is retained as an
-explicit `external_backend_unavailable` row. To enable them:
+## Profiles
+
+| Profile | Purpose | Included by `all` |
+| --- | --- | --- |
+| `smoke` | Three tiny, byte-stable Secondary Capture ingestion checks. | Yes |
+| `core` | Common valid viewer-relevant native objects and dependency sources. | Yes |
+| `extended` | Broad valid enhanced, compressed, derived, non-image, and VL coverage. | Yes |
+| `legacy` | Valid retired or uncommon behavior. | No |
+| `stress` | Reduced-scale large, deep, many-frame, many-instance, and encapsulation boundaries. | Only with `--include-stress` |
+| `negative` | Deterministic expected-invalid mutations with explicit acceptable outcomes. | No |
+| `fuzz` | Bounded reproducible robustness qualification; retains no DICOM payloads. | No |
+| `all` | Union of `smoke`, `core`, and `extended`. | N/A |
+
+Use separate output roots for `all`, `legacy`, `negative`, and `fuzz`. Prefer a
+separate `stress` run for clearer resource evidence; `--profile all
+--include-stress` is available when a combined valid corpus is useful.
+
+## Optional Generation Capabilities
+
+All codec features are disabled by default. Enable only what the intended
+consumer needs, or use `--all-features` for the broadest valid corpus.
+
+| Cargo feature | Generated coverage | Runtime command |
+| --- | --- | --- |
+| `jpeg` | JPEG Baseline 8-bit | None |
+| `charls` | JPEG-LS Lossless | None beyond the build dependency |
+| `jpegxl` | JPEG XL lossless and lossy | `cjxl` for the lossy case |
+| `jpeg2000` | JPEG 2000 Lossless | None beyond the build dependency |
+| `deflate` | Deflated dataset and Deflated Image Frame | None |
+| `htj2k_openjph` | HTJ2K lossless and lossy | `ojph_compress` on `PATH` |
+| `legacy_jpeg_dcmtk` | JPEG Lossless Process 14 and SV1 | `dcmcjpeg` on `PATH` |
+
+The optional locked highdicom/pydicom backend generates float32 and float64
+Parametric Maps, TID 1500 and SCOORD3D reports, and WSI tile Segmentation. It is
+prepared explicitly; generation itself never downloads software or accesses
+the network:
 
 ```sh
 uv python install 3.12.12
 uv sync --project generation-backends/highdicom-pydicom \
   --locked --no-editable --python 3.12.12
-cargo run --locked -- generate \
-  --profile extended --out generated/extended --seed 1
 ```
 
-Generation never invokes `uv` or performs network access. Runtime preparation,
-exact versions, fingerprints, and licenses are documented in
-[generation-backends/highdicom-pydicom/README.md](generation-backends/highdicom-pydicom/README.md).
-The current quantitative and SR gate evidence is recorded in
-[docs/phase-3-derived-status.md](docs/phase-3-derived-status.md).
+See the [backend README](generation-backends/highdicom-pydicom/README.md) and
+[external codec verification policy](docs/external-codec-verification.md) for
+exact versions, discovery, fingerprints, and licenses. Validate a corpus with
+the same feature set used to generate its feature-gated compressed files.
 
-## Profiles
+## Validation And Evidence
 
-- `smoke`: smallest byte-stable sanity corpus.
-- `core`: common viewer-relevant native cases and required source objects.
-- `extended`: enhanced, derived, non-image, VL, compressed, and broader
-  compatibility cases.
-- `legacy`: valid retired or uncommon behavior.
-- `all`: smoke, core, and extended; legacy remains opt-in.
-
-The future `stress`, `negative`, and `fuzz` scopes are not part of the completed
-current-term corpus.
-
-## Codec Features
-
-| Feature | Coverage | Extra runtime requirement |
-|---|---|---|
-| `jpeg` | JPEG Baseline 8-bit | none |
-| `charls` | JPEG-LS Lossless | build dependency only |
-| `jpegxl` | JPEG XL Lossless | none |
-| `jpeg2000` | JPEG 2000 Lossless | build dependency only |
-| `deflate` | dataset deflate and Deflated Image Frame | none |
-| `htj2k_openjph` | HTJ2K Lossless | `ojph_compress` on `PATH` |
-| `legacy_jpeg_dcmtk` | JPEG Lossless Process 14 and SV1 | `dcmcjpeg` on `PATH` |
-
-For example:
+`generate` performs recipe-specific checks before publishing an output root.
+`validate` then reopens the root, validates `manifest.json`, hashes and parses
+every retained instance, checks file/meta identities, pixel and encapsulation
+contracts, references, profile isolation, and specialized object semantics.
 
 ```sh
-cargo test --locked --all-targets --features jpeg
-cargo run --locked --features jpeg -- generate \
-  --profile extended --out generated/extended-jpeg --seed 1
-cargo run --locked --features jpeg -- validate generated/extended-jpeg
+cargo run --locked --all-features -- generate \
+  --profile all --out generated/all --seed 1
+cargo run --locked --all-features -- validate generated/all
+cargo run --locked --all-features -- report \
+  generated/all --format json > generated/all/coverage.json
 ```
 
-See
-[docs/external-codec-verification.md](docs/external-codec-verification.md) for
-the required OpenJPH and DCMTK runtime verification cadence.
+These are strong same-project checks, not independent DICOM certification.
+Independent conformance collection uses pinned external validators:
 
-For downstream projects, see
-[docs/corpus-consumption.md](docs/corpus-consumption.md) for the complete,
-portable, and fast generation workflows; manifest handoff requirements; and the
-scope boundary of the generated corpus.
+```sh
+cargo run --locked -- conformance check-tools
+cargo run --locked -- conformance run \
+  generated/all --out reports/conformance/all
+cargo run --locked -- conformance verify reports/conformance/all
+```
 
-The independent validation framework, tool matrix, and acceptance status are in
-[conformance/README.md](conformance/README.md) and
-[docs/conformance-acceptance.md](docs/conformance-acceptance.md). External tool
-gaps are explicit failures; parser success is never substituted for IOD
-validation.
+Tool installation, exact-case routing, accepted-finding policy, and evidence
+limitations are documented in [conformance/README.md](conformance/README.md).
 
-The post-current-term implementation sequence for broader object-family,
-pathology, codec, stress, robustness, media, and protocol coverage is in
-[docs/coverage-expansion-plan.md](docs/coverage-expansion-plan.md).
-The completed backend platform, native CT proof, external float32 Parametric
-Map proof, and independent validation evidence are in
-[docs/phase-1-proof-status.md](docs/phase-1-proof-status.md).
-Independently verified Phase 2 native slices and their remaining milestone work
-are tracked in
-[docs/phase-2-native-status.md](docs/phase-2-native-status.md).
-The completed dependency-ordered pathology and tiled-microscopy slices,
-including WSI tile-referencing segmentation and the next explicit full-size
-pyramid checkpoint, are recorded in
-[docs/phase-4-pathology-status.md](docs/phase-4-pathology-status.md).
+## Command Map
 
-## Verification
+```text
+generate          Create one profile in a new output root.
+list-cases        Inspect registry selection, status, providers, and blockers.
+validate          Strictly check a generated root against its manifest.
+report            Render generated coverage or registry/standards gaps.
+conformance       Discover, run, and verify independent validators.
+interoperate      Qualify DICOMDIR media or report protocol availability.
+standards         Check the standards lock and registry evidence gaps.
+```
 
-GitHub Actions runs the default corpus and a separate matrix for every
-in-process codec feature. External-command features receive compile coverage in
-normal CI and require explicit runtime verification. Locally, the main
-regression command is:
+Run `cargo run --locked -- --help` and the relevant subcommand with `--help`
+for the exact syntax. The complete examples and output interpretation are in
+[docs/generation-guide.md](docs/generation-guide.md).
+
+## Reproducibility And Scope
+
+The seed controls deterministic identities and case data; it is not a request
+for randomized clinical content. Byte-stable cases should reproduce when their
+recorded inputs, toolchain, feature flags, and external backend identities are
+the same. Semantic-stable external codec cases record the bounded comparison
+appropriate to that codec instead of promising identical compressed bytes.
+
+“All” means all cases selected from the implemented `smoke`, `core`, and
+`extended` registry entries that are available in the current build and
+runtime. It does not mean every DICOM Standard object, and it excludes legacy,
+negative, fuzz, and (by default) stress scopes. Always preserve the manifest and
+coverage report with downstream findings.
+
+The architecture and normative project requirements are in
+[SYSTEM_SPEC.md](SYSTEM_SPEC.md). Current implementation evidence is recorded in
+the phase/status documents under `docs/`; they are historical engineering
+records, not substitutes for the registry or a fresh generated report.
+
+## Development
+
+The main regression command is:
 
 ```sh
 cargo test --locked --all-targets --no-default-features
 ```
 
-## Design Principles
-
-- Use the current DICOM standard as the authority for IODs, modules, attributes, SOP Class UIDs, and transfer syntax behavior.
-- Use DICOM-rs for writing valid Part 10 files, starting with the latest verified `dicom` crate family version.
-- Generate synthetic, deterministic, non-PHI data.
-- Store expected behavior in machine-readable manifests next to generated output.
-- Cover orthogonal compatibility axes, not only common happy-path examples.
-- Keep `dcmview` and other viewers as consumers of this suite, not as constraints on what the suite can generate.
-
-See [SYSTEM_SPEC.md](SYSTEM_SPEC.md) for the architecture and requirements and
-[CURRENT_PROGRESS.md](CURRENT_PROGRESS.md) for detailed verification history.
+Contributors and coding agents must follow [AGENTS.md](AGENTS.md), including its
+granular commit policy. Generated corpora belong under ignored output paths and
+must not be committed.

@@ -130,7 +130,7 @@ fn assert_manifest_contract(root: &Path, manifest: &Value, file: &Value) {
     assert!(
         manifest["files"]
             .as_array()
-            .is_some_and(|files| files.len() == 112)
+            .is_some_and(|files| files.len() == 113)
     );
 }
 

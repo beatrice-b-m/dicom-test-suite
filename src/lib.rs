@@ -38007,6 +38007,292 @@ mod tests {
         );
     }
 
+    fn negative_short_element(tag: (u16, u16), vr: &[u8; 2], value: &[u8]) -> Vec<u8> {
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(&tag.0.to_le_bytes());
+        bytes.extend_from_slice(&tag.1.to_le_bytes());
+        bytes.extend_from_slice(vr);
+        bytes.extend_from_slice(&(value.len() as u16).to_le_bytes());
+        bytes.extend_from_slice(value);
+        bytes
+    }
+
+    fn negative_uid(value: &str) -> Vec<u8> {
+        let mut bytes = value.as_bytes().to_vec();
+        if bytes.len() % 2 != 0 {
+            bytes.push(0);
+        }
+        bytes
+    }
+
+    fn negative_valid_source_fixture() -> Vec<u8> {
+        let mut bytes = vec![0; 128];
+        bytes.extend_from_slice(b"DICM");
+        bytes.extend(negative_short_element(
+            (0x0002, 0x0002),
+            b"UI",
+            &negative_uid("1.2.840.10008.5.1.4.1.1.7"),
+        ));
+        bytes.extend(negative_short_element(
+            (0x0002, 0x0010),
+            b"UI",
+            &negative_uid("1.2.840.10008.1.2.1"),
+        ));
+        bytes.extend(negative_short_element(
+            (0x0010, 0x0010),
+            b"PN",
+            b"Negative^Source ",
+        ));
+        bytes
+    }
+
+    fn failure_layer_name(layer: impl fmt::Debug) -> &'static str {
+        match format!("{layer:?}").as_str() {
+            "FileMeta" => "file_meta",
+            "DatasetParser" => "dataset_parser",
+            "ValueDecoding" => "value_decoding",
+            "SemanticValidation" => "semantic_validation",
+            "PixelDecoding" => "pixel_decoding",
+            "Encapsulation" => "encapsulation",
+            "TextDecoding" => "text_decoding",
+            _ => panic!("unknown failure layer"),
+        }
+    }
+
+    fn acceptable_outcome_name(outcome: impl fmt::Debug) -> &'static str {
+        match format!("{outcome:?}").as_str() {
+            "CleanRejection" => "clean_rejection",
+            "ParseFailure" => "parse_failure",
+            "ValidationFailure" => "validation_failure",
+            "DecodeFailure" => "decode_failure",
+            "AcceptedWithBoundedWarning" => "accepted_with_bounded_warning",
+            _ => panic!("unknown acceptable outcome"),
+        }
+    }
+
+    fn negative_validation_fixture() -> (Value, Vec<u8>) {
+        let source = negative_valid_source_fixture();
+        let output = negative::build_negative_case("negative/encoding/illegal_vr_bytes", &source)
+            .expect("negative mapping fixture");
+        let steps = output
+            .evidence
+            .steps
+            .iter()
+            .enumerate()
+            .map(|(index, step)| {
+                let changed_byte_ranges = step
+                    .changed_byte_ranges
+                    .iter()
+                    .map(|range| serde_json::json!({
+                        "source": {"start": range.source.start, "end": range.source.end},
+                        "output": {"start": range.output.start, "end": range.output.end}
+                    }))
+                    .collect::<Vec<_>>();
+                let parameters = negative_expected_parameters(
+                    step.mutation_id,
+                    &changed_byte_ranges,
+                    &output.bytes,
+                )
+                .expect("fixture parameters bind to changed ranges");
+                serde_json::json!({
+                    "ordinal": index + 1,
+                    "mutation_id": step.mutation_id,
+                    "parameters": parameters,
+                    "changed_byte_ranges": changed_byte_ranges,
+                    "source_sha256": step.source_sha256,
+                    "output_sha256": step.output_sha256,
+                    "expected_failure_layer": failure_layer_name(step.expected_failure_layer),
+                    "acceptable_outcomes": step.acceptable_outcomes.iter().map(acceptable_outcome_name).collect::<Vec<_>>()
+                })
+            })
+            .collect::<Vec<_>>();
+        let expected_layer = steps
+            .last()
+            .and_then(|step| step.get("expected_failure_layer"))
+            .and_then(Value::as_str)
+            .unwrap();
+        let (observed, detail) = classify_negative_rejection_probe(
+            output.evidence.case_id,
+            &output.bytes,
+            expected_layer,
+        );
+        let file = serde_json::json!({
+            "case_id": output.evidence.case_id,
+            "profile_membership": ["negative"],
+            "path": "negative/encoding/illegal_vr_bytes/instance.dcm",
+            "sha256": output.evidence.output_sha256,
+            "size_bytes": output.bytes.len(),
+            "determinism": "byte_stable",
+            "validity": "expected_invalid",
+            "provider": {
+                "kind": "mutation_layer",
+                "id": "mutation_layer"
+            },
+            "recipe": {
+                "recipe_id": "negative_encoding_illegal_vr_bytes",
+                "recipe_version": "0.1.0",
+                "recipe_parameters": {}
+            },
+            "negative_evidence": {
+                "contract_version": "0.1.0",
+                "recipe_version": "0.1.0",
+                "source": {
+                    "case_id": output.evidence.source.expected_case_id,
+                    "sha256": output.evidence.source.sha256,
+                    "transfer_syntax_uid": output.evidence.source.transfer_syntax_uid,
+                    "size_bytes": source.len()
+                },
+                "source_shape": output.evidence.source_shape,
+                "mutation_steps": steps,
+                "unacceptable_outcomes": ["timeout", "crash", "hang"],
+                "final_sha256": output.evidence.output_sha256,
+                "probe": {
+                    "kind": "same_project_bounded_parser_classifier",
+                    "independence": "same_project",
+                    "outcome": observed,
+                    "detail": detail
+                }
+            }
+        });
+        (file, output.bytes)
+    }
+
+    #[test]
+    fn negative_validation_accepts_exact_chained_evidence_before_dicom_reopen() {
+        let (file, bytes) = negative_validation_fixture();
+        let mut failures = Vec::new();
+        validate_negative_manifest_file(
+            Path::new("manifest.json"),
+            file["path"].as_str().unwrap(),
+            &file,
+            &bytes,
+            &mut failures,
+        )
+        .expect("negative evidence shape");
+        assert!(failures.is_empty(), "{failures:#?}");
+        assert!(open_file("this-path-is-never-used-for-negative-validation").is_err());
+    }
+
+    #[test]
+    fn negative_validation_rejects_hash_range_probe_and_outcome_tampering() {
+        let (file, bytes) = negative_validation_fixture();
+        let mutations: Vec<Box<dyn Fn(&mut Value)>> = vec![
+            Box::new(|value| {
+                value["negative_evidence"]["final_sha256"] = Value::from("0".repeat(64))
+            }),
+            Box::new(|value| {
+                value["negative_evidence"]["mutation_steps"][0]["source_sha256"] =
+                    Value::from("1".repeat(64))
+            }),
+            Box::new(|value| {
+                value["negative_evidence"]["mutation_steps"][0]["changed_byte_ranges"][0]["source"]
+                    ["end"] = Value::from(u64::MAX)
+            }),
+            Box::new(|value| {
+                value["negative_evidence"]["probe"]["outcome"] = Value::from("timeout")
+            }),
+            Box::new(|value| {
+                value["negative_evidence"]["unacceptable_outcomes"] = serde_json::json!(["crash"])
+            }),
+            Box::new(|value| {
+                value["negative_evidence"]["mutation_steps"][0]["parameters"]["replacement"] =
+                    serde_json::json!([33, 33])
+            }),
+            Box::new(|value| {
+                value["negative_evidence"]["mutation_steps"][0]["parameters"]["unknown"] =
+                    Value::from(true)
+            }),
+        ];
+        for mutate in mutations {
+            let mut tampered = file.clone();
+            mutate(&mut tampered);
+            let mut failures = Vec::new();
+            validate_negative_manifest_file(
+                Path::new("manifest.json"),
+                tampered["path"].as_str().unwrap(),
+                &tampered,
+                &bytes,
+                &mut failures,
+            )
+            .expect("tampered evidence remains structurally inspectable");
+            assert!(!failures.is_empty());
+        }
+    }
+
+    #[test]
+    fn negative_timeout_crash_hang_and_profile_isolation_are_unacceptable() {
+        let acceptable = ["clean_rejection", "parse_failure"];
+        for outcome in ["timeout", "crash", "hang"] {
+            assert_eq!(
+                negative_outcome_status(outcome, &acceptable),
+                "unacceptable"
+            );
+        }
+        let (file, _) = negative_validation_fixture();
+        let valid_manifest = serde_json::json!({"run": {"profile": "negative"}});
+        validate_negative_profile_isolation(
+            Path::new("manifest.json"),
+            &valid_manifest,
+            &[file.clone()],
+        )
+        .expect("negative profile isolation");
+        let invalid_manifest = serde_json::json!({"run": {"profile": "all"}});
+        assert!(
+            validate_negative_profile_isolation(
+                Path::new("manifest.json"),
+                &invalid_manifest,
+                &[file],
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn negative_reporting_is_separate_and_marks_probe_as_same_project() {
+        let (file, bytes) = negative_validation_fixture();
+        let root = unique_temp_dir("negative-report");
+        fs::create_dir_all(root.join("negative/encoding/illegal_vr_bytes")).unwrap();
+        fs::write(root.join(file["path"].as_str().unwrap()), bytes).unwrap();
+        let row = negative_coverage_row(&root, Path::new("manifest.json"), &file, "negative")
+            .expect("negative coverage row");
+        assert_eq!(row["probe_independence"], "same_project");
+        assert_eq!(row["outcome_status"], "acceptable");
+        let mut grouped = GroupedNegativeCoverage::default();
+        grouped.record(&row);
+        let grouped_json = grouped.to_json();
+        let coverage_schema: Value =
+            serde_json::from_str(include_str!("../schemas/coverage-report.schema.json"))
+                .expect("coverage schema JSON");
+        for (definition, instance) in [
+            ("negative_coverage_row", &row),
+            ("grouped_negative_coverage", &grouped_json),
+        ] {
+            let schema = serde_json::json!({
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "$ref": format!("#/$defs/{definition}"),
+                "$defs": coverage_schema["$defs"].clone()
+            });
+            let validator = jsonschema::validator_for(&schema).expect("negative schema compiles");
+            let errors = validator
+                .iter_errors(instance)
+                .map(|error| error.to_string())
+                .collect::<Vec<_>>();
+            assert!(errors.is_empty(), "{definition} schema errors: {errors:?}");
+        }
+        let report = serde_json::json!({
+            "counts": {"generated": 1},
+            "coverage_matrix": [],
+            "grouped_coverage": {},
+            "negative_coverage": [row],
+            "grouped_negative_coverage": grouped_json
+        });
+        let markdown = render_coverage_report_markdown(&report);
+        assert!(markdown.contains("Expected-invalid Negative Coverage"));
+        assert!(markdown.contains("same-project evidence"));
+        assert!(report["coverage_matrix"].as_array().unwrap().is_empty());
+        fs::remove_dir_all(root).unwrap();
+    }
+
     fn encapsulated_stl_contract_fixture() -> Value {
         serde_json::json!({
             "case_id": "derived/mesh/encapsulated_stl",

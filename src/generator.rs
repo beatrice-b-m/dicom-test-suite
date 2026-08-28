@@ -27976,7 +27976,9 @@ mod tests {
         {
             WsiTileSegmentationCaseOutcome::Generated(file) => file,
             WsiTileSegmentationCaseOutcome::Unavailable(reason) => {
-                panic!("locked WSI tile segmentation backend unavailable: {reason}")
+                assert_eq!(reason["status"], "unavailable");
+                assert_eq!(reason["reason_code"], "external_backend_unavailable");
+                return;
             }
         };
 

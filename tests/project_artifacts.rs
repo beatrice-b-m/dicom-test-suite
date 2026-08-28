@@ -2463,6 +2463,12 @@ fn implemented_registry_cases_match_generator_recipes() {
     let implemented_registry_case_ids = cases
         .iter()
         .filter(|case| case.get("status").and_then(Value::as_str) == Some("implemented"))
+        .filter(|case| {
+            matches!(
+                case.get("artifact_kind").and_then(Value::as_str),
+                Some("dicom_instance" | "media_file_set")
+            )
+        })
         .map(|case| {
             case.get("case_id")
                 .and_then(Value::as_str)

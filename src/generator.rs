@@ -2777,6 +2777,8 @@ const ENHANCED_CT_DIMENSION_INDEX_VALUES: &[u32] = &[1, 2];
 const STRESS_ENHANCED_CT_CASE_ID: &str = "stress/enhanced-ct/many_frames";
 const STRESS_HIGH_INSTANCE_CT_CASE_ID: &str = "stress/study/high_instance_count_ct";
 const STRESS_LARGE_BULK_CASE_ID: &str = "stress/sc/large_bulk_data";
+const STRESS_DEEP_NESTED_CASE_ID: &str = "stress/sc/deep_nested_sequences";
+const STRESS_LONG_METADATA_CASE_ID: &str = "stress/sc/long_value_metadata";
 const ENHANCED_CT_CONCAT_PART_1_IMAGE_POSITIONS: &[&str] = &["0\\0\\0"];
 const ENHANCED_CT_CONCAT_PART_2_IMAGE_POSITIONS: &[&str] = &["0\\0\\2.5"];
 const ENHANCED_CT_CONCAT_PART_1_DIMENSION_INDEX_VALUES: &[u32] = &[1];
@@ -4742,6 +4744,24 @@ pub(crate) fn write_supported_cases(
     if let Some(case) = registry_case(registry, STRESS_LARGE_BULK_CASE_ID)? {
         if should_generate_case(case, run)? {
             context.record_one(write_stress_large_bulk_case(
+                run,
+                case,
+                standards_lock_sha256,
+            )?)?;
+        }
+    }
+    if let Some(case) = registry_case(registry, STRESS_DEEP_NESTED_CASE_ID)? {
+        if should_generate_case(case, run)? {
+            context.record_one(write_stress_deep_nested_case(
+                run,
+                case,
+                standards_lock_sha256,
+            )?)?;
+        }
+    }
+    if let Some(case) = registry_case(registry, STRESS_LONG_METADATA_CASE_ID)? {
+        if should_generate_case(case, run)? {
+            context.record_one(write_stress_long_metadata_case(
                 run,
                 case,
                 standards_lock_sha256,
@@ -15461,6 +15481,251 @@ fn write_stress_large_bulk_case(
             "standards_evidence": deduplicated_standards_evidence(standards_evidence_from_case(case))
         }),
     })
+}
+
+#[allow(clippy::too_many_arguments)]
+fn finish_stress_tiny_sc_case(
+    run: &PreparedGenerationRun,
+    case: &Value,
+    case_id: &str,
+    recipe_id: &str,
+    mut obj: InMemDicomObject,
+    identity: StressScIdentity,
+    recipe_parameters: Value,
+    expected_semantics: Value,
+    visual_pattern: &str,
+    known_stressors: &[&str],
+) -> Result<GeneratedFile, GenerateError> {
+    const PIXELS: &[u8] = &[0, 85, 170, 255];
+    put_u16(&mut obj, tags::SAMPLES_PER_PIXEL, VR::US, 1);
+    put_str(
+        &mut obj,
+        tags::PHOTOMETRIC_INTERPRETATION,
+        VR::CS,
+        "MONOCHROME2",
+    );
+    put_u16(&mut obj, tags::ROWS, VR::US, 2);
+    put_u16(&mut obj, tags::COLUMNS, VR::US, 2);
+    put_u16(&mut obj, tags::BITS_ALLOCATED, VR::US, 8);
+    put_u16(&mut obj, tags::BITS_STORED, VR::US, 8);
+    put_u16(&mut obj, tags::HIGH_BIT, VR::US, 7);
+    put_u16(&mut obj, tags::PIXEL_REPRESENTATION, VR::US, 0);
+    obj.put(DataElement::new(
+        tags::PIXEL_DATA,
+        VR::OB,
+        PrimitiveValue::from(PIXELS),
+    ));
+    let relative_path = format!("{case_id}/instance.dcm");
+    let path = run.out_dir.join(&relative_path);
+    fs::create_dir_all(path.parent().expect("stress path has parent")).map_err(|source| {
+        GenerateError::CreateCaseOutputDir {
+            path: path.parent().unwrap().to_path_buf(),
+            source,
+        }
+    })?;
+    let file_obj = obj
+        .with_meta(
+            FileMetaTableBuilder::new()
+                .transfer_syntax(EXPLICIT_VR_LITTLE_ENDIAN.uid)
+                .implementation_class_uid(&identity.implementation_class_uid)
+                .implementation_version_name(crate::IMPLEMENTATION_VERSION_NAME),
+        )
+        .map_err(|error| GenerateError::WriteDicomFile {
+            path: path.clone(),
+            message: error.to_string(),
+        })?;
+    file_obj
+        .write_to_file(&path)
+        .map_err(|error| GenerateError::WriteDicomFile {
+            path: path.clone(),
+            message: error.to_string(),
+        })?;
+    let validated = validate_part10_file(
+        &path,
+        &Part10Expectations {
+            sop_class_uid: uids::SECONDARY_CAPTURE_IMAGE_STORAGE,
+            sop_instance_uid: &identity.sop_instance_uid,
+            transfer_syntax_uid: EXPLICIT_VR_LITTLE_ENDIAN.uid,
+            implementation_class_uid: &identity.implementation_class_uid,
+            synthetic_data: "YES",
+            rows: 2,
+            columns: 2,
+            frames: 1,
+            samples_per_pixel: 1,
+            photometric_interpretation: "MONOCHROME2",
+            bits_allocated: 8,
+            bits_stored: 8,
+            high_bit: 7,
+            pixel_representation: 0,
+            planar_configuration: None,
+            pixel_data_vr: VR::OB,
+            pixel_data_length_formula: PixelDataLengthFormula::ContiguousSamples,
+            decoded_frame_hashes: &[],
+            palette: None,
+            padding: None,
+            ct_image: None,
+            enhanced_ct_image: None,
+            enhanced_mr_image: None,
+            enhanced_pet_image: None,
+            mg_image: None,
+            dx_image: None,
+            xa_image: None,
+            xrf_image: None,
+            us_image: None,
+            us_multiframe: None,
+            nm_image: None,
+            pet_image: None,
+            cr_image: None,
+            mr_image: None,
+            segmentation: None,
+        },
+    )?;
+    Ok(GeneratedFile {
+        case_id: case_id.to_string(),
+        manifest_entry: serde_json::json!({
+            "case_id": case_id,
+            "profile_membership": ["stress"],
+            "path": relative_path,
+            "sha256": sha256_hex(&validated.bytes),
+            "size_bytes": validated.bytes.len(),
+            "determinism": "byte_stable",
+            "recipe": {"recipe_id": recipe_id, "recipe_version": "0.1.0", "recipe_parameters": recipe_parameters},
+            "dicom": {
+                "sop_class_uid": uids::SECONDARY_CAPTURE_IMAGE_STORAGE,
+                "sop_class_name": "Secondary Capture Image Storage",
+                "iod_name": "Secondary Capture Image",
+                "modality": "OT",
+                "transfer_syntax_uid": EXPLICIT_VR_LITTLE_ENDIAN.uid,
+                "transfer_syntax_name": EXPLICIT_VR_LITTLE_ENDIAN.name
+            },
+            "uids": {
+                "study_instance_uid": identity.study_instance_uid,
+                "series_instance_uid": identity.series_instance_uid,
+                "sop_instance_uid": identity.sop_instance_uid,
+                "implementation_class_uid": identity.implementation_class_uid
+            },
+            "image": {
+                "rows": 2, "columns": 2, "frames": 1, "samples_per_pixel": 1,
+                "photometric_interpretation": "MONOCHROME2", "bits_allocated": 8,
+                "bits_stored": 8, "high_bit": 7, "pixel_representation": 0,
+                "planar_configuration": Value::Null
+            },
+            "pixel_data": {
+                "vr": "OB", "native_or_encapsulated": "native", "value_length": PIXELS.len(),
+                "frame_count": 1, "frame_hashes": [sha256_hex(PIXELS)]
+            },
+            "references": [],
+            "expected_capabilities": ["open_file", "read_metadata", "render_native_pixels", "bounded_metadata_traversal"],
+            "expected_semantics": expected_semantics,
+            "expected_visual_checks": {"pattern": visual_pattern},
+            "validation": validated.validation,
+            "known_stressors": known_stressors,
+            "standards_evidence": deduplicated_standards_evidence(standards_evidence_from_case(case))
+        }),
+    })
+}
+
+fn write_stress_deep_nested_case(
+    run: &PreparedGenerationRun,
+    case: &Value,
+    standards_lock_sha256: &str,
+) -> Result<GeneratedFile, GenerateError> {
+    const DEPTH: usize = 32;
+    const PAYLOAD_BYTES: usize = 16 * 1024 * 1024;
+    const RECIPE_ID: &str = "stress_sc_deep_nested_sequences_reduced";
+    let (mut obj, identity) = base_stress_sc_object(
+        run,
+        STRESS_DEEP_NESTED_CASE_ID,
+        RECIPE_ID,
+        standards_lock_sha256,
+    );
+    let mut item = InMemDicomObject::from_element_iter([
+        DataElement::new(Tag(0x7777, 0x0010), VR::LO, "DTS_STRESS_NESTED"),
+        DataElement::new(
+            Tag(0x7777, 0x1001),
+            VR::OB,
+            PrimitiveValue::from(vec![0x5a_u8; PAYLOAD_BYTES]),
+        ),
+    ]);
+    for _ in 1..DEPTH {
+        item = InMemDicomObject::from_element_iter([
+            DataElement::new(Tag(0x7777, 0x0010), VR::LO, "DTS_STRESS_NESTED"),
+            DataElement::new(
+                Tag(0x7777, 0x1002),
+                VR::SQ,
+                DataSetSequence::from(vec![item]),
+            ),
+        ]);
+    }
+    obj.put(DataElement::new(
+        Tag(0x7777, 0x1002),
+        VR::SQ,
+        DataSetSequence::from(vec![item]),
+    ));
+    finish_stress_tiny_sc_case(
+        run,
+        case,
+        STRESS_DEEP_NESTED_CASE_ID,
+        RECIPE_ID,
+        obj,
+        identity,
+        serde_json::json!({"sequence_depth": DEPTH, "payload_bytes": PAYLOAD_BYTES}),
+        serde_json::json!({"synthetic_data": "YES", "sequence_depth": DEPTH, "nested_payload_bytes": PAYLOAD_BYTES}),
+        "tiny_gradient_with_32_level_private_sequence",
+        &[
+            "reduced_stress_scale",
+            "deep_nested_sequences",
+            "16_mib_nested_bulk_value",
+        ],
+    )
+}
+
+fn write_stress_long_metadata_case(
+    run: &PreparedGenerationRun,
+    case: &Value,
+    standards_lock_sha256: &str,
+) -> Result<GeneratedFile, GenerateError> {
+    const VALUE_COUNT: usize = 1024;
+    const VALUE_BYTES: usize = 1024;
+    const RECIPE_ID: &str = "stress_sc_long_value_metadata_reduced";
+    let (mut obj, identity) = base_stress_sc_object(
+        run,
+        STRESS_LONG_METADATA_CASE_ID,
+        RECIPE_ID,
+        standards_lock_sha256,
+    );
+    let value = "M".repeat(VALUE_BYTES);
+    for block in 0..4_u16 {
+        obj.put(DataElement::new(
+            Tag(0x7777, 0x0010 + block),
+            VR::LO,
+            format!("DTS_STRESS_LONG_{block}"),
+        ));
+        for element in 0..256_u16 {
+            obj.put(DataElement::new(
+                Tag(0x7777, ((0x10 + block) << 8) | element),
+                VR::UT,
+                value.as_str(),
+            ));
+        }
+    }
+    finish_stress_tiny_sc_case(
+        run,
+        case,
+        STRESS_LONG_METADATA_CASE_ID,
+        RECIPE_ID,
+        obj,
+        identity,
+        serde_json::json!({"metadata_values": VALUE_COUNT, "metadata_value_bytes": VALUE_BYTES, "payload_bytes": VALUE_COUNT * VALUE_BYTES}),
+        serde_json::json!({"synthetic_data": "YES", "metadata_values": VALUE_COUNT, "metadata_total_value_bytes": VALUE_COUNT * VALUE_BYTES}),
+        "tiny_gradient_with_1024_private_ut_values",
+        &[
+            "reduced_stress_scale",
+            "long_value_metadata",
+            "1024_private_ut_values",
+            "1_mib_metadata_values",
+        ],
+    )
 }
 
 fn classic_ct_series_recipes(recipe: ClassicCtRecipe) -> Vec<ClassicCtSeriesRecipe> {
@@ -33587,6 +33852,79 @@ mod tests {
         assert_eq!(first.manifest_entry["image"]["rows"], 8192);
         assert_eq!(first.manifest_entry["image"]["columns"], 4096);
         assert!(first.manifest_entry["size_bytes"].as_u64().unwrap() > 64 * 1024 * 1024);
+    }
+
+    #[test]
+    fn reduced_metadata_stress_cases_are_byte_stable_and_exact_scale() {
+        let first_root = ParametricMapStagingGuard::new();
+        let second_root = ParametricMapStagingGuard::new();
+        let run = |root: &ParametricMapStagingGuard| PreparedGenerationRun {
+            profile: "stress".to_string(),
+            out_dir: root.path().to_path_buf(),
+            manifest_path: root.path().join("manifest.json"),
+            seed: 7,
+            include_stress: false,
+        };
+        let lock = "0000000000000000000000000000000000000000000000000000000000000000";
+        for (case_id, writer) in [
+            (
+                STRESS_DEEP_NESTED_CASE_ID,
+                write_stress_deep_nested_case
+                    as fn(
+                        &PreparedGenerationRun,
+                        &Value,
+                        &str,
+                    ) -> Result<GeneratedFile, GenerateError>,
+            ),
+            (
+                STRESS_LONG_METADATA_CASE_ID,
+                write_stress_long_metadata_case,
+            ),
+        ] {
+            let case = serde_json::json!({"case_id": case_id, "standards_evidence": []});
+            let first = writer(&run(&first_root), &case, lock).unwrap();
+            let second = writer(&run(&second_root), &case, lock).unwrap();
+            assert_eq!(first.manifest_entry, second.manifest_entry);
+            assert_eq!(
+                first.manifest_entry["profile_membership"],
+                serde_json::json!(["stress"])
+            );
+        }
+        assert_eq!(
+            fs::metadata(
+                first_root
+                    .path()
+                    .join(STRESS_DEEP_NESTED_CASE_ID)
+                    .join("instance.dcm")
+            )
+            .unwrap()
+            .len()
+                > 16 * 1024 * 1024,
+            true
+        );
+        let long = open_file(
+            first_root
+                .path()
+                .join(STRESS_LONG_METADATA_CASE_ID)
+                .join("instance.dcm"),
+        )
+        .unwrap();
+        assert_eq!(
+            long.element(Tag(0x7777, 0x1000))
+                .unwrap()
+                .to_str()
+                .unwrap()
+                .len(),
+            1024
+        );
+        assert_eq!(
+            long.element(Tag(0x7777, 0x13ff))
+                .unwrap()
+                .to_str()
+                .unwrap()
+                .len(),
+            1024
+        );
     }
 
     fn generated_source_fixture(

@@ -7886,7 +7886,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\tall"));
-    let native_all_files = 152
+    let native_all_files = 153
         + if cfg!(feature = "deflate") { 2 } else { 0 }
         + if cfg!(feature = "jpeg") { 1 } else { 0 }
         + if cfg!(feature = "charls") { 1 } else { 0 }
@@ -8155,7 +8155,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
         .expect("manifest should contain skipped cases");
     assert_eq!(
         skipped_cases.len(),
-        28 - parametric_maps_generated
+        26 - parametric_maps_generated
             - wsi_tile_segmentation_generated
             - tid1500_generated
             - scoord3d_generated
@@ -8354,7 +8354,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
     );
     assert_eq!(
         stress_manifest["files"].as_array().map(Vec::len),
-        Some(expected_all_files + 3)
+        Some(expected_all_files + 139)
     );
     assert_eq!(
         file_entries_by_case_id(&stress_manifest, "vl/wsi/pyramid_multiresolution").len(),
@@ -8367,23 +8367,28 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
         .iter()
         .map(|file| (file["case_id"].clone(), file["path"].clone()))
         .collect::<Vec<_>>();
-    let opt_in_non_stress_rows = stress_manifest["files"]
+    let opt_in_ordinary_rows = stress_manifest["files"]
         .as_array()
         .expect("all plus stress files")
         .iter()
-        .filter(|file| file["case_id"] != "vl/wsi/pyramid_multiresolution")
         .map(|file| (file["case_id"].clone(), file["path"].clone()))
+        .filter(|row| ordinary_rows.contains(row))
         .collect::<Vec<_>>();
     assert_eq!(
-        opt_in_non_stress_rows, ordinary_rows,
+        opt_in_ordinary_rows, ordinary_rows,
         "--include-stress must preserve the normal all-profile union"
     );
     assert_eq!(
         stress_manifest["skipped_cases"].as_array().map(Vec::len),
-        manifest["skipped_cases"]
+        manifest["skipped_cases"].as_array().map(Vec::len),
+        "full stress scales are qualifications, not planned file rows"
+    );
+    assert_eq!(
+        stress_manifest["qualifications"]
             .as_array()
-            .map(|skipped| skipped.len() + 7),
-        "all --include-stress must expose the seven remaining planned stress cases"
+            .map(Vec::len),
+        Some(7),
+        "all --include-stress must record seven reduced/full-scale qualifications"
     );
 
     fs::remove_dir_all(out_dir).expect("temporary output root should be removable");

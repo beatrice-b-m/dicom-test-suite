@@ -4,22 +4,26 @@
 **Active goal:** complete the remaining dependency-ordered coverage-expansion
 plan without weakening profile isolation or validation gates
 **Current phase:** Phases 0–4 complete with unavailable coverage explicit;
-Phase 5 Extended Offset Table infrastructure is next
+Phase 5 EOT milestone complete and Phase 7 mutation infrastructure in progress
 **Repo state source:** reconstructed from `cases/registry.json`, phase status
 notes, git history, and current verification runs.
 
 ## Phase Status
 
-- The registry contains 151 implemented and 40 planned logical cases.
+- The registry contains 153 implemented and 38 planned logical cases.
 - Phase 2 is complete.
 - Phase 3 is closed. Encapsulated STL completes the mesh milestone; integer
   Parametric Map remains explicitly planned because its selected provider
   cannot emit the required representation.
 - Phase 4 is complete.
-- Phase 5 has started with locked Extended Offset Table standards evidence;
-  generator, manifest, validation, reporting, and stress integration remain.
-- Phases 6–8 remain unimplemented except for the existing small stress-profile
-  WSI pyramid and shared profile/platform infrastructure.
+- Phase 5 milestone 1 is complete for a real small EOT object and an honest
+  non-file overflow qualification. The genuine large object remains behind the
+  stress-budget checkpoint; lossy promotion is at the numeric-policy decision.
+- Phase 7 now has deterministic mutation and bounded Explicit VR LE/RLE byte-
+  locator substrates. Negative artifacts, expected-rejection reporting, and
+  the fuzz harness remain to be integrated.
+- Phases 6 and 8 remain unimplemented except for the existing small stress-
+  profile WSI pyramid and shared profile/platform infrastructure.
 
 ## Historical Status Notes
 

@@ -72,7 +72,8 @@
             "dicom_instance",
             "media_file_set",
             "transaction_scenario",
-            "qualification_fixture"
+            "qualification_fixture",
+            "runtime_qualification"
           ]
         },
         "provider": {
@@ -269,6 +270,41 @@
               },
               "transfer_syntax_uid": {
                 "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "artifact_kind": {
+                "const": "runtime_qualification"
+              }
+            },
+            "required": ["artifact_kind"]
+          },
+          "then": {
+            "properties": {
+              "profiles": {
+                "minItems": 1
+              },
+              "iod_name": {
+                "type": "null"
+              },
+              "sop_class_name": {
+                "type": "null"
+              },
+              "sop_class_uid": {
+                "type": "null"
+              },
+              "modality": {
+                "type": "null"
+              },
+              "transfer_syntax_uid": {
+                "type": "null"
+              },
+              "standards_evidence": {
+                "minItems": 1
               }
             }
           }

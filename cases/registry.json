@@ -11609,39 +11609,29 @@
     },
     {
       "case_id": "fuzz/parser/bounded_seed_corpus",
-      "artifact_kind": "dicom_instance",
-      "status": "planned",
+      "artifact_kind": "runtime_qualification",
+      "status": "implemented",
       "provider": {
         "kind": "mutation_layer",
-        "id": "mutation_layer"
+        "id": "bounded_deterministic_fuzz"
       },
       "object_family": "robustness",
       "compatibility_axes": [
         "robustness"
       ],
-      "roadmap": {
-        "priority": "later",
-        "delivery_phase": "phase-7",
-        "rationale": "Adds reproducible bounded fuzzing and minimization from known-good cases."
-      },
-      "blockers": [
-        {
-          "code": "mutation_contract_unimplemented",
-          "message": "The bounded fuzz and minimization contract is not implemented.",
-          "recheck_phase": "phase-7"
-        }
-      ],
+      "roadmap": null,
+      "blockers": [],
       "profiles": [
         "fuzz"
       ],
       "recipe_id": "fuzz_parser_bounded_seed_corpus",
       "recipe_version": "0.1.0",
-      "iod_name": "Secondary Capture Image",
-      "sop_class_name": "Secondary Capture Image Storage",
-      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.7",
-      "modality": "OT",
-      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
-      "determinism": "unstable",
+      "iod_name": null,
+      "sop_class_name": null,
+      "sop_class_uid": null,
+      "modality": null,
+      "transfer_syntax_uid": null,
+      "determinism": "semantic_stable",
       "requirements": {
         "features": [],
         "external_codecs": [],

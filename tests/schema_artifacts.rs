@@ -3802,6 +3802,58 @@ fn case_registry_schema_models_non_file_qualification_fixtures_honestly() {
 }
 
 #[test]
+fn case_registry_schema_models_profile_runtime_qualifications_honestly() {
+    let schema = read_json("schemas/case-registry.schema.json");
+    let validator =
+        jsonschema::validator_for(&schema).expect("case registry schema should compile");
+    let registry = serde_json::json!({
+        "case_registry_schema_version": "0.2.0",
+        "cases": [{
+            "case_id": "fuzz/parser/bounded_seed_corpus",
+            "artifact_kind": "runtime_qualification",
+            "status": "implemented",
+            "provider": {"kind": "mutation_layer", "id": "bounded_deterministic_fuzz"},
+            "object_family": "robustness",
+            "compatibility_axes": ["robustness"],
+            "roadmap": null,
+            "blockers": [],
+            "profiles": ["fuzz"],
+            "recipe_id": "fuzz_parser_bounded_seed_corpus",
+            "recipe_version": "0.1.0",
+            "iod_name": null,
+            "sop_class_name": null,
+            "sop_class_uid": null,
+            "modality": null,
+            "transfer_syntax_uid": null,
+            "determinism": "semantic_stable",
+            "requirements": {
+                "features": [],
+                "external_codecs": [],
+                "external_validators": []
+            },
+            "skip": null,
+            "standards_evidence": [{
+                "source": "dicom-standard-kb",
+                "edition": "2026b",
+                "query": "dicom-kb lookup uid SecondaryCaptureImageStorage --edition 2026b",
+                "covered": true,
+                "part": "PS3.6",
+                "anchor": "table_A-1"
+            }]
+        }]
+    });
+    assert!(validator.is_valid(&registry));
+
+    let mut false_file_identity = registry.clone();
+    false_file_identity["cases"][0]["sop_class_uid"] =
+        Value::String("1.2.840.10008.5.1.4.1.1.7".to_string());
+    assert!(
+        !validator.is_valid(&false_file_identity),
+        "runtime qualifications must not masquerade as generated DICOM instances"
+    );
+}
+
+#[test]
 fn coverage_report_schema_projects_approved_lossy_metrics_separately() {
     let schema = read_json("schemas/coverage-report.schema.json");
     let required = schema

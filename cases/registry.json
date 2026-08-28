@@ -10422,41 +10422,30 @@
       ]
     },
     {
-      "case_id": "encapsulation/sc/eot_simulated_overflow",
-      "artifact_kind": "dicom_instance",
-      "status": "planned",
+      "case_id": "qualification/encapsulation/eot_u64_overflow",
+      "artifact_kind": "qualification_fixture",
+      "status": "implemented",
       "provider": {
         "kind": "rust_native",
-        "id": "rust_native"
+        "id": "checked_eot_arithmetic"
       },
-      "object_family": "classic_image",
+      "object_family": "robustness",
       "compatibility_axes": [
         "encapsulation",
-        "scale"
+        "scale",
+        "robustness"
       ],
-      "roadmap": {
-        "priority": "later",
-        "delivery_phase": "phase-5",
-        "rationale": "Exercises offset arithmetic beyond Basic Offset Table range without a huge payload."
-      },
-      "blockers": [
-        {
-          "code": "recipe_unimplemented",
-          "message": "The deterministic native recipe is not implemented.",
-          "recheck_phase": "phase-5"
-        }
-      ],
-      "profiles": [
-        "extended"
-      ],
-      "recipe_id": "encapsulation_sc_eot_simulated_overflow",
+      "roadmap": null,
+      "blockers": [],
+      "profiles": [],
+      "recipe_id": "qualification_eot_u64_overflow",
       "recipe_version": "0.1.0",
-      "iod_name": "Multi-frame Grayscale Byte Secondary Capture Image",
-      "sop_class_name": "Multi-frame Grayscale Byte Secondary Capture Image Storage",
-      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.7.2",
-      "modality": "OT",
-      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
-      "determinism": "byte_stable",
+      "iod_name": null,
+      "sop_class_name": null,
+      "sop_class_uid": null,
+      "modality": null,
+      "transfer_syntax_uid": null,
+      "determinism": "semantic_stable",
       "requirements": {
         "features": [],
         "external_codecs": [],
@@ -10465,12 +10454,12 @@
       "skip": null,
       "standards_evidence": [
         {
-          "source": "dicom-standard-kb",
+          "source": "local-source-note",
           "edition": "2026b",
-          "query": "dicom-kb lookup uid MultiFrameGrayscaleByteSecondaryCaptureImageStorage --edition 2026b",
+          "query": "standards/source-notes/phase-5-extended-offset-table.md",
           "covered": true,
-          "part": "PS3.6",
-          "anchor": "table_A-1"
+          "part": "PS3.5",
+          "anchor": "sect_A.4"
         }
       ]
     },

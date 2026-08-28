@@ -1138,6 +1138,7 @@ fn phase4_multiple_optical_path_wsi_is_native_and_standards_locked() {
         "`vl/wsi/multiple_optical_paths` completes milestone 5",
         "Two independent seed-7 extended generations each wrote 112 files",
         "149 implemented and 33 planned logical\ncases",
+        "full with the multiple-path case integrated across every target",
         "Milestone 6, a derived object referencing WSI\ntiles, is next",
     ] {
         assert!(status.contains(required), "pathology status requires {required}");

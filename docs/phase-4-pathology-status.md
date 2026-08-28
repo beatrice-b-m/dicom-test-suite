@@ -170,6 +170,10 @@ whole-corpus run retains all 229 unrelated visible failures and zero accepted
 findings. The registry now contains 149 implemented and 33 planned logical
 cases.
 
+The post-promotion repository gate
+`cargo test --locked --all-targets --no-default-features --quiet` passes in
+full with the multiple-path case integrated across every target.
+
 Phase 4 milestone 5 is complete. Milestone 6, a derived object referencing WSI
 tiles, is next. The explicit full-size-pyramid dimensions, budget, and ordinary
 CI scheduling checkpoint remains undecided and is not affected by this small

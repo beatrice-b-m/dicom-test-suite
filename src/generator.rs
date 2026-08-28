@@ -4115,6 +4115,7 @@ struct GenerationContext {
     source_registry: GeneratedSourceRegistry,
     unavailable_cases: Vec<Value>,
     qualifications: Vec<Value>,
+    stress_guard: Option<StressResourceGuard>,
 }
 
 impl GenerationContext {
@@ -4133,6 +4134,80 @@ impl GenerationContext {
 
     fn record_qualification(&mut self, qualification: Value) {
         self.qualifications.push(qualification);
+    }
+
+    fn preflight_stress(
+        &mut self,
+        recipe: StressRecipeKind,
+        planned_output_bytes: u64,
+        planned_peak_rss_bytes: u64,
+    ) -> Result<(StressRequest, Instant), GenerateError> {
+        let request = StressRequest::approved(recipe, StressScale::Reduced);
+        self.stress_guard
+            .get_or_insert_with(|| StressResourceGuard::new(StressScale::Reduced))
+            .preflight(request, planned_output_bytes, planned_peak_rss_bytes)
+            .map_err(|error| GenerateError::WriteDicomFile {
+                path: PathBuf::from(recipe.name()),
+                message: format!("reduced stress preflight: {error}"),
+            })?;
+        Ok((request, Instant::now()))
+    }
+
+    fn record_stress_files(
+        &mut self,
+        case_id: &str,
+        request: StressRequest,
+        started: Instant,
+        files: Vec<GeneratedFile>,
+    ) -> Result<(), GenerateError> {
+        let output_bytes = files
+            .iter()
+            .map(|file| {
+                file.manifest_entry
+                    .get("size_bytes")
+                    .and_then(Value::as_u64)
+                    .ok_or_else(|| GenerateError::MetadataShape {
+                        path: PathBuf::from(case_id),
+                        message: "stress generated file size_bytes must be an integer",
+                    })
+            })
+            .collect::<Result<Vec<_>, _>>()?
+            .into_iter()
+            .try_fold(0_u64, u64::checked_add)
+            .ok_or_else(|| GenerateError::MetadataShape {
+                path: PathBuf::from(case_id),
+                message: "stress output byte accounting overflowed",
+            })?;
+        let observation = ResourceObservation {
+            output_bytes,
+            elapsed_milliseconds: u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX),
+            peak_rss_bytes: None,
+        };
+        self.stress_guard
+            .get_or_insert_with(|| StressResourceGuard::new(StressScale::Reduced))
+            .record_case(request, observation)
+            .map_err(|error| GenerateError::WriteDicomFile {
+                path: PathBuf::from(case_id),
+                message: format!("reduced stress observation: {error}"),
+            })?;
+        let mut actual = request.parameters;
+        actual.output_bytes = output_bytes;
+        let qualification = StressQualificationRecord {
+            contract_version: STRESS_CONTRACT_VERSION,
+            request,
+            actual,
+            observation,
+            outcome: StressExecutionOutcome::Completed,
+        };
+        if !qualification.is_promotable() {
+            return Err(GenerateError::MetadataShape {
+                path: PathBuf::from(case_id),
+                message: "reduced stress output is not promotable under its approved contract",
+            });
+        }
+        self.record_many(files)?;
+        self.record_qualification(qualification.to_manifest_value(case_id));
+        Ok(())
     }
 
     #[allow(dead_code)]
@@ -4755,47 +4830,77 @@ pub(crate) fn write_supported_cases(
     }
     if let Some(case) = registry_case(registry, STRESS_HIGH_INSTANCE_CT_CASE_ID)? {
         if should_generate_case(case, run)? {
-            context.record_many(write_stress_high_instance_ct_case(
-                run,
-                case,
-                standards_lock_sha256,
-            )?)?;
+            let (request, started) = context.preflight_stress(
+                StressRecipeKind::CtStudy,
+                8 * 1024 * 1024,
+                128 * 1024 * 1024,
+            )?;
+            let files = write_stress_high_instance_ct_case(run, case, standards_lock_sha256)?;
+            context.record_stress_files(
+                STRESS_HIGH_INSTANCE_CT_CASE_ID,
+                request,
+                started,
+                files,
+            )?;
         }
     }
     if let Some(case) = registry_case(registry, STRESS_LARGE_BULK_CASE_ID)? {
         if should_generate_case(case, run)? {
-            context.record_one(write_stress_large_bulk_case(
-                run,
-                case,
-                standards_lock_sha256,
-            )?)?;
+            let (request, started) = context.preflight_stress(
+                StressRecipeKind::NativeBulkData,
+                72 * 1024 * 1024,
+                384 * 1024 * 1024,
+            )?;
+            let file = write_stress_large_bulk_case(run, case, standards_lock_sha256)?;
+            context.record_stress_files(STRESS_LARGE_BULK_CASE_ID, request, started, vec![file])?;
         }
     }
     if let Some(case) = registry_case(registry, STRESS_DEEP_NESTED_CASE_ID)? {
         if should_generate_case(case, run)? {
-            context.record_one(write_stress_deep_nested_case(
-                run,
-                case,
-                standards_lock_sha256,
-            )?)?;
+            let (request, started) = context.preflight_stress(
+                StressRecipeKind::NestedSequences,
+                20 * 1024 * 1024,
+                128 * 1024 * 1024,
+            )?;
+            let file = write_stress_deep_nested_case(run, case, standards_lock_sha256)?;
+            context.record_stress_files(
+                STRESS_DEEP_NESTED_CASE_ID,
+                request,
+                started,
+                vec![file],
+            )?;
         }
     }
     if let Some(case) = registry_case(registry, STRESS_LONG_METADATA_CASE_ID)? {
         if should_generate_case(case, run)? {
-            context.record_one(write_stress_long_metadata_case(
-                run,
-                case,
-                standards_lock_sha256,
-            )?)?;
+            let (request, started) = context.preflight_stress(
+                StressRecipeKind::LongMetadata,
+                4 * 1024 * 1024,
+                64 * 1024 * 1024,
+            )?;
+            let file = write_stress_long_metadata_case(run, case, standards_lock_sha256)?;
+            context.record_stress_files(
+                STRESS_LONG_METADATA_CASE_ID,
+                request,
+                started,
+                vec![file],
+            )?;
         }
     }
     if let Some(case) = registry_case(registry, STRESS_ENCAPSULATED_CASE_ID)? {
         if should_generate_case(case, run)? {
-            context.record_one(write_stress_encapsulated_case(
-                run,
-                case,
-                standards_lock_sha256,
-            )?)?;
+            let (request, started) = context.preflight_stress(
+                StressRecipeKind::EncapsulatedEot,
+                80 * 1024 * 1024,
+                384 * 1024 * 1024,
+            )?;
+            let file = write_stress_encapsulated_case(run, case, standards_lock_sha256)?;
+            context.record_stress_files(
+                STRESS_ENCAPSULATED_CASE_ID,
+                request,
+                started,
+                vec![file],
+            )?;
         }
     }
     for recipe in CLASSIC_CT_RECIPES {
@@ -4831,11 +4936,18 @@ pub(crate) fn write_supported_cases(
     }
     if let Some(case) = registry_case(registry, STRESS_ENHANCED_CT_CASE_ID)? {
         if should_generate_case(case, run)? {
-            context.record_one(write_stress_enhanced_ct_case(
-                run,
-                case,
-                standards_lock_sha256,
-            )?)?;
+            let (request, started) = context.preflight_stress(
+                StressRecipeKind::EnhancedCt,
+                8 * 1024 * 1024,
+                128 * 1024 * 1024,
+            )?;
+            let file = write_stress_enhanced_ct_case(run, case, standards_lock_sha256)?;
+            context.record_stress_files(
+                STRESS_ENHANCED_CT_CASE_ID,
+                request,
+                started,
+                vec![file],
+            )?;
         }
     }
     for recipe in ENHANCED_CT_RECIPES {
@@ -34108,6 +34220,27 @@ mod tests {
                     .join("derived/mesh/encapsulated_stl/instance.dcm")
             )
             .unwrap()
+        );
+
+        let mut context = GenerationContext::default();
+        let (request, started) = context
+            .preflight_stress(
+                StressRecipeKind::EnhancedCt,
+                8 * 1024 * 1024,
+                128 * 1024 * 1024,
+            )
+            .unwrap();
+        context
+            .record_stress_files(STRESS_ENHANCED_CT_CASE_ID, request, started, vec![first])
+            .unwrap();
+        let output = context.into_output();
+        assert_eq!(output.files.len(), 1);
+        assert_eq!(output.qualifications.len(), 1);
+        assert_eq!(output.qualifications[0]["recipe"], "enhanced_ct");
+        assert_eq!(output.qualifications[0]["requested"]["frames"], 256);
+        assert_eq!(
+            output.qualifications[0]["actual"]["output_bytes"],
+            output.files[0].manifest_entry["size_bytes"]
         );
     }
 

@@ -2023,7 +2023,7 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\textended"));
-    let native_extended_files = 109
+    let native_extended_files = 110
         + if cfg!(feature = "deflate") { 2 } else { 0 }
         + if cfg!(feature = "jpeg") { 1 } else { 0 }
         + if cfg!(feature = "charls") { 1 } else { 0 }
@@ -6229,7 +6229,7 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
         .expect("manifest should contain skipped cases");
     assert_eq!(
         skipped_cases.len(),
-        28 - parametric_maps_generated
+        26 - parametric_maps_generated
             - wsi_tile_segmentation_generated
             - tid1500_generated
             - scoord3d_generated

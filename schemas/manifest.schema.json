@@ -204,8 +204,89 @@
     },
     "qualification": {
       "oneOf": [
-        { "$ref": "#/$defs/fuzz_qualification" }
+        { "$ref": "#/$defs/fuzz_qualification" },
+        { "$ref": "#/$defs/stress_qualification" }
       ]
+    },
+    "stress_scale_parameters": {
+      "type": "object",
+      "required": [
+        "instances", "frames", "fragments", "payload_bytes", "output_bytes",
+        "rows", "columns", "tile_rows", "tile_columns", "pyramid_levels",
+        "sequence_depth", "metadata_values"
+      ],
+      "properties": {
+        "instances": { "type": "integer", "minimum": 0 },
+        "frames": { "type": "integer", "minimum": 0 },
+        "fragments": { "type": "integer", "minimum": 0 },
+        "payload_bytes": { "type": "integer", "minimum": 0 },
+        "output_bytes": { "type": "integer", "minimum": 0 },
+        "rows": { "type": "integer", "minimum": 0 },
+        "columns": { "type": "integer", "minimum": 0 },
+        "tile_rows": { "type": "integer", "minimum": 0 },
+        "tile_columns": { "type": "integer", "minimum": 0 },
+        "pyramid_levels": { "type": "integer", "minimum": 0 },
+        "sequence_depth": { "type": "integer", "minimum": 0 },
+        "metadata_values": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "stress_qualification": {
+      "type": "object",
+      "required": [
+        "case_id", "kind", "contract_version", "profile", "recipe", "scale",
+        "requested", "actual", "resource_envelope", "observation", "outcome",
+        "payload_policy", "status"
+      ],
+      "properties": {
+        "case_id": { "type": "string", "pattern": "^stress/" },
+        "kind": { "const": "stress_case_run" },
+        "contract_version": { "const": "0.1.0" },
+        "profile": { "const": "stress" },
+        "recipe": {
+          "enum": [
+            "encapsulated_eot", "enhanced_ct", "ct_study", "native_bulk_data",
+            "nested_sequences", "long_metadata", "wsi_pyramid"
+          ]
+        },
+        "scale": { "enum": ["reduced", "full"] },
+        "requested": { "$ref": "#/$defs/stress_scale_parameters" },
+        "actual": { "$ref": "#/$defs/stress_scale_parameters" },
+        "resource_envelope": {
+          "type": "object",
+          "required": [
+            "output_bytes", "peak_rss_bytes", "case_wall_milliseconds",
+            "job_wall_milliseconds", "recipe_output_bytes"
+          ],
+          "properties": {
+            "output_bytes": { "type": "integer", "minimum": 1 },
+            "peak_rss_bytes": { "type": "integer", "minimum": 1 },
+            "case_wall_milliseconds": { "type": "integer", "minimum": 1 },
+            "job_wall_milliseconds": { "type": "integer", "minimum": 1 },
+            "recipe_output_bytes": { "type": ["integer", "null"], "minimum": 1 }
+          },
+          "additionalProperties": false
+        },
+        "observation": {
+          "type": "object",
+          "required": ["output_bytes", "elapsed_milliseconds", "peak_rss_bytes"],
+          "properties": {
+            "output_bytes": { "type": "integer", "minimum": 1 },
+            "elapsed_milliseconds": { "type": "integer", "minimum": 0 },
+            "peak_rss_bytes": { "type": ["integer", "null"], "minimum": 1 }
+          },
+          "additionalProperties": false
+        },
+        "outcome": {
+          "enum": [
+            "completed", "refused_by_preflight", "aborted_by_guard", "interrupted",
+            "timed_out", "process_failure"
+          ]
+        },
+        "payload_policy": { "const": "generated_payloads_uncommitted" },
+        "status": { "enum": ["passed", "failed"] }
+      },
+      "additionalProperties": false
     },
     "fuzz_qualification": {
       "type": "object",

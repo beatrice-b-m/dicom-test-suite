@@ -42,9 +42,9 @@ pub struct FuzzSeedDescription {
 pub const INITIAL_SEED_DESCRIPTIONS: &[FuzzSeedDescription] = &[
     FuzzSeedDescription {
         id: "part10-explicit-vr-le-v1",
-        source_case_id: "smoke/monochrome2/8bit",
-        source_recipe_id: "native-pixel-v1",
-        source_recipe_version: "1.0.0",
+        source_case_id: "classic/sc/mono2_u8_explicit_le",
+        source_recipe_id: "sc_mono2_u8",
+        source_recipe_version: "0.1.0",
         source_generation_seed: 7,
         surfaces: &[
             MutationSurface::FileMeta,
@@ -54,9 +54,9 @@ pub const INITIAL_SEED_DESCRIPTIONS: &[FuzzSeedDescription] = &[
     },
     FuzzSeedDescription {
         id: "encapsulated-rle-v1",
-        source_case_id: "compression/rle_lossless",
-        source_recipe_id: "native-rle-v1",
-        source_recipe_version: "1.0.0",
+        source_case_id: "classic/sc/mono1_u8_rle_lossless",
+        source_recipe_id: "sc_mono1_u8_rle_lossless",
+        source_recipe_version: "0.1.0",
         source_generation_seed: 7,
         surfaces: &[
             MutationSurface::DatasetHeaders,

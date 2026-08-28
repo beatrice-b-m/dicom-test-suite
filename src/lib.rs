@@ -17166,7 +17166,16 @@ pub fn build_coverage_report(root_dir: impl AsRef<Path>) -> Result<Value, Report
     let mut rows = Vec::new();
     let mut counts = CoverageCounts::default();
     let mut grouped = GroupedCoverage::default();
+    let mut negative_rows = Vec::new();
+    let mut grouped_negative = GroupedNegativeCoverage::default();
     for file in files {
+        if file.get("validity").and_then(Value::as_str) == Some("expected_invalid") {
+            let row = negative_coverage_row(root_dir, &manifest_path, file, run_profile)?;
+            counts.generated += 1;
+            grouped_negative.record(&row);
+            negative_rows.push(row);
+            continue;
+        }
         let row = generated_coverage_row(&manifest_path, file, run_profile)?;
         counts.generated += 1;
         grouped.record(&row);
@@ -17209,7 +17218,149 @@ pub fn build_coverage_report(root_dir: impl AsRef<Path>) -> Result<Value, Report
         },
         "coverage_matrix": rows,
         "grouped_coverage": grouped.to_json(),
+        "negative_coverage": negative_rows,
+        "grouped_negative_coverage": grouped_negative.to_json(),
         "gaps": gaps
+    }))
+}
+
+#[derive(Default)]
+struct GroupedNegativeCoverage {
+    expected_invalid_files: usize,
+    mutation_ids: BTreeMap<String, usize>,
+    expected_failure_layers: BTreeMap<String, usize>,
+    observed_outcomes: BTreeMap<String, usize>,
+    outcome_statuses: BTreeMap<String, usize>,
+    providers: BTreeMap<String, usize>,
+}
+
+impl GroupedNegativeCoverage {
+    fn record(&mut self, row: &Value) {
+        self.expected_invalid_files += 1;
+        increment_string_array_map(&mut self.mutation_ids, row.get("mutation_ids"));
+        increment_string_array_map(
+            &mut self.expected_failure_layers,
+            row.get("expected_failure_layers"),
+        );
+        for (map, field) in [
+            (&mut self.observed_outcomes, "observed_outcome"),
+            (&mut self.outcome_statuses, "outcome_status"),
+            (&mut self.providers, "provider_kind"),
+        ] {
+            increment_map(map, row.get(field).and_then(Value::as_str));
+        }
+    }
+
+    fn to_json(&self) -> Value {
+        serde_json::json!({
+            "expected_invalid_files": self.expected_invalid_files,
+            "mutation_ids": self.mutation_ids,
+            "expected_failure_layers": self.expected_failure_layers,
+            "observed_outcomes": self.observed_outcomes,
+            "outcome_statuses": self.outcome_statuses,
+            "providers": self.providers,
+        })
+    }
+}
+
+fn negative_coverage_row(
+    root_dir: &Path,
+    manifest_path: &Path,
+    file: &Value,
+    run_profile: &str,
+) -> Result<Value, ReportError> {
+    let case_id = report_str(
+        manifest_path,
+        file,
+        "/case_id",
+        "negative case_id must be a string",
+    )?;
+    let relative_path = report_str(
+        manifest_path,
+        file,
+        "/path",
+        "negative path must be a string",
+    )?;
+    let bytes =
+        fs::read(root_dir.join(relative_path)).map_err(|source| ReportError::ReadMetadata {
+            path: root_dir.join(relative_path),
+            source,
+        })?;
+    let evidence = file
+        .get("negative_evidence")
+        .ok_or(ReportError::MetadataShape {
+            path: manifest_path.to_path_buf(),
+            message: "expected-invalid report row requires negative_evidence",
+        })?;
+    let steps = evidence
+        .get("mutation_steps")
+        .and_then(Value::as_array)
+        .ok_or(ReportError::MetadataShape {
+            path: manifest_path.to_path_buf(),
+            message: "negative report evidence requires mutation_steps",
+        })?;
+    let unique_step_strings = |field: &str| {
+        let mut seen = BTreeSet::new();
+        steps
+            .iter()
+            .filter_map(|step| step.get(field).and_then(Value::as_str))
+            .filter(|value| seen.insert((*value).to_string()))
+            .map(Value::from)
+            .collect::<Vec<_>>()
+    };
+    let mut acceptable_seen = BTreeSet::new();
+    let acceptable_outcomes = steps
+        .iter()
+        .filter_map(|step| step.get("acceptable_outcomes").and_then(Value::as_array))
+        .flatten()
+        .filter_map(Value::as_str)
+        .filter(|value| acceptable_seen.insert((*value).to_string()))
+        .map(Value::from)
+        .collect::<Vec<_>>();
+    let final_acceptable = steps
+        .last()
+        .and_then(|step| step.get("acceptable_outcomes"))
+        .and_then(Value::as_array)
+        .map(|items| items.iter().filter_map(Value::as_str).collect::<Vec<_>>())
+        .unwrap_or_default();
+    let expected_layer = steps
+        .last()
+        .and_then(|step| step.get("expected_failure_layer"))
+        .and_then(Value::as_str)
+        .unwrap_or("dataset_parser");
+    let (observed_outcome, probe_detail) =
+        classify_negative_rejection_probe(case_id, &bytes, expected_layer);
+    let outcome_status = negative_outcome_status(observed_outcome, &final_acceptable);
+    Ok(serde_json::json!({
+        "case_id": case_id,
+        "profile": run_profile,
+        "status": "generated",
+        "validity": "expected_invalid",
+        "path": relative_path,
+        "sha256": file.get("sha256").cloned().unwrap_or(Value::Null),
+        "size_bytes": file.get("size_bytes").cloned().unwrap_or(Value::Null),
+        "determinism": file.get("determinism").cloned().unwrap_or(Value::Null),
+        "provider_kind": file.pointer("/generation_backend/backend_kind").or_else(|| file.pointer("/provider/kind")).cloned().unwrap_or(Value::Null),
+        "provider_id": file.pointer("/generation_backend/backend_id").or_else(|| file.pointer("/provider/id")).cloned().unwrap_or(Value::Null),
+        "recipe_id": file.pointer("/recipe/recipe_id").cloned().unwrap_or(Value::Null),
+        "recipe_version": evidence.get("recipe_version").cloned().unwrap_or(Value::Null),
+        "contract_version": evidence.get("contract_version").cloned().unwrap_or(Value::Null),
+        "source_case_id": evidence.pointer("/source/case_id").cloned().unwrap_or(Value::Null),
+        "source_sha256": evidence.pointer("/source/sha256").cloned().unwrap_or(Value::Null),
+        "source_transfer_syntax_uid": evidence.pointer("/source/transfer_syntax_uid").cloned().unwrap_or(Value::Null),
+        "source_size_bytes": evidence.pointer("/source/size_bytes").cloned().unwrap_or(Value::Null),
+        "source_shape": evidence.get("source_shape").cloned().unwrap_or(Value::Null),
+        "mutation_ids": unique_step_strings("mutation_id"),
+        "mutation_count": steps.len(),
+        "expected_failure_layers": unique_step_strings("expected_failure_layer"),
+        "acceptable_outcomes": acceptable_outcomes,
+        "observed_outcome": observed_outcome,
+        "outcome_status": outcome_status,
+        "unacceptable_outcomes": evidence.get("unacceptable_outcomes").cloned().unwrap_or(Value::Array(Vec::new())),
+        "final_sha256": evidence.get("final_sha256").cloned().unwrap_or(Value::Null),
+        "probe_kind": "same_project_bounded_parser_classifier",
+        "probe_independence": "same_project",
+        "probe_detail": probe_detail,
     }))
 }
 
@@ -20644,6 +20795,70 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
             ));
         }
         output.push('\n');
+    }
+
+    for (title, pointer) in [
+        (
+            "Negative Mutation IDs",
+            "/grouped_negative_coverage/mutation_ids",
+        ),
+        (
+            "Negative Expected Failure Layers",
+            "/grouped_negative_coverage/expected_failure_layers",
+        ),
+        (
+            "Negative Observed Outcomes",
+            "/grouped_negative_coverage/observed_outcomes",
+        ),
+        (
+            "Negative Outcome Statuses",
+            "/grouped_negative_coverage/outcome_statuses",
+        ),
+        ("Negative Providers", "/grouped_negative_coverage/providers"),
+    ] {
+        append_count_map_section(&mut output, report, title, pointer);
+    }
+
+    if let Some(rows) = report.get("negative_coverage").and_then(Value::as_array) {
+        if !rows.is_empty() {
+            output.push_str("## Expected-invalid Negative Coverage\n\n");
+            output.push_str("The bounded parser classifier is same-project evidence, not independent promotion evidence. Timeout, crash, and hang remain unconditionally unacceptable.\n\n");
+            output.push_str("| Case ID | Source case | Mutations | Failure layers | Observed / status | Probe / independence | Final SHA-256 |\n");
+            output.push_str("|---|---|---|---|---|---|---|\n");
+            for row in rows {
+                output.push_str(&format!(
+                    "| {} | {} | {} | {} | {} / {} | {} / {} | {} |\n",
+                    markdown_cell(row.get("case_id").and_then(Value::as_str)),
+                    markdown_cell(row.get("source_case_id").and_then(Value::as_str)),
+                    markdown_cell(
+                        row.get("mutation_ids")
+                            .and_then(Value::as_array)
+                            .map(|items| items
+                                .iter()
+                                .filter_map(Value::as_str)
+                                .collect::<Vec<_>>()
+                                .join("; "))
+                            .as_deref()
+                    ),
+                    markdown_cell(
+                        row.get("expected_failure_layers")
+                            .and_then(Value::as_array)
+                            .map(|items| items
+                                .iter()
+                                .filter_map(Value::as_str)
+                                .collect::<Vec<_>>()
+                                .join("; "))
+                            .as_deref()
+                    ),
+                    markdown_cell(row.get("observed_outcome").and_then(Value::as_str)),
+                    markdown_cell(row.get("outcome_status").and_then(Value::as_str)),
+                    markdown_cell(row.get("probe_kind").and_then(Value::as_str)),
+                    markdown_cell(row.get("probe_independence").and_then(Value::as_str)),
+                    markdown_cell(row.get("final_sha256").and_then(Value::as_str)),
+                ));
+            }
+            output.push('\n');
+        }
     }
 
     output.push_str("## Coverage Matrix\n\n");

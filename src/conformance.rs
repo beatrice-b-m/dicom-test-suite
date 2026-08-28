@@ -2093,6 +2093,7 @@ fn requires_visible_light_validation(case_id: &str) -> bool {
             | "vl/microscopic/rgb_explicit_le"
             | WSI_CASE_ID
             | WSI_PYRAMID_CASE_ID
+            | WSI_MULTIPLE_OPTICAL_PATHS_CASE_ID
     )
 }
 
@@ -6411,6 +6412,9 @@ mod wsi_reconstruction_tests {
     fn wsi_is_exactly_scoped_into_the_visible_light_iod_route() {
         assert!(requires_visible_light_validation(WSI_CASE_ID));
         assert!(requires_visible_light_validation(WSI_PYRAMID_CASE_ID));
+        assert!(requires_visible_light_validation(
+            WSI_MULTIPLE_OPTICAL_PATHS_CASE_ID
+        ));
         assert!(!requires_visible_light_validation("vl/wsi/tiled_sparse"));
     }
 }

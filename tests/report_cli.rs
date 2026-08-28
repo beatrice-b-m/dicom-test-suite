@@ -2905,7 +2905,7 @@ fn report_command_counts_generated_rgb_rle_lossless_row() {
         report
             .pointer("/grouped_coverage/codec_families/RLE Lossless")
             .and_then(Value::as_u64),
-        Some(58)
+        Some(59)
     );
     let mono1_row = coverage_row(&report, "classic/sc/mono1_u8_rle_lossless");
     assert_eq!(

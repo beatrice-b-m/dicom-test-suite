@@ -415,7 +415,7 @@ impl DicomDirQualification {
     }
 
     pub fn is_promotable(&self) -> bool {
-        true
+        self.independent_interoperability_proven
     }
 }
 
@@ -713,7 +713,7 @@ mod tests {
         let qualification =
             DicomDirQualification::qualify(&file_set, provider_result(&file_set), evidence())
                 .unwrap();
-        assert!(qualification.is_promotable());
+        assert!(!qualification.is_promotable());
         assert_eq!(qualification.determinism, MediaDeterminism::SemanticStable);
         assert!(!qualification.independent_interoperability_proven);
         assert_eq!(qualification.file_set_uid, "1.2.826.0.1.3680043.10.543.8");
@@ -729,6 +729,7 @@ mod tests {
         let qualification =
             DicomDirQualification::qualify(&file_set, provider_result(&file_set), checks).unwrap();
         assert!(qualification.independent_interoperability_proven);
+        assert!(qualification.is_promotable());
     }
 
     #[test]

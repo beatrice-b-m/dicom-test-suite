@@ -29,12 +29,17 @@ fn stress_profile_emits_complete_three_instance_wsi_pyramid() {
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(stdout.contains("profile\tstress"));
     assert!(stdout.contains("include_stress\tfalse"));
-    assert!(stdout.contains("files_written\t3"));
+    assert!(stdout.contains("files_written\t139"));
 
     let manifest = read_json(&root.join("manifest.json"));
     assert_schema_valid("schemas/manifest.schema.json", &manifest);
     assert_eq!(manifest.pointer("/run/profile"), Some(&json!("stress")));
-    let files = manifest["files"].as_array().expect("manifest files");
+    let all_files = manifest["files"].as_array().expect("manifest files");
+    assert_eq!(all_files.len(), 139);
+    let files = all_files
+        .iter()
+        .filter(|file| file["case_id"] == CASE_ID)
+        .collect::<Vec<_>>();
     assert_eq!(files.len(), 3);
     let expected = [
         ("volume", 1, "vl/wsi/pyramid_multiresolution/volume.dcm"),
@@ -53,11 +58,11 @@ fn stress_profile_emits_complete_three_instance_wsi_pyramid() {
         assert!(root.join(path).is_file());
     }
     let skipped = manifest["skipped_cases"].as_array().expect("skipped cases");
-    assert_eq!(skipped.len(), 5);
-    assert!(
-        skipped
-            .iter()
-            .all(|row| { row["status"] == "unavailable" && row["reason_code"] == "case_planned" })
+    assert!(skipped.is_empty());
+    assert_eq!(
+        manifest["qualifications"].as_array().map(Vec::len),
+        Some(7),
+        "stress profile must retain reduced/full-scale evidence"
     );
 
     let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))

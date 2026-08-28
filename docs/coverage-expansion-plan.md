@@ -490,6 +490,31 @@ referencing WSI tiles, is next. Selecting dimensions, budgets, and CI
 scheduling for a full-size pyramid remains the plan's explicit decision
 checkpoint, and neither small-slice promotion authorizes it for ordinary CI.
 
+Milestone 6 is complete as the semantic-stable external-backend
+`derived/seg/wsi_tile_reference` extended slice. Its two FRACTIONAL OCCUPANCY
+Frames reference exactly Frames 1 and 4 of the small `TILED_FULL` source and
+reconstruct a 4 by 4 `TILED_SPARSE` matrix. Two seed-7 extended roots each
+contained 113 strictly valid files and produced the same semantic projection
+and byte-identical 4,140-byte SEG. Backend invocation took 448 and 387
+milliseconds, within the locked five-second and 16 KiB ceilings. Locked
+`dciodvfy`, the authorized independent `uv`-locked dicom-validator 0.8.2 route,
+DCMTK parsing, strict Rust graph and matrix validation, and independent source
+WSI pixel evidence all passed. Exact-slice run
+`973749c21773cd7e66aae6c8377600f4a7ca839c4d88ec0fe45b256e9684c9bf`
+has zero accepted findings and zero verification failures. The registry now
+contains 150 implemented and 32 planned cases.
+
+Full-corpus run
+`d9252ca2fa2edaad6d2c445f5cb0076a0a2b7558355ca9635a228bd0d3ca037d`
+retains zero accepted findings and exposes 220 pre-existing or unrelated
+verification failures. All six Phase 4 milestones are complete. Ordinary
+`all` profile semantics remain unchanged: it includes promoted extended cases
+but does not opt into the stress-only full-size pyramid. No unavailable route
+or unrelated whole-corpus finding has been hidden. The next action is the
+explicit full-size-pyramid decision checkpoint: dimensions, resource budgets,
+and ordinary-CI scheduling require project authorization before implementation
+proceeds.
+
 ### Phase 5 — Encapsulation, lossy codecs, and video
 
 **Purpose:** close the highest-value remaining transfer-syntax and frame-layout

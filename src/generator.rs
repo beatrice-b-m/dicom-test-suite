@@ -248,8 +248,6 @@ use crate::codecs::{DcmtkDcmcjpegLosslessProcess, DcmtkDcmcjpegLosslessSv1Encode
 ))]
 use crate::codecs::{FrameDecodeInput, FrameDecoder};
 #[cfg(feature = "legacy_jpeg_dcmtk")]
-use dicom_core::value::Value as DicomValue;
-#[cfg(feature = "legacy_jpeg_dcmtk")]
 use dicom_encoding::{Codec, adapters::PixelDataReader};
 #[cfg(feature = "legacy_jpeg_dcmtk")]
 use dicom_transfer_syntax_registry::entries::{

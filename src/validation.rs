@@ -2298,6 +2298,29 @@ pub(crate) fn validate_manifest_wsi_file(path: &Path, file: &Value) -> Result<()
             )
             .map(|_| ())
         }
+        "stress/wsi/large_pyramid" => {
+            validate_part10_file(path, &identity)?;
+            let object = open_file(path).map_err(|error| validation_error(path, error))?;
+            let expected_edge = file
+                .pointer("/recipe/recipe_parameters/total_pixel_matrix_rows")
+                .and_then(Value::as_u64)
+                .and_then(|value| u32::try_from(value).ok())
+                .ok_or_else(|| {
+                    manifest_wsi_error(path, "stress WSI matrix edge must be an integer")
+                })?;
+            let expected_pyramid_uid = required_str("/expected_semantics/shared_pyramid_uid")?;
+            if element_u32(path, &object, tags::TOTAL_PIXEL_MATRIX_ROWS)? != expected_edge
+                || element_u32(path, &object, tags::TOTAL_PIXEL_MATRIX_COLUMNS)? != expected_edge
+                || element_str(path, &object, tags::PYRAMID_UID)? != expected_pyramid_uid
+                || element_str(path, &object, tags::DIMENSION_ORGANIZATION_TYPE)? != "TILED_FULL"
+            {
+                return Err(manifest_wsi_error(
+                    path,
+                    "stress WSI matrix, Pyramid UID, or TILED_FULL contract differs from manifest",
+                ));
+            }
+            Ok(())
+        }
         other => Err(manifest_wsi_error(
             path,
             format!("unsupported persisted WSI case {other}"),

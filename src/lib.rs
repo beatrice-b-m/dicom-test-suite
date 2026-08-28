@@ -1927,6 +1927,7 @@ fn validate_manifest_file(
     validate_wsi_tiled_sparse_manifest_contract(manifest_path, file)?;
     validate_wsi_multiple_optical_paths_manifest_contract(manifest_path, file)?;
     validate_wsi_pyramid_manifest_member(manifest_path, file)?;
+    validate_encapsulated_stl_manifest_contract(manifest_path, file)?;
     let path = root_dir.join(relative_path);
     let bytes = match fs::read(&path) {
         Ok(bytes) => bytes,
@@ -2093,6 +2094,57 @@ fn validate_manifest_file(
             Ok(())
         }
     }
+}
+
+fn validate_encapsulated_stl_manifest_contract(
+    manifest_path: &Path,
+    file: &Value,
+) -> Result<(), ValidateError> {
+    const CASE_ID: &str = "derived/mesh/encapsulated_stl";
+    let is_stl = file.get("case_id").and_then(Value::as_str) == Some(CASE_ID);
+    let expected = file.get("expected_encapsulated_stl");
+    if !is_stl {
+        return if expected.is_some() {
+            Err(ValidateError::ManifestShape {
+                path: manifest_path.to_path_buf(),
+                message: "expected_encapsulated_stl is only valid for derived/mesh/encapsulated_stl",
+            })
+        } else {
+            Ok(())
+        };
+    }
+
+    let locked = serde_json::json!({
+        "iod_kind": "encapsulated_stl",
+        "profile": "extended",
+        "payload": {
+            "format": "binary_stl",
+            "mime_type": "model/stl",
+            "length": 284,
+            "sha256": "3c3049d231f8e98c0d2fe7cb81cf6805141bcac39dd04b9cf7f8063ec44bbfb2",
+            "triangle_count": 4
+        },
+        "units": {
+            "code_value": "mm",
+            "coding_scheme_designator": "UCUM",
+            "code_meaning": "millimeter"
+        },
+        "geometry": {
+            "bounds_min": [0, 0, 0],
+            "bounds_max": [10, 10, 10],
+            "closed_manifold": true,
+            "outward_winding": true,
+            "nondegenerate_faces": true
+        },
+        "independent_validator_disposition": "required"
+    });
+    if expected != Some(&locked) {
+        return Err(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "expected_encapsulated_stl must equal the exact locked case contract",
+        });
+    }
+    Ok(())
 }
 
 fn validate_vl_single_frame_manifest_contract(
@@ -16865,6 +16917,43 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
         append_count_map_section(&mut output, report, title, pointer);
     }
     for (title, pointer) in [
+        ("STL IOD Kinds", "/grouped_coverage/stl_iod_kinds"),
+        ("STL Profiles", "/grouped_coverage/stl_profiles"),
+        (
+            "STL Payload Formats",
+            "/grouped_coverage/stl_payload_formats",
+        ),
+        ("STL MIME Types", "/grouped_coverage/stl_mime_types"),
+        (
+            "STL Payload Lengths (bytes)",
+            "/grouped_coverage/stl_payload_lengths_bytes",
+        ),
+        (
+            "STL Payload SHA-256 Values",
+            "/grouped_coverage/stl_payload_sha256_values",
+        ),
+        (
+            "STL Triangle Counts",
+            "/grouped_coverage/stl_triangle_counts",
+        ),
+        ("STL Units", "/grouped_coverage/stl_units"),
+        ("STL Bounds", "/grouped_coverage/stl_bounds"),
+        (
+            "STL Closed-manifold States",
+            "/grouped_coverage/stl_closed_manifold_states",
+        ),
+        (
+            "STL Outward-winding States",
+            "/grouped_coverage/stl_outward_winding_states",
+        ),
+        (
+            "STL Nondegenerate-face States",
+            "/grouped_coverage/stl_nondegenerate_face_states",
+        ),
+        (
+            "STL Independent Validator Dispositions",
+            "/grouped_coverage/stl_independent_validator_dispositions",
+        ),
         ("Waveform IOD Kinds", "/grouped_coverage/waveform_iod_kinds"),
         (
             "Waveform Group Counts",
@@ -20409,6 +20498,7 @@ fn generated_coverage_row(
     let icc_profile = icc_profile_report_fields(manifest_path, file)?;
     let nonsquare_spacing = nonsquare_spacing_report_fields(manifest_path, file)?;
     let waveform = waveform_report_fields(manifest_path, file)?;
+    let stl = encapsulated_stl_report_fields(manifest_path, file)?;
     let rt_plan = rt_plan_report_fields(manifest_path, file)?;
     let rt_image = rt_image_report_fields(manifest_path, file)?;
     let rt_radiation = rt_radiation_report_fields(manifest_path, file)?;
@@ -21030,6 +21120,32 @@ fn generated_coverage_row(
         (
             "wsi_pyramid_member_matrix_sha256",
             wsi_pyramid.member_matrix_sha256.map(Value::from),
+        ),
+    ] {
+        row_object.insert(field.to_string(), value.unwrap_or(Value::Null));
+    }
+    for (field, value) in [
+        ("stl_iod_kind", stl.iod_kind.map(Value::from)),
+        ("stl_profile", stl.profile.map(Value::from)),
+        ("stl_payload_format", stl.payload_format.map(Value::from)),
+        ("stl_mime_type", stl.mime_type.map(Value::from)),
+        (
+            "stl_payload_length_bytes",
+            stl.payload_length_bytes.map(Value::from),
+        ),
+        ("stl_payload_sha256", stl.payload_sha256.map(Value::from)),
+        ("stl_triangle_count", stl.triangle_count.map(Value::from)),
+        ("stl_units", stl.units.map(Value::from)),
+        ("stl_bounds", stl.bounds.map(Value::from)),
+        ("stl_closed_manifold", stl.closed_manifold.map(Value::from)),
+        ("stl_outward_winding", stl.outward_winding.map(Value::from)),
+        (
+            "stl_nondegenerate_faces",
+            stl.nondegenerate_faces.map(Value::from),
+        ),
+        (
+            "stl_independent_validator_disposition",
+            stl.independent_validator_disposition.map(Value::from),
         ),
     ] {
         row_object.insert(field.to_string(), value.unwrap_or(Value::Null));
@@ -23413,6 +23529,79 @@ struct WaveformReportFields {
     simultaneous_sampling: Option<bool>,
     pixel_data_absent: Option<bool>,
     external_validator_disposition: Option<String>,
+}
+
+#[derive(Debug, Default, PartialEq)]
+struct EncapsulatedStlReportFields {
+    iod_kind: Option<String>,
+    profile: Option<String>,
+    payload_format: Option<String>,
+    mime_type: Option<String>,
+    payload_length_bytes: Option<u64>,
+    payload_sha256: Option<String>,
+    triangle_count: Option<u64>,
+    units: Option<String>,
+    bounds: Option<String>,
+    closed_manifold: Option<bool>,
+    outward_winding: Option<bool>,
+    nondegenerate_faces: Option<bool>,
+    independent_validator_disposition: Option<String>,
+}
+
+fn encapsulated_stl_report_fields(
+    manifest_path: &Path,
+    file: &Value,
+) -> Result<EncapsulatedStlReportFields, ReportError> {
+    validate_encapsulated_stl_manifest_contract(manifest_path, file).map_err(|_| {
+        ReportError::MetadataShape {
+            path: manifest_path.to_path_buf(),
+            message: "Encapsulated STL coverage requires the exact locked manifest contract",
+        }
+    })?;
+    let Some(expected) = file.get("expected_encapsulated_stl") else {
+        return Ok(EncapsulatedStlReportFields::default());
+    };
+    Ok(EncapsulatedStlReportFields {
+        iod_kind: expected
+            .get("iod_kind")
+            .and_then(Value::as_str)
+            .map(str::to_string),
+        profile: expected
+            .get("profile")
+            .and_then(Value::as_str)
+            .map(str::to_string),
+        payload_format: expected
+            .pointer("/payload/format")
+            .and_then(Value::as_str)
+            .map(str::to_string),
+        mime_type: expected
+            .pointer("/payload/mime_type")
+            .and_then(Value::as_str)
+            .map(str::to_string),
+        payload_length_bytes: expected.pointer("/payload/length").and_then(Value::as_u64),
+        payload_sha256: expected
+            .pointer("/payload/sha256")
+            .and_then(Value::as_str)
+            .map(str::to_string),
+        triangle_count: expected
+            .pointer("/payload/triangle_count")
+            .and_then(Value::as_u64),
+        units: Some("mm|UCUM|millimeter".to_string()),
+        bounds: Some("[0,0,0]..[10,10,10]".to_string()),
+        closed_manifold: expected
+            .pointer("/geometry/closed_manifold")
+            .and_then(Value::as_bool),
+        outward_winding: expected
+            .pointer("/geometry/outward_winding")
+            .and_then(Value::as_bool),
+        nondegenerate_faces: expected
+            .pointer("/geometry/nondegenerate_faces")
+            .and_then(Value::as_bool),
+        independent_validator_disposition: expected
+            .get("independent_validator_disposition")
+            .and_then(Value::as_str)
+            .map(str::to_string),
+    })
 }
 
 fn waveform_report_fields(
@@ -26715,6 +26904,19 @@ fn skipped_coverage_row(
         "wsi_pyramid_total_frame_count",
         "wsi_pyramid_total_dicom_bytes",
         "wsi_pyramid_member_matrix_sha256",
+        "stl_iod_kind",
+        "stl_profile",
+        "stl_payload_format",
+        "stl_mime_type",
+        "stl_payload_length_bytes",
+        "stl_payload_sha256",
+        "stl_triangle_count",
+        "stl_units",
+        "stl_bounds",
+        "stl_closed_manifold",
+        "stl_outward_winding",
+        "stl_nondegenerate_faces",
+        "stl_independent_validator_disposition",
         "waveform_iod_kind",
         "waveform_group_count",
         "waveform_group_shapes",
@@ -27549,6 +27751,19 @@ struct GroupedCoverage {
     waveform_simultaneous_sampling_states: BTreeMap<String, usize>,
     waveform_pixel_data_absent_states: BTreeMap<String, usize>,
     waveform_external_validator_dispositions: BTreeMap<String, usize>,
+    stl_iod_kinds: BTreeMap<String, usize>,
+    stl_profiles: BTreeMap<String, usize>,
+    stl_payload_formats: BTreeMap<String, usize>,
+    stl_mime_types: BTreeMap<String, usize>,
+    stl_payload_lengths_bytes: BTreeMap<String, usize>,
+    stl_payload_sha256_values: BTreeMap<String, usize>,
+    stl_triangle_counts: BTreeMap<String, usize>,
+    stl_units: BTreeMap<String, usize>,
+    stl_bounds: BTreeMap<String, usize>,
+    stl_closed_manifold_states: BTreeMap<String, usize>,
+    stl_outward_winding_states: BTreeMap<String, usize>,
+    stl_nondegenerate_face_states: BTreeMap<String, usize>,
+    stl_independent_validator_dispositions: BTreeMap<String, usize>,
     wsi_pyramid_roles: BTreeMap<String, usize>,
     wsi_pyramid_ordinals: BTreeMap<String, usize>,
     wsi_pyramid_membership_states: BTreeMap<String, usize>,
@@ -28313,6 +28528,42 @@ impl GroupedCoverage {
             (
                 &mut self.blending_pixel_data_absent_states,
                 "blending_pixel_data_absent",
+            ),
+        ] {
+            if let Some(value) = row.get(field).and_then(Value::as_bool) {
+                *map.entry(value.to_string()).or_default() += 1;
+            }
+        }
+        for (map, field) in [
+            (&mut self.stl_iod_kinds, "stl_iod_kind"),
+            (&mut self.stl_profiles, "stl_profile"),
+            (&mut self.stl_payload_formats, "stl_payload_format"),
+            (&mut self.stl_mime_types, "stl_mime_type"),
+            (&mut self.stl_payload_sha256_values, "stl_payload_sha256"),
+            (&mut self.stl_units, "stl_units"),
+            (&mut self.stl_bounds, "stl_bounds"),
+            (
+                &mut self.stl_independent_validator_dispositions,
+                "stl_independent_validator_disposition",
+            ),
+        ] {
+            increment_map(map, row.get(field).and_then(Value::as_str));
+        }
+        for (map, field) in [
+            (
+                &mut self.stl_payload_lengths_bytes,
+                "stl_payload_length_bytes",
+            ),
+            (&mut self.stl_triangle_counts, "stl_triangle_count"),
+        ] {
+            increment_scalar_map(map, row.get(field));
+        }
+        for (map, field) in [
+            (&mut self.stl_closed_manifold_states, "stl_closed_manifold"),
+            (&mut self.stl_outward_winding_states, "stl_outward_winding"),
+            (
+                &mut self.stl_nondegenerate_face_states,
+                "stl_nondegenerate_faces",
             ),
         ] {
             if let Some(value) = row.get(field).and_then(Value::as_bool) {
@@ -30121,6 +30372,31 @@ impl GroupedCoverage {
             (
                 "blending_unresolved_external_validator_findings",
                 &self.blending_unresolved_external_validator_findings,
+            ),
+            ("stl_iod_kinds", &self.stl_iod_kinds),
+            ("stl_profiles", &self.stl_profiles),
+            ("stl_payload_formats", &self.stl_payload_formats),
+            ("stl_mime_types", &self.stl_mime_types),
+            ("stl_payload_lengths_bytes", &self.stl_payload_lengths_bytes),
+            ("stl_payload_sha256_values", &self.stl_payload_sha256_values),
+            ("stl_triangle_counts", &self.stl_triangle_counts),
+            ("stl_units", &self.stl_units),
+            ("stl_bounds", &self.stl_bounds),
+            (
+                "stl_closed_manifold_states",
+                &self.stl_closed_manifold_states,
+            ),
+            (
+                "stl_outward_winding_states",
+                &self.stl_outward_winding_states,
+            ),
+            (
+                "stl_nondegenerate_face_states",
+                &self.stl_nondegenerate_face_states,
+            ),
+            (
+                "stl_independent_validator_dispositions",
+                &self.stl_independent_validator_dispositions,
             ),
             ("waveform_iod_kinds", &self.waveform_iod_kinds),
             ("waveform_group_counts", &self.waveform_group_counts),
@@ -36498,6 +36774,122 @@ mod tests {
             sha256_hex(b"abc"),
             "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
         );
+    }
+
+    fn encapsulated_stl_contract_fixture() -> Value {
+        serde_json::json!({
+            "case_id": "derived/mesh/encapsulated_stl",
+            "expected_encapsulated_stl": {
+                "iod_kind": "encapsulated_stl",
+                "profile": "extended",
+                "payload": {
+                    "format": "binary_stl",
+                    "mime_type": "model/stl",
+                    "length": 284,
+                    "sha256": "3c3049d231f8e98c0d2fe7cb81cf6805141bcac39dd04b9cf7f8063ec44bbfb2",
+                    "triangle_count": 4
+                },
+                "units": {
+                    "code_value": "mm",
+                    "coding_scheme_designator": "UCUM",
+                    "code_meaning": "millimeter"
+                },
+                "geometry": {
+                    "bounds_min": [0, 0, 0],
+                    "bounds_max": [10, 10, 10],
+                    "closed_manifold": true,
+                    "outward_winding": true,
+                    "nondegenerate_faces": true
+                },
+                "independent_validator_disposition": "required"
+            }
+        })
+    }
+
+    #[test]
+    fn encapsulated_stl_manifest_contract_is_exact_and_case_scoped() {
+        let fixture = encapsulated_stl_contract_fixture();
+        validate_encapsulated_stl_manifest_contract(Path::new("manifest.json"), &fixture)
+            .expect("locked Encapsulated STL contract");
+
+        let manifest_schema: Value = serde_json::from_slice(
+            &fs::read("schemas/manifest.schema.json").expect("manifest schema must be readable"),
+        )
+        .expect("manifest schema must be JSON");
+        let contract_schema = manifest_schema
+            .pointer("/$defs/expected_encapsulated_stl")
+            .expect("Encapsulated STL schema definition");
+        let validator =
+            jsonschema::validator_for(contract_schema).expect("Encapsulated STL schema compiles");
+        assert!(validator.is_valid(&fixture["expected_encapsulated_stl"]));
+
+        let mut wrong_hash = fixture.clone();
+        wrong_hash["expected_encapsulated_stl"]["payload"]["sha256"] = Value::from("0".repeat(64));
+        assert!(!validator.is_valid(&wrong_hash["expected_encapsulated_stl"]));
+        assert!(
+            validate_encapsulated_stl_manifest_contract(Path::new("manifest.json"), &wrong_hash)
+                .is_err()
+        );
+
+        let mut misplaced = fixture;
+        misplaced["case_id"] = Value::from("non-image/encapsulated/pdf");
+        assert!(
+            validate_encapsulated_stl_manifest_contract(Path::new("manifest.json"), &misplaced)
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn encapsulated_stl_report_projects_payload_geometry_and_grouped_evidence() {
+        let fields = encapsulated_stl_report_fields(
+            Path::new("manifest.json"),
+            &encapsulated_stl_contract_fixture(),
+        )
+        .expect("locked Encapsulated STL report fields");
+        assert_eq!(fields.payload_length_bytes, Some(284));
+        assert_eq!(fields.triangle_count, Some(4));
+        assert_eq!(fields.units.as_deref(), Some("mm|UCUM|millimeter"));
+        assert_eq!(fields.bounds.as_deref(), Some("[0,0,0]..[10,10,10]"));
+        assert_eq!(fields.closed_manifold, Some(true));
+        assert_eq!(
+            fields.independent_validator_disposition.as_deref(),
+            Some("required")
+        );
+
+        let row = serde_json::json!({
+            "stl_iod_kind": "encapsulated_stl",
+            "stl_profile": "extended",
+            "stl_payload_format": "binary_stl",
+            "stl_mime_type": "model/stl",
+            "stl_payload_length_bytes": 284,
+            "stl_payload_sha256": "3c3049d231f8e98c0d2fe7cb81cf6805141bcac39dd04b9cf7f8063ec44bbfb2",
+            "stl_triangle_count": 4,
+            "stl_units": "mm|UCUM|millimeter",
+            "stl_bounds": "[0,0,0]..[10,10,10]",
+            "stl_closed_manifold": true,
+            "stl_outward_winding": true,
+            "stl_nondegenerate_faces": true,
+            "stl_independent_validator_disposition": "required"
+        });
+        let mut grouped = GroupedCoverage::default();
+        grouped.record(&row);
+        let grouped_json = grouped.to_json();
+        assert_eq!(grouped_json["stl_payload_lengths_bytes"]["284"], 1);
+        assert_eq!(grouped_json["stl_closed_manifold_states"]["true"], 1);
+        assert_eq!(
+            grouped_json["stl_independent_validator_dispositions"]["required"],
+            1
+        );
+
+        let report = serde_json::json!({
+            "counts": {"generated": 1, "skipped": 0, "blocked": 0, "planned": 0, "deprecated": 0},
+            "coverage_matrix": [],
+            "grouped_coverage": grouped_json,
+            "gaps": []
+        });
+        let markdown = render_coverage_report_markdown(&report);
+        assert!(markdown.contains("## STL Payload Lengths (bytes)"));
+        assert!(markdown.contains("## STL Independent Validator Dispositions"));
     }
 
     fn unique_temp_dir(name: &str) -> PathBuf {

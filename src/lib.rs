@@ -52,6 +52,7 @@ pub mod negative;
 pub mod part10_locator;
 pub(crate) mod rt_manifest;
 pub(crate) mod rt_radiation_manifest;
+pub mod stress;
 pub mod uid;
 mod validation;
 pub(crate) mod waveform_manifest;

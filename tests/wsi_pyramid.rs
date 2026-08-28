@@ -53,7 +53,7 @@ fn stress_profile_emits_complete_three_instance_wsi_pyramid() {
         assert!(root.join(path).is_file());
     }
     let skipped = manifest["skipped_cases"].as_array().expect("skipped cases");
-    assert_eq!(skipped.len(), 6);
+    assert_eq!(skipped.len(), 5);
     assert!(
         skipped
             .iter()

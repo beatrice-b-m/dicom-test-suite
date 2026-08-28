@@ -17057,22 +17057,24 @@ fn validate_rle_decoded_frame_hashes(
         );
         return;
     }
-    if fragments.len() != expected.decoded_frame_hashes.len() {
+    if fragments.len() % expected.decoded_frame_hashes.len() != 0 {
         check(
             results,
             false,
             "rle_decoded_frame_hash_count",
             "RLE Lossless decoded frame count matches expected native frame hash count.",
-            "RLE Lossless fragment count does not match expected native frame hash count.",
+            "RLE Lossless fragments cannot be divided evenly across expected frames.",
         );
         return;
     }
 
     let decoder = NativeRleLosslessEncoder::new();
-    let mut decoded_hashes = Vec::with_capacity(fragments.len());
-    for fragment in fragments {
+    let fragments_per_frame = fragments.len() / expected.decoded_frame_hashes.len();
+    let mut decoded_hashes = Vec::with_capacity(expected.decoded_frame_hashes.len());
+    for frame_fragments in fragments.chunks(fragments_per_frame) {
+        let encoded_frame = frame_fragments.concat();
         match decoder.decode_frame(FrameDecodeInput {
-            encoded_frame: fragment,
+            encoded_frame: &encoded_frame,
             rows: expected.rows,
             columns: expected.columns,
             samples_per_pixel: expected.samples_per_pixel,

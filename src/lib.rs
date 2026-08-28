@@ -6736,16 +6736,10 @@ fn validate_rle_manifest_decoded_frame_hashes(
         ));
         return Ok(());
     };
-    if !fragments_per_frame.iter().all(|count| *count == 1) {
-        failures.push(format!(
-            "{relative_path}: rle_decoded_frame_hashes: RLE round-trip validation currently requires one fragment per frame"
-        ));
-        return Ok(());
-    }
-    if pixel_fragments.len() != fragments_per_frame.len() {
+    if pixel_fragments.len() != fragments_per_frame.iter().sum::<usize>() {
         failures.push(format!(
             "{relative_path}: rle_fragment_count: expected {} fragment(s), got {}",
-            fragments_per_frame.len(),
+            fragments_per_frame.iter().sum::<usize>(),
             pixel_fragments.len()
         ));
         return Ok(());
@@ -6761,10 +6755,22 @@ fn validate_rle_manifest_decoded_frame_hashes(
         })
         .collect::<Result<Vec<_>, _>>()?;
     let decoder = NativeRleLosslessEncoder::new();
-    let mut decoded_hashes = Vec::with_capacity(pixel_fragments.len());
-    for fragment in pixel_fragments {
+    if expected_hashes.len() != fragments_per_frame.len() {
+        failures.push(format!(
+            "{relative_path}: rle_decoded_frame_hash_count: expected {} frame hash(es), got {} fragment groups",
+            expected_hashes.len(),
+            fragments_per_frame.len()
+        ));
+        return Ok(());
+    }
+    let mut decoded_hashes = Vec::with_capacity(fragments_per_frame.len());
+    let mut fragment_index = 0;
+    for fragment_count in fragments_per_frame {
+        let end = fragment_index + fragment_count;
+        let encoded_frame = pixel_fragments[fragment_index..end].concat();
+        fragment_index = end;
         match decoder.decode_frame(FrameDecodeInput {
-            encoded_frame: fragment,
+            encoded_frame: &encoded_frame,
             rows,
             columns,
             samples_per_pixel,

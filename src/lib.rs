@@ -3,6 +3,7 @@ use std::error::Error;
 use std::fmt;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use dicom_core::VR;
 use dicom_dictionary_std::{StandardDataDictionary, tags, uids};
@@ -199,6 +200,7 @@ pub enum ReportError {
 #[derive(Debug)]
 pub enum GenerateError {
     InvalidProfile(String),
+    OutputPathExists(PathBuf),
     CreateOutputDir {
         path: PathBuf,
         source: std::io::Error,
@@ -221,6 +223,11 @@ pub enum GenerateError {
     },
     WriteManifest {
         path: PathBuf,
+        source: std::io::Error,
+    },
+    PromoteOutputDir {
+        source_path: PathBuf,
+        destination_path: PathBuf,
         source: std::io::Error,
     },
     CreateCaseOutputDir {
@@ -248,6 +255,11 @@ impl fmt::Display for GenerateError {
                 f,
                 "unsupported profile {profile}; expected one of {}",
                 SUPPORTED_PROFILES.join(", ")
+            ),
+            Self::OutputPathExists(path) => write!(
+                f,
+                "generation output path {} already exists; choose a new path",
+                path.display()
             ),
             Self::CreateOutputDir { path, source } => {
                 write!(
@@ -283,6 +295,16 @@ impl fmt::Display for GenerateError {
             Self::WriteManifest { path, source } => {
                 write!(f, "failed to write manifest {}: {source}", path.display())
             }
+            Self::PromoteOutputDir {
+                source_path,
+                destination_path,
+                source,
+            } => write!(
+                f,
+                "failed to promote completed generation root {} to {}: {source}",
+                source_path.display(),
+                destination_path.display()
+            ),
             Self::CreateCaseOutputDir { path, source } => {
                 write!(
                     f,
@@ -319,12 +341,14 @@ impl Error for GenerateError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match self {
             Self::InvalidProfile(_) => None,
+            Self::OutputPathExists(_) => None,
             Self::CreateOutputDir { source, .. } => Some(source),
             Self::ReadMetadata { source, .. } => Some(source),
             Self::ParseMetadata { source, .. } => Some(source),
             Self::MetadataShape { .. } => None,
             Self::SerializeManifest { source, .. } => Some(source),
             Self::WriteManifest { source, .. } => Some(source),
+            Self::PromoteOutputDir { source, .. } => Some(source),
             Self::CreateCaseOutputDir { source, .. } => Some(source),
             Self::WriteDicomFile { .. } => None,
             Self::ReadGeneratedFile { source, .. } => Some(source),
@@ -458,10 +482,16 @@ pub fn prepare_generation_run(
         return Err(GenerateError::InvalidProfile(options.profile));
     }
 
-    fs::create_dir_all(&options.out_dir).map_err(|source| GenerateError::CreateOutputDir {
-        path: options.out_dir.clone(),
-        source,
-    })?;
+    match fs::symlink_metadata(&options.out_dir) {
+        Ok(_) => return Err(GenerateError::OutputPathExists(options.out_dir)),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(source) => {
+            return Err(GenerateError::CreateOutputDir {
+                path: options.out_dir,
+                source,
+            });
+        }
+    }
 
     Ok(PreparedGenerationRun {
         manifest_path: options.out_dir.join("manifest.json"),
@@ -475,6 +505,18 @@ pub fn prepare_generation_run(
 pub fn write_generation_run(
     run: &PreparedGenerationRun,
 ) -> Result<GenerationSummary, GenerateError> {
+    if fs::symlink_metadata(&run.out_dir).is_ok() {
+        return Err(GenerateError::OutputPathExists(run.out_dir.clone()));
+    }
+    let staging_root = create_generation_staging_root(&run.out_dir)?;
+    let mut staging_guard = GenerationStagingGuard(Some(staging_root.clone()));
+    let staged_run = PreparedGenerationRun {
+        profile: run.profile.clone(),
+        out_dir: staging_root.clone(),
+        manifest_path: staging_root.join("manifest.json"),
+        seed: run.seed,
+        include_stress: run.include_stress,
+    };
     let standards_lock_path = Path::new("standards.lock.json");
     let cargo_lock_path = Path::new("Cargo.lock");
     let registry_path = Path::new("cases/registry.json");
@@ -484,8 +526,11 @@ pub fn write_generation_run(
     let cargo_lock = read_bytes_metadata(cargo_lock_path)?;
     let registry = read_json_metadata(registry_path)?;
 
-    let generated =
-        generator::write_supported_cases(run, &registry, &sha256_hex(&standards_lock_bytes))?;
+    let generated = generator::write_supported_cases(
+        &staged_run,
+        &registry,
+        &sha256_hex(&standards_lock_bytes),
+    )?;
     let files_written = generated.files.len();
     let generated_case_ids: Vec<String> = generated
         .files
@@ -493,7 +538,7 @@ pub fn write_generation_run(
         .map(|file| file.case_id.clone())
         .collect();
     let manifest = build_generation_manifest(
-        run,
+        &staged_run,
         &standards_lock,
         &standards_lock_bytes,
         &cargo_lock,
@@ -504,21 +549,73 @@ pub fn write_generation_run(
     )?;
     let mut contents = serde_json::to_string_pretty(&manifest).map_err(|source| {
         GenerateError::SerializeManifest {
-            path: run.manifest_path.clone(),
+            path: staged_run.manifest_path.clone(),
             source,
         }
     })?;
     contents.push('\n');
 
-    fs::write(&run.manifest_path, contents).map_err(|source| GenerateError::WriteManifest {
-        path: run.manifest_path.clone(),
+    fs::write(&staged_run.manifest_path, contents).map_err(|source| GenerateError::WriteManifest {
+        path: staged_run.manifest_path.clone(),
         source,
     })?;
+
+    if fs::symlink_metadata(&run.out_dir).is_ok() {
+        return Err(GenerateError::OutputPathExists(run.out_dir.clone()));
+    }
+    fs::rename(&staging_root, &run.out_dir).map_err(|source| GenerateError::PromoteOutputDir {
+        source_path: staging_root,
+        destination_path: run.out_dir.clone(),
+        source,
+    })?;
+    staging_guard.0 = None;
 
     Ok(GenerationSummary {
         files_written,
         manifest_written: true,
     })
+}
+
+static GENERATION_STAGING_COUNTER: AtomicU64 = AtomicU64::new(0);
+
+struct GenerationStagingGuard(Option<PathBuf>);
+
+impl Drop for GenerationStagingGuard {
+    fn drop(&mut self) {
+        if let Some(path) = self.0.take() {
+            let _ = fs::remove_dir_all(path);
+        }
+    }
+}
+
+fn create_generation_staging_root(out_dir: &Path) -> Result<PathBuf, GenerateError> {
+    let parent = out_dir.parent().unwrap_or_else(|| Path::new("."));
+    fs::create_dir_all(parent).map_err(|source| GenerateError::CreateOutputDir {
+        path: parent.to_path_buf(),
+        source,
+    })?;
+    let output_name = out_dir
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("generated");
+
+    loop {
+        let counter = GENERATION_STAGING_COUNTER.fetch_add(1, Ordering::Relaxed);
+        let candidate = parent.join(format!(
+            ".{output_name}.dicom-test-suite-staging-{}-{counter}",
+            std::process::id()
+        ));
+        match fs::create_dir(&candidate) {
+            Ok(()) => return Ok(candidate),
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(source) => {
+                return Err(GenerateError::CreateOutputDir {
+                    path: candidate,
+                    source,
+                });
+            }
+        }
+    }
 }
 
 pub fn validate_generated_root(
@@ -35329,7 +35426,7 @@ mod tests {
     }
 
     #[test]
-    fn prepare_generation_run_creates_output_root_and_manifest_path() {
+    fn prepare_generation_run_reserves_output_root_and_manifest_path() {
         let out_dir = unique_temp_dir("prepare_generation_run");
         let prepared = prepare_generation_run(GenerateOptions {
             profile: "smoke".to_string(),
@@ -35339,7 +35436,10 @@ mod tests {
         })
         .expect("generation run should prepare");
 
-        assert!(out_dir.is_dir(), "prepare must create the output root");
+        assert!(
+            !out_dir.exists(),
+            "prepare must leave the destination absent for atomic promotion"
+        );
         assert_eq!(prepared.profile, "smoke");
         assert_eq!(prepared.seed, 1);
         assert!(!prepared.include_stress);
@@ -35349,7 +35449,23 @@ mod tests {
             "preparing a run must not write a manifest before manifest construction"
         );
 
-        fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
+    }
+
+    #[test]
+    fn prepare_generation_run_rejects_existing_output_path() {
+        let out_dir = unique_temp_dir("prepare_generation_run_existing");
+        fs::create_dir_all(&out_dir).expect("create existing output root");
+
+        let error = prepare_generation_run(GenerateOptions {
+            profile: "smoke".to_string(),
+            out_dir: out_dir.clone(),
+            seed: 1,
+            include_stress: false,
+        })
+        .expect_err("existing output root must be rejected");
+
+        assert!(error.to_string().contains("already exists"));
+        fs::remove_dir_all(out_dir).expect("remove existing output root");
     }
 
     #[test]

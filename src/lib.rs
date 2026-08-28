@@ -554,11 +554,12 @@ pub fn write_generation_run(
         &sha256_hex(&standards_lock_bytes),
     )?;
     let files_written = generated.files.len();
-    let generated_case_ids: Vec<String> = generated
+    let mut generated_case_ids: Vec<String> = generated
         .files
         .iter()
         .map(|file| file.case_id.clone())
         .collect();
+    generated_case_ids.extend(generated.completed_case_ids.iter().cloned());
     let manifest = build_generation_manifest(
         &staged_run,
         &standards_lock,
@@ -566,6 +567,7 @@ pub fn write_generation_run(
         &cargo_lock,
         &registry,
         generated.files,
+        generated.qualifications,
         &generated_case_ids,
         &generated.unavailable_cases,
     )?;
@@ -33391,6 +33393,7 @@ fn build_generation_manifest(
     cargo_lock: &[u8],
     registry: &Value,
     generated_files: Vec<generator::GeneratedFile>,
+    qualifications: Vec<Value>,
     generated_case_ids: &[String],
     unavailable_cases: &[Value],
 ) -> Result<Value, GenerateError> {
@@ -33443,6 +33446,7 @@ fn build_generation_manifest(
             "include_stress": run.include_stress
         },
         "files": file_entries,
+        "qualifications": qualifications,
         "skipped_cases": skipped_cases
     }))
 }

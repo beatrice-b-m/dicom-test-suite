@@ -3912,6 +3912,8 @@ pub(crate) struct GeneratedFile {
 pub(crate) struct GenerationOutput {
     pub files: Vec<GeneratedFile>,
     pub unavailable_cases: Vec<Value>,
+    pub qualifications: Vec<Value>,
+    pub completed_case_ids: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -4120,6 +4122,8 @@ impl GenerationContext {
         GenerationOutput {
             files: self.generated_files,
             unavailable_cases: self.unavailable_cases,
+            qualifications: Vec::new(),
+            completed_case_ids: Vec::new(),
         }
     }
 }
@@ -4215,6 +4219,8 @@ fn write_negative_cases(
     Ok(GenerationOutput {
         files: generated,
         unavailable_cases: Vec::new(),
+        qualifications: Vec::new(),
+        completed_case_ids: Vec::new(),
     })
 }
 

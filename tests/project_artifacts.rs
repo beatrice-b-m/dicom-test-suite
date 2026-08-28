@@ -19,8 +19,16 @@ fn synthetic_pki_lock_matches_intentionally_public_fixture_bytes() {
 
     for identity in identities {
         for (path_field, hash_field, marker) in [
-            ("certificate_path", "certificate_sha256", "BEGIN CERTIFICATE"),
-            ("private_key_path", "private_key_sha256", "BEGIN PRIVATE KEY"),
+            (
+                "certificate_path",
+                "certificate_sha256",
+                "BEGIN CERTIFICATE",
+            ),
+            (
+                "private_key_path",
+                "private_key_sha256",
+                "BEGIN PRIVATE KEY",
+            ),
         ] {
             let relative = identity[path_field]
                 .as_str()

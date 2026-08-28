@@ -14231,6 +14231,7 @@ fn write_segmentation_case(
     put_u16(&mut obj, tags::BITS_STORED, VR::US, recipe.bits_stored);
     put_u16(&mut obj, tags::HIGH_BIT, VR::US, recipe.high_bit);
     put_u16(&mut obj, tags::PIXEL_REPRESENTATION, VR::US, 0);
+    put_str(&mut obj, tags::LOSSY_IMAGE_COMPRESSION, VR::CS, "00");
     put_str(
         &mut obj,
         tags::NUMBER_OF_FRAMES,
@@ -17520,8 +17521,8 @@ fn put_segmentation_segment_sequence(obj: &mut InMemDicomObject, recipe: Segment
                 TAG_SEGMENTED_PROPERTY_CATEGORY_CODE_SEQUENCE,
                 VR::SQ,
                 DataSetSequence::from(vec![InMemDicomObject::from_element_iter([
-                    DataElement::new(tags::CODE_VALUE, VR::SH, "T-D0050"),
-                    DataElement::new(tags::CODING_SCHEME_DESIGNATOR, VR::SH, "SRT"),
+                    DataElement::new(tags::CODE_VALUE, VR::SH, "85756007"),
+                    DataElement::new(tags::CODING_SCHEME_DESIGNATOR, VR::SH, "SCT"),
                     DataElement::new(tags::CODE_MEANING, VR::LO, "Tissue"),
                 ])]),
             ),
@@ -17607,8 +17608,7 @@ fn put_segmentation_functional_groups(
     let per_frame_items = recipe
         .referenced_frame_numbers
         .iter()
-        .enumerate()
-        .map(|(index, frame_number)| {
+        .map(|frame_number| {
             InMemDicomObject::from_element_iter([
                 DataElement::new(
                     tags::FRAME_CONTENT_SEQUENCE,
@@ -17686,11 +17686,6 @@ fn put_segmentation_functional_groups(
                             ])]),
                         ),
                     ])]),
-                ),
-                DataElement::new(
-                    tags::FRAME_ACQUISITION_NUMBER,
-                    VR::US,
-                    PrimitiveValue::from((index + 1) as u16),
                 ),
             ])
         })

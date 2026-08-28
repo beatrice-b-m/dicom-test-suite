@@ -12714,6 +12714,14 @@ fn validate_segmentation_standard_elements(
         failures,
         relative_path,
         obj,
+        tags::LOSSY_IMAGE_COMPRESSION,
+        "segmentation_lossy_image_compression_type1",
+        "00",
+    );
+    validate_type1_str_element(
+        failures,
+        relative_path,
+        obj,
         TAG_SEGMENTATION_TYPE,
         "segmentation_type_type1",
         manifest_str(

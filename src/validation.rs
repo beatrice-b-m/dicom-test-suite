@@ -16991,6 +16991,11 @@ fn validate_segmentation(
             TAG_SEGMENTATION_TYPE,
             expected.segmentation_type,
         ),
+        (
+            "segmentation_lossy_image_compression",
+            tags::LOSSY_IMAGE_COMPRESSION,
+            "00",
+        ),
     ] {
         check_equal(
             results,

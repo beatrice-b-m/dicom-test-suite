@@ -6575,6 +6575,26 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
         &[0b0110_1001, 0],
         "native one-bit SEG frames must share one continuous bit stream"
     );
+    assert_eq!(
+        segmentation
+            .element(tags::LOSSY_IMAGE_COMPRESSION)
+            .expect("SEG file should contain Lossy Image Compression")
+            .to_str()
+            .expect("Lossy Image Compression should be text")
+            .trim(),
+        "00"
+    );
+    for frame in segmentation
+        .element(tags::PER_FRAME_FUNCTIONAL_GROUPS_SEQUENCE)
+        .expect("SEG should contain Per-Frame Functional Groups Sequence")
+        .items()
+        .expect("Per-Frame Functional Groups should be a sequence")
+    {
+        assert!(
+            frame.element(tags::FRAME_ACQUISITION_NUMBER).is_err(),
+            "SEG Frame Content must not contain non-IOD Frame Acquisition Number"
+        );
+    }
     let fractional_segmentation_path =
         out_dir.join("derived/seg/fractional_probability_multiframe_explicit_le/instance.dcm");
     let fractional_segmentation =

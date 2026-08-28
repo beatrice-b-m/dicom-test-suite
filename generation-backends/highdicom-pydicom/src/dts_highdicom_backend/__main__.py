@@ -18,6 +18,8 @@ from .scoord3d import CASE_ID as SCOORD3D_CASE_ID
 from .scoord3d import generate as generate_scoord3d
 from .tid1500 import CASE_ID as TID1500_CASE_ID
 from .tid1500 import generate as generate_tid1500
+from .wsi_tile_segmentation import CASE_ID as WSI_TILE_SEGMENTATION_CASE_ID
+from .wsi_tile_segmentation import generate as generate_wsi_tile_segmentation
 
 
 def _generate(request: dict[str, Any], output_root: Path) -> dict[str, Any]:
@@ -28,6 +30,8 @@ def _generate(request: dict[str, Any], output_root: Path) -> dict[str, Any]:
         return generate_tid1500(request, output_root)
     if case_id == SCOORD3D_CASE_ID:
         return generate_scoord3d(request, output_root)
+    if case_id == WSI_TILE_SEGMENTATION_CASE_ID:
+        return generate_wsi_tile_segmentation(request, output_root)
     raise ValueError(f"unsupported case {case_id}")
 
 

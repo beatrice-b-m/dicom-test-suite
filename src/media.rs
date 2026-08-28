@@ -273,7 +273,8 @@ impl DcmtkProviderFingerprint {
             .any(|argument| !self.arguments.iter().any(|actual| actual == argument))
             || !argument_value(&self.arguments, "+F")
                 .is_some_and(|value| value == LOCKED_FILE_SET_ID)
-            || !argument_value(&self.arguments, "+id")
+            || !argument_value(&self.arguments, "+id").is_some_and(|value| !value.is_empty())
+            || !argument_value(&self.arguments, "+D")
                 .is_some_and(|value| value.ends_with(DICOMDIR_FILE_ID))
         {
             return Err(MediaError::InvalidProviderArguments);
@@ -562,10 +563,10 @@ mod tests {
                     "+F".into(),
                     "DTSMIXED".into(),
                     "+id".into(),
-                    "/staging/DICOMDIR".into(),
+                    "/staging".into(),
                     "+r".into(),
                     "+D".into(),
-                    "/staging".into(),
+                    "/staging/DICOMDIR".into(),
                 ],
             },
             exit_code: 0,

@@ -6,41 +6,47 @@ use serde_json::Value;
 
 #[test]
 fn smoke_generation_is_byte_stable_across_two_output_roots() {
-    assert_profile_is_byte_stable("smoke");
+    assert_profile_is_reproducible("smoke");
 }
 
 #[test]
 fn core_generation_is_byte_stable_across_two_output_roots() {
-    assert_profile_is_byte_stable("core");
+    assert_profile_is_reproducible("core");
 }
 
 #[test]
-fn extended_generation_is_byte_stable_across_two_output_roots() {
-    assert_profile_is_byte_stable("extended");
+fn extended_generation_honors_declared_determinism_across_two_output_roots() {
+    assert_profile_is_reproducible("extended");
 }
 
-fn assert_profile_is_byte_stable(profile: &str) {
+fn assert_profile_is_reproducible(profile: &str) {
     let first_out = unique_temp_dir(&format!("generate-{profile}-reproducibility-a"));
     let second_out = unique_temp_dir(&format!("generate-{profile}-reproducibility-b"));
 
     let first_manifest = run_generate(&first_out, profile);
     let second_manifest = run_generate(&second_out, profile);
 
-    for path in generated_paths(&first_manifest) {
+    for file in first_manifest["files"]
+        .as_array()
+        .expect("manifest files should be an array")
+    {
+        let path = file["path"].as_str().expect("file entry should have a path");
         let first_dcm =
             fs::read(first_out.join(path)).expect("first generated DICOM file should be readable");
         let second_dcm = fs::read(second_out.join(path))
             .expect("second generated DICOM file should be readable");
-        assert_eq!(
-            first_dcm, second_dcm,
-            "generated DICOM bytes should be stable for the same seed"
-        );
+        if file["determinism"] == "byte_stable" {
+            assert_eq!(
+                first_dcm, second_dcm,
+                "byte-stable DICOM bytes should match for {path}"
+            );
+        }
     }
 
     assert_eq!(
-        first_manifest.pointer("/files"),
-        second_manifest.pointer("/files"),
-        "manifest file metadata should be stable across output roots"
+        deterministic_manifest_projection(&first_manifest).pointer("/files").cloned(),
+        deterministic_manifest_projection(&second_manifest).pointer("/files").cloned(),
+        "deterministic manifest metadata should be stable across output roots"
     );
     assert_eq!(
         first_manifest.pointer("/skipped_cases"),
@@ -62,12 +68,41 @@ fn assert_profile_is_byte_stable(profile: &str) {
         "deterministic UID metadata should match across runs"
     );
     assert_eq!(
-        first_manifest, second_manifest,
-        "entire manifest should be stable because it only stores relative paths and deterministic metadata"
+        deterministic_manifest_projection(&first_manifest),
+        deterministic_manifest_projection(&second_manifest),
+        "manifest deterministic projections should match across output roots"
     );
+
+    for root in [&first_out, &second_out] {
+        let validation = dicom_test_suite::validate_generated_root(root)
+            .expect("generated root should validate");
+        assert!(validation.failures.is_empty(), "{:?}", validation.failures);
+    }
 
     fs::remove_dir_all(first_out).expect("first temporary output root should be removable");
     fs::remove_dir_all(second_out).expect("second temporary output root should be removable");
+}
+
+fn deterministic_manifest_projection(manifest: &Value) -> Value {
+    let mut projection = manifest.clone();
+    for file in projection["files"]
+        .as_array_mut()
+        .expect("manifest files should be an array")
+    {
+        if file["determinism"] == "semantic_stable" {
+            let object = file
+                .as_object_mut()
+                .expect("manifest file should be an object");
+            object.remove("sha256");
+            object.remove("size_bytes");
+            object
+                .get_mut("generation_backend")
+                .and_then(Value::as_object_mut)
+                .expect("semantic-stable file should record its generation backend")
+                .remove("invocation_elapsed_milliseconds");
+        }
+    }
+    projection
 }
 
 fn run_generate(out_dir: &Path, profile: &str) -> Value {

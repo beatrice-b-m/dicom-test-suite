@@ -991,8 +991,41 @@ fn phase3_status_records_completed_derived_vertical_gates() {
         "105 strictly valid files",
         "explicit milestone-6 decision checkpoint\nis now authorized",
         "registered C-Arm Photon-Electron Radiation companion",
+        "Milestone 7 is complete as the native, byte-stable",
+        "With milestone 7 qualified, Phase 3 is closed",
     ] {
         assert!(plan.contains(required), "coverage plan requires {required}");
+    }
+}
+
+#[test]
+fn coverage_expansion_plan_records_closed_capability_boundary() {
+    let plan = fs::read_to_string("docs/coverage-expansion-plan.md")
+        .expect("coverage expansion plan must be readable");
+    for required in [
+        "execution closed through Phase 8 at the approved capability and\nindependent-validation boundaries",
+        "The JPEG XL portion of milestone 3",
+        "selected HTJ2K variant from\nmilestone 5",
+        "Phase 5 is closed at\nthis selected capability boundary",
+        "## 12. Completion And Remaining Coverage",
+        "The original Phase 0 and Phase 1 execution milestone is complete",
+        "Remaining rows stay planned with specific provider, independent-validator, or\ntoolchain blockers",
+    ] {
+        assert!(
+            plan.contains(required),
+            "completed coverage expansion plan requires {required}"
+        );
+    }
+    for obsolete in [
+        "implemented through Phase 8; unavailable coverage remains explicit",
+        "Milestone 2 is complete for the selected JPEG XL and HTJ2K lossy cases",
+        "## 12. First Execution Milestone",
+        "The next implementation milestone should be Phase 0",
+    ] {
+        assert!(
+            !plan.contains(obsolete),
+            "completed coverage expansion plan must remove {obsolete}"
+        );
     }
 }
 

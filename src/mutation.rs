@@ -582,3 +582,315 @@ fn sha256_hex(bytes: &[u8]) -> String {
     }
     h.iter().map(|word| format!("{word:08x}")).collect()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn part10() -> Vec<u8> {
+        let mut bytes = (0..320)
+            .map(|index| (index % 251) as u8)
+            .collect::<Vec<_>>();
+        bytes[128..132].copy_from_slice(b"DICM");
+        bytes
+    }
+
+    fn request(parameters: MutationParameters, layer: FailureLayer) -> MutationRequest {
+        MutationRequest::new(
+            parameters,
+            layer,
+            vec![
+                AcceptableOutcome::CleanRejection,
+                AcceptableOutcome::ValidationFailure,
+            ],
+        )
+    }
+
+    #[test]
+    fn sha256_implementation_matches_known_digest() {
+        assert_eq!(
+            sha256_hex(b"abc"),
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        );
+    }
+
+    #[test]
+    fn every_named_primitive_is_deterministic_and_records_hashes_and_ranges() {
+        let source = part10();
+        let cases = vec![
+            request(
+                MutationParameters::IncorrectExplicitVrLength {
+                    length_field: ByteRange::new(140, 142),
+                    width: LengthWidth::U16,
+                    declared_length: 33,
+                },
+                FailureLayer::DatasetParser,
+            ),
+            request(
+                MutationParameters::IllegalVr {
+                    vr_field: ByteRange::new(142, 144),
+                    replacement: *b"??",
+                },
+                FailureLayer::DatasetParser,
+            ),
+            request(
+                MutationParameters::TransferSyntaxMismatch {
+                    file_meta_uid_value: ByteRange::new(144, 152),
+                    replacement: b"1.2.840\0".to_vec(),
+                },
+                FailureLayer::DatasetParser,
+            ),
+            request(
+                MutationParameters::UidMismatch {
+                    dataset_uid_value: ByteRange::new(152, 160),
+                    replacement: b"9.9.999\0".to_vec(),
+                },
+                FailureLayer::SemanticValidation,
+            ),
+            request(
+                MutationParameters::MissingType1Element {
+                    element: ByteRange::new(160, 172),
+                },
+                FailureLayer::SemanticValidation,
+            ),
+            request(
+                MutationParameters::InvalidBitsStoredHighBit {
+                    bits_stored_value: ByteRange::new(172, 174),
+                    high_bit_value: ByteRange::new(174, 176),
+                    bits_stored: 17,
+                    high_bit: 3,
+                },
+                FailureLayer::PixelDecoding,
+            ),
+            request(
+                MutationParameters::InvalidPixelByteLength {
+                    length_field: ByteRange::new(176, 180),
+                    width: LengthWidth::U32,
+                    declared_length: 1,
+                },
+                FailureLayer::PixelDecoding,
+            ),
+            request(
+                MutationParameters::BrokenBasicOffsetTable {
+                    entry: ByteRange::new(180, 184),
+                    offset: u32::MAX,
+                },
+                FailureLayer::Encapsulation,
+            ),
+            request(
+                MutationParameters::BrokenExtendedOffsetTable {
+                    entry: ByteRange::new(184, 192),
+                    offset: u64::MAX,
+                },
+                FailureLayer::Encapsulation,
+            ),
+            request(
+                MutationParameters::UndefinedLengthWithoutDelimitation {
+                    length_field: ByteRange::new(192, 196),
+                    delimitation_item: ByteRange::new(220, 228),
+                },
+                FailureLayer::DatasetParser,
+            ),
+            request(
+                MutationParameters::InvalidNestedItemLength {
+                    length_field: ByteRange::new(196, 200),
+                    declared_length: u32::MAX - 1,
+                },
+                FailureLayer::DatasetParser,
+            ),
+            request(
+                MutationParameters::InvalidCharacterSetDeclaration {
+                    value: ByteRange::new(200, 208),
+                    replacement: b"INVALID!".to_vec(),
+                },
+                FailureLayer::TextDecoding,
+            ),
+            request(
+                MutationParameters::MalformedEncodedText {
+                    value: ByteRange::new(208, 212),
+                    replacement: vec![0xff, 0xfe, 0xff, 0xfe],
+                },
+                FailureLayer::TextDecoding,
+            ),
+        ];
+
+        for case in cases {
+            let first =
+                apply_named_mutation(&source, case.clone()).expect(case.parameters.mutation_id());
+            let second = apply_named_mutation(&source, case).expect("repeat mutation");
+            assert_eq!(first, second);
+            assert_eq!(first.contract_version, MUTATION_CONTRACT_VERSION);
+            assert_eq!(first.source_sha256, sha256_hex(&source));
+            assert_eq!(first.output_sha256, sha256_hex(&first.bytes));
+            assert_ne!(first.source_sha256, first.output_sha256);
+            assert!(!first.changed_byte_ranges.is_empty());
+            assert!(!first.acceptable_outcomes.is_empty());
+        }
+    }
+
+    #[test]
+    fn every_truncation_target_uses_the_exact_removed_suffix() {
+        let source = part10();
+        for target in [
+            TruncationTarget::FileMeta,
+            TruncationTarget::Dataset,
+            TruncationTarget::Sequence,
+            TruncationTarget::Item,
+            TruncationTarget::Fragment,
+            TruncationTarget::PixelValue,
+        ] {
+            let result = apply_named_mutation(
+                &source,
+                request(
+                    MutationParameters::Truncate {
+                        target,
+                        offset: 240,
+                    },
+                    FailureLayer::DatasetParser,
+                ),
+            )
+            .expect("checked truncation");
+            assert_eq!(result.bytes, source[..240]);
+            assert_eq!(
+                result.changed_byte_ranges,
+                vec![ChangedByteRange {
+                    source: ByteRange::new(240, 320),
+                    output: ByteRange::new(240, 240),
+                }]
+            );
+            assert!(result.mutation_id.starts_with("truncate_"));
+        }
+    }
+
+    #[test]
+    fn multi_edit_ranges_remain_in_source_coordinates() {
+        let source = part10();
+        let result = apply_named_mutation(
+            &source,
+            request(
+                MutationParameters::UndefinedLengthWithoutDelimitation {
+                    length_field: ByteRange::new(180, 184),
+                    delimitation_item: ByteRange::new(240, 248),
+                },
+                FailureLayer::DatasetParser,
+            ),
+        )
+        .expect("undefined length mutation");
+        assert_eq!(
+            result.changed_byte_ranges,
+            vec![
+                ChangedByteRange {
+                    source: ByteRange::new(180, 184),
+                    output: ByteRange::new(180, 184),
+                },
+                ChangedByteRange {
+                    source: ByteRange::new(240, 248),
+                    output: ByteRange::new(240, 240),
+                },
+            ]
+        );
+        assert_eq!(result.bytes.len(), source.len() - 8);
+    }
+
+    #[test]
+    fn checked_errors_reject_unsafe_or_ambiguous_requests() {
+        let source = part10();
+        assert_eq!(
+            apply_named_mutation(
+                b"not part 10",
+                request(
+                    MutationParameters::Truncate {
+                        target: TruncationTarget::Dataset,
+                        offset: 2,
+                    },
+                    FailureLayer::DatasetParser,
+                )
+            ),
+            Err(MutationError::NotPart10)
+        );
+
+        let mut unsupported = request(
+            MutationParameters::IllegalVr {
+                vr_field: ByteRange::new(140, 142),
+                replacement: *b"??",
+            },
+            FailureLayer::DatasetParser,
+        );
+        unsupported.contract_version = "9.9.9";
+        assert!(matches!(
+            apply_named_mutation(&source, unsupported),
+            Err(MutationError::UnsupportedContractVersion { .. })
+        ));
+
+        let empty_outcomes = MutationRequest::new(
+            MutationParameters::IllegalVr {
+                vr_field: ByteRange::new(140, 142),
+                replacement: *b"??",
+            },
+            FailureLayer::DatasetParser,
+            Vec::new(),
+        );
+        assert_eq!(
+            apply_named_mutation(&source, empty_outcomes),
+            Err(MutationError::EmptyAcceptableOutcomes)
+        );
+
+        let errors = [
+            request(
+                MutationParameters::Truncate {
+                    target: TruncationTarget::Dataset,
+                    offset: source.len() + 1,
+                },
+                FailureLayer::DatasetParser,
+            ),
+            request(
+                MutationParameters::IncorrectExplicitVrLength {
+                    length_field: ByteRange::new(140, 143),
+                    width: LengthWidth::U16,
+                    declared_length: 2,
+                },
+                FailureLayer::DatasetParser,
+            ),
+            request(
+                MutationParameters::IncorrectExplicitVrLength {
+                    length_field: ByteRange::new(140, 142),
+                    width: LengthWidth::U16,
+                    declared_length: u16::MAX as u64 + 1,
+                },
+                FailureLayer::DatasetParser,
+            ),
+            request(
+                MutationParameters::TransferSyntaxMismatch {
+                    file_meta_uid_value: ByteRange::new(140, 148),
+                    replacement: b"short".to_vec(),
+                },
+                FailureLayer::DatasetParser,
+            ),
+            request(
+                MutationParameters::InvalidBitsStoredHighBit {
+                    bits_stored_value: ByteRange::new(140, 142),
+                    high_bit_value: ByteRange::new(141, 143),
+                    bits_stored: 17,
+                    high_bit: 3,
+                },
+                FailureLayer::PixelDecoding,
+            ),
+        ];
+        for bad_request in errors {
+            assert!(apply_named_mutation(&source, bad_request).is_err());
+        }
+
+        let unchanged = MutationRequest::new(
+            MutationParameters::MalformedEncodedText {
+                value: ByteRange::new(140, 144),
+                replacement: source[140..144].to_vec(),
+            },
+            FailureLayer::TextDecoding,
+            vec![AcceptableOutcome::DecodeFailure],
+        );
+        assert!(matches!(
+            apply_named_mutation(&source, unchanged),
+            Err(MutationError::NoChange { .. })
+        ));
+    }
+}

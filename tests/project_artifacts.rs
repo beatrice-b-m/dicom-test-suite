@@ -5988,6 +5988,7 @@ fn generator_recipe_case_ids() -> BTreeSet<String> {
             "src/generation_backends/wsi_tile_segmentation.rs",
             &["CASE_ID: &str = \""][..],
         ),
+        ("src/negative.rs", &["    \""][..]),
     ] {
         let source = fs::read_to_string(path).expect("generator source must be readable");
         for prefix in prefixes {
@@ -6022,6 +6023,7 @@ fn is_suite_case_id(case_id: &str) -> bool {
                 | "derived"
                 | "geometry"
                 | "metadata"
+                | "negative"
                 | "non-image"
                 | "vl"
         )

@@ -54,10 +54,6 @@ fn list_cases_command_exposes_planned_provider_and_blockers() {
         "large valid bulk-data coverage must remain opt-in stress inventory"
     );
     assert!(
-        stdout.contains("negative/encapsulation/truncated_fragment\tplanned\tnegative\t1.2.840.10008.5.1.4.1.1.7\t1.2.840.10008.1.2.5\t2/2 covered\tdicom_instance\tmutation_layer\trobustness\tlater\tmutation_contract_unimplemented"),
-        "fragment truncation must remain isolated in the negative profile"
-    );
-    assert!(
         stdout.contains("media/security/digital_signature_instance\tplanned\textended\t1.2.840.10008.5.1.4.1.1.7\t1.2.840.10008.1.2.1\t2/2 covered\tdicom_instance\tdcm4che\tmedia\tlater\tsecurity_toolchain_unselected,decision_checkpoint"),
         "digital-signature coverage must expose its security decision checkpoint"
     );
@@ -75,6 +71,7 @@ fn list_cases_command_exposes_implemented_parametric_map_provider() {
     assert!(stdout.contains("derived/parametric-map/float32_ct_derived_explicit_le\timplemented\textended\t1.2.840.10008.5.1.4.1.1.30\t1.2.840.10008.1.2.1\t2/2 covered\tdicom_instance\thighdicom_pydicom\tquantitative\t-\t"));
     assert!(stdout.contains("derived/parametric-map/float64_ct_derived_explicit_le\timplemented\textended\t1.2.840.10008.5.1.4.1.1.30\t1.2.840.10008.1.2.1\t2/2 covered\tdicom_instance\thighdicom_pydicom\tquantitative\t-\t"));
     assert!(stdout.contains("derived/seg/wsi_tile_reference\timplemented\textended\t1.2.840.10008.5.1.4.1.1.66.4\t1.2.840.10008.1.2.1\t2/2 covered\tdicom_instance\thighdicom_pydicom\tderived_image\t-\t"));
+    assert!(stdout.contains("negative/encapsulation/truncated_fragment\timplemented\tnegative\t1.2.840.10008.5.1.4.1.1.7\t1.2.840.10008.1.2.5\t2/2 covered\tdicom_instance\tmutation_layer\trobustness\t-\t"));
 }
 
 #[test]

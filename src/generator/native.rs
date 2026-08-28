@@ -21,6 +21,7 @@ pub(super) mod string_boundary_sc;
 pub(super) mod timezone_sc;
 pub(super) mod twelve_lead_ecg;
 pub(super) mod us_multiframe;
+pub(super) mod wsi_multiple_optical_paths;
 pub(super) mod wsi_pyramid;
 pub(super) mod wsi_tiled_full;
 pub(super) mod wsi_tiled_sparse;

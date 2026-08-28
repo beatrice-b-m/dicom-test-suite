@@ -312,10 +312,11 @@ driven solely by `manifest.json` file entries and uses manifest-relative paths.
 `pixel-decoders.json` records the transfer-syntax independence matrix and exact
 blockers. The first promoted adapter is DCMTK `dcmdrle`: it decompresses RLE
 independently of the project-owned encoder, then `dcmdump +W` extracts native
-Pixel Data. The adapter normalizes 16-bit sample byte order and planar color to
-the manifest's interleaved frame-hash convention before comparison. A real
-seed-1 all-profile run on the locked arm64 macOS tools matched all 58 RLE files.
-Set `DTS_REAL_CONFORMANCE=1` to exercise that conditional integration test.
+Pixel Data. The adapter preserves DCMTK's decompressed little-endian sample byte
+order and normalizes planar color to the manifest's interleaved frame-hash
+convention before comparison. This makes the independent check sensitive to
+incorrect RLE byte-plane ordering. Set `DTS_REAL_CONFORMANCE=1` to exercise the
+conditional integration test across all RLE files.
 
 Native pixel coverage remains case-scoped rather than implied for every native
 shape. U32 uses the `uv`-locked pydicom adapter described above. U1 uses locked

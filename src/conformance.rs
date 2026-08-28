@@ -5226,12 +5226,9 @@ fn normalize_native_frame(frame: &[u8], file: &Value) -> Vec<u8> {
         .and_then(Value::as_u64)
         .unwrap_or(8);
     let sample_bytes = bits.div_ceil(8) as usize;
-    let mut normalized = frame.to_vec();
-    if sample_bytes > 1 {
-        for sample in normalized.chunks_exact_mut(sample_bytes) {
-            sample.reverse();
-        }
-    }
+    // dcmdrle writes Explicit VR Little Endian and dcmdump +W preserves that
+    // native byte order. Manifest frame hashes use the same representation.
+    let normalized = frame.to_vec();
     let samples = file
         .pointer("/image/samples_per_pixel")
         .and_then(Value::as_u64)
@@ -5251,6 +5248,49 @@ fn normalize_native_frame(frame: &[u8], file: &Value) -> Vec<u8> {
         interleaved
     } else {
         normalized
+    }
+}
+
+#[cfg(test)]
+mod native_frame_normalization_tests {
+    use super::*;
+
+    #[test]
+    fn dcmtk_little_endian_u16_samples_are_not_byte_swapped() {
+        let file = json!({
+            "image": {
+                "bits_allocated": 16,
+                "samples_per_pixel": 1,
+                "planar_configuration": null
+            }
+        });
+        let frame = [0x34, 0x12, 0xcd, 0xab];
+
+        assert_eq!(normalize_native_frame(&frame, &file), frame);
+    }
+
+    #[test]
+    fn planar_color_is_interleaved_without_changing_sample_byte_order() {
+        let file = json!({
+            "image": {
+                "bits_allocated": 16,
+                "samples_per_pixel": 3,
+                "planar_configuration": 1
+            }
+        });
+        let frame = [
+            0x01, 0x10, 0x02, 0x10, // R plane
+            0x01, 0x20, 0x02, 0x20, // G plane
+            0x01, 0x30, 0x02, 0x30, // B plane
+        ];
+
+        assert_eq!(
+            normalize_native_frame(&frame, &file),
+            [
+                0x01, 0x10, 0x01, 0x20, 0x01, 0x30, // pixel 1
+                0x02, 0x10, 0x02, 0x20, 0x02, 0x30, // pixel 2
+            ]
+        );
     }
 }
 

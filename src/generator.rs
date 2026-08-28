@@ -179,6 +179,9 @@ use crate::{
         generate_parametric_map_for_spec, generate_scoord3d, generate_tid1500,
         generate_wsi_tile_segmentation,
     },
+    mutation::MUTATION_CONTRACT_VERSION,
+    negative::{NEGATIVE_CASE_IDS, NegativeOutput, build_negative_case},
+    part10_locator::{LocatorLimits, locate_explicit_vr_le_part10},
     rt_manifest::{
         LinkedRtImageInput, LinkedRtPlanInput, linked_rt_image_expected, linked_rt_plan_expected,
     },
@@ -4004,11 +4007,470 @@ impl GenerationContext {
     }
 }
 
+const NEGATIVE_NATIVE_SOURCE_CASE_ID: &str = "classic/sc/mono2_u8_explicit_le";
+const NEGATIVE_CHARSET_SOURCE_CASE_ID: &str = "metadata/sc/utf8_person_name";
+const NEGATIVE_NESTED_SOURCE_CASE_ID: &str = "metadata/sc/defined_undefined_sequence_lengths";
+const NEGATIVE_RLE_SOURCE_CASE_ID: &str = "classic/sc/mono1_u8_rle_lossless";
+
+struct NegativeSourceStagingGuard(PathBuf);
+
+impl NegativeSourceStagingGuard {
+    fn new(run: &PreparedGenerationRun) -> Self {
+        Self(run.out_dir.join(".negative-private-sources"))
+    }
+
+    fn path(&self) -> &Path {
+        &self.0
+    }
+}
+
+impl Drop for NegativeSourceStagingGuard {
+    fn drop(&mut self) {
+        if self.0.exists() {
+            let _ = fs::remove_dir_all(&self.0);
+        }
+    }
+}
+
+#[derive(Debug)]
+struct NegativeSourceArtifact {
+    bytes: Vec<u8>,
+}
+
+fn write_negative_cases(
+    run: &PreparedGenerationRun,
+    registry: &Value,
+    standards_lock_sha256: &str,
+) -> Result<GenerationOutput, GenerateError> {
+    let mut selected_cases = Vec::new();
+    for case_id in NEGATIVE_CASE_IDS {
+        let Some(case) = registry_case(registry, case_id)? else {
+            continue;
+        };
+        if should_generate_case(case, run)? {
+            selected_cases.push((*case_id, case));
+        }
+    }
+    if selected_cases.is_empty() {
+        return Ok(GenerationOutput::default());
+    }
+
+    let source_staging = NegativeSourceStagingGuard::new(run);
+    let source_run = PreparedGenerationRun {
+        profile: "negative-private-source".to_string(),
+        out_dir: source_staging.path().to_path_buf(),
+        manifest_path: source_staging.path().join("manifest.json"),
+        seed: run.seed,
+        include_stress: false,
+    };
+    let sources = write_negative_source_artifacts(
+        &source_run,
+        registry,
+        standards_lock_sha256,
+        source_staging.path(),
+    )?;
+
+    let mut generated = Vec::with_capacity(selected_cases.len());
+    for (case_id, case) in selected_cases {
+        let expected_source_case_id = negative_source_case_id(case_id);
+        let source =
+            sources
+                .get(expected_source_case_id)
+                .ok_or_else(|| GenerateError::MetadataShape {
+                    path: PathBuf::from(case_id),
+                    message: "negative recipe source was not generated in private staging",
+                })?;
+        let output = build_negative_case(case_id, &source.bytes).map_err(|error| {
+            GenerateError::WriteDicomFile {
+                path: PathBuf::from(case_id),
+                message: error.to_string(),
+            }
+        })?;
+        generated.push(write_negative_output(run, case, source, output)?);
+    }
+    drop(source_staging);
+    if run.out_dir.join(".negative-private-sources").exists() {
+        return Err(GenerateError::MetadataShape {
+            path: run.out_dir.clone(),
+            message: "private negative source staging survived cleanup",
+        });
+    }
+    Ok(GenerationOutput {
+        files: generated,
+        unavailable_cases: Vec::new(),
+    })
+}
+
+fn negative_source_case_id(case_id: &str) -> &'static str {
+    match case_id {
+        "negative/charset/malformed_encoded_text" => NEGATIVE_CHARSET_SOURCE_CASE_ID,
+        "negative/dataset/invalid_nested_item_length"
+        | "negative/dataset/truncated_sequence_item"
+        | "negative/dataset/undefined_length_without_delimitation" => {
+            NEGATIVE_NESTED_SOURCE_CASE_ID
+        }
+        "negative/encapsulation/broken_offset_table" => EOT_CASE_ID,
+        "negative/encapsulation/truncated_fragment" => NEGATIVE_RLE_SOURCE_CASE_ID,
+        _ => NEGATIVE_NATIVE_SOURCE_CASE_ID,
+    }
+}
+
+fn write_negative_source_artifacts(
+    run: &PreparedGenerationRun,
+    registry: &Value,
+    standards_lock_sha256: &str,
+    staging_root: &Path,
+) -> Result<BTreeMap<&'static str, NegativeSourceArtifact>, GenerateError> {
+    let source_case = |case_id| {
+        registry_case(registry, case_id)?.ok_or_else(|| GenerateError::MetadataShape {
+            path: PathBuf::from(case_id),
+            message: "negative source case is missing from the registry",
+        })
+    };
+    let pixel_recipe = |case_id| {
+        PIXEL_RECIPES
+            .iter()
+            .copied()
+            .find(|recipe| recipe.case_id == case_id)
+            .ok_or_else(|| GenerateError::MetadataShape {
+                path: PathBuf::from(case_id),
+                message: "negative source Pixel recipe is unavailable",
+            })
+    };
+
+    let native = write_pixel_case(
+        run,
+        source_case(NEGATIVE_NATIVE_SOURCE_CASE_ID)?,
+        pixel_recipe(NEGATIVE_NATIVE_SOURCE_CASE_ID)?,
+        standards_lock_sha256,
+    )?;
+    let charset_recipe = METADATA_SC_RECIPES
+        .iter()
+        .copied()
+        .find(|recipe| recipe.pixel.case_id == NEGATIVE_CHARSET_SOURCE_CASE_ID)
+        .ok_or_else(|| GenerateError::MetadataShape {
+            path: PathBuf::from(NEGATIVE_CHARSET_SOURCE_CASE_ID),
+            message: "negative UTF-8 source recipe is unavailable",
+        })?;
+    let charset = write_metadata_sc_case(
+        run,
+        source_case(NEGATIVE_CHARSET_SOURCE_CASE_ID)?,
+        charset_recipe,
+        standards_lock_sha256,
+    )?;
+    let nested = write_sequence_length_sc_case(
+        run,
+        source_case(NEGATIVE_NESTED_SOURCE_CASE_ID)?,
+        SEQUENCE_LENGTH_SC_RECIPE,
+        standards_lock_sha256,
+    )?
+    .into_iter()
+    .find(|file| {
+        file.manifest_entry
+            .pointer("/path")
+            .and_then(Value::as_str)
+            .is_some_and(|path| path.ends_with("/undefined.dcm"))
+    })
+    .ok_or_else(|| GenerateError::MetadataShape {
+        path: PathBuf::from(NEGATIVE_NESTED_SOURCE_CASE_ID),
+        message: "undefined-length negative source variant was not generated",
+    })?;
+    let rle = write_pixel_case(
+        run,
+        source_case(NEGATIVE_RLE_SOURCE_CASE_ID)?,
+        pixel_recipe(NEGATIVE_RLE_SOURCE_CASE_ID)?,
+        standards_lock_sha256,
+    )?;
+    let eot = write_pixel_case(
+        run,
+        source_case(EOT_CASE_ID)?,
+        pixel_recipe(EOT_CASE_ID)?,
+        standards_lock_sha256,
+    )?;
+
+    let mut sources = BTreeMap::new();
+    for (case_id, file) in [
+        (NEGATIVE_NATIVE_SOURCE_CASE_ID, native),
+        (NEGATIVE_CHARSET_SOURCE_CASE_ID, charset),
+        (NEGATIVE_NESTED_SOURCE_CASE_ID, nested),
+        (NEGATIVE_RLE_SOURCE_CASE_ID, rle),
+        (EOT_CASE_ID, eot),
+    ] {
+        let relative_path = generated_manifest_str(
+            &file.manifest_entry,
+            "/path",
+            "private negative source path must be a string",
+        )?;
+        let bytes = fs::read(staging_root.join(relative_path)).map_err(|source| {
+            GenerateError::ReadMetadata {
+                path: staging_root.join(relative_path),
+                source,
+            }
+        })?;
+        if sources
+            .insert(case_id, NegativeSourceArtifact { bytes })
+            .is_some()
+        {
+            return Err(GenerateError::MetadataShape {
+                path: PathBuf::from(case_id),
+                message: "negative source case IDs must be unique",
+            });
+        }
+    }
+    Ok(sources)
+}
+
+fn write_negative_output(
+    run: &PreparedGenerationRun,
+    case: &Value,
+    source: &NegativeSourceArtifact,
+    output: NegativeOutput,
+) -> Result<GeneratedFile, GenerateError> {
+    let case_id = output.evidence.case_id;
+    let relative_path = format!("{case_id}/instance.dcm");
+    let path = run.out_dir.join(&relative_path);
+    fs::create_dir_all(path.parent().expect("negative case path has a parent")).map_err(
+        |source| GenerateError::CreateCaseOutputDir {
+            path: path.parent().unwrap().to_path_buf(),
+            source,
+        },
+    )?;
+    fs::write(&path, &output.bytes).map_err(|source| GenerateError::WriteDicomFile {
+        path: path.clone(),
+        message: source.to_string(),
+    })?;
+    let final_sha256 = sha256_hex(&output.bytes);
+    if final_sha256 != output.evidence.output_sha256
+        || output.evidence.source.sha256 != sha256_hex(&source.bytes)
+        || output.evidence.source.expected_case_id != negative_source_case_id(case_id)
+    {
+        return Err(GenerateError::MetadataShape {
+            path,
+            message: "negative evidence does not bind the exact source and final bytes",
+        });
+    }
+
+    let mutation_steps = output
+        .evidence
+        .steps
+        .iter()
+        .enumerate()
+        .map(|(index, step)| {
+            let ranges = step
+                .changed_byte_ranges
+                .iter()
+                .map(|range| {
+                    (
+                        range.source.start,
+                        range.source.end,
+                        range.output.start,
+                        range.output.end,
+                    )
+                })
+                .collect::<Vec<_>>();
+            serde_json::json!({
+                "ordinal": index + 1,
+                "mutation_id": step.mutation_id,
+                "parameters": negative_mutation_parameters(step.mutation_id, &ranges, &output.bytes),
+                "changed_byte_ranges": ranges.iter().map(|(source_start, source_end, output_start, output_end)| {
+                    serde_json::json!({
+                        "source": {"start": source_start, "end": source_end},
+                        "output": {"start": output_start, "end": output_end}
+                    })
+                }).collect::<Vec<_>>(),
+                "source_sha256": step.source_sha256,
+                "output_sha256": step.output_sha256,
+                "expected_failure_layer": failure_layer_name(&step.expected_failure_layer),
+                "acceptable_outcomes": step.acceptable_outcomes.iter().map(acceptable_outcome_name).collect::<Vec<_>>()
+            })
+        })
+        .collect::<Vec<_>>();
+    let (probe_outcome, probe_detail) = match locate_explicit_vr_le_part10(
+        &output.bytes,
+        LocatorLimits::default(),
+    ) {
+        Ok(_) => (
+            "accepted_with_bounded_warning",
+            "bounded Part 10 locator accepted structure; semantic/decode rejection remains expected"
+                .to_string(),
+        ),
+        Err(error) => ("parse_failure", format!("bounded Part 10 locator: {error}")),
+    };
+    let recipe_id = case
+        .get("recipe_id")
+        .and_then(Value::as_str)
+        .ok_or_else(|| GenerateError::MetadataShape {
+            path: PathBuf::from(case_id),
+            message: "negative registry recipe_id must be a string",
+        })?;
+    let source_transfer_syntax_uid = output.evidence.source.transfer_syntax_uid.clone();
+    let standards_evidence = standards_evidence_from_case(case);
+    Ok(GeneratedFile {
+        case_id: case_id.to_string(),
+        manifest_entry: serde_json::json!({
+            "case_id": case_id,
+            "profile_membership": ["negative"],
+            "path": relative_path,
+            "sha256": final_sha256,
+            "size_bytes": output.bytes.len(),
+            "determinism": "byte_stable",
+            "validity": "expected_invalid",
+            "provider": {
+                "kind": "mutation_layer",
+                "id": "checked_part10_mutation"
+            },
+            "recipe": {
+                "recipe_id": recipe_id,
+                "recipe_version": output.evidence.recipe_version,
+                "recipe_parameters": {
+                    "source_case_id": output.evidence.source.expected_case_id,
+                    "mutation_operations": mutation_steps.iter().map(|step| step["mutation_id"].clone()).collect::<Vec<_>>()
+                }
+            },
+            "standards_evidence": standards_evidence,
+            "negative_evidence": {
+                "contract_version": MUTATION_CONTRACT_VERSION,
+                "recipe_version": output.evidence.recipe_version,
+                "source": {
+                    "case_id": output.evidence.source.expected_case_id,
+                    "sha256": output.evidence.source.sha256,
+                    "transfer_syntax_uid": source_transfer_syntax_uid,
+                    "size_bytes": source.bytes.len()
+                },
+                "source_shape": output.evidence.source_shape,
+                "mutation_steps": mutation_steps,
+                "unacceptable_outcomes": ["timeout", "crash", "hang"],
+                "probe": {
+                    "kind": "same_project_bounded_parser_classifier",
+                    "independence": "same_project",
+                    "outcome": probe_outcome,
+                    "detail": probe_detail
+                },
+                "final_sha256": output.evidence.output_sha256
+            }
+        }),
+    })
+}
+
+fn negative_mutation_parameters(
+    mutation_id: &str,
+    ranges: &[(usize, usize, usize, usize)],
+    output: &[u8],
+) -> Value {
+    let source_range = |index: usize| {
+        let (start, end, _, _) = ranges[index];
+        serde_json::json!({"start": start, "end": end})
+    };
+    let replacement = |index: usize| {
+        let (_, _, start, end) = ranges[index];
+        output.get(start..end).unwrap_or_default().to_vec()
+    };
+    let little_endian = |index: usize| {
+        let bytes = replacement(index);
+        bytes
+            .iter()
+            .enumerate()
+            .fold(0_u64, |value, (shift, byte)| {
+                value | (u64::from(*byte) << (shift * 8))
+            })
+    };
+    let width = |index: usize| match ranges[index].1 - ranges[index].0 {
+        2 => "u16",
+        4 => "u32",
+        8 => "u64",
+        other => panic!("negative length field has unsupported width {other}"),
+    };
+
+    match mutation_id {
+        id if id.starts_with("truncate_") => serde_json::json!({
+            "target": id.trim_start_matches("truncate_"),
+            "offset": ranges[0].0
+        }),
+        "incorrect_explicit_vr_length" => serde_json::json!({
+            "length_field": source_range(0),
+            "width": width(0),
+            "declared_length": little_endian(0)
+        }),
+        "illegal_vr_bytes" => serde_json::json!({
+            "vr_field": source_range(0),
+            "replacement": replacement(0)
+        }),
+        "transfer_syntax_mismatch" => serde_json::json!({
+            "file_meta_uid_value": source_range(0),
+            "replacement": replacement(0)
+        }),
+        "file_meta_dataset_uid_mismatch" => serde_json::json!({
+            "dataset_uid_value": source_range(0),
+            "replacement": replacement(0)
+        }),
+        "missing_type_1_element" => serde_json::json!({"element": source_range(0)}),
+        "invalid_bits_stored_high_bit" => serde_json::json!({
+            "bits_stored_value": source_range(0),
+            "high_bit_value": source_range(1),
+            "bits_stored": little_endian(0),
+            "high_bit": little_endian(1)
+        }),
+        "invalid_pixel_byte_length" => serde_json::json!({
+            "length_field": source_range(0),
+            "width": width(0),
+            "declared_length": little_endian(0)
+        }),
+        "broken_basic_offset_table" => serde_json::json!({
+            "entry": source_range(0),
+            "offset": little_endian(0)
+        }),
+        "broken_extended_offset_table" => serde_json::json!({
+            "entry": source_range(0),
+            "offset": little_endian(0)
+        }),
+        "undefined_length_without_delimitation" => serde_json::json!({
+            "length_field": Value::Null,
+            "delimitation_item": source_range(ranges.len() - 1)
+        }),
+        "invalid_nested_item_length" => serde_json::json!({
+            "length_field": source_range(0),
+            "declared_length": little_endian(0)
+        }),
+        "invalid_character_set_declaration" | "malformed_encoded_text" => serde_json::json!({
+            "value": source_range(0),
+            "replacement": replacement(0)
+        }),
+        other => panic!("unknown negative mutation {other}"),
+    }
+}
+
+fn failure_layer_name(layer: &impl std::fmt::Debug) -> &'static str {
+    match format!("{layer:?}").as_str() {
+        "FileMeta" => "file_meta",
+        "DatasetParser" => "dataset_parser",
+        "ValueDecoding" => "value_decoding",
+        "SemanticValidation" => "semantic_validation",
+        "PixelDecoding" => "pixel_decoding",
+        "Encapsulation" => "encapsulation",
+        "TextDecoding" => "text_decoding",
+        other => panic!("unknown failure layer {other}"),
+    }
+}
+
+fn acceptable_outcome_name(outcome: &impl std::fmt::Debug) -> &'static str {
+    match format!("{outcome:?}").as_str() {
+        "CleanRejection" => "clean_rejection",
+        "ParseFailure" => "parse_failure",
+        "ValidationFailure" => "validation_failure",
+        "DecodeFailure" => "decode_failure",
+        "AcceptedWithBoundedWarning" => "accepted_with_bounded_warning",
+        other => panic!("unknown acceptable outcome {other}"),
+    }
+}
+
 pub(crate) fn write_supported_cases(
     run: &PreparedGenerationRun,
     registry: &Value,
     standards_lock_sha256: &str,
 ) -> Result<GenerationOutput, GenerateError> {
+    if run.profile == "negative" {
+        return write_negative_cases(run, registry, standards_lock_sha256);
+    }
     let mut context = GenerationContext::default();
     if let Some(case) = registry_case(registry, WSI_TILED_FULL_CASE_ID)? {
         if should_generate_case(case, run)? {
@@ -31501,6 +31963,130 @@ mod tests {
             generated.manifest_entry.pointer("/validation/status"),
             Some(&Value::from("passed"))
         );
+    }
+
+    #[test]
+    fn negative_profile_is_deterministic_isolated_and_removes_private_sources() {
+        fn negative_registry() -> Value {
+            let mut registry: Value = serde_json::from_str(include_str!("../cases/registry.json"))
+                .expect("registry should parse");
+            for case in registry["cases"]
+                .as_array_mut()
+                .expect("registry cases should be an array")
+            {
+                if case["case_id"]
+                    .as_str()
+                    .is_some_and(|case_id| case_id.starts_with("negative/"))
+                {
+                    case["status"] = Value::from("implemented");
+                    case["roadmap"] = Value::Null;
+                    case["blockers"] = serde_json::json!([]);
+                }
+            }
+            registry
+        }
+
+        let registry = negative_registry();
+        let manifest_schema: Value =
+            serde_json::from_str(include_str!("../schemas/manifest.schema.json"))
+                .expect("manifest schema should parse");
+        let negative_file_schema = serde_json::json!({
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$ref": "#/$defs/file",
+            "$defs": manifest_schema["$defs"].clone()
+        });
+        let negative_file_validator = jsonschema::validator_for(&negative_file_schema)
+            .expect("negative file schema should compile");
+        let first_root = ParametricMapStagingGuard::new();
+        let second_root = ParametricMapStagingGuard::new();
+        let run = |root: &Path, profile: &str| PreparedGenerationRun {
+            profile: profile.to_string(),
+            out_dir: root.to_path_buf(),
+            manifest_path: root.join("manifest.json"),
+            seed: 7,
+            include_stress: false,
+        };
+        let standards_lock = "0000000000000000000000000000000000000000000000000000000000000000";
+        let first = write_supported_cases(
+            &run(first_root.path(), "negative"),
+            &registry,
+            standards_lock,
+        )
+        .expect("first negative run should generate");
+        let second = write_supported_cases(
+            &run(second_root.path(), "negative"),
+            &registry,
+            standards_lock,
+        )
+        .expect("second negative run should generate");
+
+        assert_eq!(first.files.len(), NEGATIVE_CASE_IDS.len());
+        assert_eq!(first.files.len(), second.files.len());
+        assert!(!first_root.path().join(".negative-private-sources").exists());
+        assert!(
+            !second_root
+                .path()
+                .join(".negative-private-sources")
+                .exists()
+        );
+        for (first_file, second_file) in first.files.iter().zip(&second.files) {
+            assert_eq!(first_file.case_id, second_file.case_id);
+            assert_eq!(first_file.manifest_entry, second_file.manifest_entry);
+            let relative_path = first_file.manifest_entry["path"]
+                .as_str()
+                .expect("negative path should be a string");
+            assert_eq!(
+                fs::read(first_root.path().join(relative_path)).unwrap(),
+                fs::read(second_root.path().join(relative_path)).unwrap()
+            );
+            assert_eq!(
+                first_file.manifest_entry["validity"],
+                Value::from("expected_invalid")
+            );
+            assert_eq!(
+                first_file.manifest_entry["negative_evidence"]["final_sha256"],
+                first_file.manifest_entry["sha256"]
+            );
+            assert!(first_file.manifest_entry.get("dicom").is_none());
+            assert!(first_file.manifest_entry.get("validation").is_none());
+            let schema_errors = negative_file_validator
+                .iter_errors(&first_file.manifest_entry)
+                .map(|error| error.to_string())
+                .collect::<Vec<_>>();
+            assert!(
+                schema_errors.is_empty(),
+                "{} negative manifest schema errors: {schema_errors:#?}",
+                first_file.case_id
+            );
+        }
+        assert_eq!(
+            first.files[0].manifest_entry["negative_evidence"]["mutation_steps"][0]["ordinal"],
+            Value::from(1)
+        );
+        assert!(first.files.iter().all(|file| {
+            file.manifest_entry["negative_evidence"]["source"]["case_id"]
+                .as_str()
+                .is_some_and(|source_case_id| !source_case_id.starts_with("negative/"))
+        }));
+
+        let negative_only_registry = serde_json::json!({
+            "cases": registry["cases"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .filter(|case| case["case_id"].as_str().is_some_and(|id| id.starts_with("negative/")))
+                .cloned()
+                .collect::<Vec<_>>()
+        });
+        let all_root = ParametricMapStagingGuard::new();
+        let all = write_supported_cases(
+            &run(all_root.path(), "all"),
+            &negative_only_registry,
+            standards_lock,
+        )
+        .expect("all profile should ignore negative-only rows");
+        assert!(all.files.is_empty());
+        assert!(all.unavailable_cases.is_empty());
     }
 
     fn generated_source_fixture(

@@ -672,6 +672,7 @@ pub fn validate_generated_root(
     let source_objects = build_manifest_source_object_map(&manifest_path, files)?;
 
     validate_negative_profile_isolation(&manifest_path, &manifest, files)?;
+    validate_fuzz_profile_qualification(&manifest_path, &manifest, files)?;
 
     let mut failures = Vec::new();
     validate_wsi_pyramid_manifest_group(&manifest_path, files)?;
@@ -720,6 +721,128 @@ fn validate_negative_profile_isolation(
                 message: "expected-invalid files must be isolated to the negative run and negative profile membership",
             });
         }
+    }
+    Ok(())
+}
+
+fn validate_fuzz_profile_qualification(
+    manifest_path: &Path,
+    manifest: &Value,
+    files: &[Value],
+) -> Result<(), ValidateError> {
+    let run_profile = manifest
+        .pointer("/run/profile")
+        .and_then(Value::as_str)
+        .ok_or(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "run profile must be a string",
+        })?;
+    let qualifications = manifest
+        .get("qualifications")
+        .and_then(Value::as_array)
+        .ok_or(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "qualifications must be an array",
+        })?;
+    let fuzz_qualifications = qualifications
+        .iter()
+        .filter(|qualification| {
+            qualification.get("kind").and_then(Value::as_str) == Some("bounded_fuzz_run")
+        })
+        .collect::<Vec<_>>();
+
+    if run_profile != "fuzz" {
+        if !fuzz_qualifications.is_empty() {
+            return Err(ValidateError::ManifestShape {
+                path: manifest_path.to_path_buf(),
+                message: "bounded fuzz qualification must be isolated to the fuzz profile",
+            });
+        }
+        return Ok(());
+    }
+    if !files.is_empty() {
+        return Err(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "fuzz profiles must not retain generated DICOM payloads",
+        });
+    }
+    if qualifications.len() != 1 || fuzz_qualifications.len() != 1 {
+        return Err(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "fuzz profile must contain exactly one bounded qualification",
+        });
+    }
+    let qualification = fuzz_qualifications[0];
+    if qualification.get("case_id").and_then(Value::as_str)
+        != Some("fuzz/parser/bounded_seed_corpus")
+        || qualification.get("profile").and_then(Value::as_str) != Some("fuzz")
+        || qualification.get("status").and_then(Value::as_str) != Some("passed")
+        || qualification.get("payload_policy").and_then(Value::as_str)
+            != Some("generated_payloads_uncommitted")
+    {
+        return Err(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "fuzz qualification identity, status, or payload policy is invalid",
+        });
+    }
+    for outcome in ["crash", "hang", "timeout", "resource_limit"] {
+        if qualification
+            .pointer(&format!("/outcomes/{outcome}"))
+            .and_then(Value::as_u64)
+            != Some(0)
+        {
+            return Err(ValidateError::ManifestShape {
+                path: manifest_path.to_path_buf(),
+                message: "passing fuzz qualification contains an unacceptable outcome",
+            });
+        }
+    }
+    for (counter, budget) in [
+        ("iterations", "max_iterations"),
+        ("candidates", "max_candidates"),
+        ("mutations", "max_total_mutations"),
+        ("target_operations", "max_total_target_operations"),
+    ] {
+        let actual = qualification
+            .pointer(&format!("/counters/{counter}"))
+            .and_then(Value::as_u64)
+            .ok_or(ValidateError::ManifestShape {
+                path: manifest_path.to_path_buf(),
+                message: "fuzz qualification counter must be an unsigned integer",
+            })?;
+        let limit = qualification
+            .pointer(&format!("/budget/{budget}"))
+            .and_then(Value::as_u64)
+            .ok_or(ValidateError::ManifestShape {
+                path: manifest_path.to_path_buf(),
+                message: "fuzz qualification budget must be an unsigned integer",
+            })?;
+        if actual > limit {
+            return Err(ValidateError::ManifestShape {
+                path: manifest_path.to_path_buf(),
+                message: "fuzz qualification counter exceeds its deterministic budget",
+            });
+        }
+    }
+    if qualification
+        .get("seeds")
+        .and_then(Value::as_array)
+        .is_none_or(|seeds| seeds.len() != crate::fuzz::INITIAL_SEED_DESCRIPTIONS.len())
+        || qualification
+            .get("minimizations")
+            .and_then(Value::as_array)
+            .is_none_or(|minimizations| minimizations.is_empty())
+    {
+        return Err(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "fuzz qualification must bind every seed and retain minimization evidence",
+        });
+    }
+    if qualification.get("path").is_some() || qualification.get("bytes").is_some() {
+        return Err(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "fuzz qualification must remain payload-free",
+        });
     }
     Ok(())
 }
@@ -38254,6 +38377,64 @@ mod tests {
                 Path::new("manifest.json"),
                 &invalid_manifest,
                 &[file],
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn fuzz_validation_enforces_payload_isolation_and_hard_budgets() {
+        let qualification = serde_json::json!({
+            "case_id": "fuzz/parser/bounded_seed_corpus",
+            "kind": "bounded_fuzz_run",
+            "profile": "fuzz",
+            "status": "passed",
+            "payload_policy": "generated_payloads_uncommitted",
+            "budget": {
+                "max_iterations": 64,
+                "max_candidates": 64,
+                "max_total_mutations": 512,
+                "max_total_target_operations": 100000000
+            },
+            "counters": {
+                "iterations": 64,
+                "candidates": 64,
+                "mutations": 294,
+                "target_operations": 98764
+            },
+            "outcomes": {
+                "crash": 0,
+                "hang": 0,
+                "timeout": 0,
+                "resource_limit": 0
+            },
+            "seeds": [{}, {}],
+            "minimizations": [{}]
+        });
+        let manifest = serde_json::json!({
+            "run": {"profile": "fuzz"},
+            "qualifications": [qualification]
+        });
+        validate_fuzz_profile_qualification(Path::new("manifest.json"), &manifest, &[])
+            .expect("bounded payload-free qualification should pass");
+
+        let mut timed_out = manifest.clone();
+        timed_out["qualifications"][0]["outcomes"]["timeout"] = Value::from(1);
+        assert!(
+            validate_fuzz_profile_qualification(Path::new("manifest.json"), &timed_out, &[],)
+                .is_err()
+        );
+        let mut over_budget = manifest.clone();
+        over_budget["qualifications"][0]["counters"]["candidates"] = Value::from(65);
+        assert!(
+            validate_fuzz_profile_qualification(Path::new("manifest.json"), &over_budget, &[],)
+                .is_err()
+        );
+        assert!(
+            validate_fuzz_profile_qualification(
+                Path::new("manifest.json"),
+                &manifest,
+                &[serde_json::json!({"path": "uncommitted.dcm"})],
             )
             .is_err()
         );

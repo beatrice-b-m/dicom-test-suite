@@ -1,6 +1,6 @@
 # DICOM Coverage Expansion Implementation Plan
 
-**Status:** proposed execution baseline
+**Status:** implemented through Phase 8; unavailable coverage remains explicit
 
 **Prepared:** 2026-08-26
 

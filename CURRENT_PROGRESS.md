@@ -1,11 +1,25 @@
 # Current Progress
 
-**Last updated:** 2026-08-27
-**Active goal:** execute `docs/coverage-expansion-plan.md` in dependency order
-**Current phase:** Phase 4 milestone 1 complete; milestone 2 next
+**Last updated:** 2026-08-28
+**Active goal:** maintain the reproducible viewer-testing baseline without
+starting future coverage-expansion phases
+**Current phase:** Phase 2 complete; Phase 3 milestones 1–6 complete with the
+mesh milestone pending; Phase 4 complete; Phases 5–8 remain future work
 **Repo state source:** reconstructed from `SYSTEM_SPEC.md`, `transfer-syntax/capability-matrix.json`, and current verification runs.
 
 ## Phase Status
+
+- The registry contains 150 implemented and 32 planned logical cases.
+- Phase 2 is complete.
+- Phase 3 milestones 1–6 are complete; the mesh milestone remains pending.
+- Phase 4 is complete.
+- Phases 5–8 remain future work and are outside the current viewer-baseline
+  scope.
+
+## Historical Status Notes
+
+The notes below preserve completed implementation evidence. Where an older
+note names a phase or next milestone, the current status above supersedes it.
 
 - Phase 4 milestone 1 is complete. Native byte-stable VL Endoscopic and direct-
   patient VL Microscopic RGB cases bring the registry to 145 implemented and

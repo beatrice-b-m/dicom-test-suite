@@ -286,7 +286,7 @@ def generate(request: dict[str, Any], output_root: Path) -> dict[str, Any]:
     segment = hd.seg.SegmentDescription(
         segment_number=1,
         segment_label="DTS_SYNTHETIC_REGION",
-        segmented_property_category=Code("T-D0050", "SRT", "Tissue"),
+        segmented_property_category=Code("85756007", "SCT", "Tissue"),
         segmented_property_type=Code("113343", "DCM", "Organ"),
         algorithm_type="MANUAL",
     )

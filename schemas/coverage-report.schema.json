@@ -29,6 +29,13 @@
         "$ref": "#/$defs/coverage_row"
       }
     },
+    "negative_coverage": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/negative_coverage_row" }
+    },
+    "grouped_negative_coverage": {
+      "$ref": "#/$defs/grouped_negative_coverage"
+    },
     "grouped_coverage": {
       "type": "object",
       "properties": {
@@ -913,6 +920,10 @@
       }
     }
   },
+  "dependentRequired": {
+    "negative_coverage": ["grouped_negative_coverage"],
+    "grouped_negative_coverage": ["negative_coverage"]
+  },
   "additionalProperties": false,
   "$defs": {
     "sha256": {
@@ -981,6 +992,177 @@
         "type": "integer",
         "minimum": 0
       }
+    },
+    "negative_string_array": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string" }
+    },
+    "negative_coverage_row": {
+      "type": "object",
+      "required": [
+        "case_id",
+        "profile",
+        "status",
+        "validity",
+        "path",
+        "sha256",
+        "size_bytes",
+        "determinism",
+        "provider_kind",
+        "provider_id",
+        "recipe_id",
+        "recipe_version",
+        "contract_version",
+        "source_case_id",
+        "source_sha256",
+        "source_transfer_syntax_uid",
+        "source_size_bytes",
+        "source_shape",
+        "mutation_ids",
+        "mutation_count",
+        "expected_failure_layers",
+        "acceptable_outcomes",
+        "probe_kind",
+        "probe_independence",
+        "probe_detail",
+        "observed_outcome",
+        "outcome_status",
+        "unacceptable_outcomes",
+        "final_sha256"
+      ],
+      "properties": {
+        "case_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9_-]*(/[a-z0-9][a-z0-9_-]*)+$"
+        },
+        "profile": { "const": "negative" },
+        "status": { "const": "generated" },
+        "validity": { "const": "expected_invalid" },
+        "path": { "type": "string", "minLength": 1 },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "size_bytes": { "type": "integer", "minimum": 0 },
+        "determinism": { "$ref": "#/$defs/determinism" },
+        "provider_kind": { "const": "mutation_layer" },
+        "provider_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9_-]*$"
+        },
+        "recipe_id": { "type": "string", "minLength": 1 },
+        "recipe_version": { "const": "0.1.0" },
+        "contract_version": { "const": "0.1.0" },
+        "source_case_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9_-]*(/[a-z0-9][a-z0-9_-]*)+$"
+        },
+        "source_sha256": { "$ref": "#/$defs/sha256" },
+        "source_transfer_syntax_uid": {
+          "type": "string",
+          "pattern": "^[0-9]+(\\.[0-9]+)+$",
+          "maxLength": 64
+        },
+        "source_size_bytes": { "type": "integer", "minimum": 1 },
+        "source_shape": { "type": "string", "minLength": 1 },
+        "mutation_ids": {
+          "$ref": "#/$defs/negative_string_array"
+        },
+        "mutation_count": { "type": "integer", "minimum": 1 },
+        "expected_failure_layers": {
+          "$ref": "#/$defs/negative_string_array"
+        },
+        "acceptable_outcomes": {
+          "$ref": "#/$defs/negative_string_array"
+        },
+        "probe_kind": { "const": "same_project_bounded_parser_classifier" },
+        "probe_independence": { "const": "same_project" },
+        "probe_detail": { "type": "string", "minLength": 1 },
+        "observed_outcome": {
+          "enum": [
+            "clean_rejection",
+            "parse_failure",
+            "validation_failure",
+            "decode_failure",
+            "accepted_with_bounded_warning",
+            "timeout",
+            "crash",
+            "hang",
+            null
+          ]
+        },
+        "outcome_status": {
+          "enum": ["acceptable", "unacceptable", "not_run"]
+        },
+        "unacceptable_outcomes": {
+          "const": ["timeout", "crash", "hang"]
+        },
+        "final_sha256": { "$ref": "#/$defs/sha256" }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "observed_outcome": {
+                "enum": ["timeout", "crash", "hang"]
+              }
+            },
+            "required": ["observed_outcome"]
+          },
+          "then": {
+            "properties": {
+              "outcome_status": { "const": "unacceptable" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "observed_outcome": { "type": "null" } },
+            "required": ["observed_outcome"]
+          },
+          "then": {
+            "properties": { "outcome_status": { "const": "not_run" } }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "observed_outcome": {
+                "enum": [
+                  "clean_rejection",
+                  "parse_failure",
+                  "validation_failure",
+                  "decode_failure",
+                  "accepted_with_bounded_warning"
+                ]
+              }
+            },
+            "required": ["observed_outcome"]
+          },
+          "then": {
+            "properties": { "outcome_status": { "const": "acceptable" } }
+          }
+        }
+      ],
+      "additionalProperties": false
+    },
+    "grouped_negative_coverage": {
+      "type": "object",
+      "required": [
+        "expected_invalid_files",
+        "outcome_statuses",
+        "observed_outcomes",
+        "expected_failure_layers",
+        "mutation_ids",
+        "providers"
+      ],
+      "properties": {
+        "expected_invalid_files": { "type": "integer", "minimum": 0 },
+        "outcome_statuses": { "$ref": "#/$defs/count_map" },
+        "observed_outcomes": { "$ref": "#/$defs/count_map" },
+        "expected_failure_layers": { "$ref": "#/$defs/count_map" },
+        "mutation_ids": { "$ref": "#/$defs/count_map" },
+        "providers": { "$ref": "#/$defs/count_map" }
+      },
+      "additionalProperties": false
     },
     "coverage_row": {
       "type": "object",

@@ -397,6 +397,75 @@ fn manifest_schema_separates_expected_invalid_files_from_valid_dicom_contracts()
     );
 }
 
+fn negative_coverage_row_fixture() -> Value {
+    serde_json::json!({
+        "case_id": "negative/encoding/illegal_vr_bytes",
+        "profile": "negative",
+        "status": "generated",
+        "validity": "expected_invalid",
+        "path": "negative/encoding/illegal_vr_bytes/instance.dcm",
+        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "size_bytes": 511,
+        "determinism": "byte_stable",
+        "provider_kind": "mutation_layer",
+        "provider_id": "checked_part10_mutation",
+        "recipe_id": "negative_encoding_illegal_vr_bytes",
+        "recipe_version": "0.1.0",
+        "contract_version": "0.1.0",
+        "source_case_id": "classic/sc/mono2_u8_explicit_le",
+        "source_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "source_transfer_syntax_uid": "1.2.840.10008.1.2.1",
+        "source_size_bytes": 512,
+        "source_shape": "Explicit VR Little Endian Part 10 with a located short-VR field",
+        "mutation_ids": ["illegal_vr_bytes"],
+        "mutation_count": 1,
+        "expected_failure_layers": ["dataset_parser"],
+        "acceptable_outcomes": ["clean_rejection", "parse_failure"],
+        "probe_kind": "same_project_bounded_parser_classifier",
+        "probe_independence": "same_project",
+        "probe_detail": "The bounded Part 10 locator rejected illegal VR bytes.",
+        "observed_outcome": "parse_failure",
+        "outcome_status": "acceptable",
+        "unacceptable_outcomes": ["timeout", "crash", "hang"],
+        "final_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    })
+}
+
+#[test]
+fn coverage_report_schema_projects_negative_outcomes_separately() {
+    let schema = read_json("schemas/coverage-report.schema.json");
+    let negative_row_schema = serde_json::json!({
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$ref": "#/$defs/negative_coverage_row",
+        "$defs": schema["$defs"].clone()
+    });
+    let validator = jsonschema::validator_for(&negative_row_schema)
+        .expect("negative coverage row schema should compile");
+    let row = negative_coverage_row_fixture();
+    assert!(validator.is_valid(&row));
+
+    let mut unsafe_status = row.clone();
+    unsafe_status["observed_outcome"] = Value::String("timeout".to_string());
+    assert!(
+        !validator.is_valid(&unsafe_status),
+        "timeouts must never be reported as acceptable outcomes"
+    );
+    unsafe_status["outcome_status"] = Value::String("unacceptable".to_string());
+    assert!(validator.is_valid(&unsafe_status));
+
+    let valid_row_schema = serde_json::json!({
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$ref": "#/$defs/coverage_row",
+        "$defs": schema["$defs"].clone()
+    });
+    let valid_row_validator = jsonschema::validator_for(&valid_row_schema)
+        .expect("valid coverage row schema should compile");
+    assert!(
+        !valid_row_validator.is_valid(&row),
+        "negative outcomes must not masquerade as valid conformance rows"
+    );
+}
+
 #[test]
 fn manifest_schema_types_cross_instance_geometry_expectations() {
     let schema = read_json("schemas/manifest.schema.json");

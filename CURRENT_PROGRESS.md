@@ -1,29 +1,48 @@
 # Current Progress
 
 **Last updated:** 2026-08-28
-**Active goal:** complete the remaining dependency-ordered coverage-expansion
-plan without weakening profile isolation or validation gates
-**Current phase:** Phases 0–4 complete with unavailable coverage explicit;
-Phase 5 EOT milestone complete and Phase 7 mutation infrastructure in progress
+**Active goal:** coverage-expansion implementation complete at the approved
+capability and independent-validation boundaries
+**Current phase:** Phases 0–8 have complete implementation substrates,
+vertical slices, validation, reports, tests, and status documentation; remaining
+rows are deliberately explicit unavailable coverage
 **Repo state source:** reconstructed from `cases/registry.json`, phase status
 notes, git history, and current verification runs.
 
 ## Phase Status
 
-- The registry contains 153 implemented and 38 planned logical cases.
-- Phase 2 is complete.
+- The registry contains 178 implemented and 13 planned logical cases. Every
+  planned row names a current provider, independent-validation, or toolchain
+  blocker; obsolete backend-contract and resolved decision-checkpoint blockers
+  have been removed.
+- Phases 0–2 are complete, including the registry/reporting baseline, shared
+  external-backend platform, CT geometry proofs, and native compatibility
+  breadth.
 - Phase 3 is closed. Encapsulated STL completes the mesh milestone; integer
   Parametric Map remains explicitly planned because its selected provider
   cannot emit the required representation.
 - Phase 4 is complete.
-- Phase 5 milestone 1 is complete for a real small EOT object and an honest
-  non-file overflow qualification. The genuine large object remains behind the
-  stress-budget checkpoint; lossy promotion is at the numeric-policy decision.
-- Phase 7 now has deterministic mutation and bounded Explicit VR LE/RLE byte-
-  locator substrates. Negative artifacts, expected-rejection reporting, and
-  the fuzz harness remain to be integrated.
-- Phases 6 and 8 remain unimplemented except for the existing small stress-
-  profile WSI pyramid and shared profile/platform infrastructure.
+- Phase 5 is complete at the selected capability boundary: EOT, approved lossy
+  slices, and their numeric policies are implemented. JPEG Extended 12-bit,
+  JPEG-LS near-lossless, JPEG 2000 lossy, and video remain explicit unavailable
+  where a generator, probe, or independent decoder is not integrated.
+- Phase 6 is complete for the approved reduced envelope. Seven isolated stress
+  qualifications generate, validate, and report requested/actual scale and
+  resource evidence; full-scale execution remains explicitly unavailable and
+  excluded from ordinary CI.
+- Phase 7 is complete. Fifteen deterministic negative cases and the bounded,
+  payload-free fuzz corpus have separate profiles, validation contracts, and
+  report sections; neither can enter `all`.
+- Phase 8 is complete at the available independent-tool boundary. A real
+  three-member DICOMDIR baseline passes Rust closure, `dciodvfy`, `dcentvfy`,
+  and same-provider DCMTK parsing, but remains non-promotable because dcm4che is
+  unavailable. DIMSE, DICOMweb, TLS/user identity, digital signatures, and
+  secure media have dedicated reports or registry rows with precise unavailable
+  evidence rather than inferred passes.
+- A fresh default extended seed-7 corpus contains 115 files. Its Phase 8 media
+  selection is Enhanced CT plus binary SEG plus General ECG; the clean local
+  qualification reports zero provider warnings and keeps protocol/media results
+  separate from ordinary file coverage.
 
 ## Historical Status Notes
 

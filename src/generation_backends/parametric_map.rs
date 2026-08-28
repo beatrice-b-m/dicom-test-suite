@@ -290,7 +290,7 @@ pub fn generate_parametric_map_for_spec(
             let output = single_output(&run.response, spec)?;
             verify_backend_expectations(output, &payload, &input.identities, spec.sample_kind)?;
             let staged_path = run.staging_root.join("outputs").join(spec.output_file);
-            verify_staged_dicom_payload(&staged_path, &payload)?;
+            verify_staged_dicom_payload(&staged_path, &payload, &input.identities)?;
             let output_bytes =
                 fs::read(&staged_path).map_err(|source| BackendContractError::Read {
                     path: staged_path,
@@ -316,6 +316,7 @@ pub fn generate_parametric_map_for_spec(
 fn verify_staged_dicom_payload(
     path: &Path,
     payload: &ParametricMapPayload,
+    identities: &ParametricMapIdentities,
 ) -> Result<(), BackendContractError> {
     let object = open_file(path)
         .map_err(|error| invalid(format!("reopen staged Parametric Map: {error}")))?;
@@ -357,6 +358,18 @@ fn verify_staged_dicom_payload(
                 "staged Parametric Map contains a forbidden alternate Pixel Data element",
             ));
         }
+    }
+    let actual_frame_of_reference = object
+        .element(tags::FRAME_OF_REFERENCE_UID)
+        .map_err(|error| invalid(format!("read staged Frame of Reference UID: {error}")))?
+        .to_str()
+        .map_err(|error| invalid(format!("decode staged Frame of Reference UID: {error}")))?;
+    if actual_frame_of_reference.trim_end_matches(['\0', ' '])
+        != identities.frame_of_reference_uid
+    {
+        return Err(invalid(
+            "staged Parametric Map Frame of Reference UID differs from the request",
+        ));
     }
     Ok(())
 }
@@ -1073,18 +1086,27 @@ mod tests {
             minimum: 1.5,
             maximum: 1.5,
         };
-        write_float_payload(&path, 1.5);
-        verify_staged_dicom_payload(&path, &ParametricMapPayload::Float32(payload.clone()))
-            .expect("matching staged float pixels should pass");
+        let identities = input().identities;
+        write_float_payload(&path, 1.5, &identities.frame_of_reference_uid);
+        verify_staged_dicom_payload(
+            &path,
+            &ParametricMapPayload::Float32(payload.clone()),
+            &identities,
+        )
+        .expect("matching staged float pixels should pass");
 
-        write_float_payload(&path, 2.5);
-        let error = verify_staged_dicom_payload(&path, &ParametricMapPayload::Float32(payload))
-            .expect_err("different staged float pixels must fail");
+        write_float_payload(&path, 2.5, &identities.frame_of_reference_uid);
+        let error = verify_staged_dicom_payload(
+            &path,
+            &ParametricMapPayload::Float32(payload),
+            &identities,
+        )
+        .expect_err("different staged float pixels must fail");
         assert!(error.to_string().contains("differs"));
         fs::remove_file(path).expect("remove staged payload fixture");
     }
 
-    fn write_float_payload(path: &Path, value: f32) {
+    fn write_float_payload(path: &Path, value: f32, frame_of_reference_uid: &str) {
         let mut object = InMemDicomObject::new_empty();
         object.put(DataElement::new(
             tags::SOP_CLASS_UID,
@@ -1100,6 +1122,11 @@ mod tests {
             tags::FLOAT_PIXEL_DATA,
             VR::OF,
             PrimitiveValue::F32(vec![value].into()),
+        ));
+        object.put(DataElement::new(
+            tags::FRAME_OF_REFERENCE_UID,
+            VR::UI,
+            PrimitiveValue::from(frame_of_reference_uid),
         ));
         object
             .with_meta(

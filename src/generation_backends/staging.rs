@@ -494,25 +494,6 @@ fn verify_part10_identity(
         compare_uid(path, &format!("dataset {label}"), &actual_uid, expected_uid)?;
     }
 
-    let expected_frame_of_reference = identities["frame_of_reference_uid"].as_str();
-    let actual_frame_of_reference = object
-        .element(tags::FRAME_OF_REFERENCE_UID)
-        .ok()
-        .map(|element| {
-            element
-                .to_str()
-                .map(|value| value.trim_end_matches(['\0', ' ']).to_string())
-                .map_err(|error| invalid(format!("decode Frame of Reference UID: {error}")))
-        })
-        .transpose()?;
-    if actual_frame_of_reference.as_deref() != expected_frame_of_reference {
-        return Err(invalid(format!(
-            "{} dataset Frame of Reference UID is {}, expected {}",
-            path.display(),
-            actual_frame_of_reference.as_deref().unwrap_or("absent"),
-            expected_frame_of_reference.unwrap_or("absent")
-        )));
-    }
     Ok(())
 }
 
@@ -727,7 +708,7 @@ mod tests {
     }
 
     #[test]
-    fn staged_output_must_match_prederived_study_series_and_frame_of_reference() {
+    fn staged_output_must_match_prederived_study_and_series() {
         let root = temporary_directory("output-identities");
         let output_path = root.join("output.dcm");
         write_source_dicom(&output_path);

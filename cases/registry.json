@@ -15019,8 +15019,8 @@
       "artifact_kind": "dicom_instance",
       "status": "planned",
       "provider": {
-        "kind": "external_backend",
-        "id": "highdicom_pydicom"
+        "kind": "rust_native",
+        "id": "rust_native"
       },
       "object_family": "visible_light",
       "compatibility_axes": [
@@ -15030,24 +15030,19 @@
         "scale"
       ],
       "roadmap": {
-        "priority": "later",
+        "priority": "next",
         "delivery_phase": "phase-4",
-        "rationale": "Exercises multiple optical paths and focal planes."
+        "rationale": "Exercises implicit frame ordering across multiple optical paths."
       },
       "blockers": [
         {
-          "code": "backend_contract_unimplemented",
-          "message": "The external generation contract is not implemented.",
-          "recheck_phase": "phase-1"
-        },
-        {
-          "code": "stress_budget_policy_pending",
-          "message": "Measured multi-path size and runtime budgets are not established.",
+          "code": "recipe_unimplemented",
+          "message": "The standards-locked two-optical-path native recipe is not implemented.",
           "recheck_phase": "phase-4"
         }
       ],
       "profiles": [
-        "stress"
+        "extended"
       ],
       "recipe_id": "vl_wsi_multiple_optical_paths",
       "recipe_version": "0.1.0",
@@ -15056,7 +15051,7 @@
       "sop_class_uid": "1.2.840.10008.5.1.4.1.1.77.1.6",
       "modality": "SM",
       "transfer_syntax_uid": "1.2.840.10008.1.2.1",
-      "determinism": "semantic_stable",
+      "determinism": "byte_stable",
       "requirements": {
         "features": [],
         "external_codecs": [],
@@ -15071,6 +15066,14 @@
           "covered": true,
           "part": "PS3.6",
           "anchor": "table_A-1"
+        },
+        {
+          "source": "local-source-note",
+          "edition": "2026b",
+          "query": "standards/source-notes/phase-4-wsi-multiple-optical-paths.md",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "sect_C.7.6.17.3"
         }
       ]
     },

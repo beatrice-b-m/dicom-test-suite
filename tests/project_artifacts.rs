@@ -1088,6 +1088,49 @@ fn phase4_wsi_pyramid_standards_lock_and_promotion_are_recorded() {
 }
 
 #[test]
+fn phase4_multiple_optical_path_wsi_plan_is_native_and_standards_locked() {
+    let note = fs::read_to_string("standards/source-notes/phase-4-wsi-multiple-optical-paths.md")
+        .expect("Phase 4 multiple-optical-path WSI source note must be readable");
+    for required in [
+        "`BRIGHTFIELD`",
+        "`ALTERNATE`",
+        "exactly eight Frames",
+        "831fe6e50cbc3f3d82e3f57c984d3c273cdb18dd3bd3ab511b3633dc293f708f",
+        "62d9532d46c3f71b045a1393d95c49c4757ef5e62bb043a61baf4fffed189a2a",
+        "caa1a1abb84ec283bbf92a0f00d5bd89650420d0b1fa911e191ddb368f50e09f",
+        "16,384 total DICOM bytes",
+        "5 seconds",
+        "triggers no explicit decision checkpoint",
+    ] {
+        assert!(note.contains(required), "source note requires {required}");
+    }
+
+    let registry = read_json("cases/registry.json");
+    let case = registry_cases(&registry)
+        .into_iter()
+        .find(|case| {
+            case.get("case_id").and_then(Value::as_str) == Some("vl/wsi/multiple_optical_paths")
+        })
+        .expect("multiple-optical-path WSI registry row must exist");
+    assert_eq!(case["status"], "planned");
+    assert_eq!(
+        case["provider"],
+        serde_json::json!({"kind": "rust_native", "id": "rust_native"})
+    );
+    assert_eq!(case["determinism"], "byte_stable");
+    assert_eq!(case["profiles"], serde_json::json!(["extended"]));
+    assert_eq!(case["roadmap"]["priority"], "next");
+    assert_eq!(case["blockers"].as_array().map(Vec::len), Some(1));
+    assert_eq!(case["blockers"][0]["code"], "recipe_unimplemented");
+    assert!(case["standards_evidence"].as_array().is_some_and(|items| {
+        items.iter().any(|item| {
+            item["query"] == "standards/source-notes/phase-4-wsi-multiple-optical-paths.md"
+                && item["covered"] == true
+        })
+    }));
+}
+
+#[test]
 fn integer_parametric_map_retains_explicit_provider_blocker() {
     let registry = read_json("cases/registry.json");
     let case = registry_cases(&registry)

@@ -92,7 +92,7 @@ fn assert_manifest_contract(root: &Path, file: &Value) {
     assert!(
         file.pointer("/generation_backend/version")
             .and_then(Value::as_str)
-            .is_some_and(|version| version.starts_with("0.4.0+highdicom.0.28.1"))
+            .is_some_and(|version| version.starts_with("0.5.0+highdicom.0.28.1"))
     );
     assert_eq!(file["references"].as_array().map(Vec::len), Some(1));
     let reference = &file["references"][0];

@@ -453,6 +453,82 @@ mod tests {
     }
 
     #[test]
+    fn extended_offset_table_matches_padding_sensitive_three_frame_oracle() {
+        let frames = vec![vec![1, 2, 3, 4], vec![5, 6, 7, 8, 9], vec![10; 6]];
+
+        let encoded =
+            EncapsulatedPixelData::one_fragment_per_frame_with_extended_offset_table(&frames)
+                .expect("three frames should encapsulate with extended offsets");
+        let extended = encoded
+            .extended_offset_table
+            .as_ref()
+            .expect("extended tables should be present");
+
+        assert!(!encoded.basic_offset_table.is_populated());
+        assert_eq!(
+            &encoded.value_bytes[..8],
+            &[0xfe, 0xff, 0x00, 0xe0, 0, 0, 0, 0]
+        );
+        assert_eq!(encoded.fragments_per_frame, vec![1, 1, 1]);
+        assert_eq!(extended.offsets, vec![0, 12, 26]);
+        assert_eq!(extended.lengths, vec![4, 5, 6]);
+        assert_eq!(
+            encoded
+                .fragments
+                .iter()
+                .map(|fragment| fragment.padded_length)
+                .collect::<Vec<_>>(),
+            vec![4, 6, 6]
+        );
+        assert_eq!(
+            encoded
+                .fragments
+                .iter()
+                .map(|fragment| u64::from(fragment.item_start_offset - 8))
+                .collect::<Vec<_>>(),
+            extended.offsets
+        );
+        assert_eq!(
+            extended.offset_value_bytes,
+            vec![
+                0, 0, 0, 0, 0, 0, 0, 0, 12, 0, 0, 0, 0, 0, 0, 0, 26, 0, 0, 0, 0, 0, 0, 0,
+            ]
+        );
+        assert_eq!(
+            extended.length_value_bytes,
+            vec![
+                4, 0, 0, 0, 0, 0, 0, 0, 5, 0, 0, 0, 0, 0, 0, 0, 6, 0, 0, 0, 0, 0, 0, 0,
+            ]
+        );
+    }
+
+    #[test]
+    fn virtual_lengths_cross_basic_offset_range_without_allocating_payload() {
+        let layout = calculate_frame_offset_layout(&[0xffff_fffe, 2])
+            .expect("virtual layout should fit u64");
+
+        assert_eq!(layout.compressed_lengths, vec![0xffff_fffe, 2]);
+        assert_eq!(layout.padded_item_lengths, vec![0xffff_fffe, 2]);
+        assert_eq!(layout.offsets, vec![0, 0x1_0000_0006]);
+        assert_eq!(layout.first_non_representable_basic_offset_frame, Some(1));
+        assert!(!layout.basic_offset_table_is_representable());
+        assert!(layout.offsets[1] > u64::from(u32::MAX));
+    }
+
+    #[test]
+    fn checked_extended_offset_arithmetic_reports_u64_overflow() {
+        assert_eq!(
+            calculate_frame_offset_layout(&[u64::MAX]).expect_err("odd padding should overflow"),
+            EncapsulationError::ExtendedOffsetArithmeticOverflow { frame_index: 0 }
+        );
+        assert_eq!(
+            calculate_frame_offset_layout(&[u64::MAX - 1])
+                .expect_err("item header addition should overflow"),
+            EncapsulationError::ExtendedOffsetArithmeticOverflow { frame_index: 0 }
+        );
+    }
+
+    #[test]
     fn rejects_empty_frame_list_and_invalid_fragment_layouts() {
         assert_eq!(
             EncapsulatedPixelData::one_fragment_per_frame(&[], BasicOffsetTablePolicy::Empty)

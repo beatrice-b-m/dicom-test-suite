@@ -145,44 +145,48 @@ pub fn build_coverage_gap_report(
             increment(&mut priority_counts, priority);
         }
 
-        record_dimension(
-            &mut object_families,
-            object_family,
-            case_id,
-            status,
-            provider_id,
-            priority,
-        );
-        if let Some(sop_class_uid) = case.get("sop_class_uid").and_then(Value::as_str) {
+        if status_contributes_to_dimensions(status) {
             record_dimension(
-                &mut sop_classes,
-                sop_class_uid,
+                &mut object_families,
+                object_family,
                 case_id,
                 status,
                 provider_id,
                 priority,
             );
-        }
-        if let Some(modality) = case.get("modality").and_then(Value::as_str) {
-            record_dimension(
-                &mut modalities,
-                modality,
-                case_id,
-                status,
-                provider_id,
-                priority,
-            );
+            if let Some(sop_class_uid) = case.get("sop_class_uid").and_then(Value::as_str) {
+                record_dimension(
+                    &mut sop_classes,
+                    sop_class_uid,
+                    case_id,
+                    status,
+                    provider_id,
+                    priority,
+                );
+            }
+            if let Some(modality) = case.get("modality").and_then(Value::as_str) {
+                record_dimension(
+                    &mut modalities,
+                    modality,
+                    case_id,
+                    status,
+                    provider_id,
+                    priority,
+                );
+            }
         }
         let axes = string_array(case, "compatibility_axes")?;
-        for axis in &axes {
-            record_dimension(
-                &mut compatibility_axes,
-                axis,
-                case_id,
-                status,
-                provider_id,
-                priority,
-            );
+        if status_contributes_to_dimensions(status) {
+            for axis in &axes {
+                record_dimension(
+                    &mut compatibility_axes,
+                    axis,
+                    case_id,
+                    status,
+                    provider_id,
+                    priority,
+                );
+            }
         }
 
         if matches!(status, "planned" | "blocked" | "skipped") {
@@ -367,6 +371,10 @@ fn increment(counts: &mut BTreeMap<String, usize>, value: &str) {
     *counts.entry(value.to_string()).or_default() += 1;
 }
 
+fn status_contributes_to_dimensions(status: &str) -> bool {
+    matches!(status, "implemented" | "planned" | "blocked" | "skipped")
+}
+
 fn record_dimension(
     dimensions: &mut BTreeMap<String, DimensionCases>,
     value: &str,
@@ -390,4 +398,17 @@ fn dimension_rows(dimensions: &BTreeMap<String, DimensionCases>) -> Vec<Value> {
 
 fn markdown_cell(value: &str) -> String {
     value.replace('|', "\\|").replace('\n', " ")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::status_contributes_to_dimensions;
+
+    #[test]
+    fn deprecated_cases_do_not_create_empty_dimension_rows() {
+        assert!(!status_contributes_to_dimensions("deprecated"));
+        for status in ["implemented", "planned", "blocked", "skipped"] {
+            assert!(status_contributes_to_dimensions(status));
+        }
+    }
 }

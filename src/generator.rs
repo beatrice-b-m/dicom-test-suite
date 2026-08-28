@@ -17458,7 +17458,9 @@ fn write_segmentation_case(
     put_str(&mut obj, tags::STUDY_DATE, VR::DA, "20260101");
     put_str(&mut obj, tags::STUDY_TIME, VR::TM, "000000");
     put_str(&mut obj, tags::REFERRING_PHYSICIAN_NAME, VR::PN, "");
-    put_str(&mut obj, tags::STUDY_ID, VR::SH, "DTS-SEG");
+    // Study ID is a Study-level attribute and must remain identical to the
+    // referenced Enhanced CT source within their shared Study Instance UID.
+    put_str(&mut obj, tags::STUDY_ID, VR::SH, "DTS-ECT");
     put_str(&mut obj, tags::ACCESSION_NUMBER, VR::SH, "");
 
     put_str(&mut obj, tags::MODALITY, VR::CS, "SEG");

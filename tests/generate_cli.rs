@@ -6552,6 +6552,21 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
     let segmentation = open_file(&segmentation_path).expect("SEG DICOM file should parse");
     assert_eq!(
         segmentation
+            .element(tags::STUDY_ID)
+            .expect("SEG should contain Study ID")
+            .to_str()
+            .expect("SEG Study ID should be text")
+            .trim(),
+        enhanced_ct
+            .element(tags::STUDY_ID)
+            .expect("Enhanced CT should contain Study ID")
+            .to_str()
+            .expect("Enhanced CT Study ID should be text")
+            .trim(),
+        "objects in one Study Instance must retain one Study ID"
+    );
+    assert_eq!(
+        segmentation
             .element(tags::SOP_CLASS_UID)
             .expect("SEG file should contain SOP Class UID")
             .value()

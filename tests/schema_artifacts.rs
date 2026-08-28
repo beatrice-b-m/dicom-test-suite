@@ -3430,6 +3430,16 @@ fn coverage_report_schema_requires_the_specified_matrix_fields() {
         "wsi_sentinel_matrix_sha256",
         "wsi_explicit_position_reconstruction",
         "wsi_reference_free",
+        "wsi_multiple_optical_paths_expectation_present",
+        "wsi_multiple_optical_paths_count",
+        "wsi_multiple_optical_paths_ordered_identifiers",
+        "wsi_multiple_optical_paths_total_frame_count",
+        "wsi_multiple_optical_paths_frame_ranges",
+        "wsi_multiple_optical_paths_aggregate_payload_sha256",
+        "wsi_multiple_optical_paths_per_path_payload_sha256_values",
+        "wsi_multiple_optical_paths_per_path_matrix_sha256_values",
+        "wsi_multiple_optical_paths_per_path_matrix_shapes",
+        "wsi_multiple_optical_paths_per_path_icc_sha256_values",
         "wsi_pyramid_role",
         "wsi_pyramid_ordinal",
         "wsi_pyramid_member_count",
@@ -3491,6 +3501,7 @@ fn coverage_report_schema_requires_the_specified_matrix_fields() {
         "wsi_sparse_dimension_metadata_absent",
         "wsi_explicit_position_reconstruction",
         "wsi_reference_free",
+        "wsi_multiple_optical_paths_expectation_present",
     ] {
         assert_eq!(
             schema
@@ -3500,6 +3511,26 @@ fn coverage_report_schema_requires_the_specified_matrix_fields() {
             "coverage row {field} must be nullable boolean"
         );
     }
+    let multiple_path_rule = schema
+        .pointer("/$defs/coverage_row/allOf")
+        .and_then(Value::as_array)
+        .unwrap()
+        .iter()
+        .find(|rule| {
+            rule.pointer("/if/properties/case_id/const")
+                == Some(&serde_json::json!("vl/wsi/multiple_optical_paths"))
+        })
+        .expect("multiple optical paths report rule");
+    assert_eq!(
+        multiple_path_rule
+            .pointer("/then/properties/wsi_multiple_optical_paths_ordered_identifiers/const"),
+        Some(&serde_json::json!("BRIGHTFIELD; ALTERNATE"))
+    );
+    assert_eq!(
+        multiple_path_rule
+            .pointer("/else/properties/wsi_multiple_optical_paths_expectation_present/type"),
+        Some(&serde_json::json!("null"))
+    );
     for (field, values) in [
         (
             "enhanced_mr_dimension_index_pointer",

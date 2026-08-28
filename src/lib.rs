@@ -18873,6 +18873,61 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
         output.push('\n');
     }
 
+    let multiple_optical_path_rows = report
+        .get("coverage_matrix")
+        .and_then(Value::as_array)
+        .map(|rows| {
+            rows.iter()
+                .filter(|row| {
+                    row["wsi_multiple_optical_paths_expectation_present"] == Value::Bool(true)
+                })
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    if !multiple_optical_path_rows.is_empty() {
+        output.push_str("## Multiple Optical Path WSI Expectations\n\n");
+        output.push_str("| Case ID | Exact expectation | Path count / ordered identifiers | Total frames / per-path ranges | Aggregate payload SHA-256 | Per-path payload SHA-256 | Per-path matrix shape / SHA-256 | Per-path ICC SHA-256 |\n");
+        output.push_str("|---|---|---|---|---|---|---|---|\n");
+        for row in multiple_optical_path_rows {
+            output.push_str(&format!(
+                "| {} | {} | {} / {} | {} / {} | {} | {} | {} / {} | {} |\n",
+                markdown_cell(row.get("case_id").and_then(Value::as_str)),
+                markdown_bool(row.get("wsi_multiple_optical_paths_expectation_present")),
+                markdown_number(row.get("wsi_multiple_optical_paths_count")),
+                markdown_cell(
+                    row.get("wsi_multiple_optical_paths_ordered_identifiers")
+                        .and_then(Value::as_str)
+                ),
+                markdown_number(row.get("wsi_multiple_optical_paths_total_frame_count")),
+                markdown_cell(
+                    row.get("wsi_multiple_optical_paths_frame_ranges")
+                        .and_then(Value::as_str)
+                ),
+                markdown_cell(
+                    row.get("wsi_multiple_optical_paths_aggregate_payload_sha256")
+                        .and_then(Value::as_str)
+                ),
+                markdown_cell(
+                    row.get("wsi_multiple_optical_paths_per_path_payload_sha256_values")
+                        .and_then(Value::as_str)
+                ),
+                markdown_cell(
+                    row.get("wsi_multiple_optical_paths_per_path_matrix_shapes")
+                        .and_then(Value::as_str)
+                ),
+                markdown_cell(
+                    row.get("wsi_multiple_optical_paths_per_path_matrix_sha256_values")
+                        .and_then(Value::as_str)
+                ),
+                markdown_cell(
+                    row.get("wsi_multiple_optical_paths_per_path_icc_sha256_values")
+                        .and_then(Value::as_str)
+                ),
+            ));
+        }
+        output.push('\n');
+    }
+
     let wsi_pyramid_rows = report
         .get("coverage_matrix")
         .and_then(Value::as_array)
@@ -19118,6 +19173,64 @@ struct WsiTiledFullReportFields {
     sentinel_matrix_sha256: Option<&'static str>,
     explicit_position_reconstruction: Option<bool>,
     reference_free: Option<bool>,
+}
+
+#[derive(Default)]
+struct WsiMultipleOpticalPathsReportFields {
+    expectation_present: Option<bool>,
+    optical_path_count: Option<u64>,
+    ordered_identifiers: Option<&'static str>,
+    total_frame_count: Option<u64>,
+    frame_ranges: Option<&'static str>,
+    aggregate_payload_sha256: Option<&'static str>,
+    per_path_payload_sha256_values: Option<&'static str>,
+    per_path_matrix_sha256_values: Option<&'static str>,
+    per_path_matrix_shapes: Option<&'static str>,
+    per_path_icc_sha256_values: Option<&'static str>,
+}
+
+fn wsi_multiple_optical_paths_report_fields(
+    manifest_path: &Path,
+    file: &Value,
+) -> Result<WsiMultipleOpticalPathsReportFields, ReportError> {
+    const CASE_ID: &str = "vl/wsi/multiple_optical_paths";
+    let case_id = file.get("case_id").and_then(Value::as_str).unwrap_or("");
+    if case_id != CASE_ID {
+        return if file.get("expected_wsi_multiple_optical_paths").is_some() {
+            Err(ReportError::MetadataShape {
+                path: manifest_path.to_path_buf(),
+                message: "multiple-optical-path WSI report fields are case-scoped",
+            })
+        } else {
+            Ok(WsiMultipleOpticalPathsReportFields::default())
+        };
+    }
+    validate_wsi_multiple_optical_paths_manifest_contract(manifest_path, file).map_err(|_| {
+        ReportError::MetadataShape {
+            path: manifest_path.to_path_buf(),
+            message: "multiple-optical-path WSI coverage requires the exact locked expectation",
+        }
+    })?;
+    Ok(WsiMultipleOpticalPathsReportFields {
+        expectation_present: Some(true),
+        optical_path_count: Some(2),
+        ordered_identifiers: Some("BRIGHTFIELD; ALTERNATE"),
+        total_frame_count: Some(8),
+        frame_ranges: Some("BRIGHTFIELD:1-4; ALTERNATE:5-8"),
+        aggregate_payload_sha256: Some(
+            "831fe6e50cbc3f3d82e3f57c984d3c273cdb18dd3bd3ab511b3633dc293f708f",
+        ),
+        per_path_payload_sha256_values: Some(
+            "BRIGHTFIELD:b40b0afc9b180d5ebfb54a7db428e13fe09a33dcc9a8f76220f395ba2c68d2db; ALTERNATE:1f7ee233e83aebb2127b56d5d728f9ca2df9170ec4eb24e929dca261f9badbed",
+        ),
+        per_path_matrix_sha256_values: Some(
+            "BRIGHTFIELD:62d9532d46c3f71b045a1393d95c49c4757ef5e62bb043a61baf4fffed189a2a; ALTERNATE:caa1a1abb84ec283bbf92a0f00d5bd89650420d0b1fa911e191ddb368f50e09f",
+        ),
+        per_path_matrix_shapes: Some("BRIGHTFIELD:4x4x3; ALTERNATE:4x4x3"),
+        per_path_icc_sha256_values: Some(
+            "BRIGHTFIELD:8e069a3476b71a0e0ae7272d9278ba70540d1c4a0b19af1c7d52e56f49091fef; ALTERNATE:8e069a3476b71a0e0ae7272d9278ba70540d1c4a0b19af1c7d52e56f49091fef",
+        ),
+    })
 }
 
 #[derive(Default)]
@@ -19391,6 +19504,7 @@ fn generated_coverage_row(
     let vl_single_frame_laterality = vl_single_frame_report_laterality(manifest_path, file)?;
     let wsi_tiled_full = wsi_tiled_full_report_fields(manifest_path, file)?;
     let wsi_tiled_sparse = wsi_tiled_sparse_report_fields(manifest_path, file)?;
+    let wsi_multiple_optical_paths = wsi_multiple_optical_paths_report_fields(manifest_path, file)?;
     let wsi_pyramid = wsi_pyramid_report_fields(manifest_path, file)?;
     let wsi = if wsi_tiled_sparse.iod_kind.is_some() {
         &wsi_tiled_sparse
@@ -19828,6 +19942,68 @@ fn generated_coverage_row(
             wsi.explicit_position_reconstruction.map(Value::from),
         ),
         ("wsi_reference_free", wsi.reference_free.map(Value::from)),
+    ] {
+        row_object.insert(field.to_string(), value.unwrap_or(Value::Null));
+    }
+    for (field, value) in [
+        (
+            "wsi_multiple_optical_paths_expectation_present",
+            wsi_multiple_optical_paths
+                .expectation_present
+                .map(Value::from),
+        ),
+        (
+            "wsi_multiple_optical_paths_count",
+            wsi_multiple_optical_paths
+                .optical_path_count
+                .map(Value::from),
+        ),
+        (
+            "wsi_multiple_optical_paths_ordered_identifiers",
+            wsi_multiple_optical_paths
+                .ordered_identifiers
+                .map(Value::from),
+        ),
+        (
+            "wsi_multiple_optical_paths_total_frame_count",
+            wsi_multiple_optical_paths
+                .total_frame_count
+                .map(Value::from),
+        ),
+        (
+            "wsi_multiple_optical_paths_frame_ranges",
+            wsi_multiple_optical_paths.frame_ranges.map(Value::from),
+        ),
+        (
+            "wsi_multiple_optical_paths_aggregate_payload_sha256",
+            wsi_multiple_optical_paths
+                .aggregate_payload_sha256
+                .map(Value::from),
+        ),
+        (
+            "wsi_multiple_optical_paths_per_path_payload_sha256_values",
+            wsi_multiple_optical_paths
+                .per_path_payload_sha256_values
+                .map(Value::from),
+        ),
+        (
+            "wsi_multiple_optical_paths_per_path_matrix_sha256_values",
+            wsi_multiple_optical_paths
+                .per_path_matrix_sha256_values
+                .map(Value::from),
+        ),
+        (
+            "wsi_multiple_optical_paths_per_path_matrix_shapes",
+            wsi_multiple_optical_paths
+                .per_path_matrix_shapes
+                .map(Value::from),
+        ),
+        (
+            "wsi_multiple_optical_paths_per_path_icc_sha256_values",
+            wsi_multiple_optical_paths
+                .per_path_icc_sha256_values
+                .map(Value::from),
+        ),
     ] {
         row_object.insert(field.to_string(), value.unwrap_or(Value::Null));
     }
@@ -25522,6 +25698,16 @@ fn skipped_coverage_row(
         "wsi_sentinel_matrix_sha256",
         "wsi_explicit_position_reconstruction",
         "wsi_reference_free",
+        "wsi_multiple_optical_paths_expectation_present",
+        "wsi_multiple_optical_paths_count",
+        "wsi_multiple_optical_paths_ordered_identifiers",
+        "wsi_multiple_optical_paths_total_frame_count",
+        "wsi_multiple_optical_paths_frame_ranges",
+        "wsi_multiple_optical_paths_aggregate_payload_sha256",
+        "wsi_multiple_optical_paths_per_path_payload_sha256_values",
+        "wsi_multiple_optical_paths_per_path_matrix_sha256_values",
+        "wsi_multiple_optical_paths_per_path_matrix_shapes",
+        "wsi_multiple_optical_paths_per_path_icc_sha256_values",
         "wsi_pyramid_role",
         "wsi_pyramid_ordinal",
         "wsi_pyramid_member_count",
@@ -31890,6 +32076,84 @@ mod tests {
             )
             .is_err()
         );
+    }
+
+    #[test]
+    fn wsi_multiple_optical_paths_report_exposes_exact_ordered_evidence() {
+        let mut file = wsi_multiple_optical_paths_manifest();
+        file["dicom"]["transfer_syntax_name"] = Value::from("Explicit VR Little Endian");
+        file["determinism"] = Value::from("byte_stable");
+        file["validation"] = serde_json::json!({"status": "passed"});
+        file["known_stressors"] = serde_json::json!([
+            "vl_whole_slide_microscopy_image_storage",
+            "multiple_optical_paths",
+            "tiled_full_implicit_frame_order",
+            "per_path_matrix_reconstruction",
+            "nested_per_path_icc_profiles"
+        ]);
+
+        let row = generated_coverage_row(Path::new("manifest.json"), &file, "extended")
+            .expect("exact multiple-path WSI must produce a coverage row");
+        assert_eq!(
+            row["wsi_multiple_optical_paths_expectation_present"],
+            Value::Bool(true)
+        );
+        assert_eq!(row["wsi_multiple_optical_paths_count"], Value::from(2));
+        assert_eq!(
+            row["wsi_multiple_optical_paths_ordered_identifiers"],
+            Value::from("BRIGHTFIELD; ALTERNATE")
+        );
+        assert_eq!(
+            row["wsi_multiple_optical_paths_total_frame_count"],
+            Value::from(8)
+        );
+        assert_eq!(
+            row["wsi_multiple_optical_paths_aggregate_payload_sha256"],
+            Value::from("831fe6e50cbc3f3d82e3f57c984d3c273cdb18dd3bd3ab511b3633dc293f708f")
+        );
+        assert!(
+            row["wsi_multiple_optical_paths_per_path_payload_sha256_values"]
+                .as_str()
+                .unwrap()
+                .contains("ALTERNATE:1f7ee233")
+        );
+        assert!(
+            row["wsi_multiple_optical_paths_per_path_matrix_sha256_values"]
+                .as_str()
+                .unwrap()
+                .contains("BRIGHTFIELD:62d9532d")
+        );
+        let coverage_schema: Value =
+            serde_json::from_str(include_str!("../schemas/coverage-report.schema.json"))
+                .expect("coverage schema JSON");
+        let row_schema = serde_json::json!({
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$ref": "#/$defs/coverage_row",
+            "$defs": coverage_schema["$defs"].clone()
+        });
+        let row_validator =
+            jsonschema::validator_for(&row_schema).expect("coverage row schema compiles");
+        let errors = row_validator
+            .iter_errors(&row)
+            .map(|error| error.to_string())
+            .collect::<Vec<_>>();
+        assert!(
+            errors.is_empty(),
+            "multiple-path coverage row must satisfy its schema: {errors:?}"
+        );
+
+        let report = serde_json::json!({"coverage_matrix": [row]});
+        let markdown = render_coverage_report_markdown(&report);
+        assert!(markdown.contains("## Multiple Optical Path WSI Expectations"));
+        assert!(markdown.contains("BRIGHTFIELD; ALTERNATE"));
+        assert!(markdown.contains("BRIGHTFIELD:4x4x3; ALTERNATE:4x4x3"));
+
+        let unrelated = serde_json::json!({"case_id": "classic/sc/rgb_planar0_explicit_le"});
+        let fields =
+            wsi_multiple_optical_paths_report_fields(Path::new("manifest.json"), &unrelated)
+                .expect("unrelated case must retain null report semantics");
+        assert!(fields.expectation_present.is_none());
+        assert!(fields.optical_path_count.is_none());
     }
 
     fn wsi_pyramid_test_contract() -> Value {

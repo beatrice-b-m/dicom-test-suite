@@ -1220,6 +1220,16 @@
         "wsi_sentinel_matrix_sha256",
         "wsi_explicit_position_reconstruction",
         "wsi_reference_free",
+        "wsi_multiple_optical_paths_expectation_present",
+        "wsi_multiple_optical_paths_count",
+        "wsi_multiple_optical_paths_ordered_identifiers",
+        "wsi_multiple_optical_paths_total_frame_count",
+        "wsi_multiple_optical_paths_frame_ranges",
+        "wsi_multiple_optical_paths_aggregate_payload_sha256",
+        "wsi_multiple_optical_paths_per_path_payload_sha256_values",
+        "wsi_multiple_optical_paths_per_path_matrix_sha256_values",
+        "wsi_multiple_optical_paths_per_path_matrix_shapes",
+        "wsi_multiple_optical_paths_per_path_icc_sha256_values",
         "wsi_pyramid_role",
         "wsi_pyramid_ordinal",
         "wsi_pyramid_member_count",
@@ -2222,6 +2232,26 @@
         },
         "wsi_explicit_position_reconstruction": { "type": ["boolean", "null"] },
         "wsi_reference_free": { "type": ["boolean", "null"] },
+        "wsi_multiple_optical_paths_expectation_present": { "type": ["boolean", "null"] },
+        "wsi_multiple_optical_paths_count": { "type": ["integer", "null"], "minimum": 2, "maximum": 2 },
+        "wsi_multiple_optical_paths_ordered_identifiers": { "enum": ["BRIGHTFIELD; ALTERNATE", null] },
+        "wsi_multiple_optical_paths_total_frame_count": { "type": ["integer", "null"], "minimum": 8, "maximum": 8 },
+        "wsi_multiple_optical_paths_frame_ranges": { "enum": ["BRIGHTFIELD:1-4; ALTERNATE:5-8", null] },
+        "wsi_multiple_optical_paths_aggregate_payload_sha256": {
+          "anyOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }]
+        },
+        "wsi_multiple_optical_paths_per_path_payload_sha256_values": {
+          "enum": ["BRIGHTFIELD:b40b0afc9b180d5ebfb54a7db428e13fe09a33dcc9a8f76220f395ba2c68d2db; ALTERNATE:1f7ee233e83aebb2127b56d5d728f9ca2df9170ec4eb24e929dca261f9badbed", null]
+        },
+        "wsi_multiple_optical_paths_per_path_matrix_sha256_values": {
+          "enum": ["BRIGHTFIELD:62d9532d46c3f71b045a1393d95c49c4757ef5e62bb043a61baf4fffed189a2a; ALTERNATE:caa1a1abb84ec283bbf92a0f00d5bd89650420d0b1fa911e191ddb368f50e09f", null]
+        },
+        "wsi_multiple_optical_paths_per_path_matrix_shapes": {
+          "enum": ["BRIGHTFIELD:4x4x3; ALTERNATE:4x4x3", null]
+        },
+        "wsi_multiple_optical_paths_per_path_icc_sha256_values": {
+          "enum": ["BRIGHTFIELD:8e069a3476b71a0e0ae7272d9278ba70540d1c4a0b19af1c7d52e56f49091fef; ALTERNATE:8e069a3476b71a0e0ae7272d9278ba70540d1c4a0b19af1c7d52e56f49091fef", null]
+        },
         "wsi_pyramid_role": { "enum": ["volume", "thumbnail", "label", null] },
         "wsi_pyramid_ordinal": { "type": ["integer", "null"], "minimum": 1, "maximum": 3 },
         "wsi_pyramid_member_count": { "type": ["integer", "null"], "minimum": 3, "maximum": 3 },
@@ -2943,6 +2973,43 @@
               "wsi_sentinel_matrix_sha256": { "const": "d10a587875f14a0b74a9e4935ce83cdb73377bd7357a172db8e9f7347c030eb3" },
               "wsi_explicit_position_reconstruction": { "const": true },
               "wsi_reference_free": { "const": true }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "case_id": { "const": "vl/wsi/multiple_optical_paths" },
+              "status": { "const": "generated" }
+            },
+            "required": ["case_id", "status"]
+          },
+          "then": {
+            "properties": {
+              "wsi_multiple_optical_paths_expectation_present": { "const": true },
+              "wsi_multiple_optical_paths_count": { "const": 2 },
+              "wsi_multiple_optical_paths_ordered_identifiers": { "const": "BRIGHTFIELD; ALTERNATE" },
+              "wsi_multiple_optical_paths_total_frame_count": { "const": 8 },
+              "wsi_multiple_optical_paths_frame_ranges": { "const": "BRIGHTFIELD:1-4; ALTERNATE:5-8" },
+              "wsi_multiple_optical_paths_aggregate_payload_sha256": { "const": "831fe6e50cbc3f3d82e3f57c984d3c273cdb18dd3bd3ab511b3633dc293f708f" },
+              "wsi_multiple_optical_paths_per_path_payload_sha256_values": { "const": "BRIGHTFIELD:b40b0afc9b180d5ebfb54a7db428e13fe09a33dcc9a8f76220f395ba2c68d2db; ALTERNATE:1f7ee233e83aebb2127b56d5d728f9ca2df9170ec4eb24e929dca261f9badbed" },
+              "wsi_multiple_optical_paths_per_path_matrix_sha256_values": { "const": "BRIGHTFIELD:62d9532d46c3f71b045a1393d95c49c4757ef5e62bb043a61baf4fffed189a2a; ALTERNATE:caa1a1abb84ec283bbf92a0f00d5bd89650420d0b1fa911e191ddb368f50e09f" },
+              "wsi_multiple_optical_paths_per_path_matrix_shapes": { "const": "BRIGHTFIELD:4x4x3; ALTERNATE:4x4x3" },
+              "wsi_multiple_optical_paths_per_path_icc_sha256_values": { "const": "BRIGHTFIELD:8e069a3476b71a0e0ae7272d9278ba70540d1c4a0b19af1c7d52e56f49091fef; ALTERNATE:8e069a3476b71a0e0ae7272d9278ba70540d1c4a0b19af1c7d52e56f49091fef" }
+            }
+          },
+          "else": {
+            "properties": {
+              "wsi_multiple_optical_paths_expectation_present": { "type": "null" },
+              "wsi_multiple_optical_paths_count": { "type": "null" },
+              "wsi_multiple_optical_paths_ordered_identifiers": { "type": "null" },
+              "wsi_multiple_optical_paths_total_frame_count": { "type": "null" },
+              "wsi_multiple_optical_paths_frame_ranges": { "type": "null" },
+              "wsi_multiple_optical_paths_aggregate_payload_sha256": { "type": "null" },
+              "wsi_multiple_optical_paths_per_path_payload_sha256_values": { "type": "null" },
+              "wsi_multiple_optical_paths_per_path_matrix_sha256_values": { "type": "null" },
+              "wsi_multiple_optical_paths_per_path_matrix_shapes": { "type": "null" },
+              "wsi_multiple_optical_paths_per_path_icc_sha256_values": { "type": "null" }
             }
           }
         },

@@ -101,11 +101,12 @@ fn deterministic_manifest_projection(manifest: &Value) -> Value {
                 .expect("manifest file should be an object");
             object.remove("sha256");
             object.remove("size_bytes");
-            object
+            if let Some(backend) = object
                 .get_mut("generation_backend")
                 .and_then(Value::as_object_mut)
-                .expect("semantic-stable file should record its generation backend")
-                .remove("invocation_elapsed_milliseconds");
+            {
+                backend.remove("invocation_elapsed_milliseconds");
+            }
         }
     }
     projection

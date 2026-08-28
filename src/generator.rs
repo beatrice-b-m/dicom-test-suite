@@ -2776,6 +2776,7 @@ const ENHANCED_CT_IMAGE_POSITIONS: &[&str] = &["0\\0\\0", "0\\0\\2.5"];
 const ENHANCED_CT_DIMENSION_INDEX_VALUES: &[u32] = &[1, 2];
 const STRESS_ENHANCED_CT_CASE_ID: &str = "stress/enhanced-ct/many_frames";
 const STRESS_HIGH_INSTANCE_CT_CASE_ID: &str = "stress/study/high_instance_count_ct";
+const STRESS_LARGE_BULK_CASE_ID: &str = "stress/sc/large_bulk_data";
 const ENHANCED_CT_CONCAT_PART_1_IMAGE_POSITIONS: &[&str] = &["0\\0\\0"];
 const ENHANCED_CT_CONCAT_PART_2_IMAGE_POSITIONS: &[&str] = &["0\\0\\2.5"];
 const ENHANCED_CT_CONCAT_PART_1_DIMENSION_INDEX_VALUES: &[u32] = &[1];
@@ -4732,6 +4733,15 @@ pub(crate) fn write_supported_cases(
     if let Some(case) = registry_case(registry, STRESS_HIGH_INSTANCE_CT_CASE_ID)? {
         if should_generate_case(case, run)? {
             context.record_many(write_stress_high_instance_ct_case(
+                run,
+                case,
+                standards_lock_sha256,
+            )?)?;
+        }
+    }
+    if let Some(case) = registry_case(registry, STRESS_LARGE_BULK_CASE_ID)? {
+        if should_generate_case(case, run)? {
+            context.record_one(write_stress_large_bulk_case(
                 run,
                 case,
                 standards_lock_sha256,
@@ -15197,6 +15207,260 @@ fn write_stress_high_instance_ct_case(
         kvp: "120",
     };
     write_classic_ct_case(run, case, recipe, standards_lock_sha256)
+}
+
+struct StressScIdentity {
+    study_instance_uid: String,
+    series_instance_uid: String,
+    sop_instance_uid: String,
+    implementation_class_uid: String,
+}
+
+fn stress_sc_uid(
+    standards_lock_sha256: &str,
+    case_id: &str,
+    run_seed: u64,
+    role: UidRole,
+) -> String {
+    deterministic_uid(&DeterministicUidInput {
+        standards_lock_sha256,
+        case_id,
+        recipe_version: "0.1.0",
+        run_seed,
+        file_index: 0,
+        frame_index: None,
+        referenced_object_index: None,
+        role,
+    })
+}
+
+fn base_stress_sc_object(
+    run: &PreparedGenerationRun,
+    case_id: &str,
+    recipe_id: &str,
+    standards_lock_sha256: &str,
+) -> (InMemDicomObject, StressScIdentity) {
+    let identity = StressScIdentity {
+        study_instance_uid: stress_sc_uid(
+            standards_lock_sha256,
+            case_id,
+            run.seed,
+            UidRole::StudyInstance,
+        ),
+        series_instance_uid: stress_sc_uid(
+            standards_lock_sha256,
+            case_id,
+            run.seed,
+            UidRole::SeriesInstance,
+        ),
+        sop_instance_uid: stress_sc_uid(
+            standards_lock_sha256,
+            case_id,
+            run.seed,
+            UidRole::SopInstance,
+        ),
+        implementation_class_uid: deterministic_implementation_uid(standards_lock_sha256),
+    };
+    let mut obj = InMemDicomObject::new_empty();
+    put_str(
+        &mut obj,
+        tags::SOP_CLASS_UID,
+        VR::UI,
+        uids::SECONDARY_CAPTURE_IMAGE_STORAGE,
+    );
+    put_str(
+        &mut obj,
+        tags::SOP_INSTANCE_UID,
+        VR::UI,
+        &identity.sop_instance_uid,
+    );
+    put_str(&mut obj, tags::SYNTHETIC_DATA, VR::CS, "YES");
+    put_str(&mut obj, tags::PATIENT_NAME, VR::PN, "DICOMTEST^STRESS");
+    put_str(&mut obj, tags::PATIENT_ID, VR::LO, "DICOMTEST-STRESS-001");
+    put_str(&mut obj, tags::PATIENT_BIRTH_DATE, VR::DA, "19700101");
+    put_str(&mut obj, tags::PATIENT_SEX, VR::CS, "O");
+    put_str(
+        &mut obj,
+        tags::STUDY_INSTANCE_UID,
+        VR::UI,
+        &identity.study_instance_uid,
+    );
+    put_str(&mut obj, tags::STUDY_DATE, VR::DA, "20260101");
+    put_str(&mut obj, tags::STUDY_TIME, VR::TM, "000000");
+    put_str(&mut obj, tags::REFERRING_PHYSICIAN_NAME, VR::PN, "");
+    put_str(&mut obj, tags::STUDY_ID, VR::SH, "DTS-STRESS");
+    put_str(&mut obj, tags::ACCESSION_NUMBER, VR::SH, "");
+    put_str(&mut obj, tags::MODALITY, VR::CS, "OT");
+    put_str(
+        &mut obj,
+        tags::SERIES_INSTANCE_UID,
+        VR::UI,
+        &identity.series_instance_uid,
+    );
+    put_str(&mut obj, tags::SERIES_NUMBER, VR::IS, "1");
+    put_str(&mut obj, tags::CONVERSION_TYPE, VR::CS, "SYN");
+    put_str(&mut obj, tags::MANUFACTURER, VR::LO, "dicom-test-suite");
+    put_str(&mut obj, tags::MANUFACTURER_MODEL_NAME, VR::LO, recipe_id);
+    put_str(
+        &mut obj,
+        tags::SOFTWARE_VERSIONS,
+        VR::LO,
+        crate::PACKAGE_VERSION,
+    );
+    put_str(&mut obj, tags::INSTANCE_NUMBER, VR::IS, "1");
+    put_str(&mut obj, tags::PATIENT_ORIENTATION, VR::CS, "");
+    put_str(&mut obj, tags::CONTENT_DATE, VR::DA, "20260101");
+    put_str(&mut obj, tags::CONTENT_TIME, VR::TM, "000000");
+    (obj, identity)
+}
+
+fn write_stress_large_bulk_case(
+    run: &PreparedGenerationRun,
+    case: &Value,
+    standards_lock_sha256: &str,
+) -> Result<GeneratedFile, GenerateError> {
+    const ROWS: u16 = 8192;
+    const COLUMNS: u16 = 4096;
+    const PAYLOAD_BYTES: usize = 64 * 1024 * 1024;
+    const RECIPE_ID: &str = "stress_sc_large_bulk_data_reduced";
+    let relative_path = format!("{STRESS_LARGE_BULK_CASE_ID}/instance.dcm");
+    let path = run.out_dir.join(&relative_path);
+    fs::create_dir_all(path.parent().expect("stress path has parent")).map_err(|source| {
+        GenerateError::CreateCaseOutputDir {
+            path: path.parent().unwrap().to_path_buf(),
+            source,
+        }
+    })?;
+    let (mut obj, identity) = base_stress_sc_object(
+        run,
+        STRESS_LARGE_BULK_CASE_ID,
+        RECIPE_ID,
+        standards_lock_sha256,
+    );
+    put_u16(&mut obj, tags::SAMPLES_PER_PIXEL, VR::US, 1);
+    put_str(
+        &mut obj,
+        tags::PHOTOMETRIC_INTERPRETATION,
+        VR::CS,
+        "MONOCHROME2",
+    );
+    put_u16(&mut obj, tags::ROWS, VR::US, ROWS);
+    put_u16(&mut obj, tags::COLUMNS, VR::US, COLUMNS);
+    put_u16(&mut obj, tags::BITS_ALLOCATED, VR::US, 16);
+    put_u16(&mut obj, tags::BITS_STORED, VR::US, 16);
+    put_u16(&mut obj, tags::HIGH_BIT, VR::US, 15);
+    put_u16(&mut obj, tags::PIXEL_REPRESENTATION, VR::US, 0);
+    let pixel_bytes = vec![0_u8; PAYLOAD_BYTES];
+    let pixel_sha256 = sha256_hex(&pixel_bytes);
+    obj.put(DataElement::new(
+        tags::PIXEL_DATA,
+        VR::OW,
+        PrimitiveValue::from(pixel_bytes),
+    ));
+    let file_obj = obj
+        .with_meta(
+            FileMetaTableBuilder::new()
+                .transfer_syntax(EXPLICIT_VR_LITTLE_ENDIAN.uid)
+                .implementation_class_uid(&identity.implementation_class_uid)
+                .implementation_version_name(crate::IMPLEMENTATION_VERSION_NAME),
+        )
+        .map_err(|error| GenerateError::WriteDicomFile {
+            path: path.clone(),
+            message: error.to_string(),
+        })?;
+    file_obj
+        .write_to_file(&path)
+        .map_err(|error| GenerateError::WriteDicomFile {
+            path: path.clone(),
+            message: error.to_string(),
+        })?;
+    let validated = validate_part10_file(
+        &path,
+        &Part10Expectations {
+            sop_class_uid: uids::SECONDARY_CAPTURE_IMAGE_STORAGE,
+            sop_instance_uid: &identity.sop_instance_uid,
+            transfer_syntax_uid: EXPLICIT_VR_LITTLE_ENDIAN.uid,
+            implementation_class_uid: &identity.implementation_class_uid,
+            synthetic_data: "YES",
+            rows: ROWS,
+            columns: COLUMNS,
+            frames: 1,
+            samples_per_pixel: 1,
+            photometric_interpretation: "MONOCHROME2",
+            bits_allocated: 16,
+            bits_stored: 16,
+            high_bit: 15,
+            pixel_representation: 0,
+            planar_configuration: None,
+            pixel_data_vr: VR::OW,
+            pixel_data_length_formula: PixelDataLengthFormula::ContiguousSamples,
+            decoded_frame_hashes: &[],
+            palette: None,
+            padding: None,
+            ct_image: None,
+            enhanced_ct_image: None,
+            enhanced_mr_image: None,
+            enhanced_pet_image: None,
+            mg_image: None,
+            dx_image: None,
+            xa_image: None,
+            xrf_image: None,
+            us_image: None,
+            us_multiframe: None,
+            nm_image: None,
+            pet_image: None,
+            cr_image: None,
+            mr_image: None,
+            segmentation: None,
+        },
+    )?;
+    Ok(GeneratedFile {
+        case_id: STRESS_LARGE_BULK_CASE_ID.to_string(),
+        manifest_entry: serde_json::json!({
+            "case_id": STRESS_LARGE_BULK_CASE_ID,
+            "profile_membership": ["stress"],
+            "path": relative_path,
+            "sha256": sha256_hex(&validated.bytes),
+            "size_bytes": validated.bytes.len(),
+            "determinism": "byte_stable",
+            "recipe": {
+                "recipe_id": RECIPE_ID,
+                "recipe_version": "0.1.0",
+                "recipe_parameters": {"rows": ROWS, "columns": COLUMNS, "payload_bytes": PAYLOAD_BYTES}
+            },
+            "dicom": {
+                "sop_class_uid": uids::SECONDARY_CAPTURE_IMAGE_STORAGE,
+                "sop_class_name": "Secondary Capture Image Storage",
+                "iod_name": "Secondary Capture Image",
+                "modality": "OT",
+                "transfer_syntax_uid": EXPLICIT_VR_LITTLE_ENDIAN.uid,
+                "transfer_syntax_name": EXPLICIT_VR_LITTLE_ENDIAN.name
+            },
+            "uids": {
+                "study_instance_uid": identity.study_instance_uid,
+                "series_instance_uid": identity.series_instance_uid,
+                "sop_instance_uid": identity.sop_instance_uid,
+                "implementation_class_uid": identity.implementation_class_uid
+            },
+            "image": {
+                "rows": ROWS, "columns": COLUMNS, "frames": 1,
+                "samples_per_pixel": 1, "photometric_interpretation": "MONOCHROME2",
+                "bits_allocated": 16, "bits_stored": 16, "high_bit": 15,
+                "pixel_representation": 0, "planar_configuration": Value::Null
+            },
+            "pixel_data": {
+                "vr": "OW", "native_or_encapsulated": "native", "value_length": PAYLOAD_BYTES,
+                "frame_count": 1, "frame_hashes": [pixel_sha256]
+            },
+            "references": [],
+            "expected_capabilities": ["open_file", "read_metadata", "render_native_pixels", "stream_large_bulk_data"],
+            "expected_semantics": {"synthetic_data": "YES", "pixel_min": 0, "pixel_max": 0},
+            "expected_visual_checks": {"pattern": "uniform_zero_reduced_64_mib_native_pixel_data"},
+            "validation": validated.validation,
+            "known_stressors": ["reduced_stress_scale", "large_native_bulk_data", "64_mib_pixel_data"],
+            "standards_evidence": deduplicated_standards_evidence(standards_evidence_from_case(case))
+        }),
+    })
 }
 
 fn classic_ct_series_recipes(recipe: ClassicCtRecipe) -> Vec<ClassicCtSeriesRecipe> {
@@ -33295,6 +33559,34 @@ mod tests {
                 .unwrap()
             );
         }
+    }
+
+    #[test]
+    fn reduced_large_bulk_sc_is_byte_stable_and_exact_scale() {
+        let first_root = ParametricMapStagingGuard::new();
+        let second_root = ParametricMapStagingGuard::new();
+        let run = |root: &ParametricMapStagingGuard| PreparedGenerationRun {
+            profile: "stress".to_string(),
+            out_dir: root.path().to_path_buf(),
+            manifest_path: root.path().join("manifest.json"),
+            seed: 7,
+            include_stress: false,
+        };
+        let case = serde_json::json!({
+            "case_id": STRESS_LARGE_BULK_CASE_ID,
+            "standards_evidence": []
+        });
+        let lock = "0000000000000000000000000000000000000000000000000000000000000000";
+        let first = write_stress_large_bulk_case(&run(&first_root), &case, lock).unwrap();
+        let second = write_stress_large_bulk_case(&run(&second_root), &case, lock).unwrap();
+        assert_eq!(first.manifest_entry, second.manifest_entry);
+        assert_eq!(
+            first.manifest_entry["pixel_data"]["value_length"],
+            64 * 1024 * 1024
+        );
+        assert_eq!(first.manifest_entry["image"]["rows"], 8192);
+        assert_eq!(first.manifest_entry["image"]["columns"], 4096);
+        assert!(first.manifest_entry["size_bytes"].as_u64().unwrap() > 64 * 1024 * 1024);
     }
 
     fn generated_source_fixture(

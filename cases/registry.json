@@ -8957,7 +8957,7 @@
     {
       "case_id": "derived/mesh/encapsulated_stl",
       "artifact_kind": "dicom_instance",
-      "status": "planned",
+      "status": "implemented",
       "provider": {
         "kind": "rust_native",
         "id": "rust_native"
@@ -8972,18 +8972,7 @@
         "delivery_phase": "phase-3",
         "rationale": "Adds the first mesh-oriented object through a deterministic manufacturing-model payload with independently checkable topology."
       },
-      "blockers": [
-        {
-          "code": "recipe_unimplemented",
-          "message": "The native Encapsulated STL Part 10 recipe is not integrated.",
-          "recheck_phase": "phase-3"
-        },
-        {
-          "code": "independent_payload_validator_unavailable",
-          "message": "The independent STL topology adapter is not integrated.",
-          "recheck_phase": "phase-3"
-        }
-      ],
+      "blockers": [],
       "profiles": [
         "extended"
       ],

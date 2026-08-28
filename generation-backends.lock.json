@@ -102,14 +102,15 @@
         "generation-backends/highdicom-pydicom/src/dts_highdicom_backend/parametric_map.py",
         "generation-backends/highdicom-pydicom/src/dts_highdicom_backend/protocol.py",
         "generation-backends/highdicom-pydicom/src/dts_highdicom_backend/scoord3d.py",
-        "generation-backends/highdicom-pydicom/src/dts_highdicom_backend/tid1500.py"
+        "generation-backends/highdicom-pydicom/src/dts_highdicom_backend/tid1500.py",
+        "generation-backends/highdicom-pydicom/src/dts_highdicom_backend/wsi_tile_segmentation.py"
         ],
         "environment_override": "DTS_HIGHDICOM_PYTHON"
       },
       "dependency_lock": {
         "format": "uv-lock-v1",
         "path": "generation-backends/highdicom-pydicom/uv.lock",
-        "sha256": "8623ce132cf886ce43bc7f9022df126ad754a02fd8b9b91c1e0d5355308e7e35"
+      "sha256": "253612f2a540d29071556c238e15abeb00929167e348edd6fa15e267e5189378"
       },
       "fingerprint_components": [
         "canonical_executable_bytes",

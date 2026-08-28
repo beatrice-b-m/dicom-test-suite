@@ -680,3 +680,244 @@ fn changed_uid(
     };
     Ok(replacement)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn padded(value: &str, pad: u8) -> Vec<u8> {
+        let mut bytes = value.as_bytes().to_vec();
+        if bytes.len() % 2 != 0 {
+            bytes.push(pad);
+        }
+        bytes
+    }
+
+    fn short(tag: Tag, vr: &[u8; 2], value: &[u8]) -> Vec<u8> {
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(&tag.0.to_le_bytes());
+        bytes.extend_from_slice(&tag.1.to_le_bytes());
+        bytes.extend_from_slice(vr);
+        bytes.extend_from_slice(&(value.len() as u16).to_le_bytes());
+        bytes.extend_from_slice(value);
+        bytes
+    }
+
+    fn long(tag: Tag, vr: &[u8; 2], value: &[u8], undefined: bool) -> Vec<u8> {
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(&tag.0.to_le_bytes());
+        bytes.extend_from_slice(&tag.1.to_le_bytes());
+        bytes.extend_from_slice(vr);
+        bytes.extend_from_slice(&[0, 0]);
+        bytes.extend_from_slice(
+            &if undefined {
+                u32::MAX
+            } else {
+                value.len() as u32
+            }
+            .to_le_bytes(),
+        );
+        bytes.extend_from_slice(value);
+        bytes
+    }
+
+    fn control(tag: Tag, length: u32, value: &[u8]) -> Vec<u8> {
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(&tag.0.to_le_bytes());
+        bytes.extend_from_slice(&tag.1.to_le_bytes());
+        bytes.extend_from_slice(&length.to_le_bytes());
+        bytes.extend_from_slice(value);
+        bytes
+    }
+
+    fn wrap(transfer_syntax: &str, dataset: &[u8]) -> Vec<u8> {
+        let mut bytes = vec![0; 128];
+        bytes.extend_from_slice(b"DICM");
+        bytes.extend(short(
+            Tag(0x0002, 0x0002),
+            b"UI",
+            &padded("1.2.840.10008.5.1.4.1.1.7", 0),
+        ));
+        bytes.extend(short(
+            Tag(0x0002, 0x0003),
+            b"UI",
+            &padded("1.2.826.0.1.3680043.10.543.900", 0),
+        ));
+        bytes.extend(short(
+            super::part10_locator::TRANSFER_SYNTAX_UID,
+            b"UI",
+            &padded(transfer_syntax, 0),
+        ));
+        bytes.extend_from_slice(dataset);
+        bytes
+    }
+
+    fn common_dataset() -> Vec<u8> {
+        let mut dataset = Vec::new();
+        dataset.extend(short(
+            SPECIFIC_CHARACTER_SET,
+            b"CS",
+            &padded("ISO_IR 192", b' '),
+        ));
+        dataset.extend(short(
+            SOP_CLASS_UID,
+            b"UI",
+            &padded("1.2.840.10008.5.1.4.1.1.7", 0),
+        ));
+        dataset.extend(short(
+            SOP_INSTANCE_UID,
+            b"UI",
+            &padded("1.2.826.0.1.3680043.10.543.901", 0),
+        ));
+        dataset.extend(short(MODALITY, b"CS", b"OT"));
+        dataset.extend(short(PATIENT_NAME, b"PN", &padded("Negative^Source", b' ')));
+        dataset.extend(short(BITS_STORED, b"US", &8u16.to_le_bytes()));
+        dataset.extend(short(HIGH_BIT, b"US", &7u16.to_le_bytes()));
+        dataset
+    }
+
+    fn native_source() -> Vec<u8> {
+        let mut dataset = common_dataset();
+        dataset.extend(long(PIXEL_DATA, b"OB", &[1, 2, 3, 4], false));
+        wrap(EXPLICIT_VR_LITTLE_ENDIAN_UID, &dataset)
+    }
+
+    fn nested_source() -> Vec<u8> {
+        let mut dataset = common_dataset();
+        let nested = short(
+            Tag(0x0008, 0x1155),
+            b"UI",
+            &padded("1.2.826.0.1.3680043.10.543.902", 0),
+        );
+        let item = control(Tag(0xfffe, 0xe000), nested.len() as u32, &nested);
+        dataset.extend(long(Tag(0x0008, 0x1115), b"SQ", &item, false));
+        dataset.extend(long(PIXEL_DATA, b"OB", &[1, 2, 3, 4], false));
+        wrap(EXPLICIT_VR_LITTLE_ENDIAN_UID, &dataset)
+    }
+
+    fn rle_source(with_eot: bool) -> Vec<u8> {
+        let mut dataset = common_dataset();
+        if with_eot {
+            dataset.extend(long(
+                super::part10_locator::EXTENDED_OFFSET_TABLE,
+                b"OV",
+                &0u64.to_le_bytes(),
+                false,
+            ));
+            dataset.extend(long(
+                super::part10_locator::EXTENDED_OFFSET_TABLE_LENGTHS,
+                b"OV",
+                &8u64.to_le_bytes(),
+                false,
+            ));
+        }
+        let mut pixel = control(Tag(0xfffe, 0xe000), 4, &[0, 0, 0, 0]);
+        pixel.extend(control(Tag(0xfffe, 0xe000), 8, &[1, 2, 3, 4, 5, 6, 7, 8]));
+        pixel.extend(control(Tag(0xfffe, 0xe0dd), 0, &[]));
+        dataset.extend(long(PIXEL_DATA, b"OB", &pixel, true));
+        wrap(RLE_LOSSLESS_UID, &dataset)
+    }
+
+    fn source_for(case_id: &str) -> Vec<u8> {
+        match case_id {
+            "negative/dataset/invalid_nested_item_length"
+            | "negative/dataset/truncated_sequence_item" => nested_source(),
+            "negative/encapsulation/broken_offset_table" => rle_source(true),
+            "negative/encapsulation/truncated_fragment" => rle_source(false),
+            _ => native_source(),
+        }
+    }
+
+    #[test]
+    fn registry_negative_rows_have_stable_mapping_entries() {
+        let registry = include_str!("../cases/registry.json");
+        assert_eq!(registry.matches("\"case_id\": \"negative/").count(), 15);
+        assert_eq!(NEGATIVE_CASE_IDS.len(), 15);
+        for case_id in NEGATIVE_CASE_IDS {
+            assert!(registry.contains(&format!("\"case_id\": \"{case_id}\"")));
+        }
+    }
+
+    #[test]
+    fn every_current_producible_recipe_is_deterministic_and_evidence_complete() {
+        for case_id in NEGATIVE_CASE_IDS {
+            if *case_id == "negative/dataset/undefined_length_without_delimitation" {
+                continue;
+            }
+            let source = source_for(case_id);
+            let first = build_negative_case(case_id, &source).expect(case_id);
+            let second = build_negative_case(case_id, &source).expect("repeat recipe");
+            assert_eq!(first, second, "{case_id}");
+            assert_ne!(first.bytes, source, "{case_id}");
+            assert_eq!(first.evidence.case_id, *case_id);
+            assert_eq!(first.evidence.recipe_version, NEGATIVE_RECIPE_VERSION);
+            assert!(!first.evidence.source.expected_case_id.is_empty());
+            assert_eq!(first.evidence.source.sha256.len(), 64);
+            assert_eq!(first.evidence.output_sha256.len(), 64);
+            assert!(!first.evidence.source_shape.is_empty());
+            assert!(!first.evidence.steps.is_empty());
+            assert_eq!(
+                first.evidence.steps.first().unwrap().source_sha256,
+                first.evidence.source.sha256
+            );
+            assert_eq!(
+                first.evidence.steps.last().unwrap().output_sha256,
+                first.evidence.output_sha256
+            );
+            for step in &first.evidence.steps {
+                assert!(!step.changed_byte_ranges.is_empty());
+                assert!(!step.acceptable_outcomes.is_empty());
+                assert_ne!(step.source_sha256, step.output_sha256);
+            }
+            for pair in first.evidence.steps.windows(2) {
+                assert_eq!(pair[0].output_sha256, pair[1].source_sha256);
+            }
+        }
+    }
+
+    #[test]
+    fn grouped_rows_use_multi_step_contracts_where_the_registry_groups_failures() {
+        for (case_id, expected_steps) in [
+            ("negative/charset/malformed_encoded_text", 2),
+            ("negative/identity/meta_dataset_uid_mismatch", 2),
+            ("negative/pixels/invalid_bits_and_length", 2),
+        ] {
+            let output = build_negative_case(case_id, &native_source()).expect(case_id);
+            assert_eq!(output.evidence.steps.len(), expected_steps);
+        }
+    }
+
+    #[test]
+    fn undefined_length_row_reports_the_honest_primitive_capability_gap() {
+        assert!(matches!(
+            build_negative_case(
+                "negative/dataset/undefined_length_without_delimitation",
+                &nested_source()
+            ),
+            Err(NegativeError::Capability { .. })
+        ));
+    }
+
+    #[test]
+    fn missing_shapes_wrong_syntax_and_unknown_ids_are_typed() {
+        let dataset_without_name = long(PIXEL_DATA, b"OB", &[1, 2], false);
+        let missing_name = wrap(EXPLICIT_VR_LITTLE_ENDIAN_UID, &dataset_without_name);
+        assert!(matches!(
+            build_negative_case("negative/encoding/illegal_vr_bytes", &missing_name),
+            Err(NegativeError::MissingElement {
+                tag: PATIENT_NAME,
+                ..
+            })
+        ));
+
+        assert!(matches!(
+            build_negative_case("negative/pixels/truncated_pixel_value", &rle_source(false)),
+            Err(NegativeError::MissingStructure { .. })
+                | Err(NegativeError::SourceTransferSyntax { .. })
+        ));
+        assert!(matches!(
+            build_negative_case("negative/not_registered", b"bad"),
+            Err(NegativeError::UnknownCaseId { .. })
+        ));
+    }
+}

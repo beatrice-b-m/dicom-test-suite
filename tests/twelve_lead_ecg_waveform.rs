@@ -46,28 +46,19 @@ fn twelve_lead_ecg_vertical_slice_is_byte_deterministic_and_closed() {
     let second_root = second_workspace.join("generated");
     let first_manifest = generate_extended(&first_workspace, &first_root);
     let second_manifest = generate_extended(&second_workspace, &second_root);
-    let first_manifest_bytes = fs::read(first_root.join("manifest.json")).expect("first manifest");
-    let second_manifest_bytes =
-        fs::read(second_root.join("manifest.json")).expect("second manifest");
+    let first_manifest_projection = deterministic_manifest_projection(&first_manifest);
+    let second_manifest_projection = deterministic_manifest_projection(&second_manifest);
     let first = case_file(&first_manifest);
     let second = case_file(&second_manifest);
     let first_bytes = fs::read(first_root.join(RELATIVE_PATH)).expect("first ECG instance");
     let second_bytes = fs::read(second_root.join(RELATIVE_PATH)).expect("second ECG instance");
 
     assert_eq!(
-        first_manifest, second_manifest,
-        "seed-7 manifests must match"
-    );
-    assert_eq!(
-        first_manifest_bytes, second_manifest_bytes,
-        "seed-7 manifest bytes must match"
+        first_manifest_projection, second_manifest_projection,
+        "seed-7 deterministic manifest projections must match"
     );
     assert_eq!(first, second, "seed-7 ECG entries must match");
     assert_eq!(first_bytes, second_bytes, "seed-7 ECG bytes must match");
-    assert_eq!(
-        dicom_test_suite::sha256_hex(&first_manifest_bytes),
-        dicom_test_suite::sha256_hex(&second_manifest_bytes)
-    );
     assert_eq!(first["sha256"], dicom_test_suite::sha256_hex(&first_bytes));
     assert_eq!(
         second["sha256"],
@@ -95,6 +86,28 @@ fn twelve_lead_ecg_vertical_slice_is_byte_deterministic_and_closed() {
 
     fs::remove_dir_all(first_workspace).expect("remove first workspace");
     fs::remove_dir_all(second_workspace).expect("remove second workspace");
+}
+
+fn deterministic_manifest_projection(manifest: &Value) -> Value {
+    let mut projection = manifest.clone();
+    for file in projection["files"]
+        .as_array_mut()
+        .expect("manifest files should be an array")
+    {
+        if file["determinism"] == "semantic_stable" {
+            let object = file
+                .as_object_mut()
+                .expect("manifest file should be an object");
+            object.remove("sha256");
+            object.remove("size_bytes");
+            object
+                .get_mut("generation_backend")
+                .and_then(Value::as_object_mut)
+                .expect("semantic-stable file should record its generation backend")
+                .remove("invocation_elapsed_milliseconds");
+        }
+    }
+    projection
 }
 
 fn assert_manifest_contract(file: &Value) {

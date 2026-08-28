@@ -59,7 +59,11 @@ fn rejects_extra_pixel_measures_attribute_in_parseable_dicom() {
     .expect("parseable functional groups can be inspected");
     let error = fail_if_any_failed(Path::new("segmentation.dcm"), &findings)
         .expect_err("extra Pixel Measures attribute must fail strict validation");
-    assert!(error.to_string().contains("wsi_tile_seg_pixel_measures_attributes"));
+    assert!(
+        error
+            .to_string()
+            .contains("wsi_tile_seg_pixel_measures_attributes")
+    );
 }
 
 #[test]
@@ -101,11 +105,7 @@ fn source_object() -> super::OpenedObject {
             VR::DS,
             PrimitiveValue::Strs(vec!["0.5".to_string(), "0.5".to_string()].into()),
         ),
-        DataElement::new(
-            tags::SLICE_THICKNESS,
-            VR::DS,
-            PrimitiveValue::from("0.001"),
-        ),
+        DataElement::new(tags::SLICE_THICKNESS, VR::DS, PrimitiveValue::from("0.001")),
     ]);
     let shared = InMemDicomObject::from_element_iter([DataElement::new(
         tags::PIXEL_MEASURES_SEQUENCE,
@@ -133,11 +133,7 @@ fn segmentation_with_shared_groups(extra_measure: bool) -> super::OpenedObject {
             VR::DS,
             PrimitiveValue::Strs(vec!["0.5".to_string(), "0.5".to_string()].into()),
         ),
-        DataElement::new(
-            tags::SLICE_THICKNESS,
-            VR::DS,
-            PrimitiveValue::from("0.001"),
-        ),
+        DataElement::new(tags::SLICE_THICKNESS, VR::DS, PrimitiveValue::from("0.001")),
     ];
     if extra_measure {
         measures.push(DataElement::new(

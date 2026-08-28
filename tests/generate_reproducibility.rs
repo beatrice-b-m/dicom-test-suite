@@ -30,7 +30,9 @@ fn assert_profile_is_reproducible(profile: &str) {
         .as_array()
         .expect("manifest files should be an array")
     {
-        let path = file["path"].as_str().expect("file entry should have a path");
+        let path = file["path"]
+            .as_str()
+            .expect("file entry should have a path");
         let first_dcm =
             fs::read(first_out.join(path)).expect("first generated DICOM file should be readable");
         let second_dcm = fs::read(second_out.join(path))
@@ -44,8 +46,12 @@ fn assert_profile_is_reproducible(profile: &str) {
     }
 
     assert_eq!(
-        deterministic_manifest_projection(&first_manifest).pointer("/files").cloned(),
-        deterministic_manifest_projection(&second_manifest).pointer("/files").cloned(),
+        deterministic_manifest_projection(&first_manifest)
+            .pointer("/files")
+            .cloned(),
+        deterministic_manifest_projection(&second_manifest)
+            .pointer("/files")
+            .cloned(),
         "deterministic manifest metadata should be stable across output roots"
     );
     assert_eq!(

@@ -484,8 +484,16 @@ fn verify_part10_identity(
     )?;
 
     for (tag, label, field) in [
-        (tags::STUDY_INSTANCE_UID, "Study Instance UID", "study_instance_uid"),
-        (tags::SERIES_INSTANCE_UID, "Series Instance UID", "series_instance_uid"),
+        (
+            tags::STUDY_INSTANCE_UID,
+            "Study Instance UID",
+            "study_instance_uid",
+        ),
+        (
+            tags::SERIES_INSTANCE_UID,
+            "Series Instance UID",
+            "series_instance_uid",
+        ),
     ] {
         let expected_uid = identities[field]
             .as_str()
@@ -656,7 +664,7 @@ mod tests {
             &root,
             limits(),
         )
-            .expect_err("undeclared output must fail");
+        .expect_err("undeclared output must fail");
         assert!(error.to_string().contains("undeclared"));
         fs::remove_dir_all(root).expect("remove staging fixture");
     }
@@ -674,7 +682,7 @@ mod tests {
             &root,
             limits(),
         )
-            .expect_err("staged symlink must fail");
+        .expect_err("staged symlink must fail");
         assert!(error.to_string().contains("symbolic link"));
         fs::remove_dir_all(root).expect("remove staging fixture");
     }
@@ -696,7 +704,7 @@ mod tests {
             &output_root,
             limits(),
         )
-            .expect_err("output-root symlink must fail verification");
+        .expect_err("output-root symlink must fail verification");
         assert!(error.to_string().contains("output root"));
 
         let destination = root.join("promoted");
@@ -728,8 +736,7 @@ mod tests {
             .expect("matching output identities should pass");
 
         let mut wrong_series = request_identities();
-        wrong_series["identities"]["series_instance_uid"] =
-            json!("1.2.826.0.1.3680043.10.543.999");
+        wrong_series["identities"]["series_instance_uid"] = json!("1.2.826.0.1.3680043.10.543.999");
         let error = verify_staged_outputs(&wrong_series, &response, &root, limits())
             .expect_err("different Series Instance UID must fail");
         assert!(error.to_string().contains("Series Instance UID"));

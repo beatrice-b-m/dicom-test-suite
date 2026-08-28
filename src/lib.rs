@@ -397,7 +397,11 @@ impl fmt::Display for ValidateError {
                 write!(f, "invalid manifest shape in {}: {message}", path.display())
             }
             Self::ReadCorpus { path, source } => {
-                write!(f, "failed to inspect generated corpus {}: {source}", path.display())
+                write!(
+                    f,
+                    "failed to inspect generated corpus {}: {source}",
+                    path.display()
+                )
             }
         }
     }
@@ -439,7 +443,11 @@ impl fmt::Display for ReportError {
                 )
             }
             Self::CorpusValidation { path, message } => {
-                write!(f, "generated corpus {} is not valid: {message}", path.display())
+                write!(
+                    f,
+                    "generated corpus {} is not valid: {message}",
+                    path.display()
+                )
             }
         }
     }
@@ -575,9 +583,11 @@ pub fn write_generation_run(
     })?;
     contents.push('\n');
 
-    fs::write(&staged_run.manifest_path, contents).map_err(|source| GenerateError::WriteManifest {
-        path: staged_run.manifest_path.clone(),
-        source,
+    fs::write(&staged_run.manifest_path, contents).map_err(|source| {
+        GenerateError::WriteManifest {
+            path: staged_run.manifest_path.clone(),
+            source,
+        }
     })?;
 
     if fs::symlink_metadata(&run.out_dir).is_ok() {
@@ -687,22 +697,22 @@ fn validate_manifest_corpus_layout(
     manifest_path: &Path,
     files: &[Value],
 ) -> Result<BTreeSet<PathBuf>, ValidateError> {
-    let root_metadata = fs::symlink_metadata(root_dir).map_err(|source| ValidateError::ReadCorpus {
-        path: root_dir.to_path_buf(),
-        source,
-    })?;
+    let root_metadata =
+        fs::symlink_metadata(root_dir).map_err(|source| ValidateError::ReadCorpus {
+            path: root_dir.to_path_buf(),
+            source,
+        })?;
     if root_metadata.file_type().is_symlink() || !root_metadata.is_dir() {
         return Err(ValidateError::ManifestShape {
             path: manifest_path.to_path_buf(),
             message: "generated root must be a directory and not a symbolic link",
         });
     }
-    let manifest_metadata = fs::symlink_metadata(manifest_path).map_err(|source| {
-        ValidateError::ReadCorpus {
+    let manifest_metadata =
+        fs::symlink_metadata(manifest_path).map_err(|source| ValidateError::ReadCorpus {
             path: manifest_path.to_path_buf(),
             source,
-        }
-    })?;
+        })?;
     if manifest_metadata.file_type().is_symlink() || !manifest_metadata.is_file() {
         return Err(ValidateError::ManifestShape {
             path: manifest_path.to_path_buf(),
@@ -712,12 +722,8 @@ fn validate_manifest_corpus_layout(
 
     let mut declared = BTreeSet::new();
     for file in files {
-        let relative_path = manifest_str(
-            manifest_path,
-            file,
-            "/path",
-            "file path must be a string",
-        )?;
+        let relative_path =
+            manifest_str(manifest_path, file, "/path", "file path must be a string")?;
         let relative = PathBuf::from(relative_path);
         if !generation_backends::is_safe_relative_path(&relative) {
             return Err(ValidateError::ManifestShape {
@@ -802,10 +808,12 @@ fn collect_corpus_files(
             path: path.clone(),
             source,
         })?;
-        let relative = path.strip_prefix(root_dir).map_err(|_| ValidateError::ManifestShape {
-            path: root_dir.join("manifest.json"),
-            message: "corpus entry escaped the generated root",
-        })?;
+        let relative = path
+            .strip_prefix(root_dir)
+            .map_err(|_| ValidateError::ManifestShape {
+                path: root_dir.join("manifest.json"),
+                message: "corpus entry escaped the generated root",
+            })?;
         if metadata.file_type().is_symlink() {
             failures.push(format!(
                 "{}: symbolic_link: corpus entries must not be symbolic links",
@@ -7597,9 +7605,7 @@ fn validate_family_standard_elements(
         )?,
         "VL Whole Slide Microscopy Image" => {
             if let Err(error) = validation::validate_manifest_wsi_file(path, file) {
-                failures.push(format!(
-                    "{relative_path}: wsi_semantic_contract: {error}"
-                ));
+                failures.push(format!("{relative_path}: wsi_semantic_contract: {error}"));
             }
         }
         _ => {}
@@ -16276,12 +16282,11 @@ pub fn build_coverage_report(root_dir: impl AsRef<Path>) -> Result<Value, Report
         "run profile must be a string",
     )?;
 
-    let validation = validate_generated_root(root_dir).map_err(|error| {
-        ReportError::CorpusValidation {
+    let validation =
+        validate_generated_root(root_dir).map_err(|error| ReportError::CorpusValidation {
             path: root_dir.to_path_buf(),
             message: error.to_string(),
-        }
-    })?;
+        })?;
     if !validation.failures.is_empty() {
         return Err(ReportError::CorpusValidation {
             path: root_dir.to_path_buf(),
@@ -32614,8 +32619,7 @@ pub(crate) fn validate_case_registry_semantics(registry: &Value) -> Result<(), S
         .and_then(Value::as_array)
         .ok_or_else(|| "missing cases array".to_string())?;
     let mut case_ids = BTreeSet::new();
-    const CONFORMING_PROFILES: &[&str] =
-        &["smoke", "core", "extended", "legacy", "stress"];
+    const CONFORMING_PROFILES: &[&str] = &["smoke", "core", "extended", "legacy", "stress"];
 
     for case in cases {
         let case_id = case
@@ -35797,7 +35801,6 @@ mod tests {
             !prepared.manifest_path.exists(),
             "preparing a run must not write a manifest before manifest construction"
         );
-
     }
 
     #[test]
@@ -35932,10 +35935,9 @@ mod tests {
         }
 
         let manifest_path = root.join("manifest.json");
-        let mut manifest: Value = serde_json::from_str(
-            &fs::read_to_string(&manifest_path).expect("read root manifest"),
-        )
-        .expect("parse root manifest");
+        let mut manifest: Value =
+            serde_json::from_str(&fs::read_to_string(&manifest_path).expect("read root manifest"))
+                .expect("parse root manifest");
         let original = manifest["files"][0]["path"]
             .as_str()
             .expect("first file path")

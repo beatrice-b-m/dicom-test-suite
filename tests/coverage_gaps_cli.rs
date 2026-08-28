@@ -49,8 +49,7 @@ fn report_gaps_counts_logical_cases_and_dimensions() {
             .get("gaps")
             .and_then(Value::as_array)
             .is_some_and(|gaps| !gaps.iter().any(|gap| {
-                gap.get("case_id").and_then(Value::as_str)
-                    == Some("vl/wsi/multiple_optical_paths")
+                gap.get("case_id").and_then(Value::as_str) == Some("vl/wsi/multiple_optical_paths")
             })),
         "promoted multiple-optical-path WSI coverage must not remain a gap"
     );
@@ -59,8 +58,7 @@ fn report_gaps_counts_logical_cases_and_dimensions() {
             .get("gaps")
             .and_then(Value::as_array)
             .is_some_and(|gaps| !gaps.iter().any(|gap| {
-                gap.get("case_id").and_then(Value::as_str)
-                    == Some("derived/seg/wsi_tile_reference")
+                gap.get("case_id").and_then(Value::as_str) == Some("derived/seg/wsi_tile_reference")
             })),
         "promoted WSI tile segmentation coverage must not remain a gap"
     );

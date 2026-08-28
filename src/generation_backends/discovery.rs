@@ -11,11 +11,11 @@ use serde_json::Value;
 
 use crate::sha256_hex;
 
+use super::process::{configure_process_tree, terminate_process_tree};
 use super::{
     BackendContractError, OutputLimits, PROTOCOL_VERSION, executable_fingerprint,
     is_safe_relative_path,
 };
-use super::process::{configure_process_tree, terminate_process_tree};
 
 #[derive(Debug, Clone)]
 pub struct PreparedBackend {

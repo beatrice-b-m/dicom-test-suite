@@ -281,7 +281,11 @@ fn strict_validate_staged_output(
     };
     validate_wsi_tile_segmentation_file(path, &identity, &strict)
         .map(|_| ())
-        .map_err(|error| invalid(format!("staged WSI tile segmentation failed strict validation: {error}")))
+        .map_err(|error| {
+            invalid(format!(
+                "staged WSI tile segmentation failed strict validation: {error}"
+            ))
+        })
 }
 
 fn validate_input(input: &WsiTileSegmentationGenerationInput) -> Result<(), BackendContractError> {
@@ -598,11 +602,8 @@ mod tests {
             .expect_err("one byte over must fail");
         assert!(bytes.to_string().contains("ceiling is 16384 bytes"));
 
-        let elapsed = verify_resource_ceiling(
-            0,
-            Duration::from_secs(5) + Duration::from_nanos(1),
-        )
-        .expect_err("one nanosecond over must fail");
+        let elapsed = verify_resource_ceiling(0, Duration::from_secs(5) + Duration::from_nanos(1))
+            .expect_err("one nanosecond over must fail");
         assert!(elapsed.to_string().contains("ceiling is 5 seconds"));
     }
 
@@ -620,7 +621,10 @@ mod tests {
         let error = validate_and_promote_staged_output(&staged_path, &output_root, &input)
             .expect_err("malformed staged DICOM must fail before promotion");
         assert!(error.to_string().contains("staged WSI tile segmentation"));
-        assert!(staged_path.exists(), "failed output remains recoverable in staging");
+        assert!(
+            staged_path.exists(),
+            "failed output remains recoverable in staging"
+        );
         assert!(
             !input.destination_root.exists(),
             "failed strict validation must not create the promotion destination"

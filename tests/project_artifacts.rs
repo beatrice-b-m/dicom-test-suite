@@ -1141,7 +1141,10 @@ fn phase4_multiple_optical_path_wsi_is_native_and_standards_locked() {
         "full with the multiple-path case integrated across every target",
         "Milestone 6, a derived object referencing WSI\ntiles, is next",
     ] {
-        assert!(status.contains(required), "pathology status requires {required}");
+        assert!(
+            status.contains(required),
+            "pathology status requires {required}"
+        );
     }
 
     let plan = fs::read_to_string("docs/coverage-expansion-plan.md")
@@ -1152,7 +1155,10 @@ fn phase4_multiple_optical_path_wsi_is_native_and_standards_locked() {
         "Phase 4 milestone 6, a derived object\nreferencing WSI tiles, is next",
         "neither small-slice promotion authorizes it for ordinary CI",
     ] {
-        assert!(plan.contains(required), "coverage expansion plan requires {required}");
+        assert!(
+            plan.contains(required),
+            "coverage expansion plan requires {required}"
+        );
     }
 }
 
@@ -1168,10 +1174,7 @@ fn phase4_wsi_tile_segmentation_completes_milestone_and_stops_at_checkpoint() {
         "74fa7cbb10160e0eb1f16f35fa9ad0e7f2712af56019996e88cf1034be92635e",
         "a8ec6f910c0fb02685163a3251bed92517d1016c9173f1e4f021e6b4194f2467",
     ] {
-        assert!(
-            note.contains(required),
-            "source note requires {required}"
-        );
+        assert!(note.contains(required), "source note requires {required}");
     }
 
     let registry = read_json("cases/registry.json");

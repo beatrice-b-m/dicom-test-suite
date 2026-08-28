@@ -5,8 +5,8 @@ use dicom_dictionary_std::{tags, uids};
 use dicom_object::{FileMetaTableBuilder, InMemDicomObject};
 
 use super::{
-    Part10Expectations, PixelDataLengthFormula, validate_wsi_tiled_sparse_file,
-    validate_manifest_wsi_file, wsi_tiled_full_tests,
+    Part10Expectations, PixelDataLengthFormula, validate_manifest_wsi_file,
+    validate_wsi_tiled_sparse_file, wsi_tiled_full_tests,
 };
 
 const SOP_UID: &str = "2.25.8901";
@@ -159,7 +159,10 @@ fn persisted_manifest_validation_rejects_sparse_geometry_mutation() {
     let error = validate_manifest_wsi_file(&mutated_path, &manifest_file())
         .expect_err("persisted duplicate sparse position must fail")
         .to_string();
-    assert!(error.contains("wsi_sparse_frame_2_column_position"), "{error}");
+    assert!(
+        error.contains("wsi_sparse_frame_2_column_position"),
+        "{error}"
+    );
     cleanup(mutated_path);
 }
 

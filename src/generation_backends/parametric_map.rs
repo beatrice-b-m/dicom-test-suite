@@ -364,8 +364,7 @@ fn verify_staged_dicom_payload(
         .map_err(|error| invalid(format!("read staged Frame of Reference UID: {error}")))?
         .to_str()
         .map_err(|error| invalid(format!("decode staged Frame of Reference UID: {error}")))?;
-    if actual_frame_of_reference.trim_end_matches(['\0', ' '])
-        != identities.frame_of_reference_uid
+    if actual_frame_of_reference.trim_end_matches(['\0', ' ']) != identities.frame_of_reference_uid
     {
         return Err(invalid(
             "staged Parametric Map Frame of Reference UID differs from the request",

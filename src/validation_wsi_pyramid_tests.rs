@@ -285,11 +285,7 @@ fn write_fixture(role: WsiPyramidRole, mutation: Mutation) -> PathBuf {
         (tags::STUDY_INSTANCE_UID, VR::UI, STUDY_UID),
         (tags::SERIES_INSTANCE_UID, VR::UI, SERIES_UID),
         (tags::FRAME_OF_REFERENCE_UID, VR::UI, FOR_UID),
-        (
-            tags::MANUFACTURER_MODEL_NAME,
-            VR::LO,
-            "Native WSI Pyramid",
-        ),
+        (tags::MANUFACTURER_MODEL_NAME, VR::LO, "Native WSI Pyramid"),
         (tags::IMAGE_TYPE, VR::CS, image_type),
         (tags::SPECIMEN_LABEL_IN_IMAGE, VR::CS, flag),
         (

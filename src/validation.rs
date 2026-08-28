@@ -2179,10 +2179,7 @@ fn reconstruct_tiled_full_matrix(pixel_bytes: &[u8]) -> Option<Vec<u8>> {
 }
 
 /// Re-run the strict Phase 4 WSI validator against a persisted manifest member.
-pub(crate) fn validate_manifest_wsi_file(
-    path: &Path,
-    file: &Value,
-) -> Result<(), GenerateError> {
+pub(crate) fn validate_manifest_wsi_file(path: &Path, file: &Value) -> Result<(), GenerateError> {
     let required_str = |pointer: &str| -> Result<&str, GenerateError> {
         file.pointer(pointer)
             .and_then(Value::as_str)
@@ -2274,9 +2271,10 @@ pub(crate) fn validate_manifest_wsi_file(
         "vl/wsi/multiple_optical_paths" => validate_wsi_multiple_optical_paths_file(
             path,
             &identity,
-            file.get("expected_wsi_multiple_optical_paths").ok_or_else(|| {
-                manifest_wsi_error(path, "missing expected_wsi_multiple_optical_paths")
-            })?,
+            file.get("expected_wsi_multiple_optical_paths")
+                .ok_or_else(|| {
+                    manifest_wsi_error(path, "missing expected_wsi_multiple_optical_paths")
+                })?,
         )
         .map(|_| ()),
         "vl/wsi/pyramid_multiresolution" => {

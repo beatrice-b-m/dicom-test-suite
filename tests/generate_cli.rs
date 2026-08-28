@@ -2023,7 +2023,7 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\textended"));
-    let native_extended_files = 107
+    let native_extended_files = 108
         + if cfg!(feature = "deflate") { 2 } else { 0 }
         + if cfg!(feature = "jpeg") { 1 } else { 0 }
         + if cfg!(feature = "charls") { 1 } else { 0 }
@@ -2109,6 +2109,7 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
     file_entry_by_case_id(&manifest, "vl/microscopic/rgb_explicit_le");
     file_entry_by_case_id(&manifest, "vl/wsi/tiled_full_small");
     file_entry_by_case_id(&manifest, "vl/wsi/tiled_sparse_small");
+    file_entry_by_case_id(&manifest, "vl/wsi/multiple_optical_paths");
     let expected_extended_files =
         native_extended_files + parametric_maps_generated + tid1500_generated + scoord3d_generated;
     assert!(stdout.contains(&format!("files_written\t{expected_extended_files}")));
@@ -7834,7 +7835,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
     );
     let stdout = String::from_utf8(output.stdout).expect("generate stdout must be utf-8");
     assert!(stdout.contains("profile\tall"));
-    let native_all_files = 150
+    let native_all_files = 151
         + if cfg!(feature = "deflate") { 2 } else { 0 }
         + if cfg!(feature = "jpeg") { 1 } else { 0 }
         + if cfg!(feature = "charls") { 1 } else { 0 }
@@ -7904,6 +7905,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
     file_entry_by_case_id(&manifest, "vl/microscopic/rgb_explicit_le");
     file_entry_by_case_id(&manifest, "vl/wsi/tiled_full_small");
     file_entry_by_case_id(&manifest, "vl/wsi/tiled_sparse_small");
+    file_entry_by_case_id(&manifest, "vl/wsi/multiple_optical_paths");
     assert!(
         file_entries_by_case_id(&manifest, "vl/wsi/pyramid_multiresolution").is_empty(),
         "normal all generation must exclude opt-in stress coverage"
@@ -8314,8 +8316,8 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
         stress_manifest["skipped_cases"].as_array().map(Vec::len),
         manifest["skipped_cases"]
             .as_array()
-            .map(|skipped| skipped.len() + 6),
-        "all --include-stress must expose the six remaining planned stress cases"
+            .map(|skipped| skipped.len() + 5),
+        "all --include-stress must expose the five remaining planned stress cases"
     );
 
     fs::remove_dir_all(out_dir).expect("temporary output root should be removable");

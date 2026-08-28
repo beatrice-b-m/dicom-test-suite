@@ -23,13 +23,13 @@ fn report_gaps_counts_logical_cases_and_dimensions() {
         report
             .pointer("/counts/statuses/implemented")
             .and_then(Value::as_u64),
-        Some(148)
+        Some(149)
     );
     assert_eq!(
         report
             .pointer("/counts/statuses/planned")
             .and_then(Value::as_u64),
-        Some(34)
+        Some(33)
     );
     assert!(
         report.pointer("/counts/priorities/now").is_none(),
@@ -43,6 +43,16 @@ fn report_gaps_counts_logical_cases_and_dimensions() {
                 gap.get("case_id").and_then(Value::as_str) == Some("vl/wsi/pyramid_multiresolution")
             })),
         "promoted WSI pyramid coverage must not remain a gap"
+    );
+    assert!(
+        report
+            .get("gaps")
+            .and_then(Value::as_array)
+            .is_some_and(|gaps| !gaps.iter().any(|gap| {
+                gap.get("case_id").and_then(Value::as_str)
+                    == Some("vl/wsi/multiple_optical_paths")
+            })),
+        "promoted multiple-optical-path WSI coverage must not remain a gap"
     );
     assert!(
         report

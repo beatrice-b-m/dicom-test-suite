@@ -1088,7 +1088,7 @@ fn phase4_wsi_pyramid_standards_lock_and_promotion_are_recorded() {
 }
 
 #[test]
-fn phase4_multiple_optical_path_wsi_plan_is_native_and_standards_locked() {
+fn phase4_multiple_optical_path_wsi_is_native_and_standards_locked() {
     let note = fs::read_to_string("standards/source-notes/phase-4-wsi-multiple-optical-paths.md")
         .expect("Phase 4 multiple-optical-path WSI source note must be readable");
     for required in [
@@ -1112,16 +1112,15 @@ fn phase4_multiple_optical_path_wsi_plan_is_native_and_standards_locked() {
             case.get("case_id").and_then(Value::as_str) == Some("vl/wsi/multiple_optical_paths")
         })
         .expect("multiple-optical-path WSI registry row must exist");
-    assert_eq!(case["status"], "planned");
+    assert_eq!(case["status"], "implemented");
     assert_eq!(
         case["provider"],
         serde_json::json!({"kind": "rust_native", "id": "rust_native"})
     );
     assert_eq!(case["determinism"], "byte_stable");
     assert_eq!(case["profiles"], serde_json::json!(["extended"]));
-    assert_eq!(case["roadmap"]["priority"], "next");
-    assert_eq!(case["blockers"].as_array().map(Vec::len), Some(1));
-    assert_eq!(case["blockers"][0]["code"], "recipe_unimplemented");
+    assert_eq!(case["roadmap"], Value::Null);
+    assert_eq!(case["blockers"], serde_json::json!([]));
     assert!(case["standards_evidence"].as_array().is_some_and(|items| {
         items.iter().any(|item| {
             item["query"] == "standards/source-notes/phase-4-wsi-multiple-optical-paths.md"
@@ -5801,6 +5800,10 @@ fn generator_recipe_case_ids() -> BTreeSet<String> {
         (
             "src/generator/native/wsi_pyramid.rs",
             &["WSI_PYRAMID_CASE_ID: &str = \""][..],
+        ),
+        (
+            "src/generator/native/wsi_multiple_optical_paths.rs",
+            &["WSI_MULTIPLE_OPTICAL_PATHS_CASE_ID: &str =\n    \""][..],
         ),
         ("src/generator/native/xa.rs", &["case_id: \""][..]),
         ("src/generator/native/xrf.rs", &["case_id: \""][..]),

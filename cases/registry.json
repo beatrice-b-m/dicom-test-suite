@@ -15017,7 +15017,7 @@
     {
       "case_id": "vl/wsi/multiple_optical_paths",
       "artifact_kind": "dicom_instance",
-      "status": "planned",
+      "status": "implemented",
       "provider": {
         "kind": "rust_native",
         "id": "rust_native"
@@ -15029,18 +15029,8 @@
         "pixels",
         "scale"
       ],
-      "roadmap": {
-        "priority": "next",
-        "delivery_phase": "phase-4",
-        "rationale": "Exercises implicit frame ordering across multiple optical paths."
-      },
-      "blockers": [
-        {
-          "code": "recipe_unimplemented",
-          "message": "The standards-locked two-optical-path native recipe is not implemented.",
-          "recheck_phase": "phase-4"
-        }
-      ],
+      "roadmap": null,
+      "blockers": [],
       "profiles": [
         "extended"
       ],

@@ -1087,6 +1087,11 @@
         "basic_offset_table",
         "encapsulated_fragment_layout",
         "extended_offset_table",
+        "eot_offset_origin",
+        "eot_item_header_bytes",
+        "eot_frame_encoded_lengths",
+        "eot_offsets",
+        "eot_lengths",
         "frames",
         "geometry",
         "pixel_spacing",
@@ -1897,6 +1902,26 @@
         "extended_offset_table": {
           "type": ["string", "null"],
           "enum": ["present", "absent", null]
+        },
+        "eot_offset_origin": {
+          "type": ["string", "null"],
+          "enum": ["first_fragment_item_tag", null]
+        },
+        "eot_item_header_bytes": {
+          "type": ["integer", "null"],
+          "enum": [8, null]
+        },
+        "eot_frame_encoded_lengths": {
+          "type": ["array", "null"],
+          "items": { "type": "integer", "minimum": 0 }
+        },
+        "eot_offsets": {
+          "type": ["array", "null"],
+          "items": { "type": "integer", "minimum": 0 }
+        },
+        "eot_lengths": {
+          "type": ["array", "null"],
+          "items": { "type": "integer", "minimum": 0 }
         },
         "frames": {
           "type": ["integer", "null"],

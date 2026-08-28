@@ -150,6 +150,8 @@ const TAG_REFERENCED_IMAGE_SEQUENCE: dicom_core::Tag = dicom_core::Tag(0x0008, 0
 const TAG_SOURCE_IMAGE_SEQUENCE: dicom_core::Tag = dicom_core::Tag(0x0008, 0x2112);
 const TAG_DERIVATION_IMAGE_SEQUENCE: dicom_core::Tag = dicom_core::Tag(0x0008, 0x9124);
 const TAG_REFERENCED_STRUCTURE_SET_SEQUENCE: dicom_core::Tag = dicom_core::Tag(0x300C, 0x0060);
+const TAG_EXTENDED_OFFSET_TABLE: dicom_core::Tag = dicom_core::Tag(0x7FE0, 0x0001);
+const TAG_EXTENDED_OFFSET_TABLE_LENGTHS: dicom_core::Tag = dicom_core::Tag(0x7FE0, 0x0002);
 
 #[derive(Debug)]
 pub struct StandardsLockSummary {
@@ -3959,9 +3961,11 @@ fn validate_integer_manifest_image_pixel_data(
             )?;
         }
         "encapsulated" => {
-            let pixel_fragments = match pixel_element.value() {
-                dicom_core::value::Value::PixelSequence(sequence) => Some(sequence.fragments()),
-                _ => None,
+            let (pixel_fragments, basic_offset_table) = match pixel_element.value() {
+                dicom_core::value::Value::PixelSequence(sequence) => {
+                    (Some(sequence.fragments()), Some(sequence.offset_table()))
+                }
+                _ => (None, None),
             };
             validate_encapsulated_pixel_data_manifest(
                 failures,
@@ -3970,6 +3974,7 @@ fn validate_integer_manifest_image_pixel_data(
                 file,
                 &obj,
                 pixel_fragments,
+                basic_offset_table,
                 rows,
                 columns,
                 samples_per_pixel,
@@ -5405,6 +5410,7 @@ fn validate_encapsulated_pixel_data_manifest(
     file: &Value,
     obj: &OpenedObject,
     pixel_fragments: Option<&[Vec<u8>]>,
+    basic_offset_table: Option<&[u32]>,
     rows: u16,
     columns: u16,
     samples_per_pixel: u16,
@@ -5665,6 +5671,18 @@ fn validate_encapsulated_pixel_data_manifest(
         "/extended_offset_table/length_count",
         "extended_offset_table length_count must be an integer",
     )?;
+    let manifest_offsets = manifest_optional_u64_array(
+        manifest_path,
+        layout,
+        "/extended_offset_table/offsets",
+        "extended_offset_table offsets must be an array of integers",
+    )?;
+    let manifest_lengths = manifest_optional_u64_array(
+        manifest_path,
+        layout,
+        "/extended_offset_table/lengths",
+        "extended_offset_table lengths must be an array of integers",
+    )?;
 
     if basic_offset_table_populated {
         validate_equal(
@@ -5685,7 +5703,9 @@ fn validate_encapsulated_pixel_data_manifest(
     }
 
     if extended_offset_table_present {
-        if basic_offset_table_populated {
+        if basic_offset_table_populated
+            || basic_offset_table.is_some_and(|offsets| !offsets.is_empty())
+        {
             failures.push(format!(
                 "{relative_path}: extended_offset_table_with_populated_basic_offset_table: Extended Offset Table requires an empty Basic Offset Table"
             ));
@@ -5719,6 +5739,30 @@ fn validate_encapsulated_pixel_data_manifest(
             extended_length_count,
             frame_count,
         );
+        let offsets = manifest_offsets.as_deref().unwrap_or(&[]);
+        let lengths = manifest_lengths.as_deref().unwrap_or(&[]);
+        validate_equal(
+            failures,
+            relative_path,
+            "extended_offset_table_offsets_array_count",
+            offsets.len(),
+            usize::try_from(extended_offset_count).unwrap_or(usize::MAX),
+        );
+        validate_equal(
+            failures,
+            relative_path,
+            "extended_offset_table_lengths_array_count",
+            lengths.len(),
+            usize::try_from(extended_length_count).unwrap_or(usize::MAX),
+        );
+        validate_eot_file_contract(
+            failures,
+            relative_path,
+            obj,
+            pixel_fragments,
+            offsets,
+            lengths,
+        );
     } else {
         validate_equal(
             failures,
@@ -5739,9 +5783,190 @@ fn validate_encapsulated_pixel_data_manifest(
                 "{relative_path}: extended_offset_table_lengths_without_table: Extended Offset Table Lengths require Extended Offset Table"
             ));
         }
+        if manifest_offsets.is_some() || manifest_lengths.is_some() {
+            failures.push(format!(
+                "{relative_path}: extended_offset_table_absent_arrays: absent Extended Offset Table metadata must not carry offset or length arrays"
+            ));
+        }
+        for (tag, name) in [
+            (TAG_EXTENDED_OFFSET_TABLE, "Extended Offset Table"),
+            (
+                TAG_EXTENDED_OFFSET_TABLE_LENGTHS,
+                "Extended Offset Table Lengths",
+            ),
+        ] {
+            if obj.element_opt(tag).ok().flatten().is_some() {
+                failures.push(format!(
+                    "{relative_path}: extended_offset_table_absent_tag: {name} is present in the file but absent in the manifest"
+                ));
+            }
+        }
     }
 
     Ok(())
+}
+
+fn manifest_optional_u64_array(
+    manifest_path: &Path,
+    value: &Value,
+    pointer: &str,
+    message: &'static str,
+) -> Result<Option<Vec<u64>>, ValidateError> {
+    let Some(array) = value.pointer(pointer) else {
+        return Ok(None);
+    };
+    let array = array.as_array().ok_or(ValidateError::ManifestShape {
+        path: manifest_path.to_path_buf(),
+        message,
+    })?;
+    array
+        .iter()
+        .map(|item| {
+            item.as_u64().ok_or(ValidateError::ManifestShape {
+                path: manifest_path.to_path_buf(),
+                message,
+            })
+        })
+        .collect::<Result<Vec<_>, _>>()
+        .map(Some)
+}
+
+fn validate_eot_file_contract(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    obj: &OpenedObject,
+    pixel_fragments: Option<&[Vec<u8>]>,
+    expected_offsets: &[u64],
+    expected_lengths: &[u64],
+) {
+    let actual_offsets = eot_ov_values(
+        failures,
+        relative_path,
+        obj,
+        TAG_EXTENDED_OFFSET_TABLE,
+        "extended_offset_table_file",
+    );
+    let actual_lengths = eot_ov_values(
+        failures,
+        relative_path,
+        obj,
+        TAG_EXTENDED_OFFSET_TABLE_LENGTHS,
+        "extended_offset_table_lengths_file",
+    );
+    if let Some(actual) = actual_offsets {
+        validate_equal_debug(
+            failures,
+            relative_path,
+            "extended_offset_table_file_values",
+            actual,
+            expected_offsets.to_vec(),
+        );
+    }
+    if let Some(actual) = actual_lengths {
+        validate_equal_debug(
+            failures,
+            relative_path,
+            "extended_offset_table_lengths_file_values",
+            actual,
+            expected_lengths.to_vec(),
+        );
+    }
+
+    let Some(fragments) = pixel_fragments else {
+        failures.push(format!(
+            "{relative_path}: extended_offset_table_pixel_sequence: EOT validation requires encapsulated Pixel Data fragments"
+        ));
+        return;
+    };
+    if fragments.len() != expected_lengths.len() {
+        failures.push(format!(
+            "{relative_path}: extended_offset_table_fragment_count: expected {} one-fragment frames but found {} fragments",
+            expected_lengths.len(),
+            fragments.len()
+        ));
+        return;
+    }
+    let mut recomputed_offset = 0_u64;
+    for (index, ((fragment, &length), &offset)) in fragments
+        .iter()
+        .zip(expected_lengths)
+        .zip(expected_offsets)
+        .enumerate()
+    {
+        if offset != recomputed_offset {
+            failures.push(format!(
+                "{relative_path}: extended_offset_table_recomputed_offset: frame {} offset {offset} does not equal recomputed Item-Tag-relative offset {recomputed_offset}",
+                index + 1
+            ));
+        }
+        let padded_length = length.checked_add(length & 1);
+        if padded_length != Some(fragment.len() as u64) {
+            failures.push(format!(
+                "{relative_path}: extended_offset_table_unpadded_length: frame {} unpadded length {length} does not match fragment value length {} after even padding",
+                index + 1,
+                fragment.len()
+            ));
+        }
+        let Some(next) = padded_length
+            .and_then(|length| length.checked_add(8))
+            .and_then(|span| recomputed_offset.checked_add(span))
+        else {
+            failures.push(format!(
+                "{relative_path}: extended_offset_table_offset_overflow: frame {} Item span exceeds u64",
+                index + 1
+            ));
+            return;
+        };
+        recomputed_offset = next;
+    }
+}
+
+fn eot_ov_values(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    obj: &OpenedObject,
+    tag: dicom_core::Tag,
+    check: &str,
+) -> Option<Vec<u64>> {
+    let element = match obj.element_opt(tag) {
+        Ok(Some(element)) => element,
+        Ok(None) => {
+            failures.push(format!(
+                "{relative_path}: {check}: required OV element {tag} is absent"
+            ));
+            return None;
+        }
+        Err(err) => {
+            failures.push(format!("{relative_path}: {check}: {err}"));
+            return None;
+        }
+    };
+    if element.vr() != VR::OV {
+        failures.push(format!(
+            "{relative_path}: {check}_vr: element {tag} must use OV, found {}",
+            element.vr()
+        ));
+    }
+    let bytes = match element.value().to_bytes() {
+        Ok(bytes) => bytes,
+        Err(err) => {
+            failures.push(format!("{relative_path}: {check}_bytes: {err}"));
+            return None;
+        }
+    };
+    if bytes.len() % 8 != 0 {
+        failures.push(format!(
+            "{relative_path}: {check}_byte_length: OV value length {} is not divisible by 8",
+            bytes.len()
+        ));
+        return None;
+    }
+    Some(
+        bytes
+            .chunks_exact(8)
+            .map(|chunk| u64::from_le_bytes(chunk.try_into().expect("eight-byte OV chunk")))
+            .collect(),
+    )
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -20499,6 +20724,7 @@ fn generated_coverage_row(
     let nonsquare_spacing = nonsquare_spacing_report_fields(manifest_path, file)?;
     let waveform = waveform_report_fields(manifest_path, file)?;
     let stl = encapsulated_stl_report_fields(manifest_path, file)?;
+    let eot = eot_report_fields(manifest_path, file)?;
     let rt_plan = rt_plan_report_fields(manifest_path, file)?;
     let rt_image = rt_image_report_fields(manifest_path, file)?;
     let rt_radiation = rt_radiation_report_fields(manifest_path, file)?;
@@ -20866,6 +21092,28 @@ fn generated_coverage_row(
     let row_object = row
         .as_object_mut()
         .expect("generated coverage row literal must be an object");
+    for (field, value) in [
+        ("eot_offset_origin", eot.offset_origin.map(Value::from)),
+        (
+            "eot_item_header_bytes",
+            eot.item_header_bytes.map(Value::from),
+        ),
+        (
+            "eot_frame_encoded_lengths",
+            eot.frame_encoded_lengths
+                .map(|values| serde_json::json!(values)),
+        ),
+        (
+            "eot_offsets",
+            eot.offsets.map(|values| serde_json::json!(values)),
+        ),
+        (
+            "eot_lengths",
+            eot.lengths.map(|values| serde_json::json!(values)),
+        ),
+    ] {
+        row_object.insert(field.to_string(), value.unwrap_or(Value::Null));
+    }
     row_object.insert(
         "laterality".to_string(),
         vl_single_frame_laterality
@@ -26730,6 +26978,15 @@ fn skipped_coverage_row(
     let row_object = row
         .as_object_mut()
         .expect("skipped coverage row literal must be an object");
+    for field in [
+        "eot_offset_origin",
+        "eot_item_header_bytes",
+        "eot_frame_encoded_lengths",
+        "eot_offsets",
+        "eot_lengths",
+    ] {
+        row_object.insert(field.to_string(), Value::Null);
+    }
     row_object.insert(
         "laterality".to_string(),
         vl_single_frame
@@ -31780,6 +32037,59 @@ fn extended_offset_table_state(file: &Value) -> Option<&'static str> {
         .map(|present| if present { "present" } else { "absent" })
 }
 
+#[derive(Default)]
+struct EotReportFields {
+    offset_origin: Option<String>,
+    item_header_bytes: Option<u64>,
+    frame_encoded_lengths: Option<Vec<u64>>,
+    offsets: Option<Vec<u64>>,
+    lengths: Option<Vec<u64>>,
+}
+
+fn eot_report_fields(manifest_path: &Path, file: &Value) -> Result<EotReportFields, ReportError> {
+    const CASE_ID: &str = "encapsulation/sc/eot_single_fragment_multiframe";
+    let case_id = file.get("case_id").and_then(Value::as_str).unwrap_or("");
+    if case_id != CASE_ID {
+        return if file.get("expected_eot").is_some() {
+            Err(ReportError::MetadataShape {
+                path: manifest_path.to_path_buf(),
+                message: "expected_eot is only valid for encapsulation/sc/eot_single_fragment_multiframe",
+            })
+        } else {
+            Ok(EotReportFields::default())
+        };
+    }
+
+    let expected = file.get("expected_eot");
+    let exact = serde_json::json!({
+        "origin": "first_fragment_item_tag",
+        "item_header_bytes": 8,
+        "frame_encoded_lengths": [69, 66, 69],
+        "offsets": [0, 78, 152],
+        "lengths": [69, 66, 69]
+    });
+    let manifest_offsets =
+        file.pointer("/pixel_data/encapsulated_pixel_data/extended_offset_table/offsets");
+    let manifest_lengths =
+        file.pointer("/pixel_data/encapsulated_pixel_data/extended_offset_table/lengths");
+    if expected != Some(&exact)
+        || manifest_offsets != exact.get("offsets")
+        || manifest_lengths != exact.get("lengths")
+    {
+        return Err(ReportError::MetadataShape {
+            path: manifest_path.to_path_buf(),
+            message: "EOT coverage requires the exact padding-sensitive three-frame oracle",
+        });
+    }
+    Ok(EotReportFields {
+        offset_origin: Some("first_fragment_item_tag".to_string()),
+        item_header_bytes: Some(8),
+        frame_encoded_lengths: Some(vec![69, 66, 69]),
+        offsets: Some(vec![0, 78, 152]),
+        lengths: Some(vec![69, 66, 69]),
+    })
+}
+
 fn geometry_bucket(row: &Value) -> Option<String> {
     let geometry = row.get("geometry")?;
     let rows = geometry.get("rows").and_then(Value::as_u64)?;
@@ -33033,6 +33343,98 @@ mod tests {
     use dicom_dictionary_std::uids;
     use dicom_object::{InMemDicomObject, meta::FileMetaTableBuilder};
     use dicom_transfer_syntax_registry::{TransferSyntaxIndex, TransferSyntaxRegistry};
+
+    fn eot_test_object(offsets: Vec<u64>, lengths: Vec<u64>) -> OpenedObject {
+        let mut obj = InMemDicomObject::new_empty();
+        obj.put(DataElement::new(
+            TAG_EXTENDED_OFFSET_TABLE,
+            VR::OV,
+            PrimitiveValue::U64(offsets.into()),
+        ));
+        obj.put(DataElement::new(
+            TAG_EXTENDED_OFFSET_TABLE_LENGTHS,
+            VR::OV,
+            PrimitiveValue::U64(lengths.into()),
+        ));
+        obj.with_meta(
+            FileMetaTableBuilder::new()
+                .transfer_syntax(uids::RLE_LOSSLESS)
+                .media_storage_sop_class_uid(uids::SECONDARY_CAPTURE_IMAGE_STORAGE)
+                .media_storage_sop_instance_uid("2.25.1")
+                .implementation_class_uid("2.25.2"),
+        )
+        .expect("EOT test object should have valid file metadata")
+    }
+
+    #[test]
+    fn strict_eot_contract_compares_ov_values_and_padding_sensitive_offsets() {
+        let obj = eot_test_object(vec![0, 78, 152], vec![69, 66, 69]);
+        let fragments = vec![vec![0; 70], vec![0; 66], vec![0; 70]];
+        let mut failures = Vec::new();
+        validate_eot_file_contract(
+            &mut failures,
+            "instance.dcm",
+            &obj,
+            Some(&fragments),
+            &[0, 78, 152],
+            &[69, 66, 69],
+        );
+        assert!(failures.is_empty(), "{}", failures.join("\n"));
+
+        validate_eot_file_contract(
+            &mut failures,
+            "instance.dcm",
+            &obj,
+            Some(&fragments),
+            &[0, 77, 151],
+            &[69, 66, 69],
+        );
+        let failures = failures.join("\n");
+        assert!(failures.contains("extended_offset_table_file_values"));
+        assert!(failures.contains("extended_offset_table_recomputed_offset"));
+    }
+
+    #[test]
+    fn eot_report_projection_requires_the_exact_case_scoped_oracle() {
+        let file = serde_json::json!({
+            "case_id": "encapsulation/sc/eot_single_fragment_multiframe",
+            "expected_eot": {
+                "origin": "first_fragment_item_tag",
+                "item_header_bytes": 8,
+                "frame_encoded_lengths": [69, 66, 69],
+                "offsets": [0, 78, 152],
+                "lengths": [69, 66, 69]
+            },
+            "pixel_data": {
+                "encapsulated_pixel_data": {
+                    "extended_offset_table": {
+                        "offsets": [0, 78, 152],
+                        "lengths": [69, 66, 69]
+                    }
+                }
+            }
+        });
+        let fields = eot_report_fields(Path::new("manifest.json"), &file)
+            .expect("exact EOT oracle must project into coverage");
+        assert_eq!(
+            fields.offset_origin.as_deref(),
+            Some("first_fragment_item_tag")
+        );
+        assert_eq!(fields.item_header_bytes, Some(8));
+        assert_eq!(fields.frame_encoded_lengths, Some(vec![69, 66, 69]));
+        assert_eq!(fields.offsets, Some(vec![0, 78, 152]));
+        assert_eq!(fields.lengths, Some(vec![69, 66, 69]));
+
+        let mut wrong = file.clone();
+        wrong["expected_eot"]["offsets"] = serde_json::json!([0, 77, 151]);
+        assert!(eot_report_fields(Path::new("manifest.json"), &wrong).is_err());
+
+        let out_of_scope = serde_json::json!({
+            "case_id": "classic/sc/mono2_u8_rle_lossless",
+            "expected_eot": file["expected_eot"].clone()
+        });
+        assert!(eot_report_fields(Path::new("manifest.json"), &out_of_scope).is_err());
+    }
 
     fn vl_manifest(case_id: &str) -> Value {
         let (kind, sop_uid, sop_name, iod_name, modality, body_part) =

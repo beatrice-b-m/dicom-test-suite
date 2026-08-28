@@ -930,6 +930,94 @@
       "type": "string",
       "pattern": "^[0-9a-f]{64}$"
     },
+    "lossy_report_metric": {
+      "type": "object",
+      "required": ["observed", "limit"],
+      "properties": {
+        "observed": { "type": "number", "minimum": 0 },
+        "limit": { "type": "number", "exclusiveMinimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "lossy_metrics_projection": {
+      "type": "object",
+      "required": ["sample_domain", "sample_order", "sample_count", "dimensions", "channels", "encoder", "overall_rmse", "uncompressed_bytes", "compressed_bytes", "compression_ratio", "lossy_image_compression", "lossy_image_compression_method", "decoder"],
+      "properties": {
+        "sample_domain": { "enum": ["unsigned_8_bit", "unsigned_16_bit_little_endian"] },
+        "sample_order": { "enum": ["interleaved_by_pixel", "monochrome"] },
+        "sample_count": { "type": "integer", "minimum": 1024 },
+        "dimensions": {
+          "type": "object",
+          "required": ["rows", "columns", "frames"],
+          "properties": { "rows": { "type": "integer", "minimum": 32 }, "columns": { "type": "integer", "minimum": 32 }, "frames": { "const": 1 } },
+          "additionalProperties": false
+        },
+        "channels": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["index", "name", "sample_count", "max_absolute_error", "rmse"],
+            "properties": {
+              "index": { "type": "integer", "minimum": 0 },
+              "name": { "type": "string", "minLength": 1 },
+              "sample_count": { "type": "integer", "minimum": 1024 },
+              "max_absolute_error": { "$ref": "#/$defs/lossy_report_metric" },
+              "rmse": { "$ref": "#/$defs/lossy_report_metric" }
+            },
+            "additionalProperties": false
+          }
+        },
+        "encoder": {
+          "type": "object",
+          "required": ["id", "version", "executable_sha256", "options", "options_fingerprint"],
+          "properties": {
+            "id": { "type": "string", "minLength": 1 },
+            "version": { "type": "string", "minLength": 1 },
+            "executable_sha256": { "$ref": "#/$defs/sha256" },
+            "options": {
+              "type": "object",
+              "required": ["input_format", "argument_vector"],
+              "properties": {
+                "input_format": { "type": "string", "minLength": 1 },
+                "argument_vector": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+                "distance": { "type": ["number", "null"], "minimum": 0 },
+                "effort": { "type": ["integer", "null"], "minimum": 1 },
+                "num_threads": { "type": ["integer", "null"], "minimum": 0 },
+                "container": { "type": ["boolean", "null"] },
+                "modular": { "type": ["boolean", "null"] },
+                "qstep": { "type": ["number", "null"], "exclusiveMinimum": 0 },
+                "reversible": { "type": ["boolean", "null"] },
+                "num_decompositions": { "type": ["integer", "null"], "minimum": 0 },
+                "colour_transform": { "type": ["boolean", "null"] },
+                "progression": { "type": ["string", "null"] }
+              },
+              "additionalProperties": false
+            },
+            "options_fingerprint": { "$ref": "#/$defs/sha256" }
+          },
+          "additionalProperties": false
+        },
+        "overall_rmse": { "$ref": "#/$defs/lossy_report_metric" },
+        "uncompressed_bytes": { "type": "integer", "minimum": 1 },
+        "compressed_bytes": { "type": "integer", "minimum": 1 },
+        "compression_ratio": {
+          "type": "object",
+          "required": ["numerator", "denominator", "computed", "dicom_value"],
+          "properties": { "numerator": { "type": "integer", "minimum": 1 }, "denominator": { "type": "integer", "minimum": 1 }, "computed": { "type": "number", "exclusiveMinimum": 0 }, "dicom_value": { "type": "string", "pattern": "^[0-9]+(\\.[0-9]+)?$" } },
+          "additionalProperties": false
+        },
+        "lossy_image_compression": { "const": "01" },
+        "lossy_image_compression_method": { "enum": ["ISO_18181_1", "ISO_15444_15"] },
+        "decoder": {
+          "type": "object",
+          "required": ["id", "version", "independence"],
+          "properties": { "id": { "type": "string", "minLength": 1 }, "version": { "type": "string", "minLength": 1 }, "independence": { "const": "independent" } },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
     "profile": {
       "enum": [
         "smoke",
@@ -1731,7 +1819,8 @@
         "sop_instance_uid_root",
         "lossy_image_compression",
         "lossy_image_compression_ratio",
-        "lossy_image_compression_method"
+        "lossy_image_compression_method",
+        "lossy_metrics"
       ],
       "properties": {
         "case_id": {
@@ -3125,6 +3214,12 @@
         "lossy_image_compression_method": {
           "type": ["string", "null"]
         },
+        "lossy_metrics": {
+          "anyOf": [
+            { "$ref": "#/$defs/lossy_metrics_projection" },
+            { "type": "null" }
+          ]
+        },
         "known_stressors": {
           "type": "array",
           "items": {
@@ -3134,6 +3229,127 @@
         }
       },
       "allOf": [
+        {
+          "if": {
+            "properties": {
+              "case_id": {
+                "enum": [
+                  "classic/sc/rgb_jpegxl_lossy",
+                  "classic/sc/mono2_u16_htj2k_lossy"
+                ]
+              }
+            },
+            "required": ["case_id"]
+          },
+          "then": {
+            "properties": { "lossy_metrics": { "not": { "type": "null" } } },
+            "allOf": [
+              {
+                "if": {
+                  "properties": { "case_id": { "const": "classic/sc/rgb_jpegxl_lossy" } },
+                  "required": ["case_id"]
+                },
+                "then": {
+                  "properties": {
+                    "lossy_metrics": {
+                      "properties": {
+                        "sample_domain": { "const": "unsigned_8_bit" },
+                        "sample_order": { "const": "interleaved_by_pixel" },
+                        "channels": {
+                          "minItems": 3,
+                          "maxItems": 3,
+                          "prefixItems": [
+                            { "properties": { "index": { "const": 0 }, "name": { "const": "R" }, "max_absolute_error": { "properties": { "observed": { "const": 8 }, "limit": { "const": 8 } } }, "rmse": { "properties": { "observed": { "const": 1.0752906584 }, "limit": { "const": 3 } } } } },
+                            { "properties": { "index": { "const": 1 }, "name": { "const": "G" }, "max_absolute_error": { "properties": { "observed": { "const": 2 }, "limit": { "const": 8 } } }, "rmse": { "properties": { "observed": { "const": 0.1875 }, "limit": { "const": 3 } } } } },
+                            { "properties": { "index": { "const": 2 }, "name": { "const": "B" }, "max_absolute_error": { "properties": { "observed": { "const": 7 }, "limit": { "const": 8 } } }, "rmse": { "properties": { "observed": { "const": 0.830333141 }, "limit": { "const": 3 } } } } }
+                          ]
+                        },
+                        "encoder": {
+                          "properties": {
+                            "id": { "const": "cjxl_jpegxl_lossy_encoder" },
+                            "version": { "const": "0.11.2" },
+                            "executable_sha256": { "const": "5b7b6cdc09a1bdaef39e30d3660e29861a405fffc1bc1136f3bb91cfe6db658e" },
+                            "options": {
+                              "required": ["distance", "effort", "num_threads", "container", "modular"],
+                              "properties": {
+                                "input_format": { "const": "binary_ppm_rgb8" },
+                                "distance": { "const": 0.05 },
+                                "effort": { "const": 7 },
+                                "num_threads": { "const": 0 },
+                                "container": { "const": false },
+                                "modular": { "const": false }
+                              }
+                            }
+                          }
+                        },
+                        "overall_rmse": { "properties": { "observed": { "const": 0.7918037162 }, "limit": { "const": 3 } } },
+                        "uncompressed_bytes": { "const": 3072 },
+                        "compressed_bytes": { "const": 1185 },
+                        "compression_ratio": { "properties": { "numerator": { "const": 3072 }, "denominator": { "const": 1185 }, "computed": { "const": 2.5924050632911393 } } },
+                        "lossy_image_compression_method": { "const": "ISO_18181_1" },
+                        "decoder": {
+                          "properties": {
+                            "id": { "const": "dicom_rs_jxl_oxide_decoder" },
+                            "version": { "const": "dicom-transfer-syntax-registry 0.9.1 + jxl-oxide 0.10.2" }
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "else": {
+                  "properties": {
+                    "lossy_metrics": {
+                      "properties": {
+                        "sample_domain": { "const": "unsigned_16_bit_little_endian" },
+                        "sample_order": { "const": "monochrome" },
+                        "channels": {
+                          "minItems": 1,
+                          "maxItems": 1,
+                          "prefixItems": [
+                            { "properties": { "index": { "const": 0 }, "name": { "const": "MONOCHROME2" }, "max_absolute_error": { "properties": { "observed": { "const": 19 }, "limit": { "const": 64 } } }, "rmse": { "properties": { "observed": { "const": 4.3548643779 }, "limit": { "const": 16 } } } } }
+                          ]
+                        },
+                        "encoder": {
+                          "properties": {
+                            "id": { "const": "openjph_htj2k_lossy_command_encoder" },
+                            "version": { "const": "OpenJPH 0.27.3" },
+                            "executable_sha256": { "const": "d21a8ea98ffce347928c34a2c51c61e424a068ca4eb746a6867a29d6c30b1627" },
+                            "options": {
+                              "required": ["qstep", "reversible", "num_decompositions", "colour_transform", "progression"],
+                              "properties": {
+                                "input_format": { "const": "binary_pgm_u16_big_endian" },
+                                "qstep": { "const": 0.00025 },
+                                "reversible": { "const": false },
+                                "num_decompositions": { "const": 2 },
+                                "colour_transform": { "const": false },
+                                "progression": { "const": "LRCP" }
+                              }
+                            }
+                          }
+                        },
+                        "overall_rmse": { "properties": { "observed": { "const": 4.3548643779 }, "limit": { "const": 16 } } },
+                        "uncompressed_bytes": { "const": 2048 },
+                        "compressed_bytes": { "const": 1476 },
+                        "compression_ratio": { "properties": { "numerator": { "const": 2048 }, "denominator": { "const": 1476 }, "computed": { "const": 1.3875338753387534 } } },
+                        "lossy_image_compression_method": { "const": "ISO_15444_15" },
+                        "decoder": {
+                          "properties": {
+                            "id": { "const": "dicom_rs_openjpeg_htj2k_decoder" },
+                            "version": { "const": "dicom-transfer-syntax-registry 0.9.1 + jpeg2k 0.10.1 + openjp2 0.6.1" }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          "else": {
+            "properties": { "lossy_metrics": { "type": "null" } }
+          }
+        },
         {
           "if": {
             "properties": { "case_id": { "const": "derived/mesh/encapsulated_stl" } },

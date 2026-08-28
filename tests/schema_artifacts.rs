@@ -3710,6 +3710,90 @@ fn case_registry_schema_models_non_file_qualification_fixtures_honestly() {
 }
 
 #[test]
+fn coverage_report_schema_projects_approved_lossy_metrics_separately() {
+    let schema = read_json("schemas/coverage-report.schema.json");
+    let required = schema
+        .pointer("/$defs/coverage_row/required")
+        .and_then(Value::as_array)
+        .expect("coverage rows must define required fields");
+    assert!(required.iter().any(|field| field == "lossy_metrics"));
+
+    let projection_schema = serde_json::json!({
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$defs": schema["$defs"].clone(),
+        "$ref": "#/$defs/lossy_metrics_projection"
+    });
+    let validator = jsonschema::validator_for(&projection_schema)
+        .expect("lossy report projection schema must compile");
+    let htj2k = serde_json::json!({
+        "sample_domain": "unsigned_16_bit_little_endian",
+        "sample_order": "monochrome",
+        "sample_count": 1024,
+        "dimensions": { "rows": 32, "columns": 32, "frames": 1 },
+        "channels": [{
+            "index": 0,
+            "name": "MONOCHROME2",
+            "sample_count": 1024,
+            "max_absolute_error": { "observed": 19, "limit": 64 },
+            "rmse": { "observed": 4.3548643779, "limit": 16 }
+        }],
+        "encoder": {
+            "id": "openjph_htj2k_lossy_command_encoder",
+            "version": "OpenJPH 0.27.3",
+            "executable_sha256": "d21a8ea98ffce347928c34a2c51c61e424a068ca4eb746a6867a29d6c30b1627",
+            "options": {
+                "input_format": "binary_pgm_u16_big_endian",
+                "argument_vector": ["-qstep", "0.00025"],
+                "qstep": 0.00025,
+                "reversible": false,
+                "num_decompositions": 2,
+                "colour_transform": false,
+                "progression": "LRCP"
+            },
+            "options_fingerprint": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        },
+        "overall_rmse": { "observed": 4.3548643779, "limit": 16 },
+        "uncompressed_bytes": 2048,
+        "compressed_bytes": 1476,
+        "compression_ratio": { "numerator": 2048, "denominator": 1476, "computed": 1.3875338753387534, "dicom_value": "1.38753387533875" },
+        "lossy_image_compression": "01",
+        "lossy_image_compression_method": "ISO_15444_15",
+        "decoder": {
+            "id": "dicom_rs_openjpeg_htj2k_decoder",
+            "version": "dicom-transfer-syntax-registry 0.9.1 + jpeg2k 0.10.1 + openjp2 0.6.1",
+            "independence": "independent"
+        }
+    });
+    assert!(validator.is_valid(&htj2k));
+    let mut dependent = htj2k;
+    dependent["decoder"]["independence"] = serde_json::json!("same_implementation");
+    assert!(!validator.is_valid(&dependent));
+
+    let lossy_rule = schema
+        .pointer("/$defs/coverage_row/allOf/0")
+        .expect("coverage rows must scope lossy metrics to approved cases");
+    assert_eq!(
+        lossy_rule
+            .pointer("/then/allOf/0/then/properties/lossy_metrics/properties/overall_rmse/properties/limit/const")
+            .and_then(Value::as_u64),
+        Some(3)
+    );
+    assert_eq!(
+        lossy_rule
+            .pointer("/then/allOf/0/else/properties/lossy_metrics/properties/overall_rmse/properties/limit/const")
+            .and_then(Value::as_u64),
+        Some(16)
+    );
+    assert_eq!(
+        lossy_rule
+            .pointer("/else/properties/lossy_metrics/type")
+            .and_then(Value::as_str),
+        Some("null"),
+        "all other valid coverage rows must project null lossy metrics"
+    );
+}
+
+#[test]
 fn coverage_report_schema_requires_the_specified_matrix_fields() {
     let schema = read_json("schemas/coverage-report.schema.json");
     let required = schema

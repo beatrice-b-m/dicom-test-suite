@@ -26043,7 +26043,11 @@ fn skipped_coverage_row(
         "blending_pixel_data_absent",
         "blending_unresolved_external_validator_findings",
     ] {
-        if is_wsi && field.starts_with("wsi_") && !field.starts_with("wsi_pyramid_") {
+        if is_wsi
+            && field.starts_with("wsi_")
+            && !field.starts_with("wsi_pyramid_")
+            && !field.starts_with("wsi_multiple_optical_paths_")
+        {
             continue;
         }
         row_object.insert(field.to_string(), Value::Null);

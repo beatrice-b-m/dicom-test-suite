@@ -1076,9 +1076,9 @@ fn phase4_wsi_pyramid_standards_lock_and_promotion_are_recorded() {
     let plan = fs::read_to_string("docs/coverage-expansion-plan.md")
         .expect("coverage expansion plan must be readable");
     for required in [
-        "registry now contains 148 implemented and 34\nplanned cases",
+        "registry then contained 148 implemented and 34\nplanned cases",
         "Ordinary `all` remains unchanged because stress cases require\nexplicit selection",
-        "Phase 4 milestone 5, multiple optical paths or focal\nplanes, is next",
+        "Milestone 5 is complete as the native byte-stable",
     ] {
         assert!(
             plan.contains(required),
@@ -1141,6 +1141,17 @@ fn phase4_multiple_optical_path_wsi_is_native_and_standards_locked() {
         "Milestone 6, a derived object referencing WSI\ntiles, is next",
     ] {
         assert!(status.contains(required), "pathology status requires {required}");
+    }
+
+    let plan = fs::read_to_string("docs/coverage-expansion-plan.md")
+        .expect("coverage expansion plan must be readable");
+    for required in [
+        "Milestone 5 is complete as the native byte-stable",
+        "registry now contains 149\nimplemented and 33 planned cases",
+        "Phase 4 milestone 6, a derived object\nreferencing WSI tiles, is next",
+        "neither small-slice promotion authorizes it for ordinary CI",
+    ] {
+        assert!(plan.contains(required), "coverage expansion plan requires {required}");
     }
 }
 

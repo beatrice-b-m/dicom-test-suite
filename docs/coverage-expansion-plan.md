@@ -470,12 +470,25 @@ the exact three-member group. Integrated run
 `0188fc12678acf82e29f27c139d531dd060ec8e2f36363c9927d4d673d869f6d`
 records zero entity findings, passing independent pixel evidence, zero
 accepted findings, and zero verification failures against an empty
-exact-slice findings set. The registry now contains 148 implemented and 34
+exact-slice findings set. The registry then contained 148 implemented and 34
 planned cases. Ordinary `all` remains unchanged because stress cases require
-explicit selection. Phase 4 milestone 5, multiple optical paths or focal
-planes, is next. Selecting dimensions, budgets, and CI scheduling for a
-full-size pyramid remains the plan's explicit decision checkpoint, and this
-small-slice promotion does not authorize it for ordinary CI.
+explicit selection. Milestone 5 is complete as the native byte-stable
+`vl/wsi/multiple_optical_paths` extended slice. It encodes eight path-major
+Frames over ordered `BRIGHTFIELD` and `ALTERNATE` paths and reconstructs two
+separate 4 by 4 by 3 matrices. Two seed-7 extended roots each contained 112
+strictly valid files, completed in 4.50 and 4.54 seconds, and compared
+byte-for-byte. Locked `dciodvfy`, the authorized `uv`-locked dicom-validator,
+and DCMTK parsing all passed. The isolated highdicom 0.28.1/pydicom 3.0.2
+adapter version 0.4.0 reproduced the exact aggregate, per-Frame, per-path,
+matrix, and nested ICC evidence while rejecting ambiguous unfiltered matrix
+access. Exact-slice run
+`c2203223e9d8ce0b716175329769b7f3bb947ac48da44a510843d5a82d8b3dcc`
+has silent entity validation, passing independent pixels, zero accepted
+findings, and zero verification failures. The registry now contains 149
+implemented and 33 planned cases. Phase 4 milestone 6, a derived object
+referencing WSI tiles, is next. Selecting dimensions, budgets, and CI
+scheduling for a full-size pyramid remains the plan's explicit decision
+checkpoint, and neither small-slice promotion authorizes it for ordinary CI.
 
 ### Phase 5 — Encapsulation, lossy codecs, and video
 

@@ -591,6 +591,18 @@ Gate:
 - interruption leaves no promoted partial run;
 - reports record requested and actual scale parameters.
 
+Status on 2026-08-28: the reduced-scale gate is complete. Seven promoted
+stress cases emit seven isolated `stress_case_run` qualifications. A final
+seed-7 root contained 139 DICOM files and 160,213,322 qualified stress-case
+bytes; its summed case time was 19,376 ms, peak RSS was unavailable on the
+platform, and strict validation checked all files with zero failures. Two
+repeated roots contained byte-identical DICOM files. The encapsulated case uses
+64 Fragments per Frame, 16,384 total, and its 64 MiB measurement is native
+decoded Pixel Data. These built-in checks are same-project evidence, not
+independent conformance. Every qualification explicitly records the `full`
+scale as unavailable under `full_scale_runner_unimplemented`; no full-scale
+job was added to ordinary CI. See `docs/phase-6-stress-status.md`.
+
 ### Phase 7 — Negative and fuzz profiles
 
 **Purpose:** test parser robustness using reproducible failures that conforming

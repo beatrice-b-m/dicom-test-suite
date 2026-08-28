@@ -15,11 +15,16 @@ Profiles are explicit case selections:
   coverage.
 - `legacy` contains valid retired or uncommon cases and is always opt-in.
 - `all` is the union of `smoke`, `core`, and `extended`. It excludes `legacy`.
-- `stress`, `negative`, and `fuzz` are reserved future scopes and currently do
-  not add completed corpus coverage.
+- `stress` contains the promoted reduced resource-boundary corpus and is
+  opt-in. Its full scale remains explicitly unavailable.
+- `negative` contains deterministic expected-invalid mutations and is kept
+  separate from valid coverage.
+- `fuzz` emits a bounded, payload-free runtime qualification and does not add
+  committed DICOM payloads.
 
 `list-cases --profile all` and `generate --profile all` use the same union.
-Generate `legacy` separately when complete current coverage is required.
+Generate `legacy` and `stress` separately when their opt-in coverage is
+required.
 
 ## Prerequisites
 
@@ -189,8 +194,10 @@ case may generate more than one SOP Instance.
 ## Scope Boundary
 
 “Complete” means complete for the currently implemented registry, not complete
-coverage of the DICOM Standard. Current deferred areas include Whole Slide
-Microscopy, video transfer syntaxes, large stress objects, negative and fuzz
-profiles, Extended Offset Table stress cases, and several lossy or legacy codec
-variants. Consult the registry, transfer-syntax capability matrix, and generated
-coverage report before describing the scope of a downstream review.
+coverage of the DICOM Standard. Current deferred areas include full-scale
+stress execution, video transfer syntaxes, a genuine greater-than-4-GiB
+Extended Offset Table stress object, and several lossy or legacy codec
+variants. Negative results and payload-free fuzz qualifications are separate
+from the valid corpus. Consult the registry, transfer-syntax capability matrix,
+and generated coverage report before describing the scope of a downstream
+review.

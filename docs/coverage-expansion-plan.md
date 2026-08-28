@@ -559,6 +559,14 @@ blocked on explicit resource budgets. Milestone 2 is the next Phase 5 slice,
 but its shared lossy numeric acceptance policy is an explicit decision
 checkpoint. See `docs/phase-5-encapsulation-status.md`.
 
+Decision update on 2026-08-28: the shared lossy thresholds, reduced/full stress
+envelopes, optional DCMTK-first media/protocol baseline, dcm4che independent-
+peer target, and repository-owned synthetic PKI fixtures are approved. Exact
+values and scope are locked in
+`docs/coverage-expansion-decisions-2026-08-28.md`. These approvals remove the
+policy checkpoints but do not promote a case until its complete vertical gate
+passes.
+
 ### Phase 6 — Stress and large-object behavior
 
 **Purpose:** test resource and offset behavior without slowing normal work.

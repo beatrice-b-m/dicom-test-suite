@@ -13,9 +13,13 @@ use crate::PACKAGE_VERSION;
 use std::borrow::Cow;
 #[cfg(feature = "jpeg2000")]
 use std::os::raw::c_void;
-#[cfg(feature = "htj2k_openjph")]
+#[cfg(any(feature = "htj2k_openjph", feature = "jpegxl"))]
 use std::time::{SystemTime, UNIX_EPOCH};
-#[cfg(any(feature = "htj2k_openjph", feature = "legacy_jpeg_dcmtk"))]
+#[cfg(any(
+    feature = "htj2k_openjph",
+    feature = "legacy_jpeg_dcmtk",
+    feature = "jpegxl"
+))]
 use std::{
     env, fs,
     path::{Path, PathBuf},
@@ -50,16 +54,19 @@ use dicom_encoding::{
 };
 #[cfg(feature = "deflate")]
 use dicom_transfer_syntax_registry::entries::DEFLATED_IMAGE_FRAME_COMPRESSION;
-#[cfg(feature = "htj2k_openjph")]
-use dicom_transfer_syntax_registry::entries::HIGH_THROUGHPUT_JPEG_2000_IMAGE_COMPRESSION_LOSSLESS_ONLY;
 #[cfg(feature = "jpeg2000")]
 use dicom_transfer_syntax_registry::entries::JPEG_2000_IMAGE_COMPRESSION_LOSSLESS_ONLY;
 #[cfg(feature = "jpeg")]
 use dicom_transfer_syntax_registry::entries::JPEG_BASELINE;
 #[cfg(feature = "charls")]
 use dicom_transfer_syntax_registry::entries::JPEG_LS_LOSSLESS_IMAGE_COMPRESSION;
+#[cfg(feature = "htj2k_openjph")]
+use dicom_transfer_syntax_registry::entries::{
+    HIGH_THROUGHPUT_JPEG_2000_IMAGE_COMPRESSION,
+    HIGH_THROUGHPUT_JPEG_2000_IMAGE_COMPRESSION_LOSSLESS_ONLY,
+};
 #[cfg(feature = "jpegxl")]
-use dicom_transfer_syntax_registry::entries::JPEG_XL_LOSSLESS;
+use dicom_transfer_syntax_registry::entries::{JPEG_XL, JPEG_XL_LOSSLESS};
 #[cfg(feature = "jpeg2000")]
 use openjp2::image::opj_image_cmptparm_t;
 #[cfg(feature = "jpeg2000")]
@@ -71,7 +78,9 @@ pub const JPEG_LS_LOSSLESS_TRANSFER_SYNTAX_UID: &str = "1.2.840.10008.1.2.4.80";
 pub const JPEG_LOSSLESS_PROCESS_14_TRANSFER_SYNTAX_UID: &str = "1.2.840.10008.1.2.4.57";
 pub const JPEG_LOSSLESS_SV1_TRANSFER_SYNTAX_UID: &str = "1.2.840.10008.1.2.4.70";
 pub const JPEG_XL_LOSSLESS_TRANSFER_SYNTAX_UID: &str = "1.2.840.10008.1.2.4.110";
+pub const JPEG_XL_LOSSY_TRANSFER_SYNTAX_UID: &str = "1.2.840.10008.1.2.4.112";
 pub const HTJ2K_LOSSLESS_TRANSFER_SYNTAX_UID: &str = "1.2.840.10008.1.2.4.201";
+pub const HTJ2K_LOSSY_TRANSFER_SYNTAX_UID: &str = "1.2.840.10008.1.2.4.203";
 pub const RLE_LOSSLESS_TRANSFER_SYNTAX_UID: &str = "1.2.840.10008.1.2.5";
 pub const DEFLATED_IMAGE_FRAME_TRANSFER_SYNTAX_UID: &str = "1.2.840.10008.1.2.8.1";
 
@@ -490,7 +499,11 @@ impl FrameDecoder for OpenJp2Jpeg2000LosslessEncoder {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg(any(feature = "htj2k_openjph", feature = "legacy_jpeg_dcmtk"))]
+#[cfg(any(
+    feature = "htj2k_openjph",
+    feature = "legacy_jpeg_dcmtk",
+    feature = "jpegxl"
+))]
 pub struct ExternalCommandBackendIdentity {
     pub command: &'static str,
     pub executable_path: PathBuf,
@@ -808,7 +821,12 @@ impl FrameEncoder for OpenJphHtj2kLosslessEncoder {
             let output_path = dir.join("frame_htj2k.j2c");
             fs::write(
                 &input_path,
-                pgm_u16_mono2_from_native_le(input.columns, input.rows, input.native_frame)?,
+                pgm_u16_mono2_from_native_le(
+                    Self::BACKEND_ID,
+                    input.columns,
+                    input.rows,
+                    input.native_frame,
+                )?,
             )
             .map_err(|err| {
                 CodecError::encode_failed(
@@ -910,6 +928,244 @@ impl FrameDecoder for OpenJphHtj2kLosslessEncoder {
             .decode_frame(&obj, 0, &mut decoded)
             .map_err(|err| CodecError::validation_failed(Self::BACKEND_ID, err.to_string()))?;
 
+        Ok(DecodedFrame {
+            native_bytes: decoded,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg(feature = "htj2k_openjph")]
+pub struct OpenJphHtj2kLossyEncoder {
+    command: PathBuf,
+}
+
+#[cfg(feature = "htj2k_openjph")]
+impl Default for OpenJphHtj2kLossyEncoder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[cfg(feature = "htj2k_openjph")]
+impl OpenJphHtj2kLossyEncoder {
+    pub const BACKEND_ID: &'static str = "openjph_htj2k_lossy_command_writer";
+    pub const COMMAND: &'static str = "ojph_compress";
+    pub const QSTEP: &'static str = "0.00025";
+    pub const NUM_DECOMPOSITIONS: &'static str = "2";
+    pub const PROGRESSION_ORDER: &'static str = "LRCP";
+    pub const LOSSY_IMAGE_COMPRESSION_METHOD: &'static str = "ISO_15444_15";
+    pub const DECODER_ID: &'static str = "dicom_rs_openjpeg_htj2k_decoder";
+    pub const DECODER_VERSION: &'static str =
+        "dicom-transfer-syntax-registry 0.9.1 + jpeg2k 0.10.1 + openjp2 0.6.1";
+    pub const DECODER_INDEPENDENCE: &'static str = "independent";
+
+    pub fn fixed_option_arguments() -> Vec<String> {
+        vec![
+            "-reversible".to_string(),
+            "false".to_string(),
+            "-qstep".to_string(),
+            Self::QSTEP.to_string(),
+            "-num_decomps".to_string(),
+            Self::NUM_DECOMPOSITIONS.to_string(),
+            "-colour_trans".to_string(),
+            "false".to_string(),
+            "-prog_order".to_string(),
+            Self::PROGRESSION_ORDER.to_string(),
+        ]
+    }
+
+    pub fn new() -> Self {
+        Self {
+            command: PathBuf::from(Self::COMMAND),
+        }
+    }
+
+    pub fn with_command(command: impl Into<PathBuf>) -> Self {
+        Self {
+            command: command.into(),
+        }
+    }
+
+    pub fn discover_backend_identity(&self) -> Result<ExternalCommandBackendIdentity, CodecError> {
+        let executable_path = resolve_command_path(&self.command, Self::BACKEND_ID, "OpenJPH")?;
+        let executable_bytes = fs::read(&executable_path).map_err(|err| {
+            CodecError::unavailable(
+                Self::BACKEND_ID,
+                format!(
+                    "failed to read OpenJPH executable {} for fingerprinting: {err}",
+                    executable_path.display()
+                ),
+            )
+        })?;
+        Ok(ExternalCommandBackendIdentity {
+            command: Self::COMMAND,
+            executable_path,
+            executable_sha256: crate::sha256_hex(&executable_bytes),
+            version: None,
+            version_source: "executable_sha256",
+        })
+    }
+}
+
+#[cfg(feature = "htj2k_openjph")]
+impl FrameEncoder for OpenJphHtj2kLossyEncoder {
+    fn backend(&self) -> CodecBackendInfo {
+        CodecBackendInfo {
+            backend_id: Self::BACKEND_ID,
+            backend_kind: CodecBackendKind::ExternalCommand,
+            display_name: "OpenJPH HTJ2K lossy external command writer",
+            version: "OpenJPH 0.27.3 executable SHA-256 recorded at runtime",
+            transfer_syntax_uid: HTJ2K_LOSSY_TRANSFER_SYNTAX_UID,
+            feature_gate: Some("htj2k_openjph"),
+            determinism: CodecDeterminism::SemanticStable,
+        }
+    }
+
+    fn encode_frame(&self, input: FrameEncodeInput<'_>) -> Result<EncodedFrame, CodecError> {
+        if input.bits_allocated != 16 || input.bits_stored != 16 {
+            return Err(CodecError::unsupported(
+                Self::BACKEND_ID,
+                "HTJ2K lossy support requires unsigned 16-bit samples",
+            ));
+        }
+        if input.samples_per_pixel != 1 || input.photometric_interpretation != "MONOCHROME2" {
+            return Err(CodecError::unsupported(
+                Self::BACKEND_ID,
+                "HTJ2K lossy support requires MONOCHROME2 input",
+            ));
+        }
+        let expected_len = usize::from(input.rows)
+            .checked_mul(usize::from(input.columns))
+            .and_then(|pixels| pixels.checked_mul(2))
+            .ok_or_else(|| {
+                CodecError::unsupported(Self::BACKEND_ID, "native frame length overflowed")
+            })?;
+        if input.native_frame.len() != expected_len {
+            return Err(CodecError::unsupported(
+                Self::BACKEND_ID,
+                format!(
+                    "native frame length is {}, expected {expected_len}",
+                    input.native_frame.len()
+                ),
+            ));
+        }
+
+        let identity = self.discover_backend_identity()?;
+        let dir = unique_codec_temp_dir("openjph-htj2k-lossy");
+        let encode_result = (|| {
+            fs::create_dir_all(&dir).map_err(|err| {
+                CodecError::encode_failed(
+                    Self::BACKEND_ID,
+                    format!(
+                        "failed to create OpenJPH temporary directory {}: {err}",
+                        dir.display()
+                    ),
+                )
+            })?;
+            let input_path = dir.join("frame.pgm");
+            let output_path = dir.join("frame_htj2k.j2c");
+            fs::write(
+                &input_path,
+                pgm_u16_mono2_from_native_le(
+                    Self::BACKEND_ID,
+                    input.columns,
+                    input.rows,
+                    input.native_frame,
+                )?,
+            )
+            .map_err(|err| {
+                CodecError::encode_failed(
+                    Self::BACKEND_ID,
+                    format!(
+                        "failed to write OpenJPH PGM input {}: {err}",
+                        input_path.display()
+                    ),
+                )
+            })?;
+            let result = Command::new(&identity.executable_path)
+                .arg("-i")
+                .arg(&input_path)
+                .arg("-o")
+                .arg(&output_path)
+                .args(Self::fixed_option_arguments())
+                .output()
+                .map_err(|err| {
+                    CodecError::encode_failed(
+                        Self::BACKEND_ID,
+                        format!("failed to run OpenJPH command: {err}"),
+                    )
+                })?;
+            if !result.status.success() {
+                return Err(CodecError::encode_failed(
+                    Self::BACKEND_ID,
+                    format!(
+                        "ojph_compress failed with status {:?}: stdout={}, stderr={}",
+                        result.status.code(),
+                        String::from_utf8_lossy(&result.stdout),
+                        String::from_utf8_lossy(&result.stderr)
+                    ),
+                ));
+            }
+            fs::read(&output_path).map_err(|err| {
+                CodecError::encode_failed(
+                    Self::BACKEND_ID,
+                    format!(
+                        "failed to read OpenJPH codestream {}: {err}",
+                        output_path.display()
+                    ),
+                )
+            })
+        })();
+        let _ = fs::remove_dir_all(&dir);
+
+        let encoded = encode_result?;
+        if encoded.len() < 4 || encoded[..2] != [0xff, 0x4f] {
+            return Err(CodecError::validation_failed(
+                Self::BACKEND_ID,
+                "HTJ2K codestream is missing the SOC marker",
+            ));
+        }
+        if encoded[encoded.len() - 2..] != [0xff, 0xd9] {
+            return Err(CodecError::validation_failed(
+                Self::BACKEND_ID,
+                "HTJ2K codestream is missing the EOC marker",
+            ));
+        }
+        Ok(EncodedFrame { bytes: encoded })
+    }
+}
+
+#[cfg(feature = "htj2k_openjph")]
+impl FrameDecoder for OpenJphHtj2kLossyEncoder {
+    fn backend(&self) -> CodecBackendInfo {
+        <Self as FrameEncoder>::backend(self)
+    }
+
+    fn decode_frame(&self, input: FrameDecodeInput<'_>) -> Result<DecodedFrame, CodecError> {
+        let obj = DicomRsPixelDataObject {
+            transfer_syntax_uid: HTJ2K_LOSSY_TRANSFER_SYNTAX_UID,
+            rows: input.rows,
+            columns: input.columns,
+            samples_per_pixel: input.samples_per_pixel,
+            bits_allocated: input.bits_allocated,
+            bits_stored: input.bits_stored,
+            photometric_interpretation: input.photometric_interpretation,
+            fragments: vec![input.encoded_frame.to_vec()],
+            offset_table: Vec::new(),
+        };
+        let Codec::EncapsulatedPixelData(Some(reader), _) =
+            HIGH_THROUGHPUT_JPEG_2000_IMAGE_COMPRESSION.codec()
+        else {
+            return Err(CodecError::unavailable(
+                Self::BACKEND_ID,
+                "DICOM-rs OpenJPEG HTJ2K reader is unavailable",
+            ));
+        };
+        let mut decoded = Vec::new();
+        reader
+            .decode_frame(&obj, 0, &mut decoded)
+            .map_err(|err| CodecError::validation_failed(Self::BACKEND_ID, err.to_string()))?;
         Ok(DecodedFrame {
             native_bytes: decoded,
         })
@@ -1149,6 +1405,257 @@ impl FrameDecoder for DicomRsJpegBaselineEncoder {
             .decode_frame(&obj, 0, &mut decoded)
             .map_err(|err| CodecError::validation_failed(Self::BACKEND_ID, err.to_string()))?;
 
+        Ok(DecodedFrame {
+            native_bytes: decoded,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg(feature = "jpegxl")]
+pub struct CjxlJpegXlLossyEncoder {
+    command: PathBuf,
+}
+
+#[cfg(feature = "jpegxl")]
+impl Default for CjxlJpegXlLossyEncoder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[cfg(feature = "jpegxl")]
+impl CjxlJpegXlLossyEncoder {
+    pub const BACKEND_ID: &'static str = "cjxl_jpegxl_lossy_command_writer";
+    pub const COMMAND: &'static str = "cjxl";
+    pub const DISTANCE: &'static str = "0.05";
+    pub const EFFORT: &'static str = "7";
+    pub const NUM_THREADS: &'static str = "0";
+    pub const LOSSY_IMAGE_COMPRESSION_METHOD: &'static str = "ISO_18181_1";
+    pub const DECODER_ID: &'static str = "dicom_rs_jxl_oxide_decoder";
+    pub const DECODER_VERSION: &'static str =
+        "dicom-transfer-syntax-registry 0.9.1 + jxl-oxide 0.10.2";
+    pub const DECODER_INDEPENDENCE: &'static str = "independent";
+
+    pub fn new() -> Self {
+        Self {
+            command: PathBuf::from(Self::COMMAND),
+        }
+    }
+
+    pub fn with_command(command: impl Into<PathBuf>) -> Self {
+        Self {
+            command: command.into(),
+        }
+    }
+
+    pub fn fixed_option_arguments() -> Vec<String> {
+        vec![
+            format!("--distance={}", Self::DISTANCE),
+            format!("--effort={}", Self::EFFORT),
+            format!("--num_threads={}", Self::NUM_THREADS),
+            "--container=0".to_string(),
+            "--modular=0".to_string(),
+            "--quiet".to_string(),
+        ]
+    }
+
+    pub fn discover_backend_identity(&self) -> Result<ExternalCommandBackendIdentity, CodecError> {
+        let executable_path =
+            resolve_command_path(&self.command, Self::BACKEND_ID, "JPEG XL cjxl")?;
+        let executable_bytes = fs::read(&executable_path).map_err(|err| {
+            CodecError::unavailable(
+                Self::BACKEND_ID,
+                format!(
+                    "failed to read cjxl executable {} for fingerprinting: {err}",
+                    executable_path.display()
+                ),
+            )
+        })?;
+        let version_output = Command::new(&executable_path)
+            .arg("--version")
+            .output()
+            .map_err(|err| {
+                CodecError::unavailable(
+                    Self::BACKEND_ID,
+                    format!("failed to query cjxl version: {err}"),
+                )
+            })?;
+        if !version_output.status.success() {
+            return Err(CodecError::unavailable(
+                Self::BACKEND_ID,
+                format!(
+                    "cjxl --version failed with status {:?}",
+                    version_output.status.code()
+                ),
+            ));
+        }
+        let version = String::from_utf8_lossy(&version_output.stdout)
+            .lines()
+            .next()
+            .unwrap_or_default()
+            .trim()
+            .to_string();
+        if version.is_empty() {
+            return Err(CodecError::unavailable(
+                Self::BACKEND_ID,
+                "cjxl --version returned no version text",
+            ));
+        }
+
+        Ok(ExternalCommandBackendIdentity {
+            command: Self::COMMAND,
+            executable_path,
+            executable_sha256: crate::sha256_hex(&executable_bytes),
+            version: Some(version),
+            version_source: "command_version_and_executable_sha256",
+        })
+    }
+}
+
+#[cfg(feature = "jpegxl")]
+impl FrameEncoder for CjxlJpegXlLossyEncoder {
+    fn backend(&self) -> CodecBackendInfo {
+        CodecBackendInfo {
+            backend_id: Self::BACKEND_ID,
+            backend_kind: CodecBackendKind::ExternalCommand,
+            display_name: "cjxl JPEG XL lossy external command writer",
+            version: "cjxl 0.11.2 version and executable SHA-256 recorded at runtime",
+            transfer_syntax_uid: JPEG_XL_LOSSY_TRANSFER_SYNTAX_UID,
+            feature_gate: Some("jpegxl"),
+            determinism: CodecDeterminism::SemanticStable,
+        }
+    }
+
+    fn encode_frame(&self, input: FrameEncodeInput<'_>) -> Result<EncodedFrame, CodecError> {
+        if input.bits_allocated != 8 || input.bits_stored != 8 {
+            return Err(CodecError::unsupported(
+                Self::BACKEND_ID,
+                "JPEG XL lossy support requires unsigned 8-bit samples",
+            ));
+        }
+        if input.samples_per_pixel != 3 || input.photometric_interpretation != "RGB" {
+            return Err(CodecError::unsupported(
+                Self::BACKEND_ID,
+                "JPEG XL lossy support requires interleaved RGB input",
+            ));
+        }
+        let expected_len = usize::from(input.rows)
+            .checked_mul(usize::from(input.columns))
+            .and_then(|pixels| pixels.checked_mul(3))
+            .ok_or_else(|| {
+                CodecError::unsupported(Self::BACKEND_ID, "native frame length overflowed")
+            })?;
+        if input.native_frame.len() != expected_len {
+            return Err(CodecError::unsupported(
+                Self::BACKEND_ID,
+                format!(
+                    "native frame length is {}, expected {expected_len}",
+                    input.native_frame.len()
+                ),
+            ));
+        }
+
+        let identity = self.discover_backend_identity()?;
+        let dir = unique_codec_temp_dir("cjxl-jpegxl-lossy");
+        let encode_result = (|| {
+            fs::create_dir_all(&dir).map_err(|err| {
+                CodecError::encode_failed(
+                    Self::BACKEND_ID,
+                    format!(
+                        "failed to create cjxl temporary directory {}: {err}",
+                        dir.display()
+                    ),
+                )
+            })?;
+            let input_path = dir.join("frame.ppm");
+            let output_path = dir.join("frame.jxl");
+            fs::write(
+                &input_path,
+                ppm_rgb8(input.columns, input.rows, input.native_frame)?,
+            )
+            .map_err(|err| {
+                CodecError::encode_failed(
+                    Self::BACKEND_ID,
+                    format!(
+                        "failed to write cjxl PPM input {}: {err}",
+                        input_path.display()
+                    ),
+                )
+            })?;
+            let result = Command::new(&identity.executable_path)
+                .arg(&input_path)
+                .arg(&output_path)
+                .args(Self::fixed_option_arguments())
+                .output()
+                .map_err(|err| {
+                    CodecError::encode_failed(
+                        Self::BACKEND_ID,
+                        format!("failed to run cjxl command: {err}"),
+                    )
+                })?;
+            if !result.status.success() {
+                return Err(CodecError::encode_failed(
+                    Self::BACKEND_ID,
+                    format!(
+                        "cjxl failed with status {:?}: stdout={}, stderr={}",
+                        result.status.code(),
+                        String::from_utf8_lossy(&result.stdout),
+                        String::from_utf8_lossy(&result.stderr)
+                    ),
+                ));
+            }
+            fs::read(&output_path).map_err(|err| {
+                CodecError::encode_failed(
+                    Self::BACKEND_ID,
+                    format!(
+                        "failed to read cjxl codestream {}: {err}",
+                        output_path.display()
+                    ),
+                )
+            })
+        })();
+        let _ = fs::remove_dir_all(&dir);
+
+        let encoded = encode_result?;
+        if !encoded.starts_with(&[0xff, 0x0a]) {
+            return Err(CodecError::validation_failed(
+                Self::BACKEND_ID,
+                "JPEG XL output is not a raw codestream",
+            ));
+        }
+        Ok(EncodedFrame { bytes: encoded })
+    }
+}
+
+#[cfg(feature = "jpegxl")]
+impl FrameDecoder for CjxlJpegXlLossyEncoder {
+    fn backend(&self) -> CodecBackendInfo {
+        <Self as FrameEncoder>::backend(self)
+    }
+
+    fn decode_frame(&self, input: FrameDecodeInput<'_>) -> Result<DecodedFrame, CodecError> {
+        let obj = DicomRsPixelDataObject {
+            transfer_syntax_uid: JPEG_XL_LOSSY_TRANSFER_SYNTAX_UID,
+            rows: input.rows,
+            columns: input.columns,
+            samples_per_pixel: input.samples_per_pixel,
+            bits_allocated: input.bits_allocated,
+            bits_stored: input.bits_stored,
+            photometric_interpretation: input.photometric_interpretation,
+            fragments: vec![input.encoded_frame.to_vec()],
+            offset_table: Vec::new(),
+        };
+        let Codec::EncapsulatedPixelData(Some(reader), _) = JPEG_XL.codec() else {
+            return Err(CodecError::unavailable(
+                Self::BACKEND_ID,
+                "DICOM-rs jxl-oxide JPEG XL reader is unavailable",
+            ));
+        };
+        let mut decoded = Vec::new();
+        reader
+            .decode_frame(&obj, 0, &mut decoded)
+            .map_err(|err| CodecError::validation_failed(Self::BACKEND_ID, err.to_string()))?;
         Ok(DecodedFrame {
             native_bytes: decoded,
         })
@@ -2068,7 +2575,11 @@ fn read_u32_le(bytes: &[u8], offset: usize) -> u32 {
     ])
 }
 
-#[cfg(any(feature = "htj2k_openjph", feature = "legacy_jpeg_dcmtk"))]
+#[cfg(any(
+    feature = "htj2k_openjph",
+    feature = "legacy_jpeg_dcmtk",
+    feature = "jpegxl"
+))]
 fn resolve_command_path(
     command: &Path,
     backend_id: &'static str,
@@ -2110,7 +2621,11 @@ fn resolve_command_path(
     ))
 }
 
-#[cfg(any(feature = "htj2k_openjph", feature = "legacy_jpeg_dcmtk"))]
+#[cfg(any(
+    feature = "htj2k_openjph",
+    feature = "legacy_jpeg_dcmtk",
+    feature = "jpegxl"
+))]
 fn canonical_existing_command(
     command: &Path,
     backend_id: &'static str,
@@ -2137,14 +2652,25 @@ fn canonical_existing_command(
 }
 
 #[cfg(all(
-    any(feature = "htj2k_openjph", feature = "legacy_jpeg_dcmtk"),
+    any(
+        feature = "htj2k_openjph",
+        feature = "legacy_jpeg_dcmtk",
+        feature = "jpegxl"
+    ),
     not(windows)
 ))]
 fn command_candidates(dir: &Path, command: &Path) -> Vec<PathBuf> {
     vec![dir.join(command)]
 }
 
-#[cfg(all(any(feature = "htj2k_openjph", feature = "legacy_jpeg_dcmtk"), windows))]
+#[cfg(all(
+    any(
+        feature = "htj2k_openjph",
+        feature = "legacy_jpeg_dcmtk",
+        feature = "jpegxl"
+    ),
+    windows
+))]
 fn command_candidates(dir: &Path, command: &Path) -> Vec<PathBuf> {
     if command.extension().is_some() {
         return vec![dir.join(command)];
@@ -2160,8 +2686,34 @@ fn command_candidates(dir: &Path, command: &Path) -> Vec<PathBuf> {
         .collect()
 }
 
+#[cfg(feature = "jpegxl")]
+fn ppm_rgb8(columns: u16, rows: u16, native_frame: &[u8]) -> Result<Vec<u8>, CodecError> {
+    let expected_len = usize::from(columns)
+        .checked_mul(usize::from(rows))
+        .and_then(|pixels| pixels.checked_mul(3))
+        .ok_or_else(|| {
+            CodecError::unsupported(
+                CjxlJpegXlLossyEncoder::BACKEND_ID,
+                "PPM input length overflowed",
+            )
+        })?;
+    if native_frame.len() != expected_len {
+        return Err(CodecError::unsupported(
+            CjxlJpegXlLossyEncoder::BACKEND_ID,
+            format!(
+                "native frame length is {}, expected {expected_len}",
+                native_frame.len()
+            ),
+        ));
+    }
+    let mut bytes = format!("P6\n{columns} {rows}\n255\n").into_bytes();
+    bytes.extend_from_slice(native_frame);
+    Ok(bytes)
+}
+
 #[cfg(feature = "htj2k_openjph")]
 fn pgm_u16_mono2_from_native_le(
+    backend_id: &'static str,
     columns: u16,
     rows: u16,
     native_frame: &[u8],
@@ -2169,15 +2721,10 @@ fn pgm_u16_mono2_from_native_le(
     let expected_len = usize::from(columns)
         .checked_mul(usize::from(rows))
         .and_then(|samples| samples.checked_mul(2))
-        .ok_or_else(|| {
-            CodecError::unsupported(
-                OpenJphHtj2kLosslessEncoder::BACKEND_ID,
-                "PGM input length overflowed",
-            )
-        })?;
+        .ok_or_else(|| CodecError::unsupported(backend_id, "PGM input length overflowed"))?;
     if native_frame.len() != expected_len {
         return Err(CodecError::unsupported(
-            OpenJphHtj2kLosslessEncoder::BACKEND_ID,
+            backend_id,
             format!(
                 "native frame length is {}, expected {expected_len}",
                 native_frame.len()
@@ -2195,11 +2742,16 @@ fn pgm_u16_mono2_from_native_le(
 
 #[cfg(feature = "htj2k_openjph")]
 fn unique_openjph_temp_dir() -> PathBuf {
+    unique_codec_temp_dir("openjph-htj2k")
+}
+
+#[cfg(any(feature = "htj2k_openjph", feature = "jpegxl"))]
+fn unique_codec_temp_dir(label: &str) -> PathBuf {
     let nonce = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|duration| duration.as_nanos())
         .unwrap_or_default();
-    env::temp_dir().join(format!("dts-openjph-htj2k-{}-{nonce}", std::process::id()))
+    env::temp_dir().join(format!("dts-{label}-{}-{nonce}", std::process::id()))
 }
 
 #[cfg(test)]
@@ -2808,6 +3360,111 @@ mod tests {
 
     #[cfg(feature = "jpegxl")]
     #[test]
+    fn cjxl_lossy_rgb_meets_policy_and_is_reproducible() {
+        let codec = CjxlJpegXlLossyEncoder::new();
+        let backend = FrameEncoder::backend(&codec);
+        assert_eq!(
+            backend.transfer_syntax_uid,
+            JPEG_XL_LOSSY_TRANSFER_SYNTAX_UID
+        );
+        assert_eq!(backend.backend_kind, CodecBackendKind::ExternalCommand);
+        assert_eq!(CjxlJpegXlLossyEncoder::DECODER_INDEPENDENCE, "independent");
+        let identity = match codec.discover_backend_identity() {
+            Ok(identity) => identity,
+            Err(CodecError::Unavailable { reason, .. }) if reason.contains("not found") => {
+                eprintln!("skipping cjxl lossy proof because {reason}");
+                return;
+            }
+            Err(error) => panic!("cjxl discovery should succeed: {error}"),
+        };
+        assert!(
+            identity
+                .version
+                .as_deref()
+                .is_some_and(|version| version.contains("0.11.2"))
+        );
+        assert_eq!(identity.executable_sha256.len(), 64);
+
+        let mut native = Vec::with_capacity(32 * 32 * 3);
+        for row in 0..32_u16 {
+            for column in 0..32_u16 {
+                let bar = (column / 4) as u8;
+                native.extend_from_slice(&[
+                    if row < 16 {
+                        (column * 8) as u8
+                    } else {
+                        bar * 32
+                    },
+                    if column < 16 {
+                        (row * 8) as u8
+                    } else {
+                        255 - bar * 32
+                    },
+                    if (row / 4 + column / 4) % 2 == 0 {
+                        16
+                    } else {
+                        240
+                    },
+                ]);
+            }
+        }
+        let input = FrameEncodeInput {
+            native_frame: &native,
+            rows: 32,
+            columns: 32,
+            samples_per_pixel: 3,
+            bits_allocated: 8,
+            bits_stored: 8,
+            photometric_interpretation: "RGB",
+        };
+        let encoded = codec
+            .encode_frame(input)
+            .expect("cjxl should encode RGB diagnostic frame");
+        let repeated = codec
+            .encode_frame(input)
+            .expect("cjxl should reproduce fixed options");
+        assert_eq!(encoded.bytes, repeated.bytes);
+        assert!(encoded.bytes.starts_with(&[0xff, 0x0a]));
+
+        let decoded = codec
+            .decode_frame(FrameDecodeInput {
+                encoded_frame: &encoded.bytes,
+                rows: 32,
+                columns: 32,
+                samples_per_pixel: 3,
+                bits_allocated: 8,
+                bits_stored: 8,
+                photometric_interpretation: "RGB",
+            })
+            .expect("independent jxl-oxide adapter should decode cjxl output");
+        let metrics = calculate_lossy_frame_metrics(&native, &decoded.native_bytes, 32, 32, 3, 8)
+            .expect("JPEG XL metrics should calculate");
+        eprintln!(
+            "cjxl distance={} effort={} bytes={} metrics={metrics:?}",
+            CjxlJpegXlLossyEncoder::DISTANCE,
+            CjxlJpegXlLossyEncoder::EFFORT,
+            encoded.bytes.len()
+        );
+        assert!(
+            metrics
+                .channels
+                .iter()
+                .all(|channel| channel.max_absolute_error <= 8)
+        );
+        assert!(metrics.overall_rmse <= 3.0);
+    }
+
+    #[cfg(feature = "jpegxl")]
+    #[test]
+    fn cjxl_lossy_reports_controlled_unavailable_command() {
+        let error = CjxlJpegXlLossyEncoder::with_command("/definitely/missing/cjxl")
+            .discover_backend_identity()
+            .expect_err("missing cjxl should be unavailable");
+        assert!(matches!(error, CodecError::Unavailable { .. }));
+    }
+
+    #[cfg(feature = "jpegxl")]
+    #[test]
     fn dicom_rs_jpeg_xl_lossless_backend_reports_identity() {
         let encoder = DicomRsJpegXlLosslessEncoder::new();
 
@@ -2994,6 +3651,89 @@ mod tests {
             writer.is_none(),
             "DICOM-rs JPEG 2000 Lossless support remains decode-only"
         );
+    }
+
+    #[cfg(feature = "htj2k_openjph")]
+    #[test]
+    fn openjph_htj2k_lossy_meets_policy_and_is_reproducible() {
+        let codec = OpenJphHtj2kLossyEncoder::new();
+        let backend = FrameEncoder::backend(&codec);
+        assert_eq!(backend.transfer_syntax_uid, HTJ2K_LOSSY_TRANSFER_SYNTAX_UID);
+        assert_eq!(backend.backend_kind, CodecBackendKind::ExternalCommand);
+        assert_eq!(
+            OpenJphHtj2kLossyEncoder::DECODER_INDEPENDENCE,
+            "independent"
+        );
+        if let Err(CodecError::Unavailable { reason, .. }) = codec.discover_backend_identity() {
+            if reason.contains("not found") {
+                eprintln!("skipping OpenJPH HTJ2K lossy proof because {reason}");
+                return;
+            }
+        }
+        let mut native = Vec::with_capacity(32 * 32 * 2);
+        for row in 0..32_u32 {
+            for column in 0..32_u32 {
+                let sample = if row < 8 {
+                    column * 2048
+                } else if row < 16 {
+                    if column < 16 { 0 } else { 65535 }
+                } else if (row / 4 + column / 4) % 2 == 0 {
+                    4096
+                } else {
+                    61440
+                };
+                native.extend_from_slice(&(sample.min(65535) as u16).to_le_bytes());
+            }
+        }
+        let input = FrameEncodeInput {
+            native_frame: &native,
+            rows: 32,
+            columns: 32,
+            samples_per_pixel: 1,
+            bits_allocated: 16,
+            bits_stored: 16,
+            photometric_interpretation: "MONOCHROME2",
+        };
+        let encoded = codec
+            .encode_frame(input)
+            .expect("OpenJPH should encode HTJ2K lossy diagnostic frame");
+        let repeated = codec
+            .encode_frame(input)
+            .expect("OpenJPH should reproduce fixed lossy options");
+        assert_eq!(encoded.bytes, repeated.bytes);
+        assert_eq!(&encoded.bytes[..2], &[0xff, 0x4f]);
+        assert_eq!(&encoded.bytes[encoded.bytes.len() - 2..], &[0xff, 0xd9]);
+
+        let decoded = codec
+            .decode_frame(FrameDecodeInput {
+                encoded_frame: &encoded.bytes,
+                rows: 32,
+                columns: 32,
+                samples_per_pixel: 1,
+                bits_allocated: 16,
+                bits_stored: 16,
+                photometric_interpretation: "MONOCHROME2",
+            })
+            .expect("independent OpenJPEG adapter should decode OpenJPH output");
+        let metrics = calculate_lossy_frame_metrics(&native, &decoded.native_bytes, 32, 32, 1, 16)
+            .expect("HTJ2K metrics should calculate");
+        eprintln!(
+            "OpenJPH qstep={} decompositions={} bytes={} metrics={metrics:?}",
+            OpenJphHtj2kLossyEncoder::QSTEP,
+            OpenJphHtj2kLossyEncoder::NUM_DECOMPOSITIONS,
+            encoded.bytes.len()
+        );
+        assert!(metrics.channels[0].max_absolute_error <= 64);
+        assert!(metrics.overall_rmse <= 16.0);
+    }
+
+    #[cfg(feature = "htj2k_openjph")]
+    #[test]
+    fn openjph_htj2k_lossy_reports_controlled_unavailable_command() {
+        let error = OpenJphHtj2kLossyEncoder::with_command("/definitely/missing/ojph_compress")
+            .discover_backend_identity()
+            .expect_err("missing OpenJPH should be unavailable");
+        assert!(matches!(error, CodecError::Unavailable { .. }));
     }
 
     #[cfg(feature = "htj2k_openjph")]

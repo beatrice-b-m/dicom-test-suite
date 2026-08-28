@@ -4783,10 +4783,10 @@
     {
       "case_id": "classic/sc/mono2_u16_htj2k_lossy",
       "artifact_kind": "dicom_instance",
-      "status": "planned",
+      "status": "implemented",
       "provider": {
         "kind": "external_backend",
-        "id": "video_codec_adapter"
+        "id": "openjph_htj2k_lossy_command_writer"
       },
       "object_family": "classic_image",
       "compatibility_axes": [
@@ -4794,28 +4794,8 @@
         "encapsulation",
         "pixels"
       ],
-      "roadmap": {
-        "priority": "later",
-        "delivery_phase": "phase-5",
-        "rationale": "Adds a lossy HTJ2K variant after independent decoder proof."
-      },
-      "blockers": [
-        {
-          "code": "backend_contract_unimplemented",
-          "message": "The external generation contract is not implemented.",
-          "recheck_phase": "phase-1"
-        },
-        {
-          "code": "numeric_tolerance_policy_pending",
-          "message": "Lossy per-channel and aggregate metrics are not approved.",
-          "recheck_phase": "phase-5"
-        },
-        {
-          "code": "independent_decoder_unavailable",
-          "message": "An independent lossy HTJ2K decoder is not integrated.",
-          "recheck_phase": "phase-5"
-        }
-      ],
+      "roadmap": null,
+      "blockers": [],
       "profiles": [
         "extended"
       ],
@@ -4828,9 +4808,15 @@
       "transfer_syntax_uid": "1.2.840.10008.1.2.4.203",
       "determinism": "semantic_stable",
       "requirements": {
-        "features": [],
-        "external_codecs": [],
-        "external_validators": []
+        "features": [
+          "htj2k_openjph"
+        ],
+        "external_codecs": [
+          "OpenJPH 0.27.3"
+        ],
+        "external_validators": [
+          "OpenJPEG via dicom-transfer-syntax-registry 0.9.1"
+        ]
       },
       "skip": null,
       "standards_evidence": [
@@ -7299,10 +7285,10 @@
     {
       "case_id": "classic/sc/rgb_jpegxl_lossy",
       "artifact_kind": "dicom_instance",
-      "status": "planned",
+      "status": "implemented",
       "provider": {
         "kind": "external_backend",
-        "id": "video_codec_adapter"
+        "id": "cjxl_jpegxl_lossy_command_writer"
       },
       "object_family": "classic_image",
       "compatibility_axes": [
@@ -7310,28 +7296,8 @@
         "encapsulation",
         "pixels"
       ],
-      "roadmap": {
-        "priority": "later",
-        "delivery_phase": "phase-5",
-        "rationale": "Adds numeric color acceptance checks for lossy JPEG XL."
-      },
-      "blockers": [
-        {
-          "code": "backend_contract_unimplemented",
-          "message": "The external generation contract is not implemented.",
-          "recheck_phase": "phase-1"
-        },
-        {
-          "code": "numeric_tolerance_policy_pending",
-          "message": "Lossy per-channel and aggregate metrics are not approved.",
-          "recheck_phase": "phase-5"
-        },
-        {
-          "code": "independent_decoder_unavailable",
-          "message": "An independent lossy JPEG XL decoder is not integrated.",
-          "recheck_phase": "phase-5"
-        }
-      ],
+      "roadmap": null,
+      "blockers": [],
       "profiles": [
         "extended"
       ],
@@ -7344,9 +7310,15 @@
       "transfer_syntax_uid": "1.2.840.10008.1.2.4.112",
       "determinism": "semantic_stable",
       "requirements": {
-        "features": [],
-        "external_codecs": [],
-        "external_validators": []
+        "features": [
+          "jpegxl"
+        ],
+        "external_codecs": [
+          "cjxl 0.11.2"
+        ],
+        "external_validators": [
+          "jxl-oxide 0.10.2 via dicom-transfer-syntax-registry 0.9.1"
+        ]
       },
       "skip": null,
       "standards_evidence": [

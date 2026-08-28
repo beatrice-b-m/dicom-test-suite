@@ -2178,6 +2178,142 @@ fn reconstruct_tiled_full_matrix(pixel_bytes: &[u8]) -> Option<Vec<u8>> {
     Some(matrix)
 }
 
+/// Re-run the strict Phase 4 WSI validator against a persisted manifest member.
+pub(crate) fn validate_manifest_wsi_file(
+    path: &Path,
+    file: &Value,
+) -> Result<(), GenerateError> {
+    let required_str = |pointer: &str| -> Result<&str, GenerateError> {
+        file.pointer(pointer)
+            .and_then(Value::as_str)
+            .ok_or_else(|| manifest_wsi_error(path, format!("missing string {pointer}")))
+    };
+    let required_u16 = |pointer: &str| -> Result<u16, GenerateError> {
+        file.pointer(pointer)
+            .and_then(Value::as_u64)
+            .and_then(|value| u16::try_from(value).ok())
+            .ok_or_else(|| manifest_wsi_error(path, format!("missing u16 {pointer}")))
+    };
+    let frame_hashes = file
+        .pointer("/pixel_data/frame_hashes")
+        .and_then(Value::as_array)
+        .ok_or_else(|| manifest_wsi_error(path, "missing pixel frame hashes"))?
+        .iter()
+        .map(|value| {
+            value
+                .as_str()
+                .ok_or_else(|| manifest_wsi_error(path, "pixel frame hash must be a string"))
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    let pixel_data_vr = match required_str("/pixel_data/vr")? {
+        "OB" => VR::OB,
+        "OW" => VR::OW,
+        other => {
+            return Err(manifest_wsi_error(
+                path,
+                format!("unsupported WSI Pixel Data VR {other}"),
+            ));
+        }
+    };
+    let identity = Part10Expectations {
+        sop_class_uid: required_str("/dicom/sop_class_uid")?,
+        sop_instance_uid: required_str("/uids/sop_instance_uid")?,
+        transfer_syntax_uid: required_str("/dicom/transfer_syntax_uid")?,
+        implementation_class_uid: required_str("/uids/implementation_class_uid")?,
+        synthetic_data: required_str("/expected_semantics/synthetic_data")?,
+        rows: required_u16("/image/rows")?,
+        columns: required_u16("/image/columns")?,
+        frames: required_u16("/image/frames")?,
+        samples_per_pixel: required_u16("/image/samples_per_pixel")?,
+        photometric_interpretation: required_str("/image/photometric_interpretation")?,
+        bits_allocated: required_u16("/image/bits_allocated")?,
+        bits_stored: required_u16("/image/bits_stored")?,
+        high_bit: required_u16("/image/high_bit")?,
+        pixel_representation: required_u16("/image/pixel_representation")?,
+        planar_configuration: file
+            .pointer("/image/planar_configuration")
+            .and_then(Value::as_u64)
+            .and_then(|value| u16::try_from(value).ok()),
+        pixel_data_vr,
+        pixel_data_length_formula: PixelDataLengthFormula::ContiguousSamples,
+        decoded_frame_hashes: &frame_hashes,
+        palette: None,
+        padding: None,
+        ct_image: None,
+        enhanced_ct_image: None,
+        enhanced_mr_image: None,
+        enhanced_pet_image: None,
+        mg_image: None,
+        dx_image: None,
+        xa_image: None,
+        xrf_image: None,
+        us_image: None,
+        us_multiframe: None,
+        nm_image: None,
+        pet_image: None,
+        cr_image: None,
+        mr_image: None,
+        segmentation: None,
+    };
+
+    match required_str("/case_id")? {
+        "vl/wsi/tiled_full_small" => validate_wsi_tiled_full_file(
+            path,
+            &identity,
+            file.get("expected_wsi_tiled_full")
+                .ok_or_else(|| manifest_wsi_error(path, "missing expected_wsi_tiled_full"))?,
+        )
+        .map(|_| ()),
+        "vl/wsi/tiled_sparse_small" => validate_wsi_tiled_sparse_file(
+            path,
+            &identity,
+            file.get("expected_wsi_tiled_sparse")
+                .ok_or_else(|| manifest_wsi_error(path, "missing expected_wsi_tiled_sparse"))?,
+        )
+        .map(|_| ()),
+        "vl/wsi/multiple_optical_paths" => validate_wsi_multiple_optical_paths_file(
+            path,
+            &identity,
+            file.get("expected_wsi_multiple_optical_paths").ok_or_else(|| {
+                manifest_wsi_error(path, "missing expected_wsi_multiple_optical_paths")
+            })?,
+        )
+        .map(|_| ()),
+        "vl/wsi/pyramid_multiresolution" => {
+            let role = match required_str("/wsi_pyramid_role")? {
+                "volume" => crate::WsiPyramidRole::Volume,
+                "thumbnail" => crate::WsiPyramidRole::Thumbnail,
+                "label" => crate::WsiPyramidRole::Label,
+                other => {
+                    return Err(manifest_wsi_error(
+                        path,
+                        format!("unsupported WSI pyramid role {other}"),
+                    ));
+                }
+            };
+            validate_wsi_pyramid_file(
+                path,
+                &identity,
+                file.get("expected_wsi_pyramid")
+                    .ok_or_else(|| manifest_wsi_error(path, "missing expected_wsi_pyramid"))?,
+                role,
+            )
+            .map(|_| ())
+        }
+        other => Err(manifest_wsi_error(
+            path,
+            format!("unsupported persisted WSI case {other}"),
+        )),
+    }
+}
+
+fn manifest_wsi_error(path: &Path, message: impl Into<String>) -> GenerateError {
+    GenerateError::ValidateDicomFile {
+        path: path.to_path_buf(),
+        message: message.into(),
+    }
+}
+
 /// Validate the complete Phase 4 multiple-optical-path TILED_FULL WSI contract.
 pub(crate) fn validate_wsi_multiple_optical_paths_file(
     path: &Path,

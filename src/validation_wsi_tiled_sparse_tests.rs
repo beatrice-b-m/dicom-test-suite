@@ -6,7 +6,7 @@ use dicom_object::{FileMetaTableBuilder, InMemDicomObject};
 
 use super::{
     Part10Expectations, PixelDataLengthFormula, validate_wsi_tiled_sparse_file,
-    wsi_tiled_full_tests,
+    validate_manifest_wsi_file, wsi_tiled_full_tests,
 };
 
 const SOP_UID: &str = "2.25.8901";
@@ -146,6 +146,50 @@ fn rejects_sparse_manifest_contract_drift() {
         .to_string();
     assert!(error.contains("wsi_sparse_expected_contract"), "{error}");
     cleanup(path);
+}
+
+#[test]
+fn persisted_manifest_validation_rejects_sparse_geometry_mutation() {
+    let valid_path = write_fixture("persisted-valid", Mutation::None);
+    validate_manifest_wsi_file(&valid_path, &manifest_file())
+        .expect("persisted valid sparse WSI must pass strict validation");
+    cleanup(valid_path);
+
+    let mutated_path = write_fixture("persisted-duplicate", Mutation::DuplicatePosition);
+    let error = validate_manifest_wsi_file(&mutated_path, &manifest_file())
+        .expect_err("persisted duplicate sparse position must fail")
+        .to_string();
+    assert!(error.contains("wsi_sparse_frame_2_column_position"), "{error}");
+    cleanup(mutated_path);
+}
+
+fn manifest_file() -> serde_json::Value {
+    serde_json::json!({
+        "case_id": "vl/wsi/tiled_sparse_small",
+        "dicom": {
+            "sop_class_uid": "1.2.840.10008.5.1.4.1.1.77.1.6",
+            "transfer_syntax_uid": uids::EXPLICIT_VR_LITTLE_ENDIAN
+        },
+        "uids": {
+            "sop_instance_uid": SOP_UID,
+            "implementation_class_uid": IMPLEMENTATION_UID
+        },
+        "image": {
+            "rows": 2,
+            "columns": 2,
+            "frames": 2,
+            "samples_per_pixel": 3,
+            "photometric_interpretation": "RGB",
+            "bits_allocated": 8,
+            "bits_stored": 8,
+            "high_bit": 7,
+            "pixel_representation": 0,
+            "planar_configuration": 0
+        },
+        "pixel_data": {"vr": "OB", "frame_hashes": []},
+        "expected_semantics": {"synthetic_data": "YES"},
+        "expected_wsi_tiled_sparse": contract()
+    })
 }
 
 fn identity() -> Part10Expectations<'static> {

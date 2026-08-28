@@ -7583,6 +7583,13 @@ fn validate_family_standard_elements(
             file,
             obj,
         )?,
+        "VL Whole Slide Microscopy Image" => {
+            if let Err(error) = validation::validate_manifest_wsi_file(path, file) {
+                failures.push(format!(
+                    "{relative_path}: wsi_semantic_contract: {error}"
+                ));
+            }
+        }
         _ => {}
     }
 

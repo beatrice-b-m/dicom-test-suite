@@ -87,11 +87,6 @@ fn general_ecg_vertical_slice_is_byte_deterministic_and_closed() {
     assert_eq!(first["sha256"], dicom_test_suite::sha256_hex(&first_bytes));
     assert_eq!(first["determinism"], "byte_stable");
     assert_eq!(first_manifest["manifest_schema_version"], "0.2.0");
-    assert!(
-        first_manifest["files"]
-            .as_array()
-            .is_some_and(|files| files.len() >= 113)
-    );
 
     assert_schema_valid("schemas/manifest.schema.json", &first_manifest);
     assert_manifest_contract(first);

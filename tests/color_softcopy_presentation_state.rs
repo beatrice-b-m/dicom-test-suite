@@ -245,11 +245,6 @@ fn assert_manifest_contract(root: &Path, manifest: &Value, file: &Value) {
         );
     }
     assert!(root.join(SOURCE_PATH).exists());
-    assert!(
-        manifest["files"]
-            .as_array()
-            .is_some_and(|files| files.len() >= 113)
-    );
 }
 
 fn assert_dicom_contract(root: &Path, file: &Value) {

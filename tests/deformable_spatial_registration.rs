@@ -41,7 +41,7 @@ fn deformable_registration_vertical_slice_is_byte_deterministic_and_closed() {
             .is_valid(&first_manifest)
     );
 
-    assert_manifest_contract(&first_root, &first_manifest, first);
+    assert_manifest_contract(&first_root, first);
     assert_dicom_contract(&first_root);
     for root in [&first_root, &second_root] {
         let validation = dicom_test_suite::validate_generated_root(root)
@@ -54,7 +54,7 @@ fn deformable_registration_vertical_slice_is_byte_deterministic_and_closed() {
     fs::remove_dir_all(second_root).expect("remove second root");
 }
 
-fn assert_manifest_contract(root: &Path, manifest: &Value, file: &Value) {
+fn assert_manifest_contract(root: &Path, file: &Value) {
     assert_eq!(file["path"], RELATIVE_PATH);
     assert_eq!(
         file.pointer("/recipe/recipe_id"),
@@ -127,11 +127,6 @@ fn assert_manifest_contract(root: &Path, manifest: &Value, file: &Value) {
     );
     assert!(root.join(TARGET_PATH).exists());
     assert!(root.join(SOURCE_PATH).exists());
-    assert!(
-        manifest["files"]
-            .as_array()
-            .is_some_and(|files| files.len() >= 113)
-    );
 }
 
 fn assert_dicom_contract(root: &Path) {

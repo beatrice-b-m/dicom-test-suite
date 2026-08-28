@@ -2779,6 +2779,7 @@ const STRESS_HIGH_INSTANCE_CT_CASE_ID: &str = "stress/study/high_instance_count_
 const STRESS_LARGE_BULK_CASE_ID: &str = "stress/sc/large_bulk_data";
 const STRESS_DEEP_NESTED_CASE_ID: &str = "stress/sc/deep_nested_sequences";
 const STRESS_LONG_METADATA_CASE_ID: &str = "stress/sc/long_value_metadata";
+const STRESS_ENCAPSULATED_CASE_ID: &str = "stress/sc/large_encapsulated_multifragment";
 const ENHANCED_CT_CONCAT_PART_1_IMAGE_POSITIONS: &[&str] = &["0\\0\\0"];
 const ENHANCED_CT_CONCAT_PART_2_IMAGE_POSITIONS: &[&str] = &["0\\0\\2.5"];
 const ENHANCED_CT_CONCAT_PART_1_DIMENSION_INDEX_VALUES: &[u32] = &[1];
@@ -4762,6 +4763,15 @@ pub(crate) fn write_supported_cases(
     if let Some(case) = registry_case(registry, STRESS_LONG_METADATA_CASE_ID)? {
         if should_generate_case(case, run)? {
             context.record_one(write_stress_long_metadata_case(
+                run,
+                case,
+                standards_lock_sha256,
+            )?)?;
+        }
+    }
+    if let Some(case) = registry_case(registry, STRESS_ENCAPSULATED_CASE_ID)? {
+        if should_generate_case(case, run)? {
+            context.record_one(write_stress_encapsulated_case(
                 run,
                 case,
                 standards_lock_sha256,
@@ -15726,6 +15736,286 @@ fn write_stress_long_metadata_case(
             "1_mib_metadata_values",
         ],
     )
+}
+
+fn write_stress_encapsulated_case(
+    run: &PreparedGenerationRun,
+    case: &Value,
+    standards_lock_sha256: &str,
+) -> Result<GeneratedFile, GenerateError> {
+    const ROWS: u16 = 512;
+    const COLUMNS: u16 = 512;
+    const FRAMES: usize = 256;
+    const FRAGMENTS_PER_FRAME: usize = 64;
+    const RECIPE_ID: &str = "stress_sc_large_encapsulated_multifragment_reduced";
+    let relative_path = format!("{STRESS_ENCAPSULATED_CASE_ID}/instance.dcm");
+    let path = run.out_dir.join(&relative_path);
+    fs::create_dir_all(path.parent().expect("stress path has parent")).map_err(|source| {
+        GenerateError::CreateCaseOutputDir {
+            path: path.parent().unwrap().to_path_buf(),
+            source,
+        }
+    })?;
+    let (mut obj, identity) = base_stress_sc_object(
+        run,
+        STRESS_ENCAPSULATED_CASE_ID,
+        RECIPE_ID,
+        standards_lock_sha256,
+    );
+    put_str(
+        &mut obj,
+        tags::SOP_CLASS_UID,
+        VR::UI,
+        uids::MULTI_FRAME_GRAYSCALE_BYTE_SECONDARY_CAPTURE_IMAGE_STORAGE,
+    );
+    put_str(
+        &mut obj,
+        tags::ACQUISITION_DATE_TIME,
+        VR::DT,
+        "20260101000000",
+    );
+    put_str(&mut obj, tags::ACQUISITION_NUMBER, VR::IS, "1");
+    put_str(&mut obj, tags::LATERALITY, VR::CS, "");
+    put_str(&mut obj, tags::BODY_PART_EXAMINED, VR::CS, "CHEST");
+    put_str(&mut obj, tags::BURNED_IN_ANNOTATION, VR::CS, "NO");
+    put_str(&mut obj, tags::LOSSY_IMAGE_COMPRESSION, VR::CS, "00");
+    put_u16(&mut obj, tags::SAMPLES_PER_PIXEL, VR::US, 1);
+    put_str(
+        &mut obj,
+        tags::PHOTOMETRIC_INTERPRETATION,
+        VR::CS,
+        "MONOCHROME2",
+    );
+    put_u16(&mut obj, tags::ROWS, VR::US, ROWS);
+    put_u16(&mut obj, tags::COLUMNS, VR::US, COLUMNS);
+    put_str(
+        &mut obj,
+        tags::NUMBER_OF_FRAMES,
+        VR::IS,
+        &FRAMES.to_string(),
+    );
+    obj.put(DataElement::new(
+        tags::FRAME_INCREMENT_POINTER,
+        VR::AT,
+        PrimitiveValue::Tags(vec![tags::PAGE_NUMBER_VECTOR].into()),
+    ));
+    put_str(
+        &mut obj,
+        tags::PAGE_NUMBER_VECTOR,
+        VR::IS,
+        &(1..=FRAMES)
+            .map(|value| value.to_string())
+            .collect::<Vec<_>>()
+            .join("\\"),
+    );
+    put_u16(&mut obj, tags::BITS_ALLOCATED, VR::US, 8);
+    put_u16(&mut obj, tags::BITS_STORED, VR::US, 8);
+    put_u16(&mut obj, tags::HIGH_BIT, VR::US, 7);
+    put_u16(&mut obj, tags::PIXEL_REPRESENTATION, VR::US, 0);
+    put_str(&mut obj, tags::RESCALE_INTERCEPT, VR::DS, "0");
+    put_str(&mut obj, tags::RESCALE_SLOPE, VR::DS, "1");
+    put_str(&mut obj, tags::RESCALE_TYPE, VR::LO, "US");
+    put_str(&mut obj, tags::PRESENTATION_LUT_SHAPE, VR::CS, "IDENTITY");
+
+    let encoder = NativeRleLosslessEncoder::new();
+    let mut compressed_frames = Vec::with_capacity(FRAMES);
+    let mut decoded_frame_hashes = Vec::with_capacity(FRAMES);
+    for frame_index in 0..FRAMES {
+        let native = (0..usize::from(ROWS) * usize::from(COLUMNS))
+            .map(|index| {
+                ((index.wrapping_mul(37) + frame_index.wrapping_mul(17)) ^ (index >> 8)) as u8
+            })
+            .collect::<Vec<_>>();
+        decoded_frame_hashes.push(sha256_hex(&native));
+        compressed_frames.push(
+            encoder
+                .encode_frame(FrameEncodeInput {
+                    native_frame: &native,
+                    rows: ROWS,
+                    columns: COLUMNS,
+                    samples_per_pixel: 1,
+                    bits_allocated: 8,
+                    bits_stored: 8,
+                    photometric_interpretation: "MONOCHROME2",
+                })
+                .map_err(|error| GenerateError::WriteDicomFile {
+                    path: path.clone(),
+                    message: error.to_string(),
+                })?
+                .bytes,
+        );
+    }
+    let compressed_bytes = compressed_frames.iter().map(Vec::len).sum::<usize>();
+    let fragments_per_frame = vec![FRAGMENTS_PER_FRAME; FRAMES];
+    let encapsulated = crate::encapsulation::encapsulate_frames(
+        &compressed_frames,
+        &fragments_per_frame,
+        BasicOffsetTablePolicy::Empty,
+    )
+    .map_err(|error| GenerateError::WriteDicomFile {
+        path: path.clone(),
+        message: error.to_string(),
+    })?;
+    let first_fragment_item_start = encapsulated.fragments[0].item_start_offset;
+    let mut eot_offsets = Vec::with_capacity(FRAMES);
+    let mut eot_lengths = Vec::with_capacity(FRAMES);
+    for frame_index in 0..FRAMES {
+        let frame_fragments = encapsulated
+            .fragments
+            .iter()
+            .filter(|fragment| fragment.frame_index == frame_index)
+            .collect::<Vec<_>>();
+        eot_offsets.push(u64::from(
+            frame_fragments[0].item_start_offset - first_fragment_item_start,
+        ));
+        eot_lengths.push(
+            frame_fragments
+                .iter()
+                .map(|fragment| fragment.compressed_length as u64)
+                .sum::<u64>(),
+        );
+    }
+    obj.put(DataElement::new(
+        tags::EXTENDED_OFFSET_TABLE,
+        VR::OV,
+        PrimitiveValue::U8(
+            crate::encapsulation::serialize_ov_words_little_endian(&eot_offsets).into(),
+        ),
+    ));
+    obj.put(DataElement::new(
+        tags::EXTENDED_OFFSET_TABLE_LENGTHS,
+        VR::OV,
+        PrimitiveValue::U8(
+            crate::encapsulation::serialize_ov_words_little_endian(&eot_lengths).into(),
+        ),
+    ));
+    obj.put(DataElement::new(
+        tags::PIXEL_DATA,
+        VR::OB,
+        PixelFragmentSequence::new(Vec::new(), encapsulated.fragment_payloads.clone()),
+    ));
+    let file_obj = obj
+        .with_meta(
+            FileMetaTableBuilder::new()
+                .transfer_syntax(RLE_LOSSLESS.uid)
+                .implementation_class_uid(&identity.implementation_class_uid)
+                .implementation_version_name(crate::IMPLEMENTATION_VERSION_NAME),
+        )
+        .map_err(|error| GenerateError::WriteDicomFile {
+            path: path.clone(),
+            message: error.to_string(),
+        })?;
+    file_obj
+        .write_to_file(&path)
+        .map_err(|error| GenerateError::WriteDicomFile {
+            path: path.clone(),
+            message: error.to_string(),
+        })?;
+    let decoded_frame_hash_refs = decoded_frame_hashes
+        .iter()
+        .map(String::as_str)
+        .collect::<Vec<_>>();
+    let validated = validate_part10_file(
+        &path,
+        &Part10Expectations {
+            sop_class_uid: uids::MULTI_FRAME_GRAYSCALE_BYTE_SECONDARY_CAPTURE_IMAGE_STORAGE,
+            sop_instance_uid: &identity.sop_instance_uid,
+            transfer_syntax_uid: RLE_LOSSLESS.uid,
+            implementation_class_uid: &identity.implementation_class_uid,
+            synthetic_data: "YES",
+            rows: ROWS,
+            columns: COLUMNS,
+            frames: FRAMES as u16,
+            samples_per_pixel: 1,
+            photometric_interpretation: "MONOCHROME2",
+            bits_allocated: 8,
+            bits_stored: 8,
+            high_bit: 7,
+            pixel_representation: 0,
+            planar_configuration: None,
+            pixel_data_vr: VR::OB,
+            pixel_data_length_formula: PixelDataLengthFormula::Encapsulated {
+                fragments: FRAMES * FRAGMENTS_PER_FRAME,
+                basic_offset_table_offsets: 0,
+            },
+            decoded_frame_hashes: &decoded_frame_hash_refs,
+            palette: None,
+            padding: None,
+            ct_image: None,
+            enhanced_ct_image: None,
+            enhanced_mr_image: None,
+            enhanced_pet_image: None,
+            mg_image: None,
+            dx_image: None,
+            xa_image: None,
+            xrf_image: None,
+            us_image: None,
+            us_multiframe: None,
+            nm_image: None,
+            pet_image: None,
+            cr_image: None,
+            mr_image: None,
+            segmentation: None,
+        },
+    )?;
+    let backend = FrameEncoder::backend(&encoder);
+    Ok(GeneratedFile {
+        case_id: STRESS_ENCAPSULATED_CASE_ID.to_string(),
+        manifest_entry: serde_json::json!({
+            "case_id": STRESS_ENCAPSULATED_CASE_ID,
+            "profile_membership": ["stress"],
+            "path": relative_path,
+            "sha256": sha256_hex(&validated.bytes),
+            "size_bytes": validated.bytes.len(),
+            "determinism": "byte_stable",
+            "recipe": {"recipe_id": RECIPE_ID, "recipe_version": "0.1.0", "recipe_parameters": {
+                "rows": ROWS, "columns": COLUMNS, "frames": FRAMES,
+                "fragments_per_frame": FRAGMENTS_PER_FRAME,
+                "fragment_count": FRAMES * FRAGMENTS_PER_FRAME,
+                "native_payload_bytes": FRAMES * usize::from(ROWS) * usize::from(COLUMNS),
+                "compressed_payload_bytes": compressed_bytes
+            }},
+            "dicom": {
+                "sop_class_uid": uids::MULTI_FRAME_GRAYSCALE_BYTE_SECONDARY_CAPTURE_IMAGE_STORAGE,
+                "sop_class_name": "Multi-frame Grayscale Byte Secondary Capture Image Storage",
+                "iod_name": "Multi-frame Grayscale Byte Secondary Capture Image",
+                "modality": "OT", "transfer_syntax_uid": RLE_LOSSLESS.uid,
+                "transfer_syntax_name": RLE_LOSSLESS.name
+            },
+            "uids": {
+                "study_instance_uid": identity.study_instance_uid,
+                "series_instance_uid": identity.series_instance_uid,
+                "sop_instance_uid": identity.sop_instance_uid,
+                "implementation_class_uid": identity.implementation_class_uid
+            },
+            "image": {"rows": ROWS, "columns": COLUMNS, "frames": FRAMES, "samples_per_pixel": 1,
+                "photometric_interpretation": "MONOCHROME2", "bits_allocated": 8,
+                "bits_stored": 8, "high_bit": 7, "pixel_representation": 0,
+                "planar_configuration": Value::Null},
+            "pixel_data": {"vr": "OB", "native_or_encapsulated": "encapsulated", "value_length": Value::Null,
+                "frame_count": FRAMES, "frame_hashes": decoded_frame_hashes,
+                "codec": {"backend_id": backend.backend_id, "backend_kind": backend.backend_kind.as_str(),
+                    "display_name": backend.display_name, "version": backend.version,
+                    "transfer_syntax_uid": backend.transfer_syntax_uid, "feature_gate": backend.feature_gate,
+                    "determinism": backend.determinism.as_str()},
+                "encapsulated_pixel_data": {
+                    "basic_offset_table": {"present": true, "populated": false, "offset_count": 0, "offsets": []},
+                    "fragments_per_frame": fragments_per_frame,
+                    "extended_offset_table": {"present": true, "lengths_present": true,
+                        "offset_count": FRAMES, "length_count": FRAMES,
+                        "offsets": eot_offsets, "lengths": eot_lengths},
+                    "compressed_frame_hashes": encapsulated.compressed_frame_hashes
+                }
+            },
+            "references": [],
+            "expected_capabilities": ["open_file", "read_metadata", "decode_rle_lossless_pixels", "parse_extended_offset_table", "stream_multifragment_pixel_data"],
+            "expected_semantics": {"synthetic_data": "YES", "pixel_min": 0, "pixel_max": 255},
+            "expected_visual_checks": {"pattern": "256_deterministic_pseudorandom_monochrome_frames"},
+            "validation": validated.validation,
+            "known_stressors": ["reduced_stress_scale", "large_encapsulated_pixel_data", "multi_fragment_frames", "extended_offset_table", "empty_basic_offset_table"],
+            "standards_evidence": deduplicated_standards_evidence(standards_evidence_from_case(case))
+        }),
+    })
 }
 
 fn classic_ct_series_recipes(recipe: ClassicCtRecipe) -> Vec<ClassicCtSeriesRecipe> {
@@ -33924,6 +34214,41 @@ mod tests {
                 .unwrap()
                 .len(),
             1024
+        );
+    }
+
+    #[test]
+    fn reduced_encapsulated_stress_case_is_byte_stable_and_exact_scale() {
+        let first_root = ParametricMapStagingGuard::new();
+        let second_root = ParametricMapStagingGuard::new();
+        let run = |root: &ParametricMapStagingGuard| PreparedGenerationRun {
+            profile: "stress".to_string(),
+            out_dir: root.path().to_path_buf(),
+            manifest_path: root.path().join("manifest.json"),
+            seed: 7,
+            include_stress: false,
+        };
+        let case = serde_json::json!({
+            "case_id": STRESS_ENCAPSULATED_CASE_ID,
+            "standards_evidence": []
+        });
+        let lock = "0000000000000000000000000000000000000000000000000000000000000000";
+        let first = write_stress_encapsulated_case(&run(&first_root), &case, lock).unwrap();
+        let second = write_stress_encapsulated_case(&run(&second_root), &case, lock).unwrap();
+        assert_eq!(first.manifest_entry, second.manifest_entry);
+        assert_eq!(first.manifest_entry["image"]["frames"], 256);
+        assert_eq!(
+            first.manifest_entry["recipe"]["recipe_parameters"]["fragment_count"],
+            16_384
+        );
+        assert_eq!(
+            first.manifest_entry["pixel_data"]["encapsulated_pixel_data"]["extended_offset_table"]
+                ["offset_count"],
+            256
+        );
+        assert_eq!(
+            first.manifest_entry["pixel_data"]["encapsulated_pixel_data"]["basic_offset_table"]["populated"],
+            false
         );
     }
 

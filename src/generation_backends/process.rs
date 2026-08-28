@@ -112,6 +112,7 @@ pub fn invoke_backend(
             invocation.executable.display()
         ))
     })?;
+    let process_group_id = child.id();
     let stdout = child.stdout.take().expect("piped stdout");
     let stderr = child.stderr.take().expect("piped stderr");
     let stdout_limit = invocation.max_stdout_bytes;
@@ -134,18 +135,30 @@ pub fn invoke_backend(
             match child.try_wait() {
                 Ok(value) => status = value,
                 Err(error) => {
-                    terminate_process_tree(&mut child);
+                    terminate_process_tree(&mut child, process_group_id);
                     return Err(invalid(format!("wait for backend: {error}")));
                 }
             }
         }
-        poll_backend_reader(&stdout_receiver, &mut stdout_result, "stdout", &mut child)?;
-        poll_backend_reader(&stderr_receiver, &mut stderr_result, "stderr", &mut child)?;
+        poll_backend_reader(
+            &stdout_receiver,
+            &mut stdout_result,
+            "stdout",
+            &mut child,
+            process_group_id,
+        )?;
+        poll_backend_reader(
+            &stderr_receiver,
+            &mut stderr_result,
+            "stderr",
+            &mut child,
+            process_group_id,
+        )?;
         if status.is_some() && stdout_result.is_some() && stderr_result.is_some() {
             break;
         }
         if Instant::now() >= deadline {
-            terminate_process_tree(&mut child);
+            terminate_process_tree(&mut child, process_group_id);
             return Err(invalid(format!(
                 "backend invocation exceeded {} ms",
                 invocation.timeout.as_millis()
@@ -214,6 +227,7 @@ fn poll_backend_reader(
     result: &mut Option<Result<Vec<u8>, BackendContractError>>,
     label: &str,
     child: &mut Child,
+    process_group_id: u32,
 ) -> Result<(), BackendContractError> {
     if result.is_some() {
         return Ok(());
@@ -222,7 +236,7 @@ fn poll_backend_reader(
         Ok(value) => *result = Some(value),
         Err(TryRecvError::Empty) => {}
         Err(TryRecvError::Disconnected) => {
-            terminate_process_tree(child);
+            terminate_process_tree(child, process_group_id);
             return Err(invalid(format!("backend {label} reader terminated")));
         }
     }
@@ -243,15 +257,15 @@ pub(super) fn configure_process_tree(command: &mut Command) {
     }
 }
 
-pub(super) fn terminate_process_tree(child: &mut Child) {
+pub(super) fn terminate_process_tree(child: &mut Child, process_group_id: u32) {
     #[cfg(unix)]
     unsafe {
-        let _ = libc::kill(-(child.id() as i32), libc::SIGKILL);
+        let _ = libc::kill(-(process_group_id as i32), libc::SIGKILL);
     }
     #[cfg(windows)]
     {
         let _ = Command::new("taskkill")
-            .args(["/F", "/T", "/PID", &child.id().to_string()])
+            .args(["/F", "/T", "/PID", &process_group_id.to_string()])
             .stdin(Stdio::null())
             .stdout(Stdio::null())
             .stderr(Stdio::null())

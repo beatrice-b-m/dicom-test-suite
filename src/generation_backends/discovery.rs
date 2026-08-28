@@ -406,6 +406,7 @@ fn run_probe(
     let mut child = command
         .spawn()
         .map_err(|error| format!("spawn runtime probe: {error}"))?;
+    let process_group_id = child.id();
     let stdout = child.stdout.take().expect("probe stdout piped");
     let stderr = child.stderr.take().expect("probe stderr piped");
     let (stdout_sender, stdout_receiver) = mpsc::sync_channel(1);
@@ -425,18 +426,30 @@ fn run_probe(
             match child.try_wait() {
                 Ok(value) => status = value,
                 Err(error) => {
-                    terminate_process_tree(&mut child);
+                    terminate_process_tree(&mut child, process_group_id);
                     return Err(format!("wait for runtime probe: {error}"));
                 }
             }
         }
-        poll_probe_reader(&stdout_receiver, &mut stdout_result, "stdout", &mut child)?;
-        poll_probe_reader(&stderr_receiver, &mut stderr_result, "stderr", &mut child)?;
+        poll_probe_reader(
+            &stdout_receiver,
+            &mut stdout_result,
+            "stdout",
+            &mut child,
+            process_group_id,
+        )?;
+        poll_probe_reader(
+            &stderr_receiver,
+            &mut stderr_result,
+            "stderr",
+            &mut child,
+            process_group_id,
+        )?;
         if status.is_some() && stdout_result.is_some() && stderr_result.is_some() {
             break;
         }
         if Instant::now() >= deadline {
-            terminate_process_tree(&mut child);
+            terminate_process_tree(&mut child, process_group_id);
             return Err(format!("runtime probe exceeded {} ms", timeout.as_millis()));
         }
         thread::sleep(Duration::from_millis(10));
@@ -458,6 +471,7 @@ fn poll_probe_reader(
     result: &mut Option<Result<Vec<u8>, String>>,
     label: &str,
     child: &mut Child,
+    process_group_id: u32,
 ) -> Result<(), String> {
     if result.is_some() {
         return Ok(());
@@ -466,7 +480,7 @@ fn poll_probe_reader(
         Ok(value) => *result = Some(value),
         Err(TryRecvError::Empty) => {}
         Err(TryRecvError::Disconnected) => {
-            terminate_process_tree(child);
+            terminate_process_tree(child, process_group_id);
             return Err(format!("runtime probe {label} reader terminated"));
         }
     }

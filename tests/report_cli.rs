@@ -7535,6 +7535,81 @@ fn report_exposes_generated_tiled_sparse_wsi_and_rejects_field_leakage() {
 }
 
 #[test]
+fn report_exposes_generated_wsi_tile_segmentation_closure() {
+    let out_dir = unique_temp_dir("report-wsi-tile-segmentation-generated");
+    generate_extended(&out_dir);
+
+    let report = dicom_test_suite::build_coverage_report(&out_dir)
+        .expect("generated WSI tile segmentation coverage report should build");
+    let schema: Value = serde_json::from_slice(
+        &fs::read("schemas/coverage-report.schema.json").expect("coverage schema"),
+    )
+    .expect("coverage schema JSON");
+    let validator = jsonschema::validator_for(&schema).expect("coverage schema compiles");
+    assert!(
+        validator.is_valid(&report),
+        "generated WSI tile segmentation report must match its schema: {:?}",
+        validator
+            .iter_errors(&report)
+            .map(|error| error.to_string())
+            .collect::<Vec<_>>()
+    );
+
+    let row = coverage_row(&report, "derived/seg/wsi_tile_reference");
+    assert_eq!(row["status"], "generated");
+    assert_eq!(row["validation_status"], "passed");
+    assert_eq!(
+        row["wsi_tile_seg_source_frame_mapping"],
+        "SEG1->WSI1; SEG2->WSI4"
+    );
+    assert_eq!(
+        row["wsi_tile_seg_payload_sha256"],
+        "74fa7cbb10160e0eb1f16f35fa9ad0e7f2712af56019996e88cf1034be92635e"
+    );
+    assert_eq!(
+        row["wsi_tile_seg_reconstructed_matrix_sha256"],
+        "a8ec6f910c0fb02685163a3251bed92517d1016c9173f1e4f021e6b4194f2467"
+    );
+    assert_eq!(row["wsi_tile_seg_reference_closure"], true);
+    assert_eq!(row["wsi_tile_seg_internal_validation_closure"], true);
+    assert_eq!(row["wsi_tile_seg_budget_closure"], true);
+    assert!(
+        row["wsi_tile_seg_actual_dicom_bytes"]
+            .as_u64()
+            .is_some_and(|bytes| bytes <= 16_384)
+    );
+    assert!(
+        row["wsi_tile_seg_observed_generation_milliseconds"]
+            .as_u64()
+            .is_some_and(|milliseconds| milliseconds <= 5_000)
+    );
+
+    let mut leaked = report.clone();
+    coverage_row_mut(&mut leaked, "derived/seg/wsi_tile_reference")["case_id"] =
+        Value::from("derived/seg/fractional");
+    assert!(
+        !validator.is_valid(&leaked),
+        "schema must reject WSI tile segmentation fields on another case"
+    );
+
+    let markdown = dicom_test_suite::render_coverage_report_markdown(&report);
+    for expected in [
+        "## WSI Tile Segmentation Expectations",
+        "derived/seg/wsi_tile_reference",
+        "SEG1->WSI1; SEG2->WSI4",
+        "74fa7cbb10160e0eb1f16f35fa9ad0e7f2712af56019996e88cf1034be92635e",
+        "a8ec6f910c0fb02685163a3251bed92517d1016c9173f1e4f021e6b4194f2467",
+    ] {
+        assert!(
+            markdown.contains(expected),
+            "Markdown must contain {expected}"
+        );
+    }
+
+    fs::remove_dir_all(out_dir).expect("remove generated WSI tile segmentation report root");
+}
+
+#[test]
 fn report_rejects_partial_and_wrong_case_single_frame_vl_contracts() {
     let out_dir = unique_temp_dir("report-vl-single-frame-malformed");
     fs::create_dir_all(&out_dir).expect("create malformed VL report root");

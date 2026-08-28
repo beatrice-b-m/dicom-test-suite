@@ -12050,7 +12050,7 @@
       "status": "planned",
       "provider": {
         "kind": "external_backend",
-        "id": "dcm4che"
+        "id": "dcmtk"
       },
       "object_family": "media",
       "compatibility_axes": [
@@ -12064,13 +12064,8 @@
       },
       "blockers": [
         {
-          "code": "backend_contract_unimplemented",
-          "message": "The external media-generation contract is not implemented.",
-          "recheck_phase": "phase-1"
-        },
-        {
           "code": "independent_iod_validator_unavailable",
-          "message": "Independent DICOMDIR validation is not integrated.",
+          "message": "The DCMTK DICOMDIR runner is implemented, but an independent dcm4che File-set peer is unavailable for promotion evidence.",
           "recheck_phase": "phase-8"
         }
       ],
@@ -12123,12 +12118,7 @@
       "blockers": [
         {
           "code": "security_toolchain_unselected",
-          "message": "A maintainable signing and independent signature-verification toolchain is not selected.",
-          "recheck_phase": "phase-8"
-        },
-        {
-          "code": "decision_checkpoint",
-          "message": "Project approval is required before committing certificates, keys, or cryptographic fixtures.",
+          "message": "Synthetic PKI fixtures are approved, but a deterministic DICOM signature creator and independent CMS verifier are not integrated.",
           "recheck_phase": "phase-8"
         }
       ],
@@ -12190,12 +12180,7 @@
       "blockers": [
         {
           "code": "security_toolchain_unselected",
-          "message": "A maintainable secure-media creation and independent verification toolchain is not selected.",
-          "recheck_phase": "phase-8"
-        },
-        {
-          "code": "decision_checkpoint",
-          "message": "Project approval is required before committing certificates, keys, or cryptographic fixtures.",
+          "message": "Synthetic PKI fixtures are approved, but a Secure DICOM File creator and independent secure-media verifier are not integrated.",
           "recheck_phase": "phase-8"
         }
       ],
@@ -13865,8 +13850,8 @@
       },
       "blockers": [
         {
-          "code": "protocol_harness_unimplemented",
-          "message": "The replaceable DICOMweb server harness is not implemented.",
+          "code": "provider_capability_unavailable",
+          "message": "Transaction-report models are implemented, but a pinned replaceable independent DICOMweb server is not configured.",
           "recheck_phase": "phase-8"
         }
       ],
@@ -13915,8 +13900,8 @@
       },
       "blockers": [
         {
-          "code": "protocol_harness_unimplemented",
-          "message": "The replaceable DIMSE peer harness is not implemented.",
+          "code": "provider_capability_unavailable",
+          "message": "Transaction-report models and local DCMTK tools are available, but an independent DIMSE peer is unavailable for promotion evidence.",
           "recheck_phase": "phase-8"
         }
       ],
@@ -13962,17 +13947,12 @@
       "roadmap": {
         "priority": "later",
         "delivery_phase": "phase-8",
-        "rationale": "Tracks opt-in TLS and user-identity negotiation without committing credentials."
+        "rationale": "Tracks opt-in TLS and user-identity negotiation with approved synthetic PKI fixtures."
       },
       "blockers": [
         {
-          "code": "security_toolchain_unselected",
-          "message": "A maintainable security toolchain and fixture policy are not selected.",
-          "recheck_phase": "phase-8"
-        },
-        {
-          "code": "decision_checkpoint",
-          "message": "Project approval is required before committing cryptographic fixtures.",
+          "code": "provider_capability_unavailable",
+          "message": "Synthetic PKI fixtures and transaction-report models are available, but a replaceable independent TLS and user-identity peer is not configured.",
           "recheck_phase": "phase-8"
         }
       ],
@@ -13998,7 +13978,7 @@
           "covered": true,
           "part": "PS3.15",
           "anchor": "Security and System Management Profiles",
-          "reason": "Security harness policy requires an explicit project decision."
+          "reason": "Synthetic PKI is approved; promotion still requires independent TLS and user-identity transaction evidence."
         }
       ]
     },

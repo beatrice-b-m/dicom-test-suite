@@ -46,12 +46,28 @@ fn list_cases_command_exposes_planned_provider_and_blockers() {
         "planned rows must expose their provider, priority, and controlled blockers"
     );
     assert!(
-        stdout.contains("protocol/dicomweb/stow_qido_wado\tplanned\t\t-\t-\t1/1 covered\ttransaction_scenario\tprotocol_harness\tprotocol\tlater\tprotocol_harness_unimplemented"),
-        "transaction gaps must remain visible without pretending to be DICOM files"
+        stdout.contains("media/dicomdir/mixed_file_set\tplanned\textended\t1.2.840.10008.1.3.10\t1.2.840.10008.1.2.1\t1/1 covered\tmedia_file_set\tdcmtk\tmedia\tlater\tindependent_iod_validator_unavailable"),
+        "the implemented DCMTK runner must remain planned until an independent File-set peer is available"
     );
     assert!(
-        stdout.contains("media/security/digital_signature_instance\tplanned\textended\t1.2.840.10008.5.1.4.1.1.7\t1.2.840.10008.1.2.1\t2/2 covered\tdicom_instance\tdcm4che\tmedia\tlater\tsecurity_toolchain_unselected,decision_checkpoint"),
-        "digital-signature coverage must expose its security decision checkpoint"
+        stdout.contains("protocol/dicomweb/stow_qido_wado\tplanned\t\t-\t-\t1/1 covered\ttransaction_scenario\tprotocol_harness\tprotocol\tlater\tprovider_capability_unavailable"),
+        "DICOMweb gaps must name the unavailable independent server without pretending to be DICOM files"
+    );
+    assert!(
+        stdout.contains("protocol/dimse/storage_query_retrieve\tplanned\t\t-\t-\t1/1 covered\ttransaction_scenario\tprotocol_harness\tprotocol\tlater\tprovider_capability_unavailable"),
+        "DIMSE coverage must remain planned until an independent peer supplies promotion evidence"
+    );
+    assert!(
+        stdout.contains("protocol/security/tls_user_identity\tplanned\t\t-\t-\t1/1 covered\ttransaction_scenario\tprotocol_harness\tprotocol\tlater\tprovider_capability_unavailable"),
+        "TLS and user-identity coverage must expose the unavailable independent peer"
+    );
+    assert!(
+        stdout.contains("media/security/digital_signature_instance\tplanned\textended\t1.2.840.10008.5.1.4.1.1.7\t1.2.840.10008.1.2.1\t2/2 covered\tdicom_instance\tdcm4che\tmedia\tlater\tsecurity_toolchain_unselected"),
+        "digital-signature coverage must retain its creator and verifier toolchain blocker"
+    );
+    assert!(
+        stdout.contains("media/security/secure_file_set\tplanned\textended\t1.2.840.10008.1.3.10\t1.2.840.10008.1.2.1\t2/2 covered\tmedia_file_set\tdcm4che\tmedia\tlater\tsecurity_toolchain_unselected"),
+        "secure-media coverage must retain its creator and verifier toolchain blocker"
     );
 }
 

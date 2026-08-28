@@ -17,7 +17,7 @@ fn report_gaps_counts_logical_cases_and_dimensions() {
         report
             .pointer("/counts/logical_cases")
             .and_then(Value::as_u64),
-        Some(182)
+        Some(191)
     );
     assert_eq!(
         report
@@ -29,7 +29,7 @@ fn report_gaps_counts_logical_cases_and_dimensions() {
         report
             .pointer("/counts/statuses/planned")
             .and_then(Value::as_u64),
-        Some(32)
+        Some(41)
     );
     assert!(
         report.pointer("/counts/priorities/now").is_none(),
@@ -274,6 +274,52 @@ fn report_gaps_counts_logical_cases_and_dimensions() {
             })),
         "protocol gaps must be visible but distinct from file cases"
     );
+    for (case_id, axis, phase) in [
+        ("stress/sc/large_bulk_data", "scale", "phase-6"),
+        ("stress/sc/long_value_metadata", "scale", "phase-6"),
+        (
+            "negative/dataset/truncated_dataset",
+            "robustness",
+            "phase-7",
+        ),
+        (
+            "negative/dataset/invalid_nested_item_length",
+            "robustness",
+            "phase-7",
+        ),
+        (
+            "negative/dataset/undefined_length_without_delimitation",
+            "robustness",
+            "phase-7",
+        ),
+        (
+            "negative/encapsulation/truncated_fragment",
+            "encapsulation",
+            "phase-7",
+        ),
+        ("negative/pixels/truncated_pixel_value", "pixels", "phase-7"),
+        (
+            "media/security/digital_signature_instance",
+            "security",
+            "phase-8",
+        ),
+        ("media/security/secure_file_set", "security", "phase-8"),
+    ] {
+        assert!(
+            report
+                .get("gaps")
+                .and_then(Value::as_array)
+                .is_some_and(|gaps| gaps.iter().any(|gap| {
+                    gap.get("case_id").and_then(Value::as_str) == Some(case_id)
+                        && gap
+                            .get("compatibility_axes")
+                            .and_then(Value::as_array)
+                            .is_some_and(|axes| axes.iter().any(|value| value == axis))
+                        && gap.get("delivery_phase").and_then(Value::as_str) == Some(phase)
+                })),
+            "roadmap gap {case_id} must remain explicit on {axis} for {phase}"
+        );
+    }
 }
 
 #[test]

@@ -49,6 +49,18 @@ fn list_cases_command_exposes_planned_provider_and_blockers() {
         stdout.contains("protocol/dicomweb/stow_qido_wado\tplanned\t\t-\t-\t1/1 covered\ttransaction_scenario\tprotocol_harness\tprotocol\tlater\tprotocol_harness_unimplemented"),
         "transaction gaps must remain visible without pretending to be DICOM files"
     );
+    assert!(
+        stdout.contains("stress/sc/large_bulk_data\tplanned\tstress\t1.2.840.10008.5.1.4.1.1.7\t1.2.840.10008.1.2.1\t2/2 covered\tdicom_instance\trust_native\tclassic_image\tlater\trecipe_unimplemented,stress_budget_policy_pending"),
+        "large valid bulk-data coverage must remain opt-in stress inventory"
+    );
+    assert!(
+        stdout.contains("negative/encapsulation/truncated_fragment\tplanned\tnegative\t1.2.840.10008.5.1.4.1.1.7\t1.2.840.10008.1.2.5\t2/2 covered\tdicom_instance\tmutation_layer\trobustness\tlater\tmutation_contract_unimplemented"),
+        "fragment truncation must remain isolated in the negative profile"
+    );
+    assert!(
+        stdout.contains("media/security/digital_signature_instance\tplanned\textended\t1.2.840.10008.5.1.4.1.1.7\t1.2.840.10008.1.2.1\t2/2 covered\tdicom_instance\tdcm4che\tmedia\tlater\tsecurity_toolchain_unselected,decision_checkpoint"),
+        "digital-signature coverage must expose its security decision checkpoint"
+    );
 }
 
 #[test]

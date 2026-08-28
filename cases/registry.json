@@ -12161,6 +12161,139 @@
       ]
     },
     {
+      "case_id": "media/security/digital_signature_instance",
+      "artifact_kind": "dicom_instance",
+      "status": "planned",
+      "provider": {
+        "kind": "external_backend",
+        "id": "dcm4che"
+      },
+      "object_family": "media",
+      "compatibility_axes": [
+        "media",
+        "security"
+      ],
+      "roadmap": {
+        "priority": "later",
+        "delivery_phase": "phase-8",
+        "rationale": "Exercises deterministic verification of a signed synthetic DICOM instance independently from transport security."
+      },
+      "blockers": [
+        {
+          "code": "security_toolchain_unselected",
+          "message": "A maintainable signing and independent signature-verification toolchain is not selected.",
+          "recheck_phase": "phase-8"
+        },
+        {
+          "code": "decision_checkpoint",
+          "message": "Project approval is required before committing certificates, keys, or cryptographic fixtures.",
+          "recheck_phase": "phase-8"
+        }
+      ],
+      "profiles": [
+        "extended"
+      ],
+      "recipe_id": "media_security_digital_signature_instance",
+      "recipe_version": "0.1.0",
+      "iod_name": "Secondary Capture Image",
+      "sop_class_name": "Secondary Capture Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.7",
+      "modality": "OT",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "semantic_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom-kb lookup uid SecondaryCaptureImageStorage --edition 2026b",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        },
+        {
+          "source": "official-dicom-standard",
+          "edition": "2026b",
+          "covered": true,
+          "part": "PS3.15",
+          "anchor": "Digital Signatures Profiles",
+          "reason": "Digital signatures are dataset-level security evidence and require independent cryptographic verification."
+        }
+      ]
+    },
+    {
+      "case_id": "media/security/secure_file_set",
+      "artifact_kind": "media_file_set",
+      "status": "planned",
+      "provider": {
+        "kind": "external_backend",
+        "id": "dcm4che"
+      },
+      "object_family": "media",
+      "compatibility_axes": [
+        "media",
+        "security",
+        "references"
+      ],
+      "roadmap": {
+        "priority": "later",
+        "delivery_phase": "phase-8",
+        "rationale": "Exercises the Secure DICOM File profile as a media-file-set contract distinct from ordinary DICOMDIR coverage."
+      },
+      "blockers": [
+        {
+          "code": "security_toolchain_unselected",
+          "message": "A maintainable secure-media creation and independent verification toolchain is not selected.",
+          "recheck_phase": "phase-8"
+        },
+        {
+          "code": "decision_checkpoint",
+          "message": "Project approval is required before committing certificates, keys, or cryptographic fixtures.",
+          "recheck_phase": "phase-8"
+        }
+      ],
+      "profiles": [
+        "extended"
+      ],
+      "recipe_id": "media_security_secure_file_set",
+      "recipe_version": "0.1.0",
+      "iod_name": "Basic Directory",
+      "sop_class_name": "Media Storage Directory Storage",
+      "sop_class_uid": "1.2.840.10008.1.3.10",
+      "modality": null,
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "semantic_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom-kb lookup uid MediaStorageDirectoryStorage --edition 2026b",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        },
+        {
+          "source": "official-dicom-standard",
+          "edition": "2026b",
+          "covered": true,
+          "part": "PS3.15",
+          "anchor": "Secure DICOM File Profile",
+          "reason": "Secure media requires verification beyond the ordinary DICOM File-set and DICOMDIR contract."
+        }
+      ]
+    },
+    {
       "case_id": "metadata/sc/defined_undefined_sequence_lengths",
       "artifact_kind": "dicom_instance",
       "status": "implemented",
@@ -12635,6 +12768,110 @@
       ]
     },
     {
+      "case_id": "negative/dataset/invalid_nested_item_length",
+      "artifact_kind": "dicom_instance",
+      "status": "planned",
+      "provider": {
+        "kind": "mutation_layer",
+        "id": "mutation_layer"
+      },
+      "object_family": "robustness",
+      "compatibility_axes": [
+        "robustness"
+      ],
+      "roadmap": {
+        "priority": "later",
+        "delivery_phase": "phase-7",
+        "rationale": "Exercises bounded rejection when a nested Item length disagrees with its encoded content."
+      },
+      "blockers": [
+        {
+          "code": "mutation_contract_unimplemented",
+          "message": "The deterministic nested-Item-length mutation is not implemented.",
+          "recheck_phase": "phase-7"
+        }
+      ],
+      "profiles": [
+        "negative"
+      ],
+      "recipe_id": "negative_dataset_invalid_nested_item_length",
+      "recipe_version": "0.1.0",
+      "iod_name": "Secondary Capture Image",
+      "sop_class_name": "Secondary Capture Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.7",
+      "modality": "OT",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "byte_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "official-dicom-standard",
+          "edition": "2026b",
+          "covered": true,
+          "part": "PS3.5",
+          "anchor": "sect_7.5",
+          "reason": "Item lengths and nesting delimiters define the parser boundary intentionally violated by this mutation."
+        }
+      ]
+    },
+    {
+      "case_id": "negative/dataset/truncated_dataset",
+      "artifact_kind": "dicom_instance",
+      "status": "planned",
+      "provider": {
+        "kind": "mutation_layer",
+        "id": "mutation_layer"
+      },
+      "object_family": "robustness",
+      "compatibility_axes": [
+        "robustness"
+      ],
+      "roadmap": {
+        "priority": "later",
+        "delivery_phase": "phase-7",
+        "rationale": "Exercises bounded rejection of a dataset truncated at a deterministic top-level element boundary."
+      },
+      "blockers": [
+        {
+          "code": "mutation_contract_unimplemented",
+          "message": "The deterministic top-level dataset truncation mutation is not implemented.",
+          "recheck_phase": "phase-7"
+        }
+      ],
+      "profiles": [
+        "negative"
+      ],
+      "recipe_id": "negative_dataset_truncated_dataset",
+      "recipe_version": "0.1.0",
+      "iod_name": "Secondary Capture Image",
+      "sop_class_name": "Secondary Capture Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.7",
+      "modality": "OT",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "byte_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "official-dicom-standard",
+          "edition": "2026b",
+          "covered": true,
+          "part": "PS3.5",
+          "anchor": "sect_7",
+          "reason": "Dataset element encoding establishes the deterministic top-level truncation boundary."
+        }
+      ]
+    },
+    {
       "case_id": "negative/dataset/truncated_sequence_item",
       "artifact_kind": "dicom_instance",
       "status": "planned",
@@ -12649,7 +12886,7 @@
       "roadmap": {
         "priority": "later",
         "delivery_phase": "phase-7",
-        "rationale": "Exercises bounded rejection of truncated nested sequence content."
+        "rationale": "Intentionally groups sequence- and Item-boundary truncation because both use the same nested source and bounded parser-outcome contract; dataset, fragment, and pixel-value truncations remain separate rows."
       },
       "blockers": [
         {
@@ -12683,6 +12920,58 @@
           "covered": true,
           "part": "PS3.6",
           "anchor": "table_A-1"
+        }
+      ]
+    },
+    {
+      "case_id": "negative/dataset/undefined_length_without_delimitation",
+      "artifact_kind": "dicom_instance",
+      "status": "planned",
+      "provider": {
+        "kind": "mutation_layer",
+        "id": "mutation_layer"
+      },
+      "object_family": "robustness",
+      "compatibility_axes": [
+        "robustness"
+      ],
+      "roadmap": {
+        "priority": "later",
+        "delivery_phase": "phase-7",
+        "rationale": "Exercises bounded rejection of an undefined-length Sequence or Item with its required delimitation removed."
+      },
+      "blockers": [
+        {
+          "code": "mutation_contract_unimplemented",
+          "message": "The deterministic missing-delimitation mutation is not implemented.",
+          "recheck_phase": "phase-7"
+        }
+      ],
+      "profiles": [
+        "negative"
+      ],
+      "recipe_id": "negative_dataset_undefined_length_without_delimitation",
+      "recipe_version": "0.1.0",
+      "iod_name": "Secondary Capture Image",
+      "sop_class_name": "Secondary Capture Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.7",
+      "modality": "OT",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "byte_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "official-dicom-standard",
+          "edition": "2026b",
+          "covered": true,
+          "part": "PS3.5",
+          "anchor": "sect_7.5.2",
+          "reason": "Undefined-length Sequence and Item encodings require matching delimitation items."
         }
       ]
     },
@@ -12732,6 +13021,67 @@
           "source": "dicom-standard-kb",
           "edition": "2026b",
           "query": "dicom-kb lookup uid SecondaryCaptureImageStorage --edition 2026b",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        }
+      ]
+    },
+    {
+      "case_id": "negative/encapsulation/truncated_fragment",
+      "artifact_kind": "dicom_instance",
+      "status": "planned",
+      "provider": {
+        "kind": "mutation_layer",
+        "id": "mutation_layer"
+      },
+      "object_family": "robustness",
+      "compatibility_axes": [
+        "robustness",
+        "encapsulation"
+      ],
+      "roadmap": {
+        "priority": "later",
+        "delivery_phase": "phase-7",
+        "rationale": "Exercises bounded rejection of a truncated encapsulated Pixel Data fragment independently from offset-table corruption."
+      },
+      "blockers": [
+        {
+          "code": "mutation_contract_unimplemented",
+          "message": "The deterministic encapsulated-fragment truncation mutation is not implemented.",
+          "recheck_phase": "phase-7"
+        }
+      ],
+      "profiles": [
+        "negative"
+      ],
+      "recipe_id": "negative_encapsulation_truncated_fragment",
+      "recipe_version": "0.1.0",
+      "iod_name": "Secondary Capture Image",
+      "sop_class_name": "Secondary Capture Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.7",
+      "modality": "OT",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.5",
+      "determinism": "byte_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "official-dicom-standard",
+          "edition": "2026b",
+          "covered": true,
+          "part": "PS3.5",
+          "anchor": "sect_A.4",
+          "reason": "Encapsulated Pixel Data fragments use Item headers and explicit encoded lengths."
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom-kb lookup uid RLELossless --edition 2026b",
           "covered": true,
           "part": "PS3.6",
           "anchor": "table_A-1"
@@ -13092,6 +13442,67 @@
       },
       "skip": null,
       "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom-kb lookup uid SecondaryCaptureImageStorage --edition 2026b",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        }
+      ]
+    },
+    {
+      "case_id": "negative/pixels/truncated_pixel_value",
+      "artifact_kind": "dicom_instance",
+      "status": "planned",
+      "provider": {
+        "kind": "mutation_layer",
+        "id": "mutation_layer"
+      },
+      "object_family": "robustness",
+      "compatibility_axes": [
+        "robustness",
+        "pixels"
+      ],
+      "roadmap": {
+        "priority": "later",
+        "delivery_phase": "phase-7",
+        "rationale": "Exercises bounded rejection when native Pixel Data ends before its declared value length."
+      },
+      "blockers": [
+        {
+          "code": "mutation_contract_unimplemented",
+          "message": "The deterministic native Pixel Data truncation mutation is not implemented.",
+          "recheck_phase": "phase-7"
+        }
+      ],
+      "profiles": [
+        "negative"
+      ],
+      "recipe_id": "negative_pixels_truncated_pixel_value",
+      "recipe_version": "0.1.0",
+      "iod_name": "Secondary Capture Image",
+      "sop_class_name": "Secondary Capture Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.7",
+      "modality": "OT",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "byte_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "official-dicom-standard",
+          "edition": "2026b",
+          "covered": true,
+          "part": "PS3.5",
+          "anchor": "sect_8.1",
+          "reason": "Native Pixel Data encoding and value length establish the exact truncation contract."
+        },
         {
           "source": "dicom-standard-kb",
           "edition": "2026b",
@@ -13917,6 +14328,72 @@
       ]
     },
     {
+      "case_id": "stress/sc/large_bulk_data",
+      "artifact_kind": "dicom_instance",
+      "status": "planned",
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "scale",
+        "pixels"
+      ],
+      "roadmap": {
+        "priority": "later",
+        "delivery_phase": "phase-6",
+        "rationale": "Exercises bounded streaming, validation, and reporting of a large native Pixel Data value independently from encapsulation layout."
+      },
+      "blockers": [
+        {
+          "code": "recipe_unimplemented",
+          "message": "The parameterized deterministic large-bulk-data recipe is not implemented.",
+          "recheck_phase": "phase-6"
+        },
+        {
+          "code": "stress_budget_policy_pending",
+          "message": "Bulk byte, memory, and runtime budgets are not established.",
+          "recheck_phase": "phase-6"
+        }
+      ],
+      "profiles": [
+        "stress"
+      ],
+      "recipe_id": "stress_sc_large_bulk_data",
+      "recipe_version": "0.1.0",
+      "iod_name": "Secondary Capture Image",
+      "sop_class_name": "Secondary Capture Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.7",
+      "modality": "OT",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "byte_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom-kb lookup uid SecondaryCaptureImageStorage --edition 2026b",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        },
+        {
+          "source": "official-dicom-standard",
+          "edition": "2026b",
+          "covered": true,
+          "part": "PS3.5",
+          "anchor": "sect_8.1",
+          "reason": "Native Pixel Data is the large bulk-data value governed by this resource-boundary case."
+        }
+      ]
+    },
+    {
       "case_id": "stress/sc/large_encapsulated_multifragment",
       "artifact_kind": "dicom_instance",
       "status": "planned",
@@ -13972,6 +14449,72 @@
           "covered": true,
           "part": "PS3.6",
           "anchor": "table_A-1"
+        }
+      ]
+    },
+    {
+      "case_id": "stress/sc/long_value_metadata",
+      "artifact_kind": "dicom_instance",
+      "status": "planned",
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "scale",
+        "metadata"
+      ],
+      "roadmap": {
+        "priority": "later",
+        "delivery_phase": "phase-6",
+        "rationale": "Extends valid long and multi-valued metadata coverage to parameterized stress boundaries with explicit byte and resource budgets."
+      },
+      "blockers": [
+        {
+          "code": "recipe_unimplemented",
+          "message": "The parameterized deterministic long-value stress recipe is not implemented.",
+          "recheck_phase": "phase-6"
+        },
+        {
+          "code": "stress_budget_policy_pending",
+          "message": "Value-count, byte, memory, and runtime budgets are not established.",
+          "recheck_phase": "phase-6"
+        }
+      ],
+      "profiles": [
+        "stress"
+      ],
+      "recipe_id": "stress_sc_long_value_metadata",
+      "recipe_version": "0.1.0",
+      "iod_name": "Secondary Capture Image",
+      "sop_class_name": "Secondary Capture Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.7",
+      "modality": "OT",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "byte_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom-kb lookup uid SecondaryCaptureImageStorage --edition 2026b",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        },
+        {
+          "source": "official-dicom-standard",
+          "edition": "2026b",
+          "covered": true,
+          "part": "PS3.5",
+          "anchor": "table_6.2-1",
+          "reason": "VR-specific length and value-multiplicity rules define valid metadata stress boundaries."
         }
       ]
     },

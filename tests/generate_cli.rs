@@ -6228,7 +6228,7 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
         .expect("manifest should contain skipped cases");
     assert_eq!(
         skipped_cases.len(),
-        27 - parametric_maps_generated
+        29 - parametric_maps_generated
             - wsi_tile_segmentation_generated
             - tid1500_generated
             - scoord3d_generated
@@ -8138,7 +8138,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
         .expect("manifest should contain skipped cases");
     assert_eq!(
         skipped_cases.len(),
-        27 - parametric_maps_generated
+        29 - parametric_maps_generated
             - wsi_tile_segmentation_generated
             - tid1500_generated
             - scoord3d_generated
@@ -8365,8 +8365,8 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
         stress_manifest["skipped_cases"].as_array().map(Vec::len),
         manifest["skipped_cases"]
             .as_array()
-            .map(|skipped| skipped.len() + 5),
-        "all --include-stress must expose the five remaining planned stress cases"
+            .map(|skipped| skipped.len() + 7),
+        "all --include-stress must expose the seven remaining planned stress cases"
     );
 
     fs::remove_dir_all(out_dir).expect("temporary output root should be removable");

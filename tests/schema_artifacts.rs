@@ -3231,6 +3231,8 @@ fn case_registry_schema_requires_the_specified_case_fields() {
         "stress_budget_policy_pending",
         "mutation_contract_unimplemented",
         "protocol_harness_unimplemented",
+        "security_toolchain_unselected",
+        "decision_checkpoint",
     ] {
         assert!(
             blocker_codes

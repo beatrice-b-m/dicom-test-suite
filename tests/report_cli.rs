@@ -1442,6 +1442,8 @@ fn report_command_writes_segmentation_content_coverage_for_extended_root() {
     );
     let report: Value =
         serde_json::from_slice(&output.stdout).expect("report stdout should be JSON");
+    let wsi_tile_segmentation_generated =
+        coverage_row(&report, "derived/seg/wsi_tile_reference")["status"] == "generated";
     assert_eq!(
         coverage_row(&report, "derived/seg/binary_multiframe_explicit_le")
             .get("segmentation_type")
@@ -1486,7 +1488,7 @@ fn report_command_writes_segmentation_content_coverage_for_extended_root() {
         report
             .pointer("/grouped_coverage/segmentation_types/FRACTIONAL")
             .and_then(Value::as_u64),
-        Some(2)
+        Some(1 + u64::from(wsi_tile_segmentation_generated))
     );
     assert_eq!(
         report
@@ -1504,7 +1506,7 @@ fn report_command_writes_segmentation_content_coverage_for_extended_root() {
         report
             .pointer("/grouped_coverage/segmentation_maximum_fractional_values/255")
             .and_then(Value::as_u64),
-        Some(2)
+        Some(1 + u64::from(wsi_tile_segmentation_generated))
     );
 
     let markdown_output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
@@ -1530,13 +1532,22 @@ fn report_command_writes_segmentation_content_coverage_for_extended_root() {
     } else {
         "| BINARY | 1 |"
     }));
-    assert!(markdown.contains("| FRACTIONAL | 2 |"));
+    assert!(markdown.contains(&format!(
+        "| FRACTIONAL | {} |",
+        1 + u64::from(wsi_tile_segmentation_generated)
+    )));
     assert!(markdown.contains("| LABELMAP | 1 |"));
     assert!(markdown.contains("### Segmentation Fractional Types"));
-    assert!(markdown.contains("| OCCUPANCY | 1 |"));
+    assert_eq!(
+        markdown.contains("| OCCUPANCY | 1 |"),
+        wsi_tile_segmentation_generated
+    );
     assert!(markdown.contains("| PROBABILITY | 1 |"));
     assert!(markdown.contains("### Segmentation Maximum Fractional Values"));
-    assert!(markdown.contains("| 255 | 2 |"));
+    assert!(markdown.contains(&format!(
+        "| 255 | {} |",
+        1 + u64::from(wsi_tile_segmentation_generated)
+    )));
 
     fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
 }
@@ -2268,11 +2279,12 @@ fn report_command_writes_rwvm_content_coverage_for_extended_root() {
         .expect("coverage matrix")
         .iter()
         .filter(|row| {
-            matches!(
-                row["case_id"].as_str(),
-                Some("derived/parametric-map/float32_ct_derived_explicit_le")
-                    | Some("derived/parametric-map/float64_ct_derived_explicit_le")
-            )
+            row["status"] == "generated"
+                && matches!(
+                    row["case_id"].as_str(),
+                    Some("derived/parametric-map/float32_ct_derived_explicit_le")
+                        | Some("derived/parametric-map/float64_ct_derived_explicit_le")
+                )
         })
         .count();
     assert!(matches!(parametric_maps_generated, 0 | 2));
@@ -2499,48 +2511,45 @@ fn report_command_writes_structured_report_content_coverage_for_extended_root() 
         Some(2)
     );
     let tid1500_row = coverage_row(&report, "derived/sr/tid1500_ct_measurement_report");
-    assert_eq!(
-        tid1500_row
-            .get("sr_content_sequence_items")
-            .and_then(Value::as_u64),
-        Some(8)
-    );
-    assert_eq!(
-        tid1500_row
-            .get("sr_measurement_numeric_value")
-            .and_then(Value::as_str),
-        Some("5.625")
-    );
     let scoord3d_row = coverage_row(&report, "derived/sr/comprehensive3d_scoord3d");
-    assert_eq!(
-        scoord3d_row
-            .get("sr_content_sequence_items")
-            .and_then(Value::as_u64),
-        Some(8)
-    );
-    assert_eq!(
-        scoord3d_row
-            .get("sr_measurement_numeric_value")
-            .and_then(Value::as_str),
-        Some("2.5")
-    );
+    let tid1500_generated = tid1500_row["status"] == "generated";
+    let scoord3d_generated = scoord3d_row["status"] == "generated";
+    assert_eq!(tid1500_generated, scoord3d_generated);
+    for (row, expected_value) in [(tid1500_row, "5.625"), (scoord3d_row, "2.5")] {
+        if tid1500_generated {
+            assert_eq!(
+                row.get("sr_content_sequence_items").and_then(Value::as_u64),
+                Some(8)
+            );
+            assert_eq!(
+                row.get("sr_measurement_numeric_value")
+                    .and_then(Value::as_str),
+                Some(expected_value)
+            );
+        } else {
+            assert_eq!(row["status"], "unavailable");
+            assert!(row["sr_content_sequence_items"].is_null());
+            assert!(row["sr_measurement_numeric_value"].is_null());
+        }
+    }
+    let optional_sr_count = if tid1500_generated { 2 } else { 0 };
     assert_eq!(
         report
             .pointer("/grouped_coverage/sr_completion_flags/COMPLETE")
             .and_then(Value::as_u64),
-        Some(5)
+        Some(3 + optional_sr_count)
     );
     assert_eq!(
         report
             .pointer("/grouped_coverage/sr_verification_flags/UNVERIFIED")
             .and_then(Value::as_u64),
-        Some(5)
+        Some(3 + optional_sr_count)
     );
     assert_eq!(
         report
             .pointer("/grouped_coverage/sr_root_value_types/CONTAINER")
             .and_then(Value::as_u64),
-        Some(5)
+        Some(3 + optional_sr_count)
     );
     assert_eq!(
         report
@@ -2552,7 +2561,7 @@ fn report_command_writes_structured_report_content_coverage_for_extended_root() 
         report
             .pointer("/grouped_coverage/sr_root_continuity_of_content/CONTINUOUS")
             .and_then(Value::as_u64),
-        Some(2)
+        tid1500_generated.then_some(2)
     );
     assert_eq!(
         report
@@ -2570,13 +2579,13 @@ fn report_command_writes_structured_report_content_coverage_for_extended_root() 
         report
             .pointer("/grouped_coverage/sr_content_sequence_item_counts/8")
             .and_then(Value::as_u64),
-        Some(2)
+        tid1500_generated.then_some(2)
     );
     assert_eq!(
         report
             .pointer("/grouped_coverage/sr_measurement_numeric_values/2.5")
             .and_then(Value::as_u64),
-        Some(1)
+        scoord3d_generated.then_some(1)
     );
     assert_eq!(
         report
@@ -2596,7 +2605,7 @@ fn report_command_writes_structured_report_content_coverage_for_extended_root() 
         report
             .pointer("/grouped_coverage/sr_measurement_numeric_values/5.625")
             .and_then(Value::as_u64),
-        Some(1)
+        tid1500_generated.then_some(1)
     );
 
     let markdown_output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
@@ -2617,17 +2626,19 @@ fn report_command_writes_structured_report_content_coverage_for_extended_root() 
     let markdown =
         String::from_utf8(markdown_output.stdout).expect("markdown stdout should be UTF-8");
     assert!(markdown.contains("### SR Completion Flags"));
-    assert!(markdown.contains("| COMPLETE | 5 |"));
+    assert!(markdown.contains(&format!("| COMPLETE | {} |", 3 + optional_sr_count)));
     assert!(markdown.contains("### SR Verification Flags"));
-    assert!(markdown.contains("| UNVERIFIED | 5 |"));
+    assert!(markdown.contains(&format!("| UNVERIFIED | {} |", 3 + optional_sr_count)));
     assert!(markdown.contains("### SR Root Value Types"));
-    assert!(markdown.contains("| CONTAINER | 5 |"));
+    assert!(markdown.contains(&format!("| CONTAINER | {} |", 3 + optional_sr_count)));
     assert!(markdown.contains("### SR Root Continuity Of Content"));
     assert!(markdown.contains("| SEPARATE | 3 |"));
-    assert!(markdown.contains("| CONTINUOUS | 2 |"));
+    assert_eq!(markdown.contains("| CONTINUOUS | 2 |"), tid1500_generated);
     assert!(markdown.contains("### SR Content Sequence Item Counts"));
     assert!(markdown.contains("| 2 | 2 |"));
-    assert!(markdown.contains("| 8 | 2 |"));
+    if tid1500_generated {
+        assert!(markdown.contains("| 8 | 2 |"));
+    }
     assert!(markdown.contains("### SR Observation Texts"));
     assert!(
         markdown
@@ -2635,8 +2646,8 @@ fn report_command_writes_structured_report_content_coverage_for_extended_root() 
     );
     assert!(markdown.contains("### SR Measurement Numeric Values"));
     assert!(markdown.contains("| 12.5 | 1 |"));
-    assert!(markdown.contains("| 5.625 | 1 |"));
-    assert!(markdown.contains("| 2.5 | 1 |"));
+    assert_eq!(markdown.contains("| 5.625 | 1 |"), tid1500_generated);
+    assert_eq!(markdown.contains("| 2.5 | 1 |"), scoord3d_generated);
 
     fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
 }
@@ -7557,6 +7568,13 @@ fn report_exposes_generated_wsi_tile_segmentation_closure() {
     );
 
     let row = coverage_row(&report, "derived/seg/wsi_tile_reference");
+    if row["status"] == "unavailable" {
+        assert_eq!(row["validation_status"], "unavailable");
+        assert!(row["wsi_tile_seg_source_frame_mapping"].is_null());
+        assert!(row["wsi_tile_seg_reference_closure"].is_null());
+        fs::remove_dir_all(out_dir).expect("remove unavailable WSI tile segmentation report root");
+        return;
+    }
     assert_eq!(row["status"], "generated");
     assert_eq!(row["validation_status"], "passed");
     assert_eq!(

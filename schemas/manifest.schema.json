@@ -373,6 +373,9 @@
         "expected_wsi_tiled_full": {
           "$ref": "#/$defs/expected_wsi_tiled_full"
         },
+        "expected_wsi_tile_segmentation": {
+          "$ref": "#/$defs/expected_wsi_tile_segmentation"
+        },
         "expected_wsi_tiled_sparse": {
           "$ref": "#/$defs/expected_wsi_tiled_sparse"
         },
@@ -897,6 +900,56 @@
             }
           },
           "else": { "not": { "required": ["expected_wsi_tiled_full"] } }
+        },
+        {
+          "if": {
+            "properties": { "case_id": { "const": "derived/seg/wsi_tile_reference" } },
+            "required": ["case_id"]
+          },
+          "then": {
+            "required": ["image", "pixel_data", "generation_backend", "expected_wsi_tile_segmentation"],
+            "properties": {
+              "profile_membership": { "const": ["extended"] },
+              "determinism": { "const": "semantic_stable" },
+              "dicom": { "properties": {
+                "sop_class_uid": { "const": "1.2.840.10008.5.1.4.1.1.66.4" },
+                "sop_class_name": { "const": "Segmentation Storage" },
+                "iod_name": { "const": "Segmentation" },
+                "modality": { "const": "SEG" },
+                "transfer_syntax_uid": { "const": "1.2.840.10008.1.2.1" }
+              } },
+              "image": { "properties": {
+                "rows": { "const": 2 }, "columns": { "const": 2 }, "frames": { "const": 2 },
+                "samples_per_pixel": { "const": 1 }, "photometric_interpretation": { "const": "MONOCHROME2" },
+                "planar_configuration": { "type": "null" }, "bits_allocated": { "const": 8 },
+                "bits_stored": { "const": 8 }, "high_bit": { "const": 7 }, "pixel_representation": { "const": 0 }
+              } },
+              "pixel_data": { "properties": {
+                "vr": { "const": "OB" }, "native_or_encapsulated": { "const": "native" },
+                "value_length": { "const": 8 }, "frame_count": { "const": 2 },
+                "frame_hashes": { "const": [
+                  "34aaa746c25a0f105c4316bbb1f009aa359f49582656ee97d73c58132d563423",
+                  "10db5223d19bd1d58c2b8eb3c723b0ba104cf17564f9434e53e1b9e642fb3b37"
+                ] }
+              } },
+              "references": {
+                "type": "array", "minItems": 1, "maxItems": 1,
+                "prefixItems": [{
+                  "$ref": "#/$defs/reference",
+                  "properties": {
+                    "relationship": { "const": "source_image_for_segmentation" },
+                    "source_case_id": { "const": "vl/wsi/tiled_full_small" },
+                    "source_path": { "const": "vl/wsi/tiled_full_small/instance.dcm" },
+                    "sop_class_uid": { "const": "1.2.840.10008.5.1.4.1.1.77.1.6" },
+                    "frame_numbers": { "const": [1, 4] }
+                  }
+                }],
+                "items": false
+              },
+              "expected_wsi_tile_segmentation": { "$ref": "#/$defs/expected_wsi_tile_segmentation" }
+            }
+          },
+          "else": { "not": { "required": ["expected_wsi_tile_segmentation"] } }
         },
         {
           "if": {
@@ -3183,6 +3236,179 @@
         "sop_class_name": { "const": "VL Microscopic Image Storage" },
         "iod_name": { "const": "VL Microscopic Image" }, "modality": { "const": "GM" },
         "body_part_examined": { "const": "EYE" }
+      }
+    },
+    "expected_wsi_tile_segmentation": {
+      "type": "object",
+      "required": ["iod_kind", "profile", "dimension_organization_uid", "source", "segmentation", "image", "pixel_data", "tiling", "dimension_indices", "frames", "references", "presence", "absent_content", "budget"],
+      "properties": {
+        "iod_kind": { "const": "wsi_tile_segmentation" },
+        "profile": { "const": "extended" },
+        "dimension_organization_uid": { "type": "string", "pattern": "^[0-9]+(\\.[0-9]+)+$", "maxLength": 64 },
+        "source": {
+          "type": "object",
+          "required": ["case_id", "path", "sha256", "study_instance_uid", "series_instance_uid", "sop_class_uid", "sop_instance_uid", "frame_numbers", "frame_hashes", "frame_of_reference_uid", "specimen_uid", "container_identifier"],
+          "properties": {
+            "case_id": { "const": "vl/wsi/tiled_full_small" },
+            "path": { "const": "vl/wsi/tiled_full_small/instance.dcm" },
+            "sha256": { "$ref": "#/$defs/sha256" },
+            "study_instance_uid": { "type": "string", "pattern": "^[0-9]+(\\.[0-9]+)+$", "maxLength": 64 },
+            "series_instance_uid": { "type": "string", "pattern": "^[0-9]+(\\.[0-9]+)+$", "maxLength": 64 },
+            "sop_class_uid": { "const": "1.2.840.10008.5.1.4.1.1.77.1.6" },
+            "sop_instance_uid": { "type": "string", "pattern": "^[0-9]+(\\.[0-9]+)+$", "maxLength": 64 },
+            "frame_numbers": { "const": [1, 4] },
+            "frame_hashes": { "const": [
+              "fcf067f6323bb42b8292a565a8f826ec5fdb1b142b7a69bf7f7721f0d5d46ef8",
+              "8688d249e9d047b4fc2fb89ce05afe9ec89252ffccdd969de6eef260dd7ffb21"
+            ] },
+            "frame_of_reference_uid": { "type": "string", "pattern": "^[0-9]+(\\.[0-9]+)+$", "maxLength": 64 },
+            "specimen_uid": { "type": "string", "pattern": "^[0-9]+(\\.[0-9]+)+$", "maxLength": 64 },
+            "container_identifier": { "const": "DTS-SLIDE-001" }
+          },
+          "additionalProperties": false
+        },
+        "segmentation": {
+          "type": "object",
+          "required": ["type", "fractional_type", "maximum_fractional_value", "segments_overlap", "segment_number", "segment_label", "algorithm_type", "category", "property_type"],
+          "properties": {
+            "type": { "const": "FRACTIONAL" },
+            "fractional_type": { "const": "OCCUPANCY" },
+            "maximum_fractional_value": { "const": 255 },
+            "segments_overlap": { "const": "NO" },
+            "segment_number": { "const": 1 },
+            "segment_label": { "const": "DTS_SYNTHETIC_REGION" },
+            "algorithm_type": { "const": "MANUAL" },
+            "category": { "$ref": "#/$defs/wsi_tile_segmentation_tissue_code" },
+            "property_type": { "$ref": "#/$defs/wsi_tile_segmentation_organ_code" }
+          },
+          "additionalProperties": false
+        },
+        "image": {
+          "type": "object",
+          "required": ["rows", "columns", "frames", "samples_per_pixel", "photometric_interpretation", "bits_allocated", "bits_stored", "high_bit", "pixel_representation"],
+          "properties": {
+            "rows": { "const": 2 }, "columns": { "const": 2 }, "frames": { "const": 2 },
+            "samples_per_pixel": { "const": 1 }, "photometric_interpretation": { "const": "MONOCHROME2" },
+            "bits_allocated": { "const": 8 }, "bits_stored": { "const": 8 },
+            "high_bit": { "const": 7 }, "pixel_representation": { "const": 0 }
+          },
+          "additionalProperties": false
+        },
+        "pixel_data": {
+          "type": "object",
+          "required": ["vr", "native_or_encapsulated", "value_length", "frame_count", "frame_values", "frame_hashes", "payload_sha256"],
+          "properties": {
+            "vr": { "const": "OB" }, "native_or_encapsulated": { "const": "native" },
+            "value_length": { "const": 8 }, "frame_count": { "const": 2 },
+            "frame_values": { "const": [[255, 0, 0, 255], [0, 255, 255, 0]] },
+            "frame_hashes": { "const": [
+              "34aaa746c25a0f105c4316bbb1f009aa359f49582656ee97d73c58132d563423",
+              "10db5223d19bd1d58c2b8eb3c723b0ba104cf17564f9434e53e1b9e642fb3b37"
+            ] },
+            "payload_sha256": { "const": "74fa7cbb10160e0eb1f16f35fa9ad0e7f2712af56019996e88cf1034be92635e" }
+          },
+          "additionalProperties": false
+        },
+        "tiling": {
+          "type": "object",
+          "required": ["dimension_organization_type", "total_pixel_matrix_rows", "total_pixel_matrix_columns", "total_pixel_matrix_focal_planes", "tile_rows", "tile_columns", "total_pixel_matrix_origin_mm", "image_orientation_slide", "pixel_spacing_mm", "reconstructed_shape", "reconstructed_total_pixel_matrix_sha256"],
+          "properties": {
+            "dimension_organization_type": { "const": "TILED_SPARSE" },
+            "total_pixel_matrix_rows": { "const": 4 }, "total_pixel_matrix_columns": { "const": 4 },
+            "total_pixel_matrix_focal_planes": { "const": 1 },
+            "tile_rows": { "const": 2 }, "tile_columns": { "const": 2 },
+            "total_pixel_matrix_origin_mm": { "const": [0.0, 0.0, 0.0] },
+            "image_orientation_slide": { "const": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0] },
+            "pixel_spacing_mm": { "const": [0.5, 0.5] },
+            "reconstructed_shape": { "const": [4, 4] },
+            "reconstructed_total_pixel_matrix_sha256": { "const": "a8ec6f910c0fb02685163a3251bed92517d1016c9173f1e4f021e6b4194f2467" }
+          },
+          "additionalProperties": false
+        },
+        "dimension_indices": {
+          "type": "array", "minItems": 3, "maxItems": 3, "items": false,
+          "prefixItems": [
+            { "$ref": "#/$defs/wsi_tile_segmentation_dimension_index", "properties": { "ordinal": { "const": 1 }, "pointer": { "const": "ReferencedSegmentNumber" }, "functional_group_pointer": { "const": "SegmentIdentificationSequence" } } },
+            { "$ref": "#/$defs/wsi_tile_segmentation_dimension_index", "properties": { "ordinal": { "const": 2 }, "pointer": { "const": "RowPositionInTotalImagePixelMatrix" }, "functional_group_pointer": { "const": "PlanePositionSlideSequence" } } },
+            { "$ref": "#/$defs/wsi_tile_segmentation_dimension_index", "properties": { "ordinal": { "const": 3 }, "pointer": { "const": "ColumnPositionInTotalImagePixelMatrix" }, "functional_group_pointer": { "const": "PlanePositionSlideSequence" } } }
+          ]
+        },
+        "frames": {
+          "type": "array", "minItems": 2, "maxItems": 2, "items": false,
+          "prefixItems": [
+            { "$ref": "#/$defs/wsi_tile_segmentation_frame", "properties": { "frame_number": { "const": 1 }, "source_frame_number": { "const": 1 }, "dimension_index_values": { "const": [1, 1, 1] }, "row_position": { "const": 1 }, "column_position": { "const": 1 }, "x_mm": { "const": 0.0 }, "y_mm": { "const": 0.0 }, "z_mm": { "const": 0.0 } } },
+            { "$ref": "#/$defs/wsi_tile_segmentation_frame", "properties": { "frame_number": { "const": 2 }, "source_frame_number": { "const": 4 }, "dimension_index_values": { "const": [1, 2, 2] }, "row_position": { "const": 3 }, "column_position": { "const": 3 }, "x_mm": { "const": 1.0 }, "y_mm": { "const": 1.0 }, "z_mm": { "const": 0.0 } } }
+          ]
+        },
+        "references": {
+          "type": "object",
+          "required": ["common_instance_reference", "per_frame_derivation", "purpose", "derivation", "spatial_locations_preserved"],
+          "properties": {
+            "common_instance_reference": { "const": true },
+            "per_frame_derivation": { "const": true },
+            "purpose": { "$ref": "#/$defs/wsi_tile_segmentation_purpose_code" },
+            "derivation": { "$ref": "#/$defs/wsi_tile_segmentation_derivation_code" },
+            "spatial_locations_preserved": { "const": "YES" }
+          },
+          "additionalProperties": false
+        },
+        "presence": {
+          "type": "object",
+          "required": ["shared_functional_groups_sequence", "per_frame_functional_groups_sequence", "dimension_index_sequence", "referenced_series_sequence"],
+          "properties": {
+            "shared_functional_groups_sequence": { "const": true },
+            "per_frame_functional_groups_sequence": { "const": true },
+            "dimension_index_sequence": { "const": true },
+            "referenced_series_sequence": { "const": true }
+          },
+          "additionalProperties": false
+        },
+        "absent_content": { "const": ["tiled_full", "source_frames_2_and_3", "patient_coordinate_functional_groups", "palette_color_lut", "icc_profile", "pixel_padding", "lossy_image_compression_ratio", "lossy_image_compression_method", "tracking_identifiers", "algorithm_identification", "concatenation", "multi_resolution_pyramid"] },
+        "budget": {
+          "type": "object",
+          "required": ["instance_count", "total_frame_count", "max_total_dicom_bytes", "max_generation_wall_time_seconds"],
+          "properties": {
+            "instance_count": { "const": 1 }, "total_frame_count": { "const": 2 },
+            "max_total_dicom_bytes": { "const": 16384 }, "max_generation_wall_time_seconds": { "const": 5 }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "wsi_tile_segmentation_tissue_code": {
+      "type": "object", "additionalProperties": false,
+      "required": ["code_value", "coding_scheme_designator", "code_meaning"],
+      "properties": { "code_value": { "const": "85756007" }, "coding_scheme_designator": { "const": "SCT" }, "code_meaning": { "const": "Tissue" } }
+    },
+    "wsi_tile_segmentation_organ_code": {
+      "type": "object", "additionalProperties": false,
+      "required": ["code_value", "coding_scheme_designator", "code_meaning"],
+      "properties": { "code_value": { "const": "113343" }, "coding_scheme_designator": { "const": "DCM" }, "code_meaning": { "const": "Organ" } }
+    },
+    "wsi_tile_segmentation_purpose_code": {
+      "type": "object", "additionalProperties": false,
+      "required": ["code_value", "coding_scheme_designator", "code_meaning"],
+      "properties": { "code_value": { "const": "121322" }, "coding_scheme_designator": { "const": "DCM" }, "code_meaning": { "const": "Source Image for Image Processing Operation" } }
+    },
+    "wsi_tile_segmentation_derivation_code": {
+      "type": "object", "additionalProperties": false,
+      "required": ["code_value", "coding_scheme_designator", "code_meaning"],
+      "properties": { "code_value": { "const": "113076" }, "coding_scheme_designator": { "const": "DCM" }, "code_meaning": { "const": "Segmentation" } }
+    },
+    "wsi_tile_segmentation_dimension_index": {
+      "type": "object", "additionalProperties": false,
+      "required": ["ordinal", "pointer", "functional_group_pointer"],
+      "properties": { "ordinal": { "type": "integer" }, "pointer": { "type": "string" }, "functional_group_pointer": { "type": "string" } }
+    },
+    "wsi_tile_segmentation_frame": {
+      "type": "object", "additionalProperties": false,
+      "required": ["frame_number", "source_frame_number", "dimension_index_values", "row_position", "column_position", "x_mm", "y_mm", "z_mm"],
+      "properties": {
+        "frame_number": { "type": "integer" }, "source_frame_number": { "type": "integer" },
+        "dimension_index_values": { "type": "array" },
+        "row_position": { "type": "integer" }, "column_position": { "type": "integer" },
+        "x_mm": { "type": "number" }, "y_mm": { "type": "number" }, "z_mm": { "type": "number" }
       }
     },
     "expected_wsi_tiled_full": {

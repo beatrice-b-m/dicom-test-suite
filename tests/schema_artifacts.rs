@@ -4241,6 +4241,138 @@ fn manifest_schema_locks_phase4_tiled_full_wsi_expectation() {
 }
 
 #[test]
+fn manifest_schema_locks_phase4_wsi_tile_segmentation_expectation() {
+    let schema = read_json("schemas/manifest.schema.json");
+    let expectation_schema = serde_json::json!({
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$ref": "#/$defs/expected_wsi_tile_segmentation",
+        "$defs": schema["$defs"].clone(),
+    });
+    let validator = jsonschema::validator_for(&expectation_schema)
+        .expect("WSI tile SEG expectation schema should compile");
+    let expectation = serde_json::json!({
+        "iod_kind": "wsi_tile_segmentation",
+        "profile": "extended",
+        "dimension_organization_uid": "1.2.826.0.1.3680043.10.543.6",
+        "source": {
+            "case_id": "vl/wsi/tiled_full_small",
+            "path": "vl/wsi/tiled_full_small/instance.dcm",
+            "sha256": "0".repeat(64),
+            "study_instance_uid": "1.2.826.0.1.3680043.10.543.1",
+            "series_instance_uid": "1.2.826.0.1.3680043.10.543.2",
+            "sop_class_uid": "1.2.840.10008.5.1.4.1.1.77.1.6",
+            "sop_instance_uid": "1.2.826.0.1.3680043.10.543.3",
+            "frame_numbers": [1, 4],
+            "frame_hashes": [
+                "fcf067f6323bb42b8292a565a8f826ec5fdb1b142b7a69bf7f7721f0d5d46ef8",
+                "8688d249e9d047b4fc2fb89ce05afe9ec89252ffccdd969de6eef260dd7ffb21"
+            ],
+            "frame_of_reference_uid": "1.2.826.0.1.3680043.10.543.4",
+            "specimen_uid": "1.2.826.0.1.3680043.10.543.5",
+            "container_identifier": "DTS-SLIDE-001"
+        },
+        "segmentation": {
+            "type": "FRACTIONAL", "fractional_type": "OCCUPANCY",
+            "maximum_fractional_value": 255, "segments_overlap": "NO",
+            "segment_number": 1, "segment_label": "DTS_SYNTHETIC_REGION",
+            "algorithm_type": "MANUAL",
+            "category": { "code_value": "85756007", "coding_scheme_designator": "SCT", "code_meaning": "Tissue" },
+            "property_type": { "code_value": "113343", "coding_scheme_designator": "DCM", "code_meaning": "Organ" }
+        },
+        "image": { "rows": 2, "columns": 2, "frames": 2, "samples_per_pixel": 1, "photometric_interpretation": "MONOCHROME2", "bits_allocated": 8, "bits_stored": 8, "high_bit": 7, "pixel_representation": 0 },
+        "pixel_data": {
+            "vr": "OB", "native_or_encapsulated": "native", "value_length": 8, "frame_count": 2,
+            "frame_values": [[255, 0, 0, 255], [0, 255, 255, 0]],
+            "frame_hashes": [
+                "34aaa746c25a0f105c4316bbb1f009aa359f49582656ee97d73c58132d563423",
+                "10db5223d19bd1d58c2b8eb3c723b0ba104cf17564f9434e53e1b9e642fb3b37"
+            ],
+            "payload_sha256": "74fa7cbb10160e0eb1f16f35fa9ad0e7f2712af56019996e88cf1034be92635e"
+        },
+        "tiling": {
+            "dimension_organization_type": "TILED_SPARSE",
+            "total_pixel_matrix_rows": 4, "total_pixel_matrix_columns": 4,
+            "total_pixel_matrix_focal_planes": 1, "tile_rows": 2, "tile_columns": 2,
+            "total_pixel_matrix_origin_mm": [0.0, 0.0, 0.0],
+            "image_orientation_slide": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0],
+            "pixel_spacing_mm": [0.5, 0.5], "reconstructed_shape": [4, 4],
+            "reconstructed_total_pixel_matrix_sha256": "a8ec6f910c0fb02685163a3251bed92517d1016c9173f1e4f021e6b4194f2467"
+        },
+        "dimension_indices": [
+            { "ordinal": 1, "pointer": "ReferencedSegmentNumber", "functional_group_pointer": "SegmentIdentificationSequence" },
+            { "ordinal": 2, "pointer": "RowPositionInTotalImagePixelMatrix", "functional_group_pointer": "PlanePositionSlideSequence" },
+            { "ordinal": 3, "pointer": "ColumnPositionInTotalImagePixelMatrix", "functional_group_pointer": "PlanePositionSlideSequence" }
+        ],
+        "frames": [
+            { "frame_number": 1, "source_frame_number": 1, "dimension_index_values": [1, 1, 1], "row_position": 1, "column_position": 1, "x_mm": 0.0, "y_mm": 0.0, "z_mm": 0.0 },
+            { "frame_number": 2, "source_frame_number": 4, "dimension_index_values": [1, 2, 2], "row_position": 3, "column_position": 3, "x_mm": 1.0, "y_mm": 1.0, "z_mm": 0.0 }
+        ],
+        "references": {
+            "common_instance_reference": true, "per_frame_derivation": true,
+            "purpose": { "code_value": "121322", "coding_scheme_designator": "DCM", "code_meaning": "Source Image for Image Processing Operation" },
+            "derivation": { "code_value": "113076", "coding_scheme_designator": "DCM", "code_meaning": "Segmentation" },
+            "spatial_locations_preserved": "YES"
+        },
+        "presence": { "shared_functional_groups_sequence": true, "per_frame_functional_groups_sequence": true, "dimension_index_sequence": true, "referenced_series_sequence": true },
+        "absent_content": ["tiled_full", "source_frames_2_and_3", "patient_coordinate_functional_groups", "palette_color_lut", "icc_profile", "pixel_padding", "lossy_image_compression_ratio", "lossy_image_compression_method", "tracking_identifiers", "algorithm_identification", "concatenation", "multi_resolution_pyramid"],
+        "budget": { "instance_count": 1, "total_frame_count": 2, "max_total_dicom_bytes": 16384, "max_generation_wall_time_seconds": 5 }
+    });
+    assert!(validator.is_valid(&expectation));
+
+    for (pointer, malformed_value) in [
+        ("/source/frame_numbers/1", serde_json::json!(3)),
+        ("/segmentation/type", serde_json::json!("BINARY")),
+        ("/pixel_data/frame_values/0/0", serde_json::json!(0)),
+        (
+            "/tiling/dimension_organization_type",
+            serde_json::json!("TILED_FULL"),
+        ),
+        (
+            "/dimension_indices/1/pointer",
+            serde_json::json!("ColumnPositionInTotalImagePixelMatrix"),
+        ),
+        ("/frames/1/source_frame_number", serde_json::json!(3)),
+        (
+            "/references/spatial_locations_preserved",
+            serde_json::json!("NO"),
+        ),
+        ("/budget/max_total_dicom_bytes", serde_json::json!(32768)),
+    ] {
+        let mut malformed = expectation.clone();
+        *malformed.pointer_mut(pointer).expect("mutation pointer") = malformed_value;
+        assert!(
+            !validator.is_valid(&malformed),
+            "schema must reject {pointer}"
+        );
+    }
+
+    let rule = schema
+        .pointer("/$defs/file/allOf")
+        .and_then(Value::as_array)
+        .unwrap()
+        .iter()
+        .find(|rule| {
+            rule.pointer("/if/properties/case_id/const")
+                .and_then(Value::as_str)
+                == Some("derived/seg/wsi_tile_reference")
+        })
+        .expect("exact WSI tile SEG case rule");
+    assert_eq!(
+        rule.pointer("/then/required"),
+        Some(&serde_json::json!([
+            "image",
+            "pixel_data",
+            "generation_backend",
+            "expected_wsi_tile_segmentation"
+        ]))
+    );
+    assert_eq!(
+        rule.pointer("/else/not/required"),
+        Some(&serde_json::json!(["expected_wsi_tile_segmentation"]))
+    );
+}
+
+#[test]
 fn manifest_schema_locks_phase4_tiled_sparse_wsi_expectation() {
     let schema = read_json("schemas/manifest.schema.json");
     let expectation_schema = serde_json::json!({

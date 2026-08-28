@@ -1665,6 +1665,7 @@ fn validate_manifest_file(
     let relative_path = manifest_str(manifest_path, file, "/path", "file path must be a string")?;
     validate_vl_single_frame_manifest_contract(manifest_path, file)?;
     validate_wsi_tiled_full_manifest_contract(manifest_path, file)?;
+    validate_wsi_tile_segmentation_manifest_contract(manifest_path, file)?;
     validate_wsi_tiled_sparse_manifest_contract(manifest_path, file)?;
     validate_wsi_multiple_optical_paths_manifest_contract(manifest_path, file)?;
     validate_wsi_pyramid_manifest_member(manifest_path, file)?;
@@ -2156,6 +2157,292 @@ pub(crate) fn wsi_tiled_full_locked_contract(
         "presence": presence,
         "absent_content": absent_content
     })
+}
+
+pub(crate) struct WsiTileSegmentationLockedInputs<'a> {
+    pub source_case_id: &'a str,
+    pub source_path: &'a str,
+    pub source_sha256: &'a str,
+    pub source_study_instance_uid: &'a str,
+    pub source_series_instance_uid: &'a str,
+    pub source_sop_class_uid: &'a str,
+    pub source_sop_instance_uid: &'a str,
+    pub frame_of_reference_uid: &'a str,
+    pub specimen_uid: &'a str,
+    pub dimension_organization_uid: &'a str,
+}
+
+pub(crate) fn wsi_tile_segmentation_locked_contract(
+    input: WsiTileSegmentationLockedInputs<'_>,
+) -> Value {
+    serde_json::json!({
+        "iod_kind": "wsi_tile_segmentation",
+        "profile": "extended",
+        "source": {
+            "case_id": input.source_case_id,
+            "path": input.source_path,
+            "sha256": input.source_sha256,
+            "study_instance_uid": input.source_study_instance_uid,
+            "series_instance_uid": input.source_series_instance_uid,
+            "sop_class_uid": input.source_sop_class_uid,
+            "sop_instance_uid": input.source_sop_instance_uid,
+            "frame_numbers": [1, 4],
+            "frame_hashes": [
+                "fcf067f6323bb42b8292a565a8f826ec5fdb1b142b7a69bf7f7721f0d5d46ef8",
+                "8688d249e9d047b4fc2fb89ce05afe9ec89252ffccdd969de6eef260dd7ffb21"
+            ],
+            "frame_of_reference_uid": input.frame_of_reference_uid,
+            "specimen_uid": input.specimen_uid,
+            "container_identifier": "DTS-SLIDE-001"
+        },
+        "dimension_organization_uid": input.dimension_organization_uid,
+        "segmentation": {
+            "type": "FRACTIONAL",
+            "fractional_type": "OCCUPANCY",
+            "maximum_fractional_value": 255,
+            "segments_overlap": "NO",
+            "segment_number": 1,
+            "segment_label": "DTS_SYNTHETIC_REGION",
+            "algorithm_type": "MANUAL",
+            "category": {
+                "code_value": "85756007",
+                "coding_scheme_designator": "SCT",
+                "code_meaning": "Tissue"
+            },
+            "property_type": {
+                "code_value": "113343",
+                "coding_scheme_designator": "DCM",
+                "code_meaning": "Organ"
+            }
+        },
+        "image": {
+            "rows": 2, "columns": 2, "frames": 2, "samples_per_pixel": 1,
+            "photometric_interpretation": "MONOCHROME2", "bits_allocated": 8,
+            "bits_stored": 8, "high_bit": 7, "pixel_representation": 0
+        },
+        "pixel_data": {
+            "vr": "OB", "native_or_encapsulated": "native", "value_length": 8,
+            "frame_count": 2,
+            "frame_values": [[255, 0, 0, 255], [0, 255, 255, 0]],
+            "frame_hashes": [
+                "34aaa746c25a0f105c4316bbb1f009aa359f49582656ee97d73c58132d563423",
+                "10db5223d19bd1d58c2b8eb3c723b0ba104cf17564f9434e53e1b9e642fb3b37"
+            ],
+            "payload_sha256": "74fa7cbb10160e0eb1f16f35fa9ad0e7f2712af56019996e88cf1034be92635e"
+        },
+        "tiling": {
+            "dimension_organization_type": "TILED_SPARSE",
+            "total_pixel_matrix_rows": 4, "total_pixel_matrix_columns": 4,
+            "total_pixel_matrix_focal_planes": 1, "tile_rows": 2, "tile_columns": 2,
+            "total_pixel_matrix_origin_mm": [0.0, 0.0, 0.0],
+            "image_orientation_slide": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0],
+            "pixel_spacing_mm": [0.5, 0.5], "reconstructed_shape": [4, 4],
+            "reconstructed_total_pixel_matrix_sha256": "a8ec6f910c0fb02685163a3251bed92517d1016c9173f1e4f021e6b4194f2467"
+        },
+        "dimension_indices": [
+            {"ordinal": 1, "pointer": "ReferencedSegmentNumber", "functional_group_pointer": "SegmentIdentificationSequence"},
+            {"ordinal": 2, "pointer": "RowPositionInTotalImagePixelMatrix", "functional_group_pointer": "PlanePositionSlideSequence"},
+            {"ordinal": 3, "pointer": "ColumnPositionInTotalImagePixelMatrix", "functional_group_pointer": "PlanePositionSlideSequence"}
+        ],
+        "frames": [
+            {"frame_number": 1, "source_frame_number": 1, "dimension_index_values": [1, 1, 1], "row_position": 1, "column_position": 1, "x_mm": 0.0, "y_mm": 0.0, "z_mm": 0.0},
+            {"frame_number": 2, "source_frame_number": 4, "dimension_index_values": [1, 2, 2], "row_position": 3, "column_position": 3, "x_mm": 1.0, "y_mm": 1.0, "z_mm": 0.0}
+        ],
+        "references": {
+            "common_instance_reference": true,
+            "per_frame_derivation": true,
+            "purpose": {"code_value": "121322", "coding_scheme_designator": "DCM", "code_meaning": "Source Image for Image Processing Operation"},
+            "derivation": {"code_value": "113076", "coding_scheme_designator": "DCM", "code_meaning": "Segmentation"},
+            "spatial_locations_preserved": "YES"
+        },
+        "presence": {
+            "shared_functional_groups_sequence": true,
+            "per_frame_functional_groups_sequence": true,
+            "dimension_index_sequence": true,
+            "referenced_series_sequence": true
+        },
+        "absent_content": [
+            "tiled_full", "source_frames_2_and_3", "patient_coordinate_functional_groups",
+            "palette_color_lut", "icc_profile", "pixel_padding",
+            "lossy_image_compression_ratio", "lossy_image_compression_method",
+            "tracking_identifiers", "algorithm_identification", "concatenation",
+            "multi_resolution_pyramid"
+        ],
+        "budget": {
+            "instance_count": 1, "total_frame_count": 2,
+            "max_total_dicom_bytes": 16384, "max_generation_wall_time_seconds": 5
+        }
+    })
+}
+
+fn validate_wsi_tile_segmentation_manifest_contract(
+    manifest_path: &Path,
+    file: &Value,
+) -> Result<(), ValidateError> {
+    const CASE_ID: &str = "derived/seg/wsi_tile_reference";
+    if file.get("case_id").and_then(Value::as_str) != Some(CASE_ID) {
+        return if file.get("expected_wsi_tile_segmentation").is_some() {
+            Err(ValidateError::ManifestShape {
+                path: manifest_path.to_path_buf(),
+                message: "expected_wsi_tile_segmentation is only valid for derived/seg/wsi_tile_reference",
+            })
+        } else {
+            Ok(())
+        };
+    }
+    let expected = file.get("expected_wsi_tile_segmentation").ok_or(
+        ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "derived/seg/wsi_tile_reference must define expected_wsi_tile_segmentation",
+        },
+    )?;
+    let string = |pointer: &str, message| {
+        expected
+            .pointer(pointer)
+            .and_then(Value::as_str)
+            .ok_or(ValidateError::ManifestShape {
+                path: manifest_path.to_path_buf(),
+                message,
+            })
+    };
+    let uid = |pointer: &str, message| {
+        string(pointer, message).and_then(|value| {
+            if is_manifest_uid(value) {
+                Ok(value)
+            } else {
+                Err(ValidateError::ManifestShape {
+                    path: manifest_path.to_path_buf(),
+                    message,
+                })
+            }
+        })
+    };
+    let source_case_id = string(
+        "/source/case_id",
+        "WSI tile SEG source case_id must be a string",
+    )?;
+    let source_path = string("/source/path", "WSI tile SEG source path must be a string")?;
+    let source_sha256 = string(
+        "/source/sha256",
+        "WSI tile SEG source sha256 must be a string",
+    )?;
+    let source_study_instance_uid = uid(
+        "/source/study_instance_uid",
+        "WSI tile SEG source Study UID must be valid",
+    )?;
+    let source_series_instance_uid = uid(
+        "/source/series_instance_uid",
+        "WSI tile SEG source Series UID must be valid",
+    )?;
+    let source_sop_class_uid = uid(
+        "/source/sop_class_uid",
+        "WSI tile SEG source SOP Class UID must be valid",
+    )?;
+    let source_sop_instance_uid = uid(
+        "/source/sop_instance_uid",
+        "WSI tile SEG source SOP Instance UID must be valid",
+    )?;
+    let frame_of_reference_uid = uid(
+        "/source/frame_of_reference_uid",
+        "WSI tile SEG Frame of Reference UID must be valid",
+    )?;
+    let specimen_uid = uid(
+        "/source/specimen_uid",
+        "WSI tile SEG specimen UID must be valid",
+    )?;
+    let dimension_organization_uid = uid(
+        "/dimension_organization_uid",
+        "WSI tile SEG Dimension Organization UID must be valid",
+    )?;
+    let locked = wsi_tile_segmentation_locked_contract(WsiTileSegmentationLockedInputs {
+        source_case_id,
+        source_path,
+        source_sha256,
+        source_study_instance_uid,
+        source_series_instance_uid,
+        source_sop_class_uid,
+        source_sop_instance_uid,
+        frame_of_reference_uid,
+        specimen_uid,
+        dimension_organization_uid,
+    });
+    if expected != &locked {
+        return Err(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "expected_wsi_tile_segmentation must equal the exact locked case contract",
+        });
+    }
+    for (pointer, locked_value) in [
+        (
+            "/dicom/sop_class_uid",
+            Value::from("1.2.840.10008.5.1.4.1.1.66.4"),
+        ),
+        ("/dicom/sop_class_name", Value::from("Segmentation Storage")),
+        ("/dicom/iod_name", Value::from("Segmentation")),
+        ("/dicom/modality", Value::from("SEG")),
+        (
+            "/dicom/transfer_syntax_uid",
+            Value::from("1.2.840.10008.1.2.1"),
+        ),
+        (
+            "/uids/study_instance_uid",
+            Value::from(source_study_instance_uid),
+        ),
+        (
+            "/uids/frame_of_reference_uid",
+            Value::from(frame_of_reference_uid),
+        ),
+        (
+            "/uids/dimension_organization_uid",
+            Value::from(dimension_organization_uid),
+        ),
+        ("/image/rows", Value::from(2)),
+        ("/image/columns", Value::from(2)),
+        ("/image/frames", Value::from(2)),
+        ("/image/samples_per_pixel", Value::from(1)),
+        (
+            "/image/photometric_interpretation",
+            Value::from("MONOCHROME2"),
+        ),
+        ("/image/bits_allocated", Value::from(8)),
+        ("/image/bits_stored", Value::from(8)),
+        ("/image/high_bit", Value::from(7)),
+        ("/image/pixel_representation", Value::from(0)),
+        ("/image/planar_configuration", Value::Null),
+        ("/pixel_data/vr", Value::from("OB")),
+        ("/pixel_data/native_or_encapsulated", Value::from("native")),
+        ("/pixel_data/value_length", Value::from(8)),
+        ("/pixel_data/frame_count", Value::from(2)),
+    ] {
+        if file.pointer(pointer) != Some(&locked_value) {
+            return Err(ValidateError::ManifestShape {
+                path: manifest_path.to_path_buf(),
+                message: "WSI tile SEG manifest identity and pixel metadata must match its locked contract",
+            });
+        }
+    }
+    if file.pointer("/pixel_data/frame_hashes") != expected.pointer("/pixel_data/frame_hashes") {
+        return Err(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "WSI tile SEG manifest frame hashes must match its locked contract",
+        });
+    }
+    let locked_reference = serde_json::json!({
+        "relationship": "source_image_for_segmentation",
+        "source_case_id": source_case_id,
+        "source_path": source_path,
+        "series_instance_uid": source_series_instance_uid,
+        "sop_class_uid": source_sop_class_uid,
+        "sop_instance_uid": source_sop_instance_uid,
+        "frame_numbers": [1, 4]
+    });
+    if file.get("references") != Some(&serde_json::json!([locked_reference])) {
+        return Err(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "WSI tile SEG manifest reference must bind exactly source Frames 1 and 4",
+        });
+    }
+    Ok(())
 }
 
 fn validate_wsi_tiled_sparse_manifest_contract(
@@ -31880,6 +32167,113 @@ mod tests {
         assert!(
             validate_wsi_tiled_full_manifest_contract(Path::new("manifest.json"), &misplaced)
                 .is_err()
+        );
+    }
+
+    fn wsi_tile_segmentation_manifest() -> Value {
+        let source_study_uid = "1.2.826.0.1.3680043.10.543.21";
+        let source_series_uid = "1.2.826.0.1.3680043.10.543.22";
+        let source_sop_uid = "1.2.826.0.1.3680043.10.543.23";
+        let frame_of_reference_uid = "1.2.826.0.1.3680043.10.543.24";
+        let dimension_organization_uid = "1.2.826.0.1.3680043.10.543.25";
+        let expected = wsi_tile_segmentation_locked_contract(WsiTileSegmentationLockedInputs {
+            source_case_id: "vl/wsi/tiled_full_small",
+            source_path: "vl/wsi/tiled_full_small/wsi-tiled-full-small.dcm",
+            source_sha256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            source_study_instance_uid: source_study_uid,
+            source_series_instance_uid: source_series_uid,
+            source_sop_class_uid: "1.2.840.10008.5.1.4.1.1.77.1.6",
+            source_sop_instance_uid: source_sop_uid,
+            frame_of_reference_uid,
+            specimen_uid: "1.2.826.0.1.3680043.10.543.26",
+            dimension_organization_uid,
+        });
+        serde_json::json!({
+            "case_id": "derived/seg/wsi_tile_reference",
+            "dicom": {
+                "sop_class_uid": "1.2.840.10008.5.1.4.1.1.66.4",
+                "sop_class_name": "Segmentation Storage",
+                "iod_name": "Segmentation",
+                "modality": "SEG",
+                "transfer_syntax_uid": "1.2.840.10008.1.2.1"
+            },
+            "uids": {
+                "study_instance_uid": source_study_uid,
+                "frame_of_reference_uid": frame_of_reference_uid,
+                "dimension_organization_uid": dimension_organization_uid
+            },
+            "image": {
+                "rows": 2, "columns": 2, "frames": 2, "samples_per_pixel": 1,
+                "photometric_interpretation": "MONOCHROME2", "planar_configuration": null,
+                "bits_allocated": 8, "bits_stored": 8, "high_bit": 7,
+                "pixel_representation": 0
+            },
+            "pixel_data": {
+                "vr": "OB", "native_or_encapsulated": "native", "value_length": 8,
+                "frame_count": 2,
+                "frame_hashes": expected["pixel_data"]["frame_hashes"].clone()
+            },
+            "references": [{
+                "relationship": "source_image_for_segmentation",
+                "source_case_id": "vl/wsi/tiled_full_small",
+                "source_path": "vl/wsi/tiled_full_small/wsi-tiled-full-small.dcm",
+                "series_instance_uid": source_series_uid,
+                "sop_class_uid": "1.2.840.10008.5.1.4.1.1.77.1.6",
+                "sop_instance_uid": source_sop_uid,
+                "frame_numbers": [1, 4]
+            }],
+            "expected_wsi_tile_segmentation": expected
+        })
+    }
+
+    #[test]
+    fn wsi_tile_segmentation_manifest_contract_is_exact_case_scoped_and_cross_bound() {
+        validate_wsi_tile_segmentation_manifest_contract(
+            Path::new("manifest.json"),
+            &wsi_tile_segmentation_manifest(),
+        )
+        .expect("locked WSI tile segmentation contract");
+
+        let mut wrong_frame = wsi_tile_segmentation_manifest();
+        wrong_frame["expected_wsi_tile_segmentation"]["frames"][1]["source_frame_number"] =
+            Value::from(3);
+        assert!(
+            validate_wsi_tile_segmentation_manifest_contract(
+                Path::new("manifest.json"),
+                &wrong_frame
+            )
+            .is_err()
+        );
+
+        let mut crossed_reference = wsi_tile_segmentation_manifest();
+        crossed_reference["references"][0]["frame_numbers"] = serde_json::json!([1, 3]);
+        assert!(
+            validate_wsi_tile_segmentation_manifest_contract(
+                Path::new("manifest.json"),
+                &crossed_reference
+            )
+            .is_err()
+        );
+
+        let mut crossed_uid = wsi_tile_segmentation_manifest();
+        crossed_uid["uids"]["dimension_organization_uid"] = Value::from("1.2.3.4");
+        assert!(
+            validate_wsi_tile_segmentation_manifest_contract(
+                Path::new("manifest.json"),
+                &crossed_uid
+            )
+            .is_err()
+        );
+
+        let mut misplaced = serde_json::json!({"case_id": "derived/seg/fractional"});
+        misplaced["expected_wsi_tile_segmentation"] =
+            wsi_tile_segmentation_manifest()["expected_wsi_tile_segmentation"].clone();
+        assert!(
+            validate_wsi_tile_segmentation_manifest_contract(
+                Path::new("manifest.json"),
+                &misplaced
+            )
+            .is_err()
         );
     }
 

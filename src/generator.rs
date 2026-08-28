@@ -165,14 +165,13 @@ use crate::{
         ParametricMapVariantOutcome, Scoord3dGenerated, Scoord3dGenerationInput,
         Scoord3dIdentities, Scoord3dOutcome, StandardsProvenance, Tid1500Generated,
         Tid1500GenerationInput, Tid1500Identities, Tid1500Outcome, WSI_TILE_SEGMENTATION_CASE_ID,
-        WSI_TILE_SEGMENTATION_FRAME_SHA256, WSI_TILE_SEGMENTATION_FRAME_VALUES,
-        WSI_TILE_SEGMENTATION_MATRIX_SHA256, WSI_TILE_SEGMENTATION_OUTPUT_FILE,
-        WSI_TILE_SEGMENTATION_PAYLOAD_SHA256, WSI_TILE_SEGMENTATION_RECIPE_ID,
-        WSI_TILE_SEGMENTATION_RECIPE_VERSION, WSI_TILE_SEGMENTATION_SOURCE_CASE_ID,
-        WSI_TILE_SEGMENTATION_SOURCE_FRAME_NUMBERS, WsiTileSegmentationGenerated,
-        WsiTileSegmentationGenerationInput, WsiTileSegmentationIdentities,
-        WsiTileSegmentationOutcome, generate_parametric_map_for_spec, generate_scoord3d,
-        generate_tid1500, generate_wsi_tile_segmentation,
+        WSI_TILE_SEGMENTATION_FRAME_SHA256, WSI_TILE_SEGMENTATION_OUTPUT_FILE,
+        WSI_TILE_SEGMENTATION_RECIPE_ID, WSI_TILE_SEGMENTATION_RECIPE_VERSION,
+        WSI_TILE_SEGMENTATION_SOURCE_CASE_ID, WSI_TILE_SEGMENTATION_SOURCE_FRAME_NUMBERS,
+        WsiTileSegmentationGenerated, WsiTileSegmentationGenerationInput,
+        WsiTileSegmentationIdentities, WsiTileSegmentationOutcome,
+        generate_parametric_map_for_spec, generate_scoord3d, generate_tid1500,
+        generate_wsi_tile_segmentation,
     },
     rt_manifest::{
         LinkedRtImageInput, LinkedRtPlanInput, linked_rt_image_expected, linked_rt_plan_expected,
@@ -5650,51 +5649,19 @@ fn wsi_tile_segmentation_generated_file(
         .specimen_uid
         .as_deref()
         .expect("source validated specimen UID");
-    let expected = serde_json::json!({
-        "iod_kind": "wsi_tile_segmentation",
-        "profile": "extended",
-        "source": {
-            "case_id": source.source_case_id,
-            "path": source.source_path,
-            "sha256": source.sha256,
-            "study_instance_uid": source.study_instance_uid,
-            "series_instance_uid": source_series,
-            "sop_class_uid": source.sop_class_uid,
-            "sop_instance_uid": source.sop_instance_uid,
-            "frame_numbers": WSI_TILE_SEGMENTATION_SOURCE_FRAME_NUMBERS,
-            "frame_hashes": [
-                "fcf067f6323bb42b8292a565a8f826ec5fdb1b142b7a69bf7f7721f0d5d46ef8",
-                "8688d249e9d047b4fc2fb89ce05afe9ec89252ffccdd969de6eef260dd7ffb21"
-            ],
-            "frame_of_reference_uid": generated.identities.frame_of_reference_uid,
-            "specimen_uid": specimen_uid,
-            "container_identifier": "DTS-SLIDE-001"
-        },
-        "segmentation": {
-            "type": "FRACTIONAL", "fractional_type": "OCCUPANCY",
-            "maximum_fractional_value": 255, "segments_overlap": "NO",
-            "segment_number": 1, "segment_label": "DTS_SYNTHETIC_REGION",
-            "algorithm_type": "MANUAL",
-            "category": {"code_value": "85756007", "coding_scheme_designator": "SCT", "code_meaning": "Tissue"},
-            "property_type": {"code_value": "113343", "coding_scheme_designator": "DCM", "code_meaning": "Organ"}
-        },
-        "image": {"rows": 2, "columns": 2, "frames": 2, "samples_per_pixel": 1, "photometric_interpretation": "MONOCHROME2", "bits_allocated": 8, "bits_stored": 8, "high_bit": 7, "pixel_representation": 0},
-        "pixel_data": {"vr": "OB", "native_or_encapsulated": "native", "value_length": 8, "frame_count": 2, "frame_values": WSI_TILE_SEGMENTATION_FRAME_VALUES, "frame_hashes": WSI_TILE_SEGMENTATION_FRAME_SHA256, "payload_sha256": WSI_TILE_SEGMENTATION_PAYLOAD_SHA256},
-        "tiling": {"dimension_organization_type": "TILED_SPARSE", "total_pixel_matrix_rows": 4, "total_pixel_matrix_columns": 4, "total_pixel_matrix_focal_planes": 1, "tile_rows": 2, "tile_columns": 2, "total_pixel_matrix_origin_mm": [0.0, 0.0, 0.0], "image_orientation_slide": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0], "pixel_spacing_mm": [0.5, 0.5], "reconstructed_shape": [4, 4], "reconstructed_total_pixel_matrix_sha256": WSI_TILE_SEGMENTATION_MATRIX_SHA256},
-        "dimension_indices": [
-            {"ordinal": 1, "pointer": "ReferencedSegmentNumber", "functional_group_pointer": "SegmentIdentificationSequence"},
-            {"ordinal": 2, "pointer": "RowPositionInTotalImagePixelMatrix", "functional_group_pointer": "PlanePositionSlideSequence"},
-            {"ordinal": 3, "pointer": "ColumnPositionInTotalImagePixelMatrix", "functional_group_pointer": "PlanePositionSlideSequence"}
-        ],
-        "frames": [
-            {"frame_number": 1, "source_frame_number": 1, "dimension_index_values": [1,1,1], "row_position": 1, "column_position": 1, "x_mm": 0.0, "y_mm": 0.0, "z_mm": 0.0},
-            {"frame_number": 2, "source_frame_number": 4, "dimension_index_values": [1,2,2], "row_position": 3, "column_position": 3, "x_mm": 1.0, "y_mm": 1.0, "z_mm": 0.0}
-        ],
-        "references": {"common_instance_reference": true, "per_frame_derivation": true, "purpose": {"code_value": "121322", "coding_scheme_designator": "DCM", "code_meaning": "Source Image for Image Processing Operation"}, "derivation": {"code_value": "113076", "coding_scheme_designator": "DCM", "code_meaning": "Segmentation"}, "spatial_locations_preserved": "YES"},
-        "presence": {"shared_functional_groups_sequence": true, "per_frame_functional_groups_sequence": true, "dimension_index_sequence": true, "referenced_series_sequence": true},
-        "absent_content": ["tiled_full", "source_frames_2_and_3", "patient_coordinate_functional_groups", "palette_color_lut", "icc_profile", "pixel_padding", "lossy_image_compression_ratio", "lossy_image_compression_method", "tracking_identifiers", "algorithm_identification", "concatenation", "multi_resolution_pyramid"],
-        "budget": {"instance_count": 1, "total_frame_count": 2, "max_total_dicom_bytes": 16384, "max_generation_wall_time_seconds": 5}
-    });
+    let expected =
+        crate::wsi_tile_segmentation_locked_contract(crate::WsiTileSegmentationLockedInputs {
+            source_case_id: &source.source_case_id,
+            source_path: &source.source_path,
+            source_sha256: &source.sha256,
+            source_study_instance_uid: &source.study_instance_uid,
+            source_series_instance_uid: source_series,
+            source_sop_class_uid: &source.sop_class_uid,
+            source_sop_instance_uid: &source.sop_instance_uid,
+            frame_of_reference_uid: &generated.identities.frame_of_reference_uid,
+            specimen_uid,
+            dimension_organization_uid: &generated.identities.dimension_organization_uid,
+        });
     let response_backend = &generated.response["backend"];
     let warnings = generated.response["warnings"].clone();
     Ok(GeneratedFile {
@@ -27997,13 +27964,17 @@ mod tests {
             generated
                 .manifest_entry
                 .pointer("/expected_wsi_tile_segmentation/pixel_data/payload_sha256"),
-            Some(&Value::from(WSI_TILE_SEGMENTATION_PAYLOAD_SHA256))
+            Some(&Value::from(
+                crate::generation_backends::WSI_TILE_SEGMENTATION_PAYLOAD_SHA256,
+            ))
         );
         assert_eq!(
             generated.manifest_entry.pointer(
                 "/expected_wsi_tile_segmentation/tiling/reconstructed_total_pixel_matrix_sha256"
             ),
-            Some(&Value::from(WSI_TILE_SEGMENTATION_MATRIX_SHA256))
+            Some(&Value::from(
+                crate::generation_backends::WSI_TILE_SEGMENTATION_MATRIX_SHA256,
+            ))
         );
         assert!(
             generated.manifest_entry["size_bytes"]

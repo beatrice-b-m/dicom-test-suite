@@ -9,6 +9,8 @@
 use std::error::Error;
 use std::fmt;
 
+use serde_json::{Value, json};
+
 pub const STRESS_CONTRACT_VERSION: &str = "0.1.0";
 
 const MIB: u64 = 1024 * 1024;
@@ -33,6 +35,13 @@ pub struct StressEnvelope {
 }
 
 impl StressScale {
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Reduced => "reduced",
+            Self::Full => "full",
+        }
+    }
+
     pub const fn envelope(self) -> StressEnvelope {
         match self {
             Self::Reduced => StressEnvelope {
@@ -60,6 +69,20 @@ pub enum StressRecipeKind {
     NestedSequences,
     LongMetadata,
     WsiPyramid,
+}
+
+impl StressRecipeKind {
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::EncapsulatedEot => "encapsulated_eot",
+            Self::EnhancedCt => "enhanced_ct",
+            Self::CtStudy => "ct_study",
+            Self::NativeBulkData => "native_bulk_data",
+            Self::NestedSequences => "nested_sequences",
+            Self::LongMetadata => "long_metadata",
+            Self::WsiPyramid => "wsi_pyramid",
+        }
+    }
 }
 
 /// Requested or measured scale values. Zero means the dimension does not
@@ -224,6 +247,23 @@ impl StressScaleParameters {
             && self.sequence_depth == requested.sequence_depth
             && self.metadata_values == requested.metadata_values
             && self.output_bytes > 0
+    }
+
+    pub fn to_json(self) -> Value {
+        json!({
+            "instances": self.instances,
+            "frames": self.frames,
+            "fragments": self.fragments,
+            "payload_bytes": self.payload_bytes,
+            "output_bytes": self.output_bytes,
+            "rows": self.rows,
+            "columns": self.columns,
+            "tile_rows": self.tile_rows,
+            "tile_columns": self.tile_columns,
+            "pyramid_levels": self.pyramid_levels,
+            "sequence_depth": self.sequence_depth,
+            "metadata_values": self.metadata_values
+        })
     }
 }
 
@@ -435,6 +475,44 @@ impl StressQualificationRecord {
                 .recipe_output_ceiling
                 .is_none_or(|ceiling| self.actual.output_bytes <= ceiling)
     }
+
+    /// Project the checked record into the payload-free manifest contract.
+    /// Callers must reject non-promotable records before publishing output.
+    pub fn to_manifest_value(self, case_id: &str) -> Value {
+        let envelope = self.request.scale.envelope();
+        json!({
+            "case_id": case_id,
+            "kind": "stress_case_run",
+            "contract_version": self.contract_version,
+            "profile": "stress",
+            "recipe": self.request.recipe.name(),
+            "scale": self.request.scale.name(),
+            "requested": self.request.parameters.to_json(),
+            "actual": self.actual.to_json(),
+            "resource_envelope": {
+                "output_bytes": envelope.output_bytes,
+                "peak_rss_bytes": envelope.peak_rss_bytes,
+                "case_wall_milliseconds": envelope.case_wall_milliseconds,
+                "job_wall_milliseconds": envelope.job_wall_milliseconds,
+                "recipe_output_bytes": self.request.recipe_output_ceiling
+            },
+            "observation": {
+                "output_bytes": self.observation.output_bytes,
+                "elapsed_milliseconds": self.observation.elapsed_milliseconds,
+                "peak_rss_bytes": self.observation.peak_rss_bytes
+            },
+            "outcome": match self.outcome {
+                StressExecutionOutcome::Completed => "completed",
+                StressExecutionOutcome::RefusedByPreflight(_) => "refused_by_preflight",
+                StressExecutionOutcome::AbortedByGuard(_) => "aborted_by_guard",
+                StressExecutionOutcome::Interrupted => "interrupted",
+                StressExecutionOutcome::TimedOut => "timed_out",
+                StressExecutionOutcome::ProcessFailure { .. } => "process_failure",
+            },
+            "payload_policy": "generated_payloads_uncommitted",
+            "status": if self.is_promotable() { "passed" } else { "failed" }
+        })
+    }
 }
 
 #[cfg(test)]
@@ -636,6 +714,20 @@ mod tests {
         forged_request.request.parameters.frames = 1;
         forged_request.actual.frames = 1;
         assert!(!forged_request.is_promotable());
+    }
+
+    #[test]
+    fn manifest_projection_records_requested_actual_and_resource_evidence() {
+        let record = completed_record();
+        let value = record.to_manifest_value("stress/enhanced-ct/many_frames");
+        assert_eq!(value["kind"], "stress_case_run");
+        assert_eq!(value["recipe"], "enhanced_ct");
+        assert_eq!(value["scale"], "reduced");
+        assert_eq!(value["requested"]["frames"], 256);
+        assert_eq!(value["requested"]["output_bytes"], 0);
+        assert_eq!(value["actual"]["output_bytes"], 2 * MIB);
+        assert_eq!(value["observation"]["peak_rss_bytes"], 32 * MIB);
+        assert_eq!(value["status"], "passed");
     }
 
     #[test]

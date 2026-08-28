@@ -236,7 +236,7 @@
       "required": [
         "case_id", "kind", "contract_version", "profile", "recipe", "scale",
         "requested", "actual", "resource_envelope", "observation", "outcome",
-        "payload_policy", "status"
+        "unavailable_scales", "payload_policy", "status"
       ],
       "properties": {
         "case_id": { "type": "string", "pattern": "^stress/" },
@@ -282,6 +282,22 @@
             "completed", "refused_by_preflight", "aborted_by_guard", "interrupted",
             "timed_out", "process_failure"
           ]
+        },
+        "unavailable_scales": {
+          "type": "array",
+          "prefixItems": [{
+            "type": "object",
+            "required": ["scale", "reason_code", "message"],
+            "properties": {
+              "scale": { "const": "full" },
+              "reason_code": { "const": "full_scale_runner_unimplemented" },
+              "message": { "type": "string", "minLength": 1 }
+            },
+            "additionalProperties": false
+          }],
+          "items": false,
+          "minItems": 1,
+          "maxItems": 1
         },
         "payload_policy": { "const": "generated_payloads_uncommitted" },
         "status": { "enum": ["passed", "failed"] }

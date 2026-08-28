@@ -509,6 +509,11 @@ impl StressQualificationRecord {
                 StressExecutionOutcome::TimedOut => "timed_out",
                 StressExecutionOutcome::ProcessFailure { .. } => "process_failure",
             },
+            "unavailable_scales": [{
+                "scale": "full",
+                "reason_code": "full_scale_runner_unimplemented",
+                "message": "The scheduled full-scale streaming runner and independent resource qualification are not implemented."
+            }],
             "payload_policy": "generated_payloads_uncommitted",
             "status": if self.is_promotable() { "passed" } else { "failed" }
         })
@@ -728,6 +733,10 @@ mod tests {
         assert_eq!(value["actual"]["output_bytes"], 2 * MIB);
         assert_eq!(value["observation"]["peak_rss_bytes"], 32 * MIB);
         assert_eq!(value["status"], "passed");
+        assert_eq!(
+            value["unavailable_scales"][0]["reason_code"],
+            "full_scale_runner_unimplemented"
+        );
     }
 
     #[test]

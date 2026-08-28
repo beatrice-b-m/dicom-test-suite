@@ -230,7 +230,13 @@
           "uniqueItems": true
         },
         "path": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1,
+          "allOf": [
+            { "not": { "pattern": "^/" } },
+            { "not": { "pattern": "(^|/)\\.\\.?(/|$)" } },
+            { "not": { "pattern": "[\\\\:]" } }
+          ]
         },
         "sha256": {
           "$ref": "#/$defs/sha256"

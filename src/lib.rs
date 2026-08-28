@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::error::Error;
 use std::fmt;
 use std::fs;
@@ -371,6 +371,10 @@ pub enum ValidateError {
         path: PathBuf,
         message: &'static str,
     },
+    ReadCorpus {
+        path: PathBuf,
+        source: std::io::Error,
+    },
 }
 
 impl fmt::Display for ValidateError {
@@ -385,6 +389,9 @@ impl fmt::Display for ValidateError {
             Self::ManifestShape { path, message } => {
                 write!(f, "invalid manifest shape in {}: {message}", path.display())
             }
+            Self::ReadCorpus { path, source } => {
+                write!(f, "failed to inspect generated corpus {}: {source}", path.display())
+            }
         }
     }
 }
@@ -395,6 +402,7 @@ impl Error for ValidateError {
             Self::ReadManifest { source, .. } => Some(source),
             Self::ParseManifest { source, .. } => Some(source),
             Self::ManifestShape { .. } => None,
+            Self::ReadCorpus { source, .. } => Some(source),
         }
     }
 }
@@ -642,6 +650,7 @@ pub fn validate_generated_root(
                 path: manifest_path.clone(),
                 message: "missing files array",
             })?;
+    let declared_paths = validate_manifest_corpus_layout(root_dir, &manifest_path, files)?;
     let source_objects = build_manifest_source_object_map(&manifest_path, files)?;
 
     let mut failures = Vec::new();
@@ -650,6 +659,7 @@ pub fn validate_generated_root(
         validate_manifest_references(&manifest_path, file, &source_objects, &mut failures)?;
         validate_manifest_file(root_dir, &manifest_path, file, &mut failures)?;
     }
+    validate_declared_corpus_files(root_dir, &declared_paths, &mut failures)?;
     geometry::validate_manifest_geometry(root_dir, files, &mut failures);
     metadata::validate_manifest_metadata_corpus(files, &mut failures);
 
@@ -658,6 +668,149 @@ pub fn validate_generated_root(
         files_checked: files.len(),
         failures,
     })
+}
+
+fn validate_manifest_corpus_layout(
+    root_dir: &Path,
+    manifest_path: &Path,
+    files: &[Value],
+) -> Result<BTreeSet<PathBuf>, ValidateError> {
+    let root_metadata = fs::symlink_metadata(root_dir).map_err(|source| ValidateError::ReadCorpus {
+        path: root_dir.to_path_buf(),
+        source,
+    })?;
+    if root_metadata.file_type().is_symlink() || !root_metadata.is_dir() {
+        return Err(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "generated root must be a directory and not a symbolic link",
+        });
+    }
+    let manifest_metadata = fs::symlink_metadata(manifest_path).map_err(|source| {
+        ValidateError::ReadCorpus {
+            path: manifest_path.to_path_buf(),
+            source,
+        }
+    })?;
+    if manifest_metadata.file_type().is_symlink() || !manifest_metadata.is_file() {
+        return Err(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "manifest must be a regular file and not a symbolic link",
+        });
+    }
+
+    let mut declared = BTreeSet::new();
+    for file in files {
+        let relative_path = manifest_str(
+            manifest_path,
+            file,
+            "/path",
+            "file path must be a string",
+        )?;
+        let relative = PathBuf::from(relative_path);
+        if !generation_backends::is_safe_relative_path(&relative) {
+            return Err(ValidateError::ManifestShape {
+                path: manifest_path.to_path_buf(),
+                message: "file path must be a safe relative path",
+            });
+        }
+        if !declared.insert(relative.clone()) {
+            return Err(ValidateError::ManifestShape {
+                path: manifest_path.to_path_buf(),
+                message: "file paths must be unique",
+            });
+        }
+
+        let mut current = root_dir.to_path_buf();
+        let component_count = relative.components().count();
+        for (index, component) in relative.components().enumerate() {
+            current.push(component.as_os_str());
+            let metadata = match fs::symlink_metadata(&current) {
+                Ok(metadata) => metadata,
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => break,
+                Err(source) => {
+                    return Err(ValidateError::ReadCorpus {
+                        path: current,
+                        source,
+                    });
+                }
+            };
+            if metadata.file_type().is_symlink() {
+                return Err(ValidateError::ManifestShape {
+                    path: manifest_path.to_path_buf(),
+                    message: "file path must not traverse a symbolic link",
+                });
+            }
+            let is_last = index + 1 == component_count;
+            if (!is_last && !metadata.is_dir()) || (is_last && !metadata.is_file()) {
+                return Err(ValidateError::ManifestShape {
+                    path: manifest_path.to_path_buf(),
+                    message: "file path must resolve through directories to a regular file",
+                });
+            }
+        }
+    }
+    Ok(declared)
+}
+
+fn validate_declared_corpus_files(
+    root_dir: &Path,
+    declared: &BTreeSet<PathBuf>,
+    failures: &mut Vec<String>,
+) -> Result<(), ValidateError> {
+    let mut actual = BTreeSet::new();
+    collect_corpus_files(root_dir, root_dir, &mut actual, failures)?;
+    actual.remove(Path::new("manifest.json"));
+
+    for path in actual.difference(declared) {
+        failures.push(format!(
+            "{}: undeclared_file: file is not declared by manifest.json",
+            path.display()
+        ));
+    }
+    Ok(())
+}
+
+fn collect_corpus_files(
+    root_dir: &Path,
+    directory: &Path,
+    files: &mut BTreeSet<PathBuf>,
+    failures: &mut Vec<String>,
+) -> Result<(), ValidateError> {
+    let entries = fs::read_dir(directory).map_err(|source| ValidateError::ReadCorpus {
+        path: directory.to_path_buf(),
+        source,
+    })?;
+    for entry in entries {
+        let entry = entry.map_err(|source| ValidateError::ReadCorpus {
+            path: directory.to_path_buf(),
+            source,
+        })?;
+        let path = entry.path();
+        let metadata = fs::symlink_metadata(&path).map_err(|source| ValidateError::ReadCorpus {
+            path: path.clone(),
+            source,
+        })?;
+        let relative = path.strip_prefix(root_dir).map_err(|_| ValidateError::ManifestShape {
+            path: root_dir.join("manifest.json"),
+            message: "corpus entry escaped the generated root",
+        })?;
+        if metadata.file_type().is_symlink() {
+            failures.push(format!(
+                "{}: symbolic_link: corpus entries must not be symbolic links",
+                relative.display()
+            ));
+        } else if metadata.is_dir() {
+            collect_corpus_files(root_dir, &path, files, failures)?;
+        } else if metadata.is_file() {
+            files.insert(relative.to_path_buf());
+        } else {
+            failures.push(format!(
+                "{}: special_file: corpus entries must be regular files or directories",
+                relative.display()
+            ));
+        }
+    }
+    Ok(())
 }
 
 fn build_manifest_source_object_map(
@@ -35564,6 +35717,69 @@ mod tests {
         );
 
         fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
+    }
+
+    #[test]
+    fn validate_generated_root_rejects_parent_traversal() {
+        let workspace = unique_temp_dir("validate_parent_traversal");
+        let root = workspace.join("root");
+        let sibling = workspace.join("sibling");
+        for out_dir in [&root, &sibling] {
+            let prepared = prepare_generation_run(GenerateOptions {
+                profile: "smoke".to_string(),
+                out_dir: out_dir.clone(),
+                seed: 7,
+                include_stress: false,
+            })
+            .expect("prepare smoke corpus");
+            write_generation_run(&prepared).expect("write smoke corpus");
+        }
+
+        let manifest_path = root.join("manifest.json");
+        let mut manifest: Value = serde_json::from_str(
+            &fs::read_to_string(&manifest_path).expect("read root manifest"),
+        )
+        .expect("parse root manifest");
+        let original = manifest["files"][0]["path"]
+            .as_str()
+            .expect("first file path")
+            .to_string();
+        manifest["files"][0]["path"] = Value::String(format!("../sibling/{original}"));
+        fs::write(
+            &manifest_path,
+            serde_json::to_vec_pretty(&manifest).expect("serialize escaped manifest"),
+        )
+        .expect("write escaped manifest");
+
+        let error = validate_generated_root(&root).expect_err("parent traversal must fail");
+        assert!(error.to_string().contains("safe relative path"));
+        fs::remove_dir_all(workspace).expect("remove traversal workspace");
+    }
+
+    #[test]
+    fn validate_generated_root_reports_undeclared_files() {
+        let root = unique_temp_dir("validate_undeclared_file");
+        let prepared = prepare_generation_run(GenerateOptions {
+            profile: "smoke".to_string(),
+            out_dir: root.clone(),
+            seed: 7,
+            include_stress: false,
+        })
+        .expect("prepare smoke corpus");
+        write_generation_run(&prepared).expect("write smoke corpus");
+        fs::write(root.join("undeclared.bin"), b"not in the manifest")
+            .expect("write undeclared file");
+
+        let summary = validate_generated_root(&root).expect("validation should complete");
+        assert!(
+            summary
+                .failures
+                .iter()
+                .any(|failure| failure.contains("undeclared.bin: undeclared_file")),
+            "undeclared payload must be reported: {:?}",
+            summary.failures
+        );
+        fs::remove_dir_all(root).expect("remove undeclared-file corpus");
     }
 
     #[test]

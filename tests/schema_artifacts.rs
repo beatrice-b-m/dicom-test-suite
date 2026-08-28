@@ -167,6 +167,32 @@ fn manifest_schema_allows_non_image_files_and_requires_references() {
 }
 
 #[test]
+fn manifest_schema_rejects_unsafe_file_paths() {
+    let schema = read_json("schemas/manifest.schema.json");
+    let path_schema = schema
+        .pointer("/$defs/file/properties/path")
+        .expect("manifest file path schema");
+    let validator = jsonschema::validator_for(path_schema).expect("file path schema must compile");
+
+    assert!(validator.is_valid(&Value::String(
+        "classic/sc/example/instance.dcm".to_string()
+    )));
+    for unsafe_path in [
+        "",
+        "/absolute/instance.dcm",
+        "../sibling/instance.dcm",
+        "classic/../sibling/instance.dcm",
+        "classic\\instance.dcm",
+        "C:/instance.dcm",
+    ] {
+        assert!(
+            !validator.is_valid(&Value::String(unsafe_path.to_string())),
+            "manifest schema must reject {unsafe_path}"
+        );
+    }
+}
+
+#[test]
 fn manifest_schema_defines_encapsulated_pixel_data_layout_metadata() {
     let schema = read_json("schemas/manifest.schema.json");
 

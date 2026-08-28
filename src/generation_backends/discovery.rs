@@ -61,33 +61,37 @@ pub fn discover_prepared_backend(
     let override_name = discovery
         .pointer("/environment_override")
         .and_then(Value::as_str);
-    let executable = override_name
-        .and_then(std::env::var_os)
-        .map(PathBuf::from)
-        .unwrap_or_else(|| {
-            let platform = std::env::consts::OS;
-            repository_root.join(
-                discovery["default_relative_executables"][platform]
-                    .as_str()
-                    .expect("lock schema checked platform executable"),
-            )
-        });
-    let executable = if executable.is_absolute() {
-        executable
+    let override_executable = override_name.and_then(std::env::var_os).map(PathBuf::from);
+    let configured_executable = override_executable.clone().unwrap_or_else(|| {
+        let platform = std::env::consts::OS;
+        PathBuf::from(
+            discovery["default_relative_executables"][platform]
+                .as_str()
+                .expect("lock schema checked platform executable"),
+        )
+    });
+    let executable = if configured_executable.is_absolute() {
+        configured_executable.clone()
     } else {
-        std::env::current_dir()
-            .map_err(|source| BackendContractError::Read {
-                path: PathBuf::from("."),
-                source,
-            })?
-            .join(executable)
+        let current_dir = std::env::current_dir().map_err(|source| BackendContractError::Read {
+            path: PathBuf::from("."),
+            source,
+        })?;
+        let base = if override_executable.is_some() {
+            current_dir
+        } else if repository_root.is_absolute() {
+            repository_root.to_path_buf()
+        } else {
+            current_dir.join(repository_root)
+        };
+        base.join(&configured_executable)
     };
     if !executable.exists() {
         return Ok(BackendDiscovery::Unavailable {
             code: "dependency_unavailable".to_string(),
             message: format!(
                 "prepared backend runtime {} does not exist; provision it with the committed uv lock{}",
-                executable.display(),
+                configured_executable.display(),
                 override_name
                     .map(|name| format!(" or set {name}"))
                     .unwrap_or_default()
@@ -556,6 +560,36 @@ fn invalid(message: impl Into<String>) -> BackendContractError {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn missing_relative_runtime_diagnostic_is_repository_independent() {
+        let policy = json!({
+            "backend_id": "optional_backend",
+            "discovery": {
+                "default_relative_executables": {
+                    std::env::consts::OS: "generation-backends/optional/.venv/bin/python"
+                }
+            }
+        });
+        let discover = |root: &str| match discover_prepared_backend(Path::new(root), &policy)
+            .expect("missing optional runtime should be a supported discovery outcome")
+        {
+            BackendDiscovery::Unavailable { code, message } => (code, message),
+            BackendDiscovery::Available(_) => panic!("test runtime path must remain absent"),
+        };
+
+        let first = discover("/tmp/dts-first-repository");
+        let second = discover("/tmp/dts-second-repository");
+        assert_eq!(first, second);
+        assert_eq!(first.0, "dependency_unavailable");
+        assert!(
+            first
+                .1
+                .contains("generation-backends/optional/.venv/bin/python")
+        );
+        assert!(!first.1.contains("dts-first-repository"));
+    }
 
     #[test]
     fn committed_uv_lock_matches_exact_runtime_versions() {

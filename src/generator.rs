@@ -10060,6 +10060,12 @@ fn write_pixel_case_with_metadata(
         VR::US,
         recipe.pixel_representation,
     );
+    if recipe.case_id == EOT_CASE_ID {
+        put_str(&mut obj, tags::RESCALE_INTERCEPT, VR::DS, "0");
+        put_str(&mut obj, tags::RESCALE_SLOPE, VR::DS, "1");
+        put_str(&mut obj, tags::RESCALE_TYPE, VR::LO, "US");
+        put_str(&mut obj, tags::PRESENTATION_LUT_SHAPE, VR::CS, "IDENTITY");
+    }
     if let Some(palette) = recipe.palette {
         put_palette(&mut obj, palette);
     }
@@ -10785,6 +10791,34 @@ fn validate_extended_offset_table_round_trip(
             path: path.to_path_buf(),
             message: format!("decode EOT Page Number Vector: {error}"),
         })?;
+    for (tag, label, expected) in [
+        (tags::RESCALE_INTERCEPT, "Rescale Intercept", "0"),
+        (tags::RESCALE_SLOPE, "Rescale Slope", "1"),
+        (tags::RESCALE_TYPE, "Rescale Type", "US"),
+        (
+            tags::PRESENTATION_LUT_SHAPE,
+            "Presentation LUT Shape",
+            "IDENTITY",
+        ),
+    ] {
+        let actual = obj
+            .element(tag)
+            .map_err(|error| GenerateError::ValidateDicomFile {
+                path: path.to_path_buf(),
+                message: format!("read EOT {label}: {error}"),
+            })?
+            .to_str()
+            .map_err(|error| GenerateError::ValidateDicomFile {
+                path: path.to_path_buf(),
+                message: format!("decode EOT {label}: {error}"),
+            })?;
+        if actual.trim_end_matches([' ', '\0']) != expected {
+            return Err(GenerateError::ValidateDicomFile {
+                path: path.to_path_buf(),
+                message: format!("EOT {label} is {actual:?}, expected {expected:?}"),
+            });
+        }
+    }
     let fragment_lengths = sequence
         .fragments()
         .iter()

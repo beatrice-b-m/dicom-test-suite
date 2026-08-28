@@ -15683,7 +15683,7 @@ fn write_stress_high_instance_ct_case(
         .collect::<Vec<_>>();
     let recipe = ClassicCtRecipe {
         case_id: STRESS_HIGH_INSTANCE_CT_CASE_ID,
-        recipe_id: "stress_high_instance_count_ct_reduced",
+        recipe_id: "stress_high_instance_count_ct",
         transfer_syntax: EXPLICIT_VR_LITTLE_ENDIAN,
         rows: ROWS,
         columns: COLUMNS,
@@ -15819,7 +15819,7 @@ fn write_stress_large_bulk_case(
     const ROWS: u16 = 8192;
     const COLUMNS: u16 = 4096;
     const PAYLOAD_BYTES: usize = 64 * 1024 * 1024;
-    const RECIPE_ID: &str = "stress_sc_large_bulk_data_reduced";
+    const RECIPE_ID: &str = "stress_sc_large_bulk_data";
     let relative_path = format!("{STRESS_LARGE_BULK_CASE_ID}/instance.dcm");
     let path = run.out_dir.join(&relative_path);
     fs::create_dir_all(path.parent().expect("stress path has parent")).map_err(|source| {
@@ -16109,7 +16109,7 @@ fn write_stress_deep_nested_case(
 ) -> Result<GeneratedFile, GenerateError> {
     const DEPTH: usize = 32;
     const PAYLOAD_BYTES: usize = 16 * 1024 * 1024;
-    const RECIPE_ID: &str = "stress_sc_deep_nested_sequences_reduced";
+    const RECIPE_ID: &str = "stress_sc_deep_nested_sequences";
     let (mut obj, identity) = base_stress_sc_object(
         run,
         STRESS_DEEP_NESTED_CASE_ID,
@@ -16164,7 +16164,7 @@ fn write_stress_long_metadata_case(
 ) -> Result<GeneratedFile, GenerateError> {
     const VALUE_COUNT: usize = 1024;
     const VALUE_BYTES: usize = 1024;
-    const RECIPE_ID: &str = "stress_sc_long_value_metadata_reduced";
+    const RECIPE_ID: &str = "stress_sc_long_value_metadata";
     let (mut obj, identity) = base_stress_sc_object(
         run,
         STRESS_LONG_METADATA_CASE_ID,
@@ -16214,7 +16214,7 @@ fn write_stress_encapsulated_case(
     const COLUMNS: u16 = 512;
     const FRAMES: usize = 256;
     const FRAGMENTS_PER_FRAME: usize = 64;
-    const RECIPE_ID: &str = "stress_sc_large_encapsulated_multifragment_reduced";
+    const RECIPE_ID: &str = "stress_sc_large_encapsulated_multifragment";
     let relative_path = format!("{STRESS_ENCAPSULATED_CASE_ID}/instance.dcm");
     let path = run.out_dir.join(&relative_path);
     fs::create_dir_all(path.parent().expect("stress path has parent")).map_err(|source| {
@@ -17344,7 +17344,7 @@ fn write_stress_enhanced_ct_case(
     let dimension_indices = (1..=u32::from(FRAMES)).collect::<Vec<_>>();
     let recipe = EnhancedCtRecipe {
         case_id: STRESS_ENHANCED_CT_CASE_ID,
-        recipe_id: "stress_enhanced_ct_many_frames_reduced",
+        recipe_id: "stress_enhanced_ct_many_frames",
         rows: ROWS,
         columns: COLUMNS,
         frames: FRAMES,

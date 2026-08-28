@@ -109,6 +109,17 @@ use native::twelve_lead_ecg::{
     build_twelve_lead_ecg,
 };
 use native::us_multiframe::{CLASSIC_US_MULTIFRAME_RECIPES, ClassicUsMultiframeRecipe};
+use native::wsi_multiple_optical_paths::{
+    WSI_MULTIPLE_OPTICAL_PATH_DESCRIPTIONS, WSI_MULTIPLE_OPTICAL_PATH_IDENTIFIERS,
+    WSI_MULTIPLE_OPTICAL_PATH_WAVELENGTHS_NM, WSI_MULTIPLE_OPTICAL_PATHS_CASE_ID,
+    WSI_MULTIPLE_OPTICAL_PATHS_FRAME_SHA256, WSI_MULTIPLE_OPTICAL_PATHS_MATRIX_SHA256,
+    WSI_MULTIPLE_OPTICAL_PATHS_NUMBER_OF_FRAMES, WSI_MULTIPLE_OPTICAL_PATHS_OUTPUT_FILE,
+    WSI_MULTIPLE_OPTICAL_PATHS_PATH_PAYLOAD_SHA256, WSI_MULTIPLE_OPTICAL_PATHS_PIXEL_BYTES,
+    WSI_MULTIPLE_OPTICAL_PATHS_PIXEL_DATA_SHA256, WSI_MULTIPLE_OPTICAL_PATHS_RECIPE_ID,
+    WSI_MULTIPLE_OPTICAL_PATHS_RECIPE_VERSION, WSI_MULTIPLE_OPTICAL_PATHS_STORAGE_UID,
+    WsiMultipleOpticalPathsInput, build_wsi_multiple_optical_paths,
+    reconstructed_optical_path_matrices,
+};
 use native::wsi_pyramid::{
     WSI_PYRAMID_CASE_ID, WSI_PYRAMID_LABEL_IMAGE_TYPE, WSI_PYRAMID_LABEL_OUTPUT_FILE,
     WSI_PYRAMID_LABEL_PIXEL_BYTES, WSI_PYRAMID_LABEL_PIXEL_DATA_SHA256, WSI_PYRAMID_RECIPE_ID,
@@ -187,7 +198,8 @@ use crate::{
         validate_real_world_value_mapping_file, validate_rt_dose_file, validate_rt_image_file,
         validate_rt_plan_file, validate_rt_radiation_file, validate_rt_radiation_set_file,
         validate_rt_structure_set_file, validate_scoord3d_file, validate_spatial_registration_file,
-        validate_tid1500_file, validate_twelve_lead_ecg_file, validate_wsi_pyramid_file,
+        validate_tid1500_file, validate_twelve_lead_ecg_file,
+        validate_wsi_multiple_optical_paths_file, validate_wsi_pyramid_file,
         validate_wsi_tiled_full_file, validate_wsi_tiled_sparse_file,
     },
     waveform_manifest::{general_ecg_expected_waveform, twelve_lead_ecg_expected_waveform},
@@ -3934,6 +3946,15 @@ pub(crate) fn write_supported_cases(
     if let Some(case) = registry_case(registry, WSI_TILED_SPARSE_CASE_ID)? {
         if should_generate_case(case, run)? {
             context.record_one(write_wsi_tiled_sparse_case(
+                run,
+                case,
+                standards_lock_sha256,
+            )?)?;
+        }
+    }
+    if let Some(case) = registry_case(registry, WSI_MULTIPLE_OPTICAL_PATHS_CASE_ID)? {
+        if should_generate_case(case, run)? {
+            context.record_one(write_wsi_multiple_optical_paths_case(
                 run,
                 case,
                 standards_lock_sha256,
@@ -8158,6 +8179,234 @@ fn write_wsi_tiled_full_case(
                 "specimen_and_optical_path_metadata",
                 "nested_icc_profile",
                 "absent_per_frame_functional_groups"
+            ],
+            "standards_evidence": standards_evidence
+        }),
+    })
+}
+
+fn write_wsi_multiple_optical_paths_case(
+    run: &PreparedGenerationRun,
+    case: &Value,
+    standards_lock_sha256: &str,
+) -> Result<GeneratedFile, GenerateError> {
+    let uid = |role, referenced_object_index| {
+        deterministic_uid(&DeterministicUidInput {
+            standards_lock_sha256,
+            case_id: WSI_MULTIPLE_OPTICAL_PATHS_CASE_ID,
+            recipe_version: WSI_MULTIPLE_OPTICAL_PATHS_RECIPE_VERSION,
+            run_seed: run.seed,
+            file_index: 0,
+            frame_index: None,
+            referenced_object_index,
+            role,
+        })
+    };
+    let study_instance_uid = uid(UidRole::StudyInstance, None);
+    let series_instance_uid = uid(UidRole::SeriesInstance, None);
+    let sop_instance_uid = uid(UidRole::SopInstance, None);
+    let frame_of_reference_uid = uid(UidRole::FrameOfReference, None);
+    let dimension_organization_uid = uid(UidRole::DimensionOrganization, None);
+    let specimen_uid = uid(UidRole::DerivedReference, Some(0));
+    let implementation_class_uid = deterministic_implementation_uid(standards_lock_sha256);
+
+    let source_contract_matches = validate_locked_icc_profile(&ICC_PROFILE_BYTES).is_ok()
+        && sha256_hex(&ICC_PROFILE_BYTES) == ICC_PROFILE_SHA256
+        && sha256_hex(&WSI_MULTIPLE_OPTICAL_PATHS_PIXEL_BYTES)
+            == WSI_MULTIPLE_OPTICAL_PATHS_PIXEL_DATA_SHA256
+        && WSI_MULTIPLE_OPTICAL_PATHS_PIXEL_BYTES
+            .chunks_exact(12)
+            .zip(WSI_MULTIPLE_OPTICAL_PATHS_FRAME_SHA256)
+            .all(|(frame, expected)| sha256_hex(frame) == expected)
+        && WSI_MULTIPLE_OPTICAL_PATHS_PIXEL_BYTES
+            .chunks_exact(48)
+            .zip(WSI_MULTIPLE_OPTICAL_PATHS_PATH_PAYLOAD_SHA256)
+            .all(|(payload, expected)| sha256_hex(payload) == expected)
+        && reconstructed_optical_path_matrices()
+            .iter()
+            .zip(WSI_MULTIPLE_OPTICAL_PATHS_MATRIX_SHA256)
+            .all(|(matrix, expected)| sha256_hex(matrix) == expected);
+    if !source_contract_matches {
+        return Err(GenerateError::MetadataShape {
+            path: PathBuf::from(WSI_MULTIPLE_OPTICAL_PATHS_CASE_ID),
+            message: "multiple-path WSI pixels, path matrices, or ICC profile differ from their locked hashes",
+        });
+    }
+
+    let relative_path =
+        format!("{WSI_MULTIPLE_OPTICAL_PATHS_CASE_ID}/{WSI_MULTIPLE_OPTICAL_PATHS_OUTPUT_FILE}");
+    let path = run.out_dir.join(&relative_path);
+    let case_dir = path.parent().ok_or_else(|| GenerateError::MetadataShape {
+        path: PathBuf::from(&relative_path),
+        message: "multiple-path WSI output must have a parent directory",
+    })?;
+    fs::create_dir_all(case_dir).map_err(|source| GenerateError::CreateCaseOutputDir {
+        path: case_dir.to_path_buf(),
+        source,
+    })?;
+
+    build_wsi_multiple_optical_paths(WsiMultipleOpticalPathsInput {
+        study_instance_uid: &study_instance_uid,
+        series_instance_uid: &series_instance_uid,
+        sop_instance_uid: &sop_instance_uid,
+        frame_of_reference_uid: &frame_of_reference_uid,
+        dimension_organization_uid: &dimension_organization_uid,
+        specimen_uid: &specimen_uid,
+    })
+    .map_err(|message| GenerateError::WriteDicomFile {
+        path: path.clone(),
+        message,
+    })?
+    .with_meta(
+        FileMetaTableBuilder::new()
+            .transfer_syntax(EXPLICIT_VR_LITTLE_ENDIAN.uid)
+            .implementation_class_uid(&implementation_class_uid)
+            .implementation_version_name(crate::IMPLEMENTATION_VERSION_NAME),
+    )
+    .map_err(|error| GenerateError::WriteDicomFile {
+        path: path.clone(),
+        message: error.to_string(),
+    })?
+    .write_to_file(&path)
+    .map_err(|error| GenerateError::WriteDicomFile {
+        path: path.clone(),
+        message: error.to_string(),
+    })?;
+
+    let written_size = fs::metadata(&path)
+        .map_err(|source| GenerateError::ReadMetadata {
+            path: path.clone(),
+            source,
+        })?
+        .len();
+    if written_size > 16_384 {
+        return Err(GenerateError::MetadataShape {
+            path: path.clone(),
+            message: "multiple-path WSI exceeds the locked 16,384-byte qualification ceiling",
+        });
+    }
+
+    let expected_wsi_multiple_optical_paths = crate::wsi_multiple_optical_paths_locked_contract(
+        &frame_of_reference_uid,
+        &specimen_uid,
+        &dimension_organization_uid,
+    );
+    let validated = validate_wsi_multiple_optical_paths_file(
+        &path,
+        &Part10Expectations {
+            sop_class_uid: WSI_MULTIPLE_OPTICAL_PATHS_STORAGE_UID,
+            sop_instance_uid: &sop_instance_uid,
+            transfer_syntax_uid: EXPLICIT_VR_LITTLE_ENDIAN.uid,
+            implementation_class_uid: &implementation_class_uid,
+            synthetic_data: "YES",
+            rows: WSI_TILE_ROWS,
+            columns: WSI_TILE_COLUMNS,
+            frames: WSI_MULTIPLE_OPTICAL_PATHS_NUMBER_OF_FRAMES,
+            samples_per_pixel: 3,
+            photometric_interpretation: "RGB",
+            bits_allocated: 8,
+            bits_stored: 8,
+            high_bit: 7,
+            pixel_representation: 0,
+            planar_configuration: Some(0),
+            pixel_data_vr: VR::OB,
+            pixel_data_length_formula: PixelDataLengthFormula::ContiguousSamples,
+            decoded_frame_hashes: &[],
+            palette: None,
+            padding: None,
+            ct_image: None,
+            enhanced_ct_image: None,
+            enhanced_mr_image: None,
+            enhanced_pet_image: None,
+            mg_image: None,
+            dx_image: None,
+            xa_image: None,
+            xrf_image: None,
+            us_image: None,
+            us_multiframe: None,
+            nm_image: None,
+            pet_image: None,
+            cr_image: None,
+            mr_image: None,
+            segmentation: None,
+        },
+        &expected_wsi_multiple_optical_paths,
+    )?;
+
+    let standards_evidence = deduplicated_standards_evidence(standards_evidence_from_case(case));
+    Ok(GeneratedFile {
+        case_id: WSI_MULTIPLE_OPTICAL_PATHS_CASE_ID.to_string(),
+        manifest_entry: serde_json::json!({
+            "case_id": WSI_MULTIPLE_OPTICAL_PATHS_CASE_ID,
+            "profile_membership": ["extended"],
+            "path": relative_path,
+            "sha256": sha256_hex(&validated.bytes),
+            "size_bytes": validated.bytes.len(),
+            "determinism": "byte_stable",
+            "recipe": {
+                "recipe_id": WSI_MULTIPLE_OPTICAL_PATHS_RECIPE_ID,
+                "recipe_version": WSI_MULTIPLE_OPTICAL_PATHS_RECIPE_VERSION,
+                "recipe_parameters": {
+                    "dimension_organization_type": "TILED_FULL",
+                    "frame_order": "row_then_column_then_focal_plane_then_optical_path",
+                    "optical_path_identifiers": WSI_MULTIPLE_OPTICAL_PATH_IDENTIFIERS,
+                    "optical_path_descriptions": WSI_MULTIPLE_OPTICAL_PATH_DESCRIPTIONS,
+                    "illumination_wavelengths_nm": WSI_MULTIPLE_OPTICAL_PATH_WAVELENGTHS_NM,
+                    "icc_profile_sha256": ICC_PROFILE_SHA256
+                }
+            },
+            "dicom": {
+                "sop_class_uid": WSI_MULTIPLE_OPTICAL_PATHS_STORAGE_UID,
+                "sop_class_name": "VL Whole Slide Microscopy Image Storage",
+                "iod_name": "VL Whole Slide Microscopy Image",
+                "modality": "SM",
+                "transfer_syntax_uid": EXPLICIT_VR_LITTLE_ENDIAN.uid,
+                "transfer_syntax_name": EXPLICIT_VR_LITTLE_ENDIAN.name
+            },
+            "uids": {
+                "study_instance_uid": study_instance_uid,
+                "series_instance_uid": series_instance_uid,
+                "sop_instance_uid": sop_instance_uid,
+                "frame_of_reference_uid": frame_of_reference_uid,
+                "dimension_organization_uid": dimension_organization_uid,
+                "implementation_class_uid": implementation_class_uid,
+                "implementation_version_name": crate::IMPLEMENTATION_VERSION_NAME
+            },
+            "image": {
+                "rows": WSI_TILE_ROWS, "columns": WSI_TILE_COLUMNS,
+                "frames": WSI_MULTIPLE_OPTICAL_PATHS_NUMBER_OF_FRAMES,
+                "samples_per_pixel": 3, "photometric_interpretation": "RGB",
+                "bits_allocated": 8, "bits_stored": 8, "high_bit": 7,
+                "pixel_representation": 0, "planar_configuration": 0
+            },
+            "pixel_data": {
+                "vr": "OB", "native_or_encapsulated": "native",
+                "value_length": WSI_MULTIPLE_OPTICAL_PATHS_PIXEL_BYTES.len(),
+                "frame_count": WSI_MULTIPLE_OPTICAL_PATHS_NUMBER_OF_FRAMES,
+                "frame_hashes": WSI_MULTIPLE_OPTICAL_PATHS_FRAME_SHA256
+            },
+            "references": [],
+            "expected_capabilities": [
+                "open_file", "read_metadata", "render_native_pixels",
+                "navigate_multiframe", "reconstruct_optical_path_matrices"
+            ],
+            "expected_semantics": {
+                "synthetic_data": "YES", "two_ordered_optical_paths": true,
+                "one_focal_plane": true, "path_major_implicit_frame_order": true,
+                "nested_icc_profiles": true, "top_level_icc_profile_absent": true,
+                "per_frame_functional_groups_absent": true,
+                "dimension_index_sequence_absent": true
+            },
+            "expected_wsi_multiple_optical_paths": expected_wsi_multiple_optical_paths,
+            "expected_visual_checks": {
+                "pattern": "two_distinct_4x4_rgb_optical_path_matrices"
+            },
+            "validation": validated.validation,
+            "known_stressors": [
+                "vl_whole_slide_microscopy_image_storage",
+                "tiled_full_implicit_optical_path_order",
+                "multiple_nested_icc_profiles",
+                "separate_optical_path_matrix_reconstruction"
             ],
             "standards_evidence": standards_evidence
         }),
@@ -27350,6 +27599,98 @@ mod tests {
                 .and_then(|entries| entries.last())
                 .and_then(|entry| entry.get("status")),
             Some(&Value::from("passed"))
+        );
+    }
+
+    #[test]
+    fn wsi_multiple_optical_paths_writer_is_byte_stable_and_schema_valid() {
+        let output = ParametricMapStagingGuard::new();
+        let run = PreparedGenerationRun {
+            profile: "extended".to_string(),
+            out_dir: output.path().to_path_buf(),
+            manifest_path: output.path().join("manifest.json"),
+            seed: 7,
+            include_stress: false,
+        };
+        let case = serde_json::json!({
+            "case_id": WSI_MULTIPLE_OPTICAL_PATHS_CASE_ID,
+            "profiles": ["extended"],
+            "status": "implemented",
+            "requirements": {"features": []},
+            "standards_evidence": []
+        });
+        let standards_lock = "0000000000000000000000000000000000000000000000000000000000000000";
+
+        let first = write_wsi_multiple_optical_paths_case(&run, &case, standards_lock)
+            .expect("multiple-path WSI should write and validate");
+        let output_path = output
+            .path()
+            .join(WSI_MULTIPLE_OPTICAL_PATHS_CASE_ID)
+            .join(WSI_MULTIPLE_OPTICAL_PATHS_OUTPUT_FILE);
+        let first_bytes = fs::read(&output_path).expect("first multiple-path WSI bytes");
+        let second = write_wsi_multiple_optical_paths_case(&run, &case, standards_lock)
+            .expect("repeated multiple-path WSI should write and validate");
+        let second_bytes = fs::read(&output_path).expect("second multiple-path WSI bytes");
+
+        assert_eq!(first_bytes, second_bytes);
+        assert!(first_bytes.len() <= 16_384);
+        assert_eq!(
+            first.manifest_entry["profile_membership"],
+            serde_json::json!(["extended"])
+        );
+        assert_eq!(
+            first.manifest_entry["sha256"],
+            Value::from(sha256_hex(&first_bytes))
+        );
+        assert_eq!(
+            first.manifest_entry["sha256"],
+            second.manifest_entry["sha256"]
+        );
+        assert_eq!(
+            first
+                .manifest_entry
+                .pointer("/expected_wsi_multiple_optical_paths/optical_paths/0/identifier"),
+            Some(&Value::from("BRIGHTFIELD"))
+        );
+        assert_eq!(
+            first
+                .manifest_entry
+                .pointer("/expected_wsi_multiple_optical_paths/optical_paths/1/matrix_sha256"),
+            Some(&Value::from(WSI_MULTIPLE_OPTICAL_PATHS_MATRIX_SHA256[1]))
+        );
+        assert_eq!(
+            first
+                .manifest_entry
+                .pointer("/expected_wsi_multiple_optical_paths/budget/max_total_dicom_bytes"),
+            Some(&Value::from(16_384))
+        );
+        assert!(
+            first
+                .manifest_entry
+                .pointer("/validation/standards")
+                .and_then(Value::as_array)
+                .is_some_and(|entries| entries.iter().any(|entry| {
+                    entry["name"] == "vl_whole_slide_microscopy_multiple_optical_paths_contract"
+                        && entry["status"] == "passed"
+                }))
+        );
+
+        let manifest_schema: Value =
+            serde_json::from_str(include_str!("../schemas/manifest.schema.json"))
+                .expect("manifest schema should parse");
+        let file_schema = serde_json::json!({
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$ref": "#/$defs/file",
+            "$defs": manifest_schema["$defs"].clone(),
+        });
+        let validator =
+            jsonschema::validator_for(&file_schema).expect("file manifest schema should compile");
+        assert!(
+            validator.is_valid(&first.manifest_entry),
+            "multiple-path WSI should satisfy the file schema: {:?}",
+            validator
+                .iter_errors(&first.manifest_entry)
+                .collect::<Vec<_>>()
         );
     }
 

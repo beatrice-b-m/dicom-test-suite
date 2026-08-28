@@ -125,6 +125,7 @@ pub fn verify_staged_outputs(
     output_root: &Path,
     limits: OutputLimits,
 ) -> Result<Vec<PathBuf>, BackendContractError> {
+    verify_directory_without_symlinks(output_root, "output root")?;
     let declared = response["outputs"]
         .as_array()
         .ok_or_else(|| invalid("response outputs must be an array"))?;
@@ -204,6 +205,7 @@ pub fn promote_staged_outputs(
     output_root: &Path,
     destination_root: &Path,
 ) -> Result<(), BackendContractError> {
+    verify_directory_without_symlinks(output_root, "promotion source root")?;
     if destination_root.exists() {
         return Err(invalid(format!(
             "promotion destination {} already exists",
@@ -646,6 +648,29 @@ mod tests {
         let error = verify_staged_outputs(&json!({"outputs": []}), &root, limits())
             .expect_err("staged symlink must fail");
         assert!(error.to_string().contains("symbolic link"));
+        fs::remove_dir_all(root).expect("remove staging fixture");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn staged_output_root_symbolic_link_is_rejected() {
+        use std::os::unix::fs::symlink;
+
+        let root = temporary_directory("root-symlink");
+        let external = root.join("external");
+        fs::create_dir(&external).expect("create external output directory");
+        let output_root = root.join("outputs");
+        symlink(&external, &output_root).expect("create output-root symlink");
+
+        let error = verify_staged_outputs(&json!({"outputs": []}), &output_root, limits())
+            .expect_err("output-root symlink must fail verification");
+        assert!(error.to_string().contains("output root"));
+
+        let destination = root.join("promoted");
+        let error = promote_staged_outputs(&output_root, &destination)
+            .expect_err("output-root symlink must fail promotion");
+        assert!(error.to_string().contains("promotion source root"));
+        assert!(!destination.exists());
         fs::remove_dir_all(root).expect("remove staging fixture");
     }
 

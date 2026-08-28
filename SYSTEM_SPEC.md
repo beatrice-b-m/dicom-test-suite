@@ -1,8 +1,11 @@
 # System Specification: `dicom-test-suite`
 
-**Status:** implementation-planning baseline  
-**Spec version:** 0.2.0  
-**Last reviewed:** 2026-06-13  
+**Status:** architecture baseline; implementation status is tracked elsewhere
+
+**Spec version:** 0.2.1
+
+**Last reviewed:** 2026-08-28
+
 **Primary consumer today:** `dcmview`  
 **Design stance:** viewer-agnostic, standards-led, deterministic, synthetic
 
@@ -12,11 +15,18 @@
 
 Generated DICOM payloads are build artifacts. They must not be committed. The repository commits code, case recipes, metadata schemas, expected results, validation logic, coverage reports, and compatibility report schemas.
 
+> **Current-state note:** This specification preserves the original architecture
+> and phased requirements. Several sections intentionally describe initial or
+> historical milestones. For current commands and implemented capability, use
+> `README.md`, `docs/generation-guide.md`, `cases/registry.json`, and a fresh
+> generated coverage report. Those artifacts supersede future-tense phase text
+> when determining what the executable can do today.
+
 The project should become useful in three modes:
 
 1. **Developer smoke testing:** small generated corpus for fast local validation.
 2. **Conformance-valid compatibility testing:** a wider corpus of valid DICOM Part 10 files covering viewer-relevant axes.
-3. **Explicit robustness testing:** later opt-in negative/fuzz profiles, kept separate from valid conformance profiles.
+3. **Explicit robustness testing:** opt-in negative/fuzz profiles, kept separate from valid conformance profiles.
 
 ## 2. Scope and Non-Goals
 
@@ -36,7 +46,9 @@ The suite shall generate:
 
 ### Out of scope for initial implementation
 
-The suite shall not initially generate intentionally invalid DICOM files. Negative/fuzz cases belong in a later phase and must be separated from conformance-valid cases under explicit `negative` or `fuzz` profiles.
+The initial implementation excluded intentionally invalid DICOM files. The
+current implementation provides explicit `negative` and `fuzz` profiles, which
+remain separated from conformance-valid cases as required by this architecture.
 
 The suite shall not ship generated DICOM data, a redistributed DICOM Standard corpus, or a prebuilt `dicom-standard-kb` database.
 
@@ -249,9 +261,12 @@ Supported profiles:
 - `extended`: broader valid coverage, including enhanced multi-frame and derived objects.
 - `legacy`: valid retired or uncommon behavior, excluded from `core`.
 - `stress`: valid but large, slow, or expensive cases; explicit opt-in only.
-- `all`: `smoke + core + extended + legacy`, excluding `stress` unless `--include-stress` is passed.
-- `negative`: future invalid or malformed files; never included in `all`.
-- `fuzz`: future mutation/fuzz robustness cases; never included in `all`.
+- `all`: `smoke + core + extended`, excluding `legacy` and excluding `stress`
+  unless `--include-stress` is passed.
+- `negative`: deterministic invalid or malformed files; never included in
+  `all`.
+- `fuzz`: bounded payload-free robustness qualification; never included in
+  `all`.
 
 Recommended profile budgets:
 
@@ -1023,13 +1038,16 @@ The DICOM-rs family shall be pinned coherently in `Cargo.lock`. As of 2026-06-13
 
 ## 17. CLI
 
-Expected commands:
+Current command surface:
 
 ```sh
 dicom-test-suite generate --profile smoke --out generated/smoke
 dicom-test-suite generate --profile core --out generated/core --seed 1
 dicom-test-suite generate --profile all --out generated/all --seed 1
 dicom-test-suite generate --profile all --include-stress --out generated/all-plus-stress
+dicom-test-suite generate --profile legacy --out generated/legacy --seed 1
+dicom-test-suite generate --profile negative --out generated/negative --seed 1
+dicom-test-suite generate --profile fuzz --out generated/fuzz --seed 1
 
 dicom-test-suite list-cases
 dicom-test-suite list-cases --profile extended
@@ -1038,6 +1056,14 @@ dicom-test-suite list-cases --status blocked
 dicom-test-suite validate generated/core
 dicom-test-suite report generated/core --format json
 dicom-test-suite report generated/core --format markdown
+dicom-test-suite report gaps --format markdown
+
+dicom-test-suite conformance check-tools
+dicom-test-suite conformance run generated/all --out reports/conformance/all
+dicom-test-suite conformance verify reports/conformance/all
+
+dicom-test-suite interoperate media-dicomdir GENERATED_ROOT --dcmmkdir PATH --dcmdump PATH --dciodvfy PATH --format json
+dicom-test-suite interoperate protocol-baseline GENERATED_ROOT --format markdown
 ```
 
 Standards-related commands:
@@ -1048,7 +1074,7 @@ dicom-test-suite standards verify-kb --edition 2026b
 dicom-test-suite standards gaps --profile core
 ```
 
-Optional later command:
+An optional viewer-runner command remains unimplemented:
 
 ```sh
 dicom-test-suite run-viewer generated/core --viewer 'dcmview {file}' --report reports/dcmview.json
@@ -1085,6 +1111,10 @@ Viewer compatibility result schema shall distinguish:
 Viewer failures shall be reported against stable `case_id` values. Generator recipes must not be changed solely to accommodate a viewer bug.
 
 ## 19. Phased Implementation Plan
+
+This is the original dependency-ordered implementation plan. Consult the
+registry and dated phase status documents for completion state; task lists below
+must not be read as current unimplemented capability.
 
 ### Phase 0: Repository initialization
 

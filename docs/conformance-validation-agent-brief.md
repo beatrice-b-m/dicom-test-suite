@@ -1,5 +1,13 @@
 # Independent Conformance Validation Framework: Agent Brief
 
+> **Status:** Completed implementation brief retained as a design and acceptance
+> record. Do not restart this assignment. The current command/configuration
+> contract and tool qualification state are maintained in
+> `conformance/README.md`, `docs/conformance-acceptance.md`, the conformance
+> schemas, and the executable. Use this brief when modifying the framework's
+> invariants or evaluating whether a change preserves the original acceptance
+> boundary.
+
 ## Assignment
 
 Build a reproducible framework in this repository that collects and evaluates
@@ -11,8 +19,9 @@ The framework must establish confidence in the corpus. It must not prescribe
 viewer behavior, launch a viewer, or turn the generator into a viewer-specific
 test harness.
 
-Read `AGENTS.md`, `SYSTEM_SPEC.md`, `docs/corpus-consumption.md`, and this brief
-before changing files. Follow the repository's granular commit policy.
+Read `AGENTS.md`, `SYSTEM_SPEC.md`, `docs/generation-guide.md`,
+`docs/corpus-consumption.md`, `conformance/README.md`, and this brief before
+changing conformance files. Follow the repository's granular commit policy.
 
 ## Objective
 

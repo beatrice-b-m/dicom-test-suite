@@ -3,6 +3,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use dicom_core::VR;
 use dicom_dictionary_std::tags;
 use dicom_object::open_file;
 use serde_json::{Value, json};
@@ -289,6 +290,7 @@ pub fn generate_parametric_map_for_spec(
             let output = single_output(&run.response, spec)?;
             verify_backend_expectations(output, &payload, &input.identities, spec.sample_kind)?;
             let staged_path = run.staging_root.join("outputs").join(spec.output_file);
+            verify_staged_dicom_payload(&staged_path, &payload)?;
             let output_bytes =
                 fs::read(&staged_path).map_err(|source| BackendContractError::Read {
                     path: staged_path,
@@ -309,6 +311,54 @@ pub fn generate_parametric_map_for_spec(
         }
         status => Err(invalid(format!("unexpected backend status {status}"))),
     }
+}
+
+fn verify_staged_dicom_payload(
+    path: &Path,
+    payload: &ParametricMapPayload,
+) -> Result<(), BackendContractError> {
+    let object = open_file(path)
+        .map_err(|error| invalid(format!("reopen staged Parametric Map: {error}")))?;
+    let (pixel_tag, expected_vr, expected_bytes, forbidden_tags) = match payload {
+        ParametricMapPayload::Float32(payload) => (
+            tags::FLOAT_PIXEL_DATA,
+            VR::OF,
+            payload.little_endian_bytes.as_slice(),
+            [tags::PIXEL_DATA, tags::DOUBLE_FLOAT_PIXEL_DATA],
+        ),
+        ParametricMapPayload::Float64(payload) => (
+            tags::DOUBLE_FLOAT_PIXEL_DATA,
+            VR::OD,
+            payload.little_endian_bytes.as_slice(),
+            [tags::PIXEL_DATA, tags::FLOAT_PIXEL_DATA],
+        ),
+    };
+    let pixel_data = object
+        .element(pixel_tag)
+        .map_err(|error| invalid(format!("read staged Parametric Map pixel data: {error}")))?;
+    if pixel_data.vr() != expected_vr {
+        return Err(invalid(format!(
+            "staged Parametric Map pixel VR is {:?}, expected {expected_vr:?}",
+            pixel_data.vr()
+        )));
+    }
+    let actual_bytes = pixel_data
+        .value()
+        .to_bytes()
+        .map_err(|error| invalid(format!("decode staged Parametric Map pixel data: {error}")))?;
+    if actual_bytes.as_ref() != expected_bytes {
+        return Err(invalid(
+            "staged Parametric Map pixel data differs from Rust source-derived expectations",
+        ));
+    }
+    for forbidden in forbidden_tags {
+        if object.element(forbidden).is_ok() {
+            return Err(invalid(
+                "staged Parametric Map contains a forbidden alternate Pixel Data element",
+            ));
+        }
+    }
+    Ok(())
 }
 
 fn validate_input(input: &ParametricMapGenerationInput) -> Result<(), BackendContractError> {
@@ -827,6 +877,9 @@ fn invalid(message: impl Into<String>) -> BackendContractError {
 
 #[cfg(test)]
 mod tests {
+    use dicom_core::{DataElement, PrimitiveValue};
+    use dicom_object::{FileMetaTableBuilder, InMemDicomObject};
+
     use super::*;
 
     fn input() -> ParametricMapGenerationInput {
@@ -1002,5 +1055,60 @@ mod tests {
         )
         .expect_err("forged float64 bits must fail");
         assert!(error.to_string().contains("payload float bits"));
+    }
+
+    #[test]
+    fn staged_dicom_pixels_must_match_rust_recomputation() {
+        let path = std::env::temp_dir().join(format!(
+            "dts-parametric-map-staged-payload-{}.dcm",
+            std::process::id()
+        ));
+        let payload = ParametricMapFloatPayload {
+            rows: 1,
+            columns: 1,
+            frames: 1,
+            little_endian_bytes: 1.5_f32.to_le_bytes().to_vec(),
+            little_endian_float32_bits: vec![vec![1.5_f32.to_bits()]],
+            frame_sha256: vec![sha256_hex(&1.5_f32.to_le_bytes())],
+            minimum: 1.5,
+            maximum: 1.5,
+        };
+        write_float_payload(&path, 1.5);
+        verify_staged_dicom_payload(&path, &ParametricMapPayload::Float32(payload.clone()))
+            .expect("matching staged float pixels should pass");
+
+        write_float_payload(&path, 2.5);
+        let error = verify_staged_dicom_payload(&path, &ParametricMapPayload::Float32(payload))
+            .expect_err("different staged float pixels must fail");
+        assert!(error.to_string().contains("differs"));
+        fs::remove_file(path).expect("remove staged payload fixture");
+    }
+
+    fn write_float_payload(path: &Path, value: f32) {
+        let mut object = InMemDicomObject::new_empty();
+        object.put(DataElement::new(
+            tags::SOP_CLASS_UID,
+            VR::UI,
+            PrimitiveValue::from(SOP_CLASS_UID),
+        ));
+        object.put(DataElement::new(
+            tags::SOP_INSTANCE_UID,
+            VR::UI,
+            PrimitiveValue::from("1.2.826.0.1.3680043.10.543.1"),
+        ));
+        object.put(DataElement::new(
+            tags::FLOAT_PIXEL_DATA,
+            VR::OF,
+            PrimitiveValue::F32(vec![value].into()),
+        ));
+        object
+            .with_meta(
+                FileMetaTableBuilder::new()
+                    .transfer_syntax(TRANSFER_SYNTAX_UID)
+                    .implementation_class_uid("1.2.826.0.1.3680043.10.543.9"),
+            )
+            .expect("build Parametric Map fixture meta")
+            .write_to_file(path)
+            .expect("write Parametric Map fixture");
     }
 }

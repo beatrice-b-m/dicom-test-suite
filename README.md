@@ -194,6 +194,8 @@ The architecture and normative project requirements are in
 [SYSTEM_SPEC.md](SYSTEM_SPEC.md). Current implementation evidence is recorded in
 the phase/status documents under `docs/`; they are historical engineering
 records, not substitutes for the registry or a fresh generated report.
+Use the [documentation map](docs/README.md) to distinguish current operating
+guides from dated qualification and planning records.
 
 ## Development
 

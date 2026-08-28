@@ -204,6 +204,7 @@ pub enum ReportError {
 #[derive(Debug)]
 pub enum GenerateError {
     InvalidProfile(String),
+    InvalidRegistry(String),
     OutputPathExists(PathBuf),
     CreateOutputDir {
         path: PathBuf,
@@ -260,6 +261,7 @@ impl fmt::Display for GenerateError {
                 "unsupported profile {profile}; expected one of {}",
                 SUPPORTED_PROFILES.join(", ")
             ),
+            Self::InvalidRegistry(message) => write!(f, "invalid case registry: {message}"),
             Self::OutputPathExists(path) => write!(
                 f,
                 "generation output path {} already exists; choose a new path",
@@ -345,6 +347,7 @@ impl Error for GenerateError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match self {
             Self::InvalidProfile(_) => None,
+            Self::InvalidRegistry(_) => None,
             Self::OutputPathExists(_) => None,
             Self::CreateOutputDir { source, .. } => Some(source),
             Self::ReadMetadata { source, .. } => Some(source),
@@ -541,6 +544,7 @@ pub fn write_generation_run(
     let standards_lock_bytes = read_bytes_metadata(standards_lock_path)?;
     let cargo_lock = read_bytes_metadata(cargo_lock_path)?;
     let registry = read_json_metadata(registry_path)?;
+    validate_case_registry_semantics(&registry).map_err(GenerateError::InvalidRegistry)?;
 
     let generated = generator::write_supported_cases(
         &staged_run,
@@ -32393,6 +32397,7 @@ pub enum CaseRegistryError {
     },
     InvalidProfile(String),
     InvalidStatus(String),
+    Semantic(String),
     Shape(&'static str),
 }
 
@@ -32415,6 +32420,7 @@ impl fmt::Display for CaseRegistryError {
                 "unsupported case status {status}; expected one of {}",
                 SUPPORTED_CASE_STATUSES.join(", ")
             ),
+            Self::Semantic(message) => write!(f, "invalid case registry: {message}"),
             Self::Shape(message) => write!(f, "invalid case registry shape: {message}"),
         }
     }
@@ -32427,6 +32433,7 @@ impl Error for CaseRegistryError {
             Self::Parse { source, .. } => Some(source),
             Self::InvalidProfile(_) => None,
             Self::InvalidStatus(_) => None,
+            Self::Semantic(_) => None,
             Self::Shape(_) => None,
         }
     }
@@ -32494,6 +32501,7 @@ pub fn list_cases_from_registry_value(
             return Err(CaseRegistryError::InvalidStatus(status_filter.to_string()));
         }
     }
+    validate_case_registry_semantics(registry).map_err(CaseRegistryError::Semantic)?;
 
     let cases = registry
         .get("cases")
@@ -32573,6 +32581,7 @@ fn standards_gaps_from_registry_value(
     registry: &Value,
     profile_filter: &str,
 ) -> Result<String, CaseRegistryError> {
+    validate_case_registry_semantics(registry).map_err(CaseRegistryError::Semantic)?;
     let cases = registry
         .get("cases")
         .and_then(Value::as_array)
@@ -32581,7 +32590,7 @@ fn standards_gaps_from_registry_value(
     let mut output = String::from("case_id\tstatus\tprofiles\tgap_kind\treason\n");
     for case in cases {
         let profiles = string_array(case.get("profiles"))?;
-        if !case_matches_profile(&profiles, profile_filter, true) {
+        if !case_matches_profile(&profiles, profile_filter, false) {
             continue;
         }
         let case_id = required_str(case, "case_id")?;
@@ -32597,6 +32606,56 @@ fn standards_gaps_from_registry_value(
     }
 
     Ok(output)
+}
+
+pub(crate) fn validate_case_registry_semantics(registry: &Value) -> Result<(), String> {
+    let cases = registry
+        .get("cases")
+        .and_then(Value::as_array)
+        .ok_or_else(|| "missing cases array".to_string())?;
+    let mut case_ids = BTreeSet::new();
+    const CONFORMING_PROFILES: &[&str] =
+        &["smoke", "core", "extended", "legacy", "stress"];
+
+    for case in cases {
+        let case_id = case
+            .get("case_id")
+            .and_then(Value::as_str)
+            .ok_or_else(|| "case_id must be a string".to_string())?;
+        if !case_ids.insert(case_id) {
+            return Err(format!("duplicate case_id {case_id}"));
+        }
+        let profiles = case
+            .get("profiles")
+            .and_then(Value::as_array)
+            .ok_or_else(|| format!("case {case_id} profiles must be an array"))?;
+        let profiles = profiles
+            .iter()
+            .map(|profile| {
+                profile
+                    .as_str()
+                    .ok_or_else(|| format!("case {case_id} profile must be a string"))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        if profiles.contains(&"all") {
+            return Err(format!(
+                "case {case_id} cannot declare reserved computed profile all"
+            ));
+        }
+        let has_mutation = profiles
+            .iter()
+            .any(|profile| matches!(*profile, "negative" | "fuzz"));
+        let has_conforming = profiles
+            .iter()
+            .any(|profile| CONFORMING_PROFILES.contains(profile));
+        if has_mutation && has_conforming {
+            return Err(format!(
+                "case {case_id} cannot mix mutation and conforming profiles"
+            ));
+        }
+    }
+
+    Ok(())
 }
 
 struct StandardsGap {
@@ -35625,6 +35684,83 @@ mod tests {
         assert!(output.contains("classic/ct/mono2_i16_rescale_12bit_explicit_le"));
         assert!(output.contains("enhanced/ct/multiframe_shared_perframe_explicit_le"));
         assert!(!output.contains("classic/sc/mono2_u8_explicit_be"));
+    }
+
+    #[test]
+    fn standards_gaps_all_profile_excludes_stress_cases() {
+        let registry = serde_json::json!({
+            "cases": [
+                {
+                    "case_id": "classic/sc/core_case",
+                    "status": "implemented",
+                    "profiles": ["core"],
+                    "skip": null,
+                    "standards_evidence": []
+                },
+                {
+                    "case_id": "stress/wsi/large_pyramid",
+                    "status": "implemented",
+                    "profiles": ["stress"],
+                    "skip": null,
+                    "standards_evidence": []
+                }
+            ]
+        });
+
+        let output = standards_gaps_from_registry_value(&registry, "all")
+            .expect("all-profile gaps should render");
+        assert!(output.contains("classic/sc/core_case"));
+        assert!(!output.contains("stress/wsi/large_pyramid"));
+    }
+
+    #[test]
+    fn case_registry_rejects_duplicate_case_ids() {
+        let mut registry: Value = serde_json::from_str(
+            &fs::read_to_string("cases/registry.json").expect("registry should be readable"),
+        )
+        .expect("registry should parse");
+        let duplicate = registry["cases"][0].clone();
+        registry["cases"]
+            .as_array_mut()
+            .expect("cases should be an array")
+            .push(duplicate);
+
+        let error = list_cases_from_registry_value(&registry, None, None)
+            .expect_err("duplicate case IDs must fail");
+        assert!(
+            error.to_string().contains("duplicate case_id"),
+            "unexpected validation error: {error}"
+        );
+    }
+
+    #[test]
+    fn case_registry_rejects_mixed_mutation_and_conforming_profiles() {
+        let mut registry: Value = serde_json::from_str(
+            &fs::read_to_string("cases/registry.json").expect("registry should be readable"),
+        )
+        .expect("registry should parse");
+        registry["cases"][0]["profiles"] = serde_json::json!(["negative", "core"]);
+
+        let error = list_cases_from_registry_value(&registry, None, None)
+            .expect_err("mixed mutation and conforming profiles must fail");
+        assert!(
+            error
+                .to_string()
+                .contains("cannot mix mutation and conforming profiles")
+        );
+    }
+
+    #[test]
+    fn case_registry_reserves_all_for_computed_selection() {
+        let mut registry: Value = serde_json::from_str(
+            &fs::read_to_string("cases/registry.json").expect("registry should be readable"),
+        )
+        .expect("registry should parse");
+        registry["cases"][0]["profiles"] = serde_json::json!(["all"]);
+
+        let error = list_cases_from_registry_value(&registry, None, None)
+            .expect_err("literal all profile membership must fail");
+        assert!(error.to_string().contains("reserved computed profile all"));
     }
 
     #[test]

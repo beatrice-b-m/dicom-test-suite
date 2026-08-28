@@ -108,6 +108,7 @@ pub fn build_coverage_gap_report(
             path: registry_path.to_path_buf(),
             source,
         })?;
+    crate::validate_case_registry_semantics(&registry).map_err(CoverageGapError::Shape)?;
     let cases = registry
         .get("cases")
         .and_then(Value::as_array)

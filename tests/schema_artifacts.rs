@@ -3272,6 +3272,28 @@ fn committed_case_registry_validates_against_its_schema() {
 }
 
 #[test]
+fn case_registry_schema_isolates_mutation_profiles() {
+    let schema = read_json("schemas/case-registry.schema.json");
+    let registry = read_json("cases/registry.json");
+    let validator =
+        jsonschema::validator_for(&schema).expect("case registry schema should compile");
+    let mut case = registry["cases"][0].clone();
+
+    for profiles in [
+        serde_json::json!(["all"]),
+        serde_json::json!(["negative", "core"]),
+        serde_json::json!(["fuzz", "stress"]),
+    ] {
+        case["profiles"] = profiles;
+        assert!(
+            !validator.is_valid(&case),
+            "invalid profile membership must be rejected: {}",
+            case["profiles"]
+        );
+    }
+}
+
+#[test]
 fn coverage_report_schema_requires_the_specified_matrix_fields() {
     let schema = read_json("schemas/coverage-report.schema.json");
     let required = schema

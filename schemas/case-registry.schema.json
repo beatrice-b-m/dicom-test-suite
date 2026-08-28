@@ -109,7 +109,26 @@
           "items": {
             "$ref": "#/$defs/profile"
           },
-          "uniqueItems": true
+          "uniqueItems": true,
+          "allOf": [
+            {
+              "not": {
+                "contains": { "const": "all" }
+              }
+            },
+            {
+              "not": {
+                "allOf": [
+                  { "contains": { "enum": ["negative", "fuzz"] } },
+                  {
+                    "contains": {
+                      "enum": ["smoke", "core", "extended", "legacy", "stress"]
+                    }
+                  }
+                ]
+              }
+            }
+          ]
         },
         "recipe_id": {
           "type": "string"

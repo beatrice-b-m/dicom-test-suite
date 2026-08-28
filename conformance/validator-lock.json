@@ -323,23 +323,23 @@
       "adapter_id": "highdicom-wsi-reconstruction",
       "role": "pixel_decoder",
       "tool_name": "highdicom WSI reconstruction adapter",
-      "version": "highdicom 0.28.1; numpy 2.5.2; pydicom 3.0.2; adapter 0.3.0; CPython 3.12.12",
+      "version": "highdicom 0.28.1; numpy 2.5.2; pydicom 3.0.2; adapter 0.4.0; CPython 3.12.12",
       "source_repository": "https://github.com/ImagingDataCommons/highdicom",
       "source_revision": "v0.28.1",
-      "package_identity": "uv.lock sha256 9e4b7c03d240f549c9e0032c7f143d17c4dfb8bc9ae76dcf54f550f39842f238; highdicom-0.28.1 wheel sha256 76d4b2ad2e104ad5d29c2901ff9a6eab52ce31f49d366bf77f36b48da82c152f; pydicom-3.0.2 wheel sha256 abf971a5440f84dbaf42c4b6758e30e62480902584f8b270b9a5d146e278a07b; exact transitive dependency versions and platform wheels remain unchanged and are committed in the uv lock",
+      "package_identity": "uv.lock sha256 64f72abf28f0d17f9944c4f4f745edb73e841943460b9ea9d0adfa6f87842ea7; highdicom-0.28.1 wheel sha256 76d4b2ad2e104ad5d29c2901ff9a6eab52ce31f49d366bf77f36b48da82c152f; pydicom-3.0.2 wheel sha256 abf971a5440f84dbaf42c4b6758e30e62480902584f8b270b9a5d146e278a07b; exact transitive dependency versions and platform wheels remain unchanged and are committed in the uv lock",
       "executable_sha256": "cf450e6bc0b00adecd12b7b13024de7000c7350801addc802bd3b45782104e79",
-      "adapter_sha256": "9822f1672f41288e81725b4f9cd58ae3c4861e595c320514dcd827d8b045d4c8",
+      "adapter_sha256": "fa838f3b3c398913f2f05e71cad2515cf038fba65dc8f1a30484f88164c48167",
       "supporting_artifacts": {
         ".python-version": "f01d748a75eb195e6fd73201279bfb23f09036ddd360eb3e9ff40ef042acbc8a",
-        "pyproject.toml": "dca7aede839a674261483c75d43a38fb4f3f8edf02e37f65f27bcf1898a0a124",
-        "uv.lock": "9e4b7c03d240f549c9e0032c7f143d17c4dfb8bc9ae76dcf54f550f39842f238",
-        "adapter/__init__.py": "082080dd45a251130dded1b126937216fa8ccf3106421a69c86f3e511c46b2a9",
-        "adapter/__main__.py": "20a43469d14a6a972830add077320a842259b5d8d81784380937fdcab5d798a5"
+        "pyproject.toml": "0790d122bbe7aad334457d28000747ba616b1f967bb80796f352838337040a8f",
+        "uv.lock": "64f72abf28f0d17f9944c4f4f745edb73e841943460b9ea9d0adfa6f87842ea7",
+        "adapter/__init__.py": "ed38303bc8b4f025d3a1e2e6e41c31f3e9a3effeb81c3f9a7a93aa13065754d6",
+        "adapter/__main__.py": "52df2813d44b3390a67ffdfa271c2a9d29bf10e2376962a6f832e359001a0a1f"
       },
-      "definition_version": "Exact small TILED_FULL implicit-order, TILED_SPARSE explicit-position, and three-role pyramid group reconstruction contracts locked from DICOM 2026b; highdicom stored-frame APIs run with all transforms disabled",
+      "definition_version": "Exact small TILED_FULL implicit-order, TILED_SPARSE explicit-position, three-role pyramid group, and ordered multiple-optical-path reconstruction contracts locked from DICOM 2026b; highdicom stored-frame APIs run with all transforms disabled",
       "platforms": ["arm64-macos"],
       "verified_at": "2026-08-27",
-      "notes": "Case-scoped independent payload reconstruction for vl/wsi/tiled_full_small and vl/wsi/tiled_sparse_small, with a locked attribute-derived VOLUME, THUMBNAIL, and LABEL group mode reserved for vl/wsi/pyramid_multiresolution integration. The full branch preserves independently derived implicit order and its highdicom total-matrix cross-check. The sparse branch validates explicit dimensions, positions, occupancy, payload, and zero-sentinel matrix. Group mode validates shared identities, exact Pyramid UID membership, every matrix and payload, and the deterministic thumbnail reduction while excluding LABEL. No pixel transforms are applied. Set DTS_WSI_RECONSTRUCTION_PYTHON to the uv-locked interpreter; every runtime and adapter input contributes to the composite fingerprint."
+      "notes": "Case-scoped independent payload reconstruction for vl/wsi/tiled_full_small, vl/wsi/tiled_sparse_small, and vl/wsi/multiple_optical_paths, plus locked attribute-derived VOLUME, THUMBNAIL, and LABEL group reconstruction for vl/wsi/pyramid_multiresolution. The multiple-path branch binds ordered identifiers and implicit positions, reconstructs one exact payload and matrix per optical path, validates nested ICC evidence, and requires rejection of ambiguous unfiltered total-matrix access. The full, sparse, and pyramid invariants remain unchanged. No pixel transforms are applied. Set DTS_WSI_RECONSTRUCTION_PYTHON to the uv-locked interpreter; every runtime and adapter input contributes to the composite fingerprint."
     },
     {
       "adapter_id": "littlecms-transicc-icc",

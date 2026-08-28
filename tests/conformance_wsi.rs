@@ -43,7 +43,12 @@ fn wsi_iod_and_reconstruction_routes_are_exact_uv_locked_and_additive() {
     assert_eq!(reconstruction["role"], "pixel_decoder");
     assert_eq!(
         reconstruction["supported_case_ids"],
-        json!([WSI_CASE_ID, WSI_SPARSE_CASE_ID, WSI_PYRAMID_CASE_ID])
+        json!([
+            WSI_CASE_ID,
+            WSI_SPARSE_CASE_ID,
+            WSI_PYRAMID_CASE_ID,
+            WSI_MULTI_PATH_CASE_ID
+        ])
     );
     assert_eq!(
         reconstruction["executable_env"],
@@ -91,6 +96,10 @@ fn wsi_iod_and_reconstruction_routes_are_exact_uv_locked_and_additive() {
             "pyramid_uid_membership",
             "thumbnail_reduction",
             "label_companion_exclusion",
+            "multiple_optical_path_ordering",
+            "per_optical_path_payload_and_matrix_reconstruction",
+            "nested_optical_path_icc_profile_validation",
+            "ambiguous_unfiltered_matrix_rejection",
             "transforms_disabled"
         ])
     );
@@ -103,21 +112,21 @@ fn wsi_iod_and_reconstruction_routes_are_exact_uv_locked_and_additive() {
         .expect("WSI reconstruction lock");
     assert_eq!(
         locked["adapter_sha256"],
-        "9822f1672f41288e81725b4f9cd58ae3c4861e595c320514dcd827d8b045d4c8"
+        "fa838f3b3c398913f2f05e71cad2515cf038fba65dc8f1a30484f88164c48167"
     );
     assert_eq!(
         locked["supporting_artifacts"]["uv.lock"],
-        "9e4b7c03d240f549c9e0032c7f143d17c4dfb8bc9ae76dcf54f550f39842f238"
+        "64f72abf28f0d17f9944c4f4f745edb73e841943460b9ea9d0adfa6f87842ea7"
     );
     assert_eq!(
         locked["supporting_artifacts"]["adapter/__main__.py"],
-        "20a43469d14a6a972830add077320a842259b5d8d81784380937fdcab5d798a5"
+        "52df2813d44b3390a67ffdfa271c2a9d29bf10e2376962a6f832e359001a0a1f"
     );
     assert!(
         locked["version"]
             .as_str()
             .unwrap()
-            .contains("adapter 0.3.0")
+            .contains("adapter 0.4.0")
     );
 }
 

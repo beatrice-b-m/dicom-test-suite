@@ -12698,7 +12698,7 @@
     {
       "case_id": "negative/charset/malformed_encoded_text",
       "artifact_kind": "dicom_instance",
-      "status": "planned",
+      "status": "implemented",
       "provider": {
         "kind": "mutation_layer",
         "id": "mutation_layer"
@@ -12707,18 +12707,8 @@
       "compatibility_axes": [
         "robustness"
       ],
-      "roadmap": {
-        "priority": "later",
-        "delivery_phase": "phase-7",
-        "rationale": "Exercises invalid character-set declarations and malformed text."
-      },
-      "blockers": [
-        {
-          "code": "mutation_contract_unimplemented",
-          "message": "The malformed-character-set mutation is not implemented.",
-          "recheck_phase": "phase-7"
-        }
-      ],
+      "roadmap": null,
+      "blockers": [],
       "profiles": [
         "negative"
       ],
@@ -12750,7 +12740,7 @@
     {
       "case_id": "negative/dataset/invalid_nested_item_length",
       "artifact_kind": "dicom_instance",
-      "status": "planned",
+      "status": "implemented",
       "provider": {
         "kind": "mutation_layer",
         "id": "mutation_layer"
@@ -12759,18 +12749,8 @@
       "compatibility_axes": [
         "robustness"
       ],
-      "roadmap": {
-        "priority": "later",
-        "delivery_phase": "phase-7",
-        "rationale": "Exercises bounded rejection when a nested Item length disagrees with its encoded content."
-      },
-      "blockers": [
-        {
-          "code": "mutation_contract_unimplemented",
-          "message": "The deterministic nested-Item-length mutation is not implemented.",
-          "recheck_phase": "phase-7"
-        }
-      ],
+      "roadmap": null,
+      "blockers": [],
       "profiles": [
         "negative"
       ],
@@ -12802,7 +12782,7 @@
     {
       "case_id": "negative/dataset/truncated_dataset",
       "artifact_kind": "dicom_instance",
-      "status": "planned",
+      "status": "implemented",
       "provider": {
         "kind": "mutation_layer",
         "id": "mutation_layer"
@@ -12811,18 +12791,8 @@
       "compatibility_axes": [
         "robustness"
       ],
-      "roadmap": {
-        "priority": "later",
-        "delivery_phase": "phase-7",
-        "rationale": "Exercises bounded rejection of a dataset truncated at a deterministic top-level element boundary."
-      },
-      "blockers": [
-        {
-          "code": "mutation_contract_unimplemented",
-          "message": "The deterministic top-level dataset truncation mutation is not implemented.",
-          "recheck_phase": "phase-7"
-        }
-      ],
+      "roadmap": null,
+      "blockers": [],
       "profiles": [
         "negative"
       ],
@@ -12854,7 +12824,7 @@
     {
       "case_id": "negative/dataset/truncated_sequence_item",
       "artifact_kind": "dicom_instance",
-      "status": "planned",
+      "status": "implemented",
       "provider": {
         "kind": "mutation_layer",
         "id": "mutation_layer"
@@ -12863,18 +12833,8 @@
       "compatibility_axes": [
         "robustness"
       ],
-      "roadmap": {
-        "priority": "later",
-        "delivery_phase": "phase-7",
-        "rationale": "Intentionally groups sequence- and Item-boundary truncation because both use the same nested source and bounded parser-outcome contract; dataset, fragment, and pixel-value truncations remain separate rows."
-      },
-      "blockers": [
-        {
-          "code": "mutation_contract_unimplemented",
-          "message": "The deterministic sequence truncation mutation is not implemented.",
-          "recheck_phase": "phase-7"
-        }
-      ],
+      "roadmap": null,
+      "blockers": [],
       "profiles": [
         "negative"
       ],
@@ -12906,7 +12866,7 @@
     {
       "case_id": "negative/dataset/undefined_length_without_delimitation",
       "artifact_kind": "dicom_instance",
-      "status": "planned",
+      "status": "implemented",
       "provider": {
         "kind": "mutation_layer",
         "id": "mutation_layer"
@@ -12915,18 +12875,8 @@
       "compatibility_axes": [
         "robustness"
       ],
-      "roadmap": {
-        "priority": "later",
-        "delivery_phase": "phase-7",
-        "rationale": "Exercises bounded rejection of an undefined-length Sequence or Item with its required delimitation removed."
-      },
-      "blockers": [
-        {
-          "code": "mutation_contract_unimplemented",
-          "message": "The deterministic missing-delimitation mutation is not implemented.",
-          "recheck_phase": "phase-7"
-        }
-      ],
+      "roadmap": null,
+      "blockers": [],
       "profiles": [
         "negative"
       ],
@@ -12958,7 +12908,7 @@
     {
       "case_id": "negative/encapsulation/broken_offset_table",
       "artifact_kind": "dicom_instance",
-      "status": "planned",
+      "status": "implemented",
       "provider": {
         "kind": "mutation_layer",
         "id": "mutation_layer"
@@ -12967,18 +12917,8 @@
       "compatibility_axes": [
         "robustness"
       ],
-      "roadmap": {
-        "priority": "later",
-        "delivery_phase": "phase-7",
-        "rationale": "Exercises invalid Basic and Extended Offset Table outcomes."
-      },
-      "blockers": [
-        {
-          "code": "mutation_contract_unimplemented",
-          "message": "The offset-table mutation is not implemented.",
-          "recheck_phase": "phase-7"
-        }
-      ],
+      "roadmap": null,
+      "blockers": [],
       "profiles": [
         "negative"
       ],
@@ -12988,7 +12928,7 @@
       "sop_class_name": "Secondary Capture Image Storage",
       "sop_class_uid": "1.2.840.10008.5.1.4.1.1.7",
       "modality": "OT",
-      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.5",
       "determinism": "byte_stable",
       "requirements": {
         "features": [],
@@ -13010,7 +12950,7 @@
     {
       "case_id": "negative/encapsulation/truncated_fragment",
       "artifact_kind": "dicom_instance",
-      "status": "planned",
+      "status": "implemented",
       "provider": {
         "kind": "mutation_layer",
         "id": "mutation_layer"
@@ -13020,18 +12960,8 @@
         "robustness",
         "encapsulation"
       ],
-      "roadmap": {
-        "priority": "later",
-        "delivery_phase": "phase-7",
-        "rationale": "Exercises bounded rejection of a truncated encapsulated Pixel Data fragment independently from offset-table corruption."
-      },
-      "blockers": [
-        {
-          "code": "mutation_contract_unimplemented",
-          "message": "The deterministic encapsulated-fragment truncation mutation is not implemented.",
-          "recheck_phase": "phase-7"
-        }
-      ],
+      "roadmap": null,
+      "blockers": [],
       "profiles": [
         "negative"
       ],
@@ -13071,7 +13001,7 @@
     {
       "case_id": "negative/encoding/explicit_vr_length_mismatch",
       "artifact_kind": "dicom_instance",
-      "status": "planned",
+      "status": "implemented",
       "provider": {
         "kind": "mutation_layer",
         "id": "mutation_layer"
@@ -13080,18 +13010,8 @@
       "compatibility_axes": [
         "robustness"
       ],
-      "roadmap": {
-        "priority": "later",
-        "delivery_phase": "phase-7",
-        "rationale": "Exercises rejection of an incorrect explicit-VR value length."
-      },
-      "blockers": [
-        {
-          "code": "mutation_contract_unimplemented",
-          "message": "The explicit-VR length mutation is not implemented.",
-          "recheck_phase": "phase-7"
-        }
-      ],
+      "roadmap": null,
+      "blockers": [],
       "profiles": [
         "negative"
       ],
@@ -13123,7 +13043,7 @@
     {
       "case_id": "negative/encoding/illegal_vr_bytes",
       "artifact_kind": "dicom_instance",
-      "status": "planned",
+      "status": "implemented",
       "provider": {
         "kind": "mutation_layer",
         "id": "mutation_layer"
@@ -13132,18 +13052,8 @@
       "compatibility_axes": [
         "robustness"
       ],
-      "roadmap": {
-        "priority": "later",
-        "delivery_phase": "phase-7",
-        "rationale": "Exercises rejection of illegal VR bytes without a crash or hang."
-      },
-      "blockers": [
-        {
-          "code": "mutation_contract_unimplemented",
-          "message": "The illegal-VR mutation is not implemented.",
-          "recheck_phase": "phase-7"
-        }
-      ],
+      "roadmap": null,
+      "blockers": [],
       "profiles": [
         "negative"
       ],
@@ -13175,7 +13085,7 @@
     {
       "case_id": "negative/encoding/transfer_syntax_mismatch",
       "artifact_kind": "dicom_instance",
-      "status": "planned",
+      "status": "implemented",
       "provider": {
         "kind": "mutation_layer",
         "id": "mutation_layer"
@@ -13184,18 +13094,8 @@
       "compatibility_axes": [
         "robustness"
       ],
-      "roadmap": {
-        "priority": "later",
-        "delivery_phase": "phase-7",
-        "rationale": "Exercises mismatch between File Meta transfer syntax and dataset encoding."
-      },
-      "blockers": [
-        {
-          "code": "mutation_contract_unimplemented",
-          "message": "The transfer-syntax mismatch mutation is not implemented.",
-          "recheck_phase": "phase-7"
-        }
-      ],
+      "roadmap": null,
+      "blockers": [],
       "profiles": [
         "negative"
       ],
@@ -13227,7 +13127,7 @@
     {
       "case_id": "negative/identity/meta_dataset_uid_mismatch",
       "artifact_kind": "dicom_instance",
-      "status": "planned",
+      "status": "implemented",
       "provider": {
         "kind": "mutation_layer",
         "id": "mutation_layer"
@@ -13236,18 +13136,8 @@
       "compatibility_axes": [
         "robustness"
       ],
-      "roadmap": {
-        "priority": "later",
-        "delivery_phase": "phase-7",
-        "rationale": "Exercises SOP Class and Instance disagreement across File Meta and dataset."
-      },
-      "blockers": [
-        {
-          "code": "mutation_contract_unimplemented",
-          "message": "The identity mismatch mutation is not implemented.",
-          "recheck_phase": "phase-7"
-        }
-      ],
+      "roadmap": null,
+      "blockers": [],
       "profiles": [
         "negative"
       ],
@@ -13279,7 +13169,7 @@
     {
       "case_id": "negative/iod/missing_type1_attribute",
       "artifact_kind": "dicom_instance",
-      "status": "planned",
+      "status": "implemented",
       "provider": {
         "kind": "mutation_layer",
         "id": "mutation_layer"
@@ -13288,18 +13178,8 @@
       "compatibility_axes": [
         "robustness"
       ],
-      "roadmap": {
-        "priority": "later",
-        "delivery_phase": "phase-7",
-        "rationale": "Exercises a precise conformance failure for a removed Type 1 attribute."
-      },
-      "blockers": [
-        {
-          "code": "mutation_contract_unimplemented",
-          "message": "The missing-Type-1 mutation is not implemented.",
-          "recheck_phase": "phase-7"
-        }
-      ],
+      "roadmap": null,
+      "blockers": [],
       "profiles": [
         "negative"
       ],
@@ -13331,7 +13211,7 @@
     {
       "case_id": "negative/part10/truncated_file_meta",
       "artifact_kind": "dicom_instance",
-      "status": "planned",
+      "status": "implemented",
       "provider": {
         "kind": "mutation_layer",
         "id": "mutation_layer"
@@ -13340,18 +13220,8 @@
       "compatibility_axes": [
         "robustness"
       ],
-      "roadmap": {
-        "priority": "later",
-        "delivery_phase": "phase-7",
-        "rationale": "Exercises bounded rejection of truncated File Meta Information."
-      },
-      "blockers": [
-        {
-          "code": "mutation_contract_unimplemented",
-          "message": "The deterministic file-meta truncation mutation is not implemented.",
-          "recheck_phase": "phase-7"
-        }
-      ],
+      "roadmap": null,
+      "blockers": [],
       "profiles": [
         "negative"
       ],
@@ -13383,7 +13253,7 @@
     {
       "case_id": "negative/pixels/invalid_bits_and_length",
       "artifact_kind": "dicom_instance",
-      "status": "planned",
+      "status": "implemented",
       "provider": {
         "kind": "mutation_layer",
         "id": "mutation_layer"
@@ -13392,18 +13262,8 @@
       "compatibility_axes": [
         "robustness"
       ],
-      "roadmap": {
-        "priority": "later",
-        "delivery_phase": "phase-7",
-        "rationale": "Exercises invalid Bits Stored, High Bit, and Pixel Data length outcomes."
-      },
-      "blockers": [
-        {
-          "code": "mutation_contract_unimplemented",
-          "message": "The invalid pixel-module mutation is not implemented.",
-          "recheck_phase": "phase-7"
-        }
-      ],
+      "roadmap": null,
+      "blockers": [],
       "profiles": [
         "negative"
       ],
@@ -13435,7 +13295,7 @@
     {
       "case_id": "negative/pixels/truncated_pixel_value",
       "artifact_kind": "dicom_instance",
-      "status": "planned",
+      "status": "implemented",
       "provider": {
         "kind": "mutation_layer",
         "id": "mutation_layer"
@@ -13445,18 +13305,8 @@
         "robustness",
         "pixels"
       ],
-      "roadmap": {
-        "priority": "later",
-        "delivery_phase": "phase-7",
-        "rationale": "Exercises bounded rejection when native Pixel Data ends before its declared value length."
-      },
-      "blockers": [
-        {
-          "code": "mutation_contract_unimplemented",
-          "message": "The deterministic native Pixel Data truncation mutation is not implemented.",
-          "recheck_phase": "phase-7"
-        }
-      ],
+      "roadmap": null,
+      "blockers": [],
       "profiles": [
         "negative"
       ],

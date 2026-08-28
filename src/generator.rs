@@ -20145,8 +20145,8 @@ fn encapsulated_stl_manifest_entry(
                 "payload_length": document_bytes.len(),
                 "payload_sha256": payload_sha256,
                 "triangle_count": STL_TRIANGLE_COUNT,
-                "bounds_min": [0.0, 0.0, 0.0],
-                "bounds_max": [10.0, 10.0, 10.0]
+                "bounds_min": [0, 0, 0],
+                "bounds_max": [10, 10, 10]
             }
         },
         "dicom": {
@@ -20198,8 +20198,8 @@ fn encapsulated_stl_manifest_entry(
                 "code_meaning": STL_UNIT_CODE_MEANING
             },
             "geometry": {
-                "bounds_min": [0.0, 0.0, 0.0],
-                "bounds_max": [10.0, 10.0, 10.0],
+                "bounds_min": [0, 0, 0],
+                "bounds_max": [10, 10, 10],
                 "closed_manifold": true,
                 "outward_winding": true,
                 "nondegenerate_faces": true

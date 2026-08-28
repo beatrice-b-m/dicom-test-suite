@@ -164,8 +164,15 @@ use crate::{
         ParametricMapSource, ParametricMapSpec, ParametricMapVariantGenerated,
         ParametricMapVariantOutcome, Scoord3dGenerated, Scoord3dGenerationInput,
         Scoord3dIdentities, Scoord3dOutcome, StandardsProvenance, Tid1500Generated,
-        Tid1500GenerationInput, Tid1500Identities, Tid1500Outcome,
-        generate_parametric_map_for_spec, generate_scoord3d, generate_tid1500,
+        Tid1500GenerationInput, Tid1500Identities, Tid1500Outcome, WSI_TILE_SEGMENTATION_CASE_ID,
+        WSI_TILE_SEGMENTATION_FRAME_SHA256, WSI_TILE_SEGMENTATION_FRAME_VALUES,
+        WSI_TILE_SEGMENTATION_MATRIX_SHA256, WSI_TILE_SEGMENTATION_OUTPUT_FILE,
+        WSI_TILE_SEGMENTATION_PAYLOAD_SHA256, WSI_TILE_SEGMENTATION_RECIPE_ID,
+        WSI_TILE_SEGMENTATION_RECIPE_VERSION, WSI_TILE_SEGMENTATION_SOURCE_CASE_ID,
+        WSI_TILE_SEGMENTATION_SOURCE_FRAME_NUMBERS, WsiTileSegmentationGenerated,
+        WsiTileSegmentationGenerationInput, WsiTileSegmentationIdentities,
+        WsiTileSegmentationOutcome, generate_parametric_map_for_spec, generate_scoord3d,
+        generate_tid1500, generate_wsi_tile_segmentation,
     },
     rt_manifest::{
         LinkedRtImageInput, LinkedRtPlanInput, linked_rt_image_expected, linked_rt_plan_expected,
@@ -3748,6 +3755,8 @@ pub(crate) struct GeneratedSourceObject {
     pub series_instance_uid: Option<String>,
     pub frame_of_reference_uid: Option<String>,
     pub frame_count: Option<u64>,
+    pub specimen_uid: Option<String>,
+    pub container_identifier: Option<String>,
 }
 
 impl GeneratedSourceObject {
@@ -3802,6 +3811,16 @@ impl GeneratedSourceObject {
             .manifest_entry
             .pointer("/image/frames")
             .and_then(Value::as_u64);
+        let specimen_uid = file
+            .manifest_entry
+            .pointer("/expected_wsi_tiled_full/specimen/specimen_uid")
+            .and_then(Value::as_str)
+            .map(ToOwned::to_owned);
+        let container_identifier = file
+            .manifest_entry
+            .pointer("/expected_wsi_tiled_full/specimen/container_identifier")
+            .and_then(Value::as_str)
+            .map(ToOwned::to_owned);
 
         Ok(Self {
             source_case_id: source_case_id.to_string(),
@@ -3813,6 +3832,8 @@ impl GeneratedSourceObject {
             series_instance_uid,
             frame_of_reference_uid,
             frame_count,
+            specimen_uid,
+            container_identifier,
         })
     }
 
@@ -3965,6 +3986,24 @@ pub(crate) fn write_supported_cases(
     if let Some(case) = registry_case(registry, WSI_PYRAMID_CASE_ID)? {
         if should_generate_case(case, run)? {
             context.record_many(write_wsi_pyramid_case(run, case, standards_lock_sha256)?)?;
+        }
+    }
+    if let Some(case) = registry_case(registry, WSI_TILE_SEGMENTATION_CASE_ID)? {
+        if should_generate_case(case, run)? {
+            let source = context
+                .source_registry()
+                .first_for_case(WSI_TILE_SEGMENTATION_SOURCE_CASE_ID)
+                .cloned()
+                .ok_or_else(|| GenerateError::MetadataShape {
+                    path: PathBuf::from(WSI_TILE_SEGMENTATION_CASE_ID),
+                    message: "WSI tile segmentation source must be generated before the derived object",
+                })?;
+            match write_wsi_tile_segmentation_case(run, case, &source, standards_lock_sha256)? {
+                WsiTileSegmentationCaseOutcome::Generated(file) => context.record_one(file)?,
+                WsiTileSegmentationCaseOutcome::Unavailable(row) => {
+                    context.unavailable_cases.push(row)
+                }
+            }
         }
     }
     for recipe in PIXEL_RECIPES {
@@ -4942,6 +4981,11 @@ enum ParametricMapCaseOutcome {
     Unavailable(Value),
 }
 
+enum WsiTileSegmentationCaseOutcome {
+    Generated(GeneratedFile),
+    Unavailable(Value),
+}
+
 struct ParametricMapStagingGuard(PathBuf);
 
 impl ParametricMapStagingGuard {
@@ -5398,6 +5442,283 @@ fn parametric_map_generated_file(
             "expected_visual_checks": {"pattern": visual_pattern},
             "validation": validation,
             "known_stressors": known_stressors,
+            "standards_evidence": deduplicated_standards_evidence(standards_evidence_from_case(case))
+        }),
+    })
+}
+
+fn write_wsi_tile_segmentation_case(
+    run: &PreparedGenerationRun,
+    case: &Value,
+    source: &GeneratedSourceObject,
+    standards_lock_sha256: &str,
+) -> Result<WsiTileSegmentationCaseOutcome, GenerateError> {
+    let source_series_instance_uid =
+        source
+            .series_instance_uid
+            .as_deref()
+            .ok_or(GenerateError::MetadataShape {
+                path: PathBuf::from(WSI_TILE_SEGMENTATION_CASE_ID),
+                message: "WSI tile segmentation source must record a Series Instance UID",
+            })?;
+    let frame_of_reference_uid =
+        source
+            .frame_of_reference_uid
+            .as_deref()
+            .ok_or(GenerateError::MetadataShape {
+                path: PathBuf::from(WSI_TILE_SEGMENTATION_CASE_ID),
+                message: "WSI tile segmentation source must record a Frame of Reference UID",
+            })?;
+    if source.frame_count != Some(4)
+        || source.specimen_uid.is_none()
+        || source.container_identifier.as_deref() != Some("DTS-SLIDE-001")
+    {
+        return Err(GenerateError::MetadataShape {
+            path: PathBuf::from(WSI_TILE_SEGMENTATION_CASE_ID),
+            message: "WSI tile segmentation source must expose the locked four-frame specimen contract",
+        });
+    }
+    let uid = |role| {
+        deterministic_uid(&DeterministicUidInput {
+            standards_lock_sha256,
+            case_id: WSI_TILE_SEGMENTATION_CASE_ID,
+            recipe_version: WSI_TILE_SEGMENTATION_RECIPE_VERSION,
+            run_seed: run.seed,
+            file_index: 0,
+            frame_index: None,
+            referenced_object_index: None,
+            role,
+        })
+    };
+    let identities = WsiTileSegmentationIdentities {
+        study_instance_uid: source.study_instance_uid.clone(),
+        series_instance_uid: uid(UidRole::SeriesInstance),
+        frame_of_reference_uid: frame_of_reference_uid.to_string(),
+        sop_instance_uid: uid(UidRole::SopInstance),
+        dimension_organization_uid: uid(UidRole::DimensionOrganization),
+    };
+    let standards_lock_path = PathBuf::from("standards.lock.json");
+    let standards_lock_bytes =
+        fs::read(&standards_lock_path).map_err(|source| GenerateError::ReadMetadata {
+            path: standards_lock_path.clone(),
+            source,
+        })?;
+    let standards_lock: Value =
+        serde_json::from_slice(&standards_lock_bytes).map_err(|source| {
+            GenerateError::ParseMetadata {
+                path: standards_lock_path,
+                source,
+            }
+        })?;
+    let staging = ParametricMapStagingGuard::new();
+    let input = WsiTileSegmentationGenerationInput {
+        repository_root: PathBuf::from("."),
+        generated_root: run.out_dir.clone(),
+        staging_root: staging.path().to_path_buf(),
+        destination_root: run.out_dir.join(WSI_TILE_SEGMENTATION_CASE_ID),
+        seed: run.seed,
+        standards: StandardsProvenance {
+            standards_lock_sha256: standards_lock_sha256.to_string(),
+            dicom_base_edition: standards_lock["dicom_base_edition"]
+                .as_str()
+                .ok_or(GenerateError::MetadataShape {
+                    path: PathBuf::from("standards.lock.json"),
+                    message: "standards lock dicom_base_edition must be a string",
+                })?
+                .to_string(),
+            kb_source_manifest_sha256: standards_lock
+                .pointer("/dicom_standard_kb/source_manifest_sha256")
+                .and_then(Value::as_str)
+                .map(ToOwned::to_owned),
+        },
+        controlled_metadata: ControlledMetadata {
+            patient_name: "DTS^Synthetic^Patient001".to_string(),
+            patient_id: "DTS-PATIENT-001".to_string(),
+            manufacturer: "dicom-test-suite".to_string(),
+            model_name: WSI_TILE_SEGMENTATION_RECIPE_ID.to_string(),
+            software_versions: env!("CARGO_PKG_VERSION").to_string(),
+            study_date: "20260101".to_string(),
+            study_time: "000000".to_string(),
+            content_date: "20260101".to_string(),
+            content_time: "000000".to_string(),
+            timezone_offset_from_utc: "+0000".to_string(),
+        },
+        identities,
+        source: ParametricMapSource {
+            role: "source_image".to_string(),
+            source_case_id: source.source_case_id.clone(),
+            relative_path: source.source_path.clone(),
+            sha256: source.sha256.clone(),
+            sop_class_uid: source.sop_class_uid.clone(),
+            sop_instance_uid: source.sop_instance_uid.clone(),
+            series_instance_uid: Some(source_series_instance_uid.to_string()),
+            frame_numbers: Some(WSI_TILE_SEGMENTATION_SOURCE_FRAME_NUMBERS.to_vec()),
+        },
+    };
+    match generate_wsi_tile_segmentation(&input).map_err(|error| GenerateError::WriteDicomFile {
+        path: PathBuf::from(WSI_TILE_SEGMENTATION_CASE_ID),
+        message: error.to_string(),
+    })? {
+        WsiTileSegmentationOutcome::Unavailable { code, message } => Ok(
+            WsiTileSegmentationCaseOutcome::Unavailable(serde_json::json!({
+                "case_id": WSI_TILE_SEGMENTATION_CASE_ID,
+                "status": "unavailable",
+                "reason_code": "external_backend_unavailable",
+                "message": format!("{code}: {message}"),
+                "recheck_phase": "phase-4",
+                "standards_evidence": standards_evidence_from_case(case)
+            })),
+        ),
+        WsiTileSegmentationOutcome::Generated(generated) => {
+            Ok(WsiTileSegmentationCaseOutcome::Generated(
+                wsi_tile_segmentation_generated_file(case, source, generated)?,
+            ))
+        }
+    }
+}
+
+fn wsi_tile_segmentation_generated_file(
+    case: &Value,
+    source: &GeneratedSourceObject,
+    generated: WsiTileSegmentationGenerated,
+) -> Result<GeneratedFile, GenerateError> {
+    let object =
+        open_file(&generated.output_path).map_err(|error| GenerateError::ValidateDicomFile {
+            path: generated.output_path.clone(),
+            message: format!("reopen promoted WSI tile segmentation: {error}"),
+        })?;
+    let meta = object.meta();
+    let implementation_version_name = meta
+        .implementation_version_name
+        .clone()
+        .map(|value| value.trim().to_string())
+        .unwrap_or_else(|| "UNKNOWN".to_string());
+    let implementation_class_uid = meta.implementation_class_uid().to_string();
+    let mut validated = validate_part10_file(
+        &generated.output_path,
+        &Part10Expectations {
+            sop_class_uid: SEGMENTATION_STORAGE_UID,
+            sop_instance_uid: &generated.identities.sop_instance_uid,
+            transfer_syntax_uid: PARAMETRIC_MAP_TRANSFER_SYNTAX_UID,
+            implementation_class_uid: &implementation_class_uid,
+            synthetic_data: "YES",
+            rows: 2,
+            columns: 2,
+            frames: 2,
+            samples_per_pixel: 1,
+            photometric_interpretation: "MONOCHROME2",
+            bits_allocated: 8,
+            bits_stored: 8,
+            high_bit: 7,
+            pixel_representation: 0,
+            planar_configuration: None,
+            pixel_data_vr: VR::OB,
+            pixel_data_length_formula: PixelDataLengthFormula::ContiguousSamples,
+            decoded_frame_hashes: &WSI_TILE_SEGMENTATION_FRAME_SHA256,
+            palette: None,
+            padding: None,
+            ct_image: None,
+            enhanced_ct_image: None,
+            enhanced_mr_image: None,
+            enhanced_pet_image: None,
+            mg_image: None,
+            dx_image: None,
+            xa_image: None,
+            xrf_image: None,
+            us_image: None,
+            us_multiframe: None,
+            nm_image: None,
+            pet_image: None,
+            cr_image: None,
+            mr_image: None,
+            segmentation: None,
+        },
+    )?;
+    append_internal_validation(
+        &mut validated.validation,
+        serde_json::json!({
+            "name": "external_backend_contract",
+            "status": "passed",
+            "message": "The locked highdicom response, provenance, payload, source Frames 1 and 4, and resource ceilings satisfied protocol 0.1.0."
+        }),
+    );
+    let source_series = source
+        .series_instance_uid
+        .as_deref()
+        .expect("source validated series UID");
+    let specimen_uid = source
+        .specimen_uid
+        .as_deref()
+        .expect("source validated specimen UID");
+    let expected = serde_json::json!({
+        "iod_kind": "wsi_tile_segmentation",
+        "profile": "extended",
+        "source": {
+            "case_id": source.source_case_id,
+            "path": source.source_path,
+            "sha256": source.sha256,
+            "study_instance_uid": source.study_instance_uid,
+            "series_instance_uid": source_series,
+            "sop_class_uid": source.sop_class_uid,
+            "sop_instance_uid": source.sop_instance_uid,
+            "frame_numbers": WSI_TILE_SEGMENTATION_SOURCE_FRAME_NUMBERS,
+            "frame_hashes": [
+                "fcf067f6323bb42b8292a565a8f826ec5fdb1b142b7a69bf7f7721f0d5d46ef8",
+                "8688d249e9d047b4fc2fb89ce05afe9ec89252ffccdd969de6eef260dd7ffb21"
+            ],
+            "frame_of_reference_uid": generated.identities.frame_of_reference_uid,
+            "specimen_uid": specimen_uid,
+            "container_identifier": "DTS-SLIDE-001"
+        },
+        "segmentation": {
+            "type": "FRACTIONAL", "fractional_type": "OCCUPANCY",
+            "maximum_fractional_value": 255, "segments_overlap": "NO",
+            "segment_number": 1, "segment_label": "DTS_SYNTHETIC_REGION",
+            "algorithm_type": "MANUAL",
+            "category": {"code_value": "85756007", "coding_scheme_designator": "SCT", "code_meaning": "Tissue"},
+            "property_type": {"code_value": "113343", "coding_scheme_designator": "DCM", "code_meaning": "Organ"}
+        },
+        "image": {"rows": 2, "columns": 2, "frames": 2, "samples_per_pixel": 1, "photometric_interpretation": "MONOCHROME2", "bits_allocated": 8, "bits_stored": 8, "high_bit": 7, "pixel_representation": 0},
+        "pixel_data": {"vr": "OB", "native_or_encapsulated": "native", "value_length": 8, "frame_count": 2, "frame_values": WSI_TILE_SEGMENTATION_FRAME_VALUES, "frame_hashes": WSI_TILE_SEGMENTATION_FRAME_SHA256, "payload_sha256": WSI_TILE_SEGMENTATION_PAYLOAD_SHA256},
+        "tiling": {"dimension_organization_type": "TILED_SPARSE", "total_pixel_matrix_rows": 4, "total_pixel_matrix_columns": 4, "total_pixel_matrix_focal_planes": 1, "tile_rows": 2, "tile_columns": 2, "total_pixel_matrix_origin_mm": [0.0, 0.0, 0.0], "image_orientation_slide": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0], "pixel_spacing_mm": [0.5, 0.5], "reconstructed_shape": [4, 4], "reconstructed_total_pixel_matrix_sha256": WSI_TILE_SEGMENTATION_MATRIX_SHA256},
+        "dimension_indices": [
+            {"ordinal": 1, "pointer": "ReferencedSegmentNumber", "functional_group_pointer": "SegmentIdentificationSequence"},
+            {"ordinal": 2, "pointer": "RowPositionInTotalImagePixelMatrix", "functional_group_pointer": "PlanePositionSlideSequence"},
+            {"ordinal": 3, "pointer": "ColumnPositionInTotalImagePixelMatrix", "functional_group_pointer": "PlanePositionSlideSequence"}
+        ],
+        "frames": [
+            {"frame_number": 1, "source_frame_number": 1, "dimension_index_values": [1,1,1], "row_position": 1, "column_position": 1, "x_mm": 0.0, "y_mm": 0.0, "z_mm": 0.0},
+            {"frame_number": 2, "source_frame_number": 4, "dimension_index_values": [1,2,2], "row_position": 3, "column_position": 3, "x_mm": 1.0, "y_mm": 1.0, "z_mm": 0.0}
+        ],
+        "references": {"common_instance_reference": true, "per_frame_derivation": true, "purpose": {"code_value": "121322", "coding_scheme_designator": "DCM", "code_meaning": "Source Image for Image Processing Operation"}, "derivation": {"code_value": "113076", "coding_scheme_designator": "DCM", "code_meaning": "Segmentation"}, "spatial_locations_preserved": "YES"},
+        "presence": {"shared_functional_groups_sequence": true, "per_frame_functional_groups_sequence": true, "dimension_index_sequence": true, "referenced_series_sequence": true},
+        "absent_content": ["tiled_full", "source_frames_2_and_3", "patient_coordinate_functional_groups", "palette_color_lut", "icc_profile", "pixel_padding", "lossy_image_compression_ratio", "lossy_image_compression_method", "tracking_identifiers", "algorithm_identification", "concatenation", "multi_resolution_pyramid"],
+        "budget": {"instance_count": 1, "total_frame_count": 2, "max_total_dicom_bytes": 16384, "max_generation_wall_time_seconds": 5}
+    });
+    let response_backend = &generated.response["backend"];
+    let warnings = generated.response["warnings"].clone();
+    Ok(GeneratedFile {
+        case_id: WSI_TILE_SEGMENTATION_CASE_ID.to_string(),
+        manifest_entry: serde_json::json!({
+            "case_id": WSI_TILE_SEGMENTATION_CASE_ID,
+            "profile_membership": ["extended"],
+            "path": format!("{WSI_TILE_SEGMENTATION_CASE_ID}/{WSI_TILE_SEGMENTATION_OUTPUT_FILE}"),
+            "sha256": sha256_hex(&generated.output_bytes),
+            "size_bytes": generated.output_bytes.len(),
+            "determinism": "semantic_stable",
+            "recipe": {"recipe_id": WSI_TILE_SEGMENTATION_RECIPE_ID, "recipe_version": WSI_TILE_SEGMENTATION_RECIPE_VERSION, "recipe_parameters": {"source_case_id": source.source_case_id, "source_frame_numbers": WSI_TILE_SEGMENTATION_SOURCE_FRAME_NUMBERS, "dimension_organization_uid": generated.identities.dimension_organization_uid, "segmentation_type": "FRACTIONAL", "segmentation_fractional_type": "OCCUPANCY", "maximum_fractional_value": 255, "segment_count": 1, "segment_label": "DTS_SYNTHETIC_REGION"}},
+            "dicom": {"sop_class_uid": SEGMENTATION_STORAGE_UID, "sop_class_name": "Segmentation Storage", "iod_name": "Segmentation", "modality": "SEG", "transfer_syntax_uid": PARAMETRIC_MAP_TRANSFER_SYNTAX_UID, "transfer_syntax_name": "Explicit VR Little Endian"},
+            "uids": {"study_instance_uid": generated.identities.study_instance_uid, "series_instance_uid": generated.identities.series_instance_uid, "sop_instance_uid": generated.identities.sop_instance_uid, "frame_of_reference_uid": generated.identities.frame_of_reference_uid, "dimension_organization_uid": generated.identities.dimension_organization_uid, "implementation_class_uid": implementation_class_uid, "implementation_version_name": implementation_version_name},
+            "image": {"rows": 2, "columns": 2, "frames": 2, "samples_per_pixel": 1, "photometric_interpretation": "MONOCHROME2", "bits_allocated": 8, "bits_stored": 8, "high_bit": 7, "pixel_representation": 0, "planar_configuration": Value::Null},
+            "pixel_data": {"vr": "OB", "native_or_encapsulated": "native", "value_length": 8, "frame_count": 2, "frame_hashes": WSI_TILE_SEGMENTATION_FRAME_SHA256},
+            "generation_backend": {"backend_id": generated.backend.backend_id, "protocol_version": crate::generation_backends::PROTOCOL_VERSION, "name": response_backend["name"], "version": response_backend["version"], "dependency_lock_sha256": generated.backend.dependency_lock_sha256, "executable_fingerprint": generated.backend.executable_fingerprint, "entrypoint_fingerprint": generated.backend.entrypoint_fingerprint, "environment_fingerprint": generated.backend.environment_fingerprint, "runtime_identity": generated.backend.runtime_identity, "determinism": "semantic_stable", "warnings": warnings},
+            "references": [source.to_manifest_reference("source_image_for_segmentation", Some(WSI_TILE_SEGMENTATION_SOURCE_FRAME_NUMBERS.to_vec()))],
+            "expected_capabilities": ["open_file", "read_metadata", "parse_segmentation", "reconstruct_wsi_tile_segmentation", "resolve_frame_references"],
+            "expected_semantics": {"synthetic_data": "YES", "pixel_min": 0, "pixel_max": 255, "segmentation_type": "FRACTIONAL", "segmentation_fractional_type": "OCCUPANCY", "maximum_fractional_value": 255, "segment_sequence_items": 1, "shared_functional_groups_sequence_items": 1, "per_frame_functional_groups_sequence_items": 2, "source_case_id": source.source_case_id, "source_sop_instance_uid": source.sop_instance_uid, "referenced_frame_numbers": WSI_TILE_SEGMENTATION_SOURCE_FRAME_NUMBERS},
+            "expected_visual_checks": {"pattern": "two_diagonal_wsi_tile_occupancy_masks"},
+            "expected_wsi_tile_segmentation": expected,
+            "validation": validated.validation,
+            "known_stressors": ["segmentation_storage", "fractional_occupancy_pixel_data", "tiled_sparse", "wsi_tile_references", "slide_coordinate_system", "external_generation_backend"],
             "standards_evidence": deduplicated_standards_evidence(standards_evidence_from_case(case))
         }),
     })
@@ -27618,6 +27939,83 @@ mod tests {
                 .and_then(|entries| entries.last())
                 .and_then(|entry| entry.get("status")),
             Some(&Value::from("passed"))
+        );
+    }
+
+    #[test]
+    fn wsi_tile_segmentation_writer_binds_the_locked_source_frames() {
+        let output = ParametricMapStagingGuard::new();
+        let run = PreparedGenerationRun {
+            profile: "extended".to_string(),
+            out_dir: output.path().to_path_buf(),
+            manifest_path: output.path().join("manifest.json"),
+            seed: 7,
+            include_stress: false,
+        };
+        let source_case = serde_json::json!({
+            "case_id": WSI_TILED_FULL_CASE_ID,
+            "profiles": ["extended"],
+            "status": "implemented",
+            "requirements": {"features": []},
+            "standards_evidence": []
+        });
+        let segmentation_case = serde_json::json!({
+            "case_id": WSI_TILE_SEGMENTATION_CASE_ID,
+            "profiles": ["extended"],
+            "status": "implemented",
+            "requirements": {"features": []},
+            "standards_evidence": []
+        });
+        let standards_lock = "0000000000000000000000000000000000000000000000000000000000000000";
+        let source_file = write_wsi_tiled_full_case(&run, &source_case, standards_lock)
+            .expect("WSI source should write and validate");
+        let source = GeneratedSourceObject::from_generated_file(&source_file)
+            .expect("WSI source manifest should satisfy the derived-object contract");
+
+        let generated = match write_wsi_tile_segmentation_case(
+            &run,
+            &segmentation_case,
+            &source,
+            standards_lock,
+        )
+        .expect("WSI tile segmentation should invoke its backend")
+        {
+            WsiTileSegmentationCaseOutcome::Generated(file) => file,
+            WsiTileSegmentationCaseOutcome::Unavailable(reason) => {
+                panic!("locked WSI tile segmentation backend unavailable: {reason}")
+            }
+        };
+
+        assert_eq!(generated.manifest_entry["determinism"], "semantic_stable");
+        assert_eq!(
+            generated
+                .manifest_entry
+                .pointer("/expected_wsi_tile_segmentation/source/frame_numbers"),
+            Some(&serde_json::json!([1, 4]))
+        );
+        assert_eq!(
+            generated
+                .manifest_entry
+                .pointer("/expected_wsi_tile_segmentation/pixel_data/payload_sha256"),
+            Some(&Value::from(WSI_TILE_SEGMENTATION_PAYLOAD_SHA256))
+        );
+        assert_eq!(
+            generated.manifest_entry.pointer(
+                "/expected_wsi_tile_segmentation/tiling/reconstructed_total_pixel_matrix_sha256"
+            ),
+            Some(&Value::from(WSI_TILE_SEGMENTATION_MATRIX_SHA256))
+        );
+        assert!(
+            generated.manifest_entry["size_bytes"]
+                .as_u64()
+                .is_some_and(|size| size <= 16_384)
+        );
+        assert!(
+            output
+                .path()
+                .join(WSI_TILE_SEGMENTATION_CASE_ID)
+                .join(WSI_TILE_SEGMENTATION_OUTPUT_FILE)
+                .is_file()
         );
     }
 

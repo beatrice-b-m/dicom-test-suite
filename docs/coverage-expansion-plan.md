@@ -545,19 +545,19 @@ Gate:
 - no lossy or video case is promoted to `core` without a separate policy
   decision.
 
-Status on 2026-08-28: milestone 1 is complete for both forms of evidence that
-do not require a large allocation. The promoted RLE Multi-frame Grayscale Byte
-SC instance contains an empty Basic Offset Table, one Fragment per Frame,
-exact Extended Offset Table Values `[0, 78, 152]`, and unpadded Lengths
-`[69, 66, 69]`. A fresh 115-file extended corpus passed strict validation;
-locked run `329321c97edeb1f624d9aba7399c70c317036a06ab1f88393b1ef9a2176cd649`
-adds clean primary IOD and parser results plus independent DCMTK decode of all
-three Frames. The virtual `0x1_0000_0006` crossing is represented as an
-implemented non-file qualification fixture with null DICOM identity, never as
-a fictional large instance. A genuine large EOT object remains stress-only and
-blocked on explicit resource budgets. Milestone 2 is the next Phase 5 slice,
-but its shared lossy numeric acceptance policy is an explicit decision
-checkpoint. See `docs/phase-5-encapsulation-status.md`.
+Status on 2026-08-28: milestone 1 is complete for both EOT evidence forms that
+do not require a large allocation. The promoted RLE instance has exact EOT
+Values `[0, 78, 152]` and Lengths `[69, 66, 69]`; the virtual
+`0x1_0000_0006` crossing remains an honest non-file qualification fixture.
+Milestone 2 is complete for the selected JPEG XL and HTJ2K lossy cases. Their
+fixed encoders, executable fingerprints, independent full-frame decoders,
+numeric metrics, lossy metadata, manifest validation, and report projections
+are locked. A feature-enabled 120-file extended corpus passed strict validation
+with zero failures. JPEG-LS Near-Lossless, JPEG 2000 lossy, JPEG Extended
+12-bit, and all three video families remain explicit unavailable coverage under
+their independent-tool blockers. A genuine large EOT object remains stress-
+only. See `docs/phase-5-encapsulation-status.md` and
+`docs/phase-5-lossy-status.md`.
 
 Decision update on 2026-08-28: the shared lossy thresholds, reduced/full stress
 envelopes, optional DCMTK-first media/protocol baseline, dcm4che independent-

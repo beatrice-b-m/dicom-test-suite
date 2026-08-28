@@ -10481,7 +10481,7 @@
     {
       "case_id": "encapsulation/sc/eot_single_fragment_multiframe",
       "artifact_kind": "dicom_instance",
-      "status": "planned",
+      "status": "implemented",
       "provider": {
         "kind": "rust_native",
         "id": "rust_native"
@@ -10491,18 +10491,8 @@
         "encapsulation",
         "pixels"
       ],
-      "roadmap": {
-        "priority": "later",
-        "delivery_phase": "phase-5",
-        "rationale": "Exercises Extended Offset Table and Lengths with small deterministic frames."
-      },
-      "blockers": [
-        {
-          "code": "recipe_unimplemented",
-          "message": "The deterministic native recipe is not implemented.",
-          "recheck_phase": "phase-5"
-        }
-      ],
+      "roadmap": null,
+      "blockers": [],
       "profiles": [
         "extended"
       ],
@@ -10512,7 +10502,7 @@
       "sop_class_name": "Multi-frame Grayscale Byte Secondary Capture Image Storage",
       "sop_class_uid": "1.2.840.10008.5.1.4.1.1.7.2",
       "modality": "OT",
-      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.5",
       "determinism": "byte_stable",
       "requirements": {
         "features": [],
@@ -10528,6 +10518,14 @@
           "covered": true,
           "part": "PS3.6",
           "anchor": "table_A-1"
+        },
+        {
+          "source": "local-source-note",
+          "edition": "2026b",
+          "query": "standards/source-notes/phase-5-extended-offset-table.md",
+          "covered": true,
+          "part": "PS3.3; PS3.5; PS3.6",
+          "anchor": "table_C.7-11a; sect_C.7.6.3.1.8; sect_A.4; table_6-1"
         }
       ]
     },

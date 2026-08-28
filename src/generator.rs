@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs::{self, File};
 use std::io::{BufWriter, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use dicom_core::{
@@ -195,7 +195,8 @@ use crate::{
         RtRadiationSetExpectations, RtStructureSetExpectations, Scoord3dExpectations,
         SegmentationExpectations, SpatialRegistrationExpectations,
         SpatialRegistrationReferenceExpectations, Tid1500Expectations, TwelveLeadEcgExpectations,
-        UsImageExpectations, UsMultiframeExpectations, XaImageExpectations, XrfImageExpectations,
+        UsImageExpectations, UsMultiframeExpectations, WsiTileSegmentationExpectations,
+        XaImageExpectations, XrfImageExpectations,
         validate_advanced_blending_presentation_state_file, validate_basic_text_sr_file,
         validate_blending_presentation_state_file, validate_color_softcopy_presentation_state_file,
         validate_comprehensive_sr_file, validate_deformable_spatial_registration_file,
@@ -206,7 +207,8 @@ use crate::{
         validate_rt_structure_set_file, validate_scoord3d_file, validate_spatial_registration_file,
         validate_tid1500_file, validate_twelve_lead_ecg_file,
         validate_wsi_multiple_optical_paths_file, validate_wsi_pyramid_file,
-        validate_wsi_tiled_full_file, validate_wsi_tiled_sparse_file,
+        validate_wsi_tile_segmentation_file, validate_wsi_tiled_full_file,
+        validate_wsi_tiled_sparse_file,
     },
     waveform_manifest::{general_ecg_expected_waveform, twelve_lead_ecg_expected_waveform},
 };
@@ -5554,6 +5556,7 @@ fn write_wsi_tile_segmentation_case(
             frame_numbers: Some(WSI_TILE_SEGMENTATION_SOURCE_FRAME_NUMBERS.to_vec()),
         },
     };
+    let source_path = input.generated_root.join(&source.source_path);
     match generate_wsi_tile_segmentation(&input).map_err(|error| GenerateError::WriteDicomFile {
         path: PathBuf::from(WSI_TILE_SEGMENTATION_CASE_ID),
         message: error.to_string(),
@@ -5570,7 +5573,7 @@ fn write_wsi_tile_segmentation_case(
         ),
         WsiTileSegmentationOutcome::Generated(generated) => {
             Ok(WsiTileSegmentationCaseOutcome::Generated(
-                wsi_tile_segmentation_generated_file(case, source, generated)?,
+                wsi_tile_segmentation_generated_file(case, source, &source_path, generated)?,
             ))
         }
     }
@@ -5579,6 +5582,7 @@ fn write_wsi_tile_segmentation_case(
 fn wsi_tile_segmentation_generated_file(
     case: &Value,
     source: &GeneratedSourceObject,
+    source_path: &Path,
     generated: WsiTileSegmentationGenerated,
 ) -> Result<GeneratedFile, GenerateError> {
     let object =
@@ -5593,46 +5597,69 @@ fn wsi_tile_segmentation_generated_file(
         .map(|value| value.trim().to_string())
         .unwrap_or_else(|| "UNKNOWN".to_string());
     let implementation_class_uid = meta.implementation_class_uid().to_string();
-    let mut validated = validate_part10_file(
-        &generated.output_path,
-        &Part10Expectations {
-            sop_class_uid: SEGMENTATION_STORAGE_UID,
-            sop_instance_uid: &generated.identities.sop_instance_uid,
-            transfer_syntax_uid: PARAMETRIC_MAP_TRANSFER_SYNTAX_UID,
-            implementation_class_uid: &implementation_class_uid,
-            synthetic_data: "YES",
-            rows: 2,
-            columns: 2,
-            frames: 2,
-            samples_per_pixel: 1,
-            photometric_interpretation: "MONOCHROME2",
-            bits_allocated: 8,
-            bits_stored: 8,
-            high_bit: 7,
-            pixel_representation: 0,
-            planar_configuration: None,
-            pixel_data_vr: VR::OB,
-            pixel_data_length_formula: PixelDataLengthFormula::ContiguousSamples,
-            decoded_frame_hashes: &WSI_TILE_SEGMENTATION_FRAME_SHA256,
-            palette: None,
-            padding: None,
-            ct_image: None,
-            enhanced_ct_image: None,
-            enhanced_mr_image: None,
-            enhanced_pet_image: None,
-            mg_image: None,
-            dx_image: None,
-            xa_image: None,
-            xrf_image: None,
-            us_image: None,
-            us_multiframe: None,
-            nm_image: None,
-            pet_image: None,
-            cr_image: None,
-            mr_image: None,
-            segmentation: None,
-        },
-    )?;
+    let identity = Part10Expectations {
+        sop_class_uid: SEGMENTATION_STORAGE_UID,
+        sop_instance_uid: &generated.identities.sop_instance_uid,
+        transfer_syntax_uid: PARAMETRIC_MAP_TRANSFER_SYNTAX_UID,
+        implementation_class_uid: &implementation_class_uid,
+        synthetic_data: "YES",
+        rows: 2,
+        columns: 2,
+        frames: 2,
+        samples_per_pixel: 1,
+        photometric_interpretation: "MONOCHROME2",
+        bits_allocated: 8,
+        bits_stored: 8,
+        high_bit: 7,
+        pixel_representation: 0,
+        planar_configuration: None,
+        pixel_data_vr: VR::OB,
+        pixel_data_length_formula: PixelDataLengthFormula::ContiguousSamples,
+        decoded_frame_hashes: &WSI_TILE_SEGMENTATION_FRAME_SHA256,
+        palette: None,
+        padding: None,
+        ct_image: None,
+        enhanced_ct_image: None,
+        enhanced_mr_image: None,
+        enhanced_pet_image: None,
+        mg_image: None,
+        dx_image: None,
+        xa_image: None,
+        xrf_image: None,
+        us_image: None,
+        us_multiframe: None,
+        nm_image: None,
+        pet_image: None,
+        cr_image: None,
+        mr_image: None,
+        segmentation: None,
+    };
+    let strict = WsiTileSegmentationExpectations {
+        source_path,
+        source_sha256: &source.sha256,
+        source_study_instance_uid: &source.study_instance_uid,
+        source_series_instance_uid: source
+            .series_instance_uid
+            .as_deref()
+            .expect("source validated series UID"),
+        source_sop_class_uid: &source.sop_class_uid,
+        source_sop_instance_uid: &source.sop_instance_uid,
+        frame_of_reference_uid: source
+            .frame_of_reference_uid
+            .as_deref()
+            .expect("source validated Frame of Reference UID"),
+        dimension_organization_uid: &generated.identities.dimension_organization_uid,
+        specimen_uid: source
+            .specimen_uid
+            .as_deref()
+            .expect("source validated specimen UID"),
+        container_identifier: source
+            .container_identifier
+            .as_deref()
+            .expect("source validated container identifier"),
+    };
+    let mut validated =
+        validate_wsi_tile_segmentation_file(&generated.output_path, &identity, &strict)?;
     append_internal_validation(
         &mut validated.validation,
         serde_json::json!({

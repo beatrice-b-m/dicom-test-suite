@@ -82,6 +82,10 @@ mod wsi_tiled_sparse_tests;
 mod wsi_pyramid_tests;
 
 #[cfg(test)]
+#[path = "validation_wsi_tile_segmentation_tests.rs"]
+mod wsi_tile_segmentation_tests;
+
+#[cfg(test)]
 #[path = "validation_wsi_multiple_optical_paths_tests.rs"]
 mod wsi_multiple_optical_paths_tests;
 
@@ -986,6 +990,21 @@ pub(crate) struct SegmentationExpectations<'a> {
     pub referenced_sop_class_uid: &'a str,
     pub referenced_sop_instance_uid: &'a str,
     pub referenced_frame_numbers: &'a [u16],
+}
+
+/// Dynamic identities needed to prove the locked WSI tile SEG against its source.
+#[derive(Debug, Clone)]
+pub(crate) struct WsiTileSegmentationExpectations<'a> {
+    pub source_path: &'a Path,
+    pub source_sha256: &'a str,
+    pub source_study_instance_uid: &'a str,
+    pub source_series_instance_uid: &'a str,
+    pub source_sop_class_uid: &'a str,
+    pub source_sop_instance_uid: &'a str,
+    pub frame_of_reference_uid: &'a str,
+    pub dimension_organization_uid: &'a str,
+    pub specimen_uid: &'a str,
+    pub container_identifier: &'a str,
 }
 
 const TAG_SEGMENTATION_TYPE: Tag = Tag(0x0062, 0x0001);
@@ -3679,6 +3698,1106 @@ fn reconstruct_tiled_sparse_matrix(
         }
     }
     Some((matrix, occupancy))
+}
+
+/// Validate the complete, case-scoped Phase 4 WSI tile Segmentation contract.
+///
+/// The generic Part 10 validator establishes encoding and Image Pixel invariants
+/// first. This pass then reopens both objects and independently proves the SEG's
+/// slide geometry, dimension model, source-frame graph, native payload, and
+/// zero-filled total-pixel-matrix reconstruction.
+pub(crate) fn validate_wsi_tile_segmentation_file(
+    path: &Path,
+    identity: &Part10Expectations<'_>,
+    expected: &WsiTileSegmentationExpectations<'_>,
+) -> Result<ValidatedPart10, GenerateError> {
+    let mut validated = validate_part10_file(path, identity)?;
+    let obj = open_file(path).map_err(|err| GenerateError::ValidateDicomFile {
+        path: path.to_path_buf(),
+        message: err.to_string(),
+    })?;
+    let source =
+        open_file(expected.source_path).map_err(|err| GenerateError::ValidateDicomFile {
+            path: expected.source_path.to_path_buf(),
+            message: format!("reopen WSI tile segmentation source: {err}"),
+        })?;
+    let mut internal = Vec::new();
+    validate_wsi_tile_segmentation(path, &obj, &source, &mut internal, identity, expected)?;
+    fail_if_any_failed(path, &internal)?;
+
+    validated
+        .validation
+        .get_mut("internal")
+        .and_then(Value::as_array_mut)
+        .ok_or_else(|| GenerateError::ValidateDicomFile {
+            path: path.to_path_buf(),
+            message: "generic validation result has no internal findings array".to_string(),
+        })?
+        .extend(internal);
+    if let Some(standards) = validated
+        .validation
+        .get_mut("standards")
+        .and_then(Value::as_array_mut)
+    {
+        standards.push(serde_json::json!({
+            "name": "wsi_tile_segmentation_contract",
+            "status": "passed",
+            "message": "WSI tile SEG identity, shared and per-frame functional groups, exact source-frame derivations, slide geometry, native payload, zero-filled reconstruction, specimen identity, and locked absences match the Phase 4 contract."
+        }));
+    }
+    Ok(validated)
+}
+
+fn validate_wsi_tile_segmentation(
+    path: &Path,
+    obj: &OpenedObject,
+    source: &OpenedObject,
+    internal: &mut Vec<Value>,
+    identity: &Part10Expectations<'_>,
+    expected: &WsiTileSegmentationExpectations<'_>,
+) -> Result<(), GenerateError> {
+    const SEG_SOP_CLASS_UID: &str = "1.2.840.10008.5.1.4.1.1.66.4";
+    const FRAME_HASHES: [&str; 2] = [
+        "34aaa746c25a0f105c4316bbb1f009aa359f49582656ee97d73c58132d563423",
+        "10db5223d19bd1d58c2b8eb3c723b0ba104cf17564f9434e53e1b9e642fb3b37",
+    ];
+    const SOURCE_FRAME_HASHES: [&str; 2] = [
+        "fcf067f6323bb42b8292a565a8f826ec5fdb1b142b7a69bf7f7721f0d5d46ef8",
+        "8688d249e9d047b4fc2fb89ce05afe9ec89252ffccdd969de6eef260dd7ffb21",
+    ];
+    const PAYLOAD_HASH: &str = "74fa7cbb10160e0eb1f16f35fa9ad0e7f2712af56019996e88cf1034be92635e";
+    const MATRIX_HASH: &str = "a8ec6f910c0fb02685163a3251bed92517d1016c9173f1e4f021e6b4194f2467";
+
+    check(
+        internal,
+        identity.sop_class_uid == SEG_SOP_CLASS_UID
+            && identity.transfer_syntax_uid == uids::EXPLICIT_VR_LITTLE_ENDIAN
+            && identity.rows == 2
+            && identity.columns == 2
+            && identity.frames == 2
+            && identity.samples_per_pixel == 1
+            && identity.photometric_interpretation == "MONOCHROME2"
+            && identity.bits_allocated == 8
+            && identity.bits_stored == 8
+            && identity.high_bit == 7
+            && identity.pixel_representation == 0
+            && identity.planar_configuration.is_none()
+            && identity.pixel_data_vr == VR::OB
+            && matches!(
+                identity.pixel_data_length_formula,
+                PixelDataLengthFormula::ContiguousSamples
+            ),
+        "wsi_tile_seg_identity_contract",
+        "Manifest image identity matches the locked native fractional SEG contract.",
+        "Manifest image identity differs from the locked native fractional SEG contract.",
+    );
+    check(
+        internal,
+        valid_dicom_uid(expected.dimension_organization_uid),
+        "wsi_tile_seg_dimension_uid_syntax",
+        "Dimension Organization UID is syntactically valid.",
+        "Dimension Organization UID is not syntactically valid.",
+    );
+
+    validate_wsi_tile_segmentation_source(expected, source, internal, &SOURCE_FRAME_HASHES)?;
+
+    for (name, tag, locked) in [
+        ("modality", tags::MODALITY, "SEG"),
+        ("image_type", tags::IMAGE_TYPE, "DERIVED\\PRIMARY"),
+        ("segmentation_type", TAG_SEGMENTATION_TYPE, "FRACTIONAL"),
+        (
+            "fractional_type",
+            TAG_SEGMENTATION_FRACTIONAL_TYPE,
+            "OCCUPANCY",
+        ),
+        ("segments_overlap", tags::SEGMENTS_OVERLAP, "NO"),
+        (
+            "lossy_image_compression",
+            tags::LOSSY_IMAGE_COMPRESSION,
+            "00",
+        ),
+        (
+            "dimension_organization_type",
+            tags::DIMENSION_ORGANIZATION_TYPE,
+            "TILED_SPARSE",
+        ),
+        (
+            "study_instance_uid",
+            tags::STUDY_INSTANCE_UID,
+            expected.source_study_instance_uid,
+        ),
+        (
+            "frame_of_reference_uid",
+            tags::FRAME_OF_REFERENCE_UID,
+            expected.frame_of_reference_uid,
+        ),
+        (
+            "container_identifier",
+            tags::CONTAINER_IDENTIFIER,
+            expected.container_identifier,
+        ),
+    ] {
+        check_equal(
+            internal,
+            &format!("wsi_tile_seg_{name}"),
+            "SEG top-level attribute matches the locked contract.",
+            "SEG top-level attribute differs from the locked contract.",
+            element_str(path, obj, tag)?.as_str(),
+            locked,
+        );
+    }
+    check_equal(
+        internal,
+        "wsi_tile_seg_maximum_fractional_value",
+        "Maximum Fractional Value is 255.",
+        "Maximum Fractional Value differs from 255.",
+        element_u16(path, obj, TAG_MAXIMUM_FRACTIONAL_VALUE)?,
+        255,
+    );
+    for (name, tag, locked) in [
+        ("total_rows", tags::TOTAL_PIXEL_MATRIX_ROWS, 4),
+        ("total_columns", tags::TOTAL_PIXEL_MATRIX_COLUMNS, 4),
+        ("focal_planes", tags::TOTAL_PIXEL_MATRIX_FOCAL_PLANES, 1),
+    ] {
+        check_equal(
+            internal,
+            &format!("wsi_tile_seg_{name}"),
+            "SEG total-matrix cardinality matches the source.",
+            "SEG total-matrix cardinality differs from the source.",
+            element_u32(path, obj, tag)?,
+            locked,
+        );
+    }
+    check_equal(
+        internal,
+        "wsi_tile_seg_orientation",
+        "SEG inherits the source Image Orientation (Slide).",
+        "SEG Image Orientation (Slide) differs from the source.",
+        element_f64_values(path, obj, tags::IMAGE_ORIENTATION_SLIDE)?,
+        element_f64_values(expected.source_path, source, tags::IMAGE_ORIENTATION_SLIDE)?,
+    );
+    validate_wsi_tile_segmentation_origin(path, obj, source, expected.source_path, internal)?;
+    validate_wsi_tile_segmentation_segment(path, obj, internal)?;
+    validate_wsi_tile_segmentation_dimensions(path, obj, internal, expected)?;
+    validate_wsi_tile_segmentation_shared(path, obj, source, expected.source_path, internal)?;
+    let positions = validate_wsi_tile_segmentation_frames(path, obj, internal, expected)?;
+    validate_wsi_tile_segmentation_common_reference(path, obj, internal, expected)?;
+    validate_wsi_tile_segmentation_pixels(
+        path,
+        obj,
+        internal,
+        &positions,
+        &FRAME_HASHES,
+        PAYLOAD_HASH,
+        MATRIX_HASH,
+    )?;
+    validate_wsi_tile_segmentation_specimen(path, obj, internal, expected.specimen_uid)?;
+    validate_wsi_tile_segmentation_absences(obj, internal);
+    Ok(())
+}
+
+fn validate_wsi_tile_segmentation_source(
+    expected: &WsiTileSegmentationExpectations<'_>,
+    source: &OpenedObject,
+    internal: &mut Vec<Value>,
+    frame_hashes: &[&str; 2],
+) -> Result<(), GenerateError> {
+    let path = expected.source_path;
+    let bytes = fs::read(path).map_err(|source| GenerateError::ReadGeneratedFile {
+        path: path.to_path_buf(),
+        source,
+    })?;
+    check_equal(
+        internal,
+        "wsi_tile_seg_source_file_sha256",
+        "Reopened source file hash matches the generated-source record.",
+        "Reopened source file hash differs from the generated-source record.",
+        sha256_hex(&bytes).as_str(),
+        expected.source_sha256,
+    );
+    check(
+        internal,
+        source.meta().media_storage_sop_class_uid() == expected.source_sop_class_uid
+            && source.meta().media_storage_sop_instance_uid() == expected.source_sop_instance_uid
+            && source.meta().transfer_syntax() == uids::EXPLICIT_VR_LITTLE_ENDIAN,
+        "wsi_tile_seg_source_meta_identity",
+        "Source File Meta Information matches the locked WSI identity.",
+        "Source File Meta Information differs from the locked WSI identity.",
+    );
+    for (name, tag, locked) in [
+        (
+            "sop_class_uid",
+            tags::SOP_CLASS_UID,
+            expected.source_sop_class_uid,
+        ),
+        (
+            "sop_instance_uid",
+            tags::SOP_INSTANCE_UID,
+            expected.source_sop_instance_uid,
+        ),
+        (
+            "study_instance_uid",
+            tags::STUDY_INSTANCE_UID,
+            expected.source_study_instance_uid,
+        ),
+        (
+            "series_instance_uid",
+            tags::SERIES_INSTANCE_UID,
+            expected.source_series_instance_uid,
+        ),
+        (
+            "frame_of_reference_uid",
+            tags::FRAME_OF_REFERENCE_UID,
+            expected.frame_of_reference_uid,
+        ),
+        ("modality", tags::MODALITY, "SM"),
+        (
+            "dimension_organization_type",
+            tags::DIMENSION_ORGANIZATION_TYPE,
+            "TILED_FULL",
+        ),
+    ] {
+        check_equal(
+            internal,
+            &format!("wsi_tile_seg_source_{name}"),
+            "Reopened source attribute matches the locked source record.",
+            "Reopened source attribute differs from the locked source record.",
+            element_str(path, source, tag)?.as_str(),
+            locked,
+        );
+    }
+    check(
+        internal,
+        expected.source_sop_class_uid == "1.2.840.10008.5.1.4.1.1.77.1.6",
+        "wsi_tile_seg_source_sop_class",
+        "Source is VL Whole Slide Microscopy Image Storage.",
+        "Source is not VL Whole Slide Microscopy Image Storage.",
+    );
+    check(
+        internal,
+        element_u16(path, source, tags::ROWS)? == 2
+            && element_u16(path, source, tags::COLUMNS)? == 2
+            && element_u32(path, source, tags::NUMBER_OF_FRAMES)? == 4
+            && element_u32(path, source, tags::TOTAL_PIXEL_MATRIX_ROWS)? == 4
+            && element_u32(path, source, tags::TOTAL_PIXEL_MATRIX_COLUMNS)? == 4
+            && element_u32(path, source, tags::TOTAL_PIXEL_MATRIX_FOCAL_PLANES)? == 1
+            && element_u16(path, source, tags::SAMPLES_PER_PIXEL)? == 3
+            && element_u16(path, source, tags::PLANAR_CONFIGURATION)? == 0
+            && element_u16(path, source, tags::BITS_ALLOCATED)? == 8
+            && element_u16(path, source, tags::BITS_STORED)? == 8
+            && element_u16(path, source, tags::HIGH_BIT)? == 7
+            && element_u16(path, source, tags::PIXEL_REPRESENTATION)? == 0,
+        "wsi_tile_seg_source_pixel_shape",
+        "Reopened source is the locked four-frame 2x2 RGB WSI.",
+        "Reopened source pixel shape differs from the locked WSI.",
+    );
+    let pixel = source
+        .element(tags::PIXEL_DATA)
+        .map_err(|err| validation_error(path, err))?;
+    let payload = pixel
+        .value()
+        .to_bytes()
+        .map_err(|err| validation_error(path, err))?;
+    for (output_index, source_index) in [0_usize, 3].into_iter().enumerate() {
+        let actual = payload
+            .get(source_index * 12..source_index * 12 + 12)
+            .map(sha256_hex);
+        check_equal(
+            internal,
+            &format!("wsi_tile_seg_source_frame_{}_sha256", source_index + 1),
+            "Referenced source WSI Frame hash matches the locked source tile.",
+            "Referenced source WSI Frame hash differs from the locked source tile.",
+            actual.as_deref(),
+            Some(frame_hashes[output_index]),
+        );
+    }
+    Ok(())
+}
+
+fn validate_wsi_tile_segmentation_origin(
+    path: &Path,
+    obj: &OpenedObject,
+    source: &OpenedObject,
+    source_path: &Path,
+    internal: &mut Vec<Value>,
+) -> Result<(), GenerateError> {
+    check_equal(
+        internal,
+        "wsi_tile_seg_origin_items",
+        "SEG Total Pixel Matrix Origin has one item.",
+        "SEG Total Pixel Matrix Origin does not have one item.",
+        sequence_item_count(path, obj, tags::TOTAL_PIXEL_MATRIX_ORIGIN_SEQUENCE)?,
+        1,
+    );
+    let actual = top_level_sequence_item(path, obj, tags::TOTAL_PIXEL_MATRIX_ORIGIN_SEQUENCE, 0)?;
+    let locked = top_level_sequence_item(
+        source_path,
+        source,
+        tags::TOTAL_PIXEL_MATRIX_ORIGIN_SEQUENCE,
+        0,
+    )?;
+    for (name, tag) in [
+        ("x", tags::X_OFFSET_IN_SLIDE_COORDINATE_SYSTEM),
+        ("y", tags::Y_OFFSET_IN_SLIDE_COORDINATE_SYSTEM),
+        ("z", tags::Z_OFFSET_IN_SLIDE_COORDINATE_SYSTEM),
+    ] {
+        check_equal(
+            internal,
+            &format!("wsi_tile_seg_origin_{name}"),
+            "SEG inherits the source total-matrix origin component.",
+            "SEG total-matrix origin component differs from the source.",
+            item_f64(path, actual, tag)?,
+            item_f64(source_path, locked, tag)?,
+        );
+    }
+    Ok(())
+}
+
+fn validate_wsi_tile_segmentation_segment(
+    path: &Path,
+    obj: &OpenedObject,
+    internal: &mut Vec<Value>,
+) -> Result<(), GenerateError> {
+    check_equal(
+        internal,
+        "wsi_tile_seg_segment_items",
+        "Segment Sequence contains exactly one segment.",
+        "Segment Sequence does not contain exactly one segment.",
+        sequence_item_count(path, obj, TAG_SEGMENT_SEQUENCE)?,
+        1,
+    );
+    let segment = top_level_sequence_item(path, obj, TAG_SEGMENT_SEQUENCE, 0)?;
+    check_equal(
+        internal,
+        "wsi_tile_seg_segment_number",
+        "Segment Number is one.",
+        "Segment Number is not one.",
+        item_u16(path, segment, TAG_SEGMENT_NUMBER)?,
+        1,
+    );
+    for (name, tag, locked) in [
+        ("label", tags::SEGMENT_LABEL, "DTS_SYNTHETIC_REGION"),
+        ("algorithm_type", TAG_SEGMENT_ALGORITHM_TYPE, "MANUAL"),
+    ] {
+        check_equal(
+            internal,
+            &format!("wsi_tile_seg_segment_{name}"),
+            "Segment description matches the locked manual segment.",
+            "Segment description differs from the locked manual segment.",
+            item_str(path, segment, tag)?.as_str(),
+            locked,
+        );
+    }
+    validate_wsi_tile_segmentation_code(
+        path,
+        segment,
+        tags::SEGMENTED_PROPERTY_CATEGORY_CODE_SEQUENCE,
+        "segment_category",
+        internal,
+        ("85756007", "SCT", "Tissue"),
+    )?;
+    validate_wsi_tile_segmentation_code(
+        path,
+        segment,
+        tags::SEGMENTED_PROPERTY_TYPE_CODE_SEQUENCE,
+        "segment_property",
+        internal,
+        ("113343", "DCM", "Organ"),
+    )?;
+    check(
+        internal,
+        [
+            tags::SEGMENTATION_ALGORITHM_IDENTIFICATION_SEQUENCE,
+            tags::TRACKING_ID,
+            tags::TRACKING_UID,
+        ]
+        .iter()
+        .all(|tag| segment.element_opt(*tag).is_ok_and(|value| value.is_none())),
+        "wsi_tile_seg_segment_optional_identity_absent",
+        "Tracking and algorithm-identification attributes are absent.",
+        "Tracking or algorithm-identification attributes are unexpectedly present.",
+    );
+    Ok(())
+}
+
+fn validate_wsi_tile_segmentation_code(
+    path: &Path,
+    parent: &DatasetObject,
+    sequence_tag: Tag,
+    name: &str,
+    internal: &mut Vec<Value>,
+    locked: (&str, &str, &str),
+) -> Result<(), GenerateError> {
+    check_equal(
+        internal,
+        &format!("wsi_tile_seg_{name}_items"),
+        "Coded sequence contains exactly one item.",
+        "Coded sequence does not contain exactly one item.",
+        item_sequence_item_count(path, parent, sequence_tag)?,
+        1,
+    );
+    let code = item_sequence_item(path, parent, sequence_tag, 0)?;
+    for (suffix, tag, expected) in [
+        ("value", tags::CODE_VALUE, locked.0),
+        ("scheme", tags::CODING_SCHEME_DESIGNATOR, locked.1),
+        ("meaning", tags::CODE_MEANING, locked.2),
+    ] {
+        check_equal(
+            internal,
+            &format!("wsi_tile_seg_{name}_{suffix}"),
+            "Coded value matches the locked concept.",
+            "Coded value differs from the locked concept.",
+            item_str(path, code, tag)?.as_str(),
+            expected,
+        );
+    }
+    Ok(())
+}
+
+fn validate_wsi_tile_segmentation_dimensions(
+    path: &Path,
+    obj: &OpenedObject,
+    internal: &mut Vec<Value>,
+    expected: &WsiTileSegmentationExpectations<'_>,
+) -> Result<(), GenerateError> {
+    check_equal(
+        internal,
+        "wsi_tile_seg_dimension_organization_items",
+        "Dimension Organization Sequence has exactly one item.",
+        "Dimension Organization Sequence does not have exactly one item.",
+        sequence_item_count(path, obj, tags::DIMENSION_ORGANIZATION_SEQUENCE)?,
+        1,
+    );
+    let organization =
+        top_level_sequence_item(path, obj, tags::DIMENSION_ORGANIZATION_SEQUENCE, 0)?;
+    check_equal(
+        internal,
+        "wsi_tile_seg_dimension_organization_uid",
+        "Dimension Organization UID matches the generated identity.",
+        "Dimension Organization UID differs from the generated identity.",
+        item_str(path, organization, tags::DIMENSION_ORGANIZATION_UID)?.as_str(),
+        expected.dimension_organization_uid,
+    );
+    check_equal(
+        internal,
+        "wsi_tile_seg_dimension_index_items",
+        "Dimension Index Sequence has exactly three ordered items.",
+        "Dimension Index Sequence does not have exactly three ordered items.",
+        sequence_item_count(path, obj, tags::DIMENSION_INDEX_SEQUENCE)?,
+        3,
+    );
+    for (index, pointer, group) in [
+        (
+            0,
+            TAG_REFERENCED_SEGMENT_NUMBER,
+            TAG_SEGMENT_IDENTIFICATION_SEQUENCE,
+        ),
+        (
+            1,
+            tags::ROW_POSITION_IN_TOTAL_IMAGE_PIXEL_MATRIX,
+            tags::PLANE_POSITION_SLIDE_SEQUENCE,
+        ),
+        (
+            2,
+            tags::COLUMN_POSITION_IN_TOTAL_IMAGE_PIXEL_MATRIX,
+            tags::PLANE_POSITION_SLIDE_SEQUENCE,
+        ),
+    ] {
+        let item = top_level_sequence_item(path, obj, tags::DIMENSION_INDEX_SEQUENCE, index)?;
+        check_equal(
+            internal,
+            &format!("wsi_tile_seg_dimension_{}_pointer", index + 1),
+            "Dimension Index Pointer matches the locked order.",
+            "Dimension Index Pointer differs from the locked order.",
+            item_tag(path, item, tags::DIMENSION_INDEX_POINTER)?,
+            pointer,
+        );
+        check_equal(
+            internal,
+            &format!("wsi_tile_seg_dimension_{}_group", index + 1),
+            "Functional Group Pointer matches the locked macro.",
+            "Functional Group Pointer differs from the locked macro.",
+            item_tag(path, item, tags::FUNCTIONAL_GROUP_POINTER)?,
+            group,
+        );
+        check_equal(
+            internal,
+            &format!("wsi_tile_seg_dimension_{}_uid", index + 1),
+            "Dimension index references the generated organization UID.",
+            "Dimension index references a different organization UID.",
+            item_str(path, item, tags::DIMENSION_ORGANIZATION_UID)?.as_str(),
+            expected.dimension_organization_uid,
+        );
+        check(
+            internal,
+            item.element_opt(tags::DIMENSION_INDEX_PRIVATE_CREATOR)
+                .is_ok_and(|value| value.is_none())
+                && item
+                    .element_opt(tags::FUNCTIONAL_GROUP_PRIVATE_CREATOR)
+                    .is_ok_and(|value| value.is_none()),
+            &format!("wsi_tile_seg_dimension_{}_private_absent", index + 1),
+            "Dimension private-creator attributes are absent.",
+            "Dimension private-creator attributes are unexpectedly present.",
+        );
+    }
+    Ok(())
+}
+
+fn validate_wsi_tile_segmentation_shared(
+    path: &Path,
+    obj: &OpenedObject,
+    source: &OpenedObject,
+    source_path: &Path,
+    internal: &mut Vec<Value>,
+) -> Result<(), GenerateError> {
+    check_equal(
+        internal,
+        "wsi_tile_seg_shared_items",
+        "Shared Functional Groups Sequence has one item.",
+        "Shared Functional Groups Sequence does not have one item.",
+        sequence_item_count(path, obj, tags::SHARED_FUNCTIONAL_GROUPS_SEQUENCE)?,
+        1,
+    );
+    let shared = top_level_sequence_item(path, obj, tags::SHARED_FUNCTIONAL_GROUPS_SEQUENCE, 0)?;
+    check(
+        internal,
+        shared.iter().count() == 2
+            && shared.iter().all(|element| {
+                matches!(
+                    element.tag(),
+                    tags::PIXEL_MEASURES_SEQUENCE | TAG_SEGMENT_IDENTIFICATION_SEQUENCE
+                )
+            }),
+        "wsi_tile_seg_shared_macro_set",
+        "Shared Functional Groups contain exactly Pixel Measures and Segment Identification.",
+        "Shared Functional Groups contain an unexpected or missing macro.",
+    );
+    let identification = item_sequence_item(path, shared, TAG_SEGMENT_IDENTIFICATION_SEQUENCE, 0)?;
+    check_equal(
+        internal,
+        "wsi_tile_seg_shared_segment_identification_items",
+        "Shared Segment Identification has one item.",
+        "Shared Segment Identification does not have one item.",
+        item_sequence_item_count(path, shared, TAG_SEGMENT_IDENTIFICATION_SEQUENCE)?,
+        1,
+    );
+    check(
+        internal,
+        identification.iter().count() == 1
+            && identification
+                .iter()
+                .all(|element| element.tag() == TAG_REFERENCED_SEGMENT_NUMBER),
+        "wsi_tile_seg_shared_segment_identification_attributes",
+        "Shared Segment Identification contains exactly Referenced Segment Number.",
+        "Shared Segment Identification contains an unexpected or missing attribute.",
+    );
+    check_equal(
+        internal,
+        "wsi_tile_seg_shared_referenced_segment_number",
+        "Shared Segment Identification references Segment 1.",
+        "Shared Segment Identification does not reference Segment 1.",
+        item_u16(path, identification, TAG_REFERENCED_SEGMENT_NUMBER)?,
+        1,
+    );
+
+    let measures = item_sequence_item(path, shared, tags::PIXEL_MEASURES_SEQUENCE, 0)?;
+    let source_shared = top_level_sequence_item(
+        source_path,
+        source,
+        tags::SHARED_FUNCTIONAL_GROUPS_SEQUENCE,
+        0,
+    )?;
+    let source_measures =
+        item_sequence_item(source_path, source_shared, tags::PIXEL_MEASURES_SEQUENCE, 0)?;
+    check_equal(
+        internal,
+        "wsi_tile_seg_pixel_measures_items",
+        "Shared Pixel Measures has one item.",
+        "Shared Pixel Measures does not have one item.",
+        item_sequence_item_count(path, shared, tags::PIXEL_MEASURES_SEQUENCE)?,
+        1,
+    );
+    check_equal(
+        internal,
+        "wsi_tile_seg_pixel_spacing",
+        "SEG Pixel Spacing equals the source WSI Pixel Spacing.",
+        "SEG Pixel Spacing differs from the source WSI Pixel Spacing.",
+        item_f64_values(path, measures, tags::PIXEL_SPACING)?,
+        item_f64_values(source_path, source_measures, tags::PIXEL_SPACING)?,
+    );
+    check_equal(
+        internal,
+        "wsi_tile_seg_slice_thickness",
+        "SEG Slice Thickness equals the source WSI Slice Thickness.",
+        "SEG Slice Thickness differs from the source WSI Slice Thickness.",
+        item_f64(path, measures, tags::SLICE_THICKNESS)?,
+        item_f64(source_path, source_measures, tags::SLICE_THICKNESS)?,
+    );
+    Ok(())
+}
+
+fn validate_wsi_tile_segmentation_frames(
+    path: &Path,
+    obj: &OpenedObject,
+    internal: &mut Vec<Value>,
+    expected: &WsiTileSegmentationExpectations<'_>,
+) -> Result<Vec<(usize, usize)>, GenerateError> {
+    const LOCKED: [([u32; 3], usize, usize, f64, f64, u16); 2] = [
+        ([1, 1, 1], 1, 1, 0.0, 0.0, 1),
+        ([1, 2, 2], 3, 3, 1.0, 1.0, 4),
+    ];
+    check_equal(
+        internal,
+        "wsi_tile_seg_per_frame_items",
+        "Per-Frame Functional Groups Sequence has exactly two items.",
+        "Per-Frame Functional Groups Sequence does not have exactly two items.",
+        sequence_item_count(path, obj, tags::PER_FRAME_FUNCTIONAL_GROUPS_SEQUENCE)?,
+        2,
+    );
+    let mut positions = Vec::with_capacity(2);
+    for (index, (dimension_values, column, row, x, y, source_frame)) in
+        LOCKED.into_iter().enumerate()
+    {
+        let frame =
+            top_level_sequence_item(path, obj, tags::PER_FRAME_FUNCTIONAL_GROUPS_SEQUENCE, index)?;
+        check(
+            internal,
+            frame.iter().count() == 3
+                && frame.iter().all(|element| {
+                    matches!(
+                        element.tag(),
+                        tags::FRAME_CONTENT_SEQUENCE
+                            | tags::PLANE_POSITION_SLIDE_SEQUENCE
+                            | TAG_DERIVATION_IMAGE_SEQUENCE
+                    )
+                }),
+            &format!("wsi_tile_seg_frame_{}_macro_set", index + 1),
+            "Per-frame item contains exactly Frame Content, Plane Position (Slide), and Derivation Image.",
+            "Per-frame item contains an unexpected or missing macro.",
+        );
+        for (name, tag) in [
+            ("content", tags::FRAME_CONTENT_SEQUENCE),
+            ("position", tags::PLANE_POSITION_SLIDE_SEQUENCE),
+            ("derivation", TAG_DERIVATION_IMAGE_SEQUENCE),
+        ] {
+            check_equal(
+                internal,
+                &format!("wsi_tile_seg_frame_{}_{}_items", index + 1, name),
+                "Per-frame macro has exactly one item.",
+                "Per-frame macro does not have exactly one item.",
+                item_sequence_item_count(path, frame, tag)?,
+                1,
+            );
+        }
+
+        let content = item_sequence_item(path, frame, tags::FRAME_CONTENT_SEQUENCE, 0)?;
+        check(
+            internal,
+            content.iter().count() == 1
+                && content
+                    .iter()
+                    .all(|element| element.tag() == tags::DIMENSION_INDEX_VALUES),
+            &format!("wsi_tile_seg_frame_{}_content_attributes", index + 1),
+            "Frame Content contains exactly Dimension Index Values.",
+            "Frame Content contains an unexpected or missing attribute.",
+        );
+        check_equal(
+            internal,
+            &format!("wsi_tile_seg_frame_{}_dimension_values", index + 1),
+            "Dimension Index Values match the locked segment, row, and column ordinals.",
+            "Dimension Index Values differ from the locked ordinals.",
+            item_u32_values(path, content, tags::DIMENSION_INDEX_VALUES)?,
+            dimension_values.to_vec(),
+        );
+
+        let plane = item_sequence_item(path, frame, tags::PLANE_POSITION_SLIDE_SEQUENCE, 0)?;
+        check(
+            internal,
+            plane.iter().count() == 5
+                && plane.iter().all(|element| {
+                    matches!(
+                        element.tag(),
+                        tags::COLUMN_POSITION_IN_TOTAL_IMAGE_PIXEL_MATRIX
+                            | tags::ROW_POSITION_IN_TOTAL_IMAGE_PIXEL_MATRIX
+                            | tags::X_OFFSET_IN_SLIDE_COORDINATE_SYSTEM
+                            | tags::Y_OFFSET_IN_SLIDE_COORDINATE_SYSTEM
+                            | tags::Z_OFFSET_IN_SLIDE_COORDINATE_SYSTEM
+                    )
+                }),
+            &format!("wsi_tile_seg_frame_{}_position_attributes", index + 1),
+            "Plane Position (Slide) contains exactly the locked five position attributes.",
+            "Plane Position (Slide) contains an unexpected or missing attribute.",
+        );
+        let actual_column = item_u32(
+            path,
+            plane,
+            tags::COLUMN_POSITION_IN_TOTAL_IMAGE_PIXEL_MATRIX,
+        )? as usize;
+        let actual_row =
+            item_u32(path, plane, tags::ROW_POSITION_IN_TOTAL_IMAGE_PIXEL_MATRIX)? as usize;
+        for (name, actual, locked) in [("column", actual_column, column), ("row", actual_row, row)]
+        {
+            check_equal(
+                internal,
+                &format!("wsi_tile_seg_frame_{}_{}_position", index + 1, name),
+                "Tile position matches the locked diagonal placement.",
+                "Tile position differs from the locked diagonal placement.",
+                actual,
+                locked,
+            );
+        }
+        for (name, tag, locked) in [
+            ("x", tags::X_OFFSET_IN_SLIDE_COORDINATE_SYSTEM, x),
+            ("y", tags::Y_OFFSET_IN_SLIDE_COORDINATE_SYSTEM, y),
+            ("z", tags::Z_OFFSET_IN_SLIDE_COORDINATE_SYSTEM, 0.0),
+        ] {
+            check_equal(
+                internal,
+                &format!("wsi_tile_seg_frame_{}_{}_offset", index + 1, name),
+                "Slide-coordinate offset matches the source tile geometry.",
+                "Slide-coordinate offset differs from the source tile geometry.",
+                item_f64(path, plane, tag)?,
+                locked,
+            );
+        }
+
+        let derivation = item_sequence_item(path, frame, TAG_DERIVATION_IMAGE_SEQUENCE, 0)?;
+        check(
+            internal,
+            derivation.iter().count() == 2
+                && derivation.iter().all(|element| {
+                    matches!(
+                        element.tag(),
+                        tags::DERIVATION_CODE_SEQUENCE | TAG_SOURCE_IMAGE_SEQUENCE
+                    )
+                }),
+            &format!("wsi_tile_seg_frame_{}_derivation_attributes", index + 1),
+            "Derivation Image contains exactly Derivation Code and Source Image.",
+            "Derivation Image contains an unexpected or missing attribute.",
+        );
+        validate_wsi_tile_segmentation_code(
+            path,
+            derivation,
+            tags::DERIVATION_CODE_SEQUENCE,
+            &format!("frame_{}_derivation", index + 1),
+            internal,
+            ("113076", "DCM", "Segmentation"),
+        )?;
+        let source = item_sequence_item(path, derivation, TAG_SOURCE_IMAGE_SEQUENCE, 0)?;
+        check_equal(
+            internal,
+            &format!("wsi_tile_seg_frame_{}_source_items", index + 1),
+            "Derivation contains exactly one Source Image item.",
+            "Derivation does not contain exactly one Source Image item.",
+            item_sequence_item_count(path, derivation, TAG_SOURCE_IMAGE_SEQUENCE)?,
+            1,
+        );
+        check(
+            internal,
+            source.iter().count() == 5
+                && source.iter().all(|element| {
+                    matches!(
+                        element.tag(),
+                        TAG_REFERENCED_SOP_CLASS_UID
+                            | TAG_REFERENCED_SOP_INSTANCE_UID
+                            | TAG_REFERENCED_FRAME_NUMBER
+                            | tags::PURPOSE_OF_REFERENCE_CODE_SEQUENCE
+                            | tags::SPATIAL_LOCATIONS_PRESERVED
+                    )
+                }),
+            &format!("wsi_tile_seg_frame_{}_source_attributes", index + 1),
+            "Source Image contains exactly the locked identity, frame, purpose, and spatial-preservation attributes.",
+            "Source Image contains an unexpected or missing attribute.",
+        );
+        for (name, tag, locked) in [
+            (
+                "sop_class_uid",
+                TAG_REFERENCED_SOP_CLASS_UID,
+                expected.source_sop_class_uid,
+            ),
+            (
+                "sop_instance_uid",
+                TAG_REFERENCED_SOP_INSTANCE_UID,
+                expected.source_sop_instance_uid,
+            ),
+            (
+                "spatial_locations_preserved",
+                tags::SPATIAL_LOCATIONS_PRESERVED,
+                "YES",
+            ),
+        ] {
+            check_equal(
+                internal,
+                &format!("wsi_tile_seg_frame_{}_source_{name}", index + 1),
+                "Source Image attribute matches the exact source relationship.",
+                "Source Image attribute differs from the exact source relationship.",
+                item_str(path, source, tag)?.as_str(),
+                locked,
+            );
+        }
+        check_equal(
+            internal,
+            &format!("wsi_tile_seg_frame_{}_source_frame", index + 1),
+            "Source Image references the locked WSI Frame.",
+            "Source Image references a different WSI Frame.",
+            item_u16(path, source, TAG_REFERENCED_FRAME_NUMBER)?,
+            source_frame,
+        );
+        validate_wsi_tile_segmentation_code(
+            path,
+            source,
+            tags::PURPOSE_OF_REFERENCE_CODE_SEQUENCE,
+            &format!("frame_{}_purpose", index + 1),
+            internal,
+            (
+                "121322",
+                "DCM",
+                "Source Image for Image Processing Operation",
+            ),
+        )?;
+        positions.push((actual_column, actual_row));
+    }
+    Ok(positions)
+}
+
+fn validate_wsi_tile_segmentation_common_reference(
+    path: &Path,
+    obj: &OpenedObject,
+    internal: &mut Vec<Value>,
+    expected: &WsiTileSegmentationExpectations<'_>,
+) -> Result<(), GenerateError> {
+    check_equal(
+        internal,
+        "wsi_tile_seg_referenced_series_items",
+        "Referenced Series Sequence contains exactly the source WSI Series.",
+        "Referenced Series Sequence does not contain exactly the source WSI Series.",
+        sequence_item_count(path, obj, TAG_REFERENCED_SERIES_SEQUENCE)?,
+        1,
+    );
+    let series = top_level_sequence_item(path, obj, TAG_REFERENCED_SERIES_SEQUENCE, 0)?;
+    check_equal(
+        internal,
+        "wsi_tile_seg_referenced_series_uid",
+        "Common Instance Reference identifies the exact source Series.",
+        "Common Instance Reference identifies a different source Series.",
+        item_str(path, series, tags::SERIES_INSTANCE_UID)?.as_str(),
+        expected.source_series_instance_uid,
+    );
+    check_equal(
+        internal,
+        "wsi_tile_seg_referenced_instance_items",
+        "Referenced Instance Sequence contains exactly the source WSI instance.",
+        "Referenced Instance Sequence does not contain exactly the source WSI instance.",
+        item_sequence_item_count(path, series, TAG_REFERENCED_INSTANCE_SEQUENCE)?,
+        1,
+    );
+    let instance = item_sequence_item(path, series, TAG_REFERENCED_INSTANCE_SEQUENCE, 0)?;
+    for (name, tag, locked) in [
+        (
+            "sop_class_uid",
+            TAG_REFERENCED_SOP_CLASS_UID,
+            expected.source_sop_class_uid,
+        ),
+        (
+            "sop_instance_uid",
+            TAG_REFERENCED_SOP_INSTANCE_UID,
+            expected.source_sop_instance_uid,
+        ),
+    ] {
+        check_equal(
+            internal,
+            &format!("wsi_tile_seg_common_reference_{name}"),
+            "Common Instance Reference matches the source WSI identity.",
+            "Common Instance Reference differs from the source WSI identity.",
+            item_str(path, instance, tag)?.as_str(),
+            locked,
+        );
+    }
+    Ok(())
+}
+
+fn validate_wsi_tile_segmentation_pixels(
+    path: &Path,
+    obj: &OpenedObject,
+    internal: &mut Vec<Value>,
+    positions: &[(usize, usize)],
+    frame_hashes: &[&str; 2],
+    payload_hash: &str,
+    matrix_hash: &str,
+) -> Result<(), GenerateError> {
+    let pixel = obj
+        .element(tags::PIXEL_DATA)
+        .map_err(|err| validation_error(path, err))?;
+    let bytes = pixel
+        .value()
+        .to_bytes()
+        .map_err(|err| validation_error(path, err))?;
+    check_equal(
+        internal,
+        "wsi_tile_seg_pixel_vr",
+        "Pixel Data uses native OB storage.",
+        "Pixel Data does not use native OB storage.",
+        pixel.vr(),
+        VR::OB,
+    );
+    check_equal(
+        internal,
+        "wsi_tile_seg_pixel_length",
+        "Pixel Data contains exactly two 2x2 8-bit Frames.",
+        "Pixel Data length differs from two 2x2 8-bit Frames.",
+        bytes.len(),
+        8,
+    );
+    check_equal(
+        internal,
+        "wsi_tile_seg_payload_sha256",
+        "Stored SEG payload hash matches the locked value.",
+        "Stored SEG payload hash differs from the locked value.",
+        sha256_hex(bytes.as_ref()).as_str(),
+        payload_hash,
+    );
+    for (index, locked) in frame_hashes.iter().enumerate() {
+        let actual = bytes.get(index * 4..index * 4 + 4).map(sha256_hex);
+        check_equal(
+            internal,
+            &format!("wsi_tile_seg_frame_{}_sha256", index + 1),
+            "Stored SEG Frame hash matches the locked occupancy tile.",
+            "Stored SEG Frame hash differs from the locked occupancy tile.",
+            actual.as_deref(),
+            Some(*locked),
+        );
+    }
+    let reconstructed = reconstruct_wsi_tile_segmentation_matrix(bytes.as_ref(), positions);
+    check_equal(
+        internal,
+        "wsi_tile_seg_reconstructed_matrix_sha256",
+        "Explicit tile positions reconstruct the locked zero-filled 4x4 matrix.",
+        "Explicit tile positions reconstruct a different 4x4 matrix.",
+        reconstructed.as_deref().map(sha256_hex).as_deref(),
+        Some(matrix_hash),
+    );
+    Ok(())
+}
+
+fn reconstruct_wsi_tile_segmentation_matrix(
+    pixel_bytes: &[u8],
+    positions: &[(usize, usize)],
+) -> Option<Vec<u8>> {
+    if pixel_bytes.len() != 8 || positions.len() != 2 {
+        return None;
+    }
+    let mut matrix = vec![0_u8; 16];
+    let mut occupied = [false; 4];
+    for (frame, &(column, row)) in positions.iter().enumerate() {
+        if !matches!(column, 1 | 3) || !matches!(row, 1 | 3) {
+            return None;
+        }
+        let tile_column = (column - 1) / 2;
+        let tile_row = (row - 1) / 2;
+        let tile_index = tile_row * 2 + tile_column;
+        if occupied[tile_index] {
+            return None;
+        }
+        occupied[tile_index] = true;
+        for pixel_row in 0..2 {
+            let source = frame * 4 + pixel_row * 2;
+            let destination = (tile_row * 2 + pixel_row) * 4 + tile_column * 2;
+            matrix[destination..destination + 2].copy_from_slice(&pixel_bytes[source..source + 2]);
+        }
+    }
+    Some(matrix)
+}
+
+fn validate_wsi_tile_segmentation_specimen(
+    path: &Path,
+    obj: &OpenedObject,
+    internal: &mut Vec<Value>,
+    expected_specimen_uid: &str,
+) -> Result<(), GenerateError> {
+    check_equal(
+        internal,
+        "wsi_tile_seg_specimen_items",
+        "Specimen Description Sequence contains exactly one inherited specimen.",
+        "Specimen Description Sequence does not contain exactly one inherited specimen.",
+        sequence_item_count(path, obj, tags::SPECIMEN_DESCRIPTION_SEQUENCE)?,
+        1,
+    );
+    check_equal(
+        internal,
+        "wsi_tile_seg_specimen_uid",
+        "SEG Specimen UID matches the source specimen.",
+        "SEG Specimen UID differs from the source specimen.",
+        top_level_sequence_item_str(
+            path,
+            obj,
+            tags::SPECIMEN_DESCRIPTION_SEQUENCE,
+            0,
+            tags::SPECIMEN_UID,
+        )?
+        .as_str(),
+        expected_specimen_uid,
+    );
+    Ok(())
+}
+
+fn validate_wsi_tile_segmentation_absences(obj: &OpenedObject, internal: &mut Vec<Value>) {
+    for (name, tags_to_check) in [
+        (
+            "patient_coordinate_functional_groups",
+            &[
+                tags::PLANE_POSITION_SEQUENCE,
+                tags::PLANE_ORIENTATION_SEQUENCE,
+            ][..],
+        ),
+        (
+            "palette_color_lut",
+            &[
+                tags::RED_PALETTE_COLOR_LOOKUP_TABLE_DESCRIPTOR,
+                tags::GREEN_PALETTE_COLOR_LOOKUP_TABLE_DESCRIPTOR,
+                tags::BLUE_PALETTE_COLOR_LOOKUP_TABLE_DESCRIPTOR,
+                tags::RED_PALETTE_COLOR_LOOKUP_TABLE_DATA,
+                tags::GREEN_PALETTE_COLOR_LOOKUP_TABLE_DATA,
+                tags::BLUE_PALETTE_COLOR_LOOKUP_TABLE_DATA,
+            ][..],
+        ),
+        ("icc_profile", &[tags::ICC_PROFILE][..]),
+        (
+            "pixel_padding",
+            &[tags::PIXEL_PADDING_VALUE, tags::PIXEL_PADDING_RANGE_LIMIT][..],
+        ),
+        (
+            "lossy_detail",
+            &[
+                tags::LOSSY_IMAGE_COMPRESSION_RATIO,
+                tags::LOSSY_IMAGE_COMPRESSION_METHOD,
+            ][..],
+        ),
+        ("tracking", &[tags::TRACKING_ID, tags::TRACKING_UID][..]),
+        (
+            "algorithm_identification",
+            &[tags::SEGMENTATION_ALGORITHM_IDENTIFICATION_SEQUENCE][..],
+        ),
+        (
+            "concatenation",
+            &[
+                tags::CONCATENATION_UID,
+                tags::IN_CONCATENATION_NUMBER,
+                tags::CONCATENATION_FRAME_OFFSET_NUMBER,
+                tags::SOP_INSTANCE_UID_OF_CONCATENATION_SOURCE,
+            ][..],
+        ),
+        ("multi_resolution_pyramid", &[tags::PYRAMID_UID][..]),
+    ] {
+        check(
+            internal,
+            tags_to_check
+                .iter()
+                .all(|tag| obj.element_opt(*tag).is_ok_and(|value| value.is_none())),
+            &format!("wsi_tile_seg_{name}_absent"),
+            "Locked optional content is absent.",
+            "Locked optional content is unexpectedly present.",
+        );
+    }
 }
 
 fn valid_dicom_uid(value: &str) -> bool {

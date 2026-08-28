@@ -7242,6 +7242,18 @@ fn validate_family_standard_elements(
             file,
             obj,
         )?,
+        "Segmentation"
+            if file.get("case_id").and_then(Value::as_str)
+                == Some("derived/seg/wsi_tile_reference") =>
+        {
+            validate_wsi_tile_segmentation_standard_elements(
+                failures,
+                relative_path,
+                path,
+                manifest_path,
+                file,
+            )?
+        }
         "Segmentation" => validate_segmentation_standard_elements(
             failures,
             relative_path,
@@ -13220,6 +13232,138 @@ fn validate_segmentation_standard_elements(
         }
     }
 
+    Ok(())
+}
+
+fn validate_wsi_tile_segmentation_standard_elements(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    path: &Path,
+    manifest_path: &Path,
+    file: &Value,
+) -> Result<(), ValidateError> {
+    const FRAME_HASHES: [&str; 2] = [
+        "34aaa746c25a0f105c4316bbb1f009aa359f49582656ee97d73c58132d563423",
+        "10db5223d19bd1d58c2b8eb3c723b0ba104cf17564f9434e53e1b9e642fb3b37",
+    ];
+    let expected =
+        file.get("expected_wsi_tile_segmentation")
+            .ok_or(ValidateError::ManifestShape {
+                path: manifest_path.to_path_buf(),
+                message: "WSI tile SEG must define expected_wsi_tile_segmentation",
+            })?;
+    let expected_str = |pointer: &str, message| {
+        expected
+            .pointer(pointer)
+            .and_then(Value::as_str)
+            .ok_or(ValidateError::ManifestShape {
+                path: manifest_path.to_path_buf(),
+                message,
+            })
+    };
+    let file_str = |pointer: &str, message| manifest_str(manifest_path, file, pointer, message);
+    let source_relative_path =
+        expected_str("/source/path", "WSI tile SEG source path must be a string")?;
+    let source_path = manifest_path
+        .parent()
+        .unwrap_or_else(|| Path::new("."))
+        .join(source_relative_path);
+    let identity = validation::Part10Expectations {
+        sop_class_uid: file_str(
+            "/dicom/sop_class_uid",
+            "WSI tile SEG SOP Class UID must be a string",
+        )?,
+        sop_instance_uid: file_str(
+            "/uids/sop_instance_uid",
+            "WSI tile SEG SOP Instance UID must be a string",
+        )?,
+        transfer_syntax_uid: file_str(
+            "/dicom/transfer_syntax_uid",
+            "WSI tile SEG transfer syntax UID must be a string",
+        )?,
+        implementation_class_uid: file_str(
+            "/uids/implementation_class_uid",
+            "WSI tile SEG implementation class UID must be a string",
+        )?,
+        synthetic_data: file_str(
+            "/expected_semantics/synthetic_data",
+            "WSI tile SEG Synthetic Data expectation must be a string",
+        )?,
+        rows: 2,
+        columns: 2,
+        frames: 2,
+        samples_per_pixel: 1,
+        photometric_interpretation: "MONOCHROME2",
+        bits_allocated: 8,
+        bits_stored: 8,
+        high_bit: 7,
+        pixel_representation: 0,
+        planar_configuration: None,
+        pixel_data_vr: VR::OB,
+        pixel_data_length_formula: validation::PixelDataLengthFormula::ContiguousSamples,
+        decoded_frame_hashes: &FRAME_HASHES,
+        palette: None,
+        padding: None,
+        ct_image: None,
+        enhanced_ct_image: None,
+        enhanced_mr_image: None,
+        enhanced_pet_image: None,
+        mg_image: None,
+        dx_image: None,
+        xa_image: None,
+        xrf_image: None,
+        us_image: None,
+        us_multiframe: None,
+        nm_image: None,
+        pet_image: None,
+        cr_image: None,
+        mr_image: None,
+        segmentation: None,
+    };
+    let strict = validation::WsiTileSegmentationExpectations {
+        source_path: &source_path,
+        source_sha256: expected_str(
+            "/source/sha256",
+            "WSI tile SEG source sha256 must be a string",
+        )?,
+        source_study_instance_uid: expected_str(
+            "/source/study_instance_uid",
+            "WSI tile SEG source Study UID must be a string",
+        )?,
+        source_series_instance_uid: expected_str(
+            "/source/series_instance_uid",
+            "WSI tile SEG source Series UID must be a string",
+        )?,
+        source_sop_class_uid: expected_str(
+            "/source/sop_class_uid",
+            "WSI tile SEG source SOP Class UID must be a string",
+        )?,
+        source_sop_instance_uid: expected_str(
+            "/source/sop_instance_uid",
+            "WSI tile SEG source SOP Instance UID must be a string",
+        )?,
+        frame_of_reference_uid: expected_str(
+            "/source/frame_of_reference_uid",
+            "WSI tile SEG Frame of Reference UID must be a string",
+        )?,
+        dimension_organization_uid: expected_str(
+            "/dimension_organization_uid",
+            "WSI tile SEG Dimension Organization UID must be a string",
+        )?,
+        specimen_uid: expected_str(
+            "/source/specimen_uid",
+            "WSI tile SEG specimen UID must be a string",
+        )?,
+        container_identifier: expected_str(
+            "/source/container_identifier",
+            "WSI tile SEG container identifier must be a string",
+        )?,
+    };
+    if let Err(error) = validation::validate_wsi_tile_segmentation_file(path, &identity, &strict) {
+        failures.push(format!(
+            "{relative_path}: wsi_tile_segmentation_contract: {error}"
+        ));
+    }
     Ok(())
 }
 

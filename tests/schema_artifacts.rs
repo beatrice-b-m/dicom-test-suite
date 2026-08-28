@@ -4478,6 +4478,148 @@ fn manifest_schema_locks_phase4_multiresolution_wsi_group() {
 }
 
 #[test]
+fn manifest_schema_locks_phase4_multiple_optical_paths_expectation() {
+    let schema = read_json("schemas/manifest.schema.json");
+    let definition = &schema["$defs"]["expected_wsi_multiple_optical_paths"];
+    let expectation_schema = serde_json::json!({
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$ref": "#/$defs/expected_wsi_multiple_optical_paths",
+        "$defs": schema["$defs"].clone(),
+    });
+    let validator = jsonschema::validator_for(&expectation_schema)
+        .expect("multiple optical paths WSI expectation schema should compile");
+    let mut expectation = serde_json::Map::new();
+    for (name, property) in definition["properties"].as_object().unwrap() {
+        if let Some(value) = property.get("const") {
+            expectation.insert(name.clone(), value.clone());
+        }
+    }
+    expectation.insert(
+        "frame_of_reference_uid".into(),
+        serde_json::json!("1.2.826.0.1.3680043.10.543.21"),
+    );
+    expectation.insert(
+        "specimen".into(),
+        serde_json::json!({
+            "container_identifier": "DTS-SLIDE-001", "container_issuer_items": 0,
+            "container_type_code_items": 0, "description_items": 1,
+            "specimen_identifier": "DTS-SPECIMEN-001",
+            "specimen_uid": "1.2.826.0.1.3680043.10.543.22",
+            "specimen_issuer_items": 0, "specimen_preparation_items": 0
+        }),
+    );
+    let expectation = Value::Object(expectation);
+    assert!(validator.is_valid(&expectation));
+    assert_eq!(expectation["profile"], serde_json::json!("extended"));
+    assert_eq!(
+        expectation["dimension_organization_type"],
+        serde_json::json!("TILED_FULL")
+    );
+    assert_eq!(expectation["image"]["frames"], serde_json::json!(8));
+    assert_eq!(
+        expectation["tiling"]["number_of_optical_paths"],
+        serde_json::json!(2)
+    );
+    assert_eq!(
+        expectation["tiling"]["total_pixel_matrix_focal_planes"],
+        serde_json::json!(1)
+    );
+    assert_eq!(
+        expectation["optical_paths"][0]["identifier"],
+        serde_json::json!("BRIGHTFIELD")
+    );
+    assert_eq!(
+        expectation["optical_paths"][1]["identifier"],
+        serde_json::json!("ALTERNATE")
+    );
+    assert_eq!(
+        expectation["optical_paths"][0]["frame_ordinal_range"],
+        serde_json::json!([1, 4])
+    );
+    assert_eq!(
+        expectation["optical_paths"][1]["frame_ordinal_range"],
+        serde_json::json!([5, 8])
+    );
+    assert_eq!(
+        expectation["optical_paths"][0]["matrix_shape"],
+        serde_json::json!([4, 4, 3])
+    );
+
+    for (pointer, bad) in [
+        ("/profile", serde_json::json!("stress")),
+        ("/image/frames", serde_json::json!(7)),
+        (
+            "/pixel_data/payload_sha256",
+            serde_json::json!("0".repeat(64)),
+        ),
+        (
+            "/optical_paths/0/identifier",
+            serde_json::json!("ALTERNATE"),
+        ),
+        (
+            "/optical_paths/1/illumination_wavelength_nm",
+            serde_json::json!(550.0),
+        ),
+        (
+            "/optical_paths/1/frame_hashes/0",
+            serde_json::json!("0".repeat(64)),
+        ),
+        (
+            "/optical_paths/0/matrix_sha256",
+            serde_json::json!("0".repeat(64)),
+        ),
+        ("/optical_paths/1/matrix_shape/2", serde_json::json!(1)),
+        (
+            "/tiling/implicit_frame_positions/4/optical_path_ordinal",
+            serde_json::json!(1),
+        ),
+        (
+            "/tiling/total_pixel_matrix_focal_planes",
+            serde_json::json!(2),
+        ),
+        ("/budget/max_dicom_bytes", serde_json::json!(16383)),
+    ] {
+        let mut malformed = expectation.clone();
+        *malformed.pointer_mut(pointer).expect("mutation pointer") = bad;
+        assert!(
+            !validator.is_valid(&malformed),
+            "schema must reject {pointer}"
+        );
+    }
+    let mut missing = expectation;
+    missing.as_object_mut().unwrap().remove("optical_paths");
+    assert!(!validator.is_valid(&missing));
+
+    let rule = schema
+        .pointer("/$defs/file/allOf")
+        .and_then(Value::as_array)
+        .unwrap()
+        .iter()
+        .find(|rule| {
+            rule.pointer("/if/properties/case_id/const")
+                .and_then(Value::as_str)
+                == Some("vl/wsi/multiple_optical_paths")
+        })
+        .expect("exact multiple optical paths WSI case rule");
+    assert_eq!(
+        rule.pointer("/then/required"),
+        Some(&serde_json::json!([
+            "image",
+            "pixel_data",
+            "expected_wsi_multiple_optical_paths"
+        ]))
+    );
+    assert_eq!(
+        rule.pointer("/then/properties/profile_membership/const"),
+        Some(&serde_json::json!(["extended"]))
+    );
+    assert_eq!(
+        rule.pointer("/else/not/required"),
+        Some(&serde_json::json!(["expected_wsi_multiple_optical_paths"]))
+    );
+}
+
+#[test]
 fn manifest_schema_requires_exclusive_twelve_lead_ecg_waveform_contract() {
     let schema = read_json("schemas/manifest.schema.json");
     let rule = schema

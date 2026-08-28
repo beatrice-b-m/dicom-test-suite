@@ -1666,6 +1666,7 @@ fn validate_manifest_file(
     validate_vl_single_frame_manifest_contract(manifest_path, file)?;
     validate_wsi_tiled_full_manifest_contract(manifest_path, file)?;
     validate_wsi_tiled_sparse_manifest_contract(manifest_path, file)?;
+    validate_wsi_multiple_optical_paths_manifest_contract(manifest_path, file)?;
     validate_wsi_pyramid_manifest_member(manifest_path, file)?;
     let path = root_dir.join(relative_path);
     let bytes = match fs::read(&path) {
@@ -2370,6 +2371,208 @@ pub(crate) fn wsi_tiled_sparse_locked_contract(
             "lossy_image_compression_ratio", "lossy_image_compression_method",
             "top_level_image_pixel_description_icc_profile", "specimen_reference_sequence"
         ]
+    })
+}
+
+fn validate_wsi_multiple_optical_paths_manifest_contract(
+    manifest_path: &Path,
+    file: &Value,
+) -> Result<(), ValidateError> {
+    const CASE_ID: &str = "vl/wsi/multiple_optical_paths";
+    if file.get("case_id").and_then(Value::as_str) != Some(CASE_ID) {
+        return if file.get("expected_wsi_multiple_optical_paths").is_some() {
+            Err(ValidateError::ManifestShape {
+                path: manifest_path.to_path_buf(),
+                message: "expected_wsi_multiple_optical_paths is only valid for vl/wsi/multiple_optical_paths",
+            })
+        } else {
+            Ok(())
+        };
+    }
+    let expected = file
+        .get("expected_wsi_multiple_optical_paths")
+        .ok_or(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "vl/wsi/multiple_optical_paths must define expected_wsi_multiple_optical_paths",
+        })?;
+    let dynamic_uid = |pointer: &str, message| {
+        expected
+            .pointer(pointer)
+            .and_then(Value::as_str)
+            .filter(|uid| is_manifest_uid(uid))
+            .ok_or(ValidateError::ManifestShape {
+                path: manifest_path.to_path_buf(),
+                message,
+            })
+    };
+    let frame_of_reference_uid = dynamic_uid(
+        "/frame_of_reference_uid",
+        "multiple-path WSI Frame of Reference UID must be valid",
+    )?;
+    let specimen_uid = dynamic_uid(
+        "/specimen/specimen_uid",
+        "multiple-path WSI Specimen UID must be valid",
+    )?;
+    let locked = wsi_multiple_optical_paths_locked_contract(frame_of_reference_uid, specimen_uid);
+    if expected != &locked {
+        return Err(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "expected_wsi_multiple_optical_paths must equal the exact locked case contract",
+        });
+    }
+    for (pointer, locked_value) in [
+        ("/profile_membership", serde_json::json!(["extended"])),
+        (
+            "/dicom/sop_class_uid",
+            Value::from("1.2.840.10008.5.1.4.1.1.77.1.6"),
+        ),
+        (
+            "/dicom/sop_class_name",
+            Value::from("VL Whole Slide Microscopy Image Storage"),
+        ),
+        (
+            "/dicom/iod_name",
+            Value::from("VL Whole Slide Microscopy Image"),
+        ),
+        ("/dicom/modality", Value::from("SM")),
+        (
+            "/dicom/transfer_syntax_uid",
+            Value::from("1.2.840.10008.1.2.1"),
+        ),
+        (
+            "/uids/frame_of_reference_uid",
+            Value::from(frame_of_reference_uid),
+        ),
+        ("/image/rows", Value::from(2)),
+        ("/image/columns", Value::from(2)),
+        ("/image/frames", Value::from(8)),
+        ("/image/samples_per_pixel", Value::from(3)),
+        ("/image/photometric_interpretation", Value::from("RGB")),
+        ("/image/planar_configuration", Value::from(0)),
+        ("/image/bits_allocated", Value::from(8)),
+        ("/image/bits_stored", Value::from(8)),
+        ("/image/high_bit", Value::from(7)),
+        ("/image/pixel_representation", Value::from(0)),
+        ("/pixel_data/vr", Value::from("OB")),
+        ("/pixel_data/native_or_encapsulated", Value::from("native")),
+        ("/pixel_data/value_length", Value::from(96)),
+        ("/pixel_data/frame_count", Value::from(8)),
+    ] {
+        if file.pointer(pointer) != Some(&locked_value) {
+            return Err(ValidateError::ManifestShape {
+                path: manifest_path.to_path_buf(),
+                message: "multiple-path WSI manifest metadata must match its locked expectation",
+            });
+        }
+    }
+    if file.pointer("/pixel_data/frame_hashes") != expected.pointer("/pixel_data/frame_hashes")
+        || file
+            .get("references")
+            .and_then(Value::as_array)
+            .is_none_or(|references| !references.is_empty())
+    {
+        return Err(ValidateError::ManifestShape {
+            path: manifest_path.to_path_buf(),
+            message: "multiple-path WSI pixel hashes and empty references must be cross-bound",
+        });
+    }
+    Ok(())
+}
+
+pub(crate) fn wsi_multiple_optical_paths_locked_contract(
+    frame_of_reference_uid: &str,
+    specimen_uid: &str,
+) -> Value {
+    const ICC_SHA256: &str = "8e069a3476b71a0e0ae7272d9278ba70540d1c4a0b19af1c7d52e56f49091fef";
+    let path1 = [
+        "fcf067f6323bb42b8292a565a8f826ec5fdb1b142b7a69bf7f7721f0d5d46ef8",
+        "6c8f6d772829d493618e079a099cf4f20d8524ed3656f49db234f5bbf60a4e65",
+        "7263ad3fd60c6620abd423516d748baedf5e393b1fbdaaf780ff5803a443cc4f",
+        "8688d249e9d047b4fc2fb89ce05afe9ec89252ffccdd969de6eef260dd7ffb21",
+    ];
+    let path2 = [
+        "f7606fde280d9577c963618cc2a8fa52b15315ff63ec185029cf66bda64435ab",
+        "81fd180e1f66d28018580f37d46188c02fd6709f875b3b620090718a8847c282",
+        "745598fdcfa2650299b59b42f40c0750087e117d6bc236c66486087cd264ebd8",
+        "15ec7bf0b50732b49f8228e07d24365338f9e3ab994b00af08e5a3bffe55fd8b",
+    ];
+    let icc = || {
+        serde_json::json!({
+            "size_bytes": 736, "sha256": ICC_SHA256, "dicom_color_space": "SRGB",
+            "device_class": "scnr", "data_color_space": "RGB ",
+            "profile_connection_space": "XYZ ", "signature": "acsp"
+        })
+    };
+    let path = |ordinal,
+                identifier,
+                description,
+                wavelength,
+                range: [u64; 2],
+                hashes,
+                payload,
+                matrix| {
+        serde_json::json!({
+            "ordinal": ordinal, "identifier": identifier, "description": description,
+            "illumination_wavelength_nm": wavelength,
+            "illumination_type": { "code_value": "111744", "coding_scheme_designator": "DCM", "code_meaning": "Brightfield illumination" },
+            "icc_profile": icc(), "frame_ordinal_range": range,
+            "frame_hashes": hashes, "payload_sha256": payload,
+            "matrix_shape": [4, 4, 3], "matrix_sha256": matrix
+        })
+    };
+    let positions = [
+        (1, 1, "BRIGHTFIELD", 1, 1, 0.0, 0.0),
+        (2, 1, "BRIGHTFIELD", 3, 1, 1.0, 0.0),
+        (3, 1, "BRIGHTFIELD", 1, 3, 0.0, 1.0),
+        (4, 1, "BRIGHTFIELD", 3, 3, 1.0, 1.0),
+        (5, 2, "ALTERNATE", 1, 1, 0.0, 0.0),
+        (6, 2, "ALTERNATE", 3, 1, 1.0, 0.0),
+        (7, 2, "ALTERNATE", 1, 3, 0.0, 1.0),
+        (8, 2, "ALTERNATE", 3, 3, 1.0, 1.0),
+    ]
+    .map(
+        |(
+            frame_number,
+            optical_path_ordinal,
+            optical_path_identifier,
+            column_position,
+            row_position,
+            x_mm,
+            y_mm,
+        )| {
+            serde_json::json!({
+                "frame_number": frame_number, "optical_path_ordinal": optical_path_ordinal,
+                "optical_path_identifier": optical_path_identifier, "focal_plane": 1,
+                "column_position": column_position, "row_position": row_position,
+                "x_mm": x_mm, "y_mm": y_mm, "z_mm": 0.0
+            })
+        },
+    );
+    let frame_hashes = path1.into_iter().chain(path2).collect::<Vec<_>>();
+    serde_json::json!({
+        "iod_kind": "vl_wsi_multiple_optical_paths", "profile": "extended",
+        "sop_class_uid": "1.2.840.10008.5.1.4.1.1.77.1.6",
+        "sop_class_name": "VL Whole Slide Microscopy Image Storage",
+        "iod_name": "VL Whole Slide Microscopy Image", "modality": "SM",
+        "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+        "frame_of_reference_uid": frame_of_reference_uid,
+        "image_type": ["ORIGINAL", "PRIMARY", "VOLUME", "NONE"],
+        "dimension_organization_type": "TILED_FULL", "position_reference_indicator": "SLIDE_CORNER",
+        "acquisition_context_items": 0, "volumetric_properties": "VOLUME",
+        "specimen_label_in_image": "NO", "burned_in_annotation": "NO", "focus_method": "AUTO",
+        "extended_depth_of_field": "NO", "lossy_image_compression": "00", "tiles_overlap": "NONE",
+        "image": { "rows": 2, "columns": 2, "frames": 8, "samples_per_pixel": 3, "photometric_interpretation": "RGB", "planar_configuration": 0, "bits_allocated": 8, "bits_stored": 8, "high_bit": 7, "pixel_representation": 0 },
+        "pixel_data": { "vr": "OB", "native_or_encapsulated": "native", "value_length": 96, "frame_count": 8, "frame_hashes": frame_hashes, "payload_sha256": "831fe6e50cbc3f3d82e3f57c984d3c273cdb18dd3bd3ab511b3633dc293f708f" },
+        "tiling": { "total_pixel_matrix_rows": 4, "total_pixel_matrix_columns": 4, "tiles_per_row": 2, "tiles_per_column": 2, "number_of_optical_paths": 2, "total_pixel_matrix_focal_planes": 1, "total_pixel_matrix_origin_mm": [0.0, 0.0, 0.0], "image_orientation_slide": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0], "pixel_spacing_mm": [0.5, 0.5], "slice_thickness_mm": 0.001, "imaged_volume": { "width_mm": 2.0, "height_mm": 2.0, "depth_micrometers": 1.0 }, "implicit_frame_positions": positions },
+        "optical_paths": [
+            path(1, "BRIGHTFIELD", "Deterministic brightfield path", 550.0, [1, 4], path1, "b40b0afc9b180d5ebfb54a7db428e13fe09a33dcc9a8f76220f395ba2c68d2db", "62d9532d46c3f71b045a1393d95c49c4757ef5e62bb043a61baf4fffed189a2a"),
+            path(2, "ALTERNATE", "Deterministic alternate path", 650.0, [5, 8], path2, "1f7ee233e83aebb2127b56d5d728f9ca2df9170ec4eb24e929dca261f9badbed", "caa1a1abb84ec283bbf92a0f00d5bd89650420d0b1fa911e191ddb368f50e09f")
+        ],
+        "specimen": { "container_identifier": "DTS-SLIDE-001", "container_issuer_items": 0, "container_type_code_items": 0, "description_items": 1, "specimen_identifier": "DTS-SPECIMEN-001", "specimen_uid": specimen_uid, "specimen_issuer_items": 0, "specimen_preparation_items": 0 },
+        "slide_label": { "barcode_value": "DTS-SLIDE-001", "label_text": "DTS SYNTHETIC SLIDE 001" },
+        "presence": { "shared_functional_groups_sequence": true, "per_frame_functional_groups_sequence": false, "dimension_index_sequence": false, "references": false, "concatenation": false, "multi_resolution_pyramid": false },
+        "absent_content": ["per_frame_functional_groups_sequence", "dimension_index_sequence", "referenced_series_sequence", "concatenation_attributes", "multi_resolution_pyramid", "extended_depth_of_field_number_of_focal_planes", "extended_depth_of_field_distance_between_focal_planes", "lossy_image_compression_ratio", "lossy_image_compression_method", "top_level_image_pixel_description_icc_profile", "specimen_reference_sequence"],
+        "budget": { "instance_count": 1, "frame_count": 8, "max_dicom_bytes": 16384, "max_generation_wall_time_seconds": 5 }
     })
 }
 
@@ -31565,6 +31768,109 @@ mod tests {
         assert!(
             validate_wsi_tiled_sparse_manifest_contract(Path::new("manifest.json"), &misplaced)
                 .is_err()
+        );
+    }
+
+    fn wsi_multiple_optical_paths_manifest() -> Value {
+        let frame_of_reference_uid = "1.2.826.0.1.3680043.10.543.21";
+        let expected = wsi_multiple_optical_paths_locked_contract(
+            frame_of_reference_uid,
+            "1.2.826.0.1.3680043.10.543.22",
+        );
+        serde_json::json!({
+            "case_id": "vl/wsi/multiple_optical_paths",
+            "profile_membership": ["extended"],
+            "dicom": {
+                "sop_class_uid": "1.2.840.10008.5.1.4.1.1.77.1.6",
+                "sop_class_name": "VL Whole Slide Microscopy Image Storage",
+                "iod_name": "VL Whole Slide Microscopy Image", "modality": "SM",
+                "transfer_syntax_uid": "1.2.840.10008.1.2.1"
+            },
+            "uids": { "frame_of_reference_uid": frame_of_reference_uid },
+            "image": expected["image"].clone(),
+            "pixel_data": {
+                "vr": "OB", "native_or_encapsulated": "native", "value_length": 96,
+                "frame_count": 8, "frame_hashes": expected["pixel_data"]["frame_hashes"].clone()
+            },
+            "references": [],
+            "expected_wsi_multiple_optical_paths": expected
+        })
+    }
+
+    #[test]
+    fn wsi_multiple_optical_paths_manifest_is_exact_scoped_and_cross_bound() {
+        let manifest = wsi_multiple_optical_paths_manifest();
+        validate_wsi_multiple_optical_paths_manifest_contract(
+            Path::new("manifest.json"),
+            &manifest,
+        )
+        .expect("locked multiple-path WSI contract");
+
+        for pointer in [
+            "/expected_wsi_multiple_optical_paths/profile",
+            "/expected_wsi_multiple_optical_paths/optical_paths/0/identifier",
+            "/expected_wsi_multiple_optical_paths/optical_paths/1/illumination_wavelength_nm",
+            "/expected_wsi_multiple_optical_paths/optical_paths/1/frame_ordinal_range/0",
+            "/expected_wsi_multiple_optical_paths/optical_paths/0/payload_sha256",
+            "/expected_wsi_multiple_optical_paths/optical_paths/1/matrix_sha256",
+            "/expected_wsi_multiple_optical_paths/optical_paths/0/matrix_shape/2",
+            "/expected_wsi_multiple_optical_paths/tiling/implicit_frame_positions/4/optical_path_ordinal",
+            "/expected_wsi_multiple_optical_paths/tiling/total_pixel_matrix_focal_planes",
+            "/expected_wsi_multiple_optical_paths/absent_content/0",
+            "/expected_wsi_multiple_optical_paths/budget/max_dicom_bytes",
+        ] {
+            let mut malformed = manifest.clone();
+            *malformed.pointer_mut(pointer).expect("mutation pointer") = Value::from("invalid");
+            assert!(
+                validate_wsi_multiple_optical_paths_manifest_contract(
+                    Path::new("manifest.json"),
+                    &malformed
+                )
+                .is_err(),
+                "locked multiple-path contract must reject {pointer}"
+            );
+        }
+
+        let mut crossed = manifest.clone();
+        crossed["profile_membership"] = serde_json::json!(["stress"]);
+        assert!(
+            validate_wsi_multiple_optical_paths_manifest_contract(
+                Path::new("manifest.json"),
+                &crossed
+            )
+            .is_err()
+        );
+        let mut crossed = manifest.clone();
+        crossed["pixel_data"]["frame_hashes"][4] = Value::from("0".repeat(64));
+        assert!(
+            validate_wsi_multiple_optical_paths_manifest_contract(
+                Path::new("manifest.json"),
+                &crossed
+            )
+            .is_err()
+        );
+        let mut missing = manifest.clone();
+        missing
+            .as_object_mut()
+            .unwrap()
+            .remove("expected_wsi_multiple_optical_paths");
+        assert!(
+            validate_wsi_multiple_optical_paths_manifest_contract(
+                Path::new("manifest.json"),
+                &missing
+            )
+            .is_err()
+        );
+        let misplaced = serde_json::json!({
+            "case_id": "vl/wsi/tiled_full_small",
+            "expected_wsi_multiple_optical_paths": manifest["expected_wsi_multiple_optical_paths"]
+        });
+        assert!(
+            validate_wsi_multiple_optical_paths_manifest_contract(
+                Path::new("manifest.json"),
+                &misplaced
+            )
+            .is_err()
         );
     }
 

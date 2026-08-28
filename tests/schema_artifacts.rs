@@ -279,6 +279,90 @@ fn manifest_schema_requires_exact_extended_offset_table_arrays() {
     })));
 }
 
+#[test]
+fn manifest_schema_locks_approved_lossy_metric_oracles() {
+    let schema = read_json("schemas/manifest.schema.json");
+    let metric_schema = serde_json::json!({
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$defs": schema["$defs"].clone(),
+        "$ref": "#/$defs/expected_lossy_metrics"
+    });
+    let validator = jsonschema::validator_for(&metric_schema)
+        .expect("lossy metric oracle schema must compile");
+    let jxl = serde_json::json!({
+        "sample_domain": "unsigned_8_bit",
+        "sample_order": "interleaved_by_pixel",
+        "sample_count": 3072,
+        "dimensions": { "rows": 32, "columns": 32, "frames": 1 },
+        "channels": [
+            { "index": 0, "name": "R", "sample_count": 1024, "max_absolute_error": { "observed": 6, "limit": 8 }, "rmse": { "observed": 1.5, "limit": 3 } },
+            { "index": 1, "name": "G", "sample_count": 1024, "max_absolute_error": { "observed": 7, "limit": 8 }, "rmse": { "observed": 1.7, "limit": 3 } },
+            { "index": 2, "name": "B", "sample_count": 1024, "max_absolute_error": { "observed": 8, "limit": 8 }, "rmse": { "observed": 1.9, "limit": 3 } }
+        ],
+        "encoder": {
+            "id": "cjxl_jpegxl_lossy_encoder",
+            "version": "0.11.2",
+            "executable_sha256": "5b7b6cdc09a1bdaef39e30d3660e29861a405fffc1bc1136f3bb91cfe6db658e",
+            "options": { "input_format": "binary_ppm_rgb8", "argument_vector": ["--distance=1"], "distance": 1, "effort": 7, "threads": 1, "container": false },
+            "options_fingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "overall_rmse": { "observed": 1.7, "limit": 3 },
+        "uncompressed_bytes": 3072,
+        "compressed_bytes": 768,
+        "compression_ratio": { "numerator": 3072, "denominator": 768, "computed": 4, "dicom_value": "4.0" },
+        "lossy_image_compression": "01",
+        "lossy_image_compression_method": "ISO_18181_1",
+        "decoder": {
+            "id": "dicom_rs_jxl_oxide_decoder",
+            "version": "dicom-transfer-syntax-registry 0.9.1 + jxl-oxide 0.10.2",
+            "independence": "independent"
+        }
+    });
+    assert!(validator.is_valid(&jxl));
+
+    let mut undersized = jxl.clone();
+    undersized["dimensions"]["rows"] = serde_json::json!(31);
+    assert!(!validator.is_valid(&undersized));
+    let mut same_encoder_decoder = jxl;
+    same_encoder_decoder["decoder"]["independence"] = serde_json::json!("same_implementation");
+    assert!(!validator.is_valid(&same_encoder_decoder));
+
+    let lossy_rule = schema
+        .pointer("/$defs/file/allOf/2")
+        .expect("manifest files must case-scope lossy metrics");
+    assert_eq!(
+        lossy_rule
+            .pointer("/then/allOf/0/then/properties/expected_lossy_metrics/properties/overall_rmse/properties/limit/const")
+            .and_then(Value::as_u64),
+        Some(3)
+    );
+    assert_eq!(
+        lossy_rule
+            .pointer("/then/allOf/0/else/properties/expected_lossy_metrics/properties/overall_rmse/properties/limit/const")
+            .and_then(Value::as_u64),
+        Some(16)
+    );
+    assert_eq!(
+        schema
+            .pointer("/$defs/jxl_red_lossy_channel/allOf/1/properties/max_absolute_error/properties/limit/const")
+            .and_then(Value::as_u64),
+        Some(8)
+    );
+    assert_eq!(
+        schema
+            .pointer("/$defs/htj2k_mono_lossy_channel/allOf/1/properties/max_absolute_error/properties/limit/const")
+            .and_then(Value::as_u64),
+        Some(64)
+    );
+    assert!(
+        lossy_rule
+            .pointer("/else/not/required")
+            .and_then(Value::as_array)
+            .is_some_and(|required| required == &[serde_json::json!("expected_lossy_metrics")]),
+        "unapproved cases must not claim a lossy metric oracle"
+    );
+}
+
 fn negative_manifest_file_fixture() -> Value {
     serde_json::json!({
         "case_id": "negative/encoding/illegal_vr_bytes",

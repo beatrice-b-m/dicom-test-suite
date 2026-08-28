@@ -158,6 +158,124 @@ pub struct DecodedFrame {
     pub native_bytes: Vec<u8>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LossySampleDomain {
+    Unsigned8,
+    Unsigned16LittleEndian,
+}
+
+impl LossySampleDomain {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Unsigned8 => "unsigned_8_bit",
+            Self::Unsigned16LittleEndian => "unsigned_16_bit_little_endian",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct LossyChannelMetrics {
+    pub channel_index: usize,
+    pub sample_count: usize,
+    pub max_absolute_error: u64,
+    pub rmse: f64,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct LossyFrameMetrics {
+    pub sample_domain: LossySampleDomain,
+    pub sample_count: usize,
+    pub channels: Vec<LossyChannelMetrics>,
+    pub overall_rmse: f64,
+}
+
+pub fn calculate_lossy_frame_metrics(
+    reference: &[u8],
+    decoded: &[u8],
+    rows: u16,
+    columns: u16,
+    samples_per_pixel: u16,
+    bits_allocated: u16,
+) -> Result<LossyFrameMetrics, CodecError> {
+    const BACKEND_ID: &str = "lossy_frame_metric_calculator";
+    if samples_per_pixel == 0 {
+        return Err(CodecError::unsupported(
+            BACKEND_ID,
+            "samples_per_pixel must be greater than zero",
+        ));
+    }
+    let domain = match bits_allocated {
+        8 => LossySampleDomain::Unsigned8,
+        16 => LossySampleDomain::Unsigned16LittleEndian,
+        other => {
+            return Err(CodecError::unsupported(
+                BACKEND_ID,
+                format!("only unsigned 8-bit and 16-bit samples are supported, got {other}"),
+            ));
+        }
+    };
+    let bytes_per_sample = usize::from(bits_allocated / 8);
+    let sample_count = usize::from(rows)
+        .checked_mul(usize::from(columns))
+        .and_then(|pixels| pixels.checked_mul(usize::from(samples_per_pixel)))
+        .ok_or_else(|| CodecError::unsupported(BACKEND_ID, "frame sample count overflowed"))?;
+    let expected_bytes = sample_count
+        .checked_mul(bytes_per_sample)
+        .ok_or_else(|| CodecError::unsupported(BACKEND_ID, "frame byte length overflowed"))?;
+    if reference.len() != expected_bytes || decoded.len() != expected_bytes {
+        return Err(CodecError::validation_failed(
+            BACKEND_ID,
+            format!(
+                "frame shape requires {expected_bytes} bytes, got reference={} decoded={}",
+                reference.len(),
+                decoded.len()
+            ),
+        ));
+    }
+
+    let channel_count = usize::from(samples_per_pixel);
+    let samples_per_channel = usize::from(rows)
+        .checked_mul(usize::from(columns))
+        .ok_or_else(|| CodecError::unsupported(BACKEND_ID, "pixel count overflowed"))?;
+    let mut maximums = vec![0_u64; channel_count];
+    let mut squared_error_sums = vec![0_f64; channel_count];
+    let sample = |bytes: &[u8], index: usize| -> u64 {
+        match domain {
+            LossySampleDomain::Unsigned8 => u64::from(bytes[index]),
+            LossySampleDomain::Unsigned16LittleEndian => {
+                let offset = index * 2;
+                u64::from(u16::from_le_bytes([bytes[offset], bytes[offset + 1]]))
+            }
+        }
+    };
+    for index in 0..sample_count {
+        let error = sample(reference, index).abs_diff(sample(decoded, index));
+        let channel = index % channel_count;
+        maximums[channel] = maximums[channel].max(error);
+        squared_error_sums[channel] += (error * error) as f64;
+    }
+    let channels = maximums
+        .into_iter()
+        .zip(squared_error_sums.iter().copied())
+        .enumerate()
+        .map(
+            |(channel_index, (max_absolute_error, squared_error_sum))| LossyChannelMetrics {
+                channel_index,
+                sample_count: samples_per_channel,
+                max_absolute_error,
+                rmse: (squared_error_sum / samples_per_channel as f64).sqrt(),
+            },
+        )
+        .collect();
+    let overall_squared_error_sum: f64 = squared_error_sums.into_iter().sum();
+    Ok(LossyFrameMetrics {
+        sample_domain: domain,
+        sample_count,
+        channels,
+        overall_rmse: (overall_squared_error_sum / sample_count as f64).sqrt(),
+    })
+}
+
 pub trait FrameDecoder {
     fn backend(&self) -> CodecBackendInfo;
 
@@ -2127,6 +2245,58 @@ mod tests {
     use dicom_transfer_syntax_registry::entries::JPEG_LS_LOSSLESS_IMAGE_COMPRESSION;
     #[cfg(feature = "jpegxl")]
     use dicom_transfer_syntax_registry::entries::JPEG_XL_LOSSLESS;
+
+    #[test]
+    fn lossy_metrics_cover_every_interleaved_channel_and_sample() {
+        let metrics = calculate_lossy_frame_metrics(
+            &[10, 20, 30, 40, 50, 60],
+            &[12, 19, 34, 40, 47, 54],
+            1,
+            2,
+            3,
+            8,
+        )
+        .expect("RGB metrics should calculate");
+
+        assert_eq!(metrics.sample_domain.as_str(), "unsigned_8_bit");
+        assert_eq!(metrics.sample_count, 6);
+        assert_eq!(metrics.channels.len(), 3);
+        assert_eq!(metrics.channels[0].max_absolute_error, 2);
+        assert_eq!(metrics.channels[1].max_absolute_error, 3);
+        assert_eq!(metrics.channels[2].max_absolute_error, 6);
+        assert!((metrics.channels[0].rmse - 2_f64.sqrt()).abs() < 1e-12);
+        assert!((metrics.channels[1].rmse - 5_f64.sqrt()).abs() < 1e-12);
+        assert!((metrics.channels[2].rmse - (26_f64).sqrt()).abs() < 1e-12);
+        assert!((metrics.overall_rmse - (66_f64 / 6_f64).sqrt()).abs() < 1e-12);
+    }
+
+    #[test]
+    fn lossy_metrics_decode_unsigned_u16_little_endian() {
+        let reference = [0x00, 0x01, 0xff, 0xff];
+        let decoded = [0x40, 0x01, 0xbf, 0xff];
+        let metrics = calculate_lossy_frame_metrics(&reference, &decoded, 1, 2, 1, 16)
+            .expect("u16 metrics should calculate");
+
+        assert_eq!(
+            metrics.sample_domain,
+            LossySampleDomain::Unsigned16LittleEndian
+        );
+        assert_eq!(metrics.channels[0].max_absolute_error, 64);
+        assert_eq!(metrics.channels[0].rmse, 64.0);
+        assert_eq!(metrics.overall_rmse, 64.0);
+    }
+
+    #[test]
+    fn lossy_metrics_reject_shape_and_domain_mismatches() {
+        let shape = calculate_lossy_frame_metrics(&[0; 3], &[0; 4], 2, 2, 1, 8)
+            .expect_err("short reference must fail");
+        assert_eq!(shape.backend_id(), "lossy_frame_metric_calculator");
+        assert!(shape.to_string().contains("requires 4 bytes"));
+
+        let domain = calculate_lossy_frame_metrics(&[], &[], 1, 1, 1, 12)
+            .expect_err("unsupported sample domain must fail");
+        assert!(domain.to_string().contains("8-bit and 16-bit"));
+    }
 
     #[test]
     fn native_rle_backend_reports_identity_and_determinism() {

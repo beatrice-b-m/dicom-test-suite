@@ -23,13 +23,13 @@ fn report_gaps_counts_logical_cases_and_dimensions() {
         report
             .pointer("/counts/statuses/implemented")
             .and_then(Value::as_u64),
-        Some(149)
+        Some(150)
     );
     assert_eq!(
         report
             .pointer("/counts/statuses/planned")
             .and_then(Value::as_u64),
-        Some(33)
+        Some(32)
     );
     assert!(
         report.pointer("/counts/priorities/now").is_none(),
@@ -53,6 +53,16 @@ fn report_gaps_counts_logical_cases_and_dimensions() {
                     == Some("vl/wsi/multiple_optical_paths")
             })),
         "promoted multiple-optical-path WSI coverage must not remain a gap"
+    );
+    assert!(
+        report
+            .get("gaps")
+            .and_then(Value::as_array)
+            .is_some_and(|gaps| !gaps.iter().any(|gap| {
+                gap.get("case_id").and_then(Value::as_str)
+                    == Some("derived/seg/wsi_tile_reference")
+            })),
+        "promoted WSI tile segmentation coverage must not remain a gap"
     );
     assert!(
         report

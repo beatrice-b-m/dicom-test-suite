@@ -10038,7 +10038,7 @@
     {
       "case_id": "derived/seg/wsi_tile_reference",
       "artifact_kind": "dicom_instance",
-      "status": "planned",
+      "status": "implemented",
       "provider": {
         "kind": "external_backend",
         "id": "highdicom_pydicom"
@@ -10049,23 +10049,8 @@
         "references",
         "geometry"
       ],
-      "roadmap": {
-        "priority": "later",
-        "delivery_phase": "phase-4",
-        "rationale": "Adds a derived annotation object that references WSI tiles."
-      },
-      "blockers": [
-        {
-          "code": "backend_contract_unimplemented",
-          "message": "The external generation contract is not implemented.",
-          "recheck_phase": "phase-1"
-        },
-        {
-          "code": "independent_payload_validator_unavailable",
-          "message": "Independent WSI tile reference reconstruction is not integrated.",
-          "recheck_phase": "phase-4"
-        }
-      ],
+      "roadmap": null,
+      "blockers": [],
       "profiles": [
         "extended"
       ],
@@ -10091,6 +10076,14 @@
           "covered": true,
           "part": "PS3.6",
           "anchor": "table_A-1"
+        },
+        {
+          "source": "local-source-note",
+          "edition": "2026b",
+          "query": "standards/source-notes/phase-4-wsi-tile-segmentation.md",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.51-2"
         }
       ]
     },

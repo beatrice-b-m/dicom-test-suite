@@ -888,13 +888,8 @@
       },
       "blockers": [
         {
-          "code": "backend_contract_unimplemented",
-          "message": "The external generation contract is not implemented.",
-          "recheck_phase": "phase-1"
-        },
-        {
           "code": "independent_decoder_unavailable",
-          "message": "An independent 12-bit JPEG decoder is not integrated.",
+          "message": "DCMTK dcmcjpeg generation is proven, but an independent 12-bit JPEG Extended decoder is not integrated.",
           "recheck_phase": "phase-5"
         }
       ],
@@ -4916,18 +4911,13 @@
       },
       "blockers": [
         {
-          "code": "backend_contract_unimplemented",
-          "message": "The external generation contract is not implemented.",
-          "recheck_phase": "phase-1"
-        },
-        {
-          "code": "numeric_tolerance_policy_pending",
-          "message": "Lossy per-channel and aggregate metrics are not approved.",
+          "code": "provider_capability_unavailable",
+          "message": "No qualified lossy JPEG 2000 writer is integrated with the approved full-frame metric contract.",
           "recheck_phase": "phase-5"
         },
         {
           "code": "independent_decoder_unavailable",
-          "message": "An independent lossy JPEG 2000 decoder is not integrated.",
+          "message": "The available project writer, DICOM-rs reader, and ImageMagick delegate share OpenJPEG lineage, so independent decode evidence is unavailable.",
           "recheck_phase": "phase-5"
         }
       ],
@@ -6351,18 +6341,13 @@
       },
       "blockers": [
         {
-          "code": "backend_contract_unimplemented",
-          "message": "The external generation contract is not implemented.",
-          "recheck_phase": "phase-1"
-        },
-        {
-          "code": "numeric_tolerance_policy_pending",
-          "message": "A maximum sample error and aggregate metric policy is not approved.",
+          "code": "provider_capability_unavailable",
+          "message": "No qualified JPEG-LS Near-Lossless writer is integrated with the approved NEAR=2 full-frame metric contract.",
           "recheck_phase": "phase-5"
         },
         {
           "code": "independent_decoder_unavailable",
-          "message": "An independent near-lossless decoder path is not integrated.",
+          "message": "The available writer and decoder both use CharLS, so independent near-lossless decode evidence is unavailable.",
           "recheck_phase": "phase-5"
         }
       ],
@@ -14325,13 +14310,13 @@
       },
       "blockers": [
         {
-          "code": "backend_contract_unimplemented",
-          "message": "The external generation contract is not implemented.",
-          "recheck_phase": "phase-1"
+          "code": "provider_capability_unavailable",
+          "message": "No deterministic H.264/AVC elementary-stream encoder is installed, version-locked, and fingerprinted for this case.",
+          "recheck_phase": "phase-5"
         },
         {
           "code": "independent_decoder_unavailable",
-          "message": "Independent stream probe and decode are not integrated.",
+          "message": "An elementary-stream probe and decoder independent of the H.264/AVC encoder are not integrated.",
           "recheck_phase": "phase-5"
         }
       ],
@@ -14393,13 +14378,13 @@
       },
       "blockers": [
         {
-          "code": "backend_contract_unimplemented",
-          "message": "The external generation contract is not implemented.",
-          "recheck_phase": "phase-1"
+          "code": "provider_capability_unavailable",
+          "message": "No deterministic H.265/HEVC elementary-stream encoder is installed, version-locked, and fingerprinted for this case.",
+          "recheck_phase": "phase-5"
         },
         {
           "code": "independent_decoder_unavailable",
-          "message": "Independent stream probe and decode are not integrated.",
+          "message": "An elementary-stream probe and decoder independent of the H.265/HEVC encoder are not integrated.",
           "recheck_phase": "phase-5"
         }
       ],
@@ -14461,13 +14446,13 @@
       },
       "blockers": [
         {
-          "code": "backend_contract_unimplemented",
-          "message": "The external generation contract is not implemented.",
-          "recheck_phase": "phase-1"
+          "code": "provider_capability_unavailable",
+          "message": "No deterministic MPEG-2 elementary-stream encoder is installed, version-locked, and fingerprinted for this case.",
+          "recheck_phase": "phase-5"
         },
         {
           "code": "independent_decoder_unavailable",
-          "message": "Independent stream probe and decode are not integrated.",
+          "message": "An elementary-stream probe and decoder independent of the MPEG-2 encoder are not integrated.",
           "recheck_phase": "phase-5"
         }
       ],

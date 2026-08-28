@@ -42,7 +42,7 @@ fn list_cases_command_exposes_planned_provider_and_blockers() {
     );
     let stdout = String::from_utf8(output.stdout).expect("list-cases stdout must be utf-8");
     assert!(
-        stdout.contains("classic/dx/mono2_u12_jpeg_extended\tplanned\textended\t1.2.840.10008.5.1.4.1.1.1.1\t1.2.840.10008.1.2.4.51\t2/2 covered\tdicom_instance\tdcmtk\tclassic_image\tlater\tbackend_contract_unimplemented,independent_decoder_unavailable"),
+        stdout.contains("classic/dx/mono2_u12_jpeg_extended\tplanned\textended\t1.2.840.10008.5.1.4.1.1.1.1\t1.2.840.10008.1.2.4.51\t2/2 covered\tdicom_instance\tdcmtk\tclassic_image\tlater\tindependent_decoder_unavailable"),
         "planned rows must expose their provider, priority, and controlled blockers"
     );
     assert!(

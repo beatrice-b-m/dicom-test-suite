@@ -3315,6 +3315,74 @@ fn jpeg_extended_12bit_remains_deferred_until_independent_validation_exists() {
 }
 
 #[test]
+fn deferred_codec_and_video_rows_name_only_current_capability_blockers() {
+    let registry = read_json("cases/registry.json");
+    let cases = registry_cases(&registry);
+    let expected = [
+        (
+            "classic/dx/mono2_u12_jpeg_extended",
+            vec!["independent_decoder_unavailable"],
+        ),
+        (
+            "classic/sc/mono2_u16_jpeg2000_lossy",
+            vec![
+                "provider_capability_unavailable",
+                "independent_decoder_unavailable",
+            ],
+        ),
+        (
+            "classic/sc/mono2_u8_jpeg_ls_near_lossless",
+            vec![
+                "provider_capability_unavailable",
+                "independent_decoder_unavailable",
+            ],
+        ),
+        (
+            "video/endoscopic/avc_short",
+            vec![
+                "provider_capability_unavailable",
+                "independent_decoder_unavailable",
+            ],
+        ),
+        (
+            "video/endoscopic/hevc_short",
+            vec![
+                "provider_capability_unavailable",
+                "independent_decoder_unavailable",
+            ],
+        ),
+        (
+            "video/endoscopic/mpeg2_short",
+            vec![
+                "provider_capability_unavailable",
+                "independent_decoder_unavailable",
+            ],
+        ),
+    ];
+
+    for (case_id, expected_codes) in expected {
+        let case = cases
+            .iter()
+            .find(|case| case.get("case_id").and_then(Value::as_str) == Some(case_id))
+            .unwrap_or_else(|| panic!("registry must contain {case_id}"));
+        assert_eq!(case.get("status").and_then(Value::as_str), Some("planned"));
+        let codes = case
+            .get("blockers")
+            .and_then(Value::as_array)
+            .expect("planned codec blockers must be an array")
+            .iter()
+            .map(|blocker| {
+                blocker
+                    .get("code")
+                    .and_then(Value::as_str)
+                    .expect("blocker code must be a string")
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(codes, expected_codes, "{case_id} has stale blocker codes");
+    }
+}
+
+#[test]
 fn legacy_jpeg_backend_decision_records_dcmtk_generated_case_promotion() {
     let decisions = read_json("transfer-syntax/backend-decisions.json");
     let families = decisions

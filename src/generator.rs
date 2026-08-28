@@ -15700,7 +15700,7 @@ fn write_stress_high_instance_ct_case(
         slice_thickness: "2.5",
         spacing_between_slices: Some("2.5"),
         gantry_detector_tilt_degrees: None,
-        sorting_conflict_expected: None,
+        sorting_conflict_expected: Some(false),
         kvp: "120",
     };
     write_classic_ct_case(run, case, recipe, standards_lock_sha256)

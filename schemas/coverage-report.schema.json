@@ -36,6 +36,13 @@
     "grouped_negative_coverage": {
       "$ref": "#/$defs/grouped_negative_coverage"
     },
+    "fuzz_coverage": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/fuzz_coverage_row" }
+    },
+    "grouped_fuzz_coverage": {
+      "$ref": "#/$defs/grouped_fuzz_coverage"
+    },
     "grouped_coverage": {
       "type": "object",
       "properties": {
@@ -922,7 +929,9 @@
   },
   "dependentRequired": {
     "negative_coverage": ["grouped_negative_coverage"],
-    "grouped_negative_coverage": ["negative_coverage"]
+    "grouped_negative_coverage": ["negative_coverage"],
+    "fuzz_coverage": ["grouped_fuzz_coverage"],
+    "grouped_fuzz_coverage": ["fuzz_coverage"]
   },
   "additionalProperties": false,
   "$defs": {
@@ -1085,6 +1094,105 @@
       "type": "array",
       "uniqueItems": true,
       "items": { "type": "string" }
+    },
+    "fuzz_coverage_row": {
+      "type": "object",
+      "required": [
+        "case_id",
+        "profile",
+        "status",
+        "contract_version",
+        "provider_id",
+        "target_kind",
+        "target_independence",
+        "payload_policy",
+        "seed_count",
+        "candidates",
+        "mutations",
+        "target_operations",
+        "minimization_count",
+        "outcomes",
+        "unacceptable_outcomes"
+      ],
+      "properties": {
+        "case_id": { "const": "fuzz/parser/bounded_seed_corpus" },
+        "profile": { "const": "fuzz" },
+        "status": { "enum": ["passed", "failed"] },
+        "contract_version": { "const": "0.1.0" },
+        "provider_id": { "const": "bounded_deterministic_fuzz" },
+        "target_kind": { "const": "same_project_bounded_part10_probe" },
+        "target_independence": { "const": "same_project" },
+        "payload_policy": { "const": "generated_payloads_uncommitted" },
+        "seed_count": { "type": "integer", "minimum": 1 },
+        "candidates": { "type": "integer", "minimum": 1 },
+        "mutations": { "type": "integer", "minimum": 1 },
+        "target_operations": { "type": "integer", "minimum": 1 },
+        "minimization_count": { "type": "integer", "minimum": 1 },
+        "outcomes": {
+          "type": "object",
+          "required": [
+            "accepted",
+            "clean_rejection",
+            "parse_failure",
+            "validation_failure",
+            "decode_failure",
+            "crash",
+            "hang",
+            "timeout",
+            "resource_limit"
+          ],
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "unacceptable_outcomes": {
+          "const": ["crash", "hang", "timeout", "resource_limit"]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "status": { "const": "passed" } },
+            "required": ["status"]
+          },
+          "then": {
+            "properties": {
+              "outcomes": {
+                "properties": {
+                  "crash": { "const": 0 },
+                  "hang": { "const": 0 },
+                  "timeout": { "const": 0 },
+                  "resource_limit": { "const": 0 }
+                }
+              }
+            }
+          }
+        }
+      ],
+      "additionalProperties": false
+    },
+    "grouped_fuzz_coverage": {
+      "type": "object",
+      "required": [
+        "qualification_runs",
+        "candidates",
+        "mutations",
+        "minimizations",
+        "outcomes",
+        "statuses",
+        "targets"
+      ],
+      "properties": {
+        "qualification_runs": { "type": "integer", "minimum": 0 },
+        "candidates": { "type": "integer", "minimum": 0 },
+        "mutations": { "type": "integer", "minimum": 0 },
+        "minimizations": { "type": "integer", "minimum": 0 },
+        "outcomes": { "$ref": "#/$defs/count_map" },
+        "statuses": { "$ref": "#/$defs/count_map" },
+        "targets": { "$ref": "#/$defs/count_map" }
+      },
+      "additionalProperties": false
     },
     "negative_coverage_row": {
       "type": "object",

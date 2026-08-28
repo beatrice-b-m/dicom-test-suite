@@ -17280,6 +17280,11 @@ pub fn build_coverage_report(root_dir: impl AsRef<Path>) -> Result<Value, Report
             path: manifest_path.clone(),
             message: "missing skipped_cases array",
         })?;
+    let qualifications = manifest
+        .get("qualifications")
+        .and_then(Value::as_array)
+        .map(Vec::as_slice)
+        .unwrap_or(&[]);
     let run_profile = report_str(
         &manifest_path,
         &manifest,
@@ -17294,6 +17299,8 @@ pub fn build_coverage_report(root_dir: impl AsRef<Path>) -> Result<Value, Report
     let mut grouped = GroupedCoverage::default();
     let mut negative_rows = Vec::new();
     let mut grouped_negative = GroupedNegativeCoverage::default();
+    let mut fuzz_rows = Vec::new();
+    let mut grouped_fuzz = GroupedFuzzCoverage::default();
     for file in files {
         if file.get("validity").and_then(Value::as_str) == Some("expected_invalid") {
             let row = negative_coverage_row(root_dir, &manifest_path, file, run_profile)?;
@@ -17317,6 +17324,15 @@ pub fn build_coverage_report(root_dir: impl AsRef<Path>) -> Result<Value, Report
         }
         grouped.record(&row);
         rows.push(row);
+    }
+    for qualification in qualifications {
+        if qualification.get("kind").and_then(Value::as_str) != Some("bounded_fuzz_run") {
+            continue;
+        }
+        let row = fuzz_coverage_row(&manifest_path, qualification)?;
+        counts.generated += 1;
+        grouped_fuzz.record(&row);
+        fuzz_rows.push(row);
     }
 
     let gaps = skipped_cases
@@ -17346,8 +17362,82 @@ pub fn build_coverage_report(root_dir: impl AsRef<Path>) -> Result<Value, Report
         "grouped_coverage": grouped.to_json(),
         "negative_coverage": negative_rows,
         "grouped_negative_coverage": grouped_negative.to_json(),
+        "fuzz_coverage": fuzz_rows,
+        "grouped_fuzz_coverage": grouped_fuzz.to_json(),
         "gaps": gaps
     }))
+}
+
+fn fuzz_coverage_row(manifest_path: &Path, qualification: &Value) -> Result<Value, ReportError> {
+    let required = |pointer, message| report_str(manifest_path, qualification, pointer, message);
+    Ok(serde_json::json!({
+        "case_id": required("/case_id", "fuzz case_id must be a string")?,
+        "profile": required("/profile", "fuzz profile must be a string")?,
+        "status": required("/status", "fuzz status must be a string")?,
+        "contract_version": required("/contract_version", "fuzz contract version must be a string")?,
+        "provider_id": required("/provider/id", "fuzz provider id must be a string")?,
+        "target_kind": required("/target/kind", "fuzz target kind must be a string")?,
+        "target_independence": required("/target/independence", "fuzz target independence must be a string")?,
+        "payload_policy": required("/payload_policy", "fuzz payload policy must be a string")?,
+        "seed_count": qualification.get("seeds").and_then(Value::as_array).map_or(0, Vec::len),
+        "candidates": qualification.pointer("/counters/candidates").and_then(Value::as_u64).unwrap_or(0),
+        "mutations": qualification.pointer("/counters/mutations").and_then(Value::as_u64).unwrap_or(0),
+        "target_operations": qualification.pointer("/counters/target_operations").and_then(Value::as_u64).unwrap_or(0),
+        "minimization_count": qualification.get("minimizations").and_then(Value::as_array).map_or(0, Vec::len),
+        "outcomes": qualification.get("outcomes").cloned().unwrap_or_else(|| serde_json::json!({})),
+        "unacceptable_outcomes": qualification.get("unacceptable_outcomes").cloned().unwrap_or_else(|| serde_json::json!([]))
+    }))
+}
+
+#[derive(Default)]
+struct GroupedFuzzCoverage {
+    qualification_runs: usize,
+    candidates: u64,
+    mutations: u64,
+    minimizations: u64,
+    outcomes: BTreeMap<String, usize>,
+    statuses: BTreeMap<String, usize>,
+    targets: BTreeMap<String, usize>,
+}
+
+impl GroupedFuzzCoverage {
+    fn record(&mut self, row: &Value) {
+        self.qualification_runs += 1;
+        self.candidates += row.get("candidates").and_then(Value::as_u64).unwrap_or(0);
+        self.mutations += row.get("mutations").and_then(Value::as_u64).unwrap_or(0);
+        self.minimizations += row
+            .get("minimization_count")
+            .and_then(Value::as_u64)
+            .unwrap_or(0);
+        increment_map(
+            &mut self.statuses,
+            row.get("status").and_then(Value::as_str),
+        );
+        increment_map(
+            &mut self.targets,
+            row.get("target_kind").and_then(Value::as_str),
+        );
+        if let Some(outcomes) = row.get("outcomes").and_then(Value::as_object) {
+            for (outcome, count) in outcomes {
+                let count = count.as_u64().unwrap_or(0) as usize;
+                if count > 0 {
+                    *self.outcomes.entry(outcome.clone()).or_default() += count;
+                }
+            }
+        }
+    }
+
+    fn to_json(&self) -> Value {
+        serde_json::json!({
+            "qualification_runs": self.qualification_runs,
+            "candidates": self.candidates,
+            "mutations": self.mutations,
+            "minimizations": self.minimizations,
+            "outcomes": self.outcomes,
+            "statuses": self.statuses,
+            "targets": self.targets
+        })
+    }
 }
 
 #[derive(Default)]
@@ -20924,6 +21014,9 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
     }
 
     for (title, pointer) in [
+        ("Fuzz Outcomes", "/grouped_fuzz_coverage/outcomes"),
+        ("Fuzz Statuses", "/grouped_fuzz_coverage/statuses"),
+        ("Fuzz Targets", "/grouped_fuzz_coverage/targets"),
         (
             "Negative Mutation IDs",
             "/grouped_negative_coverage/mutation_ids",
@@ -20943,6 +21036,30 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
         ("Negative Providers", "/grouped_negative_coverage/providers"),
     ] {
         append_count_map_section(&mut output, report, title, pointer);
+    }
+
+    if let Some(rows) = report.get("fuzz_coverage").and_then(Value::as_array) {
+        if !rows.is_empty() {
+            output.push_str("## Bounded Fuzz Qualification\n\n");
+            output.push_str("Fuzz payloads are uncommitted runtime artifacts. The bounded target is same-project evidence; crash, hang, timeout, and resource-limit outcomes remain unconditionally unacceptable.\n\n");
+            output.push_str("| Case ID | Status | Seeds | Candidates | Mutations | Minimizations | Target / independence | Payload policy |\n");
+            output.push_str("|---|---|---:|---:|---:|---:|---|---|\n");
+            for row in rows {
+                output.push_str(&format!(
+                    "| {} | {} | {} | {} | {} | {} | {} / {} | {} |\n",
+                    markdown_cell(row.get("case_id").and_then(Value::as_str)),
+                    markdown_cell(row.get("status").and_then(Value::as_str)),
+                    markdown_number(row.get("seed_count")),
+                    markdown_number(row.get("candidates")),
+                    markdown_number(row.get("mutations")),
+                    markdown_number(row.get("minimization_count")),
+                    markdown_cell(row.get("target_kind").and_then(Value::as_str)),
+                    markdown_cell(row.get("target_independence").and_then(Value::as_str)),
+                    markdown_cell(row.get("payload_policy").and_then(Value::as_str)),
+                ));
+            }
+            output.push('\n');
+        }
     }
 
     if let Some(rows) = report.get("negative_coverage").and_then(Value::as_array) {

@@ -8,6 +8,77 @@ use serde_json::Value;
 use serde_json::json;
 
 #[test]
+fn report_command_isolates_bounded_fuzz_qualification() {
+    let out_dir = unique_temp_dir("report-fuzz-json");
+    let generated = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args([
+            "generate",
+            "--profile",
+            "fuzz",
+            "--out",
+            out_dir.to_str().expect("temp path should be valid UTF-8"),
+            "--seed",
+            "7",
+        ])
+        .output()
+        .expect("fuzz generation command must run");
+    assert!(
+        generated.status.success(),
+        "fuzz generation should succeed: {}",
+        String::from_utf8_lossy(&generated.stderr)
+    );
+
+    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args([
+            "report",
+            out_dir.to_str().expect("temp path should be valid UTF-8"),
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("fuzz report command must run");
+    assert!(output.status.success());
+    let report: Value = serde_json::from_slice(&output.stdout).unwrap();
+    let schema: Value = serde_json::from_slice(
+        &fs::read("schemas/coverage-report.schema.json").expect("coverage schema"),
+    )
+    .unwrap();
+    let validator = jsonschema::validator_for(&schema).unwrap();
+    assert!(
+        validator.is_valid(&report),
+        "fuzz report schema errors: {:?}",
+        validator.iter_errors(&report).collect::<Vec<_>>()
+    );
+    assert_eq!(report["counts"]["generated"], 1);
+    assert_eq!(report["coverage_matrix"], serde_json::json!([]));
+    assert_eq!(report["negative_coverage"], serde_json::json!([]));
+    assert_eq!(report["fuzz_coverage"][0]["status"], "passed");
+    assert_eq!(report["fuzz_coverage"][0]["candidates"], 64);
+    assert_eq!(
+        report["fuzz_coverage"][0]["target_independence"],
+        "same_project"
+    );
+    assert_eq!(report["grouped_fuzz_coverage"]["qualification_runs"], 1);
+    let mut hidden_timeout = report.clone();
+    hidden_timeout["fuzz_coverage"][0]["outcomes"]["timeout"] = Value::from(1);
+    assert!(!validator.is_valid(&hidden_timeout));
+
+    let markdown = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args([
+            "report",
+            out_dir.to_str().expect("temp path should be valid UTF-8"),
+            "--format",
+            "markdown",
+        ])
+        .output()
+        .expect("fuzz markdown report command must run");
+    assert!(markdown.status.success());
+    let markdown = String::from_utf8(markdown.stdout).unwrap();
+    assert!(markdown.contains("Bounded Fuzz Qualification"));
+    assert!(markdown.contains("generated_payloads_uncommitted"));
+}
+
+#[test]
 fn report_command_writes_json_coverage_for_core_root() {
     let out_dir = unique_temp_dir("report-core-json");
     generate_core(&out_dir);

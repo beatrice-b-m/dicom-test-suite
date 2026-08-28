@@ -516,6 +516,12 @@ mod tests {
             return;
         }
         if behavior.contains("grandchild") {
+            #[cfg(unix)]
+            Command::new("/bin/sleep")
+                .arg("10")
+                .spawn()
+                .expect("spawn pipe-holding grandchild");
+            #[cfg(windows)]
             Command::new(std::env::current_exe().expect("pipe-holder executable"))
                 .args([
                     "--ignored",

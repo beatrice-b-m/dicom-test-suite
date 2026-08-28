@@ -553,7 +553,19 @@
                         },
                         "encoder": { "$ref": "#/$defs/jxl_lossy_encoder" },
                         "overall_rmse": {
-                          "properties": { "limit": { "const": 3 } }
+                          "properties": {
+                            "observed": { "const": 0.7918037162 },
+                            "limit": { "const": 3 }
+                          }
+                        },
+                        "uncompressed_bytes": { "const": 3072 },
+                        "compressed_bytes": { "const": 1185 },
+                        "compression_ratio": {
+                          "properties": {
+                            "numerator": { "const": 3072 },
+                            "denominator": { "const": 1185 },
+                            "computed": { "const": 2.5924050632911393 }
+                          }
                         },
                         "lossy_image_compression_method": { "const": "ISO_18181_1" },
                         "decoder": { "$ref": "#/$defs/jxl_independent_decoder" }
@@ -576,7 +588,19 @@
                         },
                         "encoder": { "$ref": "#/$defs/htj2k_lossy_encoder" },
                         "overall_rmse": {
-                          "properties": { "limit": { "const": 16 } }
+                          "properties": {
+                            "observed": { "const": 4.3548643779 },
+                            "limit": { "const": 16 }
+                          }
+                        },
+                        "uncompressed_bytes": { "const": 2048 },
+                        "compressed_bytes": { "const": 1476 },
+                        "compression_ratio": {
+                          "properties": {
+                            "numerator": { "const": 2048 },
+                            "denominator": { "const": 1476 },
+                            "computed": { "const": 1.3875338753387534 }
+                          }
                         },
                         "lossy_image_compression_method": { "const": "ISO_15444_15" },
                         "decoder": { "$ref": "#/$defs/htj2k_independent_decoder" }
@@ -8000,25 +8024,25 @@
     "jxl_red_lossy_channel": {
       "allOf": [
         { "$ref": "#/$defs/lossy_channel" },
-        { "properties": { "index": { "const": 0 }, "name": { "const": "R" }, "max_absolute_error": { "properties": { "limit": { "const": 8 } } }, "rmse": { "properties": { "limit": { "const": 3 } } } } }
+        { "properties": { "index": { "const": 0 }, "name": { "const": "R" }, "max_absolute_error": { "properties": { "observed": { "const": 8 }, "limit": { "const": 8 } } }, "rmse": { "properties": { "observed": { "const": 1.0752906584 }, "limit": { "const": 3 } } } } }
       ]
     },
     "jxl_green_lossy_channel": {
       "allOf": [
         { "$ref": "#/$defs/lossy_channel" },
-        { "properties": { "index": { "const": 1 }, "name": { "const": "G" }, "max_absolute_error": { "properties": { "limit": { "const": 8 } } }, "rmse": { "properties": { "limit": { "const": 3 } } } } }
+        { "properties": { "index": { "const": 1 }, "name": { "const": "G" }, "max_absolute_error": { "properties": { "observed": { "const": 2 }, "limit": { "const": 8 } } }, "rmse": { "properties": { "observed": { "const": 0.1875 }, "limit": { "const": 3 } } } } }
       ]
     },
     "jxl_blue_lossy_channel": {
       "allOf": [
         { "$ref": "#/$defs/lossy_channel" },
-        { "properties": { "index": { "const": 2 }, "name": { "const": "B" }, "max_absolute_error": { "properties": { "limit": { "const": 8 } } }, "rmse": { "properties": { "limit": { "const": 3 } } } } }
+        { "properties": { "index": { "const": 2 }, "name": { "const": "B" }, "max_absolute_error": { "properties": { "observed": { "const": 7 }, "limit": { "const": 8 } } }, "rmse": { "properties": { "observed": { "const": 0.830333141 }, "limit": { "const": 3 } } } } }
       ]
     },
     "htj2k_mono_lossy_channel": {
       "allOf": [
         { "$ref": "#/$defs/lossy_channel" },
-        { "properties": { "index": { "const": 0 }, "name": { "const": "MONOCHROME2" }, "max_absolute_error": { "properties": { "limit": { "const": 64 } } }, "rmse": { "properties": { "limit": { "const": 16 } } } } }
+        { "properties": { "index": { "const": 0 }, "name": { "const": "MONOCHROME2" }, "max_absolute_error": { "properties": { "observed": { "const": 19 }, "limit": { "const": 64 } } }, "rmse": { "properties": { "observed": { "const": 4.3548643779 }, "limit": { "const": 16 } } } } }
       ]
     },
     "lossy_encoder": {
@@ -8036,11 +8060,14 @@
             "argument_vector": { "type": "array", "minItems": 1, "items": { "type": "string" } },
             "distance": { "type": ["number", "null"], "minimum": 0 },
             "effort": { "type": ["integer", "null"], "minimum": 1 },
-            "threads": { "type": ["integer", "null"], "minimum": 1 },
+            "num_threads": { "type": ["integer", "null"], "minimum": 0 },
             "container": { "type": ["boolean", "null"] },
+            "modular": { "type": ["boolean", "null"] },
             "qstep": { "type": ["number", "null"], "exclusiveMinimum": 0 },
             "reversible": { "type": ["boolean", "null"] },
-            "num_decompositions": { "type": ["integer", "null"], "minimum": 0 }
+            "num_decompositions": { "type": ["integer", "null"], "minimum": 0 },
+            "colour_transform": { "type": ["boolean", "null"] },
+            "progression": { "type": ["string", "null"] }
           },
           "additionalProperties": false
         },
@@ -8057,16 +8084,19 @@
             "version": { "const": "0.11.2" },
             "executable_sha256": { "const": "5b7b6cdc09a1bdaef39e30d3660e29861a405fffc1bc1136f3bb91cfe6db658e" },
             "options": {
-              "required": ["distance", "effort", "threads", "container"],
+              "required": ["distance", "effort", "num_threads", "container", "modular"],
               "properties": {
                 "input_format": { "const": "binary_ppm_rgb8" },
-                "distance": { "type": "number", "exclusiveMinimum": 0 },
-                "effort": { "type": "integer", "minimum": 1 },
-                "threads": { "const": 1 },
+                "distance": { "const": 0.05 },
+                "effort": { "const": 7 },
+                "num_threads": { "const": 0 },
                 "container": { "const": false },
+                "modular": { "const": false },
                 "qstep": { "type": "null" },
                 "reversible": { "type": "null" },
-                "num_decompositions": { "type": "null" }
+                "num_decompositions": { "type": "null" },
+                "colour_transform": { "type": "null" },
+                "progression": { "type": "null" }
               }
             }
           }
@@ -8082,16 +8112,19 @@
             "version": { "const": "OpenJPH 0.27.3" },
             "executable_sha256": { "const": "d21a8ea98ffce347928c34a2c51c61e424a068ca4eb746a6867a29d6c30b1627" },
             "options": {
-              "required": ["qstep", "reversible", "num_decompositions"],
+              "required": ["qstep", "reversible", "num_decompositions", "colour_transform", "progression"],
               "properties": {
                 "input_format": { "const": "binary_pgm_u16_big_endian" },
                 "distance": { "type": "null" },
                 "effort": { "type": "null" },
-                "threads": { "type": "null" },
+                "num_threads": { "type": "null" },
                 "container": { "type": "null" },
-                "qstep": { "type": "number", "exclusiveMinimum": 0 },
+                "modular": { "type": "null" },
+                "qstep": { "const": 0.00025 },
                 "reversible": { "const": false },
-                "num_decompositions": { "type": "integer", "minimum": 0 }
+                "num_decompositions": { "const": 2 },
+                "colour_transform": { "const": false },
+                "progression": { "const": "LRCP" }
               }
             }
           }

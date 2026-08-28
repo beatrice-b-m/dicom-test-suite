@@ -287,8 +287,8 @@ fn manifest_schema_locks_approved_lossy_metric_oracles() {
         "$defs": schema["$defs"].clone(),
         "$ref": "#/$defs/expected_lossy_metrics"
     });
-    let validator = jsonschema::validator_for(&metric_schema)
-        .expect("lossy metric oracle schema must compile");
+    let validator =
+        jsonschema::validator_for(&metric_schema).expect("lossy metric oracle schema must compile");
     let jxl = serde_json::json!({
         "sample_domain": "unsigned_8_bit",
         "sample_order": "interleaved_by_pixel",
@@ -303,7 +303,7 @@ fn manifest_schema_locks_approved_lossy_metric_oracles() {
             "id": "cjxl_jpegxl_lossy_encoder",
             "version": "0.11.2",
             "executable_sha256": "5b7b6cdc09a1bdaef39e30d3660e29861a405fffc1bc1136f3bb91cfe6db658e",
-            "options": { "input_format": "binary_ppm_rgb8", "argument_vector": ["--distance=1"], "distance": 1, "effort": 7, "threads": 1, "container": false },
+            "options": { "input_format": "binary_ppm_rgb8", "argument_vector": ["--distance=0.05"], "distance": 0.05, "effort": 7, "num_threads": 0, "container": false, "modular": false },
             "options_fingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         },
         "overall_rmse": { "observed": 1.7, "limit": 3 },
@@ -353,6 +353,20 @@ fn manifest_schema_locks_approved_lossy_metric_oracles() {
             .pointer("/$defs/htj2k_mono_lossy_channel/allOf/1/properties/max_absolute_error/properties/limit/const")
             .and_then(Value::as_u64),
         Some(64)
+    );
+    assert_eq!(
+        schema
+            .pointer(
+                "/$defs/jxl_lossy_encoder/allOf/1/properties/options/properties/distance/const"
+            )
+            .and_then(Value::as_f64),
+        Some(0.05)
+    );
+    assert_eq!(
+        schema
+            .pointer("/$defs/htj2k_lossy_encoder/allOf/1/properties/options/properties/qstep/const")
+            .and_then(Value::as_f64),
+        Some(0.00025)
     );
     assert!(
         lossy_rule

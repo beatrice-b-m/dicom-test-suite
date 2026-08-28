@@ -195,6 +195,10 @@ pub enum ReportError {
         path: PathBuf,
         message: &'static str,
     },
+    CorpusValidation {
+        path: PathBuf,
+        message: String,
+    },
 }
 
 #[derive(Debug)]
@@ -431,6 +435,9 @@ impl fmt::Display for ReportError {
                     path.display()
                 )
             }
+            Self::CorpusValidation { path, message } => {
+                write!(f, "generated corpus {} is not valid: {message}", path.display())
+            }
         }
     }
 }
@@ -441,6 +448,7 @@ impl Error for ReportError {
             Self::ReadMetadata { source, .. } => Some(source),
             Self::ParseMetadata { source, .. } => Some(source),
             Self::MetadataShape { .. } => None,
+            Self::CorpusValidation { .. } => None,
         }
     }
 }
@@ -16264,6 +16272,19 @@ pub fn build_coverage_report(root_dir: impl AsRef<Path>) -> Result<Value, Report
         "run profile must be a string",
     )?;
 
+    let validation = validate_generated_root(root_dir).map_err(|error| {
+        ReportError::CorpusValidation {
+            path: root_dir.to_path_buf(),
+            message: error.to_string(),
+        }
+    })?;
+    if !validation.failures.is_empty() {
+        return Err(ReportError::CorpusValidation {
+            path: root_dir.to_path_buf(),
+            message: validation.failures.join("; "),
+        });
+    }
+
     validate_wsi_pyramid_report_group(&manifest_path, files)?;
 
     let mut rows = Vec::new();
@@ -19989,8 +20010,21 @@ fn wsi_tile_segmentation_report_fields(
         && internal
             .iter()
             .all(|result| result.get("status").and_then(Value::as_str) == Some("passed"))
-        && internal.iter().any(|result| {
-            result.get("name").and_then(Value::as_str) == Some("external_backend_contract")
+        && [
+            "external_backend_contract",
+            "wsi_tile_seg_source_file_sha256",
+            "wsi_tile_seg_referenced_series_uid",
+            "wsi_tile_seg_dimension_index_items",
+            "wsi_tile_seg_per_frame_items",
+            "wsi_tile_seg_payload_sha256",
+            "wsi_tile_seg_reconstructed_matrix_sha256",
+        ]
+        .iter()
+        .all(|required| {
+            internal.iter().any(|result| {
+                result.get("name").and_then(Value::as_str) == Some(*required)
+                    && result.get("status").and_then(Value::as_str) == Some("passed")
+            })
         });
     if !internal_validation_closure {
         return Err(ReportError::MetadataShape {
@@ -32973,7 +33007,13 @@ mod tests {
             "status": "passed",
             "internal": [
                 {"name": "part10", "status": "passed"},
-                {"name": "external_backend_contract", "status": "passed"}
+                {"name": "external_backend_contract", "status": "passed"},
+                {"name": "wsi_tile_seg_source_file_sha256", "status": "passed"},
+                {"name": "wsi_tile_seg_referenced_series_uid", "status": "passed"},
+                {"name": "wsi_tile_seg_dimension_index_items", "status": "passed"},
+                {"name": "wsi_tile_seg_per_frame_items", "status": "passed"},
+                {"name": "wsi_tile_seg_payload_sha256", "status": "passed"},
+                {"name": "wsi_tile_seg_reconstructed_matrix_sha256", "status": "passed"}
             ],
             "standards": [],
             "external": []
@@ -33046,6 +33086,19 @@ mod tests {
         assert!(markdown.contains("## WSI Tile Segmentation Expectations"));
         assert!(markdown.contains("SEG1->WSI1; SEG2->WSI4"));
         assert!(markdown.contains("4096 of 16384 bytes / 812 of 5000 ms"));
+
+        let mut missing_graph_evidence = file.clone();
+        missing_graph_evidence["validation"]["internal"]
+            .as_array_mut()
+            .unwrap()
+            .retain(|item| item["name"] != "wsi_tile_seg_per_frame_items");
+        assert!(
+            wsi_tile_segmentation_report_fields(
+                Path::new("manifest.json"),
+                &missing_graph_evidence
+            )
+            .is_err()
+        );
 
         let mut failed_validation = file.clone();
         failed_validation["validation"]["internal"][0]["status"] = Value::from("failed");

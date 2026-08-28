@@ -7607,6 +7607,13 @@ fn report_exposes_generated_wsi_tile_segmentation_closure() {
         );
     }
 
+    fs::remove_file(out_dir.join("vl/wsi/tiled_full_small/instance.dcm"))
+        .expect("remove WSI tile segmentation source");
+    let error = dicom_test_suite::build_coverage_report(&out_dir)
+        .expect_err("report must not claim closure without the referenced WSI source")
+        .to_string();
+    assert!(error.contains("generated corpus"), "{error}");
+
     fs::remove_dir_all(out_dir).expect("remove generated WSI tile segmentation report root");
 }
 

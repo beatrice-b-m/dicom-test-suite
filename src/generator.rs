@@ -3,6 +3,7 @@ use std::fs::{self, File};
 use std::io::{BufWriter, Write};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::Instant;
 
 use dicom_core::{
     DataElement, Length, PrimitiveValue, Tag, VR,
@@ -127,12 +128,13 @@ use native::wsi_multiple_optical_paths::{
     reconstructed_optical_path_matrices,
 };
 use native::wsi_pyramid::{
-    WSI_PYRAMID_CASE_ID, WSI_PYRAMID_LABEL_IMAGE_TYPE, WSI_PYRAMID_LABEL_OUTPUT_FILE,
-    WSI_PYRAMID_LABEL_PIXEL_BYTES, WSI_PYRAMID_LABEL_PIXEL_DATA_SHA256, WSI_PYRAMID_RECIPE_ID,
-    WSI_PYRAMID_RECIPE_VERSION, WSI_PYRAMID_STORAGE_UID, WSI_PYRAMID_THUMBNAIL_IMAGE_TYPE,
-    WSI_PYRAMID_THUMBNAIL_OUTPUT_FILE, WSI_PYRAMID_THUMBNAIL_PIXEL_BYTES,
-    WSI_PYRAMID_THUMBNAIL_PIXEL_DATA_SHA256, WSI_PYRAMID_VOLUME_IMAGE_TYPE,
-    WSI_PYRAMID_VOLUME_OUTPUT_FILE, WsiPyramidInput, build_wsi_pyramid,
+    STRESS_WSI_TILE_COLUMNS, STRESS_WSI_TILE_ROWS, WSI_PYRAMID_CASE_ID,
+    WSI_PYRAMID_LABEL_IMAGE_TYPE, WSI_PYRAMID_LABEL_OUTPUT_FILE, WSI_PYRAMID_LABEL_PIXEL_BYTES,
+    WSI_PYRAMID_LABEL_PIXEL_DATA_SHA256, WSI_PYRAMID_RECIPE_ID, WSI_PYRAMID_RECIPE_VERSION,
+    WSI_PYRAMID_STORAGE_UID, WSI_PYRAMID_THUMBNAIL_IMAGE_TYPE, WSI_PYRAMID_THUMBNAIL_OUTPUT_FILE,
+    WSI_PYRAMID_THUMBNAIL_PIXEL_BYTES, WSI_PYRAMID_THUMBNAIL_PIXEL_DATA_SHA256,
+    WSI_PYRAMID_VOLUME_IMAGE_TYPE, WSI_PYRAMID_VOLUME_OUTPUT_FILE, WsiPyramidInput,
+    build_stress_wsi_pyramid, build_wsi_pyramid,
 };
 use native::wsi_tiled_full::{
     WSI_FRAME_SHA256, WSI_NUMBER_OF_FRAMES, WSI_PIXEL_BYTES, WSI_PIXEL_DATA_SHA256,
@@ -190,6 +192,11 @@ use crate::{
         minimal_rt_radiation_set_expected,
     },
     sha256_hex,
+    stress::{
+        ResourceObservation, STRESS_CONTRACT_VERSION, StressExecutionOutcome,
+        StressQualificationRecord, StressRecipeKind, StressRequest, StressResourceGuard,
+        StressScale, StressScaleParameters,
+    },
     validation::{
         AdvancedBlendingPresentationStateExpectations, AdvancedBlendingSourceSeriesExpectations,
         BasicTextSrExpectations, BlendingPresentationStateExpectations,
@@ -2780,6 +2787,7 @@ const STRESS_LARGE_BULK_CASE_ID: &str = "stress/sc/large_bulk_data";
 const STRESS_DEEP_NESTED_CASE_ID: &str = "stress/sc/deep_nested_sequences";
 const STRESS_LONG_METADATA_CASE_ID: &str = "stress/sc/long_value_metadata";
 const STRESS_ENCAPSULATED_CASE_ID: &str = "stress/sc/large_encapsulated_multifragment";
+const STRESS_WSI_PYRAMID_CASE_ID: &str = "stress/wsi/large_pyramid";
 const ENHANCED_CT_CONCAT_PART_1_IMAGE_POSITIONS: &[&str] = &["0\\0\\0"];
 const ENHANCED_CT_CONCAT_PART_2_IMAGE_POSITIONS: &[&str] = &["0\\0\\2.5"];
 const ENHANCED_CT_CONCAT_PART_1_DIMENSION_INDEX_VALUES: &[u32] = &[1];
@@ -4106,6 +4114,7 @@ struct GenerationContext {
     generated_files: Vec<GeneratedFile>,
     source_registry: GeneratedSourceRegistry,
     unavailable_cases: Vec<Value>,
+    qualifications: Vec<Value>,
 }
 
 impl GenerationContext {
@@ -4122,6 +4131,10 @@ impl GenerationContext {
         Ok(())
     }
 
+    fn record_qualification(&mut self, qualification: Value) {
+        self.qualifications.push(qualification);
+    }
+
     #[allow(dead_code)]
     pub(crate) fn source_registry(&self) -> &GeneratedSourceRegistry {
         &self.source_registry
@@ -4131,7 +4144,7 @@ impl GenerationContext {
         GenerationOutput {
             files: self.generated_files,
             unavailable_cases: self.unavailable_cases,
-            qualifications: Vec::new(),
+            qualifications: self.qualifications,
             completed_case_ids: Vec::new(),
         }
     }
@@ -4630,6 +4643,13 @@ pub(crate) fn write_supported_cases(
     if let Some(case) = registry_case(registry, WSI_PYRAMID_CASE_ID)? {
         if should_generate_case(case, run)? {
             context.record_many(write_wsi_pyramid_case(run, case, standards_lock_sha256)?)?;
+        }
+    }
+    if let Some(case) = registry_case(registry, STRESS_WSI_PYRAMID_CASE_ID)? {
+        if should_generate_case(case, run)? {
+            let generated = write_stress_wsi_pyramid_case(run, case, standards_lock_sha256)?;
+            context.record_many(generated.files)?;
+            context.record_qualification(generated.qualification);
         }
     }
     if let Some(case) = registry_case(registry, WSI_TILE_SEGMENTATION_CASE_ID)? {
@@ -9936,6 +9956,341 @@ fn write_wsi_tiled_sparse_case(
             ],
             "standards_evidence": standards_evidence
         }),
+    })
+}
+
+struct StressWsiPyramidGeneration {
+    files: Vec<GeneratedFile>,
+    qualification: Value,
+}
+
+fn write_stress_wsi_pyramid_case(
+    run: &PreparedGenerationRun,
+    case: &Value,
+    standards_lock_sha256: &str,
+) -> Result<StressWsiPyramidGeneration, GenerateError> {
+    const RECIPE_ID: &str = "stress_wsi_large_pyramid";
+    const RECIPE_VERSION: &str = "0.1.0";
+    const PLANNED_OUTPUT_BYTES: u64 = 16 * 1024 * 1024;
+    const PLANNED_PEAK_RSS_BYTES: u64 = 64 * 1024 * 1024;
+
+    let request = StressRequest::approved(StressRecipeKind::WsiPyramid, StressScale::Reduced);
+    let mut guard = StressResourceGuard::new(StressScale::Reduced);
+    guard
+        .preflight(request, PLANNED_OUTPUT_BYTES, PLANNED_PEAK_RSS_BYTES)
+        .map_err(|error| GenerateError::WriteDicomFile {
+            path: PathBuf::from(STRESS_WSI_PYRAMID_CASE_ID),
+            message: format!("reduced WSI stress preflight: {error}"),
+        })?;
+    let started = Instant::now();
+    let uid = |role, file_index, referenced_object_index| {
+        deterministic_uid(&DeterministicUidInput {
+            standards_lock_sha256,
+            case_id: STRESS_WSI_PYRAMID_CASE_ID,
+            recipe_version: RECIPE_VERSION,
+            run_seed: run.seed,
+            file_index,
+            frame_index: None,
+            referenced_object_index,
+            role,
+        })
+    };
+    let study_instance_uid = uid(UidRole::StudyInstance, 0, None);
+    let series_instance_uid = uid(UidRole::SeriesInstance, 0, None);
+    let frame_of_reference_uid = uid(UidRole::FrameOfReference, 0, None);
+    let specimen_uid = uid(UidRole::DerivedReference, 0, Some(0));
+    let pyramid_uid = uid(UidRole::DerivedReference, 0, Some(1));
+    let sop_instance_uids = [
+        uid(UidRole::SopInstance, 0, None),
+        uid(UidRole::SopInstance, 1, None),
+        uid(UidRole::SopInstance, 2, None),
+    ];
+    let dimension_organization_uids = [
+        uid(UidRole::DimensionOrganization, 0, None),
+        uid(UidRole::DimensionOrganization, 1, None),
+        uid(UidRole::DimensionOrganization, 2, None),
+    ];
+    let implementation_class_uid = deterministic_implementation_uid(standards_lock_sha256);
+    let levels = build_stress_wsi_pyramid(WsiPyramidInput {
+        study_instance_uid: &study_instance_uid,
+        series_instance_uid: &series_instance_uid,
+        frame_of_reference_uid: &frame_of_reference_uid,
+        specimen_uid: &specimen_uid,
+        specimen_identifier: "DTS-STRESS-SPECIMEN-001",
+        container_identifier: "DTS-STRESS-SLIDE-001",
+        optical_path_identifier: "RGB",
+        pyramid_uid: &pyramid_uid,
+        volume_sop_instance_uid: &sop_instance_uids[0],
+        thumbnail_sop_instance_uid: &sop_instance_uids[1],
+        label_sop_instance_uid: &sop_instance_uids[2],
+        volume_dimension_organization_uid: &dimension_organization_uids[0],
+        thumbnail_dimension_organization_uid: &dimension_organization_uids[1],
+        label_dimension_organization_uid: &dimension_organization_uids[2],
+    })
+    .map_err(|message| GenerateError::WriteDicomFile {
+        path: PathBuf::from(STRESS_WSI_PYRAMID_CASE_ID),
+        message,
+    })?;
+    let case_dir = run.out_dir.join(STRESS_WSI_PYRAMID_CASE_ID);
+    fs::create_dir_all(&case_dir).map_err(|source| GenerateError::CreateCaseOutputDir {
+        path: case_dir.clone(),
+        source,
+    })?;
+    let standards_evidence = deduplicated_standards_evidence(standards_evidence_from_case(case));
+    let mut files = Vec::with_capacity(levels.len());
+    let mut total_output_bytes = 0_u64;
+    for level in levels {
+        let level_number = level.level_index + 1;
+        let relative_path = format!("{STRESS_WSI_PYRAMID_CASE_ID}/level-{level_number:03}.dcm");
+        let path = run.out_dir.join(&relative_path);
+        level
+            .object
+            .with_meta(
+                FileMetaTableBuilder::new()
+                    .transfer_syntax(EXPLICIT_VR_LITTLE_ENDIAN.uid)
+                    .implementation_class_uid(&implementation_class_uid)
+                    .implementation_version_name(crate::IMPLEMENTATION_VERSION_NAME),
+            )
+            .map_err(|error| GenerateError::WriteDicomFile {
+                path: path.clone(),
+                message: error.to_string(),
+            })?
+            .write_to_file(&path)
+            .map_err(|error| GenerateError::WriteDicomFile {
+                path: path.clone(),
+                message: error.to_string(),
+            })?;
+        let frame_size =
+            usize::from(STRESS_WSI_TILE_ROWS) * usize::from(STRESS_WSI_TILE_COLUMNS) * 3;
+        let frame_hashes = level
+            .pixel_bytes
+            .chunks_exact(frame_size)
+            .map(sha256_hex)
+            .collect::<Vec<_>>();
+        let frame_hash_refs = frame_hashes.iter().map(String::as_str).collect::<Vec<_>>();
+        let validated = validate_part10_file(
+            &path,
+            &Part10Expectations {
+                sop_class_uid: WSI_PYRAMID_STORAGE_UID,
+                sop_instance_uid: &sop_instance_uids[level.level_index],
+                transfer_syntax_uid: EXPLICIT_VR_LITTLE_ENDIAN.uid,
+                implementation_class_uid: &implementation_class_uid,
+                synthetic_data: "YES",
+                rows: STRESS_WSI_TILE_ROWS,
+                columns: STRESS_WSI_TILE_COLUMNS,
+                frames: level.frame_count,
+                samples_per_pixel: 3,
+                photometric_interpretation: "RGB",
+                bits_allocated: 8,
+                bits_stored: 8,
+                high_bit: 7,
+                pixel_representation: 0,
+                planar_configuration: Some(0),
+                pixel_data_vr: VR::OB,
+                pixel_data_length_formula: PixelDataLengthFormula::ContiguousSamples,
+                decoded_frame_hashes: &frame_hash_refs,
+                palette: None,
+                padding: None,
+                ct_image: None,
+                enhanced_ct_image: None,
+                enhanced_mr_image: None,
+                enhanced_pet_image: None,
+                mg_image: None,
+                dx_image: None,
+                xa_image: None,
+                xrf_image: None,
+                us_image: None,
+                us_multiframe: None,
+                nm_image: None,
+                pet_image: None,
+                cr_image: None,
+                mr_image: None,
+                segmentation: None,
+            },
+        )?;
+        let reopened = open_file(&path).map_err(|error| GenerateError::ValidateDicomFile {
+            path: path.clone(),
+            message: format!("reopen reduced stress WSI level: {error}"),
+        })?;
+        let reopened_u32 = |tag| {
+            reopened
+                .element(tag)
+                .map_err(|error| GenerateError::ValidateDicomFile {
+                    path: path.clone(),
+                    message: error.to_string(),
+                })?
+                .to_int::<u32>()
+                .map_err(|error| GenerateError::ValidateDicomFile {
+                    path: path.clone(),
+                    message: error.to_string(),
+                })
+        };
+        let reopened_text = |tag| {
+            reopened
+                .element(tag)
+                .map_err(|error| GenerateError::ValidateDicomFile {
+                    path: path.clone(),
+                    message: error.to_string(),
+                })?
+                .to_str()
+                .map(|value| value.trim_end_matches(['\0', ' ']).to_string())
+                .map_err(|error| GenerateError::ValidateDicomFile {
+                    path: path.clone(),
+                    message: error.to_string(),
+                })
+        };
+        if reopened_u32(tags::TOTAL_PIXEL_MATRIX_ROWS)? != level.total_matrix_edge
+            || reopened_u32(tags::TOTAL_PIXEL_MATRIX_COLUMNS)? != level.total_matrix_edge
+            || reopened_text(tags::PYRAMID_UID)? != pyramid_uid
+            || reopened_text(tags::DIMENSION_ORGANIZATION_TYPE)? != "TILED_FULL"
+        {
+            return Err(GenerateError::ValidateDicomFile {
+                path,
+                message:
+                    "reopened reduced stress WSI level differs from its pyramid and matrix contract"
+                        .to_string(),
+            });
+        }
+        total_output_bytes = total_output_bytes
+            .checked_add(validated.bytes.len() as u64)
+            .ok_or_else(|| GenerateError::WriteDicomFile {
+                path: PathBuf::from(STRESS_WSI_PYRAMID_CASE_ID),
+                message: "reduced WSI output byte count overflowed".to_string(),
+            })?;
+        files.push(GeneratedFile {
+            case_id: STRESS_WSI_PYRAMID_CASE_ID.to_string(),
+            manifest_entry: serde_json::json!({
+                "case_id": STRESS_WSI_PYRAMID_CASE_ID,
+                "profile_membership": ["stress"],
+                "path": relative_path,
+                "sha256": sha256_hex(&validated.bytes),
+                "size_bytes": validated.bytes.len(),
+                "determinism": "byte_stable",
+                "recipe": {
+                    "recipe_id": RECIPE_ID,
+                    "recipe_version": RECIPE_VERSION,
+                    "recipe_parameters": {
+                        "scale": "reduced",
+                        "level_index": level.level_index,
+                        "level_number": level_number,
+                        "pyramid_levels": 3,
+                        "total_pixel_matrix_rows": level.total_matrix_edge,
+                        "total_pixel_matrix_columns": level.total_matrix_edge,
+                        "tile_rows": STRESS_WSI_TILE_ROWS,
+                        "tile_columns": STRESS_WSI_TILE_COLUMNS,
+                        "frames": level.frame_count,
+                        "pixel_spacing": level.pixel_spacing,
+                        "native_payload_bytes": level.pixel_bytes.len()
+                    }
+                },
+                "dicom": {
+                    "sop_class_uid": WSI_PYRAMID_STORAGE_UID,
+                    "sop_class_name": "VL Whole Slide Microscopy Image Storage",
+                    "iod_name": "VL Whole Slide Microscopy Image",
+                    "modality": "SM",
+                    "transfer_syntax_uid": EXPLICIT_VR_LITTLE_ENDIAN.uid,
+                    "transfer_syntax_name": EXPLICIT_VR_LITTLE_ENDIAN.name
+                },
+                "uids": {
+                    "study_instance_uid": study_instance_uid,
+                    "series_instance_uid": series_instance_uid,
+                    "sop_instance_uid": sop_instance_uids[level.level_index],
+                    "frame_of_reference_uid": frame_of_reference_uid,
+                    "dimension_organization_uid": dimension_organization_uids[level.level_index],
+                    "implementation_class_uid": implementation_class_uid,
+                    "implementation_version_name": crate::IMPLEMENTATION_VERSION_NAME
+                },
+                "image": {
+                    "rows": STRESS_WSI_TILE_ROWS,
+                    "columns": STRESS_WSI_TILE_COLUMNS,
+                    "frames": level.frame_count,
+                    "samples_per_pixel": 3,
+                    "photometric_interpretation": "RGB",
+                    "bits_allocated": 8,
+                    "bits_stored": 8,
+                    "high_bit": 7,
+                    "pixel_representation": 0,
+                    "planar_configuration": 0
+                },
+                "pixel_data": {
+                    "vr": "OB",
+                    "native_or_encapsulated": "native",
+                    "value_length": level.pixel_bytes.len(),
+                    "frame_count": level.frame_count,
+                    "frame_hashes": frame_hashes
+                },
+                "references": [],
+                "expected_capabilities": [
+                    "open_file", "read_metadata", "render_native_pixels",
+                    "navigate_multiframe", "reconstruct_wsi_pyramid"
+                ],
+                "expected_semantics": {
+                    "synthetic_data": "YES",
+                    "image_type": ["ORIGINAL", "PRIMARY", "VOLUME", "NONE"],
+                    "shared_study_series_frame_of_reference": true,
+                    "shared_pyramid_uid": pyramid_uid,
+                    "tiled_full": true,
+                    "ordered_level": level_number,
+                    "level_count": 3,
+                    "physical_extent_mm": [0.512, 0.512]
+                },
+                "expected_visual_checks": {
+                    "pattern": "rgb_xy_ramps_with_64_pixel_checkerboard_edges"
+                },
+                "validation": validated.validation,
+                "known_stressors": [
+                    "reduced_stress_scale", "vl_whole_slide_microscopy_image_storage",
+                    "three_level_pyramid", "1024_square_total_pixel_matrix",
+                    "256_square_tiles", "tiled_full_frame_inference"
+                ],
+                "standards_evidence": standards_evidence
+            }),
+        });
+    }
+
+    let elapsed_milliseconds = u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX);
+    let observation = ResourceObservation {
+        output_bytes: total_output_bytes,
+        elapsed_milliseconds,
+        peak_rss_bytes: None,
+    };
+    guard
+        .record_case(request, observation)
+        .map_err(|error| GenerateError::WriteDicomFile {
+            path: PathBuf::from(STRESS_WSI_PYRAMID_CASE_ID),
+            message: format!("reduced WSI stress observation: {error}"),
+        })?;
+    let qualification = StressQualificationRecord {
+        contract_version: STRESS_CONTRACT_VERSION,
+        request,
+        actual: StressScaleParameters {
+            instances: 3,
+            frames: 0,
+            fragments: 0,
+            payload_bytes: 0,
+            output_bytes: total_output_bytes,
+            rows: 1024,
+            columns: 1024,
+            tile_rows: 256,
+            tile_columns: 256,
+            pyramid_levels: 3,
+            sequence_depth: 0,
+            metadata_values: 0,
+        },
+        observation,
+        outcome: StressExecutionOutcome::Completed,
+    };
+    if !qualification.is_promotable() {
+        return Err(GenerateError::WriteDicomFile {
+            path: PathBuf::from(STRESS_WSI_PYRAMID_CASE_ID),
+            message:
+                "reduced WSI stress output is not promotable under the approved resource contract"
+                    .to_string(),
+        });
+    }
+    Ok(StressWsiPyramidGeneration {
+        files,
+        qualification: qualification.to_manifest_value(STRESS_WSI_PYRAMID_CASE_ID),
     })
 }
 
@@ -34250,6 +34605,110 @@ mod tests {
             first.manifest_entry["pixel_data"]["encapsulated_pixel_data"]["basic_offset_table"]["populated"],
             false
         );
+    }
+
+    #[test]
+    fn reduced_wsi_stress_pyramid_is_exact_byte_stable_and_qualified() {
+        let first_root = ParametricMapStagingGuard::new();
+        let second_root = ParametricMapStagingGuard::new();
+        let run = |root: &ParametricMapStagingGuard, profile: &str| PreparedGenerationRun {
+            profile: profile.to_string(),
+            out_dir: root.path().to_path_buf(),
+            manifest_path: root.path().join("manifest.json"),
+            seed: 7,
+            include_stress: false,
+        };
+        let case = serde_json::json!({
+            "case_id": STRESS_WSI_PYRAMID_CASE_ID,
+            "status": "implemented",
+            "profiles": ["stress"],
+            "requirements": {"features": []},
+            "standards_evidence": []
+        });
+        assert!(should_generate_case(&case, &run(&first_root, "stress")).unwrap());
+        assert!(!should_generate_case(&case, &run(&first_root, "all")).unwrap());
+        let lock = "0000000000000000000000000000000000000000000000000000000000000000";
+        let first = write_stress_wsi_pyramid_case(&run(&first_root, "stress"), &case, lock)
+            .expect("first reduced WSI pyramid should generate and qualify");
+        let second = write_stress_wsi_pyramid_case(&run(&second_root, "stress"), &case, lock)
+            .expect("second reduced WSI pyramid should generate and qualify");
+
+        assert_eq!(first.files.len(), 3);
+        assert_eq!(second.files.len(), 3);
+        for (index, (left, right)) in first.files.iter().zip(&second.files).enumerate() {
+            assert_eq!(left.manifest_entry, right.manifest_entry);
+            assert_eq!(
+                left.manifest_entry["profile_membership"],
+                serde_json::json!(["stress"])
+            );
+            assert_eq!(
+                left.manifest_entry["recipe"]["recipe_parameters"]["total_pixel_matrix_rows"],
+                [1024, 512, 256][index]
+            );
+            assert_eq!(left.manifest_entry["image"]["rows"], 256);
+            assert_eq!(left.manifest_entry["image"]["columns"], 256);
+            assert_eq!(left.manifest_entry["image"]["frames"], [16, 4, 1][index]);
+            let relative_path = left.manifest_entry["path"].as_str().unwrap();
+            assert_eq!(
+                fs::read(first_root.path().join(relative_path)).unwrap(),
+                fs::read(second_root.path().join(relative_path)).unwrap()
+            );
+        }
+        assert_eq!(first.qualification["status"], "passed");
+        assert_eq!(first.qualification["recipe"], "wsi_pyramid");
+        assert_eq!(first.qualification["scale"], "reduced");
+        assert_eq!(first.qualification["requested"]["instances"], 3);
+        assert_eq!(first.qualification["actual"]["rows"], 1024);
+        assert_eq!(first.qualification["actual"]["tile_rows"], 256);
+        assert_eq!(first.qualification["actual"]["pyramid_levels"], 3);
+        assert_eq!(
+            first.qualification["actual"]["output_bytes"],
+            second.qualification["actual"]["output_bytes"]
+        );
+        assert!(first.qualification.get("path").is_none());
+        assert!(first.qualification.get("bytes").is_none());
+
+        let manifest_schema: Value =
+            serde_json::from_str(include_str!("../schemas/manifest.schema.json")).unwrap();
+        let file_schema = serde_json::json!({
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$ref": "#/$defs/file",
+            "$defs": manifest_schema["$defs"].clone()
+        });
+        let qualification_schema = serde_json::json!({
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$ref": "#/$defs/stress_qualification",
+            "$defs": manifest_schema["$defs"].clone()
+        });
+        let file_validator = jsonschema::validator_for(&file_schema).unwrap();
+        let qualification_validator = jsonschema::validator_for(&qualification_schema).unwrap();
+        for file in &first.files {
+            assert!(
+                file_validator.is_valid(&file.manifest_entry),
+                "stress WSI file schema errors: {:?}",
+                file_validator
+                    .iter_errors(&file.manifest_entry)
+                    .collect::<Vec<_>>()
+            );
+        }
+        assert!(
+            qualification_validator.is_valid(&first.qualification),
+            "stress WSI qualification errors: {:?}",
+            qualification_validator
+                .iter_errors(&first.qualification)
+                .collect::<Vec<_>>()
+        );
+
+        let routed_root = ParametricMapStagingGuard::new();
+        let routed = write_supported_cases(
+            &run(&routed_root, "stress"),
+            &serde_json::json!({"cases": [case]}),
+            lock,
+        )
+        .expect("stress profile routing should retain files and qualification");
+        assert_eq!(routed.files.len(), 3);
+        assert_eq!(routed.qualifications.len(), 1);
+        assert!(routed.completed_case_ids.is_empty());
     }
 
     fn generated_source_fixture(

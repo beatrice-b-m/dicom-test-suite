@@ -1,0 +1,19 @@
+{
+  "schema_version": "0.1.0",
+  "adapter_id": "pydicom-encapsulated-stl-payload",
+  "adapter_version": "0.1.0",
+  "dicom": {
+    "sop_class_uid": "1.2.840.10008.5.1.4.1.1.104.3",
+    "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+    "modality": "M3D",
+    "mime_type": "model/stl"
+  },
+  "payload_length_bytes": 284,
+  "payload_sha256": "3c3049d231f8e98c0d2fe7cb81cf6805141bcac39dd04b9cf7f8063ec44bbfb2",
+  "triangle_count": 4,
+  "normal_tolerance": 0.000001,
+  "bounds": {
+    "min": [0.0, 0.0, 0.0],
+    "max": [10.0, 10.0, 10.0]
+  }
+}

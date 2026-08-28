@@ -1,0 +1,112 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dicom-test-suite.local/schemas/media-report.schema.json",
+  "title": "DICOM Test Suite DICOMDIR Qualification Report",
+  "type": "object",
+  "required": [
+    "contract_version",
+    "determinism",
+    "file_set_id",
+    "file_set_uid",
+    "sop_class_uid",
+    "transfer_syntax_uid",
+    "dicomdir_sha256",
+    "member_count",
+    "provider",
+    "provider_warnings",
+    "evidence",
+    "independent_interoperability_proven"
+  ],
+  "properties": {
+    "contract_version": { "const": "0.1.0" },
+    "determinism": { "const": "semantic_stable" },
+    "file_set_id": { "const": "DTSMIXED" },
+    "file_set_uid": { "$ref": "#/$defs/uid" },
+    "sop_class_uid": { "const": "1.2.840.10008.1.3.10" },
+    "transfer_syntax_uid": { "const": "1.2.840.10008.1.2.1" },
+    "dicomdir_sha256": { "$ref": "#/$defs/sha256" },
+    "member_count": { "type": "integer", "minimum": 3 },
+    "provider": { "$ref": "#/$defs/provider" },
+    "provider_warnings": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "evidence": { "$ref": "#/$defs/evidence" },
+    "independent_interoperability_proven": { "type": "boolean" }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "evidence": {
+            "properties": { "dcm4che_independent_peer": { "const": "passed" } },
+            "required": ["dcm4che_independent_peer"]
+          }
+        },
+        "required": ["evidence"]
+      },
+      "then": {
+        "properties": { "independent_interoperability_proven": { "const": true } }
+      },
+      "else": {
+        "properties": { "independent_interoperability_proven": { "const": false } }
+      }
+    }
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "uid": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[0-9]+(\\.[0-9]+)*$"
+    },
+    "provider": {
+      "type": "object",
+      "required": [
+        "provider_id",
+        "executable_name",
+        "version",
+        "executable_sha256",
+        "arguments"
+      ],
+      "properties": {
+        "provider_id": { "const": "dcmtk" },
+        "executable_name": { "const": "dcmmkdir" },
+        "version": { "const": "3.7.0" },
+        "executable_sha256": { "$ref": "#/$defs/sha256" },
+        "arguments": {
+          "type": "array",
+          "minItems": 8,
+          "items": { "type": "string" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "check_status": {
+      "enum": ["passed", "unavailable", "failed"]
+    },
+    "evidence": {
+      "type": "object",
+      "required": [
+        "rust_closure",
+        "dicom3tools_dciodvfy",
+        "dicom3tools_dcentvfy",
+        "dcmtk_parser_same_family",
+        "dcm4che_independent_peer"
+      ],
+      "properties": {
+        "rust_closure": { "$ref": "#/$defs/check_status" },
+        "dicom3tools_dciodvfy": { "$ref": "#/$defs/check_status" },
+        "dicom3tools_dcentvfy": { "$ref": "#/$defs/check_status" },
+        "dcmtk_parser_same_family": { "$ref": "#/$defs/check_status" },
+        "dcm4che_independent_peer": { "$ref": "#/$defs/check_status" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

@@ -46,6 +46,14 @@ const SCHEMAS: &[(&str, &str)] = &[
         "schemas/viewer-report.schema.json",
         "https://dicom-test-suite.local/schemas/viewer-report.schema.json",
     ),
+    (
+        "schemas/media-report.schema.json",
+        "https://dicom-test-suite.local/schemas/media-report.schema.json",
+    ),
+    (
+        "schemas/transaction-report.schema.json",
+        "https://dicom-test-suite.local/schemas/transaction-report.schema.json",
+    ),
 ];
 
 #[test]

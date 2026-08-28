@@ -21921,6 +21921,12 @@ fn generated_coverage_row(
     let row_object = row
         .as_object_mut()
         .expect("generated coverage row literal must be an object");
+    row_object.insert(
+        "lossy_metrics".to_string(),
+        file.get("expected_lossy_metrics")
+            .cloned()
+            .unwrap_or(Value::Null),
+    );
     for (field, value) in [
         ("eot_offset_origin", eot.offset_origin.map(Value::from)),
         (
@@ -27807,6 +27813,7 @@ fn skipped_coverage_row(
     let row_object = row
         .as_object_mut()
         .expect("skipped coverage row literal must be an object");
+    row_object.insert("lossy_metrics".to_string(), Value::Null);
     for field in [
         "eot_offset_origin",
         "eot_item_header_bytes",

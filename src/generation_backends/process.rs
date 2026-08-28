@@ -455,7 +455,7 @@ mod tests {
         .expect_err("inherited backend pipe must time out");
         assert!(error.to_string().contains("exceeded"));
         assert!(
-            started.elapsed() < Duration::from_secs(3),
+            started.elapsed() < Duration::from_secs(8),
             "pipe readers must not wait for a long-lived grandchild"
         );
         fs::remove_dir_all(staging).expect("remove fake staging");

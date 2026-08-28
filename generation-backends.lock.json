@@ -171,8 +171,150 @@
       },
       "blockers": []
     },
-    {
-      "backend_id": "dcmqi",
+  {
+    "backend_id": "cjxl_jpegxl_lossy_command_writer",
+    "state": "available",
+    "protocol_version": "0.1.0",
+    "implementation_kind": "external_command",
+    "required_by_default": false,
+    "discovery": {
+      "executable": "cjxl",
+      "default_relative_executables": {
+        "linux": "cjxl",
+        "macos": "cjxl",
+        "windows": "cjxl.exe"
+      },
+      "fixed_arguments": [
+        "--distance=0.05",
+        "--effort=7",
+        "--num_threads=0",
+        "--container=0",
+        "--modular=0",
+        "--quiet"
+      ],
+      "version_arguments": ["--version"],
+      "runtime_identity_arguments": ["--version"],
+      "entrypoint_paths": ["src/codecs.rs", "src/generator.rs"],
+      "environment_override": null
+    },
+    "dependency_lock": {
+      "format": "cargo-lock-v4",
+      "path": "Cargo.lock",
+      "sha256": "d06e6f052f0f359cdb74afbc358ca1a1dedf371f83c8570e10dabb0f593dc7e5"
+    },
+    "fingerprint_components": [
+      "canonical_executable_bytes",
+      "entrypoint_bytes",
+      "dependency_lock_bytes",
+      "fixed_arguments",
+      "protocol_version",
+      "platform_architecture"
+    ],
+    "supported_case_families": ["classic_image"],
+    "platforms": ["linux", "macos", "windows"],
+    "determinism": "semantic_stable",
+    "resource_limits": {
+      "version_timeout_seconds": 10,
+      "invocation_timeout_seconds": 300,
+      "max_response_bytes": 1048576,
+      "max_stdout_bytes": 1048576,
+      "max_stderr_bytes": 1048576,
+      "max_output_files": 1,
+      "max_file_bytes": 1073741824,
+      "max_total_output_bytes": 1073741824
+    },
+    "independent_validation": [
+      {
+        "role": "iod_validation",
+        "validator_ids": ["dicom3tools-dciodvfy"]
+      },
+      {
+        "role": "payload_decode",
+        "validator_ids": ["dicom-rs-jxl-oxide"]
+      }
+    ],
+    "license": {
+      "spdx": ["BSD-3-Clause"],
+      "redistribution": "permitted",
+      "notes": "The optional cjxl executable is not redistributed; the libjxl command-line tool is fingerprinted at runtime and invoked only when its feature is selected."
+    },
+    "blockers": []
+  },
+  {
+    "backend_id": "openjph_htj2k_lossy_command_writer",
+    "state": "available",
+    "protocol_version": "0.1.0",
+    "implementation_kind": "external_command",
+    "required_by_default": false,
+    "discovery": {
+      "executable": "ojph_compress",
+      "default_relative_executables": {
+        "linux": "ojph_compress",
+        "macos": "ojph_compress",
+        "windows": "ojph_compress.exe"
+      },
+      "fixed_arguments": [
+        "-reversible",
+        "false",
+        "-qstep",
+        "0.00025",
+        "-num_decomps",
+        "2",
+        "-colour_trans",
+        "false",
+        "-prog_order",
+        "LRCP"
+      ],
+      "version_arguments": [],
+      "runtime_identity_arguments": ["-h"],
+      "entrypoint_paths": ["src/codecs.rs", "src/generator.rs"],
+      "environment_override": null
+    },
+    "dependency_lock": {
+      "format": "cargo-lock-v4",
+      "path": "Cargo.lock",
+      "sha256": "d06e6f052f0f359cdb74afbc358ca1a1dedf371f83c8570e10dabb0f593dc7e5"
+    },
+    "fingerprint_components": [
+      "canonical_executable_bytes",
+      "entrypoint_bytes",
+      "dependency_lock_bytes",
+      "fixed_arguments",
+      "protocol_version",
+      "platform_architecture"
+    ],
+    "supported_case_families": ["classic_image"],
+    "platforms": ["linux", "macos", "windows"],
+    "determinism": "semantic_stable",
+    "resource_limits": {
+      "version_timeout_seconds": 10,
+      "invocation_timeout_seconds": 300,
+      "max_response_bytes": 1048576,
+      "max_stdout_bytes": 1048576,
+      "max_stderr_bytes": 1048576,
+      "max_output_files": 1,
+      "max_file_bytes": 1073741824,
+      "max_total_output_bytes": 1073741824
+    },
+    "independent_validation": [
+      {
+        "role": "iod_validation",
+        "validator_ids": ["dicom3tools-dciodvfy"]
+      },
+      {
+        "role": "payload_decode",
+        "validator_ids": ["dicom-rs-openjpeg"]
+      }
+    ],
+    "license": {
+      "spdx": ["BSD-2-Clause"],
+      "redistribution": "permitted",
+      "notes": "The optional OpenJPH executable is not redistributed; its bytes are fingerprinted because ojph_compress has no portable version flag."
+    },
+    "blockers": []
+  },
+  {
+    "backend_id": "dcmqi",
       "state": "planned",
       "protocol_version": "0.1.0",
       "implementation_kind": "external_command",

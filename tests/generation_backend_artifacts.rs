@@ -72,15 +72,20 @@ fn external_registry_providers_resolve_to_optional_locked_backends() {
             Some(false),
             "external providers must not become default dependencies"
         );
-        if provider_id == "highdicom_pydicom" {
+        if matches!(
+            provider_id,
+            "highdicom_pydicom"
+                | "cjxl_jpegxl_lossy_command_writer"
+                | "openjph_htj2k_lossy_command_writer"
+        ) {
             assert_eq!(
                 backend.get("state").and_then(Value::as_str),
                 Some("available"),
-                "the uv-managed proof provider should be available"
+                "implemented external providers should be available"
             );
             assert!(
                 backend.get("discovery").is_some_and(Value::is_object),
-                "the available provider must have portable discovery policy"
+                "available providers must have portable discovery policy"
             );
         } else {
             assert_eq!(

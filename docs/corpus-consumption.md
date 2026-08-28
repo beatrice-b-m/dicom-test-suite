@@ -23,8 +23,9 @@ Profiles are explicit case selections:
   committed DICOM payloads.
 
 `list-cases --profile all` and `generate --profile all` use the same union.
-Generate `legacy` and `stress` separately when their opt-in coverage is
-required.
+Generate `legacy` separately when retired or uncommon valid coverage is
+required. Generate `stress` separately for the reduced resource-boundary
+corpus.
 
 ## Prerequisites
 
@@ -198,6 +199,7 @@ coverage of the DICOM Standard. Current deferred areas include full-scale
 stress execution, video transfer syntaxes, a genuine greater-than-4-GiB
 Extended Offset Table stress object, and several lossy or legacy codec
 variants. Negative results and payload-free fuzz qualifications are separate
-from the valid corpus. Consult the registry, transfer-syntax capability matrix,
-and generated coverage report before describing the scope of a downstream
-review.
+from the valid corpus. Media and protocol qualifications use their own opt-in
+commands and reports; they never become ordinary file-conformance rows.
+Consult the registry, transfer-syntax capability matrix, and generated coverage
+report before describing the scope of a downstream review.

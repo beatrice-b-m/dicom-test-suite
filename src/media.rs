@@ -14,7 +14,7 @@ pub const MEDIA_CONTRACT_VERSION: &str = "0.1.0";
 pub const DICOMDIR_FILE_ID: &str = "DICOMDIR";
 pub const MEDIA_STORAGE_DIRECTORY_SOP_CLASS_UID: &str = "1.2.840.10008.1.3.10";
 pub const EXPLICIT_VR_LITTLE_ENDIAN_UID: &str = "1.2.840.10008.1.2.1";
-pub const LOCKED_PROVIDER_ID: &str = "dcmtk_dcmmkdir";
+pub const LOCKED_PROVIDER_ID: &str = "dcmtk";
 pub const LOCKED_PROVIDER_VERSION: &str = "3.7.0";
 pub const LOCKED_FILE_SET_ID: &str = "DTSMIXED";
 
@@ -295,6 +295,10 @@ pub struct DcmtkProviderResult {
     pub exit_code: i32,
     pub file_set_id: String,
     pub file_set_uid: String,
+    /// Identities parsed back from DICOMDIR File Meta Information.
+    pub dicomdir_sop_class_uid: String,
+    pub dicomdir_sop_instance_uid: String,
+    pub dicomdir_transfer_syntax_uid: String,
     pub dicomdir_sha256: String,
     /// File hashes observed after promotion staging, keyed by File ID.
     pub member_sha256: BTreeMap<FileId, String>,
@@ -311,6 +315,15 @@ impl DcmtkProviderResult {
             return Err(MediaError::ProviderLockMismatch);
         }
         validate_uid(&self.file_set_uid)?;
+        validate_uid(&self.dicomdir_sop_class_uid)?;
+        validate_uid(&self.dicomdir_sop_instance_uid)?;
+        validate_uid(&self.dicomdir_transfer_syntax_uid)?;
+        if self.dicomdir_sop_class_uid != MEDIA_STORAGE_DIRECTORY_SOP_CLASS_UID
+            || self.dicomdir_sop_instance_uid != self.file_set_uid
+            || self.dicomdir_transfer_syntax_uid != EXPLICIT_VR_LITTLE_ENDIAN_UID
+        {
+            return Err(MediaError::DicomDirIdentityMismatch);
+        }
         validate_sha256(&self.dicomdir_sha256)?;
         let expected = file_set
             .members()
@@ -422,6 +435,7 @@ pub enum MediaError {
     ProviderLockMismatch,
     InvalidProviderArguments,
     ProviderFailed(i32),
+    DicomDirIdentityMismatch,
     ProviderMemberHashMismatch,
     ValidationEvidenceInsufficient,
 }
@@ -464,6 +478,10 @@ impl fmt::Display for MediaError {
                 )
             }
             Self::ProviderFailed(code) => write!(formatter, "dcmmkdir exited with status {code}"),
+            Self::DicomDirIdentityMismatch => write!(
+                formatter,
+                "DICOMDIR File Meta identities do not match the File-set contract"
+            ),
             Self::ProviderMemberHashMismatch => {
                 write!(
                     formatter,
@@ -553,6 +571,9 @@ mod tests {
             exit_code: 0,
             file_set_id: "DTSMIXED".into(),
             file_set_uid: "1.2.826.0.1.3680043.10.543.8".into(),
+            dicomdir_sop_class_uid: MEDIA_STORAGE_DIRECTORY_SOP_CLASS_UID.into(),
+            dicomdir_sop_instance_uid: "1.2.826.0.1.3680043.10.543.8".into(),
+            dicomdir_transfer_syntax_uid: EXPLICIT_VR_LITTLE_ENDIAN_UID.into(),
             dicomdir_sha256: hash('e'),
             member_sha256: file_set
                 .members()
@@ -667,6 +688,20 @@ mod tests {
         assert_eq!(
             bad.validate(&file_set),
             Err(MediaError::ProviderMemberHashMismatch)
+        );
+
+        let mut bad = provider_result(&file_set);
+        bad.dicomdir_transfer_syntax_uid = "1.2.840.10008.1.2".into();
+        assert_eq!(
+            bad.validate(&file_set),
+            Err(MediaError::DicomDirIdentityMismatch)
+        );
+
+        let mut bad = provider_result(&file_set);
+        bad.dicomdir_sop_instance_uid = "1.2.826.0.1.3680043.10.543.99".into();
+        assert_eq!(
+            bad.validate(&file_set),
+            Err(MediaError::DicomDirIdentityMismatch)
         );
     }
 

@@ -21,12 +21,15 @@ const PRESENTATION_STATE_SECONDARY_VALIDATOR_ID: &str =
 const LINKED_RT_SECONDARY_VALIDATOR_ID: &str = "pydicom-dicom-validator-rt";
 const WAVEFORM_VALIDATOR_ID: &str = "pydicom-dicom-validator-waveform";
 const VISIBLE_LIGHT_SECONDARY_VALIDATOR_ID: &str = "pydicom-dicom-validator-visible-light";
+const WSI_TILE_SEGMENTATION_SECONDARY_VALIDATOR_ID: &str =
+    "pydicom-dicom-validator-wsi-tile-segmentation";
 const VISIBLE_LIGHT_PIXEL_DECODER_ID: &str = "dcmtk-dcm2img-visible-light";
 const WSI_RECONSTRUCTION_ID: &str = "highdicom-wsi-reconstruction";
 const WSI_CASE_ID: &str = "vl/wsi/tiled_full_small";
 const WSI_SPARSE_CASE_ID: &str = "vl/wsi/tiled_sparse_small";
 const WSI_PYRAMID_CASE_ID: &str = "vl/wsi/pyramid_multiresolution";
 const WSI_MULTIPLE_OPTICAL_PATHS_CASE_ID: &str = "vl/wsi/multiple_optical_paths";
+const WSI_TILE_SEGMENTATION_CASE_ID: &str = "derived/seg/wsi_tile_reference";
 const WSI_SPARSE_PRIMARY_VALIDATOR_ID: &str = "pydicom-dicom-validator-wsi-sparse";
 const WSI_SPARSE_CHARACTERIZATION_ID: &str = "dicom3tools-dciodvfy-wsi-sparse-characterization";
 const WSI_SPARSE_CHARACTERIZATION_MESSAGE: &str = "Error - </NumberOfFrames(0028,0008)> - NumberOfFrames does not match expected value for tiled total pixel matrix = <2 > - expected 4 for 1 optical paths, 1 focal planes, 2 rows of tiles, 2 columns of tiles";
@@ -626,6 +629,16 @@ fn verify_completeness(evidence_root: &Path, evidence: &Value, failures: &mut Ve
                     "required visible-light secondary IOD validation reported errors: {path}"
                 ));
             }
+        }
+        if requires_wsi_tile_segmentation_validation(case_id) {
+            verify_required_clean_secondary_iod(
+                evidence,
+                instance,
+                path,
+                WSI_TILE_SEGMENTATION_SECONDARY_VALIDATOR_ID,
+                "WSI tile segmentation",
+                failures,
+            );
         }
         if requires_pixelmed_sr_validation(case_id) {
             let pixelmed_tool = evidence["tools"]
@@ -2081,6 +2094,125 @@ fn requires_visible_light_validation(case_id: &str) -> bool {
             | WSI_CASE_ID
             | WSI_PYRAMID_CASE_ID
     )
+}
+
+fn requires_wsi_tile_segmentation_validation(case_id: &str) -> bool {
+    case_id == WSI_TILE_SEGMENTATION_CASE_ID
+}
+
+fn verify_required_clean_secondary_iod(
+    evidence: &Value,
+    instance: &Value,
+    path: &str,
+    adapter_id: &str,
+    label: &str,
+    failures: &mut Vec<String>,
+) {
+    let tool = evidence["tools"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .find(|tool| tool["adapter_id"] == adapter_id);
+    if tool.is_none_or(|tool| tool["status"] != "available" || tool["lock_status"] != "matched") {
+        failures.push(format!(
+            "required {label} secondary IOD validator is unavailable or unlocked for {path}"
+        ));
+    }
+    let result = instance["results"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .find(|result| {
+            result["role"] == "secondary_iod_validator" && result["adapter_id"] == adapter_id
+        });
+    if result.is_none_or(|result| {
+        result["status"] != "completed"
+            || result["exit_code"].as_i64() != Some(0)
+            || result["timed_out"] != false
+    }) {
+        failures.push(format!(
+            "required {label} secondary IOD validation incomplete: {path}"
+        ));
+    }
+    if result.is_some_and(|result| {
+        result["findings"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .any(|finding| finding["severity"] == "error")
+    }) {
+        failures.push(format!(
+            "required {label} secondary IOD validation reported errors: {path}"
+        ));
+    }
+}
+
+#[cfg(test)]
+mod wsi_tile_segmentation_iod_tests {
+    use super::*;
+
+    fn fixture() -> (Value, Value) {
+        let evidence = json!({
+            "tools": [{
+                "adapter_id": WSI_TILE_SEGMENTATION_SECONDARY_VALIDATOR_ID,
+                "status": "available",
+                "lock_status": "matched"
+            }]
+        });
+        let instance = json!({
+            "case_id": WSI_TILE_SEGMENTATION_CASE_ID,
+            "results": [{
+                "adapter_id": WSI_TILE_SEGMENTATION_SECONDARY_VALIDATOR_ID,
+                "role": "secondary_iod_validator",
+                "status": "completed",
+                "exit_code": 0,
+                "timed_out": false,
+                "findings": []
+            }]
+        });
+        (evidence, instance)
+    }
+
+    #[test]
+    fn requires_clean_locked_secondary_iod_evidence() {
+        let path = "derived/seg/wsi_tile_reference/instance.dcm";
+        let (evidence, instance) = fixture();
+        let mut failures = Vec::new();
+        verify_required_clean_secondary_iod(
+            &evidence,
+            &instance,
+            path,
+            WSI_TILE_SEGMENTATION_SECONDARY_VALIDATOR_ID,
+            "WSI tile segmentation",
+            &mut failures,
+        );
+        assert!(failures.is_empty(), "{failures:?}");
+
+        for (pointer, mutation) in [
+            ("/tools/0/status", json!("unavailable")),
+            ("/tools/0/lock_status", json!("mismatched")),
+            ("/instance/results/0/status", json!("unsupported")),
+            ("/instance/results/0/exit_code", json!(1)),
+            ("/instance/results/0/timed_out", json!(true)),
+            (
+                "/instance/results/0/findings",
+                json!([{"severity": "error"}]),
+            ),
+        ] {
+            let mut combined = json!({"tools": evidence["tools"], "instance": instance});
+            *combined.pointer_mut(pointer).expect("mutation pointer") = mutation;
+            let mut failures = Vec::new();
+            verify_required_clean_secondary_iod(
+                &combined,
+                &combined["instance"],
+                path,
+                WSI_TILE_SEGMENTATION_SECONDARY_VALIDATOR_ID,
+                "WSI tile segmentation",
+                &mut failures,
+            );
+            assert!(!failures.is_empty(), "mutation {pointer} must fail");
+        }
+    }
 }
 
 fn verify_sparse_wsi_iod_evidence(

@@ -61,6 +61,33 @@ definitions; `dciodvfy` remains the primary validator and strict validation
 and the WSI reconstruction adapter retain ownership of optical-path order and
 pixels.
 
+The case-scoped `dts_dicom_validator_adapter.wsi_tile_segmentation` entry point
+provides the additive IOD opinion for `derived/seg/wsi_tile_reference`. The
+locked 2026b extraction has empty Segmentation IOD `group_macros` and no
+generated C.8.20.3.1 module even though the locked official PS3.3 DocBook
+contains Table A.51-2 and the Segmentation Macro. Adapter 0.2.0 restores those
+two structures in memory only after checking the exact omission, both affected
+Segmentation SOP Class definitions, their mandatory modules, and every retained
+macro reference. It fails closed if definitions drift, never rewrites the
+external cache, and never allowlists the original `TagUnexpected` errors.
+Qualification of the two-frame FRACTIONAL OCCUPANCY prototype selected
+Segmentation Storage and completed with zero errors; removing Type 1
+Segmentation Type produced a `TagMissing` error and exit code one. Removing
+each of shared Pixel Measures, shared Segment Identification, per-frame Frame
+Content, per-frame Plane Position Slide, and per-frame Derivation Image also
+failed the exact-case preflight. Table A.51-2 makes Segmentation mandatory when
+Dimension Organization Type is not `TILED_FULL` and Segmentation Type is not
+`LABELMAP`; that condition is encoded in the restored definition. Its other
+macro rules depend on coordinate system, derivation presence, or non-empty
+dimension content, so the M6 entry point additionally requires the locked
+placements and one-item cardinalities before invoking general IOD validation.
+The injected C.8.20.3.1 structure is exactly Table C.8.20-3: one Type 1 Segment
+Identification Sequence (0062,000A) item containing Type 1 Referenced Segment
+Number (0062,000B).
+Exact references,
+dimension order, slide positions, pixel values, frame hashes, and matrix
+reconstruction remain outside this IOD adapter's authority.
+
 Adapter version 0.4.0 exposes `--pixel-u32`. It reads the native OW value
 through pydicom, requires the locked 32/32/31 unsigned MONOCHROME2 shape, and
 emits canonical JSON containing dimensions, attributes, exact stored values,

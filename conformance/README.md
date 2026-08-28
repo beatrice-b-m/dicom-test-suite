@@ -37,6 +37,7 @@ dynamically linked `liblcms2.2` implementation.
 | Second-generation RT per-instance IOD | `pydicom-dicom-validator-rt-radiation` | `python -m dts_dicom_validator_adapter` | Required for its declared cases only | Exact-case primary for C-Arm Photon-Electron Radiation and RT Radiation Set, which locked dicom3tools and PixelMed do not recognize. The adapter applies fail-closed corrections to the hash-locked recorded-control-point condition and the engine's empty-string `NotEmpty` incompatibility. |
 | Waveform second IOD and payload opinion | `pydicom-dicom-validator-waveform` | `python -m dts_dicom_validator_adapter` / `--waveform` | Required for its declared cases only | Runs additively for Twelve-lead and General ECG. The normal route validates the 2026b IOD; the waveform route independently extracts each ordered raw OW group with pydicom and decodes signed samples with Python `struct`, without NumPy or generator code. |
 | Visible-light second IOD opinion | `pydicom-dicom-validator-visible-light` | `python -m dts_dicom_validator_adapter` | Required for its declared cases only | Runs additively for the exact VL Endoscopic, VL Microscopic, small `TILED_FULL`, three-role WSI pyramid, and multiple-optical-path WSI cases. It reuses the unchanged `uv` runtime and exact hash-locked 2026b definitions; primary validation remains `dciodvfy`, while strict validation and reconstruction retain ownership of optical-path order and pixels. |
+| WSI tile SEG second IOD opinion | `pydicom-dicom-validator-wsi-tile-segmentation` | `python -m dts_dicom_validator_adapter.wsi_tile_segmentation` | Required for its exact case only | Runs additively for `derived/seg/wsi_tile_reference`. A dedicated fail-closed adapter restores the two Segmentation functional-group structures omitted from the generated 2026b definitions without changing locked source artifacts or accepting findings. Primary validation remains `dciodvfy`; strict Rust owns references, dimensions, positions, occupancy values, and reconstruction. |
 | Sparse WSI per-instance IOD | `pydicom-dicom-validator-wsi-sparse` | `python -m dts_dicom_validator_adapter` | Required for its exact case only | Sole primary IOD authority for `vl/wsi/tiled_sparse_small`. It reuses the unchanged `uv`-locked dicom-validator 0.8.2 runtime and exact hash-locked 2026b definitions and must report zero errors. It cannot fall back to `dciodvfy`. |
 | Sparse WSI dicom3tools characterization | `dicom3tools-dciodvfy-wsi-sparse-characterization` | `dciodvfy -new` | Required evidence for its exact case only | Re-runs the locked dicom3tools executable and preserves its exact known full-grid-cardinality error. The error is explicitly verified as characterization, is never accepted or allowlisted, and does not make dicom3tools an IOD authority for the sparse case. |
 | U1 SC independent pixels | `dcmtk-dcm2img-u1` | `dcm2img +Fa +Fn -M -W +Pid -O +opn 1` | Required when collecting evidence for its declared case | DCMTK 3.7.0 emits one PGM per frame. The collector requires P2, dimensions 3 by 3, maximum value one, exact samples, and exact frame hashes; `dcmdump +W` separately binds the packed Pixel Data bytes. Primary IOD validation remains `dciodvfy`. |
@@ -128,6 +129,29 @@ that `dciodvfy` reported for the Blending probe. Strict verification therefore
 requires this additive evidence without replacing `dciodvfy`, project-owned
 presentation semantics, or `dcentvfy` reference closure; no finding is
 allowlisted for this route.
+
+The WSI tile segmentation secondary adapter is exact-case-only for
+`derived/seg/wsi_tile_reference`. Qualification selected Segmentation Storage
+and reported zero errors for the two-frame FRACTIONAL OCCUPANCY prototype,
+then rejected removal of Type 1 Segmentation Type with exit code one. Adapter
+0.2.0 also rejected removal of each locked macro placement from that real
+generated file: shared Pixel Measures and Segment Identification, plus
+per-frame Frame Content, Plane Position Slide, and Derivation Image. The
+locked `dicom-validator` 2026b extraction omitted Table A.51-2 and the
+C.8.20.3.1 Segmentation Macro, causing otherwise legal functional groups to be
+reported as unexpected. The dedicated adapter verifies the exact empty and
+missing definition shapes, both affected Segmentation IODs, their mandatory
+module references, and every retained functional-group module before restoring
+the official table and one-attribute macro in memory. It preserves Table
+A.51-2's Segmentation requirement for non-`TILED_FULL`, non-`LABELMAP` objects.
+Because the other four macros are conditional or permitted under interdependent
+coordinate and derivation rules, the adapter separately enforces their locked
+M6 shared/per-frame placements and one-item cardinalities as an exact-case
+requirement. Any upstream definition drift or missing exact-case macro fails
+the adapter; source definitions remain immutable and no finding is allowlisted.
+This IOD opinion does not replace `dciodvfy` or strict checks for
+source-frame graph closure, dimension order, slide positions, occupancy bytes,
+stored-frame hashes, and the reconstructed total matrix.
 
 The linked RT secondary adapter is exact-case-only for
 `non-image/rt/plan_linked` and `non-image/rt/image_linked`. Feasibility probes

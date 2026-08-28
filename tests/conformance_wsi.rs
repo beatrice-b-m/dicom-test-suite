@@ -6,6 +6,7 @@ const WSI_CASE_ID: &str = "vl/wsi/tiled_full_small";
 const WSI_SPARSE_CASE_ID: &str = "vl/wsi/tiled_sparse_small";
 const WSI_PYRAMID_CASE_ID: &str = "vl/wsi/pyramid_multiresolution";
 const WSI_MULTI_PATH_CASE_ID: &str = "vl/wsi/multiple_optical_paths";
+const WSI_TILE_SEGMENTATION_CASE_ID: &str = "derived/seg/wsi_tile_reference";
 
 fn read_json(path: &str) -> Value {
     serde_json::from_slice(&fs::read(path).expect("read JSON artifact"))
@@ -127,6 +128,73 @@ fn wsi_iod_and_reconstruction_routes_are_exact_uv_locked_and_additive() {
             .as_str()
             .unwrap()
             .contains("adapter 0.4.0")
+    );
+}
+
+#[test]
+fn wsi_tile_segmentation_iod_route_is_exact_uv_locked_and_additive() {
+    let config = read_json("conformance/validators.json");
+    let lock = read_json("conformance/validator-lock.json");
+    let adapters = config["adapters"].as_array().unwrap();
+    let adapter = adapters
+        .iter()
+        .find(|adapter| adapter["id"] == "pydicom-dicom-validator-wsi-tile-segmentation")
+        .expect("WSI tile segmentation IOD adapter");
+    assert_eq!(adapter["role"], "secondary_iod_validator");
+    assert_eq!(
+        adapter["supported_case_ids"],
+        json!([WSI_TILE_SEGMENTATION_CASE_ID])
+    );
+    assert_eq!(adapter["executable_env"], "DTS_DICOM_VALIDATOR_PYTHON");
+    assert_eq!(adapter["artifacts"].as_array().unwrap().len(), 15);
+    assert_eq!(
+        adapter["arguments"][1],
+        "dts_dicom_validator_adapter.wsi_tile_segmentation"
+    );
+    assert!(adapters.iter().any(|adapter| {
+        adapter["id"] == "dicom3tools-dciodvfy" && adapter["role"] == "primary_iod_validator"
+    }));
+
+    let locked = lock["tools"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|tool| tool["adapter_id"] == "pydicom-dicom-validator-wsi-tile-segmentation")
+        .expect("WSI tile segmentation IOD lock");
+    assert_eq!(locked["role"], "secondary_iod_validator");
+    assert!(
+        locked["version"]
+            .as_str()
+            .unwrap()
+            .contains("adapter 0.2.0")
+    );
+    assert_eq!(
+        locked["adapter_sha256"],
+        "b8ddaa1105b44fed04f838e53e65c02eae2d1213ddb3badb144be028fcdb73f6"
+    );
+    assert_eq!(
+        locked["supporting_artifacts"]["uv.lock"],
+        "988c01b0da2b433a4a26cb566cbbcfb4f18b31099ddd679520119c47309afdc0"
+    );
+    assert_eq!(
+        locked["supporting_artifacts"]["2026b/json/iod_info.json"],
+        "ca5c4a56d05a57c6587d84fffc31a842e8e369b09f1186e6542a619b69dac683"
+    );
+    assert_eq!(
+        locked["supporting_artifacts"]["adapter/wsi_tile_segmentation.py"],
+        "ce13f6923fef615c244f7bb603b128c8903b1e40823ee6dd97a386364b9e7938"
+    );
+    assert!(
+        locked["notes"]
+            .as_str()
+            .unwrap()
+            .contains("does not establish source-frame graph closure")
+    );
+    assert!(
+        locked["notes"]
+            .as_str()
+            .unwrap()
+            .contains("rejected removal of each locked functional group")
     );
 }
 

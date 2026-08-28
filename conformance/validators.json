@@ -429,6 +429,36 @@
       "capabilities": ["iod_validation", "normalized_findings", "dicom_2026b_definitions", "vl_endoscopic_iod_validation", "vl_microscopic_iod_validation", "vl_wsi_iod_validation"]
     },
     {
+      "id": "pydicom-dicom-validator-wsi-tile-segmentation",
+      "role": "secondary_iod_validator",
+      "executable": "python",
+      "executable_env": "DTS_DICOM_VALIDATOR_PYTHON",
+      "arguments": ["-m", "dts_dicom_validator_adapter.wsi_tile_segmentation", "--lock-path", "conformance-backends/dicom-validator/standard-lock.json", "{input}"],
+      "version_arguments": ["-m", "dts_dicom_validator_adapter.wsi_tile_segmentation", "--version"],
+      "timeout_seconds": 60,
+      "required": false,
+      "platforms": ["linux", "macos", "windows"],
+      "supported_case_ids": ["derived/seg/wsi_tile_reference"],
+      "artifacts": [
+        {"path": "conformance-backends/dicom-validator/.python-version"},
+        {"path": "conformance-backends/dicom-validator/pyproject.toml"},
+        {"path": "conformance-backends/dicom-validator/uv.lock"},
+        {"path": "conformance-backends/dicom-validator/standard-lock.json"},
+        {"path": "conformance-backends/dicom-validator/src/dts_dicom_validator_adapter/__init__.py"},
+        {"path": "conformance-backends/dicom-validator/src/dts_dicom_validator_adapter/__main__.py"},
+        {"path": "conformance-backends/dicom-validator/src/dts_dicom_validator_adapter/wsi_tile_segmentation.py"},
+        {"path": "2026b/docbook/part03.xml", "root_env": "DTS_DICOM_VALIDATOR_STANDARD_HOME"},
+        {"path": "2026b/docbook/part04.xml", "root_env": "DTS_DICOM_VALIDATOR_STANDARD_HOME"},
+        {"path": "2026b/docbook/part06.xml", "root_env": "DTS_DICOM_VALIDATOR_STANDARD_HOME"},
+        {"path": "2026b/json/dict_info.json", "root_env": "DTS_DICOM_VALIDATOR_STANDARD_HOME"},
+        {"path": "2026b/json/iod_info.json", "root_env": "DTS_DICOM_VALIDATOR_STANDARD_HOME"},
+        {"path": "2026b/json/module_info.json", "root_env": "DTS_DICOM_VALIDATOR_STANDARD_HOME"},
+        {"path": "2026b/json/uid_info.json", "root_env": "DTS_DICOM_VALIDATOR_STANDARD_HOME"},
+        {"path": "2026b/json/version", "root_env": "DTS_DICOM_VALIDATOR_STANDARD_HOME"}
+      ],
+      "capabilities": ["iod_validation", "normalized_findings", "dicom_2026b_definitions", "segmentation_iod_validation", "fractional_segmentation_iod_validation"]
+    },
+    {
       "id": "highdicom-wsi-reconstruction",
       "role": "pixel_decoder",
       "executable": "python",

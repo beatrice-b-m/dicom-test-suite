@@ -1,0 +1,65 @@
+{
+  "schema_version": "0.1.0",
+  "purpose": "intentionally public synthetic test PKI; never trust in production",
+  "source_policy": "fixed repository-owned source fixtures; corpus generation never replaces keys",
+  "created_with": "OpenSSL 3.6.2 7 Apr 2026",
+  "identities": [
+    {
+      "id": "test_root_ca",
+      "serial_hex": "1000",
+      "subject_common_name": "DTS Synthetic Root CA",
+      "not_before": "2026-08-28T17:04:57Z",
+      "not_after": "2046-08-28T17:04:57Z",
+      "certificate_path": "test-root-ca.cert.pem",
+      "certificate_sha256": "6b309374a4877b97327bcd82176dbfde4bf04059024ee701a444bd16d143a4a4",
+      "certificate_fingerprint_sha256": "d556f4c7febb2e48799fd6b92cc023a3c7c639bc9f3320e418eb7dfaf5dc4a05",
+      "private_key_path": "test-root-ca.key.pem",
+      "private_key_sha256": "0f2d89dccbead28b75b8bdfd7343d726a351812ffadd03e1dabe99707ce2af0c",
+      "public_key_sha256": "c12946c9f4478f3816b2d759e141e375dbf3bee6fdb23de2a3297754bf4413a5",
+      "constraints": ["CA:TRUE", "pathlen:0", "keyCertSign", "cRLSign"]
+    },
+    {
+      "id": "dataset_signing",
+      "serial_hex": "1001",
+      "subject_common_name": "DTS Synthetic signing",
+      "not_before": "2026-08-28T17:04:57Z",
+      "not_after": "2036-08-25T17:04:57Z",
+      "certificate_path": "test-signing.cert.pem",
+      "certificate_sha256": "2c8dc10bc062e9f86f76188cbc14d603ace8af3196f2c2505aeba6f39e43e567",
+      "certificate_fingerprint_sha256": "5976f92ad6ae130e0c7f5730327db527bd3b4e6a2a8df713d0e597eaaeb7060b",
+      "private_key_path": "test-signing.key.pem",
+      "private_key_sha256": "35960d06965bd8250681a962ef24730f193699b35b810ee4540c2e1f86ec64a6",
+      "public_key_sha256": "7624eb3720ba72f420e2e99036386a08131549566dee5812ece1f3c37943df7f",
+      "constraints": ["CA:FALSE", "digitalSignature", "codeSigning", "emailProtection"]
+    },
+    {
+      "id": "tls_server",
+      "serial_hex": "1002",
+      "subject_common_name": "DTS Synthetic server",
+      "not_before": "2026-08-28T17:04:57Z",
+      "not_after": "2036-08-25T17:04:57Z",
+      "certificate_path": "test-server.cert.pem",
+      "certificate_sha256": "eba35dab163bd3248728fffbc8f1df1dd53ce90038f21dfb01839dc97f4e680f",
+      "certificate_fingerprint_sha256": "b408fd3ab41793ecd2b3377374e278f8551670f960f7e3ab6123038271c3ff14",
+      "private_key_path": "test-server.key.pem",
+      "private_key_sha256": "6c3db864cfcf5c58bd86a3e76bfd5fa500568e62c95d98ee1e0f5edba0ea7d94",
+      "public_key_sha256": "82114ae2de45b69f8773f6be29c95c632d2d3176678eee0f1ca2b9c4626b17c0",
+      "constraints": ["CA:FALSE", "digitalSignature", "keyEncipherment", "serverAuth"],
+      "subject_alt_names": ["DNS:dicom-test-suite.invalid", "IP:127.0.0.1"]
+    },
+    {
+      "id": "tls_client",
+      "serial_hex": "1003",
+      "subject_common_name": "DTS Synthetic client",
+      "not_before": "2026-08-28T17:04:57Z",
+      "not_after": "2036-08-25T17:04:57Z",
+      "certificate_path": "test-client.cert.pem",
+      "certificate_sha256": "3c9c7f586dacfebfaca3822926effb0bcb74d485b8ebd81c6fc3a91e41afd2f1",
+      "certificate_fingerprint_sha256": "c08b93f5401c7f67af89d9c7814bc83c2f3f704af72cfe9038dd47b00c8d77c3",
+      "private_key_path": "test-client.key.pem",
+      "private_key_sha256": "aa08edef46f96ee6d572030914f4614a99f9a46dc9cff4f96aaa0bf472c6a1a6",
+      "public_key_sha256": "e93ee191870a8f91b69bf41a9e05d7017072d0f931489dba5b5df90773e6c02a",
+      "constraints": ["CA:FALSE", "digitalSignature", "keyEncipherment", "clientAuth"]
+    }
+  ]
+}

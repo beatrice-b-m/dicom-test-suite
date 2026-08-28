@@ -1,0 +1,41 @@
+[req]
+prompt = no
+distinguished_name = fixture_dn
+
+[fixture_dn]
+C = ZZ
+O = DICOM Test Suite Synthetic Fixtures
+OU = Public Test Material - Never Trust
+CN = overridden-by-command
+
+[root_ca]
+basicConstraints = critical,CA:true,pathlen:0
+keyUsage = critical,keyCertSign,cRLSign
+subjectKeyIdentifier = hash
+authorityKeyIdentifier = keyid:always
+
+[signing_cert]
+basicConstraints = critical,CA:false
+keyUsage = critical,digitalSignature
+extendedKeyUsage = codeSigning,emailProtection
+subjectKeyIdentifier = hash
+authorityKeyIdentifier = keyid,issuer
+
+[server_cert]
+basicConstraints = critical,CA:false
+keyUsage = critical,digitalSignature,keyEncipherment
+extendedKeyUsage = serverAuth
+subjectAltName = @server_names
+subjectKeyIdentifier = hash
+authorityKeyIdentifier = keyid,issuer
+
+[server_names]
+DNS.1 = dicom-test-suite.invalid
+IP.1 = 127.0.0.1
+
+[client_cert]
+basicConstraints = critical,CA:false
+keyUsage = critical,digitalSignature,keyEncipherment
+extendedKeyUsage = clientAuth
+subjectKeyIdentifier = hash
+authorityKeyIdentifier = keyid,issuer

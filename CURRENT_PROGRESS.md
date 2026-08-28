@@ -1,20 +1,25 @@
 # Current Progress
 
 **Last updated:** 2026-08-28
-**Active goal:** maintain the reproducible viewer-testing baseline without
-starting future coverage-expansion phases
-**Current phase:** Phase 2 complete; Phase 3 milestones 1–6 complete with the
-mesh milestone pending; Phase 4 complete; Phases 5–8 remain future work
-**Repo state source:** reconstructed from `SYSTEM_SPEC.md`, `transfer-syntax/capability-matrix.json`, and current verification runs.
+**Active goal:** complete the remaining dependency-ordered coverage-expansion
+plan without weakening profile isolation or validation gates
+**Current phase:** Phases 0–4 complete with unavailable coverage explicit;
+Phase 5 Extended Offset Table infrastructure is next
+**Repo state source:** reconstructed from `cases/registry.json`, phase status
+notes, git history, and current verification runs.
 
 ## Phase Status
 
-- The registry contains 150 implemented and 32 planned logical cases.
+- The registry contains 151 implemented and 40 planned logical cases.
 - Phase 2 is complete.
-- Phase 3 milestones 1–6 are complete; the mesh milestone remains pending.
+- Phase 3 is closed. Encapsulated STL completes the mesh milestone; integer
+  Parametric Map remains explicitly planned because its selected provider
+  cannot emit the required representation.
 - Phase 4 is complete.
-- Phases 5–8 remain future work and are outside the current viewer-baseline
-  scope.
+- Phase 5 has started with locked Extended Offset Table standards evidence;
+  generator, manifest, validation, reporting, and stress integration remain.
+- Phases 6–8 remain unimplemented except for the existing small stress-profile
+  WSI pyramid and shared profile/platform infrastructure.
 
 ## Historical Status Notes
 

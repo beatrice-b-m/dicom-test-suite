@@ -1486,7 +1486,7 @@ fn report_command_writes_segmentation_content_coverage_for_extended_root() {
         report
             .pointer("/grouped_coverage/segmentation_types/FRACTIONAL")
             .and_then(Value::as_u64),
-        Some(1)
+        Some(2)
     );
     assert_eq!(
         report
@@ -1504,7 +1504,7 @@ fn report_command_writes_segmentation_content_coverage_for_extended_root() {
         report
             .pointer("/grouped_coverage/segmentation_maximum_fractional_values/255")
             .and_then(Value::as_u64),
-        Some(1)
+        Some(2)
     );
 
     let markdown_output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
@@ -1530,12 +1530,13 @@ fn report_command_writes_segmentation_content_coverage_for_extended_root() {
     } else {
         "| BINARY | 1 |"
     }));
-    assert!(markdown.contains("| FRACTIONAL | 1 |"));
+    assert!(markdown.contains("| FRACTIONAL | 2 |"));
     assert!(markdown.contains("| LABELMAP | 1 |"));
     assert!(markdown.contains("### Segmentation Fractional Types"));
+    assert!(markdown.contains("| OCCUPANCY | 1 |"));
     assert!(markdown.contains("| PROBABILITY | 1 |"));
     assert!(markdown.contains("### Segmentation Maximum Fractional Values"));
-    assert!(markdown.contains("| 255 | 1 |"));
+    assert!(markdown.contains("| 255 | 2 |"));
 
     fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
 }
@@ -2316,7 +2317,7 @@ fn report_command_writes_rwvm_content_coverage_for_extended_root() {
             report
                 .pointer("/grouped_coverage/generation_backends/highdicom_pydicom")
                 .and_then(Value::as_u64),
-            Some(4)
+            Some(5)
         );
     }
     assert_eq!(

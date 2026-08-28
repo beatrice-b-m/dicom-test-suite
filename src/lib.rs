@@ -26764,6 +26764,7 @@ fn skipped_coverage_row(
     ] {
         if is_wsi
             && field.starts_with("wsi_")
+            && !field.starts_with("wsi_tile_seg_")
             && !field.starts_with("wsi_pyramid_")
             && !field.starts_with("wsi_multiple_optical_paths_")
         {

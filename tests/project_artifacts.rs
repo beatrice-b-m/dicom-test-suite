@@ -5965,6 +5965,13 @@ fn generator_recipe_case_ids() -> BTreeSet<String> {
                 "TWELVE_LEAD_ECG_CASE_ID: &str = \"",
                 "GENERAL_ECG_CASE_ID: &str = \"",
                 "EOT_CASE_ID: &str = \"",
+                "STRESS_ENHANCED_CT_CASE_ID: &str = \"",
+                "STRESS_HIGH_INSTANCE_CT_CASE_ID: &str = \"",
+                "STRESS_LARGE_BULK_CASE_ID: &str = \"",
+                "STRESS_DEEP_NESTED_CASE_ID: &str = \"",
+                "STRESS_LONG_METADATA_CASE_ID: &str = \"",
+                "STRESS_ENCAPSULATED_CASE_ID: &str = \"",
+                "STRESS_WSI_PYRAMID_CASE_ID: &str = \"",
                 "RT_PLAN_CASE_ID: &str = \"",
                 "RT_IMAGE_CASE_ID: &str = \"",
                 "RT_RADIATION_CASE_ID: &str = \"",
@@ -6079,6 +6086,7 @@ fn is_suite_case_id(case_id: &str) -> bool {
                 | "metadata"
                 | "negative"
                 | "non-image"
+                | "stress"
                 | "vl"
         )
     )

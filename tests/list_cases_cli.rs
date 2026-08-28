@@ -50,12 +50,29 @@ fn list_cases_command_exposes_planned_provider_and_blockers() {
         "transaction gaps must remain visible without pretending to be DICOM files"
     );
     assert!(
-        stdout.contains("stress/sc/large_bulk_data\tplanned\tstress\t1.2.840.10008.5.1.4.1.1.7\t1.2.840.10008.1.2.1\t2/2 covered\tdicom_instance\trust_native\tclassic_image\tlater\trecipe_unimplemented,stress_budget_policy_pending"),
-        "large valid bulk-data coverage must remain opt-in stress inventory"
-    );
-    assert!(
         stdout.contains("media/security/digital_signature_instance\tplanned\textended\t1.2.840.10008.5.1.4.1.1.7\t1.2.840.10008.1.2.1\t2/2 covered\tdicom_instance\tdcm4che\tmedia\tlater\tsecurity_toolchain_unselected,decision_checkpoint"),
         "digital-signature coverage must expose its security decision checkpoint"
+    );
+}
+
+#[test]
+fn list_cases_command_exposes_implemented_opt_in_stress_inventory() {
+    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args([
+            "list-cases",
+            "--status",
+            "implemented",
+            "--profile",
+            "stress",
+        ])
+        .output()
+        .expect("list-cases command must run");
+
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).expect("list-cases stdout must be utf-8");
+    assert!(
+        stdout.contains("stress/sc/large_bulk_data\timplemented\tstress\t1.2.840.10008.5.1.4.1.1.7\t1.2.840.10008.1.2.1\t2/2 covered\tdicom_instance\trust_native\tclassic_image\t-\t"),
+        "qualified large bulk-data coverage must remain isolated to the stress profile"
     );
 }
 

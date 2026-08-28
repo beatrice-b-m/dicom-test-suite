@@ -14005,7 +14005,7 @@
     {
       "case_id": "stress/enhanced-ct/many_frames",
       "artifact_kind": "dicom_instance",
-      "status": "planned",
+      "status": "implemented",
       "provider": {
         "kind": "rust_native",
         "id": "rust_native"
@@ -14016,23 +14016,8 @@
         "geometry",
         "pixels"
       ],
-      "roadmap": {
-        "priority": "later",
-        "delivery_phase": "phase-6",
-        "rationale": "Exercises many-frame enhanced image navigation."
-      },
-      "blockers": [
-        {
-          "code": "recipe_unimplemented",
-          "message": "The deterministic native recipe is not implemented.",
-          "recheck_phase": "phase-6"
-        },
-        {
-          "code": "stress_budget_policy_pending",
-          "message": "Frame, byte, memory, and runtime budgets are not established.",
-          "recheck_phase": "phase-6"
-        }
-      ],
+      "roadmap": null,
+      "blockers": [],
       "profiles": [
         "stress"
       ],
@@ -14064,7 +14049,7 @@
     {
       "case_id": "stress/sc/deep_nested_sequences",
       "artifact_kind": "dicom_instance",
-      "status": "planned",
+      "status": "implemented",
       "provider": {
         "kind": "rust_native",
         "id": "rust_native"
@@ -14074,23 +14059,8 @@
         "scale",
         "metadata"
       ],
-      "roadmap": {
-        "priority": "later",
-        "delivery_phase": "phase-6",
-        "rationale": "Exercises deeply nested but valid sequence parsing."
-      },
-      "blockers": [
-        {
-          "code": "recipe_unimplemented",
-          "message": "The deterministic native recipe is not implemented.",
-          "recheck_phase": "phase-6"
-        },
-        {
-          "code": "stress_budget_policy_pending",
-          "message": "Nesting, memory, and runtime budgets are not established.",
-          "recheck_phase": "phase-6"
-        }
-      ],
+      "roadmap": null,
+      "blockers": [],
       "profiles": [
         "stress"
       ],
@@ -14122,7 +14092,7 @@
     {
       "case_id": "stress/sc/large_bulk_data",
       "artifact_kind": "dicom_instance",
-      "status": "planned",
+      "status": "implemented",
       "provider": {
         "kind": "rust_native",
         "id": "rust_native"
@@ -14132,23 +14102,8 @@
         "scale",
         "pixels"
       ],
-      "roadmap": {
-        "priority": "later",
-        "delivery_phase": "phase-6",
-        "rationale": "Exercises bounded streaming, validation, and reporting of a large native Pixel Data value independently from encapsulation layout."
-      },
-      "blockers": [
-        {
-          "code": "recipe_unimplemented",
-          "message": "The parameterized deterministic large-bulk-data recipe is not implemented.",
-          "recheck_phase": "phase-6"
-        },
-        {
-          "code": "stress_budget_policy_pending",
-          "message": "Bulk byte, memory, and runtime budgets are not established.",
-          "recheck_phase": "phase-6"
-        }
-      ],
+      "roadmap": null,
+      "blockers": [],
       "profiles": [
         "stress"
       ],
@@ -14188,7 +14143,7 @@
     {
       "case_id": "stress/sc/large_encapsulated_multifragment",
       "artifact_kind": "dicom_instance",
-      "status": "planned",
+      "status": "implemented",
       "provider": {
         "kind": "rust_native",
         "id": "rust_native"
@@ -14199,23 +14154,8 @@
         "encapsulation",
         "pixels"
       ],
-      "roadmap": {
-        "priority": "later",
-        "delivery_phase": "phase-6",
-        "rationale": "Exercises large fragments and streaming encapsulation."
-      },
-      "blockers": [
-        {
-          "code": "recipe_unimplemented",
-          "message": "The deterministic native recipe is not implemented.",
-          "recheck_phase": "phase-6"
-        },
-        {
-          "code": "stress_budget_policy_pending",
-          "message": "Fragment, byte, memory, and runtime budgets are not established.",
-          "recheck_phase": "phase-6"
-        }
-      ],
+      "roadmap": null,
+      "blockers": [],
       "profiles": [
         "stress"
       ],
@@ -14225,7 +14165,7 @@
       "sop_class_name": "Multi-frame Grayscale Byte Secondary Capture Image Storage",
       "sop_class_uid": "1.2.840.10008.5.1.4.1.1.7.2",
       "modality": "OT",
-      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.5",
       "determinism": "byte_stable",
       "requirements": {
         "features": [],
@@ -14247,7 +14187,7 @@
     {
       "case_id": "stress/sc/long_value_metadata",
       "artifact_kind": "dicom_instance",
-      "status": "planned",
+      "status": "implemented",
       "provider": {
         "kind": "rust_native",
         "id": "rust_native"
@@ -14257,23 +14197,8 @@
         "scale",
         "metadata"
       ],
-      "roadmap": {
-        "priority": "later",
-        "delivery_phase": "phase-6",
-        "rationale": "Extends valid long and multi-valued metadata coverage to parameterized stress boundaries with explicit byte and resource budgets."
-      },
-      "blockers": [
-        {
-          "code": "recipe_unimplemented",
-          "message": "The parameterized deterministic long-value stress recipe is not implemented.",
-          "recheck_phase": "phase-6"
-        },
-        {
-          "code": "stress_budget_policy_pending",
-          "message": "Value-count, byte, memory, and runtime budgets are not established.",
-          "recheck_phase": "phase-6"
-        }
-      ],
+      "roadmap": null,
+      "blockers": [],
       "profiles": [
         "stress"
       ],
@@ -14313,7 +14238,7 @@
     {
       "case_id": "stress/study/high_instance_count_ct",
       "artifact_kind": "dicom_instance",
-      "status": "planned",
+      "status": "implemented",
       "provider": {
         "kind": "rust_native",
         "id": "rust_native"
@@ -14323,23 +14248,8 @@
         "scale",
         "geometry"
       ],
-      "roadmap": {
-        "priority": "later",
-        "delivery_phase": "phase-6",
-        "rationale": "Exercises high instance-count study indexing and sorting."
-      },
-      "blockers": [
-        {
-          "code": "recipe_unimplemented",
-          "message": "The deterministic native recipe is not implemented.",
-          "recheck_phase": "phase-6"
-        },
-        {
-          "code": "stress_budget_policy_pending",
-          "message": "Instance, byte, memory, and runtime budgets are not established.",
-          "recheck_phase": "phase-6"
-        }
-      ],
+      "roadmap": null,
+      "blockers": [],
       "profiles": [
         "stress"
       ],
@@ -14371,10 +14281,10 @@
     {
       "case_id": "stress/wsi/large_pyramid",
       "artifact_kind": "dicom_instance",
-      "status": "planned",
+      "status": "implemented",
       "provider": {
-        "kind": "external_backend",
-        "id": "highdicom_pydicom"
+        "kind": "rust_native",
+        "id": "rust_native"
       },
       "object_family": "visible_light",
       "compatibility_axes": [
@@ -14383,23 +14293,8 @@
         "geometry",
         "pixels"
       ],
-      "roadmap": {
-        "priority": "later",
-        "delivery_phase": "phase-6",
-        "rationale": "Exercises large whole-slide pyramid indexing and bounded generation."
-      },
-      "blockers": [
-        {
-          "code": "backend_contract_unimplemented",
-          "message": "The external generation contract is not implemented.",
-          "recheck_phase": "phase-1"
-        },
-        {
-          "code": "stress_budget_policy_pending",
-          "message": "Tile, byte, memory, and runtime budgets are not established.",
-          "recheck_phase": "phase-6"
-        }
-      ],
+      "roadmap": null,
+      "blockers": [],
       "profiles": [
         "stress"
       ],
@@ -14410,7 +14305,7 @@
       "sop_class_uid": "1.2.840.10008.5.1.4.1.1.77.1.6",
       "modality": "SM",
       "transfer_syntax_uid": "1.2.840.10008.1.2.1",
-      "determinism": "semantic_stable",
+      "determinism": "byte_stable",
       "requirements": {
         "features": [],
         "external_codecs": [],

@@ -4317,6 +4317,16 @@ fn validate_wsi_tile_segmentation_shared(
         item_sequence_item_count(path, shared, tags::PIXEL_MEASURES_SEQUENCE)?,
         1,
     );
+    check(
+        internal,
+        measures.iter().count() == 2
+            && measures.iter().all(|element| {
+                matches!(element.tag(), tags::PIXEL_SPACING | tags::SLICE_THICKNESS)
+            }),
+        "wsi_tile_seg_pixel_measures_attributes",
+        "Pixel Measures contains exactly Pixel Spacing and Slice Thickness.",
+        "Pixel Measures contains an unexpected or missing attribute.",
+    );
     check_equal(
         internal,
         "wsi_tile_seg_pixel_spacing",
@@ -4782,11 +4792,19 @@ fn validate_wsi_tile_segmentation_absences(obj: &OpenedObject, internal: &mut Ve
             &[
                 tags::CONCATENATION_UID,
                 tags::IN_CONCATENATION_NUMBER,
+                tags::IN_CONCATENATION_TOTAL_NUMBER,
                 tags::CONCATENATION_FRAME_OFFSET_NUMBER,
                 tags::SOP_INSTANCE_UID_OF_CONCATENATION_SOURCE,
             ][..],
         ),
-        ("multi_resolution_pyramid", &[tags::PYRAMID_UID][..]),
+        (
+            "multi_resolution_pyramid",
+            &[
+                tags::PYRAMID_UID,
+                tags::PYRAMID_LABEL,
+                tags::PYRAMID_DESCRIPTION,
+            ][..],
+        ),
     ] {
         check(
             internal,

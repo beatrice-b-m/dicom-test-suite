@@ -10,6 +10,9 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::error::Error;
 use std::fmt;
 
+use serde::Serialize;
+use serde_json::Value;
+
 pub const MEDIA_CONTRACT_VERSION: &str = "0.1.0";
 pub const DICOMDIR_FILE_ID: &str = "DICOMDIR";
 pub const MEDIA_STORAGE_DIRECTORY_SOP_CLASS_UID: &str = "1.2.840.10008.1.3.10";
@@ -248,7 +251,7 @@ fn validate_sha256(value: &str) -> Result<(), MediaError> {
 }
 
 /// Locked identity and exact invocation metadata for the DCMTK provider.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct DcmtkProviderFingerprint {
     pub provider_id: String,
     pub executable_name: String,
@@ -338,7 +341,8 @@ impl DcmtkProviderResult {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum CheckStatus {
     Passed,
     Unavailable,
@@ -347,7 +351,7 @@ pub enum CheckStatus {
 
 /// Evidence classes remain separate so same-provider checks cannot be
 /// mislabeled as independent interoperability evidence.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub struct MediaValidationEvidence {
     pub rust_closure: CheckStatus,
     pub dicom3tools_dciodvfy: CheckStatus,
@@ -356,13 +360,14 @@ pub struct MediaValidationEvidence {
     pub dcm4che_independent_peer: CheckStatus,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum MediaDeterminism {
     SemanticStable,
 }
 
 /// Payload-free decision record for a generated DICOMDIR File-set.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct DicomDirQualification {
     pub contract_version: &'static str,
     pub determinism: MediaDeterminism,
@@ -416,6 +421,10 @@ impl DicomDirQualification {
 
     pub fn is_promotable(&self) -> bool {
         self.independent_interoperability_proven
+    }
+
+    pub fn to_json(&self) -> Result<Value, serde_json::Error> {
+        serde_json::to_value(self)
     }
 }
 
@@ -718,6 +727,13 @@ mod tests {
         assert!(!qualification.independent_interoperability_proven);
         assert_eq!(qualification.file_set_uid, "1.2.826.0.1.3680043.10.543.8");
         assert_eq!(qualification.member_count, 3);
+        let json = qualification.to_json().unwrap();
+        assert_eq!(json["contract_version"], "0.1.0");
+        assert_eq!(json["determinism"], "semantic_stable");
+        assert_eq!(
+            json["evidence"]["dcm4che_independent_peer"],
+            "unavailable"
+        );
     }
 
     #[test]

@@ -43,6 +43,13 @@
     "grouped_fuzz_coverage": {
       "$ref": "#/$defs/grouped_fuzz_coverage"
     },
+    "stress_coverage": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/stress_coverage_row" }
+    },
+    "grouped_stress_coverage": {
+      "$ref": "#/$defs/grouped_stress_coverage"
+    },
     "grouped_coverage": {
       "type": "object",
       "properties": {
@@ -931,7 +938,9 @@
     "negative_coverage": ["grouped_negative_coverage"],
     "grouped_negative_coverage": ["negative_coverage"],
     "fuzz_coverage": ["grouped_fuzz_coverage"],
-    "grouped_fuzz_coverage": ["fuzz_coverage"]
+    "grouped_fuzz_coverage": ["fuzz_coverage"],
+    "stress_coverage": ["grouped_stress_coverage"],
+    "grouped_stress_coverage": ["stress_coverage"]
   },
   "additionalProperties": false,
   "$defs": {
@@ -1191,6 +1200,90 @@
         "outcomes": { "$ref": "#/$defs/count_map" },
         "statuses": { "$ref": "#/$defs/count_map" },
         "targets": { "$ref": "#/$defs/count_map" }
+      },
+      "additionalProperties": false
+    },
+    "stress_scale_parameters": {
+      "type": "object",
+      "required": [
+        "instances", "frames", "fragments", "payload_bytes", "output_bytes",
+        "rows", "columns", "tile_rows", "tile_columns", "pyramid_levels",
+        "sequence_depth", "metadata_values"
+      ],
+      "properties": {
+        "instances": { "type": "integer", "minimum": 0 },
+        "frames": { "type": "integer", "minimum": 0 },
+        "fragments": { "type": "integer", "minimum": 0 },
+        "payload_bytes": { "type": "integer", "minimum": 0 },
+        "output_bytes": { "type": "integer", "minimum": 0 },
+        "rows": { "type": "integer", "minimum": 0 },
+        "columns": { "type": "integer", "minimum": 0 },
+        "tile_rows": { "type": "integer", "minimum": 0 },
+        "tile_columns": { "type": "integer", "minimum": 0 },
+        "pyramid_levels": { "type": "integer", "minimum": 0 },
+        "sequence_depth": { "type": "integer", "minimum": 0 },
+        "metadata_values": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "stress_coverage_row": {
+      "type": "object",
+      "required": [
+        "case_id", "profile", "status", "contract_version", "recipe", "scale",
+        "outcome", "requested", "actual", "resource_envelope", "observation",
+        "unavailable_scales"
+      ],
+      "properties": {
+        "case_id": { "type": "string", "pattern": "^stress/" },
+        "profile": { "const": "stress" },
+        "status": { "enum": ["passed", "failed"] },
+        "contract_version": { "const": "0.1.0" },
+        "recipe": { "type": "string", "minLength": 1 },
+        "scale": { "enum": ["reduced", "full"] },
+        "outcome": { "type": "string", "minLength": 1 },
+        "requested": { "$ref": "#/$defs/stress_scale_parameters" },
+        "actual": { "$ref": "#/$defs/stress_scale_parameters" },
+        "resource_envelope": {
+          "type": "object",
+          "required": ["output_bytes", "peak_rss_bytes", "case_wall_milliseconds", "job_wall_milliseconds", "recipe_output_bytes"],
+          "additionalProperties": true
+        },
+        "observation": {
+          "type": "object",
+          "required": ["output_bytes", "elapsed_milliseconds", "peak_rss_bytes"],
+          "additionalProperties": true
+        },
+        "unavailable_scales": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["scale", "reason_code", "message"],
+            "additionalProperties": false,
+            "properties": {
+              "scale": { "type": "string" },
+              "reason_code": { "type": "string" },
+              "message": { "type": "string" }
+            }
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "grouped_stress_coverage": {
+      "type": "object",
+      "required": [
+        "qualification_cases", "output_bytes", "elapsed_milliseconds",
+        "peak_rss_unavailable", "statuses", "scales", "outcomes", "unavailable_scales"
+      ],
+      "properties": {
+        "qualification_cases": { "type": "integer", "minimum": 0 },
+        "output_bytes": { "type": "integer", "minimum": 0 },
+        "elapsed_milliseconds": { "type": "integer", "minimum": 0 },
+        "peak_rss_unavailable": { "type": "integer", "minimum": 0 },
+        "statuses": { "$ref": "#/$defs/count_map" },
+        "scales": { "$ref": "#/$defs/count_map" },
+        "outcomes": { "$ref": "#/$defs/count_map" },
+        "unavailable_scales": { "$ref": "#/$defs/count_map" }
       },
       "additionalProperties": false
     },

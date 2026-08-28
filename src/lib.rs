@@ -17529,6 +17529,8 @@ pub fn build_coverage_report(root_dir: impl AsRef<Path>) -> Result<Value, Report
     let mut grouped_negative = GroupedNegativeCoverage::default();
     let mut fuzz_rows = Vec::new();
     let mut grouped_fuzz = GroupedFuzzCoverage::default();
+    let mut stress_rows = Vec::new();
+    let mut grouped_stress = GroupedStressCoverage::default();
     for file in files {
         if file.get("validity").and_then(Value::as_str) == Some("expected_invalid") {
             let row = negative_coverage_row(root_dir, &manifest_path, file, run_profile)?;
@@ -17554,13 +17556,20 @@ pub fn build_coverage_report(root_dir: impl AsRef<Path>) -> Result<Value, Report
         rows.push(row);
     }
     for qualification in qualifications {
-        if qualification.get("kind").and_then(Value::as_str) != Some("bounded_fuzz_run") {
-            continue;
+        match qualification.get("kind").and_then(Value::as_str) {
+            Some("bounded_fuzz_run") => {
+                let row = fuzz_coverage_row(&manifest_path, qualification)?;
+                counts.generated += 1;
+                grouped_fuzz.record(&row);
+                fuzz_rows.push(row);
+            }
+            Some("stress_case_run") => {
+                let row = stress_coverage_row(&manifest_path, qualification)?;
+                grouped_stress.record(&row);
+                stress_rows.push(row);
+            }
+            _ => {}
         }
-        let row = fuzz_coverage_row(&manifest_path, qualification)?;
-        counts.generated += 1;
-        grouped_fuzz.record(&row);
-        fuzz_rows.push(row);
     }
 
     let gaps = skipped_cases
@@ -17592,8 +17601,90 @@ pub fn build_coverage_report(root_dir: impl AsRef<Path>) -> Result<Value, Report
         "grouped_negative_coverage": grouped_negative.to_json(),
         "fuzz_coverage": fuzz_rows,
         "grouped_fuzz_coverage": grouped_fuzz.to_json(),
+        "stress_coverage": stress_rows,
+        "grouped_stress_coverage": grouped_stress.to_json(),
         "gaps": gaps
     }))
+}
+
+fn stress_coverage_row(manifest_path: &Path, qualification: &Value) -> Result<Value, ReportError> {
+    let required = |pointer, message| report_str(manifest_path, qualification, pointer, message);
+    Ok(serde_json::json!({
+        "case_id": required("/case_id", "stress case_id must be a string")?,
+        "profile": required("/profile", "stress profile must be a string")?,
+        "status": required("/status", "stress status must be a string")?,
+        "contract_version": required("/contract_version", "stress contract version must be a string")?,
+        "recipe": required("/recipe", "stress recipe must be a string")?,
+        "scale": required("/scale", "stress scale must be a string")?,
+        "outcome": required("/outcome", "stress outcome must be a string")?,
+        "requested": qualification.get("requested").cloned().unwrap_or(Value::Null),
+        "actual": qualification.get("actual").cloned().unwrap_or(Value::Null),
+        "resource_envelope": qualification.get("resource_envelope").cloned().unwrap_or(Value::Null),
+        "observation": qualification.get("observation").cloned().unwrap_or(Value::Null),
+        "unavailable_scales": qualification.get("unavailable_scales").cloned().unwrap_or_else(|| serde_json::json!([]))
+    }))
+}
+
+#[derive(Default)]
+struct GroupedStressCoverage {
+    qualification_cases: usize,
+    output_bytes: u64,
+    elapsed_milliseconds: u64,
+    peak_rss_unavailable: usize,
+    statuses: BTreeMap<String, usize>,
+    scales: BTreeMap<String, usize>,
+    outcomes: BTreeMap<String, usize>,
+    unavailable_scales: BTreeMap<String, usize>,
+}
+
+impl GroupedStressCoverage {
+    fn record(&mut self, row: &Value) {
+        self.qualification_cases += 1;
+        self.output_bytes += row
+            .pointer("/actual/output_bytes")
+            .and_then(Value::as_u64)
+            .unwrap_or(0);
+        self.elapsed_milliseconds += row
+            .pointer("/observation/elapsed_milliseconds")
+            .and_then(Value::as_u64)
+            .unwrap_or(0);
+        if row
+            .pointer("/observation/peak_rss_bytes")
+            .is_none_or(Value::is_null)
+        {
+            self.peak_rss_unavailable += 1;
+        }
+        increment_map(
+            &mut self.statuses,
+            row.get("status").and_then(Value::as_str),
+        );
+        increment_map(&mut self.scales, row.get("scale").and_then(Value::as_str));
+        increment_map(
+            &mut self.outcomes,
+            row.get("outcome").and_then(Value::as_str),
+        );
+        if let Some(scales) = row.get("unavailable_scales").and_then(Value::as_array) {
+            for scale in scales {
+                increment_map(
+                    &mut self.unavailable_scales,
+                    scale.get("scale").and_then(Value::as_str),
+                );
+            }
+        }
+    }
+
+    fn to_json(&self) -> Value {
+        serde_json::json!({
+            "qualification_cases": self.qualification_cases,
+            "output_bytes": self.output_bytes,
+            "elapsed_milliseconds": self.elapsed_milliseconds,
+            "peak_rss_unavailable": self.peak_rss_unavailable,
+            "statuses": self.statuses,
+            "scales": self.scales,
+            "outcomes": self.outcomes,
+            "unavailable_scales": self.unavailable_scales
+        })
+    }
 }
 
 fn fuzz_coverage_row(manifest_path: &Path, qualification: &Value) -> Result<Value, ReportError> {
@@ -21245,6 +21336,13 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
         ("Fuzz Outcomes", "/grouped_fuzz_coverage/outcomes"),
         ("Fuzz Statuses", "/grouped_fuzz_coverage/statuses"),
         ("Fuzz Targets", "/grouped_fuzz_coverage/targets"),
+        ("Stress Statuses", "/grouped_stress_coverage/statuses"),
+        ("Stress Scales", "/grouped_stress_coverage/scales"),
+        ("Stress Outcomes", "/grouped_stress_coverage/outcomes"),
+        (
+            "Unavailable Stress Scales",
+            "/grouped_stress_coverage/unavailable_scales",
+        ),
         (
             "Negative Mutation IDs",
             "/grouped_negative_coverage/mutation_ids",
@@ -21264,6 +21362,42 @@ pub fn render_coverage_report_markdown(report: &Value) -> String {
         ("Negative Providers", "/grouped_negative_coverage/providers"),
     ] {
         append_count_map_section(&mut output, report, title, pointer);
+    }
+
+    if let Some(rows) = report.get("stress_coverage").and_then(Value::as_array) {
+        if !rows.is_empty() {
+            output.push_str("## Bounded Stress Qualification\n\n");
+            output.push_str("Stress qualifications are resource and scale evidence, not independent conformance evidence. Full-scale execution remains explicitly unavailable until the scheduled streaming runner is qualified.\n\n");
+            output.push_str("| Case ID | Status / outcome | Scale | Requested instances / frames / fragments / bytes | Actual instances / frames / fragments / bytes | Output bytes | Elapsed ms | Peak RSS | Unavailable scale |\n");
+            output.push_str("|---|---|---|---|---|---:|---:|---:|---|\n");
+            for row in rows {
+                let unavailable = row
+                    .get("unavailable_scales")
+                    .and_then(Value::as_array)
+                    .and_then(|items| items.first());
+                output.push_str(&format!(
+                    "| {} | {} / {} | {} | {} / {} / {} / {} | {} / {} / {} / {} | {} | {} | {} | {} / {} |\n",
+                    markdown_cell(row.get("case_id").and_then(Value::as_str)),
+                    markdown_cell(row.get("status").and_then(Value::as_str)),
+                    markdown_cell(row.get("outcome").and_then(Value::as_str)),
+                    markdown_cell(row.get("scale").and_then(Value::as_str)),
+                    markdown_number(row.pointer("/requested/instances")),
+                    markdown_number(row.pointer("/requested/frames")),
+                    markdown_number(row.pointer("/requested/fragments")),
+                    markdown_number(row.pointer("/requested/payload_bytes")),
+                    markdown_number(row.pointer("/actual/instances")),
+                    markdown_number(row.pointer("/actual/frames")),
+                    markdown_number(row.pointer("/actual/fragments")),
+                    markdown_number(row.pointer("/actual/payload_bytes")),
+                    markdown_number(row.pointer("/actual/output_bytes")),
+                    markdown_number(row.pointer("/observation/elapsed_milliseconds")),
+                    markdown_number(row.pointer("/observation/peak_rss_bytes")),
+                    markdown_cell(unavailable.and_then(|item| item.get("scale")).and_then(Value::as_str)),
+                    markdown_cell(unavailable.and_then(|item| item.get("reason_code")).and_then(Value::as_str)),
+                ));
+            }
+            output.push('\n');
+        }
     }
 
     if let Some(rows) = report.get("fuzz_coverage").and_then(Value::as_array) {
@@ -38862,6 +38996,64 @@ mod tests {
             )
             .is_err()
         );
+    }
+
+    #[test]
+    fn stress_reporting_is_separate_and_preserves_requested_actual_scales() {
+        let request = crate::stress::StressRequest::approved(
+            crate::stress::StressRecipeKind::EnhancedCt,
+            crate::stress::StressScale::Reduced,
+        );
+        let mut actual = request.parameters;
+        actual.output_bytes = 123;
+        let qualification = crate::stress::StressQualificationRecord {
+            contract_version: crate::stress::STRESS_CONTRACT_VERSION,
+            request,
+            actual,
+            observation: crate::stress::ResourceObservation {
+                output_bytes: 123,
+                elapsed_milliseconds: 100,
+                peak_rss_bytes: None,
+            },
+            outcome: crate::stress::StressExecutionOutcome::Completed,
+        }
+        .to_manifest_value("stress/enhanced-ct/many_frames");
+        let row = stress_coverage_row(Path::new("manifest.json"), &qualification).unwrap();
+        assert_eq!(row["requested"]["frames"], 256);
+        assert_eq!(row["actual"]["output_bytes"], 123);
+        assert_eq!(row["unavailable_scales"][0]["scale"], "full");
+
+        let mut grouped = GroupedStressCoverage::default();
+        grouped.record(&row);
+        let grouped_json = grouped.to_json();
+        assert_eq!(grouped_json["qualification_cases"], 1);
+        assert_eq!(grouped_json["output_bytes"], 123);
+        assert_eq!(grouped_json["peak_rss_unavailable"], 1);
+        assert_eq!(grouped_json["unavailable_scales"]["full"], 1);
+
+        let coverage_schema: Value =
+            serde_json::from_str(include_str!("../schemas/coverage-report.schema.json")).unwrap();
+        for (definition, instance) in [
+            ("stress_coverage_row", &row),
+            ("grouped_stress_coverage", &grouped_json),
+        ] {
+            let schema = serde_json::json!({
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "$ref": format!("#/$defs/{definition}"),
+                "$defs": coverage_schema["$defs"].clone()
+            });
+            let validator = jsonschema::validator_for(&schema).unwrap();
+            let errors = validator.iter_errors(instance).collect::<Vec<_>>();
+            assert!(errors.is_empty(), "{definition} schema errors: {errors:?}");
+        }
+
+        let markdown = render_coverage_report_markdown(&serde_json::json!({
+            "stress_coverage": [row],
+            "grouped_stress_coverage": grouped_json
+        }));
+        assert!(markdown.contains("## Bounded Stress Qualification"));
+        assert!(markdown.contains("full_scale_runner_unimplemented"));
+        assert!(markdown.contains("resource and scale evidence"));
     }
 
     #[test]

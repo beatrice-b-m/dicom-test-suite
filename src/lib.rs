@@ -6445,7 +6445,6 @@ fn validate_encapsulated_pixel_data_manifest(
         fragments_per_frame.len(),
         usize::try_from(frame_count).unwrap_or(usize::MAX),
     );
-    let mut all_single_fragment = true;
     let mut fragment_counts = Vec::with_capacity(fragments_per_frame.len());
     for fragment_count in fragments_per_frame {
         let Some(fragment_count) = fragment_count.as_u64() else {
@@ -6464,7 +6463,6 @@ fn validate_encapsulated_pixel_data_manifest(
                 "{relative_path}: encapsulated_fragment_count: every frame must have at least one fragment"
             ));
         }
-        all_single_fragment &= fragment_count == 1;
         fragment_counts.push(fragment_count);
     }
 
@@ -6660,11 +6658,6 @@ fn validate_encapsulated_pixel_data_manifest(
                 "{relative_path}: extended_offset_table_with_populated_basic_offset_table: Extended Offset Table requires an empty Basic Offset Table"
             ));
         }
-        if !all_single_fragment {
-            failures.push(format!(
-                "{relative_path}: extended_offset_table_multiple_fragments: Extended Offset Table requires one fragment per frame"
-            ));
-        }
         if extended_offset_count == 0 {
             failures.push(format!(
                 "{relative_path}: extended_offset_table_empty: Extended Offset Table must contain one offset per frame"
@@ -6710,6 +6703,7 @@ fn validate_encapsulated_pixel_data_manifest(
             relative_path,
             obj,
             pixel_fragments,
+            &fragment_counts,
             offsets,
             lengths,
         );
@@ -6786,6 +6780,7 @@ fn validate_eot_file_contract(
     relative_path: &str,
     obj: &OpenedObject,
     pixel_fragments: Option<&[Vec<u8>]>,
+    fragment_counts: &[usize],
     expected_offsets: &[u64],
     expected_lengths: &[u64],
 ) {
@@ -6828,16 +6823,18 @@ fn validate_eot_file_contract(
         ));
         return;
     };
-    if fragments.len() != expected_lengths.len() {
+    if fragment_counts.iter().sum::<usize>() != fragments.len()
+        || fragment_counts.len() != expected_lengths.len()
+    {
         failures.push(format!(
-            "{relative_path}: extended_offset_table_fragment_count: expected {} one-fragment frames but found {} fragments",
-            expected_lengths.len(),
+            "{relative_path}: extended_offset_table_fragment_count: declared frame fragment groups do not cover {} fragments",
             fragments.len()
         ));
         return;
     }
     let mut recomputed_offset = 0_u64;
-    for (index, ((fragment, &length), &offset)) in fragments
+    let mut fragment_index = 0_usize;
+    for (index, ((&fragment_count, &length), &offset)) in fragment_counts
         .iter()
         .zip(expected_lengths)
         .zip(expected_offsets)
@@ -6849,16 +6846,31 @@ fn validate_eot_file_contract(
                 index + 1
             ));
         }
-        let padded_length = length.checked_add(length & 1);
-        if padded_length != Some(fragment.len() as u64) {
+        let frame_fragments = &fragments[fragment_index..fragment_index + fragment_count];
+        fragment_index += fragment_count;
+        let padded_payload_length = frame_fragments
+            .iter()
+            .map(|fragment| fragment.len() as u64)
+            .sum::<u64>();
+        let maximum_padding = fragment_count as u64;
+        if length > padded_payload_length
+            || padded_payload_length.saturating_sub(length) > maximum_padding
+        {
             failures.push(format!(
-                "{relative_path}: extended_offset_table_unpadded_length: frame {} unpadded length {length} does not match fragment value length {} after even padding",
+                "{relative_path}: extended_offset_table_unpadded_length: frame {} unpadded length {length} does not match {} fragment value bytes within padding bounds",
                 index + 1,
-                fragment.len()
+                padded_payload_length
             ));
         }
-        let Some(next) = padded_length
-            .and_then(|length| length.checked_add(8))
+        let Some(item_header_bytes) = (fragment_count as u64).checked_mul(8) else {
+            failures.push(format!(
+                "{relative_path}: extended_offset_table_offset_overflow: frame {} Item headers exceed u64",
+                index + 1
+            ));
+            return;
+        };
+        let Some(next) = padded_payload_length
+            .checked_add(item_header_bytes)
             .and_then(|span| recomputed_offset.checked_add(span))
         else {
             failures.push(format!(
@@ -34673,6 +34685,7 @@ mod tests {
             "instance.dcm",
             &obj,
             Some(&fragments),
+            &[1, 1, 1],
             &[0, 78, 152],
             &[69, 66, 69],
         );
@@ -34683,6 +34696,7 @@ mod tests {
             "instance.dcm",
             &obj,
             Some(&fragments),
+            &[1, 1, 1],
             &[0, 77, 151],
             &[69, 66, 69],
         );

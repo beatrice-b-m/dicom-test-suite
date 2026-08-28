@@ -1,5 +1,9 @@
 # Viewer Testing Handoff
 
+> This document preserves the immutable `b4ea0a4` baseline. The corrected RLE
+> Annex G corpus and its independent DCMTK and DICOM View evidence are recorded
+> in [RLE Annex G Correction Handoff](rle-annex-g-correction-handoff.md).
+
 ## Baseline identity
 
 - Source implementation commit:

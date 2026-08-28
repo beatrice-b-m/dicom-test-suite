@@ -181,7 +181,6 @@ use crate::{
     },
     mutation::MUTATION_CONTRACT_VERSION,
     negative::{NEGATIVE_CASE_IDS, NegativeOutput, build_negative_case},
-    part10_locator::{LocatorLimits, locate_explicit_vr_le_part10},
     rt_manifest::{
         LinkedRtImageInput, LinkedRtPlanInput, linked_rt_image_expected, linked_rt_plan_expected,
     },
@@ -4285,17 +4284,14 @@ fn write_negative_output(
             })
         })
         .collect::<Vec<_>>();
-    let (probe_outcome, probe_detail) = match locate_explicit_vr_le_part10(
-        &output.bytes,
-        LocatorLimits::default(),
-    ) {
-        Ok(_) => (
-            "accepted_with_bounded_warning",
-            "bounded Part 10 locator accepted structure; semantic/decode rejection remains expected"
-                .to_string(),
-        ),
-        Err(error) => ("parse_failure", format!("bounded Part 10 locator: {error}")),
-    };
+    let expected_failure_layer = output
+        .evidence
+        .steps
+        .last()
+        .map(|step| failure_layer_name(&step.expected_failure_layer))
+        .expect("every negative recipe has at least one mutation step");
+    let (probe_outcome, probe_detail) =
+        super::classify_negative_rejection_probe(case_id, &output.bytes, expected_failure_layer);
     let recipe_id = case
         .get("recipe_id")
         .and_then(Value::as_str)

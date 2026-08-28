@@ -3926,6 +3926,13 @@ fn coverage_report_schema_projects_approved_lossy_metrics_separately() {
         .expect("coverage rows must scope lossy metrics to approved cases");
     assert_eq!(
         lossy_rule
+            .pointer("/if/properties/status/const")
+            .and_then(Value::as_str),
+        Some("generated"),
+        "unavailable lossy rows must retain null metrics"
+    );
+    assert_eq!(
+        lossy_rule
             .pointer("/then/allOf/0/then/properties/lossy_metrics/properties/overall_rmse/properties/limit/const")
             .and_then(Value::as_u64),
         Some(3)

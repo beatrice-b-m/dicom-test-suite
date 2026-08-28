@@ -3438,9 +3438,10 @@
                   "classic/sc/rgb_jpegxl_lossy",
                   "classic/sc/mono2_u16_htj2k_lossy"
                 ]
-              }
+              },
+              "status": { "const": "generated" }
             },
-            "required": ["case_id"]
+            "required": ["case_id", "status"]
           },
           "then": {
             "properties": { "lossy_metrics": { "not": { "type": "null" } } },

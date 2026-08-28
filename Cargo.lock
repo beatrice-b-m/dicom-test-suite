@@ -293,6 +293,7 @@ dependencies = [
  "dicom-parser",
  "dicom-transfer-syntax-registry",
  "jsonschema",
+ "libc",
  "openjp2",
  "serde",
  "serde_json",

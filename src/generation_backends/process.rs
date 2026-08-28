@@ -1,7 +1,8 @@
 use std::fs::{self, File};
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+use std::process::{Child, Command, Stdio};
+use std::sync::mpsc::{self, TryRecvError};
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -103,6 +104,7 @@ pub fn invoke_backend(
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
+    configure_process_tree(&mut command);
 
     let mut child = command.spawn().map_err(|error| {
         invalid(format!(
@@ -114,34 +116,47 @@ pub fn invoke_backend(
     let stderr = child.stderr.take().expect("piped stderr");
     let stdout_limit = invocation.max_stdout_bytes;
     let stderr_limit = invocation.max_stderr_bytes;
-    let stdout_thread = thread::spawn(move || drain_bounded(stdout, stdout_limit));
-    let stderr_thread = thread::spawn(move || drain_bounded(stderr, stderr_limit));
+    let (stdout_sender, stdout_receiver) = mpsc::sync_channel(1);
+    let (stderr_sender, stderr_receiver) = mpsc::sync_channel(1);
+    thread::spawn(move || {
+        let _ = stdout_sender.send(drain_bounded(stdout, stdout_limit));
+    });
+    thread::spawn(move || {
+        let _ = stderr_sender.send(drain_bounded(stderr, stderr_limit));
+    });
 
     let deadline = Instant::now() + invocation.timeout;
-    let status = loop {
-        match child.try_wait() {
-            Ok(Some(status)) => break status,
-            Ok(None) if Instant::now() < deadline => thread::sleep(Duration::from_millis(10)),
-            Ok(None) => {
-                let _ = child.kill();
-                let _ = child.wait();
-                let _ = stdout_thread.join();
-                let _ = stderr_thread.join();
-                return Err(invalid(format!(
-                    "backend invocation exceeded {} ms",
-                    invocation.timeout.as_millis()
-                )));
+    let mut status = None;
+    let mut stdout_result = None;
+    let mut stderr_result = None;
+    while status.is_none() || stdout_result.is_none() || stderr_result.is_none() {
+        if status.is_none() {
+            match child.try_wait() {
+                Ok(value) => status = value,
+                Err(error) => {
+                    terminate_process_tree(&mut child);
+                    return Err(invalid(format!("wait for backend: {error}")));
+                }
             }
-            Err(error) => return Err(invalid(format!("wait for backend: {error}"))),
         }
-    };
+        poll_backend_reader(&stdout_receiver, &mut stdout_result, "stdout", &mut child)?;
+        poll_backend_reader(&stderr_receiver, &mut stderr_result, "stderr", &mut child)?;
+        if status.is_some() && stdout_result.is_some() && stderr_result.is_some() {
+            break;
+        }
+        if Instant::now() >= deadline {
+            terminate_process_tree(&mut child);
+            return Err(invalid(format!(
+                "backend invocation exceeded {} ms",
+                invocation.timeout.as_millis()
+            )));
+        }
+        thread::sleep(Duration::from_millis(10));
+    }
 
-    let stdout = stdout_thread
-        .join()
-        .map_err(|_| invalid("backend stdout reader panicked".to_string()))??;
-    let stderr = stderr_thread
-        .join()
-        .map_err(|_| invalid("backend stderr reader panicked".to_string()))??;
+    let status = status.expect("completed child status");
+    let stdout = stdout_result.expect("completed stdout reader")?;
+    let stderr = stderr_result.expect("completed stderr reader")?;
     if !status.success() {
         return Err(invalid(format!("backend exited with status {status}")));
     }
@@ -187,6 +202,58 @@ pub fn invoke_backend(
         stdout,
         stderr,
     })
+}
+
+fn poll_backend_reader(
+    receiver: &mpsc::Receiver<Result<Vec<u8>, BackendContractError>>,
+    result: &mut Option<Result<Vec<u8>, BackendContractError>>,
+    label: &str,
+    child: &mut Child,
+) -> Result<(), BackendContractError> {
+    if result.is_some() {
+        return Ok(());
+    }
+    match receiver.try_recv() {
+        Ok(value) => *result = Some(value),
+        Err(TryRecvError::Empty) => {}
+        Err(TryRecvError::Disconnected) => {
+            terminate_process_tree(child);
+            return Err(invalid(format!("backend {label} reader terminated")));
+        }
+    }
+    Ok(())
+}
+
+pub(super) fn configure_process_tree(command: &mut Command) {
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::CommandExt;
+        command.process_group(0);
+    }
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NEW_PROCESS_GROUP: u32 = 0x0000_0200;
+        command.creation_flags(CREATE_NEW_PROCESS_GROUP);
+    }
+}
+
+pub(super) fn terminate_process_tree(child: &mut Child) {
+    #[cfg(unix)]
+    unsafe {
+        let _ = libc::kill(-(child.id() as i32), libc::SIGKILL);
+    }
+    #[cfg(windows)]
+    {
+        let _ = Command::new("taskkill")
+            .args(["/F", "/T", "/PID", &child.id().to_string()])
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status();
+    }
+    let _ = child.kill();
+    let _ = child.wait();
 }
 
 pub fn executable_fingerprint(executable: &Path) -> Result<String, BackendContractError> {
@@ -371,6 +438,25 @@ mod tests {
     }
 
     #[test]
+    fn fake_backend_inherited_pipe_timeout_is_enforced() {
+        let staging = unique_staging("grandchild");
+        let started = Instant::now();
+        let error = invoke_backend(
+            &fake_invocation(Duration::from_millis(500)),
+            &request(),
+            Path::new("."),
+            &staging,
+        )
+        .expect_err("inherited backend pipe must time out");
+        assert!(error.to_string().contains("exceeded"));
+        assert!(
+            started.elapsed() < Duration::from_secs(3),
+            "pipe readers must not wait for a long-lived grandchild"
+        );
+        fs::remove_dir_all(staging).expect("remove fake staging");
+    }
+
+    #[test]
     fn fake_backend_undeclared_output_is_rejected() {
         let staging = unique_staging("undeclared");
         let error = invoke_backend(
@@ -408,6 +494,17 @@ mod tests {
             .expect("fake staging name");
         if behavior.contains("timeout") {
             thread::sleep(Duration::from_secs(2));
+            return;
+        }
+        if behavior.contains("grandchild") {
+            Command::new(std::env::current_exe().expect("pipe-holder executable"))
+                .args([
+                    "--ignored",
+                    "--exact",
+                    "generation_backends::process::tests::fake_backend_pipe_holder",
+                ])
+                .spawn()
+                .expect("spawn pipe-holding grandchild");
             return;
         }
         let request_path = std::env::var_os("DTS_BACKEND_REQUEST").expect("request path");
@@ -462,6 +559,12 @@ mod tests {
             serde_json::to_vec_pretty(&response).expect("serialize response"),
         )
         .expect("write response");
+    }
+
+    #[test]
+    #[ignore]
+    fn fake_backend_pipe_holder() {
+        thread::sleep(Duration::from_secs(10));
     }
 
     fn fake_invocation(timeout: Duration) -> BackendInvocation {

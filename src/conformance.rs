@@ -26,6 +26,7 @@ const WSI_RECONSTRUCTION_ID: &str = "highdicom-wsi-reconstruction";
 const WSI_CASE_ID: &str = "vl/wsi/tiled_full_small";
 const WSI_SPARSE_CASE_ID: &str = "vl/wsi/tiled_sparse_small";
 const WSI_PYRAMID_CASE_ID: &str = "vl/wsi/pyramid_multiresolution";
+const WSI_MULTIPLE_OPTICAL_PATHS_CASE_ID: &str = "vl/wsi/multiple_optical_paths";
 const WSI_SPARSE_PRIMARY_VALIDATOR_ID: &str = "pydicom-dicom-validator-wsi-sparse";
 const WSI_SPARSE_CHARACTERIZATION_ID: &str = "dicom3tools-dciodvfy-wsi-sparse-characterization";
 const WSI_SPARSE_CHARACTERIZATION_MESSAGE: &str = "Error - </NumberOfFrames(0028,0008)> - NumberOfFrames does not match expected value for tiled total pixel matrix = <2 > - expected 4 for 1 optical paths, 1 focal planes, 2 rows of tiles, 2 columns of tiles";
@@ -354,6 +355,7 @@ fn verify_completeness(evidence_root: &Path, evidence: &Value, failures: &mut Ve
                     file["case_id"] == WSI_CASE_ID
                         || file["case_id"] == WSI_SPARSE_CASE_ID
                         || file["case_id"] == WSI_PYRAMID_CASE_ID
+                        || file["case_id"] == WSI_MULTIPLE_OPTICAL_PATHS_CASE_ID
                 })
                 .filter_map(|file| file["path"].as_str())
                 .collect::<std::collections::BTreeSet<_>>()
@@ -1530,6 +1532,9 @@ fn verify_wsi_reconstruction_evidence(
     let contract = match case_id {
         Some(WSI_CASE_ID) => &manifest_file["expected_wsi_tiled_full"],
         Some(WSI_SPARSE_CASE_ID) => &manifest_file["expected_wsi_tiled_sparse"],
+        Some(WSI_MULTIPLE_OPTICAL_PATHS_CASE_ID) => {
+            &manifest_file["expected_wsi_multiple_optical_paths"]
+        }
         _ => &Value::Null,
     };
     let common_linked = tool
@@ -1544,7 +1549,7 @@ fn verify_wsi_reconstruction_evidence(
         && manifest_file["path"] == instance["path"]
         && sidecar["expected_contract"] == *contract
         && sidecar["backend"] == "dts-wsi-reconstruct"
-        && sidecar["backend_version"] == "0.3.0"
+        && sidecar["backend_version"] == "0.4.0"
         && sidecar["runtime"]
             == json!({"highdicom": "0.28.1", "numpy": "2.5.2", "pydicom": "3.0.2"})
         && sidecar["frame_hashes"] == contract["pixel_data"]["frame_hashes"]
@@ -1566,6 +1571,11 @@ fn verify_wsi_reconstruction_evidence(
             sidecar["extraction_method"]
                 == "uv_locked_highdicom_tiled_sparse_explicit_sentinel_total_pixel_matrix"
                 && sparse_reconstruction_fields_match(&sidecar, contract)
+        }
+        Some(WSI_MULTIPLE_OPTICAL_PATHS_CASE_ID) => {
+            sidecar["extraction_method"]
+                == "uv_locked_highdicom_tiled_full_multiple_optical_paths_separate_matrices"
+                && multiple_optical_path_reconstruction_fields_match(&sidecar, contract)
         }
         _ => false,
     };
@@ -3091,7 +3101,11 @@ fn collect_pixel_result(
     if file
         .get("case_id")
         .and_then(Value::as_str)
-        .is_some_and(|id| id == WSI_CASE_ID || id == WSI_SPARSE_CASE_ID)
+        .is_some_and(|id| {
+            id == WSI_CASE_ID
+                || id == WSI_SPARSE_CASE_ID
+                || id == WSI_MULTIPLE_OPTICAL_PATHS_CASE_ID
+        })
     {
         return collect_wsi_reconstruction_result(
             generated_root,
@@ -3802,7 +3816,7 @@ fn wsi_pyramid_actual_matches_contract(actual: &Value, contract: &Value) -> bool
         });
     actual["status"] == "passed"
         && actual["backend"] == "dts-wsi-reconstruct"
-        && actual["backend_version"] == "0.3.0"
+        && actual["backend_version"] == "0.4.0"
         && actual["runtime"] == json!({"highdicom": "0.28.1", "numpy": "2.5.2", "pydicom": "3.0.2"})
         && actual["ordered_roles"] == contract["ordered_roles"]
         && shared_identity_matches
@@ -4058,6 +4072,17 @@ fn collect_wsi_reconstruction_result(
             "The independent WSI reconstruction adapter is not configured",
         ));
     };
+    if file["case_id"] == WSI_MULTIPLE_OPTICAL_PATHS_CASE_ID
+        && !adapter["supported_case_ids"].as_array().is_some_and(|ids| {
+            ids.iter()
+                .any(|id| id == WSI_MULTIPLE_OPTICAL_PATHS_CASE_ID)
+        })
+    {
+        return Err(
+            "WSI reconstruction adapter does not explicitly support multiple optical paths"
+                .to_string(),
+        );
+    }
     let Some(tool) = tools
         .iter()
         .find(|tool| tool["adapter_id"] == WSI_RECONSTRUCTION_ID)
@@ -4086,12 +4111,15 @@ fn collect_wsi_reconstruction_result(
     )?;
     let actual = serde_json::from_slice::<Value>(&output.stdout).unwrap_or(Value::Null);
     let sparse = file["case_id"] == WSI_SPARSE_CASE_ID;
+    let multiple_optical_paths = file["case_id"] == WSI_MULTIPLE_OPTICAL_PATHS_CASE_ID;
     let contract = if sparse {
         &file["expected_wsi_tiled_sparse"]
+    } else if multiple_optical_paths {
+        &file["expected_wsi_multiple_optical_paths"]
     } else {
         &file["expected_wsi_tiled_full"]
     };
-    let manifest_eligible = (file["case_id"] == WSI_CASE_ID || sparse)
+    let manifest_eligible = (file["case_id"] == WSI_CASE_ID || sparse || multiple_optical_paths)
         && file.pointer("/dicom/sop_class_uid").and_then(Value::as_str)
             == Some("1.2.840.10008.5.1.4.1.1.77.1.6")
         && file
@@ -4099,21 +4127,25 @@ fn collect_wsi_reconstruction_result(
             .and_then(Value::as_str)
             == Some("1.2.840.10008.1.2.1")
         && file["image"] == contract["image"]
-        && wsi_manifest_pixel_contract_matches(file, contract, sparse)
+        && wsi_manifest_pixel_contract_matches(file, contract, sparse || multiple_optical_paths)
         && contract["pixel_data"]["frame_hashes"].as_array() == Some(&expected);
     let common_matches = actual["status"] == "passed"
         && actual["backend"] == "dts-wsi-reconstruct"
-        && actual["backend_version"] == "0.3.0"
+        && actual["backend_version"] == "0.4.0"
         && actual["runtime"]
             == json!({"highdicom": "0.28.1", "numpy": "2.5.2", "pydicom": "3.0.2"})
         && actual["frame_hashes"] == contract["pixel_data"]["frame_hashes"]
-        && actual["total_pixel_matrix_shape"] == json!([4, 4, 3])
         && actual["transforms_applied"] == false;
     let reconstruction_matches = common_matches
         && if sparse {
-            sparse_reconstruction_fields_match(&actual, contract)
+            actual["total_pixel_matrix_shape"] == json!([4, 4, 3])
+                && sparse_reconstruction_fields_match(&actual, contract)
+        } else if multiple_optical_paths {
+            multiple_optical_path_reconstruction_fields_match(&actual, contract)
         } else {
-            actual["implicit_frame_positions"] == contract["tiling"]["implicit_frame_positions"]
+            actual["total_pixel_matrix_shape"] == json!([4, 4, 3])
+                && actual["implicit_frame_positions"]
+                    == contract["tiling"]["implicit_frame_positions"]
                 && actual["total_pixel_matrix_sha256"]
                     == contract["tiling"]["total_pixel_matrix_sha256"]
         };
@@ -4128,6 +4160,8 @@ fn collect_wsi_reconstruction_result(
         "independence": "independent",
         "extraction_method": if sparse {
             "uv_locked_highdicom_tiled_sparse_explicit_sentinel_total_pixel_matrix"
+        } else if multiple_optical_paths {
+            "uv_locked_highdicom_tiled_full_multiple_optical_paths_separate_matrices"
         } else {
             "uv_locked_highdicom_tiled_full_implicit_total_pixel_matrix"
         },
@@ -4142,8 +4176,6 @@ fn collect_wsi_reconstruction_result(
         "backend_version": actual["backend_version"],
         "runtime": actual["runtime"],
         "frame_hashes": actual["frame_hashes"],
-        "total_pixel_matrix_shape": actual["total_pixel_matrix_shape"],
-        "total_pixel_matrix_sha256": actual["total_pixel_matrix_sha256"],
         "transforms_applied": actual["transforms_applied"],
         "status": if passed { "passed" } else { "failed" }
     });
@@ -4161,8 +4193,29 @@ fn collect_wsi_reconstruction_result(
         ] {
             sidecar[field] = actual[field].clone();
         }
+        sidecar["total_pixel_matrix_shape"] = actual["total_pixel_matrix_shape"].clone();
+        sidecar["total_pixel_matrix_sha256"] = actual["total_pixel_matrix_sha256"].clone();
+    } else if multiple_optical_paths {
+        for field in [
+            "dimension_organization_type",
+            "number_of_frames",
+            "number_of_optical_paths",
+            "total_pixel_matrix_focal_planes",
+            "optical_path_identifiers",
+            "pixel_data_sha256",
+            "implicit_frame_positions",
+            "optical_paths",
+            "presence",
+            "extended_depth_of_field",
+            "unfiltered_total_pixel_matrix",
+            "reconstruction_scope",
+        ] {
+            sidecar[field] = actual[field].clone();
+        }
     } else {
         sidecar["implicit_frame_positions"] = actual["implicit_frame_positions"].clone();
+        sidecar["total_pixel_matrix_shape"] = actual["total_pixel_matrix_shape"].clone();
+        sidecar["total_pixel_matrix_sha256"] = actual["total_pixel_matrix_sha256"].clone();
     }
     let relative = format!("pixels/{WSI_RECONSTRUCTION_ID}/{stable_key}.json");
     let target = evidence_root.join(&relative);
@@ -4179,6 +4232,8 @@ fn collect_wsi_reconstruction_result(
         "reason": if passed {
             if sparse {
                 "The uv-locked highdicom adapter independently validated explicit positions, sparse occupancy, stored frames, payload, and the zero-sentinel total pixel matrix with transforms disabled"
+            } else if multiple_optical_paths {
+                "The uv-locked highdicom adapter independently validated ordered optical paths, implicit positions, aggregate and per-path payloads, separate matrices, nested ICC profiles, and ambiguous unfiltered-matrix rejection"
             } else {
                 "The uv-locked highdicom adapter independently reconstructed exact implicit positions, stored frames, and total pixel matrix with transforms disabled"
             }
@@ -4239,6 +4294,68 @@ fn sparse_reconstruction_fields_match(actual: &Value, contract: &Value) -> bool 
         && actual["pixel_data_sha256"] == contract["pixel_data"]["payload_sha256"]
         && actual["missing_pixel_sentinel"] == contract["tiling"]["sentinel_fill_rgb"]
         && actual["total_pixel_matrix_sha256"] == contract["tiling"]["sentinel_matrix_sha256"]
+}
+
+fn multiple_optical_path_reconstruction_fields_match(actual: &Value, contract: &Value) -> bool {
+    let expected_paths = contract["optical_paths"].as_array().map(|paths| {
+        paths
+            .iter()
+            .map(|path| {
+                let first = path["frame_ordinal_range"]
+                    .get(0)
+                    .and_then(Value::as_u64)
+                    .unwrap_or(0);
+                let last = path["frame_ordinal_range"]
+                    .get(1)
+                    .and_then(Value::as_u64)
+                    .unwrap_or(0);
+                json!({
+                    "ordinal": path["ordinal"],
+                    "identifier": path["identifier"],
+                    "description": path["description"],
+                    "illumination_wavelength_nm": path["illumination_wavelength_nm"],
+                    "illumination_type": path["illumination_type"],
+                    "icc_profile_sha256": path["icc_profile"]["sha256"],
+                    "color_space": path["icc_profile"]["dicom_color_space"],
+                    "frame_numbers": (first..=last).collect::<Vec<_>>(),
+                    "frame_hashes": path["frame_hashes"],
+                    "pixel_data_sha256": path["payload_sha256"],
+                    "total_pixel_matrix_shape": path["matrix_shape"],
+                    "total_pixel_matrix_sha256": path["matrix_sha256"]
+                })
+            })
+            .collect::<Vec<_>>()
+    });
+    let expected_identifiers = contract["optical_paths"].as_array().map(|paths| {
+        paths
+            .iter()
+            .map(|path| path["identifier"].clone())
+            .collect::<Vec<_>>()
+    });
+    actual["dimension_organization_type"] == contract["dimension_organization_type"]
+        && actual["number_of_frames"] == contract["image"]["frames"]
+        && actual["number_of_optical_paths"] == contract["tiling"]["number_of_optical_paths"]
+        && actual["total_pixel_matrix_focal_planes"]
+            == contract["tiling"]["total_pixel_matrix_focal_planes"]
+        && actual["optical_path_identifiers"] == json!(expected_identifiers)
+        && actual["pixel_data_sha256"] == contract["pixel_data"]["payload_sha256"]
+        && actual["implicit_frame_positions"] == contract["tiling"]["implicit_frame_positions"]
+        && actual["optical_paths"] == json!(expected_paths)
+        && actual["presence"]
+            == json!({
+                "dimension_index_sequence": false,
+                "per_frame_functional_groups_sequence": false,
+                "spacing_between_slices": false,
+                "number_of_focal_planes": false,
+                "distance_between_focal_planes": false,
+                "pyramid_uid": false,
+                "concatenation_uid": false,
+                "referenced_series_sequence": false,
+                "top_level_icc_profile": false
+            })
+        && actual["extended_depth_of_field"] == contract["extended_depth_of_field"]
+        && actual["unfiltered_total_pixel_matrix"] == "rejected_ambiguous_optical_path_dimension"
+        && actual["reconstruction_scope"] == "separate_matrix_per_optical_path"
 }
 
 fn wsi_manifest_pixel_contract_matches(file: &Value, contract: &Value, sparse: bool) -> bool {
@@ -5586,7 +5703,7 @@ mod wsi_reconstruction_tests {
             "source_path": "vl/wsi/tiled_full_small.dcm",
             "expected_contract": contract,
             "backend": "dts-wsi-reconstruct",
-            "backend_version": "0.3.0",
+            "backend_version": "0.4.0",
             "runtime": {"highdicom": "0.28.1", "numpy": "2.5.2", "pydicom": "3.0.2"},
             "frame_hashes": contract["pixel_data"]["frame_hashes"],
             "implicit_frame_positions": contract["tiling"]["implicit_frame_positions"],
@@ -5699,7 +5816,7 @@ mod wsi_reconstruction_tests {
             "source_path": "vl/wsi/tiled_sparse_small.dcm",
             "expected_contract": contract,
             "backend": "dts-wsi-reconstruct",
-            "backend_version": "0.3.0",
+            "backend_version": "0.4.0",
             "runtime": {"highdicom": "0.28.1", "numpy": "2.5.2", "pydicom": "3.0.2"},
             "dimension_organization_type": "TILED_SPARSE",
             "dimension_organization_uid": contract["dimension_organization_uid"],
@@ -5819,6 +5936,167 @@ mod wsi_reconstruction_tests {
         fs::remove_dir_all(root).unwrap();
     }
 
+    fn multiple_optical_paths_fixture() -> (Value, Value, Value) {
+        let contract =
+            crate::wsi_multiple_optical_paths_locked_contract("2.25.31", "2.25.32", "2.25.33");
+        let evidence = json!({
+            "source": {"manifest_sha256": "multi-path-manifest-hash"},
+            "tools": [{
+                "adapter_id": WSI_RECONSTRUCTION_ID,
+                "status": "available",
+                "lock_status": "matched",
+                "sha256": "multi-path-adapter-hash"
+            }]
+        });
+        let instance = json!({
+            "path": "vl/wsi/multiple_optical_paths.dcm",
+            "pixel": {
+                "expected_frame_hashes": contract["pixel_data"]["frame_hashes"],
+                "actual_frame_hashes": contract["pixel_data"]["frame_hashes"],
+                "evidence": {"path": "pixels/wsi-multiple-optical-paths.json"}
+            }
+        });
+        let manifest_file = json!({
+            "case_id": WSI_MULTIPLE_OPTICAL_PATHS_CASE_ID,
+            "path": "vl/wsi/multiple_optical_paths.dcm",
+            "sha256": "multi-path-instance-hash",
+            "expected_wsi_multiple_optical_paths": contract
+        });
+        (evidence, instance, manifest_file)
+    }
+
+    fn multiple_optical_paths_sidecar(manifest_file: &Value) -> Value {
+        let contract = &manifest_file["expected_wsi_multiple_optical_paths"];
+        let optical_paths = contract["optical_paths"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|path| {
+                let first = path["frame_ordinal_range"][0].as_u64().unwrap();
+                let last = path["frame_ordinal_range"][1].as_u64().unwrap();
+                json!({
+                    "ordinal": path["ordinal"],
+                    "identifier": path["identifier"],
+                    "description": path["description"],
+                    "illumination_wavelength_nm": path["illumination_wavelength_nm"],
+                    "illumination_type": path["illumination_type"],
+                    "icc_profile_sha256": path["icc_profile"]["sha256"],
+                    "color_space": path["icc_profile"]["dicom_color_space"],
+                    "frame_numbers": (first..=last).collect::<Vec<_>>(),
+                    "frame_hashes": path["frame_hashes"],
+                    "pixel_data_sha256": path["payload_sha256"],
+                    "total_pixel_matrix_shape": path["matrix_shape"],
+                    "total_pixel_matrix_sha256": path["matrix_sha256"]
+                })
+            })
+            .collect::<Vec<_>>();
+        json!({
+            "adapter_id": WSI_RECONSTRUCTION_ID,
+            "adapter_sha256": "multi-path-adapter-hash",
+            "independence": "independent",
+            "extraction_method": "uv_locked_highdicom_tiled_full_multiple_optical_paths_separate_matrices",
+            "status": "passed",
+            "source_manifest_sha256": "multi-path-manifest-hash",
+            "source_instance_sha256": "multi-path-instance-hash",
+            "source_path": "vl/wsi/multiple_optical_paths.dcm",
+            "expected_contract": contract,
+            "backend": "dts-wsi-reconstruct",
+            "backend_version": "0.4.0",
+            "runtime": {"highdicom": "0.28.1", "numpy": "2.5.2", "pydicom": "3.0.2"},
+            "dimension_organization_type": "TILED_FULL",
+            "number_of_frames": 8,
+            "number_of_optical_paths": 2,
+            "total_pixel_matrix_focal_planes": 1,
+            "optical_path_identifiers": ["BRIGHTFIELD", "ALTERNATE"],
+            "frame_hashes": contract["pixel_data"]["frame_hashes"],
+            "pixel_data_sha256": contract["pixel_data"]["payload_sha256"],
+            "implicit_frame_positions": contract["tiling"]["implicit_frame_positions"],
+            "optical_paths": optical_paths,
+            "presence": {
+                "dimension_index_sequence": false,
+                "per_frame_functional_groups_sequence": false,
+                "spacing_between_slices": false,
+                "number_of_focal_planes": false,
+                "distance_between_focal_planes": false,
+                "pyramid_uid": false,
+                "concatenation_uid": false,
+                "referenced_series_sequence": false,
+                "top_level_icc_profile": false
+            },
+            "extended_depth_of_field": "NO",
+            "unfiltered_total_pixel_matrix": "rejected_ambiguous_optical_path_dimension",
+            "reconstruction_scope": "separate_matrix_per_optical_path",
+            "transforms_applied": false
+        })
+    }
+
+    #[test]
+    fn multiple_optical_path_sidecar_binds_ordered_paths_payloads_matrices_and_icc() {
+        let root = std::env::temp_dir().join(format!(
+            "dts-wsi-multiple-path-sidecar-{}-{:?}",
+            std::process::id(),
+            std::thread::current().id()
+        ));
+        fs::create_dir_all(root.join("pixels")).expect("create multi-path fixture");
+        let (evidence, instance, manifest_file) = multiple_optical_paths_fixture();
+        let valid = multiple_optical_paths_sidecar(&manifest_file);
+        let sidecar_path = root.join("pixels/wsi-multiple-optical-paths.json");
+        fs::write(&sidecar_path, serde_json::to_vec(&valid).unwrap()).unwrap();
+        let mut failures = Vec::new();
+        verify_wsi_reconstruction_evidence(
+            &root,
+            &evidence,
+            &instance,
+            &manifest_file,
+            &mut failures,
+        );
+        assert!(failures.is_empty(), "{failures:?}");
+
+        for (pointer, mutation) in [
+            ("/adapter_sha256", json!("other-adapter-hash")),
+            ("/source_manifest_sha256", json!("other-manifest-hash")),
+            ("/source_instance_sha256", json!("other-instance-hash")),
+            ("/source_path", json!("vl/wsi/other.dcm")),
+            ("/backend_version", json!("0.3.0")),
+            ("/number_of_frames", json!(7)),
+            ("/number_of_optical_paths", json!(1)),
+            ("/optical_path_identifiers/0", json!("ALTERNATE")),
+            ("/frame_hashes/4", json!("bad-frame-hash")),
+            ("/implicit_frame_positions/4/optical_path_ordinal", json!(1)),
+            ("/optical_paths/0/icc_profile_sha256", json!("bad-icc-hash")),
+            (
+                "/optical_paths/0/pixel_data_sha256",
+                json!("bad-payload-hash"),
+            ),
+            (
+                "/optical_paths/1/total_pixel_matrix_sha256",
+                json!("bad-matrix-hash"),
+            ),
+            ("/optical_paths/1/frame_numbers/0", json!(4)),
+            ("/pixel_data_sha256", json!("bad-aggregate-hash")),
+            ("/presence/top_level_icc_profile", json!(true)),
+            ("/unfiltered_total_pixel_matrix", json!("accepted")),
+            ("/reconstruction_scope", json!("combined_matrix")),
+            ("/transforms_applied", json!(true)),
+        ] {
+            let mut corrupt = valid.clone();
+            *corrupt
+                .pointer_mut(pointer)
+                .expect("multiple-path mutation pointer") = mutation;
+            fs::write(&sidecar_path, serde_json::to_vec(&corrupt).unwrap()).unwrap();
+            let mut failures = Vec::new();
+            verify_wsi_reconstruction_evidence(
+                &root,
+                &evidence,
+                &instance,
+                &manifest_file,
+                &mut failures,
+            );
+            assert_eq!(failures.len(), 1, "mutation {pointer}");
+        }
+        fs::remove_dir_all(root).unwrap();
+    }
+
     fn pyramid_fixture() -> (Value, Value, Value, Value, Value) {
         let paths = [
             "vl/wsi/pyramid_multiresolution/volume.dcm",
@@ -5895,7 +6173,7 @@ mod wsi_reconstruction_tests {
             })
             .collect::<Vec<_>>();
         let actual = json!({
-            "status": "passed", "backend": "dts-wsi-reconstruct", "backend_version": "0.3.0",
+            "status": "passed", "backend": "dts-wsi-reconstruct", "backend_version": "0.4.0",
             "runtime": {"highdicom": "0.28.1", "numpy": "2.5.2", "pydicom": "3.0.2"},
             "ordered_roles": contract["ordered_roles"],
             "group_identity": contract["shared_identity"],

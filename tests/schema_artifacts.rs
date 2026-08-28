@@ -3342,6 +3342,85 @@ fn case_registry_schema_isolates_mutation_profiles() {
 }
 
 #[test]
+fn case_registry_schema_models_non_file_qualification_fixtures_honestly() {
+    let schema = read_json("schemas/case-registry.schema.json");
+    let validator =
+        jsonschema::validator_for(&schema).expect("case registry schema should compile");
+    let qualification = serde_json::json!({
+        "case_registry_schema_version": "0.2.0",
+        "cases": [{
+            "case_id": "qualification/encapsulation/eot_u64_overflow",
+            "artifact_kind": "qualification_fixture",
+            "status": "implemented",
+            "provider": {
+                "kind": "rust_native",
+                "id": "checked_eot_arithmetic"
+            },
+            "object_family": "robustness",
+            "compatibility_axes": ["encapsulation", "robustness"],
+            "roadmap": null,
+            "blockers": [],
+            "profiles": [],
+            "recipe_id": "qualification_eot_u64_overflow",
+            "recipe_version": "0.1.0",
+            "iod_name": null,
+            "sop_class_name": null,
+            "sop_class_uid": null,
+            "modality": null,
+            "transfer_syntax_uid": null,
+            "determinism": "byte_stable",
+            "requirements": {
+                "features": [],
+                "external_codecs": [],
+                "external_validators": []
+            },
+            "skip": null,
+            "standards_evidence": [{
+                "source": "local-source-note",
+                "edition": "2026b",
+                "query": "standards/source-notes/phase-5-extended-offset-table.md",
+                "covered": true,
+                "part": "PS3.5",
+                "anchor": "sect_A.4"
+            }]
+        }]
+    });
+    assert!(
+        validator.is_valid(&qualification),
+        "an executable non-file qualification must be representable without DICOM identity"
+    );
+
+    let mut invalid = qualification.clone();
+    invalid["cases"][0]["profiles"] = serde_json::json!(["stress"]);
+    assert!(
+        !validator.is_valid(&invalid),
+        "qualification fixtures must not claim generated profile coverage"
+    );
+
+    for field in [
+        "iod_name",
+        "sop_class_name",
+        "sop_class_uid",
+        "modality",
+        "transfer_syntax_uid",
+    ] {
+        let mut invalid = qualification.clone();
+        invalid["cases"][0][field] = serde_json::json!("DICOM claim");
+        assert!(
+            !validator.is_valid(&invalid),
+            "qualification fixtures must reject DICOM identity field {field}"
+        );
+    }
+
+    let mut invalid = qualification;
+    invalid["cases"][0]["standards_evidence"] = serde_json::json!([]);
+    assert!(
+        !validator.is_valid(&invalid),
+        "qualification fixtures must retain standards evidence"
+    );
+}
+
+#[test]
 fn coverage_report_schema_requires_the_specified_matrix_fields() {
     let schema = read_json("schemas/coverage-report.schema.json");
     let required = schema

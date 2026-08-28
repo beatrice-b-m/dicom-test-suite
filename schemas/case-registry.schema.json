@@ -68,7 +68,12 @@
           "$ref": "#/$defs/case_id"
         },
         "artifact_kind": {
-          "enum": ["dicom_instance", "media_file_set", "transaction_scenario"]
+          "enum": [
+            "dicom_instance",
+            "media_file_set",
+            "transaction_scenario",
+            "qualification_fixture"
+          ]
         },
         "provider": {
           "$ref": "#/$defs/provider"
@@ -200,6 +205,41 @@
               },
               "transfer_syntax_uid": {
                 "type": "string"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "artifact_kind": {
+                "const": "qualification_fixture"
+              }
+            },
+            "required": ["artifact_kind"]
+          },
+          "then": {
+            "properties": {
+              "profiles": {
+                "maxItems": 0
+              },
+              "iod_name": {
+                "type": "null"
+              },
+              "sop_class_name": {
+                "type": "null"
+              },
+              "sop_class_uid": {
+                "type": "null"
+              },
+              "modality": {
+                "type": "null"
+              },
+              "transfer_syntax_uid": {
+                "type": "null"
+              },
+              "standards_evidence": {
+                "minItems": 1
               }
             }
           }

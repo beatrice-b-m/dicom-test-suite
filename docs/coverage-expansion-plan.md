@@ -682,6 +682,20 @@ Gate:
   data;
 - protocol failures link back to stable case IDs and transaction IDs.
 
+Status on 2026-08-28: the Phase 8 interoperability substrate is complete at
+the currently available independent-tool boundary. A fresh 115-file extended
+seed-7 root supplied Enhanced CT, binary SEG, and General ECG members to the
+bounded DICOMDIR runner; DCMTK `dcmmkdir` 3.7.0, the Rust closure walk,
+`dciodvfy`, `dcentvfy`, and a same-provider DCMTK parser check all passed with
+zero warnings after the SEG Study ID correction. The dcm4che peer remains
+unavailable, so that media result is explicitly non-promotable. Dedicated
+media and transaction schemas plus JSON/Markdown CLI commands keep these
+results separate from file coverage. DIMSE, DICOMweb, and TLS/user-identity
+each emit a deterministic unavailable transaction with a precise blocker;
+reports include only public synthetic-PKI fingerprints. Secure media and
+digital signatures also remain explicitly unavailable pending independent
+creator/verifier toolchains. See `docs/phase-8-interoperability-status.md`.
+
 ## 7. Planned Coverage Inventory
 
 Phase 0 should create planned registry rows for at least these groups. Exact

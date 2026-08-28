@@ -123,6 +123,50 @@ deterministic sample formula, and emits canonical JSON binding the full
 payload hash, deinterleaved per-channel hashes, metadata, value range, and
 channel-then-sample interleave.
 
+## Encapsulated STL Payload Adapter
+
+The dedicated `dts_dicom_validator_adapter.encapsulated_stl` entry point is a
+payload authority, not an STL generator or an IOD validator. It uses pydicom to
+read the Part 10 object, requires the Encapsulated Document `(0042,0011)` OB
+value and Encapsulated Document Length `(0042,0015)` UL value, and excludes any
+DICOM value-field padding from the exact document bytes. Python `struct` then
+parses the binary STL independently of the Rust generator.
+
+The committed `encapsulated-stl-lock.json` binds the exact Encapsulated STL SOP
+Class, Explicit VR Little Endian transfer syntax, `M3D` modality, `model/stl`
+MIME type, 284-byte document, four triangles, `[0, 0, 0]` through
+`[10, 10, 10]` bounds, and payload SHA-256
+`3c3049d231f8e98c0d2fe7cb81cf6805141bcac39dd04b9cf7f8063ec44bbfb2`.
+Before comparing that final identity, adapter 0.1.0 independently requires:
+
+- count-derived exact binary STL length;
+- finite normals and vertices with zero triangle attributes;
+- nondegenerate faces and unit normals agreeing with face winding;
+- outward face orientation and positive signed volume;
+- exactly two oppositely directed incidences for every manifold edge; and
+- exact locked bounds.
+
+Run the adapter inside the already locked optional environment:
+
+```sh
+uv run \
+  --project conformance-backends/dicom-validator \
+  --locked \
+  --offline \
+  python -m dts_dicom_validator_adapter.encapsulated_stl \
+  --contract-lock conformance-backends/dicom-validator/encapsulated-stl-lock.json \
+  path/to/mesh.dcm
+```
+
+Success emits one canonical JSON object with the DICOM document extent, stored
+padding count, mesh cardinalities, bounds, signed volume, invariant results,
+and payload hash. The adapter source SHA-256 is
+`bc6ea2b15e03eaa692f30b6cecd3656a2b04e0ad10201b22c862147e70ffdf5e`;
+the semantic contract lock SHA-256 is
+`033e0f038d72e6237c2b912f690fd84b00340fee1769a271fceb032242820fbf`.
+The optional runtime remains the committed CPython 3.12.12 uv environment; the
+adapter adds no package dependency and imports no project generation code.
+
 ## Locked Runtime Licenses
 
 | Distribution | Version | License |

@@ -1157,6 +1157,113 @@ fn phase4_multiple_optical_path_wsi_is_native_and_standards_locked() {
 }
 
 #[test]
+fn phase4_wsi_tile_segmentation_completes_milestone_and_stops_at_checkpoint() {
+    let note = fs::read_to_string("standards/source-notes/phase-4-wsi-tile-segmentation.md")
+        .expect("Phase 4 WSI tile SEG source note must be readable");
+    for required in [
+        "`derived/seg/wsi_tile_reference`",
+        "`vl/wsi/tiled_full_small`",
+        "`FRACTIONAL`/`OCCUPANCY`",
+        "at most 16 KiB and at most five seconds",
+        "74fa7cbb10160e0eb1f16f35fa9ad0e7f2712af56019996e88cf1034be92635e",
+        "a8ec6f910c0fb02685163a3251bed92517d1016c9173f1e4f021e6b4194f2467",
+    ] {
+        assert!(
+            note.contains(required),
+            "source note requires {required}"
+        );
+    }
+
+    let registry = read_json("cases/registry.json");
+    let case = registry_cases(&registry)
+        .into_iter()
+        .find(|case| {
+            case.get("case_id").and_then(Value::as_str) == Some("derived/seg/wsi_tile_reference")
+        })
+        .expect("WSI tile SEG registry row must exist");
+    assert_eq!(case["status"], "implemented");
+    assert_eq!(
+        case["provider"],
+        serde_json::json!({"kind": "external_backend", "id": "highdicom_pydicom"})
+    );
+    assert_eq!(case["determinism"], "semantic_stable");
+    assert_eq!(case["profiles"], serde_json::json!(["extended"]));
+    assert_eq!(case["roadmap"], Value::Null);
+    assert_eq!(case["blockers"], serde_json::json!([]));
+    assert!(case["standards_evidence"].as_array().is_some_and(|items| {
+        items.iter().any(|item| {
+            item["query"] == "standards/source-notes/phase-4-wsi-tile-segmentation.md"
+                && item["covered"] == true
+        })
+    }));
+
+    let validator_lock = read_json("conformance/validator-lock.json");
+    let validator = validator_lock["tools"]
+        .as_array()
+        .expect("validator tools must be an array")
+        .iter()
+        .find(|tool| tool["adapter_id"] == "pydicom-dicom-validator-wsi-tile-segmentation")
+        .expect("WSI tile SEG independent IOD validator must be locked");
+    assert_eq!(validator["role"], "secondary_iod_validator");
+    assert_eq!(
+        validator["adapter_sha256"],
+        "b8ddaa1105b44fed04f838e53e65c02eae2d1213ddb3badb144be028fcdb73f6"
+    );
+    assert!(
+        validator["version"]
+            .as_str()
+            .is_some_and(|version| version.contains("dicom-validator 0.8.2"))
+    );
+
+    let status = fs::read_to_string("docs/phase-4-pathology-status.md")
+        .expect("Phase 4 pathology status must be readable");
+    for required in [
+        "`derived/seg/wsi_tile_reference` completes milestone 6",
+        "Two independent seed-7 extended generations each wrote 113 files",
+        "973749c21773cd7e66aae6c8377600f4a7ca839c4d88ec0fe45b256e9684c9bf",
+        "d9252ca2fa2edaad6d2c445f5cb0076a0a2b7558355ca9635a228bd0d3ca037d",
+        "reported 220 pre-existing or unrelated failures",
+        "150 implemented and 32 planned logical cases",
+        "All six dependency-ordered Phase 4 milestones are complete",
+        "Ordinary `all`\nprofile semantics remain unchanged",
+        "explicit decision checkpoint for\nselecting the dimensions, resource budgets, and ordinary-CI scheduling",
+    ] {
+        assert!(
+            status.contains(required),
+            "pathology status requires {required}"
+        );
+    }
+
+    let plan = fs::read_to_string("docs/coverage-expansion-plan.md")
+        .expect("coverage expansion plan must be readable");
+    for required in [
+        "Milestone 6 is complete as the semantic-stable external-backend",
+        "registry now\ncontains 150 implemented and 32 planned cases",
+        "d9252ca2fa2edaad6d2c445f5cb0076a0a2b7558355ca9635a228bd0d3ca037d",
+        "exposes 220 pre-existing or unrelated\nverification failures",
+        "All six Phase 4 milestones are complete",
+        "Ordinary\n`all` profile semantics remain unchanged",
+        "explicit full-size-pyramid decision checkpoint",
+        "require project authorization before implementation\nproceeds",
+    ] {
+        assert!(
+            plan.contains(required),
+            "coverage expansion plan requires {required}"
+        );
+    }
+
+    let system_spec = fs::read_to_string("SYSTEM_SPEC.md").expect("system spec must be readable");
+    assert!(
+        system_spec
+            .contains("derived segmentation with exact source-Frame and total-matrix tile closure")
+    );
+
+    let readme = fs::read_to_string("README.md").expect("README must be readable");
+    assert!(readme.contains("[docs/phase-4-pathology-status.md]"));
+    assert!(readme.contains("next explicit full-size\npyramid checkpoint"));
+}
+
+#[test]
 fn integer_parametric_map_retains_explicit_provider_blocker() {
     let registry = read_json("cases/registry.json");
     let case = registry_cases(&registry)

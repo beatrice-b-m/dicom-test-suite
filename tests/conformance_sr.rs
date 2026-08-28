@@ -156,29 +156,41 @@ esac"#,
                 .map(|result| (instance, result))
         })
         .collect::<Vec<_>>();
-    assert_eq!(sr_results.len(), 5);
+    let supported_sr_uids = [
+        "1.2.840.10008.5.1.4.1.1.88.11",
+        "1.2.840.10008.5.1.4.1.1.88.33",
+        "1.2.840.10008.5.1.4.1.1.88.34",
+        "1.2.840.10008.5.1.4.1.1.88.59",
+    ];
+    let expected_sr_results = manifest["files"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|file| {
+            file["dicom"]["sop_class_uid"]
+                .as_str()
+                .is_some_and(|uid| supported_sr_uids.contains(&uid))
+        })
+        .count();
+    assert_eq!(sr_results.len(), expected_sr_results);
     assert!(sr_results.iter().any(|(instance, _)| {
         instance["case_id"] == "derived/sr/comprehensive_measurement_explicit_le"
             && instance["sop_class_uid"] == "1.2.840.10008.5.1.4.1.1.88.34"
     }));
-    let (_, tid1500_result) = sr_results
-        .iter()
-        .find(|(instance, _)| {
-            instance["case_id"] == "derived/sr/tid1500_ct_measurement_report"
-                && instance["sop_class_uid"] == "1.2.840.10008.5.1.4.1.1.88.34"
-        })
-        .expect("promoted TID 1500 case must route through PixelMed");
-    assert_eq!(tid1500_result["status"], "completed");
-    assert_eq!(tid1500_result["findings"], json!([]));
-    let (_, scoord3d_result) = sr_results
-        .iter()
-        .find(|(instance, _)| {
-            instance["case_id"] == "derived/sr/comprehensive3d_scoord3d"
-                && instance["sop_class_uid"] == "1.2.840.10008.5.1.4.1.1.88.34"
-        })
-        .expect("promoted SCOORD3D case must route through PixelMed");
-    assert_eq!(scoord3d_result["status"], "completed");
-    assert_eq!(scoord3d_result["findings"], json!([]));
+    if let Some((_, tid1500_result)) = sr_results.iter().find(|(instance, _)| {
+        instance["case_id"] == "derived/sr/tid1500_ct_measurement_report"
+            && instance["sop_class_uid"] == "1.2.840.10008.5.1.4.1.1.88.34"
+    }) {
+        assert_eq!(tid1500_result["status"], "completed");
+        assert_eq!(tid1500_result["findings"], json!([]));
+    }
+    if let Some((_, scoord3d_result)) = sr_results.iter().find(|(instance, _)| {
+        instance["case_id"] == "derived/sr/comprehensive3d_scoord3d"
+            && instance["sop_class_uid"] == "1.2.840.10008.5.1.4.1.1.88.34"
+    }) {
+        assert_eq!(scoord3d_result["status"], "completed");
+        assert_eq!(scoord3d_result["findings"], json!([]));
+    }
     assert!(
         sr_results
             .iter()

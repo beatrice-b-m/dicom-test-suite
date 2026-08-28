@@ -857,3 +857,308 @@ fn is_known_vr(vr: [u8; 2]) -> bool {
             | b"UV"
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn padded_text(value: &str, pad: u8) -> Vec<u8> {
+        let mut bytes = value.as_bytes().to_vec();
+        if bytes.len() % 2 != 0 {
+            bytes.push(pad);
+        }
+        bytes
+    }
+
+    fn short_element(tag: Tag, vr: &[u8; 2], value: &[u8]) -> Vec<u8> {
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(&tag.0.to_le_bytes());
+        bytes.extend_from_slice(&tag.1.to_le_bytes());
+        bytes.extend_from_slice(vr);
+        bytes.extend_from_slice(&(value.len() as u16).to_le_bytes());
+        bytes.extend_from_slice(value);
+        bytes
+    }
+
+    fn long_element(tag: Tag, vr: &[u8; 2], value: &[u8]) -> Vec<u8> {
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(&tag.0.to_le_bytes());
+        bytes.extend_from_slice(&tag.1.to_le_bytes());
+        bytes.extend_from_slice(vr);
+        bytes.extend_from_slice(&[0, 0]);
+        bytes.extend_from_slice(&(value.len() as u32).to_le_bytes());
+        bytes.extend_from_slice(value);
+        bytes
+    }
+
+    fn undefined_element(tag: Tag, vr: &[u8; 2], value: &[u8]) -> Vec<u8> {
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(&tag.0.to_le_bytes());
+        bytes.extend_from_slice(&tag.1.to_le_bytes());
+        bytes.extend_from_slice(vr);
+        bytes.extend_from_slice(&[0, 0]);
+        bytes.extend_from_slice(&u32::MAX.to_le_bytes());
+        bytes.extend_from_slice(value);
+        bytes
+    }
+
+    fn control(tag: Tag, length: u32, value: &[u8]) -> Vec<u8> {
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(&tag.0.to_le_bytes());
+        bytes.extend_from_slice(&tag.1.to_le_bytes());
+        bytes.extend_from_slice(&length.to_le_bytes());
+        bytes.extend_from_slice(value);
+        bytes
+    }
+
+    fn part10(transfer_syntax: &str, dataset: &[u8]) -> (Vec<u8>, usize) {
+        let mut bytes = vec![0; 128];
+        bytes.extend_from_slice(b"DICM");
+        bytes.extend(short_element(
+            Tag(0x0002, 0x0002),
+            b"UI",
+            &padded_text("1.2.840.10008.5.1.4.1.1.7", 0),
+        ));
+        bytes.extend(short_element(
+            TRANSFER_SYNTAX_UID,
+            b"UI",
+            &padded_text(transfer_syntax, 0),
+        ));
+        let dataset_start = bytes.len();
+        bytes.extend_from_slice(dataset);
+        (bytes, dataset_start)
+    }
+
+    fn native_fixture() -> (Vec<u8>, usize) {
+        let mut dataset = Vec::new();
+        dataset.extend(short_element(
+            SPECIFIC_CHARACTER_SET,
+            b"CS",
+            &padded_text("ISO_IR 192", b' '),
+        ));
+        dataset.extend(short_element(
+            SOP_CLASS_UID,
+            b"UI",
+            &padded_text("1.2.840.10008.5.1.4.1.1.7", 0),
+        ));
+        dataset.extend(short_element(
+            SOP_INSTANCE_UID,
+            b"UI",
+            &padded_text("1.2.826.0.1.3680043.10.543.1", 0),
+        ));
+        dataset.extend(short_element(
+            Tag(0x0010, 0x0010),
+            b"PN",
+            &padded_text("Mutation^Source", b' '),
+        ));
+        dataset.extend(short_element(BITS_STORED, b"US", &16u16.to_le_bytes()));
+        dataset.extend(short_element(HIGH_BIT, b"US", &15u16.to_le_bytes()));
+
+        let nested_uid = short_element(
+            Tag(0x0008, 0x1155),
+            b"UI",
+            &padded_text("1.2.826.0.1.3680043.10.543.2", 0),
+        );
+        let mut item_value = nested_uid;
+        item_value.extend(control(ITEM_DELIMITATION, 0, &[]));
+        let mut sequence_value = control(ITEM, u32::MAX, &item_value);
+        sequence_value.extend(control(SEQUENCE_DELIMITATION, 0, &[]));
+        dataset.extend(undefined_element(
+            Tag(0x0008, 0x1115),
+            b"SQ",
+            &sequence_value,
+        ));
+        dataset.extend(long_element(PIXEL_DATA, b"OW", &[1, 0, 2, 0]));
+        part10(EXPLICIT_VR_LITTLE_ENDIAN_UID, &dataset)
+    }
+
+    fn rle_fixture() -> (Vec<u8>, usize) {
+        let mut dataset = Vec::new();
+        dataset.extend(short_element(
+            SOP_CLASS_UID,
+            b"UI",
+            &padded_text("1.2.840.10008.5.1.4.1.1.7", 0),
+        ));
+        dataset.extend(short_element(
+            SOP_INSTANCE_UID,
+            b"UI",
+            &padded_text("1.2.826.0.1.3680043.10.543.3", 0),
+        ));
+        let mut offsets = Vec::new();
+        offsets.extend_from_slice(&0u64.to_le_bytes());
+        offsets.extend_from_slice(&20u64.to_le_bytes());
+        dataset.extend(long_element(EXTENDED_OFFSET_TABLE, b"OV", &offsets));
+        let mut lengths = Vec::new();
+        lengths.extend_from_slice(&12u64.to_le_bytes());
+        lengths.extend_from_slice(&12u64.to_le_bytes());
+        dataset.extend(long_element(EXTENDED_OFFSET_TABLE_LENGTHS, b"OV", &lengths));
+
+        let mut encapsulated = control(ITEM, 8, &[0, 0, 0, 0, 12, 0, 0, 0]);
+        encapsulated.extend(control(ITEM, 4, &[1, 2, 3, 4]));
+        encapsulated.extend(control(ITEM, 4, &[5, 6, 7, 8]));
+        encapsulated.extend(control(SEQUENCE_DELIMITATION, 0, &[]));
+        dataset.extend(undefined_element(PIXEL_DATA, b"OB", &encapsulated));
+        part10(RLE_LOSSLESS_UID, &dataset)
+    }
+
+    #[test]
+    fn locates_native_explicit_vr_elements_sequences_and_values() {
+        let (bytes, dataset_start) = native_fixture();
+        let located = locate_explicit_vr_le_part10(&bytes, LocatorLimits::default())
+            .expect("deterministic native Explicit VR LE fixture");
+        assert_eq!(located.file_meta, ByteRange::new(132, dataset_start));
+        assert_eq!(located.file_meta_end, dataset_start);
+        assert_eq!(located.dataset, ByteRange::new(dataset_start, bytes.len()));
+        assert_eq!(
+            trim_text(
+                &bytes[located.transfer_syntax_uid.value.start
+                    ..located.transfer_syntax_uid.value.end]
+            ),
+            EXPLICIT_VR_LITTLE_ENDIAN_UID
+        );
+        assert_eq!(
+            trim_text(
+                &bytes[located.dataset_sop_class_uid().unwrap().value.start
+                    ..located.dataset_sop_class_uid().unwrap().value.end]
+            ),
+            "1.2.840.10008.5.1.4.1.1.7"
+        );
+        assert!(located.dataset_sop_instance_uid().is_some());
+        assert!(located.specific_character_set().is_some());
+        assert_eq!(located.bits_stored().unwrap().value.len(), 2);
+        assert_eq!(located.high_bit().unwrap().value.len(), 2);
+        assert_eq!(located.pixel_data().unwrap().value.len(), 4);
+        assert_eq!(located.sequences.len(), 1);
+        assert_eq!(located.items.len(), 1);
+        assert!(located.items[0].declared_length.is_none());
+        assert!(located.items[0].delimitation.is_some());
+        assert!(located.sequences[0].delimitation.is_some());
+        assert_eq!(located.delimitations.len(), 2);
+        assert!(located.first(Tag(0x0010, 0x0010)).is_some());
+        assert!(located.first(Tag(0x0008, 0x1155)).is_some());
+        assert!(located.encapsulated_pixel_data.is_none());
+    }
+
+    #[test]
+    fn locates_rle_bot_eot_fragments_and_delimitation() {
+        let (bytes, _) = rle_fixture();
+        let located = locate_explicit_vr_le_part10(&bytes, LocatorLimits::default())
+            .expect("deterministic RLE fixture");
+        assert_eq!(
+            trim_text(
+                &bytes[located.transfer_syntax_uid.value.start
+                    ..located.transfer_syntax_uid.value.end]
+            ),
+            RLE_LOSSLESS_UID
+        );
+        assert_eq!(located.extended_offset_table_entries.len(), 2);
+        assert_eq!(located.extended_offset_table_length_entries.len(), 2);
+        assert!(
+            located
+                .extended_offset_table_entries
+                .iter()
+                .all(|range| range.len() == 8)
+        );
+        let encapsulated = located.encapsulated_pixel_data.unwrap();
+        assert_eq!(encapsulated.basic_offset_table_item.value.len(), 8);
+        assert_eq!(encapsulated.basic_offset_table_entries.len(), 2);
+        assert_eq!(encapsulated.fragment_items.len(), 2);
+        assert!(
+            encapsulated
+                .fragment_items
+                .iter()
+                .all(|item| item.value.len() == 4)
+        );
+        assert_eq!(encapsulated.sequence_delimitation.len(), 8);
+    }
+
+    #[test]
+    fn rejects_unsupported_or_malformed_sources_with_typed_errors() {
+        assert_eq!(
+            locate_explicit_vr_le_part10(b"not part 10", LocatorLimits::default()),
+            Err(LocatorError::NotPart10)
+        );
+        let (unsupported, _) = part10("1.2.840.10008.1.2.4.50", &[]);
+        assert!(matches!(
+            locate_explicit_vr_le_part10(&unsupported, LocatorLimits::default()),
+            Err(LocatorError::UnsupportedTransferSyntax { .. })
+        ));
+
+        let (mut bad_vr, dataset_start) = native_fixture();
+        bad_vr[dataset_start + 4..dataset_start + 6].copy_from_slice(b"??");
+        assert!(matches!(
+            locate_explicit_vr_le_part10(&bad_vr, LocatorLimits::default()),
+            Err(LocatorError::InvalidVr { .. })
+        ));
+
+        let mut hostile_dataset = Vec::new();
+        hostile_dataset.extend_from_slice(&Tag(0x0010, 0x0010).0.to_le_bytes());
+        hostile_dataset.extend_from_slice(&Tag(0x0010, 0x0010).1.to_le_bytes());
+        hostile_dataset.extend_from_slice(b"UT");
+        hostile_dataset.extend_from_slice(&[0, 0]);
+        hostile_dataset.extend_from_slice(&(u32::MAX - 1).to_le_bytes());
+        let (hostile, _) = part10(EXPLICIT_VR_LITTLE_ENDIAN_UID, &hostile_dataset);
+        assert!(matches!(
+            locate_explicit_vr_le_part10(&hostile, LocatorLimits::default()),
+            Err(LocatorError::DeclaredLengthExceedsContainer { .. })
+        ));
+    }
+
+    #[test]
+    fn enforces_element_depth_item_fragment_and_offset_entry_limits() {
+        let (native, _) = native_fixture();
+        for limits in [
+            LocatorLimits {
+                max_elements: 2,
+                ..LocatorLimits::default()
+            },
+            LocatorLimits {
+                max_depth: 0,
+                ..LocatorLimits::default()
+            },
+            LocatorLimits {
+                max_items: 0,
+                ..LocatorLimits::default()
+            },
+        ] {
+            assert!(matches!(
+                locate_explicit_vr_le_part10(&native, limits),
+                Err(LocatorError::LimitExceeded { .. })
+            ));
+        }
+
+        let (rle, _) = rle_fixture();
+        assert!(matches!(
+            locate_explicit_vr_le_part10(
+                &rle,
+                LocatorLimits {
+                    max_fragments: 1,
+                    ..LocatorLimits::default()
+                }
+            ),
+            Err(LocatorError::LimitExceeded { .. })
+        ));
+    }
+
+    #[test]
+    fn rejects_missing_delimiters_and_misaligned_offset_tables() {
+        let mut sequence_value = control(ITEM, 0, &[]);
+        let dataset = undefined_element(Tag(0x0008, 0x1115), b"SQ", &sequence_value);
+        let (missing_delimiter, _) = part10(EXPLICIT_VR_LITTLE_ENDIAN_UID, &dataset);
+        assert!(matches!(
+            locate_explicit_vr_le_part10(&missing_delimiter, LocatorLimits::default()),
+            Err(LocatorError::MissingDelimitation {
+                kind: DelimitationKind::Sequence,
+                ..
+            })
+        ));
+
+        sequence_value.clear();
+        let bad_eot = long_element(EXTENDED_OFFSET_TABLE, b"OV", &[1, 2, 3, 4]);
+        let (misaligned, _) = part10(EXPLICIT_VR_LITTLE_ENDIAN_UID, &bad_eot);
+        assert!(matches!(
+            locate_explicit_vr_le_part10(&misaligned, LocatorLimits::default()),
+            Err(LocatorError::InvalidOffsetTableLength { .. })
+        ));
+    }
+}

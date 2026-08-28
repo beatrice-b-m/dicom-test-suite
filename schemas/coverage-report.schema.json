@@ -225,6 +225,19 @@
         "nonsquare_uncalibrated_states": { "$ref": "#/$defs/count_map" },
         "nonsquare_patient_space_geometry_present_states": { "$ref": "#/$defs/count_map" },
         "nonsquare_pixel_data_sha256_values": { "$ref": "#/$defs/count_map" },
+        "stl_iod_kinds": { "$ref": "#/$defs/count_map" },
+        "stl_profiles": { "$ref": "#/$defs/count_map" },
+        "stl_payload_formats": { "$ref": "#/$defs/count_map" },
+        "stl_mime_types": { "$ref": "#/$defs/count_map" },
+        "stl_payload_lengths_bytes": { "$ref": "#/$defs/count_map" },
+        "stl_payload_sha256_values": { "$ref": "#/$defs/count_map" },
+        "stl_triangle_counts": { "$ref": "#/$defs/count_map" },
+        "stl_units": { "$ref": "#/$defs/count_map" },
+        "stl_bounds": { "$ref": "#/$defs/count_map" },
+        "stl_closed_manifold_states": { "$ref": "#/$defs/count_map" },
+        "stl_outward_winding_states": { "$ref": "#/$defs/count_map" },
+        "stl_nondegenerate_face_states": { "$ref": "#/$defs/count_map" },
+        "stl_independent_validator_dispositions": { "$ref": "#/$defs/count_map" },
         "basic_offset_tables": {
           "$ref": "#/$defs/count_map"
         },
@@ -1169,6 +1182,19 @@
         "blending_forbidden_modules_absent",
         "blending_pixel_data_absent",
         "blending_unresolved_external_validator_findings",
+        "stl_iod_kind",
+        "stl_profile",
+        "stl_payload_format",
+        "stl_mime_type",
+        "stl_payload_length_bytes",
+        "stl_payload_sha256",
+        "stl_triangle_count",
+        "stl_units",
+        "stl_bounds",
+        "stl_closed_manifold",
+        "stl_outward_winding",
+        "stl_nondegenerate_faces",
+        "stl_independent_validator_disposition",
         "waveform_iod_kind",
         "waveform_group_count",
         "waveform_group_shapes",
@@ -2159,6 +2185,21 @@
         "blending_forbidden_modules_absent": { "type": ["boolean", "null"] },
         "blending_pixel_data_absent": { "type": ["boolean", "null"] },
         "blending_unresolved_external_validator_findings": { "enum": ["none", null] },
+        "stl_iod_kind": { "enum": ["encapsulated_stl", null] },
+        "stl_profile": { "enum": ["extended", null] },
+        "stl_payload_format": { "enum": ["binary_stl", null] },
+        "stl_mime_type": { "enum": ["model/stl", null] },
+        "stl_payload_length_bytes": { "type": ["integer", "null"], "minimum": 1 },
+        "stl_payload_sha256": {
+          "anyOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }]
+        },
+        "stl_triangle_count": { "type": ["integer", "null"], "minimum": 1 },
+        "stl_units": { "enum": ["mm|UCUM|millimeter", null] },
+        "stl_bounds": { "enum": ["[0,0,0]..[10,10,10]", null] },
+        "stl_closed_manifold": { "type": ["boolean", "null"] },
+        "stl_outward_winding": { "type": ["boolean", "null"] },
+        "stl_nondegenerate_faces": { "type": ["boolean", "null"] },
+        "stl_independent_validator_disposition": { "enum": ["required", null] },
         "waveform_iod_kind": { "enum": ["twelve_lead_ecg", "general_ecg", null] },
         "waveform_group_count": { "type": ["integer", "null"], "minimum": 1 },
         "waveform_group_shapes": { "type": ["string", "null"] },
@@ -2886,6 +2927,46 @@
         }
       },
       "allOf": [
+        {
+          "if": {
+            "properties": { "case_id": { "const": "derived/mesh/encapsulated_stl" } },
+            "required": ["case_id"]
+          },
+          "then": {
+            "properties": {
+              "stl_iod_kind": { "const": "encapsulated_stl" },
+              "stl_profile": { "const": "extended" },
+              "stl_payload_format": { "const": "binary_stl" },
+              "stl_mime_type": { "const": "model/stl" },
+              "stl_payload_length_bytes": { "const": 284 },
+              "stl_payload_sha256": { "const": "3c3049d231f8e98c0d2fe7cb81cf6805141bcac39dd04b9cf7f8063ec44bbfb2" },
+              "stl_triangle_count": { "const": 4 },
+              "stl_units": { "const": "mm|UCUM|millimeter" },
+              "stl_bounds": { "const": "[0,0,0]..[10,10,10]" },
+              "stl_closed_manifold": { "const": true },
+              "stl_outward_winding": { "const": true },
+              "stl_nondegenerate_faces": { "const": true },
+              "stl_independent_validator_disposition": { "const": "required" }
+            }
+          },
+          "else": {
+            "properties": {
+              "stl_iod_kind": { "type": "null" },
+              "stl_profile": { "type": "null" },
+              "stl_payload_format": { "type": "null" },
+              "stl_mime_type": { "type": "null" },
+              "stl_payload_length_bytes": { "type": "null" },
+              "stl_payload_sha256": { "type": "null" },
+              "stl_triangle_count": { "type": "null" },
+              "stl_units": { "type": "null" },
+              "stl_bounds": { "type": "null" },
+              "stl_closed_manifold": { "type": "null" },
+              "stl_outward_winding": { "type": "null" },
+              "stl_nondegenerate_faces": { "type": "null" },
+              "stl_independent_validator_disposition": { "type": "null" }
+            }
+          }
+        },
         {
           "if": {
             "properties": {

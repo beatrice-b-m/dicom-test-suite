@@ -2775,6 +2775,7 @@ struct EnhancedCtConcatenationManifest<'a> {
 const ENHANCED_CT_IMAGE_POSITIONS: &[&str] = &["0\\0\\0", "0\\0\\2.5"];
 const ENHANCED_CT_DIMENSION_INDEX_VALUES: &[u32] = &[1, 2];
 const STRESS_ENHANCED_CT_CASE_ID: &str = "stress/enhanced-ct/many_frames";
+const STRESS_HIGH_INSTANCE_CT_CASE_ID: &str = "stress/study/high_instance_count_ct";
 const ENHANCED_CT_CONCAT_PART_1_IMAGE_POSITIONS: &[&str] = &["0\\0\\0"];
 const ENHANCED_CT_CONCAT_PART_2_IMAGE_POSITIONS: &[&str] = &["0\\0\\2.5"];
 const ENHANCED_CT_CONCAT_PART_1_DIMENSION_INDEX_VALUES: &[u32] = &[1];
@@ -4724,6 +4725,15 @@ pub(crate) fn write_supported_cases(
                 run,
                 case,
                 NONSQUARE_SPACING_SC_RECIPE,
+                standards_lock_sha256,
+            )?)?;
+        }
+    }
+    if let Some(case) = registry_case(registry, STRESS_HIGH_INSTANCE_CT_CASE_ID)? {
+        if should_generate_case(case, run)? {
+            context.record_many(write_stress_high_instance_ct_case(
+                run,
+                case,
                 standards_lock_sha256,
             )?)?;
         }
@@ -15130,6 +15140,65 @@ fn write_classic_ct_case(
     Ok(generated_files)
 }
 
+fn write_stress_high_instance_ct_case(
+    run: &PreparedGenerationRun,
+    case: &Value,
+    standards_lock_sha256: &str,
+) -> Result<Vec<GeneratedFile>, GenerateError> {
+    const ROWS: u16 = 64;
+    const COLUMNS: u16 = 64;
+    const INSTANCES: usize = 128;
+    let sample_count = usize::from(ROWS) * usize::from(COLUMNS);
+    let mut pixel_bytes = Vec::with_capacity(sample_count * 2);
+    let mut pixel_values = Vec::with_capacity(sample_count);
+    for index in 0..sample_count {
+        let value = (index % 3072) as i16 - 1024;
+        pixel_bytes.extend_from_slice(&value.to_le_bytes());
+        pixel_values.push(i32::from(value));
+    }
+    let pixel_bytes: &'static [u8] = Box::leak(pixel_bytes.into_boxed_slice());
+    let pixel_values: &'static [i32] = Box::leak(pixel_values.into_boxed_slice());
+    let slices = (0..INSTANCES)
+        .map(|index| {
+            let instance_number: &'static str = Box::leak((index + 1).to_string().into_boxed_str());
+            let position: &'static str =
+                Box::leak(format!("0\\0\\{}", index as f64 * 2.5).into_boxed_str());
+            ClassicCtSliceRecipe {
+                instance_number: ClassicCtInstanceNumber::Numeric(instance_number),
+                image_position_patient: position,
+                position_along_normal: index as f64 * 2.5,
+                pixel_bytes,
+                pixel_values,
+                pixel_min: -1024,
+                pixel_max: 2047,
+            }
+        })
+        .collect::<Vec<_>>();
+    let recipe = ClassicCtRecipe {
+        case_id: STRESS_HIGH_INSTANCE_CT_CASE_ID,
+        recipe_id: "stress_high_instance_count_ct_reduced",
+        transfer_syntax: EXPLICIT_VR_LITTLE_ENDIAN,
+        rows: ROWS,
+        columns: COLUMNS,
+        slices: Box::leak(slices.into_boxed_slice()),
+        series: &[],
+        series_organization: None,
+        rescale_intercept: "-1024",
+        rescale_slope: "1",
+        rescale_type: "HU",
+        window_center: "40",
+        window_width: "400",
+        pixel_spacing: "0.75\\0.75",
+        image_orientation_patient: "1\\0\\0\\0\\1\\0",
+        slice_thickness: "2.5",
+        spacing_between_slices: Some("2.5"),
+        gantry_detector_tilt_degrees: None,
+        sorting_conflict_expected: None,
+        kvp: "120",
+    };
+    write_classic_ct_case(run, case, recipe, standards_lock_sha256)
+}
+
 fn classic_ct_series_recipes(recipe: ClassicCtRecipe) -> Vec<ClassicCtSeriesRecipe> {
     if recipe.series.is_empty() {
         vec![ClassicCtSeriesRecipe {
@@ -15607,7 +15676,9 @@ fn classic_ct_instance_number_order_index(
 }
 
 fn classic_ct_profile_membership(recipe: ClassicCtRecipe) -> &'static [&'static str] {
-    if recipe.case_id == "geometry/ct/spatial_sort_conflicts_instance_number" {
+    if recipe.case_id.starts_with("stress/") {
+        &["stress"]
+    } else if recipe.case_id == "geometry/ct/spatial_sort_conflicts_instance_number" {
         &["core", "extended"]
     } else if recipe.transfer_syntax == RLE_LOSSLESS {
         &["extended"]
@@ -15671,6 +15742,9 @@ fn classic_ct_known_stressors(recipe: ClassicCtRecipe) -> Vec<&'static str> {
             "multiple_series_one_study",
             "shared_frame_of_reference_across_series",
         ]);
+    }
+    if recipe.case_id == STRESS_HIGH_INSTANCE_CT_CASE_ID {
+        stressors.extend(["reduced_stress_scale", "high_instance_count_study"]);
     }
     stressors
 }
@@ -33176,6 +33250,51 @@ mod tests {
             )
             .unwrap()
         );
+    }
+
+    #[test]
+    fn reduced_high_instance_ct_study_is_byte_stable_and_exact_scale() {
+        let first_root = ParametricMapStagingGuard::new();
+        let second_root = ParametricMapStagingGuard::new();
+        let run = |root: &ParametricMapStagingGuard| PreparedGenerationRun {
+            profile: "stress".to_string(),
+            out_dir: root.path().to_path_buf(),
+            manifest_path: root.path().join("manifest.json"),
+            seed: 7,
+            include_stress: false,
+        };
+        let case = serde_json::json!({
+            "case_id": STRESS_HIGH_INSTANCE_CT_CASE_ID,
+            "standards_evidence": []
+        });
+        let lock = "0000000000000000000000000000000000000000000000000000000000000000";
+        let first = write_stress_high_instance_ct_case(&run(&first_root), &case, lock).unwrap();
+        let second = write_stress_high_instance_ct_case(&run(&second_root), &case, lock).unwrap();
+        assert_eq!(first.len(), 128);
+        assert_eq!(first.len(), second.len());
+        for (left, right) in first.iter().zip(&second) {
+            assert_eq!(left.manifest_entry, right.manifest_entry);
+            assert_eq!(
+                left.manifest_entry["profile_membership"],
+                serde_json::json!(["stress"])
+            );
+            assert_eq!(left.manifest_entry["image"]["rows"], 64);
+            assert_eq!(left.manifest_entry["image"]["columns"], 64);
+            assert_eq!(
+                fs::read(
+                    first_root
+                        .path()
+                        .join(left.manifest_entry["path"].as_str().unwrap())
+                )
+                .unwrap(),
+                fs::read(
+                    second_root
+                        .path()
+                        .join(right.manifest_entry["path"].as_str().unwrap())
+                )
+                .unwrap()
+            );
+        }
     }
 
     fn generated_source_fixture(

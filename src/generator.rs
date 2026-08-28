@@ -10504,6 +10504,14 @@ fn write_pixel_case_with_metadata(
     put_str(&mut obj, tags::SERIES_NUMBER, VR::IS, "1");
     if metadata.is_some() && !matches!(metadata, Some(ScMetadataPayload::SequenceLength(_))) {
         put_str(&mut obj, tags::LATERALITY, VR::CS, "R");
+    } else if matches!(
+        recipe.transfer_syntax.uid,
+        JPEG_XL_LOSSY_TRANSFER_SYNTAX_UID | HTJ2K_LOSSY_TRANSFER_SYNTAX_UID
+    ) {
+        // The General Series Laterality condition is not applicable to these
+        // synthetic OT objects, but an empty Type 2 value gives independent
+        // IOD validators explicit evidence of that absence.
+        put_str(&mut obj, tags::LATERALITY, VR::CS, "");
     }
 
     if !is_single_frame_vl {

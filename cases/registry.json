@@ -8955,46 +8955,46 @@
       ]
     },
     {
-      "case_id": "derived/mesh/surface_segmentation",
+      "case_id": "derived/mesh/encapsulated_stl",
       "artifact_kind": "dicom_instance",
       "status": "planned",
       "provider": {
-        "kind": "external_backend",
-        "id": "highdicom_pydicom"
+        "kind": "rust_native",
+        "id": "rust_native"
       },
       "object_family": "mesh",
       "compatibility_axes": [
         "mesh",
-        "references"
+        "metadata"
       ],
       "roadmap": {
         "priority": "next",
         "delivery_phase": "phase-3",
-        "rationale": "Adds the first mesh-oriented object with explicit surface references."
+        "rationale": "Adds the first mesh-oriented object through a deterministic manufacturing-model payload with independently checkable topology."
       },
       "blockers": [
         {
-          "code": "backend_contract_unimplemented",
-          "message": "The external generation protocol is not implemented.",
-          "recheck_phase": "phase-1"
+          "code": "recipe_unimplemented",
+          "message": "The native Encapsulated STL Part 10 recipe is not integrated.",
+          "recheck_phase": "phase-3"
         },
         {
           "code": "independent_payload_validator_unavailable",
-          "message": "The required independent validation path is not integrated.",
+          "message": "The independent STL topology adapter is not integrated.",
           "recheck_phase": "phase-3"
         }
       ],
       "profiles": [
         "extended"
       ],
-      "recipe_id": "derived_mesh_surface_segmentation",
+      "recipe_id": "derived_mesh_encapsulated_stl",
       "recipe_version": "0.1.0",
-      "iod_name": "Surface Segmentation",
-      "sop_class_name": "Surface Segmentation Storage",
-      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.66.5",
-      "modality": "SEG",
+      "iod_name": "Encapsulated STL",
+      "sop_class_name": "Encapsulated STL Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.104.3",
+      "modality": "M3D",
       "transfer_syntax_uid": "1.2.840.10008.1.2.1",
-      "determinism": "semantic_stable",
+      "determinism": "byte_stable",
       "requirements": {
         "features": [],
         "external_codecs": [],
@@ -9005,10 +9005,18 @@
         {
           "source": "dicom-standard-kb",
           "edition": "2026b",
-          "query": "dicom-kb lookup uid SurfaceSegmentationStorage --edition 2026b",
+          "query": "dicom-kb lookup uid EncapsulatedSTLStorage --edition 2026b",
           "covered": true,
           "part": "PS3.6",
           "anchor": "table_A-1"
+        },
+        {
+          "source": "official-dicom-standard",
+          "edition": "2026b",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "sect_A.85",
+          "reason": "The Encapsulated STL IOD requires a binary STL stream, M3D modality, model/stl MIME type, Frame of Reference, and Manufacturing 3D Model content."
         }
       ]
     },

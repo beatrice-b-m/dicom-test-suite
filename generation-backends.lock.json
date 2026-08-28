@@ -24,6 +24,7 @@
         "derived_image",
         "enhanced_image",
         "encapsulated_document",
+        "mesh",
         "presentation_state",
         "quantitative",
         "radiotherapy",
@@ -122,7 +123,6 @@
       ],
       "supported_case_families": [
         "derived_image",
-        "mesh",
         "quantitative",
         "registration",
         "structured_report",

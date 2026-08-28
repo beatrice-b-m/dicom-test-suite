@@ -46,6 +46,8 @@ pub mod generation_backends;
 mod generator;
 mod geometry;
 mod metadata;
+pub mod mutation;
+pub mod part10_locator;
 pub(crate) mod rt_manifest;
 pub(crate) mod rt_radiation_manifest;
 pub mod uid;

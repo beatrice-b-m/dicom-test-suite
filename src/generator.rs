@@ -2774,6 +2774,7 @@ struct EnhancedCtConcatenationManifest<'a> {
 
 const ENHANCED_CT_IMAGE_POSITIONS: &[&str] = &["0\\0\\0", "0\\0\\2.5"];
 const ENHANCED_CT_DIMENSION_INDEX_VALUES: &[u32] = &[1, 2];
+const STRESS_ENHANCED_CT_CASE_ID: &str = "stress/enhanced-ct/many_frames";
 const ENHANCED_CT_CONCAT_PART_1_IMAGE_POSITIONS: &[&str] = &["0\\0\\0"];
 const ENHANCED_CT_CONCAT_PART_2_IMAGE_POSITIONS: &[&str] = &["0\\0\\2.5"];
 const ENHANCED_CT_CONCAT_PART_1_DIMENSION_INDEX_VALUES: &[u32] = &[1];
@@ -4756,6 +4757,15 @@ pub(crate) fn write_supported_cases(
                 ParametricMapCaseOutcome::Generated(file) => context.record_one(file)?,
                 ParametricMapCaseOutcome::Unavailable(row) => context.unavailable_cases.push(row),
             }
+        }
+    }
+    if let Some(case) = registry_case(registry, STRESS_ENHANCED_CT_CASE_ID)? {
+        if should_generate_case(case, run)? {
+            context.record_one(write_stress_enhanced_ct_case(
+                run,
+                case,
+                standards_lock_sha256,
+            )?)?;
         }
     }
     for recipe in ENHANCED_CT_RECIPES {
@@ -15947,6 +15957,69 @@ fn write_enhanced_ct_case(
             validated.validation,
         ),
     })
+}
+
+fn write_stress_enhanced_ct_case(
+    run: &PreparedGenerationRun,
+    case: &Value,
+    standards_lock_sha256: &str,
+) -> Result<GeneratedFile, GenerateError> {
+    const ROWS: u16 = 64;
+    const COLUMNS: u16 = 64;
+    const FRAMES: u16 = 256;
+    let sample_count = usize::from(ROWS) * usize::from(COLUMNS) * usize::from(FRAMES);
+    let mut pixel_bytes = Vec::with_capacity(sample_count * 2);
+    let mut pixel_values = Vec::with_capacity(sample_count);
+    for index in 0..sample_count {
+        let value = (index % 4096) as u16;
+        pixel_bytes.extend_from_slice(&value.to_le_bytes());
+        pixel_values.push(i32::from(value));
+    }
+    let image_positions = (0..FRAMES)
+        .map(|frame| {
+            let position = format!("0\\0\\{}", f64::from(frame) * 2.5);
+            &*Box::leak(position.into_boxed_str())
+        })
+        .collect::<Vec<&'static str>>();
+    let dimension_indices = (1..=u32::from(FRAMES)).collect::<Vec<_>>();
+    let recipe = EnhancedCtRecipe {
+        case_id: STRESS_ENHANCED_CT_CASE_ID,
+        recipe_id: "stress_enhanced_ct_many_frames_reduced",
+        rows: ROWS,
+        columns: COLUMNS,
+        frames: FRAMES,
+        pixel_bytes: Box::leak(pixel_bytes.into_boxed_slice()),
+        pixel_values: Box::leak(pixel_values.into_boxed_slice()),
+        pixel_min: 0,
+        pixel_max: 4095,
+        pixel_spacing: "0.75\\0.75",
+        image_orientation_patient: "1\\0\\0\\0\\1\\0",
+        image_position_patient: Box::leak(image_positions.into_boxed_slice()),
+        dimension_index_values: Box::leak(dimension_indices.into_boxed_slice()),
+        slice_thickness: "2.5",
+        spacing_between_slices: "2.5",
+        frame_type: "DERIVED\\PRIMARY\\AXIAL\\NONE",
+        pixel_presentation: "MONOCHROME",
+        volumetric_properties: "VOLUME",
+        volume_based_calculation_technique: "NONE",
+        rescale_intercept: "-1024",
+        rescale_slope: "1",
+        rescale_type: "HU",
+    };
+    let mut generated = write_enhanced_ct_case(run, case, recipe, standards_lock_sha256)?;
+    generated.manifest_entry["profile_membership"] = serde_json::json!(["stress"]);
+    generated.manifest_entry["expected_visual_checks"]["pattern"] =
+        Value::String("reduced_256_frame_64x64_enhanced_ct_ramp_stack".to_string());
+    generated.manifest_entry["known_stressors"] = serde_json::json!([
+        "enhanced_ct_image_storage",
+        "native_multiframe_pixel_data",
+        "shared_functional_groups_sequence",
+        "per_frame_functional_groups_sequence",
+        "multi_frame_dimension",
+        "reduced_stress_scale",
+        "many_frames"
+    ]);
+    Ok(generated)
 }
 
 fn write_segmentation_case(
@@ -33054,6 +33127,54 @@ mod tests {
             validator.is_valid(qualification),
             "qualification errors: {:?}",
             validator.iter_errors(qualification).collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn reduced_many_frame_enhanced_ct_is_byte_stable_and_exact_scale() {
+        let first_root = ParametricMapStagingGuard::new();
+        let second_root = ParametricMapStagingGuard::new();
+        let run = |root: &ParametricMapStagingGuard| PreparedGenerationRun {
+            profile: "stress".to_string(),
+            out_dir: root.path().to_path_buf(),
+            manifest_path: root.path().join("manifest.json"),
+            seed: 7,
+            include_stress: false,
+        };
+        let case = serde_json::json!({
+            "case_id": STRESS_ENHANCED_CT_CASE_ID,
+            "standards_evidence": []
+        });
+        let lock = "0000000000000000000000000000000000000000000000000000000000000000";
+        let first = write_stress_enhanced_ct_case(&run(&first_root), &case, lock).unwrap();
+        let second = write_stress_enhanced_ct_case(&run(&second_root), &case, lock).unwrap();
+        assert_eq!(first.manifest_entry, second.manifest_entry);
+        assert_eq!(
+            first.manifest_entry["profile_membership"],
+            serde_json::json!(["stress"])
+        );
+        assert_eq!(first.manifest_entry["image"]["frames"], 256);
+        assert_eq!(first.manifest_entry["image"]["rows"], 64);
+        assert_eq!(first.manifest_entry["image"]["columns"], 64);
+        assert_eq!(
+            first.manifest_entry["pixel_data"]["value_length"],
+            2_097_152
+        );
+        assert_eq!(
+            fs::read(
+                first_root
+                    .path()
+                    .join(STRESS_ENHANCED_CT_CASE_ID)
+                    .join("instance.dcm")
+            )
+            .unwrap(),
+            fs::read(
+                second_root
+                    .path()
+                    .join(STRESS_ENHANCED_CT_CASE_ID)
+                    .join("instance.dcm")
+            )
+            .unwrap()
         );
     }
 

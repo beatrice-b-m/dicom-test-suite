@@ -5904,6 +5904,7 @@ fn generator_recipe_case_ids() -> BTreeSet<String> {
                 "BLENDING_PRESENTATION_STATE_CASE_ID: &str = \"",
                 "TWELVE_LEAD_ECG_CASE_ID: &str = \"",
                 "GENERAL_ECG_CASE_ID: &str = \"",
+                "EOT_CASE_ID: &str = \"",
                 "RT_PLAN_CASE_ID: &str = \"",
                 "RT_IMAGE_CASE_ID: &str = \"",
                 "RT_RADIATION_CASE_ID: &str = \"",
@@ -6008,7 +6009,16 @@ fn generator_recipe_case_ids() -> BTreeSet<String> {
 fn is_suite_case_id(case_id: &str) -> bool {
     matches!(
         case_id.split('/').next(),
-        Some("classic" | "enhanced" | "derived" | "geometry" | "metadata" | "non-image" | "vl")
+        Some(
+            "classic"
+                | "encapsulation"
+                | "enhanced"
+                | "derived"
+                | "geometry"
+                | "metadata"
+                | "non-image"
+                | "vl"
+        )
     )
 }
 

@@ -511,6 +511,7 @@ Important compatibility features:
 - ICC profiles where required or useful;
 - tiled full and tiled sparse whole slide images;
 - optical path, slide label, specimen, pyramid, and thumbnail cases.
+- derived segmentation with exact source-Frame and total-matrix tile closure.
 
 ### 8.5 Derived, annotation, and non-image objects
 

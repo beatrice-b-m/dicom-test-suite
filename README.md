@@ -196,6 +196,10 @@ the phase/status documents under `docs/`; they are historical engineering
 records, not substitutes for the registry or a fresh generated report.
 Use the [documentation map](docs/README.md) to distinguish current operating
 guides from dated qualification and planning records.
+The pathology and tiled-microscopy evidence is retained in
+[docs/phase-4-pathology-status.md](docs/phase-4-pathology-status.md), including
+the next explicit full-size
+pyramid checkpoint and its promotion boundary.
 
 ## Development
 

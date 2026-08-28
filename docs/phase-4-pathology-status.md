@@ -134,3 +134,43 @@ selected only through the stress profile or explicit stress inclusion. A
 genuinely full-size pyramid remains a separate planned case and will not enter
 ordinary CI until the explicit dimensions, resource budgets, and scheduling
 checkpoint required by the coverage plan is decided.
+
+## Multiple optical paths WSI milestone
+
+`vl/wsi/multiple_optical_paths` completes milestone 5 as a native,
+byte-stable `extended` case. It stores two ordered optical paths,
+`BRIGHTFIELD` and `ALTERNATE`, over the same 4 by 4 total pixel matrix and one
+separately encoded focal plane. Eight native RGB Frames follow the normative
+`TILED_FULL` path-major implicit order. Strict validation binds the exact path
+descriptions, 550/650 nm wavelengths, illumination codes, two nested ICC
+profiles, Frame and payload hashes, separate matrix reconstructions, inherited
+specimen and slide geometry, and every locked absence.
+
+Two independent seed-7 extended generations each wrote 112 files, passed
+strict validation with zero failures, and compared byte-for-byte as complete
+trees. Both full roots completed in 4.50 and 4.54 seconds. Their manifest
+SHA-256 is
+`473e822fe1b82b7217635a980757a1a88f77f3e2448b0e02964122d888a16bf3`;
+the 3,916-byte multiple-path instance SHA-256 is
+`a2099a90b53b4ecb9c76f895f02d4f7f62ff8655adcb54d8654e8e80507bea48`.
+
+Locked `dciodvfy` and the authorized `uv`-locked dicom-validator both report
+zero IOD errors, and DCMTK parses the file cleanly. The isolated highdicom
+0.28.1/pydicom 3.0.2 adapter version 0.4.0 independently derives all eight
+implicit positions, reproduces the aggregate and per-path payloads, constructs
+two distinct 4 by 4 by 3 matrices, validates nested ICC evidence, and rejects
+ambiguous unfiltered matrix access. Its composite fingerprint is
+`fa838f3b3c398913f2f05e71cad2515cf038fba65dc8f1a30484f88164c48167`.
+
+Exact-slice conformance run
+`c2203223e9d8ce0b716175329769b7f3bb947ac48da44a510843d5a82d8b3dcc`
+records silent entity validation, passing independent pixels, zero accepted
+findings, and zero verification failures against an empty findings set. The
+whole-corpus run retains all 229 unrelated visible failures and zero accepted
+findings. The registry now contains 149 implemented and 33 planned logical
+cases.
+
+Phase 4 milestone 5 is complete. Milestone 6, a derived object referencing WSI
+tiles, is next. The explicit full-size-pyramid dimensions, budget, and ordinary
+CI scheduling checkpoint remains undecided and is not affected by this small
+extended-profile case.

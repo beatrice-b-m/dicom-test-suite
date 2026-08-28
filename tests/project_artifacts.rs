@@ -1131,6 +1131,17 @@ fn phase4_multiple_optical_path_wsi_is_native_and_standards_locked() {
                 && item["covered"] == true
         })
     }));
+
+    let status = fs::read_to_string("docs/phase-4-pathology-status.md")
+        .expect("Phase 4 pathology status must be readable");
+    for required in [
+        "`vl/wsi/multiple_optical_paths` completes milestone 5",
+        "Two independent seed-7 extended generations each wrote 112 files",
+        "149 implemented and 33 planned logical\ncases",
+        "Milestone 6, a derived object referencing WSI\ntiles, is next",
+    ] {
+        assert!(status.contains(required), "pathology status requires {required}");
+    }
 }
 
 #[test]

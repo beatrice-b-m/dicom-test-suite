@@ -4499,6 +4499,10 @@ fn manifest_schema_locks_phase4_multiple_optical_paths_expectation() {
         serde_json::json!("1.2.826.0.1.3680043.10.543.21"),
     );
     expectation.insert(
+        "dimension_organization_uid".into(),
+        serde_json::json!("1.2.826.0.1.3680043.10.543.23"),
+    );
+    expectation.insert(
         "specimen".into(),
         serde_json::json!({
             "container_identifier": "DTS-SLIDE-001", "container_issuer_items": 0,
@@ -4577,7 +4581,7 @@ fn manifest_schema_locks_phase4_multiple_optical_paths_expectation() {
             "/tiling/total_pixel_matrix_focal_planes",
             serde_json::json!(2),
         ),
-        ("/budget/max_dicom_bytes", serde_json::json!(16383)),
+        ("/budget/max_total_dicom_bytes", serde_json::json!(16383)),
     ] {
         let mut malformed = expectation.clone();
         *malformed.pointer_mut(pointer).expect("mutation pointer") = bad;

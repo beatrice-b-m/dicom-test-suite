@@ -2413,7 +2413,15 @@ fn validate_wsi_multiple_optical_paths_manifest_contract(
         "/specimen/specimen_uid",
         "multiple-path WSI Specimen UID must be valid",
     )?;
-    let locked = wsi_multiple_optical_paths_locked_contract(frame_of_reference_uid, specimen_uid);
+    let dimension_organization_uid = dynamic_uid(
+        "/dimension_organization_uid",
+        "multiple-path WSI Dimension Organization UID must be valid",
+    )?;
+    let locked = wsi_multiple_optical_paths_locked_contract(
+        frame_of_reference_uid,
+        specimen_uid,
+        dimension_organization_uid,
+    );
     if expected != &locked {
         return Err(ValidateError::ManifestShape {
             path: manifest_path.to_path_buf(),
@@ -2442,6 +2450,10 @@ fn validate_wsi_multiple_optical_paths_manifest_contract(
         (
             "/uids/frame_of_reference_uid",
             Value::from(frame_of_reference_uid),
+        ),
+        (
+            "/uids/dimension_organization_uid",
+            Value::from(dimension_organization_uid),
         ),
         ("/image/rows", Value::from(2)),
         ("/image/columns", Value::from(2)),
@@ -2482,6 +2494,7 @@ fn validate_wsi_multiple_optical_paths_manifest_contract(
 pub(crate) fn wsi_multiple_optical_paths_locked_contract(
     frame_of_reference_uid: &str,
     specimen_uid: &str,
+    dimension_organization_uid: &str,
 ) -> Value {
     const ICC_SHA256: &str = "8e069a3476b71a0e0ae7272d9278ba70540d1c4a0b19af1c7d52e56f49091fef";
     let path1 = [
@@ -2556,6 +2569,7 @@ pub(crate) fn wsi_multiple_optical_paths_locked_contract(
         "iod_name": "VL Whole Slide Microscopy Image", "modality": "SM",
         "transfer_syntax_uid": "1.2.840.10008.1.2.1",
         "frame_of_reference_uid": frame_of_reference_uid,
+        "dimension_organization_uid": dimension_organization_uid,
         "image_type": ["ORIGINAL", "PRIMARY", "VOLUME", "NONE"],
         "dimension_organization_type": "TILED_FULL", "position_reference_indicator": "SLIDE_CORNER",
         "acquisition_context_items": 0, "volumetric_properties": "VOLUME",
@@ -2572,7 +2586,7 @@ pub(crate) fn wsi_multiple_optical_paths_locked_contract(
         "slide_label": { "barcode_value": "DTS-SLIDE-001", "label_text": "DTS SYNTHETIC SLIDE 001" },
         "presence": { "shared_functional_groups_sequence": true, "per_frame_functional_groups_sequence": false, "dimension_index_sequence": false, "references": false, "concatenation": false, "multi_resolution_pyramid": false },
         "absent_content": ["per_frame_functional_groups_sequence", "dimension_index_sequence", "referenced_series_sequence", "concatenation_attributes", "multi_resolution_pyramid", "extended_depth_of_field_number_of_focal_planes", "extended_depth_of_field_distance_between_focal_planes", "lossy_image_compression_ratio", "lossy_image_compression_method", "top_level_image_pixel_description_icc_profile", "specimen_reference_sequence"],
-        "budget": { "instance_count": 1, "frame_count": 8, "max_dicom_bytes": 16384, "max_generation_wall_time_seconds": 5 }
+        "budget": { "instance_count": 1, "total_frame_count": 8, "max_total_dicom_bytes": 16384, "max_generation_wall_time_seconds": 5 }
     })
 }
 
@@ -31776,6 +31790,7 @@ mod tests {
         let expected = wsi_multiple_optical_paths_locked_contract(
             frame_of_reference_uid,
             "1.2.826.0.1.3680043.10.543.22",
+            "1.2.826.0.1.3680043.10.543.23",
         );
         serde_json::json!({
             "case_id": "vl/wsi/multiple_optical_paths",
@@ -31786,7 +31801,10 @@ mod tests {
                 "iod_name": "VL Whole Slide Microscopy Image", "modality": "SM",
                 "transfer_syntax_uid": "1.2.840.10008.1.2.1"
             },
-            "uids": { "frame_of_reference_uid": frame_of_reference_uid },
+            "uids": {
+                "frame_of_reference_uid": frame_of_reference_uid,
+                "dimension_organization_uid": "1.2.826.0.1.3680043.10.543.23"
+            },
             "image": expected["image"].clone(),
             "pixel_data": {
                 "vr": "OB", "native_or_encapsulated": "native", "value_length": 96,
@@ -31817,7 +31835,7 @@ mod tests {
             "/expected_wsi_multiple_optical_paths/tiling/implicit_frame_positions/4/optical_path_ordinal",
             "/expected_wsi_multiple_optical_paths/tiling/total_pixel_matrix_focal_planes",
             "/expected_wsi_multiple_optical_paths/absent_content/0",
-            "/expected_wsi_multiple_optical_paths/budget/max_dicom_bytes",
+            "/expected_wsi_multiple_optical_paths/budget/max_total_dicom_bytes",
         ] {
             let mut malformed = manifest.clone();
             *malformed.pointer_mut(pointer).expect("mutation pointer") = Value::from("invalid");

@@ -3366,7 +3366,7 @@
     },
     "expected_wsi_multiple_optical_paths": {
       "type": "object",
-      "required": ["iod_kind", "profile", "sop_class_uid", "sop_class_name", "iod_name", "modality", "transfer_syntax_uid", "frame_of_reference_uid", "image_type", "dimension_organization_type", "position_reference_indicator", "acquisition_context_items", "volumetric_properties", "specimen_label_in_image", "burned_in_annotation", "focus_method", "extended_depth_of_field", "lossy_image_compression", "tiles_overlap", "image", "pixel_data", "tiling", "optical_paths", "specimen", "slide_label", "presence", "absent_content", "budget"],
+      "required": ["iod_kind", "profile", "sop_class_uid", "sop_class_name", "iod_name", "modality", "transfer_syntax_uid", "frame_of_reference_uid", "dimension_organization_uid", "image_type", "dimension_organization_type", "position_reference_indicator", "acquisition_context_items", "volumetric_properties", "specimen_label_in_image", "burned_in_annotation", "focus_method", "extended_depth_of_field", "lossy_image_compression", "tiles_overlap", "image", "pixel_data", "tiling", "optical_paths", "specimen", "slide_label", "presence", "absent_content", "budget"],
       "properties": {
         "iod_kind": { "const": "vl_wsi_multiple_optical_paths" },
         "profile": { "const": "extended" },
@@ -3376,6 +3376,7 @@
         "modality": { "const": "SM" },
         "transfer_syntax_uid": { "const": "1.2.840.10008.1.2.1" },
         "frame_of_reference_uid": { "$ref": "#/$defs/wsi_pyramid_uid" },
+        "dimension_organization_uid": { "$ref": "#/$defs/wsi_pyramid_uid" },
         "image_type": { "const": ["ORIGINAL", "PRIMARY", "VOLUME", "NONE"] },
         "dimension_organization_type": { "const": "TILED_FULL" },
         "position_reference_indicator": { "const": "SLIDE_CORNER" },
@@ -3451,7 +3452,7 @@
         "slide_label": { "const": { "barcode_value": "DTS-SLIDE-001", "label_text": "DTS SYNTHETIC SLIDE 001" } },
         "presence": { "const": { "shared_functional_groups_sequence": true, "per_frame_functional_groups_sequence": false, "dimension_index_sequence": false, "references": false, "concatenation": false, "multi_resolution_pyramid": false } },
         "absent_content": { "const": ["per_frame_functional_groups_sequence", "dimension_index_sequence", "referenced_series_sequence", "concatenation_attributes", "multi_resolution_pyramid", "extended_depth_of_field_number_of_focal_planes", "extended_depth_of_field_distance_between_focal_planes", "lossy_image_compression_ratio", "lossy_image_compression_method", "top_level_image_pixel_description_icc_profile", "specimen_reference_sequence"] },
-        "budget": { "const": { "instance_count": 1, "frame_count": 8, "max_dicom_bytes": 16384, "max_generation_wall_time_seconds": 5 } }
+        "budget": { "const": { "instance_count": 1, "total_frame_count": 8, "max_total_dicom_bytes": 16384, "max_generation_wall_time_seconds": 5 } }
       },
       "additionalProperties": false
     },

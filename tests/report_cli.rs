@@ -2117,13 +2117,13 @@ fn report_command_writes_encapsulated_document_content_coverage_for_extended_roo
         report
             .pointer("/grouped_coverage/encapsulated_document_burned_in_annotations/NO")
             .and_then(Value::as_u64),
-        Some(1)
+        Some(2)
     );
     assert_eq!(
         report
             .pointer("/grouped_coverage/encapsulated_document_recognizable_visual_features/NO")
             .and_then(Value::as_u64),
-        Some(1)
+        Some(2)
     );
     assert_eq!(
         report

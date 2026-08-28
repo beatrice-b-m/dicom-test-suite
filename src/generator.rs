@@ -10035,7 +10035,16 @@ fn write_pixel_case_with_metadata(
             VR::AT,
             PrimitiveValue::Tags(vec![tags::PAGE_NUMBER_VECTOR].into()),
         ));
-        put_str(&mut obj, tags::PAGE_NUMBER_VECTOR, VR::IS, "1\\2");
+        put_str(
+            &mut obj,
+            tags::PAGE_NUMBER_VECTOR,
+            VR::IS,
+            if recipe.case_id == EOT_CASE_ID {
+                "1\\2\\3"
+            } else {
+                "1\\2"
+            },
+        );
     }
     put_u16(
         &mut obj,
@@ -10765,6 +10774,17 @@ fn validate_extended_offset_table_round_trip(
             message: "EOT fixture Pixel Data is not encapsulated".to_string(),
         });
     };
+    let page_numbers = obj
+        .element(tags::PAGE_NUMBER_VECTOR)
+        .map_err(|error| GenerateError::ValidateDicomFile {
+            path: path.to_path_buf(),
+            message: format!("read EOT Page Number Vector: {error}"),
+        })?
+        .to_multi_int::<i32>()
+        .map_err(|error| GenerateError::ValidateDicomFile {
+            path: path.to_path_buf(),
+            message: format!("decode EOT Page Number Vector: {error}"),
+        })?;
     let fragment_lengths = sequence
         .fragments()
         .iter()
@@ -10772,6 +10792,7 @@ fn validate_extended_offset_table_round_trip(
         .collect::<Vec<_>>();
     let padded_fragment_lengths = [70_u64, 66, 70];
     if !sequence.offset_table().is_empty()
+        || page_numbers != [1, 2, 3]
         || sequence.fragments().len() != EOT_ENCODED_LENGTHS.len()
         || fragment_lengths != padded_fragment_lengths
         || sequence.fragments()[0].last() != Some(&0)

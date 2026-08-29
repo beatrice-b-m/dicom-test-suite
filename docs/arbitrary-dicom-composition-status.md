@@ -1,5 +1,23 @@
 # Arbitrary DICOM composition status
 
+## 2026-08-28 — Phase P3.4 DX and mammography lane
+
+Digital X-Ray For Presentation and Digital Mammography For Presentation and
+For Processing are qualified composition templates. Their profiles model coded
+anatomy and view, detector and positioning state, acquisition context, native
+intensity/rescale fields, and presentation LUT behavior. Mammography
+presentation uses MONOCHROME1 with inverse LUT semantics; processing uses
+MONOCHROME2, processing intent, and no presentation window default.
+
+All three defaults pass same-project root validation and reporting, exact
+caller native-pixel round trips, wrong-photometric rejection before
+publication, and two-run byte comparison. The pinned independent route reports
+`DXImageForPresentation`, `MammographyImageForPresentation`, and
+`MammographyImageForProcessing` with no warning or error finding.
+
+This closes P3.4 only. The remaining P3 family lanes and the P3 breadth gate
+remain open.
+
 ## 2026-08-28 — Phase P3.3 CT, MR, and CR lane
 
 The first modality-specific classic-image lane is qualified. The catalog now

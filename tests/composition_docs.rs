@@ -37,6 +37,9 @@ fn docs_limit_public_templates_to_the_qualified_native_pixel_domains() {
         "classic/cr@1.0.0",
         "classic/ct@1.0.0",
         "classic/mr@1.0.0",
+        "classic/dx/for-presentation@1.0.0",
+        "classic/mammography/for-presentation@1.0.0",
+        "classic/mammography/for-processing@1.0.0",
         "not currently available",
     ] {
         assert!(

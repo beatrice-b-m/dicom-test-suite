@@ -18,6 +18,13 @@ the Phase P3.3 classic modality lane:
   and HU rescale defaults;
 - `classic/mr@1.0.0`: native unsigned 12-bit-in-16-bit MR with axial geometry
   and deterministic acquisition defaults.
+- `classic/dx/for-presentation@1.0.0`: native unsigned MONOCHROME2
+  12-bit-in-16-bit DX with presentation display semantics;
+- `classic/mammography/for-presentation@1.0.0`: native unsigned MONOCHROME1
+  12-bit-in-16-bit mammography with inverse presentation LUT semantics;
+- `classic/mammography/for-processing@1.0.0`: native unsigned MONOCHROME2
+  12-bit-in-16-bit mammography with processing intent and no presentation
+  window defaults.
 
 Inspect the current descriptors rather than copying this summary as an
 inventory invariant:
